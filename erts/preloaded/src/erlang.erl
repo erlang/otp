@@ -32,7 +32,7 @@ Auto-imported BIFs have an annotation saying that they are `auto-imported`
 and predefined types that they are `predefined`.
 
 Predefined types are listed in the
-[Predefined datatypes](`m:erlang#predefined-datatypes`) section of this
+[Predefined datatypes](#predefined-datatypes) section of this
 reference manual and in the
 [Types and Function Specifications](`e:system:typespec.md`) section of the
 Erlang Reference Manual.
@@ -3105,7 +3105,7 @@ in.
 
 > #### Note {: .info }
 >
-> The [`{flush, boolean()}`](`m:erlang#halt_flush`) option will be ignored, and
+> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
 > flushing will be disabled.
 
 [](){: #halt_crash_dump_2 }
@@ -3117,7 +3117,7 @@ slogan in the Erlang crash dump created. The slogan will be trunkated if
 
 > #### Note {: .info }
 >
-> The [`{flush, boolean()}`](`m:erlang#halt_flush`) option will be ignored, and
+> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
 > flushing will be disabled.
 
 Behavior changes compared to earlier versions:
@@ -3438,7 +3438,7 @@ Reference Manual_:
 
 For historical reasons, [`link/1`](`link/1`) has a strange semi-synchronous
 behavior when it is "cheap" to check if the linkee exists or not, and the caller
-does not [trap exits](`m:erlang#process_flag_trap_exit`). If the above is true
+does not [trap exits](#process_flag_trap_exit). If the above is true
 and the linkee does not exist, [`link/1`](`link/1`) will raise a `noproc` error
 _exception_. The expected behavior would instead have been that
 [`link/1`](`link/1`) returned `true`, and the caller later was sent an exit
@@ -4195,7 +4195,7 @@ passed to [`monitor/2`](`monitor/2`). Currently available options:
   of the _Erlang Reference Manual_.
 
 - **`{tag, UserDefinedTag}`** - Replace the default `Tag` with `UserDefinedTag`
-  in the [monitor message](`m:erlang#monitor_message`) delivered when the
+  in the [monitor message](#monitor_message) delivered when the
   monitor is triggered. For example, when monitoring a process, the `'DOWN'` tag
   in the down message will be replaced by `UserDefinedTag`.
 
@@ -4594,7 +4594,7 @@ since some unspecified point in time.
 > at start is a negative value), the past (time at start is a positive value),
 > or the runtime system start (time at start is zero). The monotonic time at
 > runtime system start can be retrieved by calling
-> [`erlang:system_info(start_time)`](`m:erlang#system_info_start_time`).
+> [`erlang:system_info(start_time)`](#system_info_start_time).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec monotonic_time() -> integer().
@@ -5497,7 +5497,7 @@ More `Option`s can be added in the future.
 
 The absolute point in time, the timer is set to expire on, must be in the
 interval
-`[ `[erlang:convert_time_unit](`convert_time_unit/3`)`(`[erlang:system_info](`m:erlang#system_info_start_time`)`(start_time), native, millisecond), `[erlang:convert_time_unit](`convert_time_unit/3`)`(`[erlang:system_info](`m:erlang#system_info_end_time`)`(end_time), native, millisecond) ]`.
+`[ `[erlang:convert_time_unit](`convert_time_unit/3`)`(`[erlang:system_info](#system_info_start_time)`(start_time), native, millisecond), `[erlang:convert_time_unit](`convert_time_unit/3`)`(`[erlang:system_info](#system_info_end_time)`(end_time), native, millisecond) ]`.
 If a relative time is specified, the `Time` value is not allowed to be negative.
 
 If `Dest` is a `t:pid/0`, it must be a `t:pid/0` of a process created on the
@@ -5700,7 +5700,7 @@ list of monitoring options:
   garbage collection in milliseconds. The other tuples are tagged with
   `heap_size`, `heap_block_size`, `stack_size`, `mbuf_size`, `old_heap_size`,
   and `old_heap_block_size`. These tuples are explained in the description of
-  trace message [`gc_minor_start`](`m:erlang#gc_minor_start`) (see
+  trace message [`gc_minor_start`](#gc_minor_start) (see
   [`erlang:trace/3`](`trace/3`)). New tuples can be added, and the order of the
   tuples in the `Info` list can be changed at any time without prior notice.
 
@@ -5770,7 +5770,7 @@ list of monitoring options:
   higher than `Size`.
 
   When a process is killed by
-  [`max_heap_size`](`m:erlang#process_flag_max_heap_size`), it is killed before
+  [`max_heap_size`](#process_flag_max_heap_size), it is killed before
   the garbage collection is complete and thus no large heap message is sent.
 
 - **`busy_port`** - If a process in the system gets suspended because it sends
@@ -5971,25 +5971,25 @@ identifier, or one of the following atoms:
 - **`new_ports`** - All ports that will be created in the future.
 
 `FlagList` can contain any number of the following flags (the "message tags"
-refers to the list of [`trace messages`](`m:erlang#trace_3_trace_messages`)):
+refers to the list of [`trace messages`](#trace_3_trace_messages)):
 
 - **`all`** - Sets all trace flags except `tracer` and `cpu_timestamp`, which
   are in their nature different than the others.
 
 - **`send`** - Traces sending of messages.
 
-  Message tags: [`send`](`m:erlang#trace_3_trace_messages_send`) and
-  [`send_to_non_existing_process`](`m:erlang#trace_3_trace_messages_send_to_non_existing_process`).
+  Message tags: [`send`](#trace_3_trace_messages_send) and
+  [`send_to_non_existing_process`](#trace_3_trace_messages_send_to_non_existing_process).
 
 - **`'receive'`** - Traces receiving of messages.
 
-  Message tags: [`'receive'`](`m:erlang#trace_3_trace_messages_receive`).
+  Message tags: [`'receive'`](#trace_3_trace_messages_receive).
 
 - **`call`** - Traces certain function calls. Specify which function calls to
   trace by calling [`erlang:trace_pattern/3`](`trace_pattern/3`).
 
-  Message tags: [`call`](`m:erlang#trace_3_trace_messages_call`) and
-  [`return_from`](`m:erlang#trace_3_trace_messages_return_from`).
+  Message tags: [`call`](#trace_3_trace_messages_call) and
+  [`return_from`](#trace_3_trace_messages_return_from).
 
 - **`silent`** - Used with the `call` trace flag. The `call`, `return_from`, and
   `return_to` trace messages are inhibited if this flag is set, but they are
@@ -6003,9 +6003,9 @@ refers to the list of [`trace messages`](`m:erlang#trace_3_trace_messages`)):
   the match specification function `{silent,Bool}`, giving a high degree of
   control of which functions with which arguments that trigger the trace.
 
-  Message tags: [`call`](`m:erlang#trace_3_trace_messages_call`),
-  [`return_from`](`m:erlang#trace_3_trace_messages_return_from`), and
-  [`return_to`](`m:erlang#trace_3_trace_messages_return_to`). Or rather, the
+  Message tags: [`call`](#trace_3_trace_messages_call),
+  [`return_from`](#trace_3_trace_messages_return_from), and
+  [`return_to`](#trace_3_trace_messages_return_to). Or rather, the
   absence of.
 
 - **`return_to`** - Used with the `call` trace flag. Traces the return from a
@@ -6022,59 +6022,59 @@ refers to the list of [`trace messages`](`m:erlang#trace_3_trace_messages`)):
   To get trace messages containing return values from functions, use the
   `{return_trace}` match specification action instead.
 
-  Message tags: [`return_to`](`m:erlang#trace_3_trace_messages_return_to`).
+  Message tags: [`return_to`](#trace_3_trace_messages_return_to).
 
 - **`procs`** - Traces process-related events.
 
-  Message tags: [`spawn`](`m:erlang#trace_3_trace_messages_spawn`),
-  [`spawned`](`m:erlang#trace_3_trace_messages_spawned`),
-  [`exit`](`m:erlang#trace_3_trace_messages_exit`),
-  [`register`](`m:erlang#trace_3_trace_messages_register`),
-  [`unregister`](`m:erlang#trace_3_trace_messages_unregister`),
-  [`link`](`m:erlang#trace_3_trace_messages_link`),
-  [`unlink`](`m:erlang#trace_3_trace_messages_unlink`),
-  [`getting_linked`](`m:erlang#trace_3_trace_messages_getting_linked`), and
-  [`getting_unlinked`](`m:erlang#trace_3_trace_messages_getting_unlinked`).
+  Message tags: [`spawn`](#trace_3_trace_messages_spawn),
+  [`spawned`](#trace_3_trace_messages_spawned),
+  [`exit`](#trace_3_trace_messages_exit),
+  [`register`](#trace_3_trace_messages_register),
+  [`unregister`](#trace_3_trace_messages_unregister),
+  [`link`](#trace_3_trace_messages_link),
+  [`unlink`](#trace_3_trace_messages_unlink),
+  [`getting_linked`](#trace_3_trace_messages_getting_linked), and
+  [`getting_unlinked`](#trace_3_trace_messages_getting_unlinked).
 
 - **`ports`** - Traces port-related events.
 
-  Message tags: [`open`](`m:erlang#trace_3_trace_messages_open`),
-  [`closed`](`m:erlang#trace_3_trace_messages_closed`),
-  [`register`](`m:erlang#trace_3_trace_messages_register`),
-  [`unregister`](`m:erlang#trace_3_trace_messages_unregister`),
-  [`getting_linked`](`m:erlang#trace_3_trace_messages_getting_linked`), and
-  [`getting_unlinked`](`m:erlang#trace_3_trace_messages_getting_unlinked`).
+  Message tags: [`open`](#trace_3_trace_messages_open),
+  [`closed`](#trace_3_trace_messages_closed),
+  [`register`](#trace_3_trace_messages_register),
+  [`unregister`](#trace_3_trace_messages_unregister),
+  [`getting_linked`](#trace_3_trace_messages_getting_linked), and
+  [`getting_unlinked`](#trace_3_trace_messages_getting_unlinked).
 
 - **`running`** - Traces scheduling of processes.
 
-  Message tags: [`in`](`m:erlang#trace_3_trace_messages_in_proc`) and
-  [`out`](`m:erlang#trace_3_trace_messages_out_proc`).
+  Message tags: [`in`](#trace_3_trace_messages_in_proc) and
+  [`out`](#trace_3_trace_messages_out_proc).
 
 - **`exiting`** - Traces scheduling of exiting processes.
 
   Message tags:
-  [`in_exiting`](`m:erlang#trace_3_trace_messages_in_exiting_proc`),
-  [`out_exiting`](`m:erlang#trace_3_trace_messages_out_exiting_proc`), and
-  [`out_exited`](`m:erlang#trace_3_trace_messages_out_exited_proc`).
+  [`in_exiting`](#trace_3_trace_messages_in_exiting_proc),
+  [`out_exiting`](#trace_3_trace_messages_out_exiting_proc), and
+  [`out_exited`](#trace_3_trace_messages_out_exited_proc).
 
 - **`running_procs`** - Traces scheduling of processes just like `running`.
   However, this option also includes schedule events when the process executes
   within the context of a port without being scheduled out itself.
 
-  Message tags: [`in`](`m:erlang#trace_3_trace_messages_in_proc`) and
-  [`out`](`m:erlang#trace_3_trace_messages_out_proc`).
+  Message tags: [`in`](#trace_3_trace_messages_in_proc) and
+  [`out`](#trace_3_trace_messages_out_proc).
 
 - **`running_ports`** - Traces scheduling of ports.
 
-  Message tags: [`in`](`m:erlang#trace_3_trace_messages_in_port`) and
-  [`out`](`m:erlang#trace_3_trace_messages_out_port`).
+  Message tags: [`in`](#trace_3_trace_messages_in_port) and
+  [`out`](#trace_3_trace_messages_out_port).
 
 - **`garbage_collection`** - Traces garbage collections of processes.
 
   Message tags:
-  [`gc_minor_start`](`m:erlang#trace_3_trace_messages_gc_minor_start`),
-  [`gc_max_heap_size`](`m:erlang#trace_3_trace_messages_gc_max_heap_size`), and
-  [`gc_minor_end`](`m:erlang#trace_3_trace_messages_gc_minor_end`).
+  [`gc_minor_start`](#trace_3_trace_messages_gc_minor_start),
+  [`gc_max_heap_size`](#trace_3_trace_messages_gc_max_heap_size), and
+  [`gc_minor_end`](#trace_3_trace_messages_gc_minor_end).
 
 - **`timestamp`** - Includes a time stamp in all trace messages. The time stamp
   (Ts) has the same form as returned by `erlang:now()`.
@@ -6312,7 +6312,7 @@ Trace messages:
 
 - **`{trace, Pid, gc_max_heap_size, Info}`{:
   #trace_3_trace_messages_gc_max_heap_size }** - Sent when the
-  [`max_heap_size`](`m:erlang#process_flag_max_heap_size`) is reached during
+  [`max_heap_size`](#process_flag_max_heap_size) is reached during
   garbage collection. `Info` contains the same kind of list as in message
   `gc_start`, but the sizes reflect the sizes that triggered `max_heap_size` to
   be reached.
@@ -6604,7 +6604,7 @@ Manual_:
 Once [`unlink(Id)`](`unlink/1`) has returned, it is guaranteed that the link
 between the caller and the unlinkee has no effect on the caller in the future
 (unless the link is setup again). Note that if the caller is
-[trapping exits](`m:erlang#process_flag_trap_exit`), an
+[trapping exits](#process_flag_trap_exit), an
 `{'EXIT', Id, ExitReason}` message due to the link may have been placed in the
 message queue of the caller before the [`unlink(Id)`](`unlink/1`) call
 completed. Also note that the `{'EXIT', Id, ExitReason}` message may be the
@@ -7488,17 +7488,17 @@ open_port(PortName, PortSettings) ->
 
 -doc """
 Process priority level. For more info see
-[`process_flag(priority, Level)`](`m:erlang#process_flag_priority`)
+[`process_flag(priority, Level)`](#process_flag_priority)
 """.
 -type priority_level() ::
       low | normal | high | max.
 
 -doc """
 See
-[`process_flag(message_queue_data, MQD)`](`m:erlang#process_flag_message_queue_data`).
+[`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data).
 
 Process message queue data configuration. For more information, see
-[`process_flag(message_queue_data, MQD)`](`m:erlang#process_flag_message_queue_data`)
+[`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data)
 """.
 -type message_queue_data() ::
 	off_heap | on_heap.
@@ -7537,21 +7537,21 @@ of the flag.
   
   Blocking due to disabled `async_dist` can be monitored by
   [`erlang:system_monitor()`](`system_monitor/2`) using the
-  [`busy_dist_port`](`m:erlang#busy_dist_port`) option. Only data buffered by
+  [`busy_dist_port`](#busy_dist_port) option. Only data buffered by
   processes which (at the time of sending a signal) have disabled `async_dist`
   will be counted when determining whether or not an operation should block the
   caller.
   
   The `async_dist` flag can also be set on a new process when spawning it using
   the [`spawn_opt()`](`spawn_opt/4`) BIF with the option
-  [`{async_dist, Enable}`](`m:erlang#spawn_opt_async_dist`). The default
+  [`{async_dist, Enable}`](#spawn_opt_async_dist). The default
   `async_dist` flag to use on newly spawned processes can be set by passing the
   command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad) when starting the
   runtime system. If the `+pad <boolean>` command line argument is not passed, the
   default value of the `async_dist` flag will be `false`.
   
   You can inspect the state of the `async_dist` process flag of a process by
-  calling [`process_info(Pid, async_dist)`](`m:erlang#process_info_async_dist`).
+  calling [`process_info(Pid, async_dist)`](#process_info_async_dist).
   
 - ```erlang
   process_flag(trap_exit, boolean())
@@ -7608,18 +7608,18 @@ of the flag.
   
   - **`size`** - The maximum size in words of the process. If set to zero, the
     heap size limit is disabled. `badarg` is be thrown if the value is smaller
-    than [`min_heap_size`](`m:erlang#process_flag_min_heap_size`). The size check
+    than [`min_heap_size`](#process_flag_min_heap_size). The size check
     is only done when a garbage collection is triggered.
   
     `size` is the entire heap of the process when garbage collection is triggered.
     This includes all generational heaps, the process stack, any
-    [messages that are considered to be part of the heap](`m:erlang#process_flag_message_queue_data`),
+    [messages that are considered to be part of the heap](#process_flag_message_queue_data),
     and any extra memory that the garbage collector needs during collection.
   
     `size` is the same as can be retrieved using
-    [`erlang:process_info(Pid, total_heap_size)`](`m:erlang#process_info_total_heap_size`),
+    [`erlang:process_info(Pid, total_heap_size)`](#process_info_total_heap_size),
     or by adding `heap_block_size`, `old_heap_block_size` and `mbuf_size` from
-    [`erlang:process_info(Pid, garbage_collection_info)`](`m:erlang#process_info_garbage_collection_info`).
+    [`erlang:process_info(Pid, garbage_collection_info)`](#process_info_garbage_collection_info).
   
   - **`kill`** - When set to `true`, the runtime system sends an untrappable exit
     signal with reason `kill` to the process if the maximum heap size is reached.
@@ -7630,7 +7630,7 @@ of the flag.
     If `kill` is not defined in the map, the system default will be used. The
     default system default is `true`. It can be changed by either option
     [\+hmaxk](erl_cmd.md#%2Bhmaxk) in [erl](erl_cmd.md), or
-    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](#system_flag_max_heap_size).
   
   - **`error_logger`** - When set to `true`, the runtime system logs an error
     event via `m:logger`, containing details about the process when the maximum
@@ -7639,7 +7639,7 @@ of the flag.
     If `error_logger` is not defined in the map, the system default is used. The
     default system default is `true`. It can be changed by either the option
     [\+hmaxel](erl_cmd.md#%2Bhmaxel) int [erl](erl_cmd.md), or
-    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](#system_flag_max_heap_size).
   
   - **`include_shared_binaries`** - When set to `true`, off-heap binaries are
     included in the total sum compared against the `size` limit. Off-heap binaries
@@ -7651,7 +7651,7 @@ of the flag.
     If `include_shared_binaries` is not defined in the map, the system default is
     used. The default system default is `false`. It can be changed by either the
     option [\+hmaxib](erl_cmd.md#%2Bhmaxib) in [erl](erl_cmd.md), or
-    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](`m:erlang#system_flag_max_heap_size`).
+    [`erlang:system_flag(max_heap_size, MaxHeapSize)`](#system_flag_max_heap_size).
   
   The heap size of a process is quite hard to predict, especially the amount of
   memory that is used during the garbage collection. When contemplating using this
@@ -7962,7 +7962,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
 
 - **`{async_dist, Enabled}`{: #process_info_async_dist }** - Since: OTP 25.3
 
-  Current value of the [`async_dist`](`m:erlang#process_flag_async_dist`)
+  Current value of the [`async_dist`](#process_flag_async_dist)
   process flag.
 
 - **`{backtrace, Bin}`** - Binary `Bin` contains the same information as the
@@ -7977,7 +7977,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
   `BinaryRefcCount`.
 
   Depending on the value of the
-  [`message_queue_data`](`m:erlang#process_flag_message_queue_data`) process
+  [`message_queue_data`](#process_flag_message_queue_data) process
   flag the message queue may be stored on the heap.
 
 - **`{catchlevel, CatchLevel}`** - `CatchLevel` is the number of currently
@@ -7993,7 +7993,8 @@ Valid `InfoTuple`s with corresponding `Item`s:
   `Function`, `Arity` is the current function call of the process. `Location` is
   a list of two-tuples describing the location in the source code.
 
-- **`{current_stacktrace, Stack}`** - Returns the current call stack back-trace
+- **`{current_stacktrace, Stack}`**{: #process_info_current_stacktrace } -
+  Returns the current call stack back-trace
   (_stacktrace_) of the process. The stack has the same format as in the `catch`
   part of a `try`. See
   [The call-stack back trace (stacktrace)](`e:system:errors.md#stacktrace`). The
@@ -8016,7 +8017,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
   }** - `GCInfo` is a list containing miscellaneous detailed information about
   garbage collection for this process. The content of `GCInfo` can be changed
   without prior notice. For details about the meaning of each item, see
-  [`gc_minor_start`](`m:erlang#gc_minor_start`) in
+  [`gc_minor_start`](#gc_minor_start) in
   [`erlang:trace/3`](`trace/3`).
 
 - **`{group_leader, GroupLeader}`** - `GroupLeader` is the group leader for the
@@ -8076,7 +8077,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
 - **`{message_queue_data, MQD}`** - `MQD` is the current value of the
   `message_queue_data` process flag, which can be either `off_heap` or
   `on_heap`. For more information, see the documentation of
-  [`process_flag(message_queue_data, MQD)`](`m:erlang#process_flag_message_queue_data`).
+  [`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data).
 
 - **`{parent, Pid}`** - `Pid` is the identifier of the parent process, the one
   that spawned current process. When the process does not have a parent
@@ -8085,7 +8086,7 @@ Valid `InfoTuple`s with corresponding `Item`s:
 
 - **`{priority, Level}`** - `Level` is the current priority level for the
   process. For more information on priorities, see
-  [`process_flag(priority, Level)`](`m:erlang#process_flag_priority`).
+  [`process_flag(priority, Level)`](#process_flag_priority).
 
 - **`{reductions, Number}`** - `Number` is the number of reductions executed by
   the process.
@@ -8259,7 +8260,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_active_tasks }
 
   Returns the same as
-  [`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`) with
+  [`statistics(active_tasks_all)`](#statistics_active_tasks_all) with
   the exception that no information about the dirty IO run queue and its
   associated schedulers is part of the result. That is, only tasks that are
   expected to be CPU bound are part of the result.
@@ -8294,12 +8295,12 @@ setelement(_Index, _Tuple1, _Value) ->
   > evaluating the result.
 
   See also
-  [`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
-  [`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
-  [`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`),
-  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
+  [`statistics(total_active_tasks)`](#statistics_total_active_tasks),
+  [`statistics(run_queue_lengths)`](#statistics_run_queue_lengths),
+  [`statistics(run_queue_lengths_all)`](#statistics_run_queue_lengths_all),
+  [`statistics(total_run_queue_lengths)`](#statistics_total_run_queue_lengths),
   and
-  [`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`).
+  [`statistics(total_run_queue_lengths_all)`](#statistics_total_run_queue_lengths_all).
 
   Available since OTP 20.0
 
@@ -8320,7 +8321,7 @@ setelement(_Index, _Tuple1, _Value) ->
   > #### Note {: .info }
   >
   > [`statistics(exact_reductions)`](`statistics/1`) is a more expensive operation
-  > than [statistics(reductions)](`m:erlang#statistics_reductions`).
+  > than [statistics(reductions)](#statistics_reductions).
 
 - ```erlang
   statistics(garbage_collection) ->
@@ -8353,7 +8354,7 @@ setelement(_Index, _Tuple1, _Value) ->
   possible, but some overhead exists when this is enabled. Microstate accounting
   is meant to be a profiling tool to help finding performance bottlenecks. To
   `start`/`stop`/`reset` microstate accounting, use system flag
-  [`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`).
+  [`microstate_accounting`](#system_flag_microstate_accounting).
 
   [`statistics(microstate_accounting)`](`statistics/1`) returns a list of maps
   representing some of the OS threads within ERTS. Each map contains `type` and
@@ -8446,7 +8447,7 @@ setelement(_Index, _Tuple1, _Value) ->
 
   - **`busy_wait`** - Time spent busy waiting. This is also the state where a
     scheduler no longer reports that it is active when using
-    [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
+    [`statistics(scheduler_wall_time)`](#statistics_scheduler_wall_time).
     So, if you add all other states but this and sleep, and then divide that by
     all time in the thread, you should get something very similar to the
     `scheduler_wall_time` fraction. Without extra states this time is part of the
@@ -8471,7 +8472,7 @@ setelement(_Index, _Tuple1, _Value) ->
   statistics.
 
   Returns `undefined` if system flag
-  [`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`) is
+  [`microstate_accounting`](#system_flag_microstate_accounting) is
   turned off.
 
   The list of thread information is unsorted and can appear in different order
@@ -8500,7 +8501,7 @@ setelement(_Index, _Tuple1, _Value) ->
   > As from ERTS 5.5 (Erlang/OTP R11B), this value does not include reductions
   > performed in current time slices of currently scheduled processes. If an exact
   > value is wanted, use
-  > [`statistics(exact_reductions)`](`m:erlang#statistics_exact_reductions`).
+  > [`statistics(exact_reductions)`](#statistics_exact_reductions).
 
 - ```erlang
   statistics(run_queue) -> non_neg_integer()
@@ -8511,7 +8512,7 @@ setelement(_Index, _Tuple1, _Value) ->
   work that is expected to be CPU bound. The information is gathered atomically.
   That is, the result is a consistent snapshot of the state, but this operation is
   much more expensive compared to
-  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
+  [`statistics(total_run_queue_lengths)`](#statistics_total_run_queue_lengths),
   especially when a large amount of schedulers is used.
 
 - ```erlang
@@ -8520,7 +8521,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_run_queue_lengths }
 
   Returns the same as
-  [`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)
+  [`statistics(run_queue_lengths_all)`](#statistics_run_queue_lengths_all)
   with the exception that no information about the dirty IO run queue is part of
   the result. That is, only run queues with work that is expected to be CPU bound
   is part of the result.
@@ -8552,13 +8553,13 @@ setelement(_Index, _Tuple1, _Value) ->
   > evaluating the result.
 
   See also
-  [`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
-  [`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`),
-  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
-  [`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`),
-  [`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`), and
-  [`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
-  [`statistics(total_active_tasks_all)`](`m:erlang#statistics_total_active_tasks_all`).
+  [`statistics(run_queue_lengths)`](#statistics_run_queue_lengths),
+  [`statistics(total_run_queue_lengths_all)`](#statistics_total_run_queue_lengths_all),
+  [`statistics(total_run_queue_lengths)`](#statistics_total_run_queue_lengths),
+  [`statistics(active_tasks)`](#statistics_active_tasks),
+  [`statistics(active_tasks_all)`](#statistics_active_tasks_all), and
+  [`statistics(total_active_tasks)`](#statistics_total_active_tasks),
+  [`statistics(total_active_tasks_all)`](#statistics_total_active_tasks_all).
 
   Available since OTP 20.0
 
@@ -8593,15 +8594,15 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_scheduler_wall_time }
 
   Returns information describing how much time
-  [normal](`m:erlang#system_info_schedulers`) and
-  [dirty CPU](`m:erlang#system_info_dirty_cpu_schedulers`) schedulers in the
+  [normal](#system_info_schedulers) and
+  [dirty CPU](#system_info_dirty_cpu_schedulers) schedulers in the
   system have been busy. This value is normally a better indicator of how much
   load an Erlang node is under instead of looking at the CPU utilization provided
   by tools such as `top` or `sysstat`. This is because `scheduler_wall_time` also
   includes time where the scheduler is waiting for some other reasource (such as
   an internal mutex) to be available but does not use the CPU. In order to better
   understand what a scheduler is busy doing you can use
-  [microstate accounting](`m:erlang#statistics_microstate_accounting`).
+  [microstate accounting](#statistics_microstate_accounting).
 
   The definition of a busy scheduler is when it is not idle and not
   [busy waiting](erl_cmd.md#%2Bsbwt) for new work, that is:
@@ -8621,11 +8622,11 @@ setelement(_Index, _Tuple1, _Value) ->
   > directly as it provides an easier way to get the information that you usually
   > want.
 
-  If [enabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns a
+  If [enabled](#system_flag_scheduler_wall_time) this function returns a
   list of tuples with `{SchedulerId, ActiveTime, TotalTime}`, where `SchedulerId`
   is an integer ID of the scheduler, `ActiveTime` is the duration the scheduler
   has been busy, and `TotalTime` is the total time duration since
-  [`scheduler_wall_time`](`m:erlang#system_flag_scheduler_wall_time`) activation
+  [`scheduler_wall_time`](#system_flag_scheduler_wall_time) activation
   for the specific scheduler. The time unit returned is undefined and can be
   subject to change between releases, OSs, and system restarts.
   `scheduler_wall_time` is only to be used to calculate relative values for
@@ -8633,7 +8634,7 @@ setelement(_Index, _Tuple1, _Value) ->
   of scheduler information is unsorted and can appear in different order between
   calls.
 
-  The [disabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns
+  The [disabled](#system_flag_scheduler_wall_time) this function returns
   `undefined`.
 
   The activation time can differ significantly between schedulers. Currently dirty
@@ -8642,14 +8643,14 @@ setelement(_Index, _Tuple1, _Value) ->
 
   Only information about schedulers that are expected to handle CPU bound work is
   included in the return values from this function. If you also want information
-  about [dirty I/O schedulers](`m:erlang#system_info_dirty_io_schedulers`), use
-  [`statistics(scheduler_wall_time_all)`](`m:erlang#statistics_scheduler_wall_time_all`)
+  about [dirty I/O schedulers](#system_info_dirty_io_schedulers), use
+  [`statistics(scheduler_wall_time_all)`](#statistics_scheduler_wall_time_all)
   instead.
 
   Normal schedulers will have scheduler identifiers in the range
-  `1 =< SchedulerId =< `[`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
+  `1 =< SchedulerId =< `[`erlang:system_info(schedulers)`](#system_info_schedulers).
   Dirty CPU schedulers will have scheduler identifiers in the range
-  `erlang:system_info(schedulers) < SchedulerId =< erlang:system_info(schedulers) + `[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`).
+  `erlang:system_info(schedulers) < SchedulerId =< erlang:system_info(schedulers) + `[`erlang:system_info(dirty_cpu_schedulers)`](#system_info_dirty_cpu_schedulers).
 
   > #### Note {: .info }
   >
@@ -8721,7 +8722,7 @@ setelement(_Index, _Tuple1, _Value) ->
   > #### Note {: .info }
   >
   > `scheduler_wall_time` is by default disabled. To enable it, use
-  > [`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`).
+  > [`erlang:system_flag(scheduler_wall_time, true)`](#system_flag_scheduler_wall_time).
 
   Available since OTP R15B01
 
@@ -8735,11 +8736,11 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_scheduler_wall_time_all }
 
   The same as
-  [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`),
+  [`statistics(scheduler_wall_time)`](#statistics_scheduler_wall_time),
   except that it also include information about all dirty I/O schedulers.
 
   Dirty IO schedulers will have scheduler identifiers in the range
-  [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`)`+`[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)`< SchedulerId =< erlang:system_info(schedulers) + erlang:system_info(dirty_cpu_schedulers) +`[`erlang:system_info(dirty_io_schedulers)`](`m:erlang#system_info_dirty_io_schedulers`).
+  [`erlang:system_info(schedulers)`](#system_info_schedulers)`+`[`erlang:system_info(dirty_cpu_schedulers)`](#system_info_dirty_cpu_schedulers)`< SchedulerId =< erlang:system_info(schedulers) + erlang:system_info(dirty_cpu_schedulers) +`[`erlang:system_info(dirty_io_schedulers)`](#system_info_dirty_io_schedulers).
 
   > #### Note {: .info }
   >
@@ -8755,7 +8756,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_total_active_tasks }
 
   The same as calling
-  `lists:sum(`[`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`)`)`,
+  `lists:sum(`[`statistics(active_tasks)`](#statistics_active_tasks)`)`,
   but more efficient.
 
   Available since OTP 18.3
@@ -8766,7 +8767,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_total_active_tasks_all }
 
   The same as calling
-  `lists:sum(`[`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`)`)`,
+  `lists:sum(`[`statistics(active_tasks_all)`](#statistics_active_tasks_all)`)`,
   but more efficient.
 
   Available since OTP 20.0
@@ -8777,7 +8778,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_total_run_queue_lengths }
 
   The same as calling
-  `lists:sum(`[`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`)`)`,
+  `lists:sum(`[`statistics(run_queue_lengths)`](#statistics_run_queue_lengths)`)`,
   but more efficient.
 
   Available since OTP 18.3
@@ -8788,7 +8789,7 @@ setelement(_Index, _Tuple1, _Value) ->
   {: #statistics_total_run_queue_lengths_all }
 
   The same as calling
-  `lists:sum(`[`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)`)`,
+  `lists:sum(`[`statistics(run_queue_lengths_all)`](#statistics_run_queue_lengths_all)`)`,
   but more efficient.
 
   Available since OTP 20.0
@@ -8889,7 +8890,7 @@ subtract(_,_) ->
 
    Sets the maximum depth of call stack back-traces in the exit reason element of
   `'EXIT'` tuples. The flag also limits the stacktrace depth returned by
-  `process_info` item `current_stacktrace.`
+  `process_info/2` item [`current_stacktrace`](#process_info_current_stacktrace).
 
   Returns the old value of the flag.
 
@@ -8922,7 +8923,7 @@ subtract(_,_) ->
   [`+sct`](erl_cmd.md#%2Bsct) to [erl](erl_cmd.md).
 
   For information on type `CpuTopology` and more, see
-  [`erlang:system_info(cpu_topology)`](`m:erlang#system_info_cpu_topology`) as
+  [`erlang:system_info(cpu_topology)`](#system_info_cpu_topology) as
   well as command-line flags [`+sct`](erl_cmd.md#%2Bsct) and
   [`+sbt`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
@@ -8947,9 +8948,9 @@ subtract(_,_) ->
   of schedulers online.
 
   For more information, see
-  [`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)
+  [`erlang:system_info(dirty_cpu_schedulers)`](#system_info_dirty_cpu_schedulers)
   and
-  [`erlang:system_info(dirty_cpu_schedulers_online)`](`m:erlang#system_info_dirty_cpu_schedulers_online`).
+  [`erlang:system_info(dirty_cpu_schedulers_online)`](#system_info_dirty_cpu_schedulers_online).
 
   Available since OTP 17.0
 
@@ -8995,7 +8996,7 @@ subtract(_,_) ->
   counters are reset to 0.
 
   For more information see
-  [`statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
+  [`statistics(microstate_accounting)`](#statistics_microstate_accounting).
 
   Available since OTP 19.0
 
@@ -9033,7 +9034,7 @@ subtract(_,_) ->
   in words. The new `max_heap_size` effects only processes spawned after the
   change has been made. `max_heap_size` can be set for individual processes using
   [`spawn_opt/2,3,4`](`spawn_opt/4`) or
-  [`process_flag/2`](`m:erlang#process_flag_max_heap_size`).
+  [`process_flag/2`](#process_flag_max_heap_size).
 
   Returns the old value of the flag.
 
@@ -9078,7 +9079,7 @@ subtract(_,_) ->
   returned value describes the state just after the call to
   `erlang:system_flag(multi_scheduling, BlockState)` has been made. For
   information about the return values, see
-  [`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`).
+  [`erlang:system_info(multi_scheduling)`](#system_info_multi_scheduling).
 
   > #### Note {: .info }
   >
@@ -9088,10 +9089,10 @@ subtract(_,_) ->
   > resort, as it is most likely a _very inefficient_ way to solve the problem.
 
   See also
-  [`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`),
-  [`erlang:system_info(normal_multi_scheduling_blockers)`](`m:erlang#system_info_normal_multi_scheduling_blockers`),
-  [`erlang:system_info(multi_scheduling_blockers)`](`m:erlang#system_info_multi_scheduling_blockers`),
-  and [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
+  [`erlang:system_info(multi_scheduling)`](#system_info_multi_scheduling),
+  [`erlang:system_info(normal_multi_scheduling_blockers)`](#system_info_normal_multi_scheduling_blockers),
+  [`erlang:system_info(multi_scheduling_blockers)`](#system_info_multi_scheduling_blockers),
+  and [`erlang:system_info(schedulers)`](#system_info_schedulers).
 
 - ```erlang
   system_flag(outstanding_system_requests_limit, 1..134217727) -> 1..134217727
@@ -9110,11 +9111,11 @@ subtract(_,_) ->
 
   Each of these processes are allowed to have as many outstanding requests as this
   limit is set to. By default this limit is set to twice the amount of
-  [schedulers](`m:erlang#system_info_schedulers`) on the system. This will ensure
+  [schedulers](#system_info_schedulers) on the system. This will ensure
   that schedulers will have enough work scheduled to perform these operations as
   quickly as possible at the same time as other work will be interleaved with this
   work. Currently used limit can be checked by calling
-  [`erlang:system_info(outstanding_system_requests_limit)`](`m:erlang#system_info_outstanding_system_requests_limit`).
+  [`erlang:system_info(outstanding_system_requests_limit)`](#system_info_outstanding_system_requests_limit).
 
   This limit can also be set by passing the command line argument
   [`+zosrl <Limit>`](erl_cmd.md#%2Bzosrl) to `erl`.
@@ -9146,7 +9147,7 @@ subtract(_,_) ->
   > always possible to verify valid logical processor identifiers. If an error is
   > reported, an error event is logged. To verify that the schedulers have bound
   > as requested, call
-  > [`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`).
+  > [`erlang:system_info(scheduler_bindings)`](#system_info_scheduler_bindings).
 
   Schedulers can be bound on newer Linux, Solaris, FreeBSD, and Windows systems,
   but more systems will be supported in future releases.
@@ -9212,8 +9213,8 @@ subtract(_,_) ->
   [`+sbt`](erl_cmd.md#%2Bsbt) to [erl](erl_cmd.md).
 
   For more information, see
-  [`erlang:system_info(scheduler_bind_type)`](`m:erlang#system_info_scheduler_bind_type`),
-  [`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`),
+  [`erlang:system_info(scheduler_bind_type)`](#system_info_scheduler_bind_type),
+  [`erlang:system_info(scheduler_bindings)`](#system_info_scheduler_bindings),
   as well as command-line flags [`+sbt`](erl_cmd.md#%2Bsbt) and
   [`+sct`](erl_cmd.md#%2Bsct) in [erl](erl_cmd.md).
 
@@ -9226,7 +9227,7 @@ subtract(_,_) ->
   either `true` or `false`.
 
   For more information about how to use scheduler wall time measurements, see
-  [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
+  [`statistics(scheduler_wall_time)`](#statistics_scheduler_wall_time).
 
   Scheduler wall time measurements has a node global state. It is either enabled
   for all processes on the node or disabled for all processes. Each process has a
@@ -9257,7 +9258,7 @@ subtract(_,_) ->
   Returns the old value of the flag.
 
   If the emulator was built with support for
-  [dirty schedulers](`m:erlang#system_flag_dirty_cpu_schedulers_online`), changing
+  [dirty schedulers](#system_flag_dirty_cpu_schedulers_online), changing
   the number of schedulers online can also change the number of dirty CPU
   schedulers online. For example, if 12 schedulers and 6 dirty CPU schedulers are
   online, and [`system_flag/2`](`system_flag/2`) is used to set the number of
@@ -9267,8 +9268,8 @@ subtract(_,_) ->
   of schedulers online.
 
   For more information, see
-  [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`) and
-  [`erlang:system_info(schedulers_online)`](`m:erlang#system_info_schedulers_online`).
+  [`erlang:system_info(schedulers)`](#system_info_schedulers) and
+  [`erlang:system_info(schedulers_online)`](#system_info_schedulers_online).
 
 - ```erlang
   system_flag(system_logger, logger | undefined | pid()) -> logger | undefined | pid()
@@ -9490,7 +9491,7 @@ Currently supported options:
 - **`local`[](){: #term_to_binary_local } **(Since OTP 26.0)  
    This option will cause encoding of `Term` to an alternative local version of the
   external term format which when decoded by the same runtime system instance will
-  produce a term identical to the encoded term even when the node name and/or [creation](`m:erlang#system_info_creation`)
+  produce a term identical to the encoded term even when the node name and/or [creation](#system_info_creation)
   of the current runtime system instance have changed between encoding and decoding.
   When encoding without the `local` option, local identifiers such as [pids](`t:pid/0`),
   [ports](`t:port/0`) and [references](`t:reference/0`) will not be the same if node
@@ -10345,7 +10346,7 @@ spawn_monitor(M, F, A) ->
 
 -doc """
 Process max heap size configuration. For more info see
-[`process_flag(max_heap_size, MaxHeapSize)`](`m:erlang#process_flag_max_heap_size`)
+[`process_flag(max_heap_size, MaxHeapSize)`](#process_flag_max_heap_size)
 """.
 -type max_heap_size() ::
         Size :: non_neg_integer()
@@ -10557,11 +10558,11 @@ Options:
   `{Pid, MonitorRef}` tuple will be returned instead of just a `Pid`.
 
 - **`{priority, Level}`** - Sets the priority of the new process. Equivalent to
-  executing [`process_flag(priority, Level)`](`m:erlang#process_flag_priority`)
+  executing [`process_flag(priority, Level)`](#process_flag_priority)
   in the start function of the new process, except that the priority is set
   before the process is selected for execution for the first time. For more
   information on priorities, see
-  [`process_flag(priority, Level)`](`m:erlang#process_flag_priority`).
+  [`process_flag(priority, Level)`](#process_flag_priority).
 
 - **`{fullsweep_after, Number}`** - Useful only for performance tuning. Do not
   use this option unless you know that there is problem with execution times or
@@ -10612,18 +10613,18 @@ Options:
   default `max_heap_size` is determined by command-line argument
   [`+hmax`](erl_cmd.md#%2Bhmax) in [erl](erl_cmd.md). For more information, see
   the documentation of
-  [`process_flag(max_heap_size, Size)`](`m:erlang#process_flag_max_heap_size`).
+  [`process_flag(max_heap_size, Size)`](#process_flag_max_heap_size).
 
 - **`{message_queue_data, MQD}`** - Sets the value of the `message_queue_data`
   process flag. `MQD` can be either `off_heap` or `on_heap`. The default value
   of the `message_queue_data` process flag is determined by the command-line
   argument [`+hmqd`](erl_cmd.md#%2Bhmqd) in [erl](erl_cmd.md). For more
   information, see the documentation of
-  [`process_flag(message_queue_data, MQD)`](`m:erlang#process_flag_message_queue_data`).
+  [`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data).
 
 - **`{async_dist, Enabled}`{: #spawn_opt_async_dist }** - Since: OTP 25.3
 
-  Set the [`async_dist`](`m:erlang#process_flag_async_dist`) process flag of the
+  Set the [`async_dist`](#process_flag_async_dist) process flag of the
   spawned process. This option will override the default value set by the
   command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad).
 """.
@@ -10925,7 +10926,7 @@ Valid `Option`s:
   operation has succeeded. The monitor can not be [demonitored](`demonitor/1`)
   before the operation has succeeded. A `'DOWN'` message for the corresponding
   monitor is guaranteed not to be delivered before a
-  [_success message_](`m:erlang#spawn_request_success_message`) that corresponds
+  [_success message_](#spawn_request_success_message) that corresponds
   to the spawn operation. If the spawn operation fails, no `'DOWN'` message will
   be delivered.
 
@@ -10952,7 +10953,7 @@ Valid `Option`s:
   The link will not be activated for the calling process until the spawn
   operation has succeeded. The link can not be removed before the operation has
   succeeded. An exit signal due to the link is guaranteed not to be delivered
-  before a [_success message_](`m:erlang#spawn_request_success_message`) that
+  before a [_success message_](#spawn_request_success_message) that
   corresponds to the spawn operation. If the spawn operation fails, no exit
   signal due to the link will be delivered to the caller of `spawn_request()`.
 
@@ -10968,8 +10969,8 @@ Valid `Option`s:
     whether the operation succeeds or not. If the call to `spawn_request()`
     returns without raising an exception and the `reply` option is set to `yes`,
     the caller is guaranteed to be delivered either a
-    [_success message_](`m:erlang#spawn_request_success_message`) or an
-    [_error message_](`m:erlang#spawn_request_error_message`). The `reply`
+    [_success message_](#spawn_request_success_message) or an
+    [_error message_](#spawn_request_error_message). The `reply`
     option is by default set to `yes`.
 
   - **`no`** - No spawn reply message will be sent to the caller when the spawn
@@ -10978,17 +10979,17 @@ Valid `Option`s:
 
   - **`error_only`** - No spawn reply message will be sent to the caller if the
     spawn operation succeeds, but an
-    [_error message_](`m:erlang#spawn_request_error_message`) will be sent to
+    [_error message_](#spawn_request_error_message) will be sent to
     the caller if the operation fails.
 
   - **`success_only`** - No spawn reply message will be sent to the caller if
     the spawn operation fails, but a
-    [_success message_](`m:erlang#spawn_request_success_message`) will be sent
+    [_success message_](#spawn_request_success_message) will be sent
     to the caller if the operation succeeds.
 
 - **`{reply_tag, ReplyTag}`** - Sets the reply tag to `ReplyTag` in the reply
-  message. That is, in the [_success_](`m:erlang#spawn_request_success_message`)
-  or [_error_](`m:erlang#spawn_request_error_message`) message that is sent to
+  message. That is, in the [_success_](#spawn_request_success_message)
+  or [_error_](#spawn_request_error_message) message that is sent to
   the caller due to the spawn operation. The default reply tag is the atom
   `spawn_reply`.
 
@@ -11130,7 +11131,7 @@ yield() ->
 -doc """
 Returns a list of all nodes connected to this node through normal connections
 (that is, [hidden nodes](`e:system:distributed.md#hidden-nodes`) are not
-listed). Same as [nodes(visible)](`m:erlang#nodes_visible`).
+listed). Same as [nodes(visible)](#nodes_visible).
 """.
 -spec nodes() -> Nodes when
       Nodes :: [node()].
@@ -11157,7 +11158,7 @@ disjunction(s) of the list elements.
   nodes referred to by process identifiers, port identifiers, and references
   located on this node. The set of known nodes is garbage collected. Notice that
   this garbage collection can be delayed. For more information, see
-  [`erlang:system_info(delayed_node_table_gc)`](`m:erlang#system_info_delayed_node_table_gc`).
+  [`erlang:system_info(delayed_node_table_gc)`](#system_info_delayed_node_table_gc).
 
 Some equalities: `[node()] = nodes(this)`,
 `nodes(connected) = nodes([visible, hidden])`, and `nodes() = nodes(visible)`.
