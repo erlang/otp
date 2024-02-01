@@ -3820,7 +3820,7 @@ reference is unique among connected nodes.
 
 > #### Warning {: .warning }
 >
-> Before OTP-23 when a node is restarted multiple times with the same node name,
+> Before OTP 23 when a node is restarted multiple times with the same node name,
 > references created on a newer node can be mistaken for a reference created on
 > an older node with the same node name.
 """.
@@ -3981,10 +3981,11 @@ module_loaded(_Module) ->
 
 %% monitor/2
 -doc """
-[](){: #monitor_message } Sends a monitor request of type `Type` to the entity
+Sends a monitor request of type `Type` to the entity
 identified by `Item`. If the monitored entity does not exist or it changes
-monitored state, the caller of [`monitor/2`](`monitor/2`) is notified by a
+monitored state, the caller of `monitor/2` is notified by a
 message on the following format:
+{: #monitor_message}
 
 ```erlang
 {Tag, MonitorRef, Type, Object, Info}
@@ -4023,7 +4024,7 @@ earlier, and:
   or `t:port/0` that was being monitored. When monitoring process or port by
   name, `Object` will have format `{RegisteredName, Node}` where
   `RegisteredName` is the name which has been used with
-  [`monitor/2`](`monitor/2`) call and `Node` is local or remote node name (for
+  `monitor/2` call and `Node` is local or remote node name (for
   ports monitored by name, `Node` is always local node name).
 
 - **`Info`** - Either the exit reason of the process, `noproc` (process or port
@@ -4053,8 +4054,10 @@ earlier, and:
   a registered port, located on this node. Note, that attempt to monitor a
   remote port will result in `badarg`.
 
+  Available since OTP 19.0.
+
 - **Monitoring a `time_offset`{: #monitor_time_offset }** - Monitors changes in
-  [`time offset`](`time_offset/0`) between
+  `time_offset/0` between
   [Erlang monotonic time](time_correction.md#erlang-monotonic-time) and
   [Erlang system time](time_correction.md#erlang-system-time). One valid `Item`
   exists in combination with the `time_offset Type`, namely the atom
@@ -4065,7 +4068,7 @@ earlier, and:
   The monitor is triggered when the time offset is changed. This either if the
   time offset value is changed, or if the offset is changed from preliminary to
   final during
-  [finalization of the time offset](`m:erlang#system_flag_time_offset`) when the
+  [finalization of the time offset](#system_flag_time_offset) when the
   [single time warp mode](time_correction.md#single-time-warp-mode) is used.
   When a change from preliminary to final time offset is made, the monitor is
   triggered once regardless of whether the time offset value was changed or not.
@@ -4094,11 +4097,13 @@ earlier, and:
 
   When the `'CHANGE'` message has been received you are guaranteed not to
   retrieve the old time offset when calling
-  [`erlang:time_offset()`](`time_offset/0`). Notice that you can observe the
-  change of the time offset when calling `erlang:time_offset()` before you get
+  `erlang:time_offset/0`. Notice that you can observe the
+  change of the time offset when calling `erlang:time_offset/0` before you get
   the `'CHANGE'` message.
 
-Making several calls to [`monitor/2`](`monitor/2`) for the same `Item` and/or
+  Available since OTP 18.0.
+
+Making several calls to `monitor/2` for the same `Item` and/or
 `Type` is not an error; it results in as many independent monitoring instances.
 
 The monitor functionality is expected to be extended. That is, other `Type`s and
@@ -4106,7 +4111,7 @@ The monitor functionality is expected to be extended. That is, other `Type`s and
 
 > #### Note {: .info }
 >
-> If or when [`monitor/2`](`monitor/2`) is extended, other possible values for
+> If or when `monitor/2` is extended, other possible values for
 > `Tag`, `Object`, and `Info` in the monitor message will be introduced.
 
 > #### Note {: .info }
@@ -4115,7 +4120,6 @@ The monitor functionality is expected to be extended. That is, other `Type`s and
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--doc(#{since => <<"OTP 18.0,OTP 19.0">>}).
 -spec monitor
       (process, monitor_process_identifier()) -> MonitorRef
 	  when MonitorRef :: reference();
@@ -8249,461 +8253,555 @@ setelement(_Index, _Tuple1, _Value) ->
    erlang:nif_error(undefined).
 
 -doc """
-[](){: #statistics_active_tasks }
-
-Returns the same as
-[`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`) with
-the exception that no information about the dirty IO run queue and its
-associated schedulers is part of the result. That is, only tasks that are
-expected to be CPU bound are part of the result.
-
-[](){: #statistics_active_tasks_all }
-
-Returns a list where each element represents the amount of active processes and
-ports on each run queue and its associated schedulers. That is, the number of
-processes and ports that are ready to run, or are currently running. Values for
-normal run queues and their associated schedulers are located first in the
-resulting list. The first element corresponds to scheduler number 1 and so on.
-If support for dirty schedulers exist, an element with the value for the dirty
-CPU run queue and its associated dirty CPU schedulers follow and then as last
-element the value for the dirty IO run queue and its associated dirty IO
-schedulers follow. The information is _not_ gathered atomically. That is, the
-result is not necessarily a consistent snapshot of the state, but instead quite
-efficiently gathered.
-
-> #### Note {: .info }
->
-> Each normal scheduler has one run queue that it manages. If dirty schedulers
-> are supported, all dirty CPU schedulers share one run queue, and all dirty IO
-> schedulers share one run queue. That is, we have multiple normal run queues,
-> one dirty CPU run queue and one dirty IO run queue. Work can _not_ migrate
-> between the different types of run queues. Only work in normal run queues can
-> migrate to other normal run queues. This has to be taken into account when
-> evaluating the result.
-
-See also
-[`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
-[`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
-[`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`),
-[`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
-and
-[`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`).
-
-Returns the total number of context switches since the system started.
-
-[](){: #statistics_exact_reductions }
-
-Returns the number of exact reductions.
-
-> #### Note {: .info }
->
-> [`statistics(exact_reductions)`](`statistics/1`) is a more expensive operation
-> than [statistics(reductions)](`m:erlang#statistics_reductions`).
-
-Returns information about garbage collection, for example:
-
-```erlang
-> statistics(garbage_collection).
-{85,23961,0}
-```
-
-This information can be invalid for some implementations.
-
-Returns `Input`, which is the total number of bytes received through ports, and
-`Output`, which is the total number of bytes output to ports.
-
-[](){: #statistics_microstate_accounting }
-
-Microstate accounting can be used to measure how much time the Erlang runtime
-system spends doing various tasks. It is designed to be as lightweight as
-possible, but some overhead exists when this is enabled. Microstate accounting
-is meant to be a profiling tool to help finding performance bottlenecks. To
-`start`/`stop`/`reset` microstate accounting, use system flag
-[`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`).
-
-[`statistics(microstate_accounting)`](`statistics/1`) returns a list of maps
-representing some of the OS threads within ERTS. Each map contains `type` and
-`id` fields that can be used to identify what thread it is, and also a counters
-field that contains data about how much time has been spent in the various
-states.
-
-Example:
-
-```erlang
-> erlang:statistics(microstate_accounting).
-[#{counters => #{aux => 1899182914,
-                 check_io => 2605863602,
-                 emulator => 45731880463,
-                 gc => 1512206910,
-                 other => 5421338456,
-                 port => 221631,
-                 sleep => 5150294100},
-   id => 1,
-   type => scheduler}|...]
-```
+- ```erlang
+  statistics(active_tasks) -> [non_neg_integer()]
+  ```
+  {: #statistics_active_tasks }
+
+  Returns the same as
+  [`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`) with
+  the exception that no information about the dirty IO run queue and its
+  associated schedulers is part of the result. That is, only tasks that are
+  expected to be CPU bound are part of the result.
+
+  Available since OTP 18.3
+
+- ```erlang
+  statistics(active_tasks_all) -> [non_neg_integer()]
+  ```
+  {: #statistics_active_tasks_all }
+
+  Returns a list where each element represents the amount of active processes and
+  ports on each run queue and its associated schedulers. That is, the number of
+  processes and ports that are ready to run, or are currently running. Values for
+  normal run queues and their associated schedulers are located first in the
+  resulting list. The first element corresponds to scheduler number 1 and so on.
+  If support for dirty schedulers exist, an element with the value for the dirty
+  CPU run queue and its associated dirty CPU schedulers follow and then as last
+  element the value for the dirty IO run queue and its associated dirty IO
+  schedulers follow. The information is _not_ gathered atomically. That is, the
+  result is not necessarily a consistent snapshot of the state, but instead quite
+  efficiently gathered.
+
+  > #### Note {: .info }
+  >
+  > Each normal scheduler has one run queue that it manages. If dirty schedulers
+  > are supported, all dirty CPU schedulers share one run queue, and all dirty IO
+  > schedulers share one run queue. That is, we have multiple normal run queues,
+  > one dirty CPU run queue and one dirty IO run queue. Work can _not_ migrate
+  > between the different types of run queues. Only work in normal run queues can
+  > migrate to other normal run queues. This has to be taken into account when
+  > evaluating the result.
+
+  See also
+  [`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
+  [`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
+  [`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`),
+  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
+  and
+  [`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`).
+
+  Available since OTP 20.0
+
+- ```erlang
+  statistics(context_switches) -> {non_neg_integer(), 0}
+  ```
+  {: #statistics_context_switches }
+
+  Returns the total number of context switches since the system started.
+
+- ```erlang
+  statistics(exact_reductions) -> {Total :: non_neg_integer(), SinceLastCall :: non_neg_integer()}
+  ```
+  {: #statistics_exact_reductions }
+
+  Returns the number of exact reductions.
+
+  > #### Note {: .info }
+  >
+  > [`statistics(exact_reductions)`](`statistics/1`) is a more expensive operation
+  > than [statistics(reductions)](`m:erlang#statistics_reductions`).
+
+- ```erlang
+  statistics(garbage_collection) ->
+    { NumerOfGCs :: non_neg_integer(), WordsReclaimed :: non_neg_integer(), 0}
+  ```
+
+  Returns information about garbage collection, for example:
+
+  ```erlang
+  > statistics(garbage_collection).
+  {85,23961,0}
+  ```
+
+  This information can be invalid for some implementations.
+
+- ```erlang
+  statistics(io) -> {{input, non_neg_integer()}, {output, non_neg_integer()}}
+  ```
+
+  Returns `Input`, which is the total number of bytes received through ports, and
+  `Output`, which is the total number of bytes output to ports.
+
+- ```erlang
+  statistics(microstate_accounting) -> [MSAcc_Thread]
+  ```
+  {: #statistics_microstate_accounting }
+
+  Microstate accounting can be used to measure how much time the Erlang runtime
+  system spends doing various tasks. It is designed to be as lightweight as
+  possible, but some overhead exists when this is enabled. Microstate accounting
+  is meant to be a profiling tool to help finding performance bottlenecks. To
+  `start`/`stop`/`reset` microstate accounting, use system flag
+  [`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`).
 
-The time unit is the same as returned by `os:perf_counter/0`. So, to convert it
-to milliseconds, you can do something like this:
+  [`statistics(microstate_accounting)`](`statistics/1`) returns a list of maps
+  representing some of the OS threads within ERTS. Each map contains `type` and
+  `id` fields that can be used to identify what thread it is, and also a counters
+  field that contains data about how much time has been spent in the various
+  states.
 
-```erlang
-lists:map(
-  fun(#{ counters := Cnt } = M) ->
-          MsCnt = maps:map(fun(_K, PerfCount) ->
-                                   erlang:convert_time_unit(PerfCount, perf_counter, 1000)
-                           end, Cnt),
-         M#{ counters := MsCnt }
-  end, erlang:statistics(microstate_accounting)).
-```
+  Example:
 
-Notice that these values are not guaranteed to be the exact time spent in each
-state. This is because of various optimisation done to keep the overhead as
-small as possible.
+  ```erlang
+  > erlang:statistics(microstate_accounting).
+  [#{counters => #{aux => 1899182914,
+                   check_io => 2605863602,
+                   emulator => 45731880463,
+                   gc => 1512206910,
+                   other => 5421338456,
+                   port => 221631,
+                   sleep => 5150294100},
+     id => 1,
+     type => scheduler}|...]
+  ```
 
-`MSAcc_Thread_Type`s:
+  The time unit is the same as returned by `os:perf_counter/0`. So, to convert it
+  to milliseconds, you can do something like this:
 
-- **`scheduler`** - The main execution threads that do most of the work. See
-  [erl +S](erl_cmd.md#%2BS) for more details.
+  ```erlang
+  lists:map(
+    fun(#{ counters := Cnt } = M) ->
+           MsCnt = maps:map(fun(_K, PerfCount) ->
+                                      erlang:convert_time_unit(PerfCount, perf_counter, 1000)
+                             end, Cnt),
+           M#{ counters := MsCnt }
+    end, erlang:statistics(microstate_accounting)).
+  ```
 
-- **`dirty_cpu_scheduler`** - The threads for long running cpu intensive work.
-  See [erl +SDcpu](erl_cmd.md#%2BSDcpu) for more details.
+  Notice that these values are not guaranteed to be the exact time spent in each
+  state. This is because of various optimisation done to keep the overhead as
+  small as possible.
 
-- **`dirty_io_scheduler`** - The threads for long running I/O work. See
-  [erl +SDio](erl_cmd.md#%2BSDio) for more details.
+  `MSAcc_Thread_Type`s:
 
-- **`async`** - Async threads are used by various linked-in drivers (mainly the
-  file drivers) do offload non-CPU intensive work. See
-  [erl +A](erl_cmd.md#async_thread_pool_size) for more details.
+  - **`scheduler`** - The main execution threads that do most of the work. See
+    [erl +S](erl_cmd.md#%2BS) for more details.
 
-- **`aux`** - Takes care of any work that is not specifically assigned to a
-  scheduler.
+  - **`dirty_cpu_scheduler`** - The threads for long running cpu intensive work.
+    See [erl +SDcpu](erl_cmd.md#%2BSDcpu) for more details.
 
-- **`poll`** - Does the IO polling for the emulator. See
-  [erl +IOt](erl_cmd.md#%2BIOt) for more details.
+  - **`dirty_io_scheduler`** - The threads for long running I/O work. See
+    [erl +SDio](erl_cmd.md#%2BSDio) for more details.
 
-The following `MSAcc_Thread_State`s are available. All states are exclusive,
-meaning that a thread cannot be in two states at once. So, if you add the
-numbers of all counters in a thread, you get the total runtime for that thread.
+  - **`async`** - Async threads are used by various linked-in drivers (mainly the
+    file drivers) do offload non-CPU intensive work. See
+    [erl +A](erl_cmd.md#async_thread_pool_size) for more details.
 
-- **`aux`** - Time spent handling auxiliary jobs.
+  - **`aux`** - Takes care of any work that is not specifically assigned to a
+    scheduler.
 
-- **`check_io`** - Time spent checking for new I/O events.
+  - **`poll`** - Does the IO polling for the emulator. See
+    [erl +IOt](erl_cmd.md#%2BIOt) for more details.
 
-- **`emulator`** - Time spent executing Erlang processes.
+  The following `MSAcc_Thread_State`s are available. All states are exclusive,
+  meaning that a thread cannot be in two states at once. So, if you add the
+  numbers of all counters in a thread, you get the total runtime for that thread.
 
-- **`gc`** - Time spent doing garbage collection. When extra states are enabled
-  this is the time spent doing non-fullsweep garbage collections.
+  - **`aux`** - Time spent handling auxiliary jobs.
 
-- **`other`** - Time spent doing unaccounted things.
+  - **`check_io`** - Time spent checking for new I/O events.
 
-- **`port`** - Time spent executing ports.
+  - **`emulator`** - Time spent executing Erlang processes.
 
-- **`sleep`** - Time spent sleeping.
+  - **`gc`** - Time spent doing garbage collection. When extra states are enabled
+    this is the time spent doing non-fullsweep garbage collections.
 
-More fine-grained `MSAcc_Thread_State`s can be added through configure (such as
-`./configure --with-microstate-accounting=extra`). Enabling these states causes
-performance degradation when microstate accounting is turned off and increases
-the overhead when it is turned on.
+  - **`other`** - Time spent doing unaccounted things.
 
-- **`alloc`** - Time spent managing memory. Without extra states this time is
-  spread out over all other states.
+  - **`port`** - Time spent executing ports.
 
-- **`bif`** - Time spent in BIFs. Without extra states this time is part of the
-  `emulator` state.
+  - **`sleep`** - Time spent sleeping.
 
-- **`busy_wait`** - Time spent busy waiting. This is also the state where a
-  scheduler no longer reports that it is active when using
-  [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
-  So, if you add all other states but this and sleep, and then divide that by
-  all time in the thread, you should get something very similar to the
-  `scheduler_wall_time` fraction. Without extra states this time is part of the
-  `other` state.
+  More fine-grained `MSAcc_Thread_State`s can be added through configure (such as
+  `./configure --with-microstate-accounting=extra`). Enabling these states causes
+  performance degradation when microstate accounting is turned off and increases
+  the overhead when it is turned on.
 
-- **`ets`** - Time spent executing ETS BIFs. Without extra states this time is
-  part of the `emulator` state.
-
-- **`gc_full`** - Time spent doing fullsweep garbage collection. Without extra
-  states this time is part of the `gc` state.
-
-- **`nif`** - Time spent in NIFs. Without extra states this time is part of the
-  `emulator` state.
-
-- **`send`** - Time spent sending messages (processes only). Without extra
-  states this time is part of the `emulator` state.
-
-- **`timers`** - Time spent managing timers. Without extra states this time is
-  part of the `other` state.
-
-The utility module `m:msacc` can be used to more easily analyse these
-statistics.
-
-Returns `undefined` if system flag
-[`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`) is
-turned off.
-
-The list of thread information is unsorted and can appear in different order
-between calls.
-
-> #### Note {: .info }
->
-> The threads and states are subject to change without any prior notice.
-
-[](){: #statistics_reductions }
-
-Returns information about reductions, for example:
-
-```erlang
-> statistics(reductions).
-{2046,11}
-```
-
-> #### Change {: .info }
->
-> As from ERTS 5.5 (Erlang/OTP R11B), this value does not include reductions
-> performed in current time slices of currently scheduled processes. If an exact
-> value is wanted, use
-> [`statistics(exact_reductions)`](`m:erlang#statistics_exact_reductions`).
-
-[](){: #statistics_run_queue }
-
-Returns the total length of all normal and dirty CPU run queues. That is, queued
-work that is expected to be CPU bound. The information is gathered atomically.
-That is, the result is a consistent snapshot of the state, but this operation is
-much more expensive compared to
-[`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
-especially when a large amount of schedulers is used.
-
-[](){: #statistics_run_queue_lengths }
-
-Returns the same as
-[`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)
-with the exception that no information about the dirty IO run queue is part of
-the result. That is, only run queues with work that is expected to be CPU bound
-is part of the result.
-
-[](){: #statistics_run_queue_lengths_all }
-
-Returns a list where each element represents the amount of processes and ports
-ready to run for each run queue. Values for normal run queues are located first
-in the resulting list. The first element corresponds to the normal run queue of
-scheduler number 1 and so on. If support for dirty schedulers exist, values for
-the dirty CPU run queue and the dirty IO run queue follow (in that order) at the
-end. The information is _not_ gathered atomically. That is, the result is not
-necessarily a consistent snapshot of the state, but instead quite efficiently
-gathered.
-
-> #### Note {: .info }
->
-> Each normal scheduler has one run queue that it manages. If dirty schedulers
-> are supported, all dirty CPU schedulers share one run queue, and all dirty IO
-> schedulers share one run queue. That is, we have multiple normal run queues,
-> one dirty CPU run queue and one dirty IO run queue. Work can _not_ migrate
-> between the different types of run queues. Only work in normal run queues can
-> migrate to other normal run queues. This has to be taken into account when
-> evaluating the result.
-
-See also
-[`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
-[`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`),
-[`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
-[`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`),
-[`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`), and
-[`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
-[`statistics(total_active_tasks_all)`](`m:erlang#statistics_total_active_tasks_all`).
-
-Returns information about runtime, in milliseconds.
-
-This is the sum of the runtime for all threads in the Erlang runtime system and
-can therefore be greater than the wall clock time.
-
-> #### Warning {: .warning }
->
-> This value might wrap due to limitations in the underlying functionality
-> provided by the operating system that is used.
-
-Example:
-
-```erlang
-> statistics(runtime).
-{1690,1620}
-```
-
-[](){: #statistics_scheduler_wall_time }
-
-Returns information describing how much time
-[normal](`m:erlang#system_info_schedulers`) and
-[dirty CPU](`m:erlang#system_info_dirty_cpu_schedulers`) schedulers in the
-system have been busy. This value is normally a better indicator of how much
-load an Erlang node is under instead of looking at the CPU utilization provided
-by tools such as `top` or `sysstat`. This is because `scheduler_wall_time` also
-includes time where the scheduler is waiting for some other reasource (such as
-an internal mutex) to be available but does not use the CPU. In order to better
-understand what a scheduler is busy doing you can use
-[microstate accounting](`m:erlang#statistics_microstate_accounting`).
-
-The definition of a busy scheduler is when it is not idle and not
-[busy waiting](erl_cmd.md#%2Bsbwt) for new work, that is:
-
-- Executing process code
-- Executing linked-in driver or NIF code
-- Executing BIFs, or any other runtime handling
-- Garbage collecting
-- Handling any other memory management
-
-Notice that a scheduler can also be busy even if the OS has scheduled out the
-scheduler thread.
-
-> #### Note {: .info }
->
-> It is recommended to use the module `m:scheduler` instead of this function
-> directly as it provides an easier way to get the information that you usually
-> want.
-
-If [enabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns a
-list of tuples with `{SchedulerId, ActiveTime, TotalTime}`, where `SchedulerId`
-is an integer ID of the scheduler, `ActiveTime` is the duration the scheduler
-has been busy, and `TotalTime` is the total time duration since
-[`scheduler_wall_time`](`m:erlang#system_flag_scheduler_wall_time`) activation
-for the specific scheduler. The time unit returned is undefined and can be
-subject to change between releases, OSs, and system restarts.
-`scheduler_wall_time` is only to be used to calculate relative values for
-scheduler utilization. The `ActiveTime` can never exceed `TotalTime`. The list
-of scheduler information is unsorted and can appear in different order between
-calls.
-
-The [disabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns
-`undefined`.
-
-The activation time can differ significantly between schedulers. Currently dirty
-schedulers are activated at system start while normal schedulers are activated
-some time after the `scheduler_wall_time` functionality is enabled.
-
-Only information about schedulers that are expected to handle CPU bound work is
-included in the return values from this function. If you also want information
-about [dirty I/O schedulers](`m:erlang#system_info_dirty_io_schedulers`), use
-[`statistics(scheduler_wall_time_all)`](`m:erlang#statistics_scheduler_wall_time_all`)
-instead.
-
-Normal schedulers will have scheduler identifiers in the range
-`1 =< SchedulerId =< `[`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
-Dirty CPU schedulers will have scheduler identifiers in the range
-`erlang:system_info(schedulers) < SchedulerId =< erlang:system_info(schedulers) + `[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`).
-
-> #### Note {: .info }
->
-> The different types of schedulers handle specific types of jobs. Every job is
-> assigned to a specific scheduler type. Jobs can migrate between different
-> schedulers of the same type, but never between schedulers of different types.
-> This fact has to be taken under consideration when evaluating the result
-> returned.
-
-You can use `scheduler_wall_time` to calculate scheduler utilization. First you
-take a sample of the values returned by
-`erlang:statistics(scheduler_wall_time)`.
-
-```erlang
-> erlang:system_flag(scheduler_wall_time, true).
-false
-> Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
-ok
-```
-
-Some time later the user takes another snapshot and calculates scheduler
-utilization per scheduler, for example:
-
-```erlang
-> Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
-ok
-> lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
-	{I, (A1 - A0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).
-[{1,0.9743474730177548},
- {2,0.9744843782751444},
- {3,0.9995902361669045},
- {4,0.9738012596572161},
- {5,0.9717956667018103},
- {6,0.9739235846420741},
- {7,0.973237033077876},
- {8,0.9741297293248656}]
-```
-
-Using the same snapshots to calculate a total scheduler utilization:
-
-```erlang
-> {A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
-	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)),
-	TotalSchedulerUtilization = A/T.
-0.9769136803764825
-```
-
-Total scheduler utilization will equal `1.0` when all schedulers have been
-active all the time between the two measurements.
-
-Another (probably more) useful value is to calculate total scheduler utilization
-weighted against maximum amount of available CPU time:
-
-```erlang
-> WeightedSchedulerUtilization = (TotalSchedulerUtilization
-                                  * (erlang:system_info(schedulers)
-                                     + erlang:system_info(dirty_cpu_schedulers)))
-                                 / erlang:system_info(logical_processors_available).
-0.9769136803764825
-```
-
-This weighted scheduler utilization will reach `1.0` when schedulers are active
-the same amount of time as maximum available CPU time. If more schedulers exist
-than available logical processors, this value may be greater than `1.0`.
-
-As of ERTS version 9.0, the Erlang runtime system will as default have more
-schedulers than logical processors. This due to the dirty schedulers.
-
-> #### Note {: .info }
->
-> `scheduler_wall_time` is by default disabled. To enable it, use
-> [`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`).
-
-[](){: #statistics_scheduler_wall_time_all }
-
-The same as
-[`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`),
-except that it also include information about all dirty I/O schedulers.
-
-Dirty IO schedulers will have scheduler identifiers in the range
-[`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`)`+`[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)`< SchedulerId =< erlang:system_info(schedulers) + erlang:system_info(dirty_cpu_schedulers) +`[`erlang:system_info(dirty_io_schedulers)`](`m:erlang#system_info_dirty_io_schedulers`).
-
-> #### Note {: .info }
->
-> Note that work executing on dirty I/O schedulers are expected to mainly wait
-> for I/O. That is, when you get high scheduler utilization on dirty I/O
-> schedulers, CPU utilization is _not_ expected to be high due to this work.
-
-[](){: #statistics_total_active_tasks }
-
-The same as calling
-`lists:sum(`[`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`)`)`,
-but more efficient.
-
-[](){: #statistics_total_active_tasks_all }
-
-The same as calling
-`lists:sum(`[`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`)`)`,
-but more efficient.
-
-[](){: #statistics_total_run_queue_lengths }
-
-The same as calling
-`lists:sum(`[`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`)`)`,
-but more efficient.
-
-[](){: #statistics_total_run_queue_lengths_all }
-
-The same as calling
-`lists:sum(`[`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)`)`,
-but more efficient.
-
-Returns information about wall clock. `wall_clock` can be used in the same
-manner as `runtime`, except that real time is measured as opposed to runtime or
-CPU time.
+  - **`alloc`** - Time spent managing memory. Without extra states this time is
+    spread out over all other states.
+
+  - **`bif`** - Time spent in BIFs. Without extra states this time is part of the
+    `emulator` state.
+
+  - **`busy_wait`** - Time spent busy waiting. This is also the state where a
+    scheduler no longer reports that it is active when using
+    [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
+    So, if you add all other states but this and sleep, and then divide that by
+    all time in the thread, you should get something very similar to the
+    `scheduler_wall_time` fraction. Without extra states this time is part of the
+    `other` state.
+
+  - **`ets`** - Time spent executing ETS BIFs. Without extra states this time is
+    part of the `emulator` state.
+
+  - **`gc_full`** - Time spent doing fullsweep garbage collection. Without extra
+    states this time is part of the `gc` state.
+
+  - **`nif`** - Time spent in NIFs. Without extra states this time is part of the
+    `emulator` state.
+
+  - **`send`** - Time spent sending messages (processes only). Without extra
+    states this time is part of the `emulator` state.
+
+  - **`timers`** - Time spent managing timers. Without extra states this time is
+    part of the `other` state.
+
+  The utility module `m:msacc` can be used to more easily analyse these
+  statistics.
+
+  Returns `undefined` if system flag
+  [`microstate_accounting`](`m:erlang#system_flag_microstate_accounting`) is
+  turned off.
+
+  The list of thread information is unsorted and can appear in different order
+  between calls.
+
+  > #### Note {: .info }
+  >
+  > The threads and states are subject to change without any prior notice.
+
+  Available since OTP 19.0
+
+- ```erlang
+  statistics(reductions) -> {Reductions :: non_neg_integer(), SinceLastCall :: non_neg_integer()}
+  ```
+  {: #statistics_reductions }
+
+  Returns information about reductions, for example:
+
+  ```erlang
+  > statistics(reductions).
+  {2046,11}
+  ```
+
+  > #### Change {: .info }
+  >
+  > As from ERTS 5.5 (Erlang/OTP R11B), this value does not include reductions
+  > performed in current time slices of currently scheduled processes. If an exact
+  > value is wanted, use
+  > [`statistics(exact_reductions)`](`m:erlang#statistics_exact_reductions`).
+
+- ```erlang
+  statistics(run_queue) -> non_neg_integer()
+  ```
+  {: #statistics_run_queue }
+
+  Returns the total length of all normal and dirty CPU run queues. That is, queued
+  work that is expected to be CPU bound. The information is gathered atomically.
+  That is, the result is a consistent snapshot of the state, but this operation is
+  much more expensive compared to
+  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
+  especially when a large amount of schedulers is used.
+
+- ```erlang
+  statistics(run_queue_lengths) -> [non_neg_integer()]
+  ```
+  {: #statistics_run_queue_lengths }
+
+  Returns the same as
+  [`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)
+  with the exception that no information about the dirty IO run queue is part of
+  the result. That is, only run queues with work that is expected to be CPU bound
+  is part of the result.
+
+  Available since OTP 18.3
+
+- ```erlang
+  statistics(run_queue_lengths_all) -> [non_neg_integer()]
+  ```
+  {: #statistics_run_queue_lengths_all }
+
+  Returns a list where each element represents the amount of processes and ports
+  ready to run for each run queue. Values for normal run queues are located first
+  in the resulting list. The first element corresponds to the normal run queue of
+  scheduler number 1 and so on. If support for dirty schedulers exist, values for
+  the dirty CPU run queue and the dirty IO run queue follow (in that order) at the
+  end. The information is _not_ gathered atomically. That is, the result is not
+  necessarily a consistent snapshot of the state, but instead quite efficiently
+  gathered.
+
+  > #### Note {: .info }
+  >
+  > Each normal scheduler has one run queue that it manages. If dirty schedulers
+  > are supported, all dirty CPU schedulers share one run queue, and all dirty IO
+  > schedulers share one run queue. That is, we have multiple normal run queues,
+  > one dirty CPU run queue and one dirty IO run queue. Work can _not_ migrate
+  > between the different types of run queues. Only work in normal run queues can
+  > migrate to other normal run queues. This has to be taken into account when
+  > evaluating the result.
+
+  See also
+  [`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`),
+  [`statistics(total_run_queue_lengths_all)`](`m:erlang#statistics_total_run_queue_lengths_all`),
+  [`statistics(total_run_queue_lengths)`](`m:erlang#statistics_total_run_queue_lengths`),
+  [`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`),
+  [`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`), and
+  [`statistics(total_active_tasks)`](`m:erlang#statistics_total_active_tasks`),
+  [`statistics(total_active_tasks_all)`](`m:erlang#statistics_total_active_tasks_all`).
+
+  Available since OTP 20.0
+
+- ```erlang
+  statistics(runtime) -> {Total :: non_neg_integer(), SinceLastCall :: non_neg_integer()}
+  ```
+
+  Returns information about runtime, in milliseconds.
+
+  This is the sum of the runtime for all threads in the Erlang runtime system and
+  can therefore be greater than the wall clock time.
+
+  > #### Warning {: .warning }
+  >
+  > This value might wrap due to limitations in the underlying functionality
+  > provided by the operating system that is used.
+
+  Example:
+
+  ```erlang
+  > statistics(runtime).
+  {1690,1620}
+  ```
+
+- ```erlang
+  statistics(scheduler_wall_time) ->
+    [{Id :: pos_integer,
+      ActiveTime :: non_neg_integer(),
+      TotalTime :: non_neg_integer()}] |
+    undefined
+  ```
+  {: #statistics_scheduler_wall_time }
+
+  Returns information describing how much time
+  [normal](`m:erlang#system_info_schedulers`) and
+  [dirty CPU](`m:erlang#system_info_dirty_cpu_schedulers`) schedulers in the
+  system have been busy. This value is normally a better indicator of how much
+  load an Erlang node is under instead of looking at the CPU utilization provided
+  by tools such as `top` or `sysstat`. This is because `scheduler_wall_time` also
+  includes time where the scheduler is waiting for some other reasource (such as
+  an internal mutex) to be available but does not use the CPU. In order to better
+  understand what a scheduler is busy doing you can use
+  [microstate accounting](`m:erlang#statistics_microstate_accounting`).
+
+  The definition of a busy scheduler is when it is not idle and not
+  [busy waiting](erl_cmd.md#%2Bsbwt) for new work, that is:
+
+  - Executing process code
+  - Executing linked-in driver or NIF code
+  - Executing BIFs, or any other runtime handling
+  - Garbage collecting
+  - Handling any other memory management
+
+  Notice that a scheduler can also be busy even if the OS has scheduled out the
+  scheduler thread.
+
+  > #### Note {: .info }
+  >
+  > It is recommended to use the module `m:scheduler` instead of this function
+  > directly as it provides an easier way to get the information that you usually
+  > want.
+
+  If [enabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns a
+  list of tuples with `{SchedulerId, ActiveTime, TotalTime}`, where `SchedulerId`
+  is an integer ID of the scheduler, `ActiveTime` is the duration the scheduler
+  has been busy, and `TotalTime` is the total time duration since
+  [`scheduler_wall_time`](`m:erlang#system_flag_scheduler_wall_time`) activation
+  for the specific scheduler. The time unit returned is undefined and can be
+  subject to change between releases, OSs, and system restarts.
+  `scheduler_wall_time` is only to be used to calculate relative values for
+  scheduler utilization. The `ActiveTime` can never exceed `TotalTime`. The list
+  of scheduler information is unsorted and can appear in different order between
+  calls.
+
+  The [disabled](`m:erlang#system_flag_scheduler_wall_time`) this function returns
+  `undefined`.
+
+  The activation time can differ significantly between schedulers. Currently dirty
+  schedulers are activated at system start while normal schedulers are activated
+  some time after the `scheduler_wall_time` functionality is enabled.
+
+  Only information about schedulers that are expected to handle CPU bound work is
+  included in the return values from this function. If you also want information
+  about [dirty I/O schedulers](`m:erlang#system_info_dirty_io_schedulers`), use
+  [`statistics(scheduler_wall_time_all)`](`m:erlang#statistics_scheduler_wall_time_all`)
+  instead.
+
+  Normal schedulers will have scheduler identifiers in the range
+  `1 =< SchedulerId =< `[`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
+  Dirty CPU schedulers will have scheduler identifiers in the range
+  `erlang:system_info(schedulers) < SchedulerId =< erlang:system_info(schedulers) + `[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`).
+
+  > #### Note {: .info }
+  >
+  > The different types of schedulers handle specific types of jobs. Every job is
+  > assigned to a specific scheduler type. Jobs can migrate between different
+  > schedulers of the same type, but never between schedulers of different types.
+  > This fact has to be taken under consideration when evaluating the result
+  > returned.
+
+  You can use `scheduler_wall_time` to calculate scheduler utilization. First you
+  take a sample of the values returned by
+  `erlang:statistics(scheduler_wall_time)`.
+
+  ```erlang
+  > erlang:system_flag(scheduler_wall_time, true).
+  false
+  > Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
+  ok
+  ```
+
+  Some time later the user takes another snapshot and calculates scheduler
+  utilization per scheduler, for example:
+
+  ```erlang
+  > Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.
+  ok
+  > lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
+          {I, (A1 - A0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).
+  [{1,0.9743474730177548},
+   {2,0.9744843782751444},
+   {3,0.9995902361669045},
+   {4,0.9738012596572161},
+   {5,0.9717956667018103},
+   {6,0.9739235846420741},
+   {7,0.973237033077876},
+   {8,0.9741297293248656}]
+  ```
+
+  Using the same snapshots to calculate a total scheduler utilization:
+
+  ```erlang
+  > {A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
+          {Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)),
+    TotalSchedulerUtilization = A/T.
+  0.9769136803764825
+  ```
+
+  Total scheduler utilization will equal `1.0` when all schedulers have been
+  active all the time between the two measurements.
+
+  Another (probably more) useful value is to calculate total scheduler utilization
+  weighted against maximum amount of available CPU time:
+
+  ```erlang
+  > WeightedSchedulerUtilization = (TotalSchedulerUtilization
+                                    * (erlang:system_info(schedulers)
+                                       + erlang:system_info(dirty_cpu_schedulers)))
+                                   / erlang:system_info(logical_processors_available).
+  0.9769136803764825
+  ```
+
+  This weighted scheduler utilization will reach `1.0` when schedulers are active
+  the same amount of time as maximum available CPU time. If more schedulers exist
+  than available logical processors, this value may be greater than `1.0`.
+
+  As of ERTS version 9.0, the Erlang runtime system will as default have more
+  schedulers than logical processors. This due to the dirty schedulers.
+
+  > #### Note {: .info }
+  >
+  > `scheduler_wall_time` is by default disabled. To enable it, use
+  > [`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`).
+
+  Available since OTP R15B01
+
+- ```erlang
+  statistics(scheduler_wall_time_all) ->
+    [{Id :: pos_integer,
+      ActiveTime :: non_neg_integer(),
+      TotalTime :: non_neg_integer()}] |
+    undefined
+  ```
+  {: #statistics_scheduler_wall_time_all }
+
+  The same as
+  [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`),
+  except that it also include information about all dirty I/O schedulers.
+
+  Dirty IO schedulers will have scheduler identifiers in the range
+  [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`)`+`[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)`< SchedulerId =< erlang:system_info(schedulers) + erlang:system_info(dirty_cpu_schedulers) +`[`erlang:system_info(dirty_io_schedulers)`](`m:erlang#system_info_dirty_io_schedulers`).
+
+  > #### Note {: .info }
+  >
+  > Note that work executing on dirty I/O schedulers are expected to mainly wait
+  > for I/O. That is, when you get high scheduler utilization on dirty I/O
+  > schedulers, CPU utilization is _not_ expected to be high due to this work.
+
+  Available since OTP 20.0
+
+- ```erlang
+  statistics(total_active_tasks) -> non_neg_integer()
+  ```
+  {: #statistics_total_active_tasks }
+
+  The same as calling
+  `lists:sum(`[`statistics(active_tasks)`](`m:erlang#statistics_active_tasks`)`)`,
+  but more efficient.
+
+  Available since OTP 18.3
+
+- ```erlang
+  statistics(total_active_tasks_all) -> non_neg_integer()
+  ```
+  {: #statistics_total_active_tasks_all }
+
+  The same as calling
+  `lists:sum(`[`statistics(active_tasks_all)`](`m:erlang#statistics_active_tasks_all`)`)`,
+  but more efficient.
+
+  Available since OTP 20.0
+
+- ```erlang
+  statistics(total_run_queue_lengths) -> non_neg_integer()
+  ```
+  {: #statistics_total_run_queue_lengths }
+
+  The same as calling
+  `lists:sum(`[`statistics(run_queue_lengths)`](`m:erlang#statistics_run_queue_lengths`)`)`,
+  but more efficient.
+
+  Available since OTP 18.3
+
+- ```erlang
+  statistics(total_run_queue_lengths_all) -> non_neg_integer()
+  ```
+  {: #statistics_total_run_queue_lengths_all }
+
+  The same as calling
+  `lists:sum(`[`statistics(run_queue_lengths_all)`](`m:erlang#statistics_run_queue_lengths_all`)`)`,
+  but more efficient.
+
+  Available since OTP 20.0
+
+- ```erlang
+  statistics(wall_clock) -> {Total :: non_neg_integer(), SinceLastCall :: non_neg_integer()}
+  ```
+  {: #statistics_wall_clock }
+
+  Returns information about wall clock. `wall_clock` can be used in the same
+  manner as `runtime`, except that real time is measured as opposed to runtime or
+  CPU time.
 """.
--doc(#{since => <<"OTP 18.3, OTP 19.0, OTP 20.0, OTP R15B01">>}).
 -spec statistics(active_tasks) -> [ActiveTasks] when
       ActiveTasks :: non_neg_integer();
 		(active_tasks_all) -> [ActiveTasks] when
