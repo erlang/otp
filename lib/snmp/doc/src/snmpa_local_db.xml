@@ -167,7 +167,7 @@
     </func>
 
     <func>
-      <name since="">table_exists(NameDb) -> bool()</name>
+      <name name="table_exists" arity="1" clause_i="1" since=""/>
       <fsummary>Check if a table exists</fsummary>
       <desc>
         <p>Checks if a table exists.</p>
