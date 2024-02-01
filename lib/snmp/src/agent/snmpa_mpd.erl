@@ -35,9 +35,13 @@
         ]).
 
 -export_type([
+              logger/0,
               msg_data/0,
               msg_data_cmy/0,
-              msg_data_ctx/0
+              msg_data_ctx/0,
+              acm_data/0,
+              acm_data_cmy/0,
+              acm_data_v3/0
              ]).
 
 -define(SNMP_USE_V3, true).
@@ -68,12 +72,7 @@
 	       req_id}).
 
 
--opaque msg_data() :: msg_data_cmy() | msg_data_ctx().
-          %% {community,
-          %%  Community       :: snmp_community_mib:name()} |
-          %% {v3,
-          %%  ContextEngineID :: snmp_framework_mib:engine_id(),
-          %%  ContextName     :: snmp_community_mib:context_name()}.
+-type   msg_data() :: msg_data_cmy() | msg_data_ctx().
 -opaque msg_data_cmy() ::
           {community,
            Community       :: snmp_community_mib:name()}.
@@ -81,6 +80,31 @@
           {v3,
            ContextEngineID :: snmp_framework_mib:engine_id(),
            ContextName     :: snmp_community_mib:context_name()}.
+-type   acm_data() :: acm_data_cmy() | acm_data_v3().
+-opaque acm_data_cmy() ::
+          {community,
+           SecModel  :: snmp_framework_mib:security_model(),
+           Community :: snmp_community_mib:name(),
+           TDomain   :: snmpa_conf:transportDomain(),
+           TAddress  :: snmpa_conf:transportAddress()}.
+-opaque acm_data_v3() ::
+          {v3,
+           MsgID            :: snmp_pdus:msg_id(),
+           MsgSecurityModel :: snmp_pdus:msg_security_model(),
+           SecName          :: snmp_community_mib:name(),
+           %% Actually the identifier for the security level; 1 | 2 | 3
+           %% snmp_framework_mib:security_level(),
+           SecLevel         :: non_neg_integer(),
+           ContextEngineID  :: snmp_framework_mib:engine_id(),
+           ContextName      :: snmp_community_mib:context_name(),
+           SecData          :: term()}.
+
+-type logger() ::
+        fun((Type :: snmp_pdus:pdu_type(),
+             Data :: binary() |
+                     {V3Hdr          :: snmp_pdus:v3_hdr(),
+                      ScopedPDUBytes :: binary()}) -> snmp:void()).
+
 
 
 
@@ -666,12 +690,32 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Executed when a response or report message is generated.
 %%-----------------------------------------------------------------
-generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
-    generate_response_msg(Vsn, RePdu, Type, ACMData, Log, 1).
 
-generate_response_msg(Vsn, RePdu, Type, ACMData, Log, N) when is_integer(N) ->
-    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, N);
+-spec generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
+          {ok, Packet} | {discarded, Reason} when
+      Vsn     :: snmp_pdus:version(),
+      RePdu   :: snmp_pdus:pdu(),
+      Type    :: snmp_pdus:pdu_type(),
+      ACMData :: acm_data(),
+      Log     :: logger(),
+      Packet  :: binary(),
+      Reason  :: term().
+
+generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
+    generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
+
+-spec generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
+          {ok, Packet} | {discarded, Reason} when
+      Vsn           :: snmp_pdus:version(),
+      RePdu         :: snmp_pdus:pdu(),
+      Type          :: snmp_pdus:pdu_type(),
+      ACMData       :: acm_data(),
+      LocalEngineID :: snmp_framework_mib:engine_id(),
+      Log           :: logger(),
+      Packet        :: binary(),
+      Reason        :: term().
+
 generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
 
@@ -938,6 +982,7 @@ set_vb_null([Vb | Vbs]) ->
     [Vb#varbind{variabletype = 'NULL', value = 'NULL'} | set_vb_null(Vbs)];
 set_vb_null([]) ->
     [].
+
 
 %%-----------------------------------------------------------------
 %% Executed when a message that isn't a response is generated, i.e.

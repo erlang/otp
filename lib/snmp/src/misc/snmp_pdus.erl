@@ -48,7 +48,11 @@
               trappdu/0,
               pdu/0,
               scoped_pdu/0,
-              usm_security_parameters/0
+              usm_security_parameters/0,
+              v3_hdr/0,
+              pdu_type/0,
+              msg_id/0,
+              msg_security_model/0
              ]).
 
 
@@ -59,6 +63,17 @@
 -type trappdu()                 :: #trappdu{}.
 -type pdu()                     :: #pdu{}.
 -type scoped_pdu()              :: #scopedPdu{}.
+-type v3_hdr()                  :: #v3_hdr{}.
+-type pdu_type()                :: 'get-request'      |
+                                   'get-next-request' |
+                                   'get-bulk-request' |
+                                   'get-response'     |
+                                   'set-request'      |
+                                   'inform-request'   |
+                                   'snmpv2-trap'      |
+                                   report.
+-type msg_id()                  :: 0 .. 2147483647.
+-type msg_security_model()      :: 0 .. 2147483647.
 -type usm_security_parameters() :: #usmSecurityParameters{}.
 
 
