@@ -115,7 +115,7 @@
 	<c>STANDARD-MIB</c> and <c>OTP-SNMPEA-MIB</c> 
 	(and maybe your own MIBs) are stored in <c>snmpa_local_db</c>. </p>
 
-	<p><c>TableName</c> is an atom for a table in the database. 
+	<p><c>Table</c> is an atom for a table in the database. 
 	When no name is supplied, the whole database is shown.</p>
 
 	<p>Note that these functions does not actually print, using
@@ -157,13 +157,15 @@
         <p>Deletes a table.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">table_delete_row(NameDb, RowIndex) -> bool()</name>
+      <name name="table_delete_row" arity="2" clause_i="1" since=""/>
       <fsummary>Delete the row in the table</fsummary>
       <desc>
         <p>Deletes the row in the table.</p>
       </desc>
     </func>
+
     <func>
       <name since="">table_exists(NameDb) -> bool()</name>
       <fsummary>Check if a table exists</fsummary>

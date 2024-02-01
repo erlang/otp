@@ -309,6 +309,11 @@ table_delete({Name, Db}) ->
 table_delete(Name) ->
     call({table_delete, Name, volatile}).
 
+
+-spec table_delete_row(NameDb, RowIndex) -> snmp:void() when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index().
+
 table_delete_row({Name, Db}, RowIndex) ->
     call({table_delete_row, Name, Db, RowIndex});
 table_delete_row(Name, RowIndex) ->
