@@ -812,10 +812,8 @@ aa_get_status_by_type(Type, StatusByType) ->
             beam_ssa_ss:meet_in_args(Statuses)
     end.
 
-aa_alias_surviving_args(Args, Call, SS,
-                        Anno, #aas{caller=Caller,kills=Kills}) ->
-    KillMap = map_get(Caller, Kills),
-    KillSet = map_get(Call, KillMap),
+aa_alias_surviving_args(Args, Call, SS, Anno, AAS) ->
+    KillSet = aa_killset_for_instr(Call, AAS),
     ArgTypes = maps:get(arg_types, Anno, #{}),
     aa_alias_surviving_args1(Args, 0, SS, ArgTypes, KillSet).
 
@@ -830,11 +828,15 @@ aa_alias_surviving_args1([A|Args], Idx, SS0, ArgTypes, KillSet) ->
 aa_alias_surviving_args1([], _Idx, SS, _ArgTypes, _KillSet) ->
     SS.
 
+%% Return the kill-set for the instruction defining Dst.
+aa_killset_for_instr(Dst, #aas{caller=Caller,kills=Kills}) ->
+    KillMap = map_get(Caller, Kills),
+    map_get(Dst, KillMap).
+
 %% Predicate to check if all variables in `Vars` dies at `Where`.
 -spec aa_all_dies([#b_var{}], kill_loc(), type_db(), #aas{}) -> boolean().
-aa_all_dies(Vars, Where, Types, #aas{caller=Caller,kills=Kills}) ->
-    KillMap = map_get(Caller, Kills),
-    KillSet = map_get(Where, KillMap),
+aa_all_dies(Vars, Where, Types, AAS) ->
+    KillSet = aa_killset_for_instr(Where, AAS),
     aa_all_dies1(Vars, Types, KillSet).
 
 %% As aa_all_dies/4 but without type information.
@@ -951,9 +953,8 @@ aa_construct_term(Dst, Values, Types, SS, AAS) ->
             aa_set_aliased(Alias, SS)
     end.
 
-aa_construct_tuple(Dst, IdxValues, Types,
-                   SS, #aas{caller=Caller,kills=Kills}) ->
-    KillSet = map_get(Dst, map_get(Caller, Kills)),
+aa_construct_tuple(Dst, IdxValues, Types, SS, AAS) ->
+    KillSet = aa_killset_for_instr(Dst, AAS),
     ?DP("Constructing tuple in ~p~n from: ~p~n",
         [Dst, [#{idx=>Idx,v=>V,status=>aa_get_status(V, SS, Types),
                  killed=>aa_dies(V, Types, KillSet),
@@ -990,8 +991,8 @@ aa_build_tuple_or_pair(Dst, [], _Types, _KillSet, SS, Sources) ->
     R = beam_ssa_ss:embed_in(Dst, Sources, SS),
     R.
 
-aa_construct_pair(Dst, Args0, Types, SS, #aas{caller=Caller,kills=Kills}) ->
-    KillSet = map_get(Dst, map_get(Caller, Kills)),
+aa_construct_pair(Dst, Args0, Types, SS, AAS) ->
+    KillSet = aa_killset_for_instr(Dst, AAS),
     [Hd,Tl] = Args0,
     ?DP("Constructing pair in ~p~n from ~p and ~p~n~p~n", [Dst,Hd,Tl,SS]),
     Args = [{hd,Hd},{tl,Tl}],
