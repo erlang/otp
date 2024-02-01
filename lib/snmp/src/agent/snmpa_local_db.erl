@@ -334,6 +334,14 @@ table_get_row({Name, Db}, RowIndex) ->
 table_get_row(Name, RowIndex) ->
     call({table_get_row, Name, volatile, RowIndex}).
 
+
+-spec table_get_element(NameDb, RowIndex, Col) ->
+          {value, Value} | undefined when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Col      :: snmp:column(),
+      Value    :: term().
+
 table_get_element({Name, Db}, RowIndex, Col) ->
     call({table_get_element, Name, Db, RowIndex, Col});
 table_get_element(Name, RowIndex, Col) ->

@@ -184,6 +184,14 @@
 	including the index columns.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="table_get_element" arity="3" clause_i="1" since=""/>
+      <fsummary>Get a element from a row of this table</fsummary>
+      <desc>
+        <p>Get a column value (element) from a row of the table.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>

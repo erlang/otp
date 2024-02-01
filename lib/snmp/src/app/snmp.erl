@@ -86,6 +86,7 @@
 
 	      oid/0,
 	      row_index/0,
+              column/0,
 	      varbind/0, 
 	      ivarbind/0, 
 	      asn1_type/0, 
@@ -144,6 +145,7 @@
 -type octet_string()          :: [octet()].
 -type oid()                   :: [non_neg_integer()].
 -type row_index()             :: oid().
+-type column()                :: pos_integer().
 
 -type rfc1903_date_and_time() :: octet_string().
 
