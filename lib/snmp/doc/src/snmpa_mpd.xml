@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2022</year>
+      <year>1999</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -211,16 +211,12 @@
     </func>
 
     <func>
-      <name since="">discarded_pdu(Variable) -> void()</name>
+      <name name="discarded_pdu" arity="1" clause_i="1" since=""/>
       <fsummary>Increment the variable associated with a discarded pdu</fsummary>
-      <type>
-        <v>Variable = atom()</v>
-      </type>
       <desc>
         <p>Increments the variable associated with a discarded pdu.
-          This function can be used when the net_if process receives a
-          <c>discarded_pdu</c> message from the agent.
-          </p>
+	This function can be used when the net_if process receives a
+	<c>discarded_pdu</c> message from the agent. </p>
       </desc>
     </func>
   </funcs>
