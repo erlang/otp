@@ -799,9 +799,10 @@ send_hello_retry_request(State0, _, _, _) ->
     {ok, {State0, negotiated}}.
 
 update_current_read(#state{connection_states = CS} = State, TrialDecryption, EarlyDataExpected) ->
-    Read0 = ssl_record:current_connection_state(CS, read),
-    Read = Read0#{trial_decryption => TrialDecryption,
-                  early_data_accepted => EarlyDataExpected},
+    #{early_data := EarlyData0} = Read0 = ssl_record:current_connection_state(CS, read),
+    EarlyData = EarlyData0#{trial_decryption => TrialDecryption,
+                            early_data_accepted => EarlyDataExpected},
+    Read = Read0#{early_data := EarlyData},
     State#state{connection_states = CS#{current_read => Read}}.
 
 handle_early_data(State, enabled, #early_data_indication{}) ->

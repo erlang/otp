@@ -116,9 +116,11 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,
 				  cipher_type = ?AEAD,
                                   bulk_cipher_algorithm =
                                       BulkCipherAlgo},
-                           pending_early_data_size := PendingMaxEarlyDataSize0,
-                           trial_decryption := TrialDecryption,
-                           early_data_accepted := EarlyDataAccepted
+                           early_data :=
+                               #{pending_early_data_size := PendingMaxEarlyDataSize0,
+                                 trial_decryption := TrialDecryption,
+                                 early_data_accepted := EarlyDataAccepted
+                                }
 			  } = ReadState0} = ConnectionStates0) ->
     case decipher_aead(CipherFragment, BulkCipherAlgo, Key, Seq, IV, TagLen) of
 	#alert{} when TrialDecryption =:= true andalso
@@ -199,24 +201,24 @@ decode_cipher_text(#ssl_tls{type = Type}, _) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-ignore_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0,
-              BulkCipherAlgo, CipherFragment) ->
-    PendingMaxEarlyDataSize =
-        approximate_pending_early_data_size(PendingMaxEarlyDataSize0,
-                                            BulkCipherAlgo, CipherFragment),
-    ConnectionStates =
-         ConnectionStates0#{current_read =>
-                                ReadState0#{pending_early_data_size => PendingMaxEarlyDataSize}},
-     if PendingMaxEarlyDataSize < 0 ->
-             %% More early data is trial decrypted as the configured limit
-             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {decryption_failed,
-                                                  {max_early_data_threshold_exceeded,
-                                                   PendingMaxEarlyDataSize}});
-        true ->
-             {no_record, ConnectionStates}
-     end.
-process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
-                   PlainFragment) ->
+ignore_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
+                  PendingMaxEarlyDataSize0,
+                  BulkCipherAlgo, CipherFragment) ->
+    PendingMaxEarlyDataSize = approximate_pending_early_data_size(PendingMaxEarlyDataSize0,
+                                                                  BulkCipherAlgo, CipherFragment),
+    EarlyData = EarlyData0#{pending_early_data_size => PendingMaxEarlyDataSize},
+    ConnectionStates = ConnectionStates0#{current_read => ReadState0#{early_data := EarlyData}},
+    if PendingMaxEarlyDataSize < 0 ->
+            %% More early data is trial decrypted as the configured limit
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {decryption_failed,
+                                                 {max_early_data_threshold_exceeded,
+                                                  PendingMaxEarlyDataSize}});
+       true ->
+            {no_record, ConnectionStates}
+    end.
+
+process_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
+                   PendingMaxEarlyDataSize0, Seq, PlainFragment) ->
     %% First packet is deciphered anyway so we must check if more early data is received
     %% than the configured limit (max_early_data_size).
     case Record = decode_inner_plaintext(PlainFragment) of
@@ -226,8 +228,7 @@ process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
                                ReadState0#{sequence_number => Seq + 1}},
             {Record, ConnectionStates};
         #ssl_tls{type=?APPLICATION_DATA, fragment=Data} ->
-            PendingMaxEarlyDataSize =
-                pending_early_data_size(PendingMaxEarlyDataSize0, Data),
+            PendingMaxEarlyDataSize = pending_early_data_size(PendingMaxEarlyDataSize0, Data),
             if PendingMaxEarlyDataSize < 0 ->
                     %% Too much early data received, send alert unexpected_message
                     ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE,
@@ -235,10 +236,9 @@ process_early_data(ConnectionStates0, ReadState0, PendingMaxEarlyDataSize0, Seq,
                                 {max_early_data_threshold_exceeded,
                                  PendingMaxEarlyDataSize}});
                true ->
-                    ConnectionStates =
-                        ConnectionStates0#{current_read =>
-                                               ReadState0#{sequence_number => Seq + 1,
-                                                           pending_early_data_size => PendingMaxEarlyDataSize}},
+                    EarlyData = EarlyData0#{pending_early_data_size => PendingMaxEarlyDataSize},
+                    ReadState = ReadState0#{sequence_number => Seq + 1, early_data => EarlyData},
+                    ConnectionStates = ConnectionStates0#{current_read => ReadState},
                     {Record#ssl_tls{early_data = true}, ConnectionStates}
             end
     end.

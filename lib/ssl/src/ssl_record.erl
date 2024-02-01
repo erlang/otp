@@ -417,9 +417,10 @@ empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize) ->
     #{security_parameters => SecParams,
       cipher_state  => undefined,
       mac_secret  => undefined,
-      pending_early_data_size => MaxEarlyDataSize,
-      trial_decryption => false,
-      early_data_accepted => false,
+      early_data => #{pending_early_data_size => MaxEarlyDataSize,
+                      trial_decryption => false,
+                      early_data_accepted => false
+                     },
       reneg => #{secure_renegotiation => undefined,
                  client_verify_data => undefined,
                  server_verify_data => undefined}
