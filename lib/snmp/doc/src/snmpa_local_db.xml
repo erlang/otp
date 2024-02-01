@@ -192,6 +192,14 @@
         <p>Get a column value (element) from a row of the table.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="table_set_elements" arity="3" clause_i="1" since=""/>
+      <fsummary>Set the columnar objects of a row of this table</fsummary>
+      <desc>
+        <p>Update the specified columnar objects of the row of this table.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>

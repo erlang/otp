@@ -347,6 +347,15 @@ table_get_element({Name, Db}, RowIndex, Col) ->
 table_get_element(Name, RowIndex, Col) ->
     call({table_get_element, Name, volatile, RowIndex, Col}).
 
+
+-spec table_set_elements(NameDb, RowIndex, Cols) ->
+          boolean() when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Cols     :: [{Col, Value}],
+      Col      :: snmp:column(),
+      Value    :: term().
+
 table_set_elements({Name, Db}, RowIndex, Cols) ->
     call({table_set_elements, Name, Db, RowIndex, Cols});
 table_set_elements(Name, RowIndex, Cols) ->
