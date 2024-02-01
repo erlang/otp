@@ -323,6 +323,12 @@ table_delete_row({Name, Db}, RowIndex) ->
 table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
+
+-spec table_get_row(NameDb, RowIndex) -> Row | undefined when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+
 table_get_row({Name, Db}, RowIndex) ->
     call({table_get_row, Name, Db, RowIndex});
 table_get_row(Name, RowIndex) ->
