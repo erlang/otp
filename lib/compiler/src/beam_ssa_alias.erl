@@ -484,7 +484,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             update_tuple ->
                 {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
             update_record ->
-                [_Hint,_Size,_Src|Updates] = Args,
+                [#b_literal{val=Hint},_Size,Src|Updates] = Args,
                 RecordType = maps:get(arg_types, Anno0, #{}),
                 ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
                     [Dst,_Src,RecordType]),
@@ -493,7 +493,23 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 Types = aa_map_arg_to_type(Args, RecordType),
                 ?DP("updates: ~p~n", [Updates]),
                 ?DP("type-mapping: ~p~n", [Types]),
-                {aa_construct_tuple(Dst, Values, Types, SS1, AAS0), AAS0};
+                SS2 = aa_construct_tuple(Dst, Values, Types, SS1, AAS0),
+                case Hint of
+                    reuse ->
+                        %% If the reuse hint is set and the source
+                        %% doesn't die here, both Src and Dst become
+                        %% aliased, as the VM could just leave Src
+                        %% unchanged and move it to Dst.
+                        KillSet = aa_killset_for_instr(Dst, AAS0),
+                        case sets:is_element(Src, KillSet) of
+                            true ->
+                                {SS2,AAS0};
+                            false ->
+                                {aa_set_status([Dst,Src], aliased,  SS2), AAS0}
+                        end;
+                    copy ->
+                        {SS2,AAS0}
+                end;
 
             %% Instructions which don't change the alias status
             {float,_} ->
