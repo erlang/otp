@@ -85,7 +85,8 @@
          redefined_builtin_type/1,
          tilde_k/1,
          match_float_zero/1,
-         undefined_module/1]).
+         undefined_module/1,
+         update_literal/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -119,7 +120,8 @@ all() ->
      singleton_type_var_errors,
      documentation_attributes,
      match_float_zero,
-     undefined_module].
+     undefined_module,
+     update_literal].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4049,10 +4051,11 @@ maps(Config) ->
                   ok.
             ">>,
            [],
-           {errors,[{{2,24},erl_lint,illegal_map_construction},
-                    {{4,24},erl_lint,illegal_map_construction},
-                    {{8,36},erl_lint,illegal_map_construction}],
-            []}},
+           {error,
+            [{{2,24},erl_lint,illegal_map_construction},
+             {{4,24},erl_lint,illegal_map_construction},
+             {{8,36},erl_lint,illegal_map_construction}],
+            [{{5,20},erl_lint,update_literal}]}},
           {illegal_pattern,
            <<"t(#{ a := A,
                    c => d,
@@ -5327,6 +5330,31 @@ undefined_module(Config) ->
               foo() -> ok.
              ">>,
     {errors,[{{1,2},erl_lint,undefined_module}],[]} = run_test2(Config, Code, []),
+
+    ok.
+
+update_literal(Config) ->
+    Ts = [{update_record_literal,
+           <<"-record(a, {b}).
+             t() -> #a{}#a{}#a{b=aoeu}.
+             k() -> A = #a{}, A#a{}#a{b=aoeu}.">>,
+           [],
+           {warnings,[{{2,25},erl_lint,update_literal},
+                      {{2,29},erl_lint,update_literal}]}},
+          {update_map_literal_assoc,
+           <<"t() -> #{}#{}#{b=>aoeu}.
+              k() -> A = #{}, A#{}#{b=>aoeu}.">>,
+           [],
+           {warnings,[{{1,31},erl_lint,update_literal},
+                      {{1,34},erl_lint,update_literal}]}},
+          {update_map_literal_exact,
+           <<"t() -> #{}#{}#{b:=aoeu}.
+              k() -> A = #{}, A#{}#{b:=aoeu}.">>,
+           [],
+           {warnings,[{{1,31},erl_lint,update_literal},
+                      {{1,34},erl_lint,update_literal}]}}
+         ],
+    [] = run(Config, Ts),
 
     ok.
 
