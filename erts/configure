@@ -24514,7 +24514,23 @@ then :
 
    case "$ARCH" in
         amd64)
-           JIT_ARCH=x86
+           case "$OPSYS" in
+              darwin)
+                # MacOS Sonoma introduced some very annoying popups when
+                # dual-mapping memory through the documented APIs, and we did
+                # not wish to start using undocumented functionality in a patch
+                # release, so we have disabled the JIT on this platform.
+                #
+                # The ARM JIT is unaffected because it uses per-thread
+                # permissions instead of dual-mapped memory.
+                enable_jit=no
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack to support on x86 Macs" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to lack to support on x86 Macs" >&2;}
+                ;;
+              *)
+                JIT_ARCH=x86
+                ;;
+           esac
            ;;
         arm64)
            case "$OPSYS" in
