@@ -8883,382 +8883,460 @@ subtract(_,_) ->
       'unbound'.
 
 -doc """
-Sets the maximum depth of call stack back-traces in the exit reason element of
-`'EXIT'` tuples. The flag also limits the stacktrace depth returned by
-`process_info` item `current_stacktrace.`
+- ```erlang
+  system_flag(backtrace_depths, non_neg_integer()) -> non_neg_integer()
+  ```
 
-Returns the old value of the flag.
+   Sets the maximum depth of call stack back-traces in the exit reason element of
+  `'EXIT'` tuples. The flag also limits the stacktrace depth returned by
+  `process_info` item `current_stacktrace.`
 
-[](){: #system_flag_cpu_topology }
+  Returns the old value of the flag.
 
-> #### Warning {: .warning }
->
-> _This argument is deprecated._ Instead of using this argument, use
-> command-line argument [`+sct`](erl_cmd.md#%2Bsct) in [erl](erl_cmd.md).
->
-> When this argument is removed, a final CPU topology to use is determined at
-> emulator boot time.
+- ```erlang
+  system_flag(cpu_topology, cpu_topology()) -> cpu_topology()
+  ```
+  {: #system_flag_cpu_topology }
 
-Sets the user-defined `CpuTopology`. The user-defined CPU topology overrides any
-automatically detected CPU topology. By passing `undefined` as `CpuTopology`,
-the system reverts to the CPU topology automatically detected. The returned
-value equals the value returned from `erlang:system_info(cpu_topology)` before
-the change was made.
+  > #### Warning {: .warning }
+  >
+  > _This argument is deprecated._ Instead of using this argument, use
+  > command-line argument [`+sct`](erl_cmd.md#%2Bsct) in [erl](erl_cmd.md).
+  >
+  > When this argument is removed, a final CPU topology to use is determined at
+  > emulator boot time.
 
-Returns the old value of the flag.
+  Sets the user-defined `CpuTopology`. The user-defined CPU topology overrides any
+  automatically detected CPU topology. By passing `undefined` as `CpuTopology`,
+  the system reverts to the CPU topology automatically detected. The returned
+  value equals the value returned from `erlang:system_info(cpu_topology)` before
+  the change was made.
 
-The CPU topology is used when binding schedulers to logical processors. If
-schedulers are already bound when the CPU topology is changed, the schedulers
-are sent a request to rebind according to the new CPU topology.
+  Returns the old value of the flag.
 
-The user-defined CPU topology can also be set by passing command-line argument
-[`+sct`](erl_cmd.md#%2Bsct) to [erl](erl_cmd.md).
+  The CPU topology is used when binding schedulers to logical processors. If
+  schedulers are already bound when the CPU topology is changed, the schedulers
+  are sent a request to rebind according to the new CPU topology.
 
-For information on type `CpuTopology` and more, see
-[`erlang:system_info(cpu_topology)`](`m:erlang#system_info_cpu_topology`) as
-well as command-line flags [`+sct`](erl_cmd.md#%2Bsct) and
-[`+sbt`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  The user-defined CPU topology can also be set by passing command-line argument
+  [`+sct`](erl_cmd.md#%2Bsct) to [erl](erl_cmd.md).
 
-[](){: #system_flag_dirty_cpu_schedulers_online }
+  For information on type `CpuTopology` and more, see
+  [`erlang:system_info(cpu_topology)`](`m:erlang#system_info_cpu_topology`) as
+  well as command-line flags [`+sct`](erl_cmd.md#%2Bsct) and
+  [`+sbt`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-Sets the number of dirty CPU schedulers online. Range is
-`1 <= DirtyCPUSchedulersOnline <= N`, where `N` is the smallest of the return
-values of `erlang:system_info(dirty_cpu_schedulers)` and
-`erlang:system_info(schedulers_online)`.
+- ```erlang
+  system_flag(dirty_cpu_schedulers_online, pos_integer()) -> pos_integer()
+  ```
+  {: #system_flag_dirty_cpu_schedulers_online }
 
-Returns the old value of the flag.
+  Sets the number of dirty CPU schedulers online. Range is
+  `1 <= DirtyCPUSchedulersOnline <= N`, where `N` is the smallest of the return
+  values of `erlang:system_info(dirty_cpu_schedulers)` and
+  `erlang:system_info(schedulers_online)`.
 
-The number of dirty CPU schedulers online can change if the number of schedulers
-online changes. For example, if 12 schedulers and 6 dirty CPU schedulers are
-online, and [`system_flag/2`](`system_flag/2`) is used to set the number of
-schedulers online to 6, then the number of dirty CPU schedulers online is
-automatically decreased by half as well, down to 3. Similarly, the number of
-dirty CPU schedulers online increases proportionally to increases in the number
-of schedulers online.
+  Returns the old value of the flag.
 
-For more information, see
-[`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)
-and
-[`erlang:system_info(dirty_cpu_schedulers_online)`](`m:erlang#system_info_dirty_cpu_schedulers_online`).
+  The number of dirty CPU schedulers online can change if the number of schedulers
+  online changes. For example, if 12 schedulers and 6 dirty CPU schedulers are
+  online, and [`system_flag/2`](`system_flag/2`) is used to set the number of
+  schedulers online to 6, then the number of dirty CPU schedulers online is
+  automatically decreased by half as well, down to 3. Similarly, the number of
+  dirty CPU schedulers online increases proportionally to increases in the number
+  of schedulers online.
 
-Sets system flags for [`erts_alloc(3)`](erts_alloc.md). `Alloc` is the allocator
-to affect, for example `binary_alloc`. `F` is the flag to change and `V` is the
-new value.
+  For more information, see
+  [`erlang:system_info(dirty_cpu_schedulers)`](`m:erlang#system_info_dirty_cpu_schedulers`)
+  and
+  [`erlang:system_info(dirty_cpu_schedulers_online)`](`m:erlang#system_info_dirty_cpu_schedulers_online`).
 
-Only a subset of all `erts_alloc` flags can be changed at run time. This subset
-is currently only the flag [`sbct`](erts_alloc.md#M_sbct).
+  Available since OTP 17.0
 
-Returns `ok` if the flag was set or `notsup` if not supported by `erts_alloc`.
+- ```erlang
+  system_flag(erts_alloc, {Alloc :: atom(), F :: atom(), V :: integer()}) ->
+    ok | notsup
+  ```
 
-Sets system flag `fullsweep_after`. `Number` is a non-negative integer
-indicating how many times generational garbage collections can be done without
-forcing a fullsweep collection. The value applies to new processes, while
-processes already running are not affected.
+  Sets system flags for [`erts_alloc(3)`](erts_alloc.md). `Alloc` is the allocator
+  to affect, for example `binary_alloc`. `F` is the flag to change and `V` is the
+  new value.
 
-Returns the old value of the flag.
+  Only a subset of all `erts_alloc` flags can be changed at run time. This subset
+  is currently only the flag [`sbct`](erts_alloc.md#M_sbct).
 
-In low-memory systems (especially without virtual memory), setting the value to
-`0` can help to conserve memory.
+  Returns `ok` if the flag was set or `notsup` if not supported by `erts_alloc`.
 
-This value can also be set through (OS) environment variable
-`ERL_FULLSWEEP_AFTER`.
+  Available since OTP 20.2.3
 
-[](){: #system_flag_microstate_accounting }
+- ```erlang
+  system_flag(fullsweep_after, non_neg_integer()) -> non_neg_integer()
+  ```
 
-Turns on/off microstate accounting measurements. When passing reset, all
-counters are reset to 0.
+  Sets system flag `fullsweep_after`. `Number` is a non-negative integer
+  indicating how many times generational garbage collections can be done without
+  forcing a fullsweep collection. The value applies to new processes, while
+  processes already running are not affected.
 
-For more information see
-[`statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
+  Returns the old value of the flag.
 
-Sets the default minimum heap size for processes. The size is specified in
-words. The new `min_heap_size` effects only processes spawned after the change
-of `min_heap_size` has been made. `min_heap_size` can be set for individual
-processes by using `spawn_opt/4` or `process_flag/2`.
+  In low-memory systems (especially without virtual memory), setting the value to
+  `0` can help to conserve memory.
 
-Returns the old value of the flag.
+  This value can also be set through (OS) environment variable
+  `ERL_FULLSWEEP_AFTER`.
 
-Sets the default minimum binary virtual heap size for processes. The size is
-specified in words. The new `min_bin_vhheap_size` effects only processes spawned
-after the change of `min_bin_vheap_size` has been made. `min_bin_vheap_size` can
-be set for individual processes by using [`spawn_opt/2,3,4`](`spawn_opt/4`) or
-`process_flag/2`.
+- ```erlang
+  system_flag(microstate_accounting, true | false | reset) -> boolean()
+  ```
+  {: #system_flag_microstate_accounting }
 
-Returns the old value of the flag.
+  Turns on/off microstate accounting measurements. When passing reset, all
+  counters are reset to 0.
 
-[](){: #system_flag_max_heap_size }
+  For more information see
+  [`statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
 
-Sets the default maximum heap size settings for processes. The size is specified
-in words. The new `max_heap_size` effects only processes spawned after the
-change has been made. `max_heap_size` can be set for individual processes using
-[`spawn_opt/2,3,4`](`spawn_opt/4`) or
-[`process_flag/2`](`m:erlang#process_flag_max_heap_size`).
+  Available since OTP 19.0
 
-Returns the old value of the flag.
+- ```erlang
+  system_flag(min_heap_size, non_neg_integer()) -> non_neg_integer()
+  ```
 
-For details on how the heap grows, see
-[Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
-documentation.
+  Sets the default minimum heap size for processes. The size is specified in
+  words. The new `min_heap_size` effects only processes spawned after the change
+  of `min_heap_size` has been made. `min_heap_size` can be set for individual
+  processes by using `spawn_opt/4` or `process_flag/2`.
 
-[](){: #system_flag_multi_scheduling }
+  Returns the old value of the flag.
 
-If multi-scheduling is enabled, more than one scheduler thread is used by the
-emulator. Multi-scheduling can be blocked in two different ways. Either all
-schedulers but one is blocked, or all _normal_ schedulers but one is blocked.
-When only normal schedulers are blocked, dirty schedulers are free to continue
-to schedule processes.
+- ```erlang
+  system_flag(min_bin_vheap_size, non_neg_integer()) -> non_neg_integer()
+  ```
 
-If `BlockState =:= block`, multi-scheduling is blocked. That is, one and only
-one scheduler thread will execute. If `BlockState =:= unblock` and no one else
-blocks multi-scheduling, and this process has blocked only once,
-multi-scheduling is unblocked.
+  Sets the default minimum binary virtual heap size for processes. The size is
+  specified in words. The new `min_bin_vhheap_size` effects only processes spawned
+  after the change of `min_bin_vheap_size` has been made. `min_bin_vheap_size` can
+  be set for individual processes by using [`spawn_opt/2,3,4`](`spawn_opt/4`) or
+  `process_flag/2`.
 
-If `BlockState =:= block_normal`, normal multi-scheduling is blocked. That is,
-only one normal scheduler thread will execute, but multiple dirty schedulers can
-execute. If `BlockState =:= unblock_normal` and no one else blocks normal
-multi-scheduling, and this process has blocked only once, normal
-multi-scheduling is unblocked.
+  Returns the old value of the flag.
 
-One process can block multi-scheduling and normal multi-scheduling multiple
-times. If a process has blocked multiple times, it must unblock exactly as many
-times as it has blocked before it has released its multi-scheduling block. If a
-process that has blocked multi-scheduling or normal multi-scheduling exits, it
-automatically releases its blocking of multi-scheduling and normal
-multi-scheduling.
+  Available since OTP R13B04
 
-The return values are `disabled`, `blocked`, `blocked_normal`, or `enabled`. The
-returned value describes the state just after the call to
-`erlang:system_flag(multi_scheduling, BlockState)` has been made. For
-information about the return values, see
-[`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`).
+- ```erlang
+  system_flag(max_heap_size, max_heap_size()) -> max_heap_size()
+  ```
+  {: #system_flag_max_heap_size }
 
-> #### Note {: .info }
->
-> Blocking of multi-scheduling and normal multi-scheduling is normally not
-> needed. If you feel that you need to use these features, consider it a few
-> more times again. Blocking multi-scheduling is only to be used as a last
-> resort, as it is most likely a _very inefficient_ way to solve the problem.
+  Sets the default maximum heap size settings for processes. The size is specified
+  in words. The new `max_heap_size` effects only processes spawned after the
+  change has been made. `max_heap_size` can be set for individual processes using
+  [`spawn_opt/2,3,4`](`spawn_opt/4`) or
+  [`process_flag/2`](`m:erlang#process_flag_max_heap_size`).
 
-See also
-[`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`),
-[`erlang:system_info(normal_multi_scheduling_blockers)`](`m:erlang#system_info_normal_multi_scheduling_blockers`),
-[`erlang:system_info(multi_scheduling_blockers)`](`m:erlang#system_info_multi_scheduling_blockers`),
-and [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
+  Returns the old value of the flag.
 
-[](){: #system_flag_outstanding_system_requests_limit }
+  For details on how the heap grows, see
+  [Sizing the heap](GarbageCollection.md#sizing-the-heap) in the ERTS internal
+  documentation.
 
-Sets a limit on the amount of outstanding requests made by a system process
-orchestrating system wide changes. Currently there are two such processes:
+  Available since OTP 19.0
 
-- **The Code Purger** - The code purger orchestrates checking of references to
-  old code before old code is removed from the system.
+- ```erlang
+  system_flag(multi_scheduling, BlockState) -> OldBlockState when
+    BlockState :: block | unblock | block_normal | unblock_normal,
+    OldBlockState :: blocked | disabled | enabled
+  ```
+  {: #system_flag_multi_scheduling }
 
-- **The Literal Area Collector** - The literal area collector orchestrates
-  copying of references from old literal areas before removal of such areas from
-  the system.
+  If multi-scheduling is enabled, more than one scheduler thread is used by the
+  emulator. Multi-scheduling can be blocked in two different ways. Either all
+  schedulers but one is blocked, or all _normal_ schedulers but one is blocked.
+  When only normal schedulers are blocked, dirty schedulers are free to continue
+  to schedule processes.
 
-Each of these processes are allowed to have as many outstanding requests as this
-limit is set to. By default this limit is set to twice the amount of
-[schedulers](`m:erlang#system_info_schedulers`) on the system. This will ensure
-that schedulers will have enough work scheduled to perform these operations as
-quickly as possible at the same time as other work will be interleaved with this
-work. Currently used limit can be checked by calling
-[`erlang:system_info(outstanding_system_requests_limit)`](`m:erlang#system_info_outstanding_system_requests_limit`).
+  If `BlockState =:= block`, multi-scheduling is blocked. That is, one and only
+  one scheduler thread will execute. If `BlockState =:= unblock` and no one else
+  blocks multi-scheduling, and this process has blocked only once,
+  multi-scheduling is unblocked.
 
-This limit can also be set by passing the command line argument
-[`+zosrl <Limit>`](erl_cmd.md#%2Bzosrl) to `erl`.
+  If `BlockState =:= block_normal`, normal multi-scheduling is blocked. That is,
+  only one normal scheduler thread will execute, but multiple dirty schedulers can
+  execute. If `BlockState =:= unblock_normal` and no one else blocks normal
+  multi-scheduling, and this process has blocked only once, normal
+  multi-scheduling is unblocked.
 
-[](){: #system_flag_scheduler_bind_type }
+  One process can block multi-scheduling and normal multi-scheduling multiple
+  times. If a process has blocked multiple times, it must unblock exactly as many
+  times as it has blocked before it has released its multi-scheduling block. If a
+  process that has blocked multi-scheduling or normal multi-scheduling exits, it
+  automatically releases its blocking of multi-scheduling and normal
+  multi-scheduling.
 
-> #### Warning {: .warning }
->
-> _This argument is deprecated._ Instead of using this argument, use
-> command-line argument [`+sbt`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md). When
-> this argument is removed, a final scheduler bind type to use is determined at
-> emulator boot time.
+  The return values are `disabled`, `blocked`, `blocked_normal`, or `enabled`. The
+  returned value describes the state just after the call to
+  `erlang:system_flag(multi_scheduling, BlockState)` has been made. For
+  information about the return values, see
+  [`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`).
 
-Controls if and how schedulers are bound to logical processors.
+  > #### Note {: .info }
+  >
+  > Blocking of multi-scheduling and normal multi-scheduling is normally not
+  > needed. If you feel that you need to use these features, consider it a few
+  > more times again. Blocking multi-scheduling is only to be used as a last
+  > resort, as it is most likely a _very inefficient_ way to solve the problem.
 
-When `erlang:system_flag(scheduler_bind_type, How)` is called, an asynchronous
-signal is sent to all schedulers online, causing them to try to bind or unbind
-as requested.
+  See also
+  [`erlang:system_info(multi_scheduling)`](`m:erlang#system_info_multi_scheduling`),
+  [`erlang:system_info(normal_multi_scheduling_blockers)`](`m:erlang#system_info_normal_multi_scheduling_blockers`),
+  [`erlang:system_info(multi_scheduling_blockers)`](`m:erlang#system_info_multi_scheduling_blockers`),
+  and [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`).
 
-> #### Note {: .info }
->
-> If a scheduler fails to bind, this is often silently ignored, as it is not
-> always possible to verify valid logical processor identifiers. If an error is
-> reported, an error event is logged. To verify that the schedulers have bound
-> as requested, call
-> [`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`).
+- ```erlang
+  system_flag(outstanding_system_requests_limit, 1..134217727) -> 1..134217727
+  ```
+  {: #system_flag_outstanding_system_requests_limit }
 
-Schedulers can be bound on newer Linux, Solaris, FreeBSD, and Windows systems,
-but more systems will be supported in future releases.
+  Sets a limit on the amount of outstanding requests made by a system process
+  orchestrating system wide changes. Currently there are two such processes:
 
-In order for the runtime system to be able to bind schedulers, the CPU topology
-must be known. If the runtime system fails to detect the CPU topology
-automatically, it can be defined. For more information on how to define the CPU
-topology, see command-line flag [`+sct`](erl_cmd.md#%2Bsct) in
-[erl](erl_cmd.md).
+  - **The Code Purger** - The code purger orchestrates checking of references to
+    old code before old code is removed from the system.
 
-The runtime system does by default _not_ bind schedulers to logical processors.
+  - **The Literal Area Collector** - The literal area collector orchestrates
+    copying of references from old literal areas before removal of such areas from
+    the system.
 
-> #### Note {: .info }
->
-> If the Erlang runtime system is the only OS process binding threads to logical
-> processors, this improves the performance of the runtime system. However, if
-> other OS processes (for example, another Erlang runtime system) also bind
-> threads to logical processors, there can be a performance penalty instead.
-> Sometimes this performance penalty can be severe. If so, it is recommended to
-> not bind the schedulers.
+  Each of these processes are allowed to have as many outstanding requests as this
+  limit is set to. By default this limit is set to twice the amount of
+  [schedulers](`m:erlang#system_info_schedulers`) on the system. This will ensure
+  that schedulers will have enough work scheduled to perform these operations as
+  quickly as possible at the same time as other work will be interleaved with this
+  work. Currently used limit can be checked by calling
+  [`erlang:system_info(outstanding_system_requests_limit)`](`m:erlang#system_info_outstanding_system_requests_limit`).
 
-Schedulers can be bound in different ways. Argument `How` determines how
-schedulers are bound and can be any of the following:
+  This limit can also be set by passing the command line argument
+  [`+zosrl <Limit>`](erl_cmd.md#%2Bzosrl) to `erl`.
 
-- **`unbound`** - Same as command-line argument [`+sbt u`](erl_cmd.md#%2Bsbt) in
+  Available since OTP 24.2
+
+- ```erlang
+  system_flag(scheduler_bind_type, scheduler_bind_type() | default_bind) ->
+    scheduler_bind_type()
+  ```
+  {: #system_flag_scheduler_bind_type }
+
+  > #### Warning {: .warning }
+  >
+  > _This argument is deprecated._ Instead of using this argument, use
+  > command-line argument [`+sbt`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md). When
+  > this argument is removed, a final scheduler bind type to use is determined at
+  > emulator boot time.
+
+  Controls if and how schedulers are bound to logical processors.
+
+  When `erlang:system_flag(scheduler_bind_type, How)` is called, an asynchronous
+  signal is sent to all schedulers online, causing them to try to bind or unbind
+  as requested.
+
+  > #### Note {: .info }
+  >
+  > If a scheduler fails to bind, this is often silently ignored, as it is not
+  > always possible to verify valid logical processor identifiers. If an error is
+  > reported, an error event is logged. To verify that the schedulers have bound
+  > as requested, call
+  > [`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`).
+
+  Schedulers can be bound on newer Linux, Solaris, FreeBSD, and Windows systems,
+  but more systems will be supported in future releases.
+
+  In order for the runtime system to be able to bind schedulers, the CPU topology
+  must be known. If the runtime system fails to detect the CPU topology
+  automatically, it can be defined. For more information on how to define the CPU
+  topology, see command-line flag [`+sct`](erl_cmd.md#%2Bsct) in
   [erl](erl_cmd.md).
 
-- **`no_spread`** - Same as command-line argument [`+sbt ns`](erl_cmd.md#%2Bsbt)
-  in [erl](erl_cmd.md).
+  The runtime system does by default _not_ bind schedulers to logical processors.
 
-- **`thread_spread`** - Same as command-line argument
-  [`+sbt ts`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  > #### Note {: .info }
+  >
+  > If the Erlang runtime system is the only OS process binding threads to logical
+  > processors, this improves the performance of the runtime system. However, if
+  > other OS processes (for example, another Erlang runtime system) also bind
+  > threads to logical processors, there can be a performance penalty instead.
+  > Sometimes this performance penalty can be severe. If so, it is recommended to
+  > not bind the schedulers.
 
-- **`processor_spread`** - Same as command-line argument
-  [`+sbt ps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  Schedulers can be bound in different ways. Argument `How` determines how
+  schedulers are bound and can be any of the following:
 
-- **`spread`** - Same as command-line argument [`+sbt s`](erl_cmd.md#%2Bsbt) in
-  [erl](erl_cmd.md).
+  - **`unbound`** - Same as command-line argument [`+sbt u`](erl_cmd.md#%2Bsbt) in
+    [erl](erl_cmd.md).
 
-- **`no_node_thread_spread`** - Same as command-line argument
-  [`+sbt nnts`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  - **`no_spread`** - Same as command-line argument [`+sbt ns`](erl_cmd.md#%2Bsbt)
+    in [erl](erl_cmd.md).
 
-- **`no_node_processor_spread`** - Same as command-line argument
-  [`+sbt nnps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  - **`thread_spread`** - Same as command-line argument
+    [`+sbt ts`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-- **`thread_no_node_processor_spread`** - Same as command-line argument
-  [`+sbt tnnps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  - **`processor_spread`** - Same as command-line argument
+    [`+sbt ps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-- **`default_bind`** - Same as command-line argument
-  [`+sbt db`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
+  - **`spread`** - Same as command-line argument [`+sbt s`](erl_cmd.md#%2Bsbt) in
+    [erl](erl_cmd.md).
 
-The returned value equals `How` before flag `scheduler_bind_type` was changed.
+  - **`no_node_thread_spread`** - Same as command-line argument
+    [`+sbt nnts`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-Failures:
+  - **`no_node_processor_spread`** - Same as command-line argument
+    [`+sbt nnps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-- **`notsup`** - If binding of schedulers is not supported.
+  - **`thread_no_node_processor_spread`** - Same as command-line argument
+    [`+sbt tnnps`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-- **`badarg`** - If `How` is not one of the documented alternatives.
+  - **`default_bind`** - Same as command-line argument
+    [`+sbt db`](erl_cmd.md#%2Bsbt) in [erl](erl_cmd.md).
 
-- **`badarg`** - If CPU topology information is unavailable.
+  The returned value equals `How` before flag `scheduler_bind_type` was changed.
 
-The scheduler bind type can also be set by passing command-line argument
-[`+sbt`](erl_cmd.md#%2Bsbt) to [erl](erl_cmd.md).
+  Failures:
 
-For more information, see
-[`erlang:system_info(scheduler_bind_type)`](`m:erlang#system_info_scheduler_bind_type`),
-[`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`),
-as well as command-line flags [`+sbt`](erl_cmd.md#%2Bsbt) and
-[`+sct`](erl_cmd.md#%2Bsct) in [erl](erl_cmd.md).
+  - **`notsup`** - If binding of schedulers is not supported.
 
-[](){: #system_flag_scheduler_wall_time }
+  - **`badarg`** - If `How` is not one of the documented alternatives.
 
-Try enable or disable scheduler wall time measurements by passing `Boolean` as
-either `true` or `false`.
+  - **`badarg`** - If CPU topology information is unavailable.
 
-For more information about how to use scheduler wall time measurements, see
-[`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
+  The scheduler bind type can also be set by passing command-line argument
+  [`+sbt`](erl_cmd.md#%2Bsbt) to [erl](erl_cmd.md).
 
-Scheduler wall time measurements has a node global state. It is either enabled
-for all processes on the node or disabled for all processes. Each process has a
-logical counter initialized as zero. A call with `Boolean` as `true` will
-increase that counter one step for the calling process. A call with `false` will
-decrease it one step unless it already is zero. The node global state for
-`scheduler_wall_time` will be enabled as long as there is at least one process
-alive with a counter value larger than zero. When a process terminates, its
-counter will also disappear. To ensure `scheduler_wall_time` is kept enabled,
-the process that enabled it must therefore be kept alive.
+  For more information, see
+  [`erlang:system_info(scheduler_bind_type)`](`m:erlang#system_info_scheduler_bind_type`),
+  [`erlang:system_info(scheduler_bindings)`](`m:erlang#system_info_scheduler_bindings`),
+  as well as command-line flags [`+sbt`](erl_cmd.md#%2Bsbt) and
+  [`+sct`](erl_cmd.md#%2Bsct) in [erl](erl_cmd.md).
 
-Returns the old value of the node global state, `true` if scheduler wall time
-measurements were enabled, `false` if it were disabled.
+- ```erlang
+  system_flag(scheduler_wall_time, boolean()) -> boolean()
+  ```
+  {: #system_flag_scheduler_wall_time }
 
-Scheduler wall time measurements do consume some cpu overhead and should not be
-left turned on unless used.
+  Try enable or disable scheduler wall time measurements by passing `Boolean` as
+  either `true` or `false`.
 
-[](){: #system_flag_schedulers_online }
+  For more information about how to use scheduler wall time measurements, see
+  [`statistics(scheduler_wall_time)`](`m:erlang#statistics_scheduler_wall_time`).
 
-Sets the number of schedulers online. Range is
-`1 <= SchedulersOnline <= erlang:system_info(schedulers)`.
+  Scheduler wall time measurements has a node global state. It is either enabled
+  for all processes on the node or disabled for all processes. Each process has a
+  logical counter initialized as zero. A call with `Boolean` as `true` will
+  increase that counter one step for the calling process. A call with `false` will
+  decrease it one step unless it already is zero. The node global state for
+  `scheduler_wall_time` will be enabled as long as there is at least one process
+  alive with a counter value larger than zero. When a process terminates, its
+  counter will also disappear. To ensure `scheduler_wall_time` is kept enabled,
+  the process that enabled it must therefore be kept alive.
 
-Returns the old value of the flag.
+  Returns the old value of the node global state, `true` if scheduler wall time
+  measurements were enabled, `false` if it were disabled.
 
-If the emulator was built with support for
-[dirty schedulers](`m:erlang#system_flag_dirty_cpu_schedulers_online`), changing
-the number of schedulers online can also change the number of dirty CPU
-schedulers online. For example, if 12 schedulers and 6 dirty CPU schedulers are
-online, and [`system_flag/2`](`system_flag/2`) is used to set the number of
-schedulers online to 6, then the number of dirty CPU schedulers online is
-automatically decreased by half as well, down to 3. Similarly, the number of
-dirty CPU schedulers online increases proportionally to increases in the number
-of schedulers online.
+  Scheduler wall time measurements do consume some cpu overhead and should not be
+  left turned on unless used.
 
-For more information, see
-[`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`) and
-[`erlang:system_info(schedulers_online)`](`m:erlang#system_info_schedulers_online`).
+  Available since OTP R15B01
 
-Sets the process that will receive the logging messages generated by ERTS. If
-set to `undefined`, all logging messages generated by ERTS will be dropped. The
-messages will be in the format:
+- ```erlang
+  system_flag(schedulers_online, pos_integer()) -> pos_integer()
+  ```
+  {: #system_flag_schedulers_online }
 
-```erlang
-{log,Level,Format,ArgList,Metadata} where
+  Sets the number of schedulers online. Range is
+  `1 <= SchedulersOnline <= erlang:system_info(schedulers)`.
 
-Level = atom(),
-Format = string(),
-ArgList = list(term()),
-Metadata = #{ pid => pid(),
-   group_leader => pid(),
-   time := logger:timestamp(),
-   error_logger := #{ emulator := true, tag := atom() }
-```
+  Returns the old value of the flag.
 
-If the `system_logger` process dies, this flag will be reset to `logger`.
+  If the emulator was built with support for
+  [dirty schedulers](`m:erlang#system_flag_dirty_cpu_schedulers_online`), changing
+  the number of schedulers online can also change the number of dirty CPU
+  schedulers online. For example, if 12 schedulers and 6 dirty CPU schedulers are
+  online, and [`system_flag/2`](`system_flag/2`) is used to set the number of
+  schedulers online to 6, then the number of dirty CPU schedulers online is
+  automatically decreased by half as well, down to 3. Similarly, the number of
+  dirty CPU schedulers online increases proportionally to increases in the number
+  of schedulers online.
 
-The default is the process named `logger`.
+  For more information, see
+  [`erlang:system_info(schedulers)`](`m:erlang#system_info_schedulers`) and
+  [`erlang:system_info(schedulers_online)`](`m:erlang#system_info_schedulers_online`).
 
-Returns the old value of the flag.
+- ```erlang
+  system_flag(system_logger, logger | undefined | pid()) -> logger | undefined | pid()
+  ```
 
-> #### Note {: .info }
->
-> This function is designed to be used by the KERNEL `m:logger`. Be careful if
-> you change it to something else as log messages may be lost. If you want to
-> intercept emulator log messages, do it by adding a specialized handler to the
-> KERNEL logger.
+  Sets the process that will receive the logging messages generated by ERTS. If
+  set to `undefined`, all logging messages generated by ERTS will be dropped. The
+  messages will be in the format:
 
-Sets the value of the node trace control word to `TCW`, which is to be an
-unsigned integer. For more information, see function
-[`set_tcw`](match_spec.md#set_tcw) in section "Match Specifications in Erlang"
-in the User's Guide.
+  ```erlang
+  {log,Level,Format,ArgList,Metadata} where
 
-Returns the old value of the flag.
+  Level = atom(),
+  Format = string(),
+  ArgList = list(term()),
+  Metadata = #{ pid => pid(),
+     group_leader => pid(),
+     time := logger:timestamp(),
+     error_logger := #{ emulator := true, tag := atom() }
+  ```
 
-[](){: #system_flag_time_offset }
+  If the `system_logger` process dies, this flag will be reset to `logger`.
 
-Finalizes the [time offset](`time_offset/0`) when
-[single time warp mode](time_correction.md#single-time-warp-mode) is used. If
-another time warp mode is used, the time offset state is left unchanged.
+  The default is the process named `logger`.
 
-Returns the old state identifier, that is:
+  Returns the old value of the flag.
 
-- If `preliminary` is returned, finalization was performed and the time offset
-  is now final.
-- If `final` is returned, the time offset was already in the final state. This
-  either because another `erlang:system_flag(time_offset, finalize)` call or
-  because [no time warp mode](time_correction.md#no-time-warp-mode) is used.
-- If `volatile` is returned, the time offset cannot be finalized because
-  [multi-time warp mode](time_correction.md#multi-time-warp-mode) is used.
+  > #### Note {: .info }
+  >
+  > This function is designed to be used by the KERNEL `m:logger`. Be careful if
+  > you change it to something else as log messages may be lost. If you want to
+  > intercept emulator log messages, do it by adding a specialized handler to the
+  > KERNEL logger.
+
+  Available since OTP 21.2
+
+- ```erlang
+  system_flag(trace_control_word, non_neg_integer()) -> non_neg_integer()
+  ```
+
+  Sets the value of the node trace control word to `TCW`, which is to be an
+  unsigned integer. For more information, see function
+  [`set_tcw`](match_spec.md#set_tcw) in section "Match Specifications in Erlang"
+  in the User's Guide.
+
+  Returns the old value of the flag.
+
+- ```erlang
+  system_flag(time_offset, finalize) -> preliminary | final | volatile
+  ```
+  {: #system_flag_time_offset }
+
+  Finalizes the [time offset](`time_offset/0`) when
+  [single time warp mode](time_correction.md#single-time-warp-mode) is used. If
+  another time warp mode is used, the time offset state is left unchanged.
+
+  Returns the old state identifier, that is:
+
+  - If `preliminary` is returned, finalization was performed and the time offset
+    is now final.
+  - If `final` is returned, the time offset was already in the final state. This
+    either because another `erlang:system_flag(time_offset, finalize)` call or
+    because [no time warp mode](time_correction.md#no-time-warp-mode) is used.
+  - If `volatile` is returned, the time offset cannot be finalized because
+    [multi-time warp mode](time_correction.md#multi-time-warp-mode) is used.
+
+  Available since OTP 18.0
 """.
--doc(#{since =>
-           <<"OTP 17.0, OTP 18.0, OTP 19.0, OTP 20.2.3, OTP 21.3, OTP 24.2, OTP R13B04, OTP R15B01">>}).
 -spec system_flag(backtrace_depth, Depth) -> OldDepth when
       Depth :: non_neg_integer(),
       OldDepth :: non_neg_integer();
