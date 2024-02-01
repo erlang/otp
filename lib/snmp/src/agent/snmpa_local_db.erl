@@ -255,12 +255,12 @@ dets_filename1(Dir) -> Dir.
 print()          -> call(print).
 
 -spec print(Table) -> term() when
-      Table :: atom().
+      Table :: snmpa:name().
 
 print(Table)     -> call({print,Table,volatile}).
 
 -spec print(Table, Db) -> term() when
-      Table :: atom(),
+      Table :: snmpa:name(),
       Db    :: volatile | persistent.
 
 print(Table, Db) -> call({print,Table,Db}).
@@ -287,8 +287,8 @@ variable_delete(Name) ->
     call({variable_delete, Name, volatile}).
 
 
--spec table_create(NameDb) -> boolean() when
-      NameDb :: snmpa:name_db().
+-spec table_create(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
 
 table_create({Name, Db}) ->
     call({table_create, Name, Db});
@@ -296,8 +296,8 @@ table_create(Name) ->
     call({table_create, Name, volatile}).
 
 
--spec table_exists(NameDb) -> boolean() when
-      NameDb :: snmpa:name_db().
+-spec table_exists(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
 
 table_exists({Name, Db}) ->
     call({table_exists, Name, Db});
@@ -305,8 +305,8 @@ table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
 
--spec table_delete(NameDb) -> snmp:void() when
-      NameDb :: snmpa:name_db().
+-spec table_delete(Table) -> true when
+      Table :: snmpa:name_db() | snmpa:name().
 
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
@@ -314,8 +314,8 @@ table_delete(Name) ->
     call({table_delete, Name, volatile}).
 
 
--spec table_delete_row(NameDb, RowIndex) -> snmp:void() when
-      NameDb   :: snmpa:name_db(),
+-spec table_delete_row(Table, RowIndex) -> boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
       RowIndex :: snmp:row_index().
 
 table_delete_row({Name, Db}, RowIndex) ->
@@ -324,8 +324,8 @@ table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
 
--spec table_get_row(NameDb, RowIndex) -> Row | undefined when
-      NameDb   :: snmpa:name_db(),
+-spec table_get_row(Table, RowIndex) -> Row | undefined when
+      Table    :: snmpa:name_db() | snmpa:name(),
       RowIndex :: snmp:row_index(),
       Row      :: tuple().
 
@@ -335,9 +335,9 @@ table_get_row(Name, RowIndex) ->
     call({table_get_row, Name, volatile, RowIndex}).
 
 
--spec table_get_element(NameDb, RowIndex, Col) ->
+-spec table_get_element(Table, RowIndex, Col) ->
           {value, Value} | undefined when
-      NameDb   :: snmpa:name_db(),
+      Table    :: snmpa:name_db() | snmpa:name(),
       RowIndex :: snmp:row_index(),
       Col      :: snmp:column(),
       Value    :: term().
@@ -348,9 +348,9 @@ table_get_element(Name, RowIndex, Col) ->
     call({table_get_element, Name, volatile, RowIndex, Col}).
 
 
--spec table_set_elements(NameDb, RowIndex, Cols) ->
+-spec table_set_elements(Table, RowIndex, Cols) ->
           boolean() when
-      NameDb   :: snmpa:name_db(),
+      Table    :: snmpa:name_db() | snmpa:name(),
       RowIndex :: snmp:row_index(),
       Cols     :: [{Col, Value}],
       Col      :: snmp:column(),
@@ -372,9 +372,9 @@ table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
 
--spec table_create_row(NameDb, RowIndex, Row) ->
+-spec table_create_row(Table, RowIndex, Row) ->
           boolean() when
-      NameDb   :: snmpa:name_db(),
+      Table    :: snmpa:name_db() | snmpa:name(),
       RowIndex :: snmp:row_index(),
       Row      :: tuple().
       
@@ -387,8 +387,8 @@ table_create_row(NameDb, RowIndex, Status, Cols) ->
     table_create_row(NameDb, RowIndex, Row).
 
 
--spec match(NameDb, Pattern) -> [Match] when
-      NameDb  :: snmpa:name_db(),
+-spec match(Table, Pattern) -> [Match] when
+      Table   :: snmpa:name_db() | snmpa:name(),
       Pattern :: ets:match_pattern(),
       Match   :: term().
 

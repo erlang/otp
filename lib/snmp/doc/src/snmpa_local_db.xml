@@ -61,28 +61,12 @@
 
   <section>
     <title>Common Data Types</title>
-    <p>In the functions defined below, the following types are
-      used:
-      </p>
+    <p>In the functions defined below, the following limitation applies: </p>
     <list type="bulleted">
       <item>
-        <p><c>NameDb = {Name, Db}</c></p>
-      </item>
-      <item>
-        <p><c>Name = atom(), Db = volatile | persistent</c></p>
-      </item>
-      <item>
-        <p><c>RowIndex = [int()]</c></p>
-      </item>
-      <item>
-        <p><c>Cols = [Col] | [{Col, Value}], Col = int(), Value = term()</c></p>
+        <p><c>Db = volatile | persistent</c></p>
       </item>
     </list>
-    <p>where <c>RowIndex</c> denotes the last part of the OID, that
-      specifies the index of the row in the table.  <c>Cols</c> is a
-      list of column numbers in case of a get operation, and a list of
-      column numbers and values in case of a set operation.
-      </p>
   </section>
 
   <funcs>
@@ -121,7 +105,7 @@
 	When no name is supplied, the whole database is shown.</p>
 
 	<p>Note that these functions does not actually print, using
-	io:format/2, Instead they (just) returns the information.
+	io:format/2, instead they (just) return the information.
 	If executed in a shell, the information will then be displayed
 	(probably truncated) there. </p>
 	<p>A better use would be: </p>
@@ -140,6 +124,9 @@
 
 	<p>Returns <c>false</c> if the <c>NameDb</c> argument is
 	incorrectly specified, <c>true</c> otherwise. </p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -149,6 +136,9 @@
       <desc>
 	<p>Creates a row in a table.  <c>Row</c> is a tuple with
 	values for all columns, including the index columns.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -157,6 +147,9 @@
       <fsummary>Delete a table</fsummary>
       <desc>
         <p>Deletes a table.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -165,6 +158,9 @@
       <fsummary>Delete the row in the table</fsummary>
       <desc>
         <p>Deletes the row in the table.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -173,6 +169,9 @@
       <fsummary>Check if a table exists</fsummary>
       <desc>
         <p>Checks if a table exists.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -182,6 +181,9 @@
       <desc>
         <p><c>Row</c> is a tuple with values for all columns,
 	including the index columns.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -190,6 +192,9 @@
       <fsummary>Get a element from a row of this table</fsummary>
       <desc>
         <p>Get a column value (element) from a row of the table.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
 
@@ -198,6 +203,9 @@
       <fsummary>Set the columnar objects of a row of this table</fsummary>
       <desc>
         <p>Update the specified columnar objects of the row of this table.</p>
+
+	<p>Database (only table name specified) defaults to
+	<c>volatile</c>. </p>
       </desc>
     </func>
   </funcs>
