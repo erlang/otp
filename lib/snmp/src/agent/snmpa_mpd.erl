@@ -34,6 +34,11 @@
          empty_msg_size/0
         ]).
 
+-export_type([
+              msg_data/0,
+              msg_data_cmy/0,
+              msg_data_ctx/0
+             ]).
 
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
@@ -61,6 +66,22 @@
 	       ctx_name, 
 	       disco = false, 
 	       req_id}).
+
+
+-opaque msg_data() :: msg_data_cmy() | msg_data_ctx().
+          %% {community,
+          %%  Community       :: snmp_community_mib:name()} |
+          %% {v3,
+          %%  ContextEngineID :: snmp_framework_mib:engine_id(),
+          %%  ContextName     :: snmp_community_mib:context_name()}.
+-opaque msg_data_cmy() ::
+          {community,
+           Community       :: snmp_community_mib:name()}.
+-opaque msg_data_ctx() ::
+          {v3,
+           ContextEngineID :: snmp_framework_mib:engine_id(),
+           ContextName     :: snmp_community_mib:context_name()}.
+
 
 
 %%%-----------------------------------------------------------------
@@ -922,11 +943,45 @@ set_vb_null([]) ->
 %% Executed when a message that isn't a response is generated, i.e.
 %% a trap or an inform.
 %%-----------------------------------------------------------------
-generate_msg(Vsn, NoteStore, Pdu, ACMData, To) ->
-    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    generate_msg(Vsn, NoteStore, Pdu, ACMData, LocalEngineID, To).
 
-generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
+-spec generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
+          {ok, PacketsAndAddresses} | {discarded, Reason} when
+      Vsn                 :: snmp_pdus:version(),
+      NoteStore           :: pid(),
+      Pdu                 :: snmp_pdus:pdu(),
+      MsgData             :: msg_data(),
+      To                  :: [{Domain, Address}],
+      PacketsAndAddresses :: [{Domain, Address, Packet}],
+      Domain              :: snmpa_conf:transportDomain(),
+      Address             :: snmpa_conf:transportAddress(),
+      Packet              :: binary(),
+      Reason              :: term().
+
+generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To).
+
+
+-spec generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) ->
+          {ok, PacketsAndAddresses} | {discarded, Reason} when
+      Vsn                 :: snmp_pdus:version(),
+      NoteStore           :: pid(),
+      Pdu                 :: snmp_pdus:pdu(),
+      MsgData             :: msg_data(),
+      LocalEngineID       :: snmp_framework_mib:engine_id(),
+      To                  :: [DestAddr],
+      DestAddr            :: {Domain, Address} |
+                             {{Domain, Address}, SecData},
+      SecData             :: term(),
+      PacketsAndAddresses :: [{Domain, Address, Packet}],
+      Domain              :: snmpa_conf:transportDomain(),
+      Address             :: snmpa_conf:transportAddress(),
+      Packet              :: binary(),
+      Reason              :: term().
+
+generate_msg(Vsn, _NoteStore, Pdu,
+             {community, Community},
+             LocalEngineID, To) ->
     Message = #message{version = Vsn, vsn_hdr = Community, data = Pdu},
     case catch list_to_binary(snmp_pdus:enc_message(Message)) of
 	{'EXIT', Reason} ->
@@ -948,7 +1003,8 @@ generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
 	    end
     end;
 generate_msg('version-3', NoteStore, Pdu, 
-	     {v3, ContextEngineID, ContextName}, LocalEngineID, To) ->
+	     {v3, ContextEngineID, ContextName},
+             LocalEngineID, To) ->
     %% rfc2272: 7.1 step 6
     ScopedPDU = #scopedPdu{contextEngineID = LocalEngineID, 
 			   contextName = ContextName,

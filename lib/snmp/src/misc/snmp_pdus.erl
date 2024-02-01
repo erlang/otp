@@ -43,6 +43,7 @@
 	 enc_value/2, dec_value/1]).
 
 -export_type([
+              version/0,
               message/0,
               trappdu/0,
               pdu/0,
@@ -53,6 +54,7 @@
 
 %%-----------------------------------------------------------------
 
+-type version()                 :: 'version-1' | 'version-2' | 'version-3'.
 -type message()                 :: #message{}.
 -type trappdu()                 :: #trappdu{}.
 -type pdu()                     :: #pdu{}.

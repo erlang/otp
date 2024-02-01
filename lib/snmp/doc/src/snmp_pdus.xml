@@ -57,6 +57,17 @@
 
   <datatypes>
     <datatype>
+      <name name="version"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="message"/>
       <desc>
 	<p>
