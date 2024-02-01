@@ -335,6 +335,13 @@ table_max_col({Name, Db}, Col) ->
 table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
+
+-spec table_create_row(NameDb, RowIndex, Row) ->
+          boolean() when
+      NameDb   :: snmpa:name_db(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+      
 table_create_row({Name, Db}, RowIndex, Row) ->
     call({table_create_row, Name, Db,RowIndex, Row});
 table_create_row(Name, RowIndex, Row) ->
