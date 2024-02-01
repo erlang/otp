@@ -300,6 +300,10 @@ table_exists({Name, Db}) ->
 table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
+
+-spec table_delete(NameDb) -> snmp:void() when
+      NameDb :: snmpa:name_db().
+
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
 table_delete(Name) ->
