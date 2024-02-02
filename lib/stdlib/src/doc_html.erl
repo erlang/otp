@@ -39,7 +39,9 @@ process_doc_attr(Doc) ->
                  Metadata :: map()
                }.
 
--spec process_doc(doc()) -> doc().
+-spec process_doc(doc() | [doc()]) -> doc().
+process_doc(Docs) when is_list(Docs) ->
+    lists:map(fun process_doc/1, Docs);
 process_doc({_At, _A, _S, Doc, _M}=Entry) when Doc =:= none orelse Doc =:= hidden ->
     Entry;
 process_doc({Attributes, Anno, Signature, Doc, Metadata}) ->
@@ -85,22 +87,22 @@ process_md([<<"">> | Rest], Block) ->
 process_md([<<"<!--", Line/binary>> | Rest], Block) ->
     Block ++ process_md(process_comment([Line | Rest]), []);
 process_md(Rest, Block) when is_list(Rest) ->
-    Block ++ process_rest(Rest).
+    process_rest(Rest, Block).
 
 -define(IS_BULLET(X), X =:= $*; X =:= $-; X =:= $+).
 -define(IS_NUMBERED(X), is_integer(X), min(0, X) =:= 0).
 
-process_rest([P | Rest]=Doc) ->
+process_rest([P | Rest]=Doc, Block) ->
     {StrippedP, SpaceCount} = strip_spaces(P, 0, infinity),
-    {Content, Rest1, Block} = case StrippedP of
-                                  <<BulletList, $\s, Line/binary>> when ?IS_BULLET(BulletList) ->
-                                      process_list(ul, Line, Rest, SpaceCount);
-                                  <<NumberedList, $., $\s, Line/binary>> when ?IS_NUMBERED(NumberedList) ->
-                                      process_list(ol, Line, Rest, SpaceCount);
-                                  _ ->
-                                      process_p(Doc, [])
-                     end,
-    Content ++ process_md(Rest1, Block).
+    {Content, Rest1, Block2} = case StrippedP of
+                                   <<BulletList, $\s, Line/binary>> when ?IS_BULLET(BulletList) ->
+                                       Block ++ process_list(ul, Line, Rest, SpaceCount);
+                                   <<NumberedList, $., $\s, Line/binary>> when ?IS_NUMBERED(NumberedList) ->
+                                       Block ++ process_list(ol, Line, Rest, SpaceCount);
+                                   _ ->
+                                       process_p(Doc, Block)
+                               end,
+    Content ++ process_md(Rest1, Block2).
 
 -spec process_list(ul | ol , LineContent, Rest, SpaceCount) -> Result when
       LineContent :: binary(),
@@ -210,8 +212,15 @@ process_list_nestedness(Line, Count, NextCount) ->
       Line  :: shell_docs:chunk_elements(),
       Rest  :: [binary()],
       ReturnedBlock :: shell_docs:chunk_elements().
+process_p([P | Rest], [{p, [], Ps} | RestBlock]) when is_binary(P) ->
+    %% merge two paragraphs under a single one
+    {p, [], Paragraph} = process_paragraph(<<"\n", P/binary>>),
+    Result = [{p, [], Ps ++ Paragraph} | RestBlock],
+    {[], Rest, Result};
 process_p([P | Rest], Block) when is_binary(P) ->
-    {Block ++ process_paragraph(P), Rest, []}.
+    Paragraph = [process_paragraph(P)],
+    {[], Rest, Block ++ Paragraph}.
+
 
 strip_spaces(<<" ", Rest/binary>>, Acc, Max) when Max =:= infinity; Acc =< Max ->
     strip_spaces(Rest, Acc + 1, Max);
@@ -239,8 +248,7 @@ strip_spaces(Rest, Acc, _) ->
       HtmlErlang    :: shell_docs:chunk_elements().
 process_heading(Level, Text, Rest) ->
     Header = create_header(Level, Text),
-    FormattedHeader = format_inline(Header),
-    FormattedHeader ++ process_md(Rest, []).
+    [format_inline(Header) | process_md(Rest, [])].
 
 -spec create_header(Level, Header) -> header() when
       Level  :: 1..6,
@@ -274,16 +282,16 @@ process_quote(Rest, PrevLines) ->
 
 -spec process_paragraph(P) -> HtmlErlang when
       P            :: binary(),
-      HtmlErlang   :: shell_docs:chunk_elements().
+      HtmlErlang   :: {chunk_element_type(), [], shell_docs:chunk_elements()}.
 process_paragraph(P0) ->
     P = create_paragraph(P0),
     format_inline(P).
 
--spec format_inline(Inline) -> shell_docs:chunk_elements() when
+-spec format_inline(Inline) -> Inline :: {chunk_element_type(), [], shell_docs:chunk_elements()} when
       Inline :: {chunk_element_type(), [], [binary()]}.
 format_inline({Tag, [], Ls}) when is_list(Ls) ->
     FormattedLines = lists:foldr(fun (L, Acc) when is_list(Acc) -> process(L) ++ Acc end, [], Ls),
-    [{Tag, [], lists:reverse(FormattedLines)}].
+    {Tag, [], lists:reverse(FormattedLines)}.
 
 -spec process(Text :: binary()) -> shell_docs:chunk_elements().
 process(Bin) when is_binary(Bin)->
@@ -298,7 +306,13 @@ format_link(Bin) when is_binary(Bin) ->
 remove_square_brackets(Bin) when is_binary(Bin) ->
     %% thanks to Elixir folks:
     %% https://github.com/elixir-lang/elixir/blob/main/lib/elixir/lib/io/ansi/docs.ex#L626C22-L626C44
-    re:replace(Bin, "\\\[([^\\\]]*?)\\\]\\\((.*?)\\\)", "\\1 (\\2)").
+    R = re:replace(Bin, "\\\[([^\\\]]*?)\\\]\\\((.*?)\\\)", "\\1 (\\2)"),
+    case R of
+        Text when is_list(Text) ->
+            list_to_binary(Text);
+        Text when is_binary(Text) ->
+            Text
+    end.
 
 -spec process_inline(Line, Format, Buffer) -> Result when
       Line :: binary(),

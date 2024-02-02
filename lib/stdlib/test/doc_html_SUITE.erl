@@ -27,7 +27,8 @@
 -export([single_line_code_test/1, multiple_line_code_test/1, paragraph_between_code_test/1]).
 
 %% br
--export([start_with_br_test/1, multiple_br_followed_by_paragraph_test/1, ending_br_test/1]).
+-export([start_with_br_test/1, multiple_br_followed_by_paragraph_test/1,
+         multiple_lines_of_a_paragraph_test/1, ending_br_test/1]).
 
 %% Comments
 -export([begin_comment_test/1, after_paragraph_comment/1, forget_closing_comment/1 ]).
@@ -36,7 +37,8 @@
 -export([format_heading_test/1, format_paragraph_test/1, format_multiple_inline/1,
          format_multiple_inline_format_short/1, format_multiple_inline_format_long/1,
          format_multiple_inline_format_mixed/1, unmatched_format_simple/1,
-         unmatched_format_with_inline/1, unmatched_complex_format_with_inline/1]).
+         unmatched_format_with_inline/1, unmatched_complex_format_with_inline/1,
+         format_inline_link_with_inline/1]).
 
 %% Bullet lists
 -export([singleton_bullet_list/1, singleton_bullet_list_followed_new_paragraph/1, singleton_bullet_list_with_format/1,
@@ -145,6 +147,7 @@ code_tests() ->
 br_tests() ->
     [ start_with_br_test,
       multiple_br_followed_by_paragraph_test,
+      multiple_lines_of_a_paragraph_test,
       ending_br_test
     ].
 
@@ -163,7 +166,8 @@ format_tests() ->
       format_multiple_inline_format_mixed,
       unmatched_format_simple,
       unmatched_format_with_inline,
-      unmatched_complex_format_with_inline
+      unmatched_complex_format_with_inline,
+      format_inline_link_with_inline
     ].
 
 bullet_list_tests() ->
@@ -457,6 +461,24 @@ multiple_br_followed_by_paragraph_test(_Conf) ->
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
 
+multiple_lines_of_a_paragraph_test(_Conf) ->
+  Text = """
+Returns a new list `List3`, which is made from the elements of `List1` followed
+by the elements of `List2`.
+""",
+    Docs = create_eep48_doc(list_to_binary(Text)),
+    HtmlDocs = compile(Docs),
+    Expected = expected([p([<<"Returns a new list ">>,
+                            inline_code(<<"List3">>),
+                            <<", which is made from the elements of ">>,
+                            inline_code(<<"List1">>), <<" followed">>,
+                            <<"\nby the elements of ">>,
+                            inline_code(<<"List2">>), <<".">>])]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
+
 ending_br_test(_Conf) ->
     Docs = create_eep48_doc(<<"Test\n">>),
     HtmlDocs = compile(Docs),
@@ -572,6 +594,14 @@ unmatched_complex_format_with_inline(_Conf) ->
                               it(<<" ">>),
                               <<"there_">>])
                         ]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
+format_inline_link_with_inline(_Config) ->
+    Docs = create_eep48_doc(<<"[`splitwith/2`](`splitwith/2`) behaves as if">>),
+    HtmlDocs = compile(Docs),
+    Expected = expected([ p([inline_code(<<"splitwith/2">>),<<" (">>,inline_code(<<"splitwith/2">>), <<") behaves as if">>])]),
     Expected = extract_moduledoc(HtmlDocs),
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
