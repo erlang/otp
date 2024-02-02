@@ -391,7 +391,8 @@ static ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             ssize_t          read,
                                             ErlNifBinary*    bufP,
-                                            ERL_NIF_TERM     sockRef);
+                                            ERL_NIF_TERM     sockRef,
+                                            ERL_NIF_TERM     returnTag);
 static ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
                                             ssize_t          read,
@@ -7041,7 +7042,7 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                 "\r\n", sockRef, descP->sock, recvRef) );
 
         if (COMPARE(recvRef, esock_atom_zero) == 0)
-            res = esock_atom_ok;
+            res = esock_atom_timeout;
         else
             res = recv_check_retry(env, descP, sockRef, recvRef);
 
@@ -7179,14 +7180,47 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 
     descP->rNumCnt = 0;
 
-    if ((toRead == 0) ||
-        (descP->type != SOCK_STREAM) ||
-        (COMPARE(recvRef, esock_atom_zero) == 0)) {
+    /* Buffer not filled */
 
-        /* +++ We got it all, but since we      +++
-         * +++ did not fill the buffer, we      +++
-         * +++ must deliver part of the binary. +++
+    if ((descP->type == SOCK_STREAM) && (toRead > 0)) {
+
+        /* A stream socket with specified read size
+         * - more data is needed
          */
+
+        if (COMPARE(recvRef, esock_atom_zero) == 0) {
+
+            /* Polling read - deliver as {timeout,Data} */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "recv_check_partial(%T) {%d} -> [%ld] split buffer time-out"
+                    "\r\n   recvRef: %T"
+                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    recvRef) );
+
+            res = recv_check_partial_done(env, descP, read, bufP, sockRef,
+                                          esock_atom_timeout);
+        } else {
+
+            /* Incomplete data
+             * - return a select result to initiate a retry
+             */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "recv_check_partial(%T) {%d} -> [%ld]"
+                    " only part of message - expect more"
+                    "\r\n   recvRef: %T"
+                    "\r\n", sockRef, descP->sock, (long) toRead,
+                    recvRef) );
+
+            res = recv_check_partial_part(env, descP, read,
+                                          bufP, sockRef, recvRef);
+        }
+    } else {
+
+        /* No more data is needed - deliver as {ok,Data} */
 
         SSDBG( descP,
                ("UNIX-ESSIO",
@@ -7195,24 +7229,8 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                 "\r\n", sockRef, descP->sock, (long) toRead,
                 recvRef) );
 
-        res = recv_check_partial_done(env, descP, read, bufP, sockRef);
-
-    } else {
-        /* A stream socket with specified read size
-         * and not a polling read, we got a partial read
-         * - return a select result to initiate a retry
-         */
-
-        SSDBG( descP,
-               ("UNIX-ESSIO",
-                "recv_check_partial(%T) {%d} -> [%ld]"
-                " only part of message - expect more"
-                "\r\n   recvRef: %T"
-                "\r\n", sockRef, descP->sock, (long) toRead,
-                recvRef) );
-
-        res = recv_check_partial_part(env, descP, read,
-                                      bufP, sockRef, recvRef);
+        res = recv_check_partial_done(env, descP, read, bufP, sockRef,
+                                          esock_atom_ok);
     }
 
     return res;
@@ -7229,7 +7247,8 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ssize_t          read,
                                      ErlNifBinary*    bufP,
-                                     ERL_NIF_TERM     sockRef)
+                                     ERL_NIF_TERM     sockRef,
+                                     ERL_NIF_TERM     returnTag)
 {
     ERL_NIF_TERM data;
 
@@ -7256,6 +7275,7 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
            ("UNIX-ESSIO", "recv_check_partial_done(%T) {%d} -> [%ld] done\r\n",
             sockRef, descP->sock, (long) read) );
 
+    return MKT2(env, returnTag, data);
     return esock_make_ok2(env, data);
 }
 
