@@ -10143,10 +10143,7 @@ the `CpuTopology` type to change.
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
-         (async_dist) -> boolean();
-         (overview) -> boolean();
-         %% Deliberately left undocumented
-         (sequential_tracer) -> {sequential_tracer, pid() | port() | {module(),term()} | false}.
+         (async_dist) -> boolean().
 -doc {file,"../../doc/src/erlang_system_info.md"}.
 system_info(_Item) ->
     erlang:nif_error(undefined).
