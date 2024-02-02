@@ -1009,9 +1009,9 @@ fun(srp, Username :: binary(), UserState :: term()) ->
      <datatype>
       <name name="client_verify_type"/>
       <desc>
-	<p>Defaults to <c>verify_none</c> as additional options are needed to be able to perform the certificate verification.
-	A warning will be emitted unless <c>verify_none</c> is explicitly configured. Usually the applications will want to configure
-	<c>verify_peer</c> together with an appropriate <c>cacert</c> or <c>cacertfile</c> option. For example an <c>HTTPS</c> client would normally
+	<p>Defaults to <c>verify_peer</c>, since OTP-26, which means the option cacerts or cacertfile is also required
+	to perform the certificate verification unless <c>verify_none</c> is explicitly configured.
+	For example an <c>HTTPS</c> client would normally
 	use the option <c>{cacerts, public_key:cacerts_get()}</c> (available since OTP-25) to access the CA certificates
 	provided by the OS. Using verify_none means that all x509-certificate path validation errors will be ignored.
         See also option <seetype marker="#custom_verify">verify_fun</seetype>.</p>
