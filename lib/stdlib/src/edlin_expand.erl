@@ -653,33 +653,37 @@ fold_completion_result(A, B) ->
     fold_completion_result(B,A).
 
 expand_function_type(ModStr, FunStr, Args, Unfinished, Nestings, FT) ->
-    Mod = list_to_atom(ModStr),
-    Fun = list_to_atom(FunStr),
-    MinArity = if Unfinished =:= [], length(Args) =:= 0 -> 0;
-        true -> length(Args)+1
-    end,
-    case [A || A <- get_arities(ModStr, FunStr, FT), A >= MinArity] of
-        [] -> {no, [], []};
-        Arities ->
-            {Res, Expansion, Matches} = fold_results([begin
-                              FunTypes = edlin_type_suggestion:get_function_type(Mod, Fun, Arity, FT),
-                              case FunTypes of
-                                  [] -> MFA = print_function_head(ModStr, FunStr, Arity),
-                                        case Unfinished of
-                                            [] -> {no, [], [#{title=>MFA, elems=>[], options=>[]}]};
-                                            _ -> {no, [], []}
-                                        end;
-                                  _ ->
-                                      fold_results([begin
-                                                        MFA = print_function_head(ModStr, FunStr, FunType, FT),
-                                                        expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT)
-                                                    end || FunType <- FunTypes])
-                              end
-                          end || Arity <- Arities]),
-            case Matches of
-                [] -> {Res, Expansion, Matches};
-                _ -> {Res, Expansion, [#{title=>"typespecs", elems=>Matches, options=>[highlight_all]}]}
-            end
+    maybe
+        {ok, Mod} ?= to_atom(ModStr),
+        {ok, Fun} ?= to_atom(FunStr),
+        MinArity = if Unfinished =:= [], length(Args) =:= 0 -> 0;
+                      true -> length(Args)+1
+                   end,
+        [_|_] = Arities ?= [A || A <- get_arities(ModStr, FunStr, FT), A >= MinArity],
+        {Res, Expansion, Matches} =
+            fold_results(
+              [begin
+                   FunTypes = edlin_type_suggestion:get_function_type(Mod, Fun, Arity, FT),
+                   case FunTypes of
+                       [] -> MFA = print_function_head(ModStr, FunStr, Arity),
+                             case Unfinished of
+                                 [] -> {no, [], [#{title=>MFA, elems=>[], options=>[]}]};
+                                 _ -> {no, [], []}
+                             end;
+                       _ ->
+                           fold_results(
+                             [begin
+                                  MFA = print_function_head(ModStr, FunStr, FunType, FT),
+                                  expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT)
+                              end || FunType <- FunTypes])
+                   end
+               end || Arity <- Arities]),
+        case Matches of
+            [] -> {Res, Expansion, Matches};
+            _ -> {Res, Expansion, [#{title=>"typespecs", elems=>Matches, options=>[highlight_all]}]}
+        end
+    else
+        _ -> {no, [], []}
     end.
 
 %% Behaves like zsh
@@ -898,7 +902,8 @@ expand_module_name(Prefix,CC) ->
     end.
 
 get_arities("shell_default"=ModStr, FuncStr, FT) ->
-    case [A || {{function, {_, Fun, A}}, _} <- FT, Fun =:= list_to_atom(FuncStr)] of
+    {ok, Func} = to_atom(FuncStr),
+    case [A || {{function, {_, Fun, A}}, _} <- FT, Fun =:= Func] of
         [] -> get_arities(ModStr, FuncStr);
         Arities -> Arities
     end;
@@ -911,7 +916,7 @@ get_arities(ModStr, FuncStr) ->
             lists:sort(
               [A || {H, A} <- Exports, string:equal(FuncStr, flat_write(H))]);
         error ->
-            {no, [], []}
+            []
     end.
 
 -doc false.

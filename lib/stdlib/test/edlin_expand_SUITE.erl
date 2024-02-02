@@ -21,9 +21,10 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2,
          init_per_group/2,end_per_group/2]).
--export([normal/1, type_completion/1, quoted_fun/1, quoted_module/1, quoted_both/1, erl_1152/1, get_coverage/1,
-         check_trailing/1, unicode/1, filename_completion/1, binding_completion/1, record_completion/1,
-         no_completion/1, map_completion/1, function_parameter_completion/1, fun_completion/1]).
+-export([normal/1, type_completion/1, quoted_fun/1, quoted_module/1, quoted_both/1,
+         invalid_module/1, erl_1152/1, get_coverage/1, check_trailing/1, unicode/1,
+         filename_completion/1, binding_completion/1, record_completion/1, no_completion/1,
+         map_completion/1, function_parameter_completion/1, fun_completion/1]).
 -record(a_record,
         {a_field   :: atom1 | atom2 | btom | 'my atom' | {atom3, {atom4, non_neg_integer()}} | 'undefined',
          b_field   :: boolean() | 'undefined',
@@ -51,7 +52,7 @@ all() ->
     [normal, filename_completion, binding_completion, get_coverage, type_completion, 
      record_completion, fun_completion, map_completion, function_parameter_completion,
      no_completion, quoted_fun, quoted_module, quoted_both, erl_1152, check_trailing,
-     unicode].
+     invalid_module, unicode].
 
 groups() ->
     [].
@@ -565,6 +566,23 @@ quoted_module(Config) when is_list(Config) ->
                                                 {"a_less_fun_name",_}]}]} = do_expand("'ExpandTestCaps':a_"),
     ok.
 
+%% Test that expansion does not break when module/function is invalid
+invalid_module(Config) when is_list(Config) ->
+
+    {no, "", []} = do_expand("0"),
+    {no, "", []} = do_expand("0:"),
+    {no, "", []} = do_expand("0:a"),
+    {no, "", []} = do_expand("0:a("),
+    {no, "", []} = do_expand("lists:0"),
+    {no, "", []} = do_expand("lists:0("),
+    {no, "", []} = do_expand("fun 0"),
+    {no, "", []} = do_expand("fun 0:"),
+    {no, "", []} = do_expand("fun 0:a"),
+    {no, "", []} = do_expand("fun 0:a/"),
+    {no, "", []} = do_expand("fun lists:0"),
+    {no, "", []} = do_expand("fun lists:0/"),
+    ok.
+
 quoted_both(Config) when is_list(Config) ->
     {module,'ExpandTestCaps'} = compile_and_load(Config,'ExpandTestCaps'),
     {module,'ExpandTestCaps1'} = compile_and_load(Config,'ExpandTestCaps1'),
@@ -617,7 +635,7 @@ unicode(Config) when is_list(Config) ->
     ok.
 
 do_expand(String) ->
-    io:format(String),
+    io:format("~ts", [String]),
     Bs = [
           {'Binding', 0},
           {'MapBinding', #{a_key=>0, b_key=>1, c_key=>2}},

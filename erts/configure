@@ -15784,6 +15784,25 @@ fi
 fi
 
 
+ac_fn_c_check_header_compile "$LINENO" "termcap.h" "ac_cv_header_termcap_h" "$ac_includes_default"
+if test "x$ac_cv_header_termcap_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_TERMCAP_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "curses.h" "ac_cv_header_curses_h" "$ac_includes_default"
+if test "x$ac_cv_header_curses_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_CURSES_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "term.h" "ac_cv_header_term_h" "$ac_includes_default"
+if test "x$ac_cv_header_term_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_TERM_H 1" >>confdefs.h
+
+fi
+
 
 if test "x$TERMCAP_LIB" != "x"; then
 

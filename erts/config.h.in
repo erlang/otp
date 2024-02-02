@@ -461,6 +461,9 @@
 /* Define if you have cpuset_getaffinity/cpuset_setaffinity */
 #undef HAVE_CPUSET_xETAFFINITY
 
+/* Define to 1 if you have the <curses.h> header file. */
+#undef HAVE_CURSES_H
+
 /* Define to 1 if you have the declaration of `getrlimit', and to 0 if you
    don't. */
 #undef HAVE_DECL_GETRLIMIT
@@ -1145,6 +1148,12 @@
 
 /* Define if termcap functions exists */
 #undef HAVE_TERMCAP
+
+/* Define to 1 if you have the <termcap.h> header file. */
+#undef HAVE_TERMCAP_H
+
+/* Define to 1 if you have the <term.h> header file. */
+#undef HAVE_TERM_H
 
 /* Define to 1 if you have the `time2posix' function. */
 #undef HAVE_TIME2POSIX

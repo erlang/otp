@@ -559,7 +559,13 @@ over_fun_function(Bef, Acc) ->
     case edlin_expand:over_word(Bef) of
         {[$/|Bef1], Arity} -> over_fun_function(Bef1, [$/|Arity]++Acc);
         {[$:|Bef1], Fun} -> over_fun_function(Bef1, [$:|Fun]++Acc);
-        {" nuf"++Bef1, ModOrFun} -> over_fun_function(Bef1, "fun "++ModOrFun ++ Acc);
+        {" nuf"++Bef1, ModOrFun} ->
+            case to_atom(ModOrFun) of
+                {ok, _} ->
+                    over_fun_function(Bef1, "fun "++ModOrFun ++ Acc);
+                error ->
+                    {Bef,Acc}
+            end;
         _ -> {Bef,Acc}
     end.
 
@@ -659,3 +665,11 @@ is_binding(Word) ->
     nomatch =/= re:run(Normalized,
                        "^[_[:upper:]][[:alpha:]]*$",
                        [unicode, ucp]).
+
+to_atom(Str) ->
+    case erl_scan:string(Str) of
+        {ok, [{atom,_,A}], _} ->
+            {ok, A};
+        _ ->
+            error
+    end.
