@@ -1123,7 +1123,8 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 				 {auto_nl,not lists:member(no_nl, LogOpts)},
 				 {reject_io_reqs,RejectIoReqs}]),
     group_leader(test_server_io:get_gl(true), self()),
-    {TimeMy,Result} = ts_tc(Mod, Func, Args),
+    {ElapsedTime,Result} = ts_tc(Mod, Func, Args),
+    print(major, "=elapsed_time  ~w", [ElapsedTime]),
     set_io_buffering(undefined),
     test_server_io:set_job_name(undefined),
     catch stop_extra_tools(StartedExtraTools),
@@ -1136,7 +1137,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	    report_severe_error(Reason),
 	    print(1, "EXIT, reason ~tp", [Reason])
     end,
-    Time = TimeMy/1000000,
+    ElapsedTimeSeconds = ElapsedTime/1000000,
     SuccessStr =
 	case get(test_server_failed) of
 	    0 -> "Ok";
@@ -1156,7 +1157,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	  "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
 	  "<td>~.3fs</td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w</td></tr>\n"
 	  "</tfoot>\n",
-	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
+	  [ElapsedTimeSeconds,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
 
     test_server_io:stop([major,html,unexpected_io]),
     {UnexpectedIoName,UnexpectedIoFooter} = get(test_server_unexpected_footer),
