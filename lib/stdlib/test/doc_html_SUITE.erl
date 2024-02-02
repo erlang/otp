@@ -26,6 +26,9 @@
 %% inline code
 -export([single_line_code_test/1, multiple_line_code_test/1, paragraph_between_code_test/1]).
 
+%% fence code
+-export([single_line_fence_code_test/1, multiple_line_fence_code_test/1, paragraph_between_fence_code_test/1]).
+
 %% br
 -export([start_with_br_test/1, multiple_br_followed_by_paragraph_test/1,
          multiple_lines_of_a_paragraph_test/1, ending_br_test/1]).
@@ -71,6 +74,7 @@ all() ->
      {group, quote_generator},
      {group, paragraph_generator},
      {group, code_generator},
+     {group, fence_code_generator},
      {group, br_generator},
      {group, comment_generator},
      {group, format_generator},
@@ -86,6 +90,7 @@ groups() ->
      {quote_generator, [parallel], quote_tests()},
      {paragraph_generator, [parallel], paragraph_tests()},
      {code_generator, [parallel], code_tests()},
+     {fence_code_generator, [parallel], fence_code_tests()},
      {br_generator, [parallel], br_tests()},
      {comment_generator, [parallel], comment_tests()},
      {format_generator, [parallel], format_tests()},
@@ -143,6 +148,12 @@ code_tests() ->
       multiple_line_code_test,
       paragraph_between_code_test
     ].
+
+fence_code_tests() ->
+  [single_line_fence_code_test,
+   multiple_line_fence_code_test,
+   paragraph_between_fence_code_test
+  ].
 
 br_tests() ->
     [ start_with_br_test,
@@ -440,6 +451,44 @@ paragraph_between_code_test(_Conf) ->
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
 
+single_line_fence_code_test(_Conf) ->
+    Docs = create_eep48_doc(<<"
+```erlang
+test() -> ok.
+```">>),
+    HtmlDocs = compile(Docs),
+    Expected = expected([ br(), code(<<"test() -> ok.">>)]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
+multiple_line_fence_code_test(_Conf) ->
+    Docs = create_eep48_doc(<<"
+```erlang
+test() ->
+  ok.
+```">>),
+    HtmlDocs = compile(Docs),
+    Expected = expected([ br(), code(<<"test() ->\n  ok.">>)]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
+
+paragraph_between_fence_code_test(_Conf) ->
+    Docs = create_eep48_doc(<<"This is a test:
+```erlang
+test() ->
+  ok.
+```">>),
+    HtmlDocs = compile(Docs),
+    Expected = expected([p(<<"This is a test:">>),
+                         code(<<"test() ->\n  ok.">>)]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
+
 start_with_br_test(_Conf) ->
     Docs = create_eep48_doc(<<"\n\nAnother paragraph">>),
     HtmlDocs = compile(Docs),
@@ -477,7 +526,6 @@ by the elements of `List2`.
     Expected = extract_moduledoc(HtmlDocs),
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
-
 
 ending_br_test(_Conf) ->
     Docs = create_eep48_doc(<<"Test\n">>),

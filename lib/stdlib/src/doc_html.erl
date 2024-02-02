@@ -82,6 +82,8 @@ process_md([<<"   >", Line/binary>> | Rest], Block) ->
     Block ++ process_quote([<<">", Line/binary>> | Rest], []);
 process_md([<<"    ", Line/binary>> | Rest], Block) ->
     Block ++ process_code([<<"    ", Line/binary>> | Rest], []);
+process_md([<<"```", _Line/binary>> | Rest], Block) ->
+    Block ++ process_fence_code(Rest, []);
 process_md([<<"">> | Rest], Block) ->
     Block ++ process_br(Rest);
 process_md([<<"<!--", Line/binary>> | Rest], Block) ->
@@ -458,6 +460,15 @@ process_code([<<"    ", Line/binary>> | Rest], Block) ->
     process_code(Rest, [Line | Block]);
 process_code(Rest, Block) ->
     process_code([], Block) ++ process_md(Rest, []).
+
+process_fence_code([], Block) ->
+    [create_code(Block)];
+process_fence_code([<<"```">> | Rest], Block) ->
+    %% close block
+    process_fence_code([], Block) ++ process_md(Rest, []);
+process_fence_code([Line | Rest], Block) ->
+    process_fence_code(Rest, [Line | Block]).
+
 
 -spec process_br(Text :: [binary()]) -> shell_docs:chunk_elements().
 process_br(Rest) ->
