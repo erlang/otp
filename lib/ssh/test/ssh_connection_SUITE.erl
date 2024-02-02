@@ -228,7 +228,7 @@ init_per_testcase(_TestCase, Config) ->
     %% end_per_testcase will be run!
     end_per_testcase(any, Config),
     ssh:start(),
-    Config.
+    ssh_test_lib:verify_sanity_check(Config).
 
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop().

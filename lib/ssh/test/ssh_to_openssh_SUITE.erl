@@ -131,12 +131,15 @@ end_per_group(_, Config) ->
 
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
-	{unix,_} -> ssh:start(), Config;
-	Type -> {skip, io_lib:format("Unsupported test on ~p",[Type])}
+	{unix,_} ->
+            ssh:start(),
+            ssh_test_lib:verify_sanity_check(Config);
+	Type ->
+            {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
-    Config.
+    ssh_test_lib:verify_sanity_check(Config).
 
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
@@ -623,3 +626,4 @@ check_kex_strict(Sock) ->
             ct:log("KEX strict supported by local OpenSSH"),
             true
     end.
+
