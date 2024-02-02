@@ -250,7 +250,7 @@ internal path is set to the loader, this path is used to find the file.
 the file as a binary.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
 information about archive files, see `m:code`.
 """.
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
@@ -268,7 +268,7 @@ otherwise `error`. `Filenames` is a list of the names of all the files in the
 directory. The names are not sorted.
 
 `Dir` can also be a directory in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
 archive files, see `m:code`.
 """.
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
@@ -282,7 +282,7 @@ Reads a file using the low-level loader. Returns `{ok, Bin}` if successful,
 otherwise `error`. `Bin` is the contents of the file as a binary.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
 information about archive files, see `m:code`.
 """.
 -doc(#{since => <<"OTP 27.0.0">>}).
@@ -305,7 +305,7 @@ which the function is called:
 For more information about the record `file_info`, see `m:file`.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia`. For information
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia`. For information
 about archive files, see `m:code`.
 """.
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
