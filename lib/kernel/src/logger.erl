@@ -1674,7 +1674,7 @@ add_handlers(kernel) ->
 add_handlers(App) when is_atom(App) ->
     add_handlers(App,get_logger_env(App));
 add_handlers(HandlerConfig) ->
-    add_handlers(application:get_application(),HandlerConfig).
+    add_handlers(undefined,HandlerConfig).
 
 add_handlers(App,HandlerConfig) ->
     try
