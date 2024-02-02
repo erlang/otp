@@ -31,7 +31,8 @@
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/0, upgrade/1,
-	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
+	 sticky_dir/1, add_del_path/1,
+         pa_pz_option/1, remove_pa_pz_option/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
@@ -67,7 +68,8 @@ all() ->
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
      upgrade, code_path_cache,
-     sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
+     pa_pz_option, remove_pa_pz_option,
+     sticky_dir, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
@@ -838,6 +840,16 @@ pa_pz_option(Config) when is_list(Config) ->
     [PaDir|Paths2] = Ret2,
     [PzDir|_] = lists:reverse(Paths2),
     peer:stop(Peer2).
+
+%% Test that we can remove paths added via -pa and -pz.
+remove_pa_pz_option(Config) when is_list(Config) ->
+    DDir = proplists:get_value(data_dir,Config),
+    PaDir = filename:join(DDir,"clash/foobar-0.1/ebin"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", PaDir]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [blarg]),
+    true = rpc:call(Node, code, del_path, [PaDir]),
+    error = rpc:call(Node, code, get_object_code, [blarg]),
+    peer:stop(Peer).
 
 %% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->

@@ -1219,12 +1219,8 @@ mod_to_bin([{Dir, CacheKey}|Tail], ModFile, Cache) when is_integer(CacheKey) ->
         {false, Cache1} ->
             mod_to_bin(Tail, ModFile, Cache1)
     end;
-mod_to_bin([], ModFile, Cache) ->
-    %% At last, try also erl_prim_loader's own method
-    case erl_prim_loader:get_file(ModFile) of
-        error -> {error, Cache};
-        {ok,Bin,FName} -> {Bin, absname(FName), Cache}
-    end.
+mod_to_bin([], _ModFile, Cache) ->
+    {error, Cache}.
 
 with_cache(CacheKey, Dir, ModFile, Cache) ->
     case Cache of
