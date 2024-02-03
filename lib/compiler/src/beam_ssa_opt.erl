@@ -497,6 +497,24 @@ merge_updates_bs([{LblA,
                    #b_blk{is=[#b_set{op=executable_line}]=IsB}=BlkB} | Bs0]) ->
     Bs = [{LblB,BlkB#b_blk{is=IsA}} | Bs0],
     [{LblA,BlkA#b_blk{is=IsB}} | merge_updates_bs(Bs)];
+merge_updates_bs([{LblA, BlkA}, {LblB, BlkB} | Bs]) ->
+    %% Try to merge creation of tuple followed by update_record.
+    maybe
+        #b_blk{is=[#b_set{op=update_record,
+                          dst=UpdateDst,
+                          args=[_,_,Dst|Updates]}]} ?= BlkB,
+        #b_blk{is=[_|_]=Is,
+               last=#b_br{bool=#b_literal{val=true},
+                          succ=LblB}} ?= BlkA,
+        #b_set{op=put_tuple,dst=Dst,args=Args0}=PutTuple0 ?= last(Is),
+        Args = merge_tuple_update(Updates, Args0),
+        PutTuple = PutTuple0#b_set{dst=UpdateDst,args=Args},
+        [{LblA, BlkA}, {LblB, BlkB#b_blk{is=[PutTuple]}} |
+         merge_updates_bs(Bs)]
+    else
+        _ ->
+            [{LblA, BlkA} | merge_updates_bs([{LblB, BlkB} | Bs])]
+    end;
 merge_updates_bs([{Lbl, Blk} | Bs]) ->
     [{Lbl, Blk} | merge_updates_bs(Bs)];
 merge_updates_bs([]) ->
@@ -507,7 +525,16 @@ merge_update_record_lists([Index, Value | List], Updates) ->
 merge_update_record_lists([], Updates) ->
     maps:fold(fun(K, V, Acc) ->
                       [K, V | Acc]
-              end, [], Updates).
+              end, [], maps:iterator(Updates, reversed)).
+
+merge_tuple_update(Updates, Args) ->
+    merge_tuple_update_1(Updates, list_to_tuple(Args)).
+
+merge_tuple_update_1([#b_literal{val=Position}, Val | Updates], Tuple0) ->
+    Tuple = setelement(Position, Tuple0, Val),
+    merge_tuple_update_1(Updates, Tuple);
+merge_tuple_update_1([], Tuple) ->
+    tuple_to_list(Tuple).
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
