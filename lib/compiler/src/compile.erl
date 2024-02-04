@@ -1201,13 +1201,27 @@ runner(#compile{options=Opts}) ->
                false ->
                    Run0
            end,
-    case keyfind(eprof, 1, Opts) of
-        {eprof,EprofPass} ->
+    case keyfind(call_time, 1, Opts) of
+        {call_time,Pass} ->
             fun(P, Code, St) ->
-                    run_eprof(P, Code, EprofPass, St)
+                run_tprof(P, Code, Pass, call_time, St)
             end;
         false ->
-            Run1
+            case keyfind(call_memory, 1, Opts) of
+                {call_memory,Pass} ->
+                    fun(P, Code, St) ->
+                        run_tprof(P, Code, Pass, call_memory, St)
+                    end;
+                false ->
+                    case keyfind(eprof, 1, Opts) of
+                        {eprof,EprofPass} ->
+                            fun(P, Code, St) ->
+                                run_eprof(P, Code, EprofPass, St)
+                            end;
+                        false ->
+                            Run1
+                    end
+            end
     end.
 
 run_tc({Name,Fun}, Code, St) ->
@@ -1269,6 +1283,17 @@ run_eprof({Name,Fun}, Code, Name, St) ->
         c:appcall(tools, eprof, analyze, [])
     end;
 run_eprof({_,Fun}, Code, _, St) ->
+    Fun(Code, St).
+
+run_tprof({Name,Fun}, Code, Name, Measurement, St) ->
+    io:format("~p: Profiling ~ts\n", [Name, Measurement]),
+    Opts = #{type => Measurement, report => return},
+    Args = [erlang, apply, [Fun, [Code, St]], Opts],
+    {Result, ProfileData} = c:appcall(tools, tprof, profile, Args),
+    InspectData = c:appcall(tools, tprof, inspect, [ProfileData]),
+    c:appcall(tools, tprof, format, [InspectData]),
+    Result;
+run_tprof({_,Fun}, Code, _, _, St) ->
     Fun(Code, St).
 
 comp_ret_ok(Code, #compile{warnings=Warn0,module=Mod,options=Opts}=St) ->

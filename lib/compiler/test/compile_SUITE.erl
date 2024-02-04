@@ -140,6 +140,8 @@ file_1(Config) when is_list(Config) ->
 
     {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
     {ok,simple} = compile:file(Simple, [{eprof,beam_z}]), %Coverage
+    {ok,simple} = compile:file(Simple, [{call_time,beam_z}]), %Coverage
+    {ok,simple} = compile:file(Simple, [{call_memory,beam_z}]), %Coverage
 
     %% Cover option not in a list (undocumented feature).
     {ok,simple} = compile:file(Simple, no_postopt),
