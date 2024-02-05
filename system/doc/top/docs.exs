@@ -42,7 +42,18 @@
     "net:call/4",
     "net:cast/4",
     "net:ping/1",
-    "net:sleep/1"
+    "net:sleep/1",
+    "zlib:adler32/2",
+    "zlib:adler32/3",
+    "zlib:adler32_combine/4",
+    "zlib:crc32/1",
+    "zlib:crc32/2",
+    "zlib:crc32/3",
+    "zlib:crc32_combine/4",
+    "zlib:getBufSize/1",
+    "zlib:inflateChunk/1",
+    "zlib:inflateChunk/2",
+    "zlib:setBufSize/2"
   ],
   skip_undefined_reference_warnings_on: ["../general_info/removed.md"]
 ]
