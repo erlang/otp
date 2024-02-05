@@ -129,7 +129,7 @@ get(_Ref, _Ix) ->
 add(_Ref, _Ix, _Incr) ->
     erlang:nif_error(undef).
 
--doc "Atomic addition and return of the result.".
+-doc "Atomically add `Incr` to atomic and return the result.".
 -doc(#{since => <<"OTP 21.2">>}).
 -spec add_get(Ref, Ix, Incr) -> integer() when
       Ref  :: atomics_ref(),
@@ -152,7 +152,7 @@ sub(Ref, Ix, Decr) ->
             error_with_info(Error, [Ref, Ix, Decr])
     end.
 
--doc "Atomic subtraction and return of the result.".
+-doc "Atomically subtract `Decr` from atomic and return the result.".
 -doc(#{since => <<"OTP 21.2">>}).
 -spec sub_get(Ref, Ix, Decr) -> integer() when
       Ref  :: atomics_ref(),
@@ -167,8 +167,7 @@ sub_get(Ref, Ix, Decr) ->
     end.
 
 -doc """
-Atomically replaces the value of the atomic with `Desired` and returns the value
-it held previously.
+Atomically replace the value of the atomic with `Desired` and return the previous value.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec exchange(Ref, Ix, Desired) -> integer() when
@@ -179,9 +178,11 @@ exchange(_Ref, _Ix, _Desired) ->
     erlang:nif_error(undef).
 
 -doc """
-Atomically compares the atomic with `Expected`, and if those are equal, set
-atomic to `Desired`. Returns `ok` if `Desired` was written. Returns the actual
-atomic value if not equal to `Expected`.
+Atomically compare the atomic with `Expected`, and if those are equal, set
+atomic to `Desired`.
+
+Return `ok` if `Desired` was written. Return the actual atomic value if
+not equal to `Expected`.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec compare_exchange(Ref, Ix, Expected, Desired) -> ok | integer() when
@@ -193,15 +194,13 @@ compare_exchange(_Ref, _Ix, _Expected, _Desired) ->
     erlang:nif_error(undef).
 
 -doc """
-Return information about an atomic array in a map. The map has the following
-keys:
+Return information about an atomic array in a map.
+
+The map has the following keys:
 
 - **`size`** - The number of atomics in the array.
-
 - **`max`** - The highest possible value an atomic in this array can hold.
-
 - **`min`** - The lowest possible value an atomic in this array can hold.
-
 - **`memory`** - Approximate memory consumption for the array in bytes.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
