@@ -64,6 +64,7 @@ del_dirs/1,
 del_dir_contents/1,
 do_del_files/2,
 openssh_sanity_check/1,
+verify_sanity_check/1,
 default_algorithms/1,
 default_algorithms/3,
 default_algorithms/2,
@@ -132,6 +133,13 @@ event_logged/3
 -include("ssh_transport.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
+
+-define(SANITY_CHECK_NOTE,
+        "For enabling test, make sure following commands work:~n"
+        "ok = ssh:start(), "
+        "{ok, _} = ssh:connect(\"localhost\", 22, "
+        "[{password,\"\"},{silently_accept_hosts, true}, "
+        "{save_accepted_host, false}, {user_interaction, false}]).").
 
 %%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
@@ -566,7 +574,6 @@ do_del_files(Dir, Files) ->
                           end
                   end, Files).
 
-
 openssh_sanity_check(Config) ->
     ssh:start(),
     case ssh:connect("localhost", ?SSH_DEFAULT_PORT,
@@ -578,11 +585,24 @@ openssh_sanity_check(Config) ->
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
-	    Config;
+	    [{sanity_check_result, ok} | Config];
 	Err ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
+            ct:log("Error = ~p", [Err]),
+            ct:log(?SANITY_CHECK_NOTE),
 	    ssh:stop(),
-	    {skip, Str}
+	    [{sanity_check_result, Str} | Config]
+    end.
+
+verify_sanity_check(Config) ->
+    SanityCheckResult = proplists:get_value(sanity_check_result, Config, ok),
+    case SanityCheckResult of
+        ok ->
+            Config;
+        Err ->
+            ct:log("Error = ~p", [Err]),
+            ct:log(?SANITY_CHECK_NOTE),
+            {fail, passwordless_connection_failed}
     end.
 
 %%%--------------------------------------------------------------------
