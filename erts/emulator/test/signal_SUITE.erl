@@ -39,6 +39,7 @@
          kill2killed/1,
          contended_signal_handling/1,
          dirty_signal_handling_race/1,
+         dirty_signal_handling_race_dirty_access/1,
          dirty_signal_handling/1,
          busy_dist_exit_signal/1,
          busy_dist_demonitor_signal/1,
@@ -92,6 +93,7 @@ all() ->
      kill2killed,
      contended_signal_handling,
      dirty_signal_handling_race,
+     dirty_signal_handling_race_dirty_access,
      dirty_signal_handling,
      busy_dist_exit_signal,
      busy_dist_demonitor_signal,
@@ -366,6 +368,88 @@ dirty_signal_handling_race(Config) ->
         exit(Port, kill),
         false = erlang:is_process_alive(Pid)
     after
+        ok = erl_ddll:unload_driver(Drv)
+    end,
+    ok.
+
+dirty_signal_handling_race_dirty_access(Config) ->
+    %% This test case trigger more or less the same
+    %% problematic scenario as the contended_signal_handling
+    %% and dirty_signal_handling_race, but when a dirty
+    %% scheduler access the signal queue.
+    dirty_signal_handling_race_dirty_access_test(Config).
+
+dirty_signal_handling_race_dirty_access_test(Config) ->
+    Tester = self(),
+    move_dirty_signal_handlers_to_first_scheduler(),
+    {S0, S1} = case erlang:system_info(schedulers_online) of
+                   1 -> {1, 1};
+                   2 -> {2, 1};
+                   SOnln -> {SOnln, SOnln-1}
+               end,
+    process_flag(priority, high),
+    process_flag(scheduler, S0),
+    erts_debug:set_internal_state(available_internal_state, true),
+    Drv = unlink_signal_drv,
+    ok = load_driver(Config, Drv),
+    DCpuOnln = erlang:system_flag(dirty_cpu_schedulers_online, 1),
+    try
+        _ = process_flag(fullsweep_after, 0),
+        Data = lists:seq(1, 1000000),
+        %% {parallelism, true} option will ensure that each
+        %% signal to the port from a process is scheduled which
+        %% forces the process to release its main lock when
+        %% sending the signal...
+        Port = open_port({spawn, Drv}, [{parallelism, true}]),
+        true = is_port(Port),
+        %% The {alias, reply_demonitor} option will trigger a
+        %% 'demonitor' signal from Tester to the port when an
+        %% alias message sent using the alias is received by
+        %% Tester...
+        MA1 = erlang:monitor(port, Port, [{alias, reply_demonitor}]),
+        P0 = spawn_link(fun () ->
+                                erlang:yield(),
+                                Tester ! {self(), going_dirty},
+                                erts_debug:dirty_cpu(wait, 1000)
+                        end),
+        receive {P0, going_dirty} -> ok end,
+        P1 = spawn_opt(fun () ->
+                               receive after 500 -> ok end,
+                               %% The 'proc_sig_block' test signal will cause
+                               %% dirty signal handling to start and be
+                               %% blocked in the signal handling.
+                               erts_debug:set_internal_state(proc_sig_block,
+                                                             {Tester, 1000}),
+                               %% Tester will be stuck waiting for main lock
+                               %% when being scheduled in for dirty GC. When
+                               %% the following alias message is handled by
+                               %% the dirty signal handler Tester will be
+                               %% able to aquire the main lock and begin
+                               %% execution while the dirt signal handler
+                               %% still is not finnished.
+                               MA1 ! {MA1, trigger_demonitor_port_please},
+                               ok
+                       end, [link, {scheduler, S1}]),
+        receive after 250 -> ok end,
+        %% Do a GC. It will be performed on a dirty scheduler due to
+        %% the amount of data on the heap. Since we only got one dirty
+        %% cpu scheduler online, we will be stuck in dirty cpu runq until
+        %% P0 is done
+        garbage_collect(), %% Dirty GC due to Data
+        receive
+            {'DOWN', MA1, port, Port, _} -> ct:fail(unexpected_port_down);
+            {MA1, trigger_demonitor_port_please} -> ok
+        end,
+        unlink(P1),
+        unlink(Port),
+        exit(P0, kill),
+        exit(P1, kill),
+        exit(Port, kill),
+        false = erlang:is_process_alive(P0),
+        false = erlang:is_process_alive(P1),
+        _ = id(Data)
+    after
+        erlang:system_flag(dirty_cpu_schedulers_online, DCpuOnln),
         ok = erl_ddll:unload_driver(Drv)
     end,
     ok.
@@ -1548,3 +1632,7 @@ busy_wait_until(Fun) ->
         true -> ok;
         _ -> busy_wait_until(Fun)
     end.
+
+id(X) ->
+    X.
+
