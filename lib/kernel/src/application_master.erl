@@ -25,7 +25,7 @@
 -export([get_child/1]).
 
 %% Internal exports
--export([init/4, start_it/4]).
+-export([init/3, start_it/4]).
 
 -include("application_master.hrl").
 
@@ -40,9 +40,8 @@
 %% Returns: {ok, Pid} | {error, Reason} (Pid is unregistered)
 %%-----------------------------------------------------------------
 start_link(ApplData, Type) ->
-    Parent = whereis(application_controller),
     proc_lib:start_link(application_master, init,
-			[Parent, self(), ApplData, Type]).
+			[self(), ApplData, Type]).
 
 start_type() ->
     group_leader() ! {start_type, self()},
@@ -115,8 +114,9 @@ call(AppMaster, Req) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 %%%-----------------------------------------------------------------
-init(Parent, Starter, ApplData, Type) ->
-    link(Parent),
+init(Parent, ApplData, Type) ->
+    %% Unblock the parent process as soon as possible
+    proc_lib:init_ack(Parent, {ok, self()}),
     process_flag(trap_exit, true),
     OldGleader =
         case group_leader() == whereis(init) of
@@ -136,12 +136,13 @@ init(Parent, Starter, ApplData, Type) ->
     case start_it(State, Type) of
 	{ok, Pid} ->          % apply(M,F,A) returned ok
 	    ok = set_timer(ApplData#appl_data.maxT),
-	    unlink(Starter),
-	    proc_lib:init_ack(Starter, {ok,self()}),
+	    gen_server:cast(Parent, {application_started, Name, {ok, self()}}),
 	    main_loop(Parent, State#state{child = Pid});
 	{error, Reason} ->    % apply(M,F,A) returned error
+	    gen_server:cast(Parent, {application_started, Name, {error, Reason}}),
 	    exit(Reason);
 	Else ->               % apply(M,F,A) returned erroneous
+	    gen_server:cast(Parent, {application_started, Name, {error, Else}}),
 	    exit(Else)
     end.
 

@@ -36,8 +36,8 @@
 	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
 
 %% Internal exports
--export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
-	 code_change/3, init_starter/4, get_loaded/1]).
+-export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	 code_change/3, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -696,14 +696,14 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, undefined} ->
-			    spawn_starter(From, Appl, S, normal),
+			    spawn_starter(Appl, S, normal),
 			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, {ok, Perms}} ->
 			    case lists:member({AppName, false}, Perms) of
 				false ->
-				    spawn_starter(From, Appl, S, normal),
+				    spawn_starter(Appl, S, normal),
 				    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 								  Starting],
 						      start_req = [{AppName, From} | Start_req]}};
@@ -781,16 +781,16 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, false, {value, Tuple}, false, false} ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
 		%% started but not running
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -1065,7 +1065,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 	    case Res of
 		start_it ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Type),
+		    spawn_starter(Appl, S, Type),
 		    {noreply, S};
 		{started, Node} ->
 		    handle_application_started(AppName, 
@@ -1081,7 +1081,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 			     start_req = Start_reqN}};
 		{takeover, _Node} = Takeover ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Takeover),
+		    spawn_starter(Appl, S, Takeover),
 		    NewStarting1 = keydelete(AppName, 1, Starting),
 		    NewStarting = [{AppName, RestartType, Takeover, From} | NewStarting1],
 		    {noreply, S#state{starting = NewStarting}};
@@ -1351,14 +1351,10 @@ check_start_cond(AppName, RestartType, Started, Running) ->
 		true ->
 		    {error, {already_started, AppName}};
 		false ->
-		    foreach(
-			fun(AppName2) ->
-			    case lists:keymember(AppName2, 1, Started) orelse
-				     lists:member(AppName2, Appl#appl.opt_apps) of
-				true -> ok;
-				false -> throw({error, {not_started, AppName2}})
-			    end
-		    end, Appl#appl.apps),
+                    case find_missing_dependency(Appl, Started) of
+                        {value, NotStarted} -> throw({error, {not_started, NotStarted}});
+                        false -> ok
+                    end,
 		    {ok, Appl}
 	    end;
 	false ->
@@ -1378,7 +1374,7 @@ do_start(AppName, RT, Type, From, S) ->
 	false ->
 	    {true, Appl} = get_loaded(AppName),
 	    Start_req = S#state.start_req,
-	    spawn_starter(undefined, Appl, S, Type),
+	    spawn_starter(Appl, S, Type),
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
@@ -1392,45 +1388,26 @@ do_start(AppName, RT, Type, From, S) ->
 	true -> % otherwise we're already starting the app...
 	    S
     end.
-    
-spawn_starter(From, Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [From, Appl, S, Type]).
 
-init_starter(_From, Appl, S, Type) ->
-    process_flag(trap_exit, true),
-    AppName = Appl#appl.name,
-    gen_server:cast(?AC, {application_started, AppName, 
-			  catch start_appl(Appl, S, Type)}).
+spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
+    gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
+spawn_starter(Appl, S, Type) ->
+    case find_missing_dependency(Appl, S#state.running) of
+        {value, NotRunning} ->
+            Reply = {info, {not_running, NotRunning}},
+            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
+        false ->
+            application_master:start_link(Appl#appl.appl_data, Type)
+    end.
 
-reply(undefined, _Reply) -> 
+reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
-start_appl(Appl, S, Type) ->
-    ApplData = Appl#appl.appl_data,
-    case ApplData#appl_data.mod of
-	[] ->
-	    {ok, undefined};
-	_ ->
-	    %% Name = ApplData#appl_data.name,
-	    Running = S#state.running,
-	    foreach(
-		fun(AppName) ->
-		    case lists:keymember(AppName, 1, Running) orelse
-			     lists:member(AppName, Appl#appl.opt_apps) of
-			true -> ok;
-			false -> throw({info, {not_running, AppName}})
-		    end
-		end, Appl#appl.apps),
-	    case application_master:start_link(ApplData, Type) of
-		{ok, _Pid} = Ok ->
-		    Ok;
-		{error, _Reason} = Error ->
-		    throw(Error)
-	    end
-    end.
+find_missing_dependency(Appl, Applications) ->
+    Pred = fun(AppName) -> not lists:keymember(AppName, 1, Applications) end,
+    lists:search(Pred, Appl#appl.apps -- Appl#appl.opt_apps).
 
-    
 %%-----------------------------------------------------------------
 %% Stop application locally.
 %%-----------------------------------------------------------------
