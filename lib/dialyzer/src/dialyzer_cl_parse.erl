@@ -330,6 +330,10 @@ warning_options_msg() ->
      warn about unknown functions and types when setting the exit
      status. When using Dialyzer from Erlang, warnings about unknown functions
      and types are returned.
+  -Wunknown
+     Warns about unknown functions and types when setting the exit
+     status (enabled by default). When using Dialyzer from Erlang, warnings about unknown functions
+     and types are returned.
   -Wunmatched_returns ***
      Include warnings for function calls which ignore a structured return
      value or do not match against one of many possible return value(s).
