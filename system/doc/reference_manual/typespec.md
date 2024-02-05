@@ -82,6 +82,7 @@ Hack. `t:any/0` and `t:dynamic/0` interact with
 same way, so Dialyzer doesn't distinguish between them.
 
 The set of predefined types and the syntax for types follows:
+{: #predefined }
 
 ```text
   Type :: any()                 %% The top type, the set of all Erlang terms
