@@ -378,7 +378,7 @@ supported_protocol_versions([_|_] = Vsns) ->
 	false ->
 	    case Vsns -- ['dtlsv1.2'] of
 		[] ->
-		    ?MIN_SUPPORTED_VERSIONS;
+		    ?MIN_DATAGRAM_SUPPORTED_VERSIONS;
 		NewVsns ->
 		    NewVsns
 	    end
