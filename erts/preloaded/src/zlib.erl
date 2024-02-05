@@ -74,27 +74,23 @@ Typical `Reason`s:
          inflateInit/1,inflateInit/2,inflateInit/3,
          inflateSetDictionary/2,inflateGetDictionary/1, inflateReset/1,
          inflate/2,inflate/3,inflateEnd/1,
-         inflateChunk/2,inflateChunk/1,
          safeInflate/2,
-         setBufSize/2,getBufSize/1,
-         crc32/1,crc32/2,crc32/3,adler32/2,adler32/3,
-         crc32_combine/4,adler32_combine/4,
          compress/1,uncompress/1,zip/1,unzip/1,
          gzip/1,gunzip/1]).
 
 -export([on_load/0]).
 
--deprecated([{inflateChunk, 1, "use safeInflate/2 instead"},
-             {inflateChunk, 2, "use safeInflate/2 instead"},
-             {getBufSize, 1, "this function will be removed in a future release"},
-             {setBufSize, 2, "this function will be removed in a future release"},
-             {crc32, 1, "use erlang:crc32/1 on the uncompressed data instead"},
-             {crc32, 2, "use erlang:crc32/1 instead"},
-             {crc32, 3, "use erlang:crc32/2 instead"},
-             {adler32, 2, "use erlang:adler32/1 instead"},
-             {adler32, 3, "use erlang:adler32/2 instead"},
-             {crc32_combine, 4, "use erlang:crc32_combine/3 instead"},
-             {adler32_combine, 4, "use erlang:adler_combine/3 instead"}]).
+-removed([{inflateChunk, 1, "use safeInflate/2 instead"},
+          {inflateChunk, 2, "use safeInflate/2 instead"},
+          {getBufSize, 1, "this function has been removed"},
+          {setBufSize, 2, "this function has been removed"},
+          {crc32, 1, "use erlang:crc32/1 on the uncompressed data instead"},
+          {crc32, 2, "use erlang:crc32/1 instead"},
+          {crc32, 3, "use erlang:crc32/2 instead"},
+          {adler32, 2, "use erlang:adler32/1 instead"},
+          {adler32, 3, "use erlang:adler32/2 instead"},
+          {crc32_combine, 4, "use erlang:crc32_combine/3 instead"},
+          {adler32_combine, 4, "use erlang:adler_combine/3 instead"}]).
 
 -export_type([zstream/0, zflush/0, zlevel/0, zwindowbits/0, zmemlevel/0,
               zstrategy/0]).
@@ -103,9 +99,9 @@ Typical `Reason`s:
        deflateSetDictionary_nif/2, deflateReset_nif/1, deflateEnd_nif/1,
        deflateParams_nif/3, deflate_nif/4, inflateInit_nif/3,
        inflateSetDictionary_nif/2, inflateGetDictionary_nif/1,
-       inflateReset_nif/1, inflateEnd_nif/1, inflate_nif/4, crc32_nif/1,
-       getStash_nif/1, clearStash_nif/1, setStash_nif/2, getBufSize_nif/1,
-       setBufSize_nif/2, enqueue_nif/2]).
+       inflateReset_nif/1, inflateEnd_nif/1, inflate_nif/4,
+       getStash_nif/1, clearStash_nif/1, setStash_nif/2,
+       enqueue_nif/2]).
 
 %% flush argument encoding
 -define(Z_NO_FLUSH,      0).
@@ -601,89 +597,10 @@ inflate_opts() ->
         flush = arg_flush(none)
     }.
 
--doc """
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> [`safeInflate/2` ](`safeInflate/2`)instead.
-
-Like `inflate/2`, but decompresses no more data than will fit in the buffer
-configured through [`setBufSize/2` ](`setBufSize/2`). Is is useful when
-decompressing a stream with a high compression ratio, such that a small amount
-of compressed input can expand up to 1000 times.
-
-This function returns `{more, Decompressed}`, when there is more output
-available, and `inflateChunk/1` is to be used to read it.
-
-This function can introduce some output latency (reading input without producing
-any output).
-
-An exception will be thrown if a preset dictionary is required for further
-decompression. See `inflateSetDictionary/2` for details.
-
-Example:
-
-```erlang
-walk(Compressed, Handler) ->
-    Z = zlib:open(),
-    zlib:inflateInit(Z),
-    % Limit single uncompressed chunk size to 512kb
-    zlib:setBufSize(Z, 512 * 1024),
-    loop(Z, Handler, zlib:inflateChunk(Z, Compressed)),
-    zlib:inflateEnd(Z),
-    zlib:close(Z).
-
-loop(Z, Handler, {more, Uncompressed}) ->
-    Handler(Uncompressed),
-    loop(Z, Handler, zlib:inflateChunk(Z));
-loop(Z, Handler, Uncompressed) ->
-    Handler(Uncompressed).
-```
-""".
--doc(#{since => <<"OTP 18.0">>}).
--spec inflateChunk(Z, Data) -> Decompressed | {more, Decompressed} when
-      Z :: zstream(),
-      Data :: iodata(),
-      Decompressed :: iolist().
-inflateChunk(Z, Data) ->
-    enqueue_input(Z, Data),
-    inflateChunk(Z).
-
--doc """
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> [`safeInflate/2` ](`safeInflate/2`)instead.
-
-Reads the next chunk of uncompressed data, initialized by `inflateChunk/2`.
-
-This function is to be repeatedly called, while it returns
-`{more, Decompressed}`.
-""".
--doc(#{since => <<"OTP 18.0">>}).
--spec inflateChunk(Z) -> Decompressed | {more, Decompressed} when
-      Z :: zstream(),
-      Decompressed :: iolist().
-inflateChunk(Z) ->
-    Opts0 = inflate_opts(),
-    Opts = Opts0#zlib_opts { output_chunk_size = getBufSize(Z) },
-
-    Result0 = dequeue_next_chunk(Z, Opts),
-    Result1 = exception_on_need_dict(Z, Result0),
-    yield_inflateChunk(Z, Result1).
-
-yield_inflateChunk(_Z, {continue, Output}) ->
-    {more, lists:flatten(Output)};
-yield_inflateChunk(_Z, {finished, Output}) ->
-    lists:flatten(Output).
-
 exception_on_need_dict(Z, {need_dictionary, Adler, Output}) ->
     Progress = restore_progress(Z, inflate),
     save_progress(Z, inflate, append_iolist(Progress, Output)),
     erlang:error({need_dictionary, Adler});
-exception_on_need_dict(Z, {Mark, Output}) ->
-    Progress = restore_progress(Z, inflate),
-    {Mark, append_iolist(Progress, Output)};
 exception_on_need_dict(Z, Output) when is_list(Output); is_binary(Output) ->
     Progress = restore_progress(Z, inflate),
     append_iolist(Progress, Output).
@@ -746,189 +663,6 @@ inflateEnd(Z) ->
     inflateEnd_nif(Z).
 inflateEnd_nif(_Z) ->
     erlang:nif_error(undef).
-
--doc """
-Sets the intermediate buffer size.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release.
-""".
--spec setBufSize(Z, Size) -> 'ok' when
-      Z :: zstream(),
-      Size :: non_neg_integer().
-setBufSize(Z, Size) when is_integer(Size), Size > 16, Size < (1 bsl 24) ->
-    setBufSize_nif(Z, Size);
-setBufSize(_Z, _Size) ->
-    erlang:error(badarg).
-setBufSize_nif(_Z, _Size) ->
-    erlang:nif_error(undef).
-
--doc """
-Gets the size of the intermediate buffer.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release.
-""".
--spec getBufSize(Z) -> non_neg_integer() when
-      Z :: zstream().
-getBufSize(Z) ->
-    getBufSize_nif(Z).
-getBufSize_nif(_Z) ->
-    erlang:nif_error(undef).
-
--doc """
-Gets the current calculated CRC checksum.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:crc32/1` on the uncompressed data instead.
-""".
--spec crc32(Z) -> CRC when
-      Z :: zstream(),
-      CRC :: non_neg_integer().
-crc32(Z) ->
-    crc32_nif(Z).
-crc32_nif(_Z) ->
-    erlang:nif_error(undef).
-
--doc """
-Calculates the CRC checksum for `Data`.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:crc32/1` instead.
-""".
--spec crc32(Z, Data) -> CRC when
-      Z :: zstream(),
-      Data :: iodata(),
-      CRC :: non_neg_integer().
-crc32(Z, Data) when is_reference(Z) ->
-    erlang:crc32(Data);
-crc32(_Z, _Data) ->
-    erlang:error(badarg).
-
--doc """
-Updates a running CRC checksum for `Data`. If `Data` is the empty binary or the
-empty iolist, this function returns the required initial value for the CRC.
-
-Example:
-
-```erlang
-Crc = lists:foldl(fun(Data,Crc0) ->
-                      zlib:crc32(Z, Crc0, Data),
-                  end, zlib:crc32(Z,<< >>), Datas)
-```
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:crc32/2` instead.
-""".
--spec crc32(Z, PrevCRC, Data) -> CRC when
-      Z :: zstream(),
-      PrevCRC :: non_neg_integer(),
-      Data :: iodata(),
-      CRC :: non_neg_integer().
-crc32(Z, CRC, Data) when is_reference(Z) ->
-    erlang:crc32(CRC, Data);
-crc32(_Z, _CRC, _Data) ->
-    erlang:error(badarg).
-
--doc """
-Combines two CRC checksums into one. For two binaries or iolists, `Data1` and
-`Data2` with sizes of `Size1` and `Size2`, with CRC checksums `CRC1` and `CRC2`.
-
-This function returns the `CRC` checksum of `[Data1,Data2]`, requiring only
-`CRC1`, `CRC2`, and `Size2`.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:crc32_combine/3` instead.
-""".
--spec crc32_combine(Z, CRC1, CRC2, Size2) -> CRC when
-      Z :: zstream(),
-      CRC :: non_neg_integer(),
-      CRC1 :: non_neg_integer(),
-      CRC2 :: non_neg_integer(),
-      Size2 :: non_neg_integer().
-crc32_combine(Z, CRC1, CRC2, Size2) when is_reference(Z) ->
-    erlang:crc32_combine(CRC1, CRC2, Size2);
-crc32_combine(_Z, _CRC1, _CRC2, _Size2) ->
-    erlang:error(badarg).
-
--doc """
-Calculates the Adler-32 checksum for `Data`.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:adler32/1` instead.
-""".
--spec adler32(Z, Data) -> CheckSum when
-      Z :: zstream(),
-      Data :: iodata(),
-      CheckSum :: non_neg_integer().
-adler32(Z, Data) when is_reference(Z) ->
-    erlang:adler32(Data);
-adler32(_Z, _Data) ->
-    erlang:error(badarg).
-
--doc """
-Updates a running Adler-32 checksum for `Data`. If `Data` is the empty binary or
-the empty iolist, this function returns the required initial value for the
-checksum.
-
-Example:
-
-```erlang
-Crc = lists:foldl(fun(Data,Crc0) ->
-                      zlib:adler32(Z, Crc0, Data),
-                  end, zlib:adler32(Z,<< >>), Datas)
-```
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:adler32/2` instead.
-""".
--spec adler32(Z, PrevAdler, Data) -> CheckSum when
-      Z :: zstream(),
-      PrevAdler :: non_neg_integer(),
-      Data :: iodata(),
-      CheckSum :: non_neg_integer().
-adler32(Z, Adler, Data) when is_reference(Z) ->
-    erlang:adler32(Adler, Data);
-adler32(_Z, _Adler, _Data) ->
-    erlang:error(badarg).
-
--doc """
-Combines two Adler-32 checksums into one. For two binaries or iolists, `Data1`
-and `Data2` with sizes of `Size1` and `Size2`, with Adler-32 checksums `Adler1`
-and `Adler2`.
-
-This function returns the `Adler` checksum of `[Data1,Data2]`, requiring only
-`Adler1`, `Adler2`, and `Size2`.
-
-> #### Warning {: .warning }
->
-> This function is deprecated and will be removed in a future release. Use
-> `erlang:adler32_combine/3` instead.
-""".
--spec adler32_combine(Z, Adler1, Adler2, Size2) -> Adler when
-      Z :: zstream(),
-      Adler :: non_neg_integer(),
-      Adler1 :: non_neg_integer(),
-      Adler2 :: non_neg_integer(),
-      Size2 :: non_neg_integer().
-adler32_combine(Z, Adler1, Adler2, Size2) when is_reference(Z) ->
-    erlang:adler32_combine(Adler1, Adler2, Size2);
-adler32_combine(_Z, _Adler1, _Adler2, _Size2) ->
-    erlang:error(badarg).
 
 %% compress/uncompress zlib with header
 -doc "Compresses data with zlib headers and checksum.".
