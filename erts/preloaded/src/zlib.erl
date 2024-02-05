@@ -318,8 +318,9 @@ deflateSetDictionary_nif(_Z, _Dictionary) ->
 
 -doc """
 Equivalent to `deflateEnd/1` followed by [`deflateInit/1,2,6`](`deflateInit/1`),
-but does not free and reallocate all the internal compression state. The stream
-keeps the same compression level and any other attributes.
+but does not free and reallocate all the internal compression state.
+
+The stream keeps the same compression level and any other attributes.
 """.
 -spec deflateReset(Z) -> 'ok' when
       Z :: zstream().
@@ -329,8 +330,9 @@ deflateReset_nif(_Z) ->
     erlang:nif_error(undef).
 
 -doc """
-Dynamically updates the compression level and compression strategy. The
-interpretation of `Level` and `Strategy` is as in `deflateInit/6`. This can be
+Dynamically updates the compression level and compression strategy.
+
+The interpretation of `Level` and `Strategy` is as in `deflateInit/6`. This can be
 used to switch between compression and straight copy of the input data, or to
 switch to a different kind of input data requiring a different strategy. If the
 compression level is changed, the input available so far is compressed with the
@@ -369,7 +371,9 @@ deflate(Z, Data) ->
 
 -doc """
 Compresses as much data as possible, and stops when the input buffer becomes
-empty. It can introduce some output latency (reading input without producing any
+empty.
+
+It can introduce some output latency (reading input without producing any
 output) except when forced to flush.
 
 If `Flush` is set to `sync`, all pending output is flushed to the output buffer
@@ -421,9 +425,10 @@ deflate_nif(_Z, _InputChSize, _OutputChSize, _Flush) ->
     erlang:nif_error(undef).
 
 -doc """
-Ends the deflate session and cleans all data used. Notice that this function
-throws a `data_error` exception if the last call to `deflate/3` was not called
-with `Flush` set to `finish`.
+Ends the deflate session and cleans all data used.
+
+Notice that this function throws a `data_error` exception if the last call to
+`deflate/3` was not called with `Flush` set to `finish`.
 """.
 -spec deflateEnd(Z) -> 'ok' when
       Z :: zstream().
@@ -470,7 +475,9 @@ inflateInit_nif(_Z, _WindowBits, _EoSBehavior) ->
 
 -doc """
 Initializes the decompression dictionary from the specified uncompressed byte
-sequence. This function must be called as a response to an inflate operation
+sequence.
+
+This function must be called as a response to an inflate operation
 (eg. `safeInflate/2`) returning `{need_dictionary,Adler,Output}` or in the case
 of deprecated functions, throwing an
 `{'EXIT',{{need_dictionary,Adler},_StackTrace}}` exception.
@@ -513,8 +520,9 @@ inflateSetDictionary_nif(_Z, _Dictionary) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the decompression dictionary currently in use by the stream. This
-function must be called between [`inflateInit/1,2`](`inflateInit/1`) and
+Returns the decompression dictionary currently in use by the stream.
+
+This function must be called between [`inflateInit/1,2`](`inflateInit/1`) and
 [`inflateEnd`](`inflateEnd/1`).
 
 Only supported if ERTS was compiled with zlib >= 1.2.8.
@@ -653,9 +661,10 @@ safeInflate(Z, Data) ->
     dequeue_next_chunk(Z, inflate_opts()).
 
 -doc """
-Ends the inflate session and cleans all data used. Notice that this function
-throws a `data_error` exception if no end of stream was found (meaning that not
-all data has been uncompressed).
+Ends the inflate session and cleans all data used.
+
+Notice that this function throws a `data_error` exception if no end of stream
+was found (meaning that not all data has been uncompressed).
 """.
 -spec inflateEnd(Z) -> 'ok' when
       Z :: zstream().

@@ -267,6 +267,7 @@ error
 
 -include_lib("kernel/include/file.hrl").
 
+-doc "Current status of init.".
 -type internal_status() :: 'starting' | 'started' | 'stopping'.
 -doc "Code loading mode.".
 -type mode() :: 'embedded' | 'interactive'.
@@ -341,8 +342,9 @@ get_plain_arguments() ->
     bs2ss(request(get_plain_arguments)).
 
 -doc """
-Returns all values associated with the command-line user flag `Flag`. If `Flag`
-is provided several times, each `Values` is returned in preserved order.
+Returns all values associated with the command-line user flag `Flag`.
+
+If `Flag` is provided several times, each `Values` is returned in preserved order.
 Example:
 
 ```erlang
@@ -385,9 +387,10 @@ get_argument(Arg) ->
     request({get_argument, Arg}).
 
 -doc """
-Gets the identity of the boot script used to boot the system. `Id` can be any
-Erlang term. In the delivered boot scripts, `Id` is `{Name, Vsn}`. `Name` and
-`Vsn` are strings.
+Gets the identity of the boot script used to boot the system.
+
+`Id` can be any Erlang term. In the delivered boot scripts, `Id` is `{Name, Vsn}`.
+`Name` and `Vsn` are strings.
 """.
 -spec script_id() -> Id when
       Id :: term().
@@ -430,11 +433,12 @@ bs2ss(L) ->
     L.
 
 -doc """
-The current status of the `init` process can be inspected. During system startup
-(initialization), `InternalStatus` is `starting`, and `ProvidedStatus` indicates
-how far the boot script has been interpreted. Each `{progress, Info}` term
-interpreted in the boot script affects `ProvidedStatus`, that is,
-`ProvidedStatus` gets the value of `Info`.
+The current status of the `init` process can be inspected.
+
+During system startup (initialization), `InternalStatus` is `starting`, and
+`ProvidedStatus` indicates how far the boot script has been interpreted. Each
+`{progress, Info}` term interpreted in the boot script affects `ProvidedStatus`,
+that is, `ProvidedStatus` gets the value of `Info`.
 """.
 -spec get_status() -> {InternalStatus, ProvidedStatus} when
       InternalStatus :: internal_status(),
@@ -484,6 +488,8 @@ request(Req) ->
 restart() -> restart([]).
 
 -doc """
+Restart all Erlang applications.
+
 The system is restarted _inside_ the running Erlang node, which means that the
 emulator is not restarted. All applications are taken down smoothly, all code is
 unloaded, and all ports are closed before the system is booted again in the same
@@ -506,10 +512,13 @@ restart(Opts) when is_list(Opts) ->
     erlang:error(badarg, [Opts]).
 
 -doc """
+Reboot the Erlang node.
+
 All applications are taken down smoothly, all code is unloaded, and all ports
-are closed before the system terminates. If command-line flag `-heart` was
-specified, the `heart` program tries to reboot the system. For more information,
-see `m:heart`.
+are closed before the system terminates.
+
+If command-line flag `-heart` was specified, the `heart` program tries to reboot
+ the system. For more information, see `m:heart`.
 
 To limit the shutdown time, the time `init` is allowed to spend taking down
 applications, command-line flag `-shutdown_time` is to be used.
@@ -522,6 +531,8 @@ reboot() -> init ! {stop,reboot}, ok.
 stop() -> init ! {stop,stop}, ok.
 
 -doc """
+Stop the Erlang node.
+
 All applications are taken down smoothly, all code is unloaded, and all ports
 are closed before the system terminates by calling [`halt(Status)`](`halt/1`).
 If command-line flag `-heart` was specified, the `heart` program is terminated
@@ -553,8 +564,9 @@ is_bytelist(_) -> false.
 stop_1(Status) -> init ! {stop,{stop,Status}}, ok.
 
 -doc """
-Starts the Erlang runtime system. This function is called when the emulator is
-started and coordinates system startup.
+Starts the Erlang runtime system.
+
+This function is called when the emulator is started and coordinates system startup.
 
 `BootArgs` are all command-line arguments except the emulator flags, that is,
 flags and plain arguments; see [`erl(1)`](erl_cmd.md).

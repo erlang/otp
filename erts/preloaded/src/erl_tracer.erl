@@ -14,7 +14,7 @@ as little work as possible in these functions.
 > All functions in this behavior must be implemented as NIFs. This limitation
 > can be removed in a future releases. An
 > [example tracer module NIF](`m:erl_tracer#example`) implementation is provided
-> at the end of this page.
+> below.
 
 > #### Warning {: .warning }
 >
@@ -197,8 +197,9 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                       | gc_major_start | gc_major_end.
 
 -doc """
-The different trace tags that the tracer is called with. Each trace tag is
-described in detail in [`Module:trace/5`](`c:trace/5`).
+The different trace tags that the tracer is called with.
+
+Each trace tag is described in detail in [`Module:trace/5`](`c:trace/5`).
 """.
 -type trace_tag() :: trace_tag_send()
                    | trace_tag_receive()
@@ -238,12 +239,13 @@ and is to contain all the data that is needed to generate the trace event.
 -type tracer_state() :: term().
 
 -doc """
-This callback is called whenever a tracepoint is triggered. It allows the tracer
-to decide whether a trace is to be generated or not. This check is made as early
-as possible to limit the amount of overhead associated with tracing. If `trace`
-is returned, the necessary trace data is created and the trace callback of the
-tracer is called. If `discard` is returned, this trace call is discarded and no
-call to trace is done.
+This callback is called whenever a tracepoint is triggered.
+
+It allows the tracer to decide whether a trace is to be generated or not. This
+check is made as early as possible to limit the amount of overhead associated
+with tracing. If `trace` is returned, the necessary trace data is created and
+the trace callback of the tracer is called. If `discard` is returned, this trace
+call is discarded and no call to trace is done.
 
 `trace_status` is a special type of `TraceTag`, which is used to check if the
 tracer is still to be active. It is called in multiple scenarios, but most
@@ -367,11 +369,12 @@ If [`enabled_send/3`](`c:enabled_send/3`) is undefined,
 
 -doc """
 This callback is called when a tracepoint is triggered and the
-[`Module:enabled/3`](`c:enabled/3`) callback returned `trace`. In it any side
-effects needed by the tracer are to be done. The tracepoint payload is located
-in the `TraceTerm`. The content of the `TraceTerm` depends on which `TraceTag`
-is triggered. `TraceTerm` corresponds to the fourth element in the trace tuples
-described in [`erlang:trace/3`](`m:erlang#trace_3_trace_messages`).
+[`Module:enabled/3`](`c:enabled/3`) callback returned `trace`.
+
+In it any side effects needed by the tracer are to be done. The tracepoint
+payload is located in the `TraceTerm`. The content of the `TraceTerm` depends on
+which `TraceTag` is triggered. `TraceTerm` corresponds to the fourth element in
+the trace tuples described in [`erlang:trace/3`](`m:erlang#trace_3_trace_messages`).
 
 If the trace tuple has five elements, the fifth element will be sent as the
 `extra` value in the `Opts` maps.

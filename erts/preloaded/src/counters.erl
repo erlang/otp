@@ -216,11 +216,11 @@ put(Ref, Ix, Value) ->
 
 
 -doc """
-Return information about a counter array in a map. The map has the following
-keys (at least):
+Return information about a counter array in a map.
+
+The map has the following keys (at least):
 
 - **`size`** - The number of counters in the array.
-
 - **`memory`** - Approximate memory consumption for the array in bytes.
 """.
 -doc(#{since => <<"OTP 21.2">>}).

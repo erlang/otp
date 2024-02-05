@@ -31,10 +31,8 @@
 
 -module(erl_prim_loader).
 -moduledoc """
-Low-level Erlang loader.
-
-This module is used to load all Erlang modules into the system. The start script
-is also fetched with this low-level loader.
+The low-level Erlang loader. This module is used to load all Erlang modules into
+the system. The start script is also fetched with this low-level loader.
 
 `erl_prim_loader` knows about the environment and how to fetch modules.
 
@@ -250,7 +248,7 @@ internal path is set to the loader, this path is used to find the file.
 the file as a binary.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
 information about archive files, see `m:code`.
 """.
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
@@ -263,12 +261,14 @@ get_file(File) ->
     check_file_result(get_file, File, request({get_file,File})).
 
 -doc """
-Lists all the files in a directory. Returns `{ok, Filenames}` if successful,
-otherwise `error`. `Filenames` is a list of the names of all the files in the
-directory. The names are not sorted.
+Lists all the files in a directory.
+
+Returns `{ok, Filenames}` if successful, otherwise `error`. `Filenames`
+is a list of the names of all the files in the directory. The names are
+not sorted.
 
 `Dir` can also be a directory in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
 archive files, see `m:code`.
 """.
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
@@ -278,11 +278,13 @@ list_dir(Dir) ->
     check_file_result(list_dir, Dir, client_or_request(list_dir, Dir)).
 
 -doc """
-Reads a file using the low-level loader. Returns `{ok, Bin}` if successful,
-otherwise `error`. `Bin` is the contents of the file as a binary.
+Reads a file using the low-level loader.
+
+Returns `{ok, Bin}` if successful, otherwise `error`. `Bin` is the contents
+of the file as a binary.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia.beam`. For
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
 information about archive files, see `m:code`.
 """.
 -doc(#{since => <<"OTP 27.0.0">>}).
@@ -293,19 +295,21 @@ read_file(File) ->
     check_file_result(read_file, File, client_or_request(read_file, File)).
 
 -doc """
-Retrieves information about a file. Returns `{ok, FileInfo}` if successful,
-otherwise `error`. `FileInfo` is a record `file_info`, defined in the Kernel
-include file `file.hrl`. Include the following directive in the module from
-which the function is called:
+Retrieves information about a file.
+
+Returns `{ok, FileInfo}` if successful, otherwise `error`. `FileInfo` is a
+record [`file_info`](`t:file:file_info/0`), defined in the Kernel include file
+ `file.hrl`. Include the following directive in the module from which the
+function is called:
 
 ```erlang
 -include_lib("kernel/include/file.hrl").
 ```
 
-For more information about the record `file_info`, see `m:file`.
+For more information about the record see `file:read_file_info/2`.
 
 `Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/``mnesia-4.4.7.ez/mnesia-4.4.7/ebin/``mnesia`. For information
+`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia`. For information
 about archive files, see `m:code`.
 """.
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
@@ -316,8 +320,8 @@ read_file_info(File) ->
 
 -doc """
 Works like `read_file_info/1` except that if `Filename` is a symbolic link,
-information about the link is returned in the `file_info` record and the `type`
-field of the record is set to `symlink`.
+information about the link is returned in the [`file_info`](`t:file:file_info/0`)
+record and the `type` field of the record is set to `symlink`.
 
 If `Filename` is not a symbolic link, this function returns exactly the same
 result as [`read_file_info/1`](`read_file_info/1`). On platforms that do not

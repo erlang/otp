@@ -54,8 +54,9 @@ convert_xml(Application, Binary) when is_atom(Application) ->
 %% @hidden
 convert_xml(Application, Module, Binary) when is_atom(Application), is_atom(Module) ->
     put(application, atom_to_binary(Application)),
-    case xmerl_sax_parser:stream(Binary, [{event_fun, fun event/3},
-                                          {event_state, initial_state()}]) of
+    case xmerl_sax_parser:stream(iolist_to_binary(["<section>",Binary,"</section>"]),
+                                  [{event_fun, fun event/3},
+                                   {event_state, initial_state()}]) of
         {ok, Tree, _} ->
             convert_html(Application, Module, transform(get_dom(Tree), []))
     end.

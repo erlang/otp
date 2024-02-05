@@ -145,9 +145,10 @@ tables are stored as a single persistent term:
 -type value() :: term().
 
 -doc """
-Erase the name for the persistent term with key `Key`. The return value will be
-`true` if there was a persistent term with the key `Key`, and `false` if there
-was no persistent term associated with the key.
+Erase the name for the persistent term with key `Key`.
+
+The return value will be `true` if there was a persistent term with the key `Key`,
+and `false` if there was no persistent term associated with the key.
 
 If there existed a previous persistent term associated with key `Key`, a global
 GC has been initiated when [`erase/1`](`erase/1`) returns. See
@@ -161,8 +162,10 @@ erase(_Key) ->
     erlang:nif_error(undef).
 
 -doc """
-Retrieve the keys and values for all persistent terms. The keys will be copied
-to the heap for the process calling `get/0`, but the values will not.
+Retrieve the keys and values for all persistent terms.
+
+The keys will be copied to the heap for the process calling `get/0`,
+but the values will not.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec get() -> List when
@@ -171,8 +174,9 @@ get() ->
     erlang:nif_error(undef).
 
 -doc """
-Retrieve the value for the persistent term associated with the key `Key`. The
-lookup will be made in constant time and the value will not be copied to the
+Retrieve the value for the persistent term associated with the key `Key`.
+
+The lookup will be made in constant time and the value will not be copied to the
 heap of the calling process.
 
 This function fails with a `badarg` exception if no term has been stored with
@@ -190,8 +194,9 @@ get(_Key) ->
     erlang:nif_error(undef).
 
 -doc """
-Retrieve the value for the persistent term associated with the key `Key`. The
-lookup will be made in constant time and the value will not be copied to the
+Retrieve the value for the persistent term associated with the key `Key`.
+
+The lookup will be made in constant time and the value will not be copied to the
 heap of the calling process.
 
 This function returns `Default` if no term has been stored with the key `Key`.
@@ -209,8 +214,9 @@ get(_Key, _Default) ->
     erlang:nif_error(undef).
 
 -doc """
-Return information about persistent terms in a map. The map has the following
-keys:
+Return information about persistent terms in a map.
+
+The map has the following keys:
 
 - **`count`** - The number of persistent terms.
 
