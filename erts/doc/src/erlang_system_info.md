@@ -1,6 +1,7 @@
-Returns information about the current system. The documentation of this
-function is broken into the following sections in order to make it easier to
-navigate.
+Returns information about the current system.
+
+The documentation of this function is broken into the following sections in
+order to make it easier to navigate.
 
 - [`Memory Allocation`](`m:erlang#system_info/1-memory-allocation`) -
   [`allocated_areas`](`m:erlang#system_info_allocated_areas`),

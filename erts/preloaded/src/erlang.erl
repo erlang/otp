@@ -139,9 +139,9 @@ A binary or list containing bytes and/or iodata.
 This datatype is used to represent data that is meant to be output using
 any I/O module. For example: `file:write/2` or `gen_tcp:send/2`.
 
-To convert an iodata() term to binary() you can use
+To convert an `t:iodata/0` term to `t:binary/0` you can use
 [iolist_to_binary/2](`iolist_to_binary/1`). To transcode a `t:string/0` or
-`t:unicode:chardata/0` to iodata() you can use `unicode:characters_to_binary/1`.
+`t:unicode:chardata/0` to `t:iodata/0` you can use `unicode:characters_to_binary/1`.
 """.
 -type iodata() :: iolist() | binary().
 -doc """
@@ -667,8 +667,10 @@ adler32(_OldAdler, _Data) ->
 
 %% adler32_combine/3
 -doc """
-Combines two previously computed adler32 checksums. This computation requires
-the size of the data object for the second checksum to be known.
+Combines two previously computed adler32 checksums.
+
+This computation requires the size of the data object for the second checksum
+to be known.
 
 The following code:
 
@@ -696,10 +698,13 @@ adler32_combine(_FirstAdler, _SecondAdler, _SecondSize) ->
 %% append_element/2
 -doc """
 Returns a new tuple that has one element more than `Tuple1`, and contains the
-elements in `Tuple1` followed by `Term` as the last element. Semantically
-equivalent to
+elements in `Tuple1` followed by `Term` as the last element.
+
+Semantically equivalent to
 [`list_to_tuple(tuple_to_list(Tuple1) ++ [Term])`](`list_to_tuple/1`), but much
-faster. Example:
+faster.
+
+For example:
 
 ```erlang
 > erlang:append_element({one, two}, three).
@@ -730,8 +735,9 @@ atom_to_binary(Atom) ->
 
 %% atom_to_binary/2
 -doc """
-Returns a binary corresponding to the text representation of `Atom`. If
-`Encoding` is `latin1`, one byte exists for each character in the text
+Returns a binary corresponding to the text representation of `Atom`.
+
+If `Encoding` is `latin1`, one byte exists for each character in the text
 representation. If `Encoding` is `utf8` or `unicode`, the characters are encoded
 using UTF-8 where characters may require multiple bytes.
 
@@ -758,7 +764,9 @@ atom_to_binary(_Atom, _Encoding) ->
 %% atom_to_list/1
 -doc """
 Returns a list of unicode code points corresponding to the text representation
-of `Atom`, for example:
+of `Atom`.
+
+For example:
 
 ```erlang
 > atom_to_list('Erlang').
@@ -783,8 +791,9 @@ atom_to_list(_Atom) ->
 -doc """
 Extracts the part of the binary described by `PosLen`.
 
-Negative length can be used to extract bytes at the end of a binary, for
-example:
+Negative length can be used to extract bytes at the end of a binary. 
+
+For example:
 
 ```erlang
 1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
@@ -827,7 +836,7 @@ binary_part(_Subject, _Start, _Length) ->
     erlang:nif_error(undefined).
 
 %% binary_to_atom/1
--doc "The same as [`binary_to_atom` ](`binary_to_atom/2`)`(Binary, utf8)`.".
+-doc "The same as [`binary_to_atom(Binary, utf8)`](`binary_to_atom/2`).".
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec binary_to_atom(Binary) -> atom() when
@@ -885,8 +894,7 @@ binary_to_atom(_Binary, _Encoding) ->
 
 %% binary_to_existing_atom/1
 -doc """
-The same as [`binary_to_existing_atom`](`binary_to_existing_atom/2`)
-`(Binary, utf8)`.
+The same as [`binary_to_existing_atom(Binary, utf8)`](`binary_to_existing_atom/2`).
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
@@ -943,7 +951,9 @@ binary_to_existing_atom(_Binary, _Encoding) ->
 
 %% binary_to_float/1
 -doc """
-Returns the float whose text representation is `Binary`, for example:
+Returns the float whose text representation is `Binary`.
+
+For example:
 
 ```erlang
 > binary_to_float(<<"2.2017764e+0">>).
@@ -965,7 +975,9 @@ binary_to_float(_Binary) ->
 
 %% binary_to_integer/1
 -doc """
-Returns an integer whose text representation is `Binary`, for example:
+Returns an integer whose text representation is `Binary`.
+
+For example:
 
 ```erlang
 > binary_to_integer(<<"123">>).
@@ -998,8 +1010,9 @@ binary_to_integer(Binary) ->
 
 %% binary_to_integer/2
 -doc """
-Returns an integer whose text representation in base `Base` is `Binary`, for
-example:
+Returns an integer whose text representation in base `Base` is `Binary`.
+
+For example:
 
 ```erlang
 > binary_to_integer(<<"3FF">>, 16).
@@ -1232,7 +1245,10 @@ binary_to_term(_Binary) ->
 
 %% binary_to_term/2
 -doc """
-As [`binary_to_term/1`](`binary_to_term/1`), but takes these options:
+Equivalent to [`binary_to_term/1`](`binary_to_term/1`), but can be configured to
+fit special purposes.
+
+The allowed options are:
 
 - **`safe`** - Use this option when receiving binaries from an untrusted source.
 
@@ -1292,7 +1308,9 @@ binary_to_term(_Binary, _Opts) ->
 %% bit_size/1
 %% Shadowed by erl_bif_types: erlang:bit_size/1
 -doc """
-Returns an integer that is the size in bits of `Bitstring`, for example:
+Returns an integer that is the size in bits of `Bitstring`.
+
+For example:
 
 ```erlang
 > bit_size(<<433:16,3:3>>).
@@ -1309,9 +1327,12 @@ bit_size(_Bitstring) ->
 
 %% bitstring_to_list/1
 -doc """
-Returns a list of integers corresponding to the bytes of `Bitstring`. If the
-number of bits in the binary is not divisible by 8, the last element of the list
-is a bitstring containing the remaining 1-7 bits. Examples:
+Returns a list of integers corresponding to the bytes of `Bitstring`.
+
+If the number of bits in the binary is not divisible by 8, the last element of
+the list is a bitstring containing the remaining 1-7 bits.
+
+For example:
 
 ```erlang
 > bitstring_to_list(<<433:16>>).
@@ -1332,10 +1353,11 @@ bitstring_to_list(_Bitstring) ->
 %% bump_reductions/1
 -doc """
 This implementation-dependent function increments the reduction counter for the
-calling process. In the Beam emulator, the reduction counter is normally
-incremented by one for each function and BIF call. A context switch is forced
-when the counter reaches the maximum number of reductions for a process (4000
-reductions in Erlang/OTP 19.2 and later).
+calling process.
+
+In the Beam emulator, the reduction counter is normally incremented by one for
+each function and BIF call. A context switch is forced when the counter reaches
+the maximum number of reductions for a process (4000 reductions in Erlang/OTP 19.2 and later).
 
 > #### Warning {: .warning }
 >
@@ -1353,7 +1375,9 @@ bump_reductions(_Reductions) ->
 -doc """
 Returns an integer that is the number of bytes needed to contain `Bitstring`.
 That is, if the number of bits in `Bitstring` is not divisible by 8, the
-resulting number of bytes is rounded _up_. Examples:
+resulting number of bytes is rounded _up_.
+
+For example:
 
 ```erlang
 > byte_size(<<433:16,3:3>>).
@@ -1457,7 +1481,9 @@ cancel_timer(_TimerRef, _Options) ->
 %% ceil/1
 %% Shadowed by erl_bif_types: erlang:ceil/1
 -doc """
-Returns the smallest integer not less than `Number`. For example:
+Returns the smallest integer not less than `Number`.
+
+For example:
 
 ```erlang
 > ceil(5.5).
@@ -1618,8 +1644,10 @@ crc32(_OldCrc, _Data) ->
 
 %% crc32_combine/3
 -doc """
-Combines two previously computed crc32 checksums. This computation requires the
-size of the data object for the second checksum to be known.
+Combines two previously computed crc32 checksums.
+
+This computation requires the size of the data object for the second checksum
+to be known.
 
 The following code:
 
@@ -1650,7 +1678,9 @@ Returns the current date as `{Year, Month, Day}`.
 
 The time zone and Daylight Saving Time correction depend on the underlying OS.
 The return value is based on the
-[OS System Time](time_correction.md#os-system-time). Example:
+[OS System Time](time_correction.md#os-system-time).
+
+For example:
 
 ```erlang
 > date().
@@ -1854,8 +1884,9 @@ decode_packet(_Type, _Bin, _Options) ->
 
 %% delete_element/2
 -doc """
-Returns a new tuple with element at `Index` removed from tuple `Tuple1`, for
-example:
+Returns a new tuple with element at `Index` removed from tuple `Tuple1`.
+
+For example:
 
 ```erlang
 > erlang:delete_element(2, {one, two, three}).
@@ -1993,17 +2024,18 @@ demonitor(_MonitorRef, _OptionList) ->
 
 -doc(#{equiv => alias([])}).
 -doc(#{since => <<"OTP 24.0">>}).
+-doc #{ group => processes }.
 -spec alias() -> Alias when
       Alias :: reference().
-
 alias() ->
     erlang:alias([]).
 
 -doc """
 Create an alias which can be used when sending messages to the process that
 created the alias. When the alias has been deactivated, messages sent using the
-alias will be dropped. An alias can be deactivated using `unalias/1`. Currently
-available options for [`alias/1`](`alias/1`):
+alias will be dropped. An alias can be deactivated using `unalias/1`.
+
+Currently available options for [`alias/1`](`alias/1`):
 
 - **`explicit_unalias`** - The alias can only be deactivated via a call to
   [`unalias/1`](`unalias/1`). This is also the default behaviour if no options
@@ -2058,8 +2090,9 @@ alias(_Opts) ->
     erlang:nif_error(undefined).
 
 -doc """
-Deactivate the alias `Alias` previously created by the calling process. An alias
-can for example be created via `alias/0`, or `monitor/3`.
+Deactivate the alias `Alias` previously created by the calling process.
+
+An alias can, for example, be created via `alias/0` or `monitor/3`.
 [`unalias/1`](`unalias/1`) will always deactivate the alias regardless of
 options used when creating the alias.
 
@@ -2164,7 +2197,9 @@ dt_spread_tag(_Bool) ->
 
 %% erase/0
 -doc """
-Returns the process dictionary and deletes it, for example:
+Returns the process dictionary and deletes it.
+
+For example:
 
 ```erlang
 > put(key1, {1, 2, 3}),
@@ -2183,10 +2218,13 @@ erase() ->
 %% erase/1
 -doc """
 Returns the value `Val` associated with `Key` and deletes it from the process
-dictionary. Returns `undefined` if no value is associated with `Key`. The
-average time complexity for the current implementation of this function is
+dictionary. Returns `undefined` if no value is associated with `Key`.
+
+The average time complexity for the current implementation of this function is
 O(`1`) and the worst case time complexity is O(`N`), where `N` is the number of
-items in the process dictionary. Example:
+items in the process dictionary.
+
+For example:
 
 ```erlang
 > put(key1, {merry, lambs, are, playing}),
@@ -2205,8 +2243,9 @@ erase(_Key) ->
 %% error/1
 %% Shadowed by erl_bif_types: erlang:error/1
 -doc """
-Raises an exception of class `error` with the reason `Reason`. As evaluating
-this function causes an exception to be thrown, it has no return value.
+Raises an exception of class `error` with the reason `Reason`.
+
+As evaluating this function causes an exception to be thrown, it has no return value.
 
 The intent of the exception class `error` is to signal that an unexpected error
 has happened (for example, a function is called with a parameter that has an
@@ -2236,7 +2275,9 @@ error(_Reason) ->
 -doc """
 Raises an exception of class `error` with the reason `Reason`. `Args` is
 expected to be the list of arguments for the current function or the atom
-`none`. If it is a list, it is used to provide the arguments for the current
+`none`.
+
+If `Args` is a list, it is used to provide the arguments for the current
 function in the stack back-trace. If it is `none`, the arity of the calling
 function is used in the stacktrace. As evaluating this function causes an
 exception to be raised, it has no return value.
@@ -2280,7 +2321,9 @@ error(_Reason, _Args) ->
 -doc """
 Raises an exception of class `error` with the reason `Reason`. `Args` is
 expected to be the list of arguments for the current function or the atom
-`none`. If it is a list, it is used to provide the arguments for the current
+`none`.
+
+If `Args` is a list, it is used to provide the arguments for the current
 function in the stack back-trace. If it is `none`, the arity of the calling
 function is used in the stacktrace. As evaluating this function causes an
 exception to be raised, it has no return value.
@@ -2316,8 +2359,9 @@ error(_Reason, _Args, _Options) ->
 %% exit/1
 %% Shadowed by erl_bif_types: erlang:exit/1
 -doc """
-Raises an exception of class `exit` with exit reason `Reason`. As evaluating
-this function causes an exception to be raised, it has no return value.
+Raises an exception of class `exit` with exit reason `Reason`.
+
+As evaluating this function causes an exception to be raised, it has no return value.
 
 The intent of the exception class `exit` is that the current process should be
 stopped (for example when a message telling a process to stop is received).
@@ -2435,7 +2479,9 @@ exit_signal(_Pid, _Reason) ->
 %% external_size/1
 -doc """
 Calculates, without doing the encoding, the maximum byte size for a term encoded
-in the Erlang external term format. The following condition applies always:
+in the Erlang external term format.
+
+The following condition applies always:
 
 ```erlang
 > Size1 = byte_size(term_to_binary(Term)),
@@ -2460,7 +2506,9 @@ external_size(_Term) ->
 %% external_size/2
 -doc """
 Calculates, without doing the encoding, the maximum byte size for a term encoded
-in the Erlang external term format. The following condition applies always:
+in the Erlang external term format.
+
+The following condition applies always:
 
 ```erlang
 > Size1 = byte_size(term_to_binary(Term, Options)),
@@ -2505,7 +2553,9 @@ finish_after_on_load(_P1, _P2) ->
 %% float/1
 %% Shadowed by erl_bif_types: erlang:float/1
 -doc """
-Returns a float by converting `Number` to a float, for example:
+Returns a float by converting `Number` to a float.
+
+For example:
 
 ```erlang
 > float(55).
@@ -2538,8 +2588,11 @@ float_to_binary(_Float) ->
 %% float_to_binary/2
 -doc """
 Returns a binary corresponding to the text representation of `Float` using fixed
-decimal point formatting. `Options` behaves in the same way as
-`float_to_list/2`. Examples:
+decimal point formatting.
+
+`Options` behaves in the same way as `float_to_list/2`.
+
+For example:
 
 ```erlang
 > float_to_binary(7.12, [{decimals, 4}]).
@@ -2635,7 +2688,9 @@ float_to_list(_Float, _Options) ->
 %% floor/1
 %% Shadowed by erl_bif_types: erlang:floor/1
 -doc """
-Returns the largest integer not greater than `Number`. For example:
+Returns the largest integer not greater than `Number`.
+
+For example:
 
 ```erlang
 > floor(-10.5).
@@ -2782,9 +2837,11 @@ function_exported(_Module, _Function, _Arity) ->
 
 %% garbage_collect/0
 -doc """
-Forces an immediate garbage collection of the executing process. The function is
-not to be used unless it has been noticed (or there are good reasons to suspect)
-that the spontaneous garbage collection will occur too late or not at all.
+Forces an immediate garbage collection of the executing process.
+
+The function is not to be used unless it has been noticed (or there are good
+reasons to suspect) that the spontaneous garbage collection will occur too late
+or not at all.
 
 > #### Warning {: .warning }
 >
@@ -2908,7 +2965,9 @@ garbage_collect_message_area() ->
 %% get/0
 -doc """
 Returns the process dictionary as a list of `{Key, Val}` tuples. The items in
-the returned list can be in any order. Example:
+the returned list can be in any order.
+
+For example:
 
 ```erlang
 > put(key1, merry),
@@ -2928,10 +2987,13 @@ get() ->
 %% get/1
 -doc """
 Returns the value `Val` associated with `Key` in the process dictionary, or
-`undefined` if `Key` does not exist. The expected time complexity for the
-current implementation of this function is O(`1`) and the worst case time
-complexity is O(`N`), where `N` is the number of items in the process
-dictionary. Example:
+`undefined` if `Key` does not exist.
+
+The expected time complexity for the current implementation of this function is
+O(`1`) and the worst case time complexity is O(`N`), where `N` is the number of
+items in the process dictionary.
+
+For example:
 
 ```erlang
 > put(key1, merry),
@@ -2951,7 +3013,9 @@ get(_Key) ->
 %% get_keys/0
 -doc """
 Returns a list of all keys present in the process dictionary. The items in the
-returned list can be in any order. Example:
+returned list can be in any order.
+
+For example:
 
 ```erlang
 > put(dog, {animal,1}),
@@ -2971,7 +3035,9 @@ get_keys() ->
 %% get_keys/1
 -doc """
 Returns a list of keys that are associated with the value `Val` in the process
-dictionary. The items in the returned list can be in any order. Example:
+dictionary. The items in the returned list can be in any order.
+
+For example:
 
 ```erlang
 > put(mary, {1, 2}),
@@ -3071,7 +3137,9 @@ group_leader(GroupLeader, Pid) ->
 %% halt/0
 %% Shadowed by erl_bif_types: erlang:halt/0
 -doc """
-The same as calling [`halt(0, [])`](`halt/2`). Example:
+The same as calling [`halt(0, [])`](`halt/2`).
+
+For example:
 
 ```erlang
 > halt().
@@ -3086,7 +3154,9 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -doc """
-The same as calling [`halt(Status, [])`](`halt/2`). Example:
+The same as calling [`halt(Status, [])`](`halt/2`).
+
+For example:
 
 ```erlang
 > halt(17).
@@ -3243,7 +3313,9 @@ hibernate(_Module, _Function, _Args) ->
 -doc """
 Returns a new tuple with element `Term` inserted at position `Index` in tuple
 `Tuple1`. All elements from position `Index` and upwards are pushed one step
-higher in the new tuple `Tuple2`. Example:
+higher in the new tuple `Tuple2`.
+
+For example:
 
 ```erlang
 > erlang:insert_element(2, {one, two, three}, new).
@@ -3262,8 +3334,9 @@ insert_element(_Index, _Tuple1, _Term) ->
 
 %% integer_to_binary/1
 -doc """
-Returns a binary corresponding to the text representation of `Integer`, for
-example:
+Returns a binary corresponding to the text representation of `Integer`.
+
+For example:
 
 ```erlang
 > integer_to_binary(77).
@@ -3279,8 +3352,9 @@ integer_to_binary(_Integer) ->
 
 %% integer_to_list/1
 -doc """
-Returns a string corresponding to the text representation of `Integer`, for
-example:
+Returns a string corresponding to the text representation of `Integer`.
+
+For example:
 
 ```erlang
 > integer_to_list(77).
@@ -3296,7 +3370,9 @@ integer_to_list(_Integer) ->
 %% iolist_size/1
 -doc """
 Returns an integer, that is the size in bytes, of the binary that would be the
-result of [`iolist_to_binary(Item)`](`iolist_to_binary/1`), for example:
+result of [`iolist_to_binary(Item)`](`iolist_to_binary/1`).
+
+For example:
 
 ```erlang
 > iolist_size([1,2|<<3,4>>]).
@@ -3312,7 +3388,9 @@ iolist_size(_Item) ->
 %% iolist_to_binary/1
 -doc """
 Returns a binary that is made from the integers and binaries in
-`IoListOrBinary`, for example:
+`IoListOrBinary`.
+
+For example:
 
 ```erlang
 > Bin1 = <<1,2,3>>.
@@ -3339,7 +3417,9 @@ you do not need a single binary. This can be useful for passing the data to nif
 functions such as [`enif_inspect_iovec`](erl_nif.md#enif_inspect_iovec) or do
 more efficient message passing. The advantage of using this function over
 `iolist_to_binary/1` is that it does not have to copy
-[off-heap binaries](`e:system:binaryhandling.md#refc_binary`). Example:
+[off-heap binaries](`e:system:binaryhandling.md#refc_binary`).
+
+For example:
 
 ```erlang
 > Bin1 = <<1,2,3>>.
@@ -3438,7 +3518,9 @@ identifier `P2Pid`) before the call, will be delivered to `P2` before the
 aliveness of `P2` is checked. This guarantee means that one can use
 [`is_process_alive/1`](`is_process_alive/1`) to let a process `P1` wait until a
 process `P2`, which has got an exit signal with reason `kill` from P1, is
-killed. Example:
+killed.
+
+For example:
 
 ```erlang
 exit(P2Pid, kill),
@@ -3460,7 +3542,9 @@ is_process_alive(_Pid) ->
 %% length/1
 %% Shadowed by erl_bif_types: erlang:length/1
 -doc """
-Returns the length of `List`, for example:
+Returns the length of `List`.
+
+For example:
 
 ```erlang
 > length([1,2,3,4,5,6,7,8,9]).
@@ -3476,9 +3560,10 @@ length(_List) ->
 %% link/1
 -doc """
 Sets up and activates a link between the calling process and another process or
-a port identified by `PidOrPort`. We will from here on call the identified
-process or port linkee. If the linkee is a port, it must reside on the same node
-as the caller.
+a port identified by `PidOrPort`.
+
+We will from here on call the identified process or port linkee. If the linkee
+is a port, it must reside on the same node as the caller.
 
 If one of the participants of a link terminates, it will
 [send an exit signal](`e:system:ref_man_processes.md#sending_exit_signals`) to
@@ -3569,8 +3654,9 @@ list_to_atom(_String) ->
 
 %% list_to_binary/1
 -doc """
-Returns a binary that is made from the integers and binaries in `IoList`, for
-example:
+Returns a binary that is made from the integers and binaries in `IoList`.
+
+For example:
 
 ```erlang
 > Bin1 = <<1,2,3>>.
@@ -3593,7 +3679,9 @@ list_to_binary(_IoList) ->
 -doc """
 Returns a bitstring that is made from the integers and bitstrings in
 `BitstringList`. (The last tail in `BitstringList` is allowed to be a
-bitstring.) Example:
+bitstring.)
+
+For example:
 
 ```erlang
 > Bin1 = <<1,2,3>>.
@@ -3638,7 +3726,9 @@ list_to_existing_atom(_String) ->
 
 %% list_to_float/1
 -doc """
-Returns the float whose text representation is `String`, for example:
+Returns the float whose text representation is `String`. 
+
+For example:
 
 ```erlang
 > list_to_float("2.2017764e+0").
@@ -3659,7 +3749,9 @@ list_to_float(_String) ->
 
 %% list_to_integer/1
 -doc """
-Returns an integer whose text representation is `String`, for example:
+Returns an integer whose text representation is `String`.
+
+For example:
 
 ```erlang
 > list_to_integer("123").
@@ -3709,8 +3801,9 @@ list_to_integer(String) ->
 
 %% list_to_integer/2
 -doc """
-Returns an integer whose text representation in base `Base` is `String`, for
-example:
+Returns an integer whose text representation in base `Base` is `String`.
+
+For example:
 
 ```erlang
 > list_to_integer("3FF", 16).
@@ -3769,8 +3862,9 @@ list_to_integer(String, Base) ->
 
 %% list_to_pid/1
 -doc """
-Returns a process identifier whose text representation is a `String`, for
-example:
+Returns a process identifier whose text representation is a `String`.
+
+For example:
 
 ```erlang
 > list_to_pid("<0.4.1>").
@@ -3793,7 +3887,9 @@ list_to_pid(_String) ->
 
 %% list_to_port/1
 -doc """
-Returns a port identifier whose text representation is a `String`, for example:
+Returns a port identifier whose text representation is a `String`.
+
+For example:
 
 ```erlang
 > list_to_port("#Port<0.4>").
@@ -3817,7 +3913,9 @@ list_to_port(_String) ->
  
 %% list_to_ref/1
 -doc """
-Returns a reference whose text representation is a `String`, for example:
+Returns a reference whose text representation is a `String`.
+
+For example:
 
 ```erlang
 > list_to_ref("#Ref<0.4192537678.4073193475.71181>").
@@ -3871,7 +3969,9 @@ loaded() ->
 %% localtime/0
 -doc """
 Returns the current local date and time,
-`{{Year, Month, Day}, {Hour, Minute, Second}}`, for example:
+`{{Year, Month, Day}, {Hour, Minute, Second}}`.
+
+For example:
 
 ```erlang
 > erlang:localtime().
@@ -3906,8 +4006,9 @@ make_ref() ->
 
 %% Shadowed by erl_bif_types: erlang:map_size/1
 -doc """
-Returns an integer, which is the number of key-value pairs in `Map`, for
-example:
+Returns an integer, which is the number of key-value pairs in `Map`.
+
+For example:
 
 ```erlang
 > map_size(#{a=>1, b=>2, c=>3}).
@@ -3949,9 +4050,11 @@ map_get(_Key, _Map) ->
 %% match_spec_test/3
 -doc """
 Tests a match specification used in calls to `ets:select/2` and
-[`erlang:trace_pattern/3`](`trace_pattern/3`). The function tests both a match
-specification for "syntactic" correctness and runs the match specification
-against the object. If the match specification contains errors, the tuple
+[`erlang:trace_pattern/3`](`trace_pattern/3`).
+
+The function tests both a match specification for "syntactic" correctness and
+runs the match specification against the object.
+If the match specification contains errors, the tuple
 `{error, Errors}` is returned, where `Errors` is a list of natural language
 descriptions of what was wrong with the match specification.
 
@@ -4061,10 +4164,10 @@ module_loaded(_Module) ->
 
 %% monitor/2
 -doc """
-Sends a monitor request of type `Type` to the entity
-identified by `Item`. If the monitored entity does not exist or it changes
-monitored state, the caller of `monitor/2` is notified by a
-message on the following format:
+Sends a monitor request of type `Type` to the entity identified by `Item`.
+
+If the monitored entity does not exist or it changes monitored state, the caller
+of `monitor/2` is notified by a message on the following format:
 {: #monitor_message}
 
 ```erlang
@@ -4216,7 +4319,9 @@ monitor(_Type, _Item) ->
 -doc """
 Provides an option list for modification of monitoring functionality provided by
 `monitor/2`. The `Type` and `Item` arguments have the same meaning as when
-passed to [`monitor/2`](`monitor/2`). Currently available options:
+passed to [`monitor/2`](`monitor/2`).
+
+Currently available options:
 
 - **`{alias, UnaliasOpt}`** - The returned monitor reference will also become an
   alias for the calling process. That is, the returned reference can be used for
@@ -4375,12 +4480,13 @@ monitor_node(_Node, _Flag) ->
 %% monitor_node/3
 -doc """
 Behaves as `monitor_node/2` except that it allows an extra option to be
-specified, namely `allow_passive_connect`. This option allows the BIF to wait
-the normal network connection time-out for the _monitored node_ to connect
-itself, even if it cannot be actively connected from this node (that is, it is
-blocked). The state where this can be useful can only be achieved by using the
-Kernel option `dist_auto_connect once`. If that option is not used, option
-`allow_passive_connect` has no effect.
+specified, namely `allow_passive_connect`.
+
+This option allows the BIF to wait the normal network connection time-out
+for the _monitored node_ to connect itself, even if it cannot be actively
+connected from this node (that is, it is blocked). The state where this can
+be useful can only be achieved by using the Kernel option `dist_auto_connect once`.
+If that option is not used, option `allow_passive_connect` has no effect.
 
 > #### Note {: .info }
 >
@@ -4516,8 +4622,9 @@ phash2(_Term) ->
 %% phash2/2
 -doc """
 Portable hash function that gives the same hash for the same Erlang term
-regardless of machine architecture and ERTS version (the BIF was introduced in
-ERTS 5.2). The function returns a hash value for `Term` within the range
+regardless of machine architecture and ERTS version.
+
+The function returns a hash value for `Term` within the range
 `0..Range-1`. The maximum value for `Range` is 2^32. When without argument
 `Range`, a value in the range 0..2^27-1 is returned.
 
@@ -4537,7 +4644,9 @@ phash2(_Term, _Range) ->
 
 %% pid_to_list/1
 -doc """
-Returns a string corresponding to the text representation of `Pid`. Example:
+Returns a string corresponding to the text representation of `Pid`.
+
+For example:
 
 ```erlang
 > erlang:pid_to_list(self()).
@@ -4757,7 +4866,7 @@ system_time(_Unit) ->
 -doc """
 Converts the `Time` value of time unit `FromUnit` to the corresponding
 `ConvertedTime` value of time unit `ToUnit`. The result is rounded using the
-floor function.
+`floor/1` function.
 
 > #### Warning {: .warning }
 >
@@ -4867,9 +4976,10 @@ time_offset(_Unit) ->
 
 -doc """
 Returns current [Erlang system time](time_correction.md#erlang-system-time) on
-the format `{MegaSecs, Secs, MicroSecs}`. This format is the same as
-`os:timestamp/0` and the deprecated [`erlang:now/0`](`now/0`) use. The reason
-for the existence of `erlang:timestamp()` is purely to simplify use for existing
+the format `{MegaSecs, Secs, MicroSecs}`.
+
+This format is the same as `os:timestamp/0` and the deprecated [`erlang:now/0`](`now/0`) use.
+The reason for the existence of `erlang:timestamp()` is purely to simplify use for existing
 code that assumes this time stamp format. Current Erlang system time can more
 efficiently be retrieved in the time unit of your choice using
 [`erlang:system_time/1`](`system_time/1`).
@@ -4941,6 +5051,7 @@ prepare_loading_1(Module, Code) ->
 %% pre_loaded/0
 -doc """
 Returns a list of Erlang modules that are preloaded in the run-time system.
+
 Pre-loaded modules are Erlang modules that are needed to bootstrap the system to
 load the first Erlang modules from either disk or by using `m:erl_boot_server`.
 """.
@@ -4951,8 +5062,9 @@ pre_loaded() ->
 
 %% process_display/2
 -doc """
-Writes information about the local process `Pid` on standard error. The only
-allowed value for the atom `Type` is `backtrace`, which shows the contents of
+Writes information about the local process `Pid` on [standard error](`t:io:standard_error/0`).
+
+The only allowed value for the atom `Type` is `backtrace`, which shows the contents of
 the call stack, including information about the call chain, with the current
 function printed first. The format of the output is not further defined.
 """.
@@ -5109,10 +5221,13 @@ purge_module(Arg) ->
 -doc """
 Adds a new `Key` to the process dictionary, associated with the value `Val`, and
 returns `undefined`. If `Key` exists, the old value is deleted and replaced by
-`Val`, and the function returns the old value. The average time complexity for
-the current implementation of this function is O(`1`) and the worst case time
-complexity is O(`N`), where `N` is the number of items in the process
-dictionary. Example:
+`Val`, and the function returns the old value.
+
+The average time complexity for the current implementation of this function is
+O(`1`) and the worst case time complexity is O(`N`), where `N` is the number of
+items in the process dictionary.
+
+For example:
 
 ```erlang
 > X = put(name, walrus), Y = put(name, carpenter),
@@ -5271,10 +5386,12 @@ ref_to_list(_Ref) ->
 -doc """
 Registers the name `RegName` with a process identifier (pid) or a port
 identifier in the
-[`name registry`](`e:system:ref_man_processes.md#runtime-service`). `RegName`,
-which must be an atom, can be used instead of the pid or port identifier in send
-operator (`RegName ! Message`) and most other BIFs that take a pid or port
-identifies as an argument. Example:
+[`name registry`](`e:system:ref_man_processes.md#runtime-service`).
+`RegName`, which must be an atom, can be used instead of the pid or port
+identifier in send operator (`RegName ! Message`) and most other BIFs that take
+a pid or port identifies as an argument.
+
+For example:
 
 ```erlang
 > register(db, Pid).
@@ -5305,8 +5422,9 @@ register(_RegName, _PidOrPort) ->
 
 %% registered/0
 -doc """
-Returns a list of names that have been registered using `register/2`, for
-example:
+Returns a list of names that have been registered using `register/2`.
+
+For example:
 
 ```erlang
 > registered().
@@ -5322,6 +5440,7 @@ registered() ->
 %% resume_process/1
 -doc """
 Decreases the suspend count on the process identified by `Suspendee`.
+
 `Suspendee` is previously to have been suspended through
 [`erlang:suspend_process/2`](`suspend_process/2`) or
 [`erlang:suspend_process/1`](`suspend_process/1`) by the process calling
@@ -5352,7 +5471,9 @@ resume_process(_Suspendee) ->
 %% round/1
 %% Shadowed by erl_bif_types: erlang:round/1
 -doc """
-Returns an integer by rounding `Number`, for example:
+Returns an integer by rounding `Number`.
+
+For example:
 
 ```erlang
 round(42.1).
@@ -5391,7 +5512,9 @@ round(_Number) ->
 %% self/0
 %% Shadowed by erl_bif_types: erlang:self/0
 -doc """
-Returns the process identifier of the calling process, for example:
+Returns the process identifier of the calling process.
+
+For example:
 
 ```erlang
 > self().
@@ -5494,7 +5617,9 @@ setnode(Node, DistCtrlr, Opts) ->
 %% Shadowed by erl_bif_types: erlang:size/1
 -doc """
 Returns the number of elements in a tuple or the number of bytes in a binary or
-bitstring, for example:
+bitstring.
+
+For example:
 
 ```erlang
 > size({morni, mulle, bwange}).
@@ -5559,8 +5684,11 @@ spawn_link(_Module, _Function, _Args) ->
 %% split_binary/2
 -doc """
 Returns a tuple containing the binaries that are the result of splitting `Bin`
-into two parts at position `Pos`. This is not a destructive operation. After the
-operation, there are three binaries altogether. Example:
+into two parts at position `Pos`.
+
+This is not a destructive operation. After the operation, there are three binaries altogether.
+
+For example:
 
 ```erlang
 > B = list_to_binary("0123456789").
@@ -5777,8 +5905,9 @@ suspend_process(Suspendee) ->
 -doc """
 Returns the current system monitoring settings set by
 [`erlang:system_monitor/2`](`system_monitor/2`) as `{MonitorPid, Options}`, or
-`undefined` if no settings exist. The order of the options can be different from
-the one that was set.
+`undefined` if no settings exist.
+
+The order of the options can be different from the one that was set.
 """.
 -doc #{ group => system }.
 -spec system_monitor() -> MonSettings when
@@ -5811,8 +5940,9 @@ system_monitor(_Arg) ->
 %% system_monitor/2
 -doc """
 Sets the system performance monitoring options. `MonitorPid` is a local process
-identifier (pid) receiving system monitor messages. The second argument is a
-list of monitoring options:
+identifier (pid) receiving system monitor messages.
+
+The second argument is a list of monitoring options:
 
 - **`{long_gc, Time}`** - If a garbage collection in the system takes at least
   `Time` wall clock milliseconds, a message `{monitor, GcPid, long_gc, Info}` is
@@ -6019,7 +6149,9 @@ Raises an exception of class `throw`. Intended to be used to do non-local
 returns from functions.
 
 If evaluated within a [catch expression](`e:system:expressions.md#catch-and-throw`), the
-catch expression returns value `Any`. Example:
+catch expression returns value `Any`.
+
+For example:
 
 ```erlang
 > catch throw({hello, there}).
@@ -6028,7 +6160,9 @@ catch expression returns value `Any`. Example:
 
 If evaluated within a `try`\-block of a
 [try expression](`e:system:expressions.md#try`), the value `Any` can be caught
-within the catch block. Example:
+within the catch block.
+
+For example:
 
 ```erlang
 try
@@ -6056,7 +6190,9 @@ Returns the current time as `{Hour, Minute, Second}`.
 
 The time zone and Daylight Saving Time correction depend on the underlying OS.
 The return value is based on the
-[OS System Time](time_correction.md#os-system-time). Example:
+[OS System Time](time_correction.md#os-system-time).
+
+For example:
 
 ```erlang
 > time().
@@ -6491,6 +6627,8 @@ trace(PidPortSpec, How, FlagList) ->
     end.
 %% trace_delivered/1
 -doc """
+Calling this function makes sure all trace messages have been delivered.
+
 The delivery of trace messages (generated by [`erlang:trace/3`](`trace/3`),
 `m:seq_trace`, or [`erlang:system_profile/2`](`system_profile/2`)) is dislocated
 on the time-line compared to other events in the system. If you know that
@@ -6639,7 +6777,9 @@ trace_info(_PidPortFuncEvent, _Item) ->
 %% trunc/1
 %% Shadowed by erl_bif_types: erlang:trunc/1
 -doc """
-Truncates the decimals of `Number`, for example:
+Truncates the decimals of `Number`.
+
+For example:
 
 ```erlang
 > trunc(5.7).
@@ -6678,7 +6818,9 @@ trunc(_Number) ->
 %% tuple_size/1
 %% Shadowed by erl_bif_types: erlang:tuple_size/1
 -doc """
-Returns an integer that is the number of elements in `Tuple`, for example:
+Returns an integer that is the number of elements in `Tuple`.
+
+For example:
 
 ```erlang
 > tuple_size({morni, mulle, bwange}).
@@ -6697,7 +6839,9 @@ Returns the current date and time according to Universal Time Coordinated (UTC)
 in the form `{{Year, Month, Day}, {Hour, Minute, Second}}` if supported by the
 underlying OS. Otherwise `erlang:universaltime()` is equivalent to
 `erlang:localtime()`. The return value is based on the
-[OS System Time](time_correction.md#os-system-time). Example:
+[OS System Time](time_correction.md#os-system-time).
+
+For example:
 
 ```erlang
 > erlang:universaltime().
@@ -6720,8 +6864,9 @@ universaltime_to_posixtime(_P1) ->
 %% unlink/1
 -doc """
 Removes a link between the calling process and another process or a port
-identified by `Id`. We will from here on call the identified process or port
-unlinkee.
+identified by `Id`.
+
+We will from here on call the identified process or port unlinkee.
 
 A link can be set up using the `link/1` BIF. For more information on links and
 exit signals due to links, see the _Processes_ chapter in the _Erlang Reference
@@ -6776,7 +6921,9 @@ unlink(_Id) ->
 -doc """
 Removes the [`registered name`](`register/2`) `RegName` associated with a
 process identifier or a port identifier from the
-[`name registry`](`e:system:ref_man_processes.md#runtime-service`). For example:
+[`name registry`](`e:system:ref_man_processes.md#runtime-service`).
+
+For example:
 
 ```erlang
 > unregister(db).
@@ -6802,7 +6949,9 @@ unregister(_RegName) ->
 Returns the process identifier or port identifier with the
 [`registered name`](`register/2`) `RegName` from the
 [`name registry`](`e:system:ref_man_processes.md#runtime-service`). Returns
-`undefined` if the name is not registered. Example:
+`undefined` if the name is not registered.
+
+For example:
 
 ```erlang
 > whereis(db).
@@ -6826,7 +6975,9 @@ whereis(_RegName) ->
 %% Shadowed by erl_bif_types: erlang:abs/1
 -doc """
 Returns an integer or float that is the arithmetical absolute value of `Float`
-or `Int`, for example:
+or `Int`.
+
+For example:
 
 ```erlang
 > abs(-3.33).
@@ -6854,7 +7005,9 @@ append(_List,_Tail) ->
 
 %% Shadowed by erl_bif_types: erlang:element/2
 -doc """
-Returns the `N`th element (numbering from 1) of `Tuple`, for example:
+Returns the `N`th element (numbering from 1) of `Tuple`.
+
+For example:
 
 ```erlang
 > element(2, {a, b, c}).
@@ -7112,8 +7265,9 @@ is_tuple(_Term) ->
     erlang:nif_error(undefined).
 
 -doc """
-If `Binary` contains the object code for module `Module`, this BIF loads that
-object code. If the code for module `Module` already exists, all export
+Loads `Module` described by the object code contained within `Binary`.
+
+If the code for module `Module` already exists, all export
 references are replaced so they point to the newly loaded code. The previously
 loaded code is kept in the system as old code, as there can still be processes
 executing that code.
@@ -7164,7 +7318,9 @@ load_module(Mod, Code) ->
 
 -doc """
 Loads and links a dynamic library containing native implemented functions (NIFs)
-for a module. `Path` is a file path to the shareable object/dynamic library file
+for a module.
+
+`Path` is a file path to the shareable object/dynamic library file
 minus the OS-dependent file extension (`.so` for Unix and `.dll` for Windows).
 Notice that on most OSs the library has to have a different name on disc when an
 upgrade of the nif is done. If the name is the same, but the contents differ,
@@ -7257,7 +7413,9 @@ make_fun(_Module,_Function, _Arity) ->
 %% Shadowed by erl_bif_types: erlang:make_tuple/2
 -doc """
 Creates a new tuple of the specified `Arity`, where all elements are
-`InitialValue`, for example:
+`InitialValue`.
+
+For example:
 
 ```erlang
 > erlang:make_tuple(4, []).
@@ -7274,10 +7432,14 @@ make_tuple(_Arity,_InitialValue) ->
 %% Shadowed by erl_bif_types: erlang:make_tuple/3
 -doc """
 Creates a tuple of size `Arity`, where each element has value `DefaultValue`,
-and then fills in values from `InitList`. Each list element in `InitList` must
-be a two-tuple, where the first element is a position in the newly created tuple
-and the second element is any term. If a position occurs more than once in the
-list, the term corresponding to the last occurrence is used. Example:
+and then fills in values from `InitList`.
+
+Each list element in `InitList` must be a two-tuple, where the first element is
+a position in the newly created tuple and the second element is any term. If a
+position occurs more than once in the list, the term corresponding to the last
+occurrence is used.
+
+For example:
 
 ```erlang
 > erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).
@@ -8318,8 +8480,9 @@ send(_Dest,_Msg) ->
 -doc """
 Either sends a message and returns `ok`, or does not send the message but
 returns something else (see below). Otherwise the same as
-[`erlang:send/2`](`send/2`). For more detailed explanation and warnings, see
-[`erlang:send_nosuspend/2,3`](`send_nosuspend/2`).
+[`erlang:send/2`](`send/2`).
+
+For more detailed explanation and warnings, see [`erlang:send_nosuspend/2,3`](`send_nosuspend/2`).
 
 Options:
 
@@ -8365,7 +8528,9 @@ seq_trace_info(_What) ->
 -doc """
 Returns a tuple that is a copy of argument `Tuple1` with the element specified
 by integer argument `Index` (the first element is the element with index 1)
-replaced by argument `Value`, for example:
+replaced by argument `Value`.
+
+For example:
 
 ```erlang
 > setelement(2, {10, green, bottles}, red).
@@ -8382,6 +8547,10 @@ setelement(_Index, _Tuple1, _Value) ->
    erlang:nif_error(undefined).
 
 -doc """
+Returns statistics about the current system.
+
+The possible flags are:
+
 - ```erlang
   statistics(active_tasks) -> [non_neg_integer()]
   ```
@@ -9013,6 +9182,10 @@ subtract(_,_) ->
       'unbound'.
 
 -doc """
+Sets a system flag to the given value.
+
+The possible flags to set are:
+
 - ```erlang
   system_flag(backtrace_depths, non_neg_integer()) -> non_neg_integer()
   ```
@@ -9824,7 +9997,9 @@ trace_pattern(MFA, MatchSpec) ->
 -doc """
 Sets trace pattern for _message sending_. Must be combined with
 [`erlang:trace/3`](`trace/3`) to set the `send` trace flag for one or more
-processes. By default all messages sent from `send` traced processes are traced.
+processes.
+
+By default all messages sent from `send` traced processes are traced.
 To limit traced send events based on the message content, the sender and/or the
 receiver, use `erlang:trace_pattern/3`.
 
@@ -10289,7 +10464,8 @@ system_info(_Item) ->
 Converts Universal Time Coordinated (UTC) date and time to local date and time
 in the form `{{Year, Month, Day}, {Hour, Minute, Second}}` if supported by the
 underlying OS. Otherwise no conversion is done, and `Universaltime` is returned.
-Example:
+
+For example:
 
 ```erlang
 > erlang:universaltime_to_localtime({{1996,11,6},{14,18,43}}).
@@ -10336,7 +10512,9 @@ apply(Fun, Args) ->
 -doc """
 Returns the result of applying `Function` in `Module` to `Args`. The applied
 function must be exported from `Module`. The arity of the function is the length
-of `Args`. Example:
+of `Args`.
+
+For example:
 
 ```erlang
 > apply(lists, reverse, [[a, b, c]]).
@@ -11331,11 +11509,13 @@ nodes(_Arg) ->
     erlang:nif_error(undefined).
 
 -doc """
-Returns a list of `NodeInfo` tuples. The first element is the node name. Nodes
-to be included in the list are determined by the first argument `Arg` in the
-same way as for [`nodes(Arg)`](`nodes/1`). The second element of `NodeInfo`
-tuples is a map containing further information about the node identified by the
-first element. The information present in this map is determined by the
+Returns a list of `NodeInfo` tuples.
+
+The first element is the node name. Nodes to be included in the list are determined
+by the first argument `Arg` in the same way as for [`nodes(Arg)`](`nodes/1`).
+The second element of `NodeInfo` tuples is a map containing further information
+about the node identified by the first element.
+The information present in this map is determined by the
 `InfoOpts` map passed as the second argument. Currently the following
 associations are allowed in the `InfoOpts` map:
 
@@ -11402,9 +11582,10 @@ nodes(_Args, _Opts) ->
     erlang:nif_error(undefined).
 
 -doc """
-Forces the disconnection of a node. This appears to the node `Node` as if the
-local node has crashed. This BIF is mainly used in the Erlang network
-authentication protocols.
+Forces the disconnection of a node.
+
+Doing this makes it appears to the node `Node` as if the local node has crashed.
+This BIF is mainly used in the Erlang network authentication protocols.
 
 Returns `true` if disconnection succeeds, otherwise `false`. If the local node
 is not alive, `ignored` is returned.
@@ -11619,7 +11800,9 @@ send_nosuspend(Pid, Msg, Opts) ->
 -doc """
 Converts local date and time to Universal Time Coordinated (UTC), if supported
 by the underlying OS. Otherwise no conversion is done and `Localtime` is
-returned. Example:
+returned.
+
+For example:
 
 ```erlang
 > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).
@@ -11663,9 +11846,10 @@ localtime_to_universaltime(Localtime) ->
 
 -doc """
 Sends data to a port. Same as `Port ! {PortOwner, {command, Data}}` except for
-the error behavior and being synchronous (see below). Any process can send data
-to a port with [`port_command/2`](`port_command/2`), not only the port owner
-(the connected process).
+the error behavior and being synchronous (see below).
+
+Any process can send data to a port with [`port_command/2`](`port_command/2`),
+not only the port owner (the connected process).
 
 For comparison: `Port ! {PortOwner, {command, Data}}` only fails with `badarg`
 if `Port` does not refer to a port or a process. If `Port` is a closed port, the
@@ -11832,10 +12016,11 @@ port_connect(Port, Pid) ->
 -doc """
 Closes an open port. Roughly the same as `Port ! {self(), close}` except for the
 error behavior (see below), being synchronous, and that the port does _not_
-reply with `{Port, closed}`. Any process can close a port with
-[`port_close/1`](`port_close/1`), not only the port owner (the connected
-process). If the calling process is linked to the port identified by `Port`, the
-exit signal from the port is guaranteed to be delivered before
+reply with `{Port, closed}`.
+
+Any process can close a port with [`port_close/1`](`port_close/1`), not only the
+port owner (the connected process). If the calling process is linked to the port
+identified by `Port`, the exit signal from the port is guaranteed to be delivered before
 [`port_close/1`](`port_close/1`) returns.
 
 For comparison: `Port ! {self(), close}` only fails with `badarg` if `Port` does
@@ -11981,8 +12166,10 @@ port_call(Port, Operation, Data) ->
 
 -doc """
 Returns a list containing tuples with information about `Port`, or `undefined`
-if the port is not open. The order of the tuples is undefined, and all the
-tuples are not mandatory. If the port is closed and the calling process was
+if the port is not open.
+
+The order of the tuples is undefined, and all the tuples are not mandatory.
+If the port is closed and the calling process was
 previously linked to the port, the exit signal from the port is guaranteed to be
 delivered before [`port_info/1`](`port_info/1`) returns `undefined`.
 
@@ -12098,8 +12285,9 @@ port_get_data(_Port) ->
 
 -doc """
 Register an alternate input handler process for the distribution channel
-identified by `DHandle`. Once this function has been called, `InputHandler` is
-the only process allowed to call
+identified by `DHandle`.
+
+Once this function has been called, `InputHandler` is the only process allowed to call
 [`erlang:dist_ctrl_put_data(DHandle, Data)`](`dist_ctrl_put_data/2`) with the
 `DHandle` identifying this distribution channel.
 
@@ -12157,7 +12345,9 @@ dist_ctrl_put_data(_DHandle, _Data) ->
 
 -doc """
 Get distribution channel data from the local node that is to be passed to the
-remote node. The distribution channel is identified by `DHandle`. If no data is
+remote node.
+
+The distribution channel is identified by `DHandle`. If no data is
 available, the atom `none` is returned. One can request to be informed by a
 message when more data is available by calling
 [`erlang:dist_ctrl_get_data_notification(DHandle)`](`dist_ctrl_get_data_notification/1`).
@@ -12191,10 +12381,11 @@ dist_ctrl_get_data(_DHandle) ->
 -doc """
 Request notification when more data is available to fetch using
 [`erlang:dist_ctrl_get_data(DHandle)`](`dist_ctrl_get_data/1`) for the
-distribution channel identified by `DHandle`. When more data is present, the
-caller will be sent the message `dist_data`. Once a `dist_data` messages has
-been sent, no more `dist_data` messages will be sent until the
-[`dist_ctrl_get_data_notification/1`](`dist_ctrl_get_data_notification/1`)
+distribution channel identified by `DHandle`.
+
+When more data is present, the caller will be sent the message `dist_data`.
+Once a `dist_data` messages has been sent, no more `dist_data` messages will
+be sent until the [`dist_ctrl_get_data_notification/1`](`dist_ctrl_get_data_notification/1`)
 function has been called again.
 
 > #### Note {: .info }
@@ -12218,7 +12409,9 @@ dist_ctrl_get_data_notification(_DHandle) ->
 
 -doc """
 Sets the value of the `get_size` option on the distribution channel identified
-by `DHandle`. This option controls the return value of calls to
+by `DHandle`.
+
+This option controls the return value of calls to
 [erlang:dist_ctrl_get_data(DHandle)](`dist_ctrl_get_data/1`) where `DHandle`
 equals `DHandle` used when setting this option. When the `get_size` option is:
 
@@ -12321,8 +12514,10 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 -doc """
 Sets the magic cookie of the local node to the atom `Cookie`, which is also the
 cookie for all nodes that have no explicit cookie set with `set_cookie/2`
-`Cookie` (see section [Distributed Erlang](`e:system:distributed.md`) in the
-Erlang Reference Manual in System Documentation).
+`Cookie`.
+
+See section [Distributed Erlang](`e:system:distributed.md`) in the
+Erlang Reference Manual in System Documentation for more information.
 
 You can get this value using `get_cookie/0`.
 
@@ -12340,9 +12535,10 @@ set_cookie(C) ->
 -doc """
 Sets the magic cookie for `Node` to the atom `Cookie`. If `Node` is the local
 node, the function sets the cookie of all other nodes (that have no explicit
-cookie set with this function) to `Cookie` (see section
-[Distributed Erlang](`e:system:distributed.md`) in the Erlang Reference Manual
-in System Documentation).
+cookie set with this function) to `Cookie`.
+
+See section [Distributed Erlang](`e:system:distributed.md`) in the
+Erlang Reference Manual in System Documentation for more information.
 
 You can get this value using `get_cookie/1`.
 
@@ -12386,7 +12582,9 @@ get_cookie(Node) ->
 
 -doc """
 Returns a string corresponding to the text representation of `Integer` in base
-`Base`, for example:
+`Base`.
+
+For example:
 
 ```erlang
 > integer_to_list(1023, 16).
@@ -12402,7 +12600,9 @@ integer_to_list(_I, _Base) ->
 
 -doc """
 Returns a binary corresponding to the text representation of `Integer` in base
-`Base`, for example:
+`Base`.
+
+For example:
 
 ```erlang
 > integer_to_binary(1023, 16).
@@ -12678,7 +12878,9 @@ max(A, _) -> A.
 
 -doc """
 Returns a list with information about memory dynamically allocated by the Erlang
-emulator. Each list element is a tuple `{Type, Size}`. The first element `Type`
+emulator.
+
+Each list element is a tuple `{Type, Size}`. The first element `Type`
 is an atom describing memory type. The second element `Size` is the memory size
 in bytes.
 
@@ -12793,7 +12995,7 @@ memory() ->
 
 -doc """
 Returns the memory size in bytes allocated for memory of type `Type`. The
-argument can also be specified as a list of `memory_type()` atoms, in which case
+argument can also be specified as a list of `t:memory_type/0` atoms, in which case
 a corresponding list of `{memory_type(), Size :: integer >= 0}` tuples is
 returned.
 
