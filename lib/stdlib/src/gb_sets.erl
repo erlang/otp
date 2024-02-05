@@ -611,6 +611,7 @@ less than `Element1`.
 
 Returns `none` if no such element exists.
 """.
+-doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec smaller(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -636,6 +637,7 @@ greater than `Element1`.
 
 Returns `none` if no such element exists.
 """.
+-doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec larger(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -690,6 +692,7 @@ only slightly slower than getting the list of all elements using `to_list/1` and
 traversing that. The main advantage of the iterator approach is that it does not
 require the complete list of all elements to be built in memory at one time.
 """.
+-doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec iterator(Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
@@ -738,7 +741,7 @@ Returns an iterator that can be used for traversing the entries of `Set`; see
 `next/1`. The difference as compared to the iterator returned by `iterator/2` is
 that the iterator starts with the first element next to or equal to `Element`.
 """.
--doc(#{since => <<"OTP 18.0">>}).
+-doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec iterator_from(Element, Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
