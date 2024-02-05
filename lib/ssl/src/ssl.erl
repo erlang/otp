@@ -1309,11 +1309,9 @@ receiver and cannot be changed.
                                 {stapling, stapling()}.
 
 -doc """
-Defaults to `verify_none` as additional options are needed to be able to perform
-the certificate verification. A warning will be emitted unless `verify_none` is
-explicitly configured. Usually the applications will want to configure
-`verify_peer` together with an appropriate `cacert` or `cacertfile` option. For
-example an `HTTPS` client would normally use the option
+Defaults to `verify_peer`, since OTP-26, which means the option cacerts or cacertfile is also required
+to perform the certificate verification unless <c>verify_none</c> is explicitly configured.
+For example an `HTTPS` client would normally use the option
 `{cacerts, public_key:cacerts_get()}` (available since OTP-25) to access the CA
 certificates provided by the OS. Using verify_none means that all
 x509-certificate path validation errors will be ignored. See also option
