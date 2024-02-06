@@ -28,7 +28,7 @@ LIBPATH = @erl_interface_libpath@
 LIBERL = $(LIBPATH)/@erl_interface_lib@
 LIBEI = $(LIBPATH)/@erl_interface_eilib@
 LIBFLAGS = $(LIBERL) $(LIBEI)
-CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../common
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) @DEFS@ -I@erl_interface_include@ -I../common
 
 ETERM_OBJS = eterm_test@obj@ eterm_test_decl@obj@ runner@obj@ 
 EXT_OBJS = ext_test@obj@ ext_test_decl@obj@ runner@obj@ 

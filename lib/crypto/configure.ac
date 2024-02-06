@@ -24,7 +24,7 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 AC_INIT
 AC_CONFIG_SRCDIR([vsn.mk])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 

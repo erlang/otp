@@ -38,7 +38,7 @@ VSN=$(MEGACO_VSN)
 
 FLEX_VSN = $(shell flex --version)
 
-TMP_CFLAGS  = @DED_BASIC_CFLAGS@ @OTP_EXTRA_FLAGS@
+TMP_CFLAGS  = @DED_BASIC_CFLAGS@ @DEFS@ @OTP_EXTRA_FLAGS@
 ifeq ($(TYPE),valgrind)
 CFLAGS = $(subst -O2, , $(TMP_CFLAGS)) -DVALGRIND
 else

@@ -18,7 +18,7 @@ dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
-AC_PREREQ([2.71])dnl
+AC_PREREQ([2.72])dnl
 
 AC_INIT
 
