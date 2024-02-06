@@ -30,7 +30,9 @@ For more information about the use, see the
 [Embedded System User's Guide](`e:system:embedded_solaris.md`) in System
 Documentation.
 
-## start \[ data_file ]
+```text
+start [ data_file ]
+```
 
 Argument:
 

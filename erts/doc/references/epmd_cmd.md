@@ -23,11 +23,18 @@ Erlang Port Mapper Daemon
 
 ## Description
 
-- **`epmd [-d|-debug] [DbgExtra...] [-address Addresses] [-port No] [-daemon] [-relaxed_command_check]`** -
+- ```text
+  epmd [-d|-debug] [DbgExtra...] [-address Addresses]
+    [-port No] [-daemon] [-relaxed_command_check]
+  ```
+
   Starts the port mapper daemon.
 
-- **`epmd [-d|-debug] [-port No] [-names|-kill|-stop Name]`** - Communicates
-  with a running port mapper daemon.
+- ```text
+  epmd [-d|-debug] [-port No] [-names|-kill|-stop Name]
+  ```
+
+  Communicates with a running port mapper daemon.
 
 This daemon acts as a name server on all hosts involved in distributed Erlang
 computations. When an Erlang node starts, the node has a name and it obtains an

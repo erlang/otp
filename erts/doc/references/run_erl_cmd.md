@@ -32,7 +32,9 @@ For more information about the use, see the
 [Embedded System User's Guide](`e:system:embedded_solaris.md`) in System
 Documentation.
 
-## run_erl \[-daemon] pipe_dir/ log_dir "exec command arg1 arg2 ..."
+```text
+run_erl [-daemon] pipe_dir/ log_dir "exec command arg1 arg2 ..."
+```
 
 Arguments:
 

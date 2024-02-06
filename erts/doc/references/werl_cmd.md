@@ -19,9 +19,17 @@ limitations under the License.
 -->
 # werl
 
-The Erlang Emulator
+The Erlang Emulator on Windows
 
 ## Description
+
+> #### Note {: .info }
+>
+> Since Erlang/OTP 26 the werl.exe command is now only a link to
+> [erl.exe](erl_cmd.md) as the normal Erlang shell has been updated to work on
+> both Unix and Windows in the same way.
+>
+> The text below is kept for systems that have yet to upgrade to Erlang/OTP 26
 
 On Windows, the preferred way to start the Erlang system for interactive use is
 as follows:

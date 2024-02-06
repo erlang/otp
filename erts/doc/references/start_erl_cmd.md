@@ -41,7 +41,9 @@ and start Erlang. Some options to `start_erl` are added and removed by the
 release handler during upgrade with emulator restart (more specifically option
 `-data`).
 
-## start_erl \[<erl options>] ++ \[<start_erl options>]
+```text
+start_erl [<erl options>] ++ [<start_erl options>]
+```
 
 The `start_erl` program in its original form recognizes the following options:
 
