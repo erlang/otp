@@ -193,8 +193,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 # Checks for library functions.
 AC_FUNC_ALLOCA
 dnl AC_FUNC_FORK
-# FIXME check that this isn't set in normal cases
-AC_PROG_GCC_TRADITIONAL
 # Check if malloc(0) is ok 
 dnl AC_FUNC_MALLOC
 dnl AC_FUNC_REALLOC
