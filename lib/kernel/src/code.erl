@@ -110,7 +110,7 @@ on selected paths.
 > The function `lib_dir/2` and flag `-code_path_choice` are also experimental.
 
 The Erlang archives are `ZIP` files with extension `.ez`. Erlang archives can
-also be enclosed in `escript` files whose file extension is arbitrary.
+also be [enclosed in `escript`](`m:escript`) files whose file extension is arbitrary.
 
 Erlang archive files can contain entire Erlang applications or parts of
 applications. The structure in an archive file is the same as the directory
