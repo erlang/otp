@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2022. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(queue).
@@ -102,7 +102,7 @@ from_list(L) ->
     erlang:error(badarg, [L]).
 
 %% Return true or false depending on if element is in queue
-%% 
+%%
 %% O(length(Q)) worst case
 -spec member(Item, Q :: queue(Item)) -> boolean().
 member(X, {R,F}) when is_list(R), is_list(F) ->
@@ -349,7 +349,7 @@ split_r1_to_f2(N, [X|R1], F1, R2, F2) ->
     split_r1_to_f2(N-1, R1, F1, R2, [X|F2]).
 
 %% filter, or rather filtermap with insert, traverses in queue order
-%% 
+%%
 %% Fun(_) -> List: O(length(List) * len(Q))
 %% else:           O(len(Q)
 -spec filter(Fun, Q1 :: queue(Item)) -> Q2 :: queue(Item) when
@@ -615,16 +615,16 @@ delete_with_rear(_, []) ->
     false.
 
 %%--------------------------------------------------------------------------
-%% Okasaki API inspired by an Erlang user contribution "deque.erl" 
+%% Okasaki API inspired by an Erlang user contribution "deque.erl"
 %% by Claes Wikstrom <klacke@kaja.klacke.net> 1999.
 %%
 %% This implementation does not use the internal data format from Klacke's
-%% doubly ended queues that was "shamelessly stolen" from 
+%% doubly ended queues that was "shamelessly stolen" from
 %% "Purely Functional Data structures" by Chris Okasaki, since the data
 %% format of this module must remain the same in case some application
 %% has saved a queue in external format or sends it to an old node.
 %%
-%% This implementation tries to do the best of the situation and should 
+%% This implementation tries to do the best of the situation and should
 %% be almost as efficient as Okasaki's queues, except for len/1 that
 %% is O(n) in this implementation instead of O(1).
 %%
@@ -635,15 +635,15 @@ delete_with_rear(_, []) ->
 %% and the reversed lists to ensure that i.e head/1 or last/1 will
 %% not have to reverse a list to find the element.
 %%
-%% To be compatible with the old version of this module, as much data as 
+%% To be compatible with the old version of this module, as much data as
 %% possible is moved to the receiving side using lists:reverse/2 when data
 %% is needed, except for two elements (when possible). These two elements
-%% are kept to prevent alternating tail/1 and init/1 operations from 
+%% are kept to prevent alternating tail/1 and init/1 operations from
 %% moving data back and forth between the sides.
 %%
 %% An alternative would be to balance for equal list length when one side
 %% is exhausted. Although this could be better for a general double
-%% ended queue, it would more han double the amortized cost for 
+%% ended queue, it would more han double the amortized cost for
 %% the normal case (one way queue).
 
 %% Cons to head
