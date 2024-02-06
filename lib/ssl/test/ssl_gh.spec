@@ -12,3 +12,6 @@
 {skip_groups,dir,ssl_dist_bench_SUITE,throughput,"Benchmarks run separately"}.
 {skip_groups,dir,ssl_dist_bench_SUITE,sched_utilization,"Benchmarks run separately"}.
 
+{event_handler, {cte_track, []}}.
+{enable_builtin_hooks, false}.
+{ct_hooks, [{cth_log_redirect, [{mode, replace}]}]}.
