@@ -81,6 +81,7 @@ returns the `driver_entry` structure that points to the other functions in the
 driver. The `driver_init` function is declared with a macro,
 `DRIVER_INIT(drivername)`. (This is because different operating systems have
 different names for it.)
+{: #DRIVER_INIT }
 
 When writing a driver in C++, the driver entry is to be of `"C"` linkage. One
 way to do this is to put the following line somewhere before the driver entry:

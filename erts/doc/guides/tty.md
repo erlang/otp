@@ -55,46 +55,46 @@ Typographic conventions:
 - When a function has multiple possible key sequences they are listed on
   individual lines in the `Key Sequence` column.
 
-| _Key Sequence_  | _Function_                                                                                                                                                                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home            | Beginning of line                                                                                                                                                                                                                                                     |
-| C-a             | Beginning of line                                                                                                                                                                                                                                                     |
-| C-b             | Backward character                                                                                                                                                                                                                                                    |
-| C-Left M-Left   | Backward word                                                                                                                                                                                                                                                         |
-| M-b             | Backward word                                                                                                                                                                                                                                                         |
-| C-d             | Delete character                                                                                                                                                                                                                                                      |
-| M-d             | Delete word                                                                                                                                                                                                                                                           |
-| End             | End of line                                                                                                                                                                                                                                                           |
-| C-e             | End of line                                                                                                                                                                                                                                                           |
-| C-f             | Forward character                                                                                                                                                                                                                                                     |
-| C-Right M-Right | Forward word                                                                                                                                                                                                                                                          |
-| M-f             | Forward word                                                                                                                                                                                                                                                          |
-| C-g             | Enter shell break mode                                                                                                                                                                                                                                                |
-| C-k             | Kill line                                                                                                                                                                                                                                                             |
-| C-u             | Backward kill line                                                                                                                                                                                                                                                    |
-| C-l             | Clears the screen                                                                                                                                                                                                                                                     |
-| M-c             | Clears the current expression                                                                                                                                                                                                                                         |
-| M-l             | Redraw line                                                                                                                                                                                                                                                           |
-| C-n             | Fetch next line from the history buffer                                                                                                                                                                                                                               |
-| C-o M-o         | Edit the current line using the editor specified in the environment variable `VISUAL` or `EDITOR`. The environment variables can contain arguments to the editor if needed, for example `VISUAL="emacs -nw"`. On Windows the editor cannot be a console based editor. |
-| C-p             | Fetch previous line from the history buffer                                                                                                                                                                                                                           |
-| M-r             | Format current expression using `shell:format_shell_func/1`                                                                                                                                                                                                           |
-| C-r             | Enter search mode and then search backward in the shell history                                                                                                                                                                                                       |
-| C-s             | In search mode, search forward in the shell history                                                                                                                                                                                                                   |
-| C-t             | Transpose characters                                                                                                                                                                                                                                                  |
-| C-w             | Backward kill word                                                                                                                                                                                                                                                    |
-| C-y             | Insert previously killed text                                                                                                                                                                                                                                         |
-| C-]             | Insert matching closing bracket                                                                                                                                                                                                                                       |
-| C-Up M-Up       | Navigate one row up when editing multiple lines                                                                                                                                                                                                                       |
-| C-Down M-Down   | Navigate one row down when editing multiple lines                                                                                                                                                                                                                     |
-| M-Enter         | Insert a new line at cursor                                                                                                                                                                                                                                           |
-| M-< M-S-Up      | Navigate to the start of the current expression                                                                                                                                                                                                                       |
-| M-> M-S-Down    | Navigate to the end of the current expression                                                                                                                                                                                                                         |
-| Tab C-i         | Autocomplete current expression, or show completion suggestions                                                                                                                                                                                                       |
-| M-c             | Clear current expression                                                                                                                                                                                                                                              |
-| M-h             | Display help for the module or function closest on the left of the cursor.                                                                                                                                                                                            |
-| PageUp          | Scroll the expand, search or help buffer 5 lines upwards.                                                                                                                                                                                                             |
-| PageDown        | Scroll the expand, search or help buffer 5 lines downwards.                                                                                                                                                                                                           |
+| _Key Sequence_       | _Function_                                                      |
+| -------------------- | ----------------------------------------------------------------|
+| `Home`               | Beginning of line                                               |
+| `C-a`                | Beginning of line                                               |
+| `C-b`                | Backward character                                              |
+| `C-Left` or `M-Left` | Backward word                                                   |
+| `M-b`                | Backward word                                                   |
+| `C-d`                | Delete character                                                |
+| `M-d`                | Delete word                                                     |
+| `End`                | End of line                                                     |
+| `C-e`                | End of line                                                     |
+| `C-f`                | Forward character                                               |
+| `C-Right` or `M-Right` | Forward word                                                  |
+| `M-f`                | Forward word                                                    |
+| `C-g`                | Enter shell break mode                                          |
+| `C-k`                | Kill line                                                       |
+| `C-u`                | Backward kill line                                              |
+| `C-l`                | Clears the screen                                               |
+| `M-c`                | Clears the current expression                                   |
+| `M-l`                | Redraw line                                                     |
+| `C-n`                | Fetch next line from the history buffer                         |
+| `C-o` or `M-o`       | Edit the current line using the editor specified in the environment variable `VISUAL` or `EDITOR`. The environment variables can contain arguments to the editor if needed, for example `VISUAL="emacs -nw"`. On Windows the editor cannot be a console based editor. |
+| `C-p`                | Fetch previous line from the history buffer                     |
+| `M-r`                | Format current expression using `shell:format_shell_func/1`     |
+| `C-r`                | Enter search mode and then search backward in the shell history |
+| `C-s`                | In search mode, search forward in the shell history             |
+| `C-t`                | Transpose characters                                            |
+| `C-w`                | Backward kill word                                              |
+| `C-y`                | Insert previously killed text                                   |
+| `C-]`                | Insert matching closing bracket                                 |
+| `C-Up` or `M-Up`     | Navigate one row up when editing multiple lines                 |
+| `C-Down` or `M-Down` | Navigate one row down when editing multiple lines               |
+| `M-Enter`            | Insert a new line at cursor                                     |
+| `M-<` or `M-S-Up`    | Navigate to the start of the current expression                 |
+| `M->` or `M-S-Down`  | Navigate to the end of the current expression                   |
+| `Tab` or `C-i`       | Autocomplete current expression, or show completion suggestions |
+| `M-c`                | Clear current expression                                        |
+| `M-h`                | Display help for the module or function closest on the left of the cursor.|
+| `PageUp`             | Scroll the expand, search or help buffer 5 lines upwards.       |
+| `PageDown`           | Scroll the expand, search or help buffer 5 lines downwards.     |
 
 _Table: tty Text Editing_
 

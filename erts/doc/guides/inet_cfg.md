@@ -89,9 +89,11 @@ configuration database.
 
 The valid configuration parameters are as follows:
 
-- **`{file, Format, File}.`** - `Format = atom()`
-
-  `File = string()`
+- ```
+  {file, Format, File}.
+    Format = atom()
+    File = string()
+  ```
 
   Specify a system file that Erlang is to read configuration data from. `Format`
   tells the parser how the file is to be interpreted:
@@ -105,7 +107,10 @@ The valid configuration parameters are as follows:
 
   `File` is to specify the filename with full path.
 
-- **`{resolv_conf, File}.`** - `File = string()`
+- ```
+  {resolv_conf, File}.
+    File = string()
+  ```
 
   Specify a system file that Erlang is to read resolver configuration from for
   the internal DNS client `m:inet_res`, and monitor for changes, even if it does
@@ -123,7 +128,10 @@ The valid configuration parameters are as follows:
   environment variable `ERL_INET_ETC_DIR` is set, which defines the directory
   for this file to some maybe other than `/etc`.
 
-- **`{hosts_file, File}.`** - `File = string()`
+- ```
+  {hosts_file, File}.
+    File = string()
+  ```
 
   Specify a system file that Erlang is to read resolver configuration from for
   the internal hosts file resolver, and monitor for changes, even if it does not
@@ -140,40 +148,59 @@ The valid configuration parameters are as follows:
   environment variable `ERL_INET_ETC_DIR` is set, which defines the directory
   for this file to some maybe other than `/etc`.
 
-- **`{registry, Type}.`** - `Type = atom()`
+- ```
+  {registry, Type}.
+    Type = atom()
+  ```
 
   Specify a system registry that Erlang is to read configuration data from.
   `win32` is the only valid option.
 
-- **`{host, IP, Aliases}.`** - `IP = tuple()`
+- ```
+  {host, IP, Aliases}.
+    IP = tuple()
+  ```
 
   `Aliases = [string()]`
 
   Add host entry to the hosts table.
 
-- **`{domain, Domain}.`** - `Domain = string()`
+- ```
+  {domain, Domain}.
+    Domain = string()
+  ```
 
   Set domain name.
 
-- **`{nameserver, IP [,Port]}.`** - `IP = tuple()`
-
-  `Port = integer()`
+- ```
+  {nameserver, IP [,Port]}.
+    IP = tuple()
+    Port = integer()
+  ```
 
   Add address (and port, if other than default) of the primary nameserver to use
   for `m:inet_res`.
 
-- **`{alt_nameserver, IP [,Port]}.`** - `IP = tuple()`
-
-  `Port = integer()`
+- ```
+  {alt_nameserver, IP [,Port]}.
+    IP = tuple()
+    Port = integer()
+  ```
 
   Add address (and port, if other than default) of the secondary nameserver for
   `m:inet_res`.
 
-- **`{search, Domains}.`** - `Domains = [string()]`
+- ```
+  {search, Domains}.
+    Domains = [string()]
+  ```
 
   Add search domains for `m:inet_res`.
 
-- **`{lookup, Methods}.`** - `Methods = [atom()]`
+- ```
+  {lookup, Methods}.
+    Methods = [atom()]
+  ```
 
   Specify lookup methods and in which order to try them. The valid methods are
   as follows:
@@ -189,27 +216,42 @@ The valid configuration parameters are as follows:
   pseudo lookup method `nostring` can be inserted anywhere in the `Methods`
   list.
 
-- **`{cache_size, Size}.`** - `Size = integer()`
+- ```
+  {cache_size, Size}.
+    Size = integer()
+  ```
 
   Set the resolver cache size for `dns` lookups. `native` lookups are not
   cached. Defaults to 100 DNS records.
 
-- **`{cache_refresh, Time}.`** - `Time = integer()`
+- ```
+  {cache_refresh, Time}.
+    Time = integer()
+  ```
 
   Set how often (in milliseconds) the resolver cache for `m:inet_res` is
   refreshed (that is, expired DNS records are deleted). Defaults to 1 hour.
 
-- **`{timeout, Time}.`** - `Time = integer()`
+- ```
+  {timeout, Time}.
+    Time = integer()
+  ```
 
   Set the time to wait until retry (in milliseconds) for DNS queries made by
   `m:inet_res`. Defaults to 2 seconds.
 
-- **`{retry, N}.`** - `N = integer()`
+- ```
+  {retry, N}.
+    N = integer()
+  ```
 
   Set the number of DNS queries `m:inet_res` will try before giving up. Defaults
   to 3.
 
-- **`{servfail_retry_timeout, Time}.`** - `Time = non_neg_integer()`
+- ```
+  {servfail_retry_timeout, Time}.
+    Time = non_neg_integer()
+  ```
 
   After all name servers have been tried, there is a timeout before the name
   servers are tried again. This is to prevent the server from answering the
@@ -217,22 +259,34 @@ The valid configuration parameters are as follows:
   [`inet_res`](`m:inet_res#servfail_retry_timeout`). Defaults to 1500 milli
   seconds .
 
-- **`{inet6, Bool}.`** - `Bool = true | false`
+- ```
+  {inet6, Bool}.
+    Bool = true | false
+  ```
 
   Tells the DNS client `m:inet_res` to look up IPv6 addresses. Defaults to
   `false`.
 
-- **`{usevc, Bool}.`** - `Bool = true | false`
+- ```
+  {usevc, Bool}.
+    Bool = true | false
+  ```
 
   Tells the DNS client `m:inet_res` to use TCP (Virtual Circuit) instead of UDP.
   Defaults to `false`.
 
-- **`{edns, Version}.`** - `Version = false | 0`
+- ```
+  {edns, Version}.
+    Version = false | 0
+  ```
 
   Sets the EDNS version that `m:inet_res` will use. The only allowed version is
   zero. Defaults to `false`, which means not to use EDNS.
 
-- **`{udp_payload_size, Size}.`** - `N = integer()`
+- ```
+  {udp_payload_size, Size}.
+    N = integer()
+  ```
 
   Sets the allowed UDP payload size `m:inet_res` will advertise in EDNS queries.
   Also sets the limit when the DNS query will be deemed too large for UDP
@@ -242,20 +296,37 @@ The valid configuration parameters are as follows:
   needs to be implemented. Default to 1280, which stems from the standard
   Ethernet MTU size.
 
-- **`{udp, Module}.`** - `Module = atom()`
+- ```
+  {udp, Module}.
+    Module = atom()
+  ```
 
   Tell Erlang to use another primitive UDP module than `inet_udp`.
 
-- **`{tcp, Module}.`** - `Module = atom()`
+- ```
+  {tcp, Module}.
+    Module = atom()
+  ```
 
   Tell Erlang to use another primitive TCP module than `inet_tcp`.
 
-- **`clear_hosts.`** - Clear the hosts table.
+- ```
+  clear_hosts.
+  ```
 
-- **`clear_ns.`** - Clear the list of recorded nameservers (primary and
-  secondary).
+  Clear the hosts table.
 
-- **`clear_search.`** - Clear the list of search domains.
+- ```
+  clear_ns.
+  ```
+
+  Clear the list of recorded nameservers (primary and secondary).
+
+- ```
+  clear_search.
+  ```
+
+  Clear the list of search domains.
 
 ## User Configuration Example
 

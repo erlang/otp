@@ -153,10 +153,14 @@ entirely in Erlang.
 
 The following functions are mandatory:
 
-- **`listen(Name) ->`{: #listen }  
-    `{ok, {Listen, Address, Creation}} | {error, Error}`  
-  `listen(Name,Host) ->`  
-    `{ok, {Listen, Address, Creation}} | {error, Error}`**  
+- ```erlang
+  listen(Name) ->
+    {ok, {Listen, Address, Creation}} | {error, Error}
+  listen(Name,Host) ->
+    {ok, {Listen, Address, Creation}} | {error, Error}
+  ```
+  {: #listen }
+  
   `listen/2` is called once in order to listen for incoming connection requests.
   The call is made when the distribution is brought up. The argument `Name` is
   the part of the node name before the `@` sign in the full node name. It can be
@@ -173,8 +177,12 @@ The following functions are mandatory:
   to use the `erl_epmd` module (part of the `kernel` application) in order to
   register the listen port with `epmd` and retrieve `Creation` to use.
 
-- **`address() ->`{: #address }  
-    `Address`**  
+- ```
+  address() ->
+    Address
+  ```
+  {: #address }
+  
   `address/0` is called in order to get the `Address` part of the
   [`listen/2`](alt_dist.md#listen) function without creating a listen socket.
   All fields except `address` have to be set in the returned record
@@ -187,8 +195,12 @@ The following functions are mandatory:
       #net_address{ host = Host, protocol = tcp, family = inet6 }.
   ```
 
-- **`accept(Listen) ->`{: #accept }  
-    `AcceptorPid`**  
+- ```erlang
+  accept(Listen) ->
+    AcceptorPid
+  ```
+  {: #accept }
+  
   `accept/1` should spawn a process that accepts connections. This process
   should preferably execute on `max` priority. The process identifier of this
   process should be returned.
@@ -203,7 +215,7 @@ The following functions are mandatory:
   process, it needs to inform `Kernel` about the accepted connection. This is
   done by passing a message on the form:
 
-  ```text
+  ```erlang
   Kernel ! {accept, AcceptorPid, DistController, Family, Proto}
   ```
 
@@ -225,8 +237,12 @@ The following functions are mandatory:
   When an accept sequence has been completed the acceptor process is expected to
   continue accepting further requests.
 
-- **`accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) ->`{: #accept_connection }  
-    `ConnectionSupervisorPid`**  
+- ```
+  accept_connection(AcceptorPid, DistCtrl, MyNode, Allowed, SetupTime) ->
+    ConnectionSupervisorPid
+  ```
+  {: #accept_connection }
+  
   `accept_connection/5` should spawn a process that will perform the Erlang
   distribution handshake for the connection. If the handshake successfully
   completes it should continue to function as a connection supervisor. This
@@ -266,8 +282,12 @@ The following functions are mandatory:
   the handshake successfully completes this process will then continue in a
   connection supervisor loop as long as the connection is up.
 
-- **`setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->`{: #setup }  
-    `ConnectionSupervisorPid`**  
+- ```
+  setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
+    ConnectionSupervisorPid
+  ```
+  {: #setup }
+  
   `setup/5` should spawn a process that connects to `Node`. When connection has
   been established it should perform the Erlang distribution handshake for the
   connection. If the handshake successfully completes it should continue to
@@ -315,26 +335,42 @@ The following functions are mandatory:
   handshake successfully completes this process will then continue in a
   connection supervisor loop as long as the connection is up.
 
-- **`close(Listen) ->`{: #close }  
-    `void()`**  
+- ```
+  close(Listen) ->
+    void()
+  ```
+  {: #close }
+  
   Called in order to close the `Listen` handle that originally was passed from
   the [`listen/1`](alt_dist.md#listen) callback.
 
-- **`select(NodeName) ->`{: #select }  
-    `t:boolean/0`**  
+- ```
+  select(NodeName) ->
+    boolean()
+  ```
+  {: #select }
+  
   Return `true` if the host name part of the `NodeName` is valid for use with
   this protocol; otherwise, `false`.
 
 There are also two optional functions that may be exported:
 
-- **`setopts(Listen, Opts) ->`{: #setopts }  
-    `ok | {error, Error}`**  
+- ```
+  setopts(Listen, Opts) ->
+    ok | {error, Error}
+  ```
+  {: #setopts }
+  
   The argument `Listen` is the handle originally passed from the
   [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
   options to set on future connections.
 
-- **`getopts(Listen, Opts) ->`{: #getopts }  
-    `{ok, OptionValues} | {error, Error}`**  
+- ```
+  getopts(Listen, Opts) ->
+    {ok, OptionValues} | {error, Error}
+  ```
+  {: #getopts }
+  
   The argument `Listen` is the handle originally passed from the
   [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
   options to read for future connections.
@@ -424,7 +460,7 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 
 - **`f_getll`{: #hs_data_f_getll }** - A fun with the following signature:
 
-  ```text
+  ```erlang
   fun (DistCtrlr) -> ID
   ```
 
@@ -436,7 +472,7 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 
 - **`f_address`{: #hs_data_f_address }** - A fun with the following signature:
 
-  ```text
+  ```erlang
   fun (DistCtrlr, Node) -> NetAddress
   ```
 
@@ -450,7 +486,7 @@ The following `#hs_data{}` record fields need to be set unless otherwise stated:
 
 - **`mf_tick`{: #hs_data_mf_tick }** - A fun with the following signature:
 
-  ```text
+  ```erlang
   fun (DistCtrlr) -> void()
   ```
 
@@ -841,7 +877,7 @@ intermediate stage.
 
 An enum is defined for the different types of ports:
 
-```erlang
+```c
 ( 1) typedef enum {
 ( 2)     portTypeUnknown,      /* An uninitialized port */
 ( 3)     portTypeListener,     /* A listening port/socket */
@@ -997,7 +1033,7 @@ systems). This is the only routine that must have a well-defined name. All other
 callbacks are reached through the driver structure. The macro to use is named
 `DRIVER_INIT` and takes the driver name as parameter:
 
-```erlang
+```c
 (1) /* Beginning of linked list of ports */
 (2) static UdsData *first_data;
 
@@ -1016,7 +1052,7 @@ The `uds_start` routine is called when a port is opened from Erlang. In this
 case, we only allocate a structure and initialize it. Creating the actual socket
 is left to the `uds_command` routine.
 
-```erlang
+```c
 ( 1) static ErlDrvData uds_start(ErlDrvPort port, char *buff)
 ( 2) {
 ( 3)     UdsData *ud;
@@ -1052,7 +1088,7 @@ data to the port. This routine handles all asynchronous commands when the port
 is in `command` mode and the sending of all data when the port is in `data`
 mode:
 
-```erlang
+```c
 ( 1) static void uds_command(ErlDrvData handle, char *buff, int bufflen)
 ( 2) {
 ( 3)     UdsData *ud = (UdsData *) handle;
@@ -1156,7 +1192,7 @@ previously passed to the `driver_select` routine. This occurs typically when a
 read command is issued and no data is available. The `do_recv` routine is as
 follows:
 
-```erlang
+```c
 ( 1) static void do_recv(UdsData *ud)
 ( 2) {
 ( 3)     int res;
@@ -1208,7 +1244,7 @@ the distribution can be changed in the future.
 The `uds_input` routine handles other input events (like non-blocking `accept`),
 but most importantly handle data arriving at the socket by calling `do_recv`:
 
-```erlang
+```c
 ( 1) static void uds_input(ErlDrvData handle, ErlDrvEvent event)
 ( 2) {
 ( 3)     UdsData *ud = (UdsData *) handle;
@@ -1247,7 +1283,7 @@ which is also recognized as a read event.
 The output mechanisms are similar to the input. The `do_send` routine is as
 follows:
 
-```erlang
+```c
 ( 1) static void do_send(UdsData *ud, char *buff, int bufflen)
 ( 2) {
 ( 3)     char header[4];
@@ -1312,7 +1348,7 @@ time. Therefore the acknowledgement can be sent whenever the queue is empty.
 
 The `send_out_queue` routine is as follows:
 
-```erlang
+```c
 ( 1) static int send_out_queue(UdsData *ud)
 ( 2) {
 ( 3)     for(;;) {
@@ -1357,7 +1393,7 @@ We continue trying to write until the queue is empty or the writing blocks.
 
 The routine above is called from the `uds_output` routine:
 
-```erlang
+```c
 ( 1) static void uds_output(ErlDrvData handle, ErlDrvEvent event)
 ( 2) {
 ( 3)    UdsData *ud = (UdsData *) handle;
@@ -1417,7 +1453,7 @@ The control interface gets a buffer to return its value in, but is free to
 allocate its own buffer if the provided one is too small. The `uds_control` code
 is as follows:
 
-```erlang
+```c
 ( 1) static int uds_control(ErlDrvData handle, unsigned int command,
 ( 2)                        char* buf, int count, char** res, int res_size)
 ( 3) {
