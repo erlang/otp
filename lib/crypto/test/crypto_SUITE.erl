@@ -43,13 +43,10 @@
          api_ng/1,
          api_ng_one_shot/0,
          api_ng_one_shot/1,
-         api_ng_tls/0,
-         api_ng_tls/1,
          app/0,
          app/1,
          appup/0,
          appup/1,
-         bad_combo/1,
          bad_key_length/1,
          bad_cipher_name/1,
          bad_generate_key_name/1,
@@ -191,10 +188,6 @@
          rsa_oaep_label/0
         ]).
 
-
--compile({nowarn_deprecated_function, [{crypto, crypto_dyn_iv_init, 3},
-                                       {crypto, crypto_dyn_iv_update, 3}
-                                      ]}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -411,28 +404,28 @@ groups() ->
      {ecdh,                 [], [compute, generate, use_all_ecdh_generate_compute]},
      {eddh,                 [], [compute, generate, use_all_eddh_generate_compute]},
      {srp,                  [], [generate_compute]},
-     {des_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {des_cfb,              [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {des_ede3_cfb,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {rc2_cbc,              [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
+     {des_cbc,              [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
+     {des_cfb,              [], [api_ng, api_ng_one_shot]},
+     {des_ede3_cbc,         [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
+     {des_ede3_cfb,         [], [api_ng, api_ng_one_shot]},
+     {rc2_cbc,              [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
      {aes_cfb8,             [], []},
-     {aes_128_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_192_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cfb8,         [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_128_cfb8,         [], [api_ng, api_ng_one_shot]},
+     {aes_192_cfb8,         [], [api_ng, api_ng_one_shot]},
+     {aes_256_cfb8,         [], [api_ng, api_ng_one_shot]},
      {no_aes_cfb8,          [], [no_support]},
      {aes_cfb128,           [], []},
-     {aes_128_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_192_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_cfb128,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {aes_128_cfb128,       [], [api_ng, api_ng_one_shot]},
+     {aes_192_cfb128,       [], [api_ng, api_ng_one_shot]},
+     {aes_256_cfb128,       [], [api_ng, api_ng_one_shot]},
      {no_aes_cfb128,        [], [no_support]},
-     {blowfish_cbc,         [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
+     {blowfish_cbc,         [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
      {blowfish_ecb,         [], [api_ng, api_ng_one_shot]},
-     {blowfish_cfb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {blowfish_ofb64,       [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {rc4,                  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {blowfish_cfb64,       [], [api_ng, api_ng_one_shot]},
+     {blowfish_ofb64,       [], [api_ng, api_ng_one_shot]},
+     {rc4,                  [], [api_ng, api_ng_one_shot]},
      {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
-     {chacha20,             [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {chacha20,             [], [api_ng, api_ng_one_shot]},
      {poly1305,             [], [poly1305]},
      {no_poly1305,          [], [no_poly1305]},
      {no_aes_cfb128,        [], [no_support]},
@@ -457,7 +450,6 @@ groups() ->
      {no_rc2_cbc,           [], [no_support]},
      {no_rc4,               [], [no_support]},
      {api_errors,           [], [api_errors_ecdh,
-                                 bad_combo,
                                  bad_key_length,
                                  bad_cipher_name,
                                  bad_generate_key_name,
@@ -470,14 +462,14 @@ groups() ->
                                 ]},
 
      %% New cipher nameing schema
-     {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {des_ede3_cfb, [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {aes_192_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, api_ng_tls, cmac, cmac_update]},
-     {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
+     {des_ede3_cbc, [], [api_ng, api_ng_one_shot]},
+     {des_ede3_cfb, [], [api_ng, api_ng_one_shot]},
+     {aes_128_cbc,  [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
+     {aes_192_cbc,  [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
+     {aes_256_cbc,  [], [api_ng, api_ng_one_shot, cmac, cmac_update]},
+     {aes_128_ctr,  [], [api_ng, api_ng_one_shot]},
+     {aes_192_ctr,  [], [api_ng, api_ng_one_shot]},
+     {aes_256_ctr,  [], [api_ng, api_ng_one_shot]},
      {aes_128_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_192_ccm,  [], [aead_ng, aead_bad_tag]},
      {aes_256_ccm,  [], [aead_ng, aead_bad_tag]},
@@ -968,64 +960,6 @@ do_api_ng_one_shot({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
         OtherPT ->
             ct:log("decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
             ct:fail("api_ng_one_time (decode)",[])
-    end.
-
-%%--------------------------------------------------------------------
-api_ng_tls() ->
-     [{doc, "Test special tls api"}].
-
-api_ng_tls(Config) when is_list(Config) ->
-    try
-        [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-        lists:foreach(fun do_api_ng_tls/1, Ciphers)
-    catch
-        error:{notsup,_,Reason} ->
-            {skip, Reason}
-    end.
-
-
-do_api_ng_tls({Type, Key, PlainTexts}) ->
-    do_api_ng_tls({Type, Key, <<>>, PlainTexts});
-
-do_api_ng_tls({Type, Key, IV, PlainTexts}) ->
-    do_api_ng_tls({Type, Key, IV, PlainTexts, undefined});
-
-do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}) ->
-    PlainText = iolist_to_binary(lazy_eval(PlainText0)),
-    ct:log("Type = ~p~nKey = ~p~nIV = ~p~nPlainText = ~p~nExpectedEncText = ~p",
-           [Type, Key, IV, PlainText, ExpectedEncText]),
-    Renc = crypto:crypto_dyn_iv_init(Type, Key, true),
-    Rdec = crypto:crypto_dyn_iv_init(Type, Key, false),
-    EncTxt = crypto:crypto_dyn_iv_update(Renc, PlainText, IV),
-    case ExpectedEncText of
-        undefined ->
-            ok;
-        EncTxt ->
-            %% Now check that the state is NOT updated:
-            case crypto:crypto_dyn_iv_update(Renc, PlainText, IV) of
-                EncTxt ->
-                    ok;
-                EncTxt2 ->
-                    ct:log("2nd encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, EncTxt, EncTxt2]),
-                    ct:fail("api_ng_tls (second encode)",[])
-            end;
-        OtherEnc ->
-            ct:log("1st encode~nIn: ~p~nExpected: ~p~nEnc: ~p~n", [{Type,Key,IV,PlainText}, ExpectedEncText, OtherEnc]),
-            ct:fail("api_ng_tls (encode)",[])
-    end,
-    case crypto:crypto_dyn_iv_update(Rdec, EncTxt, IV) of
-        PlainText ->
-            %% Now check that the state is NOT updated:
-            case crypto:crypto_dyn_iv_update(Rdec, EncTxt, IV) of
-                PlainText ->
-                    ok;
-                PlainText2 ->
-                    ct:log("2nd decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, PlainText2]),
-                    ct:fail("api_ng_tls (second decode)",[])
-            end;
-        OtherPT ->
-            ct:log("1st decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
-            ct:fail("api_ng_tlst (decode)",[])
     end.
 
 %%--------------------------------------------------------------------
@@ -4769,10 +4703,6 @@ api_errors_ecdh(Config) when is_list(Config) ->
         ?chk_api_name_helper(Call,  Expect1 -> ok; Expect2 -> ok; Expect3 -> ok; )
        ).
 
-
-bad_combo(_Config) ->
-    ?chk_api_name(crypto:crypto_dyn_iv_init(des_ede3_cbc, <<>>, []),
-                  error:_).
 
 bad_key_length(_Config) ->
     ?chk_api_name(crypto:crypto_init(aes_128_ctr, <<1>>, <<0:128>>, true),

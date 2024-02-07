@@ -192,8 +192,7 @@ end
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
--deprecated([crypto_dyn_iv_init/3,
-             crypto_dyn_iv_update/3
+-deprecated([
            ]).
 
 %%%----------------------------------------------------------------
@@ -202,7 +201,9 @@ end
 %% Old interface. Now implemented with the New interface.
 %% Removed in OTP-24.0 See OTP-16232 (deprecation) and OTP-16656 (removal)
 
--removed([{next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
+-removed([{crypto_dyn_iv_init, 3, "not supported, use crypto_init/4"},
+          {crypto_dyn_iv_update, 3, "not supported, use crypto_update/2"},
+          {next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
           {hmac, 3, "use crypto:mac/4 instead"},
           {hmac, 4, "use crypto:macN/5 instead"},
           {hmac_init, 2, "use crypto:mac_init/3 instead"},
@@ -219,13 +220,13 @@ end
           {block_encrypt, 3,  "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
                               "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
           {block_encrypt, 4,  "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-                              "or crypto:crypto_(dyn_iv)?_init + "
-                              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
+                              "or crypto:crypto_init + "
+                              "crypto:crypto_update + crypto:crypto_final instead"},
           {block_decrypt, 3,  "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
                               "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
           {block_decrypt, 4,  "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
-                              "or crypto:crypto_(dyn_iv)?_init + "
-                              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
+                              "or crypto:crypto_init + "
+                              "crypto:crypto_update + crypto:crypto_final instead"}
          ]).
 
 -removed_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
@@ -244,8 +245,6 @@ end
          crypto_one_time/4, crypto_one_time/5,
          crypto_one_time_aead/6, crypto_one_time_aead/7,
 
-         crypto_dyn_iv_init/3,
-         crypto_dyn_iv_update/3,
          crypto_final/1,
          crypto_get_data/1,
 
@@ -286,7 +285,7 @@ end
        hash_info/1, hash_nif/2, hash_init_nif/1, hash_update_nif/2,
        hash_final_nif/1, hash_final_xof_nif/2, mac_nif/4, mac_init_nif/3, mac_update_nif/2,
        mac_final_nif/1, cipher_info_nif/1, ng_crypto_init_nif/4,
-       ng_crypto_update_nif/2, ng_crypto_update_nif/3, ng_crypto_final_nif/1,
+       ng_crypto_update_nif/2, ng_crypto_final_nif/1,
        ng_crypto_get_data_nif/1, ng_crypto_one_time_nif/5,
        strong_rand_bytes_nif/1, strong_rand_range_nif/1, rand_uniform_nif/2,
        mod_exp_nif/4, do_exor/2, hash_equals_nif/2, pbkdf2_hmac_nif/5,
@@ -1465,12 +1464,7 @@ with a reference that is returned.
 If `IV = <<>>`, no IV is used. This is intended for ciphers without an IV
 (nounce). See `crypto_init/3`.
 
-If `IV = undefined`, the IV must be added by calls to `crypto_dyn_iv_update/3`.
-This is intended for cases where the IV (nounce) need to be changed for each
-encryption and decryption. See `crypto_dyn_iv_init/3`.
-
-The actual encryption or decryption is done by `crypto_update/2` (or
-`crypto_dyn_iv_update/3` ).
+The actual encryption or decryption is done by `crypto_update/2`.
 
 For encryption, set the `FlagOrOptions` to `true` or `[{encrypt,true}]`. For
 decryption, set it to `false` or `[{encrypt,false}]`.
@@ -1509,29 +1503,6 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
     ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, IV, FlagOrOptions)).
 
 %%%----------------------------------------------------------------
--doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
-Initializes a series of encryptions or decryptions where the IV is provided
-later. The actual encryption or decryption is done by `crypto_dyn_iv_update/3`.
-
-The function is equivalent to
-[`crypto_init(Cipher, Key, undefined, FlagOrOptions)`](`crypto_init/4`).
-""".
--doc(#{since => <<"OTP 22.0">>}).
--spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State
-                                                          when Cipher :: cipher_iv(),
-                                                               Key :: iodata(),
-                                                               FlagOrOptions :: crypto_opts() | boolean(),
-                                                               State :: crypto_state() .
-crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
-    %% The IV is supposed to be supplied by calling crypto_update/3
-    ?nif_call(ng_crypto_init_nif(alias(Cipher,Key), Key, undefined, FlagOrOptions),
-              [Cipher, Key, FlagOrOptions],
-              {1,2,-1,3}
-             ).
-
-%%%----------------------------------------------------------------
 %%%
 %%% Encrypt/decrypt a sequence of bytes.  The sum of the sizes
 %%% of all blocks must be an integer multiple of the crypto's
@@ -1558,21 +1529,6 @@ See
 crypto_update(State, Data) ->
     ?nif_call(ng_crypto_update_nif(State, Data)).
 
-%%%----------------------------------------------------------------
--doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
-Do an actual crypto operation on a part of the full text and the IV is supplied
-for each part. The `State` should be created with `crypto_dyn_iv_init/3`.
-""".
--doc(#{since => <<"OTP 22.0">>}).
--spec crypto_dyn_iv_update(State, Data, IV) -> Result
-                                                   when State :: crypto_state(),
-                                                        Data :: iodata(),
-                                                        IV :: iodata(),
-                                                        Result :: binary() .
-crypto_dyn_iv_update(State, Data, IV) ->
-    ?nif_call(ng_crypto_update_nif(State, Data, IV)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1585,7 +1541,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 Finalizes a series of encryptions or decryptions and delivers the final bytes of
 the final block. The data returned from this function may be empty if no padding
-was enabled in [crypto_init/3,4](`crypto_init/3`) or `crypto_dyn_iv_init/3`.
+was enabled in [crypto_init/3,4](`crypto_init/3`).
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec crypto_final(State) -> FinalResult
@@ -1760,7 +1716,6 @@ aead_tag_len(_) ->
 ng_crypto_init_nif(_Cipher, _Key, _IVec, _OptionsMap) -> ?nif_stub.
 
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
-ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 ng_crypto_final_nif(_State) -> ?nif_stub.
 

@@ -84,7 +84,6 @@ static ErlNifFunc nif_funcs[] = {
     {"cipher_info_nif", 1, cipher_info_nif, 0},
     {"ng_crypto_init_nif", 4, ng_crypto_init_nif, 0},
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
-    {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
     {"ng_crypto_final_nif", 1, ng_crypto_final_nif, 0},
     {"ng_crypto_get_data_nif", 1, ng_crypto_get_data_nif, 0},
     {"ng_crypto_one_time_nif", 5, ng_crypto_one_time_nif, 0},

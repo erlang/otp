@@ -67,7 +67,6 @@ To be used with:
 
 - [crypto_one_time/5](`crypto:crypto_one_time/5`)
 - [crypto_init/4](`crypto:crypto_init/4`)
-- [crypto_dyn_iv_init/3](`crypto:crypto_dyn_iv_init/3`)
 
 The ciphers are:
 
