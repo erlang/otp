@@ -47,6 +47,9 @@
 #  ifndef ETIMEDOUT
 #    define ETIMEDOUT EAGAIN
 #  endif
+#  ifndef EINTR
+#    define EINTR (INT_MAX-1)
+#  endif
 #endif
 
 #endif

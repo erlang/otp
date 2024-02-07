@@ -613,7 +613,22 @@ find_next_timeout(ErtsSchedulerData *esdp, ErtsTimerWheel *tiw)
     }
 
 done: {
-        ErtsMonotonicTime min_timeout;
+        ErtsMonotonicTime min_timeout, timeout_pos_limit;
+
+        timeout_pos_limit = tiw->pos + ERTS_CLKTCKS_WEEK;
+        if (min_timeout_pos > timeout_pos_limit) {
+            /*
+             * We never expose a timeout larger than a week in order to avoid
+             * issues with primitives that have a limited maximum timeout
+             * time (for example, poll() with a timeout in milliseconds passed
+             * in a variable of type 'int' which is around 3,5 weeks). The
+             * overhead, in case all timers are very far in the future, will
+             * be that the scheduler once a week will have to check if we got
+             * any timeouts closer in time than a week...
+             */
+            min_timeout_pos = timeout_pos_limit;
+            true_min_timeout = 0;
+        }
 
         min_timeout = ERTS_CLKTCKS_TO_MONOTONIC(min_timeout_pos);
         tiw->next_timeout_pos = min_timeout_pos;
