@@ -41,7 +41,8 @@
               msg_data_ctx/0,
               acm_data/0,
               acm_data_cmy/0,
-              acm_data_v3/0
+              acm_data_v3/0,
+              mpd_state/0
              ]).
 
 -define(SNMP_USE_V3, true).
@@ -105,6 +106,8 @@
                      {V3Hdr          :: snmp_pdus:v3_hdr(),
                       ScopedPDUBytes :: binary()}) -> snmp:void()).
 
+-opaque mpd_state() :: #state{}.
+
 
 
 
@@ -129,6 +132,11 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+
+-spec init(Vsns) -> MPDState when
+      Vsns     :: [snmp:version()],
+      MPDState :: mpd_state().
+
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
