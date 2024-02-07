@@ -220,6 +220,15 @@ verify_mandatory([Key|Keys], Opts) ->
 
 %% ----------------------------------------------------------------
 
+-spec start_sub_agent(ParentAgent, Subtree, Mibs) ->
+          {ok, Pid} | {error, Reason} when
+      ParentAgent :: pid(),
+      Subtree     :: snmp:oid(),
+      Mibs        :: [MibName],
+      MibName     :: string(),
+      Pid         :: pid(),
+      Reason      :: term().
+
 start_sub_agent(ParentAgent, Subtree, Mibs) 
   when is_pid(ParentAgent) andalso is_list(Mibs) ->
     ?d("start_sub_agent -> entry with"
