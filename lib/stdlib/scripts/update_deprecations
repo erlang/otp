@@ -133,6 +133,7 @@ emit(Top, #st{ functions = Fs0, types = Ts, deprecations = Depr }) ->
                 "%% after adding an attribute.\n"
                 "%%\n"
                 "-module(otp_internal).\n"
+                "-moduledoc false.\n"
                 "-include(\"otp_internal.hrl\").\n"
                 "%%\n",
                 emit_function("obsolete", Fs),
