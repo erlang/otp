@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -175,6 +175,14 @@ do_start_sub_sup(Opts) ->
     verify_mandatory([db_dir], Opts),
     ?d("do_start_sub_sup -> start (sub) supervisor",[]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [sub, Opts]).  
+
+-spec start_master_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts     :: [Opt],
+      Opt      :: {db_dir, string()} | {config, ConfOpts} | {atom(), term()},
+      ConfOpts :: [ConfOpt],
+      ConfOpt  :: {dir, string()} | {atom(), term()},
+      Pid      :: pid(),
+      Reason   :: {already_started, Pid} | term().
 
 start_master_sup(Opts) ->
     (catch do_start_master_sup(Opts)).

@@ -59,28 +59,22 @@
           a description of the options.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">start_master_sup(Opts) -> {ok, pid()} |  {error, {already_started, pid()}} | {error, Reason}</name>
+      <name name="start_master_sup" arity="1" clause_i="1" since=""/>
       <fsummary>Start the SNMP supervisor for all agents</fsummary>
-      <type>
-        <v>Opts = [opt()]</v>
-        <v>opt() = {db_dir, string()} | {config, ConfOpts()} | ...</v>
-        <v>ConfOpts = [conf_opts()]</v>
-        <v>conf_opts() = {dir, string()} | ...</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Starts a supervisor for the SNMP agent system.  The
-          supervisor starts all involved SNMP processes, including the
-          master agent.  Sub-agents should be started by calling
-          <c>start_subagent/3</c>.
-          </p>
+        <p>Starts a supervisor for the SNMP agent system. The
+	supervisor starts all involved SNMP processes, including the
+	master agent. Sub-agents should be started by calling
+	<c>start_subagent/3</c>. </p>
         <p><c>db_dir</c> is mandatory.</p>
         <p><c>dir</c> in config is mandatory.</p>
         <p>See <seeguide marker="snmp_config">snmp config</seeguide> for 
-          a description of the options.</p>
+	a description of the options. </p>
       </desc>
     </func>
+
     <func>
       <name since="">start_sub_agent(ParentAgent,Subtree,Mibs) -> {ok, pid()} | {error, Reason}</name>
       <fsummary>Start a sub-agent</fsummary>

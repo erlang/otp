@@ -75,6 +75,7 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmpa_error_logger.xml \
 	$(SPECDIR)/specs_snmpa_local_db.xml \
 	$(SPECDIR)/specs_snmpa_mpd.xml \
+	$(SPECDIR)/specs_snmpa_supervisor.xml \
 	$(SPECDIR)/specs_snmpa_notification_delivery_info_receiver.xml
 
 TOP_SPECS_FILE = specs.xml
