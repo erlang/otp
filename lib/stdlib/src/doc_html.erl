@@ -98,20 +98,21 @@ process_rest([P | Rest]=Doc, Block) ->
     {StrippedP, SpaceCount} = strip_spaces(P, 0, infinity),
     {Content, Rest1, Block2} = case StrippedP of
                                    <<BulletList, $\s, Line/binary>> when ?IS_BULLET(BulletList) ->
-                                       Block ++ process_list(ul, Line, Rest, SpaceCount);
+                                       process_list(ul, Line, Rest, SpaceCount, Block);
                                    <<NumberedList, $., $\s, Line/binary>> when ?IS_NUMBERED(NumberedList) ->
-                                       Block ++ process_list(ol, Line, Rest, SpaceCount);
+                                       process_list(ol, Line, Rest, SpaceCount, Block);
                                    _ ->
                                        process_p(Doc, Block)
                                end,
     Content ++ process_md(Rest1, Block2).
 
--spec process_list(ul | ol , LineContent, Rest, SpaceCount) -> Result when
+-spec process_list(ul | ol , LineContent, Rest, SpaceCount, Block) -> Result when
       LineContent :: binary(),
       Rest        :: [binary()],
       SpaceCount  :: non_neg_integer(),
+      Block       :: shell_docs:chunk_elements(),
       Result      :: {shell_docs:chunk_elements(), [binary()], shell_docs:chunk_elements()}.
-process_list(Format, LineContent, Rest, SpaceCount) ->
+process_list(Format, LineContent, Rest, SpaceCount, Block) ->
     LineFormatted = li(process_md(LineContent)),
     {Content, Rest1, Done} = process_list_next(Format, Rest, SpaceCount, [LineFormatted]),
     Paragraph = case Done of
@@ -121,7 +122,7 @@ process_list(Format, LineContent, Rest, SpaceCount) ->
                         []
                 end,
     Content1 = compact_content(Content),
-    {[create_item_list(Format, Content1)], Rest1, Paragraph}.
+    {Block ++ [create_item_list(Format, Content1)], Rest1, Paragraph}.
 
 compact_content(Content) ->
     Result = lists:foldr(fun (X, []) ->

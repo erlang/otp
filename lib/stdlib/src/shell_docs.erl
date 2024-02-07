@@ -442,7 +442,7 @@ normalize_paragraph(Elems) ->
 -doc false.
 -spec get_doc(Module :: module()) -> chunk_elements().
 get_doc(Module) ->
-    {ok, #docs_v1{ module_doc = ModuleDoc } = D } = format_doc(Module),
+    #docs_v1{ module_doc = ModuleDoc }=D = format_doc(Module),
     get_local_doc(Module, ModuleDoc, D).
 
 -doc false.
@@ -454,7 +454,7 @@ get_doc(Module) ->
       Signature :: [binary()],
       Metadata :: map().
 get_doc(Module, Function, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = format_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function andalso A =:= Arity;
@@ -550,7 +550,7 @@ render(Module, Function, Arity, #docs_v1{} = D, Config)
       Signature :: [binary()],
       Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = format_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type andalso A =:= Arity;
@@ -635,7 +635,7 @@ render_type(_Module, Type, Arity, #docs_v1{} = D, Config) ->
       Signature :: [binary()],
       Metadata :: map().
 get_callback_doc(Module, Callback, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = format_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Callback andalso A =:= Arity;
