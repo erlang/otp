@@ -27,7 +27,7 @@
 
 -export([count_and_find/3]).
 
--record(state, {handle,owner,mref,name,buf,read_mode,unic}).
+-record(state, {handle,owner,mref,buf,read_mode,unic}).
 
 -include("file_int.hrl").
 
@@ -83,7 +83,6 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 				    #state{handle    = Handle,
 					   owner     = Owner,
 					   mref      = M,
-					   name      = FileName,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
 					   unic = UnicodeMode})
@@ -323,14 +322,7 @@ file_request({read_handle_info, Opts},
             {stop,Reason,Reply,State};
         Reply ->
             {reply,Reply,State}
-    end;
-file_request(pid2name,
-             #state{name=Name}=State) ->
-    {reply,{ok,Name},State};
-file_request(Unknown,
-	     #state{}=State) ->
-    Reason = {request, Unknown},
-    {error,{error,Reason},State}.
+    end.
 
 %% Standard reply and clear buffer
 std_reply({error,_}=Reply, State) ->
