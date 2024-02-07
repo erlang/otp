@@ -102,12 +102,16 @@ on selected paths.
 
 ## Loading of Code From Archive Files
 
-> #### Warning {: .warning }
+> #### Change {: .info }
 >
-> The support for loading code from archive files is experimental. The purpose
-> of releasing it before it is ready is to obtain early feedback. The file
-> format, semantics, interfaces, and so on, can be changed in a future release.
-> The function `lib_dir/2` and flag `-code_path_choice` are also experimental.
+> The existing experimental support for archive files will be changed
+> in a future release. As of Erlang/OTP 27, the function `code:lib_dir/2`,
+> the `-code_path_choice` flag, and using `m:erl_prim_loader` for
+> reading files from an archive are deprecated.
+>
+> `escript` scripts that use archive files should use
+> `escript:extract/2` to read data files from its archive instead of using
+> `code:lib_dir/2` and `m:erl_prim_loader`.
 
 The Erlang archives are `ZIP` files with extension `.ez`. Erlang archives can
 also be [enclosed in `escript`](`m:escript`) files whose file extension is arbitrary.
@@ -167,9 +171,9 @@ directory resolution update).
 For each directory on the second level in the application archive (`ebin`,
 `priv`, `src`, and so on), the code server first chooses the regular directory
 if it exists and second from the archive. Function `code:lib_dir/2` returns the
-path to the subdirectory. For example, `code:lib_dir(megaco,ebin)` can return
+path to the subdirectory. For example, `code:lib_dir(megaco, ebin)` can return
 `/otp/root/lib/megaco-3.9.1.1.ez/megaco-3.9.1.1/ebin` while
-`code:lib_dir(megaco,priv)` can return `/otp/root/lib/megaco-3.9.1.1/priv`.
+`code:lib_dir(megaco, priv)` can return `/otp/root/lib/megaco-3.9.1.1/priv`.
 
 When an `escript` file contains an archive, there are no restrictions on the
 name of the `escript` and no restrictions on how many applications that can be
@@ -178,9 +182,13 @@ level in the archive. At startup, the top directory in the embedded archive and
 all (second level) `ebin` directories in the embedded archive are added to the
 code path. See [`erts:escript(1)`](`e:erts:escript_cmd.md`).
 
-When the choice of directories in the code path is `strict`, the directory that
-ends up in the code path is exactly the stated one. This means that if, for
-example, the directory `$OTPROOT/lib/mnesia-4.4.7/ebin` is explicitly added to
+A future-proof way for `escript` scripts to read data files from the archive is
+to use the `escript:extract/2` function.
+
+When the choice of directories in the code path is `strict` (which is
+the default as of Erlang/OTP 27), the directory that ends up in the
+code path is exactly the stated one. This means that if, for example,
+the directory `$OTPROOT/lib/mnesia-4.4.7/ebin` is explicitly added to
 the code path, the code server does not load files from
 `$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`.
 
@@ -321,6 +329,8 @@ common reasons.
 
 -removed({rehash,0,"the code path cache feature has been removed"}).
 -removed({is_module_native,1,"HiPE has been removed"}).
+
+-deprecated([{lib_dir,2,"this functionality will be removed in a future release"}]).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).
@@ -787,6 +797,10 @@ Returns `{error, bad_name}` if `Name` is not the name of an application under
 lib_dir(App) when is_atom(App) ; is_list(App) -> call({dir,{lib_dir,App}}).
 
 -doc """
+> #### Change {: .info }
+>
+> This function is deprecated and will be removed in a future release.
+
 Returns the path to a subdirectory directly under the top directory of an
 application. Normally the subdirectories reside under the top directory for the
 application, but when applications at least partly reside in an archive, the
@@ -794,10 +808,12 @@ situation is different. Some of the subdirectories can reside as regular
 directories while others reside in an archive file. It is not checked whether
 this directory exists.
 
+Instead of using this function, use [`code:lib_dir/1`](`code:lib_dir/1`).
+
 _Example:_
 
 ```text
-> code:lib_dir(megaco, priv).
+> filename:join(code:lib_dir(megaco), "priv").
 "/usr/local/otp/lib/megaco-3.9.1.1/priv"
 ```
 

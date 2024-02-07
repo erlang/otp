@@ -184,7 +184,7 @@ init_tool(Config) ->
     end.
 
 init_tool_extensions(proper) ->
-    ProperExtDir = code:lib_dir(common_test, proper_ext),
+    ProperExtDir = filename:join(code:lib_dir(common_test), proper_ext),
     true = code:add_patha(ProperExtDir),
     ct:log("Added ~ts to code path~n", [ProperExtDir]),
     ok;
