@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1046,14 +1046,23 @@ static void main_loop(void)
 
 static void init_workers(int max)
 {
+    size_t alloc_size = sizeof(Worker) * max;
+
     max_workers = max;
     num_busy_workers = 0;
     num_free_workers = 0;
     num_stalled_workers = 0;
 
-    busy_workers = ALLOC(sizeof(Worker) * max_workers);
-    free_workers = ALLOC(sizeof(Worker) * max_workers);
-    stalled_workers = ALLOC(sizeof(Worker) * max_workers);
+    busy_workers = ALLOC(alloc_size);
+    free_workers = ALLOC(alloc_size);
+    stalled_workers = ALLOC(alloc_size);
+
+#ifdef DEBUG
+    memset(busy_workers, 0, alloc_size);
+    memset(free_workers, 0, alloc_size);
+    memset(stalled_workers, 0, alloc_size);;
+#endif
+
 #ifndef WIN32
     init_signals();
 #endif
