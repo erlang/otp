@@ -10159,6 +10159,20 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
         if (!is_normal_sched) {
             /* On dirty scheduler */
+            if (state & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
+                ASSERT(esdp->type == ERTS_SCHED_DIRTY_CPU);
+                /*
+                 * Check if a dirty signal handler is handling signals for
+                 * us and if so, wait for it to complete before continuing...
+                 *
+                 * Dirty schedulers will only access the signal queue when in
+                 * the ERTS_PSFLG_DIRTY_RUNNING_SYS state, so we don't need to
+                 * wait for signal handling in other cases.
+                 */
+                state = erts_proc_sig_check_wait_dirty_handle_signals(p, state);
+                if (state & ERTS_PSFLG_EXITING)
+                    goto sched_out_proc;
+            }
         }
         else {
             /* On normal scheduler */
@@ -10932,6 +10946,7 @@ erts_execute_dirty_system_task(Process *c_p)
 
     ASSERT(erts_atomic32_read_nob(&c_p->state)
            & ERTS_PSFLG_DIRTY_RUNNING_SYS);
+
     /*
      * Currently all dirty system tasks are handled while holding
      * the main lock. The process is during this in the state

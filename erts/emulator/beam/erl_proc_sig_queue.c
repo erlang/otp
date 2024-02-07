@@ -8366,26 +8366,27 @@ erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p)
      *   has been created when monitoring a port using
      *   '{alias, reply_demonitor}' option.
      * * While the dirty process signal handler is handling
-     *   signals for the process, the process stops executing
-     *   dirty, gets scheduled on a normal scheduler, and
-     *   then tries to handle signals itself.
+     *   signals for the process, the process access the
+     *   signal queue in another thread.
      *
-     * If the above happens, the normal scheduler scheduling
-     * in the process will wait here until the dirty process
-     * signal handler is done with the process...
+     * If the above happens, the scheduler executing the
+     * process will wait here until the dirty process signal
+     * handler is done with the process...
      */
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     erts_tse_t *event;
 
-    ASSERT(c_p = erts_get_current_process());
-    ASSERT(c_p->scheduler_data);
-    ASSERT(c_p->scheduler_data->aux_work_data.ssi);
-    ASSERT(c_p->scheduler_data->aux_work_data.ssi->event);
+    ASSERT(c_p == erts_get_current_process());
+    ASSERT(esdp);
+    ASSERT(esdp->ssi);
+    ASSERT(esdp->ssi->event);
     ASSERT(c_p->sig_qs.flags & FS_HANDLING_SIGS);
     ASSERT(!(c_p->sig_qs.flags & FS_WAIT_HANDLE_SIGS));
 
-    event = c_p->scheduler_data->aux_work_data.ssi->event;
+    event = esdp->ssi->event;
+    (void) ERTS_PROC_SET_TS_EVENT(c_p, event);
     c_p->sig_qs.flags |= FS_WAIT_HANDLE_SIGS;
-    
+
     erts_tse_use(event);
 
     do {
@@ -8397,8 +8398,8 @@ erts_proc_sig_do_wait_dirty_handle_signals__(Process *c_p)
     } while (c_p->sig_qs.flags & FS_HANDLING_SIGS);
 
     erts_tse_return(event);
-
     c_p->sig_qs.flags &= ~FS_WAIT_HANDLE_SIGS;
+    (void) ERTS_PROC_SET_TS_EVENT(c_p, NULL);
 }
 
 static void
@@ -8411,20 +8412,19 @@ wake_handle_signals(Process *proc)
      * This function should only be called by a dirty process signal handler
      * process...
      */
+    erts_tse_t *event = ERTS_PROC_GET_TS_EVENT(proc);
 #ifdef DEBUG
     Process *c_p = erts_get_current_process();
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(proc));
     ASSERT(proc->sig_qs.flags & FS_WAIT_HANDLE_SIGS);
     ERTS_ASSERT(c_p == erts_dirty_process_signal_handler_max
                 || c_p == erts_dirty_process_signal_handler_high
-                || erts_dirty_process_signal_handler);
-    ASSERT(proc->scheduler_data);
-    ASSERT(proc->scheduler_data->aux_work_data.ssi);
-    ASSERT(proc->scheduler_data->aux_work_data.ssi->event);
+                || c_p == erts_dirty_process_signal_handler);
+    ASSERT(event);
 #endif
 
     proc->sig_qs.flags &= ~FS_HANDLING_SIGS;
-    erts_tse_set(proc->scheduler_data->aux_work_data.ssi->event);
+    erts_tse_set(event);
 }
 
 /* Debug */

@@ -2336,7 +2336,7 @@ erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
                                               erts_aint32_t state_in)
 {
     erts_aint32_t state = state_in;
-    ASSERT(erts_get_scheduler_data()->type == ERTS_SCHED_NORMAL);
+    ASSERT(!!erts_get_scheduler_data());
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
 
     if (c_p->sig_qs.flags & FS_HANDLING_SIGS) {
