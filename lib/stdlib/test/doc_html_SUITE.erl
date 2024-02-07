@@ -36,12 +36,12 @@
 %% Comments
 -export([begin_comment_test/1, after_paragraph_comment/1, forget_closing_comment/1 ]).
 
-%% Headings
+%% Format
 -export([format_heading_test/1, format_paragraph_test/1, format_multiple_inline/1,
          format_multiple_inline_format_short/1, format_multiple_inline_format_long/1,
          format_multiple_inline_format_mixed/1, unmatched_format_simple/1,
          unmatched_format_with_inline/1, unmatched_complex_format_with_inline/1,
-         format_inline_link_with_inline/1]).
+         format_inline_link_with_inline/1, complex_inline_format/1]).
 
 %% Bullet lists
 -export([singleton_bullet_list/1, singleton_bullet_list_followed_new_paragraph/1, singleton_bullet_list_with_format/1,
@@ -178,7 +178,8 @@ format_tests() ->
       unmatched_format_simple,
       unmatched_format_with_inline,
       unmatched_complex_format_with_inline,
-      format_inline_link_with_inline
+      format_inline_link_with_inline,
+      complex_inline_format
     ].
 
 bullet_list_tests() ->
@@ -654,6 +655,16 @@ format_inline_link_with_inline(_Config) ->
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
 
+complex_inline_format(_Config) ->
+  %% The complexity here comes from the _, where the alg needs to backtrack
+  %% add the _ to an existing buffer, and continue where it left off using
+  %% any previous opening format characters, in this case **.
+  Docs = create_eep48_doc(<<"**`{set_alarm, {AlarmId, AlarmDescr}}`**">>),
+  HtmlDocs = compile(Docs),
+  Expected = expected(p(em(inline_code(<<"{set_alarm, {AlarmId, AlarmDescr}}">>)))),
+  [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+  ok.
+
 singleton_bullet_list(_Config) ->
     Docs = create_eep48_doc(<<"* One liner">>),
     HtmlDocs = compile(Docs),
@@ -795,7 +806,6 @@ complex_nested_bullet_list2(_Config) ->
     Expected = extract_moduledoc(HtmlDocs),
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
-
 
 singleton_numbered_list(_Config) ->
     Docs = create_eep48_doc(<<"1. One liner">>),

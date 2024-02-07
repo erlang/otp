@@ -375,7 +375,7 @@ process_format(<<>>, _Format, Buffer) ->
       Result       :: dynamic().
 open_format(Continuation, NewFormat, PrevFormat, Buffer) ->
     case process_format(Continuation, NewFormat, []) of
-        {not_closed, LastBufferedResult} ->
+        {not_closed, _LastBufferedResult} ->
             %% the 'NewFormat' could not find a closing match when
             %% processing, thus one must prepend 'NewFormat'
             %% to whatever the buffer at that time had, so that
@@ -390,12 +390,8 @@ open_format(Continuation, NewFormat, PrevFormat, Buffer) ->
             %% Buffer = [{em, [], X}] and Buffer2 = [<<"Zzz">>]
             %% merge_buffers(Buffer, Buffer2) = [{em, [], X}, <<"Zzz">>].
             %%
-            PrependToBuffer = merge_buffers(Buffer, NewFormat),
-
-            %% Merge result of new buffer and old buffer
-            Line = merge_buffers(LastBufferedResult, PrependToBuffer),
-
-            process_format(<<>>, PrevFormat, Line);
+            PrependToBuffer = merge_buffers(NewFormat, Buffer),
+            process_format(Continuation, PrevFormat, PrependToBuffer);
         {ok, Buffer1} ->
             %% There is no more continuation, i.e., nothing to process,
             %% so we are finished.
