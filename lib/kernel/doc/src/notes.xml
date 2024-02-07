@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>group</c> (that is the shell) to properly handle
+	    when an <c>get_until</c> callback function returned
+	    <c>{done, eof, []}</c> when an <c>eof</c> was detected.</p>
+          <p>
+	    Own Id: OTP-18901 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
