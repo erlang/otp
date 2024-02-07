@@ -200,19 +200,76 @@ empty_msg_size() ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
+
+-spec process_packet(Packet, From, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet      :: binary(),
+      From        :: {TDomain, TAddress},
+      TDomain     :: snmpa_conf:transportDomain(),
+      TAddress    :: {IpAddr, IpPort},
+      IpAddr      :: inet:ip_address(),
+      IpPort      :: inet:port_number(),
+      State       :: mpd_state(),
+      NoteStore   :: pid(),
+      Log         :: logger(),
+      Vsn         :: snmp_pdus:version(),
+      Pdu         :: snmp_pdus:pdu(),
+      PduMS       :: pos_integer(),
+      ACMData     :: acm_data(),
+      Reason      :: term(),
+      DiscoPacket :: binary().
+
 process_packet(Packet, From, State, NoteStore, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
-process_packet(
-  Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
-    From = {Domain, Address},
-    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
-process_packet(Packet, Domain, Address, State, NoteStore, Log)
-  when is_atom(Domain) ->
+-spec process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet      :: binary(),
+      TDomain     :: snmpa_conf:transportDomain(),
+      TAddress    :: {IpAddr, IpPort},
+      IpAddr      :: inet:ip_address(),
+      IpPort      :: inet:port_number(),
+      State       :: mpd_state(),
+      NoteStore   :: pid(),
+      Log         :: logger(),
+      Vsn         :: snmp_pdus:version(),
+      Pdu         :: snmp_pdus:pdu(),
+      PduMS       :: pos_integer(),
+      ACMData     :: acm_data(),
+      Reason      :: term(),
+      DiscoPacket :: binary();
+                    (Packet, From, LocalEngineID, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet        :: binary(),
+      From          :: {TDomain, TAddress},
+      TDomain       :: snmpa_conf:transportDomain(),
+      TAddress      :: {IpAddr, IpPort},
+      IpAddr        :: inet:ip_address(),
+      IpPort        :: inet:port_number(),
+      LocalEngineID :: snmp_framework_mib:engine_id(),
+      State         :: mpd_state(),
+      NoteStore     :: pid(),
+      Log           :: logger(),
+      Vsn           :: snmp_pdus:version(),
+      Pdu           :: snmp_pdus:pdu(),
+      PduMS         :: pos_integer(),
+      ACMData       :: acm_data(),
+      Reason        :: term(),
+      DiscoPacket   :: binary().
+
+
+process_packet(Packet, TDomain, TAddress, State, NoteStore, Log)
+  when is_atom(TDomain) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
-    From = {Domain, Address},
+    From = {TDomain, TAddress},
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log);
 process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
     inc(snmpInPkts),
@@ -276,6 +333,12 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    inc(snmpInBadVersions),
 	    {discarded, snmpInBadVersions}
     end.
+
+process_packet(
+  Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
+    From = {Domain, Address},
+    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
+
 
 
 -spec discarded_pdu(Variable) -> snmp:void() when

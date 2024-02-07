@@ -163,37 +163,19 @@
     </func>
 
     <func>
-      <name since="OTP 17.3">process_packet(Packet, From, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
-      <name since="OTP R14B">process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <name name="process_packet" arity="5" clause_i="1" since="OTP 17.3"/>
+      <name name="process_packet" arity="6" clause_i="2" since="OTP R14B"/>
       <fsummary>Process a packet received from the network</fsummary>
-      <type>
-        <v>Packet = binary()</v>
-	<v>From = {TDomain, TAddr}</v>
-        <v>TDomain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-        <v>TAddr = {IpAddr, IpPort}</v>
-        <v>LocalEngineID = string()</v>
-        <v>IpAddr = <seetype marker="kernel:inet#ip_address">inet:ip_address()</seetype></v>
-        <v>IpPort = inet:port_number()</v>
-        <v>State = mpd_state()</v>
-        <v>NoteStore = pid()</v>
-        <v>Log = snmp_log()</v>
-        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
-        <v>Pdu = #pdu</v>
-        <v>PduMs = integer()</v>
-        <v>ACMData = acm_data()</v>
-        <v>Reason = term()</v>
-        <v>DiscoPacket = binary()</v>
-      </type>
       <desc>
         <p>Processes an incoming packet.  Performs authentication and 
-          decryption as necessary.  The return values should be passed to the
-          agent.</p>
+	decryption as necessary.  The return values should be passed to the
+	agent.</p>
 
         <note>
           <p>Note that the use of the LocalEngineID argument is only intended 
-            for special cases, if the agent is to "emulate" multiple EngineIDs!
-            By default, the agent uses the value of <c>SnmpEngineID</c> 
-            (see SNMP-FRAMEWORK-MIB). </p>
+	  for special cases, if the agent is to "emulate" multiple EngineIDs!
+	  By default, the agent uses the value of <c>SnmpEngineID</c> 
+	  (see SNMP-FRAMEWORK-MIB). </p>
 	</note>
 
         <marker id="generate_response_msg"></marker>
