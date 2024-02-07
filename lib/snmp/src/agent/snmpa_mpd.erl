@@ -1337,6 +1337,19 @@ transform_taddr(BadTDomain, TAddress) ->
     end.
 
 
+-spec process_taddrs(InDests) -> OutDests when
+      InDests    :: [InDest],
+      InDest     :: {{InDomain, InAddress}, SecData} |
+                    {InDomain, InAddress},
+      InDomain   :: term(),
+      InAddress  :: term(),
+      SecData    :: term(),
+      OutDests   :: [OutDest],
+      OutDest    :: {{OutDomain, OutAddress}, SecData} |
+                    {OutDomain, OutAddress},
+      OutDomain  :: snmpa_conf:transportDomain(),
+      OutAddress :: snmpa_conf:transportAddress().
+
 process_taddrs(Dests) ->
     ?vtrace("process_taddrs -> entry with"
 	    "~n   Dests: ~p", [Dests]),

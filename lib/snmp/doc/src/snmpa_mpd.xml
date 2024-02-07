@@ -252,23 +252,13 @@
     </func>
 
     <func>
-      <name since="OTP 17.3">process_taddrs(TDests) -> Dests</name>
+      <name name="process_taddrs" arity="1" clause_i="1" since="OTP 17.3"/>
       <fsummary>Transform addresses from internal MIB format to a less internal
       </fsummary>
-      <type>
-	<v>TDests = [TDest]</v>
-	<v>TDest = {{TDomain, TAddr}, SecData} | {TDomain, TAddr}</v>
-	<v>TDomain = term()  % Not at tuple</v>
-	<v>TAddr = term()</v>
-	<v>SecData = term()</v>
-	<v>Dests = [Dest]</v>
-	<v>Dest = {{Domain, Addr}, SecData} | {Domain, Addr}</v>
-	<v>Domain = transportDomain()</v>
-	<v>Addr = transportAddress()  % Depends on Domain</v>
-      </type>
       <desc>
 	<p>Transforms addresses from internal MIB format to one
-	more useful to <seeguide marker="snmp_agent_netif">Agent Net if</seeguide>.
+	more useful to
+	<seeguide marker="snmp_agent_netif">Agent Net if</seeguide>.
 	</p>
 	<p>See also <seeerl marker="#generate_msg"><c>generate_msg</c>.</seeerl>
 	</p>
