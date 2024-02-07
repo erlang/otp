@@ -41,7 +41,7 @@
          format_multiple_inline_format_short/1, format_multiple_inline_format_long/1,
          format_multiple_inline_format_mixed/1, unmatched_format_simple/1,
          unmatched_format_with_inline/1, unmatched_complex_format_with_inline/1,
-         format_inline_link_with_inline/1, complex_inline_format/1]).
+         format_inline_link_with_inline/1, complex_inline_format/1, skip_symbols_in_inline/1]).
 
 %% Bullet lists
 -export([singleton_bullet_list/1, singleton_bullet_list_followed_new_paragraph/1, singleton_bullet_list_with_format/1,
@@ -179,7 +179,8 @@ format_tests() ->
       unmatched_format_with_inline,
       unmatched_complex_format_with_inline,
       format_inline_link_with_inline,
-      complex_inline_format
+      complex_inline_format,
+      skip_symbols_in_inline
     ].
 
 bullet_list_tests() ->
@@ -664,6 +665,14 @@ complex_inline_format(_Config) ->
   Expected = expected(p(em(inline_code(<<"{set_alarm, {AlarmId, AlarmDescr}}">>)))),
   [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
   ok.
+
+skip_symbols_in_inline(_Config) ->
+  Docs = create_eep48_doc(<<"**`{the_beginning, the_end}`**">>),
+  HtmlDocs = compile(Docs),
+  Expected = expected(p(em(inline_code(<<"{the_beginning, the_end}">>)))),
+  [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+  ok.
+
 
 singleton_bullet_list(_Config) ->
     Docs = create_eep48_doc(<<"* One liner">>),

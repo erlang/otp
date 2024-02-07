@@ -338,34 +338,70 @@ process_inline(Bin, Fs, Buffer) ->
       Buffer :: shell_docs:chunk_elements(),
       ResultBuffer :: shell_docs:chunk_elements(),
       Continuation :: not_closed | ok | binary().
+%%
+%% Handle inline code
+%%
+process_format(<<Format, Continuation/binary>>, Fs, Buffer)
+  when Format =:= $` ->
+    {Buffer1, Continuation2} = inline_consumer(Continuation, []),
+    process_format(Continuation2, Fs, merge_buffers(Buffer1, Buffer));
+
+%%
+%% Handle closing of bold / italics
+%%
 process_format(<<Format, Format, Continuation/binary>>, [<<Format>>, <<Format>>], Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     close_format(Continuation, [<<Format>>, <<Format>>], Buffer);
 process_format(<<Format, Continuation/binary>>, [<<Format>>], Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     %% close the format
     close_format(Continuation, [<<Format>>], Buffer);
+
+%%
+%% Handle opening blocks of bold / italics
+%%
 process_format(<<Format, Format>>, Fs, Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     %% open a new format that will never be matched because
     %% the Continuation has ended <<>>.
     process_format(<<>>, Fs, merge_buffers([<<Format>>, <<Format>>], Buffer));
 process_format(<<Format, Format, Continuation/binary>>, Fs, Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     open_format(Continuation, [<<Format>>, <<Format>>], Fs, Buffer);
 process_format(<<Format>>, Fs, Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     %% open a new format that will never be matched
     process_format(<<>>, Fs, merge_buffers([<<Format>>], Buffer));
 process_format(<<Format, Continuation/binary>>, Fs, Buffer)
-  when Format =:= $*; Format =:= $_; Format =:= $` ->
+  when Format =:= $*; Format =:= $_ ->
     open_format(Continuation, [<<Format>>], Fs, Buffer);
+
+%%
+%% Handle non-formatting characters
+%%
 process_format(<<Char, Rest/binary>>, Format, Buffer) ->
     process_format(Rest, Format, merge_buffers([<<Char>>],  Buffer));
 process_format(<<>>, [], Buffer) ->
     {ok, Buffer};
 process_format(<<>>, _Format, Buffer) ->
     {not_closed, Buffer}.
+
+%%
+%% Parses text until it finds a closing $`
+-spec inline_consumer(Line, Buffer) -> {ReturnedBuffer, Rest} when
+      Line :: binary(),
+      Buffer :: shell_docs:chunk_elements(),
+      ReturnedBuffer :: shell_docs:chunk_elements(),
+      Rest :: binary().
+inline_consumer(<<$`, Rest/binary>>, Buffer) ->
+    %% close inline
+    {[code_inline(Buffer)], Rest};
+inline_consumer(<<Char, Rest/binary>>, Buffer) ->
+    %% append chars to buffer
+    inline_consumer(Rest, merge_buffers([<<Char>>], Buffer));
+inline_consumer(<<>>, Buffer) ->
+    %% end without closing inline
+    {Buffer, <<>>}.
 
 -spec open_format(Continuation, NewFormat, PrevFormat, Buffer) -> Result when
       Continuation :: binary(),
