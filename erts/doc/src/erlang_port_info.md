@@ -1,3 +1,5 @@
+Returns information about `Port`.
+
 If the port identified by `Port` is not open, `undefined` is returned. If the port is closed and the calling process was previously linked to the port, the exit signal from the port is guaranteed to be delivered before `port_info/2` returns `undefined`.
 
 `Item` is one of the following and can be used to get various information about the `Port`.

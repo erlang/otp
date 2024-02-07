@@ -89,15 +89,15 @@ The `control` entry is called from the emulator when the Erlang code calls
 [`port_control/3`](`port_control/3`), to do the actual work. We have defined a
 simple set of commands: `connect` to log in to the database, `disconnect` to log
 out, and `select` to send a SQL-query and get the result. All results are
-returned through `rbuf`. The library `ei` in `erl_interface` is used to encode
-data in binary term format. The result is returned to the emulator as binary
+returned through `rbuf`. The library [`ei`] in [`erl_interface`](`e:erl_interface:index.html`)
+is used to encode data in binary term format. The result is returned to the emulator as binary
 terms, so `binary_to_term` is called in Erlang to convert the result to term
 form.
 
 The code is available in `pg_sync.c` in the `sample` directory of `erts`.
 
 The driver entry contains the functions that will be called by the emulator. In
-this example, only `start`, `stop`, and `control` are provided:
+this example, only [`start`], [`stop`], and [`control`] are provided:
 
 ```c
 /* Driver interface declarations */
@@ -137,7 +137,7 @@ typedef struct our_data_s {
 
 The control codes that we have defined are as follows:
 
-```text
+```c
 /* Keep the following definitions in alignment with the
  * defines in erl_pq_sync.erl
  */
@@ -147,7 +147,7 @@ The control codes that we have defined are as follows:
 #define DRV_SELECT              'S'
 ```
 
-This returns the driver structure. The macro `DRIVER_INIT` defines the only
+This returns the driver structure. The macro [`DRIVER_INIT`] defines the only
 exported function. All the other functions are static, and will not be exported
 from the library.
 
@@ -166,8 +166,8 @@ DRIVER_INIT(pq_drv)
 }
 ```
 
-Here some initialization is done, `start` is called from `open_port`. The data
-will be passed to `control` and `stop`.
+Here some initialization is done, [`start`] is called from `open_port/2`. The data
+will be passed to [`control`] and [`stop`].
 
 ```c
 /* DRIVER INTERFACE */
@@ -260,7 +260,7 @@ static int do_connect(const char *s, our_data_t* data, ei_x_buff* x)
 
 If we are connected (and if the connection handle is not `NULL`), we log out
 from the database. We need to check if we should encode an `'ok'`, as we can get
-here from function `stop`, which does not return data to the emulator:
+here from function [`stop`], which does not return data to the emulator:
 
 ```c
 static int do_disconnect(our_data_t* data, ei_x_buff* x)
@@ -290,7 +290,7 @@ static int do_select(const char* s, our_data_t* data, ei_x_buff* x)
 
 Here we check the result from postgres. If it is data, we encode it as lists of
 lists with column data. Everything from postgres is C strings, so we use
-`ei_x_encode_string` to send the result as strings to Erlang. (The head of the
+[`ei_x_encode_string`] to send the result as strings to Erlang. (The head of the
 list contains the column names.)
 
 ```c
@@ -333,23 +333,23 @@ void encode_result(ei_x_buff* x, PGresult* res, PGconn* conn)
 ## Compiling and Linking the Sample Driver
 
 The driver is to be compiled and linked to a shared library (DLL on Windows).
-With gcc, this is done with link flags `-shared` and `-fpic`. As we use the `ei`
-library, we should include it too. There are several versions of `ei`, compiled
+With gcc, this is done with link flags `-shared` and `-fpic`. As we use the [`ei`]
+library, we should include it too. There are several versions of [`ei`], compiled
 for debug or non-debug and multi-threaded or single-threaded. In the makefile
-for the samples, the `obj` directory is used for the `ei` library, meaning that
+for the samples, the `obj` directory is used for the [`ei`] library, meaning that
 we use the non-debug, single-threaded version.
 
 ## Calling a Driver as a Port in Erlang
 
 Before a driver can be called from Erlang, it must be loaded and opened. Loading
-is done using the `erl_ddll` module (the `erl_ddll` driver that loads dynamic
+is done using the `m:erl_ddll` module (the `m:erl_ddll` driver that loads dynamic
 driver is actually a driver itself). If loading is successful, the port can be
 opened with [`open_port/2`](`open_port/2`). The port name must match the name of
 the shared library and the name in the driver entry structure.
 
 When the port has been opened, the driver can be called. In the `pg_sync`
 example, we do not have any data from the port, only the return value from the
-`port_control`.
+`port_control/3`.
 
 The following code is the Erlang part of the synchronous postgres driver,
 `pg_sync.erl`:
@@ -401,7 +401,7 @@ driver.
 We use the [`port_control/3`](`port_control/3`) function for all calls into the
 driver. The result from the driver is returned immediately and converted to
 terms by calling [`binary_to_term/1`](`binary_to_term/1`). (We trust that the
-terms returned from the driver are well-formed, otherwise the `binary_to_term`
+terms returned from the driver are well-formed, otherwise the `binary_to_term/1`
 calls could be contained in a `catch`.)
 
 ## Sample Asynchronous Driver
@@ -451,15 +451,15 @@ typedef struct our_data_t {
 ```
 
 Some things have changed from `pg_sync.c`: we use the entry `ready_io` for
-`ready_input` and `ready_output`, which is called from the emulator only when
+[`ready_input`] and [`ready_output`], which is called from the emulator only when
 there is input to be read from the socket. (Actually, the socket is used in a
 `select` function inside the emulator, and when the socket is signaled,
-indicating there is data to read, the `ready_input` entry is called. More about
+indicating there is data to read, the [`ready_input`] entry is called. More about
 this below.)
 
 Our driver data is also extended, we keep track of the socket used for
 communication with postgres, and also the port, which is needed when we send
-data to the port with `driver_output`. We have a flag `connecting` to tell
+data to the port with [`driver_output`]. We have a flag `connecting` to tell
 whether the driver is waiting for a connection or waiting for the result of a
 query. (This is needed, as the entry `ready_io` is called both when connecting
 and when there is a query result.)
@@ -491,10 +491,10 @@ static int do_connect(const char *s, our_data_t* data)
 The `connect` function looks a bit different too. We connect using the
 asynchronous `PQconnectStart` function. After the connection is started, we
 retrieve the socket for the connection with `PQsocket`. This socket is used with
-the `driver_select` function to wait for connection. When the socket is ready
+the [`driver_select`] function to wait for connection. When the socket is ready
 for input or for output, the `ready_io` function is called.
 
-Notice that we only return data (with `driver_output`) if there is an error
+Notice that we only return data (with [`driver_output`]) if there is an error
 here, otherwise we wait for the connection to be completed, in which case our
 `ready_io` function is called.
 
@@ -565,8 +565,8 @@ successful, or error if it is not. If the connection is not yet established, we
 simply return; `ready_io` is called again.
 
 If we have a result from a connect, indicated by having data in the `x` buffer,
-we no longer need to select on output (`ready_output`), so we remove this by
-calling `driver_select`.
+we no longer need to select on output ([`ready_output`]), so we remove this by
+calling [`driver_select`].
 
 If we are not connecting, we wait for results from a `PQsendQuery`, so we get
 the result and return it. The encoding is done with the same functions as in the
@@ -620,7 +620,7 @@ return_port_data(Port) ->
 ```
 
 The Erlang code is slightly different, as we do not return the result
-synchronously from `port_control`, instead we get it from `driver_output` as
+synchronously from `port_control/3`, instead we get it from [`driver_output`] as
 data in the message queue. The function `return_port_data` above receives data
 from the port. As the data is in binary format, we use
 [`binary_to_term/1`](`binary_to_term/1`) to convert it to an Erlang term. Notice
@@ -631,26 +631,26 @@ lists of integers.
 
 ## An Asynchronous Driver Using driver_async
 
-As a final example we demonstrate the use of `driver_async`. We also use the
+As a final example we demonstrate the use of [`driver_async`]. We also use the
 driver term interface. The driver is written in C++. This enables us to use an
 algorithm from STL. We use the `next_permutation` algorithm to get the next
 permutation of a list of integers. For large lists (> 100,000 elements), this
 takes some time, so we perform this as an asynchronous task.
 
 The asynchronous API for drivers is complicated. First, the work must be
-prepared. In the example, this is done in `output`. We could have used
-`control`, but we want some variation in the examples. In our driver, we
+prepared. In the example, this is done in [`output`]. We could have used
+[`control`], but we want some variation in the examples. In our driver, we
 allocate a structure that contains anything that is needed for the asynchronous
 task to do the work. This is done in the main emulator thread. Then the
 asynchronous function is called from a driver thread, separate from the main
 emulator thread. Notice that the driver functions are not re-entrant, so they
 are not to be used. Finally, after the function is completed, the driver
-callback `ready_async` is called from the main emulator thread, this is where we
+callback [`ready_async`] is called from the main emulator thread, this is where we
 return the result to Erlang. (We cannot return the result from within the
 asynchronous function, as we cannot call the driver functions.)
 
 The following code is from the sample file `next_perm.cc`. The driver entry
-looks like before, but also contains the callback `ready_async`.
+looks like before, but also contains the callback [`ready_async`].
 
 ```c
 static ErlDrvEntry next_perm_driver_entry = {
@@ -677,10 +677,10 @@ The `output` function allocates the work area of the asynchronous function. As
 we use C++, we use a struct, and stuff the data in it. We must copy the original
 data, it is not valid after we have returned from the `output` function, and the
 `do_perm` function is called later, and from another thread. We return no data
-here, instead it is sent later from the `ready_async` callback.
+here, instead it is sent later from the [`ready_async`] callback.
 
 The `async_data` is passed to the `do_perm` function. We do not use a
-`async_free` function (the last argument to `driver_async`), it is only used if
+`async_free` function (the last argument to [`driver_async`]), it is only used if
 the task is cancelled programmatically.
 
 ```c
@@ -723,10 +723,10 @@ static void do_perm(void* async_data)
 ```
 
 In the `ready_async` function the output is sent back to the emulator. We use
-the driver term format instead of `ei`. This is the only way to send Erlang
+the driver term format instead of [`ei`]. This is the only way to send Erlang
 terms directly to a driver, without having the Erlang code to call
 [`binary_to_term/1`](`binary_to_term/1`). In the simple example this works well,
-and we do not need to use `ei` to handle the binary term format.
+and we do not need to use [`ei`] to handle the binary term format.
 
 When the data is returned, we deallocate our data.
 
@@ -752,7 +752,7 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
 ```
 
 This driver is called like the others from Erlang. However, as we use
-`driver_output_term`, there is no need to call `binary_to_term`. The Erlang code
+[`driver_output_term`], there is no need to call `binary_to_term/1`. The Erlang code
 is in the sample file `next_perm.erl`.
 
 The input is changed into a list of integers and sent to the driver.
@@ -804,3 +804,18 @@ all_perm(L, Orig, Acc) ->
     New = prev_perm(L),
     all_perm(New, Orig, [New | Acc]).
 ```
+
+[`ei`]: `e:erl_interface:ei.md`
+[`start`]: `e:erts:driver_entry.md#start`
+[`stop`]: `e:erts:driver_entry.md#stop`
+[`control`]: `e:erts:driver_entry.md#control`
+[`output`]: `e:erts:driver_entry.md#output`
+[`DRIVER_INIT`]: `e:erts:driver_entry.md#DRIVER_INIT`
+[`ready_input`]: `e:erts:driver_entry.md#ready_input`
+[`ready_output`]: `e:erts:driver_entry.md#ready_output`
+[`ready_async`]: `e:erts:driver_entry.md#ready_async`
+[`driver_output`]: `e:erts:erl_driver.md#driver_output`
+[`driver_output_term`]: `e:erts:erl_driver.md#driver_output_term`
+[`driver_select`]: `e:erts:erl_driver.md#driver_select`
+[`driver_async`]: `e:erts:erl_driver.md#driver_async`
+[`ei_x_encode_string`]: `e:erl_interface:ei.md#ei_x_encode_string`

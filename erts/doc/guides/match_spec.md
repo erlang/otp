@@ -42,36 +42,36 @@ match specification has a strange concept of exceptions:
 A match specification used in tracing can be described in the following
 _informal_ grammar:
 
-- MatchExpression ::= \[ MatchFunction, ... ]
-- MatchFunction ::= \{ MatchHead, MatchConditions, MatchBody \}
-- MatchHead ::= MatchVariable | `'_'` | \[ MatchHeadPart, ... ]
-- MatchHeadPart ::= term() | MatchVariable | `'_'`
+- MatchExpression ::= [ MatchFunction, ... ]
+- MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
+- MatchHead ::= MatchVariable | `'_'` | [ MatchHeadPart, ... ]
+- MatchHeadPart ::= [term()](`t:term/0`) | MatchVariable | `'_'`
 - MatchVariable ::= '$<number>'
-- MatchConditions ::= \[ MatchCondition, ...] | `[]`
-- MatchCondition ::= \{ GuardFunction \} | \{ GuardFunction,
-  ConditionExpression, ... \}
+- MatchConditions ::= [ MatchCondition, ...] | `[]`
+- MatchCondition ::= { GuardFunction } | { GuardFunction,
+  ConditionExpression, ... }
 - BoolFunction ::= `is_atom` | `is_float` | `is_integer` | `is_list` |
   `is_number` | `is_pid` | `is_port` | `is_reference` | `is_tuple` | `is_map` |
   `is_map_key` | `is_binary` | `is_bitstring` | `is_boolean` | `is_function` |
   `is_record` | `is_seq_trace` | `'and'` | `'or'` | `'not'` | `'xor'` |
   `'andalso'` | `'orelse'`
-- ConditionExpression ::= ExprMatchVariable | \{ GuardFunction \} | \{
-  GuardFunction, ConditionExpression, ... \} | TermConstruct
+- ConditionExpression ::= ExprMatchVariable | { GuardFunction } | {
+  GuardFunction, ConditionExpression, ... } | TermConstruct
 - ExprMatchVariable ::= MatchVariable (bound in the MatchHead) | `'$_'` | `'$$'`
-- TermConstruct = \{\{\}\} | \{\{ ConditionExpression, ... \}\} | `[]` |
-  \[ConditionExpression, ...] | `#{}` | #\{term() => ConditionExpression, ...\}
+- TermConstruct = {{}} | {{ ConditionExpression, ... }} | `[]` |
+  [ConditionExpression, ...] | `#{}` | #{[term()](`t:term/0`) => ConditionExpression, ...}
   | NonCompositeTerm | Constant
-- NonCompositeTerm ::= term() (not list or tuple or map)
-- Constant ::= \{`const`, term()\}
+- NonCompositeTerm ::= [term()](`t:term/0`) (not list or tuple or map)
+- Constant ::= {`const`, [term()](`t:term/0`)}
 - GuardFunction ::= BoolFunction | `abs` | `element` | `hd` | `length` |
   `map_get` | `map_size` | `max` | `min` | `node` | `float` | `round` | `floor`
   | `ceil` | `size` | `bit_size` | `byte_size` | `tuple_size` | `tl` | `trunc` |
   `binary_part` | `'+'` | `'-'` | `'*'` | `'div'` | `'rem'` | `'band'` | `'bor'`
   | `'bxor'` | `'bnot'` | `'bsl'` | `'bsr'` | `'>'` | `'>='` | `'<'` | `'=<'` |
   `'=:='` | `'=='` | `'=/='` | `'/='` | `self` | `get_tcw`
-- MatchBody ::= \[ ActionTerm ]
+- MatchBody ::= [ ActionTerm ]
 - ActionTerm ::= ConditionExpression | ActionCall
-- ActionCall ::= \{ActionFunction\} | \{ActionFunction, ActionTerm, ...\}
+- ActionCall ::= {ActionFunction} | {ActionFunction, ActionTerm, ...}
 - ActionFunction ::= `set_seq_token` | `get_seq_token` | `message` |
   `return_trace` | `exception_trace` | `process_dump` | `enable_trace` |
   `disable_trace` | `trace` | `display` | `caller` | `caller_line` |
@@ -80,33 +80,33 @@ _informal_ grammar:
 A match specification used in `m:ets` can be described in the following
 _informal_ grammar:
 
-- MatchExpression ::= \[ MatchFunction, ... ]
-- MatchFunction ::= \{ MatchHead, MatchConditions, MatchBody \}
-- MatchHead ::= MatchVariable | `'_'` | \{ MatchHeadPart, ... \}
-- MatchHeadPart ::= term() | MatchVariable | `'_'`
+- MatchExpression ::= [ MatchFunction, ... ]
+- MatchFunction ::= { MatchHead, MatchConditions, MatchBody }
+- MatchHead ::= MatchVariable | `'_'` | { MatchHeadPart, ... }
+- MatchHeadPart ::= [term()](`t:term/0`) | MatchVariable | `'_'`
 - MatchVariable ::= '$<number>'
-- MatchConditions ::= \[ MatchCondition, ...] | `[]`
-- MatchCondition ::= \{ GuardFunction \} | \{ GuardFunction,
-  ConditionExpression, ... \}
+- MatchConditions ::= [ MatchCondition, ...] | `[]`
+- MatchCondition ::= { GuardFunction } | { GuardFunction,
+  ConditionExpression, ... }
 - BoolFunction ::= `is_atom` | `is_float` | `is_integer` | `is_list` |
   `is_number` | `is_pid` | `is_port` | `is_reference` | `is_tuple` | `is_map` |
   `is_map_key` | `is_binary` | `is_bitstring` | `is_boolean` | `is_function` |
   `is_record` | `'and'` | `'or'` | `'not'` | `'xor'` | `'andalso'` | `'orelse'`
-- ConditionExpression ::= ExprMatchVariable | \{ GuardFunction \} | \{
-  GuardFunction, ConditionExpression, ... \} | TermConstruct
+- ConditionExpression ::= ExprMatchVariable | { GuardFunction } | {
+  GuardFunction, ConditionExpression, ... } | TermConstruct
 - ExprMatchVariable ::= MatchVariable (bound in the MatchHead) | `'$_'` | `'$$'`
-- TermConstruct = \{\{\}\} | \{\{ ConditionExpression, ... \}\} | `[]` |
-  \[ConditionExpression, ...] | #\{\} | #\{term() => ConditionExpression, ...\}
+- TermConstruct = {{}} | {{ ConditionExpression, ... }} | `[]` |
+  [ConditionExpression, ...] | #{} | #{[term()](`t:term/0`) => ConditionExpression, ...}
   | NonCompositeTerm | Constant
-- NonCompositeTerm ::= term() (not list or tuple or map)
-- Constant ::= \{`const`, term()\}
+- NonCompositeTerm ::= [term()](`t:term/0`) (not list or tuple or map)
+- Constant ::= {`const`, [term()](`t:term/0`)}
 - GuardFunction ::= BoolFunction | `abs` | `element` | `hd` | `length` |
   `map_get` | `map_size` | `max` | `min` | `node` | `float` | `round` | `floor`
   | `ceil` | `size` | `bit_size` | `byte_size` | `tuple_size` | `tl` | `trunc` |
   `binary_part` | `'+'` | `'-'` | `'*'` | `'div'` | `'rem'` | `'band'` | `'bor'`
   | `'bxor'` | `'bnot'` | `'bsl'` | `'bsr'` | `'>'` | `'>='` | `'<'` | `'=<'` |
   `'=:='` | `'=='` | `'=/='` | `'/='` | `self`
-- MatchBody ::= \[ ConditionExpression, ... ]
+- MatchBody ::= [ ConditionExpression, ... ]
 
 ## Function Descriptions
 
@@ -333,10 +333,10 @@ event trace depends on the event type, see table below.
 
 | Context | Type      | Match target                 | Description                                 |
 | ------- | --------- | ---------------------------- | ------------------------------------------- |
-| ETS     |           | \{Key, Value1, Value2, ...\} | A table object                              |
-| Trace   | call      | \[Arg1, Arg2, ...]           | Function arguments                          |
-| Trace   | send      | \[Receiver, Message]         | Receiving process/port and message term     |
-| Trace   | 'receive' | \[Node, Sender, Message]     | Sending node, process/port and message term |
+| ETS     |           | {Key, Value1, Value2, ...}   | A table object                              |
+| Trace   | call      | [Arg1, Arg2, ...]            | Function arguments                          |
+| Trace   | send      | [Receiver, Message]          | Receiving process/port and message term     |
+| Trace   | 'receive' | [Node, Sender, Message]      | Sending node, process/port and message term |
 
 _Table: Match target depending on context_
 
@@ -374,17 +374,17 @@ tuple, which is the one to be constructed. The "double tuple parenthesis" syntax
 is useful to construct tuples from already bound variables, like in
 `{{'$1', [a,b,'$2']}}`. Examples:
 
-| _Expression_              | _Variable Bindings_ | _Result_                               |
-| ------------------------- | ------------------- | -------------------------------------- |
-| \{\{'$1','$2'\}\}         | '$1' = a, '$2' = b  | \{a,b\}                                |
-| \{const, \{'$1', '$2'\}\} | Irrelevant          | \{'$1', '$2'\}                         |
-| a                         | Irrelevant          | a                                      |
-| '$1'                      | '$1' = []           | []                                     |
-| \['$1']                   | '$1' = []           | \[[]]                                  |
-| \[\{\{a\}\}]              | Irrelevant          | \[\{a\}]                               |
-| 42                        | Irrelevant          | 42                                     |
-| "hello"                   | Irrelevant          | "hello"                                |
-| $1                        | Irrelevant          | 49 (the ASCII value for character '1') |
+| Expression                | Variable Bindings   | Result                                   |
+| ------------------------- | ------------------- | ---------------------------------------- |
+| `{{'$1','$2'}}`           | '$1' = a, '$2' = b  | `{a,b}`                                  |
+| `{const, {'$1', '$2'}}`   | Irrelevant          | `{'$1', '$2'}`                           |
+| `a`                       | Irrelevant          | `a`                                      |
+| `'$1'`                    | '$1' = []           | `[]`                                     |
+| `[{{a}}]`                 | Irrelevant          | `[{a}]`                                  |
+| `['$1']`                  | '$1' = []           | `[[]]`                                   |
+| `42`                      | Irrelevant          | `42`                                     |
+| `"hello"`                 | Irrelevant          | `"hello"`                                |
+| `$1`                      | Irrelevant          | `49` (the ASCII value for character '1') |
 
 _Table: Literals in MatchCondition/MatchBody Parts of a Match Specification_
 
@@ -434,7 +434,7 @@ allowed when tracing.
 
 Match an argument list of three, where the first and third arguments are equal:
 
-```text
+```erlang
 [{['$1', '_', '$1'],
   [],
   []}]
@@ -442,7 +442,7 @@ Match an argument list of three, where the first and third arguments are equal:
 
 Match an argument list of three, where the second argument is a number > 3:
 
-```text
+```erlang
 [{['_', '$1', '_'],
   [{ '>', '$1', 3}],
   []}]
@@ -464,7 +464,7 @@ containing argument one and two, _or_ a list beginning with argument one and two
 
 The above problem can also be solved as follows:
 
-```text
+```erlang
 [{['$1', '$2', {'$1', '$2}], [], []},
  {['$1', '$2', ['$1', '$2' | '_']], [], []}]
 ```
@@ -546,7 +546,7 @@ argument is `'trace'`:
 Match all objects in an ETS table, where the first element is the atom
 `'strider'` and the tuple arity is 3, and return the whole object:
 
-```text
+```erlang
 [{{strider,'_','_'},
   [],
   ['$_']}]

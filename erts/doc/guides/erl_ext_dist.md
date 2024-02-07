@@ -43,8 +43,6 @@ The overall format of the term format is as follows:
 | ----- | ----- | ------ |
 | `131` | `Tag` | `Data` |
 
-_Table: Term Format_
-
 > #### Note {: .info }
 >
 > When messages are
@@ -60,8 +58,6 @@ The compressed term format is as follows:
 | ----- | ---- | ------------------ | --------------------- |
 | `131` | `80` | `UncompressedSize` | `Zlib-compressedData` |
 
-_Table: Compressed Term Format_
-
 Uncompressed size (unsigned 32-bit integer in big-endian byte order) is the size
 of the data before it was compressed. The compressed data has the following
 format when it has been expanded:
@@ -69,8 +65,6 @@ format when it has been expanded:
 | 1     | Uncompressed Size |
 | ----- | ----------------- |
 | `Tag` | `Data`            |
-
-_Table: Compressed Data Format when Expanded_
 
 [](){: #utf8_atoms }
 
@@ -118,8 +112,6 @@ The non-fragmented distribution header format is as follows:
 | 1     | 1    | 1                       | NumberOfAtomCacheRefs/2+1 \| 0 | N \| 0          |
 | ----- | ---- | ----------------------- | ------------------------------ | --------------- |
 | `131` | `68` | `NumberOfAtomCacheRefs` | `Flags`                        | `AtomCacheRefs` |
-
-_Table: Normal Distribution Header Format_
 
 `Flags` consist of `NumberOfAtomCacheRefs/2+1` bytes, unless
 `NumberOfAtomCacheRefs` is `0`. If `NumberOfAtomCacheRefs` is `0`, `Flags` and
@@ -221,15 +213,11 @@ The start of a sequence of fragmented messages looks like this:
 | ----- | ---- | ------------ | ------------ | ----------------------- | ------------------------------ | --------------- |
 | `131` | `69` | `SequenceId` | `FragmentId` | `NumberOfAtomCacheRefs` | `Flags`                        | `AtomCacheRefs` |
 
-_Table: Starting Fragmented Distribution Header Format_
-
 The continuation of a sequence of fragmented messages looks like this:
 
 | 1     | 1    | 8            | 8            |
 | ----- | ---- | ------------ | ------------ |
 | `131` | `70` | `SequenceId` | `FragmentId` |
-
-_Table: Continuing Fragmented Distribution Header Format_
 
 The starting distribution header is very similar to a non-fragmented
 distribution header. The atom cache works the same as for normal distribution
@@ -264,7 +252,7 @@ header, atom cache updates, the control message (which would be
 `{6, <0.245.2>, [], reg}` in this case) and finally the actual message. This
 would all be encoded into:
 
-```c
+```text
 131,69,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,2,               %% Header with seq and frag id
 5,4,137,9,10,5,236,3,114,101,103,9,4,99,97,108,108,      %% Atom cache updates
 238,13,115,101,116,95,103,101,116,95,115,116,97,116,101,
@@ -284,7 +272,7 @@ would all be encoded into:
 Let us break that apart into its components. First we have the distribution
 header tags together with the sequence id and a fragment id of 2.
 
-```erlang
+```text
 131,69,                   %% Start fragment header
 0,0,2,168,0,0,5,83,       %% The sequence ID
 0,0,0,0,0,0,0,2,           %% The fragment ID
@@ -292,7 +280,7 @@ header tags together with the sequence id and a fragment id of 2.
 
 Then we have the updates to the atom cache:
 
-```erlang
+```text
 5,4,137,9,  %% 5 atoms and their flags
 10,5,       %% The already cached atom ids
 236,3,114,101,103,  %% The atom 'reg'
@@ -319,7 +307,7 @@ refs of the already cached atoms. Then the new atoms are sent.
 
 When the atom cache is setup correctly the control message is sent.
 
-```erlang
+```text
 104,4,97,6,103,82,0,0,0,0,85,0,0,0,0,2,82,1,82,2,
 ```
 
@@ -327,7 +315,7 @@ Note that up until here it is not allowed to fragments the message. The entire
 atom cache and control message has to be part of the starting fragment. After
 the control message the payload of the message is sent using 128 bytes:
 
-```c
+```text
 104,3,82,3,103,82,0,0,0,0,245,0,0,0,2,2,
 104,2,82,4,109,0,0,0,128,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -340,7 +328,7 @@ Since the payload is larger than 128-bytes it is split into two fragments. The
 second fragment does not have any atom cache update instructions so it is a lot
 simpler:
 
-```c
+```text
 131,70,0,0,2,168,0,0,5,83,0,0,0,0,0,0,0,1, %% Continuation dist header 70 with seq and frag id
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, %% remaining payload
 0,0,0,0
@@ -357,8 +345,6 @@ simpler:
 | ---- | ------------------------- |
 | `82` | `AtomCacheReferenceIndex` |
 
-_Table: ATOM_CACHE_REF_
-
 Refers to the atom with `AtomCacheReferenceIndex` in the
 [distribution header](erl_ext_dist.md#distribution-header).
 
@@ -368,8 +354,6 @@ Refers to the atom with `AtomCacheReferenceIndex` in the
 | ---- | ----- |
 | `97` | `Int` |
 
-_Table: SMALL_INTEGER_EXT_
-
 Unsigned 8-bit integer.
 
 ## INTEGER_EXT
@@ -378,8 +362,6 @@ Unsigned 8-bit integer.
 | ---- | ----- |
 | `98` | `Int` |
 
-_Table: INTEGER_EXT_
-
 Signed 32-bit integer in big-endian format.
 
 ## FLOAT_EXT
@@ -387,8 +369,6 @@ Signed 32-bit integer in big-endian format.
 | 1    | 31             |
 | ---- | -------------- |
 | `99` | `Float string` |
-
-_Table: FLOAT_EXT_
 
 A finite float (i.e. not inf, -inf or NaN) is stored in string format. The
 format used in sprintf to format the float is "%.20e" (there are more bytes
@@ -403,8 +383,6 @@ superseded by [`NEW_FLOAT_EXT`](erl_ext_dist.md#new_float_ext).
 | ----- | ------ | ---- | ---------- |
 | `102` | `Node` | `ID` | `Creation` |
 
-_Table: PORT_EXT_
-
 Same as [`NEW_PORT_EXT`](erl_ext_dist.md#new_port_ext) except the `Creation`
 field is only one byte and only two bits are significant, the rest are to be 0.
 
@@ -413,8 +391,6 @@ field is only one byte and only two bits are significant, the rest are to be 0.
 | 1    | N      | 4    | 4          |
 | ---- | ------ | ---- | ---------- |
 | `89` | `Node` | `ID` | `Creation` |
-
-_Table: NEW_PORT_EXT_
 
 Same as [`V4_PORT_EXT`](erl_ext_dist.md#v4_port_ext) except the `ID` field is
 only four bytes. Only 28 bits are significant; the rest are to be 0.
@@ -433,8 +409,6 @@ received as [`PORT_EXT`](erl_ext_dist.md#port_ext) from older nodes.
 | ----- | ------ | ---- | ---------- |
 | `120` | `Node` | `ID` | `Creation` |
 
-_Table: V4_PORT_EXT_
-
 Encodes a port identifier (obtained from `erlang:open_port/2`). `Node` is the
 originating node, [encoded as an atom](erl_ext_dist.md#utf8_atoms). `ID` is a
 64-bit big endian unsigned integer. The `Creation` works just like in
@@ -451,8 +425,6 @@ and echoed back.
 | ----- | ------ | ---- | -------- | ---------- |
 | `103` | `Node` | `ID` | `Serial` | `Creation` |
 
-_Table: PID_EXT_
-
 Same as [`NEW_PID_EXT`](erl_ext_dist.md#new_pid_ext) except the `Creation` field
 is only one byte and only two bits are significant, the rest are to be 0.
 
@@ -461,8 +433,6 @@ is only one byte and only two bits are significant, the rest are to be 0.
 | 1    | N      | 4    | 4        | 4          |
 | ---- | ------ | ---- | -------- | ---------- |
 | `88` | `Node` | `ID` | `Serial` | `Creation` |
-
-_Table: NEW_PID_EXT_
 
 Encodes an Erlang process identifier object.
 
@@ -496,8 +466,6 @@ became mandatory accepting full 64-bit pids to be decoded and echoed back.
 | ----- | ------- | ---------- |
 | `104` | `Arity` | `Elements` |
 
-_Table: SMALL_TUPLE_EXT_
-
 Encodes a tuple. The `Arity` field is an unsigned byte that determines how many
 elements that follows in section `Elements`.
 
@@ -507,8 +475,6 @@ elements that follows in section `Elements`.
 | ----- | ------- | ---------- |
 | `105` | `Arity` | `Elements` |
 
-_Table: LARGE_TUPLE_EXT_
-
 Same as [`SMALL_TUPLE_EXT`](erl_ext_dist.md#small_tuple_ext) except that `Arity`
 is an unsigned 4 byte integer in big-endian format.
 
@@ -517,8 +483,6 @@ is an unsigned 4 byte integer in big-endian format.
 | 1     | 4       | N       |
 | ----- | ------- | ------- |
 | `116` | `Arity` | `Pairs` |
-
-_Table: MAP_EXT_
 
 Encodes a map. The `Arity` field is an unsigned 4 byte integer in big-endian
 format that determines the number of key-value pairs in the map. Key and value
@@ -534,8 +498,6 @@ map.
 | ----- |
 | `106` |
 
-_Table: NIL_EXT_
-
 The representation for an empty list, that is, the Erlang syntax `[]`.
 
 ## STRING_EXT
@@ -543,8 +505,6 @@ The representation for an empty list, that is, the Erlang syntax `[]`.
 | 1     | 2        | Len          |
 | ----- | -------- | ------------ |
 | `107` | `Length` | `Characters` |
-
-_Table: STRING_EXT_
 
 String does _not_ have a corresponding Erlang representation, but is an
 optimization for sending lists of bytes (integer in the range 0-255) more
@@ -558,8 +518,6 @@ elements are encoded as [`LIST_EXT`](erl_ext_dist.md#list_ext).
 | ----- | -------- | ---------- | ------ |
 | `108` | `Length` | `Elements` | `Tail` |
 
-_Table: LIST_EXT_
-
 `Length` is the number of elements that follows in section `Elements`. `Tail` is
 the final tail of the list; it is [`NIL_EXT`](erl_ext_dist.md#nil_ext) for a
 proper list, but can be any type if the list is improper (for example, `[a|b]`).
@@ -569,8 +527,6 @@ proper list, but can be any type if the list is improper (for example, `[a|b]`).
 | 1     | 4     | Len    |
 | ----- | ----- | ------ |
 | `109` | `Len` | `Data` |
-
-_Table: BINARY_EXT_
 
 Binaries are generated with bit syntax expression or with
 `erlang:list_to_binary/1`, `erlang:term_to_binary/1`, or as input from binary
@@ -582,23 +538,22 @@ ports. The `Len` length field is an unsigned 4 byte integer (big-endian).
 | ----- | --- | ------ | ------------------- |
 | `110` | `n` | `Sign` | `d(0)` ... `d(n-1)` |
 
-_Table: SMALL_BIG_EXT_
-
 Bignums are stored in unary form with a `Sign` byte, that is, 0 if the bignum is
 positive and 1 if it is negative. The digits are stored with the least
 significant byte stored first. To calculate the integer, the following formula
 can be used:
 
-`B` = 256  
-`(d0*B^0 + d1*B^1 + d2*B^2 + ... d(N-1)*B^(n-1))`
+```
+B = 256
+(d0*B^0 + d1*B^1 + d2*B^2 + ... d(N-1)*B^(n-1))
+```
+
 
 ## LARGE_BIG_EXT
 
 | 1     | 4   | 1      | n                   |
 | ----- | --- | ------ | ------------------- |
 | `111` | `n` | `Sign` | `d(0)` ... `d(n-1)` |
-
-_Table: LARGE_BIG_EXT_
 
 Same as [`SMALL_BIG_EXT`](erl_ext_dist.md#small_big_ext) except that the length
 field is an unsigned 4 byte integer.
@@ -609,8 +564,6 @@ field is an unsigned 4 byte integer.
 | ----- | ------ | ---- | ---------- |
 | `101` | `Node` | `ID` | `Creation` |
 
-_Table: REFERENCE_EXT_
-
 The same as [`NEW_REFERENCE_EXT`](erl_ext_dist.md#new_reference_ext) except `ID`
 is only one word (`Len` = 1).
 
@@ -619,8 +572,6 @@ is only one word (`Len` = 1).
 | 1     | 2     | N      | 1          | N'       |
 | ----- | ----- | ------ | ---------- | -------- |
 | `114` | `Len` | `Node` | `Creation` | `ID ...` |
-
-_Table: NEW_REFERENCE_EXT_
 
 The same as [`NEWER_REFERENCE_EXT`](erl_ext_dist.md#newer_reference_ext)
 _except_:
@@ -636,8 +587,6 @@ _except_:
 | 1    | 2     | N      | 4          | N'       |
 | ---- | ----- | ------ | ---------- | -------- |
 | `90` | `Len` | `Node` | `Creation` | `ID ...` |
-
-_Table: NEWER_REFERENCE_EXT_
 
 Encodes a reference term generated with `erlang:make_ref/0`.
 
@@ -670,8 +619,6 @@ became mandatory. References now can contain up to 5 `ID` words.
 | ----- | --------- | ----- | -------- | ------- | ------ | --------------- |
 | `117` | `NumFree` | `Pid` | `Module` | `Index` | `Uniq` | `Free vars ...` |
 
-_Table: FUN_EXT_
-
 Not emitted since OTP R8, and not decoded since OTP 23.
 
 ## NEW_FUN_EXT
@@ -679,8 +626,6 @@ Not emitted since OTP R8, and not decoded since OTP 23.
 | 1     | 4      | 1       | 16     | 4       | 4         | N1       | N2         | N3        | N4    | N5          |
 | ----- | ------ | ------- | ------ | ------- | --------- | -------- | ---------- | --------- | ----- | ----------- |
 | `112` | `Size` | `Arity` | `Uniq` | `Index` | `NumFree` | `Module` | `OldIndex` | `OldUniq` | `Pid` | `Free Vars` |
-
-_Table: NEW_FUN_EXT_
 
 This is the encoding of internal funs: `fun F/A` and `fun(Arg1,..) -> ... end`.
 
@@ -720,8 +665,6 @@ This is the encoding of internal funs: `fun F/A` and `fun(Arg1,..) -> ... end`.
 | ----- | -------- | ---------- | ------- |
 | `113` | `Module` | `Function` | `Arity` |
 
-_Table: EXPORT_EXT_
-
 This term is the encoding for external funs: `fun M:F/A`.
 
 `Module` and `Function` are [encoded as atoms](erl_ext_dist.md#utf8_atoms).
@@ -735,8 +678,6 @@ This term is the encoding for external funs: `fun M:F/A`.
 | ---- | ----- | ------ | ------ |
 | `77` | `Len` | `Bits` | `Data` |
 
-_Table: BIT_BINARY_EXT_
-
 This term represents a bitstring whose length in bits does not have to be a
 multiple of 8. The `Len` field is an unsigned 4 byte integer (big-endian). The
 `Bits` field is the number of bits (1-8) that are used in the last byte in the
@@ -748,8 +689,6 @@ data field, counting from the most significant bit to the least significant.
 | ---- | ------------ |
 | `70` | `IEEE float` |
 
-_Table: NEW_FLOAT_EXT_
-
 A finite float (i.e. not inf, -inf or NaN) is stored as 8 bytes in big-endian
 IEEE format.
 
@@ -760,8 +699,6 @@ This term is used in minor version 1 of the external format.
 | 1     | 2     | Len        |
 | ----- | ----- | ---------- |
 | `118` | `Len` | `AtomName` |
-
-_Table: ATOM_UTF8_EXT_
 
 An atom is stored with a 2 byte unsigned length in big-endian order, followed by
 `Len` bytes containing the `AtomName` encoded in UTF-8.
@@ -775,8 +712,6 @@ page.
 | 1     | 1     | Len        |
 | ----- | ----- | ---------- |
 | `119` | `Len` | `AtomName` |
-
-_Table: SMALL_ATOM_UTF8_EXT_
 
 An atom is stored with a 1 byte unsigned length, followed by `Len` bytes
 containing the `AtomName` encoded in UTF-8. Longer atoms encoded in UTF-8 can be
@@ -794,8 +729,6 @@ page.
 | ----- | ----- | ---------- |
 | `100` | `Len` | `AtomName` |
 
-_Table: ATOM_EXT_
-
 An atom is stored with a 2 byte unsigned length in big-endian order, followed by
 `Len` numbers of 8-bit Latin-1 characters that forms the `AtomName`. The maximum
 allowed value for `Len` is 255.
@@ -807,8 +740,6 @@ allowed value for `Len` is 255.
 | 1     | 1     | Len        |
 | ----- | ----- | ---------- |
 | `115` | `Len` | `AtomName` |
-
-_Table: SMALL_ATOM_EXT_
 
 An atom is stored with a 1 byte unsigned length, followed by `Len` numbers of
 8-bit Latin-1 characters that forms the `AtomName`.
@@ -825,8 +756,6 @@ An atom is stored with a 1 byte unsigned length, followed by `Len` numbers of
 | 1     | ... |
 | ----- | --- |
 | `121` | ... |
-
-_Table: LOCAL_EXT_
 
 Marks that this is encoded on an alternative local external term format intended
 to only be decoded by a specific local decoder. The bytes following from here on

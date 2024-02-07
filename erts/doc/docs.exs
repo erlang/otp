@@ -1,7 +1,14 @@
 [
   annotations_for_docs: fn
-    %{module: :erlang} = md ->
+    md ->
       cond do
+        md[:module] != :erlang ->
+          []
+
+        md.kind == :function && :erl_internal.guard_bif(md.name, md.arity) ->
+          true = :erl_internal.bif(md.name, md.arity)
+          ["auto-imported", "allowed in guard tests"]
+
         md.kind == :function && :erl_internal.bif(md.name, md.arity) ->
           ["auto-imported"]
 
@@ -11,9 +18,6 @@
         true ->
           []
       end
-
-    _ ->
-      []
   end,
   groups_for_docs: [
     {"Predefined datatypes",
@@ -24,9 +28,50 @@
      fn a ->
        a.kind == :type
      end},
-    {"Auto-imported BIFs",
+    {"Checksum",
      fn a ->
-       a.kind == :function && a.module == :erlang && :erl_internal.bif(a.name, a.arity)
+       a[:group] == :checksum
+     end},
+    {"Code",
+     fn a ->
+       a[:group] == :code
+     end},
+    {"Distributed Erlang",
+     fn a ->
+       a[:group] == :distribution
+     end},
+    {"Erlang Terms",
+     fn a ->
+       a[:group] == :terms
+     end},
+    {"Processes and Ports",
+     fn a ->
+       a[:group] == :processes || a[:group] == :ports
+     end},
+    {"System",
+     fn a ->
+       a[:group] == :system
+     end},
+    {"Time and timers",
+     fn a ->
+       a[:group] == :time || a[:group] == :timer
+     end},
+    {"Tracing",
+     fn a ->
+       a[:group] == :trace
+     end},
+    {"Deprecated functions",
+     fn a ->
+       a[:group] == :deprecated
+     end},
+    {"Functions without group",
+     fn a ->
+       if a.module == :erlang do
+         IO.puts(:stderr, "Undefined group #{a[:group]} for #{a.module}:#{a.name}/#{a.arity}")
+         true
+       end
+
+       false
      end}
   ],
   ## The order of these items determine

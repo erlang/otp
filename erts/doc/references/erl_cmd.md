@@ -19,26 +19,16 @@ limitations under the License.
 -->
 # erl
 
-The Erlang emulator.
-
-## Description
-
 The `erl` program starts an Erlang runtime system. The exact details (for
 example, whether `erl` is a script or a program and which other programs it
 calls) are system-dependent.
 
-Windows users probably want to use the `werl` program instead, which runs in its
-own window with scrollbars and supports command-line editing. The `erl` program
-on Windows provides no line editing in its shell, and on Windows 95 there is no
-way to scroll back to text that has scrolled off the screen. The `erl` program
-must be used, however, in pipelines or if you want to redirect standard input or
-output.
-
 > #### Note {: .info }
 >
-> As from ERTS 5.9 (Erlang/OTP R15B) the runtime system does by default _not_
-> bind schedulers to logical processors. For more information, see system flag
-> [`+sbt`](erl_cmd.md#%2Bsbt).
+> If you are running Erlang/OTP 25 or earlier on Windows to start an Erlang
+> system with full shell support you should use `werl.exe`. See the
+> [Erlang/OTP 25 documentation](https://www.erlang.org/docs/25/man/werl) for
+> details on how to do that.
 
 ## erl <arguments>
 
@@ -1525,7 +1515,7 @@ behavior on startup.
   io:format(".erlang rc finished\n",[]).
   ```
 
-- **user_default and shell_default** - Functions in the shell that are not
+- **user_default** and **shell_default** - Functions in the shell that are not
   prefixed by a module name are assumed to be functional objects (funs),
   built-in functions (BIFs), or belong to the module `user_default` or
   `shell_default`.
