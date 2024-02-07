@@ -191,7 +191,7 @@ get({R,F}) when is_list(R), is_list(F) ->
 get(Q) ->
     erlang:error(badarg, [Q]).
 
--spec get(list(), list()) -> term().
+-spec get(list(Item), list(Item)) -> Item.
 get(R, [H|_]) when is_list(R) ->
     H;
 get([H], []) ->
@@ -407,11 +407,9 @@ filter_r(Fun, [X|R0]) ->
 %%
 %% O(len(Q1))
 -spec filtermap(Fun, Q1) -> Q2 when
-      Fun :: fun((Item) -> boolean() | {'true', Value}),
+      Fun :: fun((Item) -> boolean() | {'true', Item1}),
       Q1 :: queue(Item),
-      Q2 :: queue(Item | Value),
-      Item :: term(),
-      Value :: term().
+      Q2 :: queue(Item | Item1).
 filtermap(Fun, {R0, F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
     F = lists:filtermap(Fun, F0),
     R = filtermap_r(Fun, R0),
@@ -481,10 +479,8 @@ all(Pred, Q) ->
 %%
 %% O(len(Q1)) worst case
 -spec delete(Item, Q1) -> Q2 when
-      Item :: T,
-      Q1 :: queue(T),
-      Q2 :: queue(T),
-      T :: term().
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 delete(Item, {R0, F0} = Q) when is_list(R0), is_list(F0) ->
     case delete_front(Item, F0) of
         false ->
@@ -509,10 +505,8 @@ delete(Item, Q) ->
 %%
 %% O(len(Q1)) worst case
 -spec delete_r(Item, Q1) -> Q2 when
-      Item :: T,
-      Q1 :: queue(T),
-      Q2 :: queue(T),
-      T :: term().
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 delete_r(Item, {R0, F0}) when is_list(R0), is_list(F0) ->
     {F1, R1}=delete(Item, {F0, R0}),
     {R1, F1};
@@ -548,8 +542,7 @@ delete_rear(_, []) ->
 -spec delete_with(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
-      Q2 :: queue(Item),
-      Item :: term().
+      Q2 :: queue(Item).
 delete_with(Pred, {R0, F0} = Q) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
     case delete_with_front(Pred, F0) of
 	false ->
@@ -576,8 +569,7 @@ delete_with(Pred, Q) ->
 -spec delete_with_r(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
-      Q2 :: queue(Item),
-      Item :: term().
+      Q2 :: queue(Item).
 delete_with_r(Pred, {R0, F0}) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
     {F1, R1} = delete_with(Pred, {F0, R0}),
     {R1, F1};
