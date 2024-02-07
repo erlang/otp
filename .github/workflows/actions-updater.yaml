@@ -14,10 +14,10 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1.6.1
+        uses: actions/create-github-app-token@v1.7.0
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PEM }}
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PEM }}
 
       - uses: actions/checkout@v4.1.1
         with:
@@ -28,3 +28,4 @@ jobs:
         with:
           token: ${{ steps.generate_token.outputs.token }}
           pull_request_branch: "github/actions-update"
+          extra_workflow_locations: ".github/actions/build-base-image"

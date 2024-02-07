@@ -16,7 +16,7 @@ runs:
     using: composite
     steps:
       - name: Cleanup GH Runner
-        shell: bash -euxo pipefail {0}
+        shell: bash -euo pipefail {0}
         run: |
             ## Delete large files from runner to get more disk space
             ## See https://github.com/actions/runner-images/issues/2840
@@ -26,14 +26,14 @@ runs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
 
       - name: Cache BASE image
-        uses: actions/cache@v3
+        uses: actions/cache@v4.0.0
         if: inputs.TYPE == '64-bit' || inputs.TYPE == 'clang'
         with:
             path: otp_docker_base.tar
             key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}-${{ hashFiles('OTP_VERSION') }}
 
       - name: Docker login
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3.0.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
@@ -45,19 +45,19 @@ runs:
 
       - name: Cache pre-built src
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4.0.0
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
       - name: Cache pre-built binaries
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v3
+        uses: actions/cache@v4.0.0
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
       - name: Build image
         if: inputs.BUILD_IMAGE == 'true'
-        shell: bash -euxo pipefail {0}
+        shell: bash -eo pipefail {0}
         run: |
           .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
           rm -f otp_{src,cache}.tar.gz
