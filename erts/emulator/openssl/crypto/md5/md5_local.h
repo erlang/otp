@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #if defined(ERLANG_OPENSSL_INTEGRATION)
-#include "openssl/md5.h"
+#include "openssl_local/md5.h"
 #define md5_block_data_order MD5_BLOCK_DATA_ORDER_FUNCTION_NAME
 #undef MD5_ASM
 #else

@@ -7,7 +7,7 @@ The files that has been taken from the 3.1.4 version of OpenSSL:
 ./crypto/md5/md5_local.h
 ./crypto/md5/md5_dgst.c
 ./include/crypto/md32_common.h
-./include/openssl/md5.h
+./include/openssl_local/md5.h (renamed from include/openssl/md5.h)
 
 The openssl.diff file contains the diff between the original files and the ones
 included in OTP.
