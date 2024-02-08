@@ -100,6 +100,20 @@ format_binary_error(last, [Subject], _) ->
          <<>> -> empty_binary;
         _ -> must_be_binary(Subject)
      end];
+format_binary_error(join, [Binaries,Separator], _) ->
+    case must_be_binary(Separator) of
+        [] when is_list(Binaries) ->
+            case must_be_list(Binaries) of
+                [] ->
+                    [~"not a list of binaries", []];
+                Error ->
+                    [Error, []]
+            end;
+        [] ->
+            [must_be_list(Binaries), []];
+        Error ->
+            [[], Error]
+    end;
 format_binary_error(list_to_bin, [_], _) ->
     [not_iodata];
 format_binary_error(longest_common_prefix, [_], _) ->
