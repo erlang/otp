@@ -103,7 +103,8 @@
 
 %% Internal API
 -export([maybe_send_early_data/1,
-         maybe_automatic_session_resumption/1
+         maybe_automatic_session_resumption/1,
+         maybe_generate_client_shares/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -126,13 +127,6 @@ init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
             EState = State0#state{protocol_specific = Map#{error => Error}},
             gen_statem:enter_loop(?MODULE, [], config_error, EState)
     end.
-
-terminate({shutdown, {sender_died, Reason}}, _StateName,
-          #state{static_env = #static_env{socket = Socket,
-                                          transport_cb = Transport}}
-          = State) ->
-    ssl_gen_statem:handle_trusted_certs_db(State),
-    tls_gen_connection:close(Reason, Socket, Transport, undefined);
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
@@ -154,7 +148,7 @@ code_change(_OldVsn, StateName, State, _) ->
 initial_hello(enter, _, State) ->
     {keep_state, State};
 initial_hello(Type, Event, State) ->
-    ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
+    tls_client_connection:initial_hello(Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec config_error(gen_statem:event_type(),
@@ -164,7 +158,7 @@ initial_hello(Type, Event, State) ->
 config_error(enter, _, State) ->
     {keep_state, State};
 config_error(Type, Event, State) ->
-    ssl_gen_statem:?FUNCTION_NAME(Type, Event, State).
+    ssl_gen_statem:config_error(Type, Event, State).
 
 %%--------------------------------------------------------------------
 -spec user_hello(gen_statem:event_type(),
@@ -177,7 +171,7 @@ user_hello({call, From}, cancel, State) ->
     gen_statem:reply(From, ok),
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?USER_CANCELED,
                                                user_canceled),
-                                    ?FUNCTION_NAME, State);
+                                    user_hello, State);
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env =  #handshake_env{continue_status = pause} = HSEnv,
                   ssl_options = Options0} = State0) ->
@@ -193,7 +187,8 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
     catch
         throw:{error, Reason} ->
             gen_statem:reply(From, {error, Reason}),
-            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), ?FUNCTION_NAME, State0)
+            ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason),
+                                            user_hello, State0)
     end;
 user_hello(Type, Msg, State) ->
     tls_gen_connection_1_3:user_hello(Type, Msg, State).
@@ -205,10 +200,10 @@ user_hello(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 start(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
-    {next_state, ?FUNCTION_NAME, State,[]};
+    {next_state, ?STATE(start), State,[]};
 start(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
-                                                    ?FUNCTION_NAME, State);
+                                                    ?STATE(start), State);
 start(internal,
       #server_hello{extensions =
                         #{server_hello_selected_version :=
@@ -222,7 +217,7 @@ start(internal,
             handle_exlusive_1_3_hello_or_hello_retry_request(ServerHello, State);
         false ->
             ssl_gen_statem:handle_own_alert(
-              ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State)
+              ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State)
     end;
 start(internal, #server_hello{extensions =
                                   #{server_hello_selected_version :=
@@ -241,7 +236,7 @@ start(internal, #server_hello{extensions =
               {reply, From, {ok, Extensions}}]};
         false ->
             ssl_gen_statem:handle_own_alert(
-              ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State)
+              ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State)
     end;
 start(internal, #server_hello{} = ServerHello,
       #state{handshake_env =
@@ -251,11 +246,11 @@ start(internal, #server_hello{}, State0) ->
     %% Missing mandantory TLS-1.3 extensions,
     %%so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(
-      ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State0);
+      ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
 start(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(start), State).
 
 %%--------------------------------------------------------------------
 -spec wait_sh(gen_statem:event_type(),
@@ -264,10 +259,10 @@ start(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 wait_sh(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
-    {next_state, ?FUNCTION_NAME, State,[]};
+    {next_state, wait_sh, State,[]};
 wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
-                                                    ?FUNCTION_NAME, State);
+                                                    ?STATE(wait_sh), State);
 wait_sh(internal, #server_hello{extensions = Extensions},
         #state{handshake_env = #handshake_env{continue_status = pause},
                start_or_recv_from = From} = State) ->
@@ -279,7 +274,7 @@ wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
                ssl_options = #{middlebox_comp_mode := false}} = State0) ->
     case handle_server_hello(Hello, State0) of
          #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State0);
         {State1, start, ServerHello} ->
             %% hello_retry_request: go to start
              {next_state, start, State1, [{next_event, internal, ServerHello}]};
@@ -293,7 +288,7 @@ wait_sh(internal, #server_hello{} = Hello,
     IsRetry = maps:get(hello_retry, PS, false),
     case handle_server_hello(Hello, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, wait_sh, State0);
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State0);
         {State1 = #state{}, start, ServerHello} ->
             %% hello_retry_request
             {next_state, start, State1, [{next_event, internal, ServerHello}]};
@@ -304,9 +299,9 @@ wait_sh(internal, #server_hello{} = Hello,
                                           no_record, State1)
     end;
 wait_sh(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(wait_sh), State);
 wait_sh(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(wait_sh), State).
 
 %%--------------------------------------------------------------------
 -spec hello_middlebox_assert(gen_statem:event_type(),
@@ -317,14 +312,15 @@ hello_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_middlebox_assert(internal, #change_cipher_spec{}, State) ->
     tls_gen_connection:next_event(wait_ee, no_record, State);
-hello_middlebox_assert(internal = Type, #encrypted_extensions{} = Msg,  #state{ssl_options = #{log_level := Level}} = State) ->
+hello_middlebox_assert(internal = Type, #encrypted_extensions{} = Msg,
+                       #state{ssl_options = #{log_level := Level}} = State) ->
     ssl_logger:log(warning, Level, #{description => "Failed to assert middlebox server message",
                                      reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_common_event(Type, Msg, hello_middlebox_assert, State);
 hello_middlebox_assert(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(hello_middlebox_assert), State);
 hello_middlebox_assert(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(hello_middlebox_assert), State).
 
 %%--------------------------------------------------------------------
 -spec hello_retry_middlebox_assert(gen_statem:event_type(),
@@ -336,14 +332,15 @@ hello_retry_middlebox_assert(enter, _, State) ->
     {keep_state, State};
 hello_retry_middlebox_assert(internal, #change_cipher_spec{}, State) ->
     tls_gen_connection:next_event(wait_sh, no_record, State);
-hello_retry_middlebox_assert(internal = Type, #server_hello{} = Msg, #state{ssl_options = #{log_level := Level}} = State) ->
+hello_retry_middlebox_assert(internal = Type, #server_hello{} = Msg,
+                             #state{ssl_options = #{log_level := Level}} = State) ->
     ssl_logger:log(warning, Level, #{description => "Failed to assert middlebox server message",
                                      reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(hello_retry_middlebox_assert), State);
 hello_retry_middlebox_assert(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(hello_retry_middlebox_assert), State);
 hello_retry_middlebox_assert(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(hello_retry_middlebox_assert), State).
 
 %%--------------------------------------------------------------------
 -spec wait_ee(gen_statem:event_type(),
@@ -353,21 +350,21 @@ hello_retry_middlebox_assert(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 wait_ee(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
-    {next_state, ?FUNCTION_NAME, State,[]};
+    {next_state, ?STATE(wait_ee), State,[]};
 wait_ee(internal = Type, #change_cipher_spec{} = Msg, State) ->
    tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
-                                                    ?FUNCTION_NAME, State);
+                                                    wait_ee, State);
 wait_ee(internal, #encrypted_extensions{extensions = Extensions}, State0) ->
     case handle_encrypted_extensions(Extensions, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0);
+            ssl_gen_statem:handle_own_alert(Alert, wait_ee, State0);
         {State, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State)
     end;
 wait_ee(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(wait_ee), State);
 wait_ee(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(wait_ee), State).
 
 %%--------------------------------------------------------------------
 -spec wait_cert_cr(gen_statem:event_type(),
@@ -376,14 +373,14 @@ wait_ee(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 wait_cert_cr(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
-    {next_state, ?FUNCTION_NAME, State,[]};
+    {next_state, ?STATE(wait_cert_cr), State,[]};
 wait_cert_cr(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
-                                                     ?FUNCTION_NAME, State);
+                                                     wait_cert_cr, State);
 wait_cert_cr(internal, #certificate_1_3{} = Certificate, State0) ->
     case handle_certificate(Certificate, State0) of
         {#alert{} = Alert, State} ->
-            ssl_gen_statem:handle_own_alert(Alert, wait_cert_cr, State);
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_cr), State);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
     end;
@@ -391,14 +388,14 @@ wait_cert_cr(internal, #certificate_request_1_3{} = CertificateRequest,
              State0) ->
     case handle_certificate_request(CertificateRequest, State0) of
         #alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, wait_cert_cr, State0);
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_cr), State0);
         {State1, NextState} ->
             tls_gen_connection:next_event(NextState, no_record, State1)
    end;
 wait_cert_cr(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(wait_cert_cr), State);
 wait_cert_cr(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(wait_cert_cr), State).
 
 %%--------------------------------------------------------------------
 -spec wait_cert(gen_statem:event_type(),
@@ -423,7 +420,7 @@ wait_cv(internal,
         tls_gen_connection:next_event(NextState, no_record, State)
     catch
         {Ref, {#alert{} = Alert, AState}} ->
-            ssl_gen_statem:handle_own_alert(Alert, wait_cv, AState)
+            ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cv), AState)
     end;
 wait_cv(Type, Msg, State) ->
     tls_gen_connection_1_3:wait_cv(Type, Msg, State).
@@ -435,10 +432,10 @@ wait_cv(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 wait_finished(enter, _, State0) ->
     State = tls_gen_connection_1_3:handle_middlebox(State0),
-    {next_state, ?FUNCTION_NAME, State,[]};
+    {next_state, ?STATE(wait_finished), State,[]};
 wait_finished(internal = Type, #change_cipher_spec{} = Msg, State) ->
     tls_gen_connection_1_3:handle_change_cipher_spec(Type, Msg,
-                                                     ?FUNCTION_NAME, State);
+                                                     ?STATE(wait_finished), State);
 wait_finished(internal,
               #finished{verify_data = VerifyData},
               #state{static_env = #static_env{protocol_cb = Connection}}
@@ -475,12 +472,12 @@ wait_finished(internal,
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
+            ssl_gen_statem:handle_own_alert(Alert, wait_finished, State0)
     end;
 wait_finished(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_gen_connection:handle_info(Msg, ?STATE(wait_finished), State);
 wait_finished(Type, Msg, State) ->
-    ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
+    ssl_gen_statem:handle_common_event(Type, Msg, ?STATE(wait_finished), State).
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),
                  term(), #state{}) ->
@@ -496,6 +493,108 @@ connection(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 downgrade(Type, Msg, State) ->
     tls_gen_connection_1_3:downgrade(Type, Msg, State).
+
+%%--------------------------------------------------------------------
+%% Internal API
+%%--------------------------------------------------------------------
+maybe_send_early_data(#state{
+                         handshake_env =
+                             #handshake_env{tls_handshake_history = {Hist, _}},
+                         protocol_specific = #{sender := _Sender},
+                         ssl_options = #{versions := [?TLS_1_3|_],
+                                         use_ticket := UseTicket,
+                                         session_tickets := SessionTickets,
+                                         early_data := EarlyData} = _SslOpts0
+                        } = State0) when UseTicket =/= [undefined] andalso
+                                         EarlyData =/= undefined ->
+    %% D.4.  Middlebox Compatibility Mode
+    State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
+    %% Early traffic secret
+    EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
+    case tls_handshake_1_3:get_pre_shared_key_early_data(SessionTickets,
+                                                         UseTicket) of
+        {ok, {PSK, Cipher, HKDF, MaxSize}} when EarlyDataSize =< MaxSize ->
+            State2 =
+                tls_handshake_1_3:calculate_client_early_traffic_secret(Hist,
+                                                                        PSK,
+                                                                        Cipher,
+                                                                        HKDF,
+                                                                        State1),
+            %% Set 0-RTT traffic keys for sending early_data and EndOfEarlyData
+            State3 = ssl_record:step_encryption_state_write(State2),
+            {ok, tls_handshake_1_3:encode_early_data(Cipher, State3)};
+        {ok, {_, _, _, MaxSize}} ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               {too_much_early_data, {max, MaxSize}})};
+        {error, Alert} ->
+            {error, Alert}
+    end;
+maybe_send_early_data(State) ->
+    {ok, State}.
+
+maybe_send_end_of_early_data(
+  #state{
+     handshake_env = #handshake_env{early_data_accepted = true},
+     protocol_specific = #{sender := _Sender},
+     ssl_options = #{versions := [?TLS_1_3|_],
+                     use_ticket := UseTicket,
+                     early_data := EarlyData},
+     static_env = #static_env{protocol_cb = Connection}
+    } = State0) when UseTicket =/= [undefined] andalso
+                     EarlyData =/= undefined ->
+    %% EndOfEarlydata is encrypted with the 0-RTT traffic keys
+    State1 = Connection:queue_handshake(#end_of_early_data{}, State0),
+    %% Use handshake keys after EndOfEarlyData is sent
+    ssl_record:step_encryption_state_write(State1);
+maybe_send_end_of_early_data(State) ->
+    State.
+
+%% Configure a suitable session ticket
+maybe_automatic_session_resumption(#state{ssl_options =
+                                              #{versions := [Version|_],
+                                                ciphers := UserSuites,
+                                                early_data := EarlyData,
+                                                session_tickets :=
+                                                    SessionTickets,
+                                                server_name_indication := SNI}
+                                          = SslOpts0
+                                         } = State0)
+  when ?TLS_GTE(Version, ?TLS_1_3) andalso
+       SessionTickets =:= auto ->
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
+    HashAlgos = cipher_hash_algos(AvailableCipherSuites),
+    Ciphers = tls_handshake_1_3:ciphers_for_early_data(AvailableCipherSuites),
+    %% Find a pair of tickets KeyPair = {Ticket0, Ticket2} where
+    %% Ticket0 satisfies requirements for early_data and session
+    %% resumption while Ticket2 can only be used for session
+    %% resumption.
+    EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
+    KeyPair =
+        tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos,
+                                            SNI, EarlyDataSize),
+    UseTicket = tls_handshake_1_3:choose_ticket(KeyPair, EarlyData),
+    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
+    State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
+    {[UseTicket], State};
+maybe_automatic_session_resumption(#state{
+                                      ssl_options = #{use_ticket := UseTicket}
+                                     } = State) ->
+    {UseTicket, State}.
+
+maybe_resumption(#state{handshake_env =
+                            #handshake_env{resumption = true}} = State) ->
+    {error, {State, wait_finished}};
+maybe_resumption(_) ->
+    ok.
+
+maybe_generate_client_shares(#{versions := [?TLS_1_3|_],
+                               supported_groups :=
+                                   #supported_groups{
+                                      supported_groups = [Group|_]}}) ->
+    %% Generate only key_share entry for the most preferred group
+    ssl_cipher:generate_client_shares([Group]);
+maybe_generate_client_shares(_) ->
+    undefined.
 
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -747,96 +846,6 @@ handle_certificate_request(#certificate_request_1_3{} =
         {Ref, #alert{} = Alert} ->
             {Alert, State0}
     end.
-
-maybe_send_early_data(#state{
-                         handshake_env =
-                             #handshake_env{tls_handshake_history = {Hist, _}},
-                         protocol_specific = #{sender := _Sender},
-                         ssl_options = #{versions := [?TLS_1_3|_],
-                                         use_ticket := UseTicket,
-                                         session_tickets := SessionTickets,
-                                         early_data := EarlyData} = _SslOpts0
-                        } = State0) when UseTicket =/= [undefined] andalso
-                                         EarlyData =/= undefined ->
-    %% D.4.  Middlebox Compatibility Mode
-    State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
-    %% Early traffic secret
-    EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
-    case tls_handshake_1_3:get_pre_shared_key_early_data(SessionTickets,
-                                                         UseTicket) of
-        {ok, {PSK, Cipher, HKDF, MaxSize}} when EarlyDataSize =< MaxSize ->
-            State2 =
-                tls_handshake_1_3:calculate_client_early_traffic_secret(Hist,
-                                                                        PSK,
-                                                                        Cipher,
-                                                                        HKDF,
-                                                                        State1),
-            %% Set 0-RTT traffic keys for sending early_data and EndOfEarlyData
-            State3 = ssl_record:step_encryption_state_write(State2),
-            {ok, tls_handshake_1_3:encode_early_data(Cipher, State3)};
-        {ok, {_, _, _, MaxSize}} ->
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
-                               {too_much_early_data, {max, MaxSize}})};
-        {error, Alert} ->
-            {error, Alert}
-    end;
-maybe_send_early_data(State) ->
-    {ok, State}.
-
-maybe_send_end_of_early_data(
-  #state{
-     handshake_env = #handshake_env{early_data_accepted = true},
-     protocol_specific = #{sender := _Sender},
-     ssl_options = #{versions := [?TLS_1_3|_],
-                     use_ticket := UseTicket,
-                     early_data := EarlyData},
-     static_env = #static_env{protocol_cb = Connection}
-    } = State0) when UseTicket =/= [undefined] andalso
-                     EarlyData =/= undefined ->
-    %% EndOfEarlydata is encrypted with the 0-RTT traffic keys
-    State1 = Connection:queue_handshake(#end_of_early_data{}, State0),
-    %% Use handshake keys after EndOfEarlyData is sent
-    ssl_record:step_encryption_state_write(State1);
-maybe_send_end_of_early_data(State) ->
-    State.
-
-%% Configure a suitable session ticket
-maybe_automatic_session_resumption(#state{ssl_options =
-                                              #{versions := [Version|_],
-                                                ciphers := UserSuites,
-                                                early_data := EarlyData,
-                                                session_tickets :=
-                                                    SessionTickets,
-                                                server_name_indication := SNI}
-                                          = SslOpts0
-                                         } = State0)
-  when ?TLS_GTE(Version, ?TLS_1_3) andalso
-       SessionTickets =:= auto ->
-    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
-    HashAlgos = cipher_hash_algos(AvailableCipherSuites),
-    Ciphers = tls_handshake_1_3:ciphers_for_early_data(AvailableCipherSuites),
-    %% Find a pair of tickets KeyPair = {Ticket0, Ticket2} where
-    %% Ticket0 satisfies requirements for early_data and session
-    %% resumption while Ticket2 can only be used for session
-    %% resumption.
-    EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
-    KeyPair =
-        tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos,
-                                            SNI, EarlyDataSize),
-    UseTicket = tls_handshake_1_3:choose_ticket(KeyPair, EarlyData),
-    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
-    State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
-    {[UseTicket], State};
-maybe_automatic_session_resumption(#state{
-                                      ssl_options = #{use_ticket := UseTicket}
-                                     } = State) ->
-    {UseTicket, State}.
-
-maybe_resumption(#state{handshake_env =
-                            #handshake_env{resumption = true}} = State) ->
-    {error, {State, wait_finished}};
-maybe_resumption(_) ->
-    ok.
 
 server_group(undefined) ->
     undefined;

@@ -45,7 +45,8 @@ BEHAVIOUR_MODULES= \
 
 
 MODULES= \
-	dtls_connection \
+	dtls_server_connection \
+        dtls_client_connection \
 	dtls_connection_sup \
 	dtls_handshake \
 	dtls_gen_connection \
@@ -92,8 +93,11 @@ MODULES= \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \
-	tls_dtls_connection \
-	tls_connection \
+	tls_dtls_client_connection \
+	tls_dtls_server_connection \
+	tls_dtls_gen_connection \
+	tls_server_connection \
+	tls_client_connection \
 	tls_connection_sup \
 	tls_server_connection_1_3 \
 	tls_client_connection_1_3 \

@@ -255,7 +255,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
-    handle_common(?FUNCTION_NAME, Type, Msg, StateData);
+    handle_common(init, Type, Msg, StateData);
 init(_, _, _) ->
     %% Just in case anything else sneaks through
     {keep_state_and_data, [postpone]}.
@@ -271,15 +271,15 @@ connection({call, From}, {application_data, AppData},
                StateData) ->
     case encode_packet(Packet, AppData) of
         {error, _} = Error ->
-            {next_state, ?FUNCTION_NAME, StateData, [{reply, From, Error}]};
+            {next_state, connection, StateData, [{reply, From, Error}]};
         Data ->
-            send_application_data(Data, From, ?FUNCTION_NAME, StateData)
+            send_application_data(Data, From, connection, StateData)
     end;
 connection({call, From}, {post_handshake_data, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, ?FUNCTION_NAME, StateData);
+    send_post_handshake_data(HSData, From, connection, StateData);
 connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
-    {next_state, ?FUNCTION_NAME, StateData,
+    {next_state, connection, StateData,
      [{reply,From,ok}]};
 connection({call, From}, renegotiate,
            #data{connection_states = #{current_write := Write}} = StateData) ->
@@ -288,14 +288,14 @@ connection({call, From}, downgrade, #data{connection_states =
                                               #{current_write := Write}} = StateData) ->
     {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
 connection({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(?FUNCTION_NAME, From, Opts, StateData);
+    handle_set_opts(connection, From, Opts, StateData);
 connection({call, From}, dist_get_tls_socket, 
            #data{static = #static{transport_cb = Transport,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   trackers = Trackers}} = StateData) ->
     TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
-    hibernate_after(?FUNCTION_NAME, StateData, [{reply, From, {ok, TLSSocket}}]);
+    hibernate_after(connection, StateData, [{reply, From, {ok, TLSSocket}}]);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
@@ -306,7 +306,7 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
 
     case dist_data(DHandle) of
         [] ->
-            hibernate_after(?FUNCTION_NAME,
+            hibernate_after(connection,
                             StateData#data{
                               static = Static#static{dist_handle = DHandle}},
                             [{reply,From,ok}]);
@@ -322,15 +322,15 @@ connection({call, From}, get_application_traffic_secret, State) ->
     SecurityParams = maps:get(security_parameters, CurrentWrite),
     ApplicationTrafficSecret =
         SecurityParams#security_parameters.application_traffic_secret,
-    hibernate_after(?FUNCTION_NAME, State,
+    hibernate_after(connection, State,
                     [{reply, From, {ok, ApplicationTrafficSecret}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
-    send_application_data(Data, From, ?FUNCTION_NAME, StateData);
+    send_application_data(Data, From, connection, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
-    send_post_handshake_data(HSData, From, ?FUNCTION_NAME, StateData);
+    send_post_handshake_data(HSData, From, connection, StateData);
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
-    {next_state, ?FUNCTION_NAME, StateData};
+    {next_state, connection, StateData};
 connection(cast, {new_write, WritesState, Version}, 
            #data{connection_states = ConnectionStates, static = Static} = StateData) ->
     hibernate_after(connection,
@@ -343,7 +343,7 @@ connection(info, dist_data,
            #data{static = #static{dist_handle = DHandle}} = StateData) ->
       case dist_data(DHandle) of
           [] ->
-              hibernate_after(?FUNCTION_NAME, StateData, []);
+              hibernate_after(connection, StateData, []);
           Data ->
               {keep_state_and_data,
                [{next_event, internal,
@@ -353,7 +353,7 @@ connection(info, tick, StateData) ->
     consume_ticks(),
     Data = [<<0:32>>], % encode_packet(4, <<>>)
     From = {self(), undefined},
-    send_application_data(Data, From, ?FUNCTION_NAME, StateData);
+    send_application_data(Data, From, connection, StateData);
 connection(info, {send, From, Ref, Data}, _StateData) -> 
     %% This is for testing only!
     %%
@@ -366,7 +366,7 @@ connection(info, {send, From, Ref, Data}, _StateData) ->
 connection(timeout, hibernate, _StateData) ->
     {keep_state_and_data, [hibernate]};
 connection(Type, Msg, StateData) ->
-    handle_common(?FUNCTION_NAME, Type, Msg, StateData).
+    handle_common(connection, Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec handshake(gen_statem:event_type(),
@@ -375,7 +375,7 @@ connection(Type, Msg, StateData) ->
                          gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
 handshake({call, From}, {set_opts, Opts}, StateData) ->
-    handle_set_opts(?FUNCTION_NAME, From, Opts, StateData);
+    handle_set_opts(handshake, From, Opts, StateData);
 handshake({call, _}, _, _) ->
     %% Postpone all calls to the connection state
     {keep_state_and_data, [postpone]};
@@ -399,7 +399,7 @@ handshake(info, {send, _, _, _}, _) ->
     %% Testing only, OTP distribution test suites...
     {keep_state_and_data, [postpone]};
 handshake(Type, Msg, StateData) ->
-    handle_common(?FUNCTION_NAME, Type, Msg, StateData).
+    handle_common(handshake, Type, Msg, StateData).
 
 %%--------------------------------------------------------------------
 -spec death_row(gen_statem:event_type(),
@@ -410,7 +410,7 @@ handshake(Type, Msg, StateData) ->
 death_row(state_timeout, Reason, _StateData) ->
     {stop, {shutdown, Reason}};
 death_row(info = Type, Msg, StateData) ->
-    handle_common(?FUNCTION_NAME, Type, Msg, StateData);
+    handle_common(death_row, Type, Msg, StateData);
 death_row(_Type, _Msg, _StateData) ->
     %% Waste all other events
     keep_state_and_data.
@@ -511,7 +511,7 @@ send_application_data(Data, From, StateName,
             {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
                                    {next_event, internal, {application_packets, From, Data}}]};
 	renegotiate ->
-	    tls_dtls_connection:internal_renegotiation(Pid, ConnectionStates0),
+	    tls_dtls_gen_connection:internal_renegotiation(Pid, ConnectionStates0),
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
         chunk_and_key_update ->
