@@ -43,16 +43,7 @@
   <funcs>
     <func>
       <name name="start_sub_sup" arity="1" clause_i="1" since=""/>
-      <!--
-      <name since="">start_sub_sup(Opts) -> {ok, pid()} | {error, {already_started, pid()}} | {error, Reason}</name>
-      -->
       <fsummary>Start the SNMP supervisor for sub-agents only</fsummary>
-      <!--
-      <type>
-        <v>Opts = [opt()]</v>
-        <v>opt() = {db_dir, string()} | ...</v>
-      </type>
-      -->
       <desc>
         <p>Starts a supervisor for the SNMP agent system without a
 	master agent.  The supervisor starts all involved SNMP
@@ -81,18 +72,7 @@
 
     <func>
       <name name="start_sub_agent" arity="3" clause_i="1" since=""/>
-      <!--
-      <name since="">start_sub_agent(ParentAgent,Subtree,Mibs) -> {ok, pid()} | {error, Reason}</name>
-      -->
       <fsummary>Start a sub-agent</fsummary>
-      <!--
-      <type>
-        <v>ParentAgent = pid()</v>
-        <v>SubTree = oid()</v>
-        <v>Mibs = [MibName]</v>
-        <v>MibName = [string()]</v>
-      </type>
-      -->
       <desc>
         <p>Starts a sub-agent on the node where the function is
 	called.  The <c>snmpa_supervisor</c> must be running. </p>
@@ -102,17 +82,13 @@
     </func>
 
     <func>
-      <name since="">stop_sub_agent(SubAgent) -> ok | no_such_child</name>
+      <name name="stop_sub_agent" arity="1" clause_i="1" since=""/>
       <fsummary>Stop a sub-agent</fsummary>
-      <type>
-        <v>SubAgent = pid()</v>
-      </type>
       <desc>
         <p>Stops the sub-agent on the node where the function is
-          called.  The <c>snmpa_supervisor</c> must be running.
-          </p>
+	called.  The <c>snmpa_supervisor</c> must be running. </p>
         <p>If the supervisor is not running, the function fails with the
-          reason <c>badarg</c>.</p>
+	reason <c>badarg</c>. </p>
       </desc>
     </func>
   </funcs>

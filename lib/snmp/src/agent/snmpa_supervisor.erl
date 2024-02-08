@@ -243,6 +243,9 @@ start_sub_agent(ParentAgent, Subtree, Mibs)
       "~n   Mibs:        ~p", [ParentAgent, Subtree, Mibs]),
     snmpa_agent_sup:start_subagent(ParentAgent, Subtree, Mibs).
 
+-spec stop_sub_agent(SubAgentPid) -> ok | no_such_child when
+      SubAgentPid :: pid().
+
 stop_sub_agent(SubAgentPid) ->
     snmpa_agent_sup:stop_subagent(SubAgentPid).
 
