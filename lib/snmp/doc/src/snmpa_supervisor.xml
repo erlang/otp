@@ -42,21 +42,25 @@
 
   <funcs>
     <func>
+      <name name="start_sub_sup" arity="1" clause_i="1" since=""/>
+      <!--
       <name since="">start_sub_sup(Opts) -> {ok, pid()} | {error, {already_started, pid()}} | {error, Reason}</name>
+      -->
       <fsummary>Start the SNMP supervisor for sub-agents only</fsummary>
+      <!--
       <type>
         <v>Opts = [opt()]</v>
         <v>opt() = {db_dir, string()} | ...</v>
       </type>
+      -->
       <desc>
         <p>Starts a supervisor for the SNMP agent system without a
-          master agent.  The supervisor starts all involved SNMP
-          processes, but no agent processes.  Sub-agents should be
-          started by calling <c>start_sub_agent/3</c>.
-          </p>
+	master agent.  The supervisor starts all involved SNMP
+	processes, but no agent processes.  Sub-agents should be
+	started by calling <c>start_sub_agent/3</c>. </p>
         <p><c>db_dir</c> is mandatory.</p>
         <p>See <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide> for 
-          a description of the options.</p>
+	a description of the options.</p>
       </desc>
     </func>
 

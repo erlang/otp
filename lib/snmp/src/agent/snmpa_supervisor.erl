@@ -166,6 +166,12 @@ takeover_mib({_MibName, _Symbolic, FileName}) ->
 
 %% ----------------------------------------------------------------
 
+-spec start_sub_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts   :: [Opt],
+      Opt    :: {db_dir, snmp:dir()} | {atom(), term()},
+      Pid    :: pid(),
+      Reason :: {already_started, Pid} | term().
+
 start_sub_sup(Opts) ->
     ?d("start_sub_sup -> entry with"
       "~n   Opts: ~p", [Opts]),
