@@ -953,7 +953,9 @@ join([], _Separator) -> <<>>;
 join([H], _Separator) when is_binary(H) -> H;
 join([H | T], Separator) ->
     Acc = <<>>,
-    join(T, Separator, <<Acc/binary, H/binary>>).
+    join(T, Separator, <<Acc/binary, H/binary>>);
+join(Arg, Separator) ->
+    badarg_with_info([Arg, Separator]).
 
 -spec join([binary()], binary(), binary()) -> binary().
 join([], _Separator, Acc) -> Acc;
