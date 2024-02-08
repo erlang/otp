@@ -225,18 +225,13 @@
     </func>
 
     <func>
-      <name since="">is_consistent(Mibs) -> ok | {error, Reason}</name>
+      <name name="is_consistent" arity="1" clause_i="1" since=""/>
       <fsummary>Check for OID conflicts between MIBs</fsummary>
-      <type>
-        <v>Mibs = [MibName]</v>
-        <v>MibName = string()</v>
-      </type>
       <desc>
         <p>Checks for multiple usage of object identifiers and traps
-          between MIBs.
-          </p>
+	between MIBs. </p>
 
-	  <marker id="mib_to_hrl"></marker>
+	<marker id="mib_to_hrl"></marker>
       </desc>
     </func>
 
@@ -263,8 +258,8 @@
 
   <section>
     <title>See Also</title>
-    <p>erlc(1)
-      </p>
+    <p>erlc(1)</p>
+    <p>snmpc(1)</p>
   </section>
   
 </erlref>
