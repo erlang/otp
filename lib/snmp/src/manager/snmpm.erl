@@ -122,6 +122,14 @@
 %%-----------------------------------------------------------------
 
 -type register_timeout() :: pos_integer() | snmp:snmp_timer().
+-type agent_config_item() :: engine_id |
+                             address | port | tdomain |
+                             community |
+                             timeout   |
+                             max_message_size |
+                             version |
+                             sec_model | sec_name | sec_level.
+
 -type agent_config() ::
         {engine_id,        snmp:engine_id()}   | % Mandatory
         {address,          inet:ip_address()}  | % Mandatory
@@ -131,7 +139,7 @@
         {timeout,          register_timeout()} | % Optional
         {max_message_size, snmp:mms()}         | % Optional
         {version,          snmp:version()}     | % Optional
-        {sec_moduel,       snmp:sec_model()}   | % Optional
+        {sec_model,        snmp:sec_model()}   | % Optional
         {sec_name,         snmp:sec_name()}    | % Optional
         {sec_level,        snmp:sec_level()}.    % Optional
 -type target_name() :: string().
@@ -432,6 +440,12 @@ unregister_agent(UserId, DomainIp, AddressPort) ->
 	    Error
     end.
 
+
+-spec agent_info(TargetName, Item) -> {ok, Value} | {error, Reason} when
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
 
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).

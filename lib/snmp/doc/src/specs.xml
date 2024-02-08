@@ -21,4 +21,5 @@
   <xi:include href="../specs/specs_snmpa_supervisor.xml"/>
   <xi:include href="../specs/specs_snmpa_notification_delivery_info_receiver.xml"/>
   <xi:include href="../specs/specs_snmpc.xml"/>
+  <xi:include href="../specs/specs_snmpm.xml"/>
 </specs>

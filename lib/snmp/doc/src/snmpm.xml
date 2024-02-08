@@ -39,6 +39,108 @@
       SNMP manager. </p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="target_name"/>
+      <desc>
+	<p>
+	  Is a unique *non-empty* string.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="register_timeout"/>
+      <desc>
+	<p>
+	  The time to complete a (agent) registration.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="agent_config_item"/>
+      <desc>
+	<p>Value type depend on the item according to: </p>
+        <taglist>
+          <tag><c><![CDATA[engine_id]]></c></tag>
+          <item>
+            <p>Engine ID of the agent. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#engine_id">engine_id()</seetype></p>
+          </item>
+
+          <tag><c><![CDATA[address]]></c></tag>
+          <item>
+            <p>The IP address of the agent.</p>
+	    <p>Value type:
+	    <seetype marker="inet#ip_address">ip_address()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[port]]></c></tag>
+          <item>
+            <p>Port number of the agent.</p>
+	    <p>Value type:
+	    <seetype marker="inet#port_number">port_number()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[tdomain]]></c></tag>
+          <item>
+	    <p>Transport domain.</p>
+	    <p>Value type:
+	    <seetype marker="snmp#tdomain">tdomain()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[timeout]]></c></tag>
+          <item>
+	    <p>Registration timeout. </p>
+	    <p>Value type:
+	    <seetype marker="#register_timeout">register_timeout()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[max_message_size]]></c></tag>
+          <item>
+	    <p>Max Message Size of a message. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#mms">mms()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[version]]></c></tag>
+          <item>
+	    <p>What SNMP version is used when communicating with this
+	    agent. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#version">version()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[sec_model]]></c></tag>
+          <item>
+	    <p>Security Model. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#sec_model">sec_model()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[sec_name]]></c></tag>
+          <item>
+	    <p>Security Name. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#sec_name">sec_name()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[sec_level]]></c></tag>
+          <item>
+	    <p>Security Level. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#sec_level">sec_level()</seetype></p>
+	  </item>
+
+	</taglist>
+
+      </desc>
+    </datatype>
+
+  </datatypes>
+
   <section>
     <title>Common Data Types</title>
     <p>The following data types are used in the functions below:</p>
@@ -339,13 +441,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">agent_info(TargetName, Item) -> {ok, Val} | {error, Reason}</name>
+      <name name="agent_info" arity="2" clause_i="1" since=""/>
       <fsummary>Retrieve agent config</fsummary>
-      <type>
-        <v>TargetName = target_name()</v>
-        <v>Item = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Retrieve agent config.</p>
 

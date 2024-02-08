@@ -289,6 +289,94 @@
     </datatype>
 
     <datatype>
+      <name name="snmp_timer"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="engine_id"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="mms"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="community"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="version"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_model"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_level"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+   <datatype>
       <name name="verbosity"/>
       <desc>
 	<p>
