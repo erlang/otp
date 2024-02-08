@@ -950,7 +950,7 @@ _Example:_
 -doc(#{since => <<"OTP 27.0">>}).
 -spec join([binary()], binary()) -> binary().
 join([], _Separator) -> <<>>;
-join([H], _Separator) -> H;
+join([H], _Separator) when is_binary(H) -> H;
 join([H | T], Separator) ->
     Acc = <<>>,
     join(T, Separator, <<Acc/binary, H/binary>>).
