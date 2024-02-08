@@ -260,10 +260,15 @@ join(#t_tuple{}=A, #t_tuple{}=B) ->
             lub(A, B);
         {_Key, none} ->
             lub(A, B);
-        {KeyA, KeyB} when KeyA < KeyB ->
-            #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
-        {KeyA, KeyB} when KeyA > KeyB ->
-            #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+        {KeyA, KeyB} ->
+            %% We must use total ordering rather than plain '<' as -0.0 differs
+            %% from +0.0
+            case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+                true ->
+                    #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
+                false ->
+                    #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+            end
     end;
 join(#t_tuple{}=A, B) ->
     %% All other combinations have been tried already, so B must be 'other'
