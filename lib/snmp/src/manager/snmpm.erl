@@ -578,8 +578,33 @@ sync_get_next2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get_next-request ---
 %% 
 
+-spec async_get_next2(UserId, TargetName, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_next2(UserId, TargetName, Oids) ->
     async_get_next2(UserId, TargetName, Oids, []).
+
+-spec async_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_model()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
