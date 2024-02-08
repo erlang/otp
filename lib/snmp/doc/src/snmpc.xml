@@ -193,7 +193,7 @@
 	version 1 or 2. </p>
 
 	<p>The MIB compiler can also be invoked from the OS command line by
-	using two commands; <c>erlc</c> and <c>snmpc</c>. </p>
+	these two commands; <c>erlc</c> and <c>snmpc</c>. </p>
 
 	<taglist>
 	  <tag><c><![CDATA[erlc]]></c></tag>
@@ -214,7 +214,7 @@
 	    <p><c><![CDATA[snmpc]]></c> is an escript that provides a more
 	    traditional interface to the MIB compiler. </p>
 	    <p>See
-	    <seecom marker="snmpc(command)#">snmpc(1)</seecom>
+	    <seecom marker="snmpc(command)#">snmpc(command)</seecom>
 	    for details. </p>
 	  </item>
 
@@ -236,22 +236,39 @@
     </func>
 
     <func>
-      <name since="">mib_to_hrl(MibName) -> ok | {error, Reason}</name>
+      <name name="mib_to_hrl" arity="1" clause_i="1" since=""/>
       <fsummary>Generate constants for the objects in the MIB</fsummary>
-      <type>
-        <v>MibName = string()</v>
-      </type>
       <desc>
-        <p>Generates a <c>.hrl</c> file with definitions of Erlang
-          constants for the objects in the MIB. The <c>.hrl</c> file is
-          called <c><![CDATA[<MibName>.hrl]]></c>. The MIB must be compiled, and
-          present in the current directory.
-          </p>
-        <p>The <c>mib_to_hrl</c> generator can be invoked from the OS
-          command line by using the command <c>erlc</c>.  <c>erlc</c>
-          recognizes the extension <c>.bin</c>, and invokes this function
-          for files with that extension.
-          </p>
+	<p>Generates a <c>.hrl</c> file with definitions of Erlang
+	constants for the objects in the MIB.
+	The <c>.hrl</c> file is called <c><![CDATA[<MibName>.hrl]]></c>.
+	The MIB must be compiled, and present in the current directory. </p>
+
+	<p>The <c>mib_to_hrl</c> generator can also be invoked from the
+	OS command line by these two commands;
+	<c>erlc</c> and <c>snmpc</c>. </p>
+
+	<taglist>
+	  <tag><c><![CDATA[erlc]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[erlc]]></c> recognizes the extension <c>.bin</c>,
+	    and invokes this function for files with that extension. </p>
+	    <p>See
+	    <seecom marker="erts:erlc"><c>erlc(1)</c></seecom>
+	    for details. </p>
+	  </item>
+
+	  <tag><c><![CDATA[snmpc]]></c></tag>
+	  <item>
+	    <p><c><![CDATA[snmpc]]></c> is an escript that provides a more
+	    traditional interface to the <c>mib_to_hrl</c> generator. </p>
+	    <p>See
+	    <seecom marker="snmpc(command)#">snmpc(command)</seecom>
+	    for details. </p>
+	  </item>
+
+	</taglist>
+
       </desc>
     </func>
   </funcs>
@@ -259,7 +276,7 @@
   <section>
     <title>See Also</title>
     <p>erlc(1)</p>
-    <p>snmpc(1)</p>
+    <p>snmpc(command)</p>
   </section>
   
 </erlref>

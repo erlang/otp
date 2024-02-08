@@ -54,6 +54,10 @@ look_at(Mib) ->
 is_consistent(FileNames) ->
     snmpc_lib:is_consistent(FileNames).
 
+-spec mib_to_hrl(MibName) -> ok | {error, Reason} when
+      MibName :: string(),
+      Reason  :: term().
+
 mib_to_hrl(MibName) ->
     snmpc_mib_to_hrl:convert(MibName).
 
