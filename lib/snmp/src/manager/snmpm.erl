@@ -626,8 +626,37 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
 %% --- asynchronous get-bulk ---
 %% 
 
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
+
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_model()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 

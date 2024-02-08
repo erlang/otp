@@ -962,21 +962,9 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name name="async_get_bulk2" arity="5" clause_i="1" since="OTP R14B03"/>
+      <name name="async_get_bulk2" arity="6" clause_i="1" since="OTP R14B03"/>
       <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>TargetName = target_name()</v>
-        <v>NonRep = integer()</v>
-        <v>MaxRep = integer()</v>
-        <v>Oids = [oid()]</v>
-        <v>SendOpts = send_opts()</v>
-        <v>send_opts() = [send_opt()]</v>
-        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
-        <v>ReqId = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
 
