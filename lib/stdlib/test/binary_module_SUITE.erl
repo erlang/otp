@@ -261,6 +261,7 @@ badargs(Config) when is_list(Config) ->
     badarg = ?MASK_ERROR(binary:encode_hex(#{})),
     badarg = ?MASK_ERROR(binary:encode_hex(foo)),
 
+    badarg = ?MASK_ERROR(binary:join(<<"">>, ",")),
     badarg = ?MASK_ERROR(binary:join([""], <<",">>)),
     badarg = ?MASK_ERROR(binary:join([123], <<",">>)),
     badarg = ?MASK_ERROR(binary:join(123, <<",">>)),
