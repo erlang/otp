@@ -101,9 +101,12 @@
 -export([target_name/1, target_name/2]).
 
 -export_type([
-	      register_timeout/0, 
-	      agent_config/0, 
 	      target_name/0,
+              user_id/0,
+              request_id/0,
+	      register_timeout/0, 
+	      agent_config_item/0, 
+	      agent_config/0, 
               pdu_type/0
 	     ]).
 
@@ -121,7 +124,10 @@
 %% Types
 %%-----------------------------------------------------------------
 
--type register_timeout() :: pos_integer() | snmp:snmp_timer().
+-type target_name()       :: string().
+-type user_id()           :: term().
+-opaque request_id()      :: term().
+-type register_timeout()  :: pos_integer() | snmp:snmp_timer().
 -type agent_config_item() :: engine_id |
                              address | port | tdomain |
                              community |
@@ -142,7 +148,6 @@
         {sec_model,        snmp:sec_model()}   | % Optional
         {sec_name,         snmp:sec_name()}    | % Optional
         {sec_level,        snmp:sec_level()}.    % Optional
--type target_name() :: string().
 -type pdu_type() :: snmp:pdu_type() | 'trappdu'.
 
 
@@ -524,11 +529,35 @@ sync_get2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
-%% through a call to handle_pdu/5
+%% through a call to the callback function handle_pdu/5.
 %% 
+
+-spec async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get2(UserId, TargetName, Oids) ->
     async_get2(UserId, TargetName, Oids, []).
+
+-spec async_get2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_model()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->

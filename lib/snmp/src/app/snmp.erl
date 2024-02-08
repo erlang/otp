@@ -79,6 +79,7 @@
               mms/0,
 	      tdomain/0, 
 	      community/0, 
+	      context_name/0, 
 	      version/0, 
 	      sec_model/0, 
 	      sec_name/0, 
@@ -165,6 +166,7 @@
 -type mms()           :: snmp_framework_mib:max_message_size().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
 -type community()     :: snmp_community_mib:name().
+-type context_name()  :: snmp_community_mib:context_name().
 -type version()       :: v1 | v2 | v3.
 -type sec_model()     :: snmp_framework_mib:security_model().
 -type sec_name()      :: snmp_framework_mib:admin_string().
@@ -182,10 +184,7 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
--type pdu_type()      :: 'get-request' | 'get-next-request' | 'get-response' |
-                         'set-request' | 'trap' | 'get-bulk-request' | 
-                         'inform-request' |
-                         'report'.
+-type pdu_type()      :: snmp_pdus:pdu_type().
 
 -type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
 
