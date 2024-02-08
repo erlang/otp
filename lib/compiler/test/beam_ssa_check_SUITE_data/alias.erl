@@ -104,7 +104,8 @@
          live_past_call_triggers_aliasing/1,
 
          fuzz0/0, fuzz0/1,
-         alias_after_phi/0]).
+         alias_after_phi/0,
+         check_identifier_type/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1121,3 +1122,19 @@ alias_after_phi(X) ->
 	end,
     {A,B} = T,
     {A,B,X}.
+
+%% Check that the identifier type is considered plain and therefore
+%% unique.
+check_identifier_type() ->
+    R = {case e:f() of
+	     X when is_port(X) ->
+		 X;
+	     X when is_pid(X) ->
+		 X
+	 end},
+    should_return_unique(R).
+
+should_return_unique({X}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% ret(R) { unique => [R] }.
+    X.

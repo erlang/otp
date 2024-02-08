@@ -927,6 +927,8 @@ aa_is_plain_type(Type) ->
             true;
         #t_float{} ->
             true;
+        'identifier' ->
+            true;
         'pid' ->
             true;
         'port' ->
