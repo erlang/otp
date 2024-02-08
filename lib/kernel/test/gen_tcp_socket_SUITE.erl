@@ -65,6 +65,7 @@ testcases(direct) ->
 init_per_suite(Config) ->
     case socket:is_supported(protocols, tcp) of
         true ->
+            ct:pal("socket:info():~n    ~p~n", [socket:info()]),
             {ok, BindAddr} = kernel_test_lib:which_local_addr(?DOMAIN),
             [{bind_addr, #{ family => ?DOMAIN, addr   => BindAddr }}
             | Config];
@@ -73,6 +74,7 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(_Config) ->
+    ct:pal("socket:info():~n    ~p~n", [socket:info()]),
     ok.
 
 
@@ -202,17 +204,18 @@ run_xfer(
         spawn_opt(
           fun () ->
                   try
-                      {ok, L}           = socket:open(?DOMAIN, stream, tcp),
-                      ok                = socket:bind(L, BindAddr),
-                      ok                = socket:listen(L),
-                      {ok, Sockaddr}    = socket:sockname(L),
-                      Parent ! {Tag, Sockaddr},
-                      {ok, A}           = socket:accept(L),
-                      ok = socket:setopt(A, {socket,sndbuf}, 2 bsl K),
                       %% Send an iovec efficiently
-                      ok                = socket:sendmsg(A, #{iov => Iovec}),
-                      ok                = socket:close(L),
-                      ok                = socket:close(A)
+                      {ok, L} =
+                          gen_tcp:listen(
+                            0, [{ifaddr,BindAddr}, {sndbuf, 2 bsl K}]),
+                      {ok, {IP,Port}} = inet:sockname(L),
+                      Sockaddr =
+                          #{family => inet, addr => IP, port => Port},
+                      Parent ! {Tag, Sockaddr},
+                      {ok, A} = gen_tcp:accept(L),
+                      ok = gen_tcp:close(L),
+                      ok = gen_tcp:send(A, Iovec),
+                      ok = gen_tcp:close(A)
                   catch Class : Reason : Stacktrace ->
                           ct:pal(
                             "Sender crash [~w] ~w : ~p~n    ~p~n",
