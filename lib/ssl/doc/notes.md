@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+### SSL 11.1.1
+
+#### Fixed Bugs and Malfunctions
+
+* Legacy name handling could cause interop problems between TLS-1.3/1.2 client and TLS-1.2 server.
+
+  Own Id: OTP-18917 Aux Id: GH-7978
+
 ## SSL 11.1
 
 ### Fixed Bugs and Malfunctions

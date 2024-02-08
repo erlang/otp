@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+### Kernel 9.2.1
+
+#### Fixed Bugs and Malfunctions
+
+* Fix `group` (that is the shell) to properly handle when an `get_until` callback function returned `{done, eof, []}` when an `eof` was detected.
+
+  Own Id: OTP-18901
+
 ## Kernel 9.2
 
 ### Fixed Bugs and Malfunctions

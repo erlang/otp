@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+### Erl_Interface 5.5.1
+
+#### Fixed Bugs and Malfunctions
+
+* Fix bug where the system installed openssl/md5.h would be confused with the vendored md5.h.
+
+  Own Id: OTP-18931 Aux Id: GH-7987 PR-7989
+
 ## Erl_Interface 5.5
 
 ### Fixed Bugs and Malfunctions

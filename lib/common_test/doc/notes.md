@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+### Common_Test 1.26.1
+
+#### Fixed Bugs and Malfunctions
+
+* Fix how CT finds Erlang/OTP releases for compatability testing. This functionality is only used to test Erlang/OTP.
+
+  Own Id: OTP-18932
+
 ## Common_Test 1.26
 
 ### Fixed Bugs and Malfunctions
