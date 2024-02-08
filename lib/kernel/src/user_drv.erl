@@ -442,7 +442,7 @@ server(info, {ReadHandle,{data,UTF8Binary}}, State = #state{ read = ReadHandle }
     end;
 server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
     State#state.current_group ! {self(), eof},
-    keep_state_and_data;
+    {keep_state, State#state{ read = undefined }};
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
 
@@ -528,36 +528,48 @@ server(info, {'EXIT', EditorPort, _R},
     Requester ! {self(), {editor_data, string:chomp(Unicode)}},
     ok = prim_tty:enable_reader(TTYState),
     {keep_state, State#state{editor = undefined}};
-server(info,{'EXIT', Group, Reason}, State) -> % shell and group leader exit
-    case gr_cur_pid(State#state.groups) of
-        Group when Reason =/= die, Reason =/= terminated  ->	% current shell exited
-            Reqs = [if
-                        Reason =/= normal ->
-                            {put_chars,unicode,<<"*** ERROR: ">>};
-                        true -> % exit not caused by error
-                            {put_chars,unicode,<<"*** ">>}
-                    end,
-                    {put_chars,unicode,<<"Shell process terminated! ">>}],
-            Gr1 = gr_del_pid(State#state.groups, Group),
-            case gr_get_info(State#state.groups, Group) of
-                {Ix,{shell,start,Params}} -> % 3-tuple == local shell
-                    NewTTyState = io_requests(Reqs ++ [{put_chars,unicode,<<"***\n">>}],
-                                              State#state.tty),
-                    %% restart group leader and shell, same index
-                    NewGroup = group:start(self(), {shell,start,Params}),
-                    {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, NewGroup,
-                                                     {shell,start,Params}), Ix),
-                    {keep_state, State#state{ tty = NewTTyState,
-                                              current_group = NewGroup,
-                                              groups = Gr2 }};
-                _ -> % remote shell
-                    NewTTYState = io_requests(
-                                    Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
-                                    State#state.tty),
-                    {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+server(info,{'EXIT', Group, Reason}, State) ->
+    case gr_get_info(State#state.groups, Group) of
+        undefined ->
+            Rdr = [?LOG_ERROR("Reader crashed (~p)", [Reason]) || prim_tty:is_reader(State#state.tty, Group)],
+            Wrt = [?LOG_ERROR("Writer crashed (~p)", [Reason]) || prim_tty:is_writer(State#state.tty, Group)],
+            case Rdr ++ Wrt of
+                [] ->
+                    keep_state_and_data;
+                _ ->
+                    stop
             end;
-        _ ->  % not current, just remove it
-            {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
+        GroupInfo ->  % shell and group leader exit
+            case gr_cur_pid(State#state.groups) of
+                Group when Reason =/= die, Reason =/= terminated  ->	% current shell exited
+                    Reqs = [if
+                                Reason =/= normal ->
+                                    {put_chars,unicode,<<"*** ERROR: ">>};
+                                true -> % exit not caused by error
+                                    {put_chars,unicode,<<"*** ">>}
+                            end,
+                            {put_chars,unicode,<<"Shell process terminated! ">>}],
+                    Gr1 = gr_del_pid(State#state.groups, Group),
+                    case GroupInfo of
+                        {Ix,{shell,start,Params}} -> % 3-tuple == local shell
+                            NewTTyState = io_requests(Reqs ++ [{put_chars,unicode,<<"***\n">>}],
+                                                      State#state.tty),
+                            %% restart group leader and shell, same index
+                            NewGroup = group:start(self(), {shell,start,Params}),
+                            {ok,Gr2} = gr_set_cur(gr_set_num(Gr1, Ix, NewGroup,
+                                                             {shell,start,Params}), Ix),
+                            {keep_state, State#state{ tty = NewTTyState,
+                                                      current_group = NewGroup,
+                                                      groups = Gr2 }};
+                        _ -> % remote shell
+                            NewTTYState = io_requests(
+                                            Reqs ++ [{put_chars,unicode,<<"(^G to start new job) ***\n">>}],
+                                            State#state.tty),
+                            {keep_state, State#state{ tty = NewTTYState, groups = Gr1 }}
+                    end;
+                _ ->
+                    {keep_state, State#state{ groups = gr_del_pid(State#state.groups, Group) }}
+            end
     end;
 server(_, _, _) ->
     keep_state_and_data.
