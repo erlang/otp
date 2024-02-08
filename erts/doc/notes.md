@@ -840,6 +840,19 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+### Erts 13.2.2.6
+
+#### Fixed Bugs and Malfunctions
+
+* 32-bit runtime systems on most Unix like platforms could crash if a BIF timer was set with a huge timeout of more than 68 years into the future. In order for the crash to occur, the huge timer (at a later time than when it was set) had to become the nearest active timer set on the specific scheduler on which it was set. This could not happen on a system with only one scheduler since there would always be shorter timers in the system.
+
+  Setting a timer larger than 49 days on Windows could under rare circumstances cause the timeout to be delayed.
+
+  Own Id: OTP-18911 Aux Id: ERIERL-1023, PR-7983
+* Garbage collection of a process on a dirty scheduler could collide with signal handling for that process causing a crash of the runtime system. This bug was introduced in OTP 25.3.2.8 and OTP 26.2.
+
+  Own Id: OTP-18957 Aux Id: GH-8051, PR-8088, OTP-18841
+
 ## Erts 13.2.2.5
 
 ### Fixed Bugs and Malfunctions
