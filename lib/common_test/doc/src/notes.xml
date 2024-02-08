@@ -188,6 +188,22 @@
 
 </section>
 
+<section><title>Common_Test 1.24.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix how CT finds Erlang/OTP releases for compatability
+	    testing. This functionality is only used to test
+	    Erlang/OTP.</p>
+          <p>
+	    Own Id: OTP-18932 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

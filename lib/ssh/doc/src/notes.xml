@@ -180,6 +180,22 @@
 
 </section>
 
+<section><title>Ssh 4.15.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, Curve25519 and Curve448 KEX methods
+	    become most preferred (related to RFC8731).</p>
+          <p>
+	    Own Id: OTP-18964 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
