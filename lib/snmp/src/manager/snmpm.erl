@@ -107,7 +107,9 @@
 	      register_timeout/0, 
 	      agent_config_item/0, 
 	      agent_config/0, 
-              pdu_type/0
+              pdu_type/0,
+              value_type/0,
+              var_and_val/0
 	     ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
@@ -135,6 +137,17 @@
                              max_message_size |
                              version |
                              sec_model | sec_name | sec_level.
+-type value_type()        :: o |
+                             i | u | g |
+                             s | s | b |
+                             ip | op |
+                             c32 | c64 |
+                             tt.
+-type var_and_val()       :: {OID       :: snmp:oid(),
+                              ValueType :: value_type(),
+                              Value     :: term()} |
+                             {OID       :: snmp:oid(),
+                              Value     :: term()}.
 
 -type agent_config() ::
         {engine_id,        snmp:engine_id()}   | % Mandatory
@@ -625,8 +638,33 @@ sync_set2(UserId, TargetName, VarsAndVals, SendOpts)
 %% --- asynchronous set-request ---
 %% 
 
+-spec async_set2(UserId, TargetName, VarsAndVals) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      ReqId       :: request_id(),
+      Reason      :: term().
+
 async_set2(UserId, TargetName, VarsAndVals) ->
     async_set2(UserId, TargetName, VarsAndVals, []).
+
+-spec async_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_model()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId       :: request_id(),
+      Reason      :: term().
 
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
