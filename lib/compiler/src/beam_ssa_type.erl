@@ -1400,6 +1400,14 @@ simplify(#b_set{op=update_tuple,args=[Src | Updates]}=I, Ts) ->
         {_, _} ->
             I
     end;
+simplify(#b_set{op=update_record,args=[_Hint, _Size, #b_literal{val=Tuple0} | Updates]}=I, _Ts)
+  when tuple_size(Tuple0) - length(Updates) div 2 < 20 ->
+    %% This is an update of a literal tuple. Provided that the number
+    %% of elements that are copied from the literal is not
+    %% unreasonable, we'll rewrite it to a put_tuple instruction.
+    Tuple1 = list_to_tuple([#b_literal{val=E} || E <- tuple_to_list(Tuple0)]),
+    Tuple = update_tuple_literal(Updates, Tuple1),
+    I#b_set{op=put_tuple,args=tuple_to_list(Tuple)};
 simplify(#b_set{op=update_record,args=[Hint0, Size, Src | Updates0]}=I, Ts) ->
     case simplify_update_record(Src, Hint0, Updates0, Ts) of
         {changed, _, []} ->
@@ -1411,6 +1419,12 @@ simplify(#b_set{op=update_record,args=[Hint0, Size, Src | Updates0]}=I, Ts) ->
     end;
 simplify(I, _Ts) ->
     I.
+
+update_tuple_literal([#b_literal{val=Position}, Val | Updates], Tuple0) ->
+    Tuple = setelement(Position, Tuple0, Val),
+    update_tuple_literal(Updates, Tuple);
+update_tuple_literal([], Tuple) ->
+    Tuple.
 
 will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
     case {Ds, Ts} of
@@ -1465,6 +1479,8 @@ will_succeed_1(#b_set{op=get_tl}, _Src, _Ts) ->
 will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts) ->
+    yes;
+will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=update_tuple,args=[Tuple | Updates]}, _Src, Ts) ->
     TupleType = concrete_type(Tuple, Ts),

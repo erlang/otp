@@ -28,7 +28,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1]).
+	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1,
+         record_updates/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -48,7 +49,7 @@ groups() ->
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
        missing_test_heap,nested_access,coverage,grab_bag,
-       slow_compilation]}].
+       slow_compilation,record_updates]}].
 
 
 init_per_suite(Config) ->
@@ -809,6 +810,44 @@ slow_compilation(Config) when is_list(Config) ->
      {f53,R#slow_r.f53},{f54,R#slow_r.f54},{f55,R#slow_r.f55},
      {f56,R#slow_r.f56},{f57,R#slow_r.f57},{f58,R#slow_r.f58},
      {f59,R#slow_r.f59}].
+
+record_updates(_Config) ->
+    F1 = fun(N) ->
+                 R0 = #foo{},
+                 R1 = R0#foo{a=N},
+                 R2 = R1#foo{b=2},
+                 R2#foo{c=3}
+         end,
+
+    Foo0 = F1(id(42)),
+    #foo{a=42,b=2,c=3,d=undefined} = Foo0,
+    Foo1 = #foo{a=42,b=99,c=3,d=undefined} = Foo0#foo{b=id(99)},
+
+    _ = id(0),
+
+    #foo{a=42,b=99,c=3,d=999} = Foo1#foo{d=999},
+
+    F2 = fun(N) when is_integer(N) ->
+                 R0 = #bar{a=N},
+                 R1 = R0#bar{b=N+1},
+                 R2 = R1#bar{c=N+2},
+                 R2#bar{d=N+3}
+         end,
+    #bar{a=100,b=101,c=102,d=103} = F2(id(100)),
+
+    F3 = fun(R0, N) when is_integer(N) ->
+                 R1 = R0#foo{a=N},
+                 R2 = R1#foo{b=N},
+                 R3 = R2#foo{a=atom},
+                 R3#foo{c=3}
+         end,
+    #foo{a=atom,b=7,c=3,d=undefined} = F3(id(#foo{}), 7),
+
+    ok.
+
+%%%
+%%% Common utilities.
+%%%
 
 first_arg(First, _) -> First.
 
