@@ -49,8 +49,8 @@ erts_atomic32_t the_staging_code_index;
 struct code_permission {
     erts_mtx_t lock;
 
-    ErtsSchedulerData *scheduler;
     Process *owner;
+    void *aux_arg;
 
     int seized;
     struct code_permission_queue_item {
@@ -152,18 +152,15 @@ static int try_seize_code_permission(struct code_permission *perm,
 {
     int success;
 
+    ASSERT(!!c_p != !!aux_func);
     ASSERT(!erts_thr_progress_is_blocking()); /* To avoid deadlock */
 
     erts_mtx_lock(&perm->lock);
     success = !perm->seized;
 
     if (success) {
-        if (c_p == NULL) {
-            ASSERT(aux_func);
-            perm->scheduler = erts_get_scheduler_data();
-        }
-
         perm->owner = c_p;
+        perm->aux_arg = aux_arg;
         perm->seized = 1;
     } else { /* Already locked */
         struct code_permission_queue_item* qitem;
@@ -222,8 +219,8 @@ static void release_code_permission(struct code_permission *perm) {
         erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
 
-    perm->scheduler = NULL;
     perm->owner = NULL;
+    perm->aux_arg = NULL;
     perm->seized = 0;
 
     erts_mtx_unlock(&perm->lock);
@@ -333,12 +330,12 @@ static int has_code_permission(struct code_permission *perm)
              * permission.
              *
              * If we don't have an owner, we assume that we have permission if
-             * we're running on the same scheduler that started the job.
+             * we're running with the same 'aux_arg' as started the job.
              *
              * This is very blunt and only catches _some_ cases where we lack
              * lack permission, but at least it's better than the old method of
              * using thread-specific-data. */
-            res &= perm->owner || perm->scheduler == esdp;
+            res &= perm->owner || esdp->aux_work_data.lc_aux_arg == perm->aux_arg;
         }
 
         erts_mtx_unlock(&perm->lock);

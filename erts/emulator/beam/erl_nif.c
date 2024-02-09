@@ -109,6 +109,8 @@ struct erl_module_nif {
                                */
     int flags;
     ErtsNifOnHaltData on_halt;
+    ErlNifOnUnloadThreadCallback* unload_thr_callback;
+    erts_atomic_t unload_thr_counter;
     Module* mod;    /* Can be NULL if purged and dynlib_refc > 0 */
 
     /* Holds a copy of the `erl_module_instance` we're loading the module into,
@@ -2495,9 +2497,13 @@ static void deref_nifmod(struct erl_module_nif* lib)
 }
 
 static ErtsStaticNif* is_static_nif_module(Eterm mod_atom);
+static void close_dynlib_aux(void* lib);
+static void call_on_unload_thr(void* lib);
+static void really_close_dynlib(struct erl_module_nif* lib);
 
 static void close_dynlib(struct erl_module_nif* lib)
 {
+    Uint sched_id;
     ASSERT(lib != NULL);
     ASSERT(lib->mod == NULL);
     ASSERT(erts_refc_read(&lib->dynlib_refc,0) == 0);
@@ -2505,6 +2511,58 @@ static void close_dynlib(struct erl_module_nif* lib)
     if (lib->flags & ERTS_MOD_NIF_FLG_ON_HALT)
         uninstall_on_halt_callback(&lib->on_halt);
 
+    /* Schedule rest as aux work in order to seize code mod permission. */
+    sched_id = erts_get_scheduler_id();
+    if (!sched_id)
+        sched_id = 1;
+    erts_schedule_misc_aux_work(sched_id, close_dynlib_aux, lib);
+}
+
+static void close_dynlib_aux(void* vlib)
+{
+    struct erl_module_nif* lib = vlib;
+
+    /* Seize code modification permission to avoid unload-load race.
+     * Once we are commited to unload, we must run all unload callbacks
+     * and do dlclose before anyone is allowed to reload the same dynamic lib.
+     *
+     * A more fine grained solution would be nice to allow code mod operations
+     * that do not affect this dynamic lib.
+     */
+    if (!erts_try_seize_code_mod_permission_aux(close_dynlib_aux, vlib)) {
+        return;
+    }
+
+    if (!lib->unload_thr_callback) {
+        really_close_dynlib(lib);
+        return;
+    }
+
+    /* Run all thread specific unload handlers first */
+    erts_atomic_set_nob(&lib->unload_thr_counter, erts_no_schedulers);
+    erts_schedule_multi_misc_aux_work(0,
+                                      1,
+                                      erts_no_schedulers,
+                                      call_on_unload_thr,
+                                      (void *) lib);
+}
+
+static void call_on_unload_thr(void* vlib)
+{
+    struct erl_module_nif* lib = vlib;
+
+    ASSERT(lib->unload_thr_callback);
+    ASSERT(erts_atomic_read_nob(&lib->unload_thr_counter) > 0);
+
+    lib->unload_thr_callback(lib->priv_data);
+
+    if (erts_atomic_dec_read_nob(&lib->unload_thr_counter) == 0) {
+        really_close_dynlib(lib);
+    }
+}
+
+static void really_close_dynlib(struct erl_module_nif* lib)
+{
     if (lib->entry.unload != NULL) {
 	struct enif_msg_environment_t msg_env;
         pre_nif_noproc(&msg_env, lib, NULL);
@@ -2515,6 +2573,8 @@ static void close_dynlib(struct erl_module_nif* lib)
       erts_sys_ddll_close(lib->handle);
       lib->handle = NULL;
     }
+
+    erts_release_code_mod_permission();
 
     deref_nifmod(lib);
 }
@@ -2723,6 +2783,8 @@ static void prepare_opened_rt(struct erl_module_nif* lib)
 	}
 	else { /* ERL_NIF_RT_TAKEOVER */
 	    steal_resource_type(type);
+            ASSERT(erts_refc_read(&type->owner->refc, 1) > 0);
+            ASSERT(erts_refc_read(&type->owner->dynlib_refc, 1) > 0);
 
             /*
              * Prepare for atomic change of callbacks with lock-wrappers
@@ -4729,6 +4791,9 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         erts_refc_init(&lib->dynlib_refc, 1);
         lib->flags = 0;
         lib->on_halt.callback = NULL;
+        lib->unload_thr_callback = NULL;
+        erts_atomic_init_nob(&lib->unload_thr_counter, -1);
+
         ASSERT(opened_rt_list == NULL);
         lib->mod = module_p;
         lib->mi_copy = *this_mi;
@@ -5430,7 +5495,21 @@ enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...)
 
         return 0;
     }
+    case ERL_NIF_OPT_ON_UNLOAD_THREAD: {
+        struct erl_module_nif *m = env->mod_nif;
+        va_list argp;
 
+        if (!m || !(m->flags & ERTS_MOD_NIF_FLG_LOADING)
+            || m->unload_thr_callback) {
+            return EINVAL;
+        }
+        va_start(argp, opt);
+        m->unload_thr_callback = va_arg(argp, ErlNifOnUnloadThreadCallback*);
+        va_end(argp);
+        if (!m->unload_thr_callback)
+            return EINVAL;
+        return 0;
+    }
     default:
         return EINVAL;
 

@@ -55,6 +55,9 @@
 /* NIF interface declarations */
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) && !defined(HAS_LIBRESSL)
+static void unload_thread(void* priv_data);
+#endif
 static void unload(ErlNifEnv* env, void* priv_data);
 
 static int library_refc = 0; /* number of users of this dynamic library */
@@ -250,6 +253,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     }
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) && !defined(HAS_LIBRESSL)
+    enif_set_option(env, ERL_NIF_OPT_ON_UNLOAD_THREAD, unload_thread);
+#endif
+
     if (library_initialized) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
@@ -362,6 +369,15 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
     library_refc++;
     return 0;
 }
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) && !defined(HAS_LIBRESSL)
+static void unload_thread(void* priv_data)
+{
+    if (library_refc == 1) {
+        OPENSSL_thread_stop();
+    }
+}
+#endif
 
 static void unload(ErlNifEnv* env, void* priv_data)
 {

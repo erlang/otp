@@ -205,6 +205,7 @@ typedef struct
 typedef ErlDrvMonitor ErlNifMonitor;
 
 typedef void ErlNifOnHaltCallback(void *priv_data);
+typedef void ErlNifOnUnloadThreadCallback(void *priv_data);
 
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
@@ -332,7 +333,8 @@ typedef enum {
 
 typedef enum {
     ERL_NIF_OPT_DELAY_HALT = 1,
-    ERL_NIF_OPT_ON_HALT = 2
+    ERL_NIF_OPT_ON_HALT = 2,
+    ERL_NIF_OPT_ON_UNLOAD_THREAD = 3
 } ErlNifOption;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))

@@ -1864,7 +1864,13 @@ handle_misc_aux_work(ErtsAuxWorkData *awdp,
 	erts_misc_aux_work_t *mawp = erts_thr_q_dequeue(q);
 	if (!mawp)
 	    break;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        awdp->lc_aux_arg = mawp->arg;
+#endif
 	mawp->func(mawp->arg);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        awdp->lc_aux_arg = NULL;
+#endif
 	misc_aux_work_free(mawp);
     }
 
@@ -2287,7 +2293,13 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int wait
 	    awdp->later_op.last = NULL;
 	}
         awdp->later_op.list_len--;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        awdp->lc_aux_arg = lop->data;
+#endif
 	lop->func(lop->data);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+        awdp->lc_aux_arg = NULL;
+#endif
 	if (!awdp->later_op.first) {
 	    awdp->later_op.size = thr_prgr_later_cleanup_op_threshold;
 	    awdp->later_op.last = NULL;

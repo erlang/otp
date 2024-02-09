@@ -106,7 +106,7 @@ directive is used get function `init` called automatically when the module is
 loaded. Function `init` in turn calls `erlang:load_nif/2` which loads the NIF
 library and replaces the `hello` function with its native implementation in C.
 Once loaded, a NIF library is persistent. It will not be unloaded until the
-module code version that it belongs to is purged.
+module instance that it belongs to is purged.
 
 The [`-nifs()`](`e:system:modules.md#nifs_attribute`) attribute specifies which
 functions in the module that are to be replaced by NIFs.
@@ -530,7 +530,7 @@ calling NIF API functions. Functions exist for the following functionality:
   old code of this module with a loaded NIF library.
 
   Works as `load`, except that `*old_priv_data` already contains the value set
-  by the last call to `load` or `upgrade` for the old module code. `*priv_data`
+  by the last call to `load` or `upgrade` for the old module instance. `*priv_data`
   is initialized to `NULL` when `upgrade` is called. It is allowed to write to
   both `*priv_data` and `*old_priv_data.`
 
@@ -538,7 +538,7 @@ calling NIF API functions. Functions exist for the following functionality:
   `upgrade` is `NULL`.
 
 - **`void (*unload)(ErlNifEnv* caller_env, void* priv_data)`**{: #unload } -
-  `unload` is called when the module code that the NIF library belongs to is
+  `unload` is called when the module instance that the NIF library belongs to is
   purged as old. New code of the same module may or may not exist.
 
 ## Data Types
@@ -671,6 +671,18 @@ calling NIF API functions. Functions exist for the following functionality:
   [`enif_set_option()`](erl_nif.md#on_halt). Such an installed callback will be
   called when the runtime system is halting.
 
+- **`ErlNifOnUnloadThreadCallback`**{: #ErlNifOnUnloadThreadCallback }
+
+  ```text
+  typedef void ErlNifOnUnloadThreadCallback(void *priv_data);
+  ```
+
+  The function prototype of an _on_unload_thread_ callback function.
+
+  An _on_unload_thread_ callback can be installed using
+  [`enif_set_option()`](erl_nif.md#on_unload_thread). Such an installed callback
+  will be called by each scheduler thread when this module instance is purged.
+
 - **`ErlNifOption`**{: #ErlNifOption } - An enumeration of the options that can
   be set using [`enif_set_option()`](erl_nif.md#enif_set_option).
 
@@ -682,6 +694,10 @@ calling NIF API functions. Functions exist for the following functionality:
 
   - **[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#on_halt)** - Install a callback that
     will be called when the runtime system halts with flushing enabled.
+
+  - **[`ERL_NIF_OPT_ON_UNLOAD_THREAD`](erl_nif.md#on_unload_thread)** - Install a
+    callback that will be called **by each scheduler thread**
+    when the module instance that the NIF library belongs to is purged as old.
 
 - **`ErlNifPid`**{: #ErlNifPid } - A process identifier (pid). In contrast to
   pid terms (instances of `ERL_NIF_TERM`), `ErlNifPid`s are self-contained and
@@ -894,8 +910,8 @@ Returns pointer to the new environment.
 ## enif_alloc_resource()
 
 ```c
-void * enif_alloc_resource(ErlNifResourceType*
-        type, unsigned size);
+void * enif_alloc_resource(ErlNifResourceType* type,
+                           unsigned size);
 ```
 
 Allocates a memory-managed resource object of type `type` and size `size` bytes.
@@ -904,8 +920,10 @@ Allocates a memory-managed resource object of type `type` and size `size` bytes.
 
 ```c
 size_t enif_binary_to_term(ErlNifEnv *env,
-        const unsigned char* data, size_t size, ERL_NIF_TERM *term,
-        unsigned int opts);
+                           const unsigned char* data,
+			   size_t size,
+			   ERL_NIF_TERM *term,
+                           unsigned int opts);
 ```
 
 Creates a term that is the result of decoding the binary data at `data`, which
@@ -3164,7 +3182,11 @@ int enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...);
 Set an option. On success, zero will be returned. On failure, a non zero value
 will be returned. Currently the following options can be set:
 
-- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)`)`**{: #delay_halt } -
+- **[`ERL_NIF_OPT_DELAY_HALT`](erl_nif.md#ErlNifOption)**{: #delay_halt }
+  ```c
+  enif_set_option(env, ERL_NIF_OPT_DELAY_HALT)
+  ```
+
   Enable delay of
   runtime system halt with flushing enabled until all calls to NIFs in the NIF
   library have returned. If the _delay halt_ feature has not been enabled, a
@@ -3203,7 +3225,10 @@ will be returned. Currently the following options can be set:
   Such NIFs should be dirty NIFs, since ordinary NIFs should never block for a
   long time.
 
-- **`int enif_set_option(ErlNifEnv *env, `[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)`, `[`ErlNifOnHaltCallback`](erl_nif.md#ErlNifOnHaltCallback)` *on_halt)`**{: #on_halt } -
+- **[`ERL_NIF_OPT_ON_HALT`](erl_nif.md#ErlNifOption)**{: #on_halt }
+  ```c
+  enif_set_option(env, ERL_NIF_OPT_ON_HALT, on_halt)
+  ```
 
   Install a callback that will be called when the runtime system halts with
   flushing enabled.
@@ -3220,8 +3245,10 @@ will be returned. Currently the following options can be set:
   [`load()`](erl_nif.md#load) or [`upgrade()`](erl_nif.md#upgrade) call, and
   will fail if called somewhere else. The `env` argument _must_ be the callback
   environment passed to the `load()` or the `upgrade()` call. The `on_halt`
-  argument should be a function pointer to the callback to install. The _on
-  halt_ callback will be tied to the module instance with which the NIF library
+  argument should be a function pointer to the callback to install.
+
+  The [`on_halt`](erl_nif.md#ErlNifOnHaltCallback) callback will be tied to the
+  module instance with which the NIF library
   instance has been loaded. That is, in case both a new and old version of a
   module using the NIF library are loaded, they can both have different, none,
   or the same _on halt_ callbacks installed. When unloading the NIF library
@@ -3241,6 +3268,40 @@ will be returned. Currently the following options can be set:
   processes blocked in NIFs in the library that it is time to return in order to
   let the runtime system complete the halting. Such NIFs should be dirty NIFs,
   since ordinary NIFs should never block for a long time.
+
+- **[`ERL_NIF_OPT_ON_UNLOAD_THREAD`](erl_nif.md#ErlNifOption)**{: #on_unload_thread }
+  ```c
+  enif_set_option(env, ERL_NIF_OPT_ON_UNLOAD_THREAD, on_unload_thread)
+  ```
+
+  Install a callback that will be called **by each scheduler thread** when the
+  module instance that the NIF library belongs to is purged as old. A typical
+  use is to release thread specific data.
+
+  The `ERL_NIF_OPT_ON_UNLOAD_THREAD` option can only be set during loading of a
+  NIF library inside a call to [`load()`](erl_nif.md#load) or
+  [`upgrade()`](erl_nif.md#upgrade) and will fail if called somewhere else. The
+  `env` argument _must_ be the callback environment passed to the `load()` or
+  the `upgrade()` call.
+
+  The [`on_unload_thread`](erl_nif.md#ErlNifOnUnloadThreadCallback) argument
+  should be a function pointer to the callback to install. The
+  _on_unload_thread_ callback will be tied to the module instance with which the
+  NIF library instance has been loaded. That is, in case both a new and old
+  version of a module using the NIF library are loaded, they can both have
+  different, none, or the same _on_unload_thread_ callbacks installed. The
+  `ERL_NIF_OPT_ON_UNLOAD_THREAD` option can only be set once and cannot be
+  changed or removed once it has been installed for a module instance.
+
+  When the installed _on_unload_thread_ callback is called, it will be passed a
+  pointer to `priv_data` as argument. The `priv_data` pointer can be set when
+  loading the NIF library.
+
+  The calls to the _on_unload_thread_ function are made concurrently by the
+  different scheduler threads. There is no synchronization enforced between the
+  threads. However, the single finalizing call to the [`unload()`](erl_nif.md#unload)
+  callback for the module instance will not be made until all calls to
+  _on_unload_thread_ have returned.
 
 ## enif_set_pid_undefined()
 
