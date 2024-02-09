@@ -186,7 +186,8 @@ operating system kernel.
 
 `m:filename`
 """.
--deprecated([{pid2name,1,"this functionality is no longer supported"}]).
+
+-removed([{pid2name,1,"this functionality is no longer supported"}]).
 
 %% Interface module for the file server and the file io servers.
 
@@ -221,8 +222,6 @@ operating system kernel.
 -export([script/1, script/2, path_script/2, path_script/3]).
 -export([change_owner/2, change_owner/3, change_group/2,
 	 change_mode/2, change_time/2, change_time/3]).
-
--export([pid2name/1]).
 
 %% Sendfile functions
 -export([sendfile/2,sendfile/5]).
@@ -372,35 +371,6 @@ format_error(terminated) ->
     "the file server process is terminated";
 format_error(ErrorId) ->
     erl_posix_msg:message(ErrorId).
-
--doc """
-> #### Change {: .info }
->
-> This function is deprecated and will be removed in Erlang/OTP 27.
-
-If `Pid` is an I/O device, that is, a pid returned from [`open/2`](`open/2`),
-this function returns the filename, or rather:
-
-- **`{ok, Filename}`** - If the file server of this node is not a slave, the
-  file was opened by the file server of this node (this implies that `Pid` must
-  be a local pid) and the file is not closed. `Filename` is the filename in flat
-  string format.
-
-- **`undefined`** - In all other cases.
-
-> #### Warning {: .warning }
->
-> This function is intended for debugging only.
-""".
--spec pid2name(Pid) -> {ok, Filename} | undefined when
-      Filename :: filename_all(),
-      Pid :: pid().
-
-pid2name(Pid) when is_pid(Pid) ->
-    case file_request(Pid, pid2name) of
-        {ok, _} = Ok -> Ok;
-        _ -> undefined
-    end.
 
 %%%-----------------------------------------------------------------
 %%% File server functions.

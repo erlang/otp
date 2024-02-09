@@ -81,8 +81,6 @@
 
 -export([ipread/1]).
 
--export([pid2name/1]).
-
 -export([interleaved_read_write/1]).
 
 -export([unicode/1]).
@@ -136,7 +134,7 @@ all() ->
      {group, files}, delete, rename, names, volume_relative_paths, unc_paths,
      {group, errors}, {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
-     ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
+     ipread, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io, old_io_protocol,
      unicode_mode, {group, bench}
@@ -3461,24 +3459,6 @@ delayed_write(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:close(Fd5),
     %%
     [] = flush(),
-    ok.
-
-
-%% Tests file:pid2name/1.
-pid2name(Config) when is_list(Config) ->
-    RootDir = proplists:get_value(priv_dir, Config),
-    Base = test_server:temp_name(
-	     filename:join(RootDir, "pid2name_")),
-    Name1 = [Base, '.txt'],
-    Name2 = Base ++ ".txt",
-    %%
-    {ok, Pid} = file:open(Name1, [write]),
-    {ok, Name2} = file:pid2name(Pid),
-    Dead = spawn(fun() -> ok end),
-    undefined = file:pid2name(Dead),
-    ok = file:close(Pid),
-    false = is_process_alive(Pid),
-    undefined = file:pid2name(Pid),
     ok.
 
 
