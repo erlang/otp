@@ -1116,10 +1116,12 @@ aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
     %% The function will never return, so nothing that happens after
     %% this can influence the aliasing status.
     {SS, AAS};
-aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
+aa_call(Dst, [_Callee|Args], _Anno, SS0, AAS) ->
     %% This is either a call to a fun or to an external function,
-    %% assume that all arguments and the result escape.
-    {aa_set_aliased([Dst|Args], SS), AAS}.
+    %% assume that result always escapes and
+    %% all arguments escape, if they survive.
+    SS = aa_alias_surviving_args(Args, Dst, SS0, AAS),
+    {aa_set_aliased([Dst], SS), AAS}.
 
 %% Incorporate aliasing information for the arguments to a call when
 %% analysing the body of a function into the global state.
