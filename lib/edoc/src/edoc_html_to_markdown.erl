@@ -1027,7 +1027,7 @@ build_dom({endElement, _Uri, LocalName, _QName},
             MappedCName =
                 case CName of
                     title ->
-                        lists:nth(SectionDepth+1,[h1,h2,h3,h4,h5,h6]);
+                        lists:nth(SectionDepth,[h1,h2,h3,h4,h5,h6]);
                     section when SectionDepth > 0 ->
                         'div';
                     CName -> CName
