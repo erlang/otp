@@ -185,14 +185,14 @@ The following message is taken care of by the `ssh_client_channel` behavior.
 	 terminate/2, code_change/3]).
 
 %% Internal application API
--export([cache_create/0, cache_lookup/2, cache_update/2, 
-	 cache_delete/1, cache_delete/2,  cache_foldl/3,
-	 cache_info/2,  cache_find/2,
-	 get_print_info/1, get_print_info/2
+-export([cache_create/0, cache_lookup/2, cache_update/2,
+	 cache_delete/1, cache_delete/2, cache_foldl/3,
+	 cache_info/2, get_print_info/1, get_print_info/2
         ]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+-export_type([client/0]).
 
 -record(state, {
 	  cm,
@@ -205,9 +205,13 @@ The following message is taken care of by the `ssh_client_channel` behavior.
 %%====================================================================
 %% API
 %%====================================================================
-
 -doc(#{equiv => call/3}).
 -doc(#{since => <<"OTP 21.0">>}).
+-spec call(ChannelRef, Msg) -> Reply | {error, Reason} when
+      ChannelRef :: pid(),
+      Msg :: term(),
+      Reply :: term(),
+      Reason :: closed | timeout.
 call(ChannelPid, Msg) ->
     call(ChannelPid, Msg, infinity).
 
@@ -220,6 +224,12 @@ until a reply arrives, or a time-out occurs. The channel calls
 process does not exist, `{error, closed}` is returned.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
+-spec call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason} when
+      ChannelRef :: pid(),
+      Msg :: term(),
+      Timeout :: timeout(),
+      Reply :: term(),
+      Reason :: closed | timeout.
 call(ChannelPid, Msg, TimeOute) ->
     try gen_server:call(ChannelPid, Msg, TimeOute) of
 	Result ->
@@ -245,9 +255,11 @@ ignoring if the destination node or channel process does not exist. The channel
 calls [Module:handle_cast/2](`c:handle_cast/2`) to handle the message.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
-cast(ChannelPid, Msg) ->
-    gen_server:cast(ChannelPid, Msg).
-
+-spec cast(ChannelRef, Msg) -> ok when
+      ChannelRef :: pid(),
+      Msg :: term().
+cast(ChannelRef, Msg) ->
+    gen_server:cast(ChannelRef, Msg).
 
 -doc """
 reply(Client, Reply) -> \_
@@ -261,6 +273,10 @@ This function can be used by a channel to send a reply to a client that called
 given back to the client as the return value of [call/\[2,3].](`call/2`)
 """.
 -doc(#{since => <<"OTP 21.0">>}).
+-opaque client() :: term().
+-spec reply(Client, Reply) -> _ when
+      Client :: client(),
+      Reply :: term().
 reply(From, Msg) ->
     gen_server:reply(From, Msg).
 
@@ -268,12 +284,16 @@ reply(From, Msg) ->
 %% Internal application API
 %%====================================================================
 
-%%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
-%%--------------------------------------------------------------------
 -doc(#{equiv => start_link/4}).
 -doc(#{since => <<"OTP 21.0">>}).
+-spec start(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
+          {ok, ChannelRef} | {error, Reason :: term()}
+              when
+      SshConnection :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      ChannelCb :: atom(),
+      CbInitArgs :: [term()],
+      ChannelRef :: pid().
 start(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
@@ -283,7 +303,7 @@ start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {channel_id, ChannelId},
 	       {init_args, CbInitArgs},
 	       {cm, ConnectionManager},
-	       {exec, Exec}],	  
+	       {exec, Exec}],
     gen_server:start(?MODULE, [Options], []).
 
 -doc """
@@ -295,6 +315,14 @@ Starts a process that handles an SSH channel. It is called internally, by the
 sets the `trap_exit` flag to `true`.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
+-spec start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) ->
+          {ok, ChannelRef} | {error, Reason :: term()}
+              when
+      SshConnection :: ssh:connection_ref(),
+      ChannelId :: ssh:channel_id(),
+      ChannelCb :: atom(),
+      CbInitArgs :: [term()],
+      ChannelRef :: pid().
 start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs) ->
     start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, undefined).
 
@@ -304,7 +332,7 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
 	       {channel_id, ChannelId},
 	       {init_args, CbInitArgs},
 	       {cm, ConnectionManager},
-	       {exec, Exec}],	  
+	       {exec, Exec}],
     gen_server:start_link(?MODULE, [Options], []).
 
 -doc """
@@ -319,6 +347,7 @@ The user is responsible for any initialization of the process and must call
 `init/1`.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
+-spec enter_loop(State) -> _  when State :: term().
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 
@@ -357,6 +386,13 @@ The following options must be present:
 > calling [`start/4`](`start/4`) or [`start_link/4`](`start_link/4`).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
+-spec init(Options) ->
+              {ok, State} | {ok, State, Timeout} | {stop, Reason}
+              when
+                  Options :: [[{Option :: term(), Value :: term()}]],
+                  State :: term(),
+                  Timeout :: timeout(),
+                  Reason :: term().
 init([Options]) ->    
     Cb = proplists:get_value(channel_cb, Options),
     ConnectionManager =  proplists:get_value(cm, Options),
@@ -567,15 +603,6 @@ cache_foldl(Fun, Acc, Cache) ->
 -doc false.
 cache_info(num_entries, Cache) ->
     proplists:get_value(size, ets:info(Cache)).
-
--doc false.
-cache_find(ChannelPid, Cache) ->
-   case ets:match_object(Cache, #channel{user = ChannelPid}) of
-       [] ->
-	   undefined;
-       [Channel] ->
-	   Channel
-   end.
 
 -doc false.
 get_print_info(Pid) ->

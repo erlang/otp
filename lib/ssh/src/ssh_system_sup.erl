@@ -68,7 +68,7 @@ start_system(Role, Address0, Options) ->
 stop_system(Role, SysSup) when is_pid(SysSup) ->
     case lists:keyfind(SysSup, 2, supervisor:which_children(sup(Role))) of
         {{?MODULE, Id}, SysSup, _, _} -> stop_system(Role, Id);
-        false -> undefined % FIXME ssh:stop_daemon doc missing that ?
+        false -> ok
     end;
 stop_system(Role, Id) ->
     supervisor:terminate_child(sup(Role), {?MODULE, Id}).

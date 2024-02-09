@@ -135,17 +135,16 @@ The `t:tuple/0` reason are other errors like for example `{exit_status,1}`.
 
 %%%----------------------------------------------------------------
 %%% start_channel/1
-
 -doc(#{equiv => start_channel/3}).
+-spec start_channel(ssh:open_socket() | ssh:connection_ref() | ssh:host()) ->
+          {ok, pid()} | {ok, pid(), ssh:connection_ref()} | {error, reason()}.
 start_channel(Dest) ->
     start_channel(Dest, []).
  
 %%%----------------------------------------------------------------
 %%% start_channel/2
-
 %%% -spec:s are as if Dialyzer handled signatures for separate
 %%% function clauses.
-
 -doc(#{equiv => start_channel/3}).
 -spec start_channel(ssh:open_socket(),
                     [ssh:client_option() | sftp_option()]
@@ -161,7 +160,6 @@ start_channel(Dest) ->
                     [ssh:client_option() | sftp_option()]
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
-
 start_channel(Cm, UserOptions0) when is_pid(Cm) ->
     UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
@@ -185,7 +183,6 @@ start_channel(Cm, UserOptions0) when is_pid(Cm) ->
 	Error ->
 	    Error
     end;
-
 start_channel(Dest, UserOptions0) ->
     UserOptions = legacy_timeout(UserOptions0),
     {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
@@ -210,10 +207,8 @@ start_channel(Dest, UserOptions0) ->
             end
     end.
 
-
 %%%----------------------------------------------------------------
 %%% start_channel/3
-
 -doc """
 start_channel(Host, Port, Options) ->
 
@@ -247,7 +242,6 @@ a connection is already provided.
                     [ssh:client_option() | sftp_option()]
                    )
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()}.
-
 start_channel(Host, Port, UserOptions0) ->
     UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(connect_timeout, UserOptions, infinity),
