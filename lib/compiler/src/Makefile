@@ -69,13 +69,14 @@ MODULES =  \
 	beam_ssa_check \
 	beam_ssa_codegen \
 	beam_ssa_dead \
+	beam_ssa_destructive_update \
 	beam_ssa_lint \
 	beam_ssa_opt \
 	beam_ssa_pp \
 	beam_ssa_pre_codegen \
-	beam_ssa_private_append \
 	beam_ssa_recv \
 	beam_ssa_share \
+	beam_ssa_ss \
 	beam_ssa_throw \
 	beam_ssa_type \
 	beam_trim \
@@ -221,12 +222,14 @@ $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_destructive_update.beam: beam_ssa_opt.hrl beam_types.hrl
 $(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_trim.beam: beam_asm.hrl

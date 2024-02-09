@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This module tests that beam_ssa_alias_opt:to_private_append/3
+%% This module tests that the beam_ssa_destructive_update pass
 %% rewrites plain appends in bs_create_bin to private_append when
 %% appropriate.
 %%
@@ -197,15 +197,18 @@ transformable4([H|T], Acc) ->
 transformable4([], Acc) ->
     Acc.
 
-%% Check that the alias analysis handles local functions.
+%% Check that when a variable is live across a call it is considered
+%% aliased. If the alias analysis is extended to track if an argument
+%% is captured by the callee, that information could be fed back to
+%% the caller. Until that is done, this test is expected to fail.
 transformable5(L) ->
-%ssa% (_) when post_ssa_opt ->
+%ssa% xfail (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% _ = call(fun transformable5/2, _, A).
     transformable5(L, <<>>).
 
 transformable5([H|T], Acc) ->
-%ssa% (_, Arg1) when post_ssa_opt ->
+%ssa% xfail (_, Arg1) when post_ssa_opt ->
 %ssa% A = bs_create_bin(private_append, _, Arg1, ...),
 %ssa% _ = call(fun transformable5/2, _, A).
     does_not_escape(Acc),
@@ -440,18 +443,17 @@ transformable16([A,B|T], {{Acc0}, Acc1}) ->
 transformable16([], {{Acc0}, Acc1}) ->
     {Acc0,Acc1}.
 
-%% We should use type information to figure out that {<<>>, X} is not
-%% aliased, but as of now we don't have the information at this pass,
-%% nor do we track alias status at the sub-term level.
+%% Check that type information is used to figure out that {<<>>, X} is
+%% not aliased.
 transformable18(L, X) when is_integer(X), X < 256 ->
-%ssa% xfail (_, _) when post_ssa_opt ->
+%ssa% (_, _) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
-%ssa% B = put_tuple(_, A),
+%ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable18b/2, _, B).
     transformable18b(L, {<<>>, X}).
 
 transformable18b([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -592,16 +594,15 @@ make_empty_binary_tuple_nested() ->
 %ssa% ret(D).
     {<<>>, {<<>>}, 47}.
 
-%% We can't handle this as we do not track alias status at the sub-term level.
 transformable24(L) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% A = bs_init_writable(_),
 %ssa% B = put_tuple(A, _),
 %ssa% _ = call(fun transformable24/2, _, B).
     transformable24(L, {<<>>, ex:foo()}).
 
 transformable24([H|T], {Acc,X}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% A = get_tuple_element(Arg1, 0),
 %ssa% B = bs_create_bin(private_append, _, A, ...),
 %ssa% C = put_tuple(B, _),
@@ -1003,13 +1004,13 @@ bs_create_bin_on_literal() ->
       >>/binary
     >>.
 
-%% Check that the beam_ssa_private_append pass doesn't crash, if it,
-%% during initial value tracking, ends up in operations which do not
-%% create bit strings. This can happen as the initial value tracking
-%% in beam_ssa_private_append doesn't consider types. As the decision
-%% to apply the private append transform is using type information,
-%% tracking values into not type-compatible execution paths is
-%% harmless.
+%% Check that the beam_ssa_destructive_update pass doesn't crash, if
+%% it, during initial value tracking, ends up in operations which do
+%% not create bit strings. This can happen as the initial value
+%% tracking in beam_ssa_destructive_update doesn't consider types. As
+%% the decision to apply the private append transform is using type
+%% information, tracking values into not type-compatible execution
+%% paths is harmless.
 crash_in_value_tracking_inner(_, 1.0, _) ->
 %ssa% (_, _, _) when post_ssa_opt ->
 %ssa% _ = bs_init_writable(_).

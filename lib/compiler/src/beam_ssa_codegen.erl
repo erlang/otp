@@ -1374,6 +1374,14 @@ cg_block([#cg_set{op=has_map_field,dst=Dst0,args=Args0,anno=Anno}|T], Context, S
     {Is0,St} = cg_block(T, Context, St0),
     Is = [I|Is0],
     {Is,St};
+cg_block([#cg_set{op=update_record,dst=Dst0,args=Args0,anno=Anno}|T], Context, St0) ->
+    Args = typed_args(Args0, Anno, St0),
+    Dst = beam_arg(Dst0, St0),
+    [Hint,{integer,Size},Src|Ss0] = Args,
+    Ss = cg_update_record_list(Ss0, []),
+    I = {update_record,Hint,Size,Src,Dst,{list,Ss}},
+    {Is1,St} = cg_block(T, Context, St0),
+    {[I|Is1],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1884,10 +1892,7 @@ cg_instr(recv_marker_reserve, [], Dst) ->
 cg_instr(remove_message, [], _Dst) ->
     [remove_message];
 cg_instr(resume, [A,B], _Dst) ->
-    [{bif,raise,{f,0},[A,B],{x,0}}];
-cg_instr(update_record, [Hint, {integer,Size}, Src | Ss0], Dst) ->
-    Ss = cg_update_record_list(Ss0, []),
-    [{update_record,Hint,Size,Src,Dst,{list,Ss}}].
+    [{bif,raise,{f,0},[A,B],{x,0}}].
 
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of

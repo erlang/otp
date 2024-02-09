@@ -373,6 +373,7 @@ atom info_trap
 atom inherit
 atom init
 atom initial_call
+atom inplace
 atom input
 atom integer
 atom internal

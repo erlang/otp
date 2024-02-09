@@ -1026,15 +1026,20 @@ gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
     return op;
 }
 
-gen.update_record(Size, Src, Dst, N, Updates) {
+gen.update_record(Hint, Size, Src, Dst, N, Updates) {
     BeamOp *begin, *prev;
     Sint count, i;
 
+    ASSERT(Hint.type == TAG_a);
     ASSERT(Size.type == TAG_u && Size.val < SCRATCH_X_REG);
     ASSERT(N.type == TAG_u && !(N.val % 2) && (N.val / 2) <= Size.val);
 
     $NewBeamOp(S, begin);
-    $BeamOpNameArity(begin, i_update_record, 5);
+    if (Hint.val == am_inplace) {
+        $BeamOpNameArity(begin, i_update_record_in_place, 5);
+    } else {
+        $BeamOpNameArity(begin, i_update_record_copy, 5);
+    }
 
     begin->a[0] = Size;
     begin->a[1] = Src;
@@ -1047,6 +1052,7 @@ gen.update_record(Size, Src, Dst, N, Updates) {
 
     for (i = 2; i < count; i += 2) {
         BeamOp *next;
+        int same_reg;
 
         $NewBeamOp(S, next);
         $BeamOpNameArity(next, i_update_record_continue, 2);
@@ -1056,10 +1062,19 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         next->a[0].type = TAG_u;
         next->a[0].val = (Size.val + 1) - Updates[i].val;
 
+        if (Updates[i + 1].type != Dst.type) {
+            same_reg = 0;
+        } else if (Dst.type == TAG_x || Dst.type == TAG_y) {
+            /* We must not compare the type indices (if any). */
+            same_reg = (Updates[i + 1].val & REG_MASK) == (Dst.val & REG_MASK);
+        } else {
+            same_reg = 1;
+        }
+
         /* The first instruction overwrites the destination register after
          * stashing its contents to SCRATCH_X_REG, so all updates must be
          * rewritten accordingly. */
-        if (Updates[i + 1].type == Dst.type && Updates[i + 1].val == Dst.val) {
+        if (same_reg) {
             next->a[1].type = TAG_x;
             next->a[1].val = SCRATCH_X_REG;
         } else {
@@ -1070,6 +1085,16 @@ gen.update_record(Size, Src, Dst, N, Updates) {
         prev->next = next;
 
         prev = next;
+    }
+
+    if (Hint.val == am_inplace) {
+        BeamOp *next;
+
+        $NewBeamOp(S, next);
+        $BeamOpNameArity(next, i_update_record_in_place_done, 0);
+
+        next->next = NULL;
+        prev->next = next;
     }
 
     return begin;

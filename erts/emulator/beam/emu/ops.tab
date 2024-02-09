@@ -1730,9 +1730,18 @@ recv_marker_use S
 #
 
 update_record Hint=a Size=u Src=s Dst=d N=u Updates=* =>
-    update_record(Size, Src, Dst, N, Updates)
+    update_record(Hint, Size, Src, Dst, N, Updates)
 
-i_update_record Size=u Src=c Dst=xy Offset=u Element=s =>
-    move Src x | i_update_record Size x Dst Offset Element
-i_update_record t xy xy t s
+i_update_record_copy Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_copy Size x Dst Offset Element
+
+i_update_record_in_place Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_in_place Size x Dst Offset Element
+
+i_update_record_copy t xy xy t s
+i_update_record_in_place t xy xy t s
+
 i_update_record_continue t s
+
+i_update_record_in_place_done
+

@@ -18,7 +18,7 @@
 
 -module(sanity_checks).
 
--compile(no_ssa_opt_private_append).
+-compile(no_ssa_opt_destructive_update).
 
 -export([check_fail/0,
          check_wrong_pass/0,
