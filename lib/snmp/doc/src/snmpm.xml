@@ -1079,16 +1079,20 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="OTP R15B01">log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Block | Mibs) -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs) -> ok | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, Block | LogFile) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) ->  ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start)  -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R15B01">log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
-      <name since="OTP R16B03">log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop)  -> ok | {ok, Cnt} | {error, Reason}</name>
+      <name name="log_to_io" arity="1" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="2" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="2" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="3" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="3" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="4" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="4" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="5" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="5" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="6" clause_i="1" since="OTP R15B01"/>
+      <name name="log_to_io" arity="6" clause_i="2" since="OTP R15B01"/>
+      <name name="log_to_io" arity="7" clause_i="1" since="OTP R16B03"/>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <!--
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
@@ -1104,6 +1108,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
       </type>
+      -->
       <desc>
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. 
