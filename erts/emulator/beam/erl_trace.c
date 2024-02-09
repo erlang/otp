@@ -1145,6 +1145,9 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
     ErtsTracerNif *tnif = NULL;
     ErtsTracer tracer;
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
+    Eterm session_id;
+
+    ERTS_UNDEF(session_id, THE_NON_VALUE);
 
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
 
@@ -1156,6 +1159,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
         ASSERT(!ERTS_TRACER_IS_NIL(ref->tracer));
         tracer = ref->tracer;
         tracee_flags = ref->flags;
+        session_id = ref->session->weak_id;
         /* It is not ideal at all to call this check twice,
            it should be optimized so that only one call is made. */
         if (!is_tracer_ref_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, ref, &tnif,
@@ -1234,7 +1238,8 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
         }
     } else {
         if (match_spec) {
-            if (!get_tracer_ref(&p->common, ref->session)) {
+            /* match spec may have removed our session ref */
+            if (!get_tracer_ref_from_weak_id(&p->common, session_id)) {
                 tracee_flags = 0;
             } else {
                 tracee_flags = ref->flags;
