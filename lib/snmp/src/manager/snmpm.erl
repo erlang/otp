@@ -296,6 +296,11 @@ backup(BackupDir) ->
 %% -- Mibs --
 
 %% Load a mib into the manager
+
+-spec load_mib(MibName) -> ok | {error, Reason} when
+      MibName :: string(),
+      Reason  :: term().
+
 load_mib(MibFile) ->
     snmpm_server:load_mib(MibFile).
 

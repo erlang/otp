@@ -1155,17 +1155,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">load_mib(Mib) -> ok | {error, Reason}</name>
+      <name name="load_mib" arity="1" clause_i="1" since=""/>
       <fsummary>Load a MIB into the manager</fsummary>
-      <type>
-        <v>Mib = MibName</v>
-        <v>MibName = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Load a <c>Mib</c> into the manager. The <c>MibName</c> is the 
-          name of the Mib, including the path to where the compiled mib is 
-          found.  For example,</p>
+	name of the Mib, including the path to where the compiled mib is 
+	found.  For example,</p>
         <code type="none">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:load_mib(Dir ++ "MY-MIB").
