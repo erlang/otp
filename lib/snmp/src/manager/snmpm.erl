@@ -329,6 +329,12 @@ name_to_oid(AliasName) ->
     snmpm_config:name_to_oid(AliasName).
 
 %% Get the aliasname for an oid
+
+-spec oid_to_name(OID) -> {ok, AliasName} | {error, Reason} when
+      OID       :: snmp:oid(),
+      AliasName :: atom(),
+      Reason    :: term().
+
 oid_to_name(Oid) ->
     snmpm_config:oid_to_name(Oid).
 

@@ -1206,13 +1206,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">oid_to_name(Oid) -> {ok, Name} | {error, Reason}</name>
+      <name name="oid_to_name" arity="1" clause_i="1" since=""/>
       <fsummary>Get the alias-name of the oid </fsummary>
-      <type>
-        <v>Oid = oid()</v>
-        <v>Name = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Transform a oid to its aliasname.</p>
 
