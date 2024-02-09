@@ -1270,17 +1270,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">info() -> [{Key, Value}]</name>
+      <name name="info" arity="0" clause_i="1" since=""/>
       <fsummary>Return information about the manager</fsummary>
-      <type>
-        <v>Key = atom()</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>Returns a list (a dictionary) containing information about
-          the manager. Information includes statistics counters, 
-          miscellaneous info about each process (e.g. memory allocation), 
-          and so on.</p>
+	the manager. Information includes statistics counters, 
+	miscellaneous info about each process (e.g. memory allocation), 
+	and so on. </p>
 
         <marker id="verbosity"></marker>
       </desc>

@@ -322,6 +322,10 @@ oid_to_type(Oid) ->
 
 %% -- Info -- 
 
+-spec info() -> [{Key, Value}] when
+      Key   :: atom(),
+      Value :: term().
+
 info() ->
     snmpm_server:info().
 
