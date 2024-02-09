@@ -31,10 +31,8 @@
 
 #ifdef BEAMASM
 #define OP_PAD BeamInstr __pad[1];
-#define DISPATCH_SIZE 1
 #else
 #define OP_PAD
-#define DISPATCH_SIZE 0
 #endif
 
 typedef struct export_
@@ -103,13 +101,6 @@ typedef struct export_
             BeamInstr deferred;
         } not_loaded;
 
-        struct {
-            OP_PAD
-            BeamInstr op;       /* op_trace_jump_W */
-            BeamInstr address;  /* Address of the traced function */
-        } trace;
-        BeamInstr raw[2 + DISPATCH_SIZE]; /* For use in address comparisons,
-                                           * should not be tampered directly. */
     } trampoline;
 } Export;
 
@@ -121,8 +112,6 @@ typedef struct export_
              * instructions must be valid. */ \
             ASSERT(((BeamIsOpCode((EP)->trampoline.common.op, op_i_generic_breakpoint)) && \
                     (EP)->trampoline.breakpoint.address != 0) || \
-                   ((BeamIsOpCode((EP)->trampoline.common.op, op_trace_jump_W)) && \
-                    (EP)->trampoline.trace.address != 0) || \
                    /* (EP)->trampoline.not_loaded.deferred may be zero. */ \
                    (BeamIsOpCode((EP)->trampoline.common.op, op_call_error_handler))); \
         } \
@@ -163,7 +152,7 @@ ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix) {
     extern ErtsCodePtr beam_export_trampoline;
     trampoline_address = beam_export_trampoline;
 #else
-    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
+    trampoline_address = (ErtsCodePtr)&ep->trampoline;
 #endif
 
     ep->dispatch.addresses[code_ix] = trampoline_address;
@@ -176,7 +165,7 @@ ERTS_GLB_INLINE int erts_is_export_trampoline_active(Export *ep, int code_ix) {
     extern ErtsCodePtr beam_export_trampoline;
     trampoline_address = beam_export_trampoline;
 #else
-    trampoline_address = (ErtsCodePtr)&ep->trampoline.raw[0];
+    trampoline_address = (ErtsCodePtr)&ep->trampoline;
 #endif
 
     return ep->dispatch.addresses[code_ix] == trampoline_address;

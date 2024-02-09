@@ -327,7 +327,7 @@ check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
 %% to check and kill leaked node connections.
 ept_check_leaked_nodes(Config) ->
     case nodes(connected) of
-        [] -> ok;
+        [] -> true;
         Nodes ->
             [net_kernel:disconnect(N) || N <- Nodes],
             Leaked =  {"Leaked connections", Nodes},

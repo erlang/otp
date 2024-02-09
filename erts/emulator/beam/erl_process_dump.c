@@ -228,7 +228,7 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
     Eterm* sp;
     Uint yreg = 0;
 
-    if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE)
+    if (ERTS_IS_PROC_SENSITIVE(p))
         return;
 
     if (!(p->sig_qs.flags & FS_FLUSHING_SIGS) || ERTS_IS_CRASH_DUMPING) {
@@ -368,7 +368,7 @@ erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *p)
     Eterm* sp;
 
 
-    if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE) {
+    if (ERTS_IS_PROC_SENSITIVE(p)) {
 	return;
     }
 

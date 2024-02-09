@@ -708,7 +708,6 @@ typedef struct preload {
  */
 typedef Eterm ErtsTracer;
 
-
 /*
  * This structure contains the rb tree for the erlang osenv copy
  * see erl_osenv.h for more details.

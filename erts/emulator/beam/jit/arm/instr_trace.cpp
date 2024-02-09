@@ -135,22 +135,24 @@ void BeamGlobalAssembler::emit_debug_bp() {
 static void return_trace(Process *c_p,
                          ErtsCodeMFA *mfa,
                          Eterm val,
-                         ErtsTracer *tracer) {
+                         ErtsTracer tracer,
+                         Eterm session_id) {
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, val, tracer);
+    erts_trace_return(c_p, mfa, val, tracer, session_id);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 }
 
 void BeamModuleAssembler::emit_return_trace() {
     a.ldr(ARG2, getYRef(0));
     a.mov(ARG3, XREG0);
-    lea(ARG4, getYRef(1));
+    a.ldr(ARG4, getYRef(1)); /* tracer */
+    a.ldr(ARG5, getYRef(2)); /* session_id */
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(return_trace);
+    runtime_call<5>(return_trace);
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
@@ -167,12 +169,13 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     a.sub(ARG2, ARG2, imm(sizeof(ErtsCodeInfo)));
     a.csel(ARG2, ARG2, ARG4, arm::CondCode::kEQ);
     a.ldr(ARG3, getYRef(1));
+    a.ldr(ARG4, getYRef(2));
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_call_trace_return);
+    runtime_call<4>(erts_call_trace_return);
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
@@ -181,11 +184,15 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
+    a.ldr(ARG2, getYRef(0)); /* session_id */
+    a.add(ARG3, E, imm(BEAM_RETURN_TO_TRACE_FRAME_SZ * sizeof(Eterm)));
+
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
+
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_return_to_trace);
+    runtime_call<3>(beam_jit_return_to_trace);
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 

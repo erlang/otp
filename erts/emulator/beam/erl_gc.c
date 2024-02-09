@@ -762,7 +762,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
      */
 
     if (GEN_GCS(p) < MAX_GEN_GCS(p) && !(FLAGS(p) & F_NEED_FULLSWEEP)) {
-        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC)) {
             trace_gc(p, am_gc_minor_start, need, THE_NON_VALUE);
         }
         DTRACE2(gc_minor_start, pidbuf, need);
@@ -770,7 +770,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 				ygen_usage, &reclaimed_now);
         DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
         if (reds == -1) {
-            if (IS_TRACED_FL(p, F_TRACE_GC)) {
+            if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC)) {
                 trace_gc(p, am_gc_minor_end, reclaimed_now, THE_NON_VALUE);
             }
 	    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
@@ -787,7 +787,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     } else {
 do_major_collection:
         ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_GC_FULL);
-        if (IS_TRACED_FL(p, F_TRACE_GC)) {
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC)) {
             trace_gc(p, am_gc_major_start, need, THE_NON_VALUE);
         }
         DTRACE2(gc_major_start, pidbuf, need);
@@ -830,7 +830,7 @@ do_major_collection:
 
     erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
-    if (IS_TRACED_FL(p, F_TRACE_GC)) {
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, gc_trace_end_tag, reclaimed_now, THE_NON_VALUE);
     }
 
@@ -2614,7 +2614,6 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 #endif
-    ASSERT(IS_TRACER_VALID(ERTS_TRACER(p)));
 
     ASSERT(is_pid(follow_moved(p->group_leader, (Eterm) 0)));
     if (is_not_immed(p->group_leader)) {
@@ -3703,7 +3702,7 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
                       Uint extra_heap_size, Uint extra_old_heap_size)
 {
     Uint max_heap_flags = MAX_HEAP_SIZE_FLAGS_GET(p);
-    if (IS_TRACED_FL(p, F_TRACE_GC) ||
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC) ||
         max_heap_flags & MAX_HEAP_SIZE_LOG) {
         Eterm msg;
         Uint size = 0;
@@ -3755,7 +3754,7 @@ reached_max_heap_size(Process *p, Uint total_heap_size,
             erts_factory_close(&hfact);
         }
 
-        if (IS_TRACED_FL(p, F_TRACE_GC))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_GC))
             trace_gc(p, am_gc_max_heap_size, 0, msg);
 
         erts_free(ERTS_ALC_T_TMP, o_hp);
@@ -3856,8 +3855,9 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
     } else if (BeamIsReturnCallAccTrace(p->i)) {
         /* Skip prev_info. */
         scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
+    } else if (BeamIsReturnToTrace(p->i)) {
+        scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
     }
-    ERTS_CT_ASSERT(BEAM_RETURN_TO_TRACE_FRAME_SZ == 0);
 
     while (next_fp) {
         ASSERT(next_fp >= stack_top && next_fp <= stack_bottom);
@@ -3882,6 +3882,8 @@ void erts_validate_stack(Process *p, Eterm *frame_ptr, Eterm *stack_top) {
         } else if (BeamIsReturnCallAccTrace((ErtsCodePtr)scanner[1])) {
             /* Skip prev_info. */
             scanner += BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
+        } else if (BeamIsReturnToTrace((ErtsCodePtr)scanner[1])) {
+            scanner += BEAM_RETURN_TO_TRACE_FRAME_SZ;
         }
 
         scanner += CP_SIZE;

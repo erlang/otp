@@ -645,6 +645,7 @@ atom sensitive
 atom sequential_tracer
 atom sequential_trace_token
 atom serial
+atom session
 atom set
 atom set_cpu_topology
 atom set_on_first_link

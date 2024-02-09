@@ -2017,6 +2017,7 @@ erts_node_bookkeep(ErlNode *np, Eterm term, int what, char *f, int l)
 static void
 setup_reference_table(void)
 {
+    ErtsTraceSession *s_p;
     DistEntry *dep;
     HashInfo hi;
     int i, max;
@@ -2113,12 +2114,14 @@ setup_reference_table(void)
 			      0);
     }
 
-    { /* Add binaries stored elsewhere ... */
+
+    /*
+     * Insert on_load tracing match specs
+     */
+    for(s_p = &erts_trace_session_0; s_p; s_p = s_p->next) {
         ErlOffHeap oh;
         BinRef bin_ref[2];
         int i = 0;
-        Binary *default_match_spec;
-        Binary *default_meta_match_spec;
 
         oh.first = NULL;
         /* Only the BinRef members thing_word, val and next will be inspected
@@ -2133,14 +2136,8 @@ setup_reference_table(void)
             i++;                                                              \
         }
 
-	erts_get_default_trace_pattern(NULL,
-				       &default_match_spec,
-				       &default_meta_match_spec,
-				       NULL,
-				       NULL);
-
-	ADD_BINARY(default_match_spec);
-	ADD_BINARY(default_meta_match_spec);
+	ADD_BINARY(s_p->on_load_match_spec);
+	ADD_BINARY(s_p->on_load_meta_match_spec);
 
 	insert_offheap(&oh, BIN_REF, AM_match_spec);
 #undef  ADD_BINARY

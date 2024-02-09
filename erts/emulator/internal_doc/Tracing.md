@@ -131,13 +131,13 @@ through when adding a new breakpoint.
    it).
 
 2. Allocate breakpoint structure `GenericBp` including both generations.
-   Set the active part as disabled with a zeroed flagfield. Save the original
+   Set the active area as disabled with a zeroed flagfield. Save the original
    instruction word in the breakpoint.
 
 3. Write a pointer to the breakpoint at offset `-sizeof(UWord)` from the first
    instruction `ErtsFuncInfo` header.
 
-4. Set the staging part of the breakpoint as enabled with specified
+4. Set the staging area of the breakpoint as enabled with specified
    breakpoint data.
 
 5. Wait for thread progress.
@@ -152,8 +152,9 @@ through when adding a new breakpoint.
 
 9. Wait for thread progress.
 
-10. Prepare for next call to `trace_pattern` by updating the new staging part
-    (the old active) of the breakpoint to be identic to the new active part.
+10. "Consolidate"
+    Prepare for next call to `trace_pattern` by updating the new staging area
+    (the old active) of the breakpoint to be identical to the new active area.
 
 11. Release code modification permission and return from `trace_pattern`.
 
@@ -170,6 +171,12 @@ the corresponding part of the breakpoint. Before the switch in step 8
 becomes visible they will however execute the disabled part of the
 breakpoint structure and do nothing other than executing the saved
 original instruction.
+
+The consolidation in step 10 will make the new staging area identical
+to the new active area. This will make it simpler for the next call to
+`trace_pattern` that may not affect all existing breakpoints. The staging area
+of all unaffected breakpoints are then ready to become active without any
+visitation by `trace_pattern`.
 
 ###  To Update and Remove Breakpoints
 
@@ -189,11 +196,11 @@ and removing breakpoints.
 1. Seize exclusive code modification permission (suspend process until we get
    it).
 
-2. Allocate new breakpoint structures with a disabled active part and
+2. Allocate new breakpoint structures with a disabled active area and
    the original beam instruction. Write a pointer to the breakpoint in
    `ErtsFuncInfo` header at offset `-sizeof(UWord)`.
 
-3. Update the staging part of all affected breakpoints. Disable
+3. Update the staging area of all affected breakpoints. Disable
    breakpoints that are to be removed.
 
 4. Wait for thread progress.
@@ -208,11 +215,13 @@ and removing breakpoints.
 8. Wait for thread progress.
 
 
-9. Restore original beam instruction for disabled breakpoints.
+9. Uninstall.
+   Restore original beam instruction for disabled breakpoints.
 
 10. Wait for thread progress.
 
-11. Prepare for next call to `trace_pattern` by updating the new
+11. Consolidate.
+    Prepare for next call to `trace_pattern` by updating the new
     staging area (the old active) for all enabled breakpoints.
 
 12. Deallocate disabled breakpoint structures.
@@ -239,7 +248,7 @@ more expensive thread synchronization.
 
 The waiting in step 8 is to make sure we don't restore the original
 bream instructions for disabled breakpoints until we know that no
-thread is still accessing the old enabled part of a disabled
+thread is still accessing the old enabled area of a disabled
 breakpoint.
 
 The waiting in step 10 is to make sure no lingering thread is still

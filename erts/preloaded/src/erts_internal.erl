@@ -67,6 +67,7 @@
 	 gather_microstate_accounting_result/2]).
 
 -export([trace/3, trace_pattern/3]).
+-export([trace_session_create/1, trace_session_destroy/1]).
 
 -export([dist_ctrl_put_data/2]).
 
@@ -619,6 +620,15 @@ trace(_PidSpec, _How, _FlagList) ->
                  | pause,
       FlagList :: list().
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_create([{tracer, Tracer}]) -> reference() when
+      Tracer :: Tracer :: pid() | port() | {module(), term()}.
+trace_session_create(_TracerOpts) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_destroy(reference()) -> ok.
+trace_session_destroy(_TraceSession) ->
     erlang:nif_error(undefined).
 
 -spec dist_ctrl_put_data(DHandle, Data) -> 'ok' when

@@ -473,7 +473,8 @@ A list of binaries. This datatype is useful to use together with
 -export([suspend_process/2, system_monitor/0]).
 -export([system_monitor/1, system_monitor/2, system_profile/0]).
 -export([system_profile/2, throw/1, time/0, trace/3, trace_delivered/1]).
--export([trace_info/2, trunc/1, tuple_size/1, universaltime/0]).
+-export([trace_session_create/1, trace_session_destroy/1]).
+-export([trace_info/2, trace_info/3, trunc/1, tuple_size/1, universaltime/0]).
 -export([universaltime_to_posixtime/1, unlink/1, unregister/1, whereis/1]).
 
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
@@ -6774,6 +6775,24 @@ a non-existing function, `Value` is `undefined`.
 trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
+-doc """
+The same as [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
+but applied on a dynamic trace session.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
+      Session :: reference(),
+      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
+                     | {Module, Function, Arity} | on_load | send | 'receive',
+      Module :: module(),
+      Function :: atom(),
+      Arity :: arity(),
+      Item :: flags | tracer | traced | match_spec
+            | meta | meta_match_spec | call_count | call_time | call_memory | all,
+      Res :: trace_info_return().
+trace_info(_Session, _PidPortFuncEvent, _Item) ->
+    erlang:nif_error(undefined).
+
 %% trunc/1
 %% Shadowed by erl_bif_types: erlang:trunc/1
 -doc """
@@ -9962,6 +9981,18 @@ Failure: `badarg` if `List` is an empty list `[]`.
 tl(_List) ->
     erlang:nif_error(undefined).
 
+trace_session_create(Opts) ->
+    try erts_internal:trace_session_create(Opts) of
+        Ref -> Ref
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [Opts], Stk)
+    end.
+trace_session_destroy(Ref) ->
+    try erts_internal:trace_session_destroy(Ref) of
+        Res -> Res
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [Ref], Stk)
+    end.
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.

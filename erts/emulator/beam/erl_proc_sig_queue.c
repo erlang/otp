@@ -95,7 +95,6 @@ typedef struct {
         int receive_trace;
         int bp_ix;
         ErtsMessage **next;
-        ErtsTracingEvent *event;
     } messages;
 } ErtsSigRecvTracing;
 
@@ -155,6 +154,7 @@ typedef struct {
     Uint flags_on;
     Uint flags_off;
     Eterm tracer;
+    ErtsTraceSession *session;
 } ErtsSigTraceInfo;
 
 #define ERTS_SIG_GL_FLG_ACTIVE          (((erts_aint_t) 1) << 0)
@@ -525,6 +525,9 @@ destroy_trace_info(ErtsSigTraceInfo *ti)
 {
     if (is_value(ti->tracer))
         erts_tracer_update(&ti->tracer, NIL);
+    if(ti->session)
+        erts_deref_trace_session(ti->session);
+
     erts_free(ERTS_ALC_T_SIG_DATA, ti);
 }
 
@@ -559,48 +562,59 @@ sig_enqueue_trace(ErtsPTabElementCommon *sender, Eterm from,
     switch (op) {
     case ERTS_SIG_Q_OP_LINK:
         if (c_p
-            && ((!!IS_TRACED(c_p))
-                & (ERTS_TRACE_FLAGS(c_p) & (F_TRACE_SOL
-                                            | F_TRACE_SOL1)))) {
+            && ((ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SOL | F_TRACE_SOL1)))) {
             ErtsSigTraceInfo *ti;
             Eterm tag;
+            ErtsTracerRef *ref;
             ((ErtsSignal *) *sigp)->nm_sig.mlenoffs = 0; /* directly following
                                                             trace info signal...
                                                          */
-            /*
-             * Set on link enabled.
-             *
-             * Prepend a trace-change-state signal before the
-             * link signal...
-             */
-            tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_TRACE_CHANGE_STATE,
-                                         ERTS_SIG_Q_TYPE_ADJUST_TRACE_INFO,
-                                         0);
-            ti = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(ErtsSigTraceInfo));
-            ti->common.next = *sigp;
-            ti->common.specific.next = &ti->common.next;
-            ti->common.tag = tag;
-            ti->common.mlenoffs = 0; /* Need to zero this since it may be
-                                        preceeded by another non-message
-                                        signal... */
-            ti->flags_on = ERTS_TRACE_FLAGS(c_p) & TRACEE_FLAGS;
+            erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
-            if (!(ti->flags_on & F_TRACE_SOL1)) {
-                ti->flags_off = 0;
-            } else {
-                ti->flags_off = F_TRACE_SOL1|F_TRACE_SOL;
-                erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-                ERTS_TRACE_FLAGS(c_p) &= ~(F_TRACE_SOL1|F_TRACE_SOL);
-                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+            for (ref = c_p->common.tracee.first_ref; ref; ref = ref->next) {
+                if (ref->flags & (F_TRACE_SOL | F_TRACE_SOL1)) {
+                    /*
+                    * Set on link enabled.
+                    *
+                    * Prepend a trace-change-state signal before the
+                    * link signal...
+                    */
+                    tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_TRACE_CHANGE_STATE,
+                                                ERTS_SIG_Q_TYPE_ADJUST_TRACE_INFO,
+                                                0);
+
+                    ti = erts_alloc(ERTS_ALC_T_SIG_DATA, sizeof(ErtsSigTraceInfo));
+                    ti->common.next = *sigp;
+                    ti->common.specific.next = &ti->common.next;
+                    ti->common.tag = tag;
+                    ti->common.mlenoffs = 0; /* Need to zero this since it may be
+                                                preceeded by another non-message
+                                                signal... */
+                    ti->flags_on = ref->flags & TRACEE_FLAGS;
+                    ti->session = ref->session;
+                    erts_ref_trace_session(ref->session);
+                    if (!(ti->flags_on & F_TRACE_SOL1)) {
+                        ti->flags_off = 0;
+                    } else {
+                        ti->flags_off = F_TRACE_SOL1|F_TRACE_SOL;
+                        ref->flags &= ~(F_TRACE_SOL1|F_TRACE_SOL);
+                    }
+                    ti->tracer = erts_tracer_nil;
+                    if(ref->tracer != NIL)
+                        erts_tracer_update(&ti->tracer, ref->tracer);
+
+                    *sigp = (ErtsMessage *) ti;
+
+                    if (!*last_next || *last_next == sigp) {
+                        *last_next = &ti->common.next;
+                    }
+                }
             }
+            ERTS_P_ALL_TRACE_FLAGS(c_p) = erts_sum_all_trace_flags(&c_p->common);
 
-            erts_tracer_update(&ti->tracer, ERTS_TRACER(c_p));
-            *sigp = (ErtsMessage *) ti;
-
-            if (!*last_next || *last_next == sigp) {
-                *last_next = &ti->common.next;
-            }
+            erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
         }
+
         break;
 #ifdef USE_VM_PROBES
     case ERTS_SIG_Q_OP_EXIT:
@@ -1990,7 +2004,7 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     ASSERT(is_ref(to));
     ASSERT(is_internal_pid(from) || is_atom(from));
     
-    if (IS_TRACED_FL(c_p, F_TRACE_SEND))
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SEND))
         trace_send(c_p, to, msg);
     if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
         save_calls(c_p, &exp_send);
@@ -3478,16 +3492,16 @@ is_alive_response(Process *c_p, ErtsMessage *mp, int is_alive)
 static ERTS_INLINE void
 adjust_tracing_state(Process *c_p, ErtsSigRecvTracing *tracing, int setup)
 {
-    if (!IS_TRACED(c_p) || (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE)) {
+    const Uint flgs = ERTS_P_ALL_TRACE_FLAGS(c_p);
+
+    if (!(flgs & (F_TRACE_PROCS | F_TRACE_RECEIVE))) {
         tracing->messages.active = 0;
         tracing->messages.receive_trace = 0;
-        tracing->messages.event = NULL;
         tracing->messages.next = NULL;
         tracing->procs = 0;
         tracing->active = 0;
     }
     else {
-        Uint flgs = ERTS_TRACE_FLAGS(c_p);
         int procs_trace = !!(flgs & F_TRACE_PROCS);
         int recv_trace = !!(flgs & F_TRACE_RECEIVE);
         /* procs tracing enabled? */
@@ -3496,12 +3510,9 @@ adjust_tracing_state(Process *c_p, ErtsSigRecvTracing *tracing, int setup)
 
         /* message receive tracing enabled? */
         tracing->messages.receive_trace = recv_trace;
-        if (!recv_trace)
-            tracing->messages.event = NULL;
-        else {
+        if (recv_trace) {
             if (tracing->messages.bp_ix < 0)
                 tracing->messages.bp_ix = erts_active_bp_ix();
-            tracing->messages.event = &erts_receive_tracing[tracing->messages.bp_ix];
         }
         if (setup) {
             if (recv_trace)
@@ -7875,16 +7886,23 @@ handle_trace_change_state(Process *c_p,
 {
     ErtsSigTraceInfo *trace_info = (ErtsSigTraceInfo *) sig;
     ErtsMessage **next = *next_nm_sig;
+    ErtsTracerRef *ref;
+    ErtsTraceSession *session;
     int msgs_active, old_msgs_active = !!tracing->messages.active;
 
     ASSERT(sig == *next);
 
     erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
-    ERTS_TRACE_FLAGS(c_p) |= trace_info->flags_on;
-    ERTS_TRACE_FLAGS(c_p) &= ~trace_info->flags_off;
+    session=trace_info->session;
+    ASSERT(session);
+    if(!(ref = get_tracer_ref(&c_p->common, session)))
+        ref = new_tracer_ref(&c_p->common, session);
+    ref->flags |= trace_info->flags_on;
+    ref->flags &= ~trace_info->flags_off;
+    ERTS_P_ALL_TRACE_FLAGS(c_p) = erts_sum_all_trace_flags(&c_p->common);
     if (is_value(trace_info->tracer))
-        erts_tracer_replace(&c_p->common, trace_info->tracer);
+        erts_tracer_replace(&c_p->common, ref, trace_info->tracer);
 
     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
@@ -7962,12 +7980,10 @@ handle_message_enqueued_tracing(Process *c_p,
     }
 #endif
 
-    if (tracing->messages.receive_trace && tracing->messages.event->on) {
-        ASSERT(IS_TRACED(c_p));
+    if (tracing->messages.receive_trace) {
         trace_receive(c_p,
                       ERL_MESSAGE_FROM(msg),
-                      ERL_MESSAGE_TERM(msg),
-                      tracing->messages.event);
+                      ERL_MESSAGE_TERM(msg));
     }
 }
 

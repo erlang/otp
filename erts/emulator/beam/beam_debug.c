@@ -172,8 +172,9 @@ static void debug_bp_finisher(void *ignored)
          * awaken) after updating all breakpoints, it's safe to return now. */
 #ifdef DEBUG
         finish_debug_bp.process = NULL;
+        ASSERT(erts_staging_trace_session == &erts_trace_session_0);
+        erts_staging_trace_session = NULL;
 #endif
-
         erts_release_code_mod_permission();
 
         erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
@@ -185,6 +186,7 @@ static void debug_bp_finisher(void *ignored)
         erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
         erts_proc_dec_refc(p);
 
+        erts_free_breakpoints();
         return;
     }
 
@@ -241,6 +243,8 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
         ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_debug_breakpoint_2),
                         BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
+    ASSERT(erts_staging_trace_session == NULL);
+    erts_staging_trace_session = &erts_trace_session_0;
 
     erts_bp_match_functions(&finish_debug_bp.f, &mfa, specified);
 

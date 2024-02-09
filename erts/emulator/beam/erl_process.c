@@ -712,6 +712,11 @@ erts_pre_init_process(void)
     erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
 	= ERTS_PSD_CALL_TIME_BP_SET_LOCKS;
 
+    erts_psd_required_locks[ERTS_PSD_CALL_MEMORY_BP].get_locks
+        = ERTS_PSD_CALL_MEMORY_BP_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_CALL_MEMORY_BP].set_locks
+        = ERTS_PSD_CALL_MEMORY_BP_SET_LOCKS;
+
     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].get_locks
 	= ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS;
     erts_psd_required_locks[ERTS_PSD_DELAYED_GC_TASK_QS].set_locks
@@ -9593,8 +9598,10 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
             }
         }
 
-	if (IS_TRACED(p))
+	if (ERTS_IS_P_TRACED_FL(p, (F_TRACE_CALLS | F_TRACE_SCHED_EXIT |
+                                    F_TRACE_SCHED | F_TRACE_SCHED_PROCS))) {
             trace_schedule_out(p, state);
+        }
 
 	erts_proc_lock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
 
@@ -10110,7 +10117,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		/* Migrate to dirty scheduler... */
 	    sunlock_sched_out_proc:
 		erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-                if (IS_TRACED(p))
+                if (ERTS_IS_P_TRACED(p))
                     trace_schedule_in(p, state);
 #ifdef DEBUG
                 aborted_execution = !0;
@@ -10166,7 +10173,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
-        if (IS_TRACED(p))
+        if (ERTS_IS_P_TRACED(p))
             trace_schedule_in(p, state);
 
         if (!is_normal_sched) {
@@ -10386,49 +10393,64 @@ static void
 trace_schedule_in(Process *p, erts_aint32_t state)
 {
     ErtsThrPrgrDelayHandle dhndl;
-    ASSERT(IS_TRACED(p));
+    ErtsTracerRef *ref;
+    ErtsTracerRef *next_ref;
+
+
+    ERTS_ASSERT_TRACER_REFS(&p->common);
+    ASSERT(ERTS_IS_P_TRACED(p));
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
 
     dhndl = erts_thr_progress_unmanaged_delay();
 
-    /* Clear tracer if it has been removed */
-    if (erts_is_tracer_proc_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common)) {
+    for (ref = p->common.tracee.first_ref; ref; ref = next_ref) {
+        next_ref = ref->next;
+        /* Clear tracer if it has been removed */
+        if (erts_is_tracer_ref_proc_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, ref)) {
 
-        if (state & ERTS_PSFLG_EXITING && p->u.terminate) {
-            if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
-                trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in_exiting);
+            if (state & ERTS_PSFLG_EXITING && p->u.terminate) {
+                if (IS_SESSION_TRACED_FL(ref, F_TRACE_SCHED_EXIT)) {
+                    trace_sched_session(p, ERTS_PROC_LOCK_MAIN, am_in_exiting,
+                                        ref);
+                }
+            }
+            else {
+                if (IS_SESSION_TRACED_ANY_FL(ref, (F_TRACE_SCHED |
+                                                   F_TRACE_SCHED_PROCS))) {
+                    trace_sched_session(p, ERTS_PROC_LOCK_MAIN, am_in, ref);
+                }
+            }
         }
-        else {
-            if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
-                ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
-                trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);
-        }
-        if (IS_TRACED_FL(p, F_TRACE_CALLS))
-            erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
     }
+
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_CALLS))
+        erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_IN);
+
     erts_thr_progress_unmanaged_continue(dhndl);
+
+    ERTS_ASSERT_TRACER_REFS(&p->common);
 }
 
 static void
 trace_schedule_out(Process *p, erts_aint32_t state)
 {
     ErtsThrPrgrDelayHandle dhndl;
-    ASSERT(IS_TRACED(p));
+    ASSERT(ERTS_IS_P_TRACED(p));
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) == ERTS_PROC_LOCK_MAIN);
 
     dhndl = erts_thr_progress_unmanaged_delay();
     
-    if (IS_TRACED_FL(p, F_TRACE_CALLS) && !(state & ERTS_PSFLG_FREE))
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_CALLS) && !(state & ERTS_PSFLG_FREE))
         erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_OUT);
 
     if (state & ERTS_PSFLG_EXITING && p->u.terminate) {
-        if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_EXIT))
-            trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out_exiting);
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_EXIT))
+            trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out_exiting,
+                        F_TRACE_SCHED_EXIT);
     }
-    else {
-        if (ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED) ||
-            ARE_TRACE_FLAGS_ON(p, F_TRACE_SCHED_PROCS))
-            trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out);
+    else if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED|F_TRACE_SCHED_PROCS)) {
+        trace_sched(p, ERTS_PROC_LOCK_MAIN, am_out,
+                    F_TRACE_SCHED | F_TRACE_SCHED_PROCS);
     }
     erts_thr_progress_unmanaged_continue(dhndl);
 }
@@ -12451,6 +12473,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->abandoned_heap = NULL;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     p->catches = 0;
+    p->return_trace_frames = 0;
 
     p->bin_vheap_sz     = p->min_vheap_size;
     p->bin_old_vheap_sz = p->min_vheap_size;
@@ -12512,7 +12535,59 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	    : STORE_NC(&p->htop, &p->off_heap, group_leader);
     }
 
-    erts_get_default_proc_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
+    ERTS_P_ALL_TRACE_FLAGS(p) = 0;
+    p->common.tracee.first_ref = NULL;
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        Uint32 trace_flags;
+        ErtsTracer tracer;
+        // ToDo: Optimize
+        erts_get_default_proc_tracing(s, &trace_flags, &tracer);
+        if (trace_flags) {
+            ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
+            ref->flags = trace_flags;
+            ref->tracer = tracer;
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+
+    if (parent && ERTS_IS_P_TRACED(parent)) {
+        if (ERTS_IS_P_TRACED_FL(parent, F_TRACE_SOS|F_TRACE_SOS1)
+            || (so->flags & SPO_LINK
+                && ERTS_IS_P_TRACED_FL(parent, F_TRACE_SOL|F_TRACE_SOL1))) {
+
+            ErtsTracerRef *p_ref;
+            ErtsTracerRef *c_ref;
+            Uint32 parent_new_all_trace_flags = 0;
+
+            for (p_ref = parent->common.tracee.first_ref; p_ref; p_ref = p_ref->next) {
+                if (p_ref->flags & (F_TRACE_SOS|F_TRACE_SOS1)
+                    || ((so->flags & SPO_LINK)
+                        && (p_ref->flags & (F_TRACE_SOL|F_TRACE_SOL1)))) {
+
+                    c_ref = get_tracer_ref(&p->common, p_ref->session);
+                    if (!c_ref) {
+                        c_ref = new_tracer_ref(&p->common, p_ref->session);
+                    }
+                    // ToDo: Should we add flags from parent and on_spawn?
+                    c_ref->flags = p_ref->flags & TRACEE_FLAGS;
+                    erts_tracer_update(&c_ref->tracer, p_ref->tracer);
+                    if (p_ref->flags & F_TRACE_SOS1) {
+                        c_ref->flags &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
+                        p_ref->flags &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
+                    }
+                    if ((so->flags & SPO_LINK) && (p_ref->flags & F_TRACE_SOL1)) {
+                        c_ref->flags &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+                        p_ref->flags &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+                    }
+                    ERTS_P_ALL_TRACE_FLAGS(p) |= (c_ref->flags & TRACEE_FLAGS);
+                }
+                parent_new_all_trace_flags |= p_ref->flags & TRACEE_FLAGS;
+            }
+            ERTS_P_ALL_TRACE_FLAGS(parent) = parent_new_all_trace_flags;
+        }
+    }
+    ERTS_P_ALL_TRACE_FLAGS(p) = erts_sum_all_trace_flags(&p->common);
 
     p->uniq = 0;
     p->sig_qs.first = NULL;
@@ -12567,28 +12642,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->trace_msg_q = NULL;
     p->scheduler_data = NULL;
-
-    if (parent && IS_TRACED(parent)) {
-	if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS) {
-	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
-            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-	}
-        if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS1) {
-	    /* Overrides TRACE_CHILDREN */
-	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
-            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-	    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
-	    ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOS1 | F_TRACE_SOS);
-	}
-        if (so->flags & SPO_LINK && ERTS_TRACE_FLAGS(parent) & (F_TRACE_SOL|F_TRACE_SOL1)) {
-            ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent)&TRACEE_FLAGS);
-            erts_tracer_replace(&p->common, ERTS_TRACER(parent));
-            if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOL1) {/*maybe override*/
-                ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-                ERTS_TRACE_FLAGS(parent) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-            }
-        }
-    }
 
     /* seq_trace is handled before regular tracing as the latter may touch the
      * trace token. */
@@ -12690,7 +12743,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         }
     }
 
-    if (parent && IS_TRACED_FL(parent, F_TRACE_PROCS)) {
+    if (parent && (ERTS_IS_P_TRACED_FL(parent, F_TRACE_PROCS))) {
         /* The locks may already be released if seq_trace is enabled as well. */
         if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
             == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
@@ -12703,7 +12756,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
             trace_proc(parent, locks, parent, am_link, p->common.id);
     }
 
-    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_PROCS)) {
         if ((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE))
               == (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) {
             /* This happens when parent was not traced, but child is */
@@ -13025,8 +13078,8 @@ void erts_init_empty_process(Process *p)
     p->rcount = 0;
     p->common.id = ERTS_INVALID_PID;
     p->reds = 0;
-    ERTS_TRACER(p) = erts_tracer_nil;
-    ERTS_TRACE_FLAGS(p) = F_INITIAL_TRACE_FLAGS;
+    p->common.tracee.first_ref = NULL;
+    p->common.tracee.all_trace_flags = F_INITIAL_TRACE_FLAGS;
     p->group_leader = ERTS_INVALID_PID;
     p->flags = 0;
     p->fvalue = NIL;
@@ -13086,6 +13139,7 @@ void erts_init_empty_process(Process *p)
     p->u.initial.function = 0;
     p->u.initial.arity = 0;
     p->catches = 0;
+    p->return_trace_frames = 0;
     p->i = NULL;
     p->current = NULL;
 
@@ -13135,8 +13189,8 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->live_hf_end == ERTS_INVALID_HFRAG_PTR);
     ASSERT(p->heap == NULL);
     ASSERT(p->common.id == ERTS_INVALID_PID);
-    ASSERT(ERTS_TRACER_IS_NIL(ERTS_TRACER(p)));
-    ASSERT(ERTS_TRACE_FLAGS(p) == F_INITIAL_TRACE_FLAGS);
+    ASSERT(p->common.tracee.first_ref == NULL);
+    ASSERT(p->common.tracee.all_trace_flags == F_INITIAL_TRACE_FLAGS);
     ASSERT(p->group_leader == ERTS_INVALID_PID);
     ASSERT(p->next == NULL);
     ASSERT(p->common.u.alive.reg == NULL);
@@ -13155,6 +13209,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->bif_timers == NULL);
     ASSERT(p->dictionary == NULL);
     ASSERT(p->catches == 0);
+    ASSERT(p->return_trace_frames == 0);
     ASSERT(p->i == NULL);
     ASSERT(p->current == NULL);
 
@@ -13221,11 +13276,17 @@ delete_process(Process* p)
     }
 
     pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
-    if (pbt)
+    while (pbt) {
+        process_breakpoint_trace_t *next = pbt->next;
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+        pbt = next;
+    }
     pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
-    if (pbt)
+    while (pbt) {
+        process_breakpoint_trace_t *next = pbt->next;
         erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+        pbt = next;
+    }
 
     erts_destroy_nfunc(p);
 
@@ -13980,12 +14041,12 @@ erts_do_exit_process(Process* p, Eterm reason)
 
     set_self_exiting(p, reason, NULL, NULL, NULL);
 
-    if (IS_TRACED_FL(p, F_TRACE_CALLS))
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_CALLS))
         erts_schedule_time_break(p, ERTS_BP_CALL_TIME_SCHEDULE_EXITING);
 
     erts_trace_check_exiting(p->common.id);
 
-    ASSERT((ERTS_TRACE_FLAGS(p) & F_INITIAL_TRACE_FLAGS)
+    ASSERT((ERTS_P_ALL_TRACE_FLAGS(p) & F_INITIAL_TRACE_FLAGS)
 	   == F_INITIAL_TRACE_FLAGS);
 
     ASSERT(erts_proc_read_refc(p) > 0);
@@ -13996,7 +14057,7 @@ erts_do_exit_process(Process* p, Eterm reason)
 
     erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 
-    if (IS_TRACED_FL(p, F_TRACE_PROCS))
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_PROCS))
         trace_proc(p, ERTS_PROC_LOCK_MAIN, p, am_exit, reason);
 
     /*
@@ -14538,12 +14599,12 @@ restart:
 
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_EXIT))
-        trace_sched(p, curr_locks, am_out_exited);
+    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SCHED_EXIT))
+        trace_sched(p, curr_locks, am_out_exited, F_TRACE_SCHED_EXIT);
 
     erts_flush_trace_messages(p, ERTS_PROC_LOCK_MAIN);
 
-    ERTS_TRACER_CLEAR(&ERTS_TRACER(p));
+    delete_all_trace_refs(&p->common);
 
     if (!delay_del_proc)
 	delete_process(p);
@@ -14656,7 +14717,7 @@ erts_stack_dump(fmtfn_t to, void *to_arg, Process *p)
     Eterm* sp;
     Uint yreg = 0;
 
-    if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE) {
+    if (ERTS_IS_PROC_SENSITIVE(p)) {
 	return;
     }
     erts_program_counter_info(to, to_arg, p);
@@ -14943,7 +15004,7 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
     erts_aint32_t flg;
 
     erts_print(to, to_arg, "Current Process: ");
-    if (esdp->current_process && !(ERTS_TRACE_FLAGS(p) & F_SENSITIVE)) {
+    if (esdp->current_process && !(ERTS_IS_PROC_SENSITIVE(p))) {
 	flg = erts_atomic32_read_dirty(&p->state);
 	erts_print(to, to_arg, "%T\n", p->common.id);
 

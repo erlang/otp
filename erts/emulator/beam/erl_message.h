@@ -450,11 +450,11 @@ typedef struct erl_trace_message_queue__ {
 
 #ifdef USE_VM_PROBES
 #  define ERTS_MSG_RECV_TRACED(P)                                       \
-    ((ERTS_TRACE_FLAGS((P)) & F_TRACE_RECEIVE)                          \
+    (ERTS_IS_P_TRACED_FL(P, F_TRACE_RECEIVE)                            \
      || DTRACE_ENABLED(message_queued))
 #else
 #  define ERTS_MSG_RECV_TRACED(P)                                       \
-    (ERTS_TRACE_FLAGS((P)) & F_TRACE_RECEIVE)
+    (ERTS_IS_P_TRACED_FL(P, F_TRACE_RECEIVE))
 
 #endif
 

@@ -24,7 +24,7 @@ return_trace() {
 
     SWAPOUT;		/* Needed for shared heap */
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, x(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
+    erts_trace_return(c_p, mfa, x(0), E[2]/*tracer*/, E[3]/*session_id*/);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
     E += 1 + BEAM_RETURN_TRACE_FRAME_SZ;
@@ -59,7 +59,7 @@ i_call_trace_return() {
     }
 
     SWAPOUT;
-    erts_call_trace_return(c_p, cinfo, E[2]);
+    erts_call_trace_return(c_p, cinfo, E[2], E[3]);
     SWAPIN;
 
     E += 1 + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
@@ -69,8 +69,10 @@ i_call_trace_return() {
 }
 
 i_return_to_trace() {
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
-        Uint *cpp = (Uint*) E;
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+	Eterm session_id = E[1];
+        Uint *cpp = (Uint*) E + 1;
+
         while (is_not_CP(*cpp)) {
             cpp++;
         }
@@ -90,7 +92,7 @@ i_return_to_trace() {
         }
         SWAPOUT;		/* Needed for shared heap */
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, cp_val(*cpp));
+        erts_trace_return_to(c_p, cp_val(*cpp), session_id);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
     }

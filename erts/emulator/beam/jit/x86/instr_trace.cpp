@@ -166,21 +166,23 @@ void BeamGlobalAssembler::emit_debug_bp() {
 static void return_trace(Process *c_p,
                          ErtsCodeMFA *mfa,
                          Eterm val,
-                         ErtsTracer *tracer) {
+                         ErtsTracer tracer,
+                         Eterm session_id) {
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, val, tracer);
+    erts_trace_return(c_p, mfa, val, tracer, session_id);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 }
 
 void BeamModuleAssembler::emit_return_trace() {
     a.mov(ARG2, getYRef(0));
     a.mov(ARG3, getXRef(0));
-    a.lea(ARG4, getYRef(1));
+    a.mov(ARG4, getYRef(1)); /* tracer */
+    a.mov(ARG5, getYRef(2)); /* session_id */
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(return_trace);
+    runtime_call<5>(return_trace);
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -197,11 +199,12 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     a.lea(ARG2, x86::qword_ptr(ARG2, -(Sint)sizeof(ErtsCodeInfo)));
     a.cmovnz(ARG2, ARG4);
     a.mov(ARG3, getYRef(1));
+    a.mov(ARG4, getYRef(2));
 
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_call_trace_return);
+    runtime_call<4>(erts_call_trace_return);
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -210,19 +213,23 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
-    /* Remove our stack frame so that `beam_jit_return_to_trace` can inspect
-     * the next one.
-     *
-     * (This doesn't do anything if the native stack is used.) */
-    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
+    UWord frame_size = BEAM_RETURN_TO_TRACE_FRAME_SZ;
+
+#if !defined(NATIVE_ERLANG_STACK)
+    frame_size += CP_SIZE;
+#endif
+
+    a.mov(ARG2, getYRef(0)); /* session_id */
+    a.lea(ARG3, x86::qword_ptr(E, frame_size * sizeof(Eterm)));
 
     emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_return_to_trace);
+    runtime_call<3>(beam_jit_return_to_trace);
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
 
+    emit_deallocate(ArgWord(BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 

@@ -164,8 +164,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  *
  * RET = export entry */
 void BeamGlobalAssembler::emit_export_trampoline() {
-    Label call_bif = a.newLabel(), error_handler = a.newLabel(),
-          jump_trace = a.newLabel();
+    Label call_bif = a.newLabel(), error_handler = a.newLabel();
 
     /* What are we supposed to do? */
     a.mov(ARG1, x86::qword_ptr(RET, offsetof(Export, trampoline.common.op)));
@@ -180,9 +179,6 @@ void BeamGlobalAssembler::emit_export_trampoline() {
 
     a.cmp(ARG1, imm(op_call_error_handler));
     a.je(error_handler);
-
-    a.cmp(ARG1, imm(op_trace_jump_W));
-    a.je(jump_trace);
 
     /* Must never happen. */
     comment("Unexpected export trampoline op");
@@ -204,9 +200,6 @@ void BeamGlobalAssembler::emit_export_trampoline() {
         emit_enter_frame();
         a.jmp(labels[call_bif_shared]);
     }
-
-    a.bind(jump_trace);
-    a.jmp(x86::qword_ptr(RET, offsetof(Export, trampoline.trace.address)));
 
     a.bind(error_handler);
     {

@@ -520,7 +520,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     c_p->fvalue = NIL;
 
     /* Find a handler or die */
-    if ((c_p->catches > 0 || IS_TRACED_FL(c_p, F_EXCEPTION_TRACE))
+    if ((c_p->catches > 0 || c_p->return_trace_frames > 0)
 	&& !(c_p->freason & EXF_PANIC)) {
 	ErtsCodePtr new_pc;
         /* The Beam handler code (catch_end or try_end) checks reg[0]
@@ -575,21 +575,12 @@ next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
     ErtsCodePtr return_to_trace_address = NULL;
     int have_return_to_trace = 0;
+    Eterm session_weak_id = NIL;
     Eterm *ptr, *prev;
     ErtsCodePtr handler;
 
     ptr = prev = c_p->stop;
-    ASSERT(ptr <= STACK_START(c_p));
-
-    /* This function is only called if we have active catch tags or have
-     * previously called a function that was exception-traced. As the exception
-     * trace flag isn't cleared after the traced function returns (and the
-     * catch tag inserted by it is gone), it's possible to land here with an
-     * empty stack, and the process should simply die when that happens. */
-    if (ptr == STACK_START(c_p)) {
-        ASSERT(!active_catches && IS_TRACED_FL(c_p, F_EXCEPTION_TRACE));
-        return NULL;
-    }
+    ASSERT(ptr < STACK_START(c_p));
 
     while (ptr < STACK_START(c_p)) {
         Eterm val = ptr[0];
@@ -609,20 +600,22 @@ next_catch(Process* c_p, Eterm *reg) {
 
             if (BeamIsReturnTrace(return_address)) {
                 if (return_address == beam_exception_trace) {
-                    ErtsTracer *tracer;
                     ErtsCodeMFA *mfa;
 
                     mfa = (ErtsCodeMFA*)cp_val(frame[0]);
-                    tracer = ERTS_TRACER_FROM_ETERM(&frame[1]);
 
                     ASSERT_MFA(mfa);
-                    erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
+                    erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1], frame[2]);
                 }
+                ASSERT(c_p->return_trace_frames > 0);
+                c_p->return_trace_frames--;
+
                 ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
             } else if (BeamIsReturnCallAccTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
+                session_weak_id = frame[0];
                 return_to_trace_address = NULL;
 
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
@@ -650,13 +643,17 @@ next_catch(Process* c_p, Eterm *reg) {
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
 
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_address) {
-        /* The stackframe closest to the catch contained an
-         * return_to_trace entry, so since the execution now
-         * continues after the catch, a return_to trace message
-         * would be appropriate.
-         */
-        erts_trace_return_to(c_p, return_to_trace_address);
+    if (return_to_trace_address) {
+        ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
+                                                         session_weak_id);
+        if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+            /* The stackframe closest to the catch contained an
+             * return_to_trace entry, so since the execution now
+             * continues after the catch, a return_to trace message
+             * would be appropriate.
+             */
+            erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
+        }
     }
 
     /* Clear the try_tag or catch_tag in the stack frame so that we
@@ -1678,6 +1675,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     }
 
     c_p->catches = 0;
+    c_p->return_trace_frames = 0;
     c_p->i = beam_run_process;
 
     /*

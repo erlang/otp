@@ -125,6 +125,8 @@ MODULES= \
 	trace_call_time_SUITE \
 	trace_call_memory_SUITE \
 	tracer_SUITE \
+	trace_session_SUITE \
+	trace_sessions \
 	tracer_test \
 	scheduler_SUITE \
 	port_trace_SUITE \
@@ -196,6 +198,7 @@ TEST_SPEC_FILES= emulator.spec \
 		 emulator_bench.spec \
 		 emulator_gh.spec \
 		 emulator_smoke.spec \
+		 emulator_trace.spec \
                  emulator_node_container_SUITE.spec
 
 # ----------------------------------------------------
