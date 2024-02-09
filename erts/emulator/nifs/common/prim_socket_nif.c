@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -460,6 +460,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #else
 #define ESOCK_RECV_BUFFER_SIZE_DEFAULT      (8*1024)
 #endif
+#define ESOCK_RECV_BUFFER_SIZE_MIN          1
 #define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
 #define ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
 
@@ -6945,7 +6946,10 @@ ERL_NIF_TERM esock_setopt_otp_rcvbuf(ErlNifEnv*       env,
 #ifndef __WIN32__
     descP->rNum   = n;
 #endif
-    descP->rBufSz = bufSz;
+    if (bufSz < ESOCK_RECV_BUFFER_SIZE_MIN)
+        descP->rBufSz = ESOCK_RECV_BUFFER_SIZE_MIN;
+    else
+        descP->rBufSz = bufSz;
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_rcvbuf {%d} -> ok"

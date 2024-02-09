@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -8745,20 +8745,17 @@ sm_await_socket_down(ExpMon, ExpSock, ExpType) ->
 
 sm_await_socket_down(ExpMon, ExpSock, ExpType, Name) ->
     receive
-	{'DOWN', Mon, Type, Sock, Info} when (Type =:= ExpType) andalso 
-					     (Mon  =:= ExpMon)  andalso 
-					     (Sock =:= ExpSock) ->
+	{'DOWN', ExpMon, ExpType, ExpSock, Info} = Msg ->
 	    ?P("[~s] received expected (socket) down message: "
-	       "~n   Mon:  ~p"
-	       "~n   Type: ~p"
-	       "~n   Sock: ~p"
-	       "~n   Info: ~p", [Name, Mon, Type, Sock, Info]),
+	       "~n   ~p", [Name, Msg]),
 	    exit(ok);
 
 	Any ->
+            ExpMsg = {'DOWN', ExpMon, ExpType, ExpSock, '_Info'},
 	    ?P("[~s] received unexpected message: "
-	       "~n   ~p", [Name, Any]),
-	    exit({unexpected_message, Any})
+	       "~n   ~p, Expected:"
+               "~n   ~p", [Name, Any, ExpMsg]),
+	    exit({unexpected_message, Any, ExpMsg})
     end.
 
 sm_await_client_ready(Pid) ->
@@ -8777,8 +8774,9 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	    ok;
 	{'DOWN', Mon, process, Pid, UnexpRes} ->
 	    ?P("received unexpected process down message from ~p: "
-	       "~n   ~p", [Pid, UnexpRes]),
-	    ct:fail({unexpected_down, UnexpRes})
+	       "~n   ~p, Expected:"
+               "~n   ~p", [Pid, UnexpRes, ExpRes]),
+	    ct:fail({unexpected_down, UnexpRes, ExpRes})
     end.
 
 

@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 SOCKET_MODULES = \
+	gen_tcp_socket_SUITE \
 	socket_test_lib \
 	socket_test_logger \
 	socket_test_evaluator \
