@@ -303,7 +303,7 @@ private_types(Conf) ->
            MapValue2T, MapKey2T, MapValueT, MapKeyT,
            FunRet2T, FunRetT, FunT, Complex, BoundedRetT,
            ArgT, BoundedArgT, Private, HiddenExportT, PrivateCBT,
-           PublicT, PrivateT,
+           OpaqueT, PublicT, PrivateT,
            %% Callbacks
            CBar,
            %% Functions
@@ -324,14 +324,15 @@ private_types(Conf) ->
     ?assertMatch({{type,bounded_ret_t,0}, _, _, none, #{exported := false}},BoundedRetT),
     ?assertMatch({{type,arg_t,0}, _, _, none, #{exported := false}},ArgT),
     ?assertMatch({{type,bounded_arg_t,0}, _, _, none, #{exported := false}},BoundedArgT),
-    ?assertMatch({{type,private,0}, {28,2}, [<<"private()">>], hidden, #{exported := false}},Private),
+    ?assertMatch({{type,private,0}, {30,2}, [<<"private()">>], hidden, #{exported := false}},Private),
     ?assertMatch({{type,hidden_export_t,0},_,[<<"hidden_export_t()">>],hidden,#{exported := true}},HiddenExportT),
     ?assertMatch({{type,private_cb_t,0},_,_,none,#{exported := false}},PrivateCBT),
+    ?assertMatch({{type,opaque_t,0},_, [<<"opaque_t()">>], none,#{ exported := true}},OpaqueT),
     ?assertMatch({{type,public_t,0},_, [<<"public_t()">>], none,#{ exported := true}},PublicT),
     ?assertMatch({{type,private_t,0},_, [<<"private_t()">>], none,#{ exported := false}},PrivateT),
     ?assertMatch({{callback,bar,1},_,_,none,#{}},CBar),
     ?assertMatch({{function,bounded,2},_,_,none,#{}},Bounded),
-    ?assertMatch({{function,hidden_type_exposed,0},{32,1},[<<"hidden_type_exposed()">>],none,#{}},HiddenTypeExposed),
+    ?assertMatch({{function,hidden_type_exposed,0},{34,1},[<<"hidden_type_exposed()">>],none,#{}},HiddenTypeExposed),
     ?assertMatch({{function,hidden,0},_,[<<"hidden()">>],hidden,#{}},Hidden),
     ?assertMatch({{function,bar,0},_,[<<"bar()">>],none,#{}},Bar),
 

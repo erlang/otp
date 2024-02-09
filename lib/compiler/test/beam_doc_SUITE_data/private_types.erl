@@ -1,10 +1,12 @@
 -module(private_types).
 
 -export([bar/0, hidden/0, hidden_type_exposed/0, bounded/2]).
--export_type([public_t/0, hidden_export_t/0, complex/1]).
+-export_type([public_t/0, hidden_export_t/0, complex/1, opaque_t/0]).
 
 -type private_t() :: integer(). %% In chunk because referred to by exported bar/0
 -type public_t() :: integer(). %% In chunk because exported
+-opaque opaque_t() :: local_t() | private_t(). %% In chunk because exported,
+                                               %% but local_t() not in chunk
 -type private_cb_t() :: integer(). %% In chunk because referred to by callback
 -type local_t() :: integer(). %% Not in chunk because only referred by non-exported function
 

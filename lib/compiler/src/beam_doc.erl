@@ -523,7 +523,7 @@ extract_type_defs0(_, State) ->
 %%
 extract_type_dependencies({attribute, _Anno, TypeOrOpaque, {TypeName, TypeDef, TypeArgs}},
                           #docs{type_dependency = TypeDependency}=State)
-  when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
+  when TypeOrOpaque =:= type ->
    Types = extract_user_types([TypeArgs, TypeDef], State),
    Type = {TypeName, length(TypeArgs)},
    digraph:add_vertex(TypeDependency, Type),
