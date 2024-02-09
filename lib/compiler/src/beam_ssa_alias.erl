@@ -487,7 +487,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 [#b_literal{val=Hint},_Size,Src|Updates] = Args,
                 RecordType = maps:get(arg_types, Anno0, #{}),
                 ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
-                    [Dst,_Src,RecordType]),
+                    [Dst,Src,RecordType]),
                 Values = aa_update_record_get_vars(Updates),
                 ?DP("values: ~p~n", [Values]),
                 Types = aa_map_arg_to_type(Args, RecordType),
@@ -555,7 +555,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
-    ?DP("Post I: ~p.~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
