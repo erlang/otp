@@ -1277,11 +1277,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">backup(BackupDir) -> ok | {error, Reason}</name>
+      <name name="backup" arity="1" clause_i="1" since=""/>
       <fsummary>Backup manager data</fsummary>
-      <type>
-        <v>BackupDir = string()</v>
-      </type>
       <desc>
         <p>Backup persistent data handled by the manager. </p>
         <p>BackupDir cannot be identical to DbDir. </p>

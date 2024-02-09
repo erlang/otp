@@ -278,6 +278,10 @@ sleep(To) -> snmp_misc:sleep(To).
 
 %% -- Misc --
 
+-spec backup(BackupDir) -> ok | {error, Reason} when
+      BackupDir :: snmp:dir(),
+      Reason    :: term().
+
 backup(BackupDir) ->
     snmpm_config:backup(BackupDir).
 
