@@ -1192,17 +1192,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">name_to_oid(Name) -> {ok, Oids} | {error, Reason}</name>
+      <name name="name_to_oid" arity="1" clause_i="1" since=""/>
       <fsummary>Get all the possible oid's for an alias-name</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Oids = [oid()]</v>
-      </type>
       <desc>
-        <p>Transform a alias-name to its oid.</p>
+        <p>Transform a alias-name to its oid. </p>
         <p>Note that an alias-name is only unique within the mib, so
-          when loading several mib's into a manager, there might be
-          several instances of the same aliasname.</p>
+	when loading several mib's into a manager, there might be
+	several instances of the same aliasname. </p>
 
         <marker id="oid_to_name"></marker>
       </desc>

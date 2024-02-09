@@ -315,8 +315,14 @@ which_mibs() ->
     snmpm_config:which_mibs().
 
 %% Get all the possible oid's for the aliasname
-name_to_oid(Name) ->
-    snmpm_config:name_to_oid(Name).
+
+-spec name_to_oid(AliasName) -> {ok, OIDs} | {error, Reason} when
+      AliasName :: atom(),
+      OIDs      :: [snmp:oid()],
+      Reason    :: term().
+
+name_to_oid(AliasName) ->
+    snmpm_config:name_to_oid(AliasName).
 
 %% Get the aliasname for an oid
 oid_to_name(Oid) ->
