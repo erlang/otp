@@ -265,11 +265,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">demonitor(Ref) -> void()</name>
+      <name name="demonitor" arity="1" clause_i="1" since=""/>
       <fsummary>Turn off monitoring of the snmp manager</fsummary>
-      <type>
-        <v>Ref = reference()</v>
-      </type>
       <desc>
         <p>Turn off monitoring of the SNMP manager. </p>
 

@@ -224,6 +224,9 @@ stop(Timeout) when (Timeout =:= infinity) orelse
 monitor() ->
     erlang:monitor(process, snmpm_supervisor).
 
+-spec demonitor(Ref) -> true when
+      Ref :: reference().
+
 demonitor(Ref) ->
     erlang:demonitor(Ref).
 	
