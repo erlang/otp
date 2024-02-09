@@ -58,7 +58,6 @@
 #include "erl_iolist.h"
 
 extern ErlDrvEntry fd_driver_entry;
-extern ErlDrvEntry vanilla_driver_entry;
 extern ErlDrvEntry spawn_driver_entry;
 #ifndef __WIN32__
 extern ErlDrvEntry forker_driver_entry;
@@ -78,7 +77,6 @@ const ErlDrvTermData driver_term_nil = (ErlDrvTermData)NIL;
 
 const Port erts_invalid_port = {{ERTS_INVALID_PORT}};
 
-erts_driver_t vanilla_driver;
 erts_driver_t spawn_driver;
 #ifndef __WIN32__
 erts_driver_t forker_driver;
@@ -611,7 +609,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     }
 
     if (opts->port_watermarks_set && driver != &spawn_driver
-        && driver != &fd_driver && driver != &vanilla_driver) {
+        && driver != &fd_driver) {
 	erts_rwmtx_runlock(&erts_driver_list_lock);
 	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
@@ -3008,7 +3006,6 @@ void erts_init_io(int port_tab_size,
     erts_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
-    init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
 #ifndef __WIN32__
     init_driver(&forker_driver, &forker_driver_entry, NULL);
@@ -3069,7 +3066,6 @@ static void lcnt_enable_port_lock_count(Port *prt, int enable)
 void erts_lcnt_update_driver_locks(int enable) {
     erts_driver_t *driver;
 
-    lcnt_enable_driver_lock_count(&vanilla_driver, enable);
     lcnt_enable_driver_lock_count(&spawn_driver, enable);
 #ifndef __WIN32__
     lcnt_enable_driver_lock_count(&forker_driver, enable);
@@ -5156,8 +5152,6 @@ print_port_info(Port *p, fmtfn_t to, void *arg)
 
     if (p->drv_ptr == &fd_driver) {
 	erts_print(to, arg, "Port is UNIX fd not opened by emulator: %s\n", p->name);
-    } else if (p->drv_ptr == &vanilla_driver) {
-	erts_print(to, arg, "Port is a file: %s\n",p->name);
     } else if (p->drv_ptr == &spawn_driver) {
 	erts_print(to, arg, "Port controls external process: %s\n",p->name);
 #ifndef __WIN32__

@@ -1566,9 +1566,7 @@ ordering(Config) when is_list(Config) ->
     true = B1 > fun() -> 1 end,
     true = B1 > fun erlang:send/2,
 
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
+    Port = hd(erlang:ports()),
     true = B1 > Port,
 
     true = B1 >= 0,

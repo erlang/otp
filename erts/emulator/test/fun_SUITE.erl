@@ -342,9 +342,7 @@ ordering(Config) when is_list(Config) ->
 
     %% Create a port and ref.
 
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    P = open_port(AFile, [out]),
+    P = hd(erlang:ports()),
     R = make_ref(),
 
     %% Compare funs with ports and refs.
@@ -404,20 +402,23 @@ make_fun(X, Y) ->
 
 %% Try sending funs to ports (should fail).
 fun_to_port(Config) when is_list(Config) ->
-    fun_to_port(Config, xxx),
-    fun_to_port(Config, fun() -> 42 end),
-    fun_to_port(Config, [fun() -> 43 end]),
-    fun_to_port(Config, [1,fun() -> 44 end]),
-    fun_to_port(Config, [0,1|fun() -> 45 end]),
+    Port = open_port({spawn_executable, os:find_executable("erl")},
+                     [{args, ["-noshell", "-eval", "timer:sleep(2000)",
+                              "-run", "erlang", "halt"]},
+                      use_stdio]),
+    fun_to_port(Port, xxx),
+    fun_to_port(Port, fun() -> 42 end),
+    fun_to_port(Port, [fun() -> 43 end]),
+    fun_to_port(Port, [1,fun() -> 44 end]),
+    fun_to_port(Port, [0,1|fun() -> 45 end]),
     B64K = build_io_list(65536),
-    fun_to_port(Config, [B64K,fun() -> 45 end]),
-    fun_to_port(Config, [B64K|fun() -> 45 end]),
+    fun_to_port(Port, [B64K,fun() -> 45 end]),
+    fun_to_port(Port, [B64K|fun() -> 45 end]),
+    unlink(Port),
+    exit(Port, kill),
     ok.
 
-fun_to_port(Config, IoList) ->
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
+fun_to_port(Port, IoList) ->
     case catch port_command(Port, IoList) of
 	{'EXIT',{badarg,_}} -> ok;
 	Other -> ct:fail({unexpected_retval,Other})
