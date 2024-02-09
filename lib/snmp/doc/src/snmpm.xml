@@ -1124,22 +1124,15 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">change_log_size(NewSize) -> ok | {error, Reason}</name>
+      <name name="change_log_size" arity="1" clause_i="1" since=""/>
       <fsummary>Change the size of the Audit Trail Log</fsummary>
-      <type>
-        <v>NewSize = {MaxBytes, MaxFiles}</v>
-        <v>MaxBytes = integer()</v>
-        <v>MaxFiles = integer()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Changes the log size of the Audit Trail Log. The application must 
-          be configured to use the audit trail log function. Please refer to 
-          disk_log(3) in Kernel Reference Manual for a description of how to 
-          change the log size.
-          </p>
+	<p>Changes the log size of the Audit Trail Log. The application must 
+	be configured to use the audit trail log function. Please refer to 
+	disk_log(3) in Kernel Reference Manual for a description of how to 
+	change the log size. </p>
         <p>The change is permanent, as long as the log is not deleted. 
-          That means, the log size is remembered across reboots.</p>
+	That means, the log size is remembered across reboots. </p>
 
         <marker id="set_log_type"></marker>
       </desc>

@@ -951,6 +951,10 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
 
+-spec change_log_size(NewSize) -> ok | {error, Reason} when
+      NewSize :: snmp:log_size(),
+      Reason  :: term().
+
 change_log_size(NewSize) ->
     LogName = ?audit_trail_log_name, 
     snmp:change_log_size(LogName, NewSize).
