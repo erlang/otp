@@ -1566,6 +1566,9 @@ ordering(Config) when is_list(Config) ->
     true = B1 > fun() -> 1 end,
     true = B1 > fun erlang:send/2,
 
+    Port = hd(erlang:ports()),
+    true = B1 > Port,
+
     true = B1 >= 0,
     true = B1 >= 39827491247298471289473333333333333333333333333333,
     true = B1 >= -3489274937438742190467869234328742398347,
@@ -1578,6 +1581,7 @@ ordering(Config) when is_list(Config) ->
     true = B1 >= xxx,
     true = B1 >= fun() -> 1 end,
     true = B1 >= fun erlang:send/2,
+    true = B1 >= Port,
 
     ok.
 
