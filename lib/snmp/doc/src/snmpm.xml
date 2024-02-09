@@ -321,11 +321,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">cancel_notify_started(Pid) -> void()</name>
+      <name name="cancel_notify_started" arity="1" clause_i="1" since=""/>
       <fsummary>Cancel request to be notified when manager started</fsummary>
-      <type>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
         <p>Cancel a previous request to be notified of SNMP manager start.</p>
 
@@ -1032,13 +1029,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">cancel_async_request(UserId, ReqId) -> ok | {error, Reason}</name>
+      <name name="cancel_async_request" arity="2" clause_i="1" since=""/>
       <fsummary>Cancel a asynchronous request</fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>ReqId = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Cancel a previous asynchronous request.</p>
 

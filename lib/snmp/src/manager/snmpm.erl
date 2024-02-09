@@ -233,6 +233,10 @@ demonitor(Ref) ->
 notify_started(To) when is_integer(To) andalso (To > 0) ->
     spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
 
+
+-spec cancel_notify_started(Pid) -> snmp:void() when
+      Pid :: pid().
+
 cancel_notify_started(Pid) ->
     Pid ! {cancel, self()},
     ok.
@@ -734,6 +738,10 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
                                 NonRep, MaxRep, Oids, SendOpts).
 
 
+-spec cancel_async_request(UserId, ReqId) -> ok | {error, Reason} when
+      UserId :: user_id(),
+      ReqId  :: request_id(),
+      Reason :: term().
 
 cancel_async_request(UserId, ReqId) ->
     snmpm_server:cancel_async_request(UserId, ReqId).
