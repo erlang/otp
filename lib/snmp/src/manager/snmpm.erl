@@ -998,8 +998,17 @@ sys_up_time() ->
 %%% 
 %%%-----------------------------------------------------------------
 
+-spec format_reason(Reason) -> FReason when
+      Reason  :: term(),
+      FReason :: string().
+
 format_reason(Reason) ->
     format_reason("", Reason).
+
+-spec format_reason(Prefix, Reason) -> FReason when
+      Prefix  :: non_neg_integer() | string(),
+      Reason  :: term(),
+      FReason :: string().
 
 format_reason(Prefix, Reason) when is_integer(Prefix) andalso (Prefix >= 0) ->
     format_reason(lists:duplicate(Prefix, $ ), Reason);

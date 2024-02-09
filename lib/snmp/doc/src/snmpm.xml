@@ -1319,32 +1319,28 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">format_reason(Reason) -> string()</name>
-      <name since="">format_reason(Prefix, Reason) -> string()</name>
+      <name name="format_reason" arity="1" clause_i="1" since=""/>
+      <name name="format_reason" arity="2" clause_i="1" since=""/>
       <fsummary>Assign a new verbosity for the process</fsummary>
-      <type>
-        <v>Reason = term()</v>
-        <v>Prefix = integer() | string()</v>
-      </type>
       <desc>
         <p>This utility function is used to create a formatted 
-          (pretty printable) string of the error reason received
-          from either:
-          </p>
+	(pretty printable) string of the error reason received
+	from either: </p>
         <list type="bulleted">
           <item>
-            <p>The <c>Reason</c> returned value if any of the 
-              sync/async get/get-next/set/get-bulk
-              functions returns <c>{error, Reason}</c></p>
+	    <p>The <c>Reason</c> returned value if any of the 
+	    sync/async get/get-next/set/get-bulk
+	    functions returns <c>{error, Reason}</c> </p>
           </item>
           <item>
             <p>The <c>Reason</c> parameter in the 
-              <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> user callback function.</p>
+	    <seeerl marker="snmpm_user#handle_error">handle_error</seeerl>
+	    user callback function. </p>
           </item>
         </list>
         <p><c>Prefix</c> should either be an indentation string
-          (e.g. a list of spaces) or a positive integer (which will be used
-          to create the indentation string of that length).</p>
+	(e.g. a list of spaces) or a positive integer (which will be used
+	to create the indentation string of that length). </p>
       </desc>
     </func>
   </funcs>
