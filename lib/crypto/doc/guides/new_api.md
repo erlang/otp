@@ -100,13 +100,6 @@ The `crypto_init` initialies an internal cipher state, and one or more calls of
 `crypto_update` does the actual encryption or decryption. Note that AEAD ciphers
 can't be handled this way due to their nature.
 
-For repeated encryption or decryption of a text divided in parts where the same
-cipher and same key is used, but a new initialization vector (nounce) should be
-applied for each part, the functions are:
-
-- [crypto_dyn_iv_init/3](`crypto:crypto_dyn_iv_init/3`)
-- [crypto_dyn_iv_update/3](`crypto:crypto_dyn_iv_update/3`)
-
 An example of where those functions are needed, is when handling the TLS
 protocol.
 

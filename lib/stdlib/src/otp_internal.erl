@@ -32,10 +32,6 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
-obsolete(crypto, crypto_dyn_iv_init, 3) ->
-    {deprecated, "see the documentation for details", "OTP 27"};
-obsolete(crypto, crypto_dyn_iv_update, 3) ->
-    {deprecated, "see the documentation for details", "OTP 27"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(dbg, stop_clear, 0) ->
@@ -87,15 +83,19 @@ obsolete(core_lib, set_anno, 2) ->
 obsolete(crypto, block_decrypt, 3) ->
     {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
 obsolete(crypto, block_decrypt, 4) ->
-    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_init + crypto:crypto_update + crypto:crypto_final instead"};
 obsolete(crypto, block_encrypt, 3) ->
     {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
 obsolete(crypto, block_encrypt, 4) ->
-    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_init + crypto:crypto_update + crypto:crypto_final instead"};
 obsolete(crypto, cmac, 3) ->
     {removed, "use crypto:mac/4 instead"};
 obsolete(crypto, cmac, 4) ->
     {removed, "use crypto:macN/5 instead"};
+obsolete(crypto, crypto_dyn_iv_init, 3) ->
+    {removed, "not supported, use crypto_init/4"};
+obsolete(crypto, crypto_dyn_iv_update, 3) ->
+    {removed, "not supported, use crypto_update/2"};
 obsolete(crypto, hmac, 3) ->
     {removed, "use crypto:mac/4 instead"};
 obsolete(crypto, hmac, 4) ->
