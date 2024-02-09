@@ -235,6 +235,10 @@ demonitor(Ref) ->
 
 -define(NOTIFY_START_TICK_TIME, 500).
 
+-spec notify_started(Timeout) -> Pid when
+      Timeout :: pos_integer(),
+      Pid     :: pid().
+
 notify_started(To) when is_integer(To) andalso (To > 0) ->
     spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
 

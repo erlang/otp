@@ -272,27 +272,26 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">notify_started(Timeout) -> Pid</name>
+      <name name="notify_started" arity="1" clause_i="1" since=""/>
       <fsummary>Request to be notified when manager started</fsummary>
-      <type>
-        <v>Timeout = integer()</v>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
         <p>Request a notification (message) when the SNMP manager has 
-          started. </p>
-        <p>The <c>Timeout</c> is the time the request is valid. The 
-          value has to be greater then zero. </p>
-        <p>The <c>Pid</c> is the process handling the supervision of the 
-          SNMP manager start. When the manager has started a completion
-          message will be sent to the client from this process: 
-          <c>{snmpm_started, Pid}</c>. If the SNMP manager was not started 
-          in time, a timeout message will be sent to the client: 
-          <c>{snmpm_start_timeout, Pid}</c>. </p>
-        <p>A client application that is dependent on the SNMP manager 
-          will use this function in order to be notified of when the
-          manager has started. There are two situations when this 
-          is useful:</p>
+	started. </p>
+
+	<p>The <c>Timeout</c> is the time the request is valid. The 
+	value has to be greater then zero. </p>
+
+	<p>The <c>Pid</c> is the process handling the supervision of the 
+	SNMP manager start. When the manager has started a completion
+	message will be sent to the client from this process: 
+	<c>{snmpm_started, Pid}</c>. If the SNMP manager was not started 
+	in time, a timeout message will be sent to the client: 
+	<c>{snmpm_start_timeout, Pid}</c>. </p>
+
+	<p>A client application that is dependent on the SNMP manager 
+	will use this function in order to be notified of when the
+	manager has started. There are two situations when this 
+	is useful:</p>
         <list type="bulleted">
           <item>
             <p>During the start of a system, when a client application 
@@ -305,10 +304,12 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
               before it can <em>reconnect</em>.</p>
           </item>
         </list>
-        <p>The function returns the pid() of a handler process, that does
+
+	<p>The function returns the pid() of a handler process, that does
           the supervision on behalf of the client application. Note that the 
           client application is linked to this handler. </p>
-        <p>This function is used in conjunction with the monitor function.</p>
+
+	  <p>This function is used in conjunction with the monitor function.</p>
 
         <marker id="cancel_notify_started"></marker>
       </desc>
