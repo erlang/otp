@@ -436,6 +436,25 @@ finish_loading_1(BIF_ALIST_1)
 	goto done;
     }
 
+    exceptions = 0;
+    for (i = 0; i < n; i++) {
+        p[i].exception = THE_NON_VALUE;
+        if (p[i].modp->curr.code_hdr && p[i].modp->old.code_hdr) {
+            p[i].exception = am_not_purged;
+            exceptions++;
+        }
+    }
+
+    if (exceptions) {
+        res = exception_list(BIF_P, am_not_purged, p, exceptions);
+        goto done;
+    }
+
+    /*
+     * Now we can load all code. This can't fail.
+     */
+    do_commit = 1;
+
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
@@ -460,42 +479,24 @@ finish_loading_1(BIF_ALIST_1)
 
     exceptions = 0;
     for (i = 0; i < n; i++) {
-	p[i].exception = THE_NON_VALUE;
-	if (p[i].modp->curr.code_hdr && p[i].modp->old.code_hdr) {
-	    p[i].exception = am_not_purged;
-	    exceptions++;
-	}
+        Eterm mod;
+        Eterm retval;
+
+        erts_refc_inc(&p[i].code->intern.refc, 1);
+        retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
+        ASSERT(retval == NIL || retval == am_on_load);
+        if (retval == am_on_load) {
+            p[i].exception = am_on_load;
+            exceptions++;
+        }
     }
 
+    /*
+     * Check whether any module has an on_load_handler.
+     */
+
     if (exceptions) {
-	res = exception_list(BIF_P, am_not_purged, p, exceptions);
-    } else {
-	/*
-	 * Now we can load all code. This can't fail.
-	 */
-
-	exceptions = 0;
-	for (i = 0; i < n; i++) {
-	    Eterm mod;
-	    Eterm retval;
-
-	    erts_refc_inc(&p[i].code->intern.refc, 1);
-	    retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
-	    ASSERT(retval == NIL || retval == am_on_load);
-	    if (retval == am_on_load) {
-		p[i].exception = am_on_load;
-		exceptions++;
-	    }
-	}
-
-	/*
-	 * Check whether any module has an on_load_handler.
-	 */
-
-	if (exceptions) {
-	    res = exception_list(BIF_P, am_on_load, p, exceptions);
-	}
-	do_commit = 1;
+        res = exception_list(BIF_P, am_on_load, p, exceptions);
     }
 
 done:

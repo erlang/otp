@@ -5278,7 +5278,7 @@ static DMCRet dmc_current_stacktrace(DMCContext *context,
                                     Eterm t,
                                     int *constant)
 {
-    Eterm *p = tuple_val(t);
+    const Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
     int depth;
@@ -5309,10 +5309,10 @@ static DMCRet dmc_current_stacktrace(DMCContext *context,
         }
 
         if (depth > erts_backtrace_depth) {
-            p[2] = make_small(erts_backtrace_depth);
+            depth = erts_backtrace_depth;
         }
 
-        do_emit_constant(context, text, p[2]);
+        do_emit_constant(context, text, make_small(depth));
         DMC_PUSH(*text, matchCurrentStacktrace);
         break;
     default:
