@@ -195,8 +195,12 @@ clean_path_args(PathArgs, Cwd) ->
     [filename:absname(P, Cwd) || P <- PathArgs].
 
 make_config(PathArgs, Env0) ->
+    {ok,Files} = file:list_dir(code:lib_dir()),
+    LibDirSize = length(Files),
     Env = lists:sort(Env0),
-    PathArgs ++ [iolist_to_binary([[Name,$=,Val,$\n] || {Name,Val} <- Env])].
+    PathArgs ++ [LibDirSize] ++
+        [iolist_to_binary([[Name,$=,Val,$\n] || {Name,Val} <- Env])].
+
 
 %%%
 %%% A group leader that will capture all output to the group leader.
