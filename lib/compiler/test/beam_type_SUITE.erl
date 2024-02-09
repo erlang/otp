@@ -1514,6 +1514,7 @@ float_confusion(_Config) ->
     {'EXIT', _} = catch float_confusion_3(id(0.0)),
     ok = float_confusion_4(id(1)),
     {'EXIT', _} = catch float_confusion_5(),
+    {'EXIT', _} = catch float_confusion_6(),
     ok.
 
 float_confusion_1(_, _) ->
@@ -1546,6 +1547,22 @@ float_confusion_5() ->
                 -2147483648
         end * 0,
     ok.
+
+%% GH-8097: Record keys weren't compared in total order, confusing +0.0 and
+%% -0.0 and crashing the compiler.
+float_confusion_6() ->
+    <<
+        (ok)
+     || _ := {_V1} <- ok,
+        (maybe
+            {} ?= _V1
+        else
+            -0.0 ->
+                [];
+            0.0 ->
+                []
+        end)
+    >>.
 
 %%%
 %%% Common utilities.
