@@ -530,6 +530,8 @@ server(info, {'EXIT', EditorPort, _R},
     {keep_state, State#state{editor = undefined}};
 server(info,{'EXIT', Group, Reason}, State) ->
     case gr_get_info(State#state.groups, Group) of
+        undefined when Reason =:= normal ->
+            keep_state_and_data;
         undefined ->
             Rdr = [?LOG_ERROR("Reader crashed (~p)", [Reason]) || prim_tty:is_reader(State#state.tty, Group)],
             Wrt = [?LOG_ERROR("Writer crashed (~p)", [Reason]) || prim_tty:is_writer(State#state.tty, Group)],
