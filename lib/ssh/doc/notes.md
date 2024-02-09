@@ -19,9 +19,9 @@ limitations under the License.
 -->
 # SSH Release Notes
 
-### Ssh 5.1.2
+## Ssh 5.1.2
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 * With this change, Curve25519 and Curve448 KEX methods become most preferred (related to RFC8731).
 
@@ -109,9 +109,9 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
-### Ssh 4.15.3.2
+## Ssh 4.15.3.2
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 * With this change, Curve25519 and Curve448 KEX methods become most preferred (related to RFC8731).
 

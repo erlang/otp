@@ -21,9 +21,9 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
-### Erts 14.2.2
+## Erts 14.2.2
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 * 32-bit runtime systems on most Unix like platforms could crash if a BIF timer was set with a huge timeout of more than 68 years into the future. In order for the crash to occur, the huge timer (at a later time than when it was set) had to become the nearest active timer set on the specific scheduler on which it was set. This could not happen on a system with only one scheduler since there would always be shorter timers in the system.
 
@@ -840,9 +840,9 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
-### Erts 13.2.2.6
+## Erts 13.2.2.6
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 * 32-bit runtime systems on most Unix like platforms could crash if a BIF timer was set with a huge timeout of more than 68 years into the future. In order for the crash to occur, the huge timer (at a later time than when it was set) had to become the nearest active timer set on the specific scheduler on which it was set. This could not happen on a system with only one scheduler since there would always be shorter timers in the system.
 

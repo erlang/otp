@@ -21,9 +21,9 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
-### SSL 11.1.1
+## SSL 11.1.1
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 * Legacy name handling could cause interop problems between TLS-1.3/1.2 client and TLS-1.2 server.
 
@@ -2974,9 +2974,9 @@ This document describes the changes made to the SSL application.
 
   Own Id: OTP-13670
 
-### SSL 7.3.3.0.1
+## SSL 7.3.3.0.1
 
-#### Fixed Bugs and Malfunctions
+### Fixed Bugs and Malfunctions
 
 - An erlang TLS server configured with cipher suites using rsa key exchange, may
   be vulnerable to an Adaptive Chosen Ciphertext attack (AKA Bleichenbacher
