@@ -414,7 +414,7 @@ int* pBuild;			/* Pointer to build number. */
 
 /* I. Common stuff */
 
-/* II. The spawn/fd/vanilla drivers */
+/* II. The spawn/fd drivers */
 
 /*
  * Definitions for driver flags.
@@ -474,7 +474,7 @@ static AsyncIo* fd_driver_input = NULL;
 static BOOL (WINAPI *fpSetHandleInformation)(HANDLE,DWORD,DWORD);
 
 /*
- * This data is used by the spawn and vanilla drivers.
+ * This data is used by the spawn drivers.
  * There will be one entry for each port, even if the input
  * and output HANDLES are different.  Since handles are not
  * guaranteed to be small numbers in Win32, we cannot index
@@ -509,7 +509,6 @@ struct driver_data {
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
-static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
 static int spawn_init(void);
 static int fd_init(void);
 static void fd_stop(ErlDrvData);
@@ -565,32 +564,6 @@ struct erl_drv_entry fd_driver_entry = {
     ready_input,
     ready_output,
     "fd",
-    NULL, /* finish */
-    NULL, /* handle */
-    NULL, /* control */
-    NULL, /* timeout */
-    NULL, /* outputv */
-    NULL, /* ready_async */
-    NULL, /* flush */
-    NULL, /* call */
-    NULL, /* event */
-    ERL_DRV_EXTENDED_MARKER,
-    ERL_DRV_EXTENDED_MAJOR_VERSION,
-    ERL_DRV_EXTENDED_MINOR_VERSION,
-    0,	/* ERL_DRV_FLAGs */
-    NULL,
-    NULL, /* process_exit */
-    stop_select
-};
-
-struct erl_drv_entry vanilla_driver_entry = {
-    null_func,
-    vanilla_start,
-    stop,
-    output,
-    ready_input,
-    ready_output,
-    "vanilla",
     NULL, /* finish */
     NULL, /* handle */
     NULL, /* control */
@@ -2234,44 +2207,6 @@ static void fd_stop(ErlDrvData data)
 	       && !(dp->out.flags & DF_THREAD_FLUSHED));
   }    
 
-}
-
-static ErlDrvData
-vanilla_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
-{
-    HANDLE ofd,ifd;
-    DriverData* dp;
-    DWORD access;		/* Access mode: GENERIC_READ, GENERIC_WRITE. */
-    DWORD crFlags;
-    HANDLE this_process = GetCurrentProcess();
-
-    access = 0;
-    if (opts->read_write == DO_READ)
-	access |= GENERIC_READ;
-    if (opts->read_write == DO_WRITE)
-	access |= GENERIC_WRITE;
-
-    if (opts->read_write == DO_READ)
-	crFlags = OPEN_EXISTING;
-    else if (opts->read_write == DO_WRITE)
-	crFlags = CREATE_ALWAYS;
-    else
-	crFlags = OPEN_ALWAYS;
-
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, FALSE)) == NULL)
-	return ERL_DRV_ERROR_GENERAL;
-    ofd = CreateFile(name, access, FILE_SHARE_READ | FILE_SHARE_WRITE,
-		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (!DuplicateHandle(this_process, (HANDLE) ofd,	
-			 this_process, &ifd, 0,
-			 FALSE, DUPLICATE_SAME_ACCESS)) {
-	CloseHandle(ofd);
-	ofd = INVALID_HANDLE_VALUE;
-    }
-    if (ofd == INVALID_HANDLE_VALUE)
-	return ERL_DRV_ERROR_GENERAL;
-    return set_driver_data(dp, ifd, ofd, opts->read_write,
-                           0, opts);
 }
 
 static void

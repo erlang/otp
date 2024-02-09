@@ -25,7 +25,7 @@
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
          bad_arglist/1,
 	 equality/1,ordering/1,
-	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
+	 t_phash/1,t_phash2/1,md5/1,
 	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
 	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1]).
@@ -42,7 +42,7 @@ suite() ->
 all() ->
     [bad_apply, bad_fun_call, badarity, ext_badarity,
      bad_arglist,
-     equality, ordering, fun_to_port, t_phash,
+     equality, ordering, t_phash,
      t_phash2, md5, refc, refc_ets, refc_dist,
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa,t_fun_to_list].
@@ -340,30 +340,6 @@ ordering(Config) when is_list(Config) ->
     false = FF1 >= B,
     false = B =< FF2,
 
-    %% Create a port and ref.
-
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    P = open_port(AFile, [out]),
-    R = make_ref(),
-
-    %% Compare funs with ports and refs.
-
-    true = R < F3,
-    true = F3 > R,
-    true = F3 < P,
-    true = P > F3,
-
-    true = R =< F3,
-    true = F3 >= R,
-    true = F3 =< P,
-    true = P >= F3,
-
-    false = R > F3,
-    false = F3 < R,
-    false = F3 > P,
-    false = P < F3,
-
     %% Compare funs with conses and nils.
 
     true = F1 < [a],
@@ -401,27 +377,6 @@ ordering(Config) when is_list(Config) ->
 
 make_fun(X, Y) ->
     fun(A) -> A*X+Y end.
-
-%% Try sending funs to ports (should fail).
-fun_to_port(Config) when is_list(Config) ->
-    fun_to_port(Config, xxx),
-    fun_to_port(Config, fun() -> 42 end),
-    fun_to_port(Config, [fun() -> 43 end]),
-    fun_to_port(Config, [1,fun() -> 44 end]),
-    fun_to_port(Config, [0,1|fun() -> 45 end]),
-    B64K = build_io_list(65536),
-    fun_to_port(Config, [B64K,fun() -> 45 end]),
-    fun_to_port(Config, [B64K|fun() -> 45 end]),
-    ok.
-
-fun_to_port(Config, IoList) ->
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
-    case catch port_command(Port, IoList) of
-	{'EXIT',{badarg,_}} -> ok;
-	Other -> ct:fail({unexpected_retval,Other})
-    end.
 
 build_io_list(0) -> [];
 build_io_list(1) -> [7];
