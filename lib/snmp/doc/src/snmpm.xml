@@ -250,15 +250,12 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
   </section>
   <funcs>
     <func>
-      <name since="">monitor() -> Ref</name>
+      <name name="monitor" arity="0" clause_i="1" since=""/>
       <fsummary>Monitor the snmp manager</fsummary>
-      <type>
-        <v>Ref = reference()</v>
-      </type>
       <desc>
         <p>Monitor the SNMP manager. In case of a crash, the calling 
-          (monitoring) process will get a 'DOWN' message (see the erlang 
-          module for more info). </p>
+	(monitoring) process will get a 'DOWN' message (see the erlang 
+	module for more info). </p>
 
         <marker id="demonitor"></marker>
       </desc>
@@ -1092,23 +1089,6 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <name name="log_to_io" arity="6" clause_i="2" since="OTP R15B01"/>
       <name name="log_to_io" arity="7" clause_i="1" since="OTP R16B03"/>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
-      <!--
-      <type>
-        <v>LogDir = string()</v>
-        <v>Mibs = [MibName]</v>
-        <v>MibName = string()</v>
-        <v>Block = boolean()</v>
-        <v>LogName = string()</v>
-        <v>LogFile = string()</v>
-        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
-        <v>Cnt = {NumOK, NumERR}</v>
-        <v>NumOK = non_neg_integer()</v>
-        <v>NumERR = pos_integer()</v>
-        <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
-        <v>disk_log_open_error() = {LogName, term()}</v>
-        <v>file_open_error() = {OutFile, term()}</v>
-      </type>
-      -->
       <desc>
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. 

@@ -220,6 +220,8 @@ stop(Timeout) when (Timeout =:= infinity) orelse
     snmpm_supervisor:stop(Timeout).
 
 
+-spec monitor() -> MRef when
+      MRef :: reference().
 
 monitor() ->
     erlang:monitor(process, snmpm_supervisor).
