@@ -210,6 +210,17 @@
       -->
     </datatype>
 
+    <datatype>
+      <name name="snmpm_user"/>
+      <desc>
+	<p>
+	  Module implementing the
+	  <seeerl marker="snmpm_user#">snmpm_user</seeerl>
+	  behaviour.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -326,44 +337,28 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">register_user(Id, Module, Data) -> ok | {error, Reason}</name>
-      <name since="">register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}</name>
+      <name name="register_user" arity="3" clause_i="1" since=""/>
+      <name name="register_user" arity="4" clause_i="1" since=""/>
       <fsummary>Register a user of the manager</fsummary>
-      <type>
-        <v>Id = term()</v>
-        <v>Module = snmpm_user()</v>
-        <v>Data = term()</v>
-        <v>DefaultAgentConfig = [default_agent_config()]</v>
-        <v>default_agent_config() = {Item, Val}</v>
-        <v>Item = community | timeout | max_message_size | version | sec_model | sec_name | sec_level</v>
-        <v>Val = term()</v>
-        <v>Reason = term()</v>
-        <v>snmpm_user() = Module implementing the snmpm_user behaviour</v>
-      </type>
       <desc>
         <p>Register the manager entity (=user) responsible for specific 
 	agent(s). </p>
 
         <p><c>Module</c> is the callback module (snmpm_user behaviour) which 
 	will be called whenever something happens (detected 
-	agent, incoming reply or incoming trap/notification).
-	Note that this could have already been done as a 
-	consequence of the node config. (see users.conf).</p>
+	agent, incoming reply or incoming trap/notification). </p>
+
+	<p><c>Data</c> is an opaque data structure,
+	not inspected by the manager, that will be included
+	in all callback calls to the <c>Module</c> callback module
+	(snmpm_user behaviour). </p>
 
         <p>The argument <c>DefaultAgentConfig</c> is used as default 
 	values when this user register agents.</p>
 
-        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
-<code type="none"><![CDATA[
-community = string()
-timeout = integer() | snmp_timer()
-max_message_size = integer()
-version = v1 | v2 | v3 
-sec_model = any | v1 | v2c | usm 
-sec_name = string() 
-sec_level = noAuthNoPriv | authNoPriv | authPriv
-        ]]></code>
-
+	<p>Note that this operation (register user) could have already been
+	done as a consequence of the node config. (see users.conf).</p>
+	
         <marker id="register_user_monitor"></marker>
       </desc>
     </func>

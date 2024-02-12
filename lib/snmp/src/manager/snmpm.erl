@@ -109,7 +109,8 @@
 	      agent_config/0, 
               pdu_type/0,
               value_type/0,
-              var_and_val/0
+              var_and_val/0,
+              snmpm_user/0
 	     ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
@@ -161,7 +162,8 @@
         {sec_model,        snmp:sec_model()}   | % Optional
         {sec_name,         snmp:sec_name()}    | % Optional
         {sec_level,        snmp:sec_level()}.    % Optional
--type pdu_type() :: snmp:pdu_type() | 'trappdu'.
+-type pdu_type()   :: snmp:pdu_type() | 'trappdu'.
+-type snmpm_user() :: module().
 
 
 %% This function is called when the snmp application
@@ -402,12 +404,31 @@ restart(net_if = What) ->
 %% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
-register_user(Id, Module, Data) ->
-    register_user(Id, Module, Data, []).
+
+-spec register_user(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
+
+register_user(UserId, Module, Data) ->
+    register_user(UserId, Module, Data, []).
 
 %% Default config for agents registered by this user
-register_user(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user(Id, Module, Data, DefaultAgentConfig).
+
+-spec register_user(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
+
+register_user(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user(UserId, Module, Data, DefaultAgentConfig).
 
 register_user_monitor(Id, Module, Data) ->
     register_user_monitor(Id, Module, Data, []).
