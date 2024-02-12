@@ -932,6 +932,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     GenericBp* g;
     Uint bp_flags = 0;
 
+    ASSERT(info->gen_bp);
 #ifndef BEAMASM
     ASSERT(BeamIsOpCode(info->u.op, op_i_func_info_IaaI));
 #endif
