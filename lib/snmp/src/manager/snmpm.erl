@@ -439,6 +439,15 @@ which_users() ->
 do_register_agent(UserId, TargetName, Config) ->
     snmpm_config:register_agent(UserId, TargetName, Config).
 
+-spec register_agent(UserId, TargetName, Config) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: agent_config_item(),
+      Value       :: term(),
+      Reason      :: term().
+
 register_agent(UserId, TargetName, Config) 
   when (is_list(TargetName) andalso 
 	(length(TargetName) > 0) andalso 

@@ -444,17 +444,8 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">register_agent(UserId, TargetName, Config) -> ok | {error, Reason}</name>
+      <name name="register_agent" arity="3" clause_i="1" since=""/>
       <fsummary>Register this agent</fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>TargetName = target_name()</v>
-        <v>Config = [agent_config()]</v>
-        <v>agent_config() = {Item, Val}</v>
-        <v>Item = engine_id | address | port | community | timeout | max_message_size | version | sec_model | sec_name | sec_level | tdomain</v>
-        <v>Val = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Explicitly instruct the manager to handle this agent, with
 	<c>UserId</c> as the responsible user. </p>
