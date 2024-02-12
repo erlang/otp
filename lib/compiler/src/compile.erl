@@ -34,15 +34,12 @@ used to give default compiler options. Its value must be a valid Erlang term. If
 the value is a list, it is used as is. If it is not a list, it is put into a
 list.
 
-Boolean options (such as `warn_export_all` / `nowarn_export_all`) in
-this list can be overridden by options given to `file/2`, `forms/2`, and
-[output_generated/2](`output_generated/1`), which in turn can be overridden
-by options given in the `compile()` attribute in the source code itself.
-
-Use the alternative functions `noenv_file/2`, `noenv_forms/2`, or
-[noenv_output_generated/2](`noenv_output_generated/1`) to not consult
-the environment, for example, when calling the compiler recursively
-from inside a parse transform.
+The list is appended to any options given to `file/2`, `forms/2`, and
+[output_generated/2](`output_generated/1`). Use the alternative functions
+`noenv_file/2`, `noenv_forms/2`, or
+[noenv_output_generated/2](`noenv_output_generated/1`) if you do not want the
+environment variable to be consulted, for example, if you are calling the
+compiler recursively from inside a parse transform.
 
 The list can be retrieved with `env_compiler_options/0`.
 
@@ -805,7 +802,7 @@ location of an error or a warning refers.
           CompRet :: comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
-    do_compile({file,File}, env_default_opts() ++ Opts);
+    do_compile({file,File}, Opts++env_default_opts());
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
@@ -2288,7 +2285,7 @@ legalize_vars(Code0, St) ->
 
 compile_directives(Forms, #compile{options=Opts0}=St0) ->
     Opts1 = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
-    Opts = Opts0 ++ Opts1,
+    Opts = Opts1 ++ Opts0,
     St1 = St0#compile{options=Opts},
     case any_obsolete_option(Opts) of
         {yes,Opt} ->
