@@ -1216,13 +1216,8 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
     </func>
 
     <func>
-      <name since="">oid_to_type(Oid) -> {ok, Type} | {error, Reason}</name>
+      <name name="oid_to_type" arity="1" clause_i="1" since=""/>
       <fsummary>Get the type of the the oid</fsummary>
-      <type>
-        <v>Oid = oid()</v>
-        <v>Type = atom()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Retrieve the type (asn1 bertype) of an oid.</p>
 

@@ -318,6 +318,7 @@ unload_mib(Mib) ->
 which_mibs() ->
     snmpm_config:which_mibs().
 
+
 %% Get all the possible oid's for the aliasname
 
 -spec name_to_oid(AliasName) -> {ok, OIDs} | {error, Reason} when
@@ -327,6 +328,7 @@ which_mibs() ->
 
 name_to_oid(AliasName) ->
     snmpm_config:name_to_oid(AliasName).
+
 
 %% Get the aliasname for an oid
 
@@ -338,7 +340,14 @@ name_to_oid(AliasName) ->
 oid_to_name(Oid) ->
     snmpm_config:oid_to_name(Oid).
 
+
 %% Get the type for an oid
+
+-spec oid_to_type(OID) -> {ok, Type} | {error, Reason} when
+      OID    :: snmp:oid(),
+      Type   :: atom(),
+      Reason :: term().
+
 oid_to_type(Oid) ->
     snmpm_config:oid_to_type(Oid).
 
