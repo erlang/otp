@@ -442,6 +442,28 @@
       -->
     </datatype>
  
+    <datatype>
+      <name name="error_status"/>
+      <desc>
+	<p>
+	  We should really specify all of these, but they are so numerous...
+	  Also, normally all you need to know is that <c>'noError'</c> is ok
+	  and everything else is an error.
+	</p>
+      </desc>
+    </datatype>
+ 
+    <datatype>
+      <name name="error_index"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
    <datatype>
       <name name="verbosity"/>
       <desc>

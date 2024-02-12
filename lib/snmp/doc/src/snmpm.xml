@@ -264,6 +264,17 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="snmp_reply"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -657,27 +668,9 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name since="OTP R14B03">sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name name="sync_get2" arity="3" clause_i="1" since="OTP R14B03"/>
+      <name name="sync_get2" arity="4" clause_i="1" since="OTP R14B03"/>
       <fsummary>Synchronous <c>get-request</c></fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>TargetName = target_name()</v>
-        <v>Oids = [oid()]</v>
-        <v>SendOpts = send_opts()</v>
-        <v>send_opts() = [send_opt()]</v>
-        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
-        <v>SnmpReply = snmp_reply()</v>
-        <v>Remaining = integer()</v>
-        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
-        <v>ReqId = term()</v>
-        <v>ActualReason = term()</v>
-        <v>SecInfo = [sec_info()]</v>
-        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
-        <v>sec_tag() = atom()</v>
-        <v>ExpectedValue = ReceivedValue = term()</v>
-        <v>SnmpInfo = term()</v>
-      </type>
       <desc>
         <p>Synchronous <c>get-request</c>. </p>
 

@@ -215,7 +215,7 @@
 %% undoFailed |
 %% wrongValue
 
--type error_status()  :: atom().
+-type error_status()  :: noError | atom().
 -type error_index()   :: pos_integer().
 
 -type verbosity()     :: silence | info | log | debug | trace.
