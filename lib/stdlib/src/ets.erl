@@ -2103,7 +2103,8 @@ the traversal.
       AccIn :: term(),
       AccOut :: term().
 
-foldl(F, Accu, T) ->
+foldl(F, Accu, Tab) ->
+    T = soft_whereis(Tab),
     ets:safe_fixtable(T, true),
     First = ets:first_lookup(T),
     try
@@ -2134,7 +2135,8 @@ the traversal.
       AccIn :: term(),
       AccOut :: term().
 
-foldr(F, Accu, T) ->
+foldr(F, Accu, Tab) ->
+    T = soft_whereis(Tab),
     ets:safe_fixtable(T, true),
     Last = ets:last_lookup(T),
     try
@@ -2147,6 +2149,13 @@ do_foldr(_F, Accu, '$end_of_table', _T) -> Accu;
 do_foldr(F, Accu0, {Key, Objects}, T) ->
     Accu = lists:foldr(F, Accu0, Objects),
     do_foldr(F, Accu, ets:prev_lookup(T, Key), T).
+
+soft_whereis(Table) when is_atom(Table) ->
+    case ets:whereis(Table) of
+        undefined -> error(badarg, [Table], [{error_info, #{cause => id, module => erl_stdlib_errors}}]);
+        Ref -> Ref
+    end;
+soft_whereis(Table) -> Table.
 
 -doc """
 Fills an already created ETS table with the objects in the already opened Dets

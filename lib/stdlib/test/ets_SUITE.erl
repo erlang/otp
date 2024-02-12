@@ -42,7 +42,8 @@
 	 tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1, badfile/1]).
 -export([heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
 -export([lookup_element_mult/1, lookup_element_default/1]).
--export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
+-export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1,
+         fold_badarg/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1,
          select_bound_chunk/1, t_delete_all_objects/1, t_test_ms/1,
          t_delete_all_objects_trap/1,
@@ -118,6 +119,7 @@
 -export([t_select_reverse/1]).
 
 -include_lib("stdlib/include/ms_transform.hrl"). % ets:fun2ms
+-include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
@@ -219,7 +221,7 @@ groups() ->
       [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
      {fold, [],
       [foldl_ordered, foldr_ordered, foldl, foldr,
-       fold_empty]},
+       fold_empty, fold_badarg]},
      {meta_smp, [],
       [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
        meta_lookup_named_read, meta_lookup_named_write,
@@ -6426,6 +6428,11 @@ fold_empty(Config) when is_list(Config) ->
               verify_etsmem(EtsMem)
       end),
     ok.
+
+fold_badarg(Config) when is_list(Config) ->
+    F = fun(_, _) -> ok end,
+    ?assertError(badarg, ets:foldl(F, [], non_existing)),
+    ?assertError(badarg, ets:foldr(F, [], non_existing)).
 
 foldl(Config) when is_list(Config) ->
     repeat_for_opts_all_table_types(
