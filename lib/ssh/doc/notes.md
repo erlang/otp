@@ -261,6 +261,14 @@ limitations under the License.
 
   Own Id: OTP-18079 Aux Id: GH-5767
 
+## Ssh 4.13.2.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change, Curve25519 and Curve448 KEX methods become most preferred (related to RFC8731).
+
+  Own Id: OTP-18964
+
 ## Ssh 4.13.2.4
 
 ### Fixed Bugs and Malfunctions
