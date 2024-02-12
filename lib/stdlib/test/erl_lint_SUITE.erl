@@ -2350,19 +2350,18 @@ otp_5362(Config) when is_list(Config) ->
                       {{15,24},erl_lint,{undefined_field,ok,nix}},
                       {{16,24},erl_lint,{field_name_is_variable,ok,'Var'}}]}},
 
-	  %% Nowarn_bif_clash has changed behaviour as local functions
-	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates an error
-	  %% (OTP-8579) /PaN
+	  %% `nowarn_bif_clash` has changed behaviour as local functions
+	  %% nowdays supersede auto-imported BIFs. Therefore,
+	  %% `nowarn_bif_clash` in itself generates an error (OTP-8579).
           {otp_5362_4,
-           <<"-compile(nowarn_deprecated_function).
-              -compile(nowarn_bif_clash).
+           <<"-compile(warn_deprecated_function).
+              -compile(warn_bif_clash).
               spawn(A) ->
                   erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
-             warn_deprecated_function,
-             warn_bif_clash]},
+             warn_deprecated_function]},
            {error,
             [{{5,19},erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
             [{{4,19},erl_lint,{deprecated,{erlang,now,0},

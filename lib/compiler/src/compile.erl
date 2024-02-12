@@ -43,6 +43,29 @@ compiler recursively from inside a parse transform.
 
 The list can be retrieved with `env_compiler_options/0`.
 
+## Order of Compiler Options
+
+Options given in the `compile()` attribute in the source code take
+precedence over options given to the compiler, which in turn take
+precedence over options given in the environment.
+
+A later compiler option takes precedence over an earlier one in the
+option list. Example:
+
+```
+compile:file(something, [nowarn_missing_spec,warn_missing_spec]).
+```
+
+Warnings will be emitted for functions without specifications, unless
+the source code for module `something` contains a `compile(nowarn_missing_spec)`
+attribute.
+
+> #### Change {: .info }
+>
+> In Erlang/OTP 26 and earlier, the option order was the opposite of what
+> is described here.
+
+
 ## Inlining
 
 The compiler can do function inlining within an Erlang
@@ -796,7 +819,7 @@ Module:format_error(ErrorDescriptor)
           CompRet :: comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
-    do_compile({file,File}, Opts++env_default_opts());
+    do_compile({file,File}, env_default_opts() ++ Opts);
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
