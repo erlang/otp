@@ -72,18 +72,24 @@
               date_and_time_validator_kind/0,
               date_and_time_validator/0,
 
-	      dir/0, 
-	      snmp_timer/0, 
+	      dir/0,
+	      snmp_timer/0,
 
-	      engine_id/0, 
+	      engine_id/0,
               mms/0,
-	      tdomain/0, 
-	      community/0, 
-	      context_name/0, 
-	      version/0, 
-	      sec_model/0, 
-	      sec_name/0, 
-	      sec_level/0, 
+	      tdomain/0,
+	      community/0,
+	      context_name/0,
+	      version/0,
+	      sec_model/0,
+	      sec_name/0,
+	      sec_level/0,
+
+              usm_name/0,
+              usm_auth_protocol/0,
+              usm_auth_key/0,
+              usm_priv_protocol/0,
+              usm_priv_key/0,
 
 	      oid/0,
 	      row_index/0,
@@ -171,6 +177,12 @@
 -type sec_model()     :: snmp_framework_mib:security_model().
 -type sec_name()      :: snmp_framework_mib:admin_string().
 -type sec_level()     :: snmp_framework_mib:security_level().
+
+-type usm_name()          :: snmp_user_based_sm_mib:name().
+-type usm_auth_protocol() :: snmp_user_based_sm_mib:auth_protocol().
+-type usm_auth_key()      :: snmp_user_based_sm_mib:auth_key().
+-type usm_priv_protocol() :: snmp_user_based_sm_mib:priv_protocol().
+-type usm_priv_key()      :: snmp_user_based_sm_mib:priv_key().
 
 -type varbind()       :: #varbind{}.
 -type ivarbind()      :: #ivarbind{}.

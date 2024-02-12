@@ -221,6 +221,49 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="usm_config_item"/>
+      <desc>
+	<p>Value type depend on the item according to: </p>
+        <taglist>
+          <tag><c><![CDATA[sec_name]]></c></tag>
+          <item>
+	    <p>Security Name. </p>
+	    <p>Value type:
+	    <seetype marker="snmp#sec_name">sec_name()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[auth]]></c></tag>
+          <item>
+            <p>The IP address of the agent.</p>
+	    <p>Value type:
+	    <seetype marker="snmp#usm_auth_protocol">snmp:usm_auth_protocol()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[auth_key]]></c></tag>
+          <item>
+            <p>Port number of the agent.</p>
+	    <p>Value type:
+	    <seetype marker="snmp#usm_auth_key">snmp:usm_auth_key()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[priv]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="snmp#usm_priv_protocol">snmp:usm_priv_protocol()</seetype></p>
+	  </item>
+
+          <tag><c><![CDATA[priv_key]]></c></tag>
+          <item>
+	    <p>Value type:
+	    <seetype marker="snmp#usm_priv_key">snmp:usm_priv_key()</seetype></p>
+	  </item>
+
+	</taglist>
+
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <section>
@@ -523,35 +566,13 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason}</name>
+      <name name="register_usm_user" arity="3" clause_i="1" since=""/>
       <fsummary>Register this USM user</fsummary>
-      <type>
-        <v>EngineID = string()</v>
-        <v>UserName = string()</v>
-        <v>Conf = [usm_config()]</v>
-        <v>usm_config() = {Item, Val}</v>
-        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
-        <v>Val = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Explicitly instruct the manager to handle this USM user.
-          Note that there is an alternate way to do the same thing:
-          Add the usm user to the manager config files (see 
-          <seeguide marker="snmp_manager_config_files#usm_user">usm.conf</seeguide>).</p>
-        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
-<code type="none"><![CDATA[
-sec_name = string()
-auth = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol
-auth_key = [integer()]   (length 16 if auth = usmHMACMD5AuthProtocol, 
-                          length 20 if auth = usmHMACSHAAuthProtocol,
-                          length 28 if auth = usmHMAC128SHA224AuthProtocol,
-                          length 32 if auth = usmHMAC192SHA256AuthProtocol,
-                          length 48 if auth = usmHMAC256SHA384AuthProtocol,
-                          length 64 if auth = usmHMAC384SHA512AuthProtocol)
-priv = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol
-priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb128Protocol).
-]]></code>
+	Note that there is an alternate way to do the same thing:
+	Add the usm user to the manager config files (see 
+	<seeguide marker="snmp_manager_config_files#usm_user">usm.conf</seeguide>).</p>
 
         <marker id="unregister_usm_user"></marker>
       </desc>

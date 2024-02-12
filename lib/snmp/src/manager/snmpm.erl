@@ -110,7 +110,8 @@
               pdu_type/0,
               value_type/0,
               var_and_val/0,
-              snmpm_user/0
+              snmpm_user/0,
+              usm_config_item/0
 	     ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
@@ -164,6 +165,7 @@
         {sec_level,        snmp:sec_level()}.    % Optional
 -type pdu_type()   :: snmp:pdu_type() | 'trappdu'.
 -type snmpm_user() :: module().
+-type usm_config_item() :: sec_name | auth | auth_key | priv | priv_key.
 
 
 %% This function is called when the snmp application
@@ -579,9 +581,18 @@ which_agents(UserId) ->
 
 %% -- USM users --
 
-register_usm_user(EngineID, UserName, Conf) 
-  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Conf) ->
-    snmpm_config:register_usm_user(EngineID, UserName, Conf).
+-spec register_usm_user(EngineID, UserName, Config) -> ok | {error, Reason} when
+      EngineID    :: snmp:engine_id(),
+      UserName    :: snmp:usm_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: usm_config_item(),
+      Value       :: term(),
+      Reason      :: term().
+
+register_usm_user(EngineID, UserName, Config)
+  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Config) ->
+    snmpm_config:register_usm_user(EngineID, UserName, Config).
 
 unregister_usm_user(EngineID, UserName) 
   when is_list(EngineID) andalso is_list(UserName) ->

@@ -344,6 +344,61 @@
     </datatype>
  
     <datatype>
+      <name name="usm_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_auth_protocol"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_auth_key"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_priv_protocol"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_priv_key"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
       <name name="version"/>
       <!--
       <desc>
