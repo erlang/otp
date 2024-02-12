@@ -1110,19 +1110,15 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">set_log_type(NewType) -> {ok, OldType} | {error, Reason}</name>
+      <name name="set_log_type" arity="1" clause_i="1" since=""/>
       <fsummary>Change the Audit Trail Log type</fsummary>
-      <type>
-        <v>NewType = OldType = atl_type()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Changes the run-time Audit Trail log type. </p>
         <p>Note that this has no effect on the application configuration as
-          defined by configuration files, so a node restart will revert the 
-          config to whatever is in those files. </p>
+	defined by configuration files, so a node restart will revert the 
+	config to whatever is in those files. </p>
         <p>This function is primarily useful in testing/debugging 
-          scenarios. </p>
+	scenarios. </p>
 
         <marker id="load_mib"></marker>
       </desc>
@@ -1255,13 +1251,10 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="OTP 22.3">restart(Ref) -> void()</name>
+      <name name="restart" arity="1" clause_i="1" since="OTP 22.3"/>
       <fsummary>Restart the indicated process</fsummary>
-      <type>
-        <v>Ref = net_if</v>
-      </type>
       <desc>
-	<p>Restart the indicated process (<c>Ref</c>). Note that its not
+	<p>Restart the indicated process (<c>What</c>). Note that its not
 	without risk to restart a process, and should therefore be used
 	with care. </p>
 

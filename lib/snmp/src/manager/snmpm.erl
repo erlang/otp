@@ -393,6 +393,9 @@ verbosity(all, V) ->
 %% Note that the effects of this is diffiult to
 %% predict, so it should be use with *caution*!
 
+-spec restart(What) -> snmp:void() when
+      What :: net_if.
+
 restart(net_if = What) ->
     snmpm_server:restart(What).
 
@@ -1181,7 +1184,14 @@ change_log_size(NewSize) ->
 get_log_type() ->
     snmpm_server:get_log_type().
 
+
 %% NewType -> atl_type()
+
+-spec set_log_type(NewType) -> {ok, OldType} | {error, Reason} when
+      NewType :: snmp:atl_type(),
+      OldType :: snmp:atl_type(),
+      Reason  :: term().
+
 set_log_type(NewType) ->
     snmpm_server:set_log_type(NewType).
 
