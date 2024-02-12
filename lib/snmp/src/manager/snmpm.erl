@@ -430,11 +430,29 @@ register_user(UserId, Module, Data) ->
 register_user(UserId, Module, Data, DefaultAgentConfig) ->
     snmpm_server:register_user(UserId, Module, Data, DefaultAgentConfig).
 
-register_user_monitor(Id, Module, Data) ->
-    register_user_monitor(Id, Module, Data, []).
+-spec register_user_monitor(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
 
-register_user_monitor(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user_monitor(Id, Module, Data, DefaultAgentConfig).
+register_user_monitor(UserId, Module, Data) ->
+    register_user_monitor(UserId, Module, Data, []).
+
+-spec register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
+
+register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user_monitor(UserId, Module,
+                                       Data, DefaultAgentConfig).
 
 unregister_user(Id) ->
     snmpm_server:unregister_user(Id).
