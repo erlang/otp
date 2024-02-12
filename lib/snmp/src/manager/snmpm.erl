@@ -739,8 +739,53 @@ async_get2(UserId, TargetName, Oids, SendOpts)
 %% --- synchronous get_next-request ---
 %% 
 
+-spec sync_get_next2(UserId, TargetName, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_next2(UserId, TargetName, Oids) ->
     sync_get_next2(UserId, TargetName, Oids, []).
+
+-spec sync_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_model()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
 
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
