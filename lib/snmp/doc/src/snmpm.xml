@@ -464,12 +464,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">which_users() -> Users</name>
+      <name name="which_users" arity="0" clause_i="1" since=""/>
       <fsummary>Get a list of all users</fsummary>
-      <type>
-        <v>Users = [UserId]</v>
-        <v>UserId = term()</v>
-      </type>
       <desc>
         <p>Get a list of the identities of all registered users.</p>
 

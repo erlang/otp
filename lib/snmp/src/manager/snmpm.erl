@@ -488,6 +488,9 @@ register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
 unregister_user(UserId) ->
     snmpm_server:unregister_user(UserId).
 
+-spec which_users() -> Users when
+      Users :: [user_id()].
+
 which_users() ->
     snmpm_config:which_users().
 
