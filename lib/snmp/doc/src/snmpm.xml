@@ -284,42 +284,6 @@
 
   </datatypes>
 
-  <section>
-    <title>Common Data Types</title>
-    <p>The following data types are used in the functions below:</p>
-<code type="none"><![CDATA[
-oid() = [byte()]  -  The oid() type is used to represent an ASN.1 OBJECT IDENTIFIER
-snmp_reply() = {error_status(), error_index(), varbinds()}
-error_status() = noError | atom()
-error_index() = integer()
-varbinds() = [varbind()]
-atl_type() = read | write | read_write
-target_name() = string()  -  Is a unique *non-empty* string
-vars_and_vals() = [var_and_val()]
-var_and_val() = {oid(), value_type(), value()} | {oid(), value()}
-value_type() = o ('OBJECT IDENTIFIER') | 
-               i ('INTEGER') | 
-               u ('Unsigned32') | 
-               g ('Unsigned32') | 
-               s ('OCTET STRING') | 
-               b ('BITS') | 
-               ip ('IpAddress') | 
-               op ('Opaque') | 
-               c32 ('Counter32') | 
-               c64 ('Counter64') | 
-               tt ('TimeTicks')
-value() = term()
-community() = string()
-sec_model() = any | v1 | v2c | usm
-sec_name() = string()
-sec_level() = noAuthNoPriv | authNoPriv | authPriv
-]]></code>
-
-    <p>See also the <seeerl marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seeerl>.</p>
-
-    <marker id="monitor"></marker>
-  </section>
   <funcs>
     <func>
       <name name="monitor" arity="0" clause_i="1" since=""/>
