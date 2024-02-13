@@ -562,17 +562,12 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">which_agents() -> Agents</name>
-      <name since="">which_agents(UserId) -> Agents</name>
+      <name name="which_agents" arity="0" clause_i="1" since=""/>
+      <name name="which_agents" arity="1" clause_i="1" since=""/>
       <fsummary>List the registered agents</fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>Agents = [TargetName]</v>
-        <v>TargetName = target_name()</v>
-      </type>
       <desc>
         <p>Get a list of all registered agents or all agents registered
-          by a specific user.</p>
+	by a specific user.</p>
 
         <marker id="register_usm_user"></marker>
       </desc>

@@ -618,8 +618,15 @@ update_agent_info(UserId, TargetName, Item, Val) ->
     update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 
+-spec which_agents() -> Agents when
+      Agents :: [target_name()].
+
 which_agents() ->
     snmpm_config:which_agents().
+
+-spec which_agents(UserId) -> Agents when
+      UserId :: user_id(),
+      Agents :: [target_name()].
 
 which_agents(UserId) ->
     snmpm_config:which_agents(UserId).
