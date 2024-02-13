@@ -958,6 +958,7 @@ extern erts_atomic_t erts_copy_literal_area__;
 extern Process *erts_literal_area_collector;
 
 extern Process *erts_code_purger;
+extern Process *erts_trace_cleaner;
 
 /* beam_load.c */
 typedef struct {

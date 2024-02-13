@@ -476,7 +476,7 @@ erts_get_system_seq_tracer(void)
 }
 
 static ERTS_INLINE void
-get_default_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
+get_on_spawn_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
                     Uint32 *default_trace_flags,
                     ErtsTracer *default_tracer)
 {
@@ -521,8 +521,8 @@ get_default_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
     }
 }
 
-static ERTS_INLINE void
-erts_change_default_tracing(int setflags, Uint32 flags,
+static void
+erts_change_on_spawn_tracing(int setflags, Uint32 flags,
                             const ErtsTracer tracer,
                             Uint32 *default_trace_flags,
                             ErtsTracer *default_tracer)
@@ -534,7 +534,7 @@ erts_change_default_tracing(int setflags, Uint32 flags,
 
     erts_tracer_update(default_tracer, tracer);
 
-    get_default_tracing(NULL, NULL, default_trace_flags, default_tracer);
+    get_on_spawn_tracing(NULL, NULL, default_trace_flags, default_tracer);
 }
 
 void
@@ -543,7 +543,7 @@ erts_change_default_proc_tracing(ErtsTraceSession* session,
                                  const ErtsTracer tracer)
 {
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_default_tracing(
+    erts_change_on_spawn_tracing(
         setflags, flags, tracer,
         &session->on_spawn_proc_trace_flags,
         &session->on_spawn_proc_tracer);
@@ -556,7 +556,7 @@ erts_change_default_port_tracing(ErtsTraceSession* session,
                                  const ErtsTracer tracer)
 {
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_default_tracing(
+    erts_change_on_spawn_tracing(
         setflags, flags, tracer,
         &session->on_open_port_trace_flags,
         &session->on_open_port_tracer);
@@ -564,12 +564,12 @@ erts_change_default_port_tracing(ErtsTraceSession* session,
 }
 
 void
-erts_get_default_proc_tracing(ErtsTraceSession* session,
-                              Uint32 *flagsp, ErtsTracer *tracerp)
+erts_get_on_spawn_tracing(ErtsTraceSession* session,
+                          Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_default_tracing(
+    get_on_spawn_tracing(
         flagsp, tracerp,
         &session->on_spawn_proc_trace_flags,
         &session->on_spawn_proc_tracer);
@@ -577,12 +577,12 @@ erts_get_default_proc_tracing(ErtsTraceSession* session,
 }
 
 void
-erts_get_default_port_tracing(ErtsTraceSession* session,
+erts_get_on_open_port_tracing(ErtsTraceSession* session,
                               Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_default_tracing(
+    get_on_spawn_tracing(
         flagsp, tracerp,
         &session->on_open_port_trace_flags,
         &session->on_open_port_tracer);
@@ -3335,24 +3335,45 @@ ErtsTracerRef* get_tracer_ref_from_weak_id(ErtsPTabElementCommon* t_p,
     return NULL;
 }
 
+#ifdef DEBUG
+static void dbg_add_p_ref(ErtsPTabElementCommon* t_p,
+                          ErtsTracerRef *ref)
+{
+    ErtsTraceSession *s = ref->session;
+    erts_refc_inc(&s->dbg_p_refc, 1);
+}
+#else
+#  define dbg_add_p_ref(t_p, ref)
+#endif
+
 ErtsTracerRef* new_tracer_ref(ErtsPTabElementCommon* t_p,
                               ErtsTraceSession* session)
 {
     ErtsTracerRef *ref = t_p->tracee.first_ref;
 
     ASSERT(get_tracer_ref(t_p, session) == NULL);
+    ASSERT(erts_atomic_read_nob(&session->state) == ERTS_TRACE_SESSION_ALIVE);
 
     ref = erts_alloc(ERTS_ALC_T_HEAP_FRAG,  // ToDo type?
                      sizeof(ErtsTracerRef));
     ref->next = t_p->tracee.first_ref;
     t_p->tracee.first_ref =  ref;
-    erts_ref_trace_session(session);
     ref->session = session;
     ref->flags = t_p->tracee.all_trace_flags & F_SENSITIVE;
     ref->tracer = erts_tracer_nil;
-
+    dbg_add_p_ref(t_p, ref);
     return ref;
 }
+
+#ifdef DEBUG
+static void dbg_remove_p_ref(ErtsPTabElementCommon* t_p,
+                             ErtsTracerRef *ref)
+{
+    erts_refc_dec(&ref->session->dbg_p_refc, 0);
+}
+#else
+#  define dbg_remove_p_ref(t_p, ref)
+#endif
 
 void clear_tracer_ref(ErtsPTabElementCommon* t_p,
                       ErtsTracerRef *ref)
@@ -3362,7 +3383,7 @@ void clear_tracer_ref(ErtsPTabElementCommon* t_p,
 
     erts_tracer_replace(t_p, ref, erts_tracer_nil);
     ref->flags = 0;
-    erts_deref_trace_session(ref->session);
+    dbg_remove_p_ref(t_p, ref);
     ref->session = NULL;
 
     t_p->tracee.all_trace_flags |= F_TRACE_DBG_CANARY;
@@ -3391,6 +3412,34 @@ void delete_tracer_ref(ErtsPTabElementCommon* t_p, ErtsTracerRef *ref)
     ERTS_ASSERT_TRACER_REFS(t_p);
 }
 
+Uint delete_unalive_trace_refs(ErtsPTabElementCommon* t_p)
+{
+    ErtsTracerRef *ref;
+    ErtsTracerRef *next_ref;
+    ErtsTracerRef** prev_p;
+    Uint reds = 0;
+
+    prev_p = &t_p->tracee.first_ref;
+
+    for (ref = t_p->tracee.first_ref; ref; ref = next_ref) {
+        next_ref = ref->next;
+
+        ASSERT(ref->session);
+        if (erts_atomic_read_nob(&ref->session->state) == ERTS_TRACE_SESSION_ALIVE) {
+            prev_p = &ref->next;
+        } else {
+            dbg_remove_p_ref(t_p, ref);
+            ERTS_TRACER_CLEAR(&ref->tracer);
+            erts_free(ERTS_ALC_T_HEAP_FRAG, ref);  // ToDo: type?
+            reds += 10;
+            *prev_p = next_ref;
+        }
+        reds++;
+    }
+    return reds;
+}
+
+
 void delete_all_trace_refs(ErtsPTabElementCommon* t_p)
 {
     ErtsTracerRef *ref;
@@ -3400,8 +3449,7 @@ void delete_all_trace_refs(ErtsPTabElementCommon* t_p)
         next_ref = ref->next;
 
         ASSERT(ref->session);
-        erts_deref_trace_session(ref->session);
-
+        dbg_remove_p_ref(t_p, ref);
         ERTS_TRACER_CLEAR(&ref->tracer);
 
         erts_free(ERTS_ALC_T_HEAP_FRAG, ref);  // ToDo: type?

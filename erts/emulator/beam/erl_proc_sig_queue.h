@@ -998,20 +998,24 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to,
  * @brief Send an 'rpc' signal to a process.
  *
  * The function 'func' will be executed in the
- * context of the receiving process. A response
- * message '{Ref, Result}' is sent to the sender
- * when 'func' has been called. 'Ref' is the reference
- * returned by this function and 'Result' is the
- * term returned by 'func'. If the return value of
- * 'func' is not an immediate term, 'func' has to
- * allocate a heap fragment where the result is stored
- * and update the heap fragment pointer pointer
- * passed as third argument to point to it.
+ * context of the receiving process.
  *
- * If this function returns a reference, 'func' will
- * be called in the context of the receiver. However,
- * note that this might happen when the receiver is in
- * an exiting state. The caller of this function
+ * If 'reply' is non-zero, a response message '{Ref, Result}' is
+ * sent to the sender when 'func' has been called. 'Ref' is the
+ * reference returned by this function and 'Result' is the term
+ * returned by 'func'. If the return value of 'func' is not an
+ * immediate term, 'func' has to allocate a heap fragment where
+ * the result is stored and update the heap fragment pointer
+ * pointer passed as third argument to point to it.
+ *
+ * If 'reply' is zero, no automatic response is sent, the return value from
+ * 'func' is ignored and this function instead returns am_ok on success.
+ *
+ * If a receiving process with pid 'to' exists, 'func' will be
+ * called in its context. However, note that this might happen
+ * when the receiver is in an exiting state.
+ *
+ * If a reference is returned, the caller of this function
  * *unconditionally* has to enter a receive that match
  * on the returned reference in all clauses as next
  * receive; otherwise, bad things will happen!
@@ -1030,27 +1034,24 @@ erts_proc_sig_send_sync_suspend(Process *c_p, Eterm to,
  *
  * @param[in]     reply         Non-zero if a reply is wanted.
  *
- * @param[in]     func          Function to execute in the
- *                              context of the receiver.
- *                              First argument will be a
- *                              pointer to the process struct
- *                              of the receiver process.
- *                              Second argument will be 'arg'
- *                              (see below). Third argument
- *                              will be a pointer to a pointer
- *                              to a heap fragment for storage
- *                              of result returned from 'func'
- *                              (i.e. an 'out' parameter).
+ * @param[in]     func          Function to execute in the context of the
+ *                              receiver. First argument will be a pointer to
+ *                              the process struct of the receiver process.
+ *                              Second argument will be 'arg' (see below). Third
+ *                              argument will be a pointer to number of
+ *                              reductions. In value is reductions left and
+ *                              absolute value out is consumed reduction where a
+ *                              negative value will force a yield. Fourth
+ *                              argument will be a pointer to a pointer to a
+ *                              heap fragment for storage of result returned
+ *                              from 'func' (i.e. an 'out' parameter).
  *
- * @param[in]     arg           Void pointer to argument
- *                              to pass as second argument
- *                              in call of 'func'.
+ * @param[in]     arg           Void pointer to argument to pass as second
+ *                              argument in call of 'func'.
  *
- * @returns                     If the request was sent,
- *                              an internal ordinary
- *                              reference; otherwise,
- *                              THE_NON_VALUE (non-existing
- *                              receiver).
+ * @returns                     If the request was sent, an internal ordinary
+ *                              reference or the atom ok; otherwise,
+ *                              THE_NON_VALUE (non-existing receiver).
  */
 Eterm
 erts_proc_sig_send_rpc_request(Process *c_p,

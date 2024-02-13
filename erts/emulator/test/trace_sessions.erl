@@ -37,23 +37,37 @@
          erlang_trace_pattern/3
         ]).
 
+group_map() ->
+    #{%%legacy => [],
+      %%legacy_pre_session => [pre_session],
+      %%legacy_post_session => [post_session],
+      legacy_pre_post => [pre_session, post_session],
+      %%dynamic_sesssion => [dynamic_session]
+      dynamic_pre_post => [pre_session, post_session, dynamic_session]
+     }.
+
+group_list() ->
+    maps:keys(group_map()).
+
 all() ->
-    [{group, legacy},
-     {group, legacy_pre_session},
-     {group, legacy_post_session},
-     {group, dynamic_session}].
+    [{group, Group} || Group <- group_list()].
 
 groups(Testcases) ->
-    [{legacy, [], Testcases},
-     {legacy_pre_session, [], Testcases},
-     {legacy_post_session, [], Testcases},
-     {dynamic_session, [], Testcases}].
+    [{Group, [], Testcases} || Group <- group_list()].
 
 init_per_suite(Config) ->
+    {session, SessionsBefore} = erlang:trace_info(any, any, session),
     Pid = spawn(?MODULE, suite_controller, [start, []]),
-    [{suite_controller, Pid} | Config].
+    [{suite_controller, Pid}, {sessions_before, SessionsBefore} | Config].
 
 end_per_suite(Config) ->
+    SessionsBefore = proplists:get_value(sessions_before, Config),
+    {session, SessionsAfter} = erlang:trace_info(any, any, session),
+    Diff = SessionsAfter -- SessionsBefore,
+    io:format("SessionsBefore = ~p\n", [SessionsBefore]),
+    io:format("SessionsAfter = ~p\n", [SessionsAfter]),
+    io:format("Diff = ~p\n", [Diff]),
+    [] = Diff,
     Pid = proplists:get_value(suite_controller, Config),
     true = is_process_alive(Pid),
     exit(Pid, kill),
@@ -92,47 +106,44 @@ suite_controller_check(Config) ->
 erlang_trace_pattern(MFA, MS) ->
     erlang_trace_pattern(MFA, MS, []).
 
-erlang_trace_pattern(MFA, MS, FlagList0) ->
-    FlagList1 =
-        case ets:lookup(?MODULE, dynamic_session) of
-            [] -> FlagList0;
-            [{dynamic_session, DynS}] ->
-                [{session,DynS} | FlagList0]
+erlang_trace_pattern(MFA, MS, FlagList) ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            R = erlang:trace_pattern(MFA, MS, FlagList),
+            io:format("trace_pattern(~p, ~p, ~p) -> ~p\n",
+                      [MFA, MS, FlagList, R]);
+
+        [{dynamic_session, DynS}] ->
+            R = erlang:trace_pattern(DynS, MFA, MS, FlagList),
+            io:format("trace_pattern(~p, ~p, ~p, ~p) -> ~p\n",
+                      [DynS, MFA, MS, FlagList, R])
+
         end,
 
-    R = erlang:trace_pattern(MFA, MS, FlagList1),
-    io:format("trace_pattern(~p, ~p, ~p) -> ~p\n", [MFA, MS, FlagList1, R]),
-
-    case ets:lookup(?MODULE, legacy_post_session) of
+    case ets:lookup(?MODULE, post_session) of
         [] -> R;
-        [{legacy_post_session, S, _}] ->
+        [{post_session, S, _}] ->
             On = case MS of
                      false -> false;
                      _ -> true
                  end,
             case MFA of
                 {_,_,_} ->
-                    erlang:trace_pattern(MFA, On, [call_count, {session,S}]);
+                    erlang:trace_pattern(S, MFA, On, [call_count]);
                 _ ->
                     ok %% send & receive trace already turned off
             end,
             R
     end.
 
-global_local([]) -> global;
-global_local([global]) -> global;
-global_local(_) -> local.
-
 %% Wrap erlang:trace/3
-erlang_trace(PidPortSpec, How, FlagList0) ->
-    FlagList1 =
-        case ets:lookup(?MODULE, dynamic_session) of
-            [] ->
-                FlagList0;
-            [{dynamic_session, S}] ->
-                [{session, S} | FlagList0]
-        end,
-    erlang:trace(PidPortSpec, How, FlagList1).
+erlang_trace(PidPortSpec, How, FlagList) ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:trace(PidPortSpec, How, FlagList);
+        [{dynamic_session, S}] ->
+            erlang:trace(S, PidPortSpec, How, FlagList)
+    end.
 
 
 %% Wrap erlang:trace_info/2
@@ -144,63 +155,74 @@ erlang_trace_info(PidPortFuncEvent, Item) ->
             erlang:trace_info(S, PidPortFuncEvent, Item)
     end.
 
-init_per_group(legacy, Config) ->
-    %% Run tests using only the default legacy trace session.
+init_per_group(Group, Config) ->
+    init_group(group_tricks(Group), Config).
+
+end_per_group(Group, Config) ->
+    end_group(group_tricks(Group), Config).
+
+group_tricks(Group) ->
+    maps:get(Group, group_map(), []).
+
+init_group([], Config) ->
     Config;
-init_per_group(legacy_pre_session, Config) ->
-    %% Run tests using default legacy session
-    %% but create an omnipresent dynamic dummy session before.
+init_group([pre_session|Tail], Config) ->
+    %%
+    %% Create an omnipresent dynamic dummy session before.
+    %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = erlang:trace_session_create([{tracer,Tracer}]),
+    S = erlang:trace_session_create(undefined, Tracer, []),
 
     %% Set a dummy call_count on all (local) functions.
-    erlang:trace_pattern({'_','_','_'}, true, [local, {session,S}]),
+    erlang:trace_pattern(S, {'_','_','_'}, true, [local]),
 
     %% Re-set a dummy global call trace on all exported functions.
-    [[erlang:trace_pattern({Module, Func, Arity}, true, [global, {session,S}])
+    [[erlang:trace_pattern(S, {Module, Func, Arity}, true, [global])
       || {Func,Arity} <- Module:module_info(exports)]
      || Module <- erlang:loaded(),
         erlang:function_exported(Module, module_info, 1)],
 
     %% Set a dummy send trace on all processes and ports
     %% but disable send trace to not get any messages.
-    erlang:trace(all, true, [send, {session,S}]),
-    1 = erlang:trace_pattern(send, false, [{session,S}]),
+    erlang:trace(S, all, true, [send]),
+    1 = erlang:trace_pattern(S, send, false, []),
 
-    [{dummy_session, {S, Tracer}} | Config];
-init_per_group(legacy_post_session, Config) ->
-    %% Run tests using default legacy session
-    %% but create a dynamic dummy session after
+    ets:insert(?MODULE, {pre_session, S, Tracer}),
+    init_group(Tail, Config);
+init_group([post_session | Tail], Config) ->
+    %%
+    %% Create a dynamic dummy session after
+    %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = erlang:trace_session_create([{tracer, Tracer}]),
-    1 = erlang:trace_pattern(send, false, [{session,S}]),
-    1 = erlang:trace_pattern('receive', false, [{session,S}]),
-    ets:insert(?MODULE, {legacy_post_session, S, Tracer}),
-    Config;
-init_per_group(dynamic_session, Config) ->
+    S = erlang:trace_session_create(undefined, Tracer, []),
+    1 = erlang:trace_pattern(S, send, false, []),
+    1 = erlang:trace_pattern(S, 'receive', false, []),
+    ets:insert(?MODULE, {post_session, S, Tracer}),
+    init_group(Tail, Config);
+init_group([dynamic_session | Tail], Config) ->
+    %%
     %% Run tests with a dynamically created session.
-    S = erlang:trace_session_create([]),
+    %%
+    S = erlang:trace_session_create(undefined, undefined, []),
     ets:insert(?MODULE, {dynamic_session, S}),
-    Config;
-init_per_group(_, Config) ->
-    Config.
+    init_group(Tail, Config).
 
-end_per_group(legacy_pre_session, Config) ->
-    {S, Tracer} = proplists:get_value(dummy_session, Config),
+end_group([], Config) ->
+    Config;
+end_group([pre_session | Tail], Config) ->
+    [{pre_session, S, Tracer}] = ets:take(?MODULE, pre_session),
     true = is_process_alive(Tracer),
     erlang:trace_session_destroy(S),
-    Config;
-end_per_group(legacy_post_session, Config) ->
-    [{legacy_post_session, S, Tracer}] = ets:take(?MODULE, legacy_post_session),
+    end_group(Tail, Config);
+end_group([post_session | Tail], Config) ->
+    [{post_session, S, Tracer}] = ets:take(?MODULE, post_session),
     true = is_process_alive(Tracer),
     erlang:trace_session_destroy(S),
-    Config;
-end_per_group(dynamic_session, Config) ->
+    end_group(Tail, Config);
+end_group([dynamic_session | Tail], Config) ->
     [{dynamic_session, S}] = ets:take(?MODULE, dynamic_session),
     erlang:trace_session_destroy(S),
-    Config;
-end_per_group(_, Config) ->
-    Config.
+    end_group(Tail, Config).
 
 init_per_testcase(Config) ->
     Config.

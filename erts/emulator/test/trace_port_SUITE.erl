@@ -321,7 +321,6 @@ default_tracer(Config) when is_list(Config) ->
                {'DOWN', TracerMonitor, process, Tracer, TracerExitReason} ->
                    TracerExitReason
            end,
-    erlang:display(?LINE),
     {flags, []} = erlang_trace_info(self(), flags),
     {tracer, []} = erlang_trace_info(self(), tracer),
     {flags, []} = erlang_trace_info(new, flags),

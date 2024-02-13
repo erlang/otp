@@ -217,6 +217,12 @@ int erts_try_seize_code_mod_permission(struct process* c_p);
 int erts_try_seize_code_mod_permission_aux(void (*func)(void *),
                                            void *arg);
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+void erts_lc_soften_code_mod_permission_check(void);
+#else
+# define erts_lc_soften_code_mod_permission_check() ((void)0)
+#endif
+
 /** @brief Release code modification permission. Resumes any suspended
  * waiters. */
 void erts_release_code_mod_permission(void);

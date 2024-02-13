@@ -213,10 +213,7 @@ bif erlang:port_get_data/1
 # Tracing & debugging.
 bif erts_internal:trace_pattern/3
 bif erts_internal:trace/3
-bif erts_internal:trace_session_create/1
-bif erts_internal:trace_session_destroy/1
 bif erlang:trace_info/2
-bif erlang:trace_info/3
 bif erlang:trace_delivered/1
 bif erlang:seq_trace/2
 bif erlang:seq_trace_info/1
@@ -801,3 +798,10 @@ bif code:get_coverage/2
 bif code:reset_coverage/1
 bif code:set_coverage_mode/1
 bif ets:update_element/4
+bif erts_internal:trace_session_create/3
+bif erts_internal:trace_session_destroy/1
+bif erts_internal:trace/4
+bif erts_internal:trace_pattern/4
+bif erlang:trace_info/3
+bif erts_trace_cleaner:check/0
+bif erts_trace_cleaner:send_trace_clean_signal/1
