@@ -51,7 +51,8 @@
 	]).
 
 -export_type([
-              agent_entry/0
+              agent_entry/0,
+              manager_entry/0
              ]).
 
 
@@ -71,6 +72,8 @@
            SecLevel       :: snmp:sec_level()
           }.
 
+%% -type manager_entry() :: term().
+-opaque manager_entry() :: {Tag :: atom(), Value :: term()}.
 
 -define(MANAGER_CONF_FILE,   "manager.conf").
 -define(USERS_CONF_FILE,     "users.conf").
@@ -90,6 +93,14 @@
 %% 
 %% ------ manager.conf ------
 %% 
+
+-spec manager_entry(Tag, Val) -> ManagerEntry when
+      Tag          :: transports |
+                      port |
+                      engine_id |
+                      max_message_size,
+      Val          :: term(),
+      ManagerEntry :: manager_entry().
 
 manager_entry(Tag, Val) ->
     {Tag, Val}.

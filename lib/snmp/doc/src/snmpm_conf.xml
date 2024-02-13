@@ -52,27 +52,34 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="manager_entry"/>
+      <desc>
+	<p>
+	  An opaque data structure that represents one configuration entry
+	  for the manager.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
     <func>
-      <name since="">manager_entry(Tag, Val) -> manager_entry()</name>
+      <name name="manager_entry" arity="2" clause_i="1" since=""/>
       <fsummary>Create an manager entry</fsummary>
-      <type>
-        <v>Tag = address | port | engine_id | max_message_size</v>
-        <v>Val = term()</v>
-        <v>manager_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the manager config file, 
-          <c>manager.conf</c>. </p>
+	<c>manager.conf</c>. </p>
         <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
-          see 
-          <seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
-          for more info. </p>
-        <marker id="write_manager_config"></marker>
+	see 
+	<seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
+	for more info. </p>
+
+	<marker id="write_manager_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">write_manager_config(Dir, Conf) -> ok</name>
       <name since="">write_manager_config(Dir, Hdr, Conf) -> ok</name>
@@ -212,27 +219,7 @@
 
     <func>
       <name name="agents_entry" arity="12" clause_i="1" since=""/>
-      <!--
-      <name since="">agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
-      -->
       <fsummary>Create an agent entry</fsummary>
-      <!--
-      <type>
-        <v>UserId = term()</v>
-        <v>TargetName = string()</v>
-        <v>Comm = string()</v>
-	<v>Domain = transportDomain()</v>
-	<v>Addr = transportAddress()</v>
-        <v>EngineID = string()</v>
-        <v>Timeout = integer()</v>
-        <v>MaxMessageSize = integer()</v>
-        <v>Version = v1 | v2 | v3</v>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
-        <v>agents_entry() = term()</v>
-      </type>
-      -->
       <desc>
         <p>Create an entry for the manager agents config file, 
 	<c>agents.conf</c>. </p>
