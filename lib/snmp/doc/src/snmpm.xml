@@ -1073,13 +1073,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">which_mibs() -> Mibs</name>
+      <name name="which_mibs" arity="0" clause_i="1" since=""/>
       <fsummary>Which mibs are loaded into the manager</fsummary>
-      <type>
-        <v>Mibs = [{MibName, MibFile}]</v>
-        <v>MibName = atom()</v>
-        <v>MibFile = string()</v>
-      </type>
       <desc>
         <p>Get a list of all the mib's loaded into the manager.</p>
 

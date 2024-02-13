@@ -330,6 +330,12 @@ unload_mib(MibName) ->
     snmpm_server:unload_mib(MibName).
 
 %% Which mib's are loaded
+
+-spec which_mibs() -> Mibs when
+      Mibs    :: [{MibName, MibFile}],
+      MibName :: snmp:mib_name(),
+      MibFile :: string().
+
 which_mibs() ->
     snmpm_config:which_mibs().
 
