@@ -588,7 +588,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
       <desc>
         <p>Unregister this USM user.</p>
 
-        <marker id="which_usm_users1"></marker>
+        <marker id="update_usm_user_info"></marker>
+        <marker id="update_usm_user_info1"></marker>
       </desc>
     </func>
 
@@ -598,7 +599,7 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
       <desc>
         <p>Retrieve usm user config.</p>
 
-        <marker id="update_usm_user_info"></marker>
+        <marker id="update_usm_user_info2"></marker>
       </desc>
     </func>
 
@@ -609,34 +610,26 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
         <p>Update usm user config.</p>
 
         <marker id="which_usm_users"></marker>
+        <marker id="which_usm_users0"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">which_usm_users() -> UsmUsers</name>
+      <name name="which_usm_users" arity="0" clause_i="1" since=""/>
       <fsummary>List all the registered usm users</fsummary>
-      <type>
-        <v>UsmUsers = [{EngineID,UserName}]</v>
-        <v>EngineID = string()</v>
-        <v>UsmName = string()</v>
-      </type>
       <desc>
         <p>Get a list of all registered usm users.</p>
 
-        <marker id="which_usm_users2"></marker>
+        <marker id="which_usm_users1"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">which_usm_users(EngineID) -> UsmUsers</name>
+      <name name="which_usm_users" arity="1" clause_i="1" since=""/>
       <fsummary>List the registered usm users</fsummary>
-      <type>
-        <v>UsmUsers = [UserName]</v>
-        <v>UserName = string()</v>
-      </type>
       <desc>
         <p>Get a list of all registered usm users with engine-id 
-          <c>EngineID</c>.</p>
+	<c>EngineID</c>. </p>
 
         <marker id="sync_get2"></marker>
       </desc>

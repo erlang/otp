@@ -689,8 +689,18 @@ update_usm_user_info(EngineID, UserName, Item, Val)
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:update_usm_user_info(EngineID, UserName, Item, Val).
 
+-spec which_usm_users() -> UsmUsers when
+      UsmUsers :: [{EngineID, UserName}],
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name().
+
 which_usm_users() ->
     snmpm_config:which_usm_users().
+
+-spec which_usm_users(EngineID) -> UsmUsers when
+      EngineID :: snmp:engine_id(),
+      UsmUsers :: [UserName],
+      UserName :: snmp:usm_name().
 
 which_usm_users(EngineID) when is_list(EngineID) ->
     snmpm_config:which_usm_users(EngineID).
