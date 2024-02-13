@@ -109,6 +109,13 @@
 	    <seetype marker="snmp#tdomain">tdomain()</seetype></p>
 	  </item>
 
+          <tag><c><![CDATA[community]]></c></tag>
+          <item>
+	    <p>Community.</p>
+	    <p>Value type:
+	    <seetype marker="snmp#community">community()</seetype></p>
+	  </item>
+
           <tag><c><![CDATA[timeout]]></c></tag>
           <item>
 	    <p>Registration timeout. </p>
@@ -489,17 +496,17 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
 	uniquely identifying the agent. </p>
 	<p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[
-[mandatory] engine_id = string()
-[mandatory] tadress = transportAddress()  % Depends on tdomain
+[mandatory] engine_id = engine_id()
+[mandatory] address = inet:ip_address()  % Depends on tdomain
 [optional]  port = inet:port_number()
-[optional]  tdomain = transportDomain()
-[optional]  community = string()
-[optional]  timeout = integer() | snmp_timer()
-[optional]  max_message_size = integer()
-[optional]  version = v1 | v2 | v3 
-[optional]  sec_model = any | v1 | v2c | usm 
-[optional]  sec_name = string() 
-[optional]  sec_level = noAuthNoPriv | authNoPriv | authPriv
+[optional]  tdomain = snmp:tdomain()
+[optional]  community = snmp:community()
+[optional]  timeout = register_timeout()
+[optional]  max_message_size = snmp:mms()
+[optional]  version = snmp:version()
+[optional]  sec_model = snmp:sec_model()
+[optional]  sec_name = snmp:sec_name() 
+[optional]  sec_level = snmp:sec_level()
 ]]></code>
         <p>Note that if no <c>tdomain</c> is given, the default value,
 	<c>transportDomainUdpIpv4</c>, is used.</p>
