@@ -602,14 +602,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason}</name>
+      <name name="usm_user_info" arity="3" clause_i="1" since=""/>
       <fsummary>Retrieve usm user config</fsummary>
-      <type>
-        <v>EngineID = string()</v>
-        <v>UsmName = string()</v>
-        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Retrieve usm user config.</p>
 

@@ -644,6 +644,14 @@ unregister_usm_user(EngineID, UserName)
   when is_list(EngineID) andalso is_list(UserName) ->
     snmpm_config:unregister_usm_user(EngineID, UserName).
 
+-spec usm_user_info(EngineID, UserName, Item) ->
+          {ok, Value} | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
+
 usm_user_info(EngineID, UserName, Item) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:usm_user_info(EngineID, UserName, Item).
