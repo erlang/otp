@@ -383,6 +383,11 @@ info(Key) ->
 %% -- Verbosity -- 
 
 %% Change the verbosity of a process in the manager
+
+-spec verbosity(Target, Verbosity) -> snmp:void() when
+      Target    :: config | server | net_if | note_store | all,
+      Verbosity :: snmp:verbosity().
+
 verbosity(config, V) ->
     snmpm_config:verbosity(V);
 verbosity(server, V) ->

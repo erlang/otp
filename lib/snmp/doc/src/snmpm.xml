@@ -1150,17 +1150,12 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">verbosity(Ref, Verbosity) -> void()</name>
+      <name name="verbosity" arity="2" clause_i="1" since=""/>
       <fsummary>Assign a new verbosity for the process</fsummary>
-      <type>
-        <v>Ref = server | config | net_if | note_store | all</v>
-        <v>Verbosity = verbosity()</v>
-        <v>verbosity() = silence | info | log | debug | trace </v>
-      </type>
       <desc>
         <p>Sets verbosity for the designated process. For the lowest 
-          verbosity <c>silence</c>, nothing is printed. The higher the
-          verbosity, the more is printed.</p>
+	verbosity <c>silence</c>, nothing is printed. The higher the
+	verbosity, the more is printed.</p>
 
         <marker id="restart"></marker>
       </desc>
