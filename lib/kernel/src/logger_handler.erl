@@ -30,7 +30,7 @@ the Users Guide.
 
 `m:logger_filters`, `m:logger_formatter`, `m:logger`
 """.
--moduledoc(#{since => "OTP @OTP-XYZ@"}).
+-moduledoc(#{since => "OTP 27.0"}).
 
 %%%
 %%% Types
