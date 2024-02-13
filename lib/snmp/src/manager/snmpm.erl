@@ -554,6 +554,12 @@ register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
 	end,
     register_agent(UserId, Domain, Addr, Config).
 
+
+-spec unregister_agent(UserId, TargetName) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Reason     :: term().
+
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
 

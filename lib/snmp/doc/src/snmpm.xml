@@ -511,12 +511,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">unregister_agent(UserId, TargetName) -> ok | {error, Reason}</name>
+      <name name="unregister_agent" arity="2" clause_i="1" since=""/>
       <fsummary>Unregister the user</fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>TargetName = target_name()</v>
-      </type>
       <desc>
         <p>Unregister the agent.</p>
 
