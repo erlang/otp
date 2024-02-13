@@ -21,6 +21,29 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3
+
+### Fixed Bugs and Malfunctions
+
+- Multiple bugs has been eliminated in the [specialized decode feature](`e:asn1:asn1_spec.md`).
+
+  Own Id: OTP-18813 Aux Id: [PR-7790]
+
+[PR-7790]: https://github.com/erlang/otp/pull/7790
+
+### Improvements and New Features
+
+- Specs have been added to all `asn1ct` API functions.
+
+  Own Id: OTP-18804 Aux Id: [PR-7738]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7738]: https://github.com/erlang/otp/pull/7738
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Asn1 5.2.1
 
 ### Fixed Bugs and Malfunctions

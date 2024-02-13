@@ -19,6 +19,41 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.2
+
+### Improvements and New Features
+
+- Introduce default value for httpd_server name configuration to improve ease of use.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18641 Aux Id: [PR-7316]
+
+- With this change, `erl -S httpd` command can be used for serving current directory content over HTTP.
+
+  Own Id: OTP-18727 Aux Id: [PR-7299]
+
+- Add `-callback` attributes to `m:httpd`, `m:mod_esi` and `m:mod_security`.
+
+  Own Id: OTP-18786 Aux Id: [PR-7700]
+
+- Use a relative redirect with an absolute path to prevent whoever is running inets from having to configure the ServerName to match the network-reachable hostname of the server.
+
+  Own Id: OTP-18809
+
+- Use `proc_lib:set_label/1` to increase observability of inets processes.
+
+  Own Id: OTP-18927
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7316]: https://github.com/erlang/otp/pull/7316
+[PR-7299]: https://github.com/erlang/otp/pull/7299
+[PR-7700]: https://github.com/erlang/otp/pull/7700
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Inets 9.1
 
 ### Fixed Bugs and Malfunctions
