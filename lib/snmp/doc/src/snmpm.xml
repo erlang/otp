@@ -454,11 +454,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">unregister_user(Id) -> ok | {error, Reason}</name>
+      <name name="unregister_user" arity="1" clause_i="1" since=""/>
       <fsummary>Unregister the user</fsummary>
-      <type>
-        <v>Id = term()</v>
-      </type>
       <desc>
         <p>Unregister the user.</p>
 
