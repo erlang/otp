@@ -618,6 +618,11 @@ register_usm_user(EngineID, UserName, Config)
   when is_list(EngineID) andalso is_list(UserName) andalso is_list(Config) ->
     snmpm_config:register_usm_user(EngineID, UserName, Config).
 
+-spec unregister_usm_user(EngineID, UserName) -> ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Reason   :: term().
+
 unregister_usm_user(EngineID, UserName) 
   when is_list(EngineID) andalso is_list(UserName) ->
     snmpm_config:unregister_usm_user(EngineID, UserName).
