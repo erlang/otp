@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2006</year><year>2021</year>
+      <year>2006</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -40,6 +40,20 @@
       SNMP manager. </p>
     <marker id="manager_entry"></marker>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="agent_entry"/>
+      <desc>
+	<p>
+	  An opaque data structure containg all configuration for one agent
+	  for the manager.
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+
   <funcs>
     <func>
       <name since="">manager_entry(Tag, Val) -> manager_entry()</name>
@@ -195,9 +209,14 @@
         <marker id="agents_entry"></marker>
       </desc>
     </func>
+
     <func>
+      <name name="agents_entry" arity="12" clause_i="1" since=""/>
+      <!--
       <name since="">agents_entry(UserId, TargetName, Comm, Domain, Addr, EngineID, Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel) -> agents_entry()</name>
-      <fsummary>Create an agents entry</fsummary>
+      -->
+      <fsummary>Create an agent entry</fsummary>
+      <!--
       <type>
         <v>UserId = term()</v>
         <v>TargetName = string()</v>
@@ -213,13 +232,15 @@
         <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
         <v>agents_entry() = term()</v>
       </type>
+      -->
       <desc>
         <p>Create an entry for the manager agents config file, 
-          <c>agents.conf</c>. </p>
-        <p>See 
-          <seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
-          for more info. </p>
-        <marker id="write_agents_config"></marker>
+	<c>agents.conf</c>. </p>
+	<p>See 
+	<seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
+	for more info. </p>
+
+	<marker id="write_agents_config"></marker>
       </desc>
     </func>
     <func>

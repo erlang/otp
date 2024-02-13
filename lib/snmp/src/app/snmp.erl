@@ -78,6 +78,7 @@
 	      engine_id/0,
               mms/0,
 	      tdomain/0,
+	      taddress/0,
 	      community/0,
 	      context_name/0,
 	      version/0,
@@ -171,6 +172,7 @@
 -type engine_id()     :: snmp_framework_mib:engine_id().
 -type mms()           :: snmp_framework_mib:max_message_size().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
+-type taddress()      :: snmpa_conf:transportAddress().
 -type community()     :: snmp_community_mib:name().
 -type context_name()  :: snmp_community_mib:context_name().
 -type version()       :: v1 | v2 | v3.

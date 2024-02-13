@@ -50,6 +50,26 @@
 	 read_usm_config/1
 	]).
 
+-export_type([
+              agent_entry/0
+             ]).
+
+
+-opaque agent_entry() ::
+          {
+           UserId         :: snmpm:user_id(),
+           TargetName     :: snmpm:target_name(),
+           Community      :: snmp:community(),
+           Domain         :: snmp:tdomain(),
+           Address        :: snmp:taddress(),
+           EngineID       :: snmp:engine_id(),
+           Timeout        :: snmpm:register_timeout(),
+           MaxMessageSize :: snmp:mms(),
+           Version        :: snmp:version(),
+           SecModel       :: snmp:sec_model(),
+           SecName        :: snmp:sec_name(),
+           SecLevel       :: snmp:sec_level()
+          }.
 
 
 -define(MANAGER_CONF_FILE,   "manager.conf").
@@ -211,10 +231,53 @@ do_write_users_conf(_Fd, Crap) ->
 %% ------ agents.conf ------
 %% 
 
+-spec agents_entry(
+        UserId, TargetName,
+        Comm, TDomain, TAddr, EngineID, Timeout,
+        MaxMessageSize, Version, SecModel, SecName, SecLevel) -> Entry when
+      UserId         :: snmpm:user_id(),
+      TargetName     :: snmpm:target_name(),
+      Comm           :: snmp:community(),
+      TDomain        :: snmp:tdomain(),
+      TAddr          :: snmp:taddress(),
+      EngineID       :: snmp:engine_id(),
+      Timeout        :: snmpm:register_timeout(),
+      MaxMessageSize :: snmp:mms(),
+      Version        :: snmp:version(),
+      SecModel       :: snmp:sec_model(),
+      SecName        :: snmp:sec_name(),
+      SecLevel       :: snmp:sec_level(),
+      Entry          :: agent_entry();
+                  (
+        UserId, TargetName,
+        Comm, Ip, Port, EngineID, Timeout,
+        MaxMessageSize, Version, SecModel, SecName, SecLevel) -> Entry when
+      UserId         :: snmpm:user_id(),
+      TargetName     :: snmpm:target_name(),
+      Comm           :: snmp:community(),
+      Ip             :: inet:ip_address(),
+      Port           :: inet:port_number(),
+      EngineID       :: snmp:engine_id(),
+      Timeout        :: snmpm:register_timeout(),
+      MaxMessageSize :: snmp:mms(),
+      Version        :: snmp:version(),
+      SecModel       :: snmp:sec_model(),
+      SecName        :: snmp:sec_name(),
+      SecLevel       :: snmp:sec_level(),
+      Entry          :: agent_entry().
+
 agents_entry(
-  UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
-  MaxMessageSize, Version, SecModel, SecName, SecLevel) ->
-    {UserId, TargetName, Comm, Domain_or_Ip, Addr_or_Port, EngineID, Timeout,
+  UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
+  MaxMessageSize, Version, SecModel, SecName, SecLevel)
+  when is_atom(Domain) ->
+    {UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
+     MaxMessageSize, Version, SecModel, SecName, SecLevel};
+agents_entry(
+  UserId, TargetName, Comm, Ip, Port, EngineID, Timeout,
+  MaxMessageSize, Version, SecModel, SecName, SecLevel) when is_integer(Port) ->
+    Domain  = snmpm_config:default_transport_domain(),
+    Address = {Ip, Port},
+    {UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
 
@@ -267,12 +330,12 @@ write_agents_conf(Fd, [H|T]) ->
 
 do_write_agents_conf(
   Fd,
-  {UserId, TargetName, Comm, Ip, Port, EngineID,
+  {UserId, TargetName, Comm, Domain, Address, EngineID,
    Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel} = _A) ->
     io:format(
       Fd,
       "{~w, \"~s\", \"~s\", ~w, ~w, \"~s\", ~w, ~w, ~w, ~w, \"~s\", ~w}.~n",
-      [UserId, TargetName, Comm, Ip, Port, EngineID,
+      [UserId, TargetName, Comm, Domain, Address, EngineID,
        Timeout, MaxMessageSize, Version, SecModel, SecName, SecLevel]);
 do_write_agents_conf(_Fd, Crap) ->
     error({bad_agents_config, Crap}).

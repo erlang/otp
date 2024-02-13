@@ -193,6 +193,17 @@
     </datatype>
 
     <datatype>
+      <name name="taddress"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="time_interval"/>
       <desc>
 	<note>
