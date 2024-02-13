@@ -2,7 +2,7 @@
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2018. All Rights Reserved.
-%% Copyright 2020-2022 Facebook, Inc. and its affiliates.
+%% Copyright 2020-2024 Facebook, Inc. and its affiliates.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
