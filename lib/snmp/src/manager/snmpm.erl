@@ -319,9 +319,15 @@ backup(BackupDir) ->
 load_mib(MibFile) ->
     snmpm_server:load_mib(MibFile).
 
+
 %% Unload a mib from the manager
-unload_mib(Mib) ->
-    snmpm_server:unload_mib(Mib).
+
+-spec unload_mib(MibName) -> ok | {error, Reason} when
+      MibName :: snmp:mib_name(),
+      Reason  :: term().
+
+unload_mib(MibName) ->
+    snmpm_server:unload_mib(MibName).
 
 %% Which mib's are loaded
 which_mibs() ->

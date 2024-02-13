@@ -1078,19 +1078,14 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name name="unload_mib" arity="1" clause_i="1" since=""/>
       <fsummary>Unload a MIB from the manager</fsummary>
-      <type>
-        <v>Mib = MibName</v>
-        <v>MibName = string()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Unload a <c>Mib</c> from the manager. The <c>MibName</c> is the 
-          name of the Mib, including the path to where the compiled mib is 
-          found.  For example,</p>
+	name of the Mib, including the path to where the compiled mib is 
+	found.  For example,</p>
         <code type="none">
-          Dir = code:priv_dir(my_app) ++ "/mibs/",
+	  Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:unload_mib(Dir ++ "MY-MIB").
         </code>
 
