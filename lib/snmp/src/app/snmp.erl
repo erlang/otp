@@ -216,7 +216,9 @@
 %% wrongValue
 
 -type error_status()  :: noError | atom().
--type error_index()   :: pos_integer().
+%% Actually: 0 | pos_integer()
+%% 0 is used for noError, and pos_integer() for actual errors
+-type error_index()   :: non_neg_integer().
 
 -type verbosity()     :: silence | info | log | debug | trace.
 

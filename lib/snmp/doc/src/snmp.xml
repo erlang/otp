@@ -455,13 +455,13 @@
  
     <datatype>
       <name name="error_index"/>
-      <!--
       <desc>
 	<p>
-	  TBD
+	  <c>0</c> is used when error status is <c>noError</c>
+	  and when error status is an actual error; error index
+	  is <c>pos_integer()</c>.
 	</p>
       </desc>
-      -->
     </datatype>
  
    <datatype>
