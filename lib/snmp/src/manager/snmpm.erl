@@ -589,8 +589,25 @@ unregister_agent(UserId, DomainIp, AddressPort) ->
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).
 
+
+-spec update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Info       :: [{Item, Value}],
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
     snmpm_config:update_agent_info(UserId, TargetName, Info).
+
+-spec update_agent_info(UserId, TargetName, Item, Value) ->
+          ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
 
 update_agent_info(UserId, TargetName, Item, Val) ->
     update_agent_info(UserId, TargetName, [{Item, Val}]).
