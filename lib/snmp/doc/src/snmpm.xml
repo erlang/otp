@@ -612,15 +612,8 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
-      <name since="">update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason}</name>
+      <name name="update_usm_user_info" arity="4" clause_i="1" since=""/>
       <fsummary>Update agent config</fsummary>
-      <type>
-        <v>EngineID = string()</v>
-        <v>UsmName = string()</v>
-        <v>Item = sec_name | auth | auth_key | priv | priv_key</v>
-        <v>Val = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Update usm user config.</p>
 

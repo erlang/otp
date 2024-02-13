@@ -656,6 +656,14 @@ usm_user_info(EngineID, UserName, Item)
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:usm_user_info(EngineID, UserName, Item).
 
+-spec update_usm_user_info(EngineID, UserName, Item, Value) ->
+          ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
+
 update_usm_user_info(EngineID, UserName, Item, Val) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:update_usm_user_info(EngineID, UserName, Item, Val).
