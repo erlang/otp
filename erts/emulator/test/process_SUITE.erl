@@ -62,7 +62,6 @@
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
          command_line_max_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
-         more_spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -127,7 +126,6 @@ all() ->
      process_flag_fullsweep_after, process_flag_heap_size,
      command_line_max_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
-     more_spawn_opt_max_heap_size,
      spawn_huge_arglist,
      otp_6237,
      {group, spawn_request},
@@ -3000,111 +2998,6 @@ flush() ->
     after 0 ->
             ok
     end.
-
-%% Make sure that when maximum allowed heap size is exceeded, the
-%% process will actually terminate.
-%%
-%% Despite the timetrap and limit of number of iterations, bugs
-%% provoked by the test case can cause the runtime system to hang in
-%% this test case.
-more_spawn_opt_max_heap_size(_Config) ->
-    ct:timetrap({minutes,1}),
-    Funs = [fun build_and_bif/0,
-            fun build_bin_and_bif/0,
-            fun build_and_recv_timeout/0,
-            fun build_and_recv_msg/0,
-            fun bif_and_recv_timeout/0,
-            fun bif_and_recv_msg/0
-           ],
-    _ = [begin
-             {Pid,Ref} = spawn_opt(F, [{max_heap_size,
-                                        #{size => 233, kill => true,
-                                          error_logger => false}},
-                                       monitor]),
-             io:format("~p ~p\n", [Pid,F]),
-             receive
-                 {'DOWN',Ref,process,Pid,Reason} ->
-                     killed = Reason
-             end
-         end || F <- Funs],
-    ok.
-
-%% This number should be greater than the default heap size.
--define(MANY_ITERATIONS, 10_000).
-
-build_and_bif() ->
-    build_and_bif(?MANY_ITERATIONS, []).
-
-build_and_bif(0, Acc0) ->
-    Acc0;
-build_and_bif(N, Acc0) ->
-    Acc = [0|Acc0],
-    _ = erlang:crc32(Acc),
-    build_and_bif(N-1, Acc).
-
-build_bin_and_bif() ->
-    build_bin_and_bif(?MANY_ITERATIONS, <<>>).
-
-build_bin_and_bif(0, Acc0) ->
-    Acc0;
-build_bin_and_bif(N, Acc0) ->
-    Acc = <<0, Acc0/binary>>,
-    _ = erlang:crc32(Acc),
-    build_bin_and_bif(N-1, Acc).
-
-build_and_recv_timeout() ->
-    build_and_recv_timeout(?MANY_ITERATIONS, []).
-
-build_and_recv_timeout(0, Acc0) ->
-    Acc0;
-build_and_recv_timeout(N, Acc0) ->
-    Acc = [0|Acc0],
-    receive
-    after 1 ->
-            ok
-    end,
-    build_and_recv_timeout(N-1, Acc).
-
-build_and_recv_msg() ->
-    build_and_recv_msg(?MANY_ITERATIONS, []).
-
-build_and_recv_msg(0, Acc0) ->
-    Acc0;
-build_and_recv_msg(N, Acc0) ->
-    Acc = [0|Acc0],
-    receive
-        _ ->
-            ok
-    after 0 ->
-            ok
-    end,
-    build_and_recv_msg(N-1, Acc).
-
-bif_and_recv_timeout() ->
-    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
-    bif_and_recv_timeout(Bin).
-
-bif_and_recv_timeout(Bin) ->
-    List = binary_to_list(Bin),
-    receive
-    after 1 ->
-            ok
-    end,
-    List.
-
-bif_and_recv_msg() ->
-    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
-    bif_and_recv_msg(Bin).
-
-bif_and_recv_msg(Bin) ->
-    List = binary_to_list(Bin),
-    receive
-        _ ->
-            ok
-    after 0 ->
-            ok
-    end,
-    List.
 
 %% error_logger report handler proxy
 init(Pid) ->

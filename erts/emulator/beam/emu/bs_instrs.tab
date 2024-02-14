@@ -700,6 +700,8 @@ i_bs_append(Fail, ExtraHeap, Live, Unit, Size, Dst) {
     res = erts_bs_append(c_p, reg, live, $Size, $ExtraHeap, $Unit);
     HEAVY_SWAPIN;
     if (is_non_value(res)) {
+        $MAYBE_EXIT_AFTER_GC();
+
         /* c_p->freason is already set (to BADARG or SYSTEM_LIMIT). */
         $FAIL_HEAD_OR_BODY($Fail);
     }
@@ -1057,6 +1059,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         new_binary = erts_bs_append_checked(c_p, reg, live, num_bits, alloc, unit);
         HEAVY_SWAPIN;
         if (is_non_value(new_binary)) {
+            $MAYBE_EXIT_AFTER_GC();
             $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, reg[live]);
         }
         p_start += BSC_NUM_ARGS;
