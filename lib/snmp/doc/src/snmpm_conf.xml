@@ -138,20 +138,17 @@
     </func>
 
     <func>
-      <name since="">read_manager_config(Dir) -> Conf</name>
+      <name name="read_manager_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the manager config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [manager_entry()]</v>
-      </type>
       <desc>
         <p>Read the current manager config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
-          for more info. </p>
-        <marker id="users_entry"></marker>
+	<seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
+	for more info. </p>
+
+	<marker id="users_entry"></marker>
       </desc>
     </func>
 
