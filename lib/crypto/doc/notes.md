@@ -21,24 +21,6 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
-## Crypto 5.5
-
-### Improvements and New Features
-
-- The documentation has been migrated to use Markdown and ExDoc.
-
-  Own Id: OTP-18955 Aux Id: [PR-8026]
-
-- Removed functions `crypto_dyn_iv_init/3` and `crypto_dyn_iv_update/3` which were marked as deprecated since OTP 25.
-
-  Own Id: OTP-18973
-
-- `OPENSSL_thread_stop`  is called when `crypto` is purged to not leak thread specific data.
-
-  Own Id: OTP-18978 Aux Id: 7809
-
-[PR-8026]: https://github.com/erlang/otp/pull/8026
-
 ## Crypto 5.4
 
 ### Fixed Bugs and Malfunctions

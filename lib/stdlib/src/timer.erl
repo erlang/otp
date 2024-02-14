@@ -178,7 +178,7 @@ milliseconds.
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_after(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -197,7 +197,7 @@ Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) after
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_after(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -350,7 +350,7 @@ finished or not.
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_interval(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -370,7 +370,7 @@ finished or not.
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_interval(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -427,7 +427,7 @@ the next.
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_repeatedly(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -447,7 +447,7 @@ starting the next.
 
 Returns `{ok, TRef}` or `{error, Reason}`.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_repeatedly(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),

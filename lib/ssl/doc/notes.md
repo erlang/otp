@@ -21,46 +21,6 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
-## SSL 11.2
-
-### Fixed Bugs and Malfunctions
-
-- Starting a TLS server without sufficient credentials (certificate or anonymous cipher) would work, but it was impossible to connect to it.
-  
-  This has been corrected to return an error instead of starting the server.
-
-  Own Id: OTP-18887 Aux Id: [GH-7493], [PR-7918]
-
-[GH-7493]: https://github.com/erlang/otp/issues/7493
-[PR-7918]: https://github.com/erlang/otp/pull/7918
-
-### Improvements and New Features
-
-- The `ssl` client can negotiate and handle certificate status request (OCSP stapling support on the client side).
-
-  Own Id: OTP-18606 Aux Id: OTP-16875,OTP-16448
-
-- Added `c:ssl_crl_cache_api:lookup/2` as an optional `-callback` attribute.
-
-  Own Id: OTP-18788 Aux Id: [PR-7700]
-
-- Key customization support has been extended to allow flexibility for implementers of  for instance hardware security modules (HSM) or trusted platform modules (TPM).
-
-  Own Id: OTP-18876 Aux Id: [PR-7898], [PR-7475]
-
-- The `proc_lib:set_label/1` function is now used to increase observability of `ssl` processes.
-
-  Own Id: OTP-18879
-
-- The documentation has been migrated to use Markdown and ExDoc.
-
-  Own Id: OTP-18955 Aux Id: [PR-8026]
-
-[PR-7700]: https://github.com/erlang/otp/pull/7700
-[PR-7898]: https://github.com/erlang/otp/pull/7898
-[PR-7475]: https://github.com/erlang/otp/pull/7475
-[PR-8026]: https://github.com/erlang/otp/pull/8026
-
 ## SSL 11.1.1
 
 ### Fixed Bugs and Malfunctions

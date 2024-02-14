@@ -21,25 +21,6 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
-## Xmerl 1.4
-
-### Improvements and New Features
-
-- Function specifications and types have been added to all public API functions.
-
-  Own Id: OTP-18913
-
-- As an alternative to `xmerl_xml`, a new export module `xmerl_xml_indent` that provides out-of-the box indented output has been added.
-
-  Own Id: OTP-18922 Aux Id: [PR-7942]
-
-- The documentation has been migrated to use Markdown and ExDoc.
-
-  Own Id: OTP-18955 Aux Id: [PR-8026]
-
-[PR-7942]: https://github.com/erlang/otp/pull/7942
-[PR-8026]: https://github.com/erlang/otp/pull/8026
-
 ## Xmerl 1.3.34
 
 ### Fixed Bugs and Malfunctions
