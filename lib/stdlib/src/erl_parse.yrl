@@ -731,6 +731,14 @@ Header
 "".
 
 Erlang code.
+-moduledoc """
+This module is the basic Erlang parser that converts tokens into the abstract
+form of either forms (that is, top-level constructs), expressions, or terms.
+
+The Abstract Format is described in the ERTS User's Guide. Notice that a token
+list must end with the dot token to be acceptable to the parse functions
+(see the `m:erl_scan`) module.
+""".
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).

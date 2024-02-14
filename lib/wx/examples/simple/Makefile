@@ -30,6 +30,8 @@ TESTMODS = hello hello2 minimal menu
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
+ERL_COMPILE_FLAGS += +nowarn_missing_doc
+
 # Targets
 $(TYPES):	$(TESTTARGETS)
 clean:
