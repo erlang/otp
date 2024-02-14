@@ -950,7 +950,7 @@ _Example:_
 -doc(#{since => <<"OTP 27.0">>}).
 -spec join([binary()], binary()) -> binary().
 join([], _Separator) -> <<>>;
-join([H], Separator) when is_binary(H) andalso is_binary(Separator) -> H;
+join([H], Separator) when is_binary(H), is_binary(Separator) -> H;
 join([H | T], Separator) when is_binary(Separator) ->
     %% Starting with an empty binary convinces the compiler to use the new "private append" optimisation
     Acc = <<>>,
