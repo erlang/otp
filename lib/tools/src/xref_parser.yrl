@@ -106,6 +106,7 @@ type     -> decl     : value_of('$1').
 type     -> '$empty' : unknown.
 
 Erlang code.
+-moduledoc false.
 
 -export([t2s/1]).
 

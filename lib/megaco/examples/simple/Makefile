@@ -60,12 +60,14 @@ MEGACO_ROOT_DIR = $(shell (cd .. ; dirname `pwd`))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+
 ifeq ($(WARN_UNUSED_WARS),true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
+	+nowarn_missing_doc \
 	-I../../include
 
 ifneq ($(MGC_HOST),)

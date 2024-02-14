@@ -31,6 +31,7 @@
 %% do not shrink.
 
 -module(ct_proper_ext).
+-moduledoc false.
 
 -export([existing_atom/0]).
 -export([safe_any/0]).

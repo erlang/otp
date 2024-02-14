@@ -98,6 +98,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_client_connection).
+-moduledoc false.
 
 -behaviour(gen_statem).
 

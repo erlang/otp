@@ -1110,6 +1110,7 @@ filter_labels([A | As]) ->
 filter_labels([]) ->
     [].
 
+-doc "".
 -spec get_label(cerl()) -> 'top' | integer().
 
 get_label(T) ->

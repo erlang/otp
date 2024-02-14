@@ -2063,6 +2063,7 @@ is_c_map(#c_literal{val = V}) when is_map(V) ->
 is_c_map(_) ->
     false.
 
+-doc "".
 -spec map_es(c_map() | c_literal()) -> [c_map_pair()].
 
 map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
@@ -2073,6 +2074,7 @@ map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
 map_es(#c_map{es = Es}) ->
     Es.
 
+-doc "".
 -spec map_arg(c_map() | c_literal()) -> c_map() | c_literal().
 
 map_arg(#c_literal{anno=As,val=M}) when is_map(M) ->
@@ -2080,37 +2082,44 @@ map_arg(#c_literal{anno=As,val=M}) when is_map(M) ->
 map_arg(#c_map{arg=M}) ->
     M.
 
+-doc "".
 -spec c_map([c_map_pair()]) -> c_map().
 
 c_map(Pairs) ->
     ann_c_map([], Pairs).
 
+-doc "".
 -spec c_map_pattern([c_map_pair()]) -> c_map().
 
 c_map_pattern(Pairs) ->
     #c_map{es=Pairs, is_pat=true}.
 
+-doc "".
 -spec ann_c_map_pattern([term()], [c_map_pair()]) -> c_map().
 
 ann_c_map_pattern(As, Pairs) ->
     #c_map{anno=As, es=Pairs, is_pat=true}.
 
+-doc "".
 -spec is_c_map_empty(c_map() | c_literal()) -> boolean().
 
 is_c_map_empty(#c_map{ es=[] }) -> true;
 is_c_map_empty(#c_literal{val=M}) when is_map(M),map_size(M) =:= 0 -> true;
 is_c_map_empty(_) -> false.
 
+-doc "".
 -spec is_c_map_pattern(c_map()) -> boolean().
 
 is_c_map_pattern(#c_map{is_pat=IsPat}) ->
     IsPat.
 
+-doc "".
 -spec ann_c_map([term()], [c_map_pair()]) -> c_map() | c_literal().
 
 ann_c_map(As, Es) ->
     ann_c_map(As, #c_literal{val=#{}}, Es).
 
+-doc "".
 -spec ann_c_map([term()], c_map() | c_literal(), [c_map_pair()]) -> c_map() | c_literal().
 
 ann_c_map(As, #c_literal{val=M0}=Lit, Es) when is_map(M0) ->
@@ -2149,6 +2158,7 @@ update_map_literal([#c_map_pair{op=#c_literal{val=exact},key=Ck,val=Cv}|Es], M) 
 update_map_literal([], M) ->
     M.
 
+-doc "".
 -spec update_c_map(c_map(), cerl(), [cerl()]) -> c_map() | c_literal().
 
 update_c_map(#c_map{is_pat=true}=Old, M, Es) ->
@@ -2156,34 +2166,41 @@ update_c_map(#c_map{is_pat=true}=Old, M, Es) ->
 update_c_map(#c_map{is_pat=false}=Old, M, Es) ->
     ann_c_map(get_ann(Old), M, Es).
 
+-doc "".
 -spec map_pair_key(c_map_pair()) -> cerl().
 
 map_pair_key(#c_map_pair{key=K}) -> K.
 
+-doc "".
 -spec map_pair_val(c_map_pair()) -> cerl().
 
 map_pair_val(#c_map_pair{val=V}) -> V.
 
+-doc "".
 -spec map_pair_op(c_map_pair()) -> map_op().
 
 map_pair_op(#c_map_pair{op=Op}) -> Op.
 
+-doc "".
 -spec c_map_pair(cerl(), cerl()) -> c_map_pair().
 
 c_map_pair(Key,Val) ->
     #c_map_pair{op=#c_literal{val=assoc},key=Key,val=Val}.
 
+-doc "".
 -spec c_map_pair_exact(cerl(), cerl()) -> c_map_pair().
 
 c_map_pair_exact(Key,Val) ->
     #c_map_pair{op=#c_literal{val=exact},key=Key,val=Val}.
 
+-doc "".
 -spec ann_c_map_pair([term()], cerl(), cerl(), cerl()) ->
         c_map_pair().
 
 ann_c_map_pair(As,Op,K,V) ->
     #c_map_pair{op=Op, key = K, val=V, anno = As}.
 
+-doc "".
 -spec update_c_map_pair(c_map_pair(), map_op(), cerl(), cerl()) -> c_map_pair().
 
 update_c_map_pair(Old,Op,K,V) ->
