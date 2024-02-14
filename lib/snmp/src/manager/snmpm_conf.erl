@@ -161,6 +161,10 @@ write_manager_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_manager_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+-spec append_manager_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [manager_entry()].
+
 append_manager_config(Dir, Conf) 
   when is_list(Dir), is_list(Conf) ->
     Order = fun snmpm_config:order_manager_config/2,

@@ -123,20 +123,17 @@
     </func>
 
     <func>
-      <name since="">append_manager_config(Dir, Conf) -> ok</name>
+      <name name="append_manager_config" arity="2" clause_i="1" since=""/>
       <fsummary>Append the manager config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [manager_entry()]</v>
-      </type>
       <desc>
         <p>Append the config to the current manager config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
-          for more info. </p>
-        <marker id="read_manager_config"></marker>
+	<seeguide marker="snmp_manager_config_files#manager_information">Manager Information</seeguide> 
+	for more info. </p>
+
+	<marker id="read_manager_config"></marker>
       </desc>
     </func>
 
