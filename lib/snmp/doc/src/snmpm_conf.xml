@@ -287,43 +287,24 @@
     </func>
 
     <func>
-      <name since="">read_agents_config(Dir) -> Conf</name>
+      <name name="read_agents_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the manager agents config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [agents_entry()]</v>
-      </type>
       <desc>
         <p>Read the current manager agents config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
-          for more info. </p>
-        <marker id="usm_entry"></marker>
+	<seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
+	for more info. </p>
+
+	<marker id="usm_entry"></marker>
       </desc>
     </func>
 
     <func>
       <name name="usm_entry" arity="6" clause_i="1" since=""/>
       <name name="usm_entry" arity="7" clause_i="1" since=""/>
-      <!--
-      <name since="">usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
-      <name since="">usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
-      -->
       <fsummary>Create an usm entry</fsummary>
-      <!--
-      <type>
-        <v>EngineID = string()</v>
-        <v>UserName = string()</v>
-        <v>SecName = string()</v>
-        <v>AuthP = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol</v>
-        <v>AuthKey = [integer()]</v>
-        <v>PrivP = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol</v>
-        <v>PrivKey = [integer()]</v>
-        <v>usm_entry() = term()</v>
-      </type>
-      -->
       <desc>
         <p>Create an entry for the agent community config file, 
 	<c>community.conf</c>. </p>
