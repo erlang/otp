@@ -410,12 +410,21 @@ check_agent_config(Entry, State) ->
     {check_ok(snmpm_config:check_agent_config(Entry)),
      State}.
 
+-spec write_agents_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [agent_entry()].
+
 write_agents_conf(Fd, "", Conf) ->
     write_agents_conf(Fd, Conf);
 write_agents_conf(Fd, Hdr, Conf) ->
     io:format(Fd, "~s~n", [Hdr]),
     write_agents_conf(Fd, Conf).
     
+-spec write_agents_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
+
 write_agents_conf(_Fd, []) ->
     ok;
 write_agents_conf(Fd, [H|T]) ->

@@ -242,25 +242,21 @@
     </func>
 
     <func>
-      <name since="">write_agents_config(Dir, Conf) -> ok</name>
-      <name since="">write_agents_config(Dir, Hdr, Conf) -> ok</name>
+      <name name="write_agents_config" arity="2" clause_i="1" since=""/>
+      <name name="write_agents_config" arity="3" clause_i="1" since=""/>
       <fsummary>Write the manager agents to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Hdr = string()</v>
-        <v>Conf = [_entry()]</v>
-      </type>
       <desc>
         <p>Write the manager agents config to the manager agents 
-          config file. </p>
+	config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p><c>Hdr</c> is an optional file header (note that this text is
-          written to the file as is). </p>
+	written to the file as is). </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
-          for more info. </p>
-        <marker id="append_agents_config"></marker>
+	<seeguide marker="snmp_manager_config_files#agents">Agents</seeguide> 
+	for more info. </p>
+
+	<marker id="append_agents_config"></marker>
       </desc>
     </func>
 
