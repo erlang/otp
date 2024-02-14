@@ -470,6 +470,10 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-spec append_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [usm_entry()].
+
 append_usm_config(Dir, Conf)
   when is_list(Dir) andalso is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,

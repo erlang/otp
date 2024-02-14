@@ -357,24 +357,23 @@
         <marker id="append_usm_config"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">append_usm_config(Dir, Conf) -> ok</name>
+      <name name="append_usm_config" arity="2" clause_i="1" since=""/>
       <fsummary>Append the manager usm  config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [usm_entry()]</v>
-      </type>
       <desc>
         <p>Append the usm config to the current manager usm 
-          config file. </p>
+	config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
-          for more info. </p>
-        <marker id="read_usm_config"></marker>
+	<seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
+	for more info. </p>
+
+	<marker id="read_usm_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">read_usm_config(Dir) -> Conf</name>
       <fsummary>Read the manager usm config from the config file</fsummary>
