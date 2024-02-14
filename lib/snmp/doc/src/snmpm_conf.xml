@@ -62,6 +62,16 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="user_entry"/>
+      <desc>
+	<p>
+	  An opaque data structure containg all configuration for one user
+	  for the manager.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -101,6 +111,7 @@
         <marker id="append_manager_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">append_manager_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager config to the config file</fsummary>
@@ -118,6 +129,7 @@
         <marker id="read_manager_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">read_manager_config(Dir) -> Conf</name>
       <fsummary>Read the manager config from the config file</fsummary>
@@ -135,28 +147,25 @@
         <marker id="users_entry"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">users_entry(UserId) -> users_entry()</name>
-      <name since="">users_entry(UserId, UserMod) -> users_entry()</name>
-      <name since="">users_entry(UserId, UserMod, UserData) -> users_entry()</name>
+      <name name="users_entry" arity="1" clause_i="1" since=""/>
+      <name name="users_entry" arity="2" clause_i="1" since=""/>
+      <name name="users_entry" arity="3" clause_i="1" since=""/>
+      <name name="users_entry" arity="4" clause_i="1" since=""/>
       <fsummary>Create an users entry</fsummary>
-      <type>
-        <v>UserId = term()</v>
-        <v>UserMod = atom()</v>
-        <v>UserData = term()</v>
-        <v>standard_entry() = term()</v>
-      </type>
       <desc>
         <p>Create an entry for the manager users config file, 
-          <c>users.conf</c>. </p>
+	<c>users.conf</c>. </p>
         <p><c>users_entry(UserId)</c> translates to the following call:
-          <c>users_entry(UserId, snmpm_user_default)</c>. </p>
+	<c>users_entry(UserId, snmpm_user_default)</c>. </p>
         <p><c>users_entry(UserId, UserMod)</c> translates to the following 
-          call: <c>users_entry(UserId, UserMod, undefined)</c>. </p>
+	call: <c>users_entry(UserId, UserMod, undefined)</c>. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#users">Users</seeguide> 
-          for more info. </p>
-        <marker id="write_users_config"></marker>
+	<seeguide marker="snmp_manager_config_files#users">Users</seeguide> 
+	for more info. </p>
+
+	<marker id="write_users_config"></marker>
       </desc>
     </func>
     <func>

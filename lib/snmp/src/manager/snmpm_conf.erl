@@ -32,7 +32,7 @@
 	 read_manager_config/1, 
 
 	 %% users.conf
-	 users_entry/1, users_entry/2, users_entry/3,
+	 users_entry/1, users_entry/2, users_entry/3, users_entry/4,
 	 write_users_config/2, write_users_config/3, 
 	 append_users_config/2, 
 	 read_users_config/1, 
@@ -52,10 +52,12 @@
 
 -export_type([
               agent_entry/0,
-              manager_entry/0
+              manager_entry/0,
+              user_entry/0
              ]).
 
 
+%% -type agent_entry() :: term().
 -opaque agent_entry() ::
           {
            UserId         :: snmpm:user_id(),
@@ -74,6 +76,16 @@
 
 %% -type manager_entry() :: term().
 -opaque manager_entry() :: {Tag :: atom(), Value :: term()}.
+
+%% -type user_entry() :: term().
+-opaque user_entry() ::
+          {
+           UserId             :: snmpm:user_id(),
+           Mod                :: snmpm:snmpm_user(),
+           Data               :: term(),
+           DefaultAgentConfig :: [snmpm:agent_config()]
+          }.
+
 
 -define(MANAGER_CONF_FILE,   "manager.conf").
 -define(USERS_CONF_FILE,     "users.conf").
@@ -170,14 +182,37 @@ do_write_manager_conf(_Fd, Crap) ->
 %% ------ users.conf ------
 %% 
 
+-spec users_entry(UserId) -> UserEntry when
+      UserId    :: snmpm:user_id(),
+      UserEntry :: user_entry().
+
 users_entry(UserId) ->
     users_entry(UserId, snmpm_user_default).
+
+-spec users_entry(UserId, UserMod) -> UserEntry when
+      UserId    :: snmpm:user_id(),
+      UserMod   :: snmpm:snmpm_user(),
+      UserEntry :: user_entry().
 
 users_entry(UserId, UserMod) ->
     users_entry(UserId, UserMod, undefined).
 
+-spec users_entry(UserId, UserMod, UserData) -> UserEntry when
+      UserId    :: snmpm:user_id(),
+      UserMod   :: snmpm:snmpm_user(),
+      UserData  :: term(),
+      UserEntry :: user_entry().
+
 users_entry(UserId, UserMod, UserData) ->
     users_entry(UserId, UserMod, UserData, []).
+
+-spec users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
+          UserEntry when
+      UserId             :: snmpm:user_id(),
+      UserMod            :: snmpm:snmpm_user(),
+      UserData           :: term(),
+      DefaultAgentConfig :: [snmpm:agent_config()],
+      UserEntry          :: user_entry().
 
 users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
     {UserId, UserMod, UserData, DefaultAgentConfig}.
