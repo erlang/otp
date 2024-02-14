@@ -350,20 +350,17 @@
     </func>
 
     <func>
-      <name since="">read_usm_config(Dir) -> Conf</name>
+      <name name="read_usm_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the manager usm config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [usm_entry()]</v>
-      </type>
       <desc>
         <p>Read the current manager usm config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
-          for more info. </p>
-        <marker id="end"></marker>
+	<seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
+	for more info. </p>
+
+	<marker id="end"></marker>
       </desc>
     </func>
   </funcs>
