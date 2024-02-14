@@ -688,6 +688,8 @@ warnings(_AST, State) ->
               ],
    foldl(fun (W, State0) -> W(State0) end, State, WarnFuns).
 
+warn_missing_docs(State = #docs{ moduledoc = {_, hidden} }) ->
+   State;
 warn_missing_docs(State) ->
    DocNodes = process_docs(State),
    foldl(fun warn_missing_docs/2, State, DocNodes).
@@ -747,9 +749,9 @@ create_warning(Anno, Warning, State) ->
    Location = erl_anno:location(Anno),
    {Filename, [{Location, ?MODULE, Warning}]}.
 
-warn_missing_docs({KFA, Anno, _, Doc, _}, State) ->
+warn_missing_docs({{Kind, _, _} = KFA, Anno, _, Doc, MD}, State) ->
     case proplists:get_value(warn_missing_doc, State#docs.opts, false) of
-        true when Doc =:= none ->
+        true when Doc =:= none, not is_map_key(equiv, MD) ->
             Warning = {missing_doc, KFA},
             State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
         _false ->
