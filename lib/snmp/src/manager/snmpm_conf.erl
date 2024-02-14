@@ -53,7 +53,8 @@
 -export_type([
               agent_entry/0,
               manager_entry/0,
-              user_entry/0
+              user_entry/0,
+              usm_entry/0
              ]).
 
 
@@ -84,6 +85,27 @@
            Mod                :: snmpm:snmpm_user(),
            Data               :: term(),
            DefaultAgentConfig :: [snmpm:agent_config()]
+          }.
+
+%% -type usm_entry() :: term().
+-opaque usm_entry() ::
+          {
+           EngineID :: snmp:engine_id(),
+           UserName :: snmp:usm_name(),
+           AuthP    :: snmp:usm_auth_protocol(),
+           AuthKey  :: snmp:usm_auth_key(),
+           PrivP    :: snmp:usm_priv_protocol(),
+           PrivKey  :: snmp:usm_priv_key()
+          }
+        |
+          {
+           EngineID :: snmp:engine_id(),
+           UserName :: snmp:usm_name(),
+           SecName  :: snmp:sec_name(),
+           AuthP    :: snmp:usm_auth_protocol(),
+           AuthKey  :: snmp:usm_auth_key(),
+           PrivP    :: snmp:usm_priv_protocol(),
+           PrivKey  :: snmp:usm_priv_key()
           }.
 
 
@@ -391,8 +413,29 @@ do_write_agents_conf(_Fd, Crap) ->
 %% ------ usm.conf -----
 %% 
 
+-spec usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
+          UsmEntry when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      AuthP    :: snmp:usm_auth_protocol(),
+      AuthKey  :: snmp:usm_auth_key(),
+      PrivP    :: snmp:usm_priv_protocol(),
+      PrivKey  :: snmp:usm_priv_key(),
+      UsmEntry :: usm_entry().
+
 usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.
+
+-spec usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
+          UsmEntry when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      SecName  :: snmp:sec_name(),
+      AuthP    :: snmp:usm_auth_protocol(),
+      AuthKey  :: snmp:usm_auth_key(),
+      PrivP    :: snmp:usm_priv_protocol(),
+      PrivKey  :: snmp:usm_priv_key(),
+      UsmEntry :: usm_entry().
 
 usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.

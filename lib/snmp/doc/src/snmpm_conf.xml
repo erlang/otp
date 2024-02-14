@@ -72,6 +72,16 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="usm_entry"/>
+      <desc>
+	<p>
+	  An opaque data structure containg information about security data
+	  for usm for the manager.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
@@ -168,6 +178,7 @@
 	<marker id="write_users_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">write_users_config(Dir, Conf) -> ok</name>
       <name since="">write_users_config(Dir, Hdr, Conf) -> ok</name>
@@ -190,6 +201,7 @@
         <marker id="append_users_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">append_users_config(Dir, Conf) -> ok</name>
       <fsummary>Append the manager users config to the config file</fsummary>
@@ -208,6 +220,7 @@
         <marker id="read_users_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">read_users_config(Dir) -> Conf</name>
       <fsummary>Read the manager users config from the config file</fsummary>
@@ -239,6 +252,7 @@
 	<marker id="write_agents_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">write_agents_config(Dir, Conf) -> ok</name>
       <name since="">write_agents_config(Dir, Hdr, Conf) -> ok</name>
@@ -296,10 +310,16 @@
         <marker id="usm_entry"></marker>
       </desc>
     </func>
+
     <func>
+      <name name="usm_entry" arity="6" clause_i="1" since=""/>
+      <name name="usm_entry" arity="7" clause_i="1" since=""/>
+      <!--
       <name since="">usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
       <name since="">usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) -> usm_entry()</name>
+      -->
       <fsummary>Create an usm entry</fsummary>
+      <!--
       <type>
         <v>EngineID = string()</v>
         <v>UserName = string()</v>
@@ -310,15 +330,18 @@
         <v>PrivKey = [integer()]</v>
         <v>usm_entry() = term()</v>
       </type>
+      -->
       <desc>
         <p>Create an entry for the agent community config file, 
-          <c>community.conf</c>. </p>
+	<c>community.conf</c>. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
-          for more info. </p>
-        <marker id="write_usm_config"></marker>
+	<seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
+	for more info. </p>
+
+	<marker id="write_usm_config"></marker>
       </desc>
     </func>
+
     <func>
       <name since="">write_usm_config(Dir, Conf) -> ok</name>
       <name since="">write_usm_config(Dir, Hdr, Conf) -> ok</name>
