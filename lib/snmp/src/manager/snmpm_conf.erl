@@ -277,6 +277,11 @@ append_users_config(Dir, Conf)
     Write = fun write_users_conf/2,
     append_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-spec read_users_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [user_entry()],
+      Reason :: term().
+
 read_users_config(Dir) when is_list(Dir) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_user_config/2,

@@ -213,20 +213,17 @@
     </func>
 
     <func>
-      <name since="">read_users_config(Dir) -> Conf</name>
+      <name name="read_users_config" arity="1" clause_i="1" since=""/>
       <fsummary>Read the manager users config from the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Conf = [users_entry()]</v>
-      </type>
       <desc>
         <p>Read the current manager users config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#users">Users</seeguide> 
-          for more info. </p>
-        <marker id="agents_entry"></marker>
+	<seeguide marker="snmp_manager_config_files#users">Users</seeguide> 
+	for more info. </p>
+
+	<marker id="agents_entry"></marker>
       </desc>
     </func>
 
