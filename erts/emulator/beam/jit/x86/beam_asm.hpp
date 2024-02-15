@@ -652,10 +652,26 @@ protected:
                     a.movups(x86::xmmword_ptr(c_p, offsetof(Process, htop)),
                              x86::xmm0);
                 }
-            } else if (Spec & Update::eHeap) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
-            } else if (Spec & Update::eStack) {
-                a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
+            } else {
+                if (Spec & Update::eHeap) {
+                    a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)), HTOP);
+                } else {
+#ifdef DEBUG
+                    /* Store some garbage in the process structure to catch
+                     * missing updates. */
+                    a.mov(x86::qword_ptr(c_p, offsetof(Process, htop)),
+                          active_code_ix);
+#endif
+                }
+
+                if (Spec & Update::eStack) {
+                    a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)), E);
+                } else {
+#ifdef DEBUG
+                    a.mov(x86::qword_ptr(c_p, offsetof(Process, stop)),
+                          active_code_ix);
+#endif
+                }
             }
 
 #ifdef NATIVE_ERLANG_STACK

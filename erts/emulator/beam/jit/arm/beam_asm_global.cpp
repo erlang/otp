@@ -255,7 +255,7 @@ void BeamModuleAssembler::emit_raise_exception(Label I,
 }
 
 void BeamGlobalAssembler::emit_process_exit() {
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     a.mov(ARG1, c_p);
     mov_imm(ARG2, 0);
@@ -263,7 +263,7 @@ void BeamGlobalAssembler::emit_process_exit() {
     load_x_reg_array(ARG3);
     runtime_call<4>(handle_error);
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
     a.cbz(ARG1, labels[do_schedule]);
     a.udf(0xdead);
