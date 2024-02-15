@@ -418,9 +418,24 @@ deprecated(Conf) ->
     ok.
 
 warn_missing_doc(Conf) ->
+
+    warn_missing_doc(Conf, [function, type, callback], [warn_missing_doc]),
+    warn_missing_doc(Conf, [function], [warn_missing_doc_functions]),
+    warn_missing_doc(Conf, [function, type], [warn_missing_doc_functions, warn_missing_doc_types]),
+    warn_missing_doc(Conf, [type, callback], [warn_missing_doc_types, warn_missing_doc_callbacks]),
+    warn_missing_doc(Conf, [callback], [warn_missing_doc_callbacks]),
+
+    warn_missing_doc(Conf, [type, callback], [warn_missing_doc, nowarn_missing_doc_functions]),
+    warn_missing_doc(Conf, [function, callback], [warn_missing_doc, nowarn_missing_doc_types]),
+    warn_missing_doc(Conf, [type], [warn_missing_doc, nowarn_missing_doc_callbacks, nowarn_missing_doc_functions]),
+    warn_missing_doc(Conf, [], [warn_missing_doc_functions, nowarn_missing_doc]),
+
+    ok.
+
+warn_missing_doc(Conf, ExpectedWarnings, Options) ->
     ModuleName = ?get_name(),
-    {ok, ModName, [{File,Warnings}, {HrlFile, HrlWarnings}]} =
-        default_compile_file(Conf, ModuleName, [return_warnings, warn_missing_doc, report]),
+    {ok, ModName, Ws} =
+        default_compile_file(Conf, ModuleName, [return_warnings, report | Options]),
 
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,_},
@@ -431,20 +446,51 @@ warn_missing_doc(Conf) ->
            {{function,test,2},_,[<<"test(N, M)">>],none,_}]}
     } = code:get_doc(ModName),
 
-    ?assertEqual("warn_missing_doc.erl", filename:basename(File)),
-    ?assertEqual(6, length(Warnings)),
-    ?assertMatch({1, beam_doc, missing_moduledoc}, lists:nth(1, Warnings)),
-    ?assertMatch({{6,2}, beam_doc, {missing_doc, {type,test,0}}}, lists:nth(2, Warnings)),
-    ?assertMatch({{7,2}, beam_doc, {missing_doc, {type,test,1}}}, lists:nth(3, Warnings)),
-    ?assertMatch({{9,2}, beam_doc, {missing_doc, {callback,test,0}}}, lists:nth(4, Warnings)),
-    ?assertMatch({{13,1}, beam_doc, {missing_doc, {function,test,0}}}, lists:nth(5, Warnings)),
-    ?assertMatch({{14,1}, beam_doc, {missing_doc, {function,test,1}}}, lists:nth(6, Warnings)),
+    case ExpectedWarnings of
+        [] ->
+            ?assertEqual([],Ws);
+        _ ->
+            [{File,Warnings} | Hrl] = Ws,
+            ExpectedWarningCount = 1 + lists:sum(
+                                         lists:flatten(
+                                           [[2 || lists:member(type, ExpectedWarnings)],
+                                            [1 || lists:member(callback, ExpectedWarnings)],
+                                            [2 || lists:member(function, ExpectedWarnings)]])),
 
-    ?assertEqual("warn_missing_doc.hrl", filename:basename(HrlFile)),
-    ?assertEqual(1, length(HrlWarnings)),
-    ?assertMatch({{2,1}, beam_doc, {missing_doc, {function,test,2}}}, lists:nth(1, HrlWarnings)),
+            ?assertEqual("warn_missing_doc.erl", filename:basename(File)),
+            ?assertEqual(ExpectedWarningCount, length(Warnings)),
+            ?assertMatch({1, beam_doc, missing_moduledoc}, lists:nth(1, Warnings)),
+            TypePos =
+                case lists:member(type, ExpectedWarnings) of
+                    true ->
+                        ?assertMatch({{6,2}, beam_doc, {missing_doc, {type,test,0}}}, lists:nth(2, Warnings)),
+                        ?assertMatch({{7,2}, beam_doc, {missing_doc, {type,test,1}}}, lists:nth(3, Warnings)),
+                        4;
+                    false ->
+                        2
+                end,
 
-    ok.
+            CBPos =
+                case lists:member(callback, ExpectedWarnings) of
+                    true ->
+                        ?assertMatch({{9,2}, beam_doc, {missing_doc, {callback,test,0}}}, lists:nth(TypePos, Warnings)),
+                        TypePos + 1;
+                    false ->
+                        TypePos
+                end,
+
+            case lists:member(function, ExpectedWarnings) of
+                true ->
+                    ?assertMatch({{13,1}, beam_doc, {missing_doc, {function,test,0}}}, lists:nth(CBPos, Warnings)),
+                    ?assertMatch({{14,1}, beam_doc, {missing_doc, {function,test,1}}}, lists:nth(CBPos+1, Warnings)),
+                    [{HrlFile, HrlWarnings}] = Hrl,
+                    ?assertEqual("warn_missing_doc.hrl", filename:basename(HrlFile)),
+                    ?assertEqual(1, length(HrlWarnings)),
+                    ?assertMatch({{2,1}, beam_doc, {missing_doc, {function,test,2}}}, lists:nth(1, HrlWarnings));
+                false ->
+                    ok
+            end
+    end.
 
 doc_with_file(Conf) ->
     ModuleName = ?get_name(),
