@@ -1272,18 +1272,13 @@ Eterm build_free_seg_list(Process* p, ErtsFreeSegMap* map)
 #endif
 
 static ERTS_INLINE void *
-os_mmap(void *hint_ptr, UWord size, int try_superalign)
+os_mmap(void *hint_ptr, UWord size)
 {
 #if HAVE_MMAP
     void *res;
-#ifdef MAP_ALIGN
-    if (try_superalign)
-	res = mmap((void *) ERTS_SUPERALIGNED_SIZE, size, ERTS_MMAP_PROT,
-		   ERTS_MMAP_FLAGS|MAP_ALIGN, ERTS_MMAP_FD, 0);
-    else
-#endif
-	res = mmap((void *) hint_ptr, size, ERTS_MMAP_PROT,
-		   ERTS_MMAP_FLAGS, ERTS_MMAP_FD, 0);
+
+    res = mmap((void *) hint_ptr, size, ERTS_MMAP_PROT,
+	       ERTS_MMAP_FLAGS, ERTS_MMAP_FD, 0);
     if (res == MAP_FAILED)
 	return NULL;
     return res;
@@ -1315,6 +1310,84 @@ os_munmap(void *ptr, UWord size)
 #endif
 }
 
+#define ALIGN_UP(x, a) ((void*)((((UWord)(x)) + ((a) - 1)) & ~((a) - 1)))
+#define IS_ALIGNED(x, a) ((((UWord)(x)) & ((a) - 1)) == 0)
+
+/*
+ * Just like os_mmap, but ensures that mapping is a multiple of the
+ * specified alignment.  Alignment must be a power-of-2 multiple of
+ * the page size in bytes.
+ */
+static ERTS_INLINE void *
+os_mmap_aligned(UWord size, UWord alignment)
+{
+    char *result;
+#ifdef MAP_ALIGN
+
+    /*
+     * On an operating systems that support MAP_ALIGN (SunOS >=5.9) we
+     * can directly ask mmap(2) to align the virtual memory mapping.
+     */
+    result = mmap((void *) alignment, size, ERTS_MMAP_PROT,
+                  ERTS_MMAP_FLAGS|MAP_ALIGN, ERTS_MMAP_FD, 0);
+    if (result == MAP_FAILED) {
+        return NULL;
+    }
+#else
+    UWord diff;
+
+    ASSERT((size % sys_page_size) == 0);
+    ASSERT((alignment % sys_page_size) == 0);
+
+    /*
+     * Allocate and test for alignment.  It is possible 1) the
+     * operating aligned the allocation based its length or 2) the
+     * previous allocation aligned the next available address.
+     */
+    if ((result = os_mmap(NULL, size)) == NULL) {
+        return NULL;
+    }
+
+    if (IS_ALIGNED(result, alignment)) {
+        return result;
+    }
+
+    /*
+     * The virtual memory allocation was not aligned, clean-up the
+     * mapping so we can try a different strategy.
+     */
+    os_munmap(result, size);
+
+    /*
+     * Retry the virtual memory allocation adding padding to ensure
+     * the requested alignment.
+     */
+    if ((result = os_mmap(NULL, size + alignment)) == NULL) {
+        return NULL;
+    }
+
+    diff = (char *)ALIGN_UP(result, alignment) - result;
+
+    /*
+     * Unmap any extra pages at the beginning of the allocation.  If
+     * the allocation ended up being aligned, there will be nothing to
+     * unmap.
+     */
+    if (diff != 0) {
+        os_munmap(result, diff);
+        result += diff;
+    }
+
+    /*
+     * Unmap extra pages at the end of the allocation.  There must
+     * always be at least one.
+     */
+    os_munmap(result + size, alignment - diff);
+#endif
+
+    return result;
+}
+
 #ifdef ERTS_HAVE_OS_MREMAP
 #  if HAVE_MREMAP
 #    if defined(__NetBSD__)
@@ -1324,7 +1397,7 @@ os_munmap(void *ptr, UWord size)
 #    endif
 #  endif
 static ERTS_INLINE void *
-os_mremap(void *ptr, UWord old_size, UWord new_size, int try_superalign)
+os_mremap(void *ptr, UWord old_size, UWord new_size)
 {
     void *new_seg;
 #if HAVE_MREMAP
@@ -1442,7 +1515,7 @@ alloc_desc_insert_free_seg(ErtsMemMapper* mm,
 
 #if ERTS_HAVE_OS_MMAP
     if (!mm->no_os_mmap) {
-        ptr = os_mmap(mm->desc.new_area_hint, ERTS_PAGEALIGNED_SIZE, 0);
+        ptr = os_mmap(mm->desc.new_area_hint, ERTS_PAGEALIGNED_SIZE);
         if (ptr) {
             mm->desc.new_area_hint = ptr+ERTS_PAGEALIGNED_SIZE;
             ERTS_MMAP_SIZE_OS_INC(ERTS_PAGEALIGNED_SIZE);
@@ -1650,35 +1723,15 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
     /* Map using OS primitives */
     if (!(ERTS_MMAPFLG_SUPERCARRIER_ONLY & flags) && !mm->no_os_mmap) {
 	if (!(ERTS_MMAPFLG_SUPERALIGNED & flags)) {
-	    seg = os_mmap(NULL, asize, 0);
+	    seg = os_mmap(NULL, asize);
 	    if (!seg)
 		goto failure;
 	}
 	else {
 	    asize = ERTS_SUPERALIGNED_CEILING(*sizep);
-	    seg = os_mmap(NULL, asize, 1);
+	    seg = os_mmap_aligned(asize, ERTS_SUPERALIGNED_SIZE);
 	    if (!seg)
 		goto failure;
-
-	    if (!ERTS_IS_SUPERALIGNED(seg)) {
-		char *ptr;
-		UWord sz;
-
-		os_munmap(seg, asize);
-
-		ptr = os_mmap(NULL, asize + ERTS_SUPERALIGNED_SIZE, 1);
-		if (!ptr)
-		    goto failure;
-
-		seg = (char *) ERTS_SUPERALIGNED_CEILING(ptr);
-		sz = (UWord) (seg - ptr);
-		ERTS_MMAP_ASSERT(sz <= ERTS_SUPERALIGNED_SIZE);
-		if (sz)
-		    os_munmap(ptr, sz);
-		sz = ERTS_SUPERALIGNED_SIZE - sz; 
-		if (sz)
-		    os_munmap(seg+asize, sz);
-	    }
 	}
 
 	ERTS_MMAP_OP_LCK(seg, *sizep, asize);
@@ -1899,7 +1952,7 @@ erts_mremap(ErtsMemMapper* mm,
 	if (superaligned) {
 	    return remap_move(mm, flags, ptr, old_size, sizep);
 	} else {
-	    new_ptr = os_mremap(ptr, old_size, asize, 0);
+	    new_ptr = os_mremap(ptr, old_size, asize);
 	    if (!new_ptr)
 		return NULL;
 	    if (asize > old_size)
@@ -2155,33 +2208,19 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 {
     static int is_first_call = 1;
     char *start = NULL, *end = NULL;
-    UWord pagesize;
     int virtual_map = 0;
 
     (void)virtual_map;
 
-#if defined(__WIN32__)
-    {
-        SYSTEM_INFO sysinfo;
-        GetSystemInfo(&sysinfo);
-        pagesize = (UWord) sysinfo.dwPageSize;
-    }
-#elif defined(_SC_PAGESIZE)
-    pagesize = (UWord) sysconf(_SC_PAGESIZE);
-#elif defined(HAVE_GETPAGESIZE)
-    pagesize = (UWord) getpagesize();
-#else
-#  error "Do not know how to get page size"
-#endif
 #if defined(HARD_DEBUG)  || 0
     erts_fprintf(stderr, "erts_mmap: scs = %bpu\n", init->scs);
     erts_fprintf(stderr, "erts_mmap: sco = %i\n", init->sco);
     erts_fprintf(stderr, "erts_mmap: scrfsd = %i\n", init->scrfsd);
 #endif
-    erts_page_inv_mask = pagesize - 1;
-    if (pagesize & erts_page_inv_mask)
-	erts_exit(1, "erts_mmap: Invalid pagesize: %bpu\n",
-		 pagesize);
+    erts_page_inv_mask = sys_page_size - 1;
+    if (sys_page_size & erts_page_inv_mask)
+	erts_exit(1, "erts_mmap: Invalid sys_page_size: %bpu\n",
+		 sys_page_size);
 
     ERTS_MMAP_OP_RINGBUF_INIT();
 
@@ -2246,13 +2285,30 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 	     * The whole supercarrier will by physically
 	     * reserved all the time.
 	     */
-	    start = os_mmap(NULL, sz, 1);
+	    UWord alignment;
+
+	    if (init->lp)
+		alignment = MAX(sys_large_page_size, ERTS_SUPERALIGNED_SIZE);
+	    else
+		alignment = ERTS_SUPERALIGNED_SIZE;
+	    start = os_mmap_aligned(sz, alignment);
 	}
 	if (!start)
 	    erts_exit(1,
 		     "erts_mmap: Failed to create super carrier of size %bpu MB\n",
 		     init->scs/1024/1024);
 	end = start + sz;
+#ifdef HAVE_LINUX_THP
+	if (init->lp) {
+	    /*
+	     * Enable the Transparent Huge Pages for the virtual
+	     * memory reservation.
+	     */
+	    if (madvise(start, sz, MADV_HUGEPAGE) != 0) {
+		erts_exit(1, "erts_mmap: Failed to enable THP for the super carrier: %s\n", strerror(errno));
+	    }
+	}
+#endif
 #ifdef ERTS_MMAP_DEBUG_FILL_AREAS
 	if (!virtual_map) {
 	    Uint32 *uip;

@@ -1650,6 +1650,23 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 #endif
 			    get_amount_value(argv[i]+9, argv, &i);
 		    }
+		    else if (has_prefix("lp", argv[i]+3)) {
+                        char *param_end = argv[i]+5;
+			char *value = get_value(param_end, argv, &i);
+			if (sys_strcmp(value, "on") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 1;
+			    init->mseg.literal_mmap.lp = 1;
+#endif
+			} else if (sys_strcmp(value, "off") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 0;
+			    init->mseg.literal_mmap.lp = 0;
+#endif
+			} else {
+			    bad_value(param, param_end, value);
+			}
+		    }
 		    else {
 			bad_param(param, param+2);
 		    }

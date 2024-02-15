@@ -111,6 +111,7 @@ static char *plusM_other_switches[] = {
     "Mscrfsd",
     "Msco",
     "Mscrpm",
+    "Mlp",
     "Ye",
     "Ym",
     "Ytp",

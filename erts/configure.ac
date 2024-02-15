@@ -3034,7 +3034,66 @@ case $host_os in
 	;;
 esac
 
+dnl Checks for the Transparent Huge pages (THP) availability on Linux
+AS_CASE([$OPSYS],
+  [linux*],
+  [      
+    AC_CACHE_CHECK(
+      [whether the Transparent Huge Pages interface is available],
+      erts_cv_linux_thp,
+      AC_COMPILE_IFELSE(
+        [
+          AC_LANG_PROGRAM(
+            [[
+              #include <sys/mman.h>
+            ]],
+            [[
+              madvise((void *)0, 0, MADV_HUGEPAGE);
+            ]])
+        ],
+        [
+          erts_cv_linux_thp=yes
+  	  AC_DEFINE(HAVE_LINUX_THP,
+            [1],
+            [Define if the target system is Linux and THP is available])
+        ],
+  	[
+          erts_cv_linux_thp=no
+  	]))
+  ])
 
+AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
+  [
+    saved_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -Werror -Wunused-command-line-argument"
+    AC_MSG_CHECKING([if we can add -Werror -Wunused-command-argument to LDFLAGS])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
+      [
+        AC_MSG_RESULT([yes])
+        unused_command_line_argument="-Wunused-command-line-argument"
+      ],
+      [
+        AC_MSG_RESULT([no])
+        unused_command_line_argument=""
+      ]
+    )
+    LDFLAGS=$saved_LDFLAGS
+    for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
+    do
+      AC_MSG_CHECKING([if we can add $flag to LDFLAGS])
+      saved_LDFLAGS="$LDFLAGS"
+      LDFLAGS="$LDFLAGS $unused_command_line_argument $flag"
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
+         [
+           AC_MSG_RESULT([yes])
+           LDFLAGS="$save_LDFLAGS $flag"
+         ],
+         [
+           AC_MSG_RESULT([no])
+           LDFLAGS="$saved_LDFLAGS"
+         ])
+    done
+  ])
 
 dnl ----------------------------------------------------------------------
 dnl Tests related to configurable options given on command line

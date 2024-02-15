@@ -649,6 +649,8 @@ __decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 
 UWord erts_sys_get_page_size(void);
 
+UWord erts_sys_get_large_page_size(void);
+
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
 
@@ -903,6 +905,9 @@ typedef struct {
 } SysAllocStat;
 
 void sys_alloc_stat(SysAllocStat *);
+
+extern UWord sys_page_size;
+extern UWord sys_large_page_size;
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #undef ERTS_REFC_DEBUG

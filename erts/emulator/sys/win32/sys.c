@@ -45,6 +45,9 @@ void erl_start(int, char**);
 void erts_exit(int n, const char*, ...);
 void erl_error(const char*, va_list);
 
+UWord sys_page_size;
+UWord sys_large_page_size;
+
 /*
  * Microsoft-specific function to map a WIN32 error code to a Posix errno.
  */
@@ -189,12 +192,18 @@ void sys_primitive_init(HMODULE beam)
     beam_module = (HMODULE) beam;
 }
 
-UWord
-erts_sys_get_page_size(void)
+static UWord
+get_page_size(void)
 {
     SYSTEM_INFO info;
     GetSystemInfo(&info);
     return (UWord)info.dwPageSize;
+}
+
+static UWord
+get_large_page_size(void)
+{
+    return 0;
 }
 
 Uint
@@ -3190,6 +3199,9 @@ erts_sys_pre_init(void)
     eid.thread_create_prepare_func = thr_create_prepare;
     /* After creation in parent */
     eid.thread_create_parent_func = thr_create_cleanup;
+
+    sys_page_size = get_page_size();
+    sys_large_page_size = get_large_page_size();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();

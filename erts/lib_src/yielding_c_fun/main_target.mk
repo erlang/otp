@@ -32,7 +32,7 @@ $(YCF_EXECUTABLE): $(YCF_OBJECTS)
 	$(V_LD) $(YCF_CFLAGS) $(YCF_LDFLAGS) $(YCF_OBJECTS) -o $@
 
 $(YCF_OBJ_DIR)/%.o: $(YCF_SOURCE_DIR)/lib/simple_c_gc/%.c $(YCF_HEADERS)
-	$(V_CC) $(YCF_CFLAGS) $(YCF_LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
+	$(V_CC) $(YCF_CFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
 
 $(YCF_OBJ_DIR)/%.o: $(YCF_SOURCE_DIR)/%.c $(YCF_HEADERS)
-	$(V_CC) $(YCF_CFLAGS) $(YCF_LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
+	$(V_CC) $(YCF_CFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@

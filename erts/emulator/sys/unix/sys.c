@@ -132,8 +132,11 @@ static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
 int using_oldshell = 1;
 
-UWord
-erts_sys_get_page_size(void)
+UWord sys_page_size;
+UWord sys_large_page_size;
+
+static UWord
+get_page_size(void)
 {
 #if defined(_SC_PAGESIZE)
     return (UWord) sysconf(_SC_PAGESIZE);
@@ -141,6 +144,25 @@ erts_sys_get_page_size(void)
     return (UWord) getpagesize();
 #else
     return (UWord) 4*1024; /* Guess 4 KB */
+#endif
+}
+
+static UWord
+get_large_page_size(void)
+{
+#ifdef HAVE_LINUX_THP
+    FILE *fp;
+    UWord result;
+    int matched;
+
+    fp = fopen("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", "r");
+    if (fp == NULL)
+        return 0;
+    matched = fscanf(fp, "%lu", &result);
+    fclose(fp);
+    return matched == 1 ? result : 0;
+#else
+    return 0;
 #endif
 }
 
@@ -230,6 +252,74 @@ thr_create_cleanup(void *vtcdp)
     erts_free(ERTS_ALC_T_TMP, tcdp);
 }
 
+#ifdef HAVE_LINUX_THP
+static int
+is_linux_thp_enabled(void)
+{
+    FILE *fp;
+    char always[9], madvise[10], never[8];
+    int matched;
+
+    fp = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
+    if (fp == NULL)
+        return 0;
+    matched = fscanf(fp, "%8s %9s %7s", always, madvise, never);
+    fclose(fp);
+    if (matched != 3 || strcmp("[never]", never) == 0)
+        return 0;
+    return strcmp("[always]", always) != 0 || strcmp("[madvise]", madvise) != 0;
+}
+
+#define ALIGN_DOWN(x, a) ((void*)(((UWord)(x)) & ~((a) - 1)))
+
+static void
+enable_linux_thp_for_text(void)
+{
+    FILE *fp;
+    char *from, *to;
+    extern char etext;  /* see end(3) for details */
+
+    /*
+     * If sysfs(5) is not accessible we will not be able to determine the THP
+     * page size.  While we could madvise(2) the whole .text segment and just
+     * hope for the best, other things will likely go wrong so we simply fail
+     * fast instead.
+     */
+    if (sys_large_page_size == 0)
+        return;
+
+    /*
+     * Our use of madvise(... MADV_HUGEPAGE) only makes sense when the THP
+     * behavior is set to the default of [madvise].  Check that we are in this
+     * mode and exit if we are not.
+     */
+    if (is_linux_thp_enabled() == 0)
+        return;
+
+    fp = fopen("/proc/self/maps", "r");
+    if (fp == NULL)
+        return;
+
+    /*
+     * Iterate through the current process mappings to find the text segment.
+     * When they are found, madvise their memory region to use huge pages.
+     */
+    while (fscanf(fp, "%p-%p %*[^\n]\n", &from, &to) == 2) {
+        if (to < &etext)
+            continue;
+        if (from > &etext)
+            break;
+        if ((UWord)from % sys_large_page_size != 0)
+            break;
+        to = ALIGN_DOWN(to, sys_large_page_size);
+        if (to - from < sys_large_page_size)
+            break;
+        madvise(from, to - from, MADV_HUGEPAGE);
+    }
+    fclose(fp);
+}
+#endif
+
 static void
 thr_create_prepare_child(void *vtcdp)
 {
@@ -254,7 +344,14 @@ erts_sys_pre_init(void)
     /* Before creation in parent */
     eid.thread_create_prepare_func = thr_create_prepare;
     /* After creation in parent */
-    eid.thread_create_parent_func = thr_create_cleanup,
+    eid.thread_create_parent_func = thr_create_cleanup;
+
+    sys_page_size = get_page_size();
+    sys_large_page_size = get_large_page_size();
+
+#ifdef HAVE_LINUX_THP
+    enable_linux_thp_for_text();
+#endif
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_pre_thr_init();

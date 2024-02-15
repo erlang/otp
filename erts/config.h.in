@@ -800,6 +800,9 @@
 /* Define if the targeted system supports the `perf` profiler */
 #undef HAVE_LINUX_PERF_SUPPORT
 
+/* Define if the target system is Linux and THP is available */
+#undef HAVE_LINUX_THP
+
 /* Define to 1 if you have the <linux/types.h> header file. */
 #undef HAVE_LINUX_TYPES_H
 
