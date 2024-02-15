@@ -170,8 +170,7 @@ write_manager_config(Dir, Conf) ->
 "%% Each row is a 2-tuple:\n"
 "%% {Variable, Value}.\n"
 "%% For example\n"
-"%% {port,             5000}.\n"
-"%% {address,          [127,42,17,5]}.\n"
+"%% {transports,       [{{127,42,17,5}, 5000}]}.\n"
 "%% {engine_id,        \"managerEngine\"}.\n"
 "%% {max_message_size, 484}.\n"
 "%%\n\n",
@@ -277,6 +276,10 @@ users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
     {UserId, UserMod, UserData, DefaultAgentConfig}.
 
 
+-spec write_users_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [user_entry()].
+
 write_users_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the users the manager handles\n"
@@ -287,6 +290,11 @@ write_users_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_users_config(Dir, Hdr, Conf).
+
+-spec write_users_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [user_entry()].
 
 write_users_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
