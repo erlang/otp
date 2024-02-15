@@ -299,25 +299,21 @@
     </func>
 
     <func>
-      <name since="">write_usm_config(Dir, Conf) -> ok</name>
-      <name since="">write_usm_config(Dir, Hdr, Conf) -> ok</name>
+      <name name="write_usm_config" arity="2" clause_i="1" since=""/>
+      <name name="write_usm_config" arity="3" clause_i="1" since=""/>
       <fsummary>Write the manager usm config to the config file</fsummary>
-      <type>
-        <v>Dir = string()</v>
-        <v>Hdr = string()</v>
-        <v>Conf = [usm_entry()]</v>
-      </type>
       <desc>
-        <p>Write the manager usm config to the manager usm 
-          config file. </p>
+	<p>Write the manager usm config to the manager usm 
+	config file. </p>
         <p><c>Dir</c> is the path to the directory where to store the 
-          config file. </p>
+	config file. </p>
         <p><c>Hdr</c> is an optional file header (note that this text is
-          written to the file as is). </p>
+	written to the file as is). </p>
         <p>See 
-          <seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
-          for more info. </p>
-        <marker id="append_usm_config"></marker>
+	<seeguide marker="snmp_manager_config_files#usm">Security data for USM</seeguide> 
+	for more info. </p>
+
+	<marker id="append_usm_config"></marker>
       </desc>
     </func>
 

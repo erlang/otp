@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -515,6 +515,10 @@ usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.
 
 
+-spec write_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [user_entry()].
+
 write_usm_config(Dir, Conf) ->
     Comment = 
 "%% This file defines the usm users the manager handles\n"
@@ -524,6 +528,11 @@ write_usm_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
+
+-spec write_usm_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [user_entry()].
 
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
