@@ -39,7 +39,7 @@ ASSETS=$(foreach asset, $(ASSETS_SRC), assets/$(notdir $(asset)))
 include $(ERL_TOP)/make/doc.mk
 
 ## If any asset is changed, we copy all of them
-$(ASSETS): $(ASSETS_SRC)
+assets: $(ASSETS_SRC)
 	$(V_at)cp $(ASSETS_SRC) assets/
 
 # ----------------------------------------------------
@@ -71,4 +71,4 @@ $(HTMLDIR)/index.html: $(GENERATED_FILES) guides \
 	installation_guide/INSTALL.md \
 	installation_guide/INSTALL-CROSS.md \
 	installation_guide/INSTALL-WIN32.md \
-	$(ASSETS)
+	assets
