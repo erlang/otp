@@ -73,6 +73,21 @@
            SecModel       :: snmp:sec_model(),
            SecName        :: snmp:sec_name(),
            SecLevel       :: snmp:sec_level()
+          }
+        |
+          {
+           UserId         :: snmpm:user_id(),
+           TargetName     :: snmpm:target_name(),
+           Community      :: snmp:community(),
+           Address        :: inet:ip_address() | [non_neg_integer()],
+           Port           :: inet:port_number(),
+           EngineID       :: snmp:engine_id(),
+           Timeout        :: snmpm:register_timeout(),
+           MaxMessageSize :: snmp:mms(),
+           Version        :: snmp:version(),
+           SecModel       :: snmp:sec_model(),
+           SecName        :: snmp:sec_name(),
+           SecLevel       :: snmp:sec_level()
           }.
 
 %% -type manager_entry() :: term().
@@ -134,11 +149,20 @@
                       engine_id |
                       max_message_size,
       Val          :: term(),
+      ManagerEntry :: manager_entry();
+                   %% This clause is for backward compatility
+                   (Tag, Val) -> ManagerEntry when
+      Tag          :: address,
+      Val          :: term(),
       ManagerEntry :: manager_entry().
 
 manager_entry(Tag, Val) ->
     {Tag, Val}.
 
+
+-spec write_manager_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [manager_entry()].
 
 write_manager_config(Dir, Conf) -> 
     Comment = 
@@ -153,6 +177,11 @@ write_manager_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     write_manager_config(Dir, Hdr, Conf).
+
+-spec write_manager_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [manager_entry()].
 
 write_manager_config(Dir, Hdr, Conf)
   when is_list(Dir), is_list(Hdr), is_list(Conf) ->
@@ -354,17 +383,23 @@ do_write_users_conf(_Fd, Crap) ->
 agents_entry(
   UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
   MaxMessageSize, Version, SecModel, SecName, SecLevel)
-  when is_atom(Domain) ->
+  when is_atom(Domain) andalso
+       is_tuple(Address) andalso
+       (tuple_size(Address) =:= 2) ->
     {UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
      MaxMessageSize, Version, SecModel, SecName, SecLevel};
+%% Backward compatibility
 agents_entry(
   UserId, TargetName, Comm, Ip, Port, EngineID, Timeout,
-  MaxMessageSize, Version, SecModel, SecName, SecLevel) when is_integer(Port) ->
-    Domain  = snmpm_config:default_transport_domain(),
-    Address = {Ip, Port},
-    {UserId, TargetName, Comm, Domain, Address, EngineID, Timeout,
+  MaxMessageSize, Version, SecModel, SecName, SecLevel)
+  when (is_tuple(Ip) orelse is_list(Ip)) andalso is_integer(Port) ->
+    {UserId, TargetName, Comm, Ip, Port, EngineID, Timeout,
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
+
+-spec write_agents_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
 
 write_agents_config(Dir, Conf) ->
     Comment = 
@@ -376,6 +411,11 @@ write_agents_config(Dir, Conf) ->
 "%%\n\n",
     Hdr = header() ++ Comment, 
     write_agents_config(Dir, Hdr, Conf).
+
+-spec write_agents_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [agent_entry()].
 
 write_agents_config(Dir, Hdr, Conf)
   when is_list(Dir) andalso is_list(Hdr) andalso is_list(Conf) ->
@@ -410,21 +450,12 @@ check_agent_config(Entry, State) ->
     {check_ok(snmpm_config:check_agent_config(Entry)),
      State}.
 
--spec write_agents_config(Dir, Hdr, Conf) -> ok when
-      Dir  :: snmp:dir(),
-      Hdr  :: string(),
-      Conf :: [agent_entry()].
-
 write_agents_conf(Fd, "", Conf) ->
     write_agents_conf(Fd, Conf);
 write_agents_conf(Fd, Hdr, Conf) ->
     io:format(Fd, "~s~n", [Hdr]),
     write_agents_conf(Fd, Conf).
     
--spec write_agents_config(Dir, Conf) -> ok when
-      Dir  :: snmp:dir(),
-      Conf :: [agent_entry()].
-
 write_agents_conf(_Fd, []) ->
     ok;
 write_agents_conf(Fd, [H|T]) ->

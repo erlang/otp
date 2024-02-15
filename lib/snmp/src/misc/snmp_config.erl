@@ -1963,7 +1963,7 @@ write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
                 case length(AgentIP) of
                     4 ->
                         transportDomainUdpIpv4;
-                    _ ->
+                    8 ->
                         transportDomainUdpIpv6
                 end
         end,
@@ -2488,12 +2488,20 @@ write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	[{transports,       Transports},
-	 {engine_id,        EngineID},
-	 {max_message_size, MMS}],
+	[snmpm_conf:manager_entry(transports,       Transports),
+	 snmpm_conf:manager_entry(engine_id,        EngineID),
+	 snmpm_conf:manager_entry(max_message_size, MMS)],
     write_manager_config(Dir, Hdr, Conf).
 
-write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
+write_manager_snmp_conf(Dir, TDomain, {_IP, Port} = TAddr, MMS, EngineID)
+  when is_atom(TDomain) andalso is_integer(Port) ->
+    Transports = [{TDomain, TAddr}],
+    write_manager_snmp_conf(Dir, Transports, MMS, EngineID);
+%% Backward compatibility
+write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) when is_integer(Port) ->
+
+    %% IP :: inet:ip_address() | [non_neg_integer()]
+
     Comment = 
 "%% This file defines the Manager local configuration info\n"
 "%% Each row is a 2-tuple:\n"
@@ -2506,19 +2514,10 @@ write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
 "%%\n\n",
     Hdr = header() ++ Comment,
     Conf =
-	case Addr_or_Port of
-	    {IP, Port} when is_integer(Port), is_atom(Domain_or_IP) ->
-		[{domain,  Domain_or_IP},
-		 {port,    Port},
-		 {address, IP}];
-	    _ when is_integer(Addr_or_Port) ->
-		[{port,    Addr_or_Port},
-		 {address, Domain_or_IP}];
-	    _ ->
-		error({bad_address, {Domain_or_IP, Addr_or_Port}})
-	end ++
-	[{engine_id,        EngineID},
-	 {max_message_size, MMS}],
+        [snmpm_conf:manager_entry(port,             Port),
+         snmpm_conf:manager_entry(address,          IP),
+         snmpm_conf:manager_entry(engine_id,        EngineID),
+         snmpm_conf:manager_entry(max_message_size, MMS)],
     write_manager_config(Dir, Hdr, Conf).
 
 write_manager_config(Dir, Hdr, Conf) ->

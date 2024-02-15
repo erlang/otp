@@ -188,10 +188,11 @@ simple_conf() ->
 	{ok, _} ->
 	    ok;
 	_ ->
-	    ok = snmp_config:write_manager_config(Cwd, "",
-						  [{port, 5000},
-						   {engine_id, "mgrEngine"},
-						   {max_message_size, 484}])
+	    ok = snmp_config:write_manager_config(
+                   Cwd, "",
+                   [snmpm_conf:manager_entry(port,             5000),
+                    snmpm_conf:manager_entry(engine_id,        "mgrEngine"),
+                    snmpm_conf:manager_entry(max_message_size, 484)])
     end,
     Conf = [{dir, Cwd}, {db_dir, Cwd}],
     [{versions, Vsns}, {config, Conf}].

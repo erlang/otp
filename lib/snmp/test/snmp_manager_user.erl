@@ -260,7 +260,9 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    loop(S);
 
 	{{register_agent, TargetName, Conf}, From, Ref} ->
-	    d("loop -> received register_agent request"),
+	    d("loop -> received register_agent request: "
+              "~n   TargetName: ~p"
+              "~n   Conf:       ~p", [TargetName, Conf]),
 	    Res = snmpm:register_agent(Id, TargetName, Conf),
 	    reply(From, Res, Ref),
 	    loop(S);
