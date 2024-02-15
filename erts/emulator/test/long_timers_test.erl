@@ -462,7 +462,7 @@ start_node(Name) ->
 
 stop_node(Node) ->
     monitor_node(Node, true),
-    spawn(Node, fun () -> halt() end),
+    spawn(Node, fun erlang:halt/0),
     receive {nodedown, Node} -> ok end.
 	    
 load_driver(Dir, Driver) ->

@@ -461,10 +461,24 @@ protected:
             /* Store HTOP and E in one go. */
             ERTS_CT_ASSERT_FIELD_PAIR(Process, htop, stop);
             a.stp(HTOP, E, arm::Mem(c_p, offsetof(Process, htop)));
-        } else if (Spec & Update::eStack) {
-            a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
-        } else if (Spec & Update::eHeap) {
-            a.str(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+        } else {
+            if (Spec & Update::eStack) {
+                a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
+            } else {
+#ifdef DEBUG
+                /* Store some garbage in the process structure to catch missing
+                 * updates. */
+                a.str(active_code_ix, arm::Mem(c_p, offsetof(Process, stop)));
+#endif
+            }
+
+            if (Spec & Update::eHeap) {
+                a.str(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+            } else {
+#ifdef DEBUG
+                a.str(active_code_ix, arm::Mem(c_p, offsetof(Process, htop)));
+#endif
+            }
         }
 
         if (Spec & Update::eReductions) {
