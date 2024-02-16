@@ -265,6 +265,7 @@ A timeout value that can be passed to a
 -export_type([message_queue_data/0]).
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
+-export_type([trace_session/0]).
 
 -type stacktrace_extrainfo() ::
         {line, pos_integer()} |
@@ -6776,12 +6777,18 @@ trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
 -doc """
+A handle to an isolated trace session.
+""".
+-doc #{ since => ~"OTP-27" }.
+-opaque trace_session() :: reference().
+
+-doc """
 The same as [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
 but applied on a dynamic trace session.
 """.
--doc(#{since => <<"OTP 27.0">>}).
+-doc(#{since => <<"OTP 27.0">>, group => trace }).
 -spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
-      Session :: reference(),
+      Session :: trace_session(),
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
                      | {Module, Function, Arity} | on_load | send | 'receive',
       Module :: module(),
@@ -9981,18 +9988,21 @@ Failure: `badarg` if `List` is an empty list `[]`.
 tl(_List) ->
     erlang:nif_error(undefined).
 
+-doc #{ since => <<"OTP-27">>, group => trace }.
 trace_session_create(Opts) ->
     try erts_internal:trace_session_create(Opts) of
         Ref -> Ref
     catch error:R:Stk ->
             error_with_inherited_info(R, [Opts], Stk)
     end.
+-doc #{ since => <<"OTP-27">>, group => trace }.
 trace_session_destroy(Ref) ->
     try erts_internal:trace_session_destroy(Ref) of
         Res -> Res
     catch error:R:Stk ->
             error_with_inherited_info(R, [Ref], Stk)
     end.
+
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
