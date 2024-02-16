@@ -323,6 +323,3 @@ avp_code -> number : '$1'.
 
 avp_vendor -> '$empty' : false.
 avp_vendor -> number   : '$1'.
-
-Erlang code.
--moduledoc false.

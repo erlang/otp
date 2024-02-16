@@ -90,8 +90,7 @@ rewrite([], As, Module, Test) ->
 	     [{function,L,test,0,
 	       [{clause,L,[],[],
 		 [{call,L,{remote,L,{atom,L,eunit},{atom,L,test}},
-		   [{atom,L,Module}]}]}]},
-              {attribute,L,doc,false}
+		   [{atom,L,Module}]}]}]}
 	      | As];
 	true ->
 	     As

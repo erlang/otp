@@ -19,7 +19,6 @@
 %%
 
 -module(cte_track).
--moduledoc false.
 %% module for tracking CT execution progress
 %% test spec addition examples:
 %% {event_handler, {cte_track, []}}.

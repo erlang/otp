@@ -731,43 +731,6 @@ Header
 "".
 
 Erlang code.
--moduledoc """
-This module is the basic Erlang parser that converts tokens into the abstract
-form of either forms (that is, top-level constructs), expressions, or terms.
-
-The Abstract Format is described in the ERTS User's Guide. Notice that a token
-list must end with the dot token to be acceptable to the parse functions
-(see the `m:erl_scan`) module.
-
-## Error Information
-
-ErrorInfo is the standard ErrorInfo structure that is returned from all I/O modules.
-The format is as follows:
-
-```
-{ErrorLine, Module, ErrorDescriptor}
-```
-
-A string describing the error is obtained with the following call:
-
-```
-Module:format_error(ErrorDescriptor)
-```
-
-## See Also
-
-`m:erl_anno`, `m:erl_scan`, `m:io`, section [The Abstract Format](`e:erts:absform`)
-in the ERTS User's Guide.
-""".
-
--define(YECC_PARSE_DOC, false).
--define(YECC_PARSE_AND_SCAN_DOC, false).
--define(YECC_FORMAT_ERROR_DOC, """
-Uses an ErrorDescriptor and returns a string that describes the error.
-
-This function is usually called implicitly when an ErrorInfo structure is
-processed (see section [Error Information](#module-error-information)).
-""").
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).

@@ -18,10 +18,6 @@
 %% %CopyrightEnd%
 %%
 %%
-
--module(tls_server_connection).
--moduledoc false.
-
 %%----------------------------------------------------------------------
 %% Purpose: TLS-1.0-TLS-1.2 FSM (* = optional)
 %% %%----------------------------------------------------------------------
@@ -99,6 +95,8 @@
 %%                                                    V
 %%                                               GO BACK TO HELLO
 %%----------------------------------------------------------------------
+
+-module(tls_server_connection).
 
 -behaviour(gen_statem).
 

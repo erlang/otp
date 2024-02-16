@@ -23,16 +23,10 @@
 
 -type yecc_ret() :: {'error', _} | {'ok', _}.
 
--ifdef (YECC_PARSE_DOC).
--doc ?YECC_PARSE_DOC.
--endif.
 -spec parse(Tokens :: list()) -> yecc_ret().
 parse(Tokens) ->
     yeccpars0(Tokens, {no_func, no_location}, 0, [], []).
 
--ifdef (YECC_PARSE_AND_SCAN_DOC).
--doc ?YECC_PARSE_AND_SCAN_DOC.
--endif.
 -spec parse_and_scan({function() | {atom(), atom()}, [_]}
                      | {atom(), atom(), [_]}) -> yecc_ret().
 parse_and_scan({F, A}) ->
@@ -41,9 +35,6 @@ parse_and_scan({M, F, A}) ->
     Arity = length(A),
     yeccpars0([], {{fun M:F/Arity, A}, no_location}, 0, [], []).
 
--ifdef (YECC_FORMAT_ERROR_DOC).
--doc ?YECC_FORMAT_ERROR_DOC.
--endif.
 -spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of

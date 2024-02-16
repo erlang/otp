@@ -19,7 +19,6 @@
 %%
 
 -module(dtls_server_connection).
--moduledoc false.
 
 %%----------------------------------------------------------------------
 %% Purpose: DTLS-1-DTLS-1.2 FSM (* = optional)

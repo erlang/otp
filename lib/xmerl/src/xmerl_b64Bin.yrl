@@ -67,6 +67,3 @@ b64          -> b64x.
 
 b16          -> b04.
 b16          -> b16x.
-
-Erlang code.
--moduledoc false.

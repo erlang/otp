@@ -453,7 +453,6 @@ Header
 "".
 
 Erlang code.
--moduledoc false.
 
 -include("core_parse.hrl").
 

@@ -27,7 +27,6 @@
 %%
 
 -module(beam_ssa_ss).
--moduledoc false.
 
 -compile({inline,[add_edge/4, add_vertex/3]}).
 
