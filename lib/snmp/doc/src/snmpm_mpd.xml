@@ -58,16 +58,6 @@
     </datatype>
 
     <datatype>
-      <name name="msg_data"/>
-      <desc>
-	<p>
-	  Is an opaque data structure containing the version dependent
-	  necessary security information.
-	</p>
-      </desc>
-    </datatype>
-
-    <datatype>
       <name name="msg_data_cmy"/>
       <desc>
 	<p>
@@ -93,6 +83,16 @@
 	<p>
 	  Is an opaque data structure containing necessary security information
 	  for v3 messages.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="msg_data_acm"/>
+      <desc>
+	<p>
+	  Is an opaque data structure containing necessary security information
+	  for (incoming) v3 messages.
 	</p>
       </desc>
     </datatype>
@@ -124,31 +124,16 @@
     </func>
 
     <func>
-      <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
+      <name name="process_msg" arity="6" clause_i="1" since="OTP 17.3"/>
       <fsummary>Process a message received from the network</fsummary>
-      <type>
-        <v>Msg = binary()</v>
-        <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-	<v>Addr = {<seetype marker="kernel:inet#ip_address">inet:ip_address(), inet:port_number()</seetype>} </v>
-        <v>State = mpd_state()</v>
-        <v>NoteStore = pid()</v>
-        <v>Logger = function()</v>
-        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
-        <v>Pdu = #pdu</v>
-        <v>PduMs = integer()</v>
-        <v>MsgData = term()</v>
-      </type>
       <desc>
         <p>Processes an incoming message. Performs authentication and 
-          decryption as necessary. The return values should be passed the
-          manager server.
-          </p>
+	decryption as necessary. The return values should be passed the
+	manager server. </p>
         <p><c>NoteStore</c> is the <c>pid()</c> of the note-store process.</p>
-        <p><c>Logger</c> is the function used for audit trail logging.
-          </p>
+        <p><c>Logger</c> is the function used for audit trail logging. </p>
         <p>In the case when the pdu type is <c>report</c>, <c>MsgData</c> is 
-          either <c>ok</c> or <c>{error, ReqId, Reason}</c>.
-          </p>
+	either <c>ok</c> or <c>{error, ReqId, Reason}</c>. </p>
       </desc>
     </func>
 

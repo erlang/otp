@@ -34,10 +34,10 @@
 
 -export_type([
               logger/0,
-              msg_data/0,
               msg_data_cmy/0,
               msg_data_cmyt/0,
               msg_data_v3/0,
+              msg_data_acm/0,
               mpd_state/0
              ]).
 
@@ -62,7 +62,6 @@
                      {V3Hdr          :: snmp_pdus:v3_hdr(),
                       ScopedPDUBytes :: binary()}) -> snmp:void()).
 
--type   msg_data() :: msg_data_cmy() | msg_data_v3().
 -opaque msg_data_cmy() ::
           {
            Community :: snmp:community(),
@@ -83,6 +82,16 @@
            CtxEngineID :: snmp:engine_id(),
            CtxName     :: snmp:context_name(),
            TargetName  :: snmpm:target_name()
+          }.
+-opaque msg_data_acm() ::
+          {
+           MsgID       :: snmp_pdus:msg_id(),
+           SecModel    :: snmp:sec_model(),
+           SecName     :: snmp:sec_name(),
+           SecLevel    :: snmp:sec_level(),
+           CtxEngineID :: snmp:engine_id(),
+           CtxName     :: snmp:context_name(),
+           SecData     :: term()
           }.
 
 -opaque mpd_state() :: #state{}.
@@ -144,10 +153,36 @@ reset(#state{v3 = V3}) ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
-process_msg(Msg, Domain, Ip, Port, State, NoteStore, Logger) ->
-    process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Logger).
 
-process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
+process_msg(Msg, Domain, Ip, Port, State, NoteStore, Log) ->
+    process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Log).
+
+-spec process_msg(Msg, Domain, Addr, State, NoteStore, Log) ->
+          {ok, Vsn, PduV2, PduMS, MsgDataV2} |
+          {ok, 'version-3', PduV3, PduMS, MsgDataV3} |
+          {discarded, Reason} when
+      Msg       :: binary(),
+      Domain    :: snmpUDPDomain | snmp:tdomain(),
+      Addr      :: {Ip, Port},
+      Ip        :: inet:ip_address(),
+      Port      :: inet:port_number(),
+      State     :: mpd_state(),
+      NoteStore :: pid(),
+      Log       :: logger(),
+      Vsn       :: 'version-1' | 'version-2',
+      PduV2     :: snmp_pdus:pdu() | snmp_pdus:trappdu(),
+      PduV3     :: snmp_pdus:pdu(),
+      PduMS     :: pos_integer(),
+      MsgDataV2 :: msg_data_cmyt(),
+      MsgDataV3 :: ok |
+                   {error, ReqId, ACM} |
+                   undefined |
+                   msg_data_acm(),
+      ReqId     :: snmpm:request_id(),
+      ACM       :: term(),
+      Reason    :: term().
+          
+process_msg(Msg, Domain, Addr, State, NoteStore, Log) ->
     inc(snmpInPkts),
 
     case (catch snmp_pdus:dec_message_only(binary_to_list(Msg))) of
@@ -158,7 +193,7 @@ process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
 	    HS = ?empty_msg_size + length(Community),
 	    process_v1_v2c_msg(
 	      'version-1', NoteStore, Msg, Domain, Addr,
-	      Community, Data, HS, Logger);
+	      Community, Data, HS, Log);
 
 	%% Version 2
 	#message{version = 'version-2', vsn_hdr = Community, data = Data}
@@ -166,7 +201,7 @@ process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
 	    HS = ?empty_msg_size + length(Community),
 	    process_v1_v2c_msg(
 	      'version-2', NoteStore, Msg, Domain, Addr,
-	      Community, Data, HS, Logger);
+	      Community, Data, HS, Log);
 	     
 	%% Version 3
 	#message{version = 'version-3', vsn_hdr = H, data = Data}
@@ -176,7 +211,7 @@ process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
 		"~n   msgFlags:    ~p"
 		"~n   msgSecModel: ~p",
 		[H#v3_hdr.msgID,H#v3_hdr.msgFlags,H#v3_hdr.msgSecurityModel]),
-	    process_v3_msg(NoteStore, Msg, H, Data, Addr, Logger);
+	    process_v3_msg(NoteStore, Msg, H, Data, Addr, Log);
 
 	%% Crap
 	{'EXIT', {bad_version, Vsn}} ->
@@ -353,8 +388,8 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 		{SecEngineID, MsgSecModel, SecName, SecLevel,
 		 CtxEngineID, CtxName, _ReqId} ->
 		    ?vtrace("process_v3_msg -> 7.2.11b: ok", []),
-		    %% BMK BMK: Should we discard the cached info
-		    %% BMK BMK: or do we let the gc deal with it?
+		    %% Should we discard the cached info
+		    %% or do we let the gc deal with it?
  		    {ok, 'version-3', PDU, PduMMS, ok};
  		_ when is_tuple(Note) ->
  		    ?vlog("process_v3_msg -> 7.2.11b: error"
@@ -415,7 +450,6 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
 			    ?vtrace("and the agent EngineID (~p) "
 				    "is know to us", [CtxEngineID]),
 			    %% Uses ACMData that snmpm_acm knows of.
-			    %% BUGBUG BUGBUG
 			    ACMData = 
 				{MsgID, MsgSecModel, SecName, SecLevel,
 				 CtxEngineID, CtxName, SecData},
@@ -548,7 +582,7 @@ get_scoped_pdu(D) ->
       Vsn       :: snmp_pdus:version(),
       NoteStore :: pid(),
       Pdu       :: snmp_pdus:pdu(),
-      MsgData   :: msg_data(),
+      MsgData   :: msg_data_cmy() | msg_data_v3(),
       Log       :: logger(),
       Packet    :: binary(),
       Reason    :: term().
@@ -702,7 +736,7 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
           {ok, Packet} | {discarded, Reason} | {error, Reason} when
       Vsn     :: snmp_pdus:version(),
       Pdu     :: snmp_pdus:pdu(),
-      MsgData :: msg_data() | msg_data_cmyt(),
+      MsgData :: msg_data_cmy() | msg_data_cmyt() | msg_data_v3(),
       Log     :: logger(),
       Packet  :: binary(),
       Reason  :: term().
