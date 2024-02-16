@@ -301,7 +301,6 @@ Expect 2.
 
 
 Erlang code.
--moduledoc false.
 
 % token({Token, _Line}) ->
 % 	Token;

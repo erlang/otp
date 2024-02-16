@@ -604,7 +604,6 @@ run_report_modules_analyzed(Opts) ->
   {Warnings, _ModulesChanged, ModulesAnalyzed} = run_report_modules_changed_and_analyzed(Opts),
   {Warnings, ModulesAnalyzed}.
 
--doc false.
 run_report_modules_changed_and_analyzed(Opts) ->
   try dialyzer_options:build([{report_mode, quiet},
 			      {erlang_mode, true}|Opts]) of

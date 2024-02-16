@@ -50,7 +50,6 @@ unless the macro `MERL_NO_TRANSFORM` is defined first.
 %% TODO: unroll calls to switch? it will probably get messy
 
 %% TODO: use Igor to make resulting code independent of merl at runtime?
--doc "".
 -spec parse_transform(InForms, Options :: term()) -> OutForms when
       InForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       OutForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
