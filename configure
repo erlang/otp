@@ -441,22 +441,3 @@ if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
   echo
   echo '*********************************************************************'
 fi
-if test -f "erts/doc/CONF_INFO"; then
-  echo '*********************************************************************'
-  echo '**********************  DOCUMENTATION INFORMATION  ******************'
-  echo '*********************************************************************'
-  echo
-  printf "%-15s: \n" documentation;
-  have_ex_doc="yes"
-  for cmd in `cat erts/doc/CONF_INFO`; do
-	echo "                 $cmd is missing."
-  if test $cmd = "ex_doc"; then
-    have_ex_doc="no"
-  fi
-  done
-  if test $have_ex_doc = "no"; then
-    echo '                 The documentation cannot be built.'
-  fi
-  echo
-  echo '*********************************************************************'
-fi
