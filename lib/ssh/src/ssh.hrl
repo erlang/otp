@@ -166,61 +166,61 @@ to run any subsystems.
 
 -doc(#{title => <<"Options common to clients and daemons">>,
        equiv => {type,double_algs,1}}).
--type kex_alg()          :: 'diffie-hellman-group-exchange-sha1' |
-                            'diffie-hellman-group-exchange-sha256' |
-                            'diffie-hellman-group1-sha1' |
-                            'diffie-hellman-group14-sha1' |
-                            'diffie-hellman-group14-sha256' |
-                            'diffie-hellman-group16-sha512' |
-                            'diffie-hellman-group18-sha512' |
-                            'curve25519-sha256' |
+-type kex_alg()          :: 'curve25519-sha256' |
                             'curve25519-sha256@libssh.org' |
                             'curve448-sha512' |
-                            'ecdh-sha2-nistp256' |
+                            'ecdh-sha2-nistp521' |
                             'ecdh-sha2-nistp384' |
-                            'ecdh-sha2-nistp521'
+                            'ecdh-sha2-nistp256' |
+                            'diffie-hellman-group-exchange-sha256' |
+                            'diffie-hellman-group16-sha512' |
+                            'diffie-hellman-group18-sha512' |
+                            'diffie-hellman-group14-sha256' |
+                            'diffie-hellman-group14-sha1' |
+                            'diffie-hellman-group-exchange-sha1' |
+                            'diffie-hellman-group1-sha1'
                             .
 
 -doc(#{title => <<"Options common to clients and daemons">>,
        equiv => {type,double_algs,1}}).
--type pubkey_alg()       :: 'ecdsa-sha2-nistp256' |
-                            'ecdsa-sha2-nistp384' |
+-type pubkey_alg()       :: 'ssh-ed25519' |
+                            'ssh-ed448' |
                             'ecdsa-sha2-nistp521' |
-                            'ssh-ed25519'  |
-                            'ssh-ed448'  |
-                            'rsa-sha2-256' |
+                            'ecdsa-sha2-nistp384' |
+                            'ecdsa-sha2-nistp256' |
                             'rsa-sha2-512' |
-                            'ssh-dss' |
-                            'ssh-rsa'
+                            'rsa-sha2-256' |
+                            'ssh-rsa' |
+                            'ssh-dss'
                             .
 
 -doc(#{title => <<"Options common to clients and daemons">>,
        equiv => {type,double_algs,1}}).
--type cipher_alg()       :: '3des-cbc' |
-                            'AEAD_AES_128_GCM' |
-                            'AEAD_AES_256_GCM' |
-                            'aes128-cbc' |
-                            'aes128-ctr' |
-                            'aes128-gcm@openssh.com' |
-                            'aes192-ctr' |
-                            'aes192-cbc' |
-                            'aes256-cbc' |
+-type cipher_alg()       :: 'aes256-gcm@openssh.com' |
                             'aes256-ctr' |
-                            'aes256-gcm@openssh.com' |
-                            'chacha20-poly1305@openssh.com'
+                            'aes192-ctr' |
+                            'aes128-gcm@openssh.com' |
+                            'aes128-ctr' |
+                            'AEAD_AES_256_GCM' |
+                            'AEAD_AES_128_GCM' |
+                            'chacha20-poly1305@openssh.com' |
+                            'aes256-cbc' |
+                            'aes192-cbc' |
+                            'aes128-cbc' |
+                            '3des-cbc'
                             .
 
 -doc(#{title => <<"Options common to clients and daemons">>,
        equiv => {type,double_algs,1}}).
--type mac_alg()          :: 'AEAD_AES_128_GCM' |
-                            'AEAD_AES_256_GCM' |
-                            'hmac-sha1' |
-                            'hmac-sha1-etm@openssh.com' |
-                            'hmac-sha1-96' |
-                            'hmac-sha2-256' |
-                            'hmac-sha2-512' |
+-type mac_alg()          :: 'hmac-sha2-512-etm@openssh.com' |
                             'hmac-sha2-256-etm@openssh.com' |
-                            'hmac-sha2-512-etm@openssh.com'
+                            'hmac-sha2-512' |
+                            'hmac-sha2-256' |
+                            'hmac-sha1-etm@openssh.com' |
+                            'hmac-sha1' |
+                            'hmac-sha1-96' |
+                            'AEAD_AES_256_GCM' |
+                            'AEAD_AES_128_GCM'
                             .
 
 -doc(#{title => <<"Options common to clients and daemons">>,
