@@ -56,7 +56,7 @@ REDIRECTS=$(foreach guide,$(SYSTEM),system/$(guide).md) \
 
 system core database oam interfaces tools testing documentation:
 	$(V_at)mkdir $@
-system/%.md: system
+system/%.md: | system
 	$(gen_verbose)GUIDE=$(basename $(notdir $@)) && \
 		TITLE=$$(grep "$${GUIDE}" ../guides | awk -F: '{print $$2}') && \
 		echo "# $${TITLE}\n\n<script>window.location.replace(\"../system/doc/html/$${GUIDE}.html\")</script>" > $@
@@ -73,9 +73,9 @@ src/otp_man_index.beam: src/otp_man_index.erl
 man_index.md: src/otp_man_index.beam $(wildcard $(ERL_TOP)/erts/ebin/*.beam) $(wildcard $(ERL_TOP)/lib/*/ebin/*.beam)
 	$(gen_verbose)$(ERL) +pc unicode -noshell -pa src -s otp_man_index gen "$@" -s erlang halt
 
-core/erts.md: core Makefile
+core/erts.md: Makefile | core
 	$(gen_verbose)echo "# erts\n\n<script>window.location.replace(\"../erts/doc/html/index.html\")</script>" > $@
-%.md: core database oam interfaces tools testing documentation Makefile
+%.md: Makefile | core database oam interfaces tools testing documentation
 	$(gen_verbose)APP=$(basename $(notdir $@)) && \
 		echo "# $${APP}\n\n<script>window.location.replace(\"../lib/$${APP}/doc/html/index.html\")</script>" > $@
 

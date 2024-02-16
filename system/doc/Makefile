@@ -36,6 +36,8 @@ GUIDES=$(shell awk -F: '{print $$1}' guides)
 ASSETS_SRC=$(foreach guide, $(GUIDES), $(wildcard $(guide)/assets/*.gif) $(wildcard $(guide)/assets/*.svg))
 ASSETS=$(foreach asset, $(ASSETS_SRC), assets/$(notdir $(asset)))
 
+HTML_DEPS=$(foreach guide, $(GUIDES), $(wildcard $(guide)/*.md))
+
 include $(ERL_TOP)/make/doc.mk
 
 ## If any asset is changed, we copy all of them
