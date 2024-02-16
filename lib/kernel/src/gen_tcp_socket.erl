@@ -226,13 +226,17 @@ connect_loop([], _Server, Error, _Timer) ->
 connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     Result = call(Server, {connect, Addr, inet:timeout(Timer)}),
     case Result of
-        {ok, _Socket}    -> Result;
-        {error, badarg}  -> Result;
-        {error, einval}  -> Result;
-        {error, timeout} -> Result;
-        {error, _} ->
-	    %% ?DBG([{addr, Addr}, {result, Result}]),
-            connect_loop(Addrs, Server, Result, Timer)
+        {ok, _Socket}   -> Result;
+        {error, Reason} ->
+            case Reason of
+                badarg  -> Result;
+                einval  -> Result;
+                timeout -> Result;
+                closed  -> Result;
+                _ ->
+                    %% ?DBG([{addr, Addr}, {result, Result}]),
+                    connect_loop(Addrs, Server, Result, Timer)
+            end
     end.
 
 
@@ -969,9 +973,8 @@ socket_close(Socket) ->
 -compile({inline, [socket_cancel/2]}).
 socket_cancel(Socket, SelectInfo) ->
     case socket:cancel(Socket, SelectInfo) of
-        ok                 -> ok;
-        {error, closed}    -> ok;
-        {error, _} = ERROR -> ERROR
+        ok          -> ok;
+        {error, _}  -> ok
     end.
 
 %%% ========================================================================
@@ -1376,6 +1379,28 @@ nopush_or_cork() ->
             end
     end.
 
+%% -type packet_option_value() ::
+%%         0 | 1 | 2 | 4 | raw | sunrm |  asn1 |
+%%         cdr | fcgi | line | tpkt | http | httph | http_bin | httph_bin.
+
+-compile({inline, [is_packet_option_value/1]}).
+is_packet_option_value(Value) ->
+    case Value of
+        0 -> true; 1 -> true; 2 -> true; 4 -> true;
+        raw -> true;
+        sunrm -> true;
+        asn1 -> true;
+        cdr -> true;
+        fcgi -> true;
+        line -> true;
+        tpkt -> true;
+        http -> true;
+        httph -> true;
+        http_bin -> true;
+        httph_bin -> true;
+        _ -> false
+    end.
+
 -compile({inline, [server_read_write_opts/0]}).
 server_read_write_opts() ->
     %% Common for read and write side
@@ -1485,8 +1510,11 @@ stop_server(Server) ->
 
 callback_mode() -> handle_event_function.
 
+
+
 %% States:
 %%
+
 -record(controlling_process,
         {owner :: pid(),
          state :: term()}).
@@ -1495,6 +1523,7 @@ callback_mode() -> handle_event_function.
 %% and Owner 'DOWN'
 
 %% 'accept'
+
 -record(accept,
         {info :: socket:select_info() | socket:completion_info(),
          from :: gen_statem:from(),
@@ -1502,17 +1531,24 @@ callback_mode() -> handle_event_function.
 %% Socket is not created
 
 %% 'connect' % A listen socket stays here
+
 -record(connect,
         {info :: socket:select_info() | socket:completion_info(),
          from :: gen_statem:from(),
          addr :: socket:sockaddr()}).
 
 %% 'connected'
+
 -record(recv,
         {info :: socket:select_info() | socket:completion_info()}).
 
-%% 'closed_read' | 'closed_read_write'
-%% 'closed' % Socket is closed or not created
+%% 'closed'
+%% Socket is closed; only happens for {call,_},close
+%% right before terminate
+
+%% 'closed_read'
+%% Got closed from read on socket, no point in trying to read again
+
 
 
 -record(params,
@@ -1520,20 +1556,21 @@ callback_mode() -> handle_event_function.
          owner     :: pid(),
          owner_mon :: reference()}).
 
+server_vars() ->
+    #{type          => undefined,
+      buffer        => <<>>,
+      tcp_closed    => false}. % tcp_closed sent
+
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
     %%
-
-    %% ?DBG([{init, open},
-    %%   	  {domain, Domain}, {extraopts, ExtraOpts}, {owner, Owner}]),
-
     process_flag(trap_exit, true),
     OwnerMon  = monitor(process, Owner),
     Extra = #{}, % #{debug => true},
     case socket_open(Domain, ExtraOpts, Extra) of
         {ok, Socket} ->
 	    %% ?DBG(['open success', {socket, Socket}]),
-            D  = server_opts(),
+            D  = maps:merge(server_opts(), server_vars()),
             ok = socket:setopt(Socket, {otp,iow}, true),
             %%
             %% meta(server_opts()) is an expensive way to write
@@ -1545,7 +1582,7 @@ init({open, Domain, ExtraOpts, Owner}) ->
                    socket    = Socket,
                    owner     = Owner,
                    owner_mon = OwnerMon},
-            {ok, connect, {P, D#{type => undefined, buffer => <<>>}}};
+            {ok, connect, {P, D}};
         {error, Reason} ->
 	    %% ?DBG(['open failed', {reason, Reason}]),
 	    {stop, {shutdown, Reason}}
@@ -1558,11 +1595,10 @@ init({prepare, D, Owner}) ->
     OwnerMon = monitor(process, Owner),
     P        = #params{owner     = Owner,
                        owner_mon = OwnerMon},
-    {ok, accept, {P, D#{type => undefined, buffer => <<>>}}};
+    {ok, accept, {P, maps:merge(D, server_vars())}};
 init(Arg) ->
     error_report([{badarg, {?MODULE, init, [Arg]}}]),
     error(badarg, [Arg]).
-
 
 socket_open(Domain, #{fd := FD} = ExtraOpts, Extra) ->
     Opts =
@@ -1586,8 +1622,7 @@ proto(Domain) ->
     end.
 
 
-terminate(_Reason, State, {_P, _} = P_D) ->
-    %% ?DBG({_P#params.socket, State, _Reason}),
+terminate(_Reason, State, P_D) ->
     case State of
         #controlling_process{state = OldState} ->
             terminate(OldState, P_D);
@@ -1595,32 +1630,9 @@ terminate(_Reason, State, {_P, _} = P_D) ->
             terminate(State, P_D)
     end.
 %%
-terminate(State, {#params{socket = Socket} = P, D}) ->
-    %% ?DBG({Socket, State}),
-    case State of
-        'closed' -> ok;
-        'closed_read' ->
-            socket_close(Socket);
-        'closed_read_write' ->
-            socket_close(Socket);
-        _ ->
-            case State of
-                'accept' -> ok;
-                #accept{} -> ok;
-                _ ->
-                    socket_close(Socket)
-            end,
-            {_D_1, ActionsR} =
-                case State of
-                    #controlling_process{state = OldState} ->
-                        cleanup_close_read(P, D, OldState, closed);
-                    _ ->
-                        cleanup_close_read(P, D, State, closed)
-                end,
-            [gen_statem:reply(Reply)
-             || {reply, _From, _Msg} = Reply <- reverse(ActionsR)],
-            ok
-    end,
+terminate(State, {P, D}) ->
+    {next_state, 'closed', _P_D, Actions} = handle_close(P, D, State, []),
+    [gen_statem:reply(Reply) || {reply, _From, _Msg} = Reply <- Actions],
     void.
 
 %% -------------------------------------------------------------------------
@@ -1633,28 +1645,6 @@ module_socket(#params{socket = Socket}) ->
 %% -------------------------------------------------------------------------
 %% Event Handler (callback)
 
-%% -type packet_option_value() ::
-%%         0 | 1 | 2 | 4 | raw | sunrm |  asn1 |
-%%         cdr | fcgi | line | tpkt | http | httph | http_bin | httph_bin.
-
--compile({inline, [is_packet_option_value/1]}).
-is_packet_option_value(Value) ->
-    case Value of
-        0 -> true; 1 -> true; 2 -> true; 4 -> true;
-        raw -> true;
-        sunrm -> true;
-        asn1 -> true;
-        cdr -> true;
-        fcgi -> true;
-        line -> true;
-        tpkt -> true;
-        http -> true;
-        httph -> true;
-        http_bin -> true;
-        httph_bin -> true;
-        _ -> false
-    end.
-
 %% Any state:
 
 %% Call: get_server_opts/0
@@ -1663,14 +1653,14 @@ handle_event({call, From}, get_server_opts, _State, {_P, D}) ->
     {keep_state_and_data,
      [{reply, From, {ok, ServerData}}]};
 
-%% Event: Owner 'DOWN'
+%% Info: Owner 'DOWN'
 handle_event(
   info, {'DOWN', OwnerMon, _, _, Reason}, _State,
   {#params{owner_mon = OwnerMon} = _P, _D} = P_D) ->
     %%
     {stop, {shutdown, Reason}, P_D};
 
-%% Event: ?socket_counter_wrap/2
+%% Info: ?socket_counter_wrap/2
 handle_event(
   info, ?socket_counter_wrap(Socket, Counter),
   'connected' = _State, {#params{socket = Socket} = P, D}) ->
@@ -1731,27 +1721,8 @@ handle_event(
 %% Handled state: #controlling_process{}
 
 %% Call: close/0
-handle_event({call, From}, close, State, {P, D} = P_D) ->
-    %% ?DBG({P#params.socket, State}),
-    case State of
-        'closed_read' ->
-            socket_close(P#params.socket),
-            {next_state, 'closed', P_D,
-             [{reply, From, ok}]};
-        'closed_read_write' ->
-            socket_close(P#params.socket),
-            {next_state, 'closed', P_D,
-             [{reply, From, ok}]};
-        'closed' ->
-            {keep_state_and_data,
-             [{reply, From, ok}]};
-        _ ->
-            socket_close(P#params.socket),
-            next_state(
-              P, cleanup_close_read(P, D#{active := false}, State, closed),
-              'closed',
-              [{reply, From, ok}])
-    end;
+handle_event({call, From}, close, State, {P, D}) ->
+    handle_close(P, D, State, [{reply, From, ok}]);
 
 %% Call: getopts/1
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
@@ -1771,15 +1742,17 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
 handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
     %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
     %%
-    %% Optimize option setting by finding out which options that changes
+    %% Optimize option setting - only update metadata when changed.
+    %% Assuming only a few options change; it is probably more efficient
+    %% to work on a minimal (almost empty) D map and then merge all changes
+    %% into the actual one.  Should at least produce less garbage.
     %%
-    %% Work on a minimal D map and see what changes
     {Result_1, D_1} =
         state_setopts(P, maps:with([active,recv_httph], D), State, Opts),
     D_2 = maps:merge(maps:remove(recv_httph, D), D_1),
     %% ?DBG([{result, Result_1}, {d1, D_2}]),
     case is_map_keys(meta_opts(), D_1) of
-        true -> % Metadata option change - rewrite
+        true -> % Metadata option change - update by overwrite
             ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_2));
         false ->
             ok
@@ -1797,7 +1770,7 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
 
             {error, einval} ->
                 %% If we get this error, either the options where crap or
-                %% the socket is in a "bad state" (maybe its closed).
+                %% the socket is in a "bad state" (maybe it's closed).
                 %% So, if that is the case we accept that we may not be
                 %% able to update the meta data.
                 Result_1;
@@ -1812,17 +1785,15 @@ handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
 handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
     %% {active, _} is in server_read_opts(), so State needs to be checked
     %% like in state_setopts/4.
-    {Result, D_1} =
-        if
-            State =:= 'closed';
-            State =:= 'closed_read';
-            State =:= 'closed_read_write' ->
-                {{error, einval}, D};
-            true ->
-                state_setopts_active(P, D, State, [], Active)
-        end,
-    Reply = {reply, From, Result},
-    handle_active(P, D_1, State, [Reply]);
+    case State of
+        'closed' ->
+            {keep_state_and_data,
+              [{reply, From, {error, einval}}]};
+        _ ->
+            {Result, D_1} = state_setopts_active(P, D, State, [], Active),
+            Reply = {reply, From, Result},
+            handle_active(P, D_1, State, [Reply])
+    end;
 
 %% Call: getstat/2
 handle_event({call, From}, {getstat, What}, State, {P, D}) ->
@@ -1848,45 +1819,27 @@ handle_event({call, From}, info, State, {P, D}) ->
              [{reply, From, Result}]}
     end;
 
+%% State: 'closed_read' - what is not handled above
+handle_event(Type, Content, 'closed_read' = State, {P, _D}) ->
+    case Type of
+        {call, From} ->
+            {keep_state_and_data,
+             [{reply, From, {error, closed}}]};
+        _ ->
+            warning_msg("Received unexpected event:"
+                        "~n   Socket:     ~p"
+                        "~n   State:      ~p"
+                        "~n   Event Type: ~p"
+                        "~n   Content:    ~p",
+                        [P#params.socket, State, Type, Content]),
+            keep_state_and_data
+    end;
+
 %% State: 'closed' - what is not handled above
 handle_event(Type, Content, 'closed' = State, P_D) ->
-    handle_closed(Type, Content, State, P_D);
-%% Handled state: 'closed'
+    handle_unexpected(Type, Content, State, P_D);
 
-%% Call: shutdown/1
-handle_event({call, From}, {shutdown, How} = _SHUTDOWN, State, {P, D}) ->
-    %% ?DBG({P#params.socket, _SHUTDOWN, State}),
-    case State of
-        'closed_read' when (How =:= read) ->
-            %% ?DBG('already closed-read'),
-            {keep_state_and_data,
-             [{reply, From, ok}]};
-        'closed_read_write' when (How =:= read_write) ->
-            %% ?DBG('already closed-read-write'),
-            {keep_state_and_data,
-             [{reply, From, ok}]};
-        _ ->
-            %% ?DBG({'handle shutdown', How, State}),
-            case handle_shutdown(P, State, How) of
-                {keep, SRes} ->
-                    %% ?DBG({'shutdown result', SRes, keep}),
-                    {keep_state_and_data,
-                     [{reply, From, SRes}]};
-                {NextState, SRes} ->
-                    %% ?DBG({P#params.socket, 'shutdown result',
-                    %%       SRes, NextState}),
-                    next_state(
-                      P,
-                      cleanup_close_read(P, D#{active := false}, State, closed),
-                      NextState,
-                      [{reply, From, SRes}])
-            end
-    end;
-%% State: 'closed_read' | 'closed_read_write' - what is not handled in
-%%        close/0 and shutdown/1 above
-handle_event(Type, Content, State, P_D)
-  when (State =:= 'closed_read') orelse (State =:= 'closed_read_write') ->
-    handle_closed(Type, Content, State, P_D);
+%% Handled states: 'closed_read', 'closed'
 
 
 %% State: 'accept'
@@ -1917,25 +1870,27 @@ handle_event(
   #accept{
      info = ?select_info(SelectRef), from = From,
      listen_socket = ListenSocket},
-  {P, D}) ->
-    {next_state, 'closed', {P, D},
-     [{reply, From, {error, Reason}}]};
+  P_D) ->
+    {next_state,'accept', P_D,
+     [{{timeout, accept}, cancel},
+      {reply, From, {error, Reason}}]};
 handle_event(
   info, ?socket_abort(ListenSocket, CompletionRef, Reason),
   #accept{
      info = ?completion_info(CompletionRef), from = From,
      listen_socket = ListenSocket},
-  {P, D}) ->
-    {next_state, 'closed', {P, D},
-     [{reply, From, {error, Reason}}]};
+  P_D) ->
+    {next_state, 'accept', P_D,
+     [{{timeout, accept}, cancel},
+      {reply, From, {error, Reason}}]};
 handle_event(
-  {timeout, accept}, accept,
+  {timeout, accept}, Info,
   #accept{
-     info = SelectInfo, from = From,
+     info = Info, from = From,
      listen_socket = ListenSocket},
-  {P, D}) ->
-    _ = socket_cancel(ListenSocket, SelectInfo),
-    {next_state, 'closed', {P, D},
+  P_D) ->
+    socket_cancel(ListenSocket, Info),
+    {next_state, 'accept', P_D,
      [{reply, From, {error, timeout}}]};
 handle_event(Type, Content, #accept{} = State, P_D) ->
     handle_unexpected(Type, Content, State, P_D);
@@ -2015,13 +1970,10 @@ handle_event(
 handle_event(
   info, ?socket_abort(Socket, SelectRef, Reason),
   #connect{info = ?select_info(SelectRef), from = From} = _State,
-  {#params{socket = Socket} = _P, _D} = P_D) ->
-    %% ?DBG(['abort message',
-    %% 	  {ref, SelectRef}, {reason, Reason}]),
-    socket_close(Socket),
-    {next_state, 'closed', P_D,
-     [{reply, From, {error, Reason}}]};
-
+  {#params{socket = Socket}, _D} = P_D) ->
+    {next_state, 'connect', P_D,
+     [{{timeout, connect}, cancel}, {reply, From, {error, Reason}}]};
+%%
 handle_event(
   info, ?socket_completion(Socket, CompletionRef, CompletionStatus),
   #connect{info = ?completion_info(CompletionRef),
@@ -2034,32 +1986,17 @@ handle_event(
 handle_event(
   info, ?socket_abort(Socket, CompletionRef, Reason),
   #connect{info = ?completion_info(CompletionRef), from = From} = _State,
-  {#params{socket = Socket} = _P, _D} = P_D) ->
-    %% ?DBG(['abort message',
-    %% 	  {ref, CompletionRef}, {reason, Reason}]),
-    socket_close(Socket),
-    NewReason = case Reason of
-                    {completion_status, #{info := netname_deleted}} ->
-                        closed;
-                    {completion_status, netname_deleted} ->
-                        closed;
-                    {completion_status, #{info := INFO}} ->
-                        INFO;
-                    {completion_status, INFO} ->
-                        INFO;
-                    _ ->
-                        Reason
-                end,
-    {next_state, 'closed', P_D,
-     [{reply, From, {error, NewReason}}]};
+  {#params{socket = Socket}, _D} = P_D) ->
+  {next_state, 'connect', P_D,
+   [{{timeout, connect}, cancel},
+    {reply, From, {error, completion_status_reason(Reason)}}]};
 
 handle_event(
-  {timeout, connect}, connect,
-  #connect{info = SelectInfo, from = From},
-  {#params{socket = Socket} = _P, _D} = P_D) ->
-    _ = socket_cancel(Socket, SelectInfo),
-    socket_close(Socket),
-    {next_state, 'closed', P_D,
+  {timeout, connect}, Info,
+  #connect{info = Info, from = From},
+  {#params{socket = Socket}, _D} = P_D) ->
+    socket_cancel(Socket, Info),
+    {next_state, 'connect', P_D,
      [{reply, From, {error, timeout}}]};
 %%
 %% Call: recv/2 - not connected
@@ -2105,7 +2042,7 @@ handle_event(
   #recv{info = ?select_info(SelectRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
     %% ?DBG({abort, Reason}),
-    handle_connected(P, cleanup_recv_reply(P, D, [], Reason));
+    handle_recv_error(P, D, [], Reason);
 
 %%
 %% Handle completion done
@@ -2130,27 +2067,15 @@ handle_event(
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
     %% ?DBG(['abort msg', {reason, Reason}]),
-    NewReason = case Reason of
-                    {completion_status, #{info := netname_deleted}} ->
-                        closed;
-                    {completion_status, netname_deleted} ->
-                        closed;
-                    {completion_status, #{info := INFO}} ->
-                        INFO;
-                    {completion_status, INFO} ->
-                        INFO;
-                    _ ->
-                        Reason
-                end,
-    handle_connected(P, cleanup_recv_reply(P, D, [], NewReason));
+    handle_recv_error(P, D, [], completion_status_reason(Reason));
 
 %%
 %% Timeout on recv in passive mode
 handle_event(
-  {timeout, recv}, recv, #recv{} = State, {P, D}) ->
-    %%
-    %% ?DBG({timeout, recv}),
-    handle_connected(P, cleanup_recv(P, D, State, timeout));
+  {timeout, recv}, recv, #recv{info = Info},
+  {#params{socket = Socket} = P, D}) ->
+    socket_cancel(Socket, Info),
+    handle_recv_error(P, D, [], timeout);
 
 %% Catch-all
 handle_event(Type, Content, State, P_D) ->
@@ -2160,55 +2085,14 @@ handle_event(Type, Content, State, P_D) ->
 %% -------------------------------------------------------------------------
 %% Event handler helpers
 
-
-%% We only accept/perform shutdown when socket is 'connected'
-%% We only accept/perform shutdown when socket is 'connected'
-%% (or closed_read | closed_write).
-%% This is done to be "compatible" with the inet-driver!
-
-handle_shutdown(#params{socket = Socket},
-                closed_write = _State,
-                read = How) ->
-    handle_shutdown2(Socket, closed_read_write, How);
-handle_shutdown(#params{socket = Socket},
-                closed_read = _State,
-                write = How) ->
-    handle_shutdown2(Socket, closed_read_write, How);
-handle_shutdown(#params{socket = Socket},
-                connected = _State,
-                write = How) ->
-    {keep, socket:shutdown(Socket, How)};
-handle_shutdown(#params{socket = Socket},
-                #recv{} = _State,
-                write = How) ->
-    {keep, socket:shutdown(Socket, How)};
-handle_shutdown(#params{socket = Socket},
-                connected = _State,
-                read = How) ->
-    handle_shutdown2(Socket, closed_read, How);
-handle_shutdown(#params{socket = Socket},
-                #recv{} = _State,
-                read = How) ->
-    handle_shutdown2(Socket, closed_read, How);
-handle_shutdown(#params{socket = Socket},
-                connected = _State,
-                read_write = How) ->
-    handle_shutdown2(Socket, closed_read_write, How);
-handle_shutdown(#params{socket = Socket},
-                #recv{} = _State,
-                read_write = How) ->
-    handle_shutdown2(Socket, closed_read_write, How);
-handle_shutdown(_Params, _State, _How) ->
-    {keep, {error, enotconn}}.
-
-handle_shutdown2(Socket, NextState, How) ->
-    case socket:shutdown(Socket, How) of
-        ok ->
-            {NextState, ok};
-        Error ->
-            {keep, Error}
+completion_status_reason(Reason) ->
+    case Reason of
+        {completion_status, #{info := netname_deleted}} -> closed;
+        {completion_status, netname_deleted}            -> closed;
+        {completion_status, #{info := Info}}            -> Info;
+        {completion_status, Info}                       -> Info;
+        _                                               -> Reason
     end.
-
 
 handle_unexpected(Type, Content, State, {P, _D}) ->
     warning_msg("Received unexpected event:"
@@ -2225,26 +2109,47 @@ handle_unexpected(Type, Content, State, {P, _D}) ->
             keep_state_and_data
     end.
 
-handle_closed(Type, Content, State, {P, _D}) ->
-    case Type of
-        {call, From} ->
-            {keep_state_and_data,
-             [{reply, From, {error, closed}}]};
-        _ ->
-            warning_msg("Received unexpected event when closed:"
-                        "~n   Socket:     ~p"
-                        "~n   State:      ~p"
-                        "~n   Event Type: ~p"
-                        "~n   Content:    ~p",
-                        [P#params.socket, State, Type, Content]),
-            keep_state_and_data
-    end.
-
 %% State transition helpers -------
 
+handle_close(#params{socket = Socket} = P, D, State, ActionsR) ->
+    {P_D, Actions} =
+        case State of
+            %% State #controlling_process{} postpones the close/0 call,
+            %% and terminate/3 hides that state,
+            %% therefore it cannot appear here
+            #accept{
+               info = SelectInfo, from = From, listen_socket = ListenSocket} ->
+                socket_cancel(ListenSocket, SelectInfo),
+                {{P, D},
+                 reverse(ActionsR,
+                         [{{timeout, accept}, cancel},
+                          {reply, From, {error, closed}}])};
+            #connect{info = Info, from = From} ->
+                socket_cancel(Socket, Info),
+                socket_close(Socket),
+                {{P, D},
+                 reverse(ActionsR,
+                         [{{timeout, connect}, cancel},
+                          {reply, From, {error, closed}}])};
+            #recv{info = Info} ->
+                socket_cancel(P#params.socket, Info),
+                socket_close(Socket),
+                {next_state, 'closed_read', P_D_1, Actions_1} =
+                    handle_recv_error(P, D, ActionsR, closed),
+                {P_D_1, Actions_1};
+            _ when State =:= 'closed_read';
+                   State =:= 'connect';
+                   State =:= 'connected' ->
+                socket_close(Socket),
+                {{P, D}, reverse(ActionsR)};
+            _ when State =:= 'accept';
+                   State =:= 'closed' ->
+                {{P, D}, reverse(ActionsR)}
+        end,
+    {next_state, 'closed', P_D, Actions}.
+
 handle_connect(
-  #params{socket = Socket} = P, D, From, Addr, Timeout, Status)
-  when (Status =:= connect) ->
+  #params{socket = Socket} = P, D, From, Addr, Timeout, connect) ->
     %%
     %% ?DBG([{d, D}, {addr, Addr}]),
     %% _ = socket:setopt(Socket, otp, debug, true),
@@ -2262,7 +2167,7 @@ handle_connect(
             {next_state,
              #connect{info = Info, from = From, addr = Addr},
              {P, D#{type => connect}},
-             [{{timeout, connect}, Timeout, connect}]};
+             [{{timeout, connect}, Timeout, Info}]};
 
         {completion, ?completion_info(_) = Info} ->
 	    %% _ = socket:setopt(Socket, otp, debug, false),
@@ -2270,7 +2175,7 @@ handle_connect(
             {next_state,
              #connect{info = Info, from = From, addr = Addr},
              {P, D#{type => connect}},
-             [{{timeout, connect}, Timeout, connect}]};
+             [{{timeout, connect}, Timeout, Info}]};
 
         {error, _} = Error ->
 	    %% _ = socket:setopt(Socket, otp, debug, false),
@@ -2281,8 +2186,7 @@ handle_connect(
               {reply, From, Error}]}
     end;
 handle_connect(
-  #params{socket = Socket} = P, D, From, Addr, Timeout, Status)
-  when (Status =:= select) ->
+  #params{socket = Socket} = P, D, From, Addr, Timeout, select) ->
     %%
     %% ?DBG([{d, D}, {addr, Addr}]),
     case socket:connect(Socket, Addr, nowait) of
@@ -2296,7 +2200,7 @@ handle_connect(
             {next_state,
              #connect{info = Info, from = From, addr = Addr},
              {P, D#{type => connect}},
-             [{{timeout, connect}, Timeout, connect}]};
+             [{{timeout, connect}, Timeout, Info}]};
 
         {error, _} = Error ->
             {next_state,
@@ -2317,7 +2221,8 @@ handle_connect(#params{} = P, D, From, _Addr, _Timeout,
 
 
 handle_accept(P, D, From, ListenSocket, Timeout, Status)
-  when (Status =:= select) orelse (Status =:= accept) ->
+  when Status =:= select;
+       Status =:= accept ->
     %% ?DBG({try_accept, D}),
     case socket:accept(ListenSocket, nowait) of
         {ok, Socket} ->
@@ -2330,7 +2235,7 @@ handle_accept(P, D, From, ListenSocket, Timeout, Status)
                 info = SelectInfo, from = From,
                 listen_socket = ListenSocket},
              {P, D#{type => accept}},
-             [{{timeout, accept}, Timeout, accept}]};
+             [{{timeout, accept}, Timeout, SelectInfo}]};
 
         {completion, ?completion_info(_) = CompletionInfo} ->
             %% ?DBG({accept_completion, CompletionInfo}),
@@ -2339,7 +2244,7 @@ handle_accept(P, D, From, ListenSocket, Timeout, Status)
                 info = CompletionInfo, from = From,
                 listen_socket = ListenSocket},
              {P, D#{type => accept}},
-             [{{timeout, accept}, Timeout, accept}]};
+             [{{timeout, accept}, Timeout, CompletionInfo}]};
 
         {error, _Reason} = Error ->
             handle_accept_failure(P, D, From, Error)
@@ -2489,7 +2394,8 @@ handle_recv_error_packet(P, D, ActionsR, Reason) ->
     case decode_packet(D) of
         {ok, Decoded, Rest} ->
             handle_recv_error(
-              P, D#{buffer := Rest}, ActionsR, Reason, Decoded);
+              P, recv_data_deliver(P, D#{buffer := Rest}, ActionsR, Decoded),
+              Reason);
         {more, _} ->
             handle_recv_error(P, D, ActionsR, Reason);
         {error, _} ->
@@ -2535,113 +2441,76 @@ decode_packet(PacketType, Buffer, Options) ->
 handle_recv_deliver(P, D, ActionsR, Data) ->
     handle_connected(P, recv_data_deliver(P, D, ActionsR, Data)).
 
-handle_recv_error(P, D, ActionsR, Reason, Data) ->
-    %% Deliver, then error
-    {D_1, ActionsR_1} = recv_data_deliver(P, D, ActionsR, Data),
-    handle_recv_error(P, D_1, ActionsR_1, Reason).
+handle_recv_error(P, {D, ActionsR}, Reason) ->
+    handle_recv_error(P, D, ActionsR, Reason).
 %%
-handle_recv_error(P, D, ActionsR, Reason) ->
-    %% ?DBG({P#params.socket, Reason}),
-    {D_1, ActionsR_1} =
-        cleanup_recv_reply(P, D#{buffer := <<>>}, ActionsR, Reason),
+handle_recv_error(
+  P, #{active := Active, show_econnreset := ShowEconnreset} = D,
+  ActionsR, Reason) ->
+    %%
+    %% Send active socket messages
+    %%
+    ModuleSocket = module_socket(P),
+    Owner = P#params.owner,
     if
         Reason =:= timeout;
         Reason =:= emsgsize ->
-            {next_state, 'connected',
-             {P, recv_stop(D#{active := false})},
-             reverse(ActionsR_1)};
-        Reason =:= closed ->
-            %% This may be incorrect with respect to inet_drv.c:s
-            %% default exit_on_close behaviour...
-            {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
+            D_1 =
+                case Active of
+                    false ->
+                        D;
+                    _ ->
+                        Owner ! {tcp_error, ModuleSocket, Reason},
+                        D#{active := false}
+                end,
+            handle_recv_error(
+              P, D_1, ActionsR, Reason,
+              'connected');
         true ->
-            socket_close(P#params.socket),
-            {next_state, 'closed', {P, D_1}, reverse(ActionsR_1)}
+            %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+            ReplyReason =
+                case ShowEconnreset of
+                    true when   Reason =:= closed       -> econnreset;
+                    false when  Reason =:= econnreset   -> closed;
+                    _ -> Reason
+                end,
+            D_1 =
+                case Active of
+                    false ->
+                        D;
+                    _ ->
+                        if
+                            ShowEconnreset =:= true;
+                            Reason =/= closed, Reason =/= econnreset ->
+                                Owner !
+                                    {tcp_error, ModuleSocket, ReplyReason},
+                                ok;
+                            true -> ok
+                        end,
+                        Owner ! {tcp_closed, ModuleSocket},
+                        D#{active := false, tcp_closed := true}
+                end,
+            handle_recv_error(
+              P, D_1, ActionsR, ReplyReason,
+              'closed_read')
+    end.
+%%
+handle_recv_error(P, D, ActionsR, ReplyReason, NextState) ->
+    %%
+    %% Create state machine actions; reply and cancel timeout
+    %%
+    case D of
+        #{recv_from := From} ->
+            {next_state, NextState, {P, recv_stop(D)},
+             reverse(ActionsR,
+                     [{{timeout, recv}, cancel},
+                      {reply, From, {error, ReplyReason}}])};
+        #{} ->
+            {next_state, NextState, {P, D}, reverse(ActionsR)}
     end.
 
 %% -------------------------------------------------------------------------
 %% Callback Helpers
-
-%% Helper function that merges the {D, ActionsR} tuple from a
-%% state helper functions with an Actions list you already have
-%%
-next_state(P, {D, ActionsR}, State, Actions) ->
-    {next_state, State, {P, D}, reverse(ActionsR, Actions)}.
-
-cleanup_close_read(P, D, State, Reason) ->
-    %% ?DBG({P#params.socket, State, Reason}),
-    case State of
-        #accept{
-           info = SelectInfo, from = From, listen_socket = ListenSocket} ->
-            _ = socket_cancel(ListenSocket, SelectInfo),
-            {D,
-             [{reply, From, {error, Reason}}]};
-        #connect{info = Info, from = From} ->
-            _ = socket_cancel(P#params.socket, Info),
-            {D,
-             [{reply, From, {error, Reason}}]};
-        _ ->
-            cleanup_recv(P, D, State, Reason)
-    end.
-
-cleanup_recv(P, D, State, Reason) ->
-    %% ?DBG({P#params.socket, State, Reason}),
-    case State of
-        #recv{info = Info} ->
-            _ = socket_cancel(P#params.socket, Info),
-            cleanup_recv_reply(P, D, [], Reason);
-        _ ->
-            cleanup_recv_reply(P, D, [], Reason)
-    end.
-
-cleanup_recv_reply(
-  P, #{show_econnreset := ShowEconnreset} = D, ActionsR, Reason) ->
-    %% ?DBG({ShowEconnreset, Reason}),
-    case D of
-        #{active := false} -> ok;
-        #{active := _} ->
-            ModuleSocket = module_socket(P),
-            Owner = P#params.owner,
-            %% ?DBG({ModuleSocket, {Reason,ShowEconnreset}}),
-            if
-                Reason =:= timeout;
-                Reason =:= emsgsize ->
-                    %% ?DBG({P#params.socket, Reason}),
-                    Owner ! {tcp_error, ModuleSocket, Reason},
-                    ok;
-                Reason =:= closed, ShowEconnreset =:= false;
-                Reason =:= econnreset, ShowEconnreset =:= false ->
-                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
-                    Owner ! {tcp_closed, ModuleSocket},
-                    ok;
-                Reason =:= closed -> % ShowEconnreset =:= true
-                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
-                    %% Try to be bug-compatible with the inet-driver...
-                    Owner ! {tcp_error, ModuleSocket, econnreset},
-                    Owner ! {tcp_closed, ModuleSocket},
-                    ok;
-                true ->
-                    %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
-                    Owner ! {tcp_error, ModuleSocket, Reason},
-                    Owner ! {tcp_closed, ModuleSocket},
-                    ok
-            end
-    end,
-    {recv_stop(D#{active := false}),
-     case D of
-         #{recv_from := From} ->
-             Reason_1 =
-                 case Reason of
-                     econnreset when ShowEconnreset =:= false -> closed;
-                     closed     when ShowEconnreset =:= true  -> econnreset;
-                     _ -> Reason
-                 end,
-             [{reply, From, {error, Reason_1}},
-              {{timeout, recv}, cancel}
-              | ActionsR];
-         #{} ->
-             ActionsR
-     end}.
 
 %% Initialize packet recv state
 recv_start(D) ->
@@ -2857,9 +2726,7 @@ state_setopts(P, D, State, [{Tag,Val} | Opts]) ->
                         %% server options for receive
                         %%
                         true
-                          when State =:= 'closed';
-                               State =:= 'closed_read';
-                               State =:= 'closed_read_write' ->
+                          when State =:= 'closed' ->
                             %% ?DBG('server read when state closed*'),
                             {{error, einval}, D};
                         true ->
@@ -2937,6 +2804,19 @@ state_setopts_server(P, D, State, Opts, Tag, Value) ->
             state_setopts(P, D#{Tag => Value}, State, Opts)
     end.
 
+state_setopts_active(P, D, 'closed_read' = State, Opts, Active) ->
+    if
+        Active =/= false ->
+            case D of
+                #{tcp_closed := true} ->
+                    state_setopts(P, D, State, Opts);
+                #{tcp_closed := false} ->
+                    P#params.owner ! {tcp_closed, module_socket(P)},
+                    state_setopts(P, D#{tcp_closed := true}, State, Opts)
+            end;
+        true ->
+            state_setopts(P, D, State, Opts)
+    end;
 state_setopts_active(P, D, State, Opts, Active) ->
     %% ?DBG([{active, Active}]),
     if
@@ -3040,9 +2920,7 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
                         %% server options for receive
                         %%
                         true
-                          when State =:= 'closed';
-                               State =:= 'closed_read';
-                               State =:= 'closed_read_write' ->
+                          when State =:= 'closed' ->
                             %% ?DBG('server read when closed*'),
                             {error, einval};
                         true ->
