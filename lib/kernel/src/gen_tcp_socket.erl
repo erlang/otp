@@ -691,11 +691,8 @@ recv(?MODULE_socket(Server, _Socket), Length, Timeout)
 
 %% -------------------------------------------------------------------------
 
-shutdown(?MODULE_socket(Server, _Socket), How) ->
-    %% ?DBG({shutdown, How}),
-    Result = call(Server, {shutdown, How}),
-    %% ?DBG({shutdown_result, Result}),
-    ?badarg_exit(Result).
+shutdown(?MODULE_socket(_Server, Socket), How) ->
+    socket:shutdown(Socket, How).
 
 %% -------------------------------------------------------------------------
 
