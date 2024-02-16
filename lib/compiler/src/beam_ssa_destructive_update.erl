@@ -774,7 +774,14 @@ aggregate_ret_patches([R={self,init_writable}]) ->
     R;
 aggregate_ret_patches([{tuple_element,I,E}|Rest]) ->
     Elements = [{I,E}|aggregate_ret_patches_tuple(Rest)],
-    {tuple_elements,Elements}.
+    {tuple_elements,Elements};
+aggregate_ret_patches([{self,heap_tuple},TE={tuple_element,_,_}|Rest]) ->
+    %% As the tuple_element will force the outer aggregate onto the
+    %% heap, the {self,heap_tuple} can be dropped. Due to the sort in
+    %% patch_ret/3, self will always occur before tuple_element.
+    aggregate_ret_patches([TE|Rest]);
+aggregate_ret_patches([R={hd,_}]) ->
+    R.
 
 aggregate_ret_patches_tuple([{tuple_element,I,E}|Rest]) ->
     [{I,E}|aggregate_ret_patches_tuple(Rest)];

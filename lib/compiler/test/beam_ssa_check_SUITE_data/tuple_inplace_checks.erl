@@ -21,9 +21,12 @@
 -module(tuple_inplace_checks).
 
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
-         update_record0/0, fc/0, track_update_record/1]).
+         update_record0/0, fc/0, track_update_record/1,
+         gh8124_a/0, gh8124_b/0]).
 
 -record(r, {a=0,b=0,c=0,tot=0}).
+-record(r1, {a}).
+-record(r2, {b}).
 
 do0a() ->
     Ls = ex:f(),
@@ -207,3 +210,29 @@ track_update_record1(#outer{a=A}=Outer) ->
 %ssa% ret(R).
     B = e:f(),
     Outer#outer{a=A#inner{d=B}}.
+
+%% Check that update patches are correctly merged when we have nested
+%% tuple updates.
+gh8124_a_inner() ->
+%ssa% () when post_ssa_opt ->
+%ssa% Inner = put_tuple(r2, _),
+%ssa% Outer = put_tuple(r1, Inner),
+%ssa% ret(Outer).
+    #r1{a = #r2{b = <<"value1">>}}.
+
+gh8124_a() ->
+    R1 = #r1{a=A} = gh8124_a_inner(),
+    R1#r1{a = A#r2{b= <<"new value">>}}.
+
+gh8124_b_inner() ->
+%ssa% () when post_ssa_opt ->
+%ssa% Inner = put_tuple(r, ...),
+%ssa% Lst = put_list(Inner, _),
+%ssa% ret(Lst).
+    R = #r{a = <<"value1">>},
+    [R].
+
+gh8124_b() ->
+    [R] = gh8124_b_inner(),
+    R#r{a = <<"value 2">>}.
+
