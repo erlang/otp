@@ -78,6 +78,16 @@
     </datatype>
 
     <datatype>
+      <name name="msg_data_cmyt"/>
+      <desc>
+	<p>
+	  Is an opaque data structure containing necessary security
+	  and transport information for v1 and v2 messages.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="msg_data_v3"/>
       <desc>
 	<p>
@@ -149,25 +159,15 @@
     </func>
 
     <func>
-      <name since="">generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name name="generate_response_msg" arity="4" clause_i="1" since=""/>
       <fsummary>Generate a response packet to be sent to the network</fsummary>
-      <type>
-        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
-        <v>Pdu = #pdu</v>
-        <v>MsgData = term()</v>
-        <v>Logger = function()</v>
-        <v>Packet = binary()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Generates a possibly encrypted response packet to be sent to the
-          network.
-          </p>
+	network. </p>
         <p><c>MsgData</c> is the message specific data used in the SNMP 
-          message. This value is received from the 
-          <seeerl marker="snmpm_mpd#process_msg">process_msg</seeerl> 
-          function.
-          </p>
+	message. This value is received from the 
+	<seeerl marker="snmpm_mpd#process_msg">process_msg</seeerl> 
+	function. </p>
       </desc>
     </func>
   </funcs>

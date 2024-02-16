@@ -36,6 +36,7 @@
               logger/0,
               msg_data/0,
               msg_data_cmy/0,
+              msg_data_cmyt/0,
               msg_data_v3/0
              ]).
 
@@ -65,6 +66,13 @@
           {
            Community :: snmp:community(),
            SecModel  :: snmp:sec_model()
+          }.
+-opaque msg_data_cmyt() ::
+          {
+           Community :: snmp:community(),
+           SecModel  :: snmp:sec_model(),
+           TDomain   :: snmp:tdomain(),
+           TAddress  :: snmp:taddress()
           }.
 -opaque msg_data_v3() ::
           {
@@ -681,6 +689,15 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 
 
 %% -----------------------------------------------------------------------
+
+-spec generate_response_msg(Vsn, Pdu, MsgData, Log) ->
+          {ok, Packet} | {discarded, Reason} | {error, Reason} when
+      Vsn     :: snmp_pdus:version(),
+      Pdu     :: snmp_pdus:pdu(),
+      MsgData :: msg_data() | msg_data_cmyt(),
+      Log     :: logger(),
+      Packet  :: binary(),
+      Reason  :: term().
 
 generate_response_msg('version-3', Pdu,
 		      {MsgID, SecModel, SecName, SecLevel, 
