@@ -562,7 +562,7 @@ data.
 This means that it is not necessary to specify the destination address when
 sending a datagram. That is, we can use `send/2`.
 
-It also means that the socket will only received data from this address.
+It also means that the socket will only receive data from this address.
 """.
 -doc(#{since => <<"OTP 24.3">>}).
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
@@ -588,7 +588,7 @@ send data.
 This means that it is not necessary to specify the destination address when
 sending a datagram. That is, we can use `send/2`.
 
-It also means that the socket will only received data from this address.
+It also means that the socket will only receive data from this address.
 """.
 -doc(#{since => <<"OTP 24.3">>}).
 -spec connect(Socket, Address, Port) -> ok | {error, Reason} when
