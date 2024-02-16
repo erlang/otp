@@ -800,7 +800,7 @@ write_file_info(Pid, Name, Info) ->
 
 -doc """
 Writes file information from a `file_info` record to the file specified by
-`Name`. See [file:write_file_info/\[2,3]](`file:write_file_info/2`) for
+`Name`. See [file:write_file_info/2,3](`file:write_file_info/2`) for
 information about the record.
 """.
 -spec write_file_info(ChannelPid, Name, FileInfo, Timeout) -> ok | Error when

@@ -72,9 +72,10 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
 
   [](){: #option-active }
 
-- **`{active, true|false|once|N}`** - \* If `false` (passive mode, the default),
-  the caller must do an explicit [`recv`](`recv/1`) call to retrieve the
-  available data from the socket.
+- **`{active, true|false|once|N}`**
+
+  - If `false` (passive mode, the default), the caller must do an explicit
+    [`recv`](`recv/1`) call to retrieve the available data from the socket.
 
   - If `true|once|N` (active modes) received data or events are sent to the
     owning process. See [`open/0..2`](`open/0`) for the message format.

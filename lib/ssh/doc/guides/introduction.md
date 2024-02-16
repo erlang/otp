@@ -67,7 +67,7 @@ supports user authentication as follows:
   password is encrypted before sent over the network.
 
 Several configuration options for authentication handling are available in
-[ssh:connect/\[3,4]](`ssh:connect/3`) and [ssh:daemon/\[2,3]](`ssh:daemon/2`).
+[ssh:connect/3,4](`ssh:connect/3`) and [ssh:daemon/2,3](`ssh:daemon/2`).
 
 The public key handling can be customized by implementing the following
 behaviours from `ssh`:

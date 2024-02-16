@@ -78,7 +78,7 @@ For more detailed information on time-outs, see Section
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
 -doc """
-Handles messages sent by calling [call/\[2,3]](`call/2`)
+Handles messages sent by calling [call/2,3](`call/2`)
 
 For more detailed information on time-outs,, see Section
 [Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).

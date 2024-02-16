@@ -1793,7 +1793,7 @@ limitations under the License.
 - Better handling of errorI(s) during update of the session database.
 
   Also added and updated some debugging functions
-  [which_sessions/\[0,1]](`httpc:which_sessions/0`) and
+  [which_sessions/0,1](`httpc:which_sessions/0`) and
   [info/0](`httpc:info/0`).
 
   Own Id: OTP-10093
@@ -1846,7 +1846,7 @@ limitations under the License.
   Own Id: OTP-9960
 
 - \[httpc] Add function for retrieving current options,
-  [get_options/\[1,2]](`httpc:get_options/1`).
+  [get_options/1,2](`httpc:get_options/1`).
 
   Own Id: OTP-9979
 
@@ -2034,7 +2034,7 @@ limitations under the License.
 - \[httpc] Add support for upload body streaming (PUT and POST).
 
   For more info, see the definition of the `Body` argument of the
-  [request/\[4,5]](`httpc:request/4`) function.
+  [request/4,5](`httpc:request/4`) function.
 
   Filipe David Manana
 
@@ -2080,7 +2080,7 @@ limitations under the License.
   `ossl` will work for as long as the ssl application supports it.
 
   See the httpd [socket_type](`m:httpd#props_comm`) communication property or
-  the httpc [request/\[4,5]](`httpc:request/4`) function for more info.
+  the httpc [request/4,5](`httpc:request/4`) function for more info.
 
   Own Id: OTP-9230
 
@@ -2213,7 +2213,7 @@ limitations under the License.
 - \[httpc|httpd] - Now allow the use of the "new" ssl, by using the `essl` tag
   instead.
 
-  See the `http_option` option in the [request/\[4,5]](`httpc:request/4`) or the
+  See the `http_option` option in the [request/4,5](`httpc:request/4`) or the
   [socket-type](`m:httpd#props_comm`) section of the Communication properties
   chapter for more info,
 
@@ -2323,7 +2323,7 @@ limitations under the License.
   making requests.
 
   See the `socket_opts` option in the [request/4](`httpc:request/4`) or
-  [set_options/\[1,2]](`httpc:set_options/1`) for more info,
+  [set_options/1,2](`httpc:set_options/1`) for more info,
 
   Own Id: OTP-8352
 
@@ -2516,7 +2516,7 @@ limitations under the License.
   `connect_timeout` option is used for the initial request, when the client
   connects to the server. Default value is that of the `timeout` option.
 
-  See the [request/\[4,5]](`httpc:request/4`) function for more info.
+  See the [request/4,5](`httpc:request/4`) function for more info.
 
   Own Id: OTP-7298
 
@@ -2586,7 +2586,7 @@ limitations under the License.
   As a side-effect of this, the option `ipv6` has been removed and replaced by
   the `ipfamily` option.
 
-  See [http:set_options/\[1,2]](`httpc:set_options/1`) for more info.
+  See [http:set_options/1,2](`httpc:set_options/1`) for more info.
 
   \*** POTENTIAL INCOMPATIBILITY \***
 

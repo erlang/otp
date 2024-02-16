@@ -280,7 +280,7 @@ HTTP options:
 
   Default value is obtained by calling
   [`httpc:ssl_verify_host_options(true)`. ](`ssl_verify_host_options/1`). See
-  [ssl:connect/\[2,3,4]](`m:ssl`) for available options.
+  [ssl:connect/2,3,4](`m:ssl`) for available options.
 
 - **`autoredirect`** - The client automatically retrieves the information from
   the new URI and returns that as the result, instead of a 30X-result code.
@@ -368,7 +368,7 @@ Options details:
   > options.
 
   By default the socket options set by function
-  [set_options/\[1,2]](`set_options/1`) are used when establishing a connection.
+  [set_options/1,2](`set_options/1`) are used when establishing a connection.
 
 - **`receiver`** - Defines how the client delivers the result of an asynchronous
   request (`sync` has the value `false`).
@@ -873,7 +873,7 @@ Returns the cookie header that would have been sent when making a request to
 is used.
 
 Option `ipv6_host_with_bracket` deals with how to parse IPv6 addresses. For
-details, see argument `Options` of [request/\[4,5]](`request/4`).
+details, see argument `Options` of [request/4,5](`request/4`).
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec cookie_header(Url, ProfileOrOpts) -> HttpHeader | {error, Reason} when
@@ -900,7 +900,7 @@ Returns the cookie header that would have been sent when making a request to
 is used.
 
 Option `ipv6_host_with_bracket` deals with how to parse IPv6 addresses. For
-details, see argument `Options` of [request/\[4,5]](`request/4`).
+details, see argument `Options` of [request/4,5](`request/4`).
 """.
 -doc(#{since => <<"OTP R15B">>}).
 -spec cookie_header(Url, Opts, Profile) -> HttpHeader | {error, Reason} when

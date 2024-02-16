@@ -59,8 +59,10 @@ Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Func
 
 The header includes some system information:
 
-- **`Load`** - \* **`cpu`** - `Runtime/Wallclock`, that is, the percentage of
-  time where the node has been active.
+- **`Load`**
+
+  - **`cpu`** - `Runtime/Wallclock`, that is, the percentage of time where the
+    node has been active.
 
   - **`procs`** - The number of processes on the node.
 

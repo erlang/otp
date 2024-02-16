@@ -184,7 +184,7 @@ Messages that include a `WantReply` expect the channel handling process to call
 
 -doc """
 Data has arrived on the channel. This event is sent as a result of calling
-[ssh_connection:send/\[3,4,5]](`send/3`).
+[ssh_connection:send/3,4,5](`send/3`).
 """.
 -doc(#{title => <<"Data Transfer (RFC 4254, section 5.2)">>}).
 -type data_ch_msg() :: {data,
