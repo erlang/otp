@@ -50,10 +50,12 @@ All functions take two parameters:
 The data is thus at `buf[*index]` when an `ei` function is called.
 
 All encode functions assume that the `buf` and `index` parameters point to a
-buffer large enough for the data. To get the size of an encoded term, without
-encoding it, pass `NULL` instead of a buffer pointer. Parameter `index` is
-incremented, but nothing will be encoded. This is the way in `ei` to "preflight"
-term encoding.
+buffer large enough for the data. Note that the binary term format uses variable-
+length encoding so different values can require a different amount of space. For
+example, smaller integer values can be more compact than larger ones. To get
+the size of an encoded term, without encoding it, pass `NULL` instead of a
+buffer pointer. Parameter `index` is incremented, but nothing will be encoded.
+This is the way in `ei` to "preflight" term encoding.
 
 There are also encode functions that use a dynamic buffer. It is often more
 convenient to use these to encode data. All encode functions comes in two
