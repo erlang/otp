@@ -462,13 +462,11 @@ fi
 AC_CHECK_PROGS(EX_DOC, ex_doc)
 if test -z "$EX_DOC"; then
   EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
-  echo "ex_doc" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'ex_doc' command found: the documentation cannot be built])
+  AC_MSG_WARN([No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation ])
 fi
 
 AC_CHECK_PROGS(ELIXIR, elixir)
 if test -z "$ELIXIR"; then
-  echo "elixir" >> doc/CONF_INFO
   AC_MSG_WARN([No 'elixir' command found: can't run link checker for the documentation])
 fi
 
