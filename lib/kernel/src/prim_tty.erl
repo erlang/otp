@@ -427,13 +427,13 @@ handles(#state{ reader = {_ReaderPid, ReaderRef},
                 writer = {_WriterPid, WriterRef}}) ->
     #{ read => ReaderRef, write => WriterRef }.
 
--spec is_reader(pid(), state()) -> boolean().
+-spec is_reader(state(), pid()) -> boolean().
 is_reader(#state{ reader = {ReaderPid, _} }, ReaderPid) ->
     true;
 is_reader(_, _) ->
     false.
 
--spec is_writer(pid(), state()) -> boolean().
+-spec is_writer(state(), pid()) -> boolean().
 is_writer(#state{ writer = {WriterPid, _} }, WriterPid) ->
     true;
 is_writer(_, _) ->
