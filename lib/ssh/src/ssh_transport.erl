@@ -201,18 +201,16 @@ supported_algorithms() -> [{K,supported_algorithms(K)} || K <- algo_classes()].
 supported_algorithms(kex) ->
     select_crypto_supported(
       [
-       {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
+       {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
        {'ecdh-sha2-nistp521',                   [{public_keys,ecdh}, {curves,secp521r1}, {hashs,sha512}]},
+       {'ecdh-sha2-nistp384',                   [{public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
        {'ecdh-sha2-nistp256',                   [{public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
        {'diffie-hellman-group-exchange-sha256', [{public_keys,dh},   {hashs,sha256}]},
        {'diffie-hellman-group16-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group18-sha512',        [{public_keys,dh},   {hashs,sha512}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
-       %% https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves
-       %% Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448
-       {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
-       {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
-       {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
        {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
@@ -220,13 +218,13 @@ supported_algorithms(kex) ->
 supported_algorithms(public_key) ->
     select_crypto_supported(
       [
-       {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {curves,secp384r1}]},
-       {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {curves,secp521r1}]},
-       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
        {'ssh-ed25519',          [{public_keys,eddsa}, {curves,ed25519}                    ]},
        {'ssh-ed448',            [{public_keys,eddsa}, {curves,ed448}                      ]},
-       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
+       {'ecdsa-sha2-nistp521',  [{public_keys,ecdsa}, {hashs,sha512}, {curves,secp521r1}]},
+       {'ecdsa-sha2-nistp384',  [{public_keys,ecdsa}, {hashs,sha384}, {curves,secp384r1}]},
+       {'ecdsa-sha2-nistp256',  [{public_keys,ecdsa}, {hashs,sha256}, {curves,secp256r1}]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
+       {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
@@ -252,15 +250,15 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-256-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
-         {'hmac-sha2-512-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
-         {'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
+	[{'hmac-sha2-512-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
+         {'hmac-sha2-256-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
+         {'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
          {'hmac-sha1-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
 	 {'hmac-sha1-96',     [{macs,hmac}, {hashs,sha}]},
-	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
-	 {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]}
+         {'AEAD_AES_256_GCM', [{ciphers,aes_256_gcm}]},
+	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]}
 	]
        ));
 supported_algorithms(compression) ->
