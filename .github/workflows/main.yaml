@@ -38,6 +38,7 @@ jobs:
     outputs:
         BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
         changes: ${{ steps.changes.outputs.changes }}
+        c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
       - uses: actions/checkout@v4.1.1
@@ -49,16 +50,19 @@ jobs:
         id: apps
         run: |
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+          .github/scripts/c-code-path-filters.sh > .github/scripts/c-code-path-filters.yaml
           ## Print path-filters for debug purposes
           cat .github/scripts/path-filters.yaml
+          cat .github/scripts/c-code-path-filters.yaml
           ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
-      - uses: dorny/paths-filter@v3.0.0
+      - name: Check which applications have changed
+        uses: dorny/paths-filter@v3.0.0
         id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
-      - name: Override changes
+      - name: Override which applications have changed
         id: changes
         env:
             ALL_APPS: ${{ steps.apps.outputs.all }}
@@ -69,6 +73,11 @@ jobs:
           else
               echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check if there are any C-code changes, if not then limit CI run
+        uses: dorny/paths-filter@v3.0.0
+        id: c-code-changes
+        with:
+          filters: .github/scripts/c-code-path-filters.yaml
       - name: Cache pre-built src
         uses: actions/cache@v4.0.0
         with:
@@ -90,7 +99,8 @@ jobs:
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
-      - uses: dorny/paths-filter@v3.0.0
+      - name: Check how we can use the pre-built cache
+        uses: dorny/paths-filter@v3.0.0
         id: cache
         with:
           filters: |
@@ -167,6 +177,7 @@ jobs:
     name: Build Erlang/OTP (macOS)
     runs-on: macos-12
     needs: pack
+    if: needs.pack.outputs.c-code-changes
     env:
       WXWIDGETS_VERSION: 3.1.5
     steps:
@@ -253,6 +264,7 @@ jobs:
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
+    if: needs.pack.outputs.c-code-changes
     steps:
       - uses: Vampire/setup-wsl@v2.0.2
         with:
@@ -347,7 +359,7 @@ jobs:
     name: Build Erlang/OTP (Types and Flavors)
     runs-on: ubuntu-latest
     needs: pack
-    if: contains(needs.pack.outputs.changes, 'emulator')
+    if: needs.pack.outputs.c-code-changes
 
     steps:
       - uses: actions/checkout@v4.1.1
@@ -370,6 +382,7 @@ jobs:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
     needs: pack
+    if: needs.pack.outputs.c-code-changes
 
     strategy:
       matrix:
