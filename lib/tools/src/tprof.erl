@@ -153,7 +153,7 @@ total allocated words in the descending order
 
 ```erlang
         5> tprof:profile(test, test_spawn, [],
-                         #{type => call_memory, report => {total, {words, descending}}}).
+                         #{type => call_memory, report => {total, {measurement, descending}}}).
 
         FUNCTION                CALLS  WORDS  PER CALL  [    %]
         lists:seq_loop/3            9     64         7  [68.82]
