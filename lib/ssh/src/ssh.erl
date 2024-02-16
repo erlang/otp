@@ -1,4 +1,4 @@
-%
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2004-2024. All Rights Reserved.
@@ -333,7 +333,7 @@ As an alternative, an already open TCP socket could be passed to the function in
 with the SSH that should be at the other end.
 
 No channel is started. This is done by calling
-[ssh_connection:session_channel/\[2, 4]](`ssh_connection:session_channel/2`).
+[ssh_connection:session_channel/2,4](`ssh_connection:session_channel/2`).
 
 The `NegotiationTimeout` is in milli-seconds. The default value is `infinity` or
 the value of the [`connect_timeout`](`t:connect_timeout_client_option/0`)

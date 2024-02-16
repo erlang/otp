@@ -1431,7 +1431,7 @@ For futher description of customize options see
 -doc """
 Specify the hostname to be used in TLS Server Name Indication extension. If not
 specified it will default to the `Host` argument of
-[connect/\[3,4]](`connect/3`) unless it is of type inet:ipaddress().
+[connect/3,4](`connect/3`) unless it is of type inet:ipaddress().
 
 The `HostName` will also be used in the hostname verification of the peer
 certificate using `public_key:pkix_verify_hostname/2`.
@@ -1964,7 +1964,7 @@ transport_accept(ListenSocket) ->
 -doc """
 Accepts an incoming connection request on a listen socket. `ListenSocket` must
 be a socket returned from `listen/2`. The socket returned is to be passed to
-[handshake/\[2,3]](`handshake/2`) to complete handshaking, that is, establishing
+[handshake/2,3](`handshake/2`) to complete handshaking, that is, establishing
 the TLS/DTLS connection.
 
 > #### Warning {: .warning }
@@ -2945,14 +2945,14 @@ and testing purposes.
 
 - **`supported`** - TLS versions supported with current application environment
   and crypto library configuration. Overridden by a version option on
-  [connect/\[2,3,4]](`connect/2`), `listen/2`, and
-  [handshake/\[2,3]](`handshake/2`). For the negotiated TLS version, see
+  [connect/2,3,4](`connect/2`), `listen/2`, and
+  [handshake/2,3](`handshake/2`). For the negotiated TLS version, see
   [connection_information/1 ](`connection_information/1`).
 
 - **`supported_dtls`** - DTLS versions supported with current application
   environment and crypto library configuration. Overridden by a version option
-  on [connect/\[2,3,4]](`connect/2`), `listen/2`, and
-  [handshake/\[2,3]](`handshake/2`). For the negotiated DTLS version, see
+  on [connect/2,3,4](`connect/2`), `listen/2`, and
+  [handshake/2,3](`handshake/2`). For the negotiated DTLS version, see
   [connection_information/1 ](`connection_information/1`).
 
 - **`available`** - All TLS versions supported with the linked crypto library.

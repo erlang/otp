@@ -848,7 +848,7 @@ collect.
 
 > #### Warning {: .warning }
 >
-> There is a severe performance penalty in using `mnesia:select/[1|2|3|4]` after
+> There is a severe performance penalty in using `mnesia:select/1,2,3,4` after
 > any modifying operation is done on that table in the same transaction. That
 > is, avoid using `mnesia:write/1` or `mnesia:delete/1` before `mnesia:select`
 > in the same transaction.
@@ -861,7 +861,7 @@ remedied with indexes (see [Indexing](mnesia_chap5.md#indexing)) if the function
 [mnesia:match_object](`mnesia:match_object/1`) is used.
 
 QLC queries can also be used to search `Mnesia` tables. By using the function
-[mnesia:table/\[1|2]](`mnesia:table/1`) as the generator inside a QLC query, you
+[mnesia:table/1,2](`mnesia:table/1`) as the generator inside a QLC query, you
 let the query operate on a `Mnesia` table. `Mnesia`\-specific options to
 `mnesia:table/2` are `{lock, Lock}`, `{n_objects,Integer}`, and
 `{traverse, SelMethod}`:

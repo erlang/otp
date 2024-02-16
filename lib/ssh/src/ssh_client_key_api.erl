@@ -43,7 +43,7 @@ this behavior with help of the standard OpenSSH files, see the
 %%% is called, the term() will be {hi,{there}}
 
 -doc """
-Options provided to [ssh:connect/\[3,4]](`ssh:connect/3`).
+Options provided to [ssh:connect/3,4](`ssh:connect/3`).
 
 The option list given in the [`key_cb`](`t:ssh:key_cb_common_option/0`) option
 is available with the key `key_cb_private`.

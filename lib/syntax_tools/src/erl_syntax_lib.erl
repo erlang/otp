@@ -1227,7 +1227,9 @@ well-defined value for that key.
 Each entry in the resulting list contains the following corresponding
 information about the program forms:
 
-- **`{attributes, Attributes}`** - \* `Attributes = [{atom(), term()}]`
+- **`{attributes, Attributes}`**
+
+  - `Attributes = [{atom(), term()}]`
 
   `Attributes` is a list of pairs representing the names and corresponding
   values of all so-called "wild" attributes (as e.g. "`-compile(...)`")
@@ -1236,13 +1238,16 @@ information about the program forms:
   that each name occurs at most once in the list. The order of listing is not
   defined.
 
-- **`{errors, Errors}`** - \* `Errors = [term()]`
+- **`{errors, Errors}`**
+
+  - `Errors = [term()]`
 
   `Errors` is the list of error descriptors of all `error_marker` nodes that
   occur in `Forms`. The order of listing is not defined.
 
-- **`{exports, Exports}`** - \* `Exports = [FunctionName]`
+- **`{exports, Exports}`**
 
+  - `Exports = [FunctionName]`
   - `FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}`
   - `ModuleName = atom()`
 
@@ -1252,15 +1257,18 @@ information about the program forms:
   guarantee that each name occurs at most once in the list. The order of listing
   is not defined.
 
-- **`{functions, Functions}`** - \* `Functions = [{atom(), integer()}]`
+- **`{functions, Functions}`**
+
+  - `Functions = [{atom(), integer()}]`
 
   `Functions` is a list of the names of the functions that are defined in
   `Forms` (cf. [`analyze_function/1`](`analyze_function/1`)). We do not
   guarantee that each name occurs at most once in the list. The order of listing
   is not defined.
 
-- **`{imports, Imports}`** - \* `Imports = [{Module, Names}]`
+- **`{imports, Imports}`**
 
+  - `Imports = [{Module, Names}]`
   - `Module = atom()`
   - `Names = [FunctionName]`
   - `FunctionName = atom() | {atom(), integer()} | {ModuleName, FunctionName}`
@@ -1273,15 +1281,18 @@ information about the program forms:
   occurs at most once in the lists of function names. The order of listing is
   not defined.
 
-- **`{module, ModuleName}`** - \* `ModuleName = atom()`
+- **`{module, ModuleName}`**
+
+  - `ModuleName = atom()`
 
   `ModuleName` is the name declared by a module attribute in `Forms`. If no
   module name is defined in `Forms`, the result will contain no entry for the
   `module` key. If multiple module name declarations should occur, all but the
   first will be ignored.
 
-- **`{records, Records}`** - \* `Records = [{atom(), Fields}]`
+- **`{records, Records}`**
 
+  - `Records = [{atom(), Fields}]`
   - `Fields = [{atom(), {Default, Type}}]`
   - `Default = none | syntaxTree()`
   - `Type = none | syntaxTree()`
@@ -1295,7 +1306,9 @@ information about the program forms:
   guarantee that each record name occurs at most once in the list. The order of
   listing is not defined.
 
-- **`{warnings, Warnings}`** - \* `Warnings = [term()]`
+- **`{warnings, Warnings}`**
+
+  - `Warnings = [term()]`
 
   `Warnings` is the list of error descriptors of all `warning_marker` nodes that
   occur in `Forms`. The order of listing is not defined.

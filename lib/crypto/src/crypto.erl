@@ -26,66 +26,64 @@ Crypto Functions
 
 This module provides a set of cryptographic functions.
 
-- **Hash functions** - \* **SHA1, SHA2** - [Secure Hash Standard \[FIPS PUB
-  180-4]](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf)
+- **Hash functions** -
 
-  - **SHA3** - [SHA-3 Standard: Permutation-Based Hash and Extendable-Output
-    Functions \[FIPS PUB
-    202]](https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061)
+  - **SHA1, SHA2** - [Secure Hash Standard \[FIPS PUB180-4\]](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf)
+  - **SHA3** - [SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions \[FIPS PUB 202\]](https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061)
 
   - **BLAKE2** - [BLAKE2 — fast secure hashing](https://blake2.net/)
 
-  - **MD5** - [The MD5 Message Digest Algorithm \[RFC
-    1321]](http://www.ietf.org/rfc/rfc1321.txt)
+  - **MD5** - [The MD5 Message Digest Algorithm \[RFC 1321\]](http://www.ietf.org/rfc/rfc1321.txt)
 
-  - **MD4** - [The MD4 Message Digest Algorithm \[RFC
-    1320]](http://www.ietf.org/rfc/rfc1320.txt)
+  - **MD4** - [The MD4 Message Digest Algorithm \[RFC 1320\]](http://www.ietf.org/rfc/rfc1320.txt)
 
-- **MACs - Message Authentication Codes** - \* **Hmac functions** -
-  [Keyed-Hashing for Message Authentication \[RFC
-  2104]](http://www.ietf.org/rfc/rfc2104.txt)
+- **MACs - Message Authentication Codes** -
 
-  - **Cmac functions** - [The AES-CMAC Algorithm \[RFC
-    4493]](http://www.ietf.org/rfc/rfc4493.txt)
+  - **Hmac functions** - [Keyed-Hashing for Message Authentication \[RFC 2104\]](http://www.ietf.org/rfc/rfc2104.txt)
 
-  - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
-    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+  - **Cmac functions** - [The AES-CMAC Algorithm \[RFC 4493\]](http://www.ietf.org/rfc/rfc4493.txt)
 
-- **Symmetric Ciphers** - \* **DES, 3DES and AES** - [Block Cipher Techniques
-  \[NIST]](https://csrc.nist.gov/projects/block-cipher-techniques)
+  - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC 7539\]](http://www.ietf.org/rfc/rfc7539.txt)
+
+- **Symmetric Ciphers** - 
+
+  - **DES, 3DES and AES** - [Block Cipher Techniques \[NIST\]](https://csrc.nist.gov/projects/block-cipher-techniques)
 
   - **Blowfish** -
     [Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204.](https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html)
 
-  - **Chacha20** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
-    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+  - **Chacha20** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC 7539\]](http://www.ietf.org/rfc/rfc7539.txt)
 
   - **Chacha20_poly1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
-    7539]](http://www.ietf.org/rfc/rfc7539.txt)
+    7539\]](http://www.ietf.org/rfc/rfc7539.txt)
 
-- **Modes** - \* **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
-  Cipher Modes of Operation: Methods and Techniques \[NIST SP
-  800-38A]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
+- **Modes**
+
+  - **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
+    Cipher Modes of Operation: Methods and Techniques \[NIST SP
+    800-38A\]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
 
   - **GCM** - [Recommendation for Block Cipher Modes of Operation:
     Galois/Counter Mode (GCM) and GMAC \[NIST SP
-    800-38D]](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
+    800-38D\]](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
 
   - **CCM** - [Recommendation for Block Cipher Modes of Operation: The CCM Mode
     for Authentication and Confidentiality \[NIST SP
-    800-38C]](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf)
+    800-38C\]](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf)
 
-- **Asymmetric Ciphers - Public Key Techniques** - \* **RSA** - [PKCS #1: RSA
-  Cryptography Specifications \[RFC 3447]](http://www.ietf.org/rfc/rfc3447.txt)
+- **Asymmetric Ciphers - Public Key Techniques** -
+
+  - **RSA** - [PKCS #1: RSA
+    Cryptography Specifications \[RFC 3447\]](http://www.ietf.org/rfc/rfc3447.txt)
 
   - **DSS** - [Digital Signature Standard (DSS) \[FIPS
-    186-4]](https://csrc.nist.gov/publications/detail/fips/186/4/final)
+    186-4\]](https://csrc.nist.gov/publications/detail/fips/186/4/final)
 
   - **ECDSA** - [Elliptic Curve Digital Signature Algorithm
-    \[ECDSA]](http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf)
+    \[ECDSA\]](http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf)
 
   - **SRP** - [The SRP Authentication and Key Exchange System \[RFC
-    2945]](http://www.ietf.org/rfc/rfc2945.txt)
+    2945\]](http://www.ietf.org/rfc/rfc2945.txt)
 
 > #### Note {: .info }
 >
@@ -2473,7 +2471,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 Encrypts the `PlainText` (message digest) using the `PublicKey` and returns the
 `CipherText`. This is a low level signature operation used for instance by older
 versions of the SSL protocol. See also
-[public_key:encrypt_public/\[2,3]](`public_key:encrypt_public/2`)
+[public_key:encrypt_public/2,3](`public_key:encrypt_public/2`)
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
@@ -2494,7 +2492,7 @@ Decrypts the `CipherText`, encrypted with `public_encrypt/4` (or equivalent
 function) using the `PrivateKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
 versions of the SSL protocol. See also
-[public_key:decrypt_private/\[2,3]](`public_key:decrypt_private/2`)
+[public_key:decrypt_private/2,3](`public_key:decrypt_private/2`)
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
@@ -2514,7 +2512,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 Encrypts the `PlainText` using the `PrivateKey` and returns the ciphertext. This
 is a low level signature operation used for instance by older versions of the
 SSL protocol. See also
-[public_key:encrypt_private/\[2,3]](`public_key:encrypt_private/2`)
+[public_key:encrypt_private/2,3](`public_key:encrypt_private/2`)
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
@@ -2535,7 +2533,7 @@ Decrypts the `CipherText`, encrypted with `private_encrypt/4`(or equivalent
 function) using the `PrivateKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
 versions of the SSL protocol. See also
-[public_key:decrypt_public/\[2,3]](`public_key:decrypt_public/2`)
+[public_key:decrypt_public/2,3](`public_key:decrypt_public/2`)
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
