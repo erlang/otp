@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2020</year>
+      <year>2004</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,7 @@
   </header>
   <module since="">snmpm_mpd</module>
   <modulesummary>Message Processing and Dispatch module for the SNMP manager</modulesummary>
+
   <description>
     <p>The module <c>snmpm_mpd</c> implements the version independent
       Message Processing and Dispatch functionality in SNMP for the manager. 
@@ -46,6 +47,48 @@
       for backwards compatibility reasons.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="logger"/>
+      <desc>
+	<p>
+	  A <c>fun</c> that handles audit trail logging.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="msg_data"/>
+      <desc>
+	<p>
+	  Is an opaque data structure containing the version dependent
+	  necessary security information.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="msg_data_cmy"/>
+      <desc>
+	<p>
+	  Is an opaque data structure containing necessary security information
+	  for v1 and v2 messages.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="msg_data_v3"/>
+      <desc>
+	<p>
+	  Is an opaque data structure containing necessary security information
+	  for v3 messages.
+	</p>
+      </desc>
+    </datatype>
+
+  </datatypes>
+  
   <funcs>
     <func>
       <name since="">init(Vsns) -> mpd_state()</name>
@@ -56,13 +99,13 @@
       </type>
       <desc>
         <p>This function can be called from the net_if process at start-up.
-          The options list defines which versions to use.
-          </p>
-        <p>It also initializes some SNMP counters.
-                    <marker id="process_msg"></marker>
-</p>
+	The options list defines which versions to use. </p>
+        <p>It also initializes some SNMP counters. </p>
+
+	<marker id="process_msg"></marker>
       </desc>
     </func>
+
     <func>
       <name since="OTP 17.3">process_msg(Msg, Domain, Addr, State, NoteStore, Logger) -> {ok, Vsn, Pdu, PduMS, MsgData} | {discarded, Reason}</name>
       <fsummary>Process a message received from the network</fsummary>
@@ -91,31 +134,20 @@
           </p>
       </desc>
     </func>
+
     <func>
-      <name since="">generate_msg(Vsn, NoteStore, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
+      <name name="generate_msg" arity="5" clause_i="1" since=""/>
       <fsummary>Generate a request message to be sent to the network</fsummary>
-      <type>
-        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
-        <v>NoteStore = pid()</v>
-        <v>Pdu = #pdu</v>
-        <v>MsgData = term()</v>
-        <v>Logger = function()</v>
-        <v>Packet = binary()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Generates a possibly encrypted packet to be sent to the network.
-          </p>
-        <p><c>NoteStore</c> is the <c>pid()</c> of the note-store process.
-          </p>
+	<p>Generates a possibly encrypted packet to be sent to the network.</p>
+        <p><c>NoteStore</c> is the <c>pid()</c> of the note-store process.</p>
         <p><c>MsgData</c> is the message specific data used in the SNMP 
-          message. In SNMPv1 and SNMPv2c, this message data is the community 
-          string. In SNMPv3, it is the context information.
-          </p>
-        <p><c>Logger</c> is the function used for audit trail logging.
-          </p>
+	message. In SNMPv1 and SNMPv2c, this message data is the community 
+	string. In SNMPv3, it is the context information.</p>
+        <p><c>Logger</c> is the function used for audit trail logging.</p>
       </desc>
     </func>
+
     <func>
       <name since="">generate_response_msg(Vsn, Pdu, MsgData, Logger) -> {ok, Packet} | {discarded, Reason}</name>
       <fsummary>Generate a response packet to be sent to the network</fsummary>

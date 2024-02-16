@@ -23,4 +23,5 @@
   <xi:include href="../specs/specs_snmpc.xml"/>
   <xi:include href="../specs/specs_snmpm.xml"/>
   <xi:include href="../specs/specs_snmpm_conf.xml"/>
+  <xi:include href="../specs/specs_snmpm_mpd.xml"/>
 </specs>

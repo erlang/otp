@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,14 @@
 	 reset/1, 
 	 inc/1]).
 
+
+-export_type([
+              logger/0,
+              msg_data/0,
+              msg_data_cmy/0,
+              msg_data_v3/0
+             ]).
+
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
 -include("snmpm_internal.hrl").
@@ -43,6 +51,30 @@
 -define(empty_msg_size, 24).
 
 -record(state, {v1 = false, v2c = false, v3 = false}).
+
+-type logger() ::
+        fun((Data :: binary() |
+                     snmp_pdus:pdu() |
+                     snmp_pdus:trappdu() |
+                     snmp_pdus:message() | 
+                     {V3Hdr          :: snmp_pdus:v3_hdr(),
+                      ScopedPDUBytes :: binary()}) -> snmp:void()).
+
+-type   msg_data() :: msg_data_cmy() | msg_data_v3().
+-opaque msg_data_cmy() ::
+          {
+           Community :: snmp:community(),
+           SecModel  :: snmp:sec_model()
+          }.
+-opaque msg_data_v3() ::
+          {
+           SecModel    :: snmp:sec_model(),
+           SecName     :: snmp:sec_name(),
+           SecLevel    :: snmp:sec_level(),
+           CtxEngineID :: snmp:engine_id(),
+           CtxName     :: snmp:context_name(),
+           TargetName  :: snmpm:target_name()
+          }.
 
 					
 %%%-----------------------------------------------------------------
@@ -494,6 +526,17 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Generate a message
 %%-----------------------------------------------------------------
+
+-spec generate_msg(Vsn, NoteStore, Pdu, MsgData, Log) ->
+          {ok, Packet} | {discarded, Reason} when
+      Vsn       :: snmp_pdus:version(),
+      NoteStore :: pid(),
+      Pdu       :: snmp_pdus:pdu(),
+      MsgData   :: msg_data(),
+      Log       :: logger(),
+      Packet    :: binary(),
+      Reason    :: term().
+
 generate_msg('version-3', NoteStore, Pdu, 
 	     {SecModel, SecName, SecLevel, CtxEngineID, CtxName, 
 	      TargetName}, Log) ->
@@ -599,10 +642,10 @@ sec_engine_id(TargetName) ->
 	end.
 
 
-%% BMK BMK BMK
+%% <KOLLA>
 %% This one looks very similar to link generate_v1_v2c_response_msg!
 %% Common/shared? Should there be differences?
-%% 
+%% </KOLLA>
 generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
     ?vdebug("generate_v1_v2c_msg -> encode pdu", []),
     case (catch snmp_pdus:enc_pdu(Pdu)) of

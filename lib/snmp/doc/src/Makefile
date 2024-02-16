@@ -79,7 +79,8 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmpa_notification_delivery_info_receiver.xml \
 	$(SPECDIR)/specs_snmpc.xml \
 	$(SPECDIR)/specs_snmpm.xml \
-	$(SPECDIR)/specs_snmpm_conf.xml
+	$(SPECDIR)/specs_snmpm_conf.xml \
+	$(SPECDIR)/specs_snmpm_mpd.xml
 
 TOP_SPECS_FILE = specs.xml
 
