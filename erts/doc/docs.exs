@@ -69,9 +69,9 @@
        if a.module == :erlang do
          IO.puts(:stderr, "Undefined group #{a[:group]} for #{a.module}:#{a.name}/#{a.arity}")
          true
+       else
+         false
        end
-
-       false
      end}
   ],
   ## The order of these items determine
