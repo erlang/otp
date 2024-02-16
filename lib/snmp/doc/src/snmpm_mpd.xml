@@ -97,16 +97,23 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="mpd_state"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
   </datatypes>
   
   <funcs>
     <func>
-      <name since="">init(Vsns) -> mpd_state()</name>
+      <name name="init" arity="1" clause_i="1" since=""/>
       <fsummary>Initialize the MPD module</fsummary>
-      <type>
-        <v>Vsns = [Vsn]</v>
-        <v>Vsn = v1 | v2 | v3</v>
-      </type>
       <desc>
         <p>This function can be called from the net_if process at start-up.
 	The options list defines which versions to use. </p>
