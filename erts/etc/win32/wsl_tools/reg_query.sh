@@ -10,6 +10,8 @@ BACKED=`echo "$1" | sed 's,/,\\\\,g'`
 
 if [ $CONFIG_SUBTYPE = "win64" ]; then
     REG_OPT=" /reg:64"
+elif [ X"$CONFIG_SUBTYPE" = X"arm64" -o X"$CONFIG_SUBTYPE" = X"x86_arm64" ]; then
+    REG_OPT=" /reg:64"
 else
     REG_OPT=" /reg:32"
 fi

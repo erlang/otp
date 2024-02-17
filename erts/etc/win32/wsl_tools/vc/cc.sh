@@ -26,6 +26,12 @@
 
 SAVE="$@"
 
+if [ "$CONFIG_SUBTYPE" = "x64_arm64" -o "$CONFIG_SUBTYPE" = "arm64" ]; then
+	MACHINE="ARM64"
+else
+	MACHINE="$CONFIG_SUBTYPE"
+fi
+
 # Constants
 COMMON_CFLAGS="-nologo -D__WIN32__ -DWIN32 -DWINDOWS -D_WIN32 -DNT -D_CRT_SECURE_NO_DEPRECATE"
 
@@ -64,7 +70,7 @@ CMD=""
 # All the c source files, in unix style
 SOURCES=""
 # All the options to pass to the linker, kept in Unix style
-LINKCMD=""
+LINKCMD="-MACHINE:${MACHINE}"
 
 
 # Loop through the parameters and set the above variables accordingly

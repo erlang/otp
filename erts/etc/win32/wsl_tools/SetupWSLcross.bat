@@ -2,8 +2,11 @@
 rem Setup MCL and echo the environment
 rem Usage: eval `cmd.exe /c SetupWSLcross.bat x64`
 
+set MACHINE="%~1"
 IF "%~1"=="x86" GOTO search
 IF "%~1"=="x64" GOTO search
+IF "%~1"=="arm64" GOTO search
+IF "%~1"=="amd64_arm64" GOTO search
 
 GOTO badarg
 
@@ -87,7 +90,7 @@ wsl.exe echo "# Eval this file eval \`cmd.exe /c SetupWSLcross.bat\`"
 exit
 
 :badarg
-echo "Bad TARGET or not specified: %~1 expected x86 or x64"
+echo "Bad TARGET or not specified: %~1 expected x86, x64, arm64 or x64_arm64"
 exit
 
 :no_vcvars
