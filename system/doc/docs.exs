@@ -6,6 +6,7 @@
     "installation_guide/INSTALL.md": [source: "../../HOWTO/INSTALL.md"],
     "installation_guide/INSTALL-CROSS.md": [source: "../../HOWTO/INSTALL-CROSS.md"],
     "installation_guide/INSTALL-WIN32.md": [source: "../../HOWTO/INSTALL-WIN32.md"],
+    "installation_guide/INSTALL-WIN32-ARM64.md": [source: "../../HOWTO/INSTALL-WIN32-ARM64.md"],
     "installation_guide/OTP-PATCH-APPLY.md": [source: "../../HOWTO/INSTALL-PATCH-APPLY.md"],
     "system_principles/system_principles.md": [],
     "system_principles/error_logging.md": [],
