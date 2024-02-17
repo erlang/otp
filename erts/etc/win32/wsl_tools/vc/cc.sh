@@ -26,14 +26,17 @@
 
 SAVE="$@"
 
-if [ "$CONFIG_SUBTYPE" = "x64_arm64" -o "$CONFIG_SUBTYPE" = "arm64" ]; then
-	MACHINE="ARM64"
-else
-	MACHINE="$CONFIG_SUBTYPE"
-fi
-
 # Constants
 COMMON_CFLAGS="-nologo -D__WIN32__ -DWIN32 -DWINDOWS -D_WIN32 -DNT -D_CRT_SECURE_NO_DEPRECATE"
+
+if [ "$CONFIG_SUBTYPE" = "x64_arm64" -o "$CONFIG_SUBTYPE" = "arm64" ]; then
+	MACHINE="ARM64"
+	STDCXX_VERSION="/std:c++20"
+	COMMON_CFLAGS="${COMMON_CFLAGS} -D__aarch64__"
+else
+	MACHINE="$CONFIG_SUBTYPE"
+	STDCXX_VERSION="/std:c++17"
+fi
 
 # Variables
 # The stdout and stderr for the compiler
@@ -195,7 +198,7 @@ while test -n "$1" ; do
 	    y=`echo $x | sed 's,^-l\(.*\),\1,g'`;
 	    LINKCMD="$LINKCMD $x";;
         -std=c++*)
-            CMD="$CMD /std:c++17 /Zc:__cplusplus";;
+            CMD="$CMD $STDCXX_VERSION /Zc:__cplusplus";;
 	/*.c)
 	    SOURCES="$SOURCES $x";;
 	*.c)

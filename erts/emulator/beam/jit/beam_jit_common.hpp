@@ -195,14 +195,14 @@ struct BeamModuleAssemblerCommon {
     }
 
     /* Helpers */
-    const auto &getTypeEntry(const ArgSource &arg) const {
+    const BeamArgType &getTypeEntry(const ArgSource &arg) const {
         auto typeIndex =
                 arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
         ASSERT(typeIndex < beam->types.count);
         return static_cast<BeamArgType &>(beam->types.entries[typeIndex]);
     }
 
-    auto getTypeUnion(const ArgSource &arg) const {
+    BeamTypeId getTypeUnion(const ArgSource &arg) const {
         if (arg.isRegister()) {
             return getTypeEntry(arg).type();
         }

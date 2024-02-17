@@ -192,6 +192,9 @@ struct erts_sys_time_read_only_data__ {
     ErtsMonotonicTime (*os_monotonic_time)(void);
     void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime*);
     ErtsSysHrTime (*sys_hrtime)(void);
+    ErtsSysPerfCounter (*perf_counter)(void);
+    ErtsSysPerfCounter perf_counter_unit;
+    int ticks_per_sec;
 };
 
 typedef struct {
