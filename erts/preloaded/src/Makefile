@@ -86,7 +86,7 @@ STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 ERL_COMPILE_FLAGS += -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 ifeq ($(ERL_DETERMINISTIC),yes)
-	ERL_COMPILE_FLAGS += deterministic
+	ERL_COMPILE_FLAGS += +deterministic
 endif
 
 DIA_PLT      = erts-preloaded.plt
