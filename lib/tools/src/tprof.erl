@@ -1001,10 +1001,6 @@ format_impl(Device, Inspected) when is_map(Inspected) ->
         end, Inspected).
 
 format_each(Device, call_count, _Total, Inspected) ->
-    %% viewport size
-    %% Viewport = case io:columns() of {ok, C} -> C; _ -> 80 end,
-    %% layout: module and fun/arity columns are resizable, the rest are not
-    %% convert all lines to strings
     {Widths, Lines} = lists:foldl(
         fun ({Mod, {F, A}, Calls, _Value, _VPC, Percent}, {Widths, Ln}) ->
             Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
@@ -1012,10 +1008,9 @@ format_each(Device, call_count, _Total, Inspected) ->
             NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
             {NewWidths, [Line | Ln]}
         end, {[0, 5, 5], []}, Inspected),
-    %% figure our max column widths according to viewport (cut off module/funArity)
-    FilteredWidths = Widths,
+
     %% figure out formatting line
-    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  [~~~ws]~~n", FilteredWidths)),
+    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  [~~~ws]~~n", Widths)),
     %% print using this format
     format_out(Device, Fmt, ["FUNCTION", "CALLS", "%"]),
     [format_out(Device, Fmt, Line) || Line <- lists:reverse(Lines)],
@@ -1026,10 +1021,9 @@ format_each(Device, call_memory, Total, Inspected) ->
     format_labelled(Device, "WORDS", Total, Inspected).
 
 format_labelled(Device, Label, Total, Inspected) ->
-    %% viewport size
-    %% Viewport = case io:columns() of {ok, C} -> C; _ -> 80 end,
-    %% layout: module and fun/arity columns are resizable, the rest are not
-    %% convert all lines to strings
+    %% The width of the value is either total or label
+    ValueWidth = erlang:max(length(Label), length(integer_to_list(Total))),
+
     {Widths, Lines} = lists:foldl(
         fun ({Mod, {F, A}, Calls, Value, VPC, Percent}, {Widths, Ln}) ->
             Line = [lists:flatten(io_lib:format("~tw:~tw/~w", [Mod, F, A])),
@@ -1038,11 +1032,10 @@ format_labelled(Device, Label, Total, Inspected) ->
                 float_to_list(Percent, [{decimals, 2}])],
             NewWidths = [erlang:max(Old, New) || {Old, New} <- lists:zip([string:length(L) || L <- Line], Widths)],
             {NewWidths, [Line | Ln]}
-        end, {[0, 5, length(Label), 8, 5], []}, Inspected),
-    %% figure our max column widths according to viewport (cut off module/funArity)
-    FilteredWidths = Widths,
+        end, {[0, 5, ValueWidth, 8, 5], []}, Inspected),
+
     %% figure out formatting line
-    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  ~~~wts  ~~~ws  [~~~ws]~~n", FilteredWidths)),
+    Fmt = lists:flatten(io_lib:format("~~.~wts  ~~~ws  ~~~wts  ~~~ws  [~~~ws]~~n", Widths)),
     %% print using this format
     format_out(Device, Fmt, ["FUNCTION", "CALLS", Label, "PER CALL", "%"]),
     [format_out(Device, Fmt, Line) || Line <- lists:reverse(Lines)],

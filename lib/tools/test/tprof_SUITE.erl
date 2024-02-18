@@ -28,6 +28,7 @@
     call_count_ad_hoc/0, call_count_ad_hoc/1,
     call_time_ad_hoc/0, call_time_ad_hoc/1,
     call_memory_ad_hoc/0, call_memory_ad_hoc/1,
+    lists_seq_loop/1, call_memory_total/1,
     sort/0, sort/1,
     rootset/0, rootset/1,
     set_on_spawn/0, set_on_spawn/1, seq/1,
@@ -49,6 +50,7 @@ suite() ->
 
 all() ->
     [call_count_ad_hoc, call_time_ad_hoc, call_memory_ad_hoc,
+     call_memory_total,
      sort, rootset, set_on_spawn, live_trace, patterns,
      processes, server, hierarchy, code_reload].
 
@@ -151,6 +153,22 @@ call_memory_ad_hoc(Config) when is_list(Config) ->
         fun () -> Delay = hd(lists:seq(5001, 5032)), timer:sleep(Delay) end,
         #{timeout => 1000, report => return, type => call_memory}),
     ?assertMatch({call_memory, [{lists, seq_loop, 3, [{_, 9, 64}]}]}, Profile2).
+
+lists_seq_loop(N) ->
+    [int_to_bin_twice(M) || M <- lists:seq(1, N)].
+
+int_to_bin_twice(M) ->
+    B = integer_to_binary(M),
+    <<B/binary, B/binary>>.
+
+%% Ensure total is not truncated,
+%% as per https://github.com/erlang/otp/issues/8139
+call_memory_total(_Config) ->
+    ct:capture_start(),
+    ok = tprof:profile(?MODULE, lists_seq_loop, [10000], #{type => call_memory}),
+    ct:capture_stop(),
+    ?assertNotMatch(nomatch, string:find(ct:capture_get(), " 150000 ")),
+    ok.
 
 sort() ->
     [{doc, "Tests sorting methods work"}].
