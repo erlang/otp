@@ -5208,7 +5208,7 @@ Failure: `badarg` if there is no old code for `Module`.
 -spec purge_module(Module) -> true when
       Module :: atom().
 purge_module(Module) when erlang:is_atom(Module) ->
-    case erts_code_purger:purge(Module) of
+    case erts_code_purger:purge([Module]) of
 	{false, _} ->
 	    badarg_with_info([Module]);
 	{true, _} ->

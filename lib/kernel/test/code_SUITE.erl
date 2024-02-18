@@ -512,12 +512,24 @@ purge_test(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:purge({})),
+    {'EXIT',_} = (catch code:purge([1,2,3])),
+
+    %% Single module
     false = code:purge(code_b_test),
-    Pid = code_b_test:do_spawn(),
+    Pid1 = code_b_test:do_spawn(),
     true = code:delete(code_b_test),
-    false = code_b_test:check_exit(Pid),
+    false = code_b_test:check_exit(Pid1),
     true = code:purge(code_b_test),
-    true = code_b_test:check_exit(Pid),
+    true = code_b_test:check_exit(Pid1),
+
+    %% Multi module
+    false = code:purge([code_a_test, code_b_test]),
+    Pid2 = code_b_test:do_spawn(),
+    true = code:delete(code_b_test),
+    false = code_b_test:check_exit(Pid2),
+    true = code:purge([code_a_test, code_b_test]),
+    true = code_b_test:check_exit(Pid2),
+
     process_flag(trap_exit, OldFlag),
     ok.
 
@@ -583,15 +595,30 @@ soft_purge_test(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
     code:purge(code_b_test),
     {'EXIT',_} = (catch code:soft_purge(23)),
+    {'EXIT',_} = (catch code:soft_purge([23])),
+
+    %% Single module
     true = code:soft_purge(code_b_test),
-    Pid = code_b_test:do_spawn(),
+    Pid1 = code_b_test:do_spawn(),
     true = code:delete(code_b_test),
-    false = code_b_test:check_exit(Pid),
+    false = code_b_test:check_exit(Pid1),
     false = code:soft_purge(code_b_test),
-    false = code_b_test:check_exit(Pid),
-    exit(Pid,kill),
-    true = code_b_test:check_exit(Pid),
+    false = code_b_test:check_exit(Pid1),
+    exit(Pid1, kill),
+    true = code_b_test:check_exit(Pid1),
     true = code:soft_purge(code_b_test),
+
+    %% Multi-module
+    true = code:soft_purge([code_a_test, code_b_test]),
+    Pid2 = code_b_test:do_spawn(),
+    true = code:delete(code_b_test),
+    false = code_b_test:check_exit(Pid2),
+    false = code:soft_purge([code_a_test, code_b_test]),
+    false = code_b_test:check_exit(Pid2),
+    exit(Pid2, kill),
+    true = code_b_test:check_exit(Pid2),
+    true = code:soft_purge([code_a_test, code_b_test]),
+
     process_flag(trap_exit, OldFlag),
     ok.
 

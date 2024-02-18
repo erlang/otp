@@ -293,19 +293,19 @@ multi_proc_purge_test(Config) when is_list(Config) ->
     Self = self(),
 
     Fun1 = fun () ->
-		   erts_code_purger:purge(my_code_test),
+		   erts_code_purger:purge([my_code_test]),
 		   Self ! {self(), done}
 	   end,
     Fun2 = fun () ->
-		   erts_code_purger:soft_purge(my_code_test2),
+		   erts_code_purger:soft_purge([my_code_test2]),
 		   Self ! {self(), done}
 	   end,
     Fun3 = fun () ->
-		   erts_code_purger:purge('__nonexisting_module__'),
+		   erts_code_purger:purge(['__nonexisting_module__']),
 		   Self ! {self(), done}
 	   end,
     Fun4 = fun () ->
-		   erts_code_purger:soft_purge('__another_nonexisting_module__'),
+		   erts_code_purger:soft_purge(['__another_nonexisting_module__']),
 		   Self ! {self(), done}
 	   end,
 

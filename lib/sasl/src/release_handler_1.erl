@@ -371,7 +371,7 @@ eval({purge, Modules}, EvalState) ->
     % Now, if there are any processes still executing old code, OR
     % if some new processes started after suspend but before load,
     % these are killed.
-    lists:foreach(fun(Mod) -> code:purge(Mod) end, Modules),
+    code:purge(Modules),
     EvalState;
 eval({suspend, Modules}, EvalState) ->
     Procs = get_supervised_procs(),

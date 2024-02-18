@@ -574,9 +574,9 @@ must be purged first, or if `Module` is not a (loaded) module.
 delete(Mod) when is_atom(Mod) -> call({delete,Mod}).
 
 -doc """
-Purges the code for `Module`, that is, removes code marked as old. If some
-processes still linger in the old code, these processes are killed before the
-code is removed.
+Purges the code for `Module` (or a list of `Module`), that is,
+removes code marked as old. If some processes still linger in
+the old code, these processes are killed before the code is removed.
 
 > #### Note {: .info }
 >
@@ -585,16 +585,20 @@ code is removed.
 > documentation of `erlang:check_process_code/3`, which is used in order to
 > determine this.
 
-Returns `true` if successful and any process is needed to be killed, otherwise
-`false`.
+Returns `true` if any process is needed to be killed, otherwise `false`.
 """.
--spec purge(Module) -> boolean() when
-      Module :: module().
-purge(Mod) when is_atom(Mod) -> call({purge,Mod}).
+-spec purge(ModuleOrModules) -> boolean() when
+      ModuleOrModules :: module() | [module()].
+purge(Mods) when is_list(Mods) ->
+    case lists:all(fun is_atom/1, Mods) of
+        true -> call({purge,Mods});
+        false -> error(function_clause, [Mods])
+    end;
+purge(Mod) when is_atom(Mod) -> call({purge,[Mod]}).
 
 -doc """
-Purges the code for `Module`, that is, removes code marked as old, but only if
-no processes linger in it.
+Purges the code for `Module` (or a list of `Module`), that is,
+removes code marked as old, but only if no processes linger in it.
 
 > #### Note {: .info }
 >
@@ -603,12 +607,17 @@ no processes linger in it.
 > documentation of `erlang:check_process_code/3`, which is used in order to
 > determine this.
 
-Returns `false` if the module cannot be purged because of processes lingering in
-old code, otherwise `true`.
+Returns `true` if all modules could be purged, `false` if one of modules cannot
+be purged because of processes lingering in old code.
 """.
--spec soft_purge(Module) -> boolean() when
-      Module :: module().
-soft_purge(Mod) when is_atom(Mod) -> call({soft_purge,Mod}).
+-spec soft_purge(ModuleOrModules) -> boolean() when
+      ModuleOrModules :: module() | [module()].
+soft_purge(Mods) when is_list(Mods) ->
+    case lists:all(fun is_atom/1, Mods) of
+        true -> call({soft_purge,Mods});
+        false -> error(function_clause, [Mods])
+    end;
+soft_purge(Mod) when is_atom(Mod) -> call({soft_purge,[Mod]}).
 
 -doc """
 Checks if `Module` is loaded. If it is, `{file, Loaded}` is returned, otherwise
