@@ -70,7 +70,12 @@ GOTO no_vcvars
 
 :continue
 
-FOR /F "delims==" %%F IN ('where cl.exe') DO SET _cl_exec_=%%F
+FOR /F "delims==" %%F IN ('where cl.exe') DO (
+   SET _cl_exec_=%%F
+   goto set_cl_path
+)
+
+:set_cl_path
 FOR %%F IN ("%_cl_exec_%") DO SET CL_PATH=%%~dpF
 
 FOR /F "delims==" %%F IN ('where rc.exe') DO SET _rc_exec_=%%F

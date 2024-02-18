@@ -34,7 +34,6 @@ if [ "$CONFIG_SUBTYPE" = "x64_arm64" -o "$CONFIG_SUBTYPE" = "arm64" ]; then
 	STDCXX_VERSION="/std:c++20"
 	COMMON_CFLAGS="${COMMON_CFLAGS} -D__aarch64__"
 else
-	MACHINE="$CONFIG_SUBTYPE"
 	STDCXX_VERSION="/std:c++17"
 fi
 
