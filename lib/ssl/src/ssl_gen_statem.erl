@@ -313,8 +313,8 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec handshake(#sslsocket{}, {ssl_options(),#socket_options{}}, timeout()) ->
-                       {ok, #sslsocket{}} | {ok, #sslsocket{}, map()} | {error, reason()}.
+-spec handshake(#sslsocket{}, {SSLOpts::list(), #socket_options{}}, timeout()) ->
+          {ok, #sslsocket{}} | {ok, #sslsocket{}, map()} | {error, reason()}.
 %%
 %% Description: Starts ssl handshake with some new options
 %%--------------------------------------------------------------------

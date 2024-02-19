@@ -2130,6 +2130,9 @@ max_handshake_size(Config) when is_list(Config) ->
   
 
 %%-------------------------------------------------------------------
+
+-define(FUNC_CLAUSE(EXPR), try EXPR, error(should_fail) catch _:function_clause -> ok end).
+
 options_not_proplist() ->
     [{doc,"Test what happens if an option is not a key value tuple"}].
 
@@ -2138,7 +2141,23 @@ options_not_proplist(Config) when is_list(Config) ->
 		  client, [<<"spdy/3">>,<<"http/1.1">>], <<"http/1.1">>},
     {error, {options, {option_not_a_key_value_tuple, BadOption}}} =
 	ssl:connect("twitter.com", 443, [binary, {active, false}, 
-					 BadOption]).
+					 BadOption]),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", 443)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", 443, infinity)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", [], infinity_misspelled)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", foo, [], infinity)),
+    %% While at it test some other functions as well for regression testing
+    ?FUNC_CLAUSE(ssl:listen([], 443)),
+    ?FUNC_CLAUSE(ssl:transport_accept(#sslsocket{}, [])),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, [])),
+    ?FUNC_CLAUSE(ssl:handshake(foo, #sslsocket{})),
+    ?FUNC_CLAUSE(ssl:handshake(foo, #sslsocket{}, 1000)),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, 1000, 1000)),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, [opt_list], [])),
+    ?FUNC_CLAUSE(ssl:handshake_continue(socket, [opt_list], [])),
+    ?FUNC_CLAUSE(ssl:handshake_continue(socket, 1000, 1000)),
+
+    ok.
 
 %%-------------------------------------------------------------------
 invalid_options() ->
