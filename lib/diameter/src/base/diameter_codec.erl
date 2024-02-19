@@ -242,6 +242,11 @@ implementation detail that may change.
 """.
 -type dictionary() :: module().
 
+-doc """
+The representation of a Diameter [message](`m:diameter_codec#message`)
+as passed to `diameter:call/4` or returned from a
+[handle_request/3](`c:diameter_app:handle_request/3`) callback.
+""".
 -type message()    :: record() | maybe_improper_list().
 
 -doc """
@@ -286,8 +291,15 @@ encode(Mod, Msg) -> Pkt
 Encode a Diameter message.
 """.
 -doc(#{since => <<"OTP R15B03">>}).
+
+-spec encode(Mod, Msg) -> Pkt when
+      Mod :: dictionary(),
+      Msg :: message() | packet(),
+      Pkt :: packet().
+
 encode(Mod, Msg) ->
     encode(Mod, #{ordered_encode => true}, Msg).
+
 
 %%% ---------------------------------------------------------------------------
 %%% # encode/3
