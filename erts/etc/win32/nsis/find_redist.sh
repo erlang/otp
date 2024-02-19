@@ -138,7 +138,7 @@ if [ '!' -z "$RCPATH" ]; then
     if [ $AMD64DIR = true ]; then
 	COMPONENTS="rc x64 bin @ANY v6.0A v7.0A v7.1"
     elif [ $ARM64DIR = true ]; then
-    COMPONENTS="rc arm64 bin @ANY v6.0A v7.0A v7.1"
+	COMPONENTS="rc arm64 bin @ANY v6.0A v7.0A v7.1"
     else
 	COMPONENTS="rc bin @ANY v6.0A v7.0A v7.1"
     fi
