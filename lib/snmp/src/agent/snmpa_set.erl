@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_set).
+-moduledoc false.
 
 -behaviour(snmpa_set_mechanism).
 

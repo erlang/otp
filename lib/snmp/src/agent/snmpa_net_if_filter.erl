@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_net_if_filter).
+-moduledoc false.
 
 %% Behaviour
 -export([accept_recv/2, accept_send/2, accept_recv_pdu/3, accept_send_pdu/2]).

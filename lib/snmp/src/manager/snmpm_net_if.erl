@@ -20,6 +20,7 @@
 
 -ifndef(snmpm_net_if_mt).
 -module(snmpm_net_if).
+-moduledoc false.
 -endif.
 
 -behaviour(gen_server).

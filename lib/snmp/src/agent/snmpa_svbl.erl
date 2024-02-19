@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_svbl).
+-moduledoc false.
 
 -include("snmp_types.hrl").
 

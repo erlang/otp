@@ -21,4 +21,5 @@
 
 -define(snmpm_net_if_mt, true).
 -module(snmpm_net_if_mt).
+-moduledoc false.
 -include("snmpm_net_if.erl").

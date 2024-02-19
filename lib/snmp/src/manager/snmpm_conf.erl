@@ -19,6 +19,14 @@
 %% 
 
 -module(snmpm_conf).
+-moduledoc """
+Utility functions for handling the manager config files.
+
+The module `snmpm_conf` contains various utility functions to used for
+manipulating (write/append/read) the config files of the SNMP manager.
+
+[](){: #manager_entry }
+""".
 
 -include_lib("kernel/include/file.hrl").
 
@@ -59,6 +67,10 @@
 
 
 %% -type agent_entry() :: term().
+-doc """
+An opaque data structure containg all configuration for one agent for the
+manager.
+""".
 -opaque agent_entry() ::
           {
            UserId         :: snmpm:user_id(),
@@ -91,9 +103,17 @@
           }.
 
 %% -type manager_entry() :: term().
+-doc """
+An opaque data structure that represents one configuration entry for the
+manager.
+""".
 -opaque manager_entry() :: {Tag :: atom(), Value :: term()}.
 
 %% -type user_entry() :: term().
+-doc """
+An opaque data structure containg all configuration for one user for the
+manager.
+""".
 -opaque user_entry() ::
           {
            UserId             :: snmpm:user_id(),
@@ -103,6 +123,10 @@
           }.
 
 %% -type usm_entry() :: term().
+-doc """
+An opaque data structure containg information about security data for usm for
+the manager.
+""".
 -opaque usm_entry() ::
           {
            EngineID :: snmp:engine_id(),
@@ -143,6 +167,15 @@
 %% ------ manager.conf ------
 %% 
 
+-doc """
+Create an entry for the manager config file, `manager.conf`.
+
+The type of `Val` depends on the value of `Tag`, see
+[Manager Information](snmp_manager_config_files.md#manager_information) for more
+info.
+
+[](){: #write_manager_config }
+""".
 -spec manager_entry(Tag, Val) -> ManagerEntry when
       Tag          :: transports |
                       port |
@@ -160,6 +193,7 @@ manager_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-doc(#{equiv => write_manager_config/3}).
 -spec write_manager_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [manager_entry()].
@@ -177,6 +211,19 @@ write_manager_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_manager_config(Dir, Hdr, Conf).
 
+-doc """
+Write the manager config to the manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #append_manager_config }
+""".
 -spec write_manager_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -189,6 +236,16 @@ write_manager_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_manager_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Append the config to the current manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #read_manager_config }
+""".
 -spec append_manager_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [manager_entry()].
@@ -200,6 +257,16 @@ append_manager_config(Dir, Conf)
     Write = fun write_manager_conf/2,
     append_config_file(Dir, ?MANAGER_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Read the current manager config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Manager Information](snmp_manager_config_files.md#manager_information) for
+more info.
+
+[](){: #users_entry }
+""".
 -spec read_manager_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [manager_entry()],
@@ -240,6 +307,7 @@ do_write_manager_conf(_Fd, Crap) ->
 %% ------ users.conf ------
 %% 
 
+-doc(#{equiv => users_entry/4}).
 -spec users_entry(UserId) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserEntry :: user_entry().
@@ -247,6 +315,7 @@ do_write_manager_conf(_Fd, Crap) ->
 users_entry(UserId) ->
     users_entry(UserId, snmpm_user_default).
 
+-doc(#{equiv => users_entry/4}).
 -spec users_entry(UserId, UserMod) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserMod   :: snmpm:snmpm_user(),
@@ -255,6 +324,7 @@ users_entry(UserId) ->
 users_entry(UserId, UserMod) ->
     users_entry(UserId, UserMod, undefined).
 
+-doc(#{equiv => users_entry/4}).
 -spec users_entry(UserId, UserMod, UserData) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserMod   :: snmpm:snmpm_user(),
@@ -264,6 +334,19 @@ users_entry(UserId, UserMod) ->
 users_entry(UserId, UserMod, UserData) ->
     users_entry(UserId, UserMod, UserData, []).
 
+-doc """
+Create an entry for the manager users config file, `users.conf`.
+
+[`users_entry(UserId)`](`users_entry/1`) translates to the following call:
+[`users_entry(UserId, snmpm_user_default)`](`users_entry/2`).
+
+[`users_entry(UserId, UserMod)`](`users_entry/2`) translates to the following
+call: [`users_entry(UserId, UserMod, undefined)`](`users_entry/3`).
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #write_users_config }
+""".
 -spec users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
           UserEntry when
       UserId             :: snmpm:user_id(),
@@ -276,6 +359,7 @@ users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
     {UserId, UserMod, UserData, DefaultAgentConfig}.
 
 
+-doc(#{equiv => write_users_config/3}).
 -spec write_users_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [user_entry()].
@@ -291,6 +375,18 @@ write_users_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_users_config(Dir, Hdr, Conf).
 
+-doc """
+Write the manager users config to the manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #append_users_config }
+""".
 -spec write_users_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -303,6 +399,15 @@ write_users_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_users_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Append the users config to the current manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #read_users_config }
+""".
 -spec append_users_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [user_entry()].
@@ -314,6 +419,15 @@ append_users_config(Dir, Conf)
     Write = fun write_users_conf/2,
     append_config_file(Dir, ?USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Read the current manager users config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Users](snmp_manager_config_files.md#users) for more info.
+
+[](){: #agents_entry }
+""".
 -spec read_users_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [user_entry()],
@@ -353,6 +467,13 @@ do_write_users_conf(_Fd, Crap) ->
 %% ------ agents.conf ------
 %% 
 
+-doc """
+Create an entry for the manager agents config file, `agents.conf`.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #write_agents_config }
+""".
 -spec agents_entry(
         UserId, TargetName,
         Comm, TDomain, TAddr, EngineID, Timeout,
@@ -405,6 +526,7 @@ agents_entry(
      MaxMessageSize, Version, SecModel, SecName, SecLevel}.
 
 
+-doc(#{equiv => write_agents_config/3}).
 -spec write_agents_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [agent_entry()].
@@ -420,6 +542,18 @@ write_agents_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agents_config(Dir, Hdr, Conf).
 
+-doc """
+Write the manager agents config to the manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #append_agents_config }
+""".
 -spec write_agents_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -432,6 +566,15 @@ write_agents_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agents_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Append the agents config to the current manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #read_agents_config }
+""".
 -spec append_agents_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [agent_entry()].
@@ -443,6 +586,15 @@ append_agents_config(Dir, Conf)
     Write = fun write_agents_conf/2,
     append_config_file(Dir, ?AGENTS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Read the current manager agents config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agents](snmp_manager_config_files.md#agents) for more info.
+
+[](){: #usm_entry }
+""".
 -spec read_agents_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [agent_entry()],
@@ -487,6 +639,7 @@ do_write_agents_conf(_Fd, Crap) ->
 %% ------ usm.conf -----
 %% 
 
+-doc(#{equiv => usm_entry/7}).
 -spec usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
           UsmEntry when
       EngineID :: snmp:engine_id(),
@@ -500,6 +653,13 @@ do_write_agents_conf(_Fd, Crap) ->
 usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.
 
+-doc """
+Create an entry for the agent community config file, `community.conf`.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #write_usm_config }
+""".
 -spec usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
           UsmEntry when
       EngineID :: snmp:engine_id(),
@@ -515,6 +675,7 @@ usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}.
 
 
+-doc(#{equiv => write_usm_config/3}).
 -spec write_usm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [user_entry()].
@@ -529,6 +690,18 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+-doc """
+Write the manager usm config to the manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #append_usm_config }
+""".
 -spec write_usm_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -541,6 +714,15 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Append the usm config to the current manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #read_usm_config }
+""".
 -spec append_usm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [usm_entry()].
@@ -552,6 +734,15 @@ append_usm_config(Dir, Conf)
     Write = fun write_usm_conf/2,
     append_config_file(Dir, ?USM_USERS_CONF_FILE, Order, Check, Write, Conf).
 
+-doc """
+Read the current manager usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_manager_config_files.md#usm) for more info.
+
+[](){: #end }
+""".
 -spec read_usm_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [usm_entry()],

@@ -19,6 +19,18 @@
 %% 
 
 -module(snmpm_mpd).
+-moduledoc """
+Message Processing and Dispatch module for the SNMP manager
+
+The module `snmpm_mpd` implements the version independent Message Processing and
+Dispatch functionality in SNMP for the manager. It is supposed to be used from a
+Network Interface process
+([Definition of Manager Net if](snmp_manager_netif.md)).
+
+Legacy API function `process_msg/7` that has got separate `IpAddr` and
+`PortNumber` arguments still works as before for backwards compatibility
+reasons.
+""".
 
 -export([init/1, 
 
@@ -54,6 +66,7 @@
 
 -record(state, {v1 = false, v2c = false, v3 = false}).
 
+-doc "A `fun` that handles audit trail logging.".
 -type logger() ::
         fun((Data :: binary() |
                      snmp_pdus:pdu() |
@@ -62,11 +75,19 @@
                      {V3Hdr          :: snmp_pdus:v3_hdr(),
                       ScopedPDUBytes :: binary()}) -> snmp:void()).
 
+-doc """
+Is an opaque data structure containing necessary security information for v1 and
+v2 messages.
+""".
 -opaque msg_data_cmy() ::
           {
            Community :: snmp:community(),
            SecModel  :: snmp:sec_model()
           }.
+-doc """
+Is an opaque data structure containing necessary security and transport
+information for v1 and v2 messages.
+""".
 -opaque msg_data_cmyt() ::
           {
            Community :: snmp:community(),
@@ -74,6 +95,10 @@
            TDomain   :: snmp:tdomain(),
            TAddress  :: snmp:taddress()
           }.
+-doc """
+Is an opaque data structure containing necessary security information for v3
+messages.
+""".
 -opaque msg_data_v3() ::
           {
            SecModel    :: snmp:sec_model(),
@@ -83,6 +108,10 @@
            CtxName     :: snmp:context_name(),
            TargetName  :: snmpm:target_name()
           }.
+-doc """
+Is an opaque data structure containing necessary security information for
+(incoming) v3 messages.
+""".
 -opaque msg_data_acm() ::
           {
            MsgID       :: snmp_pdus:msg_id(),
@@ -119,6 +148,14 @@
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
 
+-doc """
+This function can be called from the net_if process at start-up. The options
+list defines which versions to use.
+
+It also initializes some SNMP counters.
+
+[](){: #process_msg }
+""".
 -spec init(Vsns) -> MPDState when
       Vsns     :: [snmp:version()],
       MPDState :: mpd_state().
@@ -138,6 +175,7 @@ init(Vsns) ->
     ?vtrace("init -> done when ~p", [State]),
     State.
 
+-doc false.
 reset(#state{v3 = V3}) ->
     reset_counters(),
     reset_usm(V3).
@@ -154,9 +192,22 @@ reset(#state{v3 = V3}) ->
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
 
+-doc false.
 process_msg(Msg, Domain, Ip, Port, State, NoteStore, Log) ->
     process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Log).
 
+-doc """
+Processes an incoming message. Performs authentication and decryption as
+necessary. The return values should be passed the manager server.
+
+`NoteStore` is the `t:pid/0` of the note-store process.
+
+`Logger` is the function used for audit trail logging.
+
+In the case when the pdu type is `report`, `MsgData` is either `ok` or
+`{error, ReqId, Reason}`.
+""".
+-doc(#{since => <<"OTP 17.3">>}).
 -spec process_msg(Msg, Domain, Addr, State, NoteStore, Log) ->
           {ok, Vsn, PduV2, PduMS, MsgDataV2} |
           {ok, 'version-3', PduV3, PduMS, MsgDataV3} |
@@ -577,6 +628,17 @@ get_scoped_pdu(D) ->
 %% Generate a message
 %%-----------------------------------------------------------------
 
+-doc """
+Generates a possibly encrypted packet to be sent to the network.
+
+`NoteStore` is the `t:pid/0` of the note-store process.
+
+`MsgData` is the message specific data used in the SNMP message. In SNMPv1 and
+SNMPv2c, this message data is the community string. In SNMPv3, it is the context
+information.
+
+`Logger` is the function used for audit trail logging.
+""".
 -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, Log) ->
           {ok, Packet} | {discarded, Reason} when
       Vsn       :: snmp_pdus:version(),
@@ -732,6 +794,12 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 
 %% -----------------------------------------------------------------------
 
+-doc """
+Generates a possibly encrypted response packet to be sent to the network.
+
+`MsgData` is the message specific data used in the SNMP message. This value is
+received from the [process_msg](`m:snmpm_mpd#process_msg`) function.
+""".
 -spec generate_response_msg(Vsn, Pdu, MsgData, Log) ->
           {ok, Packet} | {discarded, Reason} | {error, Reason} when
       Vsn     :: snmp_pdus:version(),
@@ -1027,9 +1095,11 @@ is_known_engine_id(EngineID, {Addr, Port}) ->
 %%-----------------------------------------------------------------
 %% Sequence number (msg-id & req-id) functions
 %%-----------------------------------------------------------------
+-doc false.
 next_msg_id() ->
     next_id(msg_id).
 
+-doc false.
 next_req_id() ->
     next_id(req_id).
 
@@ -1115,6 +1185,7 @@ counters() ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+-doc false.
 inc(Name)    -> inc(Name, 1).
 inc(Name, N) -> snmpm_config:incr_stats_counter(Name, N).
 

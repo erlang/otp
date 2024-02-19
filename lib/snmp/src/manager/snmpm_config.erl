@@ -25,6 +25,7 @@
 %% -------------------------------------------------------------------------
 
 -module(snmpm_config).
+-moduledoc false.
 
 -behaviour(gen_server).
 

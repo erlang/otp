@@ -18,6 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_framework_mib).
+-moduledoc """
+Instrumentation Functions for SNMP-FRAMEWORK-MIB
+
+The module `snmp_framework_mib` implements instrumentation functions for the
+SNMP-FRAMEWORK-MIB, and functions for initializing and configuring the database.
+
+The configuration files are described in the SNMP User's Manual.
+""".
 
 -include("snmp_types.hrl").
 -include("STANDARD-MIB.hrl").
@@ -82,11 +90,74 @@
              ]).
 
 
+-doc "`OCTET STRING (SIZE(0..255))`".
 -type admin_string()             :: string().
+-doc "`OCTET STRING (SIZE(5..32))`".
 -type engine_id()                :: string().
+-doc """
+> #### Note {: .info }
+>
+> "The maximum length in octets of an SNMP message which this SNMP engine can
+> send or receive and process, determined as the minimum of the maximum message
+> size values supported among all of the transports available to and supported
+> by the engine."
+
+`INTEGER (484..2147483647)`
+""".
 -type max_message_size()         :: 484 .. 2147483647.
+-doc """
+> #### Note {: .info }
+>
+> "As of this writing, there are several values of messageProcessingModel
+> defined for use with SNMP. They are as follows: "
+>
+> ```text
+>                         0  reserved for SNMPv1
+>                         1  reserved for SNMPv2c
+>                         2  reserved for SNMPv2u and SNMPv2*
+> 			3  reserved for SNMPv3
+> ```
+
+`INTEGER(0 .. 2147483647)`
+""".
 -type message_processing_model() :: v1 | v2c | v3.
+-doc """
+> #### Note {: .info }
+>
+> "As of this writing, there are several values of securityModel defined for use
+> with SNMP or reserved for use with supporting MIB objects. They are as
+> follows: "
+>
+> ```text
+>                         0  reserved for 'any'
+>                         1  reserved for SNMPv1
+>                         2  reserved for SNMPv2c
+>                         3  User-Based Security Model (USM)
+> ```
+
+`INTEGER(0 .. 2147483647)`
+""".
 -type security_model()           :: any | v1 | v2c | usm.
+-doc """
+> #### Note {: .info }
+>
+> "A Level of Security at which SNMP messages can be sent or with which
+> operations are being processed; in particular, one of: "
+>
+> ```text
+>                       noAuthNoPriv - without authentication and
+>                                      without privacy,
+>                       authNoPriv   - with authentication but
+>                                      without privacy,
+>                       authPriv     - with authentication and
+>                                      with privacy.
+> ```
+>
+> "These three values are ordered such that noAuthNoPriv is less than authNoPriv
+> and authNoPriv is less than authPriv."
+
+`INTEGER { noAuthNoPriv(1), authNoPriv(2), authPriv(3) }`
+""".
 -type security_level()           :: noAuthNoPriv |
                                     authNoPriv   |
                                     authPriv.
@@ -94,6 +165,7 @@
 
 %%-----------------------------------------------------------------
 
+-doc false.
 -spec message_processing_models() -> MPModels when
       MPModels   :: [{MPModel, Identifier}],
       MPModel    :: message_processing_model(),
@@ -105,6 +177,7 @@ message_processing_models() ->
      {v3,  3}].
 
 
+-doc false.
 -spec security_models() -> SecModels when
       SecModels  :: [{SecModel, Identifier}],
       SecModel   :: security_model(),
@@ -117,6 +190,7 @@ security_models() ->
      {usm, 3}].
 
 
+-doc false.
 -spec security_levels() -> SecLevels when
       SecLevels  :: [{SecLevel, Identifier}],
       SecLevel   :: security_level(),
@@ -136,6 +210,14 @@ security_levels() ->
 %%          This function should be called only once.
 %%-----------------------------------------------------------------
 
+-doc """
+This function is called from the supervisor at system start-up.
+
+Creates the necessary objects in the database if they do not exist. It does not
+destroy any old values.
+
+[](){: #add_context }
+""".
 -spec init() -> snmp:void().
 
 init() ->
@@ -157,6 +239,26 @@ init() ->
 %% PRE: init/1 has been successfully called
 %%-----------------------------------------------------------------
 
+-doc """
+This function is called from the supervisor at system start-up.
+
+Inserts all data in the configuration files into the database and destroys all
+old data.
+
+Thus, the data in the SNMP-FRAMEWORK-MIB, after this function has been called,
+is from the configuration files.
+
+All `snmp` counters are set to zero.
+
+If an error is found in the configuration file, it is reported using the
+function `config_err/2` of the error report module, and the function fails with
+reason `configuration_error`.
+
+`ConfDir` is a string which points to the directory where the configuration
+files are found.
+
+The configuration file read is: `context.conf`.
+""".
 -spec configure(ConfDir) -> snmp:void() when
       ConfDir :: string().
 
@@ -254,6 +356,7 @@ context_header() ->
 %%  Context
 %%  Context.
 %%-----------------------------------------------------------------
+-doc false.
 check_context(Context) ->
     ?vtrace("check_context -> entry with"
         "~n   Context: ~p", [Context]),
@@ -269,6 +372,7 @@ check_context(Context) ->
 %%  Agent
 %%  {Name, Value}.
 %%-----------------------------------------------------------------
+-doc false.
 check_agent(Entry, undefined) ->
     check_agent(Entry, #{domain => snmp_target_mib:default_domain(),
                          port   => undefined});
@@ -476,6 +580,7 @@ check_agent(X) ->
 %% hence before intAgentIpAddress.  Sort other entries on the key.
 %% Note that neither of these are required!
 -dialyzer({nowarn_function, order_agent/2}).
+-doc false.
 order_agent(EntryA, EntryB) ->
     snmp_conf:keyorder(
       1, EntryA, EntryB,
@@ -522,6 +627,12 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-doc """
+Adds a context to the agent config. Equivalent to one line in the `context.conf`
+file.
+
+[](){: #delete_context }
+""".
 -spec add_context(Ctx) -> {ok, Key} | {error, Reason} when
       Ctx    :: string(),
       Key    :: term(),
@@ -546,6 +657,7 @@ add_context(Ctx) ->
     end.
 
 
+-doc "Delete a context from the agent config.".
 -spec delete_context(Key) -> ok | {error, Reason} when
       Key    :: term(),
       Reason :: term().
@@ -618,10 +730,12 @@ delete_context(Key) ->
 %%-----------------------------------------------------------------
 
 %% Op == new | delete
+-doc false.
 intContextTable(Op) ->
     snmp_generic:table_func(Op, db(intContextTable)).
 
 %% Op == get get_next  -- READ only table
+-doc false.
 intContextTable(get, RowIndex, Cols) ->
     get(intContextTable, RowIndex, Cols);
 intContextTable(get_next, RowIndex, Cols) ->
@@ -630,11 +744,13 @@ intContextTable(Op, Arg1, Arg2) ->
     snmp_generic:table_func(Op, Arg1, Arg2, db(intContextTable)).
 
 %% FIXME: exported, not used by agent, not documented - remove?
+-doc false.
 table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
 
 %% FIXME: exported, not used by agent, not documented - remove?
 %% FIXME: does not work with mnesia
+-doc false.
 check_status(Name, Indexes, StatusNo) ->
     case snmpa_local_db:table_get_element(db(Name), Indexes, StatusNo) of
 	{value, ?'RowStatus_active'} -> true;
@@ -658,19 +774,24 @@ get(Name, RowIndex, Cols) ->
     snmp_generic:handle_table_get(db(Name), RowIndex, Cols, foi(Name)).
 
 %% Op == new | delete | get
+-doc false.
 intAgentUDPPort(Op) ->
     snmp_generic:variable_func(Op, db(intAgentUDPPort)).
 
+-doc false.
 intAgentIpAddress(Op) ->
     snmp_generic:variable_func(Op, db(intAgentIpAddress)).
 
+-doc false.
 intAgentTransportDomain(Op) ->
     snmp_generic:variable_func(Op, db(intAgentTransportDomain)).
 
+-doc false.
 intAgentTransports(Op) ->
     snmp_generic:variable_func(Op, db(intAgentTransports)).
 
 
+-doc false.
 which_trap_transport(Domain) when (Domain =:= snmpUDPDomain) ->
     case which_transport(Domain, all) of
         {value, _} = VALUE ->
@@ -686,9 +807,11 @@ which_trap_transport(Domain) ->
             which_transport(Domain, all)
     end.
 
+-doc false.
 which_req_transport(Domain) ->
     which_transport(Domain, req_responder).
 
+-doc false.
 which_transport(Domain, Kind) ->
     {value, Transports} = intAgentTransports(get),
     which_transport(Domain, Kind, Transports).
@@ -707,24 +830,28 @@ which_transport(Domain, Kind, [_Transport|Transports]) ->
 
     
 
+-doc false.
 snmpEngineID(print) ->
     VarAndValue = [{snmpEngineID, snmpEngineID(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineID(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineID)).
 
+-doc false.
 snmpEngineMaxMessageSize(print) ->
     VarAndValue = [{snmpEngineMaxMessageSize, snmpEngineMaxMessageSize(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineMaxMessageSize(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineMaxMessageSize)).
 
+-doc false.
 snmpEngineBoots(print) ->
     VarAndValue = [{snmpEngineBoots, snmpEngineBoots(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineBoots(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineBoots)).
 
+-doc false.
 snmpEngineTime(print) ->
     VarAndValue = [{snmpEngineTime, snmpEngineTime(get)}],
     snmpa_mib_lib:print_variables(VarAndValue);
@@ -746,25 +873,31 @@ init_engine() ->
 reset_engine_base() ->
     ets:insert(snmp_agent_table, {snmp_engine_base, snmp_misc:now(sec)}).
 
+-doc false.
 get_engine_id() ->
     {value, EngineID} = snmpEngineID(get),
     EngineID.
 
+-doc false.
 get_engine_max_message_size() ->
     {value, MPS} = snmpEngineMaxMessageSize(get),
     MPS.
 
+-doc false.
 get_engine_time() ->
     [{_, EngineBase}] = ets:lookup(snmp_agent_table, snmp_engine_base),
     snmp_misc:now(sec) - EngineBase.
     
+-doc false.
 get_engine_boots() ->
     {value, Val} = snmpEngineBoots(get),
     Val.
     
+-doc false.
 set_engine_boots(Boots) ->
     snmp_generic:variable_func(set, Boots, db(snmpEngineBoots)).
     
+-doc false.
 set_engine_time(Time) ->
     Base = snmp_misc:now(sec) - Time,
     ets:insert(snmp_agent_table, {snmp_engine_base, Base}).

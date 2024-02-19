@@ -19,6 +19,7 @@
 %%
 
 -module(snmpa_get_mechanism).
+-moduledoc false.
 
 %%
 %% This module defines the behaviour for the undocumented (hidden)

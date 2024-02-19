@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpc_tok).
+-moduledoc false.
 
 %% c(snmpc_tok).
 

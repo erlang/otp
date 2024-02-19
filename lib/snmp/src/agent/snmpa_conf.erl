@@ -19,6 +19,59 @@
 %%
 
 -module(snmpa_conf).
+-moduledoc """
+Utility functions for handling the agent config files.
+
+The module `snmpa_conf` contains various utility functions to used for
+manipulating (write/append/read) the config files of the SNMP agent.
+
+[](){: #types }
+
+## DATA TYPES
+
+```erlang
+transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
+
+transportAddress() =
+    transportAddressIPv4() | transportAddressIPv6()
+
+transportAddressWithPort() =
+    transportAddressIPv4WithPort() | transportAddressIPv6WithPort()
+
+transportAddressWithoutPort() =
+    transportAddressIPv4WithoutPort() | transportAddressIPv6WithoutPort()
+
+transportAddressIPv4() =
+    transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort()
+transportAddressIPv4WithPort =
+    {transportAddressIPv4WithoutPort(), inet:port_number()} |
+    [byte() x 4, byte() x 2]
+transportAddressIPv4WithoutPort =
+    inet:ip4_address() | [byte() x 4]
+
+transportAddressIPv6() =
+    transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort()
+transportAddressIPv6WithPort =
+    {transportAddressIPv6WithoutPort(), inet:port_number()} |
+    [word() x 8, inet:port_number()] |
+    [word() x 8, byte() x 2] |
+    [byte() x 16, byte() x 2]
+transportAddressIPv6WithoutPort =
+    inet:ip6_address() | [word() x 8] | [byte() x 16]
+
+transportAddressMask() =
+    [] | transportAddressWithPort()
+
+byte() = 0..255
+word() = 0..65535
+```
+
+For [`inet:ip4_address()`](`t:inet:ip4_address/0`),
+[`inet:ip6_address()`](`t:inet:ip6_address/0`) and
+[`inet:port_number()`](`t:inet:port_number/0`), see also `t:inet:ip_address/0`
+
+[](){: #agent_entry }
+""".
 
 -include("snmp_internal.hrl").
 
@@ -127,10 +180,26 @@
 -type transportAddressIPv4() ::
         transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort().
 
+-doc """
+Because of limitations of the Erlang type language we cannot define this type in
+detail. Instead, we describe it here.
+
+The list variant, 4 bytes for address + 2 bytes for port:
+
+`[byte() x 4, byte() x 2]`
+""".
 -type transportAddressIPv4WithPort() ::
    {transportAddressIPv4WithoutPort(), inet:port_number()} |
    [ byte() ].
 
+-doc """
+Because of limitations of the Erlang type language we cannot define this type in
+detail. Instead, we describe it here.
+
+The list variant, 4 bytes for address:
+
+`[byte() x 4]`
+""".
 -type transportAddressIPv4WithoutPort() ::
    inet:ip4_address() |
    [ byte() ].
@@ -138,12 +207,40 @@
 -type transportAddressIPv6() ::
     transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort().
 
+-doc """
+Because of limitations of the Erlang type language we cannot define this type in
+detail. Instead, we describe it here.
+
+First list variant, 8 words for address + 1 word for port:
+
+`[word() x 8, inet:port_number()]`
+
+Second list variant, 8 words for address + 2 bytes for port:
+
+`[word() x 8, byte() x 2]`
+
+Third list variant, 16 bytes for address + 2 bytes for port:
+
+`[byte() x 16, byte() x 2]`
+""".
 -type transportAddressIPv6WithPort() ::
    {transportAddressIPv6WithoutPort(), inet:port_number()} |
    [ word() | inet:port_number()] |
    [ word() | byte() ] |
    [ byte() ].
 
+-doc """
+Because of limitations of the Erlang type language we cannot define this type in
+detail. Instead, we describe it here.
+
+First list variant, 8 words for address:
+
+`[word() x 8]`
+
+Second list variant, 16 bytes for address:
+
+`[byte() x 16]`
+""".
 -type transportAddressIPv6WithoutPort() ::
    inet:ip6_address() |
    [ word() ] |
@@ -155,9 +252,11 @@
 -type word() :: 0..65535.
 
 %% -type agent_entry() :: term().
+-doc "An opaque term that represents an entry in the 'agent' config.".
 -opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
 
 %% -type community_entry() :: term().
+-doc "An opaque term that represents an entry in the 'community' (agent) config.".
 -opaque community_entry() ::
           {
            CommIndex    :: snmp_community_mib:index(),
@@ -168,9 +267,11 @@
           }.
 
 %% -type context_entry() :: term().
+-doc "An opaque term that represents an entry in the 'context' (agent) config.".
 -opaque context_entry() :: snmp_community_mib:context_name().
 
 %% -type notify_entry() :: term().
+-doc "An opaque term that represents an entry in the 'notify' (agent) config.".
 -opaque notify_entry() ::
           {
            Name :: snmp_notification_mib:notify_name(),
@@ -179,9 +280,11 @@
           }.
 
 %% -type standard_entry() :: term().
+-doc "An opaque term that represents an entry in the 'standard' (agent) config.".
 -opaque standard_entry() :: {Tag :: atom(), Value :: term()}.
 
 %% -type target_addr_entry() :: term().
+-doc "An opaque term that represents an entry in the 'target address' (agent) config.".
 -opaque target_addr_entry() ::
           {
            Name       :: snmp_target_mib:name(),
@@ -197,6 +300,10 @@
           }.
 
 %% -type target_params_entry() :: term().
+-doc """
+An opaque term that represents an entry in the 'target parameters' (agent)
+config.
+""".
 -opaque target_params_entry() ::
           {
            Name     :: snmp_target_mib:name(),
@@ -207,6 +314,7 @@
           }.
 
 %% -type usm_entry() :: term().
+-doc "An opaque term that represents an entry in the 'user based sm' (agent) config.".
 -opaque usm_entry() ::
           {
            EngineID    :: snmp_framework_mib:engine_id(),
@@ -224,9 +332,17 @@
            PrivKey     :: snmp_user_based_sm_mib:priv_key()
           }.
 
+-doc """
+An basically opaque term that represents an entry in the 'view based acm'
+(agent) config.
+""".
 -type vacm_entry() :: vacm_s2g_entry() |
                       vacm_acc_entry() |
                       vacm_vtf_entry().
+-doc """
+An opaque term that represents an (access) entry in the 'vacm access' (agent)
+config.
+""".
 -opaque vacm_acc_entry() ::
           {
            vacmAccess,
@@ -239,6 +355,10 @@
            WV        :: snmp_framework_mib:admin_string(),
            NV        :: snmp_framework_mib:admin_string()
           }.
+-doc """
+An opaque term that represents an (security to group) entry in the 'vacm
+security to group' (agent) config.
+""".
 -opaque vacm_s2g_entry() ::
           {
            vacmSecurityToGroup,
@@ -246,6 +366,10 @@
            SecName   :: snmp_view_based_acm_mib:security_name(),
            GroupName :: snmp_framework_mib:admin_string()
           }.
+-doc """
+An opaque term that represents an (tree family) entry in the 'vacm tree family'
+(agent) config.
+""".
 -opaque vacm_vtf_entry() ::
           {
            vacmViewTreeFamily,
@@ -255,8 +379,13 @@
            ViewMask    :: null | snmp_view_based_acm_mib:view_mask()
           }.
 
+-doc "`Min < Max`".
 -type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
 -type ranges()    :: [inet:port_number() | range()].
+-doc """
+Port number `0` (zero) cannot be specified directly (it is used internally).
+Instead the atom `'system'` should be used.
+""".
 -type port_info() :: inet:port_number() | 'system' | range() | ranges().
 
 -type snmp_ip_address()            :: [non_neg_integer()].
@@ -288,6 +417,28 @@
 %% ------ agent.conf ------
 %%
 
+-doc """
+Create an entry for the agent config file, `agent.conf`.
+
+The type of `Val` depends on the value of `Tag`:
+
+- **`intAgentTransports: `{: #intAgentTransports
+  }[`snmpa_conf:intAgentTransport()`](`t:intAgentTransport/0`) `<mandatory>`**
+
+- **`intAgentUDPPort: `{: #intAgentUDPPort }`t:inet:port_number/0`
+  `<optional>`**
+
+- **`snmpEngineMaxMessageSize: `{: #snmpEngineMaxMessageSize
+  }`t:snmp_framework_mib:max_message_size/0` `<mandatory>`**
+
+- **`snmpEngineID: `{: #snmpEngineID }`t:snmp_framework_mib:engine_id/0`
+  `<mandatory>`**
+
+See [Agent Information](snmp_agent_config_files.md#agent_information) for more
+info.
+
+[](){: #write_agent_config }
+""".
 -spec agent_entry(Tag, Val) -> AgentEntry when
       Tag        :: intAgentTransports |
                     intAgentUDPPort |
@@ -300,6 +451,7 @@ agent_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-doc(#{equiv => write_agent_config/3}).
 -spec write_agent_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [agent_entry()].
@@ -322,6 +474,19 @@ write_agent_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agent_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent config to the agent config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Agent Information](snmp_agent_config_files.md#agent_information) for more
+info.
+
+[](){: #append_agent_config }
+""".
 -spec write_agent_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -335,6 +500,16 @@ write_agent_config(Dir, Hdr, Conf)
     write_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the config to the current agent config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agent Information](snmp_agent_config_files.md#agent_information) for more
+info.
+
+[](){: #read_agent_config }
+""".
 -spec append_agent_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [agent_entry()].
@@ -347,6 +522,16 @@ append_agent_config(Dir, Conf)
     append_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Agent Information](snmp_agent_config_files.md#agent_information) for more
+info.
+
+[](){: #standard_entry }
+""".
 -spec read_agent_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [agent_entry()],
@@ -392,6 +577,13 @@ do_write_agent_conf(_Fd, Crap) ->
 %% ------ context.conf ------
 %%
 
+-doc """
+Create an entry for the agent context config file, `context.conf`.
+
+See [Contexts](snmp_agent_config_files.md#context) for more info.
+
+[](){: #write_context_config }
+""".
 -spec context_entry(Ctx) -> ContextEntry when
       Ctx          :: snmp_community_mib:context_name(),
       ContextEntry :: context_entry().
@@ -400,6 +592,7 @@ context_entry(Ctx) ->
     Ctx.
 
 
+-doc(#{equiv => write_context_config/3}).
 -spec write_context_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [context_entry()].
@@ -420,6 +613,18 @@ write_context_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_context_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent context config to the agent context config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Contexts](snmp_agent_config_files.md#context) for more info.
+
+[](){: #append_context_config }
+""".
 -spec write_context_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -433,6 +638,15 @@ write_context_config(Dir, Hdr, Conf)
     write_config_file(Dir, "context.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the context config to the current agent context config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Contexts](snmp_agent_config_files.md#context) for more info.
+
+[](){: #read_context_config }
+""".
 -spec append_context_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [context_entry()].
@@ -445,6 +659,15 @@ append_context_config(Dir, Conf)
     append_config_file(Dir, "context.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent context config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Contexts](snmp_agent_config_files.md#context) for more info.
+
+[](){: #community_entry }
+""".
 -spec read_context_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [context_entry()],
@@ -479,6 +702,26 @@ write_context_conf(_Fd, X) ->
 %% ------ community.conf ------
 %%
 
+-doc """
+Create an entry for the agent community config file, `community.conf`.
+
+`CommunityIndex` must be a _non-empty_ string.
+
+This function only accepts values of `CommIndex` of the following values:
+
+- **`"public"`{: #community_index_public }** - Translates to the following call:
+
+  [`community_entry(CommunityIndex, CommunityIndex, "initial", "", "")`](`community_entry/5`).
+
+- **`"all-rights"`{: #community_index_all_rights }** - Translates to the
+  following call:
+
+  [`community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")`](`community_entry/5`).
+
+See [Community](snmp_agent_config_files.md#community) for more info.
+
+[](){: #write_community_config }
+""".
 -spec community_entry(CommIndex) -> CommunityEntry when
       CommIndex      :: snmp_framework_mib:admin_string(),
       CommunityEntry :: community_entry().
@@ -496,6 +739,15 @@ community_entry(CommIndex) when CommIndex =:= "all-rights" ->
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag).
 
+-doc """
+Create an entry for the agent community config file, `community.conf`.
+
+`CommunityIndex` must be a _non-empty_ string.
+
+See [Community](snmp_agent_config_files.md#community) for more info.
+
+[](){: #write_community_config }
+""".
 -spec community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
           CommunityEntry when
       CommIndex      :: snmp_community_mib:index(),
@@ -509,6 +761,7 @@ community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
     {CommIndex, CommName, SecName, CtxName, TransportTag}.
 
 
+-doc(#{equiv => write_community_config/3}).
 -spec write_community_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [community_entry()].
@@ -528,6 +781,18 @@ write_community_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_community_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent community config to the agent community config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Community](snmp_agent_config_files.md#community) for more info.
+
+[](){: #append_community_config }
+""".
 -spec write_community_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -541,6 +806,15 @@ write_community_config(Dir, Hdr, Conf)
     write_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the community config to the current agent community config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Community](snmp_agent_config_files.md#community) for more info.
+
+[](){: #read_community_config }
+""".
 -spec append_community_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [community_entry()].
@@ -553,6 +827,15 @@ append_community_config(Dir, Conf)
     append_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent community config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Communities](snmp_agent_config_files.md#community) for more info.
+
+[](){: #target_addr_entry } [](){: #target_addr_entry_1 }
+""".
 -spec read_community_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [community_entry()],
@@ -591,6 +874,40 @@ write_community_conf(Fd, Conf) ->
 %% ------ standard.conf ------
 %%
 
+-doc """
+Create an entry for the agent standard config file, `standard.conf`.
+
+The type of `Val` depends on the value of `Tag`:
+
+- **`sysDescr: `{: #sysDescr }[`string()`](`t:erlang:string/0`)
+  `<mandatory>`** - `DisplayString (SIZE(0..255))`
+
+- **`sysObjectID: `{: #sysObjectID }`t:snmp:oid/0` `<mandatory>`** -
+  `OBJECT IDENTIFIER`
+
+- **`sysContact: `{: #sysContact }[`string()`](`t:erlang:string/0`)
+  `<mandatory>`** - `DisplayString (SIZE(0..255))`
+
+- **`sysName: `{: #sysName }[`string()`](`t:erlang:string/0`) `<mandatory>`** -
+  `DisplayString (SIZE(0..255))`
+
+- **`sysLocation: `{: #sysLocation }[`string()`](`t:erlang:string/0`)
+  `<mandatory>`** - `DisplayString (SIZE(0..255))`
+
+- **`sysLocation: `{: #sysLocation
+  }[`non_neg_integer()`](`t:erlang:non_neg_integer/0`) `<mandatory>`** - "A
+  value which indicates the set of services that this entity primarily offers."
+
+  `INTEGER (0..127)`
+
+- **`snmpEnableAuthenTraps: `{: #snmpEnableAuthenTraps }`enabled | disabled`
+  `<mandatory>`** - `INTEGER { enabled(1), disabled(2) }`
+
+See [System Information](snmp_agent_config_files.md#system_information) for more
+info.
+
+[](){: #write_standard_config }
+""".
 -spec standard_entry(Tag, Val) -> StandardEntry when
       Tag           :: sysDescr    |
                        sysObjectID |
@@ -606,6 +923,7 @@ standard_entry(Tag, Val) ->
     {Tag, Val}.
 
 
+-doc(#{equiv => write_standard_config/3}).
 -spec write_standard_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [standard_entry()].
@@ -627,6 +945,19 @@ write_standard_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_standard_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent standard config to the agent standard config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [System Information](snmp_agent_config_files.md#system_information) for more
+info.
+
+[](){: #append_standard_config }
+""".
 -spec write_standard_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -640,6 +971,16 @@ write_standard_config(Dir, Hdr, Conf)
     write_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the standard config to the current agent standard config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [System Information](snmp_agent_config_files.md#system_information) for more
+info.
+
+[](){: #read_standard_config }
+""".
 -spec append_standard_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [standard_entry()].
@@ -652,6 +993,16 @@ append_standard_config(Dir, Conf)
     append_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent standard config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [System Information](snmp_agent_config_files.md#system_information) for more
+info.
+
+[](){: #context_entry }
+""".
 -spec read_standard_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [standard_entry()],
@@ -699,6 +1050,7 @@ do_write_standard_conf(_Fd, Tag, Val) ->
 %% ------ target_addr.conf ------
 %%
 
+-doc false.
 -spec target_addr_entry(Name, IP, TagList, ParamsName, EngineId) ->
           TargetAddrEntry when
       Name            :: snmp_target_mib:name(),
@@ -713,6 +1065,8 @@ target_addr_entry(
     target_addr_entry(Name, IP, TagList, ParamsName, EngineId, []).
 
 
+-doc(#{equiv => target_addr_entry/8}).
+-doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId) -> TargetAddrEntry when
       Name            :: snmp_target_mib:name(),
@@ -747,6 +1101,10 @@ target_addr_entry(
       EngineId, TMask, 2048).
 
 
+-doc(#{equiv => target_addr_entry/8}).
+-doc(#{since => <<"OTP 17.3">>}).
+-doc(#{equiv => target_addr_entry/8}).
+-doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId, TMask) -> TargetAddrEntry when
       Name            :: snmp_target_mib:name(),
@@ -783,6 +1141,40 @@ target_addr_entry(
       Name, Domain, Addr, TagList,
       ParamsName, EngineId, TMask, 2048).
 
+-doc """
+Create an entry for the agent target_addr config file, `target_addr.conf`.
+
+`Name` must be a _non-empty_ string.
+
+[`target_addr_entry/6`](`target_addr_entry/6`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])`](`target_addr_entry/7`).
+
+[`target_addr_entry/7`](`target_addr_entry/7`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
+
+[`target_addr_entry/8`](`target_addr_entry/8`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)`](`target_addr_entry/10`).
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+
+[](){: #target_addr_entry_2 } Create an entry for the agent target_addr config
+file, `target_addr.conf`.
+
+`Name` must be a _non-empty_ string.
+
+[`target_addr_entry/7`](`target_addr_entry/7`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
+
+[`target_addr_entry/8`](`target_addr_entry/8`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)`](`target_addr_entry/10`).
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+
+[](){: #write_target_addr_config }
+""".
+-doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId, TMask, MaxMessageSize) ->
           TargetAddrEntry when
@@ -823,6 +1215,8 @@ target_addr_entry(
       Name, Domain, Addr, 1500, 3, TagList,
       ParamsName, EngineId, TMask, MaxMessageSize).
 
+-doc(#{equiv => target_addr_entry/8}).
+-doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name,
                         Domain, Addr,
                         Timeout, RetryCount, TagList,
@@ -847,6 +1241,7 @@ target_addr_entry(
      ParamsName, EngineId, TMask, MaxMessageSize}.
 
 
+-doc false.
 target_addr_entry(
   Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
   ParamsName, EngineId, TMask, MaxMessageSize) ->
@@ -872,6 +1267,7 @@ ip_and_port_to_taddr(IP, Port)
     {TDomain, TAddr}.
 
 
+-doc(#{equiv => write_target_addr_config/3}).
 -spec write_target_addr_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [target_addr_entry()].
@@ -902,6 +1298,19 @@ write_target_addr_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_addr_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent target_addr config to the agent target_addr config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+
+[](){: #append_target_addr_config }
+""".
 -spec write_target_addr_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -915,6 +1324,16 @@ write_target_addr_config(Dir, Hdr, Conf)
     write_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the target_addr config to the current agent target_addr config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+
+[](){: #read_target_addr_config }
+""".
 -spec append_target_addr_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [target_addr_entry()].
@@ -927,6 +1346,16 @@ append_target_addr_config(Dir, Conf)
     append_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent target_addr config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+
+[](){: #target_params_entry } [](){: #target_params_entry_1 }
+""".
 -spec read_target_addr_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [target_addr_entry()],
@@ -996,6 +1425,7 @@ do_write_target_addr_conf(_Fd, Crap) ->
 %% ------ target_params.conf ------
 %%
 
+-doc(#{equiv => target_params_entry/4}).
 -spec target_params_entry(Name, Vsn) -> TargetParamsEntry when
       Name              :: snmp_target_mib:name(),
       Vsn               :: snmp:version(),
@@ -1006,6 +1436,40 @@ target_params_entry(Name, Vsn) ->
     SecLevel = noAuthNoPriv,
     target_params_entry(Name, Vsn, SecName, SecLevel).
 
+-doc """
+Create an entry for the agent target_params config file, `target_params.conf`.
+
+`Name` must be a _non-empty_ string.
+
+`Vsn` translates into `MPModel` and `SecModel` as follows:
+
+```text
+	  Vsn = v1 => MPModel = v1,  SecModel = v1
+	  Vsn = v2 => MPModel = v2c, SecModel = v2c
+	  Vsn = v3 => MPModel = v3,  SecModel = usm
+```
+
+[`target_params_entry/2`](`target_params_entry/2`) translates to the following
+call:
+
+```text
+	  target_params_entry(Name, Vsn, "initial", noAuthNoPriv)
+```
+
+[`target_params_entry/4`](`target_params_entry/4`) translates to the following
+call:
+
+```text
+	  target_params_entry(Name, MPModel, SecModel, SecName, SecLevel)
+```
+
+Where `MPModel` and `SecModel` is mapped from `Vsn`, see above.
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #target_params_entry_2 }
+""".
 -spec target_params_entry(Name, Vsn, SecName, SecLevel) ->
           TargetParamsEntry when
       Name              :: snmp_target_mib:name(),
@@ -1025,6 +1489,16 @@ target_params_entry(Name, Vsn, SecName, SecLevel) ->
 	       end,
     target_params_entry(Name, MPModel, SecModel, SecName, SecLevel).
 
+-doc """
+Create an entry for the agent target_params config file, `target_params.conf`.
+
+`Name` must be a _non-empty_ string.
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #write_target_params_config }
+""".
 -spec target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
           TargetParamsEntry when
       Name              :: snmp_target_mib:name(),
@@ -1038,6 +1512,7 @@ target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
     {Name, MPModel, SecModel, SecName, SecLevel}.
     
 
+-doc(#{equiv => write_target_params_config/3}).
 -spec write_target_params_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [target_params_entry()].
@@ -1055,6 +1530,19 @@ write_target_params_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_params_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent target_params config to the agent target_params config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #append_target_params_config }
+""".
 -spec write_target_params_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -1068,6 +1556,16 @@ write_target_params_config(Dir, Hdr, Conf)
     write_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the target_params config to the current agent target_params config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #read_target_params_config }
+""".
 -spec append_target_params_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [target_params_entry()].
@@ -1080,6 +1578,16 @@ append_target_params_config(Dir, Conf)
     append_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent target_params config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #vacm_entry } [](){: #vacm_acc_entry }
+""".
 -spec read_target_params_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [target_params_entry()],
@@ -1117,6 +1625,15 @@ do_write_target_params_conf(_Fd, Crap) ->
 %% ------ notify.conf ------
 %%
 
+-doc """
+Create an entry for the agent notify config file, `notify.conf`.
+
+`Name` must be a _non-empty_ string.
+
+See [Notify Definitions](snmp_agent_config_files.md#notify) for more info.
+
+[](){: #write_notify_config }
+""".
 -spec notify_entry(Name, Tag, Type) -> NotifyEntry when
       Name        :: snmp_notification_mib:notify_name(),
       Tag         :: snmp_notification_mib:notify_tag(),
@@ -1127,6 +1644,7 @@ notify_entry(Name, Tag, Type) ->
     {Name, Tag, Type}.
 
 
+-doc(#{equiv => write_notify_config/3}).
 -spec write_notify_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [notify_entry()].
@@ -1146,6 +1664,18 @@ write_notify_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_notify_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent notify config to the agent notify config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Notify Definitions](snmp_agent_config_files.md#notify) for more info.
+
+[](){: #append_notify_config }
+""".
 -spec write_notify_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -1159,6 +1689,15 @@ write_notify_config(Dir, Hdr, Conf)
     write_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the notify config to the current agent notify config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Notify Definitions](snmp_agent_config_files.md#notify) for more info.
+
+[](){: #read_notify_config }
+""".
 -spec append_notify_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [notify_entry()].
@@ -1171,6 +1710,15 @@ append_notify_config(Dir, Conf)
     append_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent notify config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Notify Definitions](snmp_agent_config_files.md#notify) for more info.
+
+[](){: #end }
+""".
 -spec read_notify_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [notify_entry()],
@@ -1206,6 +1754,7 @@ do_write_notify_conf(_Fd, Crap) ->
 %% ------ usm.conf ------
 %%
 
+-doc(#{equiv => usm_entry/13}).
 -spec usm_entry(EngineID) -> UsmEntry when
       EngineID :: snmp_framework_mib:engine_id(),
       UsmEntry :: usm_entry().
@@ -1228,6 +1777,23 @@ usm_entry(EngineID) ->
               PrivP, PrivKeyC, OwnPrivKeyC,
               Public, AuthKey, PrivKey).
 
+-doc """
+Create an entry for the agent vacm config file, `vacm.conf`.
+
+[`usm_entry/1`](`usm_entry/1`) translates to the following call:
+
+```text
+	  usm_entry(EngineID,
+	            "initial", "initial", zeroDotZero,
+		    usmNoAuthProtocol, "", "",
+		    usmNoPrivProtocol, "", "",
+		    "", "", "").
+```
+
+See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
+
+[](){: #write_usm_config }
+""".
 -spec usm_entry(EngineID,
                 UserName, SecName,
                 Clone,
@@ -1259,6 +1825,7 @@ usm_entry(EngineID, UserName, SecName, Clone,
      Public, AuthKey, PrivKey}.
     
 
+-doc(#{equiv => write_usm_config/3}).
 -spec write_usm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [usm_entry()].
@@ -1280,6 +1847,18 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent usm config to the agent usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
+
+[](){: #append_usm_config }
+""".
 -spec write_usm_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -1293,6 +1872,15 @@ write_usm_config(Dir, Hdr, Conf)
     write_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the usm config to the current agent vacm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
+
+[](){: #read_usm_config }
+""".
 -spec append_usm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [usm_entry()].
@@ -1305,6 +1893,15 @@ append_usm_config(Dir, Conf)
     append_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent usm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
+
+[](){: #notify_entry }
+""".
 -spec read_usm_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [usm_entry()],
@@ -1364,6 +1961,13 @@ do_write_usm2(Fd, X, P) ->
 %% ------ vacm.conf ------
 %%
 
+-doc """
+Create an (access) entry for the agent vacm config file, `vacm.conf`.
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #vacm_s2g_entry }
+""".
 -spec vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match,
                      RV, WV, NV) -> VacmAccEntry when
       GroupName    :: snmp_framework_mib:admin_string(),
@@ -1379,6 +1983,13 @@ do_write_usm2(Fd, X, P) ->
 vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     {vacmAccess, GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV}.
 
+-doc """
+Create an (security to group) entry for the agent vacm config file, `vacm.conf`.
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #vacm_vtf_entry }
+""".
 -spec vacm_s2g_entry(SecModel, SecName, GroupName) -> VacmS2GEntry when
       SecModel     :: snmp_framework_mib:security_model(),
       SecName      :: snmp_view_based_acm_mib:security_name(),
@@ -1388,6 +1999,7 @@ vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
 vacm_s2g_entry(SecModel, SecName, GroupName) ->
     {vacmSecurityToGroup, SecModel, SecName, GroupName}.
 
+-doc(#{equiv => vacm_vtf_entry/4}).
 -spec vacm_vtf_entry(ViewName, ViewSubtree) -> VacmVtfEntry when
       ViewName     :: snmp_framework_mib:admin_string(),
       ViewSubtree  :: snmp:oid(),
@@ -1396,6 +2008,19 @@ vacm_s2g_entry(SecModel, SecName, GroupName) ->
 vacm_vtf_entry(ViewName, ViewSubtree) ->
     vacm_vtf_entry(ViewName, ViewSubtree, included, null).
 
+-doc """
+Create an (view tree family) entry for the agent vacm config file, `vacm.conf`.
+
+[`vacm_vtf_entry/2`](`vacm_vtf_entry/2`) translates to the following call:
+
+```text
+	  vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+```
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #write_vacm_config }
+""".
 -spec vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
           VacmVtfEntry when
       ViewName     :: snmp_framework_mib:admin_string(),
@@ -1408,6 +2033,7 @@ vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
     {vacmViewTreeFamily, ViewName, ViewSubtree, ViewType, ViewMask}.
 
 
+-doc(#{equiv => write_vacm_config/3}).
 -spec write_vacm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [vacm_entry()].
@@ -1435,6 +2061,18 @@ write_vacm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_vacm_config(Dir, Hdr, Conf).
 
+-doc """
+Write the agent vacm config to the agent vacm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+`Hdr` is an optional file header (note that this text is written to the file as
+is).
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #append_vacm_config }
+""".
 -spec write_vacm_config(Dir, Hdr, Conf) -> ok when
       Dir  :: snmp:dir(),
       Hdr  :: string(),
@@ -1448,6 +2086,15 @@ write_vacm_config(Dir, Hdr, Conf)
     write_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Append the vacm config to the current agent vacm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #read_vacm_config }
+""".
 -spec append_vacm_config(Dir, Conf) -> ok when
       Dir  :: snmp:dir(),
       Conf :: [vacm_entry()].
@@ -1460,6 +2107,15 @@ append_vacm_config(Dir, Conf)
     append_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
 
+-doc """
+Read the current agent vacm config file.
+
+`Dir` is the path to the directory where to store the config file.
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+
+[](){: #usm_entry }
+""".
 -spec read_vacm_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
       Conf   :: [vacm_entry()],

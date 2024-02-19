@@ -18,6 +18,22 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_notification_filter).
+-moduledoc """
+Behaviour module for the SNMP agent notification filters.
+
+This module defines the behaviour of the agent notification filters. A
+`snmpa_notification_filter` compliant module must export the following
+functions:
+
+- handle_notification/2
+
+The semantics of them and their exact signatures are explained below.
+
+The purpose of notification filters is to allow for modification and/or
+suppression of a notification.
+
+A misbehaving filter will be removed.
+""".
 
 
 -type notification() :: term().
@@ -32,6 +48,14 @@
 %% send -> This means it is ok for this filter to send the notification as is
 %% {send, NewNotif} -> Send this notification instead
 %% dont_sent -> Dont send this notification. 
+-doc """
+Handle a notification to be sent. The filter can either accept the notification
+as is, return `send`, modify the notification, return `{send, NewNotif}` or
+suppress the notification, return `dont_send`.
+
+`Data` is supplied at filter registration time, see
+[register_notification_filter](`m:snmpa#register_notification_filter`).
+""".
 -callback handle_notification(Notif, Data) -> Reply when
       Reply :: send |
                {send, NewNotif} |

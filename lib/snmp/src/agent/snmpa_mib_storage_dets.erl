@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_mib_storage_dets).
+-moduledoc false.
 
 -behaviour(snmpa_mib_storage).
 

@@ -19,6 +19,7 @@
 %% 
 
 -module(snmp_config).
+-moduledoc false.
 
 -include_lib("kernel/include/file.hrl").
 -include("snmp_types.hrl").

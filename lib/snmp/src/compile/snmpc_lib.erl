@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpc_lib).
+-moduledoc false.
 
 %% Avoid warning for local functions error/2,3 clashing
 %% with autoimported BIFs.

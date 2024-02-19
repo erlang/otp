@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmp_generic_mnesia).
+-moduledoc false.
 
 -export([variable_get/1, variable_set/2, variable_inc/2]).
 -export([table_func/2, table_func/4, 

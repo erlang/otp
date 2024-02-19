@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_vacm).
+-moduledoc false.
 
 -export([get_mib_view/5]).
 -export([init/1, init/2, backup/1]).

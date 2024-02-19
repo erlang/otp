@@ -19,6 +19,7 @@
 %% 
 
 -module(snmpm_user_default).
+-moduledoc false.
 
 -behaviour(snmpm_user).
 

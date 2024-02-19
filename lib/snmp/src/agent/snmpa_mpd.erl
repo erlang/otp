@@ -18,6 +18,18 @@
 %% %CopyrightEnd%
 %%
 -module(snmpa_mpd).
+-moduledoc """
+Message Processing and Dispatch module for the SNMP agent
+
+The module `snmpa_mpd` implements the version independent Message Processing and
+Dispatch functionality in SNMP for the agent. It is supposed to be used from a
+Network Interface process ([Definition of Agent Net if](snmp_agent_netif.md)).
+
+## DATA TYPES
+
+For more information, see the
+[data types in `snmpa_conf`](`m:snmpa_conf#types`).
+""".
 
 -export([init/1, reset/0, inc/1, counters/0, 
 	 discarded_pdu/1,
@@ -73,21 +85,47 @@
 	       req_id}).
 
 
+-doc """
+This is the message specific data used in the SNMP message. This value is
+received in a [`send_pdu`](snmp_agent_netif.md#im_send_pdu) or
+[`send_pdu_req`](snmp_agent_netif.md#im_send_pdu_req) message from the agent (by
+the net-if process).
+""".
 -type   msg_data() :: msg_data_cmy() | msg_data_ctx().
+-doc """
+This is the message specific data used in the SNMP message. In SNMPv1 and
+SNMPv2c, this message data is the community string.
+""".
 -opaque msg_data_cmy() ::
           {community,
            Community       :: snmp_community_mib:name()}.
+-doc """
+This is the message specific data used in the SNMP message. In SNMPv3, it is the
+context information.
+""".
 -opaque msg_data_ctx() ::
           {v3,
            ContextEngineID :: snmp_framework_mib:engine_id(),
            ContextName     :: snmp_community_mib:context_name()}.
+-doc """
+This is the message specific data used in the SNMP message. This value is
+received in a [`send_pdu`](snmp_agent_netif.md#im_send_pdu) or
+[`send_pdu_req`](snmp_agent_netif.md#im_send_pdu_req) message from the agent (by
+the net-if process).
+""".
 -type   acm_data() :: acm_data_cmy() | acm_data_v3().
+-doc "This is the message specific data used in the SNMPv1 and SNMPv2c message.".
 -opaque acm_data_cmy() ::
           {community,
            SecModel  :: snmp_framework_mib:security_model(),
            Community :: snmp_community_mib:name(),
            TDomain   :: snmpa_conf:transportDomain(),
            TAddress  :: snmpa_conf:transportAddress()}.
+-doc """
+This is the message specific data used in the SNMPv3 message.
+
+[](){: #init }
+""".
 -opaque acm_data_v3() ::
           {v3,
            MsgID            :: snmp_pdus:msg_id(),
@@ -100,6 +138,7 @@
            ContextName      :: snmp_community_mib:context_name(),
            SecData          :: term()}.
 
+-doc "A `fun` that handles audit trail logging.".
 -type logger() ::
         fun((Type :: snmp_pdus:pdu_type(),
              Data :: binary() |
@@ -133,6 +172,14 @@
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
 
+-doc """
+This function can be called from the net_if process at start-up. The options
+list defines which versions to use.
+
+It also initializes some SNMP counters.
+
+[](){: #process_packet }
+""".
 -spec init(Vsns) -> MPDState when
       Vsns     :: [snmp:version()],
       MPDState :: mpd_state().
@@ -147,6 +194,7 @@ init(Vsns) ->
     init_versions(Vsns, #state{}).
 
 
+-doc false.
 reset() ->
     reset_counters(),
     ok.
@@ -176,6 +224,7 @@ reset() ->
 %%    length(snmp_pdus:enc_message(M)) + 4.
 
 -ifdef(SNMP_USE_V3).
+-doc false.
 empty_msg() ->
     {message, 'version-1', "", snmpa_get:empty_pdu()}.
 -else.
@@ -185,6 +234,7 @@ empty_msg() ->
              data      = snmpa_get:empty_pdu()}.
 -endif.
 
+-doc false.
 empty_msg_size() ->
     ?empty_msg_size.
 
@@ -201,6 +251,8 @@ empty_msg_size() ->
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
 
+-doc(#{equiv => process_packet/6}).
+-doc(#{since => <<"OTP 17.3,OTP R14B">>}).
 -spec process_packet(Packet, From, State, NoteStore, Log) ->
           {ok, Vsn, Pdu, PduMS, ACMData} |
           {discarded, Reason} |
@@ -226,6 +278,19 @@ process_packet(Packet, From, State, NoteStore, Log) ->
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
 
+-doc """
+Processes an incoming packet. Performs authentication and decryption as
+necessary. The return values should be passed to the agent.
+
+> #### Note {: .info }
+>
+> Note that the use of the LocalEngineID argument is only intended for special
+> cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
+> uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: #generate_response_msg }
+""".
+-doc(#{since => <<"OTP 17.3,OTP R14B">>}).
 -spec process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) ->
           {ok, Vsn, Pdu, PduMS, ACMData} |
           {discarded, Reason} |
@@ -334,6 +399,7 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    {discarded, snmpInBadVersions}
     end.
 
+-doc false.
 process_packet(
   Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
     From = {Domain, Address},
@@ -341,6 +407,10 @@ process_packet(
 
 
 
+-doc """
+Increments the variable associated with a discarded pdu. This function can be
+used when the net_if process receives a `discarded_pdu` message from the agent.
+""".
 -spec discarded_pdu(Variable) -> snmp:void() when
       Variable :: snmpa:name() | false.
 
@@ -762,6 +832,8 @@ get_scoped_pdu(D) ->
 %% Executed when a response or report message is generated.
 %%-----------------------------------------------------------------
 
+-doc(#{equiv => generate_response_msg/6}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
           {ok, Packet} | {discarded, Reason} when
       Vsn     :: snmp_pdus:version(),
@@ -776,6 +848,19 @@ generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
 
+-doc """
+Generates a possibly encrypted response packet to be sent to the network. `Type`
+is the `#pdu.type` of the original request.
+
+> #### Note {: .info }
+>
+> Note that the use of the LocalEngineID argument is only intended for special
+> cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
+> uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: #generate_msg } [](){: #generate_msg_5 }
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
           {ok, Packet} | {discarded, Reason} when
       Vsn           :: snmp_pdus:version(),
@@ -1060,6 +1145,8 @@ set_vb_null([]) ->
 %% a trap or an inform.
 %%-----------------------------------------------------------------
 
+-doc(#{equiv => generate_msg/6}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
           {ok, PacketsAndAddresses} | {discarded, Reason} when
       Vsn                 :: snmp_pdus:version(),
@@ -1078,6 +1165,29 @@ generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
     generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To).
 
 
+-doc """
+Generates a possibly encrypted request packet to be sent to the network.
+
+`MsgData` is the message specific data used in the SNMP message. This value is
+received in a [`send_pdu`](snmp_agent_netif.md#im_send_pdu) or
+[`send_pdu_req`](snmp_agent_netif.md#im_send_pdu_req) message from the agent. In
+SNMPv1 and SNMPv2c, this message data is the [community](`t:msg_data_cmy/0`)
+string. In SNMPv3, it is the [context](`t:msg_data_ctx/0`) information.
+
+`To` is a list of destination addresses and their corresponding security
+parameters. This value is received in the same message from the agent and then
+transformed through [`process_taddrs`](`m:snmpa_mpd#process_taddrs`) before
+passed to this function.
+
+> #### Note {: .info }
+>
+> Note that the use of the LocalEngineID argument is only intended for special
+> cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
+> uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
+
+[](){: #process_taddrs }
+""".
+-doc(#{since => <<"OTP R14B">>}).
 -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) ->
           {ok, PacketsAndAddresses} | {discarded, Reason} when
       Vsn                 :: snmp_pdus:version(),
@@ -1138,6 +1248,7 @@ generate_msg('version-3', NoteStore, Pdu,
     end.
 
 
+-doc false.
 generate_discovery_msg(NoteStore, Pdu, MsgData, To) ->
     Timeout = 1500, 
     generate_discovery_msg(NoteStore, Pdu, MsgData, Timeout, To).
@@ -1337,6 +1448,15 @@ transform_taddr(BadTDomain, TAddress) ->
     end.
 
 
+-doc """
+Transforms addresses from internal MIB format to one more useful to
+[Agent Net if](snmp_agent_netif.md).
+
+See also [`generate_msg`.](`m:snmpa_mpd#generate_msg`)
+
+[](){: #discarded_pdu }
+""".
+-doc(#{since => <<"OTP 17.3">>}).
 -spec process_taddrs(InDests) -> OutDests when
       InDests    :: [InDest],
       InDest     :: {{InDomain, InAddress}, SecData} |
@@ -1599,6 +1719,7 @@ mk_v3_packet_list(NoteStore,
 generate_msg_id() ->
     gen(msg_id).
 
+-doc false.
 generate_req_id() ->
     gen(req_id).
 
@@ -1655,6 +1776,7 @@ maybe_create_counter(Counter) ->
 init_counter(Counter) -> 
     ets:insert(snmp_agent_table, {Counter, 0}).
 
+-doc false.
 counters() ->
     [
      snmpInPkts,
@@ -1698,6 +1820,7 @@ counters() ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+-doc false.
 inc(Name)    -> ets:update_counter(snmp_agent_table, Name, 1).
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
