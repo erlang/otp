@@ -85,13 +85,17 @@ add_path_element()
 if [ "$1" = "win64" ]; then
     AMD64DIR=true
     VCREDIST=vcredist_x64
+    VCREDIST2=vcredist.x64
     COMPONENTS="cl amd64 bin vc"
 elif [ "$1" = "win32" ]; then
     AMD64DIR=false
     VCREDIST=vcredist_x86
+    VCREDIST2=vcredist.x86
     COMPONENTS="cl bin vc"
 elif [ "$1" = "arm64" ]; then
+    AMD64DIR=false
     VCREDIST=vcredist_arm64
+    VCREDIST2=vcredist.arm64
 else
     echo "TARGET argument should win32, win64 or arm64"
     exit 2
@@ -99,6 +103,11 @@ fi
 
 if [ x"$VCToolsRedistDir" != x"" ]; then
     File="$VCToolsRedistDir/$VCREDIST.exe"
+    if [ -r "$File" ]; then
+	echo "$File"
+	exit 0
+    fi
+    File="$VCToolsRedistDir/$VCREDIST2.exe"
     if [ -r "$File" ]; then
 	echo "$File"
 	exit 0
