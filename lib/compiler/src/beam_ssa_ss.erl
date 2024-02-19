@@ -842,6 +842,9 @@ assert_variable_exists(#b_var{}=V, State) ->
             State
     end.
 
+-endif.
+-ifdef(DEBUG).
+
 dump(State) ->
     io:format("~p~n", [State]).
 

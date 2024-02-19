@@ -469,7 +469,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             peek_message ->
                 {aa_set_aliased(Dst, SS1), AAS0};
             phi ->
-                {aa_phi(Dst, Args, Anno0, SS1, AAS0), AAS0};
+                {aa_phi(Dst, Args, SS1, AAS0), AAS0};
             put_list ->
                 Types =
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
@@ -487,7 +487,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 [#b_literal{val=Hint},_Size,Src|Updates] = Args,
                 RecordType = maps:get(arg_types, Anno0, #{}),
                 ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
-                    [Dst,_Src,RecordType]),
+                    [Dst,Src,RecordType]),
                 Values = aa_update_record_get_vars(Updates),
                 ?DP("values: ~p~n", [Values]),
                 Types = aa_map_arg_to_type(Args, RecordType),
@@ -555,7 +555,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
-    ?DP("Post I: ~p.~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -828,20 +828,19 @@ aa_get_status_by_type(Type, StatusByType) ->
             beam_ssa_ss:meet_in_args(Statuses)
     end.
 
-aa_alias_surviving_args(Args, Call, SS, Anno, AAS) ->
+aa_alias_surviving_args(Args, Call, SS, AAS) ->
     KillSet = aa_killset_for_instr(Call, AAS),
-    ArgTypes = maps:get(arg_types, Anno, #{}),
-    aa_alias_surviving_args1(Args, 0, SS, ArgTypes, KillSet).
+    aa_alias_surviving_args1(Args, SS, KillSet).
 
-aa_alias_surviving_args1([A|Args], Idx, SS0, ArgTypes, KillSet) ->
+aa_alias_surviving_args1([A|Args], SS0, KillSet) ->
     SS = case sets:is_element(A, KillSet) of
              true ->
                  SS0;
              false ->
                  aa_set_status(A, aliased, SS0)
          end,
-    aa_alias_surviving_args1(Args, Idx+1, SS, ArgTypes, KillSet);
-aa_alias_surviving_args1([], _Idx, SS, _ArgTypes, _KillSet) ->
+    aa_alias_surviving_args1(Args, SS, KillSet);
+aa_alias_surviving_args1([], SS, _KillSet) ->
     SS.
 
 %% Return the kill-set for the instruction defining Dst.
@@ -1069,9 +1068,9 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             aa_set_aliased([Dst|Args], SS)
     end.
 
-aa_phi(Dst, Args0, Anno, SS0, AAS) ->
+aa_phi(Dst, Args0, SS0, AAS) ->
     Args = [V || {V,_} <- Args0],
-    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, Anno, AAS),
+    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
     aa_derive_from(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
@@ -1084,7 +1083,7 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
             ?DP("  caller args: ~p~n", [Args]),
-            SS1 = aa_alias_surviving_args(Args, Dst, SS0, Anno, AAS0),
+            SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
             ?DP("  caller ss before call:~n  ~p.~n", [SS1]),
             #aas{alias_map=AliasMap} = AAS =
                 aa_add_call_info(Callee, Args, SS1, AAS0),
@@ -1117,10 +1116,12 @@ aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
     %% The function will never return, so nothing that happens after
     %% this can influence the aliasing status.
     {SS, AAS};
-aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
+aa_call(Dst, [_Callee|Args], _Anno, SS0, AAS) ->
     %% This is either a call to a fun or to an external function,
-    %% assume that all arguments and the result escape.
-    {aa_set_aliased([Dst|Args], SS), AAS}.
+    %% assume that result always escapes and
+    %% all arguments escape, if they survive.
+    SS = aa_alias_surviving_args(Args, Dst, SS0, AAS),
+    {aa_set_aliased([Dst], SS), AAS}.
 
 %% Incorporate aliasing information for the arguments to a call when
 %% analysing the body of a function into the global state.
