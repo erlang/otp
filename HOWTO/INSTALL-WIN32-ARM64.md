@@ -179,6 +179,48 @@ the different tools:
         $ mv /mnt/c/OpenSSL-Win64/lib/libcrypto.lib /mnt/c/OpenSSL-Win64/lib/VC/static/libcrypto64MD.lib
         $ mv /mnt/c/OpenSSL-Win64/lib/libssl.lib /mnt/c/OpenSSL-Win64/lib/VC/static/libssl64MD.lib
 
+*   wxWidgets (optional)
+    You need this to build wx to use gui's in debugger and observer.
+
+    We recommend v3.2.2.1 or later.
+    Unpack into `c:/opt/local64/pgm/wxWidgets-3.2.2.1`
+
+    If the `wxUSE_POSTSCRIPT` isn't enabled in  `c:/opt/local64/pgm/wxWidgets-3.2.2.1/include/wx/msw/setup.h`,
+    enable it.
+
+    We recommend to enable fowxWebViewr  wxUSE_WEBVIEW_EDGE.
+    *   Download the nuget package 'Microsoft.Web.WebView2' (Version 0.9.488 or newer)
+    *   Extract the package (it's a zip archive) to wxWidgets/3rdparty/webview2 (you should have 3rdparty/webview2/build/native/include/WebView2.h file after unpacking it)
+    *   Enable wxUSE_WEBVIEW_EDGE in `c:/opt/local64/pgm/wxWidgets-3.2.2.1/include/wx/msw/setup.h`
+
+    Build with:
+
+        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.2.2.1\build\msw
+        C:\...\> nmake TARGET_CPU=arm64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+
+    Precompiled binaries are available here:
+    URL: <https://github.com/cocoa-xu/wxWidget-windows-build/releases/download/v3.2.4/wxWidgets-static-aarch64-windows-msvc.tar.gz>
+
+        $ rm -rf /mnt/c/opt/local64/pgm/wxWidgets-3.2.4
+        $ curl -fSL https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.4/wxWidgets-3.2.4.zip -o wxWidgets-3.2.4.zip
+        $ mkdir -p /mnt/c/opt/local64/pgm/wxWidgets-3.2.4
+        $ unzip wxWidgets-3.2.4.zip -d /mnt/c/opt/local64/pgm/wxWidgets-3.2.4
+
+        $ cd /mnt/c/opt/local64/pgm/wxWidgets-3.2.4/3rdparty
+        $ curl -fSL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.2277.86" -OutFile "webview2-1.0.2277.86.zip"
+        $ rm -rf webview2 && mkdir webview2
+        $ unzip webview2-1.0.2277.86.zip -d webview2
+
+        $ cd /mnt/c/opt/local64/pgm/wxWidgets-3.2.4/include/wx/msw
+        $ sed -i 's/#define wxUSE_POSTSCRIPT(\s+)(\d+)/#define wxUSE_POSTSCRIPT 1/' setup.h
+        $ sed -i 's/#define wxUSE_WEBVIEW(\s+)(\d+)/#define wxUSE_WEBVIEW 1/' setup.h
+        $ sed -i 's/#define wxUSE_WEBVIEW_EDGE (\s+)(\d+)/#define wxUSE_WEBVIEW_EDGE 1/' setup.h
+
+        $ curl -fSL https://github.com/cocoa-xu/wxWidget-windows-build/releases/download/v3.2.4/wxWidgets-static-aarch64-windows-msvc.tar.gz -o wxWidgets-static-aarch64-windows-msvc.tar.gz
+        $ rm -rf /mnt/c/opt/local64/pgm/wxWidgets/lib/vc_arm64_lib
+        $ mkdir -p /mnt/c/opt/local64/pgm/wxWidgets/lib/vc_arm64_lib
+        $ tar -xzf wxWidgets-static-aarch64-windows-msvc.tar.gz -C /mnt/c/opt/local64/pgm/wxWidgets/lib/vc_arm64_lib
+
 *   Get the Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar to
     unpack the source tar.gz (`tar zxf otp_src_%OTP-REL%.tar.gz`) to somewhere
