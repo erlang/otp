@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,6 +122,9 @@ unregister_notify_client(Client) ->
 
 backup(BackupDir) ->
     call({backup, BackupDir}).
+
+-spec dump() -> ok | {error, Reason} when
+      Reason :: term().
 
 dump() ->
     call(dump).
@@ -246,9 +249,22 @@ dets_filename1(Dir) -> Dir.
 %%-----------------------------------------------------------------
 %% Functions for debugging.
 %%-----------------------------------------------------------------
+
+-spec print() -> term().
+
 print()          -> call(print).
+
+-spec print(Table) -> term() when
+      Table :: snmpa:name().
+
 print(Table)     -> call({print,Table,volatile}).
+
+-spec print(Table, Db) -> term() when
+      Table :: snmpa:name(),
+      Db    :: volatile | persistent.
+
 print(Table, Db) -> call({print,Table,Db}).
+
 
 variable_get({Name, Db}) ->
     call({variable_get, Name, Db});
@@ -271,35 +287,74 @@ variable_delete(Name) ->
     call({variable_delete, Name, volatile}).
 
 
+-spec table_create(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
+
 table_create({Name, Db}) ->
     call({table_create, Name, Db});
 table_create(Name) ->
     call({table_create, Name, volatile}).
+
+
+-spec table_exists(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
 
 table_exists({Name, Db}) ->
     call({table_exists, Name, Db});
 table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
+
+-spec table_delete(Table) -> true when
+      Table :: snmpa:name_db() | snmpa:name().
+
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
 table_delete(Name) ->
     call({table_delete, Name, volatile}).
+
+
+-spec table_delete_row(Table, RowIndex) -> boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index().
 
 table_delete_row({Name, Db}, RowIndex) ->
     call({table_delete_row, Name, Db, RowIndex});
 table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
+
+-spec table_get_row(Table, RowIndex) -> Row | undefined when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+
 table_get_row({Name, Db}, RowIndex) ->
     call({table_get_row, Name, Db, RowIndex});
 table_get_row(Name, RowIndex) ->
     call({table_get_row, Name, volatile, RowIndex}).
 
+
+-spec table_get_element(Table, RowIndex, Col) ->
+          {value, Value} | undefined when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Col      :: snmp:column(),
+      Value    :: term().
+
 table_get_element({Name, Db}, RowIndex, Col) ->
     call({table_get_element, Name, Db, RowIndex, Col});
 table_get_element(Name, RowIndex, Col) ->
     call({table_get_element, Name, volatile, RowIndex, Col}).
+
+
+-spec table_set_elements(Table, RowIndex, Cols) ->
+          boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Cols     :: [{Col, Value}],
+      Col      :: snmp:column(),
+      Value    :: term().
 
 table_set_elements({Name, Db}, RowIndex, Cols) ->
     call({table_set_elements, Name, Db, RowIndex, Cols});
@@ -316,6 +371,13 @@ table_max_col({Name, Db}, Col) ->
 table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
+
+-spec table_create_row(Table, RowIndex, Row) ->
+          boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+      
 table_create_row({Name, Db}, RowIndex, Row) ->
     call({table_create_row, Name, Db,RowIndex, Row});
 table_create_row(Name, RowIndex, Row) ->
@@ -323,6 +385,12 @@ table_create_row(Name, RowIndex, Row) ->
 table_create_row(NameDb, RowIndex, Status, Cols) ->
     Row = table_construct_row(NameDb, RowIndex, Status, Cols),
     table_create_row(NameDb, RowIndex, Row).
+
+
+-spec match(Table, Pattern) -> [Match] when
+      Table   :: snmpa:name_db() | snmpa:name(),
+      Pattern :: ets:match_pattern(),
+      Match   :: term().
 
 match({Name, Db}, Pattern) ->
     call({match, Name, Db, Pattern});    

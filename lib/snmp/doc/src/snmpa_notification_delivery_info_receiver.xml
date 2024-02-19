@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2020</year>
+      <year>2024</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -65,11 +65,57 @@
 
   </description>
 
+  <datatypes>
+
+    <datatype>
+      <name name="notification_delivery_info"/>
+      <desc>
+	<p>
+	  How shall (notification) delivery info be reported.
+	</p>
+	<p>
+	  This record defines the info related to inform delivery info.
+	  That is, when sending an inform, info about the delivery (such
+	  if it was acknowledged) will be delivered using the info in
+	  this record.
+	</p>
+	<p>The delivery will be performed according to: </p>
+	<code type="none"><![CDATA[
+	Mod:delivery_targets(Tag, Addresses, Extra)
+	Mod:delivery_info(Tag, Address, DeliveryResult, Extra)
+	]]></code>
+	<p>The Extra is any term, provided by the user. </p>
+	<p>The fields of this record has the following meaning:</p>
+	<taglist>
+	  <tag><c><![CDATA[tag = term()]]></c></tag>
+	  <item>
+	    <p>Value selected by the user to identify this sending</p>
+	  </item>
+	  <tag><c><![CDATA[mod = module()]]></c></tag>
+	  <item>
+	    <p>A module implementing the 
+	    <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
+	    behaviour. </p>
+	  </item>
+	  <tag><c><![CDATA[extra = term()]]></c></tag>
+	  <item>
+	    <p>This is any extra info the user wants to have supplied 
+	    when the functions in the callback module is called.
+	    Provided when calling the send function. </p>
+	  </item>
+	</taglist>
+      </desc>
+    </datatype>
+
+  </datatypes>
+    
   <section>
     <title>DATA TYPES</title>
-    <p>See the <seeerl marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seeerl>.</p>
-    <marker id="accept_recv"></marker>
+    <p>See the
+    <seetype marker="snmpa_conf#transportDomain">transportDomain()</seetype>
+    and
+    <seetype marker="snmpa_conf#transportAddressWithPort">transportAddressWithPort()</seetype>
+    for more info. </p>
 
      <marker id="delivery_targets"></marker>
   </section>

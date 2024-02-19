@@ -66,26 +66,35 @@
               octet_string/0,
               rfc1903_date_and_time/0,
 
+              time_interval/0,
+              row_pointer/0,
+
               date_and_time_validator_kind/0,
               date_and_time_validator/0,
 
-	      dir/0, 
-	      snmp_timer/0, 
+	      dir/0,
+	      snmp_timer/0,
 
-              atl_type/0,
-              verbosity/0,
+	      engine_id/0,
+              mms/0,
+	      tdomain/0,
+	      taddress/0,
+	      community/0,
+	      context_name/0,
+	      version/0,
+	      sec_model/0,
+	      sec_name/0,
+	      sec_level/0,
 
-	      engine_id/0, 
-	      tdomain/0, 
-	      community/0, 
-	      mms/0, 
-	      version/0, 
-	      sec_model/0, 
-	      sec_name/0, 
-	      sec_level/0, 
+              usm_name/0,
+              usm_auth_protocol/0,
+              usm_auth_key/0,
+              usm_priv_protocol/0,
+              usm_priv_key/0,
 
 	      oid/0,
 	      row_index/0,
+              column/0,
 	      varbind/0, 
 	      ivarbind/0, 
 	      asn1_type/0, 
@@ -103,9 +112,15 @@
               error_status/0,
               error_index/0,
  
+              verbosity/0,
+
 	      void/0
 	     ]).
-
+-export_type([
+              log_size/0,
+              log_time/0,
+              atl_type/0
+             ]).
 
 -define(APPLICATION,       snmp).
 -define(ATL_BLOCK_DEFAULT, true).
@@ -125,16 +140,20 @@
 -type log_size()              :: 'infinity' | pos_integer() |
                                  {MaxNoBytes :: pos_integer(),
                                   MaxNoFiles :: pos_integer()}.
-
 -type log_time()              :: calendar:datetime() |
                                  {local_time, calendar:datetime()} |
                                  {universal_time, calendar:datetime()}.
+-type atl_type()              :: read | write | read_write.
+
+-type time_interval()         :: 0..2147483647.
+-type row_pointer()           :: oid().
 
 -type bits()                  :: integer().
 -type octet()                 :: 0..255.
 -type octet_string()          :: [octet()].
 -type oid()                   :: [non_neg_integer()].
 -type row_index()             :: oid().
+-type column()                :: pos_integer().
 
 -type rfc1903_date_and_time() :: octet_string().
 
@@ -147,19 +166,25 @@
              Data :: term()) -> boolean()).
 
 -type dir()           :: string().
+
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
--type atl_type()      :: read | write | read_write.
--type verbosity()     :: silence | info | log | debug | trace.
-
 -type engine_id()     :: snmp_framework_mib:engine_id().
+-type mms()           :: snmp_framework_mib:max_message_size().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
+-type taddress()      :: snmpa_conf:transportAddress().
 -type community()     :: snmp_community_mib:name().
--type mms()           :: non_neg_integer().
+-type context_name()  :: snmp_community_mib:context_name().
 -type version()       :: v1 | v2 | v3.
--type sec_model()     :: any | v1 | v2c | usm.
--type sec_name()      :: snmp_community_mib:security_name().
--type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
+-type sec_model()     :: snmp_framework_mib:security_model().
+-type sec_name()      :: snmp_framework_mib:admin_string().
+-type sec_level()     :: snmp_framework_mib:security_level().
+
+-type usm_name()          :: snmp_user_based_sm_mib:name().
+-type usm_auth_protocol() :: snmp_user_based_sm_mib:auth_protocol().
+-type usm_auth_key()      :: snmp_user_based_sm_mib:auth_key().
+-type usm_priv_protocol() :: snmp_user_based_sm_mib:priv_protocol().
+-type usm_priv_key()      :: snmp_user_based_sm_mib:priv_key().
 
 -type varbind()       :: #varbind{}.
 -type ivarbind()      :: #ivarbind{}.
@@ -173,10 +198,7 @@
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
--type pdu_type()      :: 'get-request' | 'get-next-request' | 'get-response' |
-                         'set-request' | 'trap' | 'get-bulk-request' | 
-                         'inform-request' |
-                         'report'.
+-type pdu_type()      :: snmp_pdus:pdu_type().
 
 -type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
 
@@ -195,8 +217,12 @@
 %% undoFailed |
 %% wrongValue
 
--type error_status()  :: atom().
--type error_index()   :: pos_integer().
+-type error_status()  :: noError | atom().
+%% Actually: 0 | pos_integer()
+%% 0 is used for noError, and pos_integer() for actual errors
+-type error_index()   :: non_neg_integer().
+
+-type verbosity()     :: silence | info | log | debug | trace.
 
 -type void()          :: term().
 

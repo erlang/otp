@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,10 +101,18 @@
 -export([target_name/1, target_name/2]).
 
 -export_type([
-	      register_timeout/0, 
-	      agent_config/0, 
 	      target_name/0,
-              pdu_type/0
+              user_id/0,
+              request_id/0,
+	      register_timeout/0, 
+	      agent_config_item/0, 
+	      agent_config/0, 
+              pdu_type/0,
+              value_type/0,
+              var_and_val/0,
+              snmpm_user/0,
+              usm_config_item/0,
+              snmp_reply/0
 	     ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
@@ -121,20 +129,48 @@
 %% Types
 %%-----------------------------------------------------------------
 
--type register_timeout() :: pos_integer() | snmp:snmp_timer().
--type agent_config() :: {engine_id,        snmp:engine_id()}   | % Mandatory
-			{address,          inet:ip_address()}  | % Mandatory
-			{port,             inet:port_number()} | % Optional
-			{tdomain,          snmp:tdomain()}     | % Optional
-			{community,        snmp:community()}   | % Optional
-			{timeout,          register_timeout()} | % Optional
-			{max_message_size, snmp:mms()}         | % Optional
-			{version,          snmp:version()}     | % Optional
-			{sec_moduel,       snmp:sec_model()}   | % Optional
-			{sec_name,         snmp:sec_name()}    | % Optional
-			{sec_level,        snmp:sec_level()}.    % Optional
--type target_name() :: string().
--type pdu_type() :: snmp:pdu_type() | 'trappdu'.
+-type target_name()       :: string().
+-type user_id()           :: term().
+-opaque request_id()      :: term().
+-type register_timeout()  :: pos_integer() | snmp:snmp_timer().
+-type agent_config_item() :: engine_id |
+                             address | port | tdomain |
+                             community |
+                             timeout   |
+                             max_message_size |
+                             version |
+                             sec_model | sec_name | sec_level.
+-type value_type()        :: o |
+                             i | u | g |
+                             s | s | b |
+                             ip | op |
+                             c32 | c64 |
+                             tt.
+-type var_and_val()       :: {OID       :: snmp:oid(),
+                              ValueType :: value_type(),
+                              Value     :: term()} |
+                             {OID       :: snmp:oid(),
+                              Value     :: term()}.
+
+-type agent_config() ::
+        {engine_id,        snmp:engine_id()}   | % Mandatory
+        {address,          inet:ip_address()}  | % Mandatory
+        {port,             inet:port_number()} | % Optional
+        {tdomain,          snmp:tdomain()}     | % Optional
+        {community,        snmp:community()}   | % Optional
+        {timeout,          register_timeout()} | % Optional
+        {max_message_size, snmp:mms()}         | % Optional
+        {version,          snmp:version()}     | % Optional
+        {sec_model,        snmp:sec_model()}   | % Optional
+        {sec_name,         snmp:sec_name()}    | % Optional
+        {sec_level,        snmp:sec_level()}.    % Optional
+-type pdu_type()   :: snmp:pdu_type() | 'trappdu'.
+-type snmpm_user() :: module().
+-type usm_config_item() :: sec_name | auth | auth_key | priv | priv_key.
+
+-type snmp_reply() :: {snmp:error_status(),
+                       snmp:error_index(),
+                       [snmp:varbind()]}.
 
 
 %% This function is called when the snmp application
@@ -152,10 +188,11 @@ simple_conf() ->
 	{ok, _} ->
 	    ok;
 	_ ->
-	    ok = snmp_config:write_manager_config(Cwd, "",
-						  [{port, 5000},
-						   {engine_id, "mgrEngine"},
-						   {max_message_size, 484}])
+	    ok = snmp_config:write_manager_config(
+                   Cwd, "",
+                   [snmpm_conf:manager_entry(port,             5000),
+                    snmpm_conf:manager_entry(engine_id,        "mgrEngine"),
+                    snmpm_conf:manager_entry(max_message_size, 484)])
     end,
     Conf = [{dir, Cwd}, {db_dir, Cwd}],
     [{versions, Vsns}, {config, Conf}].
@@ -193,9 +230,14 @@ stop(Timeout) when (Timeout =:= infinity) orelse
     snmpm_supervisor:stop(Timeout).
 
 
+-spec monitor() -> MRef when
+      MRef :: reference().
 
 monitor() ->
     erlang:monitor(process, snmpm_supervisor).
+
+-spec demonitor(Ref) -> true when
+      Ref :: reference().
 
 demonitor(Ref) ->
     erlang:demonitor(Ref).
@@ -203,8 +245,16 @@ demonitor(Ref) ->
 
 -define(NOTIFY_START_TICK_TIME, 500).
 
+-spec notify_started(Timeout) -> Pid when
+      Timeout :: pos_integer(),
+      Pid     :: pid().
+
 notify_started(To) when is_integer(To) andalso (To > 0) ->
     spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
+
+
+-spec cancel_notify_started(Pid) -> snmp:void() when
+      Pid :: pid().
 
 cancel_notify_started(Pid) ->
     Pid ! {cancel, self()},
@@ -251,6 +301,10 @@ sleep(To) -> snmp_misc:sleep(To).
 
 %% -- Misc --
 
+-spec backup(BackupDir) -> ok | {error, Reason} when
+      BackupDir :: snmp:dir(),
+      Reason    :: term().
+
 backup(BackupDir) ->
     snmpm_config:backup(BackupDir).
 
@@ -258,31 +312,73 @@ backup(BackupDir) ->
 %% -- Mibs --
 
 %% Load a mib into the manager
+
+-spec load_mib(MibName) -> ok | {error, Reason} when
+      MibName :: snmp:mib_name(),
+      Reason  :: term().
+
 load_mib(MibFile) ->
     snmpm_server:load_mib(MibFile).
 
+
 %% Unload a mib from the manager
-unload_mib(Mib) ->
-    snmpm_server:unload_mib(Mib).
+
+-spec unload_mib(MibName) -> ok | {error, Reason} when
+      MibName :: snmp:mib_name(),
+      Reason  :: term().
+
+unload_mib(MibName) ->
+    snmpm_server:unload_mib(MibName).
 
 %% Which mib's are loaded
+
+-spec which_mibs() -> Mibs when
+      Mibs    :: [{MibName, MibFile}],
+      MibName :: snmp:mib_name(),
+      MibFile :: string().
+
 which_mibs() ->
     snmpm_config:which_mibs().
 
+
 %% Get all the possible oid's for the aliasname
-name_to_oid(Name) ->
-    snmpm_config:name_to_oid(Name).
+
+-spec name_to_oid(AliasName) -> {ok, OIDs} | {error, Reason} when
+      AliasName :: atom(),
+      OIDs      :: [snmp:oid()],
+      Reason    :: term().
+
+name_to_oid(AliasName) ->
+    snmpm_config:name_to_oid(AliasName).
+
 
 %% Get the aliasname for an oid
+
+-spec oid_to_name(OID) -> {ok, AliasName} | {error, Reason} when
+      OID       :: snmp:oid(),
+      AliasName :: atom(),
+      Reason    :: term().
+
 oid_to_name(Oid) ->
     snmpm_config:oid_to_name(Oid).
 
+
 %% Get the type for an oid
+
+-spec oid_to_type(OID) -> {ok, Type} | {error, Reason} when
+      OID    :: snmp:oid(),
+      Type   :: atom(),
+      Reason :: term().
+
 oid_to_type(Oid) ->
     snmpm_config:oid_to_type(Oid).
 
 
 %% -- Info -- 
+
+-spec info() -> [{Key, Value}] when
+      Key   :: atom(),
+      Value :: term().
 
 info() ->
     snmpm_server:info().
@@ -294,6 +390,11 @@ info(Key) ->
 %% -- Verbosity -- 
 
 %% Change the verbosity of a process in the manager
+
+-spec verbosity(Target, Verbosity) -> snmp:void() when
+      Target    :: config | server | net_if | note_store | all,
+      Verbosity :: snmp:verbosity().
+
 verbosity(config, V) ->
     snmpm_config:verbosity(V);
 verbosity(server, V) ->
@@ -315,6 +416,9 @@ verbosity(all, V) ->
 %% Note that the effects of this is diffiult to
 %% predict, so it should be use with *caution*!
 
+-spec restart(What) -> snmp:void() when
+      What :: net_if.
+
 restart(net_if = What) ->
     snmpm_server:restart(What).
 
@@ -328,21 +432,65 @@ restart(net_if = What) ->
 %% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
-register_user(Id, Module, Data) ->
-    register_user(Id, Module, Data, []).
+
+-spec register_user(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
+
+register_user(UserId, Module, Data) ->
+    register_user(UserId, Module, Data, []).
 
 %% Default config for agents registered by this user
-register_user(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user(Id, Module, Data, DefaultAgentConfig).
 
-register_user_monitor(Id, Module, Data) ->
-    register_user_monitor(Id, Module, Data, []).
+-spec register_user(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
 
-register_user_monitor(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user_monitor(Id, Module, Data, DefaultAgentConfig).
+register_user(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user(UserId, Module, Data, DefaultAgentConfig).
 
-unregister_user(Id) ->
-    snmpm_server:unregister_user(Id).
+-spec register_user_monitor(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
+
+register_user_monitor(UserId, Module, Data) ->
+    register_user_monitor(UserId, Module, Data, []).
+
+-spec register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
+
+register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user_monitor(UserId, Module,
+                                       Data, DefaultAgentConfig).
+
+-spec unregister_user(UserId) -> ok | {error, Reason} when
+      UserId :: user_id(),
+      Reason :: term().
+
+unregister_user(UserId) ->
+    snmpm_server:unregister_user(UserId).
+
+-spec which_users() -> Users when
+      Users :: [user_id()].
 
 which_users() ->
     snmpm_config:which_users().
@@ -364,6 +512,15 @@ which_users() ->
 
 do_register_agent(UserId, TargetName, Config) ->
     snmpm_config:register_agent(UserId, TargetName, Config).
+
+-spec register_agent(UserId, TargetName, Config) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: agent_config_item(),
+      Value       :: term(),
+      Reason      :: term().
 
 register_agent(UserId, TargetName, Config) 
   when (is_list(TargetName) andalso 
@@ -416,6 +573,12 @@ register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
 	end,
     register_agent(UserId, Domain, Addr, Config).
 
+
+-spec unregister_agent(UserId, TargetName) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Reason     :: term().
+
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
 
@@ -432,18 +595,48 @@ unregister_agent(UserId, DomainIp, AddressPort) ->
     end.
 
 
+-spec agent_info(TargetName, Item) -> {ok, Value} | {error, Reason} when
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).
 
+
+-spec update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Info       :: [{Item, Value}],
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
     snmpm_config:update_agent_info(UserId, TargetName, Info).
+
+-spec update_agent_info(UserId, TargetName, Item, Value) ->
+          ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
 
 update_agent_info(UserId, TargetName, Item, Val) ->
     update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 
+-spec which_agents() -> Agents when
+      Agents :: [target_name()].
+
 which_agents() ->
     snmpm_config:which_agents().
+
+-spec which_agents(UserId) -> Agents when
+      UserId :: user_id(),
+      Agents :: [target_name()].
 
 which_agents(UserId) ->
     snmpm_config:which_agents(UserId).
@@ -451,24 +644,64 @@ which_agents(UserId) ->
 
 %% -- USM users --
 
-register_usm_user(EngineID, UserName, Conf) 
-  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Conf) ->
-    snmpm_config:register_usm_user(EngineID, UserName, Conf).
+-spec register_usm_user(EngineID, UserName, Config) -> ok | {error, Reason} when
+      EngineID    :: snmp:engine_id(),
+      UserName    :: snmp:usm_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: usm_config_item(),
+      Value       :: term(),
+      Reason      :: term().
+
+register_usm_user(EngineID, UserName, Config)
+  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Config) ->
+    snmpm_config:register_usm_user(EngineID, UserName, Config).
+
+-spec unregister_usm_user(EngineID, UserName) -> ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Reason   :: term().
 
 unregister_usm_user(EngineID, UserName) 
   when is_list(EngineID) andalso is_list(UserName) ->
     snmpm_config:unregister_usm_user(EngineID, UserName).
 
+-spec usm_user_info(EngineID, UserName, Item) ->
+          {ok, Value} | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
+
 usm_user_info(EngineID, UserName, Item) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:usm_user_info(EngineID, UserName, Item).
+
+-spec update_usm_user_info(EngineID, UserName, Item, Value) ->
+          ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
 
 update_usm_user_info(EngineID, UserName, Item, Val) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:update_usm_user_info(EngineID, UserName, Item, Val).
 
+-spec which_usm_users() -> UsmUsers when
+      UsmUsers :: [{EngineID, UserName}],
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name().
+
 which_usm_users() ->
     snmpm_config:which_usm_users().
+
+-spec which_usm_users(EngineID) -> UsmUsers when
+      EngineID :: snmp:engine_id(),
+      UsmUsers :: [UserName],
+      UserName :: snmp:usm_name().
 
 which_usm_users(EngineID) when is_list(EngineID) ->
     snmpm_config:which_usm_users(EngineID).
@@ -498,8 +731,53 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 %% --- synchronous get-request ---
 %% 
 
+-spec sync_get2(UserId, TargetName, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get2(UserId, TargetName, Oids) ->
     sync_get2(UserId, TargetName, Oids, []).
+
+-spec sync_get2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
 
 sync_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
@@ -509,11 +787,35 @@ sync_get2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
-%% through a call to handle_pdu/5
+%% through a call to the callback function handle_pdu/5.
 %% 
+
+-spec async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get2(UserId, TargetName, Oids) ->
     async_get2(UserId, TargetName, Oids, []).
+
+-spec async_get2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
@@ -523,8 +825,53 @@ async_get2(UserId, TargetName, Oids, SendOpts)
 %% --- synchronous get_next-request ---
 %% 
 
+-spec sync_get_next2(UserId, TargetName, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_next2(UserId, TargetName, Oids) ->
     sync_get_next2(UserId, TargetName, Oids, []).
+
+-spec sync_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
 
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
@@ -534,8 +881,33 @@ sync_get_next2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get_next-request ---
 %% 
 
+-spec async_get_next2(UserId, TargetName, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_next2(UserId, TargetName, Oids) ->
     async_get_next2(UserId, TargetName, Oids, []).
+
+-spec async_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
@@ -545,8 +917,53 @@ async_get_next2(UserId, TargetName, Oids, SendOpts)
 %% --- synchronous set-request ---
 %% 
 
+-spec sync_set2(UserId, TargetName, VarsAndVals) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      VarsAndVals   :: [var_and_val()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_set2(UserId, TargetName, VarsAndVals) ->
     sync_set2(UserId, TargetName, VarsAndVals, []).
+
+-spec sync_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      VarsAndVals   :: [var_and_val()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
 
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
@@ -556,8 +973,33 @@ sync_set2(UserId, TargetName, VarsAndVals, SendOpts)
 %% --- asynchronous set-request ---
 %% 
 
+-spec async_set2(UserId, TargetName, VarsAndVals) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      ReqId       :: request_id(),
+      Reason      :: term().
+
 async_set2(UserId, TargetName, VarsAndVals) ->
     async_set2(UserId, TargetName, VarsAndVals, []).
+
+-spec async_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId       :: request_id(),
+      Reason      :: term().
 
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
@@ -567,8 +1009,58 @@ async_set2(UserId, TargetName, VarsAndVals, SendOpts)
 %% --- synchronous get-bulk ---
 %% 
 
+-spec sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      NonRep        :: non_neg_integer(),
+      MaxRep        :: non_neg_integer(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
+
+-spec sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      NonRep        :: non_neg_integer(),
+      MaxRep        :: non_neg_integer(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      ReqId         :: request_id(),
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
 
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
@@ -582,8 +1074,37 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
 %% --- asynchronous get-bulk ---
 %% 
 
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
+
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
 
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
@@ -594,6 +1115,10 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
                                 NonRep, MaxRep, Oids, SendOpts).
 
 
+-spec cancel_async_request(UserId, ReqId) -> ok | {error, Reason} when
+      UserId :: user_id(),
+      ReqId  :: request_id(),
+      Reason :: term().
 
 cancel_async_request(UserId, ReqId) ->
     snmpm_server:cancel_async_request(UserId, ReqId).
@@ -705,7 +1230,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 		 OutFile :: file:filename(), 
 		 LogName :: string(), 
 		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time()) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)  
@@ -721,15 +1246,15 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
 		 LogName :: string(), 
 		 LogFile :: string(), 
 		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time()) ->
     snmp:void();
                 (LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
 		 LogName :: string(), 
 		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time(), 
+		 Stop    :: null | snmp:log_time()) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  
@@ -753,22 +1278,59 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
+-spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term().
+
 log_to_io(LogDir) ->
     log_to_io(LogDir, []).
 
-log_to_io(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+-spec log_to_io(LogDir, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Block  :: boolean(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term();
+               (LogDir, Mibs) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Mibs   :: [snmp:mib_name()],
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term().
+
+log_to_io(LogDir, Block) when is_boolean(Block) ->
     Mibs    = [], 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
-log_to_io(LogDir, Mibs) ->
+log_to_io(LogDir, Mibs) when is_list(Mibs) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
 
-log_to_io(LogDir, Mibs, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+-spec log_to_io(LogDir, Mibs, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
+log_to_io(LogDir, Mibs, Block) when is_boolean(Block) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
@@ -777,31 +1339,118 @@ log_to_io(LogDir, Mibs, LogName) ->
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+-spec log_to_io(LogDir, Mibs, LogName, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
+
+-spec change_log_size(NewSize) -> ok | {error, Reason} when
+      NewSize :: snmp:log_size(),
+      Reason  :: term().
 
 change_log_size(NewSize) ->
     LogName = ?audit_trail_log_name, 
@@ -811,7 +1460,14 @@ change_log_size(NewSize) ->
 get_log_type() ->
     snmpm_server:get_log_type().
 
+
 %% NewType -> atl_type()
+
+-spec set_log_type(NewType) -> {ok, OldType} | {error, Reason} when
+      NewType :: snmp:atl_type(),
+      OldType :: snmp:atl_type(),
+      Reason  :: term().
+
 set_log_type(NewType) ->
     snmpm_server:set_log_type(NewType).
 
@@ -843,8 +1499,17 @@ sys_up_time() ->
 %%% 
 %%%-----------------------------------------------------------------
 
+-spec format_reason(Reason) -> FReason when
+      Reason  :: term(),
+      FReason :: string().
+
 format_reason(Reason) ->
     format_reason("", Reason).
+
+-spec format_reason(Prefix, Reason) -> FReason when
+      Prefix  :: non_neg_integer() | string(),
+      Reason  :: term(),
+      FReason :: string().
 
 format_reason(Prefix, Reason) when is_integer(Prefix) andalso (Prefix >= 0) ->
     format_reason(lists:duplicate(Prefix, $ ), Reason);

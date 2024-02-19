@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2020</year>
+      <year>1996</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,98 +34,78 @@
   </header>
   <module since="">snmp_standard_mib</module>
   <modulesummary>Instrumentation Functions for STANDARD-MIB and SNMPv2-MIB</modulesummary>
+
   <description>
-    <p>The module <c>snmp_standard_mib</c> implements the instrumentation functions for the
-      STANDARD-MIB and SNMPv2-MIB, and functions for configuring the database.
-      </p>
+    <p>The module <c>snmp_standard_mib</c> implements the instrumentation
+    functions for the STANDARD-MIB and SNMPv2-MIB, and functions for
+    configuring the database. </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
   </description>
+
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
-        <p>This function is called from the supervisor at system
-          start-up.
-          </p>
+        <p>This function is called from the supervisor at system start-up. </p>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old rows with StorageType
-          <c>volatile</c>.  The rows created from the configuration file
-          will have StorageType <c>nonVolatile</c>.
-          </p>
-        <p>All <c>snmp</c> counters are set to zero.
-          </p>
+	database and destroys all old rows with StorageType
+	<c>volatile</c>.  The rows created from the configuration file
+	will have StorageType <c>nonVolatile</c>. </p>
+        <p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error 
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>.
-          </p>
+	reported using the function <c>config_err/2</c> of the error 
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found.
-          </p>
-        <p>The configuration file read is: <c>standard.conf</c>.
-          </p>
+	where the configuration files are found. </p>
+        <p>The configuration file read is: <c>standard.conf</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">inc(Name) -> void()</name>
-      <name since="">inc(Name, N) -> void()</name>
+      <name name="inc" arity="1" clause_i="1" since=""/>
+      <name name="inc" arity="2" clause_i="1" since=""/>
       <fsummary>Increment a variable in the MIB</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>N = integer()</v>
-      </type>
       <desc>
-        <p>Increments a variable in the MIB with <c>N</c>, or one if
-          <c>N</c> is not specified.</p>
+	<p>Increments a variable in the MIB with <c>N</c>, or one if
+	<c>N</c> is not specified.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">reconfigure(ConfDir) -> void()</name>
+      <name name="reconfigure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the STANDARD-MIB and SNMPv2-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old data, including the rows with
-          StorageType <c>nonVolatile</c>.  The rows created from the
-          configuration file will have StorageType <c>nonVolatile</c>.
-          </p>
+	database and destroys all old data, including the rows with
+	StorageType <c>nonVolatile</c>.  The rows created from the
+	configuration file will have StorageType <c>nonVolatile</c>. </p>
         <p>Thus, the data in the SNMP-STANDARD-MIB and SNMPv2-MIB,
-          after this function has been called, is from the
-          configuration files.
-          </p>
-        <p>All <c>snmp</c> counters are set to zero.
-          </p>
+	after this function has been called, is from the
+	configuration files. </p>
+	<p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>.
-          </p>
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found.
-          </p>
-        <p>The configuration file read is: <c>standard.conf</c>.
-          </p>
+	where the configuration files are found. </p>
+	<p>The configuration file read is: <c>standard.conf</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">reset() -> void()</name>
+      <name name="reset" arity="0" clause_i="1" since=""/>
       <fsummary>Reset all <c>snmp</c>counters to 0</fsummary>
       <desc>
         <p>Resets all <c>snmp</c> counters to 0.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">sys_up_time() -> Time</name>
+      <name name="sys_up_time" arity="0" clause_i="1" since=""/>
       <fsummary>Get the system up time</fsummary>
-      <type>
-        <v>Time = int()</v>
-      </type>
       <desc>
         <p>Gets the system up time in hundredth of a second.</p>
       </desc>

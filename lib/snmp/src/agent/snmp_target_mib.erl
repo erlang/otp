@@ -33,7 +33,13 @@
 -export([default_domain/0]).
 
 -export_type([
-              tag_value/0
+              name/0,
+              tag_value/0,
+              retry_count/0,
+              tag_list/0,
+              params/0,
+              tmask/0,
+              mms/0
              ]).
 
 -include_lib("snmp/include/snmp_types.hrl").
@@ -48,7 +54,13 @@
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
--type tag_value() :: string().
+-type name()             :: snmp_framework_mib:admin_string().
+-type tag_value()        :: string().
+-type retry_count()      :: 0 .. 255.
+-type tag_list()         :: string().
+-type params()           :: snmp_framework_mib:admin_string().
+-type tmask()            :: snmpa_conf:transportAddressMask().
+-type mms()              :: 484 .. 65535. % Actually defined in COMMUNITY-MIB
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs
@@ -81,7 +93,11 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
         {_, mnesia} ->
@@ -96,7 +112,7 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vdebug("no tables: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
 
@@ -112,9 +128,13 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -385,13 +405,65 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
+-spec add_addr(Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      TDomain  :: snmpa_conf:transportDomain(),
+      TAddr    :: snmpa_conf:transportAddress(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term();
+              (Name, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
-  Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+  Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+  EngineId, TMask, MMS) when is_atom(TDomain) ->
+    add_addr(
+      {Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+       EngineId, TMask, MMS});
+add_addr(
+  Name, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
     add_addr(
-      {Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+      {Name, Ip, Port, Timeout, Retry, TagList, Params,
        EngineId, TMask, MMS}).
 %%
+
+-spec add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Domain   :: snmpa_conf:transportDomain(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
   Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -415,6 +487,11 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
+
+-spec delete_addr(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->
@@ -423,6 +500,16 @@ delete_addr(Key) ->
 	    {error, delete_failed}
     end.
 
+
+-spec add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
+          {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      MPModel  :: snmp_framework_mib:message_processing_model(),
+      SecModel :: snmp_framework_mib:security_model(),
+      SecName  :: snmp_framework_mib:admin_string(),
+      SecLevel :: snmp_framework_mib:security_level(),
+      Key      :: term(),
+      Reason   :: term().
 
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
@@ -440,6 +527,10 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	Error ->
 	    {error, Error}
     end.
+
+-spec delete_params(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
@@ -665,11 +756,17 @@ get_target_engine_id(TargetAddrName) ->
 		    undefined
 	    end
     end.
-				    
+
+
+-spec set_target_engine_id(TargetAddrName, EngineId) -> boolean() when
+      TargetAddrName :: name(),
+      EngineId       :: snmp_framework_mib:engine_id().
+
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
 				    [{?snmpTargetAddrEngineId, EngineId}]).
+
 
 %%-----------------------------------------------------------------
 %% Instrumentation Functions

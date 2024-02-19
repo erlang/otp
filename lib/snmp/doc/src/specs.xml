@@ -4,9 +4,24 @@
   <xi:include href="../specs/specs_snmp_community_mib.xml"/>
   <xi:include href="../specs/specs_snmp_framework_mib.xml"/>
   <xi:include href="../specs/specs_snmp_notification_mib.xml"/>
+  <xi:include href="../specs/specs_snmp_standard_mib.xml"/>
   <xi:include href="../specs/specs_snmp_target_mib.xml"/>
+  <xi:include href="../specs/specs_snmp_user_based_sm_mib.xml"/>
+  <xi:include href="../specs/specs_snmp_view_based_acm_mib.xml"/>
   <xi:include href="../specs/specs_snmp_generic.xml"/>
   <xi:include href="../specs/specs_snmp_index.xml"/>
   <xi:include href="../specs/specs_snmp_pdus.xml"/>
   <xi:include href="../specs/specs_snmpa.xml"/>
+  <xi:include href="../specs/specs_snmpa_conf.xml"/>
+  <xi:include href="../specs/specs_snmpa_error.xml"/>
+  <xi:include href="../specs/specs_snmpa_error_io.xml"/>
+  <xi:include href="../specs/specs_snmpa_error_logger.xml"/>
+  <xi:include href="../specs/specs_snmpa_local_db.xml"/>
+  <xi:include href="../specs/specs_snmpa_mpd.xml"/>
+  <xi:include href="../specs/specs_snmpa_supervisor.xml"/>
+  <xi:include href="../specs/specs_snmpa_notification_delivery_info_receiver.xml"/>
+  <xi:include href="../specs/specs_snmpc.xml"/>
+  <xi:include href="../specs/specs_snmpm.xml"/>
+  <xi:include href="../specs/specs_snmpm_conf.xml"/>
+  <xi:include href="../specs/specs_snmpm_mpd.xml"/>
 </specs>

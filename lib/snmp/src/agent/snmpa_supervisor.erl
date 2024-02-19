@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -166,6 +166,12 @@ takeover_mib({_MibName, _Symbolic, FileName}) ->
 
 %% ----------------------------------------------------------------
 
+-spec start_sub_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts   :: [Opt],
+      Opt    :: {db_dir, snmp:dir()} | {atom(), term()},
+      Pid    :: pid(),
+      Reason :: {already_started, Pid} | term().
+
 start_sub_sup(Opts) ->
     ?d("start_sub_sup -> entry with"
       "~n   Opts: ~p", [Opts]),
@@ -175,6 +181,14 @@ do_start_sub_sup(Opts) ->
     verify_mandatory([db_dir], Opts),
     ?d("do_start_sub_sup -> start (sub) supervisor",[]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [sub, Opts]).  
+
+-spec start_master_sup(Opts) -> {ok, Pid} | {error, Reason} when
+      Opts     :: [Opt],
+      Opt      :: {db_dir, string()} | {config, ConfOpts} | {atom(), term()},
+      ConfOpts :: [ConfOpt],
+      ConfOpt  :: {dir, string()} | {atom(), term()},
+      Pid      :: pid(),
+      Reason   :: {already_started, Pid} | term().
 
 start_master_sup(Opts) ->
     (catch do_start_master_sup(Opts)).
@@ -212,6 +226,15 @@ verify_mandatory([Key|Keys], Opts) ->
 
 %% ----------------------------------------------------------------
 
+-spec start_sub_agent(ParentAgent, Subtree, Mibs) ->
+          {ok, Pid} | {error, Reason} when
+      ParentAgent :: pid(),
+      Subtree     :: snmp:oid(),
+      Mibs        :: [MibName],
+      MibName     :: string(),
+      Pid         :: pid(),
+      Reason      :: term().
+
 start_sub_agent(ParentAgent, Subtree, Mibs) 
   when is_pid(ParentAgent) andalso is_list(Mibs) ->
     ?d("start_sub_agent -> entry with"
@@ -219,6 +242,9 @@ start_sub_agent(ParentAgent, Subtree, Mibs)
       "~n   Subtree:     ~p"
       "~n   Mibs:        ~p", [ParentAgent, Subtree, Mibs]),
     snmpa_agent_sup:start_subagent(ParentAgent, Subtree, Mibs).
+
+-spec stop_sub_agent(SubAgentPid) -> ok | no_such_child when
+      SubAgentPid :: pid().
 
 stop_sub_agent(SubAgentPid) ->
     snmpa_agent_sup:stop_subagent(SubAgentPid).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@
 %%
 
 -module(snmpa_conf).
+
+-include("snmp_internal.hrl").
+
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
@@ -60,19 +63,19 @@
 	 append_target_params_config/2, 
 	 read_target_params_config/1, 
 
-	 %% xyz.conf
+	 %% notify.conf
 	 notify_entry/3, 
 	 write_notify_config/2, write_notify_config/3, 
 	 append_notify_config/2, 
 	 read_notify_config/1, 
 
-	 %% xyz.conf
+	 %% usm.conf
 	 usm_entry/1, usm_entry/13, 
 	 write_usm_config/2, write_usm_config/3, 
 	 append_usm_config/2, 
 	 read_usm_config/1, 
 
-	 %% xyz.conf
+	 %% vacm.conf
 	 vacm_s2g_entry/3, 
 	 vacm_acc_entry/8, 
 	 vacm_vtf_entry/2, vacm_vtf_entry/4, 
@@ -82,14 +85,32 @@
 	]).
 
 
-
 -export_type([
-              usm_entry/0,
               transportDomain/0,
               transportAddress/0,
               transportAddressWithPort/0,
               transportAddressWithoutPort/0,
-              transportAddressMask/0
+              transportAddressMask/0,
+
+              agent_entry/0,
+              community_entry/0,
+              context_entry/0,
+              notify_entry/0,
+              standard_entry/0,
+              target_addr_entry/0,
+              target_params_entry/0,
+              usm_entry/0,
+              vacm_entry/0,
+              vacm_s2g_entry/0,
+              vacm_acc_entry/0,
+              vacm_vtf_entry/0,
+
+              range/0,
+              ranges/0,
+              port_info/0,
+              transport_address/0,
+              extended_transport_address/0,
+              intAgentTransport/0
              ]).
 
 -type transportDomain() :: snmp:tdomain().
@@ -108,72 +129,149 @@
 
 -type transportAddressIPv4WithPort() ::
    {transportAddressIPv4WithoutPort(), inet:port_number()} |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
-    PortA :: byte() |  PortB :: byte()].
+   [ byte() ].
 
 -type transportAddressIPv4WithoutPort() ::
-   inet:ip4_address() | [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte()].
+   inet:ip4_address() |
+   [ byte() ].
 
 -type transportAddressIPv6() ::
     transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort().
 
 -type transportAddressIPv6WithPort() ::
    {transportAddressIPv6WithoutPort(), inet:port_number()} |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
-    inet:port_number()] |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word() |
-    PortA :: byte() |  PortB :: byte()] |
-   {IPA :: byte(),IPB :: byte(),IPC :: byte(),IPD :: byte(),
-    IPE :: byte(),IPF :: byte(),IPG :: byte(),IPH :: byte(),
-    IPI :: byte(),IPJ :: byte(),IPK :: byte(),IPL :: byte(),
-    IPM :: byte(),IPN :: byte(),IPO :: byte(),IPP :: byte(),
-    PortA :: byte(), PortB :: byte()}.
+   [ word() | inet:port_number()] |
+   [ word() | byte() ] |
+   [ byte() ].
+
 -type transportAddressIPv6WithoutPort() ::
    inet:ip6_address() |
-   [IPA :: word() | IPB :: word() | IPC :: word() | IPD :: word() |
-    IPE :: word() | IPF :: word() | IPG :: word() | IPH :: word()] |
-   [IPA :: byte() | IPB :: byte() | IPC :: byte() | IPD :: byte() |
-    IPE :: byte() | IPF :: byte() | IPG :: byte() | IPH :: byte() |
-    IPI :: byte() | IPJ :: byte() | IPK :: byte() | IPL :: byte() |
-    IPM :: byte() | IPN :: byte() | IPO :: byte() | IPP :: byte()].
+   [ word() ] |
+   [ byte() ].
 
 -type transportAddressMask() ::
     [] | transportAddressWithPort().
 
 -type word() :: 0..65535.
 
--type usm_entry() :: {
-                      EngineID    :: string(),
-                      UserName    :: string(),
-                      SecName     :: string(),
-                      Clone       :: zeroDotZero | [non_neg_integer()],
-                      AuthP       :: usmNoAuthProtocol |
-                                     usmHMACMD5AuthProtocol |
-                                     usmHMACSHAAuthProtocol |
-                                     usmHMAC128SHA224AuthProtocol |
-                                     usmHMAC192SHA256AuthProtocol |
-                                     usmHMAC256SHA384AuthProtocol |
-                                     usmHMAC384SHA512AuthProtocol,
-                      AuthKeyC    :: string(),
-                      OwnAuthKeyC :: string(),
-                      PrivP       :: usmNoPrivProtocol |
-                                     usmDESPrivProtocol |
-                                     usmAesCfb128Protocol,
-                      PrivKeyC    :: string(),
-                      OwnPrivKeyC :: string(),
-                      Public      :: string(),
-                      %% Size 16 for usmHMACMD5AuthProtocol
-                      %% Size 20 for usmHMACSHAAuthProtocol
-                      %% Size 28 for usmHMAC128SHA224AuthProtocol
-                      %% Size 32 for usmHMAC192SHA256AuthProtocol
-                      %% Size 48 for usmHMAC256SHA384AuthProtocol
-                      %% Size 64 for usmHMAC384SHA512AuthProtocol
-                      AuthKey     :: [non_neg_integer()],
-                      %% Size 16 for usmDESPrivProtocol | usmAesCfb128Protocol
-                      PrivKey     :: [non_neg_integer()]
-                     }.
+%% -type agent_entry() :: term().
+-opaque agent_entry() :: {Tag :: atom(), Value :: term()}.
+
+%% -type community_entry() :: term().
+-opaque community_entry() ::
+          {
+           CommIndex    :: snmp_community_mib:index(),
+           CommName     :: snmp_community_mib:name(),
+           SecName      :: snmp_community_mib:security_name(),
+           CtxName      :: snmp_community_mib:context_name(),
+           TransportTag :: snmp_community_mib:transport_tag()
+          }.
+
+%% -type context_entry() :: term().
+-opaque context_entry() :: snmp_community_mib:context_name().
+
+%% -type notify_entry() :: term().
+-opaque notify_entry() ::
+          {
+           Name :: snmp_notification_mib:notify_name(),
+           Tag  :: snmp_notification_mib:notify_tag(),
+           Type :: snmp_notification_mib:notify_type()
+          }.
+
+%% -type standard_entry() :: term().
+-opaque standard_entry() :: {Tag :: atom(), Value :: term()}.
+
+%% -type target_addr_entry() :: term().
+-opaque target_addr_entry() ::
+          {
+           Name       :: snmp_target_mib:name(),
+           Domain     :: transportDomain(),
+           Addr       :: transportAddress(),
+           Timeout    :: snmp:time_interval(),
+           RetryCount :: snmp_target_mib:retry_count(), 
+           TagList    :: snmp_target_mib:tag_list(),
+           ParamsName :: snmp_target_mib:params(),
+           EngineId   :: snmp_framework_mib:engine_id(),
+           TMask      :: snmp_target_mib:tmask(),
+           MMS        :: snmp_target_mib:mms()
+          }.
+
+%% -type target_params_entry() :: term().
+-opaque target_params_entry() ::
+          {
+           Name     :: snmp_target_mib:name(),
+           MPModel  :: snmp_framework_mib:message_processing_model(),
+           SecModel :: snmp_framework_mib:security_model(),
+           SecName  :: snmp_framework_mib:admin_string(),
+           SecLevel :: snmp_framework_mib:security_level()
+          }.
+
+%% -type usm_entry() :: term().
+-opaque usm_entry() ::
+          {
+           EngineID    :: snmp_framework_mib:engine_id(),
+           UserName    :: snmp_user_based_sm_mib:name(),
+           SecName     :: snmp_framework_mib:admin_string(),
+           Clone       :: snmp_user_based_sm_mib:clone_from(), 
+           AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
+           AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
+           OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
+           PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
+           PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
+           OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
+           Public      :: snmp_user_based_sm_mib:public(),
+           AuthKey     :: snmp_user_based_sm_mib:auth_key(),
+           PrivKey     :: snmp_user_based_sm_mib:priv_key()
+          }.
+
+-type vacm_entry() :: vacm_s2g_entry() |
+                      vacm_acc_entry() |
+                      vacm_vtf_entry().
+-opaque vacm_acc_entry() ::
+          {
+           vacmAccess,
+           GroupName :: snmp_framework_mib:admin_string(),
+           Prefix    :: snmp_view_based_acm_mib:context_prefix(),
+           SecModel  :: snmp_framework_mib:security_model(),
+           SecLevel  :: snmp_framework_mib:security_level(),
+           Match     :: snmp_view_based_acm_mib:context_match(),
+           RV        :: snmp_framework_mib:admin_string(),
+           WV        :: snmp_framework_mib:admin_string(),
+           NV        :: snmp_framework_mib:admin_string()
+          }.
+-opaque vacm_s2g_entry() ::
+          {
+           vacmSecurityToGroup,
+           SecModel  :: snmp_framework_mib:security_model(),
+           SecName   :: snmp_view_based_acm_mib:security_name(),
+           GroupName :: snmp_framework_mib:admin_string()
+          }.
+-opaque vacm_vtf_entry() ::
+          {
+           vacmViewTreeFamily,
+           ViewIndex   :: integer(),
+           ViewSubtree :: snmp:oid(),
+           ViewStatus  :: snmp_view_based_acm_mib:view_type(),
+           ViewMask    :: null | snmp_view_based_acm_mib:view_mask()
+          }.
+
+-type range()     :: {Min :: inet:port_number(), Max :: inet:port_number()}.
+-type ranges()    :: [inet:port_number() | range()].
+-type port_info() :: inet:port_number() | 'system' | range() | ranges().
+
+-type snmp_ip_address()            :: [non_neg_integer()].
+-type ip_address()                 :: inet:ip_address() |
+                                      snmp_ip_address().
+-type transport_address()          :: {ip_address(), inet:port_number()} |
+                                      ip_address().
+-type extended_transport_address() :: {inet:ip_address(), port_info()}.
+-type transport_opts()             :: list().
+
+-type intAgentTransport() ::
+        {transportDomain(), transport_address()} |
+        {transportDomain(), extended_transport_address(), snmpa:transport_kind()} |
+        {transportDomain(), extended_transport_address(), transport_opts()} |
+        {transportDomain(), extended_transport_address(), snmpa:transport_kind(), transport_opts()}.
 
 
 -ifndef(version).
@@ -190,9 +288,21 @@
 %% ------ agent.conf ------
 %%
 
+-spec agent_entry(Tag, Val) -> AgentEntry when
+      Tag        :: intAgentTransports |
+                    intAgentUDPPort |
+                    snmpEngineMaxMessageSize |
+                    snmpEngineID,
+      Val        :: term(),
+      AgentEntry :: agent_entry().
+
 agent_entry(Tag, Val) ->
     {Tag, Val}.
 
+
+-spec write_agent_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
 
 write_agent_config(Dir, Conf) ->
     Comment = 
@@ -212,6 +322,11 @@ write_agent_config(Dir, Conf) ->
     Hdr = header() ++ Comment, 
     write_agent_config(Dir, Hdr, Conf).
 
+-spec write_agent_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [agent_entry()].
+
 write_agent_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_framework_mib:order_agent/2,
@@ -219,12 +334,23 @@ write_agent_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_agent_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
 
+
+-spec append_agent_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [agent_entry()].
+
 append_agent_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_framework_mib:order_agent/2,
     Check = fun snmp_framework_mib:check_agent/2,
     Write = fun write_agent_conf/2,
     append_config_file(Dir, "agent.conf", Order, Check, Write, Conf).
+
+
+-spec read_agent_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [agent_entry()],
+      Reason :: term().
 
 read_agent_config(Dir) ->
     Order = fun snmp_framework_mib:order_agent/2,
@@ -266,9 +392,17 @@ do_write_agent_conf(_Fd, Crap) ->
 %% ------ context.conf ------
 %%
 
+-spec context_entry(Ctx) -> ContextEntry when
+      Ctx          :: snmp_community_mib:context_name(),
+      ContextEntry :: context_entry().
+
 context_entry(Ctx) ->
     Ctx.
 
+
+-spec write_context_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [context_entry()].
 
 write_context_config(Dir, Conf) ->
     Comment =
@@ -286,6 +420,11 @@ write_context_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_context_config(Dir, Hdr, Conf).
 
+-spec write_context_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [context_entry()].
+
 write_context_config(Dir, Hdr, Conf) 
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -293,12 +432,23 @@ write_context_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_context_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "context.conf", Order, Check, Write, Conf).
 
+
+-spec append_context_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [context_entry()].
+
 append_context_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_context/2,
     Write = fun write_context_conf/2,
     append_config_file(Dir, "context.conf", Order, Check, Write, Conf).
+
+
+-spec read_context_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [context_entry()],
+      Reason :: term().
 
 read_context_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -329,22 +479,39 @@ write_context_conf(_Fd, X) ->
 %% ------ community.conf ------
 %%
 
-community_entry(CommIndex) when CommIndex == "public" ->
+-spec community_entry(CommIndex) -> CommunityEntry when
+      CommIndex      :: snmp_framework_mib:admin_string(),
+      CommunityEntry :: community_entry().
+
+community_entry(CommIndex) when CommIndex =:= "public" ->
     CommName     = CommIndex,
     SecName      = "initial",
     CtxName      = "",
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag);
-community_entry(CommIndex) when CommIndex == "all-rights" ->
+community_entry(CommIndex) when CommIndex =:= "all-rights" ->
     CommName     = CommIndex,
     SecName      = CommIndex,
     CtxName      = "",
     TransportTag = "",
     community_entry(CommIndex, CommName, SecName, CtxName, TransportTag).
 
+-spec community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
+          CommunityEntry when
+      CommIndex      :: snmp_community_mib:index(),
+      CommName       :: snmp_community_mib:name(),
+      SecName        :: snmp_community_mib:security_name(),
+      CtxName        :: snmp_community_mib:context_name(),
+      TransportTag   :: snmp_community_mib:transport_tag(),
+      CommunityEntry :: community_entry().
+
 community_entry(CommIndex, CommName, SecName, CtxName, TransportTag) ->
     {CommIndex, CommName, SecName, CtxName, TransportTag}.
 
+
+-spec write_community_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [community_entry()].
 
 write_community_config(Dir, Conf) ->
     Comment =
@@ -361,6 +528,11 @@ write_community_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_community_config(Dir, Hdr, Conf).
 
+-spec write_community_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [community_entry()].
+
 write_community_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -368,12 +540,23 @@ write_community_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_community_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "community.conf", Order, Check, Write, Conf).
 
+
+-spec append_community_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [community_entry()].
+
 append_community_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_community/2,
     Write = fun write_community_conf/2,
     append_config_file(Dir, "community.conf", Order, Check, Write, Conf).
+
+
+-spec read_community_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [community_entry()],
+      Reason :: term().
 
 read_community_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -408,9 +591,24 @@ write_community_conf(Fd, Conf) ->
 %% ------ standard.conf ------
 %%
 
+-spec standard_entry(Tag, Val) -> StandardEntry when
+      Tag           :: sysDescr    |
+                       sysObjectID |
+                       sysContact  |
+                       sysName     |
+                       sysLocation |
+                       sysServices |
+                       snmpEnableAuthenTraps,
+      Val           :: term(),
+      StandardEntry :: standard_entry().
+
 standard_entry(Tag, Val) ->
     {Tag, Val}.
 
+
+-spec write_standard_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [standard_entry()].
 
 write_standard_config(Dir, Conf) ->
     Comment =
@@ -429,6 +627,11 @@ write_standard_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_standard_config(Dir, Hdr, Conf).
 
+-spec write_standard_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [standard_entry()].
+
 write_standard_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -436,12 +639,23 @@ write_standard_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_standard_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
 
+
+-spec append_standard_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [standard_entry()].
+
 append_standard_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_standard/2,
     Write = fun write_standard_conf/2,
     append_config_file(Dir, "standard.conf", Order, Check, Write, Conf).
+
+
+-spec read_standard_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [standard_entry()],
+      Reason :: term().
 
 read_standard_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -485,10 +699,39 @@ do_write_standard_conf(_Fd, Tag, Val) ->
 %% ------ target_addr.conf ------
 %%
 
-target_addr_entry(
-  Name, Ip, TagList, ParamsName, EngineId) ->
-    target_addr_entry(Name, Ip, TagList, ParamsName, EngineId, []).
+-spec target_addr_entry(Name, IP, TagList, ParamsName, EngineId) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TargetAddrEntry :: target_addr_entry().
 
+target_addr_entry(
+  Name, IP, TagList, ParamsName, EngineId) ->
+    target_addr_entry(Name, IP, TagList, ParamsName, EngineId, []).
+
+
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId) -> TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TargetAddrEntry :: target_addr_entry();
+                     (Name, IP, TagList, ParamsName,
+                      EngineId, TMask) ->  TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry().
+           
 target_addr_entry(
   Name, Domain, Addr, TagList,
   ParamsName, EngineId) when is_atom(Domain) ->
@@ -496,38 +739,142 @@ target_addr_entry(
       Name, Domain, Addr, TagList,
       ParamsName, EngineId, []);
 target_addr_entry(
-  Name, Ip, TagList, ParamsName,
-  EngineId, TMask) ->
+  Name, IP, TagList, ParamsName,
+  EngineId, TMask) when (?ip4(IP) orelse ?ip6(IP)) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, 162),
     target_addr_entry(
-      Name, Ip, 162, TagList, ParamsName,
+      Name, Domain, Addr, TagList, ParamsName,
       EngineId, TMask, 2048).
 
+
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId, TMask) -> TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry();
+                     (Name, IP, Port, TagList, ParamsName,
+                      EngineId, TMask) ->  TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      Port            :: inet:port_number(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      TargetAddrEntry :: target_addr_entry().
+
 target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, TagList,
-  ParamsName, EngineId, TMask) ->
+  Name, Domain, Addr, TagList,
+  ParamsName, EngineId, TMask) when is_atom(Domain) ->
     target_addr_entry(
-      Name, Domain_or_Ip, Addr_or_Port, TagList,
+      Name, Domain, Addr, TagList,
+      ParamsName, EngineId, TMask, 2048);
+target_addr_entry(
+  Name, IP, Port, TagList,
+  ParamsName, EngineId, TMask)
+  when (?ip4(IP) orelse ?ip6(IP)) andalso ?port(Port) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, Port),
+    target_addr_entry(
+      Name, Domain, Addr, TagList,
       ParamsName, EngineId, TMask, 2048).
 
-target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, TagList,
-  ParamsName, EngineId, TMask, MaxMessageSize) ->
-    target_addr_entry(
-      Name, Domain_or_Ip, Addr_or_Port, 1500, 3, TagList,
-      ParamsName, EngineId, TMask, MaxMessageSize).
+-spec target_addr_entry(Name, Domain, Addr, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry();
+                       (Name, IP, Port, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) -> 
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      IP              :: inet:ip_address(),
+      Port            :: inet:port_number(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_target_mib:params(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry().
 
 target_addr_entry(
-  Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
-  ParamsName, EngineId, TMask, MaxMessageSize) ->
-    {Name, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, TagList,
+  Name, Domain, Addr, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) when is_atom(Domain) ->
+    target_addr_entry(
+      Name, Domain, Addr, 1500, 3, TagList,
+      ParamsName, EngineId, TMask, MaxMessageSize);
+target_addr_entry(
+  Name, IP, Port, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize)
+  when (?ip4(IP) orelse ?ip6(IP)) andalso ?port(Port) ->
+    {Domain, Addr} = ip_and_port_to_taddr(IP, Port),
+    target_addr_entry(
+      Name, Domain, Addr, 1500, 3, TagList,
+      ParamsName, EngineId, TMask, MaxMessageSize).
+
+-spec target_addr_entry(Name,
+                        Domain, Addr,
+                        Timeout, RetryCount, TagList,
+                        ParamsName, EngineId, TMask, MaxMessageSize) ->
+          TargetAddrEntry when
+      Name            :: snmp_target_mib:name(),
+      Domain          :: transportDomain(),
+      Addr            :: transportAddress(),
+      Timeout         :: snmp:time_interval(),
+      RetryCount      :: snmp_target_mib:retry_count(),
+      TagList         :: snmp_target_mib:tag_list(),
+      ParamsName      :: snmp_framework_mib:admin_string(),
+      EngineId        :: snmp_framework_mib:engine_id(),
+      TMask           :: snmp_target_mib:tmask(),
+      MaxMessageSize  :: snmp_target_mib:mms(),
+      TargetAddrEntry :: target_addr_entry().
+
+target_addr_entry(
+  Name, Domain, Addr, Timeout, RetryCount, TagList,
+  ParamsName, EngineId, TMask, MaxMessageSize) when is_atom(Domain) ->
+    {Name, Domain, Addr, Timeout, RetryCount, TagList,
      ParamsName, EngineId, TMask, MaxMessageSize}.
+
 
 target_addr_entry(
   Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
-  ParamsName, EngineId,TMask, MaxMessageSize) ->
+  ParamsName, EngineId, TMask, MaxMessageSize) ->
     {Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
      ParamsName, EngineId, TMask, MaxMessageSize}.
 
+
+-spec ip_and_port_to_taddr(IP, Port) -> {TDomain, TAddr} when
+      IP      :: inet:ip_address(),
+      Port    :: inet:port_number(),
+      TDomain :: transportDomain(),
+      TAddr   :: transportAddress().
+
+ip_and_port_to_taddr(IP, Port)
+  when ?ip4(IP) andalso ?port(Port) ->
+    TAddr   = {IP, Port},
+    TDomain = transportDomainUdpIpv4,
+    {TDomain, TAddr};
+ip_and_port_to_taddr(IP, Port)
+  when ?ip6(IP) andalso ?port(Port) ->
+    TAddr   = {IP, Port},
+    TDomain = transportDomainUdpIpv6,
+    {TDomain, TAddr}.
+
+
+-spec write_target_addr_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_addr_entry()].
 
 write_target_addr_config(Dir, Conf) ->
     Comment = 
@@ -555,6 +902,11 @@ write_target_addr_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_addr_config(Dir, Hdr, Conf).
 
+-spec write_target_addr_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [target_addr_entry()].
+
 write_target_addr_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -562,12 +914,23 @@ write_target_addr_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_target_addr_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
 
+
+-spec append_target_addr_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_addr_entry()].
+
 append_target_addr_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_addr/2,
     Write = fun write_target_addr_conf/2,
     append_config_file(Dir, "target_addr.conf", Order, Check, Write, Conf).
+
+
+-spec read_target_addr_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [target_addr_entry()],
+      Reason :: term().
 
 read_target_addr_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -633,10 +996,23 @@ do_write_target_addr_conf(_Fd, Crap) ->
 %% ------ target_params.conf ------
 %%
 
+-spec target_params_entry(Name, Vsn) -> TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      Vsn               :: snmp:version(),
+      TargetParamsEntry :: target_params_entry().
+
 target_params_entry(Name, Vsn) ->
     SecName  = "initial",
     SecLevel = noAuthNoPriv,
     target_params_entry(Name, Vsn, SecName, SecLevel).
+
+-spec target_params_entry(Name, Vsn, SecName, SecLevel) ->
+          TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      Vsn               :: snmp:version(),
+      SecName           :: snmp_framework_mib:admin_string(),
+      SecLevel          :: snmp_framework_mib:security_level(),
+      TargetParamsEntry :: target_params_entry().
 
 target_params_entry(Name, Vsn, SecName, SecLevel) ->
     MPModel = if Vsn =:= v1 -> v1;
@@ -649,9 +1025,22 @@ target_params_entry(Name, Vsn, SecName, SecLevel) ->
 	       end,
     target_params_entry(Name, MPModel, SecModel, SecName, SecLevel).
 
+-spec target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
+          TargetParamsEntry when
+      Name              :: snmp_target_mib:name(),
+      MPModel           :: snmp_framework_mib:message_processing_model(),
+      SecModel          :: snmp_framework_mib:security_model(),
+      SecName           :: snmp_framework_mib:admin_string(),
+      SecLevel          :: snmp_framework_mib:security_level(),
+      TargetParamsEntry :: target_params_entry().
+
 target_params_entry(Name, MPModel, SecModel, SecName, SecLevel) ->
     {Name, MPModel, SecModel, SecName, SecLevel}.
     
+
+-spec write_target_params_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_params_entry()].
 
 write_target_params_config(Dir, Conf) ->
     Comment =
@@ -666,6 +1055,11 @@ write_target_params_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_target_params_config(Dir, Hdr, Conf).
 
+-spec write_target_params_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [target_params_entry()].
+
 write_target_params_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -673,12 +1067,23 @@ write_target_params_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_target_params_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
 
+
+-spec append_target_params_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [target_params_entry()].
+
 append_target_params_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_target_params/2,
     Write = fun write_target_params_conf/2,
     append_config_file(Dir, "target_params.conf", Order, Check, Write, Conf).
+
+
+-spec read_target_params_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [target_params_entry()],
+      Reason :: term().
 
 read_target_params_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -712,9 +1117,19 @@ do_write_target_params_conf(_Fd, Crap) ->
 %% ------ notify.conf ------
 %%
 
+-spec notify_entry(Name, Tag, Type) -> NotifyEntry when
+      Name        :: snmp_notification_mib:notify_name(),
+      Tag         :: snmp_notification_mib:notify_tag(),
+      Type        :: snmp_notification_mib:notify_type(),
+      NotifyEntry :: notify_entry().
+
 notify_entry(Name, Tag, Type) ->
     {Name, Tag, Type}.
 
+
+-spec write_notify_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [notify_entry()].
 
 write_notify_config(Dir, Conf) ->
     Comment =
@@ -731,6 +1146,11 @@ write_notify_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_notify_config(Dir, Hdr, Conf).
 
+-spec write_notify_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [notify_entry()].
+
 write_notify_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -738,12 +1158,23 @@ write_notify_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_notify_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
 
+
+-spec append_notify_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [notify_entry()].
+
 append_notify_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_notify/2,
     Write = fun write_notify_conf/2,
     append_config_file(Dir, "notify.conf", Order, Check, Write, Conf).
+
+
+-spec read_notify_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [notify_entry()],
+      Reason :: term().
 
 read_notify_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -775,6 +1206,10 @@ do_write_notify_conf(_Fd, Crap) ->
 %% ------ usm.conf ------
 %%
 
+-spec usm_entry(EngineID) -> UsmEntry when
+      EngineID :: snmp_framework_mib:engine_id(),
+      UsmEntry :: usm_entry().
+
 usm_entry(EngineID) ->
     UserName    = "initial", 
     SecName     = "initial", 
@@ -793,6 +1228,27 @@ usm_entry(EngineID) ->
               PrivP, PrivKeyC, OwnPrivKeyC,
               Public, AuthKey, PrivKey).
 
+-spec usm_entry(EngineID,
+                UserName, SecName,
+                Clone,
+                AuthP, AuthKeyC, OwnAuthKeyC,
+                PrivP, PrivKeyC, OwnPrivKeyC,
+                Public, AuthKey, PrivKey) -> UsmEntry when
+      EngineID    :: snmp_framework_mib:engine_id(),
+      UserName    :: snmp_user_based_sm_mib:name(),
+      SecName     :: snmp_framework_mib:admin_string(),
+      Clone       :: snmp_user_based_sm_mib:clone_from(), 
+      AuthP       :: snmp_user_based_sm_mib:auth_protocol(),
+      AuthKeyC    :: snmp_user_based_sm_mib:key_change(),
+      OwnAuthKeyC :: snmp_user_based_sm_mib:key_change(),
+      PrivP       :: snmp_user_based_sm_mib:priv_protocol(),
+      PrivKeyC    :: snmp_user_based_sm_mib:key_change(),
+      OwnPrivKeyC :: snmp_user_based_sm_mib:key_change(),
+      Public      :: snmp_user_based_sm_mib:public(),
+      AuthKey     :: snmp_user_based_sm_mib:auth_key(),
+      PrivKey     :: snmp_user_based_sm_mib:priv_key(),
+      UsmEntry    :: usm_entry().
+
 usm_entry(EngineID, UserName, SecName, Clone, 
 	  AuthP, AuthKeyC, OwnAuthKeyC,
 	  PrivP, PrivKeyC, OwnPrivKeyC,
@@ -802,6 +1258,10 @@ usm_entry(EngineID, UserName, SecName, Clone,
      PrivP, PrivKeyC, OwnPrivKeyC,
      Public, AuthKey, PrivKey}.
     
+
+-spec write_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [usm_entry()].
 
 write_usm_config(Dir, Conf) ->
     Comment =
@@ -820,6 +1280,11 @@ write_usm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_usm_config(Dir, Hdr, Conf).
 
+-spec write_usm_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [usm_entry()].
+
 write_usm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -827,12 +1292,23 @@ write_usm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_usm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
 
+
+-spec append_usm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [usm_entry()].
+
 append_usm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_usm/2,
     Write = fun write_usm_conf/2,
     append_config_file(Dir, "usm.conf", Order, Check, Write, Conf).
+
+
+-spec read_usm_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [usm_entry()],
+      Reason :: term().
 
 read_usm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,
@@ -888,17 +1364,53 @@ do_write_usm2(Fd, X, P) ->
 %% ------ vacm.conf ------
 %%
 
-vacm_s2g_entry(SecModel, SecName, GroupName) ->
-    {vacmSecurityToGroup, SecModel, SecName, GroupName}.
-
+-spec vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match,
+                     RV, WV, NV) -> VacmAccEntry when
+      GroupName    :: snmp_framework_mib:admin_string(),
+      Prefix       :: snmp_view_based_acm_mib:context_prefix(),
+      SecModel     :: snmp_framework_mib:security_model(),
+      SecLevel     :: snmp_framework_mib:security_level(),
+      Match        :: snmp_view_based_acm_mib:context_match(),
+      RV           :: snmp_framework_mib:admin_string(),
+      WV           :: snmp_framework_mib:admin_string(),
+      NV           :: snmp_framework_mib:admin_string(),
+      VacmAccEntry :: vacm_acc_entry().
+      
 vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     {vacmAccess, GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV}.
 
-vacm_vtf_entry(ViewIndex, ViewSubtree) ->
-    vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
-vacm_vtf_entry(ViewIndex, ViewSubtree, ViewStatus, ViewMask) ->
-    {vacmViewTreeFamily, ViewIndex, ViewSubtree, ViewStatus, ViewMask}.
+-spec vacm_s2g_entry(SecModel, SecName, GroupName) -> VacmS2GEntry when
+      SecModel     :: snmp_framework_mib:security_model(),
+      SecName      :: snmp_view_based_acm_mib:security_name(),
+      GroupName    :: snmp_framework_mib:admin_string(),
+      VacmS2GEntry :: vacm_s2g_entry().
 
+vacm_s2g_entry(SecModel, SecName, GroupName) ->
+    {vacmSecurityToGroup, SecModel, SecName, GroupName}.
+
+-spec vacm_vtf_entry(ViewName, ViewSubtree) -> VacmVtfEntry when
+      ViewName     :: snmp_framework_mib:admin_string(),
+      ViewSubtree  :: snmp:oid(),
+      VacmVtfEntry :: VacmVtfEntry.
+
+vacm_vtf_entry(ViewName, ViewSubtree) ->
+    vacm_vtf_entry(ViewName, ViewSubtree, included, null).
+
+-spec vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
+          VacmVtfEntry when
+      ViewName     :: snmp_framework_mib:admin_string(),
+      ViewSubtree  :: snmp:oid(),
+      ViewType     :: snmp_view_based_acm_mib:view_type(),
+      ViewMask     :: null | snmp_view_based_acm_mib:view_mask(),
+      VacmVtfEntry :: VacmVtfEntry.
+
+vacm_vtf_entry(ViewName, ViewSubtree, ViewType, ViewMask) ->
+    {vacmViewTreeFamily, ViewName, ViewSubtree, ViewType, ViewMask}.
+
+
+-spec write_vacm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [vacm_entry()].
 
 write_vacm_config(Dir, Conf) ->
     Comment =
@@ -923,6 +1435,11 @@ write_vacm_config(Dir, Conf) ->
     Hdr = header() ++ Comment,
     write_vacm_config(Dir, Hdr, Conf).
 
+-spec write_vacm_config(Dir, Hdr, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Hdr  :: string(),
+      Conf :: [vacm_entry()].
+
 write_vacm_config(Dir, Hdr, Conf)
   when is_list(Dir) and is_list(Hdr) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
@@ -930,12 +1447,23 @@ write_vacm_config(Dir, Hdr, Conf)
     Write = fun (Fd, Entries) -> write_vacm_conf(Fd, Hdr, Entries) end,
     write_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
 
+
+-spec append_vacm_config(Dir, Conf) -> ok when
+      Dir  :: snmp:dir(),
+      Conf :: [vacm_entry()].
+
 append_vacm_config(Dir, Conf)
   when is_list(Dir) and is_list(Conf) ->
     Order = fun snmp_conf:no_order/2,
     Check = fun check_vacm/2,
     Write = fun write_vacm_conf/2,
     append_config_file(Dir, "vacm.conf", Order, Check, Write, Conf).
+
+
+-spec read_vacm_config(Dir) -> {ok, Conf} | {error, Reason} when
+      Dir    :: snmp:dir(),
+      Conf   :: [vacm_entry()],
+      Reason :: term().
 
 read_vacm_config(Dir) ->
     Order = fun snmp_conf:no_order/2,

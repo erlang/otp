@@ -49,6 +49,19 @@
 
   <datatypes>
     <datatype>
+      <name name="name"/>
+      <desc>
+	<note>
+	  <p>"The locally arbitrary, but unique identifier associated
+	  with this snmpTargetAddrEntry."</p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="tag_value"/>
       <desc>
 	<note>
@@ -57,6 +70,78 @@
 	</note>
 	<p>
 	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="retry_count"/>
+      <desc>
+	<note>
+	  <p>"This object specifies a default number of retries to be
+	  attempted when a response is not received for a generated
+	  message."</p>
+	</note>
+	<p>
+	  <c><![CDATA[Integer32 (0..255)]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="tag_list"/>
+      <desc>
+	<note>
+	  <p>"An octet string containing a list of tag values.
+	  Tag values are preferably in human-readable form."</p>
+	  <p>"To facilitate internationalization, this information
+	  is represented using the ISO/IEC IS 10646-1 character
+	  set, encoded as an octet string using the UTF-8
+	  character encoding scheme described in RFC 2279."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="params"/>
+      <desc>
+	<note>
+	  <p>"The value of this object identifies an entry in the
+	  snmpTargetParamsTable."</p>
+	</note>
+	<p>
+	  <c><![CDATA[SnmpAdminString (SIZE(1..32))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="tmask"/>
+      <desc>
+	<note>
+	  <p>"The mask value associated with an entry in the
+	  snmpTargetAddrTable. The value of this object must
+	  have the same length as the corresponding instance of
+	  snmpTargetAddrTAddress, or must have length 0."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OCTET STRING (SIZE (0..255))]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="mms"/>
+      <desc>
+	<note>
+	  <p>"The maximum message size value associated with an entry
+	  in the snmpTargetAddrTable.".</p>
+	</note>
+	<p>
+	  <c><![CDATA[Integer32 (484..65535)]]></c>
 	</p>
       </desc>
     </datatype>
@@ -74,112 +159,81 @@
 
   <funcs>
     <func>
-      <name since="">configure(ConfDir) -> void()</name>
+      <name name="configure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
-        <p>This function is called from the supervisor at system
-          start-up.
-          </p>
+	<p>This function is called from the supervisor at system
+	start-up. </p>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old rows with StorageType
-          <c>volatile</c>.  The rows created from the configuration file
-          will have StorageType <c>nonVolatile</c>. </p>
+	database and destroys all old rows with StorageType
+	<c>volatile</c>.  The rows created from the configuration file
+	will have StorageType <c>nonVolatile</c>. </p>
         <p>All <c>snmp</c> counters are set to zero. </p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the error
-          report module, and the function fails with the reason 
-          <c>configuration_error</c>. </p>
+	reported using the function <c>config_err/2</c> of the error
+	report module, and the function fails with the reason 
+	<c>configuration_error</c>. </p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found. </p>
+	where the configuration files are found. </p>
         <p>The configuration files read are: <c>target_addr.conf</c>
-          and <c>target_params.conf</c>. </p>
+	and <c>target_params.conf</c>. </p>
 
 	<marker id="reconfigure"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">reconfigure(ConfDir) -> void()</name>
+      <name name="reconfigure" arity="1" clause_i="1" since=""/>
       <fsummary>Configure the SNMP-TARGET-MIB</fsummary>
-      <type>
-        <v>ConfDir = string()</v>
-      </type>
       <desc>
         <p>Inserts all data in the configuration files into the
-          database and destroys all old data, including the rows with
-          StorageType <c>nonVolatile</c>.  The rows created from the
-          configuration file will have StorageType <c>nonVolatile</c>. </p>
+	database and destroys all old data, including the rows with
+	StorageType <c>nonVolatile</c>.  The rows created from the
+	configuration file will have StorageType <c>nonVolatile</c>. </p>
         <p>Thus, the data in the SNMP-TARGET-MIB, after this
-          function has been called, is the data from the configuration
-          files. </p>
+	function has been called, is the data from the configuration
+	files. </p>
         <p>All <c>snmp</c> counters are set to zero.</p>
         <p>If an error is found in the configuration file, it is
-          reported using the function <c>config_err/2</c> of the ,
-          and the function fails with the reason 
-          <c>configuration_error</c>.</p>
+	reported using the function <c>config_err/2</c> of the ,
+	and the function fails with the reason 
+	<c>configuration_error</c>.</p>
         <p><c>ConfDir</c> is a string which points to the directory
-          where the configuration files are found. </p>
+	where the configuration files are found. </p>
         <p>The configuration files read are: <c>target_addr.conf</c>
-          and <c>target_params.conf</c>. </p>
+	and <c>target_params.conf</c>. </p>
 
 	<marker id="set_target_engine_id"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">set_target_engine_id(TargetAddrName, EngineId) -> boolean()</name>
+      <name name="set_target_engine_id" arity="2" clause_i="1" since=""/>
       <fsummary>Set the engine id for a targetAddr row.</fsummary>
-      <type>
-        <v>TargetAddrName = string()</v>
-        <v>EngineId = string()</v>
-      </type>
       <desc>
         <p>Changes the engine id for a target in the 
-          <c>snmpTargetAddrTable</c>.
-          If notifications are sent as Inform requests to a target, its
-          engine id must be set. </p>
+	<c>snmpTargetAddrTable</c>.
+	If notifications are sent as Inform requests to a target, its
+	engine id must be set. </p>
 
 	<marker id="add_addr"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
+      <name name="add_addr" arity="10" clause_i="1" since=""/>
       <fsummary>Add one target address definition</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>Domain = transportDomain()</v>
-	<v>Addr = transportAddress()  % Default port is 162</v>
-        <v>Timeout = integer()</v>
-        <v>Retry = integer()</v>
-        <v>TagList = string()</v>
-        <v>ParamsName = string()</v>
-        <v>EngineId = string()</v>
-        <v>TMask = transportAddressMask()  % Depends on Domain</v>
-        <v>MMS = integer()</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a target address definition to the agent config. 
-          Equivalent to one line in the <c>target_addr.conf</c> file.</p>
+	Equivalent to one line in the <c>target_addr.conf</c> file.</p>
 
         <marker id="delete_addr"></marker>
       </desc>
     </func>
 
     <func>
-      <name since="">delete_addr(Key) -> Ret</name>
+      <name name="delete_addr" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one target address definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a target address definition from the agent config.</p>
 
@@ -188,33 +242,19 @@
     </func>
 
     <func>
-      <name since="">add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret</name>
+      <name name="add_params" arity="5" clause_i="1" since=""/>
       <fsummary>Add one target parameter definition</fsummary>
-      <type>
-        <v>Name = string()</v>
-        <v>MPModel = v1 | v2c | v3</v>
-        <v>SecModel = v1 | v2c | usm</v>
-        <v>SecName = string()</v>
-        <v>SecLevel = noAuthNoPriv | authNoPriv | authPriv</v>
-        <v>Ret = {ok, Key} | {error, Reason}</v>
-        <v>Key = term()</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Adds a target parameter definition to the agent config. 
-          Equivalent to one line in the <c>target_params.conf</c> file.</p>
+	Equivalent to one line in the <c>target_params.conf</c> file.</p>
 
         <marker id="delete_params"></marker>
       </desc>
     </func>
+
     <func>
-      <name since="">delete_params(Key) -> Ret</name>
+      <name name="delete_params" arity="1" clause_i="1" since=""/>
       <fsummary>Delete one target parameter definition</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Ret = ok | {error, Reason}</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
         <p>Delete a target parameter definition from the agent config.</p>
       </desc>

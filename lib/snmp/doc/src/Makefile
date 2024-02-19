@@ -61,16 +61,30 @@ SPECS_FILES = \
 	$(SPECDIR)/specs_snmp_community_mib.xml \
 	$(SPECDIR)/specs_snmp_framework_mib.xml \
 	$(SPECDIR)/specs_snmp_notification_mib.xml \
+	$(SPECDIR)/specs_snmp_standard_mib.xml \
 	$(SPECDIR)/specs_snmp_target_mib.xml \
+	$(SPECDIR)/specs_snmp_user_based_sm_mib.xml \
+	$(SPECDIR)/specs_snmp_view_based_acm_mib.xml \
 	$(SPECDIR)/specs_snmp_generic.xml \
 	$(SPECDIR)/specs_snmp_index.xml \
 	$(SPECDIR)/specs_snmp_pdus.xml \
-	$(SPECDIR)/specs_snmpa.xml
+	$(SPECDIR)/specs_snmpa.xml \
+	$(SPECDIR)/specs_snmpa_conf.xml \
+	$(SPECDIR)/specs_snmpa_error.xml \
+	$(SPECDIR)/specs_snmpa_error_io.xml \
+	$(SPECDIR)/specs_snmpa_error_logger.xml \
+	$(SPECDIR)/specs_snmpa_local_db.xml \
+	$(SPECDIR)/specs_snmpa_mpd.xml \
+	$(SPECDIR)/specs_snmpa_supervisor.xml \
+	$(SPECDIR)/specs_snmpa_notification_delivery_info_receiver.xml \
+	$(SPECDIR)/specs_snmpc.xml \
+	$(SPECDIR)/specs_snmpm.xml \
+	$(SPECDIR)/specs_snmpm_conf.xml \
+	$(SPECDIR)/specs_snmpm_mpd.xml
 
 TOP_SPECS_FILE = specs.xml
 
-NO_CHUNKS = 
-
+NO_CHUNKS =
 
 # ----------------------------------------------------
 # Targets

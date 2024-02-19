@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,6 +34,16 @@
          empty_msg_size/0
         ]).
 
+-export_type([
+              logger/0,
+              msg_data/0,
+              msg_data_cmy/0,
+              msg_data_ctx/0,
+              acm_data/0,
+              acm_data_cmy/0,
+              acm_data_v3/0,
+              mpd_state/0
+             ]).
 
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
@@ -63,6 +73,44 @@
 	       req_id}).
 
 
+-type   msg_data() :: msg_data_cmy() | msg_data_ctx().
+-opaque msg_data_cmy() ::
+          {community,
+           Community       :: snmp_community_mib:name()}.
+-opaque msg_data_ctx() ::
+          {v3,
+           ContextEngineID :: snmp_framework_mib:engine_id(),
+           ContextName     :: snmp_community_mib:context_name()}.
+-type   acm_data() :: acm_data_cmy() | acm_data_v3().
+-opaque acm_data_cmy() ::
+          {community,
+           SecModel  :: snmp_framework_mib:security_model(),
+           Community :: snmp_community_mib:name(),
+           TDomain   :: snmpa_conf:transportDomain(),
+           TAddress  :: snmpa_conf:transportAddress()}.
+-opaque acm_data_v3() ::
+          {v3,
+           MsgID            :: snmp_pdus:msg_id(),
+           MsgSecurityModel :: snmp_pdus:msg_security_model(),
+           SecName          :: snmp_community_mib:name(),
+           %% Actually the identifier for the security level; 1 | 2 | 3
+           %% snmp_framework_mib:security_level(),
+           SecLevel         :: non_neg_integer(),
+           ContextEngineID  :: snmp_framework_mib:engine_id(),
+           ContextName      :: snmp_community_mib:context_name(),
+           SecData          :: term()}.
+
+-type logger() ::
+        fun((Type :: snmp_pdus:pdu_type(),
+             Data :: binary() |
+                     {V3Hdr          :: snmp_pdus:v3_hdr(),
+                      ScopedPDUBytes :: binary()}) -> snmp:void()).
+
+-opaque mpd_state() :: #state{}.
+
+
+
+
 %%%-----------------------------------------------------------------
 %%% This module implements the Message Processing and Dispatch part of
 %%% the multi-lingual SNMP agent.
@@ -84,6 +132,11 @@
 %%% With the terms defined in rfc2271, this module implements part
 %%% of the Dispatcher and the Message Processing functionality.
 %%%-----------------------------------------------------------------
+
+-spec init(Vsns) -> MPDState when
+      Vsns     :: [snmp:version()],
+      MPDState :: mpd_state().
+
 init(Vsns) ->
     ?vlog("init -> entry with"
 	"~n   Vsns: ~p", [Vsns]),
@@ -147,19 +200,76 @@ empty_msg_size() ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
+
+-spec process_packet(Packet, From, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet      :: binary(),
+      From        :: {TDomain, TAddress},
+      TDomain     :: snmpa_conf:transportDomain(),
+      TAddress    :: {IpAddr, IpPort},
+      IpAddr      :: inet:ip_address(),
+      IpPort      :: inet:port_number(),
+      State       :: mpd_state(),
+      NoteStore   :: pid(),
+      Log         :: logger(),
+      Vsn         :: snmp_pdus:version(),
+      Pdu         :: snmp_pdus:pdu(),
+      PduMS       :: pos_integer(),
+      ACMData     :: acm_data(),
+      Reason      :: term(),
+      DiscoPacket :: binary().
+
 process_packet(Packet, From, State, NoteStore, Log) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
-process_packet(
-  Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
-    From = {Domain, Address},
-    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
 
-process_packet(Packet, Domain, Address, State, NoteStore, Log)
-  when is_atom(Domain) ->
+-spec process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet      :: binary(),
+      TDomain     :: snmpa_conf:transportDomain(),
+      TAddress    :: {IpAddr, IpPort},
+      IpAddr      :: inet:ip_address(),
+      IpPort      :: inet:port_number(),
+      State       :: mpd_state(),
+      NoteStore   :: pid(),
+      Log         :: logger(),
+      Vsn         :: snmp_pdus:version(),
+      Pdu         :: snmp_pdus:pdu(),
+      PduMS       :: pos_integer(),
+      ACMData     :: acm_data(),
+      Reason      :: term(),
+      DiscoPacket :: binary();
+                    (Packet, From, LocalEngineID, State, NoteStore, Log) ->
+          {ok, Vsn, Pdu, PduMS, ACMData} |
+          {discarded, Reason} |
+          {discovery, DiscoPacket} when
+      Packet        :: binary(),
+      From          :: {TDomain, TAddress},
+      TDomain       :: snmpa_conf:transportDomain(),
+      TAddress      :: {IpAddr, IpPort},
+      IpAddr        :: inet:ip_address(),
+      IpPort        :: inet:port_number(),
+      LocalEngineID :: snmp_framework_mib:engine_id(),
+      State         :: mpd_state(),
+      NoteStore     :: pid(),
+      Log           :: logger(),
+      Vsn           :: snmp_pdus:version(),
+      Pdu           :: snmp_pdus:pdu(),
+      PduMS         :: pos_integer(),
+      ACMData       :: acm_data(),
+      Reason        :: term(),
+      DiscoPacket   :: binary().
+
+
+process_packet(Packet, TDomain, TAddress, State, NoteStore, Log)
+  when is_atom(TDomain) ->
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
-    From = {Domain, Address},
+    From = {TDomain, TAddress},
     process_packet(Packet, From, LocalEngineID, State, NoteStore, Log);
 process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
     inc(snmpInPkts),
@@ -223,6 +333,16 @@ process_packet(Packet, From, LocalEngineID, State, NoteStore, Log) ->
 	    inc(snmpInBadVersions),
 	    {discarded, snmpInBadVersions}
     end.
+
+process_packet(
+  Packet, Domain, Address, LocalEngineID, State, NoteStore, Log) ->
+    From = {Domain, Address},
+    process_packet(Packet, From, LocalEngineID, State, NoteStore, Log).
+
+
+
+-spec discarded_pdu(Variable) -> snmp:void() when
+      Variable :: snmpa:name() | false.
 
 discarded_pdu(false) -> ok;
 discarded_pdu(Variable) -> inc(Variable).
@@ -641,12 +761,32 @@ get_scoped_pdu(D) ->
 %%-----------------------------------------------------------------
 %% Executed when a response or report message is generated.
 %%-----------------------------------------------------------------
-generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
-    generate_response_msg(Vsn, RePdu, Type, ACMData, Log, 1).
 
-generate_response_msg(Vsn, RePdu, Type, ACMData, Log, N) when is_integer(N) ->
-    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, N);
+-spec generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
+          {ok, Packet} | {discarded, Reason} when
+      Vsn     :: snmp_pdus:version(),
+      RePdu   :: snmp_pdus:pdu(),
+      Type    :: snmp_pdus:pdu_type(),
+      ACMData :: acm_data(),
+      Log     :: logger(),
+      Packet  :: binary(),
+      Reason  :: term().
+
+generate_response_msg(Vsn, RePdu, Type, ACMData, Log) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID,
+    generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
+
+-spec generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
+          {ok, Packet} | {discarded, Reason} when
+      Vsn           :: snmp_pdus:version(),
+      RePdu         :: snmp_pdus:pdu(),
+      Type          :: snmp_pdus:pdu_type(),
+      ACMData       :: acm_data(),
+      LocalEngineID :: snmp_framework_mib:engine_id(),
+      Log           :: logger(),
+      Packet        :: binary(),
+      Reason        :: term().
+
 generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
 
@@ -914,15 +1054,50 @@ set_vb_null([Vb | Vbs]) ->
 set_vb_null([]) ->
     [].
 
+
 %%-----------------------------------------------------------------
 %% Executed when a message that isn't a response is generated, i.e.
 %% a trap or an inform.
 %%-----------------------------------------------------------------
-generate_msg(Vsn, NoteStore, Pdu, ACMData, To) ->
-    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    generate_msg(Vsn, NoteStore, Pdu, ACMData, LocalEngineID, To).
 
-generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
+-spec generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
+          {ok, PacketsAndAddresses} | {discarded, Reason} when
+      Vsn                 :: snmp_pdus:version(),
+      NoteStore           :: pid(),
+      Pdu                 :: snmp_pdus:pdu(),
+      MsgData             :: msg_data(),
+      To                  :: [{Domain, Address}],
+      PacketsAndAddresses :: [{Domain, Address, Packet}],
+      Domain              :: snmpa_conf:transportDomain(),
+      Address             :: snmpa_conf:transportAddress(),
+      Packet              :: binary(),
+      Reason              :: term().
+
+generate_msg(Vsn, NoteStore, Pdu, MsgData, To) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To).
+
+
+-spec generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) ->
+          {ok, PacketsAndAddresses} | {discarded, Reason} when
+      Vsn                 :: snmp_pdus:version(),
+      NoteStore           :: pid(),
+      Pdu                 :: snmp_pdus:pdu(),
+      MsgData             :: msg_data(),
+      LocalEngineID       :: snmp_framework_mib:engine_id(),
+      To                  :: [DestAddr],
+      DestAddr            :: {Domain, Address} |
+                             {{Domain, Address}, SecData},
+      SecData             :: term(),
+      PacketsAndAddresses :: [{Domain, Address, Packet}],
+      Domain              :: snmpa_conf:transportDomain(),
+      Address             :: snmpa_conf:transportAddress(),
+      Packet              :: binary(),
+      Reason              :: term().
+
+generate_msg(Vsn, _NoteStore, Pdu,
+             {community, Community},
+             LocalEngineID, To) ->
     Message = #message{version = Vsn, vsn_hdr = Community, data = Pdu},
     case catch list_to_binary(snmp_pdus:enc_message(Message)) of
 	{'EXIT', Reason} ->
@@ -944,7 +1119,8 @@ generate_msg(Vsn, _NoteStore, Pdu, {community, Community}, LocalEngineID, To) ->
 	    end
     end;
 generate_msg('version-3', NoteStore, Pdu, 
-	     {v3, ContextEngineID, ContextName}, LocalEngineID, To) ->
+	     {v3, ContextEngineID, ContextName},
+             LocalEngineID, To) ->
     %% rfc2272: 7.1 step 6
     ScopedPDU = #scopedPdu{contextEngineID = LocalEngineID, 
 			   contextName = ContextName,
@@ -1160,6 +1336,19 @@ transform_taddr(BadTDomain, TAddress) ->
 	    {error, {unknown_tdomain, BadTDomain, TAddress}}
     end.
 
+
+-spec process_taddrs(InDests) -> OutDests when
+      InDests    :: [InDest],
+      InDest     :: {{InDomain, InAddress}, SecData} |
+                    {InDomain, InAddress},
+      InDomain   :: term(),
+      InAddress  :: term(),
+      SecData    :: term(),
+      OutDests   :: [OutDest],
+      OutDest    :: {{OutDomain, OutAddress}, SecData} |
+                    {OutDomain, OutAddress},
+      OutDomain  :: snmpa_conf:transportDomain(),
+      OutAddress :: snmpa_conf:transportAddress().
 
 process_taddrs(Dests) ->
     ?vtrace("process_taddrs -> entry with"

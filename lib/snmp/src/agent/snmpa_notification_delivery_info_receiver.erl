@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,10 +20,18 @@
 
 -module(snmpa_notification_delivery_info_receiver).
 
+-include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
+
 -export([verify/1]).
 
--type transportDomain() :: snmpa_conf:transportDomain().
+-export_type([
+              notification_delivery_info/0
+             ]).
+
+-type transportDomain()          :: snmpa_conf:transportDomain().
 -type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
+
+-type notification_delivery_info() :: #snmpa_notification_delivery_info{}.
 
 
 -callback delivery_info(Tag, Targets, DeliveryResult, Extra) -> snmp:void() when

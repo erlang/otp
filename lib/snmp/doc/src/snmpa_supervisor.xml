@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2020</year>
+      <year>2004</year><year>2024</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,80 +36,59 @@
   <modulesummary>A supervisor for the SNMP agent Processes</modulesummary>
   <description>
     <p>This is the top supervisor for the agent part of the SNMP 
-      application. There is always one supervisor at each node with 
-      an SNMP agent (master agent or sub-agent).
-      </p>
+    application. There is always one supervisor at each node with 
+    an SNMP agent (master agent or sub-agent). </p>
   </description>
+
   <funcs>
     <func>
-      <name since="">start_sub_sup(Opts) -> {ok, pid()} | {error, {already_started, pid()}} | {error, Reason}</name>
+      <name name="start_sub_sup" arity="1" clause_i="1" since=""/>
       <fsummary>Start the SNMP supervisor for sub-agents only</fsummary>
-      <type>
-        <v>Opts = [opt()]</v>
-        <v>opt() = {db_dir, string()} | ...</v>
-      </type>
       <desc>
         <p>Starts a supervisor for the SNMP agent system without a
-          master agent.  The supervisor starts all involved SNMP
-          processes, but no agent processes.  Sub-agents should be
-          started by calling <c>start_sub_agent/3</c>.
-          </p>
+	master agent.  The supervisor starts all involved SNMP
+	processes, but no agent processes.  Sub-agents should be
+	started by calling <c>start_sub_agent/3</c>. </p>
         <p><c>db_dir</c> is mandatory.</p>
         <p>See <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide> for 
-          a description of the options.</p>
+	a description of the options.</p>
       </desc>
     </func>
+
     <func>
-      <name since="">start_master_sup(Opts) -> {ok, pid()} |  {error, {already_started, pid()}} | {error, Reason}</name>
+      <name name="start_master_sup" arity="1" clause_i="1" since=""/>
       <fsummary>Start the SNMP supervisor for all agents</fsummary>
-      <type>
-        <v>Opts = [opt()]</v>
-        <v>opt() = {db_dir, string()} | {config, ConfOpts()} | ...</v>
-        <v>ConfOpts = [conf_opts()]</v>
-        <v>conf_opts() = {dir, string()} | ...</v>
-        <v>Reason = term()</v>
-      </type>
       <desc>
-        <p>Starts a supervisor for the SNMP agent system.  The
-          supervisor starts all involved SNMP processes, including the
-          master agent.  Sub-agents should be started by calling
-          <c>start_subagent/3</c>.
-          </p>
+        <p>Starts a supervisor for the SNMP agent system. The
+	supervisor starts all involved SNMP processes, including the
+	master agent. Sub-agents should be started by calling
+	<c>start_subagent/3</c>. </p>
         <p><c>db_dir</c> is mandatory.</p>
         <p><c>dir</c> in config is mandatory.</p>
         <p>See <seeguide marker="snmp_config">snmp config</seeguide> for 
-          a description of the options.</p>
+	a description of the options. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">start_sub_agent(ParentAgent,Subtree,Mibs) -> {ok, pid()} | {error, Reason}</name>
+      <name name="start_sub_agent" arity="3" clause_i="1" since=""/>
       <fsummary>Start a sub-agent</fsummary>
-      <type>
-        <v>ParentAgent = pid()</v>
-        <v>SubTree = oid()</v>
-        <v>Mibs = [MibName]</v>
-        <v>MibName = [string()]</v>
-      </type>
       <desc>
         <p>Starts a sub-agent on the node where the function is
-          called.  The <c>snmpa_supervisor</c> must be running.
-          </p>
+	called.  The <c>snmpa_supervisor</c> must be running. </p>
         <p>If the supervisor is not running, the function fails with the
-          reason <c>badarg</c>.</p>
+	reason <c>badarg</c>. </p>
       </desc>
     </func>
+
     <func>
-      <name since="">stop_sub_agent(SubAgent) -> ok | no_such_child</name>
+      <name name="stop_sub_agent" arity="1" clause_i="1" since=""/>
       <fsummary>Stop a sub-agent</fsummary>
-      <type>
-        <v>SubAgent = pid()</v>
-      </type>
       <desc>
         <p>Stops the sub-agent on the node where the function is
-          called.  The <c>snmpa_supervisor</c> must be running.
-          </p>
+	called.  The <c>snmpa_supervisor</c> must be running. </p>
         <p>If the supervisor is not running, the function fails with the
-          reason <c>badarg</c>.</p>
+	reason <c>badarg</c>. </p>
       </desc>
     </func>
   </funcs>

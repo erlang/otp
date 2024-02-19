@@ -66,15 +66,66 @@
 -export([which_trap_transport/1, which_req_transport/1, which_transport/2]).
 -export([add_context/1, delete_context/1]).
 -export([check_agent/2, check_context/1, order_agent/2]).
+-export([
+         message_processing_models/0,
+         security_models/0,
+         security_levels/0
+        ]).
 
 -export_type([
               admin_string/0,
-              engine_id/0
+              engine_id/0,
+              max_message_size/0,
+              message_processing_model/0,
+              security_model/0,
+              security_level/0
              ]).
 
 
--type admin_string() :: string().
--type engine_id()    :: string().
+-type admin_string()             :: string().
+-type engine_id()                :: string().
+-type max_message_size()         :: 484 .. 2147483647.
+-type message_processing_model() :: v1 | v2c | v3.
+-type security_model()           :: any | v1 | v2c | usm.
+-type security_level()           :: noAuthNoPriv |
+                                    authNoPriv   |
+                                    authPriv.
+
+
+%%-----------------------------------------------------------------
+
+-spec message_processing_models() -> MPModels when
+      MPModels   :: [{MPModel, Identifier}],
+      MPModel    :: message_processing_model(),
+      Identifier :: 0 .. 2147483647.
+
+message_processing_models() ->
+    [{v1,  0},
+     {v2c, 1},
+     {v3,  3}].
+
+
+-spec security_models() -> SecModels when
+      SecModels  :: [{SecModel, Identifier}],
+      SecModel   :: security_model(),
+      Identifier :: 0 .. 2147483647.
+
+security_models() ->
+    [{any, 0},
+     {v1,  1},
+     {v2c, 2},
+     {usm, 3}].
+
+
+-spec security_levels() -> SecLevels when
+      SecLevels  :: [{SecLevel, Identifier}],
+      SecLevel   :: security_level(),
+      Identifier :: 0 .. 2147483647.
+
+security_levels() ->
+    [{noAuthNoPriv, 1},
+     {authNoPriv,   2},
+     {authPriv,     3}].
 
 
 %%-----------------------------------------------------------------

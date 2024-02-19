@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,8 +46,17 @@ look_at(Mib) ->
 %% Misc compiler stuff
 %%-----------------------------------------------------------------
 
-is_consistent(Filenames) ->
-    snmpc_lib:is_consistent(Filenames).
+-spec is_consistent(FileNames) -> ok | {error, Reason} when
+      FileNames :: [MibName],
+      MibName   :: string(),
+      Reason    :: term().
+
+is_consistent(FileNames) ->
+    snmpc_lib:is_consistent(FileNames).
+
+-spec mib_to_hrl(MibName) -> ok | {error, Reason} when
+      MibName :: string(),
+      Reason  :: term().
 
 mib_to_hrl(MibName) ->
     snmpc_mib_to_hrl:convert(MibName).
@@ -94,13 +103,6 @@ make_options(#options{includes = Incs,
 
     [WarningOpt, OutdirOpt, IncludeOpt | Spec].
 
-%% Returns: {ok, File}|{error, Reason}
-compile([AtomFilename]) when is_atom(AtomFilename) ->
-    compile(atom_to_list(AtomFilename), []), % from cmd line
-    halt();
-compile(FileName) -> 
-    compile(FileName, []).
-
 
 %%----------------------------------------------------------------------
 %% Options:
@@ -121,10 +123,50 @@ compile(FileName) ->
 %%          {module, string()}
 %%          no_defs
 %%          relaxed_row_name_assign_check
-%% (hidden) {verbosity,   trace|debug|log|info|silence}   silence
+%%          {verbosity,   trace|debug|log|info|silence}   silence
 %% (hidden) version 
 %% (hidden) options 
 %%----------------------------------------------------------------------
+
+-spec compile([AtomFileName]) -> {ok, BinFileName} | {error, Reason} when
+      AtomFileName :: atom(),
+      BinFileName  :: string(),
+      Reason       :: term();
+             (FileName) -> {ok, BinFileName} | {error, Reason} when
+      FileName    :: string(),
+      BinFileName :: string(),
+      Reason      :: term().
+      
+%% Returns: {ok, File}|{error, Reason}
+compile([AtomFileName]) when is_atom(AtomFileName) ->
+    compile(atom_to_list(AtomFileName), []), % from cmd line
+    halt();
+compile(FileName) -> 
+    compile(FileName, []).
+
+-spec compile(FileName, Options) -> {ok, BinFileName} | {error, Reason} when
+      FileName    :: string(),
+      Options     :: [Option],
+      Option      :: agent_capabilities |
+                     {db, volatile | persistent | mnesia} |
+                     {deprecated, boolean()} |
+                     description |
+                     {group_check, boolean()} |
+                     {i, [snmp:dir()]} |
+                     {il, [snmp:dir()]} |
+                     imports |
+                     {module, module()} |
+                     module_identity |
+                     module_compliance |
+                     no_defs |
+                     {outdir, snmp:dir()} |
+                     reference |
+                     relaxed_row_name_assign_check |
+                     {verbosity, snmp:verbosity()} |
+                     {warnings, boolean()} |
+                     {warnings_as_errors, boolean()},
+      BinFileName :: string(),
+      Reason      :: term().
 
 compile(FileName, Options) when is_list(FileName) ->
     case snmpc_misc:check_file(FileName) of

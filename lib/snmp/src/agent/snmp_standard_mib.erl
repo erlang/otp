@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,8 +79,12 @@
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-configure(Dir) ->
-    case (catch do_configure(Dir)) of
+
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
+    case (catch do_configure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -118,9 +122,13 @@ do_configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
-reconfigure(Dir) ->
+
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -217,6 +225,9 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
+
+-spec reset() -> snmp:void().
+
 reset() ->
     snmpa_mpd:reset().
 
@@ -241,7 +252,16 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
+
+-spec inc(Name) -> snmp:void() when
+      Name :: atom().
+
 inc(Name) -> inc(Name, 1).
+
+-spec inc(Name, N) -> snmp:void() when
+      Name :: atom(),
+      N    :: integer().
+
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
@@ -465,13 +485,18 @@ gen_counter(get, Counter) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
+
+-spec sys_up_time() -> Time when
+      Time :: integer().
+
+sys_up_time() ->
+    snmpa:sys_up_time().
+
+
 sysUpTime(print) ->
     sys_up_time(print);
 sysUpTime(get) ->
     sys_up_time(get).
-
-sys_up_time() ->
-    snmpa:sys_up_time().
 
 sys_up_time(print) ->
     VarAndValue = [{sysUpTime,  sys_up_time(get)}],

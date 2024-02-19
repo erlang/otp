@@ -63,6 +63,93 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="max_message_size"/>
+      <desc>
+	<note>
+	  <p>"The maximum length in octets of an SNMP message
+	      which this SNMP engine can send or receive and
+	      process, determined as the minimum of the maximum
+              message size values supported among all of the
+              transports available to and supported by the engine."</p>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER (484..2147483647)]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="message_processing_model"/>
+      <desc>
+	<note>
+	  <p>"As of this writing, there are several values of
+	  messageProcessingModel defined for use with SNMP.
+	  They are as follows: " </p>
+	  <pre>
+                        0  reserved for SNMPv1
+                        1  reserved for SNMPv2c
+                        2  reserved for SNMPv2u and SNMPv2*
+			3  reserved for SNMPv3
+	  </pre>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER(0 .. 2147483647)]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="security_model"/>
+      <desc>
+	<note>
+	  <p>"As of this writing, there are several values
+	  of securityModel defined for use with SNMP or
+	  reserved for use with supporting MIB objects.
+	  They are as follows: " </p>
+
+	  <pre>
+                        0  reserved for 'any'
+                        1  reserved for SNMPv1
+                        2  reserved for SNMPv2c
+                        3  User-Based Security Model (USM)
+	  </pre>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER(0 .. 2147483647)]]></c>
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="security_level"/>
+      <desc>
+	<note>
+	  <p>"A Level of Security at which SNMP messages can be
+	  sent or with which operations are being processed;
+	  in particular, one of: " </p>
+	  <pre>
+                      noAuthNoPriv - without authentication and
+                                     without privacy,
+                      authNoPriv   - with authentication but
+                                     without privacy,
+                      authPriv     - with authentication and
+                                     with privacy.
+	  </pre>
+	  <p>
+	    "These three values are ordered such that
+	    noAuthNoPriv is less than authNoPriv and
+	    authNoPriv is less than authPriv." </p>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER { noAuthNoPriv(1),
+                              authNoPriv(2),
+                              authPriv(3)
+                            }]]></c>
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   

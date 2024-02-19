@@ -210,7 +210,7 @@ Supervisor ! {pong, self()}
 	  <marker id="im_ping"></marker>
 	  <p><c>{ping, Supervisor}</c></p>
 	  <p>This message is sent to the Net If process by a process that
-	  has been configured to perfor "active supervision" of the Net If
+	  has been configured to perform "active supervision" of the Net If
 	  process. The Net If process should respond immediately with
 	  a <seeguide marker="#om_pong">pong</seeguide> message. </p>
           <list type="bulleted">

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 %%%-----------------------------------------------------------------
 %%% Implements different error mechanisms.
 %%%-----------------------------------------------------------------
+
 -export([user_err/2, config_err/2]).
 
 
@@ -32,6 +33,11 @@
 %% This function is called when there is an error in a user
 %% supplied item, e.g. instrumentation function.
 %%-----------------------------------------------------------------
+
+-spec user_err(Format, Args) -> snmp:void() when
+      Format :: string(),
+      Args   :: list().
+
 user_err(F, A) -> 
     error_msg("User error", F, A).
 
@@ -41,6 +47,11 @@ user_err(F, A) ->
 %% either at startup (in a conf-file) or at run-time (e.g. when 
 %% information in the configuration tables are inconsistent.)
 %%-----------------------------------------------------------------
+
+-spec config_err(Format, Args) -> snmp:void() when
+      Format :: string(),
+      Args   :: list().
+
 config_err(F, A) ->
     error_msg("Configuration error", F, A).
 

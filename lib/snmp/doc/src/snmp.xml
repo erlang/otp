@@ -61,6 +61,28 @@
     </datatype>
 
     <datatype>
+      <name name="column"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="varbind"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
       <name name="bits"/>
       <desc>
 	<p>
@@ -133,6 +155,13 @@
 
     <datatype>
       <name name="log_size"/>
+      <!--
+	  This type, which is documented in disk_log,
+	  is not actually exported by disk_log.
+	  Instead it is defined in an internal header file.
+	  So we have to create a "copy" of it here.
+	  Lets hope it never changes...
+      -->
       <desc>
 	<p>
 	  This is basically a copy of the
@@ -153,7 +182,83 @@
     </datatype>
 
     <datatype>
+      <name name="atl_type"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="tdomain"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="taddress"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="time_interval"/>
+      <desc>
+	<note>
+	  <p>"A period of time, measured in units of 0.01 seconds."</p>
+	</note>
+	<p>
+	  <c><![CDATA[INTEGER (0..2147483647)]]></c>
+	</p>
+	<p>
+	  Defined by SNMPv2-TC.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="row_pointer"/>
+      <desc>
+	<note>
+	  <p>"Represents a pointer to a conceptual row.  The value is the
+              name of the instance of the first accessible columnar object
+              in the conceptual row."</p>
+	</note>
+	<p>
+	  <c><![CDATA[OBJECT IDENTIFIER]]></c>
+	</p>
+	<p>
+	  Defined by SNMPv2-TC.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
       <name name="algorithm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="me"/>
       <!--
       <desc>
 	<p>
@@ -194,6 +299,201 @@
 	</p>
       </desc>
       -->
+    </datatype>
+
+    <datatype>
+      <name name="dir"/>
+      <desc>
+	<p>
+	  A string, that is a file path to a directory.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="snmp_timer"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="engine_id"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="mms"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="community"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="context_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_auth_protocol"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_auth_key"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_priv_protocol"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="usm_priv_key"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="version"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_model"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_name"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="sec_level"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+ 
+    <datatype>
+      <name name="error_status"/>
+      <desc>
+	<p>
+	  We should really specify all of these, but they are so numerous...
+	  Also, normally all you need to know is that <c>'noError'</c> is ok
+	  and everything else is an error.
+	</p>
+      </desc>
+    </datatype>
+ 
+    <datatype>
+      <name name="error_index"/>
+      <desc>
+	<p>
+	  <c>0</c> is used when error status is <c>noError</c>
+	  and when error status is an actual error; error index
+	  is <c>pos_integer()</c>.
+	</p>
+      </desc>
+    </datatype>
+ 
+   <datatype>
+      <name name="verbosity"/>
+      <desc>
+	<p>
+	  For the lowest verbosity <c>silence</c>, nothing is printed.
+	  The higher the verbosity, the more is printed.
+	</p>
+      </desc>
     </datatype>
 
     <datatype>
