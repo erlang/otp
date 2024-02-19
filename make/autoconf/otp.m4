@@ -55,6 +55,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 host_os=win32
                 host_vendor=
                 host_cpu=i686
+            ],
+            [local-*-windows],
+            [
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
             ])
 
     AC_CANONICAL_BUILD
@@ -80,6 +87,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 build_os=win32
                 build_vendor=
                 build_cpu=i686
+            ],
+            [local-*-windows],
+            [
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
             ])
 
     AC_CANONICAL_TARGET
@@ -105,6 +119,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 target_os=win32
                 target_vendor=
                 target_cpu=i686
+            ],
+            [local-*-windows],
+            [
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
             ])
 
     AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host" -a "$build_cpu" = "$host_cpu"],

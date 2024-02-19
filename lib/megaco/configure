@@ -2900,6 +2900,13 @@ test -n "$target_alias" &&
                 host_vendor=
                 host_cpu=i686
              ;; #(
+  local-*-windows) :
+
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=
+             ;; #(
   *) :
      ;;
 esac
@@ -2928,6 +2935,13 @@ esac
                 build_vendor=
                 build_cpu=i686
              ;; #(
+  local-*-windows) :
+
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=
+             ;; #(
   *) :
      ;;
 esac
@@ -2955,6 +2969,13 @@ esac
                 target_os=win32
                 target_vendor=
                 target_cpu=i686
+             ;; #(
+  local-*-windows) :
+
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=
              ;; #(
   *) :
      ;;
