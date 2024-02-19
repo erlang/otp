@@ -1249,7 +1249,7 @@ case "$1" in
 		do_configure "$@";;
 	opt)
 		do_boot;;
-	plain|smp)
+	smp)
 		if [ $minus_x_flag = false ]; then
 		    TYPE=opt
 		fi;
