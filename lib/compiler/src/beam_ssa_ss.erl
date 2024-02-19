@@ -265,13 +265,10 @@ extract_status_for_element([{N,_,{extract,SrcElement}}|InEdges],
 extract_status_for_element([_Edge|InEdges], Element, Src, Dst, State) ->
     ?DP("    ignoring in-edge ~p~n", [_Edge]),
     extract_status_for_element(InEdges, Element, Src, Dst, State);
-extract_status_for_element([], _Element, _Src, Dst, State0) ->
+extract_status_for_element([], _Element, _Src, Dst, State) ->
     %% Nothing found, the status will be aliased.
-                                                %Status = beam_digraph:vertex(State0, Src),
-    Status = aliased,
-    ?DP("    status of ~p will be ~p~n", [Dst, Status]),
-    State = set_status(Dst, Status, State0),
-    ?assert_state(State).
+    ?DP("    status of ~p will be aliased~n", [Dst]),
+    ?assert_state(set_status(Dst, aliased, State)).
 
 -spec get_status(beam_ssa:b_var(), sharing_state()) ->
           sharing_status().
