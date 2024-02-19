@@ -25,7 +25,7 @@
     "System Documentation": ~r{system},
     Core: ~r/core/,
     Database: ~r/database/,
-    "Operations & Mainteinance": ~r/oam/,
+    "Operations & Maintenance": ~r/oam/,
     "Interfaces & Communication": ~r/interfaces/,
     Tools: ~r/tools/,
     Test: ~r/testing/,
