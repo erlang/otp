@@ -58,7 +58,11 @@ Var STARTMENU_FOLDER
 !if ${WINTYPE} == "win64"
   	InstallDir "$PROGRAMFILES64\Erlang OTP"
 !else
-  	InstallDir "$PROGRAMFILES\Erlang OTP"
+	!if ${WINTYPE} == "arm64"
+		InstallDir "$PROGRAMFILES64\Erlang OTP"
+	!else
+		InstallDir "$PROGRAMFILES\Erlang OTP"
+	!endif
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
@@ -68,7 +72,11 @@ Var STARTMENU_FOLDER
 !if ${WINTYPE} == "win64"
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 !else
-	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (i386)"
+	!if ${WINTYPE} == "arm64"
+		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
+	!else
+		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (Arm)"
+	!endif
 !endif  
 
 ;--------------------------------
@@ -384,6 +392,10 @@ Function .onInit
    SectionGetFlags 0 $MYTEMP
    StrCmpS ${WINTYPE} "win64" +1 +4
 	StrCpy $archprefix "amd64"
+	StrCpy $sysnativedir "$WINDIR\sysnative"
+   Goto +4
+    StrCmpS ${WINTYPE} "arm64" +1 +6
+	StrCpy $archprefix "arm64"
 	StrCpy $sysnativedir "$WINDIR\sysnative"
    Goto +3
 	StrCpy $archprefix "x86"
