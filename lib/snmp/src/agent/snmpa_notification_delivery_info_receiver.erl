@@ -41,15 +41,52 @@ work as before.
 
 ## DATA TYPES
 
-See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
+See the [transportDomain()](`t:snmpa_conf:transportDomain/0`) and
+[transportAddressWithPort()](`t:snmpa_conf:transportAddressWithPort/0`) for more
+info.
 
-[](){: #accept_recv } [](){: #delivery_targets }
+[](){: #delivery_targets }
 """.
+
+-include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
 
 -export([verify/1]).
 
--type transportDomain() :: snmpa_conf:transportDomain().
+-export_type([
+              notification_delivery_info/0
+             ]).
+
+-type transportDomain()          :: snmpa_conf:transportDomain().
 -type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
+
+-doc """
+How shall (notification) delivery info be reported.
+
+This record defines the info related to inform delivery info. That is, when
+sending an inform, info about the delivery (such if it was acknowledged) will be
+delivered using the info in this record.
+
+The delivery will be performed according to:
+
+```text
+	Mod:delivery_targets(Tag, Addresses, Extra)
+	Mod:delivery_info(Tag, Address, DeliveryResult, Extra)
+```
+
+The Extra is any term, provided by the user.
+
+The fields of this record has the following meaning:
+
+- **`tag = term()`** - Value selected by the user to identify this sending
+
+- **`mod = module()`** - A module implementing the
+  `m:snmpa_notification_delivery_info_receiver` behaviour.
+
+- **`extra = term()`** - This is any extra info the user wants to have supplied
+  when the functions in the callback module is called. Provided when calling the
+  send function.
+""".
+-type notification_delivery_info() :: #snmpa_notification_delivery_info{}.
 
 
 -doc """

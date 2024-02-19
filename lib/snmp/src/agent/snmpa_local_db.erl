@@ -40,16 +40,9 @@ all these functions are `snmpa_local_db` specific.
 
 ## Common Data Types
 
-In the functions defined below, the following types are used:
+In the functions defined below, the following limitation applies:
 
-- `NameDb = {Name, Db}`
-- `Name = atom(), Db = volatile | persistent`
-- `RowIndex = [int()]`
-- `Cols = [Col] | [{Col, Value}], Col = int(), Value = term()`
-
-where `RowIndex` denotes the last part of the OID, that specifies the index of
-the row in the table. `Cols` is a list of column numbers in case of a get
-operation, and a list of column numbers and values in case of a set operation.
+- `Db = volatile | persistent`
 
 ## See Also
 
@@ -166,11 +159,10 @@ unregister_notify_client(Client) ->
 backup(BackupDir) ->
     call({backup, BackupDir}).
 
--doc """
-dump() -> ok | {error, Reason}
+-doc "This function can be used to manually dump the database to file.".
+-spec dump() -> ok | {error, Reason} when
+      Reason :: term().
 
-This function can be used to manually dump the database to file.
-""".
 dump() ->
     call(dump).
 
@@ -297,20 +289,40 @@ dets_filename1(Dir) -> Dir.
 %%-----------------------------------------------------------------
 %% Functions for debugging.
 %%-----------------------------------------------------------------
--doc(#{equiv => print/2}).
-print()          -> call(print).
--doc(#{equiv => print/2}).
-print(Table)     -> call({print,Table,volatile}).
--doc """
-print(TableName, Db)
 
+-doc(#{equiv => print/2}).
+-spec print() -> term().
+
+print()          -> call(print).
+
+-doc(#{equiv => print/2}).
+-spec print(Table) -> term() when
+      Table :: snmpa:name().
+
+print(Table)     -> call({print,Table,volatile}).
+
+-doc """
 Prints the contents of the database on screen. This is useful for debugging
 since the `STANDARD-MIB` and `OTP-SNMPEA-MIB` (and maybe your own MIBs) are
 stored in `snmpa_local_db`.
 
-`TableName` is an atom for a table in the database. When no name is supplied,
-the whole database is shown.
+`Table` is an atom for a table in the database. When no name is supplied, the
+whole database is shown.
+
+Note that these functions does not actually print, using io:format/2, instead
+they (just) return the information. If executed in a shell, the information will
+then be displayed (probably truncated) there.
+
+A better use would be:
+
+```text
+	  io:format("~p~n", [snmpa_local_db:print()]).
+```
 """.
+-spec print(Table, Db) -> term() when
+      Table :: snmpa:name(),
+      Db    :: volatile | persistent.
+
 print(Table, Db) -> call({print,Table,Db}).
 
 -doc false.
@@ -339,65 +351,112 @@ variable_delete(Name) ->
 
 
 -doc """
-table_create(NameDb) -> bool()
-
 Creates a table. If the table already exist, the old copy is destroyed.
 
 Returns `false` if the `NameDb` argument is incorrectly specified, `true`
 otherwise.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_create(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
+
 table_create({Name, Db}) ->
     call({table_create, Name, Db});
 table_create(Name) ->
     call({table_create, Name, volatile}).
 
--doc """
-table_exists(NameDb) -> bool()
 
+-doc """
 Checks if a table exists.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_exists(Table) -> boolean() when
+      Table :: snmpa:name_db() | snmpa:name().
+
 table_exists({Name, Db}) ->
     call({table_exists, Name, Db});
 table_exists(Name) ->
     call({table_exists, Name, volatile}).
 
--doc """
-table_delete(NameDb) -> void()
 
+-doc """
 Deletes a table.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_delete(Table) -> true when
+      Table :: snmpa:name_db() | snmpa:name().
+
 table_delete({Name, Db}) ->
     call({table_delete, Name, Db});
 table_delete(Name) ->
     call({table_delete, Name, volatile}).
 
--doc """
-table_delete_row(NameDb, RowIndex) -> bool()
 
+-doc """
 Deletes the row in the table.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_delete_row(Table, RowIndex) -> boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index().
+
 table_delete_row({Name, Db}, RowIndex) ->
     call({table_delete_row, Name, Db, RowIndex});
 table_delete_row(Name, RowIndex) ->
     call({table_delete_row, Name, volatile, RowIndex}).
 
--doc """
-table_get_row(NameDb, RowIndex) -> Row | undefined
 
+-doc """
 `Row` is a tuple with values for all columns, including the index columns.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_get_row(Table, RowIndex) -> Row | undefined when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+
 table_get_row({Name, Db}, RowIndex) ->
     call({table_get_row, Name, Db, RowIndex});
 table_get_row(Name, RowIndex) ->
     call({table_get_row, Name, volatile, RowIndex}).
 
--doc false.
+
+-doc """
+Get a column value (element) from a row of the table.
+
+Database (only table name specified) defaults to `volatile`.
+""".
+-spec table_get_element(Table, RowIndex, Col) ->
+          {value, Value} | undefined when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Col      :: snmp:column(),
+      Value    :: term().
+
 table_get_element({Name, Db}, RowIndex, Col) ->
     call({table_get_element, Name, Db, RowIndex, Col});
 table_get_element(Name, RowIndex, Col) ->
     call({table_get_element, Name, volatile, RowIndex, Col}).
 
--doc false.
+
+-doc """
+Update the specified columnar objects of the row of this table.
+
+Database (only table name specified) defaults to `volatile`.
+""".
+-spec table_set_elements(Table, RowIndex, Cols) ->
+          boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Cols     :: [{Col, Value}],
+      Col      :: snmp:column(),
+      Value    :: term().
+
 table_set_elements({Name, Db}, RowIndex, Cols) ->
     call({table_set_elements, Name, Db, RowIndex, Cols});
 table_set_elements(Name, RowIndex, Cols) ->
@@ -415,12 +474,19 @@ table_max_col({Name, Db}, Col) ->
 table_max_col(Name, Col) ->
     call({table_max_col, Name, volatile, Col}).
 
--doc """
-table_create_row(NameDb, RowIndex, Row) -> bool()
 
+-doc """
 Creates a row in a table. `Row` is a tuple with values for all columns,
 including the index columns.
+
+Database (only table name specified) defaults to `volatile`.
 """.
+-spec table_create_row(Table, RowIndex, Row) ->
+          boolean() when
+      Table    :: snmpa:name_db() | snmpa:name(),
+      RowIndex :: snmp:row_index(),
+      Row      :: tuple().
+      
 table_create_row({Name, Db}, RowIndex, Row) ->
     call({table_create_row, Name, Db,RowIndex, Row});
 table_create_row(Name, RowIndex, Row) ->
@@ -430,12 +496,17 @@ table_create_row(NameDb, RowIndex, Status, Cols) ->
     Row = table_construct_row(NameDb, RowIndex, Status, Cols),
     table_create_row(NameDb, RowIndex, Row).
 
--doc """
-match(NameDb, Pattern)
 
-Performs an ets/dets matching on the table. See Stdlib documentation, module
-ets, for a description of `Pattern` and the return values.
+-doc """
+Performs an ets/dets matching on the table.
+
+See `ets:match/2` for a description of `Pattern` and the return values.
 """.
+-spec match(Table, Pattern) -> [Match] when
+      Table   :: snmpa:name_db() | snmpa:name(),
+      Pattern :: ets:match_pattern(),
+      Match   :: term().
+
 match({Name, Db}, Pattern) ->
     call({match, Name, Db, Pattern});    
 match(Name, Pattern) ->

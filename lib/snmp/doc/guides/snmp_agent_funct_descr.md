@@ -694,8 +694,8 @@ modification, suppression or other type of actions.
 
 A notification filter is a module implementing the `m:snmpa_notification_filter`
 behaviour. A filter is added/deleted using the functions:
-[snmpa:register_notification_filter](`m:snmpa#register_notification_filter`) and
-[snmpa:unregister_notification_filter](`m:snmpa#unregister_notification_filter`).
+`snmpa:register_notification_filter/5` and
+`snmpa:unregister_notification_filter/2`.
 
 Unless otherwise specified, the order of the registered filters will be the
 order in which they are registered.
@@ -731,8 +731,7 @@ The agent can both perform and respond to discovery.
 The agent responds to discovery autonomously, without interaction by the user.
 
 Initiating discovery towards a manager is done by calling the
-[discovery](`m:snmpa#discovery`) function. The `EngineId` field of the target
-(manager) entry in the
+`snmpa:discovery/6` function. The `EngineId` field of the target (manager) entry in the
 [target_addr.conf](snmp_agent_config_files.md#target_addr) file has to have the
 value `discovery`. Note that if the manager does not respond, the `Timeout` and
 `RetryCount` fields decide how long the function will hang before it returns.

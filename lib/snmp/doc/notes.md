@@ -571,7 +571,7 @@ limitations under the License.
   entries. The conversion has been improved so that it now firstly handles
   encountered errors and write an informative message (into the converted
   stream) and secondly keeps count of the number of successful or failed entry
-  conversions. See [log_to_txt](`m:snmpa#log_to_txt`) for more info.
+  conversions. See [log_to_txt](`snmpa:log_to_txt/8`) for more info.
 
   The reason the ATL contained invalid entries have also been fixed. The reason
   was that for some outgoing messages (not response):
@@ -873,9 +873,9 @@ Version 4.25 supports code replacement in runtime from/to version 4.24.2,
   converting an entire large log (when there is a chance it may otherwise wrap
   during conversion).
 
-  See agent [log_to_txt](`m:snmpa#log_to_txt`) and
-  [log_to_io](`m:snmpa#log_to_io`) and also manager
-  [log_to_txt](`m:snmpm#log_to_txt`) and [log_to_io](`m:snmpm#log_to_io`) for
+  See agent [log_to_txt](`snmpa:log_to_txt/8`) and
+  [log_to_io](`snmpa:log_to_io/7`) and also manager
+  [log_to_txt](`snmpm:log_to_txt/8`) and [log_to_io](`snmpm:log_to_io/7`) for
   details.
 
   Own Id: OTP-11396
@@ -921,11 +921,11 @@ Version 4.24.2 supports code replacement in runtime from/to version 4.24.1,
 ### Improvements and new features
 
 - \[agent] Improved documentation for the functions for loading and unloading
-  mibs, see [load_mibs](`m:snmpa#load_mibs`) and
-  [unload_mibs](`m:snmpa#unload_mibs`) for more info.
+  mibs, see [load_mibs](`snmpa:load_mibs/3`) and
+  [unload_mibs](`snmpa:unload_mibs/3`) for more info.
 
   Also added new functions for loading and unloading a single mib, see
-  [load_mib](`m:snmpa#load_mib`) and [unload_mib](`m:snmpa#unload_mib`) for more
+  [load_mib](`snmpa:load_mib/2`) and [unload_mib](`snmpa:unload_mib/2`) for more
   info.
 
   Own Id: OTP-11216
@@ -1129,8 +1129,7 @@ Version 4.22.1 supports code replacement in runtime from/to version 4.22, 4.21.7
 
   Own Id: OTP-10165
 
-- \[manager] [snmpm:log_to_io/6](`m:snmpm#log_to_io`) did not use the LogName
-  argument.
+- \[manager] `snmpm:log_to_io/6` did not use the LogName argument.
 
   Own Id: OTP-10066
 
@@ -1157,7 +1156,7 @@ Version 4.22 supports code replacement in runtime from/to version 4.21.7 4.21.6
   Own Id: OTP-9969
 
 - Added the `log_to_io` audit-trail-log converter function to the api modules of
-  both the [manager](`m:snmpm#log_to_io`) and [agent](`m:snmpa#log_to_io`).
+  both the [manager](`snmpm:log_to_io/7`) and [agent](`snmpa:log_to_io/7`).
 
   Own Id: OTP-9940
 
@@ -1196,7 +1195,7 @@ Version 4.21.7 supports code replacement in runtime from/to version 4.21.6,
 
 ### Fixed Bugs and Malfunctions
 
-- \[agent] Simultaneous [snmpa:backup/1,2](`m:snmpa#backup`) calls can
+- \[agent] Simultaneous [snmpa:backup/1,2](`snmpa:backup/1`) calls can
   interfere. The master agent did not check if a backup was already in progress
   when a backup request was accepted.
 
@@ -1226,9 +1225,9 @@ Version 4.21.6 supports code replacement in runtime from/to version 4.21.5,
 
 - \[agent] Mib server cache gclimit update function incorrectly calls age update
   function. The gclimit update function,
-  [update_mibs_cache_gclimit/1](`m:snmpa#update_mibs_cache_gclimit`),
+  [update_mibs_cache_gclimit/1](`snmpa:update_mibs_cache_gclimit/1`),
   _incorrectly_ called the age update function,
-  [update_mibs_cache_age/2](`m:snmpa#update_mibs_cache_age`).
+  [update_mibs_cache_age/2](`snmpa:update_mibs_cache_age/2`).
 
   Johan Claesson
 
@@ -1393,8 +1392,8 @@ and 4.19.
   was assumed to be IPv4 (transportDomainUdpIpv4). This has now been changed so
   that it can also be IPv6 (transportDomainUdpIpv6). To facilitate this, the
   transport domain, `tdomain`, is now a (new) valid option when
-  [registering](`m:snmpm#register_agent`) a new agent (and
-  [updating](`m:snmpm#update_agent_info`) agent info).
+  [registering](`snmpm:register_agent/3`) a new agent (and
+  [updating](`snmpm:update_agent_info/4`) agent info).
 
   This also mean that the transport behaviour has changed.
 
@@ -1402,7 +1401,7 @@ and 4.19.
 
   Aux Id: Seq 11847
 
-- \[compiler] Added the option [warnings_as_errors](`m:snmpc#compile`) (for the
+- \[compiler] Added the option [warnings_as_errors](`snmpc:compile/2`) (for the
   SNMP MIB compiler (escript) frontend, the option
   [\--wae](snmpc_cmd.md#option_wae) is used) which specifies whether warnings
   should be treated as errors.
@@ -1492,13 +1491,13 @@ Version 4.20 supports code replacement in runtime from/to version 4.19 and 4.18.
   override some configuration.
 
   This has been done by introducing a new set of API functions, see
-  [sync_get2/3,4](`m:snmpm#sync_get2`), [async_get2/3,4](`m:snmpm#async_get2`),
-  [sync_get_next2/3,4](`m:snmpm#sync_get_next2`),
-  [async_get_next2/3,4](`m:snmpm#async_get_next2`),
-  [sync_get_bulk2/5,6](`m:snmpm#sync_get_bulk2`),
-  [async_get_bulk2/5,6](`m:snmpm#async_get_bulk2`),
-  [sync_set2/3,4](`m:snmpm#sync_set2`) and
-  [async_set2/3,4](`m:snmpm#async_set2`) for more info.
+  [sync_get2/3,4](`snmpm:sync_get2/3`), [async_get2/3,4](`snmpm:async_get2/3`),
+  [sync_get_next2/3,4](`snmpm:sync_get_next2/3`),
+  [async_get_next2/3,4](`snmpm:async_get_next2/3`),
+  [sync_get_bulk2/5,6](`snmpm:sync_get_bulk2/5`),
+  [async_get_bulk2/5,6](`snmpm:async_get_bulk2/5`),
+  [sync_set2/3,4](`snmpm:sync_set2/3`) and
+  [async_set2/3,4](`snmpm:async_set2/3`) for more info.
 
   Own Id: OTP-9162
 

@@ -28,11 +28,11 @@ system.
 
 ## snmpc \[options] file.mib | file.bin
 
-`snmpc` compile a SNMP MIB file, see [compile/1,2](`m:snmpc#compile`) for more
+`snmpc` compile a SNMP MIB file, see [compile/1,2](`snmpc:compile/1`) for more
 info.
 
 It can also be used to generate a header file (.hrl) with definitions of Erlang
-constants for the objects in the MIB, see [mib_to_hrl/1](`m:snmpc#mib_to_hrl`).
+constants for the objects in the MIB, see [mib_to_hrl/1](`snmpc:mib_to_hrl/1`).
 
 [](){: #options }
 

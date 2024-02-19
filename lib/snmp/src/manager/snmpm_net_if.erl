@@ -617,7 +617,8 @@ handle_cast(filter_reset, State) ->
     {noreply, State};
 
 %% This is for debugging!!
-handle_cast({exec, F}, #state{allow_exec = true} = State) when is_function(F, 0) ->
+handle_cast({exec, F}, #state{allow_exec = true} = State)
+  when is_function(F, 0) ->
     ?vlog("[cast] exec", []),
     F(),
     {noreply, State};
@@ -640,8 +641,8 @@ handle_info(
     Size = byte_size(Bytes),
     case lists:keyfind(Socket, #transport.socket, Transports) of
 	#transport{socket = Socket, domain = Domain} ->
-	    ?vlog("received ~w bytes from ~p:~p [~w]",
-		  [Size, IpAddr, IpPort, Socket]),
+	    ?vlog("received ~w bytes from [~w] ~p:~p (~w)",
+		  [Size, Domain, IpAddr, IpPort, Socket]),
 	    maybe_handle_recv_msg(Domain, {IpAddr, IpPort}, Bytes, State),
 	    {noreply, State};
 	false ->

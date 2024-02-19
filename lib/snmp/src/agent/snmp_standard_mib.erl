@@ -87,9 +87,8 @@ The configuration files are described in the SNMP User's Manual.
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-configure(ConfDir) -> void()
 
+-doc """
 This function is called from the supervisor at system start-up.
 
 Inserts all data in the configuration files into the database and destroys all
@@ -107,8 +106,11 @@ files are found.
 
 The configuration file read is: `standard.conf`.
 """.
-configure(Dir) ->
-    case (catch do_configure(Dir)) of
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
+    case (catch do_configure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -146,9 +148,8 @@ do_configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-reconfigure(ConfDir) -> void()
 
+-doc """
 Inserts all data in the configuration files into the database and destroys all
 old data, including the rows with StorageType `nonVolatile`. The rows created
 from the configuration file will have StorageType `nonVolatile`.
@@ -167,9 +168,12 @@ files are found.
 
 The configuration file read is: `standard.conf`.
 """.
-reconfigure(Dir) ->
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -267,11 +271,10 @@ check_standard(X) -> error({invalid_standard_specification, X}).
 %% Func: reset/0
 %% Purpose: Resets all counters (sets them to 0).
 %%-----------------------------------------------------------------
--doc """
-reset() -> void()
 
-Resets all `snmp` counters to 0.
-""".
+-doc "Resets all `snmp` counters to 0.".
+-spec reset() -> snmp:void().
+
 reset() ->
     snmpa_mpd:reset().
 
@@ -298,13 +301,18 @@ variable_func(get, Name) ->
 %%  inc(VariableName) increments the variable (Counter) in
 %%  the local mib. (e.g. snmpInPkts)
 %%-----------------------------------------------------------------
--doc(#{equiv => inc/2}).
-inc(Name) -> inc(Name, 1).
--doc """
-inc(Name, N) -> void()
 
-Increments a variable in the MIB with `N`, or one if `N` is not specified.
-""".
+-doc(#{equiv => inc/2}).
+-spec inc(Name) -> snmp:void() when
+      Name :: atom().
+
+inc(Name) -> inc(Name, 1).
+
+-doc "Increments a variable in the MIB with `N`, or one if `N` is not specified.".
+-spec inc(Name, N) -> snmp:void() when
+      Name :: atom(),
+      N    :: integer().
+
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
 
@@ -560,19 +568,20 @@ gen_counter(get, Counter) ->
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
+
+-doc "Gets the system up time in hundredth of a second.".
+-spec sys_up_time() -> Time when
+      Time :: integer().
+
+sys_up_time() ->
+    snmpa:sys_up_time().
+
+
 -doc false.
 sysUpTime(print) ->
     sys_up_time(print);
 sysUpTime(get) ->
     sys_up_time(get).
-
--doc """
-sys_up_time() -> Time
-
-Gets the system up time in hundredth of a second.
-""".
-sys_up_time() ->
-    snmpa:sys_up_time().
 
 -doc false.
 sys_up_time(print) ->

@@ -79,43 +79,22 @@ The following example shows an `agent.conf` file:
  [{transportDomainUdpIpv4, {141,213,11,24}},
   {transportDomainUdpIpv6, {0,0,0,0,0,0,0,1}}]}.
 {snmpEngineID, "mbj's engine"}.
-{snmpEngineMaxPacketSize, 484}.
+{snmpEngineMaxMessageSize, 484}.
 ```
 
 These are the supported entries and their value types:
 
 ```erlang
-      {snmpEngine,               string()}.             % Mandatory
-      {snmpEngineMaxMessageSize, non_neg_integer()}.    % Mandatory
-      {intAgentUDPPort,          pos_integer()}.        % Optional
-      {intAgentTransports,       intAgentTransports()}. % Mandatory
-```
-
-And here are the transport value types:
-
-```erlang
-      intAgentTransports() :: [intAgentTransport()].
-      intAgentTransport()  :: {TDomain, Addr} |
-                              {TDomain, EAddr, Kind} |
-			      {TDomain, EAddr, Opts} |
-			      {TDomain, EAddr, Kind, Opts}
-      TDomain      :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
-      Addr         :: {IpAddr, IpPort} | IpAddr.
-      IpAddr       :: inet:ip_address() | snmpIpAddr().
-      snmpIpAddr() :: [non_neg_integer()].
-      IpPort       :: pos_integer().
-      EAddr        :: {inet:ip_address(), PortInfo}.
-      PortInfo     :: pos_integer() | system | range() | ranges().
-      range()      :: {Min :: pos_integer(), Max :: pos_integer()}, Min < Max
-      ranges()     :: [pos_integer() | range()].
-      Kind         :: req_responder | trap_sender.
-      Opts         :: list().
+      {snmpEngine,               string()}.                     % Mandatory
+      {snmpEngineMaxMessageSize, snmp_framework_mib:max_message_size()}.  % Mandatory
+      {intAgentUDPPort,          inet:port_number()}.                      % Optional
+      {intAgentTransports,       [snmpa_conf:intAgentTransport()]}.   % Mandatory
 ```
 
 If a "traditional" transport is specified (without explicit `Kind`, handling
 both requests and traps) for a transport domain, its _not_ possible to also
 specify a transport (for that domain) with a specific `Kind`. This is for
-example _not_ allowed:
+example, _not_ allowed:
 
 ```erlang
  [{transportDomainUdpIpv4, {{141,213,11,24}, 4000}},
