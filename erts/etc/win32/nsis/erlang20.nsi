@@ -56,13 +56,9 @@ Var STARTMENU_FOLDER
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
-  	InstallDir "$PROGRAMFILES64\Erlang OTP"
+	InstallDir "$PROGRAMFILES64\Erlang OTP"
 !else
-	!if ${WINTYPE} == "arm64"
-		InstallDir "$PROGRAMFILES64\Erlang OTP"
-	!else
-		InstallDir "$PROGRAMFILES\Erlang OTP"
-	!endif
+	InstallDir "$PROGRAMFILES\Erlang OTP"
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
@@ -73,7 +69,7 @@ Var STARTMENU_FOLDER
 	!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 !else
 	!if ${WINTYPE} == "arm64"
-		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (Arm)"
+		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (arm64)"
 	!else
 		!define MUI_STARTMENUPAGE_DEFAULTFOLDER "${OTP_PRODUCT} ${OTP_RELEASE} (x64)"
 	!endif
