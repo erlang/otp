@@ -84,19 +84,14 @@ add_path_element()
 # Look to see if it's 64bit
 if [ "$1" = "win64" ]; then
     AMD64DIR=true
-    ARM64DIR=false
     VCREDIST=vcredist_x64
     COMPONENTS="cl amd64 bin vc"
 elif [ "$1" = "win32" ]; then
     AMD64DIR=false
-    ARM64DIR=false
     VCREDIST=vcredist_x86
     COMPONENTS="cl bin vc"
 elif [ "$1" = "arm64" ]; then
-    AMD64DIR=false
-    ARM64DIR=true
     VCREDIST=vcredist_arm64
-    COMPONENTS="cl bin vc"
 else
     echo "TARGET argument should win32, win64 or arm64"
     exit 2
@@ -137,8 +132,6 @@ if [ '!' -z "$RCPATH" ]; then
     allow_fail=false
     if [ $AMD64DIR = true ]; then
 	COMPONENTS="rc x64 bin @ANY v6.0A v7.0A v7.1"
-    elif [ $ARM64DIR = true ]; then
-	COMPONENTS="rc arm64 bin @ANY v6.0A v7.0A v7.1"
     else
 	COMPONENTS="rc bin @ANY v6.0A v7.0A v7.1"
     fi
