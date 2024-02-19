@@ -253,12 +253,14 @@ certify(internal, #certificate_request{},
 certify(internal, #certificate_request{},
 	#state{static_env = #static_env{protocol_cb = Connection},
                session = Session0,
+               handshake_env = HsEnv0,
                connection_env = #connection_env{cert_key_alts = [#{certs := [[]]}]}} = State) ->
     %% The client does not have a certificate and will send an empty reply, the server may fail
     %% or accept the connection by its own preference. No signature algorithms needed as there is
     %% no certificate to verify.
+    HsEnv = HsEnv0#handshake_env{client_certificate_status = requested},
     Connection:next_event(?STATE(certify), no_record,
-                          State#state{client_certificate_status = requested,
+                          State#state{handshake_env = HsEnv,
                                       session = Session0#session{own_certificates = [[]],
                                                                  private_key = #{}}});
 certify(internal, #certificate_request{} = CertRequest,
@@ -268,6 +270,7 @@ certify(internal, #certificate_request{} = CertRequest,
                connection_env = #connection_env{negotiated_version = Version,
                                                 cert_key_alts = CertKeyAlts
                                                },
+               handshake_env = HsEnv0,
                session = Session0,
                ssl_options = #{signature_algs := SupportedHashSigns}} = State) ->
     TLSVersion = ssl:tls_version(Version),
@@ -275,9 +278,9 @@ certify(internal, #certificate_request{} = CertRequest,
     Session = select_client_cert_key_pair(Session0, CertRequest, CertKeyPairs,
                                           SupportedHashSigns, TLSVersion,
                                           CertDbHandle, CertDbRef),
+    HsEnv = HsEnv0#handshake_env{client_certificate_status = requested},
     Connection:next_event(?STATE(certify), no_record,
-                          State#state{client_certificate_status = requested,
-                                      session = Session});
+                          State#state{handshake_env = HsEnv, session = Session});
 %% PSK and RSA_PSK might bypass the Server-Key-Exchange
 certify(internal, #server_hello_done{},
 	#state{static_env = #static_env{protocol_cb = Connection},
@@ -468,11 +471,9 @@ handle_session(#server_hello{cipher_suite = CipherSuite},
 
     case ssl_session:is_new(Session, NewId) of
 	true ->
-	    handle_new_session(NewId, CipherSuite,
-			       State#state{connection_states = ConnectionStates});
+	    handle_new_session(NewId, CipherSuite, State);
 	false ->
-	    handle_resumed_session(NewId,
-				   State#state{connection_states = ConnectionStates})
+	    handle_resumed_session(NewId, State)
     end.
 
 
@@ -626,7 +627,9 @@ calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKe
 client_certify_and_key_exchange(State0, Connection) ->
     State1 = do_client_certify_and_key_exchange(State0, Connection),
     {State2, Actions} = tls_dtls_gen_connection:finalize_handshake(State1, certify, Connection),
-    State = State2#state{client_certificate_status = not_requested},     %% Reinitialize
+    #state{handshake_env = HsEnv0} = State2,
+    HsEnv = HsEnv0#handshake_env{client_certificate_status = not_requested},
+    State = State2#state{handshake_env = HsEnv},     %% Reinitialize
     Connection:next_event(cipher, no_record, State, Actions).
 
 do_client_certify_and_key_exchange(State0, Connection) ->
@@ -636,12 +639,13 @@ do_client_certify_and_key_exchange(State0, Connection) ->
 
 certify_client(#state{static_env = #static_env{cert_db = CertDbHandle,
                                                cert_db_ref = CertDbRef},
-                      client_certificate_status = requested,
+                      handshake_env = #handshake_env{client_certificate_status = requested},
 		      session = #session{own_certificates = OwnCerts}}
 	       = State, Connection) ->
     Certificate = ssl_handshake:certificate(OwnCerts, CertDbHandle, CertDbRef, client),
     Connection:queue_handshake(Certificate, State);
-certify_client(#state{client_certificate_status = not_requested} = State, _) ->
+certify_client(#state{handshake_env = #handshake_env{client_certificate_status = not_requested}
+                     } = State, _) ->
     State.
 
 key_exchange(#state{handshake_env = #handshake_env{kex_algorithm = rsa,
@@ -759,9 +763,9 @@ generate_srp_client_keys(Generator, Prime, N) ->
 	    generate_srp_client_keys(Generator, Prime, N+1)
     end.
 
-verify_client_cert(#state{handshake_env = #handshake_env{tls_handshake_history = Hist},
+verify_client_cert(#state{handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                                         client_certificate_status = requested},
                           connection_env = #connection_env{negotiated_version = Version},
-                          client_certificate_status = requested,
 			  session = #session{sign_alg = HashSign,
                                              master_secret = MasterSecret,
                                              private_key = PrivateKey,
@@ -775,7 +779,8 @@ verify_client_cert(#state{handshake_env = #handshake_env{tls_handshake_history =
 	#alert{} = Alert ->
 	    throw(Alert)
     end;
-verify_client_cert(#state{client_certificate_status = not_requested} = State, _) ->
+verify_client_cert(#state{handshake_env = #handshake_env{client_certificate_status = not_requested}
+                         } = State, _) ->
     State.
 
 handle_peer_cert(Role, PeerCert, PublicKeyInfo,

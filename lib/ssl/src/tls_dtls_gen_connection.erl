@@ -165,7 +165,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
                           renegotiation = {false, first},
-                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
+                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined),
+                          flight_buffer = []
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
@@ -174,8 +175,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
-       start_or_recv_from = undefined,
-       flight_buffer = [],
+       recv = #recv{},
        protocol_specific = #{sender => Sender,
                              active_n => ssl_config:get_internal_active_n(
                                            maps:get(erl_dist, SSLOptions, false)),
@@ -261,7 +261,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
         Options ->
             State = ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
-             State#state{start_or_recv_from = From,
+             State#state{recv = State#state.recv#recv{from = From},
                          handshake_env =
                              HSEnv#handshake_env{continue_status = continue}
                                            },

@@ -35,8 +35,6 @@
 
 -include("ssl_internal.hrl").
 -include("tls_record.hrl").
--include("ssl_cipher.hrl").
--include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
 -include("dtls_handshake.hrl").
 -include("tls_handshake_1_3.hrl").
@@ -58,6 +56,8 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
+debug(undefined, _Direction, _Protocol, _Message) ->
+    ok;
 debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->

@@ -217,7 +217,7 @@ initial_hello({call, From}, {start, Timeout},
     State = State2#state{connection_env =
                              CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
                          session = Session,
-                         start_or_recv_from = From,
+                         recv = State2#state.recv#recv{from = From},
                          protocol_specific = PS#{active_n_toggle := false}
                         },
     dtls_gen_connection:next_event(hello, no_record, State,
@@ -288,8 +288,8 @@ hello(internal, #hello_verify_request{cookie = Cookie},
     dtls_gen_connection:next_event(?STATE(hello), no_record, State, Actions);
 hello(internal, #server_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+             recv = #recv{from = From} = Recv} = State) ->
+    {next_state, user_hello, State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true},{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{} = Hello,
       #state{handshake_env = #handshake_env{

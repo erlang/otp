@@ -183,7 +183,8 @@ initial_hello({call, From}, {start, Timeout},
                                      session_tickets := SessionTickets,
                                      early_data := EarlyData} = SslOpts,
                      session = Session,
-                     connection_states = ConnectionStates0
+                     connection_states = ConnectionStates0,
+                     recv = Recv0
                     } = State0) ->
 
     KeyShare = tls_client_connection_1_3:maybe_generate_client_shares(SslOpts),
@@ -241,17 +242,19 @@ initial_hello({call, From}, {start, Timeout},
                   session = Session,
                   handshake_env =
                       HsEnv1#handshake_env{
+                        key_share = KeyShare,
                         stapling_state =
                             StaplingState0#{ocsp_nonce => OcspNonce,
                                             configured => StaplingKeyPresent}},
-                  start_or_recv_from = From,
-                  key_share = KeyShare},
+                  recv = State5#state.recv#recv{from = From}
+                 },
         NextState = next_statem_state(Versions),
         Connection:next_event(NextState, no_record, State,
                               [{{timeout, handshake}, Timeout, close}])
     catch
         {Ref, #alert{} = Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, init, State0#state{start_or_recv_from = From})
+            NewState = State0#state{recv = Recv0#recv{from = From}},
+            ssl_gen_statem:handle_own_alert(Alert, init, NewState)
     end;
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
               #state{static_env = #static_env{role = Role},
@@ -286,10 +289,10 @@ config_error(Type, Event, State) ->
 %%--------------------------------------------------------------------
 hello(internal, #server_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
+             recv = #recv{from = From}=Recv} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined}, [{postpone, true},
-                                                   {reply, From, {ok, Extensions}}]};
+     State#state{recv = Recv#recv{from = undefined}},
+     [{postpone, true},{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
              connection_env = CEnv,

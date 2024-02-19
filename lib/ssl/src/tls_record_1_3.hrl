@@ -46,11 +46,6 @@
 -define(LEGACY_VERSION, ?TLS_1_2).
 -define(OPAQUE_TYPE, 23).
 
--record(inner_plaintext, {
-                          content, %% data
-                          type, %% Contentype
-                          zeros %% padding "uint8 zeros[length_of_padding]"
-                         }). 
 -record(tls_cipher_text, {  %% Equivalent of encrypted version of #ssl_tls from previous versions
                             %% decrypted version will still use #ssl_tls for code reuse purposes
                             %% with real values for content type and version

@@ -36,10 +36,10 @@
 %% 	  cipher_state,
 %% 	  mac_secret,
 %% 	  sequence_number,
-%% 	  %% RFC 5746
-%% 	  secure_renegotiation,
-%% 	  client_verify_data,
-%% 	  server_verify_data,
+%%        reneg =  %% RFC 5746
+%% 	     #{secure_renegotiation,
+%% 	       client_verify_data,
+%% 	       server_verify_data},
 %% 	  %% How to do BEAST mitigation?
 %% 	  beast_mitigation
 %% 	 }).

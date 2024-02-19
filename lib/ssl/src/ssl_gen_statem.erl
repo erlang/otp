@@ -386,7 +386,7 @@ socket_control(dtls_gen_connection, {PeerAddrPort, Socket},
     end.
 
 prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegotiate},
-			  start_or_recv_from = RecvFrom} = State0, Connection)
+                          recv = #recv{from = RecvFrom}} = State0, Connection)
   when Renegotiate =/= {false, first},
        RecvFrom =/= undefined ->
     State = Connection:reinit(State0),
@@ -558,10 +558,12 @@ config_error(_Type, _Event, _State) ->
 %%--------------------------------------------------------------------
 connection({call, RecvFrom}, {recv, N, Timeout},
 	   #state{static_env = #static_env{protocol_cb = Connection},
-                  socket_options =
-                      #socket_options{active = false}} = State0) ->
-    passive_receive(State0#state{bytes_to_read = N,
-                                 start_or_recv_from = RecvFrom}, connection, Connection,
+                  recv = Recv,
+                  socket_options = #socket_options{active = false}
+                 } = State0) ->
+    passive_receive(State0#state{recv = Recv#recv{from = RecvFrom,
+                                                  bytes_to_read = N}},
+                    ?STATE(connection), Connection,
                     [{{timeout, recv}, Timeout, timeout}]);
 connection({call, From}, peer_certificate,
 	   #state{session = #session{peer_certificate = Cert}} = State) ->
@@ -664,19 +666,22 @@ connection(cast, {dist_handshake_complete, DHandle},
            #state{ssl_options = #{erl_dist := true},
                   static_env = #static_env{protocol_cb = Connection},
                   connection_env = CEnv,
+                  recv = Recv,
                   socket_options = SockOpts} = State0) ->
     process_flag(priority, normal),
     State1 =
         State0#state{
           socket_options = SockOpts#socket_options{active = true},
           connection_env = CEnv#connection_env{erl_dist_handle = DHandle},
-          bytes_to_read = undefined},
+          recv = Recv#recv{bytes_to_read = undefined}
+         },
     {Record, State} = read_application_data(<<>>, State1),
     Connection:next_event(?STATE(connection), Record, State);
 connection(info, Msg, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:handle_info(Msg, ?STATE(connection), State);
-connection(internal, {recv, RecvFrom}, #state{start_or_recv_from = RecvFrom,
-                                              static_env = #static_env{protocol_cb = Connection}} = State) ->
+connection(internal, {recv, RecvFrom},
+           #state{recv = #recv{from=RecvFrom},
+                  static_env = #static_env{protocol_cb = Connection}} = State) ->
     passive_receive(State, ?STATE(connection), Connection, []);
 connection(Type, Msg, State) ->
     handle_common_event(Type, Msg, ?STATE(connection), State).
@@ -734,15 +739,19 @@ handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _) ->
     {keep_state_and_data, [hibernate]};
-handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_recv_from = StartFrom} = State) ->
+handle_common_event({timeout, handshake}, close, _StateName,
+                    #state{recv = #recv{from = StartFrom} = Recv} = State) ->
     {stop_and_reply,
      {shutdown, user_timeout},
-     {reply, StartFrom, {error, timeout}}, State#state{start_or_recv_from = undefined}};
-handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State) ->
-    {next_state, StateName, State#state{start_or_recv_from = undefined,
-                                        bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
-handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}) when
-      StateName =/= connection ->
+     {reply, StartFrom, {error, timeout}}, State#state{recv = Recv#recv{from = undefined}}};
+handle_common_event({timeout, recv}, timeout, StateName,
+                    #state{recv = #recv{from = RecvFrom} = Recv} = State) ->
+    {next_state, StateName,
+     State#state{recv = Recv#recv{from = undefined, bytes_to_read = undefined}},
+     [{reply, RecvFrom, {error, timeout}}]};
+handle_common_event(internal, {recv, RecvFrom}, StateName,
+                    #state{recv = #recv{from = RecvFrom}})
+  when StateName =/= connection ->
     {keep_state_and_data, [postpone]};
 handle_common_event(internal, new_connection, StateName, State) ->
     {next_state, StateName, State};
@@ -796,10 +805,10 @@ handle_call({recv, _N, _Timeout}, From, _,
 		  #state{socket_options =
 			     #socket_options{active = Active}}) when Active =/= false ->
     {keep_state_and_data, [{reply, From, {error, einval}}]};
-handle_call({recv, N, Timeout}, RecvFrom, StateName, State) ->
+handle_call({recv, N, Timeout}, RecvFrom, StateName, #state{recv = Recv} = State) ->
     %% Doing renegotiate wait with handling request until renegotiate is
     %% finished.
-    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
+    {next_state, StateName, State#state{recv = Recv#recv{from=RecvFrom, bytes_to_read = N}},
      [{next_event, internal, {recv, RecvFrom}} , {{timeout, recv}, Timeout, timeout}]};
 handle_call({new_user, User}, From, StateName,
             State = #state{connection_env = #connection_env{user_application = {OldMon, _}} = CEnv}) ->
@@ -854,9 +863,8 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
                    handshake_env = #handshake_env{renegotiation = Type},
                    connection_env = #connection_env{negotiated_version = Version},
                    session = Session,
-                   start_or_recv_from = StartFrom
+                   recv = #recv{from = StartFrom}
                   } = State)  when StateName =/= connection ->
-
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers,Socket,
@@ -940,6 +948,7 @@ read_application_data(Data,
                        user_data_buffer = {Front,BufferSize,Rear}}}
             end
     end.
+
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
                        %% Assert! Erl distribution uses active sockets
                        connection_env = #connection_env{erl_dist_handle = undefined}}
@@ -951,15 +960,11 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 	    case read_application_data(State0, Front, BufferSize, Rear) of
                 {stop, _, _} = ShutdownError ->
                     ShutdownError;
+                {Record, #state{recv = #recv{from = undefined}} = State} ->
+                    Connection:next_event(StateName, Record, State,
+                                          [{{timeout, recv}, infinity, timeout}]);
                 {Record, State} ->
-                    case State#state.start_or_recv_from of
-                        undefined ->
-                            %% Cancel recv timeout as data has been delivered
-                            Connection:next_event(StateName, Record, State,
-                                                  [{{timeout, recv}, infinity, timeout}]);
-                        _ ->
-                            Connection:next_event(StateName, Record, State, StartTimerAction)
-                    end
+                    Connection:next_event(StateName, Record, State, StartTimerAction)
             end
     end.
 
@@ -968,10 +973,12 @@ passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
 %%====================================================================
 
 hibernate_after(connection = StateName,
-		#state{ssl_options= SslOpts} = State,
-		Actions) ->
-    HibernateAfter = maps:get(hibernate_after, SslOpts, infinity),
-    {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
+		#state{ssl_options= #{hibernate_after := HibernateAfter}} = State,
+                Actions) when HibernateAfter =/= infinity ->
+    {next_state, StateName, State,
+     [{timeout, HibernateAfter, hibernate} | Actions]};
+hibernate_after(StateName, State, []) ->
+    {next_state, StateName, State};
 hibernate_after(StateName, State, Actions) ->
     {next_state, StateName, State, Actions}.
 
@@ -1007,7 +1014,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                                          protocol_cb = Connection,
                                                                          trackers = Trackers},
                                                 handshake_env = #handshake_env{renegotiation = {false, first}},
-                                                start_or_recv_from = StartFrom} = State) ->
+                                                recv = #recv{from = StartFrom}
+                                               } = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, StartFrom, Alert, Role, StateName, Connection);
 
@@ -1019,7 +1027,8 @@ handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = 
                                                 connection_env  = #connection_env{user_application = {_Mon, Pid}},
                                                 handshake_env = #handshake_env{renegotiation = Type},
                                                 socket_options = Opts,
-						start_or_recv_from = RecvFrom} = State) ->
+                                                recv = #recv{from = RecvFrom}
+                                               } = State) ->
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
@@ -1128,7 +1137,7 @@ handle_fatal_alert(Alert0, StateName,
                                                    protocol_cb = Connection},
                           connection_env  = #connection_env{user_application = {_Mon, Pid}},
                           ssl_options = #{log_level := LogLevel},
-                          start_or_recv_from = From,
+                          recv = #recv{from = From},
                           session = Session,
                           socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
@@ -1240,8 +1249,7 @@ format_status(terminate, [_, StateName, State]) ->
 					       handshake_env =  ?SECRET_PRINTOUT,
                                                connection_env = ?SECRET_PRINTOUT,
 					       session =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions,
-					       flight_buffer =  ?SECRET_PRINTOUT}
+					       ssl_options = NewOptions}
 		       }}]}].
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1355,10 +1363,11 @@ ack_connection(#state{handshake_env = #handshake_env{renegotiation = {true, From
     gen_statem:reply(From, ok),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined}};
 ack_connection(#state{handshake_env = #handshake_env{renegotiation = {false, first}} = HsEnv,
-		      start_or_recv_from = StartFrom} = State) when StartFrom =/= undefined ->
+                      recv = #recv{from = StartFrom} = Recv} = State)
+  when StartFrom =/= undefined ->
     gen_statem:reply(StartFrom, connected),
     State#state{handshake_env = HsEnv#handshake_env{renegotiation = undefined},
-		start_or_recv_from = undefined};
+                recv = Recv#recv{from = undefined}};
 ack_connection(State) ->
     State.
 
@@ -1368,7 +1377,8 @@ no_records(Extensions) ->
              end, Extensions).
 
 handle_active_option(false, connection = StateName, To, Reply, State) ->
-    hibernate_after(StateName, State, [{reply, To, Reply}]);
+    gen_statem:reply(To, Reply),
+    hibernate_after(StateName, State, []);
 
 handle_active_option(_, connection = StateName, To, Reply,
                      #state{static_env = #static_env{role = Role},
@@ -1381,15 +1391,18 @@ handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = 
                                                                    user_data_buffer = {_,0,_}} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of
 	{next_state, StateName, State} ->
-	    hibernate_after(StateName, State, [{reply, To, Reply}]);
+            gen_statem:reply(To, Reply),
+	    hibernate_after(StateName, State, []);
 	{next_state, StateName, State, Actions} ->
-	    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+            gen_statem:reply(To, Reply),
+	    hibernate_after(StateName, State, Actions);
 	{stop, _, _} = Stop ->
 	    Stop
     end;
 handle_active_option(_, StateName, To, Reply, #state{user_data_buffer = {_,0,_}} = State) ->
     %% Active once already set
-    {next_state, StateName, State, [{reply, To, Reply}]};
+    gen_statem:reply(To, Reply),
+    {next_state, StateName, State};
 
 %% user_data_buffer nonempty
 handle_active_option(_, StateName0, To, Reply,
@@ -1401,18 +1414,20 @@ handle_active_option(_, StateName0, To, Reply,
 	    %% Note: Renogotiation may cause StateName0 =/= StateName
 	    case Connection:next_event(StateName0, Record, State1) of
 		{next_state, StateName, State} ->
-		    hibernate_after(StateName, State, [{reply, To, Reply}]);
+                    gen_statem:reply(To, Reply),
+		    hibernate_after(StateName, State, []);
 		{next_state, StateName, State, Actions} ->
-		    hibernate_after(StateName, State, [{reply, To, Reply} | Actions]);
+                    gen_statem:reply(To, Reply),
+		    hibernate_after(StateName, State, Actions);
 		{stop, _, _} = Stop ->
 		    Stop
 	    end
     end.
 
-read_application_data(#state{
-                         socket_options = SocketOpts,
-                         bytes_to_read = BytesToRead,
-                         start_or_recv_from = RecvFrom} = State, Front, BufferSize, Rear) ->
+read_application_data(#state{socket_options = SocketOpts,
+                             recv = #recv{from = RecvFrom,
+                                          bytes_to_read = BytesToRead}} = State,
+                      Front, BufferSize, Rear) ->
     read_application_data(State, Front, BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead).
 
 %% Pick binary from queue front, if empty wait for more data
@@ -1421,8 +1436,9 @@ read_application_data(State, [Bin|Front], BufferSize, Rear, SocketOpts, RecvFrom
 read_application_data(State, [] = Front, BufferSize, [] = Rear, SocketOpts, RecvFrom, BytesToRead) ->
     0 = BufferSize, % Assert
     {no_record, State#state{socket_options = SocketOpts,
-                            bytes_to_read = BytesToRead,
-                            start_or_recv_from = RecvFrom,
+                            recv = State#state.recv#recv{from = RecvFrom,
+                                                         bytes_to_read = BytesToRead
+                                                        },
                             user_data_buffer = {Front,BufferSize,Rear}}};
 read_application_data(State, [], BufferSize, Rear, SocketOpts, RecvFrom, BytesToRead) ->
     [Bin|Front] = lists:reverse(Rear),
@@ -1449,8 +1465,8 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
                 true ->
                     %% All data is in the first binary, no use to retry - wait for more
                     {no_record, State#state{socket_options = SocketOpts0,
-                                            bytes_to_read = BytesToRead,
-                                            start_or_recv_from = RecvFrom,
+                                            recv = State#state.recv#recv{from = RecvFrom,
+                                                                         bytes_to_read = BytesToRead},
                                             user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}}
             end;
         {more, Size} when Size =< BufferSize0 ->
@@ -1462,13 +1478,13 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
         {more, _Size} ->
             %% We do not have a packet in the buffer - wait for more
             {no_record, State#state{socket_options = SocketOpts0,
-                                    bytes_to_read = BytesToRead,
-                                    start_or_recv_from = RecvFrom,
+                                    recv = State#state.recv#recv{from = RecvFrom,
+                                                                bytes_to_read = BytesToRead},
                                     user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
         passive ->
             {no_record, State#state{socket_options = SocketOpts0,
-                                    bytes_to_read = BytesToRead,
-                                    start_or_recv_from = RecvFrom,
+                                    recv = State#state.recv#recv{from = RecvFrom,
+                                                                 bytes_to_read = BytesToRead},
                                     user_data_buffer = {[Bin0|Front0],BufferSize0,Rear0}}};
 	{error,_Reason} ->
             %% Invalid packet in packet mode
@@ -1485,10 +1501,11 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
 	    deliver_packet_error(
               Connection:pids(State), Transport, Socket, SocketOpts0,
               Buffer, Pid, RecvFrom, Trackers, Connection),
-            {stop, {shutdown, normal}, State#state{socket_options = SocketOpts0,
-                                                   bytes_to_read = BytesToRead,
-                                                   start_or_recv_from = RecvFrom,
-                                                   user_data_buffer = {[Buffer],BufferSize0,[]}}}
+            {stop, {shutdown, normal},
+             State#state{socket_options = SocketOpts0,
+                         recv = State#state.recv#recv{from = RecvFrom,
+                                                      bytes_to_read = BytesToRead},
+                         user_data_buffer = {[Buffer],BufferSize0,[]}}}
     end.
 
 read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvFrom, Data) ->
@@ -1510,8 +1527,7 @@ read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvF
             {no_record,
              State#state{
                user_data_buffer = {Front,BufferSize,Rear},
-               start_or_recv_from = undefined,
-               bytes_to_read = undefined,
+               recv = State#state.recv#recv{from = undefined, bytes_to_read = undefined},
                socket_options = SocketOpts
               }};
         true -> %% Try to deliver more data
@@ -1840,7 +1856,7 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
                                           cipher_suite = CipherSuite,
                                           srp_username = SrpUsername,
                                           ecc = ECCCurve} = Session,
-                       connection_states = #{current_write := CurrentWrite},
+                       connection_states = ConnectionStates,
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version},
 		       ssl_options = #{protocol := Protocol} = Opts}) ->
     RecordCB = record_cb(Protocol),
@@ -1853,7 +1869,7 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
 		    _ ->
 			[]
 		end,
-    MFLInfo = case maps:get(max_fragment_length, CurrentWrite, undefined) of
+    MFLInfo = case maps:get(max_fragment_length, ConnectionStates, undefined) of
                   MaxFragmentLength when is_integer(MaxFragmentLength) ->
                       [{max_fragment_length, MaxFragmentLength}];
                   _ ->
@@ -1974,6 +1990,37 @@ set_socket_opts(ConnectionCb, Transport, Socket, [], SockOpts, Other) ->
 	    {{error, {options, {socket_options, Other, Error}}}, SockOpts}
     end;
 
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other)
+  when Active == once; Active == true; Active == false ->
+    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+		    SockOpts#socket_options{active = Active}, Other);
+set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
+                SockOpts=#socket_options{active = Active0}, Other)
+  when Active1 >= -32768, Active1 =< 32767 ->
+    Active = if
+                 is_integer(Active0), Active0 + Active1 < -32768 ->
+                     error;
+                 is_integer(Active0), Active0 + Active1 =< 0 ->
+                     false;
+                 is_integer(Active0), Active0 + Active1 > 32767 ->
+                     error;
+                 Active1 =< 0 ->
+                     false;
+                 is_integer(Active0) ->
+                     Active0 + Active1;
+                 true ->
+                     Active1
+             end,
+    case Active of
+        error ->
+            {{error, {options, {socket_options, Opt}} }, SockOpts};
+        _ ->
+            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+                            SockOpts#socket_options{active = Active}, Other)
+    end;
+set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
+    {{error, {options, {socket_options, Opt}} }, SockOpts};
+
 set_socket_opts(ConnectionCb, Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other)
   when Mode == list; Mode == binary ->
     set_socket_opts(ConnectionCb, Transport, Socket, Opts,
@@ -2006,38 +2053,6 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{header, Header}| Opts], SockO
 		    SockOpts#socket_options{header = Header}, Other);
 set_socket_opts(_, _, _, [{header, _} = Opt| _], SockOpts, _) ->
     {{error,{options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other)
-  when Active == once;
-       Active == true;
-       Active == false ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-		    SockOpts#socket_options{active = Active}, Other);
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
-                SockOpts=#socket_options{active = Active0}, Other)
-  when Active1 >= -32768, Active1 =< 32767 ->
-    Active = if
-        is_integer(Active0), Active0 + Active1 < -32768 ->
-            error;
-        is_integer(Active0), Active0 + Active1 =< 0 ->
-            false;
-        is_integer(Active0), Active0 + Active1 > 32767 ->
-            error;
-        Active1 =< 0 ->
-            false;
-        is_integer(Active0) ->
-            Active0 + Active1;
-        true ->
-            Active1
-    end,
-    case Active of
-        error ->
-            {{error, {options, {socket_options, Opt}} }, SockOpts};
-        _ ->
-            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-                            SockOpts#socket_options{active = Active}, Other)
-    end;
-set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
-    {{error, {options, {socket_options, Opt}} }, SockOpts};
 set_socket_opts(ConnectionCb, Transport,Socket, [{packet_size, Size}| Opts], SockOpts, Other) when is_integer(Size) -> 
       set_socket_opts(ConnectionCb, Transport, Socket, Opts,
                       SockOpts#socket_options{packet_size = Size}, Other);

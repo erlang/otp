@@ -164,7 +164,7 @@ create_connection_states() ->
 						  cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
 						 }
 		       },
-      current_read => #{secure_renegotiation => false
+      current_read => #{reneg => #{secure_renegotiation => false}
                        }
      }.
 

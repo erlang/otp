@@ -260,8 +260,8 @@ key_exchange(client, _Version, {srp, PublicKey}) ->
 key_exchange(server, Version, {dh, {PublicKey, _},
 			       #'DHParameter'{prime = P, base = G},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
-    ServerDHParams = #server_dh_params{dh_p = int_to_bin(P),
-				       dh_g = int_to_bin(G), dh_y = PublicKey},
+    ServerDHParams = #server_dh_params{dh_p = binary:encode_unsigned(P),
+				       dh_g = binary:encode_unsigned(G), dh_y = PublicKey},
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey);
 
@@ -283,8 +283,8 @@ key_exchange(server, Version, {dhe_psk, PskIdentityHint, {PublicKey, _},
 			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     ServerEDHPSKParams = #server_dhe_psk_params{
       hint = PskIdentityHint,
-      dh_params = #server_dh_params{dh_p = int_to_bin(P),
-				    dh_g = int_to_bin(G), dh_y = PublicKey}
+      dh_params = #server_dh_params{dh_p = binary:encode_unsigned(P),
+				    dh_g = binary:encode_unsigned(G), dh_y = PublicKey}
      },
     enc_server_key_exchange(Version, ServerEDHPSKParams,
 			    HashSign, ClientRandom, ServerRandom, PrivateKey);
@@ -1505,7 +1505,7 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
     %% RFC 6066: handle received/expected maximum fragment length
     if IsNew ->
             ServerMaxFragEnum = maps:get(max_frag_enum, Exts, undefined),
-            #{current_write := #{max_fragment_length := ConnMaxFragLen}} = ConnectionStates,
+            ConnMaxFragLen = maps:get(max_fragment_length, ConnectionStates0, undefined),
             ClientMaxFragEnum = max_frag_enum(ConnMaxFragLen),
 
             if ServerMaxFragEnum == ClientMaxFragEnum ->
@@ -1971,10 +1971,6 @@ certificate_authorities(CertDbHandle, CertDbRef) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 %%------------- Create handshake messages ----------------------------
-
-int_to_bin(I) ->
-    L = (length(integer_to_list(I, 16)) + 1) div 2,
-    <<I:(L*8)>>.
 
 %% The end-entity certificate provided by the client MUST contain a
 %% key that is compatible with certificate_types.
@@ -3298,7 +3294,7 @@ psk_secret(PSKIdentity, PSKLookup) ->
     case handle_psk_identity(PSKIdentity, PSKLookup) of
 	{ok, PSK} when is_binary(PSK) ->
 	    Len = erlang:byte_size(PSK),
-	    <<?UINT16(Len), 0:(Len*8), ?UINT16(Len), PSK/binary>>;
+	    <<?UINT16(Len), 0:Len/unit:8, ?UINT16(Len), PSK/binary>>;
 	#alert{} = Alert ->
 	    Alert;
 	_ ->
@@ -3613,31 +3609,26 @@ max_frag_enum(undefined) ->
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
-    ConnectionState  = ssl_record:current_connection_state(ConnectionStates, read),
-    case maps:get(secure_renegotiation, ConnectionState) of
-	true ->
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true}} ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
-	false ->
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 renegotiation_info(_RecordCB, client, ConnectionStates, true) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case  maps:get(secure_renegotiation, ConnectionState) of
-	true ->
-	    Data = maps:get(client_verify_data, ConnectionState),
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true, client_verify_data := Data}} ->
 	    #renegotiation_info{renegotiated_connection = Data};
-	false ->
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
-
 renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case maps:get(secure_renegotiation, ConnectionState) of
-	true ->
-	    CData = maps:get(client_verify_data, ConnectionState),
-	    SData = maps:get(server_verify_data, ConnectionState),
-	    #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
-	false ->
+    case ssl_record:current_connection_state(ConnectionStates, read) of
+        #{reneg := #{secure_renegotiation := true,
+                     client_verify_data := CData,
+                     server_verify_data := SData}} ->
+                #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
+	_ ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end.
 
@@ -3658,9 +3649,8 @@ handle_renegotiation_info(_, _RecordCB, _, undefined, ConnectionStates, false, _
 
 handle_renegotiation_info(_, _RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    CData = maps:get(client_verify_data, ConnectionState),
-    SData = maps:get(server_verify_data, ConnectionState),
+    #{reneg := ReNeg} = ssl_record:current_connection_state(ConnectionStates, read),
+    #{client_verify_data := CData, server_verify_data := SData} = ReNeg,
     case <<CData/binary, SData/binary>> == ClientServerVerify of
 	true ->
 	    {ok, ConnectionStates};
@@ -3674,12 +3664,10 @@ handle_renegotiation_info(_, _RecordCB, server, #renegotiation_info{renegotiated
 	  true ->
               throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {server_renegotiation, empty_renegotiation_info_scsv}));
 	  false ->
-	      ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-	      Data =  maps:get(client_verify_data, ConnectionState),
-	      case Data == ClientVerify of
-		  true ->
+	      case ssl_record:current_connection_state(ConnectionStates, read) of
+		  #{reneg := #{client_verify_data := ClientVerify}} ->
 		      {ok, ConnectionStates};
-		  false ->
+		  _ ->
                       throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, server_renegotiation))
 	      end
       end;
@@ -3695,8 +3683,8 @@ handle_renegotiation_info(_, RecordCB, server, undefined, ConnectionStates, true
      end.
 
 handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
-    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
-    case {SecureRenegotation, maps:get(secure_renegotiation, ConnectionState)} of
+    #{reneg := #{secure_renegotiation := SR}} = ssl_record:current_connection_state(ConnectionStates, read),
+    case {SecureRenegotation, SR} of
 	{_, true} ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, already_secure));
 	{true, false} ->

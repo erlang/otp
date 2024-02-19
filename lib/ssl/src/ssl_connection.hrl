@@ -88,6 +88,17 @@
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
                                                  | 'undefined',
+                        client_certificate_status = not_requested :: not_requested | requested |
+                                                                     empty | needs_verifying | verified,
+                        key_share,
+                        %% Buffer of TLS/DTLS records, used during the TLS
+                        %% handshake to when possible pack more than one TLS
+                        %% record into the underlying packet
+                        %% format. Introduced by DTLS - RFC 4347.  The
+                        %% mechanism is also useful in TLS although we do not
+                        %% need to worry about packet loss in TLS. In DTLS we
+                        %% need to track DTLS handshake seqnr
+                        flight_buffer = []   :: list() | map(),
                         stapling_state = #{configured => false,
                                            status => not_negotiated}
                        }).
@@ -107,6 +118,11 @@
                                                           } | secret_printout() | 'undefined'
                         }).
 
+-record(recv, {
+               from                   :: term(),                %% start or recv from
+               bytes_to_read          :: undefined | integer()  %% bytes to read in passive mode
+              }).
+
 -record(state, {
                 static_env            :: #static_env{},
                 connection_env        :: #connection_env{} | secret_printout(),
@@ -115,26 +131,13 @@
 
                 %% Handshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 handshake_env         :: #handshake_env{} | secret_printout(),
-                %% Buffer of TLS/DTLS records, used during the TLS
-                %% handshake to when possible pack more than one TLS
-                %% record into the underlying packet
-                %% format. Introduced by DTLS - RFC 4347.  The
-                %% mechanism is also useful in TLS although we do not
-                %% need to worry about packet loss in TLS. In DTLS we
-                %% need to track DTLS handshake seqnr
-                flight_buffer = []   :: list() | map(),  
-                client_certificate_status = not_requested :: not_requested | requested  | empty | needs_verifying | verified,
                 protocol_specific = #{}      :: map(),
                 session               :: #session{} | secret_printout(),
-                key_share,
                 %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                recv = #recv{}        :: #recv{},
                 connection_states     :: ssl_record:connection_states() | secret_printout(),
                 protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
-                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout(),
-                bytes_to_read        :: undefined | integer(), %% bytes to read in passive mode
-                %% recv and start handling
-                start_or_recv_from   :: term(),
-                log_level
+                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout()
                }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,

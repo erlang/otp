@@ -178,7 +178,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
     try ssl:update_options(NewOptions, ?CLIENT_ROLE, Options0) of
         Options ->
             State = ssl_gen_statem:ssl_config(Options, ?CLIENT_ROLE, State0),
-            {next_state, wait_sh, State#state{start_or_recv_from = From,
+            {next_state, wait_sh, State#state{recv = State#state.recv#recv{from = From},
                                               handshake_env =
                                                   HSEnv#handshake_env{continue_status
                                                                       = continue}
@@ -225,13 +225,13 @@ start(internal, #server_hello{extensions =
                                            selected_version = Version}}
                               = Extensions},
       #state{ssl_options = #{versions := SupportedVersions},
-             start_or_recv_from = From,
+             recv = #recv{from = From} = Recv,
              handshake_env = #handshake_env{continue_status = pause}}
       = State) ->
     case tls_record:is_acceptable_version(Version, SupportedVersions) of
         true ->
             {next_state, user_hello,
-             State#state{start_or_recv_from = undefined},
+             State#state{recv=Recv#recv{from = undefined}},
              [{postpone, true},
               {reply, From, {ok, Extensions}}]};
         false ->
@@ -265,9 +265,10 @@ wait_sh(internal = Type, #change_cipher_spec{} = Msg, State)->
                                                     ?STATE(wait_sh), State);
 wait_sh(internal, #server_hello{extensions = Extensions},
         #state{handshake_env = #handshake_env{continue_status = pause},
-               start_or_recv_from = From} = State) ->
+               recv = #recv{from = From} = Recv
+              } = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined},
+     State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true},{reply, From, {ok, Extensions}}]};
 wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
         #state{session = #session{session_id = ?EMPTY_ID},
@@ -711,11 +712,10 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
 
         State = State3#state{
                   connection_states = ConnectionStates,
-                  session = Session0#session{session_id =
-                                                 Hello#client_hello.session_id},
-                  handshake_env =
-                      HsEnv#handshake_env{tls_handshake_history = HHistory},
-                  key_share = ClientKeyShare},
+                  session = Session0#session{session_id = Hello#client_hello.session_id},
+                  handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory,
+                                                      key_share = ClientKeyShare}
+                  },
 
         %% If it is a hello_retry and middlebox mode is
         %% used assert the change_cipher_spec  message
@@ -737,11 +737,11 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                   random = Random,
                                   session_id = SessionId,
                                   extensions = Extensions} = ServerHello,
-           #state{key_share = ClientKeyShare,
-                  ssl_options = #{ciphers := ClientCiphers,
-                                  supported_groups := ClientGroups0,
-                                  session_tickets := SessionTickets,
-                                  use_ticket := UseTicket}} = State0) ->
+                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare},
+                           ssl_options = #{ciphers := ClientCiphers,
+                                           supported_groups := ClientGroups0,
+                                           session_tickets := SessionTickets,
+                                           use_ticket := UseTicket}} = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ClientGroups =
@@ -933,14 +933,13 @@ cipher_hash_algos(Ciphers) ->
           end,
     lists:map(Fun, Ciphers).
 
-maybe_queue_cert_cert_cv(#state{client_certificate_status = not_requested}
+maybe_queue_cert_cert_cv(#state{handshake_env = #handshake_env{client_certificate_status = not_requested}}
                          = State) ->
     {ok, State};
 maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
                                 session = #session{session_id = _SessionId,
                                                    own_certificates = OwnCerts},
                                 ssl_options = #{} = _SslOpts,
-                                key_share = _KeyShare,
                                 handshake_env =
                                     #handshake_env{tls_handshake_history =
                                                        _HHistory0},

@@ -82,6 +82,7 @@ initial_state(Role, Sender, Host, Port, Socket,
        handshake_env = #handshake_env{
                           tls_handshake_history =
                               ssl_handshake:init_handshake_history(),
+                          flight_buffer = [],
                           renegotiation = {false, first}
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
@@ -93,13 +94,13 @@ initial_state(Role, Sender, Host, Port, Socket,
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
-       start_or_recv_from = undefined,
-       flight_buffer = [],
+       recv = #recv{from = undefined},
        protocol_specific = #{sender => Sender,
                              active_n => internal_active_n(SSLOptions, Socket),
                              active_n_toggle => true
                             }
       }.
+
 %%--------------------------------------------------------------------
 %% generic state functions
 %%--------------------------------------------------------------------
@@ -203,16 +204,18 @@ downgrade(Type, Event, State) ->
 
 %% Description: Enqueues a change_cipher_spec record as the first/last
 %% message of the current flight buffer
-maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0,
+maybe_queue_change_cipher_spec(#state{handshake_env = #handshake_env{flight_buffer = FlightBuffer0}
+                                     } = State0,
                                first) ->
-    {State, FlightBuffer} =
+    {State = #state{handshake_env = HsEnv}, FlightBuffer} =
         maybe_prepend_change_cipher_spec(State0, FlightBuffer0),
-    State#state{flight_buffer = FlightBuffer};
-maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0,
+    State#state{handshake_env = HsEnv#handshake_env{flight_buffer = FlightBuffer}};
+maybe_queue_change_cipher_spec(#state{handshake_env = #handshake_env{flight_buffer = FlightBuffer0}
+                                     } = State0,
                                last) ->
-    {State, FlightBuffer} = maybe_append_change_cipher_spec(State0,
-                                                            FlightBuffer0),
-    State#state{flight_buffer = FlightBuffer}.
+    {State = #state{handshake_env = HsEnv}, FlightBuffer} =
+        maybe_append_change_cipher_spec(State0, FlightBuffer0),
+    State#state{handshake_env = HsEnv#handshake_env{flight_buffer = FlightBuffer}}.
 
 handle_change_cipher_spec(Type, Msg, StateName,
                           #state{protocol_specific = PS0} = State) ->

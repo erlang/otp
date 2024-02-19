@@ -760,9 +760,13 @@ client_hello(Random) ->
 
 connection_states(Random) ->
     #{current_write =>
-          #{beast_mitigation => one_n_minus_one,cipher_state => undefined,
-		 client_verify_data => undefined,
-		 mac_secret => undefined,secure_renegotiation => undefined,
+          #{beast_mitigation => one_n_minus_one,
+            cipher_state => undefined,
+            mac_secret => undefined,
+            reneg => #{secure_renegotiation => undefined,
+                       client_verify_data => undefined,
+                       server_verify_data => undefined
+                      },
             security_parameters =>
                 #security_parameters{
                   cipher_suite = <<0,0>>,
@@ -778,7 +782,8 @@ connection_states(Random) ->
                    resumption_master_secret = undefined,
                    client_random = Random,
                    server_random = undefined},
-            sequence_number => 0,server_verify_data => undefined,max_fragment_length => undefined}}.
+            sequence_number => 0,
+            max_fragment_length => undefined}}.
 
 
 

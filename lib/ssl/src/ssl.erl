@@ -2783,6 +2783,8 @@ getopts(#sslsocket{}, OptionTags) ->
 %%
 %% Description: Sets options
 %%--------------------------------------------------------------------
+setopts(#sslsocket{pid = [Pid|_]}, [{active, _}] = Active) when is_pid(Pid) ->
+    ssl_gen_statem:set_opts(Pid, Active);
 setopts(#sslsocket{pid = [Pid, Sender]}, Options0) when is_pid(Pid), is_list(Options0)  ->
     try proplists:expand([{binary, [{mode, binary}]},
 			  {list, [{mode, list}]}], Options0) of
