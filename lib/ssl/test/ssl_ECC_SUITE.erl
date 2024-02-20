@@ -46,7 +46,8 @@
          ecc_default_order_custom_curves/1,
          ecc_client_order/1,
          ecc_client_order_custom_curves/1,
-         ecc_unknown_curve/1,
+         ecc_unknown_curve_ecdhe_ecdsa/1,
+         ecc_unknown_curve_ecdhe_rsa/1,
          client_ecdh_rsa_server_ecdhe_ecdsa_server_custom/1,
          client_ecdh_rsa_server_ecdhe_rsa_server_custom/1,
          client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom/1,
@@ -93,7 +94,8 @@ ecc_negotiation() ->
      ecc_default_order_custom_curves,
      ecc_client_order,
      ecc_client_order_custom_curves,
-     ecc_unknown_curve,
+     ecc_unknown_curve_ecdhe_ecdsa,
+     ecc_unknown_curve_ecdhe_rsa,
      client_ecdh_rsa_server_ecdhe_ecdsa_server_custom,
      client_ecdh_rsa_server_ecdhe_rsa_server_custom,
      client_ecdhe_rsa_server_ecdhe_ecdsa_server_custom,
@@ -173,9 +175,10 @@ client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
     ServerKey = {'ECPrivateKey', Key},
     SType = proplists:get_value(server_type, Config),
     CType = proplists:get_value(client_type, Config),
-    {Server, Port} = ssl_test_lib:start_server_with_raw_key(SType,
-                                                            [{key, ServerKey} | proplists:delete(keyfile, SOpts)],
-                                                            Config),
+    {Server, Port} =
+        ssl_test_lib:start_server_with_raw_key(SType,
+                                               [{key, ServerKey} | proplists:delete(keyfile, SOpts)],
+                                               Config),
     Client = ssl_test_lib:start_client(CType, Port, COpts, Config),
     ssl_test_lib:gen_check_result(Server, SType, Client, CType),
     ssl_test_lib:stop(Server, Client).
@@ -240,11 +243,23 @@ ecc_client_order_custom_curves(Config) ->
         false -> {skip, "unsupported named curves"}
     end.
 
-ecc_unknown_curve(Config) ->
+ecc_unknown_curve_ecdhe_ecdsa(Config) ->
     Default = ssl_test_lib:default_cert_chain_conf(),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
                                                        {client_chain, Default}],
-                                                      ecdhe_ecdsa, ecdhe_ecdsa, Config),
+                                                        ecdhe_ecdsa, ecdhe_ecdsa, Config),
+    COpts = ssl_test_lib:ssl_options(COpts0, Config),
+    SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
+    ECCALL = ssl:eccs(),
+    SECCOpts = [{eccs, [hd(ECCALL)]}],
+    CECCOpts = [{eccs, tl(ECCALL)}],
+    ssl_test_lib:ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config).
+
+ecc_unknown_curve_ecdhe_rsa(Config) ->
+    Default = ssl_test_lib:default_cert_chain_conf(),
+    {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
+                                                         {client_chain, Default}],
+                                                        ecdhe_rsa, ecdhe_rsa, Config),
     COpts = ssl_test_lib:ssl_options(COpts0, Config),
     SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
     ECCALL = ssl:eccs(),

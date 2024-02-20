@@ -1080,7 +1080,7 @@ key_exchange(#state{static_env = #static_env{role = server},
   when KexAlg == ecdhe_ecdsa; 
        KexAlg == ecdhe_rsa;
        KexAlg == ecdh_anon ->
-
+    assert_curve(ECCCurve),
     ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -1144,6 +1144,7 @@ key_exchange(#state{static_env = #static_env{role = server},
                     session = #session{ecc = ECCCurve,  private_key = PrivateKey},
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
+    assert_curve(ECCCurve),
     ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -1728,6 +1729,14 @@ default_cert_key_pair_return(undefined, Session) ->
     Session;
 default_cert_key_pair_return(Default, _) ->
     Default.
+
+assert_curve(ECCCurve) ->
+    case ECCCurve of
+        no_curve ->
+            throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_elliptic_curve));
+        _ ->
+            ok
+    end.
 
 %%%################################################################
 %%%#
