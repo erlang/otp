@@ -198,6 +198,9 @@ void error(char* format, ...);
 static void usage_notsup(const char *switchname, const char *alt);
 static char **build_args_from_env(char *env_var);
 static char **build_args_from_string(char *env_var, int allow_comments);
+static char *get_env_name(void);
+static char *substitute_env(char *value, char *pos);
+static void initial_env_massage(void);
 static void initial_argv_massage(int *argc, char ***argv);
 static void get_parameters(int argc, char** argv);
 static void add_arg(char *new_arg);
@@ -469,6 +472,7 @@ int main(int argc, char **argv)
     free_env_val(s);
 #endif
 
+    initial_env_massage(); /* Merge with <base>.env file */
     initial_argv_massage(&argc, &argv); /* Merge with env; expand -args_file */
 
     i = 1;
@@ -2093,6 +2097,124 @@ get_file_args(char *filename, argv_buf *abp, argv_buf *xabp)
 
 	pop_argv(&stck, &argv, &i);
     }
+}
+
+#define BUFSIZE 4096
+static char *
+get_env_name(void) 
+{
+	char *buf = malloc(BUFSIZE);
+	char *name = NULL;
+	char *base = NULL;
+	char *p = NULL;
+	char extname[] = ".env";
+#ifdef __WIN32__
+	DWORD len;
+#else
+	ssize_t len;
+#endif
+
+	memset(buf, 0, BUFSIZE);
+
+#ifdef __WIN32__
+	len = GetModuleFileNameA(NULL, buf, BUFSIZE - 1);
+#else
+	len = readlink("/proc/self/exe", buf, BUFSIZE - 1);
+#endif
+	
+	if (len <= 0 || len >= BUFSIZE) {
+		free(buf);
+		return NULL;
+	}
+
+	set_env("SELF", buf);
+	name = malloc(len + 1 + sizeof(extname));
+	memcpy(name, buf, len);
+	memcpy(name + len, extname, sizeof(extname));
+	name[(size_t)len + sizeof(extname)] = 0;
+	free(buf);
+
+	base = strdup(name);
+	if ((p = strrchr(base, '/')) != NULL) *p = 0;
+	if ((p = strrchr(base, '\\')) != NULL) *p = 0;
+	set_env("SELFBASE", base);
+	free(base);
+	return name;
+}
+
+// This function reads a .env file and massages the environment variables based on its content
+static void
+initial_env_massage(void)
+{
+	char *env_file;
+	FILE *fp;
+	char *buf;
+	char *value;
+	char *new_value;
+	char *p;
+
+	// Setting the pid to make it available to env substitutions
+	char pid[32];
+#ifdef __WIN32__
+	sprintf(pid, "%d", GetCurrentProcessId());
+#else
+	sprintf(pid, "%d", getpid());
+#endif
+	set_env("PID", pid);
+
+
+	if (!(env_file = get_env_name())) return;
+	// printf("env_file: %s\n", env_file);
+	if (!(fp = fopen(env_file, "rb"))) return;
+
+	buf = malloc(BUFSIZE);
+	while(fgets(buf, BUFSIZE, fp)) {
+		if ((p = strchr(buf, '\n'))) *p = '\0';
+		if ((p = strchr(buf, '\r'))) *p = '\0';
+		if (!(value = strchr(buf, '='))) continue;
+		new_value = substitute_env(buf, value);
+		putenv(new_value);
+		// we can't free new_value because it's used by the environment
+		buf = malloc(BUFSIZE);
+	}
+	free(buf);
+	fclose(fp);
+}
+
+// This function does simple ${NAME} environment variable substitution
+static char *
+substitute_env(char *value, char *pos)
+{
+	char *begin;
+	char *end;
+	char *name;
+	char *sub;
+	char *new_value;
+
+	begin = strstr(pos, "${");
+	if (!begin) return value;
+	end = strchr(begin, '}');
+	if (!end) return value;
+
+	name = malloc(end - begin - 1);
+	memcpy(name, begin + 2, end - begin - 2);
+	name[end - begin - 2] = 0;
+	sub = get_env(name);
+	if (!sub) {
+		free(name);
+		return substitute_env(value, end);
+	}
+
+	new_value = malloc(strlen(value) + strlen(sub) - (end - begin) + 1);
+	memcpy(new_value, value, begin - value);
+	memcpy(new_value + (begin - value), sub, strlen(sub));
+	memcpy(new_value + (begin - value) + strlen(sub), end + 1, strlen(end + 1));
+	new_value[(begin - value) + strlen(sub) + strlen(end + 1)] = 0;
+	pos = new_value + (begin - value) + strlen(sub);
+	free(value);
+	free(name);
+	free_env_val(sub);
+	return substitute_env(new_value, pos);
 }
 
 static void
