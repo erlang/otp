@@ -49,7 +49,7 @@ all() ->
 ].
 
 init_per_suite(Config) ->
-    Server = start_xref_server(daily_xref, functions),
+    Server = start_xref_server(daily_xref, functions, Config),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -389,8 +389,8 @@ runtime_dependencies_functions(Config) ->
 %% 'modules' mode (the BEAM files to be released might not contain
 %% debug information).
 
-runtime_dependencies_modules(_Config) ->
-    Server = start_xref_server(?FUNCTION_NAME, modules),
+runtime_dependencies_modules(Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules, Config),
     try
         runtime_dependencies(Server)
     after
@@ -708,7 +708,7 @@ app_exists(AppAtom) ->
             end
     end.
 
-start_xref_server(Server, Mode) ->
+start_xref_server(Server, Mode, _Config) ->
     Root = code:root_dir(),
     xref:start(Server, [{xref_mode,Mode}]),
     xref:set_default(Server, [{verbose,false},
@@ -722,17 +722,18 @@ start_xref_server(Server, Mode) ->
             %% an entry for erts.
             ct:fail(no_erts_lib_dir);
         LibDir ->
-            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+            ErtsEbin = lists:flatten(filename:join(LibDir, "ebin")),
+            case lists:member(ErtsEbin, code:get_path()) of
                 false ->
                     %% If we are running the tests in the git repository,
                     %% the preloaded BEAM files for Erts are not in the
                     %% code path. We must add them explicitly.
-                    Erts = filename:join([LibDir,"preloaded","ebin"]),
-                    {ok,_} = xref:add_directory(Server, Erts, []);
+                    {ok,_} = xref:add_directory(Server, ErtsEbin, []);
                 true ->
                     ok
             end
     end,
+
     Server.
 
 read_otp_version_table(DataDir) ->

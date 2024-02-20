@@ -410,7 +410,7 @@ do_measure(Factor, Opts, _Id, Codec, Conf, Name, BinMsg, MCount) ->
     {ok, #stat{name   = Name, 
 	       ecount = Ecnt, etime = Etime, 
 	       dcount = Dcnt, dtime = Dtime, 
-	       size = size(NewBin)}}.
+	       size = byte_size(NewBin)}}.
 
 detect_version(#{verbose := Verbose} = _Opts, Codec, Conf, Bin) ->
     case (catch Codec:version_of(Conf, Bin)) of
@@ -418,7 +418,7 @@ detect_version(#{verbose := Verbose} = _Opts, Codec, Conf, Bin) ->
             vprint(Verbose, "[~w]", [V]),
  	    {ok, M} = Codec:decode_message(Conf, V, Bin),
 	    {ok, NewBin} = Codec:encode_message(Conf, V, M),
-            vprint(Verbose, "[~w]", [size(NewBin)]),
+            vprint(Verbose, "[~w]", [byte_size(NewBin)]),
 	    {V, NewBin};
 	Error ->
             if
