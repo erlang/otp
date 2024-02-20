@@ -19,7 +19,7 @@
 %%
 -module(c).
 -moduledoc """
-Command interface module.
+Command line interface module.
 
 This module enables users to enter the short form of some commonly used
 commands.
