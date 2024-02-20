@@ -512,7 +512,7 @@ key_exchange(#state{handshake_env = #handshake_env{kex_algorithm = KexAlg,
   when KexAlg == ecdhe_ecdsa;
        KexAlg == ecdhe_rsa;
        KexAlg == ecdh_anon ->
-
+    assert_curve(ECCCurve),
     ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -573,6 +573,7 @@ key_exchange(#state{ssl_options = #{psk_identity := PskIdentityHint},
                     session = #session{ecc = ECCCurve,  private_key = PrivateKey},
 		    connection_states = ConnectionStates0
 		   } = State0, Connection) ->
+    assert_curve(ECCCurve),
     ECDHKeys = public_key:generate_key(ECCCurve),
     #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -819,3 +820,11 @@ maybe_register_session(_,_,_,_, Session) ->
 ext_info(OcspState, _, PeerCert) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       stapling_state => OcspState}.
+
+assert_curve(ECCCurve) ->
+    case ECCCurve of
+        no_curve ->
+            throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_elliptic_curve));
+        _ ->
+            ok
+    end.

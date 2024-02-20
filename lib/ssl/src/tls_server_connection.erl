@@ -441,7 +441,12 @@ choose_tls_fsm(_, _) ->
 gen_state(StateName, Type, Event, State) ->
     try tls_dtls_server_connection:StateName(Type, Event, State)
     catch throw:#alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State);
+          _:Reason:ST ->
+            ?SSL_LOG(info, unexpected_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
+						       unexpected_error),
+					    StateName, State)
     end.
 
 renegotiate(#state{static_env = #static_env{socket = Socket,
