@@ -136,93 +136,100 @@ Supported algorithms are (in the default order):
 
 [](){: #supported_algos }
 
-- **Key exchange algorithms** - \* ecdh-sha2-nistp384
+**Key exchange algorithms**
 
-  - ecdh-sha2-nistp521
-  - ecdh-sha2-nistp256
-  - diffie-hellman-group-exchange-sha256
-  - diffie-hellman-group16-sha512
-  - diffie-hellman-group18-sha512
-  - diffie-hellman-group14-sha256
-  - curve25519-sha256
-  - curve25519-sha256@libssh.org
-  - curve448-sha512
+- curve25519-sha256
+- curve25519-sha256@libssh.org
+- curve448-sha512
+- ecdh-sha2-nistp521
+- ecdh-sha2-nistp384
+- ecdh-sha2-nistp256
+- diffie-hellman-group-exchange-sha256
+- diffie-hellman-group16-sha512
+- diffie-hellman-group18-sha512
+- diffie-hellman-group14-sha256
 
-  The following unsecure `SHA1` algorithms are now disabled by default:
+The following unsecure `SHA1` algorithms are now disabled by default:
 
-  - (diffie-hellman-group14-sha1)
-  - (diffie-hellman-group-exchange-sha1)
-  - (diffie-hellman-group1-sha1)
+- (diffie-hellman-group14-sha1)
+- (diffie-hellman-group-exchange-sha1)
+- (diffie-hellman-group1-sha1)
 
-  They can be enabled with the
-  [preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
-  [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. Use
-  for example the Option value
-  `{modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}`)
+They can be enabled with the
+[preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
+[modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. Use
+for example the Option value
+`{modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}`)
 
-- **Public key algorithms** - \* ecdsa-sha2-nistp384
+**Public key algorithms**
 
-  - ecdsa-sha2-nistp521
-  - ecdsa-sha2-nistp256
-  - ssh-ed25519
-  - ssh-ed448
-  - rsa-sha2-256
-  - rsa-sha2-512
+- ssh-ed25519
+- ssh-ed448
+- ecdsa-sha2-nistp521
+- ecdsa-sha2-nistp384
+- ecdsa-sha2-nistp256
+- rsa-sha2-512
+- rsa-sha2-256
 
-  The following unsecure `SHA1` algorithms are supported but disabled by
-  default:
+The following unsecure `SHA1` algorithms are supported but disabled by
+default:
 
-  - (ssh-dss)
-  - (ssh-rsa)
+- (ssh-dss)
+- (ssh-rsa)
 
-  See Disabled public key algorithms can be enabled with the
-  [preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
-  [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. See
-  [Example 9](configure_algos.md#example-9) in
-  [Configuring algorithms in SSH](configure_algos.md) for a description.
+See Disabled public key algorithms can be enabled with the
+[preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
+[modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. See
+[Example 9](configure_algos.md#example-9) in
+[Configuring algorithms in SSH](configure_algos.md) for a description.
 
-- **MAC algorithms** - \* hmac-sha2-256-etm@openssh.com
+**MAC algorithms**
 
-  - hmac-sha2-512-etm@openssh.com
-  - hmac-sha1-etm@openssh.com
-  - hmac-sha2-256
-  - hmac-sha2-512
-  - hmac-sha1
+- hmac-sha2-512-etm@openssh.com
+- hmac-sha2-256-etm@openssh.com
+- hmac-sha2-512
+- hmac-sha2-256
+- hmac-sha1-etm@openssh.com
+- hmac-sha1
 
-  The following unsecure `SHA1` algorithm is disabled by default:
+The following unsecure `SHA1` algorithm is disabled by default:
 
-  - (hmac-sha1-96)
+- (hmac-sha1-96)
 
-  It can be enabled with the
-  [preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
-  [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. Use
-  for example the Option value
-  `{modify_algorithms, [{append, [{mac,['hmac-sha1-96']}]}]}`)
+It can be enabled with the
+[preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
+[modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. Use
+for example the Option value
+`{modify_algorithms, [{append, [{mac,['hmac-sha1-96']}]}]}`)
 
-- **Encryption algorithms (ciphers)** - \* chacha20-poly1305@openssh.com
+**Encryption algorithms (ciphers)**
 
-  - aes256-gcm@openssh.com
-  - aes256-ctr
-  - aes192-ctr
-  - aes128-gcm@openssh.com
-  - aes128-ctr
-  - aes256-cbc
-  - aes192-cbc
-  - aes128-cbc
-  - 3des-cbc
-  - (AEAD_AES_128_GCM, not enabled per default)
-  - (AEAD_AES_256_GCM, not enabled per default)
+- aes256-gcm@openssh.com
+- aes256-ctr
+- aes192-ctr
+- aes128-gcm@openssh.com
+- aes128-ctr
+- chacha20-poly1305@openssh.com
+- aes256-cbc
+- aes192-cbc
+- aes128-cbc
+- 3des-cbc
 
-  See the text at the description of
-  [the rfc 5647 further down](ssh_app.md#rfc5647_note) for more information
-  regarding AEAD*AES*\*\_GCM.
+The following unsecure algorithms are disabled by default:
+- (AEAD_AES_128_GCM)
+- (AEAD_AES_256_GCM)
 
-  Following the internet de-facto standard, the cipher and mac algorithm
-  AEAD_AES_128_GCM is selected when the cipher aes128-gcm@openssh.com is
-  negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
-  cipher aes256-gcm@openssh.com is negotiated.
+See the text at the description of
+[the rfc 5647 further down](ssh_app.md#rfc5647_note) for more information
+regarding AEAD*AES*\*\_GCM.
 
-- **Compression algorithms** - \* none
+Following the internet de-facto standard, the cipher and mac algorithm
+AEAD_AES_128_GCM is selected when the cipher aes128-gcm@openssh.com is
+negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
+cipher aes256-gcm@openssh.com is negotiated.
+
+**Compression algorithms**
+  - none
   - zlib@openssh.com
   - zlib
 
