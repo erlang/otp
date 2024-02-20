@@ -729,14 +729,12 @@ vi({bif,Op,{f,Fail},Ss0,Dst0}, Vst0) ->
             ?EXCEPTION_LABEL = Fail,            %Assertion.
             validate_float_arith_bif(Ss, Dst, Vst0);
         false ->
-            validate_src(Ss, Vst0),
             validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
     end;
 vi({gc_bif,Op,{f,Fail},Live,Ss0,Dst0}, Vst0) ->
     Ss = [unpack_typed_arg(Arg, Vst0) || Arg <- Ss0],
     Dst = unpack_typed_arg(Dst0, Vst0),
 
-    validate_src(Ss, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
@@ -1606,6 +1604,7 @@ verify_return(Vst) ->
 %%
 
 validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+    validate_bif_sources(Op, Ss, Vst),
     case will_bif_succeed(Op, Ss, Vst) of
         yes ->
             %% This BIF cannot fail (neither throw nor branch), make sure it's
@@ -1657,6 +1656,15 @@ validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
 
     branch(Fail, Vst, FailFun, SuccFun).
 
+validate_bif_sources(Op, Ss, Vst)
+  when Op =:= bit_size;
+       Op =:= byte_size ->
+    %% These BIFs accept both match contexts and bitstrings
+    _ = [assert_movable(S, Vst) || S <- Ss],
+    ok;
+validate_bif_sources(_, Ss, Vst) ->
+    validate_src(Ss, Vst).
+
 %%
 %% Common code for validating bs_start_match* instructions.
 %%
@@ -1666,8 +1674,8 @@ validate_bs_start_match({atom,resume}, Live, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
-    Vst = assign(Src, Dst, Vst0),
-    prune_x_regs(Live, Vst);
+    Vst = prune_x_regs(Live, Src, Vst0),
+    assign(Src, Dst, Vst);
 validate_bs_start_match({atom,no_fail}, Live, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
@@ -1678,7 +1686,7 @@ validate_bs_start_match({atom,no_fail}, Live, Src, Dst, Vst0) ->
     SrcType = get_movable_term_type(Src, Vst1),
     TailUnit = beam_types:get_bs_matchable_unit(SrcType),
 
-    Vst = prune_x_regs(Live, Vst1),
+    Vst = prune_x_regs(Live, Src, Vst1),
     extract_term(#t_bs_context{tail_unit=TailUnit}, bs_start_match,
                  [Src], Dst, Vst, Vst0);
 validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
@@ -2104,14 +2112,18 @@ schedule_out(Live, Vst0) when is_integer(Live) ->
     Vst = kill_fregs(Vst2),
     update_receive_state(none, Vst).
 
-prune_x_regs(Live, #vst{current=St0}=Vst) when is_integer(Live) ->
+prune_x_regs(Live, Vst) when is_integer(Live) ->
+    prune_x_regs(Live, [], Vst).
+
+prune_x_regs(Live, Preserved, #vst{current=St0}=Vst) when is_integer(Live) ->
     #st{fragile=Fragile0,xs=Xs0} = St0,
-    Fragile = sets:filter(fun({x,X}) ->
-                                  X < Live;
+    Fragile = sets:filter(fun({x,X}=Reg) ->
+                                  X < Live orelse Reg =:= Preserved;
                              ({y,_}) ->
                                   true
                          end, Fragile0),
-    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0, X < Live},
+    Xs = #{Reg => Val || {x,X}=Reg := Val <- Xs0,
+           (X < Live orelse X =:= Preserved)},
     St = St0#st{fragile=Fragile,xs=Xs},
     Vst#vst{current=St}.
 
@@ -3407,7 +3419,9 @@ assert_not_fragile(Lit, #vst{}) ->
 %%%
 
 bif_types(Op, Ss, Vst) ->
-    Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+    %% Note: match contexts and the likes are rejected by validate_bif/7 when
+    %% this is invalid. We don't need to duplicate the check here.
+    Args = [get_concrete_type(Arg, Vst) || Arg <- Ss],
     case {Op,Ss} of
         {element,[_,{literal,Tuple}]} when tuple_size(Tuple) > 0 ->
             case beam_call_types:types(erlang, Op, Args) of
@@ -3459,7 +3473,10 @@ will_bif_succeed(Op, Ss, Vst) ->
         true ->
             'maybe';
         false ->
-            Args = [get_term_type(Arg, Vst) || Arg <- Ss],
+            %% Note: match contexts and the likes are rejected by
+            %% validate_bif/7 when this is invalid. We don't need to duplicate
+            %% the check here.
+            Args = [get_concrete_type(Arg, Vst) || Arg <- Ss],
             beam_call_types:will_succeed(erlang, Op, Args)
     end.
 
