@@ -53,8 +53,10 @@
 
 start_system(Role, Address0, Options) ->
     case find_system_sup(Role, Address0) of
-        {ok,{SysPid,Address}} ->
+        {ok,{SysPid,Address}} when Role =:= server->
             restart_acceptor(SysPid, Address, Options);
+        {ok,{SysPid,_}}->
+            {ok,SysPid};
         {error,not_found} ->
             supervisor:start_child(sup(Role),
                                    #{id       => {?MODULE,Address0},
