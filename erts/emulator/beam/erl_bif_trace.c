@@ -296,7 +296,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     p->fvalue = am_none;
 
     if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time || flags.call_memory)) {
-	/* A match prog is not allowed with just call_count or call_time or call_memory */
+	/* A match prog is not allowed with just call_count, call_time or call_memory */
         p->fvalue = am_call_count;
 	goto error;
     }
@@ -309,7 +309,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
         change_on_load_trace_pattern(erts_staging_trace_session, on, flags,
                                      match_prog_set, meta_tracer);
         matches = 0;
-    }else if (is_tuple(MFA)) {
+    } else if (is_tuple(MFA)) {
         ErtsCodeMFA mfa;
         Eterm *tp = tuple_val(MFA);
         if (tp[0] != make_arityval(3)) {
@@ -1536,6 +1536,13 @@ trace_info_on_load(Process* p, ErtsTraceSession *session, Eterm key)
 	} else {
 	    return TUPLE2(hp, key, am_false);
 	}
+    case am_call_memory:
+	hp = HAlloc(p, 3);
+	if (session->on_load_trace_pattern_flags.call_memory) {
+	    return TUPLE2(hp, key, am_true);
+	} else {
+	    return TUPLE2(hp, key, am_false);
+	}
     case am_all:
 	{
 	    Eterm match_spec = am_false, meta_match_spec = am_false, r = NIL, t, m;
@@ -1656,6 +1663,8 @@ void change_on_load_trace_pattern(ErtsTraceSession *s,
                 |= (on == 1) ? flags.call_count : 0;
             s->on_load_trace_pattern_flags.call_time
                 |= (on == 1) ? flags.call_time : 0;
+            s->on_load_trace_pattern_flags.call_memory
+                |= (on == 1) ? flags.call_memory : 0;
         } else {
             s->on_load_trace_pattern_flags.local
                 &= ~flags.local;
@@ -1665,11 +1674,14 @@ void change_on_load_trace_pattern(ErtsTraceSession *s,
                 &= ~flags.call_count;
             s->on_load_trace_pattern_flags.call_time
                 &= ~flags.call_time;
+            s->on_load_trace_pattern_flags.call_memory
+                &= ~flags.call_memory;
             if (! (s->on_load_trace_pattern_flags.breakpoint =
                    s->on_load_trace_pattern_flags.local |
                    s->on_load_trace_pattern_flags.meta |
                    s->on_load_trace_pattern_flags.call_count |
-                   s->on_load_trace_pattern_flags.call_time)) {
+                   s->on_load_trace_pattern_flags.call_time |
+                   s->on_load_trace_pattern_flags.call_memory)) {
                 s->on_load_trace_pattern_is_on = !!on; /* i.e off */
             }
         }
@@ -1692,8 +1704,10 @@ void change_on_load_trace_pattern(ErtsTraceSession *s,
             if (on != 1) {
                 flags.call_count = 0;
                 flags.call_time  = 0;
+                flags.call_memory  = 0;
             }
-            flags.breakpoint = flags.local | flags.meta | flags.call_count | flags.call_time;
+            flags.breakpoint = flags.local | flags.meta | flags.call_count |
+                flags.call_time| flags.call_memory;
             s->on_load_trace_pattern_flags = flags; /* Struct copy */
             s->on_load_trace_pattern_is_on = !!flags.breakpoint;
         }

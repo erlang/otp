@@ -64,9 +64,9 @@ because Erlang runtime needs to store tuple size and other internal information.
 > not enabled in trace pattern. Consider this call stack example:
 >
 > ```text
->       top_traced_function(...)
->       not_traced_function()
->       bottom_traced_function()
+> top_traced_function(...)
+> not_traced_function()
+> bottom_traced_function()
 > ```
 >
 > Allocations that happened within `not_traced_function` will be accounted into
@@ -81,109 +81,109 @@ print per-process statistics, total statistics, or omit printing and extract
 machine-readable data that you can later sort/print:
 
 ```text
-      1> tprof:profile(lists, seq, [1, 16], #{type => call_memory}).
+1> tprof:profile(lists, seq, [1, 16], #{type => call_memory}).
 
-      ****** Process <0.179.0>    -- 100.00 % of total allocations ***
-      FUNCTION          CALLS  WORDS  PER CALL  [     %]
-      lists:seq_loop/3      5     32         6  [100.00]
-      32            [ 100.0]
-      ok
+****** Process <0.179.0>    -- 100.00 % of total allocations ***
+FUNCTION          CALLS  WORDS  PER CALL  [     %]
+lists:seq_loop/3      5     32         6  [100.00]
+32            [ 100.0]
+ok
 ```
 
 By default tracing is enabled for all functions of all modules. When functions
 are created in the interactive shell, parts of shell code are also traced. It is
 however possible to limit the trace to specific functions or modules:
 
-```erlang
-      1> tprof:profile(fun() -> lists:seq(1, 16) end, #{type => call_memory}).
+```text
+1> tprof:profile(fun() -> lists:seq(1, 16) end, #{type => call_memory}).
 
-      ****** Process <0.224.0>    -- 100.00 % of total allocations ***
-      FUNCTION                   CALLS  WORDS  PER CALL  [    %]
-      erl_eval:match_list/6          1      3         3  [ 3.19]
-      erl_eval:do_apply/7            1      3         3  [ 3.19]
-      lists:reverse/1                1      4         4  [ 4.26]
-      erl_eval:add_bindings/2        1      5         5  [ 5.32]
-      erl_eval:expr_list/7           3      7         2  [ 7.45]
-      erl_eval:ret_expr/3            4     16         4  [17.02]
-      erl_eval:merge_bindings/4      3     24         8  [25.53]
-      lists:seq_loop/3               5     32         6  [34.04]
+****** Process <0.224.0>    -- 100.00 % of total allocations ***
+FUNCTION                   CALLS  WORDS  PER CALL  [    %]
+erl_eval:match_list/6          1      3         3  [ 3.19]
+erl_eval:do_apply/7            1      3         3  [ 3.19]
+lists:reverse/1                1      4         4  [ 4.26]
+erl_eval:add_bindings/2        1      5         5  [ 5.32]
+erl_eval:expr_list/7           3      7         2  [ 7.45]
+erl_eval:ret_expr/3            4     16         4  [17.02]
+erl_eval:merge_bindings/4      3     24         8  [25.53]
+lists:seq_loop/3               5     32         6  [34.04]
 
-      2> tprof:profile(fun() -> lists:seq(1, 16) end,
-                       #{type => call_memory, pattern => [{lists, seq_loop, '_'}]}).
-      ****** Process <0.247.0>    -- 100.00 % of total allocations ***
-      FUNCTION          CALLS  WORDS  PER CALL  [     %]
-      lists:seq_loop/3      5     32         6  [100.00]
+2> tprof:profile(fun() -> lists:seq(1, 16) end,
+                 #{type => call_memory, pattern => [{lists, seq_loop, '_'}]}).
+****** Process <0.247.0>    -- 100.00 % of total allocations ***
+FUNCTION          CALLS  WORDS  PER CALL  [     %]
+lists:seq_loop/3      5     32         6  [100.00]
 ```
 
 Ad-hoc profiling results may be printed in a few different ways. Following
 examples are using `test` module defined like this:
 
 ```erlang
-      -module(test).
-      -export([test_spawn/0]).
-      test_spawn() ->
-          {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, 32) end),
-          receive
-              {'DOWN', MRef, process, Pid, normal} ->
-                  done
-          end.
+-module(test).
+-export([test_spawn/0]).
+test_spawn() ->
+    {Pid, MRef} = spawn_monitor(fun () -> lists:seq(1, 32) end),
+    receive
+        {'DOWN', MRef, process, Pid, normal} ->
+            done
+    end.
 ```
 
 Default format prints per-process statistics.
 
 ```text
-        2> tprof:profile(test, test_spawn, [], #{type => call_memory}).
+2> tprof:profile(test, test_spawn, [], #{type => call_memory}).
 
-        ****** Process <0.176.0>    -- 23.66 % of total allocations ***
-        FUNCTION                CALLS  WORDS  PER CALL  [    %]
-        erlang:spawn_monitor/1      1      2         2  [ 9.09]
-        erlang:spawn_opt/4          1      6         6  [27.27]
-        test:test_spawn/0           1     14        14  [63.64]
-                                          22            [100.0]
+****** Process <0.176.0>    -- 23.66 % of total allocations ***
+FUNCTION                CALLS  WORDS  PER CALL  [    %]
+erlang:spawn_monitor/1      1      2         2  [ 9.09]
+erlang:spawn_opt/4          1      6         6  [27.27]
+test:test_spawn/0           1     14        14  [63.64]
+                                    22            [100.0]
 
-        ****** Process <0.177.0>    -- 76.34 % of total allocations ***
-        FUNCTION           CALLS  WORDS  PER CALL  [    %]
-        erlang:apply/2         1      7         7  [ 9.86]
-        lists:seq_loop/3       9     64         7  [90.14]
-                                     71            [100.0]
+****** Process <0.177.0>    -- 76.34 % of total allocations ***
+FUNCTION           CALLS  WORDS  PER CALL  [    %]
+erlang:apply/2         1      7         7  [ 9.86]
+lists:seq_loop/3       9     64         7  [90.14]
+                             71            [100.0]
 ```
 
 This example prints the combined memory allocation of all processes, sorted by
 total allocated words in the descending order
 
-```erlang
-        5> tprof:profile(test, test_spawn, [],
-                         #{type => call_memory, report => {total, {measurement, descending}}}).
+```text
+5> tprof:profile(test, test_spawn, [],
+                 #{type => call_memory, report => {total, {measurement, descending}}}).
 
-        FUNCTION                CALLS  WORDS  PER CALL  [    %]
-        lists:seq_loop/3            9     64         7  [68.82]
-        test:test_spawn/0           1     14        14  [15.05]
-        erlang:apply/2              1      7         7  [ 7.53]
-        erlang:spawn_opt/4          1      6         6  [ 6.45]
-        erlang:spawn_monitor/1      1      2         2  [ 2.15]
-                                          93            [100.0]
+FUNCTION                CALLS  WORDS  PER CALL  [    %]
+lists:seq_loop/3            9     64         7  [68.82]
+test:test_spawn/0           1     14        14  [15.05]
+erlang:apply/2              1      7         7  [ 7.53]
+erlang:spawn_opt/4          1      6         6  [ 6.45]
+erlang:spawn_monitor/1      1      2         2  [ 2.15]
+                                  93            [100.0]
 ```
 
 You can also collect the profile for further inspection.
 
-```erlang
-      6> {done, ProfileData} = tprof:profile(fun test:test_spawn/0,
-                                             #{type => call_memory, report => return}).
-      <...>
-      7> tprof:format(tprof:inspect(ProfileData, process, {percent, descending})).
+```text
+6> {done, ProfileData} = tprof:profile(fun test:test_spawn/0,
+                                       #{type => call_memory, report => return}).
+<...>
+7> tprof:format(tprof:inspect(ProfileData, process, {percent, descending})).
 
-      ****** Process <0.223.0>    -- 23.66 % of total allocations ***
-      FUNCTION                CALLS  WORDS  PER CALL  [    %]
-      test:test_spawn/0           1     14        14  [63.64]
-      erlang:spawn_opt/4          1      6         6  [27.27]
-      erlang:spawn_monitor/1      1      2         2  [ 9.09]
-      22            [100.0]
+****** Process <0.223.0>    -- 23.66 % of total allocations ***
+FUNCTION                CALLS  WORDS  PER CALL  [    %]
+test:test_spawn/0           1     14        14  [63.64]
+erlang:spawn_opt/4          1      6         6  [27.27]
+erlang:spawn_monitor/1      1      2         2  [ 9.09]
+22            [100.0]
 
-      ****** Process <0.224.0>    -- 76.34 % of total allocations ***
-      FUNCTION           CALLS  WORDS  PER CALL  [    %]
-      lists:seq_loop/3       9     64         7  [90.14]
-      erlang:apply/2         1      7         7  [ 9.86]
-      71            [100.0]
+****** Process <0.224.0>    -- 76.34 % of total allocations ***
+FUNCTION           CALLS  WORDS  PER CALL  [    %]
+lists:seq_loop/3       9     64         7  [90.14]
+erlang:apply/2         1      7         7  [ 9.86]
+71            [100.0]
 ```
 
 The processes which are profiled depends on the profiling type. `call_count`,
@@ -194,14 +194,14 @@ cannot restrict the profiled processes for `call_count`, but you can limit the
 trace to a single process for the other two:
 
 ```text
-      2> tprof:profile(test, test_spawn, [],
-                       #{type => call_memory, set_on_spawn => false}).
+2> tprof:profile(test, test_spawn, [],
+                 #{type => call_memory, set_on_spawn => false}).
 
-      ****** Process <0.183.0>    -- 100.00 % of total allocations ***
-      FUNCTION                CALLS  WORDS  PER CALL  [    %]
-      erlang:spawn_monitor/1      1      2         2  [ 9.09]
-      erlang:spawn_opt/4          1      6         6  [27.27]
-      test:test_spawn/0           1     14        14  [63.64]
+****** Process <0.183.0>    -- 100.00 % of total allocations ***
+FUNCTION                CALLS  WORDS  PER CALL  [    %]
+erlang:spawn_monitor/1      1      2         2  [ 9.09]
+erlang:spawn_opt/4          1      6         6  [27.27]
+test:test_spawn/0           1     14        14  [63.64]
 ```
 
 [](){: #pg_example }
@@ -211,43 +211,43 @@ from the original one. You can include multiple, new or even all processes in
 the trace when measuring time or memory:
 
 ```text
-      7> pg:start_link().
-      {ok,<0.252.0>}
-      8> tprof:profile(fun() -> pg:join(group, self()) end,
-                       #{type => call_memory, rootset => [pg]}).
-      ****** Process <0.252.0>    -- 52.86 % of total allocations ***
-      FUNCTION                      CALLS  WORDS  PER CALL  [    %]
-      pg:leave_local_update_ets/5       1      2         2  [ 1.80]
-      gen:reply/2                       1      3         3  [ 2.70]
-      erlang:monitor/2                  1      3         3  [ 2.70]
-      gen_server:try_handle_call/4      1      3         3  [ 2.70]
-      gen_server:try_dispatch/4         1      3         3  [ 2.70]
-      maps:iterator/1                   2      4         2  [ 3.60]
-      maps:take/2                       1      6         6  [ 5.41]
-      pg:join_local_update_ets/5        1      8         8  [ 7.21]
-      pg:handle_info/2                  1      8         8  [ 7.21]
-      pg:handle_call/3                  1      9         9  [ 8.11]
-      gen_server:loop/7                 2      9         4  [ 8.11]
-      ets:lookup/2                      2     10         5  [ 9.01]
-      pg:join_local/3                   1     11        11  [ 9.91]
-      pg:notify_group/5                 2     16         8  [14.41]
-      erlang:setelement/3               2     16         8  [14.41]
-      111            [100.0]
+7> pg:start_link().
+{ok,<0.252.0>}
+8> tprof:profile(fun() -> pg:join(group, self()) end,
+                 #{type => call_memory, rootset => [pg]}).
+****** Process <0.252.0>    -- 52.86 % of total allocations ***
+FUNCTION                      CALLS  WORDS  PER CALL  [    %]
+pg:leave_local_update_ets/5       1      2         2  [ 1.80]
+gen:reply/2                       1      3         3  [ 2.70]
+erlang:monitor/2                  1      3         3  [ 2.70]
+gen_server:try_handle_call/4      1      3         3  [ 2.70]
+gen_server:try_dispatch/4         1      3         3  [ 2.70]
+maps:iterator/1                   2      4         2  [ 3.60]
+maps:take/2                       1      6         6  [ 5.41]
+pg:join_local_update_ets/5        1      8         8  [ 7.21]
+pg:handle_info/2                  1      8         8  [ 7.21]
+pg:handle_call/3                  1      9         9  [ 8.11]
+gen_server:loop/7                 2      9         4  [ 8.11]
+ets:lookup/2                      2     10         5  [ 9.01]
+pg:join_local/3                   1     11        11  [ 9.91]
+pg:notify_group/5                 2     16         8  [14.41]
+erlang:setelement/3               2     16         8  [14.41]
+111            [100.0]
 
-      ****** Process <0.255.0>    -- 47.14 % of total allocations ***
-      FUNCTION                   CALLS  WORDS  PER CALL  [    %]
-      erl_eval:match_list/6          1      3         3  [ 3.03]
-      erlang:monitor/2               1      3         3  [ 3.03]
-      lists:reverse/1                2      4         2  [ 4.04]
-      pg:join/3                      1      4         4  [ 4.04]
-      erl_eval:add_bindings/2        1      5         5  [ 5.05]
-      erl_eval:do_apply/7            2      6         3  [ 6.06]
-      gen:call/4                     1      8         8  [ 8.08]
-      erl_eval:expr_list/7           4     10         2  [10.10]
-      gen:do_call/4                  1     16        16  [16.16]
-      erl_eval:ret_expr/3            4     16         4  [16.16]
-      erl_eval:merge_bindings/4      3     24         8  [24.24]
-      99            [100.0]
+****** Process <0.255.0>    -- 47.14 % of total allocations ***
+FUNCTION                   CALLS  WORDS  PER CALL  [    %]
+erl_eval:match_list/6          1      3         3  [ 3.03]
+erlang:monitor/2               1      3         3  [ 3.03]
+lists:reverse/1                2      4         2  [ 4.04]
+pg:join/3                      1      4         4  [ 4.04]
+erl_eval:add_bindings/2        1      5         5  [ 5.05]
+erl_eval:do_apply/7            2      6         3  [ 6.06]
+gen:call/4                     1      8         8  [ 8.08]
+erl_eval:expr_list/7           4     10         2  [10.10]
+gen:do_call/4                  1     16        16  [16.16]
+erl_eval:ret_expr/3            4     16         4  [16.16]
+erl_eval:merge_bindings/4      3     24         8  [24.24]
+99            [100.0]
 ```
 
 There is no default limit on the profiling time. It is possible to define such
@@ -257,7 +257,7 @@ children started by the user-supplied function are kept, it is developer's
 responsibility to ensure cleanup.
 
 ```erlang
-      9> tprof:profile(timer, sleep, [100000], #{timeout => 1000}).
+9> tprof:profile(timer, sleep, [100000], #{timeout => 1000}).
 ```
 
 By default, only one ad-hoc or server-aided profiling session is allowed at any
@@ -265,8 +265,8 @@ point in time. It is possible to force multiple ad-hoc sessions concurrently,
 but it is developer responsibility to ensure non-overlapping trace patterns.
 
 ```erlang
-      1> tprof:profile(fun() -> lists:seq(1, 32) end,
-          #{registered => false, pattern => [{lists, '_', '_'}]}).
+1> tprof:profile(fun() -> lists:seq(1, 32) end,
+    #{registered => false, pattern => [{lists, '_', '_'}]}).
 ```
 
 ## Server-aided profiling
@@ -276,32 +276,32 @@ the `tprof` server, add trace patterns and processes to trace while your system
 handles actual traffic. You can extract the data any time, inspect, and print.
 The example below traces activity of all processes supervised by kernel:
 
-```erlang
-      1> tprof:start(#{type => call_memory}).
-      {ok,<0.200.0>}
-      2> tprof:enable_trace({all_children, kernel_sup}).
-      34
-      3> tprof:set_pattern('_', '_' , '_').
-      16728
-      4> Sample = tprof:collect().
-      [{gen_server,try_dispatch,4,[{<0.154.0>,2,6}]},
-      {erlang,iolist_to_iovec,1,[{<0.161.0>,1,8}]},
-      <...>
-      5 > tprof:format(tprof:inspect(Sample)).
+```text
+1> tprof:start(#{type => call_memory}).
+{ok,<0.200.0>}
+2> tprof:enable_trace({all_children, kernel_sup}).
+34
+3> tprof:set_pattern('_', '_' , '_').
+16728
+4> Sample = tprof:collect().
+[{gen_server,try_dispatch,4,[{<0.154.0>,2,6}]},
+{erlang,iolist_to_iovec,1,[{<0.161.0>,1,8}]},
+<...>
+5 > tprof:format(tprof:inspect(Sample)).
 
-      ****** Process <0.154.0>    -- 14.21 % of total allocations ***
-      FUNCTION                   CALLS  WORDS  PER CALL  [    %]
-      maps:iterator/1                2      4         2  [15.38]
-      gen_server:try_dispatch/4      2      6         3  [23.08]
-      net_kernel:handle_info/2       2     16         8  [61.54]
-                                           26            [100.0]
+****** Process <0.154.0>    -- 14.21 % of total allocations ***
+FUNCTION                   CALLS  WORDS  PER CALL  [    %]
+maps:iterator/1                2      4         2  [15.38]
+gen_server:try_dispatch/4      2      6         3  [23.08]
+net_kernel:handle_info/2       2     16         8  [61.54]
+                                     26            [100.0]
 
-      ****** Process <0.161.0>    -- 85.79 % of total allocations ***
-      FUNCTION                        CALLS  WORDS  PER CALL  [    %]
-      disk_log:handle/2                   2      2         1  [ 1.27]
-      disk_log_1:maybe_start_timer/1      1      3         3  [ 1.91]
-      disk_log_1:mf_write_cache/1         1      3         3  [ 1.91]
-      <...>
+****** Process <0.161.0>    -- 85.79 % of total allocations ***
+FUNCTION                        CALLS  WORDS  PER CALL  [    %]
+disk_log:handle/2                   2      2         1  [ 1.27]
+disk_log_1:maybe_start_timer/1      1      3         3  [ 1.91]
+disk_log_1:mf_write_cache/1         1      3         3  [ 1.91]
+<...>
 ```
 
 [](){: #inspect_example }
@@ -309,24 +309,24 @@ The example below traces activity of all processes supervised by kernel:
 It is possible to profile the entire running system, and then examine individual
 processes:
 
-```erlang
-      1> tprof:start(#{type => call_memory}).
-      2> tprof:enable_trace(processes), tprof:set_pattern('_', '_' , '_').
-      9041
-      3> timer:sleep(10000), tprof:disable_trace(processes), Sample = tprof:collect().
-      [{user_drv,server,3,[{<0.64.0>,12,136}]},
-      {user_drv,contains_ctrl_g_or_ctrl_c,1,[{<0.64.0>,80,10}]},
-      <...>
-      4> Inspected = tprof:inspect(Sample, process, words), Shell = maps:get(self(), Inspected).
-      {2743,
-      [{shell,{enc,0},1,2,2,0.07291286912139992},
-      <...>
-      5> tprof:format(Shell).
+```text
+1> tprof:start(#{type => call_memory}).
+2> tprof:enable_trace(processes), tprof:set_pattern('_', '_' , '_').
+9041
+3> timer:sleep(10000), tprof:disable_trace(processes), Sample = tprof:collect().
+[{user_drv,server,3,[{<0.64.0>,12,136}]},
+{user_drv,contains_ctrl_g_or_ctrl_c,1,[{<0.64.0>,80,10}]},
+<...>
+4> Inspected = tprof:inspect(Sample, process, words), Shell = maps:get(self(), Inspected).
+{2743,
+[{shell,{enc,0},1,2,2,0.07291286912139992},
+<...>
+5> tprof:format(Shell).
 
-      FUNCTION                           CALLS  WORDS  PER CALL  [    %]
-      <...>
-      erl_lint:start/2                       2    300       150  [10.94]
-      shell:used_records/1                 114    342         3  [12.47]
+FUNCTION                           CALLS  WORDS  PER CALL  [    %]
+<...>
+erl_lint:start/2                       2    300       150  [10.94]
+shell:used_records/1                 114    342         3  [12.47]
 ```
 """.
 -moduledoc(#{since => "OTP @OTP-18756@"}).
@@ -371,14 +371,17 @@ processes:
 -type start_options() :: #{type => trace_type()}.
 
 %% Trace type
-- type trace_type() :: call_count | call_time | call_memory.
+-type trace_type() :: call_count | call_time | call_memory.
 
 %% Trace spec: module() or '_', function or '_', arity or '_'
 -type trace_pattern() :: {module(), Fun :: atom(), arity() | '_'}.
 
 %% Trace map: accumulated view of multiple trace patterns
--doc "Traced functions (with their arities) grouped by module name.".
--type trace_map() :: #{module() => [{Fun :: atom(), arity()}]}.
+-doc """
+Traced functions (with their arities) grouped by module name,
+or `all` if all code is traced.
+""".
+-type trace_map() :: #{module() => [{Fun :: atom(), arity()}]} | all.
 
 %% Single trace_info call with associated module/function/arity
 -doc "Raw data extracted from tracing BIFs.".
@@ -1058,54 +1061,79 @@ format_out(Device, Fmt, Args) ->
 enable_pattern('_', '_', '_', _Acc, Type) ->
     %% need to re-trace everything, probably some new modules were loaded
     %% discard any existing trace pattern
-    lists:foldl(
-        fun({Mod, _}, {Total, Acc}) ->
-            Plus = erlang:trace_pattern({Mod, '_', '_'}, true, [Type]),
-            {Total + Plus, Acc#{Mod => Mod:module_info(functions)}}
-        end, {0, #{}}, code:all_loaded());
+    erlang:trace_pattern(on_load, true, [Type]),
+    {erlang:trace_pattern({'_', '_', '_'}, true, [Type]), all};
 enable_pattern(Mod, '_', '_', Acc, Type) ->
     %% code may have been hot-loaded, redo the trace
     case erlang:trace_pattern({Mod, '_', '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, '_', '_'}}, Acc};
         Traced ->
-            {Traced, Acc#{Mod => Mod:module_info(functions)}}
+            {Traced, update_trace_map(Acc, fun() -> Acc#{Mod => Mod:module_info(functions)} end)}
     end;
 enable_pattern(Mod, Fun, '_', Acc, Type) ->
     case erlang:trace_pattern({Mod, Fun, '_'}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, '_'}}, Acc};
         Traced ->
-            Added = [{F, A} || {F, A} <- Mod:module_info(functions), F =:= Fun],
-            NewMap = maps:update_with(Mod,
-                fun (FAs) ->
-                    Added ++ [{F, A} || {F, A} <- FAs, F =/= Fun]
-                end, Added, Acc),
-            {Traced, NewMap}
+            {Traced,
+             update_trace_map(
+               Acc,
+               fun() ->
+                       Added = [{F, A} || {F, A} <- Mod:module_info(functions), F =:= Fun],
+                       maps:update_with(
+                         Mod,
+                         fun (FAs) ->
+                                 Added ++ [{F, A} || {F, A} <- FAs, F =/= Fun]
+                         end, Added, Acc)
+               end)}
     end;
 enable_pattern(Mod, Fun, Arity, Acc, Type) ->
     case erlang:trace_pattern({Mod, Fun, Arity}, true, [Type]) of
         0 ->
             {{error, {trace_pattern, Mod, Fun, Arity}}, Acc};
         1 ->
-            {1, maps:update_with(Mod,
-                fun (FAs) -> [{Fun, Arity} | FAs -- [{Fun, Arity}]] end, [{Fun, Arity}], Acc)}
+            {1, update_trace_map(
+                  Acc,
+                  fun() ->
+                          maps:update_with(
+                            Mod,
+                            fun(FAs) ->
+                                    [{Fun, Arity} | FAs -- [{Fun, Arity}]]
+                            end, [{Fun, Arity}], Acc)
+                  end)}
     end.
+
+update_trace_map(all, _) ->
+    all;
+update_trace_map(_Map, Fun) ->
+    Fun().
 
 %% pattern collapse code for un-tracing
 disable_pattern('_', '_', '_', _Acc, Type) ->
+    erlang:trace_pattern(on_load, false, [Type]),
     Traced = erlang:trace_pattern({'_', '_', '_'}, false, [Type]),
     {Traced, #{}};
-disable_pattern(Mod, '_', '_', Acc, Type) when is_map_key(Mod, Acc) ->
+disable_pattern(Mod, '_', '_', Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, '_', '_'}, false, [Type]),
-    {Traced, maps:remove(Mod, Acc)};
-disable_pattern(Mod, Fun, '_', Acc, Type) when is_map_key(Mod, Acc) ->
+    {Traced, update_trace_map(Acc, fun() -> maps:remove(Mod, Acc) end)};
+disable_pattern(Mod, Fun, '_', Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, Fun, '_'}, false, [Type]),
-    {Traced, maps:update_with(Mod,
-        fun (FAs) -> [{F, A} || {F, A} <- FAs, F =/= Fun] end, Acc)};
-disable_pattern(Mod, Fun, Arity, Acc, Type) when is_map_key(Mod, Acc) ->
+    {Traced, update_trace_map(
+               Acc,
+               fun() ->
+                       maps:update_with(
+                         Mod,
+                         fun (FAs) -> [{F, A} || {F, A} <- FAs, F =/= Fun] end,
+                         Acc)
+               end)};
+disable_pattern(Mod, Fun, Arity, Acc, Type) when is_map_key(Mod, Acc); Acc =:= all ->
     Traced = erlang:trace_pattern({Mod, Fun, Arity}, false, [Type]),
-    {Traced, maps:update_with(Mod, fun (FAs) -> FAs -- [{Fun, Arity}] end, Acc)};
+    {Traced, update_trace_map(
+               Acc,
+               fun() ->
+                       maps:update_with(Mod, fun (FAs) -> FAs -- [{Fun, Arity}] end, Acc)
+               end)};
 disable_pattern(Mod, Fun, Arity, Acc, _Type) ->
     {{error, {not_traced, Mod, Fun, Arity}}, Acc}.
 
@@ -1147,12 +1175,15 @@ return_profile({Agg, Sort}, Profile, _Ret, Device) ->
     format_impl(Device, inspect(Profile, Agg, Sort)).
 
 %% @doc clears tracing for the entire trace map passed
--spec clear_pattern(trace_map(), trace_type()) -> ok.
+-spec clear_pattern(trace_map() | all, trace_type()) -> ok.
+clear_pattern(all, Type) ->
+    erlang:trace_pattern(on_load, false, [Type]),
+    erlang:trace_pattern({'_', '_', '_'}, false, [Type]);
 clear_pattern(Existing, Type) ->
     maps:foreach(
-        fun (Mod, FunArity) ->
-            [erlang:trace_pattern({Mod, F, A}, false, [Type]) || {F, A} <- FunArity]
-        end, Existing).
+      fun(Mod, FunArity) ->
+              [erlang:trace_pattern({Mod, F, A}, false, [Type]) || {F, A} <- FunArity]
+      end, Existing).
 
 trace_options(#{set_on_spawn := false}) ->
     [call, silent];
@@ -1229,6 +1260,10 @@ toggle_trace([Name | Tail], On, Flags, Success, Failure) when is_atom(Name) ->
 %% @doc Collects memory tracing data (usable for inspect()) for
 %%      all traced functions.
 -spec collect(trace_map(), trace_type()) -> {trace_type(), [trace_info()]}.
+collect(all, Type) ->
+    collect(
+      #{ Mod => Mod:module_info(functions) || {Mod, _} <- code:all_loaded() },
+      Type);
 collect(Pattern, Type) ->
     {Type, maps:fold(fun(K, V, Acc) -> collect_trace(K, V, Acc, Type) end, [], Pattern)}.
 

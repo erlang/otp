@@ -16,7 +16,7 @@
 %%
 %%-------------------------------------------------------------------
 %% @author Maxim Fedorov <maximfca@gmail.com>
-%% Basic heap profiler tests.
+%% Basic process tracing profiler tests.
 -module(tprof_SUITE).
 -author("maximfca@gmail.com").
 
@@ -36,7 +36,8 @@
     processes/0, processes/1,
     server/0, server/1,
     hierarchy/0, hierarchy/1,
-    code_reload/0, code_reload/1
+    code_reload/0, code_reload/1,
+    code_load/0, code_load/1
 ]).
 
 -include_lib("stdlib/include/assert.hrl").
@@ -263,7 +264,7 @@ patterns(Config) when is_list(Config) ->
     ?assertEqual(#{?MODULE => Expected}, tprof:get_trace_map()),
     %% verify tracing flags
     verify_trace([{?MODULE, F, A} || {F, A} <- Expected], [{?MODULE, pattern_fun, 2}]),
-    %% trace the entire lists module, and then exclude pattern_fun/1,2,3 and seq/1
+    %% trace the entire ?MODULE module, and then exclude pattern_fun/1,2,3 and seq/1
     _ = tprof:set_pattern(?MODULE, '_', '_'),
     3 = tprof:clear_pattern(?MODULE, pattern_fun, '_'),
     1 = tprof:clear_pattern(?MODULE, seq, 1),
@@ -274,6 +275,11 @@ patterns(Config) when is_list(Config) ->
     _ = tprof:clear_pattern('_', '_', '_'),
     verify_trace([], [{?MODULE, F, A} || {F, A} <- Traced ++ Cleared]),
     ?assertEqual(#{}, tprof:get_trace_map()),
+
+    %% Trace the entire node then exclude pattern_fun/1,2,3 and seq/1
+    _ = tprof:set_pattern('_', '_', '_'),
+    ?assertEqual(all, tprof:get_trace_map()),
+
     tprof:stop().
 
 verify_trace(On, Off) ->
@@ -387,6 +393,18 @@ code_reload() ->
     [{doc, "Tests that collection does not fail for a hot-code-reloaded module"}].
 
 code_reload(Config) when is_list(Config) ->
-    Sample = tprof:profile(fun () -> code:load_file(?MODULE) end, #{report => return, type => call_memory}),
+    {_, Sample}  = tprof:profile(fun () -> code:load_file(?MODULE) end,
+                                 #{report => return, type => call_memory}),
     %% don't care about actual returned values, but do care that profile/2 does not crash
     ?assertNotEqual([], Sample).
+
+code_load() ->
+    [{doc, "Tests profiling works for modules loaded during profiling"}].
+
+code_load(Config) when is_list(Config) ->
+    code:purge(sofs),
+    code:delete(sofs),
+    {_, Sample} =
+        tprof:profile(fun () -> sofs:relation([{b,1},{c,2},{c,3}]) end,
+                      #{report => return, type => call_memory}),
+    ?assertNotEqual(false, lists:keyfind(sofs, 1, Sample)).

@@ -20,6 +20,7 @@
 -module(trace_call_memory_SUITE).
 -author("maximfca@gmail.com").
 
+-include_lib("stdlib/include/assert.hrl").
 
 %% Test server callbacks
 -export([
@@ -31,6 +32,7 @@
 %% Test cases exports
 -export([
     basic/0, basic/1,
+    on_load/0, on_load/1,
     late_trace/0, late_trace/1,
     skip/0, skip/1,
     message/0, message/1,
@@ -52,7 +54,7 @@ groups() ->
     trace_sessions:groups(testcases()).
 
 testcases() ->
-    [basic, late_trace, skip, message, parallel_map, trace_all, spawn_memory,
+    [basic, on_load, late_trace, skip, message, parallel_map, trace_all, spawn_memory,
     spawn_memory_lambda, conflict_traces, big_words].
 
 init_per_suite(Config) ->
@@ -73,6 +75,11 @@ init_per_testcase(_Case, Config) ->
 
 end_per_testcase(basic, Config) ->
     erlang_trace_pattern({?MODULE, alloc_2tup, 0}, false, [call_memory]),
+    erlang_trace(self(), false, [call]),
+    trace_sessions:end_per_testcase(Config);
+end_per_testcase(on_load, Config) ->
+    erlang_trace_pattern({sofs, '_', '_'}, false, [call_memory]),
+    erlang_trace_pattern(on_load, false, [call_memory]),
     erlang_trace(self(), false, [call]),
     trace_sessions:end_per_testcase(Config);
 end_per_testcase(late_trace, Config) ->
@@ -149,6 +156,47 @@ basic(Config) when is_list(Config) ->
     {call_memory, [{Self, 3, 9}]} = erlang_trace_info(Traced, call_memory),
     1 = erlang_trace(Self, false, [call]),
     1 = erlang_trace_pattern(Traced, false, [call_memory]).
+
+on_load() ->
+    [{doc, "Test that on_load works"}].
+
+on_load(Config) when is_list(Config) ->
+
+    code:purge(sofs),
+    code:delete(sofs),
+    false = erlang:module_loaded(sofs),
+
+    SumAll =
+        fun(Module) ->
+                FAs = [{F, A, erlang_trace_info({Module, F, A}, call_memory)}
+                       || {F, A} <- Module:module_info(functions),
+                          F =/= module_info],
+                lists:sum(
+                  lists:flatten(
+                    [ [M || {_Pid, _Cnt, M} <- Pids]
+                      || {_, _, {call_memory, Pids}} <- FAs]))
+        end,
+
+    Self = self(),
+
+    %% Check that sofs is not traced
+    0 = erlang_trace_pattern({sofs,'_','_'}, false, [call_memory]),
+
+    0 = erlang_trace_pattern(on_load, true, [call_memory]),
+    1 = erlang_trace(Self, true, [call]),
+
+    %% Check that before call, sofs does not have any allocations
+    0 = SumAll(sofs),
+    %% Call it to allocate some memory
+    sofs:relation([{b,1},{c,2},{c,3}]),
+
+    %% Check that some memory was allocated
+    ?assertNotEqual(0, SumAll(sofs)),
+
+    1 = erlang_trace(Self, false, [call]),
+
+    %% Verify that some functions had traces on them
+    ?assertNotEqual(0, erlang_trace_pattern({sofs,'_','_'}, false, [call_memory])).
 
 late_trace() ->
     [{doc, "Tests that garbage_collect call done before tracing is enabled works as expected"}].
