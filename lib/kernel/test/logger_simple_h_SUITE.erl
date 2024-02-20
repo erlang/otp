@@ -105,14 +105,31 @@ start_stop(cleanup,_Config) ->
     logger:remove_handler(simple).
 
 %% Test that the simple logger works when debug level is used
-start_debug(_Config) ->
+start_debug(Config) ->
 
-    Output = os:cmd(ct:get_progname() ++ " -s init stop"),
+    ConfigFile = filename:join(proplists:get_value(priv_dir, Config), "sys.config"),
+    LogFile = filename:join(proplists:get_value(priv_dir, Config), "file.log"),
+    SysConfig = [{kernel,[{logger,[{handler,default,logger_std_h,
+                                    #{config => #{file => LogFile}}}]}]}],
+    ok = file:write_file(ConfigFile, io_lib:format("~p.",[SysConfig])),
+
+    Run =
+        fun(Args) ->
+                CmdLine =
+                    lists:flatten(
+                      [ct:get_progname(), " ", Args,
+                       " -config ", filename:rootname(ConfigFile),  " -noshell -s init stop"]),
+                "" = os:cmd(CmdLine),
+                {ok, Bin} = file:read_file(LogFile),
+                Bin
+        end,
+
+    Output = Run(""),
     LogOutput = re:replace(unicode:characters_to_binary(Output),"\r\n","\n",[global]),
     ct:log("~ts",[LogOutput]),
     nomatch = re:run(LogOutput,"^=PROGRESS REPORT====",[global,multiline]),
 
-    InfoOutput = os:cmd(ct:get_progname() ++ " -kernel logger_level info -s init stop"),
+    InfoOutput = Run("-kernel logger_level info"),
     InfoLogOutput = re:replace(unicode:characters_to_binary(InfoOutput),"\r\n","\n",[global]),
     ct:log("~ts",[InfoLogOutput]),
     {match,InfoNumReports} = re:run(InfoLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
@@ -120,7 +137,7 @@ start_debug(_Config) ->
     %% Test that more progress reports are logged for info than default
     ?assert(0 < length(InfoNumReports)),
 
-    DebugOutput = os:cmd(ct:get_progname() ++ " -kernel logger_level debug -s init stop"),
+    DebugOutput = Run("-kernel logger_level debug"),
     DebugLogOutput = re:replace(unicode:characters_to_binary(DebugOutput),"\r\n","\n",[global]),
     ct:log("~ts",[DebugLogOutput]),
     {match,DebugNumReports} = re:run(DebugLogOutput,"^=PROGRESS REPORT====",[global,multiline]),
