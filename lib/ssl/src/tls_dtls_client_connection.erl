@@ -27,6 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_dtls_client_connection).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 

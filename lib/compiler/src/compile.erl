@@ -708,11 +708,19 @@ value are listed.
   enabled in a module that may load NIFs, as the compiler may inline NIF
   fallbacks by accident. Use this option to turn off this kind of warnings.
 
-- **`warn_missing_doc`[](){: #warn_missing_doc } **  
-  By default, warnings are not emitted when `-doc` attribute for an exported function
-  is not given. Use this option to turn on this kind of warning.
+- **`warn_missing_doc` | `warn_missing_doc_functions` | `warn_missing_doc_types` | `warn_missing_doc_callbacks` **{: #warn_missing_doc }  
+  By default, warnings are not emitted when `-doc` attribute for an exported function,
+  callback or type is not given. Use these option to turn on this kind of warning.
+  `warn_missing_doc` is equivalent to setting all of `warn_missing_doc_functions`,
+  `warn_missing_doc_types` and `warn_missing_doc_callbacks`.
 
-- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`[](){: #nowarn_hidden_doc } **  
+- **`nowarn_missing_doc` | `nowarn_missing_doc_functions` | `nowarn_missing_doc_types` | `nowarn_missing_doc_callbacks` **  
+  If warnings are enabled by [`warn_missing_doc`](#warn_missing_doc), then you can use
+  these options turn those warnings off again.
+  `nowarn_missing_doc` is equivalent to setting all of `nowarn_missing_doc_functions`,
+  `nowarn_missing_doc_types` and `nowarn_missing_doc_callbacks`.
+
+- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`**{: #nowarn_hidden_doc }  
   By default, warnings are emitted when `-doc false` attribute is set on a
   [callback or referenced type](`e:system:documentation.md#what-is-visible-versus-hidden`).
   You can set `nowarn_hidden_doc` to suppress all those warnings, or `{nowarn_hidden_doc, NAs}`

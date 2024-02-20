@@ -219,7 +219,9 @@
               }).
 
 -type internal_docs() :: #docs{}.
--type opt() :: warn_missing_doc | nowarn_hidden_doc | {nowarn_hidden_doc, {atom(), arity()}}.
+-type opt() :: warn_missing_doc | warn_missing_doc_functions | warn_missing_doc_callbacks | warn_missing_doc_types |
+               nowarn_missing_doc | nowarn_missing_doc_functions | nowarn_missing_doc_callbacks | nowarn_missing_doc_types |
+               nowarn_hidden_doc | {nowarn_hidden_doc, {atom(), arity()}}.
 -type kfa() :: {Kind :: function | type | callback, Name :: atom(), Arity :: arity()}.
 -type warnings() :: [{file:filename(),
                       [{erl_anno:location(), beam_doc, warning()}]}].
@@ -248,7 +250,32 @@ main(Dirname, Filename, AST, CmdLineOpts) ->
 
 extract_opts(AST, CmdLineOpts) ->
     CompileOpts = lists:flatten([C || {attribute,_,compile,C} <- AST]),
-    CompileOpts ++ CmdLineOpts.
+    normalize_warn_missing_doc(CmdLineOpts ++ CompileOpts).
+
+normalize_warn_missing_doc(Opts) ->
+    normalize_warn_missing_doc(Opts, []).
+normalize_warn_missing_doc([warn_missing_doc | Opts], _Warnings) ->
+    normalize_warn_missing_doc(Opts, [function,callback,type]);
+normalize_warn_missing_doc([nowarn_missing_doc | Opts], _Warnings) ->
+    normalize_warn_missing_doc(Opts, []);
+normalize_warn_missing_doc([warn_missing_doc_functions | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([function | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_functions | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [function]));
+normalize_warn_missing_doc([warn_missing_doc_callbacks | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([callback | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_callbacks | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [callback]));
+normalize_warn_missing_doc([warn_missing_doc_types | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([type | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_types | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [type]));
+normalize_warn_missing_doc([Opt | Opts], Warnings) ->
+    [Opt | normalize_warn_missing_doc(Opts, Warnings)];
+normalize_warn_missing_doc([], []) ->
+    [];
+normalize_warn_missing_doc([], Warnings) ->
+    [{warn_missing_doc,Warnings}].
 
 -spec format_error(warning()) -> io_lib:chars().
 format_error({hidden_type_used_in_exported_fun, {Type, Arity}}) ->
@@ -688,6 +715,8 @@ warnings(_AST, State) ->
               ],
    foldl(fun (W, State0) -> W(State0) end, State, WarnFuns).
 
+warn_missing_docs(State = #docs{ moduledoc = {_, hidden} }) ->
+   State;
 warn_missing_docs(State) ->
    DocNodes = process_docs(State),
    foldl(fun warn_missing_docs/2, State, DocNodes).
@@ -747,19 +776,23 @@ create_warning(Anno, Warning, State) ->
    Location = erl_anno:location(Anno),
    {Filename, [{Location, ?MODULE, Warning}]}.
 
-warn_missing_docs({KFA, Anno, _, Doc, _}, State) ->
-    case proplists:get_value(warn_missing_doc, State#docs.opts, false) of
-        true when Doc =:= none ->
+warn_missing_docs({{Kind, _, _} = KFA, Anno, _, Doc, MD}, State)
+  when Doc =:= none, not is_map_key(equiv, MD) ->
+    case lists:member(Kind, proplists:get_value(warn_missing_doc, State#docs.opts, [])) of
+        true ->
             Warning = {missing_doc, KFA},
             State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
-        _false ->
+        false ->
             State
-    end.
+    end;
+warn_missing_docs(_, State) ->
+    State.
 
 warn_missing_moduledoc(State) ->
    {_, ModuleDoc} = State#docs.moduledoc,
-   case proplists:get_value(warn_missing_doc, State#docs.opts, false) of
-      true when ModuleDoc =:= none ->
+   case proplists:get_value(warn_missing_doc, State#docs.opts, []) of
+      %% If any warn_missing_doc flags is enabled, we also warn for missing moduledoc.
+      [_|_] when ModuleDoc =:= none ->
          Anno = erl_anno:new(?DEFAULT_MODULE_DOC_LOC),
          Warning = missing_moduledoc,
          State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };

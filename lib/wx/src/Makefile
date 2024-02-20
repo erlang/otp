@@ -33,7 +33,7 @@ EGEN = gen
 EBIN = ../ebin
 ERLC = erlc
 ERLINC = ../include
-ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars
+ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars +nowarn_missing_doc
 
 ARCHIVE         = wx-$(VSN).ez
 

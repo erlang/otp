@@ -37,7 +37,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
 # ----------------------------------------------------
 # Common Macros
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars
+EXTRA_ERLC_FLAGS = +warn_unused_vars +nowarn_missing_doc
 ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS)
 
 

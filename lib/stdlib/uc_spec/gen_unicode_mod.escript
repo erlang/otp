@@ -238,6 +238,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "%%\n%% this file is generated do not modify\n"),
     io:put_chars(Fd, "%% see ../uc_spec/gen_unicode_mod.escript\n\n"),
     io:put_chars(Fd, "-module(" ++ ?MOD ++").\n"),
+    io:put_chars(Fd, "-moduledoc false.\n"),
     io:put_chars(Fd, "-export([cp/1, gc/1]).\n"),
     io:put_chars(Fd, "-export([nfd/1, nfc/1, nfkd/1, nfkc/1]).\n"),
     io:put_chars(Fd, "-export([whitespace/0, is_whitespace/1]).\n"),

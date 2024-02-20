@@ -55,7 +55,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../et/ebin
+ERL_COMPILE_FLAGS += -pa ../../et/ebin +nowarn_missing_doc
 EBIN = .
 
 # ----------------------------------------------------
