@@ -4,9 +4,6 @@
 
 -moduledoc hidden.
 
--doc "
-Doc test module
-".
 -doc hidden.
 main() ->
     ok().
