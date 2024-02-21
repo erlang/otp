@@ -81,14 +81,15 @@ do_log(#{msg:=_,meta:=#{time:=_}=M}=Log) ->
             %% Log directly from client just to get it out
             case maps:get(internal_log_event, M, false) of
                 false ->
-                    do_log(simple,
-                           #{level=>error,
-                             msg=>{report,{error,simple_handler_process_dead}},
-                             meta=>#{time=>logger:timestamp()}});
+                    log_internal(
+                      simple,
+                      #{level=>error,
+                        msg=>{report,{error,simple_handler_process_dead}},
+                        meta=>#{time=>logger:timestamp()}});
                 true ->
                     ok
             end,
-            do_log(simple,Log);
+            log_internal(simple,Log);
         _ ->
             ?MODULE ! {log,Log}
     end;
@@ -120,8 +121,13 @@ loop(Mode, Buffer) ->
             %% an unexpected EXIT message
             unlink(whereis(logger)),
             ok;
+        {log,#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}} = Log}
+          when Type =/= std_info ->
+            %% When we get a std_info message, we just want to replay it,
+            %% no need to print it right now
+            loop(Mode, update_buffer(Buffer,Log));
         {log,#{msg:=_,meta:=#{time:=_}}=Log} ->
-            NewMode = do_log(Mode, Log),
+            NewMode = log_internal(Mode, Log),
             loop(NewMode, update_buffer(Buffer,Log));
         _ ->
             %% Unexpected message - flush it!
@@ -156,9 +162,9 @@ drop_msg(N) ->
 %% for each log message that can potentially block. If the logging cannot
 %% be done within 300ms, we instead log the raw log message to stdout
 %% and switch mode to always log using the raw format.
-do_log(simple, Log) ->
+log_internal(simple, Log) ->
     display_log(Log), simple;
-do_log(rich = Mode, Log) ->
+log_internal(rich = Mode, Log) ->
 
     {Pid, Ref} =
         spawn_monitor(
