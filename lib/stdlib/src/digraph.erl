@@ -110,6 +110,16 @@ the edge itself.
 -type label()   :: term().
 -type vertex()  :: term().
 
+-doc """
+The error reason for when an edge could not be added to a graph.
+
+If the edge would create a cycle in an
+[acyclic digraph](`m:digraph#acyclic_digraph`), `{error, {bad_edge, Path}}` is
+returned. If `G` already has an edge with value `E` connecting a different pair
+of vertices, `{error, {bad_edge, [V1, V2]}}` is returned. If either of `V1` or
+`V2` is not a vertex of digraph `G`, `{error, {bad_vertex, `V`}}` is returned,
+V = `V1` or V = `V2`.
+""".
 -type add_edge_err_rsn() :: {'bad_edge', Path :: [vertex()]}
                           | {'bad_vertex', V :: vertex()}.
 
@@ -124,7 +134,7 @@ the edge itself.
 -type d_cyclicity()  :: 'acyclic' | 'cyclic'.
 -type d_type()       :: d_cyclicity() | d_protection().
 
--doc "Equivalent to [`new([])`](`new/1`).".
+-doc(#{ equiv => new([]) }).
 -spec new() -> graph().
 
 new() -> new([]).
@@ -232,14 +242,18 @@ info(G) ->
     Memory = ets:info(VT, memory) + ets:info(ET, memory) + ets:info(NT, memory),
     [{cyclicity, Cyclicity}, {memory, Memory}, {protection, Protection}].
 
--doc(#{equiv => add_vertex/3}).
+-doc """
+Creates a vertex using the empty list as label, and returns the created vertex.
+
+The created vertex is represented by term `['$v' | N]`, where `N` is an integer >= 0.
+""".
 -spec add_vertex(G) -> vertex() when
       G :: graph().
 
 add_vertex(G) ->
     do_add_vertex({new_vertex_id(G), []}, G).
 
--doc(#{equiv => add_vertex/3}).
+-doc(#{equiv => add_vertex(G, V, [])}).
 -spec add_vertex(G, V) -> vertex() when
       G :: graph(),
       V :: vertex().
@@ -248,16 +262,8 @@ add_vertex(G, V) ->
     do_add_vertex({V, []}, G).
 
 -doc """
-[`add_vertex/3`](`add_vertex/3`) creates (or modifies) vertex `V` of digraph
-`G`, using `Label` as the (new) [label](`m:digraph#label`) of the vertex.
-Returns `V`.
-
-[`add_vertex(G, V)`](`add_vertex/2`) is equivalent to
-[`add_vertex(G, V, [])`](`add_vertex/3`).
-
-[`add_vertex/1`](`add_vertex/1`) creates a vertex using the empty list as label,
-and returns the created vertex. The created vertex is represented by term
-`['$v' | N]`, where `N` is an integer >= 0.
+Creates (or modifies) vertex `V` of digraph `G`, using `Label` as the (new)
+[label](`m:digraph#label`) of the vertex. Returns the new vertex `V`.
 """.
 -spec add_vertex(G, V, Label) -> vertex() when
       G :: graph(),
@@ -396,7 +402,7 @@ Returns a list of all edges [emanating](`m:digraph#emanate`) from `V` of digraph
 out_edges(G, V) ->
     [E || {{out, _}, E} <- ets:lookup(G#digraph.ntab, {out, V})].
 
--doc(#{equiv => add_edge/5}).
+-doc(#{equiv => add_edge(G, V1, V2, [])}).
 -spec add_edge(G, V1, V2) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),
       V1 :: vertex(),
@@ -406,6 +412,13 @@ add_edge(G, V1, V2) ->
     do_add_edge({new_edge_id(G), V1, V2, []}, G).
 
 -doc(#{equiv => add_edge/5}).
+-doc """
+Equivalent to [`add_edge(G, E, V1, V2, Label)`](`add_edge/5`), where `E` is a created edge.
+
+The created edge is represented by term `['$e' | N]`, where `N` is an integer >= 0.
+
+See `t:add_edge_err_rsn/0` for details on possible errors.
+""".
 -spec add_edge(G, V1, V2, Label) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),
       V1 :: vertex(),
@@ -416,25 +429,12 @@ add_edge(G, V1, V2, D) ->
     do_add_edge({new_edge_id(G), V1, V2, D}, G).
 
 -doc """
-[`add_edge/5`](`add_edge/5`) creates (or modifies) an edge with the identifier
+Creates (or modifies) an edge with the identifier
 `E` of digraph `G`, using `Label` as the (new) [label](`m:digraph#label`) of the
 edge. The edge is [emanating](`m:digraph#emanate`) from `V1` and
 [incident](`m:digraph#incident`) on `V2`. Returns `E`.
 
-[`add_edge(G, V1, V2, Label)`](`add_edge/4`) is equivalent to
-[`add_edge(G, E, V1, V2, Label)`](`add_edge/5`), where `E` is a created edge.
-The created edge is represented by term `['$e' | N]`, where `N` is an
-integer >= 0.
-
-[`add_edge(G, V1, V2)`](`add_edge/3`) is equivalent to
-[`add_edge(G, V1, V2, [])`](`add_edge/4`).
-
-If the edge would create a cycle in an
-[acyclic digraph](`m:digraph#acyclic_digraph`), `{error, {bad_edge, Path}}` is
-returned. If `G` already has an edge with value `E` connecting a different pair
-of vertices, `{error, {bad_edge, [V1, V2]}}` is returned. If either of `V1` or
-`V2` is not a vertex of digraph `G`, `{error, {bad_vertex, `V`}}` is returned,
-V = `V1` or V = `V2`.
+See `t:add_edge_err_rsn/0` for details on possible errors.
 """.
 -spec add_edge(G, E, V1, V2, Label) -> edge() | {'error', add_edge_err_rsn()} when
       G :: graph(),

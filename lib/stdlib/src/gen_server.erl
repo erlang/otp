@@ -32,7 +32,7 @@ A `gen_server` process assumes all specific parts to be located in a callback
 module exporting a predefined set of functions. The relationship between the
 behavior functions and the callback functions is as follows:
 
-```erlang
+```text
 gen_server module            Callback module
 -----------------            ---------------
 gen_server:start
@@ -100,7 +100,6 @@ details regarding error handling using exit signals.
 
 `m:gen_event`, `m:gen_statem`, `m:proc_lib`, `m:supervisor`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
@@ -286,7 +285,6 @@ The return value `Result` is interpreted as follows:
 See function [`start_link/3,4`](`start_link/3`)'s return value `t:start_ret/0`
 in these different cases.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore | {error, Reason :: term()}.
@@ -348,7 +346,6 @@ The return value `Result` is interpreted as follows:
   `{noreply,NewState,...}` a reply has to be created by calling
   [`reply(From, Reply)`](`reply/2`) before returning `{stop,_,_}`.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -364,7 +361,6 @@ Whenever a `gen_server` process receives a request sent using `cast/2` or
 For a description of the arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
@@ -387,7 +383,6 @@ message.
 For a description of the other arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
@@ -410,7 +405,7 @@ updating the process state along the way.
 For a description of the other arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
@@ -455,7 +450,6 @@ terminate because of an error, and an error report is issued using `m:logger`.
 When the gen_server process exits, an exit signal with the same reason is sent
 to linked processes and ports.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->
@@ -470,8 +464,9 @@ to linked processes and ports.
 
 This function is called by a `gen_server` process when it is to update its
 internal state during a release upgrade/downgrade, that is, when the instruction
-`{update,Module,Change,...}`, where `Change={advanced,Extra}`, is specifed in
-the `appup` file. For more information, see section
+`{update,Module,Change,...}`, is specified in the [`appup`](`e:sasl:appup.md`) file.
+
+For more information, see section
 [Release Handling Instructions](`e:system:release_handling.md#instr`) in OTP
 Design Principles.
 
@@ -490,7 +485,6 @@ If successful, the function must return the updated internal state.
 If the function returns `{error,Reason}`, the ongoing upgrade fails and rolls
 back to the old release.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
@@ -538,7 +532,7 @@ One use for this function is to return compact alternative state representations
 to avoid that large state terms are printed in log files.
 """.
 -deprecated_callback({format_status, 2, "use format_status/1 instead"}).
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R13B04">>}).
+-doc(#{since => <<"OTP R13B04">>}).
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
@@ -604,7 +598,7 @@ format_status(Status) ->
     end, Status).
 ```
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -callback format_status(Status) -> NewStatus when
       Status    :: format_status(),
       NewStatus :: format_status().

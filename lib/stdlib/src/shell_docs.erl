@@ -19,13 +19,13 @@
 %%
 -module(shell_docs).
 -moduledoc """
-Functions used to render EEP-48 style documentation for a shell.
+Functions used to render [EEP-48](`e:kernel:eep48_chapter.md`) style documentation for a shell.
 
 This module can be used to render function and type documentation to be printed
-in a shell. This is the module that is used to render the docs accessed through
+in a shell. This is the module that is used to render the documentation accessed through
 the shell through [`c:h/1,2,3`](`\\c:h/1`). Example:
 
-```erlang
+```txt
 1> h(maps,new,0).
 
   -spec new() -> Map when Map :: #{}.
@@ -118,22 +118,18 @@ The configuration of how the documentation should be rendered.
   By default `shell_docs` used the value returned by
   [`io:columns()`](`io:columns/0`).
 """.
+-doc #{ since => ~"OTP 23.2" }.
 -type config() :: #{ encoding => unicode | latin1,
                      columns => pos_integer(),
                      ansi => boolean() }.
 -type chunk_elements() :: [chunk_element()].
--doc(#{equiv => {type,chunk_elements,0}}).
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
                           chunk_elements()} | binary().
--doc(#{equiv => {type,chunk_elements,0}}).
 -type chunk_element_attrs() :: [chunk_element_attr()].
--doc(#{equiv => {type,chunk_elements,0}}).
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -doc "The HTML tags allowed in `application/erlang+html`.".
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
--doc(#{equiv => {type,chunk_element_type,0}}).
 -type chunk_element_inline_type() :: a | code | em | strong | i | b.
--doc(#{equiv => {type,chunk_element_type,0}}).
 -type chunk_element_block_type() :: p | 'div' | br | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
@@ -463,16 +459,25 @@ get_doc(Module, Function, Arity) ->
 
     [{F,A,S,get_local_doc(F,Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
--doc(#{equiv => render/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc(#{equiv => render(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render(Module, #docs_v1{ } = D) when is_atom(Module) ->
     render(Module, D, #{}).
 
--doc(#{equiv => render/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render(Module, DocsOrFunction, ConfigOrDocs)
+
+Render module or function documentation.
+
+Renders the module documentation if called as `render(Module, Docs, Config)`.
+
+Equivalent to [`render(Module, Function, Docs, #{})`](`render/4`) if called
+as `render(Module, Function, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -490,8 +495,17 @@ render(Module, #docs_v1{ module_doc = ModuleDoc } = D, Config)
 render(_Module, Function, #docs_v1{ } = D) ->
     render(_Module, Function, D, #{}).
 
--doc(#{equiv => render/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render(Module, Function, DocsOrArity, ConfigOrDocs)
+
+Render function documentation.
+
+Renders the function documentation if called as `render(Module, Function, Docs, Config)`.
+
+Equivalent to [`render(Module, Function, Arity, Docs, #{})`](`render/4`) if called
+as `render(Module, Function, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Function, Docs, Config) -> Res when
       Module :: module(),
       Function :: atom(),
@@ -516,8 +530,8 @@ render(Module, Function, #docs_v1{ docs = Docs } = D, Config)
 render(_Module, Function, Arity, #docs_v1{ } = D) ->
     render(_Module, Function, Arity, D, #{}).
 
--doc "Render the documentation for a module or function.".
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc "Render the documentation for a function.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Function, Arity, Docs, Config) -> Res when
       Module :: module(),
       Function :: atom(),
@@ -555,16 +569,25 @@ get_type_doc(Module, Type, Arity) ->
                      end, Docs),
     [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
--doc(#{equiv => render_type/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc(#{equiv => render_type(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render_type(Module, D) ->
     render_type(Module, D, #{}).
 
--doc(#{equiv => render_type/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render_type(Module, DocsOrType, ConfigOrDocs)
+
+Render all types in a module or type documentation.
+
+Renders a list with all types if called as `render_type(Module, Docs, Config)`.
+
+Equivalent to [`render_type(Module, Type, Docs, #{})`](`render_type/4`) if called
+as `render_type(Module, Type, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -578,8 +601,17 @@ render_type(Module, D = #docs_v1{}, Config) ->
 render_type(Module, Type, D = #docs_v1{}) ->
     render_type(Module, Type, D, #{}).
 
--doc(#{equiv => render_type/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render_type(Module, Type, DocsOrArity, ConfigOrDocs)
+
+Render type documentation.
+
+Renders the type documentation if called as `render_type(Module, Type, Docs, Config)`.
+
+Equivalent to [`render_type(Module, Type, Arity, Docs, #{})`](`render_type/4`) if called
+as `render_type(Module, Type, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Type, Docs, Config) -> Res when
       Module :: module(), Type :: atom(),
       Docs :: docs_v1(),
@@ -600,7 +632,7 @@ render_type(_Module, Type, Arity, #docs_v1{ } = D) ->
     render_type(_Module, Type, Arity, D, #{}).
 
 -doc "Render the documentation of a type in a module.".
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Type, Arity, Docs, Config) -> Res when
       Module :: module(), Type :: atom(), Arity :: arity(),
       Docs :: docs_v1(),
@@ -635,16 +667,25 @@ get_callback_doc(Module, Callback, Arity) ->
                      end, Docs),
     [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
--doc(#{equiv => render_callback/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc(#{equiv => render_callback(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render_callback(Module, D) ->
     render_callback(Module, D, #{}).
 
--doc(#{equiv => render_callback/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render_callback(Module, DocsOrCallback, ConfigOrDocs)
+
+Render all callbacks in a module or callback documentation.
+
+Renders a list with all callbacks if called as `render_callback(Module, Docs, Config)`.
+
+Equivalent to [`render_callback(Module, Callback, Docs, #{})`](`render_callback/4`) if called
+as `render_callback(Module, Callback, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -658,8 +699,17 @@ render_callback(_Module, Callback, #docs_v1{ } = D) ->
 render_callback(Module, D, Config) ->
     render_signature_listing(Module, callback, D, Config).
 
--doc(#{equiv => render_callback/5}).
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc """
+render_callback(Module, Callback, DocsOrArity, ConfigOrDocs)
+
+Render callback documentation.
+
+Renders the callback documentation if called as `render_callback(Module, Callback, Docs, Config)`.
+
+Equivalent to [`render_callback(Module, Callback, Arity, Docs, #{})`](`render_callback/4`) if called
+as `render_callback(Module, Callback, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Callback, Docs, Config) -> Res when
       Module :: module(), Callback :: atom(),
       Docs :: docs_v1(),
@@ -680,7 +730,7 @@ render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D, Config) ->
                    end, Docs), D, Config).
 
 -doc "Render the documentation of a callback in a module.".
--doc(#{since => <<"OTP 23.0,OTP 23.2">>}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Callback, Arity, Docs, Config) -> Res when
       Module :: module(), Callback :: atom(), Arity :: arity(),
       Docs :: docs_v1(),

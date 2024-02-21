@@ -394,7 +394,7 @@ check_extract(Name, #read_opts{files=Files}) ->
                       Gid :: gid()}.
 
 %% Returns a list of names of the files in the tar file Name.
--doc(#{equiv => table/2}).
+-doc(#{equiv => table(Open, [])}).
 -spec table(Open :: open_type()) -> {ok, [name_in_archive()]} | {error, term()}.
 table(Name) ->
     table(Name, []).
@@ -747,12 +747,16 @@ do_create(TarFile, [Name|Rest], Opts) ->
     end.
 
 %% Adds a file to a tape archive.
--type add_type() :: name_in_archive()
-                  | {name_in_archive(), file:filename_all()}.
--doc(#{equiv => add/4}).
--spec add(TarDescriptor, AddType, Options) -> ok | {error, term()} when
+-doc """
+Equivalent to `add/4`.
+
+If `Name` is `t:name_in_archive/0`, then [`add(TarDescriptor, Name, Name, Options)`](`add/4`) is called.
+
+If `Name` is a two tuple then [`add(TarDescriptor, NameInArchive, Name, Options)`](`add/4`) is called.
+""".
+-spec add(TarDescriptor, Name, Options) -> ok | {error, term()} when
     TarDescriptor :: tar_descriptor(),
-    AddType :: add_type(),
+    Name :: name_in_archive() | {name_in_archive(), file:filename_all()},
     Options :: [add_opt()].
 add(Reader, {NameInArchive, Name}, Opts)
   when is_list(NameInArchive), is_list(Name) ->

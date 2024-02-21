@@ -881,7 +881,7 @@ collection by passing the collection as argument to `receive_response/3`,
 `wait_response/3`, or, `check_response/3`.
 
 The same as calling
-[`gen_event:reqids_add`](`reqids_add/3`)([`gen_event:send_request`](`send_request/3`)`(EventMgrRef, Handler, Request), Label, ReqIdCollection)`,
+[`gen_event:reqids_add`](`reqids_add/3`)`(`[`gen_event:send_request`](`send_request/3`)`(EventMgrRef, Handler, Request), Label, ReqIdCollection)`,
 but calling [`send_request/5`](`send_request/5`) is slightly more efficient.
 """.
 -doc(#{since => <<"OTP 25.0">>}).

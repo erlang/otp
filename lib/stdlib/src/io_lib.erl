@@ -103,6 +103,7 @@ used for flattening deep lists.
 
 %%----------------------------------------------------------------------
 
+-doc "An possibly deep list containing only `t:char/0`s.".
 -type chars() :: [char() | chars()].
 -type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
@@ -126,7 +127,7 @@ used for flattening deep lists.
 -type fread_item() :: string() | atom() | integer() | float().
 
 -doc """
-Where:
+A map describing the contents of a format string.
 
 - `control_char` is the type of control sequence: `$P`, `$w`, and so on.
 - `args` is a list of the arguments used by the control sequence, or an empty
@@ -160,7 +161,9 @@ Where:
 
 -doc """
 Returns a character list that represents `Data` formatted in accordance with
-`Format`. For a detailed description of the available formatting options, see
+`Format`.
+
+For a detailed description of the available formatting options, see
 [`io:fwrite/1,2,3`](`io:fwrite/1`). If the format string or argument list
 contains an error, a fault is generated.
 
@@ -203,9 +206,10 @@ fwrite(Format, Args, Options) ->
     format(Format, Args, Options).
 
 -doc """
-Tries to read `String` in accordance with the control sequences in `Format`. For
-a detailed description of the available formatting options, see `io:fread/3`. It
-is assumed that `String` contains whole lines.
+Tries to read `String` in accordance with the control sequences in `Format`.
+
+For a detailed description of the available formatting options, see `io:fread/3`.
+It is assumed that `String` contains whole lines.
 
 The function returns:
 
@@ -242,8 +246,10 @@ fread(Chars, Format) ->
 
 -doc """
 This is the re-entrant formatted reader. The continuation of the first call to
-the functions must be `[]`. For a complete description of how the re-entrant
-input scheme works, see Armstrong, Virding, Williams: 'Concurrent Programming in
+the functions must be `[]`.
+
+For a complete description of how the re-entrant input scheme works,
+see Armstrong, Virding, Williams: 'Concurrent Programming in
 Erlang', Chapter 13.
 
 The function returns:
@@ -278,7 +284,7 @@ The function returns:
 fread(Cont, Chars, Format) ->
     io_lib_fread:fread(Cont, Chars, Format).
 
--doc(#{equiv => fwrite/2}).
+-doc(#{equiv => fwrite(Format, Data)}).
 -spec format(Format, Data) -> chars() when
       Format :: io:format(),
       Data :: [term()].
@@ -291,7 +297,7 @@ format(Format, Args) ->
             erlang:error(badarg, [Format, Args])
     end.
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => fwrite(Format, Data, Options)}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec format(Format, Data, Options) -> chars() when
       Format :: io:format(),
@@ -384,7 +390,7 @@ test_modules_loaded(_C, _R, _S) ->
         Error -> erlang:error(Error)
     end.
 
--doc(#{equiv => print/4}).
+-doc(#{equiv => print(Term, 1, 80, -1)}).
 -spec print(Term) -> chars() when
       Term :: term().
 
@@ -393,8 +399,9 @@ print(Term) ->
 
 -doc """
 Returns a list of characters that represents `Term`, but breaks representations
-longer than one line into many lines and indents each line sensibly. Also tries
-to detect and output lists of printable characters as strings.
+longer than one line into many lines and indents each line sensibly.
+
+Also tries to detect and output lists of printable characters as strings.
 
 - `Column` is the starting column; defaults to 1.
 - `LineLength` is the maximum line length; defaults to 80.
@@ -456,7 +463,7 @@ add_modifier(_, C) ->
 %%  Return a (non-flattened) list of characters giving a printed
 %%  representation of the term. write/3 is for backward compatibility.
 
--doc(#{equiv => write/2}).
+-doc(#{equiv => write(Term, -1)}).
 -doc(#{since => <<"OTP 20.0">>}).
 -spec write(Term) -> chars() when
       Term :: term().
@@ -473,13 +480,18 @@ write(Term, D, false) ->
     write(Term, D).
 
 -doc """
+write(Term, DepthOrOptions)
+
 Returns a character list that represents `Term`. Option `Depth` controls the
-depth of the structures written. When the specified depth is reached, everything
-below this level is replaced by "`...`". `Depth` defaults to -1, which means no
-limitation. Option `CharsLimit` puts a soft limit on the number of characters
-returned. When the number of characters is reached, remaining structures are
-replaced by "`...`". `CharsLimit` defaults to -1, which means no limit on the
-number of characters returned.
+depth of the structures written.
+
+When the specified depth is reached, everything below this level is replaced by
+"`...`".
+
+`Depth` defaults to -1, which means no limitation. Option `CharsLimit` puts a
+soft limit on the number of characters returned. When the number of characters is
+reached, remaining structures are replaced by "`...`". `CharsLimit` defaults to -1,
+which means no limit on the number of characters returned.
 
 _Example:_
 

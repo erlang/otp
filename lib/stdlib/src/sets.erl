@@ -39,8 +39,6 @@
 
 -module(sets).
 -moduledoc """
-Functions for set manipulation.
-
 Sets are collections of elements with no duplicate elements.
 
 The data representing a set as used by this module is to be regarded as opaque
@@ -211,10 +209,10 @@ from_list(Ls, Opts) ->
 %% is_set(Set) -> boolean().
 %%  Return 'true' if Set is a set of elements, else 'false'.
 -doc """
-Returns `true` if `Set` appears to be a set of elements, otherwise `false`. Note
-that the test is shallow and will return `true` for any term that coincides with
-the possible representations of a set. See also note on
-[data types](`e:system:data_types.md#no_user_types`).
+Returns `true` if `Set` appears to be a set of elements, otherwise `false`.
+
+Note that the test is shallow and will return `true` for any term that coincides with
+the possible representations of a set. See also note on [data types](`e:system:data_types.md#no_user_types`).
 """.
 -spec is_set(Set) -> boolean() when
       Set :: term().

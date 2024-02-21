@@ -142,6 +142,8 @@ find(_,_) -> erlang:nif_error(undef).
 -doc """
 Takes a list of key-value tuples elements and builds a map. The associations can
 be in any order, and both keys and values in the association can be of any term.
+
+
 If the same key appears more than once, the latter (right-most) value is used
 and the previous values are ignored.
 
@@ -218,8 +220,9 @@ intersect_combiner_v2(_K, _V1, V2) -> V2.
 
 -doc """
 Intersects two maps into a single map `Map3`. If a key exists in both maps, the
-value in `Map1` is combined with the value in `Map2` by the `Combiner` fun. When
-`Combiner` is applied the key that exists in both maps is the first parameter,
+value in `Map1` is combined with the value in `Map2` by the `Combiner` fun.
+
+When `Combiner` is applied the key that exists in both maps is the first parameter,
 the value from `Map1` is the second parameter, and the value from `Map2` is the
 third parameter.
 
@@ -347,8 +350,9 @@ merge(_,_) -> erlang:nif_error(undef).
 
 -doc """
 Merges two maps into a single map `Map3`. If a key exists in both maps, the
-value in `Map1` is combined with the value in `Map2` by the `Combiner` fun. When
-`Combiner` is applied the key that exists in both maps is the first parameter,
+value in `Map1` is combined with the value in `Map2` by the `Combiner` fun.
+
+When `Combiner` is applied the key that exists in both maps is the first parameter,
 the value from `Map1` is the second parameter, and the value from `Map2` is the
 third parameter.
 

@@ -293,9 +293,11 @@ all() ->
 
 -doc """
 Returns a list of objects stored in a table. The exact representation of the
-returned objects is not public. The lists of data can be used for initializing a
-table by specifying value `bchunk` to option `format` of function `init_table/3`
-The Mnesia application uses this function for copying open tables.
+returned objects is not public.
+
+The lists of data can be used for initializing a table by specifying value
+`bchunk` to option `format` of function `init_table/3`. The Mnesia application
+uses this function for copying open tables.
 
 Unless the table is protected using [`safe_fixtable/2`](`safe_fixtable/2`),
 calls to [`bchunk/2`](`bchunk/2`) do possibly not work as expected if concurrent
@@ -603,7 +605,7 @@ info(Tab, Tag) ->
 	    undefined(req(Pid, {info, Tag}))
     end.
 
--doc(#{equiv => init_table/3}).
+-doc(#{equiv => init_table(Name, InitFun, [])}).
 -spec init_table(Name, InitFun) -> ok | {'error', Reason} when
       Name :: tab_name(),
       InitFun :: fun((Arg) -> Res),
@@ -617,10 +619,11 @@ init_table(Tab, InitFun) ->
 
 -doc """
 Replaces the existing objects of table `Name` with objects created by calling
-the input function `InitFun`, see below. The reason for using this function
-rather than calling [`insert/2`](`insert/2`) is that of efficiency. Notice that
-the input functions are called by the process that handles requests to the Dets
-table, not by the calling process.
+the input function `InitFun`.
+
+The reason for using this function rather than calling [`insert/2`](`insert/2`)
+is that of efficiency. Notice that the input functions are called by the process
+that handles requests to the Dets table, not by the calling process.
 
 When called with argument `read`, function `InitFun` is assumed to return
 `end_of_input` when there is no more input, or `{Objects, Fun}`, where `Objects`
@@ -1344,7 +1347,7 @@ is also written to the disk. This can take some time if the table is fragmented.
 sync(Tab) ->
     badarg(treq(Tab, sync), [Tab]).
 
--doc(#{equiv => table/2}).
+-doc(#{equiv => table(Name, [])}).
 -spec table(Name) -> QueryHandle when
       Name :: tab_name(),
       QueryHandle :: qlc:query_handle().

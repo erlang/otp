@@ -252,9 +252,6 @@ The possible values of `Reason` returned when an error occurs are:
 
 -doc """
 Sorts terms on files.
-
-[`sort(FileName)`](`sort/1`) is equivalent to
-[`sort([FileName], FileName)`](`sort/2`).
 """.
 -spec(sort(FileName) -> Reply when
       FileName :: file_name(),
@@ -262,7 +259,7 @@ Sorts terms on files.
 sort(FileName) ->
     sort([FileName], FileName).
 
--doc(#{equiv => sort/3}).
+-doc(#{equiv => sort(Input, Output, [])}).
 -spec(sort(Input, Output) -> Reply when
       Input :: input(),
       Output :: output(),
@@ -272,9 +269,6 @@ sort(Input, Output) ->
 
 -doc """
 Sorts terms on files.
-
-[`sort(Input, Output)`](`sort/2`) is equivalent to
-[`sort(Input, Output, [])`](`sort/3`).
 """.
 -spec(sort(Input, Output, Options) -> Reply when
       Input :: input(),
@@ -291,9 +285,6 @@ sort(Input0, Output0, Options) ->
 
 -doc """
 Sorts tuples on files.
-
-[`keysort(N, FileName)`](`keysort/2`) is equivalent to
-[`keysort(N, [FileName], FileName)`](`keysort/3`).
 """.
 -spec(keysort(KeyPos, FileName) -> Reply when
       KeyPos :: key_pos(),
@@ -302,7 +293,7 @@ Sorts tuples on files.
 keysort(KeyPos, FileName) ->
     keysort(KeyPos, [FileName], FileName).
 
--doc(#{equiv => keysort/4}).
+-doc(#{equiv => keysort(KeyPos, Input, Output, [])}).
 -spec(keysort(KeyPos, Input, Output) -> Reply when
       KeyPos :: key_pos(),
       Input :: input(),
@@ -315,9 +306,6 @@ keysort(KeyPos, Input, Output) ->
 Sorts tuples on files. The sort is performed on the element(s) mentioned in
 `KeyPos`. If two tuples compare equal (`==`) on one element, the next element
 according to `KeyPos` is compared. The sort is stable.
-
-[`keysort(N, Input, Output)`](`keysort/3`) is equivalent to
-[`keysort(N, Input, Output, [])`](`keysort/4`).
 """.
 -spec(keysort(KeyPos, Input, Output, Options) -> Reply when
       KeyPos :: key_pos(),
@@ -344,7 +332,7 @@ keysort(KeyPos, Input0, Output0, Options) ->
             badarg(culprit(O), [KeyPos, Input0, Output0, Options])
     end.
 
--doc(#{equiv => merge/3}).
+-doc(#{equiv => merge(FileNames, Output, [])}).
 -spec(merge(FileNames, Output) -> Reply when
       FileNames :: file_names(),
       Output :: output(),
@@ -354,9 +342,6 @@ merge(Files, Output) ->
 
 -doc """
 Merges terms on files. Each input file is assumed to be sorted.
-
-[`merge(FileNames, Output)`](`merge/2`) is equivalent to
-[`merge(FileNames, Output, [])`](`merge/3`).
 """.
 -spec(merge(FileNames, Output, Options) -> Reply when
       FileNames :: file_names(),
@@ -372,7 +357,7 @@ merge(Files0, Output0, Options) ->
             badarg(culprit(tuple_to_list(T)), [Files0, Output0, Options])
     end.
 
--doc(#{equiv => keymerge/4}).
+-doc(#{equiv => keymerge(KeyPos, FileNames, Output, [])}).
 -spec(keymerge(KeyPos, FileNames, Output) -> Reply when
       KeyPos :: key_pos(),
       FileNames :: file_names(),
@@ -383,9 +368,6 @@ keymerge(KeyPos, Files, Output) ->
 
 -doc """
 Merges tuples on files. Each input file is assumed to be sorted on key(s).
-
-[`keymerge(KeyPos, FileNames, Output)`](`keymerge/3`) is equivalent to
-[`keymerge(KeyPos, FileNames, Output, [])`](`keymerge/4`).
 """.
 -spec(keymerge(KeyPos, FileNames, Output, Options) -> Reply when
       KeyPos :: key_pos(),
@@ -412,7 +394,7 @@ keymerge(KeyPos, Files0, Output0, Options) ->
             badarg(culprit(O), [KeyPos, Files0, Output0, Options])
     end.
 
--doc(#{equiv => check/2}).
+-doc(#{equiv => check([FileName], [])}).
 -spec(check(FileName) -> Reply when
       FileName :: file_name(),
       Reply :: {ok, [Result]} | {error, reason()},
@@ -424,9 +406,6 @@ check(FileName) ->
 -doc """
 Checks files for sortedness. If a file is not sorted, the first out-of-order
 element is returned. The first term on a file has position 1.
-
-[`check(FileName)`](`check/1`) is equivalent to
-[`check([FileName], [])`](`check/2`).
 """.
 -spec(check(FileNames, Options) -> Reply when
       FileNames :: file_names(),
@@ -443,7 +422,7 @@ check(Files0, Options) ->
             badarg(culprit(tuple_to_list(T)), [Files0, Options])
     end.
 
--doc(#{equiv => keycheck/3}).
+-doc(#{equiv => keycheck(KeyPos, [Filename], [])}).
 -spec(keycheck(KeyPos, FileName) -> Reply when
       KeyPos :: key_pos(),
       FileName :: file_name(),
@@ -456,9 +435,6 @@ keycheck(KeyPos, FileName) ->
 -doc """
 Checks files for sortedness. If a file is not sorted, the first out-of-order
 element is returned. The first term on a file has position 1.
-
-[`keycheck(KeyPos, FileName)`](`keycheck/2`) is equivalent to
-[`keycheck(KeyPos, [FileName], [])`](`keycheck/3`).
 """.
 -spec(keycheck(KeyPos, FileNames, Options) -> Reply when
       KeyPos :: key_pos(),

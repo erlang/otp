@@ -1282,7 +1282,9 @@ end-of-stream encountered before a complete form had been parsed.
 %% entry points working.
 
 -doc """
-Parses `Tokens` as if it was a form. Returns one of the following:
+Parses `Tokens` as if it was a form.
+
+Returns one of the following:
 
 - **`{ok, AbsForm}`** - The parsing was successful. `AbsForm` is the abstract
   form of the parsed form.
@@ -1306,8 +1308,9 @@ parse_form(Tokens) ->
     parse(Tokens).
 
 -doc """
-Parses `Tokens` as if it was a list of expressions. Returns one of the
-following:
+Parses `Tokens` as if it was a list of expressions.
+
+Returns one of the following:
 
 - **`{ok, ExprList}`** - The parsing was successful. `ExprList` is a list of the
   abstract forms of the parsed expressions.
@@ -1328,7 +1331,9 @@ parse_exprs(Tokens) ->
     end.
 
 -doc """
-Parses `Tokens` as if it was a term. Returns one of the following:
+Parses `Tokens` as if it was a term.
+
+Returns one of the following:
 
 - **`{ok, Term}`** - The parsing was successful. `Term` is the Erlang term
   corresponding to the token list.
@@ -1933,7 +1938,7 @@ abstract_byte(Bits, A) ->
 
 %%  Generate a list of tokens representing the abstract term.
 
--doc(#{equiv => tokens/2}).
+-doc(#{equiv => tokens(AbsTerm, [])}).
 -spec tokens(AbsTerm) -> Tokens when
       AbsTerm :: abstract_expr(),
       Tokens :: [token()].
@@ -2098,8 +2103,10 @@ map_anno(F0, Abstr) ->
 
 -doc """
 Updates an accumulator by applying `Fun` on each collection of annotations of
-the `erl_parse` tree `Abstr`. The first call to `Fun` has `AccIn` as argument,
-the returned accumulator `AccOut` is passed to the next call, and so on. The
+the `erl_parse` tree `Abstr`.
+
+The first call to `Fun` has `AccIn` as argument, the returned accumulator
+`AccOut` is passed to the next call, and so on. The
 final value of the accumulator is returned. The `erl_parse` tree is traversed in
 a depth-first, left-to-right fashion.
 """.
@@ -2121,7 +2128,9 @@ fold_anno(F0, Acc0, Abstr) ->
 -doc """
 Modifies the `erl_parse` tree `Abstr` by applying `Fun` on each collection of
 annotations of the nodes of the `erl_parse` tree, while at the same time
-updating an accumulator. The first call to `Fun` has `AccIn` as second argument,
+updating an accumulator.
+
+The first call to `Fun` has `AccIn` as second argument,
 the returned accumulator `AccOut` is passed to the next call, and so on. The
 modified `erl_parse` tree and the final value of the accumulator are returned.
 The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.
@@ -2144,7 +2153,9 @@ mapfold_anno(F, Acc0, Abstr) ->
 -doc """
 Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but
 with [locations](`t:erl_anno:location/0`) where a `erl_parse` tree has
-collections of annotations. Returns a `erl_parse` tree where each location `L`
+collections of annotations.
+
+Returns a `erl_parse` tree where each location `L`
 is replaced by the value returned by [`erl_anno:new(L)`](`erl_anno:new/1`). The
 term `Term` is traversed in a depth-first, left-to-right fashion.
 """.
@@ -2176,6 +2187,7 @@ anno_to_term(Abstract) ->
 -doc """
 Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but
 with terms, say `T`, where a `erl_parse` tree has collections of annotations.
+
 Returns a `erl_parse` tree where each term `T` is replaced by the value returned
 by [`erl_anno:from_term(T)`](`erl_anno:from_term/1`). The term `Term` is
 traversed in a depth-first, left-to-right fashion.

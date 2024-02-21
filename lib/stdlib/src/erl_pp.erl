@@ -133,7 +133,7 @@ spaces).
 %%% Exported functions
 %%%
 
--doc(#{equiv => form/2}).
+-doc(#{equiv => form(Form, none)}).
 -spec(form(Form) -> io_lib:chars() when
       Form :: erl_parse:abstract_form() | erl_parse:form_info()).
 
@@ -153,7 +153,7 @@ form(Thing, Options) ->
     State = state(Options),
     frmt(lform(Thing, options(Options)), State).
 
--doc(#{equiv => attribute/2}).
+-doc(#{equiv => attribute(Attribute, none)}).
 -spec(attribute(Attribute) -> io_lib:chars() when
       Attribute :: erl_parse:abstract_form()).
 
@@ -170,7 +170,7 @@ attribute(Thing, Options) ->
     State = state(Options),
     frmt(lattribute(Thing, options(Options)), State).
 
--doc(#{equiv => function/2}).
+-doc(#{equiv => function(Function, none)}).
 -spec(function(Function) -> io_lib:chars() when
       Function :: erl_parse:abstract_form()).
 
@@ -186,7 +186,7 @@ function(F, Options) ->
     ?TEST(F),
     frmt(lfunction(F, options(Options)), state(Options)).
 
--doc(#{equiv => guard/2}).
+-doc(#{equiv => guard(Guard, none)}).
 -spec(guard(Guard) -> io_lib:chars() when
       Guard :: [erl_parse:abstract_expr()]).
 
@@ -202,14 +202,14 @@ guard(Gs, Options) ->
     ?EXPRS_TEST(Gs),
     frmt(lguard(Gs, options(Options)), state(Options)).
 
--doc(#{equiv => exprs/3}).
+-doc(#{equiv => exprs(Expressions, none)}).
 -spec(exprs(Expressions) -> io_lib:chars() when
       Expressions :: [erl_parse:abstract_expr()]).
 
 exprs(Es) ->
     exprs(Es, 0, none).
 
--doc(#{equiv => exprs/3}).
+-doc(#{equiv => exprs(Expressions, 0, Options)}).
 -spec(exprs(Expressions, Options) -> io_lib:chars() when
       Expressions :: [erl_parse:abstract_expr()],
       Options :: options()).
@@ -230,7 +230,7 @@ exprs(Es, I, Options) ->
     ?EXPRS_TEST(Es),
     frmt({seq,[],[],[$,],lexprs(Es, options(Options))}, I, state(Options)).
 
--doc(#{equiv => expr/4}).
+-doc(#{equiv => expr(Expression, none)}).
 -spec(expr(Expression) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr()).
 
@@ -238,7 +238,7 @@ expr(E) ->
     ?TEST(E),
     frmt(lexpr(E, 0, options(none)), state(none)).
 
--doc(#{equiv => expr/4}).
+-doc(#{equiv => expr(Expression, 0, Options)}).
 -spec(expr(Expression, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),
       Options :: options()).
@@ -247,7 +247,7 @@ expr(E, Options) ->
     ?TEST(E),
     frmt(lexpr(E, 0, options(Options)), state(Options)).
 
--doc(#{equiv => expr/4}).
+-doc(#{equiv => expr(Expression, Indent, 0, Options)}).
 -spec(expr(Expression, Indent, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),
       Indent :: integer(),

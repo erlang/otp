@@ -132,7 +132,7 @@ relying on them will produce the same pseudo random sequences as before.
 > Uniform floats had a non-uniform density so small values i.e less than 0.5 had
 > got smaller intervals decreasing as the generated value approached 0.0
 > although still uniformly distributed for sufficiently large subranges. The new
-> algorithms produces uniformly distributed floats on the form N \* 2.0^(-53)
+> algorithms produces uniformly distributed floats on the form `N * 2.0^(-53)`
 > hence equally spaced.
 
 Every time a random number is requested, a state is used to calculate it and a
@@ -155,14 +155,14 @@ Simple use; creates and seeds the
 [_default algorithm_ ](`m:rand#default-algorithm`)with a non-constant seed if
 not already done:
 
-```text
+```erlang
 R0 = rand:uniform(),
 R1 = rand:uniform(),
 ```
 
 Use a specified algorithm:
 
-```text
+```erlang
 _ = rand:seed(exs928ss),
 R2 = rand:uniform(),
 ```
@@ -176,7 +176,7 @@ R3 = rand:uniform(),
 
 Use the functional API with a non-constant seed:
 
-```text
+```erlang
 S0 = rand:seed_s(exsss),
 {R4, S1} = rand:uniform_s(S0),
 ```
@@ -191,13 +191,13 @@ SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)
 
 Create a standard normal deviate:
 
-```text
+```erlang
 {SND1, S2} = rand:normal_s(S1),
 ```
 
 Create a normal deviate with mean -3 and variance 0.5:
 
-```text
+```erlang
 {ND0, S3} = rand:normal_s(-3, 0.5, S2),
 ```
 
@@ -210,15 +210,13 @@ Create a normal deviate with mean -3 and variance 0.5:
 For all these generators except `exro928ss` and `exsss` the lowest bit(s) has
 got a slightly less random behaviour than all other bits. 1 bit for `exrop` (and
 `exsp`), and 3 bits for `exs1024s`. See for example the explanation in the
-[Xoroshiro128+ ](http://xoroshiro.di.unimi.it/xoroshiro128plus.c)generator
+[Xoroshiro128+](http://xoroshiro.di.unimi.it/xoroshiro128plus.c) generator
 source code:
 
-```text
-Beside passing BigCrush, this generator passes the PractRand test suite
-up to (and included) 16TB, with the exception of binary rank tests,
-which fail due to the lowest bit being an LFSR; all other bits pass all
-tests. We suggest to use a sign test to extract a random Boolean value.
-```
+> Beside passing BigCrush, this generator passes the PractRand test suite
+> up to (and included) 16TB, with the exception of binary rank tests,
+> which fail due to the lowest bit being an LFSR; all other bits pass all
+> tests. We suggest to use a sign test to extract a random Boolean value.
 
 If this is a problem; to generate a boolean with these algorithms use something
 like this:
@@ -227,13 +225,13 @@ like this:
 (rand:uniform(256) > 128) % -> boolean()
 ```
 
-```text
+```erlang
 ((rand:uniform(256) - 1) bsr 7) % -> 0 | 1
 ```
 
 For a general range, with `N = 1` for `exrop`, and `N = 3` for `exs1024s`:
 
-```text
+```erlang
 (((rand:uniform(Range bsl N) - 1) bsr N) + 1)
 ```
 
@@ -306,9 +304,9 @@ when converting from an integer so they avoid this snag.
 %% Types
 %% =====================================================================
 
--doc "0 .. (2^64 - 1)".
+-doc "`0 .. (2^64 - 1)`".
 -type uint64() :: 0..?MASK(64).
--doc "0 .. (2^58 - 1)".
+-doc "`0 .. (2^58 - 1)`".
 -type uint58() :: 0..?MASK(58).
 
 %% This depends on the algorithm handler function
@@ -581,7 +579,7 @@ seed_s(Alg, Seed) ->
 Returns a random float uniformly distributed in the value range `0.0 =< X < 1.0`
 and updates the state in the process dictionary.
 
-The generated numbers are on the form N \* 2.0^(-53), that is; equally spaced in
+The generated numbers are on the form `N * 2.0^(-53)`, that is; equally spaced in
 the interval.
 
 > #### Warning {: .warning }
@@ -632,7 +630,7 @@ uniform(N) ->
 Returns, for a specified state, random float uniformly distributed in the value
 range `0.0 =< X < 1.0` and a new state.
 
-The generated numbers are on the form N \* 2.0^(-53), that is; equally spaced in
+The generated numbers are on the form `N * 2.0^(-53)`, that is; equally spaced in
 the interval.
 
 > #### Warning {: .warning }
@@ -779,7 +777,7 @@ Double precision format is returned.
 
 The concept implicates that the probability to get exactly zero is extremely
 low; so low that this function is in fact guaranteed to never return zero. The
-smallest number that it might return is `DBL_MIN`, which is 2.0^(-1022).
+smallest number that it might return is `DBL_MIN`, which is `2.0^(-1022)`.
 
 The value range stated at the top of this function description is technically
 correct, but `0.0 =< X < 1.0` is a better description of the generated numbers'
@@ -945,7 +943,9 @@ uniform_real_s(#{max:=_} = AlgHandler, Next, M0, BitNo, R0) ->
 
 -doc """
 Returns, for a specified integer `N >= 0`, a `t:binary/0` with that number of
-random bytes. Generates as many random numbers as required using the selected
+random bytes.
+
+Generates as many random numbers as required using the selected
 algorithm to compose the binary, and updates the state in the process dictionary
 accordingly.
 """.
@@ -962,7 +962,9 @@ bytes(N) ->
 
 -doc """
 Returns, for a specified integer `N >= 0` and a state, a `t:binary/0` with that
-number of random bytes, and a new state. Generates as many random numbers as
+number of random bytes, and a new state.
+
+Generates as many random numbers as
 required using the selected algorithm to compose the binary, and the new state.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
@@ -1979,7 +1981,7 @@ dummy_seed({A1, A2, A3}) ->
 -define(MWC59_XS2, 27).
 
 -doc """
-1 .. ((16#1ffb072 \* 2^29 - 1) - 1)
+`1 .. ((16#1ffb072 \* 2^29 - 1) - 1)`
 """.
 -type mwc59_state() :: 1..?MWC59_P-1.
 
@@ -1988,13 +1990,16 @@ Returns a new generator state `CX1`, according to a Multiply With Carry
 generator, which is an efficient implementation of a Multiplicative Congruential
 Generator with a power of 2 multiplier and a prime modulus.
 
-This generator uses the multiplier 2^32 and the modulus 16#7fa6502 * 2^32 - 1,
+This generator uses the multiplier `2^32` and the modulus `16#7fa6502 * 2^32 - 1`,
 which have been selected, in collaboration with Sebastiano Vigna, to avoid
 bignum operations and still get good statistical quality. It can be written
 as:  
-`C = CX0 bsr 32`  
-`X = CX0 band ((1 bsl 32)-1))`  
-`CX1 = 16#7fa6502 * X + C`
+
+```erlang
+C = CX0 bsr 32
+X = CX0 band ((1 bsl 32)-1))
+CX1 = 16#7fa6502 * X + C
+```
 
 Because the generator uses a multiplier that is a power of 2 it gets statistical
 flaws for collision tests and birthday spacings tests in 2 and 3 dimensions, and

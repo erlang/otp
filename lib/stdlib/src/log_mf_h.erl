@@ -89,7 +89,7 @@ one file called `index`, and report files `1, 2, ...`.
 -opaque args() :: {file:filename(), b(), f(), pred()}.
 
 
--doc(#{equiv => init/4}).
+-doc(#{equiv => init(Dir, MaxBytes, MaxFiles, fun(_) -> true end)}).
 -spec init(Dir, MaxBytes, MaxFiles) -> Args when
       Dir :: file:filename(),
       MaxBytes :: non_neg_integer(), % b()
@@ -100,7 +100,7 @@ init(Dir, MaxB, MaxF) -> init(Dir, MaxB, MaxF, fun(_) -> true end).
 
 -doc """
 Initiates the event handler. Returns `Args`, which is to be used in a call to
-`gen_event:add_handler(EventMgr, log_mf_h, Args)`.
+[`gen_event:add_handler(EventMgr, log_mf_h, Args)`](`gen_event:add_handler/3`).
 
 `Dir` specifies which directory to use for the log files. `MaxBytes` specifies
 the size of each individual file. `MaxFiles` specifies how many files are used.
