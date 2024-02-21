@@ -34,8 +34,8 @@ groups() ->
      %%
      {dev,          [{group,dev_direct},
                      {group,dev_inet}, {group,dev_socket}]},
-     {dev_inet,     [active_raw, active_true, active_false, active_once]},
-     {dev_socket,   [active_raw, active_true, active_false, active_once]},
+     {dev_inet,     testcases(dev)},
+     {dev_socket,   testcases(dev)},
      {dev_direct,   testcases(direct)},
      %%
      {small,        backend_groups()},
@@ -51,14 +51,19 @@ backend_groups() ->
     [{group,inet}, {group,socket}, {group,direct}].
 
 testcases(active) ->
-    [active_raw, active_false, active_true, active_once,
-     active_1, active_5, active_20];
+    [active_raw, active_false, active_true,
+     active_once, active_1, active_5, active_20];
+testcases(dev) ->
+    [active_raw, active_false, active_true,
+     active_once, active_20];
 testcases(direct) ->
     [socket_raw, socket_packet, socket_packet_buf, socket_packet_cheat].
 
 -define(SUITE, "gen_tcp_socket").
 -define(DOMAIN, inet).
--define(NORM_EXP, 30).
+%% *_EXP is a power of 2 exponent so the resulting value is
+%% 1 bsl ?*_EXP
+-define(NORM_EXP, 30). % Total byte size norm: packet size * number of packets
 -define(BUFSIZE_EXP, 17).
 -define(BUFSIZE, (1 bsl ?BUFSIZE_EXP)).
 
@@ -81,14 +86,20 @@ end_per_suite(_Config) ->
 init_per_group(Nm, Config) ->
     case Nm of
         smoketest   -> [{burden,0} | Config];
-        benchmark   -> [{burden,2} | Config];
+        benchmark   -> [{burden,2} | Config]; % 4 times the total size
         %%
-        dev         -> init_per_group(dev_size, [{burden,0} | Config]);
+        dev         -> init_per_group(dev_size, [{burden,3} | Config]);
         dev_inet    -> init_per_group(inet,     Config);
         dev_socket  -> init_per_group(socket,   Config);
         dev_direct  -> init_per_group(direct,   Config);
         %%
-        dev_size    -> init_per_group_size(6, 8, Config);
+        dev_size    ->
+            init_per_group_size(
+              ?BUFSIZE_EXP + 4, ?NORM_EXP - (?BUFSIZE_EXP + 4), Config);
+        %% For small packets we cannot have the total size 2^?NORM_EXP
+        %% since the message passing overhead (latency) starts to dominate
+        %% so we have to subtract some from the exponent to get
+        %% roughly the same running time
         small       -> init_per_group_size(7, ?NORM_EXP - 7 - 3, Config);
         medium      -> init_per_group_size(10, ?NORM_EXP - 10 - 1, Config);
         large       -> init_per_group_size(15, ?NORM_EXP - 15, Config);
