@@ -170,123 +170,136 @@
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' .
 -type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
--type cipher()                   :: aes_128_cbc |
-                                    aes_256_cbc |
-                                    aes_128_gcm |
-                                    aes_256_gcm |
-                                    aes_128_ccm |
-                                    aes_256_ccm |
-                                    aes_128_ccm_8 |
-                                    aes_256_ccm_8 |                                    
-                                    chacha20_poly1305 |
-                                    legacy_cipher(). % exported
--type legacy_cipher()            ::  rc4_128 |
-                                     des_cbc |
-                                     '3des_ede_cbc'.
+-type cipher()                   :: aes_256_gcm
+                                  | aes_128_gcm
+                                  | aes_256_ccm
+                                  | aes_128_ccm
+                                  | chacha20_poly1305
+                                  | aes_256_ccm_8
+                                  | aes_128_ccm_8
+                                  | aes_128_cbc
+                                  | aes_256_cbc
+                                  |  legacy_cipher(). % exported
+-type legacy_cipher()            :: '3des_ede_cbc'
+                                  | des_cbc
+                                  | rc4_128.
 
--type hash()                     :: sha2() |
-                                    legacy_hash(). % exported
+-type hash()                     :: sha2()
+                                  | legacy_hash(). % exported
 
--type sha2()                    :: sha256 |
-                                   sha384 |
-                                   sha512.
+-type sha2()                    :: sha512
+                                 | sha384
+                                 | sha256.
 
--type legacy_hash()             :: sha224 | sha | md5.
+-type legacy_hash()             :: sha224
+                                 | sha
+                                 | md5.
 
--type sign_algo()               :: rsa | dsa | ecdsa | eddsa. % exported
+-type sign_algo()               :: eddsa
+                                 | ecdsa
+                                 | rsa
+                                 | dsa. % exported
 
 -type sign_schemes()            :: [sign_scheme()].
 
 -type sign_scheme()             :: eddsa_ed25519
                                  | eddsa_ed448
-                                 | ecdsa_secp256r1_sha256
                                  | ecdsa_secp384r1_sha384
                                  | ecdsa_secp521r1_sha512
+                                 | ecdsa_secp256r1_sha256
                                  | rsassa_pss_scheme()
                                  | sign_scheme_legacy() . % exported
 
--type rsassa_pss_scheme()       :: rsa_pss_rsae_sha256
+-type rsassa_pss_scheme()       :: rsa_pss_rsae_sha512
                                  | rsa_pss_rsae_sha384
-                                 | rsa_pss_rsae_sha512
-                                 | rsa_pss_pss_sha256
+                                 | rsa_pss_rsae_sha256
+                                 | rsa_pss_pss_sha512
                                  | rsa_pss_pss_sha384
-                                 | rsa_pss_pss_sha512.
+                                 | rsa_pss_pss_sha256.
 
--type sign_scheme_legacy()      :: rsa_pkcs1_sha256
+-type sign_scheme_legacy()      :: rsa_pkcs1_sha512
                                  | rsa_pkcs1_sha384
-                                 | rsa_pkcs1_sha512
-                                 | rsa_pkcs1_sha1
-                                 | ecdsa_sha1.
+                                 | rsa_pkcs1_sha256
+                                 | ecdsa_sha1
+                                 | rsa_pkcs1_sha1.
 
+-type kex_algo()                :: ecdhe_ecdsa
+                                 | ecdh_ecdsa
+                                 | ecdh_rsa
+                                 | rsa
+                                 | dhe_rsa
+                                 | dhe_dss
+                                 | srp_rsa
+                                 | srp_dss
+                                 | dhe_psk
+                                 | rsa_psk
+                                 | psk
+                                 | ecdh_anon
+                                 | dh_anon
+                                 | srp_anon
+                                 |  any. %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
 
--type kex_algo()                :: rsa |
-                                   dhe_rsa | dhe_dss |
-                                   ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
-                                   srp_rsa| srp_dss |
-                                   psk | dhe_psk | rsa_psk |
-                                   dh_anon | ecdh_anon | srp_anon |
-                                   any. %% TLS 1.3 , exported
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
                                     mac    := hash() | aead,
                                     prf    := hash() | default_prf %% Old cipher suites, version dependent
                                    }.  
 
--type old_cipher_suite() :: {kex_algo(), cipher(), hash()} % Pre TLS 1.2 
-                             %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
-                           | {kex_algo(), cipher(), hash() | aead, hash()}. 
+-type old_cipher_suite()       :: {kex_algo(), cipher(), hash()} % Pre TLS 1.2
+                                  %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
+                                | {kex_algo(), cipher(), hash() | aead, hash()}.
 
--type named_curve()           :: x25519 |
-                                 x448 |
-                                 secp521r1 |
-                                 brainpoolP512r1 |
-                                 brainpoolP384r1 |
-                                 secp384r1 |
-                                 brainpoolP256r1 |
-                                 secp256r1 |
-                                 legacy_named_curve(). % exported
+-type named_curve()            :: x25519
+                                | x448
+                                | secp521r1
+                                | brainpoolP512r1
+                                | brainpoolP384r1
+                                | secp384r1
+                                | brainpoolP256r1
+                                | secp256r1
+                                | legacy_named_curve(). % exported
 
--type legacy_named_curve()  ::   sect571r1 |
-                                 sect571k1 |
-                                 sect409k1 |
-                                 sect409r1 |
-                                 sect283k1 |
-                                 sect283r1 |
-                                 secp256k1 |
-                                 sect239k1 |
-                                 sect233k1 |
-                                 sect233r1 |
-                                 secp224k1 |
-                                 secp224r1 |
-                                 sect193r1 |
-                                 sect193r2 |
-                                 secp192k1 |
-                                 secp192r1 |
-                                 sect163k1 |
-                                 sect163r1 |
-                                 sect163r2 |
-                                 secp160k1 |
-                                 secp160r1 |
-                                 secp160r2.
+-type legacy_named_curve()     :: sect571r1
+                                | sect571k1
+                                | sect409k1
+                                | sect409r1
+                                | sect283k1
+                                | sect283r1
+                                | secp256k1
+                                | sect239k1
+                                | sect233k1
+                                | sect233r1
+                                | secp224k1
+                                | secp224r1
+                                | sect193r1
+                                | sect193r2
+                                | secp192k1
+                                | secp192r1
+                                | sect163k1
+                                | sect163r1
+                                | sect163r2
+                                | secp160k1
+                                | secp160r1
+                                | secp160r2.
 
--type group() :: x25519 |
-                 x448 |
-                 secp256r1 |
-                 secp384r1 |
-                 secp521r1 |
-                 ffdhe2048 |
-                 ffdhe3072 |
-                 ffdhe4096 |
-                 ffdhe6144 |
-                 ffdhe8192. % exported
+-type group()                  :: x25519
+                                | x448
+                                | secp256r1
+                                | secp384r1
+                                | secp521r1
+                                | ffdhe2048
+                                | ffdhe3072
+                                | ffdhe4096
+                                | ffdhe6144
+                                | ffdhe8192. % exported
 
--type srp_param_type()        :: srp_1024 |
-                                 srp_1536 |
-                                 srp_2048 |
-                                 srp_3072 |
-                                 srp_4096 |
-                                 srp_6144 |
-                                 srp_8192. % exported
+-type srp_param_type()        :: srp_8192
+                               | srp_6144
+                               | srp_4096
+                               | srp_3072
+                               | srp_2048
+                               | srp_1536
+                               | srp_1024. % exported
 
 -type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}. % exported
 
