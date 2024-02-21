@@ -36,8 +36,6 @@
 
 -include_lib("kernel/include/eep48.hrl").
 
--moduledoc false.
-
 -define(DEFAULT_MODULE_DOC_LOC, 1).
 -define(DEFAULT_FORMAT, <<"text/markdown">>).
 

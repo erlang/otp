@@ -9988,6 +9988,8 @@ Failure: `badarg` if `List` is an empty list `[]`.
 tl(_List) ->
     erlang:nif_error(undefined).
 
+-spec trace_session_create(Opts :: [{tracer, pid() | port()} |
+                                    {tracer, module(), term()}]) -> trace_session().
 -doc #{ since => <<"OTP-27">>, group => trace }.
 trace_session_create(Opts) ->
     try erts_internal:trace_session_create(Opts) of
@@ -9995,6 +9997,7 @@ trace_session_create(Opts) ->
     catch error:R:Stk ->
             error_with_inherited_info(R, [Opts], Stk)
     end.
+-spec trace_session_destroy(trace_session()) -> ok.
 -doc #{ since => <<"OTP-27">>, group => trace }.
 trace_session_destroy(Ref) ->
     try erts_internal:trace_session_destroy(Ref) of
