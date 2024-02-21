@@ -1,31 +1,31 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-ARG BASE=debian:bullseye
+ARG BASE=debian:bookworm
 FROM $BASE
 ## Need to have a second arg here as the first does not expose the $BASE in the script below
-ARG BASE=debian:bullseye
+ARG BASE=debian:bookworm
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libsctp-dev lksctp-tools"
-ENV CROSS_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libgmp3-dev libwxgtk3.0-gtk3-dev libsctp-dev lksctp-tools"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libwxgtk3.2-dev libwxgtk-webview3.2-dev libsctp-dev lksctp-tools"
+ENV CROSS_LIBS="$INSTALL_LIBS"
 
 ## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
 ##
 ## 1. Install build-essential to get access to dpkg-architecture
 ## 2. Use dpkg-architecture to figure out what we are running on
 ## 3. If the HOST_TRIP does not equal BUILD_TRIP we should cross compile
-RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential && \
+RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential pkg-config && \
         BUILD_TRIP=`dpkg-architecture -t${HOST_TRIP} -qDEB_BUILD_MULTIARCH` && \
         BUILD_ARCH=`dpkg-architecture -t${HOST_TRIP} -qDEB_BUILD_ARCH` && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
           HOST_ARCH=`dpkg-architecture -t${HOST_TRIP} -qDEB_HOST_ARCH` && \
           dpkg --add-architecture $HOST_ARCH && \
-          sed -i "s:deb http:deb [arch=$BUILD_ARCH,$HOST_ARCH] http:g" /etc/apt/sources.list; \
+          sed -i "s@main\n@main\nArch: $BUILD_ARCH,$HOST_ARCH@g" /etc/apt/sources.list.d/debian.sources; \
         fi && \
         apt-get update && \
         apt-get install -y build-essential m4 autoconf default-jdk \
@@ -42,5 +42,5 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential &
             cp -r $dir/* `dirname /buildroot/sysroot$dir`; \
           done; \
         fi && \
-        update-alternatives --set wx-config /usr/lib/${BUILD_TRIP}/wx/config/gtk3-unicode-3.0 && \
+        update-alternatives --set wx-config /usr/lib/${BUILD_TRIP}/wx/config/gtk3-unicode-3.2 && \
         rm -rf /var/lib/apt/lists/*

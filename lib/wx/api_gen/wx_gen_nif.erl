@@ -1469,6 +1469,12 @@ gen_macros() ->
     w("  #define wxICON_DEFAULT_BITMAP_TYPE wxBITMAP_TYPE_ICO_RESOURCE~n",[]),
     w("#endif~n", []),
 
+    w("~n~n", []),
+    w("#if defined(wxSTC_DISABLE_MACRO_DEPRECATIONS) && defined(wxSTC_DEPRECATED_MACRO_VALUE)~n",[]),
+    w("#undef wxSTC_DEPRECATED_MACRO_VALUE~n",[]),
+    w("#define wxSTC_DEPRECATED_MACRO_VALUE(value, msg) value~n",[]),
+    w("#endif~n",[]),
+
     %% [w("#define ~s_~s ~p~n", [Class,Name,Id]) ||
     %%     {Class,Name,_,Id} <- wx_gen_erl:get_unique_names()],
     %% w("~n~n").

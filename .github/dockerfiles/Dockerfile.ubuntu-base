@@ -33,9 +33,7 @@ RUN echo "Europe/Stockholm" > /etc/timezone && \
     ln -snf /usr/share/zoneinfo/$(cat /etc/timezone) /etc/localtime && \
     if ! grep ":${gid}:$" /etc/group; then groupadd -g ${gid} localgroup; fi && \
     if [ ! -d /home/${USER} ]; then useradd -rm -d /home/${USER} -s /bin/sh -g ${gid} -G ${gid},sudo -u ${uid} ${USER}; fi && \
-    echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER} && \
-    echo "/buildroot/** r," >> /etc/apparmor.d/local/usr.sbin.named && \
-    echo "/tests/** r," >> /etc/apparmor.d/local/usr.sbin.named
+    echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER}
 
 ## Java and log4j are used by fop to build documentation
 COPY --chown=${USER}:${GROUP} dockerfiles/log4j.properties /home/${USER}/
@@ -68,9 +66,9 @@ RUN apt-get install -y git curl && \
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
 ARG EXTRA_LIBS="erlang erlang-doc"
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
-    tinyproxy knot ldnsutils expect vsftpd python emacs nano vim \
+    tinyproxy knot ldnsutils expect vsftpd python3 emacs nano vim \
     linux-tools-common linux-tools-generic jq \
     xvfb libgl1-mesa-dri && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
@@ -79,8 +77,8 @@ RUN apt-get install -y linux-tools-$(uname -r) || true
 
 ## We use tmux to test terminals
 RUN apt-get install -y libevent-dev libutf8proc-dev && \
-    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.2a/tmux-3.2a.tar.gz && \
-    tar xvzf tmux-3.2a.tar.gz && cd tmux-3.2a && \
+    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.3a/tmux-3.3a.tar.gz && \
+    tar xvzf tmux-3.3a.tar.gz && cd tmux-3.3a && \
     ./configure --enable-static --enable-utf8proc && \
     make && make install
 

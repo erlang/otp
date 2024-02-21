@@ -3043,6 +3043,7 @@ is_tracer_ref_enabled(Process* c_p, ErtsProcLocks c_p_locks,
         ErtsProcLocks c_p_xlocks = 0;
         if (esdp && !ERTS_SCHEDULER_IS_DIRTY(esdp)) {
             if (is_internal_pid(t_p->id)) {
+                ERTS_ASSERT(c_p && "Silence GCC array out of bounds warning");
                 ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) & ERTS_PROC_LOCK_MAIN);
                 if (c_p_locks != ERTS_PROC_LOCKS_ALL) {
                     c_p_xlocks = ~c_p_locks & ERTS_PROC_LOCKS_ALL;
