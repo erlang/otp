@@ -2010,6 +2010,8 @@ coverage mode:
 - **`line_counters`** - For each executable line in the module, an integer
   giving the number of times that line was executed is returned.
 
+Level `cover_id_line` is used by the `m:cover` tool.
+
 Failures:
 
 - **`badarg`** - If `Level` is not `function` or `line`.
@@ -2028,13 +2030,14 @@ Failures:
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec get_coverage(Level, module()) -> Result when
-      Level :: 'function' | 'line',
+      Level :: 'function' | 'line' | 'cover_id_line',
       Result :: [{Entity, CoverageInfo}],
-      Entity :: {Function, Arity} | Line,
+      Entity :: {Function, Arity} | Line | CoverId,
       CoverageInfo :: Covered | Counter,
       Function :: atom(),
       Arity :: arity(),
       Line :: non_neg_integer(),
+      CoverId :: pos_integer(),
       Covered :: boolean(),
       Counter :: non_neg_integer().
 get_coverage(_Level, _Module) ->

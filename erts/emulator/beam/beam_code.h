@@ -96,6 +96,7 @@ typedef struct beam_code_header {
     Uint coverage_mode;
     void *coverage;
     byte *line_coverage_valid;
+    Uint32 *loc_index_to_cover_id;
     Uint line_coverage_len;
 
 #endif

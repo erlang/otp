@@ -87,6 +87,8 @@ struct LoaderState_ {
      */
     void *coverage;
     byte *line_coverage_valid;
+    unsigned int current_index;
+    unsigned int *loc_index_to_cover_id;
 
     /* Translates lambda indexes to the literal holding their FunRef.
      *

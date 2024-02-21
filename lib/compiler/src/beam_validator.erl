@@ -373,7 +373,7 @@ vi({'%',_}, Vst) ->
     Vst;
 vi({line,_}, Vst) ->
     Vst;
-vi({executable_line,_}, Vst) ->
+vi({executable_line,_,_}, Vst) ->
     Vst;
 vi(nif_start, Vst) ->
     Vst;

@@ -451,7 +451,8 @@ void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
 void BeamModuleAssembler::emit_empty_func_line() {
 }
 
-void BeamModuleAssembler::emit_executable_line(const ArgWord &Loc) {
+void BeamModuleAssembler::emit_executable_line(const ArgWord &Loc,
+                                               const ArgWord &Index) {
 }
 
 /*

@@ -1819,9 +1819,9 @@ cg_instr(bs_get_tail, [Src], Dst, Set) ->
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
-cg_instr(executable_line, [], _Dst, #cg_set{anno=Anno}) ->
+cg_instr(executable_line, [{integer,Index}], _Dst, #cg_set{anno=Anno}) ->
     {line,Location} = line(Anno),
-    [{executable_line,Location}];
+    [{executable_line,Location,Index}];
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
