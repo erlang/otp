@@ -47,10 +47,10 @@ init(SslOpts, Role) ->
     CertKeyAlts = init_certs_keys(SslOpts, Role, PemCache),
     {ok, Config#{cert_key_alts => CertKeyAlts, dh_params => DHParams}}.
 
-init_certs_keys(#{certs_keys := CertsKeys}, Role, PemCache) ->
+init_certs_keys(#{certs_keys := CertsKeys} = Opts, Role, PemCache) ->
     Pairs = lists:map(fun(CertKey) -> init_cert_key_pair(CertKey, Role, PemCache) end, CertsKeys),
     CertKeyGroups = group_pairs(Pairs),
-    prioritize_groups(CertKeyGroups).
+    prioritize_groups(CertKeyGroups, Opts).
 
 init_cert_key_pair(CertKey, Role, PemCache) ->
     Certs = init_certificates(CertKey, PemCache, Role),
@@ -98,9 +98,10 @@ prioritize_groups(#{eddsa := EDDSA,
                     ecdsa := ECDSA,
                     rsa_pss_pss := RSAPSS,
                     rsa := RSA,
-                    dsa := DSA} = CertKeyGroups) ->
+                    dsa := DSA} = CertKeyGroups, Opts) ->
+    EC = ecdsa_support(Opts),
     CertKeyGroups#{eddsa => prio_eddsa(EDDSA),
-                   ecdsa => prio_ecdsa(ECDSA),
+                   ecdsa => prio_ecdsa(ECDSA, EC),
                    rsa_pss_pss => prio_rsa_pss(RSAPSS),
                    rsa => prio_rsa(RSA),
                    dsa => prio_dsa(DSA)}.
@@ -109,9 +110,8 @@ prio_eddsa(EDDSA) ->
     %% Engine not supported yet
     using_curve({namedCurve, ?'id-Ed25519'}, EDDSA, []) ++ using_curve({namedCurve, ?'id-Ed448'}, EDDSA, []).
 
-prio_ecdsa(ECDSA) ->
+prio_ecdsa(ECDSA, Curves) ->
     EnginePairs = [Pair || Pair = #{private_key := #{engine := _}} <- ECDSA],
-    Curves = tls_v1:ecc_curves(all),
     EnginePairs ++ lists:foldr(fun(Curve, AccIn) ->
                                        CurveOid = pubkey_cert_records:namedCurves(Curve),
                                        Pairs = using_curve({namedCurve, CurveOid}, ECDSA -- EnginePairs, []),
@@ -415,3 +415,10 @@ session_cb_opts(server = Role) ->
         ServerCb ->
             {ServerCb, session_cb_init_args(Role)}
     end.
+
+ecdsa_support(#{versions := [?TLS_1_3]}) ->
+    [secp521r1,
+     secp384r1,
+     secp256r1];
+ecdsa_support(_) ->
+    ssl:eccs() -- [x25519, x448].

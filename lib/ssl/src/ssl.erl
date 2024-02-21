@@ -236,22 +236,24 @@
                              %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
                            | {kex_algo(), cipher(), hash() | aead, hash()}. 
 
--type named_curve()           :: sect571r1 |
-                                 sect571k1 |
+-type named_curve()           :: x25519 |
+                                 x448 |
                                  secp521r1 |
                                  brainpoolP512r1 |
-                                 sect409k1 |
-                                 sect409r1 |
                                  brainpoolP384r1 |
                                  secp384r1 |
-                                 sect283k1 |
-                                 sect283r1 |
                                  brainpoolP256r1 |
-                                 secp256k1 |
                                  secp256r1 |
                                  legacy_named_curve(). % exported
 
--type legacy_named_curve()  ::   sect239k1 |
+-type legacy_named_curve()  ::   sect571r1 |
+                                 sect571k1 |
+                                 sect409k1 |
+                                 sect409r1 |
+                                 sect283k1 |
+                                 sect283r1 |
+                                 secp256k1 |
+                                 sect239k1 |
                                  sect233k1 |
                                  sect233r1 |
                                  secp224k1 |
@@ -267,8 +269,16 @@
                                  secp160r1 |
                                  secp160r2.
 
--type group() :: x25519 | x448 | secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
-                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
+-type group() :: x25519 |
+                 x448 |
+                 secp256r1 |
+                 secp384r1 |
+                 secp521r1 |
+                 ffdhe2048 |
+                 ffdhe3072 |
+                 ffdhe4096 |
+                 ffdhe6144 |
+                 ffdhe8192. % exported
 
 -type srp_param_type()        :: srp_1024 |
                                  srp_1536 |
@@ -1148,20 +1158,14 @@ signature_algs(Description, Version) ->
 %%--------------------------------------------------------------------
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
-
-%% Description: returns all supported curves across all versions
 %%--------------------------------------------------------------------
 eccs() ->
-    Curves = tls_v1:ecc_curves(all), % only tls_v1 has named curves right now
-    eccs_filter_supported(Curves).
+    tls_v1:ec_curves(all, 'tlsv1.2').
 
 %%--------------------------------------------------------------------
 -spec eccs(Version) -> NamedCurves when
-      Version :: protocol_version(),
+      Version :: 'tlsv1.2' | 'tlsv1.1' | 'tlsv1' | 'dtlsv1.2' | 'dtlsv1',
       NamedCurves :: [named_curve()].
-
-%% Description: returns the curves supported for a given version of
-%% ssl/tls.
 %%--------------------------------------------------------------------
 eccs('dtlsv1') ->
     eccs('tlsv1.1');
@@ -1170,13 +1174,11 @@ eccs('dtlsv1.2') ->
 eccs(Version) when Version == 'tlsv1.2';
                    Version == 'tlsv1.1';
                    Version == tlsv1 ->
-    Curves = tls_v1:ecc_curves(all),
-    eccs_filter_supported(Curves).
-
-eccs_filter_supported(Curves) ->
-    CryptoCurves = crypto:ec_curves(),
-    lists:filter(fun(Curve) -> proplists:get_bool(Curve, CryptoCurves) end,
-                 Curves).
+    tls_v1:ec_curves(default, Version);
+eccs('tlsv1.3') ->
+    erlang:error({badarg, not_sup_in, 'tlsv1.3'});
+eccs(Other) ->
+    erlang:error({badarg, Other}).
 
 %%--------------------------------------------------------------------
 -spec groups() -> [group()].
@@ -2324,29 +2326,33 @@ opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
 
     Opts#{psk_identity => PSK, srp_identity => SRP, user_lookup_fun => ULF}.
 
-opt_supported_groups(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
+opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
-                 handle_supported_groups_option(groups(default), TlsVersion);
+                 handle_supported_groups_option(groups(default));
              {new, SG0} ->
                  assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
-                 handle_supported_groups_option(SG0, TlsVersion);
+                 handle_supported_groups_option(SG0);
              {old, SG0} ->
                  SG0
          end,
 
     CPHS = case get_opt_list(ciphers, [], UserOpts, Opts) of
                {old, CPS0} -> CPS0;
-               {_, CPS0} -> handle_cipher_option(CPS0, Versions)
+               {_, CPS0} -> handle_cipher_option(CPS0, TlsVsns)
            end,
 
-    ECCS = case get_opt_list(eccs, undefined, UserOpts, Opts) of
-               {old, ECCS0} -> ECCS0;
-               {default, _} -> handle_eccs_option(tls_v1:ecc_curves(all), TlsVersion);
-               {new, ECCS0} -> handle_eccs_option(ECCS0, TlsVersion)
-           end,
-
+    ECCS =  try assert_version_dep(eccs, TlsVsns, ['tlsv1.2', 'tlsv1.1', 'tlsv1']) of
+                _ ->
+                    case get_opt_list(eccs, undefined, UserOpts, Opts) of
+                        {old, ECCS0} -> ECCS0;
+                        {default, _} -> handle_eccs_option(tls_v1:ec_curves(default, 'tlsv1.2'));
+                        {new, ECCS0} -> handle_eccs_option(ECCS0)
+                    end
+            catch
+                throw:_ ->
+                    []
+            end,
     Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
 
 opt_crl(UserOpts, Opts, _Env) ->
@@ -2774,8 +2780,7 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-%% TODO: remove Version
-handle_eccs_option(Value, _Version0) when is_list(Value) ->
+handle_eccs_option(Value) when is_list(Value) ->
     try tls_v1:ecc_curves(Value) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
@@ -2785,8 +2790,7 @@ handle_eccs_option(Value, _Version0) when is_list(Value) ->
         error:_ -> option_error(eccs, Value)
     end.
 
-%% TODO: remove Version
-handle_supported_groups_option(Value, _Version0) when is_list(Value) ->
+handle_supported_groups_option(Value) when is_list(Value) ->
     try tls_v1:groups(Value) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),

@@ -414,8 +414,6 @@ eccs(Config) when is_list(Config) ->
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
     [_|_] = Tls1 = ssl:eccs('dtlsv1'),
     [_|_] = Tls2 = ssl:eccs('dtlsv1.2'),
-    %% ordering is currently not verified by the test
-    true = lists:sort(All) =:= lists:usort(Tls ++ Tls1 ++ Tls2),
     ok.
 
 tls_versions_option() ->
