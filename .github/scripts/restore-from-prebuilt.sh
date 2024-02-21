@@ -148,11 +148,13 @@ if [ -n "${ARCHIVE}" ]; then
             if grep "$(basename "${pt}")" "${CHANGES}"; then
                 echo "Deleting entire cache as a parse transform has changed" >&2
                 rm -rf "${CACHE_DIR:?}/"
+                break
             fi
         done
 
         ## The cache was deleted, so break and don't use it
         if [ ! -d "${CACHE_DIR}" ]; then
+            EXCLUDE_BOOTSTRAP=()
             break;
         fi
 
@@ -192,6 +194,7 @@ if [ -n "${ARCHIVE}" ]; then
         if [ "$i" = "10" ]; then
             echo "Deleting entire cache as it did not stabalize in trime" >&2
             rm -rf "${CACHE_DIR:?}"
+            EXCLUDE_BOOTSTRAP=()
         else
             mv "${CHANGES}" "${PREV_CHANGES}"
         fi
