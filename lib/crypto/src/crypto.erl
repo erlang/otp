@@ -33,7 +33,10 @@ This module provides a set of cryptographic functions.
 
   - **BLAKE2** - [BLAKE2 — fast secure hashing](https://blake2.net/)
 
-  - **MD5** - [The MD5 Message Digest Algorithm \[RFC 1321\]](http://www.ietf.org/rfc/rfc1321.txt)
+  - **SM3** - [The SM3 Hash Function (GM/T 0004-2012)](https://datatracker.ietf.org/doc/html/draft-sca-cfrg-sm3-02)
+
+  - **MD5** - [The MD5 Message Digest Algorithm \[RFC
+    1321]](http://www.ietf.org/rfc/rfc1321.txt)
 
   - **MD4** - [The MD4 Message Digest Algorithm \[RFC 1320\]](http://www.ietf.org/rfc/rfc1320.txt)
 
@@ -797,7 +800,7 @@ stop() ->
                                       | {macs,    Macs}
                                       | {curves,  Curves}
                                       | {rsa_opts, RSAopts},
-                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash()],
+                             Hashs :: [sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash()],
                              Ciphers :: [cipher()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
                              Macs :: [hmac | cmac | poly1305],
@@ -968,7 +971,7 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 %%%================================================================
 
 -doc(#{title => <<"Digests and hash">>}).
--type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | compatibility_only_hash() .
+-type hash_algorithm() :: sha1() | sha2() | sha3() | sha3_xof() | blake2() | ripemd160 | sm3 | compatibility_only_hash() .
 -doc(#{title => <<"Digests and hash">>}).
 -type hash_xof_algorithm() :: sha3_xof() .
 
@@ -1080,7 +1083,7 @@ hash_final_xof(Context, Length) ->
 %%%================================================================
 
 -doc(#{title => <<"Digests and hash">>}).
--type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | compatibility_only_hash().
+-type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | sm3 | compatibility_only_hash().
 
 -doc(#{title => <<"Digests and hash">>}).
 -type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
