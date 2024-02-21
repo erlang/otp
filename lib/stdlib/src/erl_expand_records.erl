@@ -22,8 +22,6 @@
 
 -module(erl_expand_records).
 -moduledoc """
-Expands records in a module.
-
 This module expands records in a module.
 
 ## See Also

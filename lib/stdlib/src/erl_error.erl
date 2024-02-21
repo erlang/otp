@@ -19,8 +19,6 @@
 %%
 -module(erl_error).
 -moduledoc """
-Utilities for reporting errors.
-
 This module provides functions for pretty-printing errors and exceptions. It is
 used by both the `m:shell` and by `m:proc_lib` to print exceptions.
 

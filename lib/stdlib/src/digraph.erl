@@ -19,8 +19,6 @@
 %%
 -module(digraph).
 -moduledoc """
-Directed graphs.
-
 This module provides a version of labeled directed graphs ("digraphs").
 
 The digraphs managed by this module are stored in [ETS tables](`m:ets`). That

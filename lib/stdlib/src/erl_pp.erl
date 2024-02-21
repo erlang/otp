@@ -34,8 +34,6 @@ to Erlang source code, the enclosing function should first be processed by
 `legalize_vars/1` in order to ensure that the output is semantically equivalent
 to the abstract code.
 
-[](){: #knownlimitations }
-
 ## Known Limitations
 
 It is not possible to have hook functions for unknown forms at other places than
@@ -260,8 +258,10 @@ expr(E, I, Options) ->
     frmt(lexpr(E, 0, options(Options)), I, state(Options)).
 
 -doc """
-Prints one expression. It is useful for implementing hooks (see section
-[Known Limitations](`m:erl_pp#knownlimitations`)).
+Prints one expression.
+
+It is useful for implementing hooks (see section
+[Known Limitations](`m:erl_pp#module-known-limitations`)).
 """.
 -spec(expr(Expression, Indent, Precedence, Options) -> io_lib:chars() when
       Expression :: erl_parse:abstract_expr(),

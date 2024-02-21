@@ -43,15 +43,17 @@ The module is provided according to Erlang Enhancement Proposal (EEP) 31.
 -export_type([cp/0]).
 
 -doc """
-Opaque data type representing a compiled search pattern. Guaranteed to be a
-`t:tuple/0` to allow programs to distinguish it from non-precompiled search
-patterns.
+Opaque data type representing a compiled search pattern.
+
+Guaranteed to be a `t:tuple/0` to allow programs to distinguish it from
+non-precompiled search patterns.
 """.
 -opaque cp() :: {'am' | 'bm', reference()}.
 -doc """
 A representation of a part (or range) in a binary. `Start` is a zero-based
-offset into a `t:binary/0` and `Length` is the length of that part. As input to
-functions in this module, a reverse part specification is allowed, constructed
+offset into a `t:binary/0` and `Length` is the length of that part.
+
+As input to functions in this module, a reverse part specification is allowed, constructed
 with a negative `Length`, so that the part of the binary begins at `Start` \+
 `Length` and is -`Length` long. This is useful for referencing the last `N`
 bytes of a binary as `{size(Binary), -N}`. The functions in this module always
@@ -77,7 +79,9 @@ return `t:part/0`s with positive `Length`.
 
 -doc """
 Returns the byte at position `Pos` (zero-based) in binary `Subject` as an
-integer. If `Pos` >= [`byte_size(Subject)`](`byte_size/1`), a `badarg` exception
+integer.
+
+If `Pos` >= [`byte_size(Subject)`](`byte_size/1`), a `badarg` exception
 is raised.
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -88,7 +92,18 @@ is raised.
 at(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => bin_to_list/3}).
+-doc """
+Converts `Subject` to a list of `t:byte/0`s, each representing the value of one byte.
+
+_Example:_
+
+```erlang
+1> binary:bin_to_list(<<"erlang">>).
+"erlang"
+%% or [101,114,108,97,110,103] in list notation.
+```
+
+""".
 -doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject) -> [byte()] when
       Subject :: binary().
@@ -101,7 +116,7 @@ bin_to_list(Subject) ->
             error_with_info(Reason, [Subject])
     end.
 
--doc(#{equiv => bin_to_list/3}).
+-doc(#{equiv => bin_to_list(Subject, Pos, Len)}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec bin_to_list(Subject, PosLen) -> [byte()] when
       Subject :: binary(),
@@ -170,6 +185,7 @@ bin_to_list(Subject, Pos, Len) ->
 -doc """
 Builds an internal structure representing a compilation of a search pattern,
 later to be used in functions `match/3`, `matches/3`, `split/3`, or `replace/4`.
+
 The `t:cp/0` returned is guaranteed to be a `t:tuple/0` to allow programs to
 distinguish it from non-precompiled search patterns.
 
@@ -194,7 +210,7 @@ length > 0, a `badarg` exception is raised.
 compile_pattern(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => copy/2}).
+-doc(#{equiv => copy(Subject, 1)}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec copy(Subject) -> binary() when
       Subject :: binary().
@@ -203,8 +219,7 @@ copy(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Creates a binary with the content of `Subject` duplicated `N` times. The default
-for `N` is `1`.
+Creates a binary with the content of `Subject` duplicated `N` times.
 
 This function always creates a new binary, even if `N = 1`. By using `copy/1` on
 a binary referencing a larger binary, one can free up the larger binary for
@@ -227,7 +242,7 @@ garbage collection.
 copy(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => decode_unsigned/2}).
+-doc(#{equiv => decode_unsigned(Subject, big)}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec decode_unsigned(Subject) -> Unsigned when
       Subject :: binary(),
@@ -238,14 +253,17 @@ decode_unsigned(_) ->
 
 -doc """
 Converts the binary digit representation, in big endian or little endian, of a
-positive integer in `Subject` to an Erlang `t:integer/0`. The default
-`Endianness` is `big`.
+positive integer in `Subject` to an Erlang `t:integer/0`.
 
 _Example:_
 
-```text
-1> binary:decode_unsigned(<<169,138,199>>,big).
+```erlang
+1> binary:decode_unsigned(<<169,138,199>>).
 11111111
+2> binary:decode_unsigned(<<169,138,199>>, big).
+11111111
+3> binary:decode_unsigned(<<169,138,199>>, little).
+13077161
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -257,7 +275,7 @@ _Example:_
 decode_unsigned(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => encode_unsigned/2}).
+-doc(#{equiv => encode_unsigned(Unsigned, big)}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec encode_unsigned(Unsigned) -> binary() when
       Unsigned :: non_neg_integer().
@@ -267,14 +285,17 @@ encode_unsigned(_) ->
 
 -doc """
 Converts a positive integer to the smallest possible representation in a binary
-digit representation, either big endian or little endian. The default
-`Endianness` is `big`.
+digit representation, either big endian or little endian.
 
 _Example:_
 
-```text
-1> binary:encode_unsigned(11111111, big).
+```erlang
+1> binary:encode_unsigned(11111111).
 <<169,138,199>>
+2> binary:encode_unsigned(11111111, big).
+<<169,138,199>>
+2> binary:encode_unsigned(11111111, little).
+<<199,138,169>>
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -361,7 +382,7 @@ raised.
 longest_common_suffix(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => match/3}).
+-doc(#{equiv => match(Subject, Pattern, [])}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec match(Subject, Pattern) -> Found | nomatch when
       Subject :: binary(),
@@ -381,7 +402,7 @@ the lowest position in `Subject`.
 
 _Example:_
 
-```text
+```erlang
 1> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>],[]).
 {1,4}
 ```
@@ -416,7 +437,7 @@ size of `Subject`, `Start` \+ `Length` < 0 or `Start` \+ `Length` > size of
 match(_, _, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => matches/3}).
+-doc(#{equiv => matches(Subject, Pattern, [])}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec matches(Subject, Pattern) -> Found when
       Subject :: binary(),
@@ -467,7 +488,7 @@ size of `Subject`, `Start + Length` < 0 or `Start + Length` is > size of
 matches(_, _, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => part/3}).
+-doc(#{equiv => part(Subject, Pos, Len)}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec part(Subject, PosLen) -> binary() when
       Subject :: binary(),
@@ -506,11 +527,13 @@ part(_, _, _) ->
     erlang:nif_error(undef).
 
 -doc """
+Get the size of the underlying binary referenced by `Binary`.
+
 If a binary references a larger binary (often described as being a subbinary),
 it can be useful to get the size of the referenced binary. This function can be
-used in a program to trigger the use of `copy/1`. By copying a binary, one can
-dereference the original, possibly large, binary that a smaller binary is a
-reference to.
+used in a program to trigger the use of `copy/1`. By copying
+ a binary, one can dereference the original, possibly large, binary that a
+smaller binary is a reference to.
 
 _Example:_
 
@@ -572,7 +595,7 @@ In the above example, the small binary `B` was copied while the larger binary
 referenced_byte_size(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => split/3}).
+-doc(#{equiv => split(Subject, Pattern, [])}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec split(Subject, Pattern) -> Parts when
       Subject :: binary(),
@@ -584,9 +607,10 @@ split(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-Splits `Subject` into a list of binaries based on `Pattern`. If option `global`
-is not specified, only the first occurrence of `Pattern` in `Subject` gives rise
-to a split.
+Splits `Subject` into a list of binaries based on `Pattern`.
+
+If option `global` is not specified, only the first occurrence of `Pattern` in
+`Subject` gives rise to a split.
 
 The parts of `Pattern` found in `Subject` are not included in the result.
 
@@ -650,7 +674,7 @@ split(_, _, _) ->
 %% replace
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc(#{equiv => replace/4}).
+-doc(#{equiv => replace(Subject, Pattern, Replacement, [])}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec replace(Subject, Pattern, Replacement) -> Result when
       Subject :: binary(),
@@ -795,7 +819,7 @@ get_opts_replace(_,_) ->
 %% Hex encoding functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -compile({inline, [hex/2]}).
--doc(#{equiv => encode_hex/2}).
+-doc(#{equiv => encode_hex(Bin, uppercase)}).
 -doc(#{since => <<"OTP 24.0,OTP 26.0">>}).
 -spec encode_hex(Bin) -> Bin2 when
       Bin :: binary(),
