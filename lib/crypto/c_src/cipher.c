@@ -72,6 +72,20 @@ static struct cipher_type_t cipher_types[] =
     {{"blowfish_ecb"},   "BF-ECB", {NULL}, 0, 0, NOT_AEAD},
 #endif
 
+#ifdef HAVE_SM4
+    {{"sm4_cbc"},   "sm4-cbc", {&EVP_sm4_cbc},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ecb"},   "sm4-ecb", {&EVP_sm4_ecb},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_cfb"},   "sm4-cfb", {&EVP_sm4_cfb},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ofb"},   "sm4-ofb", {&EVP_sm4_ofb},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ctr"},   "sm4-ctr", {&EVP_sm4_ctr},   16, NO_FIPS_CIPHER, NOT_AEAD},
+#else
+    {{"sm4_cbc"},   "sm4-cbc", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ecb"},   "sm4-ecb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_cfb"},   "sm4-cfb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ofb"},   "sm4-ofb", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+    {{"sm4_ctr"},   "sm4-ctr", {NULL},   16, NO_FIPS_CIPHER, NOT_AEAD},
+#endif
+
     {{"aes_128_cbc"}, "aes-128-cbc", {&EVP_aes_128_cbc}, 16, 0, NOT_AEAD},
     {{"aes_192_cbc"}, "aes-192-cbc", {&EVP_aes_192_cbc}, 24, 0, NOT_AEAD},
     {{"aes_256_cbc"}, "aes-256-cbc", {&EVP_aes_256_cbc}, 32, 0, NOT_AEAD},
@@ -113,6 +127,13 @@ static struct cipher_type_t cipher_types[] =
     {{"chacha20_poly1305"}, "chacha20-poly1305", {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, AEAD_CTRL},
 #else
     {{"chacha20_poly1305"}, "chacha20-poly1305", {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
+#endif
+
+#if defined(HAVE_SM4_GCM)
+    {{"sm4_gcm"}, "sm4-gcm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | GCM_MODE, AEAD_CTRL},
+#endif
+#if defined(HAVE_SM4_CCM)
+    {{"sm4_ccm"}, "sm4-ccm", {NULL}, 16, NO_FIPS_CIPHER | AEAD_CIPHER | CCM_MODE, AEAD_CTRL},
 #endif
 
 #if defined(HAVE_GCM) && defined(HAS_3_0_API)
