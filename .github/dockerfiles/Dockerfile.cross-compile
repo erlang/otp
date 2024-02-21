@@ -21,7 +21,7 @@ RUN cd $ERL_TOP && CFLAGS="-Wall -O2 -g" ./configure && make && make install
 ENV HOST=$HOST_TRIP \
         CC=$HOST_TRIP-gcc \
         CPPFLAGS="--sysroot=/buildroot/sysroot" \
-        CFLAGS="--sysroot=/buildroot/sysroot -O2 -g -Werror" \
+        CFLAGS="--sysroot=/buildroot/sysroot -O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1" \
         CPP=$HOST_TRIP-cpp \
         CXX=$HOST_TRIP-g++ \
         LD=$CC \

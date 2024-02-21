@@ -22,15 +22,15 @@ fi
 
 case "${BASE_TAG}" in
     *i386-debian-base)
-        BASE="i386/debian:bullseye"
+        BASE="i386/debian:bookworm"
         BASE_TYPE=debian-base
         ;;
     *debian-base)
-        BASE="debian:bullseye"
+        BASE="debian:bookworm"
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
-        BASE="ubuntu:20.04"
+        BASE="ubuntu:22.04"
         BASE_TYPE=ubuntu-base
         ;;
 esac
