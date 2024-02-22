@@ -465,21 +465,14 @@ extern int erts_dsig_prepare(ErtsDSigSendContext *,
                              int,
                              int);
 
-extern void erts_drecv_prepare(ErtsDSigRecvContext *,
-                               Eterm,
-                               Eterm,
-                               ErtsDistExternal*,
-                               ErlHeapFragment*);
-
-extern int erts_net_message(Port *prt,
+extern int erts_net_message(ErtsDSigRecvContext *context,
                             DistEntry *dep,
                             Uint32 conn_id,
                             byte *hbuf,
                             ErlDrvSizeT hlen,
                             Binary *bin,
                             const byte *buf,
-                            ErlDrvSizeT len,
-                            ErtsDSigRecvContext *context);
+                            ErlDrvSizeT len);
 
 void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
