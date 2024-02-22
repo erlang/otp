@@ -36,10 +36,13 @@ given an optional default value. If no default value is supplied, `undefined` is
 used.
 
 ```erlang
--record(Name, {Field1 [= Value1],
+-record(Name, {Field1 [= Expr1],
                ...
-               FieldN [= ValueN]}).
+               FieldN [= ExprN]}).
 ```
+
+The default value for a field is an arbitrary expression, except that it must
+not use any variables.
 
 A record definition can be placed anywhere among the attributes and function
 declarations of a module, but the definition must come before any usage of the
