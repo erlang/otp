@@ -615,6 +615,11 @@ merge_in_arg(#b_var{}=V, Status, Cutoff, State) ->
                        end,
             merge_elements(InEdges, Elements, Cutoff, State)
     end;
+merge_in_arg(#b_literal{}, _, 0, _State) ->
+    %% We have reached the cutoff while traversing a larger construct,
+    %% as we're not looking deeper down into the structure we indicate
+    %% that we have no information.
+    no_info;
 merge_in_arg(#b_literal{val=[Hd|Tl]}, Status, Cutoff, State) ->
     {HdS,TlS,Elements0} = case Status of
                               {unique,#{hd:=HdS0,tl:=TlS0}=All} ->
