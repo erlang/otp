@@ -65,8 +65,8 @@ useful:
 - Multiple generic named time-outs
 - Absolute time-out time
 - Automatic state enter calls
-- Reply from other state than the request, `sys` traceable
-- Multiple `sys` traceable replies
+- Reply from other state than the request, `m:sys` traceable
+- Multiple `m:sys` traceable replies
 - Changing the callback module
 
 Two [_callback modes_](`t:callback_mode/0`) are supported:
@@ -194,7 +194,7 @@ that need it.
 
 For the details of a _state transition_, see type `t:transition_option/0`.
 
-A `gen_statem` handles system messages as described in `m:sys`. The `sys` module
+A `gen_statem` handles system messages as described in `m:sys`. The `m:sys` module
 can be used for debugging a `gen_statem`.
 
 Notice that a `gen_statem` does not trap exit signals automatically, this must
@@ -299,7 +299,7 @@ handle_event(_, _, Data) ->
 
 The following is a shell session when running it:
 
-```text
+```erlang
 1> pushbutton:start().
 {ok,<0.36.0>}
 2> pushbutton:get_count().
@@ -352,10 +352,11 @@ handle_event(_, _, State, Data) ->
 `m:gen_event`, `m:gen_fsm`, `m:gen_server`, `m:proc_lib`, `m:supervisor`,
 `m:sys`.
 """.
--moduledoc(#{since => "OTP 19.0",
-             titles => [{callback,<<"Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 19.0"}).
 
 -include("logger.hrl").
+
+-deprecated_callback({format_status, 2, "use format_status/1 instead"}).
 
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
@@ -922,7 +923,6 @@ since there has been no earlier call to a
 	{'reply', % Reply to a caller
 	 From :: from(), Reply :: term()}.
 
--doc(#{equiv => {type,init_result,"2"}}).
 -type init_result(StateType) :: init_result(StateType, term()).
 -doc """
 For a succesful initialization, `State` is the initial `t:state/0` and `Data`
@@ -952,7 +952,6 @@ should be used; see [`start_link/3,4`](`start_link/3`).
 -type handle_event_result() ::
 	event_handler_result(state()).
 %%
--doc(#{equiv => {type,state_enter_result,"2"}}).
 -type state_enter_result(State) :: state_enter_result(State, term()).
 -doc """
 `State` is the current state and it cannot be changed since the state callback
@@ -970,7 +969,6 @@ was called with a [_state enter call_](`t:state_enter/0`).
 	 NewData :: DataType,
 	 Actions :: [enter_action()] | enter_action()} |
 	state_callback_result(enter_action()).
--doc(#{equiv => {type,event_handler_result,"2"}}).
 -type event_handler_result(StateType) ::
     event_handler_result(StateType, term()).
 -doc """
@@ -992,7 +990,6 @@ was called with a [_state enter call_](`t:state_enter/0`).
 	 NewData :: DataType,
 	 Actions :: [action()] | action()} |
 	state_callback_result(action()).
--doc(#{equiv => {type,state_callback_result,"2"}}).
 -type state_callback_result(ActionType) ::
     state_callback_result(ActionType, term()).
 -doc """
@@ -1097,8 +1094,6 @@ Used to set a time limit on how long to wait for a response using either
 %% an {ok, ...} tuple.  Thereafter the state callbacks are called
 %% for all events to this server.
 -doc """
-[](){: #Module%3Ainit-1 }
-
 Whenever a `gen_statem` is started using [`start_link/3,4`](`start_link/3`),
 [`start_monitor/3,4`](`start_monitor/3`), or [`start/3,4`](`start/3`), this
 function is called by the new process to initialize the implementation state and
@@ -1117,7 +1112,7 @@ server data.
 > init(Args) -> erlang:error(not_implemented, [Args]).
 > ```
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback init(Args :: term()) -> init_result(state()).
 
 %% This callback shall return the callback mode of the callback module.
@@ -1126,8 +1121,9 @@ server data.
 %% the first state callback StateName/3 or handle_event/4.
 -doc """
 This function is called by a `gen_statem` when it needs to find out the
-[_callback mode_](`t:callback_mode/0`) of the callback module. The value is
-cached by `gen_statem` for efficiency reasons, so this function is only called
+[_callback mode_](`t:callback_mode/0`) of the callback module.
+
+The value is cached by `gen_statem` for efficiency reasons, so this function is only called
 once after server start, after code change, and after changing the callback
 module, but before the first [_state callback_](`m:gen_statem#state-callback`)
 in the current callback module's code version is called. More occasions may be
@@ -1148,7 +1144,7 @@ The `CallbackMode` is either just `t:callback_mode/0` or a list containing
 > If this function's body does not return an inline constant value the callback
 > module is doing something strange.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.1">>}).
+-doc(#{since => <<"OTP 19.1">>}).
 -callback callback_mode() -> callback_mode_result().
 
 %% Example state callback for StateName = 'state_name'
@@ -1159,9 +1155,7 @@ The `CallbackMode` is either just `t:callback_mode/0` or a list containing
 %% Note that the only callbacks that have arity 3 are these
 %% StateName/3 callbacks and terminate/3, so the state name
 %% 'terminate' is unusable in this mode.
--doc(#{title => <<"Callback Functions">>,
-       equiv => {callback,handle_event,4},
-       since => <<"OTP 19.0">>}).
+-doc(#{equiv => handle_event/4, since => <<"OTP 19.0">>}).
 -callback 'StateName'(
 	    'enter',
 	    OldStateName :: state_name(),
@@ -1222,7 +1216,7 @@ which can be useful. For example to bail out with
 cannot return `{next_state,State,Data}` because `State` or `Data` is no longer
 in scope.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback handle_event(
 	    'enter',
 	    OldState :: state(),
@@ -1253,11 +1247,6 @@ in scope.
 
 %% Clean up before the server terminates.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_statem` module provides a default implementation without cleanup.
-
 This function is called by a `gen_statem` when it is about to terminate. It is
 to be the opposite of [`Module:init/1`](`c:init/1`) and do any necessary
 cleaning up. When it returns, the `gen_statem` terminates with `Reason`. The
@@ -1292,7 +1281,7 @@ and an error report is issued using `m:logger`.
 When the `gen_statem` process exits, an exit signal with the same reason is sent
 to linked processes and ports.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback terminate(
 	    Reason :: 'normal' | 'shutdown' | {'shutdown', term()}
 		    | term(),
@@ -1304,13 +1293,6 @@ to linked processes and ports.
 %% the old code version not only in code_change/4 but in the first
 %% state callback function called thereafter
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. If a
-> release upgrade/downgrade with `Change = {advanced,Extra}` specified in the
-> `.appup` file is made when [`code_change/4`](`c:code_change/4`) is not
-> implemented the process will crash with exit reason `undef`.
-
 This function is called by a `gen_statem` when it is to update its internal
 state during a release upgrade/downgrade, that is, when the instruction
 `{update,Module,Change,...}`, where `Change = {advanced,Extra}`, is specified in
@@ -1363,8 +1345,14 @@ an upgrade that upgrades _that_ module needs to suspend, code change, and resume
 any server whose child specification declares that it is using _that_ module.
 And again; the _current_ callback module will get the
 [`Module:code_change/4`](`c:code_change/4`) call.
+
+> #### Note {: .info }
+>
+> If a release upgrade/downgrade with `Change = {advanced,Extra}` specified in the
+> `.appup` file is made when [`code_change/4`](`c:code_change/4`) is not
+> implemented the process will crash with exit reason `undef`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback code_change(
 	    OldVsn :: term() | {'down', term()},
 	    OldState :: state(),
@@ -1380,23 +1368,10 @@ And again; the _current_ callback module will get the
 %%
 %% Deprecated
 -doc """
-> #### Warning {: .warning }
->
-> This callback is deprecated, in new code use `c:format_status/1`. If a
-> `c:format_status/1` callback exists, then this function will never be called.
+This function is called by a `gen_statem` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-> #### Note {: .info }
->
-> This callback is optional, so a callback module does not need to export it.
-> The `gen_statem` module provides a default implementation of this function
-> that returns `{State,Data}`.
->
-> If this callback is exported but fails, to hide possibly sensitive data, the
-> default function will instead return `{State,Info}`, where `Info` says nothing
-> but the fact that [`format_status/2`](`c:format_status/2`) has crashed.
-
-This function is called by a `gen_statem` process when any of the following
-apply:
+It is called in the following situations:
 
 - One of [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the
   `gen_statem` status. `Opt` is set to the atom `normal` for this case.
@@ -1429,9 +1404,19 @@ return value.
 One use for this function is to return compact alternative state representations
 to avoid having large state terms printed in log files. Another use is to hide
 sensitive data from being written to the error log.
+
+> #### Note {: .info }
+>
+> This callback is optional, so a callback module does not need to export it.
+> The `gen_statem` module provides a default implementation of this function
+> that returns `{State,Data}`.
+>
+> If this callback is exported but fails, to hide possibly sensitive data, the
+> default function will instead return `{State,Info}`, where `Info` says nothing
+> but the fact that [`format_status/2`](`c:format_status/2`) has crashed.
 """.
 -deprecated_callback({format_status, 2, "use format_status/1 instead"}).
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback format_status(
 	    StatusOption,
 	    [ [{Key :: term(), Value :: term()}] |
@@ -1441,7 +1426,9 @@ sensitive data from being written to the error log.
       StatusOption :: 'normal' | 'terminate'.
 
 -doc """
-A map that describes the `gen_statem` status. The keys are:
+A map that describes the `gen_statem` status.
+
+The keys are:
 
 - **`state`** - The current state of the `gen_statem` process.
 
@@ -1473,18 +1460,10 @@ New associations may be added to the status map without prior notice.
 %% Format the callback module status in some sensible that is
 %% often condensed way.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so a callback module does not need to export it.
-> The `gen_statem` module provides a default implementation of this function
-> that returns `{State,Data}`.
->
-> If this callback is exported but fails, to hide possibly sensitive data, the
-> default function will instead return `{State,Info}`, where `Info` says nothing
-> but the fact that [`format_status/2`](`c:format_status/2`) has crashed.
+This function is called by a `gen_statem` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-This function is called by a `gen_statem` process when any of the following
-apply:
+It is called in the following situations:
 
 - [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the `gen_statem`
   status.
@@ -1516,8 +1495,18 @@ format_status(Status) ->
             Value
     end, Status).
 ```
+
+> #### Note {: .info }
+>
+> This callback is optional, so a callback module does not need to export it.
+> The `gen_statem` module provides a default implementation of this function
+> that returns `{State,Data}`.
+>
+> If this callback is exported but fails, to hide possibly sensitive data, the
+> default function will instead return `{State,Info}`, where `Info` says nothing
+> but the fact that [`format_status/2`](`c:format_status/2`) has crashed.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -callback format_status(Status) -> NewStatus when
       Status    :: format_status(),
       NewStatus :: format_status().
@@ -1669,8 +1658,9 @@ Name specification to use when starting a `gen_statem` server. See
       | {'via', RegMod :: module(), Name :: term()}.
 
 -doc """
-Server specification to use when addressing a `gen_statem` server. See `call/2`
-and `t:server_name/0` above.
+Server specification to use when addressing a `gen_statem` server.
+
+See `call/2` and `t:server_name/0`.
 
 It can be:
 
@@ -1738,7 +1728,10 @@ Return value from the [`start/3,4`](`start/3`) and
 
 
 %% Start a state machine
--doc(#{equiv => start/4}).
+-doc """
+Equivalent to `start/4` except that the `gen_statem` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -doc(#{since => <<"OTP 19.0">>}).
 -spec start(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
@@ -1755,7 +1748,7 @@ Creates a standalone `gen_statem` process according to OTP design principles
 process, this start function cannot be used by a supervisor to start a child.
 
 For a description of arguments and return values, see
-[`start_link/3,4`](`start_link/3`).
+[`start_link/4`](`start_link/4`).
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec start(
@@ -1769,7 +1762,10 @@ start(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Start and link to a state machine
--doc(#{equiv => start_link/4}).
+-doc """
+Equivalent to `start_link/4` except that the `gen_statem` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -doc(#{since => <<"OTP 19.0">>}).
 -spec start_link(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
@@ -1881,7 +1877,10 @@ start_link(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Start and monitor a state machine
--doc(#{equiv => start_monitor/4}).
+-doc """
+Equivalent to `start_monitor/4` except that the `gen_statem` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(
 	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
@@ -1918,7 +1917,7 @@ start_monitor(ServerName, Module, Args, Opts) ->
     error(badarg, [ServerName, Module, Args, Opts]).
 
 %% Stop a state machine
--doc "The same as [`stop(ServerRef, normal, infinity)`](`stop/3`).".
+-doc #{ equiv => stop(ServerRef, normal, infinity) }.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec stop(ServerRef :: server_ref()) -> ok.
 stop(ServerRef) ->
@@ -1955,7 +1954,9 @@ stop(ServerRef, Reason, Timeout) ->
 -doc """
 Sends an asynchronous event to the `gen_statem` [`ServerRef`](`t:server_ref/0`)
 and returns `ok` immediately, ignoring if the destination node or `gen_statem`
-does not exist. The `gen_statem` calls the
+does not exist.
+
+The `gen_statem` calls the
 [_state callback_](`m:gen_statem#state-callback`) with `t:event_type/0` `cast`
 and event content `Msg`.
 """.
@@ -1982,7 +1983,7 @@ cast({Name,Node} = ServerRef, Msg) when is_atom(Name), is_atom(Node) ->
 
 %% Call a state machine (synchronous; a reply is expected) that
 %% arrives with type {call,From}
--doc(#{equiv => call/3}).
+-doc(#{equiv => call(ServerRef, Request, infinity)}).
 -doc(#{since => <<"OTP 19.0">>}).
 -spec call(ServerRef :: server_ref(), Request :: term()) -> Reply :: term().
 call(ServerRef, Request) ->
@@ -1990,9 +1991,10 @@ call(ServerRef, Request) ->
 %%
 -doc """
 Makes a synchronous call to the `gen_statem` [`ServerRef`](`t:server_ref/0`) by
-sending a request and waiting until its reply arrives. The `gen_statem` calls
-the [_state callback_](`m:gen_statem#state-callback`) with `t:event_type/0`
-`{call,From}` and event content `Request`.
+sending a request and waiting until its reply arrives.
+
+The `gen_statem` calls the [_state callback_](`m:gen_statem#state-callback`)
+with `t:event_type/0` `{call,From}` and event content `Request`.
 
 A `Reply` is generated when a [_state callback_](`m:gen_statem#state-callback`)
 returns with `{reply,From,Reply}` as one `t:action/0`, and that `Reply` becomes
@@ -2040,8 +2042,9 @@ call(ServerRef, Request, Timeout) ->
 
 -doc """
 Sends an asynchronous `call` request `Request` to the `gen_statem` process
-identified by `ServerRef` and returns a request identifier `ReqId`. The return
-value `ReqId` shall later be used with `receive_response/2`, `wait_response/2`,
+identified by `ServerRef` and returns a request identifier `ReqId`.
+
+The return value `ReqId` shall later be used with `receive_response/2`, `wait_response/2`,
 or `check_response/2` to fetch the actual result of the request. Besides passing
 the request identifier directly to these functions, it can also be saved in a
 request identifier collection using `reqids_add/3`. Such a collection of request
@@ -2105,10 +2108,7 @@ send_request(ServerRef, Request, Label, ReqIdCol) ->
     end.
 
 
--doc """
-The same as calling
-[`gen_statem:receive_response(ReqId, infinity)`](`receive_response/2`).
-""".
+-doc #{ equiv => receive_response(ReqId, infinity) }.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec wait_response(ReqId) -> Result when
       ReqId :: request_id(),
@@ -2225,10 +2225,7 @@ wait_response(ReqIdCol, WaitTime, Delete) ->
             error(badarg, [ReqIdCol, WaitTime, Delete])
     end.
 
--doc """
-The same as calling
-[`gen_statem:receive_response(ReqId, infinity)`](`receive_response/2`).
-""".
+-doc #{ equiv => receive_response(ReqId, infinity) }.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec receive_response(ReqId) -> Result when
       ReqId :: request_id(),
@@ -2350,6 +2347,7 @@ receive_response(ReqIdCol, Timeout, Delete) ->
 
 -doc """
 Check if `Msg` is a response corresponding to the request identifier `ReqId`.
+
 The request must have been made by `send_request/2`. If `Msg` is a reply to the
 handle `ReqId` the result of the request is returned in `Reply`. Otherwise
 returns `no_reply` and no cleanup is done, and thus the function shall be
@@ -2502,9 +2500,20 @@ reqids_to_list(ReqIdCollection) ->
     end.
 
 %% Reply from a state machine callback to whom awaits in call/2
--doc(#{equiv => reply/2}).
+-doc """
+Send a reply or multiple replies using one or several `t:reply_action/0`s from a
+[_state callback_](`m:gen_statem#state-callback`).
+
+This function can be used by a `gen_statem` to explicitly send a reply to a
+process that waits in `call/2` when the reply cannot be defined in the return
+value of a [_state callback_](`m:gen_statem#state-callback`).
+
+> #### Note {: .info }
+>
+> A reply sent with this function is not visible in `m:sys` debug output.
+""".
 -doc(#{since => <<"OTP 19.0">>}).
--spec reply([reply_action()] | reply_action()) -> ok.
+-spec reply(Replies :: [reply_action()] | reply_action()) -> ok.
 reply({reply,From,Reply}) ->
     reply(From, Reply);
 reply(Replies) when is_list(Replies) ->
@@ -2512,14 +2521,14 @@ reply(Replies) when is_list(Replies) ->
 %%
 -compile({inline, [reply/2]}).
 -doc """
+Send a `Reply` to `From`.
+
 This function can be used by a `gen_statem` to explicitly send a reply to a
 process that waits in `call/2` when the reply cannot be defined in the return
 value of a [_state callback_](`m:gen_statem#state-callback`).
 
 `From` must be the term from argument [`{call,From}`](`t:event_type/0`) to the
-[_state callback_](`m:gen_statem#state-callback`). A reply or multiple replies
-canalso be sent using one or several `t:reply_action/0`s from a
-[_state callback_](`m:gen_statem#state-callback`).
+[_state callback_](`m:gen_statem#state-callback`). 
 
 > #### Note {: .info }
 >
@@ -2570,7 +2579,9 @@ enter_loop(Module, Opts, State, Data, Server_or_Actions) ->
     end.
 %%
 -doc """
-Makes the calling process become a `gen_statem`. Does not return, instead the
+Makes the calling process become a `gen_statem`.
+
+Does not return, instead the
 calling process enters the `gen_statem` receive loop and becomes a `gen_statem`
 server. The process _must_ have been started using one of the start functions in
 `m:proc_lib`. The user is responsible for any initialization of the process,

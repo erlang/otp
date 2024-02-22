@@ -41,7 +41,6 @@ supervisor bridge does not exist or if bad arguments are specified.
 
 `m:supervisor`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 -behaviour(gen_server).
 
@@ -73,7 +72,6 @@ stopped by its supervisor with reason `Reason`, it calls
 If the initialization fails, the function is to return `{error,Error}`, where
 `Error` is any term, or `ignore`.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(Args :: term()) ->
     {ok, Pid :: pid(), State :: term()} | ignore | {error, Error :: term()}.
 -doc """
@@ -88,7 +86,6 @@ becomes `Term`.
 
 `State` is taken from the return value of [`Module:init/1`](`c:init/1`).
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback terminate(Reason :: (shutdown | term()), State :: term()) ->
     Ignored :: term().
 
@@ -109,7 +106,12 @@ becomes `Term`.
 %%%-----------------------------------------------------------------
 -record(state, {mod, pid, child_state, name}).
 
--doc(#{equiv => start_link/3}).
+-doc """
+Creates a nameless supervisor bridge process as part of a supervision tree.
+
+Equivalent to `start_link/3` except that the supervisor process is not
+[`registered`](`erlang:register/2`).
+""".
 -spec start_link(Module, Args) -> Result when
       Module :: module(),
       Args :: term(),
@@ -122,8 +124,9 @@ start_link(Mod, StartArgs) ->
 
 -doc """
 Creates a supervisor bridge process, linked to the calling process, which calls
-[`Module:init/1`](`c:init/1`) to start the subsystem. To ensure a synchronized
-startup procedure, this function does not return until
+[`Module:init/1`](`c:init/1`) to start the subsystem.
+
+To ensure a synchronized startup procedure, this function does not return until
 [`Module:init/1`](`c:init/1`) has returned.
 
 - If `SupBridgeName={local,Name}`, the supervisor bridge is registered locally
@@ -135,8 +138,6 @@ startup procedure, this function does not return until
   to export functions `register_name/2`, `unregister_name/1`, and `send/2`,
   which are to behave like the corresponding functions in `m:global`. Thus,
   `{via,global,GlobalName}` is a valid reference.
-
-If no name is provided, the supervisor bridge is not registered.
 
 `Module` is the name of the callback module.
 
