@@ -35,6 +35,7 @@
          derive_from/3,
          embed_in/3,
          extract/4,
+         forward_status/2,
          get_status/2,
          initialize_in_args/1,
          meet_in_args/1,
@@ -266,13 +267,34 @@ extract_status_for_element([{N,_,{extract,SrcElement}}|InEdges],
 extract_status_for_element([_Edge|InEdges], Element, Src, Dst, State) ->
     ?DP("    ignoring in-edge ~p~n", [_Edge]),
     extract_status_for_element(InEdges, Element, Src, Dst, State);
-extract_status_for_element([], _Element, _Src, Dst, State0) ->
+extract_status_for_element([], _Element, _Src, Dst, State) ->
     %% Nothing found, the status will be aliased.
-                                                %Status = beam_digraph:vertex(State0, Src),
-    Status = aliased,
-    ?DP("    status of ~p will be ~p~n", [Dst, Status]),
-    State = set_status(Dst, Status, State0),
-    ?assert_state(State).
+    ?DP("    status of ~p will be aliased~n", [Dst]),
+    ?assert_state(set_status(Dst, aliased, State)).
+
+%% A cut-down version of merge/2 which only considers variables in
+%% Main and whether they have been aliased in Other.
+-spec forward_status(sharing_state(), sharing_state()) -> sharing_state().
+forward_status(Main, Other) ->
+    ?DP("Forwarding state~n"),
+    ?assert_state(Main),
+    ?assert_state(Other),
+    R = beam_digraph:foldv(
+          Main,
+          fun(#b_var{}=V, S, Acc) when S =/= aliased ->
+                  maybe
+                      true ?= beam_digraph:has_vertex(Other, V),
+                      aliased ?= get_status(V, Other),
+                      set_status(V, aliased, Acc)
+                  else
+                      _ ->
+                          Acc
+                  end;
+             (_, _, Acc) ->
+                  Acc
+          end, Main),
+    ?assert_state(R).
+
 
 -spec get_status(beam_ssa:b_var(), sharing_state()) ->
           sharing_status().

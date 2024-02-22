@@ -607,7 +607,7 @@ aa_merge_ss(BlockLbl, NewSS, Lbl2SS) ->
 %% if variables in the original SS have become aliased.
 aa_merge_ss_successor(BlockLbl, NewSS, Lbl2SS) ->
     #{BlockLbl:=OrigSS} = Lbl2SS,
-    Lbl2SS#{BlockLbl=>beam_ssa_ss:merge(OrigSS, NewSS)}.
+    Lbl2SS#{BlockLbl=>beam_ssa_ss:forward_status(OrigSS, NewSS)}.
 
 aa_get_status(V=#b_var{}, State) ->
     beam_ssa_ss:get_status(V, State);
