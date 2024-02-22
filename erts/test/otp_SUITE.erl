@@ -133,7 +133,12 @@ dialyzer_filter(Undef) ->
 wx_filter(Undef) ->
     case app_exists(wx) of
         false ->
-            filter(fun({_,{MaybeWxModule,_,_}}) ->
+            filter(fun({_,{i, _, _}}) -> false;
+                      ({_,{dbg_iserver, _, _}}) -> false;
+                      ({_,{et_selector, _, _}}) -> false;
+                      ({_,{et_viewer, _, _}}) -> false;
+                      ({_,{int, _, _}}) -> false;
+                      ({_,{MaybeWxModule,_,_}}) ->
                            case atom_to_list(MaybeWxModule) of
                                "wx"++_ -> false;
                                _ -> true
