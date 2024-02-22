@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -87,6 +87,13 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+%% Enable debug logging by set(ing) level to debug.
+%% For example: logger:set_primary_config(level, debug),
+%% -define(DBG(F,A),
+%%         logger:debug("~w:~w(~w) -> " ++ F ++ "~n",
+%%                      [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
+
+
 %% ---------------------------------------------------------------------------
 %% start/0
 %% ---------------------------------------------------------------------------
@@ -97,6 +104,7 @@
 
 start() ->
     application:start(?APPLICATION).
+
 
 %% ---------------------------------------------------------------------------
 %% stop/0
@@ -109,6 +117,7 @@ start() ->
 stop() ->
     application:stop(?APPLICATION).
 
+
 %% ---------------------------------------------------------------------------
 %% start_service/2
 %% ---------------------------------------------------------------------------
@@ -120,6 +129,7 @@ stop() ->
 start_service(SvcName, Opts)
   when is_list(Opts) ->
     diameter_config:start_service(SvcName, Opts).
+
 
 %% ---------------------------------------------------------------------------
 %% stop_service/1
@@ -382,6 +392,7 @@ call(SvcName, App, Message) ->
     | {string_decode, boolean()}
     | {traffic_counters, boolean()}
     | {use_shared_peers, remotes()}
+    | {bins_info, boolean() | non_neg_integer()}
     | common_opt().
 
 -type application_opt()

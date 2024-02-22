@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+
 %% Server state.
 -record(state, {id = diameter_lib:now(),
                 role :: server | transport}).
@@ -126,6 +127,7 @@
 
 %%% The return values below assume the server diameter_config is started.
 %%% The functions will exit if it isn't.
+
 
 %% --------------------------------------------------------------------------
 %% # start_service/2
@@ -655,6 +657,9 @@ opt(service = S, {sequence = K, F}) ->
             {error, {E, R, Stack}}
     end;
 
+opt(service, {bins_info, BI}) ->
+    is_boolean(BI) orelse (is_integer(BI) andalso (BI >= 0));
+
 opt(transport, {transport_module, M}) ->
     is_atom(M);
 
@@ -792,6 +797,7 @@ stop_transport(SvcName, Refs) ->
 %% make_config/2
 
 make_config(SvcName, Opts) ->
+
     AppOpts = [T || {application, _} = T <- Opts],
     Apps = [init_app(T) || T <- AppOpts],
 
@@ -809,10 +815,14 @@ make_config(SvcName, Opts) ->
 
     D = proplists:get_value(string_decode, SvcOpts, true),
 
-    #service{name = SvcName,
-             rec = #diameter_service{applications = Apps,
-                                     capabilities = binary_caps(Caps, D)},
-             options = SvcOpts}.
+    Service =
+        #service{name = SvcName,
+                 rec = #diameter_service{applications = Apps,
+                                         capabilities = binary_caps(Caps, D)},
+                 options = SvcOpts},
+
+    Service.
+
 
 binary_caps(Caps, true) ->
     Caps;
