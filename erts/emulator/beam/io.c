@@ -6340,12 +6340,13 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
         DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
         erts_atomic64_inc_nob(&dep->in);
-	return erts_net_message(prt,
+
+	return erts_net_message(NULL,
 				dep,
                                 conn_id,
 				(byte*) hbuf, hlen,
                                 ErlDrvBinary2Binary(bin),
-				(byte*) (bin->orig_bytes+offs), len, NULL);
+				(byte*) (bin->orig_bytes+offs), len);
     }
     else
 	deliver_bin_message(prt, ERTS_PORT_GET_CONNECTED(prt), 
@@ -6375,7 +6376,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
     if (state & ERTS_PORT_SFLG_CLOSING)
 	return 0;
-    
+
     prt->bytes_in += (hlen + len);
     if (esdp)
 	esdp->io.in += (Uint64) (hlen + len);
@@ -6385,20 +6386,21 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
         erts_atomic64_inc_nob(&dep->in);
+
 	if (len == 0)
-	    return erts_net_message(prt,
+	    return erts_net_message(NULL,
 				    dep,
                                     conn_id,
 				    NULL, 0,
                                     NULL,
-				    (byte*) hbuf, hlen, NULL);
+				    (byte*) hbuf, hlen);
 	else
-	    return erts_net_message(prt,
+	    return erts_net_message(NULL,
 				    dep,
                                     conn_id,
 				    (byte*) hbuf, hlen,
                                     NULL,
-				    (byte*) buf, len, NULL);
+				    (byte*) buf, len);
     }
     else if (state & ERTS_PORT_SFLG_LINEBUF_IO)
 	deliver_linebuf_message(prt, state, ERTS_PORT_GET_CONNECTED(prt),

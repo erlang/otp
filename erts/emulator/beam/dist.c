@@ -204,6 +204,12 @@ int erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
                                                void **vyspp,
                                                Sint limit);
 
+static void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
+                               Eterm from,
+                               Eterm to,
+                               ErtsDistExternal *edep,
+                               ErlHeapFragment *ede_hfrag);
+
 static erts_atomic_t no_caches;
 static erts_atomic_t no_nodes;
 
@@ -2018,15 +2024,14 @@ erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
 **   assert  hlen == 0 !!!
 */
 
-int erts_net_message(Port *prt,
+int erts_net_message(ErtsDSigRecvContext *context,
 		     DistEntry *dep,
                      Uint32 conn_id,
 		     byte *hbuf,
 		     ErlDrvSizeT hlen,
                      Binary *bin,
 		     const byte *buf,
-		     ErlDrvSizeT len,
-                     ErtsDSigRecvContext *context)
+		     ErlDrvSizeT len)
 {
     ErtsDistExternal ede, *edep = &ede;
     ErtsDistExternalData ede_data;
@@ -2053,8 +2058,6 @@ int erts_net_message(Port *prt,
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
 
     ERTS_CHK_NO_PROC_LOCKS;
-
-    ERTS_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
 
     if (!erts_is_alive) {
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
@@ -2550,7 +2553,7 @@ int erts_net_message(Port *prt,
                 // If we're passing a context, save the state and trap,
                 // otherwise run the blocking loop
                 erts_drecv_prepare(context, from, to, edep, ede_hfrag);
-                return ERTS_DSIG_RECV_YIELD;
+                goto yield;
             }
             while (is_list(to)) {
                 pid = CAR(list_val(to));
@@ -3063,12 +3066,16 @@ int erts_net_message(Port *prt,
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_CHK_NO_PROC_LOCKS;
     return ERTS_DSIG_RECV_OK;
- invalid_message:
+invalid_message:
     {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
+yield:
+    UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+    ERTS_CHK_NO_PROC_LOCKS;
+    return ERTS_DSIG_RECV_YIELD;
 decode_error:
     VALGRIND_MSG("data error");
     if (ede_hfrag == NULL) {
@@ -3177,7 +3184,7 @@ notify_dist_data(Process *c_p, Eterm pid)
     }
 }
 
-extern void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
+void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
                                Eterm from,
                                Eterm to,
                                ErtsDistExternal *edep,
@@ -4362,7 +4369,7 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
          * distribution channel controller.
          * We only respond here to an operation not finished, that is, that requires trapping.
          */
-        switch (erts_net_message(NULL, dep, conn_id, NULL, 0, bin, data, size, &recv_ctx)) {
+        switch (erts_net_message(&recv_ctx, dep, conn_id, NULL, 0, bin, data, size)) {
             case ERTS_DSIG_RECV_YIELD:
                 // TODO
                 ctx_term = erts_drecv_trap_context(BIF_P, &recv_ctx);
