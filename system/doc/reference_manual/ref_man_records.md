@@ -21,9 +21,7 @@ limitations under the License.
 
 A record is a data structure for storing a fixed number of elements. It has
 named fields and is similar to a struct in C. Record expressions are translated
-to tuple expressions during compilation. Therefore, record expressions are not
-understood by the shell unless special actions are taken. For details, see the
-`m:shell` manual page in STDLIB.
+to tuple expressions during compilation.
 
 More examples are provided in
 [Programming Examples](`e:system:prog_ex_records.md`).
@@ -50,6 +48,12 @@ record.
 
 If a record is used in several modules, it is recommended that the record
 definition is placed in an include file.
+
+> #### Change {: .info }
+>
+> Starting from Erlang/OTP 26, records can be defined in the Erlang shell
+> using the syntax described in this section. In earlier releases, it was
+> necessary to use the `m:shell` built-in function `rd/2`.
 
 ## Creating Records
 
