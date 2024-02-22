@@ -2346,44 +2346,46 @@ handle_recv_more(P, #{buffer := Buffer} = D, Length, ActionsR) ->
           end)
     of
         {ok, <<Data/binary>>} ->
+            %% ?DBG({socket_recv, Length, byte_size(Data)}),
             handle_recv(P, D#{buffer := [Data | Buffer]}, ActionsR);
         {select, {?select_info(_) = SelectInfo, <<Data/binary>>}} ->
-	    %% ?DBG([{select_info, SelectInfo}]),
+            %% ?DBG({socket_recv, Length,
+            %%       {select_info, SelectInfo, byte_size(Data)}}),
             {next_state,
              #recv{info = SelectInfo},
              {P, D#{buffer := [Data | Buffer]}},
              reverse(ActionsR)};
         {select, ?select_info(_) = SelectInfo} ->
-	    %% ?DBG([{select_info, SelectInfo}]),
+            %% ?DBG({socket_recv, Length, {select_info, SelectInfo}}),
             {next_state,
              #recv{info = SelectInfo},
              {P, D},
              reverse(ActionsR)};
         {completion, ?completion_info(_) = CompletionInfo} ->
-	    %% ?DBG([{completion_info, CompletionInfo}]),
+            %% ?DBG({socket_recv, Length, {completion_info, CompletionInfo}}),
             {next_state,
              #recv{info = CompletionInfo},
              {P, D},
              reverse(ActionsR)};
         {error, {Reason, <<Data/binary>>}} ->
+            %% ?DBG({socket_recv, Length, {error, Reason, byte_size(Data)}}),
             handle_recv_error_packet(
               P, D#{buffer := [Data | Buffer]}, ActionsR, Reason);
         {error, Reason} ->
-            %% ?DBG({P#params.socket, error, Reason}),
+            %% ?DBG({socket_recv, Length, {error, Reason}}),
             handle_recv_error(P, D, ActionsR, Reason)
     end.
 
 handle_recv_packet(P, D, ActionsR) ->
+    %% ?DBG({}),
     case decode_packet(D) of
-        {ok, Decoded, Rest} ->
-            handle_recv_deliver(P, D#{buffer := Rest}, ActionsR, Decoded);
-        {more, undefined} ->
-            handle_recv_more(P, D, 0, ActionsR);
-        {more, Length} ->
-            handle_recv_more(P, D, Length, ActionsR);
-        {error, Reason} ->
+        {D_1, ok, Decoded} ->
+            handle_recv_deliver(P, D_1, ActionsR, Decoded);
+        {D_1, more, Missing} ->
+            handle_recv_more(P, D_1, Missing, ActionsR);
+        {D_1, error, Reason} ->
             handle_recv_error(
-              P, D, ActionsR,
+              P, D_1, ActionsR,
               case Reason of
                   invalid -> emsgsize;
                   _ -> Reason
@@ -2392,24 +2394,22 @@ handle_recv_packet(P, D, ActionsR) ->
 
 handle_recv_error_packet(P, D, ActionsR, Reason) ->
     case decode_packet(D) of
-        {ok, Decoded, Rest} ->
+        {D_1, ok, Decoded} ->
             handle_recv_error(
-              P, recv_data_deliver(P, D#{buffer := Rest}, ActionsR, Decoded),
+              P, recv_data_deliver(P, D_1, ActionsR, Decoded),
               Reason);
-        {more, _} ->
-            handle_recv_error(P, D, ActionsR, Reason);
-        {error, _} ->
-            handle_recv_error(P, D, ActionsR, Reason)
+        {D_1, _, _} ->
+            handle_recv_error(P, D_1, ActionsR, Reason)
     end.
 
 decode_packet(
   #{packet         := (PacketType = line),
     line_delimiter := LineDelimiter,
     packet_size    := PacketSize,
-    buffer         := Buffer}) ->
+    buffer         := Buffer} = D) ->
     %%
     decode_packet(
-      PacketType, Buffer,
+      D, PacketType, Buffer,
       [{packet_size,    PacketSize},
        {line_delimiter, LineDelimiter},
        {line_length,    PacketSize}]);
@@ -2417,26 +2417,47 @@ decode_packet(
   #{packet         := http,
     recv_httph     := true,
     packet_size    := PacketSize,
-    buffer         := Buffer}) ->
+    buffer         := Buffer} = D) ->
     %%
-    decode_packet(httph, Buffer, [{packet_size, PacketSize}]);
+    decode_packet(D, httph, Buffer, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := http_bin,
     recv_httph     := true,
     packet_size    := PacketSize,
-    buffer         := Buffer}) ->
+    buffer         := Buffer} = D) ->
     %%
-    decode_packet(httph_bin, Buffer, [{packet_size, PacketSize}]);
+    decode_packet(D, httph_bin, Buffer, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := PacketType,
     packet_size    := PacketSize,
-    buffer         := Buffer}) ->
+    buffer         := Buffer} = D) ->
     %%
-    decode_packet(PacketType, Buffer, [{packet_size, PacketSize}]).
-
-decode_packet(PacketType, Buffer, Options) ->
-    erlang:decode_packet(PacketType, condense_buffer(Buffer), Options).
-
+    decode_packet(D, PacketType, Buffer, [{packet_size, PacketSize}]).
+%%
+decode_packet(D, PacketType, Buffer, Options) ->
+    CondensedBuffer = condense_buffer(Buffer),
+    case
+        erlang:decode_packet(PacketType, CondensedBuffer, Options)
+    of
+        {ok, Decoded, Rest} ->
+            {D#{buffer := Rest}, ok, Decoded};
+        Other when is_binary(Buffer) ->
+            %% ?DBG({decode_packet, byte_size(CondensedBuffer), Other}),
+            decode_packet(D, Other);
+        Other when is_list(Buffer) ->
+            %% ?DBG({decode_packet, byte_size(CondensedBuffer), Other}),
+            decode_packet(D#{buffer := CondensedBuffer}, Other)
+    end.
+%%
+decode_packet(D, Other) ->
+    case Other of
+        {more, undefined} ->
+            {D, more, 0};
+        {more, Length} ->
+            {D, more, Length - byte_size(maps:get(buffer, D))};
+        {error, Reason} ->
+            {D, error, Reason}
+    end.
 
 handle_recv_deliver(P, D, ActionsR, Data) ->
     handle_connected(P, recv_data_deliver(P, D, ActionsR, Data)).
@@ -2542,7 +2563,6 @@ recv_data_deliver(
             {recv_stop(next_packet(D_1, Packet, Data)),
              ActionsR};
         #{active := Active} ->
-            %% ?DBG({active, Active}),
             ModuleSocket = module_socket(P),
             Owner !
                 case Deliver of
