@@ -116,16 +116,74 @@ The `strategy` key is optional in this map. If it is not given, it defaults to
 
 If a child process terminates, only that process is restarted.
 
-![One_For_One Supervision](assets/sup-one_for_one.svg "One_For_One Supervision"){:
-#sup4 width=80% }
+```mermaid
+---
+title: One For One Supervision
+---
+flowchart TD
+    subgraph Legend
+        direction LR
+        t(( )) ~~~ l1[Terminated Process]
+        p(( )) ~~~ l2[Process Restarted by the Supervisor]
+    end
+
+    subgraph graph[" "]
+        s[Supervisor]
+        s --- p1((P1))
+        s --- p2((P2))
+        s --- p3((P3))
+        s --- pn((Pn))
+    end
+
+    classDef term fill:#ff8888,color:black;
+    classDef restarted stroke:#00aa00,stroke-width:3px;
+    classDef legend fill-opacity:0,stroke-width:0px;
+
+    class p2,t term;
+    class p2,p restarted;
+    class l1,l2 legend;
+```
 
 ### one_for_all
 
 If a child process terminates, all other child processes are terminated, and
 then all child processes, including the terminated one, are restarted.
 
-![One_For_All Supervision](assets/sup-one_for_all.svg "One_For_All Supervision"){:
-#sup5 width=80% }
+```mermaid
+---
+title: One For All Supervision
+---
+flowchart TD
+    subgraph Legend
+        direction LR
+        t(( )) ~~~ l1[Terminated Process]
+        st(( )) ~~~ l2[Process Terminated by the Supervisor]
+        p(( )) ~~~ l3[Process Restarted by the Supervisor]
+        l4["Note:
+
+           Processes are terminated right to left
+           Processes are restarted left to right"]
+
+    end
+
+    subgraph graph[" "]
+        s[Supervisor]
+        s --- p1((P1))
+        s --- p2((P2))
+        s --- p3((P3))
+        s --- pn((Pn))
+    end
+
+    classDef term fill:#ff8888,color:black;
+    classDef sterm fill:#ffaa00,color:black;
+    classDef restarted stroke:#00aa00,stroke-width:3px;
+    classDef legend fill-opacity:0,stroke-width:0px;
+
+    class p2,t term;
+    class p1,p3,pn,st sterm;
+    class p1,p2,p3,pn,p restarted;
+    class l1,l2,l3,l4 legend;
+```
 
 ### rest_for_one
 
@@ -134,8 +192,41 @@ child processes after the terminated process in start order) are terminated.
 Then the terminated child process and the rest of the child processes are
 restarted.
 
-![Rest_For_One Supervision](assets/sup-rest_for_one.svg "Rest_For_One Supervision"){:
-#sup6 width=80% }
+```mermaid
+---
+title: Rest For One Supervision
+---
+flowchart TD
+    subgraph Legend
+        direction LR
+        t(( )) ~~~ l1[Terminated Process]
+        st(( )) ~~~ l2[Process Terminated by the Supervisor]
+        p(( )) ~~~ l3[Process Restarted by the Supervisor]
+        l4["Note:
+
+           Processes are terminated right to left
+           Processes are restarted left to right"]
+
+    end
+
+    subgraph graph[" "]
+        s[Supervisor]
+        s --- p1((P1))
+        s --- p2((P2))
+        s --- p3((P3))
+        s --- pn((Pn))
+    end
+
+    classDef term fill:#ff8888,color:black;
+    classDef sterm fill:#ffaa00,color:black;
+    classDef restarted stroke:#00aa00,stroke-width:3px;
+    classDef legend fill-opacity:0,stroke-width:0px;
+
+    class p2,t term;
+    class p3,pn,st sterm;
+    class p2,p3,pn,p restarted;
+    class l1,l2,l3,l4 legend;
+```
 
 ### simple_one_for_one
 

@@ -42,7 +42,20 @@ represent workers:
 
 [](){: #sup6 }
 
-![Supervision Tree](assets/sup6.gif "Supervision Tree")
+```mermaid
+---
+title: Supervision Tree
+---
+flowchart
+    sup1[Type 1 Supervisor] --- sup2[Type 1 Supervisor] --- worker1((worker))
+    sup1 --- sup1a[Type A Supervisor]
+
+    sup1a --- sup2a[Type A Supervisor] --- worker2((worker))
+    sup1a --- sup3[Type 1 Supervisor]
+
+    sup3 --- worker3((worker))
+    sup3 --- worker4((worker))
+```
 
 ## Behaviours
 

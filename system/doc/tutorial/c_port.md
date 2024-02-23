@@ -24,7 +24,28 @@ This section outlines an example of how to solve the example problem in the
 
 The scenario is illustrated in the following figure:
 
-![Port Communication](assets/port.gif "Port Communication")
+```mermaid
+---
+title: Port Communication
+---
+flowchart LR
+    subgraph Legend
+        direction LR
+
+        os[OS Process]
+        erl([Erlang Process])
+    end
+
+    subgraph ERTS
+        direction LR
+
+        port{Port} --> erlProc
+        erlProc([Connected process]) --> port
+    end
+
+    port --> proc[External Program]
+    proc --> port
+```
 
 ## Erlang Program
 

@@ -92,7 +92,7 @@ groups_for_docs =
     fn {:type, title} ->
       {"Types: #{title}",
        fn a ->
-          a[:kind] == :type && String.equivalent?(Access.get(a, :title, ""), title)
+         a[:kind] == :type && String.equivalent?(Access.get(a, :title, ""), title)
        end}
     end
   ) ++
@@ -181,7 +181,50 @@ config = [
         general_info: Path.join([link_libdir, "..", "doc"]),
         erts: Path.join([link_libdir, "..", "erts", "doc", "html"]),
         system: Path.join([link_libdir, "..", "system", "doc", "html"])
-      ]
+      ],
+  before_closing_body_tag: fn
+    :html ->
+      """
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js"></script>
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          let id = 0;
+          for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+            const preEl = codeEl.parentElement;
+            const graphDefinition = codeEl.textContent;
+            const graphEl = document.createElement("div");
+            const graphId = "mermaid-graph-" + id++;
+            mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
+              graphEl.innerHTML = svg;
+              bindFunctions?.(graphEl);
+              preEl.insertAdjacentElement("afterend", graphEl);
+              preEl.remove();
+            });
+          }
+        });
+      </script>
+      """
+
+    _ ->
+      ""
+  end,
+  before_closing_head_tag: fn
+    :epub ->
+      """
+      <style type="text/css">
+        .content-inner pre code.mermaid {
+          display: none;
+        }
+      </style>
+      """
+
+    _ ->
+      ""
+  end
 ]
 
 Keyword.merge(config, local_config |> Keyword.drop([:extras, :groups_for_extras]))

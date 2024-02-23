@@ -33,7 +33,38 @@ server is responsible for managing this resource.
 
 [](){: #clientserver }
 
-![Client-Server Model](assets/clientserver.gif "Client-Server Model")
+```mermaid
+---
+title: Client Server Model
+---
+
+flowchart LR
+    client1((Client))
+    client2((Client))
+    client3((Client))
+    server((Server))
+
+    client1 --> server
+    server -.-> client1
+
+    client2 --> server
+    server -.-> client2
+
+    client3 --> server
+    server -.-> client3
+
+    subgraph Legend
+        direction LR
+
+        start1[ ] -->|Query| stop1[ ]
+        style start1 height:0px;
+        style stop1 height:0px;
+
+        start2[ ] -.->|Reply| stop2[ ]
+        style start2 height:0px;
+        style stop2 height:0px;
+    end
+```
 
 ## Example
 
