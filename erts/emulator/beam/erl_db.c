@@ -833,6 +833,15 @@ DbTable* db_get_table_aux(Process *p,
 
     if (tb) {
         if (what == DB_READ_TBL_STRUCT) {
+            // See comment later in this function for why this is needed.
+            // We don't have the lock yet, so we may miss a race with a rename operation, but that is fine here
+            //    because what == DB_READ_TBL_STRUCT is only used by the insert operation, which later does its own double-check
+            //    after taking the lock (see code and comment in ets_insert_2_list_lock_tbl).
+            if (is_atom(id) && ERTS_UNLIKELY(tb->common.the_name != id)) {
+                *freason_p = BADARG | EXF_HAS_EXT_INFO;
+                p->fvalue = EXI_ID;
+                tb = NULL;
+            }
             return tb;
         }
 
@@ -852,8 +861,6 @@ DbTable* db_get_table_aux(Process *p,
             // - Writer does ets:rename(a, b), ets:insert(b, {key, value})
             // - Reader does ets:lookup(a, key)
             // We want to make sure that the reader does not get {key, value}, when it was not ever in a table called "a".
-            // This check is skipped in the case where what == DB_READ_TBL_STRUCT, but that is fine because this is only used in the insert operation
-            //    which later does its own double-check after taking the lock (see code and comment in ets_insert_2_list_lock_tbl).
             if (ERTS_UNLIKELY(tb->common.the_name != id)) {
                 *freason_p = BADARG | EXF_HAS_EXT_INFO;
                 p->fvalue = EXI_ID;
