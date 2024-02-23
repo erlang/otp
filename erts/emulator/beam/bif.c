@@ -3901,11 +3901,11 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
     int res;
 
 #ifdef __WIN32__
-    HANDLE fd;
+    FILE * fstream;
     if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
-        fd = GetStdHandle(STD_OUTPUT_HANDLE);
+        fd = stdout
     } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
-        fd = GetStdHandle(STD_ERROR_HANDLE);
+        fd = stderr;
     }
 #else
     int fd;
@@ -3964,11 +3964,9 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
 #endif
     {
 #ifdef __WIN32__
-        Uint32 w;
-        if (!WriteFile(fd, str, len, &w, NULL)) {
+        res = fwrite(str, len, 1, fd);
+        if (res <= 0) 
             goto error;
-        }
-        written = (Sint)w;
 #else
         written = 0;
         do {
