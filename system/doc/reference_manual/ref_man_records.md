@@ -21,9 +21,7 @@ limitations under the License.
 
 A record is a data structure for storing a fixed number of elements. It has
 named fields and is similar to a struct in C. Record expressions are translated
-to tuple expressions during compilation. Therefore, record expressions are not
-understood by the shell unless special actions are taken. For details, see the
-`m:shell` manual page in STDLIB.
+to tuple expressions during compilation.
 
 More examples are provided in
 [Programming Examples](`e:system:prog_ex_records.md`).
@@ -36,10 +34,13 @@ given an optional default value. If no default value is supplied, `undefined` is
 used.
 
 ```erlang
--record(Name, {Field1 [= Value1],
+-record(Name, {Field1 [= Expr1],
                ...
-               FieldN [= ValueN]}).
+               FieldN [= ExprN]}).
 ```
+
+The default value for a field is an arbitrary expression, except that it must
+not use any variables.
 
 A record definition can be placed anywhere among the attributes and function
 declarations of a module, but the definition must come before any usage of the
@@ -47,6 +48,12 @@ record.
 
 If a record is used in several modules, it is recommended that the record
 definition is placed in an include file.
+
+> #### Change {: .info }
+>
+> Starting from Erlang/OTP 26, records can be defined in the Erlang shell
+> using the syntax described in this section. In earlier releases, it was
+> necessary to use the `m:shell` built-in function `rd/2`.
 
 ## Creating Records
 
