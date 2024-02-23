@@ -325,7 +325,7 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%
 aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
                            func_db=FuncDb}) ->
-    Order = aa_breadth_first(Funs, FuncDb),
+    Order = aa_reverse_post_order(Funs, FuncDb),
     aa_fixpoint(Order, Order, AliasMap, CallArgs, AAS, ?MAX_REPETITIONS).
 
 aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
@@ -1230,36 +1230,50 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
     AAS = AAS0#aas{call_args=Info,repeats=Repeats},
     {SS, AAS}.
 
-aa_breadth_first(Funs, FuncDb) ->
-    IsExported = fun (F) ->
-                         #{ F := #func_info{exported=E} } = FuncDb,
-                         E
-                 end,
-    Exported = [ F || F <- Funs, IsExported(F)],
-    aa_breadth_first(Exported, [], sets:new([{version,2}]), FuncDb).
+aa_reverse_post_order(Funs, FuncDb) ->
+    %% In order to produce a reverse post order of the call graph, we
+    %% have to make sure all exported functions without local callers
+    %% are visited before exported functions with local callers.
+    IsExportedNoLocalCallers =
+        fun (F) ->
+                #{ F := #func_info{exported=E,in=In} } = FuncDb,
+                E andalso In =:= []
+        end,
+    ExportedNoLocalCallers =
+        lists:sort([ F || F <- Funs, IsExportedNoLocalCallers(F)]),
+    IsExportedLocalCallers =
+        fun (F) ->
+                #{ F := #func_info{exported=E,in=In} } = FuncDb,
+                E andalso In =/= []
+        end,
+    ExportedLocalCallers =
+        lists:sort([ F || F <- Funs, IsExportedLocalCallers(F)]),
+    aa_reverse_post_order(ExportedNoLocalCallers, ExportedLocalCallers,
+                          sets:new([{version,2}]), FuncDb).
 
-aa_breadth_first([F|Work], Next, Seen, FuncDb) ->
+aa_reverse_post_order([F|Work], Next, Seen, FuncDb) ->
     case sets:is_element(F, Seen) of
         true ->
-            aa_breadth_first(Work, Next, Seen, FuncDb);
+            aa_reverse_post_order(Work, Next, Seen, FuncDb);
         false ->
             case FuncDb of
                 #{ F := #func_info{out=Children} } ->
-                    [F|aa_breadth_first(Work, Children ++ Next,
-                                        sets:add_element(F, Seen), FuncDb)];
+                    [F|aa_reverse_post_order(
+                         Work, Children ++ Next,
+                         sets:add_element(F, Seen), FuncDb)];
                 #{} ->
                     %% Other optimization steps can have determined
                     %% that the function is not called and removed it
                     %% from the funcdb, but it still remains in the
                     %% #func_info{} of the (at the syntax-level)
                     %% caller.
-                    aa_breadth_first(Work, Next, Seen, FuncDb)
+                    aa_reverse_post_order(Work, Next, Seen, FuncDb)
             end
     end;
-aa_breadth_first([], [], _Seen, _FuncDb) ->
+aa_reverse_post_order([], [], _Seen, _FuncDb) ->
     [];
-aa_breadth_first([], Next, Seen, FuncDb) ->
-    aa_breadth_first(Next, [], Seen, FuncDb).
+aa_reverse_post_order([], Next, Seen, FuncDb) ->
+    aa_reverse_post_order(Next, [], Seen, FuncDb).
 
 expand_record_update(#opt_st{ssa=Linear0,cnt=First,anno=Anno0}=OptSt) ->
     {Linear,Cnt} = eru_blocks(Linear0, First),
