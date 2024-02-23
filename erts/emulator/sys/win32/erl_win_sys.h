@@ -75,12 +75,6 @@
  * Various configuration options, used to be in the Makefile.
  */
 
-#define NO_ASINH
-#define NO_ACOSH
-#define NO_ATANH
-#define NO_ERF
-#define NO_ERFC
-
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_PWD
