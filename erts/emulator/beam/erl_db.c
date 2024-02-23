@@ -392,6 +392,10 @@ struct meta_name_tab_bucket {
     erts_atomic_t entries;
     struct meta_name_tab_entries inline_entry;
 } *meta_name_tab;
+struct meta_name_tab_entries_allocated {
+    ErtsThrPrgrLaterOp later_op;
+    struct meta_name_tab_entries data;
+};
 
 static unsigned meta_name_tab_mask;
 
@@ -938,17 +942,14 @@ static DbTable* db_get_table_or_fail_return(Binary* btid,
 static ERTS_INLINE
 size_t alloc_size_meta_name_tab_entries(unsigned capacity)
 {
-    return sizeof(struct meta_name_tab_entries)
-        + (capacity - 1) * sizeof(struct meta_name_tab_entry)
-        + sizeof(ErtsThrPrgrLaterOp);
+    return sizeof(struct meta_name_tab_entries_allocated)
+        + (capacity - 1) * sizeof(struct meta_name_tab_entry);
 }
 
 static void
 free_meta_name_tab_entries(void *ptr)
 {
-    char *cptr = (char *) ptr;
-    struct meta_name_tab_entries* entries =
-        (struct meta_name_tab_entries*) (cptr + sizeof(ErtsThrPrgrLaterOp));
+    struct meta_name_tab_entries* entries = &((struct meta_name_tab_entries_allocated*) ptr)->data;
     int alloc_size = alloc_size_meta_name_tab_entries(entries->capacity);
     ERTS_ETS_MISC_MEM_ADD(-alloc_size);
 
@@ -958,11 +959,10 @@ free_meta_name_tab_entries(void *ptr)
 static ERTS_INLINE
 void schedule_meta_name_tab_entries_for_deletion(struct meta_name_tab_entries *entries)
 {
-    char* ptr = (char *) entries;
-    ptr -= sizeof(ErtsThrPrgrLaterOp);
+    struct meta_name_tab_entries_allocated* allocated = ErtsContainerStruct(entries, struct meta_name_tab_entries_allocated, data);
     erts_schedule_thr_prgr_later_cleanup_op(free_meta_name_tab_entries,
-        (void *) ptr,
-        (ErtsThrPrgrLaterOp *) ptr,
+        (void *) allocated,
+        &allocated->later_op,
         alloc_size_meta_name_tab_entries(entries->capacity));
 }
 
@@ -975,13 +975,13 @@ alloc_meta_name_tab_entries(unsigned size)
     unsigned log_capacity = erts_fit_in_bits_uint(size);
     unsigned capacity = ERTS_MAX(META_NAME_TAB_ENTRIES_MIN_CAPACITY, 1 << log_capacity);
     int alloc_size;
-    char *ptr;
+    struct meta_name_tab_entries_allocated *allocated;
     struct meta_name_tab_entries *entries;
     ASSERT(capacity >= size);
     alloc_size = alloc_size_meta_name_tab_entries(capacity);
-    ptr = erts_db_alloc_nt(ERTS_ALC_T_DB_NTAB_ENT, alloc_size);
+    allocated = erts_db_alloc_nt(ERTS_ALC_T_DB_NTAB_ENT, alloc_size);
     ERTS_ETS_MISC_MEM_ADD(alloc_size);
-    entries = (struct meta_name_tab_entries *) (ptr + sizeof(ErtsThrPrgrLaterOp));
+    entries = &allocated->data;
     erts_atomic32_init_nob(&entries->size, size);
     entries->capacity = capacity;
     return entries;
