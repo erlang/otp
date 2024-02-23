@@ -7760,7 +7760,7 @@ otp_8102(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_otp_8102(Config, Addr) ->
-    {ok, LSocket} = ?LISTEN(Config, 0, [{ip, Addr}]),
+    {ok, LSocket} = ?LISTEN(Config, 0, [{ip, Addr}, {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
     ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
 

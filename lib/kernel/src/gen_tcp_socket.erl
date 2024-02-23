@@ -2383,13 +2383,10 @@ handle_recv_packet(P, D, ActionsR) ->
             handle_recv_deliver(P, D_1, ActionsR, Decoded);
         {D_1, more, Missing} ->
             handle_recv_more(P, D_1, Missing, ActionsR);
+        {D_1, error, invalid} ->
+            handle_recv_error(P, D_1, ActionsR, emsgsize);
         {D_1, error, Reason} ->
-            handle_recv_error(
-              P, D_1, ActionsR,
-              case Reason of
-                  invalid -> emsgsize;
-                  _ -> Reason
-              end)
+            handle_recv_error(P, D_1, ActionsR, Reason)
     end.
 
 handle_recv_error_packet(P, D, ActionsR, Reason) ->
@@ -2398,6 +2395,8 @@ handle_recv_error_packet(P, D, ActionsR, Reason) ->
             handle_recv_error(
               P, recv_data_deliver(P, D_1, ActionsR, Decoded),
               Reason);
+        {D_1, error, invalid} ->
+            handle_recv_error(P, D_1, ActionsR, emsgsize);
         {D_1, _, _} ->
             handle_recv_error(P, D_1, ActionsR, Reason)
     end.
@@ -2440,12 +2439,13 @@ decode_packet(D, PacketType, Buffer, Options) ->
         erlang:decode_packet(PacketType, CondensedBuffer, Options)
     of
         {ok, Decoded, Rest} ->
+            %% ?DBG({ok, PacketType, byte_size(Decoded)}),
             {D#{buffer := Rest}, ok, Decoded};
         Other when is_binary(Buffer) ->
-            %% ?DBG({decode_packet, byte_size(CondensedBuffer), Other}),
+            %% ?DBG({Other, PacketType, byte_size(CondensedBuffer)}),
             decode_packet(D, Other);
         Other when is_list(Buffer) ->
-            %% ?DBG({decode_packet, byte_size(CondensedBuffer), Other}),
+            %% ?DBG({Other, PacketType, byte_size(CondensedBuffer)}),
             decode_packet(D#{buffer := CondensedBuffer}, Other)
     end.
 %%
@@ -2471,6 +2471,7 @@ handle_recv_error(
     %%
     %% Send active socket messages
     %%
+    %% ?DBG({Active, ShowEconnreset, ActionsR, Reason}),
     ModuleSocket = module_socket(P),
     Owner = P#params.owner,
     if
