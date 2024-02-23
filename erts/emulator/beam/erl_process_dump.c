@@ -1035,8 +1035,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             size = 1 + header_arity(w);
             switch (w & _HEADER_SUBTAG_MASK) {
             case FUN_SUBTAG:
-                ASSERT(((ErlFunThing*)(htop))->num_free == 0);
-                size += 1;
+                size += 1 + ((ErlFunThing*)(htop))->num_free;
                 break;
             case MAP_SUBTAG:
                 if (is_flatmap_header(w)) {
