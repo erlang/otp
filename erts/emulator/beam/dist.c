@@ -204,12 +204,6 @@ int erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
                                                void **vyspp,
                                                Sint limit);
 
-static void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
-                               Eterm from,
-                               Eterm to,
-                               ErtsDistExternal *edep,
-                               ErlHeapFragment *ede_hfrag);
-
 static erts_atomic_t no_caches;
 static erts_atomic_t no_nodes;
 
@@ -2542,29 +2536,8 @@ int erts_net_message(ErtsDSigRecvContext *context,
         from = tuple[2];
         to = tuple[3];
         if (is_list(to)) {
-            Eterm pid;
-            if (context) {
-                // If we're passing a context, save the state and trap,
-                // otherwise run the blocking loop
-                erts_drecv_prepare(context, from, to, edep, ede_hfrag);
-                goto yield;
-            }
-            while (is_list(to)) {
-                pid = CAR(list_val(to));
-                if (is_not_pid(pid)) {
-                    goto invalid_message;
-                }
-                rp = erts_proc_lookup(pid);
-                if (rp) {
-                    erts_queue_dist_message(rp, 0, edep, ede_hfrag, token, from);
-                }
-                to = CDR(list_val(to));
-            }
-            if (ede_hfrag != NULL) {
-                erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
-                free_message_buffer(ede_hfrag);
-            }
-            break;
+            erts_drecv_prepare(context, from, to, edep, ede_hfrag);
+            goto yield;
         }
         if (is_not_pid(to))
             goto invalid_message;
@@ -5285,6 +5258,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
 
         erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, dep);
         erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, (void*)(UWord)dep->connection_id);
+        erts_prtsd_set(pp, ERTS_PRTSD_CONTEXT, NULL);
 
         ASSERT(pp->drv_ptr->outputv || pp->drv_ptr->output);
 
@@ -5303,6 +5277,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
             erts_atomic32_read_band_nob(&pp->state, ~ERTS_PORT_SFLG_DISTRIBUTION);
             erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, NULL);
             erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, NULL);
+            erts_prtsd_set(pp, ERTS_PRTSD_CONTEXT, NULL);
             goto badarg;
         }
         de_locked = 0;

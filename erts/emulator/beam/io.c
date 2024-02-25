@@ -97,6 +97,7 @@ static void pdl_init(void);
 static int driver_failure_term(ErlDrvPort ix, Eterm term, int eof);
 static void driver_monitor_lock_pdl(Port *p);
 static void driver_monitor_unlock_pdl(Port *p);
+static ErlDrvBinary* realloc_buffer_to_drv_binary(char* buffer, ErlDrvSizeT len);
 #define DRV_MONITOR_LOOKUP_PORT_LOCK_PDL(Port) erts_thr_drvport2port((Port), 1)
 #define DRV_MONITOR_LOCK_PDL(Port) driver_monitor_lock_pdl(Port)
 #define DRV_MONITOR_UNLOCK_PDL(Port) driver_monitor_unlock_pdl(Port)
@@ -6319,6 +6320,7 @@ driver_send_term(ErlDrvPort drvport,
 int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 			 ErlDrvBinary* bin, ErlDrvSizeT offs, ErlDrvSizeT len)
 {
+    int ret;
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
@@ -6336,17 +6338,45 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	esdp->io.in += (Uint64) (hlen + len);
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
+
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+        ErtsDSigRecvContext ctx;
+        ErtsDSigRecvContext* prev_ctx = (ErtsDSigRecvContext*) erts_prtsd_get(prt, ERTS_PRTSD_CONTEXT);
         DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
         erts_atomic64_inc_nob(&dep->in);
 
-	return erts_net_message(NULL,
-				dep,
-                                conn_id,
-				(byte*) hbuf, hlen,
-                                ErlDrvBinary2Binary(bin),
-				(byte*) (bin->orig_bytes+offs), len);
+        if (prev_ctx) {
+            driver_pushq_bin(ix, bin, offs, len);
+            ret = multisend_step(prev_ctx, MULTISEND_LOOP_FACTOR);
+            switch (ret) {
+                case ERTS_DSIG_RECV_YIELD:
+                    return ERTS_DSIG_RECV_OK;
+                default:
+                    driver_free(prev_ctx);
+                    erts_prtsd_set(prt, ERTS_PRTSD_CONTEXT, NULL);
+                    return ret;
+            }
+        }
+
+        ret = erts_net_message(&ctx,
+                               dep,
+                               conn_id,
+                               (byte*) hbuf, hlen,
+                               ErlDrvBinary2Binary(bin),
+                               (byte*) (bin->orig_bytes+offs), len);
+        switch (ret) {
+            case ERTS_DSIG_RECV_YIELD:
+                prev_ctx = driver_alloc(sizeof(ErtsDSigRecvContext));
+                erts_drecv_prepare(prev_ctx, ctx.from, ctx.to, ctx.edep, ctx.ede_hfrag);
+                prev_ctx->drv_bin = bin;
+                driver_binary_inc_refc(bin);
+                erts_prtsd_set(prt, ERTS_PRTSD_CONTEXT, prev_ctx);
+                driver_set_timer(ix, 0);
+                return ERTS_DSIG_RECV_OK;
+            default:
+                return ret;
+        }
     }
     else
 	deliver_bin_message(prt, ERTS_PORT_GET_CONNECTED(prt), 
@@ -6364,6 +6394,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 		   char* buf, ErlDrvSizeT len)
 {
+    int ret;
     erts_aint32_t state;
     Port* prt = erts_drvport2port_state(ix, &state);
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
@@ -6383,24 +6414,45 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
-        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+        ErtsDSigRecvContext ctx;
+        ErtsDSigRecvContext* prev_ctx = (ErtsDSigRecvContext*) erts_prtsd_get(prt, ERTS_PRTSD_CONTEXT);
+        DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
         erts_atomic64_inc_nob(&dep->in);
 
-	if (len == 0)
-	    return erts_net_message(NULL,
-				    dep,
-                                    conn_id,
-				    NULL, 0,
-                                    NULL,
-				    (byte*) hbuf, hlen);
+        if (prev_ctx) {
+            ErlDrvBinary *bin = realloc_buffer_to_drv_binary(buf, len);
+            if (!bin) return ERTS_DSIG_RECV_ERROR;
+            driver_pushq_bin(ix, bin, 0, len);
+            ret = multisend_step(prev_ctx, MULTISEND_LOOP_FACTOR);
+            switch (ret) {
+                case ERTS_DSIG_RECV_YIELD:
+                    return ERTS_DSIG_RECV_OK;
+                default:
+                    driver_free_binary(prev_ctx->drv_bin);
+                    driver_free(prev_ctx);
+                    erts_prtsd_set(prt, ERTS_PRTSD_CONTEXT, NULL);
+                    return ret;
+            }
+        }
+
+        if (len == 0)
+	    ret = erts_net_message(&ctx, dep, conn_id, NULL, 0, NULL, (byte*) hbuf, hlen);
 	else
-	    return erts_net_message(NULL,
-				    dep,
-                                    conn_id,
-				    (byte*) hbuf, hlen,
-                                    NULL,
-				    (byte*) buf, len);
+	    ret = erts_net_message(&ctx, dep, conn_id, (byte*)hbuf, hlen, NULL, (byte*)buf, len);
+        switch (ret) {
+            case ERTS_DSIG_RECV_YIELD:
+                ErlDrvBinary *bin = realloc_buffer_to_drv_binary(buf, len);
+                if (!bin) return ERTS_DSIG_RECV_ERROR;
+                prev_ctx = driver_alloc(sizeof(ErtsDSigRecvContext));
+                erts_drecv_prepare(prev_ctx, ctx.from, ctx.to, ctx.edep, ctx.ede_hfrag);
+                prev_ctx->drv_bin = bin;
+                erts_prtsd_set(prt, ERTS_PRTSD_CONTEXT, prev_ctx);
+                driver_set_timer(ix, 0);
+                return ERTS_DSIG_RECV_OK;
+            default:
+                return ret;
+        }
     }
     else if (state & ERTS_PORT_SFLG_LINEBUF_IO)
 	deliver_linebuf_message(prt, state, ERTS_PORT_GET_CONNECTED(prt),
@@ -6409,6 +6461,55 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
 	deliver_read_message(prt, state, ERTS_PORT_GET_CONNECTED(prt),
 			     hbuf, hlen, buf, len, 0);
     return 0;
+}
+
+int driver_continue(ErlDrvPort ix)
+{
+    int ret;
+    erts_aint32_t state;
+    Port* prt = erts_drvport2port_state(ix, &state);
+
+    ERTS_CHK_NO_PROC_LOCKS;
+
+    if (prt == ERTS_INVALID_ERL_DRV_PORT)
+	return -1;
+
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
+    if (state & ERTS_PORT_SFLG_CLOSING)
+	return 0;
+
+    if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+
+        ErtsDSigRecvContext* prev_ctx = (ErtsDSigRecvContext*) erts_prtsd_get(prt, ERTS_PRTSD_CONTEXT);
+
+        if (!prev_ctx)
+            return 0;
+
+        ret = multisend_step(prev_ctx, MULTISEND_LOOP_FACTOR);
+        switch (ret) {
+            case ERTS_DSIG_RECV_YIELD:
+                driver_set_timer(ix, 0);
+                return ERTS_DSIG_RECV_OK;
+            default:
+                /* driver_free_binary(prev_ctx->drv_bin); */
+                driver_free(prev_ctx);
+                erts_prtsd_set(prt, ERTS_PRTSD_CONTEXT, NULL);
+                return ret;
+        }
+
+    }
+    return 0;
+}
+
+ErlDrvBinary* realloc_buffer_to_drv_binary(char* buffer, ErlDrvSizeT len)
+{
+    ErlDrvBinary* bin;
+    if (len != 0) {
+        if ((bin = driver_alloc_binary(len)) == NULL)
+            return NULL;
+        sys_memcpy(bin->orig_bytes, buffer, len);
+    }
+    return bin;
 }
 
 /* Interface functions available to driver writers */
