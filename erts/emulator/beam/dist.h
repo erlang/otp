@@ -400,6 +400,7 @@ typedef struct erts_dsig_recv_context {
     Eterm to;
     ErtsDistExternal *edep;
     ErlHeapFragment *ede_hfrag;
+    ErlDrvBinary *drv_bin;
 } ErtsDSigRecvContext;
 
 typedef struct dist_sequences DistSeqNode;
@@ -464,6 +465,12 @@ extern int erts_dsig_prepare(ErtsDSigSendContext *,
                              int,
                              int,
                              int);
+
+extern void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
+                               Eterm from,
+                               Eterm to,
+                               ErtsDistExternal *edep,
+                               ErlHeapFragment *ede_hfrag);
 
 extern int erts_net_message(ErtsDSigRecvContext *context,
                             DistEntry *dep,
