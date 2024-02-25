@@ -474,6 +474,8 @@ extern int erts_net_message(ErtsDSigRecvContext *context,
                             const byte *buf,
                             ErlDrvSizeT len);
 
+extern int multisend_step(ErtsDSigRecvContext *ctx, Uint it);
+
 void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 

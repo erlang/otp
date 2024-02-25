@@ -1436,12 +1436,6 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsDSigSendContext* ctx)
 
 int erts_drecv_context_dtor(Binary* ctx_bin)
 {
-    ErtsDSigRecvContext* ctx = ERTS_MAGIC_BIN_DATA(ctx_bin);
-    if (ctx->ede_hfrag != NULL) {
-        erts_free_dist_ext_copy(erts_get_dist_ext(ctx->ede_hfrag));
-        free_message_buffer(ctx->ede_hfrag);
-    }
-
     return 1;
 }
 
@@ -3100,44 +3094,52 @@ data_error_runlock:
 static BIF_RETTYPE multisend_yield_2(BIF_ALIST_2)
 {
     BIF_RETTYPE ret_val = am_ok;
-    Uint multisend_iterations = MULTISEND_LOOP_FACTOR;
-    ErtsDistExternal *edep = NULL;
-    ErlHeapFragment *ede_hfrag = NULL;
-    Eterm from, to, pid;
-    Process* rp;
-
     Binary* bin = erts_magic_ref2bin(BIF_ARG_1);
     ErtsDSigRecvContext *recv_ctx = (ErtsDSigRecvContext*) ERTS_MAGIC_BIN_DATA(bin);
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_CHK_NO_PROC_LOCKS;
 
-    ede_hfrag = recv_ctx->ede_hfrag;
-    edep = recv_ctx->edep;
-    from = recv_ctx->from;
-    to = recv_ctx->to;
+    switch (multisend_step(recv_ctx, MULTISEND_LOOP_FACTOR)) {
+        case ERTS_DSIG_RECV_YIELD:
+            BUMP_ALL_REDS(BIF_P);
+            ERTS_BIF_PREP_TRAP2(ret_val, &multisend_yield_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
 
-    // TODO
-    while (is_list(to) && multisend_iterations--) {
-        pid = CAR(list_val(to));
-        if (is_not_pid(pid))
-            continue; // Whether these are pids was already checked in erts_internal:multisend/2
-        rp = erts_proc_lookup(pid);
-        if (rp) {
-            erts_queue_dist_message(rp, 0, edep, ede_hfrag, NIL, from);
-        }
-        to = CDR(list_val(to));
-    }
-    /* We still have receivers to send, trap again */
-    if (is_list(to)) {
-        recv_ctx->to = to;
-        BUMP_ALL_REDS(BIF_P);
-        ERTS_BIF_PREP_TRAP2(ret_val, &multisend_yield_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
-    }
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_CHK_NO_PROC_LOCKS;
 
     return ret_val;
+}
+
+int multisend_step(ErtsDSigRecvContext *ctx, Uint it)
+{
+    Process* rp;
+    Eterm pid;
+
+    while (is_list(ctx->to) && it--) {
+        pid = CAR(list_val(ctx->to));
+        if (is_not_pid(pid))
+            continue; // Whether these are pids was already checked in erts_internal:multisend/2
+        rp = erts_proc_lookup(pid);
+        if (rp) {
+            erts_queue_dist_message(rp, 0, ctx->edep, ctx->ede_hfrag, NIL, ctx->from);
+        }
+        ctx->to = CDR(list_val(ctx->to));
+    }
+
+    /* We still have receivers to send, trap again */
+    if (is_list(ctx->to))
+        return ERTS_DSIG_RECV_YIELD;
+
+    if (ctx->ede_hfrag != NULL) {
+        erts_free_dist_ext_copy(erts_get_dist_ext(ctx->ede_hfrag));
+        free_message_buffer(ctx->ede_hfrag);
+    }
+
+    erts_drecv_prepare(ctx, THE_NON_VALUE, THE_NON_VALUE, NULL, NULL);
+
+    return ERTS_DSIG_RECV_OK;
 }
 
 static int dsig_send_exit(ErtsDSigSendContext *ctx, Eterm ctl, Eterm msg)
