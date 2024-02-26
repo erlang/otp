@@ -55,13 +55,20 @@ dest="$2"
 
 cmd cd "$src"
 
+OIFS="$IFS"
+IFS='
+'
 for dir in `find . -type d`; do
+    IFS="$OIFS"
     destdir="$dest"
     [ "$dir" = "." ] || destdir="$dest/$dir"
     cmd $INSTALL_DIR "$destdir"
 done
 
+IFS='
+'
 for file in `find . -type f`; do
+    IFS="$OIFS"
     subdir=`dirname "$file"`
     destdir="$dest"
     [ "$subdir" = "." ] || destdir="$dest/$subdir"
