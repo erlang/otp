@@ -868,7 +868,7 @@ DbTable* db_get_table_aux(Process *p,
             if (ERTS_UNLIKELY(tb->common.the_name != id)) {
                 *freason_p = BADARG | EXF_HAS_EXT_INFO;
                 p->fvalue = EXI_ID;
-                tb = NULL;
+                return NULL;
             }
         }
 
