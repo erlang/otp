@@ -119,7 +119,7 @@ process_list(Format, LineContent, Rest, SpaceCount, Block) ->
     {Content, Rest1, Done} = process_list_next(Format, Rest, SpaceCount, [LineFormatted]),
     Paragraph = case Done of
                     true ->
-                        process_br([]);
+                        [];
                     false ->
                         []
                 end,
@@ -245,7 +245,6 @@ strip_spaces(Rest, Acc, _) ->
 -type i() :: {i, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type em() :: {em, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type code_inline() :: {code, chunk_element_attrs(), shell_docs:chunk_elements()}.
--type br() :: {br, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type header() :: {h1 | h2 | h3 | h4 | h5 | h6, chunk_element_attrs(), shell_docs:chunk_elements() | [binary()]}.
 
 -spec process_heading(Level, Heading, Rest) -> HtmlErlang when
@@ -506,11 +505,6 @@ process_fence_code([<<"```">> | Rest], Block) ->
 process_fence_code([Line | Rest], Block) ->
     process_fence_code(Rest, [Line | Block]).
 
-
--spec process_br(Text :: [binary()]) -> shell_docs:chunk_elements().
-process_br(Rest) ->
-    [br() | process_md(Rest, [])].
-
 -spec process_comment(Line :: [binary()]) -> [binary()].
 process_comment([]) ->
     [];
@@ -572,10 +566,6 @@ i(X) when is_list(X) ->
 -spec em(Text :: shell_docs:chunk_elements()) -> em().
 em(X) when is_list(X) ->
     {em, [], X}.
-
--spec br() -> br().
-br() ->
-    {br, [], []}.
 
 -spec trim_and_add_new_line(binary(), binary()) -> binary().
 trim_and_add_new_line(Last, Line) ->
