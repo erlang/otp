@@ -1658,7 +1658,7 @@ Do a complete encrypt or decrypt with an AEAD cipher of the full text.
 
 For encryption, set the `EncryptFlag` to `true` and set the `TagOrTagLength` to
 the wanted size (in bytes) of the tag, that is, the tag length. If the default
-length is wanted, the `crypto_aead/6` form may be used.
+length is wanted, the `crypto_one_time_aead/6` form may be used.
 
 For decryption, set the `EncryptFlag` to `false` and put the tag to be checked
 in the argument `TagOrTagLength`.
