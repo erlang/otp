@@ -64,7 +64,7 @@ build_std(Config) when is_list(Config) ->
     Overview2 = filename:join(DataDir, "overview.syntax_tools"),
     PrivDir = ?config(priv_dir, Config),
 
-    ok = edoc:application(edoc, [{overview, Overview1},
+    ok = edoc:application(edoc, [{preprocess,true},{overview, Overview1},
 	    {def, {vsn,"TEST"}},
 	    {dir, PrivDir}]),
 
