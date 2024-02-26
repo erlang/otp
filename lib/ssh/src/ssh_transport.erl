@@ -1098,8 +1098,7 @@ select_algorithm(Role, Client, Server,
                     end,
                 case Result of
                     true ->
-                        error_logger:info_report(
-                          lists:concat([Role, " will use strict KEX ordering"]));
+                        logger:debug(lists:concat([Role, " will use strict KEX ordering"]));
                     _ ->
                         ok
                 end,
