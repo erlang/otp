@@ -60,11 +60,11 @@ This module provides a set of cryptographic functions.
   - **Chacha20_poly1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
     7539\]](http://www.ietf.org/rfc/rfc7539.txt)
 
-- **Modes**
+  - **SM4** - [The SM4 Block Cipher Algorithm](https://www.iso.org/standard/81564.html)
 
-  - **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
-    Cipher Modes of Operation: Methods and Techniques \[NIST SP
-    800-38A\]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
+- **Modes** - \* **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
+  Cipher Modes of Operation: Methods and Techniques \[NIST SP
+  800-38A]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
 
   - **GCM** - [Recommendation for Block Cipher Modes of Operation:
     Galois/Counter Mode (GCM) and GMAC \[NIST SP
@@ -609,6 +609,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
 
                       | blowfish_ecb
                       | des_ecb
+                      | sm4_ecb
                       | rc4 .
 
 -doc(#{title => <<"Ciphers">>}).
@@ -635,6 +636,11 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                    | aes_192_ctr
                    | aes_256_ctr
                    | aes_ctr
+
+                   | sm4_cbc
+                   | sm4_ofb
+                   | sm4_cfb
+                   | sm4_ctr
 
                    | blowfish_cbc
                    | blowfish_cfb64
@@ -664,6 +670,9 @@ support all of them.
                      | aes_192_gcm
                      | aes_256_gcm
                      | aes_gcm
+
+                     | sm4_gcm
+                     | sm4_ccm
 
                      | chacha20_poly1305 .
 
@@ -1708,6 +1717,8 @@ aead_tag_len(aes_128_gcm) -> 16;
 aead_tag_len(aes_192_gcm) -> 16;
 aead_tag_len(aes_256_gcm) -> 16;
 aead_tag_len(chacha20_poly1305) -> 16;
+aead_tag_len(sm4_gcm) -> 16;
+aead_tag_len(sm4_ccm) -> 16;
 aead_tag_len(_) ->
     error({badarg, "Not an AEAD cipher"}).
 

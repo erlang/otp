@@ -185,6 +185,18 @@
 # define HAVE_SM3
 #endif
 
+// SM4
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SM4)
+# define HAVE_SM4
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,1,0)	\
+    && !defined(OPENSSL_NO_SM4)
+# define HAVE_SM4_GCM
+# define HAVE_SM4_CCM
+#endif
+
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
 // An error in beta releases of 1.1.1 fixed in production release

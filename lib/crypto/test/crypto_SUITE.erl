@@ -181,6 +181,13 @@
          mac_check/1,
          rc2_cbc/1,
          rc4/1,
+         sm4_ecb/1,
+         sm4_cbc/1,
+         sm4_ofb/1,
+         sm4_cfb/1,
+         sm4_ctr/1,
+         sm4_gcm/1,
+         sm4_ccm/1,
          ripemd160_incr_digest/0,
          ripemd160_incr_msgs/0,
          rsa_oaep/0,
@@ -266,6 +273,14 @@ groups() ->
                      {group, des_cfb},
                      {group, rc2_cbc},
                      {group, rc4},
+
+                     {group, sm4_ecb},
+                     {group, sm4_cbc},
+                     {group, sm4_ofb},
+                     {group, sm4_cfb},
+                     {group, sm4_ctr},
+                     {group, sm4_gcm},
+                     {group, sm4_ccm},
 
                      {group, des_ede3_cbc},
                      {group, des_ede3_cfb},
@@ -427,6 +442,13 @@ groups() ->
      {blowfish_cfb64,       [], [api_ng, api_ng_one_shot]},
      {blowfish_ofb64,       [], [api_ng, api_ng_one_shot]},
      {rc4,                  [], [api_ng, api_ng_one_shot]},
+     {sm4_ecb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_cbc,              [], [api_ng, api_ng_one_shot]},
+     {sm4_ofb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_cfb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_ctr,              [], [api_ng, api_ng_one_shot]},
+     {sm4_gcm,              [], [aead_ng, aead_bad_tag]},
+     {sm4_ccm,              [], [aead_ng, aead_bad_tag]},
      {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
      {chacha20,             [], [api_ng, api_ng_one_shot]},
      {poly1305,             [], [poly1305]},
@@ -3443,6 +3465,75 @@ rc4(_) ->
     [{rc4, <<"apaapa">>, <<"Yo baby yo">>},
      {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))},
      {rc4, <<"apaapa">>, long_msg()}
+    ].
+
+%% Test Data from https://github.com/openssl/openssl/pull/9935
+sm4_ecb(_) ->
+    [{sm4_ecb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), <<>>,
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+    hexstr2bin("681EDF34D206965E86B3E94F536E4246")}].
+sm4_cbc(_) ->
+    [{sm4_cbc, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("2677F46B09C122CC975533105BD4A22AF6125F7275CE552C3A2BBCF533DE8A3B")}].
+sm4_ofb(_) ->
+    [{sm4_ofb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("693D9A535BAD5BB1786F53D7253A7056F2075D28B5235F58D50027E4177D2BCE")}].
+sm4_cfb(_) ->
+    [{sm4_cfb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("693D9A535BAD5BB1786F53D7253A70569ED258A85A0467CC92AAB393DD978995")}].
+sm4_ctr(_) ->
+    [{sm4_ctr, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+               "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+    hexstr2bin("C2B4759E78AC3CF43D0852F4E8D5F9FD7256E8A5FCB65A350EE00630912E4449"
+               "2A0B17E1B85B060D0FBA612D8A95831638B361FD5FFACD942F081485A83CA35D")}
+    ].
+
+%% https://datatracker.ietf.org/doc/rfc8998 appendix A.1
+sm4_gcm(_) ->
+    [
+     {sm4_gcm,
+      hexstr2bin("0123456789ABCDEFFEDCBA9876543210"),
+      hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB"                      %% PlainText
+      "CCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+      "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFF"
+      "EEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+      hexstr2bin("00001234567800000000ABCD"),                            %% Nonce
+      hexstr2bin("FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2"),            %% AAD
+      hexstr2bin("17F399F08C67D5EE19D0DC9969C4BB7D"                      %% CipherText
+      "5FD46FD3756489069157B282BB200735"
+      "D82710CA5C22F0CCFA7CBF93D496AC15"
+      "A56834CBCF98C397B4024A2691233B8D"),
+      hexstr2bin("83DE3541E4C2B58177E065A9BF7B62EC"),                    %% CipherTag
+      no_info
+      }
+    ].
+
+%% https://datatracker.ietf.org/doc/rfc8998 appendix A.2
+sm4_ccm(_) ->
+    [
+     {sm4_ccm,
+      hexstr2bin("0123456789ABCDEFFEDCBA9876543210"),
+      hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB"                      %% PlainText
+      "CCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+      "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFF"
+      "EEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+      hexstr2bin("00001234567800000000ABCD"),                            %% Nonce
+      hexstr2bin("FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2"),            %% AAD
+      hexstr2bin("48AF93501FA62ADBCD414CCE6034D895"                      %% CipherText
+      "DDA1BF8F132F042098661572E7483094"
+      "FD12E518CE062C98ACEE28D95DF4416B"
+      "ED31A2F04476C18BB40C84A74B97DC5B"),
+      hexstr2bin("16842D4FA186F56AB33256971FA110F4"),                    %% CipherTag
+      no_info
+      }
     ].
 
 aes_128_ctr(_) ->
