@@ -94,8 +94,6 @@ process_md(Rest, Block) when is_list(Rest) ->
 -define(IS_BULLET(X), X =:= $*; X =:= $-; X =:= $+).
 -define(IS_NUMBERED(X), is_integer(X), min(0, X) =:= 0).
 
-process_rest([], Block) ->
-    Block;
 process_rest([P | Rest]=Doc, Block) ->
     {StrippedP, SpaceCount} = strip_spaces(P, 0, infinity),
     {Content, Rest1, Block2} = case StrippedP of
