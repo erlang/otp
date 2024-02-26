@@ -532,123 +532,76 @@ send_result(Server, Data, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
         {error, Reason} ->
-            %% ?DBG(['send failure', {reason, Reason}]),
             case Reason of
-                econnreset ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> Result;
-                        false -> {error, closed}
-                    end;
-                {completion_status, #{info := econnreset = R}} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, R};
-                        false -> {error, closed}
-                    end;
-		{completion_status, econnreset = R} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, R};
-                        false -> {error, closed}
-                    end;
-                #{info := econnreset = R} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, R};
-                        false -> {error, closed}
-                    end;
-
-		%% Shall we really use (abuse) the show_econnreset option?
-                {completion_status, #{info := econnaborted}} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-		{completion_status, econnaborted} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-                #{info := econnaborted} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-                econnaborted ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-
-                {completion_status, #{info := netname_deleted}} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-		{completion_status, netname_deleted} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-                #{info := netname_deleted} ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-                netname_deleted ->
-                    case maps:get(show_econnreset, Meta) of
-                        true  -> {error, econnreset};
-                        false -> {error, closed}
-                    end;
-
-                {completion_status, #{info := too_many_cmds}} ->
-		    {error, closed};
-		{completion_status, too_many_cmds} ->
-		    {error, closed};
-                #{info := too_many_cmds} ->
-		    {error, closed};
-                too_many_cmds ->
-		    {error, closed};
-
-                {timeout = R, RestData} when is_binary(RestData) ->
-                    %% To handle RestData we would have to pass
-                    %% all writes through a single process that buffers
-                    %% the write data, which would be a bottleneck.
+                {completion_status, #{info := R}} ->
+                    send_error(Server, Meta, R);
+                {completion_status, R} ->
+                    send_error(Server, Meta, R);
+                #{info := R} ->
+                    send_error(Server, Meta, R);
+                {timeout, RestData} ->
+                    %% The caller has to be aware that what have been sent
+                    %% as well as RestData may include an automatically
+                    %% inserted {packet, N} header.
                     %%
-                    %% For send_timeout_close we have to waste RestData.
-                    %%
-		    %% ?DBG(['timeout with restdata',
-		    %% 	  {restdata_size, byte_size(RestData)}]),
-                    case maps:get(send_timeout_close, Meta) of
-                        true ->
-                            close_server(Server),
-                            {error, R};
-                        false ->
-                            Result
-                    end;
+                    send_timeout(Server, RestData, Meta);
                 timeout ->
-                    %% No data was sent.
-                    %%
-                    %% Return all data to the user as RestData.
-                    %% For packet modes (inserted header);
-                    %% the user will have to switch to raw packet
-                    %% mode to retransmit RestData since at least
-                    %% part of the packet header has been transmitted
-                    %% and inserting a new packet header into the
-                    %% stream would be dead wrong.
-                    %%
-		    %% ?DBG(['timeout']),
-                    case maps:get(send_timeout_close, Meta) of
-                        true ->
-                            close_server(Server),
-                            Result;
-                        false ->
-                            {error, {Reason, iolist_to_binary(Data)}}
-                    end;
-
+                    %% No data was sent.  The returned rest Data
+                    %% may contain an automatically inserted
+                    %% {packet, N} header.
+                    send_timeout(Server, Data, Meta);
                 _ ->
-                    ?badarg_exit(Result)
+                    send_error(Server, Meta, Reason)
             end;
         ok ->
             ok
     end.
+
+send_error(Server, Meta, Reason) ->
+    if
+        Reason =:= econnreset;
+        Reason =:= econnaborted;
+        %% Shall we really use (abuse) the show_econnreset option?
+        Reason =:= netname_deleted ->
+            send_error_econnreset(Server, Meta);
+        Reason =:= too_many_cmds ->
+            send_error_closed(Server, Meta);
+        true ->
+            ?badarg_exit({error, Reason})
+    end.
+
+send_timeout(Server, Data, Meta) ->
+    case maps:get(send_timeout_close, Meta) of
+        true ->
+            %% To handle RestData we would have to pass
+            %% all writes through a single process that buffers
+            %% the write data, which would be a bottleneck.
+            %%
+            %% We have to waste the lingering data...
+            %%
+            close_server(Server),
+            {error, timeout};
+        false ->
+            %% Leave the lingering data to the caller to handle
+            {error, {timeout, iolist_to_binary(Data)}}
+    end.
+
+send_error_econnreset(Server, Meta) ->
+    case maps:get(show_econnreset, Meta) of
+        true ->
+            {error, econnreset};
+        false ->
+            send_error_closed(Server, Meta)
+    end.
+
+send_error_closed(Server, Meta) ->
+    case maps:get(exit_on_close, Meta) of
+        true ->
+            close_server(Server);
+        false ->
+            ok
+    end,
+    {error, closed}.
 
 %% -------------------------------------------------------------------------
 %% Handler called by file:sendfile/5 to handle ?MODULE_socket()s
@@ -1406,7 +1359,8 @@ server_read_write_opts() ->
     %% Common for read and write side
     #{packet          => raw,
       packet_size     => 16#4000000, % 64 MByte
-      show_econnreset => false}.
+      show_econnreset => false,
+      exit_on_close   => true}.
 -compile({inline, [server_read_opts/0]}).
 server_read_opts() ->
     %% Read side only opts
@@ -1416,9 +1370,7 @@ server_read_opts() ->
         header => 0,
         deliver => term,
         start_opts => [], % Just to make it settable
-        line_delimiter => $\n,
-        %% XXX not implemented yet
-        exit_on_close => true},
+        line_delimiter => $\n},
       server_read_write_opts()).
 -compile({inline, [server_write_opts/0]}).
 server_write_opts() ->
