@@ -27,6 +27,7 @@ include ../vsn.mk
 APPLICATION = erts
 INDEX_DIR = ../../../doc
 RELSYSDIR = $(RELEASE_PATH)/$(APPLICATION)-$(VSN)
+EPUB=false
 
 assets:
 	$(V_at)mkdir assets
