@@ -85,7 +85,7 @@ process_md([<<"    ", Line/binary>> | Rest], Block) ->
 process_md([<<"```", _Line/binary>> | Rest], Block) ->
     Block ++ process_fence_code(Rest, []);
 process_md([<<"">> | Rest], Block) ->
-    Block ++ process_br(Rest);
+    Block ++ process_md(Rest, []);
 process_md([<<"<!--", Line/binary>> | Rest], Block) ->
     Block ++ process_md(process_comment([Line | Rest]), []);
 process_md(Rest, Block) when is_list(Rest) ->
@@ -94,6 +94,8 @@ process_md(Rest, Block) when is_list(Rest) ->
 -define(IS_BULLET(X), X =:= $*; X =:= $-; X =:= $+).
 -define(IS_NUMBERED(X), is_integer(X), min(0, X) =:= 0).
 
+process_rest([], Block) ->
+    Block;
 process_rest([P | Rest]=Doc, Block) ->
     {StrippedP, SpaceCount} = strip_spaces(P, 0, infinity),
     {Content, Rest1, Block2} = case StrippedP of
@@ -129,6 +131,8 @@ compact_content(Content) ->
                                  [X];
                              ({li, [], _}=Li2, [{li, [], _}=Li1 | Acc]) ->
                                  [Li2, Li1 | Acc];
+                             ({p, [], Ps}, [{li, [], [{p, [], Items}]} | Acc]) ->
+                                 [{li, [], [{p, [], Items ++ Ps}]} | Acc];
                              ({_, [], _}=P, [{li, [], Items} | Acc]) when is_list(Items) ->
                                  [{li, [], [P | Items]} | Acc];
                              (X, Acc) when is_list(Acc), is_tuple(X) ->
