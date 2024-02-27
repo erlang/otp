@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../vsn.mk
 VSN=$(JINTERFACE_VSN)
 APPLICATION=jinterface
+EPUB=false
 
 JAVADOC = javadoc
 JAVADOC_PKGS = com.ericsson.otp.erlang

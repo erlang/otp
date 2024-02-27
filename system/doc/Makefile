@@ -24,6 +24,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 VSN=$(shell cat $(ERL_TOP)/OTP_VERSION)
 OTP_REL=$(shell echo $(VSN) | awk -F. '{print $$1}')
+EX_DOC_VSN=$(shell cat $(ERL_TOP)/make/ex_doc_vsn)
 APPLICATION=Erlang System Documentation
 APP_DIR=../../lib/erl_interface
 INDEX_DIR=../../../doc
@@ -48,8 +49,12 @@ assets.copy: $(ASSETS_SRC)
 # ----------------------------------------------------
 # Copy and update HOWTOs
 # ----------------------------------------------------
-installation_guide/%.md: ../../HOWTO/%.md
-	$(gen_verbose)sed -e 's:%OTP-VSN%:$(VSN):g' -e 's:%OTP-REL%:$(OTP_REL):g' $< > $@
+installation_guide/%.md: ../../HOWTO/%.md ../../OTP_VERSION ../../make/ex_doc_vsn
+	$(gen_verbose)sed \
+          -e 's:%EX_DOC_VSN:$(EX_DOC_VSN):g' \
+          -e 's:%OTP-VSN%:$(VSN):g' \
+          -e 's:%OTP-REL%:$(OTP_REL):g' \
+          $< > $@
 
 # ----------------------------------------------------
 # Generate deprecations etc

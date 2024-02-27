@@ -80,5 +80,6 @@ core/erts.md: Makefile | core
 		echo "# $${APP}\n\n<script>window.location.replace(\"../lib/$${APP}/doc/html/index.html\")</script>" > $@
 
 HTML_DEPS=README.md man_index.md ../guides $(REDIRECTS)
+EPUB=false
 
 include $(ERL_TOP)/make/doc.mk

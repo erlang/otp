@@ -69,6 +69,10 @@ usage ()
     echo "    remove_prebuilt_files - create a minimal source tree"
     echo "    save_bootstrap - recreate primary bootstrap"
     echo ""
+    echo "Special targets for setting up the build environment:"
+    echo "    download_ex_doc             - download the correct ExDoc version from github"
+    echo "    update_ex_doc [--no-commit] - update and maybe commit new ex_doc version"
+    echo ""
     echo "Special targets for Windows(tm) build:"
     echo "    debuginfo_win32 <dir> - adds debug emulator and pdb files to <dir>"
     echo "    installer_win32 <dir> - creates a windows installer from <dir>" 
@@ -1006,6 +1010,68 @@ do_check ()
     exec $ERL_TOP/scripts/otp_build_check "$@"
 }
 
+do_download_ex_doc ()
+{
+    ## Download ex_doc and place in $ERL_TOP/bin folder
+    curl -s -L $(cat "$ERL_TOP/make/ex_doc_link") > $ERL_TOP/bin/ex_doc
+    chmod +x "$ERL_TOP/bin/ex_doc"
+    if command -v sha1sum > /dev/null; then
+        if ! (cd "$ERL_TOP/make" && sha1sum --status -c "ex_doc.sha1sum"); then
+            echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
+            exit 1
+        fi
+    elif command -v sha26sum > /dev/null; then
+        if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
+            echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
+            exit 1
+        fi
+    else
+        echo "Neither sha1sum nor sha256sum found to verify $ERL_TOP/bin/ex_doc" >&2
+        echo "Please check manually that the correct ex_doc was downloaded." >&2
+        exit 1
+    fi
+    echo "Downloaded ex_doc to $ERL_TOP/bin/ex_doc"
+}
+
+## Update make/ex_doc_link, make/ex_doc.sha256sum and make/ex_doc.sha1sum
+do_update_ex_doc ()
+{
+    get_do_commit $1
+
+    OTP_VERSION=$(awk -F. '{ print $1 }' "$ERL_TOP/OTP_VERSION")
+    EX_DOC_VSN=$(curl --silent -qI https://github.com/elixir-lang/ex_doc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null; then
+        OTP_VERSION="$(($OTP_VERSION-1))"
+    fi
+    if command -v sha1sum > /dev/null && command -v sha1sum > /dev/null; then
+        echo "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > "$ERL_TOP/make/ex_doc_link"
+        echo "${EX_DOC_VSN}" > "$ERL_TOP/make/ex_doc_vsn"
+        curl -sL "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex-doc-otp-${OTP_VERSION}.sha256sum" | sed 's:ex_doc.*$:../bin/ex_doc:' > "$ERL_TOP/make/ex_doc.sha256sum"
+        curl -sL "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex-doc-otp-${OTP_VERSION}.sha1sum" | sed 's:ex_doc.*$:../bin/ex_doc:' > "$ERL_TOP/make/ex_doc.sha1sum"
+        if do_download_ex_doc; then
+
+            out_files=
+
+            ## do_download_ex_doc checked sha1sum, we check sha256sum here to make sure
+            ## both are correct.
+            if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
+                echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
+                exit 1
+            fi
+            echo "Successfully updated ex_doc"
+            if [ $do_commit != true ]; then
+                echo "Updated: make/ex_doc_link make/ex_doc_vsn make/ex_doc_link.sha256sum make/ex_doc_link.sha1sum"
+            else
+                git add $ERL_TOP/make/ex_doc_link $ERL_TOP/make/ex_doc_vsn  $ERL_TOP/make/ex_doc.sha256sum $ERL_TOP/make/ex_doc.sha1sum
+                git commit -m  "Updated ex_doc version to ${EX_DOC_VSN}"
+            fi
+        fi
+    else
+        echo "You need to have both sha1sum and sha256sum installed to update ex_doc"
+        exit 1
+    fi
+}
+
 do_debuginfo_win32 ()
 {
     setup_make
@@ -1262,7 +1328,11 @@ case "$1" in
         save_bootstrap)
 		do_save_bootstrap;;
         copy_primary_bootstrap)
-		do_copy_primary_bootstrap $2 $3;;
+	        do_copy_primary_bootstrap $2 $3;;
+        download_ex_doc)
+                do_download_ex_doc;;
+        update_ex_doc)
+                do_update_ex_doc;;
 	installer_win32)
 		if [ $minus_x_flag = true ]; then
 		    shift

@@ -12,18 +12,13 @@ else
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]
     then
-        ## Download ex_doc and place in bin folder
-        OTP_VERSION=$(awk -F. '{ print $1 }' "$ERL_TOP/OTP_VERSION")
-        EX_DOC_VSN=$(curl --silent -qI https://github.com/elixir-lang/ex_doc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
-        if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null; then
-            OTP_VERSION="$(($OTP_VERSION-1))"
+        if $ERL_TOP/otp_build download_ex_doc; then
+            read -p "Press any key to continue..." -n 1 -r
+            echo "continuing"
+            exec ex_doc "${ARGS[@]}"
+        else
+            exit 1
         fi
-        curl -L https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION} > $ERL_TOP/bin/ex_doc
-        chmod +x $ERL_TOP/bin/ex_doc
-        echo "Downloaded ex_doc ${EX_DOC_VSN} to $ERL_TOP/bin/ex_doc"
-        read -p "Press any key to continue..." -n 1 -r
-        echo "continuing"
-        exec ex_doc "${ARGS[@]}"
     else
         exit 1
     fi

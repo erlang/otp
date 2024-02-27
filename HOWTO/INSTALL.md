@@ -87,11 +87,14 @@ also find the utilities needed for building the documentation.
 ### Building Documentation ###
 
 *   `ex_doc` -- [ExDoc](https://hexdocs.pm/ex_doc/readme.html) is a tool to
-  generate documentation for Erlang and Elixir projects.
+    generate html and epub documentation for Erlang and Elixir projects.
   
-  Download as an [escript from github](https://github.com/elixir-lang/ex_doc/releases/latest)
-  or get it from GitHub: <https://github.com/elixir-lang/ex_doc> and build
-  your self.
+    Download as an [escript from github](https://github.com/elixir-lang/ex_doc/releases/latest)
+    or get it from GitHub: <https://github.com/elixir-lang/ex_doc> and build
+    your self.
+    
+    You can also use `./otp_build download_ex_doc` to download the correct version
+    from github.
 
 How to Build and Install Erlang/OTP
 -----------------------------------
@@ -188,35 +191,24 @@ the `$PATH`.
 
     $ export PATH=$ERL_TOP/bin:$PATH     # Assuming bash/sh
 
-For the FOP print formatter, two steps must be taken:
+To build `html` and `epub` docs you need to have [ExDoc %EX_DOC_VSN](https://github.com/elixir-lang/ex_doc).
+See [Building Documentation](#building-documentation) for information on how to
+install ExDoc.
 
-*   Adding the location of your installation of `fop` in `$FOP_HOME`.
-
-        $ export FOP_HOME=/path/to/fop/dir # Assuming bash/sh
-
-*   Adding the `fop` script (in `$FOP_HOME`) to your `$PATH`, either by adding `$FOP_HOME` to `$PATH`, or by copying the `fop` script to a directory already in your `$PATH`.
-
-Build the documentation.
+Build the documentation using:
 
     $ make docs
 
 It is possible to limit which types of documentation is build by passing the `DOC_TARGETS`
-environment variable to `make docs`. The currently available types are: `html`, `pdf`, `man` and
-`chunks`. Example:
+environment variable to `make docs`.
+Example:
 
     $ make docs DOC_TARGETS=chunks
 
-#### Build Issues ####
+The currently available types are: `html` and `chunks`. Where:
 
-We have sometimes experienced problems with Oracle's `java` running out of
-memory when running `fop`. Increasing the amount of memory available
-as follows has in our case solved the problem.
-
-    $ export FOP_OPTS="-Xmx<Installed amount of RAM in MB>m"
-
-More information can be found at
-*   <http://xmlgraphics.apache.org/fop/0.95/running.html#memory>.
-
+* *chunks* - Build [EEP-48](`e:kernel:eep48_chapter.md`) documentation chunks.
+* *html* - Build html and epub documentation.
 
 ### How to Install the Documentation ###
 
@@ -243,12 +235,6 @@ environment variable as when building documentation.
 
 After installation you can access the documentation by
 
-*   Reading man pages. Make sure that `erl` is referring to the
-    installed version. For example `/usr/local/bin/erl`.
-    Try viewing at the man page for Mnesia
-
-        $ erl -man mnesia
-
 *   Browsing the html pages by loading the page `/usr/local/lib/erlang/doc/erlang/index.html`
     or `<BaseDir>/lib/erlang/doc/erlang/index.html` if the prefix option has been used.
 
@@ -257,19 +243,12 @@ After installation you can access the documentation by
 
 ### How to Install the Pre-formatted Documentation ###
 
-Pre-formatted [html documentation][] and [man pages][] can be downloaded from
-* <http://www.erlang.org/download.html>.
+Pre-formatted [html documentation][] can be downloaded from <http://www.erlang.org/download.html>.
 
 Extract the html archive in the installation directory.
 
     $ cd <ReleaseDir>
     $ tar -zxf otp_html_%OTP-VSN%.tar.gz
-
-For `erl -man <page>` to work the Unix manual pages have to be
-installed in the same way, i.e.
-
-    $ cd <ReleaseDir>
-    $ tar -zxf otp_man_%OTP-VSN%.tar.gz
 
 Where `<ReleaseDir>` is
 
@@ -796,7 +775,6 @@ Operating system
 [Pre-built Source Release]: #advanced-configuration-and-build-of-erlang-otp_Building_Prebuilt-Source-Release
 [make and $ERL_TOP]: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP
 [html documentation]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_html_%OTP-VSN%.tar.gz
-[man pages]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_doc_man_%OTP-VSN%.tar.gz
 [the released source tar ball]: https://github.com/erlang/otp/releases/download/OTP-%OTP-VSN%/otp_src_%OTP-VSN%.tar.gz
 [System Principles]: `e:system:system_principles.md`
 [native build]: #how-to-build-and-install-erlang-otp
