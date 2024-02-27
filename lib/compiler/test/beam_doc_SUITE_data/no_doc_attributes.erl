@@ -1,5 +1,5 @@
--module(spec).
--moduledoc "".
+-module(no_doc_attributes).
+
 -type yes() :: integer().
 -type no() :: atom().
 
@@ -11,7 +11,7 @@
             (no()) -> yes();
             (term()) -> #name{ }.
 
--spec spec:foo(yes()) -> {yes(), yes()} | yes();
+-spec foo(yes()) -> {yes(), yes()} | yes();
               (no()) -> no().
 foo(X) ->
     _ = #name{field = none},

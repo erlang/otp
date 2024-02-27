@@ -65,6 +65,11 @@
                moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
                moduledoc_meta = none :: none | #{ otp_doc_vsn => tuple() },
 
+               %% If the module has any documentation attributes at all.
+               %% If it does not and no documentation related options are
+               %% passed, then we don't generate a doc chunk.
+               has_docs = false :: boolean(),
+
                %% tracks exported functions from multiple `-export([...])`
                exported_functions = sets:new() :: sets:set({FunName :: atom(), Arity :: non_neg_integer()}),
 
@@ -233,24 +238,35 @@
 Transforms an Erlang abstract syntax form into EEP-48 documentation format.
 ".
 -spec main(file:filename(), file:filename(), [erl_parse:abstract_form()], [opt()]) ->
-          {ok, #docs_v1{}, warnings()}.
+          {ok, #docs_v1{}, warnings()} | {error, no_docs}.
 main(Dirname, Filename, AST, CmdLineOpts) ->
     Opts = extract_opts(AST, CmdLineOpts),
     State0 = new_state(Dirname, Filename, Opts),
     State1 = preprocessing(AST, State0),
-    Docs = extract_documentation(AST, State1),
-    {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
-    DocV1 = #docs_v1{},
-    Result = DocV1#docs_v1{ format = Docs#docs.docformat,
-                            anno = ModuleDocAnno,
-                            metadata = Docs#docs.moduledoc_meta,
-                            module_doc = ModuleDoc,
-                            docs = process_docs(Docs) },
-   {ok, Result, Docs#docs.warnings }.
+    if State1#docs.has_docs orelse Opts =/= [] ->
+            Docs = extract_documentation(AST, State1),
+            {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
+            DocV1 = #docs_v1{},
+            Result = DocV1#docs_v1{ format = Docs#docs.docformat,
+                                    anno = ModuleDocAnno,
+                                    metadata = Docs#docs.moduledoc_meta,
+                                    module_doc = ModuleDoc,
+                                    docs = process_docs(Docs) },
+            {ok, Result, Docs#docs.warnings };
+       not State1#docs.has_docs ->
+            {error, no_docs}
+    end.
 
 extract_opts(AST, CmdLineOpts) ->
     CompileOpts = lists:flatten([C || {attribute,_,compile,C} <- AST]),
-    normalize_warn_missing_doc(CmdLineOpts ++ CompileOpts).
+    NormalizedOpts = normalize_warn_missing_doc(CmdLineOpts ++ CompileOpts),
+
+    %% Filter out all unrelated opts
+    [Opt || Opt <- NormalizedOpts,
+            lists:member(Opt,[nowarn_hidden_doc]) orelse
+                (is_tuple(Opt) andalso tuple_size(Opt) =:= 2 andalso
+                 lists:member(element(1, Opt), [nowarn_hidden_doc,
+                                                warn_missing_doc]))].
 
 normalize_warn_missing_doc(Opts) ->
     normalize_warn_missing_doc(Opts, []).
@@ -295,6 +311,7 @@ process_docs(#docs{ast_callbacks = AstCallbacks, ast_fns = AstFns, ast_types = A
 preprocessing(AST, State) ->
    PreprocessingFuns = fun (AST0, State0) ->
                              Funs = [% Order matters
+                                     fun has_docs/2,
                                      fun extract_deprecated/2,
                                      fun extract_exported_types0/2, % done
                                      fun extract_signature_from_spec0/2,%done
@@ -312,6 +329,13 @@ preprocessing(AST, State) ->
                              foldl(fun (F, State1) -> F(AST0, State1) end, State0, Funs)
                        end,
    foldl(PreprocessingFuns, State, AST).
+
+has_docs({attribute, _Anno, moduledoc, _}, State) ->
+    State#docs{ has_docs = true };
+has_docs({attribute, _Anno, doc, _}, State) ->
+    State#docs{ has_docs = true };
+has_docs(_, State) ->
+    State.
 
 extract_deprecated({attribute, Anno, deprecated, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated, {F, A, undefined}}, State);
@@ -518,8 +542,9 @@ extract_hidden_types0({attribute, _Anno, doc, DocStatus}, State) when
    State#docs{hidden_status = hidden};
 extract_hidden_types0({attribute, _Anno, doc, _}, State) ->
    State;
-extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}}, #docs{hidden_status = hidden,
-                                                                                   hidden_types = HiddenTypes}=State)
+extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}},
+                      #docs{hidden_status = hidden,
+                            hidden_types = HiddenTypes}=State)
   when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
    State#docs{hidden_status = none,
               hidden_types = sets:add_element({Name, length(Args)}, HiddenTypes)};
