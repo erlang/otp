@@ -56,11 +56,13 @@ module has no references to records, attributes, or code.
 %% Is is assumed that Fs is a valid list of forms. It should pass
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
+    put(erl_expand_records_in_guard, false),
     Opts = compiler_options(Fs0) ++ Opts0,
     Dialyzer = lists:member(dialyzer, Opts),
     Calltype = init_calltype(Fs0),
     St0 = #exprec{compile = Opts, dialyzer = Dialyzer, calltype = Calltype},
     {Fs,_St} = forms(Fs0, St0),
+    erase(erl_expand_records_in_guard),
     Fs.
 
 compiler_options(Forms) ->
@@ -209,12 +211,18 @@ normalise_test(tuple, 1)     -> is_tuple;
 normalise_test(Name, _) -> Name.
 
 is_in_guard() ->
-    get(erl_expand_records_in_guard) =/= undefined.
+    get(erl_expand_records_in_guard).
 
 in_guard(F) ->
-    undefined = put(erl_expand_records_in_guard, true),
+    InGuard = put(erl_expand_records_in_guard, true),
     Res = F(),
-    true = erase(erl_expand_records_in_guard),
+    true = put(erl_expand_records_in_guard, InGuard),
+    Res.
+
+not_in_guard(F) ->
+    InGuard = put(erl_expand_records_in_guard, false),
+    Res = F(),
+    false = put(erl_expand_records_in_guard, InGuard),
     Res.
 
 %% record_test(Anno, Term, Name, Vs, St) -> TransformedExpr
@@ -370,11 +378,15 @@ expr({'fun',Anno,{function,F,A}}=Fun0, St0) ->
 expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
     {Fun,St};
 expr({'fun',Anno,{clauses,Cs0}}, St0) ->
-    {Cs,St1} = clauses(Cs0, St0),
-    {{'fun',Anno,{clauses,Cs}},St1};
+    not_in_guard(fun() ->
+                         {Cs,St1} = clauses(Cs0, St0),
+                         {{'fun',Anno,{clauses,Cs}},St1}
+                 end);
 expr({named_fun,Anno,Name,Cs0}, St0) ->
-    {Cs,St1} = clauses(Cs0, St0),
-    {{named_fun,Anno,Name,Cs},St1};
+    not_in_guard(fun() ->
+                         {Cs,St1} = clauses(Cs0, St0),
+                         {{named_fun,Anno,Name,Cs},St1}
+                 end);
 expr({call,Anno,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Anno, A, Name, St);
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
