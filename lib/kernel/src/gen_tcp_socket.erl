@@ -2086,7 +2086,7 @@ handle_close(#params{socket = Socket} = P, D, State, ActionsR) ->
             #recv{info = Info} ->
                 socket_cancel(P#params.socket, Info),
                 socket_close(Socket),
-                {next_state, 'closed_read', P_D_1, Actions_1} =
+                {next_state, _, P_D_1, Actions_1} =
                     handle_recv_error(P, D, ActionsR, closed),
                 {P_D_1, Actions_1};
             _ when State =:= 'closed_read';
@@ -2423,7 +2423,6 @@ handle_recv_error(
     %%
     %% Send active socket messages
     %%
-    %% ?DBG({Active, ShowEconnreset, ActionsR, Reason}),
     ModuleSocket = module_socket(P),
     Owner = P#params.owner,
     if
@@ -2441,32 +2440,39 @@ handle_recv_error(
               P, D_1, ActionsR, Reason,
               'connected');
         true ->
-            %% ?DBG({P#params.socket, {Reason,ShowEconnreset}}),
+            ShowEconnreset = maps:get(show_econnreset, D),
             ReplyReason =
                 case ShowEconnreset of
                     true when   Reason =:= closed       -> econnreset;
                     false when  Reason =:= econnreset   -> closed;
                     _ -> Reason
                 end,
-            D_1 =
-                case Active of
-                    false ->
-                        D;
-                    _ ->
-                        if
-                            ShowEconnreset =:= true;
-                            Reason =/= closed, Reason =/= econnreset ->
-                                Owner !
-                                    {tcp_error, ModuleSocket, ReplyReason},
-                                ok;
-                            true -> ok
+            case Active of
+                false ->
+                    handle_recv_error(
+                      P, D, ActionsR, ReplyReason, 'closed_read');
+                _ ->
+                    if
+                        ShowEconnreset =:= true;
+                        Reason =/= closed, Reason =/= econnreset ->
+                            Owner !
+                                {tcp_error, ModuleSocket, ReplyReason},
+                            ok;
+                        true -> ok
+                    end,
+                    Owner ! {tcp_closed, ModuleSocket},
+                    D_1 = D#{active := false, tcp_closed := true},
+                    NextState =
+                        case maps:get(exit_on_close, D) of
+                            true ->
+                                socket_close(P#params.socket),
+                                'closed';
+                            false ->
+                                'closed_read'
                         end,
-                        Owner ! {tcp_closed, ModuleSocket},
-                        D#{active := false, tcp_closed := true}
-                end,
-            handle_recv_error(
-              P, D_1, ActionsR, ReplyReason,
-              'closed_read')
+                    handle_recv_error(
+                      P, D_1, ActionsR, ReplyReason, NextState)
+            end
     end.
 %%
 handle_recv_error(P, D, ActionsR, ReplyReason, NextState) ->
