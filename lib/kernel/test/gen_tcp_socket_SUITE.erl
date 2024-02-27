@@ -275,6 +275,7 @@ send_loop(S, [Iovec | Iovecs]) ->
 
 connect(direct, Sockaddr, _) ->
     {ok, S} = socket:open(?DOMAIN, stream),
+    ok = socket:bind(S, any),
     ok = socket:setopt(S, {socket,rcvbuf}, ?BUFSIZE),
     ok = socket:setopt(S, {otp,rcvbuf},    ?BUFSIZE),
     io:format("socket:connect [~p].~n", [Sockaddr]),
