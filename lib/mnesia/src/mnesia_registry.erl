@@ -21,27 +21,16 @@
 %%
 -module(mnesia_registry).
 -moduledoc """
-Dump support for registries in erl_interface.
+This module is deprecated and the functions should not be used.
 
-This module is usually part of the `erl_interface` application, but is currently
-part of the Mnesia application.
+This module was intended for internal use within OTP by the `erl_interface` application,
+but it has two functions that are exported for public use.
 
-This module is mainly intended for internal use within OTP, but it has two
-functions that are exported for public use.
-
-On C-nodes, `erl_interface` has support for registry tables. These tables reside
-in RAM on the C-node, but can also be dumped into Mnesia tables. By default, the
-dumping of registry tables through `erl_interface` causes a corresponding Mnesia
-table to be created with `mnesia_registry:create_table/1`, if necessary.
-
-Tables that are created with these functions can be administered as all other
-Mnesia tables. They can be included in backups, replicas can be added, and so
-on. The tables are normal Mnesia tables owned by the user of the corresponding
-`erl_interface` registries.
+Since the `erl_interface` have removed the registry functionality a long time ago,
+these functions are deprecated.
 
 ## See Also
-
-[erl_interface(3)](`e:erl_interface:index.html`), `m:mnesia`
+ `m:mnesia`
 """.
 
 %%%----------------------------------------------------------------------
@@ -94,7 +83,9 @@ on. The tables are normal Mnesia tables owned by the user of the corresponding
 -export([start_dump/2, start_restore/2]).
 -export([create_table/1, create_table/2]).
 
-%% Internal exports 
+-deprecated([{create_table, '_', "use mnesia:create_table/2 instead"}]).
+
+%% Internal exports
 -export([init/4]).
 
 -record(state, {table, ops = [], link_to}).
@@ -169,7 +160,10 @@ start_restore(Tab, LinkTo) ->
     start(restore, Tab, LinkTo).
 
 -doc """
-create_table(Tab) -> ok | exit(Reason)
+> #### Warning {: .warning }
+>
+> _This function is deprecated. Do not use it._
+>
 
 A wrapper function for `mnesia:create_table/2`, which creates a table (if there
 is no existing table) with an appropriate set of `attributes`. The table only
@@ -187,7 +181,10 @@ create_table(Tab) ->
     create_table(Tab, [{Storage, [node()]}]).
 
 -doc """
-create_table(Tab, TabDef) -> ok | exit(Reason)
+> #### Warning {: .warning }
+>
+> _This function is deprecated. Do not use it._
+>
 
 A wrapper function for `mnesia:create_table/2`, which creates a table (if there
 is no existing table) with an appropriate set of `attributes`. The attributes

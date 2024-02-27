@@ -18,6 +18,12 @@
 #
 
 #
+# Added in OTP 27.
+#
+
+mnesia_registry:create_table/_ since=27 remove=28
+
+#
 # Added in OTP 26.
 #
 file:pid2name/1 since=26 remove=27

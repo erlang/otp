@@ -220,6 +220,8 @@ obsolete(zlib, setBufSize, 2) ->
     {removed, "this function has been removed"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
+obsolete(mnesia_registry, create_table, _) ->
+    {deprecated, "Use mnesia:create_table/2 instead", "OTP 28"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
