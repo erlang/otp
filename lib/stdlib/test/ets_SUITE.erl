@@ -7979,7 +7979,7 @@ racy_rename(_Config) ->
     % A writer process does rename(A->B), insert(B, {key, value}), delete(B, key), rename(B->A) in a loop
     % A reader process does lookup(A, key) in a loop. We want to make sure that it never sees value.
     Parent = self(),
-    WriterIterations=1000,
+    WriterIterations=10000,
     Reader = spawn_link(fun () -> racy_rename_reader() end),
     spawn_link(?MODULE, racy_rename_writer, [Parent, Reader, WriterIterations]),
     receive done -> ok end,

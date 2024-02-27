@@ -866,6 +866,7 @@ DbTable* db_get_table_aux(Process *p,
             // - Reader does ets:lookup(a, key)
             // We want to make sure that the reader does not get {key, value}, when it was not ever in a table called "a".
             if (ERTS_UNLIKELY(tb->common.the_name != id)) {
+                db_unlock(tb, kind);
                 *freason_p = BADARG | EXF_HAS_EXT_INFO;
                 p->fvalue = EXI_ID;
                 return NULL;
