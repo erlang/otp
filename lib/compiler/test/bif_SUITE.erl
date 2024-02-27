@@ -23,6 +23,7 @@
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
+         unsafe_get_list/1,
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
          cover_trim/1,
          head_tail/1,
@@ -37,6 +38,7 @@ all() ->
 groups() ->
     [{p,test_lib:parallel(),
       [beam_validator,
+       unsafe_get_list,
        trunc_and_friends,
        cover_safe_and_pure_bifs,
        cover_trim,
@@ -57,6 +59,21 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+unsafe_get_list(_Config) ->
+    [[1], [1], [1]] = create_rows(id(3)),
+    ok.
+
+create_rows(Num) -> create_rows(Num, [[1]]).
+
+create_rows(1, Rows) ->
+    Rows;
+create_rows(Num, [PrevRow | _] = Rows) ->
+    [_PrevRowH | PrevRowT] = PrevRow,
+    [] = first(PrevRowT, PrevRow),
+    create_rows(Num - 1, [[1] | Rows]).
+
+first(Fst, _Snd) -> Fst.
 
 %% Cover code in beam_validator.
 
