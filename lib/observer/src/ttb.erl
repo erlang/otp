@@ -59,7 +59,7 @@ parallel.
 -define(get_status,).
 -endif.
 
--type nodes() :: node() | [node()] | all | existing | new.
+-type nodes() :: node() | [node()] | all.
 -type item() :: pid() | port() | atom() | {global, term()} | all | processes |
                 ports | existing | existing_processes | existing_ports |
                 new | new_processes | new_ports.
