@@ -25,6 +25,9 @@
          stop_service/1,
          add_transport/2,
          remove_transport/2,
+         which_transports/0,  which_transports/1,
+         which_watchdogs/0,   which_watchdogs/1,
+         which_connections/0, which_connections/1,
          subscribe/1,
          unsubscribe/1]).
 
@@ -142,6 +145,7 @@ start_service(SvcName, Opts)
 stop_service(SvcName) ->
     diameter_config:stop_service(SvcName).
 
+
 %% ---------------------------------------------------------------------------
 %% services/0
 %% ---------------------------------------------------------------------------
@@ -151,6 +155,7 @@ stop_service(SvcName) ->
 
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
+
 
 %% ---------------------------------------------------------------------------
 %% service_info/2
@@ -164,7 +169,7 @@ service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
 
 %% ---------------------------------------------------------------------------
-%% peer_info/2
+%% peer_info/1
 %% ---------------------------------------------------------------------------
 
 -spec peer_info(peer_ref())
@@ -205,6 +210,90 @@ add_transport(SvcName, {T, Opts} = Cfg)
 
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
+
+
+%% ---------------------------------------------------------------------------
+%% which_transport/0, which_transport/1
+%% ---------------------------------------------------------------------------
+
+-spec which_transports() -> [#{ref     := reference(),
+                               type    := atom(),
+                               service := string()}].
+which_transports() ->
+    diameter_config:which_transports().
+
+
+-spec which_transports(SvcName) -> [#{ref  := reference(),
+                                      type := atom()}] when
+      SvcName :: string().
+
+which_transports(SvcName) ->
+    diameter_config:which_transports(SvcName).
+
+
+%% ---------------------------------------------------------------------------
+%% which_watchdogs/0, which_watchdogs/1
+%% ---------------------------------------------------------------------------
+
+-spec which_watchdogs() -> [#{ref     := reference(),
+                              type    := atom(),
+                              pid     := pid(),
+                              state   := diameter_service:wd_state(),
+                              peer    := boolean() | pid(),
+                              uptime  := {Hours, Mins, Secs, MicroSecs},
+                              service := SvcName}] when
+      Hours     :: non_neg_integer(),
+      Mins      :: 0..59,
+      Secs      :: 0..59,
+      MicroSecs :: 0..999999,
+      SvcName   :: string().
+
+which_watchdogs() ->
+    diameter_service:which_watchdogs().
+
+
+-spec which_watchdogs(SvcName) ->
+          [#{ref     := reference(),
+             type    := atom(),
+             pid     := pid(),
+             state   := diameter_service:wd_state(),
+             peer    := boolean() | pid(),
+             uptime  := {Hours, Mins, Secs, MicroSecs}}] when
+      SvcName   :: string(),
+      Hours     :: non_neg_integer(),
+      Mins      :: 0..59,
+      Secs      :: 0..59,
+      MicroSecs :: 0..999999.
+
+which_watchdogs(SvcName) ->
+    diameter_service:which_watchdogs(SvcName).
+
+
+%% ---------------------------------------------------------------------------
+%% which_connections/0, which_connections/1
+%% ---------------------------------------------------------------------------
+
+-spec which_connections() ->
+          [{SvcName,
+            [#{peer     := term(),
+               wd       := term(),
+               peername := {inet:ip_address(), inet:port_number()},
+               sockname := {inet:ip_address(), inet:port_number()}}]}] when
+      SvcName :: string().
+
+which_connections() ->
+    diameter_service:which_connections().
+
+-spec which_connections(SvcName) ->
+          [#{peer     := term(),
+             wd       := term(),
+             peername := {inet:ip_address(), inet:port_number()},
+             sockname := {inet:ip_address(), inet:port_number()}}] when
+      SvcName :: string().
+
+which_connections(SvcName) ->
+    diameter_service:which_connections(SvcName).
+
 
 %% ---------------------------------------------------------------------------
 %% subscribe/1

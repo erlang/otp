@@ -55,7 +55,9 @@
          call_module/3,
          whois/1,
          state/1,
-         uptime/1]).
+         uptime/1,
+         which_watchdogs/0,   which_watchdogs/1,
+         which_connections/0, which_connections/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -65,9 +67,16 @@
          terminate/2,
          code_change/3]).
 
+-export_type([wd_state/0]).
+
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+%% Enable debug logging by set(ing) level to debug.
+%% For example: logger:set_primary_config(level, debug),
+%% -define(DBG(F,A),
+%%         logger:debug("~w:~w(~w) -> " ++ F ++ "~n",
+%%                      [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
 
 %% RFC 3539 watchdog states.
 -define(WD_INITIAL, initial).
@@ -204,6 +213,138 @@ stop_transport(_, []) ->
     ok;
 stop_transport(SvcName, [_|_] = Refs) ->
     call_service_by_name(SvcName, {stop, Refs}).
+
+
+%% --------------------------------------------------------------------------
+%% # which_watchdogs/0, which_watchdogs/1
+%% --------------------------------------------------------------------------
+
+which_watchdogs() ->
+    which_watchdogs(services(), []).
+
+which_watchdogs([], Acc) ->
+    lists:flatten(lists:reverse(Acc));
+which_watchdogs([{SvcName, _} | Services], Acc) ->
+    case which_watchdogs(SvcName) of
+        WDs when is_list(WDs) ->
+            which_watchdogs(Services,
+                            [[WD#{service => SvcName} || WD <- WDs] | Acc]);
+        undefined ->
+            which_watchdogs(Services, Acc)
+    end.
+
+which_watchdogs(SvcName) ->
+    case lookup_state(SvcName) of
+        [#state{watchdogT = WDT}] ->
+            [#{pid    => Pid,
+               ref    => Ref,
+               type   => Type,
+               state  => State,
+               uptime => diameter_lib:now_diff(Started),
+               peer   => Peer} ||
+                #watchdog{pid     = Pid,
+                          type    = Type,
+                          ref     = Ref,
+                          state   = State,
+                          started = Started,
+                          peer    = Peer} <- ets:tab2list(WDT)];
+        [] ->
+            undefined
+    end.
+
+
+%% ---------------------------------------------------------------------------
+%% # which_connections/0, which_connections/1
+%% ---------------------------------------------------------------------------
+
+which_connections() ->
+    Services = [SvcName || {SvcName, _} <- services()],
+    which_connections1(Services).
+
+which_connections1(Services) ->
+    which_connections1(Services, []).
+
+which_connections1([], Acc) ->
+    lists:reverse(Acc);
+which_connections1([SvcName | Services], Acc) ->
+    case which_connections(SvcName) of
+        [] ->
+            which_connections1(Services, Acc);
+        Conns ->
+            which_connections1(Services, [{SvcName, Conns} | Acc])
+    end.
+
+which_connections(SvcName) ->
+    case lookup_state(SvcName) of
+        [#state{watchdogT = WDT,
+                local     = {PT, _, _}}] ->
+            connections_info(WDT, PT);
+        [] ->
+            []
+    end.
+
+connections_info(WDT, PT) ->
+    try ets:tab2list(WDT) of
+        L ->
+            connections_info2(PT, L)
+    catch
+        error: badarg -> []  %% service has gone down
+    end.
+    
+connections_info2(PT, L) ->
+    connections_info2(PT, L, []).
+
+connections_info2(_PT, [], Acc) ->
+    lists:reverse(Acc);
+connections_info2(PT, [WD | WDs], Acc) ->
+    ConnInfo = connection_info(PT, WD),
+    connections_info2(PT, WDs, [ConnInfo | Acc]).
+
+connection_info(PT, #watchdog{pid     = Pid,
+                              type    = Type,
+                              ref     = Ref,
+                              state   = State,
+                              started = Started,
+                              peer    = TPid}) ->
+    Info = #{wd => #{ref    => Ref,
+                     pid    => Pid,
+                     type   => Type,
+                     state  => State,
+                     uptime => diameter_lib:now_diff(Started)}
+            },
+    connection_info2(PT, TPid, State, Info).
+
+connection_info2(PT, TPid, State, Info)
+  when is_pid(TPid) andalso (State =/= ?WD_DOWN) ->
+    try ets:lookup(PT, TPid) of
+        [#peer{pid = PPid, started = Started}] ->
+            connection_info3(PPid, Started, Info);
+        [] ->
+            Info
+    catch
+        error: badarg -> []  %% service has gone down
+    end;
+connection_info2(_PT, _PPid, _State, Info) ->
+    Info.
+
+connection_info3(PPid, Started, Info) ->
+    Info2     = Info#{peer => #{pid    => PPid,
+                                uptime => diameter_lib:now_diff(Started)}},
+    {_, PD}   = process_info(PPid, dictionary),
+    {_, T}    = lists:keyfind({diameter_peer_fsm, start}, 1, PD),
+    {TPid, {_Type, TMod, _Cfg}} = T,
+    {_, TD}   = process_info(TPid, dictionary),
+    {_, Data} = lists:keyfind({TMod, info}, 1, TD),
+    try TMod:info(Data) of
+        TInfo ->
+            Socket = proplists:get_value(socket, TInfo),
+            Peer   = proplists:get_value(peer,   TInfo),
+            Info2#{sockname => Socket,
+                   peername => Peer}
+    catch
+        _:_ -> Info2
+    end.
+          
 
 %% ---------------------------------------------------------------------------
 %% # info/2
@@ -385,6 +526,10 @@ uptime(Svc) ->
 
 call_module(Service, AppMod, Request) ->
     call_service(Service, {call_module, AppMod, Request}).
+
+
+%% ===========================================================================
+%% ===========================================================================
 
 %% ---------------------------------------------------------------------------
 %% # init/1
@@ -1974,7 +2119,8 @@ complete_info(Item, #state{service = Svc} = S) ->
                 #diameter_caps.firmware_revision;
         capabilities -> service_info(?CAP_INFO, S);
         applications -> info_apps(S);
-        transport    -> info_transport(S);
+        transport        -> info_transport(S, false);
+        transport_simple -> info_transport(S, true);
         options      -> info_options(S);
         keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
@@ -2016,7 +2162,16 @@ info_stats(#state{watchdogT = WatchdogT}) ->
 %% the accumulated values for the ref and associated watchdog/peer
 %% pids.
 
-info_transport(S) ->
+%% foo() ->
+%%     #{ref              :: reference(),
+%%       type             :: connect | listen,
+%%       transport_module :: module(),
+%%       wd               :: {pid(), integer(), wd_state()},
+%%       peer             :: {pid(), Started :: integer()},
+%%       local            :: {inet:ip_address(), inet:port_number()},
+%%       remote           :: {inet:ip_address(), inet:port_number()}}.
+
+info_transport(S, _) ->
     PeerD = peer_dict(S, config_dict(S)),
     Stats = diameter_stats:sum(dict:fetch_keys(PeerD)),
     dict:fold(fun(R, Ls, A) ->
@@ -2165,7 +2320,6 @@ bins_sum3([{P, S, _} | T], N, D) ->
     bins_sum3(T, N-1, dict:store(P,S,D)).
 
 
-    
 
 %% The point of extracting the config here is so that 'transport' info
 %% has one entry for each transport ref, the peer table only

@@ -298,13 +298,52 @@ traffic(#group{} = Cfg) ->
     ok = client(Cfg, LRef),
     [] = send(Cfg),
 
-    io:format("Service(s) info: "
-              "~n   ~p"
-              "~n", [[{SvcName, diameter:service_info(SvcName, all)} ||
-                         SvcName <- diameter:services()]]),
+    print_services_info(),
 
     ok = stop_services(Cfg),
     [] = ets:tab2list(diameter_request).
+
+
+print_services_info() ->
+    print_services_info(diameter:services()).
+
+print_services_info([]) ->
+    io:format("~n", []);
+print_services_info([Service | Services]) ->
+    io:format("~n   Service: ~s"
+              "~n      Config:"
+              "~n         ~p"
+              "~n      Which Connections:"
+              "~n         ~p"
+              "~n      Which Connections/Service:"
+              "~n         ~p"
+              "~n      Which Watchdogs:"
+              "~n         ~p"
+              "~n      Which Watchdogs/Service:"
+              "~n         ~p"
+              "~n      Which Transports:"
+              "~n         ~p"
+              "~n      Which Transports/Service:"
+              "~n         ~p"
+              "~n      Peers Info:"
+              "~n         ~p"
+              "~n      Transport Info:"
+              "~n         ~p"
+              "~n      All info:"
+              "~n         ~p",
+              [Service,
+               diameter_config:lookup(Service),
+               diameter:which_connections(),
+               diameter:which_connections(Service),
+               diameter:which_watchdogs(),
+               diameter:which_watchdogs(Service),
+               diameter:which_transports(),
+               diameter:which_transports(Service),
+               diameter:service_info(Service, peers),
+               diameter:service_info(Service, transport),
+               diameter:service_info(Service, all)]),
+    print_services_info(Services).
+
 
 %% start_service/2
 
