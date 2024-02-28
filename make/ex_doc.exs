@@ -92,17 +92,17 @@ groups_for_docs =
     fn {:type, title} ->
       {"Types: #{title}",
        fn a ->
-         a[:__doc__] == :type && String.equivalent?(Access.get(a, :title, ""), title)
+          a[:kind] == :type && String.equivalent?(Access.get(a, :title, ""), title)
        end}
     end
   ) ++
-    [Types: &(&1[:__doc__] == :type)] ++
+    [Types: &(&1[:kind] == :type)] ++
     Enum.map(
       Access.get(titles, :function, []),
       fn {:function, title} ->
         {"#{title}",
          fn a ->
-           a[:__doc__] == nil && String.equivalent?(Access.get(a, :title, ""), title)
+           a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
          end}
       end
     )
