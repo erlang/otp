@@ -90,10 +90,15 @@ The configuration files are described in the SNMP User's Manual.
              ]).
 
 
+%% *** admin_string ***
 -doc "`OCTET STRING (SIZE(0..255))`".
 -type admin_string()             :: string().
+
+%% *** engine_id ***
 -doc "`OCTET STRING (SIZE(5..32))`".
 -type engine_id()                :: string().
+
+%% *** max_message_size ***
 -doc """
 > #### Note {: .info }
 >
@@ -105,6 +110,8 @@ The configuration files are described in the SNMP User's Manual.
 `INTEGER (484..2147483647)`
 """.
 -type max_message_size()         :: 484 .. 2147483647.
+
+%% *** message_processing_model ***
 -doc """
 > #### Note {: .info }
 >
@@ -115,12 +122,14 @@ The configuration files are described in the SNMP User's Manual.
 >                         0  reserved for SNMPv1
 >                         1  reserved for SNMPv2c
 >                         2  reserved for SNMPv2u and SNMPv2*
-> 			3  reserved for SNMPv3
+>                         3  reserved for SNMPv3
 > ```
 
 `INTEGER(0 .. 2147483647)`
 """.
 -type message_processing_model() :: v1 | v2c | v3.
+
+%% *** security_model ***
 -doc """
 > #### Note {: .info }
 >
@@ -138,6 +147,8 @@ The configuration files are described in the SNMP User's Manual.
 `INTEGER(0 .. 2147483647)`
 """.
 -type security_model()           :: any | v1 | v2c | usm.
+
+%% *** security_level ***
 -doc """
 > #### Note {: .info }
 >
