@@ -572,7 +572,7 @@ seconds_to_daystime(Secs) ->
 %%
 %% Wraps.
 %%
--type secs_per_day() :: 0..?SECONDS_PER_DAY.
+-type secs_per_day() :: 0..86399.
 -doc """
 Computes the time from the specified number of seconds. `Seconds` must be less
 than the number of seconds per day (86400).
