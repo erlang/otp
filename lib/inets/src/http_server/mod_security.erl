@@ -21,10 +21,7 @@
 -module(mod_security).
 -moduledoc """
 Security Audit and Trailing Functionality
-
-Security Audit and Trailing Functionality
 """.
--moduledoc(#{titles => [{callback,<<"SecurityCallbackModule">>}]}).
 
 %% Security Audit Functionality
 
@@ -46,9 +43,7 @@ Security Audit and Trailing Functionality
 %%====================================================================
 %% Internal application API
 %%====================================================================
--doc(#{title => <<"SecurityCallbackModule">>,
-       equiv => {callback,event,5},
-       since => <<"OTP 18.1">>}).
+-doc(#{since => <<"OTP 18.1">>}).
 -callback event(What, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),
@@ -56,8 +51,6 @@ Security Audit and Trailing Functionality
       Data :: [Info],
       Info :: {Name :: term(), Value :: term()}.
 -doc """
-[](){: #callback_module_event }
-
 [`event/4`](`c:event/4`) or [`event/5`](`c:event/5`) is called whenever an event
 occurs in the `mod_security` Erlang web server API module.
 ([`event/4`](`c:event/4`) is called if `Address` is undefined, otherwise
@@ -75,7 +68,7 @@ occurred and is one of the following reasons:
 > The event `user_unblock` is not triggered when a user is removed from the
 > block list explicitly using the `unblock_user` function.
 """.
--doc(#{title => <<"SecurityCallbackModule">>,since => <<"OTP 18.1">>}).
+-doc(#{since => <<"OTP 18.1">>}).
 -callback event(What, Address, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),

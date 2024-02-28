@@ -130,7 +130,7 @@ connection configuration:
 -type conn_handle()    :: #megaco_conn_handle{}.
 -type megaco_timer()   :: infinity | non_neg_integer() | #megaco_incr_timer{}.
 
--doc(#{equiv => {callback,handle_connect,3}}).
+-doc(#{equiv => handle_connect/3}).
 -callback handle_connect(ConnHandle, ProtocolVersion) -> 
     ok | error | {error, ErrorDescr} when
       ConnHandle      :: conn_handle(),
@@ -181,7 +181,7 @@ implicitly when the control process of the connection dies.
       ProtocolVersion :: megaco_encoder:protocol_version(),
       Reason          :: term().
 
--doc(#{equiv => {callback,handle_syntax_error,4}}).
+-doc(#{equiv => handle_syntax_error/4}).
 -callback handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED) -> 
     reply | {reply, ED} | no_reply | {no_reply, ED} when
       ReceiveHandle   :: receive_handle(),
@@ -220,7 +220,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       ED              :: megaco_encoder:error_desc(),
       Extra           :: term().
 
--doc(#{equiv => {callback,handle_message_error,4}}).
+-doc(#{equiv => handle_message_error/4}).
 -callback handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr) ->
     megaco:void() when
       ConnHandle      :: conn_handle(),
@@ -251,7 +251,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       ErrorDescr      :: megaco_encoder:error_desc(),
       Extra           :: term().
 
--doc(#{equiv => {callback,handle_trans_request,4}}).
+-doc(#{equiv => handle_trans_request/4}).
 -callback handle_trans_request(ConnHandle, ProtocolVersion, ActionRequests) ->
     Pending | Reply | ignore_trans_request when
       ConnHandle      :: conn_handle(),
@@ -361,7 +361,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
                          {send_handle,      term()} |
                          {protocol_version, integer()}.
 
--doc(#{equiv => {callback,handle_trans_long_request,4}}).
+-doc(#{equiv => handle_trans_long_request/4}).
 -callback handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData) ->
     Reply when
       ConnHandle      :: conn_handle(),
@@ -418,7 +418,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
                          {send_handle, term()} |
                          {protocol_version, megaco_encoder:protocol_version()}.
 
--doc(#{equiv => {callback,handle_trans_reply,5}}).
+-doc(#{equiv => handle_trans_reply/5}).
 -callback handle_trans_reply(ConnHandle,
                              ProtocolVersion,
                              UserReply,
@@ -562,7 +562,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       ReplyNo              :: pos_integer().
 
 
--doc(#{equiv => {callback,handle_trans_ack,5}}).
+-doc(#{equiv => handle_trans_ack/5}).
 -callback handle_trans_ack(ConnHandle,
                            ProtocolVersion,
                            AckStatus,
@@ -634,7 +634,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       ReasonForSendFailure :: term(),
       OtherReason          :: term().
 
--doc(#{equiv => {callback,handle_unexpected_trans,4}}).
+-doc(#{equiv => handle_unexpected_trans/4}).
 -callback handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans) ->
     ok when
       ConnHandle      :: conn_handle(),
@@ -665,7 +665,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
                          megaco_encoder:transaction_response_ack(),
       Extra           :: term().
 
--doc(#{equiv => {callback,handle_trans_request_abort,5}}).
+-doc(#{equiv => handle_trans_request_abort/5}).
 -callback handle_trans_request_abort(ConnHandle,
                                      ProtocolVersion,
                                      TransNo,
@@ -698,7 +698,7 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       Pid             :: undefined | pid(),
       Extra           :: term().
 
--doc(#{equiv => {callback,handle_segment_reply,6}}).
+-doc(#{equiv => handle_segment_reply/6}).
 -callback handle_segment_reply(ConnHandle,
                                ProtocolVersion,
                                TransNo,

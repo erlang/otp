@@ -38,7 +38,7 @@ module:
 [](){: #send_message }
 """.
 
--doc(#{equiv => {callback,send_message,3}}).
+-doc(#{equiv => send_message/3}).
 -callback send_message(Handle, Msg) -> ok | {cancel, Reason :: term()} | Error when
       Handle :: term(),
       Msg :: iodata(),

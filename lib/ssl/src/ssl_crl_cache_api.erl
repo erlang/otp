@@ -48,7 +48,7 @@ For description see
 -doc "Information for ssl applications use of [Logger(3)](`m:logger`)".
 -type logger_info()     :: {logger:level(), Report::#{description => string(), reason => term()}, logger:metadata()}.
 
--doc(#{equiv => {callback,lookup,3},since => <<"OTP 18.0,OTP 19.0,OTP 22.2">>}).
+-doc(#{equiv => lookup/3,since => <<"OTP 18.0,OTP 19.0,OTP 22.2">>}).
 -callback lookup(dist_point(), crl_cache_ref()) ->
     not_available | [public_key:der_encoded()] |
     {{logger, logger_info()}, [public_key:der_encoded()]}.

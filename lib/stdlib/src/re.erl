@@ -34,7 +34,6 @@ fields can change in future Erlang/OTP releases.
 
 -type nl_spec() :: cr | crlf | lf | anycrlf | any.
 
--doc(#{equiv => {type,compile_option,0}}).
 -type compile_options() :: [compile_option()].
 -type compile_option() :: unicode | anchored | caseless | dollar_endonly
                         | dotall | extended | firstline | multiline
@@ -43,9 +42,7 @@ fields can change in future Erlang/OTP releases.
                         | bsr_anycrlf | bsr_unicode
                         | no_start_optimize | ucp | never_utf.
 
--doc(#{equiv => {type,capture,0}}).
 -type options() :: [option()].
--doc(#{equiv => {type,capture,0}}).
 -type option() :: anchored | global | notbol | noteol | notempty |
                   notempty_atstart | report_errors |
                   {offset, non_neg_integer()} |

@@ -221,7 +221,7 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 -doc(#{title => <<"Options for the default ssh_file callback module">>}).
 -type user_dir_common_option()     :: {user_dir,  string()}.
 -doc(#{title => <<"Options for the default ssh_file callback module">>,
-       equiv => {type,user2dir,0}}).
+       equiv => user2dir/0}).
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -doc """
 Sets the [user directory](`m:ssh_file#USERDIR`) dynamically by evaluating the
@@ -246,7 +246,7 @@ call that initiates an ssh connection.
 -doc(#{title => <<"Options for the default ssh_file callback module">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
 -doc(#{title => <<"Options for the default ssh_file callback module">>,
-       equiv => {type,openssh_key_v1_attributes,0}}).
+       equiv => openssh_key_v1_attributes/0}).
 -type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
 -doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
 -doc(#{title => <<"Options for the default ssh_file callback module">>}).
