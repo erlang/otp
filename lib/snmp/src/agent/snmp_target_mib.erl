@@ -70,6 +70,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
+
+%% *** name ***
 -doc """
 > #### Note {: .info }
 >
@@ -79,6 +81,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type name()             :: snmp_framework_mib:admin_string().
+
+%% *** tag_value ***
 -doc """
 > #### Note {: .info }
 >
@@ -88,6 +92,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `OCTET STRING (SIZE (0..255))`
 """.
 -type tag_value()        :: string().
+
+%% *** retry_count ***
 -doc """
 > #### Note {: .info }
 >
@@ -97,6 +103,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `Integer32 (0..255)`
 """.
 -type retry_count()      :: 0 .. 255.
+
+%% *** tag_list ***
 -doc """
 > #### Note {: .info }
 >
@@ -110,6 +118,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `OCTET STRING (SIZE (0..255))`
 """.
 -type tag_list()         :: string().
+
+%% *** params ***
 -doc """
 > #### Note {: .info }
 >
@@ -118,6 +128,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type params()           :: snmp_framework_mib:admin_string().
+
+%% *** tmask ***
 -doc """
 > #### Note {: .info }
 >
@@ -128,6 +140,8 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 `OCTET STRING (SIZE (0..255))`
 """.
 -type tmask()            :: snmpa_conf:transportAddressMask().
+
+%% *** mms ***
 -doc """
 > #### Note {: .info }
 >
@@ -652,7 +666,7 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 		true ->
 		    {ok, Key};
 		false ->
-		    {create_failed}
+		    {error, create_failed}
 	    end;
 	{error, Reason} ->
 	    {error, Reason};
@@ -908,6 +922,7 @@ set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
 				    [{?snmpTargetAddrEngineId, EngineId}]).
+
 
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
