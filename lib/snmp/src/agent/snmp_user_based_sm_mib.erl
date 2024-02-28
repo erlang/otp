@@ -83,6 +83,7 @@ The configuration files are described in the SNMP User's Manual.
 -define(is_cloning,     16).
 
 
+%% *** name ***
 -doc """
 > #### Note {: .info }
 >
@@ -92,6 +93,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type name()             :: snmp_framework_mib:admin_string().
+
+%% *** clone_from ***
 -doc """
 > #### Note {: .info }
 >
@@ -101,6 +104,8 @@ The configuration files are described in the SNMP User's Manual.
 `RowPointer`
 """.
 -type clone_from()       :: zeroDotZero | snmp:row_pointer().
+
+%% *** auth_protocol ***
 -doc """
 > #### Note {: .info }
 >
@@ -122,6 +127,8 @@ The configuration files are described in the SNMP User's Manual.
                             usmHMAC192SH256AuthProtocol   |
                             usmHMAC256SHA384AuthProtocol  |
                             usmHMAC384SHA512AuthProtocol.
+
+%% *** key_change ***
 -doc """
 > #### Note {: .info }
 >
@@ -131,6 +138,8 @@ The configuration files are described in the SNMP User's Manual.
 `OCTET STRING`
 """.
 -type key_change()       :: snmp:octet_string().
+
+%% *** priv_protocol ***
 -doc """
 > #### Note {: .info }
 >
@@ -148,8 +157,12 @@ The configuration files are described in the SNMP User's Manual.
 -type priv_protocol()    :: usmNoPrivProtocol    |
                             usmDESPrivProtocol   |
                             usmAesCfb128Protocol.
+
+%% *** public ***
 -doc "`OCTET STRING (SIZE(0..32))`".
 -type public()           :: string().
+
+%% *** auth_key ***
 -doc """
 The size/length of the list depends on auth protocol:
 
@@ -164,6 +177,8 @@ The size/length of the list depends on auth protocol:
 ```
 """.
 -type auth_key()         :: snmp:octet_string().
+
+%% *** priv_key ***
 -doc """
 The size/length of the list depends on priv protocol:
 
