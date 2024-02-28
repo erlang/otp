@@ -98,6 +98,7 @@ The configuration files are described in the SNMP User's Manual.
 %%-----------------------------------------------------------------
 
 
+%% *** group_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -107,8 +108,12 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type group_name()                 :: snmp_framework_mib:admin_string().
+
+%% *** context_prefix ***
 -doc "`SnmpAdminString (SIZE(0..32))`".
 -type context_prefix()             :: snmp_framework_mib:admin_string().
+
+%% *** context_match ***
 -doc """
 ```text
 	  exact  - exact match of prefix and contextName
@@ -118,6 +123,8 @@ The configuration files are described in the SNMP User's Manual.
 `INTEGER { exact (1), prefix (2) }`
 """.
 -type context_match()              :: 'exact' | 'prefix'.
+
+%% *** access_read_view_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -127,6 +134,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(0..32))`
 """.
 -type access_read_view_name()      :: snmp_framework_mib:admin_string().
+
+%% *** access_write_view_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -136,6 +145,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(0..32))`
 """.
 -type access_write_view_name()     :: snmp_framework_mib:admin_string().
+
+%% *** access_notify_view_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -145,6 +156,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(0..32))`
 """.
 -type access_notify_view_name()    :: snmp_framework_mib:admin_string().
+
+%% *** security_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -154,6 +167,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type security_name()              :: snmp_framework_mib:admin_string().
+
+%% *** view_name ***
 -doc """
 > #### Note {: .info }
 >
@@ -162,6 +177,8 @@ The configuration files are described in the SNMP User's Manual.
 `SnmpAdminString (SIZE(1..32))`
 """.
 -type view_name()                  :: snmp_framework_mib:admin_string().
+
+%% *** view_type ***
 -doc """
 Does the corresponding instances of subtree and mask define a family of view
 subtrees which are included in or excluded from the MIB view.
@@ -169,6 +186,8 @@ subtrees which are included in or excluded from the MIB view.
 `INTEGER { included(1), excluded(2) }`
 """.
 -type view_type()                  :: 'included' | 'excluded'.
+
+%% *** view_mask ***
 -doc """
 The bit mask which, in combination with the corresponding instance of
 vacmViewTreeFamilySubtree, defines a family of view subtrees.
