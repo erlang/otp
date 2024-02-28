@@ -32,7 +32,7 @@ ASN.1 data (encoded as `BER` or `PER`).
 
 > #### Note {: .info }
 >
-> By default in OTP 17, the representation of the `BIT STRING` and
+> By default in Erlang/OTP 17, the representation of the `BIT STRING` and
 > `OCTET STRING` types as Erlang terms were changed. `BIT STRING` values are now
 > Erlang bit strings and `OCTET STRING` values are binaries. Also, an undecoded
 > open type is now wrapped in an `asn1_OPENTYPE` tuple. For details, see
@@ -43,18 +43,6 @@ ASN.1 data (encoded as `BER` or `PER`).
 >
 > To revert to the old representation of the types, use option
 > `legacy_erlang_types`.
-
-> #### Note {: .info }
->
-> In OTP R16, the options were simplified. The back end is chosen using one of
-> the options `ber`, `per`, `uper` or `jer`. Options `optimize`, `nif`, and
-> `driver` options are no longer necessary (and the ASN.1 compiler generates a
-> warning if they are used). Options `ber_bin`, `per_bin`, and `uper_bin`
-> options still work, but generates a warning.
->
-> Another change in OTP R16 is that the generated function `encode/2` always
-> returns a binary. Function `encode/2` for the `BER` back end used to return an
-> iolist.
 """.
 
 %% Compile Time functions for ASN.1 (e.g ASN.1 compiler).
@@ -101,48 +89,51 @@ ASN.1 data (encoded as `BER` or `PER`).
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 
--doc(#{equiv => compile/2}).
--spec compile(Asn1module) -> ok | {error, Reason} when
-      Asn1module :: atom() | string(),
+-doc(#{equiv => compile(Asn1Module, [])}).
+-spec compile(Asn1Module) -> ok | {error, Reason} when
+      Asn1Module :: atom() | string(),
       Reason :: term().
 compile(File) ->
     compile(File,[]).
 
 -doc """
-Compiles the `ASN.1` module `Asn1module` and generates an Erlang module
-`Asn1module.erl` with encode and decode functions for the types defined in
-`Asn1module`. For each ASN.1 value defined in the module, an Erlang function
-that returns the value in Erlang representation is generated.
+Compiles the ASN.1 module `Asn1Module` and generates an Erlang module
+`Asn1Module.erl` with encode and decode functions for all types defined in
+the ASN.1 module.
 
-If `Asn1module` is a filename without extension, first `".asn1"` is assumed,
+For each ASN.1 value defined in the module, an Erlang function that
+returns the value in Erlang representation is generated.
+
+If `Asn1Module` is a filename without extension, first `".asn1"` is assumed,
 then `".asn"`, and finally `".py"` (to be compatible with the old ASN.1
-compiler). `Asn1module` can be a full pathname (relative or absolute) including
+compiler). `Asn1Module` can be a full pathname (relative or absolute) including
 filename with (or without) extension.[](){: #asn1set }
 
-If it is needed to compile a set of `ASN.1` modules into an Erlang file with
-encode/decode functions, ensure to list all involved files in a configuration
-file. This configuration file must have a double extension `".set.asn"`
-(`".asn"` can alternatively be `".asn1"` or `".py"`). List the input file names
-within quotation marks (""), one at each row in the file. If the input files are
-`File1.asn`, `File2.asn`, and `File3.asn`, the configuration file must look as
+If it is needed to compile a set of `ASN.1` modules into an Erlang
+file with encode/decode functions, list all involved files in a
+configuration file, one line per file. This configuration file must
+have a double extension `".set.asn1"` (`".asn1"` can alternatively be
+`".asn"` or `".py"`). If the input files are `File1.asn1`,
+`File2.asn1`, and `File3.asn1`, the configuration file should look as
 follows:
 
 ```text
-File1.asn
-File2.asn
-File3.asn
+File1.asn1
+File2.asn1
+File3.asn1
 ```
 
 The output files in this case get their names from the configuration file. If
-the configuration file is named `SetOfFiles.set.asn`, the names of the output
+the configuration file is named `SetOfFiles.set.asn1`, the names of the output
 files are `SetOfFiles.hrl, SetOfFiles.erl, and SetOfFiles.asn1db`.
 
-Sometimes in a system of `ASN.1` modules, different default tag modes, for
-example, `AUTOMATIC`, `IMPLICIT`, or `EXPLICIT`. The multi-file compilation
-resolves the default tagging as if the modules were compiled separately.
+Sometimes in a system of `ASN.1` modules, different modules can have
+different default tag modes, for example, one uses `AUTOMATIC` and
+another `IMPLICIT`.  The multi-file compilation resolves the default
+tagging as if the modules were compiled separately.
 
-Name collisions is another unwanted effect that can occur in multi
-file-compilation. The compiler solves this problem in one of two ways:
+Name collisions is an unwanted effect that can occur in multi-file
+compilation. The compiler solves this problem in one of two ways:
 
 - If the definitions are identical, the output module keeps only one definition
   with the original name.
@@ -154,18 +145,19 @@ If a name collision occurs, the compiler reports a `"NOTICE: ..."` message that
 tells if a definition was renamed, and the new name that must be used to
 encode/decode data.
 
-`Options` is a list with options specific for the `ASN.1` compiler and options
-that are applied to the Erlang compiler. The latter are not recognized as
-`ASN.1` specific. The available options are as follows:
+`Options` is a list with options specific for the ASN.1 compiler and options
+that are applied to the Erlang compiler. The ASN.1 compiler passes on any
+unrecognized options to the Erlang compiler. The available options are as follows:
 
-- **`ber | per | uper | jer`** - The encoding rule to be used. The supported
-  encoding rules are Basic Encoding Rules (`ber`), Packed Encoding Rules (`per`)
-  aligned, PER unaligned (`uper`) and JSON Encoding Rules (`jer`). The `jer`
-  option can be used by itself to generate a module that only supports
-  encoding/decoding to JER or it can be used as a supplementary option to ber,
-  per and uper. In the latter case a module with for both the main encoding
-  rules and JER will be generated. The exported functions for JER will then be
-  `jer_encode(Type, Value)` and `jer_decode(Type, Bytes)`.
+- **`ber | per | uper | jer`** - The encoding rule to be used. The
+  supported encoding rules are Basic Encoding Rules (`ber`), Packed
+  Encoding Rules (`per`) aligned, PER unaligned (`uper`), and JSON
+  Encoding Rules (`jer`). The `jer` option can be used by itself to
+  generate a module that only supports encoding/decoding of JER, or it
+  can be used as a supplementary option to `ber`, `per`, and `uper`,
+  in which case a module that handles both the main encoding rules and
+  JER will be generated. In that case, the exported functions for JER
+  will be `jer_encode(Type, Value)` and `jer_decode(Type, Bytes)`.
 
   The `jer` encoding rules (ITU-T X.697) are experimental in OTP 22. There is
   support for a subset of the X.697 standard, for example there is no support
@@ -183,50 +175,55 @@ that are applied to the Erlang compiler. The latter are not recognized as
 
   If the encoding rule option is omitted, `ber` is the default.
 
-  The generated Erlang module always gets the same name as the `ASN.1` module.
-  Therefore, only one encoding rule per `ASN.1` module can be used at runtime.
+  The generated Erlang module always gets the same name as the ASN.1 module.
+  Therefore, only one encoding rule per ASN.1 module can be used at runtime.
 
 - **`der`** - With this option the Distinguished Encoding Rules (`der`) is
   chosen. DER is regarded as a specialized variant of the BER encoding rule.
   Therefore, this option only makes sense together with option `ber`. This
-  option sometimes adds sorting and value checks when encoding, which implies a
+  option sometimes adds sorting and value checks when encoding, which implies
   slower encoding. The decoding routines are the same as for `ber`.
 
 - **`maps`** - This option changes the representation of the types `SEQUENCE`
   and `SET` to use maps (instead of records). This option also suppresses the
   generation of `.hrl` files.
 
-  For details, see Section
+  For details, see section
   [Map representation for SEQUENCE and SET](asn1_getting_started.md#MAP_SEQ_SET)
   in the User's Guide.
 
 - **`compact_bit_string`** - The `BIT STRING` type is decoded to "compact
-  notation". _This option is not recommended for new code._ This option cannot
-  be combined with the option `maps`.
+  notation".
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) in
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) in
   the User's Guide.
 
-  This option implies option `legacy_erlang_types`.
+  This option implies option `legacy_erlang_types`, and it cannot be combined
+  with option `maps`.
 
 - **`legacy_bit_string`** - The `BIT STRING` type is decoded to the legacy
-  format, that is, a list of zeroes and ones. _This option is not recommended
-  for new code._ This option cannot be combined with the option `maps`.
+  format, that is, a list of zeroes and ones.
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) in
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) in
   the User's Guide
 
-  This option implies option `legacy_erlang_types`.
+  This option implies option `legacy_erlang_types`, and it cannot be combined
+  with option `maps`.
 
 - **`legacy_erlang_types`** - Use the same Erlang types to represent
-  `BIT STRING` and `OCTET STRING` as in OTP R16.
+  `BIT STRING` and `OCTET STRING` as in Erlang/OTP R16.
 
-  For details, see Section [BIT STRING](asn1_getting_started.md#bit-string) and
-  Section [OCTET STRING](asn1_getting_started.md#octet-string) in the User's
+  **This option is not recommended for new code.**
+
+  For details, see section [BIT STRING](asn1_getting_started.md#bit-string) and
+  section [OCTET STRING](asn1_getting_started.md#octet-string) in the User's
   Guide.
 
-  _This option is not recommended for new code._ This option cannot be combined
-  with the option `maps`.
+  This option cannot be combined with option `maps`.
 
 - **`{n2n, EnumTypeName}`** - Tells the compiler to generate functions for
   conversion between names (as atoms) and numbers and conversely for the
@@ -245,9 +242,9 @@ that are applied to the Erlang compiler. The latter are not recognized as
   is compiled.
 
 - **`{i, IncludeDir}`** - Adds `IncludeDir` to the search-path for `.asn1db` and
-  `ASN.1` source files. The compiler tries to open an `.asn1db` file when a
-  module imports definitions from another `ASN.1` module. If no `.asn1db` file
-  is found, the `ASN.1` source file is parsed. Several `{i, IncludeDir}` can be
+  ASN.1 source files. The compiler tries to open an `.asn1db` file when a
+  module imports definitions from another ASN.1 module. If no `.asn1db` file
+  is found, the ASN.1 source file is parsed. Several `{i, IncludeDir}` can be
   given.
 
 - **`{outdir, Dir}`** - Specifies directory `Dir` where all generated files are
@@ -260,17 +257,17 @@ that are applied to the Erlang compiler. The latter are not recognized as
   concern. The configuration file has the same name as the ASN.1 specification,
   but with extension `.asn1config`.
 
-  For instructions for exclusive decode, see Section
+  For instructions for exclusive decode, see section
   [Exclusive Decode](asn1_spec.md#Exclusive-Instruction) in the User's Guide.
 
-  For instructions for selective decode, see Section
+  For instructions for selective decode, see section
   [Selective Decode](asn1_spec.md#Selective-Instruction) in the User's Guide.
 
-- **`undec_rest`** - A buffer that holds a message, being decoded it can also
-  have some following bytes. Those following bytes can now be returned together
-  with the decoded value. If an ASN.1 specification is compiled with this
-  option, a tuple `{ok, Value, Rest}` is returned. `Rest` can be a list or a
-  binary. Earlier versions of the compiler ignored those following bytes.
+- **`undec_rest`** - By default when decoding, any bytes following the
+  end of an ASN.1 data structure are discarded. If an ASN.1 module is
+  compiled with option `undec_rest`, the decode function returns a
+  tuple `{ok, Value, Rest}`, where `Rest` is the bytes following the ASN.1
+  data structure. `Rest` can be a list or a binary.
 
 - **`no_ok_wrapper`** - With this option, the generated `encode/2` and
   `decode/2` functions do not wrap a successful return value in an `{ok,...}`
@@ -290,20 +287,20 @@ that are applied to the Erlang compiler. The latter are not recognized as
 - **`warnings_as_errors`** - Causes warnings to be treated as errors.
 
 - **`deterministic`** - Causes all non-deterministic options to be stripped from
-  the -asn1_info() attribute.
+  the `-asn1_info()` attribute.
 
-Any more option that is applied is passed to the final step when the generated
+Unrecognized options are passed on to the Erlang compiler when the generated
 `.erl` file is compiled.
 
 The compiler generates the following files:
 
-- `Asn1module.hrl` (if any `SET` or `SEQUENCE` is defined)
-- `Asn1module.erl` \- Erlang module with encode, decode, and value functions
-- `Asn1module.asn1db` \- Intermediate format used by the compiler when modules
+- `Asn1Module.hrl` (if any `SET` or `SEQUENCE` is defined)
+- `Asn1Module.erl` \- Erlang module with encode, decode, and value functions
+- `Asn1Module.asn1db` \- Intermediate format used by the compiler when modules
   `IMPORT` definitions from each other.
 """.
--spec compile(Asn1module, Options) -> ok | {error, Reason} when
-      Asn1module :: atom() | string(),
+-spec compile(Asn1Module, Options) -> ok | {error, Reason} when
+      Asn1Module :: atom() | string(),
       Options :: [Option | OldOption],
       Option ::
         ber | per | uper | jer | der |
@@ -1540,13 +1537,28 @@ pretty2(Module,AbsFile) ->
 start(Includes) when is_list(Includes) ->
     asn1_db:dbstart(Includes).
 
--doc(#{equiv => test/3}).
+-doc """
+Tests encoding and decoding of all types in `Module`.
+
+For more details, see `test/3`.
+""".
+
 -spec test(Module) -> ok | {error, Reason} when
       Module :: module(),
       Reason :: term().
 test(Module)                             -> test_module(Module, []).
 
--doc(#{equiv => test/3}).
+-doc """
+Tests encoding and decoding of `Module`.
+
+If the second argument is given as atom `Type`, that type is tested.
+
+If the second argument is given as list `Options`, that are the options
+that are used for testing all types in the module.
+
+For more details, see `test/3`.
+""".
+
 -spec test(Module, Type | Options) -> ok | {error, Reason} when
       Module :: module(),
       Type :: atom(),
@@ -1557,10 +1569,11 @@ test(Module, [{i, _}|_] = Options)       -> test_module(Module, Options);
 test(Module, Type)                       -> test_type(Module, Type, []).
 
 -doc """
-Performs a test of encode and decode of types in `Module`. The generated
-functions are called by this function. This function is useful during test to
-secure that the generated encode and decode functions as well as the general
-runtime support work as expected.
+Performs a test of encode and decode of types in `Module`.
+
+The generated functions are called by this function. This function is
+useful for testing to ensure that the generated encode and decode
+functions as well as the general runtime support work as expected.
 
 > #### Note {: .info }
 >
@@ -1668,8 +1681,10 @@ test_value_decode(Module, Type, Value, Bytes) ->
 
 -doc """
 Returns an Erlang term that is an example of a valid Erlang representation of a
-value of the `ASN.1` type `Type`. The value is a random value and subsequent
-calls to this function will for most types return different values.
+value of the ASN.1 type `Type`.
+
+The value is a random value and subsequent calls to this function will
+for most types return different values.
 
 > #### Note {: .info }
 >

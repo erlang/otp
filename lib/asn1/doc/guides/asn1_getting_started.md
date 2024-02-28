@@ -39,18 +39,17 @@ END
 
 This file must be compiled before it can be used. The ASN.1 compiler checks that
 the syntax is correct and that the text represents proper ASN.1 code before
-generating an abstract syntax tree. The code-generator then uses the abstract
+generating an abstract syntax tree. The code generator then uses the abstract
 syntax tree to generate code.
 
 The generated Erlang files are placed in the current directory or in the
 directory specified with option `{outdir,Dir}`.
 
-The following shows how the compiler can be called from the Erlang shell:
+The compiler can be called from the Erlang shell like this:
 
 ```erlang
 1> asn1ct:compile("People", [ber]).
 ok
-2>
 ```
 
 Option `verbose` can be added to get information about the generated files:
@@ -62,16 +61,22 @@ Erlang ASN.1 compiling "People.asn"
 --{generated,"People.hrl"}--
 --{generated,"People.erl"}--
 ok
-3>
 ```
 
 ASN.1 module `People` is now accepted and the abstract syntax tree is saved in
 file `People.asn1db`. The generated Erlang code is compiled using the Erlang
 compiler and loaded into the Erlang runtime system. There is now an API for
-`encode/2` and `decode/2` in module `People`, which is called like:  
-`'People':encode(<Type name>, <Value>)`  
-or  
-`'People':decode(<Type name>, <Value>)`
+`encode/2` and `decode/2` in module `People`, which is called like this:
+
+```
+'People':encode(<Type name>, <Value>)
+```
+
+or:
+
+```
+'People':decode(<Type name>, <Value>)
+```
 
 Assume that there is a network application that receives instances of the ASN.1
 defined type `Person`, modifies, and sends them back again:
@@ -106,7 +111,6 @@ The encoder and decoder can also be run from the shell:
       2,1,50>>}
 4> {ok,Person} = 'People':decode('Person',Bin).
 {ok,{'Person',"Some Name",roving,50}}
-5>
 ```
 
 ### Module Dependencies
@@ -132,14 +136,14 @@ The `ASN.1` application provides the following two separate user interfaces:
   decoder for the BER back end
 
 The reason for this division of the interfaces into compile-time and runtime is
-that only runtime modules (`asn1rt*`) need to be loaded in an embedded system.
+that only runtime modules (`asn1rt_nif`) need to be loaded in an embedded system.
 
 ### Compile-Time Functions
 
 The ASN.1 compiler can be started directly from the command line by the `erlc`
 program. This is convenient when compiling many ASN.1 files from the command
-line or when using Makefiles. Some examples of how the `erlc` command can be
-used to start the ASN.1 compiler:
+line or when using Makefiles. Here some examples showing of how `erlc` can
+compile ASN.1 modules:
 
 ```text
 erlc Person.asn
@@ -165,15 +169,15 @@ Useful options for the ASN.1 compiler:
 
 - **`+jer`** - Functions `jer_encode/2` and `jer_decode/2` for JSON encoding
   rules are generated together with functions for `ber` or `per`. Only to be
-  used when the main encoding option is `-bber`, `-bper` or `-buper`
+  used when the main encoding option is `-bber`, `-bper` or `-buper`.
 
 - **`+maps`** - Use maps instead of records to represent the `SEQUENCE` and
-  `SET` types. No `.hrl` files will be generated. See the Section
+  `SET` types. No `.hrl` files will be generated. See the section
   [Map representation for SEQUENCE and SET](asn1_getting_started.md#MAP_SEQ_SET)
   for more information.
 
 - **`+asn1config`** - This functionality works together with option `ber`. It
-  enables the specialized decodes, see Section
+  enables the specialized decodes, see section
   [Specialized Decode](asn1_spec.md).
 
 - **`+undec_rest`** - A buffer that holds a message being decoded can also have
@@ -199,26 +203,26 @@ The compiler is started by `asn1ct:compile/1` with default options, or
 Example:
 
 ```text
-asn1ct:compile("H323-MESSAGES.asn1").
+asn1ct:compile("H323-MESSAGES").
 ```
 
-This equals:
+This is equivalent to:
 
 ```text
-asn1ct:compile("H323-MESSAGES.asn1",[ber]).
+asn1ct:compile("H323-MESSAGES", [ber]).
 ```
 
 If PER encoding is wanted:
 
 ```text
-asn1ct:compile("H323-MESSAGES.asn1",[per]).
+asn1ct:compile("H323-MESSAGES", [per]).
 ```
 
 The generic encode and decode functions can be called as follows:
 
 ```text
-'H323-MESSAGES':encode('SomeChoiceType',{call,<<"octetstring">>}).
-'H323-MESSAGES':decode('SomeChoiceType',Bytes).
+'H323-MESSAGES':encode('SomeChoiceType', {call,<<"octetstring">>}).
+'H323-MESSAGES':decode('SomeChoiceType', Bytes).
 ```
 
 ### Runtime Functions
@@ -235,15 +239,13 @@ Errors detected at compile-time are displayed on the screen together with line
 numbers indicating where in the source file the respective error was detected.
 If no errors are found, an Erlang ASN.1 module is created.
 
-The runtime encoders and decoders execute within a catch and return `{ok, Data}`
+The runtime encoders and decoders execute within a `catch` and return `{ok, Data}`
 or `{error, {asn1, Description}}` where `Description` is an Erlang term
 describing the error.
 
 Currently, `Description` looks like this: `{ErrorDescription, StackTrace}`.
 Applications should not depend on the exact contents of `Description` as it
 could change in the future.
-
-[](){: #inlineExamples }
 
 ## Multi-File Compilation
 
@@ -268,13 +270,13 @@ If you compile with the following, the result is one merged module
 `MyModule.erl` with the generated code from the three ASN.1 specs:
 
 ```text
-~> erlc MyModule.set.asn
+% erlc MyModule.set.asn
 ```
 
-## Remark about Tags
+## Note about tags
 
 Tags used to be important for all users of ASN.1, because it was necessary to
-add tags manually to certain constructs in order for the ASN.1 specification to
+to manually add tags to certain constructs in order for the ASN.1 specification to
 be valid. Example of an old-style specification:
 
 ```erlang
@@ -300,8 +302,6 @@ BEGIN
                       dessert IA5String }
 END
 ```
-
-Tags are not mentioned any more in this User's Guide.
 
 [](){: #ASN1Types }
 
@@ -369,9 +369,7 @@ Thus, in Erlang the atoms `true` and `false` are used to encode a boolean value.
 
 ### INTEGER
 
-ASN.1 itself specifies indefinitely large integers. Erlang systems with version
-4.3 and higher support very large integers, in practice indefinitely large
-integers.
+An ASN.1 INTEGER is represented by an integer in Erlang.
 
 The concept of subtyping can be applied to integers and to other ASN.1 types.
 The details of subtyping are not explained here; for more information, see
@@ -519,7 +517,7 @@ representations are available if the specification has been compiled with option
 
 1. Aa a list of binary digits (0 or 1). This format is accepted as input to the
    encode functions, and a `BIT STRING` is decoded to this format if option
-   _legacy_bit_string_ is given.
+   `legacy_bit_string` is given.
 1. As `{Unused,Binary}` where `Unused` denotes how many trailing zero-bits 0-7
    that are unused in the least significant byte in `Binary`. This format is
    accepted as input to the encode functions, and a `BIT STRING` is decoded to
@@ -558,22 +556,22 @@ ASN.1 supports a wide variety of character sets. The main difference between an
 `OCTET STRING` and a character string is that the `OCTET STRING` has no imposed
 semantics on the bytes delivered.
 
-However, when using, for example, IA5String (which closely resembles ASCII),
+However, when using, for example, `IA5String` (which closely resembles ASCII),
 byte 65 (in decimal notation) _means_ character 'A'.
 
 For example, if a defined type is to be a VideotexString and an octet is
 received with the unsigned integer value `X`, the octet is to be interpreted as
 specified in standard ITU-T T.100, T.101.
 
-The ASN.1 to Erlang compiler does not determine the correct interpretation of
+The ASN.1 compiler does not determine the correct interpretation of
 each BER string octet value with different character strings. The application is
 responsible for interpretation of octets. Therefore, from the BER string point
 of view, octets are very similar to character strings and are compiled in the
 same way.
 
 When PER is used, there is a significant difference in the encoding scheme
-between `OCTET STRING`s and other strings. The constraints specified for a type
-are especially important for PER, where they affect the encoding.
+for `OCTET STRING`s and other strings. The constraints specified for a type
+are especially important for PER, because they affect the encoding.
 
 Examples:
 
@@ -591,10 +589,10 @@ TextFileVal1 = "abc...xyz...",
 TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]
 ```
 
-The Erlang representation for "BMPString" and "UniversalString" is either a list
+The Erlang representation for `BMPString` and `UniversalString` is either a list
 of ASCII values or a list of quadruples. The quadruple representation associates
 to the Unicode standard representation of characters. The ASCII characters are
-all represented by quadruples beginning with three zeros like \{0,0,0,65\} for
+all represented by quadruples beginning with three zeros like `{0,0,0,65}` for
 character 'A'. When decoding a value for these strings, the result is a list of
 quadruples, or integers when the value is an ASCII character.
 
@@ -627,7 +625,7 @@ ok
 {ok,"BMP string"}
 ```
 
-Type UTF8String is represented as a UTF-8 encoded binary in Erlang. Such
+Type `UTF8String` is represented as a UTF-8 encoded binary in Erlang. Such
 binaries can be created directly using the binary syntax or by converting from a
 list of Unicode code points using function `unicode:characters_to_binary/1`.
 
@@ -688,21 +686,20 @@ ASN.1 module, a transfer syntax, and so on, is identified with an
 Oid ::= OBJECT IDENTIFIER
 ```
 
-Therefore, the following example is a valid Erlang instance of type 'Oid':
+Therefore, the following example is a valid Erlang instance of type `Oid`:
 
 ```text
 OidVal1 = {1,2,55},
 ```
 
-The `OBJECT IDENTIFIER` value is simply a tuple with the consecutive values,
-which must be integers.
+The `OBJECT IDENTIFIER` value is a tuple with the consecutive integer values.
 
 The first value is limited to the values 0, 1, or 2. The second value must be in
-the range 0..39 when the first value is 0 or 1.
+the range 0 through 39 when the first value is 0 or 1.
 
 The `OBJECT IDENTIFIER` is an important type and it is widely used within
-different standards to identify various objects uniquely. Dubuisson: ASN.1 -
-Communication Between Heterogeneous Systems includes an easy-to-understand
+different standards to identify various objects uniquely. Dubuisson: _ASN.1 -
+Communication Between Heterogeneous Systems_ includes an easy-to-understand
 description of the use of `OBJECT IDENTIFIER`.
 
 ### Object Descriptor
@@ -710,7 +707,7 @@ description of the use of `OBJECT IDENTIFIER`.
 Values of this type can be assigned a value as an ordinary string as follows:
 
 ```text
-      "This is the value of an Object descriptor"
+"This is the value of an Object descriptor"
 ```
 
 [](){: #The-TIME-types }
@@ -719,7 +716,7 @@ Values of this type can be assigned a value as an ordinary string as follows:
 
 Two time types are defined within ASN.1: Generalized Time and Universal Time
 Coordinated (UTC). Both are assigned a value as an ordinary string within double
-quotes, for example, "19820102070533.8".
+quotes, for example, `"19820102070533.8"`.
 
 For DER encoding, the compiler does not check the validity of the time values.
 The DER requirements upon those strings are regarded as a matter for the
@@ -728,7 +725,7 @@ application to fulfill.
 ### SEQUENCE
 
 The structured types of ASN.1 are constructed from other types in a manner
-similar to the concepts of array and struct in C.
+similar to the concepts of arrays and structs in C.
 
 A `SEQUENCE` in ASN.1 is comparable with a struct in C and a record in Erlang. A
 `SEQUENCE` can be defined as follows:
@@ -748,7 +745,7 @@ For each `SEQUENCE` and `SET` in an ASN.1 module an Erlang record declaration is
 generated. For `Pdu`, a record like the following is defined:
 
 ```erlang
--record('Pdu',{a, b, c, d}).
+-record('Pdu', {a, b, c, d}).
 ```
 
 The record declarations for a module `M` are placed in a separate `M.hrl` file.
@@ -909,7 +906,7 @@ Default values can be omitted from the map:
 
 ### CHOICE
 
-The type `CHOICE` is a space saver and is similar to the concept of a 'union' in
+The type `CHOICE` is a space saver and is similar to the concept of union in
 C.
 
 Assume the following:
@@ -989,11 +986,11 @@ kind, even non-ASN.1 data.
 A value of this type is encoded as an `open type`.
 
 Instead of `ANY` and `ANY DEFINED BY`, it is recommended to use
-`information object class`, `table constraints`, and `parameterization`. In
-particular the construct `TYPE-IDENTIFIER.@Type` accomplish the same as the
+information object classes, table constraints, and parameterization. In
+particular the construct `TYPE-IDENTIFIER.@Type` accomplishes the same as the
 deprecated `ANY`.
 
-See also [Information object](asn1_getting_started.md#Information-Object).
+Also see [Information objects](asn1_getting_started.md#Information-Object).
 
 [](){: #NegotiationTypes }
 
