@@ -1394,19 +1394,6 @@ void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
         ASSERT(new_size == pb->size);
 }
 
-/*
- * This function either returns a term or THE_NON_VALUE.
- *
- * If THE_NON_VALUE is returned, it can mean one of two things:
- *
- * - The max_heap_size limit for the process was exceeded and the
- *   process was killed. This situation can be recognized by calling
- *   the ERTS_PROC_IS_EXITING(P) macro. The caller must immediately
- *   pass control to the scheduler.
- *
- * - A BADARG or SYSTEM_LIMIT exception happened. The caller must
- *   raise an exception.
- */
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                Uint extra_words, Uint unit)
@@ -1434,9 +1421,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                                   extra_words, unit);
 }
 
-/*
- * See erts_bs_append().
- */
 Eterm
 erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                        Uint build_size_in_bits, Uint extra_words,
@@ -1498,9 +1482,6 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     if (build_size_in_bits == 0) {
         if (HeapWordsLeft(c_p) < extra_words) {
             (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
-            if (ERTS_PROC_IS_EXITING(c_p)) {
-                return THE_NON_VALUE;
-            }
             bin = reg[live];
         }
 	return bin;
@@ -1539,10 +1520,7 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     reg[live] = sb->orig;
     heap_need = ERL_SUB_BIN_SIZE + extra_words;
     if (HeapWordsLeft(c_p) < heap_need) {
-        (void)erts_garbage_collect(c_p, heap_need, reg, live + 1);
-        if (ERTS_PROC_IS_EXITING(c_p)) {
-            return THE_NON_VALUE;
-        }
+	(void) erts_garbage_collect(c_p, heap_need, reg, live+1);
     }
     sb = (ErlSubBin *) c_p->htop;
     c_p->htop += ERL_SUB_BIN_SIZE;
@@ -1576,9 +1554,6 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
 	if (HeapWordsLeft(c_p) < heap_need) {
 	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
-            if (ERTS_PROC_IS_EXITING(c_p)) {
-                return THE_NON_VALUE;
-            }
             bin = reg[live];
 	}
 	hp = c_p->htop;

@@ -809,6 +809,60 @@ void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
     }
 }
 
+Eterm beam_jit_bs_init(Process *c_p,
+                       Eterm *reg,
+                       ERL_BITS_DECLARE_STATEP,
+                       Eterm num_bytes,
+                       Uint alloc,
+                       unsigned Live) {
+    erts_bin_offset = 0;
+    if (num_bytes <= ERL_ONHEAP_BIN_LIMIT) {
+        ErlHeapBin *hb;
+        Uint bin_need;
+
+        bin_need = heap_bin_size(num_bytes);
+        gc_test(c_p, reg, 0, bin_need + alloc + ERL_SUB_BIN_SIZE, Live);
+        hb = (ErlHeapBin *)c_p->htop;
+        c_p->htop += bin_need;
+        hb->thing_word = header_heap_bin(num_bytes);
+        hb->size = num_bytes;
+        erts_current_bin = (byte *)hb->data;
+        return make_binary(hb);
+    } else {
+        Binary *bptr;
+        ProcBin *pb;
+
+        test_bin_vheap(c_p,
+                       reg,
+                       num_bytes / sizeof(Eterm),
+                       alloc + PROC_BIN_SIZE,
+                       Live);
+
+        /*
+         * Allocate the binary struct itself.
+         */
+        bptr = erts_bin_nrml_alloc(num_bytes);
+        erts_current_bin = (byte *)bptr->orig_bytes;
+
+        /*
+         * Now allocate the ProcBin on the heap.
+         */
+        pb = (ProcBin *)c_p->htop;
+        c_p->htop += PROC_BIN_SIZE;
+        pb->thing_word = HEADER_PROC_BIN;
+        pb->size = num_bytes;
+        pb->next = MSO(c_p).first;
+        MSO(c_p).first = (struct erl_off_heap_header *)pb;
+        pb->val = bptr;
+        pb->bytes = (byte *)bptr->orig_bytes;
+        pb->flags = 0;
+
+        OH_OVERHEAD(&(MSO(c_p)), num_bytes / sizeof(Eterm));
+
+        return make_binary(pb);
+    }
+}
+
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
                             ERL_BITS_DECLARE_STATEP,
@@ -890,20 +944,6 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
     return new_binary;
 }
 
-/*
- * This function can return one of the following:
- *
- * - THE_NON_VALUE if the extraction failed (for example, if the
- *   binary is shorter than the number of bits requested). The caller
- *   must raise an exception.
- *
- * - A nonempty list (cons) term. That means that the max_heap_size
- *   limit was exceeded. The caller must transfer control to the
- *   scheduler.
- *
- * - A tagged integer (small or big). The operation was successful.
- */
-
 Eterm beam_jit_bs_get_integer(Process *c_p,
                               Eterm *reg,
                               Eterm context,
@@ -929,10 +969,6 @@ Eterm beam_jit_bs_get_integer(Process *c_p,
         wordsneeded = 1 + WSIZE(NBYTES((Uint)size));
         reg[Live] = context;
         gc_test(c_p, reg, 0, wordsneeded, Live + 1);
-        if (ERTS_PROC_IS_EXITING(c_p)) {
-            return make_list(0);
-        }
-
         context = reg[Live];
     }
 
