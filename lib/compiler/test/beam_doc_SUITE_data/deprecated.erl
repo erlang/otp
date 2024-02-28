@@ -20,7 +20,7 @@
 -ifdef(ALL_WILDCARD).
 -deprecated({'_', '_', ?REASON}).
 -else.
--deprecated({test, 1, ?REASON}).
+-deprecated([{test, 1, ?REASON}]).
 -endif.
 -endif.
 -deprecated({test, 0}).
@@ -31,7 +31,7 @@
 -ifdef(ALL_WILDCARD).
 -deprecated_type({'_', '_', ?TREASON}).
 -else.
--deprecated_type({test, 1, ?TREASON}).
+-deprecated_type([{test, 1, ?TREASON}]).
 -endif.
 -endif.
 -deprecated_type({test, 0}).

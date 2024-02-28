@@ -335,6 +335,16 @@ has_docs({attribute, _Anno, doc, _}, State) ->
 has_docs(_, State) ->
     State.
 
+extract_deprecated({attribute, Anno, deprecated, Deprecations}, State)
+  when is_list(Deprecations) ->
+    lists:foldl(fun(D, S) ->
+                        extract_deprecated({attribute, Anno, deprecated, D}, S)
+                end, State, Deprecations);
+extract_deprecated({attribute, Anno, deprecated_type, Deprecations}, State)
+  when is_list(Deprecations) ->
+    lists:foldl(fun(D, S) ->
+                        extract_deprecated({attribute, Anno, deprecated_type, D}, S)
+                end, State, Deprecations);
 extract_deprecated({attribute, Anno, deprecated, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated, {F, A, undefined}}, State);
 extract_deprecated({attribute, _, deprecated, {F, A, Reason}}, State) ->
