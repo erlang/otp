@@ -335,15 +335,13 @@ has_docs({attribute, _Anno, doc, _}, State) ->
 has_docs(_, State) ->
     State.
 
-extract_deprecated({attribute, Anno, deprecated, Deprecations}, State)
-  when is_list(Deprecations) ->
+extract_deprecated({attribute, Anno, DeprecatedType, Deprecations}, State)
+  when is_list(Deprecations),
+       DeprecatedType =:= deprecated orelse
+       DeprecatedType =:= deprecated_type orelse
+       DeprecatedType =:= deprecated_callback ->
     lists:foldl(fun(D, S) ->
-                        extract_deprecated({attribute, Anno, deprecated, D}, S)
-                end, State, Deprecations);
-extract_deprecated({attribute, Anno, deprecated_type, Deprecations}, State)
-  when is_list(Deprecations) ->
-    lists:foldl(fun(D, S) ->
-                        extract_deprecated({attribute, Anno, deprecated_type, D}, S)
+                        extract_deprecated({attribute, Anno, DeprecatedType, D}, S)
                 end, State, Deprecations);
 extract_deprecated({attribute, Anno, deprecated, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated, {F, A, undefined}}, State);
@@ -354,6 +352,11 @@ extract_deprecated({attribute, Anno, deprecated_type, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated_type, {F, A, undefined}}, State);
 extract_deprecated({attribute, _, deprecated_type, {F, A, Reason}}, State) ->
     Deprecations = (State#docs.deprecated)#{ {type, F, A} => Reason },
+    State#docs{ deprecated = Deprecations };
+extract_deprecated({attribute, Anno, deprecated_callback, {F, A}}, State) ->
+    extract_deprecated({attribute, Anno, deprecated_callback, {F, A, undefined}}, State);
+extract_deprecated({attribute, _, deprecated_callback, {F, A, Reason}}, State) ->
+    Deprecations = (State#docs.deprecated)#{ {callback, F, A} => Reason },
     State#docs{ deprecated = Deprecations };
 extract_deprecated(_, State) ->
    State.
@@ -1029,6 +1032,9 @@ maybe_add_deprecation({Kind, Name, Arity}, Meta, #docs{ module = Module,
                                                info_string(Value)});
                    Kind =:= type ->
                         erl_lint:format_error({deprecated_type, {Module,Name,Arity},
+                                               info_string(Value)});
+                   Kind =:= callback ->
+                        erl_lint:format_error({deprecated_callback, {Module,Name,Arity},
                                                info_string(Value)})
                 end,
             Meta#{ deprecated => unicode:characters_to_binary(Text) }

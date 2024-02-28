@@ -357,6 +357,12 @@ format_error({deprecated_type, {M1, F1, A1}, String, Rel}) ->
 format_error({deprecated_type, {M1, F1, A1}, String}) when is_list(String) ->
     io_lib:format("the type ~p:~p~s is deprecated; ~s",
                   [M1, F1, gen_type_paren(A1), String]);
+format_error({deprecated_callback, {M1, F1, A1}, String, Rel}) ->
+    io_lib:format("the callback ~p:~p~s is deprecated and will be removed in ~s; ~s",
+                  [M1, F1, gen_type_paren(A1), Rel, String]);
+format_error({deprecated_callback, {M1, F1, A1}, String}) when is_list(String) ->
+    io_lib:format("the callback ~p:~p~s is deprecated; ~s",
+                  [M1, F1, gen_type_paren(A1), String]);
 format_error({removed, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("call to ~s will fail, since it was removed in ~s; "
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);

@@ -11,8 +11,19 @@
 -define(TREASON,"Deprecation reason").
 -endif.
 
+-ifdef(TEST_WILDCARD).
+-deprecated_callback({test, '_', ?REASON}).
+-else.
+-ifdef(ALL_WILDCARD).
+-deprecated_callback({'_', '_', ?REASON}).
+-else.
+-deprecated_callback([{test, 1, ?REASON}]).
+-endif.
+-endif.
 -doc #{ deprecated => "Meta reason" }.
 -callback test() -> ok.
+
+-callback test(N) -> N.
 
 -ifdef(TEST_WILDCARD).
 -deprecated({test, '_', ?REASON}).
