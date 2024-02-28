@@ -129,6 +129,8 @@
          use_all_eddh_generate_compute/1,
          pbkdf2_hmac/0,
          pbkdf2_hmac/1,
+         pbkdf2_hmac_invalid_input/0,
+         pbkdf2_hmac_invalid_input/1,
          privkey_to_pubkey/1,
 
          %% Others:
@@ -224,7 +226,8 @@ all() ->
      cipher_info,
      hash_info,
      hash_equals,
-     pbkdf2_hmac
+     pbkdf2_hmac,
+     pbkdf2_hmac_invalid_input
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
@@ -4919,6 +4922,9 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     F = fun (A, B, C, D) ->
             binary:encode_hex(crypto:pbkdf2_hmac(sha, A, B, C, D))
         end,
+    F256 = fun (A, B, C, D) ->
+            binary:encode_hex(crypto:pbkdf2_hmac(sha256, A, B, C, D))
+        end,
     %% RFC 6070
     <<"0C60C80F961F0E71F3A9B524AF6012062FE037A6">> =
       F(<<"password">>, <<"salt">>, 1, 20),
@@ -4965,13 +4971,52 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     <<"6B9CF26D45455A43A5B8BB276A403B39">> =
       F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 16),
     <<"6B9CF26D45455A43A5B8BB276A403B39E7FE37A0C41E02C281FF3069E1E94F52">> =
-      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32)
+      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32),
+
+    %% SHA256 variant. Test vectors from RFC 7914 (section 11)
+    <<"55AC046E56E3089FEC1691C22544B605"
+      "F94185216DDE0465E68B9D57C20DACBC"
+      "49CA9CCCF179B645991664B39D77EF31"
+      "7C71B845B1E30BD509112041D3A19783">> = F256(<<"passwd">>, <<"salt">>, 1, 64),
+    <<"4DDCD8F60B98BE21830CEE5EF22701F9"
+      "641A4418D04C0414AEFF08876B34AB56"
+      "A1D425A1225833549ADB841B51C9B317"
+      "6A272BDEBBA1D078478F62B397F33C8D">> = F256(<<"Password">>, <<"NaCl">>, 80000, 64)
   catch
     error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
 
-
+pbkdf2_hmac_invalid_input() ->
+  [{doc, "Test the pbkdf2_hmac function with invalid input"}].
+pbkdf2_hmac_invalid_input(Config) when is_list(Config) ->
+  try
+    TestFun = fun(Hash, Pass, Salt, Iter, Keylen, ErrorStr) ->
+        try
+            crypto:pbkdf2_hmac(Hash, Pass, Salt, Iter, Keylen)
+        of
+            Res -> ct:fail("Unexpected result ~p", [Res])
+        catch
+            error:{badarg, {_, _}, ErrorStr} ->
+                ok;
+            error:badarg ->
+                % Erlang <25
+                ok;
+            Tag:Err ->
+                ct:fail("Unexpected exception ~p:~p", [Tag, Err])
+        end
+    end,
+    TestFun(sha42, <<"pass">>, <<"salt">>, 1, 1, "Bad digest type"),
+    TestFun(sha, "badpass", <<"salt">>, 1, 1, "Not binary"),
+    TestFun(sha, <<"pass">>, "badsalt", 1, 1, "Not binary"),
+    TestFun(sha, <<"pass">>, <<"salt">>, "baditer", 1, "Not integer"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 0, 1, "Must be > 0"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, "badlen", "Not integer"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, 0, "Must be > 0")
+  catch
+    error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
+            {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
+  end.
 get_priv_pub_from_sign_verify(L) ->
     lists:foldl(fun get_priv_pub/2, [], L).
 
