@@ -45,6 +45,7 @@
     test_decode_objects/1,
     test_decode_whitespace/1,
     test_decode_api/1,
+    test_decode_api_stream/1,
     test_json_test_suite/1,
     counterexamples/1,
     property_string_roundtrip/1,
@@ -88,7 +89,8 @@ groups() ->
             test_decode_arrays,
             test_decode_objects,
             test_decode_whitespace,
-            test_decode_api
+            test_decode_api,
+            test_decode_api_stream
         ]},
         {properties, [parallel], [
             property_string_roundtrip,
@@ -296,7 +298,7 @@ test_decode_atoms(_Config) ->
 test_decode_numbers(_Config) ->
     ?assertError(unexpected_end, decode(<<"-">>)),
     ?assertError({invalid_byte, $-}, decode(<<"--1">>)),
-    ?assertError({invalid_byte, $1}, decode(<<"01">>)),
+    ?assertError({invalid_byte, $1}, json:decode(<<"01">>)),
     ?assertError({invalid_byte, $.}, decode(<<".1">>)),
     ?assertError(unexpected_end, decode(<<"1.">>)),
     ?assertError(unexpected_end, decode(<<"1e">>)),
@@ -405,6 +407,7 @@ test_decode_strings(_Config) ->
 test_decode_arrays(_Config) ->
     ?assertError(unexpected_end, decode(<<"[">>)),
     ?assertError({invalid_byte, $,}, decode(<<"[,">>)),
+    ?assertError({invalid_byte, $]}, decode(<<" ]">>)),
     ?assertError(unexpected_end, decode(<<"[1,">>)),
 
     ?assertEqual([], decode(<<"[]">>)),
@@ -541,7 +544,67 @@ set_history(Ty, Acc, Res) ->
     put(history, [Entry | History]),
     Res.
 
-decode(Bin) -> json:decode(Bin).
+test_decode_api_stream(_Config) ->
+    Types = ~#{"types": [[], {}, true, false, null, {"foo": "baz"}],
+               "numbers": [1, -10, 0.0, -0.0, 2.0, -2.0, 31e2, 31e-2, 0.31e2, -0.31e2, 0.13e-2],
+               "strings": ["three", "åäö", "mixed_Ω"],
+               "escaped": ["\\n", "\\u2603", "\\ud834\\uDD1E", "\\n\xc3\xb1"]
+              }#,
+    ok = stream_decode(Types),
+
+    Multiple = ~#12345 1.30 "String1" -0.31e2\n["an array"]12345#,
+    ok = multi_stream_decode(Multiple),
+    ok.
+
+
+decode(Bin) ->
+    try json:decode(Bin) of
+        Result ->
+            {Res, [], <<>>} = byte_loop(Bin),
+            ?assertEqual(Result, Res, "Stream decode failed"),
+            Result
+    catch Class:Reason:ST ->
+            ?assertError(Reason, byte_loop(Bin)),
+            erlang:raise(Class, Reason, ST)
+    end.
+
+stream_decode(Str) ->
+    {R1, [], <<>>} = byte_loop(Str),
+    case json:decode(Str) of
+        R1 ->
+            ok;
+        R2 ->
+            io:format("~p ~p~n",[R1,R2]),
+            error
+    end.
+
+multi_stream_decode(<<>>) ->
+    ok;
+multi_stream_decode(Strs) ->
+    {R1, [], ContBin} = byte_loop(Strs),
+    case json:decode(Strs, [], #{}) of
+        {R1, [], ContBin} ->
+            multi_stream_decode(ContBin);
+        Other ->
+            io:format("~p '~ts'~n~p~n", [R1,ContBin, Other]),
+            error
+    end.
+
+byte_loop(Bin) ->
+    {continue, State} = json:decode_start(<<>>, [], #{}),
+    byte_loop(Bin, State, []).
+
+byte_loop(<<Byte, Rest/binary>>, State0, Bytes) ->
+    %% io:format("cont with '~s'  ~p~n",[lists:reverse([Byte|Bytes]), State0]),
+    case json:decode_continue(<<Byte>>, State0) of
+        {continue, State} ->
+            byte_loop(Rest, State, [Byte|Bytes]);
+        {Result, [], <<>>} ->
+            %% trim to match the binary in return value
+            {Result, [], string:trim(Rest, leading)}
+    end;
+byte_loop(<<>>, State, _Bytes) ->
+    json:decode_continue(end_of_input, State).
 
 %%
 %% JSON SUITE tests

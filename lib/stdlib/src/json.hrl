@@ -25,7 +25,7 @@
 %% of values. They'll generate an efficient "jump table",
 %% which gets to the correct clause in one go, rather
 %% than going through a set of comparisons.
-%% However, this might not always be the bext way (see is_0_to_9),
+%% However, this might not always be the best way (see is_0_to_9),
 %% so as always with any performance work - measure, don't guess!
 
 -define(is_1_to_9(X),

@@ -49,7 +49,7 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
 -export_type([encoder/0, encode_value/0]).
 
 -export([
-    decode/1, decode/3
+    decode/1, decode/3, decode_start/3, decode_continue/2
 ]).
 -export_type([
     from_binary_fun/0,
@@ -60,7 +60,8 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
     object_push_fun/0,
     object_finish_fun/0,
     decoders/0,
-    decode_value/0
+    decode_value/0,
+    continuation_state/0
 ]).
 
 -compile(warn_missing_spec).
@@ -360,7 +361,7 @@ escape_binary(<<Byte, Rest/binary>>, Acc, Orig, Skip0, Len) when ?is_ascii_escap
 escape_binary(<<Byte, Rest/binary>>, Acc, Orig, Skip, Len) ->
     case element(Byte - 127, utf8s0()) of
         ?UTF8_REJECT -> invalid_byte(Orig, Skip + Len);
-        %% all accept cases are ASCII, already covred above
+        %% all accept cases are ASCII, already covered above
         State -> escape_binary_utf8(Rest, Acc, Orig, Skip, Len, State)
     end;
 escape_binary(_, _Acc, Orig, 0, _Len) ->
@@ -379,7 +380,7 @@ escape_binary_utf8(<<Byte, Rest/binary>>, Acc, Orig, Skip, Len, State0) ->
         State -> escape_binary_utf8(Rest, Acc, Orig, Skip, Len + 1, State)
     end;
 escape_binary_utf8(_, _Acc, Orig, Skip, Len, _State) ->
-    unexpected(Orig, Skip + Len + 1).
+    unexpected_utf8(Orig, Skip + Len + 1).
 
 escape_all(Bin) -> escape_all_ascii(Bin, [$"], Bin, 0, 0).
 
@@ -565,6 +566,8 @@ error_info(Skip) ->
 -type stack() :: [?ARRAY | ?OBJECT | binary() | acc()].
 -type decode() :: #decode{}.
 
+-opaque continuation_state() :: tuple().
+
 -type decode_value() ::
     integer()
     | float()
@@ -602,8 +605,16 @@ Supports basic data mapping:
 -spec decode(binary()) -> decode_value().
 decode(Binary) when is_binary(Binary) ->
     case value(Binary, Binary, 0, ok, [], #decode{}) of
-        {Result, _Acc, <<>>} -> Result;
-        {_, _, Rest} -> unexpected(Rest, 0)
+        {Result, _Acc, <<>>} ->
+            Result;
+        {_, _, Rest} ->
+            invalid_byte(Rest, 0);
+        {continue, {_Bin, _Acc, [], _Decode, {number, Number}}} ->
+            Number;
+        {continue, {_, _, _, _, {float_error, Token, Skip}}} ->
+            unexpected_sequence(Token, Skip);
+        {continue, _} ->
+            error(unexpected_end)
     end.
 
 -doc """
@@ -634,9 +645,9 @@ implementations used by the `decode/1` function:
 
 ## Errors
 
-* `error(unexpected_end)` if `Binary` contains incomplete JSON value
 * `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
 * `error({invalid_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error(unexpected_end)` if `Binary` contains incomplete JSON value
 
 ## Example
 
@@ -649,10 +660,79 @@ Decoding object keys as atoms:
 ```
 """.
 -spec decode(binary(), dynamic(), decoders()) ->
-    {Result :: dynamic(), Acc :: dynamic(), binary()}.
-decode(Binary, Acc, Decoders) when is_binary(Binary) ->
+          {Result :: dynamic(), Acc :: dynamic(), binary()}.
+decode(Binary, Acc0, Decoders) when is_binary(Binary) ->
+    Decode = maps:fold(fun parse_decoder/3, #decode{}, Decoders),
+    case value(Binary, Binary, 0, Acc0, [], Decode) of
+        {continue, {_Bin, Acc, [], _Decode, {number, Val}}} ->
+            {Val, Acc, <<>>};
+        {continue, {_, _, _, _, {float_error, Token, Skip}}} ->
+            unexpected_sequence(Token, Skip);
+        {continue, _} ->
+            error(unexpected_end);
+        Result ->
+            Result
+    end.
+
+-doc """
+Begin parsing a stream of bytes of a JSON value.
+
+Similar to `decode/3` but returns when a complete JSON value can be parsed or
+returns `{continue, State}` for incomplete data,
+the `State` can be fed to the `decode_continue/2` function when more data is available.
+""".
+-spec decode_start(binary(), dynamic(), decoders()) ->
+          {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
+decode_start(Binary, Acc, Decoders) when is_binary(Binary) ->
     Decode = maps:fold(fun parse_decoder/3, #decode{}, Decoders),
     value(Binary, Binary, 0, Acc, [], Decode).
+
+-doc """
+Continue parsing a stream of bytes of a JSON value.
+
+Similar to `decode_start/3`, if the function returns `{continue, State}` and
+there is no more data, use `end_of_input` instead of a binary.
+
+```erlang
+> {continue, State} = json:decode_start(<<"{\"foo\":">>, ok, #{}).
+> json:decode_continue(<<"1}">>, State).
+{#{foo => 1},ok,<<>>}
+```
+```erlang
+> {continue, State} = json:decode_start(<<"123">>, ok, #{}).
+> json:decode_continue(end_of_input, State).
+{123,ok,<<>>}
+```
+""".
+-spec decode_continue(binary() | end_of_input, Opaque::term()) ->
+          {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
+decode_continue(end_of_input, State) ->
+    case State of
+        {_, Acc, [], _Decode, {number, Val}} ->
+            {Val, Acc, <<>>};
+        {_, _, _, _, {float_error, Token, Skip}} ->
+            unexpected_sequence(Token, Skip);
+        _ ->
+            error(unexpected_end)
+    end;
+decode_continue(Cont, {Rest, Acc, Stack, #decode{} = Decode, FuncData}) when is_binary(Cont) ->
+    Binary = <<Rest/binary, Cont/binary>>,
+    case FuncData of
+        value ->
+            value(Binary, Binary, 0, Acc, Stack, Decode);
+        {number, _} ->
+            value(Binary, Binary, 0, Acc, Stack, Decode);
+        {float_error, _Token, _Skip} ->
+            value(Binary, Binary, 0, Acc, Stack, Decode);
+        {array_push, Val} ->
+            array_push(Binary, Binary, 0, Acc, Stack, Decode, Val);
+        {object_value, Key} ->
+            object_value(Binary, Binary, 0, Acc, Stack, Decode, Key);
+        {object_push, Value, Key} ->
+            object_push(Binary, Binary, 0, Acc, Stack, Decode, Value, Key);
+        object_key ->
+            object_key(Binary, Binary, 0, Acc, Stack, Decode)
+    end.
 
 parse_decoder(array_start, Fun, Decode) when is_function(Fun, 1) ->
     Decode#decode{array_start = Fun};
@@ -692,44 +772,46 @@ value(<<$n, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
 value(<<$", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     string(Rest, Original, Skip + 1, Acc, Stack, Decode);
 value(<<$[, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
-    array_start(Rest, Original, Skip, Acc, Stack, Decode);
+    array_start(Rest, Original, Skip, Acc, Stack, Decode, 1);
 value(<<${, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
-    object_start(Rest, Original, Skip, Acc, Stack, Decode);
+    object_start(Rest, Original, Skip, Acc, Stack, Decode, 1);
 value(<<Byte, _/bits>>, Original, Skip, _Acc, _Stack, _Decode) when ?is_ascii_plain(Byte) ->
     %% this clause is effecively the same as the last one, but necessary to
     %% force compiler to emit a jump table dispatch, rather than binary search
     invalid_byte(Original, Skip);
-value(_, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip).
+value(_, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, value).
 
 true(<<"rue", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
-    continue(Rest, Original, Skip + 4, Acc, Stack, Decode, true);
-true(_Rest, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip + 1).
+    continue(Rest, Original, Skip+4, Acc, Stack, Decode, true);
+true(_Rest, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 1, 3, value).
 
 false(<<"alse", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
-    continue(Rest, Original, Skip + 5, Acc, Stack, Decode, false);
-false(_Rest, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip + 1).
+    continue(Rest, Original, Skip+5, Acc, Stack, Decode, false);
+false(_Rest, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 1, 4, value).
 
 null(<<"ull", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
-    continue(Rest, Original, Skip + 4, Acc, Stack, Decode, Decode#decode.null);
-null(_Rest, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip + 1).
+    continue(Rest, Original, Skip+4, Acc, Stack, Decode, Decode#decode.null);
+null(_Rest, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 1, 3, value).
 
 number_minus(<<$0, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     number_zero(Rest, Original, Skip, Acc, Stack, Decode, 2);
 number_minus(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_1_to_9(Num) ->
     number(Rest, Original, Skip, Acc, Stack, Decode, 2);
-number_minus(_Rest, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip + 1).
+number_minus(_Rest, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 1, 0, value).
 
 number_zero(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
     number_frac(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 number_zero(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, <<"0">>);
+number_zero(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, 0});
 number_zero(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
-    continue(Rest, Original, Skip + Len, Acc, Stack, Decode, 0).
+    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, 0).
 
 number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Num) ->
     number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
@@ -738,14 +820,17 @@ number(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
 number(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
     Prefix = binary_part(Original, Skip, Len),
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, Prefix);
+number(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    Int = (Decode#decode.integer)(binary_part(Original, Skip, Len)),
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Int});
 number(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
     Int = (Decode#decode.integer)(binary_part(Original, Skip, Len)),
-    continue(Rest, Original, Skip + Len, Acc, Stack, Decode, Int).
+    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Int).
 
 number_frac(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
-number_frac(_, Original, Skip, _Acc, _Stack, _Decode, Len) ->
-    unexpected(Original, Skip + Len).
+number_frac(_, Original, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
 
 number_frac_cont(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
@@ -755,10 +840,16 @@ number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
     Token = binary_part(Original, Skip, Len),
     float_decode(Rest, Original, Skip, Acc, Stack, Decode, Len, Token).
 
+float_decode(<<>>, Original, Skip, Acc, Stack, Decode, Len, Token) ->
+    try (Decode#decode.float)(Token) of
+        Float -> unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Float})
+    catch
+        _:_ -> unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {float_error, Token, Skip})
+    end;
 float_decode(<<Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Token) ->
     try (Decode#decode.float)(Token) of
         Float ->
-            continue(Rest, Original, Skip + Len, Acc, Stack, Decode, Float)
+            continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Float)
     catch
         _:_ -> unexpected_sequence(Token, Skip)
     end.
@@ -767,13 +858,13 @@ number_exp(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?i
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 number_exp(<<Sign, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when Sign =:= $+; Sign =:= $- ->
     number_exp_sign(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
-number_exp(_, Original, Skip, _Acc, _Stack, _Decode, Len) ->
-    unexpected(Original, Skip + Len).
+number_exp(_, Original, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
 
 number_exp_sign(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
-number_exp_sign(_, Original, Skip, _Acc, _Stack, _Decode, Len) ->
-    unexpected(Original, Skip + Len).
+number_exp_sign(_, Original, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
 
 number_exp_cont(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
@@ -785,13 +876,13 @@ number_exp_copy(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Pr
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len, Prefix, 1);
 number_exp_copy(<<Sign, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Prefix) when Sign =:= $+; Sign =:= $- ->
     number_exp_sign(Rest, Original, Skip, Acc, Stack, Decode, Len, Prefix, 1);
-number_exp_copy(_, Original, Skip, _Acc, _Stack, _Decode, Len, _Prefix) ->
-    unexpected(Original, Skip + Len).
+number_exp_copy(_, Original, Skip, Acc, Stack, Decode, Len, _Prefix) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
 
 number_exp_sign(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Prefix, ExpLen) when ?is_0_to_9(Byte) ->
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len, Prefix, ExpLen + 1);
-number_exp_sign(_, Original, Skip, _Acc, _Stack, _Decode, Len, _Prefix, ExpLen) ->
-    unexpected(Original, Skip + Len + ExpLen).
+number_exp_sign(_, Original, Skip, Acc, Stack, Decode, Len, _Prefix, ExpLen) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len + ExpLen, 0, value).
 
 number_exp_cont(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Prefix, ExpLen) when ?is_0_to_9(Byte) ->
     number_exp_cont(Rest, Original, Skip, Acc, Stack, Decode, Len, Prefix, ExpLen + 1);
@@ -817,7 +908,7 @@ string(<<Byte, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Len) when ?is_ascii_
 string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Len) ->
     Part = binary_part(Orig, Skip, Len),
     SAcc = <<>>,
-    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Len, <<SAcc/binary, Part/binary>>);
+    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Skip-1, Len, <<SAcc/binary, Part/binary>>);
 string(<<$", Rest/bits>>, Orig, Skip0, Acc, Stack, Decode, Len) ->
     Value = binary_part(Orig, Skip0, Len),
     Skip = Skip0 + Len + 1,
@@ -833,8 +924,8 @@ string(<<Byte, Rest/bytes>>, Orig, Skip, Acc, Stack, Decode, Len) ->
         %% all accept cases are ASCII, already covered above
         State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Len, State)
     end;
-string(_, Orig, Skip, _Acc, _Stack, _Decode, Len) ->
-    unexpected(Orig, Skip + Len).
+string(_, Orig, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Orig, Skip-1, Acc, Stack, Decode, Len + 1, 0, value).
 
 string_utf8(<<Byte, Rest/binary>>, Orig, Skip, Acc, Stack, Decode, Len, State0) ->
     Type = element(Byte + 1, utf8t()),
@@ -843,24 +934,24 @@ string_utf8(<<Byte, Rest/binary>>, Orig, Skip, Acc, Stack, Decode, Len, State0) 
         ?UTF8_REJECT -> invalid_byte(Orig, Skip + Len + 1);
         State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Len + 1, State)
     end;
-string_utf8(_, Orig, Skip, _Acc, _Stack, _Decode, Len, _State0) ->
-    unexpected(Orig, Skip + Len + 1).
+string_utf8(_, Orig, Skip, Acc, Stack, Decode, Len, _State0) ->
+    unexpected(Orig, Skip-1, Acc, Stack, Decode, Len + 2, 0, value).
 
-string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Len, SAcc) ->
+string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     case Binary of
         <<B1, B2, B3, B4, B5, B6, B7, B8, Rest/binary>> when ?are_all_ascii_plain(B1, B2, B3, B4, B5, B6, B7, B8) ->
-            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Len + 8, SAcc);
+            string_ascii(Rest, Original, Skip, Acc, Stack, Decode, Start, Len + 8, SAcc);
         Other ->
-            string(Other, Original, Skip, Acc, Stack, Decode, Len, SAcc)
+            string(Other, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc)
     end.
 
--spec string(binary(), binary(), integer(), acc(), stack(), decode(), integer(), binary()) -> dynamic().
-string(<<Byte, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Len, SAcc) when ?is_ascii_plain(Byte) ->
-    string(Rest, Orig, Skip, Acc, Stack, Decode, Len + 1, SAcc);
-string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Len, SAcc) ->
+-spec string(binary(), binary(), integer(), acc(), stack(), decode(), integer(), integer(), binary()) -> dynamic().
+string(<<Byte, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) when ?is_ascii_plain(Byte) ->
+    string(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len + 1, SAcc);
+string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     Part = binary_part(Orig, Skip, Len),
-    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Len, <<SAcc/binary, Part/binary>>);
-string(<<$", Rest/bits>>, Orig, Skip0, Acc, Stack, Decode, Len, SAcc) ->
+    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len, <<SAcc/binary, Part/binary>>);
+string(<<$", Rest/bits>>, Orig, Skip0, Acc, Stack, Decode, _Start, Len, SAcc) ->
     Part = binary_part(Orig, Skip0, Len),
     Value = <<SAcc/binary, Part/binary>>,
     Skip = Skip0 + Len + 1,
@@ -868,28 +959,30 @@ string(<<$", Rest/bits>>, Orig, Skip0, Acc, Stack, Decode, Len, SAcc) ->
         undefined -> continue(Rest, Orig, Skip, Acc, Stack, Decode, Value);
         Fun -> continue(Rest, Orig, Skip, Acc, Stack, Decode, Fun(Value))
     end;
-string(<<Byte, _/bits>>, Orig, Skip, _Acc, _Stack, _Decode, Len, _SAcc) when ?is_ascii_escape(Byte) ->
+string(<<Byte, _/bits>>, Orig, Skip, _Acc, _Stack, _Decode, _Start, Len, _SAcc) when ?is_ascii_escape(Byte) ->
     invalid_byte(Orig, Skip + Len);
-string(<<Byte, Rest/bytes>>, Orig, Skip, Acc, Stack, Decode, Len, SAcc) ->
+string(<<Byte, Rest/bytes>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     case element(Byte - 127, utf8s0()) of
         ?UTF8_REJECT -> invalid_byte(Orig, Skip + Len);
-        %% all accept cases are ASCII, already covred above
-        State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Len, SAcc, State)
+        %% all accept cases are ASCII, already covered above
+        State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc, State)
     end;
-string(_, Orig, Skip, _Acc, _Stack, _Decode, Len, _SAcc) ->
-    unexpected(Orig, Skip + Len).
+string(_, Orig, Skip, Acc, Stack, Decode, Start, Len, _SAcc) ->
+    Extra = Skip - Start,
+    unexpected(Orig, Start, Acc, Stack, Decode, Len+Extra, 0, value).
 
-string_utf8(<<Byte, Rest/binary>>, Orig, Skip, Acc, Stack, Decode, Len, SAcc, State0) ->
+string_utf8(<<Byte, Rest/binary>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc, State0) ->
     Type = element(Byte + 1, utf8t()),
     case element(State0 + Type, utf8s()) of
-        ?UTF8_ACCEPT -> string_ascii(Rest, Orig, Skip, Acc, Stack, Decode, Len + 2, SAcc);
+        ?UTF8_ACCEPT -> string_ascii(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len + 2, SAcc);
         ?UTF8_REJECT -> invalid_byte(Orig, Skip + Len + 1);
-        State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Len + 1, SAcc, State)
+        State -> string_utf8(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len + 1, SAcc, State)
     end;
-string_utf8(_, Orig, Skip, _Acc, _Stack, _Decode, Len, _SAcc, _State0) ->
-    unexpected(Orig, Skip + Len + 1).
+string_utf8(_, Orig, Skip, Acc, Stack, Decode, Start, Len, _SAcc, _State0) ->
+    Extra = Skip - Start,
+    unexpected(Orig, Start, Acc, Stack, Decode, Len + 1 + Extra, 0, value).
 
-unescape(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, SAcc) ->
+unescape(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     Val =
         case Byte of
             $b -> $\b;
@@ -904,20 +997,21 @@ unescape(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, SAcc) ->
             _ -> error
         end,
     case Val of
-        unicode -> unescapeu(Rest, Original, Skip, Acc, Stack, Decode, Len, SAcc);
-        error -> unexpected(Original, Skip + Len + 1);
-        Int -> string_ascii(Rest, Original, Skip + Len + 2, Acc, Stack, Decode, 0, <<SAcc/binary, Int>>)
+        unicode -> unescapeu(Rest, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc);
+        error -> invalid_byte(Original, Skip+Len+1);
+        Int -> string_ascii(Rest, Original, Skip + Len + 2, Acc, Stack, Decode, Start, 0, <<SAcc/binary, Int>>)
     end;
-unescape(_, Original, Skip, _Acc, _Stack, _Decode, Len, _SAcc) ->
-    unexpected(Original, Skip + Len + 1).
+unescape(_, Original, Skip, Acc, Stack, Decode, Start, Len, _SAcc) ->
+    Extra = Skip - Start,
+    unexpected(Original, Start, Acc, Stack, Decode, Len + 1 + Extra, 0, value).
 
-unescapeu(<<E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, SAcc) ->
+unescapeu(<<E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     try hex_to_int(E1, E2, E3, E4) of
         CP when CP >= 16#D800, CP =< 16#DBFF ->
-            unescape_surrogate(Rest, Original, Skip, Acc, Stack, Decode, Len, SAcc, CP);
+            unescape_surrogate(Rest, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc, CP);
         CP ->
             try <<SAcc/binary, CP/utf8>> of
-                SAcc1 -> string_ascii(Rest, Original, Skip + Len + 6, Acc, Stack, Decode, 0, SAcc1)
+                SAcc1 -> string_ascii(Rest, Original, Skip + Len + 6, Acc, Stack, Decode, Start, 0, SAcc1)
             catch
                 _:_ -> unexpected_sequence(binary_part(Original, Skip + Len, 6), Skip + Len)
             end
@@ -925,15 +1019,16 @@ unescapeu(<<E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len
         _:_ ->
             unexpected_sequence(binary_part(Original, Skip + Len, 6), Skip + Len)
     end;
-unescapeu(_, Original, Skip, _Acc, _Stack, _Decode, Len, _SAcc) ->
-    unexpected(Original, Skip + Len + 2).
+unescapeu(_Rest, Original, Skip, Acc, Stack, Decode, Start, Len, _SAcc) ->
+    Extra = Skip - Start,
+    unexpected(Original, Start, Acc, Stack, Decode, Len + 2 + Extra, 4, value).
 
-unescape_surrogate(<<"\\u", E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, SAcc, Hi) ->
+unescape_surrogate(<<"\\u", E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc, Hi) ->
     try hex_to_int(E1, E2, E3, E4) of
         Lo when Lo >= 16#DC00, Lo =< 16#DFFF ->
             CP = 16#10000 + ((Hi band 16#3FF) bsl 10) + (Lo band 16#3FF),
             try <<SAcc/binary, CP/utf8>> of
-                SAcc1 -> string_ascii(Rest, Original, Skip + Len + 12, Acc, Stack, Decode, 0, SAcc1)
+                SAcc1 -> string_ascii(Rest, Original, Skip + Len + 12, Acc, Stack, Decode, Start, 0, SAcc1)
             catch
                 _:_ -> unexpected_sequence(binary_part(Original, Skip + Len, 12), Skip + Len)
             end;
@@ -942,8 +1037,9 @@ unescape_surrogate(<<"\\u", E1, E2, E3, E4, Rest/bits>>, Original, Skip, Acc, St
     catch
         _:_ -> unexpected_sequence(binary_part(Original, Skip + Len, 12), Skip + Len)
     end;
-unescape_surrogate(_, Original, Skip, _Acc, _Stack, _Decode, Len, _SAcc, _Hi) ->
-    unexpected(Original, Skip + Len + 6).
+unescape_surrogate(_Rest, Original, Skip, Acc, Stack, Decode, Start, Len, _SAcc, _Hi) ->
+    Extra = Skip - Start,
+    unexpected(Original, Start, Acc, Stack, Decode, Len + 6 + Extra, 5, value).
 
 %% erlfmt-ignore
 %% this is a macro instead of an inlined function - compiler refused to inline
@@ -958,9 +1054,9 @@ unescape_surrogate(_, Original, Skip, _Acc, _Stack, _Decode, Len, _SAcc, _Hi) ->
 hex_to_int(H1, H2, H3, H4) ->
     ?hex_digit(H4) + 16 * (?hex_digit(H3) + 16 * (?hex_digit(H2) + 16 * ?hex_digit(H1))).
 
-array_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte) ->
-    array_start(Rest, Original, Skip + 1, Acc, Stack, Decode);
-array_start(<<"]", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+array_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
+    array_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
+array_start(<<"]", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
     {Value, NewAcc} =
         case {Decode#decode.array_start, Decode#decode.array_finish} of
             {undefined, undefined} -> {[], Acc};
@@ -968,12 +1064,14 @@ array_start(<<"]", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
             {undefined, Finish} -> Finish([], Acc);
             {Start, Finish} -> Finish(Start(Acc), Acc)
         end,
-    continue(Rest, Original, Skip + 2, NewAcc, Stack, Decode, Value);
-array_start(Rest, Original, Skip0, OldAcc, Stack, Decode) ->
-    Skip = Skip0 + 1,
+    continue(Rest, Original, Skip+Len+1, NewAcc, Stack, Decode, Value);
+array_start(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    %% Handles empty array [] in continuation mode
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value);
+array_start(Rest, Original, Skip, OldAcc, Stack, Decode, Len) ->
     case Decode#decode.array_start of
-        undefined -> value(Rest, Original, Skip, [], [?ARRAY, OldAcc | Stack], Decode);
-        Fun -> value(Rest, Original, Skip, Fun(OldAcc), [?ARRAY, OldAcc | Stack], Decode)
+        undefined -> value(Rest, Original, Skip+Len, [], [?ARRAY, OldAcc | Stack], Decode);
+        Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [?ARRAY, OldAcc | Stack], Decode)
     end.
 
 array_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) when ?is_ws(Byte) ->
@@ -997,12 +1095,13 @@ array_push(<<$,, Rest/bits>>, Original, Skip0, Acc, Stack, Decode, Value) ->
         undefined -> value(Rest, Original, Skip, [Value | Acc], Stack, Decode);
         Fun -> value(Rest, Original, Skip, Fun(Value, Acc), Stack, Decode)
     end;
-array_push(_, Original, Skip, _Acc, _Stack, _Decode, _Value) ->
-    unexpected(Original, Skip).
+array_push(_, Original, Skip, Acc, Stack, Decode, Value) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value}).
 
-object_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte) ->
-    object_start(Rest, Original, Skip + 1, Acc, Stack, Decode);
-object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+
+object_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
+    object_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
+object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
     {Value, NewAcc} =
         case {Decode#decode.object_start, Decode#decode.object_finish} of
             {undefined, undefined} -> {#{}, Acc};
@@ -1010,10 +1109,10 @@ object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
             {undefined, Finish} -> Finish([], Acc);
             {Start, Finish} -> Finish(Start(Acc), Acc)
         end,
-    continue(Rest, Original, Skip + 2, NewAcc, Stack, Decode, Value);
-object_start(<<$", Rest/bits>>, Original, Skip0, OldAcc, Stack0, Decode) ->
+    continue(Rest, Original, Skip+Len+1, NewAcc, Stack, Decode, Value);
+object_start(<<$", Rest/bits>>, Original, Skip0, OldAcc, Stack0, Decode, Len) ->
     Stack = [?OBJECT, OldAcc | Stack0],
-    Skip = Skip0 + 2,
+    Skip = Skip0 + Len + 1,
     case Decode#decode.object_start of
         undefined ->
             string(Rest, Original, Skip, [], Stack, Decode);
@@ -1021,15 +1120,15 @@ object_start(<<$", Rest/bits>>, Original, Skip0, OldAcc, Stack0, Decode) ->
             Acc = Fun(OldAcc),
             string(Rest, Original, Skip, Acc, Stack, Decode)
     end;
-object_start(_, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip + 1).
+object_start(_, Original, Skip, Acc, Stack, Decode, Len) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
 
 object_value(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Key) when ?is_ws(Byte) ->
     object_value(Rest, Original, Skip + 1, Acc, Stack, Decode, Key);
 object_value(<<$:, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Key) ->
     value(Rest, Original, Skip + 1, Acc, [Key | Stack], Decode);
-object_value(_, Original, Skip, _Acc, _Stack, _Decode, _Key) ->
-    unexpected(Original, Skip).
+object_value(_, Original, Skip, Acc, Stack, Decode, Key) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Key}).
 
 object_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value, Key) when ?is_ws(Byte) ->
     object_push(Rest, Original, Skip + 1, Acc, Stack, Decode, Value, Key);
@@ -1051,15 +1150,15 @@ object_push(<<$,, Rest/bits>>, Original, Skip, Acc0, Stack, Decode, Value, Key) 
         undefined -> object_key(Rest, Original, Skip + 1, [{Key, Value} | Acc0], Stack, Decode);
         Fun -> object_key(Rest, Original, Skip + 1, Fun(Key, Value, Acc0), Stack, Decode)
     end;
-object_push(_, Original, Skip, _Acc, _Stack, _Decode, _Value, _Key) ->
-    unexpected(Original, Skip).
+object_push(_, Original, Skip, Acc, Stack, Decode, Value, Key) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value, Key}).
 
 object_key(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte) ->
     object_key(Rest, Original, Skip + 1, Acc, Stack, Decode);
 object_key(<<$", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     string(Rest, Original, Skip + 1, Acc, Stack, Decode);
-object_key(_, Original, Skip, _Acc, _Stack, _Decode) ->
-    unexpected(Original, Skip).
+object_key(_, Original, Skip, Acc, Stack, Decode) ->
+    unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, ?FUNCTION_NAME).
 
 continue(<<Rest/bits>>, Original, Skip, Acc, Stack0, Decode, Value) ->
     case Stack0 of
@@ -1074,11 +1173,22 @@ terminate(<<Byte, Rest/bits>>, Original, Skip, Acc, Value) when ?is_ws(Byte) ->
 terminate(<<Rest/bits>>, _Original, _Skip, Acc, Value) ->
     {Value, Acc, Rest}.
 
--spec unexpected(binary(), non_neg_integer()) -> no_return().
-unexpected(Original, Skip) when byte_size(Original) =:= Skip ->
+-spec unexpected_utf8(binary(), non_neg_integer()) -> no_return().
+unexpected_utf8(Original, Skip) when byte_size(Original) =:= Skip ->
     error(unexpected_end);
-unexpected(Original, Skip) ->
+unexpected_utf8(Original, Skip) ->
     invalid_byte(Original, Skip).
+
+unexpected(Original, Skip, Acc, Stack, Decode, Pos, Len, FuncData) ->
+    RequiredSize = Skip+Pos+Len,
+    OrigSize = byte_size(Original),
+    case OrigSize =< RequiredSize of
+        true ->
+            <<_:Skip/binary, Rest/binary>> = Original,
+            {continue, {Rest, Acc, Stack, Decode, FuncData}};
+        false ->
+            invalid_byte(Original, Skip+Pos)
+    end.
 
 -spec unexpected_sequence(binary(), non_neg_integer()) -> no_return().
 unexpected_sequence(Value, Skip) ->
