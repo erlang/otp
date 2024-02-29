@@ -22,8 +22,8 @@
 -moduledoc """
 Utility functions for handling the agent config files.
 
-The module `snmpa_conf` contains various utility functions to used for
-manipulating (write/append/read) the config files of the SNMP agent.
+The module `snmpa_conf` contains various utility functions to use for
+manipulating (write/read/append) the config files of the SNMP agent.
 
 ## DATA TYPES
 
@@ -165,7 +165,7 @@ For [`inet:ip4_address()`](`t:inet:ip4_address/0`),
 -type transportDomain() :: snmp:tdomain().
 
 -type transportAddress() ::
-    transportAddressIPv4() | transportAddressIPv6().
+        transportAddressIPv4() | transportAddressIPv6().
 
 -type transportAddressWithPort() ::
         transportAddressIPv4WithPort() | transportAddressIPv6WithPort().
@@ -423,7 +423,7 @@ The type of `Val` depends on the value of `Tag`:
 - **`intAgentUDPPort: `{: #intAgentUDPPort }`t:inet:port_number/0`
   `<optional>`**
 
-- **`snmpEngineMaxMessageSize: ``t:snmp_framework_mib:max_message_size/0` `<mandatory>`**{: #snmpEngineMaxMessageSize }
+- **`snmpEngineMaxMessageSize:` `t:snmp_framework_mib:max_message_size/0` `<mandatory>`**{: #snmpEngineMaxMessageSize }
 
 - **`snmpEngineID: `{: #snmpEngineID }`t:snmp_framework_mib:engine_id/0`
   `<mandatory>`**
@@ -1026,7 +1026,20 @@ target_addr_entry(
     target_addr_entry(Name, IP, TagList, ParamsName, EngineId, []).
 
 
--doc(#{equiv => target_addr_entry/8}).
+-doc """
+Create an entry for the agent target_addr config file, `target_addr.conf`.
+
+`Name` must be a _non-empty_ string.
+
+[`target_addr_entry/6` (1)](`target_addr_entry/6`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])`](`target_addr_entry/7`).
+
+[`target_addr_entry/6` (2)](`target_addr_entry/6`) translates to the following call (with `Domain` and `Addr` built from `IP` and the default port number):
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+""".
 -doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId) -> TargetAddrEntry when
@@ -1062,9 +1075,20 @@ target_addr_entry(
       EngineId, TMask, 2048).
 
 
--doc(#{equiv => target_addr_entry/8}).
--doc(#{since => <<"OTP 17.3">>}).
--doc(#{equiv => target_addr_entry/8}).
+-doc """
+Create an entry for the agent target_addr config file, `target_addr.conf`.
+
+`Name` must be a _non-empty_ string.
+
+[`target_addr_entry/7` (1)](`target_addr_entry/7`) translates to the following call:
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
+
+[`target_addr_entry/7` (2)](`target_addr_entry/7`) translates to the following call (with `Domain` and `Addr` built from `IP` and `Port`):
+[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+""".
 -doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId, TMask) -> TargetAddrEntry when
@@ -1107,27 +1131,10 @@ Create an entry for the agent target_addr config file, `target_addr.conf`.
 
 `Name` must be a _non-empty_ string.
 
-[`target_addr_entry/6`](`target_addr_entry/6`) translates to the following call:
-[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, [])`](`target_addr_entry/7`).
-
-[`target_addr_entry/7`](`target_addr_entry/7`) translates to the following call:
-[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
-
-[`target_addr_entry/8`](`target_addr_entry/8`) translates to the following call:
+[`target_addr_entry/8` (1)](`target_addr_entry/8`) translates to the following call:
 [`target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)`](`target_addr_entry/10`).
 
-See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
-more info.
-
-[](){: #target_addr_entry_2 } Create an entry for the agent target_addr config
-file, `target_addr.conf`.
-
-`Name` must be a _non-empty_ string.
-
-[`target_addr_entry/7`](`target_addr_entry/7`) translates to the following call:
-[`target_addr_entry(Name, Domain, Addr, TagList, ParamsName, EngineId, TMask, 2048)`](`target_addr_entry/8`).
-
-[`target_addr_entry/8`](`target_addr_entry/8`) translates to the following call:
+[`target_addr_entry/8` (2)](`target_addr_entry/8`) translates to the following call (with `Domain` and `Addr` built from `IP` and `Port`):
 [`target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)`](`target_addr_entry/10`).
 
 See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
@@ -1174,7 +1181,14 @@ target_addr_entry(
       Name, Domain, Addr, 1500, 3, TagList,
       ParamsName, EngineId, TMask, MaxMessageSize).
 
--doc(#{equiv => target_addr_entry/8}).
+-doc """
+Create an entry for the agent target_addr config file, `target_addr.conf`.
+
+`Name` must be a _non-empty_ string.
+
+See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
+more info.
+""".
 -doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name,
                         Domain, Addr,
@@ -1309,7 +1323,6 @@ Read the current agent target_addr config file.
 See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
 more info.
 
-[](){: #target_params_entry } [](){: #target_params_entry_1 }
 """.
 -spec read_target_addr_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
@@ -1380,7 +1393,23 @@ do_write_target_addr_conf(_Fd, Crap) ->
 %% ------ target_params.conf ------
 %%
 
--doc(#{equiv => target_params_entry/4}).
+-doc """
+Create an entry for the agent target_params config file, `target_params.conf`.
+
+`Name` must be a _non-empty_ string.
+
+[`target_params_entry/2`](`target_params_entry/2`) translates to the following
+call:
+
+```text
+	  target_params_entry(Name, Vsn, "initial", noAuthNoPriv)
+```
+
+See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
+for more info.
+
+[](){: #target_params_entry_2 }
+""".
 -spec target_params_entry(Name, Vsn) -> TargetParamsEntry when
       Name              :: snmp_target_mib:name(),
       Vsn               :: snmp:version(),
@@ -1404,13 +1433,6 @@ Create an entry for the agent target_params config file, `target_params.conf`.
 	  Vsn = v3 => MPModel = v3,  SecModel = usm
 ```
 
-[`target_params_entry/2`](`target_params_entry/2`) translates to the following
-call:
-
-```text
-	  target_params_entry(Name, Vsn, "initial", noAuthNoPriv)
-```
-
 [`target_params_entry/4`](`target_params_entry/4`) translates to the following
 call:
 
@@ -1423,7 +1445,7 @@ Where `MPModel` and `SecModel` is mapped from `Vsn`, see above.
 See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
 for more info.
 
-[](){: #target_params_entry_2 }
+[](){: #target_params_entry_4 }
 """.
 -spec target_params_entry(Name, Vsn, SecName, SecLevel) ->
           TargetParamsEntry when
@@ -1535,7 +1557,6 @@ Read the current agent target_params config file.
 See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
 for more info.
 
-[](){: #vacm_entry } [](){: #vacm_acc_entry }
 """.
 -spec read_target_params_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
@@ -1695,7 +1716,21 @@ do_write_notify_conf(_Fd, Crap) ->
 %% ------ usm.conf ------
 %%
 
--doc(#{equiv => usm_entry/13}).
+-doc """
+Create an entry for the agent usm config file, `usm.conf`.
+
+[`usm_entry/1`](`usm_entry/1`) translates to the following call:
+
+```text
+	  usm_entry(EngineID,
+	            "initial", "initial", zeroDotZero,
+		    usmNoAuthProtocol, "", "",
+		    usmNoPrivProtocol, "", "",
+		    "", "", "").
+```
+
+See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
+""".
 -spec usm_entry(EngineID) -> UsmEntry when
       EngineID :: snmp_framework_mib:engine_id(),
       UsmEntry :: usm_entry().
@@ -1719,17 +1754,7 @@ usm_entry(EngineID) ->
               Public, AuthKey, PrivKey).
 
 -doc """
-Create an entry for the agent vacm config file, `vacm.conf`.
-
-[`usm_entry/1`](`usm_entry/1`) translates to the following call:
-
-```text
-	  usm_entry(EngineID,
-	            "initial", "initial", zeroDotZero,
-		    usmNoAuthProtocol, "", "",
-		    usmNoPrivProtocol, "", "",
-		    "", "", "").
-```
+Create an entry for the agent usm config file, `usm.conf`.
 
 See [Security data for USM](snmp_agent_config_files.md#usm) for more info.
 """.
@@ -1810,7 +1835,7 @@ write_usm_config(Dir, Hdr, Conf)
 
 
 -doc """
-Append the usm config to the current agent vacm config file.
+Append the usm config to the current agent usm config file.
 
 `Dir` is the path to the directory where to store the config file.
 
@@ -1930,7 +1955,17 @@ See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
 vacm_s2g_entry(SecModel, SecName, GroupName) ->
     {vacmSecurityToGroup, SecModel, SecName, GroupName}.
 
--doc(#{equiv => vacm_vtf_entry/4}).
+-doc """
+Create an (view tree family) entry for the agent vacm config file, `vacm.conf`.
+
+[`vacm_vtf_entry/2`](`vacm_vtf_entry/2`) translates to the following call:
+
+```text
+	  vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
+```
+
+See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
+""".
 -spec vacm_vtf_entry(ViewName, ViewSubtree) -> VacmVtfEntry when
       ViewName     :: snmp_framework_mib:admin_string(),
       ViewSubtree  :: snmp:oid(),
@@ -1941,12 +1976,6 @@ vacm_vtf_entry(ViewName, ViewSubtree) ->
 
 -doc """
 Create an (view tree family) entry for the agent vacm config file, `vacm.conf`.
-
-[`vacm_vtf_entry/2`](`vacm_vtf_entry/2`) translates to the following call:
-
-```text
-	  vacm_vtf_entry(ViewIndex, ViewSubtree, included, null).
-```
 
 See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
 """.
