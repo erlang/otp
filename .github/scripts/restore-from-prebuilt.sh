@@ -111,6 +111,7 @@ if [ -n "${ARCHIVE}" ]; then
         echo "::group::{Run ${i} at pruning cache}"
 
         ## rlpgoD is the same as --archive, but without --times
+        ## If you update this, make sure to update the update after the loop as well
         RSYNC_ARGS=(-rlpgoD --itemize-changes --verbose --checksum --update "${EXCLUDE_BOOTSTRAP[@]}" "${ARCHIVE_DIR}/otp/" "${CACHE_DIR}/")
 
         ## We do a dry run to see if we need to purge anything from cache
@@ -201,6 +202,8 @@ if [ -n "${ARCHIVE}" ]; then
     done
 
     echo "::group::{Sync changes over cached data}"
+
+    RSYNC_ARGS=(-rlpgoD --itemize-changes --verbose --checksum --update "${EXCLUDE_BOOTSTRAP[@]}" "${ARCHIVE_DIR}/otp/" "${CACHE_DIR}/")
 
     ## Now we do the actual sync
     rsync "${RSYNC_ARGS[@]}"
