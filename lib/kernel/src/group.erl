@@ -471,13 +471,21 @@ getopts(Drv,Buf) ->
 %%	{error,What,NewSaveBuffer}
 
 get_password_chars(Drv,Shell,Buf) ->
-    case get_password_line(Buf, Drv, Shell) of
-	{done, Line, Buf1} ->
-	    {ok, Line, Buf1};
-	interrupted ->
-	    {error, {error, interrupted}, []};
-	terminated ->
-	    {exit, terminated}
+    case get(echo) of
+        true ->
+            case get_password_line(Buf, Drv, Shell) of
+                {done, Line, Buf1} ->
+                    {ok, Line, Buf1};
+                interrupted ->
+                    {error, {error, interrupted}, []};
+                terminated ->
+                    {exit, terminated}
+            end;
+        false ->
+            %% Echo needs to be set to true, otherwise the
+            %% password will be printed to the shell and we
+            %% do not want that.
+            {error, {error, enotsup}, []}
     end.
 
 get_chars_n(Prompt, M, F, Xa, Drv, Shell, Buf, Encoding) ->
@@ -1107,7 +1115,7 @@ get_password_line(Chars, Drv, Shell) ->
 get_password1({Chars,[]}, Drv, Shell) ->
     receive
 	{Drv,{data,Cs}} ->
-	    get_password1(edit_password(Cs,cast(Chars,list)),Drv,Shell);
+	    get_password1(edit_password(cast(Cs,list),Chars),Drv,Shell);
 	{io_request,From,ReplyAs,Req} when is_pid(From) ->
 	    io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
 	    %% I guess the reason the above line is wrong is that Buf is

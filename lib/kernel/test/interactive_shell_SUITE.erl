@@ -46,6 +46,7 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
+         shell_get_password/1,
          shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
          shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
@@ -86,6 +87,7 @@ groups() ->
        job_control_remote, job_control_remote_noshell,
        ctrl_keys, stop_during_init, wrap,
        shell_invalid_ansi,
+       shell_get_password,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -1328,6 +1330,20 @@ shell_invalid_ansi(_Config) ->
        "-kernel","prevent_overlapping_partitions","false",
        "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
       ]).
+
+shell_get_password(_Config) ->
+   
+    rtnode:run(
+      [{putline,"io:get_password()."},
+       {putline,"secret\r"},
+       {expect, "\r\n\r\n\"secret\""}]),
+
+    %% io:get_password only works when run in "newshell"
+    rtnode:run(
+      [{putline,"io:get_password()."},
+       {expect, "\\Q{error,enotsup}\\E"}],
+     "","",["-oldshell"]).
+
 
 shell_ignore_pager_commands(Config) ->
     Term = start_tty(Config),
