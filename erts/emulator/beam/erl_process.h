@@ -2805,9 +2805,14 @@ ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    esdp->rand_state++;
-    return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
-                                                       + additional_seed);
+    if(ERTS_UNLIKELY(esdp == NULL))
+        return erts_sched_local_random_hash_64_to_32_shift(((Uint64)(UWord)&additional_seed)
+                                                           + additional_seed);
+    else {
+        esdp->rand_state++;
+        return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
+                                                           + additional_seed);
+    }
 }
 
 #ifdef DEBUG
