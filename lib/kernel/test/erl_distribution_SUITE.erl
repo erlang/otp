@@ -54,7 +54,8 @@
          erl_1424/1, net_kernel_start/1, differing_cookies/1,
          cmdline_setcookie_2/1, connection_cookie/1,
          dyn_differing_cookies/1,
-         xdg_cookie/1]).
+         xdg_cookie/1,
+         allowed/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -77,7 +78,8 @@
 
 -export([pinger/1]).
 
--export([start_uds_rpc_server/1]).
+-export([start_uds_rpc_server/1,
+         wait_node_down/1]).
 
 -define(DUMMY_NODE,dummy@test01).
 -define(ALT_EPMD_PORT, "12321").
@@ -107,7 +109,9 @@ all() ->
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
      erl_1424, net_kernel_start,
-     {group, differing_cookies}].
+     {group, differing_cookies},
+     allowed
+     ].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -137,6 +141,11 @@ end_per_suite(_Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(monitor_nodes, Config) ->
+    %% we disconnect existing nodes because they interfere
+    %% with other tests where `nodes() == []` but it wasn't.
+    ok = kill_existing_nodes(),
+    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -1582,12 +1591,22 @@ monitor_nodes_otp_6481(Config) when is_list(Config) ->
 
 monitor_nodes_otp_6481(DCfg, Config) ->
     io:format("Testing nodedown...~n"),
-    monitor_nodes_otp_6481_test(DCfg, Config, nodedown),
+    ok = monitor_nodes_otp_6481_test(DCfg, Config, nodedown),
     io:format("ok~n"),
     io:format("Testing nodeup...~n"),
-    monitor_nodes_otp_6481_test(DCfg, Config, nodeup),
+    ok = monitor_nodes_otp_6481_test(DCfg, Config, nodeup),
     io:format("ok~n"),
     ok.
+
+kill_existing_nodes() ->
+    kill_existing_nodes(nodes()),
+    ok.
+
+kill_existing_nodes([]) -> ok;
+kill_existing_nodes([Node | Nodes]) ->
+    catch erpc:call(Node, erlang, halt, []),
+    kill_existing_nodes(Nodes).
+
 
 monitor_nodes_otp_6481_test(DCfg, Config, TestType) when is_list(Config) ->
     MonNodeState = monitor_node_state(),
@@ -2719,7 +2738,120 @@ xdg_cookie(Config) when is_list(Config) ->
 
     ok.
 
+allowed(_Config) ->
+    %% inspired by differing_cookies/1
+    test_server:timetrap({minutes, 1}),
+    NodeT = node(),
+    true = NodeT =/= nonode@nohost,
+    [] = nodes(),
+    BaseName = atom_to_list(?FUNCTION_NAME),
 
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A
+    NodeAName = BaseName++"_nodeA",
+    NodeA = full_node_name(NodeAName),
+    { ok, NodeA } =
+        start_node( "-hidden", NodeAName),
+
+    %% allow NodeT on NodeA so that other connections are dismissed
+    {ok,[]} = rpc:call(NodeA, net_kernel, allowed, []),
+    ok = rpc:call(NodeA, net_kernel, allow, [[NodeT]]),
+    {ok,[NodeT]} = rpc:call(NodeA, net_kernel, allowed, []),
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ NodeT ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+
+        %% Start node B
+        NodeBName = BaseName++"_nodeB",
+        NodeB = full_node_name(NodeBName),
+        { ok, NodeB } =
+            start_node( "-hidden", NodeBName),
+
+        try
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ NodeT ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ NodeT ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Verify that the nodes can not connect as A does not allow B.
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Allow node B on node A
+            ok = rpc:call(NodeA, net_kernel, allow, [[NodeB]]),
+            {ok,N_B} = rpc:call(NodeA, net_kernel, allowed, []),
+            equal_sets([NodeT,NodeB], N_B),
+            pong = rpc:call(NodeA, net_adm, ping, [NodeB]),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [NodeT, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [NodeT, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disconnect and connect the other way (B -> A)
+            true = rpc:call( NodeB, net_kernel, disconnect, [NodeA] ),
+            [NodeT] = rpc:call( NodeA, ?MODULE, wait_node_down, [NodeB] ),
+            [NodeT] = rpc:call( NodeB, ?MODULE, wait_node_down, [NodeA] ),
+            pong = rpc:call(NodeB, net_adm, ping, [NodeA]),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [NodeT, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [NodeT, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disallow node A on node B (by allowing node T)
+            %% and verify it does not affect the existing connection
+            ok = rpc:call(NodeB, net_kernel, allow, [[NodeT]]),
+            {ok,[NodeT]} = rpc:call(NodeB, net_kernel, allowed, []),
+            equal_sets([NodeT, NodeA],
+                       rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disconnect and fail to reconnect
+            true = rpc:call( NodeB, net_kernel, disconnect, [NodeA] ),
+            [NodeT] = rpc:call( NodeA, ?MODULE, wait_node_down, [NodeB] ),
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Allow node T again and verify its only returned once.
+            ok = rpc:call(NodeB, net_kernel, allow, [[NodeT]]),
+            {ok,[NodeT]} = rpc:call(NodeB, net_kernel, allowed, []),
+
+            %% Test non-registered process
+            %% 'net_kernel' is registered to a process
+            %% so we unregister it to test the output 'ignored'
+            ok = rpc:call(NodeA, erts_internal, dynamic_node_name, [false]),
+            true = rpc:call(NodeA, erlang, unregister, [net_kernel]),
+            ignored = rpc:call(NodeA, net_kernel, allow, [[NodeB]])
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
+
+wait_node_down(Node) ->
+    net_kernel:monitor_nodes(true, [all]),
+    Timeout = case lists:member(Node, nodes(connected)) of
+                 true -> 10_000;
+                 false -> 0
+             end,
+    receive
+        {nodedown, Node} -> ok
+    after
+        Timeout -> ok
+    end,
+    net_kernel:monitor_nodes(false, [all]),
+    nodes(connected).
 
 %% Misc. functions
 
