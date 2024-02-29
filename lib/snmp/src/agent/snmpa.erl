@@ -246,22 +246,26 @@ convert_config(Opts) ->
 %%-----------------------------------------------------------------
 
 -doc """
-Sets verbosity for all the agent processes; net_if, note_store, mib_server,
-symbolic_store, local_db and master_agent.
+Sets 'verbosity' for the indicated process(s):
 
-Sets verbosity for the net-if process.
+- **`all`** -
+  Sets verbosity for all the agent processes; net_if, note_store, mib_server,
+symbolic_store, local_db and master_agent (and sub-agents).
 
-Sets verbosity for the note store process.
+- **`net_if`** - Sets verbosity for the net-if process.
 
-Sets verbosity for the mib server process.
+- **`note_store`** - Sets verbosity for the note store process.
 
-Sets verbosity for the symbolic store process.
+- **`mib_server`** - Sets verbosity for the mib server process.
 
-Sets verbosity for the local-db process.
+- **`symbolic_store`** - Sets verbosity for the symbolic store process.
 
-Sets verbosity for all sub-agent(s) controlled by the this (master) agent.
+- **`local_db`** - Sets verbosity for the local-db process.
 
-Sets verbosity for the agent process.
+- **`master_agent | pid()`** when `Verbosity = {subagents,` [`snmp:verbosity()`](#verbosity)`}` - 
+  Sets verbosity for all sub-agent(s) controlled by this (master) agent.
+
+- **`master_agent | pid()`** - Sets verbosity for the agent process.
 """.
 -spec verbosity(Target, Verbosity) -> snmp:void() when
       Target    :: all,
@@ -653,7 +657,7 @@ mib-data and vacm).
 
 Data stored by mnesia is not handled.
 
-BackupDir cannot be identical to DbDir.
+`BackupDir` cannot be identical to DbDir.
 
 Simultaneous backup calls are _not_ allowed. That is, two different processes
 cannot simultaneously successfully call this function. One of them will be
@@ -2345,7 +2349,7 @@ get_agent_caps() ->
 %%%-----------------------------------------------------------------
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir) -> snmp:void() when
       LogDir :: snmp:dir().
 
@@ -2354,7 +2358,7 @@ log_to_txt(LogDir) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Block) -> snmp:void() when
       LogDir :: snmp:dir(),
       Block  :: boolean();
@@ -2378,7 +2382,7 @@ log_to_txt(LogDir, Mibs) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, Block) -> snmp:void() when
       LogDir :: snmp:dir(),
       Mibs   :: [snmp:mib_name()],
@@ -2402,7 +2406,7 @@ log_to_txt(LogDir, Mibs, OutFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, Block) -> snmp:void() when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
@@ -2426,7 +2430,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, Block) -> snmp:void() when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
@@ -2450,7 +2454,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
           snmp:void() when
       LogDir  :: snmp:dir(),
@@ -2477,7 +2481,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
                  OutFile, LogName, LogFile,
 		 Block,
@@ -2524,7 +2528,7 @@ wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
 """.
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
 		 OutFile, LogName, LogFile,
 		 Block,
