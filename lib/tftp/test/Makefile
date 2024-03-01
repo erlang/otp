@@ -150,6 +150,7 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # running the target "targets".
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
+	+nowarn_missing_spec_documented \
 	$(INCLUDES) \
 	$(TFTP_FLAGS)
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))

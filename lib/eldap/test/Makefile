@@ -54,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/eldap_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += $(INCLUDES) -pa $(ERL_TOP)/lib/eldap/ebin
+ERL_COMPILE_FLAGS += $(INCLUDES) -pa $(ERL_TOP)/lib/eldap/ebin +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

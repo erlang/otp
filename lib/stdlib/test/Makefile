@@ -131,6 +131,7 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
+		+nowarn_missing_spec_documented \
 		-I$(ERL_TOP)/lib/stdlib/include
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 

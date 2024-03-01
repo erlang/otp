@@ -160,7 +160,8 @@ ERL_COMPILE_FLAGS += -I../../snmp/src/app \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
-                     $(SNMP_FLAGS)
+                     $(SNMP_FLAGS) \
+		     +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 ERL_SNMP_FLAGS = $(SNMP_MIB_FLAGS) \

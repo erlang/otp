@@ -58,7 +58,7 @@ RELSYSDIR = $(RELEASE_PATH)/system_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 
 # ----------------------------------------------------
 # Targets

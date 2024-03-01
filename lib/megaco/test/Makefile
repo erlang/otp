@@ -85,7 +85,7 @@ ifeq ($(USE_MEGACO_TEST_CODE),true)
 ERL_COMPILE_FLAGS += -DMEGACO_TEST_CODE=mona_lisa_spelar_doom
 endif
 
-ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS)
+ERL_COMPILE_FLAGS += $(MEGACO_ERL_COMPILE_FLAGS) +nowarn_missing_spec_documented
 
 # We have a behaviour in the test catalog (megaco_test_generator)
 ERL_COMPILE_FLAGS += -pa ../../megaco/test

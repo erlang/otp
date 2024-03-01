@@ -57,7 +57,7 @@ RELSYSDIR = $(RELEASE_PATH)/sasl_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/sasl/src +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

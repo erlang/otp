@@ -46,7 +46,7 @@ RELEPMDDIR   = $(RELEASE_PATH)/epmd_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += $(EPMD_FLAGS)
+ERL_COMPILE_FLAGS += $(EPMD_FLAGS) +nowarn_missing_spec_documented
 
 # ----------------------------------------------------
 # Targets

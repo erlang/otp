@@ -138,7 +138,7 @@ RELSYSDIR = $(RELEASE_PATH)/asn1_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += +warnings_as_errors +nowarn_export_all
+ERL_COMPILE_FLAGS += +warnings_as_errors +nowarn_export_all +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 EBIN = .
 
