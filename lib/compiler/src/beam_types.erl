@@ -1503,7 +1503,9 @@ convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
         end,
 
     Encoded = encode_ext(decode_fix(Res, R, Unit)),
-    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>).
+    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>);
+convert_ext_26(<<>>, Types) ->
+    Types.
 
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
