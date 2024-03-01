@@ -2378,10 +2378,14 @@ save_abstract_code(Code, St) ->
 beam_docs(Code, #compile{dir = Dir, options = Options,
                          extra_chunks = ExtraChunks }=St) ->
     SourceName = deterministic_filename(St),
-    {ok, Docs, Ws} = beam_doc:main(Dir, SourceName, Code, Options),
-    MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
-    {ok, Code, St#compile{extra_chunks = MetaDocs,
-                          warnings = St#compile.warnings ++ Ws}}.
+    case beam_doc:main(Dir, SourceName, Code, Options) of
+        {ok, Docs, Ws} ->
+            MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
+            {ok, Code, St#compile{extra_chunks = MetaDocs,
+                                  warnings = St#compile.warnings ++ Ws}};
+        {error, no_docs} ->
+            {ok, Code, St}
+    end.
 
 %% Strips documentation attributes from the code
 remove_doc_attributes(Code, St) ->

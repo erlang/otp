@@ -6,7 +6,8 @@
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
-         docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1]).
+         docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1,
+         no_doc_attributes/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -49,7 +50,8 @@ documentation_generation_tests() ->
      spec_switch_order,
      docs_from_ast,
      user_defined_type,
-     skip_doc
+     skip_doc,
+     no_doc_attributes
     ].
 
 singleton_moduledoc(Conf) ->
@@ -367,7 +369,7 @@ equiv(Conf) ->
 spec(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    {ok, {docs_v1, _,_, _, none, _,
+    {ok, {docs_v1, _,_, _, #{ ~"en" := ~"" }, _,
           [{{type,no,0},_,[<<"no()">>],none,#{exported := false}},
            {{type,yes,0},_,[<<"yes()">>],none,#{exported := false}},
            {{callback,me,1},_,[<<"me/1">>],none,#{}},
@@ -378,7 +380,7 @@ spec(Conf) ->
 user_defined_type(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    {ok, {docs_v1, _,_, _, none, _, []}} = code:get_doc(ModName),
+    {ok, {docs_v1, _,_, _, #{ ~"en" := ~"" }, _, []}} = code:get_doc(ModName),
     ok.
 
 deprecated(Conf) ->
@@ -563,10 +565,21 @@ skip_doc(Conf) ->
        [{{function,main,0},{8,1},[<<"main/0">>],none,#{}},
         {{function,foo,1},{16,1},[<<"foo/1">>],none,#{}}]}} = code:get_doc(ModName),
 
+  {error, missing} =
+      code:get_doc(ModName, #{ sources => [eep48] }),
+
   {ok, _ModName} = compile_file(Conf, ModuleName, [report, return_errors, no_docs]),
   {error, missing} = code:get_doc(ModName),
   ok.
 
+no_doc_attributes(Conf) ->
+  ModuleName =?get_name(),
+  {ok, ModName} = default_compile_file(Conf, ModuleName, []),
+
+  {error, missing} =
+      code:get_doc(ModName, #{ sources => [eep48] }),
+
+  ok.
 
 docs_from_ast(_Conf) ->
     Code = """
