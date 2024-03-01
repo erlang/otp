@@ -115,6 +115,7 @@ ERL_COMPILE_FLAGS += \
 	+'{attribute,insert,app_vsn,"$(APP_VSN)"}' \
 	+warn_export_vars \
 	+warn_unused_vars \
+	+nowarn_missing_spec_documented \
 	-pa $(ABS_EBIN) \
 	-I $(INCDIR) \
 	-I gen \

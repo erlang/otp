@@ -55,7 +55,7 @@ TARGET_FILES =  \
 ifeq ($(TYPE),debug)
 ERL_COMPILE_FLAGS += -Ddebug -W
 endif
-ERL_COMPILE_FLAGS += +nowarn_missing_doc
+ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented
 
 
 # ----------------------------------------------------

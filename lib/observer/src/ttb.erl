@@ -1119,20 +1119,20 @@ seq_trigger_ms([],Body) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Write information to the .ti file
--spec no_store_write_trace_info(Key,Info) -> ok when
-      Key  :: term(),
-      Info :: Data::term() | fun(() -> Data::term()).
 -doc """
-write_trace_info(Key,Info) -> ok
-
 File `.ti` contains `{Key,ValueList}` tuples. This function adds `Data` to the
 `ValueList` associated with `Key`. All information written with this function is
 included in the call to the format handler.
 """.
+-spec write_trace_info(Key :: term(), Info)  -> ok when
+      Info :: Data::term() | fun(() -> Data::term()).
 write_trace_info(Key,What) ->
     store(write_trace_info,[Key,What]),
     no_store_write_trace_info(Key,What).
 
+-spec no_store_write_trace_info(Key,Info) -> ok when
+      Key  :: term(),
+      Info :: Data::term() | fun(() -> Data::term()).
 no_store_write_trace_info(Key,What) ->
     case whereis(?MODULE) of
 	undefined -> ok;

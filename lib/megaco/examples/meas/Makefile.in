@@ -84,7 +84,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
-	-I../include
+	-I../include +nowarn_missing_spec_documented
 
 DIA_PLT      = megaco_example_meas.plt
 DIA_ANALYSIS = $(basename $(DIA_PLT)).dialyzer_analysis
