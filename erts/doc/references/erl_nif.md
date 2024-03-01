@@ -907,6 +907,8 @@ message with [`enif_send`](erl_nif.md#enif_send).
 
 Returns pointer to the new environment.
 
+Available since OTP R14B
+
 ## enif_alloc_resource()
 
 ```c
@@ -915,6 +917,8 @@ void * enif_alloc_resource(ErlNifResourceType* type,
 ```
 
 Allocates a memory-managed resource object of type `type` and size `size` bytes.
+
+Available since OTP R13B04
 
 ## enif_binary_to_term()
 
@@ -939,6 +943,8 @@ See also [`ErlNifBinaryToTerm`](erl_nif.md#ErlNifBinaryToTerm),
 `erlang:binary_to_term/2`, and
 [`enif_term_to_binary`](erl_nif.md#enif_term_to_binary).
 
+Available since OTP 19.0
+
 ## enif_clear_env()
 
 ```c
@@ -947,6 +953,8 @@ void enif_clear_env(ErlNifEnv* env);
 
 Frees all terms in an environment and clears it for reuse. The environment must
 have been allocated with [`enif_alloc_env`](erl_nif.md#enif_alloc_env).
+
+Available since OTP R14B
 
 ## enif_compare()
 
@@ -957,6 +965,8 @@ int enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs);
 Returns an integer < `0` if `lhs` < `rhs`, `0` if `lhs` = `rhs`, and > `0` if
 `lhs` > `rhs`. Corresponds to the Erlang operators `==`, `/=`, `=<`, `<`, `>=`,
 and `>` (but _not_ `=:=` or `=/=`).
+
+Available since OTP R13B04
 
 ## enif_compare_monitors()
 
@@ -971,6 +981,8 @@ imply some artificial order on monitors, for whatever reason.
 Returns `0` if `monitor1` and `monitor2` are equal, < `0` if `monitor1` <
 `monitor2`, and > `0` if `monitor1` > `monitor2`.
 
+Available since OTP 20.0
+
 ## enif_compare_pids()
 
 ```c
@@ -982,6 +994,8 @@ Compares two [`ErlNifPid` ](erl_nif.md#ErlNifPid)s according to term order.
 Returns `0` if `pid1` and `pid2` are equal, < `0` if `pid1` < `pid2`, and > `0`
 if `pid1` > `pid2`.
 
+Available since OTP 22.0
+
 ## enif_cond_broadcast()
 
 ```c
@@ -989,6 +1003,8 @@ void enif_cond_broadcast(ErlNifCond *cnd);
 ```
 
 Same as [`erl_drv_cond_broadcast`](erl_driver.md#erl_drv_cond_broadcast).
+
+Available since OTP R13B04
 
 ## enif_cond_create()
 
@@ -998,6 +1014,8 @@ ErlNifCond * enif_cond_create(char *name);
 
 Same as [`erl_drv_cond_create`](erl_driver.md#erl_drv_cond_create).
 
+Available since OTP R13B04
+
 ## enif_cond_destroy()
 
 ```c
@@ -1005,6 +1023,8 @@ void enif_cond_destroy(ErlNifCond *cnd);
 ```
 
 Same as [`erl_drv_cond_destroy`](erl_driver.md#erl_drv_cond_destroy).
+
+Available since OTP R13B04
 
 ## enif_cond_name()
 
@@ -1014,6 +1034,8 @@ char* enif_cond_name(ErlNifCond* cnd);
 
 Same as [`erl_drv_cond_name`](erl_driver.md#erl_drv_cond_name).
 
+Available since OTP 21.0
+
 ## enif_cond_signal()
 
 ```c
@@ -1022,6 +1044,8 @@ void enif_cond_signal(ErlNifCond *cnd);
 
 Same as [`erl_drv_cond_signal`](erl_driver.md#erl_drv_cond_signal).
 
+Available since OTP R13B04
+
 ## enif_cond_wait()
 
 ```c
@@ -1029,6 +1053,8 @@ void enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_cond_wait`](erl_driver.md#erl_drv_cond_wait).
+
+Available since OTP R13B04
 
 ## enif_consume_timeslice()
 
@@ -1064,6 +1090,8 @@ without the need to create threads.
 See also the [warning](erl_nif.md#WARNING) text at the beginning of this manual
 page.
 
+Available since OTP R16B
+
 ## enif_convert_time_unit()
 
 ```c
@@ -1085,6 +1113,8 @@ Returns `ERL_NIF_TIME_ERROR` if called with an invalid time unit argument.
 See also [`ErlNifTime`](erl_nif.md#ErlNifTime) and
 [`ErlNifTimeUnit`](erl_nif.md#ErlNifTimeUnit).
 
+Available since OTP 18.3
+
 ## enif_cpu_time()
 
 ```c
@@ -1096,6 +1126,8 @@ Returns the CPU time in the same format as
 current logical CPU has spent executing since some arbitrary point in the past.
 If the OS does not support fetching this value, `enif_cpu_time` invokes
 [`enif_make_badarg`](erl_nif.md#enif_make_badarg).
+
+Available since OTP 19.0
 
 ## enif_demonitor_process()
 
@@ -1123,6 +1155,8 @@ non-zero value if the monitor could not be identified, which means it was either
 
 This function is thread-safe.
 
+Available since OTP 20.0
+
 ## enif_dynamic_resource_call()
 
 ```c
@@ -1146,6 +1180,8 @@ value if no call was made, which happens if `rt_module` and `rt_name` did not
 identify a resource type with a `dyncall` callback or if `resource` was not a
 resource object of that type.
 
+Available since OTP 24.0
+
 ## enif_equal_tids()
 
 ```c
@@ -1153,6 +1189,8 @@ int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2);
 ```
 
 Same as [`erl_drv_equal_tids`](erl_driver.md#erl_drv_equal_tids).
+
+Available since OTP R13B04
 
 ## enif_fprintf()
 
@@ -1166,6 +1204,8 @@ Erlang terms of type [`ERL_NIF_TERM`](erl_nif.md#ERL_NIF_TERM).
 This function is primarily intended for debugging purpose. It is not recommended
 to print very large terms with `%T`. The function may change `errno`, even if
 successful.
+
+Available since OTP 21.0
 
 ## enif_free()
 
@@ -1184,6 +1224,8 @@ void enif_free_env(ErlNifEnv* env);
 Frees an environment allocated with
 [`enif_alloc_env`](erl_nif.md#enif_alloc_env). All terms created in the
 environment are freed as well.
+
+Available since OTP R14B
 
 ## enif_free_iovec()
 
@@ -1209,6 +1251,8 @@ if (!enif_inspect_iovec(NULL, max_elements, term, &tail, &iovec))
 enif_free_iovec(iovec);
 ```
 
+Available since OTP 20.1
+
 ## enif_get_atom()
 
 ```c
@@ -1224,6 +1268,8 @@ Returns the number of bytes written (including terminating `NULL` character) or
 `0` if `term` is not an atom with maximum length of `size-1` bytes in
 `encoding`.
 
+Available since OTP R13B04
+
 ## enif_get_atom_length()
 
 ```c
@@ -1237,6 +1283,8 @@ character) of the atom `term` with [encoding](erl_nif.md#ErlNifCharEncoding).
 Returns `true` on success, or `false` if `term` is not an atom or if the atom
 cannot be encoded using `encoding`.
 
+Available since OTP R14B
+
 ## enif_get_double()
 
 ```c
@@ -1247,6 +1295,8 @@ int enif_get_double(ErlNifEnv* env,
 Sets `*dp` to the floating-point value of `term`.
 
 Returns `true` on success, or `false` if `term` is not a float.
+
+Available since OTP R13B04
 
 ## enif_get_int()
 
@@ -1272,6 +1322,8 @@ Sets `*ip` to the integer value of `term`.
 Returns `true` on success, or `false` if `term` is not an integer or is outside
 the bounds of a signed 64-bit integer.
 
+Available since OTP R14B
+
 ## enif_get_local_pid()
 
 ```c
@@ -1288,6 +1340,8 @@ is done to see if the process is alive.
 > `enif_get_local_pid` will return false if argument `term` is the atom
 > [`undefined`](erl_nif.md#enif_make_pid).
 
+Available since OTP R14B
+
 ## enif_get_local_port()
 
 ```c
@@ -1298,6 +1352,8 @@ int enif_get_local_port(ErlNifEnv* env,
 If `term` identifies a node local port, this function initializes the port
 variable `*port_id` from it and returns `true`. Otherwise returns `false`. No
 check is done to see if the port is alive.
+
+Available since OTP 19.0
 
 ## enif_get_list_cell()
 
@@ -1321,6 +1377,8 @@ Sets `*len` to the length of list `term`.
 
 Returns `true` on success, or `false` if `term` is not a proper list.
 
+Available since OTP R14B
+
 ## enif_get_long()
 
 ```c
@@ -1333,6 +1391,8 @@ Sets `*ip` to the long integer value of `term`.
 Returns `true` on success, or `false` if `term` is not an integer or is outside
 the bounds of type `long int`.
 
+Available since OTP R13B04
+
 ## enif_get_map_size()
 
 ```c
@@ -1343,6 +1403,8 @@ int enif_get_map_size(ErlNifEnv* env,
 Sets `*size` to the number of key-value pairs in the map `term`.
 
 Returns `true` on success, or `false` if `term` is not a map.
+
+Available since OTP 18.0
 
 ## enif_get_map_value()
 
@@ -1355,6 +1417,8 @@ Sets `*value` to the value associated with `key` in the map `map`.
 
 Returns `true` on success, or `false` if `map` is not a map or if `map` does not
 contain `key`.
+
+Available since OTP 18.0
 
 ## enif_get_resource()
 
@@ -1371,6 +1435,8 @@ object of type `type`.
 `enif_get_resource` does not add a reference to the resource object. However,
 the pointer received in `*objp` is guaranteed to be valid at least as long as
 the resource handle `term` is valid.
+
+Available since OTP R13B04
 
 ## enif_get_string()
 
@@ -1393,6 +1459,8 @@ Returns one of the following:
 
 The written string is always `NULL`\-terminated, unless buffer `size` is < `1`.
 
+Available since OTP R13B04
+
 ## enif_get_string_length()
 
 ```c
@@ -1405,6 +1473,8 @@ character) of the string `list` with [encoding](erl_nif.md#ErlNifCharEncoding).
 
 Returns `true` on success, or `false` if `list` is not a string that can be
 encoded with `encoding`.
+
+Available since OTP 26.0
 
 ## enif_get_tuple()
 
@@ -1420,6 +1490,8 @@ element of the tuple. `*array` is undefined if the arity of the tuple is zero.
 
 Returns `true` on success, or `false` if `term` is not a tuple.
 
+Available since OTP R13B04
+
 ## enif_get_uint()
 
 ```c
@@ -1432,6 +1504,8 @@ Sets `*ip` to the unsigned integer value of `term`.
 Returns `true` on success, or `false` if `term` is not an unsigned integer or is
 outside the bounds of type `unsigned int`.
 
+Available since OTP R13B04
+
 ## enif_get_uint64()
 
 ```c
@@ -1443,6 +1517,8 @@ Sets `*ip` to the unsigned integer value of `term`.
 
 Returns `true` on success, or `false` if `term` is not an unsigned integer or is
 outside the bounds of an unsigned 64-bit integer.
+
+Available since OTP R14B
 
 ## enif_get_ulong()
 
@@ -1465,6 +1541,8 @@ int enif_getenv(const char* key, char* value,
 
 Same as [`erl_drv_getenv`](erl_driver.md#erl_drv_getenv).
 
+Available since OTP 18.2
+
 ## enif_has_pending_exception()
 
 ```c
@@ -1483,6 +1561,8 @@ then return `true`.
 See also [`enif_make_badarg`](erl_nif.md#enif_make_badarg) and
 [`enif_raise_exception`](erl_nif.md#enif_raise_exception).
 
+Available since OTP 18.0
+
 ## enif_hash()
 
 ```c
@@ -1493,6 +1573,8 @@ Hashes `term` according to the specified [`ErlNifHash`](erl_nif.md#ErlNifHash)
 `type`.
 
 Ranges of taken salt (if any) and returned value depend on the hash type.
+
+Available since OTP 20.0
 
 ## enif_inspect_binary()
 
@@ -1518,6 +1600,8 @@ same byte content as `iolist`. As with `inspect_binary`, the data pointed to by
 `bin` is transient and does not need to be released.
 
 Returns `true` on success, or `false` if `iolist` is not an iolist.
+
+Available since OTP R13B04
 
 ## enif_inspect_iovec()
 
@@ -1556,6 +1640,8 @@ owns the data in the vector and it has to be explicitly freed using
 
 Returns `true` on success, or `false` if `iovec_term` not an iovec.
 
+Available since OTP 20.1
+
 ## enif_ioq_create()
 
 ```c
@@ -1565,6 +1651,8 @@ ErlNifIOQueue * enif_ioq_create(ErlNifIOQueueOpts opts);
 Create a new I/O Queue that can be used to store data. `opts` has to be set to
 `ERL_NIF_IOQ_NORMAL`.
 
+Available since OTP 20.1
+
 ## enif_ioq_destroy()
 
 ```c
@@ -1572,6 +1660,8 @@ void enif_ioq_destroy(ErlNifIOQueue *q);
 ```
 
 Destroy the I/O queue and free all of it's contents
+
+Available since OTP 20.1
 
 ## enif_ioq_deq()
 
@@ -1585,6 +1675,8 @@ of the queue is placed there.
 Returns `true` on success, or `false` if the I/O does not contain `count` bytes.
 On failure the queue is left un-altered.
 
+Available since OTP 20.1
+
 ## enif_ioq_enq_binary()
 
 ```c
@@ -1597,6 +1689,8 @@ Returns `true` on success, or `false` if `skip` is greater than the size of
 `bin`. Any ownership of the binary data is transferred to the queue and `bin` is
 to be considered read-only for the rest of the NIF call and then as released.
 
+Available since OTP 20.1
+
 ## enif_ioq_enqv()
 
 ```c
@@ -1607,6 +1701,8 @@ Enqueue the `iovec` into `q` skipping the first `skip` bytes.
 
 Returns `true` on success, or `false` if `skip` is greater than the size of
 `iovec`.
+
+Available since OTP 20.1
 
 ## enif_ioq_peek()
 
@@ -1621,6 +1717,8 @@ Nothing is removed from the queue by this function, that must be done with
 [`enif_ioq_deq`](erl_nif.md#enif_ioq_deq).
 
 The returned array is suitable to use with the Unix system call `writev`.
+
+Available since OTP 20.1
 
 ## enif_ioq_peek_head()
 
@@ -1637,6 +1735,8 @@ Nothing is removed from the queue by this function, that must be done with
 
 Returns `true` on success, or `false` if the queue is empty.
 
+Available since OTP 21.0
+
 ## enif_ioq_size()
 
 ```c
@@ -1645,6 +1745,8 @@ size_t enif_ioq_size(ErlNifIOQueue *q);
 
 Get the size of `q`.
 
+Available since OTP 20.1
+
 ## enif_is_atom()
 
 ```c
@@ -1652,6 +1754,8 @@ int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is an atom.
+
+Available since OTP R13B04
 
 ## enif_is_binary()
 
@@ -1673,6 +1777,8 @@ Returns `true` if the currently executing process is currently alive, otherwise
 This function can only be used from a NIF-calling thread, and with an
 environment corresponding to currently executing processes.
 
+Available since OTP 19.0
+
 ## enif_is_empty_list()
 
 ```c
@@ -1681,6 +1787,8 @@ int enif_is_empty_list(ErlNifEnv* env,
 ```
 
 Returns `true` if `term` is an empty list.
+
+Available since OTP R13B04
 
 ## enif_is_exception()
 
@@ -1691,6 +1799,8 @@ int enif_is_exception(ErlNifEnv* env,
 
 Return true if `term` is an exception.
 
+Available since OTP R14B03
+
 ## enif_is_fun()
 
 ```c
@@ -1699,6 +1809,8 @@ int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM
 ```
 
 Returns `true` if `term` is a fun.
+
+Available since OTP R13B04
 
 ## enif_is_identical()
 
@@ -1710,6 +1822,8 @@ int enif_is_identical(ERL_NIF_TERM lhs,
 Returns `true` if the two terms are identical. Corresponds to the Erlang
 operators `=:=` and `=/=`.
 
+Available since OTP R13B04
+
 ## enif_is_list()
 
 ```c
@@ -1717,6 +1831,8 @@ int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a list.
+
+Available since OTP R14B
 
 ## enif_is_map()
 
@@ -1727,6 +1843,8 @@ int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM
 
 Returns `true` if `term` is a map, otherwise `false`.
 
+Available since OTP 18.0
+
 ## enif_is_number()
 
 ```c
@@ -1736,6 +1854,8 @@ int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM
 
 Returns `true` if `term` is a number.
 
+Available since OTP R15B
+
 ## enif_is_pid()
 
 ```c
@@ -1743,6 +1863,8 @@ int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a pid.
+
+Available since OTP R13B04
 
 ## enif_is_pid_undefined()
 
@@ -1753,6 +1875,8 @@ int enif_is_pid_undefined(const ErlNifPid* pid);
 Returns `true` if `pid` has been set as undefined by
 [`enif_set_pid_undefined` ](erl_nif.md#enif_set_pid_undefined).
 
+Available since OTP 22.0
+
 ## enif_is_port()
 
 ```c
@@ -1760,6 +1884,8 @@ int enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a port.
+
+Available since OTP R13B04
 
 ## enif_is_port_alive()
 
@@ -1772,6 +1898,8 @@ Returns `true` if `port_id` is alive.
 
 This function is thread-safe.
 
+Available since OTP 19.0
+
 ## enif_is_process_alive()
 
 ```c
@@ -1783,6 +1911,8 @@ Returns `true` if `pid` is alive.
 
 This function is thread-safe.
 
+Available since OTP 19.0
+
 ## enif_is_ref()
 
 ```c
@@ -1791,6 +1921,8 @@ int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term);
 
 Returns `true` if `term` is a reference.
 
+Available since OTP R13B04
+
 ## enif_is_tuple()
 
 ```c
@@ -1798,6 +1930,8 @@ int enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a tuple.
+
+Available since OTP R14B
 
 ## enif_keep_resource()
 
@@ -1810,6 +1944,8 @@ Adds a reference to resource object `obj` obtained from
 `enif_keep_resource` for an object must be balanced by a call to
 [`enif_release_resource`](erl_nif.md#enif_release_resource) before the object is
 destructed.
+
+Available since OTP R14B
 
 ## enif_make_atom()
 
@@ -1833,6 +1969,8 @@ Create an atom term from the string `name` with length `len` and ISO Latin-1
 encoding. `NULL` characters are treated as any other characters. If `len`
 exceeds the maximum length allowed for an atom (255 characters),
 `enif_make_atom` invokes [`enif_make_badarg` ](erl_nif.md#enif_make_badarg).
+
+Available since OTP R14B
 
 ## enif_make_badarg()
 
@@ -1880,6 +2018,8 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env,
 Makes a copy of term `src_term`. The copy is created in environment `dst_env`.
 The source term can be located in any environment.
 
+Available since OTP R14B
+
 ## enif_make_double()
 
 ```c
@@ -1889,6 +2029,8 @@ ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d);
 Creates a floating-point term from a `double`. If argument `double` is not
 finite or is NaN, `enif_make_double` invokes
 [`enif_make_badarg`](erl_nif.md#enif_make_badarg).
+
+Available since OTP R13B04
 
 ## enif_make_existing_atom()
 
@@ -1905,6 +2047,8 @@ If the atom already exists, this function stores the term in `*atom` and returns
 `true`, otherwise returns `false`. It also returns `false` if the string `name`
 exceeds the maximum length allowed for an atom (255 characters) or if `name` is
 not correctly encoded.
+
+Available since OTP R13B04
 
 ## enif_make_existing_atom_len()
 
@@ -1923,6 +2067,8 @@ If the atom already exists, this function stores the term in `*atom` and returns
 exceeds the maximum length allowed for an atom (255 characters) or if `name` is
 not correctly encoded.
 
+Available since OTP R14B
+
 ## enif_make_int()
 
 ```c
@@ -1939,6 +2085,8 @@ ERL_NIF_TERM enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i);
 
 Creates an integer term from a signed 64-bit integer.
 
+Available since OTP R14B
+
 ## enif_make_list()
 
 ```c
@@ -1952,19 +2100,35 @@ Returns an empty list if `cnt` is 0.
 
 ## enif_make_list1()
 
+Available since OTP R13B04
+
 ## enif_make_list2()
+
+Available since OTP R13B04
 
 ## enif_make_list3()
 
+Available since OTP R13B04
+
 ## enif_make_list4()
+
+Available since OTP R13B04
 
 ## enif_make_list5()
 
+Available since OTP R13B04
+
 ## enif_make_list6()
+
+Available since OTP R13B04
 
 ## enif_make_list7()
 
+Available since OTP R13B04
+
 ## enif_make_list8()
+
+Available since OTP R13B04
 
 ## enif_make_list9()
 
@@ -2016,6 +2180,8 @@ Creates an ordinary list term with length indicated by the function name. Prefer
 these functions (macros) over the variadic `enif_make_list` to get a
 compile-time error if the number of arguments does not match.
 
+Available since OTP R13B04
+
 ## enif_make_list_cell()
 
 ```c
@@ -2036,6 +2202,8 @@ Creates an ordinary list containing the elements of array `arr` of length `cnt`.
 
 Returns an empty list if `cnt` is 0.
 
+Available since OTP R13B04
+
 ## enif_make_long()
 
 ```c
@@ -2043,6 +2211,8 @@ ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long int i);
 ```
 
 Creates an integer term from a `long int`.
+
+Available since OTP R13B04
 
 ## enif_make_map_put()
 
@@ -2060,6 +2230,8 @@ Returns `false` if `map_in` is not a map.
 
 The `map_in` term must belong to environment `env`.
 
+Available since OTP 18.0
+
 ## enif_make_map_remove()
 
 ```c
@@ -2074,6 +2246,8 @@ contain `key`, `*map_out` is set to `map_in`.
 Returns `true` on success, or `false` if `map_in` is not a map.
 
 The `map_in` term must belong to environment `env`.
+
+Available since OTP 18.0
 
 ## enif_make_map_update()
 
@@ -2091,6 +2265,8 @@ Returns `false` if `map_in` is not a map or if it does not contain `key`.
 
 The `map_in` term must belong to environment `env`.
 
+Available since OTP 18.0
+
 ## enif_make_map_from_arrays()
 
 ```c
@@ -2105,6 +2281,8 @@ Returns `false` there are any duplicate keys.
 
 All keys and values must belong to `env`.
 
+Available since OTP 21.0
+
 ## enif_make_monitor_term()
 
 ```c
@@ -2115,6 +2293,8 @@ Creates a term identifying the given monitor received from
 [`enif_monitor_process` ](erl_nif.md#enif_monitor_process).
 
 This function is primarily intended for debugging purpose.
+
+Available since OTP 22.0
 
 ## enif_make_new_atom()
 
@@ -2133,6 +2313,8 @@ Otherwise, `false` is returned if the length of `name` exceeds the maximum
 length allowed for an atom (255 characters) or if `name` is not correctly
 encoded.
 
+Available since OTP 26.0
+
 ## enif_make_new_atom_len()
 
 ```c
@@ -2149,6 +2331,8 @@ If successful, `true` is returned and atom term is stored in `*atom`.
 Otherwise, `false` is returned if the string exceeds the maximum length allowed
 for an atom (255 characters) or if the string is not correctly encoded.
 
+Available since OTP 26.0
+
 ## enif_make_new_binary()
 
 ```c
@@ -2164,6 +2348,8 @@ reallocated.
 
 Returns a pointer to the raw binary data and sets `*termp` to the binary term.
 
+Available since OTP R14B
+
 ## enif_make_new_map()
 
 ```c
@@ -2171,6 +2357,8 @@ ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env);
 ```
 
 Makes an empty map term.
+
+Available since OTP 18.0
 
 ## enif_make_pid()
 
@@ -2181,6 +2369,8 @@ ERL_NIF_TERM enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid);
 Makes a pid term or the atom [`undefined`](erl_nif.md#enif_set_pid_undefined)
 from `*pid`.
 
+Available since OTP R14B
+
 ## enif_make_ref()
 
 ```c
@@ -2188,6 +2378,8 @@ ERL_NIF_TERM enif_make_ref(ErlNifEnv* env);
 ```
 
 Creates a reference like `erlang:make_ref/0`.
+
+Available since OTP R13B04
 
 ## enif_make_resource()
 
@@ -2229,6 +2421,8 @@ in the User's Guide.
 > and to empty binaries (`<<>>`). If serialized, they would be recreated as
 > plain empty binaries.
 
+Available since OTP R13B04
+
 ## enif_make_resource_binary()
 
 ```c
@@ -2251,6 +2445,8 @@ As with [`enif_make_resource`](erl_nif.md#enif_make_resource), no ownership
 transfer is done. The resource still needs to be released with
 [`enif_release_resource`](erl_nif.md#enif_release_resource).
 
+Available since OTP R14B
+
 ## enif_make_reverse_list()
 
 ```c
@@ -2265,6 +2461,8 @@ This function is only to be used on short lists, as a copy is created of the
 list, which is not released until after the NIF returns.
 
 The `list_in` term must belong to environment `env`.
+
+Available since OTP R15B
 
 ## enif_make_string()
 
@@ -2288,6 +2486,8 @@ Creates a list containing the characters of the string `string` with length
 `len` and [encoding](erl_nif.md#ErlNifCharEncoding). `NULL` characters are
 treated as any other characters.
 
+Available since OTP R14B
+
 ## enif_make_sub_binary()
 
 ```c
@@ -2298,6 +2498,8 @@ ERL_NIF_TERM enif_make_sub_binary(ErlNifEnv*
 Makes a subbinary of binary `bin_term`, starting at zero-based position `pos`
 with a length of `size` bytes. `bin_term` must be a binary or bitstring.
 `pos+size` must be less or equal to the number of whole bytes in `bin_term`.
+
+Available since OTP R13B04
 
 ## enif_make_tuple()
 
@@ -2311,19 +2513,35 @@ Creates a tuple term of arity `cnt`. Expects `cnt` number of arguments (after
 
 ## enif_make_tuple1()
 
+Available since OTP R13B04
+
 ## enif_make_tuple2()
+
+Available since OTP R13B04
 
 ## enif_make_tuple3()
 
+Available since OTP R13B04
+
 ## enif_make_tuple4()
+
+Available since OTP R13B04
 
 ## enif_make_tuple5()
 
+Available since OTP R13B04
+
 ## enif_make_tuple6()
+
+Available since OTP R13B04
 
 ## enif_make_tuple7()
 
+Available since OTP R13B04
+
 ## enif_make_tuple8()
+
+Available since OTP R13B04
 
 ## enif_make_tuple9()
 
@@ -2376,6 +2594,8 @@ Creates a tuple term with length indicated by the function name. Prefer these
 functions (macros) over the variadic `enif_make_tuple` to get a compile-time
 error if the number of arguments does not match.
 
+Available since OTP R13B04
+
 ## enif_make_tuple_from_array()
 
 ```c
@@ -2385,6 +2605,8 @@ ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM
 
 Creates a tuple containing the elements of array `arr` of length `cnt`.
 
+Available since OTP R13B04
+
 ## enif_make_uint()
 
 ```c
@@ -2393,6 +2615,8 @@ ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned int i);
 
 Creates an integer term from an `unsigned int`.
 
+Available since OTP R13B04
+
 ## enif_make_uint64()
 
 ```c
@@ -2400,6 +2624,8 @@ ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i);
 ```
 
 Creates an integer term from an unsigned 64-bit integer.
+
+Available since OTP R14B
 
 ## enif_make_ulong()
 
@@ -2426,6 +2652,8 @@ second argument to change the properties of the integer returned. They can be
 combined by OR:ing the two values together.
 
 See also [`ErlNifUniqueInteger`](erl_nif.md#ErlNifUniqueInteger).
+
+Available since OTP 19.0
 
 ## enif_map_iterator_create()
 
@@ -2463,6 +2691,8 @@ enif_map_iterator_destroy(env, &iter);
 > guarantee is that the iteration order of a single map instance is preserved
 > during the lifetime of the environment that the map belongs to.
 
+Available since OTP 18.0
+
 ## enif_map_iterator_destroy()
 
 ```c
@@ -2472,6 +2702,8 @@ void enif_map_iterator_destroy(ErlNifEnv *env,
 
 Destroys a map iterator created by
 [`enif_map_iterator_create`](erl_nif.md#enif_map_iterator_create).
+
+Available since OTP 18.0
 
 ## enif_map_iterator_get_pair()
 
@@ -2486,6 +2718,8 @@ Gets key and value terms at the current map iterator position.
 On success, sets `*key` and `*value` and returns `true`. Returns `false` if the
 iterator is positioned at head (before first entry) or tail (beyond last entry).
 
+Available since OTP 18.0
+
 ## enif_map_iterator_is_head()
 
 ```c
@@ -2495,6 +2729,8 @@ int enif_map_iterator_is_head(ErlNifEnv *env,
 
 Returns `true` if map iterator `iter` is positioned before the first entry.
 
+Available since OTP 18.0
+
 ## enif_map_iterator_is_tail()
 
 ```c
@@ -2503,6 +2739,8 @@ int enif_map_iterator_is_tail(ErlNifEnv *env,
 ```
 
 Returns `true` if map iterator `iter` is positioned after the last entry.
+
+Available since OTP 18.0
 
 ## enif_map_iterator_next()
 
@@ -2516,6 +2754,8 @@ Increments map iterator to point to the next key-value entry.
 Returns `true` if the iterator is now positioned at a valid key-value entry, or
 `false` if the iterator is positioned at the tail (beyond the last entry).
 
+Available since OTP 18.0
+
 ## enif_map_iterator_prev()
 
 ```c
@@ -2527,6 +2767,8 @@ Decrements map iterator to point to the previous key-value entry.
 
 Returns `true` if the iterator is now positioned at a valid key-value entry, or
 `false` if the iterator is positioned at the head (before the first entry).
+
+Available since OTP 18.0
 
 ## enif_monitor_process()
 
@@ -2561,6 +2803,8 @@ process is no longer alive or if `target_pid` is
 
 This function is thread-safe.
 
+Available since OTP 20.0
+
 ## enif_monotonic_time()
 
 ```c
@@ -2579,6 +2823,8 @@ called from a thread that is not a scheduler thread.
 See also [`ErlNifTime`](erl_nif.md#ErlNifTime) and
 [`ErlNifTimeUnit`](erl_nif.md#ErlNifTimeUnit).
 
+Available since OTP 18.3
+
 ## enif_mutex_create()
 
 ```c
@@ -2586,6 +2832,8 @@ ErlNifMutex * enif_mutex_create(char *name);
 ```
 
 Same as [`erl_drv_mutex_create`](erl_driver.md#erl_drv_mutex_create).
+
+Available since OTP R13B04
 
 ## enif_mutex_destroy()
 
@@ -2595,6 +2843,8 @@ void enif_mutex_destroy(ErlNifMutex *mtx);
 
 Same as [`erl_drv_mutex_destroy`](erl_driver.md#erl_drv_mutex_destroy).
 
+Available since OTP R13B04
+
 ## enif_mutex_lock()
 
 ```c
@@ -2602,6 +2852,8 @@ void enif_mutex_lock(ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_lock`](erl_driver.md#erl_drv_mutex_lock).
+
+Available since OTP R13B04
 
 ## enif_mutex_name()
 
@@ -2611,6 +2863,8 @@ char* enif_mutex_name(ErlNifMutex* mtx);
 
 Same as [`erl_drv_mutex_name`](erl_driver.md#erl_drv_mutex_name).
 
+Available since OTP 21.0
+
 ## enif_mutex_trylock()
 
 ```c
@@ -2619,6 +2873,8 @@ int enif_mutex_trylock(ErlNifMutex *mtx);
 
 Same as [`erl_drv_mutex_trylock`](erl_driver.md#erl_drv_mutex_trylock).
 
+Available since OTP R13B04
+
 ## enif_mutex_unlock()
 
 ```c
@@ -2626,6 +2882,8 @@ void enif_mutex_unlock(ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_unlock`](erl_driver.md#erl_drv_mutex_unlock).
+
+Available since OTP R13B04
 
 ## enif_now_time()
 
@@ -2636,6 +2894,8 @@ ERL_NIF_TERM enif_now_time(ErlNifEnv *env);
 Returns an [`erlang:now()`](`erlang:now/0`) time stamp.
 
 _This function is deprecated._
+
+Available since OTP 19.0
 
 ## enif_open_resource_type()
 
@@ -2674,6 +2934,8 @@ function returns successfully.
 
 See also [`enif_open_resource_type_x`](erl_nif.md#enif_open_resource_type_x).
 
+Available since OTP R13B04
+
 ## enif_open_resource_type_x()
 
 ```c
@@ -2699,6 +2961,8 @@ resource type.
 > `enif_open_resource_type_x`. To implement the new `dyncall` callback use
 > [`enif_init_resource_type`](erl_nif.md#enif_init_resource_type).
 
+Available since OTP 20.0
+
 ## enif_init_resource_type()
 
 ```c
@@ -2719,6 +2983,8 @@ contains the callback function pointers `dtor`, `down`, `stop` and the new
 number of initialized callbacks counted from the top of the struct. For example,
 to initialize all callbacks including `dyncall`, `members` should be set to 4.
 All callbacks are optional and may be set to `NULL`.
+
+Available since OTP 24.0
 
 ## enif_port_command()
 
@@ -2756,6 +3022,8 @@ command fails, for example:
 
 See also [`enif_get_local_port`](erl_nif.md#enif_get_local_port).
 
+Available since OTP 19.0
+
 ## enif_priv_data()
 
 ```c
@@ -2764,6 +3032,8 @@ void * enif_priv_data(ErlNifEnv* env);
 
 Returns the pointer to the private data that was set by
 [`load`](erl_nif.md#load) or [`upgrade`](erl_nif.md#upgrade).
+
+Available since OTP R13B04
 
 ## enif_raise_exception()
 
@@ -2786,6 +3056,8 @@ API function.
 See also [`enif_has_pending_exception`](erl_nif.md#enif_has_pending_exception)
 and [`enif_make_badarg`](erl_nif.md#enif_make_badarg).
 
+Available since OTP 18.0
+
 ## enif_realloc()
 
 ```c
@@ -2800,6 +3072,8 @@ Returns `NULL` if the reallocation fails.
 The returned pointer is suitably aligned for any built-in type that fit in the
 allocated memory.
 
+Available since OTP 20.2
+
 ## enif_realloc_binary()
 
 ```c
@@ -2811,6 +3085,8 @@ case it is left untouched and a mutable copy is allocated and assigned to
 `*bin`.
 
 Returns `true` on success, or `false` if memory allocation failed.
+
+Available since OTP R13B04
 
 ## enif_release_binary()
 
@@ -2839,6 +3115,8 @@ There are no guarantees exactly when the destructor of an unreferenced resource
 is called. It could be called directly by `enif_release_resource` but it could
 also be scheduled to be called at a later time possibly by another thread.
 
+Available since OTP R13B04
+
 ## enif_rwlock_create()
 
 ```c
@@ -2846,6 +3124,8 @@ ErlNifRWLock * enif_rwlock_create(char *name);
 ```
 
 Same as [`erl_drv_rwlock_create`](erl_driver.md#erl_drv_rwlock_create).
+
+Available since OTP R13B04
 
 ## enif_rwlock_destroy()
 
@@ -2855,6 +3135,8 @@ void enif_rwlock_destroy(ErlNifRWLock *rwlck);
 
 Same as [`erl_drv_rwlock_destroy`](erl_driver.md#erl_drv_rwlock_destroy).
 
+Available since OTP R13B04
+
 ## enif_rwlock_name()
 
 ```c
@@ -2862,6 +3144,8 @@ char* enif_rwlock_name(ErlNifRWLock* rwlck);
 ```
 
 Same as [`erl_drv_rwlock_name`](erl_driver.md#erl_drv_rwlock_name).
+
+Available since OTP 21.0
 
 ## enif_rwlock_rlock()
 
@@ -2871,6 +3155,8 @@ void enif_rwlock_rlock(ErlNifRWLock *rwlck);
 
 Same as [`erl_drv_rwlock_rlock`](erl_driver.md#erl_drv_rwlock_rlock).
 
+Available since OTP R13B04
+
 ## enif_rwlock_runlock()
 
 ```c
@@ -2878,6 +3164,8 @@ void enif_rwlock_runlock(ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_runlock`](erl_driver.md#erl_drv_rwlock_runlock).
+
+Available since OTP R13B04
 
 ## enif_rwlock_rwlock()
 
@@ -2887,6 +3175,8 @@ void enif_rwlock_rwlock(ErlNifRWLock *rwlck);
 
 Same as [`erl_drv_rwlock_rwlock`](erl_driver.md#erl_drv_rwlock_rwlock).
 
+Available since OTP R13B04
+
 ## enif_rwlock_rwunlock()
 
 ```c
@@ -2894,6 +3184,8 @@ void enif_rwlock_rwunlock(ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_rwunlock`](erl_driver.md#erl_drv_rwlock_rwunlock).
+
+Available since OTP R13B04
 
 ## enif_rwlock_tryrlock()
 
@@ -2903,6 +3195,8 @@ int enif_rwlock_tryrlock(ErlNifRWLock *rwlck);
 
 Same as [`erl_drv_rwlock_tryrlock`](erl_driver.md#erl_drv_rwlock_tryrlock).
 
+Available since OTP R13B04
+
 ## enif_rwlock_tryrwlock()
 
 ```c
@@ -2910,6 +3204,8 @@ int enif_rwlock_tryrwlock(ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_tryrwlock`](erl_driver.md#erl_drv_rwlock_tryrwlock).
+
+Available since OTP R13B04
 
 ## enif_schedule_nif()
 
@@ -2948,6 +3244,8 @@ Be aware that `enif_schedule_nif`, as its name implies, only schedules the NIF
 for future execution. The calling NIF does not block waiting for the scheduled
 NIF to execute and return. This means that the calling NIF cannot expect to
 receive the scheduled NIF return value and use it for further operations.
+
+Available since OTP 17.3
 
 ## enif_select()
 
@@ -3084,7 +3382,11 @@ Returns a negative value if the call failed where the following bits can be set:
 > `ERL_NIF_SELECT_READ_CANCELLED` and `ERL_NIF_SELECT_WRITE_CANCELLED` were
 > introduced in erts-11.0 (OTP-22.0).
 
+Available since OTP 20.0
+
 ## enif_select_read()
+
+Available since OTP 22.0
 
 ## enif_select_write()
 
@@ -3116,6 +3418,8 @@ exactly the same as [enif_select](erl_nif.md#enif_select) with argument `mode`
 as either `ERL_NIF_SELECT_READ` or `ERL_NIF_SELECT_WRITE`. To cancel or close
 events use [enif_select](erl_nif.md#enif_select).
 
+Available since OTP 22.0
+
 ## enif_self()
 
 ```c
@@ -3127,6 +3431,8 @@ represent the calling process.
 
 Returns `pid` if successful, or NULL if `caller_env` is not a
 [process bound environment](erl_nif.md#proc_bound_env).
+
+Available since OTP R14B
 
 ## enif_send()
 
@@ -3172,6 +3478,8 @@ This function is thread-safe.
 >
 > Passing `msg_env` as `NULL` is only supported as from ERTS 8.0 (Erlang/OTP
 > 19).
+
+Available since OTP R14B
 
 ## enif_set_option()
 
@@ -3303,6 +3611,8 @@ will be returned. Currently the following options can be set:
   callback for the module instance will not be made until all calls to
   _on_unload_thread_ have returned.
 
+Available since OTP 26.0
+
 ## enif_set_pid_undefined()
 
 ```c
@@ -3312,6 +3622,8 @@ void enif_set_pid_undefined(ErlNifPid* pid);
 Sets an [`ErlNifPid`](erl_nif.md#ErlNifPid) variable as undefined. See
 [`enif_is_pid_undefined`](erl_nif.md#enif_is_pid_undefined).
 
+Available since OTP 22.0
+
 ## enif_sizeof_resource()
 
 ```c
@@ -3320,6 +3632,8 @@ unsigned enif_sizeof_resource(void* obj);
 
 Gets the byte size of resource object `obj` obtained by
 [`enif_alloc_resource`](erl_nif.md#enif_alloc_resource).
+
+Available since OTP R13B04
 
 ## enif_snprintf()
 
@@ -3335,6 +3649,8 @@ This function is primarily intended for debugging purpose. It is not recommended
 to print very large terms with `%T`. The function may change `errno`, even if
 successful.
 
+Available since OTP 19.0
+
 ## enif_system_info()
 
 ```c
@@ -3343,6 +3659,8 @@ void enif_system_info(ErlNifSysInfo
 ```
 
 Same as [`driver_system_info`](erl_driver.md#driver_system_info).
+
+Available since OTP R13B04
 
 ## enif_term_to_binary()
 
@@ -3359,6 +3677,8 @@ Returns `true` on success, or `false` if the allocation fails.
 
 See also `erlang:term_to_binary/1` and
 [`enif_binary_to_term`](erl_nif.md#enif_binary_to_term).
+
+Available since OTP 19.0
 
 ## enif_term_type()
 
@@ -3398,6 +3718,8 @@ The following types are defined at the moment:
 Note that new types may be added in the future, so the caller must be prepared
 to handle unknown types.
 
+Available since OTP 22.0
+
 ## enif_thread_create()
 
 ```c
@@ -3408,6 +3730,8 @@ int enif_thread_create(char *name,ErlNifTid
 
 Same as [`erl_drv_thread_create`](erl_driver.md#erl_drv_thread_create).
 
+Available since OTP R13B04
+
 ## enif_thread_exit()
 
 ```c
@@ -3415,6 +3739,8 @@ void enif_thread_exit(void *resp);
 ```
 
 Same as [`erl_drv_thread_exit`](erl_driver.md#erl_drv_thread_exit).
+
+Available since OTP R13B04
 
 ## enif_thread_join()
 
@@ -3424,6 +3750,8 @@ int enif_thread_join(ErlNifTid, void **respp);
 
 Same as [`erl_drv_thread_join`](erl_driver.md#erl_drv_thread_join).
 
+Available since OTP R13B04
+
 ## enif_thread_name()
 
 ```c
@@ -3431,6 +3759,8 @@ char* enif_thread_name(ErlNifTid tid);
 ```
 
 Same as [`erl_drv_thread_name`](erl_driver.md#erl_drv_thread_name).
+
+Available since OTP 21.0
 
 ## enif_thread_opts_create()
 
@@ -3441,6 +3771,8 @@ ErlNifThreadOpts * enif_thread_opts_create(char *name);
 Same as
 [`erl_drv_thread_opts_create`](erl_driver.md#erl_drv_thread_opts_create).
 
+Available since OTP R13B04
+
 ## enif_thread_opts_destroy()
 
 ```c
@@ -3450,6 +3782,8 @@ void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
 Same as
 [`erl_drv_thread_opts_destroy`](erl_driver.md#erl_drv_thread_opts_destroy).
 
+Available since OTP R13B04
+
 ## enif_thread_self()
 
 ```c
@@ -3457,6 +3791,8 @@ ErlNifTid enif_thread_self(void);
 ```
 
 Same as [`erl_drv_thread_self`](erl_driver.md#erl_drv_thread_self).
+
+Available since OTP R13B04
 
 ## enif_thread_type()
 
@@ -3477,6 +3813,8 @@ the future):
 
 - **`ERL_NIF_THR_DIRTY_IO_SCHEDULER`** - A dirty I/O scheduler thread.
 
+Available since OTP 19.0
+
 ## enif_time_offset()
 
 ```c
@@ -3496,6 +3834,8 @@ called from a thread that is not a scheduler thread.
 See also [`ErlNifTime`](erl_nif.md#ErlNifTime) and
 [`ErlNifTimeUnit`](erl_nif.md#ErlNifTimeUnit).
 
+Available since OTP 18.3
+
 ## enif_tsd_get()
 
 ```c
@@ -3503,6 +3843,8 @@ void * enif_tsd_get(ErlNifTSDKey key);
 ```
 
 Same as [`erl_drv_tsd_get`](erl_driver.md#erl_drv_tsd_get).
+
+Available since OTP R13B04
 
 ## enif_tsd_key_create()
 
@@ -3512,6 +3854,8 @@ int enif_tsd_key_create(char *name, ErlNifTSDKey *key);
 
 Same as [`erl_drv_tsd_key_create`](erl_driver.md#erl_drv_tsd_key_create).
 
+Available since OTP R13B04
+
 ## enif_tsd_key_destroy()
 
 ```c
@@ -3520,6 +3864,8 @@ void enif_tsd_key_destroy(ErlNifTSDKey key);
 
 Same as [`erl_drv_tsd_key_destroy`](erl_driver.md#erl_drv_tsd_key_destroy).
 
+Available since OTP R13B04
+
 ## enif_tsd_set()
 
 ```c
@@ -3527,6 +3873,8 @@ void enif_tsd_set(ErlNifTSDKey key, void *data);
 ```
 
 Same as [`erl_drv_tsd_set`](erl_driver.md#erl_drv_tsd_set).
+
+Available since OTP R13B04
 
 ## enif_vfprintf()
 
@@ -3537,6 +3885,8 @@ int enif_vfprintf(FILE *stream, const char *format, va_list ap);
 Equivalent to [`enif_fprintf`](erl_nif.md#enif_fprintf) except that its called
 with a `va_list` instead of a variable number of arguments.
 
+Available since OTP 21.0
+
 ## enif_vsnprintf()
 
 ```c
@@ -3545,6 +3895,8 @@ int enif_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 
 Equivalent to [`enif_snprintf`](erl_nif.md#enif_snprintf) except that its called
 with a `va_list` instead of a variable number of arguments.
+
+Available since OTP 21.0
 
 ## enif_whereis_pid()
 
@@ -3572,6 +3924,8 @@ returned and `*pid` is unchanged.
 Works as `erlang:whereis/1`, but restricted to processes. See
 [`enif_whereis_port`](erl_nif.md#enif_whereis_port) to resolve registered ports.
 
+Available since OTP 20.0
+
 ## enif_whereis_port()
 
 ```c
@@ -3598,6 +3952,8 @@ If `name` is not a registered port, or is not an atom, `false` is returned and
 Works as `erlang:whereis/1`, but restricted to ports. See
 [`enif_whereis_pid`](erl_nif.md#enif_whereis_pid) to resolve registered
 processes.
+
+Available since OTP 20.0
 
 ## See Also
 
