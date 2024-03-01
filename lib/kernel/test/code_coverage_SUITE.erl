@@ -113,6 +113,15 @@ do_get_coverage(PrivDir) ->
                [{5,0},{8,0},{10,0},{13,1},{16,1},{18,5}]},
     do_get_coverage(M, Beam, Run2, Result2),
 
+    %% Test cover_id_line used by cover.
+    _ = code:set_coverage_mode(line_counters),
+    {module,M} = code:load_binary(M, "", Beam),
+    line_counters = code:set_coverage_mode(none),
+    _ = M:fib(5),
+    [{1,0},{2,0},{3,0},{4,1},{5,1},{6,5}] =
+        code:get_coverage(cover_id_line, M),
+    unload(M),
+
     %% Compile without line_coverage.
     {ok,M,BeamFun} = compile:file(ErlFile, [report,binary]),
     do_get_function_coverage(M, BeamFun, Run1, Result1),

@@ -33,7 +33,7 @@ all() ->
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
                    otp_13277, otp_13289, guard_in_lc, gh_4796,
-                   eep49],
+                   eep49, gh_8159],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -1586,9 +1586,7 @@ otp_14817(Config) when is_list(Config) ->
     ok = otp_14817:b(),
     ok = otp_14817:c(),
     ok = otp_14817:d(),
-    {ok,[{{otp_14817,3},1},
-         {{otp_14817,3},1},
-         {{otp_14817,3},1},
+    {ok,[{{otp_14817,3},3},
          {{otp_14817,4},1}]} =
         cover:analyse(otp_14817, calls, line),
     {ok, CovOut} = cover:analyse_to_file(otp_14817),
@@ -1947,6 +1945,50 @@ eep49(Config) ->
          {{t,31},3}, {{t,32},3}, {{t,33},2}, {{t,34},1}, {{t,37},1}
         ]} = cover:analyse(t, calls, line),
     ok = file:delete(File),
+    ok.
+
+gh_8159(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    M = same_line,
+    File = atom_to_list(M) ++ ".erl",
+    Test = ~"""
+            -module(same_line).
+            -export([aaa/0, bbb/0, ccc/0]).
+            bbb() -> ok. aaa() -> not_ok. ccc() -> cool.
+            """,
+    ok = file:write_file(File, Test),
+    {ok, M} = cover:compile(File),
+    {ok,[{{M,aaa,0},0}, {{M,bbb,0},0}, {{M,ccc,0},0}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},0}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{0,1}}]} = cover:analyse(M, coverage, line),
+
+    cool = M:ccc(),
+    {ok,[{{M,aaa,0},0}, {{M,bbb,0},0}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},1}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,aaa,0},1}, {{M,bbb,0},0}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},2}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    ok = M:bbb(),
+    {ok,[{{M,aaa,0},1}, {{M,bbb,0},1}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},3}]} = cover:analyse(M, calls, line),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,aaa,0},2}, {{M,bbb,0},1}, {{M,ccc,0},1}]} = cover:analyse(M, calls, function),
+    {ok,[{{M,3},{1,0}}]} = cover:analyse(M, coverage, line),
+
+    cover:reset(),
+
+    not_ok = M:aaa(),
+    {ok,[{{M,3},1}]} = cover:analyse(M, calls, line),
+
+    ok = file:delete(File),
+
     ok.
 
 

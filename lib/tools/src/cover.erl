@@ -2281,20 +2281,20 @@ standard_move(Mod) ->
     end.
 
 native_move(Mod) ->
-    Coverage = maps:from_list(code:get_coverage(line, Mod)),
+    Coverage = maps:from_list(code:get_coverage(cover_id_line, Mod)),
     _ = code:reset_coverage(Mod),
-    fun({#bump{line=Line}=Key,_Index}) ->
-                   case Coverage of
-                       #{Line := false} ->
-                           {Key,0};
-                       #{Line := true} ->
-                           {Key,1};
-                       #{Line := N} when is_integer(N), N >= 0 ->
-                           {Key,N};
-                       #{} ->
-                           {Key,0}
-                   end
-           end.
+    fun({#bump{}=Key,Index}) ->
+            case Coverage of
+                #{Index := false} ->
+                    {Key,0};
+                #{Index := true} ->
+                    {Key,1};
+                #{Index := N} when is_integer(N), N >= 0 ->
+                    {Key,N};
+                #{} ->
+                    {Key,0}
+            end
+    end.
 
 %% Reset counters (set counters to 0).
 reset_counters(Mod) ->
@@ -2456,7 +2456,8 @@ do_analyse(Module, Analysis, line) ->
 			  {{Module,L}, N}
 		  end
 	  end,
-    lists:keysort(1, lists:map(Fun, Bumps));
+    L = lists:keysort(1, lists:map(Fun, Bumps)),
+    merge_dup_lines(L);
 do_analyse(Module, Analysis, clause) ->
     Pattern = {#bump{module=Module},'_'},
     Bumps = lists:keysort(1,ets:match_object(?COLLECTION_TABLE, Pattern)),
@@ -2660,6 +2661,13 @@ do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
 
 merge_dup_lines(CovLines) ->
     merge_dup_lines(CovLines, []).
+merge_dup_lines([{L, {N1, _N2}}|T], [{L, {NAcc1, _NAcc2}}|TAcc]) ->
+    case N1 + NAcc1 of
+        0 ->
+            merge_dup_lines(T, [{L, {0, 1}}|TAcc]);
+        _ ->
+            merge_dup_lines(T, [{L, {1, 0}}|TAcc])
+    end;
 merge_dup_lines([{L, N}|T], [{L, NAcc}|TAcc]) ->
     merge_dup_lines(T, [{L, NAcc + N}|TAcc]);
 merge_dup_lines([{L, N}|T], Acc) ->

@@ -35,8 +35,15 @@
         {'ok',[form()]}.
 
 module(Forms0, _Opts) when is_list(Forms0) ->
-    IndexFun = fun(_, _, _, _, _) -> 0 end,
-    transform(Forms0, IndexFun).
+    put(executable_line_index, 1),
+    GetIndex = fun(_, _, _, _, _) ->
+                       Index = get(executable_line_index),
+                       put(executable_line_index, Index + 1),
+                       Index
+               end,
+    Forms = transform(Forms0, GetIndex),
+    erase(executable_line_index),
+    Forms.
 
 %% Undocumented helper function for the `cover` module.
 -spec cover_transform([form()], index_fun()) ->

@@ -30,6 +30,7 @@
 #include "bif.h"
 #include "beam_load.h"
 #include "beam_file.h"
+#include "atom.h"
 
 #include "jit/beam_asm.h"
 
@@ -339,6 +340,66 @@ get_line_coverage(Process* c_p, const BeamCodeHeader* hdr)
 }
 #endif
 
+#ifdef BEAMASM
+static BIF_RETTYPE
+get_cover_id_line(Process* c_p, const BeamCodeHeader* hdr)
+{
+    const BeamCodeLineTab *lt;
+    const unsigned *loc2id;
+    Eterm* hp;
+    Eterm* hend;
+    Eterm tmp;
+    Eterm res;
+    ssize_t i;
+    unsigned location;
+    Uint alloc_size;
+    byte coverage_mode;
+
+    coverage_mode = hdr->coverage_mode;
+
+    switch (coverage_mode) {
+    case ERTS_COV_LINE_COUNTERS:
+        break;
+    default:
+        BIF_ERROR(c_p, BADARG);
+    }
+
+    lt = hdr->line_table;
+    loc2id = hdr->loc_index_to_cover_id;
+
+    alloc_size = (3 + 2) * hdr->line_coverage_len;
+    hp = HAlloc(c_p, alloc_size);
+    hend = hp + alloc_size;
+    res = NIL;
+    for (i = hdr->line_coverage_len - 1; i >= 0; i--) {
+        Eterm coverage = am_error;
+        Uint* coverage_array = hdr->coverage;
+        unsigned cover_id;
+
+        if (!hdr->line_coverage_valid[i]) {
+            continue;
+        }
+        if (lt->loc_size == 2) {
+            location = lt->loc_tab.p2[i];
+        } else {
+            ASSERT(lt->loc_size == 4);
+            location = lt->loc_tab.p4[i];
+        }
+        if (location == LINE_INVALID_LOCATION) {
+            continue;
+        }
+        coverage = make_small(MIN(coverage_array[i], MAX_SMALL));
+        cover_id = loc2id[i];
+        tmp = TUPLE2(hp, make_small(cover_id), coverage);
+        hp += 3;
+        res = CONS(hp, tmp, res);
+        hp += 2;
+    }
+    HRelease(c_p, hend, hp);
+    return res;
+}
+#endif
+
 BIF_RETTYPE
 code_get_coverage_2(BIF_ALIST_2)
 {
@@ -365,6 +426,10 @@ code_get_coverage_2(BIF_ALIST_2)
         BIF_RET(get_function_coverage(BIF_P, hdr));
     case am_line:
         BIF_RET(get_line_coverage(BIF_P, hdr));
+    default:
+        if (ERTS_IS_ATOM_STR("cover_id_line", BIF_ARG_1)) {
+            BIF_RET(get_cover_id_line(BIF_P, hdr));
+        }
     }
 #endif
 
