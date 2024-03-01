@@ -290,7 +290,7 @@ but the map is preferred.
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3, format_status/2]).
+	 terminate/2, code_change/3]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -2242,13 +2242,6 @@ single(false) -> "".
 
 mod(latin1) -> "";
 mod(_) -> "t".
-
--doc false.
-format_status(terminate, [_PDict, State]) ->
-    State;
-format_status(_, [_PDict, State]) ->
-    [{data, [{"State", State}]},
-     {supervisor, [{"Callback", State#state.module}]}].
 
 %%%-----------------------------------------------------------------
 %%% Dynamics database access.
