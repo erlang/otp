@@ -19,13 +19,21 @@
 %%
 
 -module(crashdump_helper).
+
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
+-compile(r24).
+
 -export([n1_proc/2,remote_proc/2,
          dump_maps/0,create_maps/0,
          create_binaries/0,create_sub_binaries/1,
          dump_persistent_terms/0,
          create_persistent_terms/0,
          dump_global_literals/0]).
--compile(r24).
+
 -include_lib("common_test/include/ct.hrl").
 
 n1_proc(N2,Creator) ->

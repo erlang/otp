@@ -21,13 +21,19 @@
 %%% Purpose:Stdlib application test suite.
 %%%-----------------------------------------------------------------
 -module(stdlib_SUITE).
+
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
+-compile(r24).
+
 -include_lib("common_test/include/ct.hrl").
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
          app_test/1, appup_test/1, assert_test/1]).
-
--compile(r24).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
