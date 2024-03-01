@@ -16,16 +16,8 @@ runs:
     using: composite
     steps:
       - name: Cleanup GH Runner
-        shell: bash -euo pipefail {0}
-        run: |
-            ## Delete large files from runner to get more disk space
-            ## See https://github.com/actions/runner-images/issues/2840
-            sudo rm -rf /usr/share/dotnet
-            sudo rm -rf /opt/ghc
-            sudo rm -rf "/usr/local/share/boost"
-            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-            docker system prune -a -f
-            df -h
+        shell: bash
+        run: .github/scripts/cleanup_gh_runner.sh
 
       - name: Cache BASE image
         uses: actions/cache@v4.0.0
