@@ -35,6 +35,7 @@
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1, asm_labels/1,
 	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
+         beam_ssa_pp_smoke_test/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
@@ -55,7 +56,8 @@ all() ->
      other_output, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, asm_labels, no_core_prepare,
-     sys_pre_attributes, dialyzer, warnings, pre_load_check,
+     sys_pre_attributes, dialyzer, beam_ssa_pp_smoke_test,
+     warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
@@ -1427,6 +1429,35 @@ dialyzer(Config) ->
     [{a,b,c}] = M:M(),
     ok.
 
+beam_ssa_pp_smoke_test(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
+    ok = file:make_dir(Outdir),
+    TestBeams = get_unique_beam_files(),
+    test_lib:p_run(fun(F) -> beam_ssa_pp(F, Outdir) end, TestBeams).
+
+beam_ssa_pp(Beam, Outdir) ->
+    try
+	{ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
+	    beam_lib:chunks(Beam, [abstract_code]),
+	beam_ssa_pp_1(Mod, Abstr, Outdir)
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for file ~s\n",
+		      [Error,Beam]),
+	    error;
+	Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [Beam,Class,Error,Stk]),
+	    error
+    end.
+
+beam_ssa_pp_1(Mod, Abstr, Outdir) ->
+    Opts = test_lib:opt_opts(Mod),
+    {ok,Mod,SSA} = compile:forms(Abstr, [dssaopt|Opts]),
+    ListFile = filename:join(Outdir, atom_to_list(Mod) ++ ".ssaopt"),
+    {ok,Fd} = file:open(ListFile, [write,{encoding,utf8}]),
+    beam_listing:module(Fd, SSA),
+    ok = file:close(Fd).
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
