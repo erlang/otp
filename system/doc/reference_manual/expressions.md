@@ -1869,7 +1869,7 @@ Next is an example of using `try` to emulate `catch Expr`:
 try Expr
 catch
     throw:Term -> Term;
-    exit:Reason -> {'EXIT',Reason}
+    exit:Reason -> {'EXIT',Reason};
     error:Reason:Stk -> {'EXIT',{Reason,Stk}}
 end
 ```
