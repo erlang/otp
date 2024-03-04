@@ -23,6 +23,9 @@ Default system error handler.
 
 This module defines what happens when certain types of errors occur.
 
+You can change the error handler of a process by calling
+[`erlang:process_flag(error_handler, NewErrorHandler)`](`erlang#process_flag_error_handler`).
+
 ## Notes
 
 The code in `error_handler` is complex. Do not change it without fully

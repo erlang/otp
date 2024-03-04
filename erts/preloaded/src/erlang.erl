@@ -5639,9 +5639,10 @@ size(_Item) ->
 Returns the process identifier of a new process started by the application of
 `Module:Function` to `Args`.
 
-`error_handler:undefined_function(Module, Function, Args)` is evaluated by the
-new process if `Module:Function/Arity` does not exist (where `Arity` is the
-length of `Args`). The error handler can be redefined (see `process_flag/2`). If
+[`error_handler:undefined_function(Module, Function, Args)`](`error_handler`) is
+ evaluated by the new process if `Module:Function/Arity` does not exist
+(where `Arity` is the length of `Args`). The error handler can be redefined
+(see `process_flag/2`). If
 `error_handler` is undefined, or the user has redefined the default
 `error_handler` and its replacement is undefined, a failure with reason `undef`
 occurs.
@@ -7869,8 +7870,9 @@ of the flag.
 - ```erlang
   process_flag(error_handler, module())
   ```
+  {: #process_flag_error_handler }
   
-  Used by a process to redefine the error handler for undefined function calls and
+  Used by a process to redefine the `m:error_handler` for undefined function calls and
   undefined registered processes. Use this flag with substantial caution, as code
   auto-loading depends on the correct operation of the error handling module.
   
@@ -8307,15 +8309,15 @@ Valid `InfoTuple`s with corresponding `Item`s:
 - **`{{dictionary, Key}, Value}`** - `Value` associated with `Key` in the
   process dictionary.
 
-- **`{error_handler, Module}`** - `Module` is the error handler module used by
+- **`{error_handler, Module}`** - `Module` is the `m:error_handler` module used by
   the process (for undefined function calls, for example).
 
 - **`{garbage_collection, GCInfo}`** - `GCInfo` is a list containing
   miscellaneous information about garbage collection for this process. The
   content of `GCInfo` can be changed without prior notice.
 
-- **`{garbage_collection_info, GCInfo}`{: #process_info_garbage_collection_info
-  }** - `GCInfo` is a list containing miscellaneous detailed information about
+- **`{garbage_collection_info, GCInfo}`{: #process_info_garbage_collection_info }** -
+  `GCInfo` is a list containing miscellaneous detailed information about
   garbage collection for this process. The content of `GCInfo` can be changed
   without prior notice. For details about the meaning of each item, see
   [`gc_minor_start`](#gc_minor_start) in
