@@ -5837,8 +5837,6 @@ printf "%s\n" "#define STACK_DIRECTION $ac_cv_c_stack_direction" >>confdefs.h
 
 fi
 
-# FIXME check that this isn't set in normal cases
-
 # Check if malloc(0) is ok
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for working memcmp" >&5
 printf %s "checking for working memcmp... " >&6; }
