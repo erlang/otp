@@ -167,7 +167,7 @@ config = [
        [
          "User's Guides": ~r/guides/,
          "Command Line Tools": ~r|references/.*_cmd.md$|,
-         References: ~r/references/,
+         References: ~r|references|,
          "Internal Docs": ~r/internal_doc/
        ])
     |> Enum.uniq(),

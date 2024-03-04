@@ -8,6 +8,6 @@
     "guides/configurations.md",
     "guides/configure_algos.md",
     "guides/hardening.md",
-    "references/ssh_app.md"
+    "ssh_app.md"
   ]
 ]

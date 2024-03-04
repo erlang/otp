@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# SSH
+# SSH Application
 
 The ssh application implements the Secure Shell (SSH) protocol and provides an
 SSH File Transfer Protocol (SFTP) client and server.

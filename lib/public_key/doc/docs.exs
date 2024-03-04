@@ -5,6 +5,6 @@
     "guides/introduction.md",
     "guides/public_key_records.md",
     "guides/using_public_key.md",
-    "references/public_key_app.md"
+    "public_key_app.md"
   ]
 ]

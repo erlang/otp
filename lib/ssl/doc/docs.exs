@@ -7,6 +7,6 @@
     "guides/using_ssl.md",
     "guides/ssl_distribution.md",
     "guides/standards_compliance.md",
-    "references/ssl_app.md"
+    "ssl_app.md"
   ]
 ]

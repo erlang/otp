@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# crypto
-
-The Crypto Application
+# Crypto Application
 
 ## Description
 

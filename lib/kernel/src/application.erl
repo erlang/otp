@@ -45,7 +45,7 @@ For details about applications and behaviours, see
 ## See Also
 
 [OTP Design Principles](`e:system:design_principles.md`),
-[kernel(6)](kernel_app.md), [app(4)](app.md)
+[kernel](kernel_app.md), [app](app.md)
 """.
 -moduledoc(#{titles => [{callback,<<"Callback Module">>}]}).
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,

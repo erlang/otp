@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# runtime_tools
-
-The Runtime tools Application
+# Runtime tools Application
 
 ## Description
 

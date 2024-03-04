@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# kernel
-
-The Kernel application.
+# Kernel Application
 
 ## Description
 

@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# STDLIB
-
-The STDLIB application.
+# STDLIB Application
 
 ## Description
 

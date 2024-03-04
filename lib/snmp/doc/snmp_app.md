@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# SNMP
-
-The SNMP Application
+# SNMP Application
 
 ## Description
 

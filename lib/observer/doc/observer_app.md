@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Observer
-
-The Observer Application
+# Observer Application
 
 ## Description
 

@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# ssl
+# SSL Application
 
 The ssl application provides secure communication over sockets.
 

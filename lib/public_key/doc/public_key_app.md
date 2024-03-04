@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# public_key
+# Public-key Application
 
 Provides functions to handle public-key infrastructure.
 
