@@ -32,11 +32,11 @@ matching string is not a valid encoding, it is ignored. The valid encodings are
 
 _Examples:_
 
-```text
+```erlang
 %% coding: utf-8
 ```
 
-```text
+```erlang
 %% For this file we have chosen encoding = Latin-1
 ```
 
@@ -46,18 +46,16 @@ _Examples:_
 
 ## Error Information
 
-[](){: #errorinfo }
-
 `ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
 modules. The format is as follows:
 
-```text
+```erlang
 {ErrorLine, Module, ErrorDescriptor}
 ```
 
 A string describing the error is obtained with the following call:
 
-```text
+```erlang
 Module:format_error(ErrorDescriptor)
 ```
 
@@ -291,7 +289,7 @@ macro_defs(Epp) ->
 -doc """
 Takes an `ErrorDescriptor` and returns a string that describes the error or
 warning. This function is usually called implicitly when processing an
-`ErrorInfo` structure (see section [Error Information](`m:epp#errorinfo`)).
+`ErrorInfo` structure (see section [Error Information](`m:epp#module-error-information`)).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when

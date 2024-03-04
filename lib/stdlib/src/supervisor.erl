@@ -259,9 +259,9 @@ but the map is preferred.
 
 - `modules` is used by the release handler during code replacement to determine
   which processes are using a certain module. As a rule of thumb, if the child
-  process is a `supervisor`, `gen_server` or, `gen_statem`, this is to be a list
+  process is a `m:supervisor`, `m:gen_server` or, `m:gen_statem`, this is to be a list
   with one element `[Module]`, where `Module` is the callback module. If the
-  child process is an event manager (`gen_event`) with a dynamic set of callback
+  child process is an event manager (`m:gen_event`) with a dynamic set of callback
   modules, value `dynamic` must be used. For more information about release
   handling, see [Release Handling](`e:system:release_handling.md`) in OTP Design
   Principles.
@@ -276,7 +276,6 @@ but the map is preferred.
 
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 -behaviour(gen_server).
 
@@ -327,7 +326,7 @@ but the map is preferred.
 -type child_id()      :: term().
 -doc """
 Value `undefined` for `A` (the argument list) is only to be used internally in
-`supervisor`. If the restart type of the child is `temporary`, the process is
+`m:supervisor`. If the restart type of the child is `temporary`, the process is
 never to be restarted and therefore there is no need to store the real argument
 list. Value `undefined` is then stored instead.
 """.
@@ -453,7 +452,6 @@ information about code upgrade of supervisors, see section
 [Changing a Supervisor](`e:system:appup_cookbook.md#sup`) in OTP Design
 Principles.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
     | ignore.
@@ -471,7 +469,12 @@ Principles.
                          | term().
 -type startlink_ret() :: {'ok', pid()} | 'ignore' | {'error', startlink_err()}.
 
--doc(#{equiv => start_link/3}).
+-doc """
+Creates a nameless supervisor process as part of a supervision tree.
+
+Equivalent to `start_link/3` except that the supervisor process is not
+[`registered`](`erlang:register/2`).
+""".
 -spec start_link(Module, Args) -> startlink_ret() when
       Module :: module(),
       Args :: term().
@@ -479,9 +482,10 @@ start_link(Mod, Args) ->
     gen_server:start_link(supervisor, {self, Mod, Args}, []).
  
 -doc """
-Creates a supervisor process as part of a supervision tree. For example, the
-function ensures that the supervisor is linked to the calling process (its
-supervisor).
+Creates a supervisor process as part of a supervision tree.
+
+For example, the function ensures that the supervisor is linked to the calling
+process (its supervisor).
 
 The created supervisor process calls [`Module:init/1`](`c:init/1`) to find out
 about restart strategy, maximum restart intensity, and child processes. To
@@ -498,8 +502,6 @@ started.
   functions `register_name/2`, `unregister_name/1`, and `send/2`, which must
   behave like the corresponding functions in `m:global`. Thus,
   `{via,global,Name}` is a valid reference.
-
-If no name is provided, the supervisor is not registered.
 
 `Module` is the name of the callback module.
 
@@ -735,7 +737,7 @@ which_children(Supervisor) ->
     call(Supervisor, which_children).
 
 -doc """
-Returns a property list (see `m:proplists`) containing the counts for each of
+Returns a [property list](`t:proplists:proplist/0`) containing the counts for each of
 the following elements of the supervisor's child specifications and managed
 processes:
 
@@ -765,7 +767,7 @@ count_children(Supervisor) ->
 call(Supervisor, Req) ->
     gen_server:call(Supervisor, Req, infinity).
 
--doc(#{equiv => check_childspecs/2}).
+-doc(#{equiv => check_childspecs(ChildSpecs, undefined)}).
 -doc(#{since => <<"OTP 24.0">>}).
 -spec check_childspecs(ChildSpecs) -> Result when
       ChildSpecs :: [child_spec()],
@@ -777,7 +779,7 @@ check_childspecs(ChildSpecs) ->
 Takes a list of child specification as argument and returns `ok` if all of them
 are syntactically correct, otherwise `{error,Error}`.
 
-If the optional `AutoShutdown` argument is given and not `undefined`, also
+If the `AutoShutdown` argument is not `undefined`, also
 checks if the child specifications are allowed for the given
 [auto_shutdown](`m:supervisor#auto_shutdown`) option.
 """.

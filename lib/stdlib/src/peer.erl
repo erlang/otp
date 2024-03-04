@@ -114,9 +114,10 @@
 -ifndef(NO_DOCS).
 -doc "
 Alternative connection between the origin and the peer. When the connection
-closes, the peer node terminates automatically. If the `peer_down` startup flag
-is set to `crash`, the controlling process on the origin node exits with
-corresponding reason, effectively providing a two-way link.
+closes, the peer node terminates automatically.
+
+If the `peer_down` startup flag is set to `crash`, the controlling process on
+the origin node exits with corresponding reason, effectively providing a two-way link.
 
 When `connection` is set to a port number, the origin starts listening on the
 requested TCP port, and the peer node connects to the port. When it is set to an
@@ -138,8 +139,9 @@ origin communicate via stdin/stdout.
 -doc "
 Specifies start/start_link timeout in milliseconds. Can be set to `false`,
 allowing the peer to start asynchronously. If `{Pid, Tag}` is specified instead
-of a timeout, the peer will send `Tag` to the requested process. The default is
-`15_000` ms.
+of a timeout, the peer will send `Tag` to the requested process.
+
+The default is `15_000` ms.
 ".
 -endif.
 -type wait_boot() ::
@@ -149,9 +151,10 @@ of a timeout, the peer will send `Tag` to the requested process. The default is
 
 -ifndef(NO_DOCS).
 -doc "
-Overrides executable to start peer nodes with. By default it is the path to
-\"erl\", taken from `init:get_argument(progname)`. If `progname` is not known,
-`peer` makes best guess given the current ERTS version.
+Overrides executable to start peer nodes with.
+
+By default it is the path to \"erl\", taken from `init:get_argument(progname)`.
+If `progname` is not known, `peer` makes best guess given the current ERTS version.
 
 When a tuple is passed, the first element is the path to executable, and the
 second element is prepended to the final command line. This can be used to start
@@ -209,9 +212,9 @@ Options that can be used when starting a `peer` node through `start/1` and
 
   ```erlang
   peer:start(#{ name => peer:random_name(),
-    exec => {os:find_executable(\\\"bash\\\"),[\\\"-c\\\",\\\"erl\\\"]},
+    exec => {os:find_executable(\"bash\"),[\"-c\",\"erl\"]},
     post_process_args =>
-       fun([\"-c\"|Args]) -> [\"-c\", lists:flatten(lists:join($\s, Args))] end
+       fun([\"-c\"|Args]) -> [\"-c\", lists:flatten(lists:join($\\s, Args))] end
     }).
   ```
 
@@ -302,7 +305,7 @@ Options that can be used when starting a `peer` node through `start/1` and
 
 %% @doc Creates random node name, using "peer" as prefix.
 -ifndef(NO_DOCS).
--doc "The same as [`random_name(peer)`](`random_name/1`).".
+-doc #{ equiv => random_name(peer) }.
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
 -spec random_name() -> string().
@@ -438,9 +441,11 @@ stop(Dest) ->
 %% @doc returns peer node state.
 -ifndef(NO_DOCS).
 -doc "
-Returns the peer node state. Th initial state is `booting`; the node stays in
-that state until then boot script is complete, and then the node progresses to
-`running`. If the node stops (gracefully or not), the state changes to `down`.
+Returns the peer node state.
+
+The initial state is `booting`; the node stays in that state until then boot
+script is complete, and then the node progresses to `running`. If the node stops
+(gracefully or not), the state changes to `down`.
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -450,7 +455,7 @@ get_state(Dest) ->
 
 %% @doc Calls M:F(A) remotely, via alternative connection, with default 5 seconds timeout
 -ifndef(NO_DOCS).
--doc(#{equiv => call/5}).
+-doc(#{equiv => call(Dest, Module, Function, Args, ?SYNC_RPC_TIMEOUT)}).
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
 -spec call(Dest :: server_ref(), Module :: module(), Function :: atom(),
@@ -463,9 +468,10 @@ call(Dest, M, F, A) ->
 -doc "
 Uses the alternative connection to evaluate
 [`apply(Module, Function, Args)`](`apply/3`) on the peer node and returns the
-corresponding value `Result`. `Timeout` is an integer representing the timeout
-in milliseconds or the atom `infinity` which prevents the operation from ever
-timing out.
+corresponding value `Result`.
+
+`Timeout` is an integer representing the timeout in milliseconds or the atom
+`infinity` which prevents the operation from ever timing out.
 
 When an alternative connection is not requested, this function will raise `exit`
 signal with the `noconnection` reason. Use `m:erpc` module to communicate over
@@ -505,8 +511,9 @@ cast(Dest, M, F, A) ->
 %%  using alternative connection. No delivery guarantee.
 -ifndef(NO_DOCS).
 -doc "
-Uses the alternative connection to send Message to a process on the the peer
-node. Silently fails if no alternative connection is configured. The process can
+Uses the alternative connection to send Message to a process on the the peer node.
+
+Silently fails if no alternative connection is configured. The process can
 be referenced by process ID or registered name.
 ".
 -doc(#{since => <<"OTP 25.0">>}).

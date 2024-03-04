@@ -351,9 +351,9 @@ end
 -type key_integer() :: integer() | binary(). % Always binary() when used as return value
 
 %%% Keys
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,rsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => rsa_params()}).
 -type rsa_public() :: [key_integer()] . % [E, N]
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,rsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => rsa_params()}).
 -type rsa_private() :: [key_integer()] . % [E, N, D] | [E, N, D, P1, P2, E1, E2, C]
 -doc """
 ```text
@@ -373,7 +373,7 @@ taken from [RFC 3447](http://www.ietf.org/rfc/rfc3447.txt).
 -doc(#{title => <<"Public/Private Keys">>}).
 -type rsa_params() :: {ModulusSizeInBits::integer(), PublicExponent::key_integer()} .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,dss_private,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => dss_private()}).
 -type dss_public() :: [key_integer()] . % [P, Q, G, Y]
 -doc """
 ```text
@@ -391,21 +391,21 @@ Where P, Q and G are the dss parameters and X is the private key.
 -doc(#{title => <<"Public/Private Keys">>}).
 -type dss_private() :: [key_integer()] . % [P, Q, G, X]
 
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,ecdsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
 -type ecdsa_public()  :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,ecdsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => ecdsa_params()}).
 -type ecdsa_private() :: key_integer() .
 -doc(#{title => <<"Public/Private Keys">>}).
 -type ecdsa_params()  :: ec_named_curve() | ec_explicit_curve() .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,eddsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => eddsa_params()}).
 -type eddsa_public()  :: key_integer() .
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,eddsa_params,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => eddsa_params()}).
 -type eddsa_private() :: key_integer() .
 -doc(#{title => <<"Public/Private Keys">>}).
 -type eddsa_params()  :: edwards_curve_ed() .
 
--doc(#{title => <<"Public/Private Keys">>,equiv => {type,srp_private,0}}).
+-doc(#{title => <<"Public/Private Keys">>,equiv => srp_private()}).
 -type srp_public() :: key_integer() .
 -doc """
 ```text
@@ -423,19 +423,19 @@ Where is `a` or `b` from [SRP design](http://srp.stanford.edu/design.html)
 -doc(#{title => <<"Public/Private Keys">>}).
 -type srp_private() :: key_integer() .
 -doc(#{title => <<"Public/Private Keys">>,
-       equiv => {type,srp_host_comp_params,0}}).
+       equiv => srp_host_comp_params()}).
 -type srp_gen_params()  :: {user,srp_user_gen_params()}  | {host,srp_host_gen_params()}.
 -doc(#{title => <<"Public/Private Keys">>,
-       equiv => {type,srp_host_comp_params,0}}).
+       equiv => srp_host_comp_params()}).
 -type srp_comp_params() :: {user,srp_user_comp_params()} | {host,srp_host_comp_params()}.
 -doc(#{title => <<"Public/Private Keys">>,
-       equiv => {type,srp_host_comp_params,0}}).
+       equiv => srp_host_comp_params()}).
 -type srp_user_gen_params() :: list(binary() | atom() | list()) .
 -doc(#{title => <<"Public/Private Keys">>,
-       equiv => {type,srp_host_comp_params,0}}).
+       equiv => srp_host_comp_params()}).
 -type srp_host_gen_params() :: list(binary() | atom() | list()) .
 -doc(#{title => <<"Public/Private Keys">>,
-       equiv => {type,srp_host_comp_params,0}}).
+       equiv => srp_host_comp_params()}).
 -type srp_user_comp_params() :: list(binary() | atom()) .
 -doc """
 Where Verifier is `v`, Generator is `g` and Prime is` N`, DerivedKey is `X`, and
@@ -446,7 +446,7 @@ Scrambler is `u` (optional will be generated if not provided) from
 -type srp_host_comp_params() :: list(binary() | atom()) .
 
 -doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
-       equiv => {type,dh_private,0}}).
+       equiv => dh_private()}).
 -type dh_public() :: key_integer() .
 -doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
 -type dh_private() :: key_integer() .
@@ -459,10 +459,10 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
 -type dh_params() :: [key_integer()] . % [P, G] | [P, G, PrivateKeyBitLength]
 
 -doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
-       equiv => {type,ecdh_params,0}}).
+       equiv => ecdh_params()}).
 -type ecdh_public()  :: key_integer() .
 -doc(#{title => <<"Diffie-Hellman Keys and parameters">>,
-       equiv => {type,ecdh_params,0}}).
+       equiv => ecdh_params()}).
 -type ecdh_private() :: key_integer() .
 -doc(#{title => <<"Diffie-Hellman Keys and parameters">>}).
 -type ecdh_params()  :: ec_named_curve() | edwards_curve_dh() | ec_explicit_curve() .
@@ -470,7 +470,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
 
 %%% Curves
 
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_curve,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => ec_curve()}).
 -type ec_explicit_curve() :: {Field :: ec_field(),
                               Curve :: ec_curve(),
                               BasePoint :: binary(),
@@ -486,12 +486,12 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                      Seed :: none | binary()
                     } .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_curve,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => ec_curve()}).
 -type ec_field() ::  ec_prime_field() | ec_characteristic_two_field() .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_basis,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => ec_basis()}).
 -type ec_prime_field()              :: {prime_field, Prime :: integer()} .
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,ec_basis,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => ec_basis()}).
 -type ec_characteristic_two_field() :: {characteristic_two_field, M :: integer(), Basis :: ec_basis()} .
 
 -doc "Curve definition details.".
@@ -500,7 +500,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                   | {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()}
                   |  onbasis .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,edwards_curve_ed,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
 -type ec_named_curve() :: brainpoolP160r1
                         | brainpoolP160t1
                         | brainpoolP192r1
@@ -586,7 +586,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
                         | wtls9
                           .
 
--doc(#{title => <<"Elliptic Curves">>,equiv => {type,edwards_curve_ed,0}}).
+-doc(#{title => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
 -type edwards_curve_dh() :: x25519 | x448 .
 
 -doc "Note that some curves are disabled if FIPS is enabled.".
@@ -686,13 +686,13 @@ support all of them.
 -doc(#{title => <<"Digests and hash">>}).
 -type ecdsa_digest_type() :: sha1() | sha2() .
 
--doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
+-doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
 -type sha1() :: sha .
--doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
+-doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
 -type sha2() :: sha224 | sha256 | sha384 | sha512 .
--doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
+-doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
 -type sha3() :: sha3_224 | sha3_256 | sha3_384 | sha3_512 .
--doc(#{title => <<"Digests and hash">>,equiv => {type,blake2,0}}).
+-doc(#{title => <<"Digests and hash">>,equiv => blake2()}).
 -type sha3_xof() :: shake128 | shake256 .
 -doc(#{title => <<"Digests and hash">>}).
 -type blake2() :: blake2b | blake2s .
@@ -1032,7 +1032,7 @@ hash_xof(Type, Data, Length) ->
   Data1 = iolist_to_binary(Data),
   hash_xof(Type, Data1, erlang:byte_size(Data1), Length).
 
--doc(#{title => <<"Internal data types">>,equiv => {type,mac_state,0}}).
+-doc(#{title => <<"Internal data types">>,equiv => mac_state()}).
 -opaque hash_state() :: reference().
 
 -doc """
@@ -1412,10 +1412,10 @@ cipher_info(Type) ->
 %%%
 %%%================================================================
 
--doc(#{title => <<"Internal data types">>,equiv => {type,mac_state,0}}).
+-doc(#{title => <<"Internal data types">>,equiv => mac_state()}).
 -opaque crypto_state() :: reference() .
 
--doc(#{title => <<"Ciphers">>,equiv => {type,crypto_opt,0}}).
+-doc(#{title => <<"Ciphers">>,equiv => crypto_opt()}).
 -type crypto_opts() :: boolean()
                      | [ crypto_opt() ] .
 -doc "Selects encryption (`{encrypt,true}`) or decryption (`{encrypt,false}`).".
@@ -2278,11 +2278,11 @@ rand_seed_nif(_Seed) -> ?nif_stub.
 -type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa .
 
 -doc(#{title => <<"Public Key Sign and Verify">>,
-       equiv => {type,rsa_sign_verify_padding,0}}).
+       equiv => rsa_sign_verify_padding()}).
 -type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
 
 -doc(#{title => <<"Public Key Sign and Verify">>,
-       equiv => {type,rsa_sign_verify_padding,0}}).
+       equiv => rsa_sign_verify_padding()}).
 -type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
                              | {rsa_pss_saltlen, integer()}
                              | {rsa_mgf1_md, sha2()}.
@@ -2442,7 +2442,7 @@ sign_verify_compatibility(Algorithm0, Type0, _Digest) ->
 -doc(#{title => <<"Public Key Ciphers">>}).
 -type pk_encrypt_decrypt_algs() :: rsa .
 
--doc(#{title => <<"Public Key Ciphers">>,equiv => {type,rsa_padding,0}}).
+-doc(#{title => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
 -type pk_encrypt_decrypt_opts() ::  [rsa_opt()] | rsa_compat_opts().
 
 -doc """
@@ -2470,7 +2470,7 @@ Options for public key encrypt/decrypt. Only RSA is supported.
                      | rsa_x931_padding
                      | rsa_no_padding.
 
--doc(#{title => <<"Public Key Ciphers">>,equiv => {type,rsa_padding,0}}).
+-doc(#{title => <<"Public Key Ciphers">>,equiv => rsa_padding()}).
 -type rsa_opt() :: {rsa_padding, rsa_padding()}
                  | {signature_md, atom()}
                  | {rsa_mgf1_md, sha}
@@ -2820,7 +2820,7 @@ passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
 -doc(#{title => <<"Types for Engines">>}).
 -type password() :: string() | binary() .
 
--doc(#{title => <<"Types for Engines">>,equiv => {type,engine_ref,0}}).
+-doc(#{title => <<"Types for Engines">>,equiv => engine_ref()}).
 -type engine_key_ref() :: #{engine :=   engine_ref(),
                             key_id :=   key_id(),
                             password => password(),

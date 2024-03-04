@@ -54,20 +54,18 @@ The Erlang token scanner.
 This module contains functions for tokenizing (scanning) characters into Erlang
 tokens.
 
-[](){: #errorinfo }
-
 ## Error Information
 
 `ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
 modules. The format is as follows:
 
-```text
+```erlang
 {ErrorLocation, Module, ErrorDescriptor}
 ```
 
 A string describing the error is obtained with the following call:
 
-```text
+```erlang
 Module:format_error(ErrorDescriptor)
 ```
 
@@ -153,7 +151,7 @@ Armstrong, Virding and Williams: 'Concurrent Programming in Erlang', Chapter 13.
 Uses an `ErrorDescriptor` and returns a string that describes the error or
 warning. This function is usually called implicitly when an `ErrorInfo`
 structure is processed (see section
-[Error Information](`m:erl_scan#errorinfo`)).
+[Error Information](`m:erl_scan#module-error-information`)).
 """.
 -spec format_error(ErrorDescriptor) -> string() when
       ErrorDescriptor :: error_description().
@@ -176,7 +174,7 @@ format_error(string_concat) ->
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
--doc(#{equiv => string/3}).
+-doc(#{equiv => string(String, 1)}).
 -spec string(String) -> Return when
       String :: string(),
       Return :: {'ok', Tokens :: tokens(), EndLocation}
@@ -186,7 +184,7 @@ format_error(Other) ->
 string(String) ->
     string(String, 1, []).
 
--doc(#{equiv => string/3}).
+-doc(#{equiv => string(String, StartLocation, [])}).
 -spec string(String, StartLocation) -> Return when
       String :: string(),
       Return :: {'ok', Tokens :: tokens(), EndLocation}
@@ -198,19 +196,15 @@ string(String, StartLocation) ->
     string(String, StartLocation, []).
 
 -doc """
-Takes the list of characters `String` and tries to scan (tokenize) them. Returns
-one of the following:
+Takes the list of characters `String` and tries to scan (tokenize) them.
+
+Returns one of the following:
 
 - **`{ok, Tokens, EndLocation}`** - `Tokens` are the Erlang tokens from
   `String`. `EndLocation` is the first location after the last token.
 
 - **`{error, ErrorInfo, ErrorLocation}`** - An error occurred. `ErrorLocation`
   is the first location after the erroneous token.
-
-[`string(String)`](`string/1`) is equivalent to
-[`string(String, 1)`](`string/2`), and
-[`string(String, StartLocation)`](`string/2`) is equivalent to
-[`string(String, StartLocation, [])`](`string/3`).
 
 `StartLocation` indicates the initial location when scanning starts. If
 `StartLocation` is a line, `Anno`, `EndLocation`, and `ErrorLocation` are lines.
@@ -299,7 +293,7 @@ string(String, {Line,Column}, Options) when ?STRING(String),
                        | {'error', ErrorInfo :: error_info(),
                           EndLocation :: erl_anno:location()}.
 
--doc(#{equiv => tokens/4}).
+-doc(#{equiv => tokens(Continuation, CharSpec, StartLocation, [])}).
 -spec tokens(Continuation, CharSpec, StartLocation) -> Return when
       Continuation :: return_cont() | [],
       CharSpec :: char_spec(),
@@ -311,7 +305,9 @@ tokens(Cont, CharSpec, StartLocation) ->
 
 -doc """
 This is the re-entrant scanner, which scans characters until either a _dot_ ('.'
-followed by a white space) or `eof` is reached. It returns:
+followed by a white space) or `eof` is reached.
+
+It returns:
 
 - **`{done, Result, LeftOverChars}`** - Indicates that there is sufficient input
   data to get a result. `Result` is:
@@ -331,9 +327,6 @@ followed by a white space) or `eof` is reached. It returns:
 
 The `CharSpec` `eof` signals end of file. `LeftOverChars` then takes the value
 `eof` as well.
-
-[`tokens(Continuation, CharSpec, StartLocation)`](`tokens/3`) is equivalent to
-[`tokens(Continuation, CharSpec, StartLocation, [])`](`tokens/4`).
 
 For a description of the options, see `string/3`.
 """.

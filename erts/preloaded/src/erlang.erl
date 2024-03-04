@@ -566,9 +566,14 @@ A list of binaries. This datatype is useful to use together with
       {'long_schedule', non_neg_integer()} |
       {'large_heap', non_neg_integer()}.
 
+-doc """
+A extended `t:stacktrace/0` that can be passed to `raise/3`.
+""".
 -type raise_stacktrace() ::
       [{module(), atom(), arity() | [term()]} |
-       {function(), arity() | [term()]}].
+       {function(), arity() | [term()]}]
+      | stacktrace().
+-export_type([raise_stacktrace/0]).
 
 -type bitstring_list() ::
       maybe_improper_list(byte() | bitstring() | bitstring_list(), bitstring() | []).
@@ -722,7 +727,7 @@ append_element(_Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
 %% atom_to_binary/1
--doc "The same as [`atom_to_binary` ](`atom_to_binary/2`)`(Atom, utf8)`.".
+-doc(#{ equiv => atom_to_binary(Atom, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec atom_to_binary(Atom) -> binary() when
@@ -825,9 +830,7 @@ binary_part(_Subject, _PosLen) ->
 
 %% binary_part/3
 %% Shadowed by erl_bif_types: erlang:binary_part/3
--doc """
-The same as [`binary_part(Subject, {Start, Length})`](`binary_part/2`).
-""".
+-doc( #{ equiv =>  binary_part(Subject, {Start, Length}) }).
 -doc(#{since => <<"OTP R14B">>}).
 -doc #{ group => terms }.
 -spec binary_part(Subject, Start, Length) -> binary() when
@@ -838,7 +841,7 @@ binary_part(_Subject, _Start, _Length) ->
     erlang:nif_error(undefined).
 
 %% binary_to_atom/1
--doc "The same as [`binary_to_atom(Binary, utf8)`](`binary_to_atom/2`).".
+-doc(#{ equiv => binary_to_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec binary_to_atom(Binary) -> atom() when
@@ -895,9 +898,7 @@ binary_to_atom(_Binary, _Encoding) ->
     erlang:nif_error(undefined).
 
 %% binary_to_existing_atom/1
--doc """
-The same as [`binary_to_existing_atom(Binary, utf8)`](`binary_to_existing_atom/2`).
-""".
+-doc(#{ equiv => binary_to_existing_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec binary_to_existing_atom(Binary) -> atom() when
@@ -1247,7 +1248,7 @@ binary_to_term(_Binary) ->
 
 %% binary_to_term/2
 -doc """
-Equivalent to [`binary_to_term/1`](`binary_to_term/1`), but can be configured to
+Equivalent to [`binary_to_term(Binary)`](`binary_to_term/1`), but can be configured to
 fit special purposes.
 
 The allowed options are:
@@ -1402,10 +1403,7 @@ call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
 
 %% cancel_timer/1
--doc """
-Cancels a timer. The same as calling
-[`erlang:cancel_timer(TimerRef, [])`](`cancel_timer/2`).
-""".
+-doc( #{ equiv =>  erlang:cancel_timer(TimerRef, []) }).
 -doc #{ group => time }.
 -spec cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
@@ -1514,7 +1512,7 @@ check_old_code(_Module) ->
     erlang:nif_error(undefined).
 
 %% check_process_code/2
--doc "The same as [`check_process_code(Pid, Module, [])` ](`check_process_code/3`).".
+-doc(#{ equiv => check_process_code(Pid, Module, []) }).
 -doc #{ group => code }.
 -spec check_process_code(Pid, Module) -> CheckResult when
       Pid :: pid(),
@@ -2579,7 +2577,7 @@ float(_Number) ->
     erlang:nif_error(undefined).
 
 %% float_to_binary/1
--doc "The same as [`float_to_binary(Float,[{scientific,20}])`](`float_to_binary/2`).".
+-doc(#{ equiv => float_to_binary(Float,[{scientific,20}]) }).
 -doc(#{since => <<"OTP R16B">>}).
 -doc #{ group => terms }.
 -spec float_to_binary(Float) -> binary() when
@@ -2624,7 +2622,7 @@ float_to_binary(_Float, _Options) ->
     erlang:nif_error(undefined).
 
 %% float_to_list/1
--doc "The same as [`float_to_list(Float,[{scientific,20}])`](`float_to_list/2`).".
+-doc(#{ equiv => float_to_list(Float,[{scientific,20}]) }).
 -doc #{ group => terms }.
 -spec float_to_list(Float) -> string() when
       Float :: float().
@@ -2855,7 +2853,7 @@ garbage_collect() ->
     erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
--doc "The same as [`garbage_collect(Pid, [])`](`garbage_collect/2`).".
+-doc(#{ equiv => garbage_collect(Pid, []) }).
 -doc #{ group => processes }.
 -spec garbage_collect(Pid) -> GCResult when
       Pid :: pid(),
@@ -3139,7 +3137,7 @@ group_leader(GroupLeader, Pid) ->
 %% halt/0
 %% Shadowed by erl_bif_types: erlang:halt/0
 -doc """
-The same as calling [`halt(0, [])`](`halt/2`).
+Equivalent to calling [`halt(0, [])`](`halt/2`).
 
 For example:
 
@@ -3156,7 +3154,7 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -doc """
-The same as calling [`halt(Status, [])`](`halt/2`).
+Equivalent to calling [`halt(Status, [])`](`halt/2`).
 
 For example:
 
@@ -4766,7 +4764,7 @@ unique_integer(_ModifierList) ->
 -doc """
 Generates and returns an
 [integer unique on current runtime system instance](`e:system:advanced.md#unique_integers`).
-The same as calling [`erlang:unique_integer([])`](`unique_integer/1`).
+Equivalent to calling [`erlang:unique_integer([])`](`unique_integer/1`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -doc #{ group => terms }.
@@ -5297,15 +5295,12 @@ for more information about exception classes and how to catch exceptions.
 -spec raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
-      Stacktrace :: raise_stacktrace() | stacktrace().
+      Stacktrace :: raise_stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
     erlang:nif_error(undefined).
 
 %% read_timer/1
--doc """
-Reads the state of a timer. The same as calling
-[`erlang:read_timer(TimerRef, [])`](`read_timer/2`).
-""".
+-doc( #{ equiv =>  erlang:read_timer(TimerRef, []) }).
 -doc #{ group => timer }.
 -spec read_timer(TimerRef) -> Result when
       TimerRef :: reference(),
@@ -5529,10 +5524,7 @@ self() ->
     erlang:nif_error(undefined).
 
 %% send_after/3
--doc """
-Starts a timer. The same as calling
-[`erlang:send_after(Time, Dest, Msg, [])`](`send_after/4`).
-""".
+-doc( #{ equiv => erlang:send_after(Time, Dest, Msg, [])} ).
 -doc #{ group => timer }.
 -spec send_after(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
@@ -5713,10 +5705,7 @@ split_binary(_Bin, _Pos) ->
     erlang:nif_error(undefined).
 
 %% start_timer/3
--doc """
-Starts a timer. The same as calling
-[`erlang:start_timer(Time, Dest, Msg, [])`](`start_timer/4`).
-""".
+-doc( #{ equiv =>  erlang:start_timer(Time, Dest, Msg, []) }).
 -doc #{ group => timer }.
 -spec start_timer(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
@@ -5881,7 +5870,7 @@ suspend_process(Suspendee, OptList) ->
     end.
 
 -doc """
-Suspends the process identified by `Suspendee`. The same as calling
+Suspends the process identified by `Suspendee`. Equivalent to calling
 [`erlang:suspend_process(Suspendee, [])`](`suspend_process/2`).
 
 > #### Warning {: .warning }
@@ -6783,7 +6772,7 @@ A handle to an isolated trace session.
 -opaque trace_session() :: reference().
 
 -doc """
-The same as [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
+Equivalent to [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
 but applied on a dynamic trace session.
 """.
 -doc(#{since => <<"OTP 27.0">>, group => trace }).
@@ -9058,7 +9047,7 @@ The possible flags are:
   ```
   {: #statistics_scheduler_wall_time_all }
 
-  The same as
+  Equivalent to
   [`statistics(scheduler_wall_time)`](#statistics_scheduler_wall_time),
   except that it also include information about all dirty I/O schedulers.
 
@@ -9078,7 +9067,7 @@ The possible flags are:
   ```
   {: #statistics_total_active_tasks }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(active_tasks)`](#statistics_active_tasks)`)`,
   but more efficient.
 
@@ -9089,7 +9078,7 @@ The possible flags are:
   ```
   {: #statistics_total_active_tasks_all }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(active_tasks_all)`](#statistics_active_tasks_all)`)`,
   but more efficient.
 
@@ -9100,7 +9089,7 @@ The possible flags are:
   ```
   {: #statistics_total_run_queue_lengths }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(run_queue_lengths)`](#statistics_run_queue_lengths)`)`,
   but more efficient.
 
@@ -9111,7 +9100,7 @@ The possible flags are:
   ```
   {: #statistics_total_run_queue_lengths_all }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(run_queue_lengths_all)`](#statistics_run_queue_lengths_all)`)`,
   but more efficient.
 
@@ -10013,7 +10002,7 @@ trace_session_destroy(Ref) ->
       [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -doc """
-The same as [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
+Equivalent to [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
 retained for backward compatibility.
 """.
 -doc #{ group => trace }.
@@ -11078,7 +11067,7 @@ spawn_opt(N,M,F,A,O) ->
 %%
 
 -doc """
-The same as the call [`spawn_request(node(),Fun,[])`](`spawn_request/3`). That
+Equivalent to the call [`spawn_request(node(),Fun,[])`](`spawn_request/3`). That
 is, a spawn request on the local node with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
@@ -11102,11 +11091,14 @@ spawn_request(F) ->
 %%
 
 -doc """
-The same as the call [`spawn_request(node(),Fun,Options)`](`spawn_request/3`).
-That is, a spawn request on the local node.
+spawn_request(FunOrNode, OptionsOrFun)
 
-The same as the call [`spawn_request(Node,Fun,[])`](`spawn_request/3`). That is,
-a spawn request with no options.
+Equivalent to [`spawn_request(node(),Fun,Options)`](`spawn_request/3`) or
+[`spawn_request(Node,Fun,[])`](`spawn_request/3`) depending on the arguments.
+
+That is either:
+- a spawn request on the local node.
+- a spawn request with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11146,19 +11138,23 @@ spawn_request(A1, A2) ->
 %%
 
 -doc """
-The same as
-[`spawn_request(Node,erlang,apply,[Fun,[]],Options)`](`spawn_request/5`). That
-is, a spawn request using the fun `Fun` of arity zero as entry point.
+spawn_request(NodeOrModule, FunOrFunction, OptionsOrArgs)
+
+Equivalent to
+[`spawn_request(Node,erlang,apply,[Fun,[]],Options)`](`spawn_request/5`) or
+[`spawn_request(node(),Module,Function,Args,[])`](`spawn_request/5`) depending
+on the arguments.
+
+That is either:
+
+- a spawn request using the fun `Fun` of arity zero as entry point
+- a spawn request on the local node with no options.
 
 This function will fail with a `badarg` exception if:
 
 - `Node` is not an atom.
 - `Fun` is not a fun of arity zero.
 - `Options` is not a proper list of terms.
-
-The same as the call
-[`spawn_request(node(),Module,Function,Args,[])`](`spawn_request/5`). That is, a
-spawn request on the local node with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11203,13 +11199,16 @@ spawn_request(M, F, A) ->
 %%
 
 -doc """
-The same as the call
-[`spawn_request(Node,Module,Function,Args,[])`](`spawn_request/5`). That is, a
-spawn request with no options.
+spawn_request(NodeOrModule, ModuleOrFunction, FunctionOrArgs, ArgsOrOptions)
 
-The same as the call
-[`spawn_request(node(),Module,Function,Args,Options)`](`spawn_request/5`). That
-is, a spawn request on the local node.
+Equivalent to
+[`spawn_request(Node,Module,Function,Args,[])`](`spawn_request/5`) or
+[`spawn_request(node(),Module,Function,Args,Options)`](`spawn_request/5`)
+depending on the arguments.
+
+That is either:
+- a spawn request with no options.
+- a spawn request on the local node.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11758,7 +11757,7 @@ for a registered name at another node.
 -doc """
 Send a message without suspending the caller.
 
-The same as [`erlang:send(Dest, Msg, [nosuspend])`](`send/3`), but returns
+Equivalent to [`erlang:send(Dest, Msg, [nosuspend])`](`send/3`), but returns
 `true` if the message was sent and `false` if the message was not sent because
 the sender would have had to be suspended.
 
@@ -11806,7 +11805,7 @@ send_nosuspend(Pid, Msg) ->
     end.
 
 -doc """
-The same as [`erlang:send(Dest, Msg, [nosuspend | Options])`](`send/3`), but
+Equivalent to [`erlang:send(Dest, Msg, [nosuspend | Options])`](`send/3`), but
 with a Boolean return value.
 
 This function behaves like [`erlang:send_nosuspend/2`](`send_nosuspend/2`), but

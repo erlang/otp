@@ -175,8 +175,6 @@ done
 -doc """
 Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) after `Time`
 milliseconds.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_after(Time, Function) ->
@@ -194,8 +192,6 @@ apply_after(_Time, _F) ->
 -doc """
 Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) after
 `Time` milliseconds.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_after(Time, Function, Arguments) ->
@@ -214,8 +210,6 @@ apply_after(_Time, _F, _A) ->
 -doc """
 Evaluates [`spawn(Module, Function, Arguments)`](`spawn/3`) after `Time`
 milliseconds.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -spec apply_after(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
@@ -237,18 +231,12 @@ apply_after(_Time, _M, _F, _A) ->
     {error, badarg}.
 
 -doc """
-- **[`send_after/3`](`send_after/3`)** - Evaluates `Destination ! Message` after
-  `Time` milliseconds. (`Destination` can be a remote or local process
-  identifier, an atom of a registered name or a tuple `{RegName, Node}` for a
-  registered name at another node.)
+Evaluates `Destination ! Message` after `Time` milliseconds.
 
-  Returns `{ok, TRef}` or `{error, Reason}`.
+`Destination` can be a remote or local process identifier, an atom of a
+registered name or a tuple `{RegName, Node}` for a registered name at another node.
 
-  See also
-  [the Timer Module section in the Efficiency Guide](`e:system:commoncaveats.md#timer-module`).
-
-- **[`send_after/2`](`send_after/2`)** - Same as
-  [`send_after(Time, self(), Message)`](`send_after/3`).
+See also [the Timer Module section in the Efficiency Guide](`e:system:commoncaveats.md#timer-module`).
 """.
 -spec send_after(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -285,7 +273,7 @@ send_after(Time, {RegName, Node} = Dest, Message)
 send_after(_Time, _PidOrRegName, _Message) ->
     {error, badarg}.
 
--doc(#{equiv => send_after/3}).
+-doc(#{equiv => send_after(Time, self(), Message)}).
 -spec send_after(Time, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
                    Message :: term(),
@@ -295,12 +283,8 @@ send_after(Time, Message) ->
     send_after(Time, self(), Message).
 
 -doc """
-[`exit_after/2`](`exit_after/2`) is the same as
-[`exit_after(Time, self(), Reason1)`](`exit_after/3`).
-
-[`exit_after/3`](`exit_after/3`) sends an exit signal with reason `Reason1` to
-`Target`, which can be a local process identifier or an atom of a registered
-name. Returns `{ok, TRef}` or `{error, Reason2}`.
+Sends an exit signal with reason `Reason1` to `Target`, which can be a local
+process identifier or an atom of a registered name.
 """.
 -spec exit_after(Time, Target, Reason1) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
@@ -311,7 +295,7 @@ name. Returns `{ok, TRef}` or `{error, Reason2}`.
 exit_after(Time, Pid, Reason) ->
     apply_after(Time, erlang, exit, [Pid, Reason]).
 
--doc(#{equiv => exit_after/3}).
+-doc(#{equiv => exit_after(Time, self(), Reason)}).
 -spec exit_after(Time, Reason1) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
                    TRef :: tref(),
@@ -320,13 +304,7 @@ exit_after(Time, Pid, Reason) ->
 exit_after(Time, Reason) ->
     exit_after(Time, self(), Reason).
 
--doc """
-[`kill_after/1`](`kill_after/1`) is the same as
-[`exit_after(Time, self(), kill)`](`exit_after/3`).
-
-[`kill_after/2`](`kill_after/2`) is the same as
-[`exit_after(Time, Target, kill)`](`exit_after/3`).
-""".
+-doc #{ equiv => exit_after(Time, Target, kill) }.
 -spec kill_after(Time, Target) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
                    Target :: pid() | (RegName :: atom()),
@@ -335,7 +313,7 @@ exit_after(Time, Reason) ->
 kill_after(Time, Pid) ->
     exit_after(Time, Pid, kill).
 
--doc(#{equiv => kill_after/2}).
+-doc #{ equiv => exit_after(Time, self(), kill) }.
 -spec kill_after(Time) -> {'ok', TRef} | {'error', Reason2}
               when Time :: time(),
                    TRef :: tref(),
@@ -347,8 +325,6 @@ kill_after(Time) ->
 Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) repeatedly at
 intervals of `Time`, irrespective of whether a previously spawned process has
 finished or not.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_interval(Time, Function) ->
@@ -367,8 +343,6 @@ apply_interval(_Time, _F) ->
 Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) repeatedly
 at intervals of `Time`, irrespective of whether a previously spawned process has
 finished or not.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_interval(Time, Function, Arguments) ->
@@ -402,8 +376,6 @@ finished or not.
 > at the same time, far more than a node started with default settings allows
 > (see the
 > [System Limits section in the Effiency Guide](`e:system:advanced.md#system-limits`)).
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -spec apply_interval(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
@@ -424,8 +396,6 @@ apply_interval(_Time, _M, _F, _A) ->
 Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) repeatedly at
 intervals of `Time`, waiting for the spawned process to finish before starting
 the next.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_repeatedly(Time, Function) ->
@@ -444,8 +414,6 @@ apply_repeatedly(_Time, _F) ->
 Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) repeatedly
 at intervals of `Time`, waiting for the spawned process to finish before
 starting the next.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP @OTP-18808@">>}).
 -spec apply_repeatedly(Time, Function, Arguments) ->
@@ -474,8 +442,6 @@ large amount of time will be the same even if some individual execution times
 are larger than `Time`. The system will try to catch up as soon as possible. For
 example, if one apply takes `2.5*Time`, the following two applies will be made
 immediately one after the other in sequence.
-
-Returns `{ok, TRef}` or `{error, Reason}`.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec apply_repeatedly(Time, Module, Function, Arguments) ->
@@ -494,15 +460,10 @@ apply_repeatedly(_Time, _M, _F, _A) ->
     {error, badarg}.
 
 -doc """
-- **[`send_interval/3`](`send_interval/3`)** - Evaluates `Destination ! Message`
-  repeatedly after `Time` milliseconds. (`Destination` can be a remote or local
-  process identifier, an atom of a registered name or a tuple `{RegName, Node}`
-  for a registered name at another node.)
+Evaluates `Destination ! Message` repeatedly after `Time` milliseconds.
 
-  Returns `{ok, TRef}` or `{error, Reason}`.
-
-- **[`send_interval/2`](`send_interval/2`)** - Same as
-  [`send_interval(Time, self(), Message)`](`send_interval/3`).
+`Destination` can be a remote or local process identifier, an atom of a registered
+name or a tuple `{RegName, Node}` for a registered name at another node.
 """.
 -spec send_interval(Time, Destination, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -526,7 +487,7 @@ send_interval(Time, Dest = {RegName, Node}, Message)
 send_interval(_Time, _Pid, _Message) ->
     {error, badarg}.
 
--doc(#{equiv => send_interval/3}).
+-doc(#{equiv => send_interval(Time, self(), Message)}).
 -spec send_interval(Time, Message) -> {'ok', TRef} | {'error', Reason}
               when Time :: time(),
                    Message :: term(),
@@ -589,8 +550,8 @@ sleep(T) ->
 %%
 %% Measure the execution time (in microseconds) for Fun().
 %%
--doc(#{equiv => tc/3}).
--doc(#{since => <<"OTP R14B,OTP R14B03">>}).
+-doc(#{equiv => tc(Fun, microsecond)}).
+-doc(#{since => ~"OTP R14B03"}).
 -spec tc(Fun) -> {Time, Value}
               when Fun :: function(),
                    Time :: integer(),
@@ -602,10 +563,16 @@ tc(F) ->
 %% Measure the execution time (in microseconds) for Fun(Args)
 %%      or the execution time (in TimeUnit) for Fun().
 %%
--doc(#{equiv => tc/3}).
--doc(#{since => <<"OTP R14B,OTP R14B03">>}).
--doc(#{equiv => tc/4}).
--doc(#{since => <<"OTP 26.0">>}).
+-doc """
+tc(Fun, ArgumentsOrTimeUnit)
+
+Measures the execution time of `Fun`.
+
+Equivalent to [`tc(Fun, Arguments, microsecond)`](`tc/3`) if called as `tc(Fun, Arguments)`.
+
+Measures the execution time of `Fun` in `TimeUnit` if called as `tc(Fun, TimeUnit)`. Added in OTP 26.0.
+""".
+-doc #{ since => ~"OTP R14B" }.
 -spec tc(Fun, Arguments) -> {Time, Value}
               when Fun :: function(),
                    Arguments :: [term()],
@@ -630,16 +597,15 @@ tc(F, TimeUnit) ->
 %%      or the execution time (in TimeUnit) for Fun(Args).
 %%
 -doc """
-- **[`tc/3`](`tc/3`)** - Calls function
-  `timer:tc(Module, Function, Arguments, microsecond)`.
+tc(ModuleOrFun, FunctionOrArguments, ArgumentsOrTimeUnit)
 
-- **[`tc/2`](`tc/2`)** - Calls function `timer:tc(Fun, Arguments, microsecond)`.
+Measures the execution time of `Fun` or `apply(Module, Function, Arguments)`.
 
-- **[`tc/1`](`tc/1`)** - Calls function `timer:tc(Fun, microsecond)`.
+Equivalent to [`tc(Module, Function, Arguments, microsecond)`](`tc/4`) if called as `tc(Module, Function, Arguments)`.
+
+Equivalent to [`tc(erlang, apply, [Fun, Arguments], TimeUnit)`](`tc/4`) if called as `tc(Fun, Arguments, TimeUnit)`. Added in OTP 26.0
 """.
--doc(#{since => <<"OTP R14B,OTP R14B03">>}).
--doc(#{equiv => tc/4}).
--doc(#{since => <<"OTP 26.0">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec tc(Module, Function, Arguments) -> {Time, Value}
               when Module :: module(),
                    Function :: atom(),
@@ -665,18 +631,11 @@ tc(F, A, TimeUnit) ->
 %% Measure the execution time (in TimeUnit) for an MFA.
 %%
 -doc """
-- **[`tc/4`](`tc/4`)** - Evaluates
-  [`apply(Module, Function, Arguments)`](`apply/3`) and measures the elapsed
-  real time as reported by `erlang:monotonic_time/0`.
+Evaluates [`apply(Module, Function, Arguments)`](`apply/3`) and measures the elapsed
+real time as reported by `erlang:monotonic_time/0`.
 
-  Returns `{Time, Value}`, where `Time` is the elapsed real time in the
-  specified `TimeUnit`, and `Value` is what is returned from the apply.
-
-- **[`tc/3`](`tc/3`)** - Evaluates [`apply(Fun, Arguments)`](`apply/2`).
-  Otherwise the same as [`tc/4`](`tc/4`).
-
-- **[`tc/2`](`tc/2`)** - Evaluates `Fun()`. Otherwise the same as
-  [`tc/3`](`tc/3`).
+Returns `{Time, Value}`, where `Time` is the elapsed real time in the
+specified `TimeUnit`, and `Value` is what is returned from the apply.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec tc(Module, Function, Arguments, TimeUnit) -> {Time, Value}
@@ -747,10 +706,12 @@ hms(H, M, S) ->
 %%
 
 -doc """
-Starts the timer server. Normally, the server does not need to be started
-explicitly. It is started dynamically if it is needed. This is useful during
-development, but in a target system the server is to be started explicitly. Use
-configuration parameters for [Kernel](`e:kernel:index.html`) for this.
+Starts the timer server.
+
+Normally, the server does not need to be started explicitly. It is started dynamically
+if it is needed. This is useful during development, but in a target system the server
+is to be started explicitly. Use configuration parameters for [Kernel](`e:kernel:index.html`)
+for this.
 """.
 -spec start() -> 'ok'.
 start() ->

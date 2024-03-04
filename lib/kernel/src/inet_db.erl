@@ -454,7 +454,7 @@ res_option(next_id)        ->
     Cnt = ets:update_counter(inet_db, res_id, 1),
     case Cnt band 16#ffff of
 	0 ->
-	    ets:update_counter(inet_db, res_id, -Cnt),
+	    _ = ets:update_counter(inet_db, res_id, -Cnt),
 	    0;
 	Id ->
 	    Id

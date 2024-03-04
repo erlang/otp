@@ -2691,13 +2691,13 @@ st__test_inner_pending(L, S) ->
     P =< 0.
 
 st__mark_inner_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.inner_pending, -1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.inner_pending, -1}),
     S.
 
 st__clear_inner_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.inner_pending, 1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.inner_pending, 1}),
     S.
 
 st__test_outer_pending(L, S) ->
@@ -2706,13 +2706,13 @@ st__test_outer_pending(L, S) ->
     P =< 0.
 
 st__mark_outer_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.outer_pending, -1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.outer_pending, -1}),
     S.
 
 st__clear_outer_pending(L, S) ->
-    ets:update_counter(S#state.opnd_flags, L,
-		       {#opnd_flags.outer_pending, 1}),
+    _ = ets:update_counter(S#state.opnd_flags, L,
+                           {#opnd_flags.outer_pending, 1}),
     S.
 
 st__new_app_loc(S) ->

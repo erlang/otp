@@ -241,6 +241,7 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 				  {args,["127.0.0.1",
 					 integer_to_list(PortNum),
 					 atom_to_list(ZoneDir)]},
+                                  {env,[{"LOGNAME",os:getenv("LOGNAME",os:getenv("USER"))}]},
 				  stderr_to_stdout,
 				  eof]),
             ?P("ns_init -> port ~p", [P]),

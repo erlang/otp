@@ -264,7 +264,7 @@ Converts `String` to a list of grapheme clusters.
 
 _Example:_
 
-```text
+```erlang
 1> string:to_graphemes("ß↑e̊").
 [223,8593,[101,778]]
 2> string:to_graphemes(<<"ß↑e̊"/utf8>>).
@@ -282,7 +282,7 @@ to_graphemes(CD0) ->
 
 %% Compare two strings return boolean, assumes that the input are
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
--doc(#{equiv => equal/4}).
+-doc(#{equiv => equal(A, B, true)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec equal(A, B) -> boolean() when
       A::unicode:chardata(),
@@ -295,7 +295,7 @@ equal(A,B) ->
 %% Compare two strings return boolean, assumes that the input are
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
 %% does casefold on the fly
--doc(#{equiv => equal/4}).
+-doc(#{equiv => equal(A, B, IgnoreCase, none)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec equal(A, B, IgnoreCase) -> boolean() when
       A::unicode:chardata(),
@@ -320,8 +320,6 @@ equality test. There are four available normalization forms:
 [`nfd`](`unicode:characters_to_nfd_list/1`),
 [`nfkc`](`unicode:characters_to_nfkc_list/1`), and
 [`nfkd`](`unicode:characters_to_nfkd_list/1`).
-
-By default, `IgnoreCase` is `false` and `Norm` is `none`.
 
 _Example:_
 
@@ -369,7 +367,7 @@ reverse(CD) ->
 
 %% Slice a string and return rest of string
 %% Note: counts grapheme_clusters
--doc(#{equiv => slice/3}).
+-doc(#{equiv => slice(String, Length, infinity)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec slice(String, Start) -> Slice when
       String::unicode:chardata(),
@@ -384,8 +382,6 @@ slice(CD, N) when is_integer(N), N >= 0 ->
 -doc """
 Returns a substring of `String` of at most `Length` grapheme clusters, starting
 at position `Start`.
-
-By default, `Length` is `infinity`.
 
 _Example:_
 
@@ -422,7 +418,7 @@ slice(CD, _, 0) ->
     end.
 
 %% Pad a string to desired length
--doc(#{equiv => pad/4}).
+-doc(#{equiv => pad(String, Length, trailing)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec pad(String, Length) -> unicode:charlist() when
       String ::unicode:chardata(),
@@ -430,7 +426,7 @@ slice(CD, _, 0) ->
 pad(CD, Length) ->
     pad(CD, Length, trailing, $\s).
 
--doc(#{equiv => pad/4}).
+-doc(#{equiv => pad(String, Length, Dir, $\s)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec pad(String, Length, Dir) -> unicode:charlist() when
       String ::unicode:chardata(),
@@ -442,8 +438,6 @@ pad(CD, Length, Dir) ->
 -doc """
 Pads `String` to `Length` with grapheme cluster `Char`. `Dir`, which can be
 `leading`, `trailing`, or `both`, indicates where the padding should be added.
-
-By default, `Char` is `$\s` and `Dir` is `trailing`.
 
 _Example:_
 
@@ -479,14 +473,19 @@ pad(CD, Length, both, Char) when is_integer(Length) ->
     [Pre, CD, Pre|Post].
 
 %%  Strip characters from whitespace or Separator in Direction
--doc(#{equiv => trim/3}).
+-doc(#{equiv => trim(String, both)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String) -> unicode:chardata() when
       String :: unicode:chardata().
 trim(Str) ->
     trim(Str, both, unicode_util:whitespace()).
 
--doc(#{equiv => trim/3}).
+-doc """
+Equivalent to [`trim(String, Dir, Whitespace})`](`trim/3`) where 
+`Whitespace` is the set of nonbreakable whitespace codepoints, defined
+as Pattern_White_Space in
+[Unicode Standard Annex #31](http://unicode.org/reports/tr31/).
+""".
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec trim(String, Dir) -> unicode:chardata() when
       String :: unicode:chardata(),
@@ -496,15 +495,12 @@ trim(Str, Dir) ->
 
 -doc """
 Returns a string, where leading or trailing, or both, `Characters` have been
-removed. `Dir` which can be `leading`, `trailing`, or `both`, indicates from
+removed.
+
+`Dir` which can be `leading`, `trailing`, or `both`, indicates from
 which direction characters are to be removed.
 
-Default `Characters` is the set of nonbreakable whitespace codepoints, defined
-as Pattern_White_Space in
-[Unicode Standard Annex #31](http://unicode.org/reports/tr31/).
-`By default, Dir` is `both`.
-
-Notice that `[$\r,$\n]` is one grapheme cluster according to the Unicode
+Note that `[$\r,$\n]` is one grapheme cluster according to the Unicode
 Standard.
 
 _Example:_
@@ -558,7 +554,7 @@ chomp(Str) ->
     trim(Str, trailing, [[$\r,$\n],$\n]).
 
 %% Split String into two parts where the leading part consists of Characters
--doc(#{equiv => take/4}).
+-doc(#{equiv => take(String, Characters, false)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec take(String, Characters) -> {Leading, Trailing} when
       String::unicode:chardata(),
@@ -567,7 +563,7 @@ chomp(Str) ->
       Trailing::unicode:chardata().
 take(Str, Sep) ->
     take(Str, Sep, false, leading).
--doc(#{equiv => take/4}).
+-doc(#{equiv => take(String, Characters, Complement, leading)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec take(String, Characters, Complement) -> {Leading, Trailing} when
       String::unicode:chardata(),
@@ -748,13 +744,13 @@ integer are returned in `Rest`.
 _Example:_
 
 ```erlang
-> {I1,Is} = string:to_integer("33+22"),
-> {I2,[]} = string:to_integer(Is),
-> I1-I2.
+1> {I1,Is} = string:to_integer("33+22"),
+1> {I2,[]} = string:to_integer(Is),
+1> I1-I2.
 11
-> string:to_integer("0.5").
+2> string:to_integer("0.5").
 {0,".5"}
-> string:to_integer("x=2").
+3> string:to_integer("x=2").
 {error,no_integer}
 ```
 """.
@@ -789,13 +785,13 @@ returned in `Rest`.
 _Example:_
 
 ```erlang
-> {F1,Fs} = string:to_float("1.0-1.0e-1"),
-> {F2,[]} = string:to_float(Fs),
-> F1+F2.
+1> {F1,Fs} = string:to_float("1.0-1.0e-1"),
+1> {F2,[]} = string:to_float(Fs),
+1> F1+F2.
 0.9
-> string:to_float("3/2=1.5").
+2> string:to_float("3/2=1.5").
 {error,no_float}
-> string:to_float("-1.5eX").
+3> string:to_float("-1.5eX").
 {-1.5,"eX"}
 ```
 """.
@@ -836,7 +832,7 @@ If `Prefix` is the prefix of `String`, removes it and returns the remainder of
 
 _Example:_
 
-```text
+```erlang
 1> string:prefix(<<"prefix of string">>, "pre").
 <<"fix of string">>
 2> string:prefix("pre", "prefix").
@@ -857,7 +853,7 @@ prefix(Str, Prefix0) ->
     end.
 
 %% split String with the first occurrence of SearchPattern, return list of splits
--doc(#{equiv => split/3}).
+-doc(#{equiv => split(String, SearchPattern, leading)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec split(String, SearchPattern) -> [unicode:chardata()] when
       String :: unicode:chardata(),
@@ -901,7 +897,7 @@ split(String, SearchPattern, Where) ->
     end.
 
 %% Replace the first SearchPattern in String with Replacement
--doc(#{equiv => replace/4}).
+-doc(#{equiv => replace(String, SearchPattern, Replacement, leading)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec replace(String, SearchPattern, Replacement) ->
                      [unicode:chardata()] when
@@ -913,9 +909,8 @@ replace(String, SearchPattern, Replacement) ->
 
 %% Replace Where SearchPattern in String with Replacement
 -doc """
-Replaces `SearchPattern` in `String` with `Replacement`. `Where`, default
-`leading`, indicates whether the `leading`, the `trailing` or `all` encounters
-of `SearchPattern` are to be replaced.
+Replaces `SearchPattern` in `String` with `Replacement`. `Where`, indicates whether
+the `leading`, the `trailing` or `all` encounters of `SearchPattern` are to be replaced.
 
 Can be implemented as:
 
@@ -996,7 +991,7 @@ nth_lexeme(Str, N, Seps0) when is_list(Seps0), is_integer(N), N > 0 ->
     nth_lexeme_m(Str, Seps, N).
 
 %% find first SearchPattern in String return rest of string
--doc(#{equiv => find/3}).
+-doc(#{equiv => find(String, SearchPattern, leading)}).
 -doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec find(String, SearchPattern) -> unicode:chardata() | 'nomatch' when
       String::unicode:chardata(),
@@ -1010,8 +1005,6 @@ Removes anything before `SearchPattern` in `String` and returns the remainder of
 the string or `nomatch` if `SearchPattern` is not found. `Dir`, which can be
 `leading` or `trailing`, indicates from which direction characters are to be
 searched.
-
-By default, `Dir` is `leading`.
 
 _Example:_
 
@@ -1049,7 +1042,7 @@ The Jaro distance between two strings can be calculated with
 
 _Example:_
 
-```text
+```erlang
 1> string:jaro_similarity("ditto", "ditto").
 1.0
 2> string:jaro_similarity("foo", "bar").
@@ -2503,7 +2496,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/2`.
 _Example:_
 
 ```erlang
-> string:str(" Hello Hello World World ", "Hello World").
+1> string:str(" Hello Hello World World ", "Hello World").
 8
 ```
 """.
@@ -2532,7 +2525,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `find/3`.
 _Example:_
 
 ```erlang
-> string:rstr(" Hello Hello World World ", "Hello World").
+1> string:rstr(" Hello Hello World World ", "Hello World").
 8
 ```
 """.
@@ -2567,8 +2560,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/2`.
 
 _Example:_
 
-```text
-> string:span("\t    abcdef", " \t").
+```erlang
+1> string:span("\t    abcdef", " \t").
 5
 ```
 """.
@@ -2595,8 +2588,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `take/3`.
 
 _Example:_
 
-```text
-> string:cspan("\t    abcdef", " \t").
+```erlang
+1> string:cspan("\t    abcdef", " \t").
 0
 ```
 """.
@@ -2619,7 +2612,7 @@ cspan([], _Cs, I) -> I.
 %% substr(String, Start, Length)
 %%  Extract a sub-string from String.
 
--doc(#{equiv => substr/3}).
+-doc(#{equiv => substr(String, Start, string:length(String) - Start)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec substr(String, Start) -> SubString when
       String :: string(),
@@ -2639,8 +2632,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 
 _Example:_
 
-```text
-> substr("Hello World", 4, 5).
+```erlang
+1> substr("Hello World", 4, 5).
 "lo Wo"
 ```
 """.
@@ -2670,7 +2663,7 @@ Returns a list of tokens in `String`, separated by the characters in
 _Example:_
 
 ```erlang
-> tokens("abc defxxghix jkl", "x ").
+1> tokens("abc defxxghix jkl", "x ").
 ["abc", "def", "ghi", "jkl"]
 ```
 
@@ -2729,7 +2722,7 @@ tokens_multiple_2([C|S], Seps, Toks, Tok) ->
 tokens_multiple_2([], _Seps, Toks, Tok) ->
     [Tok|Toks].
 
--doc(#{equiv => chars/3}).
+-doc(#{equiv => chars(Character, Number, [])}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec chars(Character, Number) -> String when
       Character :: char(),
@@ -2783,7 +2776,7 @@ copies(CharList, Num, R) ->
 
 %%% WORDS %%%
 
--doc(#{equiv => words/2}).
+-doc(#{equiv => words(String, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec words(String) -> Count when
       String :: string(),
@@ -2798,8 +2791,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `lexemes/2`.
 
 _Example:_
 
-```text
-> words(" Hello old boy!", $o).
+```erlang
+1> words(" Hello old boy!", $o).
 4
 ```
 """.
@@ -2818,7 +2811,7 @@ w_count([_H|T], Char, Num) -> w_count(T, Char, Num).
 
 %%% SUB_WORDS %%%
 
--doc(#{equiv => sub_word/3}).
+-doc(#{equiv => sub_word(String, Number, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec sub_word(String, Number) -> Word when
       String :: string(),
@@ -2837,7 +2830,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use
 _Example:_
 
 ```erlang
-> string:sub_word(" Hello old boy !",3,$o).
+1> string:sub_word(" Hello old boy !",3,$o).
 "ld b"
 ```
 """.
@@ -2866,13 +2859,13 @@ s_word([_|T],Stop,Char,Index,Res) when Index < Stop ->
 
 %%% STRIP %%%
 
--doc(#{equiv => strip/3}).
+-doc(#{equiv => strip(String, both)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec strip(string()) -> string().
 
 strip(String) -> strip(String, both).
 
--doc(#{equiv => strip/3}).
+-doc(#{equiv => strip(String, Direction, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec strip(String, Direction) -> Stripped when
       String :: string(),
@@ -2886,7 +2879,9 @@ strip(String, both) ->
 
 -doc """
 Returns a string, where leading or trailing, or both, blanks or a number of
-`Character` have been removed. `Direction`, which can be `left`, `right`, or
+`Character` have been removed.
+
+`Direction`, which can be `left`, `right`, or
 `both`, indicates from which direction blanks are to be removed.
 [`strip/1`](`strip/1`) is equivalent to [`strip(String, both)`](`strip/2`).
 
@@ -2894,8 +2889,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `trim/3`.
 
 _Example:_
 
-```text
-> string:strip("...Hello.....", both, $.).
+```erlang
+1> string:strip("...Hello.....", both, $.).
 "Hello"
 ```
 """.
@@ -2928,7 +2923,7 @@ strip_right([], Sc) when is_integer(Sc) ->
 
 %%% LEFT %%%
 
--doc(#{equiv => left/3}).
+-doc(#{equiv => left(String, Number, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec left(String, Number) -> Left when
       String :: string(),
@@ -2948,7 +2943,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/2` or
 _Example:_
 
 ```erlang
-> string:left("Hello",10,$.).
+1> string:left("Hello",10,$.).
 "Hello....."
 ```
 """.
@@ -2971,7 +2966,7 @@ l_pad(String, Num, Char) -> String ++ chars(Char, Num).
 
 %%% RIGHT %%%
 
--doc(#{equiv => right/3}).
+-doc(#{equiv => right(String, Number, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec right(String, Number) -> Right when
       String :: string(),
@@ -2990,7 +2985,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `pad/3`.
 _Example:_
 
 ```erlang
-> string:right("Hello", 10, $.).
+1> string:right("Hello", 10, $.).
 ".....Hello"
 ```
 """.
@@ -3013,7 +3008,7 @@ r_pad(String, Num, Char) -> chars(Char, Num, String).
 
 %%% CENTRE %%%
 
--doc(#{equiv => centre/3}).
+-doc(#{equiv => centre(String, Number, $\s)}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec centre(String, Number) -> Centered when
       String :: string(),
@@ -3049,7 +3044,7 @@ centre(String, Len, Char) when is_integer(Len), is_integer(Char) ->
 
 %%% SUB_STRING %%%
 
--doc(#{equiv => sub_string/3}).
+-doc(#{equiv => sub_string(String, Start, string:length(String))}).
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec sub_string(String, Start) -> SubString when
       String :: string(),
@@ -3066,8 +3061,8 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use `slice/3`.
 
 _Example:_
 
-```text
-sub_string("Hello World", 4, 8).
+```erlang
+1> sub_string("Hello World", 4, 8).
 "lo Wo"
 ```
 """.
@@ -3102,7 +3097,15 @@ to_upper_char(C) when is_integer(C), 16#F8 =< C, C =< 16#FE ->
 to_upper_char(C) ->
     C.
 
--doc(#{equiv => to_upper/1}).
+-doc """
+The specified string or character is case-converted. Notice that the supported
+character set is ISO/IEC 8859-1 (also called Latin 1); all values outside this
+set are unchanged.
+
+This function is [obsolete](`m:string#obsolete-api-functions`) use
+`lowercase/1`, `titlecase/1` or `casefold/1`.
+""".
+
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec to_lower(String) -> Result when
                   String :: io_lib:latin1_string(),
@@ -3119,10 +3122,10 @@ to_lower(C) when is_integer(C) ->
 -doc """
 The specified string or character is case-converted. Notice that the supported
 character set is ISO/IEC 8859-1 (also called Latin 1); all values outside this
-set are unchanged
+set are unchanged.
 
 This function is [obsolete](`m:string#obsolete-api-functions`) use
-`lowercase/1`, `uppercase/1`, `titlecase/1` or `casefold/1`.
+`uppercase/1`, `titlecase/1` or `casefold/1`.
 """.
 -doc(#{title => <<"Obsolete API functions">>}).
 -spec to_upper(String) -> Result when
@@ -3147,7 +3150,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use
 _Example:_
 
 ```erlang
-> join(["one", "two", "three"], ", ").
+1> join(["one", "two", "three"], ", ").
 "one, two, three"
 ```
 """.

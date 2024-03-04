@@ -376,7 +376,9 @@ update(Key, Fun, [{K,Val}|Dict]) when Key == K ->
 -doc """
 Updates a value in a dictionary by calling `Fun` on the value to get a new
 value. If `Key` is not present in the dictionary, `Initial` is stored as the
-first value. For example, [`append/3`](`append/3`) can be defined as follows:
+first value.
+
+For example, [`append/3`](`append/3`) can be defined as follows:
 
 ```erlang
 append(Key, Val, D) ->
@@ -516,9 +518,12 @@ filter(F, []) when is_function(F, 2) -> [].
 -doc """
 Merges two dictionaries, `Orddict1` and `Orddict2`, to create a new dictionary.
 All the `Key`-`Value` pairs from both dictionaries are included in the new
-dictionary. If a key occurs in both dictionaries, `Fun` is called with the key
-and both values to return a new value. [`merge/3`](`merge/3`) can be defined as
-follows, but is faster:
+dictionary.
+
+If a key occurs in both dictionaries, `Fun` is called with the key
+and both values to return a new value.
+
+[`merge/3`](`merge/3`) can be defined as follows, but is faster:
 
 ```erlang
 merge(Fun, D1, D2) ->

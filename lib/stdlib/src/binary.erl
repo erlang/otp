@@ -820,7 +820,7 @@ get_opts_replace(_,_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -compile({inline, [hex/2]}).
 -doc(#{equiv => encode_hex(Bin, uppercase)}).
--doc(#{since => <<"OTP 24.0,OTP 26.0">>}).
+-doc(#{since => <<"OTP 24.0">>}).
 -spec encode_hex(Bin) -> Bin2 when
       Bin :: binary(),
       Bin2 :: <<_:_*16>>.
@@ -848,7 +848,7 @@ _Example:_
 <<"2F">>
 ```
 """.
--doc(#{since => <<"OTP 24.0,OTP 26.0">>}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec encode_hex(Bin, Case) -> Bin2 when
       Bin :: binary(),
       Case :: lowercase | uppercase,

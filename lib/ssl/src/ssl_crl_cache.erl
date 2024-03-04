@@ -29,7 +29,7 @@ Implements an internal CRL (Certificate Revocation List) cache. In addition to
 implementing the `m:ssl_crl_cache_api` behaviour the following functions are
 available.
 """.
--moduledoc(#{since => "OTP 18.0",titles => [{type,<<"DATA TYPES">>}]}).
+-moduledoc(#{since => "OTP 18.0"}).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
@@ -37,7 +37,6 @@ available.
 -behaviour(ssl_crl_cache_api).
 
 -export_type([crl_src/0, uri/0]).
--doc(#{title => <<"DATA TYPES">>}).
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
 -type uri()     :: uri_string:uri_string().
 

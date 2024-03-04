@@ -26,7 +26,7 @@ functions all return `ok` if they are successful, or exit if they are not.
 
 All functions in this module have an optional parameter
 [`IoDevice`](`t:device/0`). If included, it must be the pid of a process that
-handles the I/O protocols. Normally, it is a `IoDevice` returned by
+handles the I/O protocols. Normally, it is an [`IoDevice`](`t:device/0`) returned by
 `file:open/2`. If no [`IoDevice`](`t:device/0`) is given,
 [`standard_io`](`t:standard_io/0`) is used.
 
@@ -35,15 +35,14 @@ For a description of the I/O protocols, see section
 
 > #### Warning {: .warning }
 >
-> As from Erlang/OTP R13A, data supplied to function `put_chars/2` is to be in
+> The data supplied to function `put_chars/2` is to be in
 > the `t:unicode:chardata/0` format. This means that programs supplying binaries
 > to this function must convert them to UTF-8 before trying to output the data
 > on an I/O device.
 >
 > If an I/O device is set in binary mode, functions
 > [`get_chars/2,3`](`get_chars/2`) and [`get_line/1,2`](`get_line/1`) can return
-> binaries instead of lists. The binaries are, as from Erlang/OTP R13A, encoded
-> in UTF-8.
+> binaries instead of lists. The binaries are encoded in UTF-8.
 >
 > To work with binaries in ISO Latin-1 encoding, use the `m:file` module
 > instead.
@@ -56,13 +55,13 @@ For a description of the I/O protocols, see section
 The `ErrorInfo` mentioned in this module is the standard `ErrorInfo` structure
 that is returned from all I/O modules. It has the following format:
 
-```text
+```erlang
 {ErrorLocation, Module, ErrorDescriptor}
 ```
 
 A string that describes the error is obtained with the following call:
 
-```text
+```erlang
 Module:format_error(ErrorDescriptor)
 ```
 """.
@@ -90,9 +89,10 @@ Module:format_error(ErrorDescriptor)
 %%-------------------------------------------------------------------------
 
 -doc """
-All Erlang processes have a default standard I/O device. This device is used
-when no `IoDevice` argument is specified in the function calls in this module.
-However, it is sometimes desirable to use an explicit `IoDevice` argument that
+The default standard I/O device assigned to a process. This device is used when
+no `IoDevice` argument is specified in the function calls in this module.
+
+It is sometimes desirable to use an explicit `IoDevice` argument that
 refers to the default I/O device. This is the case with functions that can
 access either a file or the default I/O device. The atom `standard_io` has this
 special meaning. The following example illustrates this:
@@ -106,20 +106,21 @@ enter>bar.
 {ok,bar}
 ```
 
-By default all I/O sent to `standard_io` will en up in the [`user`](`t:user/0`)
+By default all I/O sent to `standard_io` will end up in the [`user`](`t:user/0`)
 I/O device of the node that spawned the calling process.
 
 `standard_io` is an alias for [`group_leader/0`](`erlang:group_leader/0`), so in
 order to change where the default input/output requests are sent you can change
-the group leader for the current process using
+the group leader of the current process using
 [`group_leader(NewGroupLeader, self())`](`erlang:group_leader/2`).
 """.
 -type standard_io() :: standard_io.
 -doc """
 The I/O device `standard_error` can be used to direct output to whatever the
 current operating system considers a suitable I/O device for error output. This
-can be useful when standard output is redirected. Example on a Unix-like
-operating system:
+can be useful when standard output is redirected.
+
+Example on a Unix-like operating system:
 
 ```text
 $ erl -noinput -eval 'io:format(standard_error,"Error: ~s~n",["error 11"]),'\
@@ -130,8 +131,9 @@ Error: error 11
 -type standard_error() :: standard_error.
 -doc """
 An I/O device that can be used to interact with the node local `stdout` and
-`stdin`. This can be either a terminal, a pipe, a file, or a combination. You
-can use `getopts/0` to get more information about the I/O device.
+`stdin`. This can be either a terminal, a pipe, a file, or a combination.
+
+Use `getopts/1` to get more information about the I/O device.
 
 See [The Interactive Shell](unicode_usage.md#the-interactive-shell) and
 [Escripts and non-interactive I/O](unicode_usage.md#escripts-and-non-interactive-i-o)
@@ -149,8 +151,6 @@ name, or a pid handling I/O protocols (returned from `file:open/2`).
 %% ErrorDescription is whatever the I/O-server sends.
 -doc "What the I/O server sends when there is no data.".
 -type server_no_data() :: {'error', ErrorDescription :: term()} | 'eof'.
-
--type location() :: erl_anno:location().
 
 %%-------------------------------------------------------------------------
 %% Needs to be inlined for error_info to be correct
@@ -243,7 +243,7 @@ printable_range() ->
     erlang:nif_error(undefined).
 
 %% Put chars takes mixed *unicode* list from R13 onwards.
--doc(#{equiv => put_chars/2}).
+-doc(#{equiv => put_chars(standard_io, CharData)}).
 -spec put_chars(CharData) -> 'ok' when
       CharData :: unicode:chardata().
 
@@ -251,9 +251,10 @@ put_chars(Chars) ->
     o_request(?FUNCTION_NAME, [Chars]).
 
 -doc """
-Writes the characters of `CharData` to the I/O server (`IoDevice`). If you want
-to write latin1 encoded bytes to the I/O server you should use `file:write/2`
-instead.
+Writes the characters of `CharData` to the [`IoDevice`](`t:device/0`).
+
+If you want to write latin1 encoded bytes to the [`IoDevice`](`t:device/0`) you should use
+`file:write/2` instead.
 """.
 -spec put_chars(IoDevice, CharData) -> 'ok' when
       IoDevice :: device(),
@@ -262,7 +263,7 @@ instead.
 put_chars(Io, Chars) ->
     o_request(?FUNCTION_NAME, [Io, Chars]).
 
--doc(#{equiv => nl/1}).
+-doc(#{equiv => nl(standard_io)}).
 -spec nl() -> 'ok'.
 
 nl() ->
@@ -275,16 +276,18 @@ nl() ->
 nl(Io) ->
     o_request(?FUNCTION_NAME, [Io]).
 
--doc(#{equiv => columns/1}).
+-doc(#{equiv => columns(standard_io)}).
 -spec columns() -> {'ok', pos_integer()} | {'error', 'enotsup'}.
 
 columns() ->
     columns(default_output()).
 
 -doc """
-Retrieves the number of columns of the `IoDevice` (that is, the width of a
-terminal). The function succeeds for terminal devices and returns
-`{error, enotsup}` for all other I/O devices.
+Retrieves the number of columns of the [`IoDevice`](`t:device/0`) (that is, the width of a
+terminal).
+
+The function succeeds for terminal devices and returns `{error, enotsup}` for
+all other I/O devices.
 """.
 -spec columns(IoDevice) -> {'ok', pos_integer()} | {'error', 'enotsup'} when
       IoDevice :: device().
@@ -296,15 +299,16 @@ columns(Io) ->
 	_ ->
 	    {error,enotsup}
     end.
-	    
--doc(#{equiv => rows/1}).
+
+-doc(#{equiv => rows(standard_io)}).
 -spec rows() -> {'ok', pos_integer()} | {'error', 'enotsup'}.
 
 rows() ->
     rows(default_output()).
 
 -doc """
-Retrieves the number of rows of `IoDevice` (that is, the height of a terminal).
+Retrieves the number of rows of [`IoDevice`](`t:device/0`) (that is, the height of a terminal).
+
 The function only succeeds for terminal devices, for all other I/O devices the
 function returns `{error, enotsup}`.
 """.
@@ -317,9 +321,9 @@ rows(Io) ->
 	    {ok,N};
 	_ ->
 	    {error,enotsup}
-    end.    
+    end.
 
--doc(#{equiv => get_chars/3}).
+-doc(#{equiv => get_chars(standard_io, Prompt, Count)}).
 -spec get_chars(Prompt, Count) -> Data | server_no_data() when
       Prompt :: prompt(),
       Count :: non_neg_integer(),
@@ -329,8 +333,7 @@ get_chars(Prompt, N) ->
     get_chars(default_input(), Prompt, N).
 
 -doc """
-Reads `Count` characters from standard input (`IoDevice`), prompting it with
-`Prompt`.
+Reads `Count` characters from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
 
 The function returns:
 
@@ -354,7 +357,7 @@ The function returns:
 get_chars(Io, Prompt, N) when is_integer(N), N >= 0 ->
     request(Io, {get_chars,unicode,Prompt,N}).
 
--doc(#{equiv => get_line/2}).
+-doc(#{equiv => get_line(standard_io, Prompt)}).
 -spec get_line(Prompt) -> Data | server_no_data() when
       Prompt :: prompt(),
       Data :: string() | unicode:unicode_binary().
@@ -363,7 +366,7 @@ get_line(Prompt) ->
     get_line(default_input(), Prompt).
 
 -doc """
-Reads a line from the standard input (`IoDevice`), prompting it with `Prompt`.
+Reads a line from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
 
 The function returns:
 
@@ -398,24 +401,24 @@ get_password(Io) ->
 -type encoding()   :: 'latin1' | 'unicode' | 'utf8' | 'utf16' | 'utf32'
                     | {'utf16', 'big' | 'little'} | {'utf32','big' | 'little'}.
 -type expand_fun() :: fun((string()) -> {'yes'|'no', string(), list()}).
--type opt_pair()   :: {'binary', boolean()}
+-type option()   :: {'binary', boolean()}
                     | {'echo', boolean()}
                     | {'expand_fun', expand_fun()}
                     | {'encoding', encoding()}
                     | {atom(), term()}.
--type get_opt_pair() :: opt_pair()
-                      | {'terminal', boolean()}.
+-type getopt() :: {'terminal', boolean()} | option().
 
--doc(#{equiv => getopts/1}).
--spec getopts() -> [get_opt_pair()] | {'error', Reason} when
+-doc(#{equiv => getopts(standard_io)}).
+-spec getopts() -> [getopt()] | {'error', Reason} when
       Reason :: term().
 
 getopts() ->
     getopts(default_input()).
 
 -doc """
-Requests all available options and their current values for a specific I/O
-device, for example:
+Requests all available options and their current values for a [`IoDevice`](`t:device/0`).
+
+For example:
 
 ```erlang
 1> {ok,F} = file:open("/dev/null",[read]).
@@ -447,16 +450,16 @@ to control what the terminal outputs.
 
 See `setopts/1` for a description of the other options.
 """.
--spec getopts(IoDevice) -> [get_opt_pair()] | {'error', Reason} when
+-spec getopts(IoDevice) -> [getopt()] | {'error', Reason} when
       IoDevice :: device(),
       Reason :: term().
 
 getopts(Io) ->
     request(Io, getopts).
 
--type setopt() :: 'binary' | 'list' | opt_pair().
+-type setopt() :: 'binary' | 'list' | option().
 
--doc(#{equiv => setopts/2}).
+-doc(#{equiv => setopts(standard_io, Opts)}).
 -spec setopts(Opts) -> 'ok' | {'error', Reason} when
       Opts :: [setopt()],
       Reason :: term().
@@ -465,11 +468,11 @@ setopts(Opts) ->
     setopts(default_input(), Opts).
 
 -doc """
-Set options for the standard I/O device (`IoDevice`).
+Set options for [`IoDevice`](`t:device/0`). Possible options and values vary
+depending on the I/O device.
 
-Possible options and values vary depending on the I/O device. For a list of
-supported options and their current values on a specific I/O device, use
-function `getopts/1`.
+For a list of supported options and their current values on a specific I/O
+device, use function `getopts/1`.
 
 The options and values supported by the OTP I/O devices are as follows:
 
@@ -576,14 +579,14 @@ setopts(Io, Opts) ->
 
 %% Writing and reading Erlang terms.
 
--doc(#{equiv => write/2}).
+-doc(#{equiv => write(standard_io, Term)}).
 -spec write(Term) -> 'ok' when
       Term :: term().
 
 write(Term) ->
     o_request(?FUNCTION_NAME, [Term]).
 
--doc "Writes term `Term` to the standard output (`IoDevice`).".
+-doc "Writes term `Term` to [`IoDevice`](`t:device/0`).".
 -spec write(IoDevice, Term) -> 'ok' when
       IoDevice :: device(),
       Term :: term().
@@ -592,7 +595,7 @@ write(Io, Term) ->
     o_request(?FUNCTION_NAME, [Io, Term]).
 
 
--doc(#{equiv => read/2}).
+-doc(#{equiv => read(standard_io, Prompt)}).
 -spec read(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: {'ok', Term :: term()}
@@ -638,25 +641,26 @@ read(Io, Prompt) ->
 	    Other
     end.
 
--doc(#{equiv => read/4}).
+-doc(#{equiv => read(IoDevice, Prompt, StartLocation, [])}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec read(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
-      Result :: {'ok', Term :: term(), EndLocation :: location()}
-              | {'eof', EndLocation :: location()}
+      StartLocation :: erl_anno:location(),
+      Result :: {'ok', Term :: term(), EndLocation :: erl_anno:location()}
+              | {'eof', EndLocation :: erl_anno:location()}
               | server_no_data()
-              | {'error', ErrorInfo, ErrorLocation :: location()},
+              | {'error', ErrorInfo, ErrorLocation :: erl_anno:location()},
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 read(Io, Prompt, Pos0) ->
     read(Io, Prompt, Pos0, []).
 
 -doc """
-Reads a term `Term` from `IoDevice`, prompting it with `Prompt`. Reading starts
-at location `StartLocation`. Argument `Options` is passed on as argument
-`Options` of function `erl_scan:tokens/4`.
+Reads a term `Term` from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
+
+Reading starts at location `StartLocation`. Argument `Options` is passed on as
+argument `Options` of function `erl_scan:tokens/4`.
 
 The function returns:
 
@@ -673,12 +677,12 @@ The function returns:
 -spec read(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Options :: erl_scan:options(),
-      Result :: {'ok', Term :: term(), EndLocation :: location()}
-              | {'eof', EndLocation :: location()}
+      Result :: {'ok', Term :: term(), EndLocation :: erl_anno:location()}
+              | {'eof', EndLocation :: erl_anno:location()}
               | server_no_data()
-              | {'error', ErrorInfo, ErrorLocation :: location()},
+              | {'error', ErrorInfo, ErrorLocation :: erl_anno:location()},
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 read(Io, Prompt, Pos0, Options) ->
@@ -707,14 +711,14 @@ conv_reason(_Reason) -> badarg.
 
 -type format() :: atom() | string() | binary().
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => fwrite(Format, [])}).
 -spec fwrite(Format) -> 'ok' when
       Format :: format().
 
 fwrite(Format) ->
     o_request(?FUNCTION_NAME, [Format]).
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => fwrite(standard_io, Format, Data)}).
 -spec fwrite(Format, Data) -> 'ok' when
       Format :: format(),
       Data :: [term()].
@@ -723,8 +727,9 @@ fwrite(Format, Args) ->
     o_request(?FUNCTION_NAME, [Format, Args]).
 
 -doc """
-Writes the items in `Data` (`[]`) on the standard output (`IoDevice`) in
-accordance with `Format`. `Format` contains plain characters that are copied to
+Writes the items in `Data` on the [`IoDevice`](`t:device/0`) in accordance with `Format`.
+
+`Format` contains plain characters that are copied to
 the output device, and control sequences for formatting, see below. If `Format`
 is an atom or a binary, it is first converted to a list with the aid of
 [`atom_to_list/1`](`atom_to_list/1`) or
@@ -1118,7 +1123,7 @@ aid of the string formatting directive `"~s"`.
 fwrite(Io, Format, Args) ->
     o_request(?FUNCTION_NAME, [Io, Format, Args]).
 
--doc(#{equiv => fread/3}).
+-doc(#{equiv => fread(standard_io, Prompt, Format)}).
 -spec fread(Prompt, Format) -> Result when
       Prompt :: prompt(),
       Format :: format(),
@@ -1128,9 +1133,8 @@ fread(Prompt, Format) ->
     fread(default_input(), Prompt, Format).
 
 -doc """
-Reads characters from the standard input (`IoDevice`), prompting it with
-`Prompt`. Interprets the characters in accordance with `Format`. `Format`
-contains control sequences that directs the interpretation of the input.
+Reads characters from [`IoDevice`](`t:device/0`), prompting it with `Prompt`. Interprets the
+characters in accordance with `Format`.
 
 `Format` can contain the following:
 
@@ -1247,13 +1251,13 @@ enter>:   alan   :   joe    :
 fread(Io, Prompt, Format) ->
     request(Io, {fread,Prompt,Format}).
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => format(Format, [])}).
 -spec format(Format) -> 'ok' when
       Format :: format().
 format(Format) ->
     o_request(?FUNCTION_NAME, [Format]).
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => format(standard_io, Format, Data)}).
 -spec format(Format, Data) -> 'ok' when
       Format :: format(),
       Data :: [term()].
@@ -1261,7 +1265,7 @@ format(Format) ->
 format(Format, Args) ->
     o_request(?FUNCTION_NAME, [Format, Args]).
 
--doc(#{equiv => fwrite/3}).
+-doc(#{equiv => fwrite(IoDevice, Format, Data)}).
 -spec format(IoDevice, Format, Data) -> 'ok' when
       IoDevice :: device(),
       Format :: format(),
@@ -1272,7 +1276,7 @@ format(Io, Format, Args) ->
 
 %% Scanning Erlang code.
 
--doc(#{equiv => scan_erl_exprs/4}).
+-doc(#{equiv => scan_erl_exprs(standard_io, Prompt)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
@@ -1281,7 +1285,7 @@ format(Io, Format, Args) ->
 scan_erl_exprs(Prompt) ->
     scan_erl_exprs(default_input(), Prompt, 1).
 
--doc(#{equiv => scan_erl_exprs/4}).
+-doc(#{equiv => scan_erl_exprs(Device, Prompt, 1)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Device, Prompt) -> Result when
       Device :: device(),
@@ -1291,21 +1295,22 @@ scan_erl_exprs(Prompt) ->
 scan_erl_exprs(Io, Prompt) ->
     scan_erl_exprs(Io, Prompt, 1).
 
--doc(#{equiv => scan_erl_exprs/4}).
+-doc(#{equiv => scan_erl_exprs(Device, Prompt, StartLocation, [])}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Device, Prompt, StartLocation) -> Result when
       Device :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_exprs(Io, Prompt, Pos0) ->
     scan_erl_exprs(Io, Prompt, Pos0, []).
 
 -doc """
-Reads data from the standard input (`IoDevice`), prompting it with `Prompt`.
-Reading starts at location `StartLocation` (`1`). Argument `Options` is passed
-on as argument `Options` of function `erl_scan:tokens/4`. The data is tokenized
+Reads data from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
+
+Reading starts at location `StartLocation`. Argument `Options` is passed on as
+argument `Options` of function `erl_scan:tokens/4`. The data is tokenized
 as if it were a sequence of Erlang expressions until a final dot (`.`) is
 reached. This token is also returned.
 
@@ -1337,14 +1342,14 @@ enter>1.0er.
 -spec scan_erl_exprs(Device, Prompt, StartLocation, Options) -> Result when
       Device :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Options :: erl_scan:options(),
       Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_exprs(Io, Prompt, Pos0, Options) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
--doc(#{equiv => scan_erl_form/4}).
+-doc(#{equiv => scan_erl_form(standard_io, Prompt)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
@@ -1353,7 +1358,7 @@ scan_erl_exprs(Io, Prompt, Pos0, Options) ->
 scan_erl_form(Prompt) ->
     scan_erl_form(default_input(), Prompt, 1).
 
--doc(#{equiv => scan_erl_form/4}).
+-doc(#{equiv => scan_erl_form(IoDevice, Prompt, 1)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
@@ -1363,33 +1368,33 @@ scan_erl_form(Prompt) ->
 scan_erl_form(Io, Prompt) ->
     scan_erl_form(Io, Prompt, 1).
 
--doc(#{equiv => scan_erl_form/4}).
+-doc(#{equiv => scan_erl_form(IoDevice, Prompt, StartLocation, [])}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Result :: erl_scan:tokens_result() | server_no_data().
 
 scan_erl_form(Io, Prompt, Pos0) ->
     scan_erl_form(Io, Prompt, Pos0, []).
 
 -doc """
-Reads data from the standard input (`IoDevice`), prompting it with `Prompt`.
+Reads data from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
+
 Starts reading at location `StartLocation` (`1`). Argument `Options` is passed
 on as argument `Options` of function `erl_scan:tokens/4`. The data is tokenized
 as if it was an Erlang form (one of the valid Erlang expressions in an Erlang
 source file) until a final dot (`.`) is reached. This last token is also
 returned.
 
-The return values are the same as for
-[`scan_erl_exprs/1,2,3,4`](`scan_erl_exprs/1`).
+The return values are the same as for [`scan_erl_exprs/4`](`scan_erl_exprs/4`).
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Options :: erl_scan:options(),
       Result :: erl_scan:tokens_result() | server_no_data().
 
@@ -1400,15 +1405,15 @@ scan_erl_form(Io, Prompt, Pos0, Options) ->
 
 -type parse_ret() :: {'ok',
                       ExprList :: [erl_parse:abstract_expr()],
-                      EndLocation :: location()}
-                   | {'eof', EndLocation :: location()}
+                      EndLocation :: erl_anno:location()}
+                   | {'eof', EndLocation :: erl_anno:location()}
                    | {'error',
                       ErrorInfo :: erl_scan:error_info()
                                  | erl_parse:error_info(),
-                      ErrorLocation :: location()}
+                      ErrorLocation :: erl_anno:location()}
                    | server_no_data().
 
--doc(#{equiv => parse_erl_exprs/4}).
+-doc(#{equiv => parse_erl_exprs(standard_io, Prompt)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
@@ -1417,7 +1422,7 @@ scan_erl_form(Io, Prompt, Pos0, Options) ->
 parse_erl_exprs(Prompt) ->
     parse_erl_exprs(default_input(), Prompt, 1).
 
--doc(#{equiv => parse_erl_exprs/4}).
+-doc(#{equiv => parse_erl_exprs(IoDevice, Prompt, 1)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
@@ -1427,20 +1432,21 @@ parse_erl_exprs(Prompt) ->
 parse_erl_exprs(Io, Prompt) ->
     parse_erl_exprs(Io, Prompt, 1).
 
--doc(#{equiv => parse_erl_exprs/4}).
+-doc(#{equiv => parse_erl_exprs(IoDevice, Prompt, StartLocation, [])}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Result :: parse_ret().
 
 parse_erl_exprs(Io, Prompt, Pos0) ->
     parse_erl_exprs(Io, Prompt, Pos0, []).
 
 -doc """
-Reads data from the standard input (`IoDevice`), prompting it with `Prompt`.
-Starts reading at location `StartLocation` (`1`). Argument `Options` is passed
+Reads data from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
+
+Starts reading at location `StartLocation`. Argument `Options` is passed
 on as argument `Options` of function `erl_scan:tokens/4`. The data is tokenized
 and parsed as if it was a sequence of Erlang expressions until a final dot (`.`)
 is reached.
@@ -1465,7 +1471,7 @@ Example:
 25> io:parse_erl_exprs('enter>').
 enter>abc(), "hey".
 {ok, [{call,1,{atom,1,abc},[]},{string,1,"hey"}],2}
-26> io:parse_erl_exprs ('enter>').
+26> io:parse_erl_exprs('enter>').
 enter>abc("hey".
 {error,{1,erl_parse,["syntax error before: ",["'.'"]]},2}
 ```
@@ -1474,7 +1480,7 @@ enter>abc("hey".
 -spec parse_erl_exprs(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Options :: erl_scan:options(),
       Result :: parse_ret().
 
@@ -1491,15 +1497,15 @@ parse_erl_exprs(Io, Prompt, Pos0, Options) ->
 
 -type parse_form_ret() :: {'ok',
                            AbsForm :: erl_parse:abstract_form(),
-                           EndLocation :: location()}
-                        | {'eof', EndLocation :: location()}
+                           EndLocation :: erl_anno:location()}
+                        | {'eof', EndLocation :: erl_anno:location()}
                         | {'error',
                            ErrorInfo :: erl_scan:error_info()
                                       | erl_parse:error_info(),
-                           ErrorLocation :: location()}
+                           ErrorLocation :: erl_anno:location()}
                         | server_no_data().
 
--doc(#{equiv => parse_erl_form/4}).
+-doc(#{equiv => parse_erl_form(standard_io, Prompt)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
@@ -1508,7 +1514,7 @@ parse_erl_exprs(Io, Prompt, Pos0, Options) ->
 parse_erl_form(Prompt) ->
     parse_erl_form(default_input(), Prompt, 1).
 
--doc(#{equiv => parse_erl_form/4}).
+-doc(#{equiv => parse_erl_form(IoDevice, Prompt, 1)}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
@@ -1518,20 +1524,21 @@ parse_erl_form(Prompt) ->
 parse_erl_form(Io, Prompt) ->
     parse_erl_form(Io, Prompt, 1).
 
--doc(#{equiv => parse_erl_form/4}).
+-doc(#{equiv => parse_erl_form(IoDevice, Prompt, StartLocation, [])}).
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Result :: parse_form_ret().
 
 parse_erl_form(Io, Prompt, Pos0) ->
     parse_erl_form(Io, Prompt, Pos0, []).
 
 -doc """
-Reads data from the standard input (`IoDevice`), prompting it with `Prompt`.
-Starts reading at location `StartLocation` (`1`). Argument `Options` is passed
+Reads data from [`IoDevice`](`t:device/0`), prompting it with `Prompt`.
+
+Starts reading at location `StartLocation`. Argument `Options` is passed
 on as argument `Options` of function `erl_scan:tokens/4`. The data is tokenized
 and parsed as if it was an Erlang form (one of the valid Erlang expressions in
 an Erlang source file) until a final dot (`.`) is reached.
@@ -1554,7 +1561,7 @@ The function returns:
 -spec parse_erl_form(IoDevice, Prompt, StartLocation, Options) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
-      StartLocation :: location(),
+      StartLocation :: erl_anno:location(),
       Options :: erl_scan:options(),
       Result :: parse_form_ret().
 

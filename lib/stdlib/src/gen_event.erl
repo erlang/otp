@@ -34,7 +34,7 @@ Each event handler is implemented as a callback module exporting a predefined
 set of functions. The relationship between the behavior functions and the
 callback functions is as follows:
 
-```erlang
+```text
 gen_event module                   Callback module
 ----------------                   ---------------
 gen_event:start
@@ -105,7 +105,6 @@ event manager does not exist or if bad arguments are specified.
 
 `m:supervisor`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 %%% 
 %%% A general event handler.
@@ -162,6 +161,8 @@ event manager does not exist or if bad arguments are specified.
 
 -include("logger.hrl").
 
+-deprecated_callback({format_status, 2, "use format_status/1 instead"}).
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
@@ -195,7 +196,6 @@ where `State` is the initial internal state of the event handler.
 If `{ok,State,hibernate}` is returned, the event manager goes into hibernation
 (by calling `proc_lib:hibernate/3`), waiting for the next event to occur.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(InitArgs :: term()) ->
     {ok, State :: term()} |
     {ok, State :: term(), hibernate} |
@@ -226,7 +226,6 @@ handle the event.
 - If `remove_handler` is returned, the event handler is deleted by calling
   [`Module:terminate(remove_handler,State)`](`c:terminate/2`).
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_event(Event :: term(), State :: term()) ->
     {ok, NewState :: term()} |
     {ok, NewState :: term(), hibernate} |
@@ -246,7 +245,6 @@ The return values are the same as for
 term `Reply`, which is the reply to the client as the return value of
 `call/3,4`.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_call(Request :: term(), State :: term()) ->
     {ok, Reply :: term(), NewState :: term()} |
     {ok, Reply :: term(), NewState :: term(), hibernate} |
@@ -254,12 +252,6 @@ term `Reply`, which is the reply to the client as the return value of
      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
     {remove_handler, Reply :: term()}.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_event` module provides a default implementation of this function that
-> logs about the unexpected `Info` message, drops it and returns `{ok, State}`.
-
 This function is called for each installed event handler when an event manager
 receives any other message than an event or a synchronous request (or a system
 message).
@@ -273,8 +265,13 @@ which in turn has a supervised handler should expect callbacks of the shape
 
 For a description of `State` and possible return values, see
 [`Module:handle_event/2`](`c:handle_event/2`).
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_event` module provides a default implementation of this function that
+> logs about the unexpected `Info` message, drops it and returns `{ok, State}`.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_info(Info :: term(), State :: term()) ->
     {ok, NewState :: term()} |
     {ok, NewState :: term(), hibernate} |
@@ -282,11 +279,6 @@ For a description of `State` and possible return values, see
      Handler2 :: (atom() | {atom(), Id :: term()}), Args2 :: term()} |
     remove_handler.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_event` module provides a default implementation without cleanup.
-
 Whenever an event handler is deleted from an event manager, this function is
 called. It is to be the opposite of [`Module:init/1`](`c:init/1`) and do any
 necessary cleaning up.
@@ -320,8 +312,12 @@ call to `gen_event:delete_handler/3`, the return value of that function becomes
 the return value of this function. If the event handler is to be replaced with
 another event handler because of a swap, the return value is passed to the
 `init` function of the new event handler. Otherwise the return value is ignored.
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_event` module provides a default implementation without cleanup.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback terminate(Args :: (term() | {stop, Reason :: term()} |
                              stop | remove_handler |
                              {error, {'EXIT', Reason :: term()}} |
@@ -329,18 +325,11 @@ another event handler because of a swap, the return value is passed to the
                     State :: term()) ->
     term().
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. If a
-> release upgrade/downgrade with `Change={advanced,Extra}` specified in the
-> `.appup` file is made when [`code_change/3`](`c:code_change/3`) isn't
-> implemented the event handler will crash with an `undef` error reason.
-
 This function is called for an installed event handler that is to update its
 internal state during a release upgrade/downgrade, that is, when the instruction
-`{update,Module,Change,...}`, where `Change={advanced,Extra}`, is specified in
-the `.appup` file. For more information, see
-[OTP Design Principles](`e:system:index.html`).
+`{update,Module,Change,...}`, is specified in the [`appup`](`e:sasl:appup.md`) file.
+
+For more information, see [OTP Design Principles](`e:system:index.html`).
 
 For an upgrade, `OldVsn` is `Vsn`, and for a downgrade, `OldVsn` is
 `{down,Vsn}`. `Vsn` is defined by the `vsn` attribute(s) of the old version of
@@ -353,24 +342,21 @@ the checksum of the Beam file.
 instruction.
 
 The function is to return the updated internal state.
+
+> #### Note {: .info }
+>
+> If a release upgrade/downgrade with `Change={advanced,Extra}` specified in the
+> [`.appup`](`e:sasl:appup.md`) file is made when `c:code_change/3` isn't
+> implemented the event handler will crash with an `undef` error reason.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback code_change(OldVsn :: (term() | {down, term()}),
                       State :: term(), Extra :: term()) ->
     {ok, NewState :: term()}.
 -doc """
-> #### Warning {: .warning }
->
-> This callback is deprecated, in new code use `c:format_status/1`. If a
-> `c:format_status/1` callback exists, then this function will never be called.
+This function is called by a `gen_event` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-> #### Note {: .info }
->
-> This callback is optional, so event handler modules need not export it. If a
-> handler does not export this function, the `gen_event` module uses the handler
-> state directly for the purposes described below.
-
-This function is called by a `gen_event` process in the following situations:
+It is called in the following situations:
 
 - One of [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the
   `gen_event` status. `Opt` is set to the atom `normal` for this case.
@@ -399,9 +385,15 @@ current state of the event handler. Any term is allowed for `Status`. The
 
 One use for this function is to return compact alternative state representations
 to avoid that large state terms are printed in log files.
+
+> #### Note {: .info }
+>
+> This callback is optional, so event handler modules need not export it. If a
+> handler does not export this function, the `gen_event` module uses the handler
+> state directly for the purposes described below.
 """.
 -deprecated_callback({format_status, 2, "use format_status/1 instead"}).
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
@@ -409,7 +401,9 @@ to avoid that large state terms are printed in log files.
       State :: term(),
       Status :: term().
 -doc """
-A map that describes the `gen_event` process status. The keys are:
+A map that describes the `gen_event` process status.
+
+The keys are:
 
 - **`state`** - The internal state of the event handler.
 
@@ -427,17 +421,10 @@ New associations may be added into the status map without prior notice.
            reason => term(),
            log => [sys:system_event()] }.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so event handler modules need not export it. If a
-> handler does not export this function, the `gen_event` module uses the handler
-> state directly for the purposes described below.
->
-> If this callback is exported but fails, to hide possibly sensitive data, the
-> default function will instead return the fact that
-> [`format_status/1`](`c:format_status/1`) has crashed.
+This function is called by a `gen_event` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-This function is called by a `gen_event` process in the following situations:
+It is called in the following situations:
 
 - One of [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the
   `gen_event` status.
@@ -453,6 +440,8 @@ Two possible use cases for this callback is to remove sensitive information from
 the state to prevent it from being printed in log files, or to compact large
 irrelevant status items that would only clutter the logs.
 
+_Example_:
+
 ```erlang
 format_status(Status) ->
   maps:map(
@@ -464,8 +453,18 @@ format_status(Status) ->
             Value
     end, Status).
 ```
+
+> #### Note {: .info }
+>
+> This callback is optional, so event handler modules need not export it. If a
+> handler does not export this function, the `gen_event` module uses the handler
+> state directly for the purposes described below.
+>
+> If this callback is exported but fails, to hide possibly sensitive data, the
+> default function will instead return the fact that
+> [`format_status/1`](`c:format_status/1`) has crashed.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback format_status(Status) -> NewStatus when
       Status    :: format_status(),
       NewStatus :: format_status().
@@ -480,15 +479,42 @@ format_status(Status) ->
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
+-doc """
+The name given to an event manager when starting it.
+
+- *`{local,Name}`* - the event manager is registered locally as
+  `Name` using [`register/2`](`register/2`).
+- *`{global,GlobalName}`* - The event manager is registered
+  globally as `GlobalName` using `global:register_name/2`. If no name is
+  provided, the event manager is not registered.
+- *`{via,Module,ViaName}`*, the event manager registers with the
+  registry represented by `Module`. The `Module` callback is to export the
+  functions `register_name/2`, `unregister_name/1`, `whereis_name/1`, and
+  `send/2`, which are to behave as the corresponding functions in `m:global`.
+  Thus, `{via,global,GlobalName}` is a valid reference.
+""".
 -type emgr_name() :: {'local', atom()} | {'global', term()}
                    | {'via', atom(), term()}.
 -type debug_flag() :: 'trace' | 'log' | 'statistics' | 'debug'
                     | {'logfile', string()}.
--type option() :: {'timeout', timeout()}
-                | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:start_spawn_option()]}
-                | {'hibernate_after', timeout()}.
--type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
+-doc "Options that can be used to configure an event handler when it is started.".
+-type options() :: [{'timeout', timeout()}
+                   | {'debug', [debug_flag()]}
+                   | {'spawn_opt', [proc_lib:start_spawn_option()]}
+                   | {'hibernate_after', timeout()}].
+-doc """
+A reference used to locate an event manager.
+
+The reference can be any of the following:
+
+- The pid of the event manager
+- `Name`, if the event manager is locally registered
+- `{Name,Node}`, if the event manager is locally registered at another node
+- `{global,GlobalName}`, if the event manager is globally registered
+- `{via,Module,ViaName}`, if the event manager is registered through an
+  alternative process registry
+""".
+-type emgr_ref()  :: atom() | {atom(), node()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 -type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
@@ -547,15 +573,21 @@ Used to set a time limit on how long to wait for a response using either
 %%          {error, Reason}
 %% -----------------------------------------------------------------
 
--doc(#{equiv => start/2}).
+-doc(#{equiv => start([])}).
 -doc(#{since => <<"OTP 20.0">>}).
 -spec start() -> start_ret().
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
 
--doc(#{equiv => start/2}).
+-doc """
+Creates a stand-alone event manager process, that is, an event manager that is
+not part of a supervision tree and thus has no supervisor.
+
+For a description of the arguments and return values, see
+[`start_link/1`](`start_link/1`).
+""".
 -doc(#{since => <<"OTP 20.0">>}).
--spec start(emgr_name() | [option()]) -> start_ret().
+-spec start(EventMgrNameOrOptions :: emgr_name() | options()) -> start_ret().
 start(Name) when is_tuple(Name) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
 start(Options) when is_list(Options) ->
@@ -564,30 +596,37 @@ start(Arg) ->
     error(badarg, [Arg]).
 
 -doc """
-start(EventMgrName, Options) -> Result
-
 Creates a stand-alone event manager process, that is, an event manager that is
 not part of a supervision tree and thus has no supervisor.
 
 For a description of the arguments and return values, see
-[`start_link/0,1`](`start_link/0`).
+[`start_link/2`](`start_link/2`).
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--spec start(emgr_name(), [option()]) -> start_ret().
+-spec start(EventMgrName :: emgr_name(), Options :: options()) -> start_ret().
 start(Name, Options) when is_tuple(Name), is_list(Options) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], Options);
 start(Name, Options) ->
     error(badarg, [Name, Options]).
 
--doc(#{equiv => start_link/2}).
+-doc(#{equiv => start_link([])}).
 -doc(#{since => <<"OTP 20.0">>}).
 -spec start_link() -> start_ret().
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
 
--doc(#{equiv => start_link/2}).
+-doc """
+Creates an event manager process as part of a supervision tree.
+
+If called with `t:emgr_name/0`, then it is equivalent to [`start(EventMgrName, [])`](`start/2`).
+
+If called with `t:options/0`, then a nameless event manager is created using `Options`.
+
+For a description of the arguments and return values, see
+[`start_link/2`](`start_link/2`).
+""".
 -doc(#{since => <<"OTP 20.0">>}).
--spec start_link(emgr_name() | [option()]) -> start_ret().
+-spec start_link(EventMgrNameOrOptions :: emgr_name() | options()) -> start_ret().
 start_link(Name) when is_tuple(Name) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
 start_link(Options) when is_list(Options) ->
@@ -596,22 +635,11 @@ start_link(Arg) ->
     error(badarg, [Arg]).
 
 -doc """
-start_link(EventMgrName, Options) -> Result
+Creates an event manager process as part of a supervision tree.
 
-Creates an event manager process as part of a supervision tree. The function is
-to be called, directly or indirectly, by the supervisor. For example, it ensures
-that the event manager is linked to the caller (supervisor).
+The function is to be called, directly or indirectly, by the supervisor.
+For example, it ensures that the event manager is linked to the caller (supervisor).
 
-- If `EventMgrName={local,Name}`, the event manager is registered locally as
-  `Name` using [`register/2`](`register/2`).
-- If `EventMgrName={global,GlobalName}`, the event manager is registered
-  globally as `GlobalName` using `global:register_name/2`. If no name is
-  provided, the event manager is not registered.
-- If `EventMgrName={via,Module,ViaName}`, the event manager registers with the
-  registry represented by `Module`. The `Module` callback is to export the
-  functions `register_name/2`, `unregister_name/1`, `whereis_name/1`, and
-  `send/2`, which are to behave as the corresponding functions in `m:global`.
-  Thus, `{via,global,GlobalName}` is a valid reference.
 - If option `{hibernate_after,HibernateAfterTimeout}` is present, the
   `gen_event` process awaits any message for `HibernateAfterTimeout`
   milliseconds and if no message is received, the process goes into hibernation
@@ -650,21 +678,28 @@ the process link), that message has been consumed.
 > caller's inbox.
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--spec start_link(emgr_name(), [option()]) -> start_ret().
+-spec start_link(EventMgrName :: emgr_name(), Options :: options()) -> start_ret().
 start_link(Name, Options) when is_tuple(Name), is_list(Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options);
 start_link(Name, Options) ->
     error(badarg, [Name, Options]).
 
--doc(#{equiv => start_monitor/2}).
+-doc(#{equiv => start_monitor([])}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor() -> start_mon_ret().
 start_monitor() ->
     gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
 
--doc(#{equiv => start_monitor/2}).
+-doc """
+Creates a stand-alone event manager process, that is, an event manager that is
+not part of a supervision tree (and thus has no supervisor) and atomically sets
+up a monitor to the newly created process.
+
+For a description of the arguments and return values, see `start_monitor/2` and
+`start_link/1`.
+""".
 -doc(#{since => <<"OTP 23.0">>}).
--spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+-spec start_monitor(EventMgrNameOrOptions :: emgr_name() | options()) -> start_mon_ret().
 start_monitor(Name) when is_tuple(Name) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
 start_monitor(Options) when is_list(Options) ->
@@ -673,22 +708,20 @@ start_monitor(Arg) ->
     error(badarg, [Arg]).
 
 -doc """
-start_monitor(EventMgrName, Options) -> Result
-
 Creates a stand-alone event manager process, that is, an event manager that is
 not part of a supervision tree (and thus has no supervisor) and atomically sets
 up a monitor to the newly created process.
 
 For a description of the arguments and return values, see
-[`start_link/0,1`](`start_link/0`). Note that the return value on successful
-start differs from `start_link/3,4`. `start_monitor/3,4` will return
+[`start_link/2`](`start_link/2`). Note that the return value on successful
+start differs from `start_link/2`. `start_monitor/0,1,2` will return
 `{ok,{Pid,Mon}}` where `Pid` is the process identifier of the process, and `Mon`
 is a reference to the monitor set up to monitor the process. If the start is not
 successful, the caller will be blocked until the `DOWN` message has been
 received and removed from the message queue.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+-spec start_monitor(EventMgtName :: emgr_name(), Options :: options()) -> start_mon_ret().
 start_monitor(Name, Options) when is_tuple(Name), is_list(Options) ->
     gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options);
 start_monitor(Name, Options) ->
@@ -707,20 +740,9 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
     loop(Parent, Name, [], HibernateAfterTimeout, Debug, false).
 
 -doc """
-add_handler(EventMgrRef, Handler, Args) -> Result
-
 Adds a new event handler to event manager `EventMgrRef`. The event manager calls
 [`Module:init/1`](`c:init/1`) to initiate the event handler and its internal
 state.
-
-`EventMgrRef` can be any of the following:
-
-- The pid
-- `Name`, if the event manager is locally registered
-- `{Name,Node}`, if the event manager is locally registered at another node
-- `{global,GlobalName}`, if the event manager is globally registered
-- `{via,Module,ViaName}`, if the event manager is registered through an
-  alternative process registry
 
 `Handler` is the name of the callback module `Module` or a tuple `{Module,Id}`,
 where `Id` is any term. The `{Module,Id}` representation makes it possible to
@@ -736,12 +758,10 @@ completion, the event manager adds the event handler and this function returns
 `{error,Reason}`, the event handler is ignored and this function returns
 `{'EXIT',Reason}` or `{error,Reason}`, respectively.
 """.
--spec add_handler(emgr_ref(), handler(), term()) -> term().
+-spec add_handler(EventMgrRef :: emgr_ref(), Handler :: handler(), Args :: term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
 
 -doc """
-add_sup_handler(EventMgrRef, Handler, Args) -> Result
-
 Adds a new event handler in the same way as `add_handler/3`, but also supervises
 the connection by linking the event handler and the calling process.
 
@@ -766,27 +786,14 @@ the connection by linking the event handler and the calling process.
 
 For a description of the arguments and return values, see `add_handler/3`.
 """.
--spec add_sup_handler(emgr_ref(), handler(), term()) -> term().
+-spec add_sup_handler(EventMgrRef :: emgr_ref(), Handler :: handler(), Args :: term()) -> term().
 add_sup_handler(M, Handler, Args)  ->
     rpc(M, {add_sup_handler, Handler, Args, self()}).
 
--doc(#{equiv => sync_notify/2}).
--spec notify(emgr_ref(), term()) -> 'ok'.
-notify(M, Event) -> send(M, {notify, Event}).
-
 -doc """
-sync_notify(EventMgrRef, Event) -> ok
-
-Sends an event notification to event manager `EventMgrRef`. The event manager
-calls [`Module:handle_event/2`](`c:handle_event/2`) for each installed event
-handler to handle the event.
-
-[`notify/2`](`notify/2`) is asynchronous and returns immediately after the event
-notification has been sent. [`sync_notify/2`](`sync_notify/2`) is synchronous in
-the sense that it returns `ok` after the event has been handled by all event
-handlers.
-
-For a description of `EventMgrRef`, see `add_handler/3`.
+Sends an asynchronous event notification to event manager `EventMgrRef`. The event
+manager calls [`Module:handle_event/2`](`c:handle_event/2`) for each installed
+event handler to handle the event.
 
 `Event` is any term that is passed as one of the arguments to
 [`Module:handle_event/2`](`c:handle_event/2`).
@@ -794,22 +801,31 @@ For a description of `EventMgrRef`, see `add_handler/3`.
 `notify/1` does not fail even if the specified event manager does not exist,
 unless it is specified as `Name`.
 """.
--spec sync_notify(emgr_ref(), term()) -> 'ok'.
+
+-spec notify(EventMgrRef :: emgr_ref(), Event :: term()) -> 'ok'.
+notify(M, Event) -> send(M, {notify, Event}).
+
+-doc """
+Sends a synchronous event notification to event manager `EventMgrRef`. The event
+manager calls [`Module:handle_event/2`](`c:handle_event/2`) for each installed event
+handler to handle the event. This function will return `ok` after the event has
+been handled by all event handlers.
+
+`Event` is any term that is passed as one of the arguments to
+[`Module:handle_event/2`](`c:handle_event/2`).
+""".
+-spec sync_notify(EventMgrRef :: emgr_ref(), Event :: term()) -> 'ok'.
 sync_notify(M, Event) -> rpc(M, {sync_notify, Event}).
 
--doc(#{equiv => call/4}).
--spec call(emgr_ref(), handler(), term()) -> term().
+-doc(#{equiv => call(EventMgrRef, Handler, Request, 5000)}).
+-spec call(EventMgrRef :: emgr_ref(), Handler :: handler(), Request :: term()) -> term().
 call(M, Handler, Query) -> call1(M, Handler, Query).
 
 -doc """
-call(EventMgrRef, Handler, Request, Timeout) -> Result
-
 Makes a synchronous call to event handler `Handler` installed in event manager
 `EventMgrRef` by sending a request and waiting until a reply arrives or a
 time-out occurs. The event manager calls
 [`Module:handle_call/2`](`c:handle_call/2`) to handle the request.
-
-For a description of `EventMgrRef` and `Handler`, see `add_handler/3`.
 
 `Request` is any term that is passed as one of the arguments to
 [`Module:handle_call/2`](`c:handle_call/2`).
@@ -831,7 +847,7 @@ term is on the form `{Reason, Location}` where
 [`gen_server:call/3` ](`gen_server:call/3`)that has a description of relevant
 values for the `Reason` in the exit term.
 """.
--spec call(emgr_ref(), handler(), term(), timeout()) -> term().
+-spec call(EventMgrRef :: emgr_ref(), Handler :: handler(), Request :: term(), Timeout :: timeout()) -> term().
 call(M, Handler, Query, Timeout) -> call1(M, Handler, Query, Timeout).
 
 -doc """
@@ -839,9 +855,11 @@ Sends an asynchronous `call` request `Request` to event handler `Handler`
 installed in the event manager identified by `EventMgrRef` and returns a request
 identifier `ReqId`. The return value `ReqId` shall later be used with
 `receive_response/2`, `wait_response/2`, or `check_response/2` to fetch the
-actual result of the request. Besides passing the request identifier directly to
-these functions, it can also be saved in a request identifier collection using
-`reqids_add/3`. Such a collection of request identifiers can later be used in
+actual result of the request.
+
+Besides passing the request identifier directly to these functions, it can also
+be saved in a request identifier collection using `reqids_add/3`. Such a
+collection of request identifiers can later be used in
 order to get one response corresponding to a request in the collection by
 passing the collection as argument to `receive_response/3`, `wait_response/3`,
 or `check_response/3`. If you are about to save the request identifier in a
@@ -874,14 +892,15 @@ send_request(M, Handler, Request) ->
 -doc """
 Sends an asynchronous `call` request `Request` to event handler `Handler`
 installed in the event manager identified by `EventMgrRef`. The `Label` will be
-associated with the request identifier of the operation and added to the
-returned request identifier collection `NewReqIdCollection`. The collection can
-later be used in order to get one response corresponding to a request in the
-collection by passing the collection as argument to `receive_response/3`,
-`wait_response/3`, or, `check_response/3`.
+associated with the request identifier of the operation and added to the returned
+request identifier collection `NewReqIdCollection`.
+
+The collection can later be used in order to get one response corresponding to a
+request in the collection by passing the collection as argument to `receive_response/3`,
+`wait_response/3`, or `check_response/3`.
 
 The same as calling
-[`gen_event:reqids_add`](`reqids_add/3`)([`gen_event:send_request`](`send_request/3`)`(EventMgrRef, Handler, Request), Label, ReqIdCollection)`,
+[`gen_event:reqids_add`](`reqids_add/3`)`(`[`gen_event:send_request`](`send_request/3`)`(EventMgrRef, Handler, Request), Label, ReqIdCollection)`,
 but calling [`send_request/5`](`send_request/5`) is slightly more efficient.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
@@ -1011,7 +1030,7 @@ wait_response(ReqIdCol, WaitTime, Delete) ->
     end.
 
 -doc """
-Receive a response corresponding to the request identifier `ReqId`\- The request
+Receive a response corresponding to the request identifier `ReqId`. The request
 must have been made by `send_request/3` to the `gen_statem` process. This
 function must be called from the same process from which `send_request/3` was
 made.
@@ -1281,12 +1300,8 @@ reqids_to_list(ReqIdCollection) ->
     end.
 
 -doc """
-delete_handler(EventMgrRef, Handler, Args) -> Result
-
 Deletes an event handler from event manager `EventMgrRef`. The event manager
 calls [`Module:terminate/2`](`c:terminate/2`) to terminate the event handler.
-
-For a description of `EventMgrRef` and `Handler`, see `add_handler/3`.
 
 `Args` is any term that is passed as one of the arguments to
 [`Module:terminate/2`](`c:terminate/2`).
@@ -1296,78 +1311,74 @@ If the specified event handler is not installed, the function returns
 `{error,module_not_found}`. If the callback function fails with `Reason`, the
 function returns `{'EXIT',Reason}`.
 """.
--spec delete_handler(emgr_ref(), handler(), term()) -> term().
+-spec delete_handler(EventMgrRef :: emgr_ref(), Handler :: handler(), Args :: term()) -> term().
 delete_handler(M, Handler, Args) -> rpc(M, {delete_handler, Handler, Args}).
 
 -doc """
-swap_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result
-
 Replaces an old event handler with a new event handler in event manager
 `EventMgrRef`.
 
-For a description of the arguments, see `add_handler/3`.
+For a description of `OldHandler` and `NewHandler`, see `add_handler/3`.
 
-First the old event handler `Handler1` is deleted. The event manager calls
-`Module1:terminate(Args1, ...)`, where `Module1` is the callback module of
-`Handler1`, and collects the return value.
+First the old event handler `OldHandler` is deleted. The event manager calls
+`OldModule:terminate(Args1, ...)`, where `OldModule` is the callback module of
+`OldHandler`, and collects the return value.
 
-Then the new event handler `Handler2` is added and initiated by calling
-[`Module2:init({Args2,Term})`](`c:init/1`), where `Module2` is the callback
-module of `Handler2` and `Term` is the return value of
-[`Module1:terminate/2`](`c:terminate/2`). This makes it possible to transfer
-information from `Handler1` to `Handler2`.
+Then the new event handler `NewHandler` is added and initiated by calling
+[`NewModule:init({Args2,Term})`](`c:init/1`), where `NewModule` is the callback
+module of `OldHandler` and `Term` is the return value of
+[`OldModule:terminate/2`](`c:terminate/2`). This makes it possible to transfer
+information from `OldHandler` to `NewHandler`.
 
 The new handler is added even if the the specified old event handler is not
 installed, in which case `Term=error`, or if
-[`Module1:terminate/2`](`c:terminate/2`) fails with `Reason`, in which case
+[`OldModule:terminate/2`](`c:terminate/2`) fails with `Reason`, in which case
 `Term={'EXIT',Reason}`. The old handler is deleted even if
-[`Module2:init/1`](`c:init/1`) fails.
+[`NewModule:init/1`](`c:init/1`) fails.
 
-If there was a supervised connection between `Handler1` and a process `Pid`,
-there is a supervised connection between `Handler2` and `Pid` instead.
+If there was a supervised connection between `OldHandler` and a process `Pid`,
+there is a supervised connection between `NewHandler` and `Pid` instead.
 
-If [`Module2:init/1`](`c:init/1`) returns a correct value, this function returns
-`ok`. If [`Module2:init/1`](`c:init/1`) fails with `Reason` or returns an
+If [`NewModule:init/1`](`c:init/1`) returns a correct value, this function returns
+`ok`. If [`NewModule:init/1`](`c:init/1`) fails with `Reason` or returns an
 unexpected value `Term`, this function returns `{error,{'EXIT',Reason}}` or
 `{error,Term}`, respectively.
 """.
--spec swap_handler(emgr_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_handler(EventMgrRef :: emgr_ref(),
+                   OldHandler :: {handler(), term()},
+                   NewHandler :: {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_handler(M, {H1, A1}, {H2, A2}) -> rpc(M, {swap_handler, H1, A1, H2, A2}).
 
 -doc """
-swap_sup_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result
-
 Replaces an event handler in event manager `EventMgrRef` in the same way as
 [`swap_handler/3`](`swap_handler/3`), but also supervises the connection between
-`Handler2` and the calling process.
+`NewHandler` and the calling process.
 
 For a description of the arguments and return values, see `swap_handler/3`.
 """.
--spec swap_sup_handler(emgr_ref(), {handler(), term()}, {handler(), term()}) ->
+-spec swap_sup_handler(EventMgrRef :: emgr_ref(),
+                       OldHandler :: {handler(), term()},
+                       NewHandler :: {handler(), term()}) ->
 	    'ok' | {'error', term()}.
 swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
     rpc(M, {swap_sup_handler, H1, A1, H2, A2, self()}).
 
 -doc """
-which_handlers(EventMgrRef) -> [Handler]
-
 Returns a list of all event handlers installed in event manager `EventMgrRef`.
 
-For a description of `EventMgrRef` and `Handler`, see `add_handler/3`.
+For a description of `Handler`, see `add_handler/3`.
 """.
--spec which_handlers(emgr_ref()) -> [handler()].
+-spec which_handlers(EventMgrRef :: emgr_ref()) -> [handler()].
 which_handlers(M) -> rpc(M, which_handlers).
 
--doc(#{equiv => stop/3}).
+-doc(#{equiv => stop(EventMgrRef, normal, infinity)}).
 -doc(#{since => <<"OTP 18.0">>}).
--spec stop(emgr_ref()) -> 'ok'.
+-spec stop(EventMgrRef :: emgr_ref()) -> 'ok'.
 stop(M) ->
     gen:stop(M).
 
 -doc """
-stop(EventMgrRef, Reason, Timeout) -> ok
-
 Orders event manager `EventMgrRef` to exit with the specifies `Reason` and waits
 for it to terminate. Before terminating, `gen_event` calls
 [`Module:terminate(stop,...)`](`c:terminate/2`) for each installed event
@@ -1375,22 +1386,20 @@ handler.
 
 The function returns `ok` if the event manager terminates with the expected
 reason. Any other reason than `normal`, `shutdown`, or `{shutdown,Term}` causes
-an error report to be issued using `m:logger`. The default `Reason` is `normal`.
+an error report to be issued using `m:logger`.
 
 `Timeout` is an integer greater than zero that specifies how many milliseconds
 to wait for the event manager to terminate, or the atom `infinity` to wait
-indefinitely. Defaults to `infinity`. If the event manager has not terminated
+indefinitely. If the event manager has not terminated
 within the specified time, the call exits the calling process with reason
 `timeout`.
 
 If the process does not exist, the call exits the calling process with reason
 `noproc`, and with reason `{nodedown,Node}` if the connection fails to the
 remote `Node` where the server runs.
-
-For a description of `EventMgrRef`, see `add_handler/3`.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec stop(emgr_ref(), term(), timeout()) -> 'ok'.
+-spec stop(EventMgrRef :: emgr_ref(), Reason :: term(), Timeout :: timeout()) -> 'ok'.
 stop(M, Reason, Timeout) ->
     gen:stop(M, Reason, Timeout).
 

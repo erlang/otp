@@ -104,59 +104,61 @@ the process itself to format these events.
                       | {'global', term()}
                       | {'via', module(), term()}.
 -doc """
-- **`{in,Msg}`** - Is produced by `gen_server` and `gen_event` when the message
+Debug events produced by `m:gen_server`, `m:gen_statem` and `m:gen_event`
+
+- **`{in,Msg}`** - Is produced by `m:gen_server` and `m:gen_event` when the message
   `Msg` arrives.
 
-- **`{in,Msg,State}`** - Is produced by `gen_statem` when the message `Msg`
+- **`{in,Msg,State}`** - Is produced by `m:gen_statem` when the message `Msg`
   arrives in state `State`.
 
-  For `gen_statem` the `Msg` term is an `{EventType,EventContent}` tuple.
+  For `m:gen_statem` the `Msg` term is an `{EventType,EventContent}` tuple.
 
-- **`{out,Msg,To}`** - Is produced by `gen_statem` when the reply `Msg` is sent
+- **`{out,Msg,To}`** - Is produced by `m:gen_statem` when the reply `Msg` is sent
   back to `To` by returning a `{reply,To,Msg}` action from the callback module.
 
   `To` is of the same type as the first argument to `gen_statem:reply/2`.
 
-- **`{out,Msg,To,State}`** - Is produced by `gen_server` when the reply `Msg` is
+- **`{out,Msg,To,State}`** - Is produced by `m:gen_server` when the reply `Msg` is
   sent back to `To` by returning a `{reply,...}` tuple from the callback module.
 
   `To` is of the same type as the first argument to `gen_server:reply/2`.
 
   `State` is the new server state.
 
-- **`{noreply,State}`** - Is produced by `gen_server` when a `{noreply,...}`
+- **`{noreply,State}`** - Is produced by `m:gen_server` when a `{noreply,...}`
   tuple is returned from the callback module.
 
   `State` is the new server state.
 
-- **`{continue,Continuation}`** - Is produced by `gen_server` when a
+- **`{continue,Continuation}`** - Is produced by `m:gen_server` when a
   `{continue,Continuation}` tuple is returned from the callback module.
 
-- **`{postpone,Event,State,NextState}`** - Is produced by `gen_statem` when the
+- **`{postpone,Event,State,NextState}`** - Is produced by `m:gen_statem` when the
   message `Event` is postponed in state `State`. `NextState` is the new state.
 
   `Event` is an `{EventType,EventContent}` tuple.
 
-- **`{consume,Event,State,NextState}`** - Is produced by `gen_statem` when the
+- **`{consume,Event,State,NextState}`** - Is produced by `m:gen_statem` when the
   message `Event` is consumed in state `State`. `NextState` is the new state.
 
   `Event` is an `{EventType,EventContent}` tuple.
 
-- **`{start_timer,Action,State}`** - Is produced by `gen_statem` when the action
+- **`{start_timer,Action,State}`** - Is produced by `m:gen_statem` when the action
   `Action` starts a timer in state `State`.
 
-- **`{insert_timeout,Event,State}`** - Is produced by `gen_statem` when a
+- **`{insert_timeout,Event,State}`** - Is produced by `m:gen_statem` when a
   timeout zero action inserts event `Event` in state `State`.
 
   `Event` is an `{EventType,EventContent}` tuple.
 
-- **`{enter,Module,State}`** - Is produced by `gen_statem` when module `Module`
+- **`{enter,Module,State}`** - Is produced by `m:gen_statem` when module `Module`
   enters the first state `State`.
 
-- **`{module,Module,State}`** - Is produced by `gen_statem` when setting module
+- **`{module,Module,State}`** - Is produced by `m:gen_statem` when setting module
   `Module` in state `State`.
 
-- **`{terminate,Reason,State}`** - Is produced by `gen_statem` when it
+- **`{terminate,Reason,State}`** - Is produced by `m:gen_statem` when it
   terminates with reason `Reason` in state `State`.
 """.
 -type system_event() :: {'in', Msg :: _}
@@ -267,7 +269,7 @@ returns.
 %%-----------------------------------------------------------------
 %% System messages
 %%-----------------------------------------------------------------
--doc(#{equiv => suspend/2}).
+-doc(#{equiv => suspend(Name, 5000)}).
 -spec suspend(Name) -> 'ok' when
       Name :: name().
 suspend(Name) -> send_system_msg(Name, suspend).
@@ -281,7 +283,7 @@ system messages, but not other messages.
       Timeout :: timeout().
 suspend(Name, Timeout) -> send_system_msg(Name, suspend, Timeout).
 
--doc(#{equiv => resume/2}).
+-doc(#{equiv => resume(Name, 5000)}).
 -spec resume(Name) -> 'ok' when
       Name :: name().
 resume(Name) -> send_system_msg(Name, resume).
@@ -292,7 +294,7 @@ resume(Name) -> send_system_msg(Name, resume).
       Timeout :: timeout().
 resume(Name, Timeout) -> send_system_msg(Name, resume, Timeout).
 
--doc(#{equiv => get_status/2}).
+-doc(#{equiv => get_status(Name, 5000)}).
 -spec get_status(Name) -> Status when
       Name :: name(),
       Status :: {status, Pid :: pid(), {module, Module :: module()}, [SItem]},
@@ -314,7 +316,7 @@ The value of `Misc` varies for different types of processes, for example:
 - A `m:gen_event` process returns information about each of its registered
   handlers.
 
-Callback modules for `gen_server`, `gen_statem`, and `gen_event` can also change
+Callback modules for `m:gen_server`, `m:gen_statem`, and `m:gen_event` can also change
 the value of `Misc` by exporting a function `format_status/2`, which contributes
 module-specific information. For details, see `c:gen_server:format_status/2`,
 `c:gen_statem:format_status/2`, and `c:gen_event:format_status/2`.
@@ -330,7 +332,7 @@ module-specific information. For details, see `c:gen_server:format_status/2`,
              | (Misc :: term()).
 get_status(Name, Timeout) -> send_system_msg(Name, get_status, Timeout).
 
--doc(#{equiv => get_state/2}).
+-doc(#{equiv => get_state(Name, 5000)}).
 -doc(#{since => <<"OTP R16B01">>}).
 -spec get_state(Name) -> State when
       Name :: name(),
@@ -390,8 +392,8 @@ the exception.
 
 Function [`system_get_state/1`](`c:system_get_state/1`) is primarily useful for
 user-defined behaviors and modules that implement OTP
-[special processes](`m:sys#process-implementation-functions`). The `gen_server`,
-`gen_statem`, and `gen_event` OTP behavior modules export this function, so
+[special processes](`m:sys#process-implementation-functions`). The `m:gen_server`,
+`m:gen_statem`, and `m:gen_event` OTP behavior modules export this function, so
 callback modules for those behaviors need not to supply their own.
 
 For more information about a process, including its state, see `get_status/1`
@@ -408,7 +410,7 @@ get_state(Name, Timeout) ->
 	{ok, State} -> State
     end.
 
--doc(#{equiv => replace_state/3}).
+-doc(#{equiv => replace_state(Name, StateFun, 5000)}).
 -doc(#{since => <<"OTP R16B01">>}).
 -spec replace_state(Name, StateFun) -> NewState when
       Name :: name(),
@@ -452,19 +454,19 @@ as follows:
   `NewState` is a similar tuple where `Module` and `Id` are to have the same
   values as in `State`, but the value of `HandlerState` can be different.
   Returning a `NewState`, whose `Module` or `Id` values differ from those of
-  `State`, leaves the state of the event handler unchanged. For a `gen_event`
+  `State`, leaves the state of the event handler unchanged. For a `m:gen_event`
   process, `StateFun` is called once for each event handler registered in the
-  `gen_event` process.
+  `m:gen_event` process.
 
 If a `StateFun` function decides not to effect any change in process state, then
 regardless of process type, it can return its `State` argument.
 
 If a `StateFun` function crashes or throws an exception, the original state of
-the process is unchanged for `gen_server`, and `gen_statem` processes. For
-`gen_event` processes, a crashing or failing `StateFun` function means that only
+the process is unchanged for `m:gen_server`, and `m:gen_statem` processes. For
+`m:gen_event` processes, a crashing or failing `StateFun` function means that only
 the state of the particular event handler it was working on when it failed or
 crashed is unchanged; it can still succeed in changing the states of other event
-handlers registered in the same `gen_event` process.
+handlers registered in the same `m:gen_event` process.
 
 If the callback module exports a `c:system_replace_state/2` function, it is
 called in the target process to replace its state using `StateFun`. Its two
@@ -495,7 +497,7 @@ crashes or throws an exception, the caller exits with error
 Function [`system_replace_state/2`](`c:system_replace_state/2`) is primarily
 useful for user-defined behaviors and modules that implement OTP
 [special processes](`m:sys#process-implementation-functions`). The OTP behavior
-modules `gen_server`, `gen_statem`, and `gen_event` export this function, so
+modules `m:gen_server`, `m:gen_statem`, and `m:gen_event` export this function, so
 callback modules for those behaviors need not to supply their own.
 """.
 -doc(#{since => <<"OTP R16B01">>}).
@@ -510,7 +512,7 @@ replace_state(Name, StateFun, Timeout) ->
 	{ok, State} -> State
     end.
 
--doc(#{equiv => change_code/5}).
+-doc(#{equiv => change_code(Name, Module, OldVsn, Extra, 5000)}).
 -spec change_code(Name, Module, OldVsn, Extra) -> 'ok' | {error, Reason} when
       Name :: name(),
       Module :: module(),
@@ -521,8 +523,10 @@ change_code(Name, Mod, Vsn, Extra) ->
     send_system_msg(Name, {change_code, Mod, Vsn, Extra}).
 
 -doc """
-Tells the process to change code. The process must be suspended to handle this
-message. Argument `Extra` is reserved for each process to use as its own.
+Tells the process to change code.
+
+The process must be suspended to handle this message.
+Argument `Extra` is reserved for each process to use as its own.
 Function [`Module:system_code_change/4`](`c:system_code_change/4`) is called.
 `OldVsn` is the old version of the `Module`.
 """.
@@ -537,7 +541,7 @@ Function [`Module:system_code_change/4`](`c:system_code_change/4`) is called.
 change_code(Name, Mod, Vsn, Extra, Timeout) ->
     send_system_msg(Name, {change_code, Mod, Vsn, Extra}, Timeout).
 
--doc(#{equiv => terminate/3}).
+-doc(#{equiv => terminate(Name, Reason, 5000)}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec terminate(Name, Reason) -> 'ok' when
       Name :: name(),
@@ -562,7 +566,7 @@ terminate(Name, Reason, Timeout) ->
 %% Debug commands
 %%-----------------------------------------------------------------
 
--doc(#{equiv => log/3}).
+-doc(#{equiv => log(Name, Flag, 5000)}).
 -spec log(Name, Flag) -> 'ok' | {'ok', [system_event()]} when
       Name :: name(),
       Flag :: 'true' |
@@ -592,7 +596,7 @@ generated the event (with a call to [`handle_debug/4`)](`handle_debug/4`).
 log(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {log, Flag}}, Timeout).
 
--doc(#{equiv => trace/3}).
+-doc(#{equiv => trace(Name, Flag, 5000)}).
 -spec trace(Name, Flag) -> 'ok' when
       Name :: name(),
       Flag :: boolean().
@@ -611,7 +615,7 @@ event (with a call to `handle_debug/4`).
 trace(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {trace, Flag}}, Timeout).
 
--doc(#{equiv => log_to_file/3}).
+-doc(#{equiv => log_to_file(Name, FileName, 5000)}).
 -spec log_to_file(Name, Flag) -> 'ok' | {'error','open_file'} when
       Name :: name(),
       Flag :: (FileName :: string()) | 'false'.
@@ -631,7 +635,7 @@ encoding UTF-8.
 log_to_file(Name, FileName, Timeout) ->
     send_system_msg(Name, {debug, {log_to_file, FileName}}, Timeout).
 
--doc(#{equiv => statistics/3}).
+-doc(#{equiv => statistics(Name, Flag, 5000)}).
 -spec statistics(Name, Flag) -> 'ok' | {'ok', Statistics} when
       Name :: name(),
       Flag :: 'true' | 'false' | 'get',
@@ -665,7 +669,7 @@ statistical collection is returned.
 statistics(Name, Flag, Timeout) ->
     send_system_msg(Name, {debug, {statistics, Flag}}, Timeout).
 
--doc(#{equiv => no_debug/2}).
+-doc(#{equiv => no_debug(Name, 5000)}).
 -spec no_debug(Name) -> 'ok' when
       Name :: name().
 no_debug(Name) -> send_system_msg(Name, {debug, no_debug}).
@@ -680,7 +684,7 @@ triggers.
       Timeout :: timeout().
 no_debug(Name, Timeout) -> send_system_msg(Name, {debug, no_debug}, Timeout).
 
--doc(#{equiv => install/3}).
+-doc(#{equiv => install(Name, FuncSpec, 5000)}).
 -spec install(Name, FuncSpec) -> 'ok' when
       Name :: name(),
       FuncSpec :: {Func, FuncState} | {FuncId, Func, FuncState},
@@ -716,7 +720,7 @@ install(Name, {Func, FuncState}, Timeout) ->
 install(Name, {FuncId, Func, FuncState}, Timeout) ->
     send_system_msg(Name, {debug, {install, {FuncId, Func, FuncState}}}, Timeout).
 
--doc(#{equiv => remove/3}).
+-doc(#{equiv => remove(Name, FuncOrFuncId, 5000)}).
 -spec remove(Name, Func | FuncId) -> 'ok' when
       Name :: name(),
       Func :: dbg_fun(),
@@ -1102,11 +1106,6 @@ install_debug(Item, Data, Debug) ->
 remove_debug(Item, Debug) -> lists:keydelete(Item, 1, Debug).
 
 -doc """
-> #### Warning {: .warning }
->
-> [`get_debug/3`](`get_debug/3`) is deprecated since it returns data of an
-> internal type only useful for debugging.
-
 Gets the data associated with a debug option. `Default` is returned if `Item` is
 not found. Can be used by the process to retrieve debug data for printing before
 it terminates.

@@ -328,14 +328,14 @@ is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
 singleton(Key) ->
     {1, {Key, nil, nil}}.
 
--doc(#{equiv => is_member/2}).
+-doc(#{equiv => is_member(Element, Set)}).
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 
 is_element(Key, S) ->
     is_member(Key, S).
 
--doc "Returns `true` if `Element` is an element of `Set`, otherwise `false`.".
+-doc "Returns `true` if `Element` is an member of `Set`, otherwise `false`.".
 -spec is_member(Element, Set) -> boolean() when
       Set :: set(Element).
 
@@ -414,10 +414,12 @@ count(nil) ->
     {1, 0}.
 
 -doc """
-Rebalances the tree representation of `Set1`. Notice that this is rarely
-necessary, but can be motivated when a large number of elements have been
-deleted from the tree without further insertions. Rebalancing can then be forced
-to minimise lookup times, as deletion does not rebalance the tree.
+Rebalances the tree representation of `Set1`.
+
+Notice that this is rarely necessary, but can be motivated when a large number of
+elements have been deleted from the tree without further insertions. Rebalancing
+ can then be forced to minimise lookup times, as deletion does not rebalance the
+tree.
 """.
 -spec balance(Set1) -> Set2 when
       Set1 :: set(Element),
@@ -457,7 +459,7 @@ already an element in `Set1`, nothing is changed.
 add_element(X, S) ->
     add(X, S).
 
--doc(#{equiv => add_element/2}).
+-doc(#{equiv => add_element(Element, Set1)}).
 -spec add(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -493,7 +495,7 @@ from_ordset(L) ->
     S = length(L),
     {S, balance_list(L, S)}.
 
--doc(#{equiv => delete_any/2}).
+-doc(#{equiv => delete_any(Element, Set1)}).
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -686,11 +688,13 @@ iterator(Set) ->
 
 -doc """
 Returns an iterator that can be used for traversing the entries of `Set` in
-either `ordered` or `reversed` direction; see `next/1`. The implementation of
-this is very efficient; traversing the whole set using [`next/1`](`next/1`) is
-only slightly slower than getting the list of all elements using `to_list/1` and
-traversing that. The main advantage of the iterator approach is that it does not
-require the complete list of all elements to be built in memory at one time.
+either `ordered` or `reversed` direction; see `next/1`.
+
+The implementation of this is very efficient; traversing the whole set using
+[`next/1`](`next/1`) is only slightly slower than getting the list of all
+ elements using `to_list/1` and traversing that. The main advantage of the
+iterator approach is that it does not require the complete list of all elements
+to be built in memory at one time.
 """.
 -doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec iterator(Set, Order) -> Iter when
@@ -1038,7 +1042,7 @@ is_disjoint_1(_, nil) ->
 subtract(S1, S2) ->
     difference(S1, S2).
 
--doc(#{equiv => subtract/2}).
+-doc(#{equiv => subtract(Set1, Set2)}).
 -spec difference(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),

@@ -122,7 +122,7 @@ If not, the `t:reason/0` indicates what went wrong:
 """.
 -type reason() :: closed | timeout .
 
--doc(#{equiv => {type,reason,0}}).
+-doc(#{equiv => reason/0}).
 -type result() :: req_status() | {error, reason()} .
 
 -doc """
@@ -151,7 +151,7 @@ The valid values are `0` ("normal") and `1` ("stderr"), see
              ]).
 
 -doc(#{title => <<"SSH Connection Protocol: General">>,
-       equiv => {type,channel_msg,0}}).
+       equiv => channel_msg/0}).
 -type event() :: {ssh_cm, ssh:connection_ref(), channel_msg()}.
 -doc """
 As mentioned in the introduction, the
@@ -255,7 +255,7 @@ This event is sent as a result of calling [ssh_connection:setenv/5](`setenv/5`).
                        Value :: string()
                       } .
 -doc(#{title => <<"Requesting a Pseudo-Terminal (RFC 4254, section 6.2)">>,
-       equiv => {type,term_mode,0}}).
+       equiv => term_mode/0}).
 -type pty_ch_msg() :: {pty,
                        ssh:channel_id(),
                        want_reply(),

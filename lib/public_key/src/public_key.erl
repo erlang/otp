@@ -132,13 +132,13 @@ macros described here and in the User's Guide:
               test_root_cert/0
              ]).
 
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type public_key()           ::  rsa_public_key() |
                                  rsa_pss_public_key() |
                                  dsa_public_key() |
                                  ec_public_key() |
                                  ed_public_key() .
--doc(#{equiv => {type,ec_private_key,0}}).
+-doc(#{equiv => ec_private_key()}).
 -type private_key()          ::  rsa_private_key() |
                                  rsa_pss_private_key() |
                                  dsa_private_key() |
@@ -151,28 +151,28 @@ Can be provided together with a custom private key, that specifies a key fun, to
 provide additional options understood by the fun.
 """.
 -type custom_key_opts()      :: [term()].
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
--doc(#{equiv => {type,ec_private_key,0}}).
+-doc(#{equiv => ec_private_key()}).
 -type rsa_private_key()      ::  #'RSAPrivateKey'{} | #{algorithm := rsa,
                                                         encrypt_fun => fun()}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type dss_public_key()       :: integer().
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type rsa_pss_public_key()   ::  {rsa_pss_public_key(), #'RSASSA-PSS-params'{}}.
--doc(#{equiv => {type,ec_private_key,0}}).
+-doc(#{equiv => ec_private_key()}).
 -type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
--doc(#{equiv => {type,ec_private_key,0}}).
+-doc(#{equiv => ec_private_key()}).
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type dsa_public_key()       :: {dss_public_key(), #'Dss-Parms'{}}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type public_key_params()    :: 'NULL' | #'RSASSA-PSS-params'{} |  {namedCurve, oid()} | #'ECParameters'{} | #'Dss-Parms'{}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::crypto:ec_named_curve()}.
--doc(#{equiv => {type,public_key_info,0}}).
+-doc(#{equiv => public_key_info()}).
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
 -type ed_public_key()        :: {#'ECPoint'{}, ed_params()}.
@@ -188,17 +188,17 @@ provide additional options understood by the fun.
                                | 'DHParameter' | 'PrivateKeyInfo' |
 				 'CertificationRequest' | 'ContentInfo' | 'CertificateList' |
 				 'ECPrivateKey' | 'OneAsymmetricKey'| 'EcpkParameters'.
--doc(#{equiv => {type,cipher_info_params,0}}).
+-doc(#{equiv => cipher_info_params()}).
 -type pem_entry()            :: {pki_asn1_type(), 
 				 der_or_encrypted_der(),
 				 not_encrypted | cipher_info()
 				}.
--doc(#{equiv => {type,cipher_info_params,0}}).
+-doc(#{equiv => cipher_info_params()}).
 -type der_or_encrypted_der() :: binary().
--doc(#{equiv => {type,cipher_info_params,0}}).
+-doc(#{equiv => cipher_info_params()}).
 -type cipher_info()          :: {cipher(),
                                  cipher_info_params()} .
--doc(#{equiv => {type,cipher_info_params,0}}).
+-doc(#{equiv => cipher_info_params()}).
 -type cipher()               :: string() . % "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC", 
 -doc """
 ```text
@@ -212,7 +212,7 @@ Cipher = "RC2-CBC" | "DES-CBC" | "DES-EDE3-CBC"
                               | {#'PBEParameter'{}, digest_type()}
                               | #'PBES2-params'{} .
 
--doc(#{equiv => {type,cipher_info_params,0}}).
+-doc(#{equiv => cipher_info_params()}).
 -type salt()                 :: binary(). % crypto:strong_rand_bytes(8)
 -doc "ASN.1 type present in the Public Key applications ASN.1 specifications.".
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl

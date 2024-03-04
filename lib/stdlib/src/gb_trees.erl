@@ -148,8 +148,8 @@ pattern-matched from outside this module.
 There is no attempt to balance trees after deletions. As deletions do not
 increase the height of a tree, this should be OK.
 
-The original balance condition _h(T) <= ceil(c _ log(|T|))* has been changed to
-the similar (but not quite equivalent) condition *2 ^ h(T) <= |T| ^ c\*. This
+The original balance condition `h(T) <= ceil(c * log(|T|))` has been changed to
+the similar (but not quite equivalent) condition `2 ^ h(T) <= |T| ^ c`. This
 should also be OK.
 
 ## See Also
@@ -412,7 +412,9 @@ count(nil) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-Rebalances `Tree1`. Notice that this is rarely necessary, but can be motivated
+Rebalances `Tree1`.
+
+Notice that this is rarely necessary, but can be motivated
 when many nodes have been deleted from the tree without further insertions.
 Rebalancing can then be forced to minimize lookup times, as deletion does not
 rebalance the tree.
@@ -738,11 +740,13 @@ iterator(Tree) ->
 
 -doc """
 Returns an iterator that can be used for traversing the entries of `Tree` in
-either `ordered` or `reversed` direction; see `next/1`. The implementation of
-this is very efficient; traversing the whole tree using [`next/1`](`next/1`) is
-only slightly slower than getting the list of all elements using `to_list/1` and
-traversing that. The main advantage of the iterator approach is that it does not
-require the complete list of all elements to be built in memory at one time.
+either `ordered` or `reversed` direction; see `next/1`.
+
+The implementation of this is very efficient; traversing the whole tree using
+[`next/1`](`next/1`) is only slightly slower than getting the list of all
+elements using `to_list/1` and traversing that. The main advantage of the
+iterator approach is that it does not require the complete list of all elements
+to be built in memory at one time.
 """.
 -doc(#{since => <<"OTP @OTP-18874@">>}).
 -spec iterator(Tree, Order) -> Iter when

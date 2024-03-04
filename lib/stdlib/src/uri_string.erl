@@ -261,25 +261,19 @@ those characters are represented in a network protocol.
 
 The functions implemented by this module cover the following use cases:
 
-- Parsing URIs into its components and returing a map  
-  `parse/1`
-- Recomposing a map of URI components into a URI string  
-  `recompose/1`
-- Changing inbound binary and percent-encoding of URIs  
-  `transcode/2`
-- Transforming URIs into a normalized form  
-  `normalize/1`  
-  `normalize/2`
-- Composing form-urlencoded query strings from a list of key-value pairs  
-  `compose_query/1`  
-  `compose_query/2`
-- Dissecting form-urlencoded query strings into a list of key-value pairs  
+- Parsing URIs into its components and returing a map: `parse/1`
+- Recomposing a map of URI components into a URI string: `recompose/1`
+- Changing inbound binary and percent-encoding of URIs: `transcode/2`
+- Transforming URIs into a normalized form: `normalize/1`, `normalize/2`
+- Composing form-urlencoded query strings from a list of key-value pairs:
+  `compose_query/1`, `compose_query/2`
+- Dissecting form-urlencoded query strings into a list of key-value pairs:
   `dissect_query/1`
-- Decoding percent-encoded triplets in URI map or a specific component of URI  
+- Decoding percent-encoded triplets in URI map or a specific component of URI:
   `percent_decode/1`
 - Preparing and retrieving application specific data included in URI
-  components  
-  `quote/1` `quote/2` `unquote/1`
+  components:
+  `quote/1`, `quote/2`, `unquote/1`
 
 There are four different encodings present during the handling of URIs:
 
@@ -440,7 +434,7 @@ support for FTP, SSH, SFTP and TFTP.
 
 _Example:_
 
-```text
+```erlang
 1> uri_string:normalize("/a/b/c/./../../g").
 "/a/g"
 2> uri_string:normalize(<<"mid/content=5/../6">>).
@@ -464,11 +458,13 @@ normalize(URIMap) ->
 -doc """
 Same as [`normalize/1`](`normalize/1`) but with an additional `Options`
 parameter, that controls whether the normalized URI shall be returned as an
-uri_map(). There is one supported option: `return_map`.
+uri_map().
+
+There is one supported option: `return_map`.
 
 _Example:_
 
-```text
+```erlang
 1> uri_string:normalize("/a/b/c/./../../g", [return_map]).
 #{path => "/a/g"}
 2> uri_string:normalize(<<"mid/content=5/../6">>, [return_map]).
@@ -573,7 +569,7 @@ See also the opposite operation `parse/1`.
 
 _Example:_
 
-```text
+```erlang
 1> URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",
 1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
 #{fragment => "nose",host => "example.com",
@@ -618,7 +614,7 @@ form the target URI.
 
 _Example:_
 
-```text
+```erlang
 1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q").
 "http://localhost/abs/ol/ute"
 2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
@@ -646,7 +642,7 @@ one supported option: `return_map`.
 
 _Example:_
 
-```text
+```erlang
 1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q", [return_map]).
 #{host => "localhost",path => "/abs/ol/ute",scheme => "http"}
 2> uri_string:resolve(#{path => "/abs/ol/ute"}, #{scheme => "http",
@@ -688,9 +684,10 @@ resolve(URIString, BaseURIMap, Options) ->
 -doc """
 Transcodes an [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt) compliant
 `URIString`, where `Options` is a list of tagged tuples, specifying the inbound
-(`in_encoding`) and outbound (`out_encoding`) encodings. `in_encoding` and
-`out_encoding` specifies both binary encoding and percent-encoding for the input
-and output data. Mixed encoding, where binary encoding is not the same as
+(`in_encoding`) and outbound (`out_encoding`) encodings.
+
+`in_encoding` and `out_encoding` specifies both binary encoding and percent-encoding
+for the input and output data. Mixed encoding, where binary encoding is not the same as
 percent-encoding, is not supported. If an argument is invalid, an error tuple is
 returned.
 
@@ -737,9 +734,11 @@ transcode(URIString, Options) when is_list(URIString) ->
 -doc """
 This is a utility function meant to be used in the shell for printing the
 allowed characters in each major URI component, and also in the most important
-characters sets. Please note that this function does not replace the ABNF rules
-defined by the standards, these character sets are derived directly from those
-aformentioned rules. For more information see the
+characters sets.
+
+Note that this function does not replace the ABNF rules defined by the standards,
+these character sets are derived directly from those aformentioned rules. For more
+information see the
 [Uniform Resource Identifiers](uri_string_usage.md#percent_encoding) chapter in
 stdlib's Users Guide.
 """.
@@ -772,9 +771,11 @@ allowed_characters() ->
 
 -doc """
 Decodes all percent-encoded triplets in the input that can be both a
-`t:uri_string/0` and a `t:uri_map/0`. Note, that this function performs raw
-decoding and it shall be used on already parsed URI components. Applying this
-function directly on a standard URI can effectively change it.
+`t:uri_string/0` and a `t:uri_map/0`.
+
+Note, that this function performs raw decoding and it shall be used on already
+parsed URI components. Applying this function directly on a standard URI can
+effectively change it.
 
 If the input encoding is not UTF-8, an error tuple is returned.
 
@@ -926,10 +927,11 @@ unquote(D) ->
 %%-------------------------------------------------------------------------
 -doc """
 Composes a form-urlencoded `QueryString` based on a `QueryList`, a list of
-non-percent-encoded key-value pairs. Form-urlencoding is defined in section
-4.10.21.6 of the [HTML 5.2](https://www.w3.org/TR/html52/) specification and in
-section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/html50/) specification
-for non-UTF-8 encodings.
+non-percent-encoded key-value pairs.
+
+Form-urlencoding is defined in section 4.10.21.6 of the [HTML 5.2](https://www.w3.org/TR/html52/)
+specification and in section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/html50/)
+specification for non-UTF-8 encodings.
 
 See also the opposite operation `dissect_query/1`.
 
@@ -955,8 +957,9 @@ compose_query(List) ->
 -doc """
 Same as [`compose_query/1`](`compose_query/1`) but with an additional `Options`
 parameter, that controls the encoding ("charset") used by the encoding
-algorithm. There are two supported encodings: `utf8` (or `unicode`) and
-`latin1`.
+algorithm.
+
+There are two supported encodings: `utf8` (or `unicode`) and `latin1`.
 
 Each character in the entry's name and value that cannot be expressed using the
 selected character encoding, is replaced by a string consisting of a U+0026
@@ -1020,10 +1023,11 @@ compose_query([], _Options, IsList, Acc) ->
 %%-------------------------------------------------------------------------
 -doc """
 Dissects an urlencoded `QueryString` and returns a `QueryList`, a list of
-non-percent-encoded key-value pairs. Form-urlencoding is defined in section
-4.10.21.6 of the [HTML 5.2](https://www.w3.org/TR/html52/) specification and in
-section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/html50/) specification
-for non-UTF-8 encodings.
+non-percent-encoded key-value pairs.
+
+Form-urlencoding is defined in section 4.10.21.6 of the [HTML 5.2](https://www.w3.org/TR/html52/)
+specification and in section 4.10.22.6 of the [HTML 5.0](https://www.w3.org/TR/html50/)
+specification for non-UTF-8 encodings.
 
 See also the opposite operation `compose_query/1`.
 

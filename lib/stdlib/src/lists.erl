@@ -620,7 +620,7 @@ delete(_, []) -> [].
 %% Return [{X0, Y0}, {X1, Y1}, ..., {Xn, Yn}] for lists [X0, X1, ...,
 %% Xn] and [Y0, Y1, ..., Yn].
 
--doc(#{equiv => zip/3}).
+-doc(#{equiv => zip(List1, List2, fail)}).
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zip(List1, List2) -> List3 when
       List1 :: [A],
@@ -717,7 +717,7 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
 %% Return [{X0, Y0, Z0}, {X1, Y1, Z1}, ..., {Xn, Yn, Zn}] for lists [X0,
 %% X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
--doc(#{equiv => zip3/4}).
+-doc(#{equiv => zip3(List1, List2, List3, fail)}).
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zip3(List1, List2, List3) -> List4 when
       List1 :: [A],
@@ -802,7 +802,7 @@ unzip3([], Xs, Ys, Zs) ->
 %% Return [F(X0, Y0), F(X1, Y1), ..., F(Xn, Yn)] for lists [X0, X1, ...,
 %% Xn] and [Y0, Y1, ..., Yn].
 
--doc(#{equiv => zipwith/4}).
+-doc(#{equiv => zipwith(Combine, List1, List2, fail)}).
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith(Combine, List1, List2) -> List3 when
       Combine :: fun((X, Y) -> T),
@@ -864,7 +864,7 @@ zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
 %% Return [F(X0, Y0, Z0), F(X1, Y1, Z1), ..., F(Xn, Yn, Zn)] for lists
 %% [X0, X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
--doc(#{equiv => zipwith3/5}).
+-doc(#{equiv => zipwith3(Combine, List1, List2, List3, fail)}).
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith3(Combine, List1, List2, List3) -> List4 when
       Combine :: fun((X, Y, Z) -> T),
@@ -993,9 +993,10 @@ sort_1(X, [], R) ->
 
 -doc """
 Returns the sorted list formed by merging all the sublists of `ListOfLists`. All
-sublists must be sorted before evaluating this function. When two elements
-compare equal, the element from the sublist with the lowest position in
-`ListOfLists` is picked before the other element.
+sublists must be sorted before evaluating this function.
+
+When two elements compare equal, the element from the sublist with the lowest
+position in `ListOfLists` is picked before the other element.
 """.
 -spec merge(ListOfLists) -> List1 when
       ListOfLists :: [List],
@@ -1012,6 +1013,7 @@ merge(L) ->
 -doc """
 Returns the sorted list formed by merging `List1`, `List2`, and `List3`. All of
 `List1`, `List2`, and `List3` must be sorted before evaluating this function.
+
 When two elements compare equal, the element from `List1`, if there is such an
 element, is picked before the other element, otherwise the element from `List2`
 is picked before the element from `List3`.
@@ -1070,9 +1072,10 @@ rmerge3([], [], []) ->
 
 -doc """
 Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
-`List2` must be sorted before evaluating this function. When two elements
-compare equal, the element from `List1` is picked before the element from
-`List2`.
+`List2` must be sorted before evaluating this function.
+
+When two elements compare equal, the element from `List1` is picked before the
+element from `List2`.
 """.
 -spec merge(List1, List2) -> List3 when
       List1 :: [X],
@@ -1362,8 +1365,9 @@ keysort_1(_I, X, _EX, [], R) ->
     lists:reverse(R, [X]).
 
 -doc """
-Returns the sorted list formed by merging `TupleList1` and `TupleList2`. The
-merge is performed on the `N`th element of each tuple. Both `TupleList1` and
+Returns the sorted list formed by merging `TupleList1` and `TupleList2`.
+
+The merge is performed on the `N`th element of each tuple. Both `TupleList1` and
 `TupleList2` must be key-sorted before evaluating this function. When two tuples
 compare equal, the tuple from `TupleList1` is picked before the tuple from
 `TupleList2`.
@@ -1489,7 +1493,9 @@ ukeysort_1(_I, X, _EX, []) ->
 Returns the sorted list formed by merging `TupleList1` and `TupleList2`. The
 merge is performed on the `N`th element of each tuple. Both `TupleList1` and
 `TupleList2` must be key-sorted without duplicates before evaluating this
-function. When two tuples compare equal, the tuple from `TupleList1` is picked
+function.
+
+When two tuples compare equal, the tuple from `TupleList1` is picked
 and the one from `TupleList2` is deleted.
 """.
 -spec ukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
@@ -1561,7 +1567,7 @@ keymap(Fun, Index, [Tup|Tail]) ->
 keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
                             is_function(Fun, 1) -> [].
 
--doc(#{equiv => enumerate/3}).
+-doc(#{equiv => enumerate(1, 1, List1)}).
 -doc(#{since => <<"OTP 25.0,OTP 26.0">>}).
 -spec enumerate(List1) -> List2 when
       List1 :: [T],
@@ -1571,7 +1577,7 @@ keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
 enumerate(List1) ->
     enumerate(1, 1, List1).
 
--doc(#{equiv => enumerate/3}).
+-doc(#{equiv => enumerate(Index, 1, List1)}).
 -doc(#{since => <<"OTP 25.0,OTP 26.0">>}).
 -spec enumerate(Index, List1) -> List2 when
       List1 :: [T],
@@ -1659,7 +1665,9 @@ sort(Fun, [X, Y | T]) ->
 Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
 `List2` must be sorted according to the
 [ordering function](`m:lists#ordering_function`) `Fun` before evaluating this
-function. `Fun(A, B)` is to return `true` if `A` compares less than or equal to
+function.
+
+`Fun(A, B)` is to return `true` if `A` compares less than or equal to
 `B` in the ordering, otherwise `false`. When two elements compare equal, the
 element from `List1` is picked before the element from `List2`.
 """.
@@ -1742,7 +1750,9 @@ usort_1(Fun, X, [Y | L]) ->
 Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
 `List2` must be sorted according to the
 [ordering function](`m:lists#ordering_function`) `Fun` and contain no duplicates
-before evaluating this function. `Fun(A, B)` is to return `true` if `A` compares
+before evaluating this function.
+
+`Fun(A, B)` is to return `true` if `A` compares
 less than or equal to `B` in the ordering, otherwise `false`. When two elements
 compare equal, the element from `List1` is picked and the one from `List2` is
 deleted.
@@ -1852,7 +1862,9 @@ usort_1(X, []) ->
 -doc """
 Returns the sorted list formed by merging all the sublists of `ListOfLists`. All
 sublists must be sorted and contain no duplicates before evaluating this
-function. When two elements compare equal, the element from the sublist with the
+function.
+
+When two elements compare equal, the element from the sublist with the
 lowest position in `ListOfLists` is picked and the other is deleted.
 """.
 -spec umerge(ListOfLists) -> List1 when
@@ -1871,7 +1883,9 @@ umerge(L) ->
 -doc """
 Returns the sorted list formed by merging `List1`, `List2`, and `List3`. All of
 `List1`, `List2`, and `List3` must be sorted and contain no duplicates before
-evaluating this function. When two elements compare equal, the element from
+evaluating this function.
+
+When two elements compare equal, the element from
 `List1` is picked if there is such an element, otherwise the element from
 `List2` is picked, and the other is deleted.
 """.
@@ -1931,7 +1945,9 @@ rumerge3([], [], []) ->
 -doc """
 Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
 `List2` must be sorted and contain no duplicates before evaluating this
-function. When two elements compare equal, the element from `List1` is picked
+function.
+
+When two elements compare equal, the element from `List1` is picked
 and the one from `List2` is deleted.
 """.
 -spec umerge(List1, List2) -> List3 when
@@ -2225,10 +2241,12 @@ partition_1(_Pred, [], As, Bs) ->
     {reverse(As), reverse(Bs)}.
 
 -doc """
-Calls `Fun(Elem)` on successive elements `Elem` of `List1`. `Fun/1` must return
-either a Boolean or a tuple `{true, Value}`. The function returns the list of
-elements for which `Fun` returns a new value, where a value of `true` is
-synonymous with `{true, Elem}`.
+Calls `Fun(Elem)` on successive elements `Elem` of `List1` in order to update or
+remove elements from `List1`.
+
+`Fun/1` must return either a Boolean or a tuple `{true, Value}`. The function
+returns the list of elements for which `Fun` returns a new value, where a value
+of `true` is synonymous with `{true, Elem}`.
 
 That is, `filtermap` behaves as if it had been defined as follows:
 

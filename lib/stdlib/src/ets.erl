@@ -1637,7 +1637,7 @@ setopts(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-This function is mostly for debugging purposes, Normally `first`/`next` or
+This function is mostly for debugging purposes, normally `first`/`next` or
 `last`/`prev` are to be used instead.
 
 Returns all objects in slot `I` of table `Table`. A table can be traversed by
@@ -1676,7 +1676,7 @@ take(_, _) ->
 
 -doc(#{equiv => update_counter/4}).
 -doc(#{since => <<"OTP 18.0">>}).
--spec update_counter(Table, Key, UpdateOp) -> Result when
+-spec update_counter(Table, Key, UpdateOp | [UpdateOp] | Incr) -> Result | [Result] when
       Table :: table(),
       Key :: term(),
       UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
@@ -1684,20 +1684,6 @@ take(_, _) ->
       Incr :: integer(),
       Threshold :: integer(),
       SetValue :: integer(),
-      Result :: integer();
-                       (Table, Key, [UpdateOp]) -> [Result] when
-      Table :: table(),
-      Key :: term(),
-      UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
-      Pos :: integer(),
-      Incr :: integer(),
-      Threshold :: integer(),
-      SetValue :: integer(),
-      Result :: integer();
-                       (Table, Key, Incr) -> Result when
-      Table :: table(),
-      Key :: term(),
-      Incr :: integer(),
       Result :: integer().
 
 update_counter(_, _, _) ->
@@ -1753,48 +1739,27 @@ The function fails with reason `badarg` in the following situations:
 - Any of `Pos`, `Incr`, `Threshold`, or `SetValue` is not an integer.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec update_counter(Table, Key, UpdateOp, Default) -> Result when
-                        Table :: table(),
-                        Key :: term(),
-                        UpdateOp :: {Pos, Incr}
-                                  | {Pos, Incr, Threshold, SetValue},
-                        Pos :: integer(),
-                        Incr :: integer(),
-                        Threshold :: integer(),
-                        SetValue :: integer(),
-                        Result :: integer(),
-                        Default :: tuple();
-                    (Table, Key, [UpdateOp], Default) -> [Result] when
-                        Table :: table(),
-                        Key :: term(),
-                        UpdateOp :: {Pos, Incr}
-                                  | {Pos, Incr, Threshold, SetValue},
-                        Pos :: integer(),
-                        Incr :: integer(),
-                        Threshold :: integer(),
-                        SetValue :: integer(),
-                        Result :: integer(),
-                        Default :: tuple();
-                    (Table, Key, Incr, Default) -> Result when
-                        Table :: table(),
-                        Key :: term(),
-                        Incr :: integer(),
-                        Result :: integer(),
-                        Default :: tuple().
+-spec update_counter(Table, Key, UpdateOp | Incr | [UpdateOp], Default) -> Result | [Result] when
+      Table :: table(),
+      Key :: term(),
+      UpdateOp :: {Pos, Incr}
+                | {Pos, Incr, Threshold, SetValue},
+      Pos :: integer(),
+      Incr :: integer(),
+      Threshold :: integer(),
+      SetValue :: integer(),
+      Result :: integer(),
+      Default :: tuple().
 
 update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_element/4}).
 -doc(#{since => <<"OTP @OTP-18870@">>}).
--spec update_element(Table, Key, ElementSpec :: {Pos, Value}) -> boolean() when
+-spec update_element(Table, Key, ElementSpec) -> boolean() when
       Table :: table(),
       Key :: term(),
-      Pos :: pos_integer(),
-      Value :: term();
-                       (Table, Key, ElementSpec :: [{Pos, Value}]) -> boolean() when
-      Table :: table(),
-      Key :: term(),
+      ElementSpec :: {Pos, Value} | [{Pos, Value}],
       Pos :: pos_integer(),
       Value :: term().
 
@@ -1834,15 +1799,10 @@ The function fails with reason `badarg` in the following situations:
 - The element to update is also the key.
 """.
 -doc(#{since => <<"OTP @OTP-18870@">>}).
--spec update_element(Table, Key, ElementSpec :: {Pos, Value}, Default) -> true when
+-spec update_element(Table, Key, ElementSpec, Default) -> true when
       Table :: table(),
       Key :: term(),
-      Pos :: pos_integer(),
-      Value :: term(),
-      Default :: tuple();
-                       (Table, Key, ElementSpec :: [{Pos, Value}], Default) -> true when
-      Table :: table(),
-      Key :: term(),
+      ElementSpec :: {Pos, Value} | [{Pos, Value}],
       Pos :: pos_integer(),
       Value :: term(),
       Default :: tuple().
@@ -2058,7 +2018,7 @@ must be literally in the call when used from the shell as well.
 > by including header file `ms_transform.hrl`, compiled code never calls the
 > function, but the function call is replaced by a literal match specification.
 
-For more information, see [`ms_transform`](`m:ms_transform#top`).
+For more information, see [`ms_transform`](`m:ms_transform`).
 """.
 -spec fun2ms(LiteralFun) -> MatchSpec when
       LiteralFun :: function(),

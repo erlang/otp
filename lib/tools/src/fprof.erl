@@ -3004,7 +3004,7 @@ trace_clock_1(Table, Pid, T, TS, Caller, Func, Clock) ->
 
 clock_add(Table, Id, Clock, T) ->
     ?dbg(1, "clock_add(Table, ~w, ~w, ~w)~n", [Id, Clock, T]),
-    try ets:update_counter(Table, Id, {Clock, T}), ok
+    try _ = ets:update_counter(Table, Id, {Clock, T}), ok
     catch
 	error:badarg ->
 	    ets:insert(Table, #clocks{id = Id}),

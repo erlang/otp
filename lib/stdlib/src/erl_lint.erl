@@ -48,20 +48,18 @@ The functions in this module are invoked automatically by the Erlang compiler.
 There is no reason to invoke these functions separately unless you have written
 your own Erlang compiler.
 
-[](){: #errorinfo }
-
 ## Error Information
 
 `ErrorInfo` is the standard `ErrorInfo` structure that is returned from all I/O
 modules. The format is as follows:
 
-```text
+```erlang
 {ErrorLine, Module, ErrorDescriptor}
 ```
 
 A string describing the error is obtained with the following call:
 
-```text
+```erlang
 Module:format_error(ErrorDescriptor)
 ```
 
@@ -241,7 +239,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 -doc """
 Takes an `ErrorDescriptor` and returns a string that describes the error or
 warning. This function is usually called implicitly when processing an
-`ErrorInfo` structure (see section [Error Information](`m:erl_lint#errorinfo`)).
+`ErrorInfo` structure (see section [Error Information](`m:erl_lint#module-error-information`)).
 """.
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
       ErrorDescriptor :: error_description().
