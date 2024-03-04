@@ -528,8 +528,9 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, Arity, #docs_v1{ docs = Docs }=D, Config)
+render(Module, Function, Arity, #docs_v1{}=DocV1, Config)
   when is_atom(Module), is_atom(Function), is_integer(Arity), is_map(Config) ->
+  #docs_v1{ docs = Docs }=D = doc_html:markdown_to_shelldoc(DocV1),
     render_function(
       lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                            F =:= Function andalso A =:= Arity;
@@ -1226,5 +1227,5 @@ ansi(Curr) ->
     end.
 
 format_doc(Module) ->
-  {ok, Doc}=_R = code:get_doc(Module),
+  {ok, Doc} = code:get_doc(Module),
   doc_html:markdown_to_shelldoc(Doc).
