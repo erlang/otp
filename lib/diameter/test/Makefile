@@ -55,6 +55,7 @@ DATA_DIRS = $(sort $(dir $(DATA)))
 # This is only used to compile suite locally when running with a
 # target like 'all' below. Target release_tests only installs source.
 ERL_COMPILE_FLAGS += +warn_export_vars \
+		     +nowarn_missing_spec_documented \
                      +warn_unused_vars \
                      -I ../include \
                      -I ../src/gen \

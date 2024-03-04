@@ -118,7 +118,7 @@ hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
-          [{{function,handle_call,1},{19,2},[<<"handle_call/1">>],hidden,#{}},
+          [{{function,handle_call,1},{16,2},[<<"handle_call/1">>],hidden,#{}},
            {{function, main, 0}, _, [<<"main()">>], hidden, #{}}]}} = code:get_doc(ModName),
     ok.
 
@@ -201,10 +201,10 @@ types_and_opaques(Conf) ->
            UsesPublic, Ignore, MapFun, PrivateEncoding, Foo
           ]}} = code:get_doc(ModName),
 
-    {{type,public,0},{128,2},[<<"public()">>],none,#{exported := true}} = Public,
-    {{type,intermediate,0},{127,2},[<<"intermediate()">>],none,#{exported := false}} = Intermediate,
-    {{type,hidden_nowarn_type,0},{123,2},[<<"hidden_nowarn_type()">>],hidden,#{exported := false}} = HiddenNoWarnType,
-    {{type,hidden_type,0},{120,2},[<<"hidden_type()">>],hidden,#{exported := false}} = HiddenType,
+    {{type,public,0},{125,2},[<<"public()">>],none,#{exported := true}} = Public,
+    {{type,intermediate,0},{124,2},[<<"intermediate()">>],none,#{exported := false}} = Intermediate,
+    {{type,hidden_nowarn_type,0},{120,2},[<<"hidden_nowarn_type()">>],hidden,#{exported := false}} = HiddenNoWarnType,
+    {{type,hidden_type,0},{117,2},[<<"hidden_type()">>],hidden,#{exported := false}} = HiddenType,
     {{type,my_other_private_type,0},MyOtherPrivateTypeLine,
               [<<"my_other_private_type()">>],none,#{exported := false}} = OtherPrivateType,
     {{type,my_private_type,0},MyPrivateTypeLine,
@@ -230,22 +230,22 @@ types_and_opaques(Conf) ->
     {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}} = Name,
     {{type, hidden_included_type, 0}, _, _, hidden, #{exported := false }} = HiddenIncludedType,
 
-    {{function,uses_public,0},{131,1},[<<"uses_public()">>],none,#{}} = UsesPublic,
+    {{function,uses_public,0},{128,1},[<<"uses_public()">>],none,#{}} = UsesPublic,
     {{function,ignore_type_from_hidden_fun,0},_,[<<"ignore_type_from_hidden_fun()">>],hidden,#{}} = Ignore,
     {{function,map_fun,0},_,[<<"map_fun()">>],none,#{}} = MapFun,
     {{function,private_encoding_func,2},_,[<<"private_encoding_func(Data, Options)">>],none,#{}} = PrivateEncoding,
     {{function,foo,0},_,[<<"foo()">>],none,#{}} = Foo,
 
-    ?assertEqual(106, erl_anno:line(MyOtherPrivateTypeLine)),
-    ?assertEqual(105, erl_anno:line(MyPrivateTypeLine)),
-    ?assertEqual(102, erl_anno:line(MyMapLine)),
-    ?assertEqual(99, erl_anno:line(StateEnterLine)),
-    ?assertEqual(98, erl_anno:line(CallbackModeLine)),
-    ?assertEqual(96, erl_anno:line(CallbackResultLine)),
+    ?assertEqual(103, erl_anno:line(MyOtherPrivateTypeLine)),
+    ?assertEqual(102, erl_anno:line(MyPrivateTypeLine)),
+    ?assertEqual(99, erl_anno:line(MyMapLine)),
+    ?assertEqual(96, erl_anno:line(StateEnterLine)),
+    ?assertEqual(95, erl_anno:line(CallbackModeLine)),
+    ?assertEqual(93, erl_anno:line(CallbackResultLine)),
 
     [{File, Ws}, {HrlFile, HrlWs}] = Warnings,
     ?assertEqual("types_and_opaques.erl", filename:basename(File)),
-    ?assertEqual({{120,2}, beam_doc,
+    ?assertEqual({{117,2}, beam_doc,
                   {hidden_type_used_in_exported_fun,{hidden_type,0}}}, lists:nth(4, Ws)),
 
     ?assertEqual("types_and_opaques.hrl", filename:basename(HrlFile)),
@@ -550,10 +550,10 @@ spec_switch_order(Conf) ->
 
     {ok, {docs_v1, _ModuleAnno,_, _, _, _,
           [NotFalse, Other, Bar, Foo]}} = code:get_doc(ModName),
-  {{function,not_false,0}, {53,1}, [<<"not_false()">>], none,#{}} = NotFalse,
-  {{function,other,0},{37,2},[<<"other()">>],hidden,#{}} = Other,
-  {{function,bar,1},{31,2},[<<"bar(X)">>],hidden,#{}} = Bar,
-  {{function,foo,1}, {23, 2}, [<<"foo(Var)">>], #{ <<"en">> := <<"Foo does X">> }, #{}} = Foo.
+  {{function,not_false,0}, {52,1}, [<<"not_false()">>], none,#{}} = NotFalse,
+  {{function,other,0},{36,2},[<<"other()">>],hidden,#{}} = Other,
+  {{function,bar,1},{30,2},[<<"bar(X)">>],hidden,#{}} = Bar,
+  {{function,foo,1}, {22, 2}, [<<"foo(Var)">>], #{ <<"en">> := <<"Foo does X">> }, #{}} = Foo.
 
 skip_doc(Conf) ->
   ModuleName =?get_name(),

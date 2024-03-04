@@ -30,7 +30,7 @@ TESTMODS = sudoku sudoku_board sudoku_game sudoku_gui
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
-ERL_COMPILE_FLAGS += +nowarn_missing_doc
+ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented
 
 # Targets
 $(TYPES):	$(TESTTARGETS)

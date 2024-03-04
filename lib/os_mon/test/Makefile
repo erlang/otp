@@ -54,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/os_mon_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/snmp/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/snmp/include +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------

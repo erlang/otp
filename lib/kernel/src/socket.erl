@@ -4477,35 +4477,55 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
 sendfile(Socket, FileHandle) -> Result
 
 The same as
-[`sendfile(Socket, FileHandle, 0, 0, infinity), `](`m:socket#sendfile-infinity`)that
+[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), that
 is: send all data in the file to the socket, without time-out other than from
 the platform's network stack.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
+-spec sendfile(socket(), file:fd()) ->
+          {ok, BytesSent} |
+          {error, Reason} |
+          {error, {Reason, BytesSent}} when
+      Reason :: posix() | closed | invalid(),
+      BytesSent :: non_neg_integer().
 sendfile(Socket, FileHandle) ->
     sendfile(Socket, FileHandle, 0, 0, infinity).
 
 -doc """
-sendfile(Socket, FileHandle, Timeout) -> Result
-
 Depending on the `Timeout` argument; the same as
-[`sendfile(Socket, FileHandle, 0, 0, infinity), `](`m:socket#sendfile-infinity`)[`sendfile(Socket, FileHandle, 0, 0, Timeout), `](`m:socket#sendfile-timeout`)or
-[`sendfile(Socket, FileHandle, 0, 0, SelectHandle), `](`m:socket#sendfile-nowait`)that
+[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), [`sendfile(Socket, FileHandle, 0, 0, Timeout)`](`m:socket#sendfile-timeout`), or
+[`sendfile(Socket, FileHandle, 0, 0, SelectHandle)`](`m:socket#sendfile-nowait`), that
 is: send all data in the file to the socket, with the given `Timeout`.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
+-spec sendfile(socket(), file:fd(), Timeout) ->
+          {ok, BytesSent} |
+          {select, SelectInfo} |
+          {select, {SelectInfo, BytesSent}} |
+          {error, Reason} |
+          {error, {Reason, BytesSent}} when
+      SelectInfo :: select_info(),
+      Timeout :: timeout() | 'nowait' | select_handle(),
+      Reason :: posix() | closed | invalid() | timeout,
+      BytesSent :: non_neg_integer().
 sendfile(Socket, FileHandle, Timeout) ->
     sendfile(Socket, FileHandle, 0, 0, Timeout).
 
 -doc """
-sendfile(Socket, FileHandle, Offset, Count) -> Result
-
 The same as
-[`sendfile(Socket, FileHandle, Offset, Count, infinity), `](`m:socket#sendfile-infinity`)that
+[`sendfile(Socket, FileHandle, Offset, Count, infinity)`](`m:socket#sendfile-infinity`), that
 is: send the file data at `Offset` and `Count` to the socket, without time-out
 other than from the platform's network stack.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
+-spec sendfile(socket(), file:fd(), Offset, Count) ->
+          {ok, BytesSent} |
+          {error, Reason} |
+          {error, {Reason, BytesSent}} when
+      Offset :: integer(),
+      Count :: non_neg_integer(),
+      Reason :: posix() | closed | invalid(),
+      BytesSent :: non_neg_integer().
 sendfile(Socket, FileHandle_Cont, Offset, Count) ->
     sendfile(Socket, FileHandle_Cont, Offset, Count, infinity).
 
@@ -6281,6 +6301,8 @@ Backwards compatibility function.
 The same as [`setopt(Socket, {Level, Opt}, Value)`](`setopt/3`)
 """.
 -doc(#{since => <<"OTP 22.0">>}).
+-spec setopt(socket(), 'otp' | level(), term(), term()) ->
+          'ok' | {'error', posix() | invalid() | 'closed'}.
 setopt(Socket, Level, Opt, Value)
   when is_integer(Opt), is_binary(Value) ->
     setopt_native(Socket, {Level,Opt}, Value);
@@ -6387,6 +6409,9 @@ Backwards compatibility function.
 The same as [`getopt(Socket, {Level, Opt})`](`getopt/2`)
 """.
 -doc(#{since => <<"OTP 22.0">>}).
+-spec getopt(socket(), otp | level(), term()) ->
+          {'ok', Value :: term()} |
+          {'error', posix() | invalid() | 'closed'}.
 getopt(Socket, Level, {NativeOpt, ValueSpec})
   when is_integer(NativeOpt) ->
     getopt_native(Socket, {Level,NativeOpt}, ValueSpec);

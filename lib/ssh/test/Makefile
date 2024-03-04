@@ -98,7 +98,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssh_test
 
 INCLUDES = -I$(ERL_TOP)/lib/ssh/src
 
-ERL_COMPILE_FLAGS += $(INCLUDES) -pa ../ebin
+ERL_COMPILE_FLAGS += $(INCLUDES) -pa ../ebin +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

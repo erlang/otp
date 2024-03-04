@@ -50,7 +50,7 @@ RELSYSDIR = $(RELEASE_PATH)/reltool_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/reltool/ebin/
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/reltool/ebin/ +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

@@ -692,6 +692,10 @@ value are listed.
   specification (or contract) for an exported function is not given. Use this
   option to turn on this kind of warning.
 
+- **`warn_missing_spec_documented`** - By default, warnings are not emitted when a
+  specification (or contract) for a documented function is not given. Use this
+  option to turn on this kind of warning.
+
 - **`warn_missing_spec_all`** - By default, warnings are not emitted when a
   specification (or contract) for an exported or unexported function is not
   given. Use this option to turn on this kind of warning.

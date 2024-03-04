@@ -73,6 +73,7 @@ code:load_abs("$PATH/user_default").
 -import(io, [format/1]).
 
 -doc "Print the help for all shell internal commands.".
+-spec help() -> true.
 help() ->
     format("** shell internal commands **~n"),
     format("b()        -- display all variable bindings\n"),

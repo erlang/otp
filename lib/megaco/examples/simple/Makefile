@@ -67,7 +67,7 @@ endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
-	+nowarn_missing_doc \
+	+nowarn_missing_doc +nowarn_missing_spec_documented \
 	-I../../include
 
 ifneq ($(MGC_HOST),)

@@ -915,7 +915,7 @@ unused_import(Config) when is_list(Config) ->
 
 documentation_attributes(Config) when is_list(Config) ->
     Ts = [{error_moduledoc,
-          <<"-moduledoc \"\"\"
+           "-moduledoc \"\"\"
              Error
              \"\"\".
              -import(lists, []).
@@ -924,10 +924,30 @@ documentation_attributes(Config) when is_list(Config) ->
              Duplicate entry
              \"\"\".
              main() -> error.
-            ">>,
+            ",
           [],
           {errors,[{{6,15},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
 
+          {error_moduledoc,
+           "-moduledoc \"Error\".
+            -moduledoc false.
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
+
+          {error_moduledoc,
+           "-moduledoc \"Error\".
+            -moduledoc hidden.
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
+
+          {error_moduledoc,
+           "-moduledoc hidden.
+            -moduledoc \"Error\".
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_import,
           <<"-doc \"\"\"
@@ -949,9 +969,7 @@ documentation_attributes(Config) when is_list(Config) ->
               \"\"\".
               -export([]).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc false.
               main() -> error.
             ">>,
           [],
@@ -963,18 +981,14 @@ documentation_attributes(Config) when is_list(Config) ->
               \"\"\".
               -export_type([]).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc hidden.
               main() -> error.
             ">>,
           [],
           {errors,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_include,
-           <<"-doc \"\"\"
-              Error
-              \"\"\".
+           <<"-doc hidden.
               -include_lib(\"common_test/include/ct.hrl\").
 
               -doc \"\"\"
@@ -983,24 +997,20 @@ documentation_attributes(Config) when is_list(Config) ->
               main() -> error.
             ">>,
           [],
-          {errors,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
+          {errors,[{{4,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_behaviour,
-           <<"-doc \"\"\"
-              Error
-              \"\"\".
+           <<"-doc false.
               -behaviour(gen_server).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc hidden.
               main() -> error.
             ">>,
           [],
-          {error,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}],
-           [{{4,16},erl_lint,{undefined_behaviour_func,{handle_call,3},gen_server}},
-            {{4,16},erl_lint,{undefined_behaviour_func,{handle_cast,2},gen_server}},
-            {{4,16},erl_lint,{undefined_behaviour_func,{init,1},gen_server}}]}},
+          {error,[{{4,16},erl_lint,{doc,duplicate_doc_attribute,1}}],
+           [{{2,16},erl_lint,{undefined_behaviour_func,{handle_call,3},gen_server}},
+            {{2,16},erl_lint,{undefined_behaviour_func,{handle_cast,2},gen_server}},
+            {{2,16},erl_lint,{undefined_behaviour_func,{init,1},gen_server}}]}},
 
           {ok_doc_in_wrong_position,
            <<"-doc \"\"\"
@@ -4867,28 +4877,51 @@ no_load_nif(Config) when is_list(Config) ->
     ok.
 
 warn_missing_spec(Config) ->
-    Test = <<"-export([external_with_spec/0, external_no_spec/0]).
+    Test = ~"""
+-export([external_with_spec/0, external_no_spec/0,
+         hidden_with_spec/0, hidden_no_spec/0]).
 
-              -spec external_with_spec() -> ok.
-              external_with_spec() -> ok.
+-spec external_with_spec() -> ok.
+external_with_spec() -> ok.
 
-              external_no_spec() -> ok.
+external_no_spec() -> ok.
 
-              -spec internal_with_spec() -> ok.
-              internal_with_spec() -> ok.
+-spec hidden_with_spec() -> ok.
+-doc hidden.
+hidden_with_spec() -> ok.
 
-              internal_no_spec() -> ok.">>,
+-doc hidden.
+hidden_no_spec() -> ok.
+
+-spec internal_with_spec() -> ok.
+internal_with_spec() -> ok.
+
+internal_no_spec() -> ok.
+""",
 
     %% Be sure to avoid adding export_all using the option-list-in-a-tuple trick.
-    {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}}]} =
+    {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}}]} =
+        run_test(Config, Test, {[warn_missing_spec_documented, nowarn_unused_function]}),
+
+    [] = run_test(Config, ["-moduledoc false.\n",Test],
+                  {[warn_missing_spec_documented, nowarn_unused_function]}),
+
+    {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                {{14,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}}]} =
         run_test(Config, Test, {[warn_missing_spec, nowarn_unused_function]}),
 
+    {warnings, [{{8,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                {{15,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}}]} =
+        run_test(Config, ["-moduledoc false.\n",Test],
+                 {[warn_missing_spec, nowarn_unused_function]}),
+
     Ts = [{warn_missing_spec_all, Test, [warn_missing_spec_all],
-           {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}},
-                       {{11,15}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}},
+           {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                       {{14,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}},
+                       {{19,1}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}},
           {warn_missing_spec_export_all,
            <<"-compile([export_all, nowarn_export_all]).
-              -compile([warn_missing_spec]).
+              -compile([warn_missing_spec_documented]).
               main(_) -> ok.
              ">>,
            [],

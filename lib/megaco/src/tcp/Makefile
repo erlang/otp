@@ -61,7 +61,8 @@ include ../app/megaco.mk
 
 ERL_COMPILE_FLAGS += \
 	$(MEGACO_ERL_COMPILE_FLAGS) \
-	-I../../include
+	-I../../include \
+        +nowarn_missing_spec_documented
 
 
 # ----------------------------------------------------

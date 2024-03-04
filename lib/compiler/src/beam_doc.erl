@@ -36,8 +36,6 @@
 
 -include_lib("kernel/include/eep48.hrl").
 
--moduledoc false.
-
 -define(DEFAULT_MODULE_DOC_LOC, 1).
 -define(DEFAULT_FORMAT, <<"text/markdown">>).
 
@@ -313,18 +311,18 @@ preprocessing(AST, State) ->
                              Funs = [% Order matters
                                      fun has_docs/2,
                                      fun extract_deprecated/2,
-                                     fun extract_exported_types0/2, % done
-                                     fun extract_signature_from_spec0/2,%done
+                                     fun extract_exported_types0/2,
+                                     fun extract_signature_from_spec0/2,
                                      fun track_documentation/2,      %must be before upsert_documentation_from_terminal_item/2
                                      fun upsert_documentation_from_terminal_item/2,
-                                     fun extract_docformat0/2, %done
-                                     fun extract_moduledoc0/2, %done
-                                     fun extract_module_meta/2, %done
-                                     fun extract_exported_funs/2, %done
-                                     fun extract_file/2, %done
+                                     fun extract_docformat0/2,
+                                     fun extract_moduledoc0/2,
+                                     fun extract_module_meta/2,
+                                     fun extract_exported_funs/2,
+                                     fun extract_file/2,
                                      fun extract_record/2,
-                                     fun extract_hidden_types0/2, %done
-                                     fun extract_type_defs0/2,    %done
+                                     fun extract_hidden_types0/2,
+                                     fun extract_type_defs0/2,
                                      fun extract_type_dependencies/2],
                              foldl(fun (F, State1) -> F(AST0, State1) end, State0, Funs)
                        end,

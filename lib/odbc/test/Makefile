@@ -71,7 +71,7 @@ RELSYSDIR = $(RELEASE_PATH)/odbc_test
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS += $(INCLUDES) \
-
+		+nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------
