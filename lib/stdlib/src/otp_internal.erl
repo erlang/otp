@@ -9,8 +9,10 @@
 %%
 %%    -deprecated([{foo,1,"use bar/1 instead"}]).
 %%    -deprecated_type([{gadget,1,"use widget/1 instead"}]).
+%%    -deprecated_callback([{gadget,1,"use widget/1 instead"}]).
 %%    -removed([{hello,2,"use there/2 instead"}]).
 %%    -removed_type([{frobnitz,1,"use grunka/1 instead"}]).
+%%    -removed_callback([{frobnitz,1,"use grunka/1 instead"}]).
 %%
 %% Descriptions cannot be given with the `f/1` shorthand, and
 %% it will fall back to a generic description referring the
@@ -292,4 +294,13 @@ obsolete_type(http_uri, uri, 0) ->
 obsolete_type(http_uri, user_info, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(_,_,_) -> no.
+
+-dialyzer({no_match, obsolete_callback/3}).
+obsolete_callback(gen_event, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_server, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_statem, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(_,_,_) -> no.
 

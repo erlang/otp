@@ -370,6 +370,8 @@ format_error({removed, MFA, String}) when is_list(String) ->
     io_lib:format("~s is removed; ~s", [format_mfa(MFA), String]);
 format_error({removed_type, MNA, String}) ->
     io_lib:format("the type ~s is removed; ~s", [format_mna(MNA), String]);
+format_error({removed_callback, MNA, String}) ->
+    io_lib:format("the callback ~s is removed; ~s", [format_mna(MNA), String]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete (use is_~p/~p)", [F, A, F, A]);
 format_error({obsolete_guard_overridden,Test}) ->
@@ -748,6 +750,9 @@ start(File, Opts) ->
 		      true, Opts)},
 	 {deprecated_type,
 	  bool_option(warn_deprecated_type, nowarn_deprecated_type,
+		      true, Opts)},
+	 {deprecated_callback,
+	  bool_option(warn_deprecated_callback, nowarn_deprecated_callback,
 		      true, Opts)},
          {obsolete_guard,
           bool_option(warn_obsolete_guard, nowarn_obsolete_guard,
@@ -1202,7 +1207,7 @@ check_behaviour(St0) ->
 
 behaviour_check(Bs, St0) ->
     {AllBfs0, St1} = all_behaviour_callbacks(Bs, [], St0),
-    St = behaviour_missing_callbacks(AllBfs0, St1),
+    St2 = behaviour_missing_callbacks(AllBfs0, St1),
     Exports = exports(St0),
     F = fun(Bfs, OBfs) ->
                 [B || B <- Bfs,
@@ -1211,7 +1216,8 @@ behaviour_check(Bs, St0) ->
         end,
     %% After fixing missing callbacks new warnings may be emitted.
     AllBfs = [{Item,F(Bfs0, OBfs0)} || {Item,Bfs0,OBfs0} <- AllBfs0],
-    behaviour_conflicting(AllBfs, St).
+    St3 = behaviour_conflicting(AllBfs, St2),
+    behaviour_deprecated(AllBfs0, Exports, St3).
 
 all_behaviour_callbacks([{Anno,B}|Bs], Acc, St0) ->
     {Bfs0,OBfs0,St} = behaviour_callbacks(Anno, B, St0),
@@ -1256,6 +1262,37 @@ behaviour_callbacks(Anno, B, St0) ->
             St2 = check_module_name(B, Anno, St1),
             {[], [], St2}
     end.
+
+behaviour_deprecated([{{Anno, B}, Bfs, _OBfs} | T], Exports, St) ->
+    behaviour_deprecated(T, Exports, 
+                         behaviour_deprecated(Anno, B, Bfs, Exports, St));
+behaviour_deprecated([], _Exports, St) ->
+    St.
+
+-dialyzer({no_match, behaviour_deprecated/5}).
+
+behaviour_deprecated(Anno, B, [{F, A} | T], Exports, St0) ->
+    St =
+        case gb_sets:is_member({F,A}, Exports) of
+            false -> St0;
+            true ->
+                case otp_internal:obsolete_callback(B, F, A) of
+                    {deprecated, String} when is_list(String) ->
+                        case is_warn_enabled(deprecated_callback, St0) of
+                            true ->
+                                add_warning(Anno, {deprecated_callback, {B, F, A}, String}, St0);
+                            false ->
+                                St0
+                        end;
+                    {removed, String} ->
+                        add_warning(Anno, {removed_callback, {B, F, A}, String}, St0);
+                    no ->
+                        St0
+                end
+        end,
+    behaviour_deprecated(Anno, B, T, Exports, St);
+behaviour_deprecated(_Anno, _B, [], _Exports, St) ->
+    St.
 
 behaviour_missing_callbacks([{{Anno,B},Bfs0,OBfs}|T], St0) ->
     Bfs = ordsets:subtract(ordsets:from_list(Bfs0), ordsets:from_list(OBfs)),
