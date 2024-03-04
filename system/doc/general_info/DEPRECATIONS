@@ -20,8 +20,8 @@
 #
 # Added in OTP 27.
 #
-
 mnesia_registry:create_table/_ since=27 remove=28
+code:lib_dir/2 since=27
 
 #
 # Added in OTP 26.

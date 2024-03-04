@@ -32,6 +32,8 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
+obsolete(code, lib_dir, 2) ->
+    {deprecated, "this functionality will be removed in a future release"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(dbg, stop_clear, 0) ->
@@ -221,7 +223,7 @@ obsolete(zlib, setBufSize, 2) ->
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(mnesia_registry, create_table, _) ->
-    {deprecated, "Use mnesia:create_table/2 instead", "OTP 28"};
+    {deprecated, "use mnesia:create_table/2 instead", "OTP 28"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->

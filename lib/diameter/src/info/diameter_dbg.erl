@@ -147,7 +147,7 @@ modules() ->
     Mods.
 
 appdir() ->
-    [_|_] = code:lib_dir(?APP, ebin).
+    [_|_] = filename:join(code:lib_dir(?APP), "ebin").
 
 %% ----------------------------------------------------------
 %% # versions/0
