@@ -310,7 +310,7 @@ format_link(Bin) when is_binary(Bin) ->
 remove_square_brackets(Bin) when is_binary(Bin) ->
     %% thanks to Elixir folks:
     %% https://github.com/elixir-lang/elixir/blob/main/lib/elixir/lib/io/ansi/docs.ex#L626C22-L626C44
-    R = re:replace(Bin, "\\\[([^\\\]]*?)\\\]\\\((.*?)\\\)", "\\1 (\\2)"),
+    R = re:replace(Bin, "\\\[([^\\\]]*?)\\\]\\\((.*?)\\\)", "\\1"),
     case R of
         Text when is_list(Text) ->
             list_to_binary(Text);

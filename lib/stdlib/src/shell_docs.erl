@@ -528,15 +528,14 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, Arity, #docs_v1{} = D, Config)
+render(Module, Function, Arity, #docs_v1{ docs = Docs }=D, Config)
   when is_atom(Module), is_atom(Function), is_integer(Arity), is_map(Config) ->
-    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_function(
       lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                            F =:= Function andalso A =:= Arity;
                         (_) ->
                              false
-                   end, Docs), DocHtml, Config).
+                   end, Docs), D, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the type documentation
@@ -739,7 +738,7 @@ render_function([], _D, _Config) ->
     {error,function_missing};
 render_function(FDocs, D, Config) when is_map(Config) ->
     render_function(FDocs, D, init_config(D, Config));
-render_function(FDocs, #docs_v1{ docs = Docs } = DocV1, Config) ->
+render_function(FDocs, #docs_v1{} = DocV1, Config) ->
     #docs_v1{ docs = Docs }=D = doc_html:markdown_to_shelldoc(DocV1),
     Grouping =
         lists:foldl(
@@ -898,8 +897,7 @@ init_config(D, Config) ->
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
-%%%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
-                           render_docs(Elem,State,P,Ind,D)
+                          render_docs(Elem,State,P,Ind,D)
                    end,Pos,Elems);
 render_docs(Elem,State,Pos,Ind,D) ->
     render_element(Elem,State,Pos,Ind,D).
@@ -1228,5 +1226,5 @@ ansi(Curr) ->
     end.
 
 format_doc(Module) ->
-  {ok, Doc} = code:get_doc(Module),
+  {ok, Doc}=_R = code:get_doc(Module),
   doc_html:markdown_to_shelldoc(Doc).
