@@ -639,23 +639,8 @@ ac_includes_default="\
 #endif"
 
 ac_header_c_list=
+enable_year2038=yes
 ac_subst_vars='LTLIBOBJS
-DED_OSTYPE
-DED_LIBS
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH
-DED_LDFLAGS
-DED_WERRORFLAGS
-DED_WARN_FLAGS
-DED_STATIC_CFLAGS
-DED_CFLAGS
-DED_BASIC_CFLAGS
-DED_INCLUDE
-DED_SYS_INCLUDE
-DED_EXT
-DED_GCC
-DED_CC
-DED_LD
-LIB_CFLAGS
 WFLAGS
 GETCONF
 EI_THREADS
@@ -671,6 +656,26 @@ INSTALL_SCRIPT
 INSTALL_PROGRAM
 AR
 ARCH
+LIB_EXT
+LIB_LD_FLAG_RUNTIME_LIBRARY_PATH
+LIB_LDFLAGS
+LIB_LD
+LIB_CFLAGS
+DED_OSTYPE
+DED_LIBS
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH
+DED_LDFLAGS
+DED_WERRORFLAGS
+DED_WARN_FLAGS
+DED_STATIC_CFLAGS
+DED_CFLAGS
+DED_BASIC_CFLAGS
+DED_INCLUDE
+DED_SYS_INCLUDE
+DED_EXT
+DED_GCC
+DED_CC
+DED_LD
 LD
 RANLIB
 EGREP
@@ -742,7 +747,9 @@ enable_option_checking
 enable_threads
 enable_mask_real_errno
 enable_ei_dynamic_lib
+enable_largefile
 with_gmp
+enable_year2038
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1377,6 +1384,8 @@ Optional Features:
   --disable-threads       use to only build single threaded libs
   --disable-mask-real-errno do not mask real 'errno'
   --enable-ei-dynamic-lib  build ei as a dynamic library
+  --disable-largefile     omit support for large files
+  --disable-year2038      don't support timestamps after 2038
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -4712,7 +4721,183 @@ fi
 
 
 
+ERL_DED_FLAT_BUNDLE=true
 
+# Check whether --enable-largefile was given.
+if test ${enable_largefile+y}
+then :
+  enableval=$enable_largefile;
+fi
+if test "$enable_largefile,$enable_year2038" != no,no
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CC option to enable large file support" >&5
+printf %s "checking for $CC option to enable large file support... " >&6; }
+if test ${ac_cv_sys_largefile_opts+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_save_CC="$CC"
+  ac_opt_found=no
+  for ac_opt in "none needed" "-D_FILE_OFFSET_BITS=64" "-D_LARGE_FILES=1" "-n32"; do
+    if test x"$ac_opt" != x"none needed"
+then :
+  CC="$ac_save_CC $ac_opt"
+fi
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <sys/types.h>
+#ifndef FTYPE
+# define FTYPE off_t
+#endif
+ /* Check that FTYPE can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_FTYPE to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_FTYPE (((FTYPE) 1 << 31 << 31) - 1 + ((FTYPE) 1 << 31 << 31))
+  int FTYPE_is_large[(LARGE_FTYPE % 2147483629 == 721
+		       && LARGE_FTYPE % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if test x"$ac_opt" = x"none needed"
+then :
+  # GNU/Linux s390x and alpha need _FILE_OFFSET_BITS=64 for wide ino_t.
+	 CC="$CC -DFTYPE=ino_t"
+	 if ac_fn_c_try_compile "$LINENO"
+then :
+
+else case e in #(
+  e) CC="$CC -D_FILE_OFFSET_BITS=64"
+	    if ac_fn_c_try_compile "$LINENO"
+then :
+  ac_opt='-D_FILE_OFFSET_BITS=64'
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam
+fi
+      ac_cv_sys_largefile_opts=$ac_opt
+      ac_opt_found=yes
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    test $ac_opt_found = no || break
+  done
+  CC="$ac_save_CC"
+
+  test $ac_opt_found = yes || ac_cv_sys_largefile_opts="support not detected" ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sys_largefile_opts" >&5
+printf "%s\n" "$ac_cv_sys_largefile_opts" >&6; }
+
+ac_have_largefile=yes
+case $ac_cv_sys_largefile_opts in #(
+  "none needed") :
+     ;; #(
+  "supported through gnulib") :
+     ;; #(
+  "support not detected") :
+    ac_have_largefile=no ;; #(
+  "-D_FILE_OFFSET_BITS=64") :
+
+printf "%s\n" "#define _FILE_OFFSET_BITS 64" >>confdefs.h
+ ;; #(
+  "-D_LARGE_FILES=1") :
+
+printf "%s\n" "#define _LARGE_FILES 1" >>confdefs.h
+ ;; #(
+  "-n32") :
+    CC="$CC -n32" ;; #(
+  *) :
+    as_fn_error $? "internal error: bad value for \$ac_cv_sys_largefile_opts" "$LINENO" 5 ;;
+esac
+
+if test "$enable_year2038" != no
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $CC option for timestamps after 2038" >&5
+printf %s "checking for $CC option for timestamps after 2038... " >&6; }
+if test ${ac_cv_sys_year2038_opts+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_save_CPPFLAGS="$CPPFLAGS"
+  ac_opt_found=no
+  for ac_opt in "none needed" "-D_TIME_BITS=64" "-D__MINGW_USE_VC2005_COMPAT" "-U_USE_32_BIT_TIME_T -D__MINGW_USE_VC2005_COMPAT"; do
+    if test x"$ac_opt" != x"none needed"
+then :
+  CPPFLAGS="$ac_save_CPPFLAGS $ac_opt"
+fi
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+  #include <time.h>
+  /* Check that time_t can represent 2**32 - 1 correctly.  */
+  #define LARGE_TIME_T \\
+    ((time_t) (((time_t) 1 << 30) - 1 + 3 * ((time_t) 1 << 30)))
+  int verify_time_t_range[(LARGE_TIME_T / 65537 == 65535
+                           && LARGE_TIME_T % 65537 == 0)
+                          ? 1 : -1];
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  ac_cv_sys_year2038_opts="$ac_opt"
+      ac_opt_found=yes
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    test $ac_opt_found = no || break
+  done
+  CPPFLAGS="$ac_save_CPPFLAGS"
+  test $ac_opt_found = yes || ac_cv_sys_year2038_opts="support not detected" ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sys_year2038_opts" >&5
+printf "%s\n" "$ac_cv_sys_year2038_opts" >&6; }
+
+ac_have_year2038=yes
+case $ac_cv_sys_year2038_opts in #(
+  "none needed") :
+     ;; #(
+  "support not detected") :
+    ac_have_year2038=no ;; #(
+  "-D_TIME_BITS=64") :
+
+printf "%s\n" "#define _TIME_BITS 64" >>confdefs.h
+ ;; #(
+  "-D__MINGW_USE_VC2005_COMPAT") :
+
+printf "%s\n" "#define __MINGW_USE_VC2005_COMPAT 1" >>confdefs.h
+ ;; #(
+  "-U_USE_32_BIT_TIME_T"*) :
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
+as_fn_error $? "the 'time_t' type is currently forced to be 32-bit. It
+will stop working after mid-January 2038. Remove
+_USE_32BIT_TIME_T from the compiler flags.
+See 'config.log' for more details" "$LINENO" 5; } ;; #(
+  *) :
+    as_fn_error $? "internal error: bad value for \$ac_cv_sys_year2038_opts" "$LINENO" 5 ;;
+esac
+
+fi
+
+fi
 ac_header= ac_cache=
 for ac_item in $ac_header_c_list
 do
@@ -4742,6 +4927,674 @@ then :
 printf "%s\n" "#define STDC_HEADERS 1" >>confdefs.h
 
 fi
+
+
+# Large file support and 8-byte time_t by default
+if test "$enable_year2038,$ac_have_year2038,$cross_compiling" = yes,no,no
+then :
+  # If we're not cross compiling and 'touch' works with a large
+  # timestamp, then we can presume the system supports wider time_t
+  # *somehow* and we just weren't able to detect it.  One common
+  # case that we deliberately *don't* probe for is a system that
+  # supports both 32- and 64-bit ABIs but only the 64-bit ABI offers
+  # wide time_t.  (It would be inappropriate for us to override an
+  # intentional use of -m32.)  Error out, demanding use of
+  # --disable-year2038 if this is intentional.
+  if TZ=UTC0 touch -t 210602070628.15 conftest.time 2>/dev/null
+then :
+  case `TZ=UTC0 LC_ALL=C ls -l conftest.time 2>/dev/null` in #(
+  *'Feb  7  2106'* | *'Feb  7 17:10'*) :
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
+as_fn_error $? "this system appears to support timestamps after
+mid-January 2038, but no mechanism for enabling wide
+'time_t' was detected. Did you mean to build a 64-bit
+binary? (E.g., 'CC=\"${CC} -m64\"'.) To proceed with
+32-bit time_t, configure with '--disable-year2038'.
+See 'config.log' for more details" "$LINENO" 5; } ;; #(
+  *) :
+     ;;
+esac
+fi
+fi
+
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+
+DED_CC=$CC
+DED_GCC=$GCC
+
+DED_CFLAGS=
+DED_OSTYPE=unix
+case $host_os in
+     linux*)
+	DED_CFLAGS="-D_GNU_SOURCE" ;;
+     win32)
+	DED_CFLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+        DED_OSTYPE=win32 ;;
+     *)
+        ;;
+esac
+
+DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
+case "$host_cpu" in
+  tile*)
+    # tile-gcc is a bit stricter with -Wmissing-prototypes than other gccs,
+    # and too strict for our taste.
+    ;;
+  *)
+    DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
+esac
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_WARN_FLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror=return-type $DED_WERRORFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_WERRORFLAGS="-Werror=return-type $DED_WERRORFLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=implicit to DED_WERRORFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -Werror=implicit to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror=implicit $DED_WERRORFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_WERRORFLAGS="-Werror=implicit $DED_WERRORFLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=undef to DED_WERRORFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -Werror=undef to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror=undef $DED_WERRORFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_WERRORFLAGS="-Werror=undef $DED_WERRORFLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
+DED_INCLUDE=$DED_SYS_INCLUDE
+
+DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
+if test "x$GCC" = xyes
+then :
+
+    # Use -fno-common for gcc, that is link error if multiple definitions of
+    # global variables are encountered. This is ISO C compliant.
+    # Until version 10, gcc has had -fcommon as default, which allows and merges
+    # such dubious duplicates.
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-common to DED_CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-common to DED_CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-fno-common $DED_CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_CFLAGS="-fno-common $DED_CFLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to DED_CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-aliasing to DED_CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-fno-strict-aliasing $DED_CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        DED_CFLAGS="-fno-strict-aliasing $DED_CFLAGS"
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    DED_STATIC_CFLAGS="$DED_CFLAGS"
+    DED_CFLAGS="$DED_CFLAGS -fPIC"
+    # Remove -fPIE and -fno-PIE
+    DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
+
+fi
+
+DED_EXT=so
+case $host_os in
+    win32) DED_EXT=dll;;
+    darwin*)
+	DED_CFLAGS="$DED_CFLAGS -fno-common"
+	DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -fno-common";;
+    *)
+	;;
+esac
+
+DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -DSTATIC_ERLANG_NIF -DSTATIC_ERLANG_DRIVER"
+
+if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
+
+  CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
+  case $host_os in
+    darwin*)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    win32)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+    osf*)
+	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
+	;;
+    *)
+	;;
+  esac
+
+fi
+
+# If DED_LD is set in environment, we expect all DED_LD* variables
+# to be specified (cross compiling)
+if test "x$DED_LD" = "x"; then
+
+DED_LDFLAGS_CONFTEST=
+
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+case $host_os in
+	win32)
+		DED_LD="ld.sh"
+		DED_LDFLAGS="-dll"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+	;;
+	solaris2*|sysv4*)
+		DED_LDFLAGS="-G"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-64 $DED_LDFLAGS"
+		fi
+	;;
+	aix*|os400*)
+		DED_LDFLAGS="-G -bnoentry -bexpall"
+	;;
+	freebsd2*)
+		# Non-ELF GNU linker
+		DED_LDFLAGS="-Bshareable"
+	;;
+	darwin*)
+		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
+                  # EI sets this variable when building its .so file as beam.smp
+                  # has not been built yet and any ei lib will not
+                  # link to beam.smp anyways
+		  DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+                else
+                  # Cannot use flat namespaces for drivers/nifs as that may cause
+                  # symbols to collide during loading
+		  DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
+                fi
+		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
+		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
+		# been built yet...
+		DED_LDFLAGS_CONFTEST="-bundle"
+		if test X${enable_m64_build} = Xyes; then
+		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		else
+		  if test X${enable_m32_build} = Xyes; then
+		    DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		  else
+		    # The cast to long int works around a bug in the HP C Compiler
+# version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+# declarations like 'int a3[[(sizeof (unsigned char)) >= 0]];'.
+# This bug is HP SR number 8606223364.
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking size of void *" >&5
+printf %s "checking size of void *... " >&6; }
+if test ${ac_cv_sizeof_void_p+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if ac_fn_c_compute_int "$LINENO" "(long int) (sizeof (void *))" "ac_cv_sizeof_void_p"        "$ac_includes_default"
+then :
+
+else case e in #(
+  e) if test "$ac_cv_type_void_p" = yes; then
+     { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
+as_fn_error 77 "cannot compute sizeof (void *)
+See 'config.log' for more details" "$LINENO" 5; }
+   else
+     ac_cv_sizeof_void_p=0
+   fi ;;
+esac
+fi
+ ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sizeof_void_p" >&5
+printf "%s\n" "$ac_cv_sizeof_void_p" >&6; }
+
+
+
+printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
+
+
+		    case "$ac_cv_sizeof_void_p" in
+		      8)
+			DED_LDFLAGS="-m64 $DED_LDFLAGS";;
+		      *)
+		        ;;
+		    esac
+		  fi
+		fi
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+	;;
+	linux*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;
+	freebsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
+		fi
+	;;
+	openbsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+	;;
+	osf*)
+		# NOTE! Whitespace after -rpath is important.
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
+		DED_LDFLAGS="-shared -expect_unresolved '*'"
+	;;
+	*)
+		# assume GNU linker and ELF
+		DED_LDFLAGS="-shared"
+		# GNU linker has no option for 64bit build, should not propagate -m64
+	;;
+esac
+
+if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+    DED_LD="$USER_LD"
+    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+fi
+
+DED_LIBS=$LIBS
+
+fi # "x$DED_LD" = "x"
+
+test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
+
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_DED_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$DED_LD"; then
+  ac_cv_prog_DED_LD="$DED_LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_DED_LD="${ac_tool_prefix}ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+DED_LD=$ac_cv_prog_DED_LD
+if test -n "$DED_LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
+printf "%s\n" "$DED_LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_prog_DED_LD"; then
+  ac_ct_DED_LD=$DED_LD
+  # Extract the first word of "ld", so it can be a program name with args.
+set dummy ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_ac_ct_DED_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$ac_ct_DED_LD"; then
+  ac_cv_prog_ac_ct_DED_LD="$ac_ct_DED_LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_DED_LD="ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+ac_ct_DED_LD=$ac_cv_prog_ac_ct_DED_LD
+if test -n "$ac_ct_DED_LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_DED_LD" >&5
+printf "%s\n" "$ac_ct_DED_LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+  if test "x$ac_ct_DED_LD" = x; then
+    DED_LD="false"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    DED_LD=$ac_ct_DED_LD
+  fi
+else
+  DED_LD="$ac_cv_prog_DED_LD"
+fi
+
+test "$DED_LD" != "false" || as_fn_error $? "No linker found" "$LINENO" 5
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static compiler flags" >&5
+printf %s "checking for static compiler flags... " >&6; }
+DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_STATIC_CFLAGS" >&5
+printf "%s\n" "$DED_STATIC_CFLAGS" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for basic compiler flags for loadable drivers" >&5
+printf %s "checking for basic compiler flags for loadable drivers... " >&6; }
+DED_BASIC_CFLAGS=$DED_CFLAGS
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_CFLAGS" >&5
+printf "%s\n" "$DED_CFLAGS" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for compiler flags for loadable drivers" >&5
+printf %s "checking for compiler flags for loadable drivers... " >&6; }
+DED_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_CFLAGS"
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_CFLAGS" >&5
+printf "%s\n" "$DED_CFLAGS" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for linker for loadable drivers" >&5
+printf %s "checking for linker for loadable drivers... " >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
+printf "%s\n" "$DED_LD" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for linker flags for loadable drivers" >&5
+printf %s "checking for linker flags for loadable drivers... " >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LDFLAGS" >&5
+printf "%s\n" "$DED_LDFLAGS" >&6; }
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for 'runtime library path' linker flag" >&5
+printf %s "checking for 'runtime library path' linker flag... " >&6; }
+if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD_FLAG_RUNTIME_LIBRARY_PATH" >&5
+printf "%s\n" "$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" >&6; }
+else
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+printf "%s\n" "not found" >&6; }
+fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Subst flags for libs
+
+
+
+
+
+
+
+LIB_CFLAGS="$DED_BASIC_CFLAGS $DED_THR_DEFS"
+LIB_LD="$DED_LD"
+LIB_LDFLAGS="$DED_LDFLAGS"
+LIB_LD_FLAG_RUNTIME_LIBRARY_PATH="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
+LIB_EXT="$DED_EXT"
+
 # The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
 # declarations like 'int a3[[(sizeof (unsigned char)) >= 0]];'.
@@ -4926,6 +5779,7 @@ fi
 
 if test $ac_cv_sizeof_long = 8; then
   CFLAGS="$CFLAGS -DEI_64BIT"
+  LIB_CFLAGS="$LIB_CFLAGS -DEI_64BIT"
 fi
 
 
@@ -6187,6 +7041,7 @@ fi
 
 	if test $ac_cv_gmp = yes ; then
 	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
+	    LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
 
 printf "%s\n" "#define HAVE_GMP_H /**/" >>confdefs.h
 
@@ -6258,6 +7113,7 @@ printf %s "checking for GNU MP... " >&6; }
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
     CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+    LIB_CFLAGS="$LIB_CFLAGS -I$with_gmp/include -L$with_gmp/lib"
 
 printf "%s\n" "#define HAVE_GMP_H /**/" >>confdefs.h
 
@@ -9055,70 +9911,17 @@ esac
 # ---------------------------------------------------------------------------
 
 
+WFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS"
 if test "x$GCC" = xyes
 then :
-
-  # Treat certain GCC warnings as errors
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to WERRORFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Werror=return-type to WERRORFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=return-type $WERRORFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        WERRORFLAGS="-Werror=return-type $WERRORFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
+  WFLAGS="$WFLAGS -Wmissing-declarations -Wnested-externs -Winline"
 fi
 
-  WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs -Winline"
-  # check which GCC version
-  GCC_VERSION=`$CC -v 2>&1 | sed -n 's/gcc version //p'`
-  # GCC 3.3 and later supports C99 strict aliasing
-  # until all source is compliant with strict aliasing we disable it
-  case "$GCC_VERSION" in
-    1*) ;;
-    2*) ;;
-    3.0*) ;;
-    3.1*) ;;
-    3.2*) ;;
-    *)
-        WFLAGS="$WFLAGS -fno-strict-aliasing";;
-  esac
-  CFLAGS="$WERRORFLAGS $CFLAGS"
 
-  # Use -fno-common for gcc, that is link error if multiple definitions of
-  # global variables are encountered. This is ISO C compliant.
-  # Until version 10, gcc has had -fcommon as default, which allows and merges
-  # such dubious duplicates.
+# Use -fno-common for gcc, that is link error if multiple definitions of
+# global variables are encountered. This is ISO C compliant.
+# Until version 10, gcc has had -fcommon as default, which allows and merges
+# such dubious duplicates.
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-common to CFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -fno-common to CFLAGS (via CFLAGS)... " >&6; }
@@ -9159,71 +9962,12 @@ printf "%s\n" "no" >&6; }
 esac
 fi
 
+# No strict aliasing until we determined it is safe...
 
-else case e in #(
-  e)
-  WFLAGS=""
-  WERRORFLAGS=""
-  ;;
-esac
-fi
-
-# ---------------------------------------------------------------------------
-# FIXME We want to use libtool but until then....
-# ---------------------------------------------------------------------------
-
-
-
-if test "X$host" = "Xwin32"; then
-  LIB_CFLAGS="$CFLAGS"
-else
-  if test "x$GCC" = xyes; then
-        # Remove all PIE stuff
-        CFLAGS=`echo $CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
-        LDFLAGS=`echo $LDFLAGS | sed 's/-\(no-\)\?pie//g'`
-
-	LIB_CFLAGS="$CFLAGS -fPIC"
-  else
-	LIB_CFLAGS="$CFLAGS"
-  fi
-fi
-
-ERL_DED_FLAT_BUNDLE=true
-
-
-USER_LD=$LD
-USER_LDFLAGS="$LDFLAGS"
-
-DED_CC=$CC
-DED_GCC=$GCC
-
-DED_CFLAGS=
-DED_OSTYPE=unix
-case $host_os in
-     linux*)
-	DED_CFLAGS="-D_GNU_SOURCE" ;;
-     win32)
-	DED_CFLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
-        DED_OSTYPE=win32 ;;
-     *)
-        ;;
-esac
-
-DED_WARN_FLAGS="-Wall -Wstrict-prototypes"
-case "$host_cpu" in
-  tile*)
-    # tile-gcc is a bit stricter with -Wmissing-prototypes than other gccs,
-    # and too strict for our taste.
-    ;;
-  *)
-    DED_WARN_FLAGS="$DED_WARN_FLAGS -Wmissing-prototypes";;
-esac
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Wdeclaration-after-statement to DED_WARN_FLAGS (via CFLAGS)... " >&6; }
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS";
+    CFLAGS="-fno-strict-aliasing $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -9249,7 +9993,7 @@ then :
 
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        DED_WARN_FLAGS="-Wdeclaration-after-statement $DED_WARN_FLAGS"
+        CFLAGS="-fno-strict-aliasing $CFLAGS"
 
 else case e in #(
   e)
@@ -9258,560 +10002,6 @@ printf "%s\n" "no" >&6; }
        ;;
 esac
 fi
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Werror=return-type to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=return-type $DED_WERRORFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_WERRORFLAGS="-Werror=return-type $DED_WERRORFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=implicit to DED_WERRORFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Werror=implicit to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=implicit $DED_WERRORFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_WERRORFLAGS="-Werror=implicit $DED_WERRORFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=undef to DED_WERRORFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -Werror=undef to DED_WERRORFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=undef $DED_WERRORFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_WERRORFLAGS="-Werror=undef $DED_WERRORFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$DED_OSTYPE -I${ERL_TOP}/erts/emulator/sys/common"
-DED_INCLUDE=$DED_SYS_INCLUDE
-
-DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
-if test "x$GCC" = xyes
-then :
-
-    # Use -fno-common for gcc, that is link error if multiple definitions of
-    # global variables are encountered. This is ISO C compliant.
-    # Until version 10, gcc has had -fcommon as default, which allows and merges
-    # such dubious duplicates.
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-common to DED_CFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -fno-common to DED_CFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-common $DED_CFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_CFLAGS="-fno-common $DED_CFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to DED_CFLAGS (via CFLAGS)" >&5
-printf %s "checking if we can add -fno-strict-aliasing to DED_CFLAGS (via CFLAGS)... " >&6; }
-    saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-strict-aliasing $DED_CFLAGS";
-    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main (void)
-{
-return 0;
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-    CFLAGS=$saved_CFLAGS;
-    if test "X$can_enable_flag" = "Xtrue"
-then :
-
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
-        DED_CFLAGS="-fno-strict-aliasing $DED_CFLAGS"
-
-else case e in #(
-  e)
-        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-       ;;
-esac
-fi
-
-
-    DED_STATIC_CFLAGS="$DED_CFLAGS"
-    DED_CFLAGS="$DED_CFLAGS -fPIC"
-    # Remove -fPIE and -fno-PIE
-    DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
-
-fi
-
-DED_EXT=so
-case $host_os in
-    win32) DED_EXT=dll;;
-    darwin*)
-	DED_CFLAGS="$DED_CFLAGS -fno-common"
-	DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -fno-common";;
-    *)
-	;;
-esac
-
-DED_STATIC_CFLAGS="$DED_STATIC_CFLAGS -DSTATIC_ERLANG_NIF -DSTATIC_ERLANG_DRIVER"
-
-if test "$CFLAG_RUNTIME_LIBRARY_PATH" = ""; then
-
-  CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
-  case $host_os in
-    darwin*)
-	CFLAG_RUNTIME_LIBRARY_PATH=
-	;;
-    win32)
-	CFLAG_RUNTIME_LIBRARY_PATH=
-	;;
-    osf*)
-	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
-	;;
-    *)
-	;;
-  esac
-
-fi
-
-# If DED_LD is set in environment, we expect all DED_LD* variables
-# to be specified (cross compiling)
-if test "x$DED_LD" = "x"; then
-
-DED_LDFLAGS_CONFTEST=
-
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
-	win32)
-		DED_LD="ld.sh"
-		DED_LDFLAGS="-dll"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
-	;;
-	solaris2*|sysv4*)
-		DED_LDFLAGS="-G"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-64 $DED_LDFLAGS"
-		fi
-	;;
-	aix*|os400*)
-		DED_LDFLAGS="-G -bnoentry -bexpall"
-	;;
-	freebsd2*)
-		# Non-ELF GNU linker
-		DED_LDFLAGS="-Bshareable"
-	;;
-	darwin*)
-		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
-
-                if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
-                  # EI sets this variable when building its .so file as beam.smp
-                  # has not been built yet and any ei lib will not
-                  # link to beam.smp anyways
-		  DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
-                else
-                  # Cannot use flat namespaces for drivers/nifs as that may cause
-                  # symbols to collide during loading
-		  DED_LDFLAGS="-bundle -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
-                fi
-		# DED_LDFLAGS_CONFTEST is for use in configure tests only. We
-		# cannot use DED_LDFLAGS in configure tests since beam.smp has not
-		# been built yet...
-		DED_LDFLAGS_CONFTEST="-bundle"
-		if test X${enable_m64_build} = Xyes; then
-		  DED_LDFLAGS="-m64 $DED_LDFLAGS"
-		else
-		  if test X${enable_m32_build} = Xyes; then
-		    DED_LDFLAGS="-m32 $DED_LDFLAGS"
-		  else
-		    # The cast to long int works around a bug in the HP C Compiler
-# version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
-# declarations like 'int a3[[(sizeof (unsigned char)) >= 0]];'.
-# This bug is HP SR number 8606223364.
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking size of void *" >&5
-printf %s "checking size of void *... " >&6; }
-if test ${ac_cv_sizeof_void_p+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if ac_fn_c_compute_int "$LINENO" "(long int) (sizeof (void *))" "ac_cv_sizeof_void_p"        "$ac_includes_default"
-then :
-
-else case e in #(
-  e) if test "$ac_cv_type_void_p" = yes; then
-     { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
-printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
-as_fn_error 77 "cannot compute sizeof (void *)
-See 'config.log' for more details" "$LINENO" 5; }
-   else
-     ac_cv_sizeof_void_p=0
-   fi ;;
-esac
-fi
- ;;
-esac
-fi
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_sizeof_void_p" >&5
-printf "%s\n" "$ac_cv_sizeof_void_p" >&6; }
-
-
-
-printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
-
-
-		    case "$ac_cv_sizeof_void_p" in
-		      8)
-			DED_LDFLAGS="-m64 $DED_LDFLAGS";;
-		      *)
-		        ;;
-		    esac
-		  fi
-		fi
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-	;;
-	linux*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-m64 $DED_LDFLAGS"
-		fi;
-		if test X${enable_m32_build} = Xyes; then
-			DED_LDFLAGS="-m32 $DED_LDFLAGS"
-		fi
-	;;
-	freebsd*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared"
-		if test X${enable_m64_build} = Xyes; then
-			DED_LDFLAGS="-m64 $DED_LDFLAGS"
-		fi;
-		if test X${enable_m32_build} = Xyes; then
-			DED_LDFLAGS="-m32 $DED_LDFLAGS"
-		fi
-	;;
-	openbsd*)
-		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
-		DED_LDFLAGS="-shared"
-	;;
-	osf*)
-		# NOTE! Whitespace after -rpath is important.
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
-		DED_LDFLAGS="-shared -expect_unresolved '*'"
-	;;
-	*)
-		# assume GNU linker and ELF
-		DED_LDFLAGS="-shared"
-		# GNU linker has no option for 64bit build, should not propagate -m64
-	;;
-esac
-
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-DED_LIBS=$LIBS
-
-fi # "x$DED_LD" = "x"
-
-test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
-
-if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
-set dummy ${ac_tool_prefix}ld; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_DED_LD+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test -n "$DED_LD"; then
-  ac_cv_prog_DED_LD="$DED_LD" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_DED_LD="${ac_tool_prefix}ld"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi ;;
-esac
-fi
-DED_LD=$ac_cv_prog_DED_LD
-if test -n "$DED_LD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
-printf "%s\n" "$DED_LD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-fi
-if test -z "$ac_cv_prog_DED_LD"; then
-  ac_ct_DED_LD=$DED_LD
-  # Extract the first word of "ld", so it can be a program name with args.
-set dummy ld; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_ac_ct_DED_LD+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test -n "$ac_ct_DED_LD"; then
-  ac_cv_prog_ac_ct_DED_LD="$ac_ct_DED_LD" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_DED_LD="ld"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi ;;
-esac
-fi
-ac_ct_DED_LD=$ac_cv_prog_ac_ct_DED_LD
-if test -n "$ac_ct_DED_LD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_DED_LD" >&5
-printf "%s\n" "$ac_ct_DED_LD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-  if test "x$ac_ct_DED_LD" = x; then
-    DED_LD="false"
-  else
-    case $cross_compiling:$ac_tool_warned in
-yes:)
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
-printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
-ac_tool_warned=yes ;;
-esac
-    DED_LD=$ac_ct_DED_LD
-  fi
-else
-  DED_LD="$ac_cv_prog_DED_LD"
-fi
-
-test "$DED_LD" != "false" || as_fn_error $? "No linker found" "$LINENO" 5
-
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static compiler flags" >&5
-printf %s "checking for static compiler flags... " >&6; }
-DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WFLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_STATIC_CFLAGS" >&5
-printf "%s\n" "$DED_STATIC_CFLAGS" >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for basic compiler flags for loadable drivers" >&5
-printf %s "checking for basic compiler flags for loadable drivers... " >&6; }
-DED_BASIC_CFLAGS=$DED_CFLAGS
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_CFLAGS" >&5
-printf "%s\n" "$DED_CFLAGS" >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for compiler flags for loadable drivers" >&5
-printf %s "checking for compiler flags for loadable drivers... " >&6; }
-DED_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_CFLAGS"
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_CFLAGS" >&5
-printf "%s\n" "$DED_CFLAGS" >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for linker for loadable drivers" >&5
-printf %s "checking for linker for loadable drivers... " >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
-printf "%s\n" "$DED_LD" >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for linker flags for loadable drivers" >&5
-printf %s "checking for linker flags for loadable drivers... " >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LDFLAGS" >&5
-printf "%s\n" "$DED_LDFLAGS" >&6; }
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for 'runtime library path' linker flag" >&5
-printf %s "checking for 'runtime library path' linker flag... " >&6; }
-if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD_FLAG_RUNTIME_LIBRARY_PATH" >&5
-printf "%s\n" "$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" >&6; }
-else
-	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: not found" >&5
-printf "%s\n" "not found" >&6; }
-fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -9929,6 +10119,12 @@ LIBOBJS=$ac_libobjs
 
 LTLIBOBJS=$ac_ltlibobjs
 
+
+# Check whether --enable-year2038 was given.
+if test ${enable_year2038+y}
+then :
+  enableval=$enable_year2038;
+fi
 
 
 : "${CONFIG_STATUS=./config.status}"
