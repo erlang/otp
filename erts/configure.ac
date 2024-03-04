@@ -3084,7 +3084,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
         unused_command_line_argument=""
       ]
     )
-    LDFLAGS=$saved_LDFLAGS
+    LDFLAGS="$saved_LDFLAGS"
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       AC_MSG_CHECKING([if we can add $flag to LDFLAGS])
@@ -3093,7 +3093,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
          [
            AC_MSG_RESULT([yes])
-           LDFLAGS="$save_LDFLAGS $flag"
+           LDFLAGS="$saved_LDFLAGS $flag"
          ],
          [
            AC_MSG_RESULT([no])
