@@ -120,7 +120,7 @@ value of configuration parameters.
 	 terminate/2]).
 
 %% Other exports
--export([format_status/2]).
+-export([format_status/1]).
 
 -include("memsup.hrl").
 
@@ -779,19 +779,20 @@ terminate(_Reason, State) ->
 %%----------------------------------------------------------------------
 
 -doc false.
-format_status(_Opt, [_PDict, #state{timeout=Timeout, mem_usage=MemUsage,
-				    worst_mem_user=WorstMemUser}]) ->
+format_status(#{ state := #state{timeout=Timeout, mem_usage=MemUsage,
+                                 worst_mem_user=WorstMemUser} } = Status) ->
     {Allocated, Total} = MemUsage,
     WorstMemFormat = case WorstMemUser of
-			 {Pid, Mem} ->
-			     [{"Pid", Pid}, {"Memory", Mem}];
-			 undefined ->
-			     undefined
-		     end,
-    [{data, [{"Timeout", Timeout}]},
-     {items, {"Memory Usage", [{"Allocated", Allocated},
-			       {"Total", Total}]}},
-     {items, {"Worst Memory User", WorstMemFormat}}].
+                         {Pid, Mem} ->
+                             [{"Pid", Pid}, {"Memory", Mem}];
+                         undefined ->
+                             undefined
+                     end,
+    Status#{ state := 
+                 [{"Timeout", Timeout},
+                  {"Memory Usage", [{"Allocated", Allocated},
+                                    {"Total", Total}]},
+                  {"Worst Memory User", WorstMemFormat}] }.
 
 
 %%----------------------------------------------------------------------

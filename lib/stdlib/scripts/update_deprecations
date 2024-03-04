@@ -29,6 +29,7 @@
 -record(st,
         {functions = [],
          types = [],
+         callbacks = [],
          deprecations = #{}}).
 
 main(["update",Top]) ->
@@ -92,6 +93,14 @@ summarize_attributes([{removed_type, Rs} | As], Module, Acc0) ->
     Ts = sa_1(Rs, removed, Module, Acc0#st.types),
     Acc = Acc0#st{ types = Ts },
     summarize_attributes(As, Module, Acc);
+summarize_attributes([{deprecated_callback, Ds} | As], Module, Acc0) ->
+    Ts = sa_1(Ds, deprecated, Module, Acc0#st.callbacks),
+    Acc = Acc0#st{ callbacks = Ts },
+    summarize_attributes(As, Module, Acc);
+summarize_attributes([{removed_callback, Rs} | As], Module, Acc0) ->
+    Ts = sa_1(Rs, removed, Module, Acc0#st.callbacks),
+    Acc = Acc0#st{ callbacks = Ts },
+    summarize_attributes(As, Module, Acc);
 summarize_attributes([_ | As], Module, Acc) ->
     summarize_attributes(As, Module, Acc);
 summarize_attributes([], _Module, Acc) ->
@@ -108,7 +117,7 @@ sa_1([], _Tag, _Module, Acc) ->
 
 %%
 
-emit(Top, #st{ functions = Fs0, types = Ts, deprecations = Depr }) ->
+emit(Top, #st{ functions = Fs0, types = Ts, callbacks = Cs, deprecations = Depr }) ->
     Fs = insert_removals(Fs0, Depr),
     Name = filename:join(Top, "lib/stdlib/src/otp_internal.erl"),
     Contents = ["%%\n"
@@ -122,8 +131,10 @@ emit(Top, #st{ functions = Fs0, types = Ts, deprecations = Depr }) ->
                 "%%\n"
                 "%%    -deprecated([{foo,1,\"use bar/1 instead\"}]).\n"
                 "%%    -deprecated_type([{gadget,1,\"use widget/1 instead\"}]).\n"
+                "%%    -deprecated_callback([{gadget,1,\"use widget/1 instead\"}]).\n"
                 "%%    -removed([{hello,2,\"use there/2 instead\"}]).\n"
                 "%%    -removed_type([{frobnitz,1,\"use grunka/1 instead\"}]).\n"
+                "%%    -removed_callback([{frobnitz,1,\"use grunka/1 instead\"}]).\n"
                 "%%\n"
                 "%% Descriptions cannot be given with the `f/1` shorthand, and\n"
                 "%% it will fall back to a generic description referring the\n"
@@ -137,7 +148,8 @@ emit(Top, #st{ functions = Fs0, types = Ts, deprecations = Depr }) ->
                 "-include(\"otp_internal.hrl\").\n"
                 "%%\n",
                 emit_function("obsolete", Fs),
-                emit_function("obsolete_type", Ts)],
+                emit_function("obsolete_type", Ts),
+                emit_function("obsolete_callback", Cs)],
     ok = file:write_file(Name, Contents),
     ok.
 

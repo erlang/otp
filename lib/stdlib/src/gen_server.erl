@@ -537,6 +537,7 @@ return value.
 One use for this function is to return compact alternative state representations
 to avoid that large state terms are printed in log files.
 """.
+-deprecated_callback({format_status, 2, "use format_status/1 instead"}).
 -doc(#{title => <<"Callback Functions">>,since => <<"OTP R13B04">>}).
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',

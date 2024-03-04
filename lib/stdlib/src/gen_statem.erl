@@ -1430,6 +1430,7 @@ One use for this function is to return compact alternative state representations
 to avoid having large state terms printed in log files. Another use is to hide
 sensitive data from being written to the error log.
 """.
+-deprecated_callback({format_status, 2, "use format_status/1 instead"}).
 -doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
 -callback format_status(
 	    StatusOption,

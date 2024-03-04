@@ -84,7 +84,7 @@ value of configuration parameters.
 	 terminate/2]).
 
 %% Other exports
--export([format_status/2, parse_df/2]).
+-export([format_status/1, parse_df/2]).
 
 -doc """
 Supported units:
@@ -370,13 +370,14 @@ terminate(_Reason, State) ->
 %%----------------------------------------------------------------------
 
 -doc false.
-format_status(_Opt, [_PDict, #state{os = OS, threshold = Threshold,
-				    timeout = Timeout,
-				    diskdata = DiskData}]) ->
-    [{data, [{"OS", OS},
-	     {"Timeout", Timeout},
-	     {"Threshold", Threshold},
-	     {"DiskData", DiskData}]}].
+format_status(#{ state := #state{os = OS, threshold = Threshold,
+                                 timeout = Timeout,
+                                 diskdata = DiskData}} = Status) ->
+    Status#{ state := [{"OS", OS},
+                       {"Timeout", Timeout},
+                       {"Threshold", Threshold},
+                       {"DiskData", DiskData}]
+           }.
 
 %%----------------------------------------------------------------------
 %% Internal functions
