@@ -817,8 +817,7 @@ The return value is `-1` if the `driver_async` call fails.
 ## driver_async_port_key()
 
 ```c
-unsigned int driver_async_port_key(ErlDrvPort
-        port);
+unsigned int driver_async_port_key(ErlDrvPort port);
 ```
 
 Calculates a key for later use in [`driver_async`](erl_driver.md#driver_async).
@@ -831,6 +830,8 @@ async thread IDs is achieved.
 > but after the rewrite of the port subsystem, this is no longer the case. With
 > this function, you can achieve the same distribution based on port IDs as
 > before Erlang/OTP R16.
+
+Available since OTP R16B02
 
 ## driver_binary_dec_refc()
 
@@ -1439,6 +1440,8 @@ This function can be called from any thread if a
 [port data lock](erl_driver.md#ErlDrvPDL) associated with the `port` is locked
 by the calling thread during the call.
 
+Available since OTP R15B
+
 ## driver_pushq()
 
 ```c
@@ -1714,6 +1717,8 @@ neither the port or the port message queue is busy.
 For information about busy port functionality, see
 [`set_busy_port`](erl_driver.md#set_busy_port).
 
+Available since OTP R16B
+
 ## erl_drv_cond_broadcast()
 
 ```c
@@ -1773,6 +1778,8 @@ Returns a pointer to the name of the condition.
 > #### Note {: .info }
 >
 > This function is intended for debugging purposes only.
+
+Available since OTP R16B02
 
 ## erl_drv_cond_signal()
 
@@ -1855,6 +1862,8 @@ threads.
 See also the important [warning](erl_driver.md#WARNING) text at the beginning of
 this manual page.
 
+Available since OTP R16B
+
 ## erl_drv_convert_time_unit()
 
 ```c
@@ -1875,6 +1884,8 @@ Returns `ERL_DRV_TIME_ERROR` if called with an invalid time unit argument.
 
 See also [`ErlDrvTime`](erl_driver.md#ErlDrvTime) and
 [`ErlDrvTimeUnit`](erl_driver.md#ErlDrvTimeUnit).
+
+Available since OTP 18.3
 
 ## erl_drv_equal_tids()
 
@@ -1958,6 +1969,8 @@ only be used when flag
 [`ERL_DRV_FLAG_USE_INIT_ACK`](driver_entry.md#driver_flags) has been set on the
 linked-in driver.
 
+Available since OTP 19.0
+
 ## erl_drv_monotonic_time()
 
 ```c
@@ -1974,6 +1987,8 @@ called from a thread that is not a scheduler thread.
 
 See also [`ErlDrvTime`](erl_driver.md#ErlDrvTime) and
 [`ErlDrvTimeUnit`](erl_driver.md#ErlDrvTimeUnit).
+
+Available since OTP 18.3
 
 ## erl_drv_mutex_create()
 
@@ -2055,6 +2070,8 @@ Returns a pointer to the mutex name.
 > #### Note {: .info }
 >
 > This function is intended for debugging purposes only.
+
+Available since OTP R16B02
 
 ## erl_drv_mutex_trylock()
 
@@ -2263,6 +2280,8 @@ introduced in ERTS 5.6.
 
 This function is thread-safe.
 
+Available since OTP R16B
+
 ## erl_drv_putenv()
 
 ```c
@@ -2343,6 +2362,8 @@ Returns a pointer to the name of the rwlock.
 > #### Note {: .info }
 >
 > This function is intended for debugging purposes only.
+
+Available since OTP R16B02
 
 ## erl_drv_rwlock_rlock()
 
@@ -2475,6 +2496,8 @@ Parameters `port`, `term`, and `n` work as in
 
 This function is thread-safe.
 
+Available since OTP R16B
+
 ## erl_drv_set_os_pid()
 
 ```c
@@ -2486,6 +2509,8 @@ Sets the `os_pid` seen when doing `erlang:port_info/2` on this port.
 
 `port` is the port handle of the port (driver instance) to set the pid on.
 `pid`is the pid to set.
+
+Available since OTP 19.0
 
 ## erl_drv_thread_create()
 
@@ -2596,6 +2621,8 @@ Returns a pointer to the name of the thread.
 >
 > This function is intended for debugging purposes only.
 
+Available since OTP R16B02
+
 ## erl_drv_thread_opts_create()
 
 ```c
@@ -2663,6 +2690,8 @@ called from a thread that is not a scheduler thread.
 
 See also [`ErlDrvTime`](erl_driver.md#ErlDrvTime) and
 [`ErlDrvTimeUnit`](erl_driver.md#ErlDrvTimeUnit).
+
+Available since OTP 18.3
 
 ## erl_drv_tsd_get()
 

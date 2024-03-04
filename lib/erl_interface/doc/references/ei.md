@@ -150,6 +150,8 @@ Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
 
+Available since OTP 23.0
+
 ## ei_cmp_ports()
 
 ```c
@@ -163,6 +165,8 @@ Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
 
+Available since OTP 23.0
+
 ## ei_cmp_refs()
 
 ```c
@@ -174,6 +178,8 @@ Compare two references. The comparison is done the same way as Erlang does.
 Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
+
+Available since OTP 23.0
 
 ## ei_decode_atom()
 
@@ -206,6 +212,8 @@ represented with encoding `want`.
 
 This function was introduced in Erlang/OTP R16 as part of a first step to
 support UTF-8 atoms.
+
+Available since OTP R16B
 
 ## ei_decode_bignum()
 
@@ -259,6 +267,8 @@ relied on.
 
 Number of bits may be divisible by 8, which means a binary decodable by
 `ei_decode_binary` is also decodable by `ei_decode_bitstring`.
+
+Available since OTP 22.0
 
 ## ei_decode_boolean()
 
@@ -352,6 +362,8 @@ invalid encoding of the term or due to the term not being of the type
 `t:iodata/0`. On failure, the integer pointed to by the `index` argument will be
 updated to refer to the sub term where the failure was detected.
 
+Available since OTP 23.0
+
 ## ei_decode_list_header()
 
 ```c
@@ -395,6 +407,8 @@ returned in `*arity`. Keys and values follow in this order:
 `K1, V1, K2, V2, ..., Kn, Vn`. This makes a total of `arity*2` terms. If `arity`
 is zero, it is an empty map. A correctly encoded map does not have duplicate
 keys.
+
+Available since OTP 17.0
 
 ## ei_decode_pid()
 
@@ -509,9 +523,15 @@ Latin-1 encoding. Only up to `MAXATOMLEN-1` bytes are encoded. The name is to be
 
 ## ei_encode_atom_as()
 
+Available since OTP R16B
+
 ## ei_encode_atom_len_as()
 
+Available since OTP R16B
+
 ## ei_x_encode_atom_as()
+
+Available since OTP R16B
 
 ## ei_x_encode_atom_len_as()
 
@@ -540,6 +560,8 @@ The encoding fails if `p` is not a valid string in encoding `from_enc`.
 
 Argument `to_enc` is ignored. As from Erlang/OTP 20 the encoding is always done
 in UTF-8 which is readable by nodes as old as Erlang/OTP R16.
+
+Available since OTP R16B
 
 ## ei_encode_bignum()
 
@@ -573,6 +595,8 @@ length.
 
 ## ei_encode_bitstring()
 
+Available since OTP 22.0
+
 ## ei_x_encode_bitstring()
 
 ```c
@@ -596,6 +620,8 @@ The number of bytes which is part of the bit string is
 byte are the least significant bits.
 
 The values of unused bits are disregarded and does not need to be cleared.
+
+Available since OTP 22.0
 
 ## ei_encode_boolean()
 
@@ -753,6 +779,8 @@ format.
 
 ## ei_encode_map_header()
 
+Available since OTP 17.0
+
 ## ei_x_encode_map_header()
 
 ```c
@@ -778,6 +806,8 @@ ei_x_encode_string(&x, "Banana");
 ```
 
 A correctly encoded map cannot have duplicate keys.
+
+Available since OTP 17.0
 
 ## ei_encode_pid()
 
@@ -1028,6 +1058,8 @@ Initialize the `ei` library. This function should be called once (and only once)
 before calling any other functionality in the `ei` library.
 
 On success zero is returned. On failure a posix error code is returned.
+
+Available since OTP 21.3
 
 ## ei_print_term()
 

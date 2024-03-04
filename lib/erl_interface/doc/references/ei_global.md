@@ -56,6 +56,8 @@ and `count` is not modified.
 > allocated by the function with a single call to `malloc()`, so a single
 > `free()` is all that is necessary.
 
+Available since OTP 23.0
+
 ## ei_global_register()
 
 ```c
@@ -71,6 +73,8 @@ Registers a name in `global`.
 
 Returns `0` on success, otherwise `-1`.
 
+Available since OTP 23.0
+
 ## ei_global_unregister()
 
 ```c
@@ -84,6 +88,8 @@ Unregisters a name from `global`.
 - `name` is the name to unregister from `global`.
 
 Returns `0` on success, otherwise `-1`.
+
+Available since OTP 23.0
 
 ## ei_global_whereis()
 
@@ -107,3 +113,5 @@ in the name of the node where `name` is found. `node` can be passed directly to
 On success, the function returns 0, updates the `erlang_pid` pointed to by the
 pid parameter, and the `node` parameter is initialized to the node name where
 `name` is found. On failure, a negative number is returned.
+
+Available since OTP 23.0

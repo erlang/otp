@@ -377,11 +377,15 @@ int ei_close_connection(int fd);
 
 Closes a previously opened connection or listen socket.
 
+Available since OTP 21.3
+
 ## ei_connect()
 
 ## ei_xconnect()
 
 ## ei_connect_host_port()
+
+Available since OTP 23.0
 
 ## ei_xconnect_host_port()
 
@@ -447,9 +451,13 @@ addr.s_addr = inet_addr(IP_ADDR);
 fd = ei_xconnect(&ec, &addr, ALIVE);
 ```
 
+Available since OTP 23.0
+
 ## ei_connect_init()
 
 ## ei_connect_init_ussi()
+
+Available since OTP 21.3
 
 ## ei_connect_xinit()
 
@@ -544,11 +552,15 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
 }
 ```
 
+Available since OTP 21.3
+
 ## ei_connect_tmo()
 
 ## ei_xconnect_tmo()
 
 ## ei_connect_host_port_tmo()
+
+Available since OTP 23.0
 
 ## ei_xconnect_host_port_tmo()
 
@@ -572,7 +584,11 @@ Equivalent to `ei_connect`, `ei_xconnect`, `ei_connect_host_port` and
 `ei_xconnect_host_port` with an optional time-out argument, see the description
 at the beginning of this manual page.
 
+Available since OTP 23.0
+
 ## ei_get_tracelevel()
+
+Available since OTP R13B04
 
 ## ei_set_tracelevel()
 
@@ -590,7 +606,11 @@ levels. A higher level means more information. See also section
 
 These functions are not thread safe.
 
+Available since OTP R13B04
+
 ## ei_listen()
+
+Available since OTP 21.3
 
 ## ei_xlisten()
 
@@ -622,6 +642,8 @@ On success, a file descriptor is returned which can be used in a call to
 `ei_accept()`. On failure, `ERL_ERROR` is returned and `erl_errno` is set to
 `EIO`.
 
+Available since OTP 21.3
+
 ## ei_make_pid()
 
 ```c
@@ -639,6 +661,8 @@ done by a call to [`ei_connect_init()`](ei_connect.md#ei_connect_init) or
 friends. If the name is dynamically assigned from the peer node, the C-node also
 has to be connected.
 
+Available since OTP 23.0
+
 ## ei_make_ref()
 
 ```c
@@ -654,6 +678,8 @@ a name prior to the call to `ei_make_ref()`. Initialization of the C-node is
 done by a call to [`ei_connect_init()`](ei_connect.md#ei_connect_init) or
 friends. If the name is dynamically assigned from the peer node, the C-node also
 has to be connected.
+
+Available since OTP 23.0
 
 ## ei_publish()
 
@@ -857,6 +883,8 @@ description at the beginning of this manual page.
 ## ei_rpc_to()
 
 ## ei_xrpc_to()
+
+Available since OTP 24.0
 
 ## ei_rpc_from()
 
