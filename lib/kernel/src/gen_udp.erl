@@ -135,12 +135,14 @@ protocol.
         pktoptions |
 	ipv6_v6only.
 
--type open_option() :: {ip, inet:socket_address()}
-                     | {fd, non_neg_integer()}
-                     | {ifaddr, inet:socket_address()}
+-type open_option() :: {ip,             inet:socket_address()}
+                     | {fd,             non_neg_integer()}
+                     | {ifaddr,         socket:sockaddr_in() |
+                                        socket:sockaddr_in6() |
+                                        inet:socket_address()}
                      | inet:address_family()
-                     | {port, inet:port_number()}
-                     | {netns, file:filename_all()}
+                     | {port,           inet:port_number()}
+                     | {netns,          file:filename_all()}
                      | {bind_to_device, binary()}
                      | option().
 
@@ -179,7 +181,7 @@ zero (0) on platforms that supports the 3-tuple variant.
 
 -doc(#{equiv => open/2}).
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
-      Port :: inet:port_number(),
+      Port   :: inet:port_number(),
       Socket :: socket(),
       Reason :: system_limit | inet:posix().
 
