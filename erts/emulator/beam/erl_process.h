@@ -2804,15 +2804,17 @@ Uint32 erts_sched_local_random_hash_64_to_32_shift(Uint64 key)
 ERTS_GLB_INLINE
 Uint32 erts_sched_local_random(Uint additional_seed)
 {
+    extern erts_atomic_t erts_sched_local_random_nosched_state;
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-    if(ERTS_UNLIKELY(esdp == NULL))
-        return erts_sched_local_random_hash_64_to_32_shift(((Uint64)(UWord)&additional_seed)
-                                                           + additional_seed);
-    else {
-        esdp->rand_state++;
-        return erts_sched_local_random_hash_64_to_32_shift(esdp->rand_state
-                                                           + additional_seed);
+    Uint64 rand_state;
+
+    if(ERTS_UNLIKELY(esdp == NULL)) {
+        rand_state = erts_atomic_inc_read_nob(&erts_sched_local_random_nosched_state);
+    } else {
+        rand_state = esdp->rand_state++;
     }
+    return erts_sched_local_random_hash_64_to_32_shift(rand_state
+                                                       + additional_seed);
 }
 
 #ifdef DEBUG
