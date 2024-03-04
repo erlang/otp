@@ -531,43 +531,16 @@ send(?MODULE_socket(Server, Socket), Data) ->
 send_result(Server, Data, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
+        {error, {timeout, RestData}} when is_binary(RestData) ->
+            send_timeout(Server, RestData, Meta);
+        {error, timeout} ->
+            send_timeout(Server, Data, Meta);
+        {error, {Reason, RestData}} when is_binary(RestData) ->
+            call(Server, {send_error, Reason});
         {error, Reason} ->
-            case Reason of
-                {completion_status, #{info := R}} ->
-                    send_error(Server, Meta, R);
-                {completion_status, R} ->
-                    send_error(Server, Meta, R);
-                #{info := R} ->
-                    send_error(Server, Meta, R);
-                {timeout, RestData} ->
-                    %% The caller has to be aware that what have been sent
-                    %% as well as RestData may include an automatically
-                    %% inserted {packet, N} header.
-                    %%
-                    send_timeout(Server, RestData, Meta);
-                timeout ->
-                    %% No data was sent.  The returned rest Data
-                    %% may contain an automatically inserted
-                    %% {packet, N} header.
-                    send_timeout(Server, Data, Meta);
-                _ ->
-                    send_error(Server, Meta, Reason)
-            end;
+            call(Server, {send_error, Reason});
         ok ->
             ok
-    end.
-
-send_error(Server, Meta, Reason) ->
-    if
-        Reason =:= econnreset;
-        Reason =:= econnaborted;
-        %% Shall we really use (abuse) the show_econnreset option?
-        Reason =:= netname_deleted ->
-            send_error_econnreset(Server, Meta);
-        Reason =:= too_many_cmds ->
-            send_error_closed(Server, Meta);
-        true ->
-            ?badarg_exit({error, Reason})
     end.
 
 send_timeout(Server, Data, Meta) ->
@@ -585,23 +558,6 @@ send_timeout(Server, Data, Meta) ->
             %% Leave the lingering data to the caller to handle
             {error, {timeout, iolist_to_binary(Data)}}
     end.
-
-send_error_econnreset(Server, Meta) ->
-    case maps:get(show_econnreset, Meta) of
-        true ->
-            {error, econnreset};
-        false ->
-            send_error_closed(Server, Meta)
-    end.
-
-send_error_closed(Server, Meta) ->
-    case maps:get(exit_on_close, Meta) of
-        true ->
-            close_server(Server);
-        false ->
-            ok
-    end,
-    {error, closed}.
 
 %% -------------------------------------------------------------------------
 %% Handler called by file:sendfile/5 to handle ?MODULE_socket()s
@@ -872,39 +828,22 @@ fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
 socket_send(Socket, Data, Timeout) ->
     Result = socket:send(Socket, Data, [], Timeout),
     case Result of
-        {error, {timeout = _Reason, RestData}} = E when is_binary(RestData) ->
-	    %% This is better then closing the socket for every timeout
-	    %% We need to do something about this!
-	    %% ?DBG({timeout, byte_size(RestData)}),
-	    %% {error, Reason};
-	    E;
-        {error, {_Reason, RestData}} when is_binary(RestData) ->
-            %% To properly handle RestData we would have to pass
-            %% all writes through a single process that buffers
-            %% the write data, which would be a bottleneck
-            %%
-            %% Since send data may have been lost, and there is no room
-            %% in this API to inform the caller, we at least close
-            %% the socket in the write direction
-	    %% ?DBG({_Reason, byte_size(RestData)}),
+        %% Translate 'epipe' to 'econnreset'
+        {error, {epipe, RestData}} when is_binary(RestData) ->
+            {error, {econnreset, RestData}};
+        {error, epipe} ->
             {error, econnreset};
-        {error, Reason} ->
-	    %% ?DBG(Reason),
-            {error,
-             case Reason of
-                 epipe -> econnreset;
-                 _     -> Reason
-             end};
-
-        {ok, RestData} when is_binary(RestData) ->
-            %% Can not happen for stream socket, but that
-            %% does not show in the type spec
-            %% - make believe a fatal connection error
-	    %% ?DBG({ok, byte_size(RestData)}),
-            {error, econnreset};
-
-        ok ->
-            ok
+        #{info := Reason} = _EEI ->
+            case Reason of
+                netname_deleted ->
+                    {error, econnreset};
+                too_many_cmds ->
+                    {error, closed};
+                _ ->
+                    {error, Reason}
+            end;
+        _ ->
+            Result
     end.
 
 -compile({inline, [socket_recv/2]}).
@@ -1804,12 +1743,6 @@ handle_event(
 %% State: #controlling_process{}
 %% -------
 
-handle_event({call, From}, close, State, {P, D}) ->
-    handle_close(P, D, State, [{reply, From, ok}]);
-
-%%% handle_event({call, From}, {send_error, Reason}, State, {P, D}) ->
-%%%     handle_send_error(P, D, State, From, Reason);
-
 handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
     %% ?DBG([{opts, Opts}, {state, State}, {d, D}]),
     Result = case state_getopts(P, D, State, Opts) of
@@ -1878,6 +1811,23 @@ handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
             handle_active(P, D_1, State, [Reply])
     end;
 
+handle_event({call, From}, close, State, {P, D}) ->
+    handle_close(P, D, State, [{reply, From, ok}]);
+
+%% -------
+%% State: 'closed'
+handle_event(internal, exit, 'closed', _P_D) ->
+    %% Sent from handle_recv_error/4,
+    %% corresponds to driver_exit() in inet_drv
+    {stop, {shutdown, closed}};
+handle_event(Type, Content, 'closed' = State, P_D) ->
+    handle_unexpected(Type, Content, State, P_D);
+%% State: 'closed'
+%% -------
+
+handle_event({call, From}, {send_error, Reason}, State, {P, D}) ->
+    handle_send_error(P, D, State, From, Reason);
+
 %% -------
 %% State: 'closed_read'
 handle_event(Type, Content, 'closed_read' = State, {P, _D}) ->
@@ -1895,11 +1845,6 @@ handle_event(Type, Content, 'closed_read' = State, {P, _D}) ->
             keep_state_and_data
     end;
 %% State: 'closed_read'
-%% -------
-%% State: 'closed'
-handle_event(Type, Content, 'closed' = State, P_D) ->
-    handle_unexpected(Type, Content, State, P_D);
-%% State: 'closed'
 %% -------
 
 handle_event({call, From}, {bind, BindAddr} = _BIND, _State, {P, _D}) ->
@@ -2488,21 +2433,33 @@ handle_recv_error(P, #{active := Active} = D,
         true ->
             case Active of
                 false ->
-                    handle_recv_error(
-                      P, D, ActionsR, Reason, 'closed_read');
+                    case maps:get(exit_on_close, D) of
+                        true ->
+                            socket_close(P#params.socket),
+                            handle_recv_error(
+                              P, D, ActionsR, Reason, 'closed');
+                        false ->
+                            handle_recv_error(
+                              P, D, ActionsR, Reason, 'closed_read')
+                    end;
                 _ ->
-                    Owner ! {tcp_error, ModuleSocket, Reason},
-                    Owner ! {tcp_closed, ModuleSocket},
-                    NextState =
-                        case maps:get(exit_on_close, D) of
-                            true ->
-                                socket_close(P#params.socket),
-                                'closed';
-                            false ->
-                                'closed_read'
+                    Reason =:= closed orelse
+                        begin
+                            Owner ! {tcp_error, ModuleSocket, Reason}
                         end,
+                    Owner ! {tcp_closed, ModuleSocket},
                     D_1 = D#{active := false, tcp_closed := true},
-                    handle_recv_error(P, D_1, ActionsR, Reason, NextState)
+                    case maps:get(exit_on_close, D) of
+                        true ->
+                            socket_close(P#params.socket),
+                            handle_recv_error(
+                              P, D_1,
+                              [{next_event, internal, exit} | ActionsR],
+                              Reason, 'closed');
+                        false ->
+                            handle_recv_error(
+                              P, D_1, ActionsR, Reason, 'closed_read')
+                    end
             end
     end.
 %%
@@ -2520,26 +2477,36 @@ handle_recv_error(P, D, ActionsR, Reason, NextState) ->
             {next_state, NextState, {P, D}, reverse(ActionsR)}
     end.
 
--ifdef(undefined).
-handle_send_error(P, D, State, From, Reason) ->
-    case Active of
-        false ->
-            case (Reason =:= econnreset) andalso maps:get(show_econnreset) of
-                true ->
-                    case State of
-                        #recv{info = Info} ->
-                            socket_cancel(P#params.socket, Info),
-                            socket_close(Socket),
-                            {next_state, _, P_D_1, Actions_1} =
-                                handle_recv_error(P, D, ActionsR, closed),
-                            {P_D_1, Actions_1};
+handle_send_error(#params{socket = Socket} = P, D, State, From, Reason) ->
+    ReplyReason =
+        case
+            (Reason =:= econnreset) andalso maps:get(show_econnreset, D)
+        of
+            true ->
+                Reason;
+            false ->
+                closed
+        end,
+    Reply = {reply, From, ReplyReason},
+    case State of
+        #recv{info = Info} ->
+            socket_cancel(Socket, Info),
+            {next_state, NextState, P_D, Actions} = HandleEventResult =
+                handle_recv_error(P, D, [Reply], ReplyReason),
+            case NextState of
+                'closed' ->
+                    HandleEventResult;
+                'closed_read' ->
+                    socket_close(Socket),
+                    {next_state, 'closed', P_D, Actions}
+            end;
+        _ when State =:= 'connected';
+               State =:= 'closed_read';
+               State =:= 'connect' ->
+            socket_close(Socket),
+            {next_state, 'closed', {P, D}, [Reply]}
+    end.
 
-                        #recv{} ->
-
-            ShowEconnreset = maps:get(show_econnreset),
-
-    {keep_state_and_data, [{reply, From, Reason}]}.
--endif. % -ifdef(undefined).
 
 %% -------------------------------------------------------------------------
 %% Callback Helpers
