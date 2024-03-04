@@ -18,7 +18,7 @@
 %% quotes
 -export([single_line_quote_test/1, double_char_for_quote_test/1,
          ignore_three_spaces_before_quote/1, multiple_line_quote_test/1,
-         paragraph_in_between_test/1]).
+         paragraph_in_between_test/1, quote_with_anchor_test/1]).
 
 %% paragraph
 -export([paragraph_after_heading_test/1, quote_before_and_after_paragraph_test/1]).
@@ -136,7 +136,8 @@ quote_tests() ->
       double_char_for_quote_test,
       ignore_three_spaces_before_quote,
       multiple_line_quote_test,
-      paragraph_in_between_test
+      paragraph_in_between_test,
+      quote_with_anchor_test
     ].
 
 paragraph_tests() ->
@@ -393,6 +394,24 @@ paragraph_in_between_test(_Conf) ->
     Expected = extract_moduledoc(HtmlDocs),
     [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
     ok.
+
+quote_with_anchor_test(_Config) ->
+    Docs = create_eep48_doc(
+<<"> #### Note{: .info }
+>
+> The [User's Guide](index.html) has examples and a
+> [Getting Started](using_ssh.md) section.">>),
+    HtmlDocs = compile(Docs),
+
+    Expected = expected([quote(
+<<"#### Note
+
+The User's Guide has examples and a
+Getting Started section.">>)]),
+    Expected = extract_moduledoc(HtmlDocs),
+    [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+    ok.
+
 
 paragraph_after_heading_test(_Conf) ->
     Docs = create_eep48_doc(<<"# Header 1\nThis is text\n\nBody content">>),

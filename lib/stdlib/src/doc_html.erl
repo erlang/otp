@@ -310,8 +310,9 @@ format_link(Bin) when is_binary(Bin) ->
 remove_square_brackets(Bin) when is_binary(Bin) ->
     %% thanks to Elixir folks:
     %% https://github.com/elixir-lang/elixir/blob/main/lib/elixir/lib/io/ansi/docs.ex#L626C22-L626C44
-    R = re:replace(Bin, ~b"\\[([^\\]]*?)\\]\\((.*?)\\)", "\\1", [{return, binary}]),
-    re:replace(R, ~b"{:[^}]*}", <<>>, [{return, binary}]).
+    Options = [{return, binary}, global],
+    R = re:replace(Bin, ~b"\\[([^\\]]*?)\\]\\((.*?)\\)", "\\1", Options),
+    re:replace(R, ~b"{:[^}]*}", <<>>, Options).
 
 -spec process_inline(Line, Format, Buffer) -> Result when
       Line :: binary(),
@@ -542,7 +543,7 @@ create_code(X) ->
 
 -spec quote(Quote :: binary()) -> quote().
 quote(X) when is_binary(X) ->
-    {pre,[], [{code,[], [X]}]}.
+    {pre,[], [{code,[], [format_link(X)]}]}.
 
 -spec p(Line :: binary()) -> p().
 p(X) when is_binary(X) ->
