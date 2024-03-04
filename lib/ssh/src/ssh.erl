@@ -55,11 +55,11 @@ started.
 To just run a shell on a remote machine, there are functions that bundles the
 needed three steps needed into one: [shell/1,2,3](`shell/1`). Similarly, to just
 open an sftp (file transfer) connection to a remote machine, the simplest way is
-to use [ssh_sftp:start_channel/1,2,3](`ssh_sftp:start_channel/1`).
+to use [`ssh_sftp:start_channel/1,2,3`](`ssh_sftp:start_channel/1`).
 
 To write your own client channel handler, use the behaviour
 `m:ssh_client_channel`. For server channel handlers use `m:ssh_server_channel`
-behaviour (replaces ssh_daemon_channel).
+behaviour (replaces `ssh_daemon_channel`).
 
 Both clients and daemons accepts options that controls the exact behaviour. Some
 options are common to both. The three sets are called

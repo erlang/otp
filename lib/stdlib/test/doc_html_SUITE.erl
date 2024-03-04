@@ -41,7 +41,8 @@
          format_multiple_inline_format_short/1, format_multiple_inline_format_long/1,
          format_multiple_inline_format_mixed/1, unmatched_format_simple/1,
          unmatched_format_with_inline/1, unmatched_complex_format_with_inline/1,
-         format_inline_link_with_inline/1, complex_inline_format/1, skip_symbols_in_inline/1]).
+         format_inline_link_with_inline/1, complex_inline_format/1, skip_symbols_in_inline/1,
+         format_header_identifier/1]).
 
 %% Bullet lists
 -export([singleton_bullet_list/1, singleton_bullet_list_followed_new_paragraph/1, singleton_bullet_list_with_format/1,
@@ -180,7 +181,8 @@ format_tests() ->
       unmatched_complex_format_with_inline,
       format_inline_link_with_inline,
       complex_inline_format,
-      skip_symbols_in_inline
+      skip_symbols_in_inline,
+      format_header_identifier
     ].
 
 bullet_list_tests() ->
@@ -667,6 +669,12 @@ skip_symbols_in_inline(_Config) ->
   [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
   ok.
 
+format_header_identifier(_Config) ->
+  Docs = create_eep48_doc(<<"## Test {: #id .class} there">>),
+  HtmlDocs = compile(Docs),
+  Expected = expected([{h2, [], [<<"Test  there">>]}]),
+  [ ?EXPECTED_FUN(Expected) ] = extract_doc(HtmlDocs),
+  ok.
 
 singleton_bullet_list(_Config) ->
     Docs = create_eep48_doc(<<"* One liner">>),
