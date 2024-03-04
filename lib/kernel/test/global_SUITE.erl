@@ -19,6 +19,11 @@
 %%
 -module(global_SUITE).
 
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
 -compile(r24). % many_nodes()
 
 -export([all/0, suite/0, groups/0, 
