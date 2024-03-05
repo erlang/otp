@@ -28,6 +28,7 @@
          call_purged_fun_code_there/1,
          call_purged_fun_code_altered/1,
          multi_proc_purge/1, t_check_old_code/1,
+         many_purges/1,
          external_fun/1,get_chunk/1,module_md5/1,
          constant_pools/1,constant_refc_binaries/1,
          fake_literals/1,
@@ -50,7 +51,7 @@ all() ->
      call_purged_fun_code_reload, call_purged_fun_code_there,
      call_purged_fun_code_altered,
      multi_proc_purge, t_check_old_code, external_fun, get_chunk,
-     module_md5,
+     module_md5, many_purges,
      constant_pools, constant_refc_binaries, fake_literals,
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
@@ -358,6 +359,51 @@ t_check_old_code(Config) when is_list(Config) ->
     {'EXIT',_} = (catch erlang:check_old_code([])),
 
     ok.
+
+many_purges(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "my_code_test"),
+
+    catch erlang:purge_module(my_code_test),
+    catch erlang:delete_module(my_code_test),
+    catch erlang:purge_module(my_code_test),
+    {ok,my_code_test,Code} = compile:file(File, [binary]),
+
+    ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
+
+    many_purges_test(File, Code, 1000),
+
+    Rand = fun Rand() ->
+                   _ = lists:seq(1, rand:uniform(100)),
+                   receive after rand:uniform(10) -> ok end,
+                   Rand()
+           end,
+    Ps0 = lists:map(fun (_) -> spawn(Rand) end, lists:seq(1, 100)),
+
+    ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
+
+    many_purges_test(File, Code, 1000),
+
+    Ps1 = lists:map(fun (_) -> spawn(Rand) end, lists:seq(1, 1000)),
+
+    ct:log("Process count: ~p~n", [erlang:system_info(process_count)]),
+
+    many_purges_test(File, Code, 1000),
+
+    Ps = Ps0 ++ Ps1,
+
+    lists:foreach(fun (P) -> exit(P, kill) end, Ps),
+    lists:foreach(fun (P) -> false = is_process_alive(P) end, Ps),
+
+    ok.
+
+many_purges_test(_File, _Code, 0) ->
+    ok;
+many_purges_test(File, Code, N) ->
+    {module,my_code_test} = code:load_binary(my_code_test, File, Code),
+    true = erlang:delete_module(my_code_test),
+    true = erlang:purge_module(my_code_test),
+    many_purges_test(File, Code, N-1).
 
 external_fun(Config) when is_list(Config) ->
     false = erlang:function_exported(another_code_test, x, 1),
