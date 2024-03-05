@@ -1042,13 +1042,19 @@ ssa_opt_cse({#opt_st{ssa=Linear}=St, FuncDb}) ->
     M = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
     {St#opt_st{ssa=cse(Linear, #{}, M)}, FuncDb}.
 
-cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
-    Es0 = map_get(L, M0),
-    {Is1,Es,Sub} = cse_is(Is0, Es0, Sub0, []),
-    Last = sub(Last0, Sub),
-    M = cse_successors(Is1, Blk, Es, M0),
-    Is = reverse(Is1),
-    [{L,Blk#b_blk{is=Is,last=Last}}|cse(Bs, Sub, M)];
+cse([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Sub0, M0) ->
+    case M0 of
+        #{L := Es0} ->
+            {Is1,Es,Sub} = cse_is(Is0, Es0, Sub0, []),
+            Last = sub(Last0, Sub),
+            Blk = Blk0#b_blk{last=Last},
+            M = cse_successors(Is1, Blk, Es, M0),
+            Is = reverse(Is1),
+            [{L,Blk#b_blk{is=Is,last=Last}}|cse(Bs, Sub, M)];
+        #{} ->
+            %% This block is never reached.
+            cse(Bs, Sub0, M0)
+    end;
 cse([], _, _) -> [].
 
 cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
@@ -1057,9 +1063,8 @@ cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
             %% The previous instruction only has a valid value at the success branch.
             %% We must remove the substitution for Src from the failure branch.
             #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk,
-            M = cse_successors_1([Succ], EsSucc, M0),
-            EsFail = #{Var => Val || Var := Val <- EsSucc, Val =/= Src},
-            cse_successors_1([Fail], EsFail, M);
+            M1 = cse_successors_1([Succ], EsSucc, M0),
+            cse_successor_fail(Fail, Src, EsSucc, M1);
         false ->
             %% There can't be any replacement for Src in EsSucc. No need for
             %% any special handling.
@@ -1082,14 +1087,34 @@ cse_successors_1([L|Ls], Es0, M) ->
     end;
 cse_successors_1([], _, M) -> M.
 
+cse_successor_fail(Fail, Src, Es0, M) ->
+    case M of
+        #{Fail := Es1} when map_size(Es1) =:= 0 ->
+            M;
+        #{Fail := Es1} ->
+            Es = #{Var => Val || Var := Val <- Es0,
+                                 is_map_key(Var, Es1),
+                                 Val =/= Src},
+            M#{Fail := Es};
+        #{} ->
+            Es = #{Var => Val || Var := Val <- Es0, Val =/= Src},
+            M#{Fail => Es}
+    end.
+
 %% Calculate the intersection of the two maps. Both keys and values
 %% must match.
 cse_intersection(M1, M2) ->
+    MapSize1 = map_size(M1),
+    MapSize2 = map_size(M2),
     if
-        map_size(M1) < map_size(M2) ->
+        MapSize1 < MapSize2 ->
             cse_intersection_1(maps:to_list(M1), M2, M1);
+        MapSize1 > MapSize2 ->
+            cse_intersection_1(maps:to_list(M2), M1, M2);
+        M1 =:= M2 ->
+            M2;
         true ->
-            cse_intersection_1(maps:to_list(M2), M1, M2)
+            cse_intersection_1(maps:to_list(M1), M2, M1)
     end.
 
 cse_intersection_1([{Key,Value}|KVs], M, Result) ->
@@ -1138,6 +1163,34 @@ cse_is([#b_set{op=put_map,dst=Dst,args=[_Kind,Map|_]}=I0|Is],
     end;
 cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
     I = sub(I0, Sub0),
+    case beam_ssa:eval_instr(I) of
+        #b_literal{}=Value ->
+            Sub = Sub0#{Dst => Value},
+            cse_is(Is, Es0, Sub, Acc);
+        failed ->
+            case Is of
+                [#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}] ->
+                    %% In a guard. The failure reason doesn't matter,
+                    %% so we can discard this instruction and the
+                    %% `succeeded` instruction. Since the success
+                    %% branch will never be taken, it usually means
+                    %% that one or more blocks can be discarded as
+                    %% well, saving some compilation time.
+                    Sub = Sub0#{SuccDst => #b_literal{val=false}},
+                    {Acc,Es0,Sub};
+                _ ->
+                    %% In a body. We must preserve the exact failure
+                    %% reason, which is most easily done by keeping the
+                    %% instruction.
+                    cse_instr(I, Is, Es0, Sub0, Acc)
+            end;
+        any ->
+            cse_instr(I, Is, Es0, Sub0, Acc)
+    end;
+cse_is([], Es, Sub, Acc) ->
+    {Acc,Es,Sub}.
+
+cse_instr(#b_set{dst=Dst}=I, Is, Es0, Sub0, Acc) ->
     case beam_ssa:clobbers_xregs(I) of
         true ->
             %% Retaining the expressions map across calls and other
@@ -1153,18 +1206,17 @@ cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
                     cse_is(Is, Es0, Sub0, [I|Acc]);
                 {ok,ExprKey} ->
                     case Es0 of
-                        #{ExprKey:=Src} ->
-                            Sub = Sub0#{Dst=>Src},
+                        #{ExprKey := Src} ->
+                            %% Reuse the result of the previous expression.
+                            Sub = Sub0#{Dst => Src},
                             cse_is(Is, Es0, Sub, Acc);
                         #{} ->
-                            Es1 = Es0#{ExprKey=>Dst},
+                            Es1 = Es0#{ExprKey => Dst},
                             Es = cse_add_inferred_exprs(I, Es1),
                             cse_is(Is, Es, Sub0, [I|Acc])
                     end
             end
-    end;
-cse_is([], Es, Sub, Acc) ->
-    {Acc,Es,Sub}.
+    end.
 
 cse_add_inferred_exprs(#b_set{op=put_list,dst=List,args=[Hd,Tl]}, Es) ->
     Es#{{get_hd,[List]} => Hd,
@@ -1174,16 +1226,6 @@ cse_add_inferred_exprs(#b_set{op=put_tuple,dst=Tuple,args=[E1,E2|_]}, Es) ->
     %% worthwhile (at least not in the sample used by scripts/diffable).
     Es#{{get_tuple_element,[Tuple,#b_literal{val=0}]} => E1,
         {get_tuple_element,[Tuple,#b_literal{val=1}]} => E2};
-cse_add_inferred_exprs(#b_set{op={bif,element},dst=E,
-                              args=[#b_literal{val=N},Tuple]}, Es)
-  when is_integer(N) ->
-    Es#{{get_tuple_element,[Tuple,#b_literal{val=N-1}]} => E};
-cse_add_inferred_exprs(#b_set{op={bif,hd},dst=Hd,args=[List]}, Es) ->
-    Es#{{get_hd,[List]} => Hd};
-cse_add_inferred_exprs(#b_set{op={bif,tl},dst=Tl,args=[List]}, Es) ->
-    Es#{{get_tl,[List]} => Tl};
-cse_add_inferred_exprs(#b_set{op={bif,map_get},dst=Value,args=[Key,Map]}, Es) ->
-    Es#{{get_map_element,[Map,Key]} => Value};
 cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=[_,_|Args]}=I, Es0) ->
     Es = cse_add_map_get(Args, Map, Es0),
     Es#{Map => I};
@@ -1194,6 +1236,15 @@ cse_add_map_get([Key,Value|T], Map, Es0) ->
     cse_add_map_get(T, Map, Es);
 cse_add_map_get([], _, Es) -> Es.
 
+cse_expr(#b_set{op={bif,hd},args=[List]}) ->
+    {ok,{get_hd,[List]}};
+cse_expr(#b_set{op={bif,tl},args=[List]}) ->
+    {ok,{get_tl,[List]}};
+cse_expr(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]})
+  when is_integer(Index) ->
+    {ok,{get_tuple_element,[Tuple,#b_literal{val=Index-1}]}};
+cse_expr(#b_set{op={bif,map_get},args=[Key,Map]}) ->
+    {ok,{get_map_element,[Map,Key]}};
 cse_expr(#b_set{op=Op,args=Args}=I) ->
     case cse_suitable(I) of
         true -> {ok,{Op,Args}};
