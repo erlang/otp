@@ -223,21 +223,60 @@ guard(Config) when is_list(Config) ->
 %% Wildcard initialisation.
 init(Config) when is_list(Config) ->
     Ts = [
-      <<"
-         -record(r, {a,b,c,d = foo}).
+          ~"""
+          -record(r, {a,b,c,d = foo}).
 
-         t() ->
-             R = #r{_ = init, b = b},
-             #r{c = init, b = b, a = init} = R,
-             case R of
-                 #r{b = b, _ = init} -> ok;
-                 _ -> not_ok
-             end.
-      ">>
-      ],
+          t() ->
+              R = #r{_ = init, b = b},
+              #r{c = init, b = b, a = init} = R,
+              case R of
+                  #r{b = b, _ = init} -> ok;
+                  _ -> not_ok
+              end.
+          """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {rf1 = (#r0{a = #{ok => ok || ok}})}).
+
+            t() ->
+                catch <<0 || #r1{}>>,
+                ok.
+            """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {
+                         rf1 = fun
+                                   (+0.0) ->
+                                       (list_to_bitstring(ok))#r0.a;
+                                   (_) when ok ->
+                                       ok
+                               end
+                        }).
+
+            t() ->
+                catch <<0 || (#r1{})>>,
+                ok.
+            """,
+          ~"""
+           -record(r0, {a}).
+           -record(r1, {
+                        a = {
+                             ((ok)#r0{})#r0.a,
+                             case whatever of
+                                   _ when cucumber ->
+                                       banan
+                               end
+                              }
+                       }).
+
+           t() ->
+               catch #{ok => ok || #r1{}},
+               ok.
+           """
+         ],
     run(Config, Ts),
     ok.
-    
+
 %% Some patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [

@@ -2437,13 +2437,8 @@ is_guard_test(Expression, Forms, IsOverridden) ->
     %% processing the forms until we'll know that the record
     %% definitions are truly needed.
     F = fun() ->
-                St = foldl(fun({attribute, _, record, _}=Attr0, St0) ->
-                                   Attr = set_file(Attr0, "none"),
-                                   attribute_state(Attr, St0);
-                              (_, St0) ->
-                                   St0
-                           end, start(), Forms),
-                St#lint.records
+                #{Name => {A,Fs} ||
+                    {attribute, A, record, {Name, Fs}} <- Forms}
         end,
 
     is_guard_test2(NoFileExpression, {F,IsOverridden}).
