@@ -610,14 +610,18 @@ shutdown(?MODULE_socket(_Server, Socket), How) ->
 %% -------------------------------------------------------------------------
 
 close(?MODULE_socket(Server, _Socket)) ->
-    ?badarg_exit(close_server(Server)).
+    close_server(Server).
 
 %% Helpers -------
 
 close_server(Server) ->
-    Result = call(Server, close),
+    case call(Server, {close, self()}) of
+        {error, einval} -> ok;
+        {error, closed} -> ok;
+        ok              -> ok
+    end,
     stop_server(Server),
-    Result.
+    ok.
 
 %% -------------------------------------------------------------------------
 
@@ -1529,7 +1533,8 @@ terminate(_Reason, State, P_D) ->
     end.
 %%
 terminate(State, {P, D}) ->
-    {next_state, 'closed', _P_D, Actions} = handle_close(P, D, State, []),
+    {next_state, 'closed', _P_D, Actions} =
+        handle_close(P, D, State, undefined, []),
     [gen_statem:reply(Reply) || {reply, _From, _Msg} = Reply <- Actions],
     void.
 
@@ -1811,8 +1816,8 @@ handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
             handle_active(P, D_1, State, [Reply])
     end;
 
-handle_event({call, From}, close, State, {P, D}) ->
-    handle_close(P, D, State, [{reply, From, ok}]);
+handle_event({call, From}, {close, Caller}, State, {P, D}) ->
+    handle_close(P, D, State, Caller, [{reply, From, ok}]);
 
 %% -------
 %% State: 'closed'
@@ -2057,7 +2062,7 @@ handle_unexpected(Type, Content, State, {P, _D}) ->
 
 %% State transition helpers -------
 
-handle_close(#params{socket = Socket} = P, D, State, ActionsR) ->
+handle_close(#params{socket = Socket} = P, D, State, Caller, ActionsR) ->
     {P_D, Actions} =
         case State of
             %% State #controlling_process{} postpones the close/0 call,
@@ -2081,7 +2086,7 @@ handle_close(#params{socket = Socket} = P, D, State, ActionsR) ->
                 socket_cancel(P#params.socket, Info),
                 socket_close(Socket),
                 {next_state, _, P_D_1, Actions_1} =
-                    handle_recv_error(P, D, ActionsR, closed),
+                    handle_recv_error(P, D, ActionsR, closed, Caller),
                 {P_D_1, Actions_1};
             _ when State =:= 'closed_read';
                    State =:= 'connect';
@@ -2411,8 +2416,11 @@ handle_recv_deliver(P, D, ActionsR, Data) ->
 handle_recv_error(P, {D, ActionsR}, Reason) ->
     handle_recv_error(P, D, ActionsR, Reason).
 %%
-handle_recv_error(P, #{active := Active} = D,
-  ActionsR, Reason) ->
+handle_recv_error(P, D, ActionsR, Reason) ->
+    handle_recv_error(P, D, ActionsR, Reason, undefined).
+%%
+handle_recv_error(
+  P, #{active := Active} = D, ActionsR, Reason, Caller) ->
     %%
     %% Send active socket messages
     %%
@@ -2429,41 +2437,44 @@ handle_recv_error(P, #{active := Active} = D,
                         Owner ! {tcp_error, ModuleSocket, Reason},
                         D#{active := false}
                 end,
-            handle_recv_error(P, D_1, ActionsR, Reason, 'connected');
+            handle_recv_error_reply(P, D_1, ActionsR, Reason, 'connected');
         true ->
             case Active of
                 false ->
                     case maps:get(exit_on_close, D) of
                         true ->
                             socket_close(P#params.socket),
-                            handle_recv_error(
+                            handle_recv_error_reply(
                               P, D, ActionsR, Reason, 'closed');
                         false ->
-                            handle_recv_error(
+                            handle_recv_error_reply(
                               P, D, ActionsR, Reason, 'closed_read')
                     end;
                 _ ->
-                    Reason =:= closed orelse
+                    Reason =/= closed andalso
                         begin
                             Owner ! {tcp_error, ModuleSocket, Reason}
                         end,
-                    Owner ! {tcp_closed, ModuleSocket},
+                    Caller =/= Owner andalso
+                        begin
+                            Owner ! {tcp_closed, ModuleSocket}
+                        end,
                     D_1 = D#{active := false, tcp_closed := true},
                     case maps:get(exit_on_close, D) of
                         true ->
                             socket_close(P#params.socket),
-                            handle_recv_error(
+                            handle_recv_error_reply(
                               P, D_1,
                               [{next_event, internal, exit} | ActionsR],
                               Reason, 'closed');
                         false ->
-                            handle_recv_error(
+                            handle_recv_error_reply(
                               P, D_1, ActionsR, Reason, 'closed_read')
                     end
             end
     end.
 %%
-handle_recv_error(P, D, ActionsR, Reason, NextState) ->
+handle_recv_error_reply(P, D, ActionsR, Reason, NextState) ->
     %%
     %% Create state machine actions; reply and cancel timeout
     %%
