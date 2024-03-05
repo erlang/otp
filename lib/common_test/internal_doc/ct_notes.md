@@ -1,5 +1,77 @@
-# CT test_server
+# CT notes
+## Time categories and totals
+1. TestTime - spent on executing configuration or test case functions
+2. FrameworkTime - e.g. spent on executing hooks
+3. ElapsedTime - start/stop timestamp difference for test execution
 
+> [!NOTE]
+> timetrap option operates on TestTime
+
+```mermaid
+---
+title: Time measurments in CT
+---
+flowchart TD
+    subgraph FrameworkTime
+    pre_ips["F1: pre_init_per_suite"]
+    end
+    subgraph TestTime
+    pre_ips --> ipt["T1: init_per_suite"]
+    end
+    ipt --> post_ips
+    subgraph FrameworkTime
+    post_ips
+    end
+    subgraph TestTime
+    post_ips["F2: post_init_per_suite"] --> testcase1
+    testcase1["T2: Testcase"] --> testcase2
+    testcase2["T3: Testcase"]
+    end
+    subgraph FrameworkTime
+    testcase2 --> pre_ept
+    pre_ept["F3: pre_end_per_suite"]
+    end
+    subgraph TestTime
+    pre_ept --> end_per_test_case
+    end
+    subgraph FrameworkTime
+    end_per_test_case["T4: end_per_suite"] --> post_ept
+    post_ept["F4: post_end_per_suite"]
+    end
+```
+### sequential execution
+Without parallel execution ElapsedTime would be close to sum of test and framework execution times.
+
+> [!NOTE]
+> ElapsedTime ~= FrameworkTime + TestTime = (F1 + F2 + F3 + F4) + (T1 + _T2 + T3_ +T4)
+
+### parallel execution
+With parallel execution ElapsedTime is expected to be smaller than sum of test and framework execution times.
+
+> [!NOTE]
+> ElapsedTime ~= FrameworkTime + TestTime = (F1 + F2 + F3 + F4) + (T1 + _max(T2, T3)_ +T4)
+
+## HTML pages - CT_LOGS folder content
+1. index.html
+   - **Test Run Started - timestamp**
+2. suite.log.latest.html
+3. all_runs.html
+4. ct_run.../index.html
+   - time fetched from suite.log.html files - **ElapsedTime** per row (test suite or test spec) (PR-8112)
+5. ct_run.../ctlog.html
+6. ct_run.../last_test.html
+7. ct_run.../misc_io.log.html
+8. ct_run.../...logs/run.../cover.html
+9. ct_run.../...logs/run.../ct_framework.end_per_group.html - present only in global "make test" run
+10. ct_run.../...logs/run.../ct_framework.init_per_group.html - same as above
+11. ct_run.../...logs/run.../$SUITE.end_per_suite.html
+12. ct_run.../...logs/run.../$SUITE.init_per_suite.html
+13. ct_run.../...logs/run.../$SUITE.$TESTCASE.html
+14. ct_run.../...logs/run.../$SUITE.src.html
+15. ct_run.../...logs/run.../suite.log.html
+    - **Time per row**(test or conf function) - does not include FrameworkTime (e.g. spent in hooks)
+    - **TOTAL Time - being ElapsedTime** not a sum of rows above
+16. ct_run.../...logs/run.../unexpected_io.log.html
 ## Problem (GH-7119, OTP-11894, OTP-14480)
 I think the most confusing thing is that today OTP behavior and design seems to be a mix of Configuration and Testcase centric attributes:
 1. (Configuration centric) CT hook callback looks as designed to wrap around CT Configuration functions (i.e. you have *pre* and *post* to wrapp around init_per_testcase or end_per_testcase)
@@ -57,7 +129,7 @@ flowchart TD
     end
     subgraph hooks
     end_per_test_case[/"end_per_testcase"/] --Config,Return--> post_ept_B
-    post_ept_B[/"(B) post_end_per_testcase"/] --Return--> post_ept_A[/"(A) post_end_per_testcase"/]
+    post_ept_B["(B) post_end_per_testcase"] --Return--> post_ept_A["(A) post_end_per_testcase"]
     end_per_test_case --Config--> post_ept_A
     end
 ```

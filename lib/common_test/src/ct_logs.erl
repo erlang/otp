@@ -1322,9 +1322,12 @@ make_last_run_index1(StartTime,IndexName,CustomStylesheet) ->
 		{ok,Lbl} -> Lbl;
 		_ -> undefined
 	    end,
-    {ok,Index0,Totals} = make_last_run_index(Logs1,
-					     index_header(Label,StartTime,CustomStylesheet),
-					     0, 0, 0, 0, 0, Missing),
+    {ok,Index0,Totals0} = make_last_run_index(Logs1,
+					      index_header(Label,StartTime,CustomStylesheet),
+					      0, 0, 0, 0, 0, 0, Missing),
+    {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,_TotElapsedTime} = Totals0,
+    %% TotElapsedTime is not used in all_runs, remove it
+    Totals = {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt},
     %% write current Totals to file, later to be used in all_runs log
     write_totals_file(?totals_name,Label,Logs1,Totals),
     Index = [Index0|last_run_index_footer()],
@@ -1349,35 +1352,36 @@ insert_dir(D,[]) ->
     [D].
 
 make_last_run_index([Name|Rest], Result, TotSucc, TotFail,
-		    UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+                    UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing) ->
     case get_run_dirs(Name) of
-	false ->
-	    %% Silently skip.
-	    make_last_run_index(Rest, Result, TotSucc, TotFail,
-				UserSkip, AutoSkip, TotNotBuilt, Missing);
-	LogDirs ->
-	    SuiteName = filename:rootname(filename:basename(Name)),
-	    {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1} = 
-		make_last_run_index1(SuiteName, LogDirs, Result,
-				     TotSucc, TotFail,
-				     UserSkip, AutoSkip,
-				     TotNotBuilt, Missing),
-	    make_last_run_index(Rest, Result1, TotSucc1, TotFail1,
-				UserSkip1, AutoSkip1,
-				TotNotBuilt1, Missing)
+        false ->
+            %% Silently skip.
+            make_last_run_index(Rest, Result, TotSucc, TotFail,
+                                UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing);
+        LogDirs ->
+            SuiteName = filename:rootname(filename:basename(Name)),
+            {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1,TotElapsedTime1} =
+                make_last_run_index1(SuiteName, LogDirs, Result,
+                                     TotSucc, TotFail,
+                                     UserSkip, AutoSkip,
+                                     TotNotBuilt, TotElapsedTime,
+                                     Missing),
+            make_last_run_index(Rest, Result1, TotSucc1, TotFail1,
+                                UserSkip1, AutoSkip1,
+                                TotNotBuilt1, TotElapsedTime1, Missing)
     end;
 
 make_last_run_index([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
-		    TotNotBuilt, _) ->
+		    TotNotBuilt, TotElapsedTime, _) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip,
-			   TotNotBuilt, false)],
-     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
+			   TotNotBuilt, TotElapsedTime, false)],
+     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}}.
 	    
 make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
-		     UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing) ->
     case make_one_index_entry(SuiteName, LogDir, "-", false,
 			      Missing, undefined) of
-	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs1} ->
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs1,ElapsedTime} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -1386,31 +1390,37 @@ make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
 	    make_last_run_index1(SuiteName, LogDirs, [Result|Result1],
 				 TotSucc+Succ, 
 				 TotFail+Fail, UserSkip+USkip, AutoSkip1,
-				 TotNotBuilt+NotBuilt, Missing);
+				 TotNotBuilt+NotBuilt, TotElapsedTime+ElapsedTime,
+				 Missing);
 	error ->
 	    make_last_run_index1(SuiteName, LogDirs, Result, TotSucc, TotFail,
-				 UserSkip, AutoSkip, TotNotBuilt, Missing)
+				 UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing)
     end;
 make_last_run_index1(_, [], Result, TotSucc, TotFail,
-		     UserSkip, AutoSkip, TotNotBuilt, _) ->
-    {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}.
+		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, _) ->
+    {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}.
 
 make_one_index_entry(SuiteName, LogDir, Label, All, Missing, URIs) ->
+    MaybeAddElapsedTime =
+        fun(_All = false, ElapsedTime) -> ElapsedTime;
+           (_, _) -> undefined
+        end,
     case count_cases(LogDir) of
-	{Succ,Fail,UserSkip,AutoSkip} ->
-	    NotBuilt = not_built(SuiteName, LogDir, All, Missing),
-	    {NewResult,URIs1} = make_one_index_entry1(SuiteName, LogDir, Label,
-						      Succ, Fail,
-						      UserSkip, AutoSkip,
-						      NotBuilt, All,
-						      normal, URIs),
-	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1};
-	error ->
-	    error
+        {Succ,Fail,UserSkip,AutoSkip,ElapsedTime} ->
+            NotBuilt = not_built(SuiteName, LogDir, All, Missing),
+            {NewResult,URIs1} = make_one_index_entry1(SuiteName, LogDir, Label,
+                                                      Succ, Fail,
+                                                      UserSkip, AutoSkip,
+                                                      NotBuilt, All,
+                                                      normal, URIs,
+                                                      MaybeAddElapsedTime(All, ElapsedTime)),
+            {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1,ElapsedTime};
+        error ->
+            error
     end.
 
 make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
-		      NotBuilt, All, Mode, URIs) ->
+		      NotBuilt, All, Mode, URIs, ElapsedTime) ->
     LogFile = filename:join(Link, ?suitelog_name ++ ".html"),
     CtRunDir = filename:dirname(filename:dirname(Link)),
     CrashDumpName = SuiteName ++ "_erl_crash.dump",
@@ -1501,6 +1511,16 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			end,
 		{UserSkip+AutoSkip,integer_to_list(UserSkip),ASStr}
 	end,
+
+    ElapsedTimeStr =
+        if ElapsedTime == undefined ->
+                "";
+           true ->
+                ["<td align=right>",
+                 float_to_list(ElapsedTime / 1000000, [{decimals, 3}]),
+                 "s</td>\n"]
+        end,
+
     {[xhtml("<tr valign=top>\n",
 	    ["<tr class=\"",odd_or_even(),"\">\n"]),
       xhtml("<td><font size=\"-1\"><a href=\"", "<td><a href=\""),
@@ -1511,34 +1531,48 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
       "<td align=right>",FailStr,"</td>\n",
       "<td align=right>",integer_to_list(AllSkip),
       " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
-      NotBuiltStr, Node, AllInfo, "</tr>\n"], URIs1}.
+      NotBuiltStr, ElapsedTimeStr, Node, AllInfo, "</tr>\n"], URIs1}.
 
-total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
+total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, ElapsedTime, All) ->
     {Label,TimestampCell,AllInfo} =
-	case All of
-	    true ->
-		{"<td>&nbsp;</td>\n",
-		 "<td>&nbsp;</td>\n",
-		 "<td>&nbsp;</td>\n"
-		 "<td>&nbsp;</td>\n"
-		 "<td>&nbsp;</td>\n"};
-	    false ->
-		{"","",""}
-	end,
+        case All of
+            true ->
+                {"<td>&nbsp;</td>\n",
+                 "<td>&nbsp;</td>\n",
+                 "<td>&nbsp;</td>\n"
+                 "<td>&nbsp;</td>\n"
+                 "<td>&nbsp;</td>\n"};
+            false ->
+                {"","",""}
+        end,
 
     {AllSkip,UserSkipStr,AutoSkipStr} =
-	if AutoSkip == undefined -> {UserSkip,"?","?"};
-	   true -> {UserSkip+AutoSkip,
-		    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
-	end,
-    [xhtml("<tr valign=top>\n", 
-	   ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
+        if AutoSkip == undefined -> {UserSkip,"?","?"};
+           true -> {UserSkip+AutoSkip,
+                    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
+        end,
+    ElapsedTimeStr =
+        if ElapsedTime == undefined ->
+                %% Empty string is used when generating following pages:
+                %% - ct_logs/all_runs.html
+                %% - ct_logs/index.html
+                "";
+           true ->
+                %% ElapsedTime is used when generating following pages:
+                %% - ct_logs/ct_run.*/index.html
+                ["<td align=right><b>",
+                 float_to_list(ElapsedTime / 1000000, [{decimals, 3}]),
+                 "s</b></td>\n"]
+        end,
+    [xhtml("<tr valign=top>\n",
+           ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
      "<td><b>Total</b></td>\n", Label, TimestampCell,
      "<td align=right><b>",integer_to_list(Success),"</b></td>\n",
      "<td align=right><b>",integer_to_list(Fail),"</b></td>\n",
      "<td align=right>",integer_to_list(AllSkip),
-     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
+     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
      "<td align=right><b>",integer_to_list(NotBuilt),"</b></td>\n",
+     ElapsedTimeStr,
      AllInfo, "</tr>\n",
      xhtml("","</tfoot>\n")].
 
@@ -1637,6 +1671,7 @@ index_header(Label, StartTime, CustomStylesheet) ->
       "<th>Failed</th>\n",
       "<th>Skipped", xhtml("<br>", "<br />"), "(User/Auto)</th>\n"
       "<th>Missing", xhtml("<br>", "<br />"), "Suites</th>\n",
+      "<th>Elapsed", xhtml("<br>", "<br />"), "Time</th>\n",
       xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
 all_suites_index_header(CustomStylesheet) ->
@@ -1855,7 +1890,9 @@ count_cases(Dir) ->
     SumFile = filename:join(Dir, ?run_summary),
     case read_summary(SumFile, [summary]) of
 	{ok, [{Succ,Fail,Skip}]} ->
-	    {Succ,Fail,Skip,undefined};
+	    {Succ,Fail,Skip,undefined,undefined};
+	{ok, [{Succ,Fail,UserSkip,AutoSkip}]} ->
+		{Succ,Fail,UserSkip,AutoSkip,undefined};
 	{ok, [Summary]} ->
 	    Summary;
 	{error, _} ->
@@ -1863,11 +1900,11 @@ count_cases(Dir) ->
 	    case file:read_file(LogFile) of
 		{ok, Bin} ->
 		    case count_cases1(b2s(Bin),
-				      {undefined,undefined,undefined,undefined}) of
+				      {undefined,undefined,undefined,undefined,undefined}) of
 			{error,not_complete} ->
 			    %% The test is not complete - dont write summary
 			    %% file yet.
-			    {0,0,0,0};
+			    {0,0,0,0,0};
 			Summary ->
 			    _ = write_summary(SumFile, Summary),
 			    Summary
@@ -1896,22 +1933,25 @@ read_summary(Name, Keys) ->
 	    {error, Reason}
     end.
 
-count_cases1("=failed" ++ Rest, {Success, _Fail, UserSkip,AutoSkip}) ->
+count_cases1("=failed" ++ Rest, {Success, _Fail, UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Count, UserSkip,AutoSkip});
-count_cases1("=successful" ++ Rest, {_Success, Fail, UserSkip,AutoSkip}) ->
+    count_cases1(NextLine, {Success, Count, UserSkip, AutoSkip, ElapsedTime});
+count_cases1("=successful" ++ Rest, {_Success, Fail, UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Count, Fail, UserSkip,AutoSkip});
-count_cases1("=skipped" ++ Rest, {Success, Fail, _UserSkip,_AutoSkip}) ->
+    count_cases1(NextLine, {Count, Fail, UserSkip, AutoSkip, ElapsedTime});
+count_cases1("=skipped" ++ Rest, {Success, Fail, _UserSkip, _AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, Count,undefined});
-count_cases1("=user_skipped" ++ Rest, {Success, Fail, _UserSkip,AutoSkip}) ->
+    count_cases1(NextLine, {Success, Fail, Count, undefined, ElapsedTime});
+count_cases1("=user_skipped" ++ Rest, {Success, Fail, _UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, Count,AutoSkip});
-count_cases1("=auto_skipped" ++ Rest, {Success, Fail, UserSkip,_AutoSkip}) ->
+    count_cases1(NextLine, {Success, Fail, Count, AutoSkip, ElapsedTime});
+count_cases1("=auto_skipped" ++ Rest, {Success, Fail, UserSkip, _AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, UserSkip,Count});
-count_cases1([], {Su,F,USk,_ASk}) when Su==undefined;F==undefined;
+    count_cases1(NextLine, {Success, Fail, UserSkip, Count, ElapsedTime});
+count_cases1("=elapsed_time" ++ Rest, {Success, Fail, UserSkip, AutoSkip, _ElapsedTime}) ->
+	{NextLine, Count} = get_number(Rest),
+	count_cases1(NextLine, {Success, Fail, UserSkip, AutoSkip, Count});
+count_cases1([], {Su,F,USk,_ASk,_ElapsedTime}) when Su==undefined;F==undefined;
 				       USk==undefined ->
     {error,not_complete};
 count_cases1([], Counters) ->
@@ -2791,7 +2831,7 @@ make_all_suites_index3([IxEntry = {TestName,Label,Missing,
 
 	    {Result1,_} = make_one_index_entry1(TestName, LastLogDir, Label,
 						Succ, Fail, USkip, ASkip,
-						NotBuilt, All, temp, URIs),
+						NotBuilt, All, temp, URIs, undefined),
 
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -2829,7 +2869,7 @@ make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 	end,
     case make_one_index_entry(TestName, LastLogDir, Label,
 			      {true,OldDirs}, Missing, undefined) of
-	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,URIs} ->
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,URIs,_ElapsedTime} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -2860,7 +2900,7 @@ make_all_suites_index3([_|Rest], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 make_all_suites_index3([], Result, TotSucc, TotFail, UserSkip, AutoSkip, 
 		       TotNotBuilt, _, TempData) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip,
-			   TotNotBuilt,true)], 
+			   TotNotBuilt,undefined,true)], 
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}, lists:reverse(TempData)}.
 
 
@@ -2911,7 +2951,7 @@ make_all_suites_ix_temp1([{TestName,Label,Missing,LastLogDirData,OldDirs}|Rest],
     end;
 make_all_suites_ix_temp1([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			 TotNotBuilt) ->
-    [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, true)].
+    [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, undefined, true)].
 
 make_one_ix_entry_temp(TestName, {LogDir,Summary,URIs}, Label, All, Missing) ->
     case Summary of
@@ -2920,7 +2960,7 @@ make_one_ix_entry_temp(TestName, {LogDir,Summary,URIs}, Label, All, Missing) ->
 	    {NewResult,URIs1} = make_one_index_entry1(TestName, LogDir, Label,
 						      Succ, Fail,
 						      UserSkip, AutoSkip,
-						      NotBuilt, All, temp, URIs),
+						      NotBuilt, All, temp, URIs, undefined),
 	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1};
 	error ->
 	    error
