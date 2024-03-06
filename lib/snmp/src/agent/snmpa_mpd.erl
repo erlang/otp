@@ -252,7 +252,7 @@ empty_msg_size() ->
 %%-----------------------------------------------------------------
 
 -doc(#{equiv => process_packet/6}).
--doc(#{since => <<"OTP 17.3,OTP R14B">>}).
+-doc(#{since => <<"OTP 17.3">>}).
 -spec process_packet(Packet, From, State, NoteStore, Log) ->
           {ok, Vsn, Pdu, PduMS, ACMData} |
           {discarded, Reason} |
@@ -288,9 +288,8 @@ necessary. The return values should be passed to the agent.
 > cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
 > uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
 
-[](){: #generate_response_msg }
 """.
--doc(#{since => <<"OTP 17.3,OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec process_packet(Packet, TDomain, TAddress, State, NoteStore, Log) ->
           {ok, Vsn, Pdu, PduMS, ACMData} |
           {discarded, Reason} |
@@ -858,7 +857,6 @@ is the `#pdu.type` of the original request.
 > cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
 > uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
 
-[](){: #generate_msg }
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
@@ -1184,7 +1182,6 @@ passed to this function.
 > cases, if the agent is to "emulate" multiple EngineIDs\! By default, the agent
 > uses the value of `SnmpEngineID` (see SNMP-FRAMEWORK-MIB).
 
-[](){: #process_taddrs }
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec generate_msg(Vsn, NoteStore, Pdu, MsgData, LocalEngineID, To) ->
