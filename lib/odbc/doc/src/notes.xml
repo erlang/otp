@@ -32,7 +32,22 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.14.1</title>
+  <section><title>ODBC 2.14.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use spec for API doc</p>
+          <p>
+	    Own Id: OTP-18926 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.14.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

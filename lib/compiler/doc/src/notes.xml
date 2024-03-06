@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, an unsafe optimization could
+	    cause the compiler to generate incorrect code for list
+	    matching.</p>
+          <p>
+	    Own Id: OTP-19003 Aux Id: GH-8187, PR-8189 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix the compilation server to restart if the applications
+	    in its lib dir changes inbetween <c>erlc</c> invokations.</p>
+          <p>
+	    Own Id: OTP-18936 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

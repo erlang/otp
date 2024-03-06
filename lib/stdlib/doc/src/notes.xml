@@ -31,6 +31,35 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The help texts shown by <c>argparse</c> will now
+	    display sub-command arguments in the correct order.</p>
+          <p>
+	    Own Id: OTP-18900 Aux Id: PR-7945, GH-7934 </p>
+        </item>
+        <item>
+          <p>
+	    Clarified the argparse documentation regarding the
+	    user-defined help template.</p>
+          <p>
+	    Own Id: OTP-18937 </p>
+        </item>
+        <item>
+          <p>
+	    Fix shell expansion to not crash when expanding invalid
+	    using invalid atoms.</p>
+          <p>
+	    Own Id: OTP-18953 Aux Id: GH-8016 PR-8075 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,44 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix performance bug when using <c>io:fread</c> to read
+	    from <c>standard_io</c>. This regression was introduced
+	    in OTP 26.0.</p>
+          <p>
+	    Own Id: OTP-18910 Aux Id: PR-7933 GH-7924 </p>
+        </item>
+        <item>
+          <p>
+	    A bug in the code server could cause it to crash in some
+	    concurrent scenarios. This bug was introduced in 26.1.</p>
+          <p>
+	    Own Id: OTP-18948 Aux Id: PR-8046 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed gen_udp:open/2 type spec to include already
+	    supported module socket address types.</p>
+          <p>
+	    Own Id: OTP-18990 Aux Id: GH-8158 </p>
+        </item>
+        <item>
+          <p>
+	    Fix reading of password for ssh client when in
+	    <c>user_interactive</c> mode.</p>
+          <p>
+	    Own Id: OTP-19007 Aux Id: ERIERL-1049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

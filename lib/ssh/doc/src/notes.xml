@@ -30,6 +30,43 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, acceptor_sup is not started for ssh
+	    client as it is not needed in that role.</p>
+          <p>
+	    Own Id: OTP-18974 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, more secure algorithms are preferred by
+	    ssh and documentation is updated to reflect that.</p>
+          <p>
+	    Own Id: OTP-18986 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, KEX strict terminal message is emitted
+	    with debug verbosity.</p>
+          <p>
+	    Own Id: OTP-19002 Aux Id: ERIERL-1041 </p>
+        </item>
+        <item>
+          <p>
+	    Fix reading of password for ssh client when in
+	    <c>user_interactive</c> mode.</p>
+          <p>
+	    Own Id: OTP-19007 Aux Id: ERIERL-1049 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

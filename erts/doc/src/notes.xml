@@ -31,6 +31,100 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compile warning in erl_nif.c for gcc-13.</p>
+          <p>
+	    Own Id: OTP-18906 Aux Id: PR-7930 </p>
+        </item>
+        <item>
+          <p>
+	    Fix C++ compile error for macros <c>enif_select_read</c>
+	    and friends.</p>
+          <p>
+	    Own Id: OTP-18907 Aux Id: PR-7932 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a name clash on Solaris that prevented the JIT from
+	    being built.</p>
+          <p>
+	    Own Id: OTP-18940 Aux Id: GH-8024 </p>
+        </item>
+        <item>
+          <p>
+	    Fix termcap detection on solaris.</p>
+          <p>
+	    Own Id: OTP-18952 Aux Id: PR-8025 </p>
+        </item>
+        <item>
+          <p>
+	    Fix heap corruption bug that could cause runaway memory
+	    consumption due to circular offheap list at process exit.
+	    Other symptoms may also be possible. Bug exists since OTP
+	    25.0.</p>
+          <p>
+	    Own Id: OTP-18971 Aux Id: GH-8044 </p>
+        </item>
+        <item>
+          <p>
+	    Do not clear tracing in old module instance if load fails
+	    with 'not_purged'.</p>
+          <p>
+	    Own Id: OTP-18979 </p>
+        </item>
+        <item>
+          <p>
+	    When exceeding the `max_heap_size` limit in a garbage
+	    collection initiated by some bit syntax operations, the
+	    process would not always terminate immediately.</p>
+          <p>
+	    Own Id: OTP-18982 </p>
+        </item>
+        <item>
+	    <p>The code server could be hanging if a module with
+	    <c>on_load</c> function was loaded at the same time as
+	    another module was purged using
+	    <c>erlang:purge_module</c> directly.</p>
+          <p>
+	    Own Id: OTP-19006 </p>
+        </item>
+        <item>
+	    <p>A process optimized for parallel signal delivery could
+	    under some circumstances lose wakeup information. That
+	    is, the processes was not woken up to take care of the
+	    signal, so the signal would not be taken care of until
+	    the process was woken by another signal. Only processes
+	    configured with <seeerl
+	    marker="erlang#process_flag_message_queue_data"><c>message_queue_data</c></seeerl>
+	    set to <c>off_heap</c> utilize this optimization.</p>
+          <p>
+	    Own Id: OTP-19008 Aux Id: GH-8119, PR-8201 </p>
+        </item>
+        <item>
+          <p>
+	    Fix segfault when generating crashdump containing a fun
+	    places in persistent_term storage.</p>
+          <p>
+	    Own Id: OTP-19009 Aux Id: PR-8181 </p>
+        </item>
+        <item>
+	    <p>By default the JIT is disabled on Intel Macs, because
+	    of annoying poups on macOS Sonoma. It is now possible to
+	    explicitly enable the JIT on Intel Macs. Here is how:
+	    <c>./configure --enable-jit</c></p>
+          <p>
+	    Own Id: OTP-19011 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

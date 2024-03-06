@@ -27,6 +27,70 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl:prf/5, will start working instead of hanging in a
+	    TLS-1.3 context if called appropriately. Note that the
+	    implementation has changed and in OTP-27 a more adequate
+	    API will be documented.</p>
+          <p>
+	    Own Id: OTP-18890 Aux Id: GH-7911 </p>
+        </item>
+        <item>
+          <p>
+	    Server name verification didn't work if a connection was
+	    made with IP-address as a string.</p>
+          <p>
+	    Own Id: OTP-18909 Aux Id: GH-7968 </p>
+        </item>
+        <item>
+          <p>
+	    The fallback after "dh" ssl option was undefined was to
+	    get "dh" from ssl options again. This is clearly wrong
+	    and now changed to the documented fallback "dhfile" ssl
+	    option.</p>
+          <p>
+	    Own Id: OTP-18919 Aux Id: PR-7984 </p>
+        </item>
+        <item>
+          <p>
+	    Correct default value selection for DTLS. Will only
+	    affect users linked with really old version of cryptolib
+	    library.</p>
+          <p>
+	    Own Id: OTP-18962 Aux Id: GH-8079 </p>
+        </item>
+        <item>
+          <p>
+	    Adhere elliptic curves with RFC 8422 pre TLS-1.3, that is
+	    Edwards curves are added to curves that can be used for
+	    key exchange, and documentation and implementation of
+	    eccs/0,1 are aligned.</p>
+          <p>
+	    Own Id: OTP-18991 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve alert reason when ecdhe_rsa key_exchange does not
+	    have any common curves to use</p>
+          <p>
+	    Own Id: OTP-18985 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
