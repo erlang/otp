@@ -2046,11 +2046,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  */
-#if defined(DEBUG) && defined(ARCH_64)
-#include "erl_db_insert_list.debug.ycf.h"
-#else
 #include "erl_db_insert_list.ycf.h"
-#endif
 
 static void* ets_insert_2_yield_alloc(size_t size, void* ctx)
 {

@@ -124,11 +124,7 @@ static int hxnodecmpkey(const void* a, const void* b);
  * code that it transforms.
  *
  */
-#if defined(DEBUG) && defined(ARCH_64)
-#include "erl_map.debug.ycf.h"
-#else
 #include "erl_map.ycf.h"
-#endif
 #define NOT_YCF_YIELDING_VERSION 1
 #define YCF_CONSUME_REDS(X) while(0){}
 
