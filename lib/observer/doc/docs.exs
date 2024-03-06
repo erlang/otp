@@ -7,7 +7,7 @@
     "guides/ttb_ug.md",
     "guides/etop_ug.md",
     "guides/crashdump_ug.md",
-    "references/observer_app.md",
-    "references/cdv_cmd.md"
+    "references/cdv_cmd.md",
+    "observer_app.md",
   ]
 ]

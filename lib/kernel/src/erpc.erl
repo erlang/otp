@@ -105,6 +105,10 @@ is available on the involved nodes.
                                 andalso (TI_ =< ?MAX_INT_TIMEOUT))).
 
 -doc """
+The timeout time used by erpc functions.
+
+The value can be:
+
 - **`0..4294967295`** - Timeout relative to current time in milliseconds.
 
 - **`infinity`** - Infinite timeout. That is, the operation will never time out.
@@ -126,7 +130,7 @@ is available on the involved nodes.
 %% Exported API
 %%------------------------------------------------------------------------
 
--doc(#{equiv => call/3}).
+-doc(#{equiv => call(Node, Fun, infinity)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Fun) -> Result when
       Node :: node(),
@@ -137,13 +141,11 @@ call(N, Fun) ->
     call(N, Fun, infinity).
 
 -doc """
-The same as calling
-[`erpc:call(Node, erlang, apply, [Fun,[]], Timeout)`](`call/5`). May raise all
-the same exceptions as [`call/5`](`call/5`) plus an `{erpc, badarg}` `error`
-exception if `Fun` is not a fun of zero arity.
+Equivalent to
+[`erpc:call(Node, erlang, apply, [Fun,[]], Timeout)`](`call/5`).
 
-The call `erpc:call(Node,Fun)` is the same as the call
-`erpc:call(Node,Fun,infinity)`.
+May raise all the same exceptions as [`call/5`](`call/5`) plus an `{erpc, badarg}`
+`error` exception if `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Fun, Timeout) -> Result when
@@ -157,7 +159,7 @@ call(N, Fun, Timeout) when is_function(Fun, 0) ->
 call(_N, _Fun, _Timeout) ->
     error({?MODULE, badarg}).
 
--doc(#{equiv => call/5}).
+-doc(#{equiv => call(Node, Module, Function, Args, infinity)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Module, Function, Args) -> Result when
       Node :: node(),
@@ -175,9 +177,6 @@ call(N, M, F, A) ->
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on node `Node` and
 returns the corresponding value `Result`. `Timeout` sets an upper time limit for
 the `call` operation to complete.
-
-The call `erpc:call(Node, Module, Function, Args)` is equivalent to the call
-`erpc:call(Node, Module, Function, Args, infinity)`
 
 The `call()` function only returns if the applied function successfully returned
 without raising any uncaught exceptions, the operation did not time out, and no
@@ -303,7 +302,7 @@ information see `reqids_new/0`.
 -opaque request_id_collection() :: #{ reference() => [reference() | term()] }.
 
 -doc """
-The same as calling
+Equivalent to
 [`erpc:send_request(Node, erlang, apply, [Fun, []])`](`send_request/4`).
 
 Fails with an `{erpc, badarg}` `error` exception if:
@@ -331,6 +330,7 @@ send_request(_N, _F) ->
 
 -doc """
 Send an asynchronous `call` request to the node `Node`.
+
 [`send_request/4`](`send_request/4`) returns a request identifier that later is
 to be passed to either `receive_response/2`, `wait_response/2`, or,
 `check_response/2` in order to get the response of the call request. Besides
@@ -369,7 +369,7 @@ Fails with an `{erpc, badarg}` `error` exception if:
 > You cannot make _any_ assumptions about the process that will perform the
 > `apply()`. It may be a server, or a freshly spawned process.
 
-The same as calling
+Equivalent to
 [`erpc:send_request(Node, erlang, apply, [Fun,[]]), Label, RequestIdCollection)`](`send_request/6`).
 
 Fails with an `{erpc, badarg}` `error` exception if:
@@ -421,7 +421,7 @@ can later be used in order to get one response corresponding to a request in the
 collection by passing the collection as argument to `receive_response/3`,
 `wait_response/3`, or, `check_response/3`.
 
-The same as calling
+Equivalent to
 [`erpc:reqids_add`](`reqids_add/3`)([`erpc:send_request`](`send_request/4`)`(Node, Module, Function, Args), Label, RequestIdCollection)`,
 but calling [`send_request/6`](`send_request/6`) is slightly more efficient.
 
@@ -463,10 +463,7 @@ send_request(N, M, F, A, L, C) when is_atom(N),
 send_request(_N, _M, _F, _A, _L, _C) ->
     error({?MODULE, badarg}).
 
--doc """
-The same as calling
-[`erpc:receive_response(RequestId, infinity)`](`receive_response/2`).
-""".
+-doc(#{ equiv => receive_response(RequestId, infinity) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec receive_response(RequestId) -> Result when
       RequestId :: request_id(),
@@ -482,7 +479,9 @@ receive_response(_) ->
 
 -doc """
 Receive a response to a `call` request previously made by the calling process
-using `send_request/4`. `RequestId` should be the value returned from the
+using `send_request/4`.
+
+`RequestId` should be the value returned from the
 previously made [`send_request/4`](`send_request/4`) call, and the corresponding
 response should not already have been received and handled to completion by
 `receive_response()`, [`check_response/4`](`check_response/2`), or
@@ -623,7 +622,7 @@ receive_response(_, _, _) ->
     error({?MODULE, badarg}).
 
 -doc """
-The same as calling [`erpc:wait_response(RequestId, 0)`](`wait_response/2`).
+Equivalent to [`erpc:wait_response(RequestId, 0)`](`wait_response/2`).
 That is, poll for a response message to a `call` request previously made by the
 calling process.
 """.
@@ -643,10 +642,11 @@ wait_response(_) ->
 
 -doc """
 Wait or poll for a response message to a `call` request previously made by the
-calling process using `send_request/4`. `RequestId` should be the value returned
-from the previously made `send_request()` call, and the corresponding response
-should not already have been received and handled to completion by
-`check_response/2`, `receive_response/2`, or `wait_response()`.
+calling process using `send_request/4`.
+
+`RequestId` should be the value returned from the previously made `send_request()`
+call, and the corresponding response should not already have been received and
+handled to completion by `check_response/2`, `receive_response/2`, or `wait_response()`.
 
 `WaitTime` sets an upper time limit on how long to wait for a response. If no
 response is received before the `WaitTime` timeout has triggered, the atom
@@ -775,8 +775,10 @@ wait_response(_, _, _) ->
 
 -doc """
 Check if a message is a response to a `call` request previously made by the
-calling process using `send_request/4`. `RequestId` should be the value returned
-from the previously made [`send_request/4`](`send_request/4`) call, and the
+calling process using `send_request/4`.
+
+`RequestId` should be the value returned from the previously made
+[`send_request/4`](`send_request/4`) call, and the
 corresponding response should not already have been received and handled to
 completion by [`check_response/2`](`check_response/2`), `receive_response/2`, or
 `wait_response/2`. `Message` is the message to check.
@@ -990,7 +992,7 @@ reqids_to_list(_) ->
       | {error, {?MODULE, Reason :: term()}}.
 
 
--doc(#{equiv => multicall/3}).
+-doc(#{equiv => multicall(Nodes, Fun, infinity)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicall(Nodes, Fun) -> Result when
       Nodes :: [atom()],
@@ -1001,13 +1003,11 @@ multicall(Ns, Fun) ->
     multicall(Ns, Fun, infinity).
 
 -doc """
-The same as calling
-[`erpc:multicall(Nodes, erlang, apply, [Fun,[]], Timeout)`](`multicall/5`). May
-raise all the same exceptions as [`multicall/5`](`multicall/5`) plus an
-`{erpc, badarg}` `error` exception if `Fun` is not a fun of zero arity.
+Equivalent to
+[`erpc:multicall(Nodes, erlang, apply, [Fun,[]], Timeout)`](`multicall/5`).
 
-The call `erpc:multicall(Nodes,Fun)` is the same as the call
-`erpc:multicall(Nodes,Fun, infinity)`.
+May raise all the same exceptions as [`multicall/5`](`multicall/5`) plus an
+`{erpc, badarg}` `error` exception if `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicall(Nodes, Fun, Timeout) -> Result when
@@ -1021,7 +1021,7 @@ multicall(Ns, Fun, Timeout) when is_function(Fun, 0) ->
 multicall(_Ns, _Fun, _Timeout) ->
     error({?MODULE, badarg}).
 
--doc(#{equiv => multicall/5}).
+-doc(#{equiv => multicall(Nodes, Module, Function, Args, infinity)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicall(Nodes, Module, Function, Args) -> Result when
       Nodes :: [atom()],
@@ -1034,8 +1034,9 @@ multicall(Ns, M, F, A) ->
     multicall(Ns, M, F, A, infinity).
 
 -doc """
-Performs multiple `call` operations in parallel on multiple nodes. That is,
-evaluates [`apply(Module, Function, Args)`](`apply/3`) on the nodes `Nodes` in
+Performs multiple `call` operations in parallel on multiple nodes.
+
+That is, evaluates [`apply(Module, Function, Args)`](`apply/3`) on the nodes `Nodes` in
 parallel. `Timeout` sets an upper time limit for all `call` operations to
 complete. The result is returned as a list where the result from each node is
 placed at the same position as the node name is placed in `Nodes`. Each item in
@@ -1121,7 +1122,7 @@ multicall(Ns, M, F, A, T) ->
     end.
 
 -doc """
-The same as calling
+Equivalent to
 [`erpc:multicast(Nodes,erlang,apply,[Fun,[]])`](`multicast/4`).
 
 [`multicast/2`](`multicast/2`) fails with an `{erpc, badarg}` `error` exception
@@ -1186,7 +1187,7 @@ multicast_send_requests([Node|Nodes], Mod, Fun, Args) ->
     multicast_send_requests(Nodes, Mod, Fun, Args).
 
 -doc """
-The same as calling [`erpc:cast(Node,erlang,apply,[Fun,[]])`](`cast/4`).
+Equivalent to [`erpc:cast(Node,erlang,apply,[Fun,[]])`](`cast/4`).
 
 [`cast/2`](`cast/2`) fails with an `{erpc, badarg}` `error` exception if:
 

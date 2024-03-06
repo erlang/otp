@@ -53,7 +53,7 @@ characters (integer value zero) are not allowed.
 """.
 -type os_command() :: atom() | io_lib:chars().
 -doc """
-Options for [`os:cmd/2`](`cmd/2`)
+Options for [`os:cmd/2`](`cmd/2`).
 
 - **`max_size`** - The maximum size of the data returned by the `os:cmd/2` call.
   See the [`os:cmd/2`](`cmd/2`) documentation for more details.
@@ -65,7 +65,9 @@ Options for [`os:cmd/2`](`cmd/2`)
 -doc """
 A string containing valid characters on the specific OS for environment variable
 names using [`file:native_name_encoding()`](`file:native_name_encoding/0`)
-encoding. Null characters (integer value zero) are not allowed. On Unix, `=`
+encoding.
+
+Null characters (integer value zero) are not allowed. On Unix, `=`
 characters are not allowed. On Windows, a `=` character is only allowed as the
 very first character in the string.
 """.
@@ -74,7 +76,9 @@ very first character in the string.
 -doc """
 A string containing valid characters on the specific OS for environment variable
 values using [`file:native_name_encoding()`](`file:native_name_encoding/0`)
-encoding. Null characters (integer value zero) are not allowed.
+encoding.
+
+Null characters (integer value zero) are not allowed.
 """.
 -type env_var_value() :: string().
 
@@ -82,6 +86,7 @@ encoding. Null characters (integer value zero) are not allowed.
 Assuming that environment variables has been correctly set, a strings containing
 valid characters on the specific OS for environment variable names and values
 using [`file:native_name_encoding()`](`file:native_name_encoding/0`) encoding.
+
 The first `=` characters appearing in the string separates environment variable
 name (on the left) from environment variable value (on the right).
 """.
@@ -121,10 +126,13 @@ getenv(_VarName) ->
 
 -doc """
 Returns the process identifier of the current Erlang emulator in the format most
-commonly used by the OS environment. Returns `Value` as a string containing the
-(usually) numerical identifier for a process. On Unix, this is typically the
-return value of the `getpid/0` system call. On Windows, the process id as
-returned by the `GetCurrentProcessId()` system call is used.
+commonly used by the OS environment.
+
+Returns `Value` as a string containing the (usually) numerical identifier for a process.
+
+- On Unix, this is typically the return value of the `getpid/0` system call.
+- On Windows, the process id as returned by the `GetCurrentProcessId()` system call
+  is used.
 """.
 -spec getpid() -> Value when
       Value :: string().
@@ -146,11 +154,12 @@ perf_counter() ->
 
 -doc """
 Returns a performance counter that can be used as a very fast and high
-resolution timestamp. This counter is read directly from the hardware or
-operating system with the same guarantees. This means that two consecutive calls
-to the function are not guaranteed to be monotonic, though it most likely will
-be. The performance counter will be converted to the resolution passed as an
-argument.
+resolution timestamp.
+
+This counter is read directly from the hardware or operating system with the
+same guarantees. This means that two consecutive calls to the function are not
+guaranteed to be monotonic, though it most likely will be. The performance
+counter will be converted to the resolution passed as an argument.
 
 ```erlang
 1> T1 = os:perf_counter(1000),receive after 10000 -> ok end,T2 = os:perf_counter(1000).
@@ -222,11 +231,13 @@ system_time(_Unit) ->
 
 -doc """
 Returns the current [OS system time](`e:erts:time_correction.md#os-system-time`)
-in the same format as `erlang:timestamp/0`. The tuple can be used together with
-function `calendar:now_to_universal_time/1` or `calendar:now_to_local_time/1` to
-get calendar time. Using the calendar time, together with the `MicroSecs` part
-of the return tuple from this function, allows you to log time stamps in high
-resolution and consistent with the time in the rest of the OS.
+in the same format as `erlang:timestamp/0`.
+
+The tuple can be used together with function `calendar:now_to_universal_time/1`
+or `calendar:now_to_local_time/1` to get calendar time. Using the calendar time,
+together with the `MicroSecs` part of the return tuple from this function,
+allows you to log time stamps in high resolution and consistent with the time in
+ the rest of the OS.
 
 Example of code formatting a string in format "DD Mon YYYY HH:MM:SS.mmmmmm",
 where DD is the day of month, Mon is the textual month name, YYYY is the year,
@@ -376,7 +387,11 @@ as three numbers.
 version() ->
     erlang:system_info(os_version).
 
--doc(#{equiv => find_executable/2}).
+-doc """
+Equivalent to [`find_executable(Name, Path)`](`find_executable/2`) where
+`Path` is the current execution path (that is, the environment variable `PATH`
+on Unix and Windows).
+""".
 -spec find_executable(Name) -> Filename | 'false' when
       Name :: string(),
       Filename :: string().
@@ -384,12 +399,10 @@ find_executable(Name) ->
     find_executable(Name, os:getenv("PATH", "")).
 
 -doc """
-These two functions look up an executable program, with the specified name and a
-search path, in the same way as the underlying OS.
-[`find_executable/1`](`find_executable/1`) uses the current execution path (that
-is, the environment variable `PATH` on Unix and Windows).
+Look up an executable program, with the specified name and a search path, in the
+same way as the underlying OS.
 
-`Path`, if specified, is to conform to the syntax of execution paths on the OS.
+`Path` is to conform to the syntax of execution paths on the OS.
 Returns the absolute filename of the executable program `Name`, or `false` if
 the program is not found.
 """.
@@ -488,8 +501,21 @@ extensions() ->
     end.
 
 %% Executes the given command in the default shell for the operating system.
--doc(#{equiv => cmd/2}).
--doc(#{since => <<"OTP 20.2.3">>}).
+-doc """
+Executes `Command` in a command shell of the target OS, captures the standard
+output and standard error of the command, and returns this result as a string.
+
+_Examples:_
+
+```erlang
+LsOut = os:cmd("ls"), % on unix platform
+DirOut = os:cmd("dir"), % on Win32 platform
+```
+
+Notice that in some cases, standard output of a command when called from another
+program can differ, compared with the standard output of the command when called
+directly from an OS command shell.
+""".
 -spec cmd(Command) -> string() when
       Command :: os_command().
 cmd(Cmd) ->
@@ -503,23 +529,9 @@ cmd(Cmd) ->
     end.
 
 -doc """
-Executes `Command` in a command shell of the target OS, captures the standard
-output and standard error of the command, and returns this result as a string.
 
-_Examples:_
 
-```erlang
-LsOut = os:cmd("ls"), % on unix platform
-DirOut = os:cmd("dir"), % on Win32 platform
-```
-
-Notice that in some cases, standard output of a command when called from another
-program (for example, `os:cmd/1`) can differ, compared with the standard output
-of the command when called directly from an OS command shell.
-
-`os:cmd/2` was added in kernel-5.5 (OTP-20.2.1). It makes it possible to pass an
-options map as the second argument in order to control the behaviour of
-`os:cmd`. The possible options are:
+The possible options are:
 
 - **`max_size`** - The maximum size of the data returned by the `os:cmd` call.
   This option is a safety feature that should be used when the command executed

@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# sasl
-
-The SASL application
+# SASL Application
 
 ## Description
 

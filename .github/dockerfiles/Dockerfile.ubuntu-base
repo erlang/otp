@@ -119,13 +119,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     curl -s https://api.github.com/repos/hexpm/hex/releases/${HEX_VSN} | \
     jq '.tarball_url' | xargs curl -L > hex.tar.gz && \
     tar xzf hex.tar.gz --strip-components=1 && \
-    mix install && \
-    mkdir /buildroot/ex_doc && cd /buildroot/ex_doc && \
-    curl -s https://api.github.com/repos/elixir-lang/ex_doc/releases/${EX_DOC_VSN} | \
-    jq '.tarball_url' | xargs curl -L > ex_doc.tar.gz && \
-    tar xzf ex_doc.tar.gz --strip-components=1 && \
-    mix deps.get && MIX_ENV=prod mix escript.build && \
-    sudo cp ex_doc /usr/local/bin/
+    mix install
 
 ## Install test tools rebar3, proper and jsx
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \

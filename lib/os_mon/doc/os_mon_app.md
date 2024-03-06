@@ -17,9 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# os_mon
-
-OS Monitoring Application
+# OS Monitoring Application
 
 ## Description
 

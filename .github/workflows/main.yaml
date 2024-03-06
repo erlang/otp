@@ -417,6 +417,7 @@ jobs:
           docker build --build-arg BASE_URL="$BASE_URL" -t otp - <<EOF
           FROM otp
           ENV BASE_URL=$BASE_URL
+          RUN ./otp_build download_ex_doc
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish

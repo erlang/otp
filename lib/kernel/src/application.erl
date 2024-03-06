@@ -32,7 +32,7 @@ parameters).
 An application is defined by an _application specification_. The specification
 is normally located in an _application resource file_ named `Application.app`,
 where `Application` is the application name. For details about the application
-specification, see [`app(4)`](app.md).
+specification, see [`app`](app.md).
 
 This module can also be viewed as a behaviour for an application implemented
 according to the OTP design principles as a supervision tree. The definition of
@@ -45,7 +45,7 @@ For details about applications and behaviours, see
 ## See Also
 
 [OTP Design Principles](`e:system:design_principles.md`),
-[kernel(6)](kernel_app.md), [app(4)](app.md)
+[kernel](kernel_app.md), [app](app.md)
 """.
 -moduledoc(#{titles => [{callback,<<"Callback Module">>}]}).
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
@@ -65,10 +65,17 @@ For details about applications and behaviours, see
 
 %%%-----------------------------------------------------------------
 
+-doc "The reason for the application to be started on the current node.".
 -type start_type() :: 'normal'
                     | {'takeover', Node :: node()}
                     | {'failover', Node :: node()}.
+-doc "The type of restart behaviour an application should have.".
 -type restart_type() :: 'permanent' | 'transient' | 'temporary'.
+-doc """
+The built-in options available to an application.
+
+See [app](app.md) for descriptions of the options.
+""".
 -type application_opt() :: {'description', Description :: string()}
                          | {'vsn', Vsn :: string()}
                          | {'id', Id :: string()}
@@ -83,6 +90,7 @@ For details about applications and behaviours, see
                          | {'maxP',
                             MaxP :: pos_integer() | 'infinity'} % max processes
                          | {'mod', Start :: {Module :: module(), StartArgs :: term()}}.
+-doc "An application specification.".
 -type application_spec() :: {'application',
                              Application :: atom(),
                              AppSpecKeys :: [application_opt()]}.
@@ -202,7 +210,7 @@ For a description of `StartType`, see [`Module:start/2`](`c:start/2`).
 %%% application_master.
 %%%-----------------------------------------------------------------
 
--doc(#{equiv => load/2}).
+-doc(#{equiv => load(AppDescr, [])}).
 -spec load(AppDescr) -> 'ok' | {'error', Reason} when
       AppDescr :: Application | (AppSpec :: application_spec()),
       Application :: atom(),
@@ -221,7 +229,7 @@ application controller searches the code path for the application resource file
 `Application.app` and loads the specification it contains.
 
 The application specification can also be specified directly as a tuple
-`AppSpec`, having the format and contents as described in [`app(4)`](app.md).
+`AppSpec`, having the format and contents as described in [`app`](app.md).
 
 If `Distributed == {Application,[Time,]Nodes}`, the application becomes
 distributed. The argument overrides the value for the application in the Kernel
@@ -290,7 +298,7 @@ unload(Application) ->
     application_controller:unload_application(Application).
 
 
--doc(#{equiv => ensure_all_started/3}).
+-doc(#{equiv => ensure_all_started(Applications, temporary, serial)}).
 -doc(#{since => <<"OTP 26.0,OTP R16B02">>}).
 -spec ensure_all_started(Applications) -> {'ok', Started} | {'error', Reason} when
       Applications :: atom() | [atom()],
@@ -299,7 +307,7 @@ unload(Application) ->
 ensure_all_started(Application) ->
     ensure_all_started(Application, temporary, serial).
 
--doc(#{equiv => ensure_all_started/3}).
+-doc(#{equiv => ensure_all_started(Applications, Type, serial)}).
 -doc(#{since => <<"OTP 26.0,OTP R16B02">>}).
 -spec ensure_all_started(Applications, Type) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
@@ -474,7 +482,7 @@ wait_all_enqueued(ReqIDs0, Started0, LastAppReason) ->
             end
     end.
 
--doc(#{equiv => start/2}).
+-doc(#{equiv => start(Application, temporary)}).
 -spec start(Application) -> 'ok' | {'error', Reason} when
       Application :: atom(),
       Reason :: term().
@@ -551,7 +559,10 @@ ensure_loaded(Application) ->
 	    Error
     end.
 
--doc(#{equiv => ensure_started/2}).
+-doc """
+Equivalent to [`start(Application)`](`start/1`) except it returns `ok` for
+already started applications.
+""".
 -doc(#{since => <<"OTP R16B01">>}).
 -spec ensure_started(Application) -> 'ok' | {'error', Reason} when
       Application :: atom(),
@@ -561,8 +572,8 @@ ensure_started(Application) ->
     ensure_started(Application, temporary).
 
 -doc """
-Equivalent to [`start/1,2`](`start/1`) except it returns `ok` for already
-started applications.
+Equivalent to [`start(Application, Type)`](`start/2`) except it returns `ok` for
+already started applications.
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec ensure_started(Application, Type) -> 'ok' | {'error', Reason} when
@@ -595,7 +606,9 @@ start_boot(Application, RestartType) ->
 
 -doc """
 Takes over the distributed application `Application`, which executes at another
-node `Node`. At the current node, the application is restarted by calling
+node `Node`.
+
+At the current node, the application is restarted by calling
 [`Module:start({takeover,Node},StartArgs)`](`c:start/2`). `Module` and
 `StartArgs` are retrieved from the loaded application specification. The
 application at the other node is not stopped until the startup is completed,
@@ -668,6 +681,7 @@ permit(Application, Bool) ->
 Stops `Application`. The application master calls
 [`Module:prep_stop/1`](`c:prep_stop/1`), if such a function is defined, and then
 tells the top supervisor of the application to shut down (see `m:supervisor`).
+
 This means that the entire supervision tree, including included applications, is
 terminated in reversed start order. After the shutdown, the application master
 calls [`Module:stop/1`](`c:stop/1`). `Module` is the callback module as defined
@@ -693,7 +707,7 @@ executes before [`stop/1`](`stop/1`) is called on the other nodes.
 stop(Application) ->
     application_controller:stop_application(Application).
 
--doc(#{equiv => which_applications/1}).
+-doc(#{equiv => which_applications(5000)}).
 -spec which_applications() -> [{Application, Description, Vsn}] when
       Application :: atom(),
       Description :: string(),
@@ -704,13 +718,14 @@ which_applications() ->
 
 -doc """
 Returns a list with information about the applications that are currently
-running. `Application` is the application name. `Description` and `Vsn` are the
+running.
+
+`Application` is the application name. `Description` and `Vsn` are the
 values of their `description` and `vsn` application specification keys,
 respectively.
 
-`which_applications/0` uses the standard `gen_server` time-out value (5000 ms).
-A `Timeout` argument can be specified if another time-out value is useful, for
-example, in situations where the application controller is heavily loaded.
+A `Timeout` argument can be specified in situations where the application
+controller is heavily loaded.
 """.
 -spec which_applications(Timeout) -> [{Application, Description, Vsn}] when
       Timeout :: timeout(),
@@ -743,7 +758,7 @@ loaded_applications() ->
 info() -> 
     application_controller:info().
 
--doc(#{equiv => set_env/2}).
+-doc(#{equiv => set_env(Config, [])}).
 -doc(#{since => <<"OTP 21.3">>}).
 -spec set_env(Config) -> 'ok' when
       Config :: [{Application, Env}],
@@ -754,10 +769,11 @@ set_env(Config) when is_list(Config) ->
     set_env(Config, []).
 
 -doc """
-Sets the configuration `Config` for multiple applications. It is equivalent to
-calling [`set_env/4`](`set_env/4`) on each application individually, except it
-is more efficient. The given `Config` is validated before the configuration is
-set.
+Sets the configuration `Config` for multiple applications.
+
+It is equivalent to calling [`set_env/4`](`set_env/4`) on each application
+individually, except it is more efficient. The given `Config` is validated before
+the configuration is set.
 
 [`set_env/2`](`set_env/2`) uses the standard `gen_server` time-out value (5000
 ms). Option `timeout` can be specified if another time-out value is useful, for
@@ -771,9 +787,6 @@ after the application is loaded and also on application reload.
 If an application is given more than once or if an application has the same key
 given more than once, the behaviour is undefined and a warning message will be
 logged. In future releases, an error will be raised.
-
-[`set_env/1`](`set_env/1`) is equivalent to
-[`set_env(Config, [])`](`set_env/2`).
 
 > #### Warning {: .warning }
 >
@@ -796,7 +809,7 @@ set_env(Config, Opts) when is_list(Config), is_list(Opts) ->
 	{error, Msg} -> erlang:error({badarg, Msg}, [Config, Opts])
     end.
 
--doc(#{equiv => set_env/4}).
+-doc(#{equiv => set_env(Application, Par, Val, [])}).
 -spec set_env(Application, Par, Val) -> 'ok' when
       Application :: atom(),
       Par :: atom(),
@@ -842,7 +855,7 @@ set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
 set_env(Application, Key, Val, Opts) when is_list(Opts) ->
     application_controller:set_env(Application, Key, Val, Opts).
 
--doc(#{equiv => unset_env/3}).
+-doc(#{equiv => unset_env(Application, Par, [])}).
 -spec unset_env(Application, Par) -> 'ok' when
       Application :: atom(),
       Par :: atom().
@@ -853,7 +866,7 @@ unset_env(Application, Key) ->
 -doc """
 Removes the configuration parameter `Par` and its value for `Application`.
 
-[`unset_env/2`](`unset_env/2`) uses the standard `gen_server` time-out value
+[`unset_env/3`](`unset_env/3`) uses the standard `gen_server` time-out value
 (5000 ms). Option `timeout` can be specified if another time-out value is
 useful, for example, in situations where the application controller is heavily
 loaded.
@@ -881,7 +894,7 @@ unset_env(Application, Key, Timeout) when is_integer(Timeout), Timeout>=0 ->
 unset_env(Application, Key, Opts) when is_list(Opts) ->
     application_controller:unset_env(Application, Key, Opts).
 
--doc(#{equiv => get_env/2}).
+-doc(#{equiv => get_env(application:get_application(), Par)}).
 -spec get_env(Par) -> 'undefined' | {'ok', Val} when
       Par :: atom(),
       Val :: term().
@@ -890,9 +903,7 @@ get_env(Key) ->
     application_controller:get_pid_env(group_leader(), Key).
 
 -doc """
-Returns the value of configuration parameter `Par` for `Application`. If the
-application argument is omitted, it defaults to the application of the calling
-process.
+Returns the value of configuration parameter `Par` for `Application`.
 
 Returns `undefined` if any of the following applies:
 
@@ -922,7 +933,7 @@ Works like `get_env/2` but returns value `Def` when configuration parameter
 get_env(Application, Key, Default) ->
     application_controller:get_env(Application, Key, Default).
 
--doc(#{equiv => get_all_env/1}).
+-doc(#{equiv => get_all_env(application:get_application())}).
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
 
@@ -930,8 +941,7 @@ get_all_env() ->
     application_controller:get_pid_all_env(group_leader()).
 
 -doc """
-Returns the configuration parameters and their values for `Application`. If the
-argument is omitted, it defaults to the application of the calling process.
+Returns the configuration parameters and their values for `Application`.
 
 If the specified application is not loaded, or if the process executing the call
 does not belong to any application, the function returns `[]`.
@@ -943,7 +953,7 @@ does not belong to any application, the function returns `[]`.
 get_all_env(Application) -> 
     application_controller:get_all_env(Application).
 
--doc(#{equiv => get_key/2}).
+-doc(#{equiv => get_key(application:get_application(), Key)}).
 -spec get_key(Key) -> 'undefined' | {'ok', Val} when
       Key :: atom(),
       Val :: term().
@@ -953,8 +963,6 @@ get_key(Key) ->
 
 -doc """
 Returns the value of the application specification key `Key` for `Application`.
-If the application argument is omitted, it defaults to the application of the
-calling process.
 
 Returns `undefined` if any of the following applies:
 
@@ -970,7 +978,7 @@ Returns `undefined` if any of the following applies:
 get_key(Application, Key) -> 
     application_controller:get_key(Application, Key).
 
--doc(#{equiv => get_all_key/1}).
+-doc(#{equiv => get_all_key(application:get_application())}).
 -spec get_all_key() -> [] | {'ok', Keys} when
       Keys :: [{Key :: atom(),Val :: term()},...].
 
@@ -993,7 +1001,7 @@ returns `[]`.
 get_all_key(Application) -> 
     application_controller:get_all_key(Application).
 
--doc(#{equiv => get_application/1}).
+-doc(#{equiv => get_application(self())}).
 -spec get_application() -> 'undefined' | {'ok', Application} when
       Application :: atom().
 
@@ -1002,8 +1010,7 @@ get_application() ->
 
 -doc """
 Returns the name of the application to which the process `Pid` or the module
-`Module` belongs. Providing no argument is the same as calling
-[`get_application(self())`](`get_application/1`).
+`Module` belongs.
 
 If the specified process does not belong to any application, or if the specified
 process or module does not exist, the function returns `undefined`.

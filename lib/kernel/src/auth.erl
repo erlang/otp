@@ -21,10 +21,11 @@
 -moduledoc """
 Erlang network authentication server.
 
-This module is deprecated. For a description of the Magic Cookie system, refer
+For a description of the Magic Cookie system, refer
 to [Distributed Erlang](`e:system:distributed.md`) in the Erlang Reference
 Manual.
 """.
+-moduledoc(#{ deprecated => ~"See each function for what to use instead" }).
 -behaviour(gen_server).
 
 -export([start_link/0]).

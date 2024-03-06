@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# common_test
+# Common Test Application
 
 A framework for automated testing of any target nodes.
 

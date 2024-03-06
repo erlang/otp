@@ -72,7 +72,7 @@
     "guides/io_protocol.md",
     "guides/unicode_usage.md",
     "guides/uri_string_usage.md",
-    "references/stdlib_app.md",
-    "references/assert_hrl.md"
+    "references/assert_hrl.md",
+    "stdlib_app.md"
   ]
 ]
