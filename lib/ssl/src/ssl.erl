@@ -236,36 +236,42 @@ directly. For DTLS this feature must be considered experimental.
 -type dtls_legacy_version()      :: 'dtlsv1'.
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type verify_type()              :: verify_none | verify_peer.
--doc(#{title => <<"Types used in TLS/DTLS">>}).
--type cipher()                   :: aes_128_cbc |
-                                    aes_256_cbc |
-                                    aes_128_gcm |
-                                    aes_256_gcm |
-                                    aes_128_ccm |
-                                    aes_256_ccm |
-                                    aes_128_ccm_8 |
-                                    aes_256_ccm_8 |                                    
-                                    chacha20_poly1305 |
-                                    legacy_cipher(). % exported
--doc(#{title => <<"Types used in TLS/DTLS">>}).
--type legacy_cipher()            ::  rc4_128 |
-                                     des_cbc |
-                                     '3des_ede_cbc'.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type hash()                     :: sha2() |
-                                    legacy_hash(). % exported
+-type cipher()                   :: aes_256_gcm
+                                  | aes_128_gcm
+                                  | aes_256_ccm
+                                  | aes_128_ccm
+                                  | chacha20_poly1305
+                                  | aes_256_ccm_8
+                                  | aes_128_ccm_8
+                                  | aes_128_cbc
+                                  | aes_256_cbc
+                                  |  legacy_cipher(). % exported
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
+-type legacy_cipher()            :: '3des_ede_cbc'
+                                  | des_cbc
+                                  | rc4_128.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type sha2()                    :: sha256 |
-                                   sha384 |
-                                   sha512.
+-type hash()                     :: sha2()
+                                  | legacy_hash(). % exported
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type legacy_hash()             :: sha224 | sha | md5.
+-type sha2()                    :: sha512
+                                 | sha384
+                                 | sha256.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type sign_algo()               :: rsa | rsa_pss_pss | dsa | ecdsa | eddsa. % exported
+-type legacy_hash()             :: sha224
+                                 | sha
+                                 | md5.
+
+-doc(#{title => <<"Types used in TLS/DTLS">>}).
+-type sign_algo()               :: eddsa
+                                 | ecdsa
+                                 | rsa
+                                 | dsa. % exported
 
 -doc """
 Explicitly list acceptable signature schemes (algorithms) in the preferred
@@ -296,36 +302,45 @@ only the [signature_algs](`t:signature_algs/0`) extension is sent.
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sign_scheme()             :: eddsa_ed25519
                                  | eddsa_ed448
-                                 | ecdsa_secp256r1_sha256
                                  | ecdsa_secp384r1_sha384
                                  | ecdsa_secp521r1_sha512
+                                 | ecdsa_secp256r1_sha256
                                  | rsassa_pss_scheme()
                                  | sign_scheme_legacy() . % exported
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type rsassa_pss_scheme()       :: rsa_pss_rsae_sha256
+-type rsassa_pss_scheme()       :: rsa_pss_rsae_sha512
                                  | rsa_pss_rsae_sha384
-                                 | rsa_pss_rsae_sha512
-                                 | rsa_pss_pss_sha256
+                                 | rsa_pss_rsae_sha256
+                                 | rsa_pss_pss_sha512
                                  | rsa_pss_pss_sha384
-                                 | rsa_pss_pss_sha512.
+                                 | rsa_pss_pss_sha256.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type sign_scheme_legacy()      :: rsa_pkcs1_sha256
+-type sign_scheme_legacy()      :: rsa_pkcs1_sha512
                                  | rsa_pkcs1_sha384
-                                 | rsa_pkcs1_sha512
-                                 | rsa_pkcs1_sha1
-                                 | ecdsa_sha1.
-
+                                 | rsa_pkcs1_sha256
+                                 | ecdsa_sha1
+                                 | rsa_pkcs1_sha1.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type kex_algo()                :: rsa |
-                                   dhe_rsa | dhe_dss |
-                                   ecdhe_ecdsa | ecdh_ecdsa | ecdh_rsa |
-                                   srp_rsa| srp_dss |
-                                   psk | dhe_psk | rsa_psk |
-                                   dh_anon | ecdh_anon | srp_anon |
-                                   any. %% TLS 1.3 , exported
+-type kex_algo()                :: ecdhe_ecdsa
+                                 | ecdh_ecdsa
+                                 | ecdh_rsa
+                                 | rsa
+                                 | dhe_rsa
+                                 | dhe_dss
+                                 | srp_rsa
+                                 | srp_dss
+                                 | dhe_psk
+                                 | rsa_psk
+                                 | psk
+                                 | ecdh_anon
+                                 | dh_anon
+                                 | srp_anon
+                                 |  any. %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
+
+
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),
@@ -334,55 +349,64 @@ only the [signature_algs](`t:signature_algs/0`) extension is sent.
                                    }.  
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type old_cipher_suite() :: {kex_algo(), cipher(), hash()} % Pre TLS 1.2 
-                            %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
-                          | {kex_algo(), cipher(), hash() | aead, hash()}.
+-type old_cipher_suite()       :: {kex_algo(), cipher(), hash()} % Pre TLS 1.2
+                                  %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
+                                | {kex_algo(), cipher(), hash() | aead, hash()}.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type named_curve()           :: sect571r1 |
-                                 sect571k1 |
-                                 secp521r1 |
-                                 brainpoolP512r1 |
-                                 sect409k1 |
-                                 sect409r1 |
-                                 brainpoolP384r1 |
-                                 secp384r1 |
-                                 sect283k1 |
-                                 sect283r1 |
-                                 brainpoolP256r1 |
-                                 secp256k1 |
-                                 secp256r1 |
-                                 legacy_named_curve(). % exported
+-type named_curve()            :: x25519
+                                | x448
+                                | secp521r1
+                                | brainpoolP512r1
+                                | brainpoolP384r1
+                                | secp384r1
+                                | brainpoolP256r1
+                                | secp256r1
+                                | legacy_named_curve(). % exported
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type legacy_named_curve()  ::   sect239k1 |
-                                 sect233k1 |
-                                 sect233r1 |
-                                 secp224k1 |
-                                 secp224r1 |
-                                 sect193r1 |
-                                 sect193r2 |
-                                 secp192k1 |
-                                 secp192r1 |
-                                 sect163k1 |
-                                 sect163r1 |
-                                 sect163r2 |
-                                 secp160k1 |
-                                 secp160r1 |
-                                 secp160r2.
+-type legacy_named_curve()     :: sect571r1
+                                | sect571k1
+                                | sect409k1
+                                | sect409r1
+                                | sect283k1
+                                | sect283r1
+                                | secp256k1
+                                | sect239k1
+                                | sect233k1
+                                | sect233r1
+                                | secp224k1
+                                | secp224r1
+                                | sect193r1
+                                | sect193r2
+                                | secp192k1
+                                | secp192r1
+                                | sect163k1
+                                | sect163r1
+                                | sect163r2
+                                | secp160k1
+                                | secp160r1
+                                | secp160r2.
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type group() :: x25519 | x448 | secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
-                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192. % exported
-
+-type group()                  :: x25519
+                                | x448
+                                | secp256r1
+                                | secp384r1
+                                | secp521r1
+                                | ffdhe2048
+                                | ffdhe3072
+                                | ffdhe4096
+                                | ffdhe6144
+                                | ffdhe8192. % exported
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
--type srp_param_type()        :: srp_1024 |
-                                 srp_1536 |
-                                 srp_2048 |
-                                 srp_3072 |
-                                 srp_4096 |
-                                 srp_6144 |
-                                 srp_8192. % exported
+-type srp_param_type()        :: srp_8192
+                               | srp_6144
+                               | srp_4096
+                               | srp_3072
+                               | srp_2048
+                               | srp_1536
+                               | srp_1024. % exported
 
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}. % exported
@@ -2698,12 +2722,9 @@ signature_algs(Description, Version) ->
 -doc(#{since => <<"OTP 19.2">>}).
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
-
-%% Description: returns all supported curves across all versions
 %%--------------------------------------------------------------------
 eccs() ->
-    Curves = tls_v1:ecc_curves(all), % only tls_v1 has named curves right now
-    eccs_filter_supported(Curves).
+    tls_v1:ec_curves(all, 'tlsv1.2').
 
 %%--------------------------------------------------------------------
 -doc """
@@ -2713,11 +2734,8 @@ the output.
 """.
 -doc(#{since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
-      Version :: protocol_version(),
+      Version :: 'tlsv1.2' | 'tlsv1.1' | 'tlsv1' | 'dtlsv1.2' | 'dtlsv1',
       NamedCurves :: [named_curve()].
-
-%% Description: returns the curves supported for a given version of
-%% ssl/tls.
 %%--------------------------------------------------------------------
 eccs('dtlsv1') ->
     eccs('tlsv1.1');
@@ -2726,13 +2744,11 @@ eccs('dtlsv1.2') ->
 eccs(Version) when Version == 'tlsv1.2';
                    Version == 'tlsv1.1';
                    Version == tlsv1 ->
-    Curves = tls_v1:ecc_curves(all),
-    eccs_filter_supported(Curves).
-
-eccs_filter_supported(Curves) ->
-    CryptoCurves = crypto:ec_curves(),
-    lists:filter(fun(Curve) -> proplists:get_bool(Curve, CryptoCurves) end,
-                 Curves).
+    tls_v1:ec_curves(default, Version);
+eccs('tlsv1.3') ->
+    erlang:error({badarg, not_sup_in, 'tlsv1.3'});
+eccs(Other) ->
+    erlang:error({badarg, Other}).
 
 %%--------------------------------------------------------------------
 -doc false.
@@ -4061,29 +4077,33 @@ opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
 
     Opts#{psk_identity => PSK, srp_identity => SRP, user_lookup_fun => ULF}.
 
-opt_supported_groups(UserOpts, #{versions := Versions} = Opts, _Env) ->
-    [TlsVersion|_] = TlsVsns = [tls_version(V) || V <- Versions],
+opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
-                 handle_supported_groups_option(groups(default), TlsVersion);
+                 handle_supported_groups_option(groups(default));
              {new, SG0} ->
                  assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
-                 handle_supported_groups_option(SG0, TlsVersion);
+                 handle_supported_groups_option(SG0);
              {old, SG0} ->
                  SG0
          end,
 
     CPHS = case get_opt_list(ciphers, [], UserOpts, Opts) of
                {old, CPS0} -> CPS0;
-               {_, CPS0} -> handle_cipher_option(CPS0, Versions)
+               {_, CPS0} -> handle_cipher_option(CPS0, TlsVsns)
            end,
 
-    ECCS = case get_opt_list(eccs, undefined, UserOpts, Opts) of
-               {old, ECCS0} -> ECCS0;
-               {default, _} -> handle_eccs_option(tls_v1:ecc_curves(all), TlsVersion);
-               {new, ECCS0} -> handle_eccs_option(ECCS0, TlsVersion)
-           end,
-
+    ECCS =  try assert_version_dep(eccs, TlsVsns, ['tlsv1.2', 'tlsv1.1', 'tlsv1']) of
+                _ ->
+                    case get_opt_list(eccs, undefined, UserOpts, Opts) of
+                        {old, ECCS0} -> ECCS0;
+                        {default, _} -> handle_eccs_option(tls_v1:ec_curves(default, 'tlsv1.2'));
+                        {new, ECCS0} -> handle_eccs_option(ECCS0)
+                    end
+            catch
+                throw:_ ->
+                    []
+            end,
     Opts#{ciphers => CPHS, eccs => ECCS, supported_groups => SG}.
 
 opt_crl(UserOpts, Opts, _Env) ->
@@ -4537,8 +4557,7 @@ tuple_to_map_mac(chacha20_poly1305, _) ->
 tuple_to_map_mac(_, MAC) ->
     MAC.
 
-%% TODO: remove Version
-handle_eccs_option(Value, _Version0) when is_list(Value) ->
+handle_eccs_option(Value) when is_list(Value) ->
     try tls_v1:ecc_curves(Value) of
         Curves ->
             option_error(Curves =:= [], eccs, none_valid),
@@ -4548,8 +4567,7 @@ handle_eccs_option(Value, _Version0) when is_list(Value) ->
         error:_ -> option_error(eccs, Value)
     end.
 
-%% TODO: remove Version
-handle_supported_groups_option(Value, _Version0) when is_list(Value) ->
+handle_supported_groups_option(Value) when is_list(Value) ->
     try tls_v1:groups(Value) of
         Groups ->
             option_error(Groups =:= [], supported_groups, none_valid),

@@ -2807,7 +2807,7 @@ options_eccs(_Config) ->
     %% Errors
     ?ERR({eccs, not_a_list}, [{eccs, not_a_list}], client),
     ?ERR({eccs, none_valid}, [{eccs, []}], client),
-    ?ERR({eccs, none_valid}, [{eccs, [foo]}], client),
+    ?ERR({options,{eccs,[foo]}}, [{eccs, [foo]}], client),
     ok.
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
@@ -3109,8 +3109,8 @@ options_sign_alg(_Config) ->  %% signature_algs[_cert]
     ok.
 
 options_supported_groups(_Config) ->
-    %% FIXME group() type doesn't cover the values below
-    ?OK(#{supported_groups := {supported_groups, [x25519,x448,secp256r1,secp384r1]}},
+    Default = ssl:groups(default),
+    ?OK(#{supported_groups := {supported_groups, Default}},
         [], client),
     ?OK(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
         [{supported_groups, [secp521r1, ffdhe2048]}], client),

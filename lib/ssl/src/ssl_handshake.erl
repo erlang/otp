@@ -1569,9 +1569,10 @@ select_curve(undefined, _, _) ->
     end;
 select_curve({supported_groups, Groups}, Server, HonorServerOrder) ->
     %% TLS-1.3 hello but lesser version chosen
-    TLSCommonCurves = [secp256r1,secp384r1,secp521r1],
+    CryptoCurves = crypto:supports(curves),
+    TLSCommonCurves = [Curve || Curve <- [secp256r1,secp384r1,secp521r1], lists:member(Curve, CryptoCurves)],
     Curves = [tls_v1:enum_to_oid(tls_v1:group_to_enum(Name)) || Name <- Groups, lists:member(Name, TLSCommonCurves)],
-    case tls_v1:ecc_curves(Curves) of
+    case Curves of
         [] ->
             select_curve(undefined, Server, HonorServerOrder);
         [_|_] = ClientCurves ->

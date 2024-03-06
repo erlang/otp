@@ -120,7 +120,7 @@
          session_id/1,
          update_keys/2,
          sanity_check/2,
-         supported_eccs/1,
+         supported_eccs/2,
          no_result/1,
          receive_tickets/1,
          set_protocol_versions/1,
@@ -2630,9 +2630,9 @@ openssl_sigalgs(undefined) ->
 openssl_sigalgs(SigAlgs) ->
     ["-sigalgs", SigAlgs].
 
-supported_eccs(Opts) ->
+supported_eccs(Opts, Version) ->
     ToCheck = proplists:get_value(eccs, Opts, []),
-    Supported = ssl:eccs(),
+    Supported = ssl:eccs(Version),
     lists:all(fun(Curve) -> lists:member(Curve, Supported) end, ToCheck).
 
 check_ecc(SSL, Role, Expect) ->
