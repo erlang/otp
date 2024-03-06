@@ -1083,8 +1083,9 @@ Synchronous `get-request`.
 `Remaining` is the remaining time of the given (or default) timeout time.
 
 When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the message. This could happen because of any number of reasons, i.e.
-encoding error. _ActualReason_ is the actual reason in this case.
+to send the (`get-request? ) message. This could happen because of any number
+of reasons, i.e. encoding error.
+_ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
@@ -1656,7 +1657,6 @@ log_to_txt(LogDir) ->
     log_to_txt(LogDir, []). 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir :: snmp:dir(), 
 		 Block  :: boolean()) ->
     snmp:void();
@@ -1665,7 +1665,7 @@ log_to_txt(LogDir) ->
     snmp:void().
 
 log_to_txt(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     Mibs    = [], 
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
@@ -1679,7 +1679,6 @@ log_to_txt(LogDir, Mibs) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir :: snmp:dir(), 
 		 Mibs   :: [snmp:mib_name()], 
 		 Block  :: boolean()) ->
@@ -1690,7 +1689,7 @@ log_to_txt(LogDir, Mibs) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
@@ -1702,7 +1701,6 @@ log_to_txt(LogDir, Mibs, OutFile) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1715,7 +1713,7 @@ log_to_txt(LogDir, Mibs, OutFile) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block); 
@@ -1725,7 +1723,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1740,7 +1737,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
@@ -1748,7 +1745,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1765,14 +1761,13 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1791,11 +1786,13 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
 -doc """
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> ok |
@@ -1822,12 +1819,15 @@ See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
 		 Stop    :: snmp_log:log_time()) ->
     snmp:void().
 
-log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  
+  when is_boolean(Block) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir :: snmp:dir(),
       Cnt    :: {NumOK, NumERR},
@@ -1839,7 +1839,7 @@ log_to_io(LogDir) ->
     log_to_io(LogDir, []).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Block) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir :: snmp:dir(),
       Block  :: boolean(),
@@ -1866,7 +1866,7 @@ log_to_io(LogDir, Mibs) when is_list(Mibs) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, Block) -> ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
@@ -1894,7 +1894,7 @@ log_to_io(LogDir, Mibs, LogName) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: snmp:dir(),
@@ -1925,7 +1925,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: snmp:dir(),
@@ -1957,7 +1957,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: snmp:dir(),
@@ -2000,7 +2000,7 @@ wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
 """.
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: snmp:dir(),
