@@ -178,7 +178,7 @@ takeover_mib({_MibName, _Symbolic, FileName}) ->
 
 -doc """
 Starts a supervisor for the SNMP agent system without a master agent. The
-supervisor starts all involved SNMP processes, but no agent processes.
+supervisor starts all involved SNMP agent processes, but no agent processes.
 Sub-agents should be started by calling
 [`start_sub_agent/3`](`start_sub_agent/3`).
 
