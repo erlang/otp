@@ -41,10 +41,11 @@ conventional notation, there are two Erlang-specific notations:
 - `$`_`char`_  
   ASCII value or unicode code-point of the character _`char`_.
 - _`base`_`#`_`value`_  
-  Integer with the base _`base`_, that must be an integer in the range 2..36.
+  Integer with the base _`base`_, which must be an integer in the range 2
+  through 36.
 
-Leading zeroes are ignored. Single underscore `_` can be inserted between digits
-as a visual separator.
+Leading zeroes are ignored. Single underscore characters (`_`) can be
+inserted between digits as a visual separator.
 
 _Examples:_
 
@@ -71,6 +72,8 @@ _Examples:_
 0.0023
 11> 1_234.333_333
 1234.333333
+12> 36#helloworld.
+1767707668033969
 ```
 
 [](){: #numeric_comparisons }
@@ -107,6 +110,19 @@ arguments to be floating-point.
 
 [](){: #float_representation_problem }
 
+_Examples_:
+
+```erlang
+1> 0.0 =:= +0.0.
+true
+2> 0.0 =:= -0.0.
+false
+3> +0.0 =:= -0.0.
+false
+4> +0.0 == -0.0.
+true
+```
+
 ### Representation of Floating Point Numbers
 
 When working with floats you may not see what you expect when printing or doing
@@ -114,15 +130,15 @@ arithmetic operations. This is because floats are represented by a fixed number
 of bits in a base-2 system while printed floats are represented with a base-10
 system. Erlang uses 64-bit floats. Here are examples of this phenomenon:
 
-```text
-> 0.1+0.2.
+```erlang
+1> 0.1+0.2.
 0.30000000000000004
 ```
 
 The real numbers `0.1` and `0.2` cannot be represented exactly as floats.
 
 ```erlang
-> {36028797018963968.0, 36028797018963968 == 36028797018963968.0,
+1> {36028797018963968.0, 36028797018963968 == 36028797018963968.0,
   36028797018963970.0, 36028797018963970 == 36028797018963970.0}.
 {3.602879701896397e16, true,
  3.602879701896397e16, false}.
@@ -136,29 +152,44 @@ Erlang's pretty printer rounds `36028797018963968.0` to `3.602879701896397e16`
 
 For more information about floats and issues with them see:
 
-- [What Every Programmer Should Know About Floating-Point Arithmetic](https://floating-point-gui.de/),
-- [0\.30000000000000004.com/](https://0.30000000000000004.com/), and
-- [Floating Point Arithmetic: Issues and Limitations](https://docs.python.org/3/tutorial/floatingpoint.html).
+- [What Every Programmer Should Know About Floating-Point Arithmetic](https://floating-point-gui.de/)
+- [0\.30000000000000004.com/](https://0.30000000000000004.com/)
+- [Floating Point Arithmetic: Issues and Limitations](https://docs.python.org/3/tutorial/floatingpoint.html)
 
-If you need to work with decimal fractions, for instance if you need to
-represent money, then you should use a library that handles that or work in
-cents instead of euros so that you do not need decimal fractions.
+If you need to work with exact decimal fractions, for instance to represent
+money, it is recommended to use a library that handles that, or work in
+cents instead of dollars or euros so that decimal fractions are not needed.
 
-Please also note that Erlang's floats do not exactly match IEEE 754 floats, in
-that neither Inf nor NaN are supported in Erlang. Any operation that would
-result in NaN, +Inf, or -Inf, will instead raise a `badarith` exception.
+Also note that Erlang's floats do not exactly match IEEE 754 floats,
+in that neither _Inf_ nor _NaN_ are supported in Erlang. Any
+operation that would result in _NaN_, _+Inf_, or _-Inf_, will instead raise
+a `badarith` exception.
+
+_Examples_:
+
+```erlang
+1> 1.0 / 0.0.
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  '/'/2
+        called as 1.0 / 0.0
+2> 0.0 / 0.0.
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  '/'/2
+        called as 0.0 / 0.0
+```
 
 ## Atom
 
 An atom is a literal, a constant with name. An atom is to be enclosed in single
-quotes (') if it does not begin with a lower-case letter or if it contains other
-characters than alphanumeric characters, underscore (\_), or @.
+quotes (`'`) if it does not begin with a lower-case letter or if it contains other
+characters than alphanumeric characters, underscore (`_`), or `@`.
 
 _Examples:_
 
 ```text
 hello
 phone_number
+name@node
 'Monday'
 'phone number'
 ```
@@ -169,8 +200,8 @@ A bit string is used to store an area of untyped memory.
 
 Bit strings are expressed using the [bit syntax](expressions.md#bit-syntax-expressions).
 
-Bit strings that consist of a number of bits that are evenly divisible by eight,
-are called _binaries_
+Bit strings that consist of a number of bits that are evenly divisible
+by eight are called _binaries_.
 
 _Examples:_
 
@@ -179,33 +210,74 @@ _Examples:_
 <<10,20>>
 2> <<"ABC">>.
 <<"ABC">>
-1> <<1:1,0:1>>.
+3> <<1:1,0:1>>.
 <<2:2>>
+```
+
+The [`is_bitstring/1`](`erlang:is_bitstring/1`) BIF tests whether a
+term is a bit string, and the [`is_binary/1`](`erlang:is_binary/1`)
+BIF tests whether a term is a binary.
+
+_Examples:_
+
+```erlang
+1> is_bitstring(<<1:1>>).
+true
+2> is_binary(<<1:1>>).
+false
+3> is_binary(<<42>>).
+true
+
 ```
 
 For more examples, see [Programming Examples](`e:system:bit_syntax.md`).
 
 ## Reference
 
-A term that is [unique](`e:system:advanced.md#unique_references`) among
-connected nodes. A reference can be created by calling the
+A term that is [unique](`e:system:advanced.md#unique_references`)
+among connected nodes. A reference is created by calling the
 [`make_ref/0`](`erlang:make_ref/0`) BIF. The
-[`is_reference/1`](`erlang:is_reference/1`) BIF can be used to test if a term is
-a reference.
+[`is_reference/1`](`erlang:is_reference/1`) BIF tests whether a term
+is a reference.
+
+_Examples:_
+
+```erlang
+1> Ref = make_ref().
+#Ref<0.76482849.3801088007.198204>
+2> is_reference(Ref).
+true
+```
 
 ## Fun
 
 A fun is a functional object. Funs make it possible to create an anonymous
-function and pass the function itself -- not its name -- as argument to other
+function and pass the function itself — not its name — as argument to other
 functions.
 
-_Example:_
+_Examples:_
 
 ```erlang
 1> Fun1 = fun (X) -> X+1 end.
 #Fun<erl_eval.6.39074546>
 2> Fun1(2).
 3
+```
+
+The [`is_function/1`](`erlang:is_function/1`) and [`is_function/2`](`erlang:is_function/2`)
+BIFs tests whether a term is a fun.
+
+_Examples_:
+
+```erlang
+1> F = fun() -> ok end.
+#Fun<erl_eval.43.105768164>
+2> is_function(F).
+true
+3> is_function(F, 0).
+true
+4> is_function(F, 1).
+false
 ```
 
 Read more about funs in [Fun Expressions](expressions.md#fun-expressions). For more
@@ -215,26 +287,27 @@ examples, see [Programming Examples](`e:system:funs.md`).
 
 A port identifier identifies an Erlang port.
 
-[`open_port/2`](`open_port/2`), which is used to create ports, returns a value
-of this data type.
+[`open_port/2`](`open_port/2`) returns a port identifier. The
+[`is_port/1`](`erlang:is_port/1`) BIF tests whether a term is a port
+identifier.
 
 Read more about ports in [Ports and Port Drivers](ports.md).
 
-## PID
+## Pid
 
-PID is an abbreviation for process identifier. Each process has a PID which
-identifies the process. PIDs are unique among processes that are alive on
-connected nodes. However, a PID of a terminated process may be reused as a PID
+Pid is an abbreviation for process identifier. Each process has a Pid which
+identifies the process. Pids are unique among processes that are alive on
+connected nodes. However, a Pid of a terminated process may be reused as a Pid
 for a new process after a while.
 
-The BIF [`self/0`](`erlang:self/0`) returns the PID of the calling process. When
+The BIF [`self/0`](`erlang:self/0`) returns the Pid of the calling process. When
 [creating a new process](ref_man_processes.md#process-creation), the parent
-process will be able to get the PID of the child process either via the return
+process will be able to get the Pid of the child process either via the return
 value, as is the case when calling the [`spawn/3`](`erlang:spawn/3`) BIF, or via
 a message, which is the case when calling the
-[`spawn_request/5`](`erlang:spawn_request/5`) BIF. A PID is typically used when
+[`spawn_request/5`](`erlang:spawn_request/5`) BIF. A Pid is typically used when
 when sending a process a [signal](ref_man_processes.md#signals). The
-[`is_pid/1`](`erlang:is_pid/1`) BIF can be used to test whether a term is a PID.
+[`is_pid/1`](`erlang:is_pid/1`) BIF tests whether a term is a Pid.
 
 _Example:_
 
@@ -286,6 +359,8 @@ adam
 3
 6> tuple_size({}).
 0
+7> is_tuple({a,b,c}).
+true
 ```
 
 ## Map
@@ -293,7 +368,7 @@ adam
 A map is a compound data type with a variable number of key-value associations:
 
 ```text
-#{Key1=>Value1,...,KeyN=>ValueN}
+#{Key1 => Value1, ..., KeyN => ValueN}
 ```
 
 Each key-value association in the map is called an _association pair_. The key
@@ -305,13 +380,13 @@ There exists a number of BIFs to manipulate maps.
 _Examples:_
 
 ```erlang
-1> M1 = #{name=>adam,age=>24,date=>{july,29}}.
+1> M1 = #{name => adam, age => 24, date => {july,29}}.
 #{age => 24,date => {july,29},name => adam}
-2> maps:get(name,M1).
+2> maps:get(name, M1).
 adam
-3> maps:get(date,M1).
+3> maps:get(date, M1).
 {july,29}
-4> M2 = maps:update(age,25,M1).
+4> M2 = maps:update(age, 25, M1).
 #{age => 25,date => {july,29},name => adam}
 5> map_size(M).
 3
@@ -319,7 +394,7 @@ adam
 0
 ```
 
-A collection of maps processing functions can be found in `m:maps` manual page
+A collection of maps processing functions are found in module `m:maps`
 in STDLIB.
 
 Read more about maps in [Map Expressions](expressions.md#map-expressions).
@@ -375,8 +450,8 @@ a
 0
 ```
 
-A collection of list processing functions can be found in the `m:lists` manual
-page in STDLIB.
+A collection of list processing functions are found in module
+`m:lists` in STDLIB.
 
 ## String
 
@@ -385,7 +460,7 @@ Instead, a string `"hello"` is shorthand for the list `[$h,$e,$l,$l,$o]`, that
 is, `[104,101,108,108,111]`.
 
 Two adjacent string literals are concatenated into one. This is done in the
-compilation, thus, does not incur any runtime overhead.
+compilation.
 
 _Example:_
 
@@ -402,21 +477,21 @@ is equivalent to
 > #### Change {: .info }
 >
 > Starting with Erlang/OTP 27 two adjacent string literals have to be separated
-> by white space, or else it is a syntax error. This avoids possible confusion
+> by white space, or otherwise it is a syntax error. This avoids possible confusion
 > with _triple-quoted strings_.
 
 [](){: #tqstring } Strings can also be written as _triple-quoted strings_, which
 can be _indented_ over multiple lines to follow the indentation of the
-surrounding code. They are also _verbatim_, that is; they don't allow escape
-sequences, and thereby don't need double quote characters to be escaped.
+surrounding code. They are also _verbatim_, that is, they do not allow escape
+sequences, and thereby do not need double quote characters to be escaped.
 
 > #### Change {: .info }
 >
 > Triple-quoted strings were added in Erlang/OTP 27. Before that 3 consecutive
 > double quote characters had a different meaning. There were absolutely no good
 > reason to write such a character sequence before triple-quoted strings
-> existed, but there _are_ some gotcha:s; see the
-> [Warning ](data_types.md#triple-quoted-strings-warning)at the end of this
+> existed, but there _are_ some gotchas; see the
+> [Warning ](data_types.md#triple-quoted-strings-warning) at the end of this
 > description of triple-quoted strings.
 
 Example, with verbatim double quote characters:
@@ -436,7 +511,7 @@ newlines):
 Line \"2\""
 ```
 
-The opening and the closing line has got the delimiters; the `"""` characters.
+The opening and the closing line has got the delimiters: the `"""` characters.
 The lines between them are the content lines. The newline on the opening line is
 not regarded as string content, nor is the newline on the last content line.
 
@@ -467,10 +542,10 @@ Not escaped: \"\\t \\r \\xFF\" and \"\"\"
 "
 ```
 
-It is possible to write consecutive double quote characters on the beginning of
-a content line by using more double quote characters as delimiters. This is a
-string that contains exactly 4 double quote characters, using a delimiter with 5
-double quote characters:
+It is possible to write consecutive double quote characters on the
+beginning of a content line by using more double quote characters as
+delimiters. This is a string that contains exactly four double quote
+characters, using a delimiter with five double quote characters:
 
 ```text
 """""
@@ -500,7 +575,7 @@ These strings are all the empty string:
 > #### Warning {: .warning }
 >
 > Before Erlang/OTP 27, when triple-quoted strings were added, the character
-> sequence `"""` was interpreted as `"" "` which means concatenate the empty
+> sequence `"""` was interpreted as `"" "`, which means concatenating the empty
 > string to the string that follows. All sequences of an odd number of double
 > quote characters had this meaning.
 >
@@ -508,7 +583,7 @@ These strings are all the empty string:
 > empty strings, that were concatenated (to the empty string).
 >
 > There was no reason to write such character sequences. But should that have
-> happended; the meaning probably changed with the introduction of triple-quoted
+> happened, the meaning has probably changed with the introduction of triple-quoted
 > strings.
 >
 > The compiler preprocessor was patched in Erlang/OTP 26.1 to warn about 3 or
@@ -529,7 +604,7 @@ offer mainly two things: a compact way to create UTF-8 encoded binary strings,
 and a way to write verbatim strings (not having to escape `\` characters),
 useful for regular expressions, for example.
 
-A sigil starts with the Tilde character: `~` followed by a name defining the
+A sigil starts with the Tilde character (`~`) followed by a name defining the
 sigil type.
 
 Immediately after follows the sigil content; a character sequence between
@@ -553,7 +628,7 @@ characters at the start of a line even for a _verbatim_ string.
 The Sigils are:
 
 - **`~`** - The Vanilla (default) Sigil. Shorthand for a UTF-8 encoded
-  `t:binary/0`, This sigil does not affect the character escaping rules, so with
+  `t:binary/0`. This sigil does not affect the character escaping rules, so with
   triple-quoted string delimiters they are the same as for `~B`, and for other
   string delimiters they are the same as for `~b`.
 
@@ -619,8 +694,8 @@ A record is a data structure for storing a fixed number of elements. It has
 named fields and is similar to a struct in C. However, a record is not a true
 data type. Instead, record expressions are translated to tuple expressions
 during compilation. Therefore, record expressions are not understood by the
-shell unless special actions are taken. For details, see the `m:shell` manual
-page in STDLIB).
+shell unless special actions are taken. For details, see module `m:shell`
+in STDLIB.
 
 _Examples:_
 
@@ -637,21 +712,28 @@ new(Name, Age) ->
 {person,ernie,44}
 ```
 
-Read more about records in [Records](ref_man_records.md). More examples can be
+Read more about records in [Records](ref_man_records.md). More examples are
 found in [Programming Examples](`e:system:prog_ex_records.md`).
 
 ## Boolean
 
 There is no Boolean data type in Erlang. Instead the atoms `true` and `false`
-are used to denote Boolean values.
+are used to denote Boolean values. The [`is_boolean/1`](`erlang:is_boolean/1`)
+BIF tests whether a term is a boolean.
 
 _Examples:_
 
-```text
+```erlang
 1> 2 =< 3.
 true
 2> true or false.
 true
+3> is_boolean(true).
+true
+4> is_boolean(false).
+true
+5> is_boolean(ok).
+false
 ```
 
 ## Escape Sequences

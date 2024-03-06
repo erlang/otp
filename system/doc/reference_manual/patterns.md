@@ -22,13 +22,13 @@ limitations under the License.
 ## Pattern Matching
 
 Variables are bound to values through the _pattern matching_ mechanism. Pattern
-matching occurs when evaluating a function call, `case`\- `receive`\- `try`\-
-expressions and match operator (=) expressions.
+matching occurs when evaluating the `case`, `receive`, `try`, and
+the match operator (`=`) expressions.
 
-In a pattern matching, a left-hand side [pattern](expressions.md#patterns) is
+In pattern matching, a left-hand side [pattern](expressions.md#patterns) is
 matched against a right-hand side [term](expressions.md#terms). If the matching
 succeeds, any unbound variables in the pattern become bound. If the matching
-fails, a run-time error occurs.
+fails, an exception is raised.
 
 _Examples:_
 

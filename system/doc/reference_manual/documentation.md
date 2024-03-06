@@ -23,14 +23,14 @@ Documentation in Erlang is done through the `-moduledoc` and `-doc`
 [attributes](modules.md#module-attributes). For example:
 
 ```erlang
--module(math).
+-module(arith).
 -moduledoc """
 A module for basic arithmetic.
 """.
 
 -export([add/2]).
 
--doc "Adds two numbers together."
+-doc "Adds two numbers."
 add(One, Two) -> One + Two.
 ```
 
@@ -65,16 +65,16 @@ It is possible to add metadata to the documentation entry. You do this by adding
 a `-moduledoc` or `-doc` attribute with a map as argument. For example:
 
 ```erlang
--module(math).
+-module(arith).
 -moduledoc """
 A module for basic arithmetic.
 """.
--moduledoc #{ since => "1.0" }.
+-moduledoc #{since => "1.0"}.
 
 -export([add/2]).
 
--doc "Adds two number together."
--doc(#{ since => "1.0" }).
+-doc "Adds two numbers."
+-doc(#{since => "1.0"}).
 add(One, Two) -> One + Two.
 ```
 
@@ -84,13 +84,13 @@ maps will be merged with the latest taking precedence if there are duplicate
 keys. Example:
 
 ```erlang
--doc "Adds two number together."
--doc #{ since => "1.0", author => "Joe" }.
--doc #{ since => "2.0" }.
+-doc "Adds two numbers."
+-doc #{since => "1.0", author => "Joe"}.
+-doc #{since => "2.0"}.
 add(One, Two) -> One + Two.
 ```
 
-This will result in a metadata entry of `#{ since => "2.0", author => "Joe" }`.
+This will result in a metadata entry of `#{since => "2.0", author => "Joe"}`.
 
 The keys and values in the metadata map can be any type, but it is recommended
 that only [atoms](data_types.md#atom) are used for keys and
@@ -104,13 +104,13 @@ relative to the file where the `-doc` attribute is located. For example:
 
 ```text
 %% doc/add.md
-Adds two numbers together
+Adds two numbers.
 ```
 
 and
 
 ```erlang
-%% src/math.erl
+%% src/arith.erl
 -doc({file, "../doc/add.md"}).
 add(One, Two) -> One + Two.
 ```
@@ -127,14 +127,14 @@ The `moduledoc` attribute should start with a short paragraph describing the
 module and then go into greater details. For example:
 
 ````erlang
--module(math).
+-module(arith).
 -moduledoc """
    A module for basic arithmetic.
 
    This module can be used to add and subtract values. For example:
 
    ```erlang
-   1> math:substract(math:add(2, 3), 1).
+   1> arith:substract(arith:add(2, 3), 1).
    4
    ```
    """.
@@ -155,9 +155,9 @@ There are three reserved metadata keys for `-moduledoc`:
 Example:
 
 ```erlang
--moduledoc {file, "../doc/math.asciidoc"}.
--moduledoc #{ since => "0.1", format => "text/asciidoc" }.
--moduledoc #{ deprecated => "Use the stdlib math module instead." }.
+-moduledoc {file, "../doc/arith.asciidoc"}.
+-moduledoc #{since => "0.1", format => "text/asciidoc"}.
+-moduledoc #{deprecated => "Use the Erlang arithmetic operators instead."}.
 ```
 
 ## Documenting functions, user-defined types, and callbacks
@@ -173,20 +173,20 @@ For example:
 
 ````erlang
 -doc """
-A number that can be used by the math module.
+A number that can be used by the arith module.
 
 We use a special number here so that we know
 that this number comes from this module.
 """.
--opaque number() :: {math, erlang:number()}.
+-opaque number() :: {arith, erlang:number()}.
 
 -doc """
-Adds two number together.
+Adds two numbers.
 
 ### Example:
 
 ```
-1> math:add(math:number(1), math:number(2)). {number, 3}
+1> arith:add(arith:number(1), arith:number(2)). {number, 3}
 ```
 """.
 -spec add(number(), number()) -> number().
@@ -208,7 +208,7 @@ There are four reserved metadata keys for `-doc`:
   `Func/Arity` or `Func(Args)`. For example:
 
   ```erlang
-  -doc #{ equiv => add/3 }.
+  -doc #{equiv => add/3}.
   add(One, Two) -> add(One, Two, []).
   add(One, Two, Options) -> ...
   ```
@@ -216,7 +216,7 @@ There are four reserved metadata keys for `-doc`:
   or
 
   ```erlang
-  -doc #{ equiv => add(One, Two, []) }.
+  -doc #{equiv => add(One, Two, [])}.
   -spec add(One :: number(), Two :: number()) -> number().
   add(One, Two) -> add(One, Two, []).
   add(One, Two, Options) -> ...
@@ -319,7 +319,7 @@ The link can also other entities:
 Example:
 
 ```erlang
-  -doc "See `math:sub/2` for more details".
+  -doc "See `arith:sub/2` for more details".
 ```
 
 - `modules` - Write the module with a `m` prefix. Use anchors to jump to a
@@ -328,8 +328,8 @@ Example:
 Example:
 
 ```erlang
-  -doc "See `m:math` for more details".
-  -doc "See `m:math#anchor` for more details".
+  -doc "See `m:arith` for more details".
+  -doc "See `m:arith#anchor` for more details".
 ```
 
 - `types` - Use the same syntax as for local/remote function but add a `t`
@@ -339,7 +339,7 @@ Example:
 
 ```erlang
   -doc "See `t:number/0` for more details".
-  -doc "See `t:math:number/0` for more details".
+  -doc "See `t:arith:number/0` for more details".
 ```
 
 - `callbacks` - Use the same syntax as for local/remote function but add a `c`
@@ -349,7 +349,7 @@ Example:
 
 ```erlang
   -doc "See `c:increment/0` for more details".
-  -doc "See `c:math:increment/0` for more details".
+  -doc "See `c:arith:increment/0` for more details".
 ```
 
 - `extra pages` - For extra pages in the current application use a normal link,
@@ -392,7 +392,7 @@ marked as visible. The `private/0` type will have the metadata field `exported`
 set to `false` to show that it is not part of the public API.
 
 If you want to make a visible entity hidden you need to set the `-doc` attribute
-to `false`. Let's revisit out previous example:
+to `false`. Let us revisit our previous example:
 
 ```erlang
 -export([example/0]).
@@ -415,32 +415,32 @@ documented using comments.
 The Erlang compiler will by default insert documentation into
 [EEP-48](`e:kernel:eep48_chapter.md`) documentation chunks when compiling a module.
 By passing the [no_docs](`m:compile#no_docs`) flag to `compile:file/1`,
-or `+no_docs` to [erlc](`e:erts:erlc_cmd.md`) it is possible to disable this.
+or `+no_docs` to [erlc](`e:erts:erlc_cmd.md`), no documentation chunk is inserted.
 
 The documentation can then be retrieved using `code:get_doc/1`, or viewed using
-the shell built-in command [h()](`\\c:h/1`). For example:
+the shell built-in command [`h/1`](`\\c:h/1`). For example:
 
-```erlang
-1> h(math).
+```text
+1> h(arith).
 
-      math
+      arith
 
   A module for basic arithmetic.
 
-2> h(math, add).
+2> h(arith, add).
 
       add(One, Two)
 
-  Adds two numbers together.
+  Adds two numbers.
 ```
 
 ## Using ExDoc to generate HTML/ePub documentation
 
 [ExDoc](https://hexdocs.pm/ex_doc/) has built-in support to generate
-documentation from Markdown. The simplest way to use it is by using the
-[rebar3_ex_doc](https://hexdocs.pm/rebar3_ex_doc) plugin. To setup a rebar3
-project to use [ExDoc](https://hexdocs.pm/ex_doc/) to generate documentation add
-the following to your `rebar3.config`.
+documentation from Markdown. The simplest way is by using the
+[rebar3_ex_doc](https://hexdocs.pm/rebar3_ex_doc) plugin. To set up a
+rebar3 project to use [ExDoc](https://hexdocs.pm/ex_doc/) to generate
+documentation add the following to your `rebar3.config`.
 
 ```erlang
 %% Enable the plugin
@@ -453,9 +453,9 @@ the following to your `rebar3.config`.
 ]}.
 ```
 
-When configured you can run `rebar3 ex_doc` and the documentation will be
-generated to `doc/index.html`. For more details and options see the
-[rebar3_ex_doc](https://hexdocs.pm/rebar3_ex_doc) documentation.
+When configured you can run `rebar3 ex_doc` to generate the
+documentation to `doc/index.html`. For more details and options see
+the [rebar3_ex_doc](https://hexdocs.pm/rebar3_ex_doc) documentation.
 
 You can also download the
 [release escript bundle](https://github.com/elixir/ex_doc/releases/latest) from

@@ -88,16 +88,17 @@ dilbert@uab
 
 The nodes in a distributed Erlang system are loosely connected. The first time
 the name of another node is used, for example, if
-[`spawn(Node,M,F,A)`](`spawn/4`) or `net_adm:ping(Node)` is called, a connection
+[`spawn(Node, M, F, A)`](`spawn/4`) or `net_adm:ping(Node)` is called, a connection
 attempt to that node is made.
 
 Connections are by default transitive. If a node A connects to node B, and node
 B has a connection to node C, then node A also tries to connect to node C. This
 feature can be turned off by using the command-line flag `-connect_all false`,
-see the [erl(1)](`e:erts:erl_cmd.md`) manual page in ERTS.
+see [erl](`e:erts:erl_cmd.md`) in ERTS.
 
 If a node goes down, all connections to that node are removed. Calling
-`erlang:disconnect_node(Node)` forces disconnection of a node.
+[`erlang:disconnect_node(Node)`](`erlang:disconnect_node/1`) forces
+disconnection of a node.
 
 The list of (visible) nodes currently connected to is returned by `nodes/0`.
 
@@ -105,22 +106,22 @@ The list of (visible) nodes currently connected to is returned by `nodes/0`.
 
 The Erlang Port Mapper Daemon _epmd_ is automatically started at every host
 where an Erlang node is started. It is responsible for mapping the symbolic node
-names to machine addresses. See the [epmd(1)](`e:erts:epmd_cmd.md`) manual page
-in ERTS.
+names to machine addresses. See the [epmd](`e:erts:epmd_cmd.md`) in ERTS.
 
 ## Hidden Nodes
 
-In a distributed Erlang system, it is sometimes useful to connect to a node
-without also connecting to all other nodes. An example is some kind of O&M
-functionality used to inspect the status of a system, without disturbing it. For
-this purpose, a _hidden node_ can be used.
+In a distributed Erlang system, it is sometimes useful to connect to a
+node without also connecting to all other nodes. An example is some
+kind of Operation and Maintenance functionality used to inspect the
+status of a system, without disturbing it. For this purpose, a _hidden
+node_ can be used.
 
 A hidden node is a node started with the command-line flag `-hidden`.
 Connections between hidden nodes and other nodes are not transitive, they must
 be set up explicitly. Also, hidden nodes does not show up in the list of nodes
 returned by `nodes/0`. Instead, [`nodes(hidden)`](`nodes/1`) or
 [`nodes(connected)`](`nodes/1`) must be used. This means, for example, that the
-hidden node is not added to the set of nodes that `global` is keeping track of.
+hidden node is not added to the set of nodes that `m:global` is keeping track of.
 
 [](){: #dyn_node_name }
 
@@ -231,42 +232,72 @@ immediately connect all other visible nodes as well. This way, there is always a
 fully connected network. If there are nodes with different cookies, this method
 can be inappropriate (since it may not be feasible to configure different
 cookies for all possible nodes) and the command-line flag `-connect_all false`
-must be set, see the [erl(1)](`e:erts:erl_cmd.md`) manual page in ERTS.
+must be set, see the [erl](`e:erts:erl_cmd.md`) executable in ERTS.
 
 The magic cookie of the local node can be retrieved by calling
 `erlang:get_cookie()`.
 
 ## Distribution BIFs
 
-Some useful BIFs for distributed programming (for more information, see the
-`m:erlang` manual page in ERTS:
+Here are some BIFs that are useful for distributed programming:
 
-| _BIF_                             | _Description_                                                                                                                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `erlang:disconnect_node(Node)`    | Forces the disconnection of a node.                                                                                                                                               |
-| `erlang:get_cookie()`             | Returns the magic cookie of the current node.                                                                                                                                     |
-| `erlang:get_cookie(Node)`         | Returns the magic cookie for node `Node`.                                                                                                                                         |
-| `is_alive/0`                      | Returns `true` if the runtime system is a node and can connect to other nodes, `false` otherwise.                                                                                 |
-| `monitor_node(Node, true          | false)`                                                                                                                                                                           | Monitors the status of `Node`. A message`{nodedown, Node}` is received if the connection to it is lost. |
-| `node/0`                          | Returns the name of the current node. Allowed in guards.                                                                                                                          |
-| [`node(Arg)`](`node/1`)           | Returns the node where `Arg`, a pid, reference, or port, is located.                                                                                                              |
-| `nodes/0`                         | Returns a list of all visible nodes this node is connected to.                                                                                                                    |
-| [`nodes(Arg)`](`nodes/1`)         | Depending on `Arg`, this function can return a list not only of visible nodes, but also hidden nodes and previously known nodes, and so on.                                       |
-| `erlang:set_cookie(Cookie)`       | Sets the magic cookie, `Cookie` to use when connecting all nodes that have no explicit cookie set with `erlang:set_cookie/2`.                                                     |
-| `erlang:set_cookie(Node, Cookie)` | Sets the magic cookie used when connecting `Node`. If `Node` is the current node, `Cookie` is used when connecting all nodes that have no explicit cookie set with this function. |
-| `spawn[\_link                     | \_opt](Node, Fun)`                                                                                                                                                                | Creates a process at a remote node.                                                                     |
-| `spawn[\_link                     | opt](Node, Module, FunctionName, Args)`                                                                                                                                           | Creates a process at a remote node.                                                                     |
+- [`disconnect_node(Node)`](`erlang:disconnect_node/1`) - Forces the
+  disconnection of a node.
+
+- `erlang:get_cookie/0` - Returns the magic cookie of the current
+  node.
+
+- [`erlang:get_cookie(Node)`](`erlang:get_cookie/1`) - Returns the
+  magic cookie for node `Node`.
+
+- `is_alive/0` - Returns `true` if the runtime system is a node and
+  can connect to other nodes, `false` otherwise.
+
+- [`monitor_node(Node, Bool)`](`erlang:monitor_node/2`) - Monitors the
+  status of `Node`. A message`{nodedown, Node}` is received if the
+  connection to it is lost.
+
+- `node/0` - Returns the name of the current node. Allowed in guards.
+
+- [`node(Arg)`](`node/1`) - Returns the node where `Arg`, a pid,
+  reference, or port, is located.
+
+- `nodes/0` - Returns a list of all visible nodes this node is connected to.
+
+- [`nodes(Arg)`](`nodes/1`) - Depending on `Arg`, this function can
+  return a list not only of visible nodes, but also hidden nodes and
+  previously known nodes, and so on.
+
+- [`erlang:set_cookie(Cookie)`](`erlang:set_cookie/1`) - Sets the
+  magic cookie, `Cookie` to use when connecting all nodes that have no
+  explicit cookie set with `erlang:set_cookie/2`.
+
+- [`erlang:set_cookie(Node, Cookie)`](`erlang:set_cookie/2`) - Sets
+  the magic cookie used when connecting `Node`. If `Node` is the
+  current node, `Cookie` is used when connecting all nodes that have
+  no explicit cookie set with this function.
+
+- [`spawn_link(Node, Fun)`](`spawn_link/2`) - Creates a process at a remote node.
+
+- [`spawn_opt(Node, Fun, Opts)`](`spawn_opt/3`) - Creates a process at
+  a remote node.
+
+- [`spawn_link(Node, Module, Name, Args)`](`erlang:spawn_link/4`) -
+  Creates a process at a remote node.
+
+- [`spawn_opt(Node, Module, Name, Args, Opts)`](`erlang:spawn_opt/5`) - Creates
+  a process at a remote node.
 
 _Table: Distribution BIFs_
 
 ## Distribution Command-Line Flags
 
 Examples of command-line flags used for distributed programming (for more
-information, see the [erl(1) ](`e:erts:erl_cmd.md`)manual page in ERTS:
+information, see the [erl](`e:erts:erl_cmd.md`) executable in ERTS):
 
 | _Command-Line Flag_      | _Description_                                               |
 | ------------------------ | ----------------------------------------------------------- |
-| `-connect_all false`     | Only explicit connection set-ups are used.                  |
+| `-connect_all false`     | Only explicit connection setups are used.                   |
 | `-hidden`                | Makes a node into a hidden node.                            |
 | `-name Name`             | Makes a runtime system into a node, using long node names.  |
 | `-setcookie Cookie`      | Same as calling `erlang:set_cookie(Cookie)`.                |
@@ -277,16 +308,14 @@ _Table: Distribution Command-Line Flags_
 
 ## Distribution Modules
 
-Examples of modules useful for distributed programming:
+Examples of modules useful for distributed programming in the Kernel application:
 
-In the Kernel application:
-
-| _Module_       | _Description_                                      |
-| -------------- | -------------------------------------------------- |
-| `global`       | A global name registration facility.               |
-| `global_group` | Grouping nodes to global name registration groups. |
-| `net_adm`      | Various Erlang net administration routines.        |
-| `net_kernel`   | Erlang networking kernel.                          |
+| _Module_         | _Description_                                      |
+| ---------------- | -------------------------------------------------- |
+| `m:global`       | A global name registration facility.               |
+| `m:global_group` | Grouping nodes to global name registration groups. |
+| `m:net_adm`      | Various Erlang net administration routines.        |
+| `m:net_kernel`   | Erlang networking kernel.                          |
 
 _Table: Kernel Modules Useful For Distribution._
 
@@ -294,6 +323,6 @@ In the STDLIB application:
 
 | _Module_ | _Description_                     |
 | -------- | --------------------------------- |
-| `slave`  | Start and control of slave nodes. |
+| `m:peer`  | Start and control of peer nodes. |
 
 _Table: STDLIB Modules Useful For Distribution._

@@ -20,9 +20,9 @@ limitations under the License.
 # Expressions
 
 In this section, all valid Erlang expressions are listed. When writing Erlang
-programs, it is also allowed to use macro- and record expressions. However,
+programs, it is also allowed to use macro and record expressions. However,
 these expressions are expanded during compilation and are in that sense not true
-Erlang expressions. Macro- and record expressions are covered in separate
+Erlang expressions. Macro and record expressions are covered in separate
 sections:
 
 - [Preprocessor](macros.md)
@@ -37,8 +37,8 @@ unless explicitly stated otherwise. For example, consider the expression:
 Expr1 + Expr2
 ```
 
-`Expr1` and `Expr2`, which are also expressions, are evaluated first - in any
-order - before the addition is performed.
+`Expr1` and `Expr2`, which are also expressions, are evaluated first — in any
+order — before the addition is performed.
 
 Many of the operators can only be applied to arguments of a certain type. For
 example, arithmetic operators can only be applied to numbers. An argument of the
@@ -46,16 +46,17 @@ wrong type causes a `badarg` runtime error.
 
 ## Terms
 
-The simplest form of expression is a term, that is an integer, float, atom,
-string, list, map, or tuple. The return value is the term itself.
+The simplest form of expression is a term, that is one of
+`t:integer/0`, `t:float/0`, `t:atom/0`, `t:string/0`, `t:list/0`,
+`t:map/0`, or `t:tuple/0`. The return value is the term itself.
 
 ## Variables
 
 A variable is an expression. If a variable is bound to a value, the return value
 is this value. Unbound variables are only allowed in patterns.
 
-Variables start with an uppercase letter or underscore (\_). Variables can
-contain alphanumeric characters, underscore and `@`.
+Variables start with an uppercase letter or underscore (`_`). Variables can
+contain alphanumeric characters, underscore, and `@`.
 
 _Examples:_
 
@@ -66,6 +67,7 @@ PhoneNumber
 Phone_number
 _
 _Height
+name@node
 ```
 
 Variables are bound to values using [pattern matching](patterns.md). Erlang uses
@@ -76,11 +78,11 @@ variable is required but its value can be ignored.
 
 _Example:_
 
-```
+```text
 [H|_] = [1,2,3]
 ```
 
-Variables starting with underscore (\_), for example, `_Height`, are normal
+Variables starting with underscore (`_`), for example, `_Height`, are normal
 variables, not anonymous. However, they are ignored by the compiler in the sense
 that they do not generate warnings.
 
@@ -100,22 +102,22 @@ member(Elem, []) ->
     [].
 ```
 
-This causes a warning for an unused variable, `Elem`, if the code is compiled
-with the flag `warn_unused_vars` set. Instead, the code can be rewritten to:
+This causes a warning for an unused variable, `Elem`. To avoid the warning,
+the code can be rewritten to:
 
 ```
 member(_Elem, []) ->
     [].
 ```
 
-Notice that since variables starting with an underscore are not anonymous, this
-matches:
+Notice that since variables starting with an underscore are not anonymous, the
+following example matches:
 
 ```
 {_,_} = {1,2}
 ```
 
-But this fails:
+But this example fails:
 
 ```
 {_N,_N} = {1,2}
@@ -123,11 +125,11 @@ But this fails:
 
 The scope for a variable is its function clause. Variables bound in a branch of
 an `if`, `case`, or `receive` expression must be bound in all branches to have a
-value outside the expression. Otherwise they are regarded as 'unsafe' outside
+value outside the expression. Otherwise they are regarded as unsafe outside
 the expression.
 
 For the `try` expression variable scoping is limited so that variables bound in
-the expression are always 'unsafe' outside the expression.
+the expression are always unsafe outside the expression.
 
 ## Patterns
 
@@ -307,25 +309,25 @@ value
 42
 ```
 
-The expression at prompt _2>_ first matches the value of variable `M` against
+The expression at prompt `2>` first matches the value of variable `M` against
 pattern `#{key := Key}`, binding variable `Key`. It then matches the value of
 `M` against pattern `#{Key := Value}` using variable `Key` as the key, binding
 variable `Value`.
 
-The expression at prompt _3>_ matches expression `(#{key := Key} = M)` against
+The expression at prompt `3>` matches expression `(#{key := Key} = M)` against
 pattern `#{Key := Value}`. The expression inside the parentheses is evaluated
 first. That is, `M` is matched against `#{key := Key}`, and then the value of
 `M` is matched against pattern `#{Key := Value}`. That is the same evaluation
 order as in _2_; therefore, the parentheses are redundant.
 
-In the expression at prompt _4>_ the expression `M` is matched against a pattern
+In the expression at prompt `4>` the expression `M` is matched against a pattern
 inside parentheses. Since the construct inside the parentheses is a pattern, the
 `=` that separates the two patterns is the compound pattern operator (_not_ the
 match operator). The match fails because the two sub patterns are matched at the
 same time, and the variable `Key` is therefore not bound when matching against
 pattern `#{Key := Value}`.
 
-In the expression at prompt _5>_ the expressions inside the
+In the expression at prompt `5>` the expressions inside the
 [block expression](expressions.md#block-expressions) are evaluated first,
 binding variable `Y` and creating a binary. The binary is then matched against
 pattern `<<X:Y>>` using the value of `Y` as the size of the segment.
@@ -345,7 +347,7 @@ This is often referred to as a _remote_ or _external function call_.
 _Example:_
 
 ```
-lists:keysearch(Name, 1, List)
+lists:keyfind(Name, 1, List)
 ```
 
 In the second form of function calls, `ExprF(Expr1,...,ExprN)`, `ExprF` must be
@@ -392,14 +394,14 @@ auto-imported. In certain situations, such a compile-directive is mandatory.
 
 > #### Change {: .info }
 >
-> Before OTP R14A (ERTS version 5.8), an implicitly qualified function call to a
+> Before Erlang/OTP R14A (ERTS version 5.8), an implicitly qualified function call to a
 > function having the same name as an auto-imported BIF always resulted in the
 > BIF being called. In newer versions of the compiler, the local function is
 > called instead. This is to avoid that future additions to the set of
 > auto-imported BIFs do not silently change the behavior of old code.
 
 However, to avoid that old (pre R14) code changed its behavior when compiled
-with OTP version R14A or later, the following restriction applies: If you
+with Erlang/OTP version R14A or later, the following restriction applies: If you
 override the name of a BIF that was auto-imported in OTP versions prior to R14A
 (ERTS version 5.8) and have an implicitly qualified call to that function in
 your code, you either need to explicitly remove the auto-import using a compiler
@@ -461,7 +463,7 @@ end
 
 The branches of an `if`\-expression are scanned sequentially until a guard
 sequence `GuardSeq` that evaluates to true is found. Then the corresponding
-`Body` (sequence of expressions separated by ',') is evaluated.
+`Body` (a sequence of expressions separated by `,`) is evaluated.
 
 The return value of `Body` is the return value of the `if` expression.
 
@@ -474,7 +476,7 @@ _Example:_
 ```
 is_greater_than(X, Y) ->
     if
-        X>Y ->
+        X > Y ->
             true;
         true -> % works as an 'else' branch
             false
@@ -621,7 +623,7 @@ None of the variables bound in a `maybe` block must be used in the `else`
 clauses. None of the variables bound in the `else` clauses must be used in the
 code that follows the `maybe` block.
 
-Here is the previous example augmented with a `else` clauses:
+Here is the previous example augmented with `else` clauses:
 
 ```
 maybe
@@ -718,9 +720,9 @@ after
 end
 ```
 
-`receive..after` works exactly as `receive`, except that if no matching message
+`receive...after` works exactly as `receive`, except that if no matching message
 has arrived within `ExprT` milliseconds, then `BodyT` is evaluated instead. The
-return value of `BodyT` then becomes the return value of the `receive..after`
+return value of `BodyT` then becomes the return value of the `receive...after`
 expression. `ExprT` is to evaluate to an integer, or the atom `infinity`. The
 allowed integer range is from 0 to 4294967295, that is, the longest possible
 timeout is almost 50 days. With a zero value the timeout occurs immediately if
@@ -748,7 +750,7 @@ wait_for_onhook() ->
     end.
 ```
 
-It is legal to use a `receive..after` expression with no branches:
+It is legal to use a `receive...after` expression with no branches:
 
 ```
 receive
@@ -781,16 +783,16 @@ timer(Pid) ->
 Expr1 op Expr2
 ```
 
-| _op_ | _Description_            |
-| ---- | ------------------------ |
-| ==   | Equal to                 |
-| /=   | Not equal to             |
-| =<   | Less than or equal to    |
-| <    | Less than                |
-| >=   | Greater than or equal to |
-| >    | Greater than             |
-| =:=  | Term equivalence         |
-| =/=  | Term non-equivalence     |
+| _op_   | _Description_            |
+| ------ | ------------------------ |
+| `==`   | Equal to                 |
+| `/=`   | Not equal to             |
+| `=<`   | Less than or equal to    |
+| `<`    | Less than                |
+| `>=`   | Greater than or equal to |
+| `>`    | Greater than             |
+| `=:=`  | Term equivalence         |
+| `=/=`  | Term non-equivalence     |
 
 _Table: Term Comparison Operators._
 
@@ -849,15 +851,15 @@ Term comparison operators return the Boolean value of the expression, `true` or
 _Examples:_
 
 ```
-1> 1==1.0.
+1> 1 == 1.0.
 true
-2> 1=:=1.0.
+2> 1 =:= 1.0.
 false
-3> 0=:=0.0.
+3> 0 =:= 0.0.
 false
-4> 0.0=:=-0.0.
+4> 0.0 =:= -0.0.
 false
-5> 0.0=:=+0.0.
+5> 0.0 =:= +0.0.
 true
 6> 1 > a.
 false
@@ -873,15 +875,15 @@ false
 
 > #### Note {: .info }
 >
-> Prior to OTP 27, the term equivalence operators had a bug where they
-> considered `0.0` and `-0.0` to be the same term.
+> Prior to OTP 27, the term equivalence operators considered `0.0`
+> and `-0.0` to be the same term.
 >
-> This was fixed in OTP 27 but legacy code may have expected them to be
+> This was changed in OTP 27 but legacy code may have expected them to be
 > considered the same. To help users catch errors that may arise from an
 > upgrade, the compiler raises a warning when `0.0` is pattern-matched or used
 > in a term equivalence test.
 >
-> If you need to match `0.0` specifically, then the warning can be silenced by
+> If you need to match `0.0` specifically, the warning can be silenced by
 > writing `+0.0` instead, which produces the same term but makes the compiler
 > interpret the match as being done on purpose.
 
@@ -892,22 +894,22 @@ op Expr
 Expr1 op Expr2
 ```
 
-| _Operator_ | _Description_            | _Argument Type_ |
-| ---------- | ------------------------ | --------------- |
-| +          | Unary +                  | Number          |
-| -          | Unary -                  | Number          |
-| +          |                          | number          |
-| -          |                          | Number          |
-| \*         |                          | Number          |
-| /          | Floating point division  | Number          |
-| bnot       | Unary bitwise NOT        | Integer         |
-| div        | Integer division         | Integer         |
-| rem        | Integer remainder of X/Y | Integer         |
-| band       | Bitwise AND              | Integer         |
-| bor        | Bitwise OR               | Integer         |
-| bxor       | Arithmetic bitwise XOR   | Integer         |
-| bsl        | Arithmetic bitshift left | Integer         |
-| bsr        | Bitshift right           | Integer         |
+| _Operator_   | _Description_             | _Argument Type_ |
+| ------------ | ------------------------- | --------------- |
+| `+`          | Unary +                   | Number          |
+| `-`          | Negation (unary -)        | Number          |
+| `+`          | Addition                  | Number          |
+| `-`          | Subtraction               | Number          |
+| `*`          | Multiplication            | Number          |
+| `/`          | Floating point division   | Number          |
+| `bnot`       | Unary bitwise NOT         | Integer         |
+| `div`        | Integer division          | Integer         |
+| `rem`        | Integer remainder of X/Y  | Integer         |
+| `band`       | Bitwise AND               | Integer         |
+| `bor`        | Bitwise OR                | Integer         |
+| `bxor`       | Bitwise XOR               | Integer         |
+| `bsl`        | Bitshift left             | Integer         |
+| `bsr`        | Arithmetic bitshift right | Integer         |
 
 _Table: Arithmetic Operators._
 
@@ -949,10 +951,10 @@ Expr1 op Expr2
 
 | _Operator_ | _Description_     |
 | ---------- | ----------------- |
-| not        | Unary logical NOT |
-| and        | Logical AND       |
-| or         | Logical OR        |
-| xor        | Logical XOR       |
+| `not`      | Unary logical NOT |
+| `and`      | Logical AND       |
+| `or`       | Logical OR        |
+| `xor`      | Logical XOR       |
 
 _Table: Logical Operators._
 
@@ -1039,9 +1041,9 @@ the first occurrence of this element (if any) is removed.
 _Example:_
 
 ```
-1> [1,2,3]++[4,5].
+1> [1,2,3] ++ [4,5].
 [1,2,3,4,5]
-2> [1,2,3,2,1,2]--[2,1,2].
+2> [1,2,3,2,1,2] -- [2,1,2].
 [3,1,2]
 ```
 
@@ -1053,14 +1055,14 @@ Constructing a new map is done by letting an expression `K` be associated with
 another expression `V`:
 
 ```
-#{ K => V }
+#{K => V}
 ```
 
 New maps can include multiple associations at construction by listing every
 association:
 
 ```
-#{ K1 => V1, .., Kn => Vn }
+#{K1 => V1, ..., Kn => Vn}
 ```
 
 An empty map is constructed by not associating any terms with each other:
@@ -1073,7 +1075,7 @@ All keys and values in the map are terms. Any expression is first evaluated and
 then the resulting terms are used as _key_ and _value_ respectively.
 
 Keys and values are separated by the `=>` arrow and associations are separated
-by a comma `,`.
+by a comma (`,`).
 
 _Examples:_
 
@@ -1108,11 +1110,11 @@ two matching keys.
 
 Updating a map has a similar syntax as constructing it.
 
-An expression defining the map to be updated, is put in front of the expression
+An expression defining the map to be updated is put in front of the expression
 defining the keys to be updated and their respective values:
 
 ```
-M#{ K => V }
+M#{K => V}
 ```
 
 Here `M` is a term of type map and `K` and `V` are any expression.
@@ -1124,23 +1126,23 @@ If key `K` matches an existing key in map `M`, its associated value is replaced
 by the new value `V`. In both cases, the evaluated map expression returns a new
 map.
 
-If `M` is not of type map, an exception of type `badmap` is thrown.
+If `M` is not of type map, an exception of type `badmap` is raised.
 
 To only update an existing value, the following syntax is used:
 
 ```
-M#{ K := V }
+M#{K := V}
 ```
 
 Here `M` is a term of type map, `V` is an expression and `K` is an expression
 that evaluates to an existing key in `M`.
 
 If key `K` does not match any existing keys in map `M`, an exception of type
-`badkey` is triggered at runtime. If a matching key `K` is present in map `M`,
+`badkey` is raised at runtime. If a matching key `K` is present in map `M`,
 its associated value is replaced by the new value `V`, and the evaluated map
 expression returns a new map.
 
-If `M` is not of type map, an exception of type `badmap` is thrown.
+If `M` is not of type map, an exception of type `badmap` is raised.
 
 _Examples:_
 
@@ -1152,7 +1154,7 @@ M3 = M2#{"function" => fun() -> f() end},
 M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.
 ```
 
-Here `M0` is any map. It follows that `M1 .. M4` are maps as well.
+Here `M0` is any map. It follows that `M1` through `M4` are maps as well.
 
 _More examples:_
 
@@ -1177,7 +1179,7 @@ case, the latter value is used.
 Matching of key-value associations from maps is done as follows:
 
 ```
-#{ K := V } = M
+#{K := V} = M
 ```
 
 Here `M` is any map. The key `K` must be a
@@ -1209,24 +1211,18 @@ This binds variable `B` to integer `2`.
 Similarly, multiple values from the map can be matched:
 
 ```
-#{ K1 := V1, .., Kn := Vn } = M
+#{K1 := V1, ..., Kn := Vn} = M
 ```
 
-Here keys `K1 .. Kn` are any expressions with literals or bound variables. If
-all key expressions evaluate successfully and all keys exist in map `M`, all
-variables in `V1 .. Vn` is matched to the associated values of their respective
-keys.
+Here keys `K1` through `Kn` are any expressions with literals or bound
+variables. If all key expressions evaluate successfully and all keys
+exist in map `M`, all variables in `V1 .. Vn` is matched to the
+associated values of their respective keys.
 
-If the matching conditions are not met, the match fails, either with:
+If the matching conditions are not met the match fails.
 
-- A `badmatch` exception.
-
-  This is if it is used in the context of the match operator as in the example.
-
-- Or resulting in the next clause being tested in function heads and case
-  expressions.
-
-Matching in maps only allows for `:=` as delimiters of associations.
+Note that when matching a map, only the `:=` operator (not the `=>`) is allowed
+as a delimiter for the associations.
 
 The order in which keys are declared in matching has no relevance.
 
@@ -1234,11 +1230,10 @@ Duplicate keys are allowed in matching and match each pattern associated to the
 keys:
 
 ```
-#{ K := V1, K := V2 } = M
+#{K := V1, K := V2} = M
 ```
 
-Matching an expression against an empty map literal, matches its type but no
-variables are bound:
+The empty map literal (`#{}`) matches any map when used as a pattern:
 
 ```
 #{} = Expr
@@ -1261,14 +1256,14 @@ Matching of literals as keys are allowed in function heads:
 
 ```
 %% only start if not_started
-handle_call(start, From, #{ state := not_started } = S) ->
+handle_call(start, From, #{state := not_started} = S) ->
 ...
-    {reply, ok, S#{ state := start }};
+    {reply, ok, S#{state := start}};
 
 %% only change if started
-handle_call(change, From, #{ state := start } = S) ->
+handle_call(change, From, #{state := start} = S) ->
 ...
-    {reply, ok, S#{ state := changed }};
+    {reply, ok, S#{state := changed}};
 ```
 
 ### Maps in Guards
@@ -1389,7 +1384,7 @@ hyphens (-). Default values are used for any omitted type specifiers.
   level) endianness (byte order). Native-endian means that the endianness is
   resolved at load time to be either big-endian or little-endian, depending on
   what is native for the CPU that the Erlang machine is run on. Endianness only
-  matters when the Type is either `integer`, `utf16`, `utf32`, or `float`. The
+  matters when the **Type** is either `integer`, `utf16`, `utf32`, or `float`. The
   default is `big`.
 
   ```
@@ -1502,10 +1497,12 @@ constructed binary must be at least as large as the size of the binary segment.
 ### Unicode segments
 
 The types `utf8`, `utf16`, and `utf32` specifies encoding/decoding of the
-*Unicode Transformation Format*s UTF-8, UTF-16, and UTF-32, respectively.
+*Unicode Transformation Format*s [UTF-8](https://en.wikipedia.org/wiki/UTF-8),
+[UTF-16](https://en.wikipedia.org/wiki/UTF-16), and
+[UTF-32](https://en.wikipedia.org/wiki/UTF-32), respectively.
 
 When constructing a segment of a `utf` type, `Value` must be an integer in the
-range 0 through 16#D7FF or 16#E000 through 16#10FFFF. Construction fails with a
+range `0` through `16#D7FF` or `16#E000` through `16#10FFFF`. Construction fails with a
 `badarg` exception if `Value` is outside the allowed ranges. The sizes of the
 encoded values are as follows:
 
@@ -1518,7 +1515,7 @@ types, for example: `<<"abc"/utf8>>` which is syntactic sugar for
 `<<$a/utf8,$b/utf8,$c/utf8>>`.
 
 A successful match of a segment of a `utf` type, results in an integer in the
-range 0 through 16#D7FF or 16#E000 through 16#10FFFF. The match fails if the
+range `0` through `16#D7FF` or `16#E000` through `16#10FFFF`. The match fails if the
 returned value falls outside those ranges.
 
 A segment of type `utf8` matches 1-4 bytes in the bit string, if the bit string
@@ -1574,7 +1571,7 @@ _Examples:_
 Notice that bit string patterns cannot be nested.
 
 Notice also that "`B=<<1>>`" is interpreted as "`B =< <1>>`" which is a syntax
-error. The correct way is to write a space after '=': "`B = <<1>>`.
+error. The correct way is to write a space after `=`: "`B = <<1>>`.
 
 More examples are provided in [Programming Examples](`e:system:bit_syntax.md`).
 
@@ -1651,17 +1648,16 @@ More examples are provided in [Programming Examples](`e:system:funs.md`).
 catch Expr
 ```
 
-Returns the value of `Expr` unless an exception occurs during the evaluation. In
-that case, the exception is caught.
+Returns the value of `Expr` unless an exception is raised during the evaluation. In
+that case, the exception is caught. The return value depends on the class of the
+exception:
 
-For exceptions of class `error`, that is, run-time errors,
-`{'EXIT',{Reason,Stack}}` is returned.
+- **`error`** (a run-time error or the code called [`error(Term)`](`error/1`)) -
+  `{'EXIT',{Reason,Stack}}` is returned.
 
-For exceptions of class `exit`, that is, the code called
-[`exit(Term)`](`exit/1`), `{'EXIT',Term}` is returned.
+- **`exit`** (the code called [`exit(Term)`](`exit/1`)) - `{'EXIT',Term}` is returned.
 
-For exceptions of class `throw`, that is the code called
-[`throw(Term)`](`throw/1`), `Term` is returned.
+- **`throw`** (the code called [`throw(Term)`](`throw/1`)): `Term` is returned.
 
 `Reason` depends on the type of error that occurred, and `Stack` is the stack of
 recent function calls, see [Exit Reasons](errors.md#exit_reasons).
@@ -2142,16 +2138,16 @@ depends on the expression:
 
 ## Guard Sequences
 
-A _guard sequence_ is a sequence of guards, separated by semicolon (;). The
+A _guard sequence_ is a sequence of guards, separated by semicolon (`;`). The
 guard sequence is true if at least one of the guards is true. (The remaining
 guards, if any, are not evaluated.)
 
-`Guard1;...;GuardK`
+`Guard1; ...; GuardK`
 
-A _guard_ is a sequence of guard expressions, separated by comma (,). The guard
+A _guard_ is a sequence of guard expressions, separated by comma (`,`). The guard
 is true if all guard expressions evaluate to `true`.
 
-`GuardExpr1,...,GuardExprN`
+`GuardExpr1, ..., GuardExprN`
 
 ## Guard Expressions
 
@@ -2173,8 +2169,9 @@ Valid guard expressions are the following:
 - Boolean expressions
 - Short-circuit expressions (`andalso`/`orelse`)
 
-| [`is_atom/1`](`is_atom/1`)           |
+| _BIF_                                |
 | ------------------------------------ |
+| [`is_atom/1`](`is_atom/1`)           |
 | [`is_binary/1`](`is_binary/1`)       |
 | [`is_bitstring/1`](`is_bitstring/1`) |
 | [`is_boolean/1`](`is_boolean/1`)     |
@@ -2194,13 +2191,15 @@ Valid guard expressions are the following:
 
 _Table: Type Test BIFs_
 
-Notice that most type test BIFs have older equivalents, without the `is_`
-prefix. These old BIFs are retained for backwards compatibility only and are not
-to be used in new code. They are also only allowed at top level. For example,
-they are not allowed in Boolean expressions in guards.
+Notice that most type test BIFs have older equivalents, without the
+`is_` prefix. These old BIFs are retained only for backwards
+compatibility and are not to be used in new code. They are also only
+allowed at top level. For example, they are not allowed in Boolean
+expressions in guards.
 
+| _BIF_                                    |
+| ---------------------------------------- |
 | [`abs(Number)`](`abs/1`)                 |
-| ---------------------------------------- | ----------- | ------ |
 | [`bit_size(Bitstring)`](`bit_size/1`)    |
 | [`byte_size(Bitstring)`](`byte_size/1`)  |
 | [`element(N, Tuple)`](`element/2`)       |
@@ -2213,10 +2212,10 @@ they are not allowed in Boolean expressions in guards.
 | [`max(A, B)`](`max/2`)                   |
 | [`min(A, B)`](`min/2`)                   |
 | `node/0`                                 |
-| `node(Pid                                | Ref         | Port)` |
+| `node(Pid` \| `Ref` \| `Port)`           |
 | [`round(Number)`](`round/1`)             |
 | `self/0`                                 |
-| `size(Tuple                              | Bitstring)` |
+| `size(Tuple` \| `Bitstring)`             |
 | [`tl(List)`](`tl/1`)                     |
 | [`trunc(Number)`](`trunc/1`)             |
 | [`tuple_size(Tuple)`](`tuple_size/1`)    |
@@ -2239,19 +2238,19 @@ fails. If the guard was part of a guard sequence, the next guard in the sequence
 
 Operator precedence in descending order:
 
-| :                            |                   |
-| ---------------------------- | ----------------- |
-| #                            |                   |
-| Unary + - bnot not           |                   |
-| / \* div rem band and        | Left-associative  |
-| \+ - bor bxor bsl bsr or xor | Left-associative  |
-| \++ --                       | Right-associative |
-| == /= =< < >= > =:= =/=      | Non-associative   |
-| andalso                      | Left-associative  |
-| orelse                       | Left-associative  |
-| catch                        |                   |
-| = \!                         | Right-associative |
-| ?=                           | Non-associative   |
+| _Operator_                                   | _Association_     |
+| -------------------------------------------- | ----------------- |
+| `#`                                          |                   |
+| Unary `+` `-` `bnot` `not`                   |                   |
+| `/` `*` `div` `rem` `band` `and`             | Left-associative  |
+| `+` `-` `bor` `bxor` `bsl` `bsr` `or` `xor`  | Left-associative  |
+| `++` `--`                                    | Right-associative |
+| `==` `/=` `=<` `<` `>=` `>` `=:=` `=/=`      | Non-associative   |
+| `andalso`                                    | Left-associative  |
+| `orelse`                                     | Left-associative  |
+| `catch`                                      |                   |
+| `=` `!`                                      | Right-associative |
+| `?=`                                         | Non-associative   |
 
 _Table: Operator Precedence_
 

@@ -46,7 +46,8 @@ following:
 
 - ERTS User's Guide
 
-  [Crash dumps](`e:erts:crash_dump.md`), [drivers](`e:erts:driver.md`)
+  [Crash dumps](`e:erts:crash_dump.md`), [NIFs](`e:erts:erl_nif.md`),
+  [drivers](`e:erts:driver.md`)
 
 ## Prerequisites
 
@@ -67,8 +68,8 @@ If a feature has been added in R13A or later, this is mentioned in the text.
 
 ## Complete List of BIFs
 
-For a complete list of BIFs, their arguments and return values, see `m:erlang`
-manual page in ERTS.
+For a complete list of BIFs, their arguments and return values, see module `m:erlang`
+in ERTS.
 
 ## Reserved Words
 

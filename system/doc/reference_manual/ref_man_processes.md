@@ -27,7 +27,7 @@ terminate, and the scheduling overhead is low.
 
 ## Process Creation
 
-A process is created by calling `spawn()`:
+A process is created by calling [`spawn()`](`erlang:spawn/3`):
 
 ```erlang
 spawn(Module, Name, Args) -> pid()
@@ -66,7 +66,7 @@ _Table: Name Registration BIFs_
 ## Process Aliases
 
 When sending a message to a process, the receiving process can be identified by
-a [PID](data_types.md#pid), a
+a [Pid](data_types.md#pid), a
 [registered name](ref_man_processes.md#registered-processes), or a _process
 alias_ which is a term of the type [reference](data_types.md#reference). The
 typical use case that process aliases were designed for is a request/reply
@@ -75,7 +75,7 @@ receiver of the reply to prevent the reply from reaching its message queue if
 the operation times out or if the connection between the processes is lost.
 
 A process alias can be used as identifier of the receiver when sending a message
-using the [send operator `!`](expressions.md#send) or send BIFs such as
+using the [send operator (`!`)](expressions.md#send) or send BIFs such as
 `erlang:send/2`. As long as the process alias is active, messages will be
 delivered the same way as if the process identifier of the process that created
 the alias had been used. When the alias has been deactivated, messages sent
@@ -125,8 +125,8 @@ occurs. See [Exit Reasons](errors.md#exit_reasons).
 A process can terminate itself by calling one of the following BIFs:
 
 - [`exit(Reason)`](`exit/1`)
-- `erlang:error(Reason)`
-- `erlang:error(Reason, Args)`
+- [`error(Reason)`](`erlang:error/1`)
+- [`error(Reason, Args)`](`erlang:error/2`)
 
 The process then terminates with reason `Reason` for [`exit/1`](`exit/1`) or
 `{Reason,Stack}` for the others.
@@ -221,7 +221,7 @@ been performed.
   the request before returning from the BIF.
 
 - **`port_command`, `port_connect`, `port_close`** - Sent by a process to a port
-  on the local node using the [send operator `!`](expressions.md#send), or by
+  on the local node using the [send operator (`!`)](expressions.md#send), or by
   calling one of the [`send()`](`erlang:send/2`) BIFs. The signal is sent by
   passing a term on the format `{Owner, {command, Data}}`,
   `{Owner, {connect, Pid}}`, or `{Owner, close}` as message.
@@ -264,11 +264,11 @@ one service to one process is _not_ preserved. Note that this does _not_ violate
 the [signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
 language.
 
-The realization of the signals described above may change both at runtime and
+The realization of the signals described earlier may change both at runtime and
 due to changes in implementation. You may be able to detect such changes using
 `receive` tracing or by inspecting message queues. However, these are internal
 implementation details of the runtime system that you should _not_ rely on. As
-an example, many of the reply signals above are ordinary message signals. When
+an example, many of the reply signals are ordinary message signals. When
 the operation is synchronous, the reply signals do not have to be message
 signals. The current implementation takes advantage of this and, depending on
 the state of the system, use alternative ways of delivering the reply signals.
@@ -353,7 +353,7 @@ language.
 
 ### Directly Visible Erlang Resources
 
-As described above, `exit` signals due to links, `down` signals, and reply
+As described earlier, `exit` signals due to links, `down` signals, and reply
 signals from an exiting process due to `alive_request`s are not sent until all
 _directly visible Erlang resources_ held by the terminating process have been
 released. With _directly visible Erlang resources_ we here mean all resources
@@ -412,7 +412,7 @@ lost.
   synchronous error checking when sending locally on a node and fail if the
   receiver is not present at the time when the signal is sent:
 
-  - The [send operator `!`](expressions.md#send),
+  - The [send operator (`!`)](expressions.md#send),
     [`erlang:send/2,3`](`erlang:send/2`), BIFs and
     [`erlang:send_nosuspend/2,3`](`erlang:send_nosuspend/2`) BIFs when the
     receiver is identified by a name that is expected to be registered locally.
@@ -435,7 +435,7 @@ lost.
   can be trapped if the signal was sent due to a link.
 
 - **Blocking Signaling Over Distribution[](){:
-  #blocking-signaling-over-distribution } **  
+  #blocking-signaling-over-distribution } **
    When sending a signal over a distribution channel, the sending process may be
   suspended even though the signal is supposed to be sent asynchronously. This is
   due to the built in flow control over the channel that has been present more or
@@ -461,7 +461,7 @@ lost.
   The size of the _distribution buffer busy limit_ can be inspected by calling
   [`erlang:system_info(dist_buf_busy_limit)`](`m:erlang#system_info_dist_buf_busy_limit`).
 
-The irregularities mentioned above cannot be fixed as they have been part of
+The irregularities mentioned earlier cannot be fixed as they have been part of
 Erlang too long and it would break a lot of existing code.
 
 ## Links
@@ -611,9 +611,9 @@ received by a process:
 
 ## Monitors
 
-An alternative to links are _monitors_. A process `Pid1` can create a monitor
-for `Pid2` by calling the BIF `erlang:monitor(process, Pid2)`. The function
-returns a reference `Ref`.
+An alternative to links are _monitors_. A process `Pid1` can create a
+monitor for `Pid2` by calling the BIF [`erlang:monitor(process,
+Pid2)`](`erlang:monitor/2`). The function returns a reference `Ref`.
 
 If `Pid2` terminates with exit reason `Reason`, a 'DOWN' message is sent to
 `Pid1`:
@@ -629,7 +629,7 @@ Monitors are unidirectional. Repeated calls to `erlang:monitor(process, Pid)`
 creates several independent monitors, and each one sends a 'DOWN' message when
 `Pid` terminates.
 
-A monitor can be removed by calling `erlang:demonitor(Ref)`.
+A monitor can be removed by calling [`erlang:demonitor(Ref)`](`erlang:demonitor/1`).
 
 Monitors can be created for processes with registered names, also at other
 nodes.
@@ -639,11 +639,9 @@ nodes.
 Each process has its own process dictionary, accessed by calling the following
 BIFs:
 
-```text
-put(Key, Value)
-get(Key)
-get()
-get_keys(Value)
-erase(Key)
-erase()
-```
+- [`put(Key, Value)`](`erlang:put/2`)
+- [`get(Key)`](`erlang:get/1`)
+- [`get()`](`erlang:get/0`)
+- [`get_keys(Value)`](`erlang:get_keys/1`)
+- [`erase(Key)`](`erlang:erase/1`)
+- [`erase()`](`erlang:erase/0`)

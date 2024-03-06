@@ -30,14 +30,14 @@ Errors can roughly be divided into four different types:
   crash. An example is that nothing happens when a button in a graphical user
   interface is clicked.
 
-- **[](){: #run-time-errors } Run-time errors**  
+- **[](){: #run-time-errors } Run-time errors** - 
   When a crash occurs. An example is when an operator is applied to arguments of
   the wrong type. The Erlang programming language has built-in features for
   handling of run-time errors. A run-time error can also be emulated by calling
   [`error(Reason)`](`erlang:error/1`). Run-time errors are exceptions of class
   `error`.
 
-- **[](){: #generated-errors } Generated errors**  
+- **[](){: #generated-errors } Generated errors**
   When the code itself calls [`exit/1`](`erlang:exit/1`) or
   [`throw/1`](`erlang:throw/1`). Generated errors are exceptions of class `exit`
   or `throw`.
@@ -63,11 +63,11 @@ distinguish between the different classes, whereas the
 [catch](expressions.md#catch-and-throw) expression cannot. `try` and `catch` are described
 in [Expressions](expressions.md).
 
-| _Class_ | _Origin_                                                              |
-| ------- | --------------------------------------------------------------------- |
-| `error` | Run-time error, for example, `1+a`, or the process called `error/1,2` |
-| `exit`  | The process called [`exit/1`](`exit/1`)                               |
-| `throw` | The process called [`throw/1`](`throw/1`)                             |
+| _Class_ | _Origin_                                                                           |
+| ------- | ---------------------------------------------------------------------------------- |
+| `error` | Run-time error, for example, `1+a`, or the process called [`error/1`](`error/1`)   |
+| `exit`  | The process called [`exit/1`](`exit/1`)                                            |
+| `throw` | The process called [`throw/1`](`throw/1`)                                          |
 
 _Table: Exception Classes._
 
@@ -124,7 +124,7 @@ items can occur:
 >
 > The VM performs tail call optimization, which does not add new entries to the
 > stacktrace, and also limits stacktraces to a certain depth. Furthermore,
-> compiler options, optimizations and future changes may add or remove
+> compiler options, optimizations, and future changes may add or remove
 > stacktrace entries, causing any code that expects the stacktrace to be in a
 > certain order or contain specific items to fail.
 >
@@ -136,10 +136,9 @@ items can occur:
 
 ### Error Handling Within Processes
 
-It is possible to prevent run-time errors and other exceptions from causing the
-process to terminate by using `catch` or `try`, see
-[Expressions](expressions.md) about [catch](expressions.md#catch-and-throw) and
-[try](expressions.md#try).
+It is possible to prevent run-time errors and other exceptions from
+causing the process to terminate by using [`try`](expressions.md#try)
+or [`catch`](expressions.md#catch-and-throw).
 
 ### Error Handling Between Processes
 
@@ -154,25 +153,53 @@ When a run-time error occurs, that is an exception of class `error`. The exit
 reason is a tuple `{Reason,Stack}`, where `Reason` is a term indicating the type
 of error:
 
-| _Reason_          | _Type of Error_                                                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `badarg`          | Bad argument. The argument is of wrong data type, or is otherwise badly formed.                                                  |
-| `badarith`        | Bad argument in an arithmetic expression.                                                                                        |
-| `{badmatch,V}`    | Evaluation of a match expression failed. The value `V` did not match.                                                            |
-| `function_clause` | No matching function clause is found when evaluating a function call.                                                            |
-| `{case_clause,V}` | No matching branch is found when evaluating a `case` expression. The value `V` did not match.                                    |
-| `if_clause`       | No true branch is found when evaluating an `if` expression.                                                                      |
-| `{try_clause,V}`  | No matching branch is found when evaluating the of-section of a `try` expression. The value `V` did not match.                   |
-| `undef`           | The function cannot be found when evaluating a function call.                                                                    |
-| `{badfun,F}`      | Something is wrong with a fun `F`.                                                                                               |
-| `{badarity,F}`    | A fun is applied to the wrong number of arguments. `F` describes the fun and the arguments.                                      |
-| `timeout_value`   | The timeout value in a `receive..after` expression is evaluated to something else than an integer or `infinity`.                 |
-| `noproc`          | Trying to link or monitor to a non-existing process or port.                                                                     |
-| `noconnection`    | A link or monitor to a remote process was broken because a connection between the nodes could not be established or was severed. |
-| `{nocatch,V}`     | Trying to evaluate a `throw `outside a `catch`. `V` is the thrown term.                                                          |
-| `system_limit`    | A system limit has been reached. See [Efficiency Guide](`e:system:advanced.md`) for information about system limits.             |
+- **`badarg`** - Bad argument. The argument is of wrong data type, or
+    is otherwise badly formed.
 
-_Table: Exit Reasons_
+- **`badarith`** - An argument for an arithmetic expression was not numeric,
+    or the expression does not evaluate to finite number.
+
+- **`{badmatch,V}`** - Evaluation of a match expression failed. The
+    value `V` did not match.
+
+- **`function_clause`** - No matching function clause is found when
+    evaluating a function call.
+
+- **`{case_clause,V}`** - No matching branch is found when evaluating
+    a `case` expression. The value `V` did not match.
+
+- **`if_clause`** - No true branch is found when evaluating an `if`
+    expression.
+
+- **`{try_clause,V}`** - No matching branch is found when evaluating
+    the of-section of a `try` expression. The value `V` did not
+    match.
+
+- **`undef`** - The function cannot be found when evaluating a
+    function call.
+
+- **`{badfun,F}`** - `F` was expected to a be a fun, but is not.
+
+- **`{badarity,{Fun,Args}}`** - A fun is applied to the wrong number of
+    arguments.
+
+- **`timeout_value`** - The timeout value in a `receive...after`
+    expression is evaluated to something else than an integer or
+    `infinity`.
+
+- **`noproc`** - Trying to create [link](`link/1`) or
+    [monitor](`monitor/2`) to a non-existing process or port.
+
+- **`noconnection`** - A link or monitor to a remote process was
+    broken because a connection between the nodes could not be
+    established or was severed.
+
+- **`{nocatch,V}`** - Trying to evaluate a `throw `outside a
+    `catch`. `V` is the thrown term.
+
+- **`system_limit`** - A system limit has been reached. See
+    [Efficiency Guide](`e:system:advanced.md`) for information about
+    system limits.
 
 `Stack` is the stack of function calls being evaluated when the error occurred,
 given as a list of tuples `{Module,Name,Arity,ExtraInfo}` with the most recent
