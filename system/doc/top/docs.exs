@@ -1,3 +1,12 @@
+system_guides =
+  File.read!("../guides")
+  |> String.trim()
+  |> String.split("\n")
+  |> Enum.map(fn line ->
+    guide = line |> String.split(":") |> Enum.at(0)
+    "system/#{guide}.md"
+  end)
+
 [
   application: :index,
   extras:
@@ -7,17 +16,9 @@
       "../general_info/deprecations.md",
       "../general_info/removed.md",
       "../general_info/scheduled_for_removal.md",
-      "../general_info/upcoming_incompatibilities.md",
-      "system/installation_guide.md",
-      "system/getting_started.md",
-      "system/system_principles.md",
-      "system/programming_examples.md",
-      "system/reference_manual.md",
-      "system/design_principles.md",
-      "system/efficiency_guide.md",
-      "system/embedded.md",
-      "system/oam.md"
+      "../general_info/upcoming_incompatibilities.md"
     ] ++
+      system_guides ++
       Path.wildcard("{core,database,oam,interfaces,tools,testing,documentation}/*.md"),
   main: "readme",
   api_reference: false,
