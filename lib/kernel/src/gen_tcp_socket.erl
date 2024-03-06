@@ -1761,60 +1761,38 @@ handle_event({call, From}, {getopts, Opts}, State, {P, D}) ->
     {keep_state_and_data,
      [{reply, From, Result}]};
 
-handle_event({call, From}, {setopts, Opts}, State, {P, D}) ->
-    %% ?DBG([{setopts, Opts}, {state, State}, {d, D}]),
+handle_event({call, From}, {setopts, Opts}, State, {P_0, D_0}) ->
+    %% To produce less garbage - work on a diminished D map
+    %% and last merge all changes, also to see when there are
+    %% metadata changes and only update metadata if so
     %%
-    %% Optimize option setting - only update metadata when changed.
-    %% Assuming only a few options change; it is probably more efficient
-    %% to work on a minimal (almost empty) D map and then merge all changes
-    %% into the actual one.  Should at least produce less garbage.
+    %% The map keys MinKeys are the ones for which the current value
+    %% affects the option handling
     %%
-    {Result_1, D_1} =
-        state_setopts(P, maps:with([active,recv_httph], D), State, Opts),
-    D_2 = maps:merge(maps:remove(recv_httph, D), D_1),
-    %% ?DBG([{result, Result_1}, {d1, D_2}]),
-    case is_map_keys(meta_opts(), D_1) of
-        true -> % Metadata option change - update by overwrite
-            ok = socket:setopt(P#params.socket, {otp,meta}, meta(D_2));
-        false ->
-            ok
+    MinKeys = [active, recv_httph],
+    HandleEventResult =
+        handle_setopts(From, Opts, State, P_0, maps:with(MinKeys, D_0)),
+    %% Extract the resulting D map
+    case HandleEventResult of
+        {next_state, _, {P, D_1}, _} -> ok;
+        {stop_and_reply, _, _, {P, D_1}} -> ok
     end,
-    Result =
-        case Result_1 of
-            {error, enoprotoopt} ->
-                %% If we get this error, the options is not valid for
-                %% this (tcp) protocol.
-                {error, einval};
-
-            {error, {invalid, _}} ->
-                %% If we get this error, the options where crap.
-                {error, einval};
-
-            {error, einval} ->
-                %% If we get this error, either the options where crap or
-                %% the socket is in a "bad state" (maybe it's closed).
-                %% So, if that is the case we accept that we may not be
-                %% able to update the meta data.
-                Result_1;
-            _ ->
-                %% We should really handle this better. stop_and_reply?
-                Result_1
+    %% Merge the changes
+    D = maps:merge(maps:without(MinKeys, D_0), D_1),
+    is_map_keys(meta_opts(), D_1) andalso
+        begin % Metadata option change - update by overwrite
+            ok = socket:setopt(P#params.socket, {otp,meta}, meta(D))
         end,
-    Reply = {reply, From, Result},
-    handle_active(P, D_2, State, [Reply]);
+    %% Replace the D map in HandleEventResult
+    case HandleEventResult of
+        {next_state, NextState, _, Actions} ->
+            {next_state, NextState, {P, D}, Actions};
+        {stop_and_reply, Reason, Replies, _} ->
+            {stop_and_reply, Reason, Replies, {P, D}}
+    end;
 
 handle_event({call, From}, {setopt_active, Active}, State, {P, D}) ->
-    %% {active, _} is in server_read_opts(), so State needs to be checked
-    %% like in state_setopts/4.
-    case State of
-        'closed' ->
-            {keep_state_and_data,
-              [{reply, From, {error, einval}}]};
-        _ ->
-            {Result, D_1} = state_setopts_active(P, D, State, [], Active),
-            Reply = {reply, From, Result},
-            handle_active(P, D_1, State, [Reply])
-    end;
+    handle_setopts_active(From, [], State, P, D, Active);
 
 handle_event({call, From}, {close, Caller}, State, {P, D}) ->
     handle_close(P, D, State, Caller, [{reply, From, ok}]);
@@ -2224,26 +2202,6 @@ handle_accept_failure(P, D, From, Error) ->
       {reply, From, Error}]}.
 
 
-handle_active(P, D, State, Actions) ->
-    %%
-    %% If the socket is deactivated; active: once | true | N > 0 -> false,
-    %% i.e ->passive, we do not cancel a select in progress!
-    %% Data that arrive while we are in state 'recv' but passive
-    %% is simply stored in the buffer.
-    %%
-    %% If activated; active: false -> once | true | N > 0,
-    %% i.e ->active, we need to check if there is something in the buffer,
-    %% and maybe deliver to owner.  This should only happen in
-    %% state connected (state 'recv'and passive when data arrives
-    %% => put data in buffer and enter state 'connected').
-    case State of
-        'connected' ->
-            handle_connected(P, D, Actions);
-        _ ->
-            {keep_state, {P, D}, Actions}
-    end.
-
-
 handle_connected(P, {D, ActionsR}) ->
     handle_connected(P, D, ActionsR).
 %%
@@ -2519,6 +2477,206 @@ handle_send_error(#params{socket = Socket} = P, D, State, From, Reason) ->
     end.
 
 
+%% -------
+%% {call, From}, {setopts, Opts}
+%%
+
+handle_setopts_result(From, Result_0, State, P, D) ->
+    Result =
+        case Result_0 of
+            {error, enoprotoopt} ->
+                %% If we get this error, the options is not valid for
+                %% this (tcp) protocol.
+                {error, einval};
+
+            {error, {invalid, _}} ->
+                %% If we get this error, the options where crap.
+                {error, einval};
+
+            {error, einval} ->
+                %% If we get this error, either the options where crap or
+                %% the socket is in a "bad state" (maybe it's closed).
+                %% So, if that is the case we accept that we may not be
+                %% able to update the meta data.
+                Result_0;
+            {error, _} ->
+                %% We should really handle this better. stop_and_reply?
+                Result_0;
+            ok ->
+                ok
+        end,
+    case State of
+        'connected' ->
+            handle_connected(P, D, [{reply, From, Result}]);
+        _ ->
+            {next_state, State, {P, D}, [{reply, From, Result}]}
+    end.
+
+handle_setopts(From, [], State, P, D) ->
+    handle_setopts_result(From, ok, State, P, D);
+handle_setopts(From, [{Tag, Val} | Opts], State, P, D) ->
+    case socket_opts() of
+        #{Tag := SocketOpt} ->
+            handle_setopts_socket(From, Opts, State, P, D, SocketOpt, Val);
+        #{} ->
+            case maps:is_key(Tag, server_write_opts()) of
+                %% server options for socket send hence
+                %% duplicated in {opt,meta}
+                %%
+                true when State =:= 'closed' ->
+                    %% ?DBG('server write when state closed'),
+                    handle_setopts_result(
+                      From, {error, einval}, State, P, D);
+                true ->
+                    %% ?DBG('server write side'),
+                    handle_setopts_server(
+                      From, Opts, State, P, D, Tag, Val);
+                false ->
+                    case maps:is_key(Tag, server_read_opts()) of
+                        %% server options for receive
+                        %%
+                        true
+                          when State =:= 'closed' ->
+                            %% ?DBG('server read when state closed*'),
+                            handle_setopts_result(
+                              From, {error, einval}, State, P, D);
+                        true ->
+                            %% ?DBG('server read side'),
+                            handle_setopts_server(
+                              From, Opts, State, P, D, Tag, Val);
+                        false ->
+                            %% ignored and invalid options
+                            %%
+                            case ignore_optname(Tag) of
+                                true ->
+                                    %% ?DBG(ignore),
+                                    handle_setopts(
+                                      From, Opts, State, P, D);
+                                false ->
+                                    %% ?DBG({extra, Tag}),
+                                    handle_setopts_result(
+                                      From, {error, einval}, State, P, D)
+                            end
+                    end
+            end
+    end.
+
+%% Options for the 'socket' module
+%%
+handle_setopts_socket(From, Opts, State, P, D, SocketOpt, Val) ->
+    case P#params.socket of
+        undefined ->
+            handle_setopts_result(From, {error, closed}, State, P, D);
+        Socket ->
+            case socket_setopt(Socket, SocketOpt, Val) of
+                ok when SocketOpt =:= {otp,rcvbuf} ->
+                    Size =
+                        case Val of
+                            {Count, Sz} -> Count * Sz;
+                            Sz when is_integer(Sz) -> Sz
+                        end,
+                    handle_setopts(
+                      From, Opts, State, P, D#{SocketOpt => Size});
+                ok when SocketOpt =:= {socket,rcvbuf} ->
+                    %% Mimic inet_drv.c for SOCK_STREAM:
+                    %% when setting 'recbuf', if 'buffer' hasn't been set;
+                    %% set 'buffer' to the same size
+                    %%
+                    OtpOpt = {otp,rcvbuf},
+                    case D of
+                        #{OtpOpt := _} ->
+                            case socket_setopt(Socket, OtpOpt, Val) of
+                                ok ->
+                                    handle_setopts(
+                                      From, Opts, State, P, D);
+                                {error, _} = Error ->
+                                    handle_setopts_result(
+                                      From, Error, State, P, D)
+                            end;
+                        #{} ->
+                            handle_setopts(From, Opts, State, P, D)
+                    end;
+                ok ->
+                    handle_setopts(From, Opts, State, P, D);
+                {error, _} = Error ->
+                    handle_setopts_result(From, Error, State, P, D)
+            end
+    end.
+
+%% Options in the server process D variable
+%%
+handle_setopts_server(From, Opts, State, P, D, Tag, Val) ->
+    case Tag of
+        packet ->
+            case is_packet_option_value(Val) of
+                true ->
+                    handle_setopts(
+                      From, Opts, State, P,
+                      maps:remove(recv_httph, D#{packet => Val}));
+                false ->
+                    handle_setopts_result(
+                      From, {error, einval}, State, P, D)
+            end;
+        active ->
+            handle_setopts_active(From, Opts, State, P, D, Val);
+        _ ->
+	    %% ?DBG([{tag, Tag}, {value, Value}]),
+            handle_setopts(From, Opts, State, P, D#{Tag => Val})
+    end.
+
+handle_setopts_active(From, Opts, State, P, D, Active)
+  when State =:= 'closed_read';
+       State =:= 'closed' ->
+    if
+        Active =:= false ->
+            handle_setopts(From, Opts, State, P, D);
+        true -> % not false; socket is active
+            case D of
+                #{tcp_closed := true} ->
+                    %% tcp_closed already sent
+                    handle_setopts(From, Opts, State, P, D);
+                #{tcp_closed := false} ->
+                    P#params.owner ! {tcp_closed, module_socket(P)},
+                    handle_setopts(
+                      From, Opts, State, P, D#{tcp_closed := true})
+            end
+    end;
+handle_setopts_active(From, Opts, State, P, D, Active) ->
+    %% ?DBG([{active, Active}]),
+    if
+        Active =:= once;
+        Active =:= true ->
+            handle_setopts(From, Opts, State, P, D#{active := Active});
+        Active =:= false ->
+            OldActive = maps:get(active, D),
+            is_integer(OldActive) andalso
+                begin
+                    P#params.owner ! {tcp_passive, module_socket(P)}
+                end,
+            handle_setopts(From, Opts, State, P, D#{active := Active});
+        is_integer(Active), -32768 =< Active, Active =< 32767 ->
+            OldActive = maps:get(active, D),
+            N =
+                if
+                    is_integer(OldActive) -> OldActive + Active;
+                    true                  -> Active
+                end,
+            if
+                32767 < N ->
+                    handle_setopts_result(
+                      From, {error, einval}, State, P, D);
+                N =< 0 ->
+                    P#params.owner ! {tcp_passive, module_socket(P)},
+                    handle_setopts(
+                      From, Opts, State, P, D#{active := false});
+                true ->
+                    handle_setopts(
+                      From, Opts, State, P, D#{active := N})
+            end;
+        true ->
+            handle_setopts_result(From, {error, einval}, State, P, D)
+    end.
+
 %% -------------------------------------------------------------------------
 %% Callback Helpers
 
@@ -2690,7 +2848,6 @@ socket_setopts(Socket, Opts) ->
         exit:badarg ->
             {error, einval}
     end.
-
 %%
 socket_setopts(_Socket, [], _SocketOpts) ->
     ok;
@@ -2705,170 +2862,6 @@ socket_setopts(Socket, [{Tag,Val} | Opts], SocketOpts) ->
             socket_setopts(Socket, Opts, SocketOpts)
     end.
 
-
-%% -------
-%% setopts in server
-%%
-
-%% -> {ok, NewD} | {{error, Reason}, D}
-state_setopts(_P, D, _State, []) ->
-    {ok, D};
-state_setopts(P, D, State, [{Tag,Val} | Opts]) ->
-    %% ?DBG([{state, State}, {opt, {Tag,Val}}]),
-    case socket_opts() of
-        #{Tag := SocketOpt} ->
-            state_setopts_socket(P, D, State, Opts, SocketOpt, Val);
-        #{} ->
-            case maps:is_key(Tag, server_write_opts()) of
-                %% server options for socket send hence
-                %% duplicated in {opt,meta}
-                %%
-                true when State =:= 'closed' ->
-                    %% ?DBG('server write when state closed'),
-                    {{error, einval}, D};
-                true ->
-                    %% ?DBG('server write'),
-                    state_setopts_server(
-                      P, D, State, Opts, Tag, Val);
-                false ->
-                    case maps:is_key(Tag, server_read_opts()) of
-                        %% server options for receive
-                        %%
-                        true
-                          when State =:= 'closed' ->
-                            %% ?DBG('server read when state closed*'),
-                            {{error, einval}, D};
-                        true ->
-                            %% ?DBG('server read'),
-                            state_setopts_server(
-                              P, D, State, Opts, Tag, Val);
-                        false ->
-                            %% ignored and invalid options
-                            %%
-                            case ignore_optname(Tag) of
-                                true ->
-                                    %% ?DBG(ignore),
-                                    state_setopts(P, D, State, Opts);
-                                false ->
-                                    %% ?DBG({extra, Tag}),
-                                    {{error, einval}, D}
-                            end
-                    end
-            end
-    end.
-
-%% options for the 'socket' module
-%%
-state_setopts_socket(P, D, State, Opts, SocketOpt, Val) ->
-    case P#params.socket of
-        undefined ->
-            {{error, closed}, D};
-        Socket ->
-            case socket_setopt(Socket, SocketOpt, Val) of
-                ok when SocketOpt =:= {otp,rcvbuf} ->
-                    Size =
-                        case Val of
-                            {Count, Sz} -> Count * Sz;
-                            Sz when is_integer(Sz) -> Sz
-                        end,
-                    state_setopts(P, D#{SocketOpt => Size}, State, Opts);
-                ok when SocketOpt =:= {socket,rcvbuf} ->
-                    state_setopts_socket_rcvbuf(
-                      P, D, State, Opts, Socket, Val);
-                ok ->
-                    state_setopts(P, D, State, Opts);
-                {error, _} = Error ->
-                    {Error, D}
-            end
-    end.
-
-%% Mimic inet_drv.c for SOCK_STREAM:
-%% when setting 'recbuf', if 'buffer' hasn't been set;
-%% set 'buffer' to the same size
-%%
-state_setopts_socket_rcvbuf(P, D, State, Opts, Socket, Val) ->
-    SocketOpt = {otp,rcvbuf},
-    case D of
-        #{SocketOpt := _} ->
-            case socket_setopt(Socket, SocketOpt, Val) of
-                ok ->
-                    state_setopts(P, D, State, Opts);
-                {error, _} = Error ->
-                    {Error, D}
-            end;
-        #{} ->
-            state_setopts(P, D, State, Opts)
-    end.
-
-%% Options in the server process D variable
-%%
-state_setopts_server(P, D, State, Opts, Tag, Value) ->
-    case Tag of
-        active ->
-            state_setopts_active(P, D, State, Opts, Value);
-        packet ->
-            state_setopts_packet(P, D, State, Opts, Value);
-        _ ->
-	    %% ?DBG([{tag, Tag}, {value, Value}]),
-            state_setopts(P, D#{Tag => Value}, State, Opts)
-    end.
-
-state_setopts_active(P, D, 'closed_read' = State, Opts, Active) ->
-    if
-        Active =/= false ->
-            case D of
-                #{tcp_closed := true} ->
-                    state_setopts(P, D, State, Opts);
-                #{tcp_closed := false} ->
-                    P#params.owner ! {tcp_closed, module_socket(P)},
-                    state_setopts(P, D#{tcp_closed := true}, State, Opts)
-            end;
-        true ->
-            state_setopts(P, D, State, Opts)
-    end;
-state_setopts_active(P, D, State, Opts, Active) ->
-    %% ?DBG([{active, Active}]),
-    if
-        Active =:= once;
-        Active =:= true ->
-            state_setopts(P, D#{active := Active}, State, Opts);
-        Active =:= false ->
-            case D of
-                #{active := OldActive} when is_integer(OldActive) ->
-                    P#params.owner ! {tcp_passive, module_socket(P)},
-                    ok;
-                #{active := _OldActive} -> ok
-            end,
-            state_setopts(P, D#{active := Active}, State, Opts);
-        is_integer(Active), -32768 =< Active, Active =< 32767 ->
-            N =
-                case D of
-                    #{active := OldActive} when is_integer(OldActive) ->
-                        OldActive + Active;
-                    #{active := _OldActive} ->
-                        Active
-                end,
-            if
-                32767 < N ->
-                    {{error, einval}, D};
-                N =< 0 ->
-                    P#params.owner ! {tcp_passive, module_socket(P)},
-                    state_setopts(P, D#{active := false}, State, Opts);
-                true ->
-                    state_setopts(P, D#{active := N}, State, Opts)
-            end;
-        true ->
-            {{error, einval}, D}
-    end.
-
-state_setopts_packet(P, D, State, Opts, Value) ->
-    case is_packet_option_value(Value) of
-        true ->
-            D_1 = maps:remove(recv_httph, D#{packet => Value}),
-            state_setopts(P, D_1, State, Opts);
-        false ->
-            {{error, einval}, D}
-    end.
 
 %%
 %% -------
