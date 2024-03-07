@@ -19,6 +19,9 @@
 #  
 #  %CopyrightEnd%
 # 
+# Assuming your pwd is $ERL_TOP
+# Using default values for active (=false) and domain (=inet)
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-server-sock)
 
 # Example:
 # Assuming your pwd is $ERL_TOP
@@ -112,6 +115,4 @@ while test $# != 0; do
     esac
 done
 
-
 $ESOCK_TTEST/esock-ttest --server --domain $DOMAIN $ASYNC --transport sock --active $ACTIVE
-
