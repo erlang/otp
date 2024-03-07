@@ -19,6 +19,23 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.1.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, acceptor_sup is not started for ssh client as it is not needed in that role.
+
+  Own Id: OTP-18974
+* With this change, more secure algorithms are preferred by ssh and documentation is updated to reflect that.
+
+  Own Id: OTP-18986
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
+* Fix reading of password for ssh client when in `user_interactive` mode.
+
+  Own Id: OTP-19007 Aux Id: ERIERL-1049
+
 ## Ssh 5.1.2
 
 ### Fixed Bugs and Malfunctions

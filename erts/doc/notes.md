@@ -21,6 +21,44 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 14.2.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed compile warning in erl_nif.c for gcc-13.
+
+  Own Id: OTP-18906 Aux Id: PR-7930
+* Fix C++ compile error for macros `enif_select_read` and friends.
+
+  Own Id: OTP-18907 Aux Id: PR-7932
+* Fixed a name clash on Solaris that prevented the JIT from being built.
+
+  Own Id: OTP-18940 Aux Id: GH-8024
+* Fix termcap detection on solaris.
+
+  Own Id: OTP-18952 Aux Id: PR-8025
+* Fix heap corruption bug that could cause runaway memory consumption due to circular offheap list at process exit. Other symptoms may also be possible. Bug exists since OTP 25.0.
+
+  Own Id: OTP-18971 Aux Id: GH-8044
+* Do not clear tracing in old module instance if load fails with 'not_purged'.
+
+  Own Id: OTP-18979
+* When exceeding the \`max_heap_size\` limit in a garbage collection initiated by some bit syntax operations, the process would not always terminate immediately.
+
+  Own Id: OTP-18982
+* The code server could be hanging if a module with `on_load` function was loaded at the same time as another module was purged using `erlang:purge_module` directly.
+
+  Own Id: OTP-19006
+* A process optimized for parallel signal delivery could under some circumstances lose wakeup information. That is, the processes was not woken up to take care of the signal, so the signal would not be taken care of until the process was woken by another signal. Only processes configured with [`message_queue_data`](`m:erlang#process_flag_message_queue_data`) set to `off_heap` utilize this optimization.
+
+  Own Id: OTP-19008 Aux Id: GH-8119, PR-8201
+* Fix segfault when generating crashdump containing a fun places in persistent_term storage.
+
+  Own Id: OTP-19009 Aux Id: PR-8181
+* By default the JIT is disabled on Intel Macs, because of annoying poups on macOS Sonoma. It is now possible to explicitly enable the JIT on Intel Macs. Here is how: `./configure --enable-jit`
+
+  Own Id: OTP-19011
+
 ## Erts 14.2.2
 
 ### Fixed Bugs and Malfunctions

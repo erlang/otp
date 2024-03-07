@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the wxErlang application.
 
+## Wx 2.4.1
+
+### Fixed Bugs and Malfunctions
+
+* Add option to silence wx depracation macros.
+
+  Own Id: OTP-18988 Aux Id: PR-7750
+
 ## Wx 2.4
 
 ### Improvements and New Features

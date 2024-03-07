@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # public_key Release Notes
 
+## Public_Key 1.15.1
+
+### Fixed Bugs and Malfunctions
+
+* Hostname prefix with X number of dots should not be accepted.
+
+  Own Id: OTP-18935 Aux Id: GH-8021
+
 ## Public_Key 1.15
 
 ### Fixed Bugs and Malfunctions

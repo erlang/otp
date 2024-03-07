@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.4.2
+
+### Fixed Bugs and Malfunctions
+
+* In rare circumstances, an unsafe optimization could cause the compiler to generate incorrect code for list matching.
+
+  Own Id: OTP-19003 Aux Id: GH-8187, PR-8189
+
+### Improvements and New Features
+
+* Fix the compilation server to restart if the applications in its lib dir changes inbetween `erlc` invokations.
+
+  Own Id: OTP-18936
+
 ## Compiler 8.4.1
 
 ### Fixed Bugs and Malfunctions

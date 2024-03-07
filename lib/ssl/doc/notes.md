@@ -21,6 +21,32 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.1.2
+
+### Fixed Bugs and Malfunctions
+
+* ssl:prf/5, will start working instead of hanging in a TLS-1.3 context if called appropriately. Note that the implementation has changed and in OTP-27 a more adequate API will be documented.
+
+  Own Id: OTP-18890 Aux Id: GH-7911
+* Server name verification didn't work if a connection was made with IP-address as a string.
+
+  Own Id: OTP-18909 Aux Id: GH-7968
+* The fallback after "dh" ssl option was undefined was to get "dh" from ssl options again. This is clearly wrong and now changed to the documented fallback "dhfile" ssl option.
+
+  Own Id: OTP-18919 Aux Id: PR-7984
+* Correct default value selection for DTLS. Will only affect users linked with really old version of cryptolib library.
+
+  Own Id: OTP-18962 Aux Id: GH-8079
+* Adhere elliptic curves with RFC 8422 pre TLS-1.3, that is Edwards curves are added to curves that can be used for key exchange, and documentation and implementation of eccs/0,1 are aligned.
+
+  Own Id: OTP-18991
+
+### Improvements and New Features
+
+* Improve alert reason when ecdhe_rsa key_exchange does not have any common curves to use
+
+  Own Id: OTP-18985
+
 ## SSL 11.1.1
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.14.2
+
+### Improvements and New Features
+
+* Use spec for API doc
+
+  Own Id: OTP-18926
+
 ## ODBC 2.14.1
 
 ### Improvements and New Features

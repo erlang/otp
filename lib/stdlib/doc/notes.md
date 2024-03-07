@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 5.2.1
+
+### Fixed Bugs and Malfunctions
+
+* The help texts shown by `argparse` will now display sub-command arguments in the correct order.
+
+  Own Id: OTP-18900 Aux Id: PR-7945, GH-7934
+* Clarified the argparse documentation regarding the user-defined help template.
+
+  Own Id: OTP-18937
+* Fix shell expansion to not crash when expanding invalid using invalid atoms.
+
+  Own Id: OTP-18953 Aux Id: GH-8016 PR-8075
+
 ## STDLIB 5.2
 
 ### Fixed Bugs and Malfunctions

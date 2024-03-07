@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.4.1
+
+### Fixed Bugs and Malfunctions
+
+* Fix compile error when OPENSSL_NO_DES is defined.
+
+  Own Id: OTP-18921
+* The function `crypto:pbkdf2_hmac` will no longer block the main schedulers. If the iteration count or block size parameters are such that the function is likely to take a long time to execute, the function will be scheduled to run on a dirty CPU scheduler.
+
+  Own Id: OTP-18996 Aux Id: PR-8173, PR-8174
+
 ## Crypto 5.4
 
 ### Fixed Bugs and Malfunctions

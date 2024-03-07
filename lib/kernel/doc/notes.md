@@ -21,6 +21,23 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 9.2.2
+
+### Fixed Bugs and Malfunctions
+
+* Fix performance bug when using `io:fread` to read from `standard_io`. This regression was introduced in OTP 26.0.
+
+  Own Id: OTP-18910 Aux Id: PR-7933 GH-7924
+* A bug in the code server could cause it to crash in some concurrent scenarios. This bug was introduced in 26.1.
+
+  Own Id: OTP-18948 Aux Id: PR-8046
+* Fixed gen_udp:open/2 type spec to include already supported module socket address types.
+
+  Own Id: OTP-18990 Aux Id: GH-8158
+* Fix reading of password for ssh client when in `user_interactive` mode.
+
+  Own Id: OTP-19007 Aux Id: ERIERL-1049
+
 ## Kernel 9.2.1
 
 ### Fixed Bugs and Malfunctions
