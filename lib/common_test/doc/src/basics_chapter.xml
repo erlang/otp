@@ -190,7 +190,15 @@
       has a link to each test case log file, providing simple navigation with any standard
       HTML browser.
     </p>
-    </section>
+    <note>
+      <p>
+        In the last row where totals are presented the time shown here is a
+        sum of rows, which are above (not accounting for parallel testcases). On
+        the other hand "Elapsed Time" is a clock time spent to run testcases.
+      </p>
+    </note>
+  </section>
+
 
   <section>
 <marker id="External_Interfaces"></marker>
