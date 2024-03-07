@@ -312,7 +312,7 @@ schema.
 Usage example:
 
 `1>{E,_} = xmerl_scan:file("my_XML_document.xml").`  
-`2>{E2,_} = xmerl_xsd:validate("my_XML_Schema.xsd",E).`
+`2>{E2,_} = xmerl_xsd:process_validate("my_XML_Schema.xsd",E).`
 
 Observe that E2 may differ from E if for instance there are default values
 defined in `my_XML_Schema.xsd`.
