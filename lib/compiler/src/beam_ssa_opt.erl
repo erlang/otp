@@ -3453,11 +3453,13 @@ redundant_br_safe_bool(Is, Bool) ->
 %%% failure label.
 %%%
 
-ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) when is_map(Blocks0) ->
+ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0,anno=Anno0}=St, FuncDb})
+  when is_map(Blocks0) ->
     RPO = beam_ssa:rpo(Blocks0),
     Seen = sets:new([{version,2}]),
     {Blocks,Count} = ssa_opt_bs_ensure(RPO, Seen, Count0, Blocks0),
-    {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
+    Anno = Anno0#{bs_ensure_opt => true},
+    {St#opt_st{ssa=Blocks,cnt=Count,anno=Anno}, FuncDb}.
 
 ssa_opt_bs_ensure([L|Ls], Seen0, Count0, Blocks0) ->
     case sets:is_element(L, Seen0) of
