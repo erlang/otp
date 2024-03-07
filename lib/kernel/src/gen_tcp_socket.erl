@@ -503,17 +503,19 @@ accept(?MODULE_socket(ListenServer, ListenSocket), Timeout) ->
 send(?MODULE_socket(Server, Socket), Data) ->
     case socket:getopt(Socket, {otp,meta}) of
         {ok,
-         #{packet := Packet,
+         #{packet       := Packet,
            send_timeout := SendTimeout} = Meta} ->
             if
                 Packet =:= 1;
                 Packet =:= 2;
                 Packet =:= 4 ->
-                    Size = iolist_size(Data),
+                    Data2       = iolist_to_binary(Data),
+                    Size        = byte_size(Data2),
 		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
-                    Header = <<?header(Packet, Size)>>,
-                    Header_Data = [Header, Data],
-                    Result = socket_send(Socket, Header_Data, SendTimeout),
+                    Header      = <<?header(Packet, Size)>>,
+                    Header_Data = [Header, Data2],
+                    Result      = socket_sendv(Socket,
+                                               Header_Data, SendTimeout),
                     send_result(Server, Header_Data, Meta, Result);
                 true ->
                     Result = socket_send(Socket, Data, SendTimeout),
@@ -604,6 +606,7 @@ send_result(Server, Data, Meta, Result) ->
                 too_many_cmds ->
 		    {error, closed};
 
+                %% <SOME-DATA-WAS-SENT>
                 {timeout = R, RestData} when is_binary(RestData) ->
                     %% To handle RestData we would have to pass
                     %% all writes through a single process that buffers
@@ -620,6 +623,26 @@ send_result(Server, Data, Meta, Result) ->
                         false ->
                             Result
                     end;
+                {timeout = R, RestData} when is_list(RestData) ->
+                    %% RestData can also be a an I/O vector (list of binaries)
+                    %% To handle RestData we would have to pass
+                    %% all writes through a single process that buffers
+                    %% the write data, which would be a bottleneck.
+                    %%
+                    %% For send_timeout_close we have to waste RestData.
+                    %%
+                    %% There is no 'iovec_size' so we use 'iolist_size'
+		    %% ?DBG(['timeout with restdata',
+		    %% 	  {restdata_size, erlang:iolist_size(RestData)}]),
+                    case maps:get(send_timeout_close, Meta) of
+                        true ->
+                            close_server(Server),
+                            {error, R};
+                        false ->
+                            {error, {R, erlang:iolist_to_binary(RestData)}}
+                    end;
+                %% </SOME-DATA-WAS-SENT>
+
                 timeout ->
                     %% No data was sent.
                     %%
@@ -915,17 +938,68 @@ fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
 %%% Socket glue code
 %%%
 
+%% -compile({inline, [socket_send/3]}).
+%% socket_send(Socket, Data, Timeout) ->
+%%     Result = socket:send(Socket, Data, Timeout),
+%%     case Result of
+%%         {error, {timeout = _Reason, RestData}} = E when is_binary(RestData) ->
+%% 	    %% This is better then closing the socket for every timeout
+%% 	    %% We need to do something about this!
+%% 	    %% ?DBG({timeout, byte_size(RestData)}),
+%% 	    %% {error, Reason};
+%% 	    E;
+%%         {error, {_Reason, RestData}} when is_binary(RestData) ->
+%%             %% To properly handle RestData we would have to pass
+%%             %% all writes through a single process that buffers
+%%             %% the write data, which would be a bottleneck
+%%             %%
+%%             %% Since send data may have been lost, and there is no room
+%%             %% in this API to inform the caller, we at least close
+%%             %% the socket in the write direction
+%% 	    %% ?DBG({_Reason, byte_size(RestData)}),
+%%             {error, econnreset};
+%%         {error, Reason} ->
+%% 	    %% ?DBG(Reason),
+%%             {error,
+%%              case Reason of
+%%                  epipe -> econnreset;
+%%                  _     -> Reason
+%%              end};
+
+%%         {ok, RestData} when is_binary(RestData) ->
+%%             %% Can not happen for stream socket, but that
+%%             %% does not show in the type spec
+%%             %% - make believe a fatal connection error
+%% 	    %% ?DBG({ok, byte_size(RestData)}),
+%%             {error, econnreset};
+
+%%         ok ->
+%%             ok
+%%     end.
+
 -compile({inline, [socket_send/3]}).
 socket_send(Socket, Data, Timeout) ->
-    Result = socket:send(Socket, Data, [], Timeout),
-    case Result of
-        {error, {timeout = _Reason, RestData}} = E when is_binary(RestData) ->
+    socket_send(socket:send(Socket, Data, Timeout), Timeout).
+
+-compile({inline, [socket_sendv/3]}).
+socket_sendv(Socket, Data, Timeout) ->
+    socket_send(socket:sendv(Socket, Data, Timeout), Timeout).
+
+
+%% If Data is binary() | iolist() => RestData will be a binary()
+%% If Data is iovec()             => RestData will be a iovec()
+-compile({inline, [socket_send/2]}).
+socket_send(SendResult, Timeout) ->
+    case SendResult of
+        {error, {timeout = _Reason, RestData}} = E
+          when is_binary(RestData) orelse is_list(RestData) ->
 	    %% This is better then closing the socket for every timeout
 	    %% We need to do something about this!
 	    %% ?DBG({timeout, byte_size(RestData)}),
 	    %% {error, Reason};
 	    E;
-        {error, {_Reason, RestData}} when is_binary(RestData) ->
+        {error, {_Reason, RestData}}
+          when is_binary(RestData) orelse is_list(RestData) ->
             %% To properly handle RestData we would have to pass
             %% all writes through a single process that buffers
             %% the write data, which would be a bottleneck
@@ -935,6 +1009,7 @@ socket_send(Socket, Data, Timeout) ->
             %% the socket in the write direction
 	    %% ?DBG({_Reason, byte_size(RestData)}),
             {error, econnreset};
+
         {error, Reason} ->
 	    %% ?DBG(Reason),
             {error,
@@ -943,7 +1018,7 @@ socket_send(Socket, Data, Timeout) ->
                  _     -> Reason
              end};
 
-        {ok, RestData} when is_binary(RestData) ->
+        {ok, RestData} when is_binary(RestData) orelse is_list(RestData) ->
             %% Can not happen for stream socket, but that
             %% does not show in the type spec
             %% - make believe a fatal connection error
@@ -951,7 +1026,10 @@ socket_send(Socket, Data, Timeout) ->
             {error, econnreset};
 
         ok ->
-            ok
+            ok;
+
+        _ ->
+            erlang:error({SendResult, Timeout})
     end.
 
 -compile({inline, [socket_recv/2]}).

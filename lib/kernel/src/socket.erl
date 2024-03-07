@@ -169,6 +169,7 @@ server(Addr, Port) ->
          send/2, send/3, send/4,
          sendto/3, sendto/4, sendto/5,
          sendmsg/2, sendmsg/3, sendmsg/4,
+         sendv/2, sendv/3, sendv/4,
 
          sendfile/2, sendfile/3, sendfile/4, sendfile/5,
 
@@ -273,7 +274,6 @@ server(Addr, Port) ->
 
 %% We need #file_descriptor{} for sendfile/2,3,4,5
 -include("file_int.hrl").
-%% -include("socket_int.hrl").
 
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
@@ -1546,6 +1546,7 @@ the `CompletionStatus`.
 -define(ESOCK_SENDTO_TIMEOUT_DEFAULT,  ?ESOCK_SEND_TIMEOUT_DEFAULT).
 -define(ESOCK_SENDMSG_FLAGS_DEFAULT,   []).
 -define(ESOCK_SENDMSG_TIMEOUT_DEFAULT, ?ESOCK_SEND_TIMEOUT_DEFAULT).
+-define(ESOCK_SENDV_TIMEOUT_DEFAULT,   ?ESOCK_SEND_TIMEOUT_DEFAULT).
 
 -define(ESOCK_RECV_FLAGS_DEFAULT,   []).
 -define(ESOCK_RECV_TIMEOUT_DEFAULT, infinity).
@@ -3572,6 +3573,19 @@ send_common_deadline_result(
   Op, Fun, SendResult) ->
     %%
     case SendResult of
+        select ->
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, select, Handle) ->
+                    Fun(SockRef, Data, undefined, Deadline, HasWritten);
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data, HasWritten)
+            after Timeout ->
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data, HasWritten)
+            end;
+
         {select, Cont} ->
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
@@ -3616,7 +3630,9 @@ send_common_deadline_result(
             Error;
         {error, Reason} ->
             send_common_error(Reason, Data, HasWritten);
+
         Result ->
+            %% ?DBG([{deadline, Deadline}, {op, Op}, {result, Result}]),
             Result
     end.
 
@@ -4062,11 +4078,11 @@ sendto_deadline_cont(SockRef, Bin, Cont, Deadline, HasWritten) ->
 -doc(#{equiv => sendmsg/4}).
 -doc(#{since => <<"OTP 22.0">>}).
 -spec sendmsg(Socket, Msg) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       RestData   :: erlang:iovec(),
@@ -4086,11 +4102,11 @@ sendmsg(Socket, Msg) ->
 -doc(#{equiv => sendmsg/4}).
 -doc(#{since => <<"OTP 24.0">>}).
 -spec sendmsg(Socket, Msg, Flags) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       Flags      :: [msg_flag() | integer()],
@@ -4098,11 +4114,11 @@ sendmsg(Socket, Msg) ->
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Data, Cont) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Data       :: erlang:iovec(),
       Cont       :: select_info(),
@@ -4110,14 +4126,14 @@ sendmsg(Socket, Msg) ->
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Timeout :: 'nowait') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket         :: socket(),
       Msg            :: msg_send(),
       RestData       :: erlang:iovec(),
@@ -4126,14 +4142,14 @@ sendmsg(Socket, Msg) ->
       Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Handle :: select_handle() | completion_handle()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket         :: socket(),
       Msg            :: msg_send(),
       RestData       :: erlang:iovec(),
@@ -4142,22 +4158,22 @@ sendmsg(Socket, Msg) ->
       Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Timeout :: 'infinity') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       RestData   :: erlang:iovec(),
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Timeout :: non_neg_integer()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason | 'timeout'} |
-                  {'error', {Reason | 'timeout', RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       RestData   :: erlang:iovec(),
@@ -4279,14 +4295,14 @@ The return value indicates the result from the platform's network layer. See
 """.
 -doc(#{since => <<"OTP 22.0, OTP 22.1, OTP 24.0">>}).
 -spec sendmsg(Socket, Msg, Flags, Timeout :: 'nowait') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket         :: socket(),
       Msg            :: msg_send(),
       Flags          :: [msg_flag() | integer()],
@@ -4296,14 +4312,14 @@ The return value indicates the result from the platform's network layer. See
       Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Flags, Handle :: select_handle() | completion_handle()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket         :: socket(),
       Msg            :: msg_send(),
       Flags          :: [msg_flag() | integer()],
@@ -4313,11 +4329,11 @@ The return value indicates the result from the platform's network layer. See
       Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Flags, Timeout :: 'infinity') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       Flags      :: [msg_flag() | integer()],
@@ -4325,11 +4341,11 @@ The return value indicates the result from the platform's network layer. See
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Msg, Flags, Timeout :: non_neg_integer()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason | 'timeout'} |
-                  {'error', {Reason | 'timeout', RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestData}}
+              when
       Socket     :: socket(),
       Msg        :: msg_send(),
       Flags      :: [msg_flag() | integer()],
@@ -4337,14 +4353,14 @@ The return value indicates the result from the platform's network layer. See
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Data, Cont, Timeout :: 'nowait') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'completion', CompletionInfo} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket         :: socket(),
       Data           :: msg_send() | erlang:iovec(),
       Cont           :: select_info(),
@@ -4354,13 +4370,13 @@ The return value indicates the result from the platform's network layer. See
       Reason         :: posix() | 'closed' | invalid();
 
              (Socket, Data, Cont, SelectHandle :: select_handle()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'select', SelectInfo} |
-                  {'select', {SelectInfo, RestData}} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestData}} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Data       :: msg_send() | erlang:iovec(),
       Cont       :: select_info(),
@@ -4369,11 +4385,11 @@ The return value indicates the result from the platform's network layer. See
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Data, Cont, Timeout :: 'infinity') ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason} |
-                  {'error', {Reason, RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason} |
+          {'error', {Reason, RestData}}
+              when
       Socket     :: socket(),
       Data       :: msg_send() | erlang:iovec(),
       Cont       :: select_info(),
@@ -4381,11 +4397,11 @@ The return value indicates the result from the platform's network layer. See
       Reason     :: posix() | 'closed' | invalid();
 
              (Socket, Data, Cont, Timeout :: non_neg_integer()) ->
-                  'ok' |
-                  {'ok', RestData} |
-                  {'error', Reason | 'timeout'} |
-                  {'error', {Reason | 'timeout', RestData}}
-                      when
+          'ok' |
+          {'ok', RestData} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestData}}
+              when
       Socket     :: socket(),
       Data       :: msg_send() | erlang:iovec(),
       Cont       :: select_info(),
@@ -4466,6 +4482,213 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
       SockRef, Data, SelectHandle, Deadline, HasWritten,
       sendmsg, fun sendmsg_deadline_cont/5,
       prim_socket:sendmsg(SockRef, Data, Cont, SelectHandle)).
+
+
+%% ---------------------------------------------------------------------------
+%%
+%%
+
+-spec sendv(Socket, IOV) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket  :: socket(),
+      IOV     :: erlang:iovec(),
+      RestIOV :: erlang:iovec(),
+      Reason  :: posix() | 'closed' | invalid().
+
+sendv(Socket, IOV) ->
+    sendv(Socket, IOV, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT).
+
+
+-spec sendv(Socket, IOV, Cont) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket  :: socket(),
+      IOV     :: erlang:iovec(),
+      Cont    :: select_info(),
+      RestIOV :: erlang:iovec(),
+      Reason  :: posix() | 'closed' | invalid();
+
+           (Socket, IOV, Timeout :: 'nowait') ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestIOV}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket         :: socket(),
+      IOV            :: erlang:iovec(),
+      RestIOV        :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
+
+             (Socket, IOV, Handle :: select_handle() | completion_handle()) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestIOV}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket         :: socket(),
+      IOV            :: erlang:iovec(),
+      RestIOV        :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
+
+             (Socket, IOV, Timeout :: 'infinity') ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket     :: socket(),
+      IOV        :: erlang:iovec(),
+      RestIOV    :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+             (Socket, IOV, Timeout :: non_neg_integer()) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestIOV}}
+              when
+      Socket  :: socket(),
+      IOV     :: erlang:iovec(),
+      RestIOV :: erlang:iovec(),
+      Reason  :: posix() | 'closed' | invalid().
+
+sendv(?socket(SockRef) = Socket, IOV,
+      ?SELECT_INFO(SelectTag, _) = Cont) 
+  when is_reference(SockRef) ->
+    case SelectTag of
+        {sendv, _} -> % We do not use ContData here
+            sendv_timeout_cont(SockRef, IOV, ?ESOCK_SENDV_TIMEOUT_DEFAULT);
+        _ ->
+            erlang:error(badarg, [Socket, IOV, Cont])
+    end;
+sendv(?socket(SockRef), IOV, Timeout)
+  when is_reference(SockRef) ->
+    case deadline(Timeout) of
+        invalid ->
+            erlang:error({invalid, {timeout, Timeout}});
+        nowait ->
+            Handle = make_ref(),
+            sendv_nowait(SockRef, IOV, Handle);
+        handle ->
+            Handle = Timeout,
+            sendv_nowait(SockRef, IOV, Handle);
+        Deadline ->
+            sendv_deadline(SockRef, IOV, Deadline)
+    end;
+sendv(Socket, IOV, Timeout) ->
+    erlang:error(badarg, [Socket, IOV, Timeout]).
+
+-spec sendv(Socket, IOV, Cont, Timeout :: 'nowait') ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestIOV}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket         :: socket(),
+      IOV            :: erlang:iovec(),
+      Cont           :: select_info(),
+      RestIOV        :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
+           (Socket, IOV, Cont, Timeout :: 'infinity') ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket     :: socket(),
+      IOV        :: erlang:iovec(),
+      Cont       :: select_info(),
+      RestIOV    :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid();
+
+           (Socket, IOV, Cont, Timeout :: non_neg_integer()) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason | 'timeout'} |
+          {'error', {Reason | 'timeout', RestIOV}}
+              when
+      Socket     :: socket(),
+      IOV        :: erlang:iovec(),
+      Cont       :: select_info(),
+      RestIOV    :: erlang:iovec(),
+      Reason     :: posix() | 'closed' | invalid().
+
+sendv(?socket(SockRef) = _Socket, IOV,
+      ?SELECT_INFO(SelectTag, _) = Cont, Timeout) 
+  when is_reference(SockRef) andalso is_list(IOV) ->
+    %%
+    case SelectTag of
+        {sendv, _} -> % We do not use ContData here
+            sendv_timeout_cont(SockRef, IOV, Timeout);
+        _ ->
+            {error, {invalid, Cont}}
+    end;
+sendv(Socket, IOV, Cont, Timeout) ->
+    erlang:error(badarg, [Socket, IOV, Cont, Timeout]).
+
+
+sendv_timeout_cont(SockRef, RestIOV, Timeout) ->
+    case deadline(Timeout) of
+        invalid ->
+            erlang:error({invalid, {timeout, Timeout}});
+        nowait ->
+            SelectHandle = make_ref(),
+            sendv_nowait_cont(SockRef, RestIOV, SelectHandle);
+        handle ->
+            SelectHandle = Timeout,
+            sendv_nowait_cont(SockRef, RestIOV, SelectHandle);
+        Deadline ->
+            HasWritten = false,
+            sendv_deadline_cont(
+              SockRef, RestIOV, undefined, Deadline, HasWritten)
+    end.
+
+sendv_nowait(SockRef, IOV, Handle) ->
+    send_common_nowait_result(
+      Handle, sendv,
+      prim_socket:sendv(SockRef, IOV, Handle)).
+
+sendv_nowait_cont(SockRef, RestIOV, SelectHandle) ->
+    send_common_nowait_result(
+      SelectHandle, sendv,
+      prim_socket:sendv(SockRef, RestIOV, SelectHandle)).
+
+sendv_deadline(SockRef, IOV, Deadline) ->
+    Handle     = make_ref(),
+    HasWritten = false,
+    send_common_deadline_result(
+      SockRef, IOV, Handle, Deadline, HasWritten,
+      sendv, fun sendv_deadline_cont/5,
+      prim_socket:sendv(SockRef, IOV, Handle)).
+
+sendv_deadline_cont(SockRef, IOV, _, Deadline, HasWritten) ->
+    SelectHandle = make_ref(),
+    send_common_deadline_result(
+      SockRef, IOV, SelectHandle, Deadline, HasWritten,
+      sendv, fun sendv_deadline_cont/5,
+      prim_socket:sendv(SockRef, IOV, SelectHandle)).
 
 
 %% ===========================================================================
