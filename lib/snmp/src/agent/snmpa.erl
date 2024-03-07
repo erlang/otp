@@ -262,7 +262,7 @@ symbolic_store, local_db and master_agent (and sub-agents).
 
 - **`local_db`** - Sets verbosity for the local-db process.
 
-- **`master_agent | pid()`** when `Verbosity = {subagents,` [`snmp:verbosity()`](#verbosity)`}` - 
+- **`master_agent | pid()`** when `Verbosity = {subagents,` [`snmp:verbosity()`](`t:snmp:verbosity/0`)`}` - 
   Sets verbosity for all sub-agent(s) controlled by this (master) agent.
 
 - **`master_agent | pid()`** - Sets verbosity for the agent process.
