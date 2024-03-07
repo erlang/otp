@@ -7,6 +7,10 @@ on:
   ## In UTC
   - cron: '0 * * * *'
 
+## Needed to create releases
+permissions:
+  contents: write
+
 ## Build base images to be used by other github workflows
 jobs:
 

@@ -7,10 +7,6 @@ on:
   ## In UTC
   - cron: '0 */4 * * *'
 
-## Needed to create releases
-permissions:
-  contents: write
-
 jobs:
 
   sync-prs:
