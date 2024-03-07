@@ -119,7 +119,7 @@ implementation provided by this application provides info about memory
 allocation and various socket information.
 
 The info returned by this function is returned together with other info
-collected by the manager when the [info](`snmpm:info/1`) function is called
+collected by the manager when the [info](`snmpm:info/0`) function is called
 (tagged with the key `net_if`).
 """.
 -callback info(Pid) ->

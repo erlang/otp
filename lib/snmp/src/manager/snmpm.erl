@@ -1083,7 +1083,7 @@ Synchronous `get-request`.
 `Remaining` is the remaining time of the given (or default) timeout time.
 
 When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the (`get-request? ) message. This could happen because of any number
+to send the (`get-request` ) message. This could happen because of any number
 of reasons, i.e. encoding error.
 _ActualReason_ is the actual reason in this case.
 
@@ -1815,8 +1815,8 @@ See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
 		 LogName :: string(), 
 		 LogFile :: string(), 
 		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
+		 Start   :: snmp:log_time(), 
+		 Stop    :: snmp:log_time()) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  
