@@ -2307,7 +2307,7 @@ tailrecur_ne:
         case FLOAT_BIG:
 	    if (exact) goto exact_fall_through;
 	{
-	    Wterm tmp = aw;
+	    Eterm tmp = aw;
 	    aw = bw;
 	    bw = tmp;
 	}/* fall through */

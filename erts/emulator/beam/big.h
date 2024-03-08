@@ -125,14 +125,14 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_integer_estimate(Wterm, Uint base);
+int big_integer_estimate(Eterm, Uint base);
 Eterm erts_big_to_list(Eterm, int base, Eterm**);
-char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz);
+char *erts_big_to_string(Eterm x, int base, char *buf, Uint buf_sz);
 Uint erts_big_to_binary_bytes(Eterm x, int base, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
-Eterm big_plus(Wterm, Wterm, Eterm*);
+Eterm big_plus(Eterm, Eterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
@@ -152,9 +152,9 @@ Eterm big_bxor(Eterm, Eterm, Eterm*);
 Eterm big_bnot(Eterm, Eterm*);
 
 Eterm big_lshift(Eterm, Sint, Eterm*);
-int big_comp (Wterm, Wterm);
+int big_comp (Eterm, Eterm);
 int big_ucomp (Eterm, Eterm);
-int big_to_double(Wterm x, double* resp);
+int big_to_double(Eterm x, double* resp);
 Eterm double_to_big(double, Eterm*, Uint hsz);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);

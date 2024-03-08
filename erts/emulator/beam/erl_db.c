@@ -1468,7 +1468,7 @@ do_update_counter(Process *p, DbTable* tb,
 	Eterm* tpl;
 	Sint position;
 	Eterm incr, warp;
-	Wterm oldcnt;
+	Eterm oldcnt;
 
 	if (is_not_list(iter)) {
 	    goto finalize;
@@ -1552,7 +1552,7 @@ do_update_counter(Process *p, DbTable* tb,
 	Eterm* tpl = tuple_val(CAR(list_val(iter)));
 	Sint position = signed_val(tpl[1]);
 	Eterm incr = tpl[2];
-	Wterm oldcnt = db_do_read_element(&handle,position);
+	Eterm oldcnt = db_do_read_element(&handle,position);
 	Eterm newcnt = db_add_counter(&htop, oldcnt, incr);
 
 	if (newcnt == NIL) {
