@@ -1539,10 +1539,6 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
                 {bif,tuple_size} ->
                     I = I0#b_set{op={bif,is_tuple},dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
-                bs_start_match ->
-                    [#b_literal{val=new},Bin] = I0#b_set.args,
-                    I = I0#b_set{op={bif,is_bitstring},args=[Bin],dst=SuccDst},
-                    live_opt_is([I|Is], Live0, Acc);
                 get_map_element ->
                     I = I0#b_set{op=has_map_field,dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
