@@ -78,6 +78,7 @@
 	     io_lib_format,
 	     io_lib_fread,
 	     io_lib_pretty,
+             json,
 	     lists,
 	     log_mf_h,
 	     maps,

@@ -98,6 +98,7 @@ MODULES= \
 	io_lib_format \
 	io_lib_fread \
 	io_lib_pretty \
+	json \
 	lists \
 	log_mf_h \
 	maps \
@@ -141,7 +142,7 @@ HRL_FILES= \
 	../include/qlc.hrl \
 	../include/zip.hrl
 
-INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl otp_internal.hrl
+INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl otp_internal.hrl json.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -182,7 +183,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-$(TYPES): $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -236,7 +237,7 @@ unicode_util.erl: ../uc_spec/*
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
@@ -252,7 +253,7 @@ release_docs_spec:
 
 # ----------------------------------------------------
 # Dependencies -- alphabetically, please
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 $(EBIN)/beam_lib.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets.beam: dets.hrl ../../kernel/include/file.hrl
@@ -270,6 +271,7 @@ $(EBIN)/gen_event.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_fsm.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_server.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_statem.beam: ../../kernel/include/logger.hrl
+$(EBIN)/json.beam: json.hrl
 $(EBIN)/ms_transform.beam: ../doc/src/ms_transform.md
 $(EBIN)/peer.beam: ../doc/src/peer.md
 $(EBIN)/proc_lib.beam: ../../kernel/include/logger.hrl
