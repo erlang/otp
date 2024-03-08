@@ -55,7 +55,8 @@
          trim_bs_start_match_resume/1,
          gh_6410/1,bs_match/1,
          binary_aliases/1,gh_6923/1,
-         bs_test_tail/1]).
+         bs_test_tail/1,
+         otp_19019/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -98,7 +99,8 @@ groups() ->
        trim_bs_start_match_resume,
        gh_6410,bs_match,binary_aliases,
        gh_6923,
-       bs_test_tail]}].
+       bs_test_tail,
+       otp_19019]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -3254,6 +3256,27 @@ bs_test_tail_float(<<>>) -> [].
 %% The bs_test_tail instruction is needed.
 bs_test_partial_tail(<<0:8, T/binary>>) -> bs_test_partial_tail(T);
 bs_test_partial_tail(<<>>) -> ok.
+
+otp_19019(_Config) ->
+    ok = do_otp_19019(id(<<42>>)),
+    <<>> = do_otp_19019(id(<<>>)),
+
+    ok.
+
+do_otp_19019(<<_:8>>) ->
+    ok;
+do_otp_19019(A) ->
+    try
+        %% The `bs_start_match` instruction would be replaced with an
+        %% `is_bitstring/1` test, which is in Erlang/OTP 27 and later is
+        %% safe even if `A` is a match context. However, the type analysis
+        %% pass would assume that the `is_bitstring/1` test would always
+        %% fail.
+        << (ok) || <<_:ok>> <= A>>
+    after
+        ok
+    end.
+
 
 %%% Utilities.
 

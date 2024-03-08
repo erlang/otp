@@ -1660,6 +1660,8 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
                     I = I0#b_set{op={bif,is_tuple},dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
                 bs_start_match ->
+                    %% This is safe in Erlang/OTP 27 and later, because match
+                    %% contexts are now mutable sub binaries.
                     [#b_literal{val=new},Bin] = I0#b_set.args,
                     I = I0#b_set{op={bif,is_bitstring},args=[Bin],dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);

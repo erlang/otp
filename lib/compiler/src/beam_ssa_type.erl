@@ -2745,8 +2745,8 @@ infer_type({bif,is_atom}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_binary}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_bitstring{size_unit=8}},
     {[T], [T]};
-infer_type({bif,is_bitstring}, [#b_var{}=Arg], _Ts, _Ds) ->
-    T = {Arg, #t_bitstring{}},
+infer_type({bif,is_bitstring}, [#b_var{}=Arg], Ts, _Ds) ->
+    T = {Arg, beam_types:meet(concrete_type(Arg, Ts), #t_bs_matchable{})},
     {[T], [T]};
 infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, beam_types:make_boolean()},
