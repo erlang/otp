@@ -967,49 +967,57 @@ bad_utf8_subject(Config) when is_list(Config) ->
     %% even though subject contained illegal
     %% utf8...
 
+    %% OTP-19015: re:run() ended up in an infinite loop
+    %% if both pattern and subject was binaries and
+    %% subject was long enough to trigger a yield.
+
     nomatch = re:run(<<255,255,255>>, <<"a">>, []),
     nomatch = re:run(<<255,255,255>>, "a", []),
     nomatch = re:run(<<"aaa">>, <<255>>, []),
     nomatch = re:run(<<"aaa">>, [255], []),
     {match,[{0,1}]} = re:run(<<255,255,255>>, <<255>>, []),
     {match,[{0,1}]} = re:run(<<255,255,255>>, [255], []),
-    %% Badarg on illegal utf8 in subject as of OTP 23...
-    try
-        re:run(<<255,255,255>>, <<"a">>, [unicode]),
-        error(unexpected)
-    catch
-        error:badarg ->
-            ok
-    end,
-    try
-        re:run(<<255,255,255>>, "a", [unicode]),
-        error(unexpected)
-    catch
-        error:badarg ->
-            ok
-    end,
-    try
-        re:run(<<"aaa">>, <<255>>, [unicode]),
-        error(unexpected)
-    catch
-        error:badarg ->
-            ok
-    end,
-    nomatch = re:run(<<"aaa">>, [255], [unicode]),
-    try
-        re:run(<<255,255,255>>, <<255>>, [unicode]),
-        error(unexpected)
-    catch
-        error:badarg ->
-            ok
-    end,
-    try
-        re:run(<<255,255,255>>, [255], [unicode]),
-        error(unexpected)
-    catch
-        error:badarg ->
-            ok
-    end.
+    [
+     begin
+         %% Badarg on illegal utf8 in subject as of OTP 23...
+         try
+             re:run(<<Prefix/binary, 255,255,255>>, <<"a">>, [unicode]),
+             error(unexpected)
+         catch
+             error:badarg ->
+                 ok
+         end,
+         try
+             re:run(<<Prefix/binary, 255,255,255>>, "a", [unicode]),
+             error(unexpected)
+         catch
+             error:badarg ->
+                 ok
+         end,
+         try
+             re:run(<<Prefix/binary, "aaa">>, <<255>>, [unicode]),
+             error(unexpected)
+         catch
+             error:badarg ->
+                 ok
+         end,
+         nomatch = re:run(<<Prefix/binary, "aaa">>, [255], [unicode]),
+         try
+             re:run(<<Prefix/binary, 255,255,255>>, <<255>>, [unicode]),
+             error(unexpected)
+         catch
+             error:badarg ->
+                 ok
+         end,
+         try
+             re:run(<<Prefix/binary, 255,255,255>>, [255], [unicode]),
+             error(unexpected)
+         catch
+             error:badarg ->
+                 ok
+         end
+     end || Prefix <- [<<>>, iolist_to_binary(lists:duplicate(100000, $a))]],
+    ok.
 
 error_info(_Config) ->
     BadRegexp = {re_pattern,0,0,0,<<"xyz">>},
