@@ -47,9 +47,8 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
 
-module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
-    NoBsMatch = member(no_bs_match, Opts),
-    {Asm,St} = functions(Fs, NoBsMatch, {atom,Mod}),
+module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
+    {Asm,St} = functions(Fs, {atom,Mod}),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
@@ -110,12 +109,13 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, NoBsMatch, AtomMod) ->
-    mapfoldl(fun (F, St) -> function(F, NoBsMatch, AtomMod, St) end,
+functions(Forms, AtomMod) ->
+    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
              #cg{lcount=1}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
+function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
     #{func_info:={_,Name,Arity}} = Anno,
+    NoBsMatch = not maps:get(bs_ensure_opt, Anno, false),
     try
         assert_exception_block(Blocks),            %Assertion.
         Regs = maps:get(registers, Anno),

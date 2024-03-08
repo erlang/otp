@@ -54,7 +54,8 @@
          bs_saved_position_units/1,empty_matches/1,
          trim_bs_start_match_resume/1,
          gh_6410/1,bs_match/1,
-         binary_aliases/1,gh_6923/1]).
+         binary_aliases/1,gh_6923/1,
+         bs_test_tail/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -96,7 +97,8 @@ groups() ->
        bs_saved_position_units,empty_matches,
        trim_bs_start_match_resume,
        gh_6410,bs_match,binary_aliases,
-       gh_6923]}].
+       gh_6923,
+       bs_test_tail]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -3219,6 +3221,39 @@ gh_6923(_Config) ->
 
 do_gh_6923([<<"abc">>, A]) when is_integer(A) -> first;
 do_gh_6923([<<"abc">>, A]) when is_tuple(A) -> second.
+
+bs_test_tail(Config) ->
+    Bin = term_to_binary(Config),
+
+    ok = bs_test_tail_skip(Bin),
+
+    "abc" = bs_test_tail_int(<<(id(<<"abc">>))/binary>>),
+
+    [2.0,3.0] = bs_test_tail_float(<<(id(2.0)):64/float,(id(3.0)):64/float>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_tail_float(<<(id(-1)):128>>),
+
+    ok = bs_test_partial_tail(<<(id(0))>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_partial_tail(<<(id(1))>>),
+
+    ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_skip(<<_, T/binary>>) -> bs_test_tail_skip(T);
+bs_test_tail_skip(<<>>) -> ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_int(<<H:8, T/binary>>) ->
+    [H|bs_test_tail_int(T)];
+bs_test_tail_int(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_tail_float(<<F:64/float, T/binary>>) ->
+    [F|bs_test_tail_float(T)];
+bs_test_tail_float(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_partial_tail(<<0:8, T/binary>>) -> bs_test_partial_tail(T);
+bs_test_partial_tail(<<>>) -> ok.
 
 %%% Utilities.
 

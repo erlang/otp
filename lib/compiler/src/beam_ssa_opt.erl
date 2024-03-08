@@ -2112,7 +2112,8 @@ ssa_opt_bsm_shortcut({#opt_st{ssa=Linear0}=St, FuncDb}) ->
             %% No binary matching instructions.
             {St, FuncDb};
         _ ->
-            Linear = bsm_shortcut(Linear0, Positions),
+            Linear1 = bsm_shortcut(Linear0, Positions),
+            Linear = bsm_tail(Linear1, #{}),
             ssa_opt_live({St#opt_st{ssa=Linear}, FuncDb})
     end.
 
@@ -2186,6 +2187,95 @@ bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap0) ->
             [{L,Blk}|bsm_shortcut(Bs, PosMap0)]
     end;
 bsm_shortcut([], _PosMap) -> [].
+
+%% Remove `bs_test_tail` instructions that are known to always
+%% succeed, such as in the following example:
+%%
+%%     m(Bin) when is_binary(Bin) ->
+%%        m1(Bin).
+%%     m1(<<_, Rest/binary>>) -> m1(Rest);
+%%     m1(<<>>) -> ok.
+%%
+%% The second clause of `m1/1` does not need to check for an empty
+%% binary.
+
+bsm_tail([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Map0) ->
+    {Is,Last,Map} = bsm_tail_is(Is0, Last0, L, Map0, []),
+    Blk = Blk0#b_blk{is=Is,last=Last},
+    [{L,Blk}|bsm_tail(Bs, Map)];
+bsm_tail([], _Map) ->
+    [].
+
+bsm_tail_is([#b_set{op=bs_start_match,anno=Anno,dst=Dst}=I|Is], Last, L, Map0, Acc) ->
+    case Anno of
+        #{arg_types := #{1 := Type}} ->
+            case beam_types:get_bs_matchable_unit(Type) of
+                error ->
+                    bsm_tail_is(Is, Last, L, Map0, [I|Acc]);
+                Unit when is_integer(Unit) ->
+                    Map = Map0#{Dst => Unit},
+                    bsm_tail_is(Is, Last, L, Map, [I|Acc])
+            end;
+        #{} ->
+            bsm_tail_is(Is, Last, L, Map0, [I|Acc])
+    end;
+bsm_tail_is([#b_set{op=bs_match,dst=Dst,args=Args},
+             #b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}|_]=Is,
+            #b_br{bool=SuccDst,fail=Fail}=Last,
+            _L, Map0, Acc) ->
+    case bsm_tail_num_matched(Args, Map0) of
+        unknown ->
+            %% Unknown number of bits or the match operation will fail
+            %% to match certain values.
+            Map = Map0#{Fail => unknown},
+            {reverse(Acc, Is),Last,Map};
+        Bits when is_integer(Bits) ->
+            case Map0 of
+                #{Fail := Bits} ->
+                    {reverse(Acc, Is),Last,Map0};
+                #{Fail := _} ->
+                    Map = Map0#{Fail => unknown},
+                    {reverse(Acc, Is),Last,Map};
+                #{} ->
+                    Map = Map0#{Fail => Bits},
+                    {reverse(Acc, Is),Last,Map}
+            end
+    end;
+bsm_tail_is([#b_set{op=bs_test_tail,args=[_,#b_literal{val=0}],dst=Dst}]=Is,
+            #b_br{bool=Dst,succ=Succ}=Last0, L, Map0, Acc) ->
+    case Map0 of
+        #{L := Bits} when is_integer(Bits) ->
+            %% The `bs_match` instruction targeting this block on failure
+            %% will only fail when the end of the binary has been reached.
+            %% There is no need for the test.
+            Last = beam_ssa:normalize(Last0#b_br{fail=Succ}),
+            {reverse(Acc, Is),Last,Map0};
+        #{} ->
+            {reverse(Acc, Is),Last0,Map0}
+    end;
+bsm_tail_is([#b_set{}=I|Is], Last, L, Map, Acc) ->
+    bsm_tail_is(Is, Last, L, Map, [I|Acc]);
+bsm_tail_is([], Last, _L, Map0, Acc) ->
+    Map = foldl(fun(F, A) ->
+                        A#{F => unknown}
+                end, Map0, beam_ssa:successors(#b_blk{is=[],last=Last})),
+    {reverse(Acc),Last,Map}.
+
+bsm_tail_num_matched([#b_literal{val=skip},Ctx,Type,Flags,Size,Unit], Map) ->
+    bsm_tail_num_matched([Type,Ctx,Flags,Size,Unit], Map);
+bsm_tail_num_matched([#b_literal{val=Type},Ctx,#b_literal{},
+                      #b_literal{val=Size},#b_literal{val=Unit}], Map)
+  when (Type =:= integer orelse Type =:= binary),
+       is_integer(Size), is_integer(Unit) ->
+    Bits = Size * Unit,
+    case Map of
+        #{Ctx := Bits} when is_integer(Bits) ->
+            Bits;
+        #{} ->
+            unknown
+    end;
+bsm_tail_num_matched(_Args, _Map) ->
+    unknown.
 
 %%%
 %%% Optimize binary construction.
@@ -3453,11 +3543,13 @@ redundant_br_safe_bool(Is, Bool) ->
 %%% failure label.
 %%%
 
-ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) when is_map(Blocks0) ->
+ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0,anno=Anno0}=St, FuncDb})
+  when is_map(Blocks0) ->
     RPO = beam_ssa:rpo(Blocks0),
     Seen = sets:new([{version,2}]),
     {Blocks,Count} = ssa_opt_bs_ensure(RPO, Seen, Count0, Blocks0),
-    {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
+    Anno = Anno0#{bs_ensure_opt => true},
+    {St#opt_st{ssa=Blocks,cnt=Count,anno=Anno}, FuncDb}.
 
 ssa_opt_bs_ensure([L|Ls], Seen0, Count0, Blocks0) ->
     case sets:is_element(L, Seen0) of
