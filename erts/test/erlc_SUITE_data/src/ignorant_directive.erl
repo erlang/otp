@@ -23,7 +23,7 @@
 
 -module(ignorant_directive).
 
--compile(warn_keywords).
+
 
 -export([foo/0,
          frob/1,

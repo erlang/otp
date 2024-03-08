@@ -698,7 +698,7 @@ module(Forms, FileName, Opts0) ->
     %% FIXME Hmm, this is not coherent with the semantics of features
     %% We want the options given on the command line to take
     %% precedence over options in the module.
-    Opts = compiler_options(Forms) ++ Opts0,
+    Opts = Opts0 ++ compiler_options(Forms),
     St = forms(Forms, start(FileName, Opts)),
     return_status(St).
 
