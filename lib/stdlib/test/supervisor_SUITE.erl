@@ -68,7 +68,8 @@
           simple_one_for_one_corruption/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
 	  rest_for_one_other_child_fails_restart/1,
-	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
+	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1,
+          simple_one_for_one_restart_ignore/1]).
 
 %% Significant child tests
 -export([ nonsignificant_temporary/1, nonsignificant_transient/1,
@@ -154,7 +155,7 @@ groups() ->
      {restart_simple_one_for_one, [],
       [simple_one_for_one, simple_one_for_one_shutdown,
        simple_one_for_one_extra, simple_one_for_one_escalation,
-       simple_one_for_one_corruption]},
+       simple_one_for_one_corruption, simple_one_for_one_restart_ignore]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation,
        rest_for_one_other_child_fails_restart]},
@@ -1501,6 +1502,35 @@ simple_one_for_one(Config) when is_list(Config) ->
 
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit_reason(SupPid,shutdown).
+
+
+%%-------------------------------------------------------------------------
+%% Test simple_one_for_one children restarts and returning ignore.
+simple_one_for_one_restart_ignore(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Self = self(),
+    lists:foreach(
+        fun(Restart) ->
+            Child = {child, {supervisor_3, start_child, []}, Restart, 1000, worker, []},
+            {ok, SupPid} = start_link({ok, {{simple_one_for_one, 10, 3600}, [Child]}}),
+            StarterPid1 = spawn_link(fun() -> supervisor:start_child(SupPid, [child1, Self]) end),
+            ChildPid1 = receive {child1, CPid1} -> CPid1 end,
+            ChildPid1 ! {{ok, 0}, Self},
+            check_exit([StarterPid1]),
+            [{undefined, ChildPid1, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid1, kill),
+            ChildPid2 = receive {child1, CPid2} -> CPid2 end,
+            ChildPid2 ! {{ok, 0}, Self},
+            [{undefined, ChildPid2, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid2, kill),
+            ChildPid3 = receive {child1, CPid3} -> CPid3 end,
+            ChildPid3 ! {ignore, Self},
+            [] = supervisor:which_children(SupPid),
+            terminate(SupPid, shutdown),
+            ok = check_exit_reason(SupPid, shutdown)
+        end,
+        [transient, permanent]
+    ).
 
 
 %%-------------------------------------------------------------------------

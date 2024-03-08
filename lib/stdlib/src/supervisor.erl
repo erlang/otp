@@ -1371,6 +1371,15 @@ restart(simple_one_for_one, Child, State0) ->
 	    end,
     State2 = dyn_erase(OldPid, State1),
     case do_start_child_i(M, F, A) of
+        {ok, undefined} ->
+            %% The child returned ignore when being restarted.
+            %% In accordance with the behavior of start_child/2
+            %% for simple_one_for_one supervisors, it is dropped
+            %% from the supervisor.
+            %% Automatic shutdown is not taken into consideration,
+            %% since it does not make sense to use it in
+            %% simple_one_for_one supervisors.
+            {ok, State2};
 	{ok, Pid} ->
             NState = dyn_store(Pid, A, State2),
 	    {ok, NState};
