@@ -64,6 +64,8 @@ obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
+obsolete(ssl, prf, 5) ->
+    {deprecated, "Use export_key_materials/4 instead. Note that in OTP 28 the 'testing' way of calling this function will no longer be supported."};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -259,6 +261,8 @@ obsolete(pg2, _, _) ->
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
+obsolete_type(ssl, prf_random, 0) ->
+    {deprecated, "Only used in deprecated function prf/5 and will no longer be needed."};
 obsolete_type(crypto, hmac_state, 0) ->
     {removed, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
 obsolete_type(crypto, retired_cbc_cipher_aliases, 0) ->
