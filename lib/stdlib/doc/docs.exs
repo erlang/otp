@@ -50,6 +50,7 @@
         :digraph_utils,
         :gb_sets,
         :gb_trees,
+        :json,
         :orddict,
         :ordsets,
         :proplists,

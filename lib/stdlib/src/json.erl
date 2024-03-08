@@ -132,6 +132,7 @@ This is equivalent to `encode(Term, fun json:encode_value/2)`.
 <<"{\"foo\":\"bar\"}">>
 ```
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode(encode_value()) -> iodata().
 encode(Term) -> encode(Term, fun do_encode/2).
 
@@ -159,6 +160,7 @@ lists of key-value pairs from plain lists:
 <<"{\"a\":[],\"b\":1}">>
 ```
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode(dynamic(), encoder()) -> iodata().
 encode(Term, Encoder) when is_function(Encoder, 2) ->
     Encoder(Term, Encoder).
@@ -169,6 +171,7 @@ Default encoder used by `json:encode/1`.
 Recursively calls `Encode` on all the values in `Value`.
 """.
 -spec encode_value(dynamic(), encoder()) -> iodata().
+-doc(#{since => <<"OTP 27.0">>}).
 encode_value(Value, Encode) ->
     do_encode(Value, Encode).
 
@@ -197,6 +200,7 @@ and everything else as JSON strings calling the `Encode`
 callback with the corresponding binary.
 """.
 -spec encode_atom(atom(), encoder()) -> iodata().
+-doc(#{since => <<"OTP 27.0">>}).
 encode_atom(null, _Encode) -> <<"null">>;
 encode_atom(true, _Encode) -> <<"true">>;
 encode_atom(false, _Encode) -> <<"false">>;
@@ -205,18 +209,21 @@ encode_atom(Other, Encode) -> Encode(atom_to_binary(Other, utf8), Encode).
 -doc """
 Default encoder for integers as JSON numbers used by `json:encode/1`.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_integer(integer()) -> iodata().
 encode_integer(Integer) -> integer_to_binary(Integer).
 
 -doc """
 Default encoder for floats as JSON numbers used by `json:encode/1`.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_float(float()) -> iodata().
 encode_float(Float) -> float_to_binary(Float, [short]).
 
 -doc """
 Default encoder for lists as JSON arrays used by `json:encode/1`.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_list(list(), encoder()) -> iodata().
 encode_list(List, Encode) when is_list(List) ->
     do_encode_list(List, Encode).
@@ -234,6 +241,7 @@ Default encoder for maps as JSON objects used by `json:encode/1`.
 
 Accepts maps with atom, binary, integer, or float keys.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_map(encode_map(dynamic()), encoder()) -> iodata().
 encode_map(Map, Encode) when is_map(Map) ->
     do_encode_map(Map, Encode).
@@ -252,6 +260,7 @@ resulting JSON object.
 
 Raises `error({duplicate_key, Key})` if there are duplicates.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_map_checked(map(), encoder()) -> iodata().
 encode_map_checked(Map, Encode) ->
     do_encode_checked(maps:to_list(Map), Encode).
@@ -261,6 +270,7 @@ Encoder for lists of key-value pairs as JSON objects.
 
 Accepts lists with atom, binary, integer, or float keys.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_key_value_list([{term(), term()}], encoder()) -> iodata().
 encode_key_value_list(List, Encode) when is_function(Encode, 2) ->
     encode_object([[$,, key(Key, Encode), $: | Encode(Value, Encode)] || {Key, Value} <- List]).
@@ -276,6 +286,7 @@ resulting JSON object.
 
 Raises `error({duplicate_key, Key})` if there are duplicates.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_key_value_list_checked([{term(), term()}], encoder()) -> iodata().
 encode_key_value_list_checked(List, Encode) ->
     do_encode_checked(List, Encode).
@@ -315,6 +326,7 @@ Default encoder for binaries as JSON strings used by `json:encode/1`.
 * `error(unexpected_end)` if the binary contains incomplete UTF-8 sequences.
 * `error({invalid_byte, Byte})` if the binary contains invalid UTF-8 sequences.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_binary(binary()) -> iodata().
 encode_binary(Bin) when is_binary(Bin) ->
     escape_binary(Bin).
@@ -329,6 +341,7 @@ For any non-ASCII unicode character, a corresponding `\\uXXXX` sequence is used.
 * `error(unexpected_end)` if the binary contains incomplete UTF-8 sequences.
 * `error({invalid_byte, Byte})` if the binary contains invalid UTF-8 sequences.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec encode_binary_escape_all(binary()) -> iodata().
 encode_binary_escape_all(Bin) when is_binary(Bin) ->
     escape_all(Bin).
@@ -601,7 +614,9 @@ Supports basic data mapping:
 ```erlang
 > json:decode(<<"{\"foo\": 1}">>).
 #{<<"foo">> => 1}
+```
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec decode(binary()) -> decode_value().
 decode(Binary) when is_binary(Binary) ->
     case value(Binary, Binary, 0, ok, [], #decode{}) of
@@ -659,6 +674,7 @@ Decoding object keys as atoms:
 {#{foo => 1},ok,<<>>}
 ```
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec decode(binary(), dynamic(), decoders()) ->
           {Result :: dynamic(), Acc :: dynamic(), binary()}.
 decode(Binary, Acc0, Decoders) when is_binary(Binary) ->
@@ -681,6 +697,7 @@ Similar to `decode/3` but returns when a complete JSON value can be parsed or
 returns `{continue, State}` for incomplete data,
 the `State` can be fed to the `decode_continue/2` function when more data is available.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec decode_start(binary(), dynamic(), decoders()) ->
           {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
 decode_start(Binary, Acc, Decoders) when is_binary(Binary) ->
@@ -704,6 +721,7 @@ there is no more data, use `end_of_input` instead of a binary.
 {123,ok,<<>>}
 ```
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec decode_continue(binary() | end_of_input, Opaque::term()) ->
           {Result :: dynamic(), Acc :: dynamic(), binary()} | {continue, continuation_state()}.
 decode_continue(end_of_input, State) ->
