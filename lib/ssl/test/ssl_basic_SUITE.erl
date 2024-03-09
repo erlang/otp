@@ -313,12 +313,18 @@ cipher_suites_mix(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
+    ServerCipherSuites =  ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                                   [{key_exchange, fun(srp_rsa) -> false;
+                                                                      (srp_dss) -> false;
+                                                                      (_) -> true
+                                                                   end}]),
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+					{options, [{ciphers, ServerCipherSuites} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -997,10 +1003,14 @@ anon_chipher_suite_checks(Version) ->
     [_|_] = ssl:cipher_suites(exclusive_anonymous, Version).
 
 chipher_suite_checks(Version) ->
-    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
-                                         cipher => '3des_ede_cbc',
-                                         mac => sha,
-                                         prf => default_prf},
+    MandatoryCipherSuiteTLS1_0 = #{key_exchange => dhe_dss,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
+    MandatoryCipherSuiteTLS1_1 = #{key_exchange => rsa,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
     MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
                                          cipher => 'aes_128_cbc',
                                          mac => sha,
@@ -1009,6 +1019,7 @@ chipher_suite_checks(Version) ->
     Default = [_|_] = ssl:cipher_suites(default, Version),
     Anonymous = ssl:cipher_suites(anonymous, Version),
     true = length(Default) < length(All),
+
     Filters = [{key_exchange,
                 fun(dhe_rsa) ->
                         true;
@@ -1024,6 +1035,7 @@ chipher_suite_checks(Version) ->
                 end
                },
                {mac,
+
                 fun(sha) ->
                         true;
                    (_) ->
@@ -1037,20 +1049,30 @@ chipher_suite_checks(Version) ->
                prf => default_prf},
     [Cipher] = ssl:filter_cipher_suites(All, Filters),
     [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
-    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest0),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1')  orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+            false = lists:member(Cipher, Rest0);
+        false ->
+            false = lists:member(Cipher, Default)
+    end,
     [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
-    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest1),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1') orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+            false = lists:member(Cipher, Rest1);
+         false ->
+            false = lists:member(Cipher, Default)
+    end,
     [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
     [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),
     case Version of
         tlsv1 ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All);
+           true = lists:member(MandatoryCipherSuiteTLS1_0, All);
         'tlsv1.1' ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
+            true = lists:member(MandatoryCipherSuiteTLS1_1, All),
             true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All);
         'tlsv1.2' ->
             ok;

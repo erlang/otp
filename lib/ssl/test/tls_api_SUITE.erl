@@ -305,7 +305,11 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
     TcpOpts = [binary, {reuseaddr, true}],
     Version = ssl_test_lib:protocol_version(Config),
     NewVersions = new_versions(Version),
-    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), []),
+    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
+                                        [{key_exchange, fun(srp_rsa) -> false;
+                                                           (srp_dss) -> false;
+                                                           (_) -> true
+                                                        end}]),
 
     NewOpts = [{versions, NewVersions},
                {ciphers, Ciphers},
@@ -729,11 +733,17 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
     {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
+
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, ssl_test_lib, no_result},
-                                        {options, [{versions, [Version]} | ServerOpts]}]),
+                                        {options, [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
@@ -752,7 +762,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     case Version of
         'tlsv1.3' ->
             ssl_test_lib:check_server_alert(Server, protocol_version);
-        _  ->
+        _ ->
             ssl_test_lib:check_server_alert(Server, handshake_failure)
     end.
 

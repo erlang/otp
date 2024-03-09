@@ -186,8 +186,14 @@ reuse_session_expired() ->
 reuse_session_expired(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, TestVersion),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
+
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
@@ -199,13 +205,14 @@ reuse_session_expired(Config) when is_list(Config) ->
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                                         {from, self()},  {options, [{reuse_sessions, save},
+                                                                     {ciphers, Ciphers}| ClientOpts]}]),
     Server0 ! listen,
     
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, ClientOpts}]),    
+                                         {from, self()},  {options,  [{ciphers, Ciphers} | ClientOpts]}]),
     
     SID = receive
               {Client0, Id0} ->

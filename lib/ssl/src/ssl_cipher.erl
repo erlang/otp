@@ -322,20 +322,26 @@ suites(Version) when ?TLS_1_X(Version) ->
     tls_v1:suites(Version);
 suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:suites(Version).
+
 all_suites(?TLS_1_3 = Version) ->
-    suites(Version) ++ tls_legacy_suites(?TLS_1_2);
-all_suites(Version) when ?TLS_1_X(Version) ->
-    suites(Version) ++ tls_legacy_suites(Version);
+    suites(Version) ++ tls_legacy_suites(?TLS_1_2)  ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_2 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_1 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
+all_suites(?TLS_1_0 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
 tls_legacy_suites(Version) ->
-    Tests = [fun tls_v1:psk_suites/1,
-             fun tls_v1:srp_suites/1,
-             fun tls_v1:rsa_suites/1,
-             fun tls_v1:des_suites/1,
-             fun tls_v1:rc4_suites/1],
-    lists:flatmap(fun (Fun) -> Fun(Version) end, Tests).
+    LegacySuites = [fun tls_v1:cbc_suites/1,
+                    fun tls_v1:psk_suites/1,
+                    fun tls_v1:srp_suites/1,
+                    fun tls_v1:rsa_suites/1,
+                    fun tls_v1:des_suites/1,
+                    fun tls_v1:rc4_suites/1],
+    lists:flatmap(fun (Fun) -> Fun(Version) end, LegacySuites).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].

@@ -40,6 +40,7 @@
          suites/1,
          exclusive_suites/1,
          exclusive_anonymous_suites/1,
+         cbc_suites/1,
          psk_suites/1,
          psk_exclusive/1,
          psk_suites_anon/1,
@@ -503,14 +504,50 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Version,Length, Fragment) ->
 -spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun exclusive_suites/1, suites_to_test(Version)).
+    lists:flatmap(fun default_suites/1, suites_in_version(Version)).
 
-suites_to_test(?TLS_1_0) -> [?TLS_1_0];
-suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-suites_to_test(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_0].
+suites_in_version(?TLS_1_0) -> [?TLS_1_0];
+suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+suites_in_version(?TLS_1_2) -> [?TLS_1_2];
+suites_in_version(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2].
 
 -spec exclusive_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+
+default_suites(?TLS_1_3 = Version) ->
+    exclusive_suites(Version);
+default_suites(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+
+     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    ];
+default_suites(Version) when Version == ?TLS_1_1;
+                             Version == ?TLS_1_0 ->
+    exclusive_suites(?TLS_1_0).
 
 exclusive_suites(?TLS_1_3) ->
     [?TLS_AES_256_GCM_SHA384,
@@ -528,9 +565,6 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
 
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
      ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 
@@ -543,32 +577,16 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
-
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-
-     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
 
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
 
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
-
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
      %% not supported
      %% ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
      %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
@@ -578,8 +596,7 @@ exclusive_suites(?TLS_1_2) ->
 exclusive_suites(?TLS_1_1) ->
     [];
 exclusive_suites(?TLS_1_0) ->
-    [
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
@@ -594,8 +611,7 @@ exclusive_suites(?TLS_1_0) ->
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA
-    ].
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec exclusive_anonymous_suites(ssl_record:ssl_version()) ->
@@ -632,6 +648,31 @@ exclusive_anonymous_suites(?TLS_1_0=Version) ->
          ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
          ?TLS_DH_anon_WITH_DES_CBC_SHA
         ] ++ srp_suites_anon(Version).
+
+
+cbc_suites(Version) when ?TLS_1_X(Version) ->
+    cbc_exclusive(Version).
+
+cbc_exclusive(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
+    ];
+cbc_exclusive(?TLS_1_1) ->
+    %% Only have CBC SUITES
+    %% disabled even though they are legacy
+    [];
+cbc_exclusive(?TLS_1_0) ->
+    [?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
@@ -814,11 +855,11 @@ des_exclusive(_) ->
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
 rsa_suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun rsa_exclusive/1, rsa_suites_to_test(Version)).
+    lists:flatmap(fun rsa_exclusive/1, rsa_suites_in_version(Version)).
 
-rsa_suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-rsa_suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-rsa_suites_to_test(?TLS_1_0) -> [?TLS_1_0].
+rsa_suites_in_version(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
+rsa_suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+rsa_suites_in_version(?TLS_1_0) -> [?TLS_1_0].
 
 -spec rsa_exclusive(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 rsa_exclusive(?TLS_1_2) ->
