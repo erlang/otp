@@ -3901,9 +3901,9 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
     int res;
 
 #ifdef __WIN32__
-    FILE * fstream;
+    FILE * fd;
     if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
-        fd = stdout
+        fd = stdout;
     } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
         fd = stderr;
     }
