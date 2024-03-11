@@ -61,13 +61,13 @@ in the directory indicated by the _HOME_ variable. If _HOME_ is not set, Emacs
 will look for the `.emacs` file in `C:\ `.
 
 Below is a complete example of what should be added to a user's `.emacs`
-provided that OTP is installed in the directory `C:\Program Files\erl<Ver>`:
+provided that OTP is installed in the directory `C:\Program Files\Erlang OTP`:
 
 ```text
-      (setq load-path (cons  "C:/Program Files/erl<Ver>/lib/tools-<ToolsVer>/emacs"
+      (setq load-path (cons  "C:/Program Files/Erlang OTP/lib/tools-<ToolsVer>/emacs"
       load-path))
-      (setq erlang-root-dir "C:/Program Files/erl<Ver>")
-      (setq exec-path (cons "C:/Program Files/erl<Ver>/bin" exec-path))
+      (setq erlang-root-dir "C:/Program Files/Erlang OTP")
+      (setq exec-path (cons "C:/Program Files/Erlang OTP/bin" exec-path))
       (require 'erlang-start)
 ```
 
