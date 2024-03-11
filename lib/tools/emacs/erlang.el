@@ -155,6 +155,7 @@ variable.")
       ("New Clause" erlang-generate-new-clause)
       ("Clone Arguments" erlang-clone-arguments)
       nil
+      ("Align Current" align-current)
       ("Align Arrows" erlang-align-arrows)))
     ("Syntax Highlighting"
      (("Level 4" erlang-font-lock-level-4)
@@ -1076,7 +1077,8 @@ behaviour.")
     (define-key map "\C-c\C-q"  'erlang-indent-function)
     (define-key map "\C-c\C-u"  'uncomment-region)
     (define-key map "\C-c\C-y"  'erlang-clone-arguments)
-    (define-key map "\C-c\C-a"  'erlang-align-arrows)
+    (define-key map "\C-c\a"    'align-current)
+    (define-key map "\C-c\C-a"  'erlang-align-arrows)  ; maybe obsolete
     (define-key map "\C-c\C-z"  'erlang-shell-display)
     (define-key map "\C-c\C-d"  'erlang-man-function-no-prompt)
     map)
@@ -1439,18 +1441,109 @@ Other commands:
     (add-function :before-until (local 'eldoc-documentation-function)
                   #'erldoc-eldoc-function))
 
-  ;; Align maps.
-  (add-to-list 'align-rules-list
-               '(erlang-maps
-                 (regexp  . "\\(\\s-*\\)\\(=>\\)\\s-*")
-                 (modes   . '(erlang-mode))
-                 (repeat  . t)))
-  ;; Align records and :: specs
-  (add-to-list 'align-rules-list
-               '(erlang-record-specs
-                 (regexp  . "\\(\\s-*\\)\\(=\\).*\\(::\\)*\\s-*")
-                 (modes   . '(erlang-mode))
-                 (repeat  . t)))
+  ;; Some definitions (wrapped in "shy groups" which do not get a number)
+  (let* ((space-group "\\([[:space:]]*\\)")
+          (erl-keywords "\\(?:end\\|begin\\|case\\|of\\|if\\|receive\\|after\\|try\\|catch\\|fun\\)")
+          (erl-sep-symbols (concat "\\(?:\\_<" erl-keywords "\\_>\\)"))
+          (erl-sep-forms "\\(?:[.][[:space:]]\\|[.]$\\)")
+          (erl-just-eq  ; sets whitespace groups 1 and 2
+            ;; NOTE: '...> = <...' may occur in Erlang, so no easy way here
+            (concat
+              "\\(?:"  ; outer wrapper
+              "\\(?:"  ; shy group for whitespace-before (subgroups get index 1)
+              "\\(?1:[[:space:]]+\\|^\\)\\|" ; some whitespace, or...
+              "[^=<>/:?[:space:]]\\(?1:\\)"  ; no whitespace but not == <= >= /= := ?=
+              "\\)"    ; end first shy group
+              "="
+              "\\(?:"  ; shy group for whitespace-after (subgroups get index 2)
+              "\\(?2:[[:space:]]+\\|$\\)\\|" ; some whitespace, or...
+              "\\(?2:\\)[^=<>/:[:space:]]"   ; no whitespace but not == =< => =/ =:
+              "\\)"    ; end second shy group
+              "\\)"    ; end outer wrapper
+              )) )
+
+    ;; The default Erlang separator is whole forms (dot-terminated)
+    (setq align-region-separate erl-sep-forms)
+
+    ;; Exclusion rules
+    ;; (the exc-open-comment rule in align.el seems broken)
+    (add-to-list 'align-exclude-rules-list
+      '(erlang-exc-open-comment
+         (regexp  . "^[^%\n]*\\(%.*\\)$")
+         (modes   . '(erlang-mode))))
+    ;; (the exc-dq-string and exc-sq-string rules in align.el have a bug)
+    (add-to-list 'align-exclude-rules-list
+      '(erlang-exc-dq-string
+         (regexp  . "\\(\"[^\"\n]+\"\\)")
+         (repeat  . t)
+         (modes   . '(erlang-mode))
+         ))
+    (add-to-list 'align-exclude-rules-list
+      '(erlang-exc-sq-string
+         (regexp  . "\\('[^'\n]+'\\)")
+         (repeat  . t)
+         (modes   . '(erlang-mode))
+         ))
+
+    ;; Alignment rules
+    ;; (Do not try to align things that are the first nonspace character on
+    ;; its line, such as comments, |, etc. - this is handled by indentation.)
+    ;; NOTE: Rules that get added later end up earlier in the list. Things
+    ;; that tend to occur further to the left on a line should be listed
+    ;; before things that occur further to the right, so a single invokation
+    ;; of align will clean up most things in one go.
+
+    ;; The align.el 'open-comment' rule doesn't seem to work, so we use our
+    ;; own rule instead of enabling open-comment for erlang-mode.
+    ;; (This rule should be added first since comments are rightmost.)
+    (add-to-list 'align-rules-list
+      `(erlang-open-comment
+         (regexp   . ,(concat "[^%\n[:space:]]" space-group "%.*$"))
+         (separate . group)
+         (modes    . '(erlang-mode))
+         ))
+    (add-to-list 'align-rules-list
+      `(erlang-maps
+         ;; must not match =:= here
+         (regexp   . ,(concat "[^=]" space-group "\\(=>\\|:=\\)" space-group))
+         (group    . (1 3))
+         (separate . ,(concat "\\(#{\\|" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
+         (repeat   . t)
+         (modes    . '(erlang-mode))
+         ))
+    (add-to-list 'align-rules-list
+      `(erlang-generator-arrows
+         (regexp   . ,(concat space-group "\\(<-\\|<=\\)" space-group))
+         (group    . (1 3))
+         (separate . ,(concat "\\(||\\|" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
+         (repeat   . t)
+         (modes    . '(erlang-mode))
+         ))
+    (add-to-list 'align-rules-list
+      `(erlang-type-annotation
+         (regexp  . ,(concat space-group "::" space-group))
+         (group   . (1 2))
+         (repeat  . t)
+         (modes   . '(erlang-mode))
+         ))
+    ;; erlang-assignment should precede erlang-type-annotation in the rules list
+    (add-to-list 'align-rules-list
+      `(erlang-assignment
+         (regexp   . ,erl-just-eq)
+         (group    . (1 2))
+         (separate . ,(concat "\\(" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
+         (repeat   . t)
+         (modes    . '(erlang-mode))
+         ))
+    ;; erlang-case-arrow should come first in the rules list
+    (add-to-list 'align-rules-list
+      `(erlang-case-arrow
+         (regexp   . ,(concat space-group "->"))
+         (separate . ,(concat "\\(" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
+         (modes    . '(erlang-mode))
+         ))
+    )
+
   (if (zerop (buffer-size))
       (run-hooks 'erlang-new-file-hook)))
 
@@ -6262,6 +6355,7 @@ The default is to go to the directory of the current buffer."
   (inferior-erlang-wait-prompt)
   (inferior-erlang-send-command (format "cd('%s')." dir) nil))
 
+;; should this be completely dropped now that standard align seems to work?
 (defun erlang-align-arrows (start end)
   "Align arrows (\"->\") in function clauses from START to END.
 When called interactively, aligns arrows after function clauses inside
@@ -6348,6 +6442,7 @@ Tab characters are counted by their visual width."
 
 ;; Local variables:
 ;; coding: utf-8
+;; lisp-indent-offset: 2
 ;; indent-tabs-mode: nil
 ;; End:
 
