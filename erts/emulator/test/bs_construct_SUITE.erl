@@ -30,7 +30,9 @@
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
          bs_append_offheap/1,
          reductions/1, fp16/1, zero_init/1, error_info/1, little/1,
-         heap_binary_unit/1]).
+         heap_binary_unit/1,
+         otp_24_code_gh_8238/1
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +47,8 @@ all() ->
      copy_writable_binary, kostis, dynamic, bs_add, otp_7422, zero_width,
      bad_append, bs_append_overflow, bs_append_offheap,
      reductions, fp16, zero_init,
-     error_info, little, heap_binary_unit].
+     error_info, little, heap_binary_unit,
+     otp_24_code_gh_8238].
 
 init_per_suite(Config) ->
     Config.
@@ -1704,6 +1707,21 @@ heap_binary_unit_2(Variant, Rest) ->
             end;
         Bin2 ->
             {error2, Bin2}
+    end.
+
+otp_24_code_gh_8238(Config) ->
+    case ?MODULE of
+        bs_construct_SUITE ->
+            %% GH-8238. Code compiled with Erlang/OTP 24 would crash
+            %% when run on OTP-26.2.3.
+            DataDir = proplists:get_value(data_dir, Config),
+            Asm = filename:join(DataDir, atom_to_list(?FUNCTION_NAME) ++ ".S"),
+            {ok,Mod,Beam} = compile:file(Asm, [binary,from_asm,report]),
+            {module,Mod} = code:load_binary(Mod, "", Beam),
+            Mod:Mod(),
+            ok;
+        _ ->
+            {skip,"Enough to run once"}
     end.
 
 %%%

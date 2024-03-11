@@ -148,7 +148,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgSource &Size,
     }
 
     if (emit_bs_get_field_size(Size, 1, fail, ARG4) >= 0) {
-        a.lsr(ARG4, ARG4, imm(3));
+        a.lsl(ARG4, ARG4, imm(3));
         mov_arg(ARG5, Heap);
         mov_arg(ARG6, Live);
         fragment_call(ga->get_bs_init_bits_shared());
