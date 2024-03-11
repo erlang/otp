@@ -676,7 +676,13 @@ cancel_monitor(MRef) ->
 
 %% -------------------------------------------------------------------------
 
+%% Undocumented option for debugging the state machine
+%% that mustn't be counted on
+setopts(?MODULE_socket(Server, _Socket), [{sys_trace,T}]) ->
+    sys:trace(Server, T);
+%%
 setopts(?MODULE_socket(Server, _Socket), [{active,Active}]) ->
+    %% Optimized implementation
     call(Server, {setopt_active,Active});
 setopts(?MODULE_socket(Server, _Socket), Opts) when is_list(Opts) ->
     try internalize_setopts(Opts) of
