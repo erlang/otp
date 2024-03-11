@@ -731,11 +731,13 @@ format(X) ->
     "???".
 
 format_label(Id, Pid) when is_list(Id); is_binary(Id) ->
-    case unicode:characters_to_binary(Id) of
+    try unicode:characters_to_binary(Id) of
         {error, _, _} ->
             io_lib:format("~0.tp ~w", [Id, Pid]);
         BinString ->
             io_lib:format("~ts ~w", [BinString, Pid])
+    catch _:_ ->
+            io_lib:format("~0.tp ~w", [Id, Pid])
     end;
 format_label(Id, Pid) ->
     io_lib:format("~0.tp ~w", [Id, Pid]).

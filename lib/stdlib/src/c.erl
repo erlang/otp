@@ -872,11 +872,13 @@ fetch_label(Reg, _) ->
     Reg.
 
 format_label(Id) when is_list(Id); is_binary(Id) ->
-    case unicode:characters_to_binary(Id) of
+    try unicode:characters_to_binary(Id) of
         {error, _, _} ->
             io_lib:format("~0.tp", [Id]);
         BinString ->
             BinString
+    catch _:_ ->
+            io_lib:format("~0.tp", [Id])
     end;
 format_label(TermId) ->
     io_lib:format("~0.tp", [TermId]).
