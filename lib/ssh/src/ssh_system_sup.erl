@@ -178,6 +178,7 @@ replace_acceptor_options(SysPid, NewOpts) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Address, Options]) ->
+    ssh_lib:set_label(Role, system_sup),
     SupFlags = #{strategy      => one_for_one,
                  auto_shutdown => all_significant,
                  intensity =>    0,

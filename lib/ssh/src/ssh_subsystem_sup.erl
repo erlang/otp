@@ -60,6 +60,7 @@ tcpip_fwd_supervisor(SubSysSup) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Address, Id, Socket, Options]) ->
+    ssh_lib:set_label(Role, {subsystem_sup, Socket}),
     SubSysSup = self(),
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
