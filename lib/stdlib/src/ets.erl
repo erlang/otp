@@ -18,213 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(ets).
--moduledoc """
-Built-in term storage.
-
-This module is an interface to the Erlang built-in term storage BIFs. These
-provide the ability to store very large quantities of data in an Erlang runtime
-system, and to have constant access time to the data. (In the case of
-`ordered_set`, see below, access time is proportional to the logarithm of the
-number of stored objects.)
-
-Data is organized as a set of dynamic tables, which can store tuples. Each table
-is created by a process. When the process terminates, the table is automatically
-destroyed. Every table has access rights set at creation.
-
-Tables are divided into four different types, `set`, `ordered_set`, `bag`, and
-`duplicate_bag`. A `set` or `ordered_set` table can only have one object
-associated with each key. A `bag` or `duplicate_bag` table can have many objects
-associated with each key.
-
-Insert and lookup times in tables of type `set` are constant, regardless of the
-table size. For table types `bag` and `duplicate_bag` time is proportional to
-the number of objects with the same key. Even seemingly unrelated keys may
-inflict linear search to be skipped past while looking for the key of interest
-(due to hash collision).
-
-> #### Warning {: .warning }
->
-> For tables of type `bag` and `duplicate_bag`, avoid inserting an extensive
-> amount of objects with the same key. It will hurt insert and lookup
-> performance as well as real time characteristics of the runtime environment
-> (hash bucket linear search do not yield).
-
-The `ordered_set` table type uses a binary search tree. Insert and lookup times
-are proportional to the logarithm of the number of objects in the table.
-
-[](){: #max_ets_tables }
-
-> #### Note {: .info }
->
-> The number of tables stored at one Erlang node _used_ to be limited. This is
-> no longer the case (except by memory usage). The previous default limit was
-> about 1400 tables and could be increased by setting the environment variable
-> `ERL_MAX_ETS_TABLES` or the command line option
-> [`+e`](`e:erts:erl_cmd.md#%2Be`) before starting the Erlang runtime system.
-> This hard limit has been removed, but it is currently useful to set the
-> `ERL_MAX_ETS_TABLES` anyway. It should be set to an approximate of the maximum
-> amount of tables used since an internal table for named tables is sized using
-> this value. If large amounts of named tables are used and `ERL_MAX_ETS_TABLES`
-> hasn't been increased, the performance of named table lookup will degrade.
-
-Notice that there is no automatic garbage collection for tables. Even if there
-are no references to a table from any process, it is not automatically destroyed
-unless the owner process terminates. To destroy a table explicitly, use function
-`delete/1`. The default owner is the process that created the table. To transfer
-table ownership at process termination, use option [`heir`](`m:ets#heir`) or
-call `give_away/3`.
-
-Some implementation details:
-
-- In the current implementation, every object insert and look-up operation
-  results in a copy of the object.
-- `'$end_of_table'` is not to be used as a key, as this atom is used to mark the
-  end of the table when using functions `first/1` and `next/2`.
-
-Notice the subtle difference between _matching_ and _comparing equal_, which is
-demonstrated by table types `set` and `ordered_set`:
-
-- Two Erlang terms `match` if they are of the same type and have the same value,
-  so that `1` matches `1`, but not `1.0` (as `1.0` is a `t:float/0` and not an
-  `t:integer/0`).
-- Two Erlang terms _compare equal_ if they either are of the same type and
-  value, or if both are numeric types and extend to the same value, so that `1`
-  compares equal to both `1` and `1.0`.
-- The `ordered_set` works on the _Erlang term order_ and no defined order exists
-  between an `t:integer/0` and a `t:float/0` that extends to the same value.
-  Hence the key `1` and the key `1.0` are regarded as equal in an `ordered_set`
-  table.
-
-[](){: #ets_failures }
-
-## Failures
-
-Functions in this module fail by raising an error exception with error reason:
-
-- **`badarg`** - If any argument has the wrong format.
-
-- **`badarg`** - If the table identifier is invalid.
-
-- **`badarg`** - If the operation is denied because of table access rights
-  ([protected](`m:ets#protected`) or [private](`m:ets#private`)).
-
-- **`system_limit`** - Modification of a value causes it to not be representable
-  internally in the VM. For example, incrementation of a counter past the
-  largest integer representable.
-
-- **`system_limit`** - If a match specification passed as argument has excessive
-  nesting which causes scheduler stack exhaustion for the scheduler that the
-  calling process is executing on.
-  [Scheduler stack size](`e:erts:erl_cmd.md#sched_thread_stack_size`) can be
-  configured when starting the runtime system.
-
-[](){: #concurrency }
-
-## Concurrency
-
-This module provides some limited support for concurrent access. All updates to
-single objects are guaranteed to be both _atomic_ and _isolated_. This means
-that an updating operation to a single object either succeeds or fails
-completely without any effect (atomicity) and that no intermediate results of
-the update can be seen by other processes (isolation). Some functions that
-update many objects state that they even guarantee atomicity and isolation for
-the entire operation. In database terms the isolation level can be seen as
-"serializable", as if all isolated operations are carried out serially, one
-after the other in a strict order.
-
-[](){: #traversal }
-
-## Table traversal
-
-There are different ways to traverse through the objects of a table.
-
-- _Single-step_ traversal one key at at time, using `first/1`, `next/2`,
-  `last/1` and `prev/2`.
-- _Single-step_ traversal one key at at time, but using `first_lookup/1`,
-  `next_lookup/2`, `last_lookup/1` and `prev_lookup/2`. This is more efficient
-  when you also need to lookup the objects for the keys.
-- Search with simple _match patterns_, using [`match/1/2/3`](`match/1`),
-  `match_delete/2` and [`match_object/1/2/3`](`match_object/1`).
-- Search with more powerful _match specifications_, using
-  [`select/1/2/3`](`select/1`), `select_count/2`, `select_delete/2`,
-  `select_replace/2` and [`select_reverse/1/2/3`](`select_reverse/1`).
-- _Table conversions_, using [`tab2file/2/3`](`tab2file/2`) and `tab2list/1`.
-
-No table traversal will guarantee a consistent snapshot of the entire table if
-the table is also updated by concurrent processes during the traversal. The
-result of each concurrently updated object may be seen (or not) depending on if
-it has happened when the traversal visits that part of the table. The only way
-to guarantee a full consistent table snapshot (if you really need that) is to
-disallow concurrent updates during the entire traversal.
-
-Moreover, traversals not done in a _safe_ way, on tables where keys are inserted
-or deleted during the traversal, may yield the following undesired effects:
-
-- Any key may be missed.
-- Any key may be found more than once.
-- The traversal may fail with `badarg` exception if keys are deleted.
-
-A table traversal is _safe_ if either
-
-- the table is of type `ordered_set`.
-- the entire table traversal is done within one ETS function call.
-- function `safe_fixtable/2` is used to keep the table fixated during the entire
-  traversal.
-
-> #### Note {: .info }
->
-> Even though the access of a single object is always guaranteed to be
-> [atomic and isolated](`m:ets#module-concurrency`), each traversal through a table to
-> find the next key is not done with such guarantees. This is often not a
-> problem, but may cause rare subtle "unexpected" effects if a concurrent
-> process inserts objects during a traversal. For example, consider one process
-> doing
->
-> ```erlang
-> ets:new(t, [ordered_set, named_table]),
-> ets:insert(t, {1}),
-> ets:insert(t, {2}),
-> ets:insert(t, {3}),
-> ```
->
-> A concurrent call to `ets:first(t)`, done by another process, may then in rare
-> cases return `2` even though `2` has never existed in the table ordered as the
-> first key. In the same way, a concurrent call to `ets:next(t, 1)` may return
-> `3` even though `3` never existed in the table ordered directly after `1`.
->
-> Effects like this are improbable but possible. The probability will further be
-> reduced (if not vanish) if table option
-> [`write_concurrency`](`m:ets#new_2_write_concurrency`) is not enabled. This
-> can also only be a potential concern for `ordered_set` where the traversal
-> order is defined.
-
-Traversals using `match` and `select` functions may not need to scan the entire
-table depending on how the key is specified. A match pattern with a _fully bound
-key_ (without any match variables) will optimize the operation to a single key
-lookup without any table traversal at all. For `ordered_set` a _partially bound
-key_ will limit the traversal to only scan a subset of the table based on term
-order. A partially bound key is either a list or a tuple with a prefix that is
-fully bound. Example:
-
-```erlang
-1> T = ets:new(t,[ordered_set]), ets:insert(T, {"555-1234", "John Smith"}).
-true
-2> %% Efficient search of all with area code 555
-2> ets:match(T,{[$5,$5,$5,$- |'$1'],'$2'}).
-[["1234","John Smith"]]
-```
-
-[](){: #match_spec }
-
-## Match Specifications
-
-Some of the functions use a _match specification_, `match_spec`. For a brief
-explanation, see `select/2`. For a detailed description, see section
-[Match Specifications in Erlang](`e:erts:match_spec.md`) in ERTS User's Guide.
-
-A match specifications with excessive nesting will cause a
-[`system_limit`](`m:ets#ets_failures`) error exception to be raised.
-""".
+-moduledoc({file, "../doc/src/ets.md"}).
 
 %% Interface to the Term store BIF's
 %% ets == Erlang Term Store
@@ -299,15 +93,8 @@ Opaque continuation used by [`select/1,3`](`select/1`),
          internal_delete_all/2,
          internal_select_delete/2]).
 
--doc """
-Returns a list of all tables at the node. Named tables are specified by their
-names, unnamed tables are specified by their table identifiers.
-
-There is no guarantee of consistency in the returned list. Tables created or
-deleted by other processes "during" the `ets:all()` call either are or are not
-included in the list. Only tables created/deleted _before_ `ets:all()` is called
-are guaranteed to be included/excluded.
-""".
+%% Returns a list of all tables at the node.
+-doc({file, "../doc/src/ets/all-0.md"}).
 -spec all() -> [Table] when
       Table :: table().
 
@@ -337,10 +124,8 @@ internal_request_all() ->
 delete(_) ->
     erlang:nif_error(undef).
 
--doc """
-Deletes all objects with key `Key` from table `Table`. This function succeeds
-even if no objects with key `Key` exist.
-""".
+%% Deletes all objects with key `Key` from table `Table`.
+-doc({file, "../doc/src/ets/delete-2.md"}).
 -spec delete(Table, Key) -> true when
       Table :: table(),
       Key :: term().
@@ -348,10 +133,8 @@ even if no objects with key `Key` exist.
 delete(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Delete all objects in the ETS table `Table`. The operation is guaranteed to be
-[atomic and isolated](`m:ets#module-concurrency`).
-""".
+%% Delete all objects in the ETS table `Table`.
+-doc({file, "../doc/src/ets/delete_all_objects-1.md"}).
 -spec delete_all_objects(Table) -> true when
       Table :: table().
 
@@ -367,11 +150,8 @@ delete_all_objects(Table) ->
 internal_delete_all(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Delete the exact object `Object` from the ETS table, leaving objects with the
-same key but other differences (useful for type `bag`). In a `duplicate_bag`
-table, all instances of the object are deleted.
-""".
+%% Delete the exact object `Object` from the ETS table.
+-doc({file, "../doc/src/ets/delete_object-2.md"}).
 -spec delete_object(Table, Object) -> true when
       Table :: table(),
       Object :: tuple().
@@ -379,14 +159,8 @@ table, all instances of the object are deleted.
 delete_object(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Returns the first key `Key` in table `Table`. For an `ordered_set` table, the
-first key in Erlang term order is returned. For other table types, the first key
-according to the internal order of the table is returned. If the table is empty,
-`'$end_of_table'` is returned.
-
-To find subsequent keys in the table, use `next/2`.
-""".
+%% Returns the first key `Key` in table `Table`.
+-doc({file, "../doc/src/ets/first-1.md"}).
 -spec first(Table) -> Key | '$end_of_table' when
       Table :: table(),
       Key :: term().
@@ -394,13 +168,9 @@ To find subsequent keys in the table, use `next/2`.
 first(_) ->
     erlang:nif_error(undef).
 
--doc """
-Similar to `first/1` except that it returns the object(s) along with the key
-stored in the table. This is equivalent to doing `first/1` followed by a
-`lookup/2`. If the table is empty, `'$end_of_table'` is returned.
-
-To find subsequent objects in the table, use `next_lookup/2`.
-""".
+%% Similar to `first/1` except that it returns the object(s) along with the key
+%% stored in the table.
+-doc({file, "../doc/src/ets/first_lookup-1.md"}).
 -doc(#{since => <<"OTP @OTP-18923@">>}).
 -spec first_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
@@ -410,17 +180,8 @@ To find subsequent objects in the table, use `next_lookup/2`.
 first_lookup(_) ->
     erlang:nif_error(undef).
 
--doc """
-Make process `Pid` the new owner of table `Table`. If successful, message
-`{'ETS-TRANSFER',Table,FromPid,GiftData}` is sent to the new owner.
-
-The process `Pid` must be alive, local, and not already the owner of the table.
-The calling process must be the table owner.
-
-Notice that this function does not affect option [`heir`](`m:ets#heir`) of the
-table. A table owner can, for example, set `heir` to itself, give the table
-away, and then get it back if the receiver terminates.
-""".
+%% Make process `Pid` the new owner of table `Table`.
+-doc({file, "../doc/src/ets/give_away-3.md"}).
 -spec give_away(Table, Pid, GiftData) -> true when
       Table :: table(),
       Pid :: pid(),
@@ -429,55 +190,8 @@ away, and then get it back if the receiver terminates.
 give_away(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Returns information about table `Table` as a list of tuples. If `Table` has the
-correct type for a table identifier, but does not refer to an existing ETS
-table, `undefined` is returned. If `Table` is not of the correct type, a
-`badarg` exception is raised.
-
-- **`{compressed, boolean()}`** - Indicates if the table is compressed.
-
-- **`{decentralized_counters, boolean()}`** - Indicates whether the table uses
-  `decentralized_counters`.
-
-- **`{heir, pid() | none}`** - The pid of the heir of the table, or `none` if no
-  heir is set.
-
-- **`{id,`[ `tid()`](`t:tid/0`)`}`** - The table identifier.
-
-- **`{keypos, integer() >= 1}`** - The key position.
-
-- **`{memory, integer() >= 0}`** - The number of words allocated to the table.
-
-- **`{name, atom()}`** - The table name.
-
-- **`{named_table, boolean()}`** - Indicates if the table is named.
-
-- **`{node, node()}`** - The node where the table is stored. This field is no
-  longer meaningful, as tables cannot be accessed from other nodes.
-
-- **`{owner, pid()}`** - The pid of the owner of the table.
-
-- **`{protection,` [`access()`](`t:table_access/0`)`}`** - The table access
-  rights.
-
-- **`{size, integer() >= 0}`** - The number of objects inserted in the table.
-
-- **`{type,` [`type()`](`t:table_type/0`)`}`** - The table type.
-
-- **`{read_concurrency, boolean()}`** - Indicates whether the table uses
-  `read_concurrency` or not.
-
-- **`{write_concurrency, WriteConcurrencyAlternative}`** - Indicates which
-  `write_concurrency` option the table uses.
-
-> #### Note {: .info }
->
-> The execution time of this function is affected by the
-> [`decentralized_counters`](`m:ets#new_2_decentralized_counters`) table option.
-> The execution time is much longer when the `decentralized_counters` option is
-> set to `true` than when the `decentralized_counters` option is set to `false`.
-""".
+%% Returns information about table `Table` as a list of tuples.
+-doc({file, "../doc/src/ets/info-1.md"}).
 -spec info(Table) -> InfoList | undefined when
       Table :: table(),
       InfoList :: [InfoTuple],
@@ -500,74 +214,8 @@ table, `undefined` is returned. If `Table` is not of the correct type, a
 info(_) ->
     erlang:nif_error(undef).
 
--doc """
-Returns the information associated with `Item` for table `Table`, or returns
-`undefined` if `Table` does not refer an existing ETS table. If `Table` is not
-of the correct type, or if `Item` is not one of the allowed values, a `badarg`
-exception is raised.
-
-In addition to the `{Item,Value}` pairs defined for `info/1`, the following
-items are allowed:
-
-- `Item=binary, Value=BinInfo`
-
-  `BinInfo` is a list containing miscellaneous information about binaries kept
-  by the table. This `Item` can be changed or removed without prior notice. In
-  the current implementation `BinInfo` is a list of tuples
-  `{BinaryId,BinarySize,BinaryRefcCount}`.
-
-- `Item=fixed, Value=boolean()`
-
-  Indicates if the table is fixed by any process.
-
-- [](){: #info_2_safe_fixed_monotonic_time }
-
-  `Item=safe_fixed|safe_fixed_monotonic_time, Value={FixationTime,Info}|false`
-
-  If the table is fixed using `safe_fixtable/2`, the call returns a tuple where
-  `FixationTime` is the last time when the table changed from unfixed to fixed.
-
-  The format and value of `FixationTime` depends on `Item`:
-
-  - **`safe_fixed`** - `FixationTime` corresponds to the result returned by
-    `erlang:timestamp/0` at the time of fixation. Notice that when the system
-    uses single or multi
-    [time warp modes](`e:erts:time_correction.md#time-warp-modes`) this can
-    produce strange results, as the use of `safe_fixed` is not
-    [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`). Time warp
-    safe code must use `safe_fixed_monotonic_time` instead.
-
-  - **`safe_fixed_monotonic_time`** - `FixationTime` corresponds to the result
-    returned by `erlang:monotonic_time/0` at the time of fixation. The use of
-    `safe_fixed_monotonic_time` is
-    [time warp safe](`e:erts:time_correction.md#time-warp-safe-code`).
-
-  `Info` is a possibly empty lists of tuples `{Pid,RefCount}`, one tuple for
-  every process the table is fixed by now. `RefCount` is the value of the
-  reference counter and it keeps track of how many times the table has been
-  fixed by the process.
-
-  Table fixations are not limited to `safe_fixtable/2`. Temporary fixations may
-  also be done by for example [traversing functions](`m:ets#traversal`) like
-  `select` and `match`. Such table fixations are automatically released before
-  the corresponding functions returns, but they may be seen by a concurrent call
-  to `ets:info(T,safe_fixed|safe_fixed_monotonic_time)`.
-
-  If the table is not fixed at all, the call returns `false`.
-
-- `Item=stats, Value=tuple()`
-
-  Returns internal statistics about tables on an internal format used by OTP
-  test suites. Not for production use.
-
-> #### Note {: .info }
->
-> The execution time of this function is affected by the
-> [`decentralized_counters`](`m:ets#new_2_decentralized_counters`) table option
-> when the second argument of the function is `size` or `memory`. The execution
-> time is much longer when the `decentralized_counters` option is set to `true`
-> than when the `decentralized_counters` option is set to `false`.
-""".
+%% Returns the information associated with `Item` for table `Table`.
+-doc({file, "../doc/src/ets/info-2.md"}).
 -spec info(Table, Item) -> Value | undefined when
       Table :: table(),
       Item :: binary | compressed | decentralized_counters | fixed | heir | id | keypos | memory
@@ -579,43 +227,8 @@ items are allowed:
 info(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Inserts the object or all of the objects in list `ObjectOrObjects` into table
-`Table`.
-
-- If the table type is `set` and the key of the inserted objects _matches_ the
-  key of any object in the table, the old object is replaced.
-- If the table type is `ordered_set` and the key of the inserted object
-  _compares equal_ to the key of any object in the table, the old object is
-  replaced.
-- If the table type is `bag` and the object _matches_ any whole object in the
-  table, the object is not inserted.
-- If the list contains more than one object with _matching_ keys and the table
-  type is `set`, one is inserted, which one is not defined. The same holds for
-  table type `ordered_set` if the keys _compare equal_.
-
-The entire operation is guaranteed to be
-[atomic and isolated](`m:ets#module-concurrency`), even when a list of objects is
-inserted.
-
-[](){: #insert_list_order }
-
-For `bag` and `duplicate_bag`, objects in the list with identical keys will be
-inserted in list order (from head to tail). That is, a subsequent call to
-[`lookup(T,Key)`](`lookup/2`) will return them in that inserted order.
-
-> #### Note {: .info }
->
-> For `bag` the insertion order of indentical keys described above was
-> accidentally reverted in OTP 23.0 and later fixed in OTP 25.3. That is, from
-> OTP 23.0 up until OTP 25.3 the objects in a list are inserted in reverse order
-> (from tail to head).
->
-> For `duplicate_bag` the same faulty reverse insertion exist from OTP 23.0
-> until OTP 25.3. However, it is unpredictable and may or may not happen. A
-> longer list will increase the probabiliy of the insertion being done in
-> reverse.
-""".
+%% Inserts the object or all of the objects in list `ObjectOrObjects` into table `Table`.
+-doc({file, "../doc/src/ets/insert-2.md"}).
 -spec insert(Table, ObjectOrObjects) -> true when
       Table :: table(),
       ObjectOrObjects :: tuple() | [tuple()].
@@ -623,16 +236,10 @@ inserted in list order (from head to tail). That is, a subsequent call to
 insert(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Same as `insert/2` except that instead of overwriting objects with the same key
-(for `set` or `ordered_set`) or adding more objects with keys already existing
-in the table (for `bag` and `duplicate_bag`), `false` is returned.
-
-If `ObjectOrObjects` is a list, the function checks _every_ key before inserting
-anything. Nothing is inserted unless _all_ keys present in the list are absent
-from the table. Like [`insert/2`](`insert/2`), the entire operation is
-guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
-""".
+%% Same as `insert/2` except that instead of overwriting objects with the same key
+%% (for `set` or `ordered_set`) or adding more objects with keys already existing
+%% in the table (for `bag` and `duplicate_bag`), `false` is returned.
+-doc({file, "../doc/src/ets/insert_new-2.md"}).
 -spec insert_new(Table, ObjectOrObjects) -> boolean() when
       Table :: table(),
       ObjectOrObjects :: tuple() | [tuple()].
@@ -640,40 +247,16 @@ guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
 insert_new(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Checks if a term represent a valid compiled
-[match specification](`m:ets#match_spec`). A compiled match specification is
-only valid on the Erlang node where it was compiled by calling
-`match_spec_compile/1`.
-
-> #### Note {: .info }
->
-> Before STDLIB 3.4 (OTP 20.0) compiled match specifications did not have an
-> external representation. If passed through
-> [`binary_to_term(term_to_binary(CMS))`](`binary_to_term/1`) or sent to another
-> node and back, the result was always an empty binary `<<>>`.
->
-> After STDLIB 3.4 (OTP 20.0) compiled match specifications have an external
-> representation as a node specific reference to the original compiled match
-> specification. If passed through
-> [`binary_to_term(term_to_binary(CMS))`](`binary_to_term/1`) or sent to another
-> node and back, the result _may or may not_ be a valid compiled match
-> specification depending on if the original compiled match specification was
-> still alive.
-""".
+%% Checks if a term represent a valid compiled `match_spec`.
+-doc({file, "../doc/src/ets/is_compiled_ms-1.md"}).
 -spec is_compiled_ms(Term) -> boolean() when
       Term :: term().
 
 is_compiled_ms(_) ->
     erlang:nif_error(undef).
 
--doc """
-Returns the last key `Key` according to Erlang term order in table `Table` of
-type `ordered_set`. For other table types, the function is synonymous to
-`first/1`. If the table is empty, `'$end_of_table'` is returned.
-
-To find preceding keys in the table, use `prev/2`.
-""".
+%% Returns the last key `Key` in table `Table`.
+-doc({file, "../doc/src/ets/last-1.md"}).
 -spec last(Table) -> Key | '$end_of_table' when
       Table :: table(),
       Key :: term().
@@ -681,13 +264,9 @@ To find preceding keys in the table, use `prev/2`.
 last(_) ->
     erlang:nif_error(undef).
 
--doc """
-Similar to `last/1` except that it returns the object(s) along with the key
-stored in the table. This is equivalent to doing `last/1` followed by a
-`lookup/2`. If the table is empty, `'$end_of_table'` is returned.
-
-To find preceding objects in the table, use `prev_lookup/2`.
-""".
+%% Similar to `last/1` except that it returns the object(s) along with the key
+%% stored in the table.
+-doc({file, "../doc/src/ets/last_lookup-1.md"}).
 -doc(#{since => <<"OTP @OTP-18923@">>}).
 -spec last_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
@@ -697,30 +276,8 @@ To find preceding objects in the table, use `prev_lookup/2`.
 last_lookup(_) ->
     erlang:nif_error(undef).
 
--doc """
-Returns a list of all objects with key `Key` in table `Table`.
-
-- For tables of type `set`, `bag`, or `duplicate_bag`, an object is returned
-  only if the specified key _matches_ the key of the object in the table.
-- For tables of type `ordered_set`, an object is returned if the specified key
-  _compares equal_ to the key of an object in the table.
-
-The difference is the same as between `=:=` and `==`.
-
-As an example, one can insert an object with `t:integer/0` `1` as a key in an
-`ordered_set` and get the object returned as a result of doing a
-[`lookup/2`](`lookup/2`) with `t:float/0` `1.0` as the key to search for.
-
-For tables of type `set` or `ordered_set`, the function returns either the empty
-list or a list with one element, as there cannot be more than one object with
-the same key. For tables of type `bag` or `duplicate_bag`, the function returns
-a list of arbitrary length.
-
-Notice that the sequential order of object insertions is preserved; the first
-object inserted with the specified key is the first in the resulting list, and
-so on. See also the note about
-[list insertion order](`m:ets#insert_list_order`).
-""".
+%% Returns a list of all objects with key `Key` in table `Table`.
+-doc({file, "../doc/src/ets/lookup-2.md"}).
 -spec lookup(Table, Key) -> [Object] when
       Table :: table(),
       Key :: term(),
@@ -729,23 +286,9 @@ so on. See also the note about
 lookup(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-For a table `Table` of type `set` or `ordered_set`, the function returns the
-`Pos`:th element of the object with key `Key`.
-
-For tables of type `bag` or `duplicate_bag`, the functions returns a list with
-the `Pos`:th element of every object with key `Key`.
-
-If no object with key `Key` exists, the function exits with reason `badarg`.
-
-If `Pos` is larger than the size of the tuple, the function exits with reason
-`badarg`.
-
-The difference between `set`, `bag`, and `duplicate_bag` on one hand, and
-`ordered_set` on the other, regarding the fact that `ordered_set` view keys as
-equal when they _compare equal_ whereas the other table types regard them equal
-only when they _match_, holds for [`lookup_element/3`](`lookup_element/3`).
-""".
+%% For a table `Table` of type `set` or `ordered_set`, the function returns the
+%% `Pos`:th element of the object with key `Key`.
+-doc({file, "../doc/src/ets/lookup_element-3.md"}).
 -spec lookup_element(Table, Key, Pos) -> Elem when
       Table :: table(),
       Key :: term(),
@@ -755,23 +298,10 @@ only when they _match_, holds for [`lookup_element/3`](`lookup_element/3`).
 lookup_element(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-For a table `Table` of type `set` or `ordered_set`, the function returns the
-`Pos`:th element of the object with key `Key`.
-
-For tables of type `bag` or `duplicate_bag`, the functions returns a list with
-the `Pos`:th element of every object with key `Key`.
-
-If no object with key `Key` exists, the function returns `Default`.
-
-If `Pos` is larger than the size of any tuple with a matching key, the function
-exits with reason `badarg`.
-
-The difference between `set`, `bag`, and `duplicate_bag` on one hand, and
-`ordered_set` on the other, regarding the fact that `ordered_set` view keys as
-equal when they _compare equal_ whereas the other table types regard them equal
-only when they _match_, holds for [`lookup_element/4`](`lookup_element/4`).
-""".
+%% For a table `Table` of type `set` or `ordered_set`, the function returns the
+%% `Pos`:th element of the object with key `Key`.
+%% If no object with key `Key` exists, the function returns `Default`.
+-doc({file, "../doc/src/ets/lookup_element-4.md"}).
 -doc(#{since => <<"OTP 26.0">>}).
 -spec lookup_element(Table, Key, Pos, Default) -> Elem when
     Table :: table(),
@@ -783,35 +313,8 @@ only when they _match_, holds for [`lookup_element/4`](`lookup_element/4`).
 lookup_element(_, _, _, _) ->
   erlang:nif_error(undef).
 
--doc """
-Matches the objects in table `Table` against pattern `Pattern`.
-
-A pattern is a term that can contain:
-
-- Bound parts (Erlang terms)
-- `'_'` that matches any Erlang term
-- Pattern variables `'$N'`, where `N`=0,1,...
-
-The function returns a list with one element for each matching object, where
-each element is an ordered list of pattern variable bindings, for example:
-
-```erlang
-6> ets:match(T, '$1'). % Matches every object in table
-[[{rufsen,dog,7}],[{brunte,horse,5}],[{ludde,dog,5}]]
-7> ets:match(T, {'_',dog,'$1'}).
-[[7],[5]]
-8> ets:match(T, {'_',cow,'$1'}).
-[]
-```
-
-If the key is specified in the pattern, the match is very efficient. If the key
-is not specified, that is, if it is a variable or an underscore, the entire
-table must be searched. The search time can be substantial if the table is very
-large.
-
-For tables of type `ordered_set`, the result is in the same order as in a
-`first`/`next` traversal.
-""".
+%% Matches the objects in table `Table` against pattern `Pattern`.
+-doc({file, "../doc/src/ets/match-2.md"}).
 -spec match(Table, Pattern) -> [Match] when
       Table :: table(),
       Pattern :: match_pattern(),
@@ -820,18 +323,9 @@ For tables of type `ordered_set`, the result is in the same order as in a
 match(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `match/2`, but returns only a limited (`Limit`) number of matching
-objects. Term `Continuation` can then be used in subsequent calls to `match/1`
-to get the next chunk of matching objects. This is a space-efficient way to work
-on objects in a table, which is faster than traversing the table object by
-object using `first/1` and `next/2`.
-
-If the table is empty, `'$end_of_table'` is returned.
-
-Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
-subsequent calls to `match/1`.
-""".
+%% Works like `match/2`, but returns only a limited (`Limit`) number of matching
+%% objects.
+-doc({file, "../doc/src/ets/match-3.md"}).
 -spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
                                        '$end_of_table'  when
       Table :: table(),
@@ -843,13 +337,8 @@ subsequent calls to `match/1`.
 match(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Continues a match started with `match/3`. The next chunk of the size specified
-in the initial [`match/3`](`match/3`) call is returned together with a new
-`Continuation`, which can be used in subsequent calls to this function.
-
-When there are no more objects in the table, `'$end_of_table'` is returned.
-""".
+%% Continues a match started with `match/3`.
+-doc({file, "../doc/src/ets/match-1.md"}).
 -spec match(Continuation) -> {[Match], Continuation} |
                                 '$end_of_table'  when
       Match :: [term()],
@@ -858,19 +347,8 @@ When there are no more objects in the table, `'$end_of_table'` is returned.
 match(_) ->
     erlang:nif_error(undef).
 
--doc """
-Matches the objects in table `Table` against pattern `Pattern`. For a
-description of patterns, see `match/2`. The function returns a list of all
-objects that match the pattern.
-
-If the key is specified in the pattern, the match is very efficient. If the key
-is not specified, that is, if it is a variable or an underscore, the entire
-table must be searched. The search time can be substantial if the table is very
-large.
-
-For tables of type `ordered_set`, the result is in the same order as in a
-`first`/`next` traversal.
-""".
+%% Matches the objects in table `Table` against pattern `Pattern`.
+-doc({file, "../doc/src/ets/match_object-2.md"}).
 -spec match_object(Table, Pattern) -> [Object] when
       Table :: table(),
       Pattern :: match_pattern(),
@@ -879,18 +357,9 @@ For tables of type `ordered_set`, the result is in the same order as in a
 match_object(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `match_object/2`, but only returns a limited (`Limit`) number of
-matching objects. Term `Continuation` can then be used in subsequent calls to
-`match_object/1` to get the next chunk of matching objects. This is a
-space-efficient way to work on objects in a table, which is faster than
-traversing the table object by object using `first/1` and `next/2`.
-
-If the table is empty, `'$end_of_table'` is returned.
-
-Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
-subsequent calls to `match_object/1`.
-""".
+%% Works like `match_object/2`, but only returns a limited (`Limit`) number of
+%% matching objects.
+-doc({file, "../doc/src/ets/match_object-3.md"}).
 -spec match_object(Table, Pattern, Limit) -> {[Object], Continuation} |
                                            '$end_of_table' when
       Table :: table(),
@@ -902,14 +371,8 @@ subsequent calls to `match_object/1`.
 match_object(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Continues a match started with `match_object/3`. The next chunk of the size
-specified in the initial [`match_object/3`](`match_object/3`) call is returned
-together with a new `Continuation`, which can be used in subsequent calls to
-this function.
-
-When there are no more objects in the table, `'$end_of_table'` is returned.
-""".
+%% Continues a match started with `match_object/3`.
+-doc({file, "../doc/src/ets/match_object-1.md"}).
 -spec match_object(Continuation) -> {[Object], Continuation} |
                                     '$end_of_table' when
       Object :: tuple(),
@@ -918,20 +381,9 @@ When there are no more objects in the table, `'$end_of_table'` is returned.
 match_object(_) ->
     erlang:nif_error(undef).
 
--doc """
-Transforms a [match specification](`m:ets#match_spec`) into an internal
-representation that can be used in subsequent calls to `match_spec_run/2`. The
-internal representation is opaque. To check the validity of a compiled match
-specification, use `is_compiled_ms/1`.
-
-If term `MatchSpec` does not represent a valid match specification, a `badarg`
-exception is raised.
-
-> #### Note {: .info }
->
-> This function has limited use in normal code. It is used by the `m:dets`
-> module to perform the `dets:select/1` operations.
-""".
+%% Transforms a [match specification](`m:ets#match_spec`) into an internal
+%% representation that can be used in subsequent calls to `match_spec_run/2`.
+-doc({file, "../doc/src/ets/match_spec_compile-1.md"}).
 -spec match_spec_compile(MatchSpec) -> CompiledMatchSpec when
       MatchSpec :: match_spec(),
       CompiledMatchSpec :: compiled_match_spec().
@@ -947,10 +399,8 @@ match_spec_compile(_) ->
 match_spec_run_r(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `lookup/2`, but does not return the objects. Returns `true` if one or
-more elements in the table has key `Key`, otherwise `false`.
-""".
+%% Works like `lookup/2`, but does not return the objects.
+-doc({file, "../doc/src/ets/member-2.md"}).
 -spec member(Table, Key) -> boolean() when
       Table :: table(),
       Key :: term().
@@ -958,174 +408,9 @@ more elements in the table has key `Key`, otherwise `false`.
 member(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Creates a new table and returns a table identifier that can be used in
-subsequent operations. The table identifier can be sent to other processes so
-that a table can be shared between different processes within a node.
-
-Parameter `Options` is a list of options that specifies table type, access
-rights, key position, and whether the table is named. Default values are used
-for omitted options. This means that not specifying any options (`[]`) is the
-same as specifying
-`[set, protected, {keypos,1}, {heir,none}, {write_concurrency,false}, {read_concurrency,false}, {decentralized_counters,false}]`.
-
-- **`set`** - The table is a `set` table: one key, one object, no order among
-  objects. This is the default table type.
-
-- **`ordered_set`** - The table is a `ordered_set` table: one key, one object,
-  ordered in Erlang term order, which is the order implied by the < and >
-  operators. Tables of this type have a somewhat different behavior in some
-  situations than tables of other types. Most notably, the `ordered_set` tables
-  regard keys as equal when they _compare equal_, not only when they match. This
-  means that to an `ordered_set` table, `t:integer/0` `1` and `t:float/0` `1.0`
-  are regarded as equal. This also means that the key used to lookup an element
-  does not necessarily _match_ the key in the returned elements, if
-  `t:float/0`'s and `t:integer/0`'s are mixed in keys of a table.
-
-- **`bag`** - The table is a `bag` table, which can have many objects, but only
-  one instance of each object, per key.
-
-- **`duplicate_bag`** - The table is a `duplicate_bag` table, which can have
-  many objects, including multiple copies of the same object, per key.
-
-- **`public`** - Any process can read or write to the table.
-
-  [](){: #protected }
-
-- **`protected`** - The owner process can read and write to the table. Other
-  processes can only read the table. This is the default setting for the access
-  rights.
-
-  [](){: #private }
-
-- **`private`** - Only the owner process can read or write to the table.
-
-- **`named_table`** - If this option is present, the table is registered under
-  its `Name` which can then be used instead of the table identifier in
-  subsequent operations.
-
-  The function will also return the `Name` instead of the table identifier. To
-  get the table identifier of a named table, use `whereis/1`.
-
-- **`{keypos,Pos}`** - Specifies which element in the stored tuples to use as
-  key. By default, it is the first element, that is, `Pos=1`. However, this is
-  not always appropriate. In particular, we do not want the first element to be
-  the key if we want to store Erlang records in a table.
-
-  Notice that any tuple stored in the table must have at least `Pos` number of
-  elements.
-
-  [](){: #heir }
-
-- **`{heir,Pid,HeirData} | {heir,none}`** - Set a process as heir. The heir
-  inherits the table if the owner terminates. Message
-  `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when that
-  occurs. The heir must be a local process. Default heir is `none`, which
-  destroys the table when the owner terminates.
-
-  [](){: #new_2_write_concurrency }
-
-- **`{write_concurrency,WriteConcurrencyAlternative}`** - Performance tuning.
-  Defaults to `false`, in which case an operation that mutates (writes to) the
-  table obtains exclusive access, blocking any concurrent access of the same
-  table until finished. If set to `true`, the table is optimized for concurrent
-  write access. Different objects of the same table can be mutated (and read) by
-  concurrent processes. This is achieved to some degree at the expense of memory
-  consumption and the performance of sequential access and concurrent reading.
-
-  The `auto` alternative for the `write_concurrency` option is similar to the
-  `true` option but automatically adjusts the synchronization granularity during
-  runtime depending on how the table is used. This is the recommended
-  `write_concurrency` option when using Erlang/OTP 25 and above as it performs
-  well in most scenarios.
-
-  The `write_concurrency` option can be combined with the options
-  [`read_concurrency`](`m:ets#new_2_read_concurrency`) and
-  [`decentralized_counters`](`m:ets#new_2_decentralized_counters`). You
-  typically want to combine `write_concurrency` with `read_concurrency` when
-  large concurrent read bursts and large concurrent write bursts are common; for
-  more information, see option
-  [`read_concurrency`](`m:ets#new_2_read_concurrency`). It is almost always a
-  good idea to combine the `write_concurrency` option with the
-  [`decentralized_counters`](`m:ets#new_2_decentralized_counters`) option.
-
-  Notice that this option does not change any guarantees about
-  [atomicity and isolation](`m:ets#module-concurrency`). Functions that makes such
-  promises over many objects (like `insert/2`) gain less (or nothing) from this
-  option.
-
-  The memory consumption inflicted by both `write_concurrency` and
-  `read_concurrency` is a constant overhead per table for `set`, `bag` and
-  `duplicate_bag` when the `true` alternative for the `write_concurrency` option
-  is not used. For all tables with the `auto` alternative and `ordered_set`
-  tables with `true` alternative the memory overhead depends on the amount of
-  actual detected concurrency during runtime. The memory overhead can be
-  especially large when both `write_concurrency` and `read_concurrency` are
-  combined.
-
-  > #### Note {: .info }
-  >
-  > Prior to stdlib-3.7 (OTP-22.0) `write_concurrency` had no effect on
-  > `ordered_set`.
-
-  > #### Note {: .info }
-  >
-  > The `auto` alternative for the `write_concurrency` option is only available
-  > in OTP-25.0 and above.
-
-  [](){: #new_2_read_concurrency }
-
-- **`{read_concurrency,boolean()}`**(Since OTP R14B)  
-  Performance tuning. Defaults to `false`. When set to `true`, the table is
-  optimized for concurrent read operations. When this option is enabled read
-  operations become much cheaper; especially on systems with multiple physical
-  processors. However, switching between read and write operations becomes more
-  expensive.
-
-  You typically want to enable this option when concurrent read operations are
-  much more frequent than write operations, or when concurrent reads and writes
-  comes in large read and write bursts (that is, many reads not interrupted by
-  writes, and many writes not interrupted by reads).
-
-  You typically do _not_ want to enable this option when the common access
-  pattern is a few read operations interleaved with a few write operations
-  repeatedly. In this case, you would get a performance degradation by enabling
-  this option.
-
-  Option `read_concurrency` can be combined with option
-  [`write_concurrency`](`m:ets#new_2_write_concurrency`). You typically want to
-  combine these when large concurrent read bursts and large concurrent write
-  bursts are common.
-
-  [](){: #new_2_decentralized_counters }
-
-- **`{decentralized_counters,boolean()}`**(Since OTP 23.0)  
-  Performance tuning. Defaults to `true` for all tables with the
-  `write_concurrency` option set to `auto`. For tables of type `ordered_set` the
-  option also defaults to true when the `write_concurrency` option is set to
-  `true`. The option defaults to `false` for all other configurations. This
-  option has no effect if the `write_concurrency` option is set to `false`.
-
-  When this option is set to `true`, the table is optimized for frequent
-  concurrent calls to operations that modify the tables size and/or its memory
-  consumption (e.g., `insert/2` and `delete/2`). The drawback is that calls to
-  `info/1` and `info/2` with `size` or `memory` as the second argument can get
-  much slower when the `decentralized_counters` option is turned on.
-
-  When this option is enabled the counters for the table size and memory
-  consumption are distributed over several cache lines and the scheduling
-  threads are mapped to one of those cache lines. The `erl` option
-  [`+dcg`](`e:erts:erl_cmd.md#%2Bdcg`) can be used to control the number of
-  cache lines that the counters are distributed over.
-
-  [](){: #new_2_compressed }
-
-- **`compressed`**(Since OTP R14B01)  
-  If this option is present, the table data is stored in a more compact format
-  to consume less memory. However, it will make table operations slower.
-  Especially operations that need to inspect entire objects, such as `match` and
-  `select`, get much slower. The key element is not compressed.
-""".
+%% Creates a new table and returns a table identifier that can be used in
+%% subsequent operations.
+-doc({file, "../doc/src/ets/new-2.md"}).
 -spec new(Name, Options) -> table() when
       Name :: atom(),
       Options :: [Option],
@@ -1144,20 +429,8 @@ same as specifying
 new(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Returns the next key `Key2`, following key `Key1` in table `Table`. For table
-type `ordered_set`, the next key in Erlang term order is returned. For other
-table types, the next key according to the internal order of the table is
-returned. If no next key exists, `'$end_of_table'` is returned.
-
-To find the first key in the table, use `first/1`.
-
-Unless a table of type `set`, `bag`, or `duplicate_bag` is fixated using
-`safe_fixtable/2`, a call to [`next/2`](`next/2`) will fail if `Key1` no longer
-exists in the table. For table type `ordered_set`, the function always returns
-the next key after `Key1` in term order, regardless whether `Key1` ever existed
-in the table.
-""".
+%% Returns the next key `Key2`, following key `Key1` in table `Table`.
+-doc({file, "../doc/src/ets/next-2.md"}).
 -spec next(Table, Key1) -> Key2 | '$end_of_table' when
       Table :: table(),
       Key1 :: term(),
@@ -1166,13 +439,9 @@ in the table.
 next(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Similar to `next/2` except that it returns the object(s) along with the key
-stored in the table. This is equivalent to doing `next/2` followed by a
-`lookup/2`. If no next key exists, `'$end_of_table'` is returned.
-
-It can be interleaved with `next/2` during traversal.
-""".
+%% Similar to `next/2` except that it returns the object(s) along with the key
+%% stored in the table.
+-doc({file, "../doc/src/ets/next_lookup-2.md"}).
 -doc(#{since => <<"OTP @OTP-18923@">>}).
 -spec next_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
@@ -1183,14 +452,8 @@ It can be interleaved with `next/2` during traversal.
 next_lookup(_, _) ->
   erlang:nif_error(undef).
 
--doc """
-Returns the previous key `Key2`, preceding key `Key1` according to Erlang term
-order in table `Table` of type `ordered_set`. For other table types, the
-function is synonymous to `next/2`. If no previous key exists, `'$end_of_table'`
-is returned.
-
-To find the last key in an `ordered_set` table, use `last/1`.
-""".
+%% Returns the previous key `Key2`, preceding key `Key1` in table `Table`.
+-doc({file, "../doc/src/ets/prev-2.md"}).
 -spec prev(Table, Key1) -> Key2 | '$end_of_table' when
       Table :: table(),
       Key1 :: term(),
@@ -1199,13 +462,9 @@ To find the last key in an `ordered_set` table, use `last/1`.
 prev(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Similar to `prev/2` except that it returns the object(s) along with the key
-stored in the table. This is equivalent to doing `prev/2` followed by a
-`lookup/2`. If no previous key exists, `'$end_of_table'` is returned.
-
-It can be interleaved with `prev/2` during traversal.
-""".
+%% Similar to `prev/2` except that it returns the object(s) along with the key
+%% stored in the table.
+-doc({file, "../doc/src/ets/prev_lookup-2.md"}).
 -doc(#{since => <<"OTP @OTP-18923@">>}).
 -spec prev_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
@@ -1216,11 +475,9 @@ It can be interleaved with `prev/2` during traversal.
 prev_lookup(_, _) ->
     erlang:nif_error(undef).
 
+%% Renames the named table `Table` to the new name `Name`.
 %% Shadowed by erl_bif_types: ets:rename/2
--doc """
-Renames the named table `Table` to the new name `Name`. Afterwards, the old name
-cannot be used to access the table. Renaming an unnamed table has no effect.
-""".
+-doc({file, "../doc/src/ets/rename-2.md"}).
 -spec rename(Table, Name) -> Name when
       Table :: table(),
       Name :: atom().
@@ -1228,61 +485,8 @@ cannot be used to access the table. Renaming an unnamed table has no effect.
 rename(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Fixes a table of type `set`, `bag`, or `duplicate_bag` for
-[safe traversal](`m:ets#traversal`) using `first/1` & `next/2`, `match/3` &
-`match/1`, `match_object/3` & `match_object/1`, or `select/3` & `select/1`.
-
-A process fixes a table by calling
-[`safe_fixtable(Table, true)`](`safe_fixtable/2`). The table remains fixed until
-the process releases it by calling
-[`safe_fixtable(Table, false)`](`safe_fixtable/2`), or until the process
-terminates.
-
-If many processes fix a table, the table remains fixed until all processes have
-released it (or terminated). A reference counter is kept on a per process basis,
-and N consecutive fixes requires N releases to release the table.
-
-When a table is fixed, a sequence of `first/1` and `next/2` calls are guaranteed
-to succeed even if keys are removed during the traversal. The keys for objects
-inserted or deleted during a traversal may or may not be returned by
-[`next/2`](`next/2`) depending on the ordering of keys within the table and if
-the key exists at the time [`next/2`](`next/2`) is called.
-
-_Example:_
-
-```erlang
-clean_all_with_value(Table,X) ->
-    safe_fixtable(Table,true),
-    clean_all_with_value(Table,X,ets:first(Table)),
-    safe_fixtable(Table,false).
-
-clean_all_with_value(Table,X,'$end_of_table') ->
-    true;
-clean_all_with_value(Table,X,Key) ->
-    case ets:lookup(Table,Key) of
-        [{Key,X}] ->
-            ets:delete(Table,Key);
-        _ ->
-            true
-    end,
-    clean_all_with_value(Table,X,ets:next(Table,Key)).
-```
-
-Notice that deleted objects are not freed from a fixed table until it has been
-released. If a process fixes a table but never releases it, the memory used by
-the deleted objects is never freed. The performance of operations on the table
-also degrades significantly.
-
-To retrieve information about which processes have fixed which tables, use
-[`info(Table, safe_fixed_monotonic_time)`](`m:ets#info_2_safe_fixed_monotonic_time`).
-A system with many processes fixing tables can need a monitor that sends alarms
-when tables have been fixed for too long.
-
-Notice that [`safe_fixtable/2`](`safe_fixtable/2`) is not necessary for table
-type `ordered_set` and for traversals done by a single ETS function call, like
-`select/2`.
-""".
+%% Fixes a table for safe traversal.
+-doc({file, "../doc/src/ets/safe_fixtable-2.md"}).
 -spec safe_fixtable(Table, Fix) -> true when
       Table :: table(),
       Fix :: boolean().
@@ -1290,115 +494,8 @@ type `ordered_set` and for traversals done by a single ETS function call, like
 safe_fixtable(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Matches the objects in table `Table` using a
-[match specification](`m:ets#match_spec`). This is a more general call than
-`match/2` and `match_object/2` calls. In its simplest form, the match
-specification is as follows:
-
-```text
-MatchSpec = [MatchFunction]
-MatchFunction = {MatchHead, [Guard], [Result]}
-MatchHead = "Pattern as in ets:match"
-Guard = {"Guardtest name", ...}
-Result = "Term construct"
-```
-
-This means that the match specification is always a list of one or more tuples
-(of arity 3). The first element of the tuple is to be a pattern as described in
-`match/2`. The second element of the tuple is to be a list of 0 or more guard
-tests (described below). The third element of the tuple is to be a list
-containing a description of the value to return. In almost all normal cases, the
-list contains exactly one term that fully describes the value to return for each
-object.
-
-The return value is constructed using the "match variables" bound in `MatchHead`
-or using the special match variables `'$_'` (the whole matching object) and
-`'$$'` (all match variables in a list), so that the following
-[`match/2`](`match/2`) expression:
-
-```text
-ets:match(Table,{'$1','$2','$3'})
-```
-
-is exactly equivalent to:
-
-```text
-ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
-```
-
-And that the following [`match_object/2`](`match_object/2`) call:
-
-```text
-ets:match_object(Table,{'$1','$2','$1'})
-```
-
-is exactly equivalent to
-
-```text
-ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
-```
-
-Composite terms can be constructed in the `Result` part either by simply writing
-a list, so that the following code:
-
-```text
-ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
-```
-
-gives the same output as:
-
-```text
-ets:select(Table,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])
-```
-
-That is, all the bound variables in the match head as a list. If tuples are to
-be constructed, one has to write a tuple of arity 1 where the single element in
-the tuple is the tuple one wants to construct (as an ordinary tuple can be
-mistaken for a `Guard`).
-
-Therefore the following call:
-
-```text
-ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
-```
-
-gives the same output as:
-
-```erlang
-ets:select(Table,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])
-```
-
-This syntax is equivalent to the syntax used in the trace patterns (see the
-`m:dbg`) module in Runtime_Tools.
-
-The `Guard`s are constructed as tuples, where the first element is the test name
-and the remaining elements are the test parameters. To check for a specific type
-(say a list) of the element bound to the match variable `'$1'`, one would write
-the test as `{is_list, '$1'}`. If the test fails, the object in the table does
-not match and the next `MatchFunction` (if any) is tried. Most guard tests
-present in Erlang can be used, but only the new versions prefixed `is_` are
-allowed (`is_float`, `is_atom`, and so on).
-
-The `Guard` section can also contain logic and arithmetic operations, which are
-written with the same syntax as the guard tests (prefix notation), so that the
-following guard test written in Erlang:
-
-```text
-is_integer(X), is_integer(Y), X + Y < 4711
-```
-
-is expressed as follows (`X` replaced with `'$1'` and `Y` with `'$2'`):
-
-```text
-[{is_integer, '$1'}, {is_integer, '$2'}, {'<', {'+', '$1', '$2'}, 4711}]
-```
-
-For tables of type `ordered_set`, objects are visited in the same order as in a
-`first`/`next` traversal. This means that the match specification is executed
-against objects with keys in the `first`/`next` order and the corresponding
-result list is in the order of that execution.
-""".
+%% Matches the objects in table `Table` using a match specification.
+-doc({file, "../doc/src/ets/select-2.md"}).
 -spec select(Table, MatchSpec) -> [Match] when
       Table :: table(),
       MatchSpec :: match_spec(),
@@ -1407,18 +504,8 @@ result list is in the order of that execution.
 select(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `select/2`, but only returns a limited (`Limit`) number of matching
-objects. Term `Continuation` can then be used in subsequent calls to `select/1`
-to get the next chunk of matching objects. This is a space-efficient way to work
-on objects in a table, which is still faster than traversing the table object by
-object using `first/1` and `next/2`.
-
-If the table is empty, `'$end_of_table'` is returned.
-
-Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
-subsequent calls to `select/1`.
-""".
+%% Works like `select/2`, but only returns a limited number of matching objects.
+-doc({file, "../doc/src/ets/select-3.md"}).
 -spec select(Table, MatchSpec, Limit) -> {[Match],Continuation} |
                                        '$end_of_table' when
       Table :: table(),
@@ -1430,13 +517,8 @@ subsequent calls to `select/1`.
 select(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Continues a match started with `select/3`. The next chunk of the size specified
-in the initial [`select/3`](`select/3`) call is returned together with a new
-`Continuation`, which can be used in subsequent calls to this function.
-
-When there are no more objects in the table, `'$end_of_table'` is returned.
-""".
+%% Continues a match started with `select/3`.
+-doc({file, "../doc/src/ets/select-1.md"}).
 -spec select(Continuation) -> {[Match],Continuation} | '$end_of_table' when
       Match :: term(),
       Continuation :: continuation().
@@ -1444,18 +526,9 @@ When there are no more objects in the table, `'$end_of_table'` is returned.
 select(_) ->
     erlang:nif_error(undef).
 
--doc """
-Matches the objects in table `Table` using a
-[match specification](`m:ets#match_spec`). If the match specification returns
-`true` for an object, that object considered a match and is counted. For any
-other result from the match specification the object is not considered a match
-and is therefore not counted.
-
-This function can be described as a `select_delete/2` function that does not
-delete any elements, but only counts them.
-
-The function returns the number of objects matched.
-""".
+%% Matches and counts the objects in table `Table` using a match specification.
+%% Returns the number of objects for which the match specification returned `true`.
+-doc({file, "../doc/src/ets/select_count-2.md"}).
 -spec select_count(Table, MatchSpec) -> NumMatched when
       Table :: table(),
       MatchSpec :: match_spec(),
@@ -1464,21 +537,9 @@ The function returns the number of objects matched.
 select_count(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Matches the objects in table `Table` using a
-[match specification](`m:ets#match_spec`). If the match specification returns
-`true` for an object, that object is removed from the table. For any other
-result from the match specification the object is retained. This is a more
-general call than the `match_delete/2` call.
-
-The function returns the number of objects deleted from the table.
-
-> #### Note {: .info }
->
-> The match specification has to return the atom `true` if the object is to be
-> deleted. No other return value gets the object deleted. So one cannot use the
-> same match specification for looking up elements as for deleting them.
-""".
+%% Matches and deletes the objects in table `Table` using a match specification.
+%% Returns the number of objects deleted from the table.
+-doc({file, "../doc/src/ets/select_delete-2.md"}).
 -spec select_delete(Table, MatchSpec) -> NumDeleted when
       Table :: table(),
       MatchSpec :: match_spec(),
@@ -1498,48 +559,9 @@ select_delete(Table, MatchSpec) ->
 internal_select_delete(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Matches the objects in the table `Table` using a
-[match specification](`m:ets#match_spec`). For each matched object, the existing
-object is replaced with the match specification result.
-
-The match-and-replace operation for each individual object is guaranteed to be
-[atomic and isolated](`m:ets#module-concurrency`). The `select_replace` table traversal
-as a whole, like all other select functions, does not give such guarantees.
-
-The match specification must be guaranteed to _retain the key_ of any matched
-object. If not, `select_replace` will fail with `badarg` without updating any
-objects.
-
-For the moment, due to performance and semantic constraints, tables of type
-`bag` are not yet supported.
-
-The function returns the total number of replaced objects.
-
-_Example_
-
-For all 2-tuples with a list in second position, add atom `'marker'` first in
-the list:
-
-```erlang
-1> T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).
-true
-2> MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).
-[{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
-3> ets:select_replace(T, MS).
-1
-4> ets:tab2list(T).
-[{key,[marker,1,2,3]}]
-```
-
-A generic single object compare-and-swap operation:
-
-```erlang
-[Old] = ets:lookup(T, Key),
-New = update_object(Old),
-Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
-```
-""".
+%% Matches and replaces the objects in table `Table` using a match specification.
+%% Returns the number of objects replaced in the table.
+-doc({file, "../doc/src/ets/select_replace-2.md"}).
 -doc(#{since => <<"OTP 20.0">>}).
 -spec select_replace(Table, MatchSpec) -> NumReplaced when
       Table :: table(),
@@ -1549,11 +571,9 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
 select_replace(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `select/2`, but returns the list in reverse order for table type
-`ordered_set`. For all other table types, the return value is identical to that
-of [`select/2`](`select/2`).
-""".
+%% Works like `select/2`, but returns the list in reverse order for table type
+%% `ordered_set`. Same as `select/2` for all other table types.
+-doc({file, "../doc/src/ets/select_reverse-2.md"}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec select_reverse(Table, MatchSpec) -> [Match] when
       Table :: table(),
@@ -1563,16 +583,10 @@ of [`select/2`](`select/2`).
 select_reverse(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Works like `select/3`, but for table type `ordered_set` traversing is done
-starting at the last object in Erlang term order and moves to the first. For all
-other table types, the return value is identical to that of
-[`select/3`](`select/3`).
-
-Notice that this is _not_ equivalent to reversing the result list of a
-[`select/3`](`select/3`) call, as the result list is not only reversed, but also
-contains the last `Limit` matching objects in the table, not the first.
-""".
+%% Works like `select/3`, but for table type `ordered_set` traversing is done
+%% starting at the last object in Erlang term order and moves to the first. Same
+%% as `select/3` for all other table types.
+-doc({file, "../doc/src/ets/select_reverse-3.md"}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec select_reverse(Table, MatchSpec, Limit) -> {[Match],Continuation} |
                                                '$end_of_table' when
@@ -1585,35 +599,8 @@ contains the last `Limit` matching objects in the table, not the first.
 select_reverse(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-Continues a match started with `select_reverse/3`. For tables of type
-`ordered_set`, the traversal of the table continues to objects with keys earlier
-in the Erlang term order. The returned list also contains objects with keys in
-reverse order. For all other table types, the behavior is exactly that of
-`select/1`.
-
-_Example:_
-
-```erlang
-1> T = ets:new(x,[ordered_set]).
-2> [ ets:insert(T,{N}) || N <- lists:seq(1,10) ].
-...
-3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
-...
-4> R0.
-[{10},{9},{8},{7}]
-5> {R1,C1} = ets:select_reverse(C0).
-...
-6> R1.
-[{6},{5},{4},{3}]
-7> {R2,C2} = ets:select_reverse(C1).
-...
-8> R2.
-[{2},{1}]
-9> '$end_of_table' = ets:select_reverse(C2).
-...
-```
-""".
+%% Continues a match started with `select_reverse/3`.
+-doc({file, "../doc/src/ets/select_reverse-1.md"}).
 -doc(#{since => <<"OTP R14B">>}).
 -spec select_reverse(Continuation) -> {[Match],Continuation} |
                                       '$end_of_table' when
@@ -1623,10 +610,8 @@ _Example:_
 select_reverse(_) ->
     erlang:nif_error(undef).
 
--doc """
-Sets table options. The only allowed option to be set after the table has been
-created is [`heir`](`m:ets#heir`). The calling process must be the table owner.
-""".
+%% Sets table options.
+-doc({file, "../doc/src/ets/setopts-2.md"}).
 -spec setopts(Table, Opts) -> true when
       Table :: table(),
       Opts :: Opt | [Opt],
@@ -1636,20 +621,8 @@ created is [`heir`](`m:ets#heir`). The calling process must be the table owner.
 setopts(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-This function is mostly for debugging purposes, normally `first`/`next` or
-`last`/`prev` are to be used instead.
-
-Returns all objects in slot `I` of table `Table`. A table can be traversed by
-repeatedly calling the function, starting with the first slot `I=0` and ending
-when `'$end_of_table'` is returned. If argument `I` is out of range, the
-function fails with reason `badarg`.
-
-Unless a table of type `set`, `bag`, or `duplicate_bag` is protected using
-`safe_fixtable/2`, a traversal can fail if concurrent updates are made to the
-table. For table type `ordered_set`, the function returns a list containing
-object `I` in Erlang term order.
-""".
+%% Returns all objects in slot `I` of table `Table`.
+-doc({file, "../doc/src/ets/slot-2.md"}).
 -spec slot(Table, I) -> [Object] | '$end_of_table' when
       Table :: table(),
       I :: non_neg_integer(),
@@ -1658,13 +631,8 @@ object `I` in Erlang term order.
 slot(_, _) ->
     erlang:nif_error(undef).
 
--doc """
-Returns and removes a list of all objects with key `Key` in table `Table`.
-
-The specified `Key` is used to identify the object by either _comparing equal_
-the key of an object in an `ordered_set` table, or _matching_ in other types of
-tables (for details on the difference, see `lookup/2` and `new/2`).
-""".
+%% Returns and removes a list of all objects with key `Key` in table `Table`.
+-doc({file, "../doc/src/ets/take-2.md"}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec take(Table, Key) -> [Object] when
       Table :: table(),
@@ -1674,8 +642,8 @@ tables (for details on the difference, see `lookup/2` and `new/2`).
 take(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => update_counter/4}).
--doc(#{since => <<"OTP 18.0">>}).
+%% Update one or more counters efficiently.
+-doc({file, "../doc/src/ets/update_counter-3.md"}).
 -spec update_counter(Table, Key, UpdateOp | [UpdateOp] | Incr) -> Result | [Result] when
       Table :: table(),
       Key :: term(),
@@ -1689,55 +657,8 @@ take(_, _) ->
 update_counter(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-This function provides an efficient way to update one or more counters, without
-the trouble of having to look up an object, update the object by incrementing an
-element, and insert the resulting object into the table again. The operation is
-guaranteed to be [atomic and isolated](`m:ets#module-concurrency`).
-
-This function destructively updates the object with key `Key` in table `Table`
-by adding `Incr` to the element at position `Pos`. The new counter value is
-returned. If no position is specified, the element directly following key
-(`<keypos>+1`) is updated.
-
-If a `Threshold` is specified, the counter is reset to value `SetValue` if the
-following conditions occur:
-
-- `Incr` is not negative (`>= 0`) and the result would be greater than (`>`)
-  `Threshold`.
-- `Incr` is negative (`< 0`) and the result would be less than (`<`)
-  `Threshold`.
-
-A list of `UpdateOp` can be supplied to do many update operations within the
-object. The operations are carried out in the order specified in the list. If
-the same counter position occurs more than once in the list, the corresponding
-counter is thus updated many times, each time based on the previous result. The
-return value is a list of the new counter values from each update operation in
-the same order as in the operation list. If an empty list is specified, nothing
-is updated and an empty list is returned. If the function fails, no updates are
-done.
-
-The specified `Key` is used to identify the object by either _matching_ the key
-of an object in a `set` table, or _compare equal_ to the key of an object in an
-`ordered_set` table (for details on the difference, see `lookup/2` and `new/2`).
-
-If a default object `Default` is specified, it is used as the object to be
-updated if the key is missing from the table. The value in place of the key is
-ignored and replaced by the proper key value. The return value is as if the
-default object had not been used, that is, a single updated element or a list of
-them.
-
-The function fails with reason `badarg` in the following situations:
-
-- The table type is not `set` or `ordered_set`.
-- No object with the correct key exists and no default object was supplied.
-- The object has the wrong arity.
-- The default object arity is smaller than `<keypos>`.
-- Any field from the default object that is updated is not an integer.
-- The element to update is not an integer.
-- The element to update is also the key.
-- Any of `Pos`, `Incr`, `Threshold`, or `SetValue` is not an integer.
-""".
+%% Update one or more counters efficiently.
+-doc({file, "../doc/src/ets/update_counter-4.md"}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec update_counter(Table, Key, UpdateOp | Incr | [UpdateOp], Default) -> Result | [Result] when
       Table :: table(),
@@ -1754,8 +675,7 @@ The function fails with reason `badarg` in the following situations:
 update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => update_element/4}).
--doc(#{since => <<"OTP @OTP-18870@">>}).
+-doc({file, "../doc/src/ets/update_element-3.md"}).
 -spec update_element(Table, Key, ElementSpec) -> boolean() when
       Table :: table(),
       Key :: term(),
@@ -1766,38 +686,8 @@ update_counter(_, _, _, _) ->
 update_element(_, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-This function provides an efficient way to update one or more elements within an
-object, without the trouble of having to look up, update, and write back the
-entire object.
-
-This function destructively updates the object with key `Key` in table `Table`.
-The element at position `Pos` is given the value `Value`.
-
-A list of `{Pos,Value}` can be supplied to update many elements within the same
-object. If the same position occurs more than once in the list, the last value
-in the list is written. If the list is empty or the function fails, no updates
-are done. The function is also atomic in the sense that other processes can
-never see any intermediate results.
-
-Returns `true` if an object with key `Key` is found, otherwise `false`.
-
-The specified `Key` is used to identify the object by either _matching_ the key
-of an object in a `set` table, or _compare equal_ to the key of an object in an
-`ordered_set` table (for details on the difference, see `lookup/2` and `new/2`).
-
-If a default object `Default` is specified, it is used as the object to be
-updated if the key is missing from the table. The value in place of the key is
-ignored and replaced by the proper key value.
-
-The function fails with reason `badarg` in the following situations:
-
-- The table type is not `set` or `ordered_set`.
-- `Pos` < 1.
-- `Pos` > object arity.
-- The default object arity is smaller than `<keypos>`.
-- The element to update is also the key.
-""".
+%% Update one or more elements within an object efficiently.
+-doc({file, "../doc/src/ets/update_element-4.md"}).
 -doc(#{since => <<"OTP @OTP-18870@">>}).
 -spec update_element(Table, Key, ElementSpec, Default) -> true when
       Table :: table(),
@@ -1810,15 +700,9 @@ The function fails with reason `badarg` in the following situations:
 update_element(_, _, _, _) ->
     erlang:nif_error(undef).
 
--doc """
-This function returns the `t:tid/0` of the named table identified by
-`TableName`, or `undefined` if no such table exists. The `t:tid/0` can be used
-in place of the table name in all operations, which is slightly faster since the
-name does not have to be resolved on each call.
-
-If the table is deleted, the `t:tid/0` will be invalid even if another named
-table is created with the same name.
-""".
+%% Returns the `t:tid/0` of the named table identified by `TableName`,
+%% or `undefined` if no such table exists.
+-doc({file, "../doc/src/ets/whereis-1.md"}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec whereis(TableName) -> tid() | undefined when
     TableName :: atom().
@@ -1831,39 +715,8 @@ whereis(_) ->
 -opaque compiled_match_spec() :: reference().
 -type comp_match_spec() :: compiled_match_spec().
 
--doc """
-Executes the matching specified in a compiled
-[match specification](`m:ets#match_spec`) on a list of terms. Term
-`CompiledMatchSpec` is to be the result of a call to `match_spec_compile/1` and
-is hence the internal representation of the match specification one wants to
-use.
-
-The matching is executed on each element in `List` and the function returns a
-list containing all results. If an element in `List` does not match, nothing is
-returned for that element. The length of the result list is therefore equal or
-less than the length of parameter `List`.
-
-_Example:_
-
-The following two calls give the same result (but certainly not the same
-execution time):
-
-```erlang
-Table = ets:new...
-MatchSpec = ...
-% The following call...
-ets:match_spec_run(ets:tab2list(Table),
-                   ets:match_spec_compile(MatchSpec)),
-% ...gives the same result as the more common (and more efficient)
-ets:select(Table, MatchSpec),
-```
-
-> #### Note {: .info }
->
-> This function has limited use in normal code. It is used by the `m:dets`
-> module to perform the `dets:select/1` operations and by Mnesia during
-> transactions.
-""".
+%% Executes the matching specified in a compiled match specification on a list of terms.
+-doc({file, "../doc/src/ets/match_spec_run-2.md"}).
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
       List :: [term()],
       CompiledMatchSpec :: compiled_match_spec().
@@ -1871,55 +724,9 @@ ets:select(Table, MatchSpec),
 match_spec_run(List, CompiledMS) ->
     lists:reverse(ets:match_spec_run_r(List, CompiledMS, [])).
 
--doc """
-Restores an opaque continuation returned by `select/3` or `select/1` if the
-continuation has passed through external term format (been sent between nodes or
-stored on disk).
-
-The reason for this function is that continuation terms contain compiled match
-specifications and may therefore be invalidated if converted to external term
-format. Given that the original match specification is kept intact, the
-continuation can be restored, meaning it can once again be used in subsequent
-[`select/1`](`select/1`) calls even though it has been stored on disk or on
-another node.
-
-_Examples:_
-
-The following sequence of calls may fail:
-
-```erlang
-T=ets:new(x,[]),
-...
-MS = ets:fun2ms(fun({N,_}=A) when (N rem 10) =:= 0 -> A end),
-{_,C} = ets:select(T, MS, 10),
-MaybeBroken = binary_to_term(term_to_binary(C)),
-ets:select(MaybeBroken).
-```
-
-The following sequence works, as the call to
-[`repair_continuation/2`](`repair_continuation/2`) reestablishes the
-`MaybeBroken` continuation.
-
-```erlang
-T=ets:new(x,[]),
-...
-MS = ets:fun2ms(fun({N,_}=A) when (N rem 10) =:= 0 -> A end),
-{_,C} = ets:select(T,MS,10),
-MaybeBroken = binary_to_term(term_to_binary(C)),
-ets:select(ets:repair_continuation(MaybeBroken,MS)).
-```
-
-> #### Note {: .info }
->
-> This function is rarely needed in application code. It is used by Mnesia to
-> provide distributed [`select/3`](`select/3`) and [`select/1`](`select/1`)
-> sequences. A normal application would either use Mnesia or keep the
-> continuation from being converted to external format.
->
-> The actual behavior of compiled match specifications when recreated from
-> external format has changed and may change in future releases, but this
-> interface remains for backward compatibility. See `is_compiled_ms/1`.
-""".
+%% Restores an opaque continuation if the continuation has passed through
+%% external term format (been sent between nodes or stored on disk).
+-doc({file, "../doc/src/ets/repair_continuation-2.md"}).
 -spec repair_continuation(Continuation, MatchSpec) -> Continuation when
       Continuation :: continuation(),
       MatchSpec :: match_spec().
@@ -1956,70 +763,9 @@ repair_continuation(Untouched = {Table,N1,N2,MSRef,L,N3}, MS)
 	    {Table,N1,N2,ets:match_spec_compile(MS),L,N3}
     end.
 
--doc """
-Pseudo function that by a `parse_transform` translates `LiteralFun` typed as
-parameter in the function call to a [match specification](`m:ets#match_spec`).
-With "literal" is meant that the fun must textually be written as the parameter
-of the function, it cannot be held in a variable that in turn is passed to the
-function.
-
-The parse transform is provided in the `ms_transform` module and the source
-_must_ include file `ms_transform.hrl` in STDLIB for this pseudo function to
-work. Failing to include the hrl file in the source results in a runtime error,
-not a compile time error. The include file is easiest included by adding line
-`-include_lib("stdlib/include/ms_transform.hrl").` to the source file.
-
-The fun is very restricted, it can take only a single parameter (the object to
-match): a sole variable or a tuple. It must use the `is_` guard tests. Language
-constructs that have no representation in a match specification (`if`, `case`,
-`receive`, and so on) are not allowed.
-
-The return value is the resulting match specification.
-
-_Example:_
-
-```erlang
-1> ets:fun2ms(fun({M,N}) when N > 3 -> M end).
-[{{'$1','$2'},[{'>','$2',3}],['$1']}]
-```
-
-Variables from the environment can be imported, so that the following works:
-
-```erlang
-2> X=3.
-3
-3> ets:fun2ms(fun({M,N}) when N > X -> M end).
-[{{'$1','$2'},[{'>','$2',{const,3}}],['$1']}]
-```
-
-The imported variables are replaced by match specification `const` expressions,
-which is consistent with the static scoping for Erlang funs. However, local or
-global function calls cannot be in the guard or body of the fun. Calls to
-built-in match specification functions is of course allowed:
-
-```erlang
-4> ets:fun2ms(fun({M,N}) when N > X, my_fun(M) -> M end).
-Error: fun containing local Erlang function calls
-('my_fun' called in guard) cannot be translated into match_spec
-{error,transform_error}
-5> ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).
-[{{'$1','$2'},[{'>','$2',{const,3}},{is_atom,'$1'}],['$1']}]
-```
-
-As shown by the example, the function can be called from the shell also. The fun
-must be literally in the call when used from the shell as well.
-
-> #### Warning {: .warning }
->
-> If the `parse_transform` is not applied to a module that calls this pseudo
-> function, the call fails in runtime (with a `badarg`). The `ets` module
-> exports a function with this name, but it is never to be called except when
-> using the function in the shell. If the `parse_transform` is properly applied
-> by including header file `ms_transform.hrl`, compiled code never calls the
-> function, but the function call is replaced by a literal match specification.
-
-For more information, see [`ms_transform`](`m:ms_transform`).
-""".
+%% Pseudo function that by a `parse_transform` translates `LiteralFun` typed as
+%% parameter in the function call to a match specification.
+-doc({file, "../doc/src/ets/fun2ms-1.md"}).
 -spec fun2ms(LiteralFun) -> MatchSpec when
       LiteralFun :: function(),
       MatchSpec :: match_spec().
@@ -2046,15 +792,10 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                            shell]}})
     end.
 
--doc """
-`Acc0` is returned if the table is empty. This function is similar to
-`lists:foldl/3`. The table elements are traversed in an unspecified order,
-except for `ordered_set` tables, where they are traversed first to last.
-
-If `Function` inserts objects into the table, or another process inserts objects
-into the table, those objects _can_ (depending on key ordering) be included in
-the traversal.
-""".
+%% Fold over elements in `Table`. For `ordered_set` tables, the elements are
+%% traversed first to last, for all other table types the traversal order is not
+%% specified.
+-doc({file, "../doc/src/ets/foldl-3.md"}).
 -spec foldl(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
       Table :: table(),
@@ -2078,15 +819,10 @@ do_foldl(F, Accu0, {Key, Objects}, T) ->
     Accu = lists:foldl(F, Accu0, Objects),
     do_foldl(F, Accu, ets:next_lookup(T, Key), T).
 
--doc """
-`Acc0` is returned if the table is empty. This function is similar to
-`lists:foldr/3`. The table elements are traversed in an unspecified order,
-except for `ordered_set` tables, where they are traversed last to first.
-
-If `Function` inserts objects into the table, or another process inserts objects
-into the table, those objects _can_ (depending on key ordering) be included in
-the traversal.
-""".
+%% Fold over elements in `Table`. For `ordered_set` tables, the elements are
+%% traversed last to first, for all other table types the traversal order is not
+%% specified.
+-doc({file, "../doc/src/ets/foldr-3.md"}).
 -spec foldr(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
       Table :: table(),
@@ -2117,13 +853,9 @@ soft_whereis(Table) when is_atom(Table) ->
     end;
 soft_whereis(Table) -> Table.
 
--doc """
-Fills an already created ETS table with the objects in the already opened Dets
-table `DetsTab`. Existing objects in the ETS table are kept unless overwritten.
-
-If any of the tables does not exist or the Dets table is not open, a `badarg`
-exception is raised.
-""".
+%% Fills an already created ETS table with the objects in the already opened DETS
+%% table.
+-doc({file, "../doc/src/ets/from_dets-2.md"}).
 -spec from_dets(Table, DetsTab) -> 'true' when
       Table :: table(),
       DetsTab :: dets:tab_name().
@@ -2142,11 +874,8 @@ from_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--doc """
-Fills an already created/opened Dets table with the objects in the already
-opened ETS table named `Table`. The Dets table is emptied before the objects are
-inserted.
-""".
+%% Fills an already opened DETS table with the objects in the ETS table.
+-doc({file, "../doc/src/ets/to_dets-2.md"}).
 -spec to_dets(Table, DetsTab) -> DetsTab when
       Table :: table(),
       DetsTab :: dets:tab_name().
@@ -2165,25 +894,8 @@ to_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--doc """
-This function is a utility to test a [match specification](`m:ets#match_spec`)
-used in calls to `select/2`. The function both tests `MatchSpec` for "syntactic"
-correctness and runs the match specification against object `Tuple`.
-
-If the match specification is syntactically correct, the function either returns
-`{ok,Result}`, where `Result` is what would have been the result in a real
-[`select/2`](`select/2`) call, or `false` if the match specification does not
-match object `Tuple`.
-
-If the match specification contains errors, tuple `{error, Errors}` is returned,
-where `Errors` is a list of natural language descriptions of what was wrong with
-the match specification.
-
-This is a useful debugging and test tool, especially when writing complicated
-[`select/2`](`select/2`) calls.
-
-See also: `erlang:match_spec_test/3`.
-""".
+%% Test a match specification used in the `select` family of functions.
+-doc({file, "../doc/src/ets/test_ms-2.md"}).
 -spec test_ms(Tuple, MatchSpec) -> {'ok', Result} | {'error', Errors} when
       Tuple :: tuple(),
       MatchSpec :: match_spec(),
@@ -2198,24 +910,9 @@ test_ms(Term, MS) ->
 	    Error
     end.
 
--doc """
-Replaces the existing objects of table `Table` with objects created by calling
-the input function `InitFun`, see below. This function is provided for
-compatibility with the `dets` module, it is not more efficient than filling a
-table by using `insert/2`.
-
-When called with argument `read`, the function `InitFun` is assumed to return
-`end_of_input` when there is no more input, or `{Objects, Fun}`, where `Objects`
-is a list of objects and `Fun` is a new input function. Any other value `Value`
-is returned as an error `{error, {init_fun, Value}}`. Each input function is
-called exactly once, and if an error occur, the last function is called with
-argument `close`, the reply of which is ignored.
-
-If the table type is `set` and more than one object exists with a given key, one
-of the objects is chosen. This is not necessarily the last object with the given
-key in the sequence of objects returned by the input functions. This holds also
-for duplicated objects stored in tables of type `bag`.
-""".
+%% Replaces the existing objects of table `Table` with objects created by calling
+%% the input function `InitFun`.
+-doc({file, "../doc/src/ets/init_table-2.md"}).
 -spec init_table(Table, InitFun) -> 'true' when
       Table :: table(),
       InitFun :: fun((Arg) -> Res),
@@ -2245,10 +942,8 @@ init_table_sub(Table, [H|T]) ->
     ets:insert(Table, H),
     init_table_sub(Table, T).
 
--doc """
-Deletes all objects that match pattern `Pattern` from table `Table`. For a
-description of patterns, see `match/2`.
-""".
+%% Deletes all objects that match pattern `Pattern` from table `Table`.
+-doc({file, "../doc/src/ets/match_delete-2.md"}).
 -spec match_delete(Table, Pattern) -> 'true' when
       Table :: table(),
       Pattern :: match_pattern().
@@ -2284,11 +979,7 @@ tab2list(T) ->
 	  sync         = false :: boolean()
 	 }).
 
--doc """
-Dumps table `Table` to file `Filename`.
-
-Equivalent to [`tab2file(Table, Filename,[])`](`tab2file/3`)
-""".
+-doc(#{equiv => tab2file(Table, Filename, [])}).
 -spec tab2file(Table, Filename) -> 'ok' | {'error', Reason} when
       Table :: table(),
       Filename :: file:name(),
@@ -2297,40 +988,8 @@ Equivalent to [`tab2file(Table, Filename,[])`](`tab2file/3`)
 tab2file(Table, File) ->
     tab2file(Table, File, []).
 
--doc """
-Dumps table `Table` to file `Filename`.
-
-When dumping the table, some information about the table is dumped to a header
-at the beginning of the dump. This information contains data about the table
-type, name, protection, size, version, and if it is a named table. It also
-contains notes about what extended information is added to the file, which can
-be a count of the objects in the file or a MD5 sum of the header and records in
-the file.
-
-The size field in the header might not correspond to the number of records in
-the file if the table is public and records are added or removed from the table
-during dumping. Public tables updated during dump, and that one wants to verify
-when reading, needs at least one field of extended information for the read
-verification process to be reliable later.
-
-Option `extended_info` specifies what extra information is written to the table
-dump:
-
-- **`object_count`** - The number of objects written to the file is noted in the
-  file footer, so file truncation can be verified even if the file was updated
-  during dump.
-
-- **`md5sum`** - The header and objects in the file are checksummed using the
-  built-in MD5 functions. The MD5 sum of all objects is written in the file
-  footer, so that verification while reading detects the slightest bitflip in
-  the file data. Using this costs a fair amount of CPU time.
-
-Whenever option `extended_info` is used, it results in a file not readable by
-versions of ETS before that in STDLIB 1.15.1
-
-If option `sync` is set to `true`, it ensures that the content of the file is
-written to the disk before `tab2file` returns. Defaults to `{sync, false}`.
-""".
+%% Dumps table `Table` to file `Filename`.
+-doc({file, "../doc/src/ets/tab2file-3.md"}).
 -spec tab2file(Table, Filename, Options) -> 'ok' | {'error', Reason} when
       Table :: table(),
       Filename :: file:name(),
@@ -2511,12 +1170,7 @@ parse_ft_info_options(_,Malformed) ->
 %% Opt := {verify,boolean()}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc """
-Reads a file produced by `tab2file/2` or `tab2file/3` and creates the
-corresponding table `Table`.
-
-Equivalent to [`file2tab(Filename, [])`](`file2tab/2`).
-""".
+-doc(#{equiv => file2tab(Filename, [])}).
 -spec file2tab(Filename) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
       Table :: table(),
@@ -2525,29 +1179,9 @@ Equivalent to [`file2tab(Filename, [])`](`file2tab/2`).
 file2tab(File) ->
     file2tab(File, []).
 
--doc """
-Reads a file produced by `tab2file/2` or `tab2file/3` and creates the
-corresponding table `Table`.
-
-The only supported option is `{verify,boolean()}`. If verification is turned on
-(by specifying `{verify,true}`), the function uses whatever information is
-present in the file to assert that the information is not damaged. How this is
-done depends on which `extended_info` was written using `tab2file/3`.
-
-If no `extended_info` is present in the file and `{verify,true}` is specified,
-the number of objects written is compared to the size of the original table when
-the dump was started. This can make verification fail if the table was `public`
-and objects were added or removed while the table was dumped to file. To avoid
-this problem, either do not verify files dumped while updated simultaneously or
-use option `{extended_info, [object_count]}` to `tab2file/3`, which extends the
-information in the file with the number of objects written.
-
-If verification is turned on and the file was written with option
-`{extended_info, [md5sum]}`, reading the file is slower and consumes radically
-more CPU time than otherwise.
-
-`{verify,false}` is the default.
-""".
+%% Reads a file produced by `tab2file/2` or `tab2file/3` and creates the
+%% corresponding table `Table`.
+-doc({file, "../doc/src/ets/file2tab-2.md"}).
 -spec file2tab(Filename, Options) -> {'ok', Table} | {'error', Reason} when
       Filename :: file:name(),
       Table :: table(),
@@ -2957,51 +1591,9 @@ create_tab(I, TableArg) ->
 %% information
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--doc """
-Returns information about the table dumped to file by `tab2file/2` or
-`tab2file/3`.
-
-The following items are returned:
-
-- **`name`** - The name of the dumped table. If the table was a named table, a
-  table with the same name cannot exist when the table is loaded from file with
-  `file2tab/2`. If the table is not saved as a named table, this field has no
-  significance when loading the table from file.
-
-- **`type`** - The ETS type of the dumped table (that is, `set`, `bag`,
-  `duplicate_bag`, or `ordered_set`). This type is used when loading the table
-  again.
-
-- **`protection`** - The protection of the dumped table (that is, `private`,
-  `protected`, or `public`). A table loaded from the file gets the same
-  protection.
-
-- **`named_table`** - `true` if the table was a named table when dumped to file,
-  otherwise `false`. Notice that when a named table is loaded from a file, there
-  cannot exist a table in the system with the same name.
-
-- **`keypos`** - The `keypos` of the table dumped to file, which is used when
-  loading the table again.
-
-- **`size`** - The number of objects in the table when the table dump to file
-  started. For a `public` table, this number does not need to correspond to the
-  number of objects saved to the file, as objects can have been added or deleted
-  by another process during table dump.
-
-- **`extended_info`** - The extended information written in the file footer to
-  allow stronger verification during table loading from file, as specified to
-  `tab2file/3`. Notice that this function only tells _which_ information is
-  present, not the values in the file footer. The value is a list containing one
-  or more of the atoms `object_count` and `md5sum`.
-
-- **`version`** - A tuple `{Major,Minor}` containing the major and minor version
-  of the file format for ETS table dumps. This version field was added beginning
-  with STDLIB 1.5.1. Files dumped with older versions return `{0,0}` in this
-  field.
-
-An error is returned if the file is inaccessible, badly damaged, or not produced
-with `tab2file/2` or `tab2file/3`.
-""".
+%% Returns information about the table dumped to file by `tab2file/2` or
+%% `tab2file/3`.
+-doc({file, "../doc/src/ets/tabfile_info-1.md"}).
 -spec tabfile_info(Filename) -> {'ok', TableInfo} | {'error', Reason} when
       Filename :: file:name(),
       TableInfo :: [InfoItem],
@@ -3064,7 +1656,7 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 	    {error,ExReason}
     end.
 
--doc(#{equiv => table/2}).
+-doc(#{equiv => table(Table, [])}).
 -spec table(Table) -> QueryHandle when
       Table :: table(),
       QueryHandle :: qlc:query_handle().
@@ -3072,63 +1664,8 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 table(Table) ->
     table(Table, []).
 
--doc """
-Returns a Query List Comprehension (QLC) query handle. The `m:qlc` module
-provides a query language aimed mainly at Mnesia, but ETS tables, Dets tables,
-and lists are also recognized by QLC as sources of data. Calling `table/1,2` is
-the means to make the ETS table `Table` usable to QLC.
-
-When there are only simple restrictions on the key position, QLC uses `lookup/2`
-to look up the keys. When that is not possible, the whole table is traversed.
-Option `traverse` determines how this is done:
-
-- **`first_next`** - The table is traversed one key at a time by calling
-  `first/1` and `next/2`.
-
-- **`last_prev`** - The table is traversed one key at a time by calling `last/1`
-  and `prev/2`.
-
-- **`select`** - The table is traversed by calling `select/3` and `select/1`.
-  Option `n_objects` determines the number of objects returned (the third
-  argument of [`select/3`](`select/3`)); the default is to return `100` objects
-  at a time. The [match specification](`m:ets#match_spec`) (the second argument
-  of [`select/3`](`select/3`)) is assembled by QLC: simple filters are
-  translated into equivalent match specifications while more complicated filters
-  must be applied to all objects returned by [`select/3`](`select/3`) given a
-  match specification that matches all objects.
-
-- **`{select, MatchSpec}`** - As for `select`, the table is traversed by calling
-  `select/3` and `select/1`. The difference is that the match specification is
-  explicitly specified. This is how to state match specifications that cannot
-  easily be expressed within the syntax provided by QLC.
-
-_Examples:_
-
-An explicit match specification is here used to traverse the table:
-
-```erlang
-9> true = ets:insert(Table = ets:new(t, []), [{1,a},{2,b},{3,c},{4,d}]),
-MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
-QH1 = ets:table(Table, [{traverse, {select, MS}}]).
-```
-
-An example with an implicit match specification:
-
-```erlang
-10> QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Table), (X > 1) or (X < 5)]).
-```
-
-The latter example is equivalent to the former, which can be verified using
-function `qlc:info/1`:
-
-```erlang
-11> qlc:info(QH1) =:= qlc:info(QH2).
-true
-```
-
-`qlc:info/1` returns information about a query handle, and in this case
-identical information is returned for the two query handles.
-""".
+%% Returns a Query List Comprehension (QLC) query handle.
+-doc({file, "../doc/src/ets/table-2.md"}).
 -spec table(Table, Options) -> QueryHandle when
       Table :: table(),
       QueryHandle :: qlc:query_handle(),
