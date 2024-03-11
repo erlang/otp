@@ -356,8 +356,6 @@ handle_event(_, _, State, Data) ->
 
 -include("logger.hrl").
 
--deprecated_callback({format_status, 2, "use format_status/1 instead"}).
-
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
 %%%       above monitor_return() in gen.erl!

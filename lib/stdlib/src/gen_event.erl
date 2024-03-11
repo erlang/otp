@@ -161,8 +161,6 @@ event manager does not exist or if bad arguments are specified.
 
 -include("logger.hrl").
 
--deprecated_callback({format_status, 2, "use format_status/1 instead"}).
-
 %%%=========================================================================
 %%%  API
 %%%=========================================================================

@@ -207,8 +207,6 @@ details regarding error handling using exit signals.
 
 -include("logger.hrl").
 
--deprecated_callback({format_status, 2, "use format_status/1 instead"}).
-
 -export_type(
    [from/0,
     reply_tag/0,

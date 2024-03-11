@@ -121,6 +121,12 @@ information about the supported standards see [ssl(6)](ssl_app.md).
 %% Tracing
 -export([handle_trace/3]).
 
+-deprecated([{prf,5,"Use export_key_materials/4 instead. "
+              "Note that in OTP 28 the 'testing' way of calling this function will no longer be supported."
+              }]).
+
+-deprecated_type([{prf_random, 0,"Only used in deprecated function prf/5 and will no longer be needed."}]).
+
 -removed({ssl_accept, '_', 
           "use ssl_handshake/1,2,3 instead"}).
 -removed({cipher_suites, 0, 
@@ -891,7 +897,7 @@ Signature algorithms used for certificates may be overridden by the
 `signature_algs_cert` option.
 
 TLS-1.2 default is Default_TLS_12_Alg_Pairs interleaved with rsa_pss_schemes
-since ssl-11.0 (OTP-25) pss_pss is prefered over pss_rsae that is prefered over
+since ssl-11.0 (OTP 25) pss_pss is prefered over pss_rsae that is prefered over
 rsa
 
 `Default_TLS_12_Alg_Pairs =`
@@ -909,8 +915,8 @@ rsa
 ```
 
 Support for \{md5, rsa\} was removed from the the TLS-1.2 default in ssl-8.0
-(OTP-22) and support for SHA1 \{sha, _\} and SHA224 \{sha224, _\} was removed in
-ssl-11.0 (OTP-26)
+(OTP 22) and support for SHA1 \{sha, _\} and SHA224 \{sha224, _\} was removed in
+ssl-11.0 (OTP 26)
 
 `rsa_pss_schemes =`
 
@@ -951,7 +957,7 @@ ecdsa_secp256r1_sha256] ++
 rsa_pss_schemes()
 ```
 
-EDDSA was made highest priority in ssl-10.8 (OTP-25)
+EDDSA was made highest priority in ssl-10.8 (OTP 25)
 
 TLS-1.3 default is
 
@@ -1338,10 +1344,10 @@ receiver and cannot be changed.
                                 {stapling, stapling()}.
 
 -doc """
-Defaults to `verify_peer`, since OTP-26, which means the option cacerts or cacertfile is also required
+Defaults to `verify_peer`, since OTP 26, which means the option cacerts or cacertfile is also required
 to perform the certificate verification unless <c>verify_none</c> is explicitly configured.
 For example an `HTTPS` client would normally use the option
-`{cacerts, public_key:cacerts_get()}` (available since OTP-25) to access the CA
+`{cacerts, public_key:cacerts_get()}` (available since OTP 25) to access the CA
 certificates provided by the OS. Using verify_none means that all
 x509-certificate path validation errors will be ignored. See also option
 [verify_fun](`t:custom_verify/0`).
@@ -1350,8 +1356,8 @@ x509-certificate path validation errors will be ignored. See also option
 -type client_verify_type()       :: verify_type().
 -doc """
 Reuses a specific session. The session should be referred by its session id if
-it is earlier saved with the option `{reuse_sessions, save}` since OTP-21.3 or
-explicitly specified by its session id and associated data since OTP-22.3. See
+it is earlier saved with the option `{reuse_sessions, save}` since OTP 21.3 or
+explicitly specified by its session id and associated data since OTP 22.3. See
 also
 [SSL's Users Guide, Session Reuse pre TLS 1.3.](using_ssl.md#session-reuse-pre-tls-1-3)
 """.
@@ -1363,14 +1369,14 @@ reuse. The session ID can be fetched with `connection_information/2` and used
 with the client option [reuse_session](`t:client_reuse_session/0`) The boolean
 value true specifies that if possible, automated session reuse will be
 performed. If a new session is created, and is unique in regard to previous
-stored sessions, it will be saved for possible later reuse. Since OTP-21.3.
+stored sessions, it will be saved for possible later reuse. Since OTP 21.3.
 """.
 -doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_reuse_sessions()    :: boolean() | save.
 -doc """
 If set to true, sends the certificate authorities extension in TLS-1.3 client
 hello. The default is false. Note that setting it to true may result in a big
-overhead if you have many trusted CA certificates. Since OTP-24.3.
+overhead if you have many trusted CA certificates. Since OTP 24.3.
 """.
 -doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type client_certificate_authorities()  :: boolean().
@@ -1499,7 +1505,7 @@ downgrade. Defaults to false
 """.
 -doc(#{title => <<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>}).
 -type fallback()                 :: boolean().
--doc "Deprecated since OTP-17, has no effect.".
+-doc "Deprecated since OTP 17, has no effect.".
 -doc(#{title =>
            <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type ssl_imp()                  :: new | old.
@@ -2369,7 +2375,7 @@ connection_information/2.
 
 > #### Note {: .info }
 >
-> The legacy `Item = cipher_suite` was removed in OTP-23. Previously it returned
+> The legacy `Item = cipher_suite` was removed in OTP 23. Previously it returned
 > the cipher suite on its (undocumented) legacy format. It is replaced by
 > `selected_cipher_suite`.
 """.
@@ -3122,9 +3128,9 @@ Equivalent to
 > For pre TLS-1.3 connection calling this function as
 > [`export_key_materials(TLSSocket, [Label], [Context], [WantedLength])`](`export_key_materials/4`)
 > is equivalent to legacy function `prf/5` as
-> [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`)
+> [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`).
 """.
--doc(#{since => <<"OTP 26.3">>}).
+-doc(#{since => <<"OTP 27">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
                  {ok, ExportKeyMaterials} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3148,7 +3154,7 @@ relevant only in TLS-1.3 and it causes the TLS-1.3 exporter_master_secret to be
 consumed that is it will no longer be available, to increase security, and
 further attempts to call this function will fail.
 """.
--doc(#{since => <<"OTP 26.3">>}).
+-doc(#{since => <<"OTP 27">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
                  {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
       SslSocket :: sslsocket(),
@@ -3171,7 +3177,7 @@ directing it to use a specific value from the session security parameters.
 
 > #### Note {: .info }
 >
-> This function is replaced by `export_key_materials/4`, since OTP-26.3, which
+> This function is replaced by `export_key_materials/4`, official documented API function since OTP 27, which
 > is equivalent to
 > [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`)
 > Other ways of calling this function was for testing purposes only and has no
