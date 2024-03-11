@@ -30,6 +30,29 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, more secure algorithms are preferred by
+	    ssh and documentation is updated to reflect that.</p>
+          <p>
+	    Own Id: OTP-18986 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, KEX strict terminal message is emitted
+	    with debug verbosity.</p>
+          <p>
+	    Own Id: OTP-19002 Aux Id: ERIERL-1041 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
