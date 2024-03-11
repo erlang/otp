@@ -99,13 +99,8 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
                 a.lsl(out, out, imm(trailing_bits - _TAG_IMMED1_SIZE));
             }
         } else {
-            if (unit >= (1 << _TAG_IMMED1_SIZE)) {
-                mov_imm(TMP1, unit >> _TAG_IMMED1_SIZE);
-            } else {
-                a.lsr(out, out, imm(_TAG_IMMED1_SIZE));
-                mov_imm(TMP1, unit);
-            }
-
+            a.lsr(out, out, imm(_TAG_IMMED1_SIZE));
+            mov_imm(TMP1, unit);
             a.mul(out, out, TMP1);
         }
 

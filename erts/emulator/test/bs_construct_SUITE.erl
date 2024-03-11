@@ -1389,6 +1389,16 @@ do_zero_init_1(Size, LPad, RPad) ->
         end()).
 
 error_info(_Config) ->
+    case ?MODULE of
+        bs_construct_r24_SUITE ->
+            %% Error information is not implemented for old bit syntax
+            %% instructions.
+            ok;
+        _ ->
+            error_info()
+    end.
+
+error_info() ->
     Atom = id(some_atom),
     NegSize = id(-1),
     HugeNegSize = id(-1 bsl 64),

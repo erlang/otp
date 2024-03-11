@@ -152,6 +152,7 @@ NO_OPT= bs_bincomp \
 	map
 
 R24= \
+	bs_construct \
 	process_max_heap_size
 
 R25= \
