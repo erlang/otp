@@ -56,80 +56,37 @@ For more information about URI, see
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-reserved() ->
-    sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
-            $#, $[, $], $<, $>, $\", ${, $}, $|, %"
-			       $\\, $', $^, $%, $ ]).
 
 -doc """
 encode(DecodedPart) -> EncodedPart
 
 > #### Warning {: .warning }
 >
-> Do not use will be removed use `uri_string:quote/1` instead
+> Use `uri_string:quote/1` instead
 
-Performes prrcent encoding.
+Performs percent encoding.
 
 [](){: #decode }
 """.
 -doc(#{since => <<"OTP R15B01">>}).
-encode(URI) when is_list(URI) ->
-    Reserved = reserved(), 
-    lists:append([uri_encode(Char, Reserved) || Char <- URI]);
-encode(URI) when is_binary(URI) ->
-    Reserved = reserved(),
-    << <<(uri_encode_binary(Char, Reserved))/binary>> || <<Char>> <= URI >>.
+-spec encode(Data) -> QuotedData when
+      Data :: unicode:chardata(),
+      QuotedData :: unicode:chardata().
+encode(Data) ->
+    uri_string:quote(Data).
 
 -doc """
 decode(EncodedPart) -> DecodePart
 
 > #### Warning {: .warning }
 >
-> Do not use will be removed use `uri_string:unquote/1` instead
+> Use `uri_string:unquote/1` instead
 
 Decodes a possibly percent encoded URI part
 """.
 -doc(#{since => <<"OTP R15B01">>}).
-decode(String) when is_list(String) ->
-    do_decode(String);
-decode(String) when is_binary(String) ->
-    do_decode_binary(String).
-
-do_decode([$%,Hex1,Hex2|Rest]) ->
-    [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
-do_decode([First|Rest]) ->
-    [First|do_decode(Rest)];
-do_decode([]) ->
-    [].
-
-do_decode_binary(<<$%, Hex:2/binary, Rest/bits>>) ->
-    <<(binary_to_integer(Hex, 16)), (do_decode_binary(Rest))/binary>>;
-do_decode_binary(<<First:1/binary, Rest/bits>>) ->
-    <<First/binary, (do_decode_binary(Rest))/binary>>;
-do_decode_binary(<<>>) ->
-    <<>>.
-
-%%%========================================================================
-%%% Internal functions
-%%%========================================================================
-%% In this version of the function, we no longer need 
-%% the Scheme argument, but just in case...
-uri_encode(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-	true ->
-	    [ $% | http_util:integer_to_hexlist(Char)];
-	false ->
-	    [Char]
-    end.
-
-uri_encode_binary(Char, Reserved) ->
-    case sets:is_element(Char, Reserved) of
-        true ->
-            << $%, (integer_to_binary(Char, 16))/binary >>;
-        false ->
-            <<Char>>
-    end.
-
-hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
-hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
-hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
+-spec decode(QuotedData) -> Data when
+      QuotedData :: unicode:chardata(),
+      Data :: unicode:chardata().
+decode(QuotedData) ->
+    uri_string:unquote(QuotedData).
