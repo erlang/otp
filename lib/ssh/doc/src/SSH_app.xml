@@ -172,16 +172,16 @@
       <tag>Key exchange algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdh-sha2-nistp384</item>
+	  <item>curve25519-sha256</item>
+	  <item>curve25519-sha256@libssh.org</item>
+	  <item>curve448-sha512</item>
 	  <item>ecdh-sha2-nistp521</item>
+	  <item>ecdh-sha2-nistp384</item>
 	  <item>ecdh-sha2-nistp256</item>
 	  <item>diffie-hellman-group-exchange-sha256</item>
 	  <item>diffie-hellman-group16-sha512</item>
 	  <item>diffie-hellman-group18-sha512</item>
 	  <item>diffie-hellman-group14-sha256</item>
-	  <item>curve25519-sha256</item>
-	  <item>curve25519-sha256@libssh.org</item>
-	  <item>curve448-sha512</item>
 	</list>
 	<p>The following unsecure <c>SHA1</c> algorithms are now disabled by default:</p>
 	<list>
@@ -199,13 +199,13 @@
       <tag>Public key algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>ecdsa-sha2-nistp384</item>
-	  <item>ecdsa-sha2-nistp521</item>
-	  <item>ecdsa-sha2-nistp256</item>
-	  <item>ssh-ed25519</item>
+          <item>ssh-ed25519</item>
 	  <item>ssh-ed448</item>
+          <item>ecdsa-sha2-nistp521</item>
+          <item>ecdsa-sha2-nistp384</item>
+	  <item>ecdsa-sha2-nistp256</item>
+          <item>rsa-sha2-512</item>
 	  <item>rsa-sha2-256</item>
-	  <item>rsa-sha2-512</item>
 	</list>
 	<p>The following unsecure <c>SHA1</c> algorithms are supported but disabled by default:</p>
 	<list>
@@ -227,11 +227,11 @@
       <tag>MAC algorithms</tag>
       <item>
 	<list type="bulleted">
-	  <item>hmac-sha2-256-etm@openssh.com</item>
 	  <item>hmac-sha2-512-etm@openssh.com</item>
-	  <item>hmac-sha1-etm@openssh.com</item>
-	  <item>hmac-sha2-256</item>
+	  <item>hmac-sha2-256-etm@openssh.com</item>
 	  <item>hmac-sha2-512</item>
+	  <item>hmac-sha2-256</item>
+          <item>hmac-sha1-etm@openssh.com</item>
 	  <item>hmac-sha1</item>
 	</list>
 	<p>The following unsecure <c>SHA1</c> algorithm is disabled by default:</p>
