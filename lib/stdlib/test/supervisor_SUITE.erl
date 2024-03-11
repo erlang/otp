@@ -3339,41 +3339,25 @@ significant_transient(_Config) ->
 
     ok.
 
-% Test the auto-shutdown feature in a simple_one_for_one supervisor.
+% The auto-shutdown feature is not allowed with simple_one_for_one supervisors.
 significant_simple(_Config) ->
     process_flag(trap_exit, true),
     Child1 = #{id => child1,
-	       start => {supervisor_1, start_child, []},
-	       restart => temporary,
-	       significant => true},
+	       start => {supervisor_1, start_child, []}},
 
-    % Test auto-shutdown on the exit of any significant child.
-    {ok, Sup1} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => any_significant},
-				  [Child1]}}),
-    {ok, ChildPid1_1} = supervisor:start_child(Sup1, []),
-    {ok, ChildPid1_2} = supervisor:start_child(Sup1, []),
-    link(ChildPid1_1),
-    link(ChildPid1_2),
-    terminate(ChildPid1_1, normal),
-    ok = check_exit([ChildPid1_1, ChildPid1_2, Sup1]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => any_significant},
+                                                                        [Child1]}}),
 
-    % Test auto-shutdown on the exit of all significant children.
-    {ok, Sup2} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => all_significant},
-				  [Child1]}}),
-    {ok, ChildPid2_1} = supervisor:start_child(Sup2, []),
-    {ok, ChildPid2_2} = supervisor:start_child(Sup2, []),
-    link(ChildPid2_1),
-    link(ChildPid2_2),
-    terminate(ChildPid2_1, normal),
-    ok = check_exit([ChildPid2_1]),
-    error = check_exit([ChildPid2_2], 1000),
-    error = check_exit([Sup2], 1000),
-    terminate(ChildPid2_2, normal),
-    ok = check_exit([ChildPid2_2, Sup2]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => all_significant},
+                                                                        [Child1]}}),
 
-    ok.
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one,
+                                      auto_shutdown => never},
+                                    [Child1]}}),
+    terminate(SupPid, shutdown),
+    check_exit([SupPid]).
 
 % Test that terminations of significant children caused by
 % the death of a sibling does not trigger auto-shutdown.
