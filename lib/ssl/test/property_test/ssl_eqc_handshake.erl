@@ -493,6 +493,9 @@ sig_scheme_list() ->
             ecdsa_secp256r1_sha256,
             ecdsa_secp384r1_sha384,
             ecdsa_secp521r1_sha512,
+            ecdsa_brainpoolP256r1tls13_sha256,
+            ecdsa_brainpoolP384r1tls13_sha384,
+            ecdsa_brainpoolP512r1tls13_sha512,
             rsa_pss_rsae_sha256,
             rsa_pss_rsae_sha384,
             rsa_pss_rsae_sha512,
@@ -505,19 +508,22 @@ sig_scheme_list() ->
 
 sig_scheme() ->
     oneof([rsa_pkcs1_sha256,
-            rsa_pkcs1_sha384,
-            rsa_pkcs1_sha512,
-            ecdsa_secp256r1_sha256,
-            ecdsa_secp384r1_sha384,
-            ecdsa_secp521r1_sha512,
-            rsa_pss_rsae_sha256,
-            rsa_pss_rsae_sha384,
-            rsa_pss_rsae_sha512,
-            rsa_pss_pss_sha256,
-            rsa_pss_pss_sha384,
-            rsa_pss_pss_sha512,
-            rsa_pkcs1_sha1,
-            ecdsa_sha1]).
+           rsa_pkcs1_sha384,
+           rsa_pkcs1_sha512,
+           ecdsa_secp256r1_sha256,
+           ecdsa_secp384r1_sha384,
+           ecdsa_secp521r1_sha512,
+           ecdsa_brainpoolP256r1tls13_sha256,
+           ecdsa_brainpoolP384r1tls13_sha384,
+           ecdsa_brainpoolP512r1tls13_sha512,
+           rsa_pss_rsae_sha256,
+           rsa_pss_rsae_sha384,
+           rsa_pss_rsae_sha512,
+           rsa_pss_pss_sha256,
+           rsa_pss_pss_sha384,
+           rsa_pss_pss_sha512,
+           rsa_pkcs1_sha1,
+           ecdsa_sha1]).
 
 signature() ->
     <<44,119,215,137,54,84,156,26,121,212,64,173,189,226,
@@ -707,7 +713,7 @@ ec_point_format_list() ->
     [?ECPOINT_UNCOMPRESSED].
 
 elliptic_curves(Version) when ?TLS_LT(Version, ?TLS_1_3) ->
-    Curves = tls_v1:ecc_curves(Version),
+    Curves = tls_v1:ecc_curves(ssl:eccs()),
     #elliptic_curves{elliptic_curve_list = Curves}.
 
 %% RFC 8446 (TLS 1.3) renamed the "elliptic_curve" extension.
@@ -774,7 +780,6 @@ key_share_entry_list(N, Pool, Acc) ->
           key_exchange = P},
     key_share_entry_list(N - 1, Pool -- [G], [KeyShareEntry|Acc]).
 
-%% TODO: fix curve generation
 generate_public_key(Group)
   when Group =:= secp256r1 orelse
        Group =:= secp384r1 orelse
@@ -782,8 +787,16 @@ generate_public_key(Group)
        Group =:= x448 orelse
        Group =:= x25519 ->
     #'ECPrivateKey'{publicKey = PublicKey} =
-        public_key:generate_key({namedCurve, secp256r1}),
+        public_key:generate_key({namedCurve, Group}),
     PublicKey;
+generate_public_key(Group)
+  when Group =:= brainpoolP512r1tls13 orelse
+       Group =:= brainpoolP384r1tls13 orelse
+       Group =:= brainpoolP256r1tls13 ->
+    #'ECPrivateKey'{publicKey = PublicKey} =
+        public_key:generate_key({namedCurve, group_to_curve(Group)}),
+    PublicKey;
+
 generate_public_key(Group) ->
     {PublicKey, _} =
         public_key:generate_key(ssl_dh_groups:dh_params(Group)),
@@ -857,3 +870,12 @@ psk_binders(N, Acc) ->
 psk_binder() ->
     Len = rand:uniform(224) + 31,
     crypto:strong_rand_bytes(Len).
+
+group_to_curve(brainpoolP512r1tls13) ->
+    brainpoolP512r1;
+group_to_curve(brainpoolP384r1tls13) ->
+    brainpoolP384r1;
+group_to_curve(brainpoolP256r1tls13) ->
+    brainpoolP256r1;
+group_to_curve(Curve) ->
+    Curve.

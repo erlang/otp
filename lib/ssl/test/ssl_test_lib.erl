@@ -508,7 +508,10 @@ list_1_3_sig_algs() ->
      eddsa_ed448,
      ecdsa_secp521r1_sha512,
      ecdsa_secp384r1_sha384,
-     ecdsa_secp256r1_sha256
+     ecdsa_secp256r1_sha256,
+     ecdsa_brainpoolP512r1tls13_sha512,
+     ecdsa_brainpoolP384r1tls13_sha384,
+     ecdsa_brainpoolP256r1tls13_sha256
     ].
 
 list_common_sig_algs() ->

@@ -273,6 +273,7 @@ directly. For DTLS this feature must be considered experimental.
                                  | rsa
                                  | dsa. % exported
 
+
 -doc """
 Explicitly list acceptable signature schemes (algorithms) in the preferred
 order. Overrides the algorithms supplied in
@@ -302,9 +303,12 @@ only the [signature_algs](`t:signature_algs/0`) extension is sent.
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type sign_scheme()             :: eddsa_ed25519
                                  | eddsa_ed448
-                                 | ecdsa_secp384r1_sha384
                                  | ecdsa_secp521r1_sha512
+                                 | ecdsa_secp384r1_sha384
                                  | ecdsa_secp256r1_sha256
+                                 | ecdsa_brainpoolP512r1tls13_sha512
+                                 | ecdsa_brainpoolP384r1tls13_sha384
+                                 | ecdsa_brainpoolP256r1tls13_sha256
                                  | rsassa_pss_scheme()
                                  | sign_scheme_legacy() . % exported
 
@@ -399,6 +403,7 @@ only the [signature_algs](`t:signature_algs/0`) extension is sent.
                                 | ffdhe4096
                                 | ffdhe6144
                                 | ffdhe8192. % exported
+
 -doc(#{title => <<"Types used in TLS/DTLS">>}).
 -type srp_param_type()        :: srp_8192
                                | srp_6144
@@ -2717,8 +2722,11 @@ signature_algs(Description, Version) when Description == default;
 signature_algs(Description, Version) ->
     erlang:error(badarg, [Description, Version]).
 
+
 %%--------------------------------------------------------------------
--doc(#{equiv => eccs/1}).
+-doc """
+Returns a list of all supported elliptic curves, including legacy curves, for all TLS/DTLS versions pre TLS-1.3.
+""".
 -doc(#{since => <<"OTP 19.2">>}).
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
@@ -2728,9 +2736,7 @@ eccs() ->
 
 %%--------------------------------------------------------------------
 -doc """
-Returns a list of supported ECCs. `eccs/0` is equivalent to calling
-[`eccs(Protocol)`](`eccs/1`) with all supported protocols and then deduplicating
-the output.
+Returns the by default supported elliptic curves for Version, which is a subset of what [eccs/\[0]] returns.
 """.
 -doc(#{since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
@@ -4092,7 +4098,7 @@ opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
                {old, CPS0} -> CPS0;
                {_, CPS0} -> handle_cipher_option(CPS0, TlsVsns)
            end,
-
+  
     ECCS =  try assert_version_dep(eccs, TlsVsns, ['tlsv1.2', 'tlsv1.1', 'tlsv1']) of
                 _ ->
                     case get_opt_list(eccs, undefined, UserOpts, Opts) of
@@ -4781,3 +4787,4 @@ format_ocsp_params(Map) ->
     Stapling = maps:get(stapling, Map, '?'),
     Nonce = maps:get(ocsp_nonce, Map, '?'),
     io_lib:format("Stapling = ~W Nonce = ~W", [Stapling, 5, Nonce, 5]).
+
