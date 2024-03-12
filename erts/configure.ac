@@ -551,7 +551,7 @@ CFLAGS="$CFLAGS $extra_flags"
 DEBUG_FLAGS=-g
 
 # Large file support and 8-byte time_t by default
-AC_SYS_YEAR2038
+AC_SYS_YEAR2038_RECOMMENDED
 
 AC_CHECK_SIZEOF(time_t)
 
@@ -561,10 +561,9 @@ AS_IF([test "$ac_cv_sizeof_time_t" != "8"],
        cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
                  WARNING:
-                   'configure' was not able to figure out how to
-                   make the system year 2038 safe! This runtime
-                   system will not be able to function properly
-                   after mid-January 2038.
+                   Note that this runtime system will *not* be year
+                   2038 safe! It will not be able to function
+                   properly after mid-January 2038.
 
 EOF
       ])

@@ -71,7 +71,7 @@ if test X${enable_m32_build} = Xyes; then
 fi
 
 # Large file support and 8-byte time_t by default
-AC_SYS_YEAR2038
+AC_SYS_YEAR2038_RECOMMENDED
 
 AC_CHECK_LIB(m, sin)
 

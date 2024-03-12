@@ -3067,7 +3067,7 @@ AC_DEFUN(ERL_DED_FLAGS,
          [
 
 # Large file support and 8-byte time_t by default
-AC_SYS_YEAR2038
+AC_SYS_YEAR2038_RECOMMENDED
 
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
