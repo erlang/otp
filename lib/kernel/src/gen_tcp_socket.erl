@@ -1467,14 +1467,16 @@ callback_mode() -> handle_event_function.
 
 
 -record(params,
-        {socket    :: undefined | socket:socket(),
-         owner     :: pid(),
-         owner_mon :: reference()}).
+        {socket     :: undefined | socket:socket(),
+         owner      :: pid(),
+         owner_mon  :: reference()}).
 
 server_vars() ->
+    #{counters := #{num_cnt_bits := NumCntBits}} = socket:info(),
     #{type          => undefined,
       buffer        => <<>>,
-      tcp_closed    => false}. % tcp_closed sent
+      tcp_closed    => false,
+      num_cnt_bits  => NumCntBits}. % tcp_closed sent
 
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
@@ -1492,8 +1494,7 @@ init({open, Domain, ExtraOpts, Owner}) ->
             %% server_write_opts(), so, meta(D) is redundant code
             %% until someone decides to change D
             ok = socket:setopt(Socket, {otp,meta}, meta(D)),
-            P  =
-                #params{
+            P = #params{
                    socket    = Socket,
                    owner     = Owner,
                    owner_mon = OwnerMon},
@@ -1508,8 +1509,9 @@ init({prepare, D, Owner}) ->
     %% ?DBG([{init, prepare}, {d, D}, {owner, Owner}]),
     process_flag(trap_exit, true),
     OwnerMon = monitor(process, Owner),
-    P        = #params{owner     = Owner,
-                       owner_mon = OwnerMon},
+    P = #params{
+           owner     = Owner,
+           owner_mon = OwnerMon},
     {ok, accept, {P, maps:merge(D, server_vars())}};
 init(Arg) ->
     error_report([{badarg, {?MODULE, init, [Arg]}}]),
@@ -1700,8 +1702,8 @@ handle_event(
   info, {wrap_counters, Ref, From, Counters1, Wraps1},
   #wrap_counters{ref = Ref, call = {Tag, What}, state = NewState},
   {#params{socket = Socket} = P, D} = P_D) ->
-    Info     = #{counters := Counters2} = socket:info(Socket),
-    Counters = wrap_counters(Counters1, Counters2, Wraps1, D),
+    Info            = #{counters := Counters2} = socket:info(Socket),
+    Counters        = wrap_counters(Counters1, Counters2, Wraps1, D),
     GetstatCounters = getstat_what(What, Counters),
     Reply =
         case Tag of
@@ -3020,30 +3022,30 @@ count_wrap(CounterName, Wraps) ->
             Wraps#{CounterName => 1}
     end.
 
-wrap_counters(Counters1, Counters2, Wraps1, Wraps2) ->
-    #{Nm => counter_value(C1, Counters2, Wraps1, Wraps2, Nm)
+wrap_counters(Counters1, Counters2, Wraps1, D) ->
+    #{Nm => counter_value(C1, Counters2, Wraps1, D, Nm)
       || Nm := C1 <- Counters1}.
 
-counter_value(C1, Counters2, Wraps1, Wraps2, Nm) ->
+counter_value(C1, Counters2, Wraps1, D, Nm) ->
     W1 = maps:get(Nm, Wraps1, 0),
-    W2 = maps:get(Nm, Wraps2, 0),
+    W2 = maps:get(Nm, D, 0),
     C2 = maps:get(Nm, Counters2),
     if
         W1 < W2 ->
-            counter_value(W2, C2);
+            counter_value(W2, C2, D);
         true ->
             if
                 C2 < C1 ->
-                    counter_value(W2 + 1, C2);
+                    counter_value(W2 + 1, C2, D);
                 true ->
-                    counter_value(W2, C2)
+                    counter_value(W2, C2, D)
             end
     end.
 
--compile({inline, [counter_value/2]}).
--define(COUNTER_BITS, 32).
-counter_value(W, C) ->
-    (W bsl ?COUNTER_BITS) + C.
+-compile({inline, [counter_value/3]}).
+counter_value(0, C, _D) -> C;
+counter_value(W, C, #{num_cnt_bits := NumCntBits}) when is_integer(W) ->
+    (W bsl NumCntBits) + C.
 
 
 %% -------
