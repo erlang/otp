@@ -375,7 +375,7 @@ finished or not.
 > started in intervals of 1ms, which would result in 1,000,000 processes running
 > at the same time, far more than a node started with default settings allows
 > (see the
-> [System Limits section in the Effiency Guide](`e:system:advanced.md#system-limits`)).
+> [System Limits section in the Effiency Guide](`e:system:system_limits.md`)).
 """.
 -spec apply_interval(Time, Module, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}

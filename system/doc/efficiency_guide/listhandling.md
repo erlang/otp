@@ -22,14 +22,14 @@ limitations under the License.
 ## Creating a List
 
 Lists can only be built starting from the end and attaching list elements at the
-beginning. If you use the "`++`" operator as follows, a new list is created that
+beginning. If you use the `++` operator as follows, a new list is created that
 is a copy of the elements in `List1`, followed by `List2`:
 
 ```erlang
 List1 ++ List2
 ```
 
-Looking at how `lists:append/1` or `++` would be implemented in plain Erlang,
+Looking at how `lists:append/2` or `++` would be implemented in plain Erlang,
 clearly the first list is copied:
 
 ```erlang
@@ -45,7 +45,7 @@ list, not hundreds or thousands of copies of the growing result list.
 
 Let us first see how it is not to be done:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 bad_fib(N) ->
@@ -63,7 +63,7 @@ that is one element longer than the new previous list.
 To avoid copying the result in each iteration, build the list in reverse order
 and reverse the list when you are done:
 
-_DO_
+**DO**
 
 ```erlang
 tail_recursive_fib(N) ->
@@ -76,9 +76,6 @@ tail_recursive_fib(N, Current, Next, Fibs) ->
 ```
 
 ## List Comprehensions
-
-Lists comprehensions still have a reputation for being slow. They used to be
-implemented using funs, which used to be slow.
 
 A list comprehension:
 
@@ -105,14 +102,12 @@ ok.
 or in this code:
 
 ```erlang
-...
 case Var of
     ... ->
         [io:put_chars(E) || E <- List];
     ... ->
 end,
 some_function(...),
-...
 ```
 
 the value is not assigned to a variable, not passed to another function, and not
@@ -126,8 +121,8 @@ will simplify the code for the list comprehension to:
 'lc^0'([], _Expr) -> [].
 ```
 
-The compiler also understands that assigning to '\_' means that the value will
-not used. Therefore, the code in the following example will also be optimized:
+The compiler also understands that assigning to `_` means that the value will
+not be used. Therefore, the code in the following example will also be optimized:
 
 ```erlang
 _ = [io:put_chars(E) || E <- List],
@@ -140,84 +135,100 @@ ok.
 even _more_ expensive than the `++` operator (which copies its left argument,
 but not its right argument).
 
-In the following situations, you can easily avoid calling `lists:flatten/1`:
+In the following situations it is unnecessary to call `lists:flatten/1`:
 
 - When sending data to a port. Ports understand deep lists so there is no reason
   to flatten the list before sending it to the port.
 - When calling BIFs that accept deep lists, such as
-  [list_to_binary/1](`erlang:list_to_binary/1`) or
-  [iolist_to_binary/1](`erlang:iolist_to_binary/1`).
-- When you know that your list is only one level deep, you can use
-  `lists:append/1`.
+  [`list_to_binary/1`](`erlang:list_to_binary/1`) or
+  [`iolist_to_binary/1`](`erlang:iolist_to_binary/1`).
+- When you know that your list is only one level deep. Use `lists:append/1`
+  instead.
 
-### Port Example
+_Examples:_
 
-_DO_
-
-```text
-      ...
-      port_command(Port, DeepList)
-      ...
-```
-
-_DO NOT_
+**DO**
 
 ```erlang
-      ...
-      port_command(Port, lists:flatten(DeepList))
-      ...
+port_command(Port, DeepList)
+```
+
+**DO NOT**
+
+```erlang
+port_command(Port, lists:flatten(DeepList))
 ```
 
 A common way to send a zero-terminated string to a port is the following:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-      ...
-      TerminatedStr = String ++ [0], % String="foo" => [$f, $o, $o, 0]
-      port_command(Port, TerminatedStr)
-      ...
+TerminatedStr = String ++ [0],
+port_command(Port, TerminatedStr)
 ```
 
 Instead:
 
-_DO_
+**DO**
 
 ```erlang
-      ...
-      TerminatedStr = [String, 0], % String="foo" => [[$f, $o, $o], 0]
-      port_command(Port, TerminatedStr)
-      ...
+TerminatedStr = [String, 0],
+port_command(Port, TerminatedStr)
 ```
 
-### Append Example
-
-_DO_
+**DO**
 
 ```erlang
-      > lists:append([[1], [2], [3]]).
-      [1,2,3]
-      >
+1> lists:append([[1], [2], [3]]).
+[1,2,3]
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-      > lists:flatten([[1], [2], [3]]).
-      [1,2,3]
-      >
+1> lists:flatten([[1], [2], [3]]).
+[1,2,3]
 ```
 
 ## Recursive List Functions
 
-In section about myths, the following myth was exposed:
-[Tail-Recursive Functions are Much Faster Than Recursive Functions](myths.md#tail_recursive).
+There are two basic ways to write a function that traverses a list and
+produces a new list.
 
-There is usually not much difference between a body-recursive list function and
+The first way is writing a *body-recursive* function:
+
+```erlang
+%% Add 42 to each integer in the list.
+add_42_body([H|T]) ->
+    [H + 42 | add_42_body(T)];
+add_42_body([]) ->
+    [].
+```
+
+The second way is writing a *tail-recursive* function:
+
+```erlang
+%% Add 42 to each integer in the list.
+add_42_tail(List) ->
+    add_42_tail(List, []).
+
+add_42_tail([H|T], Acc) ->
+    add_42_tail(T, [H + 42 | Acc]);
+add_42_tail([], Acc) ->
+    lists:reverse(Acc).
+```
+
+In early version of Erlang the tail-recursive function would typically
+be more efficient. In modern versions of Erlang, there is usually not
+much difference in performance between a body-recursive list function and
 tail-recursive function that reverses the list at the end. Therefore,
-concentrate on writing beautiful code and forget about the performance of your
-list functions. In the time-critical parts of your code (and only there),
+concentrate on writing beautiful code and forget about the performance
+of your list functions. In the time-critical parts of your code,
 _measure_ before rewriting your code.
+
+For a thorough discussion about tail and body recursion, see
+[Erlang's Tail Recursion is Not a Silver Bullet](http://ferd.ca/erlang-s-tail-recursion-is-not-a-silver-bullet.html).
 
 > #### Note {: .info }
 >
@@ -229,7 +240,7 @@ _measure_ before rewriting your code.
 For example, a function that sums a list of integers, is _not_ to be written as
 follows:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 recursive_sum([H|T]) -> H+recursive_sum(T);
@@ -238,7 +249,7 @@ recursive_sum([])    -> 0.
 
 Instead:
 
-_DO_
+**DO**
 
 ```erlang
 sum(L) -> sum(L, 0).

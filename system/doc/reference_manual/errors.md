@@ -198,8 +198,8 @@ of error:
     `catch`. `V` is the thrown term.
 
 - **`system_limit`** - A system limit has been reached. See
-    [Efficiency Guide](`e:system:advanced.md`) for information about
-    system limits.
+    [System Limits in the Efficiency Guide](`e:system:system_limits.md`)
+    for information about system limits.
 
 `Stack` is the stack of function calls being evaluated when the error occurred,
 given as a list of tuples `{Module,Name,Arity,ExtraInfo}` with the most recent

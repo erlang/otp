@@ -57,7 +57,7 @@ contention on the port lock for the driver.
 
 There are basically two ways to avoid copying a binary that is sent to a driver:
 
-- If the `Data` argument for [port_control/3](`erlang:port_control/3`) is a
+- If the `Data` argument for [`port_control/3`](`erlang:port_control/3`) is a
   binary, the driver will be passed a pointer to the contents of the binary and
   the binary will not be copied. If the `Data` argument is an iolist (list of
   binaries and lists), all binaries in the iolist will be copied.
@@ -71,7 +71,7 @@ There are basically two ways to avoid copying a binary that is sent to a driver:
 
 - Implement an `outputv` callback (instead of an `output` callback) in the
   driver. If a driver has an `outputv` callback, refc binaries passed in an
-  iolist in the `Data` argument for [port_command/2](`erlang:port_command/2`)
+  iolist in the `Data` argument for [`port_command/2`](`erlang:port_command/2`)
   will be passed as references to the driver.
 
 ## Returning Small Binaries from a Driver
@@ -82,8 +82,8 @@ are not sent to another process and garbage collection is cheaper.
 
 If you know that the binaries you return are always small, you are advised to
 use driver API calls that do not require a pre-allocated binary, for example,
-[driver_output()](`e:erts:erl_driver.md#driver_output`) or
-[erl_drv_output_term()](`e:erts:erl_driver.md#erl_drv_output_term`), using the
+[`driver_output()`](`e:erts:erl_driver.md#driver_output`) or
+[`erl_drv_output_term()`](`e:erts:erl_driver.md#erl_drv_output_term`), using the
 `ERL_DRV_BUF2BINARY` format, to allow the runtime to construct a heap binary.
 
 ## Returning Large Binaries without Copying from a Driver
@@ -92,16 +92,16 @@ To avoid copying data when a large binary is sent or returned from the driver to
 an Erlang process, the driver must first allocate the binary and then send it to
 an Erlang process in some way.
 
-Use [driver_alloc_binary()](`e:erts:erl_driver.md#driver_alloc_binary`) to
+Use [`driver_alloc_binary()`](`e:erts:erl_driver.md#driver_alloc_binary`) to
 allocate a binary.
 
 There are several ways to send a binary created with `driver_alloc_binary()`:
 
 - From the `control` callback, a binary can be returned if
-  [set_port_control_flags()](`e:erts:erl_driver.md#set_port_control_flags`) has
+  [`set_port_control_flags()`](`e:erts:erl_driver.md#set_port_control_flags`) has
   been called with the flag value `PORT_CONTROL_FLAG_BINARY`.
 - A single binary can be sent with
-  [driver_output_binary()](`e:erts:erl_driver.md#driver_output_binary`).
-- Using [erl_drv_output_term()](`e:erts:erl_driver.md#erl_drv_output_term`) or
-  [erl_drv_send_term()](`e:erts:erl_driver.md#erl_drv_send_term`), a binary can
+  [`driver_output_binary()`](`e:erts:erl_driver.md#driver_output_binary`).
+- Using [`erl_drv_output_term()`](`e:erts:erl_driver.md#erl_drv_output_term`) or
+  [`erl_drv_send_term()`](`e:erts:erl_driver.md#erl_drv_send_term`), a binary can
   be included in an Erlang term.

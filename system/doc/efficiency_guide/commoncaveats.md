@@ -19,21 +19,80 @@ limitations under the License.
 -->
 # Common Caveats
 
-This section lists a few modules and BIFs to watch out for, not only from a
-performance point of view.
+This section lists a few constructs to watch out for.
+
+## Operator `++`
+
+The `++` operator copies its left-hand side operand. That is clearly
+seen if we do our own implementation in Erlang:
+
+```erlang
+my_plus_plus([H|T], Tail) ->
+    [H|my_plus_plus(T, Tail)];
+my_plus_plus([], Tail) ->
+    Tail.
+```
+
+We must be careful how we use `++` in a loop. First is how not to use it:
+
+**DO NOT**
+
+```erlang
+naive_reverse([H|T]) ->
+    naive_reverse(T) ++ [H];
+naive_reverse([]) ->
+    [].
+```
+
+As the `++` operator copies its left-hand side operand, the growing
+result is copied repeatedly, leading to quadratic complexity.
+
+On the other hand, using `++` in loop like this is perfectly fine:
+
+**OK**
+
+```erlang
+naive_but_ok_reverse(List) ->
+    naive_but_ok_reverse(List, []).
+
+naive_but_ok_reverse([H|T], Acc) ->
+    naive_but_ok_reverse(T, [H] ++ Acc);
+naive_but_ok_reverse([], Acc) ->
+    Acc.
+```
+
+Each list element is copied only once. The growing result `Acc` is the right-hand
+side operand, which it is _not_ copied.
+
+Experienced Erlang programmers would probably write as follows:
+
+**DO**
+
+```erlang
+vanilla_reverse([H|T], Acc) ->
+    vanilla_reverse(T, [H|Acc]);
+vanilla_reverse([], Acc) ->
+    Acc.
+```
+
+In principle, this is slightly more efficient because the list element `[H]`
+is not built before being copied and discarded. In practice, the compiler
+rewrites `[H] ++ Acc` to `[H|Acc]`.
+
 
 ## Timer Module
 
 Creating timers using `erlang:send_after/3` and `erlang:start_timer/3`, is more
 efficient than using the timers provided by the `m:timer` module in STDLIB.
 
-The `timer` module uses a separate process to manage the timers. Before OTP 25,
-this management overhead was substantial and increasing with the number of
-timers, especially when they were short-lived, so the timer server process could
-easily become overloaded and unresponsive. In OTP 25, the timer module was
+The `timer` module uses a separate process to manage the
+timers. Before Erlang/OTP 25, this management overhead was substantial
+and increasing with the number of timers, especially when they were
+short-lived, so the timer server process could easily become
+overloaded and unresponsive. In Erlang/OTP 25, the timer module was
 improved by removing most of the management overhead and the resulting
-performance penalty. Still, the timer server remains a single process, and it
-may at some point become a bottleneck of an application.
+performance penalty. Still, the timer server remains a single process,
+and it may at some point become a bottleneck of an application.
 
 The functions in the `timer` module that do not manage timers (such as
 `timer:tc/3` or `timer:sleep/1`), do not call the timer-server process and are
@@ -44,10 +103,9 @@ therefore harmless.
 When spawning a new process using a fun, one can accidentally copy more data to
 the process than intended. For example:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-
 accidental1(State) ->
     spawn(fun() ->
                   io:format("~p\n", [State#state.info])
@@ -60,10 +118,9 @@ function is executed, the entire record is copied to the newly created process.
 
 The same kind of problem can happen with a map:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-
 accidental2(State) ->
     spawn(fun() ->
                   io:format("~p\n", [map_get(info, State)])
@@ -73,10 +130,9 @@ accidental2(State) ->
 In the following example (part of a module implementing the `m:gen_server`
 behavior) the created fun is sent to another process:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-
 handle_call(give_me_a_fun, _From, State) ->
     Fun = fun() -> State#state.size =:= 42 end,
     {reply, Fun, State}.
@@ -88,7 +144,6 @@ map.
 For example, if the `state` record is initialized like this:
 
 ```erlang
-
 init1() ->
     #state{data=lists:seq(1, 10000)}.
 ```
@@ -108,7 +163,6 @@ When a term is copied to another process, sharing of subterms will be lost and
 the copied term can be many times larger than the original term. For example:
 
 ```erlang
-
 init2() ->
     SharedSubTerms = lists:foldl(fun(_, A) -> [A|A] end, [0], lists:seq(1, 15)),
     #state{data=Shared}.
@@ -124,10 +178,9 @@ section.
 To avoid the problem, outside of the fun extract only the fields of the record
 that are actually used:
 
-_DO_
+**DO**
 
 ```erlang
-
 fixed_accidental1(State) ->
     Info = State#state.info,
     spawn(fun() ->
@@ -138,10 +191,9 @@ fixed_accidental1(State) ->
 Similarly, outside of the fun extract only the map elements that are actually
 used:
 
-_DO_
+**DO**
 
 ```erlang
-
 fixed_accidental2(State) ->
     Info = map_get(info, State),
     spawn(fun() ->
@@ -157,14 +209,16 @@ default) is reached.
 
 Therefore, converting arbitrary input strings to atoms can be dangerous in a
 system that runs continuously. If only certain well-defined atoms are allowed as
-input, [list_to_existing_atom/1](`erlang:list_to_existing_atom/1`) can be used
+input, [`list_to_existing_atom/1`](`erlang:list_to_existing_atom/1`) or
+[`binary_to_existing_atom/1`](`erlang:binary_to_existing_atom/1`) can be used
 to guard against a denial-of-service attack. (All atoms that are allowed must
-have been created earlier, for example, by simply using all of them in a module
+have been created earlier, for example, by using all of them in a module
 and loading that module.)
 
-Using [`list_to_atom/1`](`list_to_atom/1`) to construct an atom that is passed
-to [`apply/3`](`apply/3`) as follows, is quite expensive and not recommended in
-time-critical code:
+Using [`list_to_atom/1`](`list_to_atom/1`) to construct an atom that
+is passed to [`apply/3`](`apply/3`) is quite expensive.
+
+**DO NOT**
 
 ```erlang
 apply(list_to_atom("some_prefix"++Var), foo, Args)
@@ -202,7 +256,7 @@ list.
 
 ## setelement/3
 
-[setelement/3](`erlang:setelement/3`) copies the tuple it modifies. Therefore,
+[`setelement/3`](`erlang:setelement/3`) copies the tuple it modifies. Therefore,
 updating a tuple in a loop using [`setelement/3`](`setelement/3`) creates a new
 copy of the tuple every time.
 
@@ -214,7 +268,7 @@ code sequence, the first [`setelement/3`](`setelement/3`) call copies the tuple
 and modifies the ninth element:
 
 ```erlang
-multiple_setelement(T0) ->
+multiple_setelement(T0) when tuple_size(T0) =:= 9 ->
     T1 = setelement(9, T0, bar),
     T2 = setelement(7, T1, foobar),
     setelement(5, T2, new_value).
@@ -225,6 +279,7 @@ place.
 
 For the optimization to be applied, _all_ the following conditions must be true:
 
+- The tuple argument must be known to be a tuple of a known size.
 - The indices must be integer literals, not variables or expressions.
 - The indices must be given in descending order.
 - There must be no calls to another function in between the calls to
@@ -242,24 +297,18 @@ a list, modify the list, and convert it back to a tuple.
 
 Using the BIFs [`tuple_size/1`](`tuple_size/1`) and
 [`byte_size/1`](`byte_size/1`) gives the compiler and the runtime system more
-opportunities for optimization. Another advantage is that the BIFs give Dialyzer
+opportunities for optimization. Another advantage is that those BIFs give Dialyzer
 more type information.
 
-## split_binary/2
+## Using NIFs
 
-It is usually more efficient to split a binary using matching instead of calling
-the [`split_binary/2`](`split_binary/2`) function. Furthermore, mixing bit
-syntax matching and [`split_binary/2`](`split_binary/2`) can prevent some
-optimizations of bit syntax matching.
+Rewriting Erlang code to a NIF to make it faster should be seen as a last
+resort.
 
-_DO_
+Doing too much work in each NIF call will
+[degrade responsiveness of the VM](`e:erts:erl_nif.md#WARNING`). Doing too
+little work can mean that the gain of the faster processing in the NIF is eaten
+up by the overhead of calling the NIF and checking the arguments.
 
-```text
-        <<Bin1:Num/binary,Bin2/binary>> = Bin,
-```
-
-_DO NOT_
-
-```text
-        {Bin1,Bin2} = split_binary(Bin, Num)
-```
+Be sure to read about [Long-running NIFs](`e:erts:erl_nif.md#lengthy_work`)
+before writing a NIF.
