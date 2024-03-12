@@ -155,7 +155,7 @@ certify(internal, #certificate{asn1_certificates = []},
 certify(internal, #certificate{},
 	#state{ssl_options = #{verify := verify_none}}) ->
     throw(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate));
-certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
+certify(internal, #certificate{asn1_certificates = DerCerts},
         #state{static_env = #static_env{
                                role = Role,
                                host = Host,
@@ -168,8 +168,17 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
                                    negotiated_version = Version},
                ssl_options = Opts} = State0) ->
     %% Dummy ext info
-    ExtInfo = ext_info(StaplingState, Opts, Peer),
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
+    Certs = try [#cert{der=DerCert, otp=public_key:pkix_decode_cert(DerCert, otp)}
+                 || DerCert <- DerCerts]
+            catch
+                error:{_,{error, {asn1, Asn1Reason}}}=Reason:ST ->
+                    %% ASN-1 decode of certificate somehow failed
+                    ?SSL_LOG(info, asn1_decode, [{error, Reason}, {stacktrace, ST}]),
+                    throw(?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN,
+                                     {failed_to_decode_certificate, Asn1Reason}))
+            end,
+    ExtInfo = ext_info(StaplingState, Opts, hd(Certs)),
+    case ssl_handshake:certify(Certs, CertDbHandle, CertDbRef,
                                Opts, CRLDbInfo, Role, Host,
                                ssl:tls_version(Version),
                                ExtInfo) of
@@ -817,7 +826,7 @@ maybe_register_session(#{reuse_sessions := true},
 maybe_register_session(_,_,_,_, Session) ->
     Session.
 
-ext_info(OcspState, _, PeerCert) ->
+ext_info(OcspState, _, #cert{otp=PeerCert}) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       stapling_state => OcspState}.
 

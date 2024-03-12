@@ -104,22 +104,19 @@
 %% Note: Path = lists:reverse(Chain) -- Root, that is on the peer cert 
 %% always comes first in the chain but last in the path.
 %%--------------------------------------------------------------------
-trusted_cert_and_paths([Peer],  CertDbHandle, CertDbRef, PartialChainHandler) ->
-    OtpCert = public_key:pkix_decode_cert(Peer, otp),
-    Chain = [#cert{der=Peer, otp=OtpCert}],
-    case public_key:pkix_is_self_signed(OtpCert) of
+trusted_cert_and_paths([#cert{otp = Peer}] = Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+    case public_key:pkix_is_self_signed(Peer) of
         true ->
             [{selfsigned_peer, Chain}];
         false ->
             [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, Chain},
                                      CertDbHandle, CertDbRef)]
     end;
-trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
     %% Construct possible certificate paths from the chain certificates.
     %% If the chain contains extraneous certificates there could be
     %% more than one possible path such chains might be used to phase out
     %% an old certificate.
-    Chain = [#cert{der=Der,otp=public_key:pkix_decode_cert(Der, otp)} || Der <- Chain0],
     Paths = paths(Chain, CertDbHandle),
     lists:map(fun(Path) ->
                       case handle_partial_chain(Path, PartialChainHandler, CertDbHandle, CertDbRef) of
