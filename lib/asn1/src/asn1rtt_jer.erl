@@ -33,7 +33,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 encode_jer(Module, Type, Val) ->
     Info = Module:typeinfo(Type),
-    encode_jer(Info, Val).
+    Enc = encode_jer(Info, Val),
+    iolist_to_binary(json:encode(Enc)).
 
 %% {sequence,
 %%    Name::atom() % The record name used for the sequence 
@@ -171,7 +172,9 @@ encode_jer_component_tab([{Name, Type, _OptOrDefault} | CompInfos], [Value | Res
     encode_jer_component_tab(CompInfos, Rest, Simple, MapAcc#{Name => Enc});
 encode_jer_component_tab([], _, _Simple, MapAcc) ->
     MapAcc.
-encode_jer_component_map([{Name, AName, Type, _OptOrDefault} | CompInfos], MapVal, Acc) when is_map_key(AName,MapVal)->
+
+encode_jer_component_map([{Name, AName, Type, _OptOrDefault} | CompInfos], MapVal, Acc)
+  when is_map_key(AName, MapVal)->
     Value = maps:get(AName, MapVal),
     Enc = encode_jer(Type, Value),
     encode_jer_component_map(CompInfos, MapVal, [{Name,Enc}|Acc]);
@@ -179,14 +182,11 @@ encode_jer_component_map([{_Name, _AName, _Type, 'OPTIONAL'} | CompInfos], MapVa
     encode_jer_component_map(CompInfos, MapVal, Acc);
 encode_jer_component_map([{_Name, _AName, _Type, {'DEFAULT',_}} | CompInfos], MapVal, Acc) ->
     encode_jer_component_map(CompInfos, MapVal, Acc);
-encode_jer_component_map([], MapVal, []) when map_size(MapVal) == 0->
-    #{}; % ensure that it is encoded as an empty object in JSON
-encode_jer_component_map([], MapVal, Acc) when map_size(MapVal) == length(Acc) ->
-    lists:reverse(Acc);
+encode_jer_component_map([], MapVal, Acc) when map_size(MapVal) =:= length(Acc) ->
+    maps:from_list(Acc);
 encode_jer_component_map(_, MapVal, Acc) ->
     ErroneousKeys = maps:keys(MapVal) -- [K || {K,_V} <- Acc],
     exit({error,{asn1,{{encode,'SEQUENCE'},{erroneous_keys,ErroneousKeys}}}}).
-
 
 encode_jer_component([{_Name, _Type, 'OPTIONAL'} | CompInfos], [asn1_NOVALUE | Rest], Acc) ->
     encode_jer_component(CompInfos, Rest, Acc);
@@ -195,10 +195,8 @@ encode_jer_component([{_Name, _Type, {'DEFAULT',_}} | CompInfos], [asn1_DEFAULT 
 encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], Acc) ->
     Enc = encode_jer(Type, Value),
     encode_jer_component(CompInfos, Rest, [{Name,Enc}|Acc]);
-encode_jer_component([], _, []) ->
-    #{}; % ensure that it is encoded as an empty object in JSON
 encode_jer_component([], _, Acc) ->
-    lists:reverse(Acc).
+    maps:from_list(Acc).
 
 decode_jer(Module, Type, Val) ->
     TypeInfo = Module:typeinfo(Type),

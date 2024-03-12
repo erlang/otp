@@ -159,19 +159,17 @@ unrecognized options to the Erlang compiler. The available options are as follow
   JER will be generated. In that case, the exported functions for JER
   will be `jer_encode(Type, Value)` and `jer_decode(Type, Bytes)`.
 
-  The `jer` encoding rules (ITU-T X.697) are experimental in OTP 22. There is
-  support for a subset of the X.697 standard, for example there is no support
-  for:
+  JER (ITU-T X.697) are experimental in OTP 22. There is support for a
+  subset of the X.697 standard, for example there is no support for:
 
   - JER encoding instructions
   - the REAL type
 
-  Also note that when using the `jer` encoding rules the generated module will
-  get a dependency to an external json component. The generated code is
-  currently tested together with:
-
-  - `jsx` which currently is the default.
-  - `jsone` can be chosen instead of `jsx` by providing the option `{d,jsone}`.
+  > #### Change {: .info }
+  >
+  > In Erlang/OTP 27 and later, module `m:json` in STDLIB is used for
+  > encoding and decoding JSON. Before Erlang/OTP 27, it was necessary
+  > to provide an external JSON library.
 
   If the encoding rule option is omitted, `ber` is the default.
 
