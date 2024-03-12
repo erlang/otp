@@ -22,7 +22,7 @@ limitations under the License.
 ## Module Syntax
 
 Erlang code is divided into _modules_. A module consists of a sequence of
-attributes and function declarations, each terminated by period (.).
+attributes and function declarations, each terminated by a period (`.`).
 
 _Example:_
 
@@ -56,7 +56,7 @@ is translated to `{Name,Arity}`.
 
 Any module attribute can be specified. The attributes are stored in the compiled
 code and can be retrieved by calling `Module:module_info(attributes)`, or by
-using the module [beam_lib(3)](`beam_lib:chunks/2`) in STDLIB.
+using the module [beam_lib](`beam_lib:chunks/2`) in STDLIB.
 
 Several module attributes have predefined meanings. Some of them have arity two,
 but user-defined module attributes must have arity one.
@@ -79,7 +79,7 @@ Pre-defined module attributes is to be placed before any function declaration.
   `Functions` is a list `[Name1/Arity1, ..., NameN/ArityN]`, where each `NameI`
   is an atom and `ArityI` an integer.
 
-- **`-import(Module,Functions).`** - Imported functions. Can be called the same
+- **`-import(Module, Functions).`** - Imported functions. Can be called the same
   way as local functions, that is, without any module prefix.
 
   `Module`, an atom, specifies which module to import functions from.
@@ -89,16 +89,15 @@ Pre-defined module attributes is to be placed before any function declaration.
   documentation for this module. The allowed values for `Documentation` are the
   same as for [`-doc`](modules.md#documentation-attributes).
 
-  See the [Documentation](documentation.md) guide in the Erlang Reference Manual
-  for more details about how to use `-moduledoc`.
+  See the [Documentation](documentation.md) for more details about how
+  to use `-moduledoc`.
 
 - **`-compile(Options).`** - Compiler options. `Options` is a single option or a
   list of options. This attribute is added to the option list when compiling the
-  module. See the `m:compile` manual page in Compiler.
+  module. See module `m:compile` in Compiler.
 
 - **`-vsn(Vsn).`** - Module version. `Vsn` is any literal term and can be
-  retrieved using `beam_lib:version/1`, see the
-  [beam_lib(3)](`beam_lib:version/1`) manual page in STDLIB.
+  retrieved using `beam_lib:version/1`.
 
   If this attribute is not specified, the version defaults to the MD5 checksum
   of the module.
@@ -125,7 +124,7 @@ Pre-defined module attributes is to be placed before any function declaration.
   > #### Change {: .info }
   >
   > The special meaning for the `-nifs()` attribute was introduced in Erlang/OTP
-  > 25.0. In previous releases, the `-nifs()` was accepted, but had no special
+  > 25.0. In previous releases, `-nifs()` was accepted, but had no special
   > meaning.
 
 ### Behaviour Module Attribute
@@ -172,7 +171,7 @@ Read more about behaviours and callback modules in
 The same syntax as for module attributes is used for record definitions:
 
 ```erlang
--record(Record,Fields).
+-record(Record, Fields).
 ```
 
 Record definitions are allowed anywhere in a module, also among the function
@@ -185,7 +184,7 @@ supports file inclusion, macros, and conditional compilation:
 
 ```erlang
 -include("SomeFile.hrl").
--define(Macro,Replacement).
+-define(Macro, Replacement).
 ```
 
 Read more in [Preprocessor](macros.md).
@@ -288,10 +287,10 @@ in a prefix of the module.
 
 ## Comments
 
-Comments can be placed anywhere in a module except within strings and quoted
-atoms. A comment begins with the character "%", continues up to, but does not
-include the next end-of-line, and has no effect. Notice that the terminating
-end-of-line has the effect of white space.
+Comments can be placed anywhere in a module except within strings and
+quoted atoms. A comment begins with the character `%`, and continues
+up to but not including the next end of line. A comment has no effect,
+being essentially equivalent to white space.
 
 ## module_info/0 and module_info/1 functions
 
@@ -301,14 +300,15 @@ module:
 - `Module:module_info/0`
 - `Module:module_info/1`
 
-These functions can be called to retrieve information about the module.
+When called, these functions retrieve information about the module.
 
 ### module_info/0
 
-The `module_info/0` function in each module, returns a list of `{Key,Value}`
-tuples with information about the module. Currently, the list contain tuples
-with the following `Key`s: `module`, `attributes`, `compile`, `exports`, `md5`
-and `native`. The order and number of tuples may change without prior notice.
+The `module_info/0` function in each module returns a list of
+`{Key,Value}` tuples with information about the module. At the time
+writing, the list contain tuples having the following `Key`s:
+`module`, `attributes`, `compile`, `exports`, and `md5`.  The order
+and number of tuples may change without prior notice.
 
 ### module_info/1
 
@@ -324,12 +324,12 @@ The following values are allowed for `Key`:
   values. Notice that a given attribute can occur more than once in the list
   with different values if the attribute occurs more than once in the module.
 
-  The list of attributes becomes empty if the module is stripped with the
-  [beam_lib(3)](`beam_lib:strip/1`) module (in STDLIB).
+  The list of attributes becomes empty if the module is stripped with
+  `beam_lib:strip/1`.
 
 - **`compile`** - Returns a list of tuples with information about how the module
-  was compiled. This list is empty if the module has been stripped with the
-  [beam_lib(3)](`beam_lib:strip/1`) module (in STDLIB).
+  was compiled. This list is empty if the module has been stripped with
+  `beam_lib:strip/1`.
 
 - **`md5`** - Returns a binary representing the MD5 checksum of the module.
 

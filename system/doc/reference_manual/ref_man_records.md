@@ -61,7 +61,7 @@ The following expression creates a new `Name` record where the value of each
 field `FieldI` is the value of evaluating the corresponding expression `ExprI`:
 
 ```text
-#Name{Field1=Expr1,...,FieldK=ExprK}
+#Name{Field1=Expr1, ..., FieldK=ExprK}
 ```
 
 The fields can be in any order, not necessarily the same order as in the record
@@ -72,7 +72,7 @@ If several fields are to be assigned the same value, the following construction
 can be used:
 
 ```text
-#Name{Field1=Expr1,...,FieldK=ExprK, _=ExprL}
+#Name{Field1=Expr1, ..., FieldK=ExprK, _=ExprL}
 ```
 
 Omitted fields then get the value of evaluating `ExprL` instead of their default
@@ -83,8 +83,6 @@ _Example:_
 
 ```erlang
 -record(person, {name, phone, address}).
-
-...
 
 lookup(Name, Tab) ->
     ets:match_object(Tab, #person{name=Name, _='_'}).
@@ -99,6 +97,15 @@ Expr#Name.Field
 Returns the value of the specified field. `Expr` is to evaluate to a `Name`
 record.
 
+_Example_:
+
+```erlang
+-record(person, {name, phone, address}).
+
+get_person_name(Person) ->
+    Person#person.name.
+```
+
 The following expression returns the position of the specified field in the
 tuple representation of the record:
 
@@ -111,16 +118,14 @@ _Example:_
 ```erlang
 -record(person, {name, phone, address}).
 
-...
-
 lookup(Name, List) ->
-    lists:keysearch(Name, #person.name, List).
+    lists:keyfind(Name, #person.name, List).
 ```
 
 ## Updating Records
 
 ```text
-Expr#Name{Field1=Expr1,...,FieldK=ExprK}
+Expr#Name{Field1=Expr1, ..., FieldK=ExprK}
 ```
 
 `Expr` is to evaluate to a `Name` record. A copy of this record is returned,
@@ -130,17 +135,18 @@ old values.
 
 ## Records in Guards
 
-Since record expressions are expanded to tuple expressions, creating records and
-accessing record fields are allowed in guards. However all subexpressions, for
-example, for field initiations, must be valid guard expressions as well.
+Since record expressions are expanded to tuple expressions, creating
+records and accessing record fields are allowed in guards. However,
+all subexpressions (for initializing fields), must be valid guard
+expressions as well.
 
 _Examples:_
 
 ```erlang
-handle(Msg, State) when Msg==#msg{to=void, no=3} ->
+handle(Msg, State) when Msg =:= #msg{to=void, no=3} ->
     ...
 
-handle(Msg, State) when State#state.running==true ->
+handle(Msg, State) when State#state.running =:= true ->
     ...
 ```
 
@@ -161,10 +167,10 @@ A pattern that matches a certain record is created in the same way as a record
 is created:
 
 ```text
-#Name{Field1=Expr1,...,FieldK=ExprK}
+#Name{Field1=Expr1, ..., FieldK=ExprK}
 ```
 
-In this case, one or more of `Expr1`...`ExprK` can be unbound variables.
+In this case, one or more of `Expr1` ... `ExprK` can be unbound variables.
 
 ## Nested Records
 
@@ -203,13 +209,13 @@ Record expressions are translated to tuple expressions during compilation. A
 record defined as:
 
 ```erlang
--record(Name, {Field1,...,FieldN}).
+-record(Name, {Field1, ..., FieldN}).
 ```
 
 is internally represented by the tuple:
 
 ```text
-{Name,Value1,...,ValueN}
+{Name, Value1, ..., ValueN}
 ```
 
 Here each `ValueI` is the default value for `FieldI`.
@@ -224,8 +230,3 @@ record_info(size, Record) -> Size
 
 `Size` is the size of the tuple representation, that is, one more than the
 number of fields.
-
-In addition, `#Record.Name` returns the index in the tuple representation of
-`Name` of the record `Record`.
-
-`Name` must be an atom.
