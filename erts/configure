@@ -7866,6 +7866,17 @@ See 'config.log' for more details" "$LINENO" 5; } ;; #(
 esac
 fi
 fi
+if test "$enable_year2038,$ac_have_year2038" = yes,no
+then :
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
+as_fn_error $? "could not enable timestamps after mid-January 2038.
+This package recommends support for these later
+timestamps. However, to proceed with signed 32-bit
+time_t even though it will fail then, configure with
+'--disable-year2038'.
+See 'config.log' for more details" "$LINENO" 5; }
+fi
 
 ac_header= ac_cache=
 for ac_item in $ac_header_c_list
@@ -7939,10 +7950,9 @@ then :
        cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
                  WARNING:
-                   'configure' was not able to figure out how to
-                   make the system year 2038 safe! This runtime
-                   system will not be able to function properly
-                   after mid-January 2038.
+                   Note that this runtime system will *not* be year
+                   2038 safe! It will not be able to function
+                   properly after mid-January 2038.
 
 EOF
 

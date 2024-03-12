@@ -4898,6 +4898,33 @@ esac
 fi
 
 fi
+if test "$enable_year2038,$ac_have_year2038,$cross_compiling" = yes,no,no
+then :
+  # If we're not cross compiling and 'touch' works with a large
+  # timestamp, then we can presume the system supports wider time_t
+  # *somehow* and we just weren't able to detect it.  One common
+  # case that we deliberately *don't* probe for is a system that
+  # supports both 32- and 64-bit ABIs but only the 64-bit ABI offers
+  # wide time_t.  (It would be inappropriate for us to override an
+  # intentional use of -m32.)  Error out, demanding use of
+  # --disable-year2038 if this is intentional.
+  if TZ=UTC0 touch -t 210602070628.15 conftest.time 2>/dev/null
+then :
+  case `TZ=UTC0 LC_ALL=C ls -l conftest.time 2>/dev/null` in #(
+  *'Feb  7  2106'* | *'Feb  7 17:10'*) :
+    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
+as_fn_error $? "this system appears to support timestamps after
+mid-January 2038, but no mechanism for enabling wide
+'time_t' was detected. Did you mean to build a 64-bit
+binary? (E.g., 'CC=\"${CC} -m64\"'.) To proceed with
+32-bit time_t, configure with '--disable-year2038'.
+See 'config.log' for more details" "$LINENO" 5; } ;; #(
+  *) :
+     ;;
+esac
+fi
+fi
 ac_header= ac_cache=
 for ac_item in $ac_header_c_list
 do
@@ -4930,32 +4957,16 @@ fi
 
 
 # Large file support and 8-byte time_t by default
-if test "$enable_year2038,$ac_have_year2038,$cross_compiling" = yes,no,no
+if test "$enable_year2038,$ac_have_year2038" = yes,no
 then :
-  # If we're not cross compiling and 'touch' works with a large
-  # timestamp, then we can presume the system supports wider time_t
-  # *somehow* and we just weren't able to detect it.  One common
-  # case that we deliberately *don't* probe for is a system that
-  # supports both 32- and 64-bit ABIs but only the 64-bit ABI offers
-  # wide time_t.  (It would be inappropriate for us to override an
-  # intentional use of -m32.)  Error out, demanding use of
-  # --disable-year2038 if this is intentional.
-  if TZ=UTC0 touch -t 210602070628.15 conftest.time 2>/dev/null
-then :
-  case `TZ=UTC0 LC_ALL=C ls -l conftest.time 2>/dev/null` in #(
-  *'Feb  7  2106'* | *'Feb  7 17:10'*) :
-    { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
+  { { printf "%s\n" "$as_me:${as_lineno-$LINENO}: error: in '$ac_pwd':" >&5
 printf "%s\n" "$as_me: error: in '$ac_pwd':" >&2;}
-as_fn_error $? "this system appears to support timestamps after
-mid-January 2038, but no mechanism for enabling wide
-'time_t' was detected. Did you mean to build a 64-bit
-binary? (E.g., 'CC=\"${CC} -m64\"'.) To proceed with
-32-bit time_t, configure with '--disable-year2038'.
-See 'config.log' for more details" "$LINENO" 5; } ;; #(
-  *) :
-     ;;
-esac
-fi
+as_fn_error $? "could not enable timestamps after mid-January 2038.
+This package recommends support for these later
+timestamps. However, to proceed with signed 32-bit
+time_t even though it will fail then, configure with
+'--disable-year2038'.
+See 'config.log' for more details" "$LINENO" 5; }
 fi
 
 USER_LD=$LD
