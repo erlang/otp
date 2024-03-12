@@ -1475,8 +1475,7 @@ server_vars() ->
     #{counters := #{num_cnt_bits := NumCntBits}} = socket:info(),
     #{type          => undefined,
       buffer        => <<>>,
-      tcp_closed    => false,
-      num_cnt_bits  => NumCntBits}. % tcp_closed sent
+      num_cnt_bits  => NumCntBits}.
 
 init({open, Domain, ExtraOpts, Owner}) ->
     %% Listen or Connect
@@ -2435,9 +2434,9 @@ handle_recv_error(
                         begin
                             Owner ! {tcp_closed, ModuleSocket}
                         end,
-                    D_1 = D#{active := false, tcp_closed := true},
                     handle_recv_error_reply(
-                      P, D_1, ActionsR, ShowReason, 'closed_read')
+                      P, D#{active := false}, ActionsR,
+                      ShowReason, 'closed_read')
             end
     end.
 %%
