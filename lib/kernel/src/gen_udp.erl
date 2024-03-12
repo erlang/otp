@@ -153,6 +153,7 @@ open(Port) ->
       Reason :: system_limit | inet:posix().
 
 open(Port, Opts0) ->
+    %% ?DBG(['entry', {port, Port}, {opts0, Opts0}]),
     case inet:gen_udp_module(Opts0) of
 	{?MODULE, Opts} ->
 	    open1(Port, Opts);
@@ -161,8 +162,11 @@ open(Port, Opts0) ->
     end.
 
 open1(Port, Opts0) ->
+    %% ?DBG(['entry', {port, Port}, {opts0, Opts0}]),
     {Mod, Opts} = inet:udp_module(Opts0),
+    %% ?DBG([{mod, Mod}, {opts, Opts}]),
     {ok, UP} = Mod:getserv(Port),
+    %% ?DBG([{up, UP}]),
     Mod:open(UP, Opts).
     
 

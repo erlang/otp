@@ -7412,7 +7412,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
             else if (ival == INET_AF_INET6) {
                 proto = IPPROTO_IPV6;
 #if defined(INET_ADD_MEMBERSHIP)
-                type  = INET_DROP_MEMBERSHIP;
+                type  = INET_ADD_MEMBERSHIP;
 #else
                 return -1;
 #endif
@@ -10596,6 +10596,8 @@ which is always 255 across all platforms */
 static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 			     ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rsize)
 {
+    int save_errno = 0;
+
     switch (cmd) {
 
     case INET_REQ_GETSTAT: {
@@ -11030,8 +11032,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	     (desc->sfamily, &local, &buf, &len)) != NULL)
 	    return ctl_xerror(xerror, rbuf, rsize);
 
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][%d,%T] inet_ctl -> try bind\r\n",
+              __LINE__, desc->s, driver_caller(desc->port)) );
+
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len))) {
-	    return ctl_error(sock_errno(), rbuf, rsize);
+
+            save_errno = sock_errno();
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][%d,%T] inet_ctl -> bind failed: %d\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), save_errno) );
+
+	    return ctl_error(save_errno, rbuf, rsize);
         }
 
 	desc->state = INET_STATE_OPEN;
