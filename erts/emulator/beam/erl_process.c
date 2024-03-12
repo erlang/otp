@@ -14231,7 +14231,7 @@ restart:
         erts_set_gc_state(p, 1);
         state = erts_atomic32_read_acqb(&p->state);
         if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
-            reds -= cleanup_sys_tasks(p, state, reds);
+            reds = cleanup_sys_tasks(p, state, reds);
             if (reds <= 0) goto yield;
         }
 
@@ -14314,7 +14314,7 @@ restart:
 
         state = erts_atomic32_read_acqb(&p->state);
         if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
-            reds -= cleanup_sys_tasks(p, state, reds);
+            reds = cleanup_sys_tasks(p, state, reds);
             if (reds <= 0) goto yield;
         }
 
