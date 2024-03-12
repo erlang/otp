@@ -120,10 +120,12 @@
          max_frag_enum/1
 	]).
 
+%% Certificate handling
 -export([get_cert_params/1,
          select_own_cert/1,
          path_validation/10,
          validation_fun_and_state/4,
+         path_validation_options/2,
          path_validation_alert/1]).
 
 %% Tracing
@@ -2096,6 +2098,10 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      SslState)
      end, VerifyState}.
 
+path_validation_options(Opts, ValidationFunAndState) ->
+    [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
+     {verify_fun, ValidationFunAndState}].
+
 apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
@@ -3891,8 +3897,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               path_len => length(Path)
                                              },
                                  Path, Level),
-    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
-               {verify_fun, ValidationFunAndState}],
+    Options = path_validation_options(Opts, ValidationFunAndState),
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 
 error_to_propagate({error, {bad_cert, root_cert_expired}} = Error, _) ->
