@@ -152,6 +152,13 @@ case, the reason for termination is also printed in the comment field. The
 overview page has a link to each test case log file, providing simple navigation
 with any standard HTML browser.
 
+> #### Note {: .info }
+>
+> In the last row where totals are presented the time shown here is a sum of
+> rows, which are above (not accounting for parallel testcases).
+> On the other hand "Elapsed Time" is a clock time spent to run testcases.
+>
+
 [](){: #External_Interfaces }
 
 ## External Interfaces
