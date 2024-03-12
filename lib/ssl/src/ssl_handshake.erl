@@ -2099,8 +2099,9 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
      end, VerifyState}.
 
 path_validation_options(Opts, ValidationFunAndState) ->
+    PolicyOpts = maps:get(cert_policy_opts, Opts, []),
     [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
-     {verify_fun, ValidationFunAndState}].
+     {verify_fun, ValidationFunAndState} | PolicyOpts].
 
 apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
