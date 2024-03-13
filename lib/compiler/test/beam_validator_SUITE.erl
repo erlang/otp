@@ -43,7 +43,8 @@
          container_performance/1,
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
-         inert_update_type/1,range_inference/1]).
+         inert_update_type/1,range_inference/1,
+         bif_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -80,7 +81,8 @@ groups() ->
        bs_saved_position_units,parent_container,
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
-       inert_update_type,range_inference]}].
+       inert_update_type,range_inference,
+       bif_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1145,6 +1147,27 @@ range_inference_1(<<X/utf8>>) ->
         -2147483648 ->
             ok
     end.
+
+bif_inference(_Config) ->
+    ok = bif_inference_is_bitstring(id(<<>>), id(<<>>)),
+    error = bif_inference_is_bitstring(id(a), id(a)),
+
+    ok = bif_inference_is_function(id(fun id/1), id(fun id/1)),
+    ok = bif_inference_is_function(true, true),
+    error = bif_inference_is_function(id(fun id/1), a),
+    error = bif_inference_is_function(a, a),
+
+    ok.
+
+bif_inference_is_bitstring(A, A) when A andalso ok; is_bitstring(A) ->
+    ok;
+bif_inference_is_bitstring(_, _) ->
+    error.
+
+bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
+    ok;
+bif_inference_is_function(_, _) ->
+    error.
 
 id(I) ->
     I.

@@ -129,6 +129,8 @@ misc(Config) when is_list(Config) ->
     error = if abs(Zero > One) -> ok; true -> error end,
     ok = if is_integer(Zero) >= is_integer(One) -> ok end,
 
+    {'EXIT',{function_clause,_}} = catch misc_4(),
+
     ok.
 
 misc_1([{W},{X},{Y},{Z}]) ->
@@ -149,6 +151,9 @@ misc_3(LenUp, LenDw) ->
 	LenUp >= 1 orelse ((LenDw >= 2) xor true) -> true;
 	true -> false
     end.
+
+misc_4() when <<(is_atom((#{} #{ ok := ok })) orelse <<>>)/bytes>> >= ok ->
+    ok.
 
 get_data({o,Active,Raw}, BytesToRead, Buffer) 
   when Raw =:= raw; Raw =:= 0 ->
@@ -3143,6 +3148,18 @@ beam_ssa_bool_coverage() ->
     error = beam_ssa_bool_coverage_3(42),
     error = beam_ssa_bool_coverage_3(a),
 
+    error = beam_ssa_bool_coverage_4(42, 42),
+    error = beam_ssa_bool_coverage_4(ok, ok),
+    error = beam_ssa_bool_coverage_4(a, b),
+
+    ok = beam_ssa_bool_coverage_5(ok),
+    ok = beam_ssa_bool_coverage_5(2.0),
+    ok = beam_ssa_bool_coverage_5(42),
+
+    ok = beam_ssa_bool_coverage_6(<<>>),
+    error = beam_ssa_bool_coverage_6(a),
+    error = beam_ssa_bool_coverage_6(42),
+
     ok.
 
 collect_modifiers([H | T], Buffer)
@@ -3166,6 +3183,35 @@ beam_ssa_bool_coverage_3(A) when ok; ((ok =< A + 1) or false) and true orelse ok
     ok;
 beam_ssa_bool_coverage_3(_) ->
     error.
+
+beam_ssa_bool_coverage_4(A, A) when ok == A andalso ok ->
+    ok;
+beam_ssa_bool_coverage_4(_, _) ->
+    error.
+
+beam_ssa_bool_coverage_5(A) ->
+    maybe
+        case case maybe ok end of
+                 2.0 ->
+                     false;
+                 A ->
+                     true;
+                 _ ->
+                     true
+             end of
+            true ->
+                ok;
+            _ ->
+                error
+        end
+    end.
+
+beam_ssa_bool_coverage_6(A) when is_bitstring(A) orelse ok;
+                                 is_bitstring(A) andalso ok bsr ok ->
+    ok;
+beam_ssa_bool_coverage_6(_) ->
+    error.
+
 
 gh_6164() ->
     true = do_gh_6164(id([])),

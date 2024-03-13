@@ -338,8 +338,6 @@ format_type(#t_map{super_key=none,super_value=none}) ->
     "#{}";
 format_type(#t_map{super_key=K,super_value=V}) ->
     ["#{", format_type(K), "=>", format_type(V), "}"];
-format_type(number) ->
-    "number()";
 format_type(#t_float{elements=any}) ->
     "float()";
 format_type(#t_float{elements={X,X}}) ->
@@ -377,7 +375,7 @@ format_type(other) ->
 format_type(pid) ->
     "pid()";
 format_type(port) ->
-    "pid()";
+    "port()";
 format_type(reference) ->
     "reference()";
 format_type(identifier) ->

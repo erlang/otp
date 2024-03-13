@@ -1475,8 +1475,8 @@ convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
                    true ->
                        true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
                        TypeBits = TypeBits0 bor
-                           ?BEAM_TYPE_HAS_LOWER_BOUND bor
-                           ?BEAM_TYPE_HAS_UPPER_BOUND,
+                           ((?BEAM_TYPE_HAS_LOWER_BOUND bor
+                                 ?BEAM_TYPE_HAS_UPPER_BOUND) bsl 1),
                        <<TypeBits:16,Min:64/signed,Max:64/signed>>;
                    false ->
                        <<TypeBits0:16>>
