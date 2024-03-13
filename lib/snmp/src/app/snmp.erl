@@ -75,26 +75,35 @@ calendar(3)
               octet_string/0,
               rfc1903_date_and_time/0,
 
+              time_interval/0,
+              row_pointer/0,
+
               date_and_time_validator_kind/0,
               date_and_time_validator/0,
 
-	      dir/0, 
-	      snmp_timer/0, 
+	      dir/0,
+	      snmp_timer/0,
 
-              atl_type/0,
-              verbosity/0,
+	      engine_id/0,
+              mms/0,
+	      tdomain/0,
+	      taddress/0,
+	      community/0,
+	      context_name/0,
+	      version/0,
+	      sec_model/0,
+	      sec_name/0,
+	      sec_level/0,
 
-	      engine_id/0, 
-	      tdomain/0, 
-	      community/0, 
-	      mms/0, 
-	      version/0, 
-	      sec_model/0, 
-	      sec_name/0, 
-	      sec_level/0, 
+              usm_name/0,
+              usm_auth_protocol/0,
+              usm_auth_key/0,
+              usm_priv_protocol/0,
+              usm_priv_key/0,
 
 	      oid/0,
 	      row_index/0,
+              column/0,
 	      varbind/0, 
 	      ivarbind/0, 
 	      asn1_type/0, 
@@ -112,9 +121,15 @@ calendar(3)
               error_status/0,
               error_index/0,
  
+              verbosity/0,
+
 	      void/0
 	     ]).
-
+-export_type([
+              log_size/0,
+              log_time/0,
+              atl_type/0
+             ]).
 
 -define(APPLICATION,       snmp).
 -define(ATL_BLOCK_DEFAULT, true).
@@ -135,10 +150,32 @@ calendar(3)
 -type log_size()              :: 'infinity' | pos_integer() |
                                  {MaxNoBytes :: pos_integer(),
                                   MaxNoFiles :: pos_integer()}.
-
 -type log_time()              :: calendar:datetime() |
                                  {local_time, calendar:datetime()} |
                                  {universal_time, calendar:datetime()}.
+-type atl_type()              :: read | write | read_write.
+
+-doc """
+> #### Note {: .info }
+>
+> "A period of time, measured in units of 0.01 seconds."
+
+`INTEGER (0..2147483647)`
+
+Defined by SNMPv2-TC.
+""".
+-type time_interval()         :: 0..2147483647.
+-doc """
+> #### Note {: .info }
+>
+> "Represents a pointer to a conceptual row. The value is the name of the
+> instance of the first accessible columnar object in the conceptual row."
+
+`OBJECT IDENTIFIER`
+
+Defined by SNMPv2-TC.
+""".
+-type row_pointer()           :: oid().
 
 -doc "The Erlang representation of the SNMP BITS (pseudo) data type.".
 -type bits()                  :: integer().
@@ -151,6 +188,7 @@ Denotes the last part of the OID which specifies the index of the row in the
 table (see RFC1212, 4.1.6 for more information about INDEX).
 """.
 -type row_index()             :: oid().
+-type column()                :: pos_integer().
 
 -doc "The data type DateAndTime, an OCTET STRING, as specified in RFC1903.".
 -type rfc1903_date_and_time() :: octet_string().
@@ -180,20 +218,27 @@ The input to the validator fun looks like this:
         fun((Kind :: date_and_time_validator_kind(),
              Data :: term()) -> boolean()).
 
+-doc "A string, that is a file path to a directory.".
 -type dir()           :: string().
+
 -type snmp_timer()    :: #snmp_incr_timer{}.
 
--type atl_type()      :: read | write | read_write.
--type verbosity()     :: silence | info | log | debug | trace.
-
 -type engine_id()     :: snmp_framework_mib:engine_id().
+-type mms()           :: snmp_framework_mib:max_message_size().
 -type tdomain()       :: transportDomainUdpIpv4 | transportDomainUdpIpv6.
+-type taddress()      :: snmpa_conf:transportAddress().
 -type community()     :: snmp_community_mib:name().
--type mms()           :: non_neg_integer().
+-type context_name()  :: snmp_community_mib:context_name().
 -type version()       :: v1 | v2 | v3.
--type sec_model()     :: any | v1 | v2c | usm.
--type sec_name()      :: snmp_community_mib:security_name().
--type sec_level()     :: noAuthNoPriv | authNoPriv | authPriv.
+-type sec_model()     :: snmp_framework_mib:security_model().
+-type sec_name()      :: snmp_framework_mib:admin_string().
+-type sec_level()     :: snmp_framework_mib:security_level().
+
+-type usm_name()          :: snmp_user_based_sm_mib:name().
+-type usm_auth_protocol() :: snmp_user_based_sm_mib:auth_protocol().
+-type usm_auth_key()      :: snmp_user_based_sm_mib:auth_key().
+-type usm_priv_protocol() :: snmp_user_based_sm_mib:priv_protocol().
+-type usm_priv_key()      :: snmp_user_based_sm_mib:priv_key().
 
 -type varbind()       :: #varbind{}.
 -type ivarbind()      :: #ivarbind{}.
@@ -207,10 +252,7 @@ The input to the validator fun looks like this:
 -type mib_name()      :: string().
 -type pdu()           :: #pdu{}.
 -type trappdu()       :: #trappdu{}.
--type pdu_type()      :: 'get-request' | 'get-next-request' | 'get-response' |
-                         'set-request' | 'trap' | 'get-bulk-request' | 
-                         'inform-request' |
-                         'report'.
+-type pdu_type()      :: snmp_pdus:pdu_type().
 
 -type algorithm() :: md5 | sha | sha224 | sha256 | sha384 | sha512.
 
@@ -229,8 +271,25 @@ The input to the validator fun looks like this:
 %% undoFailed |
 %% wrongValue
 
--type error_status()  :: atom().
--type error_index()   :: pos_integer().
+-doc """
+We should really specify all of these, but they are so numerous... Also,
+normally all you need to know is that `'noError'` is ok and everything else is
+an error.
+""".
+-type error_status()  :: noError | atom().
+%% Actually: 0 | pos_integer()
+%% 0 is used for noError, and pos_integer() for actual errors
+-doc """
+`0` is used when error status is `noError` and when error status is an actual
+error; error index is `t:pos_integer/0`.
+""".
+-type error_index()   :: non_neg_integer().
+
+-doc """
+For the lowest verbosity `silence`, nothing is printed. The higher the
+verbosity, the more is printed.
+""".
+-type verbosity()     :: silence | info | log | debug | trace.
 
 -doc "The type is used when a functions return is to be ignored.".
 -type void()          :: term().

@@ -25,10 +25,10 @@ This module defines the behaviour of the agent network interface filter. A
 `snmpa_network_interface_filter` compliant module must export the following
 functions:
 
-- [accept_recv/2](`m:snmpa_network_interface_filter#accept_recv`)
-- [accept_send/2](`m:snmpa_network_interface_filter#accept_send`)
-- [accept_recv_pdu/3](`m:snmpa_network_interface_filter#accept_recv_pdu`)
-- [accept_send_pdu/2](`m:snmpa_network_interface_filter#accept_send_pdu`)
+- `accept_recv/2`
+- `accept_send/2`
+- `accept_recv_pdu/3`
+- `accept_send_pdu/2`
 
 The semantics of them and their exact signatures are explained below.
 
@@ -50,7 +50,7 @@ default filter accepts all messages.
 A network interface filter can e.g. be used during testing or for load
 regulation. If the intended use is load regulation, see also
 [req_limit](snmp_config.md#agent_ni_req_limit) and the function
-[register_notification_filter](`m:snmpa#register_notification_filter`).
+[register_notification_filter](`snmpa:register_notification_filter/5`).
 
 Legacy network interface filter modules used arguments on the form
 `(IpAddr, PortNumber,...)` instead of `(Domain, Addr, ...)`, and if the SNMP

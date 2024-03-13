@@ -54,7 +54,7 @@ as is, return `send`, modify the notification, return `{send, NewNotif}` or
 suppress the notification, return `dont_send`.
 
 `Data` is supplied at filter registration time, see
-[register_notification_filter](`m:snmpa#register_notification_filter`).
+`snmpa:register_notification_filter/5`.
 """.
 -callback handle_notification(Notif, Data) -> Reply when
       Reply :: send |

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -397,8 +397,8 @@
 %%
 %% The delivery will be performed according to:
 %%
-%%     Mod:inform_delivery_targets(Tag, Addresses, Extra)
-%%     Mod:inform_delivery_info(Tag, Address, DeliveryResult, Extra)
+%%     Mod:delivery_targets(Tag, Addresses, Extra)
+%%     Mod:delivery_info(Tag, Address, DeliveryResult, Extra)
 %%
 %% The Extra is any term, provided by the user.
 %% 

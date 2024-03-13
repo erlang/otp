@@ -74,17 +74,143 @@ The configuration files are described in the SNMP User's Manual.
 -export([which_trap_transport/1, which_req_transport/1, which_transport/2]).
 -export([add_context/1, delete_context/1]).
 -export([check_agent/2, check_context/1, order_agent/2]).
+-export([
+         message_processing_models/0,
+         security_models/0,
+         security_levels/0
+        ]).
 
 -export_type([
               admin_string/0,
-              engine_id/0
+              engine_id/0,
+              max_message_size/0,
+              message_processing_model/0,
+              security_model/0,
+              security_level/0
              ]).
 
 
+%% *** admin_string ***
 -doc "`OCTET STRING (SIZE(0..255))`".
--type admin_string() :: string().
+-type admin_string()             :: string().
+
+%% *** engine_id ***
 -doc "`OCTET STRING (SIZE(5..32))`".
--type engine_id()    :: string().
+-type engine_id()                :: string().
+
+%% *** max_message_size ***
+-doc """
+> #### Note {: .info }
+>
+> "The maximum length in octets of an SNMP message which this SNMP engine can
+> send or receive and process, determined as the minimum of the maximum message
+> size values supported among all of the transports available to and supported
+> by the engine."
+
+`INTEGER (484..2147483647)`
+""".
+-type max_message_size()         :: 484 .. 2147483647.
+
+%% *** message_processing_model ***
+-doc """
+> #### Note {: .info }
+>
+> "As of this writing, there are several values of messageProcessingModel
+> defined for use with SNMP. They are as follows: "
+>
+> ```text
+>                         0  reserved for SNMPv1
+>                         1  reserved for SNMPv2c
+>                         2  reserved for SNMPv2u and SNMPv2*
+>                         3  reserved for SNMPv3
+> ```
+
+`INTEGER(0 .. 2147483647)`
+""".
+-type message_processing_model() :: v1 | v2c | v3.
+
+%% *** security_model ***
+-doc """
+> #### Note {: .info }
+>
+> "As of this writing, there are several values of securityModel defined for use
+> with SNMP or reserved for use with supporting MIB objects. They are as
+> follows: "
+>
+> ```text
+>                         0  reserved for 'any'
+>                         1  reserved for SNMPv1
+>                         2  reserved for SNMPv2c
+>                         3  User-Based Security Model (USM)
+> ```
+
+`INTEGER(0 .. 2147483647)`
+""".
+-type security_model()           :: any | v1 | v2c | usm.
+
+%% *** security_level ***
+-doc """
+> #### Note {: .info }
+>
+> "A Level of Security at which SNMP messages can be sent or with which
+> operations are being processed; in particular, one of: "
+>
+> ```text
+>                       noAuthNoPriv - without authentication and
+>                                      without privacy,
+>                       authNoPriv   - with authentication but
+>                                      without privacy,
+>                       authPriv     - with authentication and
+>                                      with privacy.
+> ```
+>
+> "These three values are ordered such that noAuthNoPriv is less than authNoPriv
+> and authNoPriv is less than authPriv."
+
+`INTEGER { noAuthNoPriv(1), authNoPriv(2), authPriv(3) }`
+""".
+-type security_level()           :: noAuthNoPriv |
+                                    authNoPriv   |
+                                    authPriv.
+
+
+%%-----------------------------------------------------------------
+
+-doc false.
+-spec message_processing_models() -> MPModels when
+      MPModels   :: [{MPModel, Identifier}],
+      MPModel    :: message_processing_model(),
+      Identifier :: 0 .. 2147483647.
+
+message_processing_models() ->
+    [{v1,  0},
+     {v2c, 1},
+     {v3,  3}].
+
+
+-doc false.
+-spec security_models() -> SecModels when
+      SecModels  :: [{SecModel, Identifier}],
+      SecModel   :: security_model(),
+      Identifier :: 0 .. 2147483647.
+
+security_models() ->
+    [{any, 0},
+     {v1,  1},
+     {v2c, 2},
+     {usm, 3}].
+
+
+-doc false.
+-spec security_levels() -> SecLevels when
+      SecLevels  :: [{SecLevel, Identifier}],
+      SecLevel   :: security_level(),
+      Identifier :: 0 .. 2147483647.
+
+security_levels() ->
+    [{noAuthNoPriv, 1},
+     {authNoPriv,   2},
+     {authPriv,     3}].
 
 
 %%-----------------------------------------------------------------

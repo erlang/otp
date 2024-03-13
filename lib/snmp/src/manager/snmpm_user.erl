@@ -25,13 +25,13 @@ Behaviour module for the SNMP manager user.
 This module defines the behaviour of the manager user. A `snmpm_user` compliant
 module must export the following functions:
 
-- handle_error/3
-- handle_agent/4
-- handle_pdu/4
-- handle_trap/3
-- handle_inform/3
-- handle_report/3
-- handle_invalid_result/2
+- `c:handle_error/3`
+- `c:handle_agent/5`
+- `c:handle_pdu/4`
+- `c:handle_trap/3`
+- `c:handle_inform/3`
+- `c:handle_report/3`
+- `c:handle_invalid_result/2`
 
 The semantics of them and their exact signatures are explained below.
 
@@ -40,7 +40,7 @@ return anything. But the functions that do have specified return value(s) _must_
 adhere to this. None of the functions can use exit of throw to return.
 
 If the manager is not configured to use any particular transport domain, the
-behaviour `handle_agent/4` will for backwards copmpatibility reasons be called
+behaviour `handle_agent/5` will for backwards copmpatibility reasons be called
 with the old `IpAddr` and `PortNumber` arguments
 
 ## DATA TYPES
@@ -55,8 +55,6 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
                         Timestamp :: integer(),
                         Varbinds  :: [snmp:varbind()]}
 ```
-
-[](){: #handle_error }
 """.
 
 -export_type([
@@ -94,8 +92,6 @@ For `SnmpInfo` see handle_agent below.
 Note that there is a special case when the value of `ReqId` has the value of the
 atom `netif`. This means that the NetIF process has suffered a "fatal" error and
 been restarted. With possible loss of traffic\!
-
-[](){: #handle_agent }
 """.
 -callback handle_error(
 	    ReqId :: netif | integer(), 
@@ -119,24 +115,19 @@ This function is called when a message is received from an unknown agent.
 
 Note that this will always be the default user that is called.
 
-For more info about the `agent_config()`, see
-[register_agent](`m:snmpm#register_agent`).
+For more info about the `agent_config()`, see `snmpm:register_agent/3`.
 
 The arguments `Type` and `SnmpInfo` relates in the following way:
 
-- `pdu` \- `SnmpPduInfo` (see [handle_pdu](`m:snmpm_user#handle_pdu`) for more
+- `pdu` \- `SnmpPduInfo` (see `c:handle_pdu/4` for more
   info).
-- `trap` \- `SnmpTrapInfo` (see [handle_trap](`m:snmpm_user#handle_trap`) for
+- `trap` \- `SnmpTrapInfo` (see `c:handle_trap/3` for
   more info).
-- `report` \- `SnmpReportInfo` (see
-  [handle_report](`m:snmpm_user#handle_report`) for more info).
-- `inform` \- `SnmpInformInfo` (see
-  [handle_inform](`m:snmpm_user#handle_inform`) for more info).
+- `report` \- `SnmpReportInfo` (see `c:handle_report/3` for more info).
+- `inform` \- `SnmpInformInfo` (see `c:handle_inform/3` for more info).
 
 The only user which would return `{register, UserId, TargetName, AgentConfig}`
 is the _default user_.
-
-[](){: #handle_pdu }
 """.
 -callback handle_agent(Domain   :: atom(),
 		       Address  :: term(),
@@ -155,14 +146,12 @@ is the _default user_.
 
 -doc """
 Handle the reply to an asynchronous request, such as
-[async_get](`m:snmpm#async_get2`), [async_get_next](`m:snmpm#async_get_next2`)
-or [async_set](`m:snmpm#async_set2`).
+[async_get](`snmpm:async_get2/4`), [async_get_next](`snmpm:async_get_next2/4`)
+or [async_set](`snmpm:async_set2/4`).
 
 It could also be a late reply to a synchronous request.
 
 `ReqId` is returned by the asynchronous request function.
-
-[](){: #handle_trap }
 """.
 -callback handle_pdu(TargetName   :: snmpm:target_name(), 
 		     ReqId        :: term(), 
@@ -177,13 +166,10 @@ It could also be a late reply to a synchronous request.
 -doc """
 Handle a trap/notification message from an agent.
 
-For more info about the `agent_config()`, see
-[register_agent](`m:snmpm#register_agent`)
+For more info about the `agent_config()`, see `snmpm:register_agent/3`.
 
 The only user which would return `{register, UserId, TargetName2, agent_info()}`
 is the _default user_.
-
-[](){: #handle_inform }
 """.
 -callback handle_trap(TargetName   :: snmpm:target_name(), 
 		      SnmpTrapInfo :: snmp_gen_info() | snmp_v1_trap_info(), 
@@ -202,8 +188,7 @@ is the _default user_.
 -doc """
 Handle a inform message.
 
-For more info about the `agent_config()`, see
-[register_agent](`m:snmpm#register_agent`)
+For more info about the `agent_config()`, see `snmpm:register_agent/3`.
 
 The only user which would return `{register, UserId, TargetName2, AgentConfig}`
 is the _default user_.
@@ -211,8 +196,6 @@ is the _default user_.
 If the [inform request behaviour](snmp_config.md#manager_irb) configuration
 option is set to `user` or `{user, integer()}`, the response (acknowledgment) to
 this inform-request will be sent when this function returns.
-
-[](){: #handle_report }
 """.
 -callback handle_inform(TargetName :: snmpm:target_name(), 
 			SnmpInform :: snmp_gen_info(), 
@@ -231,13 +214,10 @@ this inform-request will be sent when this function returns.
 -doc """
 Handle a report message.
 
-For more info about the `agent_config()`, see
-[register_agent](`m:snmpm#register_agent`)
+For more info about the `agent_config()`, see `snmpm:register_agent/3`.
 
 The only user which would return `{register, UserId, TargetName2, AgentConfig}`
 is the _default user_.
-
-[](){: #handle_invalid_result }
 """.
 -callback handle_report(TargetName :: snmpm:target_name(), 
 			SnmpReport :: snmp_gen_info(), 

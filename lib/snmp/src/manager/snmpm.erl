@@ -23,42 +23,6 @@
 Interface functions to the SNMP toolkit manager
 
 The module `snmpm` contains interface functions to the SNMP manager.
-
-## Common Data Types
-
-The following data types are used in the functions below:
-
-```erlang
-oid() = [byte()]  -  The oid() type is used to represent an ASN.1 OBJECT IDENTIFIER
-snmp_reply() = {error_status(), error_index(), varbinds()}
-error_status() = noError | atom()
-error_index() = integer()
-varbinds() = [varbind()]
-atl_type() = read | write | read_write
-target_name() = string()  -  Is a unique *non-empty* string
-vars_and_vals() = [var_and_val()]
-var_and_val() = {oid(), value_type(), value()} | {oid(), value()}
-value_type() = o ('OBJECT IDENTIFIER') |
-               i ('INTEGER') |
-               u ('Unsigned32') |
-               g ('Unsigned32') |
-               s ('OCTET SRING') |
-               b ('BITS') |
-               ip ('IpAddress') |
-               op ('Opaque') |
-               c32 ('Counter32') |
-               c64 ('Counter64') |
-               tt ('TimeTicks')
-value() = term()
-community() = string()
-sec_model() = any | v1 | v2c | usm
-sec_name() = string()
-sec_level() = noAuthNoPriv | authNoPriv | authPriv
-```
-
-See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
-
-[](){: #monitor }
 """.
 
 %%----------------------------------------------------------------------
@@ -142,10 +106,18 @@ See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 -export([target_name/1, target_name/2]).
 
 -export_type([
-	      register_timeout/0, 
-	      agent_config/0, 
 	      target_name/0,
-              pdu_type/0
+              user_id/0,
+              request_id/0,
+	      register_timeout/0, 
+	      agent_config_item/0, 
+	      agent_config/0, 
+              pdu_type/0,
+              value_type/0,
+              var_and_val/0,
+              snmpm_user/0,
+              usm_config_item/0,
+              snmp_reply/0
 	     ]).
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
@@ -162,20 +134,142 @@ See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 %% Types
 %%-----------------------------------------------------------------
 
--type register_timeout() :: pos_integer() | snmp:snmp_timer().
--type agent_config() :: {engine_id,        snmp:engine_id()}   | % Mandatory
-			{address,          inet:ip_address()}  | % Mandatory
-			{port,             inet:port_number()} | % Optional
-			{tdomain,          snmp:tdomain()}     | % Optional
-			{community,        snmp:community()}   | % Optional
-			{timeout,          register_timeout()} | % Optional
-			{max_message_size, snmp:mms()}         | % Optional
-			{version,          snmp:version()}     | % Optional
-			{sec_moduel,       snmp:sec_model()}   | % Optional
-			{sec_name,         snmp:sec_name()}    | % Optional
-			{sec_level,        snmp:sec_level()}.    % Optional
--type target_name() :: string().
--type pdu_type() :: snmp:pdu_type() | 'trappdu'.
+-doc "Is a unique _non-empty_ string.".
+-type target_name()       :: string().
+-doc "Is a unique term that identifies a user.".
+-type user_id()           :: term().
+-doc "Is a unique term that identifies a request.".
+-opaque request_id()      :: term().
+-doc "The time to complete a (agent) registration.".
+-type register_timeout()  :: pos_integer() | snmp:snmp_timer().
+-doc """
+Value type depend on the item according to:
+
+- **`engine_id`** - Engine ID of the agent.
+
+  Value type: [engine_id()](`t:snmp:engine_id/0`)
+
+- **`address`** - The IP address of the agent.
+
+  Value type: [ip_address()](`t:inet:ip_address/0`)
+
+- **`port`** - Port number of the agent.
+
+  Value type: [port_number()](`t:inet:port_number/0`)
+
+- **`tdomain`** - Transport domain.
+
+  Value type: [tdomain()](`t:snmp:tdomain/0`)
+
+- **`community`** - Community.
+
+  Value type: [community()](`t:snmp:community/0`)
+
+- **`timeout`** - Registration timeout.
+
+  Value type: `t:register_timeout/0`
+
+- **`max_message_size`** - Max Message Size of a message.
+
+  Value type: [mms()](`t:snmp:mms/0`)
+
+- **`version`** - What SNMP version is used when communicating with this agent.
+
+  Value type: [version()](`t:snmp:version/0`)
+
+- **`sec_model`** - Security Model.
+
+  Value type: [sec_model()](`t:snmp:sec_model/0`)
+
+- **`sec_name`** - Security Name.
+
+  Value type: [sec_name()](`t:snmp:sec_name/0`)
+
+- **`sec_level`** - Security Level.
+
+  Value type: [sec_level()](`t:snmp:sec_level/0`)
+""".
+-type agent_config_item() :: engine_id |
+                             address | port | tdomain |
+                             community |
+                             timeout   |
+                             max_message_size |
+                             version |
+                             sec_model | sec_name | sec_level.
+-doc """
+- **`o - 'OBJECT IDENTIFIER'`**
+
+- **`i - 'INTEGER'`**
+
+- **`u - 'Unsigned32`**
+
+- **`g - 'Unsigned32'`**
+
+- **`s - 'OCTET STRING'`**
+
+- **`b - 'BITS'`**
+
+- **`ip - 'IpAddress'`**
+
+- **`op - 'Opaque'`**
+
+- **`c32 - 'Counter32'`**
+
+- **`c64 - 'Counter64'`**
+
+- **`tt - 'TimeTicks'`**
+""".
+-type value_type()        :: o |
+                             i | u | g |
+                             s | s | b |
+                             ip | op |
+                             c32 | c64 |
+                             tt.
+-type var_and_val()       :: {OID       :: snmp:oid(),
+                              ValueType :: value_type(),
+                              Value     :: term()} |
+                             {OID       :: snmp:oid(),
+                              Value     :: term()}.
+
+-type agent_config() ::
+        {engine_id,        snmp:engine_id()}   | % Mandatory
+        {address,          inet:ip_address()}  | % Mandatory
+        {port,             inet:port_number()} | % Optional
+        {tdomain,          snmp:tdomain()}     | % Optional
+        {community,        snmp:community()}   | % Optional
+        {timeout,          register_timeout()} | % Optional
+        {max_message_size, snmp:mms()}         | % Optional
+        {version,          snmp:version()}     | % Optional
+        {sec_model,        snmp:sec_model()}   | % Optional
+        {sec_name,         snmp:sec_name()}    | % Optional
+        {sec_level,        snmp:sec_level()}.    % Optional
+-type pdu_type()   :: snmp:pdu_type() | 'trappdu'.
+-doc "Module implementing the [snmpm_user](`m:snmpm_user#`) behaviour.".
+-type snmpm_user() :: module().
+-doc """
+Value type depend on the item according to:
+
+- **`sec_name`** - Security Name.
+
+  Value type: [sec_name()](`t:snmp:sec_name/0`)
+
+- **`auth`** - The IP address of the agent.
+
+  Value type: `t:snmp:usm_auth_protocol/0`
+
+- **`auth_key`** - Port number of the agent.
+
+  Value type: `t:snmp:usm_auth_key/0`
+
+- **`priv`** - Value type: `t:snmp:usm_priv_protocol/0`
+
+- **`priv_key`** - Value type: `t:snmp:usm_priv_key/0`
+""".
+-type usm_config_item() :: sec_name | auth | auth_key | priv | priv_key.
+
+-type snmp_reply() :: {snmp:error_status(),
+                       snmp:error_index(),
+                       [snmp:varbind()]}.
 
 
 %% This function is called when the snmp application
@@ -194,10 +288,11 @@ simple_conf() ->
 	{ok, _} ->
 	    ok;
 	_ ->
-	    ok = snmp_config:write_manager_config(Cwd, "",
-						  [{port, 5000},
-						   {engine_id, "mgrEngine"},
-						   {max_message_size, 484}])
+	    ok = snmp_config:write_manager_config(
+                   Cwd, "",
+                   [snmpm_conf:manager_entry(port,             5000),
+                    snmpm_conf:manager_entry(engine_id,        "mgrEngine"),
+                    snmpm_conf:manager_entry(max_message_size, 484)])
     end,
     Conf = [{dir, Cwd}, {db_dir, Cwd}],
     [{versions, Vsns}, {config, Conf}].
@@ -241,25 +336,22 @@ stop(Timeout) when (Timeout =:= infinity) orelse
     snmpm_supervisor:stop(Timeout).
 
 
-
 -doc """
-monitor() -> Ref
-
 Monitor the SNMP manager. In case of a crash, the calling (monitoring) process
 will get a 'DOWN' message (see the erlang module for more info).
-
-[](){: #demonitor }
 """.
+-spec monitor() -> MRef when
+      MRef :: reference().
+
 monitor() ->
     erlang:monitor(process, snmpm_supervisor).
 
 -doc """
-demonitor(Ref) -> void()
-
 Turn off monitoring of the SNMP manager.
-
-[](){: #notify_started }
 """.
+-spec demonitor(Ref) -> true when
+      Ref :: reference().
+
 demonitor(Ref) ->
     erlang:demonitor(Ref).
 	
@@ -267,8 +359,6 @@ demonitor(Ref) ->
 -define(NOTIFY_START_TICK_TIME, 500).
 
 -doc """
-notify_started(Timeout) -> Pid
-
 Request a notification (message) when the SNMP manager has started.
 
 The `Timeout` is the time the request is valid. The value has to be greater then
@@ -295,19 +385,21 @@ on behalf of the client application. Note that the client application is linked
 to this handler.
 
 This function is used in conjunction with the monitor function.
-
-[](){: #cancel_notify_started }
 """.
+-spec notify_started(Timeout) -> Pid when
+      Timeout :: pos_integer(),
+      Pid     :: pid().
+
 notify_started(To) when is_integer(To) andalso (To > 0) ->
     spawn_link(?MODULE, snmpm_start_verify, [self(), To]).
 
+
 -doc """
-cancel_notify_started(Pid) -> void()
-
 Cancel a previous request to be notified of SNMP manager start.
-
-[](){: #register_user }
 """.
+-spec cancel_notify_started(Pid) -> snmp:void() when
+      Pid :: pid().
+
 cancel_notify_started(Pid) ->
     Pid ! {cancel, self()},
     ok.
@@ -356,14 +448,14 @@ sleep(To) -> snmp_misc:sleep(To).
 %% -- Misc --
 
 -doc """
-backup(BackupDir) -> ok | {error, Reason}
-
 Backup persistent data handled by the manager.
 
 BackupDir cannot be identical to DbDir.
-
-[](){: #info }
 """.
+-spec backup(BackupDir) -> ok | {error, Reason} when
+      BackupDir :: snmp:dir(),
+      Reason    :: term().
+
 backup(BackupDir) ->
     snmpm_config:backup(BackupDir).
 
@@ -371,9 +463,8 @@ backup(BackupDir) ->
 %% -- Mibs --
 
 %% Load a mib into the manager
--doc """
-load_mib(Mib) -> ok | {error, Reason}
 
+-doc """
 Load a `Mib` into the manager. The `MibName` is the name of the Mib, including
 the path to where the compiled mib is found. For example,
 
@@ -381,73 +472,88 @@ the path to where the compiled mib is found. For example,
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:load_mib(Dir ++ "MY-MIB").
 ```
-
-[](){: #unload_mib }
 """.
+-spec load_mib(MibName) -> ok | {error, Reason} when
+      MibName :: snmp:mib_name(),
+      Reason  :: term().
+
 load_mib(MibFile) ->
     snmpm_server:load_mib(MibFile).
 
-%% Unload a mib from the manager
--doc """
-unload_mib(Mib) -> ok | {error, Reason}
 
+%% Unload a mib from the manager
+
+-doc """
 Unload a `Mib` from the manager. The `MibName` is the name of the Mib, including
 the path to where the compiled mib is found. For example,
 
 ```erlang
-          Dir = code:priv_dir(my_app) ++ "/mibs/",
+	  Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:unload_mib(Dir ++ "MY-MIB").
 ```
-
-[](){: #which_mibs }
 """.
-unload_mib(Mib) ->
-    snmpm_server:unload_mib(Mib).
+-spec unload_mib(MibName) -> ok | {error, Reason} when
+      MibName :: snmp:mib_name(),
+      Reason  :: term().
+
+unload_mib(MibName) ->
+    snmpm_server:unload_mib(MibName).
 
 %% Which mib's are loaded
+
 -doc """
-which_mibs() -> Mibs
-
 Get a list of all the mib's loaded into the manager.
-
-[](){: #name_to_oid }
 """.
+-spec which_mibs() -> Mibs when
+      Mibs    :: [{MibName, MibFile}],
+      MibName :: snmp:mib_name(),
+      MibFile :: string().
+
 which_mibs() ->
     snmpm_config:which_mibs().
 
-%% Get all the possible oid's for the aliasname
--doc """
-name_to_oid(Name) -> {ok, Oids} | {error, Reason}
 
+%% Get all the possible oid's for the aliasname
+
+-doc """
 Transform a alias-name to its oid.
 
 Note that an alias-name is only unique within the mib, so when loading several
 mib's into a manager, there might be several instances of the same aliasname.
-
-[](){: #oid_to_name }
 """.
-name_to_oid(Name) ->
-    snmpm_config:name_to_oid(Name).
+-spec name_to_oid(AliasName) -> {ok, OIDs} | {error, Reason} when
+      AliasName :: atom(),
+      OIDs      :: [snmp:oid()],
+      Reason    :: term().
+
+name_to_oid(AliasName) ->
+    snmpm_config:name_to_oid(AliasName).
+
 
 %% Get the aliasname for an oid
+
 -doc """
-oid_to_name(Oid) -> {ok, Name} | {error, Reason}
-
 Transform a oid to its aliasname.
-
-[](){: #oid_to_type }
 """.
+-spec oid_to_name(OID) -> {ok, AliasName} | {error, Reason} when
+      OID       :: snmp:oid(),
+      AliasName :: atom(),
+      Reason    :: term().
+
 oid_to_name(Oid) ->
     snmpm_config:oid_to_name(Oid).
 
+
 %% Get the type for an oid
+
 -doc """
-oid_to_type(Oid) -> {ok, Type} | {error, Reason}
-
 Retrieve the type (asn1 bertype) of an oid.
-
-[](){: #backup }
 """.
+-spec oid_to_type(OID) -> {ok, Type} | {error, Reason} when
+      OID    :: snmp:oid(),
+      Type   :: atom(),
+      Reason :: term().
+
 oid_to_type(Oid) ->
     snmpm_config:oid_to_type(Oid).
 
@@ -455,14 +561,14 @@ oid_to_type(Oid) ->
 %% -- Info -- 
 
 -doc """
-info() -> [{Key, Value}]
-
 Returns a list (a dictionary) containing information about the manager.
 Information includes statistics counters, miscellaneous info about each process
 (e.g. memory allocation), and so on.
-
-[](){: #verbosity }
 """.
+-spec info() -> [{Key, Value}] when
+      Key   :: atom(),
+      Value :: term().
+
 info() ->
     snmpm_server:info().
 
@@ -474,14 +580,15 @@ info(Key) ->
 %% -- Verbosity -- 
 
 %% Change the verbosity of a process in the manager
--doc """
-verbosity(Ref, Verbosity) -> void()
 
+-doc """
 Sets verbosity for the designated process. For the lowest verbosity `silence`,
 nothing is printed. The higher the verbosity, the more is printed.
-
-[](){: #restart }
 """.
+-spec verbosity(Target, Verbosity) -> snmp:void() when
+      Target    :: config | server | net_if | note_store | all,
+      Verbosity :: snmp:verbosity().
+
 verbosity(config, V) ->
     snmpm_config:verbosity(V);
 verbosity(server, V) ->
@@ -504,14 +611,13 @@ verbosity(all, V) ->
 %% predict, so it should be use with *caution*!
 
 -doc """
-restart(Ref) -> void()
-
-Restart the indicated process (`Ref`). Note that its not without risk to restart
-a process, and should therefore be used with care.
-
-[](){: #format_reason }
+Restart the indicated process (`What`). Note that its not without risk to
+restart a process, and should therefore be used with care.
 """.
 -doc(#{since => <<"OTP 22.3">>}).
+-spec restart(What) -> snmp:void() when
+      What :: net_if.
+
 restart(net_if = What) ->
     snmpm_server:restart(What).
 
@@ -525,49 +631,61 @@ restart(net_if = What) ->
 %% agent, incoming reply or incoming trap/notification).
 %% Note that this could have already been done as a 
 %% consequence of the node config.
+
 -doc(#{equiv => register_user/4}).
-register_user(Id, Module, Data) ->
-    register_user(Id, Module, Data, []).
+-spec register_user(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
+
+register_user(UserId, Module, Data) ->
+    register_user(UserId, Module, Data, []).
 
 %% Default config for agents registered by this user
--doc """
-register_user(Id, Module, Data, DefaultAgentConfig) -> ok | {error, Reason}
 
+-doc """
 Register the manager entity (=user) responsible for specific agent(s).
 
 `Module` is the callback module (snmpm_user behaviour) which will be called
 whenever something happens (detected agent, incoming reply or incoming
-trap/notification). Note that this could have already been done as a consequence
-of the node config. (see users.conf).
+trap/notification).
+
+`Data` is an opaque data structure, not inspected by the manager, that will be
+included in all callback calls to the `Module` callback module (snmpm_user
+behaviour).
 
 The argument `DefaultAgentConfig` is used as default values when this user
 register agents.
 
-The type of `Val` depends on `Item`:
-
-```text
-community = string()
-timeout = integer() | snmp_timer()
-max_message_size = integer()
-version = v1 | v2 | v3
-sec_model = any | v1 | v2c | usm
-sec_name = string()
-sec_level = noAuthNoPriv | authNoPriv | authPriv
-```
-
-[](){: #register_user_monitor }
+Note that this operation (register user) could have already been done as a
+consequence of the node config. (see users.conf).
 """.
-register_user(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user(Id, Module, Data, DefaultAgentConfig).
+-spec register_user(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
+
+register_user(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user(UserId, Module, Data, DefaultAgentConfig).
 
 -doc(#{equiv => register_user_monitor/4}).
-register_user_monitor(Id, Module, Data) ->
-    register_user_monitor(Id, Module, Data, []).
+-spec register_user_monitor(UserId, Module, Data) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      Module      :: snmpm_user(),
+      Data        :: term(),
+      Reason      :: term().
+
+register_user_monitor(UserId, Module, Data) ->
+    register_user_monitor(UserId, Module, Data, []).
 
 -doc """
-register_user_monitor(Id, Module, Data, DefaultAgentConfig) -> ok | {error,
-Reason}
-
 Register the monitored manager entity (=user) responsible for specific agent(s).
 
 The process performing the registration will be monitored. Which means that if
@@ -576,46 +694,46 @@ unregistered. All outstanding requests will be canceled.
 
 `Module` is the callback module (snmpm_user behaviour) which will be called
 whenever something happens (detected agent, incoming reply or incoming
-trap/notification). Note that this could have already been done as a consequence
-of the node config. (see users.conf).
+trap/notification).
+
+`Data` is an opaque data structure, not inspected by the manager, that will be
+included in all callback calls to the `Module` callback module (snmpm_user
+behaviour).
 
 The argument `DefaultAgentConfig` is used as default values when this user
 register agents.
-
-The type of `Val` depends on `Item`:
-
-```text
-community = string()
-timeout = integer() | snmp_timer()
-max_message_size = integer()
-version = v1 | v2 | v3
-sec_model = any | v1 | v2c | usm
-sec_name = string()
-sec_level = noAuthNoPriv | authNoPriv | authPriv
-```
-
-[](){: #unregister_user }
 """.
-register_user_monitor(Id, Module, Data, DefaultAgentConfig) ->
-    snmpm_server:register_user_monitor(Id, Module, Data, DefaultAgentConfig).
+-spec register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+          ok | {error, Reason} when
+      UserId             :: user_id(),
+      Module             :: snmpm_user(),
+      Data               :: term(),
+      DefaultAgentConfig :: [DefaultConfigEntry],
+      DefaultConfigEntry :: {Item, Value},
+      Item               :: agent_config_item(),
+      Value              :: term(),
+      Reason             :: term().
+
+register_user_monitor(UserId, Module, Data, DefaultAgentConfig) ->
+    snmpm_server:register_user_monitor(UserId, Module,
+                                       Data, DefaultAgentConfig).
 
 -doc """
-unregister_user(Id) -> ok | {error, Reason}
-
 Unregister the user.
-
-[](){: #which_users }
 """.
-unregister_user(Id) ->
-    snmpm_server:unregister_user(Id).
+-spec unregister_user(UserId) -> ok | {error, Reason} when
+      UserId :: user_id(),
+      Reason :: term().
+
+unregister_user(UserId) ->
+    snmpm_server:unregister_user(UserId).
 
 -doc """
-which_users() -> Users
-
 Get a list of the identities of all registered users.
-
-[](){: #register_agent }
 """.
+-spec which_users() -> Users when
+      Users :: [user_id()].
+
 which_users() ->
     snmpm_config:which_users().
 
@@ -638,8 +756,6 @@ do_register_agent(UserId, TargetName, Config) ->
     snmpm_config:register_agent(UserId, TargetName, Config).
 
 -doc """
-register_agent(UserId, TargetName, Config) -> ok | {error, Reason}
-
 Explicitly instruct the manager to handle this agent, with `UserId` as the
 responsible user.
 
@@ -653,17 +769,17 @@ manager config files (see [agents.conf](snmp_manager_config_files.md#agents)).
 The type of `Val` depends on `Item`:
 
 ```text
-[mandatory] engine_id = string()
-[mandatory] tadress = transportAddress()  % Depends on tdomain
+[mandatory] engine_id = engine_id()
+[mandatory] address = inet:ip_address()  % Depends on tdomain
 [optional]  port = inet:port_number()
-[optional]  tdomain = transportDomain()
-[optional]  community = string()
-[optional]  timeout = integer() | snmp_timer()
-[optional]  max_message_size = integer()
-[optional]  version = v1 | v2 | v3
-[optional]  sec_model = any | v1 | v2c | usm
-[optional]  sec_name = string()
-[optional]  sec_level = noAuthNoPriv | authNoPriv | authPriv
+[optional]  tdomain = snmp:tdomain()
+[optional]  community = snmp:community()
+[optional]  timeout = register_timeout()
+[optional]  max_message_size = snmp:mms()
+[optional]  version = snmp:version()
+[optional]  sec_model = snmp:sec_model()
+[optional]  sec_name = snmp:sec_name()
+[optional]  sec_level = snmp:sec_level()
 ```
 
 Note that if no `tdomain` is given, the default value, `transportDomainUdpIpv4`,
@@ -671,9 +787,16 @@ is used.
 
 Note that if no `port` is given and if `taddress` does not contain a port
 number, the default value is used.
-
-[](){: #unregister_agent }
 """.
+-spec register_agent(UserId, TargetName, Config) -> ok | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: agent_config_item(),
+      Value       :: term(),
+      Reason      :: term().
+
 register_agent(UserId, TargetName, Config) 
   when (is_list(TargetName) andalso 
 	(length(TargetName) > 0) andalso 
@@ -727,13 +850,15 @@ register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
 	end,
     register_agent(UserId, Domain, Addr, Config).
 
+
 -doc """
-unregister_agent(UserId, TargetName) -> ok | {error, Reason}
-
 Unregister the agent.
-
-[](){: #agent_info }
 """.
+-spec unregister_agent(UserId, TargetName) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Reason     :: term().
+
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
 
@@ -752,47 +877,70 @@ unregister_agent(UserId, DomainIp, AddressPort) ->
 
 
 -doc """
-agent_info(TargetName, Item) -> {ok, Val} | {error, Reason}
-
 Retrieve agent config.
-
-[](){: #update_agent_info }
 """.
+-spec agent_info(TargetName, Item) -> {ok, Value} | {error, Reason} when
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).
 
--doc(#{equiv => update_agent_info/4}).
+
+-doc """
+Update agent config.
+
+This function, [`update_agent_info/3`](`update_agent_info/3`), should be used when several
+values needs to be updated atomically.
+
+See function `register_agent/3` for more info about what kind of items are allowed.
+""".
 -doc(#{since => <<"OTP R14B04">>}).
+-spec update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Info       :: [{Item, Value}],
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
     snmpm_config:update_agent_info(UserId, TargetName, Info).
 
 -doc """
-update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}
+Update agent config.
 
-Update agent config. The function [`update_agent_info/3`](`update_agent_info/3`)
-should be used when several values needs to be updated atomically.
-
-See function [register_agent](`m:snmpm#register_agent`) for more info about what
+See function `register_agent/3` for more info about what
 kind of items are allowed.
-
-[](){: #which_agents }
 """.
--doc(#{since => <<"OTP R14B04">>}).
+-spec update_agent_info(UserId, TargetName, Item, Value) ->
+          ok | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Item       :: agent_config_item(),
+      Value      :: term(),
+      Reason     :: term().
+
 update_agent_info(UserId, TargetName, Item, Val) ->
     update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 
 -doc(#{equiv => which_agents/1}).
+-spec which_agents() -> Agents when
+      Agents :: [target_name()].
+
 which_agents() ->
     snmpm_config:which_agents().
 
 -doc """
-which_agents(UserId) -> Agents
-
 Get a list of all registered agents or all agents registered by a specific user.
-
-[](){: #register_usm_user }
 """.
+-spec which_agents(UserId) -> Agents when
+      UserId :: user_id(),
+      Agents :: [target_name()].
+
 which_agents(UserId) ->
     snmpm_config:which_agents(UserId).
 
@@ -800,83 +948,84 @@ which_agents(UserId) ->
 %% -- USM users --
 
 -doc """
-register_usm_user(EngineID, UserName, Conf) -> ok | {error, Reason}
-
 Explicitly instruct the manager to handle this USM user. Note that there is an
 alternate way to do the same thing: Add the usm user to the manager config files
-(see [usm.conf](snmp_manager_config_files.md#usm_user)).
-
-The type of `Val` depends on `Item`:
-
-```text
-sec_name = string()
-auth = usmNoAuthProtocol | usmHMACMD5AuthProtocol | usmHMACSHAAuthProtocol | usmHMAC128SHA224AuthProtocol | usmHMAC192SH256AuthProtocol | usmHMAC256SHA384AuthProtocol | usmHMAC384SHA512AuthProtocol
-auth_key = [integer()]   (length 16 if auth = usmHMACMD5AuthProtocol,
-                          length 20 if auth = usmHMACSHAAuthProtocol,
-                          length 28 if auth = usmHMAC128SHA224AuthProtocol,
-                          length 32 if auth = usmHMAC192SHA256AuthProtocol,
-                          length 48 if auth = usmHMAC256SHA384AuthProtocol,
-                          length 64 if auth = usmHMAC384SHA512AuthProtocol)
-priv = usmNoPrivProtocol | usmDESPrivProtocol | usmAesCfb128Protocol
-priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb128Protocol).
-```
-
-[](){: #unregister_usm_user }
+(see [usm.conf](snmp_manager_config_files.md#security-data-for-usm)).
 """.
-register_usm_user(EngineID, UserName, Conf) 
-  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Conf) ->
-    snmpm_config:register_usm_user(EngineID, UserName, Conf).
+-spec register_usm_user(EngineID, UserName, Config) -> ok | {error, Reason} when
+      EngineID    :: snmp:engine_id(),
+      UserName    :: snmp:usm_name(),
+      Config      :: [ConfigEntry],
+      ConfigEntry :: {Item, Value},
+      Item        :: usm_config_item(),
+      Value       :: term(),
+      Reason      :: term().
+
+register_usm_user(EngineID, UserName, Config)
+  when is_list(EngineID) andalso is_list(UserName) andalso is_list(Config) ->
+    snmpm_config:register_usm_user(EngineID, UserName, Config).
 
 -doc """
-unregister_usm_user(EngineID, UserName) -> ok | {error, Reason}
-
 Unregister this USM user.
-
-[](){: #which_usm_users1 }
 """.
+-spec unregister_usm_user(EngineID, UserName) -> ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Reason   :: term().
+
 unregister_usm_user(EngineID, UserName) 
   when is_list(EngineID) andalso is_list(UserName) ->
     snmpm_config:unregister_usm_user(EngineID, UserName).
 
 -doc """
-usm_user_info(EngineID, UserName, Item) -> {ok, Val} | {error, Reason}
-
 Retrieve usm user config.
-
-[](){: #update_usm_user_info }
 """.
+-spec usm_user_info(EngineID, UserName, Item) ->
+          {ok, Value} | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
+
 usm_user_info(EngineID, UserName, Item) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:usm_user_info(EngineID, UserName, Item).
 
 -doc """
-update_usm_user_info(EngineID, UserName, Item, Val) -> ok | {error, Reason}
-
 Update usm user config.
-
-[](){: #which_usm_users }
 """.
+-spec update_usm_user_info(EngineID, UserName, Item, Value) ->
+          ok | {error, Reason} when
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name(),
+      Item     :: usm_config_item(),
+      Value    :: term(),
+      Reason   :: term().
+
 update_usm_user_info(EngineID, UserName, Item, Val) 
   when is_list(EngineID) andalso is_list(UserName) andalso is_atom(Item) ->
     snmpm_config:update_usm_user_info(EngineID, UserName, Item, Val).
 
 -doc """
-which_usm_users() -> UsmUsers
-
 Get a list of all registered usm users.
-
-[](){: #which_usm_users2 }
 """.
+-spec which_usm_users() -> UsmUsers when
+      UsmUsers :: [{EngineID, UserName}],
+      EngineID :: snmp:engine_id(),
+      UserName :: snmp:usm_name().
+
 which_usm_users() ->
     snmpm_config:which_usm_users().
 
 -doc """
-which_usm_users(EngineID) -> UsmUsers
-
 Get a list of all registered usm users with engine-id `EngineID`.
-
-[](){: #sync_get2 }
 """.
+-spec which_usm_users(EngineID) -> UsmUsers when
+      EngineID :: snmp:engine_id(),
+      UsmUsers :: [UserName],
+      UserName :: snmp:usm_name().
+
 which_usm_users(EngineID) when is_list(EngineID) ->
     snmpm_config:which_usm_users(EngineID).
 
@@ -907,38 +1056,78 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 
 -doc(#{equiv => sync_get2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get2(UserId, TargetName, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get2(UserId, TargetName, Oids) ->
     sync_get2(UserId, TargetName, Oids, []).
 
 -doc """
-sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} |
-{error, Reason}
-
 Synchronous `get-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
 
 When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the message. This could happen because of any number of reasons, i.e.
-encoding error. _ActualReason_ is the actual reason in this case.
+to send the (`get-request` ) message. This could happen because of any number
+of reasons, i.e. encoding error.
+_ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`m:snmpm_user#handle_report`).
-
-[](){: #async_get2 }
+[handle_report](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:sync_get(UserId, TargetName, Oids, SendOpts).
@@ -947,39 +1136,58 @@ sync_get2(UserId, TargetName, Oids, SendOpts)
 %% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
-%% through a call to handle_pdu/5
+%% through a call to the callback function handle_pdu/5.
 %% 
 
 -doc(#{equiv => async_get2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get2(UserId, TargetName, Oids) ->
     async_get2(UserId, TargetName, Oids, []).
 
 -doc """
-async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}
-
 Asynchronous `get-request`.
 
 The reply, if it arrives, will be delivered to the user through a call to the
-snmpm_user callback function `handle_pdu`.
+`m:snmpm_user` callback function [`handle_pdu`](`c:snmpm_user:handle_pdu/4`).
 
 The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
-
-[](){: #sync_get_next2 }
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:async_get(UserId, TargetName, Oids, SendOpts).
@@ -990,13 +1198,28 @@ async_get2(UserId, TargetName, Oids, SendOpts)
 
 -doc(#{equiv => sync_get_next2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get_next2(UserId, TargetName, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_next2(UserId, TargetName, Oids) ->
     sync_get_next2(UserId, TargetName, Oids, []).
 
 -doc """
-sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining}
-| {error, Reason}
-
 Synchronous `get-next-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
@@ -1007,21 +1230,45 @@ encoding error. _ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`m:snmpm_user#handle_report`).
-
-[](){: #async_get_next2 }
+[handle_report](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:sync_get_next(UserId, TargetName, Oids, SendOpts).
@@ -1032,35 +1279,54 @@ sync_get_next2(UserId, TargetName, Oids, SendOpts)
 
 -doc(#{equiv => async_get_next2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get_next2(UserId, TargetName, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_next2(UserId, TargetName, Oids) ->
     async_get_next2(UserId, TargetName, Oids, []).
 
 -doc """
-async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error,
-Reason}
-
 Asynchronous `get-next-request`.
 
-The reply will be delivered to the user through a call to the snmpm_user
-callback function `handle_pdu`.
+The reply, if it arrives, will be delivered to the user through a call to the
+`m:snmpm_user` callback function [`handle_pdu`](`c:snmpm_user:handle_pdu/4`).
 
 The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
-
-[](){: #sync_set2 }
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get_next2(UserId, TargetName, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_next2(UserId, TargetName, Oids, SendOpts) 
   when is_list(Oids) andalso is_list(SendOpts) ->
     snmpm_server:async_get_next(UserId, TargetName, Oids, SendOpts).
@@ -1071,13 +1337,28 @@ async_get_next2(UserId, TargetName, Oids, SendOpts)
 
 -doc(#{equiv => sync_set2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_set2(UserId, TargetName, VarsAndVals) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      VarsAndVals   :: [var_and_val()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_set2(UserId, TargetName, VarsAndVals) ->
     sync_set2(UserId, TargetName, VarsAndVals, []).
 
 -doc """
-sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply,
-Remaining} | {error, Reason}
-
 Synchronous `set-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
@@ -1091,21 +1372,45 @@ guess based on the loaded mibs.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`m:snmpm_user#handle_report`).
-
-[](){: #async_set2 }
+[handle_report](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      VarsAndVals   :: [var_and_val()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
     snmpm_server:sync_set(UserId, TargetName, VarsAndVals, SendOpts).
@@ -1116,13 +1421,18 @@ sync_set2(UserId, TargetName, VarsAndVals, SendOpts)
 
 -doc(#{equiv => async_set2/4}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_set2(UserId, TargetName, VarsAndVals) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      ReqId       :: request_id(),
+      Reason      :: term().
+
 async_set2(UserId, TargetName, VarsAndVals) ->
     async_set2(UserId, TargetName, VarsAndVals, []).
 
 -doc """
-async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error,
-Reason}
-
 Asynchronous `set-request`.
 
 The reply will be delivered to the user through a call to the snmpm_user
@@ -1136,18 +1446,32 @@ guess based on the loaded mibs.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
-
-[](){: #sync_get_bulk2 }
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId      :: user_id(),
+      TargetName  :: target_name(),
+      VarsAndVals :: [var_and_val()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId       :: request_id(),
+      Reason      :: term().
+
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) 
   when is_list(VarsAndVals) andalso is_list(SendOpts) ->
     snmpm_server:async_set(UserId, TargetName, VarsAndVals, SendOpts).
@@ -1158,13 +1482,30 @@ async_set2(UserId, TargetName, VarsAndVals, SendOpts)
 
 -doc(#{equiv => sync_get_bulk2/6}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      NonRep        :: non_neg_integer(),
+      MaxRep        :: non_neg_integer(),
+      Oids          :: [snmp:oid()],
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 
 -doc """
-sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok,
-SnmpReply, Remaining} | {error, Reason}
-
 Synchronous `get-bulk-request` (See RFC1905).
 
 `Remaining` is the remaining time of the given (or default) timeout time.
@@ -1175,21 +1516,48 @@ encoding error. _ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
 net-if process. The net-if process included in this application makes, with one
-exception, no use of this info, so the only use for it in such a option (when
-using the built in net-if) would be tracing. The one usage exception is: _Any_
-tuple with `snmpm_extra_info_tag` as its first element is reserved for internal
-use.
+exception, no use of this info, so the only use for it (when using the built in
+net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`m:snmpm_user#handle_report`).
-
-[](){: #async_get_bulk2 }
+[handle_report](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+          {ok, SnmpReply, Remaining} | {error, Reason} when
+      UserId        :: user_id(),
+      TargetName    :: target_name(),
+      NonRep        :: non_neg_integer(),
+      MaxRep        :: non_neg_integer(),
+      Oids          :: [snmp:oid()],
+      SendOpts      :: [SendOpt],
+      SendOpt       :: {context,          snmp:context_name()} |
+                       {timeout,          pos_integer()} |
+                       {community,        snmp:community()} |
+                       {sec_model,        snmp:sec_model()} |
+                       {sec_name,         snmp:sec_name()} |
+                       {sec_level,        snmp:sec_level()} |
+                       {max_message_size, snmp:mms()} |
+                       {extra,            term()},
+      ReqId         :: request_id(),
+      SnmpReply     :: snmp_reply(),
+      Remaining     :: non_neg_integer(),
+      Reason        :: {send_failed, ReqId, ActualReason} |
+                       {invalid_sec_info, SecInfo, SnmpInfo} |
+                       term(),
+      ReqId         :: request_id(),
+      ActualReason  :: term(),
+      SecInfo       :: {SecTag, ExpectedValue, ReceivedValue},
+      SecTag        :: atom(),
+      ExpectedValue :: term(),
+      ReceivedValue :: term(),
+      SnmpInfo      :: term().
+
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
@@ -1204,17 +1572,24 @@ sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
 
 -doc(#{equiv => async_get_bulk2/6}).
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 
 -doc """
-async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok,
-ReqId} | {error, Reason}
-
 Asynchronous `get-bulk-request` (See RFC1905).
 
-The reply will be delivered to the user through a call to the snmpm_user
-callback function `handle_pdu`.
+The reply, if it arrives, will be delivered to the user through a call to the
+`m:snmpm_user` callback function [`handle_pdu`](`c:snmpm_user:handle_pdu/4`).
 
 The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
@@ -1227,10 +1602,27 @@ in net-if) would be tracing.
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
 override any configuration done when the agent was registered.
-
-[](){: #cancel_async_request }
 """.
 -doc(#{since => <<"OTP R14B03">>}).
+-spec async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+          {ok, ReqId} | {error, Reason} when
+      UserId     :: user_id(),
+      TargetName :: target_name(),
+      NonRep     :: non_neg_integer(),
+      MaxRep     :: non_neg_integer(),
+      Oids       :: [snmp:oid()],
+      SendOpts   :: [SendOpt],
+      SendOpt    :: {context,          snmp:context_name()} |
+                    {timeout,          pos_integer()} |
+                    {community,        snmp:community()} |
+                    {sec_model,        snmp:sec_model()} |
+                    {sec_name,         snmp:sec_name()} |
+                    {sec_level,        snmp:sec_level()} |
+                    {max_message_size, snmp:mms()} |
+                    {extra,            term()},
+      ReqId      :: request_id(),
+      Reason     :: term().
+
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
@@ -1240,14 +1632,14 @@ async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts)
                                 NonRep, MaxRep, Oids, SendOpts).
 
 
-
 -doc """
-cancel_async_request(UserId, ReqId) -> ok | {error, Reason}
-
 Cancel a previous asynchronous request.
-
-[](){: #log_to_txt }
 """.
+-spec cancel_async_request(UserId, ReqId) -> ok | {error, Reason} when
+      UserId :: user_id(),
+      ReqId  :: request_id(),
+      Reason :: term().
+
 cancel_async_request(UserId, ReqId) ->
     snmpm_server:cancel_async_request(UserId, ReqId).
 
@@ -1265,7 +1657,6 @@ log_to_txt(LogDir) ->
     log_to_txt(LogDir, []). 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir :: snmp:dir(), 
 		 Block  :: boolean()) ->
     snmp:void();
@@ -1274,7 +1665,7 @@ log_to_txt(LogDir) ->
     snmp:void().
 
 log_to_txt(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     Mibs    = [], 
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
@@ -1288,7 +1679,6 @@ log_to_txt(LogDir, Mibs) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir :: snmp:dir(), 
 		 Mibs   :: [snmp:mib_name()], 
 		 Block  :: boolean()) ->
@@ -1299,7 +1689,7 @@ log_to_txt(LogDir, Mibs) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
@@ -1311,7 +1701,6 @@ log_to_txt(LogDir, Mibs, OutFile) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1324,7 +1713,7 @@ log_to_txt(LogDir, Mibs, OutFile) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) ->
+  when is_boolean(Block) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block); 
@@ -1334,7 +1723,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1349,7 +1737,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
@@ -1357,7 +1745,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
@@ -1370,41 +1757,42 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 		 OutFile :: file:filename(), 
 		 LogName :: string(), 
 		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time()) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
 		 LogName :: string(), 
 		 LogFile :: string(), 
 		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time()) ->
     snmp:void();
                 (LogDir  :: snmp:dir(), 
 		 Mibs    :: [snmp:mib_name()], 
 		 OutFile :: file:filename(), 
 		 LogName :: string(), 
 		 LogFile :: string(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
+		 Start   :: null | snmp:log_time(), 
+		 Stop    :: null | snmp:log_time()) ->
     snmp:void().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
 -doc """
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> ok |
@@ -1419,8 +1807,6 @@ This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
-
-[](){: #log_to_io }
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
@@ -1429,36 +1815,76 @@ See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
 		 LogName :: string(), 
 		 LogFile :: string(), 
 		 Block   :: boolean(), 
-		 Start   :: snmp_log:log_time(), 
-		 Stop    :: snmp_log:log_time()) ->
+		 Start   :: snmp:log_time(), 
+		 Stop    :: snmp:log_time()) ->
     snmp:void().
 
-log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  
+  when is_boolean(Block) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile,
+                    Block,
+                    Start, Stop).
 
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term().
+
 log_to_io(LogDir) ->
     log_to_io(LogDir, []).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
-log_to_io(LogDir, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Block  :: boolean(),
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term();
+               (LogDir, Mibs) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir :: snmp:dir(),
+      Mibs   :: [snmp:mib_name()],
+      Cnt    :: {NumOK, NumERR},
+      NumOK  :: non_neg_integer(),
+      NumERR :: pos_integer(),
+      Reason :: term().
+
+log_to_io(LogDir, Block) when is_boolean(Block) ->
     Mibs    = [], 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
-log_to_io(LogDir, Mibs) ->
+log_to_io(LogDir, Mibs) when is_list(Mibs) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
-log_to_io(LogDir, Mibs, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) ->
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir, Mibs, Block) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName) -> ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
+log_to_io(LogDir, Mibs, Block) when is_boolean(Block) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
@@ -1468,9 +1894,30 @@ log_to_io(LogDir, Mibs, LogName) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir, Mibs, LogName, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
@@ -1478,27 +1925,72 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term();
+               (LogDir, Mibs, LogName, LogFile, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
-  when ((Block =:= true) orelse (Block =:= false)) -> 
+  when is_boolean(Block) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
     Block = ?ATL_BLOCK_DEFAULT, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 -doc """
-log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {ok, Cnt}
-| {error, Reason}
-
 Converts an Audit Trail Log to a readable format and prints it on stdio.
 `LogName` defaults to "snmpm_log". `LogFile` defaults to "snmpm.log".
 
@@ -1507,26 +1999,38 @@ This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
-
-[](){: #change_log_size }
 """.
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R16B03">>}).
+-spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
+          ok | {ok, Cnt} | {error, Reason} when
+      LogDir  :: snmp:dir(),
+      Mibs    :: [snmp:mib_name()],
+      LogName :: string(),
+      LogFile :: string(),
+      Block   :: boolean(),
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time(),
+      Cnt     :: {NumOK, NumERR},
+      NumOK   :: non_neg_integer(),
+      NumERR  :: pos_integer(),
+      Reason  :: term().
+
 log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
 
 -doc """
-change_log_size(NewSize) -> ok | {error, Reason}
-
 Changes the log size of the Audit Trail Log. The application must be configured
 to use the audit trail log function. Please refer to disk_log(3) in Kernel
 Reference Manual for a description of how to change the log size.
 
 The change is permanent, as long as the log is not deleted. That means, the log
 size is remembered across reboots.
-
-[](){: #set_log_type }
 """.
+-spec change_log_size(NewSize) -> ok | {error, Reason} when
+      NewSize :: snmp:log_size(),
+      Reason  :: term().
+
 change_log_size(NewSize) ->
     LogName = ?audit_trail_log_name, 
     snmp:change_log_size(LogName, NewSize).
@@ -1536,10 +2040,10 @@ change_log_size(NewSize) ->
 get_log_type() ->
     snmpm_server:get_log_type().
 
-%% NewType -> atl_type()
--doc """
-set_log_type(NewType) -> {ok, OldType} | {error, Reason}
 
+%% NewType -> atl_type()
+
+-doc """
 Changes the run-time Audit Trail log type.
 
 Note that this has no effect on the application configuration as defined by
@@ -1547,9 +2051,12 @@ configuration files, so a node restart will revert the config to whatever is in
 those files.
 
 This function is primarily useful in testing/debugging scenarios.
-
-[](){: #load_mib }
 """.
+-spec set_log_type(NewType) -> {ok, OldType} | {error, Reason} when
+      NewType :: snmp:atl_type(),
+      OldType :: snmp:atl_type(),
+      Reason  :: term().
+
 set_log_type(NewType) ->
     snmpm_server:set_log_type(NewType).
 
@@ -1585,24 +2092,31 @@ sys_up_time() ->
 %%%-----------------------------------------------------------------
 
 -doc(#{equiv => format_reason/2}).
+-spec format_reason(Reason) -> FReason when
+      Reason  :: term(),
+      FReason :: string().
+
 format_reason(Reason) ->
     format_reason("", Reason).
 
 -doc """
-format_reason(Prefix, Reason) -> string()
-
 This utility function is used to create a formatted (pretty printable) string of
 the error reason received from either:
 
 - The `Reason` returned value if any of the sync/async get/get-next/set/get-bulk
   functions returns `{error, Reason}`
-- The `Reason` parameter in the [handle_error](`m:snmpm_user#handle_error`) user
+- The `Reason` parameter in the [handle_error](`c:snmpm_user:handle_error/3`) user
   callback function.
 
 `Prefix` should either be an indentation string (e.g. a list of spaces) or a
 positive integer (which will be used to create the indentation string of that
 length).
 """.
+-spec format_reason(Prefix, Reason) -> FReason when
+      Prefix  :: non_neg_integer() | string(),
+      Reason  :: term(),
+      FReason :: string().
+
 format_reason(Prefix, Reason) when is_integer(Prefix) andalso (Prefix >= 0) ->
     format_reason(lists:duplicate(Prefix, $ ), Reason);
 format_reason(Prefix, Reason) when is_list(Prefix) ->

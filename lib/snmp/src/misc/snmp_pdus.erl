@@ -64,16 +64,22 @@ process.
 	 enc_value/2, dec_value/1]).
 
 -export_type([
+              version/0,
               message/0,
               trappdu/0,
               pdu/0,
               scoped_pdu/0,
-              usm_security_parameters/0
+              usm_security_parameters/0,
+              v3_hdr/0,
+              pdu_type/0,
+              msg_id/0,
+              msg_security_model/0
              ]).
 
 
 %%-----------------------------------------------------------------
 
+-type version()                 :: 'version-1' | 'version-2' | 'version-3'.
 -doc """
 The message is version dependent. 'vsn_hdr' is either a community string (v1 and
 v2) or a 'v3_hdr' record (v3). 'data' is either a PDU (v1 and v2c) or a
@@ -83,6 +89,17 @@ v2) or a 'v3_hdr' record (v3). 'data' is either a PDU (v1 and v2c) or a
 -type trappdu()                 :: #trappdu{}.
 -type pdu()                     :: #pdu{}.
 -type scoped_pdu()              :: #scopedPdu{}.
+-type v3_hdr()                  :: #v3_hdr{}.
+-type pdu_type()                :: 'get-request'      |
+                                   'get-next-request' |
+                                   'get-bulk-request' |
+                                   'get-response'     |
+                                   'set-request'      |
+                                   'inform-request'   |
+                                   'snmpv2-trap'      |
+                                   report.
+-type msg_id()                  :: 0 .. 2147483647.
+-type msg_security_model()      :: 0 .. 2147483647.
 -type usm_security_parameters() :: #usmSecurityParameters{}.
 
 

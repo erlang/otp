@@ -28,8 +28,6 @@ provides the following services:
 - a SNMP manager
 - a MIB compiler
 
-
-
 ## Configuration
 
 The following configuration parameters are defined for the SNMP application.
@@ -107,8 +105,7 @@ Agent specific config options and types:
 
   Default is `master`.
 
-- **`agent_discovery() = [agent_discovery_opt()] <optional>`{: #agent_disco
-  }** -
+- **`agent_discovery() = [agent_discovery_opt()] <optional>`{: #agent_disco }** -
   `agent_discovery_opt() = {terminating, agent_terminating_discovery_opts()} | {originating, agent_originating_discovery_opts()}`
 
   The `terminating` options effects discovery initiated by a manager.
@@ -171,8 +168,7 @@ Agent specific config options and types:
 - **`db_dir() = string() <mandatory>`{: #agent_data_dir }** - Defines where the
   SNMP agent internal db files are stored.
 
-- **`gb_max_vbs() = pos_integer() | infinity <optional>`{: #agent_gb_max_vbs
-  }** - Defines the maximum number of varbinds allowed in a Get-BULK response.
+- **`gb_max_vbs() = pos_integer() | infinity <optional>`{: #agent_gb_max_vbs }** - Defines the maximum number of varbinds allowed in a Get-BULK response.
 
   Default is `1000`.
 
@@ -191,8 +187,7 @@ Agent specific config options and types:
 
   Default is `true`.
 
-- **`agent_auto_save() = integer() | infinity <optional>`{: #agent_ldb_auto_save
-  }** - The auto save interval. The table is flushed to disk whenever not
+- **`agent_auto_save() = integer() | infinity <optional>`{: #agent_ldb_auto_save }** - The auto save interval. The table is flushed to disk whenever not
   accessed for this amount of time.
 
   Default is `5000`.
@@ -238,8 +233,7 @@ Agent specific config options and types:
 
   For defaults see the options in `agent_net_if_filter_option()`.
 
-- **`agent_net_if_filter_module() = atom() <optional>`{: #agent_ni_filter_module
-  }** - Module which handles the network interface filter part for the SNMP
+- **`agent_net_if_filter_module() = atom() <optional>`{: #agent_ni_filter_module }** - Module which handles the network interface filter part for the SNMP
   agent. Must implement the `m:snmpa_network_interface_filter` behaviour.
 
   Default is `snmpa_net_if_filter`.
@@ -381,14 +375,12 @@ Agent specific config options and types:
 
   Default module is `snmpa_mib_data_tttn`.
 
-- **`mibs_cache() = bool() | mibs_cache_opts() <optional>`{: #agent_ms_cache
-  }** - Shall the agent utilize the mib server lookup cache or not.
+- **`mibs_cache() = bool() | mibs_cache_opts() <optional>`{: #agent_ms_cache }** - Shall the agent utilize the mib server lookup cache or not.
 
   Default is `true` (in which case the `mibs_cache_opts()` default values
   apply).
 
-- **`mibs_cache_opts() = [mibs_cache_opt()] <optional>`{: #agent_ms_cache_opts
-  }** -
+- **`mibs_cache_opts() = [mibs_cache_opt()] <optional>`{: #agent_ms_cache_opts }** -
   `mibs_cache_opt() = {autogc, mibs_cache_autogc()} | {gclimit, mibs_cache_gclimit()} | {age, mibs_cache_age()}`
 
   Defines options specific for the SNMP agent mib server cache.
@@ -397,7 +389,7 @@ Agent specific config options and types:
 
 - **`mibs_cache_autogc() = bool() <optional>`{: #agent_ms_cache_autogc }** -
   Defines if the mib server shall perform cache gc automatically or leave it to
-  the user (see [gc_mibs_cache/0,1,2,3](`m:snmpa#gc_mibs_cache`)).
+  the user (see [gc_mibs_cache/0,1,2,3](`snmpa:gc_mibs_cache/0`)).
 
   Default is `true`.
 
@@ -479,9 +471,9 @@ Manager specific config options and types:
   before_ time has been passed. This cleanup will be performed at regular
   intervals, defined by the `server_timeout()` time. The information will have
   an _best before_ time, defined by the `Expire` time given when calling the
-  request function (see [async_get](`m:snmpm#async_get2`),
-  [async_get_next](`m:snmpm#async_get_next2`) and
-  [async_set](`m:snmpm#async_set2`)).
+  request function (see [async_get](`snmpm:async_get2/4`),
+  [async_get_next](`snmpm:async_get_next2/4`) and
+  [async_set](`snmpm:async_set2/4`)).
 
   Time in milli-seconds.
 
@@ -519,8 +511,7 @@ Manager specific config options and types:
 
   Default is `none`.
 
-- **`manager_config() = [manager_config_opt()] <mandatory>`{: #manager_config
-  }** -
+- **`manager_config() = [manager_config_opt()] <mandatory>`{: #manager_config }** -
   `manager_config_opt() = {dir, manager_config_dir()} | {db_dir, manager_db_dir()} | {db_init_error, db_init_error()} | {repair, manager_repair()} | {auto_save, manager_auto_save()} | {verbosity, verbosity()}`
 
   Defines specific config related options for the SNMP manager.
@@ -543,15 +534,14 @@ Manager specific config options and types:
 
   Default is `5000`.
 
-- **`manager_irb() = auto | user | {user, integer()} <optional>`{: #manager_irb
-  }** - This option defines how the manager will handle the sending of response
+- **`manager_irb() = auto | user | {user, integer()} <optional>`{: #manager_irb }** - This option defines how the manager will handle the sending of response
   (acknowledgment) to received inform-requests.
 
   - `auto` \- The manager will autonomously send response (acknowledgment> to
     inform-request messages.
   - `{user, integer()}` \- The manager will send response (acknowledgment) to
     inform-request messages when the
-    [handle_inform](`m:snmpm_user#handle_inform`) function completes. The
+    [handle_inform](`c:snmpm_user:handle_inform/3`) function completes. The
     integer is the time, in milli-seconds, that the manager will consider the
     stored inform-request info valid.
   - `user` \- Same as `{user, integer()}`, except that the default time, 15
@@ -568,8 +558,7 @@ Manager specific config options and types:
 
   Default is `[]`.
 
-- **`manager_net_if() = [manager_net_if_opt()] <optional>`{: #manager_net_if
-  }** -
+- **`manager_net_if() = [manager_net_if_opt()] <optional>`{: #manager_net_if }** -
   `manager_net_if_opt() = {module, manager_net_if_module()} | {verbosity, verbosity()} | {options, manager_net_if_options()}`
 
   Defines options specific for the SNMP manager network interface entity.
@@ -624,8 +613,7 @@ Common config types:
 
   Default is `permanent` for the agent and `transient` for the manager.
 
-- **`db_init_error() = terminate | create | create_db_and_dir`{: #db_init_error
-  }** - Defines what to do if the agent or manager is unable to open an existing
+- **`db_init_error() = terminate | create | create_db_and_dir`{: #db_init_error }** - Defines what to do if the agent or manager is unable to open an existing
   database file. `terminate` means that the agent/manager will terminate and
   `create` means that the agent/manager will remove the faulty file(s) and
   create new ones, and `create_db_and_dir` means that the agent/manager will
@@ -646,8 +634,7 @@ Common config types:
 
   Default is `[v1,v2,v3]`.
 
-- **`verbosity() = silence | info | log | debug | trace <optional>`{: #verbosity
-  }** - Verbosity for a SNMP process. This specifies now much debug info is
+- **`verbosity() = silence | info | log | debug | trace <optional>`{: #verbosity }** - Verbosity for a SNMP process. This specifies now much debug info is
   printed.
 
   Default is `silence`.
@@ -703,8 +690,7 @@ Common config types:
 
   Default is `30000`.
 
-- **`audit_trail_log() = [audit_trail_log_opt()] <optional>`{: #audit_trail_log
-  }** -
+- **`audit_trail_log() = [audit_trail_log_opt()] <optional>`{: #audit_trail_log }** -
   `audit_trail_log_opt() = {type, atl_type()} | {dir, atl_dir()} | {size, atl_size()} | {repair, atl_repair()} | {seqno, atl_seqno()}`
 
   If present, this option specifies the options for the audit trail logging. The

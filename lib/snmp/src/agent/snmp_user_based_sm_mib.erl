@@ -46,6 +46,18 @@ The configuration files are described in the SNMP User's Manual.
 	 usmStatsDecryptionErrors/1]).
 -export([add_user/1, add_user/13, delete_user/1]).
 
+-export_type([
+              name/0,
+              clone_from/0,
+              auth_protocol/0,
+              key_change/0,
+              priv_protocol/0,
+              public/0,
+              auth_key/0,
+              priv_key/0,
+              usm_entry/0
+             ]).
+
 %% Internal
 -export([check_usm/1]).
 
@@ -71,6 +83,130 @@ The configuration files are described in the SNMP User's Manual.
 -define(is_cloning,     16).
 
 
+%% *** name ***
+-doc """
+> #### Note {: .info }
+>
+> "A human readable string representing the name of the user. This is the
+> (User-based Security) Model dependent security ID."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type name()             :: snmp_framework_mib:admin_string().
+
+%% *** clone_from ***
+-doc """
+> #### Note {: .info }
+>
+> "A pointer to another conceptual row in this usmUserTable. The user in this
+> other conceptual row is called the clone-from user."
+
+`RowPointer`
+""".
+-type clone_from()       :: zeroDotZero | snmp:row_pointer().
+
+%% *** auth_protocol ***
+-doc """
+> #### Note {: .info }
+>
+> "An indication of whether messages sent on behalf of this user to/from the
+> SNMP engine identified by usmUserEngineID, can be authenticated, and if so,
+> the type of authentication protocol which is used."
+
+> #### Note {: .info }
+>
+> Some of the entries of this tyype are actually defined by the
+> SNMP-USM-HMAC-SHA2-MIB mib.
+
+`AutonomousType`
+""".
+-type auth_protocol()    :: usmNoAuthProtocol             |
+                            usmHMACMD5AuthProtocol        |
+                            usmHMACSHAAuthProtocol        |
+                            usmHMAC128SHA224AuthProtocol  |
+                            usmHMAC192SH256AuthProtocol   |
+                            usmHMAC256SHA384AuthProtocol  |
+                            usmHMAC384SHA512AuthProtocol.
+
+%% *** key_change ***
+-doc """
+> #### Note {: .info }
+>
+> "Every definition of an object with this syntax must identify a protocol P, a
+> secret key K, and a hash algorithm H that produces output of L octets."
+
+`OCTET STRING`
+""".
+-type key_change()       :: snmp:octet_string().
+
+%% *** priv_protocol ***
+-doc """
+> #### Note {: .info }
+>
+> "An indication of whether messages sent on behalf of this user to/from the
+> SNMP engine identified by usmUserEngineID, can be protected from disclosure,
+> and if so, the type of privacy protocol which is used."
+
+> #### Note {: .info }
+>
+> Some of the entries of this tyype are actually defined by the SNMP-USM-AES-MIB
+> mib.
+
+`AutonomousType`
+""".
+-type priv_protocol()    :: usmNoPrivProtocol    |
+                            usmDESPrivProtocol   |
+                            usmAesCfb128Protocol.
+
+%% *** public ***
+-doc "`OCTET STRING (SIZE(0..32))`".
+-type public()           :: string().
+
+%% *** auth_key ***
+-doc """
+The size/length of the list depends on auth protocol:
+
+```text
+               Size any for usmNoAuthProtocol
+               Size 16  for usmHMACMD5AuthProtocol
+               Size 20  for usmHMACSHAAuthProtocol
+               Size 28  for usmHMAC128SHA224AuthProtocol
+               Size 32  for usmHMAC192SHA256AuthProtocol
+               Size 48  for usmHMAC256SHA384AuthProtocol
+	       Size 64  for usmHMAC384SHA512AuthProtocol
+```
+""".
+-type auth_key()         :: snmp:octet_string().
+
+%% *** priv_key ***
+-doc """
+The size/length of the list depends on priv protocol:
+
+```text
+	       Size any for usmNoPrivProtocol
+               Size 16  for usmDESPrivProtocol
+               Size 16  for usmAesCfb128Protocol
+```
+""".
+-type priv_key()         :: snmp:octet_string().
+
+-type usm_entry() :: {
+                      EngineID    :: snmp_framework_mib:engine_id(),
+                      UserName    :: name(),
+                      SecName     :: snmp_framework_mib:admin_string(),
+                      Clone       :: clone_from(),
+                      AuthP       :: auth_protocol(),
+                      AuthKeyC    :: key_change(),
+                      OwnAuthKeyC :: key_change(),
+                      PrivP       :: priv_protocol(),
+                      PrivKeyC    :: key_change(),
+                      OwnPrivKeyC :: key_change(),
+                      Public      :: public(),
+                      AuthKey     :: auth_key(),
+                      PrivKey     :: priv_key()
+                     }.
+
+
 %%%-----------------------------------------------------------------
 %%% Utility functions
 %%%-----------------------------------------------------------------
@@ -91,9 +227,8 @@ The configuration files are described in the SNMP User's Manual.
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-configure(ConfDir) -> void()
 
+-doc """
 This function is called from the supervisor at system start-up.
 
 Inserts all data in the configuration files into the database and destroys all
@@ -111,7 +246,10 @@ files are found.
 
 The configuration file read is: `usm.conf`.
 """.
-configure(Dir) ->
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(usmUserTable) of
         {_, mnesia} ->
@@ -126,7 +264,7 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vdebug("usm user table does not exist: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
 
@@ -142,9 +280,8 @@ configure(Dir) ->
 %% Fails: exit(configuration_error) |
 %%        exit({unsupported_crypto, Function})
 %%-----------------------------------------------------------------
--doc """
-reconfigure(ConfDir) -> void()
 
+-doc """
 Inserts all data in the configuration files into the database and destroys all
 old data, including the rows with StorageType `nonVolatile`. The rows created
 from the configuration file will have StorageType `nonVolatile`.
@@ -161,11 +298,14 @@ the reason `configuration_error`.
 `ConfDir` is a string which points to the directory where the configuration
 files are found.
 
-The configuration file read is: `usm.conf`.[](){: #add_user }
+The configuration file read is: `usm.conf`.
 """.
-reconfigure(Dir) ->
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -350,14 +490,28 @@ table_del_row(Tab, Key) ->
 
 
 -doc """
-add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC, PrivP,
-PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) -> Ret
-
 Adds a USM security data (user) to the agent config. Equivalent to one line in
 the `usm.conf` file.
-
-[](){: #delete_user }
 """.
+-spec add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
+               PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
+          {ok, Key} | {error, Reason} when
+      EngineID    :: snmp_framework_mib:engine_id(),
+      Name        :: name(),
+      SecName     :: snmp_framework_mib:admin_string(),
+      Clone       :: clone_from(),
+      AuthP       :: auth_protocol(),
+      AuthKeyC    :: key_change(),
+      OwnAuthKeyC :: key_change(),
+      PrivP       :: priv_protocol(),
+      PrivKeyC    :: key_change(),
+      OwnPrivKeyC :: key_change(),
+      Public      :: public(),
+      AuthKey     :: auth_key(),
+      PrivKey     :: priv_key(),
+      Key         :: term(),
+      Reason      :: term().
+
 add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
 	 PrivP, PrivKeyC, OwnPrivKeyC, Public, AuthKey, PrivKey) ->
     User = {EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
@@ -365,8 +519,13 @@ add_user(EngineID, Name, SecName, Clone, AuthP, AuthKeyC, OwnAuthKeyC,
     add_user(User).
 
 -doc false.
-add_user(User) ->
-    case (catch check_usm(User)) of
+-spec add_user(UsmEntry) -> {ok, Key} | {error, Reason} when
+      UsmEntry :: usm_entry(),
+      Key      :: term(),
+      Reason   :: term().
+      
+add_user(UsmEntry) ->
+    case (catch check_usm(UsmEntry)) of
 	{ok, Row} ->
 	    case (catch check_user(Row)) of
 		{'EXIT', Reason} ->
@@ -386,11 +545,12 @@ add_user(User) ->
 	    {error, Error}
     end.
 
--doc """
-delete_user(Key) -> Ret
 
-Delete a USM security data (user) from the agent config.
-""".
+-doc "Delete a USM security data (user) from the agent config.".
+-spec delete_user(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_user(Key) ->
     case table_del_row(usmUserTable, Key) of
 	true ->

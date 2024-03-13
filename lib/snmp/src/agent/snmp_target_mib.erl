@@ -49,7 +49,13 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 -export([default_domain/0]).
 
 -export_type([
-              tag_value/0
+              name/0,
+              tag_value/0,
+              retry_count/0,
+              tag_list/0,
+              params/0,
+              tmask/0,
+              mms/0
              ]).
 
 -include_lib("snmp/include/snmp_types.hrl").
@@ -64,6 +70,19 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 -include("snmp_verbosity.hrl").
 -include("snmpa_internal.hrl").
 
+
+%% *** name ***
+-doc """
+> #### Note {: .info }
+>
+> "The locally arbitrary, but unique identifier associated with this
+> snmpTargetAddrEntry."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type name()             :: snmp_framework_mib:admin_string().
+
+%% *** tag_value ***
 -doc """
 > #### Note {: .info }
 >
@@ -72,7 +91,66 @@ See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 
 `OCTET STRING (SIZE (0..255))`
 """.
--type tag_value() :: string().
+-type tag_value()        :: string().
+
+%% *** retry_count ***
+-doc """
+> #### Note {: .info }
+>
+> "This object specifies a default number of retries to be attempted when a
+> response is not received for a generated message."
+
+`Integer32 (0..255)`
+""".
+-type retry_count()      :: 0 .. 255.
+
+%% *** tag_list ***
+-doc """
+> #### Note {: .info }
+>
+> "An octet string containing a list of tag values. Tag values are preferably in
+> human-readable form."
+>
+> "To facilitate internationalization, this information is represented using the
+> ISO/IEC IS 10646-1 character set, encoded as an octet string using the UTF-8
+> character encoding scheme described in RFC 2279."
+
+`OCTET STRING (SIZE (0..255))`
+""".
+-type tag_list()         :: string().
+
+%% *** params ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of this object identifies an entry in the snmpTargetParamsTable."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type params()           :: snmp_framework_mib:admin_string().
+
+%% *** tmask ***
+-doc """
+> #### Note {: .info }
+>
+> "The mask value associated with an entry in the snmpTargetAddrTable. The value
+> of this object must have the same length as the corresponding instance of
+> snmpTargetAddrTAddress, or must have length 0."
+
+`OCTET STRING (SIZE (0..255))`
+""".
+-type tmask()            :: snmpa_conf:transportAddressMask().
+
+%% *** mms ***
+-doc """
+> #### Note {: .info }
+>
+> "The maximum message size value associated with an entry in the
+> snmpTargetAddrTable.".
+
+`Integer32 (484..65535)`
+""".
+-type mms()              :: 484 .. 65535. % Actually defined in COMMUNITY-MIB
 
 
 %% Column not accessible via SNMP - needed when the agent sends informs
@@ -106,9 +184,8 @@ default_domain() ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-configure(ConfDir) -> void()
 
+-doc """
 This function is called from the supervisor at system start-up.
 
 Inserts all data in the configuration files into the database and destroys all
@@ -125,8 +202,13 @@ the reason `configuration_error`.
 files are found.
 
 The configuration files read are: `target_addr.conf` and `target_params.conf`.
+
+[](){: #reconfigure }
 """.
-configure(Dir) ->
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(snmpTargetParamsTable) of
         {_, mnesia} ->
@@ -141,7 +223,7 @@ configure(Dir) ->
 		    gc_tabs();
 		false ->
 		    ?vdebug("no tables: reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
 
@@ -157,9 +239,8 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-reconfigure(ConfDir) -> void()
 
+-doc """
 Inserts all data in the configuration files into the database and destroys all
 old data, including the rows with StorageType `nonVolatile`. The rows created
 from the configuration file will have StorageType `nonVolatile`.
@@ -179,9 +260,12 @@ files are found.
 The configuration files read are: `target_addr.conf` and `target_params.conf`.
 
 """.
-reconfigure(Dir) ->
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -455,20 +539,69 @@ table_del_row(Tab, Key) ->
 
 
 -doc """
-add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask,
-MMS) -> Ret
-
 Adds a target address definition to the agent config. Equivalent to one line in
 the `target_addr.conf` file.
 """.
+-spec add_addr(Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      TDomain  :: snmpa_conf:transportDomain(),
+      TAddr    :: snmpa_conf:transportAddress(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term();
+              (Name, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
-  Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+  Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+  EngineId, TMask, MMS) when is_atom(TDomain) ->
+    add_addr(
+      {Name, TDomain, TAddr, Timeout, Retry, TagList, Params,
+       EngineId, TMask, MMS});
+add_addr(
+  Name, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
     add_addr(
-      {Name, Domain_or_Ip, Addr_or_Port, Timeout, Retry, TagList, Params,
+      {Name, Ip, Port, Timeout, Retry, TagList, Params,
        EngineId, TMask, MMS}).
 %%
+
 -doc false.
+-spec add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
+               EngineId, TMask, MMS) -> {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      Domain   :: snmpa_conf:transportDomain(),
+      Ip       :: snmpa_conf:transportAddressWithoutPort(),
+      Port     :: inet:port_number(),
+      Timeout  :: snmp:time_interval(),
+      Retry    :: integer(),
+      TagList  :: tag_list(),
+      Params   :: params(),
+      EngineId :: snmp_framework_mib:engine_id(),
+      TMask    :: tmask(),
+      MMS      :: snmp_framework_mib:max_message_size(),
+      Key      :: term(),
+      Reason   :: term().
+      
 add_addr(
   Name, Domain, Ip, Port, Timeout, Retry, TagList, Params,
   EngineId, TMask, MMS) ->
@@ -492,11 +625,14 @@ add_addr(Addr) ->
 	    {error, Error}
     end.
 
--doc """
-delete_addr(Key) -> Ret
 
+-doc """
 Delete a target address definition from the agent config.
 """.
+-spec delete_addr(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_addr(Key) ->
     case table_del_row(snmpTargetAddrTable, Key) of
 	true ->
@@ -507,12 +643,20 @@ delete_addr(Key) ->
 
 
 -doc """
-add_params(Name, MPModel, SecModel, SecName, SecLevel) -> Ret
-
 Adds a target parameter definition to the agent config. Equivalent to one line
 in the `target_params.conf` file.
 
 """.
+-spec add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
+          {ok, Key} | {error, Reason} when
+      Name     :: name(),
+      MPModel  :: snmp_framework_mib:message_processing_model(),
+      SecModel :: snmp_framework_mib:security_model(),
+      SecName  :: snmp_framework_mib:admin_string(),
+      SecLevel :: snmp_framework_mib:security_level(),
+      Key      :: term(),
+      Reason   :: term().
+
 add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
     Params = {Name, MPModel, SecModel, SecName, SecLevel},
     case (catch check_target_params(Params)) of
@@ -522,7 +666,7 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 		true ->
 		    {ok, Key};
 		false ->
-		    {create_failed}
+		    {error, create_failed}
 	    end;
 	{error, Reason} ->
 	    {error, Reason};
@@ -530,11 +674,11 @@ add_params(Name, MPModel, SecModel, SecName, SecLevel) ->
 	    {error, Error}
     end.
 
--doc """
-delete_params(Key) -> Ret
+-doc "Delete a target parameter definition from the agent config.".
+-spec delete_params(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
 
-Delete a target parameter definition from the agent config.
-""".
 delete_params(Key) ->
     case table_del_row(snmpTargetParamsTable, Key) of
 	true ->
@@ -762,19 +906,23 @@ get_target_engine_id(TargetAddrName) ->
 		    undefined
 	    end
     end.
-				    
--doc """
-set_target_engine_id(TargetAddrName, EngineId) -> boolean()
 
+
+-doc """
 Changes the engine id for a target in the `snmpTargetAddrTable`. If
 notifications are sent as Inform requests to a target, its engine id must be
 set.
 
 """.
+-spec set_target_engine_id(TargetAddrName, EngineId) -> boolean() when
+      TargetAddrName :: name(),
+      EngineId       :: snmp_framework_mib:engine_id().
+
 set_target_engine_id(TargetAddrName, EngineId) ->
     snmp_generic:table_set_elements(db(snmpTargetAddrTable),
 				    TargetAddrName,
 				    [{?snmpTargetAddrEngineId, EngineId}]).
+
 
 %%-----------------------------------------------------------------
 %% Instrumentation Functions

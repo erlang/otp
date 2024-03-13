@@ -90,7 +90,7 @@ structure. See RFC 2271/2571 for details.
 
 For each _manager user_, the manager needs some information. This information is
 either added in the `users.conf` config file or by calling the
-[register_user](`m:snmpm#register_user`) function in run-time.
+[register_user](`snmpm:register_user/4`) function in run-time.
 
 Each row defines a _manager user_ of the manager.
 
@@ -108,7 +108,7 @@ Each entry is a tuple of size four:
 
 The information needed to handle agents should be stored in a file called
 `agents.conf`. It is also possible to add agents in run-time by calling the
-[register_agent](`m:snmpm#register_agent`).
+[register_agent](`snmpm:register_agent/3`).
 
 Each entry is a tuple:
 
@@ -137,14 +137,12 @@ Each entry is a tuple:
 Legacy configurations using tuples without `Domain` element, as well as with all
 `TDomain`, `Ip` and `Port` elements still work.
 
-[](){: #usm } [](){: #usm_user }
-
 ## Security data for USM
 
 The information about Security data for USM should be stored in a file called
 `usm.conf`, which must be present if the manager wishes to use SNMPv3 when
 communicating with agents. It is also possible to add usm data in run-time by
-calling the [register_usm_user](`m:snmpm#register_usm_user`).
+calling the [register_usm_user](`snmpm:register_usm_user/3`).
 
 The corresponding table is `usmUserTable` in the SNMP-USER-BASED-SM-MIB
 (adjusted according to SNMP-USM-HMAC-SHA2-MIB).

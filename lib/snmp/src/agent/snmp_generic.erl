@@ -366,7 +366,7 @@ performed on the new values.
 
 If the Mnesia database is used, this function calls `mnesia:write` to store the
 values. This means that this function must be called from within a transaction
-(`mnesia:transaction/1` or `mnesia:dirty/1`).
+(`mnesia:transaction/1`).
 
 [](){: #variable_func } [](){: #variable_func2 } [](){: #variable_func21 }
 """.

@@ -24,11 +24,9 @@ Behaviour module for the SNMP agent discovery handler.
 This module defines the behaviour of the agent discovery handler. A
 `snmpa_discovery_handler` compliant module must export the following functions:
 
-- [stage1_finish/2](`m:snmpa_discovery_handler#stage1_finish`)
+- `c:stage1_finish/3`
 
 The semantics of them and their exact signatures are explained below.
-
-[](){: #stage1_finish }
 """.
 
 -export([verify/1]).
@@ -37,7 +35,7 @@ The semantics of them and their exact signatures are explained below.
 This function is called at the end of stage 1 of the discovery process. It
 should return either the atom `ignore` or `{ok, usm_entry() | [usm_entry()]}`.
 See [usm_entry()](snmp_agent_config_files.md#usm) and
-[usm_entry/13](`m:snmpa_conf#usm_entry`) for more info.
+[usm_entry/1,3](`snmpa_conf:usm_entry/1`) for more info.
 
 If the function returns `ignore`, then it is assumed that either:
 
@@ -45,10 +43,10 @@ If the function returns `ignore`, then it is assumed that either:
 - The callback function itself did the updates.
 
 In either case, the agent will do nothing, but return the retrieved
-ManagerEngineID (see [discovery](`m:snmpa#discovery`) for more info) and
+ManagerEngineID (see `snmpa:discovery/6` for more info) and
 possible continue with stage 2 of the discovery process.
 
-The `ExtraInfo` argument is passed on from the [discovery](`m:snmpa#discovery`)
+The `ExtraInfo` argument is passed on from the `snmpa:discovery/6`
 function.
 
 This function may return an updated `NewExtraInfo` that will be used in
@@ -74,11 +72,12 @@ then added to the `usmUserTable` by the (master-) agent.
 """.
 -callback stage1_finish(TargetName, ManagerEngineID, ExtraInfo) ->
     ignore |
-    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()]} |
-    {ok, snmpa_conf:usm_entry() | [snmpa_conf:usm_entry()], NewExtraInfo} when
-      TargetName      :: string(),
-      ManagerEngineID :: string(),
+    {ok, UsmEntry | [UsmEntry]} |
+    {ok, UsmEntry | [UsmEntry], NewExtraInfo} when
+      TargetName      :: snmp_target_mib:name(),
+      ManagerEngineID :: snmp_framework_mib:engine_id(),
       ExtraInfo       :: term(),
+      UsmEntry        :: snmp_user_based_sm_mib:usm_entry(),
       NewExtraInfo    :: term().
       
 -doc false.

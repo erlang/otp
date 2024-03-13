@@ -47,15 +47,15 @@ recommended that this module be replaced by another that does something useful
 When using version 3, then (at least one) _usm user_ has to be registered.
 
 Requests can be issued in two different ways. Synchronous (see
-[sync_set](`m:snmpm#sync_set2`), [sync_get](`m:snmpm#sync_get2`),
-[sync_get_next](`m:snmpm#sync_get_next2`) and
-[sync_get_bulk](`m:snmpm#sync_get_bulk2`)) and asynchronous (see
-[async_set](`m:snmpm#async_set2`), [async_get](`m:snmpm#async_get2`),
-[async_get_next](`m:snmpm#async_get_next2`) and
-[async_get_bulk](`m:snmpm#async_get_bulk2`)). With synchronous the snmp reply is
+[sync_set](`snmpm:sync_set2/4`), [sync_get](`snmpm:sync_get2/4`),
+[sync_get_next](`snmpm:sync_get_next2/4`) and
+[sync_get_bulk](`snmpm:sync_get_bulk2/6`)) and asynchronous (see
+[async_set](`snmpm:async_set2/4`), [async_get](`snmpm:async_get2/4`),
+[async_get_next](`snmpm:async_get_next2/4`) and
+[async_get_bulk](`snmpm:async_get_bulk2/6`)). With synchronous the snmp reply is
 returned by the function. With asynchronous, the reply will instead be delivered
 through a call to one of the `handle_pdu` callback function defined by the
-[handle_pdu](`m:snmpm_user#handle_pdu`) behaviour.
+[handle_pdu](`c:snmpm_user:handle_pdu/4`) behaviour.
 
 ## Operation
 
