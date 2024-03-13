@@ -1473,6 +1473,7 @@ callback_mode() -> handle_event_function.
 
 server_vars() ->
     #{counters := #{num_cnt_bits := NumCntBits}} = socket:info(),
+    %%
     #{type          => undefined,
       buffer        => <<>>,
       num_cnt_bits  => NumCntBits}.
@@ -2384,6 +2385,7 @@ decode_packet(D, Other) ->
 handle_recv_deliver(P, D, ActionsR, Data) ->
     handle_connected(P, recv_data_deliver(P, D, ActionsR, Data)).
 
+
 handle_recv_error(P, {D, ActionsR}, Reason) ->
     handle_recv_error(P, D, ActionsR, Reason).
 %%
@@ -2391,41 +2393,34 @@ handle_recv_error(P, D, ActionsR, Reason) ->
     handle_recv_error(P, D, ActionsR, Reason, undefined).
 %%
 handle_recv_error(
-  P, #{active := Active} = D, ActionsR, Reason, Caller) ->
+  P, #{active := Active} = D_0, ActionsR_0, Reason, Caller) ->
     %%
     %% Send active socket messages
     %%
-    ModuleSocket = module_socket(P),
-    Owner = P#params.owner,
     if
         Reason =:= timeout;
         Reason =:= emsgsize ->
-            D_1 =
+            {D_1, ActionsR_1} =
                 case Active of
                     false ->
-                        D;
+                        recv_error_reply(D_0, ActionsR_0, Reason);
                     _ ->
+                        ModuleSocket = module_socket(P),
+                        Owner = P#params.owner,
                         Owner ! {tcp_error, ModuleSocket, Reason},
-                        D#{active := false}
+                        {D_0#{active := false}, ActionsR_0}
                 end,
-            handle_recv_error_reply(P, D_1, ActionsR, Reason, 'connected');
+            {next_state, 'connected', {P, D_1}, reverse(ActionsR_1)};
         true ->
-            ShowReason =
-                if
-                    Reason =:= econnreset;
-                    Reason =:= econnaborted ->
-                        case maps:get(show_econnreset, D) of
-                            true  -> econnreset;
-                            false -> closed
-                        end;
-                    true ->
-                        Reason
-                end,
+            ShowReason = curated_error_reason(D_0, Reason),
             case Active of
                 false ->
-                    handle_recv_error_reply(
-                      P, D, ActionsR, ShowReason, 'closed_read');
+                    {D_1, ActionsR_1} =
+                        recv_error_reply(D_0, ActionsR_0, ShowReason),
+                    handle_recv_error_exit_on_close(P, D_1, ActionsR_1);
                 _ ->
+                    ModuleSocket = module_socket(P),
+                    Owner = P#params.owner,
                     ShowReason =/= closed andalso
                         begin
                             Owner ! {tcp_error, ModuleSocket, ShowReason}
@@ -2434,70 +2429,89 @@ handle_recv_error(
                         begin
                             Owner ! {tcp_closed, ModuleSocket}
                         end,
-                    handle_recv_error_reply(
-                      P, D#{active := false}, ActionsR,
-                      ShowReason, 'closed_read')
+                    handle_recv_error_exit_on_close(
+                      P, D_0#{active := false}, ActionsR_0)
             end
     end.
-%%
-handle_recv_error_reply(P, D, ActionsR_0, Reason, NextState_0) ->
-    %%
-    %% Create state machine actions; reply and cancel timeout
-    %%
-    case
-        (NextState_0 =:= 'closed_read')
-        andalso
-        maps:get(exit_on_close, D)
-    of
-        true ->
-            socket_close(P#params.socket),
-            ActionsR = [{next_event, internal, exit} | ActionsR_0],
-            NextState = 'closed';
-        false ->
-            ActionsR = ActionsR_0,
-            NextState = NextState_0
-    end,
+
+handle_recv_error_exit_on_close(P, D, ActionsR_0) ->
+    {ExitOnClose, ActionsR_1} = exit_on_close(D, ActionsR_0),
+    NextState =
+        case ExitOnClose of
+            false -> 'closed_read';
+            true ->
+                socket_close(P#params.socket),
+                'closed'
+        end,
+    {next_state, NextState, {P, D}, reverse(ActionsR_1)}.
+
+
+%% -> {D, ActionsR}
+recv_error_reply(D, ActionsR, Reason) ->
     case D of
         #{recv_from := From} ->
-            {next_state, NextState, {P, recv_stop(D)},
-             reverse(ActionsR,
-                     [{{timeout, recv}, cancel},
-                      {reply, From, {error, Reason}}])};
+            {recv_stop(D),
+             [{{timeout, recv}, cancel},
+              {reply, From, {error, Reason}} | ActionsR]};
         #{} ->
-            {next_state, NextState, {P, D}, reverse(ActionsR)}
+            {D, ActionsR}
     end.
 
-handle_send_error(#params{socket = Socket} = P, D, State, From, Reason) ->
-    ReplyReason =
-        case
-            (Reason =:= econnreset orelse
-             Reason =:= econnaborted) andalso maps:get(show_econnreset, D)
-        of
-            true ->
-                econnreset;
-            false ->
-                closed
-        end,
+%% -> {ExitOnClose, ActionsR}
+exit_on_close(D, ActionsR) ->
+    ExitOnClose = maps:get(exit_on_close, D),
+    {ExitOnClose,
+     case ExitOnClose of
+         true ->
+             [{next_event, internal, exit} | ActionsR];
+         false ->
+            ActionsR
+     end}.
+
+handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
+    %%
+    ReplyReason = curated_error_reason(D_0, Reason),
     Reply = {reply, From, {error, ReplyReason}},
     case State of
         #recv{info = Info} ->
             socket_cancel(Socket, Info),
-            {next_state, NextState, P_D, Actions} = HandleEventResult =
-                handle_recv_error(P, D, [Reply], ReplyReason),
-            case NextState of
-                'closed' ->
-                    HandleEventResult;
-                'closed_read' ->
-                    socket_close(Socket),
-                    {next_state, 'closed', P_D, Actions}
+            socket_close(Socket),
+            case maps:get(active, D_0) of
+                false ->
+                    {D_1, ActionsR_1} =
+                        recv_error_reply(D_0, [Reply], ReplyReason),
+                    {_, ActionsR_2} = exit_on_close(D_1, ActionsR_1),
+                    {next_state, 'closed', {P, D_1}, ActionsR_2};
+                _ ->
+                    ModuleSocket = module_socket(P),
+                    Owner = P#params.owner,
+                    ReplyReason =/= closed andalso
+                        begin
+                            Owner ! {tcp_error, ModuleSocket, ReplyReason}
+                        end,
+                    Owner ! {tcp_closed, ModuleSocket},
+                    {_, ActionsR} = exit_on_close(D_0, [Reply]),
+                    {next_state, 'closed', {P, D_0}, ActionsR}
             end;
         _ when State =:= 'connected';
                State =:= 'closed_read';
                State =:= 'connect' ->
             socket_close(Socket),
-            {next_state, 'closed', {P, D}, [Reply]}
+            {next_state, 'closed', {P, D_0}, [Reply]}
     end.
 
+%% -> CuratedReason
+curated_error_reason(D, Reason) ->
+    if
+        Reason =:= econnreset;
+        Reason =:= econnaborted ->
+            case maps:get(show_econnreset, D) of
+                true  -> econnreset;
+                false -> closed
+            end;
+        true ->
+            Reason
+    end.
 
 
 handle_active(P, D, State, ActionsR) ->
@@ -2668,35 +2682,6 @@ tag(Packet) ->
 %% -> {Result, D, ActionsR}
 %%
 
-call_setopts_result(Result_0, D) ->
-    call_setopts_result(Result_0, D, []).
-%%
-call_setopts_result(Result_0, D, ActionsR) ->
-    Result =
-        case Result_0 of
-            {error, enoprotoopt} ->
-                %% If we get this error, the options is not valid for
-                %% this (tcp) protocol.
-                {error, einval};
-
-            {error, {invalid, _}} ->
-                %% If we get this error, the options where crap.
-                {error, einval};
-
-            {error, einval} ->
-                %% If we get this error, either the options where crap or
-                %% the socket is in a "bad state" (maybe it's closed).
-                %% So, if that is the case we accept that we may not be
-                %% able to update the meta data.
-                Result_0;
-            {error, _} ->
-                %% We should really handle this better. stop_and_reply?
-                Result_0;
-            ok ->
-                ok
-        end,
-    {Result, D, ActionsR}.
-
 call_setopts(_P, D, _State, []) ->
     call_setopts_result(ok, D);
 call_setopts(P, D, State, [{Tag, Val} | Opts]) ->
@@ -2844,6 +2829,35 @@ call_setopts_active(P, D, State, Opts, Active) ->
         true ->
             call_setopts_result({error, einval}, D)
     end.
+
+call_setopts_result(Result_0, D) ->
+    call_setopts_result(Result_0, D, []).
+%%
+call_setopts_result(Result_0, D, ActionsR) ->
+    Result =
+        case Result_0 of
+            {error, enoprotoopt} ->
+                %% If we get this error, the options is not valid for
+                %% this (tcp) protocol.
+                {error, einval};
+
+            {error, {invalid, _}} ->
+                %% If we get this error, the options where crap.
+                {error, einval};
+
+            {error, einval} ->
+                %% If we get this error, either the options where crap or
+                %% the socket is in a "bad state" (maybe it's closed).
+                %% So, if that is the case we accept that we may not be
+                %% able to update the meta data.
+                Result_0;
+            {error, _} ->
+                %% We should really handle this better. stop_and_reply?
+                Result_0;
+            ok ->
+                ok
+        end,
+    {Result, D, ActionsR}.
 
 %% -------
 %% Exported socket option translation
