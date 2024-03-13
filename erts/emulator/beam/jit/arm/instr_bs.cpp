@@ -99,13 +99,8 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
                 a.lsl(out, out, imm(trailing_bits - _TAG_IMMED1_SIZE));
             }
         } else {
-            if (unit >= (1 << _TAG_IMMED1_SIZE)) {
-                mov_imm(TMP1, unit >> _TAG_IMMED1_SIZE);
-            } else {
-                a.lsr(out, out, imm(_TAG_IMMED1_SIZE));
-                mov_imm(TMP1, unit);
-            }
-
+            a.lsr(out, out, imm(_TAG_IMMED1_SIZE));
+            mov_imm(TMP1, unit);
             a.mul(out, out, TMP1);
         }
 
@@ -153,7 +148,7 @@ void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgSource &Size,
     }
 
     if (emit_bs_get_field_size(Size, 1, fail, ARG4) >= 0) {
-        a.lsr(ARG4, ARG4, imm(3));
+        a.lsl(ARG4, ARG4, imm(3));
         mov_arg(ARG5, Heap);
         mov_arg(ARG6, Live);
         fragment_call(ga->get_bs_init_bits_shared());
