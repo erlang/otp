@@ -296,6 +296,10 @@ traffic(#group{} = Cfg) ->
     LRef = server(Cfg),
     ok = client(Cfg, LRef),
     [] = send(Cfg),
+    io:format("Service info: "
+              "~n   ~p"
+              "~n", [[{SvcName, diameter:service_info(SvcName, all)} ||
+                         SvcName <- diameter:services()]]),
     ok = stop_services(Cfg),
     [] = ets:tab2list(diameter_request).
 
