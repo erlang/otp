@@ -6751,7 +6751,7 @@ setup_closed_ao(Config, Addr) ->
         end,
     ?P("[setup] get (\"proper\")local address"),
     {ok, Addr} = ?LIB:which_local_addr(inet),
-    Host = get_hostname(node()),
+    %% Host = get_hostname(node()),
     ?P("[setup] create listen socket (with ~p)", [Addr]),
     L = case ?LISTEN(Config, 0, [{ip, Addr}, {active,false},{packet,2}]) of
             {ok, LSock} ->
@@ -8540,10 +8540,10 @@ do_bidirectional_traffic(Config, #{lsock       := LSock,
         receive
             {timeout, Socket, Total} ->
                 ?P("case -> timeout msg for ~p: received ~w", [Socket, Total]),
-                {fail, {timeout, Socket, Total}};
+                throw({fail, {timeout, Socket, Total}});
 	    {error, Socket, Reason} ->
                 ?P("case -> error msg for ~p: ~p", [Socket, Reason]),
-                {fail, {error, Socket, Reason}}
+                throw({fail, {error, Socket, Reason}})
         after 30000 ->
                 %% if it does not fail in 30 seconds, it most likely works
                 ?P("case -> timeout => success"),
