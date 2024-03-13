@@ -114,6 +114,10 @@
          honor_server_cipher_order/1,
          honor_client_cipher_order/0,
          honor_client_cipher_order/1,
+         honor_server_cipher_order_tls12/0,
+         honor_server_cipher_order_tls12/1,
+         honor_client_cipher_order_tls12/0,
+         honor_client_cipher_order_tls12/1,
          honor_client_cipher_order_tls13/0,
          honor_client_cipher_order_tls13/1,
          honor_server_cipher_order_tls13/0,
@@ -249,19 +253,18 @@ groups() ->
      {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
                            handshake_paus_tests()) --
                           [dh_params,
-                           honor_server_cipher_order,
-                           honor_client_cipher_order,
                            new_options_in_handshake,
                            handshake_continue_tls13_client,
                            invalid_options])
       ++ (since_1_2() -- [conf_signature_algs])},
-     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
-     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
+     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++ [honor_client_cipher_order_tls12,
+                                                                                                honor_server_cipher_order_tls12]},
+     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
+     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++ beast_mitigation_test()},
      {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
      {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
-          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()}
     ].
 
 since_1_2() ->
@@ -277,6 +280,10 @@ pre_1_3() ->
      connection_information_with_srp
     ].
 
+pre_1_2() ->
+    [honor_server_cipher_order,
+     honor_client_cipher_order].
+
 simple_api_tests() ->
     [
      invalid_keyfile,
@@ -288,7 +295,6 @@ simple_api_tests() ->
      options_whitebox,
      format_error
     ].
-
 
 gen_api_tests() ->
     [
@@ -320,9 +326,6 @@ gen_api_tests() ->
      close_in_error_state,
      call_in_error_state,
      close_transport_accept,
-     abuse_transport_accept_socket,
-     honor_server_cipher_order,
-     honor_client_cipher_order,
      ipv6,
      der_input,
      max_handshake_size,
@@ -756,13 +759,18 @@ dh_params(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     DataDir = proplists:get_value(data_dir, Config),
     DHParamFile = filename:join(DataDir, "dHParam.pem"),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.2'),
+                                       [{key_exchange, fun(srp_rsa)  -> false;
+                                                          (srp_anon) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true end}]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, [{dhfile, DHParamFile} | ServerOpts]}]),
+			   {options, [{dhfile, DHParamFile}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -1117,12 +1125,17 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
     TestVersion = ssl_test_lib:protocol_version(Config),
     {Version, Versions} = test_versions_for_option_based_on_sni(TestVersion),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, TestVersion),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     SNI = net_adm:localhost(),
     Fun = fun(ServerName) ->
               case ServerName of
                   SNI ->
-                      [{versions, [Version]} | ServerOpts];
+                      [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts];
                   _ ->
                       ServerOpts
               end
@@ -1138,7 +1151,9 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib, no_result, []}},
-					{options, [{server_name_indication, SNI}, {versions, Versions} | ClientOpts]}]),
+					{options, [{server_name_indication, SNI}, {versions, Versions},
+                                                   {ciphers, Ciphers}
+                                                  | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -1815,23 +1830,76 @@ invalid_keyfile(Config) when is_list(Config) ->
                               {error, closed}).
 
 %%--------------------------------------------------------------------
+honor_server_cipher_order_tls12() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_server_cipher_order_tls12(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    ServerCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    honor_cipher_order(Config, true, ServerCiphers,
+                       ClientCiphers, #{key_exchange => ecdhe_rsa,
+                                        cipher => aes_256_gcm,
+                                        mac => aead,
+                                        prf => sha384}).
+
+%%--------------------------------------------------------------------
+
+honor_client_cipher_order_tls12() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_client_cipher_order_tls12(Config) when is_list(Config) ->
+     ClientCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    ServerCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    honor_cipher_order(Config, false, ServerCiphers,
+                       ClientCiphers, #{key_exchange => ecdhe_rsa,
+                                        cipher => aes_128_gcm,
+                                        mac => aead,
+                                        prf => sha256}).
+
+%%--------------------------------------------------------------------
 honor_server_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_server_cipher_order(Config) when is_list(Config) ->
-     ClientCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+    ClientCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
-                       prf => default_prf}, 
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc, 
+                       prf => default_prf},
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
                        mac => sha,
                        prf => default_prf}],
-    ServerCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc,   
-                       mac =>sha,
+    ServerCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
+                       mac => sha,
                        prf => default_prf},
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
                        prf => default_prf}],
     honor_cipher_order(Config, true, ServerCiphers,
@@ -1841,23 +1909,24 @@ honor_server_cipher_order(Config) when is_list(Config) ->
                                         prf => default_prf}).
 
 %%--------------------------------------------------------------------
+
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_client_cipher_order(Config) when is_list(Config) ->
-    ClientCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+     ClientCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
-                       prf => default_prf}, 
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc, 
+                       prf => default_prf},
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
                        mac => sha,
                        prf => default_prf}],
-    ServerCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc,   
-                       mac =>sha,
+    ServerCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
+                       mac => sha,
                        prf => default_prf},
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
                        prf => default_prf}],
     honor_cipher_order(Config, false, ServerCiphers,
@@ -1865,6 +1934,7 @@ honor_client_cipher_order(Config) when is_list(Config) ->
                                         cipher => aes_128_cbc,
                                         mac => sha,
                                         prf => default_prf}).
+
 
 %%--------------------------------------------------------------------
 ipv6() ->
