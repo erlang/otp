@@ -878,6 +878,23 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.7
+
+### Fixed Bugs and Malfunctions
+
+* Fix heap corruption bug that could cause runaway memory consumption due to circular offheap list at process exit. Other symptoms may also be possible. Bug exists since OTP 25.0.
+
+  Own Id: OTP-18971 Aux Id: GH-8044
+* The code server could be hanging if a module with `on_load` function was loaded at the same time as another module was purged using `erlang:purge_module` directly.
+
+  Own Id: OTP-19006
+* A process optimized for parallel signal delivery could under some circumstances lose wakeup information. That is, the processes was not woken up to take care of the signal, so the signal would not be taken care of until the process was woken by another signal. Only processes configured with [`message_queue_data`](`m:erlang#process_flag_message_queue_data`) set to `off_heap` utilize this optimization.
+
+  Own Id: OTP-19008 Aux Id: GH-8119, PR-8201
+* Fix bug in `re:run/3` where if an invalid UTF-8 subject was given, re:run could get stuck in an infinite loop. Bug was introduced in Erlang/OTP 22.1.
+
+  Own Id: OTP-19015 Aux Id: ERIERL-682
+
 ## Erts 13.2.2.6
 
 ### Fixed Bugs and Malfunctions

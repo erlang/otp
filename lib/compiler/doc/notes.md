@@ -252,6 +252,17 @@ This document describes the changes made to the Compiler application.
 
   Own Id: OTP-18574
 
+## Compiler 8.2.6.4
+
+### Fixed Bugs and Malfunctions
+
+* In rare circumstances, an unsafe optimization could cause the compiler to generate incorrect code for list matching.
+
+  Own Id: OTP-19003 Aux Id: GH-8187, PR-8189
+* In rare circumstances, the compiler code generate unsafe code for a bit syntax match.
+
+  Own Id: OTP-19019
+
 ## Compiler 8.2.6.3
 
 ### Fixed Bugs and Malfunctions

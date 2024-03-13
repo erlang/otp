@@ -126,6 +126,17 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, more secure algorithms are preferred by ssh and documentation is updated to reflect that.
+
+  Own Id: OTP-18986
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
+
 ## Ssh 4.15.3.2
 
 ### Fixed Bugs and Malfunctions
