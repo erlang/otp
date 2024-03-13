@@ -1311,14 +1311,6 @@ do_auto_shutdown(Child, State) when not ?is_significant(Child) ->
     {ok, State};
 do_auto_shutdown(_Child, State=#state{auto_shutdown = any_significant}) ->
     {shutdown, State};
-do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant})
-  when ?is_simple(State) ->
-    case dyn_size(State) of
-	0 ->
-	    {shutdown, State};
-	_ ->
-	    {ok, State}
-    end;
 do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant}) ->
     case
 	children_any(
@@ -1371,6 +1363,15 @@ restart(simple_one_for_one, Child, State0) ->
 	    end,
     State2 = dyn_erase(OldPid, State1),
     case do_start_child_i(M, F, A) of
+        {ok, undefined} ->
+            %% The child returned ignore when being restarted.
+            %% In accordance with the behavior of start_child/2
+            %% for simple_one_for_one supervisors, it is dropped
+            %% from the supervisor.
+            %% Automatic shutdown is not taken into consideration,
+            %% since it does not make sense to use it in
+            %% simple_one_for_one supervisors.
+            {ok, State2};
 	{ok, Pid} ->
             NState = dyn_store(Pid, A, State2),
 	    {ok, NState};
@@ -1896,6 +1897,7 @@ do_check_flags(#{strategy := Strategy,
     validIntensity(MaxIntensity),
     validPeriod(Period),
     validAutoShutdown(AutoShutdown),
+    validAutoShutdownForStrategy(AutoShutdown, Strategy),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -1916,6 +1918,13 @@ validAutoShutdown(never)           -> true;
 validAutoShutdown(any_significant) -> true;
 validAutoShutdown(all_significant) -> true;
 validAutoShutdown(What)            -> throw({invalid_auto_shutdown, What}).
+
+validAutoShutdownForStrategy(any_significant, simple_one_for_one) ->
+    throw({bad_combination, [{auto_shutdown, any_significant}, {strategy, simple_one_for_one}]});
+validAutoShutdownForStrategy(all_significant, simple_one_for_one) ->
+    throw({bad_combination, [{auto_shutdown, all_significant}, {strategy, simple_one_for_one}]});
+validAutoShutdownForStrategy(_AutoShutdown, _Strategy) ->
+    true.
 
 
 supname(self, Mod) -> {self(), Mod};
