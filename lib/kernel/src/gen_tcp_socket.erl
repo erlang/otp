@@ -2022,6 +2022,12 @@ completion_status_reason(Reason) ->
         _                                               -> Reason
     end.
 
+handle_closed(
+  {call, From}, {recv, _Length, _Timeout}, _State,
+  {P, #{delayed_reason := Reason} = D}) ->
+    %%
+    {keep_state, {P, maps:remove(delayed_reason, D)},
+     [{reply, From, {error, Reason}}]};
 handle_closed(Type, Content, State, {P, _D}) ->
     case Type of
         {call, From} ->
@@ -2436,15 +2442,13 @@ handle_recv_error(
 
 handle_recv_error_exit_on_close(P, D, ActionsR_0) ->
     {ExitOnClose, ActionsR_1} = exit_on_close(D, ActionsR_0),
-    NextState =
-        case ExitOnClose of
-            false -> 'closed_read';
-            true ->
-                socket_close(P#params.socket),
-                'closed'
-        end,
-    {next_state, NextState, {P, D}, reverse(ActionsR_1)}.
-
+    case ExitOnClose of
+        false ->
+            {next_state, 'closed_read', {P, D}, reverse(ActionsR_1)};
+        true ->
+            socket_close(P#params.socket),
+            {next_state, 'closed', {P, D}, reverse(ActionsR_1)}
+    end.
 
 %% -> {D, ActionsR}
 recv_error_reply(D, ActionsR, Reason) ->
@@ -2472,16 +2476,17 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
     %%
     ReplyReason = curated_error_reason(D_0, Reason),
     Reply = {reply, From, {error, ReplyReason}},
+    D_1 = D_0#{delayed_reason => ReplyReason},
     case State of
         #recv{info = Info} ->
             socket_cancel(Socket, Info),
             socket_close(Socket),
-            case maps:get(active, D_0) of
+            case maps:get(active, D_1) of
                 false ->
-                    {D_1, ActionsR_1} =
-                        recv_error_reply(D_0, [Reply], ReplyReason),
-                    {_, ActionsR_2} = exit_on_close(D_1, ActionsR_1),
-                    {next_state, 'closed', {P, D_1}, ActionsR_2};
+                    {D_2, ActionsR_2} =
+                        recv_error_reply(D_1, [Reply], ReplyReason),
+                    {_, ActionsR_2} = exit_on_close(D_2, ActionsR_2),
+                    {next_state, 'closed', {P, D_2}, ActionsR_2};
                 _ ->
                     ModuleSocket = module_socket(P),
                     Owner = P#params.owner,
@@ -2490,14 +2495,14 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
                             Owner ! {tcp_error, ModuleSocket, ReplyReason}
                         end,
                     Owner ! {tcp_closed, ModuleSocket},
-                    {_, ActionsR} = exit_on_close(D_0, [Reply]),
-                    {next_state, 'closed', {P, D_0}, ActionsR}
+                    {_, ActionsR} = exit_on_close(D_1, [Reply]),
+                    {next_state, 'closed', {P, D_1}, ActionsR}
             end;
         _ when State =:= 'connected';
                State =:= 'closed_read';
                State =:= 'connect' ->
             socket_close(Socket),
-            {next_state, 'closed', {P, D_0}, [Reply]}
+            {next_state, 'closed', {P, D_1}, [Reply]}
     end.
 
 %% -> CuratedReason
@@ -2787,15 +2792,28 @@ call_setopts_server(P, D, State, Opts, Tag, Val) ->
 call_setopts_active(P, D, State, Opts, _Active)
   when State =:= 'closed_read' ->
     call_setopts(P, D, State, Opts);
-call_setopts_active(P, D, State, Opts, Active)
+call_setopts_active(P, D_0, State, Opts, Active)
   when State =:= 'closed' ->
     if
         Active =:= false ->
-            call_setopts(P, D, State, Opts);
+            call_setopts(P, D_0, State, Opts);
         true -> % not false; socket is active
-            P#params.owner ! {tcp_closed, module_socket(P)},
+            ModuleSocket = module_socket(P),
+            Owner = P#params.owner,
+            D_1 =
+                case D_0 of
+                    #{delayed_reason := Reason} ->
+                        Reason =/= closed andalso
+                            begin
+                                Owner ! {tcp_error, ModuleSocket, Reason}
+                            end,
+                        maps:remove(delayed_reason, D_0);
+                    #{} ->
+                        D_0
+                end,
+            Owner ! {tcp_closed, ModuleSocket},
             socket_close(P#params.socket),
-            {ok, D, [{next_event, internal, exit}]}
+            {ok, D_1, [{next_event, internal, exit}]}
     end;
 call_setopts_active(P, D, State, Opts, Active) ->
     %% ?DBG([{active, Active}]),
