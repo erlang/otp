@@ -661,7 +661,7 @@ encode_As(Vsn, [{AName, X}|As], Flags, Acc) ->
 	     encode_As(Vsn, As,Flags bor ?SSH_FILEXFER_ATTR_UIDGID,
 		       [?uint32(X) | Acc]);
 	ownergroup when Vsn>=5 ->
-	    X1 = list_to_binary(integer_to_list(X)), % TODO: check owner and group
+	    X1 = integer_to_binary(X), % TODO: check owner and group
 	    encode_As(Vsn, As,Flags bor ?SSH_FILEXFER_ATTR_OWNERGROUP,
 		      [?binary(X1) | Acc]);
 	permissions ->
@@ -737,13 +737,11 @@ decode_As(Vsn, [{AName, AField}|As], R, Flags, Tail) ->
 	    decode_As(Vsn, As, setelement(AField, R, X), Flags, Tail2);
 	ownergroup when ?is_set(?SSH_FILEXFER_ATTR_OWNERGROUP, Flags),Vsn>=5 ->
 	    <<?UINT32(Len), Bin:Len/binary, Tail2/binary>> = Tail,
-	    X = binary_to_list(Bin),
+	    X = binary_to_integer(Bin),
 	    decode_As(Vsn, As, setelement(AField, R, X), Flags, Tail2);
-
 	permissions when ?is_set(?SSH_FILEXFER_ATTR_PERMISSIONS,Flags),Vsn>=5->
 	    <<?UINT32(X), Tail2/binary>> = Tail,
 	    decode_As(Vsn, As, setelement(AField, R, X), Flags, Tail2);
-
 	permissions when ?is_set(?SSH_FILEXFER_ATTR_PERMISSIONS,Flags),Vsn=<3->
 	    <<?UINT32(X), Tail2/binary>> = Tail,
 	    R1 = setelement(AField, R, X),
@@ -758,7 +756,6 @@ decode_As(Vsn, [{AName, AField}|As], R, Flags, Tail) ->
 		       _ -> unknown
 		   end,
 	    decode_As(Vsn, As, R1#ssh_xfer_attr { type=Type}, Flags, Tail2);
-
 	acmodtime when ?is_set(?SSH_FILEXFER_ATTR_ACMODTIME,Flags),Vsn=<3 ->
 	    <<?UINT32(X), Tail2/binary>> = Tail,
 	    decode_As(Vsn, As, setelement(AField, R, X), Flags, Tail2);
