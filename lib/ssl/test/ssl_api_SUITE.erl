@@ -230,6 +230,8 @@
          run_client_error/1
         ]).
 
+-compile([nowarn_deprecated_function]).
+
 
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
@@ -2279,8 +2281,8 @@ customize_defaults(Opts, Role, Host) ->
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
-                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
-                       %% __ALL = ssl:update_options([], Role, __ALL);
+                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL)),
+                        check_expected(__ALL, ssl:update_options([], Role, __ALL));
                     Other ->
                         ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
@@ -2292,7 +2294,7 @@ customize_defaults(Opts, Role, Host) ->
                 end,
                 try ssl:update_options(__Opts, Role, __DefOpts) of
                     EXP = __ALL2 ->
-                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
+                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL2));
                     Other2 ->
                         ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
                                "ssl:update_options(~w,~w, element(2,Cfg)).",
@@ -2375,6 +2377,38 @@ customize_defaults(Opts, Role, Host) ->
                         error({unexpected, C2, Other2,ST2})
                 end
         end()).
+
+check_expected(A, A) ->
+    ok;
+check_expected(A, B) when is_list(A), is_list(B) ->
+    Diff1 = A -- B,
+    Diff2 = B -- A,
+    ct:log("NOT EQUAL~n ~p~n ~p~n", [A,B]),
+    if Diff1 =/= [], Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1, Diff2});
+       Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff2});
+       true ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1})
+    end;
+check_expected(A, B) when is_map(A), is_map(B) ->
+    Diff1 = [{KeyA, ValA}
+             || KeyA := ValA <- A, ValA =/= maps:get(KeyA, B, missing_key_val)],
+    Diff2 = [{KeyB, ValB}
+             || KeyB := ValB <- B, ValB =/= maps:get(KeyB, A, missing_key_val)],
+    ct:log("NOT EQUAL~n ~p~n ~p~n", [A,B]),
+    if Diff1 =/= [], Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1, Diff2});
+       Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff2});
+       true ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1})
+    end;
+check_expected({ok, Term1}, {ok, Term2}) ->
+    check_expected(Term1, Term2);
+check_expected(A, B) ->
+    ct:log("NOT EQUAL~n ~p~n~p~n", [A,B]),
+    ct:fail(not_equal).
 
 
 options_whitebox(Config) when is_list(Config) ->
@@ -2545,11 +2579,10 @@ options_anti_replay(_Config) ->
 
 options_beast_mitigation(_Config) -> %% Beast mitigation TLS-1.0 option only
     ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
+
     ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
-    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
-        [beast_mitigation]),
-    ?OK(#{beast_mitigation := zero_n},
-        [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
+    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client),
+    ?OK(#{beast_mitigation := zero_n}, [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
 
     %% Errors
     ?ERR({beast_mitigation, enabled},
@@ -2595,7 +2628,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/foo">>}]},
         [{certfile, <<"/tmp/foo">>}], client, Old),
 
-    ?OK(#{certs_keys := [#{}]}, [{certs_keys, [#{}]}], client),
+    ?OK(#{certs_keys := []}, [{certs_keys, [#{}]}], client),
 
     ?OK(#{certs_keys := [#{key := {rsa, <<>>}}]},
         [{key, {rsa, <<>>}}], client, Old),
@@ -2620,7 +2653,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/baz">>}]},
         [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, Old),
 
-    ?OK(#{certs_keys := [#{}]},
+    ?OK(#{certs_keys := []},
         [{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
         client, Old),
 
