@@ -120,8 +120,14 @@ setup_host_key_create_dir/3,
 setup_host_key/3,
 setup_known_host/3,
 get_addr_str/0,
-file_base_name/2
+file_base_name/2,
+kex_strict_negotiated/2,
+event_logged/3
         ]).
+%% logger callbacks and related helpers
+-export([log/2,
+         get_log_level/0, set_log_level/1, add_log_handler/0,
+         rm_log_handler/0, get_log_events/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
@@ -1227,3 +1233,82 @@ file_base_name(system_src, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521";
 file_base_name(system_src, Alg) -> file_base_name(system, Alg).
 
 %%%----------------------------------------------------------------
+-define(SEARCH_FUN(EXP),
+        begin
+            fun(#{msg := {string, EXP},
+                  level := debug}) ->
+                    true;
+               (_) ->
+                    false
+            end
+        end).
+-define(SEARCH_SUFFIX, " will use strict KEX ordering").
+
+kex_strict_negotiated(client, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("client" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(server, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("server" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(SearchFun, Events) when is_function(SearchFun) ->
+    %% FIXME use event_logged?
+    case lists:search(SearchFun, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+event_logged(Role, Events, Reason) ->
+    SearchF =
+        fun(#{msg := {report, #{args := Args}}}) ->
+                AnyF = fun (E) when is_list(E) ->
+                               case string:find(E, Reason) of
+                                   nomatch -> false;
+                                   _ -> true
+                               end;
+                           (_) ->
+                               false
+                       end,
+                lists:member(Role, Args) andalso
+                    lists:any(AnyF, Args);
+           (_Event) ->
+                false
+        end,
+    case lists:search(SearchF, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+get_log_level() ->
+    #{level := Level} = logger:get_primary_config(),
+    Level.
+
+set_log_level(Level) ->
+    ok = logger:set_primary_config(level, Level).
+
+add_log_handler() ->
+    TestRef = make_ref(),
+    ok = logger:add_handler(?MODULE, ?MODULE,
+                            #{level => debug,
+                              filter_default => log,
+                              recipient => self(),
+                              test_ref => TestRef}),
+    {ok, TestRef}.
+
+rm_log_handler() ->
+    ok = logger:remove_handler(?MODULE).
+
+get_log_events(TestRef) ->
+    {ok, get_log_events(TestRef, [])}.
+
+get_log_events(TestRef, Acc) ->
+    receive
+        {TestRef, Event} ->
+            get_log_events(TestRef, [Event | Acc])
+    after
+        500 ->
+            Acc
+    end.
+
+%% logger callbacks
+log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
+    #{test_ref := TestRef, recipient := Recipient}) ->
+    Recipient ! {TestRef, LogEvent},
+    ok.

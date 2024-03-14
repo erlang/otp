@@ -76,7 +76,10 @@
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
-         client_close_after_hello/1
+         client_close_after_hello/1,
+         kex_strict_negotiated/1,
+         kex_strict_msg_ignore/1,
+         kex_strict_msg_unknown/1
         ]).
 
 -define(NEWLINE, <<"\r\n">>).
@@ -136,8 +139,10 @@ groups() ->
 		gex_client_init_option_groups_moduli_file,
 		gex_client_init_option_groups_file,
 		gex_client_old_request_exact,
-		gex_client_old_request_noexact
-		]},
+		gex_client_old_request_noexact,
+                kex_strict_negotiated,
+                kex_strict_msg_ignore,
+                kex_strict_msg_unknown]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
 			     bad_very_long_service_name,
@@ -164,17 +169,16 @@ groups() ->
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
-    
+
 end_per_suite(Config) ->
     stop_apps(Config).
-
-
 
 init_per_testcase(no_common_alg_server_disconnects, Config) ->
     start_std_daemon(Config, [{preferred_algorithms,[{public_key,['ssh-rsa']},
                                                      {cipher,?DEFAULT_CIPHERS}
                                                     ]}]);
-
+init_per_testcase(kex_strict_negotiated, Config) ->
+    Config;
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
 				   TC == gex_client_init_option_groups_file ;
@@ -217,6 +221,8 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(no_common_alg_server_disconnects, Config) ->
     stop_std_daemon(Config);
+end_per_testcase(kex_strict_negotiated, Config) ->
+    Config;
 end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				  TC == gex_client_init_option_groups_moduli_file ;
 				  TC == gex_client_init_option_groups_file ;
@@ -818,6 +824,81 @@ ext_info_c(Config) ->
         {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
     end.
 
+%%%--------------------------------------------------------------------
+%%%
+kex_strict_negotiated(Config0) ->
+    {ok, TestRef} = ssh_test_lib:add_log_handler(),
+    Config = start_std_daemon(Config0, []),
+    {Server, Host, Port} = proplists:get_value(server, Config),
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
+    {ok, ConnRef} = std_connect({Host, Port}, Config, []),
+    {algorithms, A} = ssh:connection_info(ConnRef, algorithms),
+    ssh:stop_daemon(Server),
+    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    true = ssh_test_lib:kex_strict_negotiated(client, Events),
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    ssh_test_lib:set_log_level(Level),
+    ssh_test_lib:rm_log_handler(),
+    ok.
+
+%% Connect to an erlang server and inject unexpected SSH ignore
+kex_strict_msg_ignore(Config) ->
+    ct:log("START: ~p~n=================================", [?FUNCTION_NAME]),
+    ExpectedReason = "strict KEX violation: unexpected SSH_MSG_IGNORE",
+    TestMessages =
+        [{send, ssh_msg_ignore},
+         {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+         {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+    kex_strict_helper(Config, TestMessages, ExpectedReason).
+
+%% Connect to an erlang server and inject unexpected non-SSH binary
+kex_strict_msg_unknown(Config) ->
+    ct:log("START: ~p~n=================================", [?FUNCTION_NAME]),
+    ExpectedReason = "Bad packet: Size",
+    TestMessages =
+        [{send, ssh_msg_unknown},
+         {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+         {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+    kex_strict_helper(Config, TestMessages, ExpectedReason).
+
+kex_strict_helper(Config, TestMessages, ExpectedReason) ->
+    {ok, TestRef} = ssh_test_lib:add_log_handler(),
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
+    %% Connect and negotiate keys
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+			  [{set_options, [print_ops, print_seqnums, print_messages]}]
+			 ),
+    {ok, _AfterKexState} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            server_host(Config),server_port(Config),
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, user_dir(Config)},
+             {user_interaction, false}
+            | proplists:get_value(extra_options,Config,[])
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init}] ++
+              TestMessages,
+          InitialState),
+    ct:sleep(100),
+    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    ssh_test_lib:rm_log_handler(),
+    ct:log("Events = ~p", [Events]),
+    true = ssh_test_lib:kex_strict_negotiated(client, Events),
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
+    ssh_test_lib:set_log_level(Level),
+    ok.
 
 %%%----------------------------------------------------------------
 %%%
@@ -839,7 +920,7 @@ modify_append(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX, ?EXTRA_KEX],
+                      [?DEFAULT_KEX, ?EXTRA_KEX, list_to_atom(?kex_strict_s)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -853,7 +934,7 @@ modify_prepend(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?EXTRA_KEX, ?DEFAULT_KEX],
+                      [?EXTRA_KEX, ?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
                       Ciphers,
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
                                                {cipher,Ciphers}
@@ -867,7 +948,7 @@ modify_rm(Config) ->
     Ciphers = filter_supported(cipher, ?CIPHERS),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
                       tl(Ciphers),
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
@@ -886,7 +967,7 @@ modify_combo(Config) ->
     LastC = lists:last(Ciphers),
     {ok,_} =
         chk_pref_algs(Config,
-                      [?DEFAULT_KEX],
+                      [?DEFAULT_KEX, list_to_atom(?kex_strict_s)],
                       [LastC] ++ (tl(Ciphers)--[LastC]) ++ [hd(Ciphers)],
                       [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
                                                {cipher,Ciphers}
