@@ -1376,13 +1376,6 @@ quote(_Config) ->
 
     TestQuoteUnquote =
         fun(Unquoted) ->
-                %% case below should be removed when functions used are removed
-                case Head(Unquoted) =< 127 of
-                    true ->
-                        Unquoted = http_uri:decode(http_uri:encode(Unquoted));
-                    _ ->
-                        ok
-                end,
                 Unquoted = uri_string:unquote(uri_string:quote(Unquoted))
         end,
     [TestQuoteUnquote(U) || #{unquoted := U} <- get_quote_data()],
@@ -1392,13 +1385,6 @@ quote(_Config) ->
         fun(Unquoted, Quoted) ->
                 Safe = "!$()*", %% characters not encoded by old http_uri:encode
                 Result = uri_string:quote(Unquoted, Safe),
-                %% case below should be removed when function used are removed
-                case Head(Unquoted) =< 127 of
-                    true ->
-                        Result = http_uri:encode(Unquoted);
-                    _ ->
-                        ok
-                end,
                 case lists:member(Head(Unquoted), Safe) of
                     true ->
                         Unquoted = Result;
