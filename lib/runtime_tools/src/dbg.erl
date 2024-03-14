@@ -22,95 +22,135 @@
 The Text Based Trace Facility
 
 This module implements a text based interface to the
-[`trace/3`](`erlang:trace/3`) and the
-[`trace_pattern/2`](`erlang:trace_pattern/2`) BIFs. It makes it possible to
-trace functions, processes, ports and messages.
+`erlang:trace/3` and `erlang:trace_pattern/2` BIFs, simplifying
+tracing of functions, processes, ports, and messages.
 
-To quickly get started on tracing function calls you can use the following code
-in the Erlang shell:
+To quickly get started on tracing function calls you can use the
+following code in the Erlang shell:
 
 ```erlang
-1> dbg:tracer(). %% Start the default trace message receiver
-{ok,<0.36.0>}
-2> dbg:p(all, c). %% Setup call (c) tracing on all processes
-{ok,[{matched,nonode@nohost,26}]}
-3> dbg:tp(lists, seq, x). %% Setup an exception return trace (x) on lists:seq
-{ok,[{matched,nonode@nohost,2},{saved,x}]}
-4> lists:seq(1,10).
-(<0.34.0>) call lists:seq(1,10)
-(<0.34.0>) returned from lists:seq/2 -> [1,2,3,4,5,6,7,8,9,10]
+1> dbg:tracer().  % Start the default trace message receiver
+{ok,<0.90.0>}
+2> dbg:p(all, c). % Set upp call tracing on all processes
+{ok,[{matched,nonode@nohost,49}]}
+3> dbg:tp(lists, seq, cx). %  Set up call and exception tracing on lists:seq/2,3
+{ok,[{matched,nonode@nohost,2},{saved,cx}]}
+4> lists:seq(1, 10).
+(<0.88.0>) call lists:seq(1,10) ({erl_eval,do_apply,7,{"erl_eval.erl",904}})
 [1,2,3,4,5,6,7,8,9,10]
+(<0.88.0>) returned from lists:seq/2 -> [1,2,3,4,5,6,7,8,9,10]
 ```
-
-For more examples of how to use `dbg` from the Erlang shell, see the
-[simple example](`m:dbg#simple_example`) section.
 
 The utilities are also suitable to use in system testing on large systems, where
-other tools have too much impact on the system performance. Some primitive
-support for sequential tracing is also included, see the
+other tools have too severe impact on the system performance. Some primitive
+support for sequential tracing is also included; see the
 [advanced topics](`m:dbg#advanced`) section.
 
-[](){: #simple_example }
+## Simple tracing from the shell with no prior set up
 
-## Simple examples - tracing from the shell
-
-The simplest way of tracing from the Erlang shell is to use `dbg:c/3` or
-`dbg:c/4`, e.g. tracing the function `dbg:get_tracer/0`:
+To trace a call to a function with minimal fuss, call [`dbg:c(Module,
+Name, Arguments)`](`dbg:c/3`). `dbg:c/3` starts a temporary trace
+receiver, enables all trace flags, and calls the designated function
+from a temporary process. For example, here is how to trace a call
+to `application:which_applications/0`:
 
 ```erlang
-(tiger@durin)84> dbg:c(dbg,get_tracer,[]).
-(<0.154.0>) <0.152.0> ! {<0.154.0>,{get_tracer,tiger@durin}}
-(<0.154.0>) out {dbg,req,1}
-(<0.154.0>) << {dbg,{ok,<0.153.0>}}
-(<0.154.0>) in {dbg,req,1}
-(<0.154.0>) << timeout
-{ok,<0.153.0>}
-(tiger@durin)85>
+1> dbg:c(application, which_applications, []).
+(<0.92.0>) <0.45.0> ! {'$gen_call',{<0.92.0>,
+                                    [alias|
+                                     #Ref<0.0.11779.270031856.1478295555.230456>]},
+                                   which_applications} (Timestamp: {1710,
+                                                                    847802,
+                                                                    479222})
+(<0.92.0>) out {gen,do_call,4} (Timestamp: {1710,847802,479231})
+(<0.92.0>) in {gen,do_call,4} (Timestamp: {1710,847802,479271})
+(<0.92.0>) << {[alias|#Ref<0.0.11779.270031856.1478295555.230456>],
+               [{stdlib,"ERTS  CXC 138 10","5.2.1"},
+                {kernel,"ERTS  CXC 138 10","9.2.2"}]} (Timestamp: {1710,
+                                                                   847802,
+                                                                   479274})
+[{stdlib,"ERTS  CXC 138 10","5.2.1"},
+ {kernel,"ERTS  CXC 138 10","9.2.2"}]
 ```
 
-Another way of tracing from the shell is to explicitly start a _tracer_ and then
-set the _trace flags_ of your choice on the processes you want to trace, e.g.
-trace messages and process events:
+Four trace events are generated:
+
+- A send event (`!`) for the sending of a request from the current process
+  to the `application_controller` process.
+- A schedule-out event (`out`) when the current process schedules out while
+  waiting in a `receive` for the reply to arrive.
+- A schedule-in event (`in`) when the current process is scheduled in when
+  reply has arrived.
+- A `receive` event (`<<`) when the current process retrieves the reply from
+  the `application_controller` process.
+
+The `dbg:c/4` function has a fourth argument for specifying the trace flags.
+Here is how to only show message sending and receiving:
 
 ```erlang
-(tiger@durin)66> Pid = spawn(fun() -> receive {From,Msg} -> From ! Msg end end).
-<0.126.0>
-(tiger@durin)67> dbg:tracer().
-{ok,<0.128.0>}
-(tiger@durin)68> dbg:p(Pid,[m,procs]).
-{ok,[{matched,tiger@durin,1}]}
-(tiger@durin)69> Pid ! {self(),hello}.
-(<0.126.0>) << {<0.116.0>,hello}
-{<0.116.0>,hello}
-(<0.126.0>) << timeout
-(<0.126.0>) <0.116.0> ! hello
-(<0.126.0>) exit normal
-(tiger@durin)70> flush().
+2> dbg:c(application, which_applications, [], m).
+(<0.96.0>) <0.45.0> ! {'$gen_call',{<0.96.0>,
+                                    [alias|
+                                     #Ref<0.0.12291.270031856.1478295555.230496>]},
+                                   which_applications}
+(<0.96.0>) << {[alias|#Ref<0.0.12291.270031856.1478295555.230496>],
+               [{stdlib,"ERTS  CXC 138 10","5.2.1"},
+                {kernel,"ERTS  CXC 138 10","9.2.2"}]}
+[{stdlib,"ERTS  CXC 138 10","5.2.1"},
+ {kernel,"ERTS  CXC 138 10","9.2.2"}]
+```
+
+> #### Note {: .info }
+>
+> While the [`dbg:c/3,4`](`dbg:c/4`) functions can be convenient, they do not
+> mix well with the other functions in this module, because they stop any
+> previously running trace receiver process (losing any saved trace patterns).
+
+## Tracing from the shell
+
+Another way of tracing from the shell is to explicitly start a _tracer_ and
+set the _trace flags_ of your choice on the processes you want to trace.
+For example, here is how to trace messages and process events:
+
+```erlang
+1> Pid = spawn(fun() -> receive {From,Msg} -> From ! Msg end end).
+<0.90.0>
+2> dbg:tracer().
+{ok,<0.92.0>}
+3> dbg:p(Pid, [m,procs]).
+{ok,[{matched,nonode@nohost,1}]}
+4> Pid ! {self(),hello}.
+(<0.90.0>) << {<0.88.0>,hello}
+{<0.88.0>,hello}
+(<0.90.0>) <0.88.0> ! hello
+(<0.90.0>) exit normal
+5> flush().
 Shell got hello
 ok
-(tiger@durin)71>
 ```
 
-If you set the `call` trace flag, you also have to set a _trace pattern_ for the
-functions you want to trace:
+In order to trace functions call, in addition to enabling the `call` trace flag
+for the process, it is also necessary to set a _trace pattern_ for the functions
+to trace.
+
+_Example:_
 
 ```erlang
-(tiger@durin)77> dbg:tracer().
-{ok,<0.142.0>}
-(tiger@durin)78> dbg:p(all,call).
-{ok,[{matched,tiger@durin,3}]}
-(tiger@durin)79> dbg:tp(dbg,get_tracer,0,[]).
-{ok,[{matched,tiger@durin,1}]}
-(tiger@durin)80> dbg:get_tracer().
-(<0.116.0>) call dbg:get_tracer()
-{ok,<0.143.0>}
-(tiger@durin)81> dbg:tp(dbg,get_tracer,0,[{'_',[],[{return_trace}]}]).
-{ok,[{matched,tiger@durin,1},{saved,1}]}
-(tiger@durin)82> dbg:get_tracer().
-(<0.116.0>) call dbg:get_tracer()
-(<0.116.0>) returned from dbg:get_tracer/0 -> {ok,<0.143.0>}
-{ok,<0.143.0>}
-(tiger@durin)83>
+1> dbg:tracer().
+{ok,<0.90.0>}
+2> dbg:p(all, call).
+{ok,[{matched,nonode@nohost,49}]}
+3> dbg:tp(lists, last, 1, []).
+{ok,[{matched,nonode@nohost,1}]}
+4> lists:last([a,b,c,d,e]).
+(<0.88.0>) call lists:last([a,b,c,d,e])
+e
+5> dbg:tp(lists, last, 1, [{'_',[],[{return_trace}]}]).
+{ok,[{matched,nonode@nohost,1},{saved,1}]}
+6> lists:last([a,b,c,d,e]).
+(<0.88.0>) call lists:last([a,b,c,d,e])
+(<0.88.0>) returned from lists:last/1 -> e
+e
 ```
 
 [](){: #advanced }
@@ -119,16 +159,16 @@ functions you want to trace:
 
 The `dbg` module is primarily targeted towards tracing through the
 `erlang:trace/3` function. It is sometimes desired to trace messages in a more
-delicate way, which can be done with the help of the `seq_trace` module.
+delicate way, which can be done with the help of the `m:seq_trace` module.
 
-`seq_trace` implements sequential tracing (known in the AXE10 world, and
+`m:seq_trace` implements sequential tracing (known in the AXE10 world, and
 sometimes called "forlopp tracing"). `dbg` can interpret messages generated from
 `seq_trace` and the same tracer function for both types of tracing can be used.
-The `seq_trace` messages can even be sent to a trace port for further analysis.
+The `seq_trace` messages can also be sent to a trace port for further analysis.
 
 As a match specification can turn on sequential tracing, the combination of
-`dbg` and `seq_trace` can be quite powerful. This brief example shows a session
-where sequential tracing is used:
+`dbg` and `seq_trace` can be powerful. This brief example shows a session
+where sequential tracing is used to trace the `dbg` module and the trace itself:
 
 ```erlang
 1> dbg:tracer().
@@ -148,25 +188,26 @@ SeqTrace [0]: (<0.30.0>) <0.25.0> ! {dbg,{ok,<0.31.0>}} [Serial: {4,5}]
 {1,0,5,<0.30.0>,4}
 ```
 
-This session sets the system_tracer to the same process as the ordinary tracer
-process (i. e. <0.31.0>) and sets the trace pattern for the function
-`dbg:get_tracer` to one that has the action of setting a sequential token. When
-the function is called by a traced process (all processes are traced in this
-case), the process gets "contaminated" by the token and `seq_trace` messages are
-sent both for the server request and the response. The `seq_trace:set_token([])`
-after the call clears the `seq_trace` token, why no messages are sent when the
-answer propagates via the shell to the console port. The output would otherwise
-have been more noisy.
+This session sets the system_tracer to the same process as the
+ordinary tracer process (i. e. <0.31.0>) and sets the trace pattern
+for the function `dbg:get_tracer` to one that has the action of
+setting a sequential token. When the function is called by a traced
+process (all processes are traced in this case), the process gets
+"contaminated" by the token and `seq_trace` messages are sent both for
+the server request and the response. The `seq_trace:set_token([])`
+after the call clears the `seq_trace` token, which is why no messages
+are sent when the answer propagates via the shell to the console
+port. Otherwise the output would been more noisy.
 
 ## Note of caution
 
-When tracing function calls on a group leader process (an IO process), there is
+When tracing function calls on a group leader process (an I/O process), there is
 risk of causing a deadlock. This will happen if a group leader process generates
 a trace message and the tracer process, by calling the trace handler function,
-sends an IO request to the same group leader. The problem can only occur if the
-trace handler prints to tty using an `io` function such as
-[`format/2`](`io:format/2`). Note that when `dbg:p(all,call)` is called, IO
-processes are also traced. Here's an example:
+sends an I/O request to the same group leader. The problem can only occur if the
+trace handler prints to the tty using an `m:io` function such as
+[`format/2`](`io:format/2`). Note that when `dbg:p(all, call)` is called, IO
+processes are also traced. Here is an example:
 
 ```erlang
 %% Using a default line editing shell
@@ -180,7 +221,7 @@ processes are also traced. Here's an example:
 %% -- Deadlock --
 ```
 
-Here's another example:
+Here is another example:
 
 ```erlang
 %% Using a shell without line editing (oldshell)
@@ -199,23 +240,24 @@ calls `mymod:module_info()`. This generates a trace message which, in turn,
 causes the tracer process to send an IO request to the group leader (by calling
 `io:format/2`). We end up in a deadlock.
 
-In the second example we use the default trace handler function. This handler
-prints to tty by sending IO requests to the `user` process. When Erlang is
-started in oldshell mode, the shell process will have `user` as its group leader
-and so will the tracer process in this example. Since `user` calls functions in
-`lists` we end up in a deadlock as soon as the first IO request is sent.
+In the second example we use the default trace handler function. This
+handler prints to the tty by sending IO requests to the `user`
+process. When Erlang is started in the oldshell mode, the shell
+process will have `user` as its group leader and so will the tracer
+process in this example. Since `user` calls functions in `lists` we
+end up in a deadlock as soon as the first IO request is sent.
 
-Here are a few suggestions for how to avoid deadlock:
+Here are a few suggestions for avoiding deadlock:
 
-- Don't trace the group leader of the tracer process. If tracing has been
-  switched on for all processes, call `dbg:p(TracerGLPid,clear)` to stop tracing
+- Do not trace the group leader of the tracer process. If tracing has been
+  switched on for all processes, call `dbg:p(TracerGLPid, clear)` to stop tracing
   the group leader (`TracerGLPid`).
-  [`process_info(TracerPid,group_leader)`](`process_info/2`) tells you which
+  [`process_info(TracerPid, group_leader)`](`process_info/2`) tells you which
   process this is (`TracerPid` is returned from `dbg:get_tracer/0`).
-- Don't trace the `user` process if using the default trace handler function.
+- Do not trace the `user` process if using the default trace handler function.
 - In your own trace handler function, call `erlang:display/1` instead of an `io`
   function or, if `user` is not used as group leader, print to `user` instead of
-  the default group leader. Example: `io:format(user,Str,Args)`.
+  the default group leader. Example: `io:format(user, Str, Args)`.
 """.
 -export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,
 	 tracer/2, tracer/3, get_tracer/0, get_tracer/1, tp/2, tp/3, tp/4, 
@@ -258,73 +300,117 @@ Here are a few suggestions for how to avoid deadlock:
 
 %%% Shell callable utility
 -doc """
-fun2ms(LiteralFun) -> MatchSpec
+fun2ms(LiteralFun)
 
-Pseudo function that by means of a `parse_transform` translates the _literal_
-`fun()` typed as parameter in the function call to a match specification as
-described in the `match_spec` manual of ERTS users guide. (With literal I mean
-that the `fun()` needs to textually be written as the parameter of the function,
-it cannot be held in a variable which in turn is passed to the function).
+Pseudo function that by means of a parse transform translates the
+_literal_ fun typed as parameter in the function call to a [match
+specification](`e:erts:match_spec.md`).
 
-The parse transform is implemented in the module `ms_transform` and the source
-_must_ include the file `ms_transform.hrl` in STDLIB for this pseudo function to
-work. Failing to include the hrl file in the source will result in a runtime
-error, not a compile time ditto. The include file is easiest included by adding
-the line `-include_lib("stdlib/include/ms_transform.hrl").` to the source file.
+The meaning of "literal" is that the fun needs to textually be written
+as the argument of the function call; it cannot be held in a variable
+which in turn is passed to the function. Furthermore, the parse
+transform module `m:ms_transform` must be enabled. The easiest way to
+enable it is by adding the following line to the source file:
 
-The `fun()` is very restricted, it can take only a single parameter (the
-parameter list to match), a sole variable or a list. It needs to use the
-`is_`XXX guard tests and one cannot use language constructs that have no
-representation in a match_spec (like `if`, `case`, `receive` etc). The return
-value from the fun will be the return value of the resulting match_spec.
-
-Example:
-
-```erlang
-1> dbg:fun2ms(fun([M,N]) when N > 3 -> return_trace() end).
-[{['$1','$2'],[{'>','$2',3}],[{return_trace}]}]
+```
+-include_lib("stdlib/include/ms_transform.hrl").
 ```
 
-Variables from the environment can be imported, so that this works:
+Failing to include `ms_transform.hrl` in the source will result in a runtime
+error, not a compile-time error.
+
+This function can also be invoked directly from the Erlang shell, as shown in
+the examples that follow.
+
+The head of the fun must be a single pattern that matches a list. That pattern
+will be used to match the arguments for the call:
+
+_Examples_:
 
 ```erlang
-2> X=3.
+1> dbg:fun2ms(fun([_,_]) -> true end).
+[{['_','_'],[],[true]}]
+2> dbg:fun2ms(fun(Args) when length(Args) > 6 -> true end).
+[{'$1',[{'>',{length,'$1'},6}],[true]}]
+```
+
+The first match specification matches when a function having two
+arguments is called. The second matches when a function with more than
+6 arguments is called.
+
+_Examples_:
+
+```erlang
+1> dbg:fun2ms(fun(42) -> true end).
+Error: dbg:fun2ms requires fun with single variable or list parameter
+{error,transform_error}
+2> dbg:fun2ms(fun([<<H,T/binary>>]) -> true end).
+Error: fun head contains bit syntax matching of variable 'H', which cannot be translated into match_spec
+{error,transform_error}
+```
+
+The preceding two examples show what happens when a fun cannot be
+translated into a match specification. In the first example, the fun
+head connot possibly match a list. In the second example, an attempt is made
+to take apart a binary using the bit syntax, which is currently not
+supported in match specifications.
+
+However, note that literal binaries *can* be matched:
+
+```erlang
+1> dbg:fun2ms(fun([<<"abc">>]) -> true end).
+[{[<<"abc">>],[],[true]}]
+```
+
+Match specifications support a large subset of the
+[guard expressions](`e:system:expressions.md#guard-expressions`) supported
+by Erlang, but not all. For example, updating a map is currently not supported:
+
+```erlang
+1> dbg:fun2ms(fun([M]) when map_size(M#{a => b}) > 2 -> true end).
+Error: the language element map (in guard) cannot be translated into match_spec
+{error,transform_error}
+```
+
+However, creating a map in a guard is allowed:
+
+```erlang
+1> dbg:fun2ms(fun([M]) when map_size(#{a => b}) > 2 -> true end).
+[{['$1'],[{'>',{map_size,#{a => b}},2}],[true]}]
+```
+
+Variables from the environment can be imported, so this works:
+
+```erlang
+1> X = 3.
 3
-3> dbg:fun2ms(fun([M,N]) when N > X  -> return_trace() end).
+2> dbg:fun2ms(fun([M,N]) when N > X  -> return_trace() end).
 [{['$1','$2'],[{'>','$2',{const,3}}],[{return_trace}]}]
 ```
+The imported variables will be replaced by `const` expressions, which
+is consistent with the static scoping for Erlang funs.
 
-The imported variables will be replaced by match_spec `const` expressions, which
-is consistent with the static scoping for Erlang `fun()`s. Local or global
-function calls cannot be in the guard or body of the fun however. Calls to
-builtin match_spec functions of course is allowed:
+In the body of the fun, only guard expressions and calls to the
+[special functions for tracing](`e:erts:match_spec.md#functions-allowed-only-for-tracing`)
+are allowed.
+
+_Examples_:
 
 ```erlang
-4> dbg:fun2ms(fun([M,N]) when N > X, is_atomm(M)  -> return_trace() end).
-Error: fun containing local erlang function calls ('is_atomm' called in guard)\
- cannot be translated into match_spec
+1> dbg:fun2ms(fun([A]) when is_atom(A) -> return_trace() end).
+[{['$1'],[{is_atom,'$1'}],[{return_trace}]}]
+2> dbg:fun2ms(fun(_) -> erlang:garbage_collect() end).
+Error: fun containing the remote function call 'erlang:garbage_collect/0' (called in body) cannot be translated into match_spec
 {error,transform_error}
-5> dbg:fun2ms(fun([M,N]) when N > X, is_atom(M)  -> return_trace() end).
-[{['$1','$2'],[{'>','$2',{const,3}},{is_atom,'$1'}],[{return_trace}]}]
 ```
-
-As you can see by the example, the function can be called from the shell too.
-The `fun()` needs to be literally in the call when used from the shell as well.
-Other means than the parse_transform are used in the shell case, but more or
-less the same restrictions apply (the exception being records, as they are not
-handled by the shell).
 
 > #### Warning {: .warning }
 >
-> If the parse_transform is not applied to a module which calls this pseudo
-> function, the call will fail in runtime (with a `badarg`). The module `dbg`
-> actually exports a function with this name, but it should never really be
-> called except for when using the function in the shell. If the
-> `parse_transform` is properly applied by including the `ms_transform.hrl`
-> header file, compiled code will never call the function, but the function call
-> is replaced by a literal match_spec.
+> If the parse transform is not applied to a module which calls `dbg:fun2ms/1`,
+> the call will fail in runtime with a `badarg` exception.
 
-More information is provided by the `ms_transform` manual page in STDLIB.
+More information is available in the documentation for module `m:ms_transform`
+in STDLIB.
 """.
 -spec fun2ms(LiteralFun) -> MatchSpec when
       LiteralFun :: fun((term()) -> term()),
@@ -360,28 +446,33 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
 %% Adds Node to the list of traced nodes.
 %%
 -doc """
-n(Nodename) -> {ok, Nodename} | {error, Reason}
+n(Nodename)
 
-`n` stands for *n*ode. The `dbg` server keeps a list of nodes where tracing
-should be performed. Whenever a `tp/2` call or a `p/2` call is made, it is
-executed for all nodes in this list including the local node (except for `p/2`
-with a specific `t:pid/0` or `t:port/0` as first argument, in which case the
-command is executed only on the node where the designated process or port
-resides).
+Adds a remote node (`Nodename`) to the list of nodes where tracing is
+performed.
 
-This function adds a remote node (`Nodename`) to the list of nodes where tracing
-is performed. It starts a tracer process on the remote node, which will send all
-trace messages to the tracer process on the local node (via the Erlang
-distribution). If no tracer process is running on the local node, the error
-reason `no_local_tracer` is returned. The tracer process on the local node must
-be started with the [`tracer/0/2`](`tracer/2`) function.
+`n` stands for **n**ode.
+
+The `dbg` server keeps a list of nodes where tracing should be
+performed. Whenever a `tp/2` call or a `p/2` call is made, it is
+executed for all nodes in this list including the local node (except
+for `p/2` with a specific `t:pid/0` or `t:port/0` as first argument,
+in which case the command is executed only on the node where the
+designated process or port resides).
+
+When this function is called, it starts a tracer process on the remote
+node, which will send all trace messages to the tracer process on the
+local node (via the Erlang distribution). If no tracer process is
+running on the local node, the error reason `no_local_tracer` is
+returned. The tracer process on the local node must be started with
+the [`tracer/0,2`](`tracer/2`) function.
 
 If `Nodename` is the local node, the error reason `cant_add_local_node` is
 returned.
 
 If a trace port (see `trace_port/2`) is running on the local node, remote nodes
 cannot be traced with a tracer process. The error reason
-`cant_trace_remote_pid_to_local_port` is returned. A trace port can however be
+`cant_trace_remote_pid_to_local_port` is returned. However, a trace port can be
 started on the remote node with the `tracer/3` function.
 
 The function will also return an error if the node `Nodename` is not reachable.
@@ -406,15 +497,18 @@ n(Node) ->
 %%
 %% cn(Node) -> ok
 %% Remove Node from the list of traced nodes.
-%%    
+%%
 -doc """
-cn(Nodename) -> ok
+cn(Nodename)
 
-`cn` stands for *c*lear *n*ode. Clears a node from the list of traced nodes.
+Clears a node from the list of traced nodes.
+
+`cn` stands for **c**lear **n**ode.
+
 Subsequent calls to `tp/2` and `p/2` will not consider that node, but tracing
 already activated on the node will continue to be in effect.
 
-Returns `ok`, cannot fail.
+Returns `ok`. This call cannot fail.
 """.
 -spec cn(Nodename) -> ok when Nodename :: node().
 cn(Node) ->
@@ -425,9 +519,9 @@ cn(Node) ->
 %% List traced nodes
 %%
 -doc """
-ln() -> ok
+Shows the list of traced nodes on the console.
 
-`ln` stands for *l*ist *n*odes. Shows the list of traced nodes on the console.
+`ln` stands for **l**ist **n**odes.
 """.
 -spec ln() -> ok.
 ln() ->
@@ -455,21 +549,14 @@ ln() ->
 -type tp_arity() :: arity() | '_'.
 -type tp_match_spec() :: tp_id() | built_in_alias() | [] | match_spec().
 
--doc """
-tp(Module,Function,MatchSpec)
-
-Same as tp(\{Module, Function, '\_'\}, MatchSpec)
-""".
+-doc #{equiv => tp({Module, Function, '_'}, MatchSpec)}.
 -spec tp(Module :: tp_module(), Function :: tp_function(),
          MatchSpec :: tp_match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tp(Module, Function, Pattern) ->
     do_tp({Module, Function, '_'}, Pattern, []).
--doc """
-tp(Module, Function, Arity, MatchSpec)
 
-Same as tp(\{Module, Function, Arity\}, MatchSpec)
-""".
+-doc #{equiv => tp({Module, Function, Arity}, MatchSpec)}.
 -spec tp(Module :: tp_module(),
          Function :: tp_function(),
          Arity :: tp_arity(),
@@ -477,46 +564,53 @@ Same as tp(\{Module, Function, Arity\}, MatchSpec)
           {ok, match_desc()} | {error, term()}.
 tp(Module, Function, Arity, Pattern) ->
     do_tp({Module, Function, Arity}, Pattern, []).
+
 -doc """
-tp({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}
+tp(ModuleOrMFA, MatchSpec)
 
-Same as tp(\{Module, '_', '_'\}, MatchSpec)
+Enables call trace for one or more exported functions specified by `ModuleOrMFA`.
 
-`tp` stands for *t*race *p*attern. This function enables call trace for one or
-more functions. All exported functions matching the `{Module, Function, Arity}`
-argument will be concerned, but the `match_spec()` may further narrow down the
-set of function calls generating trace messages.
+If `ModuleOrMFA` is an atom (a module name), this function call is equivalent to
+`tp({ModuleOrMFA, '_', '_'}, MatchSpec)`.
 
-For a description of the `match_spec()` syntax, please turn to the _User's
-guide_ part of the online documentation for the runtime system (_erts_). The
-chapter [_Match Specifications in Erlang_](`e:erts:match_spec.md`) explains the
-general match specification "language". The most common generic match
-specifications used can be found as `Built-inAlias`', see `ltp/0` below for
+Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
+
+`tp` stands for **t**race **p**attern.
+
+All exported functions matching the `{Module, Function, Arity}`
+argument will be concerned, but the match specification may further
+narrow down the set of function calls generating trace messages.
+
+For a description of the format for the `MatchSpec` argument, see
+[_Match Specifications in Erlang_](`e:erts:match_spec.md`), which explains the
+general match specification language. The most common generic match
+specifications used can be found as built-in aliases; see `ltp/0` below for
 details.
 
-The Module, Function and/or Arity parts of the tuple may be specified as the
-atom `'_'` which is a "wild-card" matching all modules/functions/arities. Note,
-if the Module is specified as `'_'`, the Function and Arity parts have to be
-specified as '\_' too. The same holds for the Functions relation to the Arity.
+The Module, Function and/or Arity parts of the tuple may be specified
+as the atom `'_'` which is a wildcard matching all modules, functions,
+or arities. Note that if the `Module` is specified as `'_'`, the
+`Function` and `Arity` parts must be specified as `'_'` as well. The
+same holds for the `Function` in relation to `Arity`.
 
 All nodes added with `n/1` or `tracer/3` will be affected by this call, and if
-Module is not `'_'` the module will be loaded on all nodes.
+`Module` is not `'_'` the module will be loaded on all nodes.
 
-The function returns either an error tuple or a tuple `{ok, List}`. The `List`
+The function returns either an error tuple or an `{ok, List}` tuple. The `List`
 consists of specifications of how many functions that matched, in the same way
 as the processes and ports are presented in the return value of `p/2`.
 
-There may be a tuple `{saved, N}` in the return value, if the MatchSpec is other
-than []. The integer `N` may then be used in subsequent calls to this function
-and will stand as an "alias" for the given expression. There are also a couple
-of built-in aliases for common expressions, see `ltp/0` below for details.
+There may be a tuple `{saved, N}` in the return value, if the `MatchSpec` is not
+`[]`. The integer `N` can then be used in subsequent calls to this function
+and will stand as an "alias" for the given expression.
 
-If an error is returned, it can be due to errors in compilation of the match
-specification. Such errors are presented as a list of tuples `{error, string()}`
-where the string is a textual explanation of the compilation error. An example:
+If the match specification is invalid, an `{error, Errors}` tuple is
+returned.  `Errors` is as a list of tuples `{error, string()}`, where
+the string is a textual explanation of the compilation error. For
+example:
 
 ```erlang
-(x@y)4> dbg:tp({dbg,ltp,0},[{[],[],[{message, two, arguments}, {noexist}]}]).
+1> dbg:tp({dbg,ltp,0},[{[],[],[{message, two, arguments}, {noexist}]}]).
 {error,
  [{error,"Special form 'message' called with wrong number of
           arguments in {message,two,arguments}."},
@@ -532,20 +626,14 @@ tp(Module, Pattern) when is_atom(Module) ->
     do_tp({Module, '_', '_'}, Pattern, []);
 tp({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[]).
--doc """
-tpl(Module,Function,MatchSpec)
 
-Same as tpl(\{Module, Function, '\_'\}, MatchSpec)
-""".
+-doc #{equiv => tpl({Module, Function, '_'}, MatchSpec)}.
 -spec tpl(Module :: tp_module(), Function :: tp_function(), MatchSpec :: tp_match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tpl(Module, Function, Pattern) ->
     do_tp({Module, Function, '_'}, Pattern, [local]).
--doc """
-tpl(Module, Function, Arity, MatchSpec)
 
-Same as tpl(\{Module, Function, Arity\}, MatchSpec)
-""".
+-doc #{equiv => tpl({Module, Function, Arity}, MatchSpec)}.
 -spec tpl(Module :: tp_module(),
           Function :: tp_function(),
           Arity :: tp_arity(),
@@ -553,14 +641,21 @@ Same as tpl(\{Module, Function, Arity\}, MatchSpec)
           {ok, match_desc()} | {error, term()}.
 tpl(Module, Function, Arity, Pattern) ->
     do_tp({Module, Function, Arity}, Pattern, [local]).
+
 -doc """
-tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}
+tpl({Module, Function, Arity}, MatchSpec)
 
-Same as tpl(\{Module, '_', '_'\}, MatchSpec)
+Enables call trace for one or more functions specified by `ModuleOrMFA`.
 
-`tpl` stands for *t*race *p*attern *l*ocal. This function works as `tp/2`, but
-enables tracing for local calls (and local functions) as well as for global
-calls (and functions).
+If `ModuleOrMFA` is an atom (a module name), this function call is equivalent to
+`tpl({ModuleOrMFA, '_', '_'}, MatchSpec)`.
+
+Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
+
+`tpl` stands for **t**race **p**attern **l**ocal.
+
+This function works as `tp/2`, but enables tracing for local or remote calls
+to both local and exported functions.
 """.
 -spec tpl(Module | {Module, Function :: tp_function(), Arity :: tp_arity()},
           MatchSpec :: tp_match_spec()) ->
@@ -572,18 +667,21 @@ tpl({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[local]).
 
 -doc """
-tpe(Event, MatchSpec) -> {ok, MatchDesc} | {error, term()}
+tpe(Event, MatchSpec)
 
-`tpe` stands for *t*race *p*attern *e*vent. This function associates a match
-specification with trace event `send` or `'receive'`. By default all executed
+Associates a match specification with trace event `send` or
+`'receive'`.
+
+`tpe` stands for **t**race **p**attern **e**vent.
+
+By default all executed
 `send` and `'receive'` events are traced if enabled for a process. A match
-specification can be used to filter traced events based on sender, receiver
+specification can be used to filter traced events based on sender, receiver,
 and/or message content.
 
-For a description of the `match_spec()` syntax, please turn to the _User's
-guide_ part of the online documentation for the runtime system (_erts_). The
-chapter [_Match Specifications in Erlang_](`e:erts:match_spec.md`) explains the
-general match specification "language".
+For a description of the format for the `MatchSpec` argument, see
+[_Match Specifications in Erlang_](`e:erts:match_spec.md`), which explains the
+general match specification language.
 
 For `send`, the matching is done on the list `[Receiver, Msg]`. `Receiver` is
 the process or port identity of the receiver and `Msg` is the message term. The
@@ -593,12 +691,12 @@ For `'receive'`, the matching is done on the list `[Node, Sender, Msg]`. `Node`
 is the node name of the sender. `Sender` is the process or port identity of the
 sender, or the atom `undefined` if the sender is not known (which may be the
 case for remote senders). `Msg` is the message term. The pid of the receiving
-process can be accessed with the guard function `self/0`.
+process can be accessed by calling `self/0`.
 
 All nodes added with `n/1` or `tracer/3` will be affected by this call.
 
-The return value is the same as for `tp/2`. The number of matched events are
-never larger than 1 as [`tpe/2`](`tpe/2`) does not accept any form of wildcards
+The return value is the same as for `tp/2`. The number of matched events is
+always 1 as [`tpe/2`](`tpe/2`) does not accept any form of wildcards
 for argument `Event`.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
@@ -655,50 +753,46 @@ do_tp_on_nodes(Nodes, X, P, Flags) ->
 	      Nodes).
 
 %%
-%% ctp/ctpl(Module) | ctp/ctpl(Module,Function) | 
+%% ctp/ctpl(Module) | ctp/ctpl(Module,Function) |
 %% ctp/ctpl(Module,Function,Arity) | ctp/ctpl({M,F,A}) ->
 %% {ok, [{matched, N}]} | {error, Reason}
 %% Clears trace pattern for function or group of functions.
 %%
--doc """
-ctp()
-
-Same as ctp(\{'_', '_', '\_'\})
-""".
+-doc #{equiv => ctp({'_', '_', '_'})}.
 -spec ctp() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp() ->
-    do_ctp({'_','_','_'},[]).
--doc """
-ctp(Module, Function)
+    do_ctp({'_','_','_'}, []).
 
-Same as ctp(\{Module, Function, '\_'\})
-""".
+-doc #{equiv => ctp({Module, Function, '_'})}.
 -spec ctp(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(Module, Function) ->
     do_ctp({Module, Function, '_'}, []).
--doc """
-ctp(Module, Function, Arity)
 
-Same as ctp(\{Module, Function, Arity\})
-""".
+-doc #{equiv => ctp({Module, Function, Arity})}.
 -spec ctp(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, []).
+
 -doc """
-ctp({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+ctp(ModuleOrMFA)
 
-Same as ctp(\{Module, '_', '_'\})
+Disables call tracing for one or more functions specified by `ModuleOrMFA`.
 
-`ctp` stands for *c*lear *t*race *p*attern. This function disables call tracing
-on the specified functions. The semantics of the parameter is the same as for
-the corresponding function specification in `tp/2` or `tpl/2`. Both local and
-global call trace is disabled.
+If `ModuleOrMFA` is an atom (a module name), this function call is
+equivalent to `ctp({ModuleOrMFA, '_', '_'}`.
+
+Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
+
+`ctp` stands for **c**lear **t**race **p**attern.
+
+The semantics of `ModuleOrMFA` is the same as for the corresponding function
+specification in `tp/2` or `tpl/2`. Both local and global call trace
+is disabled.
 
 The return value reflects how many functions that matched, and is constructed as
-described in `tp/2`. No tuple `{saved, N}` is however ever returned (for obvious
-reasons).
+described in `tp/2`, except that no `{saved, N}` tuple is returned.
 """.
 -spec ctp(Module | {Module, Function, Arity}) ->
           {ok, MatchDesc :: match_desc()} | {error, term()} when
@@ -709,39 +803,39 @@ ctp(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, []);
 ctp({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[]).
--doc """
-ctpl()
 
-Same as ctpl(\{'_', '_', '\_'\})
-""".
+-doc #{equiv => ctpl({'_', '_', '_'})}.
 -spec ctpl() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl() ->
-    do_ctp({'_', '_', '_'}, [local]).    
--doc """
-ctpl(Module, Function)
+    do_ctp({'_', '_', '_'}, [local]).
 
-Same as ctpl(\{Module, Function, '\_'\})
-""".
+
+-doc #{equiv => ctpl({Module, Function, '_'})}.
 -spec ctpl(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(Module, Function) ->
     do_ctp({Module, Function, '_'}, [local]).
--doc """
-ctpl(Module, Function, Arity)
 
-Same as ctpl(\{Module, Function, Arity\})
-""".
+-doc #{equiv => ctpl({Module, Function, Arity})}.
 -spec ctpl(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [local]).
+
 -doc """
-ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+ctpl({Module, Function, Arity})
 
-Same as ctpl(\{Module, '_', '_'\})
+Disables local call tracing for one or more functions specified by `ModuleOrMFA`.
 
-`ctpl` stands for *c*lear *t*race *p*attern *l*ocal. This function works as
-`ctp/1`, but only disables tracing set up with `tpl/2` (not with `tp/2`).
+If `ModuleOrMFA` is an atom (a module name), this function call is
+equivalent to `ctpl({ModuleOrMFA, '_', '_'}`.
+
+Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
+
+`ctpl` stands for **c**lear **t**race **p**attern **l**ocal.
+
+This function works as `ctp/1`, but only disables tracing set up with
+`tpl/2` (not with `tp/2`).
 """.
 -spec ctpl(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
               {ok, MatchDesc :: term()} | {error, term()} when
@@ -750,39 +844,38 @@ ctpl(Module) when is_atom(Module) ->
     do_ctp({Module, '_', '_'}, [local]);
 ctpl({_Module, _Function, _Arity} = X) ->
     do_ctp(X,[local]).
--doc """
-ctpg()
 
-Same as ctpg(\{'_', '_', '\_'\})
-""".
+-doc #{equiv => ctpg({'_', '_', '_'})}.
 -spec ctpg() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg() ->
     do_ctp({'_', '_', '_'}, [global]).
--doc """
-ctpg(Module, Function)
 
-Same as ctpg(\{Module, Function, '\_'\})
-""".
+-doc #{equiv => ctpg({Module, Function, '_'})}.
 -spec ctpg(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(Module, Function) ->
     do_ctp({Module, Function, '_'}, [global]).
--doc """
-ctpg(Module, Function, Arity)
 
-Same as ctpg(\{Module, Function, Arity\})
-""".
+-doc #{equiv => ctpg({Module, Function, Arity})}.
 -spec ctpg(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [global]).
+
 -doc """
-ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+ctpg(ModOrMFA)
 
-Same as ctpg(\{Module, '_', '_'\})
+Disables global call tracing for one or more functions specified by `ModuleOrMFA`.
 
-`ctpg` stands for *c*lear *t*race *p*attern *g*lobal. This function works as
-`ctp/1`, but only disables tracing set up with `tp/2` (not with `tpl/2`).
+If `ModuleOrMFA` is an atom (a module name), this function call is
+equivalent to `ctpg({ModuleOrMFA, '_', '_'}`.
+
+Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
+
+`ctpg` stands for **c**lear **t**race **p**attern **g**lobal.
+
+This function works as `ctp/1`, but only disables tracing set up with
+`tp/2` (not with `tpl/2`).
 """.
 -spec ctpg(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
           {ok, MatchDesc :: term()} | {error, term()} when
@@ -800,13 +893,12 @@ do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     {ok,do_tp_on_nodes(Nodes,MFA,false,Flags)}.
 
 -doc """
-ctpe(Event) -> {ok, MatchDesc} | {error, term()}
+ctpe(Event)
 
-`ctpe` stands for *c*lear *t*race *p*attern *e*vent. This function clears match
-specifications for the specified trace event (`send` or `'receive'`). It will
-revert back to the default behavior of tracing all triggered events.
+Clears match specifications for the specified trace event (`send` or
+`'receive'`), reverting to the default of tracing all triggered events.
 
-The return value follow the same style as for `ctp/1`.
+`ctpe` stands for **c**lear **t**race **p**attern **e**vent.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec ctpe(Event) -> {ok, MatchDesc} | {error, term()} when
@@ -825,38 +917,53 @@ ctpe(Event) when Event =:= send;
 %% List saved and built-in trace patterns.
 %%
 -doc """
-ltp() -> ok
+ltp()
 
-`ltp` stands for *l*ist *t*race *p*atterns. Use this function to recall all
-match specifications previously used in the session (i. e. previously saved
-during calls to `tp/2`, and built-in match specifications. This is very useful,
-as a complicated match_spec can be quite awkward to write. Note that the match
-specifications are lost if `stop/0` is called.
+Lists all match specifications previously used in the session.
 
-Match specifications used can be saved in a file (if a read-write file system is
-present) for use in later debugging sessions, see `wtp/1` and `rtp/1`
+`ltp` stands for **l**ist **t**race **p**atterns.
 
-There are three built-in trace patterns: `exception_trace`, `caller_trace` and
-`caller_exception_trace` (or `x`, `c` and `cx` respectively). Exception trace
-sets a trace which will show function names, parameters, return values and
-exceptions thrown from functions. Caller traces display function names,
-parameters and information about which function called it. An example using a
-built-in alias:
+This function lists all match specifications previously saved during
+calls to `tp/2` and `tpl/2`, as well as all built-in match
+specifications. This avoids having to re-type complicated match
+specifications. Note that the match specifications are lost if
+`stop/0` is called.
+
+Match specifications can be saved in a file (if a read-write file system is
+present) for use in later debugging sessions; see `wtp/1` and `rtp/1`.
+
+There are three built-in trace patterns:
+
+- `exception_trace`, `x` - sets a trace which will show function
+  names, parameters, return values, and exceptions raised from
+  functions
+
+- `caller_trace`, `c` - sets a trace that displays function names,
+  parameters, and information about which function called it
+
+- `caller_exception_trace`, `cx` - combines `exception_trace` and
+  `caller_trace`
+
+Here is an example that shows how to use a built-in match specification:
 
 ```erlang
-(x@y)4> dbg:tp(lists,sort,cx).
-{ok,[{matched,nonode@nohost,2},{saved,cx}]}
-(x@y)4> lists:sort([2,1]).
-(<0.32.0>) call lists:sort([2,1]) ({erl_eval,do_apply,5})
-(<0.32.0>) returned from lists:sort/1 -> [1,2]
-[1,2]
+1> dbg:tracer().
+{ok,<0.90.0>}
+2> dbg:tp(lists, seq, 2, cx).
+{ok,[{matched,nonode@nohost,1},{saved,cx}]}
+3> dbg:p(self(), call).
+{ok,[{matched,nonode@nohost,1}]}
+4> lists:seq(1, 5).
+(<0.88.0>) call lists:seq(1,5) ({erl_eval,do_apply,7,{"erl_eval.erl",904}})
+[1,2,3,4,5]
+(<0.88.0>) returned from lists:seq/2 -> [1,2,3,4,5]
 ```
 """.
 -spec ltp() -> ok.
 ltp() ->
     Modifier = modifier(),
     Format = "~p: ~"++Modifier++"p~n",
-    pt_doforall(fun({X, El},_Ignore) -> 
+    pt_doforall(fun({X, El},_Ignore) ->
 			io:format(Format, [X,El])
 		end,[]).
 
@@ -866,11 +973,12 @@ ltp() ->
 %%
 %% Do not delete built-in trace patterns.
 -doc """
-dtp() -> ok
+Forgets all match specifications saved during calls to `tp/2`.
 
-`dtp` stands for *d*elete *t*race *p*atterns. Use this function to "forget" all
-match specifications saved during calls to `tp/2`. This is useful when one wants
-to restore other match specifications from a file with `rtp/1`. Use `dtp/1` to
+`dtp` stands for **d**elete **t**race **p**atterns.
+
+Removing all saved match specifications is useful before restoring
+other match specifications from a file with `rtp/1`. Use `dtp/1` to
 delete specific saved match specifications.
 """.
 -spec dtp() -> ok.
@@ -882,10 +990,11 @@ dtp() ->
 		end,
 		[]).
 -doc """
-dtp(N) -> ok
+dtp(N)
 
-`dtp` stands for *d*elete *t*race *p*attern. Use this function to "forget" a
-specific match specification saved during calls to `tp/2`.
+Forgets a specific match specification saved during calls to `tp/2`.
+
+`dtp` stands for **d**elete **t**race **p**attern.
 """.
 -spec dtp(N) -> ok when N :: tp_id().
 dtp(N) when is_integer(N) ->
@@ -900,19 +1009,23 @@ dtp(_) ->
 %%
 %% Actually write the built-in trace patterns too.
 -doc """
-wtp(Name) -> ok | {error, IOError}
+wtp(Name)
 
-`wtp` stands for *w*rite *t*race *p*atterns. This function will save all match
-specifications saved during the session (during calls to `tp/2`) and built-in
-match specifications in a text file with the name designated by `Name`. The
-format of the file is textual, why it can be edited with an ordinary text
-editor, and then restored with `rtp/1`.
+Saves all match specifications saved during the session (by calls to
+`tp/2` or `tpl/2`), as well as built-in match specifications, in a text
+file with the name designated by `Name`.
 
-Each match spec in the file ends with a full stop (`.`) and new (syntactically
-correct) match specifications can be added to the file manually.
+`wtp` stands for **w**rite **t**race **p**atterns.
 
-The function returns `ok` or an error tuple where the second element contains
-the I/O error that made the writing impossible.
+The format of the file is textual, which means that it can be edited
+with a text editor, and then restored with `rtp/1`.
+
+Each match specification in the file ends with a period (`.`) and
+new (syntactically correct) match specifications can be added to the
+file manually.
+
+The function returns `ok`, or an error tuple where the second element
+indicates the reason that writing the file failed.
 """.
 -spec wtp(Name) -> ok | {error, IOError} when Name :: string(),
    IOError :: term().
@@ -939,23 +1052,25 @@ wtp(FileName) ->
 %% So the saved built-in trace patterns will merge with
 %% the already existing, which should be the same.
 -doc """
-rtp(Name) -> ok | {error, Error}
+rtp(Name)
 
-`rtp` stands for *r*ead *t*race *p*atterns. This function reads match
-specifications from a file (possibly) generated by the `wtp/1` function. It
-checks the syntax of all match specifications and verifies that they are
-correct. The error handling principle is "all or nothing", i. e. if some of the
-match specifications are wrong, none of the specifications are added to the list
-of saved match specifications for the running system.
+Reads match specifications from a text file (possibly) generated by
+the `wtp/1` function.
+
+`rtp` stands for **r**ead **t**race **p**atterns.
+
+The function verifies that the syntax of all match specifications are correct.
+If any error in any match specification is found, none of the match specifications
+are added to the list of saved match specifications for the running system.
 
 The match specifications in the file are _merged_ with the current match
 specifications, so that no duplicates are generated. Use `ltp/0` to see what
 numbers were assigned to the specifications from the file.
 
-The function will return an error, either due to I/O problems (like a non
-existing or non readable file) or due to file format problems. The errors from a
-bad format file are in a more or less textual format, which will give a hint to
-what's causing the problem.
+The function will return an error tuple, either due to I/O problems
+(like a non-existing or non-readable file) or due to file format
+problems. In the latter case, `Reason` is in a more or less textual
+format, giving a hint to what is causing the problem.
 """.
 -spec rtp(Name) -> ok | {error, Error} when Name :: string(),
    Error :: term().
@@ -977,15 +1092,15 @@ rtp(FileName) ->
     end.
 
 -doc """
-tracer() -> {ok, pid()} | {error, already_started}
+Starts a server on the local node that will be the recipient of
+all trace messages.
 
-This function starts a server on the local node that will be the recipient of
-all trace messages. All subsequent calls to `p/2` will result in messages sent
+All subsequent calls to `p/2` will result in messages sent
 to the newly started trace server.
 
-A trace server started in this way will simply display the trace messages in a
-formatted way in the Erlang shell (i. e. use io:format). See `tracer/2` for a
-description of how the trace message handler can be customized.
+A trace server started in this way will simply display the formatted
+trace messages the Erlang shell (that is, using `io:format/2`). See `tracer/2`
+for a description of how the trace message handler can be customized.
 
 To start a similar tracer on a remote node, use `n/1`.
 """.
@@ -994,36 +1109,41 @@ tracer() ->
     tracer(process, {fun dhandler/2,user}).
 
 -doc """
-tracer(Type, Data) -> {ok, pid()} | {error, Error}
+tracer(Type, Data)
 
-This function starts a tracer server with additional parameters on the local
-node. The first parameter, the `Type`, indicates if trace messages should be
-handled by a receiving process (`process`), by a tracer port (`port`) or by a
-tracer module (`module`). For a description about tracer ports see
-`trace_port/2` and for a tracer modules see `m:erl_tracer`.
+Starts a tracer server with additional parameters on the local
+node.
 
-If `Type` is `process`, a message handler function can be specified
+`Type` indicates how trace messages should be handled:
+
+- `process` - by a receiving process
+- `port` - by a port; see `trace_port/2`
+- `module` - by a tracer module; see `m:erl_tracer`
+- `file` - by printing them to a file
+
+If `Type` is `process`, `Data` should be a message handler function
 (`HandlerSpec`). The handler function, which should be a `fun` taking two
 arguments, will be called for each trace message, with the first argument
 containing the message as it is and the second argument containing the return
 value from the last invocation of the fun. The initial value of the second
 parameter is specified in the `InitialData` part of the `HandlerSpec`. The
-`HandlerFun` may choose any appropriate action to take when invoked, and can
+`HandlerFun` can choose any appropriate action to take when invoked, and can
 save a state for the next invocation by returning it.
 
-If `Type` is `port`, then the second parameter should be a _fun_ which takes no
-arguments and returns a newly opened trace port when called. Such a _fun_ is
+If `Type` is `port`, then the second parameter should be a fun which takes no
+arguments and returns a newly opened trace port when called. Such a fun is
 preferably generated by calling `trace_port/2`.
 
-if `Type` is `module`, then the second parameter should be either a tuple
-describing the `m:erl_tracer` module to be used for tracing and the state to be
-used for that tracer module or a fun returning the same tuple.
+If `Type` is `module`, `Data` should be either a tuple describing the
+`m:erl_tracer` module to be used for tracing and the state to be used
+for that tracer module, or a fun returning that kind of tuple.
 
-if `Type` is `file`, then the second parameter should be a filename specifying a
-file where all the traces are printed.
+if `Type` is `file`, `Data` should be a filename specifying a file
+where all the traces are to be printed.
 
-If an error is returned, it can either be due to a tracer server already running
-(`{error,already_started}`) or due to the `HandlerFun` throwing an exception.
+If an error is returned, it can either be because a tracer server is
+already running (`{error,already_started}`), or because
+`HandlerFun` raised an exception.
 
 To start a similar tracer on a remote node, use `tracer/3`.
 """.
@@ -1091,18 +1211,19 @@ remote_start(StartTracer) ->
 %% Type and Data is started on Node.
 %%
 -doc """
-tracer(Nodename, Type, Data) -> {ok, Nodename} | {error, Reason}
+tracer(Nodename, Type, Data)
 
-This function is equivalent to `tracer/2`, but acts on the given node. A tracer
-is started on the node (`Nodename`) and the node is added to the list of traced
-nodes.
+This function is equivalent to `tracer/2`, but acts on the given node.
+
+A tracer is started on the node (`Nodename`) and the node is added to
+the list of traced nodes.
 
 > #### Note {: .info }
 >
 > This function is not equivalent to `n/1`. While `n/1` starts a process tracer
 > which redirects all trace information to a process tracer on the local node
-> (i.e. the trace control node), `tracer/3` starts a tracer of any type which is
-> independent of the tracer on the trace control node.
+> (that is, the trace control node), `tracer/3` starts any type of tracer,
+> independent of the type of tracer on the trace control node.
 
 For details, see `tracer/2`.
 """.
@@ -1125,52 +1246,43 @@ tracer(Node,Type,Data) ->
 	    {error, Other}
     end.
 
--doc """
-flush_trace_port()
-
-Equivalent to [`flush_trace_port(node())`](`flush_trace_port/1`).
-""".
+-doc #{equiv => flush_trace_port(node())}.
 -spec flush_trace_port() -> term().
 flush_trace_port() ->
     trace_port_control(flush).
--doc """
-flush_trace_port(Nodename) -> ok | {error, Reason}
 
-Equivalent to [`trace_port_control(Nodename,flush)`](`trace_port_control/2`).
-""".
+-doc #{equiv => trace_port_control(Nodename, flush)}.
 -spec flush_trace_port(Nodename :: node()) ->
           ok | {error, Reason :: term()}.
 flush_trace_port(Node) ->
     trace_port_control(Node, flush).
 
--doc """
-trace_port_control(Operation)
-
-Equivalent to [`trace_port_control(node(),Operation)`](`trace_port_control/2`).
-""".
+-doc #{equiv => trace_port_control(node(), Operation)}.
 -spec trace_port_control(Operation :: term()) -> term().
 trace_port_control(Operation) ->
     trace_port_control(node(), Operation).
 
 -doc """
-trace_port_control(Nodename,Operation) -> ok | {ok, Result} | {error, Reason}
+trace_port_control(Nodename, Operation)
 
 This function is used to do a control operation on the active trace port driver
-on the given node (`Nodename`). Which operations are allowed as well as their
-return values depend on which trace driver is used.
+on the given node (`Nodename`).
+
+Which operations are allowed as well as their return values depend on
+which trace driver is used.
 
 Returns either `ok` or `{ok, Result}` if the operation was successful, or
-`{error, Reason}` if the current tracer is a process or if it is a port not
+`{error, Reason}` if the current tracer is a process, or if it is a port not
 supporting the operation.
 
 The allowed values for `Operation` are:
 
 - **`flush`** - This function is used to flush the internal buffers held by a
-  trace port driver. Currently only the file trace driver supports this
+  trace port driver. Currently only the `file` trace driver supports this
   operation. Returns `ok`.
 
 - **`get_listen_port`** - Returns `{ok, IpPort}` where `IpPort` is the IP port
-  number used by the driver listen socket. Only the ip trace driver supports
+  number used by the driver listen socket. Only the `ip` trace driver supports
   this operation.
 """.
 -spec trace_port_control(Nodename :: node(), Operation :: term()) ->
@@ -1204,7 +1316,7 @@ trace_port_control(Node, Command, Arg) ->
 	_ ->
 	    {error, no_trace_driver}
     end.
-    
+
 %% A bit more than just flush - it also makes sure all trace messages
 %% are delivered first, before flushing the driver.
 -doc false.
@@ -1216,41 +1328,48 @@ deliver_and_flush(Port) ->
     erlang:port_control(Port, $f, "").
 
 -doc """
-trace_port(Type, Parameters) -> fun()
+trace_port(Type, Parameters)
 
-This function creates a trace port generating _fun_. The _fun_ takes no
-arguments and returns a newly opened trace port. The return value from this
-function is suitable as a second parameter to tracer/2, i.e.
-`dbg:tracer(port, dbg:trace_port(ip, 4711))`.
+Creates a trace-port-generating fun that is suitable as the
+second argument to `tracer/2`.
 
-A trace port is an Erlang port to a dynamically linked in driver that handles
-trace messages directly, without the overhead of sending them as messages in the
-Erlang virtual machine.
+_Example:_
 
-Two trace drivers are currently implemented, the `file` and the `ip` trace
-drivers. The file driver sends all trace messages into one or several binary
-files, from where they later can be fetched and processed with the
-`trace_client/2` function. The ip driver opens a TCP/IP port where it listens
-for connections. When a client (preferably started by calling `trace_client/2`
-on another Erlang node) connects, all trace messages are sent over the IP
-network for further processing by the remote client.
+```erlang
+dbg:tracer(port, dbg:trace_port(ip, 4711)).
+```
 
-Using a trace port significantly lowers the overhead imposed by using tracing.
+A trace port is an Erlang port to a dynamically linked-in driver that
+handles trace messages directly, without the overhead of sending them
+as messages to an Erlang process. Using a trace port significantly
+lowers the overhead imposed by tracing.
 
-The file trace driver expects a filename or a wrap files specification as
-parameter. A file is written with a high degree of buffering, why all trace
-messages are _not_ guaranteed to be saved in the file in case of a system crash.
-That is the price to pay for low tracing overhead.
+Two trace drivers are currently implemented: the `file` and the `ip`
+trace drivers.
+
+The `file` driver sends all trace messages into one or
+several binary files, from where they later can be fetched and
+processed with the `trace_client/2` function.
+
+The `ip` driver opens a TCP/IP port listening port. When a client
+(preferably started by calling `trace_client/2` on another Erlang
+node) connects, all trace messages are sent over the IP network for
+further processing by the remote client.
+
+The `file` trace driver expects a filename or a wrap files
+specification as parameter. A file is written with a high degree of
+buffering, which is why there is no guarantee that all are saved in the
+file in case of a system crash.
 
 A wrap files specification is used to limit the disk space consumed by the
 trace. The trace is written to a limited number of files each with a limited
 size. The actual filenames are `Filename ++ SeqCnt ++ Suffix`, where `SeqCnt`
 counts as a decimal string from `0` to `WrapCnt` and then around again from `0`.
 When a trace term written to the current file makes it longer than `WrapSize`,
-that file is closed, if the number of files in this wrap trace is as many as
-`WrapCnt` the oldest file is deleted then a new file is opened to become the
+that file is closed, and if the number of files in this wrap trace is as many as
+`WrapCnt` the oldest file is deleted, and a new file is opened to become the
 current. Thus, when a wrap trace has been stopped, there are at most `WrapCnt`
-trace files saved with a size of at least `WrapSize` (but not much bigger),
+trace files saved with a size of at least `WrapSize` (but not much larger),
 except for the last file that might even be empty. The default values are
 `WrapSize = 128*1024` and `WrapCnt = 8`.
 
@@ -1262,12 +1381,12 @@ If the `WrapSize` is specified as `{time, WrapTime}`, the current file is closed
 when it has been open more than `WrapTime` milliseconds, regardless of it being
 empty or not.
 
-The ip trace driver has a queue of `QueSize` messages waiting to be delivered.
+The `ip` trace driver has a queue of `QueSize` messages waiting to be delivered.
 If the driver cannot deliver messages as fast as they are produced by the
 runtime system, a special message is sent, which indicates how many messages
 that are dropped. That message will arrive at the handler function specified in
 `trace_client/3` as the tuple `{drop, N}` where `N` is the number of consecutive
-messages dropped. In case of heavy tracing, drop's are likely to occur, and they
+messages dropped. In case of heavy tracing, drops are likely to occur, and they
 surely occur if no client is reading the trace messages. The default value of
 `QueSize` is 200.
 """.
@@ -1363,17 +1482,17 @@ trace_port1(file, Filename, Options) ->
 
 
 -doc """
-trace_client(Type, Parameters) -> pid()
+trace_client(Type, Parameters)
 
-This function starts a trace client that reads the output created by a trace
-port driver and handles it in mostly the same way as a tracer process created by
-the `tracer/0` function.
+Starts a trace client that reads the output created by a trace port
+driver (see `trace_port/2`) and handles it in mostly the same way as a
+tracer process created by the `tracer/0` function.
 
-If `Type` is `file`, the client reads all trace messages stored in the file
-named `Filename` or specified by `WrapFilesSpec` (must be the same as used when
-creating the trace, see trace_port/2) and let's the default handler function
-format the messages on the console. This is one way to interpret the data stored
-in a file by the file trace port driver.
+If `Type` is `file`, the client reads all trace messages stored in the
+file named `Filename` or specified by `WrapFilesSpec` (must be the
+same as used when creating the trace) and lets the default handler
+function format the messages on the console. This is one way to
+interpret the data stored in a file by the file trace port driver.
 
 If `Type` is `follow_file`, the client behaves as in the `file` case, but keeps
 trying to read (and process) more data from the file until stopped by
@@ -1385,13 +1504,13 @@ host `Hostname`, from where it reads trace messages until the TCP/IP connection
 is closed. If no `Hostname` is specified, the local host is assumed.
 
 As an example, one can let trace messages be sent over the network to another
-Erlang node (preferably _not_ distributed), where the formatting occurs:
+Erlang node (preferably _not_ distributed), where the formatting occurs.
 
-On the node `stack` there's an Erlang node `ant@stack`, in the shell, type the
-following:
+On the node `stack` there exists an Erlang node `ant@stack`. In the
+shell, type the following:
 
 ```erlang
-ant@stack> dbg:tracer(port, dbg:trace_port(ip,4711)).
+ant@stack> dbg:tracer(port, dbg:trace_port(ip, 4711)).
 <0.17.0>
 ant@stack> dbg:p(self(), send).
 {ok,1}
@@ -1402,14 +1521,14 @@ for connections on the TCP/IP port 4711. If we want to see the messages on
 another node, preferably on another host, we do like this:
 
 ```erlang
--> dbg:trace_client(ip, {"stack", 4711}).
+1> dbg:trace_client(ip, {"stack", 4711}).
 <0.42.0>
 ```
 
 If we now send a message from the shell on the node `ant@stack`, where all sends
 from the shell are traced:
 
-```text
+```erlang
 ant@stack> self() ! hello.
 hello
 ```
@@ -1417,13 +1536,13 @@ hello
 The following will appear at the console on the node that started the trace
 client:
 
-```text
+```erlang
 (<0.23.0>) <0.23.0> ! hello
 (<0.23.0>) <0.22.0> ! {shell_rep,<0.23.0>,{value,hello,[],[]}}
 ```
 
 The last line is generated due to internal message passing in the Erlang shell.
-The process id's will vary.
+The pids will vary.
 """.
 -spec trace_client(ip, IPClientPortSpec) -> pid() when
       IPClientPortSpec :: PortNumber | {Hostname, PortNumber},
@@ -1447,13 +1566,15 @@ trace_client(ip, {Host, Portno}) when is_integer(Portno) ->
                          InitialData :: term()}.
 
 -doc """
-trace_client(Type, Parameters, HandlerSpec) -> pid()
+trace_client(Type, Parameters, HandlerSpec)
 
 This function works exactly as `trace_client/2`, but allows you to write your
-own handler function. The handler function works mostly as the one described in
-`tracer/2`, but will also have to be prepared to handle trace messages of the
-form `{drop, N}`, where `N` is the number of dropped messages. This pseudo trace
-message will only occur if the ip trace driver is used.
+own handler function.
+
+The handler function works mostly as the one described in `tracer/2`,
+but must also be prepared to handle trace messages of the form `{drop,
+N}`, where `N` is the number of dropped messages. This pseudo trace
+message will only occur if the `ip` trace driver is used.
 
 For trace type `file`, the pseudo trace message `end_of_trace` will appear at
 the end of the trace. The return value from the handler function is in this case
@@ -1502,10 +1623,12 @@ trace_client1(Type, OpenData, {Handler,HData}) ->
     end.
 
 -doc """
-stop_trace_client(Pid) -> ok
+stop_trace_client(Pid)
 
-This function shuts down a previously started trace client. The `Pid` argument
-is the process id returned from the `trace_client/2` or `trace_client/3` call.
+Shuts down a previously started trace client.
+
+The `Pid` argument is the process id returned from the
+`trace_client/2` or `trace_client/3` call.
 """.
 -spec stop_trace_client(Pid) -> ok when Pid :: pid().
 stop_trace_client(Pid) when is_pid(Pid) ->
@@ -1521,23 +1644,22 @@ stop_trace_client(Pid) when is_pid(Pid) ->
     process_flag(trap_exit,false),
     Res.
 
--doc """
-p(Item) -> {ok, MatchDesc} | {error, term()}
-
-Equivalent to [`p(Item, [m])`](`p/2`).
-""".
+-doc #{equiv => p(Item, [m])}.
 -spec p(Item :: term()) -> {ok, MatchDesc :: term()} | {error, term()}.
 p(Pid) ->
     p(Pid, [m]).
 
 -doc """
-p(Item, Flags) -> {ok, MatchDesc} | {error, term()}
+p(Item, Flags)
 
-`p` stands for *p*rocess. Traces `Item` in accordance to the value specified by
-`Flags`. The variation of `Item` is listed below:
+Traces `Item` in accordance to the value specified by `Flags`.
+
+`p` stands for **p**rocess.
+
+The following kind of values are allowed for `Item`:
 
 - **`t:pid/0` or `t:port/0`** - The corresponding process or port is traced. The
-  process or port may be a remote process or port (on another Erlang node). The
+  process or port can be a remote process or port (on another Erlang node). The
   node must be in the list of traced nodes (see `n/1` and `tracer/3`).
 
 - **`all`** - All processes and ports in the system as well as all processes and
@@ -1549,13 +1671,13 @@ p(Item, Flags) -> {ok, MatchDesc} | {error, term()}
 - **`ports`** - All ports in the system as well as all ports created hereafter
   are to be traced.
 
-- **`new`** - All processes and ports created after the call is are to be
+- **`new`** - All processes and ports created after the call are to be
   traced.
 
-- **`new_processes`** - All processes created after the call is are to be
+- **`new_processes`** - All processes created after the call are to be
   traced.
 
-- **`new_ports`** - All ports created after the call is are to be traced.
+- **`new_ports`** - All ports created after the call are to be traced.
 
 - **`existing`** - All existing processes and ports are traced.
 
@@ -1564,8 +1686,8 @@ p(Item, Flags) -> {ok, MatchDesc} | {error, term()}
 - **`existing_ports`** - All existing ports are traced.
 
 - **`t:atom/0`** - The process or port with the corresponding registered name is
-  traced. The process or port may be a remote process (on another Erlang node).
-  The node must be added with the `n/1` or `tracer/3` function.
+  traced. The process or port can on another Erlang node.
+  The node must be in the list of traced nodes (see `n/1` and `tracer/3`).
 
 - **`t:integer/0`** - The process `<0.Item.0>` is traced.
 
@@ -1577,7 +1699,7 @@ p(Item, Flags) -> {ok, MatchDesc} | {error, term()}
 When enabling an `Item` that represents a group of processes, the `Item` is
 enabled on all nodes added with the `n/1` or `tracer/3` function.
 
-`Flags` can be a single atom, or a list of flags. The available flags are:
+`Flags` can be a single atom or a list of flags. The available flags are:
 
 - **`s (send)`** - Traces the messages the process or port sends.
 
@@ -1587,9 +1709,9 @@ enabled on all nodes added with the `n/1` or `tracer/3` function.
   sends.
 
 - **`c (call)`** - Traces global function calls for the process according to the
-  trace patterns set in the system (see tp/2).
+  trace patterns set in the system (see `tp/2`).
 
-- **[`p (procs)`](`p/1`)** - Traces process related events to the process.
+- **`p (procs)`** - Traces process related events to the process.
 
 - **`ports`** - Traces port related events to the port.
 
@@ -1609,15 +1731,14 @@ enabled on all nodes added with the `n/1` or `tracer/3` function.
 
 - **`clear`** - Clears all flags.
 
-The list can also include any of the flags allowed in `erlang:trace/3`
+The list can also include any of the flags allowed in `erlang:trace/3`.
 
-The function returns either an error tuple or a tuple `{ok, List}`. The `List`
+This function returns either an error tuple or an `{ok, List}` tuple. The `List`
 consists of specifications of how many processes and ports that matched (in the
-case of a pure pid() exactly 1). The specification of matched processes is
-`{matched, Node, N}`. If the remote processor call, `rpc`, to a remote node
-fails, the `rpc` error message is delivered as a fourth argument and the number
-of matched processes are 0. Note that the result \{ok, List\} may contain a list
-where `rpc` calls to one, several or even all nodes failed.
+case of a single pid exactly 1). The specification of matched processes is
+`{matched, Node, N}`. If the remote processor call (using `m:rpc`) to a remote node
+fails, the `rpc` error message is returned as the fourth element in the tuple
+and the number of matched processes is 0.
 """.
 -spec p(Item :: term(), Flags :: term()) ->
            {ok, MatchDesc} | {error, term()}
@@ -1633,28 +1754,27 @@ p(Pid, Flags) ->
     req({p,Pid,Flags}).
 
 -doc """
-i() -> ok
+Displays information about all traced processes and ports.
 
-`i` stands for *i*nformation. Displays information about all traced processes
-and ports.
+`i` stands for **i**nformation.
 """.
 -spec i() -> ok.
 i() -> req(i).
-	
--doc """
-c(Mod, Fun, Args)
 
-Equivalent to [`c(Mod, Fun, Args, all)`](`c/4`).
-""".
+-doc #{equiv => c(Mod, Fun, Args, all)}.
 -spec c(Mod :: module(), Fun :: atom(), Args :: list(term())) -> term().
 c(M, F, A) ->
     c(M, F, A, all).
 -doc """
 c(Mod, Fun, Args, Flags)
 
-`c` stands for *c*all. Evaluates the expression
-[`apply(Mod, Fun, Args)`](`apply/3`) with the trace flags in `Flags` set. This
-is a convenient way to trace processes from the Erlang shell.
+Evaluates the expression [`apply(Mod, Fun, Args)`](`apply/3`) with the
+trace flags in `Flags` set.
+
+`c` stands for **c**all.
+
+This is a convenient way to trace processes from the Erlang shell.
+
 """.
 -spec c(Mod :: module(), Fun :: atom(), Args :: list(term()), Flags :: term()) ->
           term().
@@ -1692,8 +1812,6 @@ c(Parent, M, F, A, Flags) ->
     Parent ! {self(), Res}.
 
 -doc """
-stop() -> ok
-
 Stops the `dbg` server, clears all trace flags for all processes, clears all
 trace patterns for all functions, clears trace patterns for send/receive, shuts
 down all trace clients, and closes all trace ports.
@@ -2659,18 +2777,15 @@ ip_read(Socket, N) ->
 	    exit({'socket read error', Error})
     end.
 
--doc """
-get_tracer()
-
-Equivalent to [`get_tracer(node())`](`get_tracer/1`).
-""".
+-doc #{equiv => get_tracer(node())}.
 -spec get_tracer() -> term().
 get_tracer() ->
     req({get_tracer,node()}).
--doc """
-get_tracer(Nodename) -> {ok, Tracer}
 
-Returns the process, port or tracer module to which all trace messages are sent.
+-doc """
+get_tracer(Nodename)
+
+Returns the process, port, or tracer module to which all trace messages are sent.
 """.
 -spec get_tracer(Nodename) -> {ok, Tracer} when Nodename :: atom(),
    Tracer :: port() | pid() | {module(), term()}.
@@ -2924,171 +3039,206 @@ match_0_9(L) when is_list(L) ->
 %% Help...
 %%%%%%%%%%%%%%%%%%
 
-help_display([]) ->
-    io:format("~n",[]),
-    ok;
-help_display([H|T]) ->
-    io:format("~s~n",[H]),
-    help_display(T).
+help_display(Bin) when is_binary(Bin) ->
+    io:put_chars(Bin),
+    io:nl().
 
 -doc """
-h() -> ok
+Gives a list of items for brief online help.
 
-`h` stands for *h*elp. Gives a list of items for brief online help.
+`h` stands for **h**elp.
 """.
 -spec h() -> ok .
 h() ->
     help_display(
-      [
-       "The following help items are available:",
-       "   p, c",
-       "       - Set trace flags for processes",
-       "   tp, tpl, ctp, ctpl, ctpg, ltp, dtp, wtp, rtp",
-       "       - Manipulate trace patterns for functions",
-       "   n, cn, ln",
-       "       - Add/remove traced nodes.",
-       "   tracer, trace_port, trace_client, get_tracer, stop, stop_clear", 
-       "       - Manipulate tracer process/port",
-       "   i",
-       "       - Info", 
-       "",
-       "call dbg:h(Item) for brief help a brief description",
-       "of one of the items above."]).
--doc """
-h(Item) -> ok
+      ~"""
+       The following help items are available:
+          p, c
+              - Set trace flags for processes
+          tp, tpl, ctp, ctpl, ctpg, ltp, dtp, wtp, rtp
+              - Manipulate trace patterns for functions
+          n, cn, ln
+              - Add/remove traced nodes
+          tracer, trace_port, trace_client, get_tracer, stop, stop_clear
+              - Manipulate tracer process/port
+          i
+              - Info
 
-`h` stands for *h*elp. Gives a brief help text for functions in the dbg module.
-The available items can be listed with `dbg:h/0`.
+       call dbg:h(Item) for brief help a brief description,
+       of one of the items above.
+       """).
+
+-doc """
+h(Item)
+
+Gives a brief help text for functions in the `dbg` module.
+
+`h` stands for **h**elp.
+
+The available items can be listed by calling `dbg:h/0`.
 """.
 -spec h(Item) -> ok  when Item :: atom().
-h(p) ->
-    help_display(["p(Item) -> {ok, MatchDesc} | {error, term()}",
-		  " - Traces messages to and from Item.",
-		  "p(Item, Flags) -> {ok, MatchDesc} | {error, term()}",
-		  " - Traces Item according to Flags.",
-		  "   Flags can be one of s,r,m,c,p,sos,sol,sofs,",
-		  "   sofl,all,clear or any flag accepted by erlang:trace/3"]);
-h(c) ->
-    help_display(["c(Mod, Fun, Args)",
-		  " - Evaluates apply(M,F,Args) with all trace flags set.",
-		  "c(Mod, Fun, Args, Flags)",
-		  " - Evaluates apply(M,F,Args) with Flags trace flags set."]);
-h(i) ->
-    help_display(["i() -> ok",
-		  " - Displays information about all traced processes."]);
-h(tp) ->
-    help_display(
-      ["tp(Module,MatchSpec)",
-       " - Same as tp({Module, '_', '_'}, MatchSpec)",
-       "tp(Module,Function,MatchSpec)",
-       " - Same as tp({Module, Function, '_'}, MatchSpec)",
-       "tp(Module, Function, Arity, MatchSpec)",
-       " - Same as tp({Module, Function, Arity}, MatchSpec)",
-       "tp({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} "
-       "| {error, term()}",
-       " - Set pattern for traced global function calls."]);
-h(tpl) ->
-    help_display(
-      ["tpl(Module,MatchSpec)",
-       " - Same as tpl({Module, '_', '_'}, MatchSpec)",
-       "tpl(Module,Function,MatchSpec)",
-       " - Same as tpl({Module, Function, '_'}, MatchSpec)",
-       "tpl(Module, Function, Arity, MatchSpec)",
-       " - Same as tpl({Module, Function, Arity}, MatchSpec)",
-       "tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} "
-       "| {error, term()}",
-       " - Set pattern for traced local (as well as global) function calls."]);
-h(ctp) ->
-    help_display(
-      ["ctp()",
-       " - Same as ctp({'_', '_', '_'})",
-       "ctp(Module)",
-       " - Same as ctp({Module, '_', '_'})",
-       "ctp(Module, Function)",
-       " - Same as ctp({Module, Function, '_'})",
-       "ctp(Module, Function, Arity)",
-       " - Same as ctp({Module, Function, Arity})",
-       "ctp({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}",
-       " - Clear call trace pattern for the specified functions"]);
-h(ctpl) ->
-    help_display(
-      ["ctpl()",
-       " - Same as ctpl({'_', '_', '_'})",
-       "ctpl(Module)",
-       " - Same as ctpl({Module, '_', '_'})",
-       "ctpl(Module, Function)",
-       " - Same as ctpl({Module, Function, '_'})",
-       "ctpl(Module, Function, Arity)",
-       " - Same as ctpl({Module, Function, Arity})",
-       "ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}",
-       " - Clear local call trace pattern for the specified functions"]);
-h(ctpg) ->
-    help_display(
-      ["ctpg()",
-       " - Same as ctpg({'_', '_', '_'})",
-       "ctpg(Module)",
-       " - Same as ctpg({Module, '_', '_'})",
-       "ctpg(Module, Function)",
-       " - Same as ctpg({Module, Function, '_'})",
-       "ctpg(Module, Function, Arity)",
-       " - Same as ctpg({Module, Function, Arity})",
-       "ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}",
-       " - Clear global call trace pattern for the specified functions"]);
-h(ltp) ->
-    help_display(["ltp() -> ok",
-		  " - Lists saved and built-in match_spec's on the console."]);
-h(dtp) ->
-    help_display(["dtp() -> ok",
-		  " - Deletes all saved match_spec's.",
-		  "dtp(N) -> ok",
-		  " - Deletes a specific saved match_spec."]);
-h(wtp) ->
-    help_display(["wtp(Name) -> ok | {error, IOError}",
-		  " - Writes all saved match_spec's to a file"]);
-h(rtp) ->
-    help_display(["rtp(Name) -> ok | {error, Error}",
-		  " - Read saved match specifications from file."]);
-h(n) ->
-    help_display(
-      ["n(Nodename) -> {ok, Nodename} | {error, Reason}",
-       " - Starts a tracer server on the given node.",
-       "n(Nodename,Type,Data) -> {ok, Nodename} | {error, Reason}",
-       " - Starts a tracer server with additional args on the given node."]);
-h(cn) ->
-    help_display(["cn(Nodename) -> ok",
-		  " - Clears a node from the list of traced nodes."]);
-h(ln) ->
-    help_display(["ln() -> ok",
-		  " - Shows the list of traced nodes on the console."]);
-h(tracer) ->
-    help_display(["tracer() -> {ok, pid()} | {error, already_started}",
-		  " - Starts a tracer server that handles trace messages.",
-		  "tracer(Type, Data) -> {ok, pid()} | {error, Error}",
-		  " - Starts a tracer server with additional parameters"]);
-h(trace_port) ->
-    help_display(["trace_port(Type, Parameters) -> fun()",
-		  " - Creates and returns a trace port generating fun"]);
-h(trace_client) ->
-    help_display(["trace_client(Type, Parameters) -> pid()",
-		  " - Starts a trace client that reads messages created by "
-		  "a trace port driver",
-		  "trace_client(Type, Parameters, HandlerSpec) -> pid()",
-		  " - Starts a trace client that reads messages created by a",
-		  "   trace port driver, with a user defined handler"]);
-h(get_tracer) ->
-    help_display(
-      ["get_tracer() -> {ok, Tracer}",
-       " - Returns the process or port to which all trace messages are sent.",
-      "get_tracer(Node) -> {ok, Tracer}",
-       " - Returns the process or port to which all trace messages are sent."]);
-h(stop) ->
-    help_display(
-      ["stop() -> ok",
-       " - Stops the dbg server and the tracing of all processes.",
-       "   Does not clear any trace patterns."]);
-h(stop_clear) ->
-    help_display(
-      ["stop_clear() -> ok",
-       " - Deprecated. Stops the dbg server and the tracing of all processes,",
-       "   and clears all trace patterns."]).
+h(Item) when is_atom(Item) ->
+    io:put_chars(help_text(Item)),
+    io:nl().
 
+help_text(p) ->
+    ~"""
+      p(Item) -> {ok, MatchDesc} | {error, term()}
+       - Traces messages to and from Item.
+      p(Item, Flags) -> {ok, MatchDesc} | {error, term()}
+       - Traces Item according to Flags.
+         Flags can be one of s, r, m, c, p, sos, sol, sofs,
+         sofl, all, clear, or any flag accepted by erlang:trace/3
+      """;
+help_text(c) ->
+    ~"""
+     c(Mod, Name, Args)
+      - Evaluates apply(Mod, Name, Args) with all trace flags set.
+     c(Mod, Name, Args, Flags)
+       - Evaluates apply(Mod, Name, Args) with Flags trace flags set.
+     """;
+help_text(i) ->
+    ~"""
+     i() -> ok
+       - Displays information about all traced processes.
+     """;
+help_text(tp) ->
+    ~"""
+     tp(Module,MatchSpec)
+      - Same as tp({Module, '_', '_'}, MatchSpec)
+     tp(Module,Function,MatchSpec)
+      - Same as tp({Module, Function, '_'}, MatchSpec)
+     tp(Module, Function, Arity, MatchSpec)
+      - Same as tp({Module, Function, Arity}, MatchSpec)
+     tp({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}
+      - Set pattern for traced global function calls.
+     """;
+help_text(tpl) ->
+    ~"""
+     tpl(Module,MatchSpec)
+      - Same as tpl({Module, '_', '_'}, MatchSpec)
+     tpl(Module,Function,MatchSpec)
+      - Same as tpl({Module, Function, '_'}, MatchSpec)
+     tpl(Module, Function, Arity, MatchSpec)
+      - Same as tpl({Module, Function, Arity}, MatchSpec)
+     tpl({Module, Function, Arity}, MatchSpec) -> {ok, MatchDesc} | {error, term()}
+      - Set pattern for traced local (as well as global) function calls.
+     """;
+help_text(ctp) ->
+    ~"""
+     ctp()
+      - Same as ctp({'_', '_', '_'})
+     ctp(Module)
+      - Same as ctp({Module, '_', '_'})
+     ctp(Module, Function)
+      - Same as ctp({Module, Function, '_'})
+     ctp(Module, Function, Arity)
+      - Same as ctp({Module, Function, Arity})
+     ctp({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+      - Clear call trace pattern for the specified functions
+     """;
+help_text(ctpl) ->
+    ~"""
+     ctpl()
+      - Same as ctpl({'_', '_', '_'})
+     ctpl(Module)
+      - Same as ctpl({Module, '_', '_'})
+     ctpl(Module, Function)
+      - Same as ctpl({Module, Function, '_'})
+     ctpl(Module, Function, Arity)
+      - Same as ctpl({Module, Function, Arity})
+     ctpl({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+      - Clear local call trace pattern for the specified functions
+     """;
+help_text(ctpg) ->
+    ~"""
+     ctpg()
+      - Same as ctpg({'_', '_', '_'})
+     ctpg(Module)
+      - Same as ctpg({Module, '_', '_'})
+     ctpg(Module, Function)
+      - Same as ctpg({Module, Function, '_'})
+     ctpg(Module, Function, Arity)
+      - Same as ctpg({Module, Function, Arity})
+     ctpg({Module, Function, Arity}) -> {ok, MatchDesc} | {error, term()}
+      - Clear global call trace pattern for the specified functions
+     """;
+help_text(ltp) ->
+    ~"""
+     ltp() -> ok
+      - Lists saved and built-in match specifications on the console.
+     """;
+help_text(dtp) ->
+    ~"""
+     dtp() -> ok
+      - Deletes all saved match specifications.
+     dtp(N) -> ok
+      - Deletes a specific saved match_spec.
+     """;
+help_text(wtp) ->
+    ~"""
+     wtp(Name) -> ok | {error, IOError}
+      - Writes all saved match specifications to a file
+     """;
+help_text(rtp) ->
+    ~"""
+     rtp(Name) -> ok | {error, Error}
+      - Read saved match specifications from file.
+     """;
+help_text(n) ->
+    ~"""
+     n(Nodename) -> {ok, Nodename} | {error, Reason}
+      - Starts a tracer server on the given node.
+     n(Nodename,Type,Data) -> {ok, Nodename} | {error, Reason}
+      - Starts a tracer server with additional args on the given node.
+     """;
+help_text(cn) ->
+    ~"""
+     cn(Nodename) -> ok
+       - Clears a node from the list of traced nodes.
+     """;
+help_text(ln) ->
+    ~"""
+     ln() -> ok
+      - Shows the list of traced nodes on the console.
+     """;
+help_text(tracer) ->
+    ~"""
+     tracer() -> {ok, pid()} | {error, already_started}
+      - Starts a tracer server that handles trace messages.
+     tracer(Type, Data) -> {ok, pid()} | {error, Error}
+      - Starts a tracer server with additional parameters
+     """;
+help_text(trace_port) ->
+    ~"""
+     trace_port(Type, Parameters) -> fun()
+      - Creates and returns a trace port generating fun
+     """;
+help_text(trace_client) ->
+    ~"""
+     trace_client(Type, Parameters) -> pid()
+      - Starts a trace client that reads messages created by a trace port driver
+     trace_client(Type, Parameters, HandlerSpec) -> pid()
+      - Starts a trace client that reads messages created by a trace port driver,
+        with a user defined handler
+     """;
+help_text(get_tracer) ->
+    ~"""
+     get_tracer() -> {ok, Tracer}
+       - Returns the process or port to which all trace messages are sent.
+     get_tracer(Node) -> {ok, Tracer}
+       - Returns the process or port to which all trace messages are sent.
+     """;
+help_text(stop) ->
+    ~"""
+     stop() -> ok
+       - Stops the dbg server and the tracing of all processes.
+         Does not clear any trace patterns.
+     """;
+help_text(stop_clear) ->
+     ~"""
+      stop_clear() -> ok
+       - Deprecated. Stops the dbg server and the tracing of all processes,
+         and clears all trace patterns.
+     """.

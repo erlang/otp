@@ -84,7 +84,7 @@ be skipped.
 
 -type allocation_origin() :: atom() | mfa() | pid() | port().
 
--doc "Shorthand for [`allocations(#{})`.](`allocations/1`)".
+-doc #{equiv => allocations(#{})}.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec allocations() -> {ok, Result} | {error, Reason} when
     Result :: allocation_summary(),
@@ -280,7 +280,7 @@ of the system, `UnscannedSize` is the number of bytes that had to be skipped.
                                     Size :: non_neg_integer()}],
                    FreeBlocks :: block_histogram()}]}.
 
--doc "Shorthand for [`carriers(#{})`.](`carriers/1`)".
+-doc #{equiv => carriers(#{})}.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec carriers() -> {ok, Result} | {error, Reason} when
     Result :: carrier_info_list(),
