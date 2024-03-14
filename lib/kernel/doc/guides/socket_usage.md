@@ -72,7 +72,7 @@ the caller:
 
 The user must also be prepared to receive an abort message:
 
-- \_\_\_\_ - `{'$socket', socket(), abort, Info}`
+- `{'$socket', socket(), abort, Info}`
 
 If the operation is aborted for whatever reason (e.g. if the socket is closed
 "by someone else"). The `Info` part contains the abort reason (in this case that
@@ -80,7 +80,7 @@ the socket has been closed `Info = {SelectHandle, closed}`).
 
 The general form of the 'socket' message is:
 
-- \_\_\_\_ - `{'$socket', Sock :: socket(), Tag :: atom(), Info :: term()}`
+- `{'$socket', Sock :: socket(), Tag :: atom(), Info :: term()}`
 
 Where the format of `Info` is a function of `Tag`:
 
@@ -126,6 +126,262 @@ And finally, its possible to override the global default when creating a socket
 (with [`open/2`](`socket:open/2`) and [`open/4`](`socket:open/4`)) by providing
 the attribute `use_registry` (boolean) in the their `Opts` argument (which
 effects _that_ specific socket).
+
+
+## Example
+
+This example is intended to show how to create a simple (echo) server
+(and client).
+
+### The echo server:
+
+```erlang
+-export([server/0, server/1, server/2]).
+
+server() ->
+    %% Make system choose port
+    server(0).
+
+server(Port) ->
+    %% Pick an address
+    server(Port, get_local_addr(inet)).
+
+%% This function return the port and address that it actually uses
+%% in case server/0 or server/1 was actually used to start it.
+
+-spec server(Port, Addr) -> {ok, {SPort, SAddr, APid}} | {error, Reason} when
+      Port   :: inet:port_number(),
+      Addr   :: inet:ip_address(),
+      SPort  :: inet:port_number(),
+      SAddr  :: inet:ip_address(),
+      APid   :: pid(),
+      Reason :: term().
+
+server(Port, Addr)
+  when is_integer(Port) andalso (Port >= 0) andalso
+       is_tuple(Addr) ->
+    Family      = which_family(Addr),
+    {ok, LSock} = socket:open(Family, stream, tcp),
+    LSockAddr   = #{family => Family,
+		    addr   => Addr,
+		    port   => Port},
+    ok = socket:bind(LSock, LSockAddr),
+    ok = socket:listen(LSock),
+    {ok, #{port := LPort}} = socket:sockname(LSock),
+    Acceptor = start_acceptor(LSock),
+    {ok, {LPort, Addr, Acceptor}}.
+
+start_acceptor(LSock) ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() -> acceptor_init(Self, LSock) end),
+    receive
+	{'DOWN', MRef, process, Pid, Info} ->
+	    error_msg("Failed starting acceptor: "
+		      "~n   Info:        ~p"
+		      "~n   Socket Info: ~p"
+		      "~n", [Info, (catch socket:info(LSock))]),
+	    throw({failed_starting_acceptor, Info});
+	{Pid, started} ->
+	    %% Transfer ownership
+	    socket:setopt(LSock, otp, owner, Pid),
+	    Pid ! {self(), continue},
+	    erlang:demonitor(MRef),
+	    Pid
+    end.
+    
+acceptor_init(Parent, LSock) ->
+    Parent ! {self(), started},
+    receive
+	{Parent, continue} ->
+	    ok
+    end,
+    acceptor_loop(LSock).
+
+acceptor_loop(LSock) ->
+    case socket:accept(LSock, infinity) of
+	{ok, ASock} ->
+	    start_handler(ASock),
+	    acceptor_loop(LSock);
+	{error, Reason} ->
+	    error_msg("Failed accepting new connection: "
+		      "~n   Reason:      ~p"
+		      "~n   Socket Info: ~p"
+		      "~n", [Reason, (catch socket:info(LSock))]),
+	    erlang:error({accept_failed, Reason})
+    end.
+
+
+start_handler(Sock) ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() -> handler_init(Self, Sock) end),
+    receive
+	{'DOWN', MRef, process, Pid, Info} ->
+	    error_msg("Failed starting handler: "
+		      "~n   Info:        ~p"
+		      "~n   Socket Info: ~p"
+		      "~n", [Info, (catch socket:info(Sock))]),
+	    erlang:error({failed_starting_handler, Info});
+	{Pid, started} ->
+	    %% Transfer ownership
+	    socket:setopt(Sock, otp, owner, Pid),
+	    Pid ! {self(), continue},
+	    erlang:demonitor(MRef),
+	    Pid
+    end.
+
+-define(DEFAULT_STATE,       undefined).
+-define(SELECT_INFO(SH),     {select_info, recv, (SH)}).
+-define(COMPLETION_INFO(CH), {completion_info, recv, (CH)}).
+
+-define(SOCKET_MSG(Sock, Tag, Info),  {'$socket', (Sock), (Tag), (Info)}).
+-define(SELECT_MSG(Sock, SH),         ?SOCKET_MSG(Sock, select, SH)).
+-define(COMPLETION_MSG(Sock, CH, CS), ?SOCKET_MSG(Sock, completion, {CH, CS})).
+
+handler_init(Parent, Sock) ->
+    Parent ! {self(), started},
+    receive
+	{Parent, continue} ->
+	    ok
+    end,
+    handler_loop(Sock, ?DEFAULT_STATE).
+
+handler_loop(Sock, ?DEFAULT_STATE) ->
+    %% No "ongoing" reads
+    %% The use of 'nowait' here is clearly *overkill* for this use case,
+    %% but is intended as an example of how to use it.
+    case socket:recv(Sock, 0, nowait) of
+	{ok, Data} ->
+	    echo(Sock, Data),
+	    handler_loop(Sock, ?DEFAULT_STATE);
+
+	{select, SelectInfo} ->
+	    handler_loop(Sock, SelectInfo);
+
+	{completion, CompletionInfo} ->
+	    handler_loop(Sock, CompletionInfo);
+
+	{error, Reason} ->
+	    error_msg("Failed receive data: "
+		      "~n   Reason:      ~p"
+		      "~n   Socket Info: ~p"
+		      "~n", [Reason, (catch socket:info(Sock))]),
+	    erlang:error({recv_failed, Reason})
+    end;
+handler_loop(Sock, ?SELECT_INFO(SelectHandle)) ->
+    receive
+	?SELECT_MSG(Sock, SelectHandle) ->
+	    case socket:recv(Sock, 0, nowait) of
+		{ok, Data} ->
+		    echo(Sock, Data),
+		    handler_loop(Sock, ?DEFAULT_STATE);
+
+		{select, NewSelectInfo} ->
+		    warning_msg("select from select: "
+			        "~n   Socket Info: ~p"
+			        "~n", [(catch socket:info(Sock))]),
+		    handler_loop(Sock, NewSelectInfo);
+
+		{error, Reason} ->
+		    error_msg("Failed receive data (after select message): "
+			      "~n   Reason:      ~p"
+			      "~n   Socket Info: ~p"
+			      "~n", [Reason, (catch socket:info(Sock))]),
+		    erlang:error({recv_failed, Reason})
+	    end
+    end;
+handler_loop(Sock, ?COMPLETION_INFO(CompletionHandle)) ->
+    receive
+	?COMPLETION_MSG(Sock, CompletionHandle, CompletionStatus) ->
+	    case CompletionStatus of
+		{ok, Data} ->
+		    echo(Sock, Data),
+		    handler_loop(Sock, ?DEFAULT_STATE);
+		{error, Reason} ->
+		    error_msg("Failed receive (completion) data: "
+			      "~n   Reason:      ~p"
+			      "~n   Socket Info: ~p"
+			      "~n", [Reason, (catch socket:info(Sock))]),
+		    erlang:error({recv_failed, Reason})
+	    end
+    end.
+
+echo(Sock, Data) when is_binary(Data) ->
+    ok = socket:send(Sock, Data, infinity),
+    echo_msg("~s", [binary_to_list(Data)]).
+
+```
+
+### The client:
+
+
+```erlang
+-export([client/2, client/3]).
+
+client(SPort, Msg)
+  when is_integer(SPort) andalso (SPort > 0) ->
+    client(SPort, get_local_addr(inet), Msg).
+
+-spec client(SPort, SAddr, Msg) -> ok when
+      SPort :: inet:port_number(),
+      SAddr :: inet:ip_address(),
+      Msg   :: string() | binary().
+
+client(SPort, SAddr, Msg)
+  when is_integer(SPort) andalso (SPort > 0) andalso
+       is_tuple(SAddr) andalso
+       (is_list(Msg) orelse is_binary(Msg)) ->
+    Family     = which_family(SAddr),
+    {ok, Sock} = socket:open(Family, stream, tcp),
+    SSockAddr  = #{family => Family,
+		   addr   => SAddr,
+		   port   => SPort},
+    ok = socket:connect(Sock, SSockAddr),
+    client_echo(Sock, Msg).
+
+client_echo(Sock, Msg) when is_list(Msg) ->
+    client_echo(Sock, list_to_binary(Msg));
+client_echo(Sock, Msg) when is_binary(Msg) ->
+    ok = socket:send(Sock, Msg, infinity),
+    {ok, Msg} = socket:recv(Sock, byte_size(Msg), infinity),
+    ok.
+
+```
+
+### Some common functions:
+
+```erlang
+echo_msg(F, A) ->
+    msg("ECHO", F, A).
+
+warning_msg(F, A) ->
+    msg("WARNING", F, A).
+
+error_msg(F, A) ->
+  msg("ERROR", F, A).
+
+msg(Header, F, A) ->    
+    io:format("** ~s **"
+	      "~n" ++ F ++ "~n", [Header|A]).
+
+get_local_addr(Family) ->
+    Filter =
+	fun(#{addr  := #{family := Fam},
+	      flags := Flags}) ->
+		(Fam =:= Family) andalso (not lists:member(loopback, Flags));
+	   (_) ->
+		false
+	end,
+    {ok, [SockAddr|_]} = net:getifaddrs(Filter),
+    #{addr := #{addr := Addr}} = SockAddr,
+    Addr.
+
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
+    inet;
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
+    inet6.
+
+```
+
 
 [](){: #socket_options }
 
