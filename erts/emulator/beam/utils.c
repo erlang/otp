@@ -102,10 +102,8 @@ void ycf_debug_reset_stack_start(void) {
 void *ycf_debug_get_stack_start(void) {
     return erts_tsd_get(erts_ycf_debug_stack_start_tsd_key);
 }
-#include "utils.debug.ycf.h"
-#else
-#include "utils.ycf.h"
 #endif
+#include "utils.ycf.h"
 
 #if defined(DEBUG)
 # define IF_DEBUG(X) X

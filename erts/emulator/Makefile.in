@@ -646,15 +646,12 @@ GENERATE += $(TTF_DIR)/driver_tab.c
 
 ifeq ($(TYPE)@EXTERNAL_WORD_SIZE@,debug64)
 YCF_DEBUG_FLAG = -debug
-MAPS_YCF_OUTPUT=$(TARGET)/erl_map.debug.ycf.h
-UTILS_YCF_OUTPUT=$(TARGET)/utils.debug.ycf.h
-DB_INSERT_LIST_OUTPUT=$(TARGET)/erl_db_insert_list.debug.ycf.h
 else
 YCF_DEBUG_FLAG =
-MAPS_YCF_OUTPUT=$(TARGET)/erl_map.ycf.h
-UTILS_YCF_OUTPUT=$(TARGET)/utils.ycf.h
-DB_INSERT_LIST_OUTPUT=$(TARGET)/erl_db_insert_list.ycf.h
 endif
+MAPS_YCF_OUTPUT=$(TTF_DIR)/erl_map.ycf.h
+UTILS_YCF_OUTPUT=$(TTF_DIR)/utils.ycf.h
+DB_INSERT_LIST_OUTPUT=$(TTF_DIR)/erl_db_insert_list.ycf.h
 
 DB_INSERT_LIST_YCF_FLAGS=-yield \
 		$(YCF_DEBUG_FLAG) \
@@ -765,12 +762,12 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
 PRELOAD_OBJ = $(OBJDIR)/beams.$(RES_EXT)
-PRELOAD_SRC = $(TARGET)/beams.rc
+PRELOAD_SRC = $(TTF_DIR)/beams.rc
 $(PRELOAD_SRC): $(PRELOAD_BEAM)
 	$(gen_verbose)LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
 else
 PRELOAD_OBJ = $(OBJDIR)/preload.o
-PRELOAD_SRC = $(TARGET)/preload.c
+PRELOAD_SRC = $(TTF_DIR)/preload.c
 $(PRELOAD_SRC): $(PRELOAD_BEAM)
 	$(gen_verbose)LANG=C $(PERL) utils/make_preload -old $^ > $@
 endif
@@ -818,8 +815,8 @@ ifeq ($(TARGET),win32)
 $(OBJDIR)/dll_sys.o: sys/$(ERLANG_OSTYPE)/sys.c
 	$(V_CC) $(CFLAGS) -DERL_RUN_SHARED_LIB=1 $(INCLUDES) -c $< -o $@
 
-$(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
-	$(V_RC) -o $@  -I$(ERL_TOP)/erts/etc/win32 $(TARGET)/beams.rc
+$(PRELOAD_OBJ): $(PRELOAD_SRC)
+	$(V_RC) -o $@  -I$(ERL_TOP)/erts/etc/win32 $(PRELOAD_SRC)
 
 endif
 
