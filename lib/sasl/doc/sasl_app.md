@@ -72,7 +72,7 @@ event manager, and event handlers running on this manager, still work, but they
 are not used by default.
 
 The error logger event handlers `sasl_report_tty_h` and `sasl_report_file_h`,
-were earlier used for printing the so called SASL reports, i.e. _supervisor
+were earlier used for printing the so called SASL reports, that is, _supervisor
 reports_, _crash reports_, and _progress reports_. These reports are now also
 printed by the default logger handler started by the Kernel application.
 Progress reports are by default stopped by the primary log level, but can be
