@@ -101,7 +101,7 @@ erlang_trace_pattern(A,B) ->
     trace_sessions:erlang_trace_pattern(A,B).
 
 erlang_trace_pattern(A,B,C) ->
-    erlang:display({?LINE, "B", B}),
+    %%erlang:display({?LINE, "B", B}),
     trace_sessions:erlang_trace_pattern(A,B,C).
 
 erlang_trace_info(A,B) ->

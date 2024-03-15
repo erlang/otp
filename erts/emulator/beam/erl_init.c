@@ -2468,8 +2468,7 @@ erl_start(int argc, char **argv)
 
     {
 	/*
-	 * The erts_code_purger and the erts_literal_area_collector
-	 * system processes are *always* alive. If they terminate
+	 * System processes that are *always* alive. If they terminate
 	 * they bring the whole VM down.
 	 */
 	Eterm pid;
@@ -2522,6 +2521,16 @@ erl_start(int argc, char **argv)
 	ASSERT(erts_dirty_process_signal_handler_max
 	       && erts_dirty_process_signal_handler_max->common.id == pid);
 	erts_proc_inc_refc(erts_dirty_process_signal_handler_max);
+
+        pid = erl_system_process_otp(erts_init_process_id,
+                                     "erts_trace_cleaner", !0,
+                                     PRIORITY_NORMAL);
+        erts_trace_cleaner
+            = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+                                                    internal_pid_index(pid));
+        ASSERT(erts_trace_cleaner && erts_trace_cleaner->common.id == pid);
+        erts_proc_inc_refc(erts_trace_cleaner);
+
     }
 
     erts_start_schedulers();

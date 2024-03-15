@@ -188,6 +188,8 @@ void erts_set_time_break(BpFunctions *f, enum erts_break_op);
 void erts_set_memory_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
 void erts_clear_memory_break(BpFunctions *f);
+Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
+                                Eterm tail);
 
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 

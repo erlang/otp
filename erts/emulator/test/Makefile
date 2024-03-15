@@ -59,6 +59,7 @@ MODULES= \
 	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
+	dummy \
 	dump_SUITE \
 	efile_SUITE \
 	erts_debug_SUITE \

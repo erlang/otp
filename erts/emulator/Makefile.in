@@ -754,6 +754,7 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
+		$(ERL_TOP)/erts/preloaded/ebin/erts_trace_cleaner.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_signal_handler.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/atomics.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/counters.beam \

@@ -12542,7 +12542,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         Uint32 trace_flags;
         ErtsTracer tracer;
         // ToDo: Optimize
-        erts_get_default_proc_tracing(s, &trace_flags, &tracer);
+        erts_get_on_spawn_tracing(s, &trace_flags, &tracer);
         if (trace_flags) {
             ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
             ref->flags = trace_flags;
@@ -14261,6 +14261,10 @@ restart:
 
         erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
         curr_locks = ERTS_PROC_LOCKS_ALL;
+
+        if (p->common.tracee.first_ref) {
+            reds -= delete_unalive_trace_refs(&p->common);
+        }
 
         /*
          * Note! The monitor and link fields will be overwritten 

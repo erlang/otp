@@ -66,8 +66,8 @@
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
 
--export([trace/3, trace_pattern/3]).
--export([trace_session_create/1, trace_session_destroy/1]).
+-export([trace/3, trace/4, trace_pattern/3, trace_pattern/4]).
+-export([trace_session_create/3, trace_session_destroy/1]).
 
 -export([dist_ctrl_put_data/2]).
 
@@ -606,6 +606,17 @@ microstate_accounting(Ref, Threads) ->
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+-spec trace(Session, PidPortSpec, How, FlagList) -> integer() when
+      Session :: reference(),
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
+      How :: boolean(),
+      FlagList :: list().
+trace(_Session, _PidSpec, _How, _FlagList) ->
+    erlang:nif_error(undefined).
+
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
@@ -622,9 +633,22 @@ trace(_PidSpec, _How, _FlagList) ->
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
--spec trace_session_create([{tracer, Tracer}]) -> reference() when
-      Tracer :: Tracer :: pid() | port() | {module(), term()}.
-trace_session_create(_TracerOpts) ->
+-spec trace_pattern(Session, MFA, MatchSpec, FlagList) -> non_neg_integer() when
+      Session :: reference(),
+      MFA :: trace_pattern_mfa(),
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean()
+                 | restart
+                 | pause,
+      FlagList :: list().
+trace_pattern(_Session, _MFA, _MatchSpec, _FlagList) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_create(Name, Tracer, Opts) -> reference() when
+      Name :: atom(),
+      Tracer :: pid() | port() | {module(), term()},
+      Opts :: [].
+trace_session_create(_Name, _Tracer, _TracerOpts) ->
     erlang:nif_error(undefined).
 
 -spec trace_session_destroy(reference()) -> ok.

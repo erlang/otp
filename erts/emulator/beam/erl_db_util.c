@@ -1187,7 +1187,9 @@ Binary *erts_match_set_compile_trace(Process *p, Eterm matchexpr,
 	    copy_struct(matchexpr, sz, &hp, 
 			&(prog->saved_program_buf->off_heap));
         prog->trace_session = session;
-        erts_ref_trace_session(session);
+#ifdef DEBUG
+        erts_refc_inc(&session->dbg_bp_refc, 1);
+#endif
     }
     return bin;
 }
@@ -2073,8 +2075,11 @@ int erts_db_match_prog_destructor(Binary *bprog)
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
-    if (prog->trace_session)
-        erts_deref_trace_session(prog->trace_session);
+#ifdef DEBUG
+    if (prog->trace_session) {
+        erts_refc_dec(&prog->trace_session->dbg_bp_refc, 0);
+    }
+#endif
     return 1;
 }
 
@@ -2984,8 +2989,8 @@ restart:
                 erts_tracer_update(&tracer,
                                    get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
+		if (! erts_trace_flags(prog->trace_session, esp[-1], &d_flags, &tracer, &cputs) ||
+		    ! erts_trace_flags(prog->trace_session, esp[-2], &e_flags, &tracer, &cputs) ||
 		    cputs ) {
 		    (--esp)[-1] = FAIL_TERM;
                     ERTS_TRACER_CLEAR(&tracer);
@@ -3014,8 +3019,8 @@ restart:
                 erts_tracer_update(&tracer,
                                    get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
+		if (! erts_trace_flags(prog->trace_session, esp[-1], &d_flags, &tracer, &cputs) ||
+		    ! erts_trace_flags(prog->trace_session, esp[-2], &e_flags, &tracer, &cputs) ||
 		    cputs ||
 		    ! (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, 
 				       tracee, ERTS_PROC_LOCKS_ALL))) {

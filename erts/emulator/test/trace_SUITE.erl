@@ -451,10 +451,8 @@ send_trace(Config) when is_list(Config) ->
     Receiver = proplists:get_value(receiver, Config),
 
     %% Check that a message sent to another process is traced.
-    ?line,
     1 = erlang_trace(Sender, true, [send]),
     F1 = fun (Pat) ->
-                 ?line,
 		 set_trace_pattern(send, Pat, []),
 		 Sender ! {send_please, Receiver, to_receiver},
 		 {trace, Sender, send, to_receiver, Receiver} = receive_first_trace(),
@@ -1651,24 +1649,29 @@ suspend_opts(Config) when is_list(Config) ->
     SI = repeat_acc(SF, TC, #susp_info{}),
     erlang:suspend_process(Tok, [asynchronous]),
     %% Verify that it eventually suspends
-    WaitTime0 = 10,
-    WaitTime1 = case {erlang:system_info(debug_compiled),
-                      erlang:system_info(lock_checking)} of
-                    {false, false} ->
-                        WaitTime0;
-                    {false, true} ->
-                        WaitTime0*5;
-                    _ ->
-                        WaitTime0*10
-                end,
-    WaitTime = case {erlang:system_info(schedulers_online),
-                     erlang:system_info(logical_processors)} of
-                   {Schdlrs, CPUs} when is_integer(CPUs),
-                                        Schdlrs =< CPUs ->
-                       WaitTime1;
-                   _ ->
-                       WaitTime1*10
-               end,
+    WaitTime0 = 20,
+    WaitTime1 = WaitTime0 *
+        case erlang:system_info(emu_type) of
+            debug -> 2;
+            gcov -> 2;
+            asan -> 2;
+            valgrind -> 10;
+            _ -> 1
+        end,
+    WaitTime2 = WaitTime1 *
+        case erlang:system_info(lock_checking) of
+            true -> 5;
+            false -> 1
+        end,
+    WaitTime = WaitTime2 *
+        case {erlang:system_info(schedulers_online),
+              erlang:system_info(logical_processors)} of
+            {Schdlrs, CPUs} when is_integer(CPUs),
+                                 Schdlrs =< CPUs ->
+                1;
+            _ ->
+                10
+        end,
     receive after WaitTime -> ok end,
     1 = suspend_count(Tok),
     erlang:suspend_process(Tok, [asynchronous]),

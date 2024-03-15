@@ -52,6 +52,7 @@ PRE_LOADED_ERL_MODULES = \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
+	erts_trace_cleaner \
 	erts_dirty_process_signal_handler \
 	atomics \
 	counters \

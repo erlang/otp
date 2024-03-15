@@ -28,6 +28,7 @@
 		init,
 		erl_init,
 		erts_code_purger,
+                erts_trace_cleaner,
 		prim_buffer,
 		prim_eval,
 		prim_file,

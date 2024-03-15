@@ -60,6 +60,10 @@ struct code_permission {
 
         struct code_permission_queue_item *next;
     } *queue;
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    int lc_soft_check;
+#endif
 };
 
 static struct code_permission code_mod_permission;
@@ -222,7 +226,9 @@ static void release_code_permission(struct code_permission *perm) {
     perm->owner = NULL;
     perm->aux_arg = NULL;
     perm->seized = 0;
-
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    perm->lc_soft_check = 0;
+#endif
     erts_mtx_unlock(&perm->lock);
 }
 
@@ -233,6 +239,13 @@ int erts_try_seize_code_mod_permission_aux(void (*aux_func)(void *),
     return try_seize_code_permission(&code_mod_permission, NULL,
                                      aux_func, aux_arg);
 }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+void erts_lc_soften_code_mod_permission_check(void)
+{
+    code_mod_permission.lc_soft_check = 1;
+}
+#endif
 
 int erts_try_seize_code_mod_permission(Process* c_p)
 {
@@ -341,7 +354,11 @@ static int has_code_permission(struct code_permission *perm)
              * This is very blunt and only catches _some_ cases where we lack
              * lack permission, but at least it's better than the old method of
              * using thread-specific-data. */
-            res = (perm->owner || esdp->aux_work_data.lc_aux_arg == perm->aux_arg);
+            res = (perm->owner
+        #ifdef ERTS_ENABLE_LOCK_CHECK
+                   || perm->lc_soft_check
+        #endif
+                   || esdp->aux_work_data.lc_aux_arg == perm->aux_arg);
         }
 
         return res;

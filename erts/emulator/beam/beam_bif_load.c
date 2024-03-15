@@ -63,7 +63,7 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-static void set_default_trace_pattern(Eterm module);
+static void set_on_load_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int *redsp, int fcalls);
 static void delete_code(Module* modp);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -517,7 +517,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
             for (i=0; i < nmods; i++) {
                 if (mods[i].modp->curr.code_hdr
                      && mods[i].exception != am_on_load) {
-                    set_default_trace_pattern(mods[i].module);
+                    set_on_load_trace_pattern(mods[i].module);
                 }
             }
 
@@ -937,7 +937,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 }
 
 static void
-set_default_trace_pattern(Eterm module)
+set_on_load_trace_pattern(Eterm module)
 {
     // int trace_pattern_is_on;
     // Binary *match_spec;

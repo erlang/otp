@@ -395,6 +395,12 @@ An opaque handle identifying a
 -export_type([dist_handle/0]).
 
 -doc """
+A handle to an isolated trace session.
+""".
+-doc #{ since => "OTP 27.0" }.
+-opaque trace_session() :: reference().
+
+-doc """
 A list of binaries. This datatype is useful to use together with
 [`enif_inspect_iovec`](erl_nif.md#enif_inspect_iovec).
 """.
@@ -473,9 +479,10 @@ A list of binaries. This datatype is useful to use together with
 -export([setnode/3, size/1, spawn/3, spawn_link/3, split_binary/2]).
 -export([suspend_process/2, system_monitor/0]).
 -export([system_monitor/1, system_monitor/2, system_profile/0]).
--export([system_profile/2, throw/1, time/0, trace/3, trace_delivered/1]).
--export([trace_session_create/1, trace_session_destroy/1]).
--export([trace_info/2, trace_info/3, trunc/1, tuple_size/1, universaltime/0]).
+-export([system_profile/2, throw/1, time/0, trace/3, trace/4, trace_delivered/1]).
+-export([trace_session_create/3, trace_session_destroy/1]).
+-export([trace_info/2, trace_info/3, trace_session_info/1]).
+-export([trunc/1, tuple_size/1, universaltime/0]).
 -export([universaltime_to_posixtime/1, unlink/1, unregister/1, whereis/1]).
 
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
@@ -491,8 +498,9 @@ A list of binaries. This datatype is useful to use together with
 	 statistics/1, subtract/2, system_flag/2,
          term_to_binary/1, term_to_binary/2,
          term_to_iovec/1, term_to_iovec/2,
-         tl/1, trace_pattern/2,
-         trace_pattern/3, tuple_to_list/1, system_info/1,
+         tl/1,
+         trace_pattern/2, trace_pattern/3, trace_pattern/4,
+         tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
 -export([alias/0, alias/1, unalias/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
@@ -6618,6 +6626,31 @@ trace(PidPortSpec, How, FlagList) ->
     catch error:R:Stk ->
             error_with_inherited_info(R, [PidPortSpec, How, FlagList], Stk)
     end.
+
+%% trace/4
+-doc """
+The same as [`erlang:trace(PidPortSpec, How, FlagList)`](`trace/3`),
+but applied on a dynamic trace session.
+""".
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
+-spec trace(Session, PidPortSpec, How, FlagList) -> integer() when
+      Session :: trace_session(),
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
+      How :: boolean(),
+      FlagList :: [trace_flag()].
+trace(Session, PidPortSpec, How, FlagList) ->
+    ensure_tracer_module_loaded(tracer, FlagList),
+    try erts_internal:trace(Session, PidPortSpec, How, FlagList) of
+        Res -> Res
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [Session, PidPortSpec, How, FlagList], Stk)
+    end.
+
+
 %% trace_delivered/1
 -doc """
 Calling this function makes sure all trace messages have been delivered.
@@ -6767,17 +6800,13 @@ a non-existing function, `Value` is `undefined`.
 trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
--doc """
-A handle to an isolated trace session.
-""".
--doc #{ since => ~"OTP-27" }.
--opaque trace_session() :: reference().
-
+%% trace_info/3
 -doc """
 Equivalent to [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
 but applied on a dynamic trace session.
 """.
--doc(#{since => <<"OTP 27.0">>, group => trace }).
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
 -spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
       Session :: trace_session(),
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
@@ -6791,7 +6820,31 @@ but applied on a dynamic trace session.
 trace_info(_Session, _PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
-%% trunc/1
+%% trace_session_info/1
+-doc """
+Returns which trace sessions affects a port, process, function, or event.
+""".
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
+-spec trace_session_info(PidPortFuncEvent) -> Res when
+      PidPortFuncEvent :: all | pid() | port() | new | new_processes | new_ports
+                     | {Module, Function, Arity} | on_load | send | 'receive',
+      Module :: module(),
+      Function :: atom(),
+      Arity :: arity(),
+      Res :: undefined | [SessionName],
+      SessionName :: atom().
+trace_session_info(all) ->
+    {session, List} = trace_info(any, any, session),
+    List;
+trace_session_info(PidPortFuncEvent) ->
+    try trace_info(any, PidPortFuncEvent, session) of
+        {session, List} -> List;
+        undefined -> undefined
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [PidPortFuncEvent], Stk)
+    end.
+
 %% Shadowed by erl_bif_types: erlang:trunc/1
 -doc """
 Truncates the decimals of `Number`.
@@ -9980,22 +10033,41 @@ Failure: `badarg` if `List` is an empty list `[]`.
 tl(_List) ->
     erlang:nif_error(undefined).
 
--spec trace_session_create(Opts :: [{tracer, pid() | port()} |
-                                    {tracer, module(), term()}]) -> trace_session().
--doc #{ since => <<"OTP-27">>, group => trace }.
-trace_session_create(Opts) ->
-    try erts_internal:trace_session_create(Opts) of
+%% trace_session_create/3
+-doc """
+Create a trace session.
+
+Returns an opaque handle to the trace session. The handle will keep the session
+alive. If the handle is dropped and garbage collected, the session will be
+destroyed and cleaned up as if [`erlang:trace_session_destroy/1`](trace_session_destroy/1)
+was called.
+""".
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
+-spec trace_session_create(Name, Tracer, Opts) -> trace_session() when
+      Name :: atom(),
+      Tracer :: pid() | port() | {module(), term()},
+      Opts :: [].
+trace_session_create(Name, Tracer, Opts) ->
+    try erts_internal:trace_session_create(Name, Tracer, Opts) of
         Ref -> Ref
     catch error:R:Stk ->
-            error_with_inherited_info(R, [Opts], Stk)
+            error_with_inherited_info(R, [Name, Tracer, Opts], Stk)
     end.
--spec trace_session_destroy(trace_session()) -> ok.
--doc #{ since => <<"OTP-27">>, group => trace }.
-trace_session_destroy(Ref) ->
-    try erts_internal:trace_session_destroy(Ref) of
+
+%% trace_session_destroy/1
+-doc """
+Destroy a trace session and cleanup all its settings on processes, ports and functions.
+""".
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
+-spec trace_session_destroy(Session) -> ok when
+      Session :: trace_session().
+trace_session_destroy(Session) ->
+    try erts_internal:trace_session_destroy(Session) of
         Res -> Res
     catch error:R:Stk ->
-            error_with_inherited_info(R, [Ref], Stk)
+            error_with_inherited_info(R, [Session], Stk)
     end.
 
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
@@ -10317,10 +10389,10 @@ Fails by raising an error exception with an error reason of:
 -spec trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
-			  ('receive', MatchSpec, []) -> non_neg_integer() when
+                   ('receive', MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
-			  (MFA, MatchSpec, FlagList) -> non_neg_integer() when
+                   (MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
@@ -10334,6 +10406,31 @@ trace_pattern(MFA, MatchSpec, FlagList) ->
     catch error:R:Stk ->
             error_with_inherited_info(R, [MFA, MatchSpec, FlagList], Stk)
     end.
+
+%% trace_pattern/4
+-doc """
+The same as [`erlang:trace_pattern/3`](`trace_pattern/3`),
+but applied on a dynamic trace session.
+""".
+-doc #{ since => <<"OTP 27.0">> }.
+-doc #{ group => trace }.
+-spec trace_pattern(Session, MFA, MatchSpec, FlagList) -> non_neg_integer() when
+      Session :: trace_session(),
+      MFA :: trace_pattern_mfa() | send | 'receive',
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean()
+                 | restart
+                 | pause,
+      FlagList :: [ trace_pattern_flag() ].
+trace_pattern(Session, MFA, MatchSpec, FlagList) ->
+    ensure_tracer_module_loaded(meta, FlagList),
+    try erts_internal:trace_pattern(Session, MFA, MatchSpec, FlagList) of
+        Res -> Res
+    catch error:R:Stk ->
+            error_with_inherited_info(R, [Session, MFA, MatchSpec, FlagList], Stk)
+    end.
+
+
 
 %% Shadowed by erl_bif_types: erlang:tuple_to_list/1
 -doc """
