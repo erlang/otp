@@ -385,6 +385,7 @@ atom is_seq_trace
 atom iterator
 atom io
 atom iolist_size_continue
+atom iolist_to_iovec_continue
 atom iodata
 atom iovec
 atom keypos
