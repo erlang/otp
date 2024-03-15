@@ -36,9 +36,18 @@ information about the supported standards see [ssl(6)](ssl_app.md).
 """.
 -moduledoc(#{titles =>
                  [{type,<<"Types used in TLS/DTLS">>},
-                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>},
-                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - CLIENT">>},
-                  {type,<<"TLS/DTLS OPTION DESCRIPTIONS - SERVER">>}]}).
+                  {type,<<"Common Options">>},
+                  {type,<<"Client Options">>},
+                  {type,<<"Server Options">>},
+                  {function,<<"Client Functions">>},
+                  {function,<<"Server Functions">>},
+                  {function,<<"Common Functions">>},
+                  {function,<<"TLS-1.3 Only Functions">>},
+                  {function,<<"Pre TLS-1.3 Functions">>},
+                  {function,<<"Info Functions">>},
+                  {function,<<"Utility Functions">>},
+                  {function,<<"Deprecated Functions">>}
+                 ]}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -1820,21 +1829,19 @@ can verify.
 %%%--------------------------------------------------------------------
 %%% API
 %%%--------------------------------------------------------------------
-
-%%--------------------------------------------------------------------
-%%
-%% Description: Utility function that starts the ssl and applications
-%% that it depends on.
-%% see application(3)
-%%--------------------------------------------------------------------
 -doc(#{equiv => start/1}).
--doc(#{since => <<"OTP R14B">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP R14B">>}).
 -spec start() -> ok  | {error, reason()}.
+
 start() ->
     start(temporary).
--doc "Starts the SSL application. Default type is `temporary`.".
--doc(#{since => <<"OTP R14B">>}).
+
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP R14B">>}).
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
+-doc "Starts the SSL application. Default type is `temporary`.".
+
 start(Type) ->
     case application:ensure_all_started(ssl, Type) of
 	{ok, _} ->
@@ -1844,21 +1851,17 @@ start(Type) ->
     end.
 %%--------------------------------------------------------------------
 -doc "Stops the SSL application.".
--doc(#{since => <<"OTP R14B">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP R14B">>}).
 -spec stop() -> ok.
-%%
-%% Description: Stops the ssl application.
 %%--------------------------------------------------------------------
 stop() ->
     application:stop(ssl).
 
-%%--------------------------------------------------------------------
-%%
-%% Description: Connect to an ssl server.
-%%--------------------------------------------------------------------
 
 -doc(#{equiv => connect/3}).
--doc(#{since => <<"OTP R14B">>}).
+-doc(#{title => <<"Client Functions">>,
+       since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
           {ok, sslsocket()} |
           {error, reason()} |
@@ -1890,7 +1893,8 @@ continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
 If the option `active` is set to `once`, `true` or an integer value, the process
 owning the sslsocket will receive messages of type `t:active_msgs/0`
 """.
--doc(#{since => <<"OTP R14B">>}).
+-doc(#{title => <<"Client Functions">>,
+       since => <<"OTP R14B">>}).
 -doc(#{equiv => connect/4}).
 -spec connect(TCPSocket, TLSOptions, Timeout) ->
           {ok, sslsocket()} | {error, reason()} when
@@ -1922,6 +1926,17 @@ connect(Host, Port, Options)
   when is_integer(Port), is_list(Options) ->
     connect(Host, Port, Options, infinity).
 
+%%--------------------------------------------------------------------
+-doc(#{title => <<"Client Functions">>}).
+-spec connect(Host, Port, TLSOptions, Timeout) ->
+          {ok, sslsocket()} |
+          {ok, sslsocket(),Ext :: protocol_extensions()} |
+          {error, reason()} |
+          {option_not_a_key_value_tuple, any()} when
+      Host :: host(),
+      Port :: inet:port_number(),
+      TLSOptions :: [tls_client_option()],
+      Timeout :: timeout().
 -doc """
 Opens a TLS/DTLS connection to `Host`, `Port`.
 
@@ -1954,16 +1969,7 @@ continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
 If the option `active` is set to `once`, `true` or an integer value, the process
 owning the sslsocket will receive messages of type `t:active_msgs/0`
 """.
--spec connect(Host, Port, TLSOptions, Timeout) ->
-          {ok, sslsocket()} |
-          {ok, sslsocket(),Ext :: protocol_extensions()} |
-          {error, reason()} |
-          {option_not_a_key_value_tuple, any()} when
-      Host :: host(),
-      Port :: inet:port_number(),
-      TLSOptions :: [tls_client_option()],
-      Timeout :: timeout().
-
+%%--------------------------------------------------------------------
 connect(Host, Port, Options, Timeout)
   when is_integer(Port), is_list(Options), ?IS_TIMEOUT(Timeout) ->
     try
@@ -1980,14 +1986,12 @@ connect(Host, Port, Options, Timeout)
     end.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Server Functions">>}).
 -doc "Creates an SSL listen socket.".
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, reason()} when
       Port::inet:port_number(),
       Options::[tls_server_option()],
       ListenSocket :: sslsocket().
-
-%%
-%% Description: Creates an ssl listen socket.
 %%--------------------------------------------------------------------
 listen(_Port, []) ->
     {error, nooptions};
@@ -2000,11 +2004,10 @@ listen(Port, Options0)
 	Error = {error, _} ->
 	    Error
     end.
+
 %%--------------------------------------------------------------------
-%%
-%% Description: Performs transport accept on an ssl listen socket
-%%--------------------------------------------------------------------
--doc(#{equiv => transport_accept/2}).
+-doc(#{title => <<"Server Functions">>,
+       equiv => transport_accept/2}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
           {error, reason()} when
       ListenSocket :: sslsocket(),
@@ -2013,6 +2016,8 @@ listen(Port, Options0)
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
+
+-doc(#{title => <<"Server Functions">>}).
 -doc """
 Accepts an incoming connection request on a listen socket. `ListenSocket` must
 be a socket returned from `listen/2`. The socket returned is to be passed to
@@ -2053,7 +2058,8 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
 -doc(#{equiv => handshake/2}).
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       SslSocket :: sslsocket(),
@@ -2075,9 +2081,9 @@ owning the sslsocket will receive messages of type `t:active_msgs/0`
 >
 > Not setting the timeout makes the server more vulnerable to DoS attacks.
 """.
--doc(#{since => <<"OTP 21.0">>}).
 -doc(#{equiv => handshake/3}).
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       Timeout :: timeout(),
@@ -2131,7 +2137,8 @@ continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
 If the option `active` is set to `once`, `true` or an integer value, the process
 owning the sslsocket will receive messages of type `t:active_msgs/0`
 """.
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
           {ok, SslSocket} |
           {ok, SslSocket, Ext} |
@@ -2187,7 +2194,8 @@ handshake(Socket, SslOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => handshake_continue/3}).
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -2203,7 +2211,8 @@ handshake_continue(Socket, SSLOptions) ->
 
 %%--------------------------------------------------------------------
 -doc "Continue the TLS handshake, possibly with new, additional or changed options.".
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -2221,7 +2230,8 @@ handshake_continue(Socket, SSLOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc "Cancel the handshake with a fatal `USER_CANCELED` alert.".
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
 %%
 %% Description: Cancels the handshakes sending a close alert.
@@ -2230,12 +2240,11 @@ handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>}).
 -doc "Closes a TLS/DTLS connection.".
 -spec  close(SslSocket) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
       Reason :: any().
-%%
-%% Description: Close an ssl connection
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:close(Pid, {close, ?DEFAULT_TIMEOUT});
@@ -2255,7 +2264,8 @@ In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
 connection.
 """.
--doc(#{since => <<"OTP 18.1">>}).
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP 18.1">>}).
 -spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
       How :: timeout() | {NewController::pid(), timeout()},
@@ -2282,17 +2292,16 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>}).
+-spec send(SslSocket, Data) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Data :: iodata().
 -doc """
 Writes `Data` to `SslSocket`.
 
 A notable return value is `{error, closed}` indicating that the socket is
 closed.
 """.
--spec send(SslSocket, Data) -> ok | {error, reason()} when
-      SslSocket :: sslsocket(),
-      Data :: iodata().
-%%
-%% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
 send(#sslsocket{pid = [Pid]}, Data) when is_pid(Pid) ->
     ssl_gen_statem:send(Pid, Data);
@@ -2307,18 +2316,13 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
-%%
-%% Description: Receives data when active = false
-%%--------------------------------------------------------------------
--doc(#{equiv => recv/3}).
+-doc(#{title => <<"Common Functions">>,
+       equiv => recv/3}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       HttpPacket :: any().
-
-recv(Socket, Length) ->
-    recv(Socket, Length, infinity).
 
 -doc """
 Receives a packet from a socket in passive mode. A closed socket is indicated by
@@ -2333,6 +2337,12 @@ from the other side.
 Optional argument `Timeout` specifies a time-out in milliseconds. The default
 value is `infinity`.
 """.
+%%--------------------------------------------------------------------
+recv(Socket, Length) ->
+    recv(Socket, Length, infinity).
+
+%%--------------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>}).
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -2351,6 +2361,7 @@ recv(#sslsocket{pid = {Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>}).
 -doc """
 Assigns a new controlling process to the SSL socket. A controlling process is
 the owner of an SSL socket, and receives all messages from the socket.
@@ -2377,6 +2388,7 @@ controlling_process(#sslsocket{pid = {Listen,
     Transport:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>}).
 -doc """
 Returns the most relevant information about the connection, ssl options that are
 undefined will be filtered out. Note that values that affect the security of the
@@ -2422,7 +2434,8 @@ set to `true`.
 >
 > If only undefined options are requested the resulting list can be empty.
 """.
--doc(#{since => <<"OTP 18.0">>}).
+-doc(#{title => <<"Info Functions">>,
+       since => <<"OTP 18.0">>}).
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
       Items :: connection_info_items(),
@@ -2441,6 +2454,7 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items)
     end.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>}).
 -doc "Returns the address and port number of the peer.".
 -spec peername(SslSocket) -> {ok, {Address, Port}} |
           {error, reason()} when
@@ -2462,6 +2476,7 @@ peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>}).
 -doc """
 The peer certificate is returned as a DER-encoded binary. The certificate can be
 decoded with `public_key:pkix_decode_cert/2` Suggested further reading about
@@ -2488,7 +2503,8 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the protocol negotiated through ALPN or NPN extensions.".
--doc(#{since => <<"OTP 18.0">>}).
+-doc(#{title => <<"Info Functions">>,
+       since => <<"OTP 18.0">>}).
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
       Protocol :: binary(),
@@ -2501,6 +2517,11 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:negotiated_protocol(Pid).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 20.3">>}).
+-spec cipher_suites(Description, Version) -> ciphers() when
+      Description :: default | all | exclusive | anonymous | exclusive_anonymous,
+      Version :: protocol_version() | ssl_record:ssl_version().
 -doc """
 Lists all possible cipher suites corresponding to `Description` that are
 available. The `exclusive` and `exclusive_anonymous` option will exclusively
@@ -2525,11 +2546,6 @@ by default.
 > the list for the current cryptolib. Note that cipher suites may be filtered
 > out because they are too old or too new depending on the cryptolib
 """.
--doc(#{since => <<"OTP 20.3">>}).
--spec cipher_suites(Description, Version) -> ciphers() when
-      Description :: default | all | exclusive | anonymous | exclusive_anonymous,
-      Version :: protocol_version() | ssl_record:ssl_version().
-
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
 %%--------------------------------------------------------------------
@@ -2549,7 +2565,8 @@ cipher_suites(Description, Version) ->
 Same as `cipher_suites/2` but lists RFC or OpenSSL string names instead of
 `t:erl_cipher_suite/0`
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 22.0">>}).
 -spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
       Description :: default | all | exclusive | anonymous,
       Version :: protocol_version() | ssl_record:ssl_version().
@@ -2584,7 +2601,8 @@ supported by the cryptolib used by the OTP crypto application. That is calling
 ssl:filter_cipher_suites(Suites, []) will be equivalent to only applying the
 filters for cryptolib support.
 """.
--doc(#{since => <<"OTP 20.3">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 20.3">>}).
 -spec filter_cipher_suites(Suites, Filters) -> Ciphers when
       Suites :: ciphers(),
       Filters :: cipher_filters(),
@@ -2612,7 +2630,8 @@ head of the cipher suite list `Suites` after removing them from `Suites` if
 present. `Preferred` may be a list of cipher suites or a list of filters in
 which case the filters are use on `Suites` to extract the preferred cipher list.
 """.
--doc(#{since => <<"OTP 20.3">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 20.3">>}).
 -spec prepend_cipher_suites(Preferred, Suites) -> ciphers() when
       Preferred :: ciphers() | cipher_filters(),
       Suites :: ciphers().
@@ -2637,7 +2656,8 @@ the end of the cipher suite list `Suites` after removing them from `Suites` if
 present. `Deferred` may be a list of cipher suites or a list of filters in which
 case the filters are use on `Suites` to extract the Deferred cipher list.
 """.
--doc(#{since => <<"OTP 20.3">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 20.3">>}).
 -spec append_cipher_suites(Deferred, Suites) -> ciphers() when
       Deferred :: ciphers() | cipher_filters(),
       Suites :: ciphers().
@@ -2703,7 +2723,8 @@ Example:
 > `{sha256, rsa}` these are legacy algorithms in TLS-1.3 that apply only to
 > certificate signatures in this version of the protocol.
 """.
--doc(#{since => <<"OTP 26.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 26.0">>}).
 -spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
       Version :: protocol_version().
@@ -2740,24 +2761,26 @@ signature_algs(Description, Version) ->
 
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Pre TLS-1.3 Functions">>,
+       since => <<"OTP 19.2">>}).
+-spec eccs() -> NamedCurves when
+      NamedCurves :: [named_curve()].
 -doc """
 Returns a list of all supported elliptic curves, including legacy curves, for all TLS/DTLS versions pre TLS-1.3.
 """.
--doc(#{since => <<"OTP 19.2">>}).
--spec eccs() -> NamedCurves when
-      NamedCurves :: [named_curve()].
 %%--------------------------------------------------------------------
 eccs() ->
     tls_v1:ec_curves(all, 'tlsv1.2').
 
 %%--------------------------------------------------------------------
--doc """
-Returns the by default supported elliptic curves for Version, which is a subset of what [eccs/\[0]] returns.
-""".
--doc(#{since => <<"OTP 19.2">>}).
+-doc(#{title => <<"Pre TLS-1.3 Functions">>,
+       since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
       Version :: 'tlsv1.2' | 'tlsv1.1' | 'tlsv1' | 'dtlsv1.2' | 'dtlsv1',
       NamedCurves :: [named_curve()].
+-doc """
+Returns the by default supported elliptic curves for Version, which is a subset of what [eccs/\[0]] returns.
+""".
 %%--------------------------------------------------------------------
 eccs('dtlsv1') ->
     eccs('tlsv1.1');
@@ -2773,29 +2796,36 @@ eccs(Other) ->
     erlang:error({badarg, Other}).
 
 %%--------------------------------------------------------------------
--doc false.
+-doc(#{title => <<"TLS-1.3 Only Functions">>,
+      since => <<"OTP 22">>}).
+-doc """
+   Returns all supported groups in TLS 1.3
+""".
 -spec groups() -> [group()].
-%% Description: returns all supported groups (TLS 1.3 and later)
 %%--------------------------------------------------------------------
 groups() ->
     tls_v1:groups().
 
 %%--------------------------------------------------------------------
--doc false.
+-doc(#{title => <<"TLS-1.3 Only Functions">>,
+      since => <<"OTP 22">>}).
 -spec groups(default) -> [group()].
-%% Description: returns the default groups (TLS 1.3 and later)
+
+-doc """
+   Returns default supported groups in TLS 1.3
+""".
+
 %%--------------------------------------------------------------------
 groups(default) ->
     tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>}).
 -doc "Gets the values of the specified socket options.".
 -spec getopts(SslSocket, OptionNames) ->
           {ok, [gen_tcp:option()]} | {error, reason()} when
       SslSocket :: sslsocket(),
       OptionNames :: [gen_tcp:option_name()].
-%%
-%% Description: Gets options
 %%--------------------------------------------------------------------
 getopts(#sslsocket{pid = [Pid|_]}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
     ssl_gen_statem:get_opts(Pid, OptionTags);
@@ -2826,12 +2856,11 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>}).
 -doc "Sets options according to `Options` for socket `SslSocket`.".
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
-%%
-%% Description: Sets options
 %%--------------------------------------------------------------------
 setopts(#sslsocket{pid = [Pid|_]}, [{active, _}] = Active) when is_pid(Pid) ->
     ssl_gen_statem:set_opts(Pid, Active);
@@ -2891,31 +2920,29 @@ setopts(#sslsocket{}, Options) ->
 
 %%---------------------------------------------------------------
 -doc(#{equiv => getstat/2}).
--doc(#{since => <<"OTP 19.0">>}).
+-doc(#{title => <<"Info Functions">>,
+       since => <<"OTP 19.0">>}).
 -spec getstat(SslSocket) ->
           {ok, OptionValues} | {error, inet:posix()} when
       SslSocket :: sslsocket(),
       OptionValues :: [{inet:stat_option(), integer()}].
-%%
-%% Description: Get all statistic options for a socket.
 %%--------------------------------------------------------------------
 getstat(Socket) ->
     getstat(Socket, inet:stats()).
 
-%%---------------------------------------------------------------
+%%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>,
+       since => <<"OTP 19.0">>}).
 -doc """
 Gets one or more statistic options for the underlying TCP socket.
 
 See inet:getstat/2 for statistic options description.
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -spec getstat(SslSocket, Options) ->
           {ok, OptionValues} | {error, inet:posix()} when
       SslSocket :: sslsocket(),
       Options :: [inet:stat_option()],
       OptionValues :: [{inet:stat_option(), integer()}].
-%%
-%% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
 getstat(#sslsocket{pid = {dtls, #config{transport_info = Info,
                                         dtls_handler = {Listener, _}}}},
@@ -2934,6 +2961,11 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
+-doc(#{title => <<"Common Functions">>,
+       since => <<"OTP R14B">>}).
+-spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      How :: read | write | read_write.
 -doc """
 Immediately closes a socket in one or two directions.
 
@@ -2943,12 +2975,6 @@ possible.
 To be able to handle that the peer has done a shutdown on the write side, option
 `{exit_on_close, false}` is useful.
 """.
--doc(#{since => <<"OTP R14B">>}).
--spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
-      SslSocket :: sslsocket(),
-      How :: read | write | read_write.
-%%
-%% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
 shutdown(#sslsocket{pid = {dtls, #config{transport_info = Info}}}, _) ->
     Transport = element(1, Info),
@@ -2972,14 +2998,13 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
     ssl_gen_statem:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>}).
 -doc "Returns the local address and port number of socket `SslSocket`.".
 -spec sockname(SslSocket) ->
           {ok, {Address, Port}} | {error, reason()} when
       SslSocket :: sslsocket(),
       Address :: inet:ip_address(),
       Port :: inet:port_number().
-%%
-%% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
 sockname(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
     dtls_packet_demux:sockname(Pid);
@@ -2992,6 +3017,12 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
+-doc(#{title => <<"Info Functions">>,
+       since => <<"OTP R14B">>}).
+-spec versions() -> [VersionInfo] when
+      VersionInfo :: {ssl_app, string()} |
+                     {supported | available | implemented, [tls_version()]} |
+                     {supported_dtls | available_dtls | implemented_dtls, [dtls_version()]}.
 -doc """
 Lists information, mainly concerning TLS/DTLS versions, in runtime for debugging
 and testing purposes.
@@ -3021,13 +3052,6 @@ and testing purposes.
 - **`implemented_dtls`** - All DTLS versions supported by the SSL application if
   linked with a crypto library with the necessary support.
 """.
--doc(#{since => <<"OTP R14B">>}).
--spec versions() -> [VersionInfo] when
-      VersionInfo :: {ssl_app, string()} |
-                     {supported | available | implemented, [tls_version()]} |
-                     {supported_dtls | available_dtls | implemented_dtls, [dtls_version()]}.
-%%
-%% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
 versions() ->
     ConfTLSVsns = tls_record:supported_protocol_versions(),
@@ -3057,6 +3081,11 @@ versions() ->
     ].
 
 %%---------------------------------------------------------------
+-doc(#{title => <<"Pre TLS-1.3 Functions">>,
+       since => <<"OTP R14B">>}).
+-spec renegotiate(SslSocket) -> ok | {error, reason()} when
+      SslSocket :: sslsocket().
+
 -doc """
 Initiates a new handshake. A notable return value is
 `{error, renegotiation_rejected}` indicating that the peer refused to go through
@@ -3069,11 +3098,6 @@ renegotiate, that is the refreshing of session keys. This is triggered
 automatically after reaching a plaintext limit and can be configured by option
 [key_update_at](`t:key_update_at/0`).
 """.
--doc(#{since => <<"OTP R14B">>}).
--spec renegotiate(SslSocket) -> ok | {error, reason()} when
-      SslSocket :: sslsocket().
-%%
-%% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
                                                               is_pid(Sender) ->
@@ -3107,7 +3131,8 @@ connection. There are two types of the key update: if _Type_ is set to _write_,
 only the writing key is updated; if _Type_ is set to _read_write_, both the
 reading and writing keys are updated.
 """.
--doc(#{since => <<"OTP 22.3">>}).
+-doc(#{title => <<"TLS-1.3 Only Functions">>,
+       since => <<"OTP 22.3">>}).
 -spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Type :: write | read_write.
@@ -3140,7 +3165,8 @@ Equivalent to
 > is equivalent to legacy function `prf/5` as
 > [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`).
 """.
--doc(#{since => <<"OTP 27">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 27">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
                  {ok, ExportKeyMaterials} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3155,6 +3181,16 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 27">>}).
+-spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
+                 {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
+      SslSocket :: sslsocket(),
+      Labels :: [binary()],
+      Contexts :: [binary() | no_context],
+      WantedLengths :: [non_neg_integer()],
+      ConsumeSecret :: boolean(),
+      ExportKeyMaterials :: [binary()].
 -doc """
 Uses the Pseudo-Random Function, PRF (pre TLS-1.3) or HKDF (TLS-1.3), for a TLS
 connection to generate and export keying materials. In TLS-1.3 using
@@ -3164,15 +3200,6 @@ relevant only in TLS-1.3 and it causes the TLS-1.3 exporter_master_secret to be
 consumed that is it will no longer be available, to increase security, and
 further attempts to call this function will fail.
 """.
--doc(#{since => <<"OTP 27">>}).
--spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
-                 {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
-      SslSocket :: sslsocket(),
-      Labels :: [binary()],
-      Contexts :: [binary() | no_context],
-      WantedLengths :: [non_neg_integer()],
-      ConsumeSecret :: boolean(),
-      ExportKeyMaterials :: [binary()].
 %%--------------------------------------------------------------------
 export_key_materials(#sslsocket{pid = [Pid|_]}, Labels, Contexts, WantedLengths, ConsumeSecret) when is_pid(Pid) ->
     ssl_gen_statem:call(Pid, {export_key_materials, Labels, Contexts, WantedLengths, ConsumeSecret});
@@ -3180,6 +3207,16 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Deprecated Functions">>,
+       since => <<"OTP R15B01">>}).
+-spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
+          {ok, binary()} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Secret :: binary() | 'master_secret',
+      Label :: binary(),
+      Seed :: [binary() | prf_random()],
+      WantedLength :: non_neg_integer().
+%%
 -doc """
 Uses the Pseudo-Random Function (PRF) of a TLS session to generate extra key
 material. It either takes user-generated values for `Secret` and `Seed` or atoms
@@ -3194,16 +3231,7 @@ directing it to use a specific value from the session security parameters.
 > use case. Called in TLS-1.3 context it will now behave as
 > [`export_key_materials(TLSSocket, [Label], [Context], [WantedLength])`](`export_key_materials/4`)
 """.
--doc(#{since => <<"OTP R15B01">>}).
--spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
-          {ok, binary()} | {error, reason()} when
-      SslSocket :: sslsocket(),
-      Secret :: binary() | 'master_secret',
-      Label :: binary(),
-      Seed :: [binary() | prf_random()],
-      WantedLength :: non_neg_integer().
-%%
-%% Description: use a ssl sessions TLS PRF to generate key material
+
 %%--------------------------------------------------------------------
 prf(#sslsocket{pid = [Pid|_]} = Socket,
     master_secret, Label, [client_random, server_random], WantedLength) when is_pid(Pid) ->
@@ -3231,6 +3259,9 @@ prf(Socket, Secret, Label, Context, WantedLength) ->
     {ok, tls_v1:prf(PRFAlg, Secret, Label, erlang:iolist_to_binary(Context), WantedLength)}.
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 17.5">>}).
+-spec clear_pem_cache() -> ok.
 -doc """
 PEM files, used by ssl API-functions, are cached for performance reasons. The
 cache is automatically checked at regular intervals to see if any cache entries
@@ -3239,15 +3270,12 @@ should be invalidated.
 This function provides a way to unconditionally clear the entire cache, thereby
 forcing a reload of previously cached PEM files.
 """.
--doc(#{since => <<"OTP 17.5">>}).
--spec clear_pem_cache() -> ok.
-%%
-%% Description: Clear the PEM cache
 %%--------------------------------------------------------------------
 clear_pem_cache() ->
     ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Presents the error returned by an SSL function as a printable string.".
 -spec format_error(Reason | {error, Reason}) -> string() when
       Reason :: any().
@@ -3259,15 +3287,9 @@ format_error({error, Reason}) ->
 format_error(Reason) ->
     do_format_error(Reason).
 
--doc false.
-tls_version(Version) when ?TLS_1_X(Version) ->
-    Version;
-tls_version(Version) when ?DTLS_1_X(Version) ->
-    dtls_v1:corresponding_tls_version(Version).
-
 %%--------------------------------------------------------------------
--doc "Converts `t:erl_cipher_suite/0` to RFC name string.".
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 21.0">>}).
 -spec suite_to_str(CipherSuite) -> string() when
       CipherSuite :: erl_cipher_suite();
                   (CipherSuite) -> string() when
@@ -3276,39 +3298,37 @@ tls_version(Version) when ?DTLS_1_X(Version) ->
                        cipher := null,
                        mac := null,
                        prf := null}.
-%%
-%% Description: Return the string representation of a cipher suite.
+-doc "Converts `t:erl_cipher_suite/0` to RFC name string.".
 %%--------------------------------------------------------------------
 suite_to_str(Cipher) ->
     ssl_cipher_format:suite_map_to_str(Cipher).
 
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 22.0">>}).
+-spec suite_to_openssl_str(CipherSuite) -> string() when
+      CipherSuite :: erl_cipher_suite().
+
 -doc """
 Converts `t:erl_cipher_suite/0` to OpenSSL name string.
 
 PRE TLS-1.3 these names differ for RFC names
 """.
--doc(#{since => <<"OTP 22.0">>}).
--spec suite_to_openssl_str(CipherSuite) -> string() when
-      CipherSuite :: erl_cipher_suite().                
-%%
-%% Description: Return the string representation of a cipher suite.
 %%--------------------------------------------------------------------
 suite_to_openssl_str(Cipher) ->
     ssl_cipher_format:suite_map_to_openssl_str(Cipher).
 
 %%
 %%--------------------------------------------------------------------
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 22.0">>}).
+-spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
+      CipherSuiteName :: string().
 -doc """
 Converts an RFC or OpenSSL name string to an `t:erl_cipher_suite/0` Returns an
 error if the cipher suite is not supported or the name is not a valid cipher
 suite name.
 """.
--doc(#{since => <<"OTP 22.0">>}).
--spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
-      CipherSuiteName :: string().
-%%
-%% Description: Return the map representation of a cipher suite.
 %%--------------------------------------------------------------------
 str_to_suite(CipherSuiteName) ->
     try
@@ -3324,7 +3344,17 @@ str_to_suite(CipherSuiteName) ->
     end.
 
 %%%--------------------------------------------------------------
-%%% Internal functions
+%%% Internal API
+%%%--------------------------------------------------------------------
+
+-doc false.
+tls_version(Version) when ?TLS_1_X(Version) ->
+    Version;
+tls_version(Version) when ?DTLS_1_X(Version) ->
+    dtls_v1:corresponding_tls_version(Version).
+
+%%%--------------------------------------------------------------
+%%% Internal function
 %%%--------------------------------------------------------------------
 supported_suites(exclusive, Version) when ?TLS_1_X(Version) ->
     tls_v1:exclusive_suites(Version);
