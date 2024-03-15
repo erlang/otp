@@ -138,8 +138,6 @@
          invalid_keyfile/1,
          options_not_proplist/0,
          options_not_proplist/1,
-         invalid_options/0,
-         invalid_options/1,
          options_whitebox/0, options_whitebox/1,
          cb_info/0,
          cb_info/1,
@@ -254,8 +252,7 @@ groups() ->
                            handshake_paus_tests()) --
                           [dh_params,
                            new_options_in_handshake,
-                           handshake_continue_tls13_client,
-                           invalid_options])
+                           handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++ [honor_client_cipher_order_tls12,
                                                                                                 honor_server_cipher_order_tls12]},
@@ -290,7 +287,6 @@ simple_api_tests() ->
      invalid_certfile,
      invalid_cacertfile,
      invalid_dhfile,
-     invalid_options,
      options_not_proplist,
      options_whitebox,
      format_error
@@ -2229,71 +2225,6 @@ options_not_proplist(Config) when is_list(Config) ->
 
     ok.
 
-%%-------------------------------------------------------------------
-invalid_options() ->
-    [{doc,"Test what happens when we give invalid options"}].
-       
-invalid_options(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Check = fun(Client, Server, {versions, [sslv2, sslv3]} = Option) ->
-		    ssl_test_lib:check_result(Server, 
-					      {error, {options, {sslv2, Option}}}, 
-					      Client,
-					      {error, {options, {sslv2, Option}}});
-	       (Client, Server, Option) ->
-		    ssl_test_lib:check_result(Server, 
-					      {error, {options, Option}}, 
-					      Client,
-					      {error, {options, Option}})
-	    end,
-
-    TestOpts = 
-         [{versions, [sslv2, sslv3]}, 
-          {verify_fun, function},
-          {fail_if_no_peer_cert, 0}, 
-          {depth, four}, 
-          {certfile, 'cert.pem'}, 
-          {keyfile,'key.pem' }, 
-          {password, foo},
-          {cacertfile, ""}, 
-          {ciphers, [{foo, bar, sha, ignore}]},
-          {reuse_session, foo},
-          {reuse_sessions, 0},
-          {renegotiate_at, "10"},
-          {mode, depech},
-          {packet, 8.0},
-          {packet_size, "2"},
-          {header, a},
-          {active, trice},
-          {key, 'key.pem' }],
-
-    TestOpts2 =
-        [{[{supported_groups, []}, {versions, [tlsv1]}],
-          {options,incompatible,[supported_groups,{versions,['tlsv1']}]}}],
-
-    [begin
-	 Server =
-	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{options, ServerOpts ++ [TestOpt]}]),
-	 %% Will never reach a point where port is used.
-	 Client =
-	     ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0},
-					      {host, Hostname}, {from, self()},
-					      {options, ClientOpts ++ [TestOpt]}]),
-	 Check(Client, Server, TestOpt),
-	 ok
-     end || TestOpt <- TestOpts],
-
-    [begin
-         start_client_negative(Config, TestOpt, ErrorMsg),
-         ok
-     end || {TestOpt, ErrorMsg} <- TestOpts2],
-    ok.
-
 options_whitebox() ->
     [{doc,"Whitebox tests of option handling"}].
 
@@ -2349,6 +2280,7 @@ customize_defaults(Opts, Role, Host) ->
                 try ssl:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
                         ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
+                       %% __ALL = ssl:update_options([], Role, __ALL);
                     Other ->
                         ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
@@ -2892,6 +2824,12 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
      ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
          [{verify, verify_peer}, {cacerts, [Cert]}], server),
 
+    %% Test ssl option handling. Option values are verified by public_key tests
+    CertPolicyOpts = [{policy_set, [?anyPolicy]}, {explicit_policy, false}],
+
+    ?OK(#{cert_policy_opts := CertPolicyOpts}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, CertPolicyOpts}],
+        client),
+
     NewF3 = fun(_,_,_) -> ok end,
     NewF4 = fun(_,_,_,_) -> ok end,
     ?OK(#{}, [], client, [fail_if_no_peer_cert]),
@@ -2923,6 +2861,15 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], server),
     ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
     ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
+    ?ERR({cert_policy_opts, {foo, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{foo,bar}]}],
+        client),
+    ?ERR({cert_policy_opts, {explicit_policy, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy,bar}]}],
+         client),
+    ?ERR({cert_policy_opts, {inhibit_policy_mapping, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy, true},
+                                                                                                                           {inhibit_policy_mapping,bar}]}],
+         client),
+    ?ERR({cert_policy_opts, {inhibit_any_policy, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{inhibit_any_policy,bar}]}],
+         client),
     ok.
 
 options_fallback(_Config) ->

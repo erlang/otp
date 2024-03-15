@@ -1900,8 +1900,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                  path_len => length(Path)
                                                 },
                                                Path, LogLevel),
-    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
-               {verify_fun, ValidationFunAndState}],
+    Options = ssl_handshake:path_validation_options(Opts, ValidationFunAndState),
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 
 select_client_cert_key_pair(Session0,

@@ -473,6 +473,7 @@ only the [signature_algs](`t:signature_algs/0`) extension is sent.
                                 {keep_secrets, keep_secrets()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
+                                {cert_policy_opts, [policy_opt()]} |
                                 {crl_check, crl_check()} |
                                 {crl_cache, crl_cache_opts()} |
                                 {max_handshake_size, handshake_size()} |
@@ -799,6 +800,15 @@ certificate chain validating the CRLs.
 The CRLs will be fetched from a local or external cache. See
 `m:ssl_crl_cache_api`.
 """.
+
+-type policy_opt() :: {policy_set, [public_key:oid()]} | {explicit_policy, boolean()} |  {inhibit_policy_mapping, boolean()} | {inhibit_any_policy, boolean()}.
+-doc """
+Configure X509 certificate policy handling for the certificate path validation process
+see [(public_key:pkix_path_validation/3) ](`public_key:pkix_path_validation/3`) for
+further explanation.
+
+""".
+
 -doc(#{title =>
            <<"TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT">>}).
 -type crl_check()                :: boolean() | peer | best_effort.
@@ -3394,7 +3404,7 @@ ssl_options() ->
      use_ticket,
      use_srtp,
      user_lookup_fun,
-     verify, verify_fun,
+     verify, verify_fun, cert_policy_opts,
      versions
     ].
 
@@ -3561,17 +3571,18 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    Opts = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
+    Opts3 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
 
-    case Role of
-        client ->
-            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain},
-                           Env);
-        server ->
-            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
-                                           fail_if_no_peer_cert => FailNoPeerCert},
-                           Env)
-    end.
+    Opts = case Role of
+               client ->
+                   opt_verify_fun(UserOpts, Opts3#{partial_chain => PartialChain},
+                                  Env);
+               server ->
+                   opt_verify_fun(UserOpts, Opts3#{partial_chain => PartialChain,
+                                                   fail_if_no_peer_cert => FailNoPeerCert},
+                                  Env)
+           end,
+    opt_policies(UserOpts, Opts).
 
 default_verify(client) ->
     %% Server authenication is by default requiered
@@ -3624,6 +3635,33 @@ convert_verify_fun() ->
        (_, valid_peer, UserState) ->
             {valid, UserState}
     end.
+
+opt_policies(UserOpts, Opts) ->
+    case get_opt(cert_policy_opts, [], UserOpts, Opts) of
+        {default, []} ->
+            Opts#{cert_policy_opts => []};
+        {old, POpts} ->
+            Opts#{cert_policy_opts => POpts};
+        {_, POpts} ->
+            validate_policy_opts(POpts),
+            Opts#{cert_policy_opts => POpts}
+    end.
+
+validate_policy_opts([]) ->
+    true;
+validate_policy_opts([{policy_set, OidList} | Rest]) when is_list(OidList) ->
+    validate_policy_opts(Rest);
+validate_policy_opts([{Opt, Bool} | Rest]) when Opt == explicit_policy;
+                                                Opt == inhibit_policy_mapping;
+                                                Opt == inhibit_any_policy ->
+    case is_boolean(Bool) of
+        true ->
+            validate_policy_opts(Rest);
+        false ->
+            option_error(cert_policy_opts, {Opt, Bool})
+    end;
+validate_policy_opts([Opt| _]) ->
+    option_error(cert_policy_opts, Opt).
 
 opt_certs(UserOpts, #{log_level := LogLevel, versions := Versions} = Opts0, Env) ->
     case get_opt_list(certs_keys, [], UserOpts, Opts0) of

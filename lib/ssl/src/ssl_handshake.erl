@@ -34,8 +34,10 @@
 -include("tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export_type([ssl_handshake/0, ssl_handshake_history/0,
-	      public_key_info/0, oid/0]).
+-export_type([ssl_handshake/0,
+              ssl_handshake_history/0,
+	      public_key_info/0,
+              oid/0]).
 
 -type oid()               :: tuple().
 -type public_key_params() :: #'Dss-Parms'{} |  {namedCurve, oid()} | #'ECParameters'{} | term().
@@ -47,45 +49,83 @@
 			 #hello_request{} | #next_protocol{} | #end_of_early_data{}.
 
 %% Create handshake messages
--export([hello_request/0, server_hello/4, server_hello_done/0,
-	 certificate/4,  client_certificate_verify/6,  certificate_request/4, key_exchange/3,
-	 finished/5,  next_protocol/1, digitally_signed/5,
+-export([hello_request/0,
+         server_hello/4,
+         server_hello_done/0,
+	 certificate/4,
+         client_certificate_verify/6,
+         certificate_request/4,
+         key_exchange/3,
+	 finished/5,
+         next_protocol/1,
+         digitally_signed/5,
          certificate_authorities/2]).
 
 %% Handle handshake messages
--export([certify/9, certificate_verify/6, verify_signature/5,
-	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5,
-         select_version/3, select_supported_version/2, extension_value/1
+-export([certify/9,
+         certificate_verify/6,
+         verify_signature/5,
+	 master_secret/4,
+         server_key_exchange_hash/2,
+         verify_connection/6,
+	 init_handshake_history/0,
+         update_handshake_history/2,
+         verify_server_key/5,
+         select_version/3,
+         select_supported_version/2,
+         extension_value/1
 	]).
 
 %% Encode
--export([encode_handshake/2, encode_hello_extensions/1, encode_extensions/1, encode_extensions/2,
-	 encode_client_protocol_negotiation/2, encode_protocols_advertised_on_server/1]).
+-export([encode_handshake/2,
+         encode_hello_extensions/1,
+         encode_extensions/1,
+         encode_extensions/2,
+	 encode_client_protocol_negotiation/2,
+         encode_protocols_advertised_on_server/1]).
 %% Decode
--export([decode_handshake/3, decode_vector/1, decode_hello_extensions/4, decode_extensions/3,
-	 decode_server_key/3, decode_client_key/3,
+-export([decode_handshake/3,
+         decode_vector/1,
+         decode_hello_extensions/4,
+         decode_extensions/3,
+	 decode_server_key/3,
+         decode_client_key/3,
 	 decode_suites/2
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_signature_algs/2,  available_signature_algs/3,
-         cipher_suites/3, select_session/8,
-         premaster_secret/2, premaster_secret/3, premaster_secret/4]).
+-export([available_suites/2,
+         available_signature_algs/2,
+         available_signature_algs/3,
+         cipher_suites/3,
+         select_session/8,
+         premaster_secret/2,
+         premaster_secret/3,
+         premaster_secret/4]).
 
 %% Extensions handling
 -export([client_hello_extensions/10,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
-	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
-         select_hashsign/4, select_hashsign/5,
-	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3,
-	 add_alpn/2, add_selected_version/1, decode_alpn/1, max_frag_enum/1
+	 handle_server_hello_extensions/9,
+         select_curve/2,
+         select_curve/3,
+         select_hashsign/4,
+         select_hashsign/5,
+	 select_hashsign_algs/3,
+         empty_extensions/2,
+         add_server_share/3,
+	 add_alpn/2,
+         add_selected_version/1,
+         decode_alpn/1,
+         max_frag_enum/1
 	]).
 
+%% Certificate handling
 -export([get_cert_params/1,
          select_own_cert/1,
          path_validation/10,
          validation_fun_and_state/4,
+         path_validation_options/2,
          path_validation_alert/1]).
 
 %% Tracing
@@ -2058,6 +2098,11 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
 				      SslState)
      end, VerifyState}.
 
+path_validation_options(Opts, ValidationFunAndState) ->
+    PolicyOpts = maps:get(cert_policy_opts, Opts, []),
+    [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
+     {verify_fun, ValidationFunAndState} | PolicyOpts].
+
 apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
@@ -3853,8 +3898,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               path_len => length(Path)
                                              },
                                  Path, Level),
-    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
-               {verify_fun, ValidationFunAndState}],
+    Options = path_validation_options(Opts, ValidationFunAndState),
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 
 error_to_propagate({error, {bad_cert, root_cert_expired}} = Error, _) ->
