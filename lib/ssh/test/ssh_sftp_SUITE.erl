@@ -565,11 +565,11 @@ retrieve_attributes(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, SftpFileName),
-    {ok, NewFileInfo} = file:read_file_info(FileName),
-    ct:log("ssh_sftp:read_file_info(~p): ~p~n"
-           "file:read_file_info(~p): ~p",
-           [SftpFileName, FileInfo, FileName, NewFileInfo]),
+    {ok, SftpFileInfo} = ssh_sftp:read_file_info(Sftp, SftpFileName),
+    {ok, FileFileInfo} = file:read_file_info(FileName),
+    ct:log("ssh_sftp:read_file_info(): ~p~n"
+           "file:read_file_info(): ~p",
+           [SftpFileInfo, FileFileInfo]),
     {ExpectedUid, ExpectedGid} =
         case {os:type(), proplists:get_value(group,Config)} of
             {{win32, _}, openssh_server} ->
@@ -580,10 +580,10 @@ retrieve_attributes(Config) when is_list(Config) ->
                 %% and runs on WSL)
                 {1000, 1000};
             _ ->
-                {FileInfo#file_info.uid, FileInfo#file_info.gid}
+                {FileFileInfo#file_info.uid, FileFileInfo#file_info.gid}
         end,
-    ?assertEqual(ExpectedUid, NewFileInfo#file_info.uid),
-    ?assertEqual(ExpectedGid, NewFileInfo#file_info.gid),
+    ?assertEqual(ExpectedUid, SftpFileInfo#file_info.uid),
+    ?assertEqual(ExpectedGid, SftpFileInfo#file_info.gid),
     ok.
 
 %%--------------------------------------------------------------------
