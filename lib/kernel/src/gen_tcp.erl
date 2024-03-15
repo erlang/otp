@@ -91,28 +91,16 @@ For more examples, see section [Examples](`m:gen_tcp#module-examples`).
 >   buffering. Instead the user hangs either until all data has been sent or the
 >   `send_timeout` timeout has been reached.
 >
-> - Remote close detected by background send.
+> - `shutdown/2` may hide errors
 >
->   An background send will detect a 'remote close' and (the inet driver will)
->   mark the socket as 'closed'. No other action is taken. If the socket has
->   `active` set to `false` (passive) at this point and no one is reading, this
->   will not be noticed. But as soon as the socket is "activated" (`active` set
->   to not `false`, `send/2` is called or [recv/2,3](`recv/2`) is called), an
->   error message will be sent to the caller or (socket) owner:
->   `{tcp_error, Socket, econnreset}`. Any data in the OS receive buffers will
->   be lost\!
+>   The call does not involve the receive process state, and is done
+>   right on the underlying socket.  On for example Linux, it is a known
+>   misbehaviour that it skips some checks so doing shutdown on a
+>   listen socket returns `ok` while the logical result should have been
+>   `{error, enotconn}`.  The `inet_drv.c` driver did an extra check
+>   and simulated the correct error, but with `Backend = socket`
+>   it would introduce overhead to involve the receive process.
 >
->   This behaviour is _not_ replicated by the socket implementation. A send
->   operation will detect a remote close and immediately return this to the
->   caller, but do nothing else. A reader will therefore be able to extract any
->   data from the OS buffers. If the socket is set to `active` not `false`, the
->   data will be received as expected (`{tcp, ...}` and then a closed message
->   (`{tcp_closed, ...}` will be received (not an error).
->
-> - The option [show_econnreset](`m:inet#option-show_econnreset`) basically do
->   _not_ work as described when used with `inet_backend = socket`. The "issue"
->   is that a remote close (as described above) _do_ allow a reader to extract
->   what is in the read buffers before a close is "delivered".
 > - The option [nodelay](`m:inet#option-nodelay`) is a TCP specific option that
 >   is _not_ compatible with `domain = local`.
 >
