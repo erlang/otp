@@ -24,19 +24,19 @@ limitations under the License.
 An Erlang process is lightweight compared to threads and processes in operating
 systems.
 
-A newly spawned Erlang process uses 326 words of memory. The size can be found
+A newly spawned Erlang process uses 327 words of memory. The size can be found
 as follows:
 
 ```erlang
-Erlang/OTP 24 [erts-12.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
+Erlang/OTP 27 [erts-14.2.3] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-Eshell V5.6  (abort with ^G)
+Eshell V14.2.3 (press Ctrl+G to abort, type help(). for help)
 1> Fun = fun() -> receive after infinity -> ok end end.
-#Fun<...>
+#Fun<erl_eval.43.39164016>
 2> {_,Bytes} = process_info(spawn(Fun), memory).
-{memory,1232}
+{memory,2616}
 3> Bytes div erlang:system_info(wordsize).
-309
+327
 ```
 
 The size includes 233 words for the heap area (which includes the stack). The
@@ -45,7 +45,7 @@ garbage collector increases the heap as needed.
 The main (outer) loop for a process _must_ be tail-recursive. Otherwise, the
 stack grows until the process terminates.
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 loop() ->
@@ -65,19 +65,19 @@ The call to `io:format/2` will never be executed, but a return address will
 still be pushed to the stack each time `loop/0` is called recursively. The
 correct tail-recursive version of the function looks as follows:
 
-_DO_
+**DO**
 
 ```erlang
-   loop() ->
-      receive
-         {sys, Msg} ->
-            handle_sys_msg(Msg),
-            loop();
-         {From, Msg} ->
-            Reply = handle_msg(Msg),
-            From ! Reply,
-            loop()
-    end.
+loop() ->
+   receive
+      {sys, Msg} ->
+         handle_sys_msg(Msg),
+         loop();
+      {From, Msg} ->
+         Reply = handle_msg(Msg),
+         From ! Reply,
+         loop()
+ end.
 ```
 
 ### Initial Heap Size
@@ -101,15 +101,16 @@ The gain is twofold:
 
 > #### Warning {: .warning }
 >
-> The emulator probably uses more memory, and because garbage collections occur
+> The runtime system probably uses more memory, and because garbage collections occur
 > less frequently, huge binaries can be kept much longer.
+>
+> This optimization is not to be attempted without proper measurements.
 
 In systems with many processes, computation tasks that run for a short time can
 be spawned off into a new process with a higher minimum heap size. When the
 process is done, it sends the result of the computation to another process and
 terminates. If the minimum heap size is calculated properly, the process might
-not have to do any garbage collections at all. _This optimization is not to be
-attempted without proper measurements._
+not have to do any garbage collections at all.
 
 ## Sending Messages
 
@@ -117,10 +118,10 @@ All data in messages sent between Erlang processes is copied, except for
 [refc binaries](binaryhandling.md#refc_binary) and
 [literals](eff_guide_processes.md#literal-pool) on the same Erlang node.
 
-When a message is sent to a process on another Erlang node, it is first encoded
-to the Erlang External Format before being sent through a TCP/IP socket. The
-receiving Erlang node decodes the message and distributes it to the correct
-process.
+When a message is sent to a process on another Erlang node, it is
+first encoded to the [Erlang External Format](`e:erts:erl_ext_dist.md`)
+before being sent through a TCP/IP socket. The receiving Erlang node
+decodes the message and distributes it to the correct process.
 
 ## Receiving messages
 
@@ -128,7 +129,7 @@ The cost of receiving messages depends on how complicated the `receive`
 expression is. A simple expression that matches any message is very cheap
 because it retrieves the first message in the message queue:
 
-_DO_
+**DO**
 
 ```erlang
 receive
@@ -148,10 +149,10 @@ end.
 
 While this is convenient it means that the entire message queue must be searched
 until it finds a matching message. This is very expensive for processes with
-long message queues, so we have added an optimization for the common case of
+long message queues, so there is an optimization for the common case of
 sending a request and waiting for a response shortly after:
 
-_DO_
+**DO**
 
 ```erlang
 MRef = monitor(process, Process),
@@ -263,7 +264,7 @@ tuple every time it is called (only to have it discarded the next time the
 garbage collector was run), but the tuple is located in the module's literal
 pool:
 
-_DO_
+**DO**
 
 ```erlang
 days_in_month(M) ->
@@ -290,7 +291,7 @@ Here is an example how the reserved virtual address space for literals can be
 raised to 2 GB (2048 MB):
 
 ```text
-    erl +MIscs 2048
+erl +MIscs 2048
 ```
 
 ## Loss of Sharing
@@ -313,7 +314,6 @@ subterms.
 The following example shows how a shared subterm can be created:
 
 ```erlang
-
 kilo_byte() ->
     kilo_byte(10, [42]).
 
@@ -369,16 +369,19 @@ It is possible to build an _experimental_ variant of the runtime system that
 will preserve sharing when copying terms by giving the
 `--enable-sharing-preserving` option to the `configure` script.
 
-## SMP Emulator
+## SMP Run-Time System
 
-The emulator takes advantage of a multi-core or multi-CPU computer by running
-several Erlang scheduler threads (typically, the same as the number of cores).
+The Erlang run-time system takes advantage of a multi-core or
+multi-CPU computer by running several Erlang scheduler threads
+(typically, the same number of threads as the number of cores).
 
 To gain performance from a multi-core computer, your application _must have more
 than one runnable Erlang process_ most of the time. Otherwise, the Erlang
 emulator can still only run one Erlang process at the time.
 
-Benchmarks that appear to be concurrent are often sequential. The estone
-benchmark, for example, is entirely sequential. So is the most common
-implementation of the "ring benchmark"; usually one process is active, while the
-others wait in a `receive` statement.
+Benchmarks that appear to be concurrent are often sequential.  For
+example, the [EStone
+benchmark](https://github.com/erlang/otp/blob/f164034e6fdab3316ae23c5d5bbaef258dd6d12c/erts/emulator/test/estone_SUITE.erl)
+is entirely sequential. So is the most common implementation of the
+"ring benchmark"; usually one process is active, while the others wait
+in a `receive` statement.

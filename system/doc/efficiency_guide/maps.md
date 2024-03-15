@@ -76,8 +76,8 @@ module.
   efficiently add multiple default values. For example:
 
   ```erlang
-        DefaultMap = #{shoe_size => 42, editor => emacs},
-        MapWithDefaultsApplied = maps:merge(DefaultMap, OtherMap)
+  DefaultMap = #{shoe_size => 42, editor => emacs},
+  MapWithDefaultsApplied = maps:merge(DefaultMap, OtherMap)
   ```
 
 ## Using Maps as Dictionaries
@@ -142,8 +142,9 @@ elements, or when it shrinks to 32 elements or less.
 
 A small map looks like this inside the runtime system:
 
-| `FLATMAP` | _N_ | _Keys_ | _Value1_ | _. . ._ | _ValueN_ |
-| --------- | --- | ------ | -------- | ------- | -------- |
+| 0           | 1   | 2      | 3        |         | N        |
+| :---------: | --- | :----: | :------: | :-----: | :------: |
+| **FLATMAP** | _N_ | _Keys_ | _Value1_ | _..._   | _ValueN_ |
 
 _Table: The representation of a small map_
 
@@ -162,23 +163,26 @@ _Table: The representation of a small map_
 As an example, let us look at how the map `#{a => foo, z => bar}` is
 represented:
 
-| `FLATMAP` | _2_ | _\{a,z\}_ | _foo_ | _bar_ |
-| --------- | --- | --------- | ----- | ----- |
+| 0           | 1   | 2         | 3     | 4     |
+| :---------: | --- | :-------: | :---: | ----- |
+| **FLATMAP** | _2_ | `{a,z}`   | `foo` | `bar` |
 
 _Table: \#\{a => foo, z => bar\}_
 
 Let us update the map: `M#{q => baz}`. The map now looks like this:
 
-| `FLATMAP` | _3_ | _\{a,q,z\}_ | _foo_ | _baz_ | _bar_ |
-| --------- | --- | ----------- | ----- | ----- | ----- |
+| 0           | 1   | 2           | 3     | 4     | 5     |
+| :---------: | --- | :---------: | :---: | :---: | :---: |
+| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bar` |
 
 _Table: \#\{a => foo, q => baz, z => bar\}_
 
 Finally, change the value of one element: `M#{z := bird}`. The map now looks
 like this:
 
-| `FLATMAP` | _3_ | _\{a,q,z\}_ | _foo_ | _baz_ | _bird_ |
-| --------- | --- | ----------- | ----- | ----- | ------ |
+| 0           | 1   | 2           | 3     | 4     | 5      |
+| :---------: | --- | :---------: | :---: | :---: | :----: |
+| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bird` |
 
 _Table: \#\{a => foo, q => baz, z => bird\}_
 
@@ -209,7 +213,7 @@ could be identical, so the operations need to be performed sequentially from
 left to right.)
 
 The memory size for a small map is the size of all keys and values plus 5 words.
-See [Advanced](advanced.md#memory) for more information about memory sizes.
+See [Memory](memory.md) for more information about memory sizes.
 
 ### How Large Maps are Implemented
 
@@ -226,7 +230,7 @@ The storage overhead for a large map is higher than for a small map. For a large
 map, the extra number of words besides the keys and values is roughly
 proportional to the number of elements. For a map with 33 elements the overhead
 is at least 53 heap words according to the formula in
-[Advanced](advanced.md#memory) (compared to 5 extra words for a small map
+[Memory](memory.md) (compared to 5 extra words for a small map
 regardless of the number of elements).
 
 When a large map is updated, the updated map and the original map will share
@@ -252,18 +256,18 @@ operations that can only be achieved using the map syntax:
 
 For example:
 
-_DO_
+**DO**
 
 ```erlang
-    Map = Map1#{x := X, y := Y, z := Z}
+Map = Map1#{x := X, y := Y, z := Z}
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-    Map2 = maps:update(x, X, Map1),
-    Map3 = maps:update(y, Y, Map2),
-    Map = maps:update(z, Z, Map3)
+Map2 = maps:update(x, X, Map1),
+Map3 = maps:update(y, Y, Map2),
+Map = maps:update(z, Z, Map3)
 ```
 
 If the map is a small map, the first example runs roughly three times as fast.
@@ -272,16 +276,16 @@ Note that for variable keys, the elements are updated sequentially from left to
 right. For example, given the following update with variable keys:
 
 ```erlang
-    Map = Map1#{Key1 := X, Key2 := Y, Key3 := Z}
+Map = Map1#{Key1 := X, Key2 := Y, Key3 := Z}
 ```
 
 the compiler rewrites it like this to ensure that the updates are applied from
 left to right:
 
 ```erlang
-    Map2 = Map1#{Key1 := X},
-    Map3 = Map2#{Key2 := Y},
-    Map = Map3#{Key3 := Z}
+Map2 = Map1#{Key1 := X},
+Map3 = Map2#{Key2 := Y},
+Map = Map3#{Key3 := Z}
 ```
 
 If a key is known to exist in a map, using the `:=` operator is slightly more
@@ -348,10 +352,10 @@ As an optimization, the compiler will rewrite a call to `maps:get/3` to Erlang
 code similar to the following:
 
 ```erlang
-    Result = case Map of
-                 #{Key := Value} -> Value;
-                 #{} -> Default
-             end
+Result = case Map of
+             #{Key := Value} -> Value;
+             #{} -> Default
+         end
 ```
 
 This is reasonably efficient, but if a small map is used as an alternative to
@@ -364,8 +368,8 @@ multiple times, consider putting the default values in a map and merging that
 map with the other map:
 
 ```erlang
-    DefaultMap = #{Key1 => Value2, Key2 => Value2, ..., KeyN => ValueN},
-    MapWithDefaultsApplied = maps:merge(DefaultMap, OtherMap)
+DefaultMap = #{Key1 => Value2, Key2 => Value2, ..., KeyN => ValueN},
+MapWithDefaultsApplied = maps:merge(DefaultMap, OtherMap)
 ```
 
 This helps share keys between the default map and the one you applied defaults

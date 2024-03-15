@@ -29,9 +29,10 @@ One exception is pattern matching of binaries. The compiler does not rearrange
 clauses that match binaries. Placing the clause that matches against the empty
 binary _last_ is usually slightly faster than placing it _first_.
 
-The following is a rather unnatural example to show another exception:
+The following is a rather unnatural example to show another exception where
+rearranging clauses is beneficial:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 atom_map1(one) -> 1;
@@ -62,7 +63,7 @@ follows:
 
 Rewriting to either:
 
-_DO_
+**DO**
 
 ```erlang
 atom_map2(one) -> 1;
@@ -76,7 +77,7 @@ atom_map2(Int) when is_integer(Int) -> Int.
 
 or:
 
-_DO_
+**DO**
 
 ```erlang
 atom_map3(Int) when is_integer(Int) -> Int;
@@ -92,12 +93,12 @@ gives slightly more efficient matching code.
 
 Another example:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 map_pairs1(_Map, [], Ys) ->
     Ys;
-map_pairs1(_Map, Xs, [] ) ->
+map_pairs1(_Map, Xs, []) ->
     Xs;
 map_pairs1(Map, [X|Xs], [Y|Ys]) ->
     [Map(X, Y)|map_pairs1(Map, Xs, Ys)].
@@ -112,7 +113,7 @@ the order written.
 If the function is rewritten as follows, the compiler is free to rearrange the
 clauses:
 
-_DO_
+**DO**
 
 ```erlang
 map_pairs2(_Map, [], Ys) ->
@@ -125,7 +126,7 @@ map_pairs2(Map, [X|Xs], [Y|Ys]) ->
 
 The compiler will generate code similar to this:
 
-_DO NOT (already done by the compiler)_
+**DO NOT (already done by the compiler)**
 
 ```erlang
 explicit_map_pairs(Map, Xs0, Ys0) ->
@@ -171,30 +172,3 @@ hash table. It is therefore always slower than a direct call or a fun call.
 
 Caching callback functions into funs may be more efficient in the long run than
 apply calls for frequently-used callbacks.
-
-## Memory Usage in Recursion
-
-When writing recursive functions, it is preferable to make them tail-recursive
-so that they can execute in constant memory space:
-
-_DO_
-
-```erlang
-list_length(List) ->
-    list_length(List, 0).
-
-list_length([], AccLen) ->
-    AccLen; % Base case
-
-list_length([_|Tail], AccLen) ->
-    list_length(Tail, AccLen + 1). % Tail-recursive
-```
-
-_DO NOT_
-
-```erlang
-list_length([]) ->
-    0. % Base case
-list_length([_ | Tail]) ->
-    list_length(Tail) + 1. % Not tail-recursive
-```

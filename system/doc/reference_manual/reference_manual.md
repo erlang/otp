@@ -40,9 +40,10 @@ following:
   [logging](`e:system:error_logging.md`),
   [creating target systems](`e:system:create_target.md`)
 
-- [Efficiency Guide](`e:system:advanced.md`)
+- [Efficiency Guide](`e:system:efficiency_guide.md`)
 
-  Memory consumption, system limits
+  [Memory consumption](`e:system:memory.md`) and
+  [system limits](`e:system:system_limits.md`).
 
 - ERTS User's Guide
 

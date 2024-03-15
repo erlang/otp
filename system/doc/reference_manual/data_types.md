@@ -234,7 +234,7 @@ For more examples, see [Programming Examples](`e:system:bit_syntax.md`).
 
 ## Reference
 
-A term that is [unique](`e:system:advanced.md#unique_references`)
+A term that is [unique](`e:system:system_limits.md#unique_references`)
 among connected nodes. A reference is created by calling the
 [`make_ref/0`](`erlang:make_ref/0`) BIF. The
 [`is_reference/1`](`erlang:is_reference/1`) BIF tests whether a term

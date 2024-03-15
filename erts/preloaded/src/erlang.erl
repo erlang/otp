@@ -868,7 +868,7 @@ or `unicode`, the binary must contain valid UTF-8 sequences.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 
 > #### Note {: .info }
 >
@@ -876,7 +876,7 @@ or `unicode`, the binary must contain valid UTF-8 sequences.
 > garbage collected. Therefore, it is recommended to consider whether
 > [`binary_to_existing_atom/2`](`binary_to_existing_atom/2`) is a better option
 > than [`binary_to_atom/2`](`binary_to_atom/2`). The default limits can be found
-> in [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> in [Efficiency Guide (section System Limits)](`e:system:system_limits.md#atoms`).
 
 Examples:
 
@@ -914,7 +914,7 @@ binary_to_existing_atom(Binary) ->
 -doc """
 As `binary_to_atom/2`, but the atom must exist.
 
-The Erlang system has a [configurable limit](`e:system:advanced.md`) for the
+The Erlang system has a [configurable limit](`e:system:system_limits.md#atoms`) for the
 total number of atoms that can exist, and atoms are not garbage collected.
 Therefore, it is not safe to create many atoms from binaries that come from an
 untrusted source (for example, a file fetched from the Internet), for example,
@@ -943,7 +943,7 @@ Failure: `badarg` if the atom does not exist.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 """.
 -doc #{ group => terms }.
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when
@@ -3629,15 +3629,16 @@ Unicode characters above 255.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [efficiency guide (section System Limits)](`e:system:system_limits.md`).
 
 > #### Note {: .info }
 >
-> There is configurable limit on how many atoms that can exist and atoms are not
+> There is a [configurable limit](`e:system:system_limits.md#atoms`)
+> on how many atoms that can exist and atoms are not
 > garbage collected. Therefore, it is recommended to consider if
 > `list_to_existing_atom/1` is a better option than
 > [`list_to_atom/1`](`list_to_atom/1`). The default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 
 Example:
 
@@ -3990,7 +3991,7 @@ localtime() ->
 
 %% make_ref/0
 -doc """
-Returns a [unique reference](`e:system:advanced.md#unique_references`). The
+Returns a [unique reference](`e:system:system_limits.md#unique_references`). The
 reference is unique among connected nodes.
 
 > #### Warning {: .warning }
@@ -4697,7 +4698,7 @@ posixtime_to_universaltime(_P1) ->
 
 -doc """
 Generates and returns an
-[integer unique on current runtime system instance](`e:system:advanced.md#unique_integers`).
+[integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
 The integer is unique in the sense that this BIF, using the same set of
 modifiers, does not return the same integer more than once on the current
 runtime system instance. Each integer value can of course be constructed by
@@ -4763,7 +4764,7 @@ unique_integer(_ModifierList) ->
 
 -doc """
 Generates and returns an
-[integer unique on current runtime system instance](`e:system:advanced.md#unique_integers`).
+[integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
 Equivalent to calling [`erlang:unique_integer([])`](`unique_integer/1`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
