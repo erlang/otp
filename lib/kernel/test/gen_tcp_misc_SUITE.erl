@@ -2505,7 +2505,7 @@ do_econnreset_after_async_send_active_once(Config, Addr) ->
     ok = ct:sleep(20),
 
     ?P("[ctrl] verify"),
-    craasao_verify(OS, ISB, Client, Sender, SPayload),
+    craasao_verify(Client, Sender),
 
     ?P("[ctrl] cleanup"),
     craasao_cleanup(Client),
@@ -2603,11 +2603,16 @@ craasao_populate_sender(_, _, _) ->
 craasao_mk_payload() ->
     list_to_binary(lists:duplicate(1024 * 1024, $.)).
 
-craasao_verify(_OS, _ISB,
-	       Client, _Sender, _Payload) when is_port(Client) ->
+craasao_verify(Client, Sender) ->
+    ?P("[verify] begin with"
+       "~n      Client: ~p"
+       "~n      Sender: ~p", [Client, Sender]),
+    is_pid(Sender) andalso
+        craasao_verify_sender(Sender),
     ?P("[verify] ensure no 'unexpected messages' received"),
     ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
     ?P("[verify] set client socket option active: once"),
+    inet:setopts(Client, [{sys_trace, true}]),
     ok = inet:setopts(Client, [{active, once}]),
     ?P("[verify] expect client econnreset"),
     receive
@@ -2630,60 +2635,6 @@ craasao_verify(_OS, _ISB,
                "~n      Unexpected: ~p"
                "~n      Flushed:    ~p", [Other2, craasao_flush()]),
 	    ct:fail({unexpected, tcp_error, Other2})
-    end;
-craasao_verify(OS, ISB,
-	       Client, Sender, Payload) when is_pid(Sender) ->
-    ?P("[verify] begin with"
-       "~n      Client: ~p"
-       "~n      Sender: ~p", [Client, Sender]),
-    craasao_verify_sender(Sender),
-    ?P("[verify] ensure no 'unexpected messages' received"),
-    ok = receive Msg -> {unexpected_msg, Msg} after 0 -> ok end,
-    Post =
-	if ((OS =:= win32) andalso ISB) ->
-		"";
-	   true ->
-		?P("[verify] set client socket option active once (1)"),
-		ok = inet:setopts(Client, [{active, once}]),
-		?P("[verify] client expect data"),
-		receive
-		    {tcp, Client, Payload} ->
-			?P("[verify] client received expected data"),
-			ok
-		after 10000 ->
-			?P("[verify] no client payload: "
-			   "~n   ~p", [messages()]),
-			ct:fail(no_client_payload)
-		end,
-		" (2)"
-    end,
-    ?P("[verify] set client socket option active once" ++ Post),
-    ok = inet:setopts(Client, [{active, once}]),
-    ?P("[verify] await client econnreset"),
-    receive
-	{tcp_error, Client, econnreset} ->
-            ?P("[verify] client received expected econnreset -> "
-               "expect socket close message"),
-	    receive
-		{tcp_closed, Client} ->
-		    ?P("[verify] client received expected closed message"),
-                    ok;
-		Other1 ->
-		    ?P("[verify] client received unexpected message "
-                         "(expected closed): "
-		       "~n      Unexpected: ~p"
-		       "~n      Flushed:    ~p", [Other1, craasao_flush()]),
-		    ct:fail({unexpected, tcp_closed, Other1})
-	    end;
-	Other2 ->
-            ?P("[verify] client received unexpected message (expected error): "
-               "~n      Unexpected: ~p"
-               "~n      Flushed:    ~p", [Other2, craasao_flush()]),
-	    ct:fail({unexpected, tcp_error, Other2})
-    after 10000 ->
-            ?P("[verify] client received unexpected timeout (expected error): "
-               "~n      Flushed: ~p", [craasao_flush()]),
-	    ct:fail({unexpected_timeout, tcp_error})            
     end.
 
 craasao_flush() ->
@@ -2869,24 +2820,27 @@ craasp_populate_sender(_, _, _, _) ->
 
 craasp_verify(_OS, _ISB,
 	      Client, EConnReset, _Payload)
-  when is_port(Client) andalso
-       ((EConnReset =:= default) orelse is_boolean(EConnReset)) ->
-    ?P("[client,~w] attempt receive and expect error (closed): "
-       "~n   Port Info:     ~p"
-       "~n   Socket Status: ~s",
-       [EConnReset,
-        try erlang:port_info(Client)
-        catch
-            _:_:_ ->
-                "-"
-        end,
-        try prim_inet:getstatus(Client) of
-            {ok, CStatus} -> ?F("~p", [CStatus]);
-            _             -> "-"
-        catch
-            _:_:_ ->
-                "-"
-        end]),
+  when (EConnReset =:= default) orelse is_boolean(EConnReset) ->
+    ?P("[client,~w] attempt receive and expect error (closed)", [EConnReset]),
+    if
+        is_port(Client) ->
+            ?P("   Port Info:     ~p"
+               "~n   Socket Status: ~s",
+               [try erlang:port_info(Client)
+                catch
+                    _:_:_ ->
+                        "-"
+                end,
+                try prim_inet:getstatus(Client) of
+                    {ok, CStatus} -> ?F("~p", [CStatus]);
+                    _             -> "-"
+                catch
+                    _:_:_ ->
+                        "-"
+                end]);
+        true ->
+            ?P("   Socket Info: ~p", [inet:info(Client)])
+    end,
     case gen_tcp:recv(Client, 0) of
         {error, closed}     when (EConnReset =:= default) ->
             ok;
@@ -2920,38 +2874,6 @@ craasp_verify(win32 = _OS, true = _ISB,
             {error, {unexpected_error, Reason}};
         ok ->
             {error, unexpected_success}
-    end;
-craasp_verify(_OS, _ISB,
-	      Client, EConnReset, Payload) 
-  when (EConnReset =:= default) orelse is_boolean(EConnReset) ->
-    ?P("[client] attempt first recv and expect success"),
-    case gen_tcp:recv(Client, 0) of
-        {ok, Payload} ->
-            ?P("[client] attempt second recv and expect failure (~w)",
-               [EConnReset]),
-            case gen_tcp:recv(Client, 0) of
-		{error, closed}     when (EConnReset =:= default) ->
-                    ?P("[client] expected failure (closed)"),
-		    ok;
-		{error, econnreset} when (EConnReset =:= true)    ->
-                    ?P("[client] expected failure (econnreset)"),
-		    ok;
-                {error, Reason2} ->
-                    ?P("[client] unexpected failure:"
-                       "~n      EConnReset: ~p"
-                       "~n      Reason:     ~p", [EConnReset, Reason2]),
-                    {error, {unexpected_error2, EConnReset, Reason2}};
-                {ok, _} ->
-                    ?P("[client] unexpected success"),
-                    {error, unexpected_recv2}
-            end;                    
-        {ok, _} ->
-            ?P("[client] unexpected first recv success (wrong payload)"),
-            {error, unexpected_recv1};
-        {error, Reason1} ->
-            ?P("[client] unexpected first recv failure: "
-               "~n      Reason: ~p", [Reason1]),
-            {error, {unexpected_error1, Reason1}}
     end.
 
 craasp_cleanup(Client, Sender) ->
@@ -3157,6 +3079,7 @@ do_linger_zero_sndbuf(Config, Addr) ->
     %% that it also works when the driver queue is not empty
     %% and the linger zero option is set on the listen socket.
     {OS, ISB, Client, Server} = lzs_pre(Config, Addr),
+    inet:setopts(Client, [{sys_trace, true}]),
 
     PayloadSize = 1024 * 1024,
     {ok, Sender} = lzs_populate(OS, ISB, Client, PayloadSize),
@@ -6751,7 +6674,7 @@ setup_closed_ao(Config, Addr) ->
         end,
     ?P("[setup] get (\"proper\")local address"),
     {ok, Addr} = ?LIB:which_local_addr(inet),
-    %% Host = get_hostname(node()),
+%%%     Host = get_hostname(node()),
     ?P("[setup] create listen socket (with ~p)", [Addr]),
     L = case ?LISTEN(Config, 0, [{ip, Addr}, {active,false},{packet,2}]) of
             {ok, LSock} ->
@@ -7760,7 +7683,7 @@ otp_8102(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_otp_8102(Config, Addr) ->
-    {ok, LSocket} = ?LISTEN(Config, 0, [{ip, Addr}]),
+    {ok, LSocket} = ?LISTEN(Config, 0, [{ip, Addr}, {active, false}]),
     {ok, {_, PortNum}} = inet:sockname(LSocket),
     ?P("Listening on ~w with port number ~p", [LSocket, PortNum]),
 
@@ -8104,9 +8027,9 @@ oct_aloop(S, LastInfo, Received, Times) ->
 
 ok({ok,V}) -> V.
 
-get_hostname(Name) ->
-    "@"++Host = lists:dropwhile(fun(C) -> C =/= $@ end, atom_to_list(Name)),
-    Host.
+%%% get_hostname(Name) ->
+%%%     "@"++Host = lists:dropwhile(fun(C) -> C =/= $@ end, atom_to_list(Name)),
+%%%     Host.
 
 otp_13939(doc) ->
     ["Check that writing to a remotely closed socket doesn't block forever "
@@ -8745,7 +8668,7 @@ sm_await_socket_down(ExpMon, ExpSock, ExpType) ->
 
 sm_await_socket_down(ExpMon, ExpSock, ExpType, Name) ->
     receive
-	{'DOWN', ExpMon, ExpType, ExpSock, Info} = Msg ->
+	{'DOWN', ExpMon, ExpType, ExpSock, _Info} = Msg ->
 	    ?P("[~s] received expected (socket) down message: "
 	       "~n   ~p", [Name, Msg]),
 	    exit(ok);

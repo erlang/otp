@@ -11814,6 +11814,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
 
+    descP->readBuf.size   = 0;
+    descP->readBuf.data   = NULL;
+    descP->readResult     = 0;
+
     descP->readPkgCnt     = 0;
     descP->readPkgMax     = 0;
     descP->readPkgMaxCnt  = 0;
