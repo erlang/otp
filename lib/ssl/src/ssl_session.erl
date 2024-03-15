@@ -77,7 +77,7 @@ is_new(_ClientSuggestion, _ServerDecision) ->
 
 %%--------------------------------------------------------------------
 -spec client_select_session({ssl:host(), inet:port_number(), map()},
-                            db_handle(), atom(), #session{}, list()) -> #session{}.
+                            ssl_manager:db_handle(), atom(), #session{}, list()) -> #session{}.
 %%
 %% Description: Should be called by the client side to get an id
 %%              for the client hello message.

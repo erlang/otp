@@ -93,7 +93,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec trusted_cert_and_paths([der_cert()], db_handle(), certdb_ref(), fun()) ->
+-spec trusted_cert_and_paths([public_key:combined_cert()], ssl_manager:db_handle(), ssl_manager:certdb_ref(), fun()) ->
           [{public_key:combined_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [public_key:combined_cert()]}].
 %%
 %% Description: Construct input to public_key:pkix_path_validation/3,
@@ -130,9 +130,9 @@ trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                       end
               end, Paths).
 %%--------------------------------------------------------------------
--spec certificate_chain([] | binary() | #'OTPCertificate'{} , db_handle(),
-                        certdb_ref() | {extracted, list()}) ->
-          {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
+-spec certificate_chain([] | binary() | #'OTPCertificate'{} , ssl_manager:db_handle(),
+                        ssl_manager:certdb_ref() | {extracted, list()}) ->
+          {error, no_cert} | {ok, public_key:der_encoded() | undefined, [public_key:der_encoded()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
@@ -152,13 +152,13 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef) ->
     {ok, Root, Chain} = build_certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], []),
     chain_result(Root, Chain, encoded).
 %%--------------------------------------------------------------------
--spec certificate_chain(binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | 
-                        {extracted, list()}, [der_cert()], encoded | decoded | both) ->
+-spec certificate_chain(binary() | #'OTPCertificate'{} , ssl_manager:db_handle(), ssl_manager:certdb_ref() |
+                        {extracted, list()}, [public_key:der_encoded()], encoded | decoded | both) ->
           {ok,
-           der_cert() | #'OTPCertificate'{} | undefined,
-           [der_cert() |  #'OTPCertificate'{}]} |
+           public_key:der_encoded() | #'OTPCertificate'{} | undefined,
+           [public_key:der_encoded() |  #'OTPCertificate'{}]} |
           {ok,
-           {der_cert() | undefined,  [der_cert()]},
+           {public_key:der_encoded() | undefined,  [public_key:der_encoded()]},
            {#'OTPCertificate'{} | undefined, [#'OTPCertificate'{}]}
           }.
 %%
@@ -179,7 +179,7 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef, Candidates, Type) ->
     chain_result(Root, Chain, Type).
                 
 %%--------------------------------------------------------------------
--spec file_to_certificats(binary(), term()) -> [der_cert()].
+-spec file_to_certificats(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
@@ -188,7 +188,7 @@ file_to_certificats(File, DbHandle) ->
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 
 %%--------------------------------------------------------------------
--spec file_to_crls(binary(), term()) -> [der_cert()].
+-spec file_to_crls(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
@@ -290,7 +290,7 @@ public_key_type(Oid) ->
     Sign.
 
 %%--------------------------------------------------------------------
--spec foldl_db(fun(), db_handle() | {extracted, list()}, list()) ->
+-spec foldl_db(fun(), ssl_manager:db_handle() | {extracted, list()}, list()) ->
  {ok, term()} | issuer_not_found.
 %%
 %% Description:
