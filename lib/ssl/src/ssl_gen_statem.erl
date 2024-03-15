@@ -103,12 +103,16 @@
 %% Tracing
 -export([handle_trace/3]).
 
+-export_type([secret_printout/0]).
+
+-type secret_printout() :: iodata().
+
 %%--------------------------------------------------------------------
 %%% Initial Erlang process setup
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
 -spec start_link(client| server, pid(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
-    {ok, pid()} | ignore |  {error, reason()}.
+    {ok, pid()} | ignore |  {error, ssl:reason()}.
 %%
 %% Description: Creates a process which calls Module:init/1 to
 %% choose appropriat gen_statem and initialize.
@@ -121,7 +125,7 @@ start_link(Role, Sender, Host, Port, Socket, {SslOpts, _, _} = Options, User, Cb
 
 %%--------------------------------------------------------------------
 -spec start_link(atom(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
-			{ok, pid()} | ignore |  {error, reason()}.
+			{ok, pid()} | ignore |  {error, ssl:reason()}.
 %%
 %% Description: Creates a gen_statem process which calls Module:init/1 to
 %% initialize.
@@ -267,7 +271,7 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
 	       %% Tracker only needed on server side
 	       undefined},
 	      pid(), tuple(), timeout()) ->
-		     {ok, #sslsocket{}} | {error, reason()}.
+		     {ok, #sslsocket{}} | {error, ssl:reason()}.
 %%
 %% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
@@ -283,7 +287,7 @@ connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 		 inet:port_number(), port(),
 		 {ssl_options(), #socket_options{}, list()},
 		 pid(), tuple(), timeout()) ->
-			{ok, #sslsocket{}} | {error, reason()}.
+			{ok, #sslsocket{}} | {error, ssl:reason()}.
 %%
 %% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake.
@@ -298,7 +302,7 @@ handshake(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec handshake(#sslsocket{}, timeout()) ->  {ok, #sslsocket{}} |
-                                             {ok,  #sslsocket{}, map()}| {error, reason()}.
+                                             {ok,  #sslsocket{}, map()}| {error, ssl:reason()}.
 %%
 %% Description: Starts ssl handshake.
 %%--------------------------------------------------------------------
@@ -314,7 +318,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec handshake(#sslsocket{}, {SSLOpts::list(), #socket_options{}}, timeout()) ->
-          {ok, #sslsocket{}} | {ok, #sslsocket{}, map()} | {error, reason()}.
+          {ok, #sslsocket{}} | {ok, #sslsocket{}, map()} | {error, ssl:reason()}.
 %%
 %% Description: Starts ssl handshake with some new options
 %%--------------------------------------------------------------------
@@ -328,7 +332,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec handshake_continue(#sslsocket{}, [ssl:tls_server_option()],
-                         timeout()) ->  {ok,  #sslsocket{}}| {error, reason()}.
+                         timeout()) ->  {ok,  #sslsocket{}}| {error, ssl:reason()}.
 %%
 %% Description: Continues handshake with new options
 %%--------------------------------------------------------------------
@@ -340,7 +344,7 @@ handshake_continue(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
 	    Error
     end.
 %%--------------------------------------------------------------------
--spec handshake_cancel(#sslsocket{}) ->  ok | {error, reason()}.
+-spec handshake_cancel(#sslsocket{}) ->  ok | {error, ssl:reason()}.
 %%
 %% Description: Cancels connection
 %%--------------------------------------------------------------------
@@ -353,7 +357,7 @@ handshake_cancel(#sslsocket{pid = [Pid|_]}) ->
     end.
 %--------------------------------------------------------------------
 -spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom()) ->
-    {ok, #sslsocket{}} | {error, reason()}.
+    {ok, #sslsocket{}} | {error, ssl:reason()}.
 %%
 %% Description: Set the ssl process to own the accept socket
 %%--------------------------------------------------------------------
@@ -362,7 +366,7 @@ socket_control(Connection, Socket, Pid, Transport) ->
 
 %--------------------------------------------------------------------
 -spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom(), [pid()] | atom()) ->
-    {ok, #sslsocket{}} | {error, reason()}.
+    {ok, #sslsocket{}} | {error, ssl:reason()}.
 %%--------------------------------------------------------------------
 socket_control(dtls_gen_connection, Socket, Pids, Transport, udp_listener) ->
     %% dtls listener process must have the socket control
@@ -400,7 +404,7 @@ prepare_connection(State0, Connection) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec send(pid(), iodata()) -> ok | {error, reason()}.
+-spec send(pid(), iodata()) -> ok | {error, ssl:reason()}.
 %%
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
@@ -412,7 +416,7 @@ send(Pid, Data) ->
 
 %%--------------------------------------------------------------------
 -spec recv(pid(), integer(), timeout()) ->
-    {ok, binary() | list()} | {error, reason()}.
+    {ok, binary() | list()} | {error, ssl:reason()}.
 %%
 %% Description:  Receives data when active = false
 %%--------------------------------------------------------------------
@@ -420,7 +424,7 @@ recv(Pid, Length, Timeout) ->
     call(Pid, {recv, Length, Timeout}).
 
 %%--------------------------------------------------------------------
--spec connection_information(pid(), boolean()) -> {ok, list()} | {error, reason()}.
+-spec connection_information(pid(), boolean()) -> {ok, list()} | {error, ssl:reason()}.
 %%
 %% Description: Get connection information
 %%--------------------------------------------------------------------
@@ -435,7 +439,7 @@ connection_information(Pid, IncludeSecrityInfo) when is_pid(Pid) ->
 %%--------------------------------------------------------------------
 -spec close(pid(), {close, Timeout::integer() |
 				    {NewController::pid(), Timeout::integer()}}) ->
-		   ok | {ok, port()} | {error, reason()}.
+		   ok | {ok, port()} | {error, ssl:reason()}.
 %%
 %% Description:  Close an ssl connection
 %%--------------------------------------------------------------------
@@ -447,7 +451,7 @@ close(ConnectionPid, How) ->
 	    Other
     end.
 %%--------------------------------------------------------------------
--spec shutdown(pid(), atom()) -> ok | {error, reason()}.
+-spec shutdown(pid(), atom()) -> ok | {error, ssl:reason()}.
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
@@ -455,7 +459,7 @@ shutdown(ConnectionPid, How) ->
     call(ConnectionPid, {shutdown, How}).
 
 %%--------------------------------------------------------------------
--spec new_user(pid(), pid()) ->  ok | {error, reason()}.
+-spec new_user(pid(), pid()) ->  ok | {error, ssl:reason()}.
 %%
 %% Description:  Changes process that receives the messages when active = true
 %% or once.
@@ -464,14 +468,14 @@ new_user(ConnectionPid, User) ->
     call(ConnectionPid, {new_user, User}).
 
 %%--------------------------------------------------------------------
--spec get_opts(pid(), list()) -> {ok, list()} | {error, reason()}.
+-spec get_opts(pid(), list()) -> {ok, list()} | {error, ssl:reason()}.
 %%
 %% Description: Same as inet:getopts/2
 %%--------------------------------------------------------------------
 get_opts(ConnectionPid, OptTags) ->
     call(ConnectionPid, {get_opts, OptTags}).
 %%--------------------------------------------------------------------
--spec set_opts(pid(), list()) -> ok | {error, reason()}.
+-spec set_opts(pid(), list()) -> ok | {error, ssl:reason()}.
 %%
 %% Description:  Same as inet:setopts/2
 %%--------------------------------------------------------------------
@@ -479,7 +483,7 @@ set_opts(ConnectionPid, Options) ->
     call(ConnectionPid, {set_opts, Options}).
 
 %%--------------------------------------------------------------------
--spec peer_certificate(pid()) -> {ok, binary()| undefined} | {error, reason()}.
+-spec peer_certificate(pid()) -> {ok, binary()| undefined} | {error, ssl:reason()}.
 %%
 %% Description: Returns the peer cert
 %%--------------------------------------------------------------------
@@ -487,7 +491,7 @@ peer_certificate(ConnectionPid) ->
     call(ConnectionPid, peer_certificate).
 
 %%--------------------------------------------------------------------
--spec negotiated_protocol(pid()) -> {ok, binary()} | {error, reason()}.
+-spec negotiated_protocol(pid()) -> {ok, binary()} | {error, ssl:reason()}.
 %%
 %% Description:  Returns the negotiated protocol
 %%--------------------------------------------------------------------
@@ -495,7 +499,7 @@ negotiated_protocol(ConnectionPid) ->
     call(ConnectionPid, negotiated_protocol).
 
 %%--------------------------------------------------------------------
--spec ktls_handover(pid()) -> {ok, map()} | {error, reason()}.
+-spec ktls_handover(pid()) -> {ok, map()} | {error, ssl:reason()}.
 %%
 %% Description:  Returns the negotiated protocol
 %%--------------------------------------------------------------------

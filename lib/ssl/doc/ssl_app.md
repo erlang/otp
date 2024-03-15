@@ -23,7 +23,7 @@ The ssl application provides secure communication over sockets.
 
 ## Description
 
-The ssl application is an implementation of the SSL, TLS and DTLS protocols in
+The ssl application is an implementation of the TLS (previously known as SSL) and DTLS protocols in
 Erlang.
 
 For current statement of standards compliance see the

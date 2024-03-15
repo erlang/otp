@@ -168,7 +168,7 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec certificate([der_cert()], db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
+-spec certificate([public_key:der_encoded()], ssl_manager:db_handle(), ssl_manager:certdb_ref(), client | server) -> #certificate{} | #alert{}.
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
@@ -184,7 +184,7 @@ certificate([_, _ |_] = Chain, _, _, _) ->
     #certificate{asn1_certificates = Chain}.
 
 %%--------------------------------------------------------------------
--spec client_certificate_verify([der_cert()], binary(),
+-spec client_certificate_verify([public_key:der_encoded()], binary(),
 				ssl_record:ssl_version(), term(), public_key:private_key(),
 				ssl_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
@@ -209,8 +209,8 @@ client_certificate_verify([OwnCert|_], MasterSecret, Version,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_request(db_handle(), 
-			  certdb_ref(),  #hash_sign_algos{}, ssl_record:ssl_version()) ->
+-spec certificate_request(ssl_manager:db_handle(),
+			  ssl_manager:certdb_ref(),  #hash_sign_algos{}, ssl_record:ssl_version()) ->
 				 #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
@@ -369,7 +369,7 @@ next_protocol(SelectedProtocol) ->
 %% Handle handshake messages 
 %%====================================================================
 %%--------------------------------------------------------------------
--spec certify([public_key:combined_cert()], db_handle(), certdb_ref(), ssl_options(), term(),
+-spec certify([public_key:combined_cert()], ssl_manager:db_handle(), ssl_manager:certdb_ref(), ssl_options(), term(),
 	      client | server, inet:hostname() | inet:ip_address(),
               ssl_record:ssl_version(), map()) ->  {#cert{}, public_key_info()} | #alert{}.
 %%

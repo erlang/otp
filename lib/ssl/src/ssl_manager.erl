@@ -50,6 +50,13 @@
 
 -include_lib("kernel/include/file.hrl").
 
+-export_type([certdb_ref/0,
+              db_handle/0]).
+
+-type certdb_ref()        :: reference().
+-type db_handle()         :: any().
+-type serialnumber()      :: pos_integer().
+
 -record(state, {
 	  session_cache_client    :: db_handle(),
 	  session_cache_client_cb :: atom(),
@@ -122,7 +129,7 @@ connection_init(Trustedcerts, Role, CRLCache) ->
     call({connection_init, Trustedcerts, Role, CRLCache}).
 
 %%--------------------------------------------------------------------
--spec cache_pem_file(binary(), term()) -> {ok, term()} | {error, reason()}.
+-spec cache_pem_file(binary(), term()) -> {ok, term()} | {error, ssl:reason()}.
 %%		    
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
@@ -141,7 +148,7 @@ cache_pem_file(File, DbHandle) ->
     end.
 
 %%--------------------------------------------------------------------
--spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
+-spec lookup_trusted_cert(term(), reference(), serialnumber(), public_key:issuer_name()) ->
           undefined |
           {ok, public_key:combined_cert()}.
 %%
@@ -263,12 +270,12 @@ init([ManagerName, PemCacheName, Opts]) ->
 	       }}.
 
 %%--------------------------------------------------------------------
--spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+-spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
 %% Possible return values not used now.  
-%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {reply, term(), #state{}, timeout()} |
 %%					      {noreply, #state{}} |
 %%					      {noreply, #state{}, timeout()} |
-%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), term(), #state{}} |
 %%					      {stop, reason(), #state{}}.
 %%
 %% Description: Handling call messages
@@ -319,7 +326,7 @@ handle_call({{refresh_trusted_db, File}, _}, _, #state{certificate_db = Db} = St
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
--spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+-spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.  
 %%				      | {noreply, #state{}, timeout()} |
 %%				       {stop, reason(), #state{}}.
@@ -346,7 +353,7 @@ handle_cast({delete_crls, CRLsOrPath},
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
+-spec handle_info(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.
 %%				      |{noreply, #state{}, timeout()} |
 %%				      {stop, reason(), #state{}}.
@@ -380,7 +387,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), #state{}) -> ok.
+-spec terminate(ssl:reason(), #state{}) -> ok.
 %%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary

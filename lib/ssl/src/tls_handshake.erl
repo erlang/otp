@@ -57,8 +57,9 @@
 -spec client_hello(ssl:host(), inet:port_number(), ssl_record:connection_states(),
 		   ssl_options(), binary(), boolean(),
                    #key_share_client_hello{} | undefined, tuple() | undefined,
-                   binary() | undefined, db_handle() | undefined, certdb_ref() | undefined) ->
-			  #client_hello{}.
+                   binary() | undefined, ssl_manager:db_handle() |
+                   undefined, ssl_manager:certdb_ref() | undefined) ->
+          #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
@@ -102,7 +103,7 @@ client_hello(_Host, _Port, ConnectionStates,
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{}, ssl_options(),
-	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
+	    ssl_record:connection_states() | {inet:port_number(), #session{}, ssl_manager:db_handle(),
 				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl:kex_algo()},
 	    boolean(), #session{}) ->

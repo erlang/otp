@@ -40,7 +40,7 @@ except for the purpose of pattern matching.
 >
 > Note that client certificate verification is optional for the server and needs
 > additional conguration on both sides to work. The Certificate and keys, in the
-> examples, are provided using the [certs_keys](`t:ssl:certs_keys/0`) option
+> examples, are provided using the [certs_keys] option
 > introduced in OTP-25.
 
 ## Basic Client
@@ -875,7 +875,7 @@ two mechanisms. Bloom filters are fast, memory-efficient, probabilistic data
 structures that can tell if an element may be in a set or if it is definitely
 not in the set.
 
-If the option [anti_replay](`t:ssl:anti_replay/0`) is defined in the server, a
+If the option [anti_replay] is defined in the server, a
 pair of Bloom filters (_current_ and _old_) are used to record incoming
 ClientHello messages (it is the unique binder value that is actually stored).
 The _current_ Bloom filter is used for `WindowSize` seconds to store new

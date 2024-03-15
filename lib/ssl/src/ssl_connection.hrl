@@ -45,11 +45,11 @@
                      port                  :: integer(),
                      socket                :: port() | tuple(), %% TODO: dtls socket
                      cert_db               :: reference() | 'undefined',
-                     session_cache         :: db_handle(),
+                     session_cache         :: ssl_manager:db_handle(),
                      session_cache_cb      :: atom(),
                      crl_db                :: term(),
-                     file_ref_db          :: db_handle(),
-                     cert_db_ref          :: certdb_ref() | 'undefined',
+                     file_ref_db          :: ssl_manager:db_handle(),
+                     cert_db_ref          :: ssl_manager:certdb_ref() | 'undefined',
                      trackers              :: [{atom(), pid()}] | 'undefined' %% Tracker process for listen socket
                     }).
 
@@ -57,7 +57,7 @@
 -record(handshake_env, {
                         client_hello_version  :: ssl_record:ssl_version() | 'undefined', %% Legacy client hello
                         unprocessed_handshake_events = 0    :: integer(),
-                        tls_handshake_history :: ssl_handshake:ssl_handshake_history() | secret_printout()
+                        tls_handshake_history :: ssl_handshake:ssl_handshake_history() | term()
                                                | 'undefined',
                         expecting_finished =                  false ::boolean(),
                         renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
@@ -80,11 +80,12 @@
                         cert_hashsign_algorithm = {undefined, undefined},
                         %% key exchange
                         kex_algorithm         :: ssl:kex_algo(),  
-                        kex_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |  secret_printout(),        
-                        diffie_hellman_params:: #'DHParameter'{} | undefined | secret_printout(),
-                        srp_params           :: #srp_user{} | secret_printout() | 'undefined',
+                        kex_keys  :: {PublicKey :: binary(), PrivateKey :: binary()} | #'ECPrivateKey'{} |  undefined |
+                                     term(),
+                        diffie_hellman_params:: #'DHParameter'{} | undefined | term(),
+                        srp_params           :: #srp_user{} | term() | 'undefined',
                         public_key_info      :: ssl_handshake:public_key_info() | 'undefined',
-                        premaster_secret     :: binary() | secret_printout() | 'undefined',
+                        premaster_secret     :: binary() | term() | 'undefined',
                         server_psk_identity         :: binary() | 'undefined',  % server psk identity hint
                         cookie_iv_shard         :: {binary(), binary()} %% IV, Shard
                                                  | 'undefined',
@@ -115,7 +116,7 @@
                                                            rsa_pss_pss => list(),
                                                            rsa => list(),
                                                            dsa => list()
-                                                          } | secret_printout() | 'undefined'
+                                                          } | list() | 'undefined'
                         }).
 
 -record(recv, {
@@ -125,19 +126,20 @@
 
 -record(state, {
                 static_env            :: #static_env{},
-                connection_env        :: #connection_env{} | secret_printout(),
+                connection_env        :: #connection_env{} | ssl_gen_statem:secret_printout(),
                 ssl_options           :: ssl_options(),
                 socket_options        :: #socket_options{},
 
                 %% Handshake %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                handshake_env         :: #handshake_env{} | secret_printout(),
+                handshake_env         :: #handshake_env{} | ssl_gen_statem:secret_printout(),
                 protocol_specific = #{}      :: map(),
-                session               :: #session{} | secret_printout(),
+                session               :: #session{} | ssl_gen_statem:secret_printout(),
                 %% Data shuffling %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 recv = #recv{}        :: #recv{},
-                connection_states     :: ssl_record:connection_states() | secret_printout(),
-                protocol_buffers      :: term() | secret_printout() , %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hr
-                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | secret_printout()
+                connection_states     :: ssl_record:connection_states() | ssl_gen_statem:secret_printout(),
+                %% #protocol_buffers{} from tls_record.hrl or dtls_recor.hrl
+                protocol_buffers      :: term() | ssl_gen_statem:secret_printout(),
+                user_data_buffer     :: undefined | {[binary()],non_neg_integer(),[binary()]} | ssl_gen_statem:secret_printout()
                }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS,
