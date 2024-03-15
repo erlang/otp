@@ -113,13 +113,12 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
                         session = #session{cipher_suite = CipherSuite} = Session} = State0,
 		 Connection, Actions) ->
     State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
-                          session =
-                              Session#session{peer_certificate = PeerCert}},
+                          session = Session#session{peer_certificate = PeerCert#cert.der}},
     #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
+    State = handle_peer_cert_key(Role, PublicKeyInfo, KeyAlgorithm, State1),
     Connection:next_event(certify, no_record, State, Actions).
 
-handle_peer_cert_key(client, _,
+handle_peer_cert_key(client,
 		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey,
 		      PublicKeyParams},
 		     KeyAlg, #state{handshake_env = HsEnv,
@@ -129,7 +128,7 @@ handle_peer_cert_key(client, _,
     PremasterSecret = ssl_handshake:premaster_secret(PublicKey, ECDHKey),
     master_secret(PremasterSecret, State#state{handshake_env = HsEnv#handshake_env{kex_keys = ECDHKey},
                                                session = Session#session{ecc = PublicKeyParams}});
-handle_peer_cert_key(_, _, _, _, State) ->
+handle_peer_cert_key(_, _, _, State) ->
     State.
 
 %%====================================================================

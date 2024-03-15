@@ -162,7 +162,7 @@ certify(internal, #certificate{},
                handshake_env = #handshake_env{
                                   stapling_state = #{status := negotiated}}} = State) ->
     Connection:next_event(wait_stapling, no_record, State, [{postpone, true}]);
-certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
+certify(internal, #certificate{asn1_certificates = DerCerts},
         #state{static_env = #static_env{
                                role = Role,
                                host = Host,
@@ -179,8 +179,16 @@ certify(internal, #certificate{asn1_certificates = [Peer|_]} = Cert,
   when StaplingStatus == not_negotiated; StaplingStatus == received_staple ->
     %% this clause handles also scenario with stapling disabled, so
     %% 'not_negotiated' appears in guard
-    ExtInfo = ext_info(StaplingState, Peer),
-    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef,
+    Certs = try [#cert{der=DerCert, otp=public_key:pkix_decode_cert(DerCert, otp)}
+                 || DerCert <- DerCerts]
+            catch
+                error:{_,{error, {asn1, Asn1Reason}}}=Reason:ST ->
+                    %% ASN-1 decode of certificate somehow failed
+                    ?SSL_LOG(info, asn1_decode, [{error, Reason}, {stacktrace, ST}]),
+                    throw(?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason}))
+            end,
+    ExtInfo = ext_info(StaplingState, hd(Certs)),
+    case ssl_handshake:certify(Certs, CertDbHandle, CertDbRef,
                                Opts, CRLDbInfo, Role, Host,
                                ensure_tls(Version), ExtInfo) of
         {PeerCert, PublicKeyInfo} ->
@@ -790,13 +798,12 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
                         session = #session{cipher_suite = CipherSuite} = Session} = State0,
 		 Connection, Actions) ->
     State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
-                          session =
-                              Session#session{peer_certificate = PeerCert}},
+                          session = Session#session{peer_certificate = PeerCert#cert.der}},
     #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
+    State = handle_peer_cert_key(Role, PublicKeyInfo, KeyAlgorithm, State1),
     Connection:next_event(certify, no_record, State, Actions).
 
-handle_peer_cert_key(client, _,
+handle_peer_cert_key(client,
 		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey,
 		      PublicKeyParams},
 		     KeyAlg, #state{handshake_env = HsEnv,
@@ -819,7 +826,7 @@ handle_peer_cert_key(client, _,
 	#alert{} = Alert ->
 	    throw(Alert)
     end;
-handle_peer_cert_key(_, _, _, _, State) ->
+handle_peer_cert_key(_, _, _, State) ->
     State.
 
 get_pending_prf(CStates, Direction) ->
@@ -856,9 +863,9 @@ ensure_tls(Version) ->
     Version.
 
 ext_info(#{status := received_staple, staple := CertStatus} = StaplingState,
-         PeerCert) ->
+         #cert{otp = PeerCert}) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => [CertStatus]},
       stapling_state => StaplingState};
-ext_info(#{status := not_negotiated} = StaplingState, PeerCert) ->
+ext_info(#{status := not_negotiated} = StaplingState, #cert{otp = PeerCert}) ->
     #{cert_ext => #{public_key:pkix_subject_id(PeerCert) => []},
       stapling_state => StaplingState}.

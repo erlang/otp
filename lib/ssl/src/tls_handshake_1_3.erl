@@ -810,14 +810,20 @@ update_encryption_state(client, State) ->
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            SslOptions, CRLDbHandle, Role, Host, StaplingState) ->
-    {Certs, ExtInfo} = split_cert_entries(CertEntries, StaplingState, [], #{}),
-    ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle,
-                          CertDbRef, SslOptions, CRLDbHandle, Role, Host, ?TLS_1_3,
-                          ExtInfo).
+    try split_cert_entries(CertEntries, StaplingState, [], #{}) of
+        {Certs, ExtInfo} ->
+            ssl_handshake:certify(Certs, CertDbHandle,
+                                  CertDbRef, SslOptions, CRLDbHandle, Role, Host, ?TLS_1_3,
+                                  ExtInfo)
+    catch error:{_,{error, {asn1, Asn1Reason}}}=Reason:ST ->
+            %% ASN-1 decode of certificate somehow failed
+            ?SSL_LOG(info, asn1_decode, [Reason, {stacktrace, ST}]),
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})
+    end.
 
-store_peer_cert(#state{session = Session,
-                       handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
-    State#state{session = Session#session{peer_certificate = PeerCert},
+store_peer_cert(#state{session = Session, handshake_env = HsEnv} = State,
+                PeerCert, PublicKeyInfo) ->
+    State#state{session = Session#session{peer_certificate = PeerCert#cert.der},
                 handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
 split_cert_entries([], StaplingState, Chain, CertExt) ->
@@ -827,6 +833,9 @@ split_cert_entries([#certificate_entry{data = DerCert,
                                        extensions = Extensions0} | CertEntries],
                    #{configured := StaplingConfigured} = StaplingState0, Chain,
                    CertExt) ->
+    OtpCert = public_key:pkix_decode_cert(DerCert, otp),
+    Cert = #cert{der=DerCert, otp=OtpCert},
+
     Id = public_key:pkix_subject_id(DerCert),
     Extensions = [ExtValue || {_, ExtValue} <- maps:to_list(Extensions0)],
     StaplingState = case {maps:get(status_request, Extensions0, undefined),
@@ -836,7 +845,7 @@ split_cert_entries([#certificate_entry{data = DerCert,
                         {_, true} ->
                             StaplingState0#{status => received_staple}
                     end,
-    split_cert_entries(CertEntries, StaplingState, [DerCert | Chain],
+    split_cert_entries(CertEntries, StaplingState, [Cert | Chain],
                        CertExt#{Id => Extensions}).
 
 %% 4.4.1.  The Transcript Hash

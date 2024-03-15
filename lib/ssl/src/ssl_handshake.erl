@@ -369,22 +369,21 @@ next_protocol(SelectedProtocol) ->
 %% Handle handshake messages 
 %%====================================================================
 %%--------------------------------------------------------------------
--spec certify(#certificate{}, db_handle(), certdb_ref(), ssl_options(), term(),
+-spec certify([public_key:combined_cert()], db_handle(), certdb_ref(), ssl_options(), term(),
 	      client | server, inet:hostname() | inet:ip_address(),
-              ssl_record:ssl_version(), map()) ->  {der_cert(), public_key_info()} | #alert{}.
+              ssl_record:ssl_version(), map()) ->  {#cert{}, public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
-certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
+certify(Certs, CertDbHandle, CertDbRef,
         #{partial_chain := PartialChain} = SSlOptions,
         CRLDbHandle, Role, Host, Version, ExtInfo) ->
     ServerName = server_name(SSlOptions, Host, Role),
-    [PeerCert | _ChainCerts ] = ASN1Certs,
+    [PeerCert | _ChainCerts ] = Certs,
     try
 	PathsAndAnchors  =
-	    ssl_certificate:trusted_cert_and_paths(ASN1Certs, CertDbHandle, CertDbRef,
-                                                   PartialChain),
-        
+	    ssl_certificate:trusted_cert_and_paths(Certs, CertDbHandle, CertDbRef, PartialChain),
+
 	case path_validate(PathsAndAnchors, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHandle,
                            Version, SSlOptions, ExtInfo) of
 	    {ok, {PublicKeyInfo, _}} ->
@@ -393,9 +392,6 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
                 path_validation_alert(Reason)
 	end
     catch
-        error:{_,{error, {asn1, Asn1Reason}}} ->
-            %% ASN-1 decode of certificate somehow failed
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason});
         error:OtherReason:ST ->
             ?SSL_LOG(info, internal_error, [{error, OtherReason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})

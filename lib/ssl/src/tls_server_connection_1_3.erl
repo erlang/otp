@@ -624,7 +624,6 @@ session_resumption({#state{ssl_options = #{session_tickets := Tickets},
     State1 = tls_gen_connection_1_3:handle_resumption(State0, ok),
     {Index, PSK, PeerCert} = PSKInfo,
     State = maybe_store_peer_cert(State1, PeerCert),
-    State = maybe_store_peer_cert(State1, PeerCert),
     {ok, {State, negotiated, {Index, PSK}}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets},
                            handshake_env = #handshake_env{
