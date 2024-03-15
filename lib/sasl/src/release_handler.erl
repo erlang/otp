@@ -339,7 +339,7 @@ start_link() ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 -doc """
-unpack_release(Name) -> {ok, Vsn} | {error, Reason}
+unpack_release(Name)
 
 Unpacks a release package `Name.tar.gz` located in the `releases` directory.
 
@@ -367,7 +367,7 @@ unpack_release(ReleaseName) ->
 %%                   {no_such_from_vsn, Vsn} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
--doc(#{equiv => check_install_release/2}).
+-doc(#{equiv => check_install_release(Vsn, [])}).
 -doc(#{since => <<"OTP R14B04">>}).
 -spec check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason} when Vsn :: string(),
    OtherVsn :: string(),
@@ -377,10 +377,11 @@ check_install_release(Vsn) ->
     check_install_release(Vsn, []).
 
 -doc """
-check_install_release(Vsn,Opts) -> {ok, OtherVsn, Descr} | {error, Reason}
+check_install_release(Vsn, Opts)
 
-Checks if the specified version `Vsn` of the release can be installed. The
-release must not have status `current`. Issues warnings if `relup` file or
+Checks if the specified version `Vsn` of the release can be installed.
+
+The release must not have status `current`. Issues warnings if `relup` file or
 `sys.config` is not present. If `relup` file is present, its contents are
 checked and `{error,Reason}` is returned if an error is found. Also checks that
 all required applications are present and that all new code can be loaded;
@@ -434,7 +435,7 @@ check_check_install_options([],Purge) ->
 %%                   {illegal_option, Opt}} |
 %%                   exit_reason()
 %%-----------------------------------------------------------------
--doc(#{equiv => install_release/2}).
+-doc(#{equiv => install_release(Vsn, [])}).
 -spec install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason} when
       Vsn :: string(),
       OtherVsn :: string(),
@@ -450,14 +451,15 @@ install_release(Vsn) ->
 
 
 -doc """
-install_release(Vsn, [Opt]) -> {ok, OtherVsn, Descr} | {continue_after_restart,
-OtherVsn, Descr} | {error, Reason}
+install_release(Vsn, [Opt])
 
-Installs the specified version `Vsn` of the release. Looks first for a `relup`
-file for `Vsn` and a script `{UpFromVsn,Descr1,Instructions1}` in this file for
-upgrading from the current version. If not found, the function looks for a
-`relup` file for the current version and a script `{Vsn,Descr2,Instructions2}`
-in this file for downgrading to `Vsn`.
+Installs the specified version `Vsn` of the release.
+
+Looks first for a `relup` file for `Vsn` and a script
+`{UpFromVsn,Descr1,Instructions1}` in this file for upgrading from the
+current version. If not found, the function looks for a `relup` file
+for the current version and a script `{Vsn,Descr2,Instructions2}` in
+this file for downgrading to `Vsn`.
 
 If a script is found, the first thing that happens is that the application
 specifications are updated according to the `.app` files and `sys.config`
@@ -618,7 +620,7 @@ new_emulator_upgrade(Vsn, Opts) ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 -doc """
-make_permanent(Vsn) -> ok | {error, Reason}
+make_permanent(Vsn)
 
 Makes the specified release version `Vsn` permanent.
 """.
@@ -634,10 +636,12 @@ make_permanent(Vsn) ->
 %% Purpose: Reboots the system from an old release.
 %%-----------------------------------------------------------------
 -doc """
-reboot_old_release(Vsn) -> ok | {error, Reason}
+reboot_old_release(Vsn)
 
 Reboots the system by making the old release permanent, and calls
-[`init:reboot()`](`init:reboot/0`) directly. The release must have status `old`.
+[`init:reboot()`](`init:reboot/0`) directly.
+
+The release must have status `old`.
 """.
 -spec reboot_old_release(Vsn) -> ok | {error, Reason}
                             when
@@ -656,11 +660,12 @@ reboot_old_release(Vsn) ->
 %%          Reason = {permanent, Vsn} |
 %%-----------------------------------------------------------------
 -doc """
-remove_release(Vsn) -> ok | {error, Reason}
+remove_release(Vsn)
 
-Removes a release and its files from the system. The release must not be the
-permanent release. Removes only the files and directories not in use by another
-release.
+Removes a release and its files from the system.
+
+The release must not be the permanent release. Removes only the files
+and directories not in use by another release.
 """.
 -spec remove_release(Vsn) -> ok | {error, Reason} when Vsn :: string(),
    Reason :: {permanent, Vsn} | client_node | term().
@@ -684,9 +689,10 @@ remove_release(Vsn) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 -doc """
-set_unpacked(RelFile, AppDirs) -> {ok, Vsn} | {error, Reason}
+set_unpacked(RelFile, AppDirs)
 
 Makes it possible to handle unpacking of releases outside the release handler.
+
 Tells the release handler that the release is unpacked. `Vsn` is extracted from
 the release resource file `RelFile`.
 
@@ -714,9 +720,10 @@ set_unpacked(RelFile, LibDirs) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 -doc """
-set_removed(Vsn) -> ok | {error, Reason}
+set_removed(Vsn)
 
 Makes it possible to handle removal of releases outside the release handler.
+
 Tells the release handler that the release is removed from the system. This
 function does not delete any files.
 """.
@@ -734,11 +741,12 @@ set_removed(Vsn) ->
 %% Returns: ok | {error, {no_such_release, Vsn}}
 %%-----------------------------------------------------------------
 -doc """
-install_file(Vsn, File) -> ok | {error, Reason}
+install_file(Vsn, File)
 
-Installs a release-dependent file in the release structure. The
-release-dependent file must be in the release structure when a new release is
-installed: `start.boot`, `relup`, and `sys.config`.
+Installs a release-dependent file in the release structure.
+
+The release-dependent file must be in the release structure when a new release
+is installed: `start.boot`, `relup`, and `sys.config`.
 
 The function can be called, for example, when these files are generated at the
 target. The function is to be called after `set_unpacked/2` has been called.
@@ -754,8 +762,6 @@ install_file(Vsn, File) when is_list(File) ->
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
 -doc """
-which_releases() -> [{Name, Vsn, Apps, Status}]
-
 Returns all releases known to the release handler.
 """.
 -spec which_releases() -> [{Name, Vsn, Apps, Status}] when Name :: string(),
@@ -770,7 +776,7 @@ which_releases() ->
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
 -doc """
-which_releases(Status) -> [{Name, Vsn, Apps, Status}]
+which_releases(Status)
 
 Returns all releases, known to the release handler, of a specific status.
 """.
@@ -820,7 +826,7 @@ create_RELEASES([Root, RelFile | LibDirs]) ->
 create_RELEASES(Root, RelFile) ->
     create_RELEASES(Root, filename:join(Root, "releases"), RelFile, []).
 
--doc(#{equiv => create_RELEASES/4}).
+-doc(#{equiv => create_RELEASES("", RelDir, RelFile, Appdirs)}).
 -doc(#{since => <<"OTP 25.0">>}).
 -spec create_RELEASES(RelDir, RelFile, AppDirs) -> ok | {error, Reason} when
       RelDir :: string(),
@@ -833,10 +839,11 @@ create_RELEASES(Root, RelFile) ->
 create_RELEASES(RelDir, RelFile, LibDirs) ->
     create_RELEASES("", RelDir, RelFile, LibDirs).
 -doc """
-create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason}
+create_RELEASES(Root, RelDir, RelFile, AppDirs)
 
-Creates an initial `RELEASES` file to be used by the release handler. This file
-must exist to install new releases.
+Creates an initial `RELEASES` file to be used by the release handler.
+
+This file must exist to install new releases.
 
 `Root` is the root of the installation (`$ROOT`) as described earlier. `RelDir`
 is the directory where the `RELEASES` file is to be created (normally
@@ -884,7 +891,7 @@ create_RELEASES(Root, RelDir, RelFile, LibDirs) ->
 %% Purpose: Upgrade to the version in Dir according to an appup file
 %%-----------------------------------------------------------------
 -doc """
-upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}
+upgrade_app(App, Dir)
 
 Upgrades an application `App` from the current version to a new version located
 in `Dir` according to the `.appup` file.
@@ -956,8 +963,7 @@ downgrade_app(App, OldDir) ->
 	    {error, {unknown_version, App}}
     end.
 -doc """
-downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error,
-Reason}
+downgrade_app(App, OldVsn, Dir)
 
 Downgrades an application `App` from the current version to a previous version
 `OldVsn` located in `Dir` according to the `.appup` file.
@@ -999,7 +1005,7 @@ downgrade_app(App, OldVsn, OldDir) ->
     end.
 
 -doc """
-upgrade_script(App, Dir) -> {ok, NewVsn, Script}
+upgrade_script(App, Dir)
 
 Tries to find an application upgrade script for `App` from the current version
 to a new version located in `Dir`.
@@ -1046,13 +1052,13 @@ upgrade_script(App, NewDir1) ->
     end.
 
 -doc """
-downgrade_script(App, OldVsn, Dir) -> {ok, Script}
+downgrade_script(App, OldVsn, Dir)
 
 Tries to find an application downgrade script for `App` from the current version
 to a previous version `OldVsn` located in `Dir`.
 
 The downgrade script can then be evaluated using `eval_appup_script/4`. It is
-recommended to use [`downgrade_app/2,3`](`downgrade_app/2`) instead, but this
+recommended to use [`downgrade_app/2,3`](`downgrade_app/3`) instead, but this
 function (`downgrade_script`) is useful to inspect the contents of the script.
 
 `App` is the name of the application, which must be started. `Dir` is the
@@ -1094,8 +1100,7 @@ downgrade_script(App, OldVsn, OldDir) ->
     end.
 
 -doc """
-eval_appup_script(App, ToVsn, ToDir, Script) -> {ok, Unpurged} |
-restart_emulator | {error, Reason}
+eval_appup_script(App, ToVsn, ToDir, Script)
 
 Evaluates an application upgrade or downgrade script `Script`, the result from
 calling `upgrade_script/2` or `downgrade_script/3`, exactly in the same way as

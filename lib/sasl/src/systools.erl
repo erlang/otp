@@ -71,13 +71,15 @@ make_script([RelName|Opts]) when is_atom(RelName) ->
 make_script(RelName) -> make_script(RelName, []).
 
 -doc """
-make_script(Name, [Opt]) -> Result
+make_script(Name, [Opt])
 
 Generates a boot script `Name.script` and its binary version, the boot file
 `Name.boot`, unless the `{script_name, ScriptName}` option is given, in which
-case the names are `ScriptName.script` and `ScriptName.boot` The boot file
-specifies which code to be loaded and which applications to be started when the
-Erlang runtime system is started. See [`script(4)`](script.md).
+case the names are `ScriptName.script` and `ScriptName.boot`.
+
+The boot file§ specifies which code to be loaded and which
+applications to be started when the Erlang runtime system is
+started. See [`script(4)`](script.md).
 
 The release resource file `Name.rel` is read to determine which applications are
 included in the release. Then the relevant application resource files `App.app`
@@ -184,7 +186,7 @@ make_script(RelName, Opt) ->
 %% release package and erts specifies that the erts-Vsn/bin directory
 %% should be included in the release package and there it can be found.
 %%-----------------------------------------------------------------
--doc(#{equiv => make_tar/2}).
+-doc(#{equiv => make_tar(Name, [])}).
 -spec make_tar(Name) -> Result when
       Name :: string(),
       Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
@@ -192,9 +194,10 @@ make_script(RelName, Opt) ->
 make_tar(RelName) -> make_tar(RelName, []).
 
 -doc """
-Creates a release package file `Name.tar.gz`. This file must be uncompressed and
-unpacked on the target system using `m:release_handler` before the new release
-can be installed.
+Creates a release package file `Name.tar.gz`.
+
+This file must be uncompressed and unpacked on the target system using
+`m:release_handler` before the new release can be installed.
 
 The release resource file `Name.rel` is read to determine which applications are
 included in the release. Then the relevant application resource files `App.app`
@@ -299,11 +302,13 @@ make_tar(RelName, Opt) ->
 %% Create a binary form of a boot script.
 %%-----------------------------------------------------------------
 -doc """
-script2boot(File) -> ok | error
+script2boot(File)
 
-The Erlang runtime system requires that the contents of the script used to boot
-the system is a binary Erlang term. This function transforms the `File.script`
-boot script to a binary term, which is stored in the `File.boot` file.
+This function transforms the `File.script` boot script to a binary
+term, which is stored in the `File.boot` file.
+
+The Erlang runtime system requires that the contents of the script
+used to boot the system is a binary Erlang term.
 
 A boot script generated using [`make_script`](`make_script/1`) is already
 transformed to the binary form.
@@ -335,7 +340,7 @@ script2boot(File, Output0, _Opt) ->
 %% search path, silent suppresses error message printing on console,
 %% noexec suppresses writing the output "relup" file
 %%-----------------------------------------------------------------
--doc(#{equiv => make_relup/4}).
+-doc(#{equiv => make_relup(Name, UpFrom, DownTo, [])}).
 -spec make_relup(Name, UpFrom, DownTo) -> Result when Name :: string(),
    UpFrom :: [Name | {Name,Descr}],
    DownTo :: [Name | {Name,Descr}],
@@ -347,14 +352,16 @@ script2boot(File, Output0, _Opt) ->
 make_relup(ReleaseName, UpNameList, DownNameList) ->
     systools_relup:mk_relup(ReleaseName, UpNameList, DownNameList, []).
 -doc """
-make_relup(Name, UpFrom, DownTo, [Opt]) -> Result
+make_relup(Name, UpFrom, DownTo, [Opt])
 
 Generates a release upgrade file `relup` containing instructions for upgrading
-from or downgrading to one or more previous releases. The instructions are used
-by `m:release_handler` when installing a new version of a release in runtime.
+from or downgrading to one or more previous releases.
 
-By default, `relup` file is located in the current working directory. If option
-`{outdir,Dir}` is specified, the `relup` file is located in `Dir` instead.
+The instructions are used by `m:release_handler` when installing a new
+version of a release in runtime.
+
+By default, the `relup` file is located in the current working directory. If option
+`{outdir,Dir}` is specified, the `relup` file is located in directory `Dir` instead.
 
 The release resource file `Name.rel` is compared with all release resource files
 `Name2.rel`, specified in `UpFrom` and `DownTo`. For each such pair, the
@@ -373,7 +380,7 @@ Instructions for this are added to the `relup` file in the above order.
 Instructions for upgrading or downgrading between application versions are
 fetched from the relevant application upgrade files `App.appup`, sorted in the
 same order as when generating a boot script, see
-[`make_script/1,2`](`make_script/1`). High-level instructions are translated
+[`make_script/1,2`](`make_script/2`). High-level instructions are translated
 into low-level instructions and the result is printed to the `relup` file.
 
 The optional `Descr` parameter is included "as is" in the `relup` file, see
