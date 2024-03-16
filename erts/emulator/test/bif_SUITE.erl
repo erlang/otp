@@ -32,7 +32,7 @@
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
 	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
-         erl_crash_dump_bytes/1,
+         halt_flush_timeout/1, erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
          group_leader_prio/1, group_leader_prio_dirty/1,
@@ -56,8 +56,8 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
-     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
-     error_stacktrace, error_stacktrace_during_call_trace,
+     erl_crash_dump_bytes, min_max, erlang_halt, halt_flush_timeout,
+     is_builtin, error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, is_process_alive_signal_from,
      process_info_blast, os_env_case_sensitivity,
@@ -908,6 +908,167 @@ erlang_halt(Config) when is_list(Config) ->
             ok
     end.
 
+
+halt_flush_timeout(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
+    halt_flush_timeout_test(false, true),
+    halt_flush_timeout_test(true, true),
+    halt_flush_timeout_test(true, false).
+
+halt_flush_timeout_test(HaltCmd, HaltOpt) ->
+    halt_flush_timeout_test_try(HaltCmd, HaltOpt, 1).
+
+halt_flush_timeout_test_try(HaltCmd, HaltOpt, N) ->
+    case {HaltCmd, HaltOpt} of
+        {false, true} ->
+            ct:log("Test no ~p with flush_timeout option and "
+                   "default command line~n", [N]);
+        {true, true} ->
+            ct:log("Test no ~p with flush_timeout option and "
+                   "command line arg~n", [N]);
+        {true, false} ->
+            ct:log("Test no ~p with command line arg~n", [N])
+    end,
+    {ok, Peer, Node} = ?CT_PEER(),
+    try
+        ok = halt_flush_timeout_test_run(Node, HaltCmd, HaltOpt),
+        peer:stop(Peer),
+        ok
+    catch
+        Class:Reason:Stack ->
+            ct:log("Failed with ~p reason: ~p~n"
+                   "at ~p~n", [Class, Reason, Stack]),
+            peer:stop(Peer),
+            if N == 5 ->
+                    erlang:raise(Class, Reason, Stack);
+               true ->
+                    halt_flush_timeout_test_try(HaltCmd, HaltOpt, N+1)
+            end
+    end.
+
+halt_flush_timeout_test_run(BNode, HaltCmd, HaltOpt) ->
+    {ok, HNodePort, HNode} = start_halting_node(if HaltCmd == true -> "+zhft 1500";
+                                                   true -> ""
+                                                end),
+    ok = erpc:call(BNode,
+                   fun () ->
+                           pong = net_adm:ping(HNode),
+                           erts_debug:set_internal_state(available_internal_state, true),
+                           ok
+                   end),
+    erpc:cast(BNode,
+              fun () ->
+                      erts_debug:set_internal_state(block, 60*1000)
+              end),
+    wait_until(fun () ->
+                       try
+                           BNode = erpc:call(BNode, erlang, node, [], 1000),
+                           false
+                       catch
+                           error:{erpc,timeout} ->
+                               true
+                       end
+               end),
+    Data = lists:seq(1,1000),
+    SendData = fun SendData() ->
+                       {net_kernel, BNode} ! Data,
+                       SendData()
+               end,
+    Pid1 = spawn(HNode, SendData),
+    Pid2 = spawn(HNode, SendData),
+    IsBlocked = fun (Pid) ->
+                        fun () ->
+                                case erpc:call(node(Pid), erlang, process_info, [Pid, status]) of
+                                    {status, suspended} -> true;
+                                    _Val -> false
+                                end
+                        end
+                end,
+    wait_until(IsBlocked(Pid1)),
+    wait_until(IsBlocked(Pid2)),
+    Start = erlang:monotonic_time(),
+    try
+        erpc:call(HNode,
+                  fun () ->
+                          if HaltOpt == true -> halt(0, [{flush, true},{flush_timeout, 1000}]);
+                             true -> halt()
+                          end
+                  end),
+        error(unexpected_return)
+    catch
+        error:{erpc,noconnection} ->
+            ok
+    end,
+    ExitStatus = await_halting_node_exit(HNodePort),
+    End = erlang:monotonic_time(),
+    ct:log("ExitStatus=~p~n", [ExitStatus]),
+    case erlang:convert_time_unit(End - Start, native, millisecond) of
+        HaltTime when HaltOpt == true, 1000 =< HaltTime, HaltTime < 1500 ->
+            ok;
+        HaltTime when HaltOpt /= true, 1500 =< HaltTime, HaltTime < 2000 ->
+            ok;
+        HaltTime ->
+            error({unexpected_halt_time, HaltTime})
+    end,
+    ExitStatus = 255, %% Exit status when timing out...
+    ok.
+
+start_halting_node(Args) ->
+    Name = "halting_node-"
+        ++ integer_to_list(erlang:system_time(second)) ++ "-"
+        ++ integer_to_list(erlang:unique_integer([positive])),
+    HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
+				 atom_to_list(node())),
+    Node = list_to_atom(Name ++ HostSuffix),
+    Pa = filename:dirname(code:which(?MODULE)),
+    Prog = case catch init:get_argument(progname) of
+	       {ok,[[P]]} -> P;
+	       _ -> exit(no_progname_argument_found)
+	   end,
+    NameSw = case net_kernel:longnames() of
+		 false -> "-sname ";
+		 true -> "-name ";
+		 _ -> exit(not_distributed_node)
+	     end,
+    {ok, Pwd} = file:get_cwd(),
+    CmdLine =
+        Prog ++ " -noinput -noshell " ++ Args
+	++ " " ++ NameSw ++ " " ++ Name ++ " "
+	++ "-pa " ++ Pa ++ " "
+	++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ Name ++ " "
+	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()),
+    ct:log("Starting node ~p: ~s~n", [Node, CmdLine]),
+    case open_port({spawn, CmdLine}, [exit_status]) of
+	Port when is_port(Port) ->
+            PingNode = fun PingNode(_PNode, 0) ->
+                               pang;
+                           PingNode(PNode, N) ->
+                               case net_adm:ping(PNode) of
+                                   pong ->
+                                       pong;
+                                   _ ->
+                                       receive after 100 -> ok end,
+                                       PingNode(PNode, N-1)
+                               end
+                       end,
+            case PingNode(Node, 50) of
+		pong ->
+                    {ok, Port, Node};
+		Other ->
+                    error({failed_to_start_node, Node, Other})
+	    end;
+	Error ->
+            error({failed_to_start_node, Node, Error})
+    end.
+
+await_halting_node_exit(Port) ->
+    receive
+        {Port, {data, _}} ->
+            await_halting_node_exit(Port);
+        {Port, {exit_status, ExitStatus}} ->
+            ExitStatus
+    end.
+
 add_asan_opt(Opt) ->
     case test_server:is_asan() of
 	true ->
@@ -1604,6 +1765,15 @@ node_error(E0) ->
     end.
 
 %% helpers
+
+wait_until(Fun) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    end.
 
 busy_wait_go() ->
     receive

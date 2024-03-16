@@ -3162,7 +3162,7 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -doc """
-Equivalent to calling [`halt(Status, [])`](`halt/2`).
+Equivalent to calling [`halt(HaltType, [])`](`halt/2`).
 
 For example:
 
@@ -3183,79 +3183,113 @@ os_prompt%
           no_return().
 
 -dialyzer({no_return, halt/1}).
-halt(Status) ->
+halt(HaltType) ->
     try
-        erlang:halt(Status, [])
+        erlang:halt(HaltType, [])
     catch
-	error:Error -> error_with_info(Error, [Status])
+	error:Error -> error_with_info(Error, [HaltType])
     end.
 
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
 -type halt_options() ::
-        [{flush, boolean()}].
+        [{flush, boolean()}
+         | {flush_timeout, Timeout :: 0..2147483647 | infinity}].
 
 -doc """
-Halt the runtime system with status code `Status`.
+Halt the runtime system.
 
-> #### Note {: .info }
->
-> On many platforms, the OS supports only status codes 0-255. A too large status
-> code is truncated by clearing the high bits.
+- ```erlang
+  halt(Status :: non_neg_integer(), Options :: halt_options())
+  ```
+  {: #halt_status_2 }
 
-Currently the following options are valid:
+  Halt the runtime system with status code `Status`.
 
-- **`{flush, EnableFlushing}`{: #halt_flush }** - If `EnableFlushing` equals
-  `true`, which also is the default behavior, the runtime system will perform
-  the following operations before terminating:
+  > #### Note {: .info }
+  >
+  > On many platforms, the OS supports only status codes 0-255. A too large
+  > status code is truncated by clearing the high bits.
 
-  - Flush all outstanding output.
-  - Send all Erlang ports exit signals and wait for them to exit.
-  - Wait for all async threads to complete all outstanding async jobs.
-  - Call all installed [NIF _on halt_ callbacks](erl_nif.md#on_halt).
-  - Wait for all ongoing
-    [NIF calls with the _delay halt_ setting](erl_nif.md#delay_halt) enabled to
-    return.
-  - Call all installed `atexit`/`on_exit` callbacks.
+  Currently the following options are valid:
 
-  If `EnableFlushing` equals `false`, the runtime system will terminate
-  immediately without performing any of the above listed operations.
+  - **`{flush, EnableFlushing}`{: #halt_flush }** - If `EnableFlushing` equals
+    `true`, which also is the default behavior, the runtime system will perform
+    the following operations before terminating:
+
+    - Flush all outstanding output.
+    - Send all Erlang ports exit signals and wait for them to exit.
+    - Wait for all async threads to complete all outstanding async jobs.
+    - Call all installed [NIF _on halt_ callbacks](erl_nif.md#on_halt).
+    - Wait for all ongoing
+      [NIF calls with the _delay halt_ setting](erl_nif.md#delay_halt) enabled
+      to return.
+    - Call all installed `atexit`/`on_exit` callbacks.
+
+    If `EnableFlushing` equals `false`, the runtime system will terminate
+    immediately without performing any of the above listed operations.
+
+    > #### Change {: .info }
+    >
+    > Runtime systems prior to OTP 26.0 called all installed `atexit`/`on_exit`
+    > callbacks also when `flush` was disabled, but as of OTP 26.0 this is no
+    > longer the case.
+
+  - **`{flush_timeout, Timeout :: 0..2147483647 | infinity}`{: #halt_flush_timeout }** -
+    Sets a limit on the time allowed for [flushing](#halt_flush) prior to
+    termination of the runtime system. `Timeout` is in milliseconds. The default
+    value is determined by the the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft)
+    command line flag.
+
+    If flushing has been ongoing for `Timeout` milliseconds, flushing operations
+    will be interrupted and the runtime system will immediately be terminated
+    with the exit code `255`. If flushing is not enabled, the timeout will have
+    no effect on the system.
+
+    See also the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+    Note that the shortest timeout set by the command line flag and the
+    `flush_timeout` option will be the actual timeout value in effect.
+
+    Since: OTP @OTP-18938@
+
+- ```erlang
+  halt(Abort :: abort, Options :: halt_options())
+  ```
+  {: #halt_abort_2 }
+
+  Halt the Erlang runtime system by aborting and produce a core dump if core
+  dumping has been enabled in the environment that the runtime system is
+  executing in.
+
+  > #### Note {: .info }
+  >
+  > The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
+  > flushing will be disabled.
+
+- ```erlang
+  halt(CrashDumpSlogan :: string(), Options :: halt_options())
+  ```
+  {: #halt_crash_dump_2 }
+
+  Halt the Erlang runtime system and generate an
+  [Erlang crash dump](crash_dump.md). The string `CrashDumpSlogan` will be used
+  as slogan in the Erlang crash dump created. The slogan will be trunkated if
+  `CrashDumpSlogan` is longer than 1023 characters.
+
+  > #### Note {: .info }
+  >
+  > The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
+  > flushing will be disabled.
 
   > #### Change {: .info }
   >
-  > Runtime systems prior to OTP 26.0 called all installed `atexit`/`on_exit`
-  > callbacks also when `flush` was disabled, but as of OTP 26.0 this is no
-  > longer the case.
-
-[](){: #halt_abort_2 }
-
-Halt the Erlang runtime system by aborting and produce a core dump if core
-dumping has been enabled in the environment that the runtime system is executing
-in.
-
-> #### Note {: .info }
->
-> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
-> flushing will be disabled.
-
-[](){: #halt_crash_dump_2 }
-
-Halt the Erlang runtime system and generate an
-[Erlang crash dump](crash_dump.md). The string `CrashDumpSlogan` will be used as
-slogan in the Erlang crash dump created. The slogan will be trunkated if
-`CrashDumpSlogan` is longer than 1023 characters.
-
-> #### Note {: .info }
->
-> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
-> flushing will be disabled.
-
-Behavior changes compared to earlier versions:
-
-- Before OTP 24.2, the slogan was truncated if `CrashDumpSlogan` was longer than
-  200 characters. Now it will be truncated if longer than 1023 characters.
-- Before OTP 20.1, only code points in the range 0-255 were accepted in the
-  slogan. Now any Unicode string is valid.
+  > Behavior changes compared to earlier versions:
+  >
+  > - Before OTP 24.2, the slogan was truncated if `CrashDumpSlogan` was longer
+  >   than 200 characters. Now it will be truncated if longer than 1023
+  >   characters.
+  > - Before OTP 20.1, only code points in the range 0-255 were accepted in the
+  >   slogan. Now any Unicode string is valid.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -doc #{ group => system }.
@@ -10588,7 +10622,8 @@ the `CpuTopology` type to change.
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
-         (async_dist) -> boolean().
+         (async_dist) -> boolean();
+         (halt_flush_timeout) -> non_neg_integer() | infinity.
 -doc {file,"../../doc/src/erlang_system_info.md"}.
 system_info(_Item) ->
     erlang:nif_error(undefined).

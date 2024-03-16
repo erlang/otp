@@ -3512,6 +3512,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
         hp[0] = make_pos_bignum_header(BIG_ARITY_MAX);
         sys_memset(hp + 1, 0xff, BIG_ARITY_MAX*sizeof(Eterm));
         BIF_RET(make_big(hp));
+    } else if (ERTS_IS_ATOM_STR("halt_flush_timeout", BIF_ARG_1)) {
+        Eterm res, *hp;
+        Uint hsz;
+        if (erts_halt_flush_timeout < 0)
+            BIF_RET(am_infinity);
+        erts_bld_sint64(NULL, &hsz, (Sint64) erts_halt_flush_timeout);
+        hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+        res = erts_bld_sint64(&hp, NULL, (Sint64) erts_halt_flush_timeout);
+        BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);

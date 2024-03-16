@@ -2996,7 +2996,7 @@ float erts_sched_local_random_float(Uint additional_seed)
 #endif
 
 
-void erts_halt(int code);
+void erts_halt(int code, ErtsMonotonicTime tmo);
 extern erts_atomic32_t erts_halt_progress;
 extern int erts_halt_code;
 

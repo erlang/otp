@@ -1258,6 +1258,9 @@ void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
 
+extern ErtsMonotonicTime erts_halt_flush_timeout;
+void erts_halt_flush_timeout_callback(void *arg);
+
 /* io.c */
 
 typedef struct {

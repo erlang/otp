@@ -450,9 +450,9 @@ described in the corresponding application documentation.
   see `erlang:set_cookie/2`.
 
 - **`-shutdown_time Time`** - Specifies how long time (in milliseconds) the
-  `init` process is allowed to spend shutting down the system. If `Time`
-  milliseconds have elapsed, all processes still existing are killed. Defaults
-  to `infinity`.
+  `init` process is allowed to spend shutting down Erlang applications in the
+  system. If `Time` milliseconds have elapsed, all processes still existing
+  are killed. Defaults to `infinity`.
 
 - **`-sname Name`{: #sname }** - Makes the Erlang runtime system into a
   distributed node, similar to [`-name`](erl_cmd.md#name), but the host name
@@ -1404,6 +1404,27 @@ the following flags:
     range of this limit is `[1, 134217727]`. See
     [`erlang:system_flag(outstanding_system_requests_limit, Limit)`](`m:erlang#system_flag_outstanding_system_requests_limit`)
     for more information.
+
+  - **`+zhft limit`{: #+zhft }** - Sets a limit on how long the runtime system
+    is allowed to perform [flush](`m:erlang#halt_flush`) operations while
+    [halting](`erlang:halt/2`). Valid `<timeout>` values are integers in the
+    range `0..2147483647` or the word `infinity`. `<timeout>` is in milliseconds
+    and is by default `infinity`.
+
+    If flushing during a halt operation has been ongoing for `<timeout>`
+    milliseconds, the flushing will be interrupted and the runtime system will
+    be immediately terminated with exit code `255`. If halting without flushing,
+    the `<timeout>` will have no effect on the system.
+
+    The value set by this flag can be read by Erlang code by calling
+    [`erlang:system_info(halt_flush_timeout)`](`m:erlang#system_info_halt_flush_timeout`).
+
+    See also the [`flush_timeout`](`m:erlang#halt_flush_timeout`) option of the
+    [`erlang:halt/2`](`erlang:halt/2`) BIF. Note that the shortest timeout of
+    this command line argument and the `flush_timeout` option will be the actual
+    timeout value in effect.
+
+    Since: OTP @OTP-18938@
 
 [](){: #environment_variables }
 

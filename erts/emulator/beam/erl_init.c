@@ -67,6 +67,9 @@
 #define ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE 40
 #define ERTS_DEFAULT_DIO_SCHED_STACK_SIZE 40
 
+#define ERTS_HALT_FLUSH_TIMEOUT_EXIT_CODE 255
+ErtsMonotonicTime erts_halt_flush_timeout = -1; /* negative value -> infinity */
+
 static int modified_sched_thread_suggested_stack_size = 0;
 
 Eterm erts_init_process_id = ERTS_INVALID_PID;
@@ -714,6 +717,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "-zosrl number  set outstanding requests limit for system processes,\n");
     erts_fprintf(stderr, "               valid range [1-%d]\n",
                  ERTS_MAX_PROCESSES);
+    erts_fprintf(stderr, "-zhft timeout  set halt flush timeout,\n");
+    erts_fprintf(stderr, "               valid range [0-%d] or infinity\n", INT_MAX);
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -2372,6 +2377,22 @@ erl_start(int argc, char **argv)
                 }
                 sys_proc_outst_req_lim = (Uint) val;
             }
+            else if (has_prefix("hft", sub_param)) {
+                long val;
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+                if (strcmp(arg, "infinity") == 0) {
+                    erts_halt_flush_timeout = -1;
+                }
+                else {
+                    errno = 0;
+                    val = strtol(arg, NULL, 10);
+                    if (errno != 0 || val < 0 || INT_MAX < val) {
+                        erts_fprintf(stderr, "Invalid halt flush timeout %s\n", arg);
+                        erts_usage();
+                    }
+                    erts_halt_flush_timeout = (ErtsMonotonicTime) val;
+                }
+            }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
 		erts_usage();
@@ -2688,4 +2709,9 @@ __decl_noreturn void __noreturn erts_flush_exit(int n, char *fmt, ...)
     erts_exit_vv(n, 1, fmt, args1, args2);
     va_end(args2);
     va_end(args1);
+}
+
+void erts_halt_flush_timeout_callback(void *arg)
+{
+    _exit(ERTS_HALT_FLUSH_TIMEOUT_EXIT_CODE);
 }

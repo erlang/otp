@@ -15054,11 +15054,16 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
  *    erts_halt(code);
  *    ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_erlang_halt_1), BIF_P, NIL);
  */
-void erts_halt(int code)
+void erts_halt(int code, ErtsMonotonicTime htmo)
 {
     if (-1 == erts_atomic32_cmpxchg_acqb(&erts_halt_progress,
 					     erts_no_schedulers,
 					     -1)) {
+        ErtsMonotonicTime tmo = erts_halt_flush_timeout;
+        if (tmo < 0 || (htmo >= 0 && htmo < tmo))
+            tmo = htmo;
+        if (tmo >= 0)
+            erts_start_timer_callback(tmo, erts_halt_flush_timeout_callback, NULL);
         notify_reap_ports_relb();
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
