@@ -74,9 +74,10 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
             stop = (ErtsCodePtr)((char *)getBaseAddress() + code.codeSize());
         }
 
-        ranges.push_back({.start = start,
-                          .stop = stop,
-                          .name = code.labelEntry(labels[val.first])->name()});
+        ranges.push_back(AsmRange{start,
+                                  stop,
+                                  code.labelEntry(labels[val.first])->name(),
+                                  {}});
     }
 
     (void)beamasm_metadata_insert("global",

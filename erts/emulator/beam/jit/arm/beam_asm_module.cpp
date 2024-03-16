@@ -541,10 +541,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
         anchor = a.newNamedLabel(name.str().c_str());
     }
 
-    auto it = _veneers.emplace(target.id(),
-                               Veneer{.latestOffset = maxOffset,
-                                      .anchor = anchor,
-                                      .target = target});
+    auto it = _veneers.emplace(target.id(), Veneer{maxOffset, anchor, target});
 
     const Veneer &veneer = it->second;
     _pending_veneers.emplace(veneer);
@@ -590,10 +587,8 @@ arm::Mem BeamModuleAssembler::embed_constant(const ArgVal &value,
         }
     }
 
-    auto it = _constants.emplace(value,
-                                 Constant{.latestOffset = maxOffset,
-                                          .anchor = a.newLabel(),
-                                          .value = value});
+    auto it =
+            _constants.emplace(value, Constant{maxOffset, a.newLabel(), value});
     const Constant &constant = it->second;
     _pending_constants.emplace(constant);
 
@@ -608,10 +603,9 @@ arm::Mem BeamModuleAssembler::embed_label(const Label &label,
 
     ASSERT(disp >= dispMin && disp <= dispMax);
 
-    auto it = _embedded_labels.emplace(label.id(),
-                                       EmbeddedLabel{.latestOffset = maxOffset,
-                                                     .anchor = a.newLabel(),
-                                                     .label = label});
+    auto it = _embedded_labels.emplace(
+            label.id(),
+            EmbeddedLabel{maxOffset, a.newLabel(), label});
     ASSERT(it.second);
     const EmbeddedLabel &embedded_label = it.first->second;
     _pending_labels.emplace(embedded_label);

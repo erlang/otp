@@ -23,6 +23,8 @@
 
 if [ X"$CONFIG_SUBTYPE" = X"win64" ]; then
     GCC="x86_64-w64-mingw32-gcc -m64"
+elif [ X"$CONFIG_SUBTYPE" = X"arm64" || X"$CONFIG_SUBTYPE" = X"x64_arm64" ]; then
+    GCC="aarch64-w64-mingw32-gcc -m64"
 else
     GCC="x86_64-w64-mingw32-gcc -m32"
 fi
