@@ -23,7 +23,7 @@ dnl autoconf convention that should be cleaned up.
 
 AC_INIT
 AC_CONFIG_SRCDIR([emulator/beam/erl_process.c])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
@@ -423,6 +423,10 @@ AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
                     *only* defined when --with-spectre-mitigation=incomplete
                     and has no effects otherwise])
 
+# Remove old configuration information.
+# Next line should be before first output to CONF_INFO.
+rm -f "$ERL_TOP/erts/CONF_INFO"
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -546,45 +550,23 @@ extra_flags="$ERTS_CONFIG_H_IDIR $OTP_EXTRA_FLAGS"
 CFLAGS="$CFLAGS $extra_flags"
 DEBUG_FLAGS=-g
 
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
 
-lfs_conf=ok
-lfs_source=none
-AS_IF([test "${LFS_CFLAGS+set}" = "set" || test "${LFS_LDFLAGS+set}" = "set" || test "${LFS_LIBS+set}" = "set"],
-  [
-    lfs_source=user
-  ],
-  [
-   LM_CHECK_GETCONF
-   test "$GETCONF" = "false" || lfs_source=getconf
-  ])
+AC_CHECK_SIZEOF(time_t)
 
-if test "$lfs_source" = "none"; then
-    AC_MSG_WARN([Do not know how to check for large file support flags; no getconf is available])
-else
-    for var in CFLAGS LDFLAGS LIBS; do
-	AC_MSG_CHECKING([for large file support $var])
-	if test $lfs_source = user; then
-	    eval "lfs_val=\"\$LFS_$var\""
-	else
-	    eval "lfs_var=LFS_$var"
-	    lfs_val=`$GETCONF $lfs_var 2>/dev/null` || lfs_conf=failed
-	    if test $lfs_conf = failed; then
-		AC_MSG_RESULT([failed])
-		break
-	    fi
-	    eval "$lfs_var=\"$lfs_val\""
-	fi
-	test "$lfs_val" != "" || lfs_val=none
-	AC_MSG_RESULT([$lfs_val])
-    done
-    if test $lfs_conf = failed; then
-	AC_MSG_WARN([Check for large file support flags failed; $GETCONF failed])
-    else
-	CFLAGS="$CFLAGS $LFS_CFLAGS"
-	LDFLAGS="$LDFLAGS $LFS_LDFLAGS"
-	LIBS="$LIBS $LFS_LIBS"
-    fi
-fi
+AS_IF([test "$ac_cv_sizeof_time_t" != "8"],
+      [
+       test -f "$ERL_TOP/erts/CONF_INFO" || echo "" > "$ERL_TOP/erts/CONF_INFO"
+       cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 WARNING:
+                   Note that this runtime system will *not* be year
+                   2038 safe! It will not be able to function
+                   properly after mid-January 2038.
+
+EOF
+      ])
 
 AS_IF([test "x$GCC" = xyes],
  [
@@ -862,11 +844,6 @@ fi
 
 _search_path=
 
-
-# Remove old configuration information.
-# Next line should be before first output to CONN_INFO. So this is
-# just the right place.
-rm -f "$ERL_TOP/erts/CONF_INFO"
 
 dnl Check if we should/can build a sharing-preserving emulator
 AC_MSG_CHECKING(if we are building a sharing-preserving emulator)

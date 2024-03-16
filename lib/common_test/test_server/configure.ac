@@ -21,7 +21,7 @@ dnl
 
 AC_INIT
 AC_CONFIG_SRCDIR([conf_vars.in])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 AC_CANONICAL_HOST
 
@@ -69,6 +69,9 @@ if test X${enable_m32_build} = Xyes; then
 	CFLAGS="-m32 $CFLAGS"
 	LDFLAGS="-m32 $LDFLAGS"
 fi
+
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
 
 AC_CHECK_LIB(m, sin)
 

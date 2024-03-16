@@ -103,9 +103,6 @@ AC_ARG_VAR(LIBS, [libraries])
 AC_ARG_VAR(DED_LD, [linker for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LDFLAGS, [linker flags for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LD_FLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
-AC_ARG_VAR(LFS_CFLAGS, [large file support C compiler flags (set all LFS_* variables or none)])
-AC_ARG_VAR(LFS_LDFLAGS, [large file support linker flags (set all LFS_* variables or none)])
-AC_ARG_VAR(LFS_LIBS, [large file support libraries (set all LFS_* variables or none)])
 AC_ARG_VAR(RANLIB, [ranlib])
 AC_ARG_VAR(AR, [ar])
 AC_ARG_VAR(GETCONF, [getconf])
@@ -3069,6 +3066,9 @@ ERL_DED_FLAGS
 AC_DEFUN(ERL_DED_FLAGS,
          [
 
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
+
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
 
@@ -3270,7 +3270,7 @@ AC_CHECK_TOOL(DED_LD, ld, false)
 test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
 
 AC_MSG_CHECKING(for static compiler flags)
-DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WFLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
+DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"
 AC_MSG_RESULT([$DED_STATIC_CFLAGS])
 AC_MSG_CHECKING(for basic compiler flags for loadable drivers)
 DED_BASIC_CFLAGS=$DED_CFLAGS

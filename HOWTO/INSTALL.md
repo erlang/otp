@@ -397,6 +397,14 @@ Some of the available `configure` options are:
     in the emulator binary.
 *   `--enable-ei-dynamic-lib` - Make erl\_interface build a shared library in addition
     to the archive normally built.
+*   `--disable-year2038` - Don't support timestamps after mid-January 2038. By
+    default `configure` will try to enable support for timestamps after
+    mid-January 2038. If it cannot figure out how to do that, it will fail and
+    abort with an error. If you anyway want to build the system knowing that the
+    system won't function properly after mid-January 2038, you can pass this
+    option which will enable `configure` to continue without support for
+    timestamps after mid-January 2038. This is typically only an issue on 32-bit
+    platforms.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
