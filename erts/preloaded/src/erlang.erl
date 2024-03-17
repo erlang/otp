@@ -6842,15 +6842,16 @@ but applied on a dynamic trace session.
 -doc #{ since => <<"OTP 27.0">> }.
 -doc #{ group => trace }.
 -spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
-      Session :: trace_session(),
+      Session :: trace_session() | any,
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
-                     | {Module, Function, Arity} | on_load | send | 'receive',
+                     | {Module, Function, Arity} | on_load | send | 'receive' | any,
       Module :: module(),
       Function :: atom(),
       Arity :: arity(),
       Item :: flags | tracer | traced | match_spec
-            | meta | meta_match_spec | call_count | call_time | call_memory | all,
-      Res :: trace_info_return().
+            | meta | meta_match_spec | call_count | call_time | call_memory
+            | all | session,
+      Res :: trace_info_return() | {session, [atom()]}.
 trace_info(_Session, _PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
@@ -10073,7 +10074,7 @@ Create a trace session.
 
 Returns an opaque handle to the trace session. The handle will keep the session
 alive. If the handle is dropped and garbage collected, the session will be
-destroyed and cleaned up as if [`erlang:trace_session_destroy/1`](trace_session_destroy/1)
+destroyed and cleaned up as if [`erlang:trace_session_destroy/1`](`trace_session_destroy/1`)
 was called.
 """.
 -doc #{ since => <<"OTP 27.0">> }.
