@@ -388,7 +388,9 @@ There is a detailed description about how to run tests in [TESTING.md](TESTING.m
 
 Most of the Erlang/OTP documentation is written using markdown, either directly
 in the module implementing the functionality, or as `.md` files located in
-`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see [Documentation](`../system/doc/reference_manual/documentation.md`) and [Documentation HOWTO](DOCUMENTATION.md).
+`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see
+[Writing Documentation](../system/doc/reference_manual/documentation.md) and the
+[Erlang/OTP Documentation HOWTO](DOCUMENTATION.md).
 
 There is also some documentation that is written using [edoc](https://www.erlang.org/doc/man/edoc.html).
 

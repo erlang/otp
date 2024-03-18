@@ -4,6 +4,10 @@ This HOWTO describes how documentation of the Erlang/OTP project works. If you
 want to know how to document a project built using Erlang/OTP see
 [Documentation].
 
+For details on how to build the Erlang/OTP documentation see
+[How to Build the Documentation](INSTALL.md#how-to-build-the-documentation) and
+[Writing and building documentation](DEVELOPMENT.md#writing-and-building-documentation).
+
 The documentation for Erlang/OTP can be divided into three major sections:
 
 1. Erlang module reference documentation.
