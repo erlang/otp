@@ -31,6 +31,58 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7.2.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race could cause <c>process_info(Pid,
+	    message_queue_len)</c> on other processes to return
+	    invalid results.</p>
+          <p>
+	    Own Id: OTP-18169 Aux Id: PR-6134 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed reduction counting for handling process system
+	    tasks.</p>
+          <p>
+	    Own Id: OTP-18170 Aux Id: PR-6135 </p>
+        </item>
+        <item>
+          <p>
+	    Priority elevation of terminating processes did not work
+	    which could cause execution of such processes to be
+	    delayed.</p>
+          <p>
+	    Own Id: OTP-18175 Aux Id: PR-6142 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>erlang:monotonic_time/1</c>,
+	    <c>erlang:system_time/1</c>, <c>erlang:time_offset/1</c>,
+	    and <c>os:system_time/1</c> BIFs erroneously failed when
+	    passed the argument <c>native</c>.</p>
+          <p>
+	    Own Id: OTP-18197 Aux Id: GH-6165, PR-6213 </p>
+        </item>
+        <item>
+          <p>
+	    Notifications about available distribution data sent to
+	    distribution controller processes could be lost.
+	    Distribution controller processes can be used when
+	    implementing an alternative distribution carrier. The
+	    default distribution over tcp was not effected and the
+	    bug was also not present on x86/x86_64 platforms.</p>
+          <p>
+	    Own Id: OTP-18258 Aux Id: GH-6309, PR-6324 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.7.2.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
