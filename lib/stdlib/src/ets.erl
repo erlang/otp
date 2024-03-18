@@ -1675,7 +1675,6 @@ take(_, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_counter/4}).
--doc(#{since => <<"OTP 18.0">>}).
 -spec update_counter(Table, Key, UpdateOp | [UpdateOp] | Incr) -> Result | [Result] when
       Table :: table(),
       Key :: term(),
