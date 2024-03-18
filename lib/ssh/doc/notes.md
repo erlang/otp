@@ -535,6 +535,21 @@ limitations under the License.
 
   Own Id: OTP-17352
 
+## Ssh 4.11.1.7
+
+### Fixed Bugs and Malfunctions
+
+* With this change (being response to CVE-2023-48795), ssh can negotiate "strict KEX" OpenSSH extension with peers supporting it; also 'chacha20-poly1305@openssh.com' algorithm becomes a less preferred cipher.
+
+  If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability. See Configuring algorithms in SSH User's Guide.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18897
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
+
 ## Ssh 4.11.1.6
 
 ### Fixed Bugs and Malfunctions
