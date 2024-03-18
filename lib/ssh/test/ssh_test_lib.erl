@@ -1177,3 +1177,229 @@ mk_dir_path(DirPath) ->
             %%ct:log("~p:~p return Other ~p ~ts", [?MODULE,?LINE,Other,DirPath]),
             Other
     end.
+
+%%%----------------------------------------------------------------
+%%% New
+
+setup_all_user_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_user_host_keys(DataDir, PrivDir).
+
+setup_all_user_host_keys(DataDir, PrivDir) ->
+    setup_all_user_host_keys(DataDir, PrivDir, filename:join(PrivDir,"system")).
+
+setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir),
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_host_keys(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    setup_all_host_keys(DataDir, filename:join(PrivDir,"system")).
+
+setup_all_host_keys(DataDir, SysDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_host_key(Alg, DataDir, SysDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_all_user_keys(DataDir, UserDir) ->
+    lists:foldl(fun(Alg, OkAlgs) ->
+                        try
+                            ok = ssh_test_lib:setup_user_key(Alg, DataDir, UserDir)
+                        of
+                            ok -> [Alg|OkAlgs]
+                        catch
+                            error:{badmatch, {error,enoent}} ->
+                                OkAlgs;
+                            C:E:S ->
+                                ct:log("Exception in ~p:~p for alg ~p:  ~p:~p~n~p",
+                                       [?MODULE,?FUNCTION_NAME,Alg,C,E,S]),
+                                OkAlgs
+                        end
+                end, [], ssh_transport:supported_algorithms(public_key)).
+
+
+setup_user_key(SshAlg, DataDir, UserDir) ->
+    file:make_dir(UserDir),
+    %% Copy private user key to user's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(user_src,SshAlg)),
+                       filename:join(UserDir, file_base_name(user,SshAlg))),
+    %% Setup authorized_keys in user's dir
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub")),
+    ok = file:write_file(filename:join(UserDir, "authorized_keys"),
+                         io_lib:format("~n~s~n",[Pub]),
+                         [append]),
+    ?ct_log_show_file( filename:join(DataDir, file_base_name(user_src,SshAlg)++".pub") ),
+    ?ct_log_show_file( filename:join(UserDir, "authorized_keys") ),
+    ok.
+
+setup_host_key_create_dir(SshAlg, DataDir, BaseDir) ->
+    SysDir = filename:join(BaseDir,"system"),
+    ct:log("~p:~p  SshAlg=~p~nDataDir = ~p~nBaseDir = ~p~nSysDir = ~p",[?MODULE,?LINE,SshAlg, DataDir, BaseDir,SysDir]),
+    file:make_dir(SysDir),
+    setup_host_key(SshAlg, DataDir, SysDir),
+    SysDir.
+
+setup_host_key(SshAlg, DataDir, SysDir) ->
+    mk_dir_path(SysDir),
+    %% Copy private host key to system's dir
+    {ok,_} = file:copy(filename:join(DataDir, file_base_name(system_src,SshAlg)),
+                       filename:join(SysDir,  file_base_name(system,SshAlg))),
+    ?ct_log_show_file( filename:join(SysDir,  file_base_name(system,SshAlg)) ),
+    ok.
+
+setup_known_host(SshAlg, DataDir, UserDir) ->
+    {ok,Pub} = file:read_file(filename:join(DataDir, file_base_name(system_src,SshAlg)++".pub")),
+    S = lists:join(" ", lists:reverse(tl(lists:reverse(string:tokens(binary_to_list(Pub), " "))))),
+    ok = file:write_file(filename:join(UserDir, "known_hosts"),
+                         io_lib:format("~p~n",[S])),
+    ?ct_log_show_file( filename:join(UserDir, "known_hosts") ),
+    ok.
+
+
+get_addr_str() ->
+    {ok, Hostname} = inet:gethostname(),
+    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
+    IP = lists:concat([A, ".", B, ".", C, ".", D]),
+    lists:concat([Hostname,",",IP]).
+
+
+file_base_name(user,   'ecdsa-sha2-nistp256') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp384') -> "id_ecdsa";
+file_base_name(user,   'ecdsa-sha2-nistp521') -> "id_ecdsa";
+file_base_name(user,   'rsa-sha2-256'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-384'       ) -> "id_rsa";
+file_base_name(user,   'rsa-sha2-512'       ) -> "id_rsa";
+file_base_name(user,   'ssh-dss'            ) -> "id_dsa";
+file_base_name(user,   'ssh-ed25519'        ) -> "id_ed25519";
+file_base_name(user,   'ssh-ed448'          ) -> "id_ed448";
+file_base_name(user,   'ssh-rsa'            ) -> "id_rsa";
+
+file_base_name(user_src, 'ecdsa-sha2-nistp256') -> "id_ecdsa256";
+file_base_name(user_src, 'ecdsa-sha2-nistp384') -> "id_ecdsa384";
+file_base_name(user_src, 'ecdsa-sha2-nistp521') -> "id_ecdsa521";
+file_base_name(user_src, Alg) -> file_base_name(user, Alg);
+
+file_base_name(system, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name(system, 'rsa-sha2-256'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-384'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'rsa-sha2-512'       ) -> "ssh_host_rsa_key";
+file_base_name(system, 'ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name(system, 'ssh-ed25519'        ) -> "ssh_host_ed25519_key";
+file_base_name(system, 'ssh-ed448'          ) -> "ssh_host_ed448_key";
+file_base_name(system, 'ssh-rsa'            ) -> "ssh_host_rsa_key";
+
+file_base_name(system_src, 'ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key256";
+file_base_name(system_src, 'ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key384";
+file_base_name(system_src, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521";
+file_base_name(system_src, Alg) -> file_base_name(system, Alg).
+
+%%%----------------------------------------------------------------
+-define(SEARCH_FUN(EXP),
+        begin
+            fun(#{msg := {string, EXP},
+                  level := debug}) ->
+                    true;
+               (_) ->
+                    false
+            end
+        end).
+-define(SEARCH_SUFFIX, " will use strict KEX ordering").
+
+kex_strict_negotiated(client, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("client" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(server, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("server" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(SearchFun, Events) when is_function(SearchFun) ->
+    %% FIXME use event_logged?
+    case lists:search(SearchFun, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+event_logged(Role, Events, Reason) ->
+    SearchF =
+        fun(#{msg := {report, #{args := Args}}}) ->
+                AnyF = fun (E) when is_list(E) ->
+                               case string:find(E, Reason) of
+                                   nomatch -> false;
+                                   _ -> true
+                               end;
+                           (_) ->
+                               false
+                       end,
+                lists:member(Role, Args) andalso
+                    lists:any(AnyF, Args);
+           (_Event) ->
+                false
+        end,
+    case lists:search(SearchF, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+get_log_level() ->
+    #{level := Level} = logger:get_primary_config(),
+    Level.
+
+set_log_level(Level) ->
+    ok = logger:set_primary_config(level, Level).
+
+add_log_handler() ->
+    TestRef = make_ref(),
+    ok = logger:add_handler(?MODULE, ?MODULE,
+                            #{level => debug,
+                              filter_default => log,
+                              recipient => self(),
+                              test_ref => TestRef}),
+    {ok, TestRef}.
+
+rm_log_handler() ->
+    ok = logger:remove_handler(?MODULE).
+
+get_log_events(TestRef) ->
+    {ok, get_log_events(TestRef, [])}.
+
+get_log_events(TestRef, Acc) ->
+    receive
+        {TestRef, Event} ->
+            get_log_events(TestRef, [Event | Acc])
+    after
+        500 ->
+            Acc
+    end.
+
+%% logger callbacks
+log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
+    #{test_ref := TestRef, recipient := Recipient}) ->
+    Recipient ! {TestRef, LogEvent},
+    ok.

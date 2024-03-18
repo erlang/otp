@@ -682,7 +682,7 @@ handle_event(_, no_hello_received, {hello,_Role}=StateName, D0) ->
 handle_event(_, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
 	     D = #data{key_exchange_init_msg = OwnKex}) ->
     Ssh1 = ssh_transport:key_init(peer_role(Role), D#data.ssh_params, Payload),
-    Ssh = case ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1) of
+    Ssh = case ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1, ReNeg) of
 	      {ok, NextKexMsg, Ssh2} when Role==client ->
 		  send_bytes(NextKexMsg, D),
 		  Ssh2;
@@ -1041,6 +1041,16 @@ handle_event(_, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D0) ->
     {Actions,D} = send_replies(RepliesCon, D0),
     disconnect_fun("Received disconnect: "++Desc, D),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
+
+handle_event(internal, #ssh_msg_ignore{}, {_StateName, _Role, init},
+             #data{ssh_params = #ssh{kex_strict_negotiated = true,
+                                     send_sequence = SendSeq,
+                                     recv_sequence = RecvSeq}}) ->
+    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                io_lib:format("strict KEX violation: unexpected SSH_MSG_IGNORE "
+                              "send_sequence = ~p  recv_sequence = ~p",
+                              [SendSeq, RecvSeq])
+               );
 
 handle_event(_, #ssh_msg_ignore{}, _, _) ->
     keep_state_and_data;
