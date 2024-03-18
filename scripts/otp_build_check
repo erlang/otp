@@ -240,7 +240,7 @@ export PATH="$ERL_TOP/release/$target/bin:$PATH"
     $MAKE release_docs || fail "Releasing documentation failed"
     progress "Running HTML check on OTP documentation"
     ./scripts/otp_check_html_links.exs || {
-        fail "HTML check of documentation failed"
+        fail "HTML check of documentation failed, see $ERL_TOP/HOWTO/DEVELOPMENT.md -> Validating documentation"
     }
 }
 
