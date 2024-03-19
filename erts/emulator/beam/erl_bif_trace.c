@@ -502,11 +502,15 @@ start_trace(Process *c_p, ErtsTracer tracer,
        In the code below port is used for both proc and port */
     Port *port = (Port*)common;
 
-    /*
-     * SMP build assumes that either system is blocked or:
-     * * main lock is held on c_p
-     * * all locks are held on port common
-     */
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (is_internal_pid(common->id)) {
+        ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks((Process*)common)
+                       == ERTS_PROC_LOCKS_ALL);
+    } else {
+        ASSERT(is_internal_port(common->id));
+        ERTS_LC_ASSERT(erts_lc_is_port_locked(port));
+    }
+#endif
 
     if (!ERTS_TRACER_IS_NIL(tracer)) {
         if ((ERTS_TRACE_FLAGS(port) & TRACEE_FLAGS)
@@ -705,6 +709,11 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 	    erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
 	    system_blocked = 1;
+            /*
+             * This will not block dirty schedulers, so we still need to lock
+             * each process/port tracee when modifying their trace settings
+             * below.
+             */
 
 	    ok = 1;
 	    if (procs || mods) {
@@ -714,8 +723,10 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
+                    erts_proc_lock(tracee_p, ERTS_PROC_LOCKS_ALL);
                     if (!start_trace(p, tracer, &tracee_p->common, on, mask))
                         matches++;
+                    erts_proc_unlock(tracee_p, ERTS_PROC_LOCKS_ALL);
 		}
 	    }
 	    if (ports || mods) {
@@ -729,8 +740,10 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 		    state = erts_atomic32_read_nob(&tracee_port->state);
 		    if (state & ERTS_PORT_SFLGS_DEAD)
 			continue;
+                    erts_port_lock(tracee_port);
                     if (!start_trace(p, tracer, &tracee_port->common, on, mask))
                         matches++;
+                    erts_port_release(tracee_port);
 		}
 	    }
 	}
