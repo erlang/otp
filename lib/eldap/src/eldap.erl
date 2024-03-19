@@ -36,6 +36,49 @@ Type definitions that are used more than once in this module:
 - **`referrals() =`** - `[Address = string()]` The contents of `Address` is
   server dependent.
 """.
+
+-type connection_info() :: #{socket := ssl:sslsocket() | gen_tcp:socket(), socket_type := tcp | ssl}.
+-type search_option() :: {base, string()} | {filter, filter()} |
+                         {scope, scope()} | {attributes, [string()]} |
+                         {deref, dereference()} | {types_only, boolean()} | {timeout, integer()}.
+
+-doc "handle() - Connection handle".
+-type handle() :: term().
+
+-doc "attribute() - `{Type = string(), Values=[string()]}`".
+-type attribute() :: {string(), [string()]}.
+
+-doc "modify_op() - See `mod_add/2`, `mod_delete/2`, `mod_replace/2`".
+-type modify_op() :: term().
+
+-doc """
+Scope of a search.
+scope() - See `baseObject/0`, `singleLevel/0`, `wholeSubtree/0`
+""".
+-opaque scope() :: baseObject | singleLevel | wholeSubtree.
+
+-doc """
+How to handle aliases during a search.
+dereference() - See `neverDerefAliases/0`, `derefInSearching/0`,
+  `derefFindingBaseObj/0`, `derefAlways/0`
+""".
+-opaque dereference() :: neverDerefAliases | derefInSearching | derefFindingBaseObj | derefAlways.
+
+-doc """
+filter() - See `present/1`, `substrings/2`, `equalityMatch/2`,
+  `greaterOrEqual/2`, `lessOrEqual/2`, `approxMatch/2`, `extensibleMatch/2`,
+  `'and'/1`, `'or'/1`, `'not'/1`
+""".
+-type filter() :: term().
+
+-doc """
+referrals() - `[Address = string()]` The contents of `Address` is
+  server dependent.
+""".
+-type referrals() :: [string()].
+
+-export_type([scope/0, dereference/0]).
+
 -moduledoc(#{since => "OTP R15B01"}).
 %%% --------------------------------------------------------------------
 %%% Created:  12 Oct 2000 by Tobbe <tnt@home.se>
@@ -131,6 +174,11 @@ open([Host]) -> {ok, Handle} | {error, Reason}
 Setup a connection to an LDAP server, the `HOST`'s are tried in order.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec open(Hosts) -> {ok, Handle} | {error, Reason} when
+    Hosts :: [Host],
+    Host  :: inet:socket_address() | inet:hostname(),
+    Handle :: handle(),
+    Reason :: term().
 open(Hosts) ->
     open(Hosts, []).
 
@@ -148,6 +196,13 @@ All TCP socket options are accepted except `active`, `binary`, `deliver`,
 `list`, `mode` and `packet`
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec open(Hosts, Options) -> {ok, Handle} | {error, Reason} when
+    Hosts :: [Host],
+    Host  :: inet:socket_address() | inet:hostname(),
+    Options :: [{port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()} | {sslopts, list()} | {tcpopts, list()}],
+    Handle :: handle(),
+    Reason :: term().
+
 open(Hosts, Opts) when is_list(Hosts), is_list(Opts) ->
     Self = self(),
     Pid = spawn_link(fun() -> init(Hosts, Opts, Self) end),
@@ -162,6 +217,11 @@ start_tls(Handle, Options) -> return_value()
 Same as start_tls(Handle, Options, infinity)
 """.
 -doc(#{since => <<"OTP R16B03">>}).
+-spec start_tls(Handle, TlsOptions) -> ok |{ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    TlsOptions :: ssl:tls_option(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 start_tls(Handle, TlsOptions) ->
     start_tls(Handle, TlsOptions, infinity).
 
@@ -194,6 +254,12 @@ timeout in [eldap:open/2](`open/2`) is used for the initial negotiation about
 upgrade (phase 1).
 """.
 -doc(#{since => <<"OTP R16B03">>}).
+-spec start_tls(Handle, TlsOptions, Timeout) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    TlsOptions :: ssl:tls_option(),
+    Timeout :: infinity | pos_integer(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 start_tls(Handle, TlsOptions, Timeout) ->
     start_tls(Handle, TlsOptions, Timeout, asn1_NOVALUE).
 
@@ -217,6 +283,12 @@ modify_password(Handle, Dn, NewPasswd) -> return_value() | {ok, GenPasswd}
 Modify the password of a user. See `modify_password/4`.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
+-spec modify_password(Handle, Dn, NewPasswd) -> ok | {ok, Refs}| {error, term()} | {ok, GenPasswd} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewPasswd :: string(),
+    Refs :: {referral, referrals()},
+    GenPasswd :: string().
 modify_password(Handle, Dn, NewPasswd) ->
     modify_password(Handle, Dn, NewPasswd, []).
 
@@ -234,6 +306,13 @@ Modify the password of a user.
   password. If not required, use `modify_password/3`.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
+-spec modify_password(Handle, Dn, NewPasswd, OldPasswd) -> ok | {ok, Refs} | {error, term()} | {ok, GenPasswd} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewPasswd :: string(),
+    OldPasswd :: string(),
+    Refs :: {referral, referrals()},
+    GenPasswd :: string().
 modify_password(Handle, Dn, NewPasswd, OldPasswd)
   when is_pid(Handle), is_list(Dn), is_list(NewPasswd), is_list(OldPasswd) ->
     modify_password(Handle, Dn, NewPasswd, OldPasswd, asn1_NOVALUE).
@@ -266,6 +345,8 @@ connection is tls the connection will be closed with `ssl:close/1`, otherwise
 with `gen_tcp:close/1`.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec close(Handle) -> ok when
+    Handle :: handle().
 close(Handle) when is_pid(Handle) ->
     send(Handle, close),
     ok.
@@ -290,6 +371,8 @@ Currently available information reveals the socket and the transport protocol,
 TCP or TLS (SSL), used by the LDAP connection.
 """.
 -doc(#{since => <<"OTP 25.3.1">>}).
+-spec info(Handle) -> connection_info() when
+    Handle :: handle().
 info(Handle) when is_pid(Handle) ->
     send(Handle, info),
     recv(Handle).
@@ -301,7 +384,7 @@ info(Handle) when is_pid(Handle) ->
 %%%  Dn      -  The name of the entry to bind as
 %%%  Passwd  -  The password to be used
 %%%
-%%%  Returns: ok | {error, Error}
+%%%  Returns: - return_value()
 %%% --------------------------------------------------------------------
 -doc """
 simple_bind(Handle, Dn, Password) -> return_value()
@@ -309,6 +392,12 @@ simple_bind(Handle, Dn, Password) -> return_value()
 Authenticate the connection using simple authentication.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec simple_bind(Handle, Dn, Password) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Password :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 simple_bind(Handle, Dn, Passwd) when is_pid(Handle)  ->
     simple_bind(Handle, Dn, Passwd, asn1_NOVALUE).
 
@@ -346,6 +435,12 @@ Add an entry. The entry must not exist.
 ```
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec add(Handle, Dn, Attributes) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Attributes :: [attribute()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 add(Handle, Entry, Attributes) when is_pid(Handle),is_list(Entry),is_list(Attributes) ->
     add(Handle, Entry, Attributes, asn1_NOVALUE).
 
@@ -384,6 +479,11 @@ Delete an entry.
 ```
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec delete(Handle, Dn) -> ok | {ok, Refs} |{error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 delete(Handle, Entry) when is_pid(Handle), is_list(Entry) ->
     delete(Handle, Entry, asn1_NOVALUE).
 
@@ -415,6 +515,12 @@ Modify an entry.
 ```
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec modify(Handle, Dn, ModifyOps) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    ModifyOps :: [term()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods) ->
     modify(Handle, Object, Mods, asn1_NOVALUE).
 
@@ -434,6 +540,9 @@ mod_add(Type, [Value]) -> modify_op()
 Create an add modification operation.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec mod_add(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_add(Type, Values) when is_list(Type), is_list(Values)     -> m(add, Type, Values).
 -doc """
 mod_delete(Type, [Value]) -> modify_op()
@@ -441,6 +550,9 @@ mod_delete(Type, [Value]) -> modify_op()
 Create a delete modification operation.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec mod_delete(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_delete(Type, Values) when is_list(Type), is_list(Values)  -> m(delete, Type, Values).
 -doc """
 mod_replace(Type, [Value]) -> modify_op()
@@ -448,6 +560,9 @@ mod_replace(Type, [Value]) -> modify_op()
 Create a replace modification operation.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec mod_replace(Type, Values) -> modify_op() when
+    Type :: string(),
+    Values :: [string()].
 mod_replace(Type, Values) when is_list(Type), is_list(Values) -> m(replace, Type, Values).
 
 m(Operation, Type, Values) ->
@@ -483,6 +598,14 @@ parent, `NewSupDN` shall be "".
 ```
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> ok | {ok, Refs} | {error, Reason} when
+    Handle :: handle(),
+    Dn :: string(),
+    NewRDN :: string(),
+    DeleteOldRDN :: boolean(),
+    NewSupDN :: string(),
+    Refs :: {referral, referrals()},
+    Reason :: term().
 modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup)
   when is_pid(Handle),is_list(Entry),is_list(NewRDN),is_atom(DelOldRDN),is_list(NewSup) ->
     modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup, asn1_NOVALUE).
@@ -543,6 +666,14 @@ timeout in [eldap:open/2](`open/2`) is used for each individual request in the
 search operation.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec search(Handle, SearchOptions) ->
+    {ok, #eldap_search_result{}} |
+    {ok, Refs} |
+    {error, Reason} when
+    Handle :: handle(),
+    SearchOptions :: #eldap_search{} | [search_option()],
+    Refs :: {referral, referrals()},
+    Reason :: term().
 search(Handle, X) when is_pid(Handle), is_record(X,eldap_search) ; is_list(X) ->
     search(Handle, X, asn1_NOVALUE).
     
@@ -594,6 +725,7 @@ baseObject() -> scope()
 Search baseobject only.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec baseObject()   -> scope().
 baseObject()   -> baseObject.
 -doc """
 singleLevel() -> scope()
@@ -601,6 +733,7 @@ singleLevel() -> scope()
 Search the specified level only, i.e. do not recurse.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec singleLevel()  -> scope().
 singleLevel()  -> singleLevel.
 -doc """
 wholeSubtree() -> scope()
@@ -608,6 +741,7 @@ wholeSubtree() -> scope()
 Search the entire subtree.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec wholeSubtree() -> scope().
 wholeSubtree() -> wholeSubtree.
 
 %%
@@ -619,6 +753,7 @@ neverDerefAliases() -> dereference()
 Never dereference aliases, treat aliases as entries.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec neverDerefAliases() -> dereference().
 neverDerefAliases()   -> neverDerefAliases.
 -doc """
 derefInSearching() -> dereference()
@@ -626,6 +761,7 @@ derefInSearching() -> dereference()
 Dereference aliases only when searching.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec derefInSearching() -> dereference().
 derefInSearching()    -> derefInSearching.
 -doc """
 derefFindingBaseObj() -> dereference()
@@ -633,6 +769,7 @@ derefFindingBaseObj() -> dereference()
 Dereference aliases only in finding the base.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec derefFindingBaseObj() -> dereference().
 derefFindingBaseObj() -> derefFindingBaseObj.
 -doc """
 derefAlways() -> dereference()
@@ -640,6 +777,7 @@ derefAlways() -> dereference()
 Always dereference aliases.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec derefAlways() -> dereference().
 derefAlways()         -> derefAlways.
 
 %%%
@@ -651,6 +789,8 @@ derefAlways()         -> derefAlways.
 Creates a filter where all `Filter` must be true.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec 'and'(ListOfFilters) -> filter() when
+    ListOfFilters :: [filter()].
 'and'(ListOfFilters) when is_list(ListOfFilters) -> {'and',ListOfFilters}.
 -doc """
 'or'([Filter]) -> filter()
@@ -658,6 +798,8 @@ Creates a filter where all `Filter` must be true.
 Create a filter where at least one of the `Filter` must be true.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec 'or'(ListOfFilters) -> filter() when
+    ListOfFilters :: [filter()].
 'or'(ListOfFilters)  when is_list(ListOfFilters) -> {'or', ListOfFilters}.
 -doc """
 'not'(Filter) -> filter()
@@ -665,6 +807,8 @@ Create a filter where at least one of the `Filter` must be true.
 Negate a filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec 'not'(Filter) -> filter() when
+    Filter :: {filter()}.
 'not'(Filter)        when is_tuple(Filter)       -> {'not',Filter}.
 
 %%%
@@ -677,6 +821,9 @@ equalityMatch(Type, Value) -> filter()
 Create a equality filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec equalityMatch(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 equalityMatch(Desc, Value)   -> {equalityMatch, av_assert(Desc, Value)}.
 -doc """
 greaterOrEqual(Type, Value) -> filter()
@@ -684,6 +831,9 @@ greaterOrEqual(Type, Value) -> filter()
 Create a greater or equal filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec greaterOrEqual(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 greaterOrEqual(Desc, Value)  -> {greaterOrEqual, av_assert(Desc, Value)}.
 -doc """
 lessOrEqual(Type, Value) -> filter()
@@ -691,6 +841,9 @@ lessOrEqual(Type, Value) -> filter()
 Create a less or equal filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec lessOrEqual(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
 lessOrEqual(Desc, Value)     -> {lessOrEqual, av_assert(Desc, Value)}.
 -doc """
 approxMatch(Type, Value) -> filter()
@@ -698,6 +851,10 @@ approxMatch(Type, Value) -> filter()
 Create a approximation match filter.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec approxMatch(Type, Value) -> filter() when
+    Type :: string(),
+    Value :: string().
+
 approxMatch(Desc, Value)     -> {approxMatch, av_assert(Desc, Value)}.
 
 av_assert(Desc, Value) ->
@@ -713,6 +870,8 @@ present(Type) -> filter()
 Create a filter which filters on attribute type presence.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec present(Type) -> filter() when
+    Type :: string().
 present(Attribute) when is_list(Attribute) ->
     {present, Attribute}.
 
@@ -738,6 +897,9 @@ substrings(Type, [SubString]) -> filter()
 Create a filter which filters on substrings.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec substrings(Type, SubStrings) -> filter() when
+    Type :: string(),
+    SubStrings :: [{initial, string()} | {any, string()} |{final, string()}].
 substrings(Type, SubStr) when is_list(Type), is_list(SubStr) ->
     Ss = v_substr(SubStr),
     {substrings,#'SubstringFilter'{type = Type,
@@ -759,6 +921,9 @@ creates a filter which performs a `caseExactMatch` on the attribute `sn` and
 matches with the value `"Bar"`. The default value of `dnAttributes` is `false`.
 """.
 -doc(#{since => <<"OTP 17.4">>}).
+-spec extensibleMatch(MatchValue, OptionalAttrs) -> filter() when
+    MatchValue :: string(),
+    OptionalAttrs :: [{matchingRule,string()} | {type,string()} | {dnAttributes,boolean()}].
 extensibleMatch(MatchValue, OptArgs) ->
     MatchingRuleAssertion =  
 	mra(OptArgs, #'MatchingRuleAssertion'{matchValue = MatchValue}),
@@ -1818,6 +1983,10 @@ Control = eldap:paged_result_control(50),
 ```
 """.
 -doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_control(PageSize) ->
+    {control, ControlOID, true, binary()} when
+    PageSize :: integer(),
+    ControlOID :: string().
 paged_result_control(PageSize) when is_integer(PageSize) ->
     paged_result_control(PageSize, "").
 
@@ -1844,6 +2013,11 @@ Control2 = eldap:paged_result_control(PageSize, Cookie1),
 ```
 """.
 -doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_control(PageSize, Cookie) ->
+   {control, ControlOID, true, binary()} when
+    PageSize :: integer(),
+    Cookie :: string(),
+    ControlOID :: string().
 paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
     RSCV = #'RealSearchControlValue'{size=PageSize, cookie=Cookie},
     {ok, ControlValue} = 'ELDAPv3':encode('RealSearchControlValue', RSCV),
@@ -1871,6 +2045,10 @@ If the returned cookie is the empty string `""`, then these search results
 represent the last in the series.
 """.
 -doc(#{since => <<"OTP 24.3">>}).
+-spec paged_result_cookie(#eldap_search_result{controls :: maybe_improper_list()}) ->
+    {'error', 'no_cookie'} |
+    {'ok', 'asn1_NOVALUE' | [[any()] | byte() | {_, _} | {_, _, _}] |
+    #'AttributeValueAssertion'{attributeDesc :: [any()], assertionValue :: [any()]}}.
 paged_result_cookie(#eldap_search_result{controls=Controls}) ->
     find_paged_result_cookie(Controls).
 
