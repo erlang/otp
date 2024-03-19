@@ -1043,6 +1043,25 @@ each node from which requests are sent.</p>
 </warning>
 </item>
 
+<tag><c>{bins_info, boolean() | non_neg_integer()}</c></tag>
+<item>
+<p>
+This option is only used when when the service_info/1 function is called.
+The point is that in a system under heavy load, the heap can contain
+a lot of binaries, so counting them all (and there size's) can be
+costly. </p>
+
+<p>
+If <c>true</c> then the binaries on the heap are counted.
+If <c>false</c> info about binaries on the heap is not collected.
+If <c>non_neg_integer()</c> the binaries on the heap are counted,
+up to this point.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+</item>
+
 <tag><c>&transport_opt;</c></tag>
 <item>
 <p>
