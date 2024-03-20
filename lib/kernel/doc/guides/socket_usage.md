@@ -147,6 +147,7 @@ This example is intended to show how to create a simple (echo) server
 client(#{family := Family} = ServerSockAddr, Msg)
   when is_list(Msg) orelse is_binary(Msg) ->
     {ok, Sock} = socket:open(Family, stream, default),
+    ok         = maybe_bind(Sock, Family),
     ok         = socket:connect(Sock, ServerSockAddr),
     client_exchange(Sock, Msg);
 
@@ -331,6 +332,18 @@ echo(Sock, Data) when is_binary(Data) ->
 %% ======================================================================
 
 %% === Utility functions ===
+
+maybe_bind(Sock, Family) ->
+    maybe_bind(Sock, Family, os:type()).
+
+maybe_bind(Sock, Family, {win32, _}) ->
+    Addr     = get_local_addr(Family),
+    SockAddr = #{family => Family,
+                 addr   => Addr,
+                 port   => 0},
+    socket:bind(Sock, SockAddr);
+maybe_bind(_Sock, _Family, _OS) ->
+    ok.
 
 %% The idea with this is extract a "usable" local address
 %% that can be used even from *another* host. And doing
