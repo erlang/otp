@@ -50,7 +50,7 @@ listen(Port, #config{inet_ssl = SockOpts,
                      ssl = SslOpts,
                      emulated = EmOpts,
                      inet_user = Options} = Config) ->
-    IP = proplists:get_value(ip, SockOpts, {0,0,0,0}),
+    IP = proplists:get_value(ip, SockOpts, default_ip(SockOpts)),
     case dtls_listener_sup:lookup_listener(IP, Port) of
         undefined ->
             start_new_listener(IP, Port, Config);
@@ -95,13 +95,17 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 
 close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
                                       inet_ssl = SockOpts}}}) ->
-    IP = proplists:get_value(ip, SockOpts, {0,0,0,0}),
+    IP = proplists:get_value(ip, SockOpts, default_ip(SockOpts)),
     Port = get_real_port(Pid, Port0),
     dtls_listener_sup:register_listener({undefined, Pid}, IP, Port),
-    dtls_packet_demux:close(Pid).   
+    dtls_packet_demux:close(Pid).
 
-close(_, dtls) ->
-    ok;
+default_ip(SockOpts) ->
+    case proplists:get_value(inet6, SockOpts, false) of
+                false -> {0,0,0,0};
+                true  -> {0,0,0,0, 0,0,0,0}
+    end.
+
 close(gen_udp, {_Client, _Socket}) ->
     ok;
 close(Transport, {_Client, Socket}) ->
