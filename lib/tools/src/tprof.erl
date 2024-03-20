@@ -24,8 +24,8 @@
 -moduledoc """
 Process Tracing Profiling Tool
 
-`tprof` provides convenience helpers for Erlang process profiling. Underlying
-mechanism is the Erlang trace BIFs.
+`tprof` provides convenience helpers for Erlang process profiling using
+the trace BIFs.
 
 > #### Warning {: .warning }
 >
@@ -39,29 +39,33 @@ server-aided mode for deeper introspection of the code running in production.
 
 > #### Warning {: .warning }
 >
-> Avoid hot code reload for modules that are participating in the tracing.
-> Reloading a module turns tracing off, discarding accumulated statistics.
-> `tprof` may not report correct amounts when code reload happened during
-> profiling session.
+> Avoid hot code reloading for modules participating in the tracing.
+> Reloading a module disables tracing and discards the accumulated statistics.
+> The `tprof` results will probably be incorrect when the profiled code was
+> reloading during a profiling session.
 
-The `type` option controls which type of profiling to perform. You can choose
-between `call_count`, `call_time`, and `call_memory`. The default is
-`call_count`, it has the smallest footprint on the system but it does not
-support per-process profiling. For this reason, all of the examples below use
-`call_memory`, which measures heap allocation, and provide a more complex
-feature set to demonstrate.
+There are three kinds of profiling supported by this module:
 
-Heap allocations happen for all Erlang terms that do not fit a single machine
-word. For example, a function returning tuple of 2 elements needs to allocate
-this tuple on the process heap. Actual consumption is more than 2 machine words,
-because Erlang runtime needs to store tuple size and other internal information.
+- `call_count`
+- `call_time`
+- `call_memory`
+
+The default is `call_count`, which has the smallest peformance impact
+and memory footprint, but it does not support per-process
+profiling.
+
+Erlang terms that do not fit in a single machine word are allocated on
+the process heap. For example, a function returning a tuple of two
+elements needs to allocate the tuple on the process heap. The actual
+consumption is three words, because the runtime systems also need an
+extra word to store the tuple size.
 
 > #### Note {: .info }
 >
-> When profiling is enabled, expect a slowdown in the program execution.
+> Expect a slowdown in the program execution when profiling is enabled.
 >
 > For profiling convenience, measurements are accumulated for functions that are
-> not enabled in trace pattern. Consider this call stack example:
+> not enabled in some trace pattern. Consider this call stack example:
 >
 > ```text
 > top_traced_function(...)
@@ -69,18 +73,19 @@ because Erlang runtime needs to store tuple size and other internal information.
 > bottom_traced_function()
 > ```
 >
-> Allocations that happened within `not_traced_function` will be accounted into
-> `top_traced_function`. However allocations happened within
-> `bottom_traced_function` are not included in the `top_traced_function`. If you
-> want to account only own allocations, you need to trace all functions.
+> Allocations that happened within `not_traced_function` will be added to
+> the allocations for `top_traced_function`. However, allocations that occurred
+> within `bottom_traced_function` are not included in the `top_traced_function`.
+> To only keep track of each function own allocations, it is necessary to
+> trace all functions.
 
 ## Ad-hoc profiling
 
-Basic profiling providing accumulated memory allocation data. You can choose to
-print per-process statistics, total statistics, or omit printing and extract
-machine-readable data that you can later sort/print:
+Ad-hoc profiling is convenient for profiling a single function call.
 
-```text
+For example:
+
+```erlang
 1> tprof:profile(lists, seq, [1, 16], #{type => call_memory}).
 
 ****** Process <0.179.0>    -- 100.00 % of total allocations ***
@@ -90,11 +95,10 @@ lists:seq_loop/3      5     32         6  [100.00]
 ok
 ```
 
-By default tracing is enabled for all functions of all modules. When functions
-are created in the interactive shell, parts of shell code are also traced. It is
-however possible to limit the trace to specific functions or modules:
+By default tracing is enabled for all functions in all modules. When funs
+are created in the interactive shell, parts of shell code are also traced:
 
-```text
+```erlang
 1> tprof:profile(fun() -> lists:seq(1, 16) end, #{type => call_memory}).
 
 ****** Process <0.224.0>    -- 100.00 % of total allocations ***
@@ -108,15 +112,24 @@ erl_eval:ret_expr/3            4     16         4  [17.02]
 erl_eval:merge_bindings/4      3     24         8  [25.53]
 lists:seq_loop/3               5     32         6  [34.04]
 
+ok
+```
+
+However, it is possible to limit the trace to specific functions or modules:
+
+```erlang
+>>>>>>> c3fe8f12d4 (fixup! WIP: Polish `tools` documentation after migration to ExDoc)
 2> tprof:profile(fun() -> lists:seq(1, 16) end,
                  #{type => call_memory, pattern => [{lists, seq_loop, '_'}]}).
 ****** Process <0.247.0>    -- 100.00 % of total allocations ***
 FUNCTION          CALLS  WORDS  PER CALL  [     %]
 lists:seq_loop/3      5     32         6  [100.00]
+
+ok
 ```
 
-Ad-hoc profiling results may be printed in a few different ways. Following
-examples are using `test` module defined like this:
+Ad-hoc profiling results can be printed in a few different ways. The following
+examples use the `test` module defined like this:
 
 ```erlang
 -module(test).
@@ -129,10 +142,10 @@ test_spawn() ->
     end.
 ```
 
-Default format prints per-process statistics.
+By default per-process statistics is shown:
 
-```text
-2> tprof:profile(test, test_spawn, [], #{type => call_memory}).
+```erlang
+1> tprof:profile(test, test_spawn, [], #{type => call_memory}).
 
 ****** Process <0.176.0>    -- 23.66 % of total allocations ***
 FUNCTION                CALLS  WORDS  PER CALL  [    %]
@@ -148,11 +161,12 @@ lists:seq_loop/3       9     64         7  [90.14]
                              71            [100.0]
 ```
 
-This example prints the combined memory allocation of all processes, sorted by
-total allocated words in the descending order
+The following example prints the combined memory allocation of all
+processes, sorted by the total number of allocated words in descending
+order:
 
-```text
-5> tprof:profile(test, test_spawn, [],
+```erlang
+2> tprof:profile(test, test_spawn, [],
                  #{type => call_memory, report => {total, {measurement, descending}}}).
 
 FUNCTION                CALLS  WORDS  PER CALL  [    %]
@@ -164,13 +178,13 @@ erlang:spawn_monitor/1      1      2         2  [ 2.15]
                                   93            [100.0]
 ```
 
-You can also collect the profile for further inspection.
+The profiling data can also be collected for further inspection:
 
-```text
-6> {done, ProfileData} = tprof:profile(fun test:test_spawn/0,
+```erlang
+3> {done, ProfileData} = tprof:profile(fun test:test_spawn/0,
                                        #{type => call_memory, report => return}).
 <...>
-7> tprof:format(tprof:inspect(ProfileData, process, {percent, descending})).
+4> tprof:format(tprof:inspect(ProfileData, process, {percent, descending})).
 
 ****** Process <0.223.0>    -- 23.66 % of total allocations ***
 FUNCTION                CALLS  WORDS  PER CALL  [    %]
@@ -186,14 +200,17 @@ erlang:apply/2         1      7         7  [ 9.86]
 71            [100.0]
 ```
 
-The processes which are profiled depends on the profiling type. `call_count`,
-the default, will count calls across all processes. The other types, `call_time`
-and `call_memory`, take into account all processes spawned from the
-user-provided function (using `set_on_spawn` argument for trace/3 BIF). You
-cannot restrict the profiled processes for `call_count`, but you can limit the
-trace to a single process for the other two:
+Which processes that are profiled depends on the profiling type.
 
-```text
+* `call_count` (default) counts calls in all processes.
+
+* `call_time` and `call_memory` limits the profiling to the processes
+  spawned from the user-provided function (using the `set_on_spawn`
+  option for `erlang:trace/3`).
+
+`call_time` and `call_memory` can be restricted to profile a single process:
+
+```erlang
 2> tprof:profile(test, test_spawn, [],
                  #{type => call_memory, set_on_spawn => false}).
 
@@ -206,11 +223,11 @@ test:test_spawn/0           1     14        14  [63.64]
 
 [](){: #pg_example }
 
-Erlang programs may perform expensive operations in processes that are different
-from the original one. You can include multiple, new or even all processes in
-the trace when measuring time or memory:
+Erlang programs can perform expensive operations in other processes
+than the original one. You can include multiple, new, or even all
+processes in the trace when measuring time or memory:
 
-```text
+```erlang
 7> pg:start_link().
 {ok,<0.252.0>}
 8> tprof:profile(fun() -> pg:join(group, self()) end,
@@ -250,19 +267,21 @@ erl_eval:merge_bindings/4      3     24         8  [24.24]
 99            [100.0]
 ```
 
-There is no default limit on the profiling time. It is possible to define such
-limit for ad-hoc profile. If function being profiled does not return in a
-specified amount of time, process is terminated with `kill` reason. Any unlinked
-children started by the user-supplied function are kept, it is developer's
-responsibility to ensure cleanup.
+By default, there is no limit for the profiling time. For ac-hoc
+profiling, is is possible to configure a time limit. If the profiled
+function does not return before that time expires, the process is
+terminated with reason `kill`. Any unlinked children processes started
+by the user-supplied function are kept; it is the responsibility of
+the developer to take care of such processes.
 
 ```erlang
 9> tprof:profile(timer, sleep, [100000], #{timeout => 1000}).
 ```
 
-By default, only one ad-hoc or server-aided profiling session is allowed at any
-point in time. It is possible to force multiple ad-hoc sessions concurrently,
-but it is developer responsibility to ensure non-overlapping trace patterns.
+By default, only one ad-hoc or server-aided profiling session is
+allowed at any point in time. It is possible to force multiple ad-hoc
+sessions concurrently, but it is the responsibility of the developer
+to ensure that trace patterns do not overlap:
 
 ```erlang
 1> tprof:profile(fun() -> lists:seq(1, 32) end,
@@ -271,12 +290,14 @@ but it is developer responsibility to ensure non-overlapping trace patterns.
 
 ## Server-aided profiling
 
-Memory profiling can be done when your system is up and running. You can start
-the `tprof` server, add trace patterns and processes to trace while your system
-handles actual traffic. You can extract the data any time, inspect, and print.
-The example below traces activity of all processes supervised by kernel:
+Server-aided profiling can be done on a system that is up and
+running. To do that, start the `tprof` server, and then add trace
+patterns and processes to trace while the system handles actual
+traffic. Data can extracted, inspected, and printed at any time. The
+following example traces activity of all processes supervised by
+the Kernel supervisor:
 
-```text
+```erlang
 1> tprof:start(#{type => call_memory}).
 {ok,<0.200.0>}
 2> tprof:enable_trace({all_children, kernel_sup}).
@@ -309,7 +330,7 @@ disk_log_1:mf_write_cache/1         1      3         3  [ 1.91]
 It is possible to profile the entire running system, and then examine individual
 processes:
 
-```text
+```erlang
 1> tprof:start(#{type => call_memory}).
 2> tprof:enable_trace(processes), tprof:set_pattern('_', '_' , '_').
 9041
@@ -402,7 +423,7 @@ by a selected column.
 
 %% Convenience type used to sort the profiling results.
 -doc """
-Column to sort by `inspect/3`, or [`profile`](`profile/2`).
+Column to sort by `inspect/3` or [`profile/4`](`profile/4`).
 
 - **`module`** - Module name.
 
@@ -425,7 +446,7 @@ Column to sort by `inspect/3`, or [`profile`](`profile/2`).
 -type sort_by() :: column() | {column(), ascending} | {column(), descending}.
 
 %% Selected options allowed for enable/disable trace
--doc "Options for enabling profiling of the selected processes, see `enable_trace/2`.".
+-doc "Options for enabling profiling of the selected processes; see `enable_trace/2`.".
 -type trace_options() :: #{
     set_on_spawn => boolean()
 }.
@@ -436,7 +457,7 @@ Column to sort by `inspect/3`, or [`profile`](`profile/2`).
     existing_processes |
     new_processes.
 
--doc "Ad-hoc profiler options, see [`profile`](`profile/2`).".
+-doc "Ad-hoc profiler options; see [`profile/4`](`profile/4`).".
 -type profile_options() :: #{
     type => trace_type(),                           %% the type of profiling
     timeout => timeout(),                           %% stop profiling after the timeout
@@ -451,8 +472,10 @@ Column to sort by `inspect/3`, or [`profile`](`profile/2`).
 %%--------------------------------------------------------------------
 %% Server-aided API
 -doc """
-Starts the server, not supervised. Profiling server stores current trace
-patterns and ensures a single instance of profiler is running.
+Starts the server, not supervised.
+
+Profiling server stores current trace patterns and ensures that a single
+instance of the profiler is running.
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec start() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
@@ -465,8 +488,7 @@ start() ->
 start(Config) when is_map(Config) ->
     gen_server:start({local, ?MODULE}, ?MODULE, Config, []).
 
-%% @doc Starts the process and links it to the caller.
--doc "Starts the server, supervised by the calling process.".
+-doc "Starts the server supervised by the calling process.".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec start_link() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
 start_link() ->
@@ -478,16 +500,18 @@ start_link() ->
 start_link(Config) when is_map(Config) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, Config, []).
 
--doc "Stops the `tprof`, disabling tracing that has been enabled.".
+-doc "Stops the `tprof` server and disable tracing enabled by the server.".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec stop() -> ok.
 stop() ->
     gen_server:stop(?MODULE).
 
 -doc """
-Turns tracing on for the supplied pattern. Requires running `tprof`. Patterns
-are additive, following the same rules as `erlang:trace_pattern/3`. Returns
-number of functions matching the supplied pattern.
+Enables tracing for all functions matching the supplied pattern.
+
+Requires that the `tprof` server is running. Patterns are additive, following
+the same rules as `erlang:trace_pattern/3`. Returns the number of
+functions matching the supplied pattern.
 
 ```erlang
 1> tprof:set_pattern(lists, seq, '_').
@@ -498,7 +522,7 @@ number of functions matching the supplied pattern.
 #{lists => [{keyfind,3},{seq,2},{seq,3}]}
 ```
 
-If there are no functions matching the pattern, error is returned
+If no functions match the pattern, an `error` tuple is returned:
 
 ```erlang
 > tprof:set_pattern(no_module, func, '_').
@@ -510,9 +534,8 @@ If there are no functions matching the pattern, error is returned
 set_pattern(Mod, Fun, Arity) ->
     gen_server:call(?MODULE, {set_pattern, Mod, Fun, Arity}, infinity).
 
-%% @doc Stops tracing all or specific function patterns.
 -doc """
-Turns tracing off for the supplied pattern.
+Disables tracing functions matching the supplied pattern.
 
 ```erlang
 1> tprof:set_pattern(lists, seq, '_').
@@ -528,30 +551,21 @@ Turns tracing off for the supplied pattern.
 clear_pattern(Mod, Fun, Arity) ->
     gen_server:call(?MODULE, {clear_pattern, Mod, Fun, Arity}, infinity).
 
-%% @doc Returns current trace map.
 -doc "Returns a map of module names to functions with their arities.".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec get_trace_map() -> trace_map().
 get_trace_map() ->
     gen_server:call(?MODULE, get_trace_map).
 
-%% @doc Returns statistics for current trace map.
 -doc false.
 -spec collect() -> {trace_type(), [trace_info()]}.
 collect() ->
     gen_server:call(?MODULE, collect, infinity).
 
-%% Process identified by a PID or a registered name.
--doc "Either process identified (pid), or a registered process name.".
+-doc "A process identifier (pid) or a registered process name.".
 -type process() :: pid() | atom().
 
-%% @doc Shortcut for erlang:trace/3 BIF touching only memory tracing flags.
-%%      Returns number of successful operations, and list of those unsuccessful
-%%      if the list was supplied. By default applies set_on_spawn flag.
--doc """
-The same as
-[`enable_trace` ](`enable_trace/2`)`(Spec, #{set_on_spawn => true})`.
-""".
+-doc #{equiv => enable_trace(Spec, #{set_on_spawn => true})}.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec enable_trace(Spec) -> non_neg_integer()
     when Spec :: pid() |
@@ -565,7 +579,9 @@ enable_trace(Rootset) ->
 
 -doc """
 Similar to `erlang:trace/3`, but supports a few more options for tracing
-convenience. Tracing per process is not supported by `call_count` profilers.
+convenience.
+
+Tracing per process is not supported by `call_count` profilers.
 
 `Spec` is either a process identifier (pid) for a local process, one of the
 following atoms, or a list of local process identifiers or their registered
@@ -592,10 +608,10 @@ names:
 > tracing set. It is permitted to stop the profiling server (wiping out any
 > accumulated data), restart the server, set entirely different tracing pattern
 > keeping the list of traced processes for future use. Use
-> [`disable_trace`(processes)](`disable_trace/2`) to clear the list of traced
+> [`disable_trace(Processes)`](`disable_trace/2`) to clear the list of traced
 > processes.
 
-Specify `Options` to modify tracing behaviour:
+Specify `Options` to modify tracing behavior:
 
 - **`set_on_spawn`** - Automatically start tracing for processes spawned by the
   traced process. On by default.
@@ -608,9 +624,12 @@ Specify `Options` to modify tracing behaviour:
         existing_processes |
         {children | all_children, process()};
     ([process()], trace_options()) -> non_neg_integer() | {non_neg_integer(), [process()]}.
-enable_trace(Procs, Options) when Procs =:= processes; Procs =:= new_processes; Procs =:= existing_processes ->
+enable_trace(Procs, Options) when Procs =:= processes;
+                                  Procs =:= new_processes;
+                                  Procs =:= existing_processes ->
     erlang:trace(Procs, true, trace_options(Options));
-enable_trace({Children, PidOrName}, Options) when Children =:= children; Children =:= all_children ->
+enable_trace({Children, PidOrName}, Options) when Children =:= children;
+                                                  Children =:= all_children ->
     Pids = children(Children, PidOrName),
     toggle_trace(Pids, true, trace_options(Options), 0, []);
 enable_trace(Pid, Options) when is_pid(Pid); is_atom(Pid) ->
@@ -618,10 +637,7 @@ enable_trace(Pid, Options) when is_pid(Pid); is_atom(Pid) ->
 enable_trace(List, Options) when is_list(List) ->
     toggle_trace(List, true, trace_options(Options), 0, []).
 
--doc """
-The same as
-[`disable_trace` ](`disable_trace/2`)`(Spec, #{set_on_spawn => true})`.
-""".
+-doc #{equiv => disable_trace(Spec, #{set_on_spawn => true})}.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec disable_trace(Spec) -> non_neg_integer()
     when Spec :: pid() |
@@ -634,13 +650,15 @@ disable_trace(Rootset) ->
     disable_trace(Rootset, #{set_on_spawn => true}).
 
 -doc """
-Stops accumulating traces for specified processes. See `enable_trace/2` for
-options description.
+Stops accumulating traces for specified processes.
 
-Profile accumulated before process is removed from the traced list is retained.
-This allows to enable tracing for many or even all processes in the system,
-sleep for a short period of time, then disable tracing for all processes,
-avoiding system overload, but keeping profile data.
+See `enable_trace/2` for a description of the options.
+
+The profile data accumulated before the process is removed from the
+traced list is retained. This makes it possible to enable tracing for
+many or all processes in the system, sleep for a short period of
+time, then disable tracing for all processes (to avoid system
+overload), but keeping profile data.
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec disable_trace(Spec, trace_options()) -> non_neg_integer()
@@ -650,9 +668,12 @@ avoiding system overload, but keeping profile data.
         existing_processes |
         {children | all_children, process()};
     ([process()], trace_options()) -> non_neg_integer() | {non_neg_integer(), [process()]}.
-disable_trace(Procs, Options) when Procs =:= processes; Procs =:= new_processes; Procs =:= existing_processes ->
+disable_trace(Procs, Options) when Procs =:= processes;
+                                   Procs =:= new_processes;
+                                   Procs =:= existing_processes ->
     erlang:trace(Procs, false, trace_options(Options));
-disable_trace({Children, PidOrName}, Options) when Children =:= children; Children =:= all_children ->
+disable_trace({Children, PidOrName}, Options) when Children =:= children;
+                                                   Children =:= all_children ->
     Pids = children(Children, PidOrName),
     toggle_trace(Pids, false, trace_options(Options), 0, []);
 disable_trace(Pid, Options) when is_pid(Pid); is_atom(Pid) ->
@@ -660,28 +681,25 @@ disable_trace(Pid, Options) when is_pid(Pid); is_atom(Pid) ->
 disable_trace(List, Options) when is_list(List) ->
     toggle_trace(List, false, trace_options(Options), 0, []).
 
-%% @doc Pauses tracing for the entire trace_map
 -doc """
-Pauses trace collection for all currently traced functions, keeping all traces
-intact. Use `continue/0` to resume trace collection.
+Pauses trace collection for all currently traced functions, retaining existing traces.
+
+
+Use `continue/0` to resume trace collection.
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec pause() -> ok | not_running.
 pause() ->
     gen_server:call(?MODULE, pause, infinity).
 
-%% @doc Continues paused tracing.
 -doc "Resumes previously paused profiling.".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec continue() -> ok | not_paused.
 continue() ->
     gen_server:call(?MODULE, continue, infinity).
 
-%% @doc Restarts tracing, clearing current statistics. Profiling could be
-%%      running or paused.
 -doc """
-Clears accumulated profiles. If profiling was paused prior to calling `restart`,
-it gets continued.
+Clears accumulated profiles and starts profiling if it was paused.
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec restart() -> ok.
@@ -691,29 +709,31 @@ restart() ->
 %%--------------------------------------------------------------------
 %% Common API
 
-%% @doc Shortcut to transform raw collected data by process, sorted by percent.
 -doc """
-The same as [`inspect` ](`inspect/3`)`(Profile, process, percent)`. Transforms
-raw profile into a map of process identifiers to a tuple containing total count
+Equivalent to [`inspect(Profile, process, percent)`](`inspect/3`).
+
+Transforms raw profile into a map of process identifiers to a tuple containing total count
 of words allocated, and a list of all traced functions sorted in the ascending
 order by the allocation percentage.
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
--spec inspect({trace_type(), [trace_info()]}) -> #{pid() | all => profile_result()}.
+-spec inspect({trace_type(), [trace_info()]}) -> #{all => profile_result()}.
 inspect(Profile) ->
     inspect(Profile, process, percent).
 
-%% @doc Transforms raw collected data into shape suitable for analysis and printing.
 -doc """
+inspect(Profile, Type, SortBy)
+
 Transforms raw data returned by tracing BIFs into a form convenient for
 subsequent analysis and formatting.
 
-When `process` is given as second argument, it returns a map of process
-identifiers with corresponding profiling results sorted by the selected column.
-When the second argument is `total` or when profiling by `call_count`, the
-returned map has a single `all` key with profiling results from all processes.
+* When the `Type` argument is `process`, this function returns a map of process
+  identifiers with corresponding profiling results sorted by the selected column.
 
-Inspected profile can be leveraged to
+* When `Type` argument is `total` or when profiling by `call_count`, this function
+  returns a map with a single `all` key with profiling results from all processes.
+
+The inspected profile data can be leveraged to
 [print profiling results](`m:tprof#inspect_example`).
 """.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
@@ -729,14 +749,20 @@ inspect({Type, Profile}, total, SortBy) ->
     TotalStats = [inspect_total(M, F, A, GrandTotal, Mems) || {M, F, A, Mems} <- Profile],
     #{all => {Type, GrandTotal, inspect_sort(TotalStats, SortBy)}}.
 
-%% @doc Formats inspect()-ed totals and per-function data
--doc(#{equiv => format/2}).
+-doc """
+Formats profile data transformed with [`inspect/3`](`inspect/3`), outputting to
+the default output device.
+
+""".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec format(#{pid() | all => profile_result()}) -> ok.
 format(Inspected) ->
     format_impl([], Inspected).
 
--doc "Formats profile transformed with [`inspect` ](`inspect/3`)to a specified device.".
+-doc """
+Formats profile transformed with [`inspect/3`](`inspect/3`),
+outputting to device `IoDevice`.
+""".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec format(io:device(), #{pid() | all => profile_result()}) -> ok.
 format(IoDevice, Inspected) ->
@@ -745,61 +771,76 @@ format(IoDevice, Inspected) ->
 %%--------------------------------------------------------------------
 %% Ad-hoc API
 
-%% @doc Runs the function/MFA with heap tracing enabled.
--doc(#{equiv => profile/4}).
+-doc #{equiv => profile(Fun, #{})}.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec profile(fun(() -> term())) -> ok | {term(), [trace_info()]}.
 profile(Fun) when is_function(Fun) ->
     profile(Fun, #{}).
 
--doc(#{equiv => profile/4}).
+-doc """
+Does ad-hoc profiling of the call `Fun()`.
+
+By default, the result is formatted to the output device; use the `report`
+option to change this behavior.
+
+Ad-hoc profiling starts a new instance of `tprof` server, runs the
+profiling routine, extracts results, and shuts down the server. If the
+`tprof` server is already running (for server-aided profiling),
+the default ad-hoc profiler options block this call to avoid mixing
+results from several independent instances. Use the `registered => false`
+option to override this behavior.
+
+See `profile/4` for a list of the supported options.
+""".
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec profile(fun(() -> term()), profile_options()) -> ok | {term(), [trace_info()]}.
 profile(Fun, Options) when is_function(Fun) ->
     do_profile(Fun, Options).
 
--doc(#{equiv => profile/4}).
+-doc #{equiv => profile(Module, Function, Args, #{})}.
 -doc(#{since => <<"OTP @OTP-18756@">>}).
 -spec profile(module(), Fun :: atom(), Args :: [term()]) -> ok | {term(), [trace_info()]}.
 profile(Module, Function, Args) when is_atom(Module), is_atom(Function), is_list(Args) ->
     profile(Module, Function, Args, #{}).
 
 -doc """
-Produces ad-hoc profile for function `Fun` or `Module`:`Function` call. By
-default, result is formatted to the output device, use `report` option to change
-this behaviour.
+Does ad-hoc profiling for the call `apply(Module, Function, Args)`.
 
-Ad-hoc profiling starts a new instance of `tprof` server, runs the profiling
-routine, extracts results and shuts the server down. If `tprof` is already
-running (for server-aided profiling), default ad-hoc profiler options block this
-call to avoid mixing results from several independent instances. Use
-`registered => false` option to override this behaviour.
+By default, the result is formatted to the output device; use option `report`
+to change this behavior.
 
-Ad-hoc profiler supports following`Options`:
+Ad-hoc profiling starts a new instance of `tprof` server, runs the
+profiling routine, extracts results, and shuts down the server. If the
+`tprof` server is already running (for server-aided profiling),
+the default ad-hoc profiler options block this call to avoid mixing
+results from several independent instances. Use the `registered => false`
+option to override this behavior.
+
+The ad-hoc profiler supports the following `Options`:
 
 - **`type`** - The type of profiling to perform.
 
 - **`device`** - Specifies I/O devices to print the profile to. Useful to
   redirect text output to console or `standard_error`.
 
-- **`pattern`** - Specifies trace pattern, or a list of trace patterns to
+- **`pattern`** - Specifies a trace pattern, or a list of trace patterns to
   enable. By default, all functions (`{'_', '_', '_'}`) are traced.
 
-- **`registered`** - Specifies `tprof` registered process name. Use `false` to
-  leave the process unregistered, or `{local, myname}` to register the process
-  under a different name.
+- **`registered`** - Specifies the `tprof` registered process
+  name. Use `false` to leave the process unregistered, or `{local,
+  myname}` to register the process under a different name.
 
-- **`report`** - Controls output format. The default is `process`, printing
+- **`report`** - Controls output format. The default is `process`; printing
   per-process profiling data sorted by percentage of the total allocation.
   Specify `report => return` to suppress printing and get the raw data for
   further evaluation with `inspect/3` and formatting with `format/2`.
 
 - **`rootset`** - Includes extra processes in the trace list. Useful for
   profiling allocations for `m:gen_server`, calls, or other allocations caused
-  by inter-process communications. See [example](`m:tprof#pg_example`).
+  by inter-process communications. See [this example](`m:tprof#pg_example`).
 
 - **`set_on_spawn`** - Automatically start tracing for processes spawned by the
-  traced process. On by default.
+  traced process. Enabled by default.
 
 - **`timeout`** - Terminate profiling after the specified amount of time
   (milliseconds).
@@ -1167,7 +1208,6 @@ return_profile(total, Profile, Ret, Device) ->
 return_profile({Agg, Sort}, Profile, _Ret, Device) ->
     format_impl(Device, inspect(Profile, Agg, Sort)).
 
-%% @doc clears tracing for the entire trace map passed
 -spec clear_pattern(trace_map() | all, trace_type()) -> ok.
 clear_pattern(all, Type) ->
     erlang:trace_pattern(on_load, false, [Type]),
@@ -1250,8 +1290,6 @@ toggle_trace([Name | Tail], On, Flags, Success, Failure) when is_atom(Name) ->
             toggle_trace(Tail, On, Flags, NS, NF)
     end.
 
-%% @doc Collects memory tracing data (usable for inspect()) for
-%%      all traced functions.
 -spec collect(trace_map(), trace_type()) -> {trace_type(), [trace_info()]}.
 collect(all, Type) ->
     collect(

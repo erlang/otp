@@ -33,10 +33,10 @@ A `TAGS` file is used by Emacs to find function and variable definitions in any
 source file in large projects. This module can generate a `TAGS` file from
 Erlang source files. It recognises functions, records, and macro definitions.
 
-## OPTIONS
+## Options
 
-The functions above have an optional argument, `Options`. It is a list which can
-contain the following elements:
+The functions in this module have an optional argument `Options`. It
+is a list which can contain the following elements:
 
 - `{outfile, NameOfTAGSFile}` Create a `TAGS` file named `NameOfTAGSFile`.
 - `{outdir, NameOfDirectory}` Create a file named `TAGS` in the directory
@@ -54,11 +54,11 @@ The default behaviour is to create a file named `TAGS` in the current directory.
 
 - `tags:files(["foo.erl", "bar.erl", "baz.erl"], [{outdir, "../projectdir"}]).`
 
-  Here we create file named `TAGS` placed it in the directory `../projectdir`.
-  The file contains information about the functions, records, and macro
-  definitions of the three files.
+  This command will create a file named `TAGS` placed it in the
+  directory `../projectdir`. The file contains information about the
+  functions, records, and macro definitions of the three files.
 
-## SEE ALSO
+## See Also
 
 - Richard M. Stallman. GNU Emacs Manual, chapter "Editing Programs", section
   "Tag Tables". Free Software Foundation, 1995.
@@ -114,7 +114,7 @@ The default behaviour is to create a file named `TAGS` in the current directory.
 
 %%% External interface
 
--doc(#{equiv => root/1}).
+-doc #{equiv => root([])}.
 -spec root() -> 'ok' | 'error'.
 
 root() -> root([]).
@@ -125,26 +125,26 @@ root() -> root([]).
 
 root(Options) -> subdir(code:root_dir(), Options).
 
--doc(#{equiv => dir/2}).
+-doc #{equiv => dir(Dir, [])}.
 -spec dir(Dir) -> 'ok' | 'error' when
       Dir :: file:filename().
 
 dir(Dir) -> dir(Dir, []).
 
--doc "Create a TAGS file for all files in directory `Dir`.".
+-doc "Create a `TAGS` file for all files in directory `Dir`.".
 -spec dir(Dir, Options) -> 'ok' | 'error' when
       Dir :: file:filename(),
       Options :: [option()].
 
 dir(Dir, Options) -> dirs([Dir], Options).
 
--doc(#{equiv => dirs/2}).
+-doc #{equiv => dirs(Dirs, [])}.
 -spec dirs(DirList) -> 'ok' | 'error' when
       DirList :: [file:filename()].
 
 dirs(Dirs) -> dirs(Dirs, []).
 
--doc "Create a TAGS file for all files in any directory in `DirList`.".
+-doc "Create a `TAGS` file for all files in any directory in `DirList`.".
 -spec dirs(DirList, Options) -> 'ok' | 'error' when
       DirList :: [file:filename()],
       Options :: [option()].
@@ -152,14 +152,14 @@ dirs(Dirs) -> dirs(Dirs, []).
 dirs(Dirs, Options) ->
     files(collect_dirs(Dirs, false), Options).
 
--doc(#{equiv => subdir/2}).
+-doc #{equiv => subdir(Dir, [])}.
 -spec subdir(Dir) -> 'ok' | 'error' when
       Dir :: file:filename().
 
 subdir(Dir) -> subdir(Dir, []).
 
 -doc """
-Descend recursively down the directory `Dir` and create a `TAGS` file based on
+Descend recursively into the directory `Dir` and create a `TAGS` file based on
 all files found.
 """.
 -spec subdir(Dir, Options) -> 'ok' | 'error' when
@@ -168,14 +168,14 @@ all files found.
 
 subdir(Dir, Options) -> subdirs([Dir], Options).
 
--doc(#{equiv => subdirs/2}).
+-doc #{equiv => subdirs(Dirs, [])}.
 -spec subdirs(DirList) -> 'ok' | 'error' when
       DirList :: [file:filename()].
 
 subdirs(Dirs) -> subdirs(Dirs, []).
 
 -doc """
-Descend recursively down all the directories in `DirList` and create a `TAGS`
+Descend recursively into the directories in `DirList` and create a `TAGS`
 file based on all files found.
 """.
 -spec subdirs(DirList, Options) -> 'ok' | 'error' when
@@ -188,7 +188,7 @@ subdirs(Dirs, Options) ->
 -type option() :: {'outfile', NameOfTAGSFile :: file:filename()}
                 | {'outdir', NameOfDirectory :: file:filename()}.
 
--doc(#{equiv => file/2}).
+-doc #{equiv => file(Name, [])}.
 -spec file(File) -> 'ok' | 'error' when
       File :: file:filename().
 
@@ -201,13 +201,13 @@ file(Name) -> file(Name, []).
 
 file(Name, Options) -> files([Name], Options).
 
--doc(#{equiv => files/2}).
+-doc #{equiv => files(Files, [])}.
 -spec files(FileList) -> 'ok' | 'error' when
       FileList :: [file:filename()].
 
 files(Files) -> files(Files, []).
 
--doc "Create a TAGS file for the files in the list `FileList`.".
+-doc "Create a `TAGS` file for the files in the list `FileList`.".
 -spec files(FileList, Options) -> 'ok' | 'error' when
       FileList :: [file:filename()],
       Options :: [option()].

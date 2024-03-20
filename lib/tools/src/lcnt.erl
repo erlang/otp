@@ -166,8 +166,10 @@ enables this behavior during profiling.
 %% -------------------------------------------------------------------- %%
 
 -doc """
-Starts the lock profiler server. The server only act as a medium for the user
-and performs filtering and printing of data collected by `lcnt:collect/1`.
+Starts the lock profiler server.
+
+The server only act as a medium for the user and performs filtering
+and printing of data collected by `lcnt:collect/1`.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec start() -> {'ok', Pid} | {'error', {'already_started', Pid}} when
@@ -199,9 +201,9 @@ start_internal() ->
 %% -------------------------------------------------------------------- %%
 
 -doc """
-Sets the lock category mask to the given categories.
+Sets the lock category mask according to `Categories` on node `Node`.
 
-This will fail if the `copy_save` option is enabled; see
+This call will fail if the `copy_save` option is enabled; see
 [`lcnt:rt_opt/2`](`rt_opt/2`).
 
 Valid categories are:
@@ -216,7 +218,7 @@ Valid categories are:
 - `scheduler`
 
 This list is subject to change at any time, as is the category any given lock
-may belong to.
+belongs to.
 """.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP 20.1">>}).
@@ -230,10 +232,16 @@ rt_mask(Node, Categories) when is_atom(Node), is_list(Categories) ->
 -type category_atom() :: atom().
 
 -doc """
-Refer to `rt_mask/2`. for a list of valid categories. All categories are enabled
-by default.
+rt_mask(Arg)
 
-Same as [`rt_mask(node(), Categories)`](`rt_mask/2`).
+Sets the current lock category mask for the current node or
+retrieves the current mask for a remote node.
+
+If `Arg` is an atom, it is assumed to be a node, and this
+call returns the current lock category mask for node `Arg`.
+
+If `Arg` is a list, this call is equivalent to
+[`rt_mask(node(), Arg)`](`rt_mask/2`).
 """.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP 20.1">>}).
@@ -252,7 +260,9 @@ rt_mask(Categories) when is_list(Categories) ->
             {error, copy_save_enabled}
     end.
 
--doc "Same as [`rt_mask(node())`](`rt_mask/1`).".
+-doc """
+Return the current category mask for the current node.
+""".
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP 20.1">>}).
 -spec rt_mask() -> [category_atom()].
@@ -271,7 +281,7 @@ rt_mask() ->
 rt_collect(Node) ->
     rpc:call(Node, lcnt, rt_collect, []).
 
--doc "Same as [`rt_collect(node())`](`rt_collect/1`).".
+-doc #{equiv => rt_collect(node())}.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP R13B04">>}).
 -spec rt_collect() -> [lock_counter_data()].
@@ -279,7 +289,11 @@ rt_collect(Node) ->
 rt_collect() ->
     erts_debug:lcnt_collect().
 
--doc "Clear the internal counters. Same as [`lcnt:clear(Node)`](`clear/1`).".
+-doc """
+Clear the internal counters.
+
+Equivalent to [`lcnt:clear(Node)`](`clear/1`).
+""".
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP R13B04">>}).
 -spec rt_clear(Node) -> 'ok' when
@@ -288,7 +302,7 @@ rt_collect() ->
 rt_clear(Node) ->
     rpc:call(Node, lcnt, rt_clear, []).
 
--doc "Same as [`rt_clear(node())`](`rt_clear/1`).".
+-doc #{equiv => rt_clear(node())}.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP R13B04">>}).
 -spec rt_clear() -> 'ok'.
@@ -297,6 +311,8 @@ rt_clear() ->
     erts_debug:lcnt_clear().
 
 -doc """
+Sets a single option on node `Node`.
+
 Option description:
 
 - **`{copy_save, boolean()}`** - Retains the statistics of destroyed locks.  
@@ -305,12 +321,13 @@ Option description:
   > #### Warning {: .warning }
   >
   > This option will use a lot of memory when enabled, which must be reclaimed
-  > with `lcnt:rt_clear`. Note that it makes no distinction between locks that
-  > were destroyed and locks for which counting was disabled, so enabling this
-  > option will disable changes to the lock category mask.
+  > with [`lcnt:rt_clear/0,1`](`lcnt:rt_clear/1`). Note that it makes no
+  > distinction between locks that  were destroyed and locks for which counting
+  > was disabled, so enabling this option will disable changes to the lock
+  > category mask.
 
 - **`{process_locks, boolean()}`** - Profile process locks, equal to adding
-  `process` to the lock category mask; see `lcnt:rt_mask/2`  
+  `process` to the lock category mask; see `lcnt:rt_mask/2`.  
   Default: `true`
 """.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
@@ -323,7 +340,7 @@ Option description:
 rt_opt(Node, Arg) ->
     rpc:call(Node, lcnt, rt_opt, [Arg]).
 
--doc "Same as [`rt_opt(node(), {Type, Value})`](`rt_opt/2`).".
+-doc #{equiv => rt_opt(node(), {Type, Value})}.
 -doc(#{title => <<"Internal runtime lock counter controllers">>,
        since => <<"OTP R13B04">>}).
 -spec rt_opt(Option) -> boolean() when
@@ -357,17 +374,20 @@ toggle_category(Category, false) ->
 %%
 %% -------------------------------------------------------------------- %%
 
--doc "Same as [`clear(node())`](`clear/1`).".
+-doc #{equiv => clear(node())}.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec clear() -> 'ok'.
 
 clear() -> rt_clear().
 
 -doc """
-Clears the internal lock statistics from the runtime system. This does not clear
-the data on the server only on runtime system. All counters for static locks are
-zeroed, all dynamic locks currently alive are zeroed and all saved locks now
-destroyed are removed. It also resets the duration timer.
+Clears the internal lock statistics from the runtime system.
+
+This clears the data in the runtime system but not in server.  All
+counters for static locks are zeroed, all dynamic locks currently
+alive are zeroed and all saved locks now destroyed are removed. It
+also resets the duration timer.
+
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec clear(Node) -> 'ok' when
@@ -375,17 +395,19 @@ destroyed are removed. It also resets the duration timer.
 
 clear(Node) -> rt_clear(Node).
 
--doc "Same as [`collect(node())`](`collect/1`).".
+-doc #{equiv => collect(node())}.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec collect() -> 'ok'.
 
 collect() -> call({collect, rt_collect()}).
 
 -doc """
-Collects lock statistics from the runtime system. The function starts a server
-if it is not already started. It then populates the server with lock statistics.
-If the server held any lock statistics data before the collect then that data is
-lost.
+Collects lock statistics from the runtime system.
+
+The function starts a server if it is not already started. It then
+populates the server with lock statistics.  If the server held any
+lock statistics data before the collect then that data is lost.
+
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec collect(Node) -> 'ok' when
@@ -393,7 +415,7 @@ lost.
 
 collect(Node) -> call({collect, rt_collect(Node)}).
 
--doc "Same as [`locations([])`](`locations/1`).".
+-doc #{equiv => locations([])}.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec locations() -> 'ok'.
 
@@ -410,7 +432,7 @@ For option description, see [`lcnt:inspect/2`](`inspect/2`).
 
 locations(Opts) -> call({locations, Opts}).
 
--doc "Same as [`conflicts([])`](`conflicts/1`).".
+-doc #{equiv => conflicts([])}.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec conflicts() -> 'ok'.
 
@@ -446,14 +468,14 @@ For option description, see [`lcnt:inspect/2`](`inspect/2`).
 
 conflicts(Opts)      -> call({conflicts, Opts}).
 
--doc "Same as [`inspect(Lock, [])`](`inspect/2`).".
+-doc #{equiv => inspect(Lock, [])}.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec inspect(Lock) -> 'ok' when
       Lock :: Name | {Name, Id | [Id]},
       Name :: atom() | pid() | port(),
       Id :: atom() | integer() | pid() | port().
 
-inspect(Lock)        -> call({inspect, Lock, []}).
+inspect(Lock) -> call({inspect, Lock, []}).
 
 -doc """
 Prints a list of internal lock counters for a specific lock.
@@ -499,7 +521,7 @@ Option description:
   - **`colls`** - Number of collisions when a thread tried to acquire this lock.
     This is when a trylock is EBUSY, a write try on read held rw_lock, a try
     read on write held rw_lock, a thread tries to lock an already locked lock.
-    (Internal states supervises this).
+    (Internal states supervises this.)
 
   - **`ratio`** - The ratio between the number of collisions and the number of
     tries (acquisitions) in percentage.
@@ -539,7 +561,7 @@ histogram(Lock)      -> call({histogram, Lock, []}).
 histogram(Lock, Opts)-> call({histogram, Lock, Opts}).
 
 -doc """
-Prints lcnt server state and generic information about collected lock
+Prints `lcnt` server state and generic information about collected lock
 statistics.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
@@ -584,20 +606,22 @@ call(Msg) ->
 %%
 %% -------------------------------------------------------------------- %%
 
--doc "Same as [`apply(fun() -> erlang:apply(Module, Function, Args) end)`](`apply/1`).".
--doc(#{title => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc #{equiv => apply(fun() -> erlang:apply(Module, Function, Args) end)}.
+-doc #{title => <<"Convenience functions">>,
+       since => <<"OTP R13B04">>}.
 -spec apply(Module, Function, Args) -> term() when
       Module :: module(),
       Function :: atom(),
       Args :: [term()].
 
-apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
+apply(M, F, As) when is_atom(M), is_atom(F), is_list(As) ->
     apply(fun() ->
-        erlang:apply(M,F,As)
-    end).
+                  erlang:apply(M, F, As)
+          end).
 
--doc "Same as [`apply(Fun, [])`](`apply/2`).".
--doc(#{title => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
+-doc #{equiv => apply(Fun, [])}.
+-doc #{title => <<"Convenience functions">>,
+       since => <<"OTP R13B04">>}.
 -spec apply(Fun) -> term() when
       Fun :: fun().
 
@@ -605,6 +629,8 @@ apply(Fun) when is_function(Fun) ->
     lcnt:apply(Fun, []).
 
 -doc """
+Sets up lock counters, applies `Fun` with `Args`, and cleans up.
+
 Clears the lock counters and then setups the instrumentation to save all
 destroyed locks. After setup the function is called, passing the elements in
 `Args` as arguments. When the function returns the statistics are immediately
@@ -638,7 +664,7 @@ all_conflicts() -> all_conflicts(time).
 all_conflicts(Sort) ->
     conflicts([{max_locks, none}, {thresholds, []},{combine,false}, {sort, Sort}, {reverse, true}]).
 
--doc "Same as [`pid(node(), Id, Serial)`](`pid/3`).".
+-doc #{equiv => pid(node(), Id, Serial)}.
 -doc(#{title => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec pid(Id, Serial) -> pid() when
       Id :: integer(),
@@ -659,7 +685,7 @@ pid(Node, Id, Serial) when is_atom(Node) ->
     L        = length(String),
     binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), bytes32(Serial),0])).
 
--doc "Same as [`port(node(), Id)`](`port/2`).".
+-doc #{equiv => port(node(), Id)}.
 -doc(#{title => <<"Convenience functions">>,since => <<"OTP R13B04">>}).
 -spec port(Id) -> port() when
       Id :: integer().

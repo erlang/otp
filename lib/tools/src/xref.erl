@@ -21,56 +21,67 @@
 -module(xref).
 -moduledoc """
 A Cross Reference Tool for analyzing dependencies between functions, modules,
-applications and releases.
+applications, and releases.
 
-Xref is a cross reference tool that can be used for finding dependencies between
-functions, modules, applications and releases.
+Calls between functions are either _local calls_{: #local_call } such as `f()`,
+or _external calls_{: #external_call } such as `mod:f()`.
 
-Calls between functions are either _local calls_{: #local_call } like `f()`,
-or _external calls_{: #external_call } like `\m:f()`. _Module data_{:
-#module_data }, which are extracted from BEAM files, include local functions,
-exported functions, local calls and external calls. By default, calls to
-built-in functions (BIF) are ignored, but if the option `builtins`, accepted by
-some of this module's functions, is set to `true`, calls to BIFs are included as
-well. It is the analyzing OTP version that decides what functions are BIFs.
-Functional objects are assumed to be called where they are created (and nowhere
-else). _Unresolved calls_{: #unresolved_call } are calls to `apply` or `spawn`
-with variable module, variable function, or variable arguments. Examples are
-`M:F(a)`, [`apply(M, f, [a])`](`apply/3`), and
-[`spawn(m, f(), Args)`](`spawn/3`). Unresolved calls are represented by calls
-where variable modules have been replaced with the atom `'$M_EXPR'`, variable
-functions have been replaced with the atom `'$F_EXPR'`, and variable number of
-arguments have been replaced with the number `-1`. The above mentioned examples
-are represented by calls to `'$M_EXPR':'$F_EXPR'/1`, `'$M_EXPR':f/1`, and
-`m:'$F_EXPR'/-1`. The unresolved calls are a subset of the external calls.
+_Module data_{:#module_data }, which are extracted from BEAM files,
+include local functions, exported functions, local calls, and external
+calls. By default, calls to built-in functions (BIF) are ignored, but
+if the option `builtins`, accepted by some of this module's functions,
+is set to `true`, calls to BIFs are included as well. It is the
+analyzing OTP version that decides what functions are BIFs.
+Functional objects are assumed to be called where they are created
+(and nowhere else).
+
+_Unresolved calls_{: #unresolved_call } are calls to `apply` or
+`spawn` with variable module, variable function, or variable
+arguments. Examples are `M:F(a)`, [`apply(M, f, [a])`](`apply/3`), and
+[`spawn(m, f(), Args)`](`spawn/3`). Unresolved calls are represented
+by calls where variable modules have been replaced with the atom
+`'$M_EXPR'`, variable functions have been replaced with the atom
+`'$F_EXPR'`, and variable number of arguments have been replaced with
+the number `-1`. The above mentioned examples are represented by calls
+to `'$M_EXPR':'$F_EXPR'/1`, `'$M_EXPR':f/1`, and `m:'$F_EXPR'/-1`. The
+unresolved calls are a subset of the external calls.
 
 > #### Warning {: .warning }
 >
 > Unresolved calls make module data incomplete, which implies that the results
 > of analyses may be invalid.
 
-_Applications_ are collections of modules. The modules' BEAM files are located
-in the `ebin` subdirectory of the application directory. The name of the
-application directory determines the name and version of the application.
+_Applications_ are collections of modules. The BEAM files for the
+modules are located in the `ebin` subdirectory of the application
+directory. The name of the application directory determines the name
+and version of the application.
+
 _Releases_ are collections of applications located in the `lib` subdirectory of
 the release directory. There is more to read about applications and releases in
 the Design Principles book.
 
-_Xref servers_{: #xref_server } are identified by names, supplied when creating
-new servers. Each Xref server holds a set of releases, a set of applications,
-and a set of modules with module data. Xref servers are independent of each
-other, and all analyses are evaluated in the context of one single Xref server
-(exceptions are the functions [`m/1`](`m/1`) and [`d/1`](`d/1`) which do not use
-servers at all). The _mode_{: #mode } of an Xref server determines what module
-data are extracted from BEAM files as modules are added to the server. Starting
-with R7, BEAM files compiled with the option `debug_info` contain so called
-[](){: #debug_info } debug information, which is an abstract representation of
-the code. In `functions` mode, which is the default mode, function calls and
-line numbers are extracted from debug information. In `modules` mode, debug
-information is ignored if present, but dependencies between modules are
-extracted from other parts of the BEAM files. The `modules` mode is
-significantly less time and space consuming than the `functions` mode, but the
-analyses that can be done are limited.
+_Xref servers_{: #xref_server } are identified by names, supplied when
+creating new servers. Each Xref server holds a set of releases, a set
+of applications, and a set of modules with module data. Xref servers
+are independent of each other, and all analyses are evaluated in the
+context of one single Xref server (exceptions are the functions
+[`m/1`](`m/1`) and [`d/1`](`d/1`) which do not use servers at
+all).
+
+The _mode_{: #mode } of an Xref server determines what module data are
+extracted from BEAM files as modules are added to the server. BEAM
+files compiled with the option `debug_info` contain [](){: #debug_info
+} "debug information", which is an abstract representation of the
+code.
+
+- In `functions` mode, which is the default mode, function calls
+  and line numbers are extracted from debug information.
+
+- In `modules` mode, debug information is ignored if present, but
+  dependencies between modules are extracted from other parts of the
+  BEAM files. The `modules` mode is significantly less time and space
+  consuming than the `functions` mode, but the analyses that can be
+  done are limited.
 
 An _analyzed module_{: #analyzed_module } is a module that has been added to an
 Xref server together with its module data. A _library module_{: #library_module
@@ -78,56 +89,60 @@ Xref server together with its module data. A _library module_{: #library_module
 #library_path }. A library module is said to be used if some of its exported
 functions are used by some analyzed module. An _unknown module_{:
 #unknown_module } is a module that is neither an analyzed module nor a library
-module, but whose exported functions are used by some analyzed module. An
-_unknown function_{: #unknown_function } is a used function that is neither
-local or exported by any analyzed module nor exported by any library module. An
-_undefined function_{: #undefined_function } is an externally used function that
-is not exported by any analyzed module or library module. With this notion, a
-local function can be an undefined function, namely if it is externally used
-from some module. All unknown functions are also undefined functions; there is a
-[figure](xref_chapter.md#venn2) in the User's Guide that illustrates this
-relationship.
+module, but whose exported functions are used by some analyzed module.
 
-Starting with R9C, the module attribute tag `deprecated` can be used to inform
+An _unknown function_{: #unknown_function } is a used function that is
+neither local or exported by any analyzed module nor exported by any
+library module. An _undefined function_{: #undefined_function } is an
+externally used function that is not exported by any analyzed module
+or library module. With this notion, a local function can be an
+undefined function, namely if it is externally used from some
+module. All unknown functions are also undefined functions; there is a
+[figure](xref_chapter.md#venn2) in the User's Guide that illustrates
+this relationship.
+
+The module attribute tag `deprecated` can be used to inform
 Xref about _deprecated functions_{: #deprecated_function } and optionally when
 functions are planned to be removed. A few examples show the idea:
 
-- **\-deprecated(\{f,1\}).** - The exported function `f/1` is deprecated.
+- `-deprecated({f,1}).` - The exported function `f/1` is deprecated.
   Nothing is said whether `f/1` will be removed or not.
 
-- **\-deprecated(\{f,1,"Use g/1 instead"\}).** - As above but with a descriptive
+- `-deprecated({f,1,"Use g/1 instead"}).` - As above but with a descriptive
   string. The string is currently unused by `xref` but other tools can make use
   of it.
 
-- **\-deprecated(\{f,'\_'\}).** - All exported functions `f/0`, `f/1` and so on
+- `-deprecated({f,'_'}).` - All exported functions `f/0`, `f/1`, and so on
   are deprecated.
 
-- **\-deprecated(module).** - All exported functions in the module are
+- `-deprecated(module).` - All exported functions in the module are
   deprecated. Equivalent to `-deprecated({'_','_'}).`.
 
-- **\-deprecated(\[\{g,1,next_version\}]).** - The function `g/1` is deprecated
+- `-deprecated([{g,1,next_version}]).` - The function `g/1` is deprecated
   and will be removed in next version.
 
-- **\-deprecated(\[\{g,2,next_major_release\}]).** - The function `g/2` is
+- `-deprecated([{g,2,next_major_release}]).` - The function `g/2` is
   deprecated and will be removed in next major release.
 
-- **\-deprecated(\[\{g,3,eventually\}]).** - The function `g/3` is deprecated
+- `-deprecated([{g,3,eventually}]).` - The function `g/3` is deprecated
   and will eventually be removed.
 
-- **\-deprecated(\{'_','_',eventually\}).** - All exported functions in the
+- `-deprecated({'_','_',eventually}).` - All exported functions in the
   module are deprecated and will eventually be removed.
 
 Before any analysis can take place, module data must be _set up_. For instance,
 the cross reference and the unknown functions are computed when all module data
-are known. The functions that need complete data (`analyze`, `q`, `variables`)
+are known. The functions that need complete data
+([`analyze/2,3`](`analyze/3`), [`q/2,3`](`q/3`), [`variables/1,2`](`variables/2`)
 take care of setting up data automatically. Module data need to be set up
-(again) after calls to any of the `add`, `replace`, `remove`, `set_library_path`
-or `update` functions.
+(again) after calls to any of the `add`, `replace`, `remove`,
+[`set_library_path/2,3`](`set_library_path/3`), or
+[`update/1,2`](`update/2`) functions.
 
 The result of setting up module data is the _Call Graph_{: #call_graph }. A
 (directed) graph consists of a set of vertices and a set of (directed) edges.
 The edges represent _calls_{: #call } (From, To) between functions, modules,
-applications or releases. From is said to call To, and To is said to be used by
+applications, or releases. From is said to call To, and To is said to be used by
 From. The vertices of the Call Graph are the functions of all module data: local
 and exported functions of analyzed modules; used BIFs; used exported functions
 of library modules; and unknown functions. The functions `module_info/0,1` added
@@ -211,13 +226,17 @@ The syntax of _variables_{: #variable } is simple:
 - Expression ::= Variable
 - Variable ::= - same as Erlang variables -
 
-There are two kinds of variables: predefined variables and user variables.
-_Predefined variables_{: #predefined_variable } hold set up module data, and
-cannot be assigned to but only used in queries. _User variables_{:
-#user_variable } on the other hand can be assigned to, and are typically used
-for temporary results while evaluating a query, and for keeping results of
-queries for use in subsequent queries. The predefined variables are (variables
-marked with (\*) are available in `functions` mode only):
+There are two kinds of variables:
+
+* **Predefined variables** {: #predefined_variable } - hold module data, and
+  cannot be assigned to but only used in queries.
+
+* **User variables** {: #user_variable } - can be assigned to, and are
+  typically used for temporary results while evaluating a query, and
+  for keeping results of queries for use in subsequent queries.
+
+The predefined variables are (variables marked with (\*) are available
+in `functions` mode only):
 
 - **`E`** - Call Graph Edges (\*).
 
@@ -489,7 +508,7 @@ the function is defined. The effect of the `XXL` operator can be undone by the
 LineOp operators. For instance, `(Lin) (XXL) (Lin) E` is equivalent to
 `(Lin) E`.
 
-The `+`, `-`, `*` and `#` operators are defined for line number expressions,
+The `+`, `-`, `*`, and `#` operators are defined for line number expressions,
 provided the operands are compatible. The LineOp operators are also defined for
 modules, applications, and releases; the operand is implicitly converted to
 functions. Similarly, the cast operator is defined for the interpretation of the
@@ -540,7 +559,7 @@ called, all user variables are forgotten.
 ## See Also
 
 `m:beam_lib`, `m:digraph`, `m:digraph_utils`, `m:re`,
-[TOOLS User's Guide](xref_chapter.md)
+[User's Guide for Xref](xref_chapter.md)
 """.
 
 -behaviour(gen_server).
@@ -602,9 +621,11 @@ The given BEAM file (with or without the `.beam` extension) or the file found by
 calling `code:which(Module)` is checked for calls to
 [deprecated functions](`m:xref#deprecated_function`), calls to
 [undefined functions](`m:xref#undefined_function`), and for unused local
-functions. The code path is used as [library path](`m:xref#library_path`).
+functions.
 
-If the BEAM file contains [debug information](`m:xref#debug_info`), then a list
+The code path is used as [library path](`m:xref#library_path`).
+
+If the BEAM file contains [debug information](`m:xref#debug_info`), a list
 of tuples is returned. The first element of each tuple is one of:
 
 - `deprecated`, the second element is a sorted list of calls to deprecated
@@ -613,7 +634,7 @@ of tuples is returned. The first element of each tuple is one of:
   functions;
 - `unused`, the second element is a sorted list of unused local functions.
 
-If the BEAM file does not contain debug information, then a list of tuples is
+If the BEAM file does not contain debug information, a list of tuples is
 returned. The first element of each tuple is one of:
 
 - `deprecated`, the second element is a sorted list of externally used
@@ -673,7 +694,9 @@ m(File) ->
 The modules found in the given directory are checked for calls to
 [deprecated functions](`m:xref#deprecated_function`), calls to
 [undefined functions](`m:xref#undefined_function`), and for unused local
-functions. The code path is used as [library path](`m:xref#library_path`).
+functions.
+
+The code path is used as [library path](`m:xref#library_path`).
 
 If some of the found BEAM files contain
 [debug information](`m:xref#debug_info`), then those modules are checked and a
@@ -726,8 +749,10 @@ d(Directory) ->
     end.
 
 -doc """
-Creates an [Xref server](`m:xref#xref_server`). The process may optionally be
-given a name. The default [mode](`m:xref#mode`) is `functions`. Options that are
+Creates an [Xref server](`m:xref#xref_server`).
+
+The process can optionally be given a name. The default
+[mode](`m:xref#mode`) is `functions`. Options that are
 not recognized by Xref are passed on to `gen_server:start/4`.
 """.
 -spec start(NameOrOptions) ->
@@ -745,9 +770,10 @@ start(Opts0) when is_list(Opts0) ->
     gen_server:start(xref, Args, Opts).
 
 -doc """
-Creates an [Xref server](`m:xref#xref_server`) with a given name. The default
-[mode](`m:xref#mode`) is `functions`. Options that are not recognized by Xref
-are passed on to `gen_server:start/4`.
+Creates an [Xref server](`m:xref#xref_server`) with a given name.
+
+The default [mode](`m:xref#mode`) is `functions`. Options that are
+not recognized by Xref are passed on to `gen_server:start/4`.
 """.
 -spec start(Name, Options) ->
                    {'ok', pid()} |
@@ -779,7 +805,7 @@ stop(Name) ->
     after catch unregister(Name) % ensure the name is gone
     end.
 
--doc(#{equiv => add_release/3}).
+-doc #{equiv => add_release(Name, Directory, [])}.
 -spec add_release(XrefServer, Directory) ->
                          {'ok', release()} |
                          {'error', module(), Reason} when
@@ -795,10 +821,12 @@ add_release(Name, Dir) ->
 -doc """
 Adds a release, the applications of the release, the modules of the
 applications, and [module data](`m:xref#module_data`) of the modules to an
-[Xref server](`m:xref#xref_server`). The applications will be members of the
-release, and the modules will be members of the applications. The default is to
-use the base name of the directory as release name, but this can be overridden
-by the `name` option. Returns the name of the release.
+[Xref server](`m:xref#xref_server`).
+
+The applications will be members of the release, and the modules will
+be members of the applications. The default is to use the base name of
+the directory as release name, but this can be overridden by the
+`name` option. Returns the name of the release.
 
 If the given directory has a subdirectory named `lib`, the directories in that
 directory are assumed to be application directories, otherwise all
@@ -829,7 +857,7 @@ contain no [debug information](`m:xref#debug_info`) are ignored.
 add_release(Name, Dir, Options) ->
     gen_server:call(Name, {add_release, Dir, Options}, infinity).
 
--doc(#{equiv => add_application/3}).
+-doc #{equiv => add_application(XrefServer, Directory, [])}.
 -spec add_application(XrefServer, Directory) ->
                              {'ok', application()} |
                              {'error', module(), Reason} when
@@ -842,12 +870,14 @@ add_application(Name, Dir) ->
     gen_server:call(Name, {add_application, Dir}, infinity).
 
 -doc """
-Adds an application, the modules of the application and
+Adds an application, the modules of the application, and
 [module data](`m:xref#module_data`) of the modules to an
-[Xref server](`m:xref#xref_server`). The modules will be members of the
-application. The default is to use the base name of the directory with the
-version removed as application name, but this can be overridden by the `name`
-option. Returns the name of the application.
+[Xref server](`m:xref#xref_server`).
+
+The modules will be members of the application. The default is to use
+the base name of the directory with the version removed as application
+name, but this can be overridden by the `name` option. Returns the
+name of the application.
 
 If the given directory has a subdirectory named `ebin`, modules (BEAM files) are
 searched for in that directory, otherwise modules are searched for in the given
@@ -883,7 +913,7 @@ add_application(Name, Dir, Options) ->
       | {'no_debug_info', file()}
       | beam_lib:chnk_rsn().
 
--doc(#{equiv => add_module/3}).
+-doc #{equiv => add_module(Name, File, [])}.
 -spec add_module(XrefServer, File) -> 
                              {'ok', module()} |
                              {'error', module(), Reason} when
@@ -896,8 +926,9 @@ add_module(Name, File) ->
 
 -doc """
 Adds a module and its [module data](`m:xref#module_data`) to an
-[Xref server](`m:xref#xref_server`). The module will not be member of any
-application. Returns the name of the module.
+[Xref server](`m:xref#xref_server`).
+
+The module will not be member of any application. Returns the name of the module.
 
 If the [mode](`m:xref#mode`) of the Xref server is `functions`, and the BEAM
 file contains no [debug information](`m:xref#debug_info`), the error message
@@ -927,7 +958,7 @@ add_module(Name, File, Options) ->
       | {'unrecognized_file', file()}
       | beam_lib:chnk_rsn().
 
--doc(#{equiv => add_directory/3}).
+-doc #{equiv => add_directory(Name, Directory, [])}.
 -spec add_directory(XrefServer, Directory) ->
                            {'ok', Modules} |
                            {'error', module(), Reason} when
@@ -936,13 +967,14 @@ add_module(Name, File, Options) ->
       Modules :: [module()],
       Reason :: {'application_clash', {application(), directory(), directory()}}
               | add_dir_rsn().
-      
+
 add_directory(Name, Dir) ->
     gen_server:call(Name, {add_directory, Dir}, infinity).
 
 -doc """
 Adds the modules found in the given directory and the
 [modules' data](`m:xref#module_data`) to an [Xref server](`m:xref#xref_server`).
+
 The default is not to examine subdirectories, but if the option `recurse` has
 the value `true`, modules are searched for in subdirectories on all levels as
 well as in the given directory. Returns a sorted list of the names of the added
@@ -973,7 +1005,7 @@ contain no [debug information](`m:xref#debug_info`) are ignored.
 add_directory(Name, Dir, Options) ->
     gen_server:call(Name, {add_directory, Dir, Options}, infinity).
 
--doc(#{equiv => replace_module/4}).
+-doc #{equiv => replace_module(XrefServer, Module, File, [])}.
 -spec replace_module(XrefServer, Module, File) ->
                                  {'ok', Module} |
                                  {'error', module(), Reason} when
@@ -990,6 +1022,7 @@ replace_module(Name, Module, File) ->
 -doc """
 Replaces [module data](`m:xref#module_data`) of an
 [analyzed module](`m:xref#analyzed_module`) with data read from a BEAM file.
+
 Application membership of the module is retained, and so is the value of the
 `builtins` option of the module. An error is returned if the name of the read
 module differs from the given module.
@@ -1015,7 +1048,7 @@ modules.
 replace_module(Name, Module, File, Options) ->
     gen_server:call(Name, {replace_module, Module, File, Options}, infinity).
 
--doc(#{equiv => replace_application/4}).
+-doc #{equiv => replace_application(XrefServer, Application, Directory, [])}.
 -spec replace_application(XrefServer, Application, Directory) ->
                                  {'ok', Application} |
                                  {'error', module(), Reason} when
@@ -1030,8 +1063,10 @@ replace_application(Name, App, Dir) ->
 
 -doc """
 Replaces the modules of an application with other modules read from an
-application directory. Release membership of the application is retained. Note
-that the name of the application is kept; the name of the given directory is not
+application directory.
+
+Release membership of the application is retained. Note that the name
+of the application is kept; the name of the given directory is not
 used.
 """.
 -spec replace_application(XrefServer, Application, Directory, Options) ->
@@ -1081,7 +1116,7 @@ remove_application(Name, App) ->
     gen_server:call(Name, {remove_application, App}, infinity).
 
 -doc """
-Removes releases and their applications, modules and
+Removes releases and their applications, modules, and
 [module data](`m:xref#module_data`) from an [Xref server](`m:xref#xref_server`).
 """.
 -spec remove_release(XrefServer, Releases) ->
@@ -1101,7 +1136,7 @@ remove_release(Name, Rel) ->
 get_library_path(Name) ->
     gen_server:call(Name, get_library_path, infinity).
 
--doc(#{equiv => set_library_path/3}).
+-doc #{equiv => set_library_path(XrefServer, LibraryPath, [])}.
 -spec set_library_path(XrefServer, LibraryPath) ->
                               'ok' | {'error', module(), Reason} when
       XrefServer :: xref(),
@@ -1114,19 +1149,21 @@ set_library_path(Name, Path) ->
     gen_server:call(Name, {set_library_path, Path}, infinity).
 
 -doc """
-Sets the [library path](`m:xref#library_path`). If the given path is a list of
-directories, the set of [library modules](`m:xref#library_module`) is determined
-by choosing the first module encountered while traversing the directories in the
-given order, for those modules that occur in more than one directory. By
+Sets the [library path](`m:xref#library_path`).
+
+If the given path is a list of directories, the set of [library
+modules](`m:xref#library_module`) is determined by choosing the first
+module encountered while traversing the directories in the given
+order, for those modules that occur in more than one directory. By
 default, the library path is an empty list.
 
 The library path `code_path`{: #code_path } is used by the functions
-[`m/1`](`m/1`) and [`d/1`](`d/1`), but can also be set explicitly. Note however
-that the code path will be traversed once for each used
+[`m/1`](`m/1`) and [`d/1`](`d/1`), but can also be set explicitly. However,
+note that the code path will be traversed once for each used
 [library module](`m:xref#library_module`) while setting up module data. On the
 other hand, if there are only a few modules that are used but not analyzed,
 using `code_path` may be faster than setting the library path to
-[`code:get_path()`](`code:get_path/0`).
+`code:get_path/0`.
 
 If the library path is set to `code_path`, the set of library modules is not
 determined, and the `info` functions will return empty lists of library modules.
@@ -1163,33 +1200,13 @@ set_library_path(Name, Path, Options) ->
               | {'release', Release :: [release()]}
               | {'version', Version :: [non_neg_integer()]}.
 
--doc(#{equiv => info/3}).
--spec info(XrefServer) -> [Info] when
-      XrefServer :: xref(),
-      Info :: info().
-
-info(Name) ->
-    gen_server:call(Name, info, infinity).
-
--doc(#{equiv => info/3}).
--spec info(XrefServer, Category) ->
-                  [{Item, [Info]}] |
-                  {'error', module(), {'no_such_info', Category}} when
-      XrefServer :: xref(),
-      Category :: 'modules' | 'applications' | 'releases' | 'libraries',
-      Item :: module() | application() | release() | library(),
-      Info :: info().
-
-info(Name, What) ->
-    gen_server:call(Name, {info, What}, infinity).
-
 -doc """
-The `info` functions return information as a list of pairs \{Tag, term()\} in
+The `info/1` function returns information as a list of pairs `{Tag, term()` in
 some order about the state and the [module data](`m:xref#module_data`) of an
 [Xref server](`m:xref#xref_server`).
 
 [`info/1`](`info/1`) returns information with the following tags (tags marked
-with (\*) are available in `functions` mode only):
+with (\*) are only available in `functions` mode):
 
 - `library_path`, the [library path](`m:xref#library_path`);
 - `mode`, the [mode](`m:xref#mode`);
@@ -1205,9 +1222,36 @@ with (\*) are available in `functions` mode only):
 - `no_functions` (\*), total number of local and exported functions;
 - `no_inter_function_calls` (\*), total number of calls of the
   [Inter Call Graph](`m:xref#inter_call_graph`).
+""".
+-spec info(XrefServer) -> [Info] when
+      XrefServer :: xref(),
+      Info :: info().
+
+info(Name) ->
+    gen_server:call(Name, info, infinity).
+
+-doc """
+Returns information about all items belonging to category `Category`.
+See `info/3` for details.
+""".
+-spec info(XrefServer, Category) ->
+                  [{Item, [Info]}] |
+                  {'error', module(), {'no_such_info', Category}} when
+      XrefServer :: xref(),
+      Category :: 'modules' | 'applications' | 'releases' | 'libraries',
+      Item :: module() | application() | release() | library(),
+      Info :: info().
+
+info(Name, What) ->
+    gen_server:call(Name, {info, What}, infinity).
+
+-doc """
+The `info` functions return information as a list of pairs `{Tag, term()}` in
+some order about the state and the [module data](`m:xref#module_data`) of an
+[Xref server](`m:xref#xref_server`).
 
 [`info/2`](`info/2`) and [`info/3`](`info/3`) return information about all or
-some of the analyzed modules, applications, releases or library modules of an
+some of the analyzed modules, applications, releases, or library modules of an
 Xref server. The following information is returned for every analyzed module:
 
 - `application`, an empty list if the module does not belong to any application,
@@ -1259,7 +1303,7 @@ The following information is returned for every library module:
 - `directory`, the directory where the
   [library module's](`m:xref#library_module`) BEAM file is located.
 
-For every number of calls, functions etc. returned by the `no_` tags, there is a
+For every number of calls, functions, and so on returned by the `no_` tags, there is a
 query returning the same number. Listed below are examples of such queries. Some
 of the queries return the sum of a two or more of the `no_` tags numbers. `mod`
 (`app`, `rel`) refers to any module (application, release).
@@ -1327,7 +1371,7 @@ of the queries return the sum of a two or more of the `no_` tags numbers. `mod`
 info(Name, What, Qual) ->
     gen_server:call(Name, {info, What, Qual}, infinity).
 
--doc(#{equiv => update/2}).
+-doc #{equiv => update(XrefServer, [])}.
 -spec update(XrefServer) ->
                     {'ok', Modules} |
                     {'error', module(), Reason} when
@@ -1342,9 +1386,11 @@ update(Name) ->
 -doc """
 Replaces the [module data](`m:xref#module_data`) of all
 [analyzed modules](`m:xref#analyzed_module`) the BEAM files of which have been
-modified since last read by an `add` function or `update`. Application
-membership of the modules is retained, and so is the value of the `builtins`
-option. Returns a sorted list of the names of the replaced modules.
+modified since last read by an `add` function or `update`.
+
+Application membership of the modules is retained, and so is the value
+of the `builtins`option. Returns a sorted list of the names of
+the replaced modules.
 """.
 -spec update(XrefServer, Options) ->
                     {'ok', Modules} |
@@ -1362,7 +1408,10 @@ option. Returns a sorted list of the names of the replaced modules.
 update(Name, Options) ->
     gen_server:call(Name, {update, Options}, infinity).
 
--doc(#{equiv => forget/2}).
+-doc """
+Removes all [user variables](`m:xref#user_variable`) of an
+[Xref server](`m:xref#xref_server`).
+""".
 -spec forget(XrefServer) -> 'ok' when
       XrefServer :: xref().
 
@@ -1370,9 +1419,8 @@ forget(Name) ->
     gen_server:call(Name, forget, infinity).
 
 -doc """
-[`forget/1`](`forget/1`) and [`forget/2`](`forget/2`) remove all or some of the
-[user variables](`m:xref#user_variable`) of an
-[Xref server](`m:xref#xref_server`).
+Removes the [user variables](`m:xref#user_variable`) given by `Variables` from
+an [Xref server](`m:xref#xref_server`).
 """.
 -spec forget(XrefServer, Variables) -> 'ok' | {'error', module(), Reason} when
       XrefServer :: xref(),
@@ -1382,7 +1430,7 @@ forget(Name) ->
 forget(Name, Variable) ->
     gen_server:call(Name, {forget, Variable}, infinity).
 
--doc(#{equiv => variables/2}).
+-doc #{equiv => variables(XrefServer, [])}.
 -spec variables(XrefServer) -> {'ok', [VariableInfo]} when
       XrefServer :: xref(),
       VariableInfo :: {'predefined', [variable()]}
@@ -1393,8 +1441,10 @@ variables(Name) ->
 
 -doc """
 Returns a sorted lists of the names of the variables of an
-[Xref server](`m:xref#xref_server`). The default is to return the
-[user variables](`m:xref#user_variable`) only.
+[Xref server](`m:xref#xref_server`).
+
+The default is to return only the
+[user variables](`m:xref#user_variable`).
 """.
 -spec variables(XrefServer, Options) -> {'ok', [VariableInfo]} when
       XrefServer :: xref(),
@@ -1466,7 +1516,7 @@ analyse(Name, What, Options) ->
                      | {'unknown_constant', string()}
                      | {'unknown_variable', variable()}.
 
--doc(#{equiv => analyze/3}).
+-doc #{equiv => analyze(XrefServer, Analysis, [])}.
 -spec analyze(XrefServer, Analysis) ->
                      {'ok', Answer} |
                      {'error', module(), Reason} when
@@ -1474,16 +1524,18 @@ analyse(Name, What, Options) ->
       Analysis :: analysis(),
       Answer :: [term()],
       Reason :: analyze_rsn().
-      
+
 analyze(Name, What) ->
     gen_server:call(Name, {analyze, What}, infinity).
 
 -doc """
-[](){: #analyze } Evaluates a predefined analysis. Returns a sorted list without
-duplicates of `t:call/0` or `t:constant/0`, depending on the chosen analysis.
-The predefined analyses, which operate on all
-[analyzed modules](`m:xref#analyzed_module`), are (analyses marked with (\*) are
-available in `functions`[mode](`m:xref#mode`) only):
+[](){: #analyze } Evaluates a predefined analysis.
+
+Returns a sorted list without duplicates of `t:call/0` or
+`t:constant/0`, depending on the chosen analysis.  The predefined
+analyses, which operate on all [analyzed
+modules](`m:xref#analyzed_module`), are (analyses marked with (\*) are
+available only in [mode `functions`](`m:xref#mode`)):
 
 - **`undefined_function_calls`(\*)** - Returns a list of calls to
   [undefined functions](`m:xref#undefined_function`).
@@ -1579,7 +1631,7 @@ analyze(Name, What, Options) ->
                | {'unknown_variable', variable()}
                | {'variable_reassigned', string()}.
 
--doc(#{equiv => q/3}).
+-doc #{equiv => q(XrefServer, Query, [])}.
 -spec q(XrefServer, Query) ->
                {'ok', Answer} |
                {'error', module(), Reason} when
@@ -1594,7 +1646,9 @@ q(Name, Q) ->
 -doc """
 Evaluates a [query](`m:xref#query`) in the context of an
 [Xref server](`m:xref#xref_server`), and returns the value of the last
-statement. The syntax of the value depends on the expression:
+statement.
+
+The syntax of the value depends on the expression:
 
 - A set of calls is represented by a sorted list without duplicates of
   `t:call/0`.
@@ -1634,7 +1688,9 @@ For both `CallAt` and `AllLines` it holds that for no list element is
 q(Name, Q, Options) ->
     gen_server:call(Name, {qry, Q, Options}, infinity).
 
--doc(#{equiv => get_default/2}).
+-doc """
+Returns a list of all options and their default values.
+""".
 -spec get_default(XrefServer) -> [{Option, Value}] when
       XrefServer :: xref(),
       Option :: 'builtins' | 'recurse' | 'verbose' | 'warnings',
@@ -1643,7 +1699,7 @@ q(Name, Q, Options) ->
 get_default(Name) ->
     gen_server:call(Name, get_default, infinity).
 
--doc "Returns the default values of one or more options.".
+-doc "Returns the default value for option `Option`.".
 -spec get_default(XrefServer, Option) ->
                          {'ok', Value} |
                          {'error', module(), Reason} when
@@ -1655,7 +1711,11 @@ get_default(Name) ->
 get_default(Name, Option) ->
     gen_server:call(Name, {get_default, Option}, infinity).
 
--doc(#{equiv => set_default/3}).
+-doc """
+Sets default values for multiple options given by `OptionValues`.
+
+See `set_default/3` for the name of options and their allowed values.
+""".
 -spec set_default(XrefServer, OptionValues) ->
                          'ok' |
                          {'error', module(), Reason} when
@@ -1670,8 +1730,9 @@ set_default(Name, OptionValues) ->
     gen_server:call(Name, {set_default, OptionValues}, infinity).
 
 -doc """
-Sets the default value of one or more options. The options that can be set this
-way are:
+Sets the default value of one or more options.
+
+The options that can be set this way are:
 
 - `builtins`, with initial default value `false`;
 - `recurse`, with initial default value `false`;
@@ -1695,8 +1756,9 @@ set_default(Name, Option, Value) ->
 
 -doc """
 Given the error returned by any function of this module, the function
-`format_error` returns a descriptive string of the error in English. For file
-errors, the function `file:format_error/1` is called.
+`format_error` returns a descriptive string of the error in English.
+
+For file errors, the function `file:format_error/1` is called.
 """.
 -spec format_error(Error) -> io_lib:chars() when
       Error :: {'error', module(), Reason :: term()}.

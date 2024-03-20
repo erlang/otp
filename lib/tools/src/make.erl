@@ -32,7 +32,7 @@ functions.
 
 ## Emakefile
 
-[`make:all/0,1`](`all/0`) and [`make:files/1,2`](`files/1`) first looks for
+[`make:all/0,1`](`all/1`) and [`make:files/1,2`](`files/2`) first looks for
 `{emake, Emake}` in options, then in the current working directory for a file
 named `Emakefile`. If present `Emake` should contain elements like this:
 
@@ -43,18 +43,18 @@ Modules.
 
 `Modules` is an atom or a list of atoms. It can be
 
-- a module name, e.g. `file1`
-- a module name in another directory, e.g. `'../foo/file3'`
-- a set of modules specified with a wildcards, e.g. `'file*'`
-- a wildcard indicating all modules in current directory, i.e. `'*'`
-- a list of any of the above, e.g. `['file*','../foo/file3','File4']`
+- a module name, for exmaple,  `file1`
+- a module name in another directory, for exmaple, `'../foo/file3'`
+- a set of modules specified with a wildcards, for exmaple, `'file*'`
+- a wildcard indicating all modules in current directory, that is: `'*'`
+- a list of any of the above, for exmaple, `['file*','../foo/file3','File4']`
 
 `Options` is a list of compiler options.
 
 `Emakefile` is read from top to bottom. If a module matches more than one entry,
-the first match is valid. For example, the following `Emakefile` means that
-`file1` shall be compiled with the options `[debug_info,{i,"../foo"}]`, while
-all other files in the current directory shall be compiled with only the
+the first match is used. For example, the following `Emakefile` means that
+`file1` should be compiled with the options `[debug_info,{i,"../foo"}]`, while
+all other files in the current directory should be compiled with only the
 `debug_info` flag.
 
 ```erlang
@@ -64,7 +64,7 @@ all other files in the current directory shall be compiled with only the
 
 ## See Also
 
-`m:compile`
+[The Compiler Application](`m:compile`)
 """.
 
 -export([all_or_nothing/0,all/0,all/1,files/1,files/2]).
@@ -82,7 +82,7 @@ all_or_nothing() ->
             halt(1)
     end.
 
--doc(#{equiv => all/1}).
+-doc #{equiv => all([])}.
 -spec all() -> 'up_to_date' | 'error'.
 
 all() ->
@@ -106,21 +106,21 @@ As a side effect, the function prints the name of each module it tries to
 compile. If compilation fails for a module, the make procedure stops and `error`
 is returned.
 
-`Options` is a list of make- and compiler options. The following make options
-exist:
+`Options` is a list of options for `make` and the Erlang compiler. The following
+`make` options exist:
 
-- `noexec`  
+- `noexec`
   No execution mode. Just prints the name of each module that needs to be
   compiled.
-- `load`  
+- `load`
   Load mode. Loads all recompiled modules.
-- `netload`  
+- `netload`
   Net load mode. Loads all recompiled modules on all known nodes.
-- `{emake, Emake}`  
+- `{emake, Emake}`
   Rather than reading the `Emakefile` specify configuration explicitly.
 
 All items in `Options` that are not make options are assumed to be compiler
-options and are passed as-is to `compile:file/2`. `Options` defaults to `[]`.
+options and are passed as-is to `compile:file/2`.
 """.
 -spec all(Options) -> 'up_to_date' | 'error' when
       Options :: [Option],
@@ -136,7 +136,7 @@ options and are passed as-is to `compile:file/2`. `Options` defaults to `[]`.
 all(Options) ->
     run_emake(undefined, Options).
 
--doc(#{equiv => files/2}).
+-doc #{equiv => files(ModFiles, [])}.
 -spec files(ModFiles) -> 'up_to_date' | 'error' when
       ModFiles :: [(Module :: module()) | (File :: file:filename())].
 
@@ -144,9 +144,10 @@ files(Fs) ->
     files(Fs, []).
 
 -doc """
-`files/1,2` does exactly the same thing as [`all/0,1`](`all/0`) but for the
-specified `ModFiles`, which is a list of module or file names. The file
-extension `.erl` may be omitted.
+This function does exactly the same thing as [`all/0,1`](`all/0`), but for the
+specified `ModFiles`, which is a list of module or file names.
+
+The file extension `.erl` can be omitted.
 
 The `Emakefile` (if it exists) in the current directory is searched for compiler
 options for each module. If a given module does not exist in `Emakefile` or if
