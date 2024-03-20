@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Jinterface application.
 
+## Jinterface 1.14.1
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Jinterface 1.14
 
 ### Improvements and New Features

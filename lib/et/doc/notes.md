@@ -26,6 +26,28 @@ incompatibilities as well as all enhancements and bugfixes for every release of
 section in this document. The title of each section is the version number of
 `Event Tracer (ET)`.
 
+## ET 1.7.1
+
+### Fixed Bugs and Malfunctions
+
+- The dependencies for this application are now listed in the app file.
+
+  Own Id: OTP-18831 Aux Id: [PR-7441]
+
+- Dialyzer warnings due to type specs added in `m:dbg` have been eliminated.
+
+  Own Id: OTP-18860
+
+[PR-7441]: https://github.com/erlang/otp/pull/7441
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## ET 1.7
 
 ### Improvements and New Features

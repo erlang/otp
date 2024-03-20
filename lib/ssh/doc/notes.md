@@ -19,6 +19,31 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2
+
+### Fixed Bugs and Malfunctions
+
+- With this change, ssh processes are assigned labels for troubleshooting purposes.
+
+  Own Id: OTP-19017
+
+### Improvements and New Features
+
+- The shell now pages long output from the help command (`h(Module)`), auto completions and the search command.
+
+  Own Id: OTP-18846 Aux Id: [PR-7845]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Updated types and specs for all API modules.
+
+  Own Id: OTP-18961
+
+[PR-7845]: https://github.com/erlang/otp/pull/7845
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Ssh 5.1.3
 
 ### Fixed Bugs and Malfunctions

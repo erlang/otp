@@ -329,7 +329,7 @@ erl_lint:start/2                       2    300       150  [10.94]
 shell:used_records/1                 114    342         3  [12.47]
 ```
 """.
--moduledoc(#{since => "OTP @OTP-18756@"}).
+-moduledoc(#{since => "OTP 27.0"}).
 
 %% API
 -export([
@@ -454,7 +454,7 @@ Column to sort by `inspect/3`, or [`profile`](`profile/2`).
 Starts the server, not supervised. Profiling server stores current trace
 patterns and ensures a single instance of profiler is running.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec start() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
 start() ->
     start(#{}).
@@ -467,7 +467,7 @@ start(Config) when is_map(Config) ->
 
 %% @doc Starts the process and links it to the caller.
 -doc "Starts the server, supervised by the calling process.".
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec start_link() -> {'ok', Pid} | {'error', Reason} when Pid :: pid(), Reason :: {'already_started', Pid}.
 start_link() ->
     start_link(#{}).
@@ -479,7 +479,7 @@ start_link(Config) when is_map(Config) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, Config, []).
 
 -doc "Stops the `tprof`, disabling tracing that has been enabled.".
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec stop() -> ok.
 stop() ->
     gen_server:stop(?MODULE).
@@ -505,7 +505,7 @@ If there are no functions matching the pattern, error is returned
 {error,{trace_pattern,no_module,func,'_'}}
 ```
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec set_pattern(module(), atom(), arity() | '_') -> ok | {error, {trace_pattern, trace_pattern()}}.
 set_pattern(Mod, Fun, Arity) ->
     gen_server:call(?MODULE, {set_pattern, Mod, Fun, Arity}, infinity).
@@ -523,14 +523,14 @@ Turns tracing off for the supplied pattern.
 #{lists => [{seq,2}]}
 ```
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec clear_pattern(module(), atom(), arity() | '_') -> ok.
 clear_pattern(Mod, Fun, Arity) ->
     gen_server:call(?MODULE, {clear_pattern, Mod, Fun, Arity}, infinity).
 
 %% @doc Returns current trace map.
 -doc "Returns a map of module names to functions with their arities.".
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec get_trace_map() -> trace_map().
 get_trace_map() ->
     gen_server:call(?MODULE, get_trace_map).
@@ -552,7 +552,7 @@ collect() ->
 The same as
 [`enable_trace` ](`enable_trace/2`)`(Spec, #{set_on_spawn => true})`.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec enable_trace(Spec) -> non_neg_integer()
     when Spec :: pid() |
         processes |
@@ -600,7 +600,7 @@ Specify `Options` to modify tracing behaviour:
 - **`set_on_spawn`** - Automatically start tracing for processes spawned by the
   traced process. On by default.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec enable_trace(Spec, trace_options()) -> non_neg_integer()
     when Spec :: pid() |
         processes |
@@ -622,7 +622,7 @@ enable_trace(List, Options) when is_list(List) ->
 The same as
 [`disable_trace` ](`disable_trace/2`)`(Spec, #{set_on_spawn => true})`.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec disable_trace(Spec) -> non_neg_integer()
     when Spec :: pid() |
         processes |
@@ -642,7 +642,7 @@ This allows to enable tracing for many or even all processes in the system,
 sleep for a short period of time, then disable tracing for all processes,
 avoiding system overload, but keeping profile data.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec disable_trace(Spec, trace_options()) -> non_neg_integer()
     when Spec :: pid() |
         processes |
@@ -665,14 +665,14 @@ disable_trace(List, Options) when is_list(List) ->
 Pauses trace collection for all currently traced functions, keeping all traces
 intact. Use `continue/0` to resume trace collection.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec pause() -> ok | not_running.
 pause() ->
     gen_server:call(?MODULE, pause, infinity).
 
 %% @doc Continues paused tracing.
 -doc "Resumes previously paused profiling.".
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec continue() -> ok | not_paused.
 continue() ->
     gen_server:call(?MODULE, continue, infinity).
@@ -683,7 +683,7 @@ continue() ->
 Clears accumulated profiles. If profiling was paused prior to calling `restart`,
 it gets continued.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec restart() -> ok.
 restart() ->
     gen_server:call(?MODULE, restart, infinity).
@@ -698,7 +698,7 @@ raw profile into a map of process identifiers to a tuple containing total count
 of words allocated, and a list of all traced functions sorted in the ascending
 order by the allocation percentage.
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec inspect({trace_type(), [trace_info()]}) -> #{pid() | all => profile_result()}.
 inspect(Profile) ->
     inspect(Profile, process, percent).
@@ -716,7 +716,7 @@ returned map has a single `all` key with profiling results from all processes.
 Inspected profile can be leveraged to
 [print profiling results](`m:tprof#inspect_example`).
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec inspect({trace_type(), [trace_info()]}, process | total, sort_by()) ->
     #{pid() | all => profile_result()}.
 inspect({Type, Profile}, process, SortBy) ->
@@ -731,13 +731,13 @@ inspect({Type, Profile}, total, SortBy) ->
 
 %% @doc Formats inspect()-ed totals and per-function data
 -doc(#{equiv => format/2}).
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec format(#{pid() | all => profile_result()}) -> ok.
 format(Inspected) ->
     format_impl([], Inspected).
 
 -doc "Formats profile transformed with [`inspect` ](`inspect/3`)to a specified device.".
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec format(io:device(), #{pid() | all => profile_result()}) -> ok.
 format(IoDevice, Inspected) ->
     format_impl(IoDevice, Inspected).
@@ -747,19 +747,19 @@ format(IoDevice, Inspected) ->
 
 %% @doc Runs the function/MFA with heap tracing enabled.
 -doc(#{equiv => profile/4}).
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec profile(fun(() -> term())) -> ok | {term(), [trace_info()]}.
 profile(Fun) when is_function(Fun) ->
     profile(Fun, #{}).
 
 -doc(#{equiv => profile/4}).
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec profile(fun(() -> term()), profile_options()) -> ok | {term(), [trace_info()]}.
 profile(Fun, Options) when is_function(Fun) ->
     do_profile(Fun, Options).
 
 -doc(#{equiv => profile/4}).
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec profile(module(), Fun :: atom(), Args :: [term()]) -> ok | {term(), [trace_info()]}.
 profile(Module, Function, Args) when is_atom(Module), is_atom(Function), is_list(Args) ->
     profile(Module, Function, Args, #{}).
@@ -804,7 +804,7 @@ Ad-hoc profiler supports following`Options`:
 - **`timeout`** - Terminate profiling after the specified amount of time
   (milliseconds).
 """.
--doc(#{since => <<"OTP @OTP-18756@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec profile(module(), Fun :: atom(), Args :: [term()], profile_options()) -> ok | {term(), [trace_info()]}.
 profile(Module, Function, Args, Options) when is_atom(Module), is_atom(Function), is_list(Args) ->
     do_profile({Module, Function, Args}, Options).

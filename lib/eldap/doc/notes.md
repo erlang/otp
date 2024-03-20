@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Eldap application.
 
+## Eldap 1.2.13
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Eldap 1.2.12
 
 ### Fixed Bugs and Malfunctions

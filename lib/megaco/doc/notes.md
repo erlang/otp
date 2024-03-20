@@ -25,6 +25,25 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.6
+
+### Improvements and New Features
+
+- `-callback` attributes have been added to `m:megaco_transport`.
+
+  Own Id: OTP-18806 Aux Id: [PR-7740]
+
+- Updated types and specs for all API modules.
+
+  Own Id: OTP-18920 Aux Id: BL-322
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7740]: https://github.com/erlang/otp/pull/7740
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Megaco 4.5
 
 ### Improvements and New Features
