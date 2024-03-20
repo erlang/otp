@@ -1001,17 +1001,24 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     native_offset = erts_time_sup__.r.o.start - ERTS_MONOTONIC_BEGIN;
     abs_native_offset = native_offset;
 #else /* ARCH_64 */
-    if (ERTS_MONOTONIC_TIME_UNIT <= 10*1000*1000) {
-	erts_time_sup__.r.o.start = 0;
-	native_offset = -ERTS_MONOTONIC_BEGIN;
-	abs_native_offset = ERTS_MONOTONIC_BEGIN;
-    }
-    else {
-	erts_time_sup__.r.o.start = ((ErtsMonotonicTime) MIN_SMALL);
-	erts_time_sup__.r.o.start /= ERTS_MONOTONIC_TIME_UNIT;
-	erts_time_sup__.r.o.start *= ERTS_MONOTONIC_TIME_UNIT;
-	native_offset = erts_time_sup__.r.o.start - ERTS_MONOTONIC_BEGIN;
-	abs_native_offset = -1*native_offset;
+    {
+        /* To keep monotonic times as smalls as long as possible, we want to
+         * have a start offset as close to MIN_SMALL as possible without it
+         * overflowing a small when converted to nanoseconds. */
+        static const Uint64 nano = (1000 * 1000 * 1000);
+
+        if (ERTS_MONOTONIC_TIME_UNIT < nano) {
+            erts_time_sup__.r.o.start =
+                -(ErtsMonotonicTime)((MAX_SMALL / nano) *
+                                     ERTS_MONOTONIC_TIME_UNIT);
+        } else {
+            erts_time_sup__.r.o.start = (ErtsMonotonicTime)MIN_SMALL;
+            erts_time_sup__.r.o.start /= ERTS_MONOTONIC_TIME_UNIT;
+            erts_time_sup__.r.o.start *= ERTS_MONOTONIC_TIME_UNIT;
+        }
+
+        native_offset = erts_time_sup__.r.o.start - ERTS_MONOTONIC_BEGIN;
+        abs_native_offset = -native_offset;
     }
 #endif
 
