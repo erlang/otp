@@ -1828,6 +1828,120 @@ configured on the transport.</p>
 <!-- ===================================================================== -->
 
 <func>
+<name since="OTP 25.X">which_connections() -> [SvcConnections]</name>
+<fsummary>Returns a list of connections.</fsummary>
+<type>
+  <v>SvcConnections = {SvcName, [Connection]}</v>
+  <v>SvcName = string()</v>
+  <v>Connection     = #{peer     := term(),
+                        wd       := term(),
+                        peername := Address,
+                        sockname := Address}</v>
+  <v>Address = {inet:ip_address(), inet:port_number()}</v>
+</type>
+<desc>
+<p>
+  Return a list of <em>all</em> connections, grouped by the service they
+  are associated with. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP 25.X">which_connections(SvcName) -> [Connection]</name>
+<fsummary>Returns a list of connections.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Connection = #{peer     := term(),
+                    wd       := term(),
+                    peername := Address,
+	            sockname := Address}</v>
+  <v>Address = {inet:ip_address(), inet:port_number()}</v>
+</type>
+<desc>
+<p>
+Return a list of connections associated with the service 'SvcName'. </p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name since="OTP 25.X">which_transports() -> [Transport]</name>
+<fsummary>Returns a list of transports.</fsummary>
+<type>
+  <v>Transport = #{ref     := reference(),
+                   type    := atom(),
+                   service := SvcName}</v>
+  <v>SvcName = string()</v>
+</type>
+<desc>
+<p>
+Return a list of <em>all</em> transports. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP 25.X">which_transports(SvcName) -> [Transport]</name>
+<fsummary>Returns a list of transports.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Transport = #{ref  := reference(),
+                   type := atom()}</v>
+</type>
+<desc>
+<p>
+Return a list of transports associated with the service 'SvcName'. </p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name since="OTP 25.X">which_watchdogs() -> [Watchdog]</name>
+<fsummary>Returns a list of watchdogs.</fsummary>
+<type>
+  <v>Watchdog = #{ref     := reference(),
+                  type    := atom(),
+                  pid     := pid(),
+                  state   := diameter_service:wd_state(),
+                  peer    := boolean() | pid(),
+                  uptime  := {Hours, Mins, Secs, MicroSecs}
+                  service := SvcName}</v>
+  <v>SvcName = string()</v>
+</type>
+<desc>
+<p>
+Return a list of <em>all</em> watchdogs. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP 25.X">which_watchdogs(SvcName) -> [Transport]</name>
+<fsummary>Returns a list of watchdogs.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Watchdog = #{ref    := reference(),
+                  type   := atom(),
+                  pid    := pid(),
+                  state  := diameter_service:wd_state(),
+                  peer   := boolean() | pid(),
+                  uptime := {Hours, Mins, Secs, MicroSecs}</v>
+</type>
+<desc>
+<p>
+Return a list of watchdogs associated with the service 'SvcName'. </p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
 <name since="OTP R14B03">service_info(SvcName, Info) -> term()</name>
 <fsummary>Return information about a started service.</fsummary>
 <type>
