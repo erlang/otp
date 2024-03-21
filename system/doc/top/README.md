@@ -26,7 +26,7 @@ More information about learning resources, editors and other tools can be found 
 
 [1]: https://www.oreilly.com/library/view/introducing-erlang-2nd/9781491973363
 [2]: https://www.nostarch.com/erlang
-[3]: https://oreilly.com/catalog/9780596518189
-[4]: https://www.pragprog.com/book/jaerlang2/programming-erlang
+[3]: https://www.oreilly.com/library/view/erlang-programming/9780596803940
+[4]: https://www.pragprog.com/titles/jaerlang2/programming-erlang-2nd-edition/
 [5]: https://www.manning.com/logan
 [6]: https://shop.oreilly.com/product/0636920024149.do
