@@ -3250,7 +3250,7 @@ Halt the runtime system.
     Note that the shortest timeout set by the command line flag and the
     `flush_timeout` option will be the actual timeout value in effect.
 
-    Since: OTP 27.0
+    Since: OTP @OTP-18938@
 
 - ```erlang
   halt(Abort :: abort, Options :: halt_options())
