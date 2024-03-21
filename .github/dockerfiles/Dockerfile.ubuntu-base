@@ -127,7 +127,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
     curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
     } && \
-    latest erlang/rebar3 && ls -la && \
+    curl -sL "https://github.com/erlang/rebar3/archive/refs/heads/main.tar.gz" > rebar3.tar.gz && ls -la && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
     (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
