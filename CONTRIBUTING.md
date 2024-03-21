@@ -159,6 +159,6 @@ changes requested by reviewers. Smaller changes should be squashed into their as
 OTP release in which they _will_ appear in the `since` tag in the functions' documentation.
 As this is generally not yet certain at the time when your PR gets merged, the person assigned
 to your pull request should give you an internal ticket number (for example `OTP-12345`) to use
-as a placeholder in the respective `since` tags, like `since="OTP @OTP-12345@`. When your new
-functions are released with an OTP release, this placeholder will get replaced with the actual
-OTP version, leading to something like "OTP 26.0".
+as a placeholder in the respective `since` tags, like `-doc #{ since => ~"OTP @OTP-12345@" }.`.
+When your new functions are released with an OTP release, this placeholder will get replaced with
+the actual OTP version, leading to something like "OTP 26.0".
