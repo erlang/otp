@@ -1957,57 +1957,53 @@ connect(Socket, SslOptions)
     connect(Socket, SslOptions, infinity).
 
 -doc """
+
+```erlang
+connect(TCPSocket, TLSOptions, Timeout).
+```
 Upgrades a `gen_tcp`, or equivalent, connected socket to a TLS socket, that is,
 performs the client-side TLS handshake.
 
-> #### Note {: .info }
->
-> If the option `verify` is set to `verify_peer` the option
-> `server_name_indication` shall also be specified, if it is not no Server Name
-> Indication extension will be sent, and `public_key:pkix_verify_hostname/2`
-> will be called with the IP-address of the connection as `ReferenceID`, which
-> is probably not what you want.
 
-If the option `{handshake, hello}` is used the handshake is paused after
-receiving the server hello message and the success response is
-`{ok, SslSocket, Ext}` instead of `{ok, SslSocket}`. Thereafter the handshake is
-continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
+```erlang
+connect(Host, Port, TLSOptions).
+```
 
-If the option `active` is set to `once`, `true` or an integer value, the process
-owning the sslsocket will receive messages of type `t:active_msgs/0`
+Opens a TLS/DTLS connection and is eqvialent to
+
+
+```erlang
+connect(Host, Port, TLSOptions, infinity).
+```
 """.
+
 -doc(#{title => <<"Client Functions">>,
        since => <<"OTP R14B">>}).
 -doc(#{equiv => connect/4}).
--spec connect(TCPSocket, TLSOptions, Timeout) ->
-          {ok, sslsocket()} | {error, reason()} when
-      TCPSocket :: socket(),
-      TLSOptions :: [tls_client_option()],
-      Timeout :: timeout();
-             (Host, Port, TLSOptions) ->
+-spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
-          {ok, sslsocket(),Ext :: protocol_extensions()} |
+          {ok, sslsocket(), Ext :: protocol_extensions()} |
           {error, reason()} |
           {option_not_a_key_value_tuple, any()} when
-      Host :: host(),
-      Port :: inet:port_number(),
-      TLSOptions :: [tls_client_option()].
+      TCPSocketOrHost :: socket() | host(),
+      TLSOptionsOrPort :: [tls_client_option()] | inet:port_number(),
+      TimeoutOrTLSOptions :: [tls_client_option()] | timeout().
 
-connect(Socket, SslOptions0, Timeout)
-  when is_list(SslOptions0), ?IS_TIMEOUT(Timeout) ->
+connect(TCPSocket, TLSOptions0, Timeout)
+  when is_list(TLSOptions0), ?IS_TIMEOUT(Timeout) ->
 
     try
-        CbInfo = handle_option_cb_info(SslOptions0, tls),
+        CbInfo = handle_option_cb_info(TLSOptions0, tls),
         Transport = element(1, CbInfo),
-        {ok, Config} = handle_options(Transport, Socket, SslOptions0, client, undefined),
-        tls_socket:upgrade(Socket, Config, Timeout)
+        {ok, Config} = handle_options(Transport, TCPSocket, TLSOptions0, client, undefined),
+        tls_socket:upgrade(TCPSocket, Config, Timeout)
     catch
         _:{error, Reason} ->
             {error, Reason}
     end;
-connect(Host, Port, Options)
-  when is_integer(Port), is_list(Options) ->
-    connect(Host, Port, Options, infinity).
+connect(Host, Port, TLSOptions)
+  when is_integer(Port), is_list(TLSOptions) ->
+    connect(Host, Port, TLSOptions, infinity).
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Client Functions">>}).
@@ -2104,7 +2100,7 @@ transport_accept(ListenSocket) ->
 -doc """
 Accepts an incoming connection request on a listen socket. `ListenSocket` must
 be a socket returned from `listen/2`. The socket returned is to be passed to
-[handshake/2,3](`handshake/2`) to complete handshaking, that is, establishing
+[handshake/1,2,3](`handshake/2`) to complete handshaking, that is, establishing
 the TLS/DTLS connection.
 
 > #### Warning {: .warning }
@@ -2140,9 +2136,21 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 %%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
--doc(#{equiv => handshake/2}).
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Server Functions">>,
+       equiv => handshake/2,
        since => <<"OTP 21.0">>}).
+-doc """
+Performs the TLS/DTLS server-side handshake.
+
+```erlang
+hanshake(HsSocket).
+```
+Is eqvialent to
+
+```erlang
+handshake(HsSocket, infinity).
+```
+""".
 -spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
       SslSocket :: sslsocket(),
@@ -2152,31 +2160,35 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 handshake(ListenSocket) ->
     handshake(ListenSocket, infinity).
 
+-doc(#{equiv => handshake/3}).
 -doc """
 Performs the TLS/DTLS server-side handshake.
 
-Returns a new TLS/DTLS socket if the handshake is successful.
+```erlang
+hanshake(HsSocket, Timeout).
+```
+Is eqvialent to
 
-If the option `active` is set to `once`, `true` or an integer value, the process
-owning the sslsocket will receive messages of type `t:active_msgs/0`
+```erlang
+handshake(HsSocket, [], Timeout).
+```
+and
 
-> #### Warning {: .warning }
->
-> Not setting the timeout makes the server more vulnerable to DoS attacks.
+```erlang
+hanshake(HsSocket, Options).
+```
+is eqvialent to.
+
+```erlang
+handshake(HsSocket, Options, infinity).
+```
 """.
--doc(#{equiv => handshake/3}).
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Server Functions">>,
        since => <<"OTP 21.0">>}).
--spec handshake(HsSocket, Timeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
+-spec handshake(HsSocket, OptionsOrTimeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
-      Timeout :: timeout(),
+      OptionsOrTimeout :: timeout() | [server_option()],
       SslSocket :: sslsocket(),
-      Ext :: protocol_extensions(),
-      Reason :: closed | timeout | error_alert();
-               (Socket, Options) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
-      Socket :: socket() | sslsocket(),
-      SslSocket :: sslsocket(),
-      Options :: [server_option()],
       Ext :: protocol_extensions(),
       Reason :: closed | timeout | error_alert().
 
@@ -2193,11 +2205,15 @@ handshake(#sslsocket{} = Socket, Timeout)
 handshake(ListenSocket, SslOptions) ->
     handshake(ListenSocket, SslOptions, infinity).
 -doc """
+Performs the TLS/DTLS server-side handshake.
+
+Returns a new TLS/DTLS socket if the handshake is successful.
+
 If `Socket` is a ordinary `t:socket/0`: upgrades a `gen_tcp`, or equivalent,
 socket to an SSL socket, that is, performs the TLS server-side handshake and
 returns a TLS socket.
 
-> #### Warning {: .warning }
+> #### Note {: .info }
 >
 > The ordinary `Socket` shall be in passive mode (\{active, false\}) before
 > calling this function, and before the client tries to connect with TLS, or
@@ -2220,7 +2236,7 @@ continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
 If the option `active` is set to `once`, `true` or an integer value, the process
 owning the sslsocket will receive messages of type `t:active_msgs/0`
 """.
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
           {ok, SslSocket} |
@@ -2644,9 +2660,10 @@ Same as `cipher_suites/2` but lists RFC or OpenSSL string names instead of
 """.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
--spec cipher_suites(Description, Version, rfc | openssl) -> [string()] when
+-spec cipher_suites(Description, Version, StringType) -> [string()] when
       Description :: default | all | exclusive | anonymous,
-      Version :: protocol_version().
+      Version :: protocol_version(),
+      StringType :: rfc | openssl.
 
 %% Description: Returns all default and all supported cipher suites for a
 %% TLS/DTLS version
@@ -2879,7 +2896,7 @@ groups() ->
 %%--------------------------------------------------------------------
 -doc(#{title => <<"TLS-1.3 Only Functions">>,
       since => <<"OTP 22">>}).
--spec groups(default) -> [group()].
+-spec groups(Description) -> [group()] when Description :: default.
 
 -doc """
    Returns default supported groups in TLS 1.3
