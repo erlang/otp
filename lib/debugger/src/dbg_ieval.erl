@@ -1549,6 +1549,9 @@ guard_expr({'orelse',_,E1,E2}, Bs) ->
 		{value,_Val}=Res -> Res
 	    end
     end;
+guard_expr({'case',_,E0,Cs}, Bs) ->
+    {value,E} = guard_expr(E0, Bs),
+    guard_case_clauses(E, Cs, Bs);
 guard_expr({dbg,_,self,[]}, _) ->
     {value,get(self)};
 guard_expr({safe_bif,_,erlang,'not',As0}, Bs) ->
@@ -1591,6 +1594,20 @@ guard_expr({bin,_,Flds}, Bs) ->
 			   end),
     {value,V}.
 
+%% guard_case_clauses(Value, Clauses, Bindings, Error, Ieval)
+%%   Error = try_clause | case_clause
+guard_case_clauses(Val, [{clause,_,[P],G,B}|Cs], Bs0) ->
+    case match(P, Val, Bs0) of
+	{match,Bs} ->
+	    case guard(G, Bs) of
+		true ->
+		    guard_expr(hd(B), Bs);
+		false ->
+		    guard_case_clauses(Val, Cs, Bs0)
+	    end;
+	nomatch ->
+	    guard_case_clauses(Val, Cs, Bs0)
+    end.
 
 %% eval_map_fields([Field], Bindings, IEvalState) ->
 %%  {[{map_assoc | map_exact,Key,Value}],Bindings}

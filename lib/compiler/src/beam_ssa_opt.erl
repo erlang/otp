@@ -307,8 +307,8 @@ late_epilogue_passes(Opts) ->
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_redundant_br),
-          ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_merge_blocks),
+          ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
@@ -3536,13 +3536,22 @@ redundant_br_safe_bool(Is, Bool) ->
     end.
 
 %%%
-%%% Add the bs_ensure instruction before a sequence of `bs_match`
+%%% Add the `bs_ensure` instruction before a sequence of `bs_match`
 %%% (SSA) instructions, each having a literal size and the
 %%% same failure label.
 %%%
 %%% This is the first part of building the `bs_match` (BEAM)
 %%% instruction that can match multiple segments having the same
 %%% failure label.
+%%%
+%%% It is beneficial but not essential to run this pass after
+%%% the `merge_blocks/1` pass. For the following example, two separate
+%%% `bs_match/1` instructions will emitted if blocks have not been
+%%% merged before this pass:
+%%%
+%%%    A = 0,
+%%%    B = <<1, 2, 3>>,
+%%%    <<A, B:(byte_size(B))/binary>> = <<0, 1, 2, 3>>
 %%%
 
 ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0,anno=Anno0}=St, FuncDb})

@@ -2749,6 +2749,8 @@ bs_match(_Config) ->
 
     {'EXIT',{{badmatch,<<>>},_}} = catch do_bs_match_gh_7467(<<>>),
 
+    {0,<<1,2,3>>} = do_bs_match_gh_8280(),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2822,6 +2824,12 @@ do_bs_match_gh_6755(B) ->
 
 do_bs_match_gh_7467(A) ->
     do_bs_match_gh_7467(<<_:1/bits>> = A).
+
+do_bs_match_gh_8280() ->
+    A = 0,
+    B = <<1, 2, 3>>,
+    <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
+    {A, B}.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).

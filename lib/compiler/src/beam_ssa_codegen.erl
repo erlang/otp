@@ -2267,6 +2267,10 @@ bs_translate([]) -> [].
 
 bs_translate_collect([I|Is]=Is0, Ctx, Fail, Acc) ->
     case bs_translate_instr(I) of
+        {Ctx,_,{ensure_at_least,_,_}} ->
+            %% There should only be a single `ensure_at_least`
+            %% instruction in each `bs_match` instruction.
+            {bs_translate_fixup(Acc),Fail,Is0};
         {Ctx,Fail,Instr} ->
             bs_translate_collect(Is, Ctx, Fail, [Instr|Acc]);
         {Ctx,{f,0},Instr} ->
