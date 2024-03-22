@@ -3669,14 +3669,23 @@ opt_certs(UserOpts, #{log_level := LogLevel, versions := Versions} = Opts0, Env)
             opt_old_certs(UserOpts, #{}, Opts0, Env);
         {old, [CertKey]} ->
             opt_old_certs(UserOpts, CertKey, Opts0, Env);
-        {Where, CKs} when is_list(CKs) ->
+        {Where, CKs0} when is_list(CKs0) ->
             warn_override(Where, UserOpts, certs_keys, [cert,certfile,key,keyfile,password], LogLevel),
-            Opts0#{certs_keys => [check_cert_key(Versions, CK, #{}, LogLevel) || CK <- CKs]}
+            CKs = lists:foldl(fun(CK0, Acc) ->
+                                      CK = check_cert_key(Versions, CK0, #{}, LogLevel),
+                                      case maps:size(CK) =:= 0 of
+                                          true ->
+                                              Acc;
+                                          false ->
+                                              [CK|Acc]
+                                      end
+                              end, [], CKs0),
+            Opts0#{certs_keys => lists:reverse(CKs)}
     end.
 
 opt_old_certs(UserOpts, CertKeys, #{log_level := LogLevel, versions := Versions}=SSLOpts, _Env) ->
     CK = check_cert_key(Versions, UserOpts, CertKeys, LogLevel),
-    case maps:keys(CK) =:= [] of
+    case maps:size(CK) =:= 0 of
         true ->
             SSLOpts#{certs_keys => []};
         false ->
@@ -3996,7 +4005,12 @@ opt_mitigation(UserOpts, #{versions := Versions} = Opts, _Env) ->
     assert_version_dep(Where2 =:= new, padding_check, Versions, ['tlsv1']),
 
     %% Use 'new' we need to check for non default 'one_n_minus_one'
-    Opts1 = set_opt_new(new, beast_mitigation, disabled, BM, Opts),
+    Opts1 = if
+                DefBeast =:= one_n_minus_one, BM =:= disabled ->
+                    Opts#{beast_mitigation => BM};
+                true ->
+                    set_opt_new(new, beast_mitigation, disabled, BM, Opts)
+            end,
     set_opt_new(Where2, padding_check, true, PC, Opts1).
 
 opt_server(UserOpts, #{versions := Versions, log_level := LogLevel} = Opts, #{role := server}) ->
