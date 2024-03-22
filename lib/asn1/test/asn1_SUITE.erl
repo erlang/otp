@@ -216,24 +216,8 @@ unload_modules(CaseDir) ->
 %% Test runners
 %%------------------------------------------------------------------------------
 
-have_jsonlib() ->
-    case code:which(jsx) of
-        non_existing -> false;
-    _ -> true
-    end.
-
 test(Config, TestF) ->
-    TestJer = case have_jsonlib() of
-                  true -> [jer, {ber, [ber,jer]}];
-                  false -> []
-              end,
-    test(Config, TestF, [per,
-                         uper,
-                         ber] ++ TestJer),
-    case TestJer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    test(Config, TestF, [per, uper, ber, jer, {ber,[ber,jer]}]).
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -454,20 +438,13 @@ testExtensionDefault(Config, Rule, Opts) ->
     end.
 
 testMaps(Config) ->
-    Jer = case have_jsonlib() of
-        true -> [{jer,[maps,no_ok_wrapper]}];
-        false -> []
-    end,
-    RulesAndOptions = 
-         [{ber,[maps,no_ok_wrapper]},
-          {ber,[maps,der,no_ok_wrapper]},
-          {per,[maps,no_ok_wrapper]},
-          {uper,[maps,no_ok_wrapper]}] ++ Jer,
-    test(Config, fun testMaps/3, RulesAndOptions),
-    case Jer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    RulesAndOptions =
+        [{ber,[maps,no_ok_wrapper]},
+         {ber,[maps,der,no_ok_wrapper]},
+         {per,[maps,no_ok_wrapper]},
+         {uper,[maps,no_ok_wrapper]},
+         {jer,[maps,no_ok_wrapper]}],
+    test(Config, fun testMaps/3, RulesAndOptions).
 
 testMaps(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
@@ -1155,8 +1132,8 @@ testContaining(Config) ->
 testContaining(Config, Rule, Opts) ->
     asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
     testContaining:containing(Rule),
-    case {Rule,have_jsonlib()} of
-        {per,true} ->
+    case Rule of
+        per ->
             io:format("Testing with both per and jer...\n"),
             asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
             testContaining:containing(per_jer);
