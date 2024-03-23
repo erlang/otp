@@ -169,7 +169,8 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
         true ->
             %% There are no boolean operators that can be optimized in
             %% this function.
-            F#b_function{bs=Blocks1,cnt=Count1}
+            Blocks2 = beam_ssa:trim_unreachable(Blocks1), %Fix up phi nodes.
+            F#b_function{bs=Blocks2,cnt=Count1}
     end.
 
 %%%
