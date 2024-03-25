@@ -1247,15 +1247,17 @@ find_handshake_parent([{{ssh_system_sup,{address,_,Port,_}},
 
 find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
                         PidS,supervisor,[ssh_acceptor_sup]}|T],
+                       Port, Acc) ->
+    find_handshake_parent(supervisor:which_children(PidS), Port, Acc);
+
+find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
+                        PidS,supervisor,[ssh_acceptor_subsup]}|T],
                        Port, {AccP,AccC,AccH}) ->
     ParentHandshakers =
-        [{PidW,PidH} ||
-            {{ssh_acceptor_sup,{address,_,Port1,_}}, PidW, worker, [ssh_acceptor]} <-
+        [{PidW,PidW} ||
+            {undefined, PidW, worker, [ssh_acceptor]} <-
                 supervisor:which_children(PidS),
-            Port1 == Port,
-            PidH <- element(2, process_info(PidW,links)),
-            is_pid(PidH),
-            process_info(PidH,current_function) == {current_function,{ssh_connection_handler,handshake,3}}],
+                process_info(PidW,current_function) == {current_function,{ssh_connection_handler,handshake,3}}],
     {Parents,Handshakers} = lists:unzip(ParentHandshakers),
     find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
 

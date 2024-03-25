@@ -501,10 +501,7 @@ handshake(Pid, Ref, Timeout) ->
 	{'DOWN', Ref, process, Pid, {shutdown, Reason}} ->
 	    {error, Reason};
 	{'DOWN', Ref, process, Pid, Reason} ->
-	    {error, Reason};
-        {'EXIT',_,Reason} ->
-            stop(Pid),
-            {error, {exit,Reason}}
+	    {error, Reason}
     after Timeout ->
 	    erlang:demonitor(Ref, [flush]),
 	    ssh_connection_handler:stop(Pid),

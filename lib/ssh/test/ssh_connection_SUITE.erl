@@ -105,6 +105,8 @@
          start_shell_sock_exec_fun/1,
          start_subsystem_on_closed_channel/1,
          stop_listener/1,
+         trap_exit_connect/1,
+         trap_exit_daemon/1,
          ssh_exec_echo/2 % called as an MFA
         ]).
 
@@ -132,6 +134,8 @@ all() ->
      start_shell,
      new_shell_dumb_term,
      new_shell_xterm_term,
+     trap_exit_connect,
+     trap_exit_daemon,
      start_shell_pty,
      start_shell_exec,
      start_shell_exec_fun,
@@ -1176,6 +1180,59 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+%% Issue GH-8223
+trap_exit_connect(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey),
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"}]),
+    %% Fake an EXIT message
+    ExitMsg = {'EXIT', self(), make_ref()},
+    self() ! ExitMsg,
+
+    {ok, ConnectionRef} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                                   {save_accepted_host, false},
+                                                   {user, "foo"},
+                                                   {password, "morot"},
+                                                   {user_interaction, true},
+                                                   {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid),
+
+    %% Ensure the EXIT message is still there
+    receive
+        ExitMsg -> ok
+    after 0 ->
+        ct:fail("No EXIT message")
+    end.
+
+%%--------------------------------------------------------------------
+%% Issue GH-8223
+trap_exit_daemon(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey),
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    %% Fake an EXIT message
+    ExitMsg = {'EXIT', self(), make_ref()},
+    self() ! ExitMsg,
+
+    {ok, DaemonRef} = ssh:daemon(0, [{system_dir, SysDir},
+                                     {user_dir, UserDir}]),
+    ssh:stop_daemon(DaemonRef),
+
+    %% Ensure the EXIT message is still there
+    receive
+        ExitMsg -> ok
+    after 0 ->
+        ct:fail("No EXIT message")
+    end.
+
+%%--------------------------------------------------------------------
 start_shell_sock_exec_fun(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -1598,7 +1655,7 @@ no_sensitive_leak(Config) ->
     [true|_] =
         [exit(Pacc,kill) || {{ssh_system_sup,_},P1,supervisor,_} <- supervisor:which_children(sshd_sup),
                             {{ssh_acceptor_sup,_},P2,supervisor,_} <- supervisor:which_children(P1),
-                            {{ssh_acceptor_sup,_},Pacc,worker,_} <- supervisor:which_children(P2)],
+                            {{ssh_acceptor_sup,_},Pacc,supervisor,_} <- supervisor:which_children(P2)],
     
     %% Remove the test handler and reset the logger level:
     timer:sleep(500),

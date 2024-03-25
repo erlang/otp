@@ -1141,17 +1141,19 @@ in the User's Guide chapter.
   By default, this option is not set. This means that the number is not limited.
 
 - **`parallel_login`{: #hardening_daemon_options-parallel_login }** - If set to
-  false (the default value), only one login is handled at a time. If set to
-  true, an unlimited number of login attempts are allowed simultaneously.
+  `false` (the default value), only one login is handled at a time. If set to
+  `true`, an unlimited number of login attempts are allowed simultaneously. If
+  set to a number `N`, the given number of login attempts are allowed
+  simultaneously.
 
   If the `max_sessions` option is set to `N` and `parallel_login` is set to
-  `true`, the maximum number of simultaneous login attempts at any time is
-  limited to `N-K`, where `K` is the number of authenticated connections present
-  at this daemon.
+  `true` or a number `M>=N`, the maximum number of simultaneous login attempts
+  at any time is limited to `N-K`, where `K` is the number of authenticated
+  connections present at this daemon.
 
   > #### Warning {: .warning }
   >
-  > Do not enable `parallel_logins` without protecting the server by other
+  > Do not set `parallel_login` to `true` without protecting the server by other
   > means, for example, by the `max_sessions` option or a firewall
   > configuration. If set to `true`, there is no protection against DOS attacks.
 
@@ -1164,7 +1166,7 @@ in the User's Guide chapter.
 -type hardening_daemon_options() ::
         {max_sessions, pos_integer()}
       | {max_channels, pos_integer()}
-      | {parallel_login, boolean()}
+      | {parallel_login, boolean() | pos_integer()}
       | {minimal_remote_max_packet_size, pos_integer()}.
 
 -doc """
