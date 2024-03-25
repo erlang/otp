@@ -1315,7 +1315,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     return ret;
 }
 
-Eterm trace_info_3(BIF_ALIST_3)
+Eterm erts_internal_trace_info_3(BIF_ALIST_3)
 {
     ErtsTraceSession* session;
     Eterm ret;
@@ -1332,7 +1332,7 @@ Eterm trace_info_3(BIF_ALIST_3)
         if (session) {
             erts_deref_trace_session(session);
         }
-        ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_trace_info_3),
+        ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_info_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
     ret = trace_info(BIF_P, session, BIF_ARG_2, BIF_ARG_3);

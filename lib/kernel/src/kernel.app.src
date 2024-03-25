@@ -122,6 +122,7 @@
 	     seq_trace,
              socket,
 	     standard_error,
+             trace,
 	     wrap_log_reader]},
   {registered, [application_controller,
 		erl_reply,
@@ -162,7 +163,7 @@
          {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-18941@", "stdlib-6.0",
+  {runtime_dependencies, ["erts-@OTP-18941:OTP-18980@", "stdlib-6.0",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.

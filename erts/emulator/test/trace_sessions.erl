@@ -56,13 +56,13 @@ groups(Testcases) ->
     [{Group, [], Testcases} || Group <- group_list()].
 
 init_per_suite(Config) ->
-    {session, SessionsBefore} = erlang:trace_info(any, any, session),
+    SessionsBefore = trace:session_info(all),
     Pid = spawn(?MODULE, suite_controller, [start, []]),
     [{suite_controller, Pid}, {sessions_before, SessionsBefore} | Config].
 
 end_per_suite(Config) ->
     SessionsBefore = proplists:get_value(sessions_before, Config),
-    {session, SessionsAfter} = erlang:trace_info(any, any, session),
+    SessionsAfter = trace:session_info(all),
     Diff = SessionsAfter -- SessionsBefore,
     io:format("SessionsBefore = ~p\n", [SessionsBefore]),
     io:format("SessionsAfter = ~p\n", [SessionsAfter]),
@@ -114,7 +114,16 @@ erlang_trace_pattern(MFA, MS, FlagList) ->
                       [MFA, MS, FlagList, R]);
 
         [{dynamic_session, DynS}] ->
-            R = erlang:trace_pattern(DynS, MFA, MS, FlagList),
+            R = case MFA of
+                    {_,_,_} ->
+                        trace:function(DynS, MFA, MS, FlagList);
+                    on_load ->
+                        trace:function(DynS, on_load, MS, FlagList);
+                    send ->
+                        trace:send(DynS, MS, FlagList);
+                    'receive' ->
+                        trace:recv(DynS, MS, FlagList)
+                end,
             io:format("trace_pattern(~p, ~p, ~p, ~p) -> ~p\n",
                       [DynS, MFA, MS, FlagList, R])
 
@@ -129,7 +138,7 @@ erlang_trace_pattern(MFA, MS, FlagList) ->
                  end,
             case MFA of
                 {_,_,_} ->
-                    erlang:trace_pattern(S, MFA, On, [call_count]);
+                    trace:function(S, MFA, On, [call_count]);
                 _ ->
                     ok %% send & receive trace already turned off
             end,
@@ -142,7 +151,28 @@ erlang_trace(PidPortSpec, How, FlagList) ->
         [] ->
             erlang:trace(PidPortSpec, How, FlagList);
         [{dynamic_session, S}] ->
-            erlang:trace(S, PidPortSpec, How, FlagList)
+            if is_pid(PidPortSpec);
+               PidPortSpec =:= processes;
+               PidPortSpec =:= existing_processes;
+               PidPortSpec =:= new_processes ->
+                    trace:process(S, PidPortSpec, How, FlagList);
+
+               is_port(PidPortSpec);
+               PidPortSpec =:= ports;
+               PidPortSpec =:= existing_ports;
+               PidPortSpec =:= new_ports ->
+                    trace:port(S, PidPortSpec, How, FlagList);
+
+               PidPortSpec =:= all;
+               PidPortSpec =:= existing;
+               PidPortSpec =:= new ->
+                    trace:process(S, PidPortSpec, How, FlagList),
+                    trace:port(S, PidPortSpec, How, FlagList);
+
+               true ->
+                    %% Must be negative testing
+                    trace:process(S, PidPortSpec, How, FlagList)
+            end
     end.
 
 
@@ -152,7 +182,7 @@ erlang_trace_info(PidPortFuncEvent, Item) ->
         [] ->
             erlang:trace_info(PidPortFuncEvent, Item);
         [{dynamic_session, S}] ->
-            erlang:trace_info(S, PidPortFuncEvent, Item)
+            trace:info(S, PidPortFuncEvent, Item)
     end.
 
 init_per_group(Group, Config) ->
@@ -171,21 +201,22 @@ init_group([pre_session|Tail], Config) ->
     %% Create an omnipresent dynamic dummy session before.
     %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = erlang:trace_session_create(undefined, Tracer, []),
+    S = trace:session_create(undefined, Tracer, []),
 
     %% Set a dummy call_count on all (local) functions.
-    erlang:trace_pattern(S, {'_','_','_'}, true, [local]),
+    trace:function(S, {'_','_','_'}, true, [local]),
 
     %% Re-set a dummy global call trace on all exported functions.
-    [[erlang:trace_pattern(S, {Module, Func, Arity}, true, [global])
+    [[trace:function(S, {Module, Func, Arity}, true, [global])
       || {Func,Arity} <- Module:module_info(exports)]
      || Module <- erlang:loaded(),
         erlang:function_exported(Module, module_info, 1)],
 
     %% Set a dummy send trace on all processes and ports
     %% but disable send trace to not get any messages.
-    erlang:trace(S, all, true, [send]),
-    1 = erlang:trace_pattern(S, send, false, []),
+    trace:process(S, all, true, [send]),
+    trace:port(S, all, true, [send]),
+    1 = trace:send(S, false, []),
 
     ets:insert(?MODULE, {pre_session, S, Tracer}),
     init_group(Tail, Config);
@@ -194,16 +225,16 @@ init_group([post_session | Tail], Config) ->
     %% Create a dynamic dummy session after
     %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = erlang:trace_session_create(undefined, Tracer, []),
-    1 = erlang:trace_pattern(S, send, false, []),
-    1 = erlang:trace_pattern(S, 'receive', false, []),
+    S = trace:session_create(undefined, Tracer, []),
+    1 = trace:send(S, false, []),
+    1 = trace:recv(S, false, []),
     ets:insert(?MODULE, {post_session, S, Tracer}),
     init_group(Tail, Config);
 init_group([dynamic_session | Tail], Config) ->
     %%
     %% Run tests with a dynamically created session.
     %%
-    S = erlang:trace_session_create(undefined, undefined, []),
+    S = trace:session_create(undefined, undefined, []),
     ets:insert(?MODULE, {dynamic_session, S}),
     init_group(Tail, Config).
 
@@ -212,16 +243,16 @@ end_group([], Config) ->
 end_group([pre_session | Tail], Config) ->
     [{pre_session, S, Tracer}] = ets:take(?MODULE, pre_session),
     true = is_process_alive(Tracer),
-    erlang:trace_session_destroy(S),
+    trace:session_destroy(S),
     end_group(Tail, Config);
 end_group([post_session | Tail], Config) ->
     [{post_session, S, Tracer}] = ets:take(?MODULE, post_session),
     true = is_process_alive(Tracer),
-    erlang:trace_session_destroy(S),
+    trace:session_destroy(S),
     end_group(Tail, Config);
 end_group([dynamic_session | Tail], Config) ->
     [{dynamic_session, S}] = ets:take(?MODULE, dynamic_session),
-    erlang:trace_session_destroy(S),
+    trace:session_destroy(S),
     end_group(Tail, Config).
 
 init_per_testcase(Config) ->

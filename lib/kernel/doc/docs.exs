@@ -1,7 +1,7 @@
 [
   groups_for_modules: [
     "Code & System": [:application, :code, :erl_ddll, :error_handler, :heart, :os],
-    "Distribution & Tracing": [
+    Distribution: [
       :net_adm,
       :net_kernel,
       :auth,
@@ -11,8 +11,7 @@
       :global,
       :global_group,
       :pg,
-      :rpc,
-      :seq_trace
+      :rpc
     ],
     "Files & Networking": [
       :file,
@@ -34,6 +33,10 @@
       :logger_handler,
       :logger_std_h,
       :wrap_log_reader
+    ],
+    Tracing: [
+      :seq_trace,
+      :trace
     ]
   ],
   skip_code_autolink_to: ["t:file_descriptor/0"],

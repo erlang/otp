@@ -43,5 +43,5 @@
     {env, []},
     {mod, {sasl, []}},
     {runtime_dependencies, ["tools-2.6.14","stdlib-4.0","kernel-6.0",
-			    "erts-@OTP-18941@"]}]}.
+			    "erts-@OTP-18941:OTP-18980@"]}]}.
 

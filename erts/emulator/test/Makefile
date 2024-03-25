@@ -188,7 +188,10 @@ R25_ERL_FILES= $(R25_MODULES:%=%.erl)
 STRIPPED_TYPES_MODULES= $(STRIPPED_TYPES:%=%_stripped_types_SUITE)
 STRIPPED_TYPES_ERL_FILES= $(STRIPPED_TYPES_MODULES:%=%.erl)
 
-ERL_FILES= $(MODULES:%=%.erl)
+STDLIB_MODULES=error_info_lib
+
+ERL_FILES= $(MODULES:%=%.erl) \
+	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -224,7 +227,7 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 make_emakefile: $(NO_OPT_ERL_FILES) \
   $(KERNEL_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	$(MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
+	$(MODULES) $(STDLIB_MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r24 \

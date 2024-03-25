@@ -706,7 +706,6 @@ error_info(_Config) ->
     {ok, Peer, ExternalNode} = ?CT_PEER(),
     ExternalPid = rpc:call(ExternalNode, erlang, whereis, [code_server]),
     ExternalPort = hd(rpc:call(ExternalNode, erlang, ports, [])),
-    TraceSession = erlang:trace_session_create(?MODULE, self(), []),
 
     L = [{abs, [abc]},
          {adler32, [{bad,data}]},
@@ -1305,19 +1304,9 @@ error_info(_Config) ->
          {trace, [a, not_boolean, [bad_flag]]},
          {trace, [a, true, [a|b]]},
 
-         {trace, [TraceSession, ExternalPid, true, all]},
-         {trace, [TraceSession, ExternalPid, not_boolean, bad_flags]},
-         {trace, [TraceSession, ExternalPort, true, all]},
-         {trace, [TraceSession, a, not_boolean, bad_flags]},
-         {trace, [TraceSession, a, not_boolean, [bad_flag]]},
-         {trace, [TraceSession, a, true, [a|b]]},
-
          {trace_pattern, [a, b]},
          {trace_pattern, [a, b, c]},
          {trace_pattern, [{?MODULE,'_','_'}, [{[self(), '_'],[],[]}], [call_count]]},
-
-         {trace_pattern, [TraceSession, a, b, c]},
-         {trace_pattern, [TraceSession, {?MODULE,'_','_'}, [{[self(), '_'],[],[]}], [call_count]]},
 
          {trace_delivered, [ExternalPid]},
          {trace_delivered, [abc]},
@@ -1328,23 +1317,6 @@ error_info(_Config) ->
          {trace_info, [ExternalPort, bad_item]},
          {trace_info, [self(), bad_item]},
          {trace_info, [bad_tracee_spec, flags]},
-
-         {trace_info, [bad_session, self(), flags]},
-         {trace_info, [make_ref(), self(), flags]},
-         {trace_info, [atomics:new(1,[]), self(), flags]},
-         {trace_info, [TraceSession, ExternalPid, flags]},
-         {trace_info, [TraceSession, self(), bad_item]},
-
-         {trace_session_create, ["bad name", self(), []]},
-         {trace_session_create, [name, bad_tracer, []]},
-         {trace_session_create, [name, self(), bad_option]},
-         {trace_session_create, [name, self(), [bad_option]]},
-
-         {trace_session_destroy, [bad_session]},
-         {trace_session_destroy, [make_ref()]},
-         {trace_session_destroy, [atomics:new(1,[])]},
-
-         {trace_session_info, [ExternalPid]},
 
          {trunc, [abc]},
          {tuple_size, [<<"abc">>]},
