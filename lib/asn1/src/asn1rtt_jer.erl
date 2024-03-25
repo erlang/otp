@@ -462,7 +462,7 @@ jer_do_encode_named_bit_string([FirstVal | RestVal], NamedBitList) ->
     ToSetPos = jer_get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
     Size = lists:max(ToSetPos) + 1,
     BitList = jer_make_and_set_list(Size, ToSetPos, 0),
-    encode_bitstring(BitList).
+    jer_encode_bitstring(BitList).
 
 jer_get_all_bitposes([{bit, ValPos} | Rest], NamedBitList, Ack) ->
     jer_get_all_bitposes(Rest, NamedBitList, [ValPos | Ack]);
@@ -492,31 +492,31 @@ jer_make_and_set_list(Len, [], XPos) ->
 %%     ([bitlist]) -> {ListLen, UnusedBits, OctetList}
 %%=================================================================
 
-encode_bitstring([B8, B7, B6, B5, B4, B3, B2, B1 | Rest]) ->
+jer_encode_bitstring([B8, B7, B6, B5, B4, B3, B2, B1 | Rest]) ->
     Val = (B8 bsl 7) bor (B7 bsl 6) bor (B6 bsl 5) bor (B5 bsl 4) bor
 	(B4 bsl 3) bor (B3 bsl 2) bor (B2 bsl 1) bor B1,
-    encode_bitstring(Rest, <<Val>>);
-encode_bitstring(Val) ->
-    unused_bitlist(Val, <<>>).
+    jer_encode_bitstring(Rest, <<Val>>);
+jer_encode_bitstring(Val) ->
+    jer_unused_bitlist(Val, <<>>).
 
-encode_bitstring([B8, B7, B6, B5, B4, B3, B2, B1 | Rest], Ack) ->
+jer_encode_bitstring([B8, B7, B6, B5, B4, B3, B2, B1 | Rest], Acc) ->
     Val = (B8 bsl 7) bor (B7 bsl 6) bor (B6 bsl 5) bor (B5 bsl 4) bor
 	(B4 bsl 3) bor (B3 bsl 2) bor (B2 bsl 1) bor B1,
-    encode_bitstring(Rest, [Ack | [Val]]);
+    jer_encode_bitstring(Rest, [Acc | [Val]]);
 %%even multiple of 8 bits..
-encode_bitstring([], Ack) ->
-    Ack;
+jer_encode_bitstring([], Acc) ->
+    Acc;
 %% unused bits in last octet
-encode_bitstring(Rest, Ack) ->
-    unused_bitlist(Rest,Ack).
+jer_encode_bitstring(Rest, Acc) ->
+    jer_unused_bitlist(Rest, Acc).
 
 %%%%%%%%%%%%%%%%%%
 %% unused_bitlist([list of ones and zeros <= 7], 7, []) ->
 %%  {Unused bits, Last octet with bits moved to right}
-unused_bitlist([], Ack) ->
-    Ack;
-unused_bitlist([Bit | Rest], Ack) ->
-    unused_bitlist(Rest, <<Ack/bitstring,Bit:1>>).
+jer_unused_bitlist([], Acc) ->
+    Acc;
+jer_unused_bitlist([Bit | Rest], Acc) ->
+    jer_unused_bitlist(Rest, <<Acc/bitstring,Bit:1>>).
 
 jer_bitstr2names(BitStr,[]) ->
     BitStr;

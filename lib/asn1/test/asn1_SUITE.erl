@@ -224,7 +224,7 @@ have_jsonlib() ->
 
 test(Config, TestF) ->
     TestJer = case have_jsonlib() of
-                  true -> [jer];
+                  true -> [jer, {ber, [ber,jer]}];
                   false -> []
               end,
     test(Config, TestF, [per,
@@ -445,7 +445,13 @@ testExtensionDefault(Config) ->
     test(Config, fun testExtensionDefault/3).
 testExtensionDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["ExtensionDefault"], Config, [Rule|Opts]),
-    testExtensionDefault:main(Rule).
+    case lists:member(ber, Opts) andalso lists:member(jer, Opts) of
+        true ->
+            %% JER back-end disables maps for BER, too.
+            ok;
+        false ->
+            testExtensionDefault:main(Rule)
+    end.
 
 testMaps(Config) ->
     Jer = case have_jsonlib() of
@@ -1016,9 +1022,8 @@ testNortel(Config) -> test(Config, fun testNortel/3).
 testNortel(Config, Rule, Opts) ->
     asn1_test_lib:compile("Nortel", Config, [Rule|Opts]).
 
-test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
-test_undecoded_rest(_Config,jer,_Opts) ->
-    ok; % not relevant for JER
+test_undecoded_rest(Config) ->
+    test(Config, fun test_undecoded_rest/3, [per, uper, ber]).
 test_undecoded_rest(Config, Rule, Opts) ->
     do_test_undecoded_rest(Config, Rule, Opts),
     do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
