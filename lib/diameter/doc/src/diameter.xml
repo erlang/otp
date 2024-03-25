@@ -23,7 +23,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2020</year>
+<year>2024</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -107,6 +107,14 @@ in this module.</p>
 <p>
 Types corresponding to &the_rfc; AVP Data Formats.
 Defined in &dict_data_types;.</p>
+
+<marker id="elapsed_time"/>
+</item>
+
+<tag><c>elapsed_time()</c></tag>
+<item>
+<p>
+Elapsed time since a given time.</p>
 
 <marker id="application_alias"/>
 </item>
@@ -1828,15 +1836,22 @@ configured on the transport.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP 25.X">which_connections() -> [SvcConnections]</name>
+<name since="OTP @OTP-19040@">which_connections() -> [SvcConnections]</name>
 <fsummary>Returns a list of connections.</fsummary>
 <type>
   <v>SvcConnections = {SvcName, [Connection]}</v>
   <v>SvcName = string()</v>
-  <v>Connection     = #{peer     := term(),
-                        wd       := term(),
+  <v>Connection     = #{peer     := PeerInfo,
+                        wd       := WDInfo,
                         peername := Address,
                         sockname := Address}</v>
+  <v>PeerInfo = #{pid    := pid(),
+                  uptime := elapsed_time()}</v>
+  <v>WDInfo = #{ref    := reference(),
+                type   := atom(),
+                pid    := pid(),
+                state  := diameter_service:wd_state(),
+                uptime := elapsed_time()}</v>
   <v>Address = {inet:ip_address(), inet:port_number()}</v>
 </type>
 <desc>
@@ -1848,14 +1863,21 @@ configured on the transport.</p>
 </func>
 
 <func>
-<name since="OTP 25.X">which_connections(SvcName) -> [Connection]</name>
+<name since="OTP @OTP-19040@">which_connections(SvcName) -> [Connection]</name>
 <fsummary>Returns a list of connections.</fsummary>
 <type>
   <v>SvcName = string()</v>
-  <v>Connection = #{peer     := term(),
-                    wd       := term(),
+  <v>Connection = #{peer     := PeerInfo,
+                    wd       := WDInfo,
                     peername := Address,
 	            sockname := Address}</v>
+  <v>PeerInfo = #{pid    := pid(),
+                  uptime := elapsed_time()}</v>
+  <v>WDInfo = #{ref    := reference(),
+                type   := atom(),
+                pid    := pid(),
+                state  := diameter_service:wd_state(),
+                uptime := elapsed_time()}</v>
   <v>Address = {inet:ip_address(), inet:port_number()}</v>
 </type>
 <desc>
@@ -1868,7 +1890,7 @@ Return a list of connections associated with the service 'SvcName'. </p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP 25.X">which_transports() -> [Transport]</name>
+<name since="OTP @OTP-19040@">which_transports() -> [Transport]</name>
 <fsummary>Returns a list of transports.</fsummary>
 <type>
   <v>Transport = #{ref     := reference(),
@@ -1884,7 +1906,7 @@ Return a list of <em>all</em> transports. </p>
 </func>
 
 <func>
-<name since="OTP 25.X">which_transports(SvcName) -> [Transport]</name>
+<name since="OTP @OTP-19040@">which_transports(SvcName) -> [Transport]</name>
 <fsummary>Returns a list of transports.</fsummary>
 <type>
   <v>SvcName = string()</v>
@@ -1901,7 +1923,7 @@ Return a list of transports associated with the service 'SvcName'. </p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP 25.X">which_watchdogs() -> [Watchdog]</name>
+<name since="OTP @OTP-19040@">which_watchdogs() -> [Watchdog]</name>
 <fsummary>Returns a list of watchdogs.</fsummary>
 <type>
   <v>Watchdog = #{ref     := reference(),
@@ -1909,7 +1931,7 @@ Return a list of transports associated with the service 'SvcName'. </p>
                   pid     := pid(),
                   state   := diameter_service:wd_state(),
                   peer    := boolean() | pid(),
-                  uptime  := {Hours, Mins, Secs, MicroSecs}
+                  uptime  := elapsed_time(),
                   service := SvcName}</v>
   <v>SvcName = string()</v>
 </type>
@@ -1921,7 +1943,7 @@ Return a list of <em>all</em> watchdogs. </p>
 </func>
 
 <func>
-<name since="OTP 25.X">which_watchdogs(SvcName) -> [Transport]</name>
+<name since="OTP @OTP-19040@">which_watchdogs(SvcName) -> [Transport]</name>
 <fsummary>Returns a list of watchdogs.</fsummary>
 <type>
   <v>SvcName = string()</v>
@@ -1930,7 +1952,7 @@ Return a list of <em>all</em> watchdogs. </p>
                   pid    := pid(),
                   state  := diameter_service:wd_state(),
                   peer   := boolean() | pid(),
-                  uptime := {Hours, Mins, Secs, MicroSecs}</v>
+                  uptime := elapsed_time()</v>
 </type>
 <desc>
 <p>

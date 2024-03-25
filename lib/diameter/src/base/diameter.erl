@@ -68,7 +68,8 @@
               transport_ref/0,
               transport_opt/0,
               transport_pred/0,
-              call_opt/0]).
+              call_opt/0,
+              elapsed_time/0]).
 
 -export_type(['OctetString'/0,
               'Integer32'/0,
@@ -240,13 +241,9 @@ which_transports(SvcName) ->
                               pid     := pid(),
                               state   := diameter_service:wd_state(),
                               peer    := boolean() | pid(),
-                              uptime  := {Hours, Mins, Secs, MicroSecs},
+                              uptime  := elapsed_time(),
                               service := SvcName}] when
-      Hours     :: non_neg_integer(),
-      Mins      :: 0..59,
-      Secs      :: 0..59,
-      MicroSecs :: 0..999999,
-      SvcName   :: string().
+      SvcName :: string().
 
 which_watchdogs() ->
     diameter_service:which_watchdogs().
@@ -258,12 +255,8 @@ which_watchdogs() ->
              pid     := pid(),
              state   := diameter_service:wd_state(),
              peer    := boolean() | pid(),
-             uptime  := {Hours, Mins, Secs, MicroSecs}}] when
-      SvcName   :: string(),
-      Hours     :: non_neg_integer(),
-      Mins      :: 0..59,
-      Secs      :: 0..59,
-      MicroSecs :: 0..999999.
+             uptime  := elapsed_time()}] when
+      SvcName :: string().
 
 which_watchdogs(SvcName) ->
     diameter_service:which_watchdogs(SvcName).
@@ -275,21 +268,35 @@ which_watchdogs(SvcName) ->
 
 -spec which_connections() ->
           [{SvcName,
-            [#{peer     := term(),
-               wd       := term(),
+            [#{peer     := PeerInfo,
+               wd       := WDInfo,
                peername := {inet:ip_address(), inet:port_number()},
                sockname := {inet:ip_address(), inet:port_number()}}]}] when
-      SvcName :: string().
+      SvcName  :: string(),
+      PeerInfo :: #{pid    := pid(),
+                    uptime := elapsed_time()},
+      WDInfo   :: #{ref    := reference(),
+                    type   := atom(),
+                    pid    := pid(),
+                    state  := diameter_service:wd_state(),
+                    uptime := elapsed_time()}.
 
 which_connections() ->
     diameter_service:which_connections().
 
 -spec which_connections(SvcName) ->
-          [#{peer     := term(),
-             wd       := term(),
+          [#{peer     := PeerInfo,
+             wd       := WDInfo,
              peername := {inet:ip_address(), inet:port_number()},
              sockname := {inet:ip_address(), inet:port_number()}}] when
-      SvcName :: string().
+      SvcName :: string(),
+      PeerInfo :: #{pid    := pid(),
+                    uptime := elapsed_time()},
+      WDInfo   :: #{ref    := reference(),
+                    type   := atom(),
+                    pid    := pid(),
+                    state  := diameter_service:wd_state(),
+                    uptime := elapsed_time()}.
 
 which_connections(SvcName) ->
     diameter_service:which_connections(SvcName).
@@ -537,3 +544,9 @@ call(SvcName, App, Message) ->
     | {filter, peer_filter()}
     | {peer, peer_ref()}
     | {timeout, 'Unsigned32'()}.
+
+-type elapsed_time() ::
+        {Hours     :: non_neg_integer(),
+         Mins      :: 0..59,
+         Secs      :: 0..59,
+         MicroSecs :: 0..999999}.

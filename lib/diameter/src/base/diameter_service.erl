@@ -310,8 +310,7 @@ connection_info(PT, #watchdog{pid     = Pid,
                      pid    => Pid,
                      type   => Type,
                      state  => State,
-                     uptime => diameter_lib:now_diff(Started)}
-            },
+                     uptime => diameter_lib:now_diff(Started)}},
     connection_info2(PT, TPid, State, Info).
 
 connection_info2(PT, TPid, State, Info)
@@ -2161,15 +2160,6 @@ info_stats(#state{watchdogT = WatchdogT}) ->
 %% One entry per configured transport. Statistics for each entry are
 %% the accumulated values for the ref and associated watchdog/peer
 %% pids.
-
-%% foo() ->
-%%     #{ref              :: reference(),
-%%       type             :: connect | listen,
-%%       transport_module :: module(),
-%%       wd               :: {pid(), integer(), wd_state()},
-%%       peer             :: {pid(), Started :: integer()},
-%%       local            :: {inet:ip_address(), inet:port_number()},
-%%       remote           :: {inet:ip_address(), inet:port_number()}}.
 
 info_transport(S, _) ->
     PeerD = peer_dict(S, config_dict(S)),
