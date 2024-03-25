@@ -51,7 +51,7 @@ assets.copy: $(ASSETS_SRC)
 # ----------------------------------------------------
 installation_guide/%.md: ../../HOWTO/%.md ../../OTP_VERSION ../../make/ex_doc_vsn
 	$(gen_verbose)sed \
-          -e 's:%EX_DOC_VSN:$(EX_DOC_VSN):g' \
+          -e 's:%EX_DOC_VSN%:$(EX_DOC_VSN):g' \
           -e 's:%OTP-VSN%:$(VSN):g' \
           -e 's:%OTP-REL%:$(OTP_REL):g' \
           $< > $@
