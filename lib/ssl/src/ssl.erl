@@ -54,12 +54,12 @@ Special Erlang node configuration for the application can be found here [ssl app
                   {type,<<"Algorithms Legacy">>},
                   {type,<<"Client Options">>},
                   {type,<<"Server Options">>},
-                  {type,<<"Common Options">>},
+                  {type,<<"Client and Server Options">>},
                   {type,<<"Info">>},
                   {type,<<"Deprecated">>},
                   {function,<<"Client Functions">>},
                   {function,<<"Server Functions">>},
-                  {function,<<"Common Functions">>},
+                  {function,<<"Client and Server Functions">>},
                   {function,<<"TLS-1.3 Only Functions">>},
                   {function,<<"Pre TLS-1.3 Functions">>},
                   {function,<<"Info Functions">>},
@@ -610,7 +610,7 @@ Error reason for debug purpose should not be matched.
 %% -------------------------------------------------------------------------------------------------------
 
 -doc(#{title =>
-           <<"Common Options">>}).
+           <<"Client and Server Options">>}).
 -doc """
 Options common to both client and server side.
 
@@ -679,9 +679,9 @@ receiver and cannot be changed.
 
 
 -doc(#{title =>
-           <<"Common Options">>}).
+           <<"Client and Server Options">>}).
 -doc """
-Common certificate related options.
+Common certificate related options to both client and server.
 
 - **\{certs_keys, CertsKeys}** -
 A list of a certificate (or possible a certificate and its chain) and the
@@ -840,7 +840,7 @@ The CRLs will be fetched from a local or external cache. See
 
 
 -doc(#{title =>
-           <<"Common Options">>}).
+           <<"Client and Server Options">>}).
 -doc """
 Options common to both client and server side pre TLS-1.3.
 
@@ -883,7 +883,7 @@ and [RFC 5054](http://tools.ietf.org/html/rfc5054#section-2.4):
                                    {user_lookup_fun, {Lookupfun :: fun(), UserState :: any()}}.
 
 -doc(#{title =>
-           <<"Common Options">>}).
+           <<"Client and Server Options">>}).
 -doc """
 Common options to both client and server for TLS-1.3.
 
@@ -916,7 +916,7 @@ information see
                                {key_update_at, KeyUpdateAt::pos_integer()}.
 
 -doc(#{title =>
-           <<"Common Options">>}).
+           <<"Client and Server Options">>}).
 -doc """
 Legacy options considered deprecatd in favour of other options,
 insecure to use, or plainly not relevant anymore.
@@ -1480,9 +1480,9 @@ downgrade. Defaults to false
         {fallback, LegacyFallback::boolean()}.
 
 
--doc(#{title => <<"Common Options">>}).
+-doc(#{title => <<"Client and Server Options">>}).
 -doc """
-Common options only valid for DTLS.
+Common options to client and server only valid for DTLS.
 
 - **\{use_srtp, UseSrtp}** -
 Configures the `use_srtp` DTLS hello extension.
@@ -2293,7 +2293,7 @@ handshake(Socket, SslOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => handshake_continue/3}).
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2310,7 +2310,7 @@ handshake_continue(Socket, SSLOptions) ->
 
 %%--------------------------------------------------------------------
 -doc "Continue the TLS handshake, possibly with new, additional or changed options.".
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2329,7 +2329,7 @@ handshake_continue(Socket, SSLOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc "Cancel the handshake with a fatal `USER_CANCELED` alert.".
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
 %%
@@ -2339,7 +2339,7 @@ handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>}).
+-doc(#{title => <<"Client and Server Functions">>}).
 -doc "Closes a TLS/DTLS connection.".
 -spec  close(SslSocket) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2363,7 +2363,7 @@ In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
 connection.
 """.
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 18.1">>}).
 -spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
@@ -2391,7 +2391,7 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>}).
+-doc(#{title => <<"Client and Server Functions">>}).
 -spec send(SslSocket, Data) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Data :: iodata().
@@ -2415,7 +2415,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        equiv => recv/3}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -2441,7 +2441,7 @@ recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>}).
+-doc(#{title => <<"Client and Server Functions">>}).
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -2460,7 +2460,7 @@ recv(#sslsocket{pid = {Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>}).
+-doc(#{title => <<"Client and Server Functions">>}).
 -doc """
 Assigns a new controlling process to the SSL socket. A controlling process is
 the owner of an SSL socket, and receives all messages from the socket.
@@ -2944,7 +2944,7 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Common Functions">>}).
+-doc(#{title => <<"Client and Server Functions">>}).
 -doc "Sets options according to `Options` for socket `SslSocket`.".
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3049,7 +3049,7 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Common Functions">>,
+-doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP R14B">>}).
 -spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
       SslSocket :: sslsocket(),
