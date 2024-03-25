@@ -106,10 +106,8 @@ COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
 
 WORKDIR /buildroot/
 
-## Build and install elixir, hex and ex_doc
-ENV ELIXIR_VSN=latest \
-    HEX_VSN=latest \
-    EX_DOC_VSN=latest
+## Build and install elixir and hex
+ENV ELIXIR_VSN=latest
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     set -x && \
     mkdir /buildroot/elixir && cd /buildroot/elixir && \
@@ -117,11 +115,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     jq '.tarball_url' | xargs curl -L > elixir.tar.gz && \
     tar xzf elixir.tar.gz --strip-components=1 && \
     make && sudo make install && \
-    mkdir /buildroot/hex && cd /buildroot/hex && \
-    curl -s https://api.github.com/repos/hexpm/hex/releases/${HEX_VSN} | \
-    jq '.tarball_url' | xargs curl -L > hex.tar.gz && \
-    tar xzf hex.tar.gz --strip-components=1 && \
-    mix install
+    mix archive.install github hexpm/hex branch latest --force
 
 ## Install test tools rebar3, proper and jsx
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
@@ -129,7 +123,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
     curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
     } && \
-    curl -sL "https://github.com/erlang/rebar3/archive/refs/heads/main.tar.gz" > rebar3.tar.gz && ls -la && \
+    latest erlang/rebar3 && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
     (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
