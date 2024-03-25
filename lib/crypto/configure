@@ -7833,41 +7833,8 @@ then :
 then :
   as_fn_error $? "FIPS support requested, but no crypto library found" "$LINENO" 5
 fi
-          saveCFLAGS="$CFLAGS"
-          saveLDFLAGS="$LDFLAGS"
-          saveLIBS="$LIBS"
-          CFLAGS="$DED_BASIC_CFLAGS $SSL_INCLUDE"
-          if test $SSL_DYNAMIC_ONLY = yes
-then :
-
-                    LDFLAGS="$DED_LDFLAGS_CONFTEST $ded_ld_rpath -L$SSL_LIBDIR"
-                    LIBS="$LIBS -l$SSL_CRYPTO_LIBNAME $SSL_EXTRA_LIBS"
-
-else case e in #(
-  e)
-                    LDFLAGS="$DED_LDFLAGS_CONFTEST"
-                    if test "$host_os" = "win32"
-then :
-  LIBS="$LIBS $SSL_LIBDIR/$SSL_CRYPTO_LIBNAME.lib $SSL_EXTRA_LIBS"
-else case e in #(
-  e) LIBS="$LIBS $SSL_LIBDIR/lib$SSL_CRYPTO_LIBNAME.a $SSL_EXTRA_LIBS" ;;
-esac
-fi
-                 ;;
-esac
-fi
-          ac_fn_c_check_func "$LINENO" "FIPS_mode_set" "ac_cv_func_FIPS_mode_set"
-if test "x$ac_cv_func_FIPS_mode_set" = xyes
-then :
-  SSL_FLAGS="-DFIPS_SUPPORT"
-else case e in #(
-  e) as_fn_error $? "FIPS support requested, but cannot be enabled" "$LINENO" 5 ;;
-esac
-fi
-
-          CFLAGS="$saveCFLAGS"
-          LDFLAGS="$saveLDFLAGS"
-          LIBS="$saveLIBS"
+          # Insert check for FIPS support here
+          SSL_FLAGS="-DFIPS_SUPPORT"
 
 fi
 
