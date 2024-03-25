@@ -1013,16 +1013,16 @@ do_check ()
 do_download_ex_doc ()
 {
     ## Download ex_doc and place in $ERL_TOP/bin folder
-    curl -s -L $(cat "$ERL_TOP/make/ex_doc_link") > $ERL_TOP/bin/ex_doc
+    curl -s -L "$(cat "$ERL_TOP/make/ex_doc_link")" > "$ERL_TOP/bin/ex_doc"
     chmod +x "$ERL_TOP/bin/ex_doc"
-    if command -v sha1sum > /dev/null; then
-        if ! (cd "$ERL_TOP/make" && sha1sum --status -c "ex_doc.sha1sum"); then
-            echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
-            exit 1
-        fi
-    elif command -v sha26sum > /dev/null; then
+    if command -v sha26sum > /dev/null; then
         if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
             echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
+            exit 1
+        fi
+    elif command -v sha1sum > /dev/null; then
+        if ! (cd "$ERL_TOP/make" && sha1sum --status -c "ex_doc.sha1sum"); then
+            echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
             exit 1
         fi
     else
