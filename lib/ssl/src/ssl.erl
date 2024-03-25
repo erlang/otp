@@ -25,9 +25,25 @@
 
 -module(ssl).
 -moduledoc """
-Interface Functions for TLS (Transport Layer Security) or SSL (Secure Socket Layer) that is the original name
-of the protocol. Also DTLS (Datagram Transport Layer Security) is supported. See also
-description in [ssl application](ssl_app.md).
+Interface functions for TLS (Transport Layer Security),
+and DTLS (Datagram Transport Layer Security).
+
+The applications name is still ssl due to the fact that the first versions of the TLS protcol
+were named SSL (Secure Socket Layer), however, no version of the old SSL protocol are supported,
+by this application.
+
+Example:
+```erlang
+1> ssl:start(), ssl:connect("google.com", 443, [{verify, verify_peer},
+    {cacerts, public_key:cacerts_get()}]).
+{ok,{sslsocket, [...]}}
+```
+
+See [Using SSL](using_ssl.md) for detailed usage and more examples of this API.
+
+Special Erlang node configuration for the application can be found here [ssl application](ssl_app.md).
+
+
 """.
 
 -moduledoc(#{titles =>
@@ -1896,8 +1912,8 @@ TLS connection keys that you can get information about.
 %%%--------------------------------------------------------------------
 %%% API
 %%%--------------------------------------------------------------------
--doc(#{equiv => start/1}).
 -doc(#{title => <<"Utility Functions">>,
+       equiv => start(temporary),
        since => <<"OTP R14B">>}).
 -spec start() -> ok  | {error, reason()}.
 
@@ -1907,7 +1923,7 @@ start() ->
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
--doc "Starts the SSL application. Default type is `temporary`.".
+-doc "Starts the SSL application.".
 
 start(Type) ->
     case application:ensure_all_started(ssl, Type) of
