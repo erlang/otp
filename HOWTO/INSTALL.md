@@ -93,6 +93,9 @@ also find the utilities needed for building the documentation.
     or get it from GitHub: <https://github.com/elixir-lang/ex_doc> and build
     your self.
     
+    ExDoc %EX_DOC_VSN% was used to build the documentation for this release,
+    but any version after that should work just as well.
+
     You can also use `./otp_build download_ex_doc` to download the correct version
     from github.
 
@@ -191,7 +194,7 @@ the `$PATH`.
 
     $ export PATH=$ERL_TOP/bin:$PATH     # Assuming bash/sh
 
-To build `html` and `epub` docs you need to have [ExDoc %EX_DOC_VSN](https://github.com/elixir-lang/ex_doc).
+To build `html` and `epub` docs you need to have [ExDoc %EX_DOC_VSN%](https://github.com/elixir-lang/ex_doc).
 See [Building Documentation](#building-documentation) for information on how to
 install ExDoc.
 
