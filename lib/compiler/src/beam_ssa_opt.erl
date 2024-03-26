@@ -1038,9 +1038,11 @@ update_tuple_merge(Src, SetOps, Updates0, Seen0) ->
 %%% subexpressions across instructions that clobber the X registers.
 %%%
 
-ssa_opt_cse({#opt_st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_cse({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     M = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
-    {St#opt_st{ssa=cse(Linear, #{}, M)}, FuncDb}.
+    Linear1 = cse(Linear0, #{}, M),
+    Linear = beam_ssa:trim_unreachable(Linear1), %Fix up phi nodes.
+    {St#opt_st{ssa=Linear}, FuncDb}.
 
 cse([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Sub0, M0) ->
     case M0 of

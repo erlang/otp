@@ -939,6 +939,9 @@ grab_bag(_Config) ->
 
     false = grab_bag_22(),
 
+    {reply,{ok,foo_bar},#{page_title := foo_bar}} =
+        grab_bag_23(id(#{page_title => unset})),
+
     ok.
 
 grab_bag_1() ->
@@ -1226,6 +1229,19 @@ grab_bag_22() ->
         [_ | _] ?= ((true xor true) andalso foo),
         bar ?= id(42)
     end.
+
+%% GH-8296: When the cse pass in beam_ssa_opt was changed to
+%% eliminate unreachable phi nodes, it failed to fix up phi nodes
+%% that reference eliminated blocks.
+grab_bag_23(#{page_title := unset} = State1) ->
+    State2 = State1#{page_title := foo_bar},
+    {reply,
+     {ok,
+      case State2 of
+          #{page_title := Val} -> Val;
+          _ -> lists:flatten([State2])
+      end},
+     State2}.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
