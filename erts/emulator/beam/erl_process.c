@@ -14678,7 +14678,7 @@ erts_dbg_check_halloc_lock(Process *p)
 	return 1;
     if (p->common.id == ERTS_INVALID_PID)
 	return 1;
-    esdp = erts_proc_sched_data(p);
+    esdp = erts_get_scheduler_data();
     if (esdp && p == esdp->match_pseudo_process)
 	return 1;
     /* erts_thr_progress_is_blocking() is not enough as dirty NIFs may run */
