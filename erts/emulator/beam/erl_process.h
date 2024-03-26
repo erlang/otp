@@ -704,6 +704,9 @@ struct ErtsSchedulerData_ {
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsMonotonicTime last_monotonic_time;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    ErtsMonotonicTime last_os_monotonic_time;
+#endif
     int check_time_reds;
 
     Uint32 thr_id;

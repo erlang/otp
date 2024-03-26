@@ -98,6 +98,12 @@ void erts_p_slpq(void);
 
 /* time_sup */
 
+/*
+ * If ERTS_CHECK_MONOTONIC_TIME is defined we will check that Erlang
+ * and OS monotonic time are monotonic on a per thread basis...
+ */
+#define ERTS_CHECK_MONOTONIC_TIME 1
+
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 #  ifndef HAVE_ERTS_NOW_CPU
 #    define HAVE_ERTS_NOW_CPU

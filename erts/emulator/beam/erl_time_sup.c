@@ -82,7 +82,7 @@ static void
 schedule_send_time_offset_changed_notifications(ErtsMonotonicTime new_offset);
 
 struct time_sup_read_only__ {
-    ErtsMonotonicTime (*get_time)(void);
+    ErtsMonotonicTime (*get_time)(ErtsSchedulerData *esdp);
     int correction;
     ErtsTimeWarpMode warp_mode;
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
@@ -213,14 +213,43 @@ get_time_offset(void)
 static ERTS_INLINE void
 update_last_mtime(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
 {
-    if (!esdp)
-	esdp = erts_get_scheduler_data();
     if (esdp) {
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+        if (esdp->last_monotonic_time > mtime) {
+            ERTS_ASSERT(esdp == erts_get_scheduler_data());
+            erts_exit(ERTS_ABORT_EXIT,
+                      "Erlang monotonic time stepped backwards!\n"
+                      "Previous time: %b64d\n"
+                      "Current time:  %b64d\n",
+                      esdp->last_monotonic_time,
+                      mtime);
+        }
+#endif
 	ASSERT(mtime >= esdp->last_monotonic_time);
 	esdp->last_monotonic_time = mtime;
 	esdp->check_time_reds = 0;
     }
 }
+
+static ERTS_INLINE void
+check_os_monotonic_time(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
+{
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    if (esdp) {
+        if (esdp->last_os_monotonic_time > mtime) {
+            ERTS_ASSERT(esdp == erts_get_scheduler_data());
+            erts_exit(ERTS_ABORT_EXIT,
+                      "OS monotonic time stepped backwards!\n"
+                      "Previous time: %b64d\n"
+                      "Current time:  %b64d\n",
+                      esdp->last_os_monotonic_time,
+                      mtime);
+        }
+        esdp->last_os_monotonic_time = mtime;
+    }
+#endif
+}
+
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 
@@ -283,7 +312,7 @@ calc_corrected_erl_mtime(ErtsMonotonicTime os_mtime,
 }
 
 static ERTS_INLINE ErtsMonotonicTime
-read_corrected_time(int os_drift_corrected)
+read_corrected_time(int os_drift_corrected, ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime os_mtime;
     ErtsMonotonicCorrectionInstance ci;
@@ -303,18 +332,20 @@ read_corrected_time(int os_drift_corrected)
 
     erts_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
+    check_os_monotonic_time(esdp, os_mtime);
+
     return calc_corrected_erl_mtime(os_mtime, &ci, NULL,
 				    os_drift_corrected);
 }
 
-static ErtsMonotonicTime get_os_drift_corrected_time(void)
+static ErtsMonotonicTime get_os_drift_corrected_time(ErtsSchedulerData *esdp)
 {
-    return read_corrected_time(!0);
+    return read_corrected_time(!0, esdp);
 }
 
-static ErtsMonotonicTime get_corrected_time(void)
+static ErtsMonotonicTime get_corrected_time(ErtsSchedulerData *esdp)
 {
-    return read_corrected_time(0);
+    return read_corrected_time(0, esdp);
 }
 
 #ifdef ERTS_TIME_CORRECTION_PRINT
@@ -379,6 +410,9 @@ check_time_correction(void *vesdp)
     int os_drift_corrected = time_sup.r.o.os_corrected_monotonic_time;
     int set_new_correction = 0, begin_short_intervals = 0;
 
+    if (!esdp)
+	esdp = erts_get_scheduler_data();
+
     erts_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
     erts_os_times(&os_mtime, &os_stime);
@@ -386,6 +420,8 @@ check_time_correction(void *vesdp)
     ci = time_sup.inf.c.parmon.cdata.insts.curr;
 
     erts_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
+
+    check_os_monotonic_time(esdp, os_mtime);
 
     if (os_mtime < ci.os_mtime)
 	erts_exit(ERTS_ABORT_EXIT,
@@ -677,10 +713,9 @@ check_time_correction(void *vesdp)
 	time_sup.inf.c.parmon.cdata.insts.curr.correction = new_correction;
 
 	erts_rwmtx_rwunlock(&time_sup.inf.c.parmon.rwmtx);
-    }
 
-    if (!esdp)
-	esdp = erts_get_scheduler_data();
+        check_os_monotonic_time(esdp, os_mtime);
+    }
 
     erts_twheel_set_timer(esdp->timer_wheel,
 			  &time_sup.inf.c.parmon.timer,
@@ -689,10 +724,13 @@ check_time_correction(void *vesdp)
 			  timeout_pos);
 }
 
-static ErtsMonotonicTime get_os_corrected_time(void)
+static ErtsMonotonicTime get_os_corrected_time(ErtsSchedulerData *esdp)
 {
+    ErtsMonotonicTime os_mtime;
     ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
-    return erts_os_monotonic_time() + time_sup.r.o.moffset;
+    os_mtime = erts_os_monotonic_time();
+    check_os_monotonic_time(esdp, os_mtime);
+    return os_mtime + time_sup.r.o.moffset;
 }
 
 static void
@@ -705,6 +743,8 @@ check_time_offset(void *vesdp)
     ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
 
     erts_os_times(&os_mtime, &os_stime);
+
+    check_os_monotonic_time(esdp, os_mtime);
 
     erl_mtime =  os_mtime + time_sup.r.o.moffset;
     time_offset = get_time_offset();
@@ -754,6 +794,11 @@ init_check_time_correction(void *vesdp)
 
     erts_os_times(&mtime, &stime);
 
+    check_os_monotonic_time((!vesdp
+                             ? erts_get_scheduler_data()
+                             : (ErtsSchedulerData *) vesdp),
+                            mtime);
+
     mtime_diff = mtime - old_mtime;
     stime_diff = stime - old_stime;
     smtime_diff = stime_diff - mtime_diff;
@@ -802,6 +847,8 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
 
     erts_rwmtx_runlock(&time_sup.inf.c.parmon.rwmtx);
 
+    check_os_monotonic_time(erts_get_scheduler_data(), os_mtime);
+
     if (os_mtime < ci.os_mtime)
 	erts_exit(ERTS_ABORT_EXIT,
 		 "OS monotonic time stepped backwards\n");
@@ -849,7 +896,7 @@ late_init_time_correction(ErtsSchedulerData *esdp)
 
 #endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
 
-static ErtsMonotonicTime get_not_corrected_time(void)
+static ErtsMonotonicTime get_not_corrected_time(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime stime, mtime;
 
@@ -1120,8 +1167,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	ErtsMonotonicCorrectionData *cdatap;
 	erts_rwmtx_opt_t rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
 	ErtsMonotonicTime offset;
-	erts_os_times(&time_sup.inf.c.minit,
-		      &time_sup.inf.c.sinit);
+        erts_os_times(&time_sup.inf.c.minit, &time_sup.inf.c.sinit);
 	time_sup.r.o.moffset = -1*time_sup.inf.c.minit;
 	time_sup.r.o.moffset += ERTS_MONOTONIC_BEGIN;
 	offset = time_sup.inf.c.sinit;
@@ -1371,9 +1417,10 @@ void
 erts_wall_clock_elapsed_both(ErtsMonotonicTime *ms_total, ErtsMonotonicTime *ms_diff)
 {
     ErtsMonotonicTime now, elapsed;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
-    now = time_sup.r.o.get_time();
-    update_last_mtime(NULL, now);
+    now = time_sup.r.o.get_time(esdp);
+    update_last_mtime(esdp, now);
 
     elapsed = ERTS_MONOTONIC_TO_MSEC(now);
     elapsed -= ERTS_MONOTONIC_TO_MSEC(ERTS_MONOTONIC_BEGIN);
@@ -1740,10 +1787,11 @@ void
 get_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
     ErtsMonotonicTime now_megasec, now_sec, now, prev, mtime, time_offset;
-    
-    mtime = time_sup.r.o.get_time();
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+
+    mtime = time_sup.r.o.get_time(esdp);
     time_offset = get_time_offset();
-    update_last_mtime(NULL, mtime);
+    update_last_mtime(esdp, mtime);
     now = ERTS_MONOTONIC_TO_USEC(mtime + time_offset);
 
     /* Make sure now time is later than last time */
@@ -1775,7 +1823,10 @@ get_now(Uint* megasec, Uint* sec, Uint* microsec)
 ErtsMonotonicTime
 erts_get_monotonic_time(ErtsSchedulerData *esdp)
 {
-    ErtsMonotonicTime mtime = time_sup.r.o.get_time();
+    ErtsMonotonicTime mtime;
+    if (!esdp)
+        esdp = erts_get_scheduler_data();
+    mtime = time_sup.r.o.get_time(esdp);
     update_last_mtime(esdp, mtime);
     return mtime;
 }
@@ -2267,7 +2318,7 @@ erts_napi_monotonic_time(int time_unit)
     if (!esdp)
 	return ERTS_NAPI_TIME_ERROR;
 
-    mtime = time_sup.r.o.get_time();
+    mtime = time_sup.r.o.get_time(esdp);
     update_last_mtime(esdp, mtime);
 
     switch (time_unit) {
@@ -2371,7 +2422,8 @@ erts_napi_convert_time_unit(ErtsMonotonicTime val, int from, int to)
 
 BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 {
-    ErtsMonotonicTime mtime = time_sup.r.o.get_time();
+    ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
+    ErtsMonotonicTime mtime = time_sup.r.o.get_time(esdp);
     update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
     mtime += ERTS_MONOTONIC_OFFSET_NATIVE;
     BIF_RET(make_time_val(BIF_P, mtime));
@@ -2379,26 +2431,29 @@ BIF_RETTYPE monotonic_time_0(BIF_ALIST_0)
 
 BIF_RETTYPE monotonic_time_1(BIF_ALIST_1)
 {
-    ErtsMonotonicTime mtime = time_sup.r.o.get_time();
-    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
+    ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
+    ErtsMonotonicTime mtime = time_sup.r.o.get_time(esdp);
+    update_last_mtime(esdp, mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime, 1));
 }
 
 BIF_RETTYPE system_time_0(BIF_ALIST_0)
 {
     ErtsMonotonicTime mtime, offset;
-    mtime = time_sup.r.o.get_time();
+    ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
+    mtime = time_sup.r.o.get_time(esdp);
     offset = get_time_offset();
-    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
+    update_last_mtime(esdp, mtime);
     BIF_RET(make_time_val(BIF_P, mtime + offset));
 }
 
 BIF_RETTYPE system_time_1(BIF_ALIST_0)
 {
     ErtsMonotonicTime mtime, offset;
-    mtime = time_sup.r.o.get_time();
+    ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
+    mtime = time_sup.r.o.get_time(esdp);
     offset = get_time_offset();
-    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
+    update_last_mtime(esdp, mtime);
     BIF_RET(time_unit_conversion(BIF_P, BIF_ARG_1, mtime + offset, 0));
 }
 
@@ -2425,10 +2480,11 @@ BIF_RETTYPE timestamp_0(BIF_ALIST_0)
     Eterm *hp, res;
     ErtsMonotonicTime mtime, offset;
     Uint mega_sec, sec, micro_sec;
+    ErtsSchedulerData *esdp = erts_proc_sched_data(BIF_P);
 
-    mtime = time_sup.r.o.get_time();
+    mtime = time_sup.r.o.get_time(esdp);
     offset = get_time_offset();
-    update_last_mtime(erts_proc_sched_data(BIF_P), mtime);
+    update_last_mtime(esdp, mtime);
 
     make_timestamp_value(&mega_sec, &sec, &micro_sec, mtime, offset);
 

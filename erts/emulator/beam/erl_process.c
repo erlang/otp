@@ -5943,6 +5943,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     erts_init_atom_cache_map(&esdp->atom_cache_map);
 
     esdp->last_monotonic_time = 0;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    esdp->last_os_monotonic_time = ERTS_SINT64_MIN;
+#endif
     esdp->check_time_reds = 0;
 
     esdp->thr_id = (Uint32) num;
