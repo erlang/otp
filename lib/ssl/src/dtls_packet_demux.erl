@@ -28,12 +28,12 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% API
--export([start_link/5,
+-export([start_link/6,
          active_once/3,
          accept/2,
          sockname/1,
          close/1,
-         new_owner/1,
+         new_owner/2,
          new_connection/2,
          connection_setup/2,
          get_all_opts/1,
@@ -50,7 +50,7 @@
 	 terminate/2,
          code_change/3]).
 
--record(state, 
+-record(state,
 	{active_n,
          port,
 	 listener,
@@ -60,6 +60,7 @@
 	 dtls_msq_queues = kv_new(),
 	 dtls_processes = kv_new(),
 	 accepters  = queue:new(),
+         owner, %% Listen process owner
 	 first,
          close,
          session_id_tracker
@@ -69,8 +70,8 @@
 %%% API
 %%%===================================================================
 
-start_link(Port, TransportInfo, EmOpts, InetOptions, DTLSOptions) ->
-    gen_server:start_link(?MODULE, [Port, TransportInfo, EmOpts, InetOptions, DTLSOptions], []).
+start_link(Owner, Port, TransportInfo, EmOpts, InetOptions, DTLSOptions) ->
+    gen_server:start_link(?MODULE, [Owner, Port, TransportInfo, EmOpts, InetOptions, DTLSOptions], []).
 
 active_once(PacketSocket, Client, Pid) ->
     gen_server:cast(PacketSocket, {active_once, Client, Pid}).
@@ -84,8 +85,8 @@ sockname(PacketSocket) ->
 close(PacketSocket) ->
     call(PacketSocket, close).
 
-new_owner(PacketSocket) ->
-    call(PacketSocket, new_owner).
+new_owner(PacketSocket, Owner) ->
+    call(PacketSocket, {new_owner, Owner}).
 
 new_connection(PacketSocket, Client) ->
     call(PacketSocket, {new_connection, Client, self()}).
@@ -110,8 +111,9 @@ getstat(PacketSocket, Opts) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
+init([Owner, Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
     InternalActiveN = get_internal_active_n(),
+    erlang:monitor(process, Owner),
     {ok, SessionIdHandle} = session_id_tracker(Socket, DTLSOptions),
     {ok, #state{active_n = InternalActiveN,
                 port = Port0,
@@ -120,6 +122,7 @@ init([Port0, TransportInfo, EmOpts, DTLSOptions, Socket]) ->
                 dtls_options = DTLSOptions,
                 emulated_options = EmOpts,
                 listener = Socket,
+                owner = Owner,
                 close = false,
                 session_id_tracker = SessionIdHandle}}.
 
@@ -141,19 +144,15 @@ handle_call({accept, Accepter}, From, #state{accepters = Accepters} = State0) ->
 handle_call(sockname, _, #state{listener = Socket} = State) ->
     Reply = inet:sockname(Socket),
     {reply, Reply, State};
-handle_call(close, _, #state{dtls_processes = Processes,
-                             accepters = Accepters} = State) ->
-    case kv_empty(Processes) of
-        true ->
-            {stop, normal, ok, State#state{close=true}};
-        false -> 
-            lists:foreach(fun({_, From}) ->
-                                  gen_server:reply(From, {error, closed})
-                          end, queue:to_list(Accepters)),
-            {reply, ok,  State#state{close = true, accepters = queue:new()}}
+handle_call(close, _, State0) ->
+    case do_close(State0) of
+        {stop, State} ->
+            {stop, normal, ok, State};
+        {wait, State} ->
+            {reply, ok, State}
     end;
-handle_call(new_owner, _, State) ->
-    {reply, ok,  State#state{close = false, first = true}};
+handle_call({new_owner, Owner}, _, State) ->
+    {reply, ok,  State#state{close = false, first = true, owner = Owner}};
 handle_call({new_connection, Old, _Pid}, _,
             #state{accepters = Accepters, dtls_msq_queues = MsgQs0} = State) ->
     case queue:is_empty(Accepters) of
@@ -167,7 +166,7 @@ handle_call({new_connection, Old, _Pid}, _,
     end;
 
 handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = Socket,
-                                                               emulated_options = EmOpts} = State) ->
+                                                                     emulated_options = EmOpts} = State) ->
     case get_socket_opts(Socket, SocketOptNames) of
         {ok, Opts} ->
             {reply, {ok, emulated_opts_list(EmOpts, EmOptNames, []) ++ Opts}, State};
@@ -223,6 +222,13 @@ handle_info({ErrorTag, Socket, Error}, #state{listener = Socket, transport = {_,
     ?LOG_NOTICE(Report),
     {noreply, State#state{close=true}};
 
+handle_info({'DOWN', _, process, Owner, _}, #state{owner = Owner} = State0) ->
+    case do_close(State0) of
+        {stop, State} ->
+            {stop, normal, State};
+        {wait, State} ->
+            {noreply, State}
+    end;
 handle_info({'DOWN', _, process, Pid, _},
             #state{dtls_processes = Processes0,
                    dtls_msq_queues = MsgQueues0,
@@ -264,6 +270,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+do_close(#state{dtls_processes = Processes, accepters = Accepters} = State) ->
+    case kv_empty(Processes) of
+        true ->
+            {stop, State#state{close=true}};
+        false ->
+            lists:foreach(fun({_, From}) -> gen_server:reply(From, {error, closed}) end,
+                          queue:to_list(Accepters)),
+            {wait, State#state{close = true, accepters = queue:new()}}
+    end.
+
 handle_datagram(Client, Msg, #state{dtls_msq_queues = MsgQueues, accepters = AcceptorsQueue0} = State) ->
     case kv_lookup(Client, MsgQueues) of
 	none ->
