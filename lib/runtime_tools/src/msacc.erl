@@ -30,8 +30,8 @@
 Convenience functions for microstate accounting
 
 This module implements some convenience functions for analyzing microstate
-accounting data. For details about how to use the basic api and what the
-different states represent see
+accounting data. For details about how to use the basic API and what the
+different states represent, see
 [`erlang:statistics(microstate_accounting)`](`m:erlang#statistics_microstate_accounting`).
 
 [](){: #msacc_print_example }
@@ -63,7 +63,7 @@ ok
 ```
 
 This first command enables microstate accounting for 1000 milliseconds. See
-`start/0`, `stop/0`, `reset/0` and `start/1` for more details. The second
+`start/0`, `stop/0`, `reset/0`, and `start/1` for more details. The second
 command prints the statistics gathered during that time. First three general
 statistics are printed.
 
@@ -82,7 +82,7 @@ the accumulated time for each type of thread is printed in a similar format.
 
 Since we have the average real-time and the percentage spent in each state we
 can easily calculate the time spent in each state by multiplying
-`Average thread real-time` with `Thread state %`, i.e. to get the time Scheduler
+`Average thread real-time` with `Thread state %`, that is, to get the time Scheduler
 1 spent in the emulator state we do `1000513us * 0.13% = 1300us`.
 """.
 -moduledoc(#{since => "OTP 19.0"}).
@@ -206,18 +206,15 @@ from_file(Filename) ->
     Stats.
 
 -doc """
-Prints the current microstate accounting to standard out. Same as
-[`msacc:print(msacc:stats(),#{}).`](`print/1`)
+Prints the current microstate accounting to standard out. Equivalent to
+[`msacc:print(msacc:stats(), #{}).`](`print/1`)
 """.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec print() -> ok.
 print() ->
     print(stats()).
 
--doc """
-Print the given microstate statistics values to stdout. Same as
-[`msacc:print(DataOrStats,#{}).`](`print/1`)
-""".
+-doc #{equiv => print(DataOrStats, #{})}.
 -doc(#{since => <<"OTP 19.0">>}).
 -spec print(DataOrStats) -> ok when
       DataOrStats :: msacc_data() | msacc_stats().
@@ -226,21 +223,21 @@ print(Stats) ->
 
 -doc """
 Print the given microstate statistics values to standard out. With many states
-this can be quite verbose. See the top of this reference manual for a brief
+this can be verbose. See the top of this reference manual for a brief
 description of what the fields mean.
 
 It is possible to print more specific types of statistics by first manipulating
 the `DataOrStats` using `stats/2`. For instance if you want to print the
 percentage of run-time for each thread you can do:
 
-```text
-msacc:print(msacc:stats(runtime,msacc:stats())).
+```erlang
+msacc:print(msacc:stats(runtime, msacc:stats())).
 ```
 
 If you want to only print run-time per thread type you can do:
 
 ```erlang
-msacc:print(msacc:stats(type,msacc:stats(runtime,msacc:stats()))).
+msacc:print(msacc:stats(type, msacc:stats(runtime, msacc:stats()))).
 ```
 
 _Options_

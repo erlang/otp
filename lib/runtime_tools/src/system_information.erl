@@ -145,10 +145,12 @@ module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
 -doc """
-Performs a sanity check on the system. If no issues were found, `ok` is
-returned. If issues were found, `{failed, Failures}` is returned. All failures
-found will be part of the `Failures` list. Currently defined `Failure` elements
-in the `Failures` list:
+Performs a sanity check on the system.
+
+If no issues were found, `ok` is returned. If issues were found,
+`{failed, Failures}` is returned. All failures found will be part of
+the `Failures` list. Currently defined `Failure` elements in the
+`Failures` list:
 
 - **`InvalidAppFile`** - An application has an invalid `.app` file. The second
   element identifies the application which has the invalid `.app` file.
@@ -165,9 +167,9 @@ in the `Failures` list:
   Note that this check use application versions that are loaded, or will be
   loaded when used. You might have application versions that satisfies all
   dependencies installed in the system, but if those are not loaded this check
-  will fail. The system will of course also fail when used like this. This may
+  will fail. Of course, the system will also fail when used like this. This can
   happen when you have multiple [branched versions](`e:system:versions.md`) of
-  the same application installed in the system, but you do not use a
+  the same application installed in the system, but there does not exist a
   [boot script](`e:system:system_principles.md#BOOTSCRIPT`) identifying the
   correct application version.
 
