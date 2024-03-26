@@ -42,12 +42,12 @@ wait_for_request() ->
               erlang:hibernate(?MODULE,wait_for_request,[])
       end, []).
 
-handle_request({purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
-    {Res, NewReqs} = do_purge(Mod, Reqs),
+handle_request({purge, Mods, From, Ref}, Reqs) when is_pid(From) ->
+    {Res, NewReqs} = do_purge(Mods, erlang:processes(), Reqs, false, false),
     From ! {reply, purge, Res, Ref},
     check_requests(NewReqs);
-handle_request({soft_purge, Mod, From, Ref}, Reqs) when is_atom(Mod), is_pid(From) ->
-    {Res, NewReqs} = do_soft_purge(Mod, Reqs),
+handle_request({soft_purge, Mods, From, Ref}, Reqs) when is_pid(From) ->
+    {Res, NewReqs} = do_soft_purge(Mods, erlang:processes(), Reqs, true),
     From ! {reply, soft_purge, Res, Ref},
     check_requests(NewReqs);
 handle_request({finish_after_on_load, {Mod,Keep}, From, Ref}, Reqs)
@@ -100,54 +100,57 @@ pending_purge_lambda(_Module, Fun, Args) ->
     %%
     apply(Fun, Args).
 
-%% purge(Module)
-%%  Kill all processes running code from *old* Module, and then purge the
-%%  module. Return {WasOld, DidKill}:
+%% purge(Modules)
+%%  Kill all processes running code from *old* Modules, and then purge the
+%%  modules. Return {WasOld, DidKill}:
 %%  {false, false} there was no old module to purge
-%%  {true, false} module purged, no process killed
-%%  {true, true} module purged, at least one process killed
+%%  {true, false} at least one module purged, no process killed
+%%  {true, true} at least one module purged, at least one process killed
 
-purge(Mod) when is_atom(Mod) ->
+purge(Mods) when is_list(Mods) ->
     Ref = make_ref(),
-    erts_code_purger ! {purge, Mod, self(), Ref},
+    erts_code_purger ! {purge, Mods, self(), Ref},
     receive
 	{reply, purge, Result, Ref} ->
 	    Result
     end.
 
-do_purge(Mod, Reqs) ->
+do_purge([Mod | Mods], Processes, Reqs, WasOld, DidKill) ->
     case erts_internal:purge_module(Mod, prepare) of
 	false ->
-	    {{false, false}, Reqs};
+	    do_purge(Mods, Processes, Reqs, WasOld, DidKill);
 	true ->
-	    {DidKill, NewReqs} = check_proc_code(erlang:processes(),
-						 Mod, true, Reqs),
+	    {NewDidKill, NewReqs} = check_proc_code(Processes, Mod, true, Reqs),
 	    true = erts_internal:purge_module(Mod, complete),
-	    {{true, DidKill}, NewReqs}
-    end.
+	    do_purge(Mods, Processes, NewReqs, true, DidKill or NewDidKill)
+    end;
+do_purge([], Reqs, _Processes, WasOld, DidKill) ->
+    {{WasOld, DidKill}, Reqs}.
 
-%% soft_purge(Module)
+%% soft_purge(Modules)
 %% Purge old code only if no procs remain that run old code.
-%% Return true in that case, false if procs remain (in this
-%% case old code is not purged)
+%% Returns true if all modules were purged, false if procs
+%% remain (in this case old code is not purged)
 
-soft_purge(Mod) ->
+soft_purge(Mods) when is_list(Mods) ->
     Ref = make_ref(),
-    erts_code_purger ! {soft_purge, Mod, self(), Ref},
+    erts_code_purger ! {soft_purge, Mods, self(), Ref},
     receive
 	{reply, soft_purge, Result, Ref} ->
 	    Result
     end.
 
-do_soft_purge(Mod, Reqs) ->
+do_soft_purge([Mod | Mods], Processes, Reqs, Purged) ->
     case erts_internal:purge_module(Mod, prepare) of
 	false ->
-	    {true, Reqs};
+	    do_soft_purge(Mods, Processes, Reqs, Purged);
 	true ->
-	    {PurgeOp, NewReqs} = check_proc_code(erlang:processes(),
-						 Mod, false, Reqs),
-	    {erts_internal:purge_module(Mod, PurgeOp), NewReqs}
-    end.
+	    {PurgeOp, NewReqs} = check_proc_code(Processes, Mod, false, Reqs),
+	    NewPurged = erts_internal:purge_module(Mod, PurgeOp),
+	    do_soft_purge(Mods, Processes, NewReqs, Purged and NewPurged)
+    end;
+do_soft_purge([], _Processes, Reqs, Purged) ->
+    {Purged, Reqs}.
 
 %% finish_after_on_load(Module, Keep)
 %% Finish after running on_load function. If Keep is false,

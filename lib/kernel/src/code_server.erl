@@ -308,7 +308,7 @@ handle_call(clear_cache, _From, S) ->
 handle_call({load_module,PC,Mod,File,Purge,EnsureLoaded}, From, S)
   when is_atom(Mod) ->
     case Purge andalso erlang:module_loaded(Mod) of
-	true -> do_purge(Mod);
+	true -> do_purge([Mod]);
 	false -> ok
     end,
     try_finish_module(File, Mod, PC, EnsureLoaded, From, S);
@@ -325,11 +325,11 @@ handle_call({delete,Mod}, _From, St) when is_atom(Mod) ->
 	    {reply,false,St}
     end;
 
-handle_call({purge,Mod}, _From, St) when is_atom(Mod) ->
-    {reply,do_purge(Mod),St};
+handle_call({purge,Mods}, _From, St) when is_list(Mods) ->
+    {reply,do_purge(Mods),St};
 
-handle_call({soft_purge,Mod}, _From, St) when is_atom(Mod) ->
-    {reply,do_soft_purge(Mod),St};
+handle_call({soft_purge,Mods}, _From, St) when is_list(Mods) ->
+    {reply,do_soft_purge(Mods),St};
 
 handle_call(all_loaded, _From, S) ->
     Db = S#state.moddb,
@@ -1278,12 +1278,12 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
     end,
     absname(filename:join(Name), Dcwd).
 
-do_purge(Mod) ->
-    {_WasOld, DidKill} = erts_code_purger:purge(Mod),
+do_purge(Mods) ->
+    {_WasOld, DidKill} = erts_code_purger:purge(Mods),
     DidKill.
 
-do_soft_purge(Mod) ->
-    erts_code_purger:soft_purge(Mod).
+do_soft_purge(Mods) ->
+    erts_code_purger:soft_purge(Mods).
 
 is_dir(Path) ->
     case erl_prim_loader:read_file_info(Path) of
