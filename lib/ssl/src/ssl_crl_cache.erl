@@ -121,8 +121,6 @@ insert(DistPointURI, {der, CRLs}) ->
 
 %%--------------------------------------------------------------------
 -doc """
-delete(Entries) -> ok | {error, Reason}
-
 Delete CRLs from the ssl applications local cache.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
