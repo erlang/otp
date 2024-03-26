@@ -58,6 +58,8 @@ module.
 - **`UTF8String()`** - Types corresponding to RFC 6733 AVP Data Formats. Defined
   in [diameter_dict(4)](diameter_dict.md#DATA_TYPES).
 
+- **`elapsed_time()`** - Elapsed time since a given time.
+
   [](){: #application_alias }
 
 - **`application_alias() = term()`** - Name identifying a Diameter application
@@ -1017,6 +1019,9 @@ module.
          stop_service/1,
          add_transport/2,
          remove_transport/2,
+         which_transports/0,  which_transports/1,
+         which_watchdogs/0,   which_watchdogs/1,
+         which_connections/0, which_connections/1,
          subscribe/1,
          unsubscribe/1]).
 
@@ -1057,7 +1062,8 @@ module.
               transport_ref/0,
               transport_opt/0,
               transport_pred/0,
-              call_opt/0]).
+              call_opt/0,
+              elapsed_time/0]).
 
 -export_type(['OctetString'/0,
               'Integer32'/0,
@@ -1078,6 +1084,13 @@ module.
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
+
+%% Enable debug logging by set(ing) level to debug.
+%% For example: logger:set_primary_config(level, debug),
+%% -define(DBG(F,A),
+%%         logger:debug("~w:~w(~w) -> " ++ F ++ "~n",
+%%                      [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
+
 
 %% ---------------------------------------------------------------------------
 %% start/0
@@ -1100,6 +1113,7 @@ production system this is typically accomplished by a boot file, not by calling
 start() ->
     application:start(?APPLICATION).
 
+
 %% ---------------------------------------------------------------------------
 %% stop/0
 %% ---------------------------------------------------------------------------
@@ -1116,6 +1130,7 @@ Stop the diameter application.
 
 stop() ->
     application:stop(?APPLICATION).
+
 
 %% ---------------------------------------------------------------------------
 %% start_service/2
@@ -1145,6 +1160,7 @@ start_service(SvcName, Opts)
   when is_list(Opts) ->
     diameter_config:start_service(SvcName, Opts).
 
+
 %% ---------------------------------------------------------------------------
 %% stop_service/1
 %% ---------------------------------------------------------------------------
@@ -1170,6 +1186,7 @@ DPR message will be sent as in the case of `remove_transport/2`.
 stop_service(SvcName) ->
     diameter_config:stop_service(SvcName).
 
+
 %% ---------------------------------------------------------------------------
 %% services/0
 %% ---------------------------------------------------------------------------
@@ -1185,6 +1202,7 @@ Return the list of started services.
 
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
+
 
 %% ---------------------------------------------------------------------------
 %% service_info/2
@@ -1467,7 +1485,7 @@ service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
 
 %% ---------------------------------------------------------------------------
-%% peer_info/2
+%% peer_info/1
 %% ---------------------------------------------------------------------------
 
 -doc false.
@@ -1564,6 +1582,125 @@ transport.
 
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
+
+
+%% ---------------------------------------------------------------------------
+%% which_transport/0, which_transport/1
+%% ---------------------------------------------------------------------------
+-doc """
+Return a list of _all_ transports.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+-spec which_transports() -> [#{ref     := reference(),
+                               type    := atom(),
+                               service := string()}].
+which_transports() ->
+    diameter_config:which_transports().
+
+
+-doc """
+Return a list of transports associated with the service 'SvcName'.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+-spec which_transports(SvcName) -> [#{ref  := reference(),
+                                      type := atom()}] when
+      SvcName :: string().
+
+which_transports(SvcName) ->
+    diameter_config:which_transports(SvcName).
+
+
+%% ---------------------------------------------------------------------------
+%% which_watchdogs/0, which_watchdogs/1
+%% ---------------------------------------------------------------------------
+
+-doc """
+Return a list of _all_ watchdogs.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+
+-spec which_watchdogs() -> [#{ref     := reference(),
+                              type    := atom(),
+                              pid     := pid(),
+                              state   := diameter_service:wd_state(),
+                              peer    := boolean() | pid(),
+                              uptime  := elapsed_time(),
+                              service := SvcName}] when
+      SvcName :: string().
+
+which_watchdogs() ->
+    diameter_service:which_watchdogs().
+
+
+-doc """
+Return a list of watchdogs associated with the service 'SvcName'.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+
+-spec which_watchdogs(SvcName) ->
+          [#{ref     := reference(),
+             type    := atom(),
+             pid     := pid(),
+             state   := diameter_service:wd_state(),
+             peer    := boolean() | pid(),
+             uptime  := elapsed_time()}] when
+      SvcName :: string().
+
+which_watchdogs(SvcName) ->
+    diameter_service:which_watchdogs(SvcName).
+
+
+%% ---------------------------------------------------------------------------
+%% which_connections/0, which_connections/1
+%% ---------------------------------------------------------------------------
+
+-doc """
+Return a list of _all_ connections, grouped by the service they
+are associated with.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+
+-spec which_connections() ->
+          [{SvcName,
+            [#{peer     := PeerInfo,
+               wd       := WDInfo,
+               peername := {inet:ip_address(), inet:port_number()},
+               sockname := {inet:ip_address(), inet:port_number()}}]}] when
+      SvcName  :: string(),
+      PeerInfo :: #{pid    := pid(),
+                    uptime := elapsed_time()},
+      WDInfo   :: #{ref    := reference(),
+                    type   := atom(),
+                    pid    := pid(),
+                    state  := diameter_service:wd_state(),
+                    uptime := elapsed_time()}.
+
+which_connections() ->
+    diameter_service:which_connections().
+
+
+-doc """
+Return a list of connections associated with the service 'SvcName'.
+""".
+-doc(#{since => <<"OTP @OTP-19040@">>}).
+
+-spec which_connections(SvcName) ->
+          [#{peer     := PeerInfo,
+             wd       := WDInfo,
+             peername := {inet:ip_address(), inet:port_number()},
+             sockname := {inet:ip_address(), inet:port_number()}}] when
+      SvcName :: string(),
+      PeerInfo :: #{pid    := pid(),
+                    uptime := elapsed_time()},
+      WDInfo   :: #{ref    := reference(),
+                    type   := atom(),
+                    pid    := pid(),
+                    state  := diameter_service:wd_state(),
+                    uptime := elapsed_time()}.
+
+which_connections(SvcName) ->
+    diameter_service:which_connections(SvcName).
+
 
 %% ---------------------------------------------------------------------------
 %% subscribe/1
@@ -1844,6 +1981,7 @@ call(SvcName, App, Message) ->
     | {string_decode, boolean()}
     | {traffic_counters, boolean()}
     | {use_shared_peers, remotes()}
+    | {bins_info, boolean() | non_neg_integer()}
     | common_opt().
 
 -type application_opt()
@@ -1899,3 +2037,9 @@ call(SvcName, App, Message) ->
     | {filter, peer_filter()}
     | {peer, peer_ref()}
     | {timeout, 'Unsigned32'()}.
+
+-type elapsed_time() ::
+        {Hours     :: non_neg_integer(),
+         Mins      :: 0..59,
+         Secs      :: 0..59,
+         MicroSecs :: 0..999999}.
