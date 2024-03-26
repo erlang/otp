@@ -4191,12 +4191,7 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
 %%
 %%
 
--doc """
-[](){: #sendv }
-
-Translates to the following call: [`sendv(Socket, IOV, infinity)`](`sendv/3`).
-""".
--doc(#{equiv => sendv/3}).
+-doc(#{equiv => sendv(Socket, IOV, infinity)}).
 -doc(#{since => <<"OTP 27.0">>}).
 -spec sendv(Socket, IOV) ->
           'ok' |
@@ -4215,8 +4210,7 @@ sendv(Socket, IOV) ->
 
 -doc """
 [](){: #sendv-timeout }
-
-Send data on a connected socket, with:
+Send `t:erlang:iovec/0` data on a connected socket.
 
 - **`Cont`** - (clause 1; `Cont` :: [`select_info()`](`t:select_info/0`)) This call translates to the following call: [`sendv(Socket, IOV, Cont, infinity)`](`sendv/4`).
 
