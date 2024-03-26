@@ -114,8 +114,9 @@ typedef struct line_buf {  /* Buffer used in line oriented I/O */
 #define ERTS_PRTSD_SCHED_ID 0
 #define ERTS_PRTSD_DIST_ENTRY 1
 #define ERTS_PRTSD_CONN_ID 2
+#define ERTS_PRTSD_CONTEXT 3
 
-#define ERTS_PRTSD_SIZE 3
+#define ERTS_PRTSD_SIZE 4
 
 typedef struct {
     void *data[ERTS_PRTSD_SIZE];
