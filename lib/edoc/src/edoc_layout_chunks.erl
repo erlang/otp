@@ -40,7 +40,7 @@
 %% @end
 -module(edoc_layout_chunks).
 
--behaviour(edoc_layout).
+% -behaviour(edoc_layout).
 -export([module/2, overview/2]).
 
 -include("edoc.hrl").
