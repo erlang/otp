@@ -117,7 +117,7 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     make && sudo make install && \
     mix archive.install github hexpm/hex branch latest --force
 
-## Install test tools rebar3, proper and jsx
+## Install test tools rebar3 and proper
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     latest () { \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
@@ -126,10 +126,8 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     latest erlang/rebar3 && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
-    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
-    latest talentdeficit/jsx && \
-    (tar xzf jsx.tar.gz && mv jsx-* jsx && cd jsx && rebar3 compile)
+    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make)
 
-ENV ERL_LIBS=/buildroot/proper:/buildroot/jsx
+ENV ERL_LIBS=/buildroot/proper
 
 ENTRYPOINT ["/buildroot/init.sh"]
