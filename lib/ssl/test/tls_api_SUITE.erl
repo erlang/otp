@@ -195,7 +195,7 @@ init_per_suite(Config0) ->
 	    ssl_test_lib:clean_start(),
 	    Config1 = ssl_test_lib:make_rsa_cert_with_protected_keyfile(Config0,
                                                                         ?CORRECT_PASSWORD),
-            ssl_test_lib:make_dsa_cert(Config1)
+            ssl_test_lib:make_ecdsa_cert(Config1)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -300,16 +300,16 @@ tls_upgrade_new_opts_with_sni_fun() ->
 tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerDsaOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
+    ServerEcdsaOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
     Version = ssl_test_lib:protocol_version(Config),
     NewVersions = new_versions(Version),
-    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
-                                        [{key_exchange, fun(srp_rsa) -> false;
-                                                           (srp_dss) -> false;
-                                                           (_) -> true
-                                                        end}]),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     NewOpts = [{versions, NewVersions},
                {ciphers, Ciphers},
@@ -323,7 +323,7 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                  [{active, false} | TcpOpts]},
                 {ssl_options, [{versions, [Version |NewVersions]},
                                {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}
-                              | ServerDsaOpts]}]),
+                              | ServerEcdsaOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client(
                [{node, ClientNode},
