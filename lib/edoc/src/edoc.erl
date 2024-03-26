@@ -545,7 +545,7 @@ layout(Doc) ->
 
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
--spec layout(Doc, Opts) -> string() when
+-spec layout(Doc, Opts) -> term() when
       Doc :: edoc_module(),
       Opts :: proplist().
 layout(Doc, Opts) ->

@@ -40,8 +40,8 @@
 %% @end
 -module(edoc_layout_chunks).
 
-%-behaviour(edoc_layout).
--export([module/2]).
+% -behaviour(edoc_layout).
+-export([module/2, overview/2]).
 
 -include("edoc.hrl").
 
@@ -111,6 +111,18 @@ module(Doc, Options) ->
     Chunk = edoc_to_chunk(Doc, Options),
     term_to_binary(Chunk).
 
+-spec overview(Element :: term(), proplists:proplist()) -> term().
+overview(E=#xmlElement{name = overview, content = Es}, Options) ->
+    xpath_to_chunk("./title", E, Options)
+        ++ xmerl_to_chunk(edoc_layout:copyright(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:version(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:since(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:authors(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:references(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:sees(Es), Options)
+	    ++ xmerl_to_chunk(edoc_layout:todos(Es), Options)
+        ++ xpath_to_chunk("./description/fullDescription", E, Options).
+     
 %%.
 %%' Chunk construction
 %%
@@ -538,8 +550,14 @@ format_content_(#xmlElement{name = equiv} = E, Opts) ->
     format_element(rewrite_equiv_tag(E), Opts);
 format_content_(#xmlElement{name = a} = E, Opts) ->
     format_element(rewrite_a_tag(E), Opts);
+format_content_(#xmlElement{name = title} = E, Opts) ->
+    format_element(rewrite_title_tag(E), Opts);
 format_content_(#xmlElement{} = E, Opts) ->
-    format_element(E, Opts).
+    format_element(E, Opts);
+format_content_({Tag, Content}, Opts) ->
+    format_content_(xmerl_lib:normalize_element({Tag, [], Content}), Opts);
+format_content_(List, Opts) when is_list(List) ->
+    format_content_(#xmlText{ value = List }, Opts).
 
 format_element(#xmlElement{} = E, Opts) ->
     #xmlElement{name = Name, content = Content, attributes = Attributes} = E,
@@ -582,6 +600,9 @@ is_html_tag(Tag) ->
 rewrite_a_tag(#xmlElement{name = a} = E) ->
     SimpleE = xmerl_lib:simplify_element(E),
     xmerl_lib:normalize_element(rewrite_docgen_link(SimpleE)).
+
+rewrite_title_tag(#xmlElement{name = title} = E) ->
+    E#xmlElement{ name = h1 }.
 
 rewrite_see_tags([], _Opts) -> [];
 rewrite_see_tags([#xmlElement{name = see} | _] = SeeTags, Opts) ->

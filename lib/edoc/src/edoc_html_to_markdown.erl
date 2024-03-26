@@ -503,6 +503,10 @@ render_element({li, [], Content}, [ul | _] = State, Pos, Ind, D) ->
 render_element({li, [], Content}, [ol | _] = State, Pos, Ind, D) ->
     {Docs, _NewPos} = render_docs(Content, [li | State], Pos + 2, Ind + 2, D),
     trimnl(["1. ", Docs]);
+render_element({dl, [], [{dt,DTAttr,DTContent}, {dd,_,_} = DD1, {dd, _, _} = DD2 | Content]}, State, Pos, Ind, D) ->
+    {DD, T} = lists:splitwith(fun(E) -> element(1,E) =:= dd end, Content),
+    DDs = [{p, [], C} || {_, _, C} <- [DD1, DD2 | DD]],
+    render_element({dl, [], [{dt,DTAttr,DTContent}, {dd,[],DDs} | T]}, State, Pos, Ind, D);
 render_element({dl, [], [{dt,DTAttr,DTContent}, {dd,[],DDContent} | Content]}, State, Pos, Ind, D) ->
     Since = proplists:get_value(since, DTAttr),
     {DTDocs, _DTNewPos} =
