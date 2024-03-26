@@ -144,6 +144,7 @@ MODULES = \
 	standard_error \
 	user_drv \
 	user_sup \
+	via_registry \
 	prim_tty \
 	raw_file_io \
 	raw_file_io_compressed \
