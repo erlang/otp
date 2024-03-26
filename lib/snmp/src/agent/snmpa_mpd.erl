@@ -1173,7 +1173,7 @@ string. In SNMPv3, it is the [context](`t:msg_data_ctx/0`) information.
 
 `To` is a list of destination addresses and their corresponding security
 parameters. This value is received in the same message from the agent and then
-transformed through [`process_taddrs`](`c:snmpa_mpd#process_taddrs/1`) before
+transformed through [`process_taddrs`](`process_taddrs/1`) before
 passed to this function.
 
 > #### Note {: .info }
@@ -1448,7 +1448,7 @@ transform_taddr(BadTDomain, TAddress) ->
 Transforms addresses from internal MIB format to one more useful to
 [Agent Net if](snmp_agent_netif.md).
 
-See also [`generate_msg`.](`c:snmpa_mpd#generate_msg/6`)
+See also [`generate_msg`.](`generate_msg/6`)
 
 """.
 -doc(#{since => <<"OTP 17.3">>}).
