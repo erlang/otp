@@ -111,6 +111,7 @@
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
 -export([error_info/1]).
+-export([racy_rename/1, racy_rename_writer/3]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -195,7 +196,8 @@ all() ->
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
      ms_excessive_nesting,
-     error_info
+     error_info,
+     racy_rename
     ].
 
 
@@ -7926,6 +7928,38 @@ types_do(Opts) ->
     ets:delete(T),
     verify_etsmem(EtsMem).
 
+
+racy_rename(_Config) ->
+    EtsMem = etsmem(),
+    ets:new(name_a, [named_table, public, {keypos, 1}]),
+    % A writer process does rename(A->B), insert(B, {key, value}), delete(B, key), rename(B->A) in a loop
+    % A reader process does lookup(A, key) in a loop. We want to make sure that it never sees value.
+    Parent = self(),
+    WriterIterations=10000,
+    Reader = spawn_link(fun () -> racy_rename_reader() end),
+    spawn_link(?MODULE, racy_rename_writer, [Parent, Reader, WriterIterations]),
+    receive done -> ok end,
+    true=ets:delete(name_a),
+    verify_etsmem(EtsMem).
+
+racy_rename_writer(Parent, Reader, 0) ->
+    exit(Reader, normal),
+    Parent ! done;
+racy_rename_writer(Parent, Reader, Iterations) ->
+    ets:rename(name_a, name_b),
+    ets:insert(name_b, {key, value}),
+    ets:delete(name_b, key),
+    ets:rename(name_b, name_a),
+    racy_rename_writer(Parent, Reader, Iterations - 1).
+
+racy_rename_reader() ->
+    try ets:lookup(name_a, key) of
+        [] -> ok;
+        Result -> exit({racy_lookup_result, Result})
+    catch
+        _:_ -> ok
+    end,
+    racy_rename_reader().
 
 %% OTP-9932: Memory overwrite when inserting large integers in compressed bag.
 %% Will crash with segv on 64-bit opt if not fixed.
