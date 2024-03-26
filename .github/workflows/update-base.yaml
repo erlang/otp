@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: .github/scripts/cleanup_gh_runner.sh
       - name: Docker login
-        uses: docker/login-action@v3.0.0
+        uses: docker/login-action@v3.1.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
