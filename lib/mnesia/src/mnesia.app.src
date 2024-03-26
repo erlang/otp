@@ -32,7 +32,8 @@
 	     mnesia_sup,
 	     mnesia_sp,
 	     mnesia_text,
-	     mnesia_tm
+	     mnesia_tm,
+	     mnesia_hook
             ]},
   {registered, [
 		mnesia_dumper_load_regulator,
