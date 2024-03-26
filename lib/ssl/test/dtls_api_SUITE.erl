@@ -40,6 +40,8 @@
          dtls_listen_close/1,
          dtls_listen_reopen/0,
          dtls_listen_reopen/1,
+         dtls_listen_both_family/0,
+         dtls_listen_both_family/1,
          dtls_listen_two_sockets_1/0,
          dtls_listen_two_sockets_1/1,
          dtls_listen_two_sockets_2/0,
@@ -80,6 +82,7 @@ api_tests() ->
      dtls_listen_owner_dies,
      dtls_listen_close,
      dtls_listen_reopen,
+     dtls_listen_both_family,
      dtls_listen_two_sockets_1,
      dtls_listen_two_sockets_2,
      dtls_listen_two_sockets_3,
@@ -139,7 +142,7 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 
 dtls_listen_owner_dies() ->
-    [{doc, "Test that you can start new DTLS 'listner' if old owner dies"}].
+    [{doc, "Test that you can start new DTLS 'listener' if old owner dies"}].
 
 dtls_listen_owner_dies(Config) when is_list(Config) ->    
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
@@ -147,46 +150,52 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Port = ssl_test_lib:inet_port(ServerNode),
-    Test = self(),
-    Pid = spawn(fun() -> {ok, _} =
-                             ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
-                         {error, _} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
-                         Test ! {self(), listened}
-                end),
+    {Pid, Ref} = spawn_monitor(fun() -> {ok, _} =
+                                            ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
+                                        [_] = listener_and_ports(),
+                                        {error, _} = ssl:listen(Port, [{protocol, dtls} | ServerOpts])
+                               end),
     receive
-        {Pid, listened} ->
+        {'DOWN', Ref, _, Pid, _} ->
             ok
     end,
+    [] = listener_and_ports(),   %% Verify that ports are cleaned up after listener owner dies
     {ok, LSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
-    spawn(fun() -> 
+    [_] = listener_and_ports(),
+    spawn(fun() ->
                   {ok, ASocket} = ssl:transport_accept(LSocket),
                   {ok, Socket} = ssl:handshake(ASocket),
-                   receive 
-                       {ssl, Socket, "from client"} ->
-                           ssl:send(Socket, "from server"),
-                           ssl:close(Socket)
-                   end
+                  receive
+                      {ssl, Socket, "from client"} ->
+                          ssl:send(Socket, "from server"),
+                          ssl:close(Socket)
+                  end
           end),
     {ok, Client} = ssl:connect(Hostname, Port, ClientOpts),
 
     ssl:send(Client, "from client"),
-    receive 
+    receive
         {ssl, Client, "from server"} ->
             ssl:close(Client)
     end.
 
-
 dtls_listen_close() ->
-    [{doc, "Test that you close a DTLS 'listner' socket"}].
+    [{doc, "Test that you close a DTLS 'listener' socket"}].
 
-dtls_listen_close(Config) when is_list(Config) ->    
+dtls_listen_close(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
 
     Port = ssl_test_lib:inet_port(ServerNode),
     {ok, ListenSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
-    ok = ssl:close(ListenSocket).
-
+    [_] = listener_and_ports(),
+    ok = ssl:close(ListenSocket),
+    [] = listener_and_ports(),
+    {ok, ListenSocket2} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
+    [_] = listener_and_ports(),
+    ok = ssl:close(ListenSocket2, 500),
+    [] = listener_and_ports(),
+    ok.
 
 dtls_listen_reopen() ->
     [{doc, "Test that you close a DTLS 'listner' socket and open a new one for the same port"}].
@@ -229,6 +238,35 @@ dtls_listen_reopen(Config) when is_list(Config) ->
     receive
         {ssl, Client2, "from server 2"} ->
             ssl:close(Client2)
+    end.
+
+dtls_listen_both_family() ->
+    [].
+%%    [{require, ipv6_hosts}].
+dtls_listen_both_family(Config) ->
+    {ok, Hostname0} = inet:gethostname(),
+
+    TestIPV6 = case ct:get_config(ipv6_hosts) of
+                  Hosts when is_list(Hosts) ->
+                      lists:member(list_to_atom(Hostname0), Hosts);
+                  undefined ->
+                      ct:log("Local tests (ipv6 probably works)", []),
+                      true
+              end,
+    case TestIPV6 of
+        true ->
+            {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+            Port = ssl_test_lib:inet_port(ServerNode),
+            {ok, ListenSocket} = ssl:listen(Port, [{protocol, dtls}]),
+            [_] = listener_and_ports(),
+
+            {ok, ListenSocketIpV6} = ssl:listen(Port, [{protocol, dtls}, inet6, {ipv6_v6only,true}]),
+            [_,_] = listener_and_ports(),
+
+            ok = ssl:close(ListenSocket),
+            ok = ssl:close(ListenSocketIpV6);
+        false ->
+            {skip, "Host does not support IPv6"}
     end.
 
 dtls_listen_two_sockets_1() ->
@@ -306,6 +344,14 @@ dtls_listen_two_sockets_6(_Config) when is_list(_Config) ->
         ssl:listen(Port, [{protocol, dtls}, {ip, {0,0,0,0}}]),
     ssl:close(S1),
     ok.
+
+listener_and_ports() ->
+    timer:sleep(200), %% Allow some time to start och delete dead children
+    Pids = [Pid || {_, Pid, _, _} <- supervisor:which_children(dtls_listener_sup)],
+    PidPorts = [{element(2, erlang:port_info(P, connected)), P}
+                || P <- erlang:ports(), {name, "udp_inet"} == erlang:port_info(P, name)],
+    PidWithoutPort = [Pid || Pid <- Pids, not lists:keymember(Pid, 1, PidPorts)],
+    PidPorts ++ PidWithoutPort.
 
 replay_window() ->
     [{doc, "Whitebox test of replay window"}].

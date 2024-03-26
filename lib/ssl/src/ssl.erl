@@ -2276,8 +2276,8 @@ close(#sslsocket{pid = [TLSPid|_]}, {Pid, Timeout} = DownGrade)
 close(#sslsocket{pid = [TLSPid|_]}, Timeout)
   when is_pid(TLSPid), ?IS_TIMEOUT(Timeout) ->
     ssl_gen_statem:close(TLSPid, {close, Timeout});
-close(#sslsocket{pid = {dtls = ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
-    dtls_socket:close(Transport, ListenSocket);    
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen, _) ->
+    dtls_socket:close(DTLSListen);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
     tls_socket:close(Transport, ListenSocket).
 
