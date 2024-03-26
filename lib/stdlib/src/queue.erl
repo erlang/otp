@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2022. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(queue).
@@ -102,7 +102,7 @@ from_list(L) ->
     erlang:error(badarg, [L]).
 
 %% Return true or false depending on if element is in queue
-%% 
+%%
 %% O(length(Q)) worst case
 -spec member(Item, Q :: queue(Item)) -> boolean().
 member(X, {R,F}) when is_list(R), is_list(F) ->
@@ -191,7 +191,7 @@ get({R,F}) when is_list(R), is_list(F) ->
 get(Q) ->
     erlang:error(badarg, [Q]).
 
--spec get(list(), list()) -> term().
+-spec get(list(Item), list(Item)) -> Item.
 get(R, [H|_]) when is_list(R) ->
     H;
 get([H], []) ->
@@ -349,7 +349,7 @@ split_r1_to_f2(N, [X|R1], F1, R2, F2) ->
     split_r1_to_f2(N-1, R1, F1, R2, [X|F2]).
 
 %% filter, or rather filtermap with insert, traverses in queue order
-%% 
+%%
 %% Fun(_) -> List: O(length(List) * len(Q))
 %% else:           O(len(Q)
 -spec filter(Fun, Q1 :: queue(Item)) -> Q2 :: queue(Item) when
@@ -407,11 +407,9 @@ filter_r(Fun, [X|R0]) ->
 %%
 %% O(len(Q1))
 -spec filtermap(Fun, Q1) -> Q2 when
-      Fun :: fun((Item) -> boolean() | {'true', Value}),
+      Fun :: fun((Item) -> boolean() | {'true', Item1}),
       Q1 :: queue(Item),
-      Q2 :: queue(Item | Value),
-      Item :: term(),
-      Value :: term().
+      Q2 :: queue(Item | Item1).
 filtermap(Fun, {R0, F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
     F = lists:filtermap(Fun, F0),
     R = filtermap_r(Fun, R0),
@@ -481,10 +479,8 @@ all(Pred, Q) ->
 %%
 %% O(len(Q1)) worst case
 -spec delete(Item, Q1) -> Q2 when
-      Item :: T,
-      Q1 :: queue(T),
-      Q2 :: queue(T),
-      T :: term().
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 delete(Item, {R0, F0} = Q) when is_list(R0), is_list(F0) ->
     case delete_front(Item, F0) of
         false ->
@@ -509,10 +505,8 @@ delete(Item, Q) ->
 %%
 %% O(len(Q1)) worst case
 -spec delete_r(Item, Q1) -> Q2 when
-      Item :: T,
-      Q1 :: queue(T),
-      Q2 :: queue(T),
-      T :: term().
+      Q1 :: queue(Item),
+      Q2 :: queue(Item).
 delete_r(Item, {R0, F0}) when is_list(R0), is_list(F0) ->
     {F1, R1}=delete(Item, {F0, R0}),
     {R1, F1};
@@ -548,8 +542,7 @@ delete_rear(_, []) ->
 -spec delete_with(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
-      Q2 :: queue(Item),
-      Item :: term().
+      Q2 :: queue(Item).
 delete_with(Pred, {R0, F0} = Q) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
     case delete_with_front(Pred, F0) of
 	false ->
@@ -576,8 +569,7 @@ delete_with(Pred, Q) ->
 -spec delete_with_r(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
-      Q2 :: queue(Item),
-      Item :: term().
+      Q2 :: queue(Item).
 delete_with_r(Pred, {R0, F0}) when is_function(Pred, 1), is_list(R0), is_list(F0) ->
     {F1, R1} = delete_with(Pred, {F0, R0}),
     {R1, F1};
@@ -615,16 +607,16 @@ delete_with_rear(_, []) ->
     false.
 
 %%--------------------------------------------------------------------------
-%% Okasaki API inspired by an Erlang user contribution "deque.erl" 
+%% Okasaki API inspired by an Erlang user contribution "deque.erl"
 %% by Claes Wikstrom <klacke@kaja.klacke.net> 1999.
 %%
 %% This implementation does not use the internal data format from Klacke's
-%% doubly ended queues that was "shamelessly stolen" from 
+%% doubly ended queues that was "shamelessly stolen" from
 %% "Purely Functional Data structures" by Chris Okasaki, since the data
 %% format of this module must remain the same in case some application
 %% has saved a queue in external format or sends it to an old node.
 %%
-%% This implementation tries to do the best of the situation and should 
+%% This implementation tries to do the best of the situation and should
 %% be almost as efficient as Okasaki's queues, except for len/1 that
 %% is O(n) in this implementation instead of O(1).
 %%
@@ -635,15 +627,15 @@ delete_with_rear(_, []) ->
 %% and the reversed lists to ensure that i.e head/1 or last/1 will
 %% not have to reverse a list to find the element.
 %%
-%% To be compatible with the old version of this module, as much data as 
+%% To be compatible with the old version of this module, as much data as
 %% possible is moved to the receiving side using lists:reverse/2 when data
 %% is needed, except for two elements (when possible). These two elements
-%% are kept to prevent alternating tail/1 and init/1 operations from 
+%% are kept to prevent alternating tail/1 and init/1 operations from
 %% moving data back and forth between the sides.
 %%
 %% An alternative would be to balance for equal list length when one side
 %% is exhausted. Although this could be better for a general double
-%% ended queue, it would more han double the amortized cost for 
+%% ended queue, it would more han double the amortized cost for
 %% the normal case (one way queue).
 
 %% Cons to head
