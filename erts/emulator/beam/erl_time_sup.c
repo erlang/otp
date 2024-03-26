@@ -36,7 +36,7 @@
 #include "erl_driver.h"
 #include "erl_nif.h"
 #include "erl_proc_sig_queue.h"
- 
+
 static erts_mtx_t erts_get_time_mtx;
 
  /* used by erts_runtime_elapsed_both */
@@ -173,6 +173,10 @@ struct time_sup_infrequently_changed__ {
 
 struct time_sup_frequently_changed__ {
     ErtsMonotonicTime last_not_corrected_time;
+#ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
+    erts_mtx_t mtime_mtx;
+    ErtsMonotonicTime last_delivered_mtime;
+#endif
 };
 
 static struct {
@@ -209,6 +213,49 @@ get_time_offset(void)
 {
     return (ErtsMonotonicTime) erts_atomic64_read_acqb(&time_sup.inf.c.offset);
 }
+
+#if !defined(ERTS_ENSURE_OS_MONOTONIC_TIME)
+
+static ERTS_INLINE ErtsMonotonicTime
+os_monotonic_time(void)
+{
+    return erts_os_monotonic_time();
+}
+
+static ERTS_INLINE void
+os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    erts_os_times(mtimep, stimep);
+}
+
+#else /* defined(ERTS_ENSURE_OS_MONOTONIC_TIME) */
+
+static ERTS_INLINE ErtsMonotonicTime
+verify_os_monotonic_time(ErtsMonotonicTime mtime)
+{
+    erts_mtx_lock(&time_sup.f.c.mtime_mtx);
+    if (mtime < time_sup.f.c.last_delivered_mtime)
+        mtime = time_sup.f.c.last_delivered_mtime;
+    else
+        time_sup.f.c.last_delivered_mtime = mtime;
+    erts_mtx_unlock(&time_sup.f.c.mtime_mtx);
+    return mtime;
+}
+
+static ERTS_INLINE ErtsMonotonicTime
+os_monotonic_time(void)
+{
+    return verify_os_monotonic_time(erts_os_monotonic_time());
+}
+
+static ERTS_INLINE void
+os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    erts_os_times(mtimep, stimep);
+    *mtimep = verify_os_monotonic_time(*mtimep);
+}
+
+#endif
 
 static ERTS_INLINE void
 update_last_mtime(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
@@ -249,7 +296,6 @@ check_os_monotonic_time(ErtsSchedulerData *esdp, ErtsMonotonicTime mtime)
     }
 #endif
 }
-
 
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
 
@@ -319,7 +365,7 @@ read_corrected_time(int os_drift_corrected, ErtsSchedulerData *esdp)
 
     erts_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
-    os_mtime = erts_os_monotonic_time();
+    os_mtime = os_monotonic_time();
 
     if (os_mtime >= time_sup.inf.c.parmon.cdata.insts.curr.os_mtime)
 	ci = time_sup.inf.c.parmon.cdata.insts.curr;
@@ -415,7 +461,7 @@ check_time_correction(void *vesdp)
 
     erts_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
-    erts_os_times(&os_mtime, &os_stime);
+    os_times(&os_mtime, &os_stime);
 
     ci = time_sup.inf.c.parmon.cdata.insts.curr;
 
@@ -684,9 +730,11 @@ check_time_correction(void *vesdp)
 #endif
 
     if (set_new_correction) {
+        ErtsMonotonicTime cstart_os_mtime;
+
 	erts_rwmtx_rwlock(&time_sup.inf.c.parmon.rwmtx);
 
-	os_mtime = erts_os_monotonic_time();
+	os_mtime = os_monotonic_time();
 
 	/* Save previous correction instance */
 	time_sup.inf.c.parmon.cdata.insts.prev = ci;
@@ -695,21 +743,21 @@ check_time_correction(void *vesdp)
 	 * Current correction instance begin when
 	 * OS monotonic time has increased two units.
 	 */
-	os_mtime += 2;
+	cstart_os_mtime = os_mtime + 2;
 
 	/*
 	 * Erlang monotonic time corresponding to
 	 * next OS monotonic time using previous
 	 * correction.
 	 */
-	erl_mtime = calc_corrected_erl_mtime(os_mtime, &ci, NULL,
+	erl_mtime = calc_corrected_erl_mtime(cstart_os_mtime, &ci, NULL,
 					     os_drift_corrected);
 
 	/*
 	 * Save new current correction instance.
 	 */
 	time_sup.inf.c.parmon.cdata.insts.curr.erl_mtime = erl_mtime;
-	time_sup.inf.c.parmon.cdata.insts.curr.os_mtime = os_mtime;
+	time_sup.inf.c.parmon.cdata.insts.curr.os_mtime = cstart_os_mtime;
 	time_sup.inf.c.parmon.cdata.insts.curr.correction = new_correction;
 
 	erts_rwmtx_rwunlock(&time_sup.inf.c.parmon.rwmtx);
@@ -728,7 +776,7 @@ static ErtsMonotonicTime get_os_corrected_time(ErtsSchedulerData *esdp)
 {
     ErtsMonotonicTime os_mtime;
     ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
-    os_mtime = erts_os_monotonic_time();
+    os_mtime = os_monotonic_time();
     check_os_monotonic_time(esdp, os_mtime);
     return os_mtime + time_sup.r.o.moffset;
 }
@@ -742,7 +790,7 @@ check_time_offset(void *vesdp)
 
     ASSERT(time_sup.r.o.warp_mode == ERTS_MULTI_TIME_WARP_MODE);
 
-    erts_os_times(&os_mtime, &os_stime);
+    os_times(&os_mtime, &os_stime);
 
     check_os_monotonic_time(esdp, os_mtime);
 
@@ -792,7 +840,7 @@ init_check_time_correction(void *vesdp)
     old_mtime = ddp->intervals[0].time.mon;
     old_stime = ddp->intervals[0].time.sys;
 
-    erts_os_times(&mtime, &stime);
+    os_times(&mtime, &stime);
 
     check_os_monotonic_time((!vesdp
                              ? erts_get_scheduler_data()
@@ -841,7 +889,7 @@ finalize_corrected_time_offset(ErtsSystemTime *stimep)
 
     erts_rwmtx_rlock(&time_sup.inf.c.parmon.rwmtx);
 
-    erts_os_times(&os_mtime, stimep);
+    os_times(&os_mtime, stimep);
 
     ci = time_sup.inf.c.parmon.cdata.insts.curr;
 
@@ -1015,6 +1063,17 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
     runtime_prev.data.user = 0;
     runtime_prev.data.sys = 0;
 
+#ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
+    if (!time_sup.r.o.os_monotonic_time_disable) {
+        time_sup.r.o.os_corrected_monotonic_time = 0; /* we don't trust it... */
+        time_sup.r.o.os_monotonic_time_locked = !0;
+        erts_mtx_init(&time_sup.f.c.mtime_mtx, "ensure_os_monotonic_time",
+                      NIL, (ERTS_LOCK_FLAGS_PROPERTY_STATIC
+                            | ERTS_LOCK_FLAGS_CATEGORY_GENERIC));
+        time_sup.f.c.last_delivered_mtime = erts_os_monotonic_time();
+    }
+#endif
+
     time_sup.r.o.correction = time_correction;
     time_sup.r.o.warp_mode = time_warp_mode;
  
@@ -1167,7 +1226,7 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	ErtsMonotonicCorrectionData *cdatap;
 	erts_rwmtx_opt_t rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
 	ErtsMonotonicTime offset;
-        erts_os_times(&time_sup.inf.c.minit, &time_sup.inf.c.sinit);
+        os_times(&time_sup.inf.c.minit, &time_sup.inf.c.sinit);
 	time_sup.r.o.moffset = -1*time_sup.inf.c.minit;
 	time_sup.r.o.moffset += ERTS_MONOTONIC_BEGIN;
 	offset = time_sup.inf.c.sinit;
@@ -2136,7 +2195,7 @@ erts_monotonic_time_source(struct process *c_p)
     Sint64 os_mtime = 0;
 #ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
     if (!time_sup.r.o.os_monotonic_time_disable)
-	os_mtime = (Sint64) erts_os_monotonic_time();
+	os_mtime = (Sint64) os_monotonic_time();
 #endif
 
     bld_monotonic_time_source(NULL, &hsz, os_mtime);

@@ -33,7 +33,6 @@
 #  include "config.h"
 #endif
 
-/* Needed for VxWorks va_arg */
 #include "sys.h"
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -168,7 +167,10 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hard_dbg_mseg",		        NULL	                },
     {	"perf", 				NULL			},
     {	"jit_debug_descriptor",			NULL			},
-    {	"erts_mmap",				NULL			}
+    {	"erts_mmap",				NULL			},
+#ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
+    {   "ensure_os_monotonic_time",             NULL                    }
+#endif
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
