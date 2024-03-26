@@ -413,7 +413,7 @@ This takes a while though and to speed up the edit-view cycle you can build the
 docs only for a single application. For example:
 
 ```bash
-cd lib/stdlib/doc/src && make docs
+cd lib/stdlib && make docs
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
