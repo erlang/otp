@@ -30,7 +30,7 @@
 	 export_attribute/1, markup/2, markup/3, simplify_element/1,
 	 simplify_content/1, start_tag/1, start_tag/2, end_tag/1,
 	 empty_tag/1, empty_tag/2,is_empty_data/1, find_attribute/2,
-	 remove_whitespace/1,to_lower/1]).
+	 remove_whitespace/1,to_lower/1, export_cdata/1]).
 
 -export([is_letter/1,is_namechar/1,is_ncname/1,
 	 detect_charset/1,detect_charset/2,is_name/1,is_char/1]).
@@ -44,6 +44,24 @@
 -include("xmerl.hrl").
 -include("xmerl_xsd.hrl").
 
+
+%% Since the content of cdata may contain character sequence
+%% ']]>' the content needs to be converted into multiple
+%% CDATA segments as there is no escaping supported in CDATA
+%% Using string:to_graphemes/1 makes the function somewhat unicode safe.
+export_cdata(T) ->
+    ["<![CDATA[", export_cdata(string:to_graphemes(T), []), "]]>"].
+
+export_cdata([$], $], $> | T], Cont) ->
+    "]]]]><![CDATA[>" ++ export_cdata(T, Cont);
+export_cdata([C | T], Cont) when is_integer(C) ->
+    [C | export_cdata(T, Cont)];
+export_cdata([T | T1], Cont) ->
+    export_cdata(T, [T1 | Cont]);
+export_cdata([], [T | Cont]) ->
+    export_cdata(T, Cont);
+export_cdata([], []) ->
+    [].
 
 %% Escape special characters `<' and `&', flattening the text.
 %% Also escapes `>', just for symmetry.

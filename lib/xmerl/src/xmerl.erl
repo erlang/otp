@@ -187,8 +187,10 @@ export_simple_content(Content, Callbacks) when is_list(Callbacks) ->
 %%	Content = [Element]
 %%	Callback = [atom()]
 %% @doc Exports normal XML content directly, without further context.
-export_content([#xmlText{value = Text} | Es], Callbacks) ->
+export_content([#xmlText{value = Text, type = text} | Es], Callbacks) ->
     [apply_text_cb(Callbacks, Text) | export_content(Es, Callbacks)];
+export_content([#xmlText{value = Text, type = cdata} | Es], Callbacks) ->
+    [apply_cdata_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlPI{} | Es], Callbacks) ->
     export_content(Es, Callbacks);
 export_content([#xmlComment{} | Es], Callbacks) ->
@@ -300,6 +302,9 @@ check_inheritance(M, Visited) ->
 
 apply_text_cb(Ms, Text) ->
     apply_cb(Ms, '#text#', '#text#', [Text]).
+
+apply_cdata_cb(Ms, Text) ->
+    apply_cb(Ms, '#cdata#', '#cdata#', [Text]).
 
 apply_tag_cb(Ms, F, Args) ->
     apply_cb(Ms, F, '#element#', Args).
