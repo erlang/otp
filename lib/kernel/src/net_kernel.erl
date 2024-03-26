@@ -1279,18 +1279,20 @@ generate_node_name(Host, State0) ->
 %% -----------------------------------------------------------
 
 handle_exit(Pid, Reason, State) ->
-    catch do_handle_exit(Pid, Reason, State).
-
-do_handle_exit(Pid, Reason, State) ->
-    listen_exit(Pid, Reason, State),
-    accept_exit(Pid, Reason, State),
-    conn_own_exit(Pid, Reason, State),
-    dist_ctrlr_exit(Pid, Reason, State),
-    pending_own_exit(Pid, Reason, State),
-    ticker_exit(Pid, Reason, State),
-    restarter_exit(Pid, Reason, State),
-    verbose({'EXIT', Pid, Reason}, 2, State),
-    {noreply,State}.
+    try
+        listen_exit(Pid, Reason, State),
+        accept_exit(Pid, Reason, State),
+        conn_own_exit(Pid, Reason, State),
+        dist_ctrlr_exit(Pid, Reason, State),
+        pending_own_exit(Pid, Reason, State),
+        ticker_exit(Pid, Reason, State),
+        restarter_exit(Pid, Reason, State),
+        verbose({'EXIT', Pid, Reason}, 2, State)
+    catch
+        EC:Err:Stack ->
+            error_msg("** Netkernel cleanup failure **~n~p:~p  ~p", [EC, Err, Stack])
+    end,
+    {noreply, State}.
 
 listen_exit(Pid, Reason, State) ->
     case lists:keymember(Pid, ?LISTEN_ID, State#state.listen) of
