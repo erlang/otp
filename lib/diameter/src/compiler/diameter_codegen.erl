@@ -143,6 +143,7 @@ gen(erl, ParseD, Mod) ->
 
 erl_forms(Mod, ParseD) ->
     Forms = [[{?attribute, module, Mod},
+              {?attribute, moduledoc, false},
               {?attribute, compile, {parse_transform, diameter_exprecs}},
               {?attribute, compile, nowarn_unused_function},
               {?attribute, dialyzer, no_return}],
