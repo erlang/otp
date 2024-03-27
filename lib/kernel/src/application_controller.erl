@@ -487,19 +487,32 @@ permit_application(ApplName, Flag) ->
 
 set_env(Config, Opts) ->
     case check_conf_data(Config) of
-	ok ->
-	    Timeout = proplists:get_value(timeout, Opts, 5000),
-	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
+        ok ->
+            case proplists:get_value(persistent, Opts, false) of
+                true ->
+                    Timeout = proplists:get_value(timeout, Opts, 5000),
+                    gen_server:call(?AC, {set_env, Config}, Timeout);
+                false ->
+                    _ = [add_env(AppName, Env) || {AppName, Env} <- Config],
+                    ok
+            end;
 
-	{error, _} = Error ->
-	    Error
+    {error, _} = Error ->
+        Error
     end.
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+    ets:insert(ac_tab, {{env, AppName, Key}, Val}),
+    ok.
 set_env(AppName, Key, Val, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, 5000),
-    gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
+    case proplists:get_value(persistent, Opts, false) of
+        true ->
+            Timeout = proplists:get_value(timeout, Opts, 5000),
+            gen_server:call(?AC, {set_env, AppName, Key, Val}, Timeout);
+        false ->
+            ets:insert(ac_tab, {{env, AppName, Key}, Val}),
+            ok
+    end.
 
 unset_env(AppName, Key) ->
     gen_server:call(?AC, {unset_env, AppName, Key, []}).
@@ -891,25 +904,14 @@ handle_call(which_applications, _From, S) ->
 	       end, S#state.running),
     {reply, Reply, S};
 
-handle_call({set_env, Config, Opts}, _From, S) ->
+handle_call({set_env, Config}, _From, S) ->
     _ = [add_env(AppName, Env) || {AppName, Env} <- Config],
+    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
 
-    case proplists:get_value(persistent, Opts, false) of
-	true ->
-	    {reply, ok, S#state{conf_data = merge_env(S#state.conf_data, Config)}};
-	false ->
-	    {reply, ok, S}
-    end;
-
-handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
+handle_call({set_env, AppName, Key, Val}, _From, S) ->
     ets:insert(ac_tab, {{env, AppName, Key}, Val}),
-    case proplists:get_value(persistent, Opts, false) of
-	true ->
-	    Fun = fun(Env) -> lists:keystore(Key, 1, Env, {Key, Val}) end,
-	    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
-	false ->
-	    {reply, ok, S}
-    end;
+    Fun = fun(Env) -> lists:keystore(Key, 1, Env, {Key, Val}) end,
+    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
 
 handle_call({unset_env, AppName, Key, Opts}, _From, S) ->
     ets:delete(ac_tab, {env, AppName, Key}),
