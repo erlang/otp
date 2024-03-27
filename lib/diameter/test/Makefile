@@ -68,6 +68,8 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 all $(TYPES): $(TARGET_FILES)
 
+targets: all
+
 strict:
 	$(MAKE) opt STRICT_FLAGS=-Werror
 

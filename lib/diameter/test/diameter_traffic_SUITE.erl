@@ -297,9 +297,7 @@ traffic(#group{} = Cfg) ->
     LRef = server(Cfg),
     ok = client(Cfg, LRef),
     [] = send(Cfg),
-
     print_services_info(),
-
     ok = stop_services(Cfg),
     [] = ets:tab2list(diameter_request).
 

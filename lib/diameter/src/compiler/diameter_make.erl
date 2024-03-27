@@ -229,8 +229,14 @@ format_error(Reason) -> string()
 Turn an error reason returned by `codec/2` into a readable string.
 """.
 -doc(#{since => <<"OTP 17.0">>}).
-format_error(T) ->
-    diameter_dict_util:format_error(T).
+
+-spec format_error(Reason) -> FormattedReason when
+      Reason          :: term(),
+      FormattedReason :: string().
+
+format_error(Reason) ->
+    diameter_dict_util:format_error(Reason).
+
 
 %% ===========================================================================
 
