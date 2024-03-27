@@ -1,0 +1,4 @@
+-module(a).
+-export_type([a/0,i/0]).
+-type a() :: atom().
+-type i() :: integer().
