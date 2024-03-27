@@ -462,6 +462,7 @@ fiv_track_put_tuple(FieldVars, {tuple_element,Idx,_},
                     Defs, ValuesInFun, FivSt) when length(FieldVars) =< Idx ->
     %% The value we are tracking was constructed by a put tuple, but
     %% it can't be this put_tuple as it has too few elements.
+    ?DP("fiv_track_put_tuple: not this tuple, too few elements~n"),
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, FivSt);
 fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element},
@@ -471,12 +472,14 @@ fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element},
     %% are interested in continuing the tracking of the field
     case lists:nth(Idx + 1, FieldVars) of
         ToTrack = #b_var{} ->
+            ?DP("fiv_track_put_tuple: will continue tracking ~p:~p~n",
+                [ToTrack,Element]),
             fiv_track_value_in_fun([{ToTrack,Element}|Work], Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt0);
         #b_literal{val=Lit} ->
-            FivSt = fiv_add_literal(Lit, Element,
-                                    Fun, {opargs,Dst,Idx,Lit,Element},
-                                    FivSt0),
+            LitInfo = {opargs,Dst,Idx,Lit,Element},
+            FivSt = fiv_add_literal(Lit, Element, Fun, LitInfo, FivSt0),
+            ?DP("fiv_track_put_tuple: found literal ~p~n", [LitInfo]),
             fiv_track_value_in_fun(Work, Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt)
     end;
@@ -485,6 +488,7 @@ fiv_track_put_tuple(_FieldVars, _,
                     Defs, ValuesInFun, DefSt) ->
     %% As the tracked element isn't a tuple element, this is an
     %% execution path which isn't type compatible, stop tracking.
+    ?DP("fiv_track_put_tuple: tracked value is not a tuple element~n"),
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, DefSt).
 
