@@ -24,7 +24,7 @@
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,badarity/1,badfun/1,
          duplicated_fun/1,unused_fun/1,parallel_scopes/1,
-         coverage/1]).
+         coverage/1,leaky_environment/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -41,7 +41,7 @@ groups() ->
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
        badarity,badfun,duplicated_fun,unused_fun,
        parallel_scopes,
-       coverage]}].
+       coverage,leaky_environment]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -589,6 +589,12 @@ coverage_2(List) ->
 %% Cover a line in beam_block when no_make_fun3 option is given.
 coverage_3({[], A}) ->
     {id(42), fun() -> A end}.
+
+leaky_environment(_Config) ->
+    G = fun(X, Y) -> X + Y end,
+    F = fun(A) -> G(A, 0) end,
+    {'EXIT', {{badarity, {F, [1, flurb]}}, _}} = catch F(1, flurb),
+    ok.
 
 id(I) ->
     I.
