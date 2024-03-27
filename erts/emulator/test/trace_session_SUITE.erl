@@ -1271,6 +1271,12 @@ negative(_Config) ->
     1 = catch trace:process(S, Tracee, true, [call]),
     1 = catch trace:process(S, Tracee, false, [call]),
 
+    %% Specified meta tracer not allowed
+    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,OtherTracer}])),
+    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
+    1 = trace:function(S, MFA, true, [meta]),
+    1 = trace:function(S, MFA, false, [meta]),
+
     trace:session_destroy(S),
     ok.
 

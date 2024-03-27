@@ -298,7 +298,7 @@ trace_pattern(Process* p, ErtsTraceSession *session,
     p->fvalue = am_badopt;
     is_global = 0;
     for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
-	if (is_tuple(CAR(list_val(l)))) {
+	if (is_tuple(CAR(list_val(l))) && ERTS_TRACER_IS_NIL(session->tracer)) {
             meta_tracer = erts_term_to_tracer(am_meta, CAR(list_val(l)));
             if (meta_tracer == THE_NON_VALUE) {
                 meta_tracer = erts_tracer_nil;
