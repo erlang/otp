@@ -25,7 +25,7 @@
 %%   * Scan
 %%
 %%     The module is scanned and instructions suitable for
-%%     transformation into a destructive form are idenitifed
+%%     transformation into a destructive form are identified
 %%     (find_applicable_instructions/2).
 %%
 %%   * Initial-value-search
