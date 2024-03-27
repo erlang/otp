@@ -99,12 +99,18 @@ close_listen(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
     IP = proplists:get_value(ip, SockOpts, default_ip(SockOpts)),
     Port = get_real_port(Pid, Port0),
     dtls_listener_sup:register_listener({undefined, Pid}, IP, Port),
-    erlang:monitor(process, Pid),
-    ok = dtls_packet_demux:close(Pid),
-    receive {'DOWN', _, process, Pid, _} ->
-            ok
-    after Timeout ->
-            {error, timeout}
+    case dtls_packet_demux:close(Pid) of
+        stop ->
+            erlang:monitor(process, Pid),
+            receive {'DOWN', _, process, Pid, _} ->
+                    ok
+            after Timeout ->
+                    {error, timeout}
+            end;
+        waiting ->
+            ok;
+        Error ->
+            Error
     end.
 
 default_ip(SockOpts) ->
