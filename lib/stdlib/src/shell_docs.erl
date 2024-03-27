@@ -69,7 +69,7 @@ be rendered as is.
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1, supported_tags/0]).
 
-%% Convinience functions
+%% Convenience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
 -export_type([chunk_elements/0, chunk_element_attr/0]).
@@ -155,7 +155,8 @@ This function can be used to do a basic validation of the doc content of
 validate(Module) when is_atom(Module) ->
     {ok, Doc} = code:get_doc(Module),
     validate(Doc);
-validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
+validate(#docs_v1{}=D) ->
+    #docs_v1{ module_doc = MDocs, docs = AllDocs } = doc_html:markdown_to_shelldoc(D),
 
     %% Check some macro in-variants
     AE = lists:sort(?ALL_ELEMENTS),
@@ -437,7 +438,7 @@ normalize_paragraph(Elems) ->
 -doc false.
 -spec get_doc(Module :: module()) -> chunk_elements().
 get_doc(Module) ->
-    {ok, #docs_v1{ module_doc = ModuleDoc } = D } = code:get_doc(Module),
+    #docs_v1{ module_doc = ModuleDoc }=D = format_doc(Module),
     get_local_doc(Module, ModuleDoc, D).
 
 -doc false.
@@ -449,7 +450,7 @@ get_doc(Module) ->
       Signature :: [binary()],
       Metadata :: map().
 get_doc(Module, Function, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function andalso A =:= Arity;
@@ -488,10 +489,11 @@ as `render(Module, Function, Docs)`.
       Function :: atom(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, #docs_v1{ module_doc = ModuleDoc } = D, Config)
+render(Module, #docs_v1{} = D, Config)
   when is_atom(Module), is_map(Config) ->
+    #docs_v1{ module_doc = ModuleDoc }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
-                            get_local_doc(Module, ModuleDoc, D), D, Config);
+                            get_local_doc(Module, ModuleDoc, DocHtml), DocHtml, Config);
 render(_Module, Function, #docs_v1{ } = D) ->
     render(_Module, Function, D, #{}).
 
@@ -519,14 +521,15 @@ as `render(Module, Function, Arity, Docs)`.
       Arity :: arity(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, #docs_v1{} = D, Config)
   when is_atom(Module), is_atom(Function), is_map(Config) ->
+    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_function(
       lists:filter(fun({{function, F, _},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function;
                         (_) ->
                              false
-                   end, Docs), D, Config);
+                   end, Docs), DocHtml, Config);
 render(_Module, Function, Arity, #docs_v1{ } = D) ->
     render(_Module, Function, Arity, D, #{}).
 
@@ -539,8 +542,9 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, Arity, #docs_v1{}=DocV1, Config)
   when is_atom(Module), is_atom(Function), is_integer(Arity), is_map(Config) ->
+  #docs_v1{ docs = Docs }=D = doc_html:markdown_to_shelldoc(DocV1),
     render_function(
       lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                            F =:= Function andalso A =:= Arity;
@@ -560,7 +564,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Signature :: [binary()],
       Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type andalso A =:= Arity;
@@ -597,9 +601,11 @@ as `render_type(Module, Type, Docs)`.
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error, type_missing}.
 render_type(Module, D = #docs_v1{}, Config) ->
-    render_signature_listing(Module, type, D, Config);
+    DocHtml = doc_html:markdown_to_shelldoc(D),
+    render_signature_listing(Module, type, DocHtml, Config);
 render_type(Module, Type, D = #docs_v1{}) ->
-    render_type(Module, Type, D, #{}).
+    DocHtml = doc_html:markdown_to_shelldoc(D),
+    render_type(Module, Type, DocHtml, #{}).
 
 -doc """
 render_type(Module, Type, DocsOrArity, ConfigOrDocs)
@@ -621,15 +627,17 @@ as `render_type(Module, Type, Arity, Docs)`.
       Module :: module(), Type :: atom(), Arity :: arity(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error, type_missing}.
-render_type(_Module, Type, #docs_v1{ docs = Docs } = D, Config) ->
+render_type(_Module, Type, #docs_v1{} = D, Config) ->
+    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_typecb_docs(
       lists:filter(fun({{type, T, _},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Type;
                       (_) ->
                            false
-                   end, Docs), D, Config);
+                   end, Docs), DocHtml, Config);
 render_type(_Module, Type, Arity, #docs_v1{ } = D) ->
-    render_type(_Module, Type, Arity, D, #{}).
+    DocHtml = doc_html:markdown_to_shelldoc(D),
+    render_type(_Module, Type, Arity, DocHtml, #{}).
 
 -doc "Render the documentation of a type in a module.".
 -doc(#{since => <<"OTP 23.0">>}).
@@ -638,13 +646,14 @@ render_type(_Module, Type, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error, type_missing}.
-render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
+render_type(_Module, Type, Arity, #docs_v1{} = D, Config) ->
+    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_typecb_docs(
       lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Type andalso A =:= Arity;
                         (_) ->
                              false
-                   end, Docs), D, Config).
+                   end, Docs), DocHtml, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the callback documentation
@@ -658,7 +667,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
       Signature :: [binary()],
       Metadata :: map().
 get_callback_doc(Module, Callback, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    #docs_v1{ docs = Docs }=D = format_doc(Module),
     FnFunctions =
         lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Callback andalso A =:= Arity;
@@ -721,13 +730,14 @@ as `render_callback(Module, Callback, Arity, Docs)`.
       Res :: unicode:chardata() | {error, callback_missing}.
 render_callback(_Module, Callback, Arity, #docs_v1{ } = D) ->
     render_callback(_Module, Callback, Arity, D, #{});
-render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D, Config) ->
+render_callback(_Module, Callback, #docs_v1{} = D, Config) ->
+    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_typecb_docs(
       lists:filter(fun({{callback, T, _},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Callback;
                       (_) ->
                            false
-                   end, Docs), D, Config).
+                   end, Docs), DocHtml, Config).
 
 -doc "Render the documentation of a callback in a module.".
 -doc(#{since => <<"OTP 23.0">>}).
@@ -736,15 +746,19 @@ render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D, Config) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error, callback_missing}.
-render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D, Config) ->
+render_callback(_Module, Callback, Arity, #docs_v1{} = D, Config) ->
+    #docs_v1{ docs = Docs }=DocHtml = doc_html:markdown_to_shelldoc(D),
     render_typecb_docs(
       lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Callback andalso A =:= Arity;
                         (_) ->
                              false
-                   end, Docs), D, Config).
+                   end, Docs), DocHtml, Config).
 
 %% Get the docs in the correct locale if it exists.
+-spec get_local_doc(atom() | tuple() | binary(), Docs, D) -> term() when
+    Docs :: map() | none | hiddden,
+    D    :: docs_v1().
 get_local_doc(MissingMod, Docs, D) when is_atom(MissingMod) ->
     get_local_doc(atom_to_binary(MissingMod), Docs, D);
 get_local_doc({F,A}, Docs, D) ->
@@ -775,7 +789,8 @@ render_function([], _D, _Config) ->
     {error,function_missing};
 render_function(FDocs, D, Config) when is_map(Config) ->
     render_function(FDocs, D, init_config(D, Config));
-render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
+render_function(FDocs, #docs_v1{} = DocV1, Config) ->
+    #docs_v1{ docs = Docs }=D = doc_html:markdown_to_shelldoc(DocV1),
     Grouping =
         lists:foldl(
           fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func, Acc) ->
@@ -933,8 +948,7 @@ init_config(D, Config) ->
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
-%%%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
-                           render_docs(Elem,State,P,Ind,D)
+                          render_docs(Elem,State,P,Ind,D)
                    end,Pos,Elems);
 render_docs(Elem,State,Pos,Ind,D) ->
     render_element(Elem,State,Pos,Ind,D).
@@ -1261,3 +1275,7 @@ ansi(Curr) ->
         [bold,underline] ->
             "\033[;1;4m"
     end.
+
+format_doc(Module) ->
+  {ok, Doc} = code:get_doc(Module),
+  doc_html:markdown_to_shelldoc(Doc).

@@ -56,6 +56,7 @@ MODULES= \
 	dict \
 	digraph \
 	digraph_utils \
+	doc_html \
 	edlin \
 	edlin_key \
 	edlin_context \

@@ -133,26 +133,30 @@ render_smoke(_Config) ->
                             E(shell_docs:render(Mod, D, Config)),
                             E(shell_docs:render_type(Mod, D, Config)),
                             E(shell_docs:render_callback(Mod, D, Config)),
+
                             Exports = try Mod:module_info(exports)
                                       catch _:undef -> []
                                       end, %% nif file not available on this platform
 
+                            DHTML = doc_html:markdown_to_shelldoc(D),
                             [try
-                                 E(shell_docs:render(Mod, F, A, D, Config))
+                                 E(shell_docs:render(Mod, F, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,F,A,R,ST,shell_docs:get_doc(Mod,F,A)]),
                                      erlang:raise(error,R,ST)
                              end || {F,A} <- Exports],
+
                             [try
-                                 E(shell_docs:render_type(Mod, T, A, D, Config))
+                                 E(shell_docs:render_type(Mod, T, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render type ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,T,A,R,ST,shell_docs:get_type_doc(Mod,T,A)]),
                                      erlang:raise(error,R,ST)
                              end || {{type,T,A},_,_,_,_} <- Docs],
+
                             [try
-                                 E(shell_docs:render_callback(Mod, T, A, D, Config))
+                                 E(shell_docs:render_callback(Mod, T, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render callback ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,T,A,R,ST,shell_docs:get_callback_doc(Mod,T,A)]),
