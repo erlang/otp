@@ -315,11 +315,13 @@ The value of `Misc` varies for different types of processes, for example:
   and state data.
 - A `m:gen_event` process returns information about each of its registered
   handlers.
+- A bare `m:sys` process returns the value passed as `Misc` to
+  `handle_system_message/6`.
 
 Callback modules for `m:gen_server`, `m:gen_statem`, and `m:gen_event` can also change
-the value of `Misc` by exporting a function `format_status/2`, which contributes
-module-specific information. For details, see `c:gen_server:format_status/2`,
-`c:gen_statem:format_status/2`, and `c:gen_event:format_status/2`.
+the value of `Misc` by exporting a function `format_status/1`, which contributes
+module-specific information. For details, see `c:gen_server:format_status/1`,
+`c:gen_statem:format_status/1`, and `c:gen_event:format_status/1`.
 """.
 -spec get_status(Name, Timeout) -> Status when
       Name :: name(),
