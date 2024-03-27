@@ -42,8 +42,8 @@ interface. The only significant addition is that some of the functions, e.g.
 > Timeout set to `nowait` ([`recv(Sock, 0, nowait)`](`recv/3`)) when there is
 > actually nothing to read, it will return with either one of:
 >
-> - \_\_\_\_ - `{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`
-> - \_\_\_\_ - `{select, `[`SelectInfo`](`t:select_info/0`)`}`
+> - `{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`
+> - `{select, `[`SelectInfo`](`t:select_info/0`)`}`
 >
 > `CompletionInfo` contains the [CompletionHandle](`t:completion_handle/0`) and
 > `SelectInfo` contains the [SelectHandle](`t:select_handle/0`).
@@ -66,12 +66,11 @@ interface. The only significant addition is that some of the functions, e.g.
 >
 > The completion message has the format:
 >
-> - \_\_\_\_ -
->   `{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}`
+> - `{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}`
 >
 > The select message has the format:
 >
-> - \_\_\_\_ - `{'$socket', socket(), select, SelectHandle}`
+> - `{'$socket', socket(), select, SelectHandle}`
 >
 > Note that, on select "system", all other users are _locked out_ until the
 > 'current user' has called the function (`recv` for instance) and its return
@@ -90,15 +89,13 @@ interface. The only significant addition is that some of the functions, e.g.
 > Another message the user must be prepared for (when making asynchronous calls)
 > is the `abort` message:
 >
-> - \_\_\_\_ - `{'$socket', socket(), abort, Info}`
+> - `{'$socket', socket(), abort, Info}`
 >
 > This message indicates that the (asynchronous) operation has been aborted. If,
 > for instance, the socket has been closed (by another process), `Info` will be
 > `{SelectHandle, closed}`.
 
 > #### Note {: .info }
->
-> The Windows support has currently _pre-release_ status.
 >
 > Support for IPv6 has been implemented but not _fully_ tested.
 >
@@ -654,7 +651,7 @@ implementation.
   controlling process can set this option.
 
 - **`rcvbuf`** -
-  `BufSize :: (default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
+  `BufSize :: (default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
   Receive buffer size.
 
   The value `default` is only valid to _set_.
@@ -671,13 +668,13 @@ implementation.
   The similar socket option; `{socket,rcvbuf}` is a related option for the OS'
   protocol stack that on Unix corresponds to `SOL_SOCKET,SO_RCVBUF`.
 
-- **`rcvctrlbuf`** - `BufSize :: (default | integer()>0) `\- Allocation size for
+- **`rcvctrlbuf`** - `BufSize :: (default | integer()>0) `\- Allocation size for
   the ancillary data buffer used when calling the OS protocol stack's receive
   API.
 
   The value `default` is only valid to _set_.
 
-- **`sndctrlbuf`** - `BufSize :: (default | integer()>0) `\- Allocation size for
+- **`sndctrlbuf`** - `BufSize :: (default | integer()>0) `\- Allocation size for
   the ancillary data buffer used when calling the OS protocol stack's
   [sendmsg](`sendmsg/2`) API.
 
@@ -888,11 +885,11 @@ _Options for protocol level_ [_`ip`_:](`t:level/0`)
   socket's error queue, which should be read using the message flag
   [`errqueue`](`t:msg_flag/0`), and using [`recvmsg/1,2,3,4,5`](`recvmsg/1`) to
   get all error information in the [message's](`t:msg_recv/0`) `ctrl` field as a
-  [control message](`t:cmsg_recv/0`) `#{level := ip, type := recverr}`.
+  [control message](`t:cmsg_recv/0`) `#{level := ip, type := recverr}`.
 
   A working strategy should be to first poll the error queue using
-  [`recvmsg/2,3,4` ](`m:socket#recvmsg-timeout`)with `Timeout =:= 0` and `Flags`
-  containing `errqueue` (ignore the return value `{error, timeout}`) before
+  [`recvmsg/2,3,4` ](`m:socket#recvmsg-timeout`)with `Timeout =:= 0` and `Flags`
+  containing `errqueue` (ignore the return value `{error, timeout}`) before
   reading the actual data to ensure that the error queue gets cleared. And read
   the data using one of the `nowait |`
   [`select_handle()` ](`t:select_handle/0`)recv functions:
@@ -2479,8 +2476,8 @@ open(Domain, Type) ->
 -doc """
 Creates an endpoint (socket) for communication.
 
-The same as [`open(Domain, Type, default)`](`open/3`) and
-[`open(Domain, Type, default, Opts)`](`open/4`) respectively.
+The same as [`open(Domain, Type, default)`](`open/3`) and
+[`open(Domain, Type, default, Opts)`](`open/4`) respectively.
 """.
 -doc(#{since => <<"OTP 22.0,OTP 24.0">>}).
 -doc(#{equiv => open/4}).
@@ -2513,16 +2510,16 @@ database. See also the OS man page for the library call `socket(2)`.
 > #### Note {: .info }
 >
 > For some combinations of `Domain` and `Type` the platform has got a default
-> protocol that can be selected with `Protocol = default`, and the platform may
+> protocol that can be selected with `Protocol = default`, and the platform may
 > allow or require selecting the default protocol, a specific protocol, or
 > either.
 >
 > Examples:
 >
-> - **`socket:open(inet, stream, tcp)`** - It is common that for protocol domain
+> - **`socket:open(inet, stream, tcp)`** - It is common that for protocol domain
 >   and type `inet,stream` it is allowed to select the `tcp` protocol although
 >   that mostly is the default.
-> - **`socket:open(local, dgram)`** - It is common that for the protocol domain
+> - **`socket:open(local, dgram)`** - It is common that for the protocol domain
 >   `local` it is mandatory to not select a protocol, that is; to select the
 >   default protocol.
 
@@ -3268,7 +3265,7 @@ The return value indicates the result from the platform's network layer:
 
 - **`ok`** - All data has been accepted.
 
-- **`{ok, RestData}`** - Not all data has been accepted, but no error has been
+- **`{ok, RestData}`** - Not all data has been accepted, but no error has been
   reported. `RestData` is the tail of `Data` that has not been accepted.
 
   This cannot happen for a socket of [type `stream`](`t:type/0`) where a
@@ -3281,14 +3278,14 @@ The return value indicates the result from the platform's network layer:
 
   It is nevertheless possible for the platform's network layer to return this.
 
-- **`{error, Reason}`** - An error has been reported and no data has been
+- **`{error, Reason}`** - An error has been reported and no data has been
   accepted. The `t:posix/0` `Reasons` are from the platform's network layer.
   `closed` means that this socket library knows that the socket is closed, and
   `t:invalid/0` means that something about an argument is invalid.
 
-- **`{error, {Reason, RestData}}`** - An error has been reported but before that
+- **`{error, {Reason, RestData}}`** - An error has been reported but before that
   some data was accepted. `RestData` is the tail of `Data` that has not been
-  accepted. See `{error, Reason}` above.
+  accepted. See `{error, Reason}` above.
 
   This can only happen for a socket of [type `stream`](`t:type/0`) when a
   partially successful send is retried until there is an error.
@@ -3299,7 +3296,7 @@ Sends data on a connected socket, waiting at most `Timeout` milliseconds for it
 to be sent.
 
 The same as [infinite time-out `send/2,3,4` ](`m:socket#send-infinity`)but
-returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
+returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
 milliseconds, if no `Data` or only some of it was accepted by the platform's
 network layer.
 
@@ -3310,11 +3307,11 @@ continuation if the data could not be sent immediately.
 
 The same as [infinite time-out `send/2,3` ](`m:socket#send-infinity`)but if the
 data is not immediately accepted by the platform network layer, the function
-returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
-_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
+returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
+_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
 caller will then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo` ](`t:select_info/0`)) when there is room for more data.
 
@@ -3337,7 +3334,7 @@ will contain a `t:select_handle/0` or `t:completion_handle/0` generated by the
 call.
 
 If some of the data was sent, the function will return
-[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
+[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
 (on _Unix_) for a socket of [type `stream`](`t:type/0`). If the caller does not
 want to wait to send the rest of the data, it should immediately cancel the
 operation with `cancel/2`.
@@ -3876,7 +3873,7 @@ Sends data on a socket, waiting at most `Timeout` milliseconds for it to be
 sent.
 
 The same as [infinite time-out `sendto/3,4,5` ](`m:socket#sendto-infinity`)but
-returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
+returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
 milliseconds, if no `Data` or only some of it was accepted by the platform's
 network layer.
 
@@ -3887,11 +3884,11 @@ data could not be sent immediately.
 
 The same as [infinity time-out `sendto/3,4` ](`m:socket#sendto-infinity`)but if
 the data is not immediately accepted by the platform network layer, the function
-returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
-_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
+returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
+_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
 caller will then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo` ](`t:select_info/0`)) when there is room for more data.
 
@@ -3914,7 +3911,7 @@ will contain a `t:select_handle/0` or `t:completion_handle/0` generated by the
 call.
 
 If some of the data was sent, the function will return
-[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
+[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
 (on _Unix_) for a socket of [type `stream`](`t:type/0`). If the caller does not
 want to wait to send the rest of the data, it should immediately cancel the
 operation with `cancel/2`.
@@ -4212,7 +4209,7 @@ Sends a message on a socket, waiting at most `Timeout` milliseconds for it to be
 sent.
 
 The same as [infinite time-out `sendmsg/2,3,4` ](`m:socket#sendmsg-infinity`)but
-returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
+returns `{error, timeout}` or `{error, {timeout, RestData}}` after `Timeout`
 milliseconds, if no data or only some of it was accepted by the platform's
 network layer.
 
@@ -4227,11 +4224,11 @@ if the data could not be sent immediately.
 
 The same as [infinity time-out `sendmsg/2,3` ](`m:socket#sendmsg-infinity`)but
 if the data is not immediately accepted by the platform network layer, the
-function returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
-_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
+function returns (on _Unix_) [`{select, SelectInfo}`](`t:select_info/0`) or (on
+_Windows_) [`{completion, CompletionInfo}`](`t:completion_info/0`), and the
 caller will then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` ( with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo` ](`t:select_info/0`)) when there is room for more data. A
   subsequent call to `sendmsg/2-4` will then send the data.
@@ -4253,7 +4250,7 @@ will contain a `t:select_handle/0` or `t:completion_handle/0` generated by the
 call.
 
 If some of the data was sent, the function will return
-[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
+[`{select, {RestData, SelectInfo}, `](`t:select_info/0`)which can only happen
 for a socket of [type `stream`](`t:type/0`). If the caller does not want to wait
 to send the rest of the data, it should immediately cancel the operation with
 `cancel/2`.
@@ -4477,7 +4474,7 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
 sendfile(Socket, FileHandle) -> Result
 
 The same as
-[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), that
+[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), that
 is: send all data in the file to the socket, without time-out other than from
 the platform's network stack.
 """.
@@ -4493,8 +4490,8 @@ sendfile(Socket, FileHandle) ->
 
 -doc """
 Depending on the `Timeout` argument; the same as
-[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), [`sendfile(Socket, FileHandle, 0, 0, Timeout)`](`m:socket#sendfile-timeout`), or
-[`sendfile(Socket, FileHandle, 0, 0, SelectHandle)`](`m:socket#sendfile-nowait`), that
+[`sendfile(Socket, FileHandle, 0, 0, infinity)`](`m:socket#sendfile-infinity`), [`sendfile(Socket, FileHandle, 0, 0, Timeout)`](`m:socket#sendfile-timeout`), or
+[`sendfile(Socket, FileHandle, 0, 0, SelectHandle)`](`m:socket#sendfile-nowait`), that
 is: send all data in the file to the socket, with the given `Timeout`.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
@@ -4513,7 +4510,7 @@ sendfile(Socket, FileHandle, Timeout) ->
 
 -doc """
 The same as
-[`sendfile(Socket, FileHandle, Offset, Count, infinity)`](`m:socket#sendfile-infinity`), that
+[`sendfile(Socket, FileHandle, Offset, Count, infinity)`](`m:socket#sendfile-infinity`), that
 is: send the file data at `Offset` and `Count` to the socket, without time-out
 other than from the platform's network stack.
 """.
@@ -4545,20 +4542,20 @@ The `Offset` argument is the file offset to start reading from. The default
 value is `0`.
 
 The `Count` argument is the number of bytes to transfer from `FileHandle` to
-`Socket`. If `Count =:= 0` (the default) the transfer stops at the end of file.
+`Socket`. If `Count =:= 0` (the default) the transfer stops at the end of file.
 
 The return value indicates the result from the platform's network layer:
 
-- **`{ok, BytesSent}`** - The transfer completed successfully after `BytesSent`
+- **`{ok, BytesSent}`** - The transfer completed successfully after `BytesSent`
   bytes of data.
 
-- **`{error, Reason}`** - An error has been reported and no data has been
+- **`{error, Reason}`** - An error has been reported and no data has been
   transferred. The `t:posix/0` `Reasons` are from the platform's network layer.
   `closed` means that this socket library knows that the socket is closed, and
   `t:invalid/0` means that something about an argument is invalid.
 
-- **`{error, {Reason, BytesSent}}`** - An error has been reported but before
-  that some data was transferred. See `{error, Reason}` and `{ok, BytesSent}`
+- **`{error, {Reason, BytesSent}}`** - An error has been reported but before
+  that some data was transferred. See `{error, Reason}` and `{ok, BytesSent}`
   above.
 
 [](){: #sendfile-timeout }
@@ -4567,7 +4564,7 @@ Sends file data on a socket, waiting at most `Timeout` milliseconds for it to be
 sent (_limited time-out_).
 
 The same as ["infinite" time-out `sendfile/5` ](`m:socket#sendfile-infinity`)but
-returns `{error, timeout}` or `{error, {timeout, BytesSent}}` after `Timeout`
+returns `{error, timeout}` or `{error, {timeout, BytesSent}}` after `Timeout`
 milliseconds, if not all file data was transferred by the platform's network
 layer.
 
@@ -4578,8 +4575,8 @@ not be sent immediately (_nowait_).
 
 The same as ["infinite" time-out `sendfile/5` ](`m:socket#sendfile-infinity`)but
 if the data is not immediately accepted by the platform network layer, the
-function returns [`{select, SelectInfo}`](`t:select_info/0`), and the caller
-will then receive a select message, `{'$socket', Socket, select, SelectHandle}`
+function returns [`{select, SelectInfo}`](`t:select_info/0`), and the caller
+will then receive a select message, `{'$socket', Socket, select, SelectHandle}`
 ( with the [`SelectHandle`](`t:select_handle/0`) that was contained in the
 [`SelectInfo` ](`t:select_info/0`)) when there is room for more data. Then a
 call to [`sendfile/3`](`m:socket#sendfile-cont`) with `SelectInfo` as the second
@@ -4593,7 +4590,7 @@ If `SelectHandle` is `nowait`, and a `SelectInfo` is returned, it will contain a
 [`select_handle()` ](`t:select_handle/0`)generated by the call.
 
 If some file data was sent, the function will return
-[`{ok, {BytesSent, SelectInfo}. `](`t:select_info/0`)If the caller does not want
+[`{ok, {BytesSent, SelectInfo}. `](`t:select_info/0`)If the caller does not want
 to wait to send the rest of the data, it should immediately cancel the operation
 with `cancel/2`.
 
@@ -5064,8 +5061,8 @@ The message `Flags` may be symbolic `t:msg_flag/0`s and/or `t:integer/0`s, as in
 the platform's appropriate header files. The values of all symbolic flags and
 integers are or:ed together.
 
-When there is a socket error this function returns `{error, Reason}`, or if some
-data arrived before the error; `{error, {Reason, Data}}`.
+When there is a socket error this function returns `{error, Reason}`, or if some
+data arrived before the error; `{error, {Reason, Data}}`.
 
 [](){: #recv-timeout }
 
@@ -5073,7 +5070,7 @@ Receives data from a socket, waiting at most `Timeout` milliseconds for it to
 arrive.
 
 The same as [infinite time-out `recv/1,2,3,4` ](`m:socket#recv-infinity`)but
-returns `{error, timeout}` or `{error, {timeout, Data}}` after `Timeout`
+returns `{error, timeout}` or `{error, {timeout, Data}}` after `Timeout`
 milliseconds, if the requested data has not been delivered.
 
 [](){: #recv-nowait }
@@ -5083,11 +5080,11 @@ if the data could not be returned immediately.
 
 The same as [infinite time-out `recv/1,2,3,4` ](`m:socket#recv-infinity`)but if
 the data can be delivered immediately, the function returns (on _Unix_)
-[`{select,  SelectInfo}`](`t:select_info/0`) or (on _Windows_)
-[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
+[`{select,  SelectInfo}`](`t:select_info/0`) or (on _Windows_)
+[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
 then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo`](`t:select_info/0`)) when data has arrived.
 
@@ -5109,7 +5106,7 @@ If the time-out argument is `nowait`, and a `SelectInfo` or `CompletionInfo` is
 returned, it will contain a `t:select_handle/0` or `t:completion_handle/0`
 generated by the call.
 
-Note that for a socket of type `stream` (on _Unix_), if `Length > 0` and only
+Note that for a socket of type `stream` (on _Unix_), if `Length > 0` and only
 part of that amount of data is available, the function will return
 [`{ok, {Data, SelectInfo}}` ](`t:select_info/0`)with partial data. If the caller
 doesn't want to wait for more data, it must immediately call `cancel/2` to
@@ -5602,7 +5599,7 @@ to arrive.
 
 The same as
 [infinite time-out `recvfrom/1,2,3,4` ](`m:socket#recvfrom-infinity`)but returns
-`{error, timeout}` after `Timeout` milliseconds, if no message has been
+`{error, timeout}` after `Timeout` milliseconds, if no message has been
 delivered.
 
 [](){: #recvfrom-nowait }
@@ -5613,11 +5610,11 @@ completion term if no message could be returned immediately.
 The same as
 [infinite time-out `recvfrom/1,2,3,4` ](`m:socket#recvfrom-infinity`)but if no
 message can be delivered immediately, the function returns (on _/Unix_)
-[`{select, SelectInfo}`](`t:select_info/0`) or (on _Windows_)
-[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
+[`{select, SelectInfo}`](`t:select_info/0`) or (on _Windows_)
+[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
 then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo`](`t:select_info/0`)) when data has arrived.
 
@@ -5991,7 +5988,7 @@ Receives a message from a socket, waiting at most `Timeout` milliseconds for it
 to arrive.
 
 The same as [recvmsg/1,2,3,4,5](`m:socket#recvmsg-infinity`) but returns
-`{error, timeout}` after `Timeout` milliseconds, if no message has been
+`{error, timeout}` after `Timeout` milliseconds, if no message has been
 delivered.
 
 [](){: #recvmsg-nowait }
@@ -6002,11 +5999,11 @@ completion term if no message could be returned immediately.
 The same as
 [infinite time-out `recvmsg/1,2,3,4` ](`m:socket#recvmsg-infinity`)but if no
 message can delivered immediately, the function returns (on _Unix_)
-[`{select, SelectInfo}`](`t:select_info/0`) or (on _Windows_)
-[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
+[`{select, SelectInfo}`](`t:select_info/0`) or (on _Windows_)
+[`{completion,  CompletionInfo}`](`t:completion_info/0`), and the caller will
 then receive one of these messages:
 
-- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
+- **`select` message** - `{'$socket', Socket, select, SelectHandle}` (with the
   [`SelectHandle`](`t:select_handle/0`) that was contained in the
   [`SelectInfo`](`t:select_info/0`)) when data has arrived.
 
@@ -6972,7 +6969,7 @@ asynchronous operations when the current operation and all enqueued before it
 has been completed.
 
 If `SelectInfo` does not match an operation in progress for the calling process,
-this function returns `{error, {invalid, SelectInfo}}`.
+this function returns `{error, {invalid, SelectInfo}}`.
 
 Cancel an asynchronous (completion) request.
 
@@ -6988,7 +6985,7 @@ asynchronous operations when the current operation and all enqueued before it
 has been completed.
 
 If `CompletionInfo` does not match an operation in progress for the calling
-process, this function returns `{error, {invalid, CompletionInfo}}`.
+process, this function returns `{error, {invalid, CompletionInfo}}`.
 """.
 -doc(#{since => <<"OTP 22.1, OTP 26.0">>}).
 -spec cancel(Socket, SelectInfo) -> 'ok' | {'error', Reason} when
