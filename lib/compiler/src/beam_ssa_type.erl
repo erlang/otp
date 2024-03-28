@@ -329,7 +329,7 @@ sig_fun_call(I0, Args, Ts, Ds, Fdb, Sub, State0) ->
             CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
             I = I0#b_set{args=[Callee | CallArgs]},
             sig_local_call(I, Callee, CallArgs, Ts, Fdb, State0);
-        {#t_fun{target={Name,Arity}}, _} ->
+        {#t_fun{arity=Arity,target={Name,Arity}}, _} ->
             %% When a fun lacks free variables, we can make a direct call even
             %% when we don't know where it was defined.
             Callee = #b_local{name=#b_literal{val=Name},
@@ -683,7 +683,7 @@ opt_fun_call(#b_set{dst=Dst}=I0, [Fun | CallArgs0], Ts, Ds, Fdb, Sub, Meta) ->
             CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
             I = I0#b_set{args=[Callee | CallArgs]},
             opt_local_call(I, Callee, CallArgs, Dst, Ts, Fdb, Meta);
-        {#t_fun{target={Name,Arity}}, _} ->
+        {#t_fun{arity=Arity,target={Name,Arity}}, _} ->
             %% When a fun lacks free variables, we can make a direct call even
             %% when we don't know where it was defined.
             Callee = #b_local{name=#b_literal{val=Name},
