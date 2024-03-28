@@ -57,6 +57,7 @@ BEHAVIOUR_MODULES_2= \
 MODULES= \
 	ssh \
 	ssh_acceptor \
+	ssh_acceptor_subsup \
 	ssh_acceptor_sup \
 	ssh_agent \
 	ssh_app \

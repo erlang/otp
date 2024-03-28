@@ -53,8 +53,10 @@
 -define(SUB_SYSTEM_SUP(Pid), {_,Pid, supervisor,[ssh_subsystem_sup]}).
 -define(ACCEPTOR_SUP(Pid,Address),
         {{ssh_acceptor_sup,Address},Pid,supervisor,[ssh_acceptor_sup]}).
+-define(ACCEPTOR_SUBSUP(Pid,Address),
+        {{ssh_acceptor_sup,Address},Pid,supervisor,[ssh_acceptor_subsup]}).
 -define(ACCEPTOR_WORKER(Pid,Address),
-        {{ssh_acceptor_sup,Address},Pid,worker,[ssh_acceptor]}).
+        {undefined,Pid,worker,[ssh_acceptor]}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -374,8 +376,11 @@ chk_empty_con_daemon(Daemon) ->
 		[ChSup,FwdAccSup,ServerConnPid]),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
     ?wait_match([], supervisor:which_children(ChSup)),
-    ?wait_match([?ACCEPTOR_WORKER(_,_)],
+    ?wait_match([?ACCEPTOR_SUBSUP(AccSubSup,_)],
                 supervisor:which_children(AccSup),
+                [AccSubSup]),
+    ?wait_match([?ACCEPTOR_WORKER(_,_)],
+                supervisor:which_children(AccSubSup),
                 []),
     [SubSysSup, ChSup, ServerConnPid, AccSup, FwdAccSup].
 
@@ -399,7 +404,8 @@ check_sshd_system_tree(Daemon, Host, Port, Config) ->
 		supervisor:which_children(SubSysSup),
 		[FwdAccSup,ServerConn]),
     ?wait_match([], supervisor:which_children(FwdAccSup)),
-    ?wait_match([?ACCEPTOR_WORKER(_,_)], supervisor:which_children(AccSup)),
+    ?wait_match([?ACCEPTOR_SUBSUP(AccSubSup,_)], supervisor:which_children(AccSup), [AccSubSup]),
+    ?wait_match([?ACCEPTOR_WORKER(_,_)], supervisor:which_children(AccSubSup)),
     {ok,PidC} = ssh_sftp:start_channel(ClientConn),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor,[ssh_channel_sup]},
@@ -496,7 +502,7 @@ acceptor_pid(DaemonPid) ->
                                       ?ACCEPTOR_SUP(AccSupPid,_)
                                           <- supervisor:which_children(DaemonPid),
 
-                                      ?ACCEPTOR_WORKER(AccPid, #address{address=L2,
+                                      ?ACCEPTOR_SUBSUP(AccPid, #address{address=L2,
                                                                         port=P2,
                                                                         profile=NS2})
                                           <- supervisor:which_children(AccSupPid),

@@ -26,12 +26,11 @@
 -include("ssh.hrl").
 
 %% Internal application API
--export([start_link/3,
-	 number_of_connections/1,
-	 listen/2]).
+-export([start_link/4,
+	 number_of_connections/1]).
 
 %% spawn export  
--export([acceptor_init/4, acceptor_loop/6]).
+-export([acceptor_init/5, acceptor_loop/9]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
@@ -42,24 +41,10 @@
 %% Internal application API
 %%====================================================================
 %% Supposed to be called in a child-spec of the ssh_acceptor_sup
-start_link(SystemSup, Address, Options) ->
-    proc_lib:start_link(?MODULE, acceptor_init, [self(),SystemSup,Address,Options]).
+start_link(SystemSup, LSock, Address, Options) ->
+    proc_lib:start_link(?MODULE, acceptor_init, [self(), SystemSup, LSock, Address, Options]).
 
 %%%----------------------------------------------------------------
-listen(Port, Options) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    SockOpts = [{active, false}, {reuseaddr,true} | ?GET_OPT(socket_options, Options)],
-    case Callback:listen(Port, SockOpts) of
-	{error, nxdomain} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	{error, enetunreach} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	{error, eafnosupport} ->
-	    Callback:listen(Port, lists:delete(inet6, SockOpts));
-	Other ->
-	    Other
-    end.
-
 accept(ListenSocket, AcceptTimeout, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
     Callback:accept(ListenSocket, AcceptTimeout).
@@ -71,120 +56,73 @@ close(Socket, Options) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-acceptor_init(Parent, SystemSup,
+acceptor_init(Parent, SystemSup, LSock,
               #address{address=Address, port=Port, profile=_Profile},
               Opts) ->
     ssh_lib:set_label(server,
                       {acceptor,
                        list_to_binary(ssh_lib:format_address_port(Address, Port))}),
+    proc_lib:init_ack(Parent, {ok, self()}),
     AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
-    case ?GET_INTERNAL_OPT(lsocket, Opts, undefined) of
-        {LSock, SockOwner} ->
-            %% A listening socket (or fd option) was provided in the ssh:daemon call
-            case inet:sockname(LSock) of
-                {ok,{_,Port}} ->
-                    %% A usable, open LSock
-                    proc_lib:init_ack(Parent, {ok, self()}),
-                    request_ownership(LSock, SockOwner),
-                    acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
+    MaxSessions = ?GET_OPT(max_sessions, Opts),
+    ParallelLogin = ?GET_OPT(parallel_login, Opts),
+    acceptor_loop(Parent, Port, Address, Opts, LSock, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup).
 
-                {error,_Error} ->
-                    %% Not open, a restart
-                    %% Allow gen_tcp:listen to fail 4 times if eaddrinuse (It is a bug fix):
-                    case try_listen(Port, Opts, 4) of
-                        {ok,NewLSock} ->
-                            proc_lib:init_ack(Parent, {ok, self()}),
-                            Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
-                            acceptor_loop(Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
-                        {error,Error} ->
-                            proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
-                    end
-            end;
-
-        undefined ->
-            %% No listening socket (nor fd option) was provided; open a listening socket:
-            case listen(Port, Opts) of
-                {ok,LSock} ->
-                    proc_lib:init_ack(Parent, {ok, self()}),
-                    acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
-                {error,Error} ->
-                    proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
-            end
-    end.
-
-
-try_listen(Port, Opts, NtriesLeft) ->
-    try_listen(Port, Opts, 1, NtriesLeft).
-
-try_listen(Port, Opts, N, Nmax) ->
-    case listen(Port, Opts) of
-        {error,eaddrinuse} when N<Nmax ->
-            timer:sleep(10*N), % Sleep 10, 20, 30,... ms
-            try_listen(Port, Opts, N+1, Nmax);
-        Other ->
-            Other
-    end.
-
-
-request_ownership(LSock, SockOwner) ->
-    SockOwner ! {request_control,LSock,self()},
-    receive
-	{its_yours,LSock} -> ok
-    end.
-    
 %%%----------------------------------------------------------------    
-acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
+acceptor_loop(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup) ->
     try
-        case accept(ListenSocket, AcceptTimeout, Opts) of
-            {ok,Socket} ->
-                PeerName = inet:peername(Socket),
-                MaxSessions = ?GET_OPT(max_sessions, Opts),
-                NumSessions = number_of_connections(SystemSup),
-                ParallelLogin = ?GET_OPT(parallel_login, Opts),
-                case handle_connection(Address, Port, PeerName, Opts, Socket, MaxSessions, NumSessions, ParallelLogin) of
-                    {error,Error} ->
-                        catch close(Socket, Opts),
-                        handle_error(Error, Address, Port, PeerName);
-                    _ ->
-                        ok
-                end;
-            {error,Error} ->
-                handle_error(Error, Address, Port, undefined)
-        end
+        accept(ListenSocket, AcceptTimeout, Opts)
+    of
+        {ok, Socket} ->
+                handle_parallel_login(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup, Socket);
+        {error, Error} ->
+                handle_error(Error, Address, Port, undefined),
+                ?MODULE:acceptor_loop(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup)
     catch
         Class:Err:Stack ->
-            handle_error({error, {unhandled,Class,Err,Stack}}, Address, Port, undefined)
+            handle_error({error, {unhandled, Class, Err, Stack}}, Address, Port, undefined),
+            ?MODULE:acceptor_loop(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup)
+    end.
+
+handle_parallel_login(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, true, SystemSup, Socket) ->
+    supervisor:start_child(Parent, []),
+    try_handle_connection(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, true, SystemSup, Socket);
+handle_parallel_login(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup, Socket) ->
+    try_handle_connection(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup, Socket).
+
+try_handle_connection(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup, Socket) ->
+    try
+        PeerName = inet:peername(Socket),
+        NumSessions = number_of_connections(SystemSup),
+        handle_connection(Address, Port, PeerName, Opts, Socket, MaxSessions, NumSessions)
+    of
+        {error, Error} ->
+            catch close(Socket, Opts),
+            handle_error(Error, Address, Port, PeerName);
+        _ ->
+            ok
+    catch
+        Class:Err:Stack ->
+            catch close(Socket, Opts),
+            handle_error({error, {unhandled, Class, Err, Stack}}, Address, Port, undefined)
     end,
-    ?MODULE:acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
+    handle_nonparallel_login(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup).
+
+handle_nonparallel_login(_Parent, _Port, _Address, _Opts, _ListenSocket, _AcceptTimeout, _MaxSessions, true, _SystemSup) ->
+    ok;
+handle_nonparallel_login(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup) ->
+    ?MODULE:acceptor_loop(Parent, Port, Address, Opts, ListenSocket, AcceptTimeout, MaxSessions, ParallelLogin, SystemSup).
 
 %%%----------------------------------------------------------------
-handle_connection(_Address, _Port, _Peer, _Options, _Socket, MaxSessions, NumSessions, _ParallelLogin)
+handle_connection(_Address, _Port, _Peer, _Options, _Socket, MaxSessions, NumSessions)
   when NumSessions >= MaxSessions->
     {error,{max_sessions,MaxSessions}};
 
-handle_connection(_Address, _Port, {error,Error}, _Options, _Socket, _MaxSessions, _NumSessions, _ParallelLogin) ->
+handle_connection(_Address, _Port, {error,Error}, _Options, _Socket, _MaxSessions, _NumSessions) ->
     {error,Error};
 
-handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessions, ParallelLogin)
-  when ParallelLogin == false ->
-    handle_connection(Address, Port, Options, Socket);
-
-handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessions, ParallelLogin)
-  when ParallelLogin == true ->
-    Ref = make_ref(),
-    Pid = spawn_link(
-            fun() ->
-                    process_flag(trap_exit, true),
-                    receive
-                        {start,Ref} ->
-                            handle_connection(Address, Port, Options, Socket)
-                    after 10000 ->
-                            {error, timeout2}
-                    end
-            end),
-    catch gen_tcp:controlling_process(Socket, Pid),
-    Pid ! {start,Ref},
-    ok.
+handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessions) ->
+    handle_connection(Address, Port, Options, Socket).
 
 
 
@@ -265,14 +203,14 @@ ssh_dbg_on(tcp) -> dbg:tp(?MODULE, listen, 2, x),
                    dbg:tpl(?MODULE, accept, 3, x),
                    dbg:tpl(?MODULE, close, 2, x);
                    
-ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 4, x),
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
                            dbg:tpl(?MODULE, handle_connection, 4, x).
 
 ssh_dbg_off(tcp) -> dbg:ctpg(?MODULE, listen, 2),
                     dbg:ctpl(?MODULE, accept, 3),
                     dbg:ctpl(?MODULE, close, 2);
 
-ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 4),
+ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 5),
                             dbg:ctp(?MODULE, handle_connection, 4).
 
 ssh_dbg_format(tcp, {call, {?MODULE,listen, [Port,_Opts]}}, Stack) ->
@@ -311,10 +249,10 @@ ssh_dbg_format(tcp, {call, {?MODULE,close, [Socket, _Options]}}) ->
 ssh_dbg_format(tcp, {return_from, {?MODULE,close,2}, _Return}) ->
     skip;
 
-ssh_dbg_format(connections, {call, {?MODULE,acceptor_init, [_Parent, _SysSup, Address, _Opts]}}) ->
+ssh_dbg_format(connections, {call, {?MODULE,acceptor_init, [_Parent, _SysSup, _LSock, Address, _Opts]}}) ->
     [io_lib:format("Starting LISTENER on ~s\n", [ssh_lib:format_address(Address)])
     ];
-ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,4}, _Ret}) ->
+ssh_dbg_format(connections, {return_from, {?MODULE,acceptor_init,5}, _Ret}) ->
     skip;
 
 ssh_dbg_format(connections, {call, {?MODULE,handle_connection,[_Address,_Port,_Options,_Sock]}}) ->

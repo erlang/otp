@@ -565,7 +565,7 @@ default(server) ->
 
       parallel_login =>
           #{default => false,
-            chk => fun(V) -> erlang:is_boolean(V) end,
+            chk => fun(V) -> erlang:is_boolean(V) orelse check_pos_integer(V) end,
             class => user_option
            },
 

@@ -6,6 +6,7 @@
   {modules, [ssh,
 	     ssh_app,
 	     ssh_acceptor,
+	     ssh_acceptor_subsup,
 	     ssh_acceptor_sup,
              ssh_options,
 	     ssh_agent,
@@ -48,6 +49,7 @@
   {applications, [kernel, stdlib, crypto, public_key]},
   {env, [{filter_modules, [
                            ssh_acceptor_sup,
+                           ssh_acceptor_subsup,
                            ssh_acceptor,
                            ssh_channel_sup,
                            ssh_connection_handler,

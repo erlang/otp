@@ -62,8 +62,9 @@ init([SystemSup, Address, Options]) ->
                  period    => 3600
                 },
     ChildSpecs = [#{id       => {?MODULE,Address},
-                    start    => {ssh_acceptor, start_link, [SystemSup, Address, Options]},
-                    restart  => transient % because a crashed listener could be replaced by a new one
+                    start    => {ssh_acceptor_subsup, start_link, [SystemSup, Address, Options]},
+                    restart  => transient, % because a crashed listener could be replaced by a new one
+                    type     => supervisor
                    }
                  ],
     {ok, {SupFlags,ChildSpecs}}.

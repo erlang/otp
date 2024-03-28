@@ -624,9 +624,9 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
                     {ok,DaemonRef};
                 {ok,DaemonRef} ->
                     receive
-                        {request_control, ListenSocket, ReqPid} ->
+                        {request_control, ListenSocket, ReqPid, ReplyToPid} ->
                             ok = controlling_process(ListenSocket, ReqPid, Options1),
-                            ReqPid ! {its_yours,ListenSocket}
+                            ReplyToPid ! {its_yours,ListenSocket}
                     end,
                     {ok,DaemonRef};
                 {error, {already_started, _}} ->
@@ -1293,10 +1293,10 @@ maybe_open_listen_socket(Host, Port, Options) ->
     Opened =
         case ?GET_SOCKET_OPT(fd, Options) of
             undefined when Port == 0 ->
-                ssh_acceptor:listen(0, Options);
+                ssh_acceptor_subsup:listen(0, Options);
             Fd when is_integer(Fd) ->
                 %% Do gen_tcp:listen with the option {fd,Fd}:
-                ssh_acceptor:listen(0, Options);
+                ssh_acceptor_subsup:listen(0, Options);
             undefined ->
                 open_later
         end,

@@ -112,7 +112,7 @@ walk_tree(_Role, [], _) ->
 format_sup(server,
            {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_sup]}, _Spec,
             [{{{ssh_acceptor_sup,Address},AccSupPid,supervisor,[ssh_acceptor_sup]}, _AccSupSpec,
-              [{{{ssh_acceptor_sup,Address},AccPid,worker,[ssh_acceptor]}, _AccSpec}]}
+              [{{{ssh_acceptor_sup,Address},AccPid,supervisor,[ssh_acceptor_subsup]}, _AccSpec}]}
              | Children]
            }, Indent) ->
    [indent(Indent),
@@ -191,10 +191,6 @@ format_sup(Role, {H, Spec, Children}, Indent) ->
     ].
 
 
-format_wrk(_Role, {{{ssh_acceptor_sup,Address},Pid,worker,[ssh_acceptor]}, _Spec}, Indent) ->
-    [indent(Indent),
-     io_lib:format("acceptor: ~s ~s~n", [format_address(Address),print_pid(Pid)])
-    ];
 format_wrk(_Role, {{{From,To},Pid,worker,[ssh_tcpip_forward_acceptor]}, _Spec}, Indent) ->
     io_lib:format("~sssh_tcpip_forward_acceptor ~s From: ~s, To: ~s~n", [indent(Indent),print_pid(Pid),
                                                                          format_address(From), format_address(To)]);
