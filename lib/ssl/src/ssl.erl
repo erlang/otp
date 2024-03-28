@@ -1420,11 +1420,7 @@ Options only relevant for TLS-1.3.
   > `stateless_with_cert` the client certificate is encoded in the self-encrypted
   > binary that is sent to the client, increasing the payload size.
 
-  > #### Note {: .info }
-  >
-  > This option is supported by TLS 1.3 and above. See also
-  > [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
-
+  See also [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
 
 - **\{use_ticket, Tickets}**
 
@@ -1560,50 +1556,17 @@ Common options to client and server only valid for DTLS.
 
   > #### Note {: .info }
   >
-  > This extension MUST only be used with DTLS, and not with TLS.
-
-  > #### Note {: .info }
-  >
   > OTP does not handle SRTP, so an external implementations of SRTP
   > encoder/decoder and a packet demultiplexer are needed to make use of the
   > `use_srtp` extension. See also [cb_info](`t:transport_option/0`) option.
-
-  Configures the `use_srtp` DTLS hello extension.
 
   Servers that receive an extended hello containing a "use_srtp" extension can
   agree to use SRTP by including an extension of type "use_srtp", with the chosen
   protection profile in the extended server hello. This extension MUST only be
   used when the data being transported is RTP or RTCP.
-
-  The value is a map with a mandatory `protection_profiles` and an optional `mki`
-  parameters.
-
-  - `protection_profiles` configures the list of the server's chosen SRTP
-    Protection Profile as a list of a single 2-byte binary. Example:
-    `#{protection_profiles => [<<0,5>>]}`
-  - `mki` configures the server's SRTP Master Key Identifier.
-
-  Upon receipt of a "use_srtp" extension containing a "srtp_mki" field, the
-  server MUST either (assuming it accepts the extension at all):
-
-  - include a matching "srtp_mki" value in its "use_srtp" extension to indicate
-    that it will make use of the MKI, or
-  - return an empty "srtp_mki" value to indicate that it cannot make use of the
-    MKI (default).
-
-  > #### Note {: .info }
-  >
-  > This extension MUST only be used with DTLS, and not with TLS.
-
-  > #### Note {: .info }
-  >
-  > OTP does not handle SRTP, so an external implementations of SRTP
-  > encoder/decoder and a packet demultiplexer are needed to make use of the
-  > `use_srtp` extension. See also [cb_info](`t:transport_option/0`) option.
 """.
 -type common_option_dtls()  ::
          {use_srtp, UseSrtp::#{protection_profiles := [binary()], mki => binary()}}.
-
 
 -doc(#{title => <<"Client Options">>}).
 -doc """
@@ -1825,10 +1788,12 @@ Options only relevant for TLS-1.3.
   tries to use them when making new TLS connections (session resumption with
   pre-shared keys).
 
-  > #### Note {: .info }
-  >
-  > This option is supported by TLS 1.3 and above. See also
-  > [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
+  Ticket lifetime, the number of tickets sent by the server and the
+  maximum number of tickets stored by the server in stateful mode are configured
+  by [application variables](ssl_app.md#configuration).
+  
+  See also
+  [SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
 
 
 - **\{stateless_tickets_seed, TicketSeed}** - Option for statless tickets
@@ -1847,11 +1812,6 @@ Options only relevant for TLS-1.3.
   > session ticket freshness checks, potentially causing false negatives as well
   > as false positives.
 
-  > #### Note {: .info }
-  >
-  > This option is supported by TLS 1.3 and above and only with stateless session
-  > tickets.
-
 - **\{anti_replay, AntiReplay}** - Option for statless tickets
 
   Configures the server's built-in anti replay feature based on Bloom filters.
@@ -1869,27 +1829,20 @@ Options only relevant for TLS-1.3.
   - `'100k'`: Bloom filters can hold 100000 elements with 3% probability of false
   positives. `WindowSize`: 10, `HashFunctions`: 5, `Bits`: 729845 (89.09 KiB).
 
-  > #### Note {: .info }
-  >
-  > This option is supported by TLS 1.3 and above and only with stateless session
-  > tickets. Ticket lifetime, the number of tickets sent by the server and the
-  > maximum number of tickets stored by the server in stateful mode are configured
-  > by [application variables](ssl_app.md#configuration). See also
-  > [SSL's Users Guide, Anti-Replay Protection in TLS 1.3](using_ssl.md#anti-replay-protection-in-tls-1-3)
+  See also [SSL's Users Guide, Anti-Replay Protection in TLS
+  1.3](using_ssl.md#anti-replay-protection-in-tls-1-3)
 
 - **\{cookie, Cookie}** - Option for `HelloRetyrRequest` behaviour
 
   If `true` (default), the server sends a cookie extension in its
   HelloRetryRequest messages.
 
-  > #### Note {: .info }
-  >
-  > The cookie extension has two main purposes. It allows the server to force the
-  > client to demonstrate reachability at their apparent network address (thus
-  > providing a measure of DoS protection). This is primarily useful for
-  > non-connection-oriented transports. It also allows to offload the server's
-  > state to the client. The cookie extension is enabled by default as it is a
-  > mandatory extension in RFC8446.
+  The cookie extension has two main purposes. It allows the server to force the
+  client to demonstrate reachability at their apparent network address (thus
+  providing a measure of DoS protection). This is primarily useful for
+  non-connection-oriented transports. It also allows to offload the server's
+  state to the client. The cookie extension is enabled by default as it is a
+  mandatory extension in RFC8446.
 
 - **\{early_data, EarlyData}** - Option for accepting or rejecting Early Data
 
@@ -3328,13 +3281,6 @@ update_keys(_, Type) ->
 -doc """
 Equivalent to
 `export_key_materials(TLSSocket, Labels, Contexts, WantedLengths, true).`
-
-> #### Note {: .info }
->
-> For pre TLS-1.3 connection calling this function as
-> [`export_key_materials(TLSSocket, [Label], [Context], [WantedLength])`](`export_key_materials/4`)
-> is equivalent to legacy function `prf/5` as
-> [`prf(TLSSocket, master_secret, Label, [client_random, server_random, Context], WantedLength)`](`prf/5`).
 """.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 27">>}).
