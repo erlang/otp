@@ -78,7 +78,7 @@ internal_renegotiation(ConnectionPid, #{current_write := WriteState}) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec renegotiation(pid()) -> ok | {error, reason()}.
+-spec renegotiation(pid()) -> ok | {error, ssl:reason()}.
 %%
 %% Description: Starts a renegotiation of the ssl session.
 %%--------------------------------------------------------------------

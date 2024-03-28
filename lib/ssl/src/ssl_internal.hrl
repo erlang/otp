@@ -31,19 +31,6 @@
 
 -define(SECRET_PRINTOUT, "***").
 
--doc(#{title => <<"Types used in TLS/DTLS">>}).
--type reason()            :: any().
--type reply()             :: any().
--type msg()               :: any().
--type from()              :: any().
--type certdb_ref()        :: reference().
--type db_handle()         :: any().
--type der_cert()          :: binary().
--type issuer()            :: tuple().
--type serialnumber()      :: integer().
--type cert_key()          :: {reference(), integer(), issuer()}.
--type secret_printout()   :: list().
-
 %% basic binary constructors
 -define(BOOLEAN(X),  X:8/unsigned-big-integer).
 -define(BYTE(X),     X:8/unsigned-big-integer).
