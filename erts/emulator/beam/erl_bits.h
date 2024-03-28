@@ -544,11 +544,11 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
 
         if (((dst_offset | src_offset | size) & 7) == 0) {
             sys_memcpy(dst_base, src_base, BYTE_SIZE(size));
+        } else {
+            erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
+                           dst_base, BIT_OFFSET(dst_offset), 1,
+                           size);
         }
-
-        erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
-                       dst_base, BIT_OFFSET(dst_offset), 1,
-                       size);
     }
 }
 
