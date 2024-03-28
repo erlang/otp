@@ -102,7 +102,9 @@ private_append_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(private_append, Config).
 
 tuple_inplace_checks(Config) when is_list(Config) ->
-    run_post_ssa_opt(tuple_inplace_checks, Config).
+    run_post_ssa_opt(tuple_inplace_checks, Config),
+    run_post_ssa_opt(tuple_inplace_abort0, Config),
+    run_post_ssa_opt(tuple_inplace_abort1, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).
