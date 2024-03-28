@@ -2440,7 +2440,18 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
       Length :: non_neg_integer(),
       Data :: binary() | list() | HttpPacket,
       HttpPacket :: any().
+%%--------------------------------------------------------------------
+recv(Socket, Length) ->
+    recv(Socket, Length, infinity).
 
+%%--------------------------------------------------------------------
+-doc(#{title => <<"Client and Server Functions">>}).
+-spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Length :: non_neg_integer(),
+      Data :: binary() | list() | HttpPacket,
+      Timeout :: timeout(),
+      HttpPacket :: any().
 -doc """
 Receives a packet from a socket in passive mode.
 
@@ -2454,18 +2465,6 @@ bytes of data when the socket gets closed from the other side.
 Optional argument `Timeout` specifies a time-out in milliseconds. The default
 value is `infinity`.
 """.
-%%--------------------------------------------------------------------
-recv(Socket, Length) ->
-    recv(Socket, Length, infinity).
-
-%%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
--spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
-      SslSocket :: sslsocket(),
-      Length :: non_neg_integer(),
-      Data :: binary() | list() | HttpPacket,
-      Timeout :: timeout(),
-      HttpPacket :: any().
 
 recv(#sslsocket{pid = [Pid|_]}, Length, Timeout)
   when is_pid(Pid), (is_integer(Length) andalso Length >= 0), ?IS_TIMEOUT(Timeout) ->
