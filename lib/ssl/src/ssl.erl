@@ -569,7 +569,7 @@ with some further details will be returned.
 
 -doc(#{title => <<"Socket">>}).
 -doc """
-  TLS protocol alert.
+  TLS Alert Protocol reasons.
 """.
 -type tls_alert()             :: close_notify | 
                                  unexpected_message | 
@@ -2028,6 +2028,8 @@ connect(Socket, SslOptions)
 
 -doc """
 
+Opens a TLS/DTLS connection.
+
 ```erlang
 connect(TCPSocket, TLSOptions, Timeout).
 ```
@@ -2040,7 +2042,6 @@ connect(Host, Port, TLSOptions).
 ```
 
 Opens a TLS/DTLS connection and is eqvialent to
-
 
 ```erlang
 connect(Host, Port, TLSOptions, infinity).
@@ -2168,10 +2169,11 @@ transport_accept(ListenSocket) ->
 
 -doc(#{title => <<"Server Functions">>}).
 -doc """
-Accepts an incoming connection request on a listen socket. `ListenSocket` must
-be a socket returned from `listen/2`. The socket returned is to be passed to
-[handshake/1,2,3](`handshake/2`) to complete handshaking, that is, establishing
-the TLS/DTLS connection.
+Accepts an incoming connection request on a listen socket.
+
+`ListenSocket` must be a socket returned from `listen/2`. The socket
+returned is to be passed to [handshake/1,2,3](`handshake/2`) to
+complete handshaking, that is, establishing the TLS/DTLS connection.
 
 > #### Warning {: .warning }
 >
@@ -2215,7 +2217,7 @@ Performs the TLS/DTLS server-side handshake.
 ```erlang
 hanshake(HsSocket).
 ```
-Is eqvialent to
+Is eqvialent to:
 
 ```erlang
 handshake(HsSocket, infinity).
@@ -2237,17 +2239,17 @@ Performs the TLS/DTLS server-side handshake.
 ```erlang
 hanshake(HsSocket, Timeout).
 ```
-Is eqvialent to
+Is eqvialent to:
 
 ```erlang
 handshake(HsSocket, [], Timeout).
 ```
-and
+and,
 
 ```erlang
 hanshake(HsSocket, Options).
 ```
-is eqvialent to.
+is eqvialent to:
 
 ```erlang
 handshake(HsSocket, Options, infinity).
@@ -2371,9 +2373,6 @@ handshake(Socket, SslOptions, Timeout)
       Options :: [tls_client_option() | tls_server_option()],
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().
-%%
-%%
-%% Description: Continues the handshake possible with newly supplied options.
 %%--------------------------------------------------------------------
 handshake_continue(Socket, SSLOptions) ->
     handshake_continue(Socket, SSLOptions, infinity).
@@ -2389,9 +2388,6 @@ handshake_continue(Socket, SSLOptions) ->
       Timeout :: timeout(),
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().
-%%
-%%
-%% Description: Continues the handshake possible with newly supplied options.
 %%--------------------------------------------------------------------
 handshake_continue(Socket, SSLOptions, Timeout)
   when is_list(SSLOptions), ?IS_TIMEOUT(Timeout) ->
@@ -2402,8 +2398,6 @@ handshake_continue(Socket, SSLOptions, Timeout)
 -doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
-%%
-%% Description: Cancels the handshakes sending a close alert.
 %%--------------------------------------------------------------------
 handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
@@ -2424,10 +2418,12 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
 
 %%--------------------------------------------------------------------
 -doc """
-Closes or downgrades a TLS connection. In the latter case the transport
-connection will be handed over to the `NewController` process after receiving
-the TLS close alert from the peer. The returned transport socket will have the
-following options set: `[{active, false}, {packet, 0}, {mode, binary}]`.
+Closes or downgrades a TLS connection.
+
+In the latter case the transport connection will be handed over to the
+`NewController` process after receiving the TLS close alert from the
+peer. The returned transport socket will have the following options
+set: `[{active, false}, {packet, 0}, {mode, binary}]`.
 
 In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
@@ -2440,8 +2436,7 @@ connection.
       How :: timeout() | {NewController::pid(), timeout()},
       Data :: binary(),
       Reason :: any().
-%%
-%% Description: Close an ssl connection
+
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = [TLSPid|_]}, {Pid, Timeout} = DownGrade)
   when is_pid(TLSPid), is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
@@ -2505,14 +2500,14 @@ recv(Socket, Length) ->
       Timeout :: timeout(),
       HttpPacket :: any().
 -doc """
-Receives a packet from a socket in passive mode. A closed socket is indicated by
-return value `{error, closed}`.
+Receives a packet from a socket in passive mode.
 
-Argument `Length` is meaningful only when the socket is in mode `raw` and
-denotes the number of bytes to read. If `Length` = 0, all available bytes are
-returned. If `Length` > 0, exactly `Length` bytes are returned, or an error;
-possibly discarding less than `Length` bytes of data when the socket gets closed
-from the other side.
+A closed socket is indicated by return value `{error, closed}`.
+Argument `Length` is meaningful only when the socket is in mode `raw`
+and denotes the number of bytes to read. If `Length` = 0, all
+available bytes are returned. If `Length` > 0, exactly `Length` bytes
+are returned, or an error; possibly discarding less than `Length`
+bytes of data when the socket gets closed from the other side.
 
 Optional argument `Timeout` specifies a time-out in milliseconds. The default
 value is `infinity`.
@@ -2531,8 +2526,10 @@ recv(#sslsocket{pid = {Listen,
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Client and Server Functions">>}).
 -doc """
-Assigns a new controlling process to the SSL socket. A controlling process is
-the owner of an SSL socket, and receives all messages from the socket.
+Assigns a new controlling process to the SSL socket.
+
+A controlling process is the owner of an SSL socket, and receives all
+messages from the socket.
 """.
 -spec controlling_process(SslSocket, NewOwner) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2558,10 +2555,11 @@ controlling_process(#sslsocket{pid = {Listen,
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Info Functions">>}).
 -doc """
-Returns the most relevant information about the connection, ssl options that are
-undefined will be filtered out. Note that values that affect the security of the
-connection will only be returned if explicitly requested by
-connection_information/2.
+Returns the most relevant information about the connection.
+
+Some items that are undefined will be filtered out. Note that values
+that affect the security of the connection will only be returned if
+explicitly requested by connection_information/2.
 
 > #### Note {: .info }
 >
@@ -2645,7 +2643,9 @@ peername(#sslsocket{pid = {dtls,_}}) ->
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Info Functions">>}).
 -doc """
-The peer certificate is returned as a DER-encoded binary. The certificate can be
+The peer certificate is returned as a DER-encoded binary.
+
+ The certificate can be
 decoded with `public_key:pkix_decode_cert/2` Suggested further reading about
 certificates is [public_key User's Guide](`e:public_key:public_key_records.md`)
 and [ssl User's Guide](standards_compliance.md)
@@ -2688,7 +2688,9 @@ negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
        since => <<"OTP 20.3">>}).
 -doc """
 Lists all possible cipher suites corresponding to `Description` that are
-available. The `exclusive` and `exclusive_anonymous` option will exclusively
+available.
+
+The `exclusive` and `exclusive_anonymous` option will exclusively
 list cipher suites first supported in `Version` whereas the other options are
 inclusive from the lowest possible version to `Version`. The `all` options
 includes all suites except the anonymous and no anonymous suites are supported
@@ -2751,14 +2753,16 @@ cipher_suites(Description, Version, StringType)  when Version == 'dtlsv1.2';
 
 -doc """
 Removes cipher suites if any of the filter functions returns false for any part
-of the cipher suite. If no filter function is supplied for some part the default
-behaviour regards it as if there was a filter function that returned true. For
-examples see
-[Customizing cipher suites ](using_ssl.md#customizing-cipher-suites)Additionally,
-this function also filters the cipher suites to exclude cipher suites not
-supported by the cryptolib used by the OTP crypto application. That is calling
-ssl:filter_cipher_suites(Suites, []) will be equivalent to only applying the
-filters for cryptolib support.
+of the cipher suite.
+
+If no filter function is supplied for some part the default behaviour
+regards it as if there was a filter function that returned true. For
+examples see [Customizing cipher suites
+](using_ssl.md#customizing-cipher-suites)Additionally, this function
+also filters the cipher suites to exclude cipher suites not supported
+by the cryptolib used by the OTP crypto application. That is calling
+ssl:filter_cipher_suites(Suites, []) will be equivalent to only
+applying the filters for cryptolib support.
 """.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
@@ -2784,10 +2788,12 @@ filter_cipher_suites(Suites, Filters0) ->
     ssl_cipher:filter_suites(Suites, Filters).
 %%--------------------------------------------------------------------
 -doc """
-Make `Preferred` suites become the most preferred suites that is put them at the
-head of the cipher suite list `Suites` after removing them from `Suites` if
-present. `Preferred` may be a list of cipher suites or a list of filters in
-which case the filters are use on `Suites` to extract the preferred cipher list.
+Make `Preferred` suites become the most preferred suites.
+
+That is put them at the head of the cipher suite list `Suites` after
+removing them from `Suites` if present. `Preferred` may be a list of
+cipher suites or a list of filters in which case the filters are use
+on `Suites` to extract the preferred cipher list.
 """.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
@@ -2810,11 +2816,14 @@ prepend_cipher_suites(Filters, Suites) ->
     Preferred ++ (Suites -- Preferred).
 %%--------------------------------------------------------------------
 -doc """
-Make `Deferred` suites become the least preferred suites, that is put them at
-the end of the cipher suite list `Suites` after removing them from `Suites` if
-present. `Deferred` may be a list of cipher suites or a list of filters in which
-case the filters are use on `Suites` to extract the Deferred cipher list.
+Make `Deferred` suites become the least preferred suites.
+
+That is put them at the end of the cipher suite list `Suites` after
+removing them from `Suites` if present. `Deferred` may be a list of
+cipher suites or a list of filters in which case the filters are use
+on `Suites` to extract the Deferred cipher list.
 """.
+
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
 -spec append_cipher_suites(Deferred, Suites) -> ciphers() when
@@ -2836,7 +2845,9 @@ append_cipher_suites(Filters, Suites) ->
 %%--------------------------------------------------------------------
 -doc """
 Lists all possible signature algorithms corresponding to `Description` that are
-available. The `exclusive` option will exclusively list algorithms or algorithm schemes for
+available.
+
+The `exclusive` option will exclusively list algorithms or algorithm schemes for
 that protocol version, whereas the `default` and `all` options lists the
 combined list to support the range of protocols from (D)TLS-1.2, the first
 version to support configuration of the signature algorithms, to `Version`.
@@ -3244,10 +3255,11 @@ versions() ->
       SslSocket :: sslsocket().
 
 -doc """
-Initiates a new handshake. A notable return value is
-`{error, renegotiation_rejected}` indicating that the peer refused to go through
-with the renegotiation, but the connection is still active using the previously
-negotiated session.
+Initiates a new handshake.
+
+A notable return value is `{error, renegotiation_rejected}` indicating
+that the peer refused to go through with the renegotiation, but the
+connection is still active using the previously negotiated session.
 
 TLS-1.3 has removed the renegotiate feature of earlier TLS versions and instead
 adds a new feature called key update that replaces the most important part of
@@ -3278,6 +3290,8 @@ renegotiate(#sslsocket{pid = {_Listen, #config{}}}) ->
 
 %%---------------------------------------------------------------
 -doc """
+Create new session keys.
+
 There are cryptographic limits on the amount of plaintext which can be safely
 encrypted under a given set of keys. If the amount of data surpasses those
 limits, a key update is triggered and a new set of keys are installed. See also
@@ -3350,8 +3364,9 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
       ExportKeyMaterials :: [binary()].
 -doc """
 Uses the Pseudo-Random Function, PRF (pre TLS-1.3) or HKDF (TLS-1.3), for a TLS
-connection to generate and export keying materials. In TLS-1.3 using
-`no_context` is equivalent to specifying an empty context, that is an empty
+connection to generate and export keying materials.
+
+In TLS-1.3 using `no_context` is equivalent to specifying an empty context, that is an empty
 binary, pre TLS-1.3 these will render different results. The last argument is
 relevant only in TLS-1.3 and it causes the TLS-1.3 exporter_master_secret to be
 consumed that is it will no longer be available, to increase security, and
@@ -3376,7 +3391,9 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
 %%
 -doc """
 Uses the Pseudo-Random Function (PRF) of a TLS session to generate extra key
-material. It either takes user-generated values for `Secret` and `Seed` or atoms
+material.
+
+It either takes user-generated values for `Secret` and `Seed` or atoms
 directing it to use a specific value from the session security parameters.
 
 > #### Note {: .info }
@@ -3420,6 +3437,8 @@ prf(Socket, Secret, Label, Context, WantedLength) ->
        since => <<"OTP 17.5">>}).
 -spec clear_pem_cache() -> ok.
 -doc """
+Clears the PEM cache.
+
 PEM files, used by ssl API-functions, are cached for performance reasons. The
 cache is automatically checked at regular intervals to see if any cache entries
 should be invalidated.
@@ -3482,9 +3501,10 @@ suite_to_openssl_str(Cipher) ->
 -spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
       CipherSuiteName :: string().
 -doc """
-Converts an RFC or OpenSSL name string to an `t:erl_cipher_suite/0` Returns an
-error if the cipher suite is not supported or the name is not a valid cipher
-suite name.
+Converts an RFC or OpenSSL name string to an `t:erl_cipher_suite/0`
+
+Returns an error if the cipher suite is not supported or the name is
+not a valid cipher suite name.
 """.
 %%--------------------------------------------------------------------
 str_to_suite(CipherSuiteName) ->
