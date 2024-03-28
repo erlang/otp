@@ -2377,8 +2377,12 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
                       offset,
                       size);
 
+    /* Note that the overhead must be the actual allocated size of the off-heap
+     * `Binary`, not the apparent size of the binary, in order for virtual heap
+     * sizes to be accounted correctly. */
+    *overhead += bin->orig_size / sizeof(Eterm);
+
     *oh = (struct erl_off_heap_header*)br;
-    *overhead += size / NBITS(sizeof(Eterm));
     *hpp += ERL_REFC_BITS_SIZE;
 
     return make_bitstring(sb);
