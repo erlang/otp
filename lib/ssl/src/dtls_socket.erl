@@ -35,7 +35,7 @@
          sockname/2,
          port/2,
          close/2,
-         close/1
+         close_listen/2
         ]).
 
 -export([emulated_options/0,
@@ -94,17 +94,29 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 	    Error
     end.
 
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
-                                      inet_ssl = SockOpts}}}) ->
+close_listen(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port0},
+                                             inet_ssl = SockOpts}}}, Timeout) ->
     IP = proplists:get_value(ip, SockOpts, default_ip(SockOpts)),
     Port = get_real_port(Pid, Port0),
     dtls_listener_sup:register_listener({undefined, Pid}, IP, Port),
-    dtls_packet_demux:close(Pid).
+    case dtls_packet_demux:close(Pid) of
+        stop ->
+            erlang:monitor(process, Pid),
+            receive {'DOWN', _, process, Pid, _} ->
+                    ok
+            after Timeout ->
+                    {error, timeout}
+            end;
+        waiting ->
+            ok;
+        Error ->
+            Error
+    end.
 
 default_ip(SockOpts) ->
     case proplists:get_value(inet6, SockOpts, false) of
-                false -> {0,0,0,0};
-                true  -> {0,0,0,0, 0,0,0,0}
+        false -> {0,0,0,0};
+        true  -> {0,0,0,0, 0,0,0,0}
     end.
 
 close(gen_udp, {_Client, _Socket}) ->

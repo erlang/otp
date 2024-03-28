@@ -417,7 +417,9 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
                 {next_state, StateName, State} ->
                     ssl_gen_statem:hibernate_after(StateName, State, []);
                 {next_state, StateName, State, Actions} ->
-                    ssl_gen_statem:hibernate_after(StateName, State, Actions)
+                    ssl_gen_statem:hibernate_after(StateName, State, Actions);
+                {stop, _, _} = Stop ->
+                    Stop
             end
     end;
 %%% DTLS record protocol level handshake messages 
@@ -531,7 +533,9 @@ handle_state_timeout(flight_retransmission_timeout, StateName,
             {repeat_state, State#state{protocol_specific = PS}, Actions};
         {next_state, StateName, #state{protocol_specific = PS0} = State} ->
             PS = PS0#{flight_state => {retransmit, new_timeout(CurrentTimeout)}},
-            {repeat_state, State#state{protocol_specific = PS}}
+            {repeat_state, State#state{protocol_specific = PS}};
+        {stop, _, _} = Stop ->
+            Stop
     end.
 
 send_handshake(Handshake, #state{connection_states = ConnectionStates} = State) ->
