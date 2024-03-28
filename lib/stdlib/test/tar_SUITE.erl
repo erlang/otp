@@ -29,7 +29,7 @@
 	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
-         incompatible_options/1]).
+         incompatible_options/1, table_absolute_names/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -44,7 +44,7 @@ all() ->
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
-     apply_file_info_opts,incompatible_options].
+     apply_file_info_opts,incompatible_options, table_absolute_names].
 
 groups() -> 
     [].
@@ -1048,6 +1048,23 @@ apply_file_info_opts(Config) when is_list(Config) ->
         file:read_file_info("extracted/memory_file", [{time, posix}]),
 
     ok.
+
+table_absolute_names(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    TestFileName1 = string:join(lists:duplicate(99, "a"), ""),
+    TestFileName2 = string:join(lists:duplicate(10, "a"), ""),
+    [ok = file:write_file(TestFileName, "hello, world\n")
+     || TestFileName <- [TestFileName1, TestFileName2]],
+    %% File paths greater than 100 bytes will be split and stored
+    %% as a filename and prefix.
+    TarTestFileName1 = filename:join("/tmp", TestFileName1),
+    %% File paths less than 100 bytes bytes will not use the prefix field
+    TarTestFileName2 = filename:join("/tmp", TestFileName2),
+    TarName = "my_tar_with_long_names.tar",
+    ok = erl_tar:create(TarName, [{TarTestFileName1, TestFileName1},
+                                  {TarTestFileName2, TestFileName2}]),
+    {ok, TarFiles} = erl_tar:table(TarName),
+    [TarTestFileName2, TarTestFileName1] = lists:sort(TarFiles).
 
 %% Delete the given list of files.
 delete_files([]) -> ok;
