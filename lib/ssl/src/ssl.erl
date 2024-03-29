@@ -1620,14 +1620,6 @@ Options specific to the server side, or with diffrent semantics for the client a
   The negotiated protocol can be retrieved using the
   [`negotiated_protocol/1`](`negotiated_protocol/1`) function.
 
-- **\{next_protocols_advertised, NextAppProtocols}**
-
-  List of protocols to send to the client if the client indicates that it supports
-  the Next Protocol extension. The client can select a protocol that is not on
-  this list. The list of protocols must not contain an empty binary. If the server
-  negotiates a Next Protocol, it can be accessed using the
-  `negotiated_next_protocol/1` method.
-
 - **\{sni_hosts, SNIHosts}**
 
   If the server receives a SNI (Server Name Indication) from the client, the given
@@ -1651,7 +1643,6 @@ Options specific to the server side, or with diffrent semantics for the client a
         server_option_cert() |
         common_option_cert() |
         {alpn_preferred_protocols,  AppProtocols::[binary()]}|
-        {next_protocols_advertised, NextAppProtocols::[binary()]} |
         {sni_hosts, SNIHosts::[{inet:hostname(), [server_option() | common_option()]}]} |
         {sni_fun, SNIFun:: fun((string()) -> [])} |
         server_option_pre_tls13() |
@@ -1659,6 +1650,7 @@ Options specific to the server side, or with diffrent semantics for the client a
         server_option_tls13() |
         common_option_tls13() |
         common_option_dtls() |
+        server_option_legacy() |
         common_option_legacy().
 
 -doc """
@@ -1858,6 +1850,26 @@ Options only relevant for TLS-1.3.
                                  BloomFilterBits::pos_integer()}} |
                                {cookie, Cookie::boolean()} |
                                {early_data, EarlyData::enabled | disabled}.
+
+-doc(#{title => <<"Server Options">>}).
+-doc """
+Legacy server options.
+
+- **\{next_protocols_advertised, NextAppProtocols}**
+
+  ALPN (Application-Layer Protocol Negotiation)
+  deprecats NPN (Next Protocol Negotiation) described here.
+
+  List of protocols to send to the client if the client indicates that it supports
+  the Next Protocol extension. The client can select a protocol that is not on
+  this list. The list of protocols must not contain an empty binary. If the server
+  negotiates a Next Protocol, it can be accessed using the
+  `negotiated_next_protocol/1` method.
+
+""".
+-type server_option_legacy() ::
+        {next_protocols_advertised, NextAppProtocols::[binary()]}.
+
 
 %% -------------------------------------------------------------------------------------------------------
 -doc(#{title => <<"Deprecated">>}).
