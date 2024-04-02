@@ -53,7 +53,7 @@ or be specified at the command line:
 % erl -heart -env HEART_BEAT_TIMEOUT 30 ...
 ```
 
-The value (in seconds) must be in the range 10 < X <= 65535.
+The value (in seconds) must be in the range `10 < X <= 65535`.
 
 When running on OSs lacking support for monotonic time, `heart` is susceptible
 to system clock adjustments of more than `HEART_BEAT_TIMEOUT` seconds. When this
