@@ -303,8 +303,9 @@ relop(Config) when is_list(Config) ->
     Bin = <<"abc">>,
     BitString = <<0:7>>,
     Map = #{a => b},
+    EmptyMap = #{},
     Vs0 = [a,b,-33,-33.0,0,0.0,-0,0,42,42.0,Big1,Big2,F1,F2,
-           Bin,BitString,Map,[16#1234_5678_abcd]],
+           Bin,BitString,Map,EmptyMap,[16#1234_5678_abcd]],
     Vs = [unvalue(V) || V <- Vs0],
     Ops = ['==', '/=', '=:=', '=/=', '<', '=<', '>', '>='],
     binop(Ops, Vs).
@@ -877,6 +878,19 @@ combined_relops(_Config) ->
     true = code:delete(Mod),
     _ = code:purge(Mod),
 
+    LargeMap = #{K => K || K <- lists:seq(1, 64)},
+    Ref = make_ref(),
+    [{}] = empty_map_or_nil(id({})),
+    [{a,b}] = empty_map_or_nil(id({a,b})),
+    [#{a := b}] = empty_map_or_nil(id(#{a => b})),
+    [LargeMap] = empty_map_or_nil(id(LargeMap)),
+    [Ref] = empty_map_or_nil(id(Ref)),
+    [[a,b,c]] = empty_map_or_nil(id([a,b,c])),
+    [a] = empty_map_or_nil(id(a)),
+    [42] = empty_map_or_nil(id(42)),
+    [] = empty_map_or_nil(id(#{})),
+    [] = empty_map_or_nil(id([])),
+
     ok.
 
 test_tok_char(C) ->
@@ -947,6 +961,13 @@ ge_ge_int_range_4((-1 bsl 59) + 10) ->
     a;
 ge_ge_int_range_4(_) ->
     b.
+
+%% GH-8325. An inverted test with an empty map would fail for
+%% non-boxed terms.
+empty_map_or_nil(V) when V =:= #{}; V =:= [] ->
+    [];
+empty_map_or_nil(V) ->
+    [V].
 
 %% Tests operators where type hints are significant.
 typed_relop(Config) when is_list(Config) ->

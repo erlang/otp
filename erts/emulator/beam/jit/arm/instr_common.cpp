@@ -1945,13 +1945,17 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
 
             return;
         } else if (is_map(literal) && erts_map_size(literal) == 0) {
+            Label next = a.newLabel();
+
             comment("optimized non-equality test with empty map", literal);
-            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), X, x.reg);
+            emit_is_boxed(next, X, x.reg);
             emit_untag_ptr(ARG1, x.reg);
             a.ldp(TMP1, TMP2, arm::Mem(ARG1));
             cmp(TMP1, MAP_HEADER_FLATMAP);
             a.ccmp(TMP2, imm(0), imm(NZCV::kNone), imm(arm::CondCode::kEQ));
             a.b_eq(resolve_beam_label(Fail, disp1MB));
+
+            a.bind(next);
 
             return;
         }
