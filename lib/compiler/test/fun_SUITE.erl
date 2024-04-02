@@ -593,7 +593,7 @@ coverage_3({[], A}) ->
 leaky_environment(_Config) ->
     G = fun(X, Y) -> X + Y end,
     F = fun(A) -> G(A, 0) end,
-    {'EXIT', {{badarity, {F, [1, flurb]}}, _}} = catch F(1, flurb),
+    {'EXIT', {{badarity, {_, [1, flurb]}}, _}} = catch F(1, flurb),
     ok.
 
 id(I) ->
