@@ -1289,6 +1289,8 @@ read_cpu_quota(int limit)
             free((void*)cgroup_path);
             return calculate_cpu_quota(limit, cfs_quota_us, cfs_period_us);
         }
+
+        free((void*)cgroup_path);
         break;
     default:
         break;
