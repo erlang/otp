@@ -46,42 +46,6 @@ It is recommend to quote all uses of the atom `maybe` as soon as possible. The
 compiler option `warn_keywords` can be used to emit warnings about all
 occurrences of `maybe` without quotes.
 
-[](){: #new_re_engine }
-
-### The re module will use a different regular expression engine
-
-The functionality of module `m:re` is currently provided by the PCRE library,
-which is no longer actively maintained. Therefore, in OTP 27, we will switch to
-a different regular expression library.
-
-The source code for PCRE used by the `re` module has been modified by the OTP
-team to ensure that a regular expression match would yield when matching huge
-input binaries and/or when using demanding (back-tracking) regular expressions.
-Because of the those modifications, moving to a new version of PCRE has always
-been a time-consuming process because all of the modifications had to be applied
-by hand again to the updated PCRE source code.
-
-Most likely, the new regular expression library will be
-[RE2](https://github.com/google/re2). RE2 guarantees that the match time is
-linear in the length of input string, and it also eschews recursion to avoid
-stack overflow. That should make it possible to use RE2 without modifying its
-source code. For more information about why RE2 is a good choice, see
-[WhyRE2](https://github.com/google/re2/wiki/WhyRE2).
-
-Some of implications of this change are:
-
-- We expect that the functions in the `re` module will continue to be supported,
-  although some of the options are likely to be dis-continued.
-- It is likely that only pattern matching of UTF8-encoded binaries will be
-  supported (not Latin1-encoded binaries).
-- In order to guarantee the linear-time performance, RE2 does not support all
-  the constructs in regular expression patterns that PCRE do. For example,
-  backreferences and look-around assertions are not supported. See
-  [Syntax](https://github.com/google/re2/wiki/Syntax) for a description of what
-  RE2 supports.
-- Compiling a regular expression is likely to be slower, and thus more can be
-  gained by explicitly compiling the regular expression before matching with it.
-
 [](){: #float_matching }
 
 ### 0\.0 and -0.0 will no longer be exactly equal
@@ -234,6 +198,42 @@ spaces between the empty strings, or removing the redundant ones alltogether,
 which will have the same meaning before and after Erlang/OTP 27.
 
 ## OTP 28
+
+[](){: #new_re_engine }
+
+### The re module will use a different regular expression engine
+
+The functionality of module `m:re` is currently provided by the PCRE library,
+which is no longer actively maintained. Therefore, in OTP 27, we will switch to
+a different regular expression library.
+
+The source code for PCRE used by the `re` module has been modified by the OTP
+team to ensure that a regular expression match would yield when matching huge
+input binaries and/or when using demanding (back-tracking) regular expressions.
+Because of the those modifications, moving to a new version of PCRE has always
+been a time-consuming process because all of the modifications had to be applied
+by hand again to the updated PCRE source code.
+
+Most likely, the new regular expression library will be
+[RE2](https://github.com/google/re2). RE2 guarantees that the match time is
+linear in the length of input string, and it also eschews recursion to avoid
+stack overflow. That should make it possible to use RE2 without modifying its
+source code. For more information about why RE2 is a good choice, see
+[WhyRE2](https://github.com/google/re2/wiki/WhyRE2).
+
+Some of implications of this change are:
+
+- We expect that the functions in the `re` module will continue to be supported,
+  although some of the options are likely to be dis-continued.
+- It is likely that only pattern matching of UTF8-encoded binaries will be
+  supported (not Latin1-encoded binaries).
+- In order to guarantee the linear-time performance, RE2 does not support all
+  the constructs in regular expression patterns that PCRE do. For example,
+  backreferences and look-around assertions are not supported. See
+  [Syntax](https://github.com/google/re2/wiki/Syntax) for a description of what
+  RE2 supports.
+- Compiling a regular expression is likely to be slower, and thus more can be
+  gained by explicitly compiling the regular expression before matching with it.
 
 [](){: #fun_creator_pid }
 
