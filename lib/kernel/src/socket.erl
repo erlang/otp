@@ -2387,9 +2387,9 @@ monitor(?socket(SockRef) = Socket) when is_reference(SockRef) ->
         ok ->
             socket_registry:monitor(Socket);
         {error, closed = SReason} ->
-            MRef = make_ref(),
-            self() ! {'DOWN', MRef, socket, Socket, SReason},
-	    MRef
+            MonitorRef = make_ref(),
+            self() ! {'DOWN', MonitorRef, socket, Socket, SReason},
+	    MonitorRef
     end;
 monitor(Socket) ->
     erlang:error(badarg, [Socket]).
@@ -2738,7 +2738,7 @@ open(FD, Opts) when is_map(Opts) ->
             erlang:error(badarg, [FD, Opts])
     end;
 open(Domain, Type) ->
-    open(Domain, Type, 0).
+    open(Domain, Type, 0, #{}).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -3670,8 +3670,12 @@ With argument `Cont`; equivalent to
 -spec sendto(Socket :: term(), Data :: term(), Cont :: select_info()) -> _;
             (Socket :: term(), Data :: term(), Dest :: term()) -> _.
 
-sendto(Socket, Data, Dest_Cont) ->
-    sendto(Socket, Data, Dest_Cont, ?ESOCK_SENDTO_FLAGS_DEFAULT).
+sendto(Socket, Data, ?SELECT_INFO(_, _) = Cont) ->
+    sendto(Socket, Data, Cont, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
+sendto(Socket, Data, Dest) ->
+    sendto(
+      Socket, Data, Dest,
+      ?ESOCK_SENDTO_FLAGS_DEFAULT, ?ESOCK_SENDTO_TIMEOUT_DEFAULT).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -3928,10 +3932,11 @@ With arguments `Data` and `Cont`; equivalent to
              -> _;
              (Socket :: term(), Msg :: term(), Timeout :: term())
              -> _.
-sendmsg(Socket, Data, Flags_Cont)
-  when is_list(Flags_Cont);
-       is_tuple(Flags_Cont) ->
-    sendmsg(Socket, Data, Flags_Cont, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
+
+sendmsg(Socket, Msg, Flags) when is_list(Flags) ->
+    sendmsg(Socket, Msg, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
+sendmsg(Socket, Data, Cont) when is_tuple(Cont) ->
+    sendmsg(Socket, Data, Cont, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
 sendmsg(Socket, Msg, Timeout) ->
     sendmsg(Socket, Msg, ?ESOCK_SENDMSG_FLAGS_DEFAULT, Timeout).
 
@@ -4518,9 +4523,11 @@ With argument `Flags`; equivalent to
 
 recv(Socket, Flags) when is_list(Flags) ->
     recv(Socket, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recv(Socket, Length) when is_integer(Length) andalso (Length >= 0) ->
+recv(Socket, Length) when is_integer(Length), 0 =< Length ->
     recv(Socket, Length,
-         ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
+         ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT);
+recv(Socket, Length) ->
+    error(badarg, [Socket, Length]).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -4545,12 +4552,12 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
           (Socket :: term(), Length :: term(), TimeoutOrHandle :: term())
           -> _.
 
-recv(Socket, Flags, Timeout) when is_list(Flags) ->
-    recv(Socket, 0, Flags, Timeout);
+recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
+    recv(Socket, 0, Flags, TimeoutOrHandle);
 recv(Socket, Length, Flags) when is_list(Flags) ->
     recv(Socket, Length, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recv(Socket, Length, Timeout) ->
-    recv(Socket, Length, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
+recv(Socket, Length, TimeoutOrHandle) ->
+    recv(Socket, Length, ?ESOCK_RECV_FLAGS_DEFAULT, TimeoutOrHandle).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -4911,7 +4918,8 @@ recv_error(Buf, Reason) when is_list(Buf) ->
 -spec recvfrom(Socket :: term()) -> _.
 
 recvfrom(Socket) ->
-    recvfrom(Socket, 0).
+    recvfrom(
+      Socket, 0, ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -4928,10 +4936,12 @@ With argument `Flags`; equivalent to
 
 recvfrom(Socket, Flags) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recvfrom(Socket, BufSz) ->
+recvfrom(Socket, BufSz) when is_integer(BufSz), 0 =< BufSz ->
     recvfrom(Socket, BufSz,
              ?ESOCK_RECV_FLAGS_DEFAULT,
-             ?ESOCK_RECV_TIMEOUT_DEFAULT).
+             ?ESOCK_RECV_TIMEOUT_DEFAULT);
+recvfrom(Socket, BufSz) ->
+    erlang:error(badarg, [Socket, BufSz]).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -4959,12 +4969,12 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
                TimeoutOrHandle :: term())
               -> _.
 
-recvfrom(Socket, Flags, Timeout) when is_list(Flags) ->
-    recvfrom(Socket, 0, Flags, Timeout);
+recvfrom(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
+    recvfrom(Socket, 0, Flags, TimeoutOrHandle);
 recvfrom(Socket, BufSz, Flags) when is_list(Flags) ->
     recvfrom(Socket, BufSz, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recvfrom(Socket, BufSz, Timeout) ->
-    recvfrom(Socket, BufSz, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
+recvfrom(Socket, BufSz, TimeoutOrHandle) ->
+    recvfrom(Socket, BufSz, ?ESOCK_RECV_FLAGS_DEFAULT, TimeoutOrHandle).
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -5166,8 +5176,8 @@ With argument `TimeoutOrHandle`; equivalent to
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
-recvmsg(Socket, Timeout) ->
-    recvmsg(Socket, 0, 0, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
+recvmsg(Socket, TimeoutOrHandle) ->
+    recvmsg(Socket, 0, 0, ?ESOCK_RECV_FLAGS_DEFAULT, TimeoutOrHandle).
 
 
 -doc(#{since => <<"OTP 22.0">>}).
@@ -5189,12 +5199,13 @@ With argument `TimeoutOrHandle`; equivalent to
              (Socket :: term(), BufSz :: integer(), CtrlSz :: integer())
              -> _.
 
-recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
-    recvmsg(Socket, 0, 0, Flags, Timeout);
+recvmsg(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
+    recvmsg(Socket, 0, 0, Flags, TimeoutOrHandle);
 recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
     recvmsg(Socket, BufSz, CtrlSz,
-            ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
-
+            ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT);
+recvmsg(Socket, BufSz, CtrlSz) ->
+    error(badarg, [Socket, BufSz, CtrlSz]).
 
 -doc(#{since => <<"OTP 24.0">>}).
 -doc """
@@ -5206,8 +5217,9 @@ Equivalent to
         TimeoutOrHandle :: term())
              -> _.
 
-recvmsg(Socket, BufSz, CtrlSz, Timeout) ->
-    recvmsg(Socket, BufSz, CtrlSz, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
+recvmsg(Socket, BufSz, CtrlSz, TimeoutOrHandle) ->
+    recvmsg(
+      Socket, BufSz, CtrlSz, ?ESOCK_RECV_FLAGS_DEFAULT, TimeoutOrHandle).
 
 
 -doc(#{since => <<"OTP 22.0">>}).
@@ -5542,9 +5554,9 @@ difference between known options and native options clear.
 """.
 -spec setopt(socket(), Level :: term(), Opt :: term(), Value :: term()) -> _.
 
-setopt(Socket, Level, Opt, Value)
-  when is_integer(Opt), is_binary(Value) ->
-    setopt_native(Socket, {Level,Opt}, Value);
+setopt(Socket, Level, NativeOpt, Value)
+  when is_integer(NativeOpt), is_binary(Value) ->
+    setopt_native(Socket, {Level,NativeOpt}, Value);
 setopt(Socket, Level, Opt, Value) ->
     setopt(Socket, {Level,Opt}, Value).
 
