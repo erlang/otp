@@ -86,7 +86,7 @@ static int days_in_month[2][13] = {
 struct sys_time_internal_state_read_only__ {
     ULONGLONG (WINAPI *pGetTickCount64)(void);
     BOOL (WINAPI *pQueryPerformanceCounter)(LARGE_INTEGER *);
-    Sint32 pcf;
+    Uint32 pcf;
     int using_get_tick_count_time_unit;
 };
 
@@ -170,15 +170,9 @@ os_times_qpc(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
     LARGE_INTEGER pc;
     SYSTEMTIME st;
     ErtsSystemTime stime;
-    BOOL qpcr;
 
-    qpcr = (*internal_state.r.o.pQueryPerformanceCounter)(&pc);
+    *mtimep = os_monotonic_time_qpc();
     GetSystemTime(&st);
-
-    if (!qpcr)
-	erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
-
-    *mtimep = (ErtsMonotonicTime) pc.QuadPart;
 
     stime = SystemTime2MilliSec(&st);
 
@@ -372,7 +366,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    if (!internal_state.r.o.pQueryPerformanceCounter)
 		goto get_tick_count64;
 
-	    if (pf.QuadPart > (((LONGLONG) 1) << 32))
+	    if (pf.QuadPart >= (((LONGLONG) 1) << 32))
 		goto get_tick_count64;
 
 	    internal_state.r.o.pcf = (Uint32) pf.QuadPart;
