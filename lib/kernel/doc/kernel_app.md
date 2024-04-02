@@ -513,7 +513,7 @@ set.
   erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{file=>"/tmp/erlang.log"}}}]'
   ```
 
-- **`error_logger_format_depth`** - Replaced by setting the
+- **`error_logger_format_depth`**{: #error_logger_format_depth } - Replaced by setting the
   [`depth`](`m:logger_formatter#depth`) parameter of the default handlers
   formatter. Example:
 
