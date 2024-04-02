@@ -25,9 +25,9 @@
 A service to read internally formatted wrap disk logs.
 
 This module makes it possible to read internally formatted wrap disk logs, see
-`m:disk_log`. `wrap_log_reader` does not interfere with `disk_log` activities;
-there is however a bug in this version of the `wrap_log_reader`, see section
-[Known Limitations](`m:wrap_log_reader#bugs`).
+`m:disk_log`. `m:wrap_log_reader` does not interfere with `m:disk_log` activities;
+there is however a bug in this version of the `m:wrap_log_reader`, see section
+[Known Limitations](`m:wrap_log_reader#module-known-limitations`).
 
 A wrap disk log file consists of many files, called index files. A log file can
 be opened and closed. Also, a single index file can be opened separately. If a
@@ -36,22 +36,16 @@ returned. If the file is corrupt, no attempt is made to repair it, but an error
 message is returned.
 
 If a log is configured to be distributed, it is possible that all items are not
-logged on all nodes. `wrap_log_reader` only reads the log on the called node; it
+logged on all nodes. `m:wrap_log_reader` only reads the log on the called node; it
 is up to the user to be sure that all items are read.
 
 ## Known Limitations
 
-[](){: #bugs }
-
-This version of `wrap_log_reader` does not detect if `disk_log` wraps to a new
+This version of `m:wrap_log_reader` does not detect if `m:disk_log` wraps to a new
 index file between a call to `wrap_log_reader:open/1` and the first call to
 `wrap_log_reader:chunk/1`. If this occurs, the call to `chunk/1` reads the last
 logged items in the log file, as the opened index file was truncated by
-`disk_log`.
-
-## See Also
-
-`m:disk_log`
+`m:disk_log`.
 """.
 
 %%-define(debug, true).
@@ -91,7 +85,8 @@ logged items in the log file, as the opened index file was truncated by
 -type open_ret() :: {'ok', Continuation :: continuation()}
                   | {'error', Reason :: tuple()}.
 
--doc(#{equiv => open/2}).
+-doc "Equivalent to [`open(Filename, ...)`](`open/2`) except that the whole
+wrap log file is read.".
 -spec open(Filename) -> open_ret() when
       Filename :: string() | atom().
 
@@ -121,9 +116,8 @@ open(File) when is_list(File) ->
 -doc """
 `Filename` specifies the name of the file to be read.
 
-`N` specifies the index of the file to be read. If `N` is omitted, the whole
-wrap log file is read; if it is specified, only the specified index file is
-read.
+`N` specifies the index of the file to be read. Use `open/1` to read the entire
+wrap log.
 
 Returns `{ok, Continuation}` if the log/index file is opened successfully.
 `Continuation` is to be used when chunking or closing the file.
@@ -170,7 +164,7 @@ close(#wrap_reader{fd = FD}) ->
                    | {Continuation2 :: term(), 'eof'}
                    | {'error', Reason :: term()}.
 
--doc(#{equiv => chunk/2}).
+-doc(#{equiv => chunk(Continuation, infinity)}).
 -spec chunk(Continuation) -> chunk_ret() when
       Continuation :: continuation().
 
@@ -181,11 +175,11 @@ chunk(WR = #wrap_reader{}) ->
 Enables to efficiently read the terms that are appended to a log. Minimises disk
 I/O by reading 64 kilobyte chunks from the file.
 
-The first time `chunk()` is called, an initial continuation returned from
+The first time `chunk/2` is called, an initial continuation returned from
 [`open/1`](`open/1`) or [`open/2`](`open/2`) must be provided.
 
-When `chunk/3` is called, `N` controls the maximum number of terms that are read
-from the log in each chunk. Defaults to `infinity`, which means that all the
+When `chunk/2` is called, `N` controls the maximum number of terms that are read
+from the log in each chunk. `infinity` means that all the
 terms contained in the 8K chunk are read. If less than `N` terms are returned,
 this does not necessarily mean that end of file is reached.
 

@@ -29,7 +29,7 @@ which can be written to the output device of the handler. See sections
 [Formatters](logger_chapter.md#formatters) in the Kernel User's Guide for more
 information.
 
-`logger_formatter` is the default formatter used by Logger.
+`m:logger_formatter` is the default formatter used by Logger.
 
 ## See Also
 
@@ -146,6 +146,8 @@ following keys can be set as configuration parameters:
                     time_designator => byte(),
                     time_offset     => integer() | [byte()]}.
 -doc """
+The template to be used by a logger formatter.
+
 The template is a list of atoms, atom lists, tuples and strings. The atoms
 `level` or `msg`, are treated as placeholders for the severity level and the log
 message, respectively. Other atoms or atom lists are interpreted as placeholders
@@ -235,8 +237,6 @@ The log event used in the examples is:
 %%%-----------------------------------------------------------------
 %%% Callbacks
 -doc """
-This callback function is optional.
-
 The function is called by a Logger when formatter configuration is set or
 modified. The formatter must validate the given configuration and return `ok` if
 it is correct, and `{error,Reason}` if it is faulty.
@@ -248,7 +248,7 @@ The following Logger API functions can trigger this callback:
 - [`logger:update_handler_config/2,3`](`logger:update_handler_config/2`)
 - `logger:update_formatter_config/2`
 
-See `m:logger_formatter` for an example implementation. `logger_formatter` is
+See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
 -doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
@@ -257,13 +257,11 @@ the default formatter used by Logger.
       Reason :: term().
 
 -doc """
-This callback function is mandatory.
-
 The function can be called by a log handler to convert a log event term to a
 printable string. The returned value can, for example, be printed as a log entry
 to the console or a file using [`io:put_chars/1,2`](`io:put_chars/1`).
 
-See `m:logger_formatter` for an example implementation. `logger_formatter` is
+See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
 -doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
@@ -275,8 +273,9 @@ the default formatter used by Logger.
 %%%-----------------------------------------------------------------
 %%% API
 -doc """
-This the formatter callback function to be called from handlers. The log event
-is processed as follows:
+This the formatter callback function to be called from handlers.
+
+The log event is processed as follows:
 
 - If the message is on report form, it is converted to `{Format,Args}` by
   calling the report callback. See section
