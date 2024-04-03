@@ -35,19 +35,17 @@ certain amount of the available space, the alarm
 - **On WIN32** - All logical drives of type "FIXED_DISK" are checked.
 
 Alarms are reported to the SASL alarm handler, see `m:alarm_handler`. To set an
-alarm, `alarm_handler:set_alarm(Alarm)` is called where `Alarm` is the alarm
-specified above.
+alarm, [`alarm_handler:set_alarm(Alarm)`](`alarm_handler:set_alarm/1`) is called
+where `Alarm` is the alarm specified above.
 
 The alarms are cleared automatically when the alarm cause is no longer valid.
-
-[](){: #config }
 
 ## Configuration
 
 The following configuration parameters can be used to change the default values
 for time interval and threshold:
 
-- **`disk_space_check_interval = ``t:time/0`** - The time interval for the
+- **`disk_space_check_interval = ` `t:time/0`** - The time interval for the
   periodic disk space check. The default is 30 minutes.
 
 - **`disk_almost_full_threshold = float()`** - The threshold, as percentage of
@@ -63,12 +61,12 @@ for time interval and threshold:
   The parameter is ignored on platforms that are known to not be POSIX
   compatible (Windows and SunOS).
 
-See [config(4)](`e:kernel:config.md`) for information about how to change the
+See [config](`e:kernel:config.md`) for information about how to change the
 value of configuration parameters.
 
 ## See Also
 
-`m:alarm_handler`, [os_mon(3)](os_mon_app.md)
+`m:alarm_handler`, [os_mon](os_mon_app.md)
 """.
 -behaviour(gen_server).
 
@@ -87,7 +85,9 @@ value of configuration parameters.
 -export([format_status/1, parse_df/2]).
 
 -doc """
-Supported units:
+Time unit used for disklog APIs.
+
+Supported units are:
 
 - **`integer() >= 1`** - The time interval in minutes.
 
@@ -109,11 +109,11 @@ start_link() ->
     gen_server:start_link({local, disksup}, disksup, [], []).
 
 -doc """
-get_disk_data() -> [DiskData]
+Returns the result of the latest disk check.
 
-Returns the result of the latest disk check. `Id` is a string that identifies
-the disk or partition. `TotalKiB` is the total size of the disk or partition in
-kibibytes. `Capacity` is the percentage of disk space used.
+`Id` is a string that identifies the disk or partition. `TotalKiB` is the
+total size of the disk or partition in kibibytes. `Capacity` is the
+percentage of disk space used.
 
 The function is asynchronous in the sense that it does not invoke a disk check,
 but returns the latest available value.
@@ -129,9 +129,8 @@ get_disk_data() ->
     os_mon:call(disksup, get_disk_data, infinity).
 
 -doc """
-get_disk_info() -> [DiskData]
-
 Immediately fetches total space, available space and capacity for local disks.
+
 `Id` is a string that identifies the disk or partition. `TotalKiB` is the total
 size of the disk or partition in kibibytes. `AvailableKiB` is the disk space
 used in kibibytes. `Capacity` is the percentage of disk space used.
@@ -149,10 +148,9 @@ get_disk_info() ->
     os_mon:call(disksup, get_disk_info, infinity).
 
 -doc """
-get_disk_info(Path) -> DiskData
+Immediately fetches total space, available space and capacity for a path.
 
-Immediately fetches total space, available space and capacity for a path. `Id`
-is a string that identifies the disk or partition. `TotalKiB` is the total size
+`Id` is a string that identifies the disk or partition. `TotalKiB` is the total size
 of the disk or partition in kibibytes. `AvailableKiB` is the disk space used in
 kibibytes. `Capacity` is the percentage of disk space used.
 
@@ -170,8 +168,6 @@ get_disk_info(Path) ->
     os_mon:call(disksup, {get_disk_info, Path}, infinity).
 
 -doc """
-get_check_interval() -> MS
-
 Returns the time interval, in milliseconds, for the periodic disk space check.
 """.
 -spec get_check_interval() -> Milliseconds :: integer().
@@ -179,13 +175,11 @@ get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
 
 -doc """
-set_check_interval(Time) -> ok
-
 Changes the time interval for the periodic disk space check.
 
 The change will take effect after the next disk space check and is non-persist.
 That is, in case of a process restart, this value is forgotten and the default
-value will be used. See [Configuration](`m:disksup#config`) above.
+value will be used. See [Configuration](`m:disksup#module-configuration`) above.
 """.
 -spec set_check_interval(time()) -> ok.
 set_check_interval(Value) ->
@@ -197,22 +191,18 @@ set_check_interval(Value) ->
     end.
 
 -doc """
-get_almost_full_threshold() -> Percent
-
 Returns the threshold, in percent, for disk space utilization.
 """.
 -spec get_almost_full_threshold() -> Percent :: integer().
 get_almost_full_threshold() ->
     os_mon:call(disksup, get_almost_full_threshold, infinity).
 -doc """
-set_almost_full_threshold(Float) -> ok
-
-Changes the threshold, given as a float (0.0 =< Float =< 1.0), for disk space
+Changes the threshold, given as a float (`0.0 =< Float =< 1.0`), for disk space
 utilization.
 
 The change will take effect during the next disk space check and is non-persist.
 That is, in case of a process restart, this value is forgotten and the default
-value will be used. See [Configuration](`m:disksup#config`) above.
+value will be used. See [Configuration](`m:disksup#module-configuration`) above.
 """.
 -spec set_almost_full_threshold(Float :: float()) -> ok.
 set_almost_full_threshold(Float) ->
