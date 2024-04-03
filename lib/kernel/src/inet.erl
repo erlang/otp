@@ -3355,6 +3355,8 @@ i(Options) when is_list(Options) ->
 Lists all TCP, UDP and SCTP sockets, including those that the Erlang runtime
 system uses as well as those created by the application.
 
+Alternate `Options` argument:
+
 - **`show_ports`** - Do *not* translated the port numbers (of the 'local_address' and 'foreign_address') to their service name(s).
 
 The following options are available:
