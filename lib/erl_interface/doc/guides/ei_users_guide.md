@@ -62,7 +62,7 @@ It is assumed that the reader is familiar with the Erlang programming language.
 To use any of the `Erl_Interface` functions, include the following line in your
 code:
 
-```text
+```c
 #include "ei.h"
 ```
 
@@ -132,7 +132,7 @@ The `Erl_Interface` library supports this activity. It has several C functions
 that create and manipulate Erlang data structures. The following example shows
 how to create and encode an Erlang tuple `{tobbe,3928}`:
 
-```text
+```c
 ei_x_buff buf;
 ei_x_new(&buf);
 int i = 0;
@@ -151,7 +151,7 @@ The previous example can be simplified by using the
 [`ei_x_format_wo_ver`](ei.md#ei_x_format_wo_ver) function to create an Erlang
 term:
 
-```text
+```c
 ei_x_buff buf;
 ei_x_new(&buf);
 ei_x_format_wo_ver(&buf, "{~a,~i}", "tobbe", 3928);
@@ -162,7 +162,7 @@ For a complete description of the different format directives, see the the
 
 The following example is more complex:
 
-```text
+```c
 ei_x_buff buf;
 int i = 0;
 ei_x_new(&buf);
@@ -233,10 +233,8 @@ system to be able to find and connect to them.
 Before registering with `epmd`, you must first create a listen socket and bind
 it to a port. Then:
 
-```text
-int pub;
-
-pub = ei_publish(&ec, port);
+```c
+int pub = ei_publish(&ec, port);
 ```
 
 `pub` is a file descriptor now connected to `epmd`. `epmd` monitors the other
@@ -271,7 +269,7 @@ Use one of the following two functions to receive messages:
 In the following example, `{Pid, hello_world}` is sent to a registered process
 `my_server`:
 
-```text
+```c
 ei_x_buff buf;
 ei_x_new_with_version(&buf);
 
@@ -422,7 +420,7 @@ your process.
 
 Create a name that Erlang processes can use to communicate with your service:
 
-```text
+```c
 ei_global_register(fd,servicename,ei_self(ec));
 ```
 
@@ -435,6 +433,6 @@ for incoming connections.
 
 To unregister a name:
 
-```text
+```c
 ei_global_unregister(&ec,fd,servicename);
 ```
