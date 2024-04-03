@@ -2410,7 +2410,8 @@ monitor(Socket) ->
 Cancel a socket monitor.
 
 If `MRef` is a reference that the calling process obtained by calling
-`monitor/1`, this monitor is removed. If there is no such monitor,
+`monitor/1`, this monitor is removed. If there is no such monitor
+for the calling process (or MRef doesn't correspond to a monitor),
 nothing happens.
 
 The returned value is one of the following:
@@ -2422,9 +2423,6 @@ The returned value is one of the following:
 - **`false`** - The monitor was not found so it couldn't be removed. This
   might be because the monitor has already triggered and there is
   a `'DOWN'` message from this monitor in the caller message queue.
-
-This function will throw a `badarg` error exception if `MRef`
-refers to a monitor started by another process.
 """.
 -spec cancel_monitor(MRef :: reference()) -> boolean().
 
@@ -2432,12 +2430,13 @@ cancel_monitor(MRef) when is_reference(MRef) ->
     case socket_registry:cancel_monitor(MRef) of
 	ok ->
 	    true;
-	{error, unknown_monitor} ->
-	    false;
-	{error, not_owner} ->
-	    erlang:error(badarg, [MRef]);
 	{error, Reason} ->
-	    erlang:error({invalid, Reason})
+            case Reason of
+                unknown_monitor -> false;
+                not_owner       -> false;
+                _ ->
+                    erlang:error({invalid, Reason})
+            end
     end;
 cancel_monitor(MRef) ->
     erlang:error(badarg, [MRef]).
