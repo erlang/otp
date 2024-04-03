@@ -25,7 +25,7 @@
 %%   * Scan
 %%
 %%     The module is scanned and instructions suitable for
-%%     transformation into a destructive form are idenitifed
+%%     transformation into a destructive form are identified
 %%     (find_applicable_instructions/2).
 %%
 %%   * Initial-value-search
@@ -109,6 +109,10 @@ ff(#b_local{name=#b_literal{val=N},arity=A}) ->
 -define(DP(FMT), skip).
 -endif.
 
+%% The maximum depth to which find_initial_values/3 is allowed to
+%% build get_hd and get_tuple_element chains before giving up.
+-define(ELEMENT_DEPTH_LIMIT, 15).
+
 -spec opt(st_map(), func_info_db()) -> {st_map(), func_info_db()}.
 opt(StMap, FuncDb) ->
     %% Ignore functions which are not in the function db (never
@@ -128,12 +132,17 @@ opt(StMap, FuncDb) ->
         [[io_lib:format("  ~p in ~s: ~p~n", [Var,ff(F),Info])
           || {F,Var,Info} <- ValuesToTrack]]),
 
-    %% Find initial values.
-    {InitialsToPatch,ForceCopy} =
-        find_initial_values(ValuesToTrack, StMap, FuncDb),
-
-    %% Patch instructions and initial values.
-    patch_instructions(Applicable, InitialsToPatch, ForceCopy, StMap, FuncDb).
+    try
+        %% Find initial values.
+        {InitialsToPatch,ForceCopy} = find_initial_values(ValuesToTrack, StMap, FuncDb),
+        %% Patch instructions and initial values.
+        patch_instructions(Applicable, InitialsToPatch,
+                           ForceCopy, StMap, FuncDb)
+    catch
+        throw:too_deep ->
+            %% Give up and leave the module onmodified.
+            {StMap,FuncDb}
+    end.
 
 find_applicable_instructions(Funs, StMap) ->
     fai(Funs, #{}, [], StMap).
@@ -369,16 +378,19 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% be able to safely rewrite an accumulator in the
                     %% tail field of the cons, thus we will never
                     %% have to track it.
+                    Depth = fiv_get_new_depth(Element),
                     ?DP("value is created by a get_hd, adding ~p.~n",
-                        [{List,{hd,Element}}]),
+                        [{List,{hd,Element,Depth}}]),
                     fiv_track_value_in_fun(
-                      [{List,{hd,Element}}|Rest], Fun, Work0,
+                      [{List,{hd,Element,Depth}}|Rest], Fun, Work0,
                       Defs, ValuesInFun, FivSt0);
                 {get_tuple_element,[#b_var{}=Tuple,#b_literal{val=Idx}],_} ->
+                    Depth = fiv_get_new_depth(Element),
                     ?DP("value is created by a get_tuple_element, adding ~p.~n",
-                        [{Tuple,{tuple_element,Idx,Element}}]),
+                        [{Tuple,{tuple_element,Idx,Element,Depth}}]),
                     fiv_track_value_in_fun(
-                      [{Tuple,{tuple_element,Idx,Element}}|Rest], Fun, Work0,
+                      [{Tuple,{tuple_element,Idx,Element,Depth}}|Rest],
+                      Fun, Work0,
                       Defs, ValuesInFun, FivSt0);
                 {phi,_,_} ->
                     ?DP("value is created by a phi~n"),
@@ -457,26 +469,29 @@ fiv_track_value_into_caller(Element, ArgIdx,
     fiv_track_value_in_fun(CalledFunWorklist, CalledFun, GlobalWorklist,
                            CalledFunDefs, CalledFunValues, FivSt0).
 
-fiv_track_put_tuple(FieldVars, {tuple_element,Idx,_},
+fiv_track_put_tuple(FieldVars, {tuple_element,Idx,_,_},
                     Work, Fun, _Dst, GlobalWork,
                     Defs, ValuesInFun, FivSt) when length(FieldVars) =< Idx ->
     %% The value we are tracking was constructed by a put tuple, but
     %% it can't be this put_tuple as it has too few elements.
+    ?DP("fiv_track_put_tuple: not this tuple, too few elements~n"),
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, FivSt);
-fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element},
+fiv_track_put_tuple(FieldVars, {tuple_element,Idx,Element,_},
                     Work, Fun, Dst, GlobalWork,
                     Defs, ValuesInFun, FivSt0) ->
     %% The value we are tracking was constructed by a put tuple and we
     %% are interested in continuing the tracking of the field
     case lists:nth(Idx + 1, FieldVars) of
         ToTrack = #b_var{} ->
+            ?DP("fiv_track_put_tuple: will continue tracking ~p:~p~n",
+                [ToTrack,Element]),
             fiv_track_value_in_fun([{ToTrack,Element}|Work], Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt0);
         #b_literal{val=Lit} ->
-            FivSt = fiv_add_literal(Lit, Element,
-                                    Fun, {opargs,Dst,Idx,Lit,Element},
-                                    FivSt0),
+            LitInfo = {opargs,Dst,Idx,Lit,Element},
+            FivSt = fiv_add_literal(Lit, Element, Fun, LitInfo, FivSt0),
+            ?DP("fiv_track_put_tuple: found literal ~p~n", [LitInfo]),
             fiv_track_value_in_fun(Work, Fun, GlobalWork,
                                    Defs, ValuesInFun, FivSt)
     end;
@@ -485,6 +500,7 @@ fiv_track_put_tuple(_FieldVars, _,
                     Defs, ValuesInFun, DefSt) ->
     %% As the tracked element isn't a tuple element, this is an
     %% execution path which isn't type compatible, stop tracking.
+    ?DP("fiv_track_put_tuple: tracked value is not a tuple element~n"),
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, DefSt).
 
@@ -515,7 +531,7 @@ fiv_track_update_record([#b_literal{val=reuse}|_],
     fiv_track_value_in_fun(Work, Fun, GlobalWork,
                            Defs, ValuesInFun, FivSt);
 fiv_track_update_record([_Hint,_Size,Src|Updates],
-                        {tuple_element,Idx,Element}=What,
+                        {tuple_element,Idx,Element,_}=What,
                         Work, Fun, Dst, GlobalWork,
                         Defs, ValuesInFun, FivSt0) ->
     ?DP("Looking for idx: ~p among ~p~n", [Idx,Updates]),
@@ -548,7 +564,7 @@ fiv_get_update(Idx, [#b_literal{},_|Updates], ArgNo) ->
 fiv_get_update(_, [], _) ->
     none.
 
-fiv_track_put_list([Hd,_Tl], {hd,Element},
+fiv_track_put_list([Hd,_Tl], {hd,Element,_},
                    Work, Fun, Dst, GlobalWork,
                    Defs, ValuesInFun, FivSt0) ->
     %% The value we are tracking was constructed by a put list and we
@@ -661,19 +677,30 @@ fiv_add_literal(Lit, Element, Fun, LitInfo, FivSt=#fiv_st{literals=Ls}) ->
 %% Return true if the literal is compatible with the element.
 fiv_are_lit_and_element_compatible(Lit, Element) ->
     case Element of
-        {tuple_element,Idx,E}
+        {tuple_element,Idx,E,_}
           when is_tuple(Lit), erlang:tuple_size(Lit) > Idx ->
             fiv_are_lit_and_element_compatible(erlang:element(Idx + 1, Lit), E);
         {self,heap_tuple} ->
             is_tuple(Lit);
         {self,init_writable} ->
             is_bitstring(Lit);
-        {hd,E} when is_list(Lit), (Lit =/= []) ->
+        {hd,E,_} when is_list(Lit), (Lit =/= []) ->
             [L|_] = Lit,
             fiv_are_lit_and_element_compatible(L, E);
         _ ->
             false
     end.
+
+fiv_get_new_depth({tuple_element,_,_,D}) when D > ?ELEMENT_DEPTH_LIMIT ->
+    throw(too_deep);
+fiv_get_new_depth({tuple_element,_,_,D}) ->
+    D + 1;
+fiv_get_new_depth({hd,_,D}) when D > ?ELEMENT_DEPTH_LIMIT ->
+    throw(too_deep);
+fiv_get_new_depth({hd,_,D}) ->
+    D + 1;
+fiv_get_new_depth(_) ->
+    0.
 
 patch_f(SSA0, Cnt0, Patches) ->
     patch_f(SSA0, Cnt0, Patches, [], []).
@@ -772,18 +799,18 @@ aggregate_ret_patches([R={self,heap_tuple}]) ->
     R;
 aggregate_ret_patches([R={self,init_writable}]) ->
     R;
-aggregate_ret_patches([{tuple_element,I,E}|Rest]) ->
+aggregate_ret_patches([{tuple_element,I,E,_}|Rest]) ->
     Elements = [{I,E}|aggregate_ret_patches_tuple(Rest)],
     {tuple_elements,Elements};
-aggregate_ret_patches([{self,heap_tuple},TE={tuple_element,_,_}|Rest]) ->
+aggregate_ret_patches([{self,heap_tuple},TE={tuple_element,_,_,_}|Rest]) ->
     %% As the tuple_element will force the outer aggregate onto the
     %% heap, the {self,heap_tuple} can be dropped. Due to the sort in
     %% patch_ret/3, self will always occur before tuple_element.
     aggregate_ret_patches([TE|Rest]);
-aggregate_ret_patches([R={hd,_}]) ->
+aggregate_ret_patches([R={hd,_,_}]) ->
     R.
 
-aggregate_ret_patches_tuple([{tuple_element,I,E}|Rest]) ->
+aggregate_ret_patches_tuple([{tuple_element,I,E,_}|Rest]) ->
     [{I,E}|aggregate_ret_patches_tuple(Rest)];
 aggregate_ret_patches_tuple([]) ->
     [].
@@ -813,10 +840,10 @@ patch_opargs([], [], _, PatchedArgs, Is, Cnt) ->
 %% here.
 merge_arg_patches([{Idx,Lit,P0},{Idx,Lit,P1}=Next|Patches]) ->
     case {P0, P1} of
-        {{tuple_element,I0,E0},{tuple_element,I1,E1}} ->
+        {{tuple_element,I0,E0,_},{tuple_element,I1,E1,_}} ->
             P = {tuple_elements,[{I0,E0},{I1,E1}]},
             merge_arg_patches([{Idx,Lit,P}|Patches]);
-        {{tuple_elements,Es},{tuple_element,I,E}} ->
+        {{tuple_elements,Es},{tuple_element,I,E,_}} ->
             P = {tuple_elements,[{I,E}|Es]},
             merge_arg_patches([{Idx,Lit,P}|Patches]);
         {{self,heap_tuple},_} ->
@@ -850,9 +877,9 @@ patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
 
 %% Should return the instructions in reversed order
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
-    Es = [{tuple_element,I,E} || {I,E} <- keysort(1, Elems)],
+    Es = [{tuple_element,I,E,0} || {I,E} <- keysort(1, Elems)],
     patch_literal_tuple(Tuple, Es, Cnt);
-patch_literal_term(Tuple, E={tuple_element,_,_}, Cnt) ->
+patch_literal_term(Tuple, E={tuple_element,_,_,_}, Cnt) ->
     patch_literal_tuple(Tuple, [E], Cnt);
 patch_literal_term(Tuple, {self,heap_tuple}, Cnt0) ->
     %% Build the tuple on the heap.
@@ -864,7 +891,7 @@ patch_literal_term(<<>>, {self,init_writable}, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V,[I],Cnt};
-patch_literal_term([H0|T0], {hd,Element}, Cnt0) ->
+patch_literal_term([H0|T0], {hd,Element,_}, Cnt0) ->
     {H,Extra,Cnt1} = patch_literal_term(H0, Element, Cnt0),
     {T,[],Cnt1} = patch_literal_term(T0, [], Cnt1),
     {Dst,Cnt} = new_var(Cnt1),
@@ -876,10 +903,11 @@ patch_literal_term(Lit, [], Cnt) ->
 patch_literal_tuple(Tuple, Elements0, Cnt) ->
     ?DP("Will patch literal tuple~n  tuple:~p~n  elements: ~p~n",
         [Tuple,Elements0]),
-    Elements = [ E || {tuple_element,_,_}=E <- Elements0],
+    Elements = [ E || {tuple_element,_,_,_}=E <- Elements0],
     patch_literal_tuple(erlang:tuple_to_list(Tuple), Elements, [], [], 0, Cnt).
 
-patch_literal_tuple([Lit|LitElements], [{tuple_element,Idx,Element}|Elements],
+patch_literal_tuple([Lit|LitElements],
+                    [{tuple_element,Idx,Element,_}|Elements],
                     Patched, Extra, Idx, Cnt0) ->
     ?DP("patch_literal_tuple: idx:~p~n  Lit: ~p~n  patch: ~p~n",
         [Idx, Lit, Element]),
