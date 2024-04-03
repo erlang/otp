@@ -270,102 +270,6 @@ On module (`mod`) level, the following options are supported:
 
 - **`debug_info`** - The value of this parameter overrides the parameter with
   the same name on application level.
-
-## DATA TYPES
-
-```erlang
-options()           = [option()]
-option()            = {config, config() | file()}
-                    | {trap_exit, bool()}
-                    | {wx_debug, term()}
-config()            = {sys, [sys()]}
-sys()               = {root_dir, root_dir()}
-                    | {lib_dirs, [lib_dir()]}
-                    | {profile, profile()}
-                    | {erts, app()}
-                    | {escript, escript_file(), [escript()]}
-                    | {app, app_name(), [app()]}
-                    | {mod_cond, mod_cond()}
-                    | {incl_cond, incl_cond()}
-                    | {boot_rel, boot_rel()}
-                    | {rel, rel_name(), rel_vsn(), [rel_app()]}
-                    | {rel, rel_name(), rel_vsn(), [rel_app()], [rel_opt()]}
-                    | {relocatable, relocatable()}
-                    | {app_file, app_file()}
-                    | {debug_info, debug_info()}
-                    | {incl_sys_filters, incl_sys_filters()}
-                    | {excl_sys_filters, excl_sys_filters()}
-                    | {incl_app_filters, incl_app_filters()}
-                    | {excl_app_filters, excl_app_filters()}
-app()               = {vsn, app_vsn()}
-                    | {lib_dir, lib_dir()}
-                    | {mod, mod_name(), [mod()]}
-                    | {mod_cond, mod_cond()}
-                    | {incl_cond, incl_cond()}
-                    | {debug_info, debug_info()}
-                    | {app_file, app_file()}
-		    | {excl_lib, excl_lib()}
-                    | {incl_sys_filters, incl_sys_filters()}
-                    | {excl_sys_filters, excl_sys_filters()}
-                    | {incl_app_filters, incl_app_filters()}
-                    | {excl_app_filters, excl_app_filters()}
-mod()               = {incl_cond, incl_cond()}
-                    | {debug_info, debug_info()}
-rel_app()           = app_name()
-                    | {app_name(), app_type()}
-                    | {app_name(), [incl_app()]}
-                    | {app_name(), app_type(), [incl_app()]}
-rel_opt()           = {load_dot_erlang, boolean()}
-app_name()          = atom()
-app_type()          = permanent | transient | temporary | load | none
-app_vsn()           = string()
-boot_rel()          = rel_name()
-app_file()          = keep | strip | all
-debug_info()        = keep | strip | [beam_lib:chunkid()]
-dir()               = string()
-escript()           = {incl_cond, incl_cond()}
-escript_file()      = file()
-excl_app_filters()  = regexps()
-excl_lib()          = otp_root
-excl_sys_filters()  = regexps()
-file()              = string()
-incl_app()          = app_name()
-incl_app_filters()  = regexps()
-incl_cond()         = include | exclude | derived
-incl_sys_filters()  = regexps()
-lib_dir()           = dir()
-mod_cond()          = all | app | ebin | derived | none
-mod_name()          = atom()
-profile()           = development | embedded | standalone
-re_regexp()         = string()
-reason()            = string()
-regexps()           = [re_regexp()]
-                    | {add, [re_regexp()]}
-                    | {del, [re_regexp()]}
-rel_file()          = term()
-rel_name()          = string()
-rel_vsn()           = string()
-relocatable         = boolean()
-root_dir()          = dir()
-script_file()       = term()
-server()            = server_pid() | options()
-server_pid()        = pid()
-target_dir()        = file()
-window_pid()        = pid()
-base_dir()          = dir()
-base_file()         = file()
-top_dir()           = file()
-top_file()          = file()
-target_spec()       = [target_spec()]
-                    | {create_dir, base_dir(), [target_spec()]}
-                    | {create_dir, base_dir(), top_dir(), [target_spec()]}
-                    | {copy_file, base_file()}
-                    | {copy_file, base_file(), top_file()}
-                    | {write_file, base_file(), iolist()}
-                    | {strip_beam_file, base_file()}
-```
-
-[](){: #start }
 """.
 
 %% Public
@@ -383,8 +287,6 @@ target_spec()       = [target_spec()]
 
 %% Start main window process
 -doc """
-start() -> {ok, WindowPid} | {error, Reason}
-
 Start a main window process with default options
 """.
 -spec start() -> {ok, window_pid()} | {error, reason()}.
@@ -393,8 +295,6 @@ start() ->
 
 %% Start main window process
 -doc """
-start(Options) -> {ok, WindowPid} | {error, Reason}
-
 Start a main window process with options
 """.
 -spec start(options()) -> {ok, window_pid()} | {error, reason()}.
@@ -415,8 +315,6 @@ debug() ->
 
 %% Start main window process with options
 -doc """
-start_link(Options) -> {ok, WindowPid} | {error, Reason}
-
 Start a main window process with options. The process is linked.
 """.
 -spec start_link(options()) -> {ok, window_pid()} | {error, reason()}.
@@ -430,8 +328,6 @@ start_link(Options) when is_list(Options) ->
 
 %% Start server process with options
 -doc """
-start_server(Options) -> {ok, ServerPid} | {error, Reason}
-
 Start a server process with options. The server process identity can be given as
 an argument to several other functions in the API.
 """.
@@ -446,8 +342,6 @@ start_server(Options) ->
 
 %% Start server process with options
 -doc """
-get_server(WindowPid) -> {ok, ServerPid} | {error, Reason}
-
 Return the process identifier of the server process.
 """.
 -spec get_server(window_pid()) -> {ok, server_pid()} | {error, reason()}.
@@ -461,8 +355,6 @@ get_server(WinPid) ->
 
 %% Stop a server or window process
 -doc """
-stop(Pid) -> ok | {error, Reason}
-
 Stop a server or window process
 """.
 -spec stop(server_pid() | window_pid()) -> ok | {error, reason()}.
@@ -512,8 +404,6 @@ apply_fun(Pid, true, Fun) ->
 %% Get status about the configuration
 -type warning() :: string().
 -doc """
-get_status(Server) -> {ok, [Warning]} | {error, Reason}
-
 Get status about the configuration
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -524,23 +414,18 @@ get_status(PidOrOptions)
 		fun(Pid) -> reltool_server:get_status(Pid) end).
 
 %% Get reltool configuration
--doc """
-get_config(Server) -> {ok, Config} | {error, Reason}
-
-Get reltool configuration. Shorthand for
-`reltool:get_config(Server,false,false)`.
-""".
+-doc(#{ equiv => get_config(Server,false,false) }).
 -spec get_config(server()) -> {ok, config()} | {error, reason()}.
 get_config(PidOrOption) ->
     get_config(PidOrOption, false, false).
 
 -doc """
-get_config(Server, InclDefaults, InclDerived) -> {ok, Config} | {error, Reason}
+Get reltool configuration.
 
-Get reltool configuration. Normally, only the explicit configuration parameters
-with values that differ from their defaults are interesting. But the builtin
-default values can be returned by setting `InclDefaults` to `true`. The derived
-configuration can be returned by setting `InclDerived` to `true`.
+Normally, only the explicit configuration parameters with values that differ from
+their defaults are interesting. But the builtin default values can be returned by
+setting `InclDefaults` to `true`. The derived configuration can be returned by
+setting `InclDerived` to `true`.
 """.
 -spec get_config(server(), incl_defaults(), incl_derived()) ->
 			{ok, config()} | {error, reason()}.
@@ -553,9 +438,7 @@ get_config(PidOrOptions, InclDef, InclDeriv)
 
 %% Get contents of release file
 -doc """
-get_rel(Server, Relname) -> {ok, RelFile} | {error, Reason}
-
-Get contents of a release file. See `rel(4)` for more details.
+Get contents of a release file. See [`rel`](`e:sasl:rel.md`) for more details.
 """.
 -spec get_rel(server(), rel_name()) -> {ok, rel_file()} | {error, reason()}.
 get_rel(PidOrOptions, RelName)
@@ -565,9 +448,7 @@ get_rel(PidOrOptions, RelName)
 
 %% Get contents of boot script file
 -doc """
-get_script(Server, Relname) -> {ok, ScriptFile | {error, Reason}
-
-Get contents of a boot script file. See `script(4)` for more details.
+Get contents of a boot script file. See [`script`](`e:sasl:script.md`) for more details.
 """.
 -spec get_script(server(), rel_name()) ->
 			{ok, script_file()} | {error, reason()}.
@@ -578,10 +459,9 @@ get_script(PidOrOptions, RelName)
 
 %% Generate a target system
 -doc """
-create_target(Server, TargetDir) -> ok | {error, Reason}
+Create a target system.
 
-Create a target system. Gives the same result as
-`{ok,TargetSpec}=reltool:get_target_spec(Server)` and
+Gives the same result as `{ok,TargetSpec}=reltool:get_target_spec(Server)` and
 `reltool:eval_target_spec(TargetSpec,RootDir,TargetDir)`.
 """.
 -spec create_target(server(), target_dir()) -> ok | {error, reason()}.
@@ -592,8 +472,6 @@ create_target(PidOrOptions, TargetDir)
 
 %% Generate a target system
 -doc """
-get_target_spec(Server) -> {ok, TargetSpec} | {error, Reason}
-
 Return a specification of the target system. The actual target system can be
 created with `reltool:eval_target_spec/3`.
 """.
@@ -605,17 +483,16 @@ get_target_spec(PidOrOptions)
 
 %% Generate a target system
 -doc """
-eval_target_spec(TargetSpec, RootDir, TargetDir) -> ok | {error, Reason}
-
 Create the actual target system from a specification generated by
-`reltool:get_target_spec/1`. The creation of the specification for a target
-system is performed in two steps. In the first step a complete specification
-will be generated. It will likely contain much more files than you are
-interested in in your target system. In the second step the specification will
-be filtered according to your filters. There you have the ability to specify
-filters per application as well as system wide filters. You can also select a
-`profile` for your system. Depending on the `profile`, different default filters
-will be used.
+`reltool:get_target_spec/1`.
+
+The creation of the specification for a target system is performed in two steps.
+In the first step a complete specification will be generated. It will likely contain
+much more files than you are interested in in your target system. In the second
+step the specification will be filtered according to your filters. There you have the
+ability to specify filters per application as well as system wide filters. You can
+also select a `profile` for your system. Depending on the `profile`, different
+default filters will be used.
 
 The top directories `bin`, `releases` and `lib` are treated differently from
 other files. All other files are by default copied to the target system. The
@@ -633,7 +510,7 @@ re-installation.
 
 In most cases, the `RootDir` parameter should be set to the same as the
 `root_dir` configuration parameter used in the call to
-`reltool:get_target_spec/1` (or `code:root_dir()` if the configuration parameter
+`reltool:get_target_spec/1` (or `code:root_dir/0` if the configuration parameter
 is not set). In some cases it might be useful to evaluate the same target
 specification towards different root directories. This should, however, be used
 with great care as it requires equivalent file structures under all roots.
@@ -646,8 +523,6 @@ eval_target_spec(Spec, SourceDir, TargetDir)
 
 %% Install a target system
 -doc """
-install(RelName, TargetDir) -> ok | {error, Reason}
-
 Install a created target system
 """.
 -spec install(rel_name(), dir()) -> ok | {error, reason()}.
