@@ -19,24 +19,22 @@ limitations under the License.
 -->
 # The Jinterface Package
 
-The [Jinterface](assets/java/com/ericsson/otp/erlang/package-summary.html)
-package provides a set of tools for communication with Erlang processes. It can
-also be used for communication with other Java processes using the same package,
+The [Jinterface] package provides a set of tools for communication with Erlang processes.
+It can also be used for communication with other Java processes using the same package,
 as well as C processes using the Erl_Interface library.
 
 The set of classes in the package can be divided into two categories: those that
 provide the actual communication, and those that provide a Java representation
-of the Erlang data types. The latter are all subclasses of OtpErlangObject, and
-they are identified by the OtpErlang prefix.
+of the Erlang data types. The latter are all subclasses of [`OtpErlangObject`], and
+they are identified by the `OtpErlang` prefix.
 
 Since this package provides a mechanism for communicating with Erlang, message
 recipients can be Erlang processes or instances of
-com.ericsson.otp.erlang.OtpMbox, both of which are identified with pids and
+`com.ericsson.otp.erlang.OtpMbox`, both of which are identified with pids and
 possibly registered names. When pids or mailboxes are mentioned as message
 senders or recipients in this section, it should assumed that even Erlang
 processes are included, unless specified otherwise. The classes in
-[Jinterface](assets/java/com/ericsson/otp/erlang/package-summary.html) support
-the following:
+[Jinterface] support the following:
 
 - manipulation of data represented as Erlang data types
 - conversion of data between Java and Erlang formats
@@ -59,33 +57,30 @@ In the following sections, these topics are described:
 
 This section describes the mapping of Erlang basic types to Java.
 
-| Erlang type          | Java type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| atom                 | [OtpErlangAtom](assets/java/com/ericsson/otp/erlang/OtpErlangAtom.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| binary               | [OtpErlangBinary](assets/java/com/ericsson/otp/erlang/OtpErlangBinary.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| floating point types | [OtpErlangFloat](assets/java/com/ericsson/otp/erlang/OtpErlangFloat.html) or [OtpErlangDouble](assets/java/com/ericsson/otp/erlang/OtpErlangDouble.html), depending on the floating point value size                                                                                                                                                                                                                                                                                                                                                                                      |
-| integral types       | One of [OtpErlangByte](assets/java/com/ericsson/otp/erlang/OtpErlangByte.html), [OtpErlangChar](assets/java/com/ericsson/otp/erlang/OtpErlangChar.html), [OtpErlangShort](assets/java/com/ericsson/otp/erlang/OtpErlangShort.html), [OtpErlangUShort](assets/java/com/ericsson/otp/erlang/OtpErlangUShort.html), [OtpErlangInt](assets/java/com/ericsson/otp/erlang/OtpErlangInt.html), [OtpErlangUInt](assets/java/com/ericsson/otp/erlang/OtpErlangUInt.html) or [OtpErlangLong](assets/java/com/ericsson/otp/erlang/OtpErlangLong.html), depending on the integral value size and sign |
-| list                 | [OtpErlangList](assets/java/com/ericsson/otp/erlang/OtpErlangList.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| pid                  | [OtpErlangPid](assets/java/com/ericsson/otp/erlang/OtpErlangPid.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| port                 | [OtpErlangPort](assets/java/com/ericsson/otp/erlang/OtpErlangPort.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ref                  | [OtpErlangRef](assets/java/com/ericsson/otp/erlang/OtpErlangRef.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| tuple                | [OtpErlangTuple](assets/java/com/ericsson/otp/erlang/OtpErlangTuple.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| map                  | [OtpErlangMap](assets/java/com/ericsson/otp/erlang/OtpErlangMap.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| term                 | [OtpErlangObject](assets/java/com/ericsson/otp/erlang/OtpErlangObject.html)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Erlang type          | Java type          |
+| -------------------- | ------------------ |
+| atom                 | [`OtpErlangAtom`]    |
+| binary               | [`OtpErlangBinary`]  |
+| floating point types | [`OtpErlangFloat`] or [`OtpErlangDouble`], depending on the floating point value size |
+| integral types       | One of [`OtpErlangByte`], [`OtpErlangChar`], [`OtpErlangShort`], [`OtpErlangUShort`], [`OtpErlangInt`], [`OtpErlangUInt`] or [`OtpErlangLong`], depending on the integral value size and sign |
+| list                 | [`OtpErlangList`]    |
+| pid                  | [`OtpErlangPid`]     |
+| port                 | [`OtpErlangPort`]    |
+| ref                  | [`OtpErlangRef`]     |
+| tuple                | [`OtpErlangTuple`]   |
+| map                  | [`OtpErlangMap`]     |
+| term                 | [`OtpErlangObject`]  |
 
 _Table: Mapping of Erlang basic types to Java_
 
 ## Special Mapping Issues
 
 The atoms `true` and `false` are special atoms, used as boolean values. The
-class
-[OtpErlangBoolean](assets/java/com/ericsson/otp/erlang/OtpErlangBoolean.html)
-can be used to represent these.
+class [`OtpErlangBoolean`] can be used to represent these.
 
 Lists in Erlang are also used to describe sequences of printable characters
-(strings). A convenience class
-[OtpErlangString](assets/java/com/ericsson/otp/erlang/OtpErlangString.html) is
-provided to represent Erlang strings.
+(strings). A convenience class [`OtpErlangString`] is provided to represent
+Erlang strings.
 
 ## Nodes
 
@@ -93,20 +88,18 @@ A node as defined by Erlang/OTP is an instance of the Erlang Runtime System, a
 virtual machine roughly equivalent to a JVM. Each node has a unique name in the
 form of an identifier composed partly of the hostname on which the node is
 running, e.g "gurka@sallad.com". Several such nodes can run on the same host as
-long as their names are unique. The class
-[OtpNode](assets/java/com/ericsson/otp/erlang/OtpNode.html) represents an Erlang
+long as their names are unique. The class [`OtpNode`] represents an Erlang
 node.
 
 It is created with a name and optionally a TCP/IP socket port number on which it
 listens for incoming connections. By default before creating an instance of
-[OtpNode](assets/java/com/ericsson/otp/erlang/OtpNode.html), ensure that Epmd is
-running on the host machine. See the Erlang documentation for more information
-about Epmd.
+[`OtpNode`], ensure that Epmd is running on the host machine. See the Erlang
+documentation for more information about [Epmd](`e:erts:epmd_cmd.md`).
 
 In this example, the host name is appended automatically to the identifier, and
 the port number is chosen by the underlying system:
 
-```erlang
+```java
 OtpNode node = new OtpNode("gurka");
 ```
 
@@ -118,7 +111,7 @@ Sockets instead of the default TCP/IP sockets.
 In this example, the host name is appended automatically to the identifier and a
 custom transport factory is used:
 
-```erlang
+```java
 OtpGenericTransportFactory customFactory = new MyCustomFactory();
 OtpNode node = new OtpNode("gurka", customFactory);
 ```
@@ -130,16 +123,15 @@ Erlang processes running on an Erlang node are identified by process identifiers
 process has an implicit mailbox that is used to receive messages; the mailbox is
 identified with the pid of the process.
 
-Jinterface provides a similar mechanism with the class
-[OtpMbox](assets/java/com/ericsson/otp/erlang/OtpMbox.html), a mailbox that can
+Jinterface provides a similar mechanism with the class [`OtpMbox`], a mailbox that can
 be used to send and receive messages asynchronously. Each OtpMbox is identified
 with a unique pid and , optionally, a registered name unique within the
-[OtpNode](assets/java/com/ericsson/otp/erlang/OtpNode.html).
+[`OtpNode`].
 
 Applications are free to create mailboxes as necessary. This is done as follows:
 
-```text
-        OtpMbox mbox = node.createMbox();
+```java
+OtpMbox mbox = node.createMbox();
 ```
 
 The mailbox created in the above example has no registered name, although it
@@ -149,15 +141,15 @@ messages sent from the mailbox, so that remote processes are able to respond.
 An application can register a name for a mailbox, either when the mailbox is
 initially created:
 
-```text
-        OtpMbox mbox = node.createMbox("server");
+```java
+OtpMbox mbox = node.createMbox("server");
 ```
 
 or later on, as necessary:
 
-```erlang
-        OtpMbox mbox = node.createMbox();
-        mbox.registerName("server");
+```java
+OtpMbox mbox = node.createMbox();
+mbox.registerName("server");
 ```
 
 Registered names are usually necessary in order to start communication, since it
@@ -178,13 +170,13 @@ It is possible to check for the existence of a remote node before attempting to
 communicate with it. Here we send a ping message to the remote node to see if it
 is alive and accepting connections:
 
-```text
-        if (node.ping("remote",2000)) {
-          System.out.println("remote is up");
-        }
-        else {
-          System.out.println("remote is not up");
-       }
+```java
+if (node.ping("remote",2000)) {
+  System.out.println("remote is up");
+}
+else {
+  System.out.println("remote is not up");
+}
 ```
 
 If the call to ping() succeeds, a connection to the remote node has been
@@ -220,30 +212,29 @@ Jinterface.
 ## Sending and Receiving Messages
 
 Messages sent with this package must be instances of
-[OtpErlangObject](assets/java/com/ericsson/otp/erlang/OtpErlangObject.html) or
-one of its subclasses. Message can be sent to processes or pids, either by
-specifying the pid of the remote, or its registered name and node.
+[`OtpErlangObject`] or one of its subclasses. Message can be sent to processes or pids,
+either by specifying the pid of the remote, or its registered name and node.
 
 In this example, we create a message containing our own pid so the echo process
 can reply:
 
-```erlang
-        OtpErlangObject[] msg = new OtpErlangObject[2];
-        msg[0] = mbox.self();
-        msg[1] = new OtpErlangAtom("hello, world");
-        OtpErlangTuple tuple = new OtpErlangTuple(msg);
+```java
+OtpErlangObject[] msg = new OtpErlangObject[2];
+msg[0] = mbox.self();
+msg[1] = new OtpErlangAtom("hello, world");
+OtpErlangTuple tuple = new OtpErlangTuple(msg);
 ```
 
 When we send the message, a connection will be created:
 
-```text
-        mbox.send("echo", "gurka@sallad.com", tuple);
+```java
+mbox.send("echo", "gurka@sallad.com", tuple);
 ```
 
 And here we receive the reply:
 
-```text
-        OtpErlangObject reply = mbox.receive();
+```java
+OtpErlangObject reply = mbox.receive();
 ```
 
 Messages are sent asynchronously, so the call to `send()` returns as soon as the
@@ -254,25 +245,25 @@ for a response from the remote process.
 
 The echo server itself might look like this:
 
-```erlang
-    OtpNode self = new OtpNode("gurka");
-    OtpMbox mbox = self.createMbox("echo");
-    OtpErlangObject o;
-    OtpErlangTuple msg;
-    OtpErlangPid from;
+```java
+OtpNode self = new OtpNode("gurka");
+OtpMbox mbox = self.createMbox("echo");
+OtpErlangObject o;
+OtpErlangTuple msg;
+OtpErlangPid from;
 
-    while (true) {
-      try {
-        o = mbox.receive();
-        if (o instanceof OtpErlangTuple) {
-          msg = (OtpErlangTuple)o;
-          from = (OtpErlangPid)(msg.elementAt(0));
-          mbox.send(from,msg.elementAt(1));
-      }
-      catch (Exception e) {
-        System.out.println("" + e);
-      }
-    }
+while (true) {
+  try {
+    o = mbox.receive();
+    if (o instanceof OtpErlangTuple) {
+      msg = (OtpErlangTuple)o;
+      from = (OtpErlangPid)(msg.elementAt(0));
+      mbox.send(from,msg.elementAt(1));
+  }
+  catch (Exception e) {
+    System.out.println("" + e);
+  }
+}
 ```
 
 In the examples above, only one mailbox was created on each node. however you
@@ -292,25 +283,25 @@ written in Java as well, and in these cases it may be desirable to send other
 data types.
 
 The simplest way to do this is to encapsulate arbitrary data in messages of type
-[OtpErlangBinary](assets/java/com/ericsson/otp/erlang/OtpErlangBinary.html). The
+[`OtpErlangBinary`](assets/java/com/ericsson/otp/erlang/OtpErlangBinary.html). The
 OtpErlangBinary class can be created from arbitrary Java objects that implement
 the Serializable or Externalizable interface:
 
-```text
-        o = new MyClass(foo);
-        mbox.send(remote,new OtpErlangBinary(o));
+```java
+o = new MyClass(foo);
+mbox.send(remote,new OtpErlangBinary(o));
 ```
 
 The example above will cause the object to be serialized and encapsulated in an
 OtpErlangBinary before being sent. The recipient will receive an OtpErlangBinary
 but can extract the original object from it:
 
-```erlang
-        msg = mbox.receive();
-        if (msg instanceof OtpErlangBinary) {
-           OtpErlangBinary b = (OtpErlangBinary)msg;
-           MyClass o = (MyClass)(b.getObject());
-        }
+```java
+msg = mbox.receive();
+if (msg instanceof OtpErlangBinary) {
+  OtpErlangBinary b = (OtpErlangBinary)msg;
+  MyClass o = (MyClass)(b.getObject());
+}
 ```
 
 ## Linking to Remote Processes
@@ -327,29 +318,29 @@ Jinterface provides a similar mechanism. Also here, no distinction is made
 between mailboxes and Erlang processes. A link can be created to a remote
 mailbox or process when its pid is known:
 
-```text
-        mbox.link(remote);
+```java
+mbox.link(remote);
 ```
 
 The link can be removed by either of the processes in a similar manner:
 
-```text
-        mbox.unlink(remote);
+```java
+mbox.unlink(remote);
 ```
 
 If the remote process terminates while the link is still in place, an exception
 will be raised on a subsequent call to receive():
 
-```text
-        try {
-          msg = mbox.receive();
-        }
-        catch (OtpErlangExit e) {
-          System.out.println("Remote pid " + e.pid() + " has terminated");
-        }
-        catch (OtpErlangDecodeException f) {
-          System.out.println("Received message could not be decoded: " + f);
-        }
+```java
+try {
+  msg = mbox.receive();
+}
+catch (OtpErlangExit e) {
+  System.out.println("Remote pid " + e.pid() + " has terminated");
+}
+catch (OtpErlangDecodeException f) {
+  System.out.println("Received message could not be decoded: " + f);
+}
 ```
 
 When a mailbox is explicitly closed, exit messages will be sent in order to
@@ -404,14 +395,10 @@ to close, so resources may be consumed.
 An Erlang node acting as a client to another Erlang node typically sends a
 request and waits for a reply. Such a request is included in a function call at
 a remote node and is called a remote procedure call. Remote procedure calls are
-supported through the class
-[OtpConnection](assets/java/com/ericsson/otp/erlang/OtpConnection.html). The
-following example shows how the
-[OtpConnection](assets/java/com/ericsson/otp/erlang/OtpConnection.html) class is
-used for remote procedure calls:
+supported through the class [`OtpConnection`]. The following example shows how the
+[`OtpConnection`] class is used for remote procedure calls:
 
-```c
-
+```java
 OtpSelf self = new OtpSelf("client", "hejsan" );
 OtpPeer other  = new OtpPeer("server@balin");
 OtpConnection connection = self.connect(other);
@@ -425,10 +412,10 @@ OtpErlangObject received = connection.receiveRPC();
 ## Compiling and Loading Your Code
 
 In order to use any of the
-[Jinterface](assets/java/com/ericsson/otp/erlang/package-summary.html) classes,
+[Jinterface] classes,
 include the following line in your code:
 
-```text
+```java
 import com.ericsson.otp.erlang.*;
 ```
 
@@ -451,7 +438,7 @@ of Jinterface, for example `jinterface-1.2`
 
 ```text
 $ javac -classpath ".:/usr/local/otp/lib/jinterface-1.2/priv/OtpErlang.jar"
-                    myclass.java
+                myclass.java
 ```
 
 When running your program, you will also need to specify the path to
@@ -467,10 +454,8 @@ Communication between nodes can be traced by setting a system property before
 the communication classes in this package are initialized. The value system
 property "OtpConnection.trace" is the default trace level for all connections.
 Normally the default trace level is zero, i.e. no tracing is performed. By
-setting
-[OtpConnection.trace](assets/java/com/ericsson/otp/erlang/OtpConnection.html) to
-some non-zero value, the communication protocol can be shown in more or less
-detail. The valid values are:
+setting OtpConnection.trace to some non-zero value, the communication protocol
+can be shown in more or less detail. The valid values are:
 
 - 0: no tracing is performed
 - 1: only ordinary send and reg-send messages are shown
@@ -479,3 +464,28 @@ detail. The valid values are:
 - 4: epmd requests are shown
 
 Each level also includes the information shown by all lower levels.
+
+[`OtpErlangAtom`]: assets/java/com/ericsson/otp/erlang/OtpErlangAtom.html
+[`OtpErlangBinary`]: assets/java/com/ericsson/otp/erlang/OtpErlangBinary.html
+[`OtpErlangBoolean`]: assets/java/com/ericsson/otp/erlang/OtpErlangBoolean.html
+[`OtpErlangFloat`]: assets/java/com/ericsson/otp/erlang/OtpErlangFloat.html
+[`OtpErlangDouble`]: assets/java/com/ericsson/otp/erlang/OtpErlangDouble.html
+[`OtpErlangByte`]: assets/java/com/ericsson/otp/erlang/OtpErlangByte.html
+[`OtpErlangChar`]: assets/java/com/ericsson/otp/erlang/OtpErlangChar.html
+[`OtpErlangShort`]: assets/java/com/ericsson/otp/erlang/OtpErlangShort.html
+[`OtpErlangString`]: assets/java/com/ericsson/otp/erlang/OtpErlangString.html
+[`OtpErlangUShort`]: assets/java/com/ericsson/otp/erlang/OtpErlangUShort.html
+[`OtpErlangInt`]: assets/java/com/ericsson/otp/erlang/OtpErlangInt.html
+[`OtpErlangUInt`]: assets/java/com/ericsson/otp/erlang/OtpErlangUInt.html
+[`OtpErlangLong`]: assets/java/com/ericsson/otp/erlang/OtpErlangLong.html
+[`OtpErlangList`]: assets/java/com/ericsson/otp/erlang/OtpErlangList.html
+[`OtpErlangPid`]: assets/java/com/ericsson/otp/erlang/OtpErlangPid.html
+[`OtpErlangPort`]: assets/java/com/ericsson/otp/erlang/OtpErlangPort.html
+[`OtpErlangRef`]: assets/java/com/ericsson/otp/erlang/OtpErlangRef.html
+[`OtpErlangTuple`]: assets/java/com/ericsson/otp/erlang/OtpErlangTuple.html
+[`OtpErlangMap`]: assets/java/com/ericsson/otp/erlang/OtpErlangMap.html
+[`OtpErlangObject`]: assets/java/com/ericsson/otp/erlang/OtpErlangObject.html
+[`OtpMbox`]: assets/java/com/ericsson/otp/erlang/OtpMbox.html
+[`OtpNode`]: assets/java/com/ericsson/otp/erlang/OtpNode.html
+[`OtpConnection`]: assets/java/com/ericsson/otp/erlang/OtpConnection.html
+[Jinterface]: assets/java/com/ericsson/otp/erlang/package-summary.html
