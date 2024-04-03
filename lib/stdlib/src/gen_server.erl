@@ -903,7 +903,7 @@ process (due to the process link), that message has been consumed.
 >
 > Before OTP 26.0, if the started `gen_server` process returned e.g.
 > `{stop,Reason}` from [`Module:init/1`](`c:init/1`), this function could return
-> `{error,Reason}` _before_ the started `m:gen_statem` process had terminated so
+> `{error,Reason}` _before_ the started `m:gen_server` process had terminated so
 > starting again might fail because VM resources such as the registered name was
 > not yet unregistered. An `'EXIT'` message could arrive later to the process
 > calling this function.
@@ -911,7 +911,7 @@ process (due to the process link), that message has been consumed.
 > But if the started `gen_server` process instead failed during
 > [`Module:init/1`](`c:init/1`), a process link `{'EXIT',Pid,Reason}` message
 > caused this function to return `{error,Reason}` so the `'EXIT'` message had
-> been consumed and the started `m:gen_statem` process had terminated.
+> been consumed and the started `m:gen_server` process had terminated.
 >
 > Since it was impossible to tell the difference between these two cases from
 > `start_link/3,4`'s return value, this inconsistency was cleaned up in OTP
