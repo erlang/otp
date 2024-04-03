@@ -97,7 +97,7 @@ interface. The only significant addition is that some of the functions, e.g.
 > the same function call, and some have a dedicated function variant
 > to be used for the retry.  See the respective function's documentation.
 >
-> #### Operation Queueing on `select` Systems
+> #### Operation Queuing on `select` Systems
 >
 > On `select` systems, all other processes are _locked out_ until the
 > current process has completed the operation as in a continuation
@@ -107,7 +107,7 @@ interface. The only significant addition is that some of the functions, e.g.
 >
 > #### Canceling an operation
 >
-> An operation that is in progress (not completed) may be cancelled
+> An operation that is in progress (not completed) may be canceled
 > using `cancel/2` both on `completion` and `select` systems.
 >
 > Canceling an operation ensures that there is no `completion`,
@@ -139,7 +139,7 @@ interface. The only significant addition is that some of the functions, e.g.
 >     :
 > ```
 > Above, `Handle` is _no longer_ valid once the second `accept/2`, call
-> has been made (the first call is automatically cancelled).
+> has been made (the first call is automatically canceled).
 > After the second `accept/2` call returns `{error, timeout}`,
 > the accept operation has completed.
 >
@@ -191,7 +191,7 @@ This module was introduced in OTP 22.0, as experimental code.
   no longer experimental.
 * In OTP 27.0, the Windows flavored
   ([completion handle](`t:completion_handle/0`))
-  API features could be considered no longer experimantal.
+  API features could be considered no longer experimental.
 
 ## Examples
 
@@ -497,7 +497,7 @@ There are many other possible protocols, but the ones above are those for which
 this socket library implements socket options and/or control messages.
 
 All protocols known to the OS are enumerated when the Erlang VM is started,
-throuth the `C` library call `getprotoent()`. See the OS man page for
+through the `C` library call `getprotoent()`. See the OS man page for
 protocols(5). Those in the list above are valid if supported by the platform,
 even if they aren't enumerated.
 
@@ -824,7 +824,7 @@ with options named `SO_`\* .
 %% Should those be included here or in a special list?
 %% Should we just document it and leave it to the user?
 %% Or catch it in the encode functions?
-%% A setopt for a readonly option leads to {error, invalid()}?
+%% A setopt for a read-only option leads to {error, invalid()}?
 %% Do we really need a sndbuf?
 
 -doc """
@@ -855,7 +855,7 @@ hence above all OS protocol levels.
   This is the allocation size for the receive buffer used when calling the OS
   protocol stack's receive API, when no specific size (size 0) is requested.
   When the receive function returns the receive buffer is reallocated to the
-  actually received size. If the data is copied or shrinked in place is up to
+  actually received size. If the data is copied or shrunk in place is up to
   the allocator, and can to some extent be configured in the Erlang VM.
 
   The similar socket option; `{socket,rcvbuf}` is a related option for the OS'
@@ -984,7 +984,7 @@ _Options for protocol level_ [_`socket`_:](`t:level/0`)
   This option is unsupported per default; OTP has to be explicitly built with
   the `--enable-esock-rcvsndtimeo` configure option for this to be available.
 
-  Since our implementation uses nonblocking sockets, it is unknown if and how
+  Since our implementation uses non-blocking sockets, it is unknown if and how
   this option works, or even if it may cause malfunction. Therefore, we do not
   recommend setting this option.
 
@@ -1003,7 +1003,7 @@ _Options for protocol level_ [_`socket`_:](`t:level/0`)
   This option is unsupported per default; OTP has to be explicitly built with
   the `--enable-esock-rcvsndtimeo` configure option for this to be available.
 
-  Since our implementation uses nonblocking sockets, it is unknown if and how
+  Since our implementation uses non-blocking sockets, it is unknown if and how
   this option works, or even if it may cause malfunction. Therefore, we do not
   recommend setting this option.
 
@@ -1402,7 +1402,7 @@ and [`accept/1,2`](`accept/1`).
 %% Some flags are used for send, others for recv, and yet again
 %% others are found in a cmsg().  They may occur in multiple locations..
 -doc """
-Platform depenent message flags.
+Platform dependent message flags.
 
 Translates to/from message flag constants on the platform.
 These flags are lowercase while the constants are uppercase
@@ -1918,7 +1918,7 @@ which_monitors(Socket) ->
 %% *** monitor_by/1 ***
 %%
 %% Interface function to the socket registry
-%% Returns a list of all the process'es monitoring the socket.
+%% Returns a list of all the processes monitoring the socket.
 %%
 
 -doc false.
@@ -1950,7 +1950,7 @@ to_list(Socket) ->
 %% *** which_socket_kind/1 ***
 %%
 %% Utility function that returns the "kind" of socket.
-%% That is, if its a "plain" socket or a compatibillity socket.
+%% That is, if its a "plain" socket or a compatibility socket.
 %%
 
 -doc false.
@@ -2312,7 +2312,7 @@ The function returns a map with each information item as a key-value pair.
 
 > #### Note {: .info }
 >
-> In order to ensure data integrity, mutex'es are taken when needed.
+> In order to ensure data integrity, mutexes are taken when needed.
 > So, don't call this function often.
 """.
 -spec info() -> info().
@@ -2340,7 +2340,7 @@ reflecting the "current" state of the socket.
 
 > #### Note {: .info }
 >
-> In order to ensure data integrity, mutex'es are taken when needed.
+> In order to ensure data integrity, mutexes are taken when needed.
 > So, don't call this function often.
 """.
 -spec info(Socket) -> socket_info() when
@@ -2493,7 +2493,7 @@ If `Key1 = msg_flags` returns a list of `{Flag, boolean()}`
 tuples for every `Flag` in `t:msg_flag/0` with the `t:boolean/0`
 indicating if the flag is supported on this platform.
 
-If `Key1 = protocolss` returns a list of `{Name, boolean()}`
+If `Key1 = protocols` returns a list of `{Name, boolean()}`
 tuples for every `Name` in`t:protocol/0` with the `t:boolean/0`
 indicating if the protocol is supported on this platform.
 
@@ -2624,7 +2624,7 @@ protocol(Proto) ->
 %%
 %% <KOLLA>
 %%
-%% The nif sets up a monitor to this process, and if it dies the socket
+%% The NIF sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
 %% We may therefore need monitor function(s): 
@@ -2831,7 +2831,7 @@ open(Domain, Type, Protocol, Opts) ->
 %% bind - bind a name (an address) to a socket
 %%
 %% Note that the short (atom) addresses only work for some domains,
-%% and that the nif will reject 'broadcast' for other domains than 'inet'
+%% and that the NIF will reject 'broadcast' for other domains than 'inet'
 %%
 
 -doc(#{since => <<"OTP 22.0">>}).
@@ -2887,7 +2887,7 @@ bind(Socket, Addr) ->
 %%   protocol = sctp
 %%
 %% If the domain is inet, then all addresses *must* be IPv4.
-%% If the domain is inet6, the addresses can be aither IPv4 or IPv6.
+%% If the domain is inet6, the addresses can be either IPv4 or IPv6.
 %%
 
 -doc false.
@@ -2923,7 +2923,7 @@ On `select` systems this function finalizes a connection setup
 on a socket, after receiving a `select` message
 `{'$socket',` [`Socket`](`t:socket/0`)`, select,
 `[`SelectHandle`](`t:select_handle/0`)`}`,
-and returns whether the connection setup was succesful or not.
+and returns whether the connection setup was successful or not.
 
 Instead of calling this function, for backwards compatibility,
 it is allowed to call [`connect/2,3`](`connect/2`) again,
@@ -2996,7 +2996,7 @@ if the connection hasn't been established within `Timeout` milliseconds.
 >
 > The safe play is to close the socket and start over.
 >
-> Also note that this applies to cancelling a `nowait` connect call
+> Also note that this applies to canceling a `nowait` connect call
 > described below.
 
 [](){: #connect-nowait }
@@ -3016,7 +3016,7 @@ at the start of this module reference manual page.
 After receiving a `select` message call `connect/1`
 to complete the operation.
 
-If cancelling the operation with `cancel/2` see the note above
+If canceling the operation with `cancel/2` see the note above
 about [connection time-out](#connect-timeout).
 """.
 -spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
@@ -3370,8 +3370,8 @@ The return value indicates the result from the platform's network layer:
 
 - **`ok`** - All data was accepted by the OS for delivery
 
-- **`{ok, RestData}`** - Some but not all sata was accepted,
-  but no error was reported (partially succesful send).  `RestData`
+- **`{ok, RestData}`** - Some but not all data was accepted,
+  but no error was reported (partially successful send).  `RestData`
   is the tail of `Data` that wasn't accepted.
 
   This cannot happen for a socket of [type `stream`](`t:type/0`) where
@@ -4219,6 +4219,9 @@ sendfile(Socket, FileHandle_Cont, Offset, Count) ->
 -doc """
 Send a file on a socket.
 
+> #### Note {: .info }
+> This function unsupported on Windows.
+
 The `FileHandle` argument must refer to an open raw file
 as described in `file:open/2`.
 
@@ -4265,9 +4268,7 @@ If the `Handle` argument is `nowait`,
 starts an [asynchronous call](#asynchronous-calls) if the operation
 couldn't be completed immediately.
 
-If the `Handle` argument is a `t:select_handle/0`,
-or on _Windows_, the equivalent
-`t:completion_handle/0` *(since OTP 26.0)*, starts
+If the `Handle` argument is a `t:select_handle/0`, starts
 an [asynchronous call](#asynchronous-calls) like for `nowait`.
 
 See the note [Asynchronous Calls](#asynchronous-calls)
@@ -4595,7 +4596,7 @@ has been received on a socket of [type `stream`](`t:type/0`).
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no data
-is immedieatly available `{error, timeout} is returned.
+is immediately available `{error, timeout} is returned.
 `On a socket of type [`stream`](`t:type/0`), `{error, {timeout, Data}}`
 is returned if there is an insufficient amount of data immediately available.
 
@@ -5013,7 +5014,7 @@ if no message has arrived after `Timeout` milliseconds.
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no message
-is immedieatly available `{error, timeout}` is returned.
+is immediately available `{error, timeout}` is returned.
 
 [](){: #recvfrom-nowait }
 
@@ -5260,7 +5261,7 @@ if no message has arrived after `Timeout` milliseconds.
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no message
-is immedieatly available `{error, timeout}` is returned.
+is immediately available `{error, timeout}` is returned.
 
 [](){: #recvmsg-nowait }
 
@@ -6226,7 +6227,7 @@ ioctl(Socket, SetRequest, Arg1, Arg2) ->
 %% A call to accept, recv/recvfrom/recvmsg and send/sendto/sendmsg
 %% can result in a select if they are called with the Timeout argument
 %% set to nowait. This is indicated by the return of the select-info.
-%% Such a operation can be cancelled by calling this function.
+%% Such a operation can be canceled by calling this function.
 %%
 
 -doc(#{since => <<"OTP 22.1">>}).
@@ -6244,7 +6245,7 @@ If another process tries an operation of the same basic type
 (`accept/1` | `send/2` | `recv/2`) it will be enqueued and notified
 through a `select` or `completion` message when the current operation
 and all enqueued before it has been completed. If the current operation
-is cancelled by this function it is treated as a completed operation;
+is canceled by this function it is treated as a completed operation;
 the process first in queue is notified.
 
 If [`SelectInfo`](`t:select_info/0`) `|`
@@ -6395,7 +6396,7 @@ f(F, A) ->
 %%     {Item, Val} = process_info(self(), Item),
 %%     Val.
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp(Now) ->
@@ -6429,6 +6430,6 @@ f(F, A) ->
 %% p(undefined, F, A) ->
 %%     p("***", F, A);
 %% p(SName, F, A) ->
-%%     TS = formated_timestamp(),
+%%     TS = formatted_timestamp(),
 %%     io:format(user,"[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]),
 %%     io:format("[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]).
