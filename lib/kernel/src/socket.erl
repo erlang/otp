@@ -2545,7 +2545,8 @@ supports(Key1, Key2) ->
 Check if a socket feature is supported.
 
 Returns `true` if `supports/0` has a `{Key1, true}` tuple
-in its returned list, otherwise `false` (also for unknown keys).
+or a `{Key1, list()}` tuple in its returned list,
+otherwise `false` (also for unknown keys).
 
 Example:
 ``` erlang
