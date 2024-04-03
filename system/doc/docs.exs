@@ -2,7 +2,6 @@
   extras: [
     "README.md",
     "installation_guide/installation_guide.md",
-    "installation_guide/install-binary.md",
     "installation_guide/INSTALL.md": [source: "../../HOWTO/INSTALL.md"],
     "installation_guide/INSTALL-CROSS.md": [source: "../../HOWTO/INSTALL-CROSS.md"],
     "installation_guide/INSTALL-WIN32.md": [source: "../../HOWTO/INSTALL-WIN32.md"],
