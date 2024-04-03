@@ -23,24 +23,24 @@ Erlang error logger.
 
 > #### Note {: .info }
 >
-> In Erlang/OTP 21.0, a new API for logging was added. The old `error_logger`
+> In Erlang/OTP 21.0, a new API for logging was added. The old `m:error_logger`
 > module can still be used by legacy code, but log events are redirected to the
 > new Logger API. New code should use the Logger API directly.
 >
-> `error_logger` is no longer started by default, but is automatically started
-> when an event handler is added with `error_logger:add_report_handler/1,2`. The
-> `error_logger` module is then also added as a handler to the new logger.
+> `m:error_logger` is no longer started by default, but is automatically started
+> when an event handler is added with [`error_logger:add_report_handler/1,2`](`error_logger:add_report_handler/2`). The
+> `m:error_logger` module is then also added as a handler to the new logger.
 >
 > See `m:logger` and the [Logging](logger_chapter.md) chapter in the User's
 > Guide for more information.
 
 The Erlang _error logger_ is an event manager (see
 [OTP Design Principles](`e:system:design_principles.md`) and `m:gen_event`),
-registered as `error_logger`.
+registered as `m:error_logger`.
 
 Error logger is no longer started by default, but is automatically started when
 an event handler is added with
-[`add_report_handler/1,2`](`add_report_handler/1`). The `error_logger` module is
+[`add_report_handler/1,2`](`add_report_handler/1`). The `m:error_logger` module is
 then also added as a handler to the new logger, causing log events to be
 forwarded from logger to error logger, and consequently to all installed error
 logger event handlers.
@@ -64,45 +64,46 @@ All event handlers added to the error logger must handle the following events.
 `Gleader` is the group leader pid of the process that sent the event, and `Pid`
 is the process that sent the event.
 
-- **`{error, Gleader, {Pid, Format, Data}}`** - Generated when `error_msg/1,2`
-  or `format` is called.
+- **`{error, Gleader, {Pid, Format, Data}}`** -
+  Generated when [`error_msg/1,2`](`error_msg/2`) or `format/2` is called.
 
-- **`{error_report, Gleader, {Pid, std_error, Report}}`** - Generated when
-  [`error_report/1`](`error_report/1`) is called.
+- **`{error_report, Gleader, {Pid, std_error, Report}}`** -
+  Generated when [`error_report/1`](`error_report/1`) is called.
 
-- **`{error_report, Gleader, {Pid, Type, Report}}`** - Generated when
-  [`error_report/2`](`error_report/2`) is called.
+- **`{error_report, Gleader, {Pid, Type, Report}}`** -
+  Generated when [`error_report/2`](`error_report/2`) is called.
 
-- **`{warning_msg, Gleader, {Pid, Format, Data}}`** - Generated when
-  `warning_msg/1,2` is called if warnings are set to be tagged as warnings.
+- **`{warning_msg, Gleader, {Pid, Format, Data}}`** -
+  Generated when [`warning_msg/1,2`](`warning_msg/2`) is called if warnings are set to
+  be tagged as warnings.
 
-- **`{warning_report, Gleader, {Pid, std_warning, Report}}`** - Generated when
-  [`warning_report/1`](`warning_report/1`) is called if warnings are set to be
-  tagged as warnings.
+- **`{warning_report, Gleader, {Pid, std_warning, Report}}`** -
+  Generated when [`warning_report/1`](`warning_report/1`) is called if warnings are
+  set to be tagged as warnings.
 
 - **`{warning_report, Gleader, {Pid, Type, Report}}`** - Generated when
   [`warning_report/2`](`warning_report/2`) is called if warnings are set to be
   tagged as warnings.
 
-- **`{info_msg, Gleader, {Pid, Format, Data}}`** - Generated when `info_msg/1,2`
-  is called.
+- **`{info_msg, Gleader, {Pid, Format, Data}}`** -
+  Generated when [`info_msg/1,2`](`info_msg/2`) is called.
 
-- **`{info_report, Gleader, {Pid, std_info, Report}}`** - Generated when
-  [`info_report/1`](`info_report/1`) is called.
+- **`{info_report, Gleader, {Pid, std_info, Report}}`** -
+  Generated when [`info_report/1`](`info_report/1`) is called.
 
-- **`{info_report, Gleader, {Pid, Type, Report}}`** - Generated when
-  [`info_report/2`](`info_report/2`) is called.
+- **`{info_report, Gleader, {Pid, Type, Report}}`** -
+  Generated when [`info_report/2`](`info_report/2`) is called.
 
 Notice that some system-internal events can also be received. Therefore a
 catch-all clause last in the definition of the event handler callback function
-`Module:handle_event/2` is necessary. This also applies for
-`Module:handle_info/2`, as the event handler must also take care of some
+`c:gen_event:handle_event/2` is necessary. This also applies for
+`c:gen_event:handle_info/2`, as the event handler must also take care of some
 system-internal messages.
 
 ## See Also
 
-`m:gen_event`, `m:logger`, `m:log_mf_h`, [`kernel(6)`](kernel_app.md),
-[`sasl(6)`](`e:sasl:sasl_app.md`)
+`m:gen_event`, `m:logger`, `m:log_mf_h`, [`kernel`](kernel_app.md),
+[`sasl`](`e:sasl:sasl_app.md`)
 """.
 
 -include("logger_internal.hrl").
@@ -135,8 +136,10 @@ system-internal messages.
 -export([warning_map/0]).
 
 -doc """
-Returns the current mapping for warning events. Events sent using
-`warning_msg/1,2` or `warning_report/1,2` are tagged as errors, warnings
+Returns the current mapping for warning events.
+
+Events sent using [`warning_msg/1,2`](`warning_msg/2`) or
+[`warning_report/1,2`](`warning_report/2`) are tagged as errors, warnings
 (default), or info, depending on the value of command-line flag `+W`.
 
 _Example:_
@@ -355,24 +358,12 @@ get_report_cb(_) ->
 %% Used for simple messages; error or information.
 %%-----------------------------------------------------------------
 
--doc(#{equiv => format/2}).
+-doc(#{equiv => error_msg(Format, [])}).
 -spec error_msg(Format) -> 'ok' when
       Format :: string().
 
 error_msg(Format) ->
     error_msg(Format,[]).
-
--doc(#{equiv => format/2}).
--spec error_msg(Format, Data) -> 'ok' when
-      Format :: string(),
-      Data :: list().
-
-error_msg(Format, Args) ->
-    logger:log(error,
-               #{label=>{?MODULE,error_msg},
-                 format=>Format,
-                 args=>Args},
-               meta(error)).
 
 -doc """
 Log a standard error event. The `Format` and `Data` arguments are the same as
@@ -383,13 +374,13 @@ backwards compatibility with legacy error logger event handlers.
 
 The event is handled by the default Logger handler.
 
-These functions are kept for backwards compatibility and must not be used by new
+This function is kept for backwards compatibility and must not be used by new
 code. Use the [`?LOG_ERROR`](`m:logger#module-macros`) macro or
 [`logger:error/1,2,3`](`logger:error/1`) instead.
 
 _Example:_
 
-```erlang
+```text
 1> error_logger:error_msg("An error occurred in ~p", [a_module]).
 =ERROR REPORT==== 22-May-2018::11:18:43.376917 ===
 An error occurred in a_module
@@ -402,6 +393,18 @@ ok
 > event handlers must ensure that the formatted output is correctly encoded for
 > the I/O device.
 """.
+-spec error_msg(Format, Data) -> 'ok' when
+      Format :: string(),
+      Data :: list().
+
+error_msg(Format, Args) ->
+    logger:log(error,
+               #{label=>{?MODULE,error_msg},
+                 format=>Format,
+                 args=>Args},
+               meta(error)).
+
+-doc(#{equiv => error_msg(Format, Data)}).
 -spec format(Format, Data) -> 'ok' when
       Format :: string(),
       Data :: list().
@@ -431,7 +434,7 @@ code. Use the [`?LOG_ERROR`](`m:logger#module-macros`) macro or
 
 _Example:_
 
-```erlang
+```text
 2> error_logger:error_report([{tag1,data1},a_term,{tag2,data}]).
 =ERROR REPORT==== 22-May-2018::11:24:23.699306 ===
     tag1: data1
@@ -539,7 +542,7 @@ warning_report(Type, Report) ->
 %% other types of reports.
 %%-----------------------------------------------------------------
 
--doc(#{equiv => warning_msg/2}).
+-doc(#{equiv => warning_msg(Format, [])}).
 -spec warning_msg(Format) -> 'ok' when
       Format :: string().
 
@@ -596,7 +599,7 @@ code. Use the [`?LOG_INFO`](`m:logger#module-macros`) macro or
 
 _Example:_
 
-```erlang
+```text
 2> error_logger:info_report([{tag1,data1},a_term,{tag2,data}]).
 =INFO REPORT==== 22-May-2018::12:06:35.994440 ===
     tag1: data1
@@ -647,7 +650,7 @@ info_report(Type, Report) ->
 %% information messages.
 %%-----------------------------------------------------------------
 
--doc(#{equiv => info_msg/2}).
+-doc(#{equiv => info_msg(Format, [])}).
 -spec info_msg(Format) -> 'ok' when
       Format :: string().
 
@@ -669,7 +672,7 @@ code. Use the [`?LOG_INFO`](`m:logger#module-macros`) macro or
 
 _Example:_
 
-```erlang
+```text
 1> error_logger:info_msg("Something happened in ~p", [a_module]).
 =INFO REPORT==== 22-May-2018::12:03:32.612462 ===
 Something happened in a_module
@@ -764,7 +767,7 @@ string_p1(FlatList) ->
 %% -----------------------------------------------------------------
 %% Stuff directly related to the event manager
 %% -----------------------------------------------------------------
--doc(#{equiv => add_report_handler/2}).
+-doc(#{equiv => add_report_handler(Handler, [])}).
 -spec add_report_handler(Handler) -> any() when
       Handler :: module().
 
@@ -773,17 +776,17 @@ add_report_handler(Module) when is_atom(Module) ->
 
 -doc """
 Adds a new event handler to the error logger. The event handler must be
-implemented as a `gen_event` callback module, see `m:gen_event`.
+implemented as a `m:gen_event` callback module.
 
 `Handler` is typically the name of the callback module and `Args` is an optional
 term (defaults to []) passed to the initialization callback function
-`Handler:init/1`. The function returns `ok` if successful.
+`c:gen_event:init/1`. The function returns `ok` if successful.
 
 The event handler must be able to handle the events in this module, see section
 [Events](`m:error_logger#module-events`).
 
-The first time this function is called, `error_logger` is added as a Logger
-handler, and the `error_logger` process is started.
+The first time this function is called, `m:error_logger` is added as a Logger
+handler, and the `m:error_logger` process is started.
 """.
 -spec add_report_handler(Handler, Args) -> Result when
       Handler :: module(),
@@ -796,10 +799,10 @@ add_report_handler(Module, Args) when is_atom(Module) ->
 
 -doc """
 Deletes an event handler from the error logger by calling
-`gen_event:delete_handler(error_logger, Handler, [])`, see `m:gen_event`.
+[`gen_event:delete_handler(error_logger, Handler, [])`](`gen_event:delete_handler/3`).
 
-If no more event handlers exist after the deletion, `error_logger` is removed as
-a Logger handler, and the `error_logger` process is stopped.
+If no more event handlers exist after the deletion, `m:error_logger` is removed as
+a Logger handler, and the `m:error_logger` process is stopped.
 """.
 -spec delete_report_handler(Handler) -> Result when
       Handler :: module(),
@@ -839,7 +842,7 @@ which_report_handlers() ->
 Enables or disables printout of standard events to a file.
 
 This is done by adding or deleting the `error_logger_file_h` event handler, and
-thus indirectly adding `error_logger` as a Logger handler.
+thus indirectly adding `m:error_logger` as a Logger handler.
 
 Notice that this function does not manipulate the Logger configuration directly,
 meaning that if the default Logger handler is already logging to a file, this
@@ -964,12 +967,12 @@ limit_term(Term) ->
 
 -doc """
 Returns [`max(10, Depth)`](`max/2`), where `Depth` is the value of
-`error_logger_format_depth` in the Kernel application, if Depth is an integer.
-Otherwise, `unlimited` is returned.
+[`error_logger_format_depth`](kernel_app.md#error_logger_format_depth) in the
+Kernel application, if Depth is an integer. Otherwise, `unlimited` is returned.
 
 > #### Note {: .info }
 >
-> The `error_logger_format_depth` variable is
+> The [`error_logger_format_depth`](kernel_app.md#error_logger_format_depth) variable is
 > [deprecated](kernel_app.md#deprecated-configuration-parameters) since the
 > [Logger API](`m:logger`) was introduced in Erlang/OTP 21.0. The variable, and
 > this function, are kept for backwards compatibility since they still might be

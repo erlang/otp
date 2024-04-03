@@ -28,7 +28,7 @@ This module provides an interface to the file system.
 > File operations are only guaranteed to appear atomic when going through the
 > same file server. A NIF or other OS process may observe intermediate steps on
 > certain operations on some operating systems, eg. renaming an existing file on
-> Windows, or [`write_file_info/2` ](`write_file_info/2`)on any OS at the time
+> Windows, or [`write_file_info/2`](`write_file_info/2`) on any OS at the time
 > of writing.
 
 Regarding filename encoding, the Erlang VM can operate in two modes. The current
@@ -250,10 +250,14 @@ operating system kernel.
 -define(RAM_FILE, ram_file).           % Module
 
 %% data types
--doc "See also the documentation of the `t:name_all/0` type.".
+-doc "A file name as returned from `m:file` API functions.
+
+See the documentation of the `t:name_all/0` type.".
 -type filename()  :: string().
--doc "See also the documentation of the `t:name_all/0` type.".
--type filename_all() :: string() | binary().
+-doc "A file name as returned from `m:file` API functions.
+
+See the documentation of the `t:name_all/0` type.".
+-type filename_all() :: string() | (RawFilename :: binary()).
 -type file_info() :: #file_info{}.
 -compile({nowarn_hidden_doc, [file_descriptor/0]}).
 -doc hidden.
@@ -276,11 +280,15 @@ operating system kernel.
 		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
 -doc """
+A restricted file name used as input into `m:file` API functions.
+
 If VM is in Unicode filename mode, `t:string/0` and `t:char/0` are allowed to
 be > 255. See also the documentation of the `t:name_all/0` type.
 """.
 -type name()      :: string() | atom() | deep_list().
 -doc """
+A file name used as input into `m:file` API functions.
+
 If VM is in Unicode filename mode, characters are allowed to be > 255.
 `RawFilename` is a filename not subject to Unicode translation, meaning that it
 can contain characters not conforming to the Unicode encoding expected from the
@@ -401,7 +409,7 @@ get_cwd() ->
 Returns `{ok, Dir}` or `{error, Reason}`, where `Dir` is the current working
 directory of the specified drive.
 
-`Drive` is to be of the form "`Letter``:`", for example, "c:".
+`Drive` is to be of the form `Letter:`, for example, `c:`.
 
 Returns `{error, enotsup}` on platforms that have no concept of current drive
 (Unix, for example).
@@ -459,7 +467,7 @@ Typical error reasons are:
 set_cwd(Dirname) -> 
     check_and_call(set_cwd, [file_name(Dirname)]).
 
--doc(#{equiv => delete/2}).
+-doc(#{equiv => delete(Filename, [])}).
 -doc(#{since => <<"OTP 24.0">>}).
 -spec delete(Filename) -> ok | {error, Reason} when
       Filename :: name_all(),
@@ -635,7 +643,7 @@ del_dir_r(File) -> % rm -rf File
 	{error, _Reason} = Error -> Error
     end.
 
--doc(#{equiv => read_file_info/2}).
+-doc(#{equiv => read_file_info(File, [])}).
 -doc(#{since => <<"OTP R15B">>}).
 -spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
       File :: name_all() | io_device(),
@@ -651,12 +659,13 @@ read_file_info(Name) ->
 
 -doc """
 Retrieves information about a file. Returns `{ok, FileInfo}` if successful,
-otherwise `{error, Reason}`. `FileInfo` is a record `file_info`, defined in the
-Kernel include file `file.hrl`. Include the following directive in the module
-from which the function is called:
+otherwise `{error, Reason}`.
 
-```text
- -include_lib("kernel/include/file.hrl").
+`FileInfo` is a record `file_info`, defined in the Kernel include file `file.hrl`.
+Include the following directive in the module from which the function is called:
+
+```erlang
+-include_lib("kernel/include/file.hrl").
 ```
 
 The time type returned in `atime`, `mtime`, and `ctime` is dependent on the time
@@ -686,7 +695,7 @@ file name. Use `open/2` with the `raw` mode to obtain a file descriptor first.
 
 The record `file_info` contains the following fields:
 
-- **`size = integer() >= 0`** - Size of file in bytes.
+- **`size = ` `t:non_neg_integer/0`** - Size of file in bytes.
 
 - **`type = device | directory | other | regular`** - The type of the file. Can
   also contain `symlink` when returned from
@@ -695,17 +704,17 @@ The record `file_info` contains the following fields:
 - **`access = read | write | read_write | none`** - The current system access to
   the file.
 
-- **`atime = ``t:date_time/0`` | integer() >= 0`** - The last time the file was
+- **`atime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - The last time the file was
   read.
 
-- **`mtime = ``t:date_time/0`` | integer() >= 0`** - The last time the file was
+- **`mtime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - The last time the file was
   written.
 
-- **`ctime = ``t:date_time/0`` | integer() >=0`** - The interpretation of this
+- **`ctime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - The interpretation of this
   time field depends on the operating system. On Unix, it is the last time the
   file or the `inode` was changed. In Windows, it is the create time.
 
-- **`mode = integer() >= 0`** - The file permissions as the sum of the following
+- **`mode = ` `t:non_neg_integer/0`** - The file permissions as the sum of the following
   bit values:
 
   - **`8#00400`** - read permission: owner
@@ -732,23 +741,23 @@ The record `file_info` contains the following fields:
 
   On Unix platforms, other bits than those listed above may be set.
 
-- **`links = integer() >= 0`** - Number of links to the file (this is always 1
+- **`links = ` `t:non_neg_integer/0`** - Number of links to the file (this is always 1
   for file systems that have no concept of links).
 
-- **`major_device = integer() >= 0`** - Identifies the file system where the
+- **`major_device = ` `t:non_neg_integer/0`** - Identifies the file system where the
   file is located. In Windows, the number indicates a drive as follows: 0 means
   A:, 1 means B:, and so on.
 
-- **`minor_device = integer() >= 0`** - Only valid for character devices on
+- **`minor_device = ` `t:non_neg_integer/0`** - Only valid for character devices on
   Unix. In all other cases, this field is zero.
 
-- **`inode = integer() >= 0`** - Gives the `inode` number. On non-Unix file
+- **`inode = ` `t:non_neg_integer/0`** - Gives the `inode` number. On non-Unix file
   systems, this field is zero.
 
-- **`uid = integer() >= 0`** - Indicates the owner of the file. On non-Unix file
+- **`uid = ` `t:non_neg_integer/0`** - Indicates the owner of the file. On non-Unix file
   systems, this field is zero.
 
-- **`gid = integer() >= 0`** - Gives the group that the owner of the file
+- **`gid = ` `t:non_neg_integer/0`** - Gives the group that the owner of the file
   belongs to. On non-Unix file systems, this field is zero.
 
 Typical error reasons:
@@ -795,7 +804,7 @@ read_file_info(Name, Opts) when is_list(Opts) ->
 altname(Name) ->
     check_and_call(altname, [file_name(Name)]).
 
--doc(#{equiv => read_link_info/2}).
+-doc(#{equiv => read_link_info(Name, [])}).
 -doc(#{since => <<"OTP R15B">>}).
 -spec read_link_info(Name) -> {ok, FileInfo} | {error, Reason} when
       Name :: name_all(),
@@ -889,7 +898,7 @@ Typical error reasons:
 read_link_all(Name) ->
     check_and_call(read_link_all, [file_name(Name)]).
 
--doc(#{equiv => write_file_info/3}).
+-doc(#{equiv => write_file_info(Filename, FileInfo, [])}).
 -doc(#{since => <<"OTP R15B">>}).
 -spec write_file_info(Filename, FileInfo) -> ok | {error, Reason} when
       Filename :: name_all(),
@@ -901,12 +910,14 @@ write_file_info(Name, Info = #file_info{}) ->
 
 -doc """
 Changes file information. Returns `ok` if successful, otherwise
-`{error, Reason}`. `FileInfo` is a record `file_info`, defined in the Kernel
+`{error, Reason}`.
+
+`FileInfo` is a record `file_info`, defined in the Kernel
 include file `file.hrl`. Include the following directive in the module from
 which the function is called:
 
-```text
- -include_lib("kernel/include/file.hrl").
+```erlang
+-include_lib("kernel/include/file.hrl").
 ```
 
 The time type set in `atime`, `mtime`, and `ctime` depends on the time type set
@@ -926,18 +937,18 @@ about local files is returned.
 
 The following fields are used from the record, if they are specified:
 
-- **`atime = ``t:date_time/0`` | integer() >= 0`** - The last time the file was
+- **`atime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - The last time the file was
   read.
 
-- **`mtime = ``t:date_time/0`` | integer() >= 0`** - The last time the file was
+- **`mtime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - The last time the file was
   written.
 
-- **`ctime = ``t:date_time/0`` | integer() >= 0`** - On Unix, any value
+- **`ctime = ` `t:date_time/0` ` | ` `t:non_neg_integer/0`** - On Unix, any value
   specified for this field is ignored (the "ctime" for the file is set to the
   current time). On Windows, this field is the new creation time to set for the
   file.
 
-- **`mode = integer() >= 0`** - The file permissions as the sum of the following
+- **`mode = ` `t:non_neg_integer/0`** - The file permissions as the sum of the following
   bit values:
 
   - **`8#00400`** - Read permission: owner
@@ -964,10 +975,10 @@ The following fields are used from the record, if they are specified:
 
   On Unix platforms, other bits than those listed above may be set.
 
-- **`uid = integer() >= 0`** - Indicates the file owner. Ignored for non-Unix
+- **`uid = ` `t:non_neg_integer/0`** - Indicates the file owner. Ignored for non-Unix
   file systems.
 
-- **`gid = integer() >= 0`** - Gives the group that the file owner belongs to.
+- **`gid = ` `t:non_neg_integer/0`** - Gives the group that the file owner belongs to.
   Ignored for non-Unix file systems.
 
 Typical error reasons:
@@ -1049,7 +1060,7 @@ Typical error reasons:
 list_dir_all(Name) ->
     check_and_call(list_dir_all, [file_name(Name)]).
 
--doc(#{equiv => read_file/2}).
+-doc(#{equiv => read_file(Filename, [])}).
 -doc(#{since => <<"OTP @OTP-18589@">>}).
 -spec read_file(Filename) -> {ok, Binary} | {error, Reason} when
       Filename :: name_all(),
@@ -1551,8 +1562,9 @@ allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
     Module:allocate(Handle, Offset, Length).
 
 -doc """
-Reads `Number` bytes/characters from the file referenced by `IoDevice`. The
-functions `read/2`, `pread/3`, and `read_line/1` are the only ways to read from
+Reads `Number` bytes/characters from the file referenced by `IoDevice`.
+
+The functions `read/2`, `pread/3`, and `read_line/1` are the only ways to read from
 a file opened in `raw` mode (although they work for normally opened files, too).
 
 For files where `encoding` is set to something else than `latin1`, one character
@@ -1606,8 +1618,9 @@ read(_, _) ->
     {error, badarg}.
 
 -doc """
-Reads a line of bytes/characters from the file referenced by `IoDevice`. Lines
-are defined to be delimited by the linefeed (LF, `\n`) character, but any
+Reads a line of bytes/characters from the file referenced by `IoDevice`.
+
+Lines are defined to be delimited by the linefeed (LF, `\n`) character, but any
 carriage return (CR, `\r`) followed by a newline is also treated as a single LF
 character (the carriage return is silently ignored). The line is returned
 _including_ the LF, but excluding any CR immediately followed by an LF. This
@@ -1934,7 +1947,7 @@ truncate(#file_descriptor{module = Module} = Handle) ->
 truncate(_) ->
     {error, badarg}.
 
--doc(#{equiv => copy/3}).
+-doc(#{equiv => copy(Source, Destination, infinity) }).
 -spec copy(Source, Destination) -> {ok, BytesCopied} | {error, Reason} when
       Source :: io_device() | Filename | {Filename, Modes},
       Destination :: io_device() | Filename | {Filename, Modes},
@@ -1949,8 +1962,7 @@ copy(Source, Dest) ->
 -doc """
 Copies `ByteCount` bytes from `Source` to `Destination`. `Source` and
 `Destination` refer to either filenames or IO devices from, for example,
-[`open/2`](`open/2`). `ByteCount` defaults to `infinity`, denoting an infinite
-number of bytes.
+[`open/2`](`open/2`).
 
 Argument `Modes` is a list of possible modes, see `open/2`, and defaults to
 `[]`.
@@ -2213,7 +2225,7 @@ ipread_s32bu_p32bu_2(File,
 %%% provide a higher-lever interface to files.
 
 -doc """
-Reads Erlang terms, separated by '.', from `Filename`. Returns one of the
+Reads Erlang terms, separated by `.`, from `Filename`. Returns one of the
 following:
 
 - **`{ok, Terms}`** - The file was successfully read.
@@ -2259,7 +2271,7 @@ consult(File) ->
 -doc """
 Searches the path `Path` (a list of directory names) until the file `Filename`
 is found. If `Filename` is an absolute filename, `Path` is ignored. Then reads
-Erlang terms, separated by '.', from the file.
+Erlang terms, separated by `.`, from the file.
 
 Returns one of the following:
 
@@ -2304,10 +2316,12 @@ path_consult(Path, File) ->
     end.
 
 -doc """
-Reads and evaluates Erlang expressions, separated by '.' (or ',', a sequence of
+Reads and evaluates Erlang expressions, separated by `.` (or `,`, a sequence of
 expressions is also an expression) from `Filename`. The result of the evaluation
 is not returned; any expression sequence in the file must be there for its side
-effect. Returns one of the following:
+effect.
+
+Returns one of the following:
 
 - **`ok`** - The file was read and evaluated.
 
@@ -2353,7 +2367,7 @@ eval(File, Bs) ->
 -doc """
 Searches the path `Path` (a list of directory names) until the file `Filename`
 is found. If `Filename` is an absolute filename, `Path` is ignored. Then reads
-and evaluates Erlang expressions, separated by '.' (or ',', a sequence of
+and evaluates Erlang expressions, separated by `.` (or `,`, a sequence of
 expressions is also an expression), from the file. The result of evaluation is
 not returned; any expression sequence in the file must be there for its side
 effect.
@@ -2412,7 +2426,7 @@ path_eval(Path, File, Bs) ->
     end.
 
 -doc """
-Reads and evaluates Erlang expressions, separated by '.' (or ',', a sequence of
+Reads and evaluates Erlang expressions, separated by `.` (or `,`, a sequence of
 expressions is also an expression), from the file.
 
 Returns one of the following:
@@ -2463,7 +2477,7 @@ script(File, Bs) ->
 -doc """
 Searches the path `Path` (a list of directory names) until the file `Filename`
 is found. If `Filename` is an absolute filename, `Path` is ignored. Then reads
-and evaluates Erlang expressions, separated by '.' (or ',', a sequence of
+and evaluates Erlang expressions, separated by `.` (or `,`, a sequence of
 expressions is also an expression), from the file.
 
 Returns one of the following:

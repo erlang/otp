@@ -68,13 +68,28 @@ information about the default configuration for this formatter.
 -doc "A unique identifier for a handler instance.".
 -type id() :: atom().
 
--export_type([config/0, id/0]).
+-doc "Overload protection configuration.
+
+See [Protecting the Handler from Overload](logger_chapter.md#protecting-the-handler-from-overload)
+for more details.
+".
+-type olp_config() :: #{sync_mode_qlen => non_neg_integer(),
+                        drop_mode_qlen => pos_integer(),
+                        flush_qlen => pos_integer(),
+                        burst_limit_enable => boolean(),
+                        burst_limit_max_count => pos_integer(),
+                        burst_limit_window_time => pos_integer(),
+                        overload_kill_enable => boolean(),
+                        overload_kill_qlen => pos_integer(),
+                        overload_kill_mem_size => pos_integer(),
+                        overload_kill_restart_after =>
+                            non_neg_integer() | infinity}.
+
+-export_type([config/0, id/0, olp_config/0]).
 
 %%%-----------------------------------------------------------------
 %%% Callbacks
 -doc """
-This callback function is optional.
-
 The function is called on a temporary process when a new handler is about to be
 added. The purpose is to verify the configuration and initiate all resources
 needed by the handler.
@@ -95,8 +110,6 @@ function must return `{error,Reason}`.
       Reason :: term().
 
 -doc """
-This callback function is optional.
-
 The function is called on a temporary process when the configuration for a
 handler is about to change. The purpose is to verify and act on the new
 configuration.
@@ -132,8 +145,6 @@ If the configuration is faulty, the callback function must return
       Reason :: term().
 
 -doc """
-This callback function is optional.
-
 The function is called when one of the Logger API functions for fetching the
 handler configuration is called, for example `logger:get_handler_config/1`.
 
@@ -146,8 +157,6 @@ before it is returned to the caller.
       FilteredConfig :: config().
 
 -doc """
-This callback function is mandatory.
-
 The function is called when all primary filters and all handler filters for the
 handler in question have passed for the given log event. It is called on the
 client process, that is, the process that issued the log event.
@@ -163,8 +172,6 @@ The return value from this function is ignored by Logger.
       LogEvent :: logger:log_event(), Config :: config().
 
 -doc """
-This callback function is optional.
-
 The function is called on a temporary process when a handler is about to be
 removed. The purpose is to release all resources used by the handler.
 

@@ -396,6 +396,19 @@ Equivalent to [atom_to_binary(Atom, utf8)](`atom_to_binary/2`).
 """.
 ```
 
+### Referring to multiple arities
+
+Sometimes it is useful to be able to concisely refer to multiple
+arities of the same function. This should be done like this:
+
+```markdown
+See [`disk_log:blog/1,2`](`disk_log:blog/2`).
+See [`disk_log:blog/*`](`disk_log:blog/2`).
+```
+
+The link should point the to arity with the most relevant documentation,
+which usually is the largest arity function.
+
 ### Diagrams and images
 
 Diagrams and images are powerful tools to describe complicated

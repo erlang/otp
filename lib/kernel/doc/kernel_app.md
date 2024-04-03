@@ -92,7 +92,7 @@ Setting OS signals are described in `os:set_signal/2`.
 
 The following configuration parameters are defined for the Kernel application.
 For more information about configuration parameters, see file
-[`app(4)`](app.md).
+[`app`](app.md).
 
 - **`connect_all = true | false`{: #connect_all }** - If enabled (`true`), which
   also is the default, `m:global` will actively connect to all nodes that
@@ -437,17 +437,15 @@ For more information about configuration parameters, see file
   the shell history files will be stored. defaults to the user's cache directory
   as returned by `filename:basedir(user_cache, "erlang-history")`.
 
-- **`shutdown_func = {Mod, Func}`{: #shutdown_func }** - Where:
-
-  - `Mod = atom()`
-  - `Func = atom()`
-
+- **`shutdown_func = {Mod :: atom(), Func :: atom()}`{: #shutdown_func }** -
   Sets a function that `application_controller` calls when it starts to
   terminate. The function is called as `Mod:Func(Reason)`, where `Reason` is the
   terminate reason for `application_controller`, and it must return as soon as
   possible for `application_controller` to terminate properly.
 
-- **`source_search_rules = [DirRule] | [SuffixRule]`{: #source_search_rules }** -  Where:
+- **`source_search_rules = [DirRule] | [SuffixRule]`{: #source_search_rules }**
+
+  Where:
 
   - `DirRule = {ObjDirSuffix,SrcDirSuffix}`
   - `SuffixRule = {ObjSuffix,SrcSuffix,[DirRule]}`
@@ -513,20 +511,13 @@ set.
   erl -kernel logger '[{handler,default,logger_std_h,#{config=>#{file=>"/tmp/erlang.log"}}}]'
   ```
 
-- **`error_logger_format_depth`** - Replaced by setting the
+- **`error_logger_format_depth`**{: #error_logger_format_depth } - Replaced by setting the
   [`depth`](`m:logger_formatter#depth`) parameter of the default handlers
   formatter. Example:
 
-  ```erlang
+  ```text
   erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatter,#{legacy_header=>true,template=>[{logger_formatter,header},"\n",msg,"\n"],depth=>10}}}]'
   ```
 
 See [Backwards compatibility with error_logger](logger_chapter.md#compatibility)
 for more information.
-
-## See Also
-
-[`app(4)`](app.md), `m:application`, `m:code`, `m:disk_log`,
-`m:erl_boot_server`, `m:erl_ddll`, `m:file`, `m:global`, `m:global_group`,
-`m:heart`, `m:inet`, `m:logger`, `m:net_kernel`, `m:os`, `m:pg`, `m:rpc`,
-`m:seq_trace`, `m:timer`

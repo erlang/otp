@@ -96,7 +96,7 @@ equal to or below the configured log level.
 
 ## See Also
 
-[`config(4)`](config.md), `m:erlang`, `m:io`, `m:logger_disk_log_h`,
+[`config`](config.md), `m:erlang`, `m:io`, `m:logger_disk_log_h`,
 `m:logger_filters`, `m:logger_handler`, `m:logger_formatter`, `m:logger_std_h`,
 `m:unicode`
 """.
@@ -160,7 +160,7 @@ equal to or below the configured log level.
 
 %%%-----------------------------------------------------------------
 %%% Types
--doc "".
+-doc "A log event passed to filters and handlers".
 -type log_event() :: #{level:=level(),
                        msg:={io:format(),[term()]} |
                             {report,report()} |
@@ -169,13 +169,14 @@ equal to or below the configured log level.
 -doc "The severity level for the message to be logged.".
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
--doc "".
+-doc "A log report.".
 -type report() :: map() | [{atom(),term()}].
 -doc """
-A fun which converts a [`report()` ](`t:report/0`)to a format string and
-arguments, or directly to a string. See section
-[Log Message](logger_chapter.md#log_message) in the User's Guide for more
-information.
+A fun which converts a [`report()`](`t:report/0`) to a format string and
+arguments, or directly to a string.
+
+See section [Log Message](logger_chapter.md#log_message) in the User's Guide
+for more information.
 """.
 -type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
                      fun((report(),report_cb_config()) -> unicode:chardata()).
@@ -280,6 +281,9 @@ a formatter implementation.
 """.
 -type formatter_config() :: #{atom() => term()}.
 
+-doc """
+Configuration used when adding or updating a handler.
+""".
 -type config_handler() :: {handler, logger_handler:id(), module(), logger_handler:config()}.
 
 -type config_logger() :: [{handler,default,undefined} |
@@ -287,18 +291,13 @@ a formatter implementation.
                           {filters,log | stop,[{filter_id(),filter()}]} |
                           {module_level,level(),[module()]}].
 
--doc "".
--type olp_config() :: #{sync_mode_qlen => non_neg_integer(),
-                        drop_mode_qlen => pos_integer(),
-                        flush_qlen => pos_integer(),
-                        burst_limit_enable => boolean(),
-                        burst_limit_max_count => pos_integer(),
-                        burst_limit_window_time => pos_integer(),
-                        overload_kill_enable => boolean(),
-                        overload_kill_qlen => pos_integer(),
-                        overload_kill_mem_size => pos_integer(),
-                        overload_kill_restart_after =>
-                            non_neg_integer() | infinity}.
+-doc "Overload protection configuration.
+
+> #### Note {: .info }
+>
+> DEPRECATED: Use `t:logger_handler:olp_config/0` instead.
+".
+-type olp_config() :: logger_handler:olp_config().
 
 %% Kept for backwards compatibility
 -doc """
@@ -340,13 +339,26 @@ Handler configuration data for Logger.
 %%%-----------------------------------------------------------------
 %%% API
 
--doc(#{equiv => emergency/3}).
+-define(LOG_DOC_1(Level), (#{equiv => emergency(StringOrReport, #{})})).
+-define(LOG_DOC_2(Level), "
+Create a " Level " log event.
+
+Equivalent to [`log(" Level ", StringOrReport, Metadata)`](`log/3`) if called
+as `" Level "(StringOrReport, Metadata)`.
+
+Equivalent to [`" Level "(FormatOrFun, Args, #{})`](`emergency/3`) if called as
+`" Level "(FormatOrFun, Args)`.
+").
+-define(LOG_DOC_3(Level), #{equiv => log(level, FormatOrFun, Args, Metadata) } ).
+
+-doc ?LOG_DOC_1(emergency).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec emergency(String :: unicode:chardata()) -> ok;
                (Report :: report()) -> ok.
 emergency(StringOrReport) ->
     log(emergency,StringOrReport).
--doc(#{equiv => emergency/3}).
+
+-doc ?LOG_DOC_2("emergency").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec emergency(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
                (Report :: report(), Metadata :: metadata()) -> ok;
@@ -354,24 +366,21 @@ emergency(StringOrReport) ->
                (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 emergency(FormatOrFun,Args) ->
     log(emergency,FormatOrFun,Args).
--doc """
-emergency(Fun,FunArgs[,Metadata])emergency(Format,Args[,Metadata])
 
-Equivalent to [`log(emergency,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(emergency).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec emergency(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
                (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 emergency(FormatOrFun,Args,Metadata) ->
     log(emergency,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => alert/3}).
+-doc ?LOG_DOC_1(alert).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec alert(String :: unicode:chardata()) -> ok;
            (Report :: report()) -> ok.
 alert(StringOrReport) ->
     log(alert,StringOrReport).
--doc(#{equiv => alert/3}).
+-doc ?LOG_DOC_2("alert").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec alert(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
            (Report :: report(), Metadata :: metadata()) -> ok;
@@ -379,24 +388,20 @@ alert(StringOrReport) ->
            (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 alert(FormatOrFun,Args) ->
     log(alert,FormatOrFun,Args).
--doc """
-alert(Fun,FunArgs[,Metadata])alert(Format,Args[,Metadata])
-
-Equivalent to [`log(alert,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(alert).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec alert(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
            (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 alert(FormatOrFun,Args,Metadata) ->
     log(alert,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => critical/3}).
+-doc ?LOG_DOC_1(critical).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec critical(String :: unicode:chardata()) -> ok;
               (Report :: report()) -> ok.
 critical(StringOrReport) ->
     log(critical,StringOrReport).
--doc(#{equiv => critical/3}).
+-doc ?LOG_DOC_2("critical").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec critical(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
               (Report :: report(), Metadata :: metadata()) -> ok;
@@ -404,24 +409,20 @@ critical(StringOrReport) ->
               (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 critical(FormatOrFun,Args) ->
     log(critical,FormatOrFun,Args).
--doc """
-critical(Fun,FunArgs[,Metadata])critical(Format,Args[,Metadata])
-
-Equivalent to [`log(critical,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(critical).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec critical(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
               (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 critical(FormatOrFun,Args,Metadata) ->
     log(critical,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => error/3}).
+-doc ?LOG_DOC_1(error).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec error(String :: unicode:chardata()) -> ok;
            (Report :: report()) -> ok.
 error(StringOrReport) ->
     log(error,StringOrReport).
--doc(#{equiv => error/3}).
+-doc ?LOG_DOC_2("error").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec error(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
            (Report :: report(), Metadata :: metadata()) -> ok;
@@ -429,24 +430,20 @@ error(StringOrReport) ->
            (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 error(FormatOrFun,Args) ->
     log(error,FormatOrFun,Args).
--doc """
-error(Fun,FunArgs[,Metadata])error(Format,Args[,Metadata])
-
-Equivalent to [`log(error,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(error).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec error(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
            (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 error(FormatOrFun,Args,Metadata) ->
     log(error,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => warning/3}).
+-doc ?LOG_DOC_1(warning).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec warning(String :: unicode:chardata()) -> ok;
              (Report :: report()) -> ok.
 warning(StringOrReport) ->
     log(warning,StringOrReport).
--doc(#{equiv => warning/3}).
+-doc ?LOG_DOC_2("warning").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec warning(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
              (Report :: report(), Metadata :: metadata()) -> ok;
@@ -454,24 +451,20 @@ warning(StringOrReport) ->
              (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 warning(FormatOrFun,Args) ->
     log(warning,FormatOrFun,Args).
--doc """
-warning(Fun,FunArgs[,Metadata])warning(Format,Args[,Metadata])
-
-Equivalent to [`log(warning,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(warning).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec warning(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
              (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 warning(FormatOrFun,Args,Metadata) ->
     log(warning,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => notice/3}).
+-doc ?LOG_DOC_1(notice).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec notice(String :: unicode:chardata()) -> ok;
             (Report :: report()) -> ok.
 notice(StringOrReport) ->
     log(notice,StringOrReport).
--doc(#{equiv => notice/3}).
+-doc ?LOG_DOC_2("notice").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec notice(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
             (Report :: report(), Metadata :: metadata()) -> ok;
@@ -479,24 +472,20 @@ notice(StringOrReport) ->
             (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 notice(FormatOrFun,Args) ->
     log(notice,FormatOrFun,Args).
--doc """
-notice(Fun,FunArgs[,Metadata])notice(Format,Args[,Metadata])
-
-Equivalent to [`log(notice,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(notice).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec notice(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
             (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 notice(FormatOrFun,Args,Metadata) ->
     log(notice,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => info/3}).
+-doc ?LOG_DOC_1(info).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec info(String :: unicode:chardata()) -> ok;
           (Report :: report()) -> ok.
 info(StringOrReport) ->
     log(info,StringOrReport).
--doc(#{equiv => info/3}).
+-doc ?LOG_DOC_2("info").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec info(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
           (Report :: report(), Metadata :: metadata()) -> ok;
@@ -504,24 +493,20 @@ info(StringOrReport) ->
           (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 info(FormatOrFun,Args) ->
     log(info,FormatOrFun,Args).
--doc """
-info(Fun,FunArgs[,Metadata])info(Format,Args[,Metadata])
-
-Equivalent to [`log(info,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(info).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec info(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
           (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 info(FormatOrFun,Args,Metadata) ->
     log(info,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => debug/3}).
+-doc ?LOG_DOC_1(debug).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec debug(String :: unicode:chardata()) -> ok;
            (Report :: report()) -> ok.
 debug(StringOrReport) ->
     log(debug,StringOrReport).
--doc(#{equiv => debug/3}).
+-doc ?LOG_DOC_2("debug").
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec debug(String :: unicode:chardata(), Metadata :: metadata()) -> ok;
            (Report :: report(), Metadata :: metadata()) -> ok;
@@ -529,25 +514,41 @@ debug(StringOrReport) ->
            (Fun :: msg_fun(), FunArgs :: term()) -> ok.
 debug(FormatOrFun,Args) ->
     log(debug,FormatOrFun,Args).
--doc """
-debug(Fun,FunArgs[,Metadata])debug(Format,Args[,Metadata])
-
-Equivalent to [`log(debug,...)`](`log/2`).
-""".
+-doc ?LOG_DOC_3(debug).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec debug(Format :: io:format(), Args :: [term()], Metadata :: metadata()) -> ok;
            (Fun :: msg_fun(), FunArgs :: term(), Metadata :: metadata()) -> ok.
 debug(FormatOrFun,Args,Metadata) ->
     log(debug,FormatOrFun,Args,Metadata).
 
--doc(#{equiv => log/4}).
+-doc(#{equiv => log(Level, StringOrReport, #{})}).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec log(Level :: level(), String :: unicode:chardata()) -> ok;
          (Level :: level(), Report :: report()) -> ok.
 log(Level, StringOrReport) ->
     do_log(Level,StringOrReport,#{}).
 
--doc(#{equiv => log/4}).
+-doc """
+Create a log event at the given [log level](logger_chapter.md#log_level), with
+the given [message](logger_chapter.md#log_message) to be logged and
+[_metadata_](logger_chapter.md#metadata).
+
+*Example*:
+
+```erlang
+%% A plain string
+1> logger:log(info, "Hello World").
+%% A plain string with metadata
+2> logger:log(debug, "Hello World", #{ meta => data }).
+%% A format string with arguments
+3> logger:log(warning, "The roof is on ~ts",[Cause]).
+%% A report
+4> logger:log(warning, #{ what => roof, cause => Cause }).
+```
+
+Equivalent to [`log(Level, FormatOrFun, Args, #{})`](`log/4`) if called as
+`log(Level, FormatOrFun, Args)`.
+""".
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
 -spec log(Level :: level(), String :: unicode:chardata(), Metadata :: metadata()) -> ok;
          (Level :: level(), Report :: report(), Metadata :: metadata()) -> ok;
@@ -562,18 +563,7 @@ log(Level, FunOrFormat, Args) ->
 -doc """
 Create a log event at the given [log level](logger_chapter.md#log_level), with
 the given [message](logger_chapter.md#log_message) to be logged and
-[_metadata_](logger_chapter.md#metadata). Examples:
-
-```erlang
-%% A plain string
-logger:log(info, "Hello World").
-%% A plain string with metadata
-logger:log(debug, "Hello World", #{ meta => data }).
-%% A format string with arguments
-logger:log(warning, "The roof is on ~ts",[Cause]).
-%% A report
-logger:log(warning, #{ what => roof, cause => Cause }).
-```
+[_metadata_](logger_chapter.md#metadata).
 
 The message and metadata can either be given directly in the arguments, or
 returned from a fun. Passing a fun instead of the message/metadata directly is
@@ -583,12 +573,12 @@ needed, which may be not at all if the log event is not to be logged. Examples:
 
 ```erlang
 %% A plain string with expensive metadata
-logger:info(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[]).
+1> logger:info(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[]).
 %% An expensive report
-logger:debug(fun(What) -> #{ what => What, cause => expensive() } end,roof).
+2> logger:debug(fun(What) -> #{ what => What, cause => expensive() } end,roof).
 %% A plain string with expensive metadata and normal metadata
-logger:debug(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[],
-             #{ meta => data }).
+3> logger:debug(fun([]) -> {"Hello World", #{ meta => expensive() }} end,[],
+               #{ meta => data }).
 ```
 
 When metadata is given both as an argument and returned from the fun they are
@@ -1135,15 +1125,7 @@ set_handler_config(HandlerId, formatter,
 update_formatter_config(HandlerId,FormatterConfig) ->
     logger_server:update_formatter_config(HandlerId,FormatterConfig).
 
--doc """
-Update the formatter configuration for the specified handler.
-
-This is equivalent to
-
-```erlang
-update_formatter_config(HandlerId, #{Key => Value})
-```
-""".
+-doc(#{ equiv => update_formatter_config(HandlerId, #{ Key => Value })}).
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.0">>}).
 -spec update_formatter_config(HandlerId,Key,Value) ->
                                      ok | {error,term()} when
@@ -1382,7 +1364,7 @@ get_config() ->
       proxy=>get_proxy_config(),
       module_levels=>lists:keysort(1,get_module_level())}.
 
--doc(#{equiv => i/1}).
+-doc "Pretty print all Logger configuration.".
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec i() -> ok.
 i() ->
