@@ -5443,8 +5443,6 @@ receive_replies(ReqId, N, Acc) ->
               do (that is, 128+signal).</p>
             <p>If option <c>eof</c> is specified also, the messages <c>eof</c>
               and <c>exit_status</c> appear in an unspecified order.</p>
-            <p>If the port program closes its <c>stdout</c> without exiting,
-              option <c>exit_status</c> does not work.</p>
           </item>
           <tag><c>use_stdio</c></tag>
           <item>
