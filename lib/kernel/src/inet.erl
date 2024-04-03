@@ -3310,6 +3310,30 @@ fdopen(Fd, Opts, Protocol, Family, Type, Module)
 %%  socket stat
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+-doc """
+Regarding `ShowPorts`, see `show_ports` as described in the `i/2` function,
+defaults to `false`.
+""".
+-type i_option() :: port |
+                    module |
+                    recv |
+                    sent |
+                    owner |
+                    local_address |
+                    {local_address, ShowPorts :: boolean()} |
+                    foreign_address |
+                    {foreign_address, ShowPorts :: boolean()} |
+                    state |
+                    type.
+
+i_options_all() ->
+    i_options_all(false).
+
+i_options_all(ShowPorts) when is_boolean(ShowPorts) ->
+    [port, module, recv, sent, owner,
+     {local_address, ShowPorts}, {foreign_address, ShowPorts},
+     state, type].
+
 -doc(#{equiv => i/2}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec i() -> ok.
@@ -3317,13 +3341,21 @@ i() -> i(tcp), i(udp), i(sctp).
 
 -doc(#{equiv => i/2}).
 -doc(#{since => <<"OTP 21.0">>}).
--spec i(socket_protocol()) -> ok.
-i(Proto) -> i(Proto, [port, module, recv, sent, owner,
-		      local_address, foreign_address, state, type]).
+-spec i(show_ports | socket_protocol() | [i_option()]) -> ok.
+i(show_ports) ->
+    i(i_options_all(true));
+i(Proto) when is_atom(Proto) ->
+    i(Proto, i_options_all());
+i(Options) when is_list(Options) ->
+    i(tcp,  Options),
+    i(udp,  Options),
+    i(sctp, Options).
 
 -doc """
 Lists all TCP, UDP and SCTP sockets, including those that the Erlang runtime
 system uses as well as those created by the application.
+
+- **`show_ports`** - Do *not* translated the port numbers (of the 'local_address' and 'foreign_address') to their service name(s).
 
 The following options are available:
 
@@ -3347,7 +3379,9 @@ The following options are available:
 - **`type`** - STREAM or DGRAM or SEQPACKET.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec i(socket_protocol(), [atom()]) -> ok.
+-spec i(socket_protocol(), show_ports | [i_option()]) -> ok.
+i(Proto, show_ports) ->
+    i(Proto, i_options_all(true));
 i(tcp, Fs) ->
     ii(tcp_sockets(), Fs, tcp);
 i(udp, Fs) ->
@@ -3375,7 +3409,12 @@ smax([], []) -> [].
 info_lines(Ss, Fs, Proto) -> [i_line(S, Fs,Proto) || S <- Ss].
 i_line(S, Fs, Proto)      -> [info(S, F, Proto) || F <- Fs].
 
-h_line(Fs) -> [h_field(atom_to_list(F)) || F <- Fs].
+h_line(Fs) -> [h_field(field2string(F)) || F <- Fs].
+
+field2string({F, _}) when is_atom(F) ->
+    field2string(F);
+field2string(F) when is_atom(F) ->
+    atom_to_list(F).
 
 h_field([C|Cs]) -> [upper(C) | hh_field(Cs)].
 
@@ -3412,9 +3451,13 @@ info({'$inet', GenSocketMod, _} = S, F, Proto) when is_atom(GenSocketMod) ->
 		_ -> " "
 	    end;
 	local_address ->
-	    fmt_addr(GenSocketMod:sockname(S), Proto);
+	    fmt_addr(GenSocketMod:sockname(S), Proto, false);
+	{local_address, ShowPort} ->
+	    fmt_addr(GenSocketMod:sockname(S), Proto, ShowPort);
 	foreign_address ->
-	    fmt_addr(GenSocketMod:peername(S), Proto);
+	    fmt_addr(GenSocketMod:peername(S), Proto, false);
+	{foreign_address, ShowPort} ->
+	    fmt_addr(GenSocketMod:peername(S), Proto, ShowPort);
 	state ->
 	    case GenSocketMod:info(S) of
 		#{rstates := RStates,
@@ -3463,9 +3506,13 @@ info(S, F, Proto) ->
 		_ -> " "
 	    end;
 	local_address ->
-	    fmt_addr(prim_inet:sockname(S), Proto);
+	    fmt_addr(prim_inet:sockname(S), Proto, false);
+	{local_address, ShowPort} ->
+	    fmt_addr(prim_inet:sockname(S), Proto, ShowPort);
 	foreign_address ->
-	    fmt_addr(prim_inet:peername(S), Proto);
+	    fmt_addr(prim_inet:peername(S), Proto, false);
+	{foreign_address, ShowPort} ->
+	    fmt_addr(prim_inet:peername(S), Proto, ShowPort);
 	state ->
 	    case prim_inet:getstatus(S) of
 		{ok,Status} -> fmt_status(Status);
@@ -3555,20 +3602,28 @@ fmt_status3(X) when is_atom(X) ->
     string:uppercase(atom_to_list(X)).
 
 
-fmt_addr({error,enotconn}, _) -> "*:*";
-fmt_addr({error,_}, _)        -> " ";
-fmt_addr({ok,Addr}, Proto) ->
+fmt_addr({error,enotconn}, _, _) -> "*:*";
+fmt_addr({error,_}, _, _)        -> " ";
+fmt_addr({ok,Addr}, Proto, ShowPort) ->
     case Addr of
 	%%Dialyzer {0,0}            -> "*:*";
-	{{0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
-	{{0,0,0,0,0,0,0,0},Port} -> "*:" ++ fmt_port(Port, Proto);
-	{{127,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
-	{{0,0,0,0,0,0,0,1},Port} -> "localhost:" ++ fmt_port(Port, Proto);
-	{local, Path} -> "local:" ++ binary_to_list(Path);
-	{IP,Port} -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
+	{{0,0,0,0}, Port} ->
+            "*:" ++ fmt_port(Port, Proto, ShowPort);
+	{{0,0,0,0,0,0,0,0}, Port} ->
+            "*:" ++ fmt_port(Port, Proto, ShowPort);
+	{{127,0,0,1}, Port} ->
+            "localhost:" ++ fmt_port(Port, Proto, ShowPort);
+	{{0,0,0,0,0,0,0,1}, Port} ->
+            "localhost:" ++ fmt_port(Port, Proto, ShowPort);
+	{local, Path} ->
+            "local:" ++ binary_to_list(Path);
+	{IP, Port} ->
+            inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto, ShowPort)
     end.
 
-fmt_port(N, Proto) ->
+fmt_port(N, _Proto, true = _ShowPort) ->
+    integer_to_list(N);
+fmt_port(N, Proto, false = _ShowPort) ->
     case inet:getservbyport(N, Proto) of
 	{ok, Name} -> Name;
 	_ -> integer_to_list(N)
