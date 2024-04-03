@@ -34,6 +34,8 @@
 
 -export([module/2, overview/2, type/1]).
 
+-export([copyright/1, version/1, since/1, authors/1, references/1, sees/1, todos/1]).
+
 -callback module(edoc:edoc_module(), _) -> binary().
 %% Layout entrypoint.
 
@@ -91,7 +93,7 @@
 %%  </dd>
 %%  <dt>{@type {xml_export, Module::atom()@}}
 %%  </dt>
-%%  <dd>Specifies an {@link //xmerl. `xmerl'} callback module to be
+%%  <dd>Specifies an {@link //xmerl/xmerl. `xmerl'} callback module to be
 %%      used for exporting the documentation. See {@link
 %%      //xmerl/xmerl:export_simple/3} for details.
 %%  </dd>
@@ -699,6 +701,7 @@ equiv(Es, P) ->
 	    end
     end.
 
+%% @doc hidden
 copyright(Es) ->
     case get_content(copyright, Es) of
 	[] -> [];
@@ -706,6 +709,7 @@ copyright(Es) ->
 	    [{p, ["Copyright \251 " | Es1]}, ?NL]
     end.
 
+%% @doc hidden
 version(Es) ->
     case get_content(version, Es) of
 	[] -> [];
@@ -713,6 +717,7 @@ version(Es) ->
 	    [{p, [{b, ["Version:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @doc hidden
 since(Es) ->
     case get_content(since, Es) of
 	[] -> [];
@@ -720,6 +725,7 @@ since(Es) ->
 	    [{p, [{b, ["Introduced in:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @doc hidden
 deprecated(Es, S) ->
     Es1 = get_content(description, get_content(deprecated, Es)),
     case get_content(fullDescription, Es1) of
