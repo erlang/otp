@@ -93,7 +93,7 @@
 %%  </dd>
 %%  <dt>{@type {xml_export, Module::atom()@}}
 %%  </dt>
-%%  <dd>Specifies an {@link //xmerl. `xmerl'} callback module to be
+%%  <dd>Specifies an {@link //xmerl/xmerl. `xmerl'} callback module to be
 %%      used for exporting the documentation. See {@link
 %%      //xmerl/xmerl:export_simple/3} for details.
 %%  </dd>
