@@ -652,6 +652,10 @@ value are listed.
   Default is to emit warnings for every use of a type known by the compiler to
   be deprecated.
 
+- **`nowarn_deprecated_callback`** - Turns off warnings for use of deprecated callbacks.
+  Default is to emit warnings for every use of a callback known by the compiler to
+  be deprecated.
+
 - **`nowarn_removed`** - Turns off warnings for calls to functions that have
   been removed. Default is to emit warnings for every call to a function known
   by the compiler to have been recently removed from Erlang/OTP.
