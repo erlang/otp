@@ -338,6 +338,10 @@ AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
 
+AC_ARG_ENABLE(ensure-os-monotonic-time,
+AS_HELP_STRING([--enable-ensure-os-monotonic-time],
+               [enable functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.]))
+
 AC_ARG_ENABLE([silent-rules], [dnl
 AS_HELP_STRING(
   [--enable-silent-rules],

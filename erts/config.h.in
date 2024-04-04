@@ -54,6 +54,10 @@
 /* Define > 0 if big-endian < 0 if little-endian, or 0 if unknown */
 #undef ERTS_ENDIANNESS
 
+/* Define if ensurance of the monotonicity of OS monotonic timestamps should
+   be enabled */
+#undef ERTS_ENSURE_OS_MONOTONIC_TIME
+
 /* Define if OS monotonic clock is corrected */
 #undef ERTS_HAVE_CORRECTED_OS_MONOTONIC_TIME
 
