@@ -19,7 +19,7 @@
 %%
 -module(code).
 -moduledoc """
-Erlang code server.
+Interface to the Erlang code server process.
 
 This module contains the interface to the Erlang _code server_, which deals with
 the loading of compiled code into a running Erlang runtime system.
@@ -27,21 +27,23 @@ the loading of compiled code into a running Erlang runtime system.
 The runtime system can be started in _interactive_ or _embedded_ mode. Which one
 is decided by the command-line flag `-mode`:
 
-```text
-% erl -mode interactive
+```bash
+% erl -mode embedded
 ```
 
 The modes are as follows:
 
-- In interactive mode, which is default, only some code is loaded during system
-  startup, basically the modules needed by the runtime system. Other code is
-  dynamically loaded when first referenced. When a call to a function in a
-  certain module is made, and the module is not loaded, the code server searches
-  for and tries to load the module.
-- In embedded mode, modules are not auto loaded. Trying to use a module that has
-  not been loaded results in an error. This mode is recommended when the boot
-  script loads all modules, as it is typically done in OTP releases. (Code can
-  still be loaded later by explicitly ordering the code server to do so).
+- In _interactive_ mode, which is default, only the modules needed by
+  the runtime system are loaded during system startup. Other code is
+  dynamically loaded when first referenced. When a call to a function
+  in a certain module is made, and that module is not loaded, the code
+  server searches for and tries to load that module.
+
+- In _embedded_ mode, modules are not auto-loaded. Trying to use a
+  module that has not been loaded results in an error. This mode is
+  recommended when the boot script loads all modules, as it is
+  typically done in OTP releases. (Code can still be loaded later by
+  explicitly ordering the code server to do so).
 
 To prevent accidentally reloading of modules affecting the Erlang runtime
 system, directories `kernel`, `stdlib`, and `compiler` are considered _sticky_.
@@ -51,8 +53,8 @@ using command-line flag `-nostick`.
 
 ## Code Path
 
-In interactive mode, the code server maintains a search path, usually called the
-_code path_, consisting of a list of directories, which it searches sequentially
+In interactive mode, the code server maintains a _code path_,
+consisting of a list of directories, which it searches sequentially
 when trying to load a module.
 
 Initially, the code path consists of the current working directory and all
@@ -80,25 +82,28 @@ libraries.
 
 _Example:_
 
-On a Unix-like system, `ERL_LIBS` can be set to the following
+On a Unix-like system, `ERL_LIBS` can be set to the following:
 
 ```text
 /usr/local/jungerl:/home/some_user/my_erlang_lib
 ```
 
-On Windows, use semi-colon as separator.
-
 The code paths specified by `$OTPROOT`, `ERL_LIBS`, and boot scripts have their
-listings cached by default (except for ".") since OTP 26.0. The code server will
+listings cached by default (except for `"."`) The code server will
 lookup the contents in their directories once and avoid future file system
-traversals. Therefore modules added to such directories after the Erlang VM
-boots won't be picked up. You can disable this behaviour by setting
+traversals. Therefore, modules added to such directories after the Erlang VM
+boots will not be picked up. This behaviour can be disabled by setting
 `-cache_boot_paths false` or by calling `code:set_path(code:get_path())`.
 
-The functions in this module and the command line options `-pa` and `-pz` are
-not cached by default. However, many of the functions that manipulate the code
-path accept the `cache` atom as an optional argument, which will enable caching
-on selected paths.
+> #### Change {: .info }
+>
+> The support for caching directories in the code path was added
+> in Erlang/OTP 26.
+
+Directories given by the command line options `-pa` and `-pz` are not
+cached by default. Many of the functions that manipulate the code path
+accept the `cache` atom as an optional argument to enable caching
+selectively.
 
 ## Loading of Code From Archive Files
 
@@ -180,7 +185,7 @@ name of the `escript` and no restrictions on how many applications that can be
 stored in the embedded archive. Single Beam files can also reside on the top
 level in the archive. At startup, the top directory in the embedded archive and
 all (second level) `ebin` directories in the embedded archive are added to the
-code path. See [`erts:escript(1)`](`e:erts:escript_cmd.md`).
+code path. See [`escript`](`e:erts:escript_cmd.md`).
 
 A future-proof way for `escript` scripts to read data files from the archive is
 to use the `escript:extract/2` function.
@@ -204,32 +209,103 @@ interprets the `boot script`. The interpretation of the explicit code paths in
 the `boot script` can be `strict` or `relaxed`. It is particularly useful to set
 the flag to `relaxed` when elaborating with code loading from archives without
 editing the `boot script`. The default has changed to `strict` in OTP 27 and the
-option is scheduled for removal in OTP 28. See [`erts:init(3)`](`m:init`).
+option is scheduled for removal in OTP 28. See module `m:init` in the
+Erts application.
 
 ## Current and Old Code
 
 The code for a module can exist in two variants in a system: _current code_ and
 _old code_. When a module is loaded into the system for the first time, the
-module code becomes 'current' and the global _export table_ is updated with
+module code becomes *current* and the global _export table_ is updated with
 references to all functions exported from the module.
 
-If then a new instance of the module is loaded (for example, because of error
-correction), the code of the previous instance becomes 'old', and all export
-entries referring to the previous instance are removed. After that, the new
-instance is loaded as for the first time, and becomes 'current'.
+When a new instance of the module is loaded, the code of the previous
+instance becomes *old*, and all export entries referring to the
+previous instance are removed. After that, the new instance is loaded
+as for the first time, and becomes current.
 
-Both old and current code for a module are valid, and can even be evaluated
+Both old and current code for a module are valid, and can even be executed
 concurrently. The difference is that exported functions in old code are
 unavailable. Hence, a global call cannot be made to an exported function in old
-code, but old code can still be evaluated because of processes lingering in it.
+code, but old code can still be executed because of processes lingering in it.
 
 If a third instance of the module is loaded, the code server removes (purges)
 the old code and any processes lingering in it are terminated. Then the third
-instance becomes 'current' and the previously current code becomes 'old'.
+instance becomes current and the previously current code becomes old.
 
 For more information about old and current code, and how to make a process
 switch from old to current code, see section Compilation and Code Loading in the
 [Erlang Reference Manual](`e:system:code_loading.md`).
+
+## Native Coverage Support
+
+In runtime systems that use the JIT, native coverage is a light-weight
+way to find out which functions or lines that have been executed, or
+how many times each function or line has been executed.
+
+> #### Change {: .info }
+>
+> The support for native coverage was added in Erlang/OTP 27.
+
+Native coverage works by instrumenting code at load-time. When a
+module has been instrumented for native coverage collection it is not
+possible to later disable the coverage collection, except by reloading
+the module. However, the overhead for keeping coverage collection
+running is often neligible, especially for [coverage
+mode](`t:coverage_mode/0`) `function` that only keeps track of which
+functions that have been executed.
+
+The `m:cover` tool in the Tools application will automatically use the
+native coverage support if the runtime system supports it.
+
+It is only necessary to use the functionality described next if
+`m:cover` is not sufficient, for example:
+
+* If one wants to collect coverage information for the code that runs
+  when the runtime system is starting (module `m:init` and so on).
+  `m:cover` can only be used when the Erlang system has started, and
+  it will reload every module that is to be analyzed.
+
+* If it is necessary to collect coverage information with the absolute
+  minimum disturbance of the test system. `m:cover` always counts how
+  many times each line is executed (coverage mode `line_counters`),
+  but by using native coverage one can use a less expensive coverage
+  mode such as `function`, which has almost negligible overhead.
+
+### Short summary of using native coverage
+
+If the `line` or `line_counters` coverage mode is to be used,
+the code to be tested must be compiled with option
+[`line_coverage`](`e:compiler:compile#line_coverage`).
+
+Use [set_coverage_mode(Mode)](`set_coverage_mode/1`) to set a
+[coverage mode](`t:coverage_mode/0`) for all code subsequently
+loaded, or set it with option [\+JPcover](`e:erts:erl_cmd.md#%2BJPcover`)
+for `erl`.
+
+Optionally reset coverage information for all
+modules that are to be tested by calling
+[reset_coverage(Module)](`reset_coverage/1`).
+
+Run the code whose coverage information is to be collected.
+
+Read out the counters for all interesting modules by calling
+[get_coverage(Level, Module)](`get_coverage/2`), where `Level`
+is either `function` or `line`.
+
+### The other native coverage BIFs
+
+The following BIFs are sometimes useful, for example to fail gracefully
+if the runtime system does not support native coverage:
+
+* [coverage_support()](`coverage_support/0`) - check whether
+  the runtime system supports native coverage
+
+* [get_coverage_mode()](`get_coverage_mode/0`) - get the current
+  coverage mode
+
+* [get_coverage_mode(Module)](`get_coverage_mode/1`) - get the coverage
+  mode for module `Module`
 
 ## Argument Types and Invalid Arguments
 
@@ -306,14 +382,14 @@ common reasons.
 	 is_sticky/1,
 	 get_object_code/1,
 	 add_paths/1, add_paths/2,
-     add_path/1, add_path/2,
+         add_path/1, add_path/2,
 	 add_pathsa/1, add_pathsa/2,
-     add_pathsz/1, add_pathsz/2,
+         add_pathsz/1, add_pathsz/2,
 	 add_patha/1, add_patha/2,
 	 add_pathz/1, add_pathz/2,
 	 del_path/1,
-     del_paths/1,
-     clear_cache/0,
+         del_paths/1,
+         clear_cache/0,
 	 replace_path/2,replace_path/3,
 	 start_link/0,
 	 which/1,
@@ -431,19 +507,22 @@ try_decompress(Bin0) ->
 %%----------------------------------------------------------------------------
 
 -doc """
-Returns the object code file extension corresponding to the Erlang machine used,
-namely `.beam`.
+Returns the object code file extension corresponding to the Erlang machine used.
+
+For the official Erlang/OTP release, the return value is always `.beam`.
 """.
 -spec objfile_extension() -> nonempty_string().
 objfile_extension() ->
     init:objfile_extension().
 
 -doc """
-Tries to load the Erlang module `Module`, using the code path. It looks for the
-object code file with an extension corresponding to the Erlang machine used, for
-example, `Module.beam`. The loading fails if the module name found in the object
-code differs from the name `Module`. `load_binary/3` must be used to load object
-code with a module name that is different from the file name.
+Tries to load the Erlang module `Module` using the code path.
+
+It looks for the object code file with an extension corresponding to
+the Erlang machine used, for example, `Module.beam`. The loading fails
+if the module name found in the object code differs from the name
+`Module`. Use `load_binary/3` to load object code with a module name
+that is different from the file name.
 
 Returns `{module, Module}` if successful, or `{error, Reason}` if loading fails.
 See [Error Reasons for Code-Loading Functions](`m:code#error_reasons`) for a
@@ -459,7 +538,9 @@ load_file(Mod) when is_atom(Mod) ->
 
 -doc """
 Tries to load a module in the same way as `load_file/1`, unless the module is
-already loaded. If called concurrently, this function ensures only one process
+already loaded.
+
+If called concurrently, this function ensures that only one process
 attempts to load said module at a given time.
 
 In embedded mode, it does not load a module that is not already loaded, but
@@ -502,11 +583,13 @@ ensure_prepare_loading(Mod, Binary, _File) ->
 
 %% XXX File as an atom is allowed only for backwards compatibility.
 -doc """
-Same as [`load_file(Module)`](`load_file/1`), but `Filename` is an absolute or
-relative filename. The code path is not searched. It returns a value in the same
-way as `load_file/1`. Notice that `Filename` must not contain the extension (for
-example, `.beam`) because [`load_abs/1`](`load_abs/1`) adds the correct
-extension.
+Equivalent to [`load_file(Module)`](`load_file/1`), except that `Filename` is
+an absolute or relative filename.
+
+The code path is not searched. It returns a value in the same way as
+`load_file/1`. Notice that `Filename` must not contain the extension
+(for example, `.beam`) because [`load_abs/1`](`load_abs/1`) adds the
+correct extension.
 """.
 -spec load_abs(Filename) -> load_ret() when
       Filename :: file:filename().
@@ -533,10 +616,12 @@ load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -doc """
+Loads object code from a binary.
+
 This function can be used to load object code on remote Erlang nodes. Argument
 `Binary` must contain object code for `Module`. `Filename` is only used by the
 code server to keep a record of from which file the object code for `Module`
-comes. Thus, `Filename` is not opened and read by the code server.
+originates. Thus, `Filename` is not opened and read by the code server.
 
 Returns `{module, Module}` if successful, or `{error, Reason}` if loading fails.
 See [Error Reasons for Code-Loading Functions](`m:code#error_reasons`) for a
@@ -573,7 +658,9 @@ int_list([])                       -> true.
 
 -doc """
 Removes the current code for `Module`, that is, the current code for `Module` is
-made old. This means that processes can continue to execute the code in the
+made old.
+
+This means that processes can continue to execute the code in the
 module, but no external function calls can be made to it.
 
 Returns `true` if successful, or `false` if there is old code for `Module` that
@@ -584,16 +671,17 @@ must be purged first, or if `Module` is not a (loaded) module.
 delete(Mod) when is_atom(Mod) -> call({delete,Mod}).
 
 -doc """
-Purges the code for `Module`, that is, removes code marked as old. If some
-processes still linger in the old code, these processes are killed before the
-code is removed.
+Purges the code for `Module`, that is, removes code marked as old.
 
-> #### Note {: .info }
+If some processes still linger in the old code, these processes are
+killed before the code is removed.
+
+> #### Change {: .info }
 >
-> As of ERTS version 9.0, a process is only considered to be lingering in the
+> As of Erlang/OTP 20.0, a process is only considered to be lingering in the
 > code if it has direct references to the code. For more information see
 > documentation of `erlang:check_process_code/3`, which is used in order to
-> determine this.
+> determine whether a process is lingering.
 
 Returns `true` if successful and any process is needed to be killed, otherwise
 `false`.
@@ -606,12 +694,12 @@ purge(Mod) when is_atom(Mod) -> call({purge,Mod}).
 Purges the code for `Module`, that is, removes code marked as old, but only if
 no processes linger in it.
 
-> #### Note {: .info }
+> #### Change {: .info }
 >
-> As of ERTS version 9.0, a process is only considered to be lingering in the
+> As of Erlang/OTP 20.0, a process is only considered to be lingering in the
 > code if it has direct references to the code. For more information see
 > documentation of `erlang:check_process_code/3`, which is used in order to
-> determine this.
+> determine whether a process is lingering.
 
 Returns `false` if the module cannot be purged because of processes lingering in
 old code, otherwise `true`.
@@ -621,13 +709,14 @@ old code, otherwise `true`.
 soft_purge(Mod) when is_atom(Mod) -> call({soft_purge,Mod}).
 
 -doc """
-Checks if `Module` is loaded. If it is, `{file, Loaded}` is returned, otherwise
-`false`.
+Checks whether `Module` is loaded.
+
+If it is, `{file, Loaded}` is returned, otherwise `false`.
 
 Normally, `Loaded` is the absolute filename `Filename` from which the code is
 obtained. If the module is preloaded (see [`script(4)`](`e:sasl:script.md`)),
-`Loaded==preloaded`. If the module is Cover-compiled (see `m:cover`),
-`Loaded==cover_compiled`.
+`Loaded =:= preloaded`. If the module is Cover-compiled (see `m:cover`),
+`Loaded =:= cover_compiled`.
 """.
 -spec is_loaded(Module) -> {'file', Loaded} | false when
       Module :: module(),
@@ -636,16 +725,18 @@ is_loaded(Mod) when is_atom(Mod) ->
     code_server:is_loaded(Mod).
 
 -doc """
-Searches the code path for the object code of module `Module`. Returns
-`{Module, Binary, Filename}` if successful, otherwise `error`. `Binary` is a
-binary data object, which contains the object code for the module. This can be
-useful if code is to be loaded on a remote node in a distributed system. For
-example, loading module `Module` on a node `Node` is done as follows:
+Returns the object code for module `Module` if found in the code path.
+
+Returns `{Module, Binary, Filename}` if successful, otherwise
+`error`. `Binary` is a binary data object, which contains the object
+code for the module. This is useful if code is to be loaded on a
+remote node in a distributed system. For example, loading module
+`Module` on a node `Node` is done as follows:
 
 ```erlang
 ...
 {_Module, Binary, Filename} = code:get_object_code(Module),
-rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
+erpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 ...
 ```
 """.
@@ -665,8 +756,9 @@ get_object_code(Mod) when is_atom(Mod) ->
     end.
 
 -doc """
-Returns a list of tuples `{Module, Loaded}` for all loaded modules. `Loaded` is
-normally the absolute filename, as described for `is_loaded/1`.
+Returns a list of tuples `{Module, Loaded}` for all loaded modules.
+
+`Loaded` is normally the absolute filename, as described for `is_loaded/1`.
 """.
 -spec all_loaded() -> [{Module, Loaded}] when
       Module :: module(),
@@ -675,6 +767,7 @@ all_loaded() -> call(all_loaded).
 
 -doc """
 Returns a list of tuples `{Module, Filename, Loaded}` for all available modules.
+
 A module is considered to be available if it either is loaded or would be loaded
 if called. `Filename` is normally the absolute filename, as described for
 `is_loaded/1`.
@@ -691,6 +784,7 @@ all_available() ->
         embedded ->
             all_available([], #{})
     end.
+
 all_available([Path|Tail], Acc) ->
     case erl_prim_loader:list_dir(Path) of
         {ok, Files} ->
@@ -737,8 +831,8 @@ installed.
 
 _Example:_
 
-```text
-> code:root_dir().
+```erlang
+1> code:root_dir().
 "/usr/local/otp"
 ```
 """.
@@ -751,8 +845,8 @@ directory of Erlang/OTP.
 
 _Example:_
 
-```text
-> code:lib_dir().
+```erlang
+1> code:lib_dir().
 "/usr/local/otp/lib"
 ```
 """.
@@ -761,8 +855,8 @@ lib_dir() -> call({dir,lib_dir}).
 
 %% XXX is_list() is for backwards compatibility -- take out in future version
 -doc """
-Returns the path for the "library directory", the top directory, for an
-application `Name` located under `$OTPROOT/lib` or on a directory referred to
+Returns the path for the *library directory*, the top directory, for an
+application `Name` located under `$OTPROOT/lib` or in a directory referred to
 with environment variable `ERL_LIBS`.
 
 If a regular directory called `Name` or `Name-Vsn` exists in the code path with
@@ -776,11 +870,16 @@ stripped away before the path is returned. For example, if directory
 directory for an application is the same, regardless if the application resides
 in an archive or not.
 
+> #### Warning {: .info }
+>
+> Archives are experimental. In a future release, they can be removed or
+> their behavior can change.
+
 _Example:_
 
-```text
+```erlang
 > code:lib_dir(mnesia).
-"/usr/local/otp/lib/mnesia-4.2.2"
+"/usr/local/otp/lib/mnesia-4.23"
 ```
 
 Returns `{error, bad_name}` if `Name` is not the name of an application under
@@ -797,23 +896,27 @@ Returns `{error, bad_name}` if `Name` is not the name of an application under
 lib_dir(App) when is_atom(App) ; is_list(App) -> call({dir,{lib_dir,App}}).
 
 -doc """
+Returns the path to a subdirectory directly under the top directory of an
+application.
+
 > #### Change {: .info }
 >
-> This function is deprecated and will be removed in a future release.
+> This function is part of the archive support, which is an experimental
+> feature that will be changed or removed in a future release.
 
-Returns the path to a subdirectory directly under the top directory of an
-application. Normally the subdirectories reside under the top directory for the
+Normally the subdirectories reside under the top directory for the
 application, but when applications at least partly reside in an archive, the
 situation is different. Some of the subdirectories can reside as regular
 directories while others reside in an archive file. It is not checked whether
 this directory exists.
 
-Instead of using this function, use [`code:lib_dir/1`](`code:lib_dir/1`).
+Instead of using this function, use [`code:lib_dir/1`](`code:lib_dir/1`)
+and `filename:join/2`.
 
 _Example:_
 
-```text
-> filename:join(code:lib_dir(megaco), "priv").
+```erlang
+1> filename:join(code:lib_dir(megaco), "priv").
 "/usr/local/otp/lib/megaco-3.9.1.1/priv"
 ```
 
@@ -824,14 +927,17 @@ Fails with an exception if `Name` or `SubDir` has the wrong type.
       SubDir :: atom().
 lib_dir(App, SubDir) when is_atom(App), is_atom(SubDir) -> call({dir,{lib_dir,App,SubDir}}).
 
--doc "Returns the compiler library directory. Equivalent to `code:lib_dir(compiler)`.".
+-doc """
+Returns the compiler library directory.
+
+Equivalent to [`code:lib_dir(compiler)`](`code:lib_dir/1`).
+""".
 -spec compiler_dir() -> file:filename().
 compiler_dir() -> call({dir,compiler_dir}).
 
 %% XXX is_list() is for backwards compatibility -- take out in future version
 -doc """
-Returns the path to the `priv` directory in an application. Equivalent to
-`code:lib_dir(Name, priv)`.
+Returns the path to the `priv` directory in an application.
 
 > #### Warning {: .warning }
 >
@@ -840,7 +946,7 @@ Returns the path to the `priv` directory in an application. Equivalent to
 """.
 -spec priv_dir(Name) -> file:filename() | {'error', 'bad_name'} when
       Name :: atom().
-priv_dir(App) when is_atom(App) ; is_list(App) -> call({dir,{priv_dir,App}}).
+priv_dir(App) when is_atom(App); is_list(App) -> call({dir,{priv_dir,App}}).
 
 -doc """
 Marks `Dir` as sticky.
@@ -879,7 +985,7 @@ is_sticky(Mod) when is_atom(Mod) ->
     code_server:is_sticky(Mod).
 
 -type set_path_ret() :: 'true' | {'error', 'bad_directory'}.
--doc(#{equiv => set_path/2}).
+-doc #{equiv => set_path(PathList, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec set_path(Path) -> set_path_ret() when
       Path :: [Dir :: file:filename()].
@@ -888,9 +994,9 @@ set_path(PathList) -> set_path(PathList, nocache).
 -doc """
 Sets the code path to the list of directories `Path`.
 
-An optional second argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
 
 Returns:
 
@@ -929,34 +1035,35 @@ normalize_paths([], Acc, Status) ->
 get_path() -> call(get_path).
 
 -type add_path_ret() :: 'true' | {'error', 'bad_directory'}.
--doc(#{equiv => add_pathz/2}).
+-doc #{equiv => add_pathz(Dir, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_path(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_path(Dir) -> add_path(Dir, nocache).
 
--doc(#{equiv => add_pathz/2}).
+-doc #{equiv => add_pathz(Dir, Cache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_path(Dir, cache()) -> add_path_ret() when
       Dir :: file:filename().
 add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> add_pathz(Dir, Cache).
 
--doc(#{equiv => add_pathz/2}).
+-doc #{equiv => add_pathz(Dir, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathz(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_pathz(Dir) -> add_pathz(Dir, nocache).
 
 -doc """
-Adds `Dir` to the code path. The directory is added as the last directory in the
-new path. If `Dir` already exists in the path, it is not added.
+Adds `Dir` as the directory last in the code path.
 
-An optional second argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+If `Dir` already exists in the path, it is not added.
 
-Returns `true` if successful, or `{error, bad_directory}` if `Dir` is not the
-name of a directory.
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
+
+Returns `true` if successful, or `{error, bad_directory}` if `Dir` is
+not the name of a directory.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathz(Dir, cache()) -> add_path_ret() when
@@ -965,22 +1072,23 @@ add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
     {_, [Normalized]} = normalize_paths([Dir], [], ok),
     call({add_path,last,Normalized,Cache}).
 
--doc(#{equiv => add_patha/2}).
+-doc #{equiv => add_patha(Dir, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_patha(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_patha(Dir) -> add_patha(Dir, nocache).
 
 -doc """
-Adds `Dir` to the beginning of the code path. If `Dir` exists, it is removed
-from the old position in the code path.
+Adds `Dir` to the beginning of the code path.
 
-An optional second argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+If `Dir` exists, it is removed from the old position in the code path.
 
-Returns `true` if successful, or `{error, bad_directory}` if `Dir` is not the
-name of a directory.
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
+
+Returns `true` if successful, or `{error, bad_directory}` if `Dir` is
+not the name of a directory.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_patha(Dir, cache()) -> add_path_ret() when
@@ -989,31 +1097,33 @@ add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
     {_, [Normalized]} = normalize_paths([Dir], [], ok),
     call({add_path,first,Normalized,Cache}).
 
--doc(#{equiv => add_pathsz/2}).
+-doc #{equiv => add_pathsz(Dirs, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_paths(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_paths(Dirs) -> add_paths(Dirs, nocache).
 
--doc(#{equiv => add_pathsz/2}).
+-doc #{equiv => add_pathsz(Dirs, Cache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_paths(Dirs, cache()) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
-add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) -> add_pathsz(Dirs, Cache).
+add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
+    add_pathsz(Dirs, Cache).
 
--doc(#{equiv => add_pathsz/2}).
+-doc #{equiv => add_pathsz(Dirs, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathsz(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_pathsz(Dirs) -> add_pathsz(Dirs, nocache).
 
 -doc """
-Adds the directories in `Dirs` to the end of the code path. If a `Dir` exists,
-it is not added.
+Adds the directories in `Dirs` to the end of the code path.
 
-An optional second argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+Directories that are already present in the path will not be added.
+
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
 
 Always returns `ok`, regardless of the validity of each individual `Dir`.
 """.
@@ -1024,23 +1134,24 @@ add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
     {_, Normalized} = normalize_paths(Dirs, [], ok),
     call({add_paths,last,Normalized,Cache}).
 
--doc(#{equiv => add_pathsa/2}).
+-doc #{equiv => add_pathsa(Dirs, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathsa(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_pathsa(Dirs) -> add_pathsa(Dirs, nocache).
 
 -doc """
-Traverses `Dirs` and adds each `Dir` to the beginning of the code path. This
-means that the order of `Dirs` is reversed in the resulting code path. For
-example, if you add `[Dir1,Dir2]`, the resulting path will be
-`[Dir2,Dir1|OldCodePath]`.
+Traverses `Dirs` and adds each `Dir` to the beginning of the code path.
+
+This means that the order of `Dirs` is reversed in the resulting code
+path. For example, if `Dirs` is `[Dir1,Dir2]`, the resulting path will
+be `[Dir2,Dir1|OldCodePath]`.
 
 If a `Dir` already exists in the code path, it is removed from the old position.
 
-An optional second argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
 
 Always returns `ok`, regardless of the validity of each individual `Dir`.
 """.
@@ -1052,10 +1163,11 @@ add_pathsa(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
     call({add_paths,first,Normalized,Cache}).
 
 -doc """
-Deletes a directory from the code path. The argument can be an atom `Name`, in
-which case the directory with the name `.../Name[-Vsn][/ebin]` is deleted from
-the code path. Also, the complete directory name `Dir` can be specified as
-argument.
+Deletes a directory from the code path.
+
+The argument can be an atom `Name`, in which case the directory with
+the name `.../Name[-Vsn][/ebin]` is deleted from the code path. Also,
+the complete directory name `Dir` can be specified as argument.
 
 Returns:
 
@@ -1070,12 +1182,14 @@ Returns:
       Name :: atom(),
       Dir :: file:filename(),
       What :: 'bad_name'.
-del_path(Name) when is_list(Name) ; is_atom(Name) -> call({del_path,Name}).
+del_path(Name) when is_list(Name); is_atom(Name) -> call({del_path,Name}).
 
 -doc """
-Deletes directories from the code path. The argument is a list of either atoms
-or complete directory names. If an atom `Name`, the directory with the name
-`.../Name[-Vsn][/ebin]` is deleted from the code path.
+Deletes directories from the code path.
+
+The argument is a list of either atoms or complete directory names. If
+`Name` is an atom, the directory with the name `.../Name[-Vsn][/ebin]` is
+deleted from the code path.
 
 Always returns `ok`, regardless of the validity of each individual
 `NamesOrDirs`.
@@ -1089,7 +1203,7 @@ del_paths(Dirs) when is_list(Dirs) -> call({del_paths,Dirs}).
 
 -type replace_path_ret() :: 'true' |
                             {'error', 'bad_directory' | 'bad_name' | {'badarg',_}}.
--doc(#{equiv => replace_path/3}).
+-doc #{equiv => replace_path(Name, Dir, nocache)}.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec replace_path(Name, Dir) -> replace_path_ret() when
       Name:: atom(),
@@ -1099,14 +1213,16 @@ replace_path(Name, Dir) ->
 
 -doc """
 Replaces an old occurrence of a directory named `.../Name[-Vsn][/ebin]` in the
-code path, with `Dir`. If `Name` does not exist, it adds the new directory `Dir`
-last in the code path. The new directory must also be named
-`.../Name[-Vsn][/ebin]`. This function is to be used if a new version of the
-directory (library) is added to a running system.
+code path, with `Dir`.
 
-An optional third argument may be set to the atom `cache` to control if the
-contents of the directory must be cached on first traversal. Defaults to
-`nocache`.
+If `Name` does not exist, it adds the new directory `Dir` last in the
+code path. The new directory must also be named
+`.../Name[-Vsn][/ebin]`. This function is to be used if a new version
+of the directory (library) is added to a running system.
+
+Argument `Cache` controls whether the content of the directory
+should be cached on first traversal. If `Cache` is `cache` the directory
+contents will be cached; if `Cache` is `nocache` it will not be cached.
 
 Returns:
 
@@ -1140,13 +1256,15 @@ in embedded mode, the code must be loaded with `load_binary/3`.
 get_mode() -> code_server:get_mode().
 
 -doc """
-Clear the code path cache. If a directory is cached, its cache is cleared once
-and then it will be recalculated and cached once more in a future traversal.
+Clears the code path cache.
 
-If you want to clear the cache for a single path, you might re-add it to the
-code path (with [`add_path/2`](`add_path/2`)) or replace it (with
-[`replace_path/3`](`replace_path/3`)). If you want to disable all cache, you can
-reset the code path with `code:set_path(code:get_path())`.
+If a directory is cached, its cache is cleared once and then it will
+be recalculated and cached once more in a future traversal.
+
+To clear the cache for a single path, either re-add it to the code
+path (with [`add_path/2`](`add_path/2`)) or replace it (with
+[`replace_path/3`](`replace_path/3`)). To disable all caching, reset
+the code path with `code:set_path(code:get_path())`.
 
 Always returns `ok`.
 """.
@@ -1160,8 +1278,9 @@ clear_cache() -> call(clear_cache).
 
 -doc """
 Tries to load any modules not already loaded in the list `Modules` in the same
-way as `load_file/1`. Unlike `ensure_loaded/1`, modules are loaded even in
-`embedded` mode.
+way as `load_file/1`.
+
+Unlike `ensure_loaded/1`, modules are loaded even in `embedded` mode.
 
 Returns `ok` if successful, or `{error,[{Module,Reason}]}` if loading of some
 modules fails. See
@@ -1217,9 +1336,11 @@ prepare_ensure(_, _) ->
     error.
 
 -doc """
-Tries to load all of the modules in the list `Modules` atomically. That means
-that either all modules are loaded at the same time, or none of the modules are
-loaded if there is a problem with any of the modules.
+Tries to load all of the modules in the list `Modules` atomically.
+
+That means that either all modules are loaded at the same time, or
+none of the modules are loaded if there is a problem with any of the
+modules.
 
 Loading can fail for one the following reasons:
 
@@ -1273,8 +1394,10 @@ atomic_load(Modules) ->
     end.
 
 -doc """
-Prepares to load the modules in the list `Modules`. Finish the loading by
-calling [finish_loading(Prepared)](`finish_loading/1`).
+Prepares to load the modules in the list `Modules`.
+
+Finish the loading by calling
+[finish_loading(Prepared)](`finish_loading/1`).
 
 This function can fail with one of the following error reasons:
 
@@ -1310,8 +1433,10 @@ prepare_loading(Modules) ->
 
 -doc """
 Tries to load code for all modules that have been previously prepared by
-`prepare_loading/1`. The loading occurs atomically, meaning that either all
-modules are loaded at the same time, or none of the modules are loaded.
+`prepare_loading/1`.
+
+The loading occurs atomically, meaning that either all modules are
+loaded at the same time, or none of the modules are loaded.
 
 This function can fail with one of the following error reasons:
 
@@ -1619,14 +1744,14 @@ start_get_mode() ->
 If the module is not loaded, this function searches the code path for the first
 file containing object code for `Module` and returns the absolute filename.
 
-If the module is loaded, it returns the name of the file containing the loaded
-object code.
+- If the module is loaded, it returns the name of the file containing the loaded
+  object code.
 
-If the module is preloaded, `preloaded` is returned.
+- If the module is preloaded, `preloaded` is returned.
 
-If the module is Cover-compiled, `cover_compiled` is returned.
+- If the module is Cover-compiled, `cover_compiled` is returned.
 
-If the module cannot be found, `non_existing` is returned.
+- If the module cannot be found, `non_existing` is returned.
 """.
 -spec which(Module) -> Which when
       Module :: module(),
@@ -1646,9 +1771,11 @@ which(Module, Path) when is_atom(Module) ->
 %% Search the code path for a specific file.
 
 -doc """
-Searches the code path for `Filename`, a file of arbitrary type. If found, the
-full name is returned. `non_existing` is returned if the file cannot be found.
-The function can be useful, for example, to locate application resource files.
+Searches the code path for `Filename`, which is a file of arbitrary type.
+
+If found, the full name is returned. `non_existing` is returned if the
+file cannot be found.  The function can be useful, for example, to
+locate application resource files.
 """.
 -spec where_is_file(Filename) -> non_existing | Absname when
       Filename :: file:filename(),
@@ -1686,13 +1813,21 @@ where_is_file(Tail, File, Path, Files) ->
     end.
 
 -doc """
-Searches the code path for EEP-48 style documentation and returns it if
-available. If no documentation can be found the function tries to generate
-documentation from the debug information in the module. If no debug information
-is available, this function will return `{error,missing}`.
+get_doc(Module)
+
+Returns [EEP 48](https://www.erlang.org/eeps/eep-0048.html) style
+documentation for `Module` if available.
+
+If `Module` is not found in the code path, this function returns
+`{error,non_existing}`.
+
+If no documentation can be found this function attempts to generate
+documentation from the debug information in the module. If no debug
+information is available, this function returns `{error,missing}`.
 
 For more information about the documentation chunk see
-[Documentation Storage and Format](eep48_chapter.md) in Kernel's User's Guide.
+[Documentation Storage and Format](eep48_chapter.md) in
+Kernel's User's Guide.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec get_doc(Mod) -> {ok, Res} | {error, Reason} when
@@ -1890,23 +2025,24 @@ cache_warning() ->
 module_status() ->
     module_status([M || {M, _} <- all_loaded()]).
 
-%% Returns the status of the module in relation to object file on disk.
 -doc """
+Returns the status of `Module` in relation to object file on disk.
+
 The status of a module can be one of:
 
 - **`not_loaded`** - If `Module` is not currently loaded.
 
-- **`loaded`** - If `Module` is loaded and the object file exists and contains
+- **`loaded`** - If `Module` is loaded, and the object file exists and contains
   the same code.
 
-- **`removed`** - If `Module` is loaded but no corresponding object file can be
+- **`removed`** - If `Module` is loaded, but no corresponding object file can be
   found in the code path.
 
-- **`modified`** - If `Module` is loaded but the object file contains code with
+- **`modified`** - If `Module` is loaded, but the object file contains code with
   a different MD5 checksum.
 
 Preloaded modules are always reported as `loaded`, without inspecting the
-contents on disk. Cover compiled modules will always be reported as `modified`
+contents on disk. Cover-compiled modules will always be reported as `modified`
 if an object file exists, or as `removed` otherwise. Modules whose load path is
 an empty string (which is the convention for auto-generated code) will only be
 reported as `loaded` or `not_loaded`.
@@ -1978,7 +2114,9 @@ do_beam_file_md5(PathOrCode) ->
 %% Returns a list of all modules modified on disk.
 -doc """
 Returns the list of all currently loaded modules for which `module_status/1`
-returns `modified`. See also `all_loaded/0`.
+returns `modified`.
+
+See also `all_loaded/0`.
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec modified_modules() -> [module()].
@@ -2000,8 +2138,10 @@ path_files([Path|Tail]) ->
     end.
 
 -doc """
-If Level is `function`, returns line coverage for the given module according to
-its coverage mode:
+Return either `function` or `line` coverage data for module `Module`.
+
+If Level is `function`, returns function coverage for the given module
+according to its [coverage mode](`t:coverage_mode/0`):
 
 - **`function`** - For each function in module Module, a boolean indicating
   whether that function has been executed at least once is returned.
@@ -2043,6 +2183,8 @@ Failures:
   `line` or `line_counters` enabled.
 
 - **`badarg`** - If the runtime system does not support coverage.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec get_coverage(Level, module()) -> Result when
@@ -2060,12 +2202,14 @@ get_coverage(_Level, _Module) ->
     erlang:nif_error(undefined).
 
 -doc """
-Returns the current coverage mode as set by option
+Returns the coverage mode as set by option
 [\+JPcover](`e:erts:erl_cmd.md#%2BJPcover`) for `erl` or `set_coverage_mode/1`.
 
 Failure:
 
 - **`badarg`** - If the runtime system does not support coverage.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec get_coverage_mode() -> Mode when
@@ -2083,6 +2227,8 @@ Failures:
 - **`badarg`** - If `Module` does not refer to a loaded module.
 
 - **`badarg`** - If the runtime system does not support coverage.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec get_coverage_mode(Module) -> Mode when
@@ -2093,7 +2239,10 @@ get_coverage_mode(_Module) ->
 
 -doc """
 Sets the coverage mode for modules that are subsequently loaded, similar to
-option [\+JPcover](`e:erts:erl_cmd.md#%2BJPcover`) for `erl`:
+option [\+JPcover](`e:erts:erl_cmd.md#%2BJPcover`) for `erl`.
+
+The coverage mode will have the following effect on code that is
+loaded following this call:
 
 - **`function`** - All modules that are loaded will be instrumented to keep
   track of which functions are executed. Information about which functions that
@@ -2132,6 +2281,8 @@ Failures:
 - **`badarg`** - If `Mode` is not a valid coverage mode.
 
 - **`badarg`** - If the runtime system does not support coverage.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec set_coverage_mode(Mode) -> OldMode when
@@ -2141,7 +2292,14 @@ set_coverage_mode(_Mode) ->
     erlang:nif_error(undefined).
 
 -doc """
-Reset coverage information for module Module.
+Resets coverage information for module `Module`.
+
+If the [coverage mode](`t:coverage_mode/0`) is either `function` or
+`line`, all booleans for `Module` keeping track of executed functions
+or lines are set to `false`.
+
+If the coverage mode is either `function_counters` or
+`line_counters`, all counters for `Module` are reset to zero.
 
 Failures:
 
@@ -2152,6 +2310,8 @@ Failures:
 - **`badarg`** - If `Module` was not loaded with coverage enabled.
 
 - **`badarg`** - If the runtime system does not support coverage.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec reset_coverage(Module) -> 'ok' when
@@ -2159,7 +2319,11 @@ Failures:
 reset_coverage(_Module) ->
     erlang:nif_error(undefined).
 
--doc "Returns `true` if the system supports coverage and `false` otherwise.".
+-doc """
+Returns `true` if the system supports coverage and `false` otherwise.
+
+_See also:_ [Native Coverage Support](#module-native-coverage-support)
+""".
 -doc(#{since => <<"OTP @OTP-18856@">>}).
 -spec coverage_support() -> Supported when
       Supported :: boolean().
