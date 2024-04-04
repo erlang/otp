@@ -3220,6 +3220,7 @@ open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
 	end,
     case prim_inet:open(Protocol, Family, Type, OpenOpts) of
 	{ok,S} ->
+            %% ?DBG(['prim_inet:open', {s, S}]),
             open_setopts(S, BAddr, BPort, Opts, Module);
         Error ->
             Error
@@ -3229,13 +3230,14 @@ open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
 %%
 open_setopts(S, BAddr, BPort, Opts, Module) ->
     %% ?DBG([{s, S}, {baddr, BAddr}, {bport, BPort}, {opts, Opts}, {mod, Module}]),
+    %% ok = prim_inet:setopts(S, [{debug, true}]),
     case prim_inet:setopts(S, Opts) of
         ok when BAddr =:= undefined ->
-            %% ?DBG("register socket"),
+            %% ?DBG("ok -> register socket"),
             inet_db:register_socket(S, Module),
             {ok,S};
         ok ->
-            %% ?DBG("try bind"),
+            %% ?DBG("ok -> try bind"),
             try bind(S, BAddr, BPort) of
                 {ok, _} ->
                     %% ?DBG("bound"),
@@ -3252,7 +3254,7 @@ open_setopts(S, BAddr, BPort, Opts, Module) ->
                     erlang:raise(BC, BE, BS)
             end;
         Error  ->
-            %% ?DBG(["setopts error", {error, Error}]),
+            %% ?DBG(["error", {error, Error}]),
             prim_inet:close(S),
             Error
     end.
