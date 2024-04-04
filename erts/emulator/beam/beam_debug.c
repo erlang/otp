@@ -1164,7 +1164,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 	ErtsSchedulerData *esdp;
 	if (arg2 != am_type) 
 	    goto badarg;
-	esdp = erts_proc_sched_data(c_p);
+	esdp = erts_get_scheduler_data();
 	if (!esdp)
             goto scheduler_type_error;
       
@@ -1318,7 +1318,7 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, ErtsCodePtr I)
 	Eterm *hp, *hp2;
 	Uint sz;
 	int i;
-	ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+	ErtsSchedulerData *esdp = erts_get_scheduler_data();
         int dirty_io = esdp->type == ERTS_SCHED_DIRTY_IO;
 
 	if (ERTS_PROC_IS_EXITING(real_c_p))
@@ -1398,7 +1398,7 @@ dirty_send_message(Process *c_p, Eterm to, Eterm tag)
 static int
 ms_wait(Process *c_p, Eterm etimeout, int busy)
 {
-    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     ErtsMonotonicTime time, timeout_time;
     Sint64 ms;
 

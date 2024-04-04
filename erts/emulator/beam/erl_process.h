@@ -708,6 +708,9 @@ struct ErtsSchedulerData_ {
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsMonotonicTime last_monotonic_time;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    ErtsMonotonicTime last_os_monotonic_time;
+#endif
     int check_time_reds;
 
     Uint32 thr_id;
@@ -2145,9 +2148,7 @@ Uint erts_process_memory(Process *c_p, int include_sigs_in_transit);
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
 #  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(P)					\
 do {										\
-    ErtsSchedulerData *esdp__ = ((P)						\
-				 ? erts_proc_sched_data((Process *) (P))	\
-				 : erts_get_scheduler_data());			\
+    ErtsSchedulerData *esdp__ = erts_get_scheduler_data();			\
     if (esdp__ && !ERTS_SCHEDULER_IS_DIRTY(esdp__))				\
 	esdp__->verify_unused_temp_alloc(					\
 	    esdp__->verify_unused_temp_alloc_data);				\

@@ -5974,6 +5974,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     erts_init_atom_cache_map(&esdp->atom_cache_map);
 
     esdp->last_monotonic_time = 0;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    esdp->last_os_monotonic_time = ERTS_SINT64_MIN;
+#endif
     esdp->check_time_reds = 0;
 
     esdp->thr_id = (Uint32) num;
@@ -15084,7 +15087,7 @@ erts_dbg_check_halloc_lock(Process *p)
 	return 1;
     if (p->common.id == ERTS_INVALID_PID)
 	return 1;
-    esdp = erts_proc_sched_data(p);
+    esdp = erts_get_scheduler_data();
     if (esdp && p == esdp->match_pseudo_process)
 	return 1;
     /* erts_thr_progress_is_blocking() is not enough as dirty NIFs may run */

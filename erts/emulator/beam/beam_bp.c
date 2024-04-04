@@ -77,13 +77,13 @@ GenericBp* breakpoint_free_list;
 static ERTS_INLINE ErtsMonotonicTime
 get_mtime(Process *c_p)
 {
-    return erts_get_monotonic_time(erts_proc_sched_data(c_p));
+    return erts_get_monotonic_time(NULL);
 }
 
 static ERTS_INLINE Uint32
 acquire_bp_sched_ix(Process *c_p)
 {
-    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     ASSERT(esdp);
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	erts_mtx_lock(&erts_dirty_bp_ix_mtx);

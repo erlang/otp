@@ -786,6 +786,7 @@ enable_m64_build
 enable_m32_build
 enable_pie
 with_libatomic_ops
+enable_ensure_os_monotonic_time
 enable_silent_rules
 enable_largefile
 enable_year2038
@@ -1486,6 +1487,17 @@ Optional Features:
   --enable-m32-build      build 32bit binaries using the -m32 flag to (g)cc
   --enable-pie            build position independent executables
   --disable-pie           do no build position independent executables
+  --enable-ensure-os-monotonic-time
+                          enable functionality ensuring the monotonicity of
+                          monotonic timestamps delivered by the OS. When a
+                          non-monotonic timestamp is detected, it will be
+                          replaced by the last delivered monotonic timestamp
+                          before being used by Erlang's time functionality.
+                          Note that you do *not* want to enable this unless
+                          the OS monotonic time source on the system fails to
+                          produce monotonic timestamps. This since ensuring
+                          the monotonicity of OS monotonic timestamps will
+                          hurt scalability and performance of the system.
   --enable-silent-rules   less verbose build output (undo: "make V=1")
   --disable-silent-rules  verbose build output (undo: "make V=0")
   --disable-largefile     omit support for large files
@@ -5793,6 +5805,13 @@ fi
 if test ${with_libatomic_ops+y}
 then :
   withval=$with_libatomic_ops;
+fi
+
+
+# Check whether --enable-ensure-os-monotonic-time was given.
+if test ${enable_ensure_os_monotonic_time+y}
+then :
+  enableval=$enable_ensure_os_monotonic_time;
 fi
 
 

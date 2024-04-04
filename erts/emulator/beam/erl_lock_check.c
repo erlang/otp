@@ -35,6 +35,7 @@
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 
+#include "sys.h"
 #include "erl_lock_check.h"
 #include "erl_term.h"
 #include "erl_threads.h"
@@ -168,7 +169,10 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"perf", 				NULL			},
     {	"jit_debug_descriptor",			NULL			},
     {	"erts_mmap",				NULL			},
-    {	"proc_sig_queue_buffer",		"address"		}
+    {	"proc_sig_queue_buffer",		"address"		},
+#ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
+    {   "ensure_os_monotonic_time",             NULL                    }
+#endif
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
