@@ -1176,17 +1176,17 @@ meta(_Config) ->
     ok.
 
 destroy(_Config) ->
-    SName = ?MODULE,
-    S1 = trace:session_create(SName, self(), []),
+    Name = ?MODULE,
+    {_,SName1}=S1 = trace:session_create(Name, self(), []),
 
     %% Destroy session with trace_session_destroy
-    destroy_do(SName, fun() -> trace:session_destroy(S1) end),
+    destroy_do(SName1, fun() -> trace:session_destroy(S1) end),
 
-    S2 = trace:session_create(SName, self(), []),
+    {_,SName2}=S2 = trace:session_create(Name, self(), []),
 
     %% Destroy session with GC (magic bin destructor)
     put(session, S2),
-    destroy_do(SName, fun() -> erase(session),
+    destroy_do(SName2, fun() -> erase(session),
                                erlang:garbage_collect(),
                                wait_bp_finish(),
                                ok
