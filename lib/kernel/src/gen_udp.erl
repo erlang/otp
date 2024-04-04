@@ -104,7 +104,7 @@
 
 -type open_option() :: {ip,             inet:socket_address()}
                      | {fd,             non_neg_integer()}
-                     | {ifaddr,         socket:sockaddr_in() |
+                     | {ifaddr,         socket:sockaddr_in()  |
                                         socket:sockaddr_in6() |
                                         inet:socket_address()}
                      | inet:address_family()
