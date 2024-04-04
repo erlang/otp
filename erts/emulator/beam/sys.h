@@ -723,6 +723,10 @@ extern char *erts_default_arg0;
 
 extern char os_type[];
 
+#if !defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
+#  undef ERTS_ENSURE_OS_MONOTONIC_TIME
+#endif
+
 typedef struct {
     int have_os_monotonic_time;
     int have_corrected_os_monotonic_time;
