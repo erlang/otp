@@ -2003,8 +2003,7 @@ pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options)
 %% Description: Get OCSP stapling extensions for request
 %%--------------------------------------------------------------------
 ocsp_extensions(Nonce) ->
-    [Extn || Extn <- [pubkey_ocsp:get_nonce_extn(Nonce),
-                      pubkey_ocsp:get_acceptable_response_types_extn()],
+    [Extn || Extn <- [pubkey_ocsp:get_nonce_extn(Nonce)],
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
