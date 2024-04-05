@@ -295,61 +295,71 @@ warning. This function is usually called implicitly when processing an
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
       ErrorDescriptor :: term().
 
-format_error(cannot_parse) ->
-    io_lib:format("cannot parse file, giving up", []);
-format_error({bad,W}) ->
-    io_lib:format("badly formed '~s'", [W]);
-format_error({duplicated_argument, Arg}) ->
-    io_lib:format("argument '~ts' already used", [Arg]);
-format_error(missing_parenthesis) ->
-    io_lib:format("badly formed define: missing closing right parenthesis",[]);
-format_error(missing_comma) ->
-    io_lib:format("badly formed define: missing comma",[]);
-format_error(premature_end) ->
-    "premature end";
-format_error({call,What}) ->
-    io_lib:format("illegal macro call '~ts'",[What]);
-format_error({undefined,M,none}) ->
-    io_lib:format("undefined macro '~ts'", [M]);
-format_error({undefined,M,A}) ->
-    io_lib:format("undefined macro '~ts/~p'", [M,A]);
-format_error({depth,What}) ->
-    io_lib:format("~s too deep",[What]);
-format_error({mismatch,M}) ->
-    io_lib:format("argument mismatch for macro '~ts'", [M]);
-format_error({arg_error,M}) ->
-    io_lib:format("badly formed argument for macro '~ts'", [M]);
-format_error({redefine,M}) ->
-    io_lib:format("redefining macro '~ts'", [M]);
-format_error({redefine_predef,M}) ->
-    io_lib:format("redefining predefined macro '~s'", [M]);
-format_error({circular,M,none}) ->
-    io_lib:format("circular macro '~ts'", [M]);
-format_error({circular,M,A}) ->
-    io_lib:format("circular macro '~ts/~p'", [M,A]);
-format_error({include,W,F}) ->
-    io_lib:format("can't find include ~s \"~ts\"", [W,F]);
-format_error({Tag, invalid, Alternative}) when Tag =:= moduledoc; Tag =:= doc ->
-    io_lib:format("invalid ~s tag, only ~s allowed", [Tag, Alternative]);
-format_error({Tag, W, Filename}) when Tag =:= moduledoc; Tag =:= doc ->
-    io_lib:format("can't find ~s ~s \"~ts\"", [Tag, W, Filename]);
-format_error({illegal,How,What}) ->
-    io_lib:format("~s '-~s'", [How,What]);
-format_error({illegal_function,Macro}) ->
-    io_lib:format("?~s can only be used within a function", [Macro]);
-format_error({illegal_function_usage,Macro}) ->
-    io_lib:format("?~s must not begin a form", [Macro]);
-format_error(elif_after_else) ->
+format_error(Error) ->
+    case format_error_1(Error) of
+        {Format, Args} when is_list(Args) ->
+            io_lib:format(Format, Args);
+        Bin when is_binary(Bin) ->
+            unicode:characters_to_list(Bin);
+        List when is_list(List) ->
+            List
+    end.
+
+format_error_1(cannot_parse) ->
+    ~"cannot parse file, giving up";
+format_error_1({bad,W}) ->
+    {~"badly formed '~s'", [W]};
+format_error_1({duplicated_argument, Arg}) ->
+    {~"argument '~ts' already used", [Arg]};
+format_error_1(missing_parenthesis) ->
+    {~"badly formed define: missing closing right parenthesis",[]};
+format_error_1(missing_comma) ->
+    ~"badly formed define: missing comma";
+format_error_1(premature_end) ->
+    ~"premature end";
+format_error_1({call,What}) ->
+    {~"illegal macro call '~ts'",[What]};
+format_error_1({undefined,M,none}) ->
+    {~"undefined macro '~ts'", [M]};
+format_error_1({undefined,M,A}) ->
+    {~"undefined macro '~ts/~p'", [M,A]};
+format_error_1({depth,What}) ->
+    {~"~s too deep",[What]};
+format_error_1({mismatch,M}) ->
+    {~"argument mismatch for macro '~ts'", [M]};
+format_error_1({arg_error,M}) ->
+    {~"badly formed argument for macro '~ts'", [M]};
+format_error_1({redefine,M}) ->
+    {~"redefining macro '~ts'", [M]};
+format_error_1({redefine_predef,M}) ->
+    {~"redefining predefined macro '~s'", [M]};
+format_error_1({circular,M,none}) ->
+    {~"circular macro '~ts'", [M]};
+format_error_1({circular,M,A}) ->
+    {~"circular macro '~ts/~p'", [M,A]};
+format_error_1({include,W,F}) ->
+    {~"can't find include ~s \"~ts\"", [W,F]};
+format_error_1({Tag, invalid, Alternative}) when Tag =:= moduledoc; Tag =:= doc ->
+    {~"invalid ~s tag, only ~s allowed", [Tag, Alternative]};
+format_error_1({Tag, W, Filename}) when Tag =:= moduledoc; Tag =:= doc ->
+    {~"can't find ~s ~s \"~ts\"", [Tag, W, Filename]};
+format_error_1({illegal,How,What}) ->
+    {~"~s '-~s'", [How,What]};
+format_error_1({illegal_function,Macro}) ->
+    {~"?~s can only be used within a function", [Macro]};
+format_error_1({illegal_function_usage,Macro}) ->
+    {~"?~s must not begin a form", [Macro]};
+format_error_1(elif_after_else) ->
     "'elif' following 'else'";
-format_error({'NYI',What}) ->
-    io_lib:format("not yet implemented '~s'", [What]);
-format_error({error,Term}) ->
-    io_lib:format("-error(~tp).", [Term]);
-format_error({warning,Term}) ->
-    io_lib:format("-warning(~tp).", [Term]);
-format_error(ftr_after_prefix) ->
-    "feature directive not allowed after exports or record definitions";
-format_error(E) -> file:format_error(E).
+format_error_1({'NYI',What}) ->
+    {~"not yet implemented '~s'", [What]};
+format_error_1({error,Term}) ->
+    {~"-error(~tp).", [Term]};
+format_error_1({warning,Term}) ->
+    {~"-warning(~tp).", [Term]};
+format_error_1(ftr_after_prefix) ->
+    ~"feature directive not allowed after exports or record definitions";
+format_error_1(E) -> file:format_error(E).
 
 -doc """
 Preprocesses an Erlang source file returning a list of the lists of raw tokens
