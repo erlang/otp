@@ -1372,7 +1372,7 @@ decode_answer_noerror(
             {error,badid};
         H#dns_header.qr     =/= true;
         H#dns_header.opcode =/= Q_H#dns_header.opcode;
-        H#dns_header.rd     =/= Q_H#dns_header.rd ->
+        H#dns_header.rd andalso not Q_H#dns_header.rd ->
             {error,{unknown,Msg}};
         true ->
             case QDList of
