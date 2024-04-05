@@ -29,8 +29,12 @@
 #include "erl_os_monotonic_time_extender.h"
 #include "erl_time.h"
 
-/* Need to look more closely at qpc before use... */
-#define ERTS_DISABLE_USE_OF_QPC_FOR_MONOTONIC_TIME 1
+/*
+ * How much to reduce the resolution of the by QueryPerformanceCounter()
+ * returned values in order to make them monotonic...
+ */
+#define ERTS_WIN_QPC_SKIP_BITS 10
+#define ERTS_WIN_QPC_SKIP_MASK ((1 << ERTS_WIN_QPC_SKIP_BITS) - 1)
 
 #define LL_LITERAL(X) ERTS_I64_LITERAL(X)
 
@@ -159,9 +163,9 @@ os_monotonic_time_qpc(void)
         if (!(*internal_state.r.o.pQueryPerformanceCounter)(&pc))
             erts_exit(ERTS_ABORT_EXIT, "QueryPerformanceCounter() failed\n");
         temp = (ErtsMonotonicTime) pc.QuadPart;
-    } while(!(temp & SKIP));
+    } while(!(temp & ERTS_WIN_QPC_SKIP_MASK));
 
-    return temp & (ERTS_I64_LITERAL(0xFFFFFFFFFFFFFFFF)-SKIP);
+    return temp & (ERTS_I64_LITERAL(0xFFFFFFFFFFFFFFFF)-ERTS_WIN_QPC_SKIP_MASK);
 }
 
 static void
@@ -381,6 +385,9 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 	    time_unit = (ErtsMonotonicTime) pf.QuadPart;
 	    internal_state.r.o.using_get_tick_count_time_unit = 0;
 	    init_resp->os_monotonic_time_info.resolution = time_unit;
+            /* We reduce the used resolution in order to make it monotonic... */
+	    init_resp->os_monotonic_time_info.used_resolution
+                = time_unit >> ERTS_WIN_QPC_SKIP_BITS;
 	    os_mtime_func = os_monotonic_time_qpc;
 	    os_times_func = os_times_qpc;
 	}

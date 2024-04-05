@@ -93,6 +93,7 @@ struct time_sup_read_only__ {
     char *os_monotonic_time_clock_id;
     int os_monotonic_time_locked;
     Uint64 os_monotonic_time_resolution;
+    Uint64 os_monotonic_time_used_resolution;
     Uint64 os_monotonic_time_extended;
 #endif
     char *os_system_time_func;
@@ -934,6 +935,10 @@ void erts_init_sys_time_sup(void)
 	= sys_init_time_res.os_monotonic_time_info.locked_use;
     time_sup.r.o.os_monotonic_time_resolution
 	= sys_init_time_res.os_monotonic_time_info.resolution;
+    time_sup.r.o.os_monotonic_time_used_resolution
+	= (!sys_init_time_res.os_monotonic_time_info.used_resolution
+           ? sys_init_time_res.os_monotonic_time_info.resolution
+           : sys_init_time_res.os_monotonic_time_info.used_resolution);
     time_sup.r.o.os_monotonic_time_extended
 	= sys_init_time_res.os_monotonic_time_info.extended;
 #endif
@@ -2044,8 +2049,8 @@ bld_monotonic_time_source(Uint **hpp, Uint *szp, Sint64 os_mtime)
     return NIL;
 #else
     int i = 0;
-    Eterm k[6];
-    Eterm v[6];
+    Eterm k[7];
+    Eterm v[7];
 
     if (time_sup.r.o.os_monotonic_time_disable)
 	return NIL;
@@ -2063,6 +2068,10 @@ bld_monotonic_time_source(Uint **hpp, Uint *szp, Sint64 os_mtime)
     k[i] = erts_bld_atom(hpp, szp, "resolution");
     v[i++] = erts_bld_uint64(hpp, szp,
 			     time_sup.r.o.os_monotonic_time_resolution);
+
+    k[i] = erts_bld_atom(hpp, szp, "used_resolution");
+    v[i++] = erts_bld_uint64(hpp, szp,
+                             time_sup.r.o.os_monotonic_time_used_resolution);
 
     k[i] = erts_bld_atom(hpp, szp, "extended");
     v[i++] = time_sup.r.o.os_monotonic_time_extended ? am_yes : am_no;

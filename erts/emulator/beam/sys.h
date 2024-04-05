@@ -727,6 +727,7 @@ typedef struct {
     ErtsMonotonicTime sys_clock_resolution;
     struct {
 	Uint64 resolution;
+        Uint64 used_resolution;
 	char *func;
 	char *clock_id;
 	int locked_use;
