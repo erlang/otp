@@ -2635,11 +2635,16 @@ esock_abort(const char* expr,
                  const char* file,
                  int         line)
 {
+#if 0
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
             file, line, func, expr);
     fflush(stderr);
     abort();
+#else
+    erts_exit(ERTS_DUMP_EXIT, "%s:%d:%s() Assertion failed: %s\n",
+              file, line, func, expr);
+#endif
 }
 
 
