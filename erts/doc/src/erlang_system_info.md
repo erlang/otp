@@ -420,6 +420,15 @@ Returns information about the current system (emulator) time as specified by `It
     You do, however, know that the precision is not better than
     `OsMonotonicTimeResolution`.
 
+  - `{used_resolution, UsedOsMonotonicTimeResolution}` - The OS monotonic time
+    resolution used by the runtime system. This is very often the same as
+    `OsMonotonicTimeResolution`. However, on some systems the resolution has to
+    be reduced in order to reliably produce monotonic timestamps. An example of
+    this is when `QueryPerformanceCounter()` is used as OS monotonic time
+    source on Windows. If such a reduction of the resolution has been done,
+    `UsedOsMonotonicTimeResolution` will be smaller than
+    `OsMonotonicTimeResolution`.
+
   - `{extended, Extended}` - `Extended` equals `yes` if the range of time
     values has been extended; otherwise `Extended` equals `no`. The range must
     be extended if `Function` returns values that wrap fast. This typically is
