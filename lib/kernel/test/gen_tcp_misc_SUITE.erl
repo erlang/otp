@@ -6915,6 +6915,8 @@ timeout_sink_loop(Action, To, N) ->
 
 rest_data_size(Bin) when is_binary(Bin) ->
     byte_size(Bin);
+rest_data_size([]) ->
+    0;
 rest_data_size([Bin|IOVec]) when is_binary(Bin) ->
     byte_size(Bin) + rest_data_size(IOVec).
 
@@ -7589,12 +7591,12 @@ otp_7816_send_data(Ctrl, Socket, Data, Loops) ->
 	    %% NOTE THAT THIS MEANS THAT WE MAY HAVE A PARTIAL PACKAGE
 	    %% WRITTEN, INCLUDING A HEADER THAT INDICATES A DATA
 	    %% SIZE THAT IS **NOT** PRESENT!!
-	    %% So for this trest case to work, we need to write the rest.
+	    %% So for this test case to work, we need to write the rest.
 	    %% But we cannot do that without first setting the package to raw.
 	    %%
 	    ?P("[client] send timeout"
 	       "~n      with ~w bytes of rest data"
-	       "~n      when Loops: ~p", [byte_size(RestData), Loops]),
+	       "~n      when Loops: ~p", [rest_data_size(RestData), Loops]),
 	    Ctrl ! {self(), continue, Loops + 1},
 	    ?P("[client] packet to 'raw'..."),
 	    ok = inet:setopts(Socket, [{packet, raw}, {send_timeout, 1000}]),
