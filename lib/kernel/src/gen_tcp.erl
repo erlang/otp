@@ -884,9 +884,9 @@ The return value `{error, {timeout, RestData}}` can only be returned when
 > and then set package to the wanted package type again.
 """.
 -spec send(Socket, Packet) -> ok | {error, Reason} when
-      Socket :: socket(),
-      Packet :: iodata(),
-      Reason :: closed | {timeout, RestData} | inet:posix(),
+      Socket   :: socket(),
+      Packet   :: iodata(),
+      Reason   :: closed | {timeout, RestData} | inet:posix(),
       RestData :: binary() | erlang:iovec().
 
 send(?module_socket(GenTcpMod, _) = S, Packet) when is_atom(GenTcpMod) ->

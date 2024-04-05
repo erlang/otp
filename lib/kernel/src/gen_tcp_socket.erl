@@ -536,9 +536,9 @@ send_result(Server, Data, Meta, Result) ->
     case Result of
         {error, {timeout, RestData}} when is_binary(RestData) orelse
                                           is_list(RestData) ->
-            send_timeout(Server, RestData, Meta);
+            send_timeout(Server, {false, RestData}, Meta);
         {error, timeout} ->
-            send_timeout(Server, Data, Meta);
+            send_timeout(Server, {true, Data}, Meta);
         {error, {Reason, RestData}} when is_binary(RestData) orelse
                                          is_list(RestData) ->
             call(Server, {send_error, Reason});
@@ -548,7 +548,7 @@ send_result(Server, Data, Meta, Result) ->
             ok
     end.
 
-send_timeout(Server, Data, Meta) ->
+send_timeout(Server, {ToBin, Data}, Meta) ->
     case maps:get(send_timeout_close, Meta) of
         true ->
             %% To handle RestData we would have to pass
@@ -559,9 +559,12 @@ send_timeout(Server, Data, Meta) ->
             %%
             close_server(Server),
             {error, timeout};
+        false when (ToBin =:= true) ->
+            %% Leave the lingering data to the caller to handle
+            {error, {timeout, iolist_to_binary(Data)}};
         false ->
             %% Leave the lingering data to the caller to handle
-            {error, {timeout, iolist_to_binary(Data)}}
+            {error, {timeout, Data}}
     end.
 
 %% -------------------------------------------------------------------------
