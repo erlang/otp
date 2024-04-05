@@ -1448,7 +1448,7 @@ build_writable_bitstring(Process *p,
     p->wrt_bins = (struct erl_off_heap_header*)br;
     br->val = bin;
 
-    MSO(p).overhead += apparent_size / (sizeof(Eterm) * 8);
+    OH_OVERHEAD(&MSO(p), NBYTES(apparent_size) / sizeof(Eterm));
 
     erl_sub_bits_init(sb,
                       ERL_SUB_BITS_FLAGS_WRITABLE,
