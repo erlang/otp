@@ -827,7 +827,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
   The match specification function `{return_trace}` works with meta-trace.
 
-- **`call_count`** - Start (`MatchSpec == true`) or stop
+- **`call_count`**{: #call_count } - Start (`MatchSpec == true`) or stop
   (`MatchSpec == false`) call count tracing for all types of function calls. For
   every function, a counter is incremented when the function is called, in any
   process. No process trace flags need to be activated.
@@ -839,7 +839,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
   To read the counter value for a function, call
   [`trace:info(_, MFA, call_count)`](`info/3`).
 
-- **`call_time`** - Start (`MatchSpec` is `true`) or stops (`MatchSpec` is `false`)
+- **`call_time`**{: #call_time } - Start (`MatchSpec` is `true`) or stops (`MatchSpec` is `false`)
   call time tracing for all types of function calls. For every function, a
   counter is incremented when the function is called and the time spent in the
   function is measured and accumulated in another counter. The counters are
@@ -851,7 +851,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
   To read the counter values, use `info/3`.
 
-- **`call_memory`** - Start (`MatchSpec == true`) or stop
+- **`call_memory`**{: #call_memory } - Start (`MatchSpec == true`) or stop
   (`MatchSpec == false`) call memory tracing for all types of function calls.
 
   If call memory tracing is started while already running, counters and
