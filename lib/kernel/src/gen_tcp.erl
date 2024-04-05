@@ -887,7 +887,7 @@ The return value `{error, {timeout, RestData}}` can only be returned when
       Socket :: socket(),
       Packet :: iodata(),
       Reason :: closed | {timeout, RestData} | inet:posix(),
-      RestData :: binary().
+      RestData :: binary() | erlang:iovec().
 
 send(?module_socket(GenTcpMod, _) = S, Packet) when is_atom(GenTcpMod) ->
     GenTcpMod:?FUNCTION_NAME(S, Packet);

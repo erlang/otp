@@ -329,7 +329,15 @@ is_supported_option(_Option, undefined) ->
     false.
 
 is_supported(Key1) ->
-    get_is_supported(Key1, nif_supports()).
+    case Key1 of
+        ioctl_requests -> true;
+        ioctl_flags    -> true;
+        protocols      -> true;
+        options        -> true;
+        msg_flags      -> true;
+        _ ->
+            get_is_supported(Key1, nif_supports())
+    end.
 
 is_supported(ioctl_requests = Tab, Name) when is_atom(Name) ->
     p_get_is_supported(Tab, Name, fun (_) -> true end);
