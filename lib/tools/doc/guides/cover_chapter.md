@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# cover
+# cover - The Coverage Analysis Tool
 
 ## Introduction
 
@@ -26,7 +26,7 @@ programs, counting how many times each [executable line](cover_chapter.md#lines)
 is executed.
 
 Coverage analysis can be used to verify test cases, making sure all relevant
-code is covered, and may be helpful when looking for bottlenecks in the code.
+code is covered, and can be helpful when looking for bottlenecks in the code.
 
 ## Getting Started With Cover
 
@@ -43,36 +43,36 @@ Assume that a test case for the following program should be verified:
 -export([init/1,handle_call/3,terminate/2]). % callback functions
 
 start_link() ->
-    gen_server:start_link({local,channel},channel,[],[]).
+    gen_server:start_link({local,channel}, channel, [], []).
 
 stop() ->
-    gen_server:call(channel,stop).
+    gen_server:call(channel, stop).
 
 %%%-Client interface functions-------------------------------------------
 
 alloc() ->
-    gen_server:call(channel,alloc).
+    gen_server:call(channel, alloc).
 
 free(Channel) ->
-    gen_server:call(channel,{free,Channel}).
+    gen_server:call(channel, {free,Channel}).
 
 %%%-gen_server callback functions----------------------------------------
 
 init(_Arg) ->
     {ok,channels()}.
 
-handle_call(stop,Client,Channels) ->
+handle_call(stop, _Client, Channels) ->
     {stop,normal,ok,Channels};
 
-handle_call(alloc,Client,Channels) ->
+handle_call(alloc, _Client, Channels) ->
     {Ch,Channels2} = alloc(Channels),
     {reply,{ok,Ch},Channels2};
 
-handle_call({free,Channel},Client,Channels) ->
-    Channels2 = free(Channel,Channels),
+handle_call({free,Channel}, _Client, Channels) ->
+    Channels2 = free(Channel, Channels),
     {reply,ok,Channels2}.
 
-terminate(_Reason,Channels) ->
+terminate(_Reason, _Channels) ->
     ok.
 
 %%%-Internal functions---------------------------------------------------
@@ -85,7 +85,7 @@ alloc([Channel|Channels]) ->
 alloc([]) ->
     false.
 
-free(Channel,Channels) ->
+free(Channel, Channels) ->
     [Channel|Channels].
 ```
 
@@ -109,25 +109,26 @@ database where all coverage data will be stored.
 
 ```erlang
 1> cover:start().
-{ok,<0.30.0>}
+{ok,<0.90.0>}
 ```
 
-To include other nodes in the coverage analysis, use `start/1`. All cover
-compiled modules will then be loaded on all nodes, and data from all nodes will
-be summed up when analysing. For simplicity this example only involves the
-current node.
+To include other nodes in the coverage analysis, use
+`cover:start/1`. All cover-compiled modules will then be loaded on all
+nodes, and data from all nodes will be summed up when analysing. For
+simplicity this example only involves the current node.
 
-Before any analysis can take place, the involved modules must be _Cover
-compiled_. This means that some extra information is added to the module before
-it is compiled into a binary which then is [loaded](cover_chapter.md#loading).
-The source file of the module is not affected and no `.beam` file is created.
+Before any analysis can take place, the involved modules must be
+_cover-compiled_. This means that some extra information is added to
+the module before beging compiled into a binary and
+[loaded](cover_chapter.md#loading).  The source file of the module is
+not affected and no `.beam` file is created.
 
 ```erlang
 2> cover:compile_module(channel).
 {ok,channel}
 ```
 
-Each time a function in the Cover compiled module `channel` is called,
+Each time a function in the cover-compiled module `channel` is called,
 information about the call will be added to the Cover database. Run the test
 case:
 
@@ -154,7 +155,7 @@ If the analysis is made on module level, the result is given for the entire
 module as a tuple `{Module,{Cov,NotCov}}`:
 
 ```erlang
-4> cover:analyse(channel,coverage,module).
+4> cover:analyse(channel, coverage, module).
 {ok,{channel,{14,1}}}
 ```
 
@@ -166,7 +167,7 @@ tuples `{Function,{Cov,NotCov}}`, one for each function in the module. A
 function is specified by its module name, function name and arity:
 
 ```erlang
-5> cover:analyse(channel,coverage,function).
+5> cover:analyse(channel, coverage, function).
 {ok,[{{channel,start_link,0},{1,0}},
      {{channel,stop,0},{1,0}},
      {{channel,alloc,0},{1,0}},
@@ -188,7 +189,7 @@ specified by its module name, function name, arity and position within the
 function definition:
 
 ```erlang
-6> cover:analyse(channel,coverage,clause).
+6> cover:analyse(channel, coverage, clause).
 {ok,[{{channel,start_link,0,1},{1,0}},
      {{channel,stop,0,1},{1,0}},
      {{channel,alloc,0,1},{1,0}},
@@ -212,7 +213,7 @@ tuples `{Line,{Cov,NotCov}}`, one for each executable line in the source code. A
 line is specified by its module name and line number.
 
 ```erlang
-7> cover:analyse(channel,coverage,line).
+7> cover:analyse(channel, coverage, line).
 {ok,[{{channel,9},{1,0}},
      {{channel,12},{1,0}},
      {{channel,17},{1,0}},
@@ -242,7 +243,7 @@ If the analysis is made on module level, the result is given as a tuple
 module:
 
 ```erlang
-8> cover:analyse(channel,calls,module).
+8> cover:analyse(channel, calls, module).
 {ok,{channel,12}}
 ```
 
@@ -253,7 +254,7 @@ If the analysis is made on function level, the result is given as a list of
 tuples `{Function,Calls}`. Here `Calls` is the number of calls to each function:
 
 ```erlang
-9> cover:analyse(channel,calls,function).
+9> cover:analyse(channel, calls, function).
 {ok,[{{channel,start_link,0},1},
      {{channel,stop,0},1},
      {{channel,alloc,0},1},
@@ -273,7 +274,7 @@ If the analysis is made on clause level, the result is given as a list of tuples
 `{Clause,Calls}`. Here `Calls` is the number of calls to each function clause:
 
 ```erlang
-10> cover:analyse(channel,calls,clause).
+10> cover:analyse(channel, calls, clause).
 {ok,[{{channel,start_link,0,1},1},
      {{channel,stop,0,1},1},
      {{channel,alloc,0,1},1},
@@ -297,7 +298,7 @@ tuples `{Line,Calls}`. Here `Calls` is the number of times each line has been
 executed:
 
 ```erlang
-11> cover:analyse(channel,calls,line).
+11> cover:analyse(channel, calls, line).
 {ok,[{{channel,9},1},
      {{channel,12},1},
      {{channel,17},1},
@@ -333,7 +334,7 @@ is specified how many times that line has been executed. The output file is
 called `channel.COVER.out`.
 
 ```erlang
-File generated from channel.erl by COVER 2001-05-21 at 11:16:38
+File generated from /Users/bjorng/git/otp/channel.erl by COVER 2024-03-20 at 13:25:04
 
 ****************************************************************************
 
@@ -345,39 +346,39 @@ File generated from channel.erl by COVER 2001-05-21 at 11:16:38
         |  -export([init/1,handle_call/3,terminate/2]). % callback functions
         |
         |  start_link() ->
-     1..|      gen_server:start_link({local,channel},channel,[],[]).
+     1..|      gen_server:start_link({local,channel}, channel, [], []).
         |
         |  stop() ->
-     1..|      gen_server:call(channel,stop).
+     1..|      gen_server:call(channel, stop).
         |
-        |  %%%-Client interface functions------------------------------------
+        |  %%%-Client interface functions-------------------------------------------
         |
         |  alloc() ->
-     1..|      gen_server:call(channel,alloc).
+     1..|      gen_server:call(channel, alloc).
         |
         |  free(Channel) ->
-     1..|      gen_server:call(channel,{free,Channel}).
+     1..|      gen_server:call(channel, {free,Channel}).
         |
-        |  %%%-gen_server callback functions---------------------------------
+        |  %%%-gen_server callback functions----------------------------------------
         |
         |  init(_Arg) ->
      1..|      {ok,channels()}.
         |
-        |  handle_call(stop,Client,Channels) ->
+        |  handle_call(stop, _Client, Channels) ->
      1..|      {stop,normal,ok,Channels};
         |
-        |  handle_call(alloc,Client,Channels) ->
+        |  handle_call(alloc, _Client, Channels) ->
      1..|      {Ch,Channels2} = alloc(Channels),
      1..|      {reply,{ok,Ch},Channels2};
         |
-        |  handle_call({free,Channel},Client,Channels) ->
-     1..|      Channels2 = free(Channel,Channels),
+        |  handle_call({free,Channel}, _Client, Channels) ->
+     1..|      Channels2 = free(Channel, Channels),
      1..|      {reply,ok,Channels2}.
         |
-        |  terminate(_Reason,Channels) ->
+        |  terminate(_Reason, _Channels) ->
      1..|      ok.
         |
-        |  %%%-Internal functions--------------------------------------------
+        |  %%%-Internal functions---------------------------------------------------
         |
         |  channels() ->
      1..|      [ch1,ch2,ch3].
@@ -387,19 +388,18 @@ File generated from channel.erl by COVER 2001-05-21 at 11:16:38
         |  alloc([]) ->
      0..|      false.
         |
-        |  free(Channel,Channels) ->
+        |  free(Channel, Channels) ->
      1..|      [Channel|Channels].
 ```
 
 ### Conclusion
 
-By looking at the results from the analyses, it can be deducted that the test
-case does not cover the case when all channels are allocated and `test.erl`
-should be extended accordingly.  
-Incidentally, when the test case is corrected a bug in `channel` should indeed
-be discovered.
+By looking at the results from the analyses, it can be deduced that
+the test case does not cover the case when all channels are allocated
+and `test.erl` should be extended accordingly. Incidentally, when the
+test case is corrected a bug in `channel` will be discovered.
 
-When the Cover analysis is ready, Cover is stopped and all Cover compiled
+When the Cover analysis is ready, Cover is stopped and all cover-compiled
 modules are [unloaded](cover_chapter.md#loading). The code for `channel` is now
 loaded as usual from a `.beam` file in the current path.
 
@@ -416,10 +416,10 @@ ok
 
 ### Performance
 
-Execution of code in Cover compiled modules is slower and more memory consuming
+Execution of code in cover-compiled modules is slower and more memory consuming
 than for regularly compiled modules. As the Cover database contains information
-about each executable line in each Cover compiled module, performance decreases
-proportionally to the size and number of the Cover compiled modules.
+about each executable line in each cover-compiled module, performance decreases
+proportionally to the size and number of the cover-compiled modules.
 
 To improve performance when analysing cover results it is possible to do
 multiple calls to [analyse](`cover:analyse/1`) and
@@ -430,16 +430,16 @@ multiple calls to [analyse](`cover:analyse/1`) and
 
 ### Executable Lines
 
-Cover uses the concept of _executable lines_, which is lines of code containing
+Cover uses the concept of _executable lines_, which is code lines containing
 an executable expression such as a matching or a function call. A blank line or
-a line containing a comment, function head or pattern in a `case`\- or `receive`
+a line containing a comment, function head or pattern in a `case` or `receive`
 statement is not executable.
 
-In the example below, lines number 2,4,6,8 and 11 are executable lines:
+In the example below, lines number 2, 4, 6, 8, and 11 are executable lines:
 
 ```erlang
-1: is_loaded(Module,Compiled) ->
-2:   case get_file(Module,Compiled) of
+1: is_loaded(Module, Compiled) ->
+2:   case get_file(Module, Compiled) of
 3:     {ok,File} ->
 4:       case code:which(Module) of
 5:         ?TAG ->
@@ -456,12 +456,12 @@ In the example below, lines number 2,4,6,8 and 11 are executable lines:
 
 ### Code Loading Mechanism
 
-When a module is Cover compiled, it is also loaded using the normal code loading
-mechanism of Erlang. This means that if a Cover compiled module is re-loaded
+When a module is cover-compiled, it is also loaded using the normal code loading
+mechanism of Erlang. This means that if a cover-compiled module is re-loaded
 during a Cover session, for example using `c(Module)`, it will no longer be
-Cover compiled.
+cover-compiled.
 
-Use `cover:is_compiled/1` or `code:which/1` to see if a module is Cover compiled
-(and still loaded) or not.
+Use `cover:is_compiled/1` or `code:which/1` to see whether or not a
+module is cover-compiled (and still loaded).
 
-When Cover is stopped, all Cover compiled modules are unloaded.
+When Cover is stopped, all cover-compiled modules are unloaded.

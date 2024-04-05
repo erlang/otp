@@ -25,8 +25,8 @@ defined functions and the function calls.
 
 In order to make Xref easy to use, there are predefined analyses that perform
 some common tasks. Typically, a module or a release can be checked for calls to
-undefined functions. For the somewhat more advanced user there is a small, but
-rather flexible, language that can be used for selecting parts of the analyzed
+undefined functions. For the somewhat more advanced user there is a small but
+flexible language that can be used for selecting parts of the analyzed
 system and for doing some simple graph analyses on selected calls.
 
 The following sections show some features of Xref, beginning with a module check
@@ -39,24 +39,24 @@ reading; not all of the concepts used are explained, and it is assumed that the
 Assume we want to check the following module:
 
 ```erlang
-    -module(my_module).
+-module(my_module).
 
-    -export([t/1]).
+-export([t/1]).
 
-    t(A) ->
-      my_module:t2(A).
+t(A) ->
+  my_module:t2(A).
 
-    t2(_) ->
-      true.
+t2(_) ->
+  true.
 ```
 
 Cross reference data are read from BEAM files, so the first step when checking
 an edited module is to compile it:
 
 ```erlang
-    1> c(my_module, debug_info).
-    ./my_module.erl:10: Warning: function t2/1 is unused
-    {ok, my_module}
+1> c(my_module, debug_info).
+./my_module.erl:10: Warning: function t2/1 is unused
+{ok, my_module}
 ```
 
 The `debug_info` option ensures that the BEAM file contains debug information,
@@ -68,10 +68,10 @@ The module can now be checked for calls to
 functions:
 
 ```erlang
-    2> xref:m(my_module)
-    [{deprecated,[]},
-     {undefined,[{{my_module,t,1},{my_module,t2,1}}]},
-     {unused,[{my_module,t2,1}]}]
+2> xref:m(my_module)
+[{deprecated,[]},
+ {undefined,[{{my_module,t,1},{my_module,t2,1}}]},
+ {unused,[{my_module,t2,1}]}]
 ```
 
 `m/1` is also suitable for checking that the BEAM file of a module that is about
@@ -92,8 +92,8 @@ Each Xref server is referred to by a unique name. The name is given when
 creating the server:
 
 ```erlang
-    1> xref:start(s).
-    {ok,<0.27.0>}
+1> xref:start(s).
+{ok,<0.27.0>}
 ```
 
 Next the system to be analyzed is added to the Xref server. Here the system will
@@ -105,27 +105,27 @@ files and warnings are output when adding analyzed modules, but these messages
 can be avoided by setting default values of some options:
 
 ```erlang
-    2> xref:set_default(s, [{verbose,false}, {warnings,false}]).
-    ok
-    3> xref:add_release(s, code:lib_dir(), {name, otp}).
-    {ok,otp}
+2> xref:set_default(s, [{verbose,false}, {warnings,false}]).
+ok
+3> xref:add_release(s, code:lib_dir(), {name, otp}).
+{ok,otp}
 ```
 
 `add_release/3` assumes that all subdirectories of the library directory
-returned by `code:lib_dir()` contain applications; the effect is that of reading
-all applications' BEAM files.
+returned by [`code:lib_dir()`](`code:lib_dir/0`) contain applications;
+the effect is that of reading all BEAM files for the application.
 
 It is now easy to check the release for calls to undefined functions:
 
 ```erlang
-    4> xref:analyze(s, undefined_function_calls).
-    {ok, [...]}
+4> xref:analyze(s, undefined_function_calls).
+{ok, [...]}
 ```
 
 We can now continue with further analyses, or we can delete the Xref server:
 
-```text
-    5> xref:stop(s).
+```erlang
+5> xref:stop(s).
 ```
 
 The check for calls to undefined functions is an example of a predefined
@@ -140,8 +140,8 @@ sentence of a tiny language providing cross reference data as values of
 undefined functions can thus be stated as a query:
 
 ```erlang
-    4> xref:q(s, "(XC - UC) || (XU - X - B)").
-    {ok,[...]}
+4> xref:q(s, "(XC - UC) || (XU - X - B)").
+{ok,[...]}
 ```
 
 The query asks for the restriction of external calls except the unresolved calls
@@ -192,8 +192,8 @@ examples. The analyzed system is assumed to be OTP, so in order to run the
 queries, first evaluate these calls:
 
 ```erlang
-    xref:start(s).
-    xref:add_release(s, code:root_dir()).
+xref:start(s).
+xref:add_release(s, code:root_dir()).
 ```
 
 - **`xref:q(s, "(Fun) xref : Mod").`** - All functions of the `xref` module.
@@ -274,7 +274,7 @@ direct calls, while the `digraph` representation is suited for analyzing
 indirect calls. The restriction operators (`|`, `||` and `|||`) are the only
 operators that accept both representations. This means that in order to analyze
 indirect calls using restriction, the `closure` operator (which creates the
-`digraph` representation of graphs) has to be applied explicitly.
+`digraph` representation of graphs) has to be explicitly applied.
 
 As an example of analyzing indirect calls, the following Erlang function tries
 to answer the question: if we want to know which modules are used indirectly by
@@ -286,18 +286,18 @@ module graph, since it is available also in the light weight
 `modules`[mode](`m:xref#mode`) of Xref servers.
 
 ```erlang
-    t(S) ->
-      {ok, _} = xref:q(S, "Eplus := closure E"),
-      {ok, Ms} = xref:q(S, "AM"),
-      Fun = fun(M, N) ->
-          Q = io_lib:format("# (Mod) (Eplus | ~p : Mod)", [M]),
-          {ok, N0} = xref:q(S, lists:flatten(Q)),
-          N + N0
-        end,
-      Sum = lists:foldl(Fun, 0, Ms),
-      ok = xref:forget(S, 'Eplus'),
-      {ok, Tot} = xref:q(S, "# (closure ME | AM)"),
-      100 * ((Tot - Sum) / Tot).
+t(S) ->
+  {ok, _} = xref:q(S, "Eplus := closure E"),
+  {ok, Ms} = xref:q(S, "AM"),
+  Fun = fun(M, N) ->
+      Q = io_lib:format("# (Mod) (Eplus | ~p : Mod)", [M]),
+      {ok, N0} = xref:q(S, lists:flatten(Q)),
+      N + N0
+    end,
+  Sum = lists:foldl(Fun, 0, Ms),
+  ok = xref:forget(S, 'Eplus'),
+  {ok, Tot} = xref:q(S, "# (closure ME | AM)"),
+  100 * ((Tot - Sum) / Tot).
 ```
 
 Comments on the code:

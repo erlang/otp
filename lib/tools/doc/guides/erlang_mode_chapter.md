@@ -21,10 +21,12 @@ limitations under the License.
 
 ## Purpose
 
-The purpose of this user guide is to introduce you to the Erlang mode for Emacs
-and gives some relevant background information of the functions and features.
-See also [Erlang mode reference manual](../references/erlang.el.md) The purpose of the Erlang
-mode itself is to facilitate the developing process for the Erlang programmer.
+The purpose of this user guide is to introduce you to the Erlang mode
+for Emacs and gives some relevant background information of the
+functions and features.  See also [Erlang mode reference
+manual](../references/erlang.el.md) The purpose of the Erlang mode
+itself is to facilitate the developing process for the Erlang
+programmer.
 
 ## Pre-requisites
 
@@ -32,24 +34,24 @@ Basic knowledge of Emacs and Erlang/OTP.
 
 ## Elisp
 
-There are two Elisp modules included in this tool package for Emacs. There is
-erlang.el that defines the actual erlang mode and there is erlang-start.el that
-makes some nice initializations.
+Two Elisp modules are included in this tool package for
+Emacs. `erlang.el` defines the actual Erlang mode and
+`erlang-start.el` makes some nice initializations.
 
 ## Setup on UNIX
 
-To set up the Erlang Emacs mode on a UNIX systems, edit/create the file `.emacs`
+To set up the Erlang Emacs mode on a UNIX systems, edit or create the file `.emacs`
 in the your home directory.
 
 Below is a complete example of what should be added to a user's `.emacs`
 provided that OTP is installed in the directory `/usr/local/otp `:
 
 ```text
-      (setq load-path (cons  "/usr/local/otp/lib/tools-<ToolsVer>/emacs"
-      load-path))
-      (setq erlang-root-dir "/usr/local/otp")
-      (setq exec-path (cons "/usr/local/otp/bin" exec-path))
-      (require 'erlang-start)
+(setq load-path (cons  "/usr/local/otp/lib/tools-<ToolsVer>/emacs"
+load-path))
+(setq erlang-root-dir "/usr/local/otp")
+(setq exec-path (cons "/usr/local/otp/bin" exec-path))
+(require 'erlang-start)
 ```
 
 ## Setup on Windows
@@ -57,25 +59,25 @@ provided that OTP is installed in the directory `/usr/local/otp `:
 To set up the Erlang Emacs mode on a Windows systems, edit/create the file
 `.emacs`, the location of the file depends on the configuration of the system.
 If the _HOME_ environment variable is set, Emacs will look for the `.emacs` file
-in the directory indicated by the _HOME_ variable. If _HOME_ is not set, Emacs
+in the directory indicated by the `HOME` variable. If `HOME` is not set, Emacs
 will look for the `.emacs` file in `C:\ `.
 
 Below is a complete example of what should be added to a user's `.emacs`
 provided that OTP is installed in the directory `C:\Program Files\Erlang OTP`:
 
-```text
-      (setq load-path (cons  "C:/Program Files/Erlang OTP/lib/tools-<ToolsVer>/emacs"
-      load-path))
-      (setq erlang-root-dir "C:/Program Files/Erlang OTP")
-      (setq exec-path (cons "C:/Program Files/Erlang OTP/bin" exec-path))
-      (require 'erlang-start)
+```lisp
+(setq load-path (cons  "C:/Program Files/Erlang OTP/lib/tools-<ToolsVer>/emacs"
+load-path))
+(setq erlang-root-dir "C:/Program Files/Erlang OTP")
+(setq exec-path (cons "C:/Program Files/Erlang OTP/bin" exec-path))
+(require 'erlang-start)
 ```
 
 > #### Note {: .info }
 >
-> In .emacs, the slash character "/" can be used as path separator. But if you
-> decide to use the backslash character "\\", please not that you must use
-> double backslashes, since they are treated as escape characters by Emacs.
+> In `.emacs`, the slash character (`/`) can be used as path separator. But if you
+> decide to use the backslash character (`\`), note that backslashes have to be
+> doubled, since they are treated as escape characters by Emacs.
 
 ## Indentation
 
@@ -112,21 +114,21 @@ matches the file name. By default, the user is asked before the change is
 performed.
 
 An "electric" command is a character that in addition to just inserting the
-character performs some type of action. For example the ";" character is typed
+character performs some type of action. For example the `;` character is typed
 in a situation where is ends a function clause a new function header is
 generated. The electric commands are as follows:
 
-- _`erlang-electric-comma`_ \- Insert a comma character and possibly a new
+- `erlang-electric-comma` \- Insert a comma character and possibly a new
   indented line.
-- _`erlang-electric-semicolon`_ \- Insert a semicolon character and possibly a
+- `erlang-electric-semicolon` \- Insert a semicolon character and possibly a
   prototype for the next line.
-- _`erlang-electric-gt`_ \- "Insert a '>'-sign and possible a new indented line.
+- `erlang-electric-gt` \- Insert a `>` character and possible a new indented line.
 
 To disable all electric commands set the variable `erlang-electric-commands` to
 the empty list. In short, place the following line in your `.emacs`\-file:
 
 ```text
-      (setq erlang-electric-commands '())
+(setq erlang-electric-commands '())
 ```
 
 ## Syntax highlighting
@@ -147,7 +149,7 @@ Tags is a standard Emacs package used to record information about source files
 in large development projects. In addition to listing the files of a project, a
 tags file normally contains information about all functions and variables that
 are defined. By far, the most useful command of the tags system is its ability
-to find the definition of functions in any file in the project. However the Tags
+to find the definition of functions in any file in the project. But the Tags
 system is not limited to this feature, for example, it is possible to do a text
 search in all files in a project, or to perform a project-wide search and
 replace.
@@ -161,7 +163,7 @@ the Erlang module `tags`.
 ## Etags
 
 `etags` is a program that is part of the Emacs distribution. It is normally
-executed from a command line, like a unix shell or a DOS box.
+executed from a command line, like a Unix shell or a DOS box.
 
 The `etags` program of fairly modern versions of Emacs and XEmacs has native
 support for Erlang. To check if your version does include this support, issue
@@ -169,14 +171,13 @@ the command `etags --help` at a the command line prompt. At the end of the help
 text there is a list of supported languages. Unless Erlang is a member of this
 list I suggest that you should upgrade to a newer version of Emacs.
 
-As seen in the help text -- unless you have not upgraded your Emacs yet (well,
-what are you waiting around here for? Off you go and upgrade\!) -- `etags`
+As seen in the help text — unless you have not upgraded your Emacs yet — `etags`
 associate the file extensions `.erl` and `.hrl` with Erlang.
 
-Basically, the `etags` utility is ran using the following form:
+Basically, the `etags` utility is run using the following form:
 
-```text
-      etags file1.erl file2.erl
+```bash
+etags file1.erl file2.erl
 ```
 
 This will create a file named `TAGS` in the current directory.
@@ -184,16 +185,16 @@ This will create a file named `TAGS` in the current directory.
 The `etags` utility can also read a list of files from its standard input by
 supplying a single dash in place of the file names. This feature is useful when
 a project consists of a large number of files. The standard UNIX command `find`
-can be used to generate the list of files, e.g:
+can be used to generate the list of files, for example:
 
-```text
-      find . -name "*.[he]rl" -print | etags -
+```bash
+find . -name "*.[he]rl" -print | etags -
 ```
 
 The above line will create a `TAGS` file covering all the Erlang source files in
 the current directory, and in the subdirectories below.
 
-Please see the GNU Emacs Manual and the etags man page for more info.
+See the GNU Emacs Manual and the etags man page for more info.
 
 ## Shell
 
