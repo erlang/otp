@@ -35,7 +35,7 @@ and fail.
 ## ei_global_names()
 
 ```c
-char ** ei_global_names(ec,fd,count);
+char **ei_global_names(ei_cnode *ec, int fd, int *count);
 ```
 
 Retrieves a list of all known global names.
@@ -61,7 +61,7 @@ Available since OTP 23.0
 ## ei_global_register()
 
 ```c
-int ei_global_register(fd,name,pid);
+int ei_global_register(int fd, const char *name, erlang_pid *self);
 ```
 
 Registers a name in `global`.
@@ -78,7 +78,7 @@ Available since OTP 23.0
 ## ei_global_unregister()
 
 ```c
-int ei_global_unregister(ec,fd,name);
+int ei_global_unregister(ei_cnode *ec, int fd, const char *name);
 ```
 
 Unregisters a name from `global`.
@@ -94,7 +94,7 @@ Available since OTP 23.0
 ## ei_global_whereis()
 
 ```c
-int ei_global_whereis(ec,fd,name,pid,node);
+int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, char *node);
 ```
 
 Looks up a name in `global`.

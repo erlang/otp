@@ -46,17 +46,17 @@ The application requires Erlang/OTP release R13B02 or later.
 In addition to this introductory chapter, the Reltool User's Guide contains the
 following chapters:
 
-- Chapter 2: "Usage" describes the architecture and typical usage of the
+- Chapter 2: ["Usage"](reltool_usage.md) describes the architecture and typical usage of the
   application.
-- Chapter 3: "Examples" gives some usage examples
+- Chapter 3: ["Examples"](reltool_examples.md) gives some usage examples
 
 ## Where to Find More Information
 
 Refer to the following documentation for more information about Reltool and
 about the Erlang/OTP development system:
 
-- the Reference Manual of Reltool
-- the Erlang/OTP `System Principles`
-- the Erlang/OTP `Design Principles`
+- the [Reference Manual of Reltool](`m:reltool`)
+- the Erlang/OTP [`System Principles`](`e:system:system_principles.md`)
+- the Erlang/OTP [`Design Principles`](`e:system:design_principles.md`)
 - Programming Erlang: Software for a Concurrent World (2007), Pragmatic
   Bookshelf, ISBN13: 9781934356005.

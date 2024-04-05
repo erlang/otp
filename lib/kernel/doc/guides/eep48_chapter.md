@@ -99,7 +99,7 @@ where in the root tuple we have:
 
 For each entry in Docs, we have:
 
-- **\{Kind, Name, Arity\}** - the kind, name and arity identifying the function,
+- **{Kind, Name, Arity}** - the kind, name and arity identifying the function,
   callback, type, etc. The official entities are: `function`, `type` and
   `callback`. Other languages will add their own. For instance, Elixir and LFE
   may add macro.
@@ -131,9 +131,9 @@ cross-language collaboration.
 The Metadata field exists to allow languages, tools and libraries to add custom
 information to each entry. This EEP documents the following metadata keys:
 
-- **authors := \[binary()]** - a list of authors as binaries.
+- **authors := [binary()]** - a list of authors as binaries.
 
-- **cross_references := \[module() | \{module(), \{Kind, Name, Arity\}\}]** - a
+- **cross_references := [module() | {module(), {Kind, Name, Arity}}]** - a
   list of modules or module entries that can be used as cross references when
   generating documentation.
 

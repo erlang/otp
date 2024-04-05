@@ -56,7 +56,7 @@ following application configuration parameters:
 Configuration parameters effecting the different OS_Mon services are described
 in the respective man pages.
 
-See [config(4)](`e:kernel:config.md`) for information about how to change the
+See [config](`e:kernel:config.md`) for information about how to change the
 value of configuration parameters.
 
 ## See Also

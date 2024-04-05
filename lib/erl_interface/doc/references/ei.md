@@ -195,7 +195,8 @@ is placed at `p`. At most `MAXATOMLEN` bytes can be placed in the buffer.
 ## ei_decode_atom_as()
 
 ```c
-int ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
+int ei_decode_atom_as(const char *buf, int *index, char *p, int plen,
+  erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
 ```
 
 Decodes an atom from the binary format. The `NULL`\-terminated name of the atom
@@ -241,7 +242,8 @@ enough room for the binary. The size required can be fetched by
 ## ei_decode_bitstring()
 
 ```c
-int ei_decode_bitstring(const char *buf, int *index, const char **pp, unsigned int *bitoffsp, size_t *nbitsp);
+int ei_decode_bitstring(const char *buf, int *index, const char **pp,
+  unsigned int *bitoffsp, size_t *nbitsp);
 ```
 
 Decodes a bit string from the binary format.
@@ -538,19 +540,23 @@ Available since OTP R16B
 ## ei_x_encode_atom_len_as()
 
 ```c
-int ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_encode_atom_as(char *buf, int *index, const char *p,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_x_encode_atom_as(ei_x_buff* x, const char *p,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 Encodes an atom in the binary format. Parameter `p` is the name of the atom with
@@ -1008,15 +1014,10 @@ Currently `*type` is one of:
 - **ERL_FLOAT_EXT** - Decode using
   [`ei_decode_double()`](ei.md#ei_decode_double).
 
-- **ERL_NEW_FUN_EXT  
-  ERL_FUN_EXT  
-  ERL_EXPORT_EXT**  
+- **ERL_NEW_FUN_EXT, ERL_FUN_EXT, ERL_EXPORT_EXT** -
   Decode using [`ei_decode_fun()`](ei.md#ei_decode_fun).
 
-- **ERL_SMALL_INTEGER_EXT  
-  ERL_INTEGER_EXT  
-  ERL_SMALL_BIG_EXT  
-  ERL_LARGE_BIG_EXT**  
+- **ERL_SMALL_INTEGER_EXT, ERL_INTEGER_EXT, ERL_SMALL_BIG_EXT, ERL_LARGE_BIG_EXT** -
   Decode using either [`ei_decode_char()`](ei.md#ei_decode_char),
   [`ei_decode_long()`](ei.md#ei_decode_long),
   [`ei_decode_longlong()`](ei.md#ei_decode_longlong),
@@ -1024,8 +1025,7 @@ Currently `*type` is one of:
   [`ei_decode_ulonglong()`](ei.md#ei_decode_ulonglong), or
   [`ei_decode_bignum()`](ei.md#ei_decode_bignum).
 
-- **ERL_LIST_EXT  
-  ERL_NIL_EXT**  
+- **ERL_LIST_EXT, ERL_NIL_EXT** -
   Decode using either [`ei_decode_list_header()`](ei.md#ei_decode_list_header),
   or [`ei_decode_iodata()`](ei.md#ei_decode_iodata).
 
@@ -1043,8 +1043,7 @@ Currently `*type` is one of:
 - **ERL_NEW_REFERENCE_EXT** - Decode using
   [`ei_decode_ref()`](ei.md#ei_decode_ref).
 
-- **ERL_SMALL_TUPLE_EXT  
-  ERL_LARGE_TUPLE_EXT**  
+- **ERL_SMALL_TUPLE_EXT, ERL_LARGE_TUPLE_EXT**  
   Decode using [`ei_decode_tuple_header()`](ei.md#ei_decode_tuple_header).
 
 Instead of decoding a term you can also skipped past it if you are not
@@ -1182,7 +1181,7 @@ Formats a term, given as a string, to a buffer. Works like a sprintf for Erlang
 terms. `fmt` contains a format string, with arguments like `~d`, to insert terms
 from variables. The following formats are supported (with the C types given):
 
-```c
+```text
 ~a  An atom, char*
 ~c  A character, char
 ~s  A string, char*

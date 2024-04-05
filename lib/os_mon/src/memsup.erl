@@ -23,7 +23,7 @@ A Memory Supervisor Process
 
 `memsup` is a process which supervises the memory usage for the system and for
 individual processes. It is part of the OS_Mon application, see
-[os_mon(6)](os_mon_app.md). Available for Unix and Windows.
+[os_mon](os_mon_app.md). Available for Unix and Windows.
 
 Periodically performs a memory check:
 
@@ -58,8 +58,6 @@ memory times the page size, and the available memory is the number of available
 physical pages times the page size. This is a reasonable measure as swapping
 should be avoided anyway, but the task of defining total memory and available
 memory is difficult because of virtual memory and swapping.
-
-[](){: #config }
 
 ## Configuration
 
@@ -96,12 +94,12 @@ for time intervals and thresholds:
   concurrent processes, as each process memory check makes a traversal of the
   entire list of processes.
 
-See [config(4)](`e:kernel:config.md`) for information about how to change the
+See [config](`e:kernel:config.md`) for information about how to change the
 value of configuration parameters.
 
 ## See Also
 
-`m:alarm_handler`, [os_mon(3)](os_mon_app.md)
+`m:alarm_handler`, [os_mon](os_mon_app.md)
 """.
 -behaviour(gen_server).
 
@@ -155,8 +153,6 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -doc """
-get_os_wordsize() -> Wordsize
-
 Returns the wordsize of the current running operating system.
 """.
 -spec get_os_wordsize() -> Wordsize when Wordsize :: 32 | 64 | unsupported_os.
@@ -164,8 +160,6 @@ get_os_wordsize() ->
     os_mon:call(memsup, get_os_wordsize, infinity).
 
 -doc """
-get_memory_data() -> {Total,Allocated,Worst}
-
 Returns the result of the latest memory check, where `Total` is the total memory
 size and `Allocated` the allocated memory size, in bytes.
 
@@ -192,8 +186,6 @@ get_memory_data() ->
     os_mon:call(memsup, get_memory_data, infinity).
 
 -doc """
-get_system_memory_data() -> MemDataList
-
 Invokes a memory check and returns the resulting, system dependent, data as a
 list of tagged tuples, where `Tag` currently can be one of the following:
 
@@ -250,21 +242,17 @@ get_system_memory_data() ->
     os_mon:call(memsup, get_system_memory_data, infinity).
 
 -doc """
-get_check_interval() -> MS
-
 Returns the time interval, in milliseconds, for the periodic memory check.
 """.
 -spec get_check_interval() -> Milliseconds :: integer().
 get_check_interval() ->
     os_mon:call(memsup, get_check_interval, infinity).
 -doc """
-set_check_interval(Minutes) -> ok
-
 Changes the time interval, given in minutes, for the periodic memory check.
 
 The change will take effect after the next memory check and is non-persistent.
 That is, in case of a process restart, this value is forgotten and the default
-value will be used. See [Configuration](`m:memsup#config`) above.
+value will be used. See [Configuration](`m:memsup#module-configuration`).
 """.
 -spec set_check_interval(Minutes :: non_neg_integer()) -> ok.
 set_check_interval(Minutes) ->
@@ -277,22 +265,17 @@ set_check_interval(Minutes) ->
     end.
 
 -doc """
-get_procmem_high_watermark() -> int()
-
 Returns the threshold, in percent, for process memory allocation.
 """.
 -spec get_procmem_high_watermark() -> integer().
 get_procmem_high_watermark() ->
     os_mon:call(memsup, get_procmem_high_watermark, infinity).
 -doc """
-set_procmem_high_watermark(Float) -> ok
-
 Changes the threshold, given as a float, for process memory allocation.
 
 The change will take effect during the next periodic memory check and is
 non-persistent. That is, in case of a process restart, this value is forgotten
-and the default value will be used. See [Configuration](`m:memsup#config`)
-above.
+and the default value will be used. See [Configuration](`m:memsup#module-configuration`).
 """.
 -spec set_procmem_high_watermark(Float :: term()) -> ok.
 set_procmem_high_watermark(Float) ->
@@ -305,21 +288,17 @@ set_procmem_high_watermark(Float) ->
     end.
 
 -doc """
-get_sysmem_high_watermark() -> int()
-
 Returns the threshold, in percent, for system memory allocation.
 """.
 -spec get_sysmem_high_watermark() -> integer().
 get_sysmem_high_watermark() ->
     os_mon:call(memsup, get_sysmem_high_watermark, infinity).
 -doc """
-set_sysmem_high_watermark(Float) -> ok
-
 Changes the threshold, given as a float, for system memory allocation.
 
 The change will take effect during the next periodic memory check and is
 non-persistent. That is, in case of a process restart, this value is forgotten
-and the default value will be used. See [Configuration](`m:memsup#config`)
+and the default value will be used. See [Configuration](`m:memsup#module-configuration`)
 above.
 """.
 -spec set_sysmem_high_watermark(Float :: term()) -> ok.
@@ -333,21 +312,17 @@ set_sysmem_high_watermark(Float) ->
     end.
 
 -doc """
-get_helper_timeout() -> Seconds
-
 Returns the timeout value, in seconds, for memory checks.
 """.
 -spec get_helper_timeout() -> Seconds :: integer().
 get_helper_timeout() ->
     os_mon:call(memsup, get_helper_timeout, infinity).
 -doc """
-set_helper_timeout(Seconds) -> ok
-
 Changes the timeout value, given in seconds, for memory checks.
 
 The change will take effect for the next memory check and is non-persistent.
 That is, in the case of a process restart, this value is forgotten and the
-default value will be used. See [Configuration](`m:memsup#config`) above.
+default value will be used. See [Configuration](`m:memsup#module-configuration`) above.
 """.
 -spec set_helper_timeout(Seconds :: non_neg_integer()) -> ok.
 set_helper_timeout(Seconds) ->

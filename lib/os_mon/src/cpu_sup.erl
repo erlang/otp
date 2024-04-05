@@ -40,7 +40,7 @@ restricted to a fixed interval. In this case, the following simple mathematical
 transformation can produce the load value as a percentage:
 
 ```text
-      PercentLoad = 100 * (1 - D/(D + Load))
+PercentLoad = 100 * (1 - D/(D + Load))
 ```
 
 `D` determines which load value should be associated with which percentage.
@@ -138,60 +138,50 @@ stop() ->
     gen_server:call(cpu_sup, ?quit, infinity).
 
 -doc """
-nprocs() -> UnixProcesses | {error, Reason}
-
 Returns the number of UNIX processes running on this machine. This is a crude
 way of measuring the system load, but it may be of interest in some cases.
 
-Returns 0 if `cpu_sup` is not available.
+Returns 0 if `m:cpu_sup` is not available.
 """.
--spec nprocs() -> integer() | {'error', any()}.
+-spec nprocs() -> UnixProcesses :: integer() | {'error', any()}.
 
 nprocs() ->
     os_mon:call(cpu_sup, ?nprocs, infinity).
 
 -doc """
-avg1() -> SystemLoad | {error, Reason}
-
 Returns the average system load in the last minute, as described above. 0
 represents no load, 256 represents the load reported as 1.00 by `rup`.
 
 Returns 0 if `cpu_sup` is not available.
 """.
--spec avg1() -> integer() | {'error', any()}.
+-spec avg1() -> SystemLoad :: integer() | {'error', any()}.
 
 avg1() ->
     os_mon:call(cpu_sup, ?avg1, infinity).
 
 -doc """
-avg5() -> SystemLoad | {error, Reason}
-
 Returns the average system load in the last five minutes, as described above. 0
 represents no load, 256 represents the load reported as 1.00 by `rup`.
 
 Returns 0 if `cpu_sup` is not available.
 """.
--spec avg5() -> integer() | {'error', any()}.
+-spec avg5() -> SystemLoad :: integer() | {'error', any()}.
 
 avg5() ->
     os_mon:call(cpu_sup, ?avg5, infinity).
 
 -doc """
-avg15() -> SystemLoad | {error, Reason}
-
 Returns the average system load in the last 15 minutes, as described above. 0
 represents no load, 256 represents the load reported as 1.00 by `rup`.
 
 Returns 0 if `cpu_sup` is not available.
 """.
--spec avg15() -> integer() | {'error', any()}.
+-spec avg15() -> SystemLoad :: integer() | {'error', any()}.
 
 avg15() ->
     os_mon:call(cpu_sup, ?avg15, infinity).
 
 -doc """
-util(Opts) -> UtilSpec | {error, Reason}
-
 Returns CPU utilization since the last call to `util/0` or [`util/1`](`util/1`)
 by the calling process, in more detail than `util/0`.
 
@@ -279,8 +269,6 @@ util(_) ->
     erlang:error(badarg).
 
 -doc """
-util() -> CpuUtil | {error, Reason}
-
 Returns CPU utilization since the last call to `util/0` or [`util/1`](`util/1`)
 by the calling process.
 
@@ -292,12 +280,12 @@ by the calling process.
 > This also applies to the first call after a restart of `cpu_sup`.
 
 The CPU utilization is defined as the sum of the percentage shares of the CPU
-cycles spent in all busy processor states (see [`util/1`](`util/1`) below) in
+cycles spent in all busy processor states (see [`util/1`](`util/1`)) in
 average on all CPUs.
 
 Returns 0 if `cpu_sup` is not available.
 """.
--spec util() -> number() | {'error', any()}.
+-spec util() -> CpuUtil :: number() | {'error', any()}.
 
 util() ->
     case util([]) of

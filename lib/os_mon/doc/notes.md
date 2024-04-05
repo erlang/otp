@@ -80,7 +80,7 @@ This document describes the changes made to the OS_Mon application.
 
 ### Improvements and New Features
 
-- The [`disk_space_check_interval`](`m:disksup#config`) configuration parameter
+- The [`disk_space_check_interval`](`m:disksup#module-configuration`) configuration parameter
   of `disksup` can now be set to values smaller than a minute.
 
   Own Id: OTP-18304 Aux Id: PR-6385

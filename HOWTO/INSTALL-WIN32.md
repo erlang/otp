@@ -1,5 +1,5 @@
-How to Build Erlang/OTP on Windows
-==================================
+Building Erlang/OTP on Windows
+==============================
 
 Introduction
 ------------
@@ -7,7 +7,8 @@ Introduction
 This section describes how to build the Erlang emulator and the OTP
 libraries on Windows. Note that the Windows binary releases are still
 a preferred alternative if one does not have Microsoft’s development
-tools and/or don’t want to install WSL.
+tools and/or don’t want to install WSL. You can download the binary
+releases from <https://erlang.org/downloads>.
 
 The instructions apply to Windows 10 (v.1809 and later) supporting the
 WSL.1 (Windows Subsystem for Linux v.1) and using Ubuntu 18.04 release.
@@ -165,8 +166,10 @@ the different tools:
 
     Build with:
 
-        C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.2.2.1\build\msw
-        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+    ```text
+    C:\...\> cd c:\opt\local64\pgm\wxWidgets-3.2.2.1\build\msw
+    C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+    ```
 
     Remove the `TARGET_CPU=amd64` for 32bit build.
 
@@ -180,10 +183,11 @@ the different tools:
     Set the environment `ERL_TOP` to point to the root directory of the
     source distribution. Let's say I stood in `/mnt/c/src` and unpacked
     `otp_src_%OTP-REL%.tar.gz`, I then add the following to `.profile`:
-
-        ERL_TOP=/mnt/c/src/otp_src_%OTP-REL%
-        export ERL_TOP
-
+    
+    ```text
+    ERL_TOP=/mnt/c/src/otp_src_%OTP-REL%
+    export ERL_TOP
+    ```
 
 
 The Shell Environment

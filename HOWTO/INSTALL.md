@@ -10,7 +10,7 @@ including macOS. You are advised to read the whole document
 before attempting to build and install Erlang/OTP.
 
 The source code can be downloaded from the official site of Erlang/OTP or GitHub.
-* <http://www.erlang.org>
+* <http://www.erlang.org/downloads>
 * <https://github.com/erlang/otp>
 
 Required Utilities
@@ -102,7 +102,8 @@ also find the utilities needed for building the documentation.
 How to Build and Install Erlang/OTP
 -----------------------------------
 
-The following instructions are for building [the released source tar ball][].
+The following instructions are for building [the released source tar ball][]
+or from a [git clone](https://github.com/erlang/otp).
 
 The variable `$ERL_TOP` will be mentioned a lot of times. It refers to
 the top directory in the source tree. More information about `$ERL_TOP`
@@ -114,6 +115,10 @@ Start by unpacking the Erlang/OTP distribution file with your GNU
 compatible TAR program.
 
     $ tar -zxf otp_src_%OTP-VSN%.tar.gz    # Assuming bash/sh
+
+or clone from github:
+
+    $ git clone https://github.com/erlang/otp otp_src_%OTP-VSN%
 
 Now change directory into the base directory and set the `$ERL_TOP` variable.
 
@@ -159,7 +164,9 @@ Now, it's time to start the smoke test.
 To verify that everything is ok you should open `$ERL_TOP/release/tests/test_server/index.html`
 in your web browser and make sure that there are zero failed test cases.
 
-> *NOTE*: On builds without `crypto`, `ssl` and `ssh` there is a failed test case
+> #### Note {: .info }
+>
+> On builds without `crypto`, `ssl` and `ssh` there is a failed test case
 > for undefined functions. Verify that the failed test case log only shows calls
 > to skipped applications.
 
@@ -204,7 +211,8 @@ Build the documentation using:
 
 It is possible to limit which types of documentation is build by passing the `DOC_TARGETS`
 environment variable to `make docs`.
-Example:
+
+_Example_:
 
     $ make docs DOC_TARGETS=chunks
 
@@ -271,7 +279,7 @@ on for detailed information about the individual steps.
 
 [](){: #advanced-configuration-and-build-of-erlang-otp_make-and-ERLTOP }
 
-### make and $ERL\_TOP ###
+### make and $ERL_TOP ###
 
 All the makefiles in the entire directory tree use the environment
 variable `ERL_TOP` to find the absolute path of the installation. The
@@ -289,7 +297,7 @@ want to rebuild the application `STDLIB`, then you could do:
 where `<Dir>` would be what you find `ERL_TOP` is set to in the top level
 Makefile.
 
-### otp\_build vs configure/make ###
+### otp_build vs configure/make ###
 
 Building Erlang/OTP can be done either by using the `$ERL_TOP/otp_build`
 script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
@@ -398,7 +406,7 @@ Some of the available `configure` options are:
     and scalability compared to the default clock sources chosen.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
-*   `--enable-ei-dynamic-lib` - Make erl\_interface build a shared library in addition
+*   `--enable-ei-dynamic-lib` - Make erl_interface build a shared library in addition
     to the archive normally built.
 *   `--disable-year2038` - Don't support timestamps after mid-January 2038. By
     default `configure` will try to enable support for timestamps after
@@ -435,7 +443,9 @@ additional configuration information.
 
 ##### Dynamic Erlang Driver Linking #####
 
-> *NOTE*: Either set all or none of the `DED_LD*` variables (with the exception
+> #### Note {: .info }
+>
+> Either set all or none of the `DED_LD*` variables (with the exception
 > of `DED_LDFLAGS_CONFTEST`).
 
 *   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
@@ -448,7 +458,9 @@ additional configuration information.
 
 ##### Large File Support #####
 
-> *NOTE*: Either set all or none of the `LFS_*` variables.
+> #### Note {: .info }
+>
+> Either set all or none of the `LFS_*` variables.
 
 *   `LFS_CFLAGS` - Large file support C compiler flags.
 *   `LFS_LDFLAGS` - Large file support linker flags.
@@ -524,14 +536,10 @@ If you've upgraded the source with a patch you may need to clean up from previou
 builds before the new build.
 Make sure to read the [Pre-built Source Release][] section below before doing a `make clean`.
 
-Other useful information can be found at our GitHub wiki:
-* <https://github.com/erlang/otp/wiki>
-
-[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git }
-
-#### Within Git ####
-
-Build the same way as when building the unpacked tar file.
+Other useful information can be found here:
+* [Erlang/OTP GitHub wiki](https://github.com/erlang/otp/wiki)
+* [Contributing to Erlang/OTP](https://github.com/erlang/otp/blob/master/CONTRIBUTING.md)
+* [Developing Erlang/OTP](https://github.com/erlang/otp/blob/master/HOWTO/DEVELOPMENT.md)
 
 [](){: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin }
 
@@ -612,7 +620,9 @@ files, invoke `./otp_build remove_prebuilt_files` from the `$ERL_TOP`
 directory. After you have done this, you can build exactly the same way
 as before, but the build process will take a much longer time.
 
-> *WARNING*: Doing `make clean` in an arbitrary directory of the source
+> #### Warning {: .warning }
+>
+> Doing `make clean` in an arbitrary directory of the source
 > tree, may remove files needed for bootstrapping the build.
 >
 > Doing `./otp_build save_bootstrap` from the `$ERL_TOP` directory before
@@ -778,8 +788,6 @@ Operating system
 * Ubuntu 10.04 - 20.04
 * Windows 10, Windows Server 2019
 
-[$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
-[$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
 [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
 [Building in Git]: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git
 [Advanced Configure]: #advanced-configuration-and-build-of-erlang-otp_Configuring
