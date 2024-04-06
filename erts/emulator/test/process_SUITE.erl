@@ -4743,7 +4743,7 @@ purge_loop(PrivDir, Id) ->
 purge_loop_1(Path) ->
     {ok, Mod} = compile:file(Path, []),
     erlang:delete_module(Mod),
-    erts_code_purger:purge(Mod),
+    erts_code_purger:purge([Mod]),
     purge_loop_1(Path).
 
 dirty_loop() ->
