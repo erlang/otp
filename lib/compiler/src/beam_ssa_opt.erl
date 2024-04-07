@@ -295,7 +295,8 @@ epilogue_module_passes(Opts) ->
 early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_sw)],
+          ?PASS(ssa_opt_sw),
+          ?PASS(ssa_opt_no_reuse)],
     passes_1(Ps, Opts).
 
 late_epilogue_passes(Opts) ->
@@ -3710,6 +3711,89 @@ build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     Blocks = Blocks0#{L := Blk, BsMatchL => BsMatchBlk},
 
     {Blocks,Count}.
+
+%%%
+%%% Change the `reuse` hint to `copy` when it is highly probable that
+%%% reuse will not happen.
+%%%
+
+ssa_opt_no_reuse({#opt_st{ssa=Linear0}=St, FuncDb}) when is_list(Linear0) ->
+    New = sets:new([{version,2}]),
+    Linear = ssa_opt_no_reuse_blks(Linear0, New),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+ssa_opt_no_reuse_blks([{L,#b_blk{is=Is0}=Blk0}|Bs], New0) ->
+    {Is,New} = ssa_opt_no_reuse_is(Is0, New0, []),
+    Blk = Blk0#b_blk{is=Is},
+    [{L,Blk}|ssa_opt_no_reuse_blks(Bs, New)];
+ssa_opt_no_reuse_blks([], _) ->
+    [].
+
+ssa_opt_no_reuse_is([#b_set{op=update_record,args=Args}=I0|Is], New, Acc) ->
+    [_,_,_|Updates] = Args,
+    case cannot_reuse(Updates, New) of
+        true ->
+            I = I0#b_set{args=[#b_literal{val=copy}|tl(Args)]},
+            ssa_opt_no_reuse_is(Is, New, [I|Acc]);
+        false ->
+            ssa_opt_no_reuse_is(Is, New, [I0|Acc])
+    end;
+ssa_opt_no_reuse_is([#b_set{dst=Dst}=I|Is], New0, Acc) ->
+    case inhibits_reuse(I, New0) of
+        true ->
+            New = sets:add_element(Dst, New0),
+            ssa_opt_no_reuse_is(Is, New, [I|Acc]);
+        false ->
+            ssa_opt_no_reuse_is(Is, New0, [I|Acc])
+    end;
+ssa_opt_no_reuse_is([], New, Acc) ->
+    {reverse(Acc),New}.
+
+inhibits_reuse(#b_set{op=phi,args=Args}, New) ->
+    all(fun({Value,_}) ->
+                   sets:is_element(Value, New)
+           end, Args);
+inhibits_reuse(#b_set{op=put_map,args=[_|Args]}, New) ->
+    cannot_reuse(Args, New);
+inhibits_reuse(#b_set{op=call,
+                      args=[#b_remote{mod=#b_literal{val=erlang},
+                                      name=#b_literal{val=Name}}|_]},
+               _New) ->
+    case Name of
+        '++' -> true;
+        '--' -> true;
+        atom_to_list -> true;
+        atom_to_binary -> true;
+        list_to_tuple -> true;
+        make_ref -> true;
+        monitor -> true;
+        setelement -> true;
+        send_after -> true;
+        spawn -> true;
+        spawn_link -> true;
+        spawn_monitor -> true;
+        tuple_to_list -> true;
+        _ -> false
+    end;
+inhibits_reuse(#b_set{op={bif,Arith},args=[#b_var{},#b_literal{}]}, _New)
+  when Arith =:= '+'; Arith =:= '-' ->
+    %% This is probably a counter in a record being updated. (Heuristic,
+    %% but with a high probability of being correct).
+    true;
+inhibits_reuse(#b_set{op=Op}, _New) ->
+    case Op of
+        bs_create_bin -> true;
+        bs_get_tail -> true;
+        make_fun -> true;
+        put_list -> true;
+        put_tuple -> true;
+        _ -> false
+    end.
+
+cannot_reuse([V|Values], New) ->
+    sets:is_element(V, New) orelse cannot_reuse(Values, New);
+cannot_reuse([], _New) ->
+    false.
 
 %%%
 %%% Common utilities.
