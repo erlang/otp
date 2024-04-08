@@ -301,6 +301,15 @@ case "$with_microstate_accounting" in
     *) ;;
 esac
 
+AC_ARG_ENABLE(ensure-os-monotonic-time,
+AS_HELP_STRING([--enable-ensure-os-monotonic-time],
+               [enable functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.]))
+
+AS_IF([test "$enable_ensure_os_monotonic_time" = "yes"], [
+   AC_DEFINE(ERTS_ENSURE_OS_MONOTONIC_TIME, [1],
+     [Define if ensurance of the monotonicity of OS monotonic timestamps should be enabled])
+  ])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
