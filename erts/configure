@@ -834,6 +834,7 @@ enable_vm_probes
 with_assumed_cache_line_size
 enable_systemd
 with_microstate_accounting
+enable_ensure_os_monotonic_time
 enable_static_nifs
 enable_static_drivers
 with_ets_write_concurrency_locks
@@ -1546,6 +1547,17 @@ Optional Features:
                           possible if --with-dynamic-trace is enabled, and
                           then default)
   --enable-systemd        enable systemd support in epmd
+  --enable-ensure-os-monotonic-time
+                          enable functionality ensuring the monotonicity of
+                          monotonic timestamps delivered by the OS. When a
+                          non-monotonic timestamp is detected, it will be
+                          replaced by the last delivered monotonic timestamp
+                          before being used by Erlang's time functionality.
+                          Note that you do *not* want to enable this unless
+                          the OS monotonic time source on the system fails to
+                          produce monotonic timestamps. This since ensuring
+                          the monotonicity of OS monotonic timestamps will
+                          hurt scalability and performance of the system.
   --enable-static-nifs    link nifs statically. If yes then all nifs in all
                           Erlang/OTP applications will be statically linked
                           into the main binary. It is also possible to give a
@@ -5269,6 +5281,22 @@ printf "%s\n" "#define ERTS_ENABLE_MSACC 2" >>confdefs.h
  ;;
     *) ;;
 esac
+
+# Check whether --enable-ensure-os-monotonic-time was given.
+if test ${enable_ensure_os_monotonic_time+y}
+then :
+  enableval=$enable_ensure_os_monotonic_time;
+fi
+
+
+if test "$enable_ensure_os_monotonic_time" = "yes"
+then :
+
+
+printf "%s\n" "#define ERTS_ENSURE_OS_MONOTONIC_TIME 1" >>confdefs.h
+
+
+fi
 
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then

@@ -404,6 +404,14 @@ Some of the available `configure` options are:
     time, and OS monotonic time with higher or lower resolution than chosen by
     default. Note that both alternatives may have a negative impact on the performance
     and scalability compared to the default clock sources chosen.
+*   `--enable-ensure-os-monotonic-time` - Enable functionality ensuring the
+    monotonicity of monotonic timestamps delivered by the OS. When a
+    non-monotonic timestamp is detected, it will be replaced by the last
+    delivered monotonic timestamp before being used by Erlang's time
+    functionality. Note that you do *not* want to enable this unless the OS
+    monotonic time source on the system fails to produce monotonic timestamps.
+    This since ensuring the monotonicity of OS monotonic timestamps will hurt
+    scalability and performance of the system.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
 *   `--enable-ei-dynamic-lib` - Make erl_interface build a shared library in addition
