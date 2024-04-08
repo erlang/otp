@@ -845,6 +845,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 Eterm erts_internal_trace_4(BIF_ALIST_4)
 {
     ErtsTraceSession* session;
+    Eterm ret;
 
     if (!term_to_session(BIF_ARG_1, &session)) {
         BIF_P->fvalue = am_session;
@@ -855,7 +856,11 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
         ERTS_BIF_YIELD4(BIF_TRAP_EXPORT(BIF_erts_internal_trace_4),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
-    return trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+    ret = trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+    erts_deref_trace_session(session);
+    return ret;
 }
 
 static
@@ -1106,7 +1111,6 @@ Eterm trace(Process* p, ErtsTraceSession *session,
     }
     erts_release_code_mod_permission();
     ERTS_TRACER_CLEAR(&tracer);
-    erts_deref_trace_session(session);
 
     BIF_RET(make_small(matches));
 
@@ -1116,7 +1120,6 @@ Eterm trace(Process* p, ErtsTraceSession *session,
 
  error:
     ERTS_TRACER_CLEAR(&tracer);
-    erts_deref_trace_session(session);
 
     if (system_blocked) {
 	erts_thr_progress_unblock();
