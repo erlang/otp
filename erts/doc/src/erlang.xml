@@ -10720,6 +10720,18 @@ Metadata = #{ pid => pid(),
                 however, know that the precision is not better than
                 <c>OsMonotonicTimeResolution</c>.</p>
               </item>
+              <tag><c>{used_resolution, UsedOsMonotonicTimeResolution}</c></tag>
+              <item><p>
+                The OS monotonic time resolution used by the runtime system.
+                This is very often the same as <c>OsMonotonicTimeResolution</c>.
+                However, on some systems the resolution has to be reduced in
+                order to reliably produce monotonic timestamps. An example of
+                this is when <c>QueryPerformanceCounter()</c> is used as
+                OS monotonic time source on Windows. If such a reduction of
+                the resolution has been done,
+                <c>UsedOsMonotonicTimeResolution</c> will be smaller than
+                <c>OsMonotonicTimeResolution</c>.
+              </p></item>
               <tag><c>{extended, Extended}</c></tag>
               <item><p><c>Extended</c> equals <c>yes</c> if
                 the range of time values has been extended;
