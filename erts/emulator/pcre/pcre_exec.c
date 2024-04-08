@@ -6928,11 +6928,13 @@ if (utf && (options & PCRE_NO_UTF8_CHECK) == 0)
   if (errorcode != 0)
     {
 #if defined(ERLANG_INTEGRATION)
-    if (ystate && ystate->yielded) {
+      if (ystate) {
         ERTS_UPDATE_CONSUMED(extra_data, NULL);
         SWAPOUT();
-        return PCRE_ERROR_LOOP_LIMIT;
-    }
+        if (ystate->yielded) {
+          return PCRE_ERROR_LOOP_LIMIT;
+        }
+      }
 #endif
     if (offsetcount >= 2)
       {
