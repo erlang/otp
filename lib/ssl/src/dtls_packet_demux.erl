@@ -159,10 +159,15 @@ handle_call({new_connection, Old, _Pid}, _,
             #state{accepters = Accepters, dtls_msq_queues = MsgQs0} = State) ->
     case queue:is_empty(Accepters) of
         false ->
-            OldQueue = kv_get(Old, MsgQs0),
-            MsgQs1 = kv_delete(Old, MsgQs0),
-            MsgQs = kv_insert({old,Old}, OldQueue, MsgQs1),
-            {reply, true, State#state{dtls_msq_queues = MsgQs}};
+            case kv_lookup(Old, MsgQs0) of
+                {value, OldQueue} ->
+                    MsgQs1 = kv_delete(Old, MsgQs0),
+                    MsgQs = kv_insert({old,Old}, OldQueue, MsgQs1),
+                    {reply, true, State#state{dtls_msq_queues = MsgQs}};
+                none ->
+                    %% Already set as old
+                    {reply, true, State}
+            end;
         true ->
             {reply, false, State}
     end;
