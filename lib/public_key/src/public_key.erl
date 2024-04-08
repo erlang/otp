@@ -1982,9 +1982,14 @@ pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options)
 	proplists:get_value(is_trusted_responder_fun, Options,
                             fun(_) -> false end),
     maybe
-        {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs}} ?=
+        {ok, BasicOcspResponse = #'BasicOCSPResponse'{certs = Certs0}} ?=
             pubkey_ocsp:decode_response(OcspRespDer),
-        OcspResponseCerts = [combined_cert(C) || C <- Certs],
+        Certs = case Certs0 of
+                    asn1_NOVALUE -> []; % case when certs field is empty
+                    _ -> Certs0
+                end,
+        OcspResponseCerts = [combined_cert(C) || C <- Certs] ++
+            [#cert{der = <<>>, otp = IssuerCert}],
         {ok, Responses} ?=
             pubkey_ocsp:verify_response(
               BasicOcspResponse, OcspResponseCerts, NonceExt, IssuerCert,
