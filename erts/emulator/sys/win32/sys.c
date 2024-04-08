@@ -1417,6 +1417,42 @@ int parse_command(wchar_t* cmd){
 }
 
 
+static int requires_quote(wchar_t c, int applType) {
+    switch (c) {
+    case L' ':
+        return 1;
+    case L'&':
+    case L'<':
+    case L'>':
+    case L'[':
+    case L']':
+    case L'|':
+    case L'{':
+    case L'}':
+    case L'^':
+    case L'=':
+    case L';':
+    case L'!':
+    case L'\'':
+    case L'+':
+    case L',':
+    case L'`':
+    case L'~':
+    case L'\t':
+    case L'\r':
+    case L'\n':
+        /* According to [1], these characters need to be quoted when using
+         * `cmd /c`. Otherwise, using `&` (for example) can spawn other
+         * executables.
+         *
+         * [1]: https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmd
+         */
+        return applType == APPL_DOS;
+    default:
+        return 0;
+    }
+}
+
 /*
  * Translating of command line arguments to correct format. In the examples
  * below the '' are not part of the actual string. 
@@ -1432,17 +1468,26 @@ int parse_command(wchar_t* cmd){
  * one level of escaping since it takes a single long command line rather
  * than the argument chunks that unix uses.
  */
-static int escape_and_quote(wchar_t *str, wchar_t *new, BOOL *quoted) {
+static int escape_and_quote(wchar_t *str,
+                            int applType,
+                            wchar_t *new,
+                            BOOL *quoted) {
     int i, j = 0;
-    if (new == NULL)
+
+    if (new == NULL) {
         *quoted = FALSE;
-    else if (*quoted)
+    } else if (*quoted) {
         new[j++] = L'"';
+    }
+
     for ( i = 0; str[i] != L'\0'; i++,j++) {
-        if (str[i] == L' ' && new == NULL && *quoted == FALSE) {
-	    *quoted = TRUE;
-	    j++;
-	}
+        if (new == NULL &&
+            *quoted == FALSE &&
+            requires_quote(str[i], applType)) {
+            *quoted = TRUE;
+            j++;
+        }
+
 	/* check if we have to escape quotes */
 	if (str[i] == L'"') {
 	    if (new) new[j] = L'\\';
@@ -1547,7 +1592,7 @@ create_child_process
 	    return FALSE;
 	}
 
-        quotedLen = escape_and_quote(execPath, NULL, &need_quote);
+        quotedLen = escape_and_quote(execPath, applType, NULL, &need_quote);
         newcmdline = (wchar_t *)
             erts_alloc(ERTS_ALC_T_TMP,
                        (11+quotedLen+wcslen(origcmd)-cmdlength)*sizeof(wchar_t));
@@ -1573,7 +1618,7 @@ create_child_process
 	    createFlags = 0;
 	}
 
-        ptr += escape_and_quote(execPath, ptr, &need_quote);
+        ptr += escape_and_quote(execPath, applType, ptr, &need_quote);
 
 	wcscpy(ptr, origcmd+cmdlength);
 	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
@@ -1629,7 +1674,7 @@ create_child_process
 	if (argv == NULL) { 
 	    BOOL orig_need_q;
 	    wchar_t *ptr;
-	    int ocl = escape_and_quote(execPath, NULL, &orig_need_q);
+	    int ocl = escape_and_quote(execPath, applType, NULL, &orig_need_q);
 	    if (run_cmd) {
 		newcmdline = (wchar_t *) erts_alloc(ERTS_ALC_T_TMP,
 						    (ocl + 1 + 11)*sizeof(wchar_t));
@@ -1640,7 +1685,7 @@ create_child_process
 						    (ocl + 1)*sizeof(wchar_t));
 		ptr = (wchar_t *) newcmdline;
 	    }
-	    ptr += escape_and_quote(execPath, ptr, &orig_need_q);
+	    ptr += escape_and_quote(execPath, applType, ptr, &orig_need_q);
 	    ptr[0] = L'\0';
 	} else {
 	    int sum = 0;
@@ -1661,7 +1706,7 @@ create_child_process
 
 	    ar = argv;
 	    while (*ar != NULL) {
-		sum += escape_and_quote(*ar,NULL,qte+(ar - argv));
+		sum += escape_and_quote(*ar, applType, NULL,qte+(ar - argv));
 		sum++; /* space */
 		++ar;
 	    }
@@ -1673,7 +1718,7 @@ create_child_process
 		n += 11;
 	    }
 	    while (*ar != NULL) {
-		n += escape_and_quote(*ar,n,qte+(ar - argv));
+		n += escape_and_quote(*ar, applType, n,qte+(ar - argv));
 		*n++ = L' ';
 		++ar;
 	    }
