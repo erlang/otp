@@ -196,7 +196,10 @@ Special Erlang node configuration for the application can be found in [ssl appli
               tls_alert/0,
               tls_client_option/0,
               tls_option/0,
-              tls_server_option/0
+              tls_server_option/0,
+              client_option_cert/0,
+              server_option_cert/0,
+              common_option_tls13/0
              ]).
 
 %% -------------------------------------------------------------------------------------------------------
@@ -652,7 +655,7 @@ Options common to both client and server side.
 
   Alerts are logged on `notice`
   level, which is the default level. The level `debug` triggers verbose logging of
-  TLS/DTLS protocol messages. See also [ssl(6)](ssl_app.md)
+  TLS/DTLS protocol messages. See also [SSL Application](ssl_app.md)
 
 - **\{receiver|sender_spawn_opts, SpawnOpts}** - Configure erlang spawn opts.
 
@@ -815,7 +818,7 @@ For possible reasons, see `public_key:pkix_path_validation/3`
 - **\{cert_policy_opts, PolicyOpts}** - Handle certificate policies
 
   Configure X509 certificate policy handling for the certificate path validation process
-  see [(public_key:pkix_path_validation/3) ](`public_key:pkix_path_validation/3`) for
+  see [public_key:pkix_path_validation/3](`public_key:pkix_path_validation/3`) for
   further explanation.
 
 - **\{cerl_check, Check}**  - Handle certificate revocation lists
@@ -1045,7 +1048,7 @@ be a password associated with the file containg the key.
 For maximum interoperability the certificates in the chain should be in the correct order,
 the chain will be sent as is to the peer. If chain certificates are not
 provided, certificates from the configured trusted CA-certs are used to construct the chain.
-See
+See certificate options for the [client](`t:client_option_cert/0`) and [server](`t:server_option_cert/0`)
 """.
 
 -doc(#{title =>
@@ -1082,7 +1085,7 @@ creating customized cipher suite lists.
 Non-default cipher suites including anonymous cipher suites (PRE TLS-1.3) are
 supported for interop/testing purposes and may be used by adding them to your
 cipher suite list. Note that they must also be supported/enabled by the peer to
-actually be used. The may also requier additional confiuration see `t:srp_param_type/0`.
+actually be used. The may also requier additional configuration see `t:srp_param_type/0`.
 """.
 -doc(#{title =>
            <<"Algorithms">>}).
@@ -1179,7 +1182,7 @@ these algorithms where implicitly chosen and partly derived from the cipher
 suite.
 
 In TLS-1.2 a somewhat more explicit negotiation is made possible using a list of
-\{`t:hash/0`, [sign_algo()](`t:signature_algs/0`)\} pairs.
+\{`t:hash/0`, `t:sign_algo/0`\} pairs.
 
 In TLS-1.3 these algorithm pairs are replaced by so called signature schemes
 `t:sign_scheme/0` and completely decoupled from the cipher suite.
@@ -1295,7 +1298,7 @@ Options specific to the client side, or with different semantics for the client 
 - **\{max_fragment_length, MaxLen}** - Max fragment length extension
 
   Specifies the maximum fragment length the client is prepared to accept from the
-  server. See [RFC 6066](http://www.ietf.org/rfc/rfc6066.txt
+  server. See [RFC 6066](http://www.ietf.org/rfc/rfc6066.txt)
 """.
 
 -type client_option() :: client_option_cert() |
@@ -1558,7 +1561,7 @@ Common options to client and server only valid for DTLS.
   >
   > OTP does not handle SRTP, so an external implementations of SRTP
   > encoder/decoder and a packet demultiplexer are needed to make use of the
-  > `use_srtp` extension. See also [cb_info](`t:transport_option/0`) option.
+  > `use_srtp` extension. See also [transport_option](`t:transport_option/0`) option.
 
   Servers that receive an extended hello containing a "use_srtp" extension can
   agree to use SRTP by including an extension of type "use_srtp", with the chosen
@@ -2137,7 +2140,7 @@ transport_accept(ListenSocket) ->
 Accepts an incoming connection request on a listen socket.
 
 `ListenSocket` must be a socket returned from `listen/2`. The socket
-returned is to be passed to [handshake/1,2,3](`handshake/2`) to
+returned is to be passed to [handshake/1,2,3](`handshake/1`) to
 complete handshaking, that is, establishing the TLS/DTLS connection.
 
 > #### Warning {: .warning }
@@ -3230,7 +3233,7 @@ TLS-1.3 has removed the renegotiate feature of earlier TLS versions and instead
 adds a new feature called key update that replaces the most important part of
 renegotiate, that is the refreshing of session keys. This is triggered
 automatically after reaching a plaintext limit and can be configured by option
-[key_update_at].
+key_update_at part of `t:common_option_tls13/0`.
 """.
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
@@ -3260,7 +3263,7 @@ Create new session keys.
 There are cryptographic limits on the amount of plaintext which can be safely
 encrypted under a given set of keys. If the amount of data surpasses those
 limits, a key update is triggered and a new set of keys are installed. See also
-the option [key_update_at].
+the option key_update_at part of `t:common_option_tls13/0`.
 
 This function can be used to explicitly start a key update on a TLS 1.3
 connection. There are two types of the key update: if _Type_ is set to _write_,
