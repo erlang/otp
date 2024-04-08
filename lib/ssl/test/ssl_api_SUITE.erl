@@ -4280,7 +4280,7 @@ length_exclusive(Version) when Version == 'tlsv1.3';
     length(exclusive_default_up_to_version(Version)) +
         length(exclusive_non_default_up_to_version(Version));
 length_exclusive(Version) when Version == 'dtlsv1.2';
-                                         Version == 'dtlsv1' ->
+                               Version == 'dtlsv1' ->
     length(dtls_exclusive_default_up_to_version(Version)) +
         length(dtls_exclusive_non_default_up_to_version(Version)).
 

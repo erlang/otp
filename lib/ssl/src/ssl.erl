@@ -204,7 +204,7 @@ Special Erlang node configuration for the application can be found in [ssl appli
 -doc(#{title => <<"Socket">>}).
 -doc """
 Socket that can be used to perform a so called "START-TLS", that is use an  already connected socket
-that was previously used for plain TCP traffic and can be upgrade to use TLS. Both sides
+that was previously used for plain TCP traffic and can be upgraded to use TLS. Both sides
 needs to agree on the upgrade.
 """.
 -type socket()                   :: gen_tcp:socket(). % exported
@@ -262,7 +262,7 @@ passive (`{active, false}`) mode.
 
 -doc(#{title => <<"Socket">>}).
 -doc """
-Transport option defines a callback module and message tags to handle the underlaying transport socket.
+Transport option defines a callback module and message tags to handle the underlying transport socket.
 
 Can be used to customize the transport layer. The tag
 values should be the values used by the underlying transport in its active mode
@@ -271,7 +271,7 @@ messages.
 Defaults to `{gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}` for TLS (for
 backward compatibility a four tuple will be converted to a five tuple with the
 last element "second_element"\_passive) and
-`{gen_udp, udp, udp_closed, udp_error, upd_passive}`
+`{gen_udp, udp, udp_closed, udp_error, udp_passive}`
 
 For TLS the callback module must implement a reliable transport
 protocol, behave as `gen_tcp`, and have functions corresponding to
@@ -560,7 +560,7 @@ For backwards compatibility only, do not use it.
 
 -doc(#{title => <<"Socket">>}).
 -doc """
-If a TLS connection fails a TLS protocol ALERT will be sent/recived.
+If a TLS connection fails a TLS protocol ALERT will be sent/received.
 
 An atom reflecting the raised alert, according to the TLS protocol, and a description string
 with some further details will be returned.
@@ -686,7 +686,7 @@ Common certificate related options to both client and server.
 
 - **\{certs_keys, CertsKeys}** - At least one certificate and key pair.
 
-  A list of a certificate (or possible a certificate and its chain) and thea
+  A list of a certificate (or possible a certificate and its chain) and the
   associated key of the certificate, that may be used to authenticate the client
   or the server. The certificate key pair that is considered best and matches
   negotiated parameters for the connection will be selected. Different signature
@@ -861,7 +861,7 @@ For possible reasons, see `public_key:pkix_path_validation/3`
 
   Elliptic curves that can be use in pre TLS-1.3 key exchange.
 
-- **\{secure_renegotiate, SecureRenegotiate}** - Inter-operate tradoff option
+- **\{secure_renegotiate, SecureRenegotiate}** - Inter-operate tradeoff option
 
   Specifies if to reject renegotiation attempt that does not live up to
   [RFC 5746](http://www.ietf.org/rfc/rfc5746.txt). By default `secure_renegotiate`
@@ -935,7 +935,7 @@ For possible reasons, see `public_key:pkix_path_validation/3`
 -doc(#{title =>
            <<"Client and Server Options">>}).
 -doc """
-Legacy options considered deprecatd in favour of other options,
+Legacy options considered deprecated in favour of other options,
 insecure to use, or plainly not relevant anymore.
 
 - **\{cert, Certs}**
@@ -959,7 +959,7 @@ insecure to use, or plainly not relevant anymore.
   If set to `false`, TLS/DTLS Alert reports are not displayed. Deprecated in OTP
   22, use \{log_level, Level} instead.
 
-- **\{padding_check, PaddingCheck}** - Inter-op tradoff option
+- **\{padding_check, PaddingCheck}** - Inter-op tradeoff option
 
   Affects TLS-1.0 connections only. If set to `false`, it disables the block
   cipher padding check to be able to interoperate with legacy software.
@@ -968,7 +968,7 @@ insecure to use, or plainly not relevant anymore.
   >
   > Using `{padding_check, false}` makes TLS vulnerable to the Poodle attack.
 
-- **\{beast_mitigation, BeastMitigation}**  - Inter-op tradoff option
+- **\{beast_mitigation, BeastMitigation}**  - Inter-op tradeoff option
 
   Affects TLS-1.0 connections only. Used to change the BEAST mitigation strategy
   to interoperate with legacy software. Defaults to `one_n_minus_one`.
@@ -1282,7 +1282,7 @@ so appropriate algorithms can be chosen for the negotiated version.
 
 -doc(#{title => <<"Client Options">>}).
 -doc """
-Options specific to the client side, or with diffrent semantics for the client and server.
+Options specific to the client side, or with different semantics for the client and server.
 
 - **\{alpn_advertised_protocols, AppProtocols}** - Application layer protocol
 
@@ -1312,7 +1312,7 @@ Options specific to the client side, or with diffrent semantics for the client a
 
 -doc(#{title => <<"Client Options">>}).
 -doc """
-Certificate related options specific to the client side, or with diffrent semantics for the client and server.
+Certificate related options specific to the client side, or with different semantics for the client and server.
 
 - **\{verify, Verify}** - Verification of certificates
 
@@ -1605,7 +1605,7 @@ Legacy client options.
 
 -doc(#{title => <<"Server Options">>}).
 -doc """
-Options specific to the server side, or with diffrent semantics for the client and server.
+Options specific to the server side, or with different semantics for the client and server.
 
 - **\{alpn_preferred_protocols, AppProtocols}** - Application Layer Protocol Negotiation
 
@@ -1730,12 +1730,12 @@ Options only relevant to TLS versions pre TLS-1.3.
 
   Specifies the server identity hint, which the server presents to the client.
 
-- **\{honor_cipher_order, HonorServerCipherOrder}** - Tradoff option alters protocol defined behaviour
+- **\{honor_cipher_order, HonorServerCipherOrder}** - Tradeoff option alters protocol defined behaviour
 
   If true, use the server's preference for ECC curve selection. If false (the
   default), use the client's preference.
 
-- **\{honor_ecc_order, HonorServerECCOrder}** - - Tradoff option alters protocol defined behaviour
+- **\{honor_ecc_order, HonorServerECCOrder}** - - Tradeoff option alters protocol defined behaviour
 
   If true, use the server's preference for ECC curve selection. If false (the
   default), use the client's preference.
@@ -2006,7 +2006,7 @@ performs the client-side TLS handshake.
 connect(Host, Port, TLSOptions).
 ```
 
-Opens a TLS/DTLS connection and is eqvialent to
+Opens a TLS/DTLS connection and is equivalent to
 
 ```erlang
 connect(Host, Port, TLSOptions, infinity).
@@ -2182,7 +2182,7 @@ Performs the TLS/DTLS server-side handshake.
 ```erlang
 hanshake(HsSocket).
 ```
-Is eqvialent to:
+Is equivalent to:
 
 ```erlang
 handshake(HsSocket, infinity).
@@ -2204,7 +2204,7 @@ Performs the TLS/DTLS server-side handshake.
 ```erlang
 hanshake(HsSocket, Timeout).
 ```
-Is eqvialent to:
+Is equivalent to:
 
 ```erlang
 handshake(HsSocket, [], Timeout).
@@ -2214,7 +2214,7 @@ and,
 ```erlang
 hanshake(HsSocket, Options).
 ```
-is eqvialent to:
+is equivalent to:
 
 ```erlang
 handshake(HsSocket, Options, infinity).
@@ -2723,7 +2723,7 @@ of the cipher suite.
 If no filter function is supplied for some part the default behaviour
 regards it as if there was a filter function that returned true. For
 examples see [Customizing cipher suites
-](using_ssl.md#customizing-cipher-suites)Additionally, this function
+](using_ssl.md#customizing-cipher-suites). Additionally, this function
 also filters the cipher suites to exclude cipher suites not supported
 by the cryptolib used by the OTP crypto application. That is calling
 ssl:filter_cipher_suites(Suites, []) will be equivalent to only

@@ -297,7 +297,7 @@ in certificates.
 > signature algorithms chosen by the server will also be affected by the chiper
 > suite that is chosen, which is not the case in TLS-1.3.
 
-Using the function `ssl:signature_algs/2` will let you inspect diffrent aspects
+Using the function `ssl:signature_algs/2` will let you inspect different aspects
 of possible configurations for your system. For example if TLS-1.3 and TLS-1.2
 is supported the default signature_algorithm list in OTP-26 and cryptolib from
 OpenSSL 3.0.2 would look like:

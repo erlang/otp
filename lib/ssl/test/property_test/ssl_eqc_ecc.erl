@@ -172,8 +172,8 @@ group_to_sign_curve(brainpoolP384r1tls13) ->
     brainpoolP384r1;
 group_to_sign_curve(brainpoolP256r1tls13) ->
     brainpoolP256r1;
-%% Edwards curves have diffrent names
-%% for diffrent uses.
+%% Edwards curves have different names
+%% for different uses.
 group_to_sign_curve(x25519) ->
     ed25519;
 group_to_sign_curve(x448) ->
