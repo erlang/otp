@@ -19,8 +19,6 @@ limitations under the License.
 -->
 # Introduction
 
-[](){: #getting-started }
-
 This section is a quick start tutorial to get you started with Erlang.
 Everything in this section is true, but only part of the truth. For example,
 only the simplest form of the syntax is shown, not all esoteric forms. Also,

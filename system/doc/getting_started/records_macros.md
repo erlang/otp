@@ -276,7 +276,7 @@ and macro definitions.
 
 A record is defined as:
 
-```text
+```erlang
 -record(name_of_record,{field_name1, field_name2, field_name3, ......}).
 ```
 
@@ -288,19 +288,19 @@ For example:
 
 This is equivalent to:
 
-```text
+```erlang
 {message_to, To_Name, Message}
 ```
 
 Creating a record is best illustrated by an example:
 
-```text
+```erlang
 #message_to{message="hello", to_name=fred)
 ```
 
 This creates:
 
-```text
+```erlang
 {message_to, fred, "hello"}
 ```
 
@@ -315,13 +315,13 @@ creating a record, it gets the value of the atom `undefined`. (_manual_)
 Pattern matching with records is very similar to creating records. For example,
 inside a `case` or `receive`:
 
-```text
+```erlang
 #message_to{to_name=ToName, message=Message} ->
 ```
 
 This is the same as:
 
-```text
+```erlang
 {message_to, ToName, Message}
 ```
 
@@ -346,14 +346,14 @@ Every occurrence of `?server_node` in `mess_server.erl` is now replaced by
 
 A macro is also used when spawning the server process:
 
-```text
+```erlang
 spawn(?MODULE, server, [])
 ```
 
 This is a standard macro (that is, defined by the system, not by the user).
 `?MODULE` is always replaced by the name of the current module (that is, the
 `-module` definition near the start of the file). There are more advanced ways
-of using macros with, for example, parameters (_manual_).
+of using macros with, for example, [parameters](macros.md#defining-and-using-macros).
 
 The three Erlang (`.erl`) files in the messenger example are individually
 compiled into object code file (`.beam`). The Erlang system loads and links

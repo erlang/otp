@@ -88,7 +88,7 @@ goodbye
 
 Notice that it did not write "hello" three times and then "goodbye" three times.
 Instead, the first process wrote a "hello", the second a "goodbye", the first
-another "hello" and so forth. But where did the <0.63.0> come from? The return
+another "hello" and so forth. But where did the `<0.63.0>` come from? The return
 value of a function is the return value of the last "thing" in the function. The
 last thing in the function `start` is
 
@@ -97,14 +97,15 @@ spawn(tut14, say_something, [goodbye, 3]).
 ```
 
 `spawn` returns a _process identifier_, or _pid_, which uniquely identifies the
-process. So <0.63.0> is the pid of the `spawn` function call above. The next
+process. So `<0.63.0>` is the pid of the `spawn` function call above. The next
 example shows how to use pids.
 
-Notice also that ~p is used instead of ~w in `io:format`. To quote the manual:
-"~p Writes the data with standard syntax in the same way as ~w, but breaks terms
-whose printed representation is longer than one line into many lines and indents
-each line sensibly. It also tries to detect lists of printable characters and to
-output these as strings".
+Notice also that ~p is used instead of ~w in `io:format/2`. To quote [the manual](`m:io#tilde_p`):
+
+> ~p Writes the data with standard syntax in the same way as ~w, but breaks terms
+> whose printed representation is longer than one line into many lines and indents
+> each line sensibly. It also tries to detect flat lists of printable characters and
+> to output these as strings
 
 ## Message Passing
 
@@ -177,7 +178,7 @@ This process executes:
 tut15:ping(3, Pong_PID)
 ```
 
-<0.36.0> is the return value from the `start` function.
+`<0.36.0>` is the return value from the `start` function.
 
 The process "pong" now does:
 
@@ -195,7 +196,7 @@ end.
 The `receive` construct is used to allow processes to wait for messages from
 other processes. It has the following format:
 
-```c
+```erlang
 receive
    pattern1 ->
        actions1;
@@ -539,7 +540,7 @@ node the "ping" process is executes:
 ```
 
 Thus, Erlang pids contain information about where the process executes. So if
-you know the pid of a process, the "\!" operator can be used to send it a
+you know the pid of a process, the `!` operator can be used to send it a
 message disregarding if the process is on the same node or on a different node.
 
 A difference is how messages are sent to a registered process on another node:
