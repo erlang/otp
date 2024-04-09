@@ -478,6 +478,13 @@ configuration in TLS-1.3.
 -doc(#{title => <<"Algorithms">>}).
 -doc """
   Erlang cipher suite representation
+
+> #### Warning {: .warning }
+>Enabling cipher suites using RSA as a key exchange algorithm is
+>strongly discouraged (only available pre TLS-1.3). For some
+>configurations software preventions may exist, and can make them usable if they work,
+>but relying on them to work is risky and there are many more reliable
+>cipher suites that can be used instead.
 """.
 -type erl_cipher_suite()       :: #{key_exchange := kex_algo(),
                                     cipher := cipher(),

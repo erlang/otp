@@ -31,6 +31,14 @@ for listing cipher suites for a specific version use
 cipher suites that you want your connection to use can also be specified.
 Default is to use the strongest available.
 
+
+> #### Warning {: .warning }
+>Enabling cipher suites using RSA as a key exchange algorithm is
+>strongly discouraged (only available pre TLS-1.3). For some
+>configurations software preventions may exist, and can make them usable if they work,
+>but relying on them to work is risky and there are many more reliable
+>cipher suites that can be used instead.
+
 The following sections shows small examples of how to set up client/server
 connections using the Erlang shell. The returned value of the `sslsocket` is
 abbreviated with `[...]` as it can be fairly large and is opaque to the user
