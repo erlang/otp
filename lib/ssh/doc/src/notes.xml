@@ -489,6 +489,36 @@
 
 </section>
 
+<section><title>Ssh 4.13.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, more secure algorithms are preferred by
+	    ssh and documentation is updated to reflect that.</p>
+          <p>
+	    Own Id: OTP-18986 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, KEX strict terminal message is emitted
+	    with debug verbosity.</p>
+          <p>
+	    Own Id: OTP-19002 Aux Id: ERIERL-1041 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, owner and group file attributes
+	    decoding is fixed and results with value of integer type.</p>
+          <p>
+	    Own Id: OTP-19013 Aux Id: GH-7897, PR-8220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.13.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -862,6 +862,28 @@
 
 </section>
 
+<section><title>Compiler 8.1.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, an unsafe optimization could
+	    cause the compiler to generate incorrect code for list
+	    matching.</p>
+          <p>
+	    Own Id: OTP-19003 Aux Id: GH-8187, PR-8189 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, the compiler code generate
+	    unsafe code for a bit syntax match.</p>
+          <p>
+	    Own Id: OTP-19019 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.1.1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
