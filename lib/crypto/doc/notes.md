@@ -355,6 +355,14 @@ This document describes the changes made to the Crypto application.
   Own Id: OTP-18086 Aux Id: OTP-16282, OTP-16643, OTP-16644, OTP-17701,
   OTP-17702, OTP-17704
 
+## Crypto 5.0.6.5
+
+### Fixed Bugs and Malfunctions
+
+* The function `crypto:pbkdf2_hmac` will no longer block the main schedulers. If the iteration count or block size parameters are such that the function is likely to take a long time to execute, the function will be scheduled to run on a dirty CPU scheduler.
+
+  Own Id: OTP-18996 Aux Id: PR-8173, PR-8174
+
 ## Crypto 5.0.6.4
 
 ### Fixed Bugs and Malfunctions
