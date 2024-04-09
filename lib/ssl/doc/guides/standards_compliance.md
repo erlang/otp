@@ -43,17 +43,17 @@ application.
 - IDEA cipher suites are not supported as they have become deprecated by the TLS
   1.2 specification so it is not motivated to implement them.
 - Compression is not supported.
-
+- It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
+  cipher suites, but they are not enabled by default and need addition configuration.
+ 
 ## Common
 
 - CRL validation is supported.
-- Policy certificate extensions are not supported.
+- Policy certificate extensions are supported. (OTP 27)
 - 'Server Name Indication' extension
   ([RFC 6066](http://www.ietf.org/rfc/rfc6066.txt)) is supported.
 - Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol
   Negotiation (NPN) are supported.
-- It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
-  cipher suites, but they are not enabled by default.
 
 ## SSL 2.0
 
@@ -99,9 +99,10 @@ Not yet supported
 OTP-22 introduces support for TLS 1.3. The current implementation supports a
 selective set of cryptographic algorithms:
 
-- Key Exchange: ECDHE
+- Key Exchange: ECDHE groups supported by default
 - Groups: all standard groups supported for the Diffie-Hellman key exchange
-- Ciphers: all cipher suites are supported
+- Groups: Support brainpool groups from RFC 8734
+- Ciphers: all mandatory cipher suites are supported
 - Signature Algorithms: All algorithms form RFC 8446
 - Certificates: RSA, ECDSA and EDDSA keys
 
