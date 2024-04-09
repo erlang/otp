@@ -615,8 +615,8 @@ Because a `simple_one_for_one` supervisor can have many children, it shuts them
 all down asynchronously. This means that the children will do their cleanup in
 parallel and therefore the order in which they are stopped is not defined.
 
-Starting, restarting and manually terminating children are synchronous operations
-however, which are executed in the context of the supervisor process. This means
+Starting, restarting, and manually terminating children are synchronous operations
+which are executed in the context of the supervisor process. This means
 that the supervisor process will be blocked while it is performing any of those
 operations.
 Child processes are responsible for keeping their start and shutdown phases as
