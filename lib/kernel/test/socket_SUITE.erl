@@ -749,7 +749,8 @@
          otp16359_maccept_tcpL/1,
          otp18240_accept_mon_leak_tcp4/1,
          otp18240_accept_mon_leak_tcp6/1,
-         otp18635/1
+         otp18635/1,
+         otp19063/1
         ]).
 
 
@@ -2353,7 +2354,8 @@ tickets_cases() ->
     [
      {group, otp16359},
      {group, otp18240},
-     otp18635
+     otp18635,
+     otp19063
     ].
 
 otp16359_cases() ->
@@ -51697,7 +51699,7 @@ do_otp18635(_) ->
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
-    % show handle returned from nowait accept
+                                                % show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -51738,7 +51740,7 @@ do_otp18635(_) ->
                   ?P("[connector] try create socket"),
                   {ok, CSock} = socket:open(inet, stream),
                   ?P("[connector] try connect: "
-                       "~n   (server) ~p", [SA]),
+                     "~n   (server) ~p", [SA]),
                   ok = socket:connect(CSock, SA),
                   ?P("[connector] connected - inform parent"),
                   Parent ! {self(), connected},
@@ -51749,7 +51751,7 @@ do_otp18635(_) ->
                           (catch socket:close(CSock)),
                           exit(normal)
                   end
-              end),
+          end),
 
     ?P("await (connection-) confirmation from connector (~p)", [Connector]),
     receive
@@ -51815,6 +51817,42 @@ do_otp18635(_) ->
        "~n   Sockets:           ~p", [socket:info(), socket:which_sockets()]),
 
     Result.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is to verify recv on UDP with timeout zero (0) on Windows.
+otp19063(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_windows(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_otp19063(InitState)
+           end).
+
+
+do_otp19063(_) ->
+    ?P("Get \"proper\" local socket address"),
+    LSA = which_local_socket_addr(inet),
+
+    ?P("Create socket"),
+    {ok, Sock} = socket:open(inet, dgram),
+
+    ?P("bind socket to: "
+       "~n   ~p", [LSA]),
+    ok = socket:bind(Sock, LSA),
+
+    ?SLEEP(?SECS(1)),
+
+    {error, timeout} = socket:recv(Sock, 0, 0),
+
+    ?P("done"),
+
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52273,6 +52311,14 @@ is_not_windows() ->
             skip("This does not work on Windows");
         _ ->
             ok
+    end.
+
+is_windows() ->
+    case os:type() of
+        {win32, nt} ->
+            ok;
+        _ ->
+            skip("This does not work on *non* Windows");
     end.
 
 is_not_platform(Platform, PlatformStr)
