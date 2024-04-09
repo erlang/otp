@@ -46,7 +46,6 @@ The functions `double` and `add_one` have a similar structure. This can be used
 by writing a function `map` that expresses this similarity:
 
 ```erlang
-
 map(F, [H|T]) -> [F(H)|map(F, T)];
 map(F, [])    -> [].
 ```
@@ -105,7 +104,6 @@ extra argument to the function that does this.
 The function `foreach` expresses this similarity:
 
 ```erlang
-
 foreach(F, [H|T]) ->
     F(H),
     foreach(F, T);
@@ -121,7 +119,7 @@ foreach(fun(H) -> io:format(S, "~p~n",[H]) end, L)
 
 Using the function `foreach`, the function `broadcast` becomes:
 
-```text
+```erlang
 foreach(fun(Pid) -> Pid ! M end, L)
 ```
 
@@ -147,7 +145,7 @@ This creates an anonymous function of `N` arguments and binds it to the variable
 Another function, `FunctionName`, written in the same module, can be passed as
 an argument, using the following syntax:
 
-```text
+```erlang
 F = fun FunctionName/Arity
 ```
 
@@ -157,7 +155,7 @@ need to be exported from the module.
 It is also possible to refer to a function defined in a different module, with
 the following syntax:
 
-```text
+```erlang
 F = fun Module:FunctionName/Arity
 ```
 
@@ -166,7 +164,6 @@ In this case, the function must be exported from the module in question.
 The following program illustrates the different ways of creating funs:
 
 ```erlang
-
 -module(fun_test).
 -export([t1/0, t2/0]).
 -import(lists, [map/2]).
@@ -180,7 +177,7 @@ double(X) -> X * 2.
 
 The fun `F` can be evaluated with the following syntax:
 
-```text
+```erlang
 F(Arg1, Arg2, ..., Argn)
 ```
 
@@ -283,14 +280,13 @@ f(...) ->
 ## Funs and Module Lists
 
 The following examples show a dialogue with the Erlang shell. All the higher
-order functions discussed are exported from the module `lists`.
+order functions discussed are exported from the module `m:lists`.
 
 ### map
 
-`map` takes a function of one argument and a list of terms:
+`lists:map/2` takes a function of one argument and a list of terms:
 
 ```erlang
-
 map(F, [H|T]) -> [F(H)|map(F, T)];
 map(F, [])    -> [].
 ```
@@ -310,10 +306,9 @@ When a new fun is defined in the shell, the value of the fun is printed as
 
 ### any
 
-`any` takes a predicate `P` of one argument and a list of terms:
+`lists:any/2` takes a predicate `P` of one argument and a list of terms:
 
 ```erlang
-
 any(Pred, [H|T]) ->
     case Pred(H) of
         true  ->  true;
@@ -340,10 +335,9 @@ true
 
 ### all
 
-`all` has the same arguments as `any`:
+`lists:all/2` has the same arguments as `any`:
 
 ```erlang
-
 all(Pred, [H|T]) ->
     case Pred(H) of
         true  ->  all(Pred, T);
@@ -364,10 +358,9 @@ true
 
 ### foreach
 
-`foreach` takes a function of one argument and a list of terms:
+`lists:foreach/2` takes a function of one argument and a list of terms:
 
 ```erlang
-
 foreach(F, [H|T]) ->
     F(H),
     foreach(F, T);
@@ -389,10 +382,9 @@ ok
 
 ### foldl
 
-`foldl` takes a function of two arguments, an accumulator and a list:
+`lists:foldl/3` takes a function of two arguments, an accumulator and a list:
 
 ```erlang
-
 foldl(F, Accu, [Hd|Tail]) ->
     foldl(F, F(Hd, Accu), Tail);
 foldl(F, Accu, []) -> Accu.
@@ -412,7 +404,7 @@ lengths of all the strings in `L` as follows:
 11
 ```
 
-`foldl` works like a `while` loop in an imperative language:
+`lists:foldl/3` works like a `while` loop in an imperative language:
 
 ```erlang
 L =  ["I","like","Erlang"],
@@ -425,10 +417,9 @@ end
 
 ### mapfoldl
 
-`mapfoldl` simultaneously maps and folds over a list:
+`lists:mapfoldl/3` simultaneously maps and folds over a list:
 
 ```erlang
-
 mapfoldl(F, Accu0, [Hd|Tail]) ->
     {R,Accu1} = F(Hd, Accu0),
     {Rs,Accu2} = mapfoldl(F, Accu1, Tail),
@@ -468,11 +459,10 @@ end, 0, L).
 
 ### filter
 
-`filter` takes a predicate of one argument and a list and returns all elements
+`lists:filter/2` takes a predicate of one argument and a list and returns all elements
 in the list that satisfy the predicate:
 
 ```erlang
-
 filter(F, [H|T]) ->
     case F(H) of
         true  -> [H|filter(F, T)];
@@ -505,11 +495,10 @@ intersection(L1,L2) -> filter(fun(X) -> member(X,L1) end, L2).
 
 ### takewhile
 
-`takewhile(P, L)` takes elements `X` from a list `L` as long as the predicate
+`lists:takewhile/2` takes elements `X` from a list `L` as long as the predicate
 `P(X)` is true:
 
 ```erlang
-
 takewhile(Pred, [H|T]) ->
     case Pred(H) of
         true  -> [H|takewhile(Pred, T)];
@@ -526,10 +515,9 @@ takewhile(Pred, []) ->
 
 ### dropwhile
 
-`dropwhile` is the complement of `takewhile`:
+`lists:dropwhile/2` is the complement of `takewhile`:
 
 ```erlang
-
 dropwhile(Pred, [H|T]) ->
     case Pred(H) of
         true  -> dropwhile(Pred, T);
@@ -546,11 +534,10 @@ dropwhile(Pred, []) ->
 
 ### splitwith
 
-`splitwith(P, L)` splits the list `L` into the two sublists `{L1, L2}`, where
+`lists:splitwith/2` splits the list `L` into the two sublists `{L1, L2}`, where
 `L = takewhile(P, L)` and `L2 = dropwhile(P, L)`:
 
 ```erlang
-
 splitwith(Pred, L) ->
     splitwith(Pred, L, []).
 
@@ -646,7 +633,6 @@ The following code defines a function `pconst(X)` in the module `funparse`,
 which returns a fun that parses a list of tokens:
 
 ```erlang
-
 pconst(X) ->
     fun (T) ->
        case T of
@@ -673,7 +659,6 @@ primitive parsers to produce more complex parsers.
 First `pand`:
 
 ```erlang
-
 pand(P1, P2) ->
     fun (T) ->
         case P1(T) of
@@ -698,7 +683,6 @@ tokens that satisfy `G1`, followed by sequences of tokens that satisfy `G2`.
 `G2`:
 
 ```erlang
-
 por(P1, P2) ->
     fun (T) ->
         case P1(T) of
@@ -719,7 +703,6 @@ The original problem was to parse the grammar `(a | b) & (c | d)`. The following
 code addresses this problem:
 
 ```erlang
-
 grammar() ->
     pand(
          por(pconst(a), pconst(b)),
@@ -729,7 +712,6 @@ grammar() ->
 The following code adds a parser interface to the grammar:
 
 ```erlang
-
 parse(List) ->
     (grammar())(List).
 ```
