@@ -33,6 +33,8 @@
          call/1,
          meta/1,
          destroy/1,
+         negative/1,
+         error_info/1,
          end_of_list/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -64,6 +66,8 @@ all() ->
      test_set_on_link,
      test_set_on_first_link,
      destroy,
+     negative,
+     error_info,
      end_of_list].
 
 init_per_suite(Config) ->
@@ -78,15 +82,15 @@ end_per_suite(Config) ->
             ignore
     end.
 
-erlang_trace(legacy, PidPortSpec, How, FlagList) ->
-    erlang:trace(PidPortSpec, How, FlagList);
-erlang_trace(Session, PidPortSpec, How, FlagList) ->
-    erlang:trace(Session, PidPortSpec, How, FlagList).
+erlang_trace(legacy, Pid, How, FlagList) ->
+    erlang:trace(Pid, How, FlagList);
+erlang_trace(Session, Pid, How, FlagList) when is_pid(Pid) ->
+    trace:process(Session, Pid, How, FlagList).
 
 erlang_trace_pattern(legacy, MFA, MS, FlagList) ->
     erlang:trace_pattern(MFA, MS, FlagList);
 erlang_trace_pattern(Session, MFA, MS, FlagList) ->
-    erlang:trace_pattern(Session, MFA, MS, FlagList).
+    trace:function(Session, MFA, MS, FlagList).
 
 
 on_load(_Config) ->
@@ -94,9 +98,9 @@ on_load(_Config) ->
     Tracer0 = spawn_link(fun() -> tracer("Tracer0", Tester) end),
     Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
     Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     catch erlang:purge_module(dummy),
     erlang:delete_module(dummy),
@@ -120,32 +124,32 @@ on_load(_Config) ->
 trace_info_on_load(_Config) ->
     Tester = self(),
     Tracer = spawn_link(fun() -> tracer("Tracer", Tester) end),
-    S = erlang:trace_session_create(?MODULE, Tracer, []),
-    1 = erlang:trace(S, self(), true, [call]),
-    0 = erlang:trace_pattern(S, on_load, true, []),
+    S = trace:session_create(?MODULE, Tracer, []),
+    1 = trace:process(S, self(), true, [call]),
+    0 = trace:function(S, on_load, true, []),
     {all,[{traced,global},
       {match_spec,[]},
       {meta,false},
       {meta_match_spec,false},
-      {call_count,false}]} = erlang:trace_info(S, on_load, all),
+      {call_count,false}]} = trace:info(S, on_load, all),
     ok.
 
 on_load1(Session, Tracer) ->
     Tracee = self(),
-    1 = erlang:trace(Session, self(), true, [call]),
-    0 = erlang:trace_pattern(Session, on_load, true, []),
+    1 = trace:process(Session, self(), true, [call]),
+    0 = trace:function(Session, on_load, true, []),
     dummy:module_info(),
     erlang:delete_module(dummy),
     erlang:purge_module(dummy),
     ?line,
     {Tracer, {trace,Tracee,call,{dummy,module_info,[]}}} = receive_any(),
-    1 = erlang:trace(Session, self(), false, [call]),
+    1 = trace:process(Session, self(), false, [call]),
     dummy:module_info(),
     erlang:delete_module(dummy),
     erlang:purge_module(dummy),
     ?line,
     timeout = receive_nothing(),
-    0 = erlang:trace_pattern(Session, on_load, false, []),
+    0 = trace:function(Session, on_load, false, []),
     ok.
 on_load2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     Tracee = self(),
@@ -184,9 +188,9 @@ test_set_on_spawn(_Config) ->
     Tracer0 = spawn_link(fun() -> tracer("Tracer0", Tester) end),
     Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
     Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     set_on_spawn(S1, Tracer1),
     set_on_spawn2(S1, Tracer1, [],
@@ -201,9 +205,9 @@ test_set_on_spawn(_Config) ->
     set_on_spawn2(S0, Tracer0, [{tracer,Tracer0}],
                   S1, Tracer1, []),
 
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -217,9 +221,9 @@ test_set_on_first_spawn(_Config) ->
     Tracer0 = spawn_link(fun() -> tracer("Tracer0", Tester) end),
     Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
     Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     set_on_first_spawn(S1, Tracer1),
     set_on_first_spawn2(S1, Tracer1, [],
@@ -234,9 +238,9 @@ test_set_on_first_spawn(_Config) ->
     set_on_first_spawn2(S0, Tracer0, [{tracer,Tracer0}],
                         S1, Tracer1, []),
 
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -250,9 +254,9 @@ test_set_on_link(_Config) ->
     Tracer0 = spawn_link(fun() -> tracer("Tracer0", Tester) end),
     Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
     Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     set_on_link(S1, Tracer1),
     set_on_link2(S1, Tracer1, [],
@@ -266,9 +270,9 @@ test_set_on_link(_Config) ->
                  S0, Tracer0, [{tracer,Tracer0}]),
     set_on_link2(S0, Tracer0, [{tracer,Tracer0}],
                  S1, Tracer1, []),
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -283,9 +287,9 @@ test_set_on_first_link(_Config) ->
     Tracer0 = spawn_link(fun() -> tracer("Tracer0", Tester) end),
     Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
     Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     set_on_first_link(S1, Tracer1),
     set_on_first_link2(S1, Tracer1, [],
@@ -299,9 +303,9 @@ test_set_on_first_link(_Config) ->
                        S0, Tracer0, [{tracer,Tracer0}]),
     set_on_first_link2(S0, Tracer0, [{tracer,Tracer0}],
                        S1, Tracer1, []),
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -311,7 +315,7 @@ test_set_on_first_link(_Config) ->
     exit(Tracer2, die),
     ok.
 set_on_spawn(Session, Tracer) ->
-    1 = erlang:trace(Session, self(), true, [procs, set_on_spawn]),
+    1 = trace:process(Session, self(), true, [procs, set_on_spawn]),
     Tracee = self(),
     Child = spawn(fun F() ->
                           receive hej ->
@@ -334,7 +338,7 @@ set_on_spawn(Session, Tracer) ->
        [{Tracer,{trace, GrandChild, spawned, Child,'_'}},
         {Tracer,{trace, GrandChild, exit, die}}]
       }),
-    1 = erlang:trace(Session, self(), false, [procs, set_on_spawn]),
+    1 = trace:process(Session, self(), false, [procs, set_on_spawn]),
     ok.
 
 set_on_spawn2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
@@ -400,7 +404,7 @@ set_on_spawn2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     ok.
 
 set_on_first_spawn(Session, Tracer) ->
-    1 = erlang:trace(Session, self(), true, [procs, set_on_first_spawn]),
+    1 = trace:process(Session, self(), true, [procs, set_on_first_spawn]),
     Tracee = self(),
     TraceeChild = spawn(fun F() ->
                                 receive hej ->
@@ -423,7 +427,7 @@ set_on_first_spawn(Session, Tracer) ->
         {Tracer,{trace, TraceeChild, spawn,'_','_'}},
         {Tracer,{trace, TraceeChild, exit, die}}]}),
 
-    1 = erlang:trace(Session, self(), false, [procs, set_on_first_spawn]),
+    1 = trace:process(Session, self(), false, [procs, set_on_first_spawn]),
     ok.
 set_on_first_spawn2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     1 = erlang_trace(S1, self(), true, [procs, set_on_first_spawn | Opts1]),
@@ -478,7 +482,7 @@ set_on_first_spawn2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
 
 set_on_link(Session, Tracer) ->
     %% Test set_on_link via spawn_link/1
-    1 = erlang:trace(Session, self(), true, [procs, set_on_link]),
+    1 = trace:process(Session, self(), true, [procs, set_on_link]),
     Tracee = self(),
     Child = spawn_link(fun() -> receive M -> M end end),
     unlink(Child),
@@ -513,7 +517,7 @@ set_on_link(Session, Tracer) ->
     %% from child process
     Child3 = spawn(fun() -> receive M -> M end end),
     link(Child3),
-    1 = erlang:trace(Session, self(), false, [procs, set_on_link]),
+    1 = trace:process(Session, self(), false, [procs, set_on_link]),
     unlink(Child3),
     exit(Child3, die),
     receive_parallel(
@@ -527,7 +531,7 @@ set_on_link(Session, Tracer) ->
 
     %% Test that you can disable the tracer for the child process
     %% and get messages from the parent
-    1 = erlang:trace(Session, self(), true, [procs, set_on_link]),
+    1 = trace:process(Session, self(), true, [procs, set_on_link]),
     Child4 = spawn(fun() -> receive M -> M end end),
     link(Child4),
     receive_parallel(
@@ -536,12 +540,12 @@ set_on_link(Session, Tracer) ->
 
        [{Tracer,{trace, Child4, getting_linked, Tracee}}]
       }),
-    1 = erlang:trace(Session, Child4, false, [procs, set_on_link]),
+    1 = trace:process(Session, Child4, false, [procs, set_on_link]),
     unlink(Child4),
     exit(Child4, die),
     {Tracer,{trace, Tracee, unlink, Child4}} = receive_any(),
 
-    1 = erlang:trace(Session, self(), false, [procs, set_on_link]),
+    1 = trace:process(Session, self(), false, [procs, set_on_link]),
     spawn_link(fun() -> receive M -> M end end),
     timeout = receive_nothing(),
     ok.
@@ -662,7 +666,7 @@ set_on_link2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     ok.
 
 set_on_first_link(Session, Tracer) ->
-    1 = erlang:trace(Session, self(), true, [procs, set_on_first_link]),
+    1 = trace:process(Session, self(), true, [procs, set_on_first_link]),
     Tracee = self(),
     Child = spawn_link(fun() -> receive M -> M end end),
     Child1 = spawn_link(fun() -> receive M -> M end end),
@@ -684,7 +688,7 @@ set_on_first_link(Session, Tracer) ->
         {Tracer,{trace, Child, exit, die}}]
       }),
     %% Test that spawn on first link works with link/1
-    1 = erlang:trace(Session, Tracee, true, [set_on_first_link]),
+    1 = trace:process(Session, Tracee, true, [set_on_first_link]),
     Child2 = spawn(fun() -> receive M -> M end end),
     Child21 = spawn(fun() -> receive M -> M end end),
     link(Child2),
@@ -706,7 +710,7 @@ set_on_first_link(Session, Tracer) ->
         {Tracer,{trace, Child2, exit, die}}]
       }),
     %% Test that spawn on first link flag is not on the child
-    1 = erlang:trace(Session, Tracee, true, [set_on_first_link]),
+    1 = trace:process(Session, Tracee, true, [set_on_first_link]),
     Child3 = spawn(fun F() -> receive hej ->
                                       spawn_link(fun()-> receive M -> M end end),
                                       Tracee ! done,
@@ -729,7 +733,7 @@ set_on_first_link(Session, Tracer) ->
         {Tracer,{trace, Child3, getting_unlinked, Tracee}},
         {Tracer,{trace, Child3, exit, die}}]
       }),
-    1 = erlang:trace(Session, self(), false, [procs, set_on_first_link]),
+    1 = trace:process(Session, self(), false, [procs, set_on_first_link]),
     ok.
 
 set_on_first_link2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
@@ -797,9 +801,9 @@ procs(_Config) ->
 
     procs_do1(Tracer0, [{tracer, Tracer0}]),
 
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     procs_do2(S1, Tracer1, [],
               S2, Tracer2, []),
@@ -813,9 +817,9 @@ procs(_Config) ->
     procs_do2(S0, Tracer0, [{tracer,Tracer0}],
               S1, Tracer1, []),
 
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -933,9 +937,9 @@ basic(_Config) ->
 
     basic_do1(Tracer0, [{tracer, Tracer0}]),
 
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     basic_do2(S1, Tracer1, [],
               S2, Tracer2, []),
@@ -949,9 +953,9 @@ basic(_Config) ->
     basic_do2(S0, Tracer0, [{tracer,Tracer0}],
               S1, Tracer1, []),
 
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -1024,9 +1028,9 @@ call(_Config) ->
 
     call_do1(Tracer0, [{tracer, Tracer0}]),
 
-    S0 = erlang:trace_session_create(session0, undefined, []),
-    S1 = erlang:trace_session_create(session1, Tracer1, []),
-    S2 = erlang:trace_session_create(session2, Tracer2, []),
+    S0 = trace:session_create(session0, undefined, []),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
 
     [begin
          io:format("CallType = ~p\n", [CallType]),
@@ -1048,9 +1052,9 @@ call(_Config) ->
                      {[local], fun() -> ?MODULE:foo() end}]
     ],
 
-    ok = erlang:trace_session_destroy(S0),
-    ok = erlang:trace_session_destroy(S1),
-    ok = erlang:trace_session_destroy(S2),
+    ok = trace:session_destroy(S0),
+    ok = trace:session_destroy(S1),
+    ok = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -1172,17 +1176,17 @@ meta(_Config) ->
     ok.
 
 destroy(_Config) ->
-    SName = ?MODULE,
-    S1 = erlang:trace_session_create(SName, self(), []),
+    Name = ?MODULE,
+    {_,SName1}=S1 = trace:session_create(Name, self(), []),
 
     %% Destroy session with trace_session_destroy
-    destroy_do(SName, fun() -> erlang:trace_session_destroy(S1) end),
+    destroy_do(SName1, fun() -> trace:session_destroy(S1) end),
 
-    S2 = erlang:trace_session_create(SName, self(), []),
+    {_,SName2}=S2 = trace:session_create(Name, self(), []),
 
     %% Destroy session with GC (magic bin destructor)
     put(session, S2),
-    destroy_do(SName, fun() -> erase(session),
+    destroy_do(SName2, fun() -> erase(session),
                                erlang:garbage_collect(),
                                wait_bp_finish(),
                                ok
@@ -1198,62 +1202,148 @@ destroy_do(SName, Destroyer) ->
     RecvMS = [{[node(), self(), message],[],[]}],
     [Port|_] = erlang:ports(),
 
-    1 = erlang:trace_pattern(SName, Exp, CallMS, [global]),
-    1 = erlang:trace_pattern(SName, Loc, CallMS, [local]),
-    0 = erlang:trace_pattern(SName, on_load, CallMS, [local]),
-    1 = erlang:trace_pattern(SName, send, SendMS, []),
-    1 = erlang:trace_pattern(SName, 'receive', RecvMS, []),
-    0 = erlang:trace(SName, new_processes, true, [all]),
-    0 = erlang:trace(SName, new_ports, true, [all]),
-    1 = erlang:trace(SName, self(), true, [procs]),
-    1 = erlang:trace(SName, Port, true, [ports]),
+    1 = trace:function(SName, Exp, CallMS, [global]),
+    1 = trace:function(SName, Loc, CallMS, [local]),
+    0 = trace:function(SName, on_load, CallMS, [local]),
+    1 = trace:send(SName, SendMS, []),
+    1 = trace:recv(SName, RecvMS, []),
+    0 = trace:process(SName, new_processes, true, [all]),
+    0 = trace:port(SName, new_ports, true, [all]),
+    1 = trace:process(SName, self(), true, [procs]),
+    1 = trace:port(SName, Port, true, [ports]),
 
-    [SName] = erlang:trace_session_info(Exp),
-    [SName] = erlang:trace_session_info(Loc),
-    [SName] = erlang:trace_session_info(on_load),
-    SendSessions1 = erlang:trace_session_info(send),
+    [SName] = trace:session_info(Exp),
+    [SName] = trace:session_info(Loc),
+    [SName] = trace:session_info(on_load),
+    SendSessions1 = trace:session_info(send),
     true = lists:member(SName, SendSessions1),
-    RecvSessions1 = erlang:trace_session_info('receive'),
+    RecvSessions1 = trace:session_info('receive'),
     true = lists:member(SName, RecvSessions1),
-    [SName] = erlang:trace_session_info(new_processes),
-    [SName] = erlang:trace_session_info(new_ports),
-    [SName] = erlang:trace_session_info(self()),
-    [SName] = erlang:trace_session_info(Port),
+    [SName] = trace:session_info(new_processes),
+    [SName] = trace:session_info(new_ports),
+    [SName] = trace:session_info(self()),
+    [SName] = trace:session_info(Port),
 
-    {traced, global} = erlang:trace_info(SName, Exp, traced),
-    {traced, local} = erlang:trace_info(SName, Loc, traced),
-    {traced, local} = erlang:trace_info(SName, on_load, traced),
-    {match_spec, SendMS} = erlang:trace_info(SName, send, match_spec),
-    {match_spec, RecvMS} = erlang:trace_info(SName, 'receive', match_spec),
-    {flags, [_|_]} = erlang:trace_info(SName, new_processes, flags),
-    {flags, [_|_]} = erlang:trace_info(SName, new_ports, flags),
-    {flags, [procs]} = erlang:trace_info(SName, self(), flags),
-    {flags, [ports]} = erlang:trace_info(SName, Port, flags),
+    {traced, global} = trace:info(SName, Exp, traced),
+    {traced, local} = trace:info(SName, Loc, traced),
+    {traced, local} = trace:info(SName, on_load, traced),
+    {match_spec, SendMS} = trace:info(SName, send, match_spec),
+    {match_spec, RecvMS} = trace:info(SName, 'receive', match_spec),
+    {flags, [_|_]} = trace:info(SName, new_processes, flags),
+    {flags, [_|_]} = trace:info(SName, new_ports, flags),
+    {flags, [procs]} = trace:info(SName, self(), flags),
+    {flags, [ports]} = trace:info(SName, Port, flags),
 
     Destroyer(),
 
-    [] = erlang:trace_session_info(Exp),
-    [] = erlang:trace_session_info(Loc),
-    [] = erlang:trace_session_info(on_load),
-    SendSessions2 = erlang:trace_session_info(send),
+    [] = trace:session_info(Exp),
+    [] = trace:session_info(Loc),
+    [] = trace:session_info(on_load),
+    SendSessions2 = trace:session_info(send),
     false = lists:member(SName, SendSessions2),
-    RecvSessions2 = erlang:trace_session_info('receive'),
+    RecvSessions2 = trace:session_info('receive'),
     false = lists:member(SName, RecvSessions2),
-    [] = erlang:trace_session_info(new_processes),
-    [] = erlang:trace_session_info(new_ports),
-    [] = erlang:trace_session_info(self()),
-    [] = erlang:trace_session_info(Port),
+    [] = trace:session_info(new_processes),
+    [] = trace:session_info(new_ports),
+    [] = trace:session_info(self()),
+    [] = trace:session_info(Port),
 
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, Exp, traced)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, Loc, traced)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, on_load, traced)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, send, match_spec)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, 'receive', match_spec)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, new_processes, flags)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, new_ports, flags)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, self(), flags)),
-    {'EXIT',{badarg,_}} = (catch erlang:trace_info(SName, Port, flags)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, Exp, traced)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, Loc, traced)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, on_load, traced)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, send, match_spec)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, 'receive', match_spec)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_processes, flags)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_ports, flags)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, self(), flags)),
+    {'EXIT',{badarg,_}} = (catch trace:info(SName, Port, flags)),
     true.
+
+negative(_Config) ->
+    Tracee = spawn_link(fun() -> receive done -> ok end end),
+    SessionTracer = spawn_link(fun() -> receive done -> ok end end),
+    OtherTracer = spawn_link(fun() -> receive done -> ok end end),
+    MFA = {?MODULE, foo, 0},
+    S = trace:session_create(?MODULE, SessionTracer, []),
+
+    %% Specified tracer not allowed
+    {'EXIT',{badarg,_}} = (catch trace:process(S, Tracee, true, [call, {tracer,OtherTracer}])),
+    1 = catch trace:process(S, Tracee, true, [call]),
+    1 = catch trace:process(S, Tracee, false, [call]),
+
+    %% Specified meta tracer not allowed
+    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,OtherTracer}])),
+    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
+    1 = trace:function(S, MFA, true, [meta]),
+    1 = trace:function(S, MFA, false, [meta]),
+
+    trace:session_destroy(S),
+    ok.
+
+%% Test error reporting of module 'trace'.
+error_info(_Config) ->
+    %% Pick up external pid and port.
+    {ok, Peer, ExternalNode} = ?CT_PEER(),
+    ExternalPid = rpc:call(ExternalNode, erlang, whereis, [code_server]),
+    ExternalPort = hd(rpc:call(ExternalNode, erlang, ports, [])),
+    Tracer = spawn(fun() -> receive never -> false end end),
+    TraceSession = trace:session_create(?MODULE, Tracer, []),
+
+    L = [
+         {process, [TraceSession, a, true, []]},
+         {process, [TraceSession, ExternalPid, true, []]},
+         {process, [TraceSession, self(), not_boolean, []]},
+         {process, [TraceSession, self(), true, bad_flags]},
+         {process, [TraceSession, self(), true, [bad_flag]]},
+         {process, [TraceSession, self(), true, [call|send]]},
+
+         {port, [TraceSession, a, true, []]},
+         {port, [TraceSession, ExternalPort, true, []]},
+         {port, [TraceSession, self(), not_boolean, []]},
+         {port, [TraceSession, self(), true, bad_flags]},
+         {port, [TraceSession, self(), true, [bad_flag]]},
+         {port, [TraceSession, self(), true, [send|'receive']]},
+
+
+         {function, [TraceSession, a, true, []]},
+         {function, [TraceSession, {?MODULE,'_','_'}, not_boolean, []]},
+         {function, [TraceSession, {?MODULE,'_','_'}, true, bad_flags]},
+         {function, [TraceSession, {?MODULE,'_','_'}, true, [bad_flag]]},
+         {function, [TraceSession, {?MODULE,'_','_'}, true, [local|meta]]},
+         {function, [TraceSession, {?MODULE,'_','_'}, [{[self(), '_'],[],[]}], [call_count]]},
+
+         {send, [TraceSession, a, []]},
+         {send, [TraceSession, true, bad_flags]},
+         {send, [TraceSession, true, [bad_flag]]},
+
+         {recv, [TraceSession, a, []]},
+         {recv, [TraceSession, true, bad_flags]},
+         {recv, [TraceSession, true, [bad_flag]]},
+
+         {info, [bad_session, self(), flags]},
+         {info, [make_ref(), self(), flags]},
+         {info, [atomics:new(1,[]), self(), flags]},
+         {info, [TraceSession, ExternalPid, flags]},
+         {info, [TraceSession, self(), bad_item]},
+
+         {session_create, ["bad name", self(), []]},
+         {session_create, [name, bad_tracer, []]},
+         {session_create, [name, self(), bad_option]},
+         {session_create, [name, self(), [bad_option]]},
+
+         {session_destroy, [bad_session]},
+         {session_destroy, [make_ref()]},
+         {session_destroy, [atomics:new(1,[])]},
+
+         {session_info, [ExternalPid]}
+        ],
+
+    try
+        error_info_lib:test_error_info(trace, L)
+    after
+        peer:stop(Peer)
+    end.
+
 
 wait_bp_finish() ->
     wait_thread_progress(5).

@@ -2068,8 +2068,10 @@ Eterm erts_make_bp_session_list(ErtsHeapFactory * factory,
         if (erts_atomic_read_nob(&g->session->state)
             == ERTS_TRACE_SESSION_ALIVE) {
 
-            Eterm *hp = erts_produce_heap(factory, 2, 0);
-            list = CONS(hp, g->session->name_atom, list);
+            Eterm *hp = erts_produce_heap(factory,
+                                          ERTS_TRACE_SESSION_WEAK_REF_SZ+2, 0);
+            Eterm weak_ref = erts_make_trace_session_weak_ref(g->session, &hp);
+            list = CONS(hp, weak_ref, list);
         }
     }
     return list;

@@ -802,6 +802,6 @@ bif erts_internal:trace_session_create/3
 bif erts_internal:trace_session_destroy/1
 bif erts_internal:trace/4
 bif erts_internal:trace_pattern/4
-bif erlang:trace_info/3
+bif erts_internal:trace_info/3
 bif erts_trace_cleaner:check/0
 bif erts_trace_cleaner:send_trace_clean_signal/1

@@ -176,13 +176,8 @@ STRIPPED_TYPES= \
 	bs_match_misc \
 	bs_utf
 
-NATIVE= hibernate
-
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
-
-NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
-NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 R24_MODULES= $(R24:%=%_r24_SUITE)
 R24_ERL_FILES= $(R24_MODULES:%=%.erl)
@@ -193,7 +188,10 @@ R25_ERL_FILES= $(R25_MODULES:%=%.erl)
 STRIPPED_TYPES_MODULES= $(STRIPPED_TYPES:%=%_stripped_types_SUITE)
 STRIPPED_TYPES_ERL_FILES= $(STRIPPED_TYPES_MODULES:%=%.erl)
 
-ERL_FILES= $(MODULES:%=%.erl)
+STDLIB_MODULES=error_info_lib
+
+ERL_FILES= $(MODULES:%=%.erl) \
+	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -226,14 +224,12 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$($(ERL_COMPILE_FLAGS)))
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES) \
+make_emakefile: $(NO_OPT_ERL_FILES) \
   $(KERNEL_ERL_FILES) $(R24_ERL_FILES) $(R25_ERL_FILES) $(STRIPPED_TYPES_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
-	$(MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
+	$(MODULES) $(STDLIB_MODULES) $(KERNEL_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt +no_ssa_opt +no_bsm_opt \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
-	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) \
-	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r24 \
         $(ERL_COMPILE_FLAGS) -o$(EBIN) $(R24_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +r25 \
@@ -261,9 +257,6 @@ targets: $(TARGET_FILES)
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
-%_native_SUITE.erl: %_SUITE.erl
-	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
-
 %_r24_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
@@ -285,7 +278,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(NATIVE_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(R24_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(R25_ERL_FILES) "$(RELSYSDIR)"

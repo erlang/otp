@@ -151,21 +151,9 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
         s->weak_id = am_default;
     }
     else{
-        ErtsTraceSession *that;
 	/* Link the session into the global list
 	 */
 	erts_rwmtx_rwlock(&erts_trace_session_list_lock);
-
-        if (name_atom != am_undefined) {
-            for (that = erts_trace_session_0.next; that; that = that->next) {
-                if (that->name_atom == name_atom) {
-                    /* Name clash */
-                    erts_atomic_set_nob(&s->state, ERTS_TRACE_SESSION_DEAD);
-                    erts_rwmtx_rwunlock(&erts_trace_session_list_lock);
-                    return 0;
-                }
-            }
-        }
 
 	s->next = erts_trace_session_0.next;
 	s->prev = &erts_trace_session_0;
@@ -185,15 +173,23 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
  */
 static int term_to_session(Eterm term, ErtsTraceSession **session_p)
 {
+    ErtsTraceSession *s = NULL;
     Binary *bin;
+    const Eterm *tpl;
 
-    if (is_atom(term)) {
-        ErtsTraceSession *s;
+    if (!is_tuple_arity(term, 2)) {
+        return 0;
+    }
+    tpl = tuple_val(term);
+
+    if (is_atom(tpl[1]) && is_small(tpl[2])) {
+        const Eterm name = tpl[1];
+        const Eterm weak_id = tpl[2];
 
         erts_rwmtx_rlock(&erts_trace_session_list_lock);
         for (s = erts_trace_session_0.next; s; s = s->next) {
             ASSERT(s != &erts_trace_session_0);
-            if (s->name_atom == term) {
+            if (s->name_atom == name && s->weak_id == weak_id) {
                 bin = &ERTS_MAGIC_BIN_FROM_DATA(s)->binary;
                 /*
                  * Make sure we don't resurrect a dying session with refc==0.
@@ -205,25 +201,39 @@ static int term_to_session(Eterm term, ErtsTraceSession **session_p)
             }
         }
         erts_rwmtx_runlock(&erts_trace_session_list_lock);
-        if (s) {
-            *session_p = s;
-            return 1;
-        }
-        else {
-            return 0;
-        }
     }
-    else if (is_internal_magic_ref(term)) {
-        bin = erts_magic_ref2bin(term);
+    else if (is_internal_magic_ref(tpl[1]) && is_tuple_arity(tpl[2], 2)) {
+        const Eterm *weak_tpl = tuple_val(tpl[2]);
+
+        bin = erts_magic_ref2bin(tpl[1]);
         if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != tracer_session_destructor)
             return 0;
 
-        *session_p = (ErtsTraceSession*) ERTS_MAGIC_BIN_DATA(bin);
-        ASSERT(*session_p != &erts_trace_session_0);
+        s = (ErtsTraceSession*) ERTS_MAGIC_BIN_DATA(bin);
+        ASSERT(s != &erts_trace_session_0);
+
+        if (s->name_atom != weak_tpl[1] || s->weak_id != weak_tpl[2]) {
+            return 0;
+        }
+
         erts_refc_inc(&bin->intern.refc, 2);
-        return 1;
     }
-    return 0;
+
+    if (!s) {
+        return 0;
+    }
+
+    *session_p = s;
+    return 1;
+}
+
+#define ERTS_TRACE_SESSION_WEAK_REF_SZ 3
+
+Eterm erts_make_trace_session_weak_ref(ErtsTraceSession *s, Eterm **hpp)
+{
+    Eterm weak_ref = TUPLE2(*hpp, s->name_atom, s->weak_id);
+    *hpp += ERTS_TRACE_SESSION_WEAK_REF_SZ;
+    return weak_ref;
 }
 
 void
@@ -298,7 +308,7 @@ trace_pattern(Process* p, ErtsTraceSession *session,
     p->fvalue = am_badopt;
     is_global = 0;
     for(l = flaglist; is_list(l); l = CDR(list_val(l))) {
-	if (is_tuple(CAR(list_val(l)))) {
+	if (is_tuple(CAR(list_val(l))) && ERTS_TRACER_IS_NIL(session->tracer)) {
             meta_tracer = erts_term_to_tracer(am_meta, CAR(list_val(l)));
             if (meta_tracer == THE_NON_VALUE) {
                 meta_tracer = erts_tracer_nil;
@@ -835,6 +845,7 @@ Eterm erts_internal_trace_3(BIF_ALIST_3)
 Eterm erts_internal_trace_4(BIF_ALIST_4)
 {
     ErtsTraceSession* session;
+    Eterm ret;
 
     if (!term_to_session(BIF_ARG_1, &session)) {
         BIF_P->fvalue = am_session;
@@ -845,7 +856,11 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
         ERTS_BIF_YIELD4(BIF_TRAP_EXPORT(BIF_erts_internal_trace_4),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
-    return trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+    ret = trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+    erts_deref_trace_session(session);
+    return ret;
 }
 
 static
@@ -1096,7 +1111,6 @@ Eterm trace(Process* p, ErtsTraceSession *session,
     }
     erts_release_code_mod_permission();
     ERTS_TRACER_CLEAR(&tracer);
-    erts_deref_trace_session(session);
 
     BIF_RET(make_small(matches));
 
@@ -1106,7 +1120,6 @@ Eterm trace(Process* p, ErtsTraceSession *session,
 
  error:
     ERTS_TRACER_CLEAR(&tracer);
-    erts_deref_trace_session(session);
 
     if (system_blocked) {
 	erts_thr_progress_unblock();
@@ -1115,12 +1128,6 @@ Eterm trace(Process* p, ErtsTraceSession *session,
     erts_release_code_mod_permission();
 
     BIF_ERROR(p, BADARG);
-}
-
-Eterm //return a magic ref
-erts_internal_trace_session_create_3(BIF_ALIST_3)
-{
-    return trace_session_create(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 }
 
 static int
@@ -1165,12 +1172,20 @@ static void free_session(ErtsTraceSession *session)
     erts_magic_binary_free(bin);
 }
 
+
+Eterm
+erts_internal_trace_session_create_3(BIF_ALIST_3)
+{
+    return trace_session_create(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
 static Eterm
 trace_session_create(Process* p, Eterm name, Eterm tracer_term, Eterm opts)
 {
     Binary* bptr;
     Eterm* hp;
     Eterm m_ref;
+    Eterm weak_ref;
     ErtsTracer tracer;
     ErtsTraceSession* session;
 
@@ -1199,9 +1214,10 @@ trace_session_create(Process* p, Eterm name, Eterm tracer_term, Eterm opts)
         BIF_ERROR(p, BADARG);
     }
 
-    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + ERTS_TRACE_SESSION_WEAK_REF_SZ + 3);
     m_ref = erts_mk_magic_ref(&hp, &MSO(p), bptr);
-    return m_ref;
+    weak_ref = erts_make_trace_session_weak_ref(session, &hp);
+    return TUPLE2(hp, m_ref, weak_ref);
 }
 
 Eterm
@@ -1315,7 +1331,7 @@ Eterm trace_info_2(BIF_ALIST_2)
     return ret;
 }
 
-Eterm trace_info_3(BIF_ALIST_3)
+Eterm erts_internal_trace_info_3(BIF_ALIST_3)
 {
     ErtsTraceSession* session;
     Eterm ret;
@@ -1332,7 +1348,7 @@ Eterm trace_info_3(BIF_ALIST_3)
         if (session) {
             erts_deref_trace_session(session);
         }
-        ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_trace_info_3),
+        ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_info_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
     ret = trace_info(BIF_P, session, BIF_ARG_2, BIF_ARG_3);
@@ -1464,9 +1480,10 @@ build_trace_sessions_term(Eterm **hpp, Uint *szp, ErtsPTabElementCommon *t_p)
         if (erts_atomic_read_nob(&ref->session->state)
             == ERTS_TRACE_SESSION_ALIVE) {
 
-            sz += 2;
+            sz += ERTS_TRACE_SESSION_WEAK_REF_SZ + 2;
             if (hp) {
-                res = CONS(hp, ref->session->name_atom, res);
+                Eterm weak_ref = erts_make_trace_session_weak_ref(ref->session, &hp);
+                res = CONS(hp, weak_ref, res);
                 hp += 2;
             }
         }
@@ -2161,8 +2178,10 @@ trace_info_sessions(Process* p, Eterm What, Eterm key)
             BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
         }
         if (on) {
-            hp = erts_produce_heap(&factory, 2, 2 * 3 + 3);
-            list = CONS(hp, s->name_atom, list);
+            Eterm weak_ref;
+            hp = erts_produce_heap(&factory, ERTS_TRACE_SESSION_WEAK_REF_SZ + 2, 30);
+            weak_ref = erts_make_trace_session_weak_ref(s, &hp);
+            list = CONS(hp, weak_ref, list);
         }
     }
     erts_rwmtx_runlock(&erts_trace_session_list_lock);

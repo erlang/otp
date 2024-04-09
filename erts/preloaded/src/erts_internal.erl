@@ -66,7 +66,9 @@
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
 
--export([trace/3, trace/4, trace_pattern/3, trace_pattern/4]).
+-export([trace/3, trace/4,
+         trace_info/3,
+         trace_pattern/3, trace_pattern/4]).
 -export([trace_session_create/3, trace_session_destroy/1]).
 
 -export([dist_ctrl_put_data/2]).
@@ -617,9 +619,24 @@ trace(_PidSpec, _How, _FlagList) ->
 trace(_Session, _PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+%% trace_info/3
+-spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
+      Session :: reference() | any,
+      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
+                        | MFA | on_load | send | 'receive'
+                        | any,
+      MFA :: {module(), atom(), arity()},
+      Item :: flags | tracer | traced | match_spec
+            | meta | meta_match_spec | call_count | call_time | call_memory
+            | all
+            | session,
+      Res :: undefined | {atom(), term()} | {tracer, module(), term()}.
+trace_info(_Session, _PidPortFuncEvent, _Item) ->
+    erlang:nif_error(undefined).
+
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
-      {atom(),atom(),arity() | '_'} | on_load.
+      {atom(),atom(),arity() | '_'} | on_load | send | 'receive'.
 -type trace_match_spec() ::
       [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 

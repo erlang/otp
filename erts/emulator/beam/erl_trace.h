@@ -111,6 +111,9 @@ typedef struct ErtsTraceSession {
 #endif
 }ErtsTraceSession;
 
+#define ERTS_TRACE_SESSION_WEAK_REF_SZ 3
+Eterm erts_make_trace_session_weak_ref(ErtsTraceSession*, Eterm **hpp);
+
 extern ErtsTraceSession erts_trace_session_0;
 extern erts_rwmtx_t erts_trace_session_list_lock;
 

@@ -45,7 +45,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}]. %{minutes, 2}}].
+     {timetrap, {seconds, 20}}]. %{minutes, 2}}].
 
 all() ->
     trace_sessions:all().
