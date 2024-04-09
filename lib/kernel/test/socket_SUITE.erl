@@ -51697,9 +51697,7 @@ do_otp18635(_) ->
     ?P("get sockname for listen socket"),
     {ok, SA} = socket:sockname(LSock),
 
-    %% ok = socket:setopt(LSock, otp, debug, true),
-
-                                                % show handle returned from nowait accept
+    %% show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -51826,7 +51824,7 @@ otp19063(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   is_windows(),
+                   %% is_windows(),
                    has_support_ipv4()
            end,
            fun() ->
@@ -51836,19 +51834,127 @@ otp19063(Config) when is_list(Config) ->
 
 
 do_otp19063(_) ->
+    Parent = self(),
+
     ?P("Get \"proper\" local socket address"),
     LSA = which_local_socket_addr(inet),
 
-    ?P("Create socket"),
-    {ok, Sock} = socket:open(inet, dgram),
 
-    ?P("bind socket to: "
+    %% --- recv ---
+
+    ?P("Testing recv (tcp) - create (listen) socket"),
+    {ok, LSock1} = socket:open(inet, stream),
+
+    ?P("bind (listen) socket to: "
        "~n   ~p", [LSA]),
-    ok = socket:bind(Sock, LSA),
+    ok = socket:bind(LSock1, LSA),
+
+    ?P("make listen socket"),
+    ok = socket:listen(LSock1),
+
+    ?P("get sockname for listen socket"),
+    {ok, SA1} = socket:sockname(LSock1),
+
+    ?P("attempt a nowait-accept"),
+    {Tag, Handle} =
+        case socket:accept(LSock1, nowait) of
+            {select, {select_info, _, SH}} ->
+                {select, SH};
+            {completion, {completion_info, _, CH}} ->
+                {completion, CH}
+        end,
+
+    ?P("spawn the connector process"),
+    {Connector, MRef} =
+        spawn_monitor(
+          fun() ->
+                  ?P("[connector] try create socket"),
+                  {ok, CSock1} = socket:open(inet, stream),
+                  ?P("[connector] try connect: "
+                     "~n   (server) ~p", [SA1]),
+                  ok = socket:connect(CSock1, SA1),
+                  ?P("[connector] connected - inform parent"),
+                  Parent ! {self(), connected},
+                  ?P("[connector] await termination command"),
+                  receive
+                      {Parent, terminate} ->
+                          ?P("[connector] terminate - close socket"),
+                          (catch socket:close(CSock1)),
+                          exit(normal)
+                  end
+          end),
+
+    ?P("await (connection-) confirmation from connector (~p)", [Connector]),
+    receive
+        {Connector, connected} ->
+            ?P("connector connected"),
+            ok
+    end,
+
+    ?P("receive the accepted socket"),
+    ASock1 =
+        receive
+            {'$socket', LSock1, completion, {Handle, {ok, AS}}}
+              when (Tag =:= completion) ->
+                AS;
+            {'$socket', LSock1, completion, {Handle, {error, Reason1C}}}
+              when (Tag =:= completion) ->
+                exit({accept_failed, Reason1C});
+           {'$socket', LSock1, select, Handle}  ->
+                case socket:accept(LSock1, nowait) of
+                    {ok, AS} ->
+                        AS;
+                    {error, Reason1S} ->
+                        exit({accept_failed, Reason1S})
+                end
+        end,
 
     ?SLEEP(?SECS(1)),
 
-    {error, timeout} = socket:recv(Sock, 0, 0),
+    ?P("and finally try recv"),
+    {error, timeout} = socket:recv(ASock1, 0, 0),
+
+
+    %% --- recvfrom ---
+
+    ?P("Testing recvfrom - create socket"),
+    {ok, Sock2} = socket:open(inet, dgram),
+
+    ?P("bind socket to: "
+       "~n   ~p", [LSA]),
+    ok = socket:bind(Sock2, LSA),
+
+    ?SLEEP(?SECS(1)),
+
+    {error, timeout} = socket:recvfrom(Sock2, 1024, 0),
+
+
+    %% --- recvmsg ---
+
+    ?P("Testing recvmsg - create socket"),
+    {ok, Sock3} = socket:open(inet, dgram),
+
+    ?P("bind socket to: "
+       "~n   ~p", [LSA]),
+    ok = socket:bind(Sock3, LSA),
+
+    ?SLEEP(?SECS(1)),
+
+    {error, timeout} = socket:recvmsg(Sock3, 0, 0),
+
+
+    ?P("cleanup"),
+
+    Connector ! {self(), terminate},
+    receive
+        {'DOWN', MRef, process, Connector, _} ->
+            ?P("connector terminated"),
+            ok
+    end,
+    _ = socket:close(ASock1),
+    _ = socket:close(LSock1),
+    _ = socket:close(Sock2),
+    _ = socket:close(Sock3),
 
     ?P("done"),
 
@@ -52318,7 +52424,7 @@ is_windows() ->
         {win32, nt} ->
             ok;
         _ ->
-            skip("This does not work on *non* Windows");
+            skip("This does not work on *non* Windows")
     end.
 
 is_not_platform(Platform, PlatformStr)
