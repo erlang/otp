@@ -51824,7 +51824,7 @@ otp19063(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   %% is_windows(),
+                   is_windows(),
                    has_support_ipv4()
            end,
            fun() ->
@@ -51918,7 +51918,10 @@ do_otp19063(_) ->
     ?SLEEP(?SECS(1)),
 
     ?P("[recv] try read"),
-    {error, timeout} = socket:recv(ASock1, 0, 0),
+    case socket:recv(ASock1, 0, 0) of
+        {error, timeout} -> ok;
+        Any1             -> ?P("Unexpected result: ~p", [Any1]), exit({unexpected_recv_result, Any1})
+    end,
 
 
     %% --- recvfrom ---
