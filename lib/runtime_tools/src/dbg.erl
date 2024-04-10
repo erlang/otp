@@ -22,8 +22,8 @@
 The Text Based Trace Facility
 
 This module implements a text based interface to the
-`erlang:trace/3` and `erlang:trace_pattern/2` BIFs, simplifying
-tracing of functions, processes, ports, and messages.
+`trace:process/4`, `trace:port/4`, and `trace:function/4` BIFs,
+simplifying tracing of functions, processes, ports, and messages.
 
 To quickly get started on tracing function calls you can use the
 following code in the Erlang shell:
@@ -100,12 +100,6 @@ Here is how to only show message sending and receiving:
  {kernel,"ERTS  CXC 138 10","9.2.2"}]
 ```
 
-> #### Note {: .info }
->
-> While the [`dbg:c/3,4`](`dbg:c/4`) functions can be convenient, they do not
-> mix well with the other functions in this module, because they stop any
-> previously running trace receiver process (losing any saved trace patterns).
-
 ## Tracing from the shell
 
 Another way of tracing from the shell is to explicitly start a _tracer_ and
@@ -158,7 +152,7 @@ e
 ## Advanced topics - combining with seq_trace
 
 The `dbg` module is primarily targeted towards tracing through the
-`erlang:trace/3` function. It is sometimes desired to trace messages in a more
+`trace:process/4` function. It is sometimes desired to trace messages in a more
 delicate way, which can be done with the help of the `m:seq_trace` module.
 
 `m:seq_trace` implements sequential tracing (known in the AXE10 world, and
@@ -259,12 +253,23 @@ Here are a few suggestions for avoiding deadlock:
   function or, if `user` is not used as group leader, print to `user` instead of
   the default group leader. Example: `io:format(user, Str, Args)`.
 """.
--export([p/1,p/2,c/3,c/4,i/0,start/0,stop/0,stop_clear/0,tracer/0,
-	 tracer/2, tracer/3, get_tracer/0, get_tracer/1, tp/2, tp/3, tp/4, 
+%% Exports that use `dbg:session/1`.
+-export([start/0, stop/0, stop_clear/0,
+         tracer/0, tracer/2, tracer/3, get_tracer/0, get_tracer/1,
+         p/1, p/2,
+         i/0,
+         tp/2, tp/3, tp/4, 
 	 tpe/2, ctpe/1,
 	 ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, ctpl/0, ctpl/1, 
-	 ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3, ltp/0, wtp/1, rtp/1, 
-	 dtp/0, dtp/1, n/1, cn/1, ln/0, h/0, h/1]).
+	 ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3,
+         ltp/0, wtp/1, rtp/1, dtp/0, dtp/1,
+         n/1, cn/1, ln/0]).
+
+%% Session exports
+-export([session_create/1, session_destroy/1, session/2]).
+
+%% Session less exports
+-export([c/3, c/4, h/0, h/1]).
 
 -export([trace_port/2, flush_trace_port/0, flush_trace_port/1,
 	 trace_port_control/1, trace_port_control/2, trace_client/2, 
@@ -275,12 +280,19 @@ Here are a few suggestions for avoiding deadlock:
 -export([fun2ms/1]).
 
 %% Local exports
--export([erlang_trace/3,get_info/0,deliver_and_flush/1,do_relay/2]).
+-export([erlang_trace/4,get_info/0,deliver_and_flush/1,deliver_and_flush/2,do_relay/3]).
 
 %% Debug exports
 -export([wrap_presort/2, wrap_sort/2, wrap_postsort/1, wrap_sortfix/2,
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
+
+-doc """
+    A `m:dbg` session that can be used by `session/2` to
+    create isolated debugging sessions.
+    """.
+-opaque session() :: pid().
+-export_type([session/0]).
 
 -type match_pattern() :: atom() | list().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
@@ -300,8 +312,6 @@ Here are a few suggestions for avoiding deadlock:
 
 %%% Shell callable utility
 -doc """
-fun2ms(LiteralFun)
-
 Pseudo function that by means of a parse transform translates the
 _literal_ fun typed as parameter in the function call to a [match
 specification](`e:erts:match_spec.md`).
@@ -438,6 +448,132 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                            shell]}})
     end.
 
+-doc """
+    Create a new `m:dbg` session with the given `Name`.
+
+    The session is linked with the calling process and will be
+
+    Multiple sessions can have the same name.
+
+    > #### Note {: .info }
+    >
+    > The session functionality is experimental in Erlang/OTP 27
+    > and may change in future releases without notice.
+    """.
+-doc(#{ since => ~"OTP @OTP-19081@" }).
+-spec session_create(atom()) -> session().
+session_create(Name) ->
+    S = self(),
+    Dbg = spawn(
+            fun() ->
+                    erlang:monitor(process, S),
+                    init(Name, S)
+            end),
+    receive {Dbg, started} -> ok end,
+    Dbg.
+
+-define(DBG_SESSION_TAG, '$dbg_trace_session').
+
+-doc """
+    session(Session, Fun)
+
+    Runs `m:dbg` commands using the provides session, or
+    creates a session for the duration of the call if a session name
+    is provided.
+
+    Any `m:dbg` function that is called with in the provided fun
+    will use the `t:session/0` provided instead of the default
+    `dbg` session. This means that the tracing will be isolated
+    from other tracing users on the system.
+
+    The function returns the term that the fun returns.
+
+    *Example*:
+
+    ```erlang
+    1> S = dbg:session_create(my_session).
+    <0.91.0>
+    2> dbg:session(S, fun() -> dbg:tracer(), dbg:p(all,c), dbg:tp(lists,seq,x) end).
+    {ok,[{matched,nonode@nohost,2},{saved,x}]}
+    3> lists:seq(1, 10).
+    (<0.89.0>) call lists:seq(1,10)
+    (<0.89.0>) returned from lists:seq/2 -> [1,2,3,4,5,6,7,8,9,10]
+    [1,2,3,4,5,6,7,8,9,10]
+    4> dbg:session_destroy(S).
+    ok
+    ```
+
+    The state of the `t:session/0` is preserved in between `session/2` calls, so
+    you can call `session/2` multiple when debugging you application.
+
+    *Example*:
+
+    ```erlang
+    1> S = dbg:session_create(my_session).
+    <0.91.0>
+    %% Setup the initial traces
+    2> dbg:session(S, fun() -> dbg:tracer(), dbg:p(self(),c), dbg:tp(lists,seq,x) end).
+    {ok,[{matched,nonode@nohost,2},{saved,x}]}
+    3> lists:seq(1, 3).
+    (<0.89.0>) call lists:seq(1,3)
+    (<0.89.0>) returned from lists:seq/2 -> [1,2,3]
+    [1,2,3]
+    %% Add an additional trace pattern
+    4> dbg:session(S, fun() -> dbg:tpl(lists,seq_loop,x) end).
+    ok
+    5> lists:seq(1, 3).
+    (<0.89.0>) call lists:seq(1,3)
+    (<0.89.0>) call lists:seq_loop(3,3,[])
+    (<0.89.0>) call lists:seq_loop(1,1,[2,3])
+    (<0.89.0>) returned from lists:seq_loop/3 -> [1,2,3]
+    (<0.89.0>) returned from lists:seq_loop/3 -> [1,2,3]
+    (<0.89.0>) returned from lists:seq/2 -> [1,2,3]
+    [1,2,3]
+    6> dbg:session_destroy(S).
+    ok
+    ```
+
+    > #### Note {: .info }
+    >
+    > The session functionality is experimental in Erlang/OTP 27
+    > and may change in future releases without notice.
+    """.
+-doc(#{ since => ~"OTP @OTP-19081@" }).
+-spec session(atom(), (fun(() -> term()))) -> term();
+             (session(), (fun(() -> term()))) -> term().
+session(SessionName, Fun) when is_atom(SessionName) ->
+    Session = session_create(SessionName),
+    try
+        session(Session, Fun)
+    after
+        session_destroy(Session)
+    end;
+session(Session, Fun) ->
+    {_Pid, Ref} =
+        spawn_monitor(
+          fun() ->
+                  put(?DBG_SESSION_TAG, Session),
+                  exit(try {ok, Fun()} catch E:R:ST -> {error, E, R, ST} end)
+          end),
+    receive
+        {'DOWN', Ref, _, _, {ok, Result}} ->
+            Result;
+        {'DOWN', Ref, _, _, {error, E, R, ST}} ->
+            erlang:raise(E, R, ST)
+    end.
+
+get_dbg_session() ->
+    get(?DBG_SESSION_TAG).
+
+get_trace_session(Node) ->
+    %% We cannot use req here as the dbg server might be busy serving another
+    %% request
+    case erlang:process_info(ensure(),[{dictionary,Node}]) of
+        [{{dictionary,Node},undefined}] ->
+            {error, {no_tracer_on_node,Node}};
+        [{{dictionary,Node},{_Relay, _Tracer, Session}}] ->
+            Session
+    end.
 
 %%% Client functions.
 
@@ -446,8 +582,6 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
 %% Adds Node to the list of traced nodes.
 %%
 -doc """
-n(Nodename)
-
 Adds a remote node (`Nodename`) to the list of nodes where tracing is
 performed.
 
@@ -499,8 +633,6 @@ n(Node) ->
 %% Remove Node from the list of traced nodes.
 %%
 -doc """
-cn(Nodename)
-
 Clears a node from the list of traced nodes.
 
 `cn` stands for **c**lear **n**ode.
@@ -667,8 +799,6 @@ tpl({_Module, _Function, _Arity} = X, Pattern) ->
     do_tp(X,Pattern,[local]).
 
 -doc """
-tpe(Event, MatchSpec)
-
 Associates a match specification with trace event `send` or
 `'receive'`.
 
@@ -743,7 +873,7 @@ do_tp(X, Pattern, Flags) when is_list(Pattern) ->
 %% All nodes are handled the same way - also the local node if it is traced
 do_tp_on_nodes(Nodes, X, P, Flags) ->
     lists:map(fun(Node) ->
-		      case rpc:call(Node,erlang,trace_pattern,[X,P, Flags]) of
+		      case rpc:call(Node,trace,function,[get_trace_session(Node),X,P, Flags]) of
 			  N when is_integer(N) ->
 			      {matched, Node, N};
 			  Else ->
@@ -781,7 +911,7 @@ ctp(ModuleOrMFA)
 Disables call tracing for one or more functions specified by `ModuleOrMFA`.
 
 If `ModuleOrMFA` is an atom (a module name), this function call is
-equivalent to `ctp({ModuleOrMFA, '_', '_'}`.
+equivalent to `ctp({ModuleOrMFA, '_', '_'})`.
 
 Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
 
@@ -823,12 +953,12 @@ ctpl(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [local]).
 
 -doc """
-ctpl({Module, Function, Arity})
+ctpl(ModuleOrMFA)
 
 Disables local call tracing for one or more functions specified by `ModuleOrMFA`.
 
 If `ModuleOrMFA` is an atom (a module name), this function call is
-equivalent to `ctpl({ModuleOrMFA, '_', '_'}`.
+equivalent to `ctpl({ModuleOrMFA, '_', '_'})`.
 
 Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
 
@@ -863,12 +993,12 @@ ctpg(Module, Function, Arity) ->
     do_ctp({Module, Function, Arity}, [global]).
 
 -doc """
-ctpg(ModOrMFA)
+ctpg(ModuleOrMFA)
 
 Disables global call tracing for one or more functions specified by `ModuleOrMFA`.
 
 If `ModuleOrMFA` is an atom (a module name), this function call is
-equivalent to `ctpg({ModuleOrMFA, '_', '_'}`.
+equivalent to `ctpg({ModuleOrMFA, '_', '_'})`.
 
 Otherwise, `ModuleOrMFA` should be `{Module, Function, Arity}`.
 
@@ -893,8 +1023,6 @@ do_ctp({_Module, _Function, _Arity}=MFA,Flags) ->
     {ok,do_tp_on_nodes(Nodes,MFA,false,Flags)}.
 
 -doc """
-ctpe(Event)
-
 Clears match specifications for the specified trace event (`send` or
 `'receive'`), reverting to the default of tracing all triggered events.
 
@@ -917,8 +1045,6 @@ ctpe(Event) when Event =:= send;
 %% List saved and built-in trace patterns.
 %%
 -doc """
-ltp()
-
 Lists all match specifications previously used in the session.
 
 `ltp` stands for **l**ist **t**race **p**atterns.
@@ -990,8 +1116,6 @@ dtp() ->
 		end,
 		[]).
 -doc """
-dtp(N)
-
 Forgets a specific match specification saved during calls to `tp/2`.
 
 `dtp` stands for **d**elete **t**race **p**attern.
@@ -1009,8 +1133,6 @@ dtp(_) ->
 %%
 %% Actually write the built-in trace patterns too.
 -doc """
-wtp(Name)
-
 Saves all match specifications saved during the session (by calls to
 `tp/2` or `tpl/2`), as well as built-in match specifications, in a text
 file with the name designated by `Name`.
@@ -1052,8 +1174,6 @@ wtp(FileName) ->
 %% So the saved built-in trace patterns will merge with
 %% the already existing, which should be the same.
 -doc """
-rtp(Name)
-
 Reads match specifications from a text file (possibly) generated by
 the `wtp/1` function.
 
@@ -1211,8 +1331,6 @@ remote_start(StartTracer) ->
 %% Type and Data is started on Node.
 %%
 -doc """
-tracer(Nodename, Type, Data)
-
 This function is equivalent to `tracer/2`, but acts on the given node.
 
 A tracer is started on the node (`Nodename`) and the node is added to
@@ -1263,8 +1381,6 @@ trace_port_control(Operation) ->
     trace_port_control(node(), Operation).
 
 -doc """
-trace_port_control(Nodename, Operation)
-
 This function is used to do a control operation on the active trace port driver
 on the given node (`Nodename`).
 
@@ -1290,7 +1406,7 @@ The allowed values for `Operation` are:
 trace_port_control(Node, flush) ->
     case get_tracer(Node) of
 	{ok, Port} when is_port(Port) ->
-	    case catch rpc:call(Node,?MODULE,deliver_and_flush,[Port]) of
+	    case catch rpc:call(Node,?MODULE,deliver_and_flush,[get_trace_session(Node), Port]) of
 		[0] ->
 		    ok;
 		_ ->
@@ -1321,7 +1437,10 @@ trace_port_control(Node, Command, Arg) ->
 %% are delivered first, before flushing the driver.
 -doc false.
 deliver_and_flush(Port) ->
-    Ref = erlang:trace_delivered(all),
+    deliver_and_flush(get_trace_session(node(Port)), Port).
+-doc false.
+deliver_and_flush(Session, Port) ->
+    Ref = trace:delivered(Session, all),
     receive
 	{trace_delivered,all,Ref} -> ok
     end,
@@ -1623,8 +1742,6 @@ trace_client1(Type, OpenData, {Handler,HData}) ->
     end.
 
 -doc """
-stop_trace_client(Pid)
-
 Shuts down a previously started trace client.
 
 The `Pid` argument is the process id returned from the
@@ -1650,8 +1767,6 @@ p(Pid) ->
     p(Pid, [m]).
 
 -doc """
-p(Item, Flags)
-
 Traces `Item` in accordance to the value specified by `Flags`.
 
 `p` stands for **p**rocess.
@@ -1731,7 +1846,8 @@ enabled on all nodes added with the `n/1` or `tracer/3` function.
 
 - **`clear`** - Clears all flags.
 
-The list can also include any of the flags allowed in `erlang:trace/3`.
+The list can also include any of the flags allowed in `trace:process/4` and
+`trace:port/4`.
 
 This function returns either an error tuple or an `{ok, List}` tuple. The `List`
 consists of specifications of how many processes and ports that matched (in the
@@ -1766,8 +1882,6 @@ i() -> req(i).
 c(M, F, A) ->
     c(M, F, A, all).
 -doc """
-c(Mod, Fun, Args, Flags)
-
 Evaluates the expression [`apply(Mod, Fun, Args)`](`apply/3`) with the
 trace flags in `Flags` set.
 
@@ -1784,31 +1898,32 @@ c(M, F, A, Flags) ->
     case transform_flags(Flags) of
 	{error,Reason} -> {error,Reason};
 	Flags1 ->
-	    _ = tracer(),
-	    S = self(),
-	    Pid = spawn(fun() -> c(S, M, F, A, [get_tracer_flag() | Flags1]) end),
-	    Mref = erlang:monitor(process, Pid),
-	    receive
-		{'DOWN', Mref, _, _, Reason} ->
-		    stop(),
-		    {error, Reason};
-		{Pid, Res} ->
-		    erlang:demonitor(Mref, [flush]),
-		    %% 'sleep' prevents the tracer (recv_all_traces) from
-		    %% receiving garbage {'EXIT',...} when dbg i stopped.
-		    timer:sleep(1),
-		    stop(),
-		    Res
-	    end
+            Session = session_create(dbg_temp_session),
+            _ = session(Session, fun tracer/0),
+            S = self(),
+            {Pid, Mref} = spawn_monitor(fun() -> c(Session, S, M, F, A, Flags1) end),
+            receive
+                {'DOWN', Mref, _, _, Reason} ->
+                    session_destroy(Session),
+                    {error, Reason};
+                {Pid, Res} ->
+                    erlang:demonitor(Mref, [flush]),
+                    session_destroy(Session),
+                    %% 'sleep' prevents the tracer (recv_all_traces) from
+                    %% receiving garbage {'EXIT',...} when dbg i stopped.
+                    timer:sleep(1),
+                    Res
+            end
     end.
 
-c(Parent, M, F, A, Flags) ->
+c(Session, Parent, M, F, A, Flags) ->
+    TraceSession = session(Session, fun() -> get_trace_session(node()) end),
     %% The trace BIF is used directly here instead of the existing function
     %% p/2. The reason is that p/2 (when stopping trace) sends messages which 
     %% we don't want to show up in this simple tracing from the shell.
-    erlang:trace(self(), true, Flags),
+    trace:process(TraceSession, self(), true, Flags),
     Res = apply(M, F, A),
-    erlang:trace(self(), false, [all]),
+    trace:process(TraceSession, self(), false, [all]),
     Parent ! {self(), Res}.
 
 -doc """
@@ -1818,16 +1933,31 @@ down all trace clients, and closes all trace ports.
 """.
 -spec stop() -> ok.
 stop() ->
-    {ok, _} = ctp(),
-    {ok, _} = ctpe('receive'),
-    {ok, _} = ctpe('send'),
 
-    Mref = erlang:monitor(process, dbg),
-    catch dbg ! {self(),stop},
+    TraceProc =
+        case get_dbg_session() of
+            undefined -> dbg;
+            Session -> Session
+        end,
+
+    session_destroy(TraceProc).
+
+-doc """
+Destroys a dbg `t:session/0`.
+
+This will terminate all started processes and destroy the `t:trace:session/0`.
+""".
+-doc(#{ since => ~"OTP @OTP-19081@" }).
+-spec session_destroy(Session :: session()) -> ok.
+session_destroy(TraceProc) ->
+    Mref = erlang:monitor(process, TraceProc),
+    catch TraceProc ! {self(),stop},
 
     receive
         {'DOWN',Mref,_,_,_} -> ok
     end.
+
+
 
 %% This is a vestigial function that used to be documented as a variant of
 %% `stop/0` that also clears global function traces. Since `stop/0` now clears
@@ -1852,21 +1982,25 @@ req(R) ->
 	    Reply
     end.
 
-%% Returns the pid of the dbg server, or in worst case the name.
+%% Returns the pid of the dbg server.
 %% Starts a new server if necessary.
 ensure() ->
-    case whereis(dbg) of
-	undefined -> 
-	    case start() of
-		{ok, P} ->
-		    P;
-		{error, already_started} ->
-		    dbg
-	    end;
-	Pid -> 
-	    Pid
+    case get_dbg_session() of
+        undefined ->
+            case whereis(dbg) of
+                undefined -> 
+                    case start() of
+                        {ok, P} ->
+                            P;
+                        {error, already_started} ->
+                            whereis(dbg)
+                    end;
+                Pid -> 
+                    Pid
+            end;
+        Pid ->
+            Pid
     end.
-
 
 %%% Server implementation.
 -doc false.
@@ -1877,7 +2011,10 @@ start(TracerFun) ->
     S = self(),
     case whereis(dbg) of
 	undefined ->
-	    Dbg = spawn(fun() -> init(S) end),
+	    Dbg = spawn(fun() ->
+                                register(dbg, self()),
+                                init(dbg, S)
+                        end),
 	    receive {Dbg,started} -> ok end,
 	    case TracerFun of
 		no_tracer ->
@@ -1889,11 +2026,10 @@ start(TracerFun) ->
 	    req({tracer,TracerFun})
     end.
 
-init(Parent) ->
+init(Name, Parent) ->
     process_flag(trap_exit, true),
-    register(dbg, self()),
     Parent ! {self(),started},
-    loop({[],[]},[]).
+    loop({[],[]},[],Parent,Name).
 
 %
 % SurviveLinks = Processes we should take with us while falling, 
@@ -1901,16 +2037,16 @@ init(Parent) ->
 %                and relay processes on other nodes)
 %                SurviveLinks = {TraceClients,Relays}
 %
-loop({C,T}=SurviveLinks, Table) ->
+loop({C,T}=SurviveLinks, Table, Parent, SessionName) ->
     receive
 	{From,i} ->
             Modifier = modifier(),
             Reply = display_info(lists:map(fun({N,_}) -> N end,get()), Modifier),
 	    reply(From, Reply),
-	    loop(SurviveLinks, Table);
+	    loop(SurviveLinks, Table, Parent, SessionName);
 	{From,{p,Pid,Flags}} ->
 	    reply(From, trace_process(Pid, Flags)),
-	    loop(SurviveLinks, Table);
+	    loop(SurviveLinks, Table, Parent, SessionName);
 	{From,{tracer,TracerFun}} when is_function(TracerFun) ->
 	    case get(node()) of
 		undefined ->
@@ -1918,22 +2054,26 @@ loop({C,T}=SurviveLinks, Table) ->
 			{'EXIT', Reason} ->
 			    reply(From, {error, Reason});
 			Tracer when is_pid(Tracer); is_port(Tracer) ->
-			    put(node(),{self(),Tracer}),
+			    put(node(),
+                                {self(), Tracer,
+                                 trace:session_create(SessionName, Tracer, [])}),
 			    reply(From, {ok,self()});
                         {Module, _State} = Tracer when is_atom(Module) ->
-                            put(node(),{self(),Tracer}),
+                            put(node(),
+                                {self(), Tracer,
+                                 trace:session_create(SessionName, Tracer, [])}),
 			    reply(From, {ok,self()})
 		    end;
-		{_Relay,_Tracer} ->
+		{_Relay,_Tracer, _Session} ->
 		    reply(From, {error, already_started})
 	    end,
-	    loop(SurviveLinks,Table);
+	    loop(SurviveLinks,Table, Parent, SessionName);
 	{From,{get_tracer,Node}} ->
 	    case get(Node) of
 		undefined -> reply(From,{error, {no_tracer_on_node,Node}});
-		{_Relay,Tracer} -> reply(From, {ok,Tracer})
+		{_Relay,Tracer,_Session} -> reply(From, {ok,Tracer})
 	    end,
-	    loop(SurviveLinks, Table);
+	    loop(SurviveLinks, Table, Parent, SessionName);
 	{From, get_table} ->
 	    Tab = case Table of
 		      [] ->
@@ -1942,71 +2082,84 @@ loop({C,T}=SurviveLinks, Table) ->
 			  Table
 		  end,
 	    reply(From, {ok, Tab}),
-	    loop(SurviveLinks, Tab);
+	    loop(SurviveLinks, Tab, Parent, SessionName);
 	{_From,stop} ->
 	    %% We want to make sure that all trace messages have been delivered
 	    %% on all nodes that might be traced. Since dbg:cn/1 does not turn off
 	    %% tracing on the node it removes from the list of active trace nodes,
-	    %% we will call erlang:trace_delivered/1 on ALL nodes that we have
+	    %% we will call trace:delivered/2 on ALL nodes that we have
 	    %% connections to.
 	    %% If it is a file trace driver, we will also flush the port.
-	    lists:foreach(fun({Node,{_Relay,Port}}) ->
-				  rpc:call(Node,?MODULE,deliver_and_flush,[Port])
+	    lists:foreach(fun({Node,{_Relay,Port,Session}}) ->
+				  rpc:call(Node,?MODULE,deliver_and_flush,[Session,Port])
 			  end,
 			  get()),
 	    exit(done);
-	{From, {link_to, Pid}} -> 	    
+	{From, {link_to, Pid}} ->
 	    case (catch link(Pid)) of
 		{'EXIT', Reason} ->
 		    reply(From, {error, Reason}),
-		    loop(SurviveLinks, Table);
+		    loop(SurviveLinks, Table, Parent, SessionName);
 		_ ->
 		    reply(From, {ok, Pid}),
-		    loop({[Pid|C],T}, Table)
+		    loop({[Pid|C],T}, Table, Parent, SessionName)
 	    end;
 	{From, {add_node, Node}} ->
 	    case get(node()) of
 		undefined -> 
 		    reply(From, {error, no_local_tracer}),
-		    loop(SurviveLinks, Table);
-		{_LocalRelay,Tracer} when is_port(Tracer) -> 
+		    loop(SurviveLinks, Table, Parent, SessionName);
+		{_LocalRelay,Tracer, _Session} when is_port(Tracer) -> 
 		    reply(From, {error, cant_trace_remote_pid_to_local_port}),
-		    loop(SurviveLinks, Table);
-		{_LocalRelay,Tracer} when is_tuple(Tracer) -> 
+		    loop(SurviveLinks, Table, Parent, SessionName);
+		{_LocalRelay,Tracer, _Session} when is_tuple(Tracer) -> 
 		    reply(From, {error, cant_trace_remote_pid_to_local_module}),
-		    loop(SurviveLinks, Table);
-	        {_LocalRelay,Tracer} when is_pid(Tracer) ->
-		    case (catch relay(Node, Tracer)) of
+		    loop(SurviveLinks, Table, Parent, SessionName);
+	        {_LocalRelay,Tracer, _Session} when is_pid(Tracer) ->
+		    case (catch relay(SessionName, Node, Tracer)) of
 			{ok,Relay} ->
 			    reply(From, {ok, Node}),
-			    loop({C,[Relay|T]}, Table);
+			    loop({C,[Relay|T]}, Table, Parent, SessionName);
 			{'EXIT', Something} ->
 			    reply(From, {error, Something}),
-			    loop(SurviveLinks, Table);
+			    loop(SurviveLinks, Table, Parent, SessionName);
 			Error ->
 			    reply(From, Error),
-			    loop(SurviveLinks, Table)
+			    loop(SurviveLinks, Table, Parent, SessionName)
 		    end
 	    end;
 	{From, {add_node, Node, Type, Data}} ->
-	    case (catch relay(Node, {Type,Data})) of
+	    case (catch relay(SessionName, Node, {Type,Data})) of
 		{ok,Relay} ->
 		    reply(From, {ok, Node}),
-		    loop({C,[Relay|T]}, Table);
+		    loop({C,[Relay|T]}, Table, Parent, SessionName);
 		{'EXIT', Something} ->
 		    reply(From, {error, Something}),
-		    loop(SurviveLinks, Table);
+		    loop(SurviveLinks, Table, Parent, SessionName);
 		Error ->
 		    reply(From, Error),
-		    loop(SurviveLinks, Table)
+		    loop(SurviveLinks, Table, Parent, SessionName)
 	    end;
 	{From, {remove_node, Node}} ->
 	    erase(Node),
 	    reply(From, ok),
-	    loop(SurviveLinks, Table);
+	    loop(SurviveLinks, Table, Parent, SessionName);
 	{From, get_nodes} ->
 	    reply(From, lists:map(fun({N,_}) -> N end, get())),
-	    loop(SurviveLinks, Table);
+	    loop(SurviveLinks, Table, Parent, SessionName);
+        {From, {get_session, Node}} ->
+            case get(Node) of
+                undefined -> reply(From,{error, {no_tracer_on_node,Node}});
+		{_Relay,_Tracer,Session} -> reply(From, Session)
+	    end,
+            loop(SurviveLinks, Table, Parent, SessionName);
+        {'DOWN', _Ref, process, Parent, _} ->
+            case get(node()) of
+                undefined -> ok;
+                {_Relay, _Tracer, Session} ->
+                    session_destroy(Session),
+                    exit(shutdown)
+            end;
 	{'EXIT', Pid, Reason} ->
 	    case lists:delete(Pid, C) of
 		C ->
@@ -2020,16 +2173,16 @@ loop({C,T}=SurviveLinks, Table) ->
 			    exit(done);
 			NewT -> 
 			    erase(node(Pid)),
-			    loop({C,NewT}, Table)
+			    loop({C,NewT}, Table, Parent, SessionName)
 		    end;
 		NewC ->
-		    loop({NewC,T}, Table)
+		    loop({NewC,T}, Table, Parent, SessionName)
 	    end;
 	Other ->
             Modifier = modifier(user),
 	    io:format(user,"** dbg got garbage: ~"++Modifier++"p~n",
 		      [{Other,SurviveLinks,Table}]),
-	    loop(SurviveLinks, Table)
+	    loop(SurviveLinks, Table, Parent, SessionName)
     end.
 
 reply(Pid, Reply) ->
@@ -2151,9 +2304,9 @@ trac(Proc, How, Flags) ->
 	    end
     end.
 
-trac(Node, {_Replay, Tracer}, AtomPid, How, Flags) ->
+trac(Node, {_Replay, _Tracer, Session}, AtomPid, How, Flags) ->
     case rpc:call(Node, ?MODULE, erlang_trace,
-		  [AtomPid, How, [get_tracer_flag(Tracer) | Flags]]) of
+		  [Session, AtomPid, How, Flags]) of
 	N when is_integer(N) ->
 	    {matched, Node, N};
 	{badrpc,Reason} ->
@@ -2163,38 +2316,43 @@ trac(Node, {_Replay, Tracer}, AtomPid, How, Flags) ->
     end.
 
 -doc false.
-erlang_trace(AtomPid, How, Flags) ->
+erlang_trace(Session, AtomPid, How, Flags) ->
     case to_pidspec(AtomPid) of
 	{badpid,_} ->
 	    {no_proc,AtomPid};
-	P ->
-	    erlang:trace(P, How, Flags)
+	P when is_pid(P); P =:= processes; P =:= new_processes; P =:= existing_processes ->
+            trace:process(Session, P, How, Flags);
+        P when is_port(P); P =:= ports; P =:= new_ports; P =:= existing_ports ->
+            trace:port(Session, P, How, Flags);
+        P ->
+            trace:process(Session, P, How, Flags) +
+            trace:port(Session, P, How, Flags)
     end.
 
-%% Since we are not allowed to do erlang:trace/3 on a remote
+%% Since we are not allowed to do trace:process/4 on a remote
 %% process, we create a relay process at the remote node.
 
-relay(Node,To) when Node /= node() ->
+relay(SessionName, Node,To) when Node /= node() ->
     case get(Node) of
 	undefined ->
 	    S = self(),
-	    Pid = spawn_link(Node, dbg, do_relay, [S, To]),
-	    receive {started,Remote} -> put(Node, {Pid,Remote}) end,
+	    Pid = spawn_link(Node, dbg, do_relay, [SessionName, S, To]),
+	    receive {started,Remote,Session} -> put(Node, {Pid,Remote,Session}) end,
 	    {ok,Pid};
-	{_Relay,PortOrPid} ->
+	{_Relay,PortOrPid,_Session} ->
 	    {error, {already_started, PortOrPid}}
     end.
 
 -doc false.
-do_relay(Parent,RelP) ->
+do_relay(SessionName, Parent,RelP) ->
     process_flag(trap_exit, true),
     case RelP of
 	{Type,Data} -> 
 	    {ok,Tracer} = remote_tracer(Type,Data),
-	    Parent ! {started,Tracer},
+	    Parent ! {started, Tracer, trace:session_create(SessionName, Tracer, [])},
             ok;
 	Pid when is_pid(Pid) ->
-	    Parent ! {started,self()},
+	    Parent ! {started, self(), trace:session_create(SessionName, self(), [])},
             ok
     end,
     do_relay_1(RelP).
@@ -2528,7 +2686,7 @@ ts(set_on_first_link) -> "sofl";
 ts(Other) -> atom_to_list(Other).
 
 %%
-%% Turn (pid or) atom into a PidSpec for erlang:trace,
+%% Turn (pid or) atom into a PidSpec for trace:process/4,
 %% return {badpid,X} on failure 
 %%
 
@@ -2586,8 +2744,8 @@ pinfo(P, X) when is_port(P) -> check(rpc:call(node(P), erlang, port_info, [P, X]
 pinfo(P, X) -> check(rpc:call(node(P), erlang, process_info, [P, X])).
 
 
-tinfo(P, X) when node(P) == node() -> erlang:trace_info(P, X);
-tinfo(P, X) -> check(rpc:call(node(P), erlang, trace_info, [P, X])).
+tinfo(P, X) when node(P) == node() -> trace:info(get_trace_session(node()), P, X);
+tinfo(P, X) -> check(rpc:call(node(P), trace, info, [get_trace_session(node(P)), P, X])).
 
 check({badrpc, _}) -> undefined;
 check(X) -> X.
@@ -2783,21 +2941,12 @@ get_tracer() ->
     req({get_tracer,node()}).
 
 -doc """
-get_tracer(Nodename)
-
 Returns the process, port, or tracer module to which all trace messages are sent.
 """.
 -spec get_tracer(Nodename) -> {ok, Tracer} when Nodename :: atom(),
    Tracer :: port() | pid() | {module(), term()}.
 get_tracer(Node) ->
     req({get_tracer,Node}).
-get_tracer_flag() ->
-    {ok, Tracer} = get_tracer(),
-    get_tracer_flag(Tracer).
-get_tracer_flag({Module,State}) ->
-    {tracer, Module, State};
-get_tracer_flag(Port = Pid) when is_port(Port); is_pid(Pid)->
-    {tracer, Pid = Port}.
 
 save_pattern([]) ->
     0;
@@ -3069,8 +3218,6 @@ h() ->
        """).
 
 -doc """
-h(Item)
-
 Gives a brief help text for functions in the `dbg` module.
 
 `h` stands for **h**elp.
@@ -3190,8 +3337,6 @@ help_text(n) ->
     ~"""
      n(Nodename) -> {ok, Nodename} | {error, Reason}
       - Starts a tracer server on the given node.
-     n(Nodename,Type,Data) -> {ok, Nodename} | {error, Reason}
-      - Starts a tracer server with additional args on the given node.
      """;
 help_text(cn) ->
     ~"""
