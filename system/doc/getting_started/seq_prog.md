@@ -22,8 +22,8 @@ limitations under the License.
 ## The Erlang Shell
 
 Most operating systems have a command interpreter or shell, UNIX and Linux have
-many, Windows has the command prompt. Erlang has its own shell where bits of
-Erlang code can be written directly, and be evaluated to see what happens (see
+many, Windows has the command prompt, powershell and more. Erlang has its own shell
+where bits of Erlang code can be written directly, and be evaluated to see what happens (see
 the `m:shell` manual page in STDLIB).
 
 Start the Erlang shell (in Linux or UNIX) by starting a shell or command
@@ -38,8 +38,8 @@ Eshell V5.9.1  (abort with ^G)
 1>
 ```
 
-Type "2 + 5." in the shell and then press Enter (carriage return). Notice that
-you tell the shell you are done entering code by finishing with a full stop "."
+Type `2 + 5.` in the shell and then press Enter (carriage return). Notice that
+you tell the shell you are done entering code by finishing with a full stop `.`
 and a carriage return.
 
 ```erlang
@@ -65,8 +65,8 @@ Here is a bit more complex calculation:
 2618.0
 ```
 
-Notice the use of brackets, the multiplication operator "\*", and the division
-operator "/", as in normal arithmetic (see
+Notice the use of brackets, the multiplication operator `*`, and the division
+operator `/`, as in normal arithmetic (see
 [Expressions](`e:system:expressions.md`)).
 
 Press Control-C to shut down the Erlang system and the Erlang shell.
@@ -80,7 +80,7 @@ a
 $
 ```
 
-Type "a" to leave the Erlang system.
+Type `a` to leave the Erlang system.
 
 Another way to shut down the Erlang system is by entering `halt/0`:
 
@@ -117,7 +117,7 @@ This can be done in an Erlang shell as follows, where `c` means compile:
 {ok,tut}
 ```
 
-The `{ok,tut}` means that the compilation is OK. If it says "error" it means
+The `{ok,tut}` means that the compilation is OK. If it says `error` it means
 that there is some mistake in the text that you entered. Additional error
 messages gives an idea to what is wrong so you can modify the text and then try
 to compile the program again.
@@ -139,12 +139,12 @@ in the module is the module name (see [Modules](`e:system:modules.md`)):
 -module(tut).
 ```
 
-Thus, the module is called _tut_. Notice the full stop "." at the end of the
+Thus, the module is called _tut_. Notice the full stop `.` at the end of the
 line. The files which are used to store the module must have the same name as
-the module but with the extension ".erl". In this case the file name is
+the module but with the extension `.erl`. In this case the file name is
 `tut.erl`. When using a function in another module, the syntax
 `module_name:function_name(arguments)` is used. So the following means call
-function `double` in module `tut` with argument "10".
+function `double` in module `tut` with argument `10`.
 
 ```erlang
 4> tut:double(10).
@@ -158,11 +158,11 @@ which takes one argument (`X` in our example):
 ```
 
 The second line also says that this function can be called from outside the
-module `tut`. More about this later. Again, notice the "." at the end of the
+module `tut`. More about this later. Again, notice the `.` at the end of the
 line.
 
 Now for a more complicated example, the factorial of a number. For example, the
-factorial of 4 is 4 _ 3 _ 2 \* 1, which equals 24.
+factorial of 4 is 4 _ 3 _ 2 * 1, which equals 24.
 
 Enter the following code in a file named `tut1.erl`:
 
@@ -186,7 +186,7 @@ fac(1) ->
     1;
 ```
 
-Notice that this part ends with a semicolon ";" that indicates that there is
+Notice that this part ends with a semicolon `;` that indicates that there is
 more of the function `fac>` to come.
 
 The second part says that the factorial of N is N multiplied by the factorial of
@@ -197,7 +197,7 @@ fac(N) ->
     N * fac(N - 1).
 ```
 
-Notice that this part ends with a "." saying that there are no more parts of
+Notice that this part ends with a `.` saying that there are no more parts of
 this function.
 
 Compile the file:
@@ -332,7 +332,7 @@ tut2:convert(3, inch).
 Does this mean that 3 is in inches? Or does it mean that 3 is in centimeters and
 is to be converted to inches? Erlang has a way to group things together to make
 things more understandable. These are called _tuples_ and are surrounded by
-curly brackets, "\{" and "\}".
+curly brackets, `{` and `}`.
 
 So, `{inch,3}` denotes 3 inches and `{centimeter,5}` denotes 5 centimeters. Now
 let us write a new program that converts centimeters to inches and conversely.
@@ -365,7 +365,7 @@ can be the result of another function. Consider how line 16 (above) works. The
 argument given to the function `{inch,5}` is first matched against the first
 head clause of `convert_length`, that is, `convert_length({centimeter,X})`. It
 can be seen that `{centimeter,X}` does not match `{inch,5}` (the head is the bit
-before the "->"). This having failed, let us try the head of the next clause
+before the `->`). This having failed, let us try the head of the next clause
 that is, `convert_length({inch,Y})`. This matches, and `Y` gets the value 5.
 
 Tuples can have more than two parts, in fact as many parts as you want, and
@@ -385,7 +385,7 @@ is `{c,-10}`. Here `c` represents Celsius and `f` Fahrenheit.
 ## Lists
 
 Whereas tuples group things together, it is also needed to represent lists of
-things. Lists in Erlang are surrounded by square brackets, "\[" and "]". For
+things. Lists in Erlang are surrounded by square brackets, `[` and `]`. For
 example, a list of the temperatures of various cities in the world can be:
 
 ```erlang
@@ -397,7 +397,7 @@ Notice that this list was so long that it did not fit on one line. This does not
 matter, Erlang allows line breaks at all "sensible places" but not, for example,
 in the middle of atoms, integers, and others.
 
-A useful way of looking at parts of lists, is by using "|". This is best
+A useful way of looking at parts of lists, is by using `|`. This is best
 explained by an example using the shell:
 
 ```erlang
@@ -410,7 +410,7 @@ explained by an example using the shell:
 ```
 
 To separate the first elements of the list from the rest of the list, `|` is
-used. `First` has got value 1 and `TheRest` has got the value \[2,3,4,5].
+used. `First` has got value `1` and `TheRest` has got the value `[2,3,4,5]`.
 
 Another example:
 
@@ -428,7 +428,7 @@ Another example:
 Here you see the use of `|` to get the first two elements from the list. If you
 try to get more elements from the list than there are elements in the list, an
 error is returned. Notice also the special case of the list with no elements,
-[]:
+`[]`:
 
 ```erlang
 24> [A, B | C] = [1, 2].
@@ -447,7 +447,7 @@ this is that a variable can only be given a value once in its context (scope).
 More about this later.
 
 The following example shows how to find the length of a list. Enter the
-following code in a file named `tut4.erl`):
+following code in a file named `tut4.erl`:
 
 ```erlang
 -module(tut4).
@@ -495,7 +495,7 @@ that is, where linked lists are used in other languages.
 
 Erlang does not have a string data type. Instead, strings can be represented by
 lists of Unicode characters. This implies for example that the list `[97,98,99]`
-is equivalent to "abc". The Erlang shell is "clever" and guesses what list you
+is equivalent to `"abc"`. The Erlang shell is "clever" and guesses what list you
 mean and outputs it in what it thinks is the most appropriate form, for example:
 
 ```erlang
@@ -506,7 +506,7 @@ mean and outputs it in what it thinks is the most appropriate form, for example:
 ## Maps
 
 Maps are a set of key to value associations. These associations are encapsulated
-with "#\{" and "\}". To create an association from "key" to value 42:
+with `#{` and `}`. To create an association from `"key"` to value `42`:
 
 ```erlang
 > #{ "key" => 42 }.
@@ -638,38 +638,31 @@ existing key with a new value is with the `:=` operator.
 ## Standard Modules and Manual Pages
 
 Erlang has many standard modules to help you do things. For example, the module
-`io` contains many functions that help in doing formatted input/output. To look
-up information about standard modules, the command `erl -man` can be used at the
-operating shell or command prompt (the same place as you started `erl`). Try the
-operating system shell command:
+`m:io` contains many functions that help in doing formatted input/output. To look
+up information about standard modules, the command `h(..)` can be used at the
+erlang shell. Try the erlang shell command:
 
 ```text
-$ erl -man io
-ERLANG MODULE DEFINITION                                    io(3)
+1> h(io).
 
-MODULE
-     io - Standard I/O Server Interface Functions
+	io
 
-DESCRIPTION
-     This module provides an  interface  to  standard  Erlang  IO
-     servers. The output functions all return ok if they are suc-
+    Standard I/O server interface functions.
+    
+    This module provides an interface to standard Erlang I/O servers. The output
+    functions all return `ok` if they are successful, or exit if they are not.
      ...
 ```
 
 If this does not work on your system, the documentation is included as HTML in
 the Erlang/OTP release. You can also read the documentation as HTML or download
-it as PDF from either of the sites www.erlang.se (commercial Erlang) or
-www.erlang.org (open source). For example, for Erlang/OTP release R9B:
-
-```text
-http://www.erlang.org/doc/r9b/doc/index.html
-```
+it as epub from <www.erlang.org/doc>.
 
 ## Writing Output to a Terminal
 
 It is nice to be able to do formatted output in examples, so the next example
-shows a simple way to use the `io:format` function. Like all other exported
-functions, you can test the `io:format` function in the shell:
+shows a simple way to use the `io:format/2` function. Like all other exported
+functions, you can test the `io:format/2` function in the shell:
 
 ```erlang
 31> io:format("hello world~n", []).
@@ -686,15 +679,15 @@ this outputs two Erlang terms: hello world
 ok
 ```
 
-The function `format/2` (that is, `format` with two arguments) takes two lists.
-The first one is nearly always a list written between " ". This list is printed
-out as it is, except that each ~w is replaced by a term taken in order from the
+The function `io:format/2` (that is, `format` with two arguments) takes two lists.
+The first one is nearly always a list written between `" "`. This list is printed
+out as it is, except that each `~w` is replaced by a term taken in order from the
 second list. Each ~n is replaced by a new line. The `io:format/2` function
 itself returns the atom `ok` if everything goes as planned. Like other functions
 in Erlang, it crashes if an error occurs. This is not a fault in Erlang, it is a
 deliberate policy. Erlang has sophisticated mechanisms to handle errors which
-are shown later. As an exercise, try to make `io:format` crash, it should not be
-difficult. But notice that although `io:format` crashes, the Erlang shell itself
+are shown later. As an exercise, try to make `io:format/2` crash, it should not be
+difficult. But notice that although `io:format/2` crashes, the Erlang shell itself
 does not crash.
 
 ## A Larger Example
@@ -761,9 +754,8 @@ this, they execute (evaluate) from the inside out. That is, first
 works in a similar way to the `convert_length` function in the previous example.
 
 `print_temp` simply calls `io:format` in a similar way to what has been
-described above. Notice that ~-15w says to print the "term" with a field length
-(width) of 15 and left justify it. (see the [io(3)](`io:fwrite/1`)) manual page
-in STDLIB.
+described above. Notice that `~-15w` says to print the "term" with a field length
+(width) of 15 and left justify it. (see `io:fwrite/1` manual page in STDLIB).
 
 Now `format_temps(Rest)` is called with the rest of the list as an argument.
 This way of doing things is similar to the loop constructs in other languages.
@@ -898,7 +890,7 @@ This is possibly a little clearer.
 
 ## More About Lists
 
-Remember that the | operator can be used to get the head of a list:
+Remember that the `|` operator can be used to get the head of a list:
 
 ```erlang
 47> [M1|T1] = [paris, london, rome].
@@ -909,7 +901,7 @@ paris
 [london,rome]
 ```
 
-The | operator can also be used to add a head to a list:
+The `|` operator can also be used to add a head to a list:
 
 ```erlang
 50> L1 = [madrid | T1].
@@ -1007,7 +999,7 @@ format_temps(List_of_cities) ->
 ```
 
 Here `format_temps/1` calls `convert_list_to_c/1`. `convert_list_to_c/1` takes
-off the head of the `List_of_cities`, converts it to Celsius if needed. The |
+off the head of the `List_of_cities`, converts it to Celsius if needed. The `|`
 operator is used to add the (maybe) converted to the converted rest of the list:
 
 ```erlang
@@ -1160,7 +1152,7 @@ if
 end
 ```
 
-Notice that there is no ";" before `end`. Conditions do the same as guards, that
+Notice that there is no `;` before `end`. Conditions do the same as guards, that
 is, tests that succeed or fail. Erlang starts at the top and tests until it
 finds a condition that succeeds. Then it evaluates (performs) the action
 following the condition and ignores all other conditions and actions before the
@@ -1535,7 +1527,7 @@ In `sort` the fun is used:
 fun({_, {c, Temp1}}, {_, {c, Temp2}}) -> Temp1 < Temp2 end,
 ```
 
-Here the concept of an _anonymous variable_ "\_" is introduced. This is simply
+Here the concept of an _anonymous variable_ `_` is introduced. This is simply
 shorthand for a variable that gets a value, but the value is ignored. This can
 be used anywhere suitable, not just in funs. `Temp1 < Temp2` returns `true` if
 `Temp1` is less than `Temp2`.

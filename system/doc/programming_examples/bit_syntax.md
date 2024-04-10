@@ -27,20 +27,20 @@ The complete specification for the bit syntax appears in the
 In Erlang, a Bin is used for constructing binaries and matching binary patterns.
 A Bin is written with the following syntax:
 
-```text
-      <<E1, E2, ... En>>
+```erlang
+<<E1, E2, ... En>>
 ```
 
 A Bin is a low-level sequence of bits or bytes. The purpose of a Bin is to
 enable construction of binaries:
 
-```text
+```erlang
 Bin = <<E1, E2, ... En>>
 ```
 
 All elements must be bound. Or match a binary:
 
-```text
+```erlang
 <<E1, E2, ... En>> = Bin
 ```
 
@@ -65,7 +65,7 @@ how elements and tails are specified.
 _Example 1:_ A binary can be constructed from a set of constants or a string
 literal:
 
-```text
+```erlang
 Bin11 = <<1, 17, 42>>,
 Bin12 = <<"abc">>
 ```
@@ -91,7 +91,7 @@ variable `C` to specify a 16-bits segment of `Bin2`.
 _Example 3:_ A Bin can also be used for matching. `D`, `E`, and `F` are unbound
 variables, and `Bin2` is bound, as in Example 2:
 
-```text
+```erlang
 <<D:16, E, F/binary>> = Bin2
 ```
 
@@ -233,7 +233,7 @@ must be a multiple of 8 bits, that is, only whole bytes.
 
 _Example:_
 
-```text
+```erlang
 <<Bin/binary,Bitstring/bitstring>>
 ```
 
@@ -252,7 +252,7 @@ bit alignment.
 The following example successfully constructs a bitstring of 7 bits, provided
 that all of X and Y are integers:
 
-```text
+```erlang
 <<X:1,Y:6>>
 ```
 
@@ -265,14 +265,14 @@ However, for syntactical reasons, both `Value` and `Size` must be enclosed in
 parenthesis if the expression consists of anything more than a single literal or
 a variable. The following gives a compiler syntax error:
 
-```text
+```erlang
 <<X+1:8>>
 ```
 
 This expression must be rewritten into the following, to be accepted by the
 compiler:
 
-```text
+```erlang
 <<(X+1):8>>
 ```
 
@@ -280,13 +280,13 @@ compiler:
 
 A literal string can be written instead of an element:
 
-```text
+```erlang
 <<"hello">>
 ```
 
 This is syntactic sugar for the following:
 
-```text
+```erlang
 <<$h,$e,$l,$l,$o>>
 ```
 
@@ -314,7 +314,7 @@ floating point literal. Expressions are not allowed.
 [guard expression](`e:system:expressions.md#guard-expressions`), which can use
 literals and previously bound variables. The following is not allowed:
 
-```text
+```erlang
 foo(N, <<X:N,T/binary>>) ->
    {X,T}.
 ```
@@ -324,7 +324,7 @@ The two occurrences of `N` are not related. The compiler will complain that the
 
 The correct way to write this example is as follows:
 
-```text
+```erlang
 foo(N, Bin) ->
    <<X:N,T/binary>> = Bin,
    {X,T}.
@@ -341,7 +341,7 @@ There is one exception to the rule that a variable that is used as size must be
 previously bound. It is possible to match and bind a variable, and use it as a
 size within the same binary pattern. For example:
 
-```text
+```erlang
 bar(<<Sz:8,Payload:Sz/binary-unit:8,Rest/binary>>) ->
    {Payload,Rest}.
 ```
@@ -351,7 +351,7 @@ used at the number of bytes to match out as a binary.
 
 Starting in OTP 23, the size can be a guard expression:
 
-```text
+```erlang
 bar(<<Sz:8,Payload:((Sz-1)*8)/binary,Rest/binary>>) ->
    {Payload,Rest}.
 ```
@@ -363,7 +363,7 @@ subtract one byte to get the size of the payload.
 
 To match out the rest of a binary, specify a binary field without size:
 
-```text
+```erlang
 foo(<<A:8,Rest/binary>>) ->
 ```
 
@@ -371,7 +371,7 @@ The size of the tail must be evenly divisible by 8.
 
 To match out the rest of a bitstring, specify a field without size:
 
-```text
+```erlang
 foo(<<A:8,Rest/bitstring>>) ->
 ```
 

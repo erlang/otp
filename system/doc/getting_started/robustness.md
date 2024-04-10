@@ -115,7 +115,7 @@ received, the actions following the time-out are done after 5000 milliseconds.
 reception specifications in the `receive`. It is also possible to call a
 function that returned an integer for the time-out:
 
-```text
+```erlang
 after pong_timeout() ->
 ```
 
@@ -222,7 +222,7 @@ get killed when it receives abnormal exit signals. Instead, all signals are
 turned into normal messages on the format `{'EXIT',FromPID,Reason}` and added to
 the end of the receiving process' message queue. This behaviour is set by:
 
-```text
+```erlang
 process_flag(trap_exit, true)
 ```
 

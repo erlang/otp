@@ -886,7 +886,7 @@ _Available control sequences:_
   modifier (`t`) is used. Floats are printed accurately as the shortest,
   correctly rounded string.
 
-- **`p`** - Writes the data with standard syntax in the same way as `~w`, but
+- **`p`**{: #tilde_p } - Writes the data with standard syntax in the same way as `~w`, but
   breaks terms whose printed representation is longer than one line into many
   lines and indents each line sensibly. Left-justification is not supported. It
   also tries to detect flat lists of printable characters and output these as

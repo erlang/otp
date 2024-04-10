@@ -58,7 +58,7 @@ This enables references to the fields of the record by name. For example, if `P`
 is a variable whose value is a `person` record, the following code access the
 name and address fields of the records:
 
-```text
+```erlang
 Name = P#person.name,
 Address = P#person.address,
 ...
@@ -66,7 +66,7 @@ Address = P#person.address,
 
 Internally, records are represented using tagged tuples:
 
-```text
+```erlang
 {person, Name, Phone, Address}
 ```
 
@@ -110,7 +110,7 @@ special field `_`. `_` means "all fields not explicitly specified".
 
 _Example:_
 
-```text
+```erlang
 > #person{name = "Jakob", _ = '_'}.
 #person{name = "Jakob",phone = '_',address = '_'}
 ```
@@ -134,7 +134,7 @@ The following example shows how to access a record field:
 
 The following example shows how to update a record:
 
-```text
+```erlang
 > P1 = #person{name="Joe", phone=[1,2,3], address="A street"}.
 #person{name = "Joe",phone = [1,2,3],address = "A street"}
 > P2 = P1#person{name="Robert"}.
@@ -146,7 +146,7 @@ The following example shows how to update a record:
 The following example shows that the guard succeeds if `P` is record of type
 `person`:
 
-```text
+```erlang
 foo(P) when is_record(P, person) -> a_person;
 foo(_) -> not_a_person.
 ```
@@ -156,7 +156,7 @@ foo(_) -> not_a_person.
 Matching can be used in combination with records, as shown in the following
 example:
 
-```text
+```erlang
 > P3 = #person{name="Joe", phone=[0,0,7], address="A street"}.
 #person{name = "Joe",phone = [0,0,7],address = "A street"}
 > #person{name = Name} = P3, Name.
