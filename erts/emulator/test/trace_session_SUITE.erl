@@ -1335,11 +1335,13 @@ error_info(_Config) ->
          {session_destroy, [make_ref()]},
          {session_destroy, [atomics:new(1,[])]},
 
-         {session_info, [ExternalPid]}
+         {session_info, [ExternalPid]},
+
+         {delivered, 2} %% Cannot fail
         ],
 
     try
-        error_info_lib:test_error_info(trace, L)
+        error_info_lib:test_error_info(trace, L, [allow_nyi])
     after
         peer:stop(Peer)
     end.

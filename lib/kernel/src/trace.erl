@@ -128,6 +128,7 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
          process/4,
          port/4,
          info/3,
+         delivered/2,
          session_create/3,
          session_destroy/1,
          session_info/1]).
@@ -1198,7 +1199,13 @@ info(Session, PidPortFuncEvent, Item) ->
             error_with_inherited_info(R, [Session, PidPortFuncEvent, Item], Stk)
     end.
 
-
+-doc """
+Equivalent to [`erlang:trace_delivered(Tracee)`](`erlang:trace_delivered/1`)
+except that it is run within the given `t:session/0`.
+""".
+-spec delivered(Session :: session(), Tracee :: pid() | all) -> reference().
+delivered(_Session , Tracee) ->
+    erlang:trace_delivered(Tracee).
 
 
 %% session_create/3
