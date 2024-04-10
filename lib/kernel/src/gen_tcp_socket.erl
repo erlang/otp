@@ -507,17 +507,19 @@ accept(?MODULE_socket(ListenServer, ListenSocket), Timeout) ->
 send(?MODULE_socket(Server, Socket), Data) ->
     case socket:getopt(Socket, {otp,meta}) of
         {ok,
-         #{packet := Packet,
+         #{packet       := Packet,
            send_timeout := SendTimeout} = Meta} ->
             if
                 Packet =:= 1;
                 Packet =:= 2;
                 Packet =:= 4 ->
-                    Size = iolist_size(Data),
+                    Data2       = iolist_to_binary(Data),
+                    Size        = byte_size(Data2),
 		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
-                    Header = <<?header(Packet, Size)>>,
-                    Header_Data = [Header, Data],
-                    Result = socket_send(Socket, Header_Data, SendTimeout),
+                    Header      = <<?header(Packet, Size)>>,
+                    Header_Data = [Header, Data2],
+                    Result      = socket_sendv(Socket,
+                                               Header_Data, SendTimeout),
                     send_result(Server, Header_Data, Meta, Result);
                 true ->
                     Result = socket_send(Socket, Data, SendTimeout),
@@ -532,11 +534,13 @@ send(?MODULE_socket(Server, Socket), Data) ->
 send_result(Server, Data, Meta, Result) ->
     %% ?DBG([{meta, Meta}, {send_result, Result}]),
     case Result of
-        {error, {timeout, RestData}} when is_binary(RestData) ->
-            send_timeout(Server, RestData, Meta);
+        {error, {timeout, RestData}} when is_binary(RestData) orelse
+                                          is_list(RestData) ->
+            send_timeout(Server, {false, RestData}, Meta);
         {error, timeout} ->
-            send_timeout(Server, Data, Meta);
-        {error, {Reason, RestData}} when is_binary(RestData) ->
+            send_timeout(Server, {true, Data}, Meta);
+        {error, {Reason, RestData}} when is_binary(RestData) orelse
+                                         is_list(RestData) ->
             call(Server, {send_error, Reason});
         {error, Reason} ->
             call(Server, {send_error, Reason});
@@ -544,7 +548,7 @@ send_result(Server, Data, Meta, Result) ->
             ok
     end.
 
-send_timeout(Server, Data, Meta) ->
+send_timeout(Server, {ToBin, Data}, Meta) ->
     case maps:get(send_timeout_close, Meta) of
         true ->
             %% To handle RestData we would have to pass
@@ -555,9 +559,12 @@ send_timeout(Server, Data, Meta) ->
             %%
             close_server(Server),
             {error, timeout};
+        false when (ToBin =:= true) ->
+            %% Leave the lingering data to the caller to handle
+            {error, {timeout, iolist_to_binary(Data)}};
         false ->
             %% Leave the lingering data to the caller to handle
-            {error, {timeout, iolist_to_binary(Data)}}
+            {error, {timeout, Data}}
     end.
 
 %% -------------------------------------------------------------------------
@@ -837,7 +844,7 @@ fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
 %%% Socket glue code
 %%%
 
--compile({inline, [socket_send/3, socket_send_error/1]}).
+-compile({inline, [socket_send/3]}).
 socket_send(Socket, Data, Timeout) ->
     Result = socket:send(Socket, Data, [], Timeout),
     case Result of
@@ -850,6 +857,20 @@ socket_send(Socket, Data, Timeout) ->
             Result
     end.
 
+-compile({inline, [socket_sendv/3]}).
+socket_sendv(Socket, Data, Timeout) ->
+    Result = socket:sendv(Socket, Data, Timeout),
+    case Result of
+        {error, {Reason, RestData}} when is_list(RestData) ->
+        {error, NewReason} = socket_send_error({error, Reason}),
+        {error, {NewReason, RestData}};
+    {error, _} ->
+        socket_send_error(Result);
+    _ ->
+        Result
+end.
+
+-compile({inline, [socket_send_error/1]}).
 socket_send_error(Result) ->
     case Result of
         {error, epipe}                          -> {error, econnreset};

@@ -131,6 +131,7 @@
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_sendmsg_and_recvmsg_udpL/1,
          api_b_send_and_recv_tcp4/1,
+         api_b_sendv_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
          api_b_send_and_recv_seqpL/1,
          api_b_sendmsg_and_recvmsg_tcp4/1,
@@ -145,6 +146,8 @@
          api_b_sendmsg_iov_stream_local/1,
          api_b_dgram_connect_udp4/1,
          api_b_dgram_connect_udp6/1,
+         api_b_sendv_tcp4/1,
+         api_b_sendv_tcp6/1,
 
          %% *** API sendfile ***
          api_sendfile_inet/1,
@@ -1011,6 +1014,7 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_sendmsg_and_recvmsg_udpL,
      api_b_send_and_recv_tcp4,
+     api_b_sendv_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
      api_b_send_and_recv_seqpL,
      api_b_sendmsg_and_recvmsg_tcp4,
@@ -1024,7 +1028,9 @@ api_basic_cases() ->
      api_b_sendmsg_iov_stream_inet6,
      api_b_sendmsg_iov_stream_local,
      api_b_dgram_connect_udp4,
-     api_b_dgram_connect_udp6
+     api_b_dgram_connect_udp6,
+     api_b_sendv_tcp4,
+     api_b_sendv_tcp6
     ].
 
 api_sendfile_cases() ->
@@ -3611,6 +3617,35 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically send and receive using the sendv and recv functions
+%% on an IPv4 TCP (stream) socket.
+api_b_sendv_and_recv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_ipv4() end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  %% Since we are just reusing this test case,
+                                  %% the I/O vector is just one binary.
+                                  %% _ = socket:setopt(Sock, otp, debug, true),
+                                  Res = socket:sendv(Sock, [Data]),
+                                  %% _ = socket:setopt(Sock, otp, debug, false),
+                                  Res
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_conn(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically send and receive using the "common" functions (send and recv)
 %% on an Unix Domain (stream) socket (TCP).
 api_b_send_and_recv_tcpL(_Config) when is_list(_Config) ->
@@ -4063,6 +4098,543 @@ api_b_send_and_recv_conn(InitState) ->
          #{desc => "await recv reply (from server)",
            cmd  => fun(#{sock := Sock, recv := Recv}) ->
                            {ok, ?BASIC_REP} = Recv(Sock),
+                           ok
+                   end},
+         #{desc => "announce ready (recv reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_reply),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{domain   := local,
+                         sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client := Pid, server_port := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+         ?SEV_SLEEP(?SECS(1)),
+         #{desc => "order client to continue (with connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+         #{desc => "order client to continue (with send request)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_req),
+                           ok
+                   end},
+         #{desc => "await client ready (with send request)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_req)
+                   end},
+         #{desc => "await server ready (request recv)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, recv_req)
+                   end},
+         #{desc => "order server to continue (with send reply)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, send_reply),
+                           ok
+                   end},
+         #{desc => "await server ready (with reply sent)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, send_reply)
+                   end},
+         #{desc => "await client ready (reply recv)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, recv_reply)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start client evaluator"),
+    Client = ?SEV_START("client", ClientSeq, InitState),
+    i("await evaluator(s)"),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(REQ_IOV_SND, [<<0:32>>,
+                      <<1:32>>,
+                      <<2:32>>,
+                      <<3:32>>,
+                      <<4:32>>,
+                      <<5:32>>,
+                      <<6:32>>,
+                      <<7:32>>,
+                      <<8:32>>,
+                      <<9:32>>]).
+-define(REQ_IOV_RCV, erlang:iolist_to_binary(?REQ_IOV_SND)).
+-define(REP_IOV_SND, [<<10:32>>,
+                      <<11:32>>,
+                      <<12:32>>,
+                      <<13:32>>,
+                      <<14:32>>,
+                      <<15:32>>,
+                      <<16:32>>,
+                      <<17:32>>,
+                      <<18:32>>,
+                      <<19:32>>]).
+-define(REP_IOV_RCV, erlang:iolist_to_binary(?REP_IOV_SND)).
+
+ensure_sufficient_iov_max() ->
+    case socket:info() of
+        #{iov_max := IOVMax} ->
+            IOVUsed = length(?REQ_IOV_SND),
+            if
+                IOVMax >= IOVUsed ->
+                    ok;
+                true ->
+                    skip({iov_max, IOVMax, IOVUsed})
+            end;
+        _ ->
+            skip(no_info)
+    end.
+    
+
+%% Basically send a I/O vector and receive using the sendv and recv
+%% functions on an IPv4 TCP (stream) socket.
+api_b_sendv_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   ensure_sufficient_iov_max()
+           end,
+           fun() ->
+                   Send = fun(Sock, IOV) when is_list(IOV) ->
+                                  %% Since we are just reusing this test case,
+                                  %% the I/O vector is just one binary.
+                                  %% _ = socket:setopt(Sock, otp, debug, true),
+                                  Res = socket:sendv(Sock, IOV),
+                                  %% _ = socket:setopt(Sock, otp, debug, false),
+                                  Res
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_sendv(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send a I/O vector and receive using the sendv and recv
+%% functions on an IPv6 TCP (stream) socket.
+api_b_sendv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   ensure_sufficient_iov_max()
+           end,
+           fun() ->
+                   Send = fun(Sock, IOV) when is_list(IOV) ->
+                                  %% Since we are just reusing this test case,
+                                  %% the I/O vector is just one binary.
+                                  %% _ = socket:setopt(Sock, otp, debug, true),
+                                  Res = socket:sendv(Sock, IOV),
+                                  %% _ = socket:setopt(Sock, otp, debug, false),
+                                  Res
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => inet6,
+                                 type   => stream,
+                                 proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_sendv(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_b_sendv(InitState) ->
+    process_flag(trap_exit, true),
+
+    ServerSeq = 
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+			   ?SEV_IPRINT("LSA: ~p", [LSA]),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain,
+                         type   := Type,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+			   ?SEV_IPRINT("try bind to: "
+				       "~n   ~p", [LSA]),
+			   %% _ = socket:setopt(LSock, otp, debug, true),
+                           case socket:bind(LSock, LSA) of
+                               ok ->
+                                   %% We do not care about the port for local
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+                                   ok;
+                               {error, Reason} = ERROR ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+				   ?SEV_EPRINT("failed binding: "
+					       "~n   ~p", [Reason]),
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, lsa := LSA} = State) ->
+                           case sock_bind(LSock, LSA) of
+                               ok ->
+                                   Port = sock_port(LSock),
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{domain := local,
+                         tester := Tester, lsa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok;
+                      (#{tester := Tester, lport := Port}) ->
+                           %% This is actually not used for unix domain socket
+                           ?SEV_ANNOUNCE_READY(Tester, init, Port),
+                           ok
+                   end},
+
+         %% The actual test
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "await connection",
+           cmd  => fun(#{lsock := LSock} = State) ->
+			   %% _ = socket:setopt(LSock, otp, debug, true),
+			   ?SEV_IPRINT("try accept"),
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+                                   ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
+                                   {ok, State#{csock => Sock}};
+                               {error, Reason} = ERROR ->
+				   %% _ = socket:setopt(LSock, otp, debug, false),
+                                   ?SEV_EPRINT("accept failed: "
+					       "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         #{desc => "await (recv) request",
+           cmd  => fun(#{csock := Sock, recv := Recv}) ->
+                           Rep = ?REQ_IOV_RCV,
+                           case Recv(Sock) of
+                               {ok, Rep} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "announce ready (recv request)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv_req),
+                           ok
+                   end},
+         #{desc => "await continue (with send reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_reply)
+                   end},
+         #{desc => "send reply",
+           cmd  => fun(#{csock := Sock, send := Send}) ->
+                           Send(Sock, ?REP_IOV_SND)
+                   end},
+         #{desc => "announce ready (send reply)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_reply),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{csock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(csock, State)}
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{domain   := local,
+                         lsock    := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
+                           case socket:close(LSock) of
+                               ok ->
+                                   {ok, maps:remove(lsock, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
+                           {Tester, Port} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         type := Type,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, Type, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case sock_bind(Sock, LSA) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect)
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+         #{desc => "await continue (send request)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_req)
+                   end},
+
+         #{desc => "send request (to server)",
+           cmd  => fun(#{sock := Sock, send := Send}) ->
+                           Send(Sock, ?REQ_IOV_SND)
+                   end},
+
+         #{desc => "announce ready (send request)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_req),
+                           ok
+                   end},
+         #{desc => "await recv reply (from server)",
+           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+                           Rep = ?REP_IOV_RCV,
+                           {ok, Rep} = Recv(Sock),
                            ok
                    end},
          #{desc => "announce ready (recv reply)",

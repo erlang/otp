@@ -518,6 +518,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(sendmsg);                  \
     GLOBAL_ATOM_DEF(sendsrcaddr);              \
     GLOBAL_ATOM_DEF(sendto);                   \
+    GLOBAL_ATOM_DEF(sendv);                    \
     GLOBAL_ATOM_DEF(seqpacket);                \
     GLOBAL_ATOM_DEF(setfib);                   \
     GLOBAL_ATOM_DEF(set_peer_primary_addr);    \
@@ -656,24 +657,27 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define IS_UNDEFINED(T)      IS_IDENTICAL((T), esock_atom_undefined)
 #define IS_OK(T)             IS_IDENTICAL((T), esock_atom_ok)
 
-#define IS_ATOM(E,    TE) enif_is_atom((E),   (TE))
-#define IS_BIN(E,     TE) enif_is_binary((E), (TE))
-#define IS_LIST(E,    TE) enif_is_list((E),   (TE))
-#define IS_MAP(E,     TE) enif_is_map((E), (TE))
-#define IS_NUM(E,     TE) enif_is_number((E), (TE))
-#define IS_TUPLE(E,   TE) enif_is_tuple((E),  (TE))
-#define IS_INTEGER(E, TE) esock_is_integer((E),   (TE))
+#define IS_ATOM(E,    TE)    enif_is_atom((E),   (TE))
+#define IS_BIN(E,     TE)    enif_is_binary((E), (TE))
+#define IS_LIST(E,    TE)    enif_is_list((E),   (TE))
+#define IS_MAP(E,     TE)    enif_is_map((E), (TE))
+#define IS_NUM(E,     TE)    enif_is_number((E), (TE))
+#define IS_TUPLE(E,   TE)    enif_is_tuple((E),  (TE))
+#define IS_INTEGER(E, TE)    esock_is_integer((E),   (TE))
 
-#define IS_PID_UNDEF(P)   enif_is_pid_undefined((P))
-#define SET_PID_UNDEF(P)  enif_set_pid_undefined((P))
+#define IS_PID_UNDEF(P)      enif_is_pid_undefined((P))
+#define SET_PID_UNDEF(P)     enif_set_pid_undefined((P))
 
 #define GET_ATOM_LEN(E, TE, LP) \
     enif_get_atom_length((E), (TE), (LP), ERL_NIF_LATIN1)
 #define GET_ATOM(E, TE, BP, MAX) \
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
-#define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
+#define GET_BIN(E, TE, BP)          \
+    enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
 #define GET_INT64(E, TE, IP)        enif_get_int64((E), (TE), (IP))
+#define GET_IOV(ME, EIOV, T, IOV)                       \
+    enif_inspect_iovec(NULL, (ME), (EIOV), (T), (IOV))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
 #define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))

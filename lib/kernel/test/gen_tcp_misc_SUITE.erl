@@ -6631,7 +6631,7 @@ mad_sender(S, N) ->
                "send failed: timeout with ~w bytes of rest data"
                "~n   Number of sends:     ~w"
                "~n   Elapsed (send) time: ~w msec",
-               [byte_size(RestData),
+               [rest_data_size(RestData),
                 N2,
                 erlang:convert_time_unit(get(elapsed), native, millisecond)]),
             ERROR2;
@@ -6899,7 +6899,7 @@ timeout_sink_loop(Action, To, N) ->
                "~n   Result:            timeout with ~w bytes of rest data",
                [N2,
                 erlang:convert_time_unit(get(elapsed), native, millisecond),
-                byte_size(RestData)]),
+                rest_data_size(RestData)]),
 	    {{error, timeout}, N2};
 	Other ->
             ?P("[sink-loop] action result: "
@@ -6911,6 +6911,14 @@ timeout_sink_loop(Action, To, N) ->
                 Other]),
 	    {Other, N2}
     end.
+
+
+rest_data_size(Bin) when is_binary(Bin) ->
+    byte_size(Bin);
+rest_data_size([]) ->
+    0;
+rest_data_size([Bin|IOVec]) when is_binary(Bin) ->
+    byte_size(Bin) + rest_data_size(IOVec).
 
 
 %% =========================================================================
@@ -7583,17 +7591,17 @@ otp_7816_send_data(Ctrl, Socket, Data, Loops) ->
 	    %% NOTE THAT THIS MEANS THAT WE MAY HAVE A PARTIAL PACKAGE
 	    %% WRITTEN, INCLUDING A HEADER THAT INDICATES A DATA
 	    %% SIZE THAT IS **NOT** PRESENT!!
-	    %% So for this trest case to work, we need to write the rest.
+	    %% So for this test case to work, we need to write the rest.
 	    %% But we cannot do that without first setting the package to raw.
 	    %%
 	    ?P("[client] send timeout"
 	       "~n      with ~w bytes of rest data"
-	       "~n      when Loops: ~p", [byte_size(RestData), Loops]),
+	       "~n      when Loops: ~p", [rest_data_size(RestData), Loops]),
 	    Ctrl ! {self(), continue, Loops + 1},
 	    ?P("[client] packet to 'raw'..."),
 	    ok = inet:setopts(Socket, [{packet, raw}, {send_timeout, 1000}]),
 	    ?P("[client] send ~w bytes of rest data...",
-	       [byte_size(RestData)]),
+	       [rest_data_size(RestData)]),
 	    ok = gen_tcp:send(Socket, RestData),
 	    ?P("[client] packet (back) to '4'..."),
 	    ok = inet:setopts(Socket, [{packet, 4}, {send_timeout, 10}]),

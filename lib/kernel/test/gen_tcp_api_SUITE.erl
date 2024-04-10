@@ -609,7 +609,20 @@ do_shutdown_error(Config, Addr) ->
     ?P("create listen socket"),
     {ok, L} = gen_tcp:listen(0, ?INET_BACKEND_OPTS(Config) ++ [{ip, Addr}]),
     ?P("shutdown socket (with How = read_write)"),
-    {error, enotconn} = gen_tcp:shutdown(L, read_write),
+    case gen_tcp:shutdown(L, read_write) of
+        {error, enotconn} ->
+            ok;
+        ok -> % On some platforms this can happen...Linux...
+            case os:type() of
+                {unix, linux} ->
+                    ?P("unexpected shutdown success - can happen on linux"),
+                    ok;
+                _ ->
+                    exit(unexpected_success)
+            end;
+        {error, Reason} ->
+            exit({unexpected_shutdown_error, Reason})
+    end,
     ?P("close socket"),
     ok = gen_tcp:close(L),
     ?P("shutdown socket again (with How = read_write)"),
