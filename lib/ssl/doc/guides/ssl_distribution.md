@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Using TLS for Erlang Distribution
+# Erlang Distribution over TLS
 
 This section describes how the Erlang distribution can use TLS to get extra
 verification and security.

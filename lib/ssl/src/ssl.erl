@@ -354,7 +354,7 @@ Cipher algorithms that for security reason no longer are supported by default.
 
 -doc(#{title => <<"Algorithms">>}).
 -doc """
-Hash algorithms used together with other with signing and encryption functions.
+Hash algorithms used together with signing and encryption functions.
 """.
 -type hash()                     :: sha2()
                                   | legacy_hash(). % exported
