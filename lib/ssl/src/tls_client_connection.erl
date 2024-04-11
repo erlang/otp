@@ -496,6 +496,11 @@ next_statem_state(_) ->
 %%====================================================================
 %% Tracing
 %%====================================================================
+handle_trace(crt,
+             {call, {?MODULE, init,
+                     [[_Role, _Sender, _Host, _Port, _Socket, _Options, _User, _CbInfo]]}},
+             Stack) ->
+    {io_lib:format("Host = ~s Port = ~p User = ~p", [_Host, _Port, _User]), Stack};
 handle_trace(hbn,
              {call, {?MODULE, connection,
                      [_Type = info, Event, _State]}},

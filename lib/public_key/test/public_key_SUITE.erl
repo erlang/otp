@@ -1490,11 +1490,7 @@ ocsp_extensions(_Config) ->
         [{'Extension',
           ?'id-pkix-ocsp-nonce',
           asn1_DEFAULT,
-          <<4,8,66,243,220,236,16,118,51,215>>},
-         {'Extension',
-          ?'id-pkix-ocsp-response',
-          asn1_DEFAULT,
-          <<48,11,6,9,43,6,1,5,5,7,48,1,1>>}],
+          <<4,8,66,243,220,236,16,118,51,215>>}],
     ExpectedExtentions = public_key:ocsp_extensions(Nonce).
 
 pkix_ocsp_validate() ->

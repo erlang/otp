@@ -251,14 +251,20 @@ do_verify_signature(ResponseDataDer, Signature, AlgorithmID,
 
 get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
+    Params = PKInfo#'OTPSubjectPublicKeyInfo'.algorithm#'PublicKeyAlgorithm'.parameters,
+    SubjectPublicKey = PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
+    case Params of
+        {namedCurve, _} ->
+            {SubjectPublicKey, Params};
+        _ ->
+            SubjectPublicKey
+    end.
 
 get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     public_key:pkix_encode('Name', TbsCert#'OTPTBSCertificate'.subject, otp).
 
-get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
-    PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
+get_public_key(OtpCert) ->
+    enc_pub_key(get_public_key_rec(OtpCert)).
 
 enc_pub_key(Key = #'RSAPublicKey'{}) ->
     public_key:der_encode('RSAPublicKey', Key);

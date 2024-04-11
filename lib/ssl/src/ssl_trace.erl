@@ -466,7 +466,7 @@ trace_profiles() ->
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
       fun(M, F, A) -> dbg:ctpl(M, F, A) end,
       [{public_key, [{pkix_path_validation, 3}, {path_validation, 2},
-                     {pkix_decode_cert, 2}]},
+                     {pkix_decode_cert, 2}, {pkix_verify_hostname, 3}]},
        {ssl_certificate, [{validate, 3}, {trusted_cert_and_paths, 4},
                           {certificate_chain, 3}, {certificate_chain, 5},
                           {issuer, 1}]},

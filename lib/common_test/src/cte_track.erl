@@ -116,7 +116,7 @@ handle_event(#event{name = tc_done,
 handle_event(#event{name = tc_done,
                     data = Data},
              State = #{device := D}) ->
-    print(D, "~n~nUnhandled interesting event:~nName = tc_done~nData = ~p~n~n",
+    print(D, "~n~n[cte_track] Unhandled interesting event:~nName = tc_done~nData = ~p~n~n",
           [Data]),
     {ok, State};
 handle_event(#event{name = Name, data = {Suite, {Case, Group}, Comment}},
