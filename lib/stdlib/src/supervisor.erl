@@ -280,7 +280,7 @@ but the map is preferred.
 -behaviour(gen_server).
 
 %% External exports
--export([start_link/2, start_link/3,
+-export([start_link/2, start_link/3, start_link/4,
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, count_children/1,
@@ -571,10 +571,32 @@ started.
 -spec start_link(SupName, Module, Args) -> startlink_ret() when
       SupName :: sup_name(),
       Module :: module(),
-      Args :: term().
-start_link(SupName, Mod, Args) ->
-    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []).
+      Args :: term();
+                (Module, Args, Options) -> startlink_ret() when
+      Module :: module(),
+      Args :: term(),
+      Options :: [Option],
+      Option :: {'prioritize_termination', boolean()}.
+start_link({local, _} = SupName, Mod, Args) ->
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []);
+start_link({global, _} = SupName, Mod, Args) ->
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []);
+start_link({via, _, _} = SupName, Mod, Args) ->
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []);
+start_link(Mod, Args, Opts) ->
+    Opts1 = lists:filter(fun ({prioritize_termination, _}) -> true; (_) -> false end, Opts),
+    gen_server:start_link(supervisor, {self, Mod, Args}, Opts1).
  
+-spec start_link(SupName, Module, Args, Options) -> startlink_ret() when
+      SupName :: sup_name(),
+      Module :: module(),
+      Args :: term(),
+      Options :: [Option],
+      Option :: {'prioritize_termination', boolean()}.
+start_link(SupName, Mod, Args, Opts) ->
+    Opts1 = lists:filter(fun ({prioritize_termination, _}) -> true; (_) -> false end, Opts),
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, Opts1).
+
 %%% ---------------------------------------------------
 %%% Interface functions.
 %%% ---------------------------------------------------
