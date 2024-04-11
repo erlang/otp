@@ -34,13 +34,12 @@
 -moduledoc """
 Lexical analyzer generator for Erlang
 
-A regular expression based lexical analyzer generator for Erlang, similar to lex
-or flex.
+A regular expression based lexical analyzer generator for Erlang, similar to
+`lex` or `flex`.
 
 > #### Note {: .info }
 >
-> The Leex module should be considered experimental as it will be subject to
-> changes in future releases.
+> The `leex` module was considered experimental when it was introduced.
 
 ## Default Leex Options
 
@@ -73,9 +72,10 @@ Erlang code.
 <Erlang code>
 ```
 
-The "Definitions.", "Rules." and "Erlang code." headings are mandatory and must
-occur at the beginning of a source line. The `<Header>`, `<Macro Definitions>` and
-`<Erlang code>` sections may be empty but there must be at least one rule.
+The `Definitions.`, `Rules.`, and `Erlang code` headings are mandatory
+and must start at the beginning of a source line. The `<Header>`,
+`<Macro Definitions>`, and `<Erlang code>` sections are allowed to be
+empty, but there must be at least one rule.
 
 Macro definitions have the following format:
 
@@ -88,7 +88,7 @@ expressions of rules by writing `{NAME}`.
 
 > #### Note {: .info }
 >
-> When macros are expanded in expressions the macro calls are replaced by the
+> When macros are expanded in expressions, the macro calls are replaced by the
 > macro value without any form of quoting or enclosing in parentheses.
 
 Rules have the following format:
@@ -112,7 +112,7 @@ token. With the Erlang code the following predefined variables are available:
   first character included in the token).
 
 - **`TokenLoc`** - Token location. Expands to `{TokenLine,TokenCol}` (even when
-  `error_location` is set to `line`.
+  `error_location` is set to `line`).
 
 The code must return:
 
@@ -155,16 +155,16 @@ D = [0-9]
   {token,{float,TokenLine,list_to_float(TokenChars)}}.
 ```
 
-The Erlang code in the "Erlang code." section is written into the output file
-directly after the module declaration and predefined exports declaration so it
-is possible to add extra exports, define imports and other attributes which are
-then visible in the whole file.
+The Erlang code in the `Erlang code.` section is written into the output file
+directly after the module declaration and predefined exports declaration, making
+it possible to add extra exports, define imports, and other attributes, which are
+visible in the whole file.
 
 ## Regular Expressions
 
 The regular expressions allowed here is a subset of the set found in `egrep` and
-in the AWK programming language, as defined in the book, The AWK Programming
-Language, by A. V. Aho, B. W. Kernighan, P. J. Weinberger. They are composed of
+in the AWK programming language, as defined in the book _The AWK Programming
+Language_ by A. V. Aho, B. W. Kernighan, and P. J. Weinberger. They are composed of
 the following characters:
 
 - **`c`** - Matches the non-metacharacter c.
@@ -188,11 +188,11 @@ the following characters:
 
 - **`r1r2`** - Concatenation. It matches `r1` and then `r2`.
 
-- **`r+`** - Matches one or more `rs`.
+- **`r+`** - Matches one or more `r`s.
 
-- **`r*`** - Matches zero or more `rs`.
+- **`r*`** - Matches zero or more `r`s.
 
-- **`r?`** - Matches zero or one `rs`.
+- **`r?`** - Matches zero or one `r`s.
 
 - **`(r)`** - Grouping. It matches `r`.
 
@@ -228,7 +228,6 @@ The escape sequences allowed are the same as for Erlang strings:
 The following examples define simplified versions of a few Erlang data types:
 
 ```text
-
 Atoms [a-z][0-9a-zA-Z_]*
 
 Variables [A-Z_][0-9a-zA-Z_]*
@@ -239,9 +238,9 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 > #### Note {: .info }
 >
 > Anchoring a regular expression with `^` and `$` is not implemented in the
-> current version of Leex and just generates a parse error.
+> current version of `leex` and generates a parse error.
 """.
--moduledoc(#{titles => [{function,<<"GENERATED SCANNER EXPORTS">>}]}).
+-moduledoc(#{titles => [{function,<<"Generated Scanner Exports">>}]}).
 
 -export([compile/3,file/1,file/2,format_error/1]).
 
@@ -281,8 +280,8 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
 %%% only used for documentation purposes
 %%%
 -export([string/1, string/2, token/2, token/3, tokens/2, tokens/3]).
--doc(#{equiv => string/2}).
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+-doc #{equiv => string(String, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec string(String) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -292,16 +291,17 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
       EndLoc :: erl_anno:location().
 string(_String) -> error(undef).
 -doc """
-Scans `String` and returns all the tokens in it, or an error. `StartLoc` and
-`EndLoc` are either [`erl_anno:line()`](`t:erl_anno:line/0`) or
-[`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
+Scans `String` and returns either all the tokens in it or an `error` tuple.
+
+`StartLoc` and `EndLoc` are either [`erl_anno:line()`](`t:erl_anno:line/0`)
+or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
 `error_location` option.
 
 > #### Note {: .info }
 >
 > It is an error if not all of the characters in `String` are consumed.
 """.
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec string(String, StartLoc) -> StringRet when
       String :: string(),
       StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
@@ -311,8 +311,9 @@ Scans `String` and returns all the tokens in it, or an error. `StartLoc` and
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
 string(_String, _StartLoc) -> error(undef).
--doc(#{equiv => token/3}).
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+
+-doc #{equiv => token(Cont, Chars, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -326,23 +327,27 @@ string(_String, _StartLoc) -> error(undef).
       Token :: term(),
       EndLoc :: erl_anno:location().
 token(_Cont, _Chars) -> error(undef).
+
 -doc """
-This is a re-entrant call to try and scan one token from `Chars`. If there are
-enough characters in `Chars` to either scan a token or detect an error then this
-will be returned with `{done,...}`. Otherwise `{cont,Cont}` will be returned
-where `Cont` is used in the next call to `token()` with more characters to try
-an scan the token. This is continued until a token has been scanned. `Cont` is
+This is a re-entrant call to try and scan a single token from `Chars`.
+
+If there are enough characters in `Chars` to either scan a token or
+detect an error then this will be returned with
+`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+used in the next call to `token()` with more characters to try an scan
+the token. This is continued until a token has been scanned. `Cont` is
 initially `[]`.
 
-It is not designed to be called directly by an application but used through the
-i/o system where it can typically be called in an application by:
+It is not designed to be called directly by an application, but is
+used through the I/O system where it can typically be called in an
+application by:
 
 ```erlang
 io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
   -> TokenRet
 ```
 """.
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec token(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokenRet, RestChars} when
       Cont :: [] | Cont1,
@@ -357,8 +362,9 @@ io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
       StartLoc :: erl_anno:location(),
       EndLoc :: erl_anno:location().
 token(_Cont, _Chars, _StartLoc) -> error(undef).
--doc(#{equiv => tokens/3}).
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+
+-doc #{equiv => tokens(Cont, Chars, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,
@@ -374,12 +380,14 @@ token(_Cont, _Chars, _StartLoc) -> error(undef).
       EndLoc :: erl_anno:location().
 tokens(_Cont, _Chars) -> error(undef).
 -doc """
-This is a re-entrant call to try and scan tokens from `Chars`. If there are
-enough characters in `Chars` to either scan tokens or detect an error then this
-will be returned with `{done,...}`. Otherwise `{cont,Cont}` will be returned
-where `Cont` is used in the next call to `tokens()` with more characters to try
-an scan the tokens. This is continued until all tokens have been scanned. `Cont`
-is initially `[]`.
+This is a re-entrant call to try and scan tokens from `Chars`.
+
+If there are enough characters in `Chars` to either scan tokens or
+detect an error then this will be returned with
+`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+used in the next call to `tokens()` with more characters to try an
+scan the tokens. This is continued until all tokens have been
+scanned. `Cont` is initially `[]`.
 
 This functions differs from `token` in that it will continue to scan tokens up
 to and including an `{end_token,Token}` has been scanned (see next section). It
@@ -388,15 +396,15 @@ like Erlang where there is an explicit end token, `'.'`. If no end token is
 found then the whole file will be scanned and returned. If an error occurs then
 all tokens up to and including the next end token will be skipped.
 
-It is not designed to be called directly by an application but used through the
-i/o system where it can typically be called in an application by:
+It is not designed to be called directly by an application, but used through the
+I/O system where it can typically be called in an application by:
 
 ```erlang
 io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
   -> TokensRet
 ```
 """.
--doc(#{title => <<"GENERATED SCANNER EXPORTS">>}).
+-doc(#{title => <<"Generated Scanner Exports">>}).
 -spec tokens(Cont, Chars, StartLoc) ->
     {more, Cont1} | {done, TokensRet, RestChars} when
       Cont :: [] | Cont1,
@@ -452,7 +460,7 @@ The standard `t:error_info/0` structure that is returned from all I/O modules.
                   | {'error', Errors :: errors(), Warnings :: warnings()}.
 -type leex_ret() :: ok_ret() | error_ret().
 
--doc(#{equiv => file/2}).
+-doc #{equiv => file(File, [])}.
 -doc(#{since => <<"OTP R16B02">>}).
 -spec file(FileName) -> leex_ret() when
       FileName :: file:filename().
@@ -460,9 +468,11 @@ The standard `t:error_info/0` structure that is returned from all I/O modules.
 file(File) -> file(File, []).
 
 -doc """
-Generates a lexical analyzer from the definition in the input file. The input
-file has the extension `.xrl`. This is added to the filename if it is not given.
-The resulting module is the Xrl filename without the `.xrl` extension.
+Generates a lexical analyzer from the definition in the input file.
+
+The input file has the extension `.xrl`. This is added to the filename
+if it is not given.  The resulting module is the Xrl filename without
+the `.xrl` extension.
 
 The current options are:
 
@@ -503,7 +513,7 @@ The current options are:
 - **`{warnings_as_errors, boolean()}`** - Causes warnings to be treated as
   errors.
 
-- **`{deterministic, boolean()}`** - Causes generated -file() attributes to only
+- **`{deterministic, boolean()}`** - Causes generated `-file()` attributes to only
   include the basename of the file path.
 
 - **`{error_location, line | column}`** - If set to `column`, error location
