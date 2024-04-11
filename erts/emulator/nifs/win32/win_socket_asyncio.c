@@ -4106,7 +4106,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok;
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
 
@@ -4138,7 +4138,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, result;
+    ERL_NIF_TERM data, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4177,7 +4177,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_fails, &descP->readFails, 1);
 
-            result = esock_make_error(env, esock_atom_closed);
+            eres = esock_make_error(env, esock_atom_closed);
             
         } else {
 
@@ -4210,7 +4210,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             if (read > descP->readPkgMax)
                 descP->readPkgMax = read;
 
-            result = esock_make_ok2(env, data);
+            eres = esock_make_ok2(env, data);
 
         }
 
@@ -4230,8 +4230,9 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
+
             } else {
 
                 /* But we are not allowed to wait! => cancel */
@@ -4254,11 +4255,11 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4280,7 +4281,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4291,7 +4292,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             "\r\n",
             sockRef, descP->sock) );
 
-    return result;
+    return eres;
 }
 
 
@@ -4540,7 +4541,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
 
@@ -4572,7 +4573,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, result;
+    ERL_NIF_TERM data, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4618,7 +4619,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
          * This is:                 {ok, {Source, Data}}
          * But it should really be: {ok, {Source, Flags, Data}}
          */
-        result = esock_make_ok2(env, MKT2(env, eSockAddr, data));
+        eres = esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     } else {
 
@@ -4636,8 +4637,8 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
 
             } else {
 
@@ -4661,11 +4662,11 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4687,7 +4688,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4697,9 +4698,9 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO", "recvfrom_check_ok(%T) {%d} -> done with"
             "\r\n   result: %T"
             "\r\n",
-            sockRef, descP->sock, result) );
+            sockRef, descP->sock, eres) );
 
-    return result;
+    return eres;
 }
 
 
@@ -4947,7 +4948,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
                 
@@ -4982,7 +4983,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                               ERL_NIF_TERM     sockRef,
                               ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM eMsg, result;
+    ERL_NIF_TERM eMsg, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -5018,7 +5019,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
         if (read > descP->readPkgMax)
             descP->readPkgMax = read;
 
-        result = esock_make_ok2(env, eMsg);
+        eres = esock_make_ok2(env, eMsg);
 
     } else {
 
@@ -5036,8 +5037,8 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
 
             } else {
 
@@ -5061,11 +5062,11 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -5087,7 +5088,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -5097,9 +5098,9 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO", "recvmsg_check_ok(%T) {%d} -> done with"
             "\r\n   result: %T"
             "\r\n",
-            sockRef, descP->sock, result) );
+            sockRef, descP->sock, eres) );
 
-    return result;
+    return eres;
 }
 
 
