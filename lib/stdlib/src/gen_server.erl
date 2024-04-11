@@ -269,7 +269,7 @@ The return value `Result` is interpreted as follows:
   `{ok,_,hibernate}`  
   `{ok,_,{continue,Continue}}`**  
   See the corresponding return values from
-  [`Module:handle_call/3` ](`c:handle_call/3`)for a description of this tuple
+  [`Module:handle_call/3`](`c:handle_call/3`) for a description of this tuple
   member.
 
 - **`{stop,Reason}`  
@@ -321,7 +321,7 @@ The return value `Result` is interpreted as follows:
   If an integer `Timeout` is provided, a time-out occurs unless a request or a
   message is received within that many milliseconds. A time-out is represented
   by the atom `timeout` to be handled by the
-  [`Module:handle_info/2` ](`c:handle_info/2`)callback function.
+  [`Module:handle_info/2`](`c:handle_info/2`) callback function.
   `Timeout =:= infinity` can be used to wait indefinitely, which is the same as
   returning a value without a `Timeout` member.
 
@@ -333,13 +333,13 @@ The return value `Result` is interpreted as follows:
 - **`{reply,_,_,{continue,Continue}}`  
   `{noreply,_,{continue,Continue}}`**  
   The process will execute the
-  [`Module:handle_continue/2` ](`c:handle_continue/2`)callback function, with
+  [`Module:handle_continue/2`](`c:handle_continue/2`) callback function, with
   `Continue` as the first argument.
 
 - **`{stop,Reason,NewState}`  
   `{stop,Reason,Reply,NewState}`**  
   The `gen_server` process will call
-  [`Module:terminate(Reason,NewState)` ](`c:terminate/2`)and then terminate.
+  [`Module:terminate(Reason,NewState)`](`c:terminate/2`) and then terminate.
 
   `{stop,_,Reply,_}` will create a reply to the client request just as
   `{reply,Reply,...}` while `{stop,_,_}` will not, so just as for
@@ -903,7 +903,7 @@ process (due to the process link), that message has been consumed.
 >
 > Before OTP 26.0, if the started `gen_server` process returned e.g.
 > `{stop,Reason}` from [`Module:init/1`](`c:init/1`), this function could return
-> `{error,Reason}` _before_ the started `m:gen_statem` process had terminated so
+> `{error,Reason}` _before_ the started `m:gen_server` process had terminated so
 > starting again might fail because VM resources such as the registered name was
 > not yet unregistered. An `'EXIT'` message could arrive later to the process
 > calling this function.
@@ -911,7 +911,7 @@ process (due to the process link), that message has been consumed.
 > But if the started `gen_server` process instead failed during
 > [`Module:init/1`](`c:init/1`), a process link `{'EXIT',Pid,Reason}` message
 > caused this function to return `{error,Reason}` so the `'EXIT'` message had
-> been consumed and the started `m:gen_statem` process had terminated.
+> been consumed and the started `m:gen_server` process had terminated.
 >
 > Since it was impossible to tell the difference between these two cases from
 > `start_link/3,4`'s return value, this inconsistency was cleaned up in OTP
@@ -1151,7 +1151,7 @@ can be seen as equivalent to
 [`gen_server:call(ServerRef, Request, Timeout)`](`call/3`), ignoring the error
 handling.
 
-The `gen_server` process calls [`Module:handle_call/3` ](`c:handle_call/3`)to
+The `gen_server` process calls [`Module:handle_call/3`](`c:handle_call/3`) to
 handle the request.
 
 See the type `t:server_ref/0` for the possible values for `ServerRef`.
@@ -1565,7 +1565,7 @@ reqids_to_list(ReqIdCollection) ->
 Sends an asynchronous request to the `ServerRef` of the `gen_server` process and
 returns `ok` immediately, ignoring if the destination node or `gen_server`
 process does not exist. The `gen_server` process calls
-[`Module:handle_cast/2` ](`c:handle_cast/2`)to handle the request.
+[`Module:handle_cast/2`](`c:handle_cast/2`) to handle the request.
 
 See also `ServerRef`'s type `t:server_ref/0`.
 
@@ -1708,7 +1708,7 @@ multi_call(Nodes, Name, Request)
 Makes a synchronous call to all `gen_server` processes locally registered as
 `Name` at the specified nodes, by first sending the request to the nodes, and
 then waiting for the replies. The `gen_server` processes on the nodes call
-[`Module:handle_call/3` ](`c:handle_call/3`)to handle the request.
+[`Module:handle_call/3`](`c:handle_call/3`) to handle the request.
 
 The function returns a tuple `{Replies,BadNodes}`, where `Replies` is a list of
 `{Node,Reply}` tuples, and `BadNodes` is a list of nodes that either did not
@@ -1925,7 +1925,7 @@ This function is useful when a more complex initialization procedure is needed
 than the `gen_server` process behavior provides.
 
 `Module`, `Options`, and `ServerName` have the same meanings as when calling
-[`start[_link|_monitor]/3,4` ](`start_link/3`)or it can be `self/0` for an
+[`start[_link|_monitor]/3,4`](`start_link/3`) or it can be `self/0` for an
 anonymous server, which is the same as calling an `enter_loop/3,4` function
 without a `ServerName` argument. However, if `ServerName` is specified (and not
 as `self/0`), the process must have been registered accordingly _before_ this
@@ -1934,7 +1934,7 @@ function is called.
 `State`, `Timeout`, `Hibernate` and `Cont` have the same meanings as in the
 return value of [`Module:init/1`](`c:init/1`), which is _not_ called when
 `enter_loop/3,4,5` is used. Note that to adhere to the
-[gen_server Behaviour ](`e:system:gen_server_concepts.md`)such a callback
+[gen_server Behaviour](`e:system:gen_server_concepts.md`) such a callback
 function needs to be defined, and it might as well be the one used when starting
 the `gen_server` process through `proc_lib`, and then be the one that calls
 `enter_loop/3,4,5`. But if such a [`Module:init/1`](`c:init/1`) function in for
