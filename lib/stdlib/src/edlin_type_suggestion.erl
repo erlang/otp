@@ -85,6 +85,8 @@ type_traverser(Mod, {op, _, Op, Type1, Type2}, Visited, Level, FT) ->
     {op, Op, type_traverser(Mod, Type1, Visited, Level, FT), type_traverser(Mod, Type2, Visited, Level, FT)};
 type_traverser(_Mod, {integer, _, Int}, _Visited, _Level, _FT) ->
     {integer, Int};
+type_traverser(_Mod, {char, _, Char}, _Visited, _Level, _FT) ->
+    {char, Char};
 type_traverser(Mod, {type, _, list, [ChildType]}, Visited, Level, FT) ->
     {list, type_traverser(Mod, ChildType, Visited, Level-1, FT)};
 type_traverser(_Mod, {type, _, tuple, any}, _Visited, _Level, _FT) ->
@@ -446,6 +448,8 @@ print_type({map_field_exact, Type1, Type2}, Cs, V, Options) ->
     print_type(Type1, Cs, V, Options) ++ ":=" ++ print_type(Type2, Cs, V, Options);
 print_type({integer, Int}, _Cs, _V, _) ->
     integer_to_list(Int);
+print_type({char, Char}, _Cs, _V, _) ->
+    [$$,Char];
 print_type({op, Op, Type}, Cs, V, Options) ->
     "op ("++atom_to_list(Op)++" "++print_type(Type, Cs, V, Options)++")";
 print_type({op, Op, Type1, Type2}, Cs, V, Options) ->
