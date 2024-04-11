@@ -2722,6 +2722,7 @@ static Eterm erts_term_to_binary_int(Process* p, Sint bif_ix, Eterm Term, Eterm 
                     if (referenced_cbin) {
                         result_ref->next = MSO(p).first;
                         MSO(p).first = (struct erl_off_heap_header*)result_ref;
+                        OH_OVERHEAD(&MSO(p), result_bin->orig_size);
 
                         /* Ownership has been transferred to the result_ref, so
                          * we do not need to bump refc. */
@@ -4883,8 +4884,9 @@ dec_term_atom_common:
                                                      &data);
                     hp = factory->hp;
 
-                    if (ctx && size_in_bits > ERL_ONHEAP_BITS_LIMIT) {
+                    if (ctx) {
                         unsigned int n_limit = reds * B2T_MEMCPY_FACTOR;
+
                         if (nu > n_limit) {
                             ctx->state = B2TDecodeBinary;
                             ctx->u.dc.remaining_n = nu - n_limit;
