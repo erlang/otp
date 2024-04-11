@@ -302,7 +302,7 @@ A handler is defined as a module exporting at least the following callback
 function:
 
 ```text
-log(LogEvent, Config) -> void()
+log(LogEvent, Config) -> term()
 ```
 
 This function is called when a log event has passed through all primary filters,
