@@ -187,11 +187,34 @@ defined in OTP. These functions can be used to test a release upgrade locally.
 - **`Posix`** - Some file operation failed, as for the previous item in the
   list.
 
+## Application Upgrade/Downgrade
+
+The functions in the [Application Upgrade/Downgrade](#application-upgrade-downgrade)
+section can be used to test upgrade and downgrade of single applications
+(instead of upgrading/downgrading an entire release). A script corresponding to
+the instructions in the relup file is created on-the-fly, based on the .appup
+file for the application, and evaluated exactly in the same way as
+release_handler does.
+
+> #### Warning {: .warning }
+>
+> These functions are primarily intended for simplified testing of .appup files.
+> They are not run within the context of the release_handler process.
+> They must therefore not be used together with calls to install_release/1,2,
+> as this causes the release_handler to end up in an inconsistent state.
+>
+> No persistent information is updated, so these functions can be used on ay
+> Erlang node, embedded or not. Also, using these functions does not affect which
+> code is loaded if there is a reboot.
+>
+> If the upgrade or downgrade fails, the application can end up in an
+> inconsistent state.
+
 ## See Also
 
 [OTP Design Principles](`e:system:index.html`),
-[`config(4)`](`e:kernel:config.md`), [`rel(4)`](rel.md), [`relup(4)`](relup.md),
-[`script(4)`](script.md), `m:sys`, `m:systools`
+[`config)`](`e:kernel:config.md`), [`rel`](rel.md), [`relup`](relup.md),
+[`script`](script.md), `m:sys`, `m:systools`
 """.
 -moduledoc(#{titles => [{function,<<"Application Upgrade/Downgrade">>}]}).
 -behaviour(gen_server).
