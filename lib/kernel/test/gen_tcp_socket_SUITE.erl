@@ -240,7 +240,18 @@ run_xfer(
           end, [monitor]),
     receive
         {Tag, Sockaddr} ->
-            {ok, C} = connect(Backend, Sockaddr, TC),
+            ct:pal("try connect to ~p"
+                   "~n   Backend: ~p"
+                   "~n   TC:      ~p"
+                  "~n", [Sockaddr, Backend, TC]),
+            C = case connect(Backend, Sockaddr, TC) of
+                    {ok, CSock} ->
+                        CSock;
+                    {error, eaddrnotavail = CReason} ->
+                        exit({skip, CReason});
+                    {error, CReason} ->
+                        ct:fail({connect_failed, CReason})
+                end,
             try
                 T1 = erlang:monotonic_time(),
                 assert({ok, TotalSize}, recv_loop(C, PacketSizes, TC)),
