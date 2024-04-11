@@ -495,7 +495,7 @@ check_apps_deps([{App, Deps}|AppDeps], IgnoreApps) ->
 -define(OTP_RELEASES, "/usr/local/otp/releases").
 
 %% Wildcard to match all releases from OTP 17.
--define(OTP_RELEASE_WC, "{sles10_64_17_patched,ubuntu16_64_*_patched}").
+-define(OTP_RELEASE_WC, "{sles10_64_17_patched,ubuntu[1-9][0-9]_64_[1-9][0-9]_patched}").
 
 test_runtime_dependencies_versions(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
