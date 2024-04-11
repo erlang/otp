@@ -3723,7 +3723,7 @@ cipher_listing() ->
       "for the max version. Note that TLS-1.3 will contain two distinct sets of ciphers "
       "one for TLS-1.3 and one pre TLS-1.3"}].
 cipher_listing(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config),
     length_exclusive(Version) == length_all(Version).
 
 %%--------------------------------------------------------------------
@@ -4273,10 +4273,14 @@ log(#{msg:={report,_Report}},#{config:=Pid}) ->
 log(_,_) ->
     ok.
 
-length_exclusive(Version) when ?TLS_1_X(Version) ->
+length_exclusive(Version) when Version == 'tlsv1.3';
+                               Version == 'tlsv1.2';
+                               Version == 'tlsv1.1';
+                               Version == 'tlsv1' ->
     length(exclusive_default_up_to_version(Version)) +
         length(exclusive_non_default_up_to_version(Version));
-length_exclusive(Version) when ?DTLS_1_X(Version)->
+length_exclusive(Version) when Version == 'dtlsv1.2';
+                               Version == 'dtlsv1' ->
     length(dtls_exclusive_default_up_to_version(Version)) +
         length(dtls_exclusive_non_default_up_to_version(Version)).
 
@@ -4284,42 +4288,36 @@ length_all(Version) ->
     length(ssl:cipher_suites(all, Version)).
 
 exclusive_default_up_to_version(Version) ->
-    lists:flatmap(fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , exclusive_default_up_to_version_helper(Version)).
+    lists:flatmap(fun (Vsn) ->
 
-exclusive_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+                          ssl:cipher_suites(exclusive, Vsn)
+                  end,
+                  up_to_version_helper(Version)).
 
+up_to_version_helper('tlsv1.3') -> ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1.2') -> ['tlsv1.2', 'tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1.1') -> ['tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1') -> ['tlsv1'].
 
 
 dtls_exclusive_default_up_to_version(Version) ->
-    lists:flatmap( fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , dtls_exclusive_default_up_to_version_helper(Version)).
+    lists:flatmap(fun (Vsn) ->
+                          ssl:cipher_suites(exclusive, Vsn)
+                  end,
+                  dtls_up_to_version_helper(Version)).
 
-dtls_exclusive_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
-dtls_exclusive_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
-
+dtls_up_to_version_helper('dtlsv1.2') -> ['dtlsv1.2', 'dtlsv1'];
+dtls_up_to_version_helper('dtlsv1') -> ['dtlsv1'].
 
 
 exclusive_non_default_up_to_version(Version) ->
-    lists:flatmap(fun exclusive_non_default_version/1
-                 , exclusive_non_default_up_to_version_helper(Version)).
-
-exclusive_non_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+    lists:flatmap(fun exclusive_non_default_version/1,
+                  up_to_version_helper(Version)).
 
 
 dtls_exclusive_non_default_up_to_version(Version) ->
-    lists:flatmap( fun dtls_exclusive_non_default_version/1
-                 , dtls_exclusive_non_default_up_to_version_helper(Version)).
-
-dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
-dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
-
+    lists:flatmap(fun dtls_exclusive_non_default_version/1,
+                  dtls_up_to_version_helper(Version)).
 
 exclusive_non_default_version(Version) ->
     Ls = [ fun tls_v1:psk_exclusive/1
@@ -4330,7 +4328,7 @@ exclusive_non_default_version(Version) ->
     lists:flatmap(fun(Fn) -> Fn(Version) end, Ls).
 
 dtls_exclusive_non_default_version(DTLSVersion) ->        
-    Version = ssl:tls_version(DTLSVersion),
+    Version = ssl:tls_version(dtls_record:protocol_version_name(DTLSVersion)),
     Fns = [ fun tls_v1:psk_exclusive/1
           , fun tls_v1:srp_exclusive/1
           , fun tls_v1:rsa_exclusive/1

@@ -326,12 +326,12 @@ init([Listen, Opts, SslOpts]) ->
                 ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
--spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+-spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
 %% Possible return values not used now.  
-%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {reply, term(), #state{}, timeout()} |
 %%					      {noreply, #state{}} |
 %%					      {noreply, #state{}, timeout()} |
-%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), term(), #state{}} |
 %%					      {stop, reason(), #state{}}.
 %%
 %% Description: Handling call messages
@@ -349,7 +349,7 @@ handle_call(get_all_opts, _From,
     {reply, {ok, EmOpts, SslOpts}, State}.
 
 %%--------------------------------------------------------------------
--spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+-spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.  
 %%				      | {noreply, #state{}, timeout()} |
 %%				       {stop, reason(), #state{}}.
@@ -360,7 +360,7 @@ handle_cast(_, State)->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) ->  {stop, reason(), #state{}}. 
+-spec handle_info(term(), #state{}) ->  {stop, ssl:reason(), #state{}}.
 %% Possible return values not used now.
 %%			              {noreply, #state{}}.
 %%				      |{noreply, #state{}, timeout()} |
@@ -373,7 +373,7 @@ handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State
 
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), #state{}) -> ok.
+-spec terminate(ssl:reason(), #state{}) -> ok.
 %%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary

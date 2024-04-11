@@ -372,7 +372,7 @@ client_auth_use_partial_chain() ->
 client_auth_use_partial_chain(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Group = proplists:get_value(name, Prop),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    Version = proplists:get_value(version, Config),
     Alg = proplists:get_value(cert_key_alg, Config),
     DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
     Ciphers = appropriate_ciphers(Group, Version),
@@ -411,7 +411,7 @@ client_auth_do_not_use_partial_chain(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Group = proplists:get_value(name, Prop),
     DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    Version = proplists:get_value(version, Config),
     Alg = proplists:get_value(cert_key_alg, Config),
     Ciphers = appropriate_ciphers(Group, Version),
 
@@ -441,7 +441,7 @@ client_auth_partial_chain_fun_fail(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Group = proplists:get_value(name, Prop),
     DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    Version = proplists:get_value(version, Config),
     Alg = proplists:get_value(cert_key_alg, Config),
     Ciphers = appropriate_ciphers(Group, Version),
 
