@@ -2387,7 +2387,7 @@ handshake_cancel(Socket) ->
 close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_gen_statem:close(Pid, {close, ?DEFAULT_TIMEOUT});
 close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen) ->
-    dtls_socket:close(DTLSListen);
+    dtls_socket:close_listen(DTLSListen, ?DEFAULT_TIMEOUT);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
     Transport:close(ListenSocket).
 
@@ -2425,8 +2425,9 @@ close(#sslsocket{pid = [TLSPid|_]}, {Pid, Timeout} = DownGrade)
 close(#sslsocket{pid = [TLSPid|_]}, Timeout)
   when is_pid(TLSPid), ?IS_TIMEOUT(Timeout) ->
     ssl_gen_statem:close(TLSPid, {close, Timeout});
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen, _) ->
-    dtls_socket:close(DTLSListen);
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen, Timeout)
+  when ?IS_TIMEOUT(Timeout) ->
+    dtls_socket:close_listen(DTLSListen, Timeout);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
     tls_socket:close(Transport, ListenSocket).
 

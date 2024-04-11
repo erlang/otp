@@ -149,9 +149,9 @@ handle_call(sockname, _, #state{listener = Socket} = State) ->
 handle_call(close, _, State0) ->
     case do_close(State0) of
         {stop, State} ->
-            {stop, normal, ok, State};
+            {stop, normal, stop, State};
         {wait, State} ->
-            {reply, ok, State}
+            {reply, waiting, State}
     end;
 handle_call({new_owner, Owner}, _, State) ->
     {reply, ok,  State#state{close = false, first = true, owner = Owner}};
