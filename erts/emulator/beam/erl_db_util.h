@@ -318,8 +318,8 @@ typedef struct db_table_common {
     erts_mtx_t fixlock;   /* Protects fixing_procs and time */
     int is_thread_safe;       /* No fine locking inside table needed */
     Uint32 type;              /* table type, *read only* after creation */
-    Eterm owner;              /* Pid of the creator */
-    Eterm heir;               /* Pid of the heir */
+    Eterm owner;              /* Pid of the current owner, or none */
+    Eterm heir;               /* Pid of the heir, or none, or immortal */
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */

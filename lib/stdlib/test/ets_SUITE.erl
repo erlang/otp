@@ -3437,36 +3437,55 @@ heir_do(Opts) ->
     {'DOWN', MrefF3, process, Founder3, normal} = receive_any(),
     undefined = ets:info(foo),
 
+    %% Immortal heir
+    {Founder4,MrefF4} = my_spawn_monitor(fun()->immortal_heir()end),
+    Founder4 ! die_please,
+    {'DOWN', MrefF4, process, Founder4, normal} = receive_any(),
+    none = ets:info(immortal_table, owner),
+    none = ets:info(immortal_table, heir),
+    [{key,1}] = ets:lookup(immortal_table, key),
+    ets:delete(immortal_table),
+
     %% When heir dies and pid reused before founder dies
     repeat_while(fun() ->
 			 NextPidIx = erts_debug:get_internal_state(next_pid),
-			 {Founder4,MrefF4} = my_spawn_monitor(fun()->heir_founder(Master,"The dying heir",Opts)end),
-			 {Heir4,MrefH4} = my_spawn_monitor(fun()->heir_heir(Founder4)end),
-			 Founder4 ! {go, Heir4},
-			 {'DOWN', MrefH4, process, Heir4, normal} = receive_any(),
+			 {Founder5,MrefF5} = my_spawn_monitor(fun()->heir_founder(Master,"The dying heir",Opts)end),
+			 {Heir5,MrefH5} = my_spawn_monitor(fun()->heir_heir(Founder5)end),
+			 Founder5 ! {go, Heir5},
+			 {'DOWN', MrefH5, process, Heir5, normal} = receive_any(),
 			 erts_debug:set_internal_state(next_pid, NextPidIx),
-			 DoppelGanger = spawn_monitor_with_pid(Heir4,
+			 DoppelGanger = spawn_monitor_with_pid(Heir5,
 							       fun()-> die_please = receive_any() end),
-			 Founder4 ! die_please,
-			 {'DOWN', MrefF4, process, Founder4, normal} = receive_any(),
+			 Founder5 ! die_please,
+			 {'DOWN', MrefF5, process, Founder5, normal} = receive_any(),
 			 case DoppelGanger of
-			     {Heir4,MrefH4_B} ->
-				 Heir4 ! die_please,
-				 {'DOWN', MrefH4_B, process, Heir4, normal} = receive_any(),
+			     {Heir5,MrefH5_B} ->
+				 Heir5 ! die_please,
+				 {'DOWN', MrefH5_B, process, Heir5, normal} = receive_any(),
 				 undefined = ets:info(foo),
 				 false;
 			     failed ->
-				 io:format("Failed to spawn process with pid ~p\n", [Heir4]),
+				 io:format("Failed to spawn process with pid ~p\n", [Heir5]),
 				 true % try again
 			 end
 		 end),
 
     verify_etsmem(EtsMem).
 
+immortal_heir() ->
+    Self = self(),
+    ets_new(immortal_table,[named_table, public, {heir, immortal}]),
+    true = ets:insert(immortal_table,{key,1}),
+    [{key,1}] = ets:lookup(immortal_table,key),
+    immortal = ets:info(immortal_table, heir),
+    Self = ets:info(immortal_table, owner),
+    die_please = receive_any().
+
 heir_founder(Master, HeirData, Opts) ->
     {go,Heir} = receive_any(),
     HeirTpl = case Heir of
 		  none -> {heir,none};
+		  immortal -> {heir,immortal};
 		  _ -> {heir, Heir, HeirData}
 	      end,
     T = ets_new(foo,[named_table, private, HeirTpl | Opts]),

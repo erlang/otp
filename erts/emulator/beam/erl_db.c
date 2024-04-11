@@ -2583,8 +2583,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 			frequent_read = 0;
 		    } else break;
 		}
-		else if (tp[1] == am_heir && tp[2] == am_none) {
-		    heir = am_none;
+		else if (tp[1] == am_heir && (tp[2] == am_none || tp[2] == am_immortal)) {
+		    heir = tp[2];
 		    heir_data = am_undefined;
 		}
                 else if (tp[1] == am_decentralized_counters) {
@@ -2953,14 +2953,17 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * now transfer the ownership to the current process.
 	 */
 
-        Process *rp = erts_proc_lookup_raw(tb->common.owner);
-        /*
-         * Process 'rp' might be exiting, but our table lock prevents it
-         * from terminating as it cannot complete erts_db_process_exiting().
-         */
-        ASSERT(!(ERTS_PSFLG_FREE & erts_atomic32_read_nob(&rp->state)));
+        if(tb->common.owner != am_none){
+            Process *rp = erts_proc_lookup_raw(tb->common.owner);
+            /*
+             * Process 'rp' might be exiting, but our table lock prevents it
+             * from terminating as it cannot complete erts_db_process_exiting().
+             */
+            ASSERT(!(ERTS_PSFLG_FREE & erts_atomic32_read_nob(&rp->state)));
 
-        delete_owned_table(rp, tb);
+            delete_owned_table(rp, tb);
+        }
+
         BIF_P->flags |= F_USING_DB;
         tb->common.owner = BIF_P->common.id;
         save_owned_table(BIF_P, tb);
@@ -4950,6 +4953,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks, void **yield_stat
     SWord initial_reds = ERTS_BIF_REDS_LEFT(c_p);
     SWord reds = initial_reds;
 
+
     if (!state) {
 	state = &default_state;
 	state->op = GET_OWNED_TABLE;
@@ -4985,6 +4989,14 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks, void **yield_stat
                 && give_away_to_heir(c_p, tb)) {
                 break;
             }
+            if (tb->common.heir == am_immortal){
+                tb->common.heir = am_none;
+                tb->common.owner = am_none;
+                delete_owned_table(c_p, tb);
+                db_unlock(tb, LCK_WRITE);
+                break;
+            }
+
             /* Clear all access bits. */
             tb->common.status &= ~(DB_PROTECTED | DB_PUBLIC | DB_PRIVATE
                                    | DB_BUSY);
@@ -5221,7 +5233,7 @@ static SWord free_fixations_locked(Process* p, DbTable *tb)
 static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 {	
     tb->common.heir = heir;
-    if (heir == am_none) {
+    if (heir == am_none || heir == am_immortal) {
 	return;
     }
     if (heir == me->common.id) {
@@ -5266,7 +5278,7 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 
 static void free_heir_data(DbTable* tb)
 {
-    if (tb->common.heir != am_none && !is_immed(tb->common.heir_data)) {
+    if (tb->common.heir != am_none && tb->common.heir != am_immortal && !is_immed(tb->common.heir_data)) {
 	DbTerm* p = (DbTerm*) tb->common.heir_data;
 	db_cleanup_offheap_comp(p);
 	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,

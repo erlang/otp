@@ -1017,11 +1017,13 @@ same as specifying
 
   [](){: #heir }
 
-- **`{heir,Pid,HeirData} | {heir,none}`** - Set a process as heir. The heir
-  inherits the table if the owner terminates. Message
+- **`{heir,Pid,HeirData} | {heir,none} | {heir, immortal}`** - Set a process
+  as heir. The heir inherits the table if the owner terminates. Message
   `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when that
   occurs. The heir must be a local process. Default heir is `none`, which
-  destroys the table when the owner terminates.
+  destroys the table when the owner terminates. If heir is `immortal`, the
+  table isn't removed and becomes unassociated with any process when the
+  owner terminates.
 
   [](){: #new_2_write_concurrency }
 
