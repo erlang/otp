@@ -42,7 +42,7 @@
 %%====================================================================
 %% Supposed to be called in a child-spec of the ssh_acceptor_sup
 start_link(SystemSup, LSock, Address, Options) ->
-    proc_lib:start_link(?MODULE, acceptor_init, [self(), SystemSup, LSock, Address, Options]).
+	{ok, proc_lib:spawn_link(?MODULE, acceptor_init, [self(), SystemSup, LSock, Address, Options])}.
 
 %%%----------------------------------------------------------------
 accept(ListenSocket, AcceptTimeout, Options) ->
@@ -62,7 +62,6 @@ acceptor_init(Parent, SystemSup, LSock,
     ssh_lib:set_label(server,
                       {acceptor,
                        list_to_binary(ssh_lib:format_address_port(Address, Port))}),
-    proc_lib:init_ack(Parent, {ok, self()}),
     AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
     MaxSessions = ?GET_OPT(max_sessions, Opts),
     ParallelLogin = ?GET_OPT(parallel_login, Opts),

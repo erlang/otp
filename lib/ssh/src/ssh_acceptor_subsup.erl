@@ -79,10 +79,9 @@ init([SystemSup, Address=#address{port=Port}, Options]) ->
                     %% Allow gen_tcp:listen to fail 4 times if eaddrinuse (It is a bug fix):
                     case try_listen(Port, Options, 4) of
                         {ok, NewLSock} ->
-                            spawn_link(fun() ->
-                                           [supervisor:start_child(Self, []) || _ <- lists:seq(1, NumAcceptors)],
-                                           unlink(Self)
-                                       end),
+                            spawn(fun() ->
+                                      [supervisor:start_child(Self, []) || _ <- lists:seq(1, NumAcceptors)]
+                                  end),
                             {NewLSock, ?DELETE_INTERNAL_OPT(lsocket, Options)};
                         {error, Error} ->
                             exit({error, Error})
@@ -93,10 +92,9 @@ init([SystemSup, Address=#address{port=Port}, Options]) ->
             %% No listening socket (nor fd option) was provided; open a listening socket:
             case listen(Port, Options) of
                 {ok, LSock} ->
-                    spawn_link(fun() ->
-                                   [supervisor:start_child(Self, []) || _ <- lists:seq(1, NumAcceptors)],
-                                   unlink(Self)
-                               end),
+                    spawn(fun() ->
+                              [supervisor:start_child(Self, []) || _ <- lists:seq(1, NumAcceptors)]
+                          end),
                     {LSock, Options};
                 {error, Error} ->
                     exit({error, Error})
