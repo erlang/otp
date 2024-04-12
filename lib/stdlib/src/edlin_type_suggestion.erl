@@ -295,7 +295,9 @@ get_arity1({map, Types}, _Constraints, [{'map', _Keys, [], _, _}]) ->
 get_arity1({map, Types}, _Constraints, [{'map', _Keys, _Key, _, _}]) ->
     length(Types);
 get_arity1({map, Types}, Constraints, [{'map', Keys, [], _, _}|Nestings]) ->
-    lists:flatten([get_arity1(T, Constraints, Nestings) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_arity1(T, Constraints, Nestings) ||
+                      {_, Key, _}=T <- Types,
+                      not lists:member(catch atom_to_list(Key), Keys)]);
 get_arity1({map, Types}, Constraints, [{'map', _Keys, Key, _, _}|Nestings]) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> none;
@@ -334,7 +336,9 @@ get_atoms1({tuple, LT}, Constraints, [{'tuple', Args, _}|Nestings]) when length(
         false -> []
     end;
 get_atoms1({map, Types}, Constraints, [{'map', Keys, [], _, _}|Nestings]) ->
-    lists:flatten([get_atoms1(T, Constraints, Nestings) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_atoms1(T, Constraints, Nestings) ||
+                      {_, Key, _}=T <- Types,
+                      not lists:member(catch atom_to_list(Key), Keys)]);
 get_atoms1({map, Types}, Constraints, [{'map', _Keys, Key, _, _}|Nestings]) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> [];
@@ -379,7 +383,8 @@ get_types1({tuple, LT}, Cs, [{tuple, Args, _}|Nestings], MaxUserTypeExpansions, 
         false -> []
     end;
 get_types1({'map', Types}, Cs, [{'map', Keys, [], _Args, _}|Nestings], MaxUserTypeExpansions, Options) ->
-    lists:flatten([get_types1(T, Cs, Nestings, MaxUserTypeExpansions, Options) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_types1(T, Cs, Nestings, MaxUserTypeExpansions, Options) ||
+                      {_, Key, _}=T <- Types, not lists:member(catch atom_to_list(Key), Keys)]);
 get_types1({'map', Types}, Cs, [{'map', _, Key, _Args, _}|Nestings], MaxUserTypeExpansions, Options) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> [];
