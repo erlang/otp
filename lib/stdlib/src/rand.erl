@@ -27,30 +27,59 @@
 
 -module(rand).
 -moduledoc """
-Pseudo random number generation.
+Pseudo random number generation
 
-This module provides a pseudo random number generator. The module contains a
-number of algorithms. The uniform distribution algorithms are based on the
-[Xoroshiro and Xorshift algorithms ](http://xorshift.di.unimi.it)by Sebastiano
-Vigna. The normal distribution algorithm uses the
-[Ziggurat Method by Marsaglia and Tsang ](http://www.jstatsoft.org/v05/i08)on
-top of the uniform distribution algorithm.
+This module provides pseudo random number generation and implements
+a number of base generator algorithms.  Most are provided through
+a [plug-in framework](#plug-in-framework) that adds
+features to the base generators.
 
-For most algorithms, jump functions are provided for generating non-overlapping
-sequences for parallel computations. The jump functions perform calculations
-equivalent to perform a large number of repeated calls for calculating new
-states, but execute in a time roughly equivalent to one regular iteration per
-generator bit.
+At the end of this module documentation there are some
+[niche algorithms](#niche-algorithms) that don't use
+this module's normal [plug-in framework](#plug-in-framework).
+They may be useful for special purposes like short generation time
+when quality is not essential, for seeding other generators, and such.
 
-At the end of this module documentation there are also some
-[niche algorithms ](`m:rand#niche-algorithms-api`)to be used without this
-module's normal [plug-in framework API ](`m:rand#plug-in-framework-api`)that may
-be useful for special purposes like short generation time when quality is not
-essential, for seeding other generators, and such.
+[](){: #plug-in-framework } Plug-in framework
+---------------------------------------------
+
+The [plug-in framework](#plug-in-framework-api) implements
+a common [API](#plug-in-framework-api) to, and enhancements
+of the base generators:
+
+* Operating on a generator state in the
+  [process dictionary](#generator-state).
+* [Automatic](#generator-state) [seeding](`seed/1`).
+* Manual [seeding support](`seed/2`) to avoid common pitfalls.
+* Generating [integers](`t:integer/0`) in any range, with
+  [uniform distribution](`uniform/1`), without noticable bias.
+* Generating [integers](`t:integer/0`) in any range, larger than
+  the base generator's, with [uniform distribution](`uniform/1`).
+* Generating [floating-point numbers](`t:float/0`) with
+  [uniform distribution](`uniform/0`).
+* Generating [floating-point numbers](`t:float/0`) with
+  [normal distribution](`normal/0`).
+* Generating any number of [bytes](`bytes/1`).
+
+The base generator algorithms implements the
+[Xoroshiro and Xorshift algorithms](http://xorshift.di.unimi.it)
+by Sebastiano Vigna.  During an iteration they generate a large integer
+(at least 58-bit) and operate on a state of several large integers.
+
+To create numbers with normal distribution the
+[Ziggurat Method by Marsaglia and Tsang](http://www.jstatsoft.org/v05/i08)
+is used on the output from a base generator.
+
+For most algorithms, jump functions are provided for generating
+non-overlapping sequences. A jump function perform a calculation
+equivalent to a large number of repeated state iterations,
+but execute in a time roughly equivalent to one regular iteration
+per generator bit.
 
 [](){: #algorithms } The following algorithms are provided:
 
-- **`exsss`**(Since OTP 22.0)  
+- **`exsss`**, the [_default algorithm_](#default-algorithm)
+  *(Since OTP 22.0)*  
   Xorshift116\*\*, 58 bits precision and period of 2^116-1
 
   Jump function: equivalent to 2^64 calls
@@ -59,101 +88,110 @@ essential, for seeding other generators, and such.
   the 2018 paper by David Blackman and Sebastiano Vigna:
   [Scrambled Linear Pseudorandom Number Generators](http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf)
 
-  The generator does not need 58-bit rotates so it is faster than the
-  Xoroshiro116 generator, and when combined with the StarStar scrambler it does
-  not have any weak low bits like `exrop` (Xoroshiro116+).
+  The generator doesn't use 58-bit rotates so it is faster than the
+  Xoroshiro116 generator, and when combined with the StarStar scrambler
+  it doesn't have any weak low bits like `exrop` (Xoroshiro116+).
 
-  Alas, this combination is about 10% slower than `exrop`, but is despite that
-  the [_default algorithm_ ](`m:rand#default-algorithm`)thanks to its
-  statistical qualities.
+  Alas, this combination is about 10% slower than `exrop`, but despite that
+  it is the [_default algorithm_](#default-algorithm) thanks to
+  its statistical qualities.
 
-- **`exro928ss`**(Since OTP 22.0)  
+- **`exro928ss`** *(Since OTP 22.0)*  
   Xoroshiro928\*\*, 58 bits precision and a period of 2^928-1
 
   Jump function: equivalent to 2^512 calls
 
-  This is a 58 bit version of Xoroshiro1024\**, from the 2018 paper by David
-  Blackman and Sebastiano Vigna:
-  [Scrambled Linear Pseudorandom Number Generators ](http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf)that
-  on a 64 bit Erlang system executes only about 40% slower than the [*default*
-  `exsss` *algorithm\* ](`m:rand#default-algorithm`)but with much longer period
-  and better statistical properties, but on the flip side a larger state.
+  This is a 58 bit version of Xoroshiro1024\*\*, from the 2018 paper by
+  David Blackman and Sebastiano Vigna:
+  [Scrambled Linear Pseudorandom Number Generators](http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf)
+  that on a 64 bit Erlang system executes only about 40% slower than the
+  [*default `exsss` algorithm*](#default-algorithm)
+  but with much longer period and better statistical properties,
+  but on the flip side a larger state.
 
   Many thanks to Sebastiano Vigna for his help with the 58 bit adaption.
 
-- **`exrop`**(Since OTP 20.0)  
+- **`exrop`** *(Since OTP 20.0)*  
   Xoroshiro116+, 58 bits precision and period of 2^116-1
 
   Jump function: equivalent to 2^64 calls
 
-- **`exs1024s`**(Since OTP 20.0)  
+- **`exs1024s`** *(Since OTP 20.0)*  
   Xorshift1024\*, 64 bits precision and a period of 2^1024-1
 
   Jump function: equivalent to 2^512 calls
 
-- **`exsp`**(Since OTP 20.0)  
+- **`exsp`** *(Since OTP 20.0)*  
   Xorshift116+, 58 bits precision and period of 2^116-1
 
   Jump function: equivalent to 2^64 calls
 
-  This is a corrected version of the previous
-  [_default algorithm_, ](`m:rand#default-algorithm`)that now has been
-  superseded by Xoroshiro116+ (`exrop`). Since there is no native 58 bit rotate
-  instruction this algorithm executes a little (say < 15%) faster than `exrop`.
+  This is a corrected version of a previous
+  [_default algorithm_](#default-algorithm) (`exsplus`, _deprecated_),
+  that was superseded by Xoroshiro116+ (`exrop`).  Since this algorithm
+  doesn't use rotate it executes a little (say < 15%) faster than `exrop`
+  (that has to do a 58 bit rotate, for which there is no native instruction).
   See the [algorithms' homepage](http://xorshift.di.unimi.it).
 
-[](){: #default-algorithm } The current _default algorithm_ is
-[`exsss` (Xorshift116\*\*). ](`m:rand#algorithms`)If a specific algorithm is
+[](){: #default-algorithm }
+#### Default Algorithm
+
+The current _default algorithm_ is
+[`exsss` (Xorshift116\*\*)](#algorithms). If a specific algorithm is
 required, ensure to always use `seed/1` to initialize the state.
 
-Which algorithm that is the default may change between Erlang/OTP releases, and
-is selected to be one with high speed, small state and "good enough" statistical
-properties.
+Which algorithm that is the default may change between Erlang/OTP releases,
+and is selected to be one with high speed, small state and "good enough"
+statistical properties.
+
+#### Old Algorithms
 
 Undocumented (old) algorithms are deprecated but still implemented so old code
 relying on them will produce the same pseudo random sequences as before.
 
 > #### Note {: .info }
 >
-> There were a number of problems in the implementation of the now undocumented
-> algorithms, which is why they are deprecated. The new algorithms are a bit
-> slower but do not have these problems:
+> There were a number of problems in the implementation of
+> the now undocumented algorithms, which is why they are deprecated.
+> The new algorithms are a bit slower but do not have these problems:
 >
-> Uniform integer ranges had a skew in the probability distribution that was not
-> noticable for small ranges but for large ranges less than the generator's
-> precision the probability to produce a low number could be twice the
-> probability for a high.
+> Uniform integer ranges had a skew in the probability distribution
+> that was not noticable for small ranges but for large ranges
+> less than the generator's precision the probability to produce
+> a low number could be twice the probability for a high.
 >
-> Uniform integer ranges larger than or equal to the generator's precision used
-> a floating point fallback that only calculated with 52 bits which is smaller
-> than the requested range and therefore were not all numbers in the requested
-> range even possible to produce.
+> Uniform integer ranges larger than or equal to the generator's precision
+> used a floating point fallback that only calculated with 52 bits
+> which is smaller than the requested range and therefore all numbers
+> in the requested range weren't even possible to produce.
 >
-> Uniform floats had a non-uniform density so small values i.e less than 0.5 had
-> got smaller intervals decreasing as the generated value approached 0.0
-> although still uniformly distributed for sufficiently large subranges. The new
-> algorithms produces uniformly distributed floats on the form `N * 2.0^(-53)`
-> hence equally spaced.
+> Uniform floats had a non-uniform density so small values for example
+> less than 0.5 had got smaller intervals decreasing as the generated value
+> approached 0.0 although still uniformly distributed for sufficiently large
+> subranges. The new algorithms produces uniformly distributed floats
+> on the form `N * 2.0^(-53)` hence they are equally spaced.
 
-Every time a random number is requested, a state is used to calculate it and a
-new state is produced. The state can either be implicit or be an explicit
-argument and return value.
+[](){: #generator-state }
+#### Generator State
 
-The functions with implicit state use the process dictionary variable
-`rand_seed` to remember the current state.
+Every time a random number is generated, a state is used to calculate it,
+producing a new state. The state can either be implicit
+or be an explicit argument and return value.
 
-If a process calls `uniform/0`, `uniform/1` or `uniform_real/0` without setting
-a seed first, `seed/1` is called automatically with the
-[_default algorithm_ ](`m:rand#default-algorithm`)and creates a non-constant
-seed.
+The functions with implicit state operates on a state stored
+in the process dictionary under the key `rand_seed`.  If that key
+doesn't exist when the function is called, `seed/1` is called automatically
+with the [_default algorithm_](#default-algorithm) and creates
+a reasonably unpredictable seed.
 
-The functions with explicit state never use the process dictionary.
+The functions with explicit state don't use the process dictionary.
 
-_Examples:_
+#### _Examples_
 
-Simple use; creates and seeds the
-[_default algorithm_ ](`m:rand#default-algorithm`)with a non-constant seed if
-not already done:
+Simple use; create and seed the
+[_default algorithm_](#default-algorithm) with a non-fixed seed,
+if not already done, and generate two uniformly distibuted
+floating point numbers.
 
 ```erlang
 R0 = rand:uniform(),
@@ -167,21 +205,21 @@ _ = rand:seed(exs928ss),
 R2 = rand:uniform(),
 ```
 
-Use a specified algorithm with a constant seed:
+Use a specified algorithm with a fixed seed:
 
 ```erlang
 _ = rand:seed(exs928ss, {123, 123534, 345345}),
 R3 = rand:uniform(),
 ```
 
-Use the functional API with a non-constant seed:
+Use the functional API with a non-fixed seed:
 
 ```erlang
 S0 = rand:seed_s(exsss),
 {R4, S1} = rand:uniform_s(S0),
 ```
 
-Textbook basic form Box-Muller standard normal deviate
+Generate a textbook basic form Box-Muller standard normal distribution number:
 
 ```erlang
 R5 = rand:uniform_real(),
@@ -189,37 +227,40 @@ R6 = rand:uniform(),
 SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)
 ```
 
-Create a standard normal deviate:
+Generate a standard normal distribution number:
 
 ```erlang
 {SND1, S2} = rand:normal_s(S1),
 ```
 
-Create a normal deviate with mean -3 and variance 0.5:
+Generate a normal distribution number with with mean -3 and variance 0.5:
 
 ```erlang
 {ND0, S3} = rand:normal_s(-3, 0.5, S2),
 ```
 
+#### Quality of the Generated Numbers
+
 > #### Note {: .info }
 >
 > The builtin random number generator algorithms are not cryptographically
-> strong. If a cryptographically strong random number generator is needed, use
-> something like `crypto:rand_seed/0`.
+> strong. If a cryptographically strong random number generator is needed,
+> use something like `crypto:rand_seed/0`.
 
-For all these generators except `exro928ss` and `exsss` the lowest bit(s) has
-got a slightly less random behaviour than all other bits. 1 bit for `exrop` (and
-`exsp`), and 3 bits for `exs1024s`. See for example the explanation in the
-[Xoroshiro128+](http://xoroshiro.di.unimi.it/xoroshiro128plus.c) generator
-source code:
+For all these generators except `exro928ss` and `exsss` the lowest bit(s)
+have got a slightly less random behaviour than all other bits.
+1 bit for `exrop` (and `exsp`), and 3 bits for `exs1024s`. See for example
+this explanation in the
+[Xoroshiro128+](http://xoroshiro.di.unimi.it/xoroshiro128plus.c)
+generator source code:
 
 > Beside passing BigCrush, this generator passes the PractRand test suite
 > up to (and included) 16TB, with the exception of binary rank tests,
 > which fail due to the lowest bit being an LFSR; all other bits pass all
 > tests. We suggest to use a sign test to extract a random Boolean value.
 
-If this is a problem; to generate a boolean with these algorithms use something
-like this:
+If this is a problem; to generate a boolean with these algorithms,
+use something like this:
 
 ```erlang
 (rand:uniform(256) > 128) % -> boolean()
@@ -237,6 +278,121 @@ For a general range, with `N = 1` for `exrop`, and `N = 3` for `exs1024s`:
 
 The floating point generating functions in this module waste the lowest bits
 when converting from an integer so they avoid this snag.
+
+
+[](){: #niche-algorithms } Niche algorithms
+-------------------------------------------
+
+The [niche algorithms API](#niche-algorithms-api) contains
+special purpose algorithms that don't use the
+[plug-in framework](#plug-in-framework), mainly for performance reasons.
+
+Since these algorithms lack the plug-in framework support, generating numbers
+in a range other than the base generator's range may become a problem.
+
+There are at least four ways to do this, assuming the `Range` is less than
+the generator's range:
+
+[](){: #modulo-method }
+- **Modulo**  
+  To generate a number `V` in the range `0..Range-1`:
+
+  > Generate a number `X`.  
+  > Use `V = X rem Range` as your value.
+
+  This method uses `rem`, that is, the remainder of an integer division,
+  which is a slow operation.
+
+  Low bits from the generator propagate straight through to
+  the generated value, so if the generator has got weaknesses
+  in the low bits this method propagates them too.
+
+  If `Range` is not a divisor of the generator range, the generated numbers
+  have a bias.  Example:
+
+  Say the generator generates a byte, that is, the generator range
+  is `0..255`, and the desired range is `0..99` (`Range = 100`).
+  Then there are 3 generator outputs that produce the value `0`,
+  these are; `0`, `100` and `200`.
+  But there are only 2 generator outputs that produce the value `99`,
+  which are; `99` and `199`. So the probability for a value `V` in `0..55`
+  is 3/2 times the probability for the other values `56..99`.
+
+  If `Range` is much smaller than the generator range, then this bias
+  gets hard to detect. The rule of thumb is that if `Range` is smaller
+  than the square root of the generator range, the bias is small enough.
+  Example:
+
+  A byte generator when `Range = 20`. There are 12 (`256 div 20`)
+  possibilities to generate the highest numbers and one more to generate
+  a number `V < 16` (`256 rem 20`). So the probability is 13/12
+  for a low number versus a high. To detect that difference with
+  some confidence you would need to generate a lot more numbers
+  than the generator range, `256` in this small example.
+
+[](){: #truncated-multiplication-method }
+- **Truncated multiplication**  
+  To generate a number `V` in the range `0..Range-1`, when you have
+  a generator with a power of 2 range (`0..2^Bits-1`):
+
+  > Generate a number `X`.  
+  > Use `V = X * Range bsr Bits` as your value.
+
+  If the multiplication `X * Range` creates a bignum
+  this method becomes very slow.
+
+  High bits from the generator propagate through to the generated value,
+  so if the generator has got weaknesses in the high bits this method
+  propagates them too.
+
+  If `Range` is not a divisor of the generator range, the generated numbers
+  have a bias, pretty much as for the [Modulo](#modulo-method) method above.
+
+[](){: #shift-or-mask-method }
+- **Shift or mask**  
+  To generate a number in a power of 2 range (`0..2^RBits-1`),
+  when you have a generator with a power of 2 range (`0..2^Bits`):
+
+  > Generate a number `X`.  
+  > Use `V = X band ((1 bsl RBits)-1)` or `V = X bsr (Bits-RBits)`
+  > as your value.
+
+  Masking with `band` preserves the low bits, and right shifting
+  with `bsr` preserves the high, so if the generator has got weaknesses
+  in high or low bits; choose the right operator.
+
+  If the generator has got a range that is not a power of 2
+  and this method is used anyway, it introduces bias in the same way
+  as for the [Modulo](#modulo-method) method above.
+
+[](){: #rejection-method }
+- **Rejection**  
+
+  > Generate a number `X`.  
+  > If `X` is in the range, use it as your value,
+  > otherwise reject it and repeat.
+
+  In theory it is not certain that this method will ever complete,
+  but in practice you ensure that the probability of rejection is low.
+  Then the probability for yet another iteration decreases exponentially
+  so the expected mean number of iterations will often be between 1 and 2.
+  Also, since the base generator is a full length generator,
+  a value that will break the loop must eventually be generated.
+
+  These methods can be combined, such as using
+  the [Modulo](#modulo-method) method and only if the generator value
+  would create bias use [Rejection](#rejection-method).
+  Or using [Shift or mask](#shift-or-mask-method) to reduce the size
+  of a generator value so that
+  [Truncated multiplication](#truncated-multiplication-method)
+  will not create a bignum.
+
+  The recommended way to generate a floating point number
+  (IEEE 745 Double, that has got a 53-bit mantissa) in the range
+  `0..1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
+  and then use `V = X * (1.0/((1 bsl 53)))` as your value.
+  This will create a value on the form N*2^-53 with equal probability
+  for every possible N for the range.
 """.
 -moduledoc(#{since => "OTP 18.0",
              titles =>
@@ -363,15 +519,17 @@ when converting from an integer so they avoid this snag.
 -doc "Algorithm-dependent state that can be printed or saved to file.".
 -type export_state() :: {alg(), alg_state()}.
 -doc """
-A seed value for the generator.
+Generator seed value.
 
 A list of integers sets the generator's internal state directly, after
-algorithm-dependent checks of the value and masking to the proper word size. The
-number of integers must be equal to the number of state words in the generator.
+algorithm-dependent checks of the value and masking to the proper word size.
+The number of integers must be equal to the number of state words
+in the generator.
 
-An integer is used as the initial state for a SplitMix64 generator. The output
-values of that is then used for setting the generator's internal state after
-masking to the proper word size and if needed avoiding zero values.
+A single integer is used as the initial state for a SplitMix64 generator.
+The sequential output values of that is then used for setting
+the generator's internal state after masking to the proper word size
+and if needed avoiding zero values.
 
 A traditional 3-tuple of integers seed is passed through algorithm-dependent
 hashing functions to create the generator's initial state.
@@ -438,7 +596,7 @@ uniform_range(Range, #{next:=Next, bits:=Bits} = AlgHandler, R, V) ->
             %% number better than 0.5.  And repeating that until
             %% success i guess would take 2 times statistically amortized.
             %% But since the probability for fairly many attemtpts
-            %% is not that low, use two bits more than the range which 
+            %% is not that low, use two bits more than the range which
             %% should make the probability to draw a bad number under 0.25,
             %% which decreases the bad case probability a lot.
             {V1, R1, B} =
@@ -474,7 +632,12 @@ uniform_range(Range, Next, R, V, ShiftMask, Shift, B) ->
 %% =====================================================================
 
 %% Return algorithm and seed so that RNG state can be recreated with seed/1
--doc "Returns the random number state in an external format. To be used with `seed/1`.".
+-doc """
+Export the seed value.
+
+Returns the random number state in an external format.
+To be used with `seed/1`.
+""".
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed() -> 'undefined' | export_state().
 export_seed() ->
@@ -484,50 +647,54 @@ export_seed() ->
     end.
 
 -doc """
-Returns the random number generator state in an external format. To be used with
-`seed/1`.
+Export the seed value.
+
+Returns the random number generator state in an external format.
+To be used with `seed/1`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec export_seed_s(State :: state()) -> export_state().
 export_seed_s({#{type:=Alg}, AlgState}) -> {Alg, AlgState}.
 
+
 %% seed(Alg) seeds RNG with runtime dependent values
 %% and return the NEW state
-
+%%
 %% seed({Alg,AlgState}) setup RNG with a previously exported seed
 %% and return the NEW state
 
 -doc """
-Seeds random number generation with the specifed algorithm and time-dependent
-data if `AlgOrStateOrExpState` is an algorithm. `Alg = default` is an alias for
-the [_default algorithm_.](`m:rand#default-algorithm`)
+Seed the random number generator and select algorithm.
 
-Otherwise recreates the exported seed in the process dictionary, and returns the
-state. See also `export_seed/0`.
+The same as [`seed_s(Alg_or_State)`](`seed_s/1`),
+but also stores the generated state in the process dictionary.
+
+The argument `default` is an alias for the
+[_default algorithm_](#default-algorithm)
+that has been implemented *(Since OTP 24.0)*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0,OTP 24.0">>}).
--spec seed(
-        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
-                  state();
-          (Alg :: 'default') ->
-                  state().
-seed(Alg) ->
-    seed_put(seed_s(Alg)).
+-doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-spec seed(Alg_or_State :: term()) -> state().
+seed(Alg_or_State) ->
+    seed_put(seed_s(Alg_or_State)).
 
 -doc """
-Seeds random number generation with the specifed algorithm and time-dependent
-data if `AlgOrStateOrExpState` is an algorithm. `Alg = default` is an alias for
-the [_default algorithm_.](`m:rand#default-algorithm`)
+Seed the random number generator and select algorithm.
 
-Otherwise recreates the exported seed and returns the state. See also
-`export_seed/0`.
+With the argument `Alg`, select that algorithm and seed random number
+generation with reasonably unpredictable time dependent data.
+
+`Alg = default` is an alias for the
+[_default algorithm_](#default-algorithm)
+*(Since OTP 24.0)*.
+
+With the argument `State`, re-creates the state and returns it.
+See also `export_seed/0`.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0,OTP 24.0">>}).
--spec seed_s(
-        AlgOrStateOrExpState :: builtin_alg() | state() | export_state()) ->
-                    state();
-            (Alg :: 'default') ->
-                    state().
+-doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-spec seed_s(Alg | State) -> state() when
+      Alg   :: builtin_alg() | 'default',
+      State :: state() | export_state().
 seed_s({AlgHandler, _AlgState} = State) when is_map(AlgHandler) ->
     State;
 seed_s({Alg, AlgState}) when is_atom(Alg) ->
@@ -545,24 +712,33 @@ default_seed() ->
 %% and returns the NEW state.
 
 -doc """
-Seeds random number generation with the specified algorithm and integers in the
-process dictionary and returns the state. `Alg = default` is an alias for the
-[_default algorithm_.](`m:rand#default-algorithm`)
+Seed the random number generator and select algorithm.
+
+The same as [`seed_s(Alg, Seed)`](`seed_s/2`),
+but also stores the generated state in the process dictionary.
+
+`Alg = default` is an alias for the
+[_default algorithm_](#default-algorithm)
+that has been implemented *(Since OTP 24.0)*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0,OTP 24.0">>}).
--spec seed(Alg :: builtin_alg(),  Seed :: seed()) -> state();
-          (Alg :: 'default',  Seed :: seed()) -> state().
+-doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
+-spec seed(Alg :: term(), Seed :: term()) -> state().
 seed(Alg, Seed) ->
     seed_put(seed_s(Alg, Seed)).
 
 -doc """
-Seeds random number generation with the specified algorithm and integers and
-returns the state. `Alg = default` is an alias for the
-[_default algorithm_.](`m:rand#default-algorithm`)
+Seed the random number generator and select algorithm.
+
+Creates and returns a generator state for the specified algorithm
+from the specified `t:seed/0` integers.
+
+`Alg = default` is an alias for the [_default algorithm_](#default-algorithm)
+that has been implemented *since OTP 24.0*.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0,OTP 24.0">>}).
--spec seed_s(Alg :: builtin_alg(), Seed :: seed()) -> state();
-            (Alg :: 'default', Seed :: seed()) -> state().
+-spec seed_s(Alg, Seed) -> state() when
+      Alg  :: builtin_alg() | 'default',
+      Seed :: seed().
 seed_s(default, Seed) -> seed_s(?DEFAULT_ALG_HANDLER, Seed);
 seed_s(Alg, Seed) ->
     {AlgHandler,SeedFun} = mk_alg(Alg),
@@ -576,28 +752,11 @@ seed_s(Alg, Seed) ->
 %% updating the state in the process dictionary.
 
 -doc """
-Returns a random float uniformly distributed in the value range `0.0 =< X < 1.0`
-and updates the state in the process dictionary.
+Generate a uniformly distributed random number `0.0 =< X < 1.0`,
+using the state in the process dictionary.
 
-The generated numbers are on the form `N * 2.0^(-53)`, that is; equally spaced in
-the interval.
-
-> #### Warning {: .warning }
->
-> This function may return exactly `0.0` which can be fatal for certain
-> applications. If that is undesired you can use `(1.0 - rand:uniform())` to get
-> the interval `0.0 < X =< 1.0`, or instead use `uniform_real/0`.
->
-> If neither endpoint is desired you can test and re-try like this:
->
-> ```erlang
-> my_uniform() ->
->     case rand:uniform() of
->         0.0 -> my_uniform();
-> 	X -> X
->     end
-> end.
-> ```
+Like `uniform_s/1` but operates on the state stored in
+the process dictionary.  Returns the generated number `X`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform() -> X :: float().
@@ -611,9 +770,11 @@ uniform() ->
 %% updating the state in the process dictionary.
 
 -doc """
-Returns, for a specified integer `N >= 1`, a random integer uniformly
-distributed in the value range `1 =< X =< N` and updates the state in the
-process dictionary.
+Generate a uniformly distributed random integer `1 =< X =< N`,
+using the state in the process dictionary.
+
+Like `uniform_s/2` but operates on the state stored in
+the process dictionary.  Returns the generated number `X`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform(N :: pos_integer()) -> X :: pos_integer().
@@ -627,27 +788,30 @@ uniform(N) ->
 %% and a new state.
 
 -doc """
-Returns, for a specified state, random float uniformly distributed in the value
-range `0.0 =< X < 1.0` and a new state.
+Generate a uniformly distributed random number `0.0 =< X < 1.0`.
 
-The generated numbers are on the form `N * 2.0^(-53)`, that is; equally spaced in
-the interval.
+From the specified `State`, generates a random number `X ::` `t:float/0`,
+uniformly distributed in the value range `0.0 =< X < 1.0`.
+Returns the number `X` and the updated `NewState`.
+
+The generated numbers are on the form `N * 2.0^(-53)`, that is;
+equally spaced in the interval.
 
 > #### Warning {: .warning }
 >
 > This function may return exactly `0.0` which can be fatal for certain
-> applications. If that is undesired you can use `(1.0 - rand:uniform(State))`
-> to get the interval `0.0 < X =< 1.0`, or instead use `uniform_real_s/1`.
+> applications. If that is undesired you can use `(1.0 - rand:uniform())`
+> to get the interval `0.0 < X =< 1.0`, or instead use `uniform_real/0`.
 >
-> If neither endpoint is desired you can test and re-try like this:
+> If neither endpoint is desired you can achieve the range
+> `0.0 < X < 1.0` using test and re-try like this:
 >
 > ```erlang
-> my_uniform(State) ->
->     case rand:uniform(State) of
->         {0.0, NewState} -> my_uniform(NewState);
-> 	Result -> Result
->     end
-> end.
+> my_uniform() ->
+>     case rand:uniform() of
+>         X when 0.0 < X -> X;
+>         _ -> my_uniform()
+>     end.
 > ```
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
@@ -669,8 +833,11 @@ uniform_s({#{max:=Max, next:=Next} = AlgHandler, R0}) ->
 %% and a new state.
 
 -doc """
-Returns, for a specified integer `N >= 1` and a state, a random integer
-uniformly distributed in the value range `1 =< X =< N` and a new state.
+Generate a uniformly distributed random integer `1 =< X =< N`.
+
+From the specified `State`, generates a random number `X ::` `t:integer/0`,
+uniformly distributed in the specified range `1 =< X =< N`.
+Returns the number `X` and the updated `NewState`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec uniform_s(N :: pos_integer(), State :: state()) ->
@@ -687,7 +854,7 @@ uniform_s(N, {#{max:=Max, next:=Next} = AlgHandler, R0})
   when is_integer(N), 1 =< N ->
     %% Old algorithm with skewed probability
     %% and gap in ranges > Max
-    {V, R1} = Next(R0),  
+    {V, R1} = Next(R0),
     if
         N =< Max ->
             {(V rem N) + 1, {AlgHandler, R1}};
@@ -700,22 +867,13 @@ uniform_s(N, {#{max:=Max, next:=Next} = AlgHandler, R0})
 %% updating the state in the process dictionary.
 
 -doc """
-Returns a random float uniformly distributed in the value range
-`DBL_MIN =< X < 1.0` and updates the state in the process dictionary.
+Generate a uniformly distributed random number `0.0 < X < 1.0`,
+using the state in the process dictionary.
 
-Conceptually, a random real number `R` is generated from the interval
-`0 =< R < 1` and then the closest rounded down normalized number in the IEEE 754
-Double precision format is returned.
+Like `uniform_real_s/1` but operates on the state stored in
+the process dictionary.  Returns the generated number `X`.
 
-> #### Note {: .info }
->
-> The generated numbers from this function has got better granularity for small
-> numbers than the regular `uniform/0` because all bits in the mantissa are
-> random. This property, in combination with the fact that exactly zero is never
-> returned is useful for algorithms doing for example `1.0 / X` or
-> `math:log(X)`.
-
-See `uniform_real_s/1` for more explanation.
+See `uniform_real_s/1`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real() -> X :: float().
@@ -728,10 +886,10 @@ uniform_real() ->
 %% returns a random float X where 0.0 < X =< 1.0,
 %% and a new state.
 %%
-%% This function does not use the same form of uniformity
+%% This function doesn't use the same form of uniformity
 %% as the uniform_s/1 function.
 %%
-%% Instead, this function does not generate numbers with equal
+%% Instead, this function doesn't generate numbers with equal
 %% distance in the interval, but rather tries to keep all mantissa
 %% bits random also for small numbers, meaning that the distance
 %% between possible numbers decreases when the numbers
@@ -749,7 +907,7 @@ uniform_real() ->
 %% This concept of uniformity should work better for applications
 %% where you need to calculate 1.0/X or math:log(X) since those
 %% operations benefits from larger precision approaching 0.0,
-%% and that this function does not return 0.0 nor denormalized
+%% and that this function doesn't return 0.0 nor denormalized
 %% numbers very close to 0.0.  The log() operation in The Box-Muller
 %% transformation for normal distribution is an example of this.
 %%
@@ -759,37 +917,41 @@ uniform_real() ->
 %%-define(TWO_POW_MINUS110, 7.7037197775489436e-34).
 %%
 -doc """
-Returns, for a specified state, a random float uniformly distributed in the
-value range `DBL_MIN =< X < 1.0` and updates the state in the process
-dictionary.
+Generate a uniformly distributed random number `0.0 < X < 1.0`.
+
+From the specified state, generates a random float, uniformly distributed
+in the value range `DBL_MIN =< X < 1.0`.
 
 Conceptually, a random real number `R` is generated from the interval
-`0 =< R < 1` and then the closest rounded down normalized number in the IEEE 754
-Double precision format is returned.
+`0.0 =< R < 1.0` and then the closest rounded down nonzero
+normalized number in the IEEE 754 Double Precision Format is returned.
 
 > #### Note {: .info }
 >
-> The generated numbers from this function has got better granularity for small
-> numbers than the regular `uniform_s/1` because all bits in the mantissa are
-> random. This property, in combination with the fact that exactly zero is never
-> returned is useful for algorithms doing for example `1.0 / X` or
-> `math:log(X)`.
+> The generated numbers from this function has got better granularity
+> for small numbers than the regular `uniform_s/1` because all bits
+> in the mantissa are random. This property, in combination with the fact
+> that exactly zero is never returned is useful for algorithms doing
+> for example `1.0 / X` or `math:log(X)`.
 
 The concept implicates that the probability to get exactly zero is extremely
-low; so low that this function is in fact guaranteed to never return zero. The
-smallest number that it might return is `DBL_MIN`, which is `2.0^(-1022)`.
+low; so low that this function in fact never returns `0.0`.
+The smallest number that it might return is `DBL_MIN`,
+which is `2.0^(-1022)`.
 
-The value range stated at the top of this function description is technically
-correct, but `0.0 =< X < 1.0` is a better description of the generated numbers'
-statistical distribution. Except that exactly 0.0 is never returned, which is
-not possible to observe statistically.
+The value range stated at the top of this function description is
+technically correct, but `0.0 =< X < 1.0` is a better description
+of the generated numbers' statistical distribution, and that
+this function never returns exactly `0.0` is impossible to observe.
 
-For example; for all sub ranges `N*2.0^(-53) =< X < (N+1)*2.0^(-53)` where
-`0 =< integer(N) < 2.0^53` the probability is the same. Compare that with the
-form of the numbers generated by `uniform_s/1`.
+For all sub ranges `N*2.0^(-53) =< X < (N+1)*2.0^(-53)` where
+`0 =< integer(N) < 2.0^53`, the probability to generate a number
+in the range is the same.  Compare with the numbers
+generated by `uniform_s/1`.
 
-Having to generate extra random bits for small numbers costs a little
-performance. This function is about 20% slower than the regular `uniform_s/1`
+Having to generate extra random bits for occasional small numbers
+costs a little performance. This function is about 20% slower
+than the regular `uniform_s/1`
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 21.0">>}).
 -spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
@@ -942,12 +1104,11 @@ uniform_real_s(#{max:=_} = AlgHandler, Next, M0, BitNo, R0) ->
 %% returns a random binary with N bytes
 
 -doc """
-Returns, for a specified integer `N >= 0`, a `t:binary/0` with that number of
-random bytes.
+Generate random bytes as a `t:binary()`,
+using the state in the process dictionary.
 
-Generates as many random numbers as required using the selected
-algorithm to compose the binary, and updates the state in the process dictionary
-accordingly.
+Like `bytes_s/2` but operates on the state stored in
+the process dictionary.  Returns the generated [`Bytes`](`t:binary/0`).
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes(N :: non_neg_integer()) -> Bytes :: binary().
@@ -961,11 +1122,14 @@ bytes(N) ->
 %% returns a random binary with N bytes and a new state
 
 -doc """
-Returns, for a specified integer `N >= 0` and a state, a `t:binary/0` with that
-number of random bytes, and a new state.
+Generate random bytes as a `t:binary()`.
 
-Generates as many random numbers as
-required using the selected algorithm to compose the binary, and the new state.
+For a specified integer `N >= 0`, generates a `t:binary/0`
+with that number of random bytes.
+
+The selected algorithm is used to generate as many random numbers
+as required to compose the `t:binary/0`.  Returns the generated
+[`Bytes`](`t:binary/0`) and a [`NewState`](`t:state/0`).
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 24.0">>}).
 -spec bytes_s(N :: non_neg_integer(), State :: state()) ->
@@ -1032,13 +1196,22 @@ bytes_r(N, AlgHandler, Next, R0, Bytes, _GoodBytes, GoodBits, _Shift) ->
 %% The large number is algorithm dependent.
 
 -doc """
-Returns the state after performing jump calculation to the given state.
+Jump the generator state forward.
 
-This function generates a `not_implemented` error exception when the jump
-function is not implemented for the algorithm specified in the state.
+Performs an algorithm specific [`State`](`t:state/0`) jump calculation
+that is equvalent to a large number of state iterations.
+See this module's [algorithms list](#algorithms).
+
+Returns the [`NewState`](`t:state/0`).
+
+This feature can be used to create many non-overlapping
+random number sequences from one start state.
+
+This function raises a `not_implemented` error exception if there is
+no jump function implemented for the [`State`](`t:state/0`)'s algorithm.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
--spec jump(state()) -> NewState :: state().
+-spec jump(State :: state()) -> NewState :: state().
 jump(State = {#{jump:=Jump}, _}) ->
     Jump(State);
 jump({#{}, _}) ->
@@ -1051,12 +1224,10 @@ jump({#{}, _}) ->
 %% then returns the new value.
 
 -doc """
-Returns the state after performing jump calculation to the state in the process
-dictionary.
+Jump the generator state forward.
 
-This function generates a `not_implemented` error exception when the jump
-function is not implemented for the algorithm specified in the state in the
-process dictionary.
+Like `jump/1` but operates on the state stored in
+the process dictionary.  Returns the [`NewState`](`t:state/0`).
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
 -spec jump() -> NewState :: state().
@@ -1067,11 +1238,13 @@ jump() ->
 %% updating the state in the process dictionary.
 
 -doc """
-Returns a standard normal deviate float (that is, the mean is 0 and the standard
-deviation is 1) and updates the state in the process dictionary.
+Generate a random number with standard normal distribution.
+
+Like `normal_s/1` but operates on the state stored in
+the process dictionary.  Returns the generated number `X`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
--spec normal() -> float().
+-spec normal() -> X :: float().
 normal() ->
     {X, Seed} = normal_s(seed_get()),
     _ = seed_put(Seed),
@@ -1081,11 +1254,13 @@ normal() ->
 %% updating the state in the process dictionary.
 
 -doc """
-Returns a normal N(Mean, Variance) deviate float and updates the state in the
-process dictionary.
+Generate a random number with specified normal distribution 𝒩 *(μ, σ²)*.
+
+Like `normal_s/3` but operates on the state stored in
+the process dictionary.  Returns the generated number `X`.
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
--spec normal(Mean :: number(), Variance :: number()) -> float().
+-spec normal(Mean :: number(), Variance :: number()) -> X :: float().
 normal(Mean, Variance) ->
     Mean + (math:sqrt(Variance) * normal()).
 
@@ -1094,11 +1269,17 @@ normal(Mean, Variance) ->
 %% Paper and reference code: http://www.jstatsoft.org/v05/i08/
 
 -doc """
-Returns, for a specified state, a standard normal deviate float (that is, the
-mean is 0 and the standard deviation is 1) and a new state.
+Generate a random number with standard normal distribution.
+
+From the specified `State`, generates a random number `X ::` `t:float/0`,
+with standard normal distribution, that is with mean value `0.0`
+and variance `1.0`.
+
+Returns the generated number [`X`](`t:float/0`)
+and the [`NewState`](`t:state/0`).
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
--spec normal_s(State :: state()) -> {float(), NewState :: state()}.
+-spec normal_s(State :: state()) -> {X :: float(), NewState :: state()}.
 normal_s(State0) ->
     {Sign, R, State} = get_52(State0),
     Idx = ?MASK(8, R),
@@ -1117,12 +1298,21 @@ normal_s(State0) ->
 %% normal_s/3: returns a random float with normal N(μ, σ²) distribution
 
 -doc """
-Returns, for a specified state, a normal N(Mean, Variance) deviate float and a
-new state.
+Generate a random number with specified normal distribution 𝒩 *(μ, σ²)*.
+
+From the specified `State`, generates a random number `X ::` `t:float/0`,
+with normal distribution 𝒩 *(μ, σ²)*, that is 𝒩 (Mean, Variance)
+where `Variance >= 0.0`.
+
+Returns [`X`](`t:float/0`) and the [`NewState`](`t:state/0`).
 """.
 -doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 20.0">>}).
--spec normal_s(Mean :: number(), Variance :: number(), state()) -> {float(), NewS :: state()}.
-normal_s(Mean, Variance, State0) when Variance > 0 ->
+-spec normal_s(Mean, Variance, State) -> {X :: float(), NewState :: state()}
+              when
+      Mean     :: number(),
+      Variance :: number(),
+      State    :: state().
+normal_s(Mean, Variance, State0) when 0 =< Variance ->
     {X, State} = normal_s(State0),
     {Mean + (math:sqrt(Variance) * X), State}.
 
@@ -1316,28 +1506,36 @@ exsss_seed({A1, A2, A3}) ->
 %%
 -dialyzer({no_improper_lists, exsp_next/1}).
 -doc """
-Returns a random 58-bit integer `X` and a new generator state `NewAlgState`,
+Generate an Xorshift116+ random integer and new algorithm state.
+
+From the specified [`AlgState`](`t:exsplus_state/0`),
+generates a random 58-bit integer [`X`](`t:uint58/0`)
+and a new algorithm state [`NewAlgState`](`t:exsplus_state/0`),
 according to the Xorshift116+ algorithm.
 
-This is an API function into the internal implementation of the
-[`exsp`](`m:rand#algorithms`) algorithm that enables using it without the
+This is an API function exposing the internal implementation of the
+[`exsp`](#algorithms) algorithm that enables using it without the
 overhead of the plug-in framework, which might be useful for time critial
-applications. On a typical 64 bit Erlang VM this approach executes in just above
-30% (1/3) of the time for the default algorithm through this module's normal
-plug-in framework.
+applications. On a typical 64 bit Erlang VM this approach executes
+in just above 30% (1/3) of the time for the default algorithm through
+this module's normal plug-in framework.
 
-To seed this generator use [`{_, AlgState} = rand:seed_s(exsp)` ](`seed_s/1`)or
-[`{_, AlgState} = rand:seed_s(exsp, Seed)` ](`seed_s/1`)with a specific `Seed`.
+To seed this generator use [`{_, AlgState} = rand:seed_s(exsp)`](`seed_s/1`)
+or [`{_, AlgState} = rand:seed_s(exsp, Seed)`](`seed_s/1`)
+with a specific [`Seed`](`t:seed/0`).
 
 > #### Note {: .info }
 >
-> This function offers no help in generating a number on a selected range, nor
-> in generating a floating point number. It is easy to accidentally mess up the
-> fairly good statistical properties of this generator when doing either. See
-> the recepies at the start of this
-> [Niche algorithms API ](`m:rand#niche-algorithms-api`)description. Note also
-> the caveat about weak low bits that this generator suffers from. The generator
-> is exported in this form primarily for performance.
+> This function offers no help in generating a number on a selected range,
+> nor in generating floating point numbers.  It is easy to accidentally
+> mess up the statistical properties of this generator or to loose
+> the performance advantage when doing either.
+> See the recepies at the start of this
+> [Niche algorithms API](#niche-algorithms-api) description.
+>
+> Note also the caveat about weak low bits that this generator suffers from.
+>
+> The generator is exported in this form primarily for performance reasons.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_next(AlgState :: exsplus_state()) ->
@@ -1417,20 +1615,30 @@ exsss_uniform(Range, {AlgHandler, R}) ->
 
 -dialyzer({no_improper_lists, exsplus_jump/1}).
 -spec exsplus_jump({alg_handler(), exsplus_state()}) ->
-                          {alg_handler(), exsplus_state()}.
+          {alg_handler(), exsplus_state()}.
 exsplus_jump({AlgHandler, S}) ->
     {AlgHandler, exsp_jump(S)}.
 
 -dialyzer({no_improper_lists, exsp_jump/1}).
 -doc """
-Returns a new generator state equivalent of the state after iterating over
-`exsp_next/1` 2^64 times.
+Jump the generator state forward.
+
+Performs a [`State`](`t:state/0`) jump calculation
+that is equvalent to a 2^64 state iterations.
+
+Returns the [`NewState`](`t:state/0`).
+
+This feature can be used to create many non-overlapping
+random number sequences from one start state.
 
 See the description of jump functions at the top of this module description.
+
+See `exsp_next/1` about why this internal implementation function
+has been exposed.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec exsp_jump(AlgState :: exsplus_state()) ->
-                       NewAlgState :: exsplus_state().
+          NewAlgState :: exsplus_state().
 exsp_jump(S) ->
     {S1, AS1} = exsplus_jump(S, [0|0], ?JUMPCONST1, ?JUMPELEMLEN),
     {_,  AS2} = exsplus_jump(S1, AS1,  ?JUMPCONST2, ?JUMPELEMLEN),
@@ -1981,19 +2189,23 @@ dummy_seed({A1, A2, A3}) ->
 -define(MWC59_XS2, 27).
 
 -doc """
-`1 .. ((16#1ffb072 \* 2^29 - 1) - 1)`
+`1 .. (16#1ffb072 bsl 29) - 2`
 """.
 -type mwc59_state() :: 1..?MWC59_P-1.
 
 -doc """
-Returns a new generator state `CX1`, according to a Multiply With Carry
-generator, which is an efficient implementation of a Multiplicative Congruential
-Generator with a power of 2 multiplier and a prime modulus.
+Generate a new MWC59 state.
 
-This generator uses the multiplier `2^32` and the modulus `16#7fa6502 * 2^32 - 1`,
-which have been selected, in collaboration with Sebastiano Vigna, to avoid
-bignum operations and still get good statistical quality. It can be written
-as:  
+From the specified generator state [`CX0`](`t:mwc59_state/0`) generate
+a new state [`CX1`](`t:mwc59_state/0`), according to a Multiply With Carry
+generator, which is an efficient implementation of
+a Multiplicative Congruential Generator with a power of 2 multiplier
+and a prime modulus.
+
+This generator uses the multiplier `2^32` and the modulus
+`16#7fa6502 * 2^32 - 1`, which have been selected, in collaboration with
+Sebastiano Vigna, to avoid bignum operations and still get
+good statistical quality. It has been named "MWC59" and can be written as:
 
 ```erlang
 C = CX0 bsr 32
@@ -2001,39 +2213,44 @@ X = CX0 band ((1 bsl 32)-1))
 CX1 = 16#7fa6502 * X + C
 ```
 
-Because the generator uses a multiplier that is a power of 2 it gets statistical
-flaws for collision tests and birthday spacings tests in 2 and 3 dimensions, and
-even these caveats apply only to the MWC "digit", that is the low 32 bits (due
-to the multiplier) of the generator state.
+Because the generator uses a multiplier that is a power of 2 it gets
+statistical flaws for collision tests and birthday spacings tests
+in 2 and 3 dimensions, and these caveats apply even when looking
+only at the MWC "digit", that is the low 32 bits (the multiplier)
+of the generator state.  The higher bits of the state are worse.
 
-The quality of the output value improves much by using a scrambler instead of
-just taking the low bits. Function [`mwc59_value32` ](`mwc59_value32/1`)is a
-fast scrambler that returns a decent 32-bit number. The slightly slower
-[`mwc59_value` ](`mwc59_value/1`)scrambler returns 59 bits of very good quality,
-and [`mwc59_float`](`mwc59_float/1`) returns a `t:float/0` of very good quality.
+The quality of the output value improves much by using a scrambler,
+instead of just taking the low bits.
+Function [`mwc59_value32`](`mwc59_value32/1`) is a fast scrambler
+that returns a decent 32-bit number. The slightly slower
+[`mwc59_value`](`mwc59_value/1`) scrambler returns 59 bits of
+very good quality, and [`mwc59_float`](`mwc59_float/1`) returns
+a `t:float/0` of very good quality.
 
-The low bits of the base generator are surprisingly good, so the lowest 16 bits
-actually pass fairly strict PRNG tests, despite the generator's weaknesses that
-lie in the high bits of the 32-bit MWC "digit". It is recommended to use `rem`
-on the the generator state, or bit mask extracting the lowest bits to produce
-numbers in a range 16 bits or less. See the recepies at the start of this
-[Niche algorithms API ](`m:rand#niche-algorithms-api`)description.
+The low bits of the base generator are surprisingly good, so the lowest
+16 bits actually pass fairly strict PRNG tests, despite the generator's
+weaknesses that lie in the high bits of the 32-bit MWC "digit".
+It is recommended to use `rem` on the the generator state, or bit mask
+extracting the lowest bits to produce numbers in a range 16 bits or less.
+See the recepies at the start of this
+[Niche algorithms API](#niche-algorithms-api) description.
 
-On a typical 64 bit Erlang VM this generator executes in below 8% (1/13) of the
-time for the default algorithm in the
-[plug-in framework API ](`m:rand#plug-in-framework-api`)of this module. With the
-[`mwc59_value32` ](`mwc59_value32/1`)scrambler the total time becomes 16% (1/6),
-and with [`mwc59_value` ](`mwc59_value/1`)it becomes 20% (1/5) of the time for
-the default algorithm. With [`mwc59_float`](`mwc59_float/1`) the total time is
-60% of the time for the default algorithm generating a `t:float/0`.
+On a typical 64 bit Erlang VM this generator executes in below 8% (1/13)
+of the time for the default algorithm in the
+[plug-in framework API](#plug-in-framework-api) of this module.
+With the [`mwc59_value32`](`mwc59_value32/1`) scrambler the total time
+becomes 16% (1/6), and with [`mwc59_value`](`mwc59_value/1`)
+it becomes 20% (1/5) of the time for the default algorithm.
+With [`mwc59_float`](`mwc59_float/1`) the total time
+is 60% of the time for the default algorithm generating a `t:float/0`.
 
 > #### Note {: .info }
 >
-> This generator is a niche generator for high speed applications. It has a much
-> shorter period than the default generator, which in itself is a quality
-> concern, although when used with the value scramblers it passes strict PRNG
-> tests. The generator is much faster than `exsp_next/1` but with a bit lower
-> quality.
+> This generator is a niche generator for high speed applications.
+> It has a much shorter period than the default generator, which in itself
+> is a quality concern, although when used with the value scramblers
+> it passes strict PRNG tests.  The generator is much faster than
+> `exsp_next/1` but with a bit lower quality and much shorter period.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59(CX0 :: mwc59_state()) -> CX1 :: mwc59_state().
@@ -2055,23 +2272,28 @@ mwc59(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
 %%%     mwc59(CX1, N - 1).
 
 -doc """
-Returns a 32-bit value `V` from a generator state `CX`. The generator state is
-scrambled using an 8-bit xorshift which masks the statistical imperfecions of
-the base generator [`mwc59`](`mwc59/1`) enough to produce numbers of decent
-quality. Still some problems in 2- and 3-dimensional birthday spacing and
-collision tests show through.
+Calculate a 32-bit scrambled value from a [MWC59 state](`t:mwc59_state/0`).
+
+Returns a 32-bit value [`V`](`t:integer/0`) from a generator state `CX`.
+The generator state is scrambled using an 8-bit xorshift which masks
+the statistical imperfecions of the base generator [`mwc59`](`mwc59/1`)
+enough to produce numbers of decent quality. Still some problems
+in 2- and 3-dimensional birthday spacing and collision tests show through.
 
 When using this scrambler it is in general better to use the high bits of the
-value than the low. The lowest 8 bits are of good quality and pass right through
-from the base generator. They are combined with the next 8 in the xorshift
-making the low 16 good quality, but in the range 16..31 bits there are weaker
-bits that you do not want to have as the high bits of your generated values.
-Therefore it is in general safer to shift out low bits. See the recepies at the
-start of this [Niche algorithms API ](`m:rand#niche-algorithms-api`)description.
+value than the low. The lowest 8 bits are of good quality and are passed
+right through from the base generator. They are combined with the next 8
+in the xorshift making the low 16 good quality, but in the range
+16..31 bits there are weaker bits that should not become high bits
+of the generated values.
 
-For a non power of 2 range less than about 16 bits (to not get too much bias and
-to avoid bignums) truncated multiplication can be used, which is much faster
-than using `rem`: `(Range*V) bsr 32`.
+Therefore it is in general safer to shift out low bits. See the recepies
+at the start of this [Niche algorithms API](#niche-algorithms-api)
+description.
+
+For a non power of 2 range less than about 16 bits (to not get
+too much bias and to avoid bignums) truncated multiplication can be used,
+that is: `(Range*V) bsr 32`, which is much faster than using `rem`.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_value32(CX :: mwc59_state()) -> V :: 0..?MASK(32).
@@ -2080,21 +2302,24 @@ mwc59_value32(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX bxor ?BSL(32, CX, ?MWC59_XS).
 
 -doc """
-Returns a 59-bit value `V` from a generator state `CX`. The generator state is
-scrambled using an 4-bit followed by a 27-bit xorshift, which masks the
-statistical imperfecions of the base generator [`mwc59`](`mwc59/1`) enough that
-all 59 bits are of very good quality.
+Calculate a 59-bit scrambled value from a [MWC59 state](`t:mwc59_state/0`).
+
+Returns a 59-bit value [`V`](`t:integer/0`) from a generator state `CX`.
+The generator state is scrambled using an 4-bit followed by a 27-bit xorshift,
+which masks the statistical imperfecions of the [MWC59](`mwc59/1`)
+base generator enough that all 59 bits are of very good quality.
 
 Be careful to not accidentaly create a bignum when handling the value `V`.
 
 It is in general general better to use the high bits from this scrambler than
 the low. See the recepies at the start of this
-[Niche algorithms API ](`m:rand#niche-algorithms-api`)description.
+[Niche algorithms API](#niche-algorithms-api) description.
 
-For a non power of 2 range less than about 29 bits (to not get too much bias and
-to avoid bignums) truncated multiplication can be used, which is much faster
-than using `rem`. Example for range 1'000'000'000; the range is 30 bits, we use
-29 bits from the generator, adding up to 59 bits, which is not a bignum:
+For a non power of 2 range less than about 29 bits (to not get
+too much bias and to avoid bignums) truncated multiplication can be used,
+which is much faster than using `rem`. Example for range 1'000'000'000;
+the range is 30 bits, we use 29 bits from the generator,
+adding up to 59 bits, which is not a bignum (on a 64-bit VM ):
 `(1000000000 * (V bsr (59-29))) bsr 29`.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
@@ -2104,9 +2329,13 @@ mwc59_value(CX) when is_integer(CX), 1 =< CX, CX < ?MWC59_P ->
     CX2 bxor ?BSL(59, CX2, ?MWC59_XS2).
 
 -doc """
-Returns the generator value `V` from a generator state `CX`, as a `t:float/0`.
+Calculate a scrambled `t:float/0` from a [MWC59 state](`t:mwc59_state/0`).
+
+Returns a value `V ::` `t:float/0` from a generator state `CX`,
+in the range `0.0 =< V < 1.0` like for example `uniform_s/1`.
+
 The generator state is scrambled as with
-[`mwc59_value/1` ](`mwc59_value/1`)before converted to a `t:float/0`.
+[`mwc59_value/1`](`mwc59_value/1`) before converted to a `t:float/0`.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_float(CX :: mwc59_state()) -> V :: float().
@@ -2116,7 +2345,12 @@ mwc59_float(CX1) when is_integer(CX1), 1 =< CX1, CX1 < ?MWC59_P ->
     CX3 = CX2 bxor ?BSL(53, CX2, ?MWC59_XS2),
     CX3 * ?TWO_POW_MINUS53.
 
--doc(#{equiv => mwc59_seed/1}).
+-doc """
+Create a [MWC59 generator state](`t:mwc59_state/0`).
+
+Like `mwc59_seed/1` but it hashes the default seed value
+of [`seed_s(atom())`](`seed_s/1`).
+""".
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed() -> CX :: mwc59_state().
 mwc59_seed() ->
@@ -2127,11 +2361,11 @@ mwc59_seed() ->
     (X1 bxor X2 bxor X3) + 1.
 
 -doc """
-Returns a generator state `CX`. `S` is hashed to create the generator state, to
-avoid that similar seeds create similar sequences.
+Create a [MWC59 generator state](`t:mwc59_state/0`).
 
-Without `S`, the generator state is created as for
-[`seed_s(atom())`](`seed_s/1`).
+Returns a generator state [`CX`](`t:mwc59_state/0`).
+The 58-bit seed value `S` is hashed to create the generator state,
+to avoid that similar seeds create similar sequences.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec mwc59_seed(S :: 0..?MASK(58)) -> CX :: mwc59_state().
@@ -2229,12 +2463,16 @@ seed64(X_0) ->
 -type splitmix64_state() :: uint64().
 
 -doc """
-Returns a random 64-bit integer `X` and a new generator state `NewAlgState`,
+Generate a SplitMix64 random 64-bit integer and new algorithm state.
+
+From the specified `AlgState` generates a random 64-bit integer
+[`X`](`t:uint64/0`) and a new generator state
+[`NewAlgState`](`t:splitmix64_state/0`),
 according to the SplitMix64 algorithm.
 
 This generator is used internally in the `rand` module for seeding other
-generators since it is of a quite different breed which reduces the probability
-for creating an accidentally bad seed.
+generators since it is of a quite different breed which reduces
+the probability for creating an accidentally bad seed.
 """.
 -doc(#{title => <<"Niche algorithms API">>,since => <<"OTP 25.0">>}).
 -spec splitmix64_next(AlgState :: integer()) ->
