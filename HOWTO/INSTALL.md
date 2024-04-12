@@ -782,19 +782,20 @@ Architecture
 * x86, x86-64
 * Aarch32, Aarch64
 * powerpc, powerpc64le
+* Apple M1, M2, M2 Pro
 
 Operating system
 
 * Fedora 31
 * FreeBSD
-* macOS 10.4 - 11.2
+* macOS 13 - 14
 * MontaVista 4
 * NetBSD
 * OpenBSD
 * SLES 10, 11, 12
 * SunOS 5.11
-* Ubuntu 10.04 - 20.04
-* Windows 10, Windows Server 2019
+* Ubuntu 10.04 - 22.04
+* Windows 11, Windows 10, Windows Server 2019
 
 [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
 [Building in Git]: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git
