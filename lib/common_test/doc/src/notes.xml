@@ -207,6 +207,25 @@
 
 </section>
 
+<section><title>Common_Test 1.24.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, the last column in common_test testcase
+	    log file is modified to now show the total sum of each
+	    time in the table rows, and Elapsed Time which is a clock
+	    time spent to run above functions. The Elapsed Time is
+	    the same time that was previously a total.</p>
+          <p>
+	    Own Id: OTP-18960 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

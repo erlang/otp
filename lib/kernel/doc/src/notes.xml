@@ -1028,6 +1028,22 @@
 
 </section>
 
+<section><title>Kernel 8.5.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed gen_udp:open/2 type spec to include already
+	    supported module socket address types.</p>
+          <p>
+	    Own Id: OTP-19050 Aux Id: OTP-18990 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 8.5.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

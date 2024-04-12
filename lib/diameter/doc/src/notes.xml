@@ -127,6 +127,23 @@ first.</p>
 
 </section>
 
+<section><title>diameter 2.2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reduce the impact of calling service_info by not counting
+	    the binaries (on the heap) info, This is done by
+	    introducing an option, bins_info, which controls this.</p>
+          <p>
+	    Own Id: OTP-19040 Aux Id: ERIERL-1060 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.7</title>
 
     <section><title>Improvements and New Features</title>

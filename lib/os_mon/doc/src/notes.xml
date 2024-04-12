@@ -98,6 +98,21 @@
 
 </section>
 
+<section><title>Os_Mon 2.8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed runtime dependencies.</p>
+          <p>
+	    Own Id: OTP-19064 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
