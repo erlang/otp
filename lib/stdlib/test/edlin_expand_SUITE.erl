@@ -276,6 +276,7 @@ function_parameter_completion(Config) ->
                             options:=[{highlight_param,1}]}],
                 options:=[highlight_all]}]} = do_expand("complete_function_parameter:multi_arity_fun("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"true",[]},{"false",[]}]}]}]}]} = do_expand("complete_function_parameter:multi_arity_fun(1,"),
+    {no, [], []} = do_expand("complete_function_parameter:multi_arity_fun(["),
     {no,[],
         [#{elems :=
             [#{elems :=
