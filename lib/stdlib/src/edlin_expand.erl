@@ -480,7 +480,7 @@ expand_function_parameter_type(Mod, MFA, FunType, Args, Unfinished, Nestings, FT
                                  end,
     case match_arguments(TypeTree, Args) of
         false -> {no, [], []};
-        true when Parameters == [] -> {yes, ")", [#{title=>MFA, elems=>[")"], options=>[]}]};
+        true when Parameters == [] -> {yes, ")", [#{title=>MFA, elems=>[{")",[]}], options=>[]}]};
         true ->
             Parameter = lists:nth(length(Args)+1, Parameters),
             {T, _Name} = case Parameter of
