@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When using IPv6, classic gen_udp failed to add (group)
+	    membership (drop was used instead).</p>
+          <p>
+	    Own Id: OTP-19049 Aux Id: #8176 </p>
+        </item>
+        <item>
+          <p>
+	    The check in inet_res of the RD bit has been relaxed
+	    slightly.</p>
+          <p>
+	    Own Id: OTP-19056 Aux Id: PR-8312, OTP-17323 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

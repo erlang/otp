@@ -32,6 +32,38 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In rare circumstances, the compiler code generate
+	    unsafe code for a bit syntax match.</p>
+          <p>
+	    Own Id: OTP-19019 </p>
+        </item>
+        <item>
+	    <p>In rare circumstances, binary matches that were
+	    supposed to succeed failed.</p>
+          <p>
+	    Own Id: OTP-19035 Aux Id: GH-8280, PR-8284 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug where a fun's environment could be
+	    overridden by an argument if all of the following
+	    conditions were met:</p> <list> <item>The fun was
+	    declared in the module that called it.</item> <item>The
+	    fun's target was statically known.</item> <item>The fun
+	    was called with a number of extra arguments equal to the
+	    number of environment variables.</item> </list>
+          <p>
+	    Own Id: OTP-19045 Aux Id: GH-8316 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
