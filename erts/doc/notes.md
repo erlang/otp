@@ -929,6 +929,42 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.8
+
+### Fixed Bugs and Malfunctions
+
+* Fixed CPU quota determination for cgroup version 2
+
+  Own Id: OTP-18999 Aux Id: GH-7928
+* Fix faulty reduction counting in exiting process which could cause it to do unnecessary yielding.
+
+  Own Id: OTP-19014
+* Calling `erlang:trace/3` with first argument one of `ports`, `processes`, `existing_ports`, `existing_processes`, `existing` or `all`, could cause emulator crash if a dirty scheduler was executing a simultaneous trace action.
+
+  Own Id: OTP-19034
+* Fixed an integer overflow when the monotonic time unit reported by the operating system was greater than 10 and lower than 100 microseconds.
+
+  Own Id: OTP-19036 Aux Id: GH-8186
+* When a traced process executing on a dirty scheduler received an exit signal, the dirty scheduler could use the wrong thread specific data which could lead to a crash.
+
+  Own Id: OTP-19043 Aux Id: PR-8342
+* Fixed a more or less harmless bug that caused time correction of Erlang monotonic time to become slightly off on Windows platforms when `QueryPerformanceCounter()` was used as OS monotonic time source.
+
+  `erlang:system_info(os_monotonic_time_source)` now also returns information about *used resolution* which not always corresponds to the resolution of the OS monotonic time source.
+
+  Own Id: OTP-19048 Aux Id: PR-8343
+
+### Improvements and New Features
+
+* Checks for monotonicity of monotonic time have been improved so that Erlang and OS monotonic time are checked separately.
+
+  A new `configure` argument `--enable-ensure-os-monotonic-time` has also been added. It enables functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.
+
+  Own Id: OTP-19044 Aux Id: ERIERL-1043, PR-8342
+* For severe errors, when the \`socket\` module terminates the Erlang VM, now an erl_crash.dump is produced, to facilitate post mortem debugging.
+
+  Own Id: OTP-19058
+
 ## Erts 13.2.2.7
 
 ### Fixed Bugs and Malfunctions

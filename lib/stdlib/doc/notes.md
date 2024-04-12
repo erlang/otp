@@ -602,6 +602,14 @@ This document describes the changes made to the STDLIB application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## STDLIB 4.3.1.4
+
+### Fixed Bugs and Malfunctions
+
+* Attempting to use the `maybe` construct in a macro argument could crash the compiler.
+
+  Own Id: OTP-19031 Aux Id: GH-8268
+
 ## STDLIB 4.3.1.3
 
 ### Improvements and New Features

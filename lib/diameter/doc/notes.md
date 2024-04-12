@@ -76,6 +76,14 @@ Releases are listed in reverse chronological order, most recent first.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## diameter 2.2.7.1
+
+### Fixed Bugs and Malfunctions
+
+* Reduce the impact of calling service_info by not counting the binaries (on the heap) info, This is done by introducing an option, bins_info, which controls this.
+
+  Own Id: OTP-19040 Aux Id: ERIERL-1060
+
 ## diameter 2.2.7
 
 ### Improvements and New Features

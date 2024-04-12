@@ -125,6 +125,14 @@ This document describes the changes made to the Crypto application.
 
   Own Id: OTP-18447
 
+## Crypto 5.1.4.3
+
+### Fixed Bugs and Malfunctions
+
+* Fix building with `--enable-fips` with OpenSSL 3 on MacOS.
+
+  Own Id: OTP-19038 Aux Id: GH-8271, PR-8277
+
 ## Crypto 5.1.4.2
 
 ### Fixed Bugs and Malfunctions

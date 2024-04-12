@@ -58,6 +58,14 @@ This document describes the changes made to the OS_Mon application.
 
   Own Id: OTP-18566 Aux Id: PR-7080
 
+## Os_Mon 2.8.2.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed runtime dependencies.
+
+  Own Id: OTP-19064
+
 ## Os_Mon 2.8.2
 
 ### Fixed Bugs and Malfunctions

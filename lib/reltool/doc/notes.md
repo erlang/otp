@@ -53,6 +53,14 @@ is the version number of Reltool.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Reltool 0.9.1.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed runtime dependencies.
+
+  Own Id: OTP-19064
+
 ## Reltool 0.9.1
 
 ### Fixed Bugs and Malfunctions

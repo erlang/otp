@@ -46,6 +46,14 @@ This document describes the changes made to the Observer application.
 
   Own Id: OTP-18478 Aux Id: GH-6903
 
+## Observer 2.14.0.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed runtime dependencies.
+
+  Own Id: OTP-19064
+
 ## Observer 2.14
 
 ### Fixed Bugs and Malfunctions

@@ -49,6 +49,14 @@ This document describes the changes made to the Debugger application.
 
   Own Id: OTP-18740 Aux Id: GH-7410, PR-7599
 
+## Debugger 5.3.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Guards with nested record expression could wrongly evaluate to false.
+
+  Own Id: OTP-18958 Aux Id: GH-8120, PR-8275
+
 ## Debugger 5.3.1.2
 
 ### Fixed Bugs and Malfunctions

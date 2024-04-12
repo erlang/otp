@@ -134,6 +134,14 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, owner and group file attributes decoding is fixed and results with value of integer type.
+
+  Own Id: OTP-19013 Aux Id: GH-7897, PR-8220
+
 ## Ssh 4.15.3.3
 
 ### Fixed Bugs and Malfunctions

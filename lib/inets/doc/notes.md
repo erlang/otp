@@ -139,6 +139,14 @@ limitations under the License.
 
   Own Id: OTP-18544 Aux Id: GH-5276
 
+## Inets 8.3.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed runtime dependencies.
+
+  Own Id: OTP-19064
+
 ## Inets 8.3.1.2
 
 ### Fixed Bugs and Malfunctions

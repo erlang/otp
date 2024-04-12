@@ -704,6 +704,14 @@ This document describes the changes made to the Kernel application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## Kernel 8.5.4.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed gen_udp:open/2 type spec to include already supported module socket address types.
+
+  Own Id: OTP-19050 Aux Id: OTP-18990
+
 ## Kernel 8.5.4.2
 
 ### Fixed Bugs and Malfunctions
