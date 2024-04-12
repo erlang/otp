@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.4.2
+
+### Fixed Bugs and Malfunctions
+
+* Fix building with `--enable-fips` with OpenSSL 3 on MacOS.
+
+  Own Id: OTP-19038 Aux Id: GH-8271, PR-8277
+
 ## Crypto 5.4.1
 
 ### Fixed Bugs and Malfunctions

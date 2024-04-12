@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 5.2.2
+
+### Fixed Bugs and Malfunctions
+
+* Attempting to use the `maybe` construct in a macro argument could crash the compiler.
+
+  Own Id: OTP-19031 Aux Id: GH-8268
+
 ## STDLIB 5.2.1
 
 ### Fixed Bugs and Malfunctions

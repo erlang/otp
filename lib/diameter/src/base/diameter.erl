@@ -1590,7 +1590,7 @@ remove_transport(SvcName, Pred) ->
 -doc """
 Return a list of _all_ transports.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 -spec which_transports() -> [#{ref     := reference(),
                                type    := atom(),
                                service := string()}].
@@ -1601,7 +1601,7 @@ which_transports() ->
 -doc """
 Return a list of transports associated with the service 'SvcName'.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 -spec which_transports(SvcName) -> [#{ref  := reference(),
                                       type := atom()}] when
       SvcName :: string().
@@ -1617,7 +1617,7 @@ which_transports(SvcName) ->
 -doc """
 Return a list of _all_ watchdogs.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 
 -spec which_watchdogs() -> [#{ref     := reference(),
                               type    := atom(),
@@ -1635,7 +1635,7 @@ which_watchdogs() ->
 -doc """
 Return a list of watchdogs associated with the service 'SvcName'.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 
 -spec which_watchdogs(SvcName) ->
           [#{ref     := reference(),
@@ -1658,7 +1658,7 @@ which_watchdogs(SvcName) ->
 Return a list of _all_ connections, grouped by the service they
 are associated with.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 
 -spec which_connections() ->
           [{SvcName,
@@ -1682,7 +1682,7 @@ which_connections() ->
 -doc """
 Return a list of connections associated with the service 'SvcName'.
 """.
--doc(#{since => <<"OTP @OTP-19040@">>}).
+-doc(#{since => <<"OTP 26.2.4">>}).
 
 -spec which_connections(SvcName) ->
           [#{peer     := PeerInfo,

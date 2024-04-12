@@ -21,6 +21,24 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.4.3
+
+### Fixed Bugs and Malfunctions
+
+* In rare circumstances, the compiler code generate unsafe code for a bit syntax match.
+
+  Own Id: OTP-19019
+* In rare circumstances, binary matches that were supposed to succeed failed.
+
+  Own Id: OTP-19035 Aux Id: GH-8280, PR-8284
+* Fixed a bug where a fun's environment could be overridden by an argument if all of the following conditions were met:
+
+  * The fun was declared in the module that called it.
+  * The fun's target was statically known.
+  * The fun was called with a number of extra arguments equal to the number of environment variables.
+
+  Own Id: OTP-19045 Aux Id: GH-8316
+
 ## Compiler 8.4.2
 
 ### Fixed Bugs and Malfunctions

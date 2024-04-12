@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 5.3.4
+
+### Fixed Bugs and Malfunctions
+
+* Guards with nested record expression could wrongly evaluate to false.
+
+  Own Id: OTP-18958 Aux Id: GH-8120, PR-8275
+
 ## Debugger 5.3.3
 
 ### Fixed Bugs and Malfunctions

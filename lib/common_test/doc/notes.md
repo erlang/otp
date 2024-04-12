@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.26.2
+
+### Fixed Bugs and Malfunctions
+
+* With this change, the last column in common_test testcase log file is modified to now show the total sum of each time in the table rows, and Elapsed Time which is a clock time spent to run above functions. The Elapsed Time is the same time that was previously a total.
+
+  Own Id: OTP-18960
+
 ## Common_Test 1.26.1
 
 ### Fixed Bugs and Malfunctions

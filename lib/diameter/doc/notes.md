@@ -21,6 +21,14 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.3.2
+
+### Fixed Bugs and Malfunctions
+
+* Reduce the impact of calling service_info by not counting the binaries (on the heap) info, This is done by introducing an option, bins_info, which controls this.
+
+  Own Id: OTP-19040 Aux Id: ERIERL-1060
+
 ## diameter 2.3.1
 
 ### Fixed Bugs and Malfunctions

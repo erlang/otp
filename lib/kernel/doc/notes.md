@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 9.2.3
+
+### Fixed Bugs and Malfunctions
+
+* When using IPv6, classic gen_udp failed to add (group) membership (drop was used instead).
+
+  Own Id: OTP-19049 Aux Id: #8176
+* The check in inet_res of the RD bit has been relaxed slightly.
+
+  Own Id: OTP-19056 Aux Id: PR-8312, OTP-17323
+
 ## Kernel 9.2.2
 
 ### Fixed Bugs and Malfunctions

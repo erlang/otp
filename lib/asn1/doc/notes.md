@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.2.2
+
+### Fixed Bugs and Malfunctions
+
+* An ASN.1 module that contains named `BIT STRING` values would fail to compiled if both the BER and JER back-ends were enabled.
+
+  Own Id: OTP-19039 Aux Id: GH-8291, PR-8297
+
 ## Asn1 5.2.1
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.1.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, owner and group file attributes decoding is fixed and results with value of integer type.
+
+  Own Id: OTP-19013 Aux Id: GH-7897, PR-8220
+
 ## Ssh 5.1.3
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,19 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Cleanup and close all connections in DTLS when the listen socket owner dies.
+
+  Improved IPv6 handling in DTLS.
+
+  Own Id: OTP-19037 Aux Id: GH-7951 GH-7955
+* Fixed a crash in dtls accept.
+
+  Own Id: OTP-19059 Aux Id: GH-8338
+
 ## SSL 11.1.2
 
 ### Fixed Bugs and Malfunctions
