@@ -23,7 +23,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2020</year>
+<year>2024</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -107,6 +107,14 @@ in this module.</p>
 <p>
 Types corresponding to &the_rfc; AVP Data Formats.
 Defined in &dict_data_types;.</p>
+
+<marker id="elapsed_time"/>
+</item>
+
+<tag><c>elapsed_time()</c></tag>
+<item>
+<p>
+Elapsed time since a given time.</p>
 
 <marker id="application_alias"/>
 </item>
@@ -1043,6 +1051,25 @@ each node from which requests are sent.</p>
 </warning>
 </item>
 
+<tag><c>{bins_info, boolean() | non_neg_integer()}</c></tag>
+<item>
+<p>
+This option is only used when when the service_info/1 function is called.
+The point is that in a system under heavy load, the heap can contain
+a lot of binaries, so counting them all (and there size's) can be
+costly. </p>
+
+<p>
+If <c>true</c> then the binaries on the heap are counted.
+If <c>false</c> info about binaries on the heap is not collected.
+If <c>non_neg_integer()</c> the binaries on the heap are counted,
+up to this point.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+</item>
+
 <tag><c>&transport_opt;</c></tag>
 <item>
 <p>
@@ -1802,6 +1829,134 @@ be terminated.
 Whether or not a DPR message is sent to a peer is
 controlled by value of &disconnect_cb;
 configured on the transport.</p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name since="OTP @OTP-19040@">which_connections() -> [SvcConnections]</name>
+<fsummary>Returns a list of connections.</fsummary>
+<type>
+  <v>SvcConnections = {SvcName, [Connection]}</v>
+  <v>SvcName = string()</v>
+  <v>Connection     = #{peer     := PeerInfo,
+                        wd       := WDInfo,
+                        peername := Address,
+                        sockname := Address}</v>
+  <v>PeerInfo = #{pid    := pid(),
+                  uptime := elapsed_time()}</v>
+  <v>WDInfo = #{ref    := reference(),
+                type   := atom(),
+                pid    := pid(),
+                state  := diameter_service:wd_state(),
+                uptime := elapsed_time()}</v>
+  <v>Address = {inet:ip_address(), inet:port_number()}</v>
+</type>
+<desc>
+<p>
+  Return a list of <em>all</em> connections, grouped by the service they
+  are associated with. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP @OTP-19040@">which_connections(SvcName) -> [Connection]</name>
+<fsummary>Returns a list of connections.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Connection = #{peer     := PeerInfo,
+                    wd       := WDInfo,
+                    peername := Address,
+	            sockname := Address}</v>
+  <v>PeerInfo = #{pid    := pid(),
+                  uptime := elapsed_time()}</v>
+  <v>WDInfo = #{ref    := reference(),
+                type   := atom(),
+                pid    := pid(),
+                state  := diameter_service:wd_state(),
+                uptime := elapsed_time()}</v>
+  <v>Address = {inet:ip_address(), inet:port_number()}</v>
+</type>
+<desc>
+<p>
+Return a list of connections associated with the service 'SvcName'. </p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name since="OTP @OTP-19040@">which_transports() -> [Transport]</name>
+<fsummary>Returns a list of transports.</fsummary>
+<type>
+  <v>Transport = #{ref     := reference(),
+                   type    := atom(),
+                   service := SvcName}</v>
+  <v>SvcName = string()</v>
+</type>
+<desc>
+<p>
+Return a list of <em>all</em> transports. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP @OTP-19040@">which_transports(SvcName) -> [Transport]</name>
+<fsummary>Returns a list of transports.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Transport = #{ref  := reference(),
+                   type := atom()}</v>
+</type>
+<desc>
+<p>
+Return a list of transports associated with the service 'SvcName'. </p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name since="OTP @OTP-19040@">which_watchdogs() -> [Watchdog]</name>
+<fsummary>Returns a list of watchdogs.</fsummary>
+<type>
+  <v>Watchdog = #{ref     := reference(),
+                  type    := atom(),
+                  pid     := pid(),
+                  state   := diameter_service:wd_state(),
+                  peer    := boolean() | pid(),
+                  uptime  := elapsed_time(),
+                  service := SvcName}</v>
+  <v>SvcName = string()</v>
+</type>
+<desc>
+<p>
+Return a list of <em>all</em> watchdogs. </p>
+
+</desc>
+</func>
+
+<func>
+<name since="OTP @OTP-19040@">which_watchdogs(SvcName) -> [Transport]</name>
+<fsummary>Returns a list of watchdogs.</fsummary>
+<type>
+  <v>SvcName = string()</v>
+  <v>Watchdog = #{ref    := reference(),
+                  type   := atom(),
+                  pid    := pid(),
+                  state  := diameter_service:wd_state(),
+                  peer   := boolean() | pid(),
+                  uptime := elapsed_time()</v>
+</type>
+<desc>
+<p>
+Return a list of watchdogs associated with the service 'SvcName'. </p>
 
 </desc>
 </func>
