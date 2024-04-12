@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 8.3.1.2</title>
+  <section><title>Inets 8.3.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed runtime dependencies.</p>
+          <p>
+	    Own Id: OTP-19064 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 8.3.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
