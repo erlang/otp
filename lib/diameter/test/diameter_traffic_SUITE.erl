@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -263,6 +263,7 @@ parallel(_Config) ->
 %% configuration results in sufficient coverage over time.
 
 run() ->
+    %% ok = logger:set_primary_config(level, debug),
     Svc = ?util:unique_string(),
     run(#group{transport = ?util:choose(?TRANSPORTS),
                strings = bool(),
@@ -296,8 +297,53 @@ traffic(#group{} = Cfg) ->
     LRef = server(Cfg),
     ok = client(Cfg, LRef),
     [] = send(Cfg),
+
+    print_services_info(),
+
     ok = stop_services(Cfg),
     [] = ets:tab2list(diameter_request).
+
+
+print_services_info() ->
+    print_services_info(diameter:services()).
+
+print_services_info([]) ->
+    io:format("~n", []);
+print_services_info([Service | Services]) ->
+    io:format("~n   Service: ~s"
+              "~n      Config:"
+              "~n         ~p"
+              "~n      Which Connections:"
+              "~n         ~p"
+              "~n      Which Connections/Service:"
+              "~n         ~p"
+              "~n      Which Watchdogs:"
+              "~n         ~p"
+              "~n      Which Watchdogs/Service:"
+              "~n         ~p"
+              "~n      Which Transports:"
+              "~n         ~p"
+              "~n      Which Transports/Service:"
+              "~n         ~p"
+              "~n      Peers Info:"
+              "~n         ~p"
+              "~n      Transport Info:"
+              "~n         ~p"
+              "~n      All info:"
+              "~n         ~p",
+              [Service,
+               diameter_config:lookup(Service),
+               diameter:which_connections(),
+               diameter:which_connections(Service),
+               diameter:which_watchdogs(),
+               diameter:which_watchdogs(Service),
+               diameter:which_transports(),
+               diameter:which_transports(Service),
+               diameter:service_info(Service, peers),
+               diameter:service_info(Service, transport),
+               diameter:service_info(Service, all)]),
+    print_services_info(Services).
+
 
 %% start_service/2
 
@@ -340,6 +386,10 @@ wait(MRef) ->
 %% server/1
 
 server(Config) ->
+
+    logger:debug("entry with"
+                 "~n   Config: ~p", [Config]),
+
     #group{transport = T,
            client_sender = CS,
            server_service = SN,
@@ -349,7 +399,8 @@ server(Config) ->
         = Grp
         = group(Config),
     ok = start_service(SN, [{traffic_counters, bool()},
-                            {decode_format, SD}
+                            {decode_format, SD},
+                            {bins_info, bins_info()}
                             | ?SERVICE(SN, Grp)]),
     Cfg = [{sender, SS},
            {message_cb, ST andalso {?MODULE, message, [0]}}]
@@ -363,6 +414,10 @@ server(Config) ->
 %% client/1
 
 client(Config, LRef) ->
+
+    logger:debug("entry with"
+                 "~n   Config: ~p", [Config]),
+
     #group{transport = T,
            encoding = E,
            client_service = CN,
@@ -372,7 +427,8 @@ client(Config, LRef) ->
     ok = start_service(CN, [{traffic_counters, bool()},
                             {sequence, ?CLIENT_MASK},
                             {decode_format, map},
-                            {strict_arities, decode}
+                            {strict_arities, decode},
+                            {bins_info, bins_info()}
                             | ?SERVICE(CN, Grp)]),
     _ = [?util:connect(CN, [T | C], LRef, O)
          || C <- [[{sender, CS} | client_opts(T)]],
@@ -386,6 +442,13 @@ client(Config, LRef) ->
 
 bool() ->
     0.5 =< rand:uniform().
+
+bins_info() ->
+    %% Three possibilities: true | false | non_neg_integer()
+    %% We choose a low range, 42, only because our test does not
+    %% actually stress the system, so no point in picking a large
+    %% number.
+    ?util:choose([true, false, rand:uniform(42)]).
 
 unordered() ->
     ?util:choose([true, false, 1, 2]).
