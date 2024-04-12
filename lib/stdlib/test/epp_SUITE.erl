@@ -31,7 +31,9 @@
 	 test_error/1, test_warning/1, otp_14285/1,
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
          string_concat_warning/1,
-   deterministic_include/1, nondeterministic_include/1]).
+         deterministic_include/1, nondeterministic_include/1,
+         gh_8268/1
+        ]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -75,7 +77,8 @@ all() ->
      encoding, extends, function_macro, test_error, test_warning,
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
      string_concat_warning,
-     deterministic_include, nondeterministic_include].
+     deterministic_include, nondeterministic_include,
+     gh_8268].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -2149,6 +2152,24 @@ string_concat_warning(Config) when is_list(Config) ->
 
     ok.
 
+gh_8268(Config) ->
+    Ts = [{circular_1,
+           <<"-define(LOG(Tag, Code), io:format(\"~s\", [Tag]), Code).
+             more_work() -> ok.
+             some_work() -> ok.
+             t() ->
+                ?LOG(work,
+                     begin
+                        maybe
+                           ok ?= some_work()
+                        end,
+                        more_work()
+                     end).
+             ">>,
+           [{feature,maybe_expr,enable}],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
 
 %% Start location is 1.
 check(Config, Tests) ->
