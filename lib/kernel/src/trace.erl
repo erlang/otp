@@ -25,14 +25,16 @@ The Erlang trace interface.
 
 The Erlang run-time system exposes several trace points that allow users
 to be notified when they are triggered. Trace points are things such as
-function calls, message sending and receiving, garbage collection,
-process scheduling and many more.
+function calls, message sending and receiving, garbage collection, and
+process scheduling.
 
-The functions in this module can be used directly but are also used as building
-blocks to build more sophisticated debugging or profiling tools. For debugging
-Erlang code it is recommended to use `m:dbg` and for profiling use `m:tprof`.
+The functions in this module can be used directly, but can also be
+used as building blocks to build more sophisticated debugging or
+profiling tools. For debugging Erlang code it is recommended to use
+`m:dbg` and for profiling to use `m:tprof`.
 
 *Example*:
+
 ```erlang
 %% Create a tracer process that will receive the trace events
 1> Tracer = spawn(fun F() -> receive M -> io:format("~p~n",[M]), F() end end).
@@ -66,7 +68,7 @@ automatically cleaned up.
 
 ## Node Local Tracing Only
 
-The functions in this module do only operate on the local node. That is, both the
+The functions in this module only operates on the local node. That is, both the
 traced processes/ports as well as the tracer process/port/module must all reside
 on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 `m:ttb`.
@@ -74,41 +76,41 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 > #### Change {: .info }
 >
 > This `trace` module was introduced in OTP 27.0. The interface and semantics are
-> very similar to the older functions `erlang:trace/3`, `erlang:trace_pattern/3`
+> similar to the older functions `erlang:trace/3`, `erlang:trace_pattern/3`,
 > and `erlang:trace_info/2`.
 >
-> The main difference is the old functions operate on one common static
+> The main difference is the old functions operate on a single static
 > trace session per node. That could impose the problem that different
-> users/tools would interfere with each others trace settings. The new trace
+> users and tools would interfere with each other's trace settings. The new trace
 > functions in this module all operate on dynamically created trace sesssions
-> isolated from each other. This also makes it easier to safely disable all trace
-> settings when done by just one call to `session_destroy/1`.
+> isolated from each other. Also, this makes it easier to safely disable all trace
+> settings when done by a single call to `session_destroy/1`.
 >
 > To change an existing tool to use the interface the following table can be
 > useful:
 >
-> | Old function call                            | corresponds to                     |
-> | -------------------------------------------  | ---------------------------------- |
-> | [`erlang:trace(Pid, ...)`][1]                | [`process(S, Pid, ...)`][p] |
-> | [`erlang:trace(processes, ...)`][1]          | [`process(S, all, ...)`][p] |
-> | [`erlang:trace(existing_processes, ...)`][1] | [`process(S, existing, ...)`][p] |
-> | [`erlang:trace(new_processes, ...)`][1]      | [`process(S, new, ...)`][p] |
-> | [`erlang:trace(ports, ...)`][1]              | [`port(S, all, ...)`][o] |
-> | [`erlang:trace(existing_ports, ...)`][1]     | [`port(S, existing, ...)`][o] |
-> | [`erlang:trace(new_ports, ...)`][1]          | [`port(S, new, ...)`][o] |
-> | [`erlang:trace(all, ...)`][1]                | [`process(S, all, ...)`][p] and [`port(S, all, ...)`][o]  |
+> | Old function call                            | corresponds to                                                     |
+> | -------------------------------------------  | ------------------------------------------------------------------ |
+> | [`erlang:trace(Pid, ...)`][1]                | [`process(S, Pid, ...)`][p]                                        |
+> | [`erlang:trace(processes, ...)`][1]          | [`process(S, all, ...)`][p]                                        |
+> | [`erlang:trace(existing_processes, ...)`][1] | [`process(S, existing, ...)`][p]                                   |
+> | [`erlang:trace(new_processes, ...)`][1]      | [`process(S, new, ...)`][p]                                        |
+> | [`erlang:trace(ports, ...)`][1]              | [`port(S, all, ...)`][o]                                           |
+> | [`erlang:trace(existing_ports, ...)`][1]     | [`port(S, existing, ...)`][o]                                      |
+> | [`erlang:trace(new_ports, ...)`][1]          | [`port(S, new, ...)`][o]                                           |
+> | [`erlang:trace(all, ...)`][1]                | [`process(S, all, ...)`][p] and [`port(S, all, ...)`][o]           |
 > | [`erlang:trace(existing, ...)`][1]           | [`process(S, existing, ...)`][p] and [`port(S, existing, ...)`][o] |
-> | [`erlang:trace(new, ...)`][1]                | [`process(S, new, ...)`][p] and [`port(S, new, ...)`][o]  |
-> | [`erlang:trace_pattern(MFA, ...)`][2]        | [`function(S, MFA, ...)`][f] |
-> | [`erlang:trace_pattern(send, ...)`][2]       | [`send(S, ...)`][s] |
-> | [`erlang:trace_pattern('receive', ...)`][2]  | [`recv(S, ...)`][r] |
-> | [`erlang:trace_info(...)`][3]                | [`info(S, ...)`][i] |
+> | [`erlang:trace(new, ...)`][1]                | [`process(S, new, ...)`][p] and [`port(S, new, ...)`][o]           |
+> | [`erlang:trace_pattern(MFA, ...)`][2]        | [`function(S, MFA, ...)`][f]                                       |
+> | [`erlang:trace_pattern(send, ...)`][2]       | [`send(S, ...)`][s]                                                |
+> | [`erlang:trace_pattern('receive', ...)`][2]  | [`recv(S, ...)`][r]                                                |
+> | [`erlang:trace_info(...)`][3]                | [`info(S, ...)`][i]                                                |
 >
 > Argument `S` is the trace session that must first be created with
-> `session_create/3`. The other arguments (implied with `...`) are mostly the
+> `session_create/3`. The other arguments (implied by `...`) are mostly the
 > same. The only other difference is that the tracer is always the tracer
 > specified when the session was created. Options `{tracer,T}`, `{tracer,M,S}`,
-> `{meta,T}` and `{meta,M,S}` are therefore not allowed and the default tracer is
+> `{meta,T}`, and `{meta,M,S}` are therefore not allowed, and the default tracer is
 > never the calling process.
 
 [1]: `erlang:trace/3`
@@ -382,7 +384,7 @@ If flag `timestamp`, `strict_monotonic_timestamp`, or `monotonic_timestamp` is
 specified, the first tuple element is `trace_ts` instead, and the time stamp is
 added as an extra element last in the message tuple.
 
-If a match specification (applicable only for `call`, `send` and `'receive'`
+If a match specification (applicable only for `call`, `send`, and `'receive'`
 tracing) contains a `{message}` action function with a non-boolean value, that
 value is added as an extra element to the message tuple either in the last
 position or before the timestamp (if it is present).
@@ -490,10 +492,10 @@ Trace messages:
 
 - **`{trace, Pid, gc_minor_start, Info}`{:
   #process_trace_messages_gc_minor_start }** - [](){: #gc_minor_start } Sent
-  when a young garbage collection is about to be started. `Info` is a list of
-  two-element tuples, where the first element is a key, and the second is the
-  value. Do not depend on any order of the tuples. The following keys are
-  defined:
+  when a garbage collection of the young generation is about to be started.
+  `Info` is a list of two-element tuples, where the first element is a key,
+  and the second is the value. Do not depend on any order of the tuples.
+  The following keys are defined:
 
   - **`heap_size`** - The size of the used part of the heap.
 
@@ -751,24 +753,18 @@ Enable or disable _call tracing_ for one or more functions.
 Must be combined with `process/4` to set the `call` trace flag for one or more
 processes.
 
-Conceptually, call tracing works as follows. Inside the Erlang virtual machine,
-a set of processes and a set of functions are to be traced. If a traced
-process calls a traced function, the trace action is taken. Otherwise, nothing
-happens.
+Conceptually, call tracing works as follows. In each trace session, a
+set of processes and a set of functions haven been marked for
+tracing. If a traced process calls a traced function, the trace action
+is taken. Otherwise, nothing happens.
 
 To add or remove one or more processes to the set of traced processes, use
 `process/4`.
 
-To add or remove functions to the set of traced functions, use
-`function/4`.
+Use this function to add or remove functions to the set of traced functions
+in a trace session.
 
-A match specifications can also be added to a function. A match specification
-comprises a pattern that the function arguments must match, a guard expression
-that must evaluate to `true`, and an action to be performed. The default action
-is to send a trace message. If the pattern does not match or the guard fails,
-the action is not executed.
-
-Argument **`Session`** is the trace session to operate on as returned by
+Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
 Argument **`MFA`** is to be a tuple, such as `{Module, Function, Arity}`, or the
@@ -798,7 +794,8 @@ Argument **`MatchSpec`** can take the following forms:
 
 - **`MatchExpression`** - A match specification. An empty list is equivalent to
   `true`. For a description of match specifications, see section
-  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide.
+  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide
+  for the ERTS application.
 
 - **`restart`** - For the `FlagList` options `call_count`, `call_time` and
   `call_memory`: restarts the existing counters. The behavior is undefined for
@@ -812,7 +809,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
 - **`global`** - Turn on or off call tracing for global function calls (that
   is, calls specifying the module explicitly). Only exported functions match and
-  only global calls generate trace messages. **This is the default**.
+  only global calls generate trace messages.
 
 - **`local`** - Turn on or off call tracing for all types of function calls.
   Trace messages are sent whenever any of the specified functions are called,
@@ -841,7 +838,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
   To read the counter value for a function, call
   [`trace:info(_, MFA, call_count)`](`info/3`).
 
-- **`call_time`** - Start (`MatchSpec == true`) or stops (`MatchSpec == false`)
+- **`call_time`** - Start (`MatchSpec` is `true`) or stops (`MatchSpec` is `false`)
   call time tracing for all types of function calls. For every function, a
   counter is incremented when the function is called and the time spent in the
   function is measured and accumulated in another counter. The counters are
@@ -863,11 +860,11 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
   To read the counter value, use `info/3`.
 
-The default option `global` is mutually exclusive against all the others options
-which all perform a kind of local tracing. If global tracing is specified for a
-set of functions, then `local`, `meta`, `call_count`, `call_time`, and
-`call_memory` tracing for the matching set of functions are disabled, and vice
-versa.
+Option `global` cannot be combined with any of the other options, which all
+perform some kind of local tracing. If global tracing is specified for
+a set of functions, then `local`, `meta`, `call_count`, `call_time`,
+and `call_memory` tracing for the matching set of functions are
+disabled, and vice versa.
 
 When disabling trace, the option must match the type of trace set on the
 function. That is, local tracing must be disabled with option `local` and global
@@ -915,10 +912,6 @@ Set trace pattern for _message sending_.
 Must be combined with `process/4` or `port/4` to set the `send` trace flag for
 one or more processes or ports.
 
-By default all messages sent from `send` traced processes are traced. Use
-`trace:send/3` to limit traced send events based on the message content, the
-sender and/or the receiver.
-
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
@@ -932,7 +925,7 @@ Argument `MatchSpec` can take the following forms:
   [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide.
 
 - **`true`** - Enable tracing for all sent messages (from `send` traced
-  processes). Any match specification is removed. **This is the default**.
+  processes). Any match specification is removed.
 
 - **`false`** - Disable tracing for all sent messages. Any match specification
   is removed.
@@ -941,7 +934,7 @@ Argument `FlagList` must be `[]`.
 
 The return value is always `1`.
 
-Examples:
+*Examples:*
 
 Only trace messages to a specific process `Pid`:
 
@@ -1007,10 +1000,6 @@ Set trace pattern for _message receiving_.
 Must be combined with `process/4` or `port/4` to set the `'receive'` trace flag
 for one or more processes or ports.
 
-By default all messages received by `'receive'` traced processes are
-traced. Use `trace:recv/3` to limit traced receive events based on the message
-content, the sender and/or the receiver.
-
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
@@ -1023,7 +1012,8 @@ Argument `MatchSpec` can take the following forms:
   senders). `Msg` is the message term. The pid of the receiving process can be
   accessed with the guard function `self/0`. An empty list is the same as
   `true`. For more information, see section
-  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide.
+  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide
+  for the ERTS application.
 
 - **`true`** - Enable tracing for all received messages (to `'receive'` traced
   processes). Any match specification is removed. _This is the default_.
@@ -1035,7 +1025,7 @@ Argument `FlagList` must be `[]` for receive tracing.
 
 The return value is always `1`.
 
-Examples:
+*Examples:*
 
 Only trace messages from a specific process `Pid`:
 
@@ -1089,8 +1079,6 @@ recv(Session, MatchSpec, FlagList) ->
     end.
 
 
-
-
 %% info/3
 -doc """
 Return trace information about a port, process, function, or event.
@@ -1098,7 +1086,7 @@ Return trace information about a port, process, function, or event.
 Argument `Session` is the trace session to inspect as returned by
 `session_create/3` or `session_info/1`.
 
-_To get information about a port or process_, `PidPortFuncEvent` is to be a
+**To get information about a port or process**, `PidPortFuncEvent` is to be a
 process identifier (pid), port identifier, or one of the atoms `new`,
 `new_processes`, or `new_ports`. The atom `new` or `new_processes` means that
 the default trace state for processes to be created is returned. The atom
@@ -1109,15 +1097,16 @@ Valid `Item` values for ports and processes:
 
 - **`flags`** - Returns a list of atoms indicating what kind of traces is
   enabled for the process. The list is empty if no traces are enabled, and one
-  or more of `t:trace_info_flag/0` if traces are enabled. The order is arbitrary.
+  or more of [`trace_info_flag()`](`t:trace_info_flag/0`) if traces are enabled.
+  The order is arbitrary.
 
 - **`tracer`** - Returns the identifier for process, port, or a tuple containing
   the tracer module and tracer state tracing this process. If this process is
   not traced, the return value is `[]`.
 
-_To get information about a function_, `PidPortFuncEvent` is to be the
+**To get information about a function**, `PidPortFuncEvent` is to be the
 three-element tuple `{Module, Function, Arity}` or the atom `on_load`. No
-wildcards are allowed. Returns `undefined` if the function does not exist, or
+wildcards are allowed. Returns `undefined` if the function does not exist or
 `false` if the function is not traced. If `PidPortFuncEvent` is `on_load`, the
 information returned refers to the default value for code that will be loaded.
 
@@ -1169,7 +1158,7 @@ Valid `Item` values for functions:
 - **`all`** - Returns a list containing the `{Item, Value}` tuples for all other
   items, or returns `false` if no tracing is active for this function.
 
-_To get information about an event_, `PidPortFuncEvent` is to be one of the
+**To get information about an event**, `PidPortFuncEvent` is to be one of the
 atoms `send` or `'receive'`.
 
 One valid `Item` for events exists:
@@ -1237,7 +1226,7 @@ session_create(Name, Tracer, Opts) ->
 
 %% session_destroy/1
 -doc """
-Destroy a trace session and cleanup all its settings on processes, ports and
+Destroy a trace session and cleanup all its settings on processes, ports, and
 functions.
 
 The only things not cleaned up are trace messages that have already been sent.
