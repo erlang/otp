@@ -28,7 +28,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_suite/1,end_per_suite/1,
-	 errors/1,record_test/1,eval_once/1]).
+         errors/1,record_test/1,eval_once/1,
+         nested_in_guard/1]).
 
 -export([debug/0]).
 
@@ -50,7 +51,7 @@ end_per_group(_GroupName, Config) ->
 
 
 cases() -> 
-    [errors, record_test, eval_once].
+    [errors, record_test, eval_once, nested_in_guard].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -294,6 +295,30 @@ once(Test, Record) ->
 	    ct:fail(failed)
     end,
     Result.
+
+nested_in_guard(_Config) ->
+    B = #bar{d = []},
+    F = #foo{a = B},
+
+    ok = do_nested_in_guard(#foo{a=#bar{d=[]}}),
+    not_ok = do_nested_in_guard(#foo{a=#bar{}}),
+    not_ok = do_nested_in_guard(#foo{a={no_bar,a,b,c,d}}),
+    not_ok = do_nested_in_guard(#foo{a={bar,a}}),
+    not_ok = do_nested_in_guard(42),
+    not_ok = do_nested_in_guard(#bar{}),
+    not_ok = do_nested_in_guard([]),
+
+    ok.
+
+-define(is_foo(X), (((X#foo.a)#bar.d == []))).
+
+do_nested_in_guard(F) ->
+    if
+        ?is_foo(F) ->
+            ok;
+        true ->
+            not_ok
+    end.
 
 id(I) ->
     I.
