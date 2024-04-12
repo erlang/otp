@@ -1836,7 +1836,7 @@ configured on the transport.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP @OTP-19040@">which_connections() -> [SvcConnections]</name>
+<name since="OTP 26.2.4">which_connections() -> [SvcConnections]</name>
 <fsummary>Returns a list of connections.</fsummary>
 <type>
   <v>SvcConnections = {SvcName, [Connection]}</v>
@@ -1863,7 +1863,7 @@ configured on the transport.</p>
 </func>
 
 <func>
-<name since="OTP @OTP-19040@">which_connections(SvcName) -> [Connection]</name>
+<name since="OTP 26.2.4">which_connections(SvcName) -> [Connection]</name>
 <fsummary>Returns a list of connections.</fsummary>
 <type>
   <v>SvcName = string()</v>
@@ -1890,7 +1890,7 @@ Return a list of connections associated with the service 'SvcName'. </p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP @OTP-19040@">which_transports() -> [Transport]</name>
+<name since="OTP 26.2.4">which_transports() -> [Transport]</name>
 <fsummary>Returns a list of transports.</fsummary>
 <type>
   <v>Transport = #{ref     := reference(),
@@ -1906,7 +1906,7 @@ Return a list of <em>all</em> transports. </p>
 </func>
 
 <func>
-<name since="OTP @OTP-19040@">which_transports(SvcName) -> [Transport]</name>
+<name since="OTP 26.2.4">which_transports(SvcName) -> [Transport]</name>
 <fsummary>Returns a list of transports.</fsummary>
 <type>
   <v>SvcName = string()</v>
@@ -1923,7 +1923,7 @@ Return a list of transports associated with the service 'SvcName'. </p>
 <!-- ===================================================================== -->
 
 <func>
-<name since="OTP @OTP-19040@">which_watchdogs() -> [Watchdog]</name>
+<name since="OTP 26.2.4">which_watchdogs() -> [Watchdog]</name>
 <fsummary>Returns a list of watchdogs.</fsummary>
 <type>
   <v>Watchdog = #{ref     := reference(),
@@ -1943,7 +1943,7 @@ Return a list of <em>all</em> watchdogs. </p>
 </func>
 
 <func>
-<name since="OTP @OTP-19040@">which_watchdogs(SvcName) -> [Transport]</name>
+<name since="OTP 26.2.4">which_watchdogs(SvcName) -> [Transport]</name>
 <fsummary>Returns a list of watchdogs.</fsummary>
 <type>
   <v>SvcName = string()</v>
