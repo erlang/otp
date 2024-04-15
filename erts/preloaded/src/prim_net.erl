@@ -40,6 +40,7 @@
          get_interface_info/1,
          get_ip_address_table/1,
          getservbyname/2,
+         getservbyport/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -578,6 +579,17 @@ getservbyname(Name, Proto) when is_list(Name) andalso is_list(Proto) ->
 
 %% ===========================================================================
 %%
+%% getservbyport - Get service by name
+%%
+
+getservbyport(PortNumber, Proto)
+  when is_integer(PortNumber) andalso is_list(Proto) ->
+    nif_getservbyport(PortNumber, Proto).
+
+
+
+%% ===========================================================================
+%%
 %% if_name2index - Mappings between network interface names and indexes:
 %%                 name -> idx
 %%
@@ -696,6 +708,9 @@ nif_get_ip_address_table(_Args) ->
     erlang:nif_error(notsup).
 
 nif_getservbyname(_Name, _Proto) ->
+    erlang:nif_error(notsup).
+
+nif_getservbyport(_PortNumber, _Proto) ->
     erlang:nif_error(notsup).
 
 nif_if_name2index(_Name) ->
