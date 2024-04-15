@@ -49,7 +49,7 @@ and `m:erl_prim_loader` in ERTS.
 
 ## SEE ALSO
 
-[`erts:init(3)`](`m:init`), [`erts:erl_prim_loader(3)`](`m:erl_prim_loader`)
+[`erts:init`](`m:init`), [`erts:erl_prim_loader`](`m:erl_prim_loader`)
 """.
 
 -include("inet_boot.hrl").

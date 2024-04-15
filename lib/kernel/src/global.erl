@@ -38,7 +38,7 @@ form instead of leaving the network in a state with overlapping partitions.
 >
 > Prevention of overlapping partitions can be disabled using the
 > [`prevent_overlapping_partitions`](kernel_app.md#prevent_overlapping_partitions)
-> `kernel(6)` parameter, making `global` behave like it used to do. This is,
+> Kernel parameter, making `global` behave like it used to do. This is,
 > however, problematic for all applications expecting a fully connected network
 > to be provided, such as for example `mnesia`, but also for `global` itself. A
 > network of overlapping partitions might cause the internal state of `global`
@@ -90,8 +90,8 @@ monitoring changes in node configuration. If a node that runs a globally
 registered process goes down, the name is globally unregistered. To this end,
 the global name server subscribes to `nodeup` and `nodedown` messages sent from
 module `net_kernel`. Relevant Kernel application variables in this context are
-`net_setuptime`, `net_ticktime`, and `dist_auto_connect`. See also
-[`kernel(6)`](kernel_app.md#net_setuptime).
+[`net_setuptime`](kernel_app.md#net_setuptime), [`net_ticktime`](kernel_app.md#net_ticktime),
+and [`dist_auto_connect`](kernel_app.md#dist_auto_connect).
 
 The name server also maintains a fully connected network. For example, if node
 `N1` connects to node `N2` (which is already connected to `N3`), the global name
@@ -321,10 +321,11 @@ stop() ->
     gen_server:call(global_name_server, stop, infinity).
 
 -doc """
-Synchronizes the global name server with all nodes known to this node. These are
-the nodes that are returned from `erlang:nodes()`. When this function returns,
-the global name server receives global information from all nodes. This function
-can be called when new nodes are added to the network.
+Synchronizes the global name server with all nodes known to this node.
+
+These are the nodes that are returned from [`nodes()`](`erlang:nodes/0`). When
+this function returns, the global name server receives global information from
+all nodes. This function can be called when new nodes are added to the network.
 
 The only possible error reason `Reason` is
 `{"global_groups definition error", Error}`.
@@ -390,7 +391,7 @@ whereis_name(Name) ->
 %% undefined which one of them is used.
 %% Method blocks the name registration, but does not affect global locking.
 %%-----------------------------------------------------------------
--doc(#{equiv => register_name/3}).
+-doc(#{equiv => register_name(Name, Pid, fun random_exit_name/3)}).
 -spec register_name(Name, Pid) -> 'yes' | 'no' when
       Name :: term(),
       Pid :: pid().
@@ -421,9 +422,7 @@ unregistered. This function is called once for each name clash.
 Three predefined resolve functions exist:
 [`random_exit_name/3`](`random_exit_name/3`),
 [`random_notify_name/3`](`random_notify_name/3`), and
-[`notify_all_name/3`](`notify_all_name/3`). If no `Resolve` function is defined,
-`random_exit_name` is used. This means that one of the two registered processes
-is selected as correct while the other is killed.
+[`notify_all_name/3`](`notify_all_name/3`).
 
 This function is completely synchronous, that is, when this function returns,
 the name is either registered on all nodes or none.
@@ -496,7 +495,7 @@ unregister_name(Name) ->
             gen_server:call(global_name_server, {registrar, Fun}, infinity)
     end.
 
--doc(#{equiv => re_register_name/3}).
+-doc(#{equiv => re_register_name(Name, Pid, fun random_exit_name/3)}).
 -spec re_register_name(Name, Pid) -> 'yes' when
       Name :: term(),
       Pid :: pid().
@@ -570,9 +569,10 @@ register_name_external(Name, Pid, Method) when is_pid(Pid) ->
 unregister_name_external(Name) ->
     unregister_name(Name).
 
+-doc "A lock id used to set or delete lock `ResourceId` on behalf of `LockRequesterId`.".
 -type id() :: {ResourceId :: term(), LockRequesterId :: term()}.
 
--doc(#{equiv => set_lock/3}).
+-doc(#{equiv => set_lock(Id, [node() | nodes()], infinity)}).
 -spec set_lock(Id) -> boolean() when
       Id :: id().
 set_lock(Id) ->
@@ -580,7 +580,7 @@ set_lock(Id) ->
 
 -type retries() :: non_neg_integer() | 'infinity'.
 
--doc(#{equiv => set_lock/3}).
+-doc(#{equiv => set_lock(Id, Nodes, infinity)}).
 -spec set_lock(Id, Nodes) -> boolean() when
       Id :: id(),
       Nodes :: [node()].
@@ -588,14 +588,13 @@ set_lock(Id, Nodes) ->
     set_lock(Id, Nodes, infinity, 1).
 
 -doc """
-Sets a lock on the specified nodes (or on all nodes if none are specified) on
-`ResourceId` for `LockRequesterId`. If a lock already exists on `ResourceId` for
-another requester than `LockRequesterId`, and `Retries` is not equal to `0`, the
-process sleeps for a while and tries to execute the action later. When `Retries`
-attempts have been made, `false` is returned, otherwise `true`. If `Retries` is
-`infinity`, `true` is eventually returned (unless the lock is never released).
+Sets a lock on the specified nodes on using `t:id/0`.
 
-If no value for `Retries` is specified, `infinity` is used.
+If a lock already exists on `ResourceId` for another requester than `LockRequesterId`,
+and `Retries` is not equal to `0`, the process sleeps for a while and tries to
+execute the action later. When `Retries` attempts have been made, `false` is
+returned, otherwise `true`. If `Retries` is `infinity`, `true` is eventually
+returned (unless the lock is never released).
 
 This function is completely synchronous.
 
@@ -645,7 +644,7 @@ set_lock({_ResourceId, _LockRequesterId} = Id, Nodes, Retries, Times) ->
 	    set_lock(Id, Nodes, dec(Retries), Times+1)
     end.
 
--doc(#{equiv => del_lock/2}).
+-doc(#{equiv => del_lock(Id, [node() | nodes()])}).
 -spec del_lock(Id) -> 'true' when
       Id :: id().
 del_lock(Id) ->
@@ -662,14 +661,14 @@ del_lock({_ResourceId, _LockRequesterId} = Id, Nodes) ->
 
 -type trans_fun() :: function() | {module(), atom()}.
 
--doc(#{equiv => trans/4}).
+-doc(#{equiv => trans(Id, Fun, [node() | nodes()], infinity)}).
 -spec trans(Id, Fun) -> Res | aborted when
       Id :: id(),
       Fun :: trans_fun(),
       Res :: term().
 trans(Id, Fun) -> trans(Id, Fun, [node() | nodes()], infinity).
 
--doc(#{equiv => trans/4}).
+-doc(#{equiv => trans(Id, Fun, Nodes, infinity)}).
 -spec trans(Id, Fun, Nodes) -> Res | aborted when
       Id :: id(),
       Fun :: trans_fun(),
@@ -678,9 +677,11 @@ trans(Id, Fun) -> trans(Id, Fun, [node() | nodes()], infinity).
 trans(Id, Fun, Nodes) -> trans(Id, Fun, Nodes, infinity).
 
 -doc """
-Sets a lock on `Id` (using `set_lock/3`). If this succeeds, `Fun()` is evaluated
-and the result `Res` is returned. Returns `aborted` if the lock attempt fails.
-If `Retries` is set to `infinity`, the transaction does not abort.
+Sets a lock on `Id` (using `set_lock/3`).
+
+If this succeeds, `Fun()` is evaluated and the result `Res` is returned.
+Returns `aborted` if the lock attempt fails. If `Retries` is set to `infinity`,
+the transaction does not abort.
 
 `infinity` is the default setting and is used if no value is specified for
 `Retries`.
@@ -708,18 +709,19 @@ info() ->
     gen_server:call(global_name_server, info, infinity).
 
 -doc """
-Disconnect from all other nodes known to `global`. A list of node names (in an
-unspecified order) is returned which corresponds to the nodes that were
-disconnected. All disconnect operations performed have completed when
+Disconnect from all other nodes known to `global`.
+
+A list of node names (in an unspecified order) is returned which corresponds to
+the nodes that were disconnected. All disconnect operations performed have completed when
 `global:disconnect/0` returns.
 
 The disconnects will be made in such a way that only the current node will be
 removed from the cluster of `global` nodes. If
-[`prevent_overlapping_partitions`](`m:global#prevent_overlapping_partitions`) is
+[`prevent_overlapping_partitions`] is
 enabled and you disconnect, from other nodes in the cluster of `global` nodes,
 by other means, `global` on the other nodes may partition the remaining nodes in
 order to ensure that no overlapping partitions appear. Even if
-`prevent_overlapping_partitions` is disabled, you should preferably use
+[`prevent_overlapping_partitions`] is disabled, you should preferably use
 `global:disconnect/0` in order to remove current node from a cluster of `global`
 nodes, since you otherwise likely _will_ create overlapping partitions which
 might [cause problems](`m:global#prevent_overlapping_partitions`).
@@ -727,7 +729,7 @@ might [cause problems](`m:global#prevent_overlapping_partitions`).
 Note that if the node is going to be halted, there is _no_ need to remove it
 from a cluster of `global` nodes explicitly by calling `global:disconnect/0`
 before halting it. The removal from the cluster is taken care of automatically
-when the node halts regardless of whether `prevent_overlapping_partitions` is
+when the node halts regardless of whether [`prevent_overlapping_partitions`] is
 enabled or not.
 
 If current node has been configured to be part of a
@@ -741,13 +743,15 @@ Note that information about connected nodes does not instantaneously reach
 `global`, so the caller might see a node part of the result returned by
 [`nodes()`](`erlang:nodes/0`) while it still is not known to `global`. The
 disconnect operation will, however, still not cause any overlapping partitions
-when `prevent_overlapping_partitions` is enabled. If
-`prevent_overlapping_partitions` is disabled, overlapping partitions might form
+when [`prevent_overlapping_partitions`] is enabled. If
+[`prevent_overlapping_partitions`] is disabled, overlapping partitions might form
 in this case.
 
-Note that when `prevent_overlapping_partitions` is enabled, you may see warning
+Note that when [`prevent_overlapping_partitions`] is enabled, you may see warning
 reports on other nodes when they detect that current node has disconnected.
 These are in this case completely harmless and can be ignored.
+
+[`prevent_overlapping_partitions`]: kernel_app.md#prevent_overlapping_partitions
 """.
 -doc(#{since => <<"OTP 25.1">>}).
 -spec disconnect() -> [node()].
@@ -2877,11 +2881,11 @@ minmax(P1,P2) ->
     if node(P1) < node(P2) -> {P1, P2}; true -> {P2, P1} end.
 
 -doc """
-Can be used as a name resolving function for `register_name/3` and
-`re_register_name/3`.
-
 The function randomly selects one of the pids for registration and kills the
 other one.
+
+Can be used as a name resolving function for `register_name/3` and
+`re_register_name/3`.
 """.
 -spec random_exit_name(Name, Pid1, Pid2) -> pid() when
       Name :: term(),
@@ -2895,11 +2899,11 @@ random_exit_name(Name, Pid, Pid2) ->
     Min.
 
 -doc """
-Can be used as a name resolving function for `register_name/3` and
-`re_register_name/3`.
-
 The function randomly selects one of the pids for registration, and sends the
 message `{global_name_conflict, Name}` to the other pid.
+
+Can be used as a name resolving function for `register_name/3` and
+`re_register_name/3`.
 """.
 -spec random_notify_name(Name, Pid1, Pid2) -> pid() when
       Name :: term(),
@@ -2911,11 +2915,11 @@ random_notify_name(Name, Pid, Pid2) ->
     Min.
 
 -doc """
-Can be used as a name resolving function for `register_name/3` and
-`re_register_name/3`.
-
 The function unregisters both pids and sends the message
 `{global_name_conflict, Name, OtherPid}` to both processes.
+
+Can be used as a name resolving function for `register_name/3` and
+`re_register_name/3`.
 """.
 -spec notify_all_name(Name, Pid1, Pid2) -> 'none' when
       Name :: term(),

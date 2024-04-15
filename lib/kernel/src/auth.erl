@@ -72,12 +72,13 @@ start_link() ->
 %%--Deprecated interface------------------------------------------------
 
 -doc """
-Returns `yes` if communication with `Node` is authorized. Notice that a
-connection to `Node` is established in this case. Returns `no` if `Node` does
-not exist or communication is not authorized (it has another cookie than `auth`
-thinks it has).
+Returns `yes` if communication with `Node` is authorized.
 
 Use [`net_adm:ping(Node)`](`net_adm:ping/1`) instead.
+
+Notice that a connection to `Node` is established in this case. Returns `no` if
+`Node` does not exist or communication is not authorized (it has another cookie
+than `auth` thinks it has).
 """.
 -spec is_auth(Node) -> 'yes' | 'no' when
       Node :: node().
@@ -109,7 +110,7 @@ cookie(Cookie) ->
     set_cookie(Cookie).
 
 -doc """
-node_cookie([Node, Cookie]) -> yes | no
+node_cookie([Node, Cookie])
 
 Equivalent to [`node_cookie(Node, Cookie)`](`node_cookie/2`).
 """.
@@ -120,9 +121,10 @@ node_cookie([Node, Cookie]) ->
 
 -doc """
 Sets the magic cookie of `Node` to `Cookie` and verifies the status of the
-authorization. Equivalent to calling
-[`erlang:set_cookie(Node, Cookie)`](`erlang:set_cookie/2`), followed by
-[`auth:is_auth(Node)`](`is_auth/1`).
+authorization.
+
+Equivalent to calling [`erlang:set_cookie(Node, Cookie)`](`erlang:set_cookie/2`),
+followed by [`auth:is_auth(Node)`](`is_auth/1`).
 """.
 -spec node_cookie(Node, Cookie) -> 'yes' | 'no' when
       Node :: node(),
