@@ -119,6 +119,13 @@
 #include <sys/sysctl.h>
 #endif
 
+#ifdef DEBUG
+#include <assert.h>
+#define ASSERT(X) assert(X)
+#else
+#define ASSERT(X) do {} while(0)
+#endif
+
 /* Simplify include for static functions */
 
 #if defined(__linux__) || defined(HAVE_KSTAT) || defined(__WIN32__) || defined(__FreeBSD__)
@@ -1095,6 +1102,7 @@ get_cgroup_child_path(const char *controller, const char **out) {
                     break;
                 }
             } else if (sscanf(line_buf, "%*d::%4095s\n", child_dir) == 1) {
+                ASSERT(version == ERTS_CGROUP_NONE); /* Silence codechecker */
                 /* An empty controller list means that this is the unified v2
                  * hierarchy, under which all associated controllers can be
                  * found. We don't know if the given controller is one of them,
@@ -1234,8 +1242,8 @@ static int read_cgroup_interface(const char *group_path, const char *if_name,
 }
 
 static int calculate_cpu_quota(int limit,
-                               ssize_t cfs_period_us,
-                               ssize_t cfs_quota_us) {
+                               ssize_t cfs_quota_us,
+                               ssize_t cfs_period_us) {
     if (cfs_period_us > 0 && cfs_quota_us > 0) {
         size_t quota = cfs_quota_us / cfs_period_us;
 
