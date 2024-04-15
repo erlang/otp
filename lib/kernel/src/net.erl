@@ -38,6 +38,7 @@ This module provides an API for the network interface.
          getaddrinfo/1,   getaddrinfo/2,
          getifaddrs/0,    getifaddrs/1, getifaddrs/2,
          getservbyname/1, getservbyname/2,
+         getservbyport/1, getservbyport/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -932,6 +933,41 @@ getservbyname(Name, Protocol)
 getservbyname(Name, Protocol)
   when is_list(Name) andalso is_atom(Protocol) ->
     prim_net:getservbyname(Name, atom_to_list(Protocol)).
+
+
+%% ===========================================================================
+%%
+%% getservbyport - Get service by name
+%%
+%% Get service name for the given port number.
+%%
+
+-doc(#{equiv => getservbyport(PortNumber, any)}).
+-doc(#{since => <<"OTP FOOBAR">>}).
+-spec getservbyport(PortNumber) ->
+          {ok, Name} | {error, Reason} when
+      PortNumber :: socket:port_number(),
+      Name       :: atom() | string(),
+      Reason     :: term().
+getservbyport(PortNumber) ->
+    getservbyport(PortNumber, any).
+
+-doc """
+Get service by name.
+
+This function is used to get the service name of the specified protocol
+for the given port number.
+""".
+-doc(#{since => <<"OTP FOOBAR">>}).
+-spec getservbyport(PortNumber, Protocol) ->
+          {ok, Name} | {error, Reason} when
+      PortNumber :: socket:port_number(),
+      Protocol   :: any | socket:protocol(),
+      Name       :: atom() | string(),
+      Reason     :: term().
+getservbyport(PortNumber, Protocol)
+  when is_integer(PortNumber) andalso is_atom(Protocol) ->
+    prim_net:getservbyport(PortNumber, atom_to_list(Protocol)).
 
 
 %% ===========================================================================

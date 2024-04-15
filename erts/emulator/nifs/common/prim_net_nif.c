@@ -208,8 +208,12 @@ ERL_NIF_INIT(prim_net, net_funcs, on_load, NULL, NULL, NULL)
     gethostname((__buf__), (__bufSz__))
 #define net_getservbyname(__name__, __proto__)  \
     getservbyname((__name__), (__proto__))
+#define net_getservbyport(__port__, __proto__)  \
+    getservbyport((__port__), (__proto__))
 #define net_ntohs(x)                            \
     ntohs((x))
+#define net_htons(x)                            \
+    htons((x))
 
 #else
 
@@ -217,8 +221,12 @@ ERL_NIF_INIT(prim_net, net_funcs, on_load, NULL, NULL, NULL)
     gethostname((__buf__), (__bufSz__))
 #define net_getservbyname(__name__, __proto__)  \
     getservbyname((__name__), (__proto__))
+#define net_getservbyport(__port__, __proto__)  \
+    getservbyport((__port__), (__proto__))
 #define net_ntohs(x)                            \
     ntohs((x))
+#define net_htons(x)                            \
+    htons((x))
 
 #endif // __WIN32__
 
@@ -307,6 +315,7 @@ extern char* erl_errno_id(int error);
     ENET_NIF_FUNC_DEF(get_interface_info);   \
     ENET_NIF_FUNC_DEF(get_ip_address_table); \
     ENET_NIF_FUNC_DEF(getservbyname);        \
+    ENET_NIF_FUNC_DEF(getservbyport);        \
     ENET_NIF_FUNC_DEF(if_name2index);        \
     ENET_NIF_FUNC_DEF(if_index2name);        \
     ENET_NIF_FUNC_DEF(if_names);
@@ -486,6 +495,9 @@ static void make_ip_address_row(ErlNifEnv*    env,
 
 static ERL_NIF_TERM enet_getservbyname(ErlNifEnv*   env,
                                        ERL_NIF_TERM ename,
+                                       ERL_NIF_TERM eproto);
+static ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                       ERL_NIF_TERM eport,
                                        ERL_NIF_TERM eproto);
 
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -811,6 +823,7 @@ static ErlNifResourceTypeInit netInit = {
  * nif_get_interface_info/1
  * nif_get_ip_address_table/1
  * nif_getservbyname/2
+ * nif_getservbyport/2
  * nif_if_name2index/1
  * nif_if_index2name/1
  * nif_if_names/0
@@ -3976,7 +3989,7 @@ ERL_NIF_TERM nif_getservbyname(ErlNifEnv*         env,
     ERL_NIF_TERM result, ename, eproto;
     BOOLEAN_T    dbg = FALSE;
 
-    NDBG( ("NET", "nif_get_ip_address_table -> entry (%d)\r\n", argc) );
+    NDBG( ("NET", "nif_getservbyname -> entry (%d)\r\n", argc) );
 
     if (argc != 2)
         return enif_make_badarg(env);
@@ -4029,6 +4042,89 @@ ERL_NIF_TERM enet_getservbyname(ErlNifEnv*   env,
     port = net_ntohs(srv->s_port);
 
     return esock_make_ok2(env, MKI(env, port));
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_getservbyport
+ *
+ * Description:
+ * Get service by name.
+ * This is a lookup function that translates a port number to its
+ * (registered) service name.
+ *
+ * Arguments:
+ * PortNumber - Port number for which we want to know the service name
+ * Protocol   - The the protocol for which we want to service name
+ *
+ * Returns:
+ * {ok, Name :: string()} | {error, Reason :: term()}
+ */
+
+static
+ERL_NIF_TERM nif_getservbyport(ErlNifEnv*         env,
+                               int                argc,
+                               const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result, eport, eproto;
+    BOOLEAN_T    dbg = FALSE;
+
+    NDBG( ("NET", "nif_getservbyport -> entry (%d)\r\n", argc) );
+
+    if (argc != 2)
+        return enif_make_badarg(env);
+
+    eport  = argv[0];
+    eproto = argv[1];
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyport -> args: "
+            "\r\n   eport:  %T"
+            "\r\n   eproto: %T"
+            "\r\n", eport, eproto) );
+
+    result = enet_getservbyport(env, eport, eproto);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyport -> done when result: "
+            "\r\n   %T\r\n", result) );
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                ERL_NIF_TERM eport,
+                                ERL_NIF_TERM eproto)
+{
+    char            proto[256];
+    struct servent* srv;
+    unsigned short  port;
+    unsigned int    len;
+
+    if (0 >= GET_UINT(env, eport, &port))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (0 >= GET_STR(env, eproto, proto, sizeof(proto)))
+        return esock_make_error(env, esock_atom_einval);
+
+    port = net_htons(port);
+
+    if ( strcmp(proto, "any") == 0 )
+        srv = net_getservbyport(port, NULL);
+    else
+        srv = net_getservbyport(port, proto);
+
+    if (srv == NULL)
+        return esock_make_error(env, esock_atom_einval);
+
+    len = strlen(srv->s_name);
+
+    return esock_make_ok2(env, MKSL(env, srv->s_name, len));
 }
 
 
@@ -4798,6 +4894,7 @@ ErlNifFunc net_funcs[] =
     {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_ip_address_table", 1, nif_get_ip_address_table, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_getservbyname", 2, nif_getservbyname, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_getservbyport", 2, nif_getservbyport, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Network interface (name and/or index) functions */
     {"nif_if_name2index",    1, nif_if_name2index, 0},
