@@ -34,9 +34,10 @@ This module provides an API for the network interface.
 
 -export([
          gethostname/0,
-         getnameinfo/1, getnameinfo/2,
-         getaddrinfo/1, getaddrinfo/2,
-         getifaddrs/0,  getifaddrs/1, getifaddrs/2,
+         getnameinfo/1,   getnameinfo/2,
+         getaddrinfo/1,   getaddrinfo/2,
+         getifaddrs/0,    getifaddrs/1, getifaddrs/2,
+         getservbyname/1, getservbyname/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -319,6 +320,7 @@ getaddrinfo(Host, Service)
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
     prim_net:getaddrinfo(Host, Service).
+
 
 %% ===========================================================================
 %%
@@ -892,6 +894,45 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
     #{family => inet,
       addr   => {BA1, BA2, BA3, BA4},
       port   => 0}.    
+
+
+%% ===========================================================================
+%%
+%% getservbyname - Get service by name
+%%
+%% Get the port number for the named service.
+%%
+
+-doc(#{equiv => getservbyname(Name, any)}).
+-doc(#{since => <<"OTP FOOBAR">>}).
+-spec getservbyname(Name) ->
+          {ok, PortNumber} | {error, Reason} when
+      Name       :: atom() | string(),
+      PortNumber :: socket:port_number(),
+      Reason     :: term().
+getservbyname(Name) ->
+    getservbyname(Name, any).
+
+-doc """
+Get service by name.
+
+This function is used to get the port number of the specified protocol
+for the named service.
+""".
+-doc(#{since => <<"OTP FOOBAR">>}).
+-spec getservbyname(Name, Protocol) ->
+          {ok, PortNumber} | {error, Reason} when
+      Name       :: atom() | string(),
+      PortNumber :: socket:port_number(),
+      Protocol   :: any | socket:protocol(),
+      Reason     :: term().
+getservbyname(Name, Protocol)
+  when is_atom(Name) ->
+    getservbyname(atom_to_list(Name), Protocol);
+getservbyname(Name, Protocol)
+  when is_list(Name) andalso is_atom(Protocol) ->
+    prim_net:getservbyname(Name, atom_to_list(Protocol)).
+
 
 %% ===========================================================================
 %%
