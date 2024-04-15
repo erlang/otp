@@ -392,7 +392,6 @@ This is a legacy clause mostly for `Destination = {local, Binary}` where
 [`send(Socket, Destination, [], Packet)`](`m:gen_udp#send-4-AncData`), the
 clause right above here.
 """.
--doc(#{since => <<"OTP 22.1">>}).
 -spec send(Socket, Host, Port, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Host :: inet:hostname() | inet:ip_address(),

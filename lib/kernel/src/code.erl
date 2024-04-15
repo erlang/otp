@@ -986,7 +986,6 @@ is_sticky(Mod) when is_atom(Mod) ->
 
 -type set_path_ret() :: 'true' | {'error', 'bad_directory'}.
 -doc #{equiv => set_path(PathList, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec set_path(Path) -> set_path_ret() when
       Path :: [Dir :: file:filename()].
 set_path(PathList) -> set_path(PathList, nocache).
@@ -1036,7 +1035,6 @@ get_path() -> call(get_path).
 
 -type add_path_ret() :: 'true' | {'error', 'bad_directory'}.
 -doc #{equiv => add_pathz(Dir, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_path(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_path(Dir) -> add_path(Dir, nocache).
@@ -1048,7 +1046,6 @@ add_path(Dir) -> add_path(Dir, nocache).
 add_path(Dir, Cache) when is_list(Dir), ?is_cache(Cache) -> add_pathz(Dir, Cache).
 
 -doc #{equiv => add_pathz(Dir, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathz(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_pathz(Dir) -> add_pathz(Dir, nocache).
@@ -1073,7 +1070,6 @@ add_pathz(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
     call({add_path,last,Normalized,Cache}).
 
 -doc #{equiv => add_patha(Dir, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_patha(Dir) -> add_path_ret() when
       Dir :: file:filename().
 add_patha(Dir) -> add_patha(Dir, nocache).
@@ -1098,7 +1094,6 @@ add_patha(Dir, Cache) when is_list(Dir), ?is_cache(Cache) ->
     call({add_path,first,Normalized,Cache}).
 
 -doc #{equiv => add_pathsz(Dirs, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_paths(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_paths(Dirs) -> add_paths(Dirs, nocache).
@@ -1111,7 +1106,6 @@ add_paths(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
     add_pathsz(Dirs, Cache).
 
 -doc #{equiv => add_pathsz(Dirs, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathsz(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_pathsz(Dirs) -> add_pathsz(Dirs, nocache).
@@ -1135,7 +1129,6 @@ add_pathsz(Dirs, Cache) when is_list(Dirs), ?is_cache(Cache) ->
     call({add_paths,last,Normalized,Cache}).
 
 -doc #{equiv => add_pathsa(Dirs, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec add_pathsa(Dirs) -> 'ok' when
       Dirs :: [Dir :: file:filename()].
 add_pathsa(Dirs) -> add_pathsa(Dirs, nocache).
@@ -1204,7 +1197,6 @@ del_paths(Dirs) when is_list(Dirs) -> call({del_paths,Dirs}).
 -type replace_path_ret() :: 'true' |
                             {'error', 'bad_directory' | 'bad_name' | {'badarg',_}}.
 -doc #{equiv => replace_path(Name, Dir, nocache)}.
--doc(#{since => <<"OTP 26.0">>}).
 -spec replace_path(Name, Dir) -> replace_path_ret() when
       Name:: atom(),
       Dir :: file:filename().

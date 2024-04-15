@@ -609,7 +609,7 @@ reply_request(_,false, _, _) ->
 %% Description: Sends a ssh connection protocol pty_req.
 %%--------------------------------------------------------------------
 -doc(#{equiv => ptty_alloc/4}).
--doc(#{since => <<"OTP 17.4,OTP 17.5">>}).
+-doc(#{since => <<"OTP 17.5">>}).
 -spec ptty_alloc(ConnectionRef, ChannelId, Options) -> result() when
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
@@ -640,7 +640,7 @@ Options:
   list. Otherwise, see possible _POSIX_ names in Section 8 in
   [RFC 4254](http://www.ietf.org/rfc/rfc4254.txt).
 """.
--doc(#{since => <<"OTP 17.4,OTP 17.5">>}).
+-doc(#{since => <<"OTP 17.4">>}).
 -spec ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -> result() when
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),

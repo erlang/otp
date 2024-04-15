@@ -728,7 +728,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_public/3}).
--doc(#{since => <<"OTP 21.1,OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -739,7 +739,7 @@ encrypt_public(PlainText, Key) ->
 
 
 -doc "Public-key encryption using the public key. See also `crypto:public_encrypt/4`.".
--doc(#{since => <<"OTP 21.1,OTP R14B">>}).
+-doc(#{since => <<"OTP 21.1">>}).
 -spec encrypt_public(PlainText, Key, Options) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -755,7 +755,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 %% Description: Public key encryption using the private key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_private/3}).
--doc(#{since => <<"OTP 21.1,OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -772,7 +772,7 @@ specifing the key algorithm `rsa` and a fun to handle the encryption operation.
 This may be used for customized the encryption operation with for instance
 hardware security modules (HSM) or trusted platform modules (TPM).
 """.
--doc(#{since => <<"OTP 21.1,OTP R14B">>}).
+-doc(#{since => <<"OTP 21.1">>}).
 -spec encrypt_private(PlainText, Key, Options) ->
 			     CipherText
                                  when  PlainText :: binary(),
@@ -1004,7 +1004,6 @@ pkix_hash_type('id-md5') ->
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
 -doc(#{equiv => sign/4}).
--doc(#{since => <<"OTP 20.1">>}).
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
                                  DigestType :: digest_type(),
@@ -1051,7 +1050,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
 -doc(#{equiv => verify/5}).
--doc(#{since => <<"OTP 20.1,OTP R14B">>}).
+-doc(#{since => <<"OTP R14B">>}).
 -spec verify(Msg, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),
@@ -1067,7 +1066,7 @@ Verifies a digital signature.
 The `Msg` is either the binary "plain text" data or it is the hashed value of
 "plain text", that is, the digest.
 """.
--doc(#{since => <<"OTP 20.1,OTP R14B">>}).
+-doc(#{since => <<"OTP 20.1">>}).
 -spec verify(Msg, DigestType, Signature, Key, Options) ->
                     boolean() when Msg :: binary() | {digest, binary()},
                                    DigestType :: digest_type(),

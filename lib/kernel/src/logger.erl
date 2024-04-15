@@ -844,9 +844,11 @@ remove_handler(HandlerId) ->
 Add or update primary configuration data for Logger. If the given `Key` already
 exists, its associated value will be changed to the given value. If it does not
 exist, it will be added.
+
+The `metadata` key was added in OTP 24.0.
 """.
 -doc(#{title => <<"Configuration API functions">>,
-       since => <<"OTP 21.0,OTP 24.0">>}).
+       since => <<"OTP 21.0">>}).
 -spec set_primary_config(level,Level) -> ok | {error,term()} when
       Level :: level() | all | none;
                         (filter_default,FilterDefault) -> ok | {error,term()} when

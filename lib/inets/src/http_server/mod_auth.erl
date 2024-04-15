@@ -279,7 +279,6 @@ delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
 					GroupName, UserName, ?NOPASSWORD).
 
 -doc(#{equiv => list_users/3}).
--doc(#{since => <<"OTP R14B01">>}).
 list_users(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -300,7 +299,6 @@ a list of users in the user database for a specific `Port/Dir`. When
 [`list_users/1`](`list_users/1`) is called, options `Port` and `Dir` are
 mandatory.
 """.
--doc(#{since => <<"OTP R14B01">>}).
 list_users(Addr, Port, Dir) ->
     mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
 

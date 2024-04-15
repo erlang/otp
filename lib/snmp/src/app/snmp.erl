@@ -1386,7 +1386,6 @@ read_mib(FileName) ->
 %%%-----------------------------------------------------------------
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1407,7 +1406,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1445,7 +1443,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1544,7 +1541,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
 
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1564,7 +1561,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
 
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1599,7 +1596,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->
     log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 -doc(#{equiv => log_to_io/7}).
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),
@@ -1639,7 +1636,7 @@ Converts an Audit Trail Log to a readable format and prints it on stdio. See
 
 [](){: #change_log_size }
 """.
--doc(#{since => <<"OTP R15B01,OTP R16B03">>}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),

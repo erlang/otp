@@ -70,6 +70,7 @@ parse_transform(Forms, _Options) ->
     forms(Forms).
 
 -doc "Returns information about the parse transform itself.".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec parse_transform_info() -> #{ 'error_location' => 'column' | 'line' }.
 parse_transform_info() ->
     #{error_location => column}.

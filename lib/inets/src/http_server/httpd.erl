@@ -1011,7 +1011,6 @@ server.
 > `inets:services/0` and `inets:services_info/0`, see `m:inets`.
 """.
 -doc(#{equiv => info/4}).
--doc(#{since => <<"OTP 18.0">>}).
 -spec info(Pid, Properties) -> HttpInformation  when
       Pid     :: pid(),
       Properties :: [atom()],
@@ -1103,7 +1102,6 @@ info(Address, Port) when is_integer(Port) ->
     info(Address, Port, default).
 
 -doc(#{equiv => info/4}).
--doc(#{since => <<"OTP 18.0">>}).
 -spec info(Address, Port, Profile) -> HttpInformation when
       Address :: inet:ip_address() | any,
       Port    :: integer(),

@@ -531,7 +531,7 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
     render(_Module, Function, Arity, D, #{}).
 
 -doc "Render the documentation for a function.".
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render(Module, Function, Arity, Docs, Config) -> Res when
       Module :: module(),
       Function :: atom(),
@@ -632,7 +632,7 @@ render_type(_Module, Type, Arity, #docs_v1{ } = D) ->
     render_type(_Module, Type, Arity, D, #{}).
 
 -doc "Render the documentation of a type in a module.".
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render_type(Module, Type, Arity, Docs, Config) -> Res when
       Module :: module(), Type :: atom(), Arity :: arity(),
       Docs :: docs_v1(),
@@ -730,7 +730,7 @@ render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D, Config) ->
                    end, Docs), D, Config).
 
 -doc "Render the documentation of a callback in a module.".
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render_callback(Module, Callback, Arity, Docs, Config) -> Res when
       Module :: module(), Callback :: atom(), Arity :: arity(),
       Docs :: docs_v1(),

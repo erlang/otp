@@ -735,7 +735,7 @@ from the specified `t:seed/0` integers.
 `Alg = default` is an alias for the [_default algorithm_](#default-algorithm)
 that has been implemented *since OTP 24.0*.
 """.
--doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0,OTP 24.0">>}).
+-doc(#{title => <<"Plug-in framework API">>,since => <<"OTP 18.0">>}).
 -spec seed_s(Alg, Seed) -> state() when
       Alg  :: builtin_alg() | 'default',
       Seed :: seed().

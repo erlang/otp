@@ -572,7 +572,6 @@ Used to set a time limit on how long to wait for a response using either
 %% -----------------------------------------------------------------
 
 -doc(#{equiv => start([])}).
--doc(#{since => <<"OTP 20.0">>}).
 -spec start() -> start_ret().
 start() ->
     gen:start(?MODULE, nolink, ?NO_CALLBACK, [], []).
@@ -584,7 +583,6 @@ not part of a supervision tree and thus has no supervisor.
 For a description of the arguments and return values, see
 [`start_link/1`](`start_link/1`).
 """.
--doc(#{since => <<"OTP 20.0">>}).
 -spec start(EventMgrNameOrOptions :: emgr_name() | options()) -> start_ret().
 start(Name) when is_tuple(Name) ->
     gen:start(?MODULE, nolink, Name, ?NO_CALLBACK, [], []);
@@ -608,7 +606,6 @@ start(Name, Options) ->
     error(badarg, [Name, Options]).
 
 -doc(#{equiv => start_link([])}).
--doc(#{since => <<"OTP 20.0">>}).
 -spec start_link() -> start_ret().
 start_link() ->
     gen:start(?MODULE, link, ?NO_CALLBACK, [], []).
@@ -623,7 +620,6 @@ If called with `t:options/0`, then a nameless event manager is created using `Op
 For a description of the arguments and return values, see
 [`start_link/2`](`start_link/2`).
 """.
--doc(#{since => <<"OTP 20.0">>}).
 -spec start_link(EventMgrNameOrOptions :: emgr_name() | options()) -> start_ret().
 start_link(Name) when is_tuple(Name) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], []);
@@ -1371,7 +1367,6 @@ For a description of `Handler`, see `add_handler/3`.
 which_handlers(M) -> rpc(M, which_handlers).
 
 -doc(#{equiv => stop(EventMgrRef, normal, infinity)}).
--doc(#{since => <<"OTP 18.0">>}).
 -spec stop(EventMgrRef :: emgr_ref()) -> 'ok'.
 stop(M) ->
     gen:stop(M).

@@ -605,7 +605,6 @@ Equivalent to [`tc(Module, Function, Arguments, microsecond)`](`tc/4`) if called
 
 Equivalent to [`tc(erlang, apply, [Fun, Arguments], TimeUnit)`](`tc/4`) if called as `tc(Fun, Arguments, TimeUnit)`. Added in OTP 26.0
 """.
--doc(#{since => <<"OTP R14B">>}).
 -spec tc(Module, Function, Arguments) -> {Time, Value}
               when Module :: module(),
                    Function :: atom(),

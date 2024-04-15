@@ -298,8 +298,9 @@ unload(Application) ->
     application_controller:unload_application(Application).
 
 
+%% ensure_all_started/1
 -doc(#{equiv => ensure_all_started(Applications, temporary, serial)}).
--doc(#{since => <<"OTP 26.0,OTP R16B02">>}).
+-doc(#{since => <<"OTP R16B02">>}).
 -spec ensure_all_started(Applications) -> {'ok', Started} | {'error', Reason} when
       Applications :: atom() | [atom()],
       Started :: [atom()],
@@ -307,8 +308,9 @@ unload(Application) ->
 ensure_all_started(Application) ->
     ensure_all_started(Application, temporary, serial).
 
+%% ensure_all_started/2
 -doc(#{equiv => ensure_all_started(Applications, Type, serial)}).
--doc(#{since => <<"OTP 26.0,OTP R16B02">>}).
+-doc(#{since => <<"OTP R16B02">>}).
 -spec ensure_all_started(Applications, Type) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
       Type :: restart_type(),
@@ -317,6 +319,7 @@ ensure_all_started(Application) ->
 ensure_all_started(Application, Type) ->
     ensure_all_started(Application, Type, serial).
 
+%% ensure_all_started/3
 -doc """
 `Applications` is either an an `t:atom/0` or a list of `t:atom/0` representing
 multiple applications.
@@ -341,7 +344,7 @@ specific dependency.
 If an error occurs, the applications started by the function are stopped to
 bring the set of running applications back to its initial state.
 """.
--doc(#{since => <<"OTP 26.0,OTP R16B02">>}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec ensure_all_started(Applications, Type, Mode) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
       Type :: restart_type(),

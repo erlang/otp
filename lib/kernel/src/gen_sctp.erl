@@ -914,7 +914,6 @@ an SCTP server socket.
 For type `stream`, sockets Backlog define the backlog queue length just like in
 TCP.
 """.
--doc(#{since => <<"OTP R15B">>}).
 -spec listen(Socket, IsServer) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       IsServer :: boolean(),

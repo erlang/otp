@@ -349,7 +349,7 @@ much like [`fold/3`](`fold/3`).
 This is equivalent to `mapfold/4` with an identity function as the
 pre-operation.
 
-_See also: _`fold/3`, `map/2`, `mapfold/4`.
+_See also:_ `fold/3`, `map/2`, `mapfold/4`.
 """.
 -spec mapfold(Function :: fun((cerl(), term()) -> {cerl(), term()}),
 	      Initial :: term(),

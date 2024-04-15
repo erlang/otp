@@ -295,7 +295,6 @@ connect(_OpenTcpSocket, Options) ->
     bad_arg([{options, Options}]).
 
 -doc(#{equiv => connect/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec connect(open_socket(), client_options(), timeout()) ->
                      {ok, connection_ref()} | {error, term()}
            ; (host(), inet:port_number(), client_options()) ->
@@ -340,7 +339,6 @@ the value of the [`connect_timeout`](`t:connect_timeout_client_option/0`)
 option, if present. For connection timeout, use the option
 [`connect_timeout`](`t:connect_timeout_client_option/0`).
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -spec connect(Host, Port, Options, NegotiationTimeout)
              -> {ok, connection_ref()}
               | {error, term()} when
@@ -485,7 +483,6 @@ Returns information about a connection intended for e.g debugging or logging.
 
 When the `Key` is a single `Item`, the result is a single `InfoTuple`
 """.
--doc(#{since => <<"OTP 22.1">>}).
 -spec connection_info(ConnectionRef, ItemList|Item) ->  InfoTupleList|InfoTuple when
       ConnectionRef :: connection_ref(),
       ItemList :: [Item],
@@ -706,7 +703,7 @@ default values.
       | {options, daemon_options()}.
 
 -doc(#{equiv => daemon_info/2}).
--doc(#{since => <<"OTP 19.0,OTP 22.1">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -spec daemon_info(DaemonRef) -> {ok,InfoTupleList} | {error,bad_daemon_ref} when
       DaemonRef :: daemon_ref(),
       InfoTupleList :: [InfoTuple],
@@ -752,7 +749,7 @@ Note that [`daemon_info/1`](`daemon_info/1`) and
 [`daemon_info/2`](`daemon_info/2`) returns different types due to compatibility
 reasons.
 """.
--doc(#{since => <<"OTP 19.0,OTP 22.1">>}).
+-doc(#{since => <<"OTP 22.1">>}).
 -spec daemon_info(DaemonRef, ItemList|Item) ->  InfoTupleList|InfoTuple | {error,bad_daemon_ref} when
       DaemonRef :: daemon_ref(),
       ItemList :: [Item],
@@ -779,7 +776,6 @@ daemon_info(DaemonRef, Keys) ->
 %% existing connections started by the listener up and running.
 %%--------------------------------------------------------------------
 -doc(#{equiv => stop_listener/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_listener(daemon_ref()) -> ok.
 
 stop_listener(SysSup) ->
@@ -787,7 +783,6 @@ stop_listener(SysSup) ->
 
 
 -doc(#{equiv => stop_listener/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_listener(inet:ip_address(), inet:port_number()) -> ok.
 
 stop_listener(Address, Port) ->
@@ -811,7 +806,6 @@ stop_listener(Address, Port, Profile) ->
                                                     profile=Profile})).
 
 -doc(#{equiv => stop_daemon/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
 
 stop_daemon(SysSup) ->
@@ -819,7 +813,6 @@ stop_daemon(SysSup) ->
 
 
 -doc(#{equiv => stop_daemon/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
 
 stop_daemon(Address, Port) ->

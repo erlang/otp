@@ -468,7 +468,6 @@ set_cwd(Dirname) ->
     check_and_call(set_cwd, [file_name(Dirname)]).
 
 -doc(#{equiv => delete(Filename, [])}).
--doc(#{since => <<"OTP 24.0">>}).
 -spec delete(Filename) -> ok | {error, Reason} when
       Filename :: name_all(),
       Reason :: posix() | badarg.
@@ -644,7 +643,6 @@ del_dir_r(File) -> % rm -rf File
     end.
 
 -doc(#{equiv => read_file_info(File, [])}).
--doc(#{since => <<"OTP R15B">>}).
 -spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
       File :: name_all() | io_device(),
       FileInfo :: file_info(),
@@ -805,7 +803,6 @@ altname(Name) ->
     check_and_call(altname, [file_name(Name)]).
 
 -doc(#{equiv => read_link_info(Name, [])}).
--doc(#{since => <<"OTP R15B">>}).
 -spec read_link_info(Name) -> {ok, FileInfo} | {error, Reason} when
       Name :: name_all(),
       FileInfo :: file_info(),
@@ -899,7 +896,6 @@ read_link_all(Name) ->
     check_and_call(read_link_all, [file_name(Name)]).
 
 -doc(#{equiv => write_file_info(Filename, FileInfo, [])}).
--doc(#{since => <<"OTP R15B">>}).
 -spec write_file_info(Filename, FileInfo) -> ok | {error, Reason} when
       Filename :: name_all(),
       FileInfo :: file_info(),

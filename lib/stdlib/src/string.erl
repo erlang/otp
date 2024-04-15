@@ -283,7 +283,7 @@ to_graphemes(CD0) ->
 %% Compare two strings return boolean, assumes that the input are
 %% normalized to same form, see unicode:characters_to_nfX_xxx(..)
 -doc(#{equiv => equal(A, B, true)}).
--doc(#{title => <<"Functions">>,since => <<"OTP 20.0">>}).
+-doc(#{title => <<"Functions">>}).
 -spec equal(A, B) -> boolean() when
       A::unicode:chardata(),
       B::unicode:chardata().

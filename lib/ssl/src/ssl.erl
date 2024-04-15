@@ -2023,8 +2023,7 @@ connect(Host, Port, TLSOptions, infinity).
 ```
 """.
 
--doc(#{title => <<"Client Functions">>,
-       since => <<"OTP R14B">>}).
+-doc(#{title => <<"Client Functions">>}).
 -doc(#{equiv => connect/4}).
 -spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
@@ -3306,7 +3305,7 @@ Equivalent to
 `export_key_materials(TLSSocket, Labels, Contexts, WantedLengths, true).`
 """.
 -doc(#{title => <<"Utility Functions">>,
-       since => <<"OTP 27">>}).
+       since => <<"OTP 27.0">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
                  {ok, ExportKeyMaterials} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3322,7 +3321,7 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>,
-       since => <<"OTP 27">>}).
+       since => <<"OTP 27.0">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
                  {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
       SslSocket :: sslsocket(),

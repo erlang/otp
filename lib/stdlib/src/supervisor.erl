@@ -790,7 +790,6 @@ call(Supervisor, Req) ->
     gen_server:call(Supervisor, Req, infinity).
 
 -doc(#{equiv => check_childspecs(ChildSpecs, undefined)}).
--doc(#{since => <<"OTP 24.0">>}).
 -spec check_childspecs(ChildSpecs) -> Result when
       ChildSpecs :: [child_spec()],
       Result :: 'ok' | {'error', Error :: term()}.
