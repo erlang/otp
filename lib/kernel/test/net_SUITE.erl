@@ -390,12 +390,12 @@ api_b_getservbyname() ->
     {ok, 80}   = net:getservbyname("http"),
     {ok, 80}   = net:getservbyname("http", any),
     {ok, 80}   = net:getservbyname("http", tcp),
-    {ok, 80}   = net:getservbyname("www",  udp),
+    not_on_windows(fun() -> {ok, 80}   = net:getservbyname("www",  udp) end),
     {ok, 161}  = net:getservbyname("snmp", udp),
-    {ok, 161}  = net:getservbyname("snmp", tcp),
-    {ok, 4369} = net:getservbyname("epmd", tcp),
-    {ok, 5672} = net:getservbyname("amqp", tcp),
-    {ok, 5672} = net:getservbyname("amqp", sctp),
+    not_on_windows(fun() -> {ok, 161}  = net:getservbyname("snmp", tcp) end),
+    not_on_windows(fun() -> {ok, 4369} = net:getservbyname("epmd", tcp) end),
+    not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", tcp) end),
+    not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", sctp) end),
 
     ?P("A couple of (expected) failures"),
     {error, einval} = net:getservbyname("gurka", tcp),
@@ -426,12 +426,12 @@ api_b_getservbyport() ->
     {ok, "http"} = net:getservbyport(80),
     {ok, "http"} = net:getservbyport(80,   any),
     {ok, "http"} = net:getservbyport(80,   tcp),
-    {ok, "www"}  = net:getservbyport(80,   udp),
+    not_on_windows(fun() -> {ok, "www"}  = net:getservbyport(80,   udp) end),
     {ok, "snmp"} = net:getservbyport(161,  udp),
-    {ok, "snmp"} = net:getservbyport(161,  tcp),
-    {ok, "epmd"} = net:getservbyport(4369, tcp),
-    {ok, "amqp"} = net:getservbyport(5672, tcp),
-    {ok, "amqp"} = net:getservbyport(5672, sctp),
+    not_on_windows(fun() -> {ok, "snmp"} = net:getservbyport(161,  tcp) end),
+    not_on_windows(fun() -> {ok, "epmd"} = net:getservbyport(4369, tcp) end),
+    not_on_windows(fun() -> {ok, "amqp"} = net:getservbyport(5672, tcp) end),
+    not_on_windows(fun() -> {ok, "amqp"} = net:getservbyport(5672, sctp) end),
 
     ?P("A couple of (expected) failures"),
     {error, einval} = net:getservbyport(11111, tcp),
@@ -441,6 +441,25 @@ api_b_getservbyport() ->
     ok.
 
 
+not_on_windows(F) ->
+    Cond = fun() -> case os:type() of
+			{win32, nt} ->
+			    skip;
+			_ ->
+			    run
+		    end
+	   end,
+    maybe_run(Cond, F).
+
+maybe_run(Cond, F) ->
+    case Cond() of
+	run ->
+	    F();
+	skip ->
+	    ok
+    end.
+
+	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Get name and address info.
