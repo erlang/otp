@@ -263,6 +263,8 @@ api_b_getifaddrs() ->
         {ok, IfAddrs} ->
             i("IfAddrs: "
               "~n   ~p", [IfAddrs]),
+            verify_broadcast(IfAddrs),
+            verify_loopback(IfAddrs),
             ok;
         {error, enotsup = Reason} ->
             i("getifaddrs not supported - skipping"),
@@ -301,6 +303,37 @@ api_b_getifaddrs() ->
               [CReason, IIResStr, ATResStr, IFERes, AAResStr]),
             skip(CReason)
     end.
+
+
+verify_broadcast([]) ->
+    ok;
+verify_broadcast([#{flags     := Flags,
+                    broadaddr := _} = IfAddr|IfAddrs]) ->
+    %% Must have the 'broadcast' flag
+    case lists:member(broadcast, Flags) of
+        true ->
+            verify_broadcast(IfAddrs);
+        false ->
+            ?FAIL({missing_broadcast_flag, IfAddr})
+    end;
+verify_broadcast([_|IfAddrs]) ->
+    verify_broadcast(IfAddrs).
+
+verify_loopback([]) ->
+    ok;
+verify_loopback([#{name  := "lo",
+                   flags := Flags,
+                   addr  := _Addr} = IfAddr|IfAddrs]) ->
+    %% Must have the 'broadcast' flag
+    case lists:member(loopback, Flags) of
+        true ->
+            verify_loopback(IfAddrs);
+        false ->
+            ?FAIL({missing_loopback_flag, IfAddr})
+    end;
+verify_loopback([_|IfAddrs]) ->
+    verify_loopback(IfAddrs).
+
 
 win_getifaddrs_ife({ok, II}, {ok, AT}) ->
     IDX1 = [IDX || #{index := IDX} <- II],
