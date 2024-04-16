@@ -19,9 +19,7 @@
 %%
 -module(debugger).
 -moduledoc """
-Erlang Debugger.
-
-Erlang Debugger for debugging and testing of Erlang programs.
+The Erlang Debugger for debugging and testing of Erlang programs.
 """.
 
 %% External exports
@@ -74,11 +72,30 @@ Erlang Debugger for debugging and testing of Erlang programs.
 %% GUI specific functionality used by more than one window type.
 %%
 %%====================================================================
--doc(#{equiv => start/2}).
+
+-doc """
+Starts Debugger.
+
+Started by this function, Debugger interprets code on all known nodes.
+""".
 -spec start() -> term().
 start() ->
     start(global, default, default).
--doc(#{equiv => start/2}).
+
+
+-doc """
+start(ModeOrFile)
+
+Starts Debugger.
+
+If `ModeOrFile` is a string, it is assumed to be the name of a file,
+and Debugger tries to load its settings from this file. For details
+about settings, see the [User's Guide](debugger_chapter.md).
+
+If `ModeOrFile` is atom `local`, Debugger interprets code only at the
+current node. If `ModeOrFile` is `global`, Debugger interprets code on
+all known nodes.
+""".
 -spec start(Mode) -> term() when Mode :: local | global | wx;
            (File) -> term() when File :: string().
 start(Mode) when Mode==local; Mode==global ->
@@ -89,16 +106,14 @@ start(SFile) when is_list(SFile), is_integer(hd(SFile)) ->
     start(global, SFile, default).
 
 -doc """
-start(Mode, File)
-
 Starts Debugger.
 
-If a filename is specified as argument, Debugger tries to load its settings from
-this file. For details about settings, see the User's Guide.
+Debugger tries to load its settings from the file named by `File`.
+For details about settings, see the [User's Guide](debugger_chapter.md).
 
-If `local` is specified as argument, Debugger interprets code only at the
-current node. If `global` is specified as argument, Debugger interprets code at
-all known nodes, this is the default.
+If `Mode` is `local`, Debugger interprets code only on the current
+node. If `Mode` is `global`, Debugger interprets code on all known
+nodes.
 """.
 -spec start(Mode, File) -> term() when Mode :: local | global,
    File :: string().
@@ -116,11 +131,12 @@ stop() ->
     dbg_wx_mon:stop().
 
 -doc """
-quick(Module, Name, Args)
+Debugs a single process.
 
-Debugs a single process. The module `Module` is interpreted and
-[`apply(Module,Name,Args)`](`apply/3`) is called. This opens an Attach Process
-window. For details, see the User's Guide.
+The module `Module` is interpreted and
+[`apply(Module, Name, Args)`](`apply/3`) is called. This opens an "Attach
+Process" window. For details, see the
+[User's Guide](debugger_chapter.md).
 """.
 -spec quick(Module, Name, Args) -> term() when Module :: atom(),
    Name :: atom(),

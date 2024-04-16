@@ -142,7 +142,7 @@ breakpoint is silently ignored.
 
 `Bindings` is a list of variable bindings. To retrieve the value of `Variable`
 (given as an atom), use function
-[`int:get_binding(Variable,Bindings)`](`int:get_binding/2`). The function
+[`int:get_binding(Variable, Bindings)`](`int:get_binding/2`). The function
 returns `unbound` or `{value,Value}`.
 
 ![Conditional Break Dialog Window](assets/cond_break_dialog.jpg "Conditional Break Dialog Window")
@@ -313,7 +313,7 @@ section [Options Menu](debugger_chapter.md#options).
   windows for terminated processes are closed.
 
 - **_Kill All_** - Terminates all processes listed in the window using
-  [`exit(Pid,kill)`](`exit/2`).
+  [`exit(Pid, kill)`](`exit/2`).
 
 ### Module Menu
 
@@ -352,7 +352,7 @@ The following menu items apply to the currently selected process:
 - **_Attach_** - Attaches to the process and open an
   [Attach Process window](debugger_chapter.md#attach).
 
-- **_Kill_** - Terminates the process using [`exit(Pid,kill)`](`exit/2`).
+- **_Kill_** - Terminates the process using [`exit(Pid, kill)`](`exit/2`).
 
 ### Break Menu
 
@@ -555,7 +555,7 @@ all areas except the Trace area are displayed.
 - **_Where_** - Verifies that the current location of the execution is visible
   in the code area.
 
-- **_Kill_** - Terminates the process using [`exit(Pid,kill)`](`exit/2`).
+- **_Kill_** - Terminates the process using [`exit(Pid, kill)`](`exit/2`).
 
 - **_Messages_** - Inspects the message queue of the process. The queue is
   displayed in the Evaluator area.
@@ -650,13 +650,15 @@ local or global mode:
 debugger:start(local | global)
 ```
 
-If no argument is provided, Debugger starts in global mode.
+If `debugger:start/0` is called, Debugger starts in global mode.
 
-In local mode, code is interpreted only at the current node. In global mode,
-code is interpreted at all known nodes. Processes at other nodes executing
+In local mode, code is interpreted only on the current node. In global mode,
+code is interpreted on all known nodes. Processes on other nodes executing
 interpreted code are automatically displayed in the Monitor window and can be
 attached to like any other debugged process.
 
-It is possible, but definitely not recommended, to start Debugger in global mode
-on more than one node in a network, as the nodes interfere with each other,
-leading to inconsistent behavior.
+> #### Note {: .info }
+>
+> It not recommended to start Debugger in global mode on more than one
+> node in a network, as the nodes interfere with each other, leading to
+> inconsistent behavior.
