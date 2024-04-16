@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,8 +50,9 @@
          %% *** API Basic ***
          api_b_gethostname/1,
          api_b_getifaddrs/1,
+         api_b_getservbyname/1,
+         api_b_getservbyport/1,
          api_b_name_and_addr_info/1,
-         
          api_b_name_and_index/1,
 
          %% *** API Misc ***
@@ -63,7 +64,9 @@
          api_m_getnameinfo_v4/0,
          api_m_getnameinfo_v4/1,
          api_m_getnameinfo_v6/0,
-         api_m_getnameinfo_v6/1
+         api_m_getnameinfo_v6/1,
+
+         api_m_getservbyname_overflow/1
 
          %% Tickets
         ]).
@@ -121,6 +124,8 @@ api_basic_cases() ->
     [
      api_b_gethostname,
      api_b_getifaddrs,
+     api_b_getservbyname,
+     api_b_getservbyport,
      api_b_name_and_addr_info,
      api_b_name_and_index
     ].
@@ -130,7 +135,8 @@ api_misc_cases() ->
      api_m_getaddrinfo_v4,
      api_m_getaddrinfo_v6,
      api_m_getnameinfo_v4,
-     api_m_getnameinfo_v6
+     api_m_getnameinfo_v6,
+     api_m_getservbyname_overflow
     ].
 
 %% ticket_cases() ->
@@ -330,6 +336,78 @@ merge([H|T], L) ->
     end.
 
             
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a *very* basic test. It simply calls the function with 
+%% a a couple of diifferent arguments...
+api_b_getservbyname(suite) ->
+    [];
+api_b_getservbyname(doc) ->
+    [];
+api_b_getservbyname(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   ok = api_b_getservbyname()
+           end).
+
+
+api_b_getservbyname() ->
+    ?P("A couple of (expected) successes"),
+    {ok, 80}   = net:getservbyname("http"),
+    {ok, 80}   = net:getservbyname("http", any),
+    {ok, 80}   = net:getservbyname("http", tcp),
+    {ok, 80}   = net:getservbyname("www",  udp),
+    {ok, 161}  = net:getservbyname("snmp", udp),
+    {ok, 161}  = net:getservbyname("snmp", tcp),
+    {ok, 4369} = net:getservbyname("epmd", tcp),
+    {ok, 5672} = net:getservbyname("amqp", tcp),
+    {ok, 5672} = net:getservbyname("amqp", sctp),
+
+    ?P("A couple of (expected) failures"),
+    {error, einval} = net:getservbyname("gurka", tcp),
+    {error, einval} = net:getservbyname("http",  gurka),
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a *very* basic test. It simply calls the function and expect
+%% it to succeed...
+api_b_getservbyport(suite) ->
+    [];
+api_b_getservbyport(doc) ->
+    [];
+api_b_getservbyport(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   ok = api_b_getservbyport()
+           end).
+
+
+api_b_getservbyport() ->
+    ?P("A couple of (expected) successes"),
+    {ok, "http"} = net:getservbyport(80),
+    {ok, "http"} = net:getservbyport(80,   any),
+    {ok, "http"} = net:getservbyport(80,   tcp),
+    {ok, "www"}  = net:getservbyport(80,   udp),
+    {ok, "snmp"} = net:getservbyport(161,  udp),
+    {ok, "snmp"} = net:getservbyport(161,  tcp),
+    {ok, "epmd"} = net:getservbyport(4369, tcp),
+    {ok, "amqp"} = net:getservbyport(5672, tcp),
+    {ok, "amqp"} = net:getservbyport(5672, sctp),
+
+    ?P("A couple of (expected) failures"),
+    {error, einval} = net:getservbyport(11111, tcp),
+    {error, einval} = net:getservbyport(80,    gurka),
+
+    ?P("done"),
+    ok.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Get name and address info.
@@ -718,6 +796,35 @@ api_m_getnameinfo_verify(NameInfo, Name, FName, _IP) ->
     i("No match found for ~p (~p): "
       "~n   NameInfo: ~p", [Name, FName, NameInfo]),
     ?FAIL({not_found, NameInfo, Name, FName}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_m_getservbyname_overflow(suite) ->
+    [];
+api_m_getservbyname_overflow(doc) ->
+    [];
+api_m_getservbyname_overflow(Config) when is_list(Config) ->
+    ?TT(?SECS(5)),
+    Pre  = fun() ->
+                   #{}
+           end,
+    Case = fun(_Info) ->
+                   ?P("try name as large atom"),
+                   {error, einval} =
+                       net:getservbyname(
+                         list_to_atom(lists:flatten(lists:duplicate(128, "x"))),
+                         tcp),
+                   ?P("try name as too large string"),
+                   {error, einval} =
+                       net:getservbyname(
+                         lists:flatten(lists:duplicate(257, "x")),
+                         tcp),
+                   ok
+           end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME,
+           Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
