@@ -400,7 +400,8 @@ api_b_getservbyname() ->
                                    ok;
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, linux} ->
+                                       {unix, linux}
+                                         when (Reason =:= einval) ->
                                            %% This happens on some linux
                                            %% (Ubuntu 22 on Parallels ARM VM)
                                            ok;
@@ -415,11 +416,39 @@ api_b_getservbyname() ->
     not_on_windows(fun() -> {ok, 161}  = net:getservbyname("snmp", tcp) end),
     not_on_windows(fun() -> {ok, 4369} = net:getservbyname("epmd", tcp) end),
     not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", tcp) end),
-    not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", sctp) end),
+    not_on_windows(fun() ->
+                           case net:getservbyname("amqp", sctp) of
+                               {ok, 5672} ->
+                                   ok;
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, darwin}
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"amap", udp, Reason})
+                                   end
+                           end
+                   end),
 
     ?P("A couple of (expected) failures"),
     {error, einval} = net:getservbyname("gurka", tcp),
-    {error, einval} = net:getservbyname("http",  gurka),
+    case net:getservbyname("http",  gurka) of
+        {error, einval} ->
+            ok;
+        {ok, 80} ->
+            case os:type() of
+                {unix, darwin} ->
+                    %% Darwin seems to ignore the clearly invalid protocol
+                    %% and just looks at the Service...
+                    ok;
+                _ ->
+                    ?P("Unexpected success"),
+                    ?FAIL({"http", gurka})
+            end
+    end,
 
     ?P("done"),
     ok.
@@ -449,10 +478,12 @@ api_b_getservbyport() ->
     not_on_windows(fun() ->
                            case net:getservbyport(80,   udp) of
                                {ok, STR} when (STR =:= "http") orelse
+                                              (STR =:= "www") orelse
                                               (STR =:= "WWW") -> ok;
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, linux} ->
+                                       {unix, linux}
+                                         when (Reason =:= einval) ->
                                            %% This happens on some linux
                                            %% (Ubuntu 22 on Parallels ARM VM)
                                            ok;
@@ -467,11 +498,26 @@ api_b_getservbyport() ->
     not_on_windows(fun() -> {ok, "snmp"} = net:getservbyport(161,  tcp) end),
     not_on_windows(fun() -> {ok, "epmd"} = net:getservbyport(4369, tcp) end),
     not_on_windows(fun() -> {ok, "amqp"} = net:getservbyport(5672, tcp) end),
-    not_on_windows(fun() -> {ok, "amqp"} = net:getservbyport(5672, sctp) end),
+    not_on_windows(fun() ->
+                           case net:getservbyport(5672, sctp) of
+                               {ok, "amqp"} ->
+                                   ok;
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, darwin}
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"amap", sctp, Reason})
+                                   end
+                           end
+                   end),
 
     ?P("A couple of (expected) failures"),
-    {error, einval} = net:getservbyport(11111, tcp),
-    {error, einval} = net:getservbyport(80,    gurka),
+    {error, einval} = net:getservbyport(16#FFFF, tcp),
+    {error, einval} = net:getservbyport(80,      gurka),
 
     ?P("done"),
     ok.
