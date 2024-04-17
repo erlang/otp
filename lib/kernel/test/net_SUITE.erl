@@ -394,7 +394,23 @@ api_b_getservbyname() ->
     {ok, 80}   = net:getservbyname("http"),
     {ok, 80}   = net:getservbyname("http", any),
     {ok, 80}   = net:getservbyname("http", tcp),
-    not_on_windows(fun() -> {ok, 80}   = net:getservbyname("www",  udp) end),
+    not_on_windows(fun() ->
+                           case net:getservbyname("www", udp) of
+                               {ok, 80} ->
+                                   ok;
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, linux} ->
+                                           %% This happens on some linux
+                                           %% (Ubuntu 22 on Parallels ARM VM)
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"www", udp, Reason})
+                                   end
+                           end
+                   end),
     {ok, 161}  = net:getservbyname("snmp", udp),
     not_on_windows(fun() -> {ok, 161}  = net:getservbyname("snmp", tcp) end),
     not_on_windows(fun() -> {ok, 4369} = net:getservbyname("epmd", tcp) end),
@@ -430,11 +446,23 @@ api_b_getservbyport() ->
     {ok, "http"} = net:getservbyport(80),
     {ok, "http"} = net:getservbyport(80,   any),
     {ok, "http"} = net:getservbyport(80,   tcp),
-    not_on_windows(fun() -> case net:getservbyport(80,   udp) of
-    			                         {ok, STR} when (STR =:= "http") orelse (STR =:= "WWW") -> ok;
-			                         {error, Reason} -> ?P("Unexpected failure: ~p", [Reason]), ?FAIL({80, udp, Reason})
-			                      end
-			         end),
+    not_on_windows(fun() ->
+                           case net:getservbyport(80,   udp) of
+                               {ok, STR} when (STR =:= "http") orelse
+                                              (STR =:= "WWW") -> ok;
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, linux} ->
+                                           %% This happens on some linux
+                                           %% (Ubuntu 22 on Parallels ARM VM)
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({80, udp, Reason})
+                                   end
+                           end
+                   end),
     {ok, "snmp"} = net:getservbyport(161,  udp),
     not_on_windows(fun() -> {ok, "snmp"} = net:getservbyport(161,  tcp) end),
     not_on_windows(fun() -> {ok, "epmd"} = net:getservbyport(4369, tcp) end),
