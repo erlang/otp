@@ -52,6 +52,8 @@
 
 -export([get_until_eof/2]).
 
+-include_lib("stdlib/include/assert.hrl").
+
 %%-define(debug, true).
 
 -ifdef(debug).
@@ -276,7 +278,15 @@ setopts_getopts(Config) when is_list(Config) ->
                {expect, "[\n ]ok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q<<\"hej\\n\">>\\E"}
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "proplists:get_value(terminal,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdin,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdout,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stderr,io:getopts())."},
+               {expect, "true"}
               ],[]);
         _ ->
             ok
@@ -295,8 +305,31 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "[\n ]ok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q<<\"hej\\n\">>\\E"}
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "proplists:get_value(terminal,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdin,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdout,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stderr,io:getopts())."},
+       {expect, "true"}
       ],[],"",["-oldshell"]),
+
+    %% Test that terminal options when used in non-terminal
+    %% are returned as they should
+    Erl = ct:get_progname(),
+    Str = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    maybe
+        {ok, T, _} ?= erl_scan:string(Str),
+        {ok, Opts} ?= erl_parse:parse_term(T),
+        ?assertEqual(false, proplists:get_value(terminal,Opts)),
+        ?assertEqual(false, proplists:get_value(stdin,Opts)),
+        ?assertEqual(false, proplists:get_value(stdout,Opts)),
+        ?assertEqual(false, proplists:get_value(stderr,Opts))
+    else
+        _ -> ct:fail({failed_to_parse, Str})
+    end,
     ok.
 
 %% Test that reading from stdin using file:read works when io is in binary mode

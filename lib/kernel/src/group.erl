@@ -199,8 +199,8 @@ set_unicode_state(Drv,Bool) ->
 get_terminal_state(Drv) ->
     Drv ! {self(),get_terminal_state},
     receive
-	{Drv,get_terminal_state,UniState} ->
-	    UniState;
+	{Drv,get_terminal_state,Terminal} ->
+	    Terminal;
 	{Drv,get_terminal_state,error} ->
 	    {error, internal}
     after 2000 ->
@@ -467,8 +467,9 @@ getopts(Drv,Buf) ->
 			true -> unicode;
 			_ -> latin1
 		     end},
-    Tty = {terminal, get_terminal_state(Drv)},
-    {ok,[Exp,Echo,Bin,Uni,Tty],Buf}.
+    Terminal = get_terminal_state(Drv),
+    Tty = {terminal, maps:get(stdout, Terminal)},
+    {ok,[Exp,Echo,Bin,Uni,Tty|maps:to_list(Terminal)],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function

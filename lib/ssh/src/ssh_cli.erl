@@ -283,7 +283,7 @@ handle_msg({Group, get_unicode_state}, State) ->
     {ok, State};
 
 handle_msg({Group, get_terminal_state}, State) ->
-    Group ! {self(), get_terminal_state, true},
+    Group ! {self(), get_terminal_state, #{ stdout => true, stdin => true }},
     {ok, State};
 
 handle_msg({Group, tty_geometry}, #state{group = Group,
