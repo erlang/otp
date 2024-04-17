@@ -19,6 +19,67 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27
+
+### Improvements and New Features
+
+- Calls to `ct:capture_start/0` and `ct:capture_stop/0` are now synchronous to ensure that all output is captured.
+
+  Own Id: OTP-18658 Aux Id: [PR-7380]
+
+- The order in which multiple hooks are executed can now be reversed after each config function. See [CTH Execution Order](`e:common_test:ct_hooks_chapter.md#cth_execution_order`).
+
+  Own Id: OTP-18682 Aux Id: [GH-7397], [PR-7496], ERIERL-43
+
+- The default CSS will now include a basic dark mode handling if it is preferred by the browser.
+
+  Own Id: OTP-18761 Aux Id: [PR-7428]
+
+- `-callback` attributes have been added to `m:ct_suite` and `m:ct_hooks`.
+
+  Own Id: OTP-18781 Aux Id: [PR-7701]
+
+- The built-in [cth_log_redirect](`e:common_test:ct_hooks_chapter.md#built-in-cths`) hook can now be configured to replace default logger reports in terminal with HTML logs.
+
+  Own Id: OTP-18875 Aux Id: [PR-7891]
+
+- Error handling for the `m:ct_property_test` framework has been enhanced.
+
+  Own Id: OTP-18881 Aux Id: [PR-7824]
+
+- Enhance test case documentation, making it clear how a test case can be failed.
+
+  Own Id: OTP-18892 Aux Id: [PR-7869]
+
+- The failing line in the test source code is now colored to make it easier to find on the screen.
+
+  Own Id: OTP-18898 Aux Id: [PR-7917]
+
+- Function specifications and types have been added to all public API functions.
+
+  Own Id: OTP-18913
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The suite execution elapsed time is now included in the index page.
+
+  Own Id: OTP-18981 Aux Id: [GH-7972], [PR-8112]
+
+[PR-7380]: https://github.com/erlang/otp/pull/7380
+[GH-7397]: https://github.com/erlang/otp/issues/7397
+[PR-7496]: https://github.com/erlang/otp/pull/7496
+[PR-7428]: https://github.com/erlang/otp/pull/7428
+[PR-7701]: https://github.com/erlang/otp/pull/7701
+[PR-7891]: https://github.com/erlang/otp/pull/7891
+[PR-7824]: https://github.com/erlang/otp/pull/7824
+[PR-7869]: https://github.com/erlang/otp/pull/7869
+[PR-7917]: https://github.com/erlang/otp/pull/7917
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[GH-7972]: https://github.com/erlang/otp/issues/7972
+[PR-8112]: https://github.com/erlang/otp/pull/8112
+
 ## Common_Test 1.26.2
 
 ### Fixed Bugs and Malfunctions

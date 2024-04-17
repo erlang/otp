@@ -19,6 +19,22 @@ limitations under the License.
 -->
 # FTP Release Notes
 
+## Ftp 1.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Dialyzer warnings due to type specs added in `m:dbg` have been eliminated.
+
+  Own Id: OTP-18860
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Ftp 1.2.1
 
 ### Fixed Bugs and Malfunctions

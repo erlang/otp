@@ -21,6 +21,39 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
+## Edoc 1.3
+
+### Fixed Bugs and Malfunctions
+
+- [EEP 48](https://www.erlang.org/eeps/eep-0048) doc chunks now properly include links within `{@type }` macros.
+
+  Own Id: OTP-18945 Aux Id: [PR-8063]
+
+- `@hidden` now means `hidden` in [EEP 48](https://www.erlang.org/eeps/eep-0048) doc chunks instead of `none`.
+
+  Own Id: OTP-18946 Aux Id: [PR-8063]
+
+[PR-8063]: https://github.com/erlang/otp/pull/8063
+[PR-8063]: https://github.com/erlang/otp/pull/8063
+
+### Improvements and New Features
+
+- There is a new `edoc_html_to_markdown` module that can be used to convert EEP-48 [`application/html+erlang`](`t:shell_docs:chunk_elements/0`) to Markdown.
+
+  Own Id: OTP-18947 Aux Id: [PR-8063]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Added module `m:edoc_doclet_markdown` that can be used to convert EDoc style documentation to [Markdown documentation attributes](`e:system/documentation.md`).
+
+  Own Id: OTP-19052 Aux Id: [PR-8308]
+
+[PR-8063]: https://github.com/erlang/otp/pull/8063
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8308]: https://github.com/erlang/otp/pull/8308
+
 ## Edoc 1.2.1
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the SASL application.
 
+## SASL 4.2.2
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## SASL 4.2.1
 
 ### Fixed Bugs and Malfunctions

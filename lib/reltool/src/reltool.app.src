@@ -40,5 +40,5 @@
   {runtime_dependencies,
    ["wx-2.3","tools-2.6.14",
     "stdlib-5.0","sasl-4.2.1",
-    "kernel-9.0","erts-@OTP-18941@"]}
+    "kernel-9.0","erts-15.0"]}
  ]}.

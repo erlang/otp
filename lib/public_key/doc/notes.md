@@ -19,6 +19,32 @@ limitations under the License.
 -->
 # public_key Release Notes
 
+## Public_Key 1.16
+
+### Improvements and New Features
+
+- The `ssl` client can negotiate and handle certificate status request (OCSP stapling support on the client side).
+
+  Own Id: OTP-18606 Aux Id: OTP-16875,OTP-16448
+
+- The exception reason when `public_key:cacerts_get/0` failed has been improved.
+
+  Own Id: OTP-18609 Aux Id: [GH-7295], [PR-7302]
+
+- Key customization support has been extended to allow flexibility for implementers of  for instance hardware security modules (HSM) or trusted platform modules (TPM).
+
+  Own Id: OTP-18876 Aux Id: [PR-7898], [PR-7475]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[GH-7295]: https://github.com/erlang/otp/issues/7295
+[PR-7302]: https://github.com/erlang/otp/pull/7302
+[PR-7898]: https://github.com/erlang/otp/pull/7898
+[PR-7475]: https://github.com/erlang/otp/pull/7475
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Public_Key 1.15.1
 
 ### Fixed Bugs and Malfunctions

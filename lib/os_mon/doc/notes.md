@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.10
+
+### Improvements and New Features
+
+- Function specifications and types have been added to all public API functions.
+
+  Own Id: OTP-18913
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Os_Mon 2.9.1
 
 ### Fixed Bugs and Malfunctions

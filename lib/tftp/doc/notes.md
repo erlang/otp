@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # TFTP Release Notes
 
+## Tftp 1.2
+
+### Improvements and New Features
+
+- There is a new [`tftp_logger`](`m:tftp_logger`) callback behavior module.
+
+  Own Id: OTP-18787 Aux Id: [PR-7700]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7700]: https://github.com/erlang/otp/pull/7700
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Tftp 1.1.1
 
 ### Fixed Bugs and Malfunctions

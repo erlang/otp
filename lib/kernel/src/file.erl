@@ -1061,7 +1061,7 @@ list_dir_all(Name) ->
     check_and_call(list_dir_all, [file_name(Name)]).
 
 -doc(#{equiv => read_file(Filename, [])}).
--doc(#{since => <<"OTP @OTP-18589@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename) -> {ok, Binary} | {error, Reason} when
       Filename :: name_all(),
       Binary :: binary(),
@@ -1090,7 +1090,7 @@ Typical error reasons:
 
 - **`enomem`** - There is not enough memory for the contents of the file.
 """.
--doc(#{since => <<"OTP @OTP-18589@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename, Opts) -> {ok, Binary} | {error, Reason} when
       Filename :: name_all(),
       Opts :: [read_file_option()],
