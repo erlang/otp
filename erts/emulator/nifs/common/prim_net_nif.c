@@ -497,6 +497,7 @@ static ERL_NIF_TERM enet_getservbyname(ErlNifEnv*   env,
                                        ERL_NIF_TERM ename,
                                        ERL_NIF_TERM eproto);
 static ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                       BOOLEAN_T      dbg,
                                        ERL_NIF_TERM eport,
                                        ERL_NIF_TERM eproto);
 
@@ -4070,7 +4071,7 @@ ERL_NIF_TERM nif_getservbyport(ErlNifEnv*         env,
     ERL_NIF_TERM result, eport, eproto;
     BOOLEAN_T    dbg = FALSE;
 
-    NDBG( ("NET", "nif_getservbyport -> entry (%d)\r\n", argc) );
+    NDBG2( dbg, ("NET", "nif_getservbyport -> entry (%d)\r\n", argc) );
 
     if (argc != 2)
         return enif_make_badarg(env);
@@ -4085,7 +4086,7 @@ ERL_NIF_TERM nif_getservbyport(ErlNifEnv*         env,
             "\r\n   eproto: %T"
             "\r\n", eport, eproto) );
 
-    result = enet_getservbyport(env, eport, eproto);
+    result = enet_getservbyport(env, dbg, eport, eproto);
 
     NDBG2( dbg,
            ("NET",
@@ -4098,33 +4099,58 @@ ERL_NIF_TERM nif_getservbyport(ErlNifEnv*         env,
 
 static
 ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                BOOLEAN_T      dbg,
                                 ERL_NIF_TERM eport,
                                 ERL_NIF_TERM eproto)
 {
     char            proto[256];
     struct servent* srv;
-    unsigned short  port;
-    unsigned int    len;
+    unsigned int    port;
+    ERL_NIF_TERM ename, result;
 
+    NDBG2( dbg, ("NET", "enet_getservbyport -> try 'get' port\r\n") );
     if (0 >= GET_UINT(env, eport, &port))
         return esock_make_error(env, esock_atom_einval);
-
-    if (0 >= GET_STR(env, eproto, proto, sizeof(proto)))
-        return esock_make_error(env, esock_atom_einval);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> (pre htons) port: %u\r\n", port) );
 
     port = net_htons(port);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> (post htons) port: %u\r\n", port) );
 
-    if ( strcmp(proto, "any") == 0 )
-        srv = net_getservbyport(port, NULL);
-    else
-        srv = net_getservbyport(port, proto);
-
-    if (srv == NULL)
+    NDBG2( dbg, ("NET", "enet_getservbyport -> try 'get' proto\r\n") );
+    if (0 >= GET_STR(env, eproto, proto, sizeof(proto)))
         return esock_make_error(env, esock_atom_einval);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> proto: %s\r\n", proto) );
 
-    len = strlen(srv->s_name);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> check proto\r\n") );
+    if ( strcmp(proto, "any") == 0 ) {
+        srv = net_getservbyport(port, NULL);
+    } else {
+        srv = net_getservbyport(port, proto);
+    }
 
-    return esock_make_ok2(env, MKSL(env, srv->s_name, len));
+    if (srv == NULL) {
+
+        NDBG2( dbg, ("NET", "enet_getservbyport -> failed get servent\r\n") );
+
+        result = esock_make_error(env, esock_atom_einval);
+
+    } else {
+
+        unsigned int len = strlen(srv->s_name);
+
+        NDBG2( dbg, ("NET", "enet_getservbyport -> make string (term) with length %d\r\n", len) );
+
+        ename = MKSL(env, srv->s_name, len);
+
+        result = esock_make_ok2(env, ename);
+
+    }
+
+    NDBG2( dbg, ("NET", "enet_getservbyport -> done with"
+                 "\r\n   result: %T"
+                 "\r\n", result) );
+
+    return result;
 }
 
 
