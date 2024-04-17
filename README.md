@@ -97,7 +97,7 @@ Erlang/OTP is released under the [Apache License 2.0](http://www.apache.org/lice
 
 > %CopyrightBegin%
 >
-> Copyright Ericsson AB 2010-2023. All Rights Reserved.
+> Copyright Ericsson AB 2010-2024. All Rights Reserved.
 >
 > Licensed under the Apache License, Version 2.0 (the "License");
 > you may not use this file except in compliance with the License.
