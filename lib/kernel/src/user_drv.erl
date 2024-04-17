@@ -351,7 +351,8 @@ init_shell(State, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}, [{echo,false}]),
+	    User = group:start(self(), {}, [{echo,false},
+                                            {noshell,true}]),
 	    register(user, User),
 	    User;
 	User ->

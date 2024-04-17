@@ -29,6 +29,7 @@
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
          file_read_stdin_unicode_translation_error_binary_mode/1,
          file_read_stdin_unicode_translation_error_list_mode/1,
+         file_read_line_stdin_cr_without_nl/1,
          file_read_line_stdin_unicode_translation_error_binary_mode/1,
          file_read_line_stdin_unicode_translation_error_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
@@ -347,6 +348,20 @@ file_read_stdin_unicode_translation_error_list_mode(_Config) ->
     {ok, "got: eof"} = gen_tcp:recv(P, 0),
 
     ok.
+
+%% Test that reading from stdin using file:read_line works when \r is sent without \n
+file_read_line_stdin_cr_without_nl(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, []),
+
+    erlang:port_command(ErlPort, "abc\r"),
+    {error,timeout} = gen_tcp:recv(P, 0, 2000),
+    erlang:port_command(ErlPort, "def\r\n"),
+    {ok, ~S'got: <<"abc\rdef\r\n">>\n'} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
 
 %% Test that reading from stdin using file:read_line returns
 %% correct error when in binary mode
