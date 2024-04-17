@@ -37,63 +37,50 @@ Common non-standard Erlang data types used to describe the record fields in the
 following sections and which are not defined in the Public Key
 [Reference Manual](`m:public_key`) follows here:
 
-- **`time() =`** - `utc_time() | general_time()`
+```erlang
+time() = utc_time() | general_time()
 
-- **`utc_time() =`** - `{utcTime, "YYMMDDHHMMSSZ"}`
+utc_time()  = {utcTime, "YYMMDDHHMMSSZ"}
 
-- **`general_time() =`** - `{generalTime, "YYYYMMDDHHMMSSZ"}`
+general_time() = {generalTime, "YYYYMMDDHHMMSSZ"}
 
-- **`general_name() =`** - `{rfc822Name, string()}`
+general_name() = {rfc822Name, string()} |
 
-  `| {dNSName, string()}`
+                 {dNSName, string()} |
 
-  `| {x400Address, string()}`
+                 {x400Address, string() |
 
-  `| {directoryName, {rdnSequence, [#AttributeTypeAndValue'{}]}}`
+                 {directoryName, {rdnSequence, [#'AttributeTypeAndValue'{}]}} |
 
-  `| {ediPartyName, special_string()}`
+                 {ediPartyName, special_string()} |
 
-  `| {ediPartyName, special_string(), special_string()}`
+                 {ediPartyName, special_string(), special_string()} |
 
-  `| {uniformResourceIdentifier, string()}`
+                 {uniformResourceIdentifier, string()} |
 
-  `| {iPAddress, string()}`
+                 {iPAddress, string()} |
 
-  `| {registeredId, oid()}`
+                 {registeredId, oid()} |
 
-  `| {otherName, term()}`
+                 {otherName, term()}
 
-- **`special_string() =`** - `{teletexString, string()}`
+special_string() = {teletexString, string()} |
+ 
+                   {printableString, string()} |
 
-  `| {printableString, string()}`
+                   {universalString, string()} |
 
-  `| {universalString, string()}`
+                   {utf8String, binary()} |
 
-  `| {utf8String, binary()}`
+                   {bmpString, string()}
 
-  `| {bmpString, string()}`
+dist_reason() = unused | keyCompromise | cACompromise | affiliationChanged |
+                cessationOfOperation | certificateHold | privilegeWithdrawn | aACompromise
 
-- **`dist_reason() =`** - `unused`
+OID_macro() = ?OID_name()
 
-  `| keyCompromise`
-
-  `| cACompromise`
-
-  `| affiliationChanged`
-
-  `| superseded`
-
-  `| cessationOfOperation`
-
-  `| certificateHold`
-
-  `| privilegeWithdrawn`
-
-  `| aACompromise`
-
-- **`OID_macro() =`** - `?OID_name()`
-
-- **`OID_name() =`** - `t:atom/0`
+OID_name() = atom()
+```
 
 ## RSA
 
@@ -103,42 +90,45 @@ keys follows:
 
 ```erlang
 #'RSAPublicKey'{
-	  modulus,       % integer()
-	  publicExponent % integer()
-	  }.
+   modulus,       % pos_integer()
+   publicExponent % pos_integer()
+  }.
 
 #'RSAPrivateKey'{
-          version,         % two-prime | multi
-	  modulus,         % integer()
-	  publicExponent,  % integer()
-	  privateExponent, % integer()
-	  prime1,          % integer()
-	  prime2,          % integer()
-	  exponent1,       % integer()
-	  exponent2,       % integer()
-	  coefficient,     % integer()
-	  otherPrimeInfos  % [#OtherPrimeInfo{}] | asn1_NOVALUE
-	 }.
+   version,         % two-prime | multi
+   modulus,         % pos_integer()
+   publicExponent,  % pos_integer()
+   privateExponent, % pos_integer()
+   prime1,          % pos_integer()
+   prime2,          % pos_integer()
+   exponent1,       % pos_integer()
+   exponent2,       % pos_integer()
+   coefficient,     % pos_integer()
+   otherPrimeInfos  % [#OtherPrimeInfo{}] | asn1_NOVALUE
+  }.
 
 #'OtherPrimeInfo'{
-	prime,           % integer()
-	exponent,        % integer()
-	coefficient      % integer()
- 	}.
+   prime,           % pos_integer()
+   exponent,        % pos_integer()
+   coefficient      % pos_integer()
+  }.
 
-#'RSASSA-PSS-params'{hashAlgorithm,     % #'HashAlgorithm'{}},
-	             maskGenAlgorithm,  % #'MaskGenAlgorithm'{}},
-		     saltLength,        % integer(),
-		     trailerField,      % integer()
-		     }.
+#'RSASSA-PSS-params'{
+   hashAlgorithm,     % #'HashAlgorithm'{}},
+   maskGenAlgorithm,  % #'MaskGenAlgorithm'{}},
+   saltLength,        % pos_integer(),
+   trailerField,      % pos_integer()
+  }.
 
-#'HashAlgorithm'{algorithm,  % oid()
-                 parameters  % defaults to asn1_NOVALUE
-                 }.
+#'HashAlgorithm'{
+   algorithm,  % oid()
+   parameters  % defaults to asn1_NOVALUE
+  }.
 
-#'MaskGenAlgorithm'{algorithm,  % oid()
-                    parameters, % defaults to asn1_NOVALUE
-                   }.
+#'MaskGenAlgorithm'{
+   algorithm,  % oid()
+   parameters, % defaults to asn1_NOVALUE
+  }.
 ```
 
 ## DSA
@@ -147,21 +137,20 @@ Erlang representation of
 [Digital Signature Algorithm (DSA)](http://www.ietf.org/rfc/rfc6979.txt) keys
 
 ```erlang
+#'DSAPrivateKey'{
+   version,      % pos_integer()
+   p,            % pos_integer()
+   q,            % pos_integer()
+   g,            % pos_integer()
+   y,            % pos_integer()
+   x             % pos_integer()
+  }.
 
-#'DSAPrivateKey',{
-	  version,      % integer()
-	  p,            % integer()
-	  q,            % integer()
-	  g,            % integer()
-	  y,            % integer()
-	  x             % integer()
-	  }.
-
-#'Dss-Parms',{
-         p,         % integer()
-	 q,         % integer()
-	 g          % integer()
-	 }.
+#'Dss-Parms'{
+   p,         % pos_integer()
+   q,         % pos_integer()
+   g          % pos_integer()
+  }.
 ```
 
 ## ECDSA and EDDSA
@@ -174,40 +163,38 @@ where parameters in the private key will be
 `{namedCurve, ?'id-Ed25519' | ?'id-Ed448'}`.
 
 ```erlang
-
 #'ECPrivateKey'{
-          version,       % integer()
-	  privateKey,    % binary()
-          parameters,    % {ecParameters, #'ECParameters'{}} |
-                         % {namedCurve, Oid::tuple()} |
-                         % {implicitlyCA, 'NULL'}
-	  publicKey      % bitstring()
-	  }.
+   version,       % pos_integer()
+   privateKey,    % binary()
+   parameters,    % {ecParameters, #'ECParameters'{}} |
+                  % {namedCurve, Oid::tuple()} |
+                  % {implicitlyCA, 'NULL'}
+   publicKey      % bitstring()
+  }.
 
 #'ECParameters'{
-      version,    % integer()
-      fieldID,    % #'FieldID'{}
-      curve,      % #'Curve'{}
-      base,       % binary()
-      order,      % integer()
-      cofactor    % integer()
-      }.
+   version,    % pos_integer()
+   fieldID,    % #'FieldID'{}
+   curve,      % #'Curve'{}
+   base,       % binary()
+   order,      % pos_integer()
+   cofactor    % pos_integer()
+  }.
 
 #'Curve'{
-	a,        % binary()
-	b,        % binary()
-	seed      % bitstring() - optional
-
-	}.
+   a,        % binary()
+   b,        % binary()
+   seed      % bitstring() - optional
+  }.
 
 #'FieldID'{
-	fieldType,    % oid()
-	parameters    % Depending on fieldType
-	}.
+   fieldType,    % oid()
+   parameters    % Depending on fieldType
+  }.
 
 #'ECPoint'{
-      point %  binary() - the public key
-      }.
+   point %  binary() - the public key
+  }.
 ```
 
 ## PKIX Certificates
@@ -218,28 +205,28 @@ referred to as `plain` type, are as follows:
 
 ```erlang
 #'Certificate'{
-		tbsCertificate,        % #'TBSCertificate'{}
-		signatureAlgorithm,    % #'AlgorithmIdentifier'{}
-		signature              % bitstring()
-	       }.
+   tbsCertificate,        % #'TBSCertificate'{}
+   signatureAlgorithm,    % #'AlgorithmIdentifier'{}
+   signature              % bitstring()
+  }.
 
 #'TBSCertificate'{
-	  version,              % v1 | v2 | v3
-	  serialNumber,         % integer()
-	  signature,            % #'AlgorithmIdentifier'{}
-	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]}
-	  validity,             % #'Validity'{}
-	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
-	  subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
-	  issuerUniqueID,       % binary() | asn1_novalue
-	  subjectUniqueID,      % binary() | asn1_novalue
-	  extensions            % [#'Extension'{}]
-	 }.
+   version,              % v1 | v2 | v3
+   serialNumber,         % pos_integer()
+   signature,            % #'AlgorithmIdentifier'{}
+   issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]
+   validity,             % #'Validity'{}
+   subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
+   subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
+   issuerUniqueID,       % binary() | asn1_novalue
+   subjectUniqueID,      % binary() | asn1_novalue
+   extensions            % [#'Extension'{}]
+  }.
 
 #'AlgorithmIdentifier'{
-	  algorithm,  % oid()
-	  parameters  % der_encoded()
-	 }.
+   algorithm,  % oid()
+   parameters  % der_encoded()
+  }.
 ```
 
 Erlang alternate representation of PKIX certificate, also referred to as `otp`
@@ -247,28 +234,28 @@ type
 
 ```erlang
 #'OTPCertificate'{
-		tbsCertificate,        % #'OTPTBSCertificate'{}
-		signatureAlgorithm,    % #'SignatureAlgorithm'
-		signature              % bitstring()
-	       }.
+   tbsCertificate,        % #'OTPTBSCertificate'{}
+   signatureAlgorithm,    % #'SignatureAlgorithm'
+   signature              % bitstring()
+  }.
 
 #'OTPTBSCertificate'{
-	  version,              % v1 | v2 | v3
-	  serialNumber,         % integer()
-	  signature,            % #'SignatureAlgorithm'
-	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]}
-	  validity,             % #'Validity'{}
-	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
-	  subjectPublicKeyInfo, % #'OTPSubjectPublicKeyInfo'{}
-	  issuerUniqueID,       % binary() | asn1_novalue
-	  subjectUniqueID,      % binary() | asn1_novalue
-	  extensions            % [#'Extension'{}]
-	 }.
+   version,              % v1 | v2 | v3
+   serialNumber,         % pos_integer()
+   signature,            % #'SignatureAlgorithm'
+   issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]}
+   validity,             % #'Validity'{}
+   subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
+   subjectPublicKeyInfo, % #'OTPSubjectPublicKeyInfo'{}
+   issuerUniqueID,       % binary() | asn1_novalue
+   subjectUniqueID,      % binary() | asn1_novalue
+   extensions            % [#'Extension'{}]
+  }.
 
 #'SignatureAlgorithm'{
-	  algorithm,  % id_signature_algorithm()
-	  parameters  % asn1_novalue | #'Dss-Parms'{}
-	 }.
+   algorithm,  % id_signature_algorithm()
+   parameters  % asn1_novalue | #'Dss-Parms'{}
+  }.
 ```
 
 `id_signature_algorithm() = OID_macro()`
@@ -295,9 +282,9 @@ record:
 
 ```erlang
 #'AttributeTypeAndValue'{
-	  type,   % id_attributes()
-	  value   % term()
-	 }.
+   type,   % id_attributes()
+   value   % term()
+  }.
 ```
 
 The attribute OID name atoms and their corresponding value types are as follows:
@@ -327,19 +314,19 @@ records:
 
 ```erlang
 #'Validity'{
-	  notBefore, % time()
-	  notAfter   % time()
-	 }.
+   notBefore, % time()
+   notAfter   % time()
+  }.
 
 #'SubjectPublicKeyInfo'{
-	  algorithm,       % #AlgorithmIdentifier{}
-	  subjectPublicKey % binary()
-	 }.
+   algorithm,       % #AlgorithmIdentifier{}
+   subjectPublicKey % binary()
+  }.
 
 #'SubjectPublicKeyInfoAlgorithm'{
-	  algorithm,  % id_public_key_algorithm()
-	  parameters  % public_key_params()
-	 }.
+   algorithm,  % id_public_key_algorithm()
+   parameters  % public_key_params()
+  }.
 ```
 
 The public-key algorithm OID name atoms are as follows:
@@ -356,10 +343,10 @@ _Table: Public-Key Algorithm OIDs_
 
 ```erlang
 #'Extension'{
-	  extnID,    % id_extensions() | oid()
-	  critical,  % boolean()
-	  extnValue  % der_encoded()
-	 }.
+   extnID,    % id_extensions() | oid()
+   critical,  % boolean()
+   extnValue  % der_encoded()
+  }.
 ```
 
 `id_extensions()`
@@ -391,33 +378,18 @@ types are as follows:
 | id-ce-policyConstraints          | \#'PolicyConstraints'\{\}      |
 | id-ce-extKeyUsage                | \[id_key_purpose()]            |
 | id-ce-cRLDistributionPoints      | \[#'DistributionPoint'\{\}]    |
-| id-ce-inhibitAnyPolicy           | integer()                      |
+| id-ce-inhibitAnyPolicy           | pos_integer()                      |
 | id-ce-freshestCRL                | \[#'DistributionPoint'\{\}]    |
 
 _Table: Standard Certificate Extensions_
 
 Here:
 
-- **`key_usage()`** - =
-
-  `digitalSignature`
-
-  `| nonRepudiation`
-
-  `| keyEncipherment`
-
-  `| dataEncipherment`
-
-  `| keyAgreement`
-
-  `| keyCertSign`
-
-  `| cRLSign`
-
-  `| encipherOnly`
-
-  `| decipherOnly`
-
+```erlang
+key_usage() = digitalSignature | nonRepudiation | keyEncipherment
+            | dataEncipherment | keyAgreement | keyCertSign
+            | cRLSign | encipherOnly | decipherOnly
+```
 And for `id_key_purpose()`:
 
 | _OID Name_            |
@@ -433,73 +405,72 @@ _Table: Key Purpose OIDs_
 
 ```erlang
 #'AuthorityKeyIdentifier'{
-	  keyIdentifier,	    % oid()
-	  authorityCertIssuer,      % general_name()
-	  authorityCertSerialNumber % integer()
-	 }.
+   keyIdentifier,            % oid()
+   authorityCertIssuer,      % general_name()
+   authorityCertSerialNumber % pos_integer()
+  }.
 
 #'PrivateKeyUsagePeriod'{
-	  notBefore,   % general_time()
-	  notAfter     % general_time()
-	 }.
+   notBefore,   % general_time()
+   notAfter     % general_time()
+  }.
 
 #'PolicyInformation'{
-	  policyIdentifier,  % oid()
-	  policyQualifiers   % [#PolicyQualifierInfo{}]
-	 }.
+   policyIdentifier,  % oid()
+   policyQualifiers   % [#PolicyQualifierInfo{}]
+  }.
 
 #'PolicyQualifierInfo'{
-	  policyQualifierId,   % oid()
-	  qualifier            % string() | #'UserNotice'{}
-	 }.
+   policyQualifierId,   % oid()
+   qualifier            % string() | #'UserNotice'{}
+  }.
 
 #'UserNotice'{
-         noticeRef,   % #'NoticeReference'{}
-	 explicitText % string()
-	 }.
+   noticeRef,   % #'NoticeReference'{}
+   explicitText % string()
+  }.
 
 #'NoticeReference'{
-         organization,    % string()
-	 noticeNumbers    % [integer()]
-	 }.
+   organization,    % string()
+   noticeNumbers    % [pos_integer()]
+  }.
 
 #'PolicyMappings_SEQOF'{
-	  issuerDomainPolicy,  % oid()
-	  subjectDomainPolicy  % oid()
-	 }.
+   issuerDomainPolicy,  % oid()
+   subjectDomainPolicy  % oid()
+  }.
 
 #'Attribute'{
-          type,  % oid()
-	  values % [der_encoded()]
-	  }).
+   type,  % oid()
+   values % [der_encoded()]
+  }).
 
 #'BasicConstraints'{
-	  cA,		    % boolean()
-	  pathLenConstraint % integer()
-	 }).
+   cA,               % boolean()
+   pathLenConstraint % pos_integer()
+  }).
 
 #'NameConstraints'{
-	  permittedSubtrees, % [#'GeneralSubtree'{}]
-	  excludedSubtrees   % [#'GeneralSubtree'{}]
-	 }).
+   permittedSubtrees, % [#'GeneralSubtree'{}]
+   excludedSubtrees   % [#'GeneralSubtree'{}]
+  }).
 
 #'GeneralSubtree'{
-	  base,    % general_name()
-	  minimum, % integer()
-	  maximum  % integer()
-	 }).
+   base,    % general_name()
+   minimum, % pos_integer()
+   maximum  % pos_integer()
+  }).
 
 #'PolicyConstraints'{
-	  requireExplicitPolicy, % integer()
-	  inhibitPolicyMapping   % integer()
-	 }).
+   requireExplicitPolicy, % pos_integer()
+   inhibitPolicyMapping   % pos_integer()
+  }).
 
 #'DistributionPoint'{
-	  distributionPoint, % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
-	  [#AttributeTypeAndValue{}]}
-	  reasons,           % [dist_reason()]
-	  cRLIssuer          % [general_name()]
-	 }).
+   distributionPoint, % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,[#AttributeTypeAndValue{}]}
+   reasons,           % [dist_reason()]
+   cRLIssuer          % [general_name()]
+  }).
 ```
 
 [](){: #PrivIntExt }
@@ -518,9 +489,9 @@ _Table: Private Internet Extensions_
 
 ```erlang
 #'AccessDescription'{
-           accessMethod,    % oid()
-	   accessLocation   % general_name()
-	 }).
+   accessMethod,    % oid()
+   accessLocation   % general_name()
+  }).
 ```
 
 ## CRL and CRL Extensions Profile
@@ -530,26 +501,26 @@ specifications and RFC 5280 are as follows:
 
 ```erlang
 #'CertificateList'{
-          tbsCertList,        % #'TBSCertList{}
-          signatureAlgorithm, % #'AlgorithmIdentifier'{}
-          signature           % bitstring()
-	  }).
+   tbsCertList,        % #'TBSCertList{}
+   signatureAlgorithm, % #'AlgorithmIdentifier'{}
+   signature           % bitstring()
+  }).
 
 #'TBSCertList'{
-      version,             % v2 (if defined)
-      signature,           % #AlgorithmIdentifier{}
-      issuer,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
-      thisUpdate,          % time()
-      nextUpdate,          % time()
-      revokedCertificates, % [#'TBSCertList_revokedCertificates_SEQOF'{}]
-      crlExtensions        % [#'Extension'{}]
-      }).
+   version,             % v2 (if defined)
+   signature,           % #AlgorithmIdentifier{}
+   issuer,              % {rdnSequence, [#AttributeTypeAndValue'{}]}
+   thisUpdate,          % time()
+   nextUpdate,          % time()
+   revokedCertificates, % [#'TBSCertList_revokedCertificates_SEQOF'{}]
+   crlExtensions        % [#'Extension'{}]
+  }).
 
 #'TBSCertList_revokedCertificates_SEQOF'{
-         userCertificate,      % integer()
- 	 revocationDate,       % timer()
-	 crlEntryExtensions    % [#'Extension'{}]
-	 }).
+   userCertificate,      % pos_integer()
+   revocationDate,       % timer()
+   crlEntryExtensions    % [#'Extension'{}]
+  }).
 ```
 
 [](){: #CRLCertExt }
@@ -563,8 +534,8 @@ follows:
 | ------------------------------ | ----------------------------------------------- |
 | id-ce-authorityKeyIdentifier   | \#'AuthorityKeyIdentifier\{\}                   |
 | id-ce-issuerAltName            | \{rdnSequence, \[#AttributeTypeAndValue'\{\}]\} |
-| id-ce-cRLNumber                | integer()                                       |
-| id-ce-deltaCRLIndicator        | integer()                                       |
+| id-ce-cRLNumber                | pos_integer()                                       |
+| id-ce-deltaCRLIndicator        | pos_integer()                                       |
 | id-ce-issuingDistributionPoint | \#'IssuingDistributionPoint'\{\}                |
 | id-ce-freshestCRL              | \[#'Distributionpoint'\{\}]                     |
 
@@ -575,14 +546,13 @@ Erlang record:
 
 ```erlang
 #'IssuingDistributionPoint'{
-          distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
-	  [#AttributeTypeAndValue'{}]}
-	  onlyContainsUserCerts,     % boolean()
-	  onlyContainsCACerts,       % boolean()
-	  onlySomeReasons,           % [dist_reason()]
-	  indirectCRL,               % boolean()
-	  onlyContainsAttributeCerts % boolean()
-	  }).
+   distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer, [#'AttributeTypeAndValue'{}]}
+   onlyContainsUserCerts,     % boolean()
+   onlyContainsCACerts,       % boolean()
+   onlySomeReasons,           % [dist_reason()]
+   indirectCRL,               % boolean()
+   onlyContainsAttributeCerts % boolean()
+  }).
 ```
 
 [](){: #CRLEntryExt }
@@ -603,66 +573,50 @@ _Table: CRL Entry Extensions_
 
 Here:
 
-- **`crl_reason()`** - =
-
-  `unspecified`
-
-  `| keyCompromise`
-
-  `| cACompromise`
-
-  `| affiliationChanged`
-
-  `| superseded`
-
-  `| cessationOfOperation`
-
-  `| certificateHold`
-
-  `| removeFromCRL`
-
-  `| privilegeWithdrawn`
-
-  `| aACompromise`
-
-[](){: #PKCS10 }
+```erlang
+    crl_reason() = unspecified | keyCompromise | cACompromise
+                 | affiliationChanged | superseded | cessationOfOperation
+                 | certificateHold | removeFromCRL
+                 | privilegeWithdrawn | aACompromise
+```
 
 ### PKCS#10 Certification Request
 
 Erlang representation of a PKCS#10 certification request derived from ASN.1
 specifications and RFC 5280 are as follows:
 
-```text
+```erlang
 #'CertificationRequest'{
-          certificationRequestInfo #'CertificationRequestInfo'{},
-	  signatureAlgorithm	   #'CertificationRequest_signatureAlgorithm'{}}.
-	  signature                bitstring()
-	  }
+   certificationRequestInfo, % #'CertificationRequestInfo'{},
+   signatureAlgorithm,       % #'CertificationRequest_signatureAlgorithm'{}}.
+   signature                 % bitstring()
+  }.
 
 #'CertificationRequestInfo'{
-	  version       atom(),
-	  subject       {rdnSequence, [#AttributeTypeAndValue'{}]} ,
-	  subjectPKInfo #'CertificationRequestInfo_subjectPKInfo'{},
-	  attributes    [#'AttributePKCS-10' {}]
-	  }
+   version,       % atom(),
+   subject,       % {rdnSequence, [#AttributeTypeAndValue'{}]} ,
+   subjectPKInfo, % #'CertificationRequestInfo_subjectPKInfo'{},
+   attributes     % [#'AttributePKCS-10' {}]
+  }.
 
 #'CertificationRequestInfo_subjectPKInfo'{
-          algorithm		#'CertificationRequestInfo_subjectPKInfo_algorithm'{}
-	  subjectPublicKey 	  bitstring()
-	  }
+   algorithm,        % #'CertificationRequestInfo_subjectPKInfo_algorithm'{}
+   subjectPublicKey  %  bitstring()
+  }.
 
 #'CertificationRequestInfo_subjectPKInfo_algorithm'{
-     algorithm = oid(),
-     parameters = der_encoded()
-}
+   algorithm,  % oid(),
+   parameters  % der_encoded()
+  }.
 
 #'CertificationRequest_signatureAlgorithm'{
-     algorithm = oid(),
-     parameters = der_encoded()
-     }
+   algorithm,  % oid(),
+   parameters  % der_encoded()
+  }.
 
 #'AttributePKCS-10'{
-    type = oid(),
-    values = [der_encoded()]
-}
+   type,   % oid(),
+   values  % [der_encoded()]
+  }.
 ```
+[](){: #PKCS10}
