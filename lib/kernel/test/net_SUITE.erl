@@ -428,7 +428,7 @@ api_b_getservbyport(_Config) when is_list(_Config) ->
 api_b_getservbyport() ->
     ?P("A couple of (expected) successes"),
     {ok, "http"} = net:getservbyport(80),
-    not_freebsd(fun() -> {ok, "http"} = net:getservbyport(80,   any) end),
+    {ok, "http"} = net:getservbyport(80,   any),
     {ok, "http"} = net:getservbyport(80,   tcp),
     not_on_windows(fun() -> case net:getservbyport(80,   udp) of
     			                         {ok, STR} when (STR =:= "http") orelse (STR =:= "WWW") -> ok;
@@ -449,16 +449,16 @@ api_b_getservbyport() ->
     ok.
 
 
-not_freebsd(F) ->
-   Cond = fun() -> case os:type() of
-                                 {unix, freebsd} ->
-				     skip;
-				 _ ->
-				    run
-			     end
-		end,
-   maybe_run(Cond, F).
-
+%% not_freebsd(F) ->
+%%    Cond = fun() -> case os:type() of
+%%                                  {unix, freebsd} ->
+%% 				     skip;
+%% 				 _ ->
+%% 				    run
+%% 			     end
+%% 		end,
+%%    maybe_run(Cond, F).
+%% 
 
 not_on_windows(F) ->
     Cond = fun() -> case os:type() of
