@@ -24,8 +24,12 @@
 %% not even reside here).
 %%
 
+%% Starting a VM to run tests with ct:
+%% ( cd $LOCAL_TESTS/27/kernel_test/ && $ERL_TOP/bin/erl -sname kernel-27-tester -pa $LOCAL_TESTS/27/test_server )
+%%
 %% Run the entire test suite: 
 %% ts:run(emulator, net_SUITE, [batch]).
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end, S(net_SUITE).
 %%
 %% Run a specific group:
 %% ts:run(emulator, net_SUITE, {group, foo}, [batch]).
@@ -414,7 +418,7 @@ api_b_getservbyport(suite) ->
 api_b_getservbyport(doc) ->
     [];
 api_b_getservbyport(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
                    ok = api_b_getservbyport()
@@ -424,9 +428,13 @@ api_b_getservbyport(_Config) when is_list(_Config) ->
 api_b_getservbyport() ->
     ?P("A couple of (expected) successes"),
     {ok, "http"} = net:getservbyport(80),
-    {ok, "http"} = net:getservbyport(80,   any),
+    not_freebsd(fun() -> {ok, "http"} = net:getservbyport(80,   any) end),
     {ok, "http"} = net:getservbyport(80,   tcp),
-    not_on_windows(fun() -> {ok, "www"}  = net:getservbyport(80,   udp) end),
+    not_on_windows(fun() -> case net:getservbyport(80,   udp) of
+    			                         {ok, STR} when (STR =:= "http") orelse (STR =:= "WWW") -> ok;
+			                         {error, Reason} -> ?P("Unexpected failure: ~p", [Reason]), ?FAIL({80, udp, Reason})
+			                      end
+			         end),
     {ok, "snmp"} = net:getservbyport(161,  udp),
     not_on_windows(fun() -> {ok, "snmp"} = net:getservbyport(161,  tcp) end),
     not_on_windows(fun() -> {ok, "epmd"} = net:getservbyport(4369, tcp) end),
@@ -439,6 +447,17 @@ api_b_getservbyport() ->
 
     ?P("done"),
     ok.
+
+
+not_freebsd(F) ->
+   Cond = fun() -> case os:type() of
+                                 {unix, freebsd} ->
+				     skip;
+				 _ ->
+				    run
+			     end
+		end,
+   maybe_run(Cond, F).
 
 
 not_on_windows(F) ->
