@@ -2064,7 +2064,16 @@ Equivalent to `prompt_width/2` with `Encoding` set to the encoding used by
 -doc(#{since => <<"OTP @OTP-18834@">>}).
 -spec prompt_width(unicode:chardata()) -> non_neg_integer().
 prompt_width(String) ->
-    Encoding = proplists:get_value(encoding, io:getopts(user)),
+    Encoding =
+        case whereis(user_drv) =:= self() of
+            %% When in JCL mode edlin can be called by
+            %% user_drv, which in turn calls this function.
+            %% Since JCL is very rudimentary we can assume
+            %% that it uses latin1.
+            true -> latin1;
+            false ->
+                proplists:get_value(encoding, io:getopts(user))
+        end,
     prompt_width(String, Encoding).
 
 -doc """
