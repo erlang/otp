@@ -115,7 +115,7 @@ The configuration files are described in the SNMP User's Manual.
 
 > #### Note {: .info }
 >
-> Some of the entries of this tyype are actually defined by the
+> Some of the entries of this type are actually defined by the
 > SNMP-USM-HMAC-SHA2-MIB mib.
 
 `AutonomousType`
