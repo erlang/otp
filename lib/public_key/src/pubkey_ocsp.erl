@@ -253,11 +253,11 @@ get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     Params = PKInfo#'OTPSubjectPublicKeyInfo'.algorithm#'PublicKeyAlgorithm'.parameters,
     SubjectPublicKey = PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
-    case Params of
-        {namedCurve, _} ->
-            {SubjectPublicKey, Params};
-        _ ->
-            SubjectPublicKey
+    case {SubjectPublicKey, Params} of
+        {#'RSAPublicKey'{}, 'NULL'} ->
+            SubjectPublicKey;
+        {_, _} ->
+            {SubjectPublicKey, Params}
     end.
 
 get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
