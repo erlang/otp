@@ -928,7 +928,7 @@ Argument `MatchSpec` can take the following forms:
   receiver and `Msg` is the message term. The pid of the sending process can be
   accessed with the guard function `self/0`. An empty list is the same as
   `true`. For more information, see section
-  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide.
+  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide
   for the ERTS application.
 
 - **`true`** - Enable tracing for all sent messages (from `send` traced
