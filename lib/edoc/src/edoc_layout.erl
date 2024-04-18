@@ -640,6 +640,7 @@ fulldesc(Es) ->
 	Desc -> [{p, Desc}, ?NL]
     end.
 
+%% @hidden
 sees(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -701,7 +702,7 @@ equiv(Es, P) ->
 	    end
     end.
 
-%% @doc hidden
+%% @hidden
 copyright(Es) ->
     case get_content(copyright, Es) of
 	[] -> [];
@@ -709,7 +710,7 @@ copyright(Es) ->
 	    [{p, ["Copyright \251 " | Es1]}, ?NL]
     end.
 
-%% @doc hidden
+%% @hidden
 version(Es) ->
     case get_content(version, Es) of
 	[] -> [];
@@ -717,7 +718,7 @@ version(Es) ->
 	    [{p, [{b, ["Version:"]}, " " | Es1]}, ?NL]
     end.
 
-%% @doc hidden
+%% @hidden
 since(Es) ->
     case get_content(since, Es) of
 	[] -> [];
@@ -725,7 +726,7 @@ since(Es) ->
 	    [{p, [{b, ["Introduced in:"]}, " " | Es1]}, ?NL]
     end.
 
-%% @doc hidden
+%% @hidden
 deprecated(Es, S) ->
     Es1 = get_content(description, get_content(deprecated, Es)),
     case get_content(fullDescription, Es1) of
@@ -776,6 +777,7 @@ callback(E=#xmlElement{}, Opts) ->
     Arity = get_attrval(arity, E),
     [{code, [atom(Name, Opts), "/", Arity]}].
 
+%% @hidden
 authors(Es) ->
     case get_elem(author, Es) of
 	[] -> [];
@@ -814,6 +816,7 @@ author(E=#xmlElement{}) ->
 		 "]"]
 	end).
 
+%% @hidden
 references(Es) ->
     case get_elem(reference, Es) of
 	[] -> [];
@@ -823,6 +826,7 @@ references(Es) ->
 	     ?NL]
     end.
 
+%% @hidden
 todos(Es) ->
     case get_elem(todo, Es) of
 	[] -> [];

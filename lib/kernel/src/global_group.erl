@@ -28,11 +28,10 @@ The main advantage of dividing systems into global groups is that the background
 load decreases while the number of nodes to be updated is reduced when
 manipulating globally registered names.
 
-The Kernel configuration parameter `global_groups` defines the global groups
-(see also [`kernel(6)`](kernel_app.md#global_groups) and
-[`config(4)`](config.md)):
+The Kernel configuration parameter [`global_groups`](kernel_app.md#global_groups)
+defines the global groups:
 
-```text
+```erlang
 {global_groups, [GroupTuple :: group_tuple()]}
 ```
 
@@ -65,7 +64,7 @@ global group as the local node.
 
 ## See Also
 
-`m:global`, [`erl(1)`](`e:erts:erl_cmd.md`)
+`m:global`, [`erl`](`e:erts:erl_cmd.md`)
 """.
 
 %% Groups nodes into global groups with an own global name space.
@@ -113,7 +112,7 @@ global group as the local node.
 
 -doc """
 A node started with command-line flag `-hidden` (see
-[`erl(1)`](`e:erts:erl_cmd.md`)) is said to be a _hidden_ node. A hidden node
+[`erl`](`e:erts:erl_cmd.md`)) is said to be a _hidden_ node. A hidden node
 establishes hidden connections to nodes not part of the same global group, but
 normal (visible) connections to nodes part of the same global group.
 
@@ -190,8 +189,9 @@ A `GroupTuple` without `PublishType` is the same as a `GroupTuple` with
 
 -doc """
 Returns a tuple containing the name of the global group that the local node
-belongs to, and the list of all other known group names. Returns `undefined` if
-no global groups are defined.
+belongs to, and the list of all other known group names.
+
+Returns `undefined` if no global groups are defined.
 """.
 -spec global_groups() -> {GroupName, GroupNames} | undefined when
       GroupName :: group_name(),
@@ -200,9 +200,10 @@ global_groups() ->
     request(global_groups).
 
 -doc """
-Depending on `Flag`, the calling process starts subscribing (`Flag` equal to
-`true`) or stops subscribing (`Flag` equal to `false`) to node status change
-messages.
+Alter the calling process' subscription of node status change messages.
+
+If `Flag` is equal to `true` the calling process starts subscribing to
+node status change messages. If equal to `false` it stops subscribing.
 
 A process that has subscribed receives the messages `{nodeup, Node}` and
 `{nodedown, Node}` when a group node connects or disconnects, respectively.
@@ -236,7 +237,17 @@ or in the specified global group.
 registered_names(Arg) ->
     request({registered_names, Arg}).
 
--doc(#{equiv => send/3}).
+-doc """
+Sends `Msg` to the pid represented by the globally registered name `Name`.
+
+`send/2` searches for `Name` any any global group. The global groups are searched
+in the order that they appear in the value of configuration parameter
+[`global_groups`](kernel_app.md#global_groups).
+
+If `Name` is found, message `Msg` is sent to the corresponding pid. The pid is
+also the return value of the function. If the name is not found, the function
+returns `{badarg, {Name, Msg}}`.
+""".
 -spec send(Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
       Name :: name(),
       Msg :: term().
@@ -244,14 +255,8 @@ send(Name, Msg) ->
     request({send, Name, Msg}).
 
 -doc """
-Searches for `Name`, globally registered on the specified node or in the
-specified global group, or (if argument `Where` is not provided) in any global
-group. The global groups are searched in the order that they appear in the value
-of configuration parameter `global_groups`.
-
-If `Name` is found, message `Msg` is sent to the corresponding pid. The pid is
-also the return value of the function. If the name is not found, the function
-returns `{badarg, {Name, Msg}}`.
+Equivalent to [`send(Name, Msg)`](`send/2`) except that he search is limited
+to the node or global group specified by `Where`.
 """.
 -spec send(Where, Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
       Where :: where(),
@@ -260,20 +265,23 @@ returns `{badarg, {Name, Msg}}`.
 send(Group, Name, Msg) ->
     request({send, Group, Name, Msg}).
 
--doc(#{equiv => whereis_name/2}).
+-doc """
+Searched for `Name` in any global group.
+
+The global groups are searched in the order that they appear in the value
+of configuration parameter `global_groups`.
+
+If `Name` is found, the corresponding pid is returned. If the name is not found,
+the function returns `undefined`.
+""".
 -spec whereis_name(Name) -> pid() | 'undefined' when
       Name :: name().
 whereis_name(Name) ->
     request({whereis_name, Name}).
 
 -doc """
-Searches for `Name`, globally registered on the specified node or in the
-specified global group, or (if argument `Where` is not provided) in any global
-group. The global groups are searched in the order that they appear in the value
-of configuration parameter `global_groups`.
-
-If `Name` is found, the corresponding pid is returned. If the name is not found,
-the function returns `undefined`.
+Equivalent to [`whereis_name(Name)`](`whereis_name/1`) except that he search is limited
+to the node or global group specified by `Where`.
 """.
 -spec whereis_name(Where, Name) -> pid() | 'undefined' when
       Where :: where(),
