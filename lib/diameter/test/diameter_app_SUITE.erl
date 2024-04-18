@@ -41,6 +41,8 @@
          xref/1,
          relup/1]).
 
+-include_lib("kernel/include/file.hrl").
+
 -define(util, diameter_util).
 -define(A, list_to_atom).
 
@@ -328,11 +330,15 @@ relup({App, Config}) ->
 
     Dir = fetch(priv_dir, Config),
 
+    i("relup -> verify path"
+      "~n   Dir: ~p", [Dir]),
+    verify_path(Dir),
+
     i("relup -> "
       "~n   Dir: "
-      "~n      ~p"
+      "~n      ~s"
       "~n   File info (dir): "
-      "~n      ~p", [Dir, file_info(Dir)]),
+      "~n      ~s", [Dir, file_info(Dir)]),
 
     Name = write_rel(Dir, Rel, Vsn),
     UpFrom = acc_rel(Dir, Rel, Up),
@@ -354,13 +360,71 @@ relup({App, Config}) ->
 relup(Config) ->
     run(Config, [relup]).
 
+
+verify_path(Path) ->
+    Components = filename:split(filename:absname(Path)),
+    do_verify_path(Components).
+
+do_verify_path([]) ->
+    exit(not_a_path);
+do_verify_path([Root|Components]) ->
+    do_verify_path(Root, Components).
+
+do_verify_path(Path, []) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> (final) directory ok:"
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            ok;
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> (final) unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end;
+do_verify_path(Path, [Component|Components]) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> directory ok: "
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            do_verify_path(filename:absname_join(Path, Component),
+                           Components);
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end.
+            
+
 file_info(Path) ->
     case file:read_file_info(Path) of
         {ok, Info} ->
-            Info;
+            f("~p", [Info]);
         {error, Reason} ->
-            lists:flatten(io_lib:format("error: ~p", [Reason]))
+            f("error: ~p", [Reason])
     end.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
 
 acc_rel(Dir, Rel, List) ->
     lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
