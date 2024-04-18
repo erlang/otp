@@ -619,11 +619,11 @@ Sets options to be used for subsequent requests.
   made.
 
 - **`IpAddress`** - If the host has several network interfaces, this option
-  specifies which one to use. See [gen_tcp:connect/3,4](`m:gen_tcp#connect`) for
+  specifies which one to use. See [gen_tcp:connect/3,4](`gen_tcp#connect/3`) for
   details.
 
 - **`Port`** - Example: `8080`. Local port number to use. See
-  [gen_tcp:connect/3,4](`m:gen_tcp#connect`) for details.
+  [gen_tcp:connect/3,4](`gen_tcp#connect/3`) for details.
 
 - **`SocketOpts`** - The options are appended to the socket options used by the
   client. These are the default values when a new request handler is started
