@@ -308,28 +308,59 @@ make_name(Suf) ->
 %% ===========================================================================
 
 relup({App, Config}) ->
+    i("relup -> entry with"
+      "~n   App:    ~p"
+      "~n   Config: ~p", [App, Config]),
+
     [{Vsn, Up, Down}] = ?util:consult(diameter, appup),
     true = is_vsn(Vsn),
+
+    i("relup -> "
+      "~n   Vsn:  ~p"
+      "~n   Up:   ~p"
+      "~n   Down: ~p", [Vsn, Up, Down]),
 
     Rel = [{erts, erlang:system_info(version)}
            | [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]],
 
+    i("relup -> "
+      "~n   Rel: ~p", [Rel]),
+
     Dir = fetch(priv_dir, Config),
+
+    i("relup -> "
+      "~n   Dir: "
+      "~n      ~p"
+      "~n   File info (dir): "
+      "~n      ~p", [Dir, file_info(Dir)]),
 
     Name = write_rel(Dir, Rel, Vsn),
     UpFrom = acc_rel(Dir, Rel, Up),
+    i("relup -> "
+      "~n   UpFrom: ~p", [UpFrom]),
     DownTo = acc_rel(Dir, Rel, Down),
+    i("relup -> "
+      "~n   DownTo: ~p", [DownTo]),
 
     {[], []} = {UpFrom -- DownTo, DownTo -- UpFrom},
     [[], []] = [S -- sets:to_list(sets:from_list(S))
                 || S <- [UpFrom, DownTo]],
 
+    i("relup -> try make relup"),
     {ok, _, _, []} = systools:make_relup(Name, UpFrom, DownTo, [{path, [Dir]},
                                                                 {outdir, Dir},
                                                                 silent]);
 
 relup(Config) ->
     run(Config, [relup]).
+
+file_info(Path) ->
+    case file:read_file_info(Path) of
+        {ok, Info} ->
+            Info;
+        {error, Reason} ->
+            lists:flatten(io_lib:format("error: ~p", [Reason]))
+    end.
 
 acc_rel(Dir, Rel, List) ->
     lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
@@ -386,3 +417,10 @@ is_app(S)
   when is_list(S) ->
     {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
     true.
+
+
+i(F) ->
+    i(F, []).
+
+i(F, A) when is_list(F) andalso is_list(A) ->
+    io:format(F ++ "~n", A). 
