@@ -61,7 +61,7 @@
 
                docformat = ?DEFAULT_FORMAT :: binary(),
                moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
-               moduledoc_meta = none :: none | #{ otp_doc_vsn => tuple() },
+               moduledoc_meta = none :: none | #{ _ := _ },
 
                %% If the module has any documentation attributes at all.
                %% If it does not and no documentation related options are
@@ -510,7 +510,6 @@ extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, ModuleDoc}, State) when
    State#docs{moduledoc = {set_file_anno(ModuleDocAnno, State), create_module_doc(Doc)}};
 extract_moduledoc0(_, State) ->
    State.
-
 
 extract_module_meta({attribute, _ModuleDocAnno, moduledoc, MetaDoc}, State) when is_map(MetaDoc) ->
    State#docs{moduledoc_meta = maps:merge(State#docs.moduledoc_meta, MetaDoc)};
@@ -1003,7 +1002,7 @@ gen_doc(Anno, AttrBody, Signature, Docs, State) when not is_atom(Docs), not is_m
 gen_doc(Anno, {Attr, _F, _A}=AttrBody, Signature, Docs, #docs{docs=DocsMap}=State) ->
    {_Status, _Doc, Meta} = maps:get(AttrBody, DocsMap),
    Result = {AttrBody, Anno, [unicode:characters_to_binary(Signature)], Docs,
-             maybe_add_deprecation(AttrBody, Meta, State)},
+             maybe_add_since(maybe_add_deprecation(AttrBody, Meta, State), State)},
    State1 = update_user_defined_types(AttrBody, State),
    reset_state(update_ast(Attr, State1, Result)).
 
@@ -1013,6 +1012,13 @@ erl_anno_file(Anno, State) ->
             State#docs.filename;
         FN -> FN
     end.
+
+maybe_add_since(#{ since := _} = Meta, _State) ->
+    Meta;
+maybe_add_since(Meta, #docs{ moduledoc_meta = #{ since := ModuleDocSince } }) ->
+    Meta#{ since => ModuleDocSince };
+maybe_add_since(Meta, _State) ->
+    Meta.
 
 maybe_add_deprecation(_KNA, #{ deprecated := Deprecated } = Meta, _State) ->
     Meta#{ deprecated := unicode:characters_to_binary(Deprecated) };
