@@ -383,7 +383,7 @@ Fails with an `{erpc, badarg}` `error` exception if:
 > You cannot make _any_ assumptions about the process that will perform the
 > `apply()`. It may be a server, or a freshly spawned process.
 """.
--doc(#{since => <<"OTP 23.0, OTP 25.0">>}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec send_request(Node, Module, Function, Args) -> RequestId when
       Node :: node(),
       Module :: atom(),

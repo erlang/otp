@@ -621,7 +621,6 @@ delete(_, []) -> [].
 %% Xn] and [Y0, Y1, ..., Yn].
 
 -doc(#{equiv => zip(List1, List2, fail)}).
--doc(#{since => <<"OTP 26.0">>}).
 -spec zip(List1, List2) -> List3 when
       List1 :: [A],
       List2 :: [B],
@@ -718,7 +717,6 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
 %% X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
 -doc(#{equiv => zip3(List1, List2, List3, fail)}).
--doc(#{since => <<"OTP 26.0">>}).
 -spec zip3(List1, List2, List3) -> List4 when
       List1 :: [A],
       List2 :: [B],
@@ -803,7 +801,6 @@ unzip3([], Xs, Ys, Zs) ->
 %% Xn] and [Y0, Y1, ..., Yn].
 
 -doc(#{equiv => zipwith(Combine, List1, List2, fail)}).
--doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith(Combine, List1, List2) -> List3 when
       Combine :: fun((X, Y) -> T),
       List1 :: [X],
@@ -865,7 +862,6 @@ zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
 %% [X0, X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
 -doc(#{equiv => zipwith3(Combine, List1, List2, List3, fail)}).
--doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith3(Combine, List1, List2, List3) -> List4 when
       Combine :: fun((X, Y, Z) -> T),
       List1 :: [X],
@@ -1568,7 +1564,7 @@ keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
                             is_function(Fun, 1) -> [].
 
 -doc(#{equiv => enumerate(1, 1, List1)}).
--doc(#{since => <<"OTP 25.0,OTP 26.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -spec enumerate(List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],
@@ -1578,7 +1574,7 @@ enumerate(List1) ->
     enumerate(1, 1, List1).
 
 -doc(#{equiv => enumerate(Index, 1, List1)}).
--doc(#{since => <<"OTP 25.0,OTP 26.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -spec enumerate(Index, List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],
@@ -1620,7 +1616,7 @@ _Examples:_
 [{0,a},{-2,b},{-4,c}]
 ```
 """.
--doc(#{since => <<"OTP 25.0,OTP 26.0">>}).
+-doc(#{since => <<"OTP 26.0">>}).
 -spec enumerate(Index, Step, List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],

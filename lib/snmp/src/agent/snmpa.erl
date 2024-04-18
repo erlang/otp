@@ -719,7 +719,6 @@ load_mib(Agent, Mib) ->
 
 
 -doc(#{equiv => load_mibs/3}).
--doc(#{since => <<"OTP R16B02">>}).
 -spec load_mibs(Mibs) -> 
           ok | {error, Reason} when
       Mibs           :: [MibName],
@@ -731,7 +730,6 @@ load_mibs(Mibs) ->
     load_mibs(snmp_master_agent, Mibs, false).
 
 -doc(#{equiv => load_mibs/3}).
--doc(#{since => <<"OTP R16B02">>}).
 -spec load_mibs(Agent, Mibs) -> ok | {error, Reason} when
       Agent          :: pid() | AgentName,
       AgentName      :: atom(),
@@ -812,7 +810,6 @@ unload_mib(Agent, Mib) ->
 
 
 -doc(#{equiv => unload_mibs/3}).
--doc(#{since => <<"OTP R16B02">>}).
 -spec unload_mibs(Mibs) ->
           ok | {error, Reason} when
       Mibs           :: [MibName], 
@@ -824,7 +821,6 @@ unload_mibs(Mibs) ->
     unload_mibs(snmp_master_agent, Mibs).
 
 -doc(#{equiv => unload_mibs/3}).
--doc(#{since => <<"OTP R16B02">>}).
 -spec unload_mibs(Agent, Mibs) ->
           ok | {error, Reason} when
       Agent          :: pid() | AgentName, 
@@ -1656,7 +1652,6 @@ send_notification2(Agent, Notification, SendOpts) ->
 
 
 -doc(#{equiv => send_notification/7}).
--doc(#{since => <<"OTP R14B">>}).
 -spec send_notification(Agent, Notification, Receiver) -> snmp:void() when
       Agent        :: pid() | AgentName,
       AgentName    :: atom(),
@@ -1683,7 +1678,6 @@ send_notification(Agent, Notification, Receiver) ->
     send_notification2(Agent, Notification, SendOpts).
 
 -doc(#{equiv => send_notification/7}).
--doc(#{since => <<"OTP R14B">>}).
 -spec send_notification(Agent, Notification, Receiver,
                         Varbinds) -> snmp:void() when
       Agent        :: pid() | AgentName,
@@ -1720,7 +1714,6 @@ send_notification(Agent, Notification, Receiver, Varbinds) ->
     send_notification2(Agent, Notification, SendOpts).
 
 -doc(#{equiv => send_notification/7}).
--doc(#{since => <<"OTP R14B">>}).
 -spec send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
           snmp:void() when
       Agent        :: pid() | AgentName,
@@ -1758,7 +1751,6 @@ send_notification(Agent, Notification, Receiver, NotifyName, Varbinds) ->
     send_notification2(Agent, Notification, SendOpts).
 
 -doc(#{equiv => send_notification/7}).
--doc(#{since => <<"OTP R14B">>}).
 -spec send_notification(Agent, Notification, Receiver,
                         NotifyName, ContextName, Varbinds) ->
           snmp:void() when
@@ -2349,7 +2341,7 @@ get_agent_caps() ->
 %%%-----------------------------------------------------------------
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
+-doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_txt(LogDir) -> snmp:void() when
       LogDir :: snmp:dir().
 
@@ -2358,7 +2350,6 @@ log_to_txt(LogDir) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Block) -> snmp:void() when
       LogDir :: snmp:dir(),
       Block  :: boolean();
@@ -2382,7 +2373,6 @@ log_to_txt(LogDir, Mibs) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, Block) -> snmp:void() when
       LogDir :: snmp:dir(),
       Mibs   :: [snmp:mib_name()],
@@ -2406,7 +2396,6 @@ log_to_txt(LogDir, Mibs, OutFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, Block) -> snmp:void() when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
@@ -2430,7 +2419,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, Block) -> snmp:void() when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
@@ -2454,7 +2442,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
           snmp:void() when
       LogDir  :: snmp:dir(),
@@ -2481,7 +2468,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
                  OutFile, LogName, LogFile,
 		 Block,
@@ -2528,7 +2514,7 @@ wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
 """.
--doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
 		 OutFile, LogName, LogFile,
 		 Block,
@@ -2726,7 +2712,7 @@ wrap during conversion). Defaults to `true`.
 
 See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
 """.
--doc(#{since => <<"OTP R15B01">>}).
+-doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
           ok | {ok, Cnt} | {error, Reason} when
       LogDir  :: string(),

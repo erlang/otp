@@ -461,7 +461,6 @@ The standard `t:error_info/0` structure that is returned from all I/O modules.
 -type leex_ret() :: ok_ret() | error_ret().
 
 -doc #{equiv => file(File, [])}.
--doc(#{since => <<"OTP R16B02">>}).
 -spec file(FileName) -> leex_ret() when
       FileName :: file:filename().
 

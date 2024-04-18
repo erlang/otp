@@ -1040,7 +1040,6 @@ Create an entry for the agent target_addr config file, `target_addr.conf`.
 See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
 more info.
 """.
--doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId) -> TargetAddrEntry when
       Name            :: snmp_target_mib:name(),
@@ -1140,7 +1139,6 @@ Create an entry for the agent target_addr config file, `target_addr.conf`.
 See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
 more info.
 """.
--doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name, Domain, Addr, TagList,
                         ParamsName, EngineId, TMask, MaxMessageSize) ->
           TargetAddrEntry when
@@ -1189,7 +1187,6 @@ Create an entry for the agent target_addr config file, `target_addr.conf`.
 See [Target Address Definitions](snmp_agent_config_files.md#target_addr) for
 more info.
 """.
--doc(#{since => <<"OTP 17.3">>}).
 -spec target_addr_entry(Name,
                         Domain, Addr,
                         Timeout, RetryCount, TagList,

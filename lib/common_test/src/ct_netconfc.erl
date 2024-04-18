@@ -783,7 +783,7 @@ only_open(KeyOrName, ExtraOpts) ->
 %% hello/1
 
 -doc(#{equiv => hello/3}).
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hello(Client) -> Result when
       Client :: handle(),
       Result :: ok | {error, error_reason()}.
@@ -794,7 +794,7 @@ hello(Client) ->
 %% hello/2
 
 -doc(#{equiv => hello/3}).
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hello(Client, Timeout) -> Result when
       Client :: handle(),
       Timeout :: timeout(),
@@ -811,7 +811,7 @@ been received or after the specified timeout.
 
 Note that capabilities for an outgoing hello can be passed directly to `open/2`.
 """.
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP 17.5.3">>}).
 -spec hello(Client, Options, Timeout) -> Result when
       Client :: handle(),
       Options :: [{capability, [string()]}],
@@ -1037,7 +1037,7 @@ get_config(Client, Source, Filter, Timeout) ->
 %%----------------------------------------------------------------------
 %% Send a 'edit-config' request.
 -doc(#{equiv => edit_config/5}).
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec edit_config(Client, Target, Config) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1047,7 +1047,7 @@ edit_config(Client, Target, Config) ->
     edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
 
 -doc(#{equiv => edit_config/5}).
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec edit_config(Client, Target, Config, OptParams) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1082,7 +1082,7 @@ value must be a list containing valid simple XML, for example:
 
 If `OptParams` is not given, the default value `[]` is used.
 """.
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec edit_config(Client, Target, Config, OptParams, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1355,7 +1355,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout) ->
 %% Send a request to get the given event streams
 %% See RFC5277, NETCONF Event Notifications
 -doc(#{equiv => get_event_streams/3}).
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP 20.0">>}).
 -spec get_event_streams(Client)
 		       -> Result when
       Client :: client(),
@@ -1364,7 +1364,7 @@ get_event_streams(Client) ->
     get_event_streams(Client,[],?DEFAULT_TIMEOUT).
 
 -doc(#{equiv => get_event_streams/3}).
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec get_event_streams(Client, Timeout)
 		       -> Result when
       Client :: client(),
@@ -1412,7 +1412,7 @@ If more complex filtering is needed, use [`ct_netconfc:get/2,3`](`get/2`) and
 specify the exact filter according to "XML Schema for Event Notifications" in
 RFC 5277.
 """.
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec get_event_streams(Client, Streams, Timeout)
 		       -> Result when
       Client :: client(),

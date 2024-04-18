@@ -780,7 +780,6 @@ proc_port({global,Name}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace pattern
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec tp(tp_module(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tp(A,B) ->
@@ -789,7 +788,6 @@ tp(A,B) ->
     dbg:tp(A,ms(B)).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec tp(tp_module(), tp_function(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tp(A,B,C) ->
@@ -798,7 +796,6 @@ tp(A,B,C) ->
     dbg:tp(A,B,ms(C)).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec tp(tp_module(), tp_function(), tp_arity(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tp(A,B,C,D) ->
@@ -807,7 +804,6 @@ tp(A,B,C,D) ->
     dbg:tp(A,B,C,ms(D)).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec tpl(tp_module(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tpl(A,B) ->
@@ -816,7 +812,6 @@ tpl(A,B) ->
     dbg:tpl(A,ms(B)).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec tpl(tp_module(), tp_function(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tpl(A,B,C) ->
@@ -873,7 +868,6 @@ The shortcuts are as follows:
 - `{codestr, Str}` \- for `dbg:fun2ms/1` arguments passed as strings (example:
   `"fun(_) -> return_trace() end"`)
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -spec tpl(tp_module(), tp_function(), tp_arity(), match_spec()) ->
           {ok, match_desc()} | {error, term()}.
 tpl(A,B,C,D) ->
@@ -892,14 +886,12 @@ tpe(A,B) ->
     dbg:tpe(A,ms(B)).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctp() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp() ->
     store(ctp,[]),
     dbg:ctp().
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctp(Module | {Module, Function, Arity}) ->
           {ok, MatchDesc :: match_desc()} | {error, term()} when
       Module :: tp_module(),
@@ -910,7 +902,6 @@ ctp(A) ->
     dbg:ctp(A).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctp(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(A,B) ->
@@ -918,7 +909,6 @@ ctp(A,B) ->
     dbg:ctp(A,B).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctp(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctp(A,B,C) ->
@@ -927,14 +917,12 @@ ctp(A,B,C) ->
 
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpl() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl() ->
     store(ctpl,[]),
     dbg:ctpl().
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpl(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
               {ok, MatchDesc :: term()} | {error, term()} when
       Module :: tp_module().
@@ -943,7 +931,6 @@ ctpl(A) ->
     dbg:ctpl(A).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpl(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(A,B) ->
@@ -951,7 +938,6 @@ ctpl(A,B) ->
     dbg:ctpl(A,B).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpl(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpl(A,B,C) ->
@@ -959,14 +945,12 @@ ctpl(A,B,C) ->
     dbg:ctpl(A,B,C).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpg() -> {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg() ->
     store(ctpg,[]),
     dbg:ctpg().
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpg(Module | {Module, Function :: tp_function(), Arity :: tp_arity()}) ->
           {ok, MatchDesc :: term()} | {error, term()} when
       Module :: tp_module().
@@ -975,7 +959,6 @@ ctpg(A) ->
     dbg:ctpg(A).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpg(Module :: tp_module(), Function :: tp_function()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(A,B) ->
@@ -983,7 +966,6 @@ ctpg(A,B) ->
     dbg:ctpg(A,B).
 
 -doc(#{equiv => tpl/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec ctpg(Module :: tp_module(), Function :: tp_function(), Arity :: tp_arity()) ->
           {ok, MatchDesc :: match_desc()} | {error, term()}.
 ctpg(A,B,C) ->

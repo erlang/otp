@@ -435,7 +435,6 @@ The [`options`](`m:gen_tcp#connect-options`) available are the same as for
 > Kernel configuration parameter `inet_default_connect_options`. For details,
 > see `m:inet`.
 """.
--doc(#{since => <<"OTP 24.3">>}).
 -doc(#{equiv => connect/4}).
 -spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
       Address  :: inet:socket_address() | inet:hostname(),

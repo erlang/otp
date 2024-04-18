@@ -50,7 +50,7 @@ For description see
 -type logger_info()     :: {logger:level(), Report::#{description => string(), reason => term()}, logger:metadata()}.
 
 
--doc(#{equiv => lookup/3,since => <<"OTP 18">>}).
+-doc(#{equiv => lookup/3,since => <<"OTP 18.0">>}).
 -doc """
 Backwards compatibility, replaced by lookup/3
 """.
@@ -83,7 +83,7 @@ produce log events.
     {{logger, logger_info()}, [public_key:der_encoded()]}.
 
 
--doc(#{since => <<"OTP 18">>}).
+-doc(#{since => <<"OTP 18.0">>}).
 -doc """
 Select the CRLs in the cache that are issued by `Issuer` unless the value is a
 list of so called general names, see
@@ -102,7 +102,7 @@ produce log events.
       IssuerOrDPLocations::public_key:issuer_name() | list(),
       CacheRef :: crl_cache_ref().
 
--doc(#{since => <<"OTP 18">>}).
+-doc(#{since => <<"OTP 18.0">>}).
 -doc """
 `fun fresh_crl/2` will be used as input option `update_crl` to
 `public_key:pkix_crls_validate/3`.

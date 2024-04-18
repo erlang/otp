@@ -391,7 +391,6 @@ unpack_release(ReleaseName) ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 -doc(#{equiv => check_install_release(Vsn, [])}).
--doc(#{since => <<"OTP R14B04">>}).
 -spec check_install_release(Vsn) -> {ok, OtherVsn, Descr} | {error, Reason} when Vsn :: string(),
    OtherVsn :: string(),
    Descr :: term(),
@@ -885,7 +884,6 @@ corresponding modules are to be located under `Dir/App-Vsn/ebin`. The
 directories for applications not specified in `AppDirs` are assumed to be
 located in `$ROOT/lib`.
 """.
--doc(#{since => <<"OTP 25.0">>}).
 -spec create_RELEASES(Root, RelDir, RelFile, AppDirs) -> ok | {error, Reason} when Root :: string(),
    RelDir :: string(),
    RelFile :: string(),

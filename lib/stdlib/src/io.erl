@@ -642,7 +642,6 @@ read(Io, Prompt) ->
     end.
 
 -doc(#{equiv => read(IoDevice, Prompt, StartLocation, [])}).
--doc(#{since => <<"OTP R16B">>}).
 -spec read(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1277,7 +1276,6 @@ format(Io, Format, Args) ->
 %% Scanning Erlang code.
 
 -doc(#{equiv => scan_erl_exprs(standard_io, Prompt)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: erl_scan:tokens_result() | server_no_data().
@@ -1286,7 +1284,6 @@ scan_erl_exprs(Prompt) ->
     scan_erl_exprs(default_input(), Prompt, 1).
 
 -doc(#{equiv => scan_erl_exprs(Device, Prompt, 1)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Device, Prompt) -> Result when
       Device :: device(),
       Prompt :: prompt(),
@@ -1296,7 +1293,6 @@ scan_erl_exprs(Io, Prompt) ->
     scan_erl_exprs(Io, Prompt, 1).
 
 -doc(#{equiv => scan_erl_exprs(Device, Prompt, StartLocation, [])}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_exprs(Device, Prompt, StartLocation) -> Result when
       Device :: device(),
       Prompt :: prompt(),
@@ -1350,7 +1346,6 @@ scan_erl_exprs(Io, Prompt, Pos0, Options) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
 -doc(#{equiv => scan_erl_form(standard_io, Prompt)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: erl_scan:tokens_result() | server_no_data().
@@ -1359,7 +1354,6 @@ scan_erl_form(Prompt) ->
     scan_erl_form(default_input(), Prompt, 1).
 
 -doc(#{equiv => scan_erl_form(IoDevice, Prompt, 1)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1369,7 +1363,6 @@ scan_erl_form(Io, Prompt) ->
     scan_erl_form(Io, Prompt, 1).
 
 -doc(#{equiv => scan_erl_form(IoDevice, Prompt, StartLocation, [])}).
--doc(#{since => <<"OTP R16B">>}).
 -spec scan_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1414,7 +1407,6 @@ scan_erl_form(Io, Prompt, Pos0, Options) ->
                    | server_no_data().
 
 -doc(#{equiv => parse_erl_exprs(standard_io, Prompt)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: parse_ret().
@@ -1423,7 +1415,6 @@ parse_erl_exprs(Prompt) ->
     parse_erl_exprs(default_input(), Prompt, 1).
 
 -doc(#{equiv => parse_erl_exprs(IoDevice, Prompt, 1)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1433,7 +1424,6 @@ parse_erl_exprs(Io, Prompt) ->
     parse_erl_exprs(Io, Prompt, 1).
 
 -doc(#{equiv => parse_erl_exprs(IoDevice, Prompt, StartLocation, [])}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_exprs(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1506,7 +1496,6 @@ parse_erl_exprs(Io, Prompt, Pos0, Options) ->
                         | server_no_data().
 
 -doc(#{equiv => parse_erl_form(standard_io, Prompt)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
       Result :: parse_form_ret().
@@ -1515,7 +1504,6 @@ parse_erl_form(Prompt) ->
     parse_erl_form(default_input(), Prompt, 1).
 
 -doc(#{equiv => parse_erl_form(IoDevice, Prompt, 1)}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(IoDevice, Prompt) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),
@@ -1525,7 +1513,6 @@ parse_erl_form(Io, Prompt) ->
     parse_erl_form(Io, Prompt, 1).
 
 -doc(#{equiv => parse_erl_form(IoDevice, Prompt, StartLocation, [])}).
--doc(#{since => <<"OTP R16B">>}).
 -spec parse_erl_form(IoDevice, Prompt, StartLocation) -> Result when
       IoDevice :: device(),
       Prompt :: prompt(),

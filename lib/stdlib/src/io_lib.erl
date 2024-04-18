@@ -464,7 +464,6 @@ add_modifier(_, C) ->
 %%  representation of the term. write/3 is for backward compatibility.
 
 -doc(#{equiv => write(Term, -1)}).
--doc(#{since => <<"OTP 20.0">>}).
 -spec write(Term) -> chars() when
       Term :: term().
 
@@ -504,7 +503,6 @@ _Example:_
 "{[1,2|...],[4|...],...}"
 ```
 """.
--doc(#{since => <<"OTP 20.0">>}).
 -spec write(Term, Depth) -> chars() when
       Term :: term(),
       Depth :: depth();
