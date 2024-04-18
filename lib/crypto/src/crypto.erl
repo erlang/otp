@@ -2357,7 +2357,7 @@ Options for sign and verify.
 %%% Sign
 
 -doc(#{title => <<"Sign/Verify API">>,
-       since => <<"OTP 20.1,OTP R16B01">>}).
+       since => <<"OTP R16B01">>}).
 -doc(#{equiv => sign/5}).
 -spec sign(Algorithm, DigestType, Msg, Key)
           -> Signature
@@ -2391,7 +2391,7 @@ Algorithm `dss` can only be used together with digest type `sha`.
 See also `public_key:sign/3`.
 """.
 -doc(#{title => <<"Sign/Verify API">>,
-       since => <<"OTP 20.1,OTP R16B01">>}).
+       since => <<"OTP 20.1">>}).
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
           -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
@@ -2421,7 +2421,7 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 
 -doc(#{equiv => verify/6}).
 -doc(#{title => <<"Sign/Verify API">>,
-       since => <<"OTP 20.1,OTP R16B01">>}).
+       since => <<"OTP R16B01">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
@@ -2454,7 +2454,7 @@ Algorithm `dss` can only be used together with digest type `sha`.
 See also `public_key:verify/4`.
 """.
 -doc(#{title => <<"Sign/Verify API">>,
-       since => <<"OTP 20.1,OTP R16B01">>}).
+       since => <<"OTP 20.1">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
