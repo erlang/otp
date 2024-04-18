@@ -106,6 +106,7 @@ AC_ARG_VAR(DED_LD_FLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag f
 AC_ARG_VAR(RANLIB, [ranlib])
 AC_ARG_VAR(AR, [ar])
 AC_ARG_VAR(GETCONF, [getconf])
+AC_ARG_VAR(EX_DOC, [Path to ex_doc executable])
 
 dnl Cross system root
 AC_ARG_VAR(erl_xcomp_sysroot, [Absolute cross system root path (only used when cross compiling)])

@@ -702,6 +702,7 @@ erl_xcomp_double_middle_endian
 erl_xcomp_bigendian
 erl_xcomp_isysroot
 erl_xcomp_sysroot
+EX_DOC
 GETCONF
 AR
 RANLIB
@@ -812,6 +813,7 @@ DED_LD_FLAG_RUNTIME_LIBRARY_PATH
 RANLIB
 AR
 GETCONF
+EX_DOC
 erl_xcomp_sysroot
 erl_xcomp_isysroot
 erl_xcomp_bigendian
@@ -1565,6 +1567,7 @@ Some influential environment variables:
   RANLIB      ranlib
   AR          ar
   GETCONF     getconf
+  EX_DOC      Path to ex_doc executable
   erl_xcomp_sysroot
               Absolute cross system root path (only used when cross compiling)
   erl_xcomp_isysroot
@@ -3167,6 +3170,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
