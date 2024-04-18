@@ -836,7 +836,7 @@ Returns various information about the current system (emulator) as specified by 
   default *halt flush timeout* set by the `erl`
   [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
 
-  Since: OTP 27.0
+  Since: OTP @OTP-18938@
 
 - `info`{: #system_info_info } - Returns a binary containing a string of
   miscellaneous system information formatted as in Erlang crash dumps. For more
