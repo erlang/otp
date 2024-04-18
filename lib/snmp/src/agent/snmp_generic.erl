@@ -79,31 +79,6 @@ And for a table:
 {myTable, {snmp_generic, table_func, [{myTable, Db]}}.
 ```
 
-[](){: #data_types }
-
-## DATA TYPES
-
-In the functions defined below, the following types are used:
-
-```erlang
-name_db() = {name(), db()}
-name() = atom()
-db() = volatile | persistent | mnesia
-row_index() = [int()]
-columns() = [column()] | [{column(), value()}]
-column() = int()
-value() = term()
-```
-
-- **`row_index()`** - Denotes the last part of the OID which specifies the index
-  of the row in the table (see RFC1212, 4.1.6 for more information about INDEX).
-
-- **`t:columns/0`** - Is a list of column numbers in the case of a `get`
-  operation, and a list of column numbers and values in the case of a `set`
-  operation.
-
-[](){: #get_status_col2 } [](){: #example }
-
 ## Example
 
 The following example shows an implementation of a table which is stored in
@@ -255,7 +230,6 @@ For a augmented table, it will instead look like this:
 -doc """
 Gets the value of a variable.
 
-[](){: #variable_set }
 """.
 -spec variable_get(Name) -> {value, Value} | undefined when
       Name  :: snmpa:name() | snmpa:name_db(),
@@ -315,7 +289,6 @@ table_get_element(NameDb, RowIndex, Col) ->
 Returns a list with values for all columns in `Cols`. If a column is undefined,
 its value is `noinit`.
 
-[](){: #table_next }
 """.
 -spec table_get_elements(NameDb, RowIndex, Cols) -> Values when
       NameDb   :: snmpa:name_db(),
@@ -368,7 +341,6 @@ If the Mnesia database is used, this function calls `mnesia:write` to store the
 values. This means that this function must be called from within a transaction
 (`mnesia:transaction/1`).
 
-[](){: #variable_func } [](){: #variable_func2 } [](){: #variable_func21 }
 """.
 table_set_elements({Name, mnesia}, RowIndex, Cols) ->
     snmp_generic_mnesia:table_set_elements(Name, RowIndex, Cols);
@@ -381,7 +353,6 @@ table_next(NameDb, RestOid) -> RowIndex | endOfTable
 Finds the indices of the next row in the table. `RestOid` does not have to
 specify an existing row.
 
-[](){: #table_row_exists }
 """.
 table_next({Name, mnesia}, RestOid) ->
     snmp_generic_mnesia:table_next(Name, RestOid);
@@ -414,29 +385,14 @@ table_max_col(NameDb, Col) ->               % ret largest element in Col
 -doc """
 This is the default instrumentation function for variables.
 
-The `new` function creates a new variable in the database with a default value
-as defined in the MIB, or a zero value (depending on the type).
+- The `new` opeation creates a new variable in the database with a
+  default value as defined in the MIB, or a zero value (depending on
+  the type).
+- The `delete` function does not delete the variable from the database.
 
 The function returns according to the specification of an instrumentation
 function.
 
-[](){: #variable_func22 }
-
-This is the default instrumentation function for variables.
-
-The `delete` function does not delete the variable from the database.
-
-The function returns according to the specification of an instrumentation
-function.
-
-[](){: #variable_func23 }
-
-This is the default instrumentation function for variables.
-
-The function returns according to the specification of an instrumentation
-function.
-
-[](){: #variable_func3 } [](){: #variable_func31 }
 """.
 -spec variable_func(Op :: new, Name) -> Result when
       Name   :: snmpa:name() | snmpa:name_db(),
@@ -468,26 +424,16 @@ variable_func(get, Name) ->
 
 
 -doc """
-This is the default instrumentation function for variables.
+This is the default instrumentation function for variables with operations;
+`is_set_ok | set | undo`.
+
+- The `is_set_ok` operation does nothing.
+- The `set` operation return `noError` if successful or `commitFailed` otherwise.
+- The `undo` operation does nothing.
 
 The function returns according to the specification of an instrumentation
 function.
 
-[](){: #variable_func32 }
-
-This is the default instrumentation function for variables.
-
-The function returns according to the specification of an instrumentation
-function.
-
-[](){: #variable_func33 }
-
-This is the default instrumentation function for variables.
-
-The function returns according to the specification of an instrumentation
-function.
-
-[](){: #variable_get }
 """.
 -spec variable_func(Op :: is_set_ok, Value, Name) -> Result when
       Value  :: term(),
@@ -531,9 +477,9 @@ variable_func(undo, _Val, _Name) ->
 -doc """
 This is the default instrumentation function for tables.
 
-- The `new` function creates the table if it does not exist, but only if the
+- The `new` operation creates the table if it does not exist, but only if the
   database is the SNMP internal db.
-- The `delete` function does not delete the table from the database since
+- The `delete` operation does not delete the table from the database since
   unloading an MIB does not necessarily mean that the table should be destroyed.
 
 If it is possible for a manager to create or delete rows in the table, there
@@ -542,7 +488,6 @@ must be a `RowStatus` column for `is_set_ok`, `set` and `undo` to work properly.
 The function returns according to the specification of an instrumentation
 function.
 
-[](){: #table_func4 }
 """.
 -spec table_func(Op, NameDb) -> Return when
       Op     :: new | delete,
@@ -559,10 +504,10 @@ table_func(Op, NameDb) ->
 -doc """
 This is the default instrumentation function for tables.
 
-- The `is_set_ok` function checks that a row which is to be modified or deleted
+- The `is_set_ok` operation checks that a row which is to be modified or deleted
   exists, and that a row which is to be created does not exist.
-- The `undo` function does nothing.
-- The `set` function checks if it has enough information to make the row change
+- The `undo` operation does nothing.
+- The `set` operation checks if it has enough information to make the row change
   its status from `notReady` to `notInService` (when a row has been been set to
   `createAndWait`). If a row is set to `createAndWait`, columns without a value
   are set to `noinit`. If Mnesia is used, the set functionality is handled
@@ -574,7 +519,6 @@ must be a `RowStatus` column for `is_set_ok`, `set` and `undo` to work properly.
 The function returns according to the specification of an instrumentation
 function.
 
-[](){: #table_get_elements }
 """.
 -spec table_func(Op, RowIndex, Cols, NameDb) -> Return when
       Op       :: get | next | is_set_ok | set | undo,
@@ -1079,7 +1023,6 @@ table_row_exists(NameDb, RowIndex) -> bool()
 
 Checks if a row in a table exists.
 
-[](){: #table_set_elements }
 """.
 table_row_exists(NameDb, RowIndex) ->
     case table_get_element(NameDb, RowIndex, 1) of
@@ -1258,7 +1201,6 @@ Gets the value of the status column from `Cols`.
 This function can be used in instrumentation functions for `is_set_ok`, `undo`
 or `set` to check if the status column of a table is modified.
 
-[](){: #get_index_types }
 """.
 -spec get_status_col(Name, Cols) -> false | {value, StatusCol} when
       Name      :: snmpa:name() | snmpa:name_db(),
@@ -1281,62 +1223,14 @@ get_status_col(Name, Cols) ->
 %%-----------------------------------------------------------------
 
 -doc """
-Get the specific table info item (nbr_of_cols).
+Get a specific table info item or, if `Item` has the
+value 'all', a two tuple list (property list) is instead 
+returned with all the items and their respctive values of the 
+given table.
 
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
+This function can be used in instrumentation functions to
+retrieve a given part of the table info.
 
-[](){: #get_table_info_2 }
-
-Get a specific table info item (defvals).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_3 }
-
-Get a specific table info item (status_col).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_4 }
-
-Get a specific table info item (not_accessible).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_5 }
-
-Get a specific table info item (index_types).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_6 }
-
-Get a specific table info item (first_accessible).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_7 }
-
-Get a specific table info item (first_own_index).
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #get_table_info_8 }
-
-Get all table info item(s), a two tuple list (property list) is returned with
-all the items and their respctive values of the given table.
-
-This function can be used in instrumentation functions to retrieve a given part
-of the table info.
-
-[](){: #table_func } [](){: #table_func2 }
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec get_table_info(Name, Item :: nbr_of_cols) -> Result when
@@ -1410,7 +1304,6 @@ Gets the index types of `Name`
 This function can be used in instrumentation functions to retrieve the index
 types part of the table info.
 
-[](){: #get_table_info } [](){: #get_table_info_1 }
 """.
 -spec get_index_types(Name) -> IndexTypes when
       Name       :: snmpa:name() | snmpa:name_db(),
