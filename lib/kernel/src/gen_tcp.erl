@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,8 +22,8 @@
 -moduledoc """
 Interface to TCP/IP sockets.
 
-This module provides functions for communicating with sockets using the TCP/IP
-protocol.
+This module provides functions for communicating over TCP/IP
+protocol sockets.
 
 The following code fragment is a simple example of a client connecting to a
 server at port 5678, transferring a binary, and closing the connection:
@@ -59,7 +59,7 @@ do_recv(Sock, Bs) ->
     end.
 ```
 
-For more examples, see section [Examples](`m:gen_tcp#module-examples`).
+For more examples, see section [Examples](#module-examples).
 
 > #### Note {: .info }
 >
@@ -80,7 +80,7 @@ For more examples, see section [Examples](`m:gen_tcp#module-examples`).
 > as possible which has sometimes been impossible. Here is a list of cases when
 > the behaviour of inet-backend `inet` (default) and `socket` are different:
 >
-> - [Non-blocking send](`m:gen_tcp#non_blocking_send`)
+> - [Non-blocking send](#non_blocking_send)
 >
 >   If a user calling [`gen_tcp:send/2`](`send/2`) with `inet_backend = inet`,
 >   tries to send more data than there is room for in the OS buffers, the "rest
@@ -112,13 +112,13 @@ For more examples, see section [Examples](`m:gen_tcp#module-examples`).
 >   case the error is simply _ignored_, which is a _bad_ idea. We have chosen to
 >   _not_ ignore this error for `inet_backend = socket`.
 >
-> - [Async shutdown write](`m:gen_tcp#async_shutdown_write`)
+> - [Async shutdown write](#async_shutdown_write)
 >
 >   Calling [gen_tcp:shutdown(Socket, write | read_write)](`shutdown/2`) on a
 >   socket created with `inet_backend = socket` will take _immediate_ effect,
 >   unlike for a socket created with `inet_backend = inet`.
 >
->   See [async shutdown write](`m:gen_tcp#async_shutdown_write`) for more info.
+>   See [async shutdown write](#async_shutdown_write) for more info.
 >
 > - Windows require sockets (domain = `inet | inet6`) to be bound.
 >
@@ -127,8 +127,6 @@ For more examples, see section [Examples](`m:gen_tcp#module-examples`).
 >   'figure out' an address itself.
 
 ## Examples
-
-[](){: #examples }
 
 The following example illustrates use of option `{active,once}` and multiple
 accepts by implementing a server as a number of worker processes doing accept on
@@ -301,10 +299,13 @@ way, option `send_timeout` comes in handy.
 	{recvtclass,      boolean()} |
 	{recvttl,         boolean()} |
 	{ipv6_v6only,     boolean()}.
+
 -doc """
-If the platform implements the IPv4 option `IP_PKTOPTIONS`, or the IPv6 option
-`IPV6_PKTOPTIONS` or `IPV6_2292PKTOPTIONS` for the socket this value is returned
-from `inet:getopts/2` when called with the option name
+Value from socket option [`pktoptions`](`t:option_name/0`).
+
+If the platform implements the IPv4 option `IP_PKTOPTIONS`,
+or the IPv6 option `IPV6_PKTOPTIONS` or `IPV6_2292PKTOPTIONS` for the socket;
+this value is returned from `inet:getopts/2` when called with the option name
 [`pktoptions`](`t:option_name/0`).
 
 > #### Note {: .info }
@@ -318,6 +319,7 @@ from `inet:getopts/2` when called with the option name
 """.
 -type pktoptions_value() ::
         {pktoptions, inet:ancillary_data()}.
+
 -type option_name() ::
         active |
         buffer |
@@ -385,8 +387,6 @@ from `inet:getopts/2` when called with the option name
         option().
 -doc """
 As returned by [`accept/1,2`](`accept/1`) and [`connect/3,4`](`connect/3`).
-
-[](){: #connect }
 """.
 -type socket() :: inet:socket().
 
@@ -401,7 +401,7 @@ As returned by [`accept/1,2`](`accept/1`) and [`connect/3,4`](`connect/3`).
 %% Connect a socket
 %%
 
--doc(#{equiv => connect/3}).
+-doc "Equivalent to [`connect(SockAddr, Opts, infinity)`](`connect/3`).".
 -doc(#{since => <<"OTP 24.3">>}).
 -spec connect(SockAddr, Opts) -> {ok, Socket} | {error, Reason} when
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
@@ -413,29 +413,23 @@ connect(SockAddr, Opts) ->
     connect(SockAddr, Opts, infinity).
 
 -doc """
-[](){: #connect-sockaddr2 } [](){: #connect-sockaddr3 }
+Create a socket connected to the specified address.
 
-Connects to a server according to `SockAddr`. This is primarily intended for
-link local IPv6 addresses (which require the scope-id),
-`t:socket:sockaddr_in6/0`. But for completeness, we also support IPv4,
-`t:socket:sockaddr_in/0`.
+### With arguments `Address` and `Port`
 
-The [`options`](`m:gen_tcp#connect-options`) available are the same as for
-[`connect/3,4`](`m:gen_tcp#connect-port3`).
+Equivalent to [`connect(Address, Port, Opts, infinity)`](`connect/4`).
 
-> #### Note {: .info }
->
-> Keep in mind that if the underlying OS `connect()` call returns a timeout,
-> `gen_tcp:connect` will also return a timeout (i.e. `{error, etimedout}`), even
-> if a larger `Timeout` was specified.
+### With argument `SockAddr` **(since OTP 24.3)**
 
-> #### Note {: .info }
->
-> The default values for options specified to `connect` can be affected by the
-> Kernel configuration parameter `inet_default_connect_options`. For details,
-> see `m:inet`.
+Connects to a remote listen socket specified by `SockAddr`
+where `t:socket:sockaddr_in6/0` for example allows specifying
+the `scope_id` for link local IPv6 addresses.
+
+[IPv4 addresses](`t:socket:sockaddr_in/0`) on the same
+`t:map/0` format is also allowed.
+
+Equivalent to `connect/4`, besides the format of the destination address.
 """.
--doc(#{equiv => connect/4}).
 -spec connect(Address, Port, Opts) -> {ok, Socket} | {error, Reason} when
       Address  :: inet:socket_address() | inet:hostname(),
       Port     :: inet:port_number(),
@@ -479,34 +473,31 @@ connect(#{family := Fam} = SockAddr, Opts, Timeout)
 
 
 -doc """
-[](){: #connect-port3 } [](){: #connect-port4 }
+Create a socket connected to the specified address.
 
-Connects to a server on TCP port `Port` on the host with IP address `Address`.
-Argument `Address` can be a hostname or an IP address.
+Creates a socket and connects it to a server on TCP port `Port`
+on the host with IP address `Address`, that may also be a hostname.
 
-[](){: #connect-options }
+### `Opts` (connect options)
 
-The following options are available:
+- **`{ip, Address}`** - If the local host has many IP addresses,
+  this option specifies which one to use.
 
-- **`{ip, Address}`** - If the host has many network interfaces, this option
-  specifies which one to use.
+- **`{ifaddr, Address}`** - Same as `{ip, Address}`.
 
-- **`{ifaddr, Address}`** - Same as `{ip, Address}`. If the host has many
-  network interfaces, this option specifies which one to use.
+  However, if `Address` instead is a `t:socket:sockaddr_in/0` or
+  `t:socket:sockaddr_in6/0` this takes precedence over any value
+  previously set with the `ip` and `port` options. If these options
+  (`ip` or/and `port`) however comes _after_ this option,
+  they may be used to _update_ the corresponding fields of this option
+  (for `ip`, the `addr` field, and for `port`, the `port` field).
 
-  However, if this instead is an `t:socket:sockaddr_in/0` or
-  `t:socket:sockaddr_in6/0` this takes precedence over any value previously set
-  with the `ip` and `port` options. If these options (`ip` or/and `port`)
-  however comes _after_ this option, they may be used to _update_ their
-  corresponding fields of this options (for `ip`, the `addr` field, and for
-  `port`, the `port` field).
-
-- **`{fd, integer() >= 0}`** - If a socket has somehow been connected without
-  using `gen_tcp`, use this option to pass the file descriptor for it. If
-  `{ip, Address}` and/or `{port, port_number()}` is combined with this option,
-  the `fd` is bound to the specified interface and port before connecting. If
-  these options are not specified, it is assumed that the `fd` is already bound
-  appropriately.
+- **`{fd, integer() >= 0}`** - If a socket has somehow been connected without
+  using `gen_tcp`, use this option to pass the file descriptor for it.
+  If `{ip, Address}` and/or `{port, port_number()}` is combined
+  with this option, the `fd` is bound to the specified interface
+  and port before connecting. If these options are not specified,
+  it is assumed that the `fd` is already bound appropriately.
 
 - **`inet`** - Sets up the socket for IPv4.
 
@@ -514,56 +505,57 @@ The following options are available:
 
 - **`local`** - Sets up a Unix Domain Socket. See `t:inet:local_address/0`
 
-- **`{port, Port}`** - Specifies which local port number to use.
+- **`{port, Port}`** - Specifies which local port number to use.
 
-- **`{tcp_module, module()}`** - Overrides which callback module is used.
+- **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
 
-- **`Opt`** - See `inet:setopts/2`.
+- **`t:option/0`** - See `inet:setopts/2`.
 
-Packets can be sent to the returned socket `Socket` using `send/2`. Packets sent
-from the peer are delivered as messages:
+### Socket Data
 
-```text
-{tcp, Socket, Data}
-```
+Packets can be sent to the peer (outbound) with
+[`send(Socket, Packet)`](`send/2`).  Packets sent from the peer
+(inbound) are delivered as messages to the socket owner;
+the process that created the socket, unless `{active, false}`
+is specified in the `Options` list.
 
-If the socket is in `{active, N}` mode (see `inet:setopts/2` for details) and
-its message counter drops to `0`, the following message is delivered to indicate
-that the socket has transitioned to passive (`{active, false}`) mode:
+#### Active mode socket messages
 
-```text
-{tcp_passive, Socket}
-```
+- **`{tcp, Socket, Data}`** - Inbound data from the socket.
 
-If the socket is closed, the following message is delivered:
+- **`{tcp_passive, Socket}`** -
+  The socket was in `{active, N}` mode (see `inet:setopts/2` for details)
+  and its message counter reached `0`, indicating that
+  the socket has transitioned to passive (`{active, false}`) mode.
 
-```text
-{tcp_closed, Socket}
-```
 
-If an error occurs on the socket, the following message is delivered (unless
-`{active, false}` is specified in the option list for the socket, in which case
-packets are retrieved by calling `recv/2`):
+- **`{tcp_closed, Socket}`** - The socket was closed.
 
-```text
-{tcp_error, Socket, Reason}
-```
+- **`{tcp_error, Socket, Reason}`** A socket error occurred.
 
-The optional `Timeout` parameter specifies a time-out in milliseconds. Defaults
-to `infinity`.
+#### Passive mode
+
+If `{active, false}` is specified in the option list for the socket,
+packets and errors are retrieved by calling [`recv/2,3`](`recv/3`)
+(`send/2` may also return errors).
+
+#### Timeout
+
+The optional `Timeout` parameter specifies a connect time-out in milliseconds.
+Defaults to `infinity`.
 
 > #### Note {: .info }
 >
 > Keep in mind that if the underlying OS `connect()` call returns a timeout,
-> `gen_tcp:connect` will also return a timeout (i.e. `{error, etimedout}`), even
-> if a larger `Timeout` was specified.
+> `gen_tcp:connect` will also return a timeout (i.e. `{error, etimedout}`),
+> even if a larger `Timeout` was specified (for example `infinity`).
 
 > #### Note {: .info }
 >
 > The default values for options specified to `connect` can be affected by the
-> Kernel configuration parameter `inet_default_connect_options`. For details,
-> see `m:inet`.
+> Kernel configuration parameter `inet_default_connect_options`.
+> For details, see `m:inet`.
 """.
 -spec connect(Address, Port, Opts, Timeout) ->
                      {ok, Socket} | {error, Reason} when
@@ -616,57 +608,59 @@ try_connect([IP|IPs], Port, Opts, Timer, Mod, _) ->
 try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
     Err.
 
-    
+
 
 %%
 %% Listen on a tcp port
 %%
 
 -doc """
-Sets up a socket to listen on port `Port` on the local host.
+Create a listen socket.
 
-If `Port == 0`, the underlying OS assigns an available port number, use
-`inet:port/1` to retrieve it.
+Creates a socket and sets it to listen on port `Port` on the local host.
+
+If `Port == 0`, the underlying OS assigns an available (ephemeral)
+port number, use `inet:port/1` to retrieve it.
 
 The following options are available:
 
-- **`list`** - Received `Packet` is delivered as a list.
+- **`list`** - Received `Packet`s are delivered as lists of bytes,
+  `[`[`byte/0`](`t:byte/0`)`]`.
 
-- **`binary`** - Received `Packet` is delivered as a binary.
+- **`binary`** - Received `Packet`s are delivered as `t:binary/0`s.
 
-- **`{backlog, B}`** - `B` is an integer >= `0`. The backlog value defines the
-  maximum length that the queue of pending connections can grow to. Defaults to
-  `5`.
+- **`{backlog, B}`** - `B ::` `t:non_neg_integer/0`. The backlog value
+  defines the maximum length that the queue of pending connections
+  can grow to. Defaults to `5`.
 
 - **`inet6`** - Sets up the socket for IPv6.
 
 - **`inet`** - Sets up the socket for IPv4.
 
-- **`{fd, Fd}`** - If a socket has somehow been connected without using
+- **`{fd, Fd}`** - If a socket has somehow been created without using
   `gen_tcp`, use this option to pass the file descriptor for it.
 
-- **`{ip, Address}`** - If the host has many network interfaces, this option
+- **`{ip, Address}`** - If the host has many IP addresses, this option
   specifies which one to listen on.
 
-- **`{port, Port}`** - Specifies which local port number to use.
+- **`{port, Port}`** - Specifies which local port number to use.
 
-- **`{ifaddr, Address}`** - Same as `{ip, Address}`. If the host has many
-  network interfaces, this option specifies which one to use.
+- **`{ifaddr, Address}`** - Same as `{ip, Address}`.
 
   However, if this instead is an `t:socket:sockaddr_in/0` or
-  `t:socket:sockaddr_in6/0` this takes precedence over any value previously set
-  with the `ip` and `port` options. If these options (`ip` or/and `port`)
-  however comes _after_ this option, they may be used to _update_ their
-  corresponding fields of this options (for `ip`, the `addr` field, and for
-  `port`, the `port` field).
+  `t:socket:sockaddr_in6/0` this takes precedence over any value
+  previously set with the `ip` and `port` options. If these options
+  (`ip` or/and `port`) however comes _after_ this option,
+  they may be used to _update_ their corresponding fields of this option
+  (for `ip`, the `addr` field, and for `port`, the `port` field).
 
-- **`{tcp_module, module()}`** - Overrides which callback module is used.
+- **`{tcp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_tcp` for IPv4 and `inet6_tcp` for IPv6.
 
-- **`Opt`** - See `inet:setopts/2`.
+- **`t:option/0`** - See `inet:setopts/2`.
 
-The returned socket `ListenSocket` should be used in calls to
-[`accept/1,2`](`accept/1`) to accept incoming connection requests.
+The returned socket `ListenSocket` should be used when calling
+[`accept/1,2`](`accept/1`) to accept an incoming connection request.
 
 > #### Note {: .info }
 >
@@ -704,7 +698,7 @@ listen(Port, Opts0) ->
 %% Generic tcp accept
 %%
 
--doc(#{equiv => accept/2}).
+-doc(#{equiv => accept(ListenSocket, infinity)}).
 -spec accept(ListenSocket) -> {ok, Socket} | {error, Reason} when
       ListenSocket :: socket(),
       Socket :: socket(),
@@ -721,32 +715,32 @@ accept(S) when is_port(S) ->
     end.
 
 -doc """
-Accepts an incoming connection request on a listening socket. `Socket` must be a
-socket returned from `listen/2`. `Timeout` specifies a time-out value in
-milliseconds. Defaults to `infinity`.
+Accept an incoming connection request on a listen socket.
+
+`Socket` must be a socket returned from `listen/2`. `Timeout` specifies
+a time-out value in milliseconds. Defaults to `infinity`.
 
 Returns:
 
-- `{ok, Socket}` if a connection is established
-- `{error, closed}` if `ListenSocket` is closed
-- `{error, timeout}` if no connection is established within the specified time
-- `{error, system_limit}` if all available ports in the Erlang emulator are in
-  use
-- A POSIX error value if something else goes wrong, see `m:inet` for possible
-  error values
+- `{ok, Socket}` if a connection is established
+- `{error, closed}` if `ListenSocket` is closed
+- `{error, timeout}` if no connection is established within `Timeout`
+- `{error, system_limit}` if all available ports in the Erlang emulator
+  are in  use
+- A POSIX error value if something else goes wrong, see `m:inet`
+  about possible values
 
-Packets can be sent to the returned socket `Socket` using `send/2`. Packets sent
-from the peer are delivered as messages (unless `{active, false}` is specified
-in the option list for the listening socket, in which case packets are retrieved
-by calling `recv/2`):
+To send packets (outbound) on the returned `Socket`, use `send/2`.
+Packets sent from the peer (inbound) are delivered as messages
+to the socket owner; the process that created the socket.
+Unless `{active, false}` is specified in the option list when creating
+the [listening socket](`listen/2`).
 
-```text
-{tcp, Socket, Data}
-```
+See `connect/4` about _active mode_ socket messages and _passive mode_.
 
 > #### Note {: .info }
 >
-> The `accept` call does _not_ have to be issued from the socket owner process.
+> The `accept` call _doesn't have to be_ issued from the socket owner process.
 > Using version 5.5.3 and higher of the emulator, multiple simultaneous accept
 > calls can be issued from different processes, which allows for a pool of
 > acceptor processes handling incoming connections.
@@ -772,37 +766,37 @@ accept(S, Time) when is_port(S) ->
 %%
 
 -doc """
-Closes a socket in one or two directions.
+Close the socket in one or both directions.
 
 `How == write` means closing the socket for writing, reading from it is still
 possible.
 
 If `How == read` or there is no outgoing data buffered in the `Socket` port, the
-socket is shut down immediately and any error encountered is returned in
+shutdown is performed immediately and any error encountered is returned in
 `Reason`.
 
-If there is data buffered in the socket port, the attempt to shutdown the socket
-is postponed until that data is written to the kernel socket send buffer. If any
-errors are encountered, the socket is closed and `{error, closed}` is returned
-on the next `recv/2` or `send/2`.
+If there is data buffered in the socket port, shutdown isn't performed
+on the socket until that buffered data has been written to the OS
+protocol stack.  If any errors are encountered, the socket is closed
+and `{error, closed}` is returned by the next `recv/2` or `send/2` call.
 
-Option `{exit_on_close, false}` is useful if the peer has done a shutdown on the
-write side.
+Option `{exit_on_close, false}` is useful if the peer performs a shurdown
+of its write side.  Then the socket stays open for writing after
+receive has indicated that the socket was closed.
 
 [](){: #async_shutdown_write }
 
 > #### Note {: .info }
 >
-> Async shutdown write (write or read_write).
+> Async shutdown write (`How :: write | read_write`).
 >
-> If the shutdown attempt is made while the inet-driver is sending buffered data
-> in the background, the shutdown is postponed until all buffered data has been
-> sent. The function immediately returns `ok` and the caller is _not_ informed
-> (that the shutdown has _not yet_ been performed).
+> If the shutdown attempt is made while the inet driver is sending
+> buffered data in the background, the shutdown is postponed until
+> all buffered data has been sent.  This function immediately returns `ok`,
+> and the caller _isn't_ informed (that the shutdown has been postponed).
 >
 > When using `inet_backend = socket`, the behaviour is different. A shutdown
-> with `How == write | read_write`, the operation will take _immediate_ effect
-> (unlike the inet-driver, which basically saves the operation for later).
+> with `How :: write | read_write` will always be performed _immediately_.
 """.
 -spec shutdown(Socket, How) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -824,18 +818,24 @@ shutdown(S, How) when is_port(S) ->
 %%
 
 -doc """
-Closes a TCP socket.
+Close a TCP socket.
 
 Note that in most implementations of TCP, doing a `close` does not guarantee
-that any data sent is delivered to the recipient before the close is detected at
-the remote side. If you want to guarantee delivery of the data to the recipient
-there are two common ways to achieve this.
+that the data sent is delivered to the recipient.  It is guaranteed that
+the recepient will see all sent data before getting the close, but the
+sender gets no indication of that.
+
+If the sender needs to know that the recepient has received all data
+there are two common ways to achieve this:
 
 1. Use [`gen_tcp:shutdown(Sock, write)`](`shutdown/2`) to signal that no more
-   data is to be sent and wait for the read side of the socket to be closed.
-1. Use the socket option [`{packet, N}`](`m:inet#packet`) (or something similar)
-   to make it possible for the receiver to close the connection when it knowns
-   it has received all the data.
+   data is to be sent and wait for the other side to acknowledge seeing
+   its read side being closed, by closing its write side, which shows
+   as a socket close on this side.
+2. Implement an acknowledgement in the protocol on top of TCP
+   that both connection ends adhere to, indicating that all data
+   has been seen.  The socket option [`{packet, N}`](`m:inet#option-packet`)
+   may be useful.
 """.
 -spec close(Socket) -> ok when
       Socket :: socket().
@@ -850,37 +850,38 @@ close(S) ->
 %%
 
 -doc """
-Sends a packet on a socket.
+Send a packet on a socket.
 
-There is no `send` call with a time-out option, use socket option `send_timeout`
-if time-outs are desired. See section [Examples](`m:gen_tcp#module-examples`).
+There is no `send/2` call with a time-out option; use socket option
+`send_timeout` if time-outs are desired.  See section
+[Examples](#module-examples).
 
-The return value `{error, {timeout, RestData}}` can only be returned when
-`inet_backend = socket`.
+The return value `{error, {timeout, RestData}}` can only be returned when
+`inet_backend = socket`.
 
 [](){: #non_blocking_send }
 
 > #### Note {: .info }
 >
-> Non-blocking send.
+> #### Non-blocking send.
 >
 > If the user tries to send more data than there is room for in the OS send
-> buffers, the 'rest data' is put into (inet driver) internal buffers and later
+> buffers, the 'rest data' is stored in (inet driver) internal buffers and later
 > sent in the background. The function immediately returns ok (_not_ informing
-> the caller that not all of the data was actually sent). Any issue while
-> sending the 'rest data' is maybe returned later.
+> the caller that some date isn'nt sent yet). Any issue while
+> sending the 'rest data' may be returned later.
 >
-> When using `inet_backend = socket`, the behaviour is different. There is _no_
-> buffering done (like the inet-driver does), instead the caller will "hang"
-> until all of the data has been sent or send timeout (as specified by the
-> `send_timeout` option) expires (the function can hang even when using 'inet'
+> When using `inet_backend = socket`, the behaviour is different. There is
+> _no_ buffering, instead the caller will "hang" until all of the data
+> has been sent or the send timeout (as specified by the `send_timeout`
+> option) expires (the function can "hang" even when using the `inet`
 > backend if the internal buffers are full).
 >
-> If this happens when using `packet =/= raw`, we have a partial package
-> written. A new package therefore _must not_ be written at this point, as there
-> is no way for the peer to distinguish this from the data portion of the
-> current package. Instead, set package to raw, send the rest data (as raw data)
-> and then set package to the wanted package type again.
+> If this happens when using `packet =/= raw`, a partial package has been
+> written.  A new package therefore _mustn't_ be written at this point,
+> as there is no way for the peer to distinguish this from data in
+> the current package.  Instead, set package to raw, send the rest data
+> (as raw data) and then set package to the correct package type again.
 """.
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket   :: socket(),
@@ -902,7 +903,7 @@ send(S, Packet) when is_port(S) ->
 %% Receive data from a socket (passive mode)
 %%
 
--doc(#{equiv => recv/3}).
+-doc(#{equiv => recv(Socket, Length, infinity)}).
 -spec recv(Socket, Length) -> {ok, Packet} | {error, Reason} when
       Socket :: socket(),
       Length :: non_neg_integer(),
@@ -921,24 +922,26 @@ recv(S, Length) when is_port(S) ->
     end.
 
 -doc """
-Receives a packet from a socket in _passive_ mode. A closed socket is indicated
-by return value `{error, closed}`. If the socket is not in passive mode, the
-return value is `{error, einval}`.
+Receive a packet, from a socket in _passive mode_.
+
+A closed socket is indicated by the return value `{error, closed}`.
+If the socket is not in passive mode, the return value is `{error, einval}`.
 
 Argument `Length` is only meaningful when the socket is in `raw` mode and
-denotes the number of bytes to read. If `Length` is `0`, all available bytes are
-returned. If `Length` > `0`, exactly `Length` bytes are returned, or an error;
-possibly discarding less than `Length` bytes of data when the socket is closed
-from the other side.
+denotes the number of bytes to read.  If `Length` is `0`, all available
+bytes are returned. If `Length > 0`, exactly `Length` bytes are returned,
+or an error; except if the socket is closed from the other side,
+then the last read before the one returning `{error, closed}`
+may return less than `Length` bytes of data.
 
-The optional `Timeout` parameter specifies a time-out in milliseconds. Defaults
-to `infinity`.
+The optional `Timeout` parameter specifies a time-out in milliseconds.
+Defaults to `infinity`.
 
 Any process can receive data from a passive socket, even if that process is not
 the controlling process of the socket. However, only one process can call this
 function on a socket at any given time. Using simultaneous calls to `recv` is
-not recommended as its behavior is dependent on the socket implementation, and
-could return errors such as `{error, ealready}`.
+not recommended as the behavior depends on the socket implementation,
+and could return errors such as `{error, ealready}`.
 """.
 -spec recv(Socket, Length, Timeout) -> {ok, Packet} | {error, Reason} when
       Socket :: socket(),
@@ -974,18 +977,24 @@ unrecv(S, Data) when is_port(S) ->
 %%
 
 -doc """
-Assigns a new controlling process `Pid` to `Socket`. The controlling process is
-the process that receives messages from the socket. If called by any other
-process than the current controlling process, `{error, not_owner}` is returned.
-If the process identified by `Pid` is not an existing local pid,
-`{error, badarg}` is returned. `{error, badarg}` may also be returned in some
-cases when `Socket` is closed during the execution of this function.
+Change the controlling process (owner) of a socket.
 
-If the socket is set in active mode, this function will transfer any messages in
-the mailbox of the caller to the new controlling process. If any other process
-is interacting with the socket while the transfer is happening, the transfer may
-not work correctly and messages may remain in the caller's mailbox. For instance
-changing the sockets active mode before the transfer is complete may cause this.
+Assigns a new controlling process `Pid` to `Socket`. The controlling process
+is the process that the socket sends messages to.  If this function
+is called from any other process than the current controlling process,
+`{error, not_owner}` is returned.
+
+If the process identified by `Pid` is not an existing local `t:pid/0`,
+`{error, badarg}` is returned. `{error, badarg}` may also be returned
+in some cases when `Socket` is closed during the execution of this function.
+
+If the socket is in _active mode_, this function will transfer any messages
+from the socket in the mailbox of the caller to the new controlling process.
+
+If any other process is interacting with the socket during the transfer,
+it may not work correctly and messages may remain in the caller's mailbox.
+For instance, changing the sockets active mode during the transfer
+could cause this.
 """.
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -1006,7 +1015,7 @@ controlling_process(S, NewOwner) ->
 
 
 %%
-%% Create a port/socket from a file descriptor 
+%% Create a port/socket from a file descriptor
 %%
 -doc false.
 fdopen(Fd, Opts0) ->
