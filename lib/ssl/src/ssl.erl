@@ -1986,8 +1986,7 @@ start(Type) ->
 stop() ->
     application:stop(ssl).
 
-
--doc(#{equiv => connect/3}).
+-doc(#{equiv => connect(TCPSocket, TLSOptions, infinity)}).
 -doc(#{title => <<"Client Functions">>,
        since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
@@ -2024,7 +2023,6 @@ connect(Host, Port, TLSOptions, infinity).
 """.
 
 -doc(#{title => <<"Client Functions">>}).
--doc(#{equiv => connect/4}).
 -spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
           {ok, sslsocket(), Ext :: protocol_extensions()} |
@@ -2131,7 +2129,7 @@ listen(Port, Options0)
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Server Functions">>,
-       equiv => transport_accept/2}).
+       equiv => transport_accept(ListenSocket, infinity)}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
           {error, reason()} when
       ListenSocket :: sslsocket(),
@@ -2338,7 +2336,7 @@ handshake(Socket, SslOptions, Timeout)
     end.   
 
 %%--------------------------------------------------------------------
--doc(#{equiv => handshake_continue/3}).
+-doc(#{equiv => handshake_continue(HsSocket, Options, infinity)}).
 -doc(#{title => <<"Client and Server Functions">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
@@ -2456,7 +2454,7 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Client and Server Functions">>,
-       equiv => recv/3}).
+       equiv => recv(Socket, Length, infinity)}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
