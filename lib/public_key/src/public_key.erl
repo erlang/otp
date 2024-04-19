@@ -48,14 +48,14 @@ macros described here and in the User's Guide:
                   {type,<<"Certificates">>},
                   {type,<<"Certificate Revocation">>},
                   {type,<<"Test Data">>},
-                  {function,<<"PEM Functions">>},
-                  {function,<<"Key Functions">>},
-                  {function,<<"Sign/Verify Functions">>},
-                  {function,<<"Certificate Functions">>},
-                  {function,<<"Certificate Revocation Functions">>},
-                  {function,<<"ASN.1 Encoding Functions">>},
-                  {function,<<"Test Data Functions">>},
-                  {function,<<"Legacy Sign/Verify Functions">>}
+                  {function,<<"PEM API">>},
+                  {function,<<"Key API">>},
+                  {function,<<"Sign/Verify API">>},
+                  {function,<<"Certificate API">>},
+                  {function,<<"Certificate Revocation API">>},
+                  {function,<<"ASN.1 Encoding API">>},
+                  {function,<<"Test Data API">>},
+                  {function,<<"Deprecated API">>}
                  ]}).
 
 -feature(maybe_expr,enable).
@@ -373,7 +373,7 @@ Configuration options for the generated certificate test chain.
 %%====================================================================
 %%--------------------------------------------------------------------
 
--doc(#{title => <<"PEM Functions">>}).
+-doc(#{title => <<"PEM API">>}).
 -doc """
 Decodes PEM binary data and returns entries as ASN.1 DER encoded entities.
 
@@ -389,7 +389,7 @@ pem_decode(PemBin) when is_binary(PemBin) ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM Functions">>,
+-doc(#{title => <<"PEM API">>,
       since => <<"OTP R14B">>}).
 -doc "Creates a PEM binary.".
 -spec pem_encode([pem_entry()]) -> binary().
@@ -398,7 +398,7 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
     iolist_to_binary(pubkey_pem:encode(PemEntries)).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM Functions">>,
+-doc(#{title => <<"PEM API">>,
        equiv => pem_entry_decode(PemEntry, ""),
        since => <<"OTP R14B">>}).
 -spec pem_entry_decode(PemEntry) -> term() when PemEntry :: pem_entry() .
@@ -421,7 +421,7 @@ pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
 
--doc(#{title => <<"PEM Functions">>,
+-doc(#{title => <<"PEM API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Decodes a PEM entry. [`pem_decode/1`](`pem_decode/1`) returns a list of PEM
@@ -459,7 +459,7 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
     do_pem_entry_decode(PemEntry, Password).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"PEM Functions">>,
+-doc(#{title => <<"PEM API">>,
        since => <<"OTP R14B">>,
        equiv => pem_entry_encode/3}).
 -spec pem_entry_encode(Asn1Type, Entity) -> pem_entry() when Asn1Type :: pki_asn1_type(),
@@ -497,7 +497,7 @@ pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
     {Asn1Type, Der, not_encrypted}.
 
--doc(#{title => <<"PEM Functions">>,
+-doc(#{title => <<"PEM API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Creates a PEM entry that can be feed to [`pem_encode/1`](`pem_encode/1`).
@@ -535,7 +535,7 @@ pem_entry_encode(Asn1Type, Entity, {{Cipher, Salt} = CipherInfo,
     do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password).
     
 %%--------------------------------------------------------------------
--doc(#{title => <<"ASN.1 Encoding Functions">>,
+-doc(#{title => <<"ASN.1 Encoding API">>,
        since => <<"OTP R14B">>}).
 -doc "Decodes a public-key ASN.1 DER encoded entity.".
 
@@ -623,7 +623,7 @@ der_priv_key_decode(PKCS8Key) ->
     PKCS8Key.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"ASN.1 Encoding Functions">>,
+-doc(#{title => <<"ASN.1 Encoding API">>,
         since => <<"OTP R14B">>}).
 -doc "Encodes a public-key entity with ASN.1 DER encoding.".
 -spec der_encode(Asn1Type, Entity) -> Der when Asn1Type :: asn1_type(),
@@ -722,7 +722,7 @@ der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>}).
+-doc(#{title => <<"Certificate API">>}).
 -doc """
 Decodes an ASN.1 DER-encoded PKIX certificate.
 
@@ -753,7 +753,7 @@ pkix_decode_cert(DerCert, otp) when is_binary(DerCert) ->
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -doc """
 DER encodes a PKIX x509 certificate or part of such a certificate.
@@ -789,7 +789,8 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_private(CipherText, Key, []),
-       title => <<"Legacy Sign/Verify Functions">>,
+       deprecated => ~"Do not use",
+       title => <<"Deprecated API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key) ->
                              PlainText when CipherText :: binary(),
@@ -798,9 +799,16 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
--doc(#{title => <<"Legacy Sign/Verify Functions">>,
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Do not use",
        since => <<"OTP R14B">>}).
--doc "Public-key decryption using the private key. See also `crypto:private_decrypt/4`".
+-doc """
+Public-key decryption using the private key. See also `crypto:private_decrypt/4`
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons do not use.
+""".
 -spec decrypt_private(CipherText, Key, Options) ->
                              PlainText when CipherText :: binary(),
                                             Key :: rsa_private_key(),
@@ -817,7 +825,8 @@ decrypt_private(CipherText,
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_public(CipherText, Key, []),
-       title => <<"Legacy Sign/Verify Functions">>,
+       deprecated => ~"Use sign and verify instead",
+       title => <<"Deprecated API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key) ->
 			    PlainText
@@ -827,9 +836,18 @@ decrypt_private(CipherText,
 decrypt_public(CipherText, Key) ->
     decrypt_public(CipherText, Key, []).
 
--doc(#{title => <<"Legacy Sign/Verify Functions">>,
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Use sign and verify instead",
        since => <<"OTP R14B">>}).
--doc "Public-key decryption using the public key. See also `crypto:public_decrypt/4`".
+-doc """
+Public-key decryption using the public key. See also `crypto:public_decrypt/4`
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons use [`verify/4`](`verify/4`) together
+> with [`sign/3`](`sign/3`) instead.
+.
+""".
 -spec decrypt_public(CipherText, Key, Options) ->
 			    PlainText
                                 when CipherText :: binary(),
@@ -844,8 +862,8 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_public(PlainText, Key, []),
-       deprecated => ~"Use sign and verify instead",
-       title => <<"Legacy Sign/Verify API">>,
+       deprecated => ~"Do not use",
+       title => <<"Deprecated API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
@@ -855,8 +873,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 
-
--doc(#{title => <<"Legacy Sign/Verify API">>,
+-doc(#{title => <<"Deprecated API">>,
        deprecated => ~"Do not use",
        since => <<"OTP R14B">>}).
 -doc """
@@ -864,8 +881,7 @@ Public-key encryption using the public key. See also `crypto:public_encrypt/4`.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`sign/3`](`sign/3`) together
-> with [`verify/4`](`verify/4`) instead.
+> This is a legacy function, for security reasons do not use.
 """.
 -spec encrypt_public(PlainText, Key, Options) ->
 			     CipherText
@@ -879,8 +895,8 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_private(PlainText, Key, []),
-       title => <<"Legacy Sign/Verify API">>,
        deprecated => ~"Use sign and verify instead",
+       title => <<"Deprecated API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
@@ -890,7 +906,8 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
--doc(#{title => <<"Legacy Sign/Verify API">>,
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Use sign and verify instead",
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the private key.
@@ -900,6 +917,10 @@ RSA key, be a map specifing the key algorithm `rsa` and a fun to
 handle the encryption operation.  This may be used for customized the
 encryption operation with for instance hardware security modules (HSM)
 or trusted platform modules (TPM).
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons use [`sign/3`](`sign/3`) together with [`verify/4`](`verify/4`)  instead.
 """.
 -spec encrypt_private(PlainText, Key, Options) ->
 			     CipherText
@@ -949,7 +970,7 @@ may be regenerated like this:
 	$> cd ..; make
 ```
 """.
--doc(#{title => <<"Key Functions">>,
+-doc(#{title => <<"Key API">>,
        since => <<"OTP 18.2">>}).
 -spec dh_gex_group(MinSize, SuggestedSize, MaxSize, Groups) ->
                           {ok,{Size,Group}} | {error,term()}
@@ -971,7 +992,7 @@ dh_gex_group(Min, N, Max, Groups) ->
 Generates a new key pair. Note that except for Diffie-Hellman the public key is
 included in the private key structure. See also `crypto:generate_key/2`
 """.
--doc(#{title => <<"Key Functions">>,
+-doc(#{title => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -spec generate_key(DHparams | ECparams | RSAparams) ->
                           DHkeys | ECkey | RSAkey
@@ -1032,7 +1053,7 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
 %%--------------------------------------------------------------------
 %% Description: Compute shared secret
 %%--------------------------------------------------------------------
--doc(#{title => <<"Key Functions">>,
+-doc(#{title => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -doc "Computes shared secret.".
 -spec compute_key(OthersECDHkey, MyECDHkey) -> 
@@ -1051,7 +1072,7 @@ compute_key(#'ECPoint'{point = Point}, #'ECPrivateKey'{privateKey = PrivKey,
     ECCurve = ec_curve_spec(Param),
     crypto:compute_key(ecdh, Point, PrivKey, ECCurve).
 
--doc(#{title => <<"Key Functions">>,
+-doc(#{title => <<"Key API">>,
        since => <<"OTP R16B01">>}).
 -doc "Computes shared secret.".
 
@@ -1065,7 +1086,7 @@ compute_key(PubKey, PrivKey, #'DHParameter'{prime = P, base = G}) ->
     crypto:compute_key(dh, PubKey, PrivKey, [P, G]).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R16B01">>}).
 -doc """
 Translates signature algorithm OID to Erlang digest and signature types.
@@ -1116,7 +1137,7 @@ pkix_sign_types(?'id-Ed448') ->
     {none, eddsa}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 23.0">>}).
 -doc "Translates OID to Erlang digest type".
 -spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
@@ -1136,8 +1157,7 @@ pkix_hash_type('id-md5') ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => sign(Msg, DigestType, Key, []),
-       title => <<"Sign/Verify Functions">>}).
-       since => <<"OTP R14B">>}).
+       title => <<"Sign/Verify API">>}).
 
 -spec sign(Msg, DigestType, Key) ->
                   Signature when Msg ::  binary() | {digest,binary()},
@@ -1156,7 +1176,7 @@ standard key, be a map specifing a key algorithm and a fun that should handle
 the signing. This may be used for customized signing with for instance hardware
 security modules (HSM) or trusted platform modules (TPM).
 """.
--doc(#{title => <<"Sign/Verify Functions">>,
+-doc(#{title => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -spec sign(Msg, DigestType, Key, Options) ->
                   Signature when Msg ::  binary() | {digest,binary()},
@@ -1184,7 +1204,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => verify(Msg, DigestType, Signature, Key, []),
-       title => <<"Sign/Verify Functions">>,
+       title => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
 -spec verify(Msg, DigestType, Signature, Key) ->
                     boolean() when Msg :: binary() | {digest, binary()},
@@ -1195,7 +1215,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 verify(DigestOrPlainText, DigestType, Signature, Key) ->
     verify(DigestOrPlainText, DigestType, Signature, Key, []).
 
--doc(#{title => <<"Sign/Verify Functions">>,
+-doc(#{title => <<"Sign/Verify API">>,
        since => <<"OTP 20.1">>}).
 -doc """
 Verifies a digital signature.
@@ -1231,7 +1251,7 @@ verify(_,_,_,_,_) ->
     false.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -doc """
 Creates a distribution point for CRLs issued by the same issuer as `Cert`. Can
@@ -1262,7 +1282,7 @@ pkix_dist_point(OtpCert) ->
 			 distributionPoint =  Point}.	
 %%--------------------------------------------------------------------
 -doc "Extracts distribution points from the certificates extensions.".
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_dist_points(Cert) -> DistPoints when Cert :: cert(),
                                                 DistPoints :: [ #'DistributionPoint'{} ].
@@ -1285,7 +1305,7 @@ Point of the CRL, as described in RFC 5280.
 If the CRL doesn't have an Issuing
 Distribution Point extension, the distribution point always matches.
 """.
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 19.0">>}).
 -spec pkix_match_dist_point(CRL, DistPoint) ->
                                    boolean()
@@ -1320,7 +1340,7 @@ pkix_match_dist_point(#'CertificateList'{
 
 %%--------------------------------------------------------------------
 -doc "Signs an 'OTPTBSCertificate'. Returns the corresponding DER-encoded certificate.".
--doc(#{title => <<"Sign/Verify Functions">>,
+-doc(#{title => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_sign(Cert, Key) -> Der when Cert :: #'OTPTBSCertificate'{}, 
                                        Key :: private_key(),
@@ -1340,7 +1360,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
 
 %%--------------------------------------------------------------------
 -doc "Verifies PKIX x.509 certificate signature.".
--doc(#{title => <<"Sign/Verify Functions">>,
+-doc(#{title => <<"Sign/Verify API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_verify(Cert, Key) -> boolean() when Cert :: der_encoded(),
                                                Key :: public_key() .
@@ -1379,7 +1399,7 @@ pkix_verify(DerCert, Key = {#'ECPoint'{}, _}) when is_binary(DerCert) ->
 
 %%--------------------------------------------------------------------
 -doc "Verify that `Cert` is the `CRL` signer.".
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_crl_verify(CRL, Cert) -> boolean()
                                         when CRL  :: der_encoded() | #'CertificateList'{},
@@ -1401,7 +1421,7 @@ pkix_crl_verify(#'CertificateList'{} = CRL, #'OTPCertificate'{} = Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Checks if `IssuerCert` issued `Cert`.".
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_issuer(CertorCRL, IssuerCert) ->
           boolean() when CertorCRL :: cert() | #'CertificateList'{},
@@ -1424,7 +1444,7 @@ pkix_is_issuer(#'CertificateList'{tbsCertList = TBSCRL},
 
 %%--------------------------------------------------------------------
 -doc "Checks if a certificate is self-signed.".
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_self_signed(Cert) -> boolean() when Cert::cert().
 %%--------------------------------------------------------------------
@@ -1436,7 +1456,7 @@ pkix_is_self_signed(Cert) when is_binary(Cert) ->
   
 %%--------------------------------------------------------------------
 -doc "Checks if a certificate is a fixed Diffie-Hellman certificate.".
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_is_fixed_dh_cert(Cert) -> boolean() when Cert::cert().
 %%--------------------------------------------------------------------
@@ -1448,7 +1468,7 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the x509 certificate issuer id, if it can be determined.".
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -spec pkix_issuer_id(Cert, IssuedBy) ->
 			    {ok, ID::cert_id()} | {error, Reason}
@@ -1466,7 +1486,7 @@ pkix_issuer_id(Cert, Signed) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the X509 certificate subject id.".
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 23.1">>}).
 -spec pkix_subject_id(Cert) -> ID
               when Cert::cert(),
@@ -1481,7 +1501,7 @@ pkix_subject_id(Cert) when is_binary(Cert) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the issuer of the `CRL`.".
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 17.5">>}).
 -spec pkix_crl_issuer(CRL) -> Issuer
                when CRL :: der_encoded() | #'CertificateList'{},
@@ -1494,7 +1514,7 @@ pkix_crl_issuer(#'CertificateList'{} = CRL) ->
       CRL#'CertificateList'.tbsCertList#'TBSCertList'.issuer, decode).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Normalizes an issuer name so that it can be easily compared to another issuer
@@ -1513,7 +1533,7 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP R16B">>}).
 -doc """
 Performs a basic path validation according to
@@ -1661,7 +1681,7 @@ pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
 	    {error, Reason}
     end.
 %--------------------------------------------------------------------
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP R16B">>}).
 -doc """
 Performs CRL validation. It is intended to be called from the verify fun of
@@ -1734,7 +1754,7 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 %--------------------------------------------------------------------
 %% Description: Validates a hostname to RFC 6125
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        equiv => pkix_verify_hostname(Cert, ReferenceIDs, []),
        since => <<"OTP 19.3">>}).
 -spec pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()
@@ -1744,7 +1764,7 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 pkix_verify_hostname(Cert, ReferenceIDs) ->
     pkix_verify_hostname(Cert, ReferenceIDs, []).
 
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 19.3">>}).
 -doc """
 This function checks that the _Presented Identifier_ (e.g hostname) in a peer
@@ -1898,7 +1918,7 @@ rules for the protocol in the argument.
 > the hostname match the default match function used by ssl application will be
 > sufficient.
 """.
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 21.0">>}).
 -spec pkix_verify_hostname_match_fun(Protocol) ->  Result when
       Protocol :: https,
@@ -1943,7 +1963,7 @@ of a CRL or a certificate, respectively. This hash is used by the `c_rehash`
 tool to maintain a directory of symlinks to CRL files, in order to facilitate
 looking up a CRL by its issuer name.
 """.
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 19.0">>}).
 -spec short_name_hash(Name) -> string() when Name :: issuer_name() .
 
@@ -2032,7 +2052,7 @@ chains:
 > This function is provided for testing purposes only.
 """.
 
--doc(#{title => <<"Test Data Functions">>,
+-doc(#{title => <<"Test Data API">>,
        since => <<"OTP 20.1">>}).
 -spec pkix_test_data(ChainConf) -> TestConf when
       ChainConf :: #{server_chain:= chain_opts(),
@@ -2059,7 +2079,7 @@ Generates a root certificate that can be used in multiple calls to
 `pkix_test_data/1` when you want the same root certificate for several generated
 certificates.
 """.
--doc(#{title => <<"Test Data Functions">>,
+-doc(#{title => <<"Test Data API">>,
        since => <<"OTP 20.2">>}).
 -spec pkix_test_root_cert(Name, Options) ->
                                  RootCertAndKey
@@ -2095,7 +2115,7 @@ Available options:
    fun(_) -> false end
   ```
 """.
--doc(#{title => <<"Certificate Revocation Functions">>,
+-doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 27.0">>}).
 -spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options) ->
           ok | {error, {bad_cert, Reason}}
@@ -2153,7 +2173,7 @@ ocsp_extensions(Nonce) ->
              erlang:is_record(Extn, 'Extension')].
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc """
 Returns the trusted CA certificates if any are loaded, otherwise uses
@@ -2167,7 +2187,7 @@ cacerts_get() ->
     pubkey_os_cacerts:get().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc "Loads the OS supplied trusted CA certificates.".
 
@@ -2178,7 +2198,7 @@ cacerts_load() ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc "Loads the trusted CA certificates from a file.".
 -spec cacerts_load(File::file:filename_all()) -> ok | {error, Reason::term()}.
@@ -2187,7 +2207,7 @@ cacerts_load(File) ->
     pubkey_os_cacerts:load([File]).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Certificate Functions">>,
+-doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
 -doc "Clears any loaded CA certificates, returns true if any was loaded.".
 -spec cacerts_clear() -> boolean().

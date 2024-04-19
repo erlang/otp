@@ -406,6 +406,12 @@ Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),
 > does the other. This normally used in legacy applications as a primitive
 > digital signature.
 
+> #### Warning {: .warning }
+>
+> This legacy algorithm is broken although there exists a software prevention
+> when using appropriate OpenSSL cryptolib with Erlang/OTP it is hard to
+> guarantee security and we strongly recommend not using it.
+
 ## Digital Signatures
 
 Suppose you have the following private key and a corresponding public key:
