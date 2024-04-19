@@ -41,7 +41,6 @@ versions for several programming language environments other than Java.
 %% External exports
 %%----------------------------------------------------------------------
 -export([file/2,
-	 stream/3,
 	 stream/2]).
 
 %%----------------------------------------------------------------------
