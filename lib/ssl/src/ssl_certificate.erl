@@ -317,8 +317,8 @@ handle_cert_auths(Chain, [], _, _) ->
     {ok, Chain};
 handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
     case certificate_chain(Cert, CertDbHandle, CertDbRef, [], both) of
-        {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}}  ->
-            case cert_auth_member(cert_issuers(DCerts), CertAuths) of
+        {ok, {_, [Cert | _] = EChain}, _}  ->
+            case cert_auth_member(cert_issuers(EChain), CertAuths) of
                 true ->
                     {ok, EChain};
                 false ->
@@ -327,8 +327,8 @@ handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
         _ ->
             {ok, [Cert]}
     end;
-handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
-    case cert_auth_member(cert_issuers(Certs), CertAuths) of
+handle_cert_auths([_ | _] = EChain, CertAuths, _, _) ->
+    case cert_auth_member(cert_issuers(EChain), CertAuths) of
         true ->
             {ok, EChain};
         false ->

@@ -130,7 +130,9 @@
          signature_algorithms_bad_curve_secp521r1/0,
          signature_algorithms_bad_curve_secp521r1/1,
          server_certificate_authorities_disabled/0,
-         server_certificate_authorities_disabled/1
+         server_certificate_authorities_disabled/1,
+         cert_auth_in_first_ca/0,
+         cert_auth_in_first_ca/1
          ]).
 
 %%--------------------------------------------------------------------
@@ -196,6 +198,7 @@ tls_1_3_tests() ->
      hello_retry_request,
      custom_groups,
      client_auth_no_suitable_chain,
+     cert_auth_in_first_ca,
      hello_retry_client_auth,
      hello_retry_client_auth_empty_cert_accepted,
      hello_retry_client_auth_empty_cert_rejected,
@@ -1015,6 +1018,25 @@ key_auth_ext_sign_only(Config) when is_list(Config) ->
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
+cert_auth_in_first_ca() ->
+    [{doc,"Test cert auth will be available in first ca in chain, make it happen by only having one"}].
+cert_auth_in_first_ca(Config) when is_list(Config) ->
+    #{server_config := ServerOpts0,
+      client_config := ClientOpts0} =
+        public_key:pkix_test_data(#{server_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                      intermediates => [[]],
+                                                      peer => [{key, ssl_test_lib:hardcode_rsa_key(5)}]},
+                                    client_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(3)}], 
+                                                      intermediates => [[]],
+                                                      peer => [{key, ssl_test_lib:hardcode_rsa_key(1)}]}}), 
+    ClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+
+
 longer_chain() ->
     [{doc,"Test depth option"}].
 longer_chain(Config) when is_list(Config) ->
