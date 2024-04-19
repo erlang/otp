@@ -49,7 +49,7 @@ profiling tools. For debugging Erlang code it is recommended to use
 4> trace:function(Session, {lists,seq,2}, [], []).
 1
 %% Call the traced function
-5> lists:seq(1,10).
+5> lists:seq(1, 10).
 {trace,<0.89.0>,call,{lists,seq,[1,10]}} % The trace message
 [1,2,3,4,5,6,7,8,9,10] % The return value
 %% Cleanup the trace session
@@ -809,7 +809,8 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
 - **`global`** - Turn on or off call tracing for global function calls (that
   is, calls specifying the module explicitly). Only exported functions match and
-  only global calls generate trace messages.
+  only global calls generate trace messages. **This is the default if `FlagList`
+  is empty**.
 
 - **`local`** - Turn on or off call tracing for all types of function calls.
   Trace messages are sent whenever any of the specified functions are called,
@@ -915,6 +916,11 @@ one or more processes or ports.
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
+The default value for the `send` trace pattern in each session is
+`true`. That is, all messages sent from processes having `send` trace
+enabled will be traced. Use this function to limit traced `send`
+events based on the message content, the sender, and/or the receiver.
+
 Argument `MatchSpec` can take the following forms:
 
 - **`MatchExpression`** - A match specification. The matching is done on
@@ -922,7 +928,8 @@ Argument `MatchSpec` can take the following forms:
   receiver and `Msg` is the message term. The pid of the sending process can be
   accessed with the guard function `self/0`. An empty list is the same as
   `true`. For more information, see section
-  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide.
+  [Match Specifications in Erlang](`e:erts:match_spec.md`) in the User's Guide
+  for the ERTS application.
 
 - **`true`** - Enable tracing for all sent messages (from `send` traced
   processes). Any match specification is removed.
@@ -1002,6 +1009,12 @@ for one or more processes or ports.
 
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
+
+The default value for the `receive` trace pattern in each session is
+`true`. That is, all messages received by processes having `'receive'`
+trace enabled will be traced. Use this function to limit traced
+`'receive'` events based on the message content, the sender, and/or the
+receiver.
 
 Argument `MatchSpec` can take the following forms:
 
