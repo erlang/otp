@@ -54,6 +54,8 @@ Type definitions that are used more than once in this module:
 -export([versions/0,
          print_version_info/0, print_version_info/1]).
 
+-type inets_service() :: httpd | httpc.
+-type service_info() :: {inets_service(), pid(), [{profile, atom()}] | no_such_service | service_not_available}.
 
 %%====================================================================
 %% API
@@ -68,6 +70,7 @@ Type definitions that are used more than once in this module:
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
 -doc(#{equiv => start/1}).
+-spec start() -> ok | {error, Reason} when Reason :: term().
 start() ->
     application:start(inets, temporary).
 
@@ -79,6 +82,9 @@ Starts the `Inets` application. Default type is `temporary`. See also
 
 [](){: #stop }
 """.
+-spec start(Type) -> ok | {error, Reason} when
+      Type :: application:restart_type(),
+      Reason :: term().
 start(Type) ->
     application:ensure_all_started(ssl),
     application:start(inets, Type).
@@ -110,6 +116,14 @@ start(Type) ->
 %% top supervisor.
 %% --------------------------------------------------------------------
 -doc(#{equiv => start/3}).
+-spec start(Service, ServiceConfig) -> Result when
+      Service :: inets_service(),
+      ServiceConfig :: ConfPropList | ConfFile,
+      ConfPropList :: [{Property, Value}],
+      ConfFile :: string(),
+      Property :: term(),
+      Value :: term(),
+      Result :: {ok, pid()} | {error, term()}.
 start(Service, ServiceConfig) ->
     start_service(Service, ServiceConfig, inets).
 
@@ -132,9 +146,22 @@ started.
 > soft upgrade. The `stand_alone`\-service is linked to the process that started
 > it. Usually some supervision functionality is still in place and in some sense
 > the calling process becomes the top supervisor.
+>
+> #### Warning {: .warning }
+> The stand_alone option is considered deprecated.
+>
 
 [](){: #stop2 }
 """.
+-spec start(Service, ServiceConfig, How) -> Result when
+      Service :: inets_service(),
+      ServiceConfig :: ConfPropList | ConfFile,
+      How :: inets | stand_alone,
+      ConfPropList :: [{Property, Value}],
+      ConfFile :: string(),
+      Property :: term(),
+      Value :: term(),
+      Result :: {ok, pid()} | {error, term()}.
 start(Service, ServiceConfig, How) ->
     start_service(Service, ServiceConfig, How).
 
@@ -151,6 +178,7 @@ Stops the `Inets` application. See also `m:application`.
 
 [](){: #start2 }
 """.
+-spec stop() -> ok.
 stop() ->
     application:stop(inets).
 
@@ -172,6 +200,10 @@ only the pid is a valid argument to stop.
 
 [](){: #see_also }
 """.
+-spec stop(Service, Reference) -> ok | {error, Reason} when
+      Service :: inets_service() | stand_alone,
+      Reference :: pid() | term(),
+      Reason :: term().
 stop(stand_alone, Pid) ->
     true = exit(Pid, shutdown),
     ok;
@@ -197,6 +229,7 @@ Returns a list of currently running services.
 
 [](){: #services_info }
 """.
+-spec services() -> [{inets_service(), pid()}] | {error, inets_not_started}.
 services() ->
     try lists:flatten(lists:map(fun(Module) ->
 					Module:services()
@@ -226,6 +259,8 @@ Info will contain Reason term.
 
 [](){: #service_names }
 """.
+-spec services_info() -> [service_info()]
+              | {error, inets_not_started}.
 services_info() ->
     case services() of
 	{error, inets_not_started} ->
@@ -459,6 +494,7 @@ Returns a list of available service names.
 
 [](){: #start }
 """.
+-spec service_names() -> [inets_service()].
 service_names() ->
     [httpc, httpd].
 

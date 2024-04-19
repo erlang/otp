@@ -192,6 +192,11 @@ Sends data from an Erl Scheme script back to the client.
 > `SessionID` must be the value given as input to the ESI callback function that
 > you implemented.
 """.
+-spec deliver(SessionID, Data) -> ok | {error, Reason} when
+      SessionID :: term(),
+      Data :: iolist(),
+      Reason :: bad_sessionID.
+
 deliver(SessionID, Data) when is_pid(SessionID) ->
     SessionID ! {esi_data, Data},
     ok;

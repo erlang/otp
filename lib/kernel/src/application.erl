@@ -61,7 +61,7 @@ For details about applications and behaviours, see
 -export([get_application/0, get_application/1, get_supervisor/1, info/0]).
 -export([start_type/0]).
 
--export_type([start_type/0]).
+-export_type([start_type/0, restart_type/0]).
 
 %%%-----------------------------------------------------------------
 

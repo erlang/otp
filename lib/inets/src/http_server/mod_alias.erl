@@ -102,6 +102,16 @@ result from `default_index/2` with `ShortPath` as
 an argument. `config_db()` is the server config file in ETS table format as
 described in [Inets User's Guide](http_server.md).
 """.
+-spec real_name(ConfigDB, RequestURI, Aliases) -> ReturnPath when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      Aliases :: [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, Path, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      Path :: string(),
+      AfterPath :: string().
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
@@ -168,6 +178,15 @@ returned. If it is a script, the resulting script path is in two parts,
 `config_db()` is the server config file in ETS table format as described in
 [Inets User's Guide](http_server.md).
 """.
+-spec real_script_name(ConfigDB, RequestURI, ScriptAliases) -> ReturnPath | not_a_script when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      ScriptAliases :: list() | [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      AfterPath :: term().
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
@@ -202,6 +221,10 @@ server config file in ETS table format as described in
 [Inets User's Guide](http_server.md).
 
 """.
+-spec default_index(ConfigDB, Path) -> NewPath when
+      ConfigDB :: ets:tid(),
+      Path :: string(),
+      NewPath :: string().
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
@@ -233,6 +256,12 @@ returned. If no interaction data has been exported, `ServerRoot` is used to
 generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
 [Inets User's Guide](http_server.md).
 """.
+-spec path(Data, ConfigDB, RequestURI) -> Path when
+      Data :: [{real_name, {Path, AfterPath}}],
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      AfterPath :: string(),
+      Path :: string().
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->

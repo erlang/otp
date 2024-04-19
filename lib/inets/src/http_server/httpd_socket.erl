@@ -49,6 +49,11 @@ deliver(SocketType, Socket, Data) -> Result
 
 [](){: #peername }
 """.
+-spec deliver(SocketType, Socket, Data) -> Result when
+      SocketType :: httpd:socket_type(),
+      Socket :: inet:socket(),
+      Data :: iolist() | binary(),
+      Result :: ok | socket_closed.
 deliver(SocketType, Socket, IOListOrBinary)  ->
     case http_transport:send(SocketType, Socket, IOListOrBinary) of
 	{error, _Reason} ->
@@ -65,6 +70,11 @@ peername(SocketType,Socket) -> {Port,IPAddress}
 `Socket`.
 
 """.
+-spec peername(SocketType, Socket) -> {Port, IpAdress} when
+      SocketType :: httpd:socket_type(),
+      Socket :: inet:socket() | ssl:sslsocket(),
+      Port :: inet:port_number(),
+      IpAdress :: inet:ip4_address() | inet:ip6_address() | string().
 peername(SocketType, Socket) ->
     http_transport:peername(SocketType, Socket).
 
@@ -73,6 +83,8 @@ resolve() -> HostName
 
 `resolve/0` returns the official `HostName` of the current host.
 """.
+-spec resolve() -> HostName when
+      HostName :: inet:hostname().
 resolve() ->
    http_transport:resolve().
 

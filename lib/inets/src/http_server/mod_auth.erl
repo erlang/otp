@@ -54,6 +54,9 @@ databases, or Mnesia databases.
 
 -define(NOPASSWORD,"NoPassword").
 
+-type httpd_user() :: #httpd_user{}.
+-type httpd_group() :: #httpd_group{}.
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
@@ -166,6 +169,16 @@ remove(ConfigDB) ->
     ok.
 
 -doc(#{equiv => add_user/6}).
+-spec add_user(UserName, Options) -> true | {error, Reason} when
+      UserName :: string(),
+      Options :: [{password,Password} | {userData,UserData} | {port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Password :: string(),
+      UserData :: term(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword ::string(),
+      Reason :: term().
 add_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -182,6 +195,13 @@ add_user(UserName, Opt) ->
 
 
 -doc(#{equiv => add_user/6}).
+-spec add_user(UserName, Password, UserData, Port, Directory) -> true | {error, Reason} when
+      UserName :: string(),
+      Password :: string(),
+      UserData :: term(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
 add_user(UserName, Password, UserData, Port, Dir) ->
     add_user(UserName, Password, UserData, undefined, Port, Dir).
 -doc """
@@ -194,6 +214,14 @@ If an error occurs, `{error,Reason}` is returned. When
 [`add_user/2`](`add_user/2`) is called, options `Password`, `UserData`, `Port`,
 and `Dir` are mandatory.
 """.
+-spec add_user(UserName, Password, UserData, Address, Port, Directory) -> true | {error, Reason} when
+      UserName :: string(),
+      Password :: string(),
+      UserData :: term(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
 add_user(UserName, Password, UserData, Addr, Port, Dir) ->
     User = [#httpd_user{username  = UserName, 
 			password  = Password,
@@ -201,6 +229,15 @@ add_user(UserName, Password, UserData, Addr, Port, Dir) ->
     mod_auth_server:add_user(Addr, Port, Dir, User, ?NOPASSWORD).
 
 -doc(#{equiv => get_user/4}).
+-spec get_user(UserName, Options) -> {ok, User} | {error, Reason} when
+      UserName :: string(),
+      Options :: [{port, Port} | {addr, Address} | {dir, Directory} | {authPassword, AuthPassword}],
+      User :: httpd_user(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword :: string(),
+      Reason :: term().
 get_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -210,6 +247,12 @@ get_user(UserName, Opt) ->
     end.
 
 -doc(#{equiv => get_user/4}).
+-spec get_user(UserName, Port, Directory) -> {ok, User} | {error, Reason} when
+      UserName :: string(),
+      User :: httpd_user(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
 get_user(UserName, Port, Dir) ->
     get_user(UserName, undefined, Port, Dir).
 -doc """
@@ -220,10 +263,27 @@ get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}
 cannot be found, `{error, Reason}` is returned. When
 [`get_user/2`](`get_user/2`) is called, options `Port` and `Dir` are mandatory.
 """.
+-spec get_user(UserName, Address, Port, Directory) -> {ok, User} | {error, Reason} when
+      UserName :: string(),
+      User :: httpd_user(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
 get_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:get_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
 -doc(#{equiv => add_group_member/5}).
+-spec add_group_member(GroupName, UserName, Options) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Options :: [{port, Port} | {addr, Address} | {dir, Directory} | {authPassword, AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword :: string(),
+      Reason :: term().
+
 add_group_member(GroupName, UserName, Opt)->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd}->
@@ -234,6 +294,12 @@ add_group_member(GroupName, UserName, Opt)->
     end.
 
 -doc(#{equiv => add_group_member/5}).
+-spec add_group_member(GroupName, UserName, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
 add_group_member(GroupName, UserName, Port, Dir) ->
     add_group_member(GroupName, UserName, undefined, Port, Dir).
 
@@ -247,11 +313,27 @@ group does not exist, it is created and the user is added to the group. Upon
 successful operation, this function returns `true`. When `add_group_members/3`
 is called, options `Port` and `Dir` are mandatory.
 """.
+-spec add_group_member(GroupName, UserName, Address, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
 add_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:add_group_member(Addr, Port, Dir, 
 				     GroupName, UserName, ?NOPASSWORD).
 
 -doc(#{equiv => delete_group_member/5}).
+-spec delete_group_member(GroupName, UserName, Options) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword :: string(),
+      Reason :: term().
 delete_group_member(GroupName, UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -262,6 +344,13 @@ delete_group_member(GroupName, UserName, Opt) ->
     end.
 
 -doc(#{equiv => delete_group_member/5}).
+-spec delete_group_member(GroupName, UserName, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
+
 delete_group_member(GroupName, UserName, Port, Dir) ->
     delete_group_member(GroupName, UserName, undefined, Port, Dir).
 -doc """
@@ -274,11 +363,28 @@ group. If the group or the user does not exist, this function returns an error,
 otherwise `true`. When [`delete_group_member/3`](`delete_group_member/3`) is
 called, the options `Port` and `Dir` are mandatory.
 """.
+-spec delete_group_member(GroupName, UserName, Address, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
+
 delete_group_member(GroupName, UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_group_member(Addr, Port, Dir, 
 					GroupName, UserName, ?NOPASSWORD).
 
 -doc(#{equiv => list_users/3}).
+-spec list_users(Options) -> {ok, Users} | {error, Reason} when
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Users :: [httpd_user()],
+      AuthPassword :: string(),
+      Reason :: atom().
+
 list_users(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -289,6 +395,11 @@ list_users(Opt) ->
 
 -doc(#{equiv => list_users/3}).
 -doc(#{since => <<"OTP R14B01">>}).
+-spec list_users(Port, Directory) -> {ok, Users} | {error, Reason} when
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Users :: [httpd_user()],
+      Reason :: atom().
 list_users(Port, Dir) ->
     list_users(undefined, Port, Dir).
 -doc """
@@ -299,10 +410,25 @@ a list of users in the user database for a specific `Port/Dir`. When
 [`list_users/1`](`list_users/1`) is called, options `Port` and `Dir` are
 mandatory.
 """.
+-spec list_users(Address, Port, Directory) -> {ok, Users} | {error, Reason} when
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Users :: [httpd_user()],
+      Reason :: atom().
+
 list_users(Addr, Port, Dir) ->
     mod_auth_server:list_users(Addr, Port, Dir, ?NOPASSWORD).
 
 -doc(#{equiv => delete_user/4}).
+-spec delete_user(UserName, Options) -> true | {error, Reason} when
+      UserName :: string(),
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword :: string(),
+      Reason :: term().
 delete_user(UserName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -312,6 +438,11 @@ delete_user(UserName, Opt) ->
     end.
 
 -doc(#{equiv => delete_user/4}).
+-spec delete_user(UserName, Port, Directory) -> true | {error, Reason} when
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
 delete_user(UserName, Port, Dir) ->
     delete_user(UserName, undefined, Port, Dir).
 -doc """
@@ -323,10 +454,24 @@ function returns `true`. If an error occurs, `{error,Reason}` is returned. When
 [`delete_user/2`](`delete_user/2`) is called, options `Port` and `Dir` are
 mandatory.
 """.
+-spec delete_user(UserName, Address, Port, Directory) -> true | {error, Reason} when
+      UserName :: string(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
 delete_user(UserName, Addr, Port, Dir) ->
     mod_auth_server:delete_user(Addr, Port, Dir, UserName, ?NOPASSWORD).
 
 -doc(#{equiv => delete_group/4}).
+-spec delete_group(GroupName, Options) -> true | {error,Reason} when
+      GroupName :: string(),
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      AuthPassword :: string(),
+      Reason :: term().
 delete_group(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -336,6 +481,11 @@ delete_group(GroupName, Opt) ->
     end.
 
 -doc false.
+-spec delete_group(GroupName, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Reason :: term().
 delete_group(GroupName, Port, Dir) ->
     delete_group(GroupName, undefined, Port, Dir).
 -doc """
@@ -346,10 +496,24 @@ deletes the group specified and returns `true`. If there is an error,
 `{error, Reason}` is returned. When [`delete_group/2`](`delete_group/2`) is
 called, option `Port` and `Dir` are mandatory.
 """.
+-spec delete_group(GroupName, Address, Port, Directory) -> true | {error, Reason} when
+      GroupName :: string(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Reason :: term().
 delete_group(GroupName, Addr, Port, Dir) ->
     mod_auth_server:delete_group(Addr, Port, Dir, GroupName, ?NOPASSWORD).
 
 -doc(#{equiv => list_groups/3}).
+-spec list_groups(Options) -> {ok, Groups} | {error, Reason} when
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Groups :: [httpd_group()],
+      AuthPassword :: string(),
+      Reason :: term().
 list_groups(Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -359,6 +523,11 @@ list_groups(Opt) ->
     end.
 
 -doc(#{equiv => list_groups/3}).
+-spec list_groups(Port, Directory) -> {ok, Groups} | {error, Reason} when
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Groups :: [httpd_group()],
+      Reason :: term().
 list_groups(Port, Dir) ->
     list_groups(undefined, Port, Dir).
 -doc """
@@ -369,10 +538,26 @@ lists all the groups available. If there is an error, `{error, Reason}` is
 returned. When [`list_groups/1`](`list_groups/1`) is called, options `Port` and
 `Dir` are mandatory.
 """.
+-spec list_groups(Address, Port, Directory) -> {ok, Groups} | {error, Reason} when
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Directory :: string(),
+      Groups :: [httpd_group()],
+      Reason :: term().
 list_groups(Addr, Port, Dir) ->
     mod_auth_server:list_groups(Addr, Port, Dir, ?NOPASSWORD).
 
 -doc(#{equiv => list_group_members/4}).
+-spec list_group_members(GroupName, Options) -> {ok, Users} | {error, Reason} when
+      GroupName :: string(),
+      Options :: [{port,Port} | {addr,Address} | {dir,Directory} | {authPassword,AuthPassword}],
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address()| string() | undefined,
+      Directory :: string(),
+      Users :: [httpd_user()],
+      AuthPassword :: string(),
+      Reason :: term().
+
 list_group_members(GroupName, Opt) ->
     case get_options(Opt, mandatory) of
 	{Addr, Port, Dir, AuthPwd} ->
@@ -383,6 +568,12 @@ list_group_members(GroupName, Opt) ->
     end.
 
 -doc(#{equiv => list_group_members/4}).
+-spec list_group_members(GroupName, Port, Directory) -> {ok, Users} | {error, Reason} when
+      GroupName :: string(),
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Users :: [httpd_user()],
+      Reason :: term().
 list_group_members(GroupName, Port, Dir) ->
     list_group_members(GroupName, undefined, Port, Dir).
 -doc """
@@ -396,11 +587,24 @@ specified group. If the group does not exist or there is an error,
 [`list_group_members/2`](`list_group_members/2`) is called, options `Port` and
 `Dir` are mandatory.
 """.
+-spec list_group_members(GroupName, Address, Port, Directory) -> {ok, Users} | {error, Reason} when
+      GroupName :: string(),
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address()| string() | undefined,
+      Directory :: string(),
+      Users :: [httpd_user()],
+      Reason :: term().
 list_group_members(GroupName, Addr, Port, Dir) ->
     mod_auth_server:list_group_members(Addr, Port, Dir, 
 				       GroupName, ?NOPASSWORD).
 
 -doc(#{equiv => update_password/6}).
+-spec update_password(Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason} when
+      Port :: inet:port_number(),
+      Dir :: string(),
+      OldPassword :: string(),
+      NewPassword :: string(),
+      Reason :: term().
 update_password(Port, Dir, Old, New, New)->
     update_password(undefined, Port, Dir, Old, New, New).
 
@@ -414,6 +618,13 @@ the specified directory. If `NewPassword` is equal to "NoPassword", no password
 is required to change authorisation data. If `NewPassword` is equal to
 "DummyPassword", no changes can be done without changing the password first.
 """.
+-spec update_password(Address, Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason} when
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Port :: inet:port_number(),
+      Dir :: string(),
+      OldPassword :: string(),
+      NewPassword :: string(),
+      Reason :: term().
 update_password(Addr, Port, Dir, Old, New, New) when is_list(New) ->
     mod_auth_server:update_password(Addr, Port, Dir, Old, New);
 
