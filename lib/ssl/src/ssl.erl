@@ -2884,7 +2884,7 @@ signature_algs(default, 'tlsv1.2') ->
 signature_algs(all, 'tlsv1.3') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.3'),
                                    tls_record:protocol_version_name('tlsv1.2')]) ++
-        tls_v1:legacy_signature_algs_pre_13();
+        [ecdsa_sha1, rsa_pkcs1_sha1 | tls_v1:legacy_signature_algs_pre_13()] -- [{sha, ecdsa}, {sha, rsa}];
 signature_algs(all, 'tlsv1.2') ->
     tls_v1:default_signature_algs([tls_record:protocol_version_name('tlsv1.2')]) ++ 
         tls_v1:legacy_signature_algs_pre_13();

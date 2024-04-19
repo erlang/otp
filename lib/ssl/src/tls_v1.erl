@@ -948,7 +948,7 @@ default_pre_1_3_signature_algs_only() ->
     signature_algs(?TLS_1_2, Default).
 
 legacy_signature_algs_pre_13() ->
-    [{sha224, ecdsa}, {sha224, rsa}, {sha, rsa}, {sha, dsa}].
+    [{sha224, ecdsa}, {sha224, rsa}, {sha, ecdsa}, {sha, rsa}, {sha, dsa}].
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                          andalso ?TLS_GTE(Version, ?TLS_1_2) ->
