@@ -89,7 +89,6 @@ files are found.
 
 The configuration file read is: `notify.conf`.
 
-[](){: #reconfigure }
 """.
 -spec configure(ConfDir) -> snmp:void() when
       ConfDir :: string().
@@ -140,7 +139,6 @@ files are found.
 
 The configuration file read is: `notify.conf`.
 
-[](){: #add_notify }
 """.
 -spec reconfigure(ConfDir) -> snmp:void() when
       ConfDir :: string().
@@ -223,7 +221,6 @@ table_del_row(Tab, Key) ->
 Adds a notify definition to the agent config. Equivalent to one line in the
 `notify.conf` file.
 
-[](){: #delete_notify }
 """.
 -spec add_notify(Name, Tag, Type) -> {ok, Key} | {error, Reason} when
       Name   :: notify_name(),
@@ -442,13 +439,10 @@ snmpNotifyTable(Op) ->
 %% Op == get | is_set_ok | set | get_next
 -doc false.
 snmpNotifyTable(get, RowIndex, Cols) ->
-    %% BMK BMK BMK BMK
     get(snmpNotifyTable, RowIndex, Cols);
 snmpNotifyTable(get_next, RowIndex, Cols) ->
-    %% BMK BMK BMK BMK
     next(snmpNotifyTable, RowIndex, Cols);
 snmpNotifyTable(set, RowIndex, Cols0) ->
-    %% BMK BMK BMK BMK
     case (catch verify_snmpNotifyTable_cols(Cols0, [])) of
 	{ok, Cols} ->
 	    invalidate_cache(),
