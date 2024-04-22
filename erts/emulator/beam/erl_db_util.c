@@ -3913,11 +3913,8 @@ int db_has_map(Eterm node) {
     return 0;
 }
 
-/* check if obj is (or contains) a variable */
-/* return 1 if obj contains a variable or underscore */
-/* return 0 if obj is fully ground                   */
-
-int db_has_variable(Eterm node) {
+/* Check if obj is fully bound (contains no variables, underscores, or maps) */
+int db_is_fully_bound(Eterm node) {
     DECLARE_ESTACK(s);
 
     ESTACK_PUSH(s,node);
@@ -3938,30 +3935,24 @@ int db_has_variable(Eterm node) {
 		while(arity--) {
 		    ESTACK_PUSH(s,*(++tuple));
 		}
-            } else if (is_flatmap(node)) {
-                Eterm *values = flatmap_get_values(flatmap_val(node));
-                Uint size = flatmap_get_size(flatmap_val(node));
-                ESTACK_PUSH(s, ((flatmap_t *) flatmap_val(node))->keys);
-                while (size--) {
-                    ESTACK_PUSH(s, *(values++));
-                }
-            } else if (is_map(node)) { /* other map-nodes or map-heads */
-                Eterm *ptr = hashmap_val(node);
-                int i = hashmap_bitcount(MAP_HEADER_VAL(*ptr));
-                ptr += MAP_HEADER_ARITY(*ptr);
-                while(i--) { ESTACK_PUSH(s, *++ptr); }
+            } else if (is_map(node)) {
+                /* Like in Erlang code, "literal" maps in a pattern match any
+                 * map that has the given elements, so they must be considered
+                 * variable. */
+                DESTROY_ESTACK(s);
+                return 0;
             }
 	    break;
 	case TAG_PRIMARY_IMMED1:
 	    if (node == am_Underscore || db_is_variable(node) >= 0) {
 		DESTROY_ESTACK(s);
-		return 1;
+		return 0;
 	    }
 	    break;
 	}
     }
     DESTROY_ESTACK(s);
-    return 0;
+    return 1;
 }
 
 /* 

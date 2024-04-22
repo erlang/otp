@@ -3248,7 +3248,7 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 	} else {
 	    key = db_getkey(tb->common.keypos, tpl);
 	    if (is_value(key)) {
-		if (!db_has_variable(key)) {   /* Bound key */
+		if (db_is_fully_bound(key)) {
 		    int ix, search_slot;
 		    HashDbTerm** bp;
 		    erts_rwmtx_t* lck;

@@ -3829,7 +3829,7 @@ static enum ms_key_boundness key_boundness(DbTableCommon *tb,
     key = db_getkey(tb->keypos, pattern);
     if (is_non_value(key))
 	return MS_KEY_IMPOSSIBLE;  /* can't possibly match anything */
-    if (!db_has_variable(key)) {   /* Bound key */
+    if (db_is_fully_bound(key)) {
         *keyp = key;
 	return MS_KEY_BOUND;
     } else if (key != am_Underscore &&

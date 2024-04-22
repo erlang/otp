@@ -111,6 +111,7 @@
 -export([whereis_table/1]).
 -export([ms_excessive_nesting/1]).
 -export([error_info/1]).
+-export([bound_maps/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -195,7 +196,8 @@ all() ->
      test_delete_table_while_size_snapshot,
      test_decentralized_counters_setting,
      ms_excessive_nesting,
-     error_info
+     error_info,
+     bound_maps
     ].
 
 
@@ -9838,6 +9840,17 @@ ets_apply(F, Args, Opts) ->
 
 ets_format_args(Args) ->
     lists:join(", ", [io_lib:format("~P", [A,10]) || A <- Args]).
+
+bound_maps(_Config) ->
+    T = ets:new('__bound_maps__', [ordered_set, public]),
+    Ref = make_ref(),
+    Attrs = [#{}, #{key => value}],
+    [ets:insert_new(T, {{Attr, Ref}, original}) || Attr <- Attrs],
+    Attr = #{},
+    Key = {Attr, Ref},
+    MS = [{{Key, '$1'},[],[{{{element, 1, '$_'}, {const, new}}}]}],
+    2 = ets:select_replace(T, MS),
+    ok.
 
 %%%
 %%% Common utility functions.
