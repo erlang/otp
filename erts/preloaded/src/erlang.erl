@@ -3165,7 +3165,6 @@ os_prompt% echo $?
 os_prompt%
 ```
 """.
--doc(#{since => <<"OTP R15B01">>}).
 -doc #{ group => system }.
 -spec halt(Status :: non_neg_integer()) ->
           no_return();
@@ -4669,7 +4668,7 @@ better than [`phash/2`](`phash/2`), and it is faster for bignums and binaries.
 Notice that the range `0..Range-1` is different from the range of
 [`phash/2`](`phash/2`), which is `1..Range`.
 """.
--doc(#{ group => terms, since => <<"OTP R11B">> }).
+-doc(#{ group => terms }).
 -spec phash2(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
@@ -9598,7 +9597,6 @@ Argument `FlagList` can contain two additional options for call tracing:
 For further documentation see `trace:function/4` , `trace:send/3` and
 `trace:recv/3`.
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -doc #{ group => trace }.
 -spec trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
