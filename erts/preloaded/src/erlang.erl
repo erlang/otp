@@ -6920,7 +6920,7 @@ failure:
   old code of a module that has been upgraded; this is not allowed.
 
 If the [`-nifs()`](`e:system:modules.md#nifs_attribute`) attribute is used
-(which is recommended), all NIFs in the dynamic library much be declared as such
+(which is recommended), all NIFs in the dynamic library must be declared as such
 for [`load_nif/2`](`load_nif/2`) to succeed. On the other hand, all functions
 declared with the `-nifs()` attribute do not have to be implemented by the
 dynamic library. This allows a target independent Erlang file to contain
