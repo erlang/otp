@@ -28,12 +28,6 @@ changed.
 
 Debugger can also be accessed through the interface module `m:int`.
 
-> #### Warning {: .warning }
->
-> Debugger might at some point start tracing on the processes that execute the
-> interpreted code. This means that a conflict occurs if tracing by other means
-> is started on any of these processes.
-
 ## Prerequisites
 
 It is assumed that the reader is familiar with the Erlang programming language.
