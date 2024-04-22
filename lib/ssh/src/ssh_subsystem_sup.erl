@@ -104,8 +104,8 @@ find_child(Id, Sup) when is_pid(Sup) ->
        {Id, Pid, _, _} = lists:keyfind(Id, 1, supervisor:which_children(Sup)),
        Pid
     catch
-        exit:{no_proc,_} ->
-            {error, no_proc};
+        exit:{noproc,_} ->
+            {error, noproc};
         _:_ ->
             {error, {id_not_found,?MODULE,Id}}
     end.
