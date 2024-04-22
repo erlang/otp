@@ -5278,13 +5278,22 @@ receive_replies(ReqId, N, Acc) ->
               programs with spaces in filenames or directory names.
               If spaces in executable filenames are desired, use
               <c>{spawn_executable, <anno>Command</anno>}</c> instead.</p>
-          </item>
-          <tag><c>{spawn_driver, <anno>Command</anno>}</c></tag>
-          <item>
-            <p>Works like <c>{spawn, <anno>Command</anno>}</c>, but demands
-              the first (space-separated) token of the command to be the name
-              of a loaded driver. If no driver with that name is loaded, a
-              <c>badarg</c> error is raised.</p>
+            <warning>
+              <p>On Unix systems, arguments are passed to a new operating
+                system process as an array of strings but on Windows it is up
+                to the child process to parse them and some Windows programs
+                may apply their own rules, which are inconsistent with the
+                standard C runtime <c>argv</c> parsing.</p>
+              <p>This is particularly troublesome when invoking <c>.bat</c>,
+                <c>.cmd</c>, or <c>.com</c> files as these run implicitly
+                through <c>cmd.exe</c>, whose argument parsing is vulnerable to
+                malicious input and can be used to run arbitrary shell
+                commands.</p>
+              <p>Therefore, if you are running on Windows and you execute batch
+                files or <c>.com</c> applications, you must not pass untrusted
+                input as arguments to the program.</p>
+              <p>This affects both <c>spawn</c> and <c>spawn_executable</c>.</p>
+            </warning>
           </item>
           <tag><c>{spawn_executable, <anno>FileName</anno>}</c></tag>
           <item>
@@ -5311,6 +5320,13 @@ receive_replies(ReqId, N, Acc) ->
               attempt is made to run a program that is not found and
               <c>eacces</c> is raised when the specified file is not
               executable.</p>
+          </item>
+          <tag><c>{spawn_driver, <anno>Command</anno>}</c></tag>
+          <item>
+            <p>Works like <c>{spawn, <anno>Command</anno>}</c>, but demands
+              the first (space-separated) token of the command to be the name
+              of a loaded driver. If no driver with that name is loaded, a
+              <c>badarg</c> error is raised.</p>
           </item>
           <tag><c>{fd, <anno>In</anno>, <anno>Out</anno>}</c></tag>
           <item>
