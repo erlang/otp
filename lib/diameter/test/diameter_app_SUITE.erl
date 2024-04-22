@@ -341,6 +341,9 @@ relup({App, Config}) ->
       "~n      ~s", [Dir, file_info(Dir)]),
 
     Name = write_rel(Dir, Rel, Vsn),
+    i("relup -> written"
+      "~n   Name: "
+      "~n      ~s", [Name]),
     UpFrom = acc_rel(Dir, Rel, Up),
     i("relup -> "
       "~n   UpFrom: ~p", [UpFrom]),
@@ -431,14 +434,24 @@ acc_rel(Dir, Rel, List) ->
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->
-    VS = vsn_str(Vsn),
+    VS   = vsn_str(Vsn),
     Name = "diameter_test_" ++ VS,
-    ok = write_file(filename:join([Dir, Name ++ ".rel"]),
+    File = filename:join([Dir, Name ++ ".rel"]),
+    i("write_rel -> attempt write rel file:"
+      "~n   Dir:  ~p"
+      "~n   File: ~p"
+      "~n   File name length: ~p"
+      "~n   Erts: ~p"
+      "~n   Apps: ~p"
+      "~n   Vsn:  ~p (VS)",
+      [Dir, File, length(File), Erts, Apps, Vsn, VS]),
+    ok = write_file(File,
                     {release,
                      {"diameter " ++ VS ++ " test release", VS},
                      Erts,
                      Apps}),
     Name.
+
 
 %% ===========================================================================
 %% ===========================================================================
