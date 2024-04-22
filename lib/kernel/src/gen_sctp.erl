@@ -19,13 +19,17 @@
 %%
 
 -module(gen_sctp).
--moduledoc """
-Functions for communicating with sockets using the SCTP protocol.
 
-This module provides functions for communicating with sockets using the SCTP
-protocol. The implementation assumes that the OS kernel supports SCTP
-[(RFC 2960)](http://www.rfc-archive.org/getrfc.php?rfc=2960) through the
-user-level
+-moduledoc(#{titles =>
+                 [{type,<<"Exported data types">>},
+                  {type,<<"Internal data types">>}]}).
+-moduledoc """
+Interface to SCTP sockets.
+
+This module provides functions for communicating over SCTP sockets.
+The implementation assumes that the OS kernel supports SCTP
+[(RFC 2960)](http://www.rfc-archive.org/getrfc.php?rfc=2960)
+through the user-level
 [Sockets API Extensions](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13).
 
 During development, this implementation was tested on:
@@ -42,9 +46,9 @@ During OTP adaptation it was tested on:
   2.6.16.54-0.2.3-smp with lksctp-tools-1.0.7
 - FreeBSD 8.2
 
-This module was written for one-to-many style sockets (type `seqpacket`). With
-the addition of `peeloff/2`, one-to-one style sockets (type `stream`) were
-introduced.
+This module was written for one-to-many style sockets (type `seqpacket`).
+With the addition of `peeloff/2`, one-to-one style sockets (type `stream`)
+were introduced.
 
 Record definitions for this module can be found using:
 
@@ -52,89 +56,89 @@ Record definitions for this module can be found using:
 -include_lib("kernel/include/inet_sctp.hrl").
 ```
 
-These record definitions use the "new" spelling 'adaptation', not the deprecated
-'adaption', regardless of which spelling the underlying C API uses.
+These record definitions use the "new" spelling 'adaptation',
+not the deprecated 'adaption', regardless of which spelling
+the underlying C API uses.
 
-[](){: #options }
+[](){: #options } SCTP Socket Options
+-------------------------------------
 
-## SCTP Socket Options
+The set of admissible SCTP socket options is by construction orthogonal
+to the sets of TCP, UDP, and generic `inet` options. Here are only
+options listed that are allowed for SCTP sockets.
 
-The set of admissible SCTP socket options is by construction orthogonal to the
-sets of TCP, UDP, and generic `inet` options. Only options listed here are
-allowed for SCTP sockets. Options can be set on the socket using
-[`open/1,2`](`open/1`) or `inet:setopts/2`, retrieved using `inet:getopts/2`.
-Options can be changed when calling [`connect/4,5`](`connect/4`).
+Options can be set on the socket when calling [`open/1,2`](`open/1`),
+and changed when calling [`connect/4,5`](`connect/4`) or
+by calling `inet:setopts/2`.  They can be retrieved using `inet:getopts/2`.
 
-[](){: #option-binary } [](){: #option-list }
+- **`{mode, list|binary} | list | binary`** [](){: #option-binary } [](){: #option-list } -
+  Determines the type of data returned from [`recv/1,2`](`recv/1`)
+  or in _active mode_ data messages.
 
-- **`{mode, list|binary}` or just `list` or `binary`** - Determines the type of
-  data returned from [`recv/1,2`](`recv/1`).
+- **`{active, false|true|once|N}`** [](){: #option-active }
 
-  [](){: #option-active }
-
-- **`{active, true|false|once|N}`**
-
-  - If `false` (passive mode, the default), the caller must do an explicit
+  - If `false` (_passive mode_, the default), the caller must do an explicit
     [`recv`](`recv/1`) call to retrieve the available data from the socket.
 
-  - If `true|once|N` (active modes) received data or events are sent to the
-    owning process. See [`open/0..2`](`open/0`) for the message format.
-  - If `true` (full active mode) there is no flow control.
+  - If `true|once|N` (_active modes_) received data or events are sent
+    to the owning process. See [`open/0..2`](`open/0`) for the message format.
+
+  - If `true` (fully _active mode_) there is no flow control.
 
     > #### Note {: .info }
     >
-    > Note that this can cause the message queue to overflow causing for example
-    > the virtual machine to run out of memory and crash.
+    > Note that this can cause the message queue to overflow
+    > causing for example the virtual machine to run out of memory and crash.
 
   - If `once`, only one message is automatically placed in the message queue,
-    and after that the mode is automatically reset to passive. This provides
-    flow control and the possibility for the receiver to listen for its incoming
+    and the mode resets to passive. This provides flow control
+    and the possibility for the receiver to listen for incoming
     SCTP data interleaved with other inter-process messages.
-  - If `active` is specified as an integer `N` in the range -32768 to 32767
-    (inclusive), that number is added to the socket's counting of data messages
-    to be delivered to the controlling process. If the result of the addition is
-    negative, the count is set to `0`. Once the count reaches `0`, either
-    through the delivery of messages or by being explicitly set with
-    `inet:setopts/2`, the socket mode is automatically reset to passive
-    (`{active, false}`). When a socket in this active mode transitions to
-    passive mode, the message `{sctp_passive, Socket}` is sent to the
-    controlling process to notify it that if it wants to receive more data
-    messages from the socket, it must call `inet:setopts/2` to set the socket
-    back into an active mode.
 
-- **`{tos, integer()}`** - Sets the Type-Of-Service field on the IP datagrams
+  - If `active` is specified as an integer `N` in the range -32768 to 32767
+    (inclusive), that number is added to the socket's data messages counter.
+    If the result of the addition is negative, the counter is set to `0`.
+    Once the counter reaches `0`, either through the delivery of messages
+    or by being explicitly set with `inet:setopts/2`, the socket mode
+    resets to passive (`{active, false}`). When a socket in `{active, N}`
+    mode transitions to passive mode, the message `{sctp_passive, Socket}`
+    is sent to the controlling process to notify that if it wants to receive
+    more data messages from the socket, it must call `inet:setopts/2`
+    to set the socket back into an active mode.
+
+- **`{tos, integer()}`** - Sets the Type-Of-Service field on the IP datagrams
   that are sent, to the specified value. This effectively determines a
   prioritization policy for the outbound packets. The acceptable values are
   system-dependent.
 
-- **`{priority, integer()}`** - A protocol-independent equivalent of `tos`
+- **`{priority, integer()}`** - A protocol-independent equivalent of `tos`
   above. Setting priority implies setting `tos` as well.
 
-- **`{dontroute, true|false}`** - Defaults to `false`. If `true`, the kernel
-  does not send packets through any gateway, only sends them to directly
-  connected hosts.
+- **`{dontroute, true|false}`** - Defaults to `false`.
+  If `true`, the kernel does not send packets through any gateway,
+  but only sends them to directly connected hosts.
 
-- **`{reuseaddr, true|false}`** - Defaults to `false`. If true, the local
-  binding address `{IP,Port}` of the socket can be reused immediately. No
-  waiting in state `CLOSE_WAIT` is performed (can be required for
-  high-throughput servers).
+- **`{reuseaddr, true|false}`** - Defaults to `false`.
+  If `true`, the local binding address `{IP,Port}` of the socket can be
+  reused immediately. No waiting in state `CLOSE_WAIT` is performed
+  (can be required for some types of servers).
 
-- **`{sndbuf, integer()}`** - The size, in bytes, of the OS kernel send buffer
+- **`{sndbuf, integer()}`** - The size, in bytes, of the OS kernel send buffer
   for this socket. Sending errors would occur for datagrams larger than
-  `val(sndbuf)`. Setting this option also adjusts the size of the driver buffer
-  (see `buffer` above).
+  `val(sndbuf)`. Setting this option also adjusts the size of
+  the driver buffer (see `buffer` above).
 
-- **`{recbuf, integer()}`** - The size, in bytes, of the OS kernel receive
-  buffer for this socket. Sending errors would occur for datagrams larger than
-  `val(recbuf)`. Setting this option also adjusts the size of the driver buffer
-  (see `buffer` above).
+- **`{recbuf, integer()}`** - The size, in bytes, of the OS kernel receive
+  buffer for this socket. Sending errors would occur for datagrams
+  larger than `val(recbuf)`. Setting this option also adjusts the size
+  of the driver buffer (see `buffer` above).
 
-- **`{sctp_module, module()}`** - Overrides which callback module is used.
+- **`{sctp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_sctp` for IPv4 and `inet6_sctp` for IPv6.
 
-- **`{sctp_rtoinfo, #sctp_rtoinfo{}}`**
+- **`{sctp_rtoinfo, #sctp_rtoinfo{}}`**
 
-  ```c
+  ```erlang
   #sctp_rtoinfo{
         assoc_id = assoc_id(),
         initial  = integer(),
@@ -146,14 +150,14 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   Determines retransmission time-out parameters, in milliseconds, for the
   association(s) specified by `assoc_id`.
 
-  `assoc_id = 0` (default) indicates the whole endpoint. See
+  `assoc_id = 0` (default) indicates the whole endpoint. See
   [RFC 2960](http://www.rfc-archive.org/getrfc.php?rfc=2960) and
   [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13)
   for the exact semantics of the field values.
 
-- **`{sctp_associnfo, #sctp_assocparams{}}`**
+- **`{sctp_associnfo, #sctp_assocparams{}}`**
 
-  ```c
+  ```erlang
   #sctp_assocparams{
         assoc_id                 = assoc_id(),
         asocmaxrxt               = integer(),
@@ -167,13 +171,13 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   Determines association parameters for the association(s) specified by
   `assoc_id`.
 
-  `assoc_id = 0` (default) indicates the whole endpoint. See
+  `assoc_id = 0` (default) indicates the whole endpoint. See
   [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13)
   for the discussion of their semantics. Rarely used.
 
-- **`{sctp_initmsg, #sctp_initmsg{}}`**
+- **`{sctp_initmsg, #sctp_initmsg{}}`**
 
-  ```c
+  ```erlang
   #sctp_initmsg{
        num_ostreams   = integer(),
        max_instreams  = integer(),
@@ -182,8 +186,8 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   }
   ```
 
-  Determines the default parameters that this socket tries to negotiate with its
-  peer while establishing an association with it. Is to be set after
+  Determines the default parameters that this socket tries to negotiate
+  with its peer while establishing an association with it. Is to be set after
   [`open/*`](`open/1`) but before the first [`connect/*`](`connect/4`).
   `#sctp_initmsg{}` can also be used as ancillary data with the first call of
   [`send/*`](`send/3`) to a new peer (when a new association is created).
@@ -198,11 +202,11 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   - **`max_init_timeo`** - Time-out, in milliseconds, for establishing an
     association
 
-- **`{sctp_autoclose, integer() >= 0}`** - Determines the time, in seconds,
+- **`{sctp_autoclose, integer() >= 0}`** - Determines the time, in seconds,
   after which an idle association is automatically closed. `0` means that the
   association is never automatically closed.
 
-- **`{sctp_nodelay, true|false}`** - Turns on|off the Nagle algorithm for
+- **`{sctp_nodelay, true|false}`** - Turns on|off the Nagle algorithm for
   merging small packets into larger ones. This improves throughput at the
   expense of latency.
 
@@ -212,16 +216,16 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   not affect the logical atomicity of its delivery; this option is provided for
   performance reasons only.
 
-- **`{sctp_i_want_mapped_v4_addr, true|false}`** - Turns on|off automatic
+- **`{sctp_i_want_mapped_v4_addr, true|false}`** - Turns on|off automatic
   mapping of IPv4 addresses into IPv6 ones (if the socket address family is
   `AF_INET6`).
 
-- **`{sctp_maxseg, integer()}`** - Determines the maximum chunk size if message
+- **`{sctp_maxseg, integer()}`** - Determines the maximum chunk size if message
   fragmentation is used. If `0`, the chunk size is limited by the Path MTU only.
 
-- **`{sctp_primary_addr, #sctp_prim{}}`**
+- **`{sctp_primary_addr, #sctp_prim{}}`**
 
-  ```text
+  ```erlang
   #sctp_prim{
         assoc_id = assoc_id(),
         addr     = {IP, Port}
@@ -234,9 +238,9 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   peer addresses. This option determines that the specified address is treated
   by the local SCTP stack as the primary address of the peer.
 
-- **`{sctp_set_peer_primary_addr, #sctp_setpeerprim{}}`**
+- **`{sctp_set_peer_primary_addr, #sctp_setpeerprim{}}`**
 
-  ```text
+  ```erlang
   #sctp_setpeerprim{
         assoc_id = assoc_id(),
         addr     = {IP, Port}
@@ -245,28 +249,25 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
    Port = port_number()
   ```
 
-  When set, informs the peer to use `{IP, Port}` as the primary address of the
+  When set, informs the peer to use `{IP, Port}` as the primary address of the
   local endpoint for the association specified by `assoc_id`.
 
-  [](){: #option-sctp_adaptation_layer }
 
-- **`{sctp_adaptation_layer, #sctp_setadaptation{}}`**
+- **`{sctp_adaptation_layer, #sctp_setadaptation{}}`** [](){: #option-sctp_adaptation_layer }
 
-  ```text
+  ```erlang
   #sctp_setadaptation{
         adaptation_ind = integer()
   }
   ```
 
-  {: #record-sctp_setadaptation }
-
   When set, requests that the local endpoint uses the value specified by
-  `adaptation_ind` as the Adaptation Indication parameter for establishing new
-  associations. For details, see
+  `adaptation_ind` as the Adaptation Indication parameter for establishing
+  new associations. For details, see
   [RFC 2960](http://www.rfc-archive.org/getrfc.php?rfc=2960) and
   [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13).
 
-- **`{sctp_peer_addr_params, #sctp_paddrparams{}}`**
+- **`{sctp_peer_addr_params, #sctp_paddrparams{}}`**
 
   ```erlang
   #sctp_paddrparams{
@@ -314,9 +315,10 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
 
     - **`sackdelay_disable`** - Disables SAC delay
 
-- **`{sctp_default_send_param, #sctp_sndrcvinfo{}}`**
+- **`{sctp_default_send_param, #sctp_sndrcvinfo{}}`**
 
-  ```text
+  [](){: #record-sctp_sndrcvinfo }
+  ```erlang
   #sctp_sndrcvinfo{
         stream     = integer(),
         ssn        = integer(),
@@ -330,14 +332,12 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   }
   ```
 
-  {: #record-sctp_sndrcvinfo }
+  `#sctp_sndrcvinfo{}` is used both in this socket option, and as
+  ancillary data while sending or receiving SCTP messages. When set
+  as an option, it provides default values for subsequent
+  [`send`](`send/3`) calls on the association specified by `assoc_id`.
 
-  `#sctp_sndrcvinfo{}` is used both in this socket option, and as ancillary data
-  while sending or receiving SCTP messages. When set as an option, it provides
-  default values for subsequent [`send`](`send/3`) calls on the association
-  specified by `assoc_id`.
-
-  `assoc_id = 0` (default) indicates the whole endpoint.
+  `assoc_id = 0` (default) indicates the whole endpoint.
 
   The following fields typically must be specified by the sender:
 
@@ -361,11 +361,9 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
     [RFC 2960](http://www.rfc-archive.org/getrfc.php?rfc=2960) and
     [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13).
 
-  [](){: #option-sctp_events }
+- **`{sctp_events, #sctp_event_subscribe{}}`** [](){: #option-sctp_events }
 
-- **`{sctp_events, #sctp_event_subscribe{}}`**
-
-  ```text
+  ```erlang
   #sctp_event_subscribe{
           data_io_event          = true | false,
           association_event      = true | false,
@@ -378,19 +376,17 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   }
   ```
 
-  {: #record-sctp_event_subscribe }
-
-  This option determines which [SCTP Events](`m:gen_sctp#sctp_events`) are to be
+  This option determines which [SCTP Events](#sctp-events) that are to be
   received (through [`recv/*`](`recv/1`)) along with the data. The only
   exception is `data_io_event`, which enables or disables receiving of
-  [`#sctp_sndrcvinfo{}`](`m:gen_sctp#record-sctp_sndrcvinfo`) ancillary data,
+  [`#sctp_sndrcvinfo{}`](#record-sctp_sndrcvinfo) ancillary data,
   not events. By default, all flags except `adaptation_layer_event` are enabled,
   although `sctp_data_io_event` and `association_event` are used by the driver
   itself and not exported to the user level.
 
-- **`{sctp_delayed_ack_time, #sctp_assoc_value{}}`**
+- **`{sctp_delayed_ack_time, #sctp_assoc_value{}}`**
 
-  ```text
+  ```erlang
   #sctp_assoc_value{
         assoc_id    = assoc_id(),
         assoc_value = integer()
@@ -401,9 +397,9 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   milliseconds) for the specified association or the whole endpoint if
   `assoc_value = 0` (default).
 
-- **`{sctp_status, #sctp_status{}}`**
+- **`{sctp_status, #sctp_status{}}`**
 
-  ```c
+  ```erlang
   #sctp_status{
         assoc_id            = assoc_id(),
         state               = atom(),
@@ -418,8 +414,8 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   ```
 
   This option is read-only. It determines the status of the SCTP association
-  specified by `assoc_id`. The following are the possible values of `state` (the
-  state designations are mostly self-explanatory):
+  specified by `assoc_id`. The following are the possible values of `state`
+  (the state designations are mostly self-explanatory):
 
   - **`sctp_state_empty`** - Default. Means that no other state is active.
 
@@ -457,11 +453,10 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   - **`sstat_primary`** - Information on the current primary peer address (see
     below for the format of `#sctp_paddrinfo{}`)
 
-  [](){: #option-sctp_get_peer_addr_info }
 
-- **`{sctp_get_peer_addr_info, #sctp_paddrinfo{}}`**
+- **`{sctp_get_peer_addr_info, #sctp_paddrinfo{}}`** [](){: #option-sctp_get_peer_addr_info }
 
-  ```text
+  ```erlang
   #sctp_paddrinfo{
         assoc_id  = assoc_id(),
         address   = {IP, Port},
@@ -475,23 +470,20 @@ Options can be changed when calling [`connect/4,5`](`connect/4`).
   Port = port_number()
   ```
 
-  {: #record-sctp_paddrinfo }
-
-  This option is read-only. It determines the parameters specific to the peer
-  address specified by `address` within the association specified by `assoc_id`.
-  Field `address` fmust be set by the caller; all other fields are filled in on
-  return. If `assoc_id = 0` (default), the `address` is automatically translated
-  into the corresponding association ID. This option is rarely used. For the
-  semantics of all fields, see
+  This option is read-only. It determines the parameters specific to
+  the peer address specified by `address` within the association specified
+  by `assoc_id`.  Field `address` fmust be set by the caller; all other fields
+  are filled in on return. If `assoc_id = 0` (default), the `address`
+  is automatically translated into the corresponding association ID.
+  This option is rarely used. For the semantics of all fields, see
   [RFC 2960](http://www.rfc-archive.org/getrfc.php?rfc=2960) and
   [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13).
 
-[](){: #examples }
+[](){: #examples } SCTP Examples
+--------------------------------
 
-## SCTP Examples
-
-Example of an Erlang SCTP server that receives SCTP messages and prints them on
-the standard output:
+Example of an Erlang SCTP server that receives SCTP messages
+and prints them on the standard output:
 
 ```erlang
 -module(sctp_server).
@@ -525,12 +517,12 @@ server_loop(S) ->
     server_loop(S).
 ```
 
-Example of an Erlang SCTP client interacting with the above server. Notice that
-in this example the client creates an association with the server with 5
-outbound streams. Therefore, sending of `"Test 0"` over stream 0 succeeds, but
-sending of `"Test 5"` over stream 5 fails. The client then `abort`s the
-association, which results in that the corresponding event is received on the
-server side.
+Example of an Erlang SCTP client interacting with the above server.
+Note that in this example the client creates an association with
+the server with 5 outbound streams. Therefore, sending of `"Test 0"`
+over stream 0 succeeds, but sending of `"Test 5"` over stream 5 fails.
+The client then `abort`s the association, which results in that
+the corresponding event is received on the server side.
 
 ```erlang
 -module(sctp_client).
@@ -625,19 +617,18 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) ->
     end.
 ```
 
-[](){: #seealso }
-
-## See Also
+[](){: #seealso } See Also
+--------------------------
 
 `m:gen_tcp`, `m:gen_udp`, `m:inet`,
 [RFC 2960](http://www.rfc-archive.org/getrfc.php?rfc=2960) (Stream Control
 Transmission Protocol),
 [Sockets API Extensions for SCTP](http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13)
 """.
--moduledoc(#{titles =>
-                 [{type,<<"Exported data types">>},
-                  {type,<<"Internal data types">>}]}).
 
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% This module provides functions for communicating with
 %% sockets using the SCTP protocol.  The implementation assumes that
 %% the OS kernel supports SCTP providing user-level SCTP Socket API:
@@ -656,6 +647,8 @@ Transmission Protocol),
 -export([controlling_process/2]).
 
 -doc """
+Association ID.
+
 An opaque term returned in, for example, `#sctp_paddr_change{}`, which
 identifies an association for an SCTP socket. The term is opaque except for the
 special value `0`, which has a meaning such as "the whole endpoint" or "all
@@ -664,16 +657,13 @@ future associations".
 -doc(#{title => <<"Exported data types">>}).
 -type assoc_id() :: term().
 
--doc "One of the [SCTP Socket Options](`m:gen_sctp#options`) used to set an option.".
+-doc "[SCTP Socket Option](#options) name and value, to set.".
 -doc(#{title => <<"Exported data types">>}).
 -type option() ::
         elementary_option() |
         record_option().
 
--doc """
-An option name or one of the [SCTP Socket Options](`m:gen_sctp#options`) used to
-get an option.
-""".
+-doc "[SCTP Socket Option](#options) name, to get.".
 -doc(#{title => <<"Exported data types">>}).
 -type option_name() ::
         elementary_option_name() |
@@ -681,8 +671,7 @@ get an option.
         ro_option().
 
 -doc """
-One of the [SCTP Socket Options](`m:gen_sctp#options`) as returned when getting
-an option.
+[SCTP Socket Option](#options) name and value, what you get.
 """.
 -doc(#{title => <<"Exported data types">>}).
 -type option_value() ::
@@ -768,25 +757,67 @@ an option.
         {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
         {sctp_status, #sctp_status{}}.
 
--doc """
-Socket identifier returned from [`open/*`](`open/0`).
-
-[](){: #exports }
-""".
+-doc "Socket identifier returned from [`open/*`](`open/0`).".
 -doc(#{title => <<"Exported data types">>}).
 -type sctp_socket() :: port().
 
 -export_type(
    [assoc_id/0, option/0, option_name/0,  option_value/0, sctp_socket/0]).
 
--doc(#{equiv => open/2}).
+
+
+-doc(#{equiv => open([])}).
 -spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().
-
 open() ->
     open([]).
 
--doc(#{equiv => open/2}).
+-doc """
+Create an SCTP socket.
+
+With argument [`Port`](`t:inet:port_number/0`),
+equivalent to`open([{port, Port}]`.
+
+Creates an SCTP socket and binds it to the local addresses specified by all
+`{ip,IP}` (or synonymously `{ifaddr,IP}`) options (this feature is called
+SCTP multi-homing). The default `IP` and `Port` are `any` and `0`,
+meaning bind to all local addresses on any free port.
+
+It is also possible to use `{ifaddr, SockAddr}`, in which case it takes
+precedence over the `ip` and `port` options. These options can however
+be used to update the address and port of ifaddr (if they occur
+after ifaddr in the options list), although this is not recommended.
+
+Other options:
+
+- **`inet6`** - Sets up the socket for IPv6.
+
+- **`inet`** - Sets up the socket for IPv4. This is the default.
+
+A default set of socket [options](#options) is used.
+In particular, the socket is opened in [binary](#option-binary)
+and [passive](#option-active) mode, with SockType `seqpacket`,
+and with reasonably large [kernel](`m:inet#option-sndbuf`) and driver
+[buffers](`m:inet#option-buffer`).
+
+When the socket is in [passive](#option-active) mode,
+data can be received through the [`recv/1,2`](`recv/1`) calls.
+
+When the socket is in [active](#option-active) mode,
+data received data is delivered to the controlling process as messages:
+
+```erlang
+{sctp, Socket, FromIP, FromPort, {AncData, Data}}
+```
+
+See [`recv/1,2`](`recv/1`) for a description of the message fields.
+
+> #### Note {: .info }
+>
+> This message format unfortunately differs slightly from the
+> [`gen_udp`](`gen_udp:open/1`) message format with ancillary data,
+> and from the [`recv/1,2`](`recv/1`) return tuple format.
+""".
 -spec open(Port) -> {ok, Socket} | {error, inet:posix()} when
               Port :: inet:port_number(),
               Socket :: sctp_socket();
@@ -796,16 +827,15 @@ open() ->
                    | {ip, IP}
                    | {port, Port}
                    | inet:address_family()
-        	   | {type, SockType}
+                   | {type, SockType}
                    | {netns, file:filename_all()}
                    | {bind_to_device, binary()}
                    | option(),
               IP       :: inet:ip_address() | any | loopback,
               SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
               Port     :: inet:port_number(),
-	      SockType :: seqpacket | stream,
+              SockType :: seqpacket | stream,
               Socket   :: sctp_socket().
-
 open(Opts0) when is_list(Opts0) ->
     {Mod, Opts} = inet:sctp_module(Opts0),
     case Mod:open(Opts) of
@@ -820,74 +850,23 @@ open(Port) when is_integer(Port) ->
 open(X) ->
     erlang:error(badarg, [X]).
 
--doc """
-Creates an SCTP socket and binds it to the local addresses specified by all
-`{ip,IP}` (or synonymously `{ifaddr,IP}`) options (this feature is called SCTP
-multi-homing). The default `IP` and `Port` are `any` and `0`, meaning bind to
-all local addresses on any free port.
-
-It is also possible to use `{ifaddr, SockAddr}`, in which case it takes
-precedence over the `ip` and `port` options. These options can however be used
-to update the address and port of ifaddr (if they occur after ifaddr in the
-options list), although this is not recommended.
-
-Other options:
-
-- **`inet6`** - Sets up the socket for IPv6.
-
-- **`inet`** - Sets up the socket for IPv4. This is the default.
-
-A default set of socket [options](`m:gen_sctp#options`) is used. In particular,
-the socket is opened in [binary](`m:gen_sctp#option-binary`) and
-[passive](`m:gen_sctp#option-active`) mode, with SockType `seqpacket`, and with
-reasonably large [kernel](`m:inet#option-sndbuf`) and driver
-[buffers](`m:inet#option-buffer`).
-
-If the socket is in [passive](`m:gen_sctp#option-active`) mode data can be
-received through the [`recv/1,2`](`recv/1`) calls.
-
-If the socket is in [active](`m:gen_sctp#option-active`) mode data received data
-is delivered to the controlling process as messages:
-
-```text
-{sctp, Socket, FromIP, FromPort, {AncData, Data}}
-```
-
-See [`recv/1,2`](`recv/1`) for a description of the message fields.
-
-> #### Note {: .info }
->
-> This message format unfortunately differs slightly from the
-> [`gen_udp`](`gen_udp:open/1`) message format with ancillary data, and from the
-> [`recv/1,2`](`recv/1`) return tuple format.
-""".
--spec open(Port, Opts) -> {ok, Socket} | {error, inet:posix()} when
-      Opts :: [Opt],
-              Opt :: {ifaddr, IP | SockAddr}
-                   | {ip, IP}
-                   | {port, Port}
-		   | inet:address_family()
-                   | {type, SockType}
-                   | {netns, file:filename_all()}
-                   | {bind_to_device, binary()}
-                   | option(),
-      IP       :: inet:ip_address() | any | loopback,
-      SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
-      Port     :: inet:port_number(),
-      SockType :: seqpacket | stream,
-      Socket   :: sctp_socket().
-
+-doc(#{equiv => open([{port, Port} | Opts])}).
+-spec open(Port :: integer(), Opts :: [term()]) -> _.
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
     open([{port,Port}|Opts]);
 open(Port, Opts) ->
     erlang:error(badarg, [Port,Opts]).
 
+
+
 -doc """
-Closes the socket and all associations on it. The unsent data is flushed as in
-`eof/2`. The [`close/1`](`close/1`) call is blocking or otherwise depending of
-the value of the [`linger`](`m:inet#option-linger`) socket
-[option](`m:gen_sctp#options`). If `close` does not linger or linger time-out
-expires, the call returns and the data is flushed in the background.
+Close an SCTP socket.
+
+Closes the socket and all associations on it. The unsent data is flushed
+as for `eof/2`. The [`close/1`](`close/1`) call is blocking
+depending of the value of the [`linger`](`m:inet#option-linger`)
+socket [option]. If it is `false` or the linger time-out expires,
+the call returns and unsent data is flushed in the background.
 """.
 -spec close(Socket) -> ok | {error, inet:posix()} when
       Socket :: sctp_socket().
@@ -904,15 +883,17 @@ close(S) ->
 
 
 -doc """
-Sets up a socket to listen on the IP address and port number it is bound to.
+Make an SCTP socket listen to incoming associations.
 
-For type `seqpacket`, sockets (the default) `IsServer` must be `true` or
-`false`. In contrast to TCP, there is no listening queue length in SCTP. If
-`IsServer` is `true`, the socket accepts new associations, that is, it becomes
-an SCTP server socket.
+The socket will listen on the IP address(es) and port number it is bound to.
 
-For type `stream`, sockets Backlog define the backlog queue length just like in
-TCP.
+For type `seqpacket`, sockets (the default), the argument`IsServer`
+must be a `t:boolean/0`.  In contrast to `stream` sockets, there is
+no listening queue length.  If `IsServer` is `true`, the socket accepts
+new associations, that is, it becomes an SCTP server socket.
+
+For type `stream` sockets, the argument `Backlog` sets
+the backlog queue length just like for TCP.
 """.
 -spec listen(Socket, IsServer) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
@@ -934,16 +915,20 @@ listen(S, Backlog)
 listen(S, Flag) ->
     erlang:error(badarg, [S,Flag]).
 
--doc """
-Branches off an existing association `Assoc` in a socket `Socket` of type
-`seqpacket` (one-to-many style) into a new socket `NewSocket` of type `stream`
-(one-to-one style).
 
-The existing association argument `Assoc` can be either a
-[`#sctp_assoc_change{}`](`m:gen_sctp#record-sctp_assoc_change`) record as
-returned from, for example, [`recv/*`](`recv/2`), [`connect/*`](`connect/5`), or
-from a listening socket in active mode. It can also be just the field `assoc_id`
-integer from such a record.
+
+-doc """
+Branch off an association into a new socket of type `stream`.
+
+The existing association `Assoc` in the socket `Socket` (that has to
+be of type `seqpacket`; one-to-many style) is branched off into
+a new socket `NewSocket` of type `stream` (one-to-one style).
+
+The existing association argument `Assoc` can be a
+[`#sctp_assoc_change{}`](#record-sctp_assoc_change) record as
+returned from, for example, [`recv/*`](`recv/2`), [`connect/*`](`connect/5`),
+or from a listening socket in active mode.
+It can also be just the field `assoc_id` `t:integer/0` from such a record.
 """.
 -doc(#{since => <<"OTP R15B">>}).
 -spec peeloff(Socket, Assoc) -> {ok, NewSocket} | {error, Reason} when
@@ -961,12 +946,10 @@ peeloff(S, AssocId) when is_port(S), is_integer(AssocId) ->
 	Error -> Error
     end.
 
--doc """
-[](){: #connect-sockaddr3 }
 
-Same as [`connect(Socket, SockAddr, Opts, infinity)`](`connect/4`).
-""".
--doc(#{since => <<"OTP 24.3">>}).
+
+-doc(#{since => <<"OTP 24.3">>,
+       equiv => connect(Socket, SockAddr, Opts, infinity)}).
 -spec connect(Socket, SockAddr, Opts) ->
                      {ok, #sctp_assoc_change{state :: 'comm_up'}} |
                      {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
@@ -980,18 +963,15 @@ connect(S, SockAddr, Opts) ->
     connect(S, SockAddr, Opts, infinity).
 
 -doc """
-[](){: #connect-sockaddr4 }
+Establish an association with a peer.
 
-This is conceptually the same as [`connect/5`](`m:gen_sctp#connect-addr-port5`),
-only with the difference that we use a socket address, `t:socket:sockaddr_in/0`
-or `t:socket:sockaddr_in6/0` instead of an address (inet:ip_address() or
-inet:hostname()) and port-number.
+With arguments `Addr` and `Port`, equivalent to
+[`connect(Socket, Addr, Port, Opts, infinity)`](`connect/5`).
 
-[](){: #connect-addr-port4 }
-
-Same as [`connect(Socket, Addr, Port, Opts, infinity)`](`connect/5`).
+With arguments `SockAddr` and `Opts` _(since OTP 24.3)_, equivalent to
+[`connect(Socket, Addr, Port, Opts, Timeout)`](`connect/5`)
+where `Addr` and `Port` are extracted from `SockAddr`.
 """.
--doc(#{since => <<"OTP 24.3">>}).
 -spec connect(Socket, SockAddr, Opts, Timeout) ->
                      {ok, #sctp_assoc_change{state :: 'comm_up'}} |
                      {error, #sctp_assoc_change{state :: 'cant_assoc'}} |
@@ -1023,11 +1003,13 @@ connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
 
 -doc """
-[](){: #connect-addr-port5 }
+Establish an association with a peer.
 
-Establishes a new association for socket `Socket`, with the peer (SCTP server
-socket) specified by `Addr` and `Port`. `Timeout`, is expressed in milliseconds.
+Establishes a new association for socket `Socket`, with the peer
+(SCTP server socket) specified by `Addr` and `Port`.
+`Timeout`, is expressed in milliseconds.
 A socket can be associated with multiple peers.
+The socket has to be of type `seqpacket`.
 
 > #### Warning {: .warning }
 >
@@ -1040,11 +1022,12 @@ A socket can be associated with multiple peers.
 > [`connect_init/*`](`connect_init/4`) provides an alternative without this
 > limitation.
 
-[](){: #record-sctp_assoc_change } The result of `connect/*` is an
-`#sctp_assoc_change{}` event that contains, in particular, the new
-[Association ID](`t:assoc_id/0`):
+### [](){: #record-sctp_assoc_change } `#sctp_assoc_change{}`
 
-```c
+The result of `connect/*` is an `#sctp_assoc_change{}` event that contains,
+in particular, the new [Association ID](`t:assoc_id/0`):
+l
+```erlang
 #sctp_assoc_change{
       state             = atom(),
       error             = integer(),
@@ -1054,8 +1037,8 @@ A socket can be associated with multiple peers.
 }
 ```
 
-The number of outbound and inbound streams can be set by giving an
-`sctp_initmsg` option to `connect` as in:
+The number of outbound and inbound streams for the association
+can be set by giving an `sctp_initmsg` option to `connect` as in:
 
 ```erlang
 connect(Socket, Ip, Port>,
@@ -1063,27 +1046,30 @@ connect(Socket, Ip, Port>,
                                    max_instreams=MaxInStreams}}])
 ```
 
-All options `Opt` are set on the socket before the association is attempted. If
-an option record has undefined field values, the options record is first read
-from the socket for those values. In effect, `Opt` option records only define
-field values to change before connecting.
+All options `Opt` are set on the socket before the association is attempted.
+If an option record has undefined field values, the options record
+is first read from the socket for those values. In effect,
+`Opt` option records only need to define field values to change
+before connecting.
 
-The returned `outbound_streams` and `inbound_streams` are the stream numbers on
-the socket. These can be different from the requested values (`OutStreams` and
-`MaxInStreams`, respectively) if the peer requires lower values.
+The returned `outbound_streams` and `inbound_streams` are the number of
+stream on the socket. These can be different from the requested values
+(`OutStreams` and `MaxInStreams`, respectively), if the peer
+requires lower values.
 
 `state` can have the following values:
 
-- **`comm_up`** - Association is successfully established. This indicates a
-  successful completion of `connect`.
+- **`comm_up`** - Association is successfully established. This indicates
+  a successful completion of `connect`.
 
-- **`cant_assoc`** - The association cannot be established (`connect/*`
-  failure).
+- **`cant_assoc`** - The association cannot be established
+  (`connect/*` failure).
 
-Other states do not normally occur in the output from `connect/*`. Rather, they
-can occur in `#sctp_assoc_change{}` events received instead of data in
-[`recv/*`](`recv/1`) calls. All of them indicate losing the association because
-of various error conditions, and are listed here for the sake of completeness:
+Other states do not normally occur in the output from `connect/*`.
+Rather, they can occur in `#sctp_assoc_change{}` events received
+instead of data from [`recv/*`](`recv/1`) calls or socket messages.
+All of them indicate losing the association because of various
+error conditions, and are listed here for the sake of completeness:
 
 - **`comm_lost`**
 
@@ -1091,8 +1077,8 @@ of various error conditions, and are listed here for the sake of completeness:
 
 - **`shutdown_comp`**
 
-Field `error` can provide more detailed diagnostics. The `error` field value can
-be converted into a string using `error_string/1`.
+The field `error` can provide more detailed diagnostics.  Its value
+can be converted into a string using `error_string/1`.
 """.
 -spec connect(Socket, Addr, Port, Opts, Timeout) ->
                      {ok, #sctp_assoc_change{state :: 'comm_up'}} |
@@ -1113,12 +1099,10 @@ connect(S, Addr, Port, Opts, Timeout) ->
 	    Result
     end.
 
--doc """
-[](){: #connect_init-sockaddr3 }
 
-Same as [`connect_init(Socket, SockAddr, Opts, infinity)`](`connect_init/4`).
-""".
--doc(#{since => <<"OTP 24.3">>}).
+
+-doc(#{since => <<"OTP 24.3">>,
+       equiv => connect_init(Socket, SockAddr, Opts, infinity)}).
 -spec connect_init(Socket, SockAddr, Opts) ->
                           ok | {error, inet:posix()} when
       Socket   :: sctp_socket(),
@@ -1128,20 +1112,17 @@ Same as [`connect_init(Socket, SockAddr, Opts, infinity)`](`connect_init/4`).
 connect_init(S, SockAddr, Opts) ->
     connect_init(S, SockAddr, Opts, infinity).
 
+-doc(#{since => <<"OTP R13B04">>}).
 -doc """
-[](){: #connect_init-sockaddr4 }
+Start establishing an association with a peer.
 
-This is conceptually the same as
-[`connect_init/5`](`m:gen_sctp#connect_init-addr-port5`), only with the
-difference that we use a socket address, `t:socket:sockaddr_in/0` or
-`t:socket:sockaddr_in6/0` instead of an address (inet:ip_address() or
-inet:hostname()) and port-number.
+With arguments `Addr` and `Port`, equivalent to
+[`connect_init(Socket, Addr, Port, Opts, infinity)`](`connect/5`).
 
-[](){: #connect_init-addr-port4 }
-
-Same as [`connect_init(Socket, Addr, Port, Opts, infinity)`](`connect_init/5`).
+With arguments `SockAddr` and `Opts` _(since OTP 24.3)_, equivalent to
+[`connect_init(Socket, Addr, Port, Opts, Timeout)`](`connect/5`)
+where `Addr` and `Port` are extracted from `SockAddr`.
 """.
--doc(#{since => <<"OTP 24.3, OTP R13B04">>}).
 -spec connect_init(Socket, SockAddr, Opts, Timeout) ->
                           ok | {error, inet:posix()} when
       Socket   :: sctp_socket(),
@@ -1166,25 +1147,27 @@ connect_init(S, SockAddr, Opts, Timeout)
 connect_init(S, Addr, Port, Opts) ->
     connect_init(S, Addr, Port, Opts, infinity).
 
--doc """
-[](){: #connect_init-addr-port5 }
-
-Initiates a new association for socket `Socket`, with the peer (SCTP server
-socket) specified by `Addr` and `Port`.
-
-The fundamental difference between this API and `connect/*` is that the return
-value is that of the underlying OS `connect(2)` system call. If `ok` is
-returned, the result of the association establishment is received by the calling
-process as an [`#sctp_assoc_change{}`](`m:gen_sctp#record-sctp_assoc_change`)
-event. The calling process must be prepared to receive this, or poll for it
-using [`recv/*`](`recv/1`), depending on the value of the active option.
-
-The parameters are as described in [`connect/*`](`connect/5`), except the
-`Timeout` value.
-
-The timer associated with `Timeout` only supervises IP resolution of `Addr`.
-""".
 -doc(#{since => <<"OTP R13B04">>}).
+-doc """
+Start establishing an association with a peer.
+
+Initiates a new association for socket `Socket`, with the peer
+(SCTP server socket) specified by `Addr` and `Port`.
+
+The fundamental difference between this API and `connect/*` is that
+the return value is that of the underlying OS `connect(2)` system call.
+If `ok` is returned, the operation has been succesfully initiated,
+and the final result result of the association establishment
+is sent to the socket owner (controlling process) as an
+[`#sctp_assoc_change{}`](#record-sctp_assoc_change) event.
+The socket owner must be prepared to receive this, the
+[`recv/*`](`recv/1`) call has to be polled, depending on the value
+of the [active option](#option-active).
+
+The parameters are as described for [`connect/*`](`connect/5`),
+except the `Timeout` value since for this function, the time-out only
+applies to the name resolving of `Addr` when it is a `t:inet:hostname/0`.
+""".
 -spec connect_init(Socket, Addr, Port, Opts, Timeout) ->
                           ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
@@ -1192,7 +1175,6 @@ The timer associated with `Timeout` only supervises IP resolution of `Addr`.
       Port :: inet:port_number(),
       Opts :: [option()],
       Timeout :: timeout().
-
 connect_init(S, Addr, Port, Opts, Timeout) ->
     case do_connect(S, Addr, Port, Opts, Timeout, false) of
 	badarg ->
@@ -1200,7 +1182,6 @@ connect_init(S, Addr, Port, Opts, Timeout) ->
 	Result ->
 	    Result
     end.
-
 
 do_connect(S, SockAddr, Opts, Timeout, ConnWait)
   when is_port(S) andalso is_list(Opts) ->
@@ -1224,7 +1205,6 @@ do_connect(S, SockAddr, Opts, Timeout, ConnWait)
     end;
 do_connect(_S, _SockAddr, _Opts, _Timeout, _ConnWait) ->
     badarg.
-
 
 do_connect(S, Addr, Service, Opts, Timeout, ConnWait)
   when is_port(S) andalso is_list(Opts) ->
@@ -1259,15 +1239,17 @@ do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
 
 
 
+-doc(#{since => <<"OTP 25.0">>}).
 -doc """
+Start establishing an association with a peer (multiple addresses).
+
 Similar to `connectx_init/5` except using socket addresses, and not having a
 `Timeout`. Since the addresses do not need lookup and the connect is
 non-blocking this call returns immediately.
 
-The value of each socket address `port` must be the same or zero. At least one
-socket address must have a non-zero `port`
+The value of each socket address `port` must be the same or zero.
+At least one socket address must have a non-zero `port`
 """.
--doc(#{since => <<"OTP 25.0">>}).
 -spec connectx_init(Socket, SockAddrs, Opts) ->
                           {ok, assoc_id()} | {error, inet:posix()} when
       Socket   :: sctp_socket(),
@@ -1284,11 +1266,8 @@ connectx_init(S, SockAddrs, Opts) ->
 	    Result
     end.
 
--doc """
-Same as
-[`connectx_init(Socket, Addrs, Port, Opts, infinity)`](`connectx_init/5`).
-""".
--doc(#{since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 25.0">>,
+       equiv => connectx_init(Socket, Addrs, Port, Opts, infinity)}).
 -spec connectx_init(Socket, Addrs, Port, Opts) ->
                           {ok, assoc_id()} | {error, inet:posix()} when
       Socket :: sctp_socket(),
@@ -1299,24 +1278,28 @@ Same as
 connectx_init(S, Addrs, Port, Opts) ->
     connectx_init(S, Addrs, Port, Opts, infinity).
 
+-doc(#{since => <<"OTP 25.0">>}).
 -doc """
-Initiates a new association for socket `Socket`, with the peer (SCTP server
-socket) specified by `Addrs` and `Port`.
+Start establishing an association with a peer (multiple addresses).
+
+Initiates a new association for socket `Socket`, with the peer
+(SCTP server socket) specified by `Addrs` and `Port`.
 
 This API is similar to `connect_init/*` except the underlying OS
-`sctp_connectx(3)` system call is used.
+`sctp_connectx(3)` system call is used, that accepts multiple
+destination addresses.
 
 If successful, the association ID is returned which will be received in a
-subsequent [`#sctp_assoc_change{}`](`m:gen_sctp#record-sctp_assoc_change`)
+subsequent [`#sctp_assoc_change{}`](#record-sctp_assoc_change)
 event.
 
 The parameters are as described in `connect_init/5`
 
-NOTE: This API allows the OS to use all Addrs when establishing an association,
-but does not guarantee it will. Therefore, if the connection fails the user may
-want to rotate the order of addresses for a subsequent call.
+> #### Note {: .info }
+> This API allows the OS to use all Addrs when establishing an association,
+> but does not guarantee it will. Therefore, if the connection fails,
+> the user may want to rotate the order of addresses for a subsequent call.
 """.
--doc(#{since => <<"OTP 25.0">>}).
 -spec connectx_init(Socket, Addrs, Port, Opts, Timeout) ->
                           {ok, assoc_id()} | {error, inet:posix()} when
       Socket :: sctp_socket(),
@@ -1462,9 +1445,12 @@ getaddrs(_Mod, [], _Timer, Acc) ->
 
 
 -doc """
-Gracefully terminates the association specified by `Assoc`, with flushing of all
-unsent data. The socket itself remains open. Other associations opened on this
-socket are still valid. The socket can be used in new associations.
+Terminate an association gracefully.
+
+Gracefully terminates the association specified by `Assoc`, flushing
+all unsent data. The socket itself remains open.  Other associations
+opened on this socket are still valid.  The socket can be used
+in new associations.
 """.
 -spec eof(Socket, Assoc) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
@@ -1476,10 +1462,15 @@ eof(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
 eof(S, Assoc) ->
     erlang:error(badarg, [S,Assoc]).
 
+
+
 -doc """
-Abnormally terminates the association specified by `Assoc`, without flushing of
-unsent data. The socket itself remains open. Other associations opened on this
-socket are still valid, and the socket can be used in new associations.
+Abort an association.
+
+Abnormally terminates the association specified by `Assoc`,
+without flushing unsent data.  The socket itself remains open.
+Other associations opened on this socket are still valid,
+and the socket can be used in new associations.
 """.
 -spec abort(Socket, Assoc) -> ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
@@ -1500,13 +1491,17 @@ eof_or_abort(S, AssocId, Action) ->
     end.
 
 
+
 -doc """
+Send a `Data` message, full-featured.
+
 Sends the `Data` message with all sending parameters from a
-[`#sctp_sndrcvinfo{}`](`m:gen_sctp#record-sctp_sndrcvinfo`) record. This way,
-the user can specify the PPID (passed to the remote end) and context (passed to
-the local SCTP layer), which can be used, for example, for error identification.
-However, such a fine level of user control is rarely required. The function
-[`send/4`](`send/4`) is sufficient for most applications.
+[`#sctp_sndrcvinfo{}`](#record-sctp_sndrcvinfo) record.
+This way, the user can specify the PPID (passed to the remote end)
+and context (passed to the local SCTP layer), which can be used,
+for example, for error identification.  However, such a fine grained
+user control is rarely required. The function [`send/4`](`send/4`)
+is sufficient for most applications.
 """.
 -spec send(Socket, SndRcvInfo, Data) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
@@ -1524,7 +1519,16 @@ send(S, #sctp_sndrcvinfo{}=SRI, Data) when is_port(S) ->
 send(S, SRI, Data) ->
     erlang:error(badarg, [S,SRI,Data]).
 
--doc "Sends a `Data` message over an existing association and specified stream.".
+-doc """
+Send a data message.
+
+Sends a `Data` message on the association `Assoc` and `Stream`.
+
+`Assoc` can be specified with a
+[`#sctp_assoc_change{}`](#record-sctp_assoc_change) record
+from an association establishment, or as the `t:assoc_id/0`
+`t:integer/0` field value.
+""".
 -spec send(Socket, Assoc, Stream, Data) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       Assoc :: #sctp_assoc_change{} | assoc_id(),
@@ -1549,7 +1553,9 @@ send(S, AssocId, Stream, Data)
 send(S, AssocChange, Stream, Data) ->
     erlang:error(badarg, [S,AssocChange,Stream,Data]).
 
--doc(#{equiv => recv/2}).
+
+
+-doc(#{equiv => recv(Socket, infinity)}).
 -spec recv(Socket) -> {ok, {FromIP, FromPort, AncData, Data}}
                           | {error, Reason} when
       Socket :: sctp_socket(),
@@ -1567,36 +1573,40 @@ recv(S) ->
     recv(S, infinity).
 
 -doc """
-Receives the `Data` message from any association of the socket. If the receive
-times out, `{error,timeout}` is returned. The default time-out is `infinity`.
-`FromIP` and `FromPort` indicate the address of the sender.
+Receive a `Data` message.
 
-`AncData` is a list of ancillary data items that can be received along with the
-main `Data`. This list can be empty, or contain a single
-[`#sctp_sndrcvinfo{}`](`m:gen_sctp#record-sctp_sndrcvinfo`) record if receiving
-of such ancillary data is enabled (see option
-[`sctp_events`](`m:gen_sctp#option-sctp_events`)). It is enabled by default, as
-such ancillary data provides an easy way of determining the association and
-stream over which the message is received. (An alternative way is to get the
-association ID from `FromIP` and `FromPort` using socket option
-[`sctp_get_peer_addr_info`](`m:gen_sctp#option-sctp_get_peer_addr_info`), but
-this does still not produce the stream number).
+Receives the `Data` message from any association of the socket.
+If the receive times out, `{error,timeout}` is returned. The default
+time-out is `infinity`. `FromIP` and `FromPort` indicate the address
+of the sender.
 
-`AncData` may also contain [ancillary data ](`t:inet:ancillary_data/0`)from the
-socket [options](`m:gen_sctp#options`) [`recvtos`](`m:inet#option-recvtos`),
+`AncData` is a list of ancillary data items received with the main `Data`.
+This list can be empty, or contain a single
+[`#sctp_sndrcvinfo{}`](#record-sctp_sndrcvinfo) record,
+if receiving ancillary data is enabled
+(see option [`sctp_events`](#option-sctp_events)).
+Per default, it is enabled, as such ancillary data provides an easy way
+to determine the association and stream over which the message was received.
+(An alternative way is to get the association ID from `FromIP` and `FromPort`
+using socket option
+[`sctp_get_peer_addr_info`](#option-sctp_get_peer_addr_info),
+but this does still not give the stream number).
+
+`AncData` may also contain [ancillary data](`t:inet:ancillary_data/0`)
+from the socket [options](#options)
+[`recvtos`](`m:inet#option-recvtos`),
 [`recvtclass`](`m:inet#option-recvtclass`) or
-[`recvttl`](`m:inet#option-recvttl`), if that is supported by the platform for
-the socket.
+[`recvttl`](`m:inet#option-recvttl`), if that is supported for the socket
+by the platform.
 
-The `Data` received can be a `t:binary/0` or a `t:list/0` of bytes (integers in
-the range 0 through 255) depending on the socket mode, or an SCTP event.
+The `Data` received can, depending on the socket [mode](#option-binary)
+be a `t:binary/0` or a `t:list/0` of bytes (integers in the range
+`0` through `255`), or it can be an SCTP event.
 
-[](){: #sctp_events }
+### [](){: #sctp-events } Possible SCTP events
 
-Possible SCTP events:
-
-- [`#sctp_sndrcvinfo{}`](`m:gen_sctp#record-sctp_sndrcvinfo`)
-- [`#sctp_assoc_change{}`](`m:gen_sctp#record-sctp_assoc_change`)
+- [`#sctp_sndrcvinfo{}`](#record-sctp_sndrcvinfo)
+- [`#sctp_assoc_change{}`](#record-sctp_assoc_change)
 - ```erlang
   #sctp_paddr_change{
         addr      = {ip_address(),port()},
@@ -1622,12 +1632,13 @@ Possible SCTP events:
 
   - **`addr_confirmed`**
 
-  In case of an error (for example, `addr_unreachable`), field `error` provides
-  more diagnostics. In such cases, event `#sctp_paddr_change{}` is automatically
-  converted into an `error` term returned by [`recv`](`recv/1`). The `error`
-  field value can be converted into a string using `error_string/1`.
+  In case of an error (for example, `addr_unreachable`), the field `error`
+  provides more diagnostics. In such cases, event `#sctp_paddr_change{}`
+  is automatically converted into an `error` term returned by
+  [`recv`](`recv/1`). The `error` field value can be converted
+  into a string using `error_string/1`.
 
-- ```c
+- ```erlang
   #sctp_send_failed{
         flags     = true | false,
         error     = integer(),
@@ -1639,22 +1650,22 @@ Possible SCTP events:
 
   The sender can receive this event if a send operation fails.
 
-  - **`flags`** - A Boolean specifying if the data has been transmitted over the
-    wire.
+  - **`flags`** - A Boolean specifying if the data has been transmitted
+    over the wire.
 
   - **`error`** - Provides extended diagnostics, use
     [`error_string/1`.](`error_string/1`)
 
   - **`info`** - The original
-    [`#sctp_sndrcvinfo{}`](`m:gen_sctp#record-sctp_sndrcvinfo`) record used in
-    the failed [`send/*`.](`send/3`)
+    [`#sctp_sndrcvinfo{}`](#record-sctp_sndrcvinfo) record
+    used in the failed [`send/*`.](`send/3`)
 
   - **`data`** - The whole original data chunk attempted to be sent.
 
   In the current implementation of the Erlang/SCTP binding, this event is
   internally converted into an `error` term returned by [`recv/*`](`recv/1`).
 
-- ```text
+- ```erlang
   #sctp_adaptation_event{
         adaptation_ind = integer(),
         assoc_id       = assoc_id()
@@ -1663,20 +1674,20 @@ Possible SCTP events:
 
   Delivered when a peer sends an adaptation layer indication parameter
   (configured through option
-  [`sctp_adaptation_layer`](`m:gen_sctp#option-sctp_adaptation_layer`)). Notice
-  that with the current implementation of the Erlang/SCTP binding, this event is
-  disabled by default.
+  [`sctp_adaptation_layer`](#option-sctp_adaptation_layer)).
+  Notie that with the current implementation of the Erlang/SCTP binding,
+  this event is disabled by default.
 
-- ```text
+- ```erlang
   #sctp_pdapi_event{
         indication = sctp_partial_delivery_aborted,
         assoc_id   = assoc_id()
   }
   ```
 
-  A partial delivery failure. In the current implementation of the Erlang/SCTP
-  binding, this event is internally converted into an `error` term returned by
-  [`recv/*`](`recv/1`).
+  A partial delivery failure. In the current implementation
+  of the Erlang/SCTP binding, this event is internally converted
+  into an `error` term returned by [`recv/*`](`recv/1`).
 """.
 -spec recv(Socket, Timeout) -> {ok, {FromIP, FromPort, AncData, Data}}
                                    | {error, Reason} when
@@ -1703,9 +1714,12 @@ recv(S, Timeout) ->
 
 
 -doc """
-Translates an SCTP error number from, for example, `#sctp_remote_error{}` or
-`#sctp_send_failed{}` into an explanatory string, or one of the atoms `ok` for
-no error or `undefined` for an unrecognized error.
+Translate an error number into a string or atom.
+
+Translates an SCTP error number from, for example, `#sctp_remote_error{}`
+or `#sctp_send_failed{}` into an explanatory string, or into
+one of the atoms `ok` for no error, or `unknown_error`
+for an unrecognized integer.
 """.
 -spec error_string(ErrorNumber) -> ok | string() | unknown_error when
       ErrorNumber :: integer().
@@ -1746,8 +1760,10 @@ error_string(X) ->
 
 
 -doc """
-Assigns a new controlling process `Pid` to `Socket`. Same implementation as
-`gen_udp:controlling_process/2`.
+Change the controlling process (owner) of a socket.
+
+Assigns a new controlling process `Pid` to `Socket`.
+See `gen_udp:controlling_process/2`.
 """.
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
