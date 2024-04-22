@@ -29,7 +29,7 @@ Interface functions for TLS (Transport Layer Security),
 and DTLS (Datagram Transport Layer Security).
 
 > #### Note {: .info }
-The applications name is still ssl due to the fact that the first versions of the TLS protcol
+The applications name is still SSL due to the fact that the first versions of the TLS protcol
 were named SSL (Secure Socket Layer), however, no version of the old SSL protocol are supported,
 by this application.
 
