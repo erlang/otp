@@ -230,7 +230,6 @@ documentation.
 For information about the current agent config (`AgentConfig`), see the
 [Configuring the application](snmp_config.md#configuration_params) chapter of
 the SNMP user's guide.
-
 """.
 -spec convert_config(OldConfig) -> NewConfig when
       OldConfig :: list(),
@@ -481,8 +480,6 @@ if it does not define the symbolic value as enumerated.
 
 `Db` is a reference to the symbolic store database (retrieved by a call to
 `get_symbolic_store_db/0`).
-
-[](){: #name_to_oid }
 """.
 -spec int_to_enum(Db, Name, Int) -> {value, Enum} | false when
       Db   :: term(),
@@ -2192,8 +2189,6 @@ register_subagent(Agent, SubTree, SubAgent) ->
 -doc """
 Unregister a sub-agent. If the second argument is a pid, then that sub-agent
 will be unregistered from all trees in `Agent`.
-
-[](){: #send_notification2 }
 """.
 -spec unregister_subagent(Agent, SubAgentOidOrPid) -> ok | {error, Reason} when
       Agent            :: pid() | AgentName,
