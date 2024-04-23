@@ -472,7 +472,19 @@ send(ConnectionHandler, ChannelId, Data) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity).
 
 
--doc(#{equiv => send/5}).
+-doc """
+send(ConnectionRef, ChannelId, Type, Data)
+
+Equivalent to [send(ConnectionRef, ChannelId, 0, Data, TimeOut)](`send/5`) if
+called with TimeOut being integer.
+
+Equivalent to [send(ConnectionRef, ChannelId, 0, Data, infinity)](`send/5`) if
+called with TimeOut being infinity atom.
+
+Equivalent to [send(ConnectionHandler, ChannelId, Type, Data, infinity)](`send/5`) if
+called with last argument which is not integer or infinity atom.
+""".
+
 -spec send(connection_ref(), channel_id(), iodata(), timeout()) -> ok |  {error, reason()};
           (connection_ref(), channel_id(), ssh_data_type_code(), iodata()) -> ok |  {error, reason()}.
 

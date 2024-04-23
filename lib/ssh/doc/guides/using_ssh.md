@@ -17,26 +17,24 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Getting Started
-
-## General Information
+# Examples
 
 The following examples use the utility function `ssh:start/0` to start all
 needed applications (`crypto`, `public_key`, and `ssh`). All examples are run in
-an Erlang shell, or in a bash shell, using _openssh_ to illustrate how the `ssh`
+an Erlang shell, or in a bash shell, using **OpenSSH** to illustrate how the `ssh`
 application can be used. The examples are run as the user `otptest` on a local
-network where the user is authorized to log in over `ssh` to the host _tarlop_.
+network where the user is authorized to log in over `ssh` to the host **tarlop**.
 
 If nothing else is stated, it is presumed that the `otptest` user has an entry
-in the _authorized_keys_ file of _tarlop_ (allowed to log in over `ssh` without
-entering a password). Also, _tarlop_ is a known host in the `known_hosts` file
+in the **authorized\_keys** file of **tarlop** (allowed to log in over `ssh` without
+entering a password). Also, **tarlop** is a known host in the `known_hosts` file
 of the user `otptest`. This means that host-verification can be done without
 user-interaction.
 
 ## Using the Erlang ssh Terminal Client
 
 The user `otptest`, which has bash as default shell, uses the `ssh:shell/1`
-client to connect to the _openssh_ daemon running on a host called _tarlop_:
+client to connect to the **OpenSSH** daemon running on a host called **tarlop**:
 
 ```erlang
 1> ssh:start().
@@ -53,14 +51,14 @@ logout
 
 The [`system_dir`](`t:ssh_file:system_dir_daemon_option/0`) option must be a
 directory containing a host key file and it defaults to `/etc/ssh`. For details,
-see Section Configuration Files in [ssh(6)](ssh_app.md).
+see Section Configuration in [ssh](ssh_app.md).
 
 > #### Note {: .info }
 >
 > Normally, the `/etc/ssh` directory is only readable by root.
 
 The option [`user_dir`](`t:ssh_file:user_dir_common_option/0`) defaults to
-directory `users ~/.ssh`.
+directory users `~/.ssh`.
 
 _Step 1._ To run the example without root privileges, generate new keys and host
 keys:
@@ -88,7 +86,7 @@ ok
 3>
 ```
 
-_Step 4._ Use the _openssh_ client from a shell to connect to the Erlang `ssh`
+_Step 4._ Use the **OpenSSH** client from a shell to connect to the Erlang `ssh`
 daemon:
 
 ```text
@@ -108,7 +106,7 @@ There are two ways of shutting down an `ssh` daemon, see _Step 5a_ and _Step
 _Step 5a._ Shut down the Erlang `ssh` daemon so that it stops the listener but
 leaves existing connections, started by the listener, operational:
 
-```text
+```erlang
 3> ssh:stop_listener(Sshd).
 ok
 4>
@@ -117,7 +115,7 @@ ok
 _Step 5b._ Shut down the Erlang `ssh` daemon so that it stops the listener and
 all connections started by the listener:
 
-```text
+```erlang
 3> ssh:stop_daemon(Sshd).
 ok
 4>
@@ -198,7 +196,7 @@ sequence. The bindings are disposed when the result is returned.
 
 Here is an example of a suitable expression sequence:
 
-```text
+```erlang
 A=1, B=2, 3 == (A + B).
 ```
 
@@ -309,7 +307,7 @@ There is often a need to configure some other exec evaluator to tailor the input
 language or restrict the possible functions to call. There are two ways of doing
 this which will be shown with examples below. See
 [ssh:daemon/2,3](`ssh:daemon/2`) and
-[exec_daemon_option()](`t:ssh:exec_daemon_option/0`)) for details.
+[exec_daemon_option()](`t:ssh:exec_daemon_option/0`) for details.
 
 Examples of the two ways to configure the exec evaluator:
 
@@ -601,7 +599,7 @@ terminate(_Reason, _State) ->
     ok.
 ```
 
-The subsystem can be run on the host _tarlop_ with the generated keys, as
+The subsystem can be run on the host **tarlop** with the generated keys, as
 described in Section
 [Running an Erlang ssh Daemon](using_ssh.md#running-an-erlang-ssh-daemon):
 

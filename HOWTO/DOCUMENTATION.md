@@ -23,7 +23,7 @@ All user facing documentation, and some internal documentation, is rendered by
 [ex_doc] and follows the style described in [Documentation]. To get a _full
 understanding_ on how to write documentation for Erlang/OTP you needs to read
 both the [Documentation] docs, [ex_doc]'s docs, [GFM] docs, and [earmark_parser] docs.
-For most use cases though you don't need a full understanding and it is enought
+For most use cases though you don't need a full understanding and it is enough
 to just read [Documentation].
 
 Internal documentation is mostly written using [GFM] or just plain text.

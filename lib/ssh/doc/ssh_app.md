@@ -29,7 +29,7 @@ offers API functions to write customized SSH clients and servers as well as
 making the Erlang shell available over SSH. An SFTP client, `ssh_sftp`, and
 server, `ssh_sftpd`, are also included.
 
-## DEPENDENCIES
+## Dependencies
 
 The `ssh` application uses the applications `m:public_key` and `m:crypto` to
 handle public keys and encryption. Hence, these applications must be loaded for
@@ -37,7 +37,7 @@ the `ssh` application to work. The call `ssh:start/0` will do the necessary
 calls to [application:start/1,2](`application:start/1`) before it starts the
 `ssh` itself.
 
-## CONFIGURATION
+## Configuration
 
 The SSH application uses Configuration Parameters. Where to set them are
 described in [config User's Guide](`e:kernel:config.md`) with SSH details in
@@ -62,7 +62,7 @@ Some special configuration files from OpenSSH are also used:
 - `ssh_host_ed448_key`
 
 By default, `ssh` looks for `id_*`, `known_hosts`, and `authorized_keys` in
-`~/.ssh`, and for the ssh*host*\*\_key files in `/etc/ssh`. These locations can
+`~/.ssh`, and for the ssh\_host\_\*\_key files in `/etc/ssh`. These locations can
 be changed by the options [`user_dir`](`t:ssh_file:user_dir_common_option/0`)
 and [`system_dir`](`t:ssh_file:system_dir_daemon_option/0`). More about where to
 set them is described in [Configuration in SSH](configurations.md).
@@ -110,14 +110,14 @@ expected to be found in files named `ssh_host_rsa_key`, `ssh_host_dsa_key`,
 
 See [ssh_file](`m:ssh_file#FILE-ssh_host_STAR_key`) for details.
 
-## ERROR LOGGER AND EVENT HANDLERS
+## Error Logger and Event Handlers
 
 The `ssh` application uses the default [OTP error logger](`m:error_logger`) to
 log unexpected errors or print information about special events.
 
 [](){: #supported }
 
-## SUPPORTED SPECIFICATIONS AND STANDARDS
+## Supported Specifications and Standards
 
 The supported SSH version is 2.0.
 
@@ -177,7 +177,7 @@ default:
 - (ssh-dss)
 - (ssh-rsa)
 
-See Disabled public key algorithms can be enabled with the
+Disabled public key algorithms can be enabled with the
 [preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
 [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. See
 [Example 9](configure_algos.md#example-9) in
@@ -221,7 +221,7 @@ The following unsecure algorithms are disabled by default:
 
 See the text at the description of
 [the rfc 5647 further down](ssh_app.md#rfc5647_note) for more information
-regarding AEAD*AES*\*\_GCM.
+regarding AEAD\_AES\_\*\_GCM.
 
 Following the internet de-facto standard, the cipher and mac algorithm
 AEAD_AES_128_GCM is selected when the cipher aes128-gcm@openssh.com is
@@ -235,15 +235,15 @@ cipher aes256-gcm@openssh.com is negotiated.
 
 ## Unicode support
 
-Unicode filenames are supported if the emulator and the underlying OS support
-it. See section DESCRIPTION in the `m:file` manual page in Kernel for
+Unicode filenames are supported if the emulator and the underlying OS supports
+it. See `m:file` manual page in Kernel for
 information about this subject.
 
 The shell and the cli both support unicode.
 
-## Rfcs
+## RFCs
 
-The following rfc:s are supported:
+The following RFCs are supported:
 
 - [RFC 4251](https://tools.ietf.org/html/rfc4251), The Secure Shell (SSH)
   Protocol Architecture.
@@ -303,7 +303,7 @@ The following rfc:s are supported:
 
   - 4\.1. diffie-hellman-group-exchange-sha1
 
-  It is disabled by defaultas as it now is regarded insecure, but it can be
+  It is disabled by default as it now is regarded insecure, but it can be
   enabled with the
   [preferred_algorithms](`t:ssh:preferred_algorithms_common_option/0`) or
   [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options.
@@ -325,8 +325,8 @@ The following rfc:s are supported:
   >
   > If the client or the server is not Erlang/OTP, it is the users
   > responsibility to check that other implementation has the same
-  > interpretation of AEAD*AES*_\_GCM as the Erlang/OTP SSH before enabling
-  > them. The aes_-gcm@openssh.com variants are always safe to use since they
+  > interpretation of AEAD\_AES\_\*\_GCM as the Erlang/OTP SSH before enabling
+  > them. The aes\*-gcm@openssh.com variants are always safe to use since they
   > lack the ambiguity.
 
   The second paragraph in section 5.1 is resolved as:
@@ -385,6 +385,6 @@ The following rfc:s are supported:
 - [RFC 8709](https://tools.ietf.org/html/rfc8709) Ed25519 and Ed448 public key
   algorithms for the Secure Shell (SSH) protocol
 
-## SEE ALSO
+## See Also
 
 `m:application`
