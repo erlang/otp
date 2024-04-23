@@ -20,6 +20,7 @@
 -module(application_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2
@@ -38,7 +39,8 @@
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
+	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
+         shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
          format_log_1/1, format_log_2/1,
          configfd_bash/1, configfd_port_program/1]).
@@ -60,7 +62,7 @@ all() ->
      permit_false_start_dist, get_key, get_env, ensure_all_started,
      set_env, set_env_persistent, set_env_errors, get_supervisor,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
-     shutdown_deadlock, config_relative_paths, optional_applications,
+     shutdown_application_call, shutdown_deadlock, config_relative_paths, optional_applications,
      persistent_env, handle_many_config_files, format_log_1, format_log_2,
      configfd_bash, configfd_port_program, invalid_app_file].
 
@@ -2571,6 +2573,60 @@ shutdown_timeout(Config) when is_list(Config) ->
     receive
 	{nodedown,Cp1} ->
 	    ok
+    after 10000 ->
+	    ct:fail("timeout 10 sec: node termination hangs")
+    end,
+    ok.
+
+%%%-----------------------------------------------------------------
+%%% Test that we do not cause a deadlock if we call
+%%% application:set_env or application:ensure_started
+%%% when terminating
+%%%-----------------------------------------------------------------
+shutdown_application_call(Config) when is_list(Config) ->
+    Tester = self(),
+    shutdown_application_call(
+      fun() ->
+              Tester ! {Tester,
+                        catch application:set_env(
+                                deadlock, a, b, [{timeout, infinity},
+                                                 {persistent, true}])}
+      end, Config),
+    receive
+        {Tester, M} ->
+            ?assertMatch({'EXIT',terminating}, M)
+    after 1000 ->
+            ct:fail("timeout 1 sec: no crash message found")
+    end,
+
+    shutdown_application_call(
+      fun() ->
+              Tester ! {Tester, catch application:ensure_started(runtime_tools)}
+      end, Config),
+    receive
+        {Tester, M2}  ->
+            ?assertMatch({'EXIT',terminating}, M2)
+    after 1000 ->
+            ct:fail("timeout 1 sec: no crash message found")
+    end.
+
+shutdown_application_call(Fun, Config) ->
+
+    DataDir = proplists:get_value(data_dir,Config),
+    {ok,Cp1} = start_node(?MODULE_STRING++"_"++atom_to_list(?FUNCTION_NAME)),
+    wait_for_ready_net(),
+    rpc:call(Cp1, code, add_path, [filename:join([DataDir,deadlock])]),
+    rpc:call(Cp1, code, add_path, [filename:dirname(code:which(?MODULE))]),
+    ok = rpc:call(Cp1, application, start, [sasl]),
+
+    ok = rpc:call(Cp1, application, start, [deadlock]),
+    rpc:call(Cp1, application, set_env, [deadlock, fail_stop, Fun]),
+
+    ok = net_kernel:monitor_nodes(true),
+    _ = rpc:call(Cp1, init, stop, []),
+    receive
+	{nodedown,Cp1} ->
+            ok
     after 10000 ->
 	    ct:fail("timeout 10 sec: node termination hangs")
     end,
