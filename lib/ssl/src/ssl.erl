@@ -2937,9 +2937,10 @@ eccs(Other) ->
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"TLS-1.3 Only API">>,
-      since => <<"OTP 22">>}).
+      since => <<"OTP 27.0">>}).
 -doc """
-   Returns all supported groups in TLS 1.3
+   Returns all supported groups in TLS 1.3. Existed since OTP 22.0 , documented as of OTP 27.
+
 """.
 -spec groups() -> [group()].
 %%--------------------------------------------------------------------
@@ -2948,11 +2949,11 @@ groups() ->
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"TLS-1.3 Only API">>,
-      since => <<"OTP 22">>}).
+      since => <<"OTP 27.0">>}).
 -spec groups(Description) -> [group()] when Description :: default.
 
 -doc """
-   Returns default supported groups in TLS 1.3
+   Returns default supported groups in TLS 1.3. Existed since OTP 22.0, documented as of OTP 27.
 """.
 
 %%--------------------------------------------------------------------
