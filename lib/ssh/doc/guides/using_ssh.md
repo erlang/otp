@@ -58,7 +58,7 @@ see Section Configuration in [ssh](ssh_app.md).
 > Normally, the `/etc/ssh` directory is only readable by root.
 
 The option [`user_dir`](`t:ssh_file:user_dir_common_option/0`) defaults to
-directory users `~/.ssh`.
+directory `~/.ssh`.
 
 _Step 1._ To run the example without root privileges, generate new keys and host
 keys:

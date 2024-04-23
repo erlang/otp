@@ -71,7 +71,7 @@ The descriptions of the options uses the
 
 > #### Note {: .info }
 >
-> The [User's Guide](index.html) has examples and a
+> The [User's Guide](index.html) has examples and an
 > [Examples](using_ssh.md) section.
 
 ## Keys and files

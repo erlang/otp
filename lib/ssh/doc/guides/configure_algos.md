@@ -276,7 +276,7 @@ It is of course possible to change more than one list:
                {server2client,[none]}]}]
 ```
 
-Note that the ordering of the tuples in the lists do not matter.
+Note that the order of the tuples in the lists does not matter.
 
 ## Modifying the default set: modify_algorithms
 
