@@ -17,16 +17,20 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Public-key Application
+# Public_Key Application
 
-Provides functions to handle public-key infrastructure.
+The Public Key application deals with public-key related file formats,
+digital signatures, and [X-509
+certificates](http://www.ietf.org/rfc/rfc5280.txt).  It handles
+validation of certificate paths and certificate revocation lists
+(CRLs) and other functions for handling of certificates, keys and
+CRLs. It is a library application that does not read or write files,
+it expects or returns file contents or partial file contents as
+binaries. Except for the functions `public-key:cacerts_load/0`,
+`public-key:cacerts_load/1`, and `public-key:cacerts_get/0`
+that reads files.
 
-## Description
-
-Provides encode/decode of different file formats (PEM, OpenSSH), digital
-signature and verification functions, validation of certificate paths and
-certificate revocation lists (CRLs) and other functions for handling of
-certificates, keys and CRLs.
+## Supported PKIX functionality
 
 - Supports [RFC 5280 ](http://www.ietf.org/rfc/rfc5280.txt)\- Internet X.509
   Public-Key Infrastructure Certificate and Certificate Revocation List (CRL)
@@ -48,7 +52,7 @@ certificates, keys and CRLs.
 - Supports [PKCS-10](http://www.ietf.org/rfc/rfc5967.txt) \- Certification
   Request Syntax Standard
 
-## DEPENDENCIES
+## Dependencies
 
 The `public_key` application uses the Crypto application to perform
 cryptographic operations and the ASN-1 application to handle PKIX-ASN-1
@@ -56,11 +60,11 @@ specifications, hence these applications must be loaded for the `public_key`
 application to work. In an embedded environment this means they must be started
 with `application:start/[1,2]` before the `public_key` application is started.
 
-## ERROR LOGGER AND EVENT HANDLERS
+## Error Logger and Event Handlers
 
 The `public_key` application is a library application and does not use the error
 logger. The functions will either succeed or fail with a runtime error.
 
-## SEE ALSO
+## See Also
 
 `m:application`

@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# public_key Release Notes
+# Public_Key Release Notes
 
 ## Public_Key 1.15.1
 
