@@ -140,7 +140,7 @@ send_commands(Node, CPid, [{expect, Encoding, Expect}|T], N) when is_list(Expect
         ok ->
             send_commands(Node, CPid, T, N + 1);
         {expect_timeout, Got} ->
-            ct:pal("expect timed out waiting for ~p\ngot: ~p\n", [Expect,Got]),
+            ct:log("expect timed out waiting for ~p\ngot: ~p\n", [Expect,Got]),
             {error, timeout};
         Other ->
             Other
@@ -289,7 +289,7 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
 
 start_runerl_command(RunErl, Tempdir, Cmd) ->
     FullCmd = "\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++Cmd++"\"",
-    ct:pal("~ts",[FullCmd]),
+    ct:log("~ts",[FullCmd]),
     os:cmd(FullCmd).
 
 start_peer_runerl_node(RunErl,Erl,Tempdir,[],Args) ->
@@ -533,9 +533,9 @@ dump_logs(Logs) ->
     maps:foreach(
       fun(File, Data) ->
               try re:replace(Data,"\e","\\\\e",[unicode,global]) of
-                  D -> ct:pal("~ts: ~ts",[File, D])
+                  D -> ct:log("~ts: ~ts",[File, D])
               catch error:badarg ->
-                      ct:pal("~ts: ~s",[File, re:replace(Data,"\e","\\\\e",[global])])
+                      ct:log("~ts: ~s",[File, re:replace(Data,"\e","\\\\e",[global])])
               end
       end, Logs).
 
@@ -546,6 +546,7 @@ read_logs(Tempdir) ->
     LogFiles = [F || F <- LogFiles0,
                      case F of
                          "erlang.log" ++ _ -> true;
+%                         "peer" ++ _ -> true;
                          _ -> false
                      end],
 

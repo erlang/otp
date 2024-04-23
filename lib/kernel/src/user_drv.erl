@@ -88,7 +88,7 @@
         %% Clears the state, not touching the characters
         new_prompt.
 
--export_type([message/0]).
+-export_type([message/0, request/0]).
 -export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0]).
 
 %% gen_statem state callbacks
@@ -659,8 +659,18 @@ switch_loop(info,{ReadHandle,{data,Cs}}, {Cont, #state{ read = ReadHandle } = St
         {blink,NewCont,Rs} ->
             {keep_state,
              {NewCont, State#state{ tty = io_requests(Rs, State#state.tty)}},
-             1000}
+             1000};
+        {_What, _Cs, _NewCont, _Rs}  ->
+            keep_state_and_data;
+        {_What, _Bef, _Cs, _NewCont, _Rs}  ->
+            keep_state_and_data
     end;
+switch_loop(info, {Requester, get_unicode_state}, {_Cont, #state{ tty = TTYState }}) ->
+    Requester ! {self(), get_unicode_state, prim_tty:unicode(TTYState) },
+    keep_state_and_data;
+switch_loop(info, {Requester, get_terminal_state}, _State) ->
+    Requester ! {self(), get_terminal_state, prim_tty:isatty(stdout) },
+    keep_state_and_data;
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
      {next_event, info, {State#state.read,{data,[]}}}};
