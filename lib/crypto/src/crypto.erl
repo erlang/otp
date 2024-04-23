@@ -28,65 +28,57 @@ This module provides a set of cryptographic functions.
 
 - **Hash functions** -
 
-  - **SHA1, SHA2** - [Secure Hash Standard \[FIPS PUB180-4\]](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf)
-  - **SHA3** - [SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions \[FIPS PUB 202\]](https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061)
+  - **SHA1, SHA2** - [Secure Hash Standard (FIPS PUB180-4)](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf)
+  - **SHA3** - [SHA-3 Standard: Permutation-Based Hash and Extendable-Output Functions (FIPS PUB 202)](https://www.nist.gov/publications/sha-3-standard-permutation-based-hash-and-extendable-output-functions?pub_id=919061)
 
   - **BLAKE2** - [BLAKE2 — fast secure hashing](https://blake2.net/)
 
   - **SM3** - [The SM3 Hash Function (GM/T 0004-2012)](https://datatracker.ietf.org/doc/html/draft-sca-cfrg-sm3-02)
 
-  - **MD5** - [The MD5 Message Digest Algorithm \[RFC
-    1321]](http://www.ietf.org/rfc/rfc1321.txt)
+  - **MD5** - [The MD5 Message Digest Algorithm (RFC 1321)](http://www.ietf.org/rfc/rfc1321.txt)
 
-  - **MD4** - [The MD4 Message Digest Algorithm \[RFC 1320\]](http://www.ietf.org/rfc/rfc1320.txt)
+  - **MD4** - [The MD4 Message Digest Algorithm (RFC 1320)](http://www.ietf.org/rfc/rfc1320.txt)
 
 - **MACs - Message Authentication Codes** -
 
-  - **Hmac functions** - [Keyed-Hashing for Message Authentication \[RFC 2104\]](http://www.ietf.org/rfc/rfc2104.txt)
+  - **Hmac functions** - [Keyed-Hashing for Message Authentication (RFC 2104)](http://www.ietf.org/rfc/rfc2104.txt)
 
-  - **Cmac functions** - [The AES-CMAC Algorithm \[RFC 4493\]](http://www.ietf.org/rfc/rfc4493.txt)
+  - **Cmac functions** - [The AES-CMAC Algorithm (RFC 4493)](http://www.ietf.org/rfc/rfc4493.txt)
 
-  - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC 7539\]](http://www.ietf.org/rfc/rfc7539.txt)
+  - **POLY1305** - [ChaCha20 and Poly1305 for IETF Protocols (RFC 7539)](http://www.ietf.org/rfc/rfc7539.txt)
 
 - **Symmetric Ciphers** - 
 
-  - **DES, 3DES and AES** - [Block Cipher Techniques \[NIST\]](https://csrc.nist.gov/projects/block-cipher-techniques)
+  - **DES, 3DES and AES** - [Block Cipher Techniques (NIST)](https://csrc.nist.gov/projects/block-cipher-techniques)
 
   - **Blowfish** -
     [Fast Software Encryption, Cambridge Security Workshop Proceedings (December 1993), Springer-Verlag, 1994, pp. 191-204.](https://www.schneier.com/academic/archives/1994/09/description_of_a_new.html)
 
-  - **Chacha20** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC 7539\]](http://www.ietf.org/rfc/rfc7539.txt)
+  - **Chacha20** - [ChaCha20 and Poly1305 for IETF Protocols (RFC 7539)](http://www.ietf.org/rfc/rfc7539.txt)
 
-  - **Chacha20_poly1305** - [ChaCha20 and Poly1305 for IETF Protocols \[RFC
-    7539\]](http://www.ietf.org/rfc/rfc7539.txt)
+  - **Chacha20_poly1305** - [ChaCha20 and Poly1305 for IETF Protocols (RFC 7539)](http://www.ietf.org/rfc/rfc7539.txt)
 
   - **SM4** - [The SM4 Block Cipher Algorithm](https://www.iso.org/standard/81564.html)
 
-- **Modes** - \* **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block
-  Cipher Modes of Operation: Methods and Techniques \[NIST SP
-  800-38A]](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
+- **Modes** -
+  - **ECB, CBC, CFB, OFB and CTR** - [Recommendation for Block Cipher Modes of
+    Operation: Methods and Techniques (NIST SP 800-38A)](https://csrc.nist.gov/publications/detail/sp/800-38a/final)
 
   - **GCM** - [Recommendation for Block Cipher Modes of Operation:
-    Galois/Counter Mode (GCM) and GMAC \[NIST SP
-    800-38D\]](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
+    Galois/Counter Mode (GCM) and GMAC (NIST SP 800-38D)](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
 
   - **CCM** - [Recommendation for Block Cipher Modes of Operation: The CCM Mode
-    for Authentication and Confidentiality \[NIST SP
-    800-38C\]](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf)
+    for Authentication and Confidentiality (NIST SP 800-38C)](https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-38c.pdf)
 
 - **Asymmetric Ciphers - Public Key Techniques** -
 
-  - **RSA** - [PKCS #1: RSA
-    Cryptography Specifications \[RFC 3447\]](http://www.ietf.org/rfc/rfc3447.txt)
+  - **RSA** - [PKCS #1: RSA Cryptography Specifications (RFC 3447)](http://www.ietf.org/rfc/rfc3447.txt)
 
-  - **DSS** - [Digital Signature Standard (DSS) \[FIPS
-    186-4\]](https://csrc.nist.gov/publications/detail/fips/186/4/final)
+  - **DSS** - [Digital Signature Standard (DSS) (FIPS 186-4)](https://csrc.nist.gov/publications/detail/fips/186/4/final)
 
-  - **ECDSA** - [Elliptic Curve Digital Signature Algorithm
-    \[ECDSA\]](http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf)
+  - **ECDSA** - [Elliptic Curve Digital Signature Algorithm (ECDSA)](http://csrc.nist.gov/groups/STM/cavp/documents/dss2/ecdsa2vs.pdf)
 
-  - **SRP** - [The SRP Authentication and Key Exchange System \[RFC
-    2945\]](http://www.ietf.org/rfc/rfc2945.txt)
+  - **SRP** - [The SRP Authentication and Key Exchange System (RFC 2945)](http://www.ietf.org/rfc/rfc2945.txt)
 
 > #### Note {: .info }
 >
@@ -156,7 +148,15 @@ end
 ```
 """.
 -moduledoc(#{titles =>
-                 [{function,<<"Engine API">>},
+                 [{function,<<"Cipher API">>},
+                  {function,<<"Hash API">>},
+                  {function,<<"MAC API">>},
+                  {function,<<"Key API">>},
+                  {function,<<"Sign/Verify API">>},
+                  {function,<<"Random API">>},
+                  {function,<<"Utility Functions">>},
+                  {function,<<"Engine API">>},
+                  {function,<<"Deprecated API">>},
                   {type,<<"Ciphers">>},
                   {type,<<"Digests and hash">>},
                   {type,<<"Elliptic Curves">>},
@@ -589,6 +589,7 @@ dh_params() = [P, G] | [P, G, PrivateKeyBitLength]
 -doc(#{title => <<"Elliptic Curves">>,equiv => edwards_curve_ed()}).
 -type edwards_curve_dh() :: x25519 | x448 .
 
+-doc(#{title => <<"Utility functions">>}).
 -doc "Note that some curves are disabled if FIPS is enabled.".
 -doc(#{title => <<"Elliptic Curves">>}).
 -type edwards_curve_ed() :: ed25519 | ed448 .
@@ -790,12 +791,13 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
             end
     end.
 
-
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Equivalent to application:start(crypto).".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Equivalent to application:stop(crypto).".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
@@ -856,6 +858,7 @@ algorithms.
 
 -define(CURVES, '$curves$').
 
+-doc(#{title => <<"Utility Functions">>}).
 supports(hashs)       -> hash_algorithms();
 supports(public_keys) -> pubkey_algorithms();
 supports(ciphers)     -> add_cipher_aliases(cipher_algorithms());
@@ -863,7 +866,7 @@ supports(macs)        -> mac_algorithms();
 supports(curves)      -> curve_algorithms();
 supports(rsa_opts)    -> rsa_opts_algorithms().
 
-
+-doc(#{title => <<"Utility Functions">>}).
 -doc """
 Provides the name and version of the libraries used by crypto.
 
@@ -888,6 +891,7 @@ version.
                                                 VerStr :: binary() .
 info_lib() -> ?nif_stub.
 
+-doc(#{title => <<"Utility Functions">>}).
 -doc """
 Provides a map with information about the compilation and linking of crypto.
 
@@ -905,7 +909,8 @@ Example:
 
 More association types than documented may be present in the map.
 """.
--doc(#{since => <<"OTP 24.2">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 24.2">>}).
 -spec info() -> #{compile_type := normal | debug | valgrind | asan,
                  cryptolib_version_compiled => string() | undefined,
                   cryptolib_version_linked := string(),
@@ -932,7 +937,8 @@ See `enable_fips_mode/1` about how to enable FIPS mode.
 > exception `error:notsup`. Check [supports(ciphers)](`supports/1`) that in FIPS
 > mode returns the restricted list of available algorithms.
 """.
--doc(#{since => <<"OTP 20.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 20.0">>}).
 -spec info_fips() -> not_supported | not_enabled | enabled.
 
 info_fips() -> ?nif_stub.
@@ -946,7 +952,8 @@ option `--enable-fips`, and the underlying libcrypto must also support FIPS.
 
 See also `info_fips/0`.
 """.
--doc(#{since => <<"OTP 21.1">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 21.1">>}).
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
 enable_fips_mode(Enable) ->
@@ -954,11 +961,12 @@ enable_fips_mode(Enable) ->
 
 enable_fips_mode_nif(_) -> ?nif_stub.
 
+-doc(#{title => <<"MAC API">>}).
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 PKCS #5 PBKDF2 (Password-Based Key Derivation Function 2) in combination with
 HMAC.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{title => <<"Engine API">>,since => <<"OTP 24.2">>}).
 -spec pbkdf2_hmac(Digest, Pass, Salt, Iter, KeyLen) -> Result
@@ -990,7 +998,8 @@ properties of the hash algorithm in question.
 
 For a list of supported hash algorithms, see [supports(hashs)](`supports/1`).
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 22.0">>}).
 -spec hash_info(Type) -> Result
                              when Type :: hash_algorithm(),
                                   Result :: #{size := integer(),
@@ -1001,11 +1010,12 @@ hash_info(Type) ->
     hash_info_nif(Type).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Computes a message digest of type `Type` from `Data`.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{title => <<"Hash API">>,
+       since => <<"OTP R15B02">>}).
 -spec hash(Type, Data) -> Digest when Type :: hash_algorithm(),
                                       Data :: iodata(),
                                       Digest :: binary().
@@ -1015,15 +1025,16 @@ hash(Type, Data) ->
     hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Computes a message digest of type `Type` from `Data` of `Length` for the chosen
 `xof_algorithm`.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 May raise exception `error:notsup` in case the chosen `Type` is not supported by
 the underlying libcrypto implementation.
 """.
--doc(#{since => <<"OTP 26.0">>}).
+-doc(#{title => <<"Hash API">>,
+       since => <<"OTP 26.0">>}).
 -spec hash_xof(Type, Data, Length) -> Digest when Type :: hash_xof_algorithm(),
                                                Data :: iodata(),
                                                Length :: non_neg_integer(),
@@ -1036,27 +1047,29 @@ hash_xof(Type, Data, Length) ->
 -opaque hash_state() :: reference().
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Initializes the context for streaming hash operations. `Type` determines which
 digest to use. The returned context should be used as argument to
 [hash_update](`hash_update/2`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{title => <<"Hash API">>,
+       since => <<"OTP R15B02">>}).
 -spec hash_init(Type) -> State when Type :: hash_algorithm(),
                                     State :: hash_state().
 hash_init(Type) ->
     ?nif_call(hash_init_nif(Type)).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Updates the digest represented by `Context` using the given `Data`. `Context`
 must have been generated using [hash_init](`hash_init/1`) or a previous call to
 this function. `Data` can be any length. `NewContext` must be passed into the
 next call to `hash_update` or [hash_final](`hash_final/1`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{title => <<"Hash API">>,
+       since => <<"OTP R15B02">>}).
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
                                                 Data :: iodata() .
@@ -1066,13 +1079,14 @@ hash_update(Context, Data) ->
     hash_update(Context, Data1, erlang:byte_size(Data1), MaxBytes).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Finalizes the hash operation referenced by `Context` returned from a previous
 call to [hash_update](`hash_update/2`). The size of `Digest` is determined by
 the type of hash function used to generate it.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{title => <<"Hash API">>,
+       since => <<"OTP R15B02">>}).
 -spec hash_final(State) -> Digest when  State :: hash_state(),
                                         Digest :: binary().
 hash_final(Context) ->
@@ -1105,11 +1119,12 @@ hash_final_xof(Context, Length) ->
 %%% Calculate MAC for the whole text at once
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Short for [mac(Type, undefined, Key, Data)](`mac/4`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac(Type :: poly1305, Key, Data) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
@@ -1119,8 +1134,6 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Computes a MAC (Message Authentication Code) of type `Type` from `Data`.
 
 `SubType` depends on the MAC `Type`:
@@ -1143,8 +1156,11 @@ The `Mac` result will have a default length depending on the `Type` and
 default length is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
 the User's Guide.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac(Type, SubType, Key, Data) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -1158,11 +1174,12 @@ mac(Type, SubType, Key0, Data) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Short for [macN(Type, undefined, Key, Data, MacLength)](`macN/5`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec macN(Type :: poly1305, Key, Data, MacLength) -> Mac
                      when Key :: iodata(),
                           Data :: iodata(),
@@ -1184,7 +1201,8 @@ The max `MacLength` is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
 the User's Guide.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec macN(Type, SubType, Key, Data, MacLength) -> Mac
                      when Type :: hmac | cmac | poly1305,
                           SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -1208,11 +1226,12 @@ between function calls.
 -opaque mac_state() :: reference() .
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Short for [mac_init(Type, undefined, Key)](`mac_init/3`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac_init(Type :: poly1305, Key) -> State
                           when Key :: iodata(),
                                State :: mac_state() .
@@ -1221,8 +1240,6 @@ mac_init(poly1305, Key) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Initializes the context for streaming MAC operations.
 
 `Type` determines which mac algorithm to use in the MAC operation.
@@ -1246,10 +1263,13 @@ The returned `State` should be used in one or more subsequent calls to
 `mac_update/2`. The MAC value is finally returned by calling `mac_final/1` or
 `mac_finalN/2`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See
 [examples in the User's Guide.](new_api.md#example-of-mac_init-mac_update-and-mac_final)
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac_init(Type, SubType, Key) -> State
                           when Type :: hmac | cmac | poly1305,
                                SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | undefined,
@@ -1261,8 +1281,6 @@ mac_init(Type, SubType, Key0) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Updates the MAC represented by `State0` using the given `Data` which could be of
 any length.
 
@@ -1270,8 +1288,11 @@ The `State0` is the State value originally from a MAC init function, that is
 `mac_init/2`, `mac_init/3` or a previous call of
 [`mac_update/2`](`mac_update/2`). The value `State0` is returned unchanged by
 the function as `State`.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac_update(State0, Data) -> State
                      when Data :: iodata(),
                           State0 :: mac_state(),
@@ -1282,16 +1303,17 @@ mac_update(Ref, Data) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Finalizes the MAC operation referenced by `State`. The `Mac` result will have a
 default length depending on the `Type` and `SubType` in the
 [mac_init/2,3](`mac_init/3`) call. To set a shorter length, use `mac_finalN/2`
 instead. The default length is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
 the User's Guide.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac_final(State) -> Mac
                               when State :: mac_state(),
                                    Mac :: binary().
@@ -1300,8 +1322,6 @@ mac_final(Ref) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Finalizes the MAC operation referenced by `State`.
 
 `Mac` will be a binary with at most `MacLength` bytes. Note that if `MacLength`
@@ -1311,8 +1331,11 @@ the returned hash will have that shorter length instead.
 The max `MacLength` is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
 the User's Guide.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{title => <<"MAC API">>,
+       since => <<"OTP 22.1">>}).
 -spec mac_finalN(State, MacLength) -> Mac
                               when State :: mac_state(),
                                    MacLength :: pos_integer(),
@@ -1358,7 +1381,8 @@ support and possibly other properties of the cipher algorithm in question.
 For a list of supported cipher algorithms, see
 [supports(ciphers)](`supports/1`).
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 22.0">>}).
 -spec cipher_info(Type) -> Result
                                when Type :: cipher(),
                                     Result :: #{key_length := integer(),
@@ -1448,13 +1472,14 @@ For OpenSSL, see the [OpenSSL documentation](https://openssl.org). and find
 %%%
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Equivalent to the call
 [`crypto_init(Cipher, Key, <<>>, FlagOrOptions)`](`crypto_init/4`). It is
 intended for ciphers without an IV (nounce).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, FlagOrOptions) -> State
                                                    when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
@@ -1466,8 +1491,6 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
              ).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Initializes a series of encryptions or decryptions and creates an internal state
 with a reference that is returned.
 
@@ -1499,10 +1522,13 @@ The actual padding is performed by `crypto_final/1`.
 
 For blocksizes call `cipher_info/1`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See
 [examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State
                                                        when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
@@ -1520,18 +1546,19 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
 %%%
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 It does an actual crypto operation on a part of the full text. If the part is
 less than a number of full blocks, only the full blocks (possibly none) are
 encrypted or decrypted and the remaining bytes are saved to the next
 `crypto_update` operation. The `State` should be created with `crypto_init/3` or
 `crypto_init/4`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See
 [examples in the User's Guide.](new_api.md#examples-of-crypto_init-4-and-crypto_update-2)
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_update(State, Data) -> Result
                             when State :: crypto_state(),
                                  Data :: iodata(),
@@ -1547,13 +1574,14 @@ crypto_update(State, Data) ->
 %%% is returned from this function.
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Finalizes a series of encryptions or decryptions and delivers the final bytes of
 the final block. The data returned from this function may be empty if no padding
 was enabled in [crypto_init/3,4](`crypto_init/3`).
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 23.0">>}).
 -spec crypto_final(State) -> FinalResult
                             when State :: crypto_state(),
                                  FinalResult :: binary() .
@@ -1565,8 +1593,6 @@ crypto_final(State) ->
 %%% Get result of padding etc
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Returns information about the State in the argument. The information is the form
 of a map, which currently contains at least:
 
@@ -1579,8 +1605,11 @@ of a map, which currently contains at least:
   [crypto_init/3,4](`crypto_init/3`).
 
 - **`encrypt`** - Is `true` if encryption is performed. It is `false` otherwise.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 23.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 23.0">>}).
 -spec crypto_get_data(State) -> Result
                             when State :: crypto_state(),
                                  Result :: map() .
@@ -1594,11 +1623,12 @@ crypto_get_data(State) ->
 %%%
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 As `crypto_one_time/5` but for ciphers without IVs.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                              Result
                                  when Cipher :: cipher_no_iv(),
@@ -1615,16 +1645,17 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Do a complete encrypt or decrypt of the full text in the argument `Data`.
 
 For encryption, set the `FlagOrOptions` to `true`. For decryption, set it to
 `false`. For setting other options, see `crypto_init/4`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See [examples in the User's Guide.](new_api.md#example-of-crypto_one_time-5)
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                              Result
                                  when Cipher :: cipher_iv(),
@@ -1641,7 +1672,8 @@ crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
 
 %%%----------------------------------------------------------------
 -doc(#{equiv => crypto_one_time_aead/7}).
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
                              Result
                                  when Cipher :: cipher_aead(),
@@ -1661,8 +1693,6 @@ crypto_one_time_aead(Cipher, Key, IV, PlainText, AAD, true) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Do a complete encrypt or decrypt with an AEAD cipher of the full text.
 
 For encryption, set the `EncryptFlag` to `true` and set the `TagOrTagLength` to
@@ -1679,10 +1709,13 @@ needed. In that case, a plain AE (Authenticated Encryption) is performed instead
 of AEAD (Authenticated Encryption with Associated Data). This function only
 supports ciphers that can be used both with and without AAD.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See
 [examples in the User's Guide.](new_api.md#example-of-crypto_one_time_aead-6)
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Cipher API">>,
+       since => <<"OTP 22.0">>}).
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, TagOrTagLength, EncFlag) ->
                              Result
                                  when Cipher :: cipher_aead(),
@@ -1841,7 +1874,8 @@ from OpenSSL.
 May raise exception `error:low_entropy` in case the random generator failed due
 to lack of secure "randomness".
 """.
--doc(#{since => <<"OTP R14B03">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP R14B03">>}).
 -spec strong_rand_bytes(N::non_neg_integer()) -> binary().
 strong_rand_bytes(Bytes) ->
     case strong_rand_bytes_nif(Bytes) of
@@ -1869,7 +1903,8 @@ _IntegerValue = rand:uniform(42), % [1; 42]
 _FloatValue = rand:uniform().     % [0.0; 1.0[
 ```
 """.
--doc(#{since => <<"OTP 20.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP 20.0">>}).
 -spec rand_seed() -> rand:state().
 rand_seed() ->
     rand:seed(rand_seed_s()).
@@ -1892,7 +1927,8 @@ to lack of secure "randomness".
 > The only supported usage is to generate one distinct random sequence from this
 > start state.
 """.
--doc(#{since => <<"OTP 20.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP 20.0">>}).
 -spec rand_seed_s() -> rand:state().
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
@@ -1917,7 +1953,8 @@ _IntegerValue = rand:uniform(42), % [1; 42]
 _FloatValue = rand:uniform().     % [0.0; 1.0[
 ```
 """.
--doc(#{since => <<"OTP 21.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP 21.0">>}).
 -spec rand_seed_alg(Alg :: atom()) ->
                            {rand:alg_handler(),
                             atom() | rand_cache_seed()}.
@@ -1942,7 +1979,8 @@ IntegerValue = rand:uniform(42), % Same values
 FloatValue = rand:uniform().     % again
 ```
 """.
--doc(#{since => <<"OTP-22.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP-22.0">>}).
 -spec rand_seed_alg(Alg :: atom(), Seed :: term()) ->
                            {rand:alg_handler(),
                             atom() | rand_cache_seed()}.
@@ -1952,6 +1990,7 @@ rand_seed_alg(Alg, Seed) ->
 -define(CRYPTO_CACHE_BITS, 56).
 -define(CRYPTO_AES_BITS, 58).
 
+-doc(#{title => <<"Random API">>}).
 -doc """
 rand_seed_alg_s(Alg) -> rand:state()
 
@@ -2027,7 +2066,8 @@ Numbers are generated in batches and cached for speed reasons. The cache size
 can be changed from its default value using the
 [crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
 """.
--doc(#{since => <<"OTP 22.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP 22.0">>}).
 -spec rand_seed_alg_s(Alg :: atom(), Seed :: term()) ->
                              {rand:alg_handler(),
                               atom() | rand_cache_seed()}.
@@ -2218,6 +2258,7 @@ strong_rand_float() ->
     WholeRange = strong_rand_range(1 bsl 53),
     ?HALF_DBL_EPSILON * bytes_to_integer(WholeRange).
 
+-doc(#{title => <<"Random API">>}).
 -doc """
 rand_uniform(Lo, Hi) -> N
 
@@ -2261,7 +2302,8 @@ from openssl. Only use this if the system you are running on does not have
 enough "randomness" built in. Normally this is when `strong_rand_bytes/1` raises
 `error:low_entropy`
 """.
--doc(#{since => <<"OTP 17.0">>}).
+-doc(#{title => <<"Random API">>,
+       since => <<"OTP 17.0">>}).
 -spec rand_seed(binary()) -> ok.
 rand_seed(Seed) when is_binary(Seed) ->
     rand_seed_nif(Seed).
@@ -2306,8 +2348,9 @@ Options for sign and verify.
 %%%----------------------------------------------------------------
 %%% Sign
 
+-doc(#{title => <<"Sign/Verify API">>,
+       since => <<"OTP R16B01">>}).
 -doc(#{equiv => sign/5}).
--doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
 -spec sign(Algorithm, DigestType, Msg, Key)
           -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
@@ -2328,8 +2371,6 @@ sign(Algorithm, Type, Data, Key) ->
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Creates a digital signature.
 
 The msg is either the binary "cleartext" data to be signed or it is the hashed
@@ -2337,9 +2378,12 @@ value of "cleartext" i.e. the digest (plaintext).
 
 Algorithm `dss` can only be used together with digest type `sha`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See also `public_key:sign/3`.
 """.
--doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
+-doc(#{title => <<"Sign/Verify API">>,
+       since => <<"OTP 20.1">>}).
 -spec sign(Algorithm, DigestType, Msg, Key, Options)
           -> Signature
                  when Algorithm :: pk_sign_verify_algs(),
@@ -2368,7 +2412,8 @@ pkey_sign_nif(_Algorithm, _Type, _Digest, _Key, _Options) -> ?nif_stub.
 %%% Verify
 
 -doc(#{equiv => verify/6}).
--doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
+-doc(#{title => <<"Sign/Verify API">>,
+       since => <<"OTP R16B01">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
@@ -2389,8 +2434,6 @@ verify(Algorithm, Type, Data, Signature, Key) ->
     verify(Algorithm, Type, Data, Signature, Key, []).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Verifies a digital signature
 
 The msg is either the binary "cleartext" data to be signed or it is the hashed
@@ -2398,9 +2441,12 @@ value of "cleartext" i.e. the digest (plaintext).
 
 Algorithm `dss` can only be used together with digest type `sha`.
 
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
 See also `public_key:verify/4`.
 """.
--doc(#{since => <<"OTP 20.1,OTP R16B01">>}).
+-doc(#{title => <<"Sign/Verify API">>,
+       since => <<"OTP 20.1">>}).
 -spec verify(Algorithm, DigestType, Msg, Signature, Key, Options)
             -> Result
                    when Algorithm :: pk_sign_verify_algs(),
@@ -2480,14 +2526,21 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 %%%---- Encrypt with public key
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Encrypts the `PlainText` (message digest) using the `PublicKey` and returns the
 `CipherText`. This is a low level signature operation used for instance by older
 versions of the SSL protocol. See also
 [public_key:encrypt_public/2,3](`public_key:encrypt_public/2`)
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons do not use.
+
 """.
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Do not use",
+       since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -2500,15 +2553,23 @@ public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
 %%%---- Decrypt with private key
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Decrypts the `CipherText`, encrypted with `public_encrypt/4` (or equivalent
 function) using the `PrivateKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
 versions of the SSL protocol. See also
 [public_key:decrypt_private/2,3](`public_key:decrypt_private/2`)
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons do not use.
+
 """.
--doc(#{since => <<"OTP R16B01">>}).
+
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Do not use",
+       since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             CipherText :: binary(),
@@ -2521,14 +2582,24 @@ private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
 %%%---- Encrypt with private key
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Encrypts the `PlainText` using the `PrivateKey` and returns the ciphertext. This
 is a low level signature operation used for instance by older versions of the
 SSL protocol. See also
 [public_key:encrypt_private/2,3](`public_key:encrypt_private/2`)
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+Public-key decryption using the private key. See also `crypto:private_decrypt/4`
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons use [`sign/4`](`sign/4`) together
+> with [`verify/5`](`verify/5`) instead.
+
 """.
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Use sign and verify instead",
+       since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -2541,15 +2612,23 @@ private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
 %%%---- Decrypt with public key
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Decrypts the `CipherText`, encrypted with `private_encrypt/4`(or equivalent
 function) using the `PrivateKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
 versions of the SSL protocol. See also
 [public_key:decrypt_public/2,3](`public_key:decrypt_public/2`)
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
+
+> #### Warning {: .warning }
+>
+> This is a legacy function, for security reasons use [`verify/5`](`verify/5`) together
+> with [`sign/4`](`sign/4`) instead.
+
 """.
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Deprecated API">>,
+       deprecated => ~"Use verify and sign instead",
+       since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             CipherText :: binary(),
@@ -2577,7 +2656,8 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 %%%================================================================
 
 -doc(#{equiv => generate_key/3}).
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Key API">>,
+       since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
@@ -2589,9 +2669,9 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Generates a public key of type `Type`. See also `public_key:generate_key/1`.
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Note {: .info }
 >
@@ -2605,14 +2685,9 @@ Generates a public key of type `Type`. See also `public_key:generate_key/1`.
 >
 > then the optional key length parameter must be at least 224, 256, 302, 352 and
 > 400 for group sizes of 2048, 3072, 4096, 6144 and 8192, respectively.
-
-> #### Note {: .info }
->
-> RSA key generation is only available if the runtime was built with dirty
-> scheduler support. Otherwise, attempting to generate an RSA key will raise the
-> exception `error:notsup`.
 """.
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Key API">>,
+       since => <<"OTP R16B01">>}).
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | srp,
@@ -2695,12 +2770,13 @@ evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
 
 -doc """
-Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
-
 Computes the shared secret from the private key and the other party's public
 key. See also `public_key:compute_key/2`
+
+Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Key API">>,
+       since => <<"OTP R16B01">>}).
 -spec compute_key(Type, OthersPublicKey, MyPrivateKey, Params)
                  -> SharedSecret
                         when Type :: dh | ecdh | eddh |  srp,
@@ -2775,6 +2851,7 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 %%%
 %%%================================================================
 
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Performs bit-wise XOR (exclusive or) on the data supplied.".
 -spec exor(iodata(), iodata()) -> binary().
 
@@ -2791,8 +2868,9 @@ exor(Bin1, Bin2) ->
 %%%
 %%%================================================================
 
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP R16B01">>}).
 -doc "Computes the function `N^P mod M`.".
--doc(#{since => <<"OTP R16B01">>}).
 -spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
                                       P :: binary() | integer(),
                                       M :: binary() | integer(),
@@ -3477,8 +3555,9 @@ ec_generate_key_nif(_Curve, _Key) -> ?nif_stub.
 
 ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 17.0">>}).
 -doc "Can be used to determine which named elliptic curves are supported.".
--doc(#{since => <<"OTP 17.0">>}).
 -spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
                                                          | edwards_curve_dh()
                                                          | edwards_curve_ed() .
@@ -3486,8 +3565,9 @@ ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 ec_curves() ->
     crypto_ec_curves:curves().
 
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP 17.0">>}).
 -doc "Return the defining parameters of a elliptic curve.".
--doc(#{since => <<"OTP 17.0">>}).
 -spec ec_curve(CurveName) -> ExplicitCurve when CurveName :: ec_named_curve(),
                                                 ExplicitCurve :: ec_explicit_curve() .
 ec_curve(X) ->
@@ -3610,7 +3690,8 @@ int_to_bin_neg(X,Ds) ->
     int_to_bin_neg(X bsr 8, [(X band 255)|Ds]).
 
 -doc "Convert binary representation, of an integer, to an Erlang integer.".
--doc(#{since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Utility Functions">>,
+       since => <<"OTP R16B01">>}).
 -spec bytes_to_integer(binary()) -> integer() .
 bytes_to_integer(Bin) ->
     bin_to_int(Bin).
