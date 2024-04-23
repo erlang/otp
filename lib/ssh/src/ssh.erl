@@ -71,8 +71,7 @@ The descriptions of the options uses the
 
 > #### Note {: .info }
 >
-> The [User's Guide](index.html) has examples and an
-> [Examples](using_ssh.md) section.
+> See also [SSH Application Reference](index.html) and [Examples](using_ssh.md) section.
 
 ## Keys and files
 
@@ -135,7 +134,7 @@ The directory could be changed with the option
 -moduledoc(#{titles =>
                  [{type,<<"Client Options">>},
                   {type,<<"Daemon Options (Server Options)">>},
-                  {type,<<"Options common to clients and daemons">>},
+                  {type,<<"Common Options">>},
                   {type,<<"Other data types">>}]}).
 
 -include("ssh.hrl").

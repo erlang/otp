@@ -33,7 +33,7 @@ Authentication Layer Protocols in Erlang. It provides the following:
 
 - API functions to write customized SSH clients and servers applications
 - The Erlang shell available over SSH
-- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftp`)
+- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`)
 
 ## Prerequisites
 

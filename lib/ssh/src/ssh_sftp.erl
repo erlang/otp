@@ -733,8 +733,7 @@ Sets the file position of the file referenced by `Handle`. Returns
 
 - **`{eof, Offset}`** - Offset from the end of file.
 
-- **`bof | cur | eof`** - The same as eariler with `Offset` 0, that is,
-  `{bof, 0} | {cur, 0} | {eof, 0}`.
+- **`bof | cur | eof`** - The same as eariler with `Offset` 0, that is, `{bof, 0} | {cur, 0} | {eof, 0}`.
 """.
 -spec position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition} | Error when
       ChannelPid :: pid(),
