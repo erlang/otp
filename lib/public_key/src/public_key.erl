@@ -172,6 +172,13 @@ macros described here and in the User's Guide:
               test_root_cert/0
              ]).
 
+%% Needed for legacy TLS-1.0 and TLS-1.1 functionality
+-compile({nowarn_deprecated_function, [{crypto, private_encrypt, 4},
+                                       {crypto, private_decrypt, 4},
+                                       {crypto, public_encrypt, 4},
+                                       {crypto, public_decrypt, 4}
+                                      ]}).
+
 -doc(#{title => <<"Keys">>}).
 -doc "Supported public keys".
 -type public_key()           ::  rsa_public_key() |
