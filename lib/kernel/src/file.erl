@@ -1057,7 +1057,6 @@ list_dir_all(Name) ->
     check_and_call(list_dir_all, [file_name(Name)]).
 
 -doc(#{equiv => read_file(Filename, [])}).
--doc(#{since => <<"OTP @OTP-18589@">>}).
 -spec read_file(Filename) -> {ok, Binary} | {error, Reason} when
       Filename :: name_all(),
       Binary :: binary(),
