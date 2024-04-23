@@ -193,9 +193,11 @@ end
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
--deprecated([
-           ]).
-
+-deprecated([{private_encrypt, 4, "use public_key:sign/3 instead"},
+             {private_decrypt, 4, "do not use"},
+             {public_encrypt,  4,  "do not use"},
+             {public_decrypt,  4,  "use public_key:verify/4 instead"}
+            ]).
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
