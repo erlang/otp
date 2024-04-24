@@ -961,7 +961,7 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
     ErtsTracerRef* ref;
     Uint bp_flags;
 
-    if (erts_atomic_read_nob(&g->session->state) != ERTS_TRACE_SESSION_ALIVE) {
+    if (!erts_is_trace_session_alive(g->session)) {
         return 0;
     }
 
@@ -2065,9 +2065,7 @@ Eterm erts_make_bp_session_list(ErtsHeapFactory * factory,
     Eterm list = tail;
 
     for (g = ci->gen_bp ; g; g = g->next) {
-        if (erts_atomic_read_nob(&g->session->state)
-            == ERTS_TRACE_SESSION_ALIVE) {
-
+        if (erts_is_trace_session_alive(g->session)) {
             Eterm *hp = erts_produce_heap(factory,
                                           ERTS_TRACE_SESSION_WEAK_REF_SZ+2, 0);
             Eterm weak_ref = erts_make_trace_session_weak_ref(g->session, &hp);

@@ -3352,7 +3352,7 @@ ErtsTracerRef* new_tracer_ref(ErtsPTabElementCommon* t_p,
     ErtsTracerRef *ref = t_p->tracee.first_ref;
 
     ASSERT(get_tracer_ref(t_p, session) == NULL);
-    ASSERT(erts_atomic_read_nob(&session->state) == ERTS_TRACE_SESSION_ALIVE);
+    ASSERT(erts_is_trace_session_alive(session));
 
     ref = erts_alloc(ERTS_ALC_T_HEAP_FRAG,  // ToDo type?
                      sizeof(ErtsTracerRef));
@@ -3425,7 +3425,7 @@ Uint delete_unalive_trace_refs(ErtsPTabElementCommon* t_p)
         next_ref = ref->next;
 
         ASSERT(ref->session);
-        if (erts_atomic_read_nob(&ref->session->state) == ERTS_TRACE_SESSION_ALIVE) {
+        if (erts_is_trace_session_alive(ref->session)) {
             prev_p = &ref->next;
         } else {
             dbg_remove_p_ref(t_p, ref);

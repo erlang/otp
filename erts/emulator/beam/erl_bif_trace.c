@@ -1135,7 +1135,7 @@ tracer_session_destructor(Binary *bin)
 {
     ErtsTraceSession *s = (ErtsTraceSession*) ERTS_MAGIC_BIN_DATA(bin);
 
-    if (erts_atomic_read_nob(&s->state) == ERTS_TRACE_SESSION_ALIVE) {
+    if (erts_is_trace_session_alive(s)) {
         /*
          * trace_session_destroy() not called.
          * We must initiate cleanup here without a process.
@@ -1272,6 +1272,10 @@ static void trace_session_destroy_aux(void *session_v)
 
     erts_lc_soften_code_mod_permission_check();
 
+    /*
+     * We came here from destructor as refc==0 and session was ALIVE.
+     * No one else could have done anything to the session.
+     */
     ASSERT(erts_atomic_read_nob(&s->state) == ERTS_TRACE_SESSION_ALIVE);
     erts_atomic_set_nob(&s->state, ERTS_TRACE_SESSION_CLEARING);
 
@@ -1477,9 +1481,7 @@ build_trace_sessions_term(Eterm **hpp, Uint *szp, ErtsPTabElementCommon *t_p)
     }
 
     for (ref = t_p->tracee.first_ref; ref; ref = ref->next) {
-        if (erts_atomic_read_nob(&ref->session->state)
-            == ERTS_TRACE_SESSION_ALIVE) {
-
+        if (erts_is_trace_session_alive(ref->session)) {
             sz += ERTS_TRACE_SESSION_WEAK_REF_SZ + 2;
             if (hp) {
                 Eterm weak_ref = erts_make_trace_session_weak_ref(ref->session, &hp);
