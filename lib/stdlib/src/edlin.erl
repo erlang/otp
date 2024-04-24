@@ -254,8 +254,8 @@ which is one of the valid actions mentioned above.
 keymap() ->
     get(key_map).
 
--doc false.
 -type continuation() :: {line, _, _, _} | {_, _, _}.
+-doc false.
 -spec edit_line(unicode:chardata() | eof, continuation()) ->
           {done, continuation(), Rest :: unicode:chardata(), [user_drv:request()]} |
           {open_editor | format_expression | history_up | history_down | search,
