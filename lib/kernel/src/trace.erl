@@ -32,6 +32,15 @@ The functions in this module can be used directly but are also used as building
 blocks to build more sophisticated debugging or profiling tools. For debugging
 Erlang code it is recommended to use `m:dbg` and for profiling use `m:tprof`.
 
+## Trace Sessions
+
+All tracing is done within a trace session. Trace sessions can be
+[created](`session_create/3`) and [destroyed](`session_destroy/1`)
+dynamically. Each session has its own tracer that will receive all trace
+messages. Several sessions can exist at the same time without interfering with
+each other. When a trace session is destroyed, all its trace settings are
+automatically cleaned up.
+
 *Example*:
 ```erlang
 %% Create a tracer process that will receive the trace events
@@ -39,7 +48,7 @@ Erlang code it is recommended to use `m:dbg` and for profiling use `m:tprof`.
 <0.91.0>
 %% Create a session using the Tracer
 2> Session = trace:session_create(my_session, Tracer, []).
-#Ref<0.1543805153.1548353537.92331>
+{#Ref<0.1543805153.1548353537.92331>,{my_session, 0}}
 %% Setup call tracing on self()
 3> trace:process(Session, self(), true, [call]).
 1
@@ -54,15 +63,6 @@ Erlang code it is recommended to use `m:dbg` and for profiling use `m:tprof`.
 6> trace:session_destroy(Session).
 ok
 ```
-
-## Trace Sessions
-
-All tracing is done within a trace session. Trace sessions can be
-[created](`session_create/3`) and [destroyed](`session_destroy/1`)
-dynamically. Each session has its own tracer that will receive all trace
-messages. Several sessions can exist at the same time without interfering with
-each other. When a trace session is destroyed, all its trace settings are
-automatically cleaned up.
 
 ## Node Local Tracing Only
 
@@ -87,22 +87,22 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 > To change an existing tool to use the interface the following table can be
 > useful:
 >
-> | Old function call                            | corresponds to                     |
-> | -------------------------------------------  | ---------------------------------- |
-> | [`erlang:trace(Pid, ...)`][1]                | [`process(S, Pid, ...)`][p] |
-> | [`erlang:trace(processes, ...)`][1]          | [`process(S, all, ...)`][p] |
-> | [`erlang:trace(existing_processes, ...)`][1] | [`process(S, existing, ...)`][p] |
-> | [`erlang:trace(new_processes, ...)`][1]      | [`process(S, new, ...)`][p] |
-> | [`erlang:trace(ports, ...)`][1]              | [`port(S, all, ...)`][o] |
-> | [`erlang:trace(existing_ports, ...)`][1]     | [`port(S, existing, ...)`][o] |
-> | [`erlang:trace(new_ports, ...)`][1]          | [`port(S, new, ...)`][o] |
-> | [`erlang:trace(all, ...)`][1]                | [`process(S, all, ...)`][p] and [`port(S, all, ...)`][o]  |
+> | Old function call                            | corresponds to                                                     |
+> | -------------------------------------------  | ------------------------------------------------------------------ |
+> | [`erlang:trace(Pid, ...)`][1]                | [`process(S, Pid, ...)`][p]                                        |
+> | [`erlang:trace(processes, ...)`][1]          | [`process(S, all, ...)`][p]                                        |
+> | [`erlang:trace(existing_processes, ...)`][1] | [`process(S, existing, ...)`][p]                                   |
+> | [`erlang:trace(new_processes, ...)`][1]      | [`process(S, new, ...)`][p]                                        |
+> | [`erlang:trace(ports, ...)`][1]              | [`port(S, all, ...)`][o]                                           |
+> | [`erlang:trace(existing_ports, ...)`][1]     | [`port(S, existing, ...)`][o]                                      |
+> | [`erlang:trace(new_ports, ...)`][1]          | [`port(S, new, ...)`][o]                                           |
+> | [`erlang:trace(all, ...)`][1]                | [`process(S, all, ...)`][p] and [`port(S, all, ...)`][o]           |
 > | [`erlang:trace(existing, ...)`][1]           | [`process(S, existing, ...)`][p] and [`port(S, existing, ...)`][o] |
-> | [`erlang:trace(new, ...)`][1]                | [`process(S, new, ...)`][p] and [`port(S, new, ...)`][o]  |
-> | [`erlang:trace_pattern(MFA, ...)`][2]        | [`function(S, MFA, ...)`][f] |
-> | [`erlang:trace_pattern(send, ...)`][2]       | [`send(S, ...)`][s] |
-> | [`erlang:trace_pattern('receive', ...)`][2]  | [`recv(S, ...)`][r] |
-> | [`erlang:trace_info(...)`][3]                | [`info(S, ...)`][i] |
+> | [`erlang:trace(new, ...)`][1]                | [`process(S, new, ...)`][p] and [`port(S, new, ...)`][o]           |
+> | [`erlang:trace_pattern(MFA, ...)`][2]        | [`function(S, MFA, ...)`][f]                                       |
+> | [`erlang:trace_pattern(send, ...)`][2]       | [`send(S, ...)`][s]                                                |
+> | [`erlang:trace_pattern('receive', ...)`][2]  | [`recv(S, ...)`][r]                                                |
+> | [`erlang:trace_info(...)`][3]                | [`info(S, ...)`][i]                                                |
 >
 > Argument `S` is the trace session that must first be created with
 > `session_create/3`. The other arguments (implied with `...`) are mostly the
