@@ -60,7 +60,11 @@
 Digit Map utility module.
 
 This is a Digit Map utility module (types).
+
+This module has existed in the megaco app for long time,
+but is now (as of 27.0) also documented.
 """.
+-moduledoc(#{since => "OTP 27.0"}).
 
 -export([parse/1, eval/1, eval/2, report/2, test/2]). % Public
 -export([test_eval/2]).                               % Internal
