@@ -443,7 +443,7 @@ write_rel(Dir, [Erts | Apps], Vsn) ->
       "~n   File name length: ~p"
       "~n   Erts: ~p"
       "~n   Apps: ~p"
-      "~n   Vsn:  ~p (VS)",
+      "~n   Vsn:  ~p (~p)",
       [Dir, File, length(File), Erts, Apps, Vsn, VS]),
     ok = write_file(File,
                     {release,
