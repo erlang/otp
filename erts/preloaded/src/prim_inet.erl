@@ -558,24 +558,26 @@ peeloff(S, AssocId) ->
 %% NOT delegating this task to any back-end.  For SCTP, this function MUST NOT
 %% be called directly -- use "sendmsg" instead:
 %%
+send(S, Data) ->
+    send(S, Data, []).
+
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
-    send(S, Data, OptList, monitor(port, S), make_ref()).
+    Mref = monitor(port, S),
+    MrefBin = term_to_binary(Mref, [local]),
+    MrefBinSize = byte_size(MrefBin),
+    MrefBinSize = MrefBinSize band 16#FFFF,
+    HdrAndData = [<<MrefBinSize:16,MrefBin/binary>>, Data],
+    send(S, HdrAndData, OptList, Mref).
 
-send(S, Data, OptList, Mref, Sref) ->
-    SrefBin = term_to_binary(Sref, [local]),
-    SrefBinSize = byte_size(SrefBin),
-    SrefBinSize = SrefBinSize band 16#FFFF,
-    try
-        erlang:port_command(
-          S, [<<SrefBinSize:16,SrefBin/binary>>, Data], OptList)
-    of
+send(S, HdrAndData, OptList, Mref) ->
+    try erlang:port_command(S, HdrAndData, OptList) of
         false -> % Port busy when nosuspend option was passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
             {error,busy};
         true ->
             receive
-                {inet_reply,S,Sref} ->
+                {inet_reply,S,Mref} ->
                     %% This causes a wait even though nosuspend was used.
                     %% It only happens when the OS send operation returns
                     %% that it would block, which should only happen
@@ -589,15 +591,15 @@ send(S, Data, OptList, Mref, Sref) ->
                        "prim_inet:send(~p,,,) Waiting~n",
                        [S]),
                     receive
-                        {inet_reply,S,ok,Sref} ->
-                            send(S, Data, OptList, Mref, make_ref());
+                        {inet_reply,S,ok,Mref} ->
+                            send(S, HdrAndData, OptList, Mref);
                         {'DOWN',Mref,_,_,_Reason} ->
                             ?DBG_FORMAT(
                                "prim_inet:send(~p,,,) 'DOWN' ~p~n",
                                [S,_Reason]),
                             {error,closed}
                     end;
-                {inet_reply,S,Status,Sref} ->
+                {inet_reply,S,Status,Mref} ->
                     demonitor(Mref, [flush]),
                     Status;
                 {'DOWN',Mref,_,_,_Reason} ->
@@ -611,9 +613,6 @@ send(S, Data, OptList, Mref, Sref) ->
             demonitor(Mref, [flush]),
             {error,einval}
     end.
-
-send(S, Data) ->
-    send(S, Data, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
