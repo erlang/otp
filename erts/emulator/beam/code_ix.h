@@ -87,7 +87,11 @@ typedef unsigned ErtsCodeIndex;
 typedef struct ErtsCodeMFA_ {
     Eterm module;
     Eterm function;
-    byte arity;
+
+    /* This is technically a byte, but the interpreter needs this to be a word
+     * for argument packing to work properly, and declaring it as a byte won't
+     * save any space due to tail padding. */
+    Uint arity;
 } ErtsCodeMFA;
 
 /*
