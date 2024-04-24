@@ -462,7 +462,7 @@ format_status(Status) ->
 > default function will instead return the fact that
 > [`format_status/1`](`c:format_status/1`) has crashed.
 """.
--doc(#{since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -callback format_status(Status) -> NewStatus when
       Status    :: format_status(),
       NewStatus :: format_status().
