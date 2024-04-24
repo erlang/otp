@@ -29,7 +29,7 @@ Interface functions for TLS (Transport Layer Security),
 and DTLS (Datagram Transport Layer Security).
 
 > #### Note {: .info }
-The applications name is still ssl due to the fact that the first versions of the TLS protcol
+The applications name is still SSL due to the fact that the first versions of the TLS protcol
 were named SSL (Secure Socket Layer), however, no version of the old SSL protocol are supported,
 by this application.
 
@@ -57,14 +57,13 @@ Special Erlang node configuration for the application can be found in [ssl appli
                   {type,<<"Client and Server Options">>},
                   {type,<<"Info">>},
                   {type,<<"Deprecated">>},
-                  {function,<<"Client Functions">>},
-                  {function,<<"Server Functions">>},
-                  {function,<<"Client and Server Functions">>},
-                  {function,<<"TLS-1.3 Only Functions">>},
-                  {function,<<"Pre TLS-1.3 Functions">>},
-                  {function,<<"Info Functions">>},
+                  {function,<<"Client API">>},
+                  {function,<<"Server API">>},
+                  {function,<<"Client and Server API">>},
+                  {function,<<"TLS-1.3 Only API">>},
+                  {function,<<"Pre TLS-1.3 API">>},
                   {function,<<"Utility Functions">>},
-                  {function,<<"Deprecated Functions">>}
+                  {function,<<"Deprecated API">>}
                  ]}).
 
 -include_lib("public_key/include/public_key.hrl").
@@ -1986,9 +1985,8 @@ start(Type) ->
 stop() ->
     application:stop(ssl).
 
-
--doc(#{equiv => connect/3}).
--doc(#{title => <<"Client Functions">>,
+-doc(#{equiv => connect(TCPSocket, TLSOptions, infinity)}).
+-doc(#{title => <<"Client API">>,
        since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
           {ok, sslsocket()} |
@@ -2023,8 +2021,7 @@ connect(Host, Port, TLSOptions, infinity).
 ```
 """.
 
--doc(#{title => <<"Client Functions">>}).
--doc(#{equiv => connect/4}).
+-doc(#{title => <<"Client API">>}).
 -spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
           {ok, sslsocket(), Ext :: protocol_extensions()} |
@@ -2051,7 +2048,7 @@ connect(Host, Port, TLSOptions)
     connect(Host, Port, TLSOptions, infinity).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client Functions">>}).
+-doc(#{title => <<"Client API">>}).
 -doc """
 Opens a TLS/DTLS connection to `Host`, `Port`.
 
@@ -2110,7 +2107,7 @@ connect(Host, Port, Options, Timeout)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Server Functions">>}).
+-doc(#{title => <<"Server API">>}).
 -doc "Creates an SSL listen socket.".
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, reason()} when
       Port::inet:port_number(),
@@ -2130,8 +2127,8 @@ listen(Port, Options0)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Server Functions">>,
-       equiv => transport_accept/2}).
+-doc(#{title => <<"Server API">>,
+       equiv => transport_accept(ListenSocket, infinity)}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
           {error, reason()} when
       ListenSocket :: sslsocket(),
@@ -2141,7 +2138,7 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 
--doc(#{title => <<"Server Functions">>}).
+-doc(#{title => <<"Server API">>}).
 -doc """
 Accepts an incoming connection request on a listen socket.
 
@@ -2182,7 +2179,7 @@ transport_accept(#sslsocket{pid = {ListenSocket,
 %%--------------------------------------------------------------------
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
--doc(#{title => <<"Server Functions">>,
+-doc(#{title => <<"Server API">>,
        equiv => handshake/2,
        since => <<"OTP 21.0">>}).
 -doc """
@@ -2229,7 +2226,7 @@ is equivalent to:
 handshake(HsSocket, Options, infinity).
 ```
 """.
--doc(#{title => <<"Server Functions">>,
+-doc(#{title => <<"Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket, OptionsOrTimeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -2282,7 +2279,7 @@ continued or canceled by calling `handshake_continue/3` or `handshake_cancel/1`.
 If the option `active` is set to `once`, `true` or an integer value, the process
 owning the sslsocket will receive messages of type `t:active_msgs/0`
 """.
--doc(#{title => <<"Server Functions">>,
+-doc(#{title => <<"Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
           {ok, SslSocket} |
@@ -2338,8 +2335,8 @@ handshake(Socket, SslOptions, Timeout)
     end.   
 
 %%--------------------------------------------------------------------
--doc(#{equiv => handshake_continue/3}).
--doc(#{title => <<"Client and Server Functions">>,
+-doc(#{equiv => handshake_continue(HsSocket, Options, infinity)}).
+-doc(#{title => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2353,7 +2350,7 @@ handshake_continue(Socket, SSLOptions) ->
 
 %%--------------------------------------------------------------------
 -doc "Continue the TLS handshake, possibly with new, additional or changed options.".
--doc(#{title => <<"Client and Server Functions">>,
+-doc(#{title => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2369,7 +2366,7 @@ handshake_continue(Socket, SSLOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc "Cancel the handshake with a fatal `USER_CANCELED` alert.".
--doc(#{title => <<"Client and Server Functions">>,
+-doc(#{title => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
 %%--------------------------------------------------------------------
@@ -2377,7 +2374,7 @@ handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
+-doc(#{title => <<"Client and Server API">>}).
 -doc "Closes a TLS/DTLS connection.".
 -spec  close(SslSocket) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2403,7 +2400,7 @@ In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
 connection.
 """.
--doc(#{title => <<"Client and Server Functions">>,
+-doc(#{title => <<"Client and Server API">>,
        since => <<"OTP 18.1">>}).
 -spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
@@ -2431,7 +2428,7 @@ close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
+-doc(#{title => <<"Client and Server API">>}).
 -spec send(SslSocket, Data) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Data :: iodata().
@@ -2455,8 +2452,8 @@ send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>,
-       equiv => recv/3}).
+-doc(#{title => <<"Client and Server API">>,
+       equiv => recv(Socket, Length, infinity)}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -2467,7 +2464,7 @@ recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
+-doc(#{title => <<"Client and Server API">>}).
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -2499,7 +2496,7 @@ recv(#sslsocket{pid = {Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
+-doc(#{title => <<"Client and Server API">>}).
 -doc """
 Assigns a new controlling process to the SSL socket.
 
@@ -2528,7 +2525,7 @@ controlling_process(#sslsocket{pid = {Listen,
     Transport:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>}).
+-doc(#{title => <<"Utility Functions">>}).
 -doc """
 Returns the most relevant information about the connection.
 
@@ -2574,7 +2571,7 @@ set to `true`.
 >
 > If only undefined options are requested the resulting list can be empty.
 """.
--doc(#{title => <<"Info Functions">>,
+-doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 18.0">>}).
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -2594,7 +2591,7 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>}).
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Returns the address and port number of the peer.".
 -spec peername(SslSocket) -> {ok, {Address, Port}} |
           {error, reason()} when
@@ -2616,7 +2613,7 @@ peername(#sslsocket{pid = {dtls,_}}) ->
     {error,enotconn}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>}).
+-doc(#{title => <<"Utility Functions">>}).
 -doc """
 The peer certificate is returned as a DER-encoded binary.
 
@@ -2645,7 +2642,7 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the protocol negotiated through ALPN or NPN extensions.".
--doc(#{title => <<"Info Functions">>,
+-doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 18.0">>}).
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2904,7 +2901,7 @@ signature_algs(Description, Version) ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 Functions">>,
+-doc(#{title => <<"Pre TLS-1.3 API">>,
        since => <<"OTP 19.2">>}).
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
@@ -2916,7 +2913,7 @@ eccs() ->
     tls_v1:ec_curves(all, 'tlsv1.2').
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 Functions">>,
+-doc(#{title => <<"Pre TLS-1.3 API">>,
        since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
       Version :: 'tlsv1.2' | 'tlsv1.1' | 'tlsv1' | 'dtlsv1.2' | 'dtlsv1',
@@ -2939,10 +2936,11 @@ eccs(Other) ->
     erlang:error({badarg, Other}).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"TLS-1.3 Only Functions">>,
-      since => <<"OTP 22">>}).
+-doc(#{title => <<"TLS-1.3 Only API">>,
+      since => <<"OTP 27.0">>}).
 -doc """
-   Returns all supported groups in TLS 1.3
+   Returns all supported groups in TLS 1.3. Existed since OTP 22.0 , documented as of OTP 27.
+
 """.
 -spec groups() -> [group()].
 %%--------------------------------------------------------------------
@@ -2950,12 +2948,12 @@ groups() ->
     tls_v1:groups().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"TLS-1.3 Only Functions">>,
-      since => <<"OTP 22">>}).
+-doc(#{title => <<"TLS-1.3 Only API">>,
+      since => <<"OTP 27.0">>}).
 -spec groups(Description) -> [group()] when Description :: default.
 
 -doc """
-   Returns default supported groups in TLS 1.3
+   Returns default supported groups in TLS 1.3. Existed since OTP 22.0, documented as of OTP 27.
 """.
 
 %%--------------------------------------------------------------------
@@ -2963,7 +2961,7 @@ groups(default) ->
     tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>}).
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Gets the values of the specified socket options.".
 -spec getopts(SslSocket, OptionNames) ->
           {ok, [gen_tcp:option()]} | {error, reason()} when
@@ -2999,7 +2997,7 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>}).
+-doc(#{title => <<"Client and Server API">>}).
 -doc "Sets options according to `Options` for socket `SslSocket`.".
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3063,7 +3061,7 @@ setopts(#sslsocket{}, Options) ->
 
 %%---------------------------------------------------------------
 -doc(#{equiv => getstat/2}).
--doc(#{title => <<"Info Functions">>,
+-doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 19.0">>}).
 -spec getstat(SslSocket) ->
           {ok, OptionValues} | {error, inet:posix()} when
@@ -3074,7 +3072,7 @@ getstat(Socket) ->
     getstat(Socket, inet:stats()).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>,
+-doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 19.0">>}).
 -doc """
 Gets one or more statistic options for the underlying TCP socket.
@@ -3104,7 +3102,7 @@ getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Client and Server Functions">>,
+-doc(#{title => <<"Client and Server API">>,
        since => <<"OTP R14B">>}).
 -spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3141,7 +3139,7 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
     ssl_gen_statem:shutdown(Pid, How).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Info Functions">>}).
+-doc(#{title => <<"Utility Functions">>}).
 -doc "Returns the local address and port number of socket `SslSocket`.".
 -spec sockname(SslSocket) ->
           {ok, {Address, Port}} | {error, reason()} when
@@ -3160,7 +3158,7 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Info Functions">>,
+-doc(#{title => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec versions() -> [VersionInfo] when
       VersionInfo :: {ssl_app, string()} |
@@ -3224,7 +3222,7 @@ versions() ->
     ].
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 Functions">>,
+-doc(#{title => <<"Pre TLS-1.3 API">>,
        since => <<"OTP R14B">>}).
 -spec renegotiate(SslSocket) -> ok | {error, reason()} when
       SslSocket :: sslsocket().
@@ -3277,7 +3275,7 @@ connection. There are two types of the key update: if _Type_ is set to _write_,
 only the writing key is updated; if _Type_ is set to _read_write_, both the
 reading and writing keys are updated.
 """.
--doc(#{title => <<"TLS-1.3 Only Functions">>,
+-doc(#{title => <<"TLS-1.3 Only API">>,
        since => <<"OTP 22.3">>}).
 -spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3347,7 +3345,7 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Deprecated Functions">>,
+-doc(#{title => <<"Deprecated API">>,
        since => <<"OTP R15B01">>}).
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
           {ok, binary()} | {error, reason()} when
