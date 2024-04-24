@@ -7184,9 +7184,6 @@ follows:
   If option `eof` is specified also, the messages `eof` and `exit_status` appear
   in an unspecified order.
 
-  If the port program closes its `stdout` without exiting, option `exit_status`
-  does not work.
-
 - **`use_stdio`** - Only valid for `{spawn, Command}` and
   `{spawn_executable, FileName}`. It allows the standard input and output (file
   descriptors 0 and 1) of the spawned (Unix) process for communication with
