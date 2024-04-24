@@ -620,7 +620,8 @@ get_mods_and_beams([],Acc) ->
 	(__L__=:=line orelse __L__=:=clause orelse
 	 __L__=:=function orelse __L__=:=module)).
 
--doc #{equiv => analyse('_', coverage, function)}.
+-doc #{equiv => analyse('_', coverage, function),
+       since => <<"OTP 18.0">>}.
 -spec analyse() -> {'result', analyse_ok(), analyse_fail()} |
                    {'error', 'not_main_node'}.
 
@@ -764,7 +765,8 @@ analyze(Module, Analysis, Level) -> analyse(Module, Analysis, Level).
 %% analyse_to_file(Modules, OutFile) ->
 %% analyse_to_file(Modules, OutFile, Options) -> {ok,OutFile} | {error,Error}
 
--doc(#{equiv => analyse_to_file('_', [])}).
+-doc(#{equiv => analyse_to_file('_', []),
+       since => <<"OTP 18.0">>}).
 -spec analyse_to_file() -> {'result', analyse_file_ok(), analyse_file_fail()} |
                            {'error', 'not_main_node'}.
 

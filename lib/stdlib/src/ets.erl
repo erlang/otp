@@ -1754,7 +1754,6 @@ update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_element/4}).
--doc(#{since => <<"OTP @OTP-18870@">>}).
 -spec update_element(Table, Key, ElementSpec) -> boolean() when
       Table :: table(),
       Key :: term(),
