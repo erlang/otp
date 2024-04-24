@@ -36,6 +36,14 @@ obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
 obsolete(code, lib_dir, 2) ->
     {deprecated, "this functionality will be removed in a future release"};
+obsolete(crypto, private_decrypt, 4) ->
+    {deprecated, "do not use"};
+obsolete(crypto, private_encrypt, 4) ->
+    {deprecated, "use public_key:sign/3 instead"};
+obsolete(crypto, public_decrypt, 4) ->
+    {deprecated, "use public_key:verify/4 instead"};
+obsolete(crypto, public_encrypt, 4) ->
+    {deprecated, "do not use"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(dbg, stop_clear, 0) ->
@@ -47,9 +55,9 @@ obsolete(erlang, now, 0) ->
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 27"};
+    {deprecated, "use uri_string:unquote function instead"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 27"};
+    {deprecated, "use uri_string:quote function instead"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
 obsolete(net, broadcast, 3) ->
@@ -62,6 +70,22 @@ obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
+obsolete(public_key, decrypt_private, 2) ->
+    {deprecated, "do not use"};
+obsolete(public_key, decrypt_private, 3) ->
+    {deprecated, "do not use"};
+obsolete(public_key, decrypt_public, 2) ->
+    {deprecated, "use public_key:verify/4 instead"};
+obsolete(public_key, decrypt_public, 3) ->
+    {deprecated, "use public_key:verify/5 instead"};
+obsolete(public_key, encrypt_private, 2) ->
+    {deprecated, "use public_key:sign/3 instead"};
+obsolete(public_key, encrypt_private, 3) ->
+    {deprecated, "use public_key:sign 4 instead"};
+obsolete(public_key, encrypt_public, 2) ->
+    {deprecated, "do not use"};
+obsolete(public_key, encrypt_public, 3) ->
+    {deprecated, "do not use"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(ssl, prf, 5) ->
