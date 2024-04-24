@@ -28,7 +28,12 @@
 SDP utility module.
 
 This module contains various things related to SDP.
+
+This module has existed in the megaco app for long time,
+but is now (as of 27.0) also documented.
 """.
+-moduledoc(#{since => "OTP 27.0"}).
+
 
 %%----------------------------------------------------------------------
 %% Include files
