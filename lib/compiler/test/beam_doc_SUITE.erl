@@ -138,11 +138,11 @@ singleton_docformat(Conf) ->
     {ok, ModName} = default_compile_file(Conf, "singleton_docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Meta = #{format => <<"text/asciidoc">>,
-             deprecated => "Use something else",
+             deprecated => ~"Use something else",
              otp_doc_vsn => {1,0,0},
-             since => "1.0"},
+             since => ~"1.0"},
     Doc = #{<<"en">> => <<"Doc test module\n\nMore info here">>},
-    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">> },
+    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     {ok, {docs_v1, _,erlang, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,0},_, [<<"main()">>], Doc, FunMeta}]}} = code:get_doc(ModName),
     ok.
@@ -150,10 +150,11 @@ singleton_docformat(Conf) ->
 singleton_meta(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>},
+    Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
-    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, _,
-          [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := <<"main(_)">>}},
+    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, #{ since := ~"1.0" },
+          [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := <<"main(_)">>,
+                                                                since := ~"1.1"}},
            {{function, main,0},_, [<<"main()">>], none, Meta}]}}
         = code:get_doc(ModName),
     ok.

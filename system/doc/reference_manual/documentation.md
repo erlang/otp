@@ -145,6 +145,9 @@ module and then go into greater details. For example:
 There are three reserved metadata keys for `-moduledoc`:
 
 - `since` - Shows in which version of the application the module was added.
+  If this is added, all functions, types, and callbacks within will also receive
+  the same `since` value unless specified in the metadata of the function, type
+  or callback.
 - `deprecated` - Shows a text in the documentation explaining that it is
   deprecated and what to use instead.
 - `format` - The format to use for all documentation in this module. The
