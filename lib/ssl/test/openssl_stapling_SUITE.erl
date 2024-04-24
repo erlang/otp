@@ -57,12 +57,15 @@
 all() ->
     [{group, 'tlsv1.3'},
      {group, no_next_update},
+     {group, no_resp_certs},
      {group, 'tlsv1.2'},
      {group, 'dtlsv1.2'}].
 
 groups() ->
     [{'tlsv1.3', [], ocsp_tests()},
+     {'tlsv1.3_issuer_nonce', [], [staple_by_issuer, staple_with_nonce]},
      {no_next_update, [], [{group, 'tlsv1.3'}]},
+     {no_resp_certs, [], [{group, 'tlsv1.3_issuer_nonce'}]},
      {'tlsv1.2', [], ocsp_tests()},
      {'dtlsv1.2', [], ocsp_tests()}].
 
@@ -313,9 +316,15 @@ ocsp_responder_init(ResponderPort, Starter, Config) ->
                      _ ->
                          ["-nmin", "5"]
                  end,
+    NoRespCerts = case ?config(tc_group_path, Config) of
+                      [[{name,no_resp_certs}]] ->
+                          ["-resp_no_certs"];
+                      _ ->
+                          []
+                  end,
     Args = ["ocsp", "-index", Index, "-CA", CACerts, "-rsigner", Cert,
             "-rkey", Key, "-port",  erlang:integer_to_list(ResponderPort)] ++
-        Debug ++ NextUpdate,
+        Debug ++ NextUpdate ++ NoRespCerts,
     process_flag(trap_exit, true),
     Port = ssl_test_lib:portable_open_port("openssl", Args),
     ?CT_LOG("OCSP responder: Started Port = ~p", [Port]),
