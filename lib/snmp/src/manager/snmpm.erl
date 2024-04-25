@@ -251,19 +251,23 @@ Value type depend on the item according to:
 
 - **`sec_name`** - Security Name.
 
-  Value type: [sec_name()](`t:snmp:sec_name/0`)
+  Value type: [`snmp:sec_name()`](`t:snmp:sec_name/0`)
 
-- **`auth`** - The IP address of the agent.
+- **`auth`** - Authentication protocol.
 
-  Value type: `t:snmp:usm_auth_protocol/0`
+  Value type: [`snmp:usm_auth_protocol()`](`t:snmp:usm_auth_protocol/0`)
 
-- **`auth_key`** - Port number of the agent.
+- **`auth_key`** - Authentication key.
 
-  Value type: `t:snmp:usm_auth_key/0`
+  Value type: [`snmp:usm_auth_key()`](`t:snmp:usm_auth_key/0`)
 
-- **`priv`** - Value type: `t:snmp:usm_priv_protocol/0`
+- **`priv`** - Privacy protocol.
 
-- **`priv_key`** - Value type: `t:snmp:usm_priv_key/0`
+  Value type: [`snmp:usm_priv_protocol()`](`t:snmp:usm_priv_protocol/0`)
+
+- **`priv_key`** - Privacy key.
+
+  Value type: [`snmp:usm_priv_key()`](`t:snmp:usm_priv_key/0`)
 """.
 -type usm_config_item() :: sec_name | auth | auth_key | priv | priv_key.
 
@@ -488,7 +492,7 @@ Unload a `Mib` from the manager. The `MibName` is the name of the Mib, including
 the path to where the compiled mib is found. For example,
 
 ```erlang
-	  Dir = code:priv_dir(my_app) ++ "/mibs/",
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpm:unload_mib(Dir ++ "MY-MIB").
 ```
 """.
@@ -647,12 +651,12 @@ register_user(UserId, Module, Data) ->
 -doc """
 Register the manager entity (=user) responsible for specific agent(s).
 
-`Module` is the callback module (snmpm_user behaviour) which will be called
+`Module` is the callback module (`m:snmpm_user` behaviour) which will be called
 whenever something happens (detected agent, incoming reply or incoming
 trap/notification).
 
 `Data` is an opaque data structure, not inspected by the manager, that will be
-included in all callback calls to the `Module` callback module (snmpm_user
+included in all callback calls to the `Module` callback module (`m:snmpm_user`
 behaviour).
 
 The argument `DefaultAgentConfig` is used as default values when this user
@@ -692,12 +696,12 @@ The process performing the registration will be monitored. Which means that if
 that process should die, all agents registered by that user process will be
 unregistered. All outstanding requests will be canceled.
 
-`Module` is the callback module (snmpm_user behaviour) which will be called
+`Module` is the callback module (`m:snmpm_user` behaviour) which will be called
 whenever something happens (detected agent, incoming reply or incoming
 trap/notification).
 
 `Data` is an opaque data structure, not inspected by the manager, that will be
-included in all callback calls to the `Module` callback module (snmpm_user
+included in all callback calls to the `Module` callback module (`m:snmpm_user` 
 behaviour).
 
 The argument `DefaultAgentConfig` is used as default values when this user
@@ -1082,15 +1086,16 @@ Synchronous `get-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
 
-When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the (`get-request` ) message. This could happen because of any number
-of reasons, i.e. encoding error.
+When _Reason_ is _\{send_failed, ...\}_ it means that the `net-if` process
+failed to send the (`get-request` ) message.
+This could happen because of any number of reasons, i.e. encoding error.
 _ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes, with one
+`net-if` process.
+The `net-if` process included in this application makes, with one
 exception, no use of this info, so the only use for it (when using the built in
-net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`net-if`) would be tracing. The one usage exception is: _Any_ tuple with
 `snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
@@ -1224,14 +1229,16 @@ Synchronous `get-next-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
 
-When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the message. This could happen because of any number of reasons, i.e.
+When _Reason_ is _\{send_failed, ...\}_ it means that the `net-if` process
+failed to send the message.
+This could happen because of any number of reasons, i.e.
 encoding error. _ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes, with one
+`net-if` process.
+The `net-if` process included in this application makes, with one
 exception, no use of this info, so the only use for it (when using the built in
-net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`net-if`) would be tracing. The one usage exception is: _Any_ tuple with
 `snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
@@ -1300,9 +1307,10 @@ The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes, with one
+`net-if` process.
+The `net-if` process included in this application makes, with one
 exception, no use of this info, so the only use for it (when using the built in
-net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`net-if`) would be tracing. The one usage exception is: _Any_ tuple with
 `snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
@@ -1363,17 +1371,19 @@ Synchronous `set-request`.
 
 `Remaining` is the remaining time of the given (or default) timeout time.
 
-When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the message. This could happen because of any number of reasons, i.e.
+When _Reason_ is _\{send_failed, ...\}_ it means that the `net-if` process
+failed to send the message.
+This could happen because of any number of reasons, i.e.
 encoding error. _ActualReason_ is the actual reason in this case.
 
 When _var_and_val()_ is _\{oid(), value()\}_, the manager makes an educated
 guess based on the loaded mibs.
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes, with one
+`net-if` process.
+The `net-if` process included in this application makes, with one
 exception, no use of this info, so the only use for it (when using the built in
-net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`net-if`) would be tracing. The one usage exception is: _Any_ tuple with
 `snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
@@ -1381,7 +1391,7 @@ Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`c:snmpm_user:handle_report/3`).
+[`snmpm_user:handle_report/3`](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
 -spec sync_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
@@ -1435,8 +1445,8 @@ async_set2(UserId, TargetName, VarsAndVals) ->
 -doc """
 Asynchronous `set-request`.
 
-The reply will be delivered to the user through a call to the snmpm_user
-callback function `handle_pdu`.
+The reply will be delivered to the user through a call to the
+`m:snmpm_user` callback function [`handle_pdu`](`c:snmpm_user:handle_pdu/4`).
 
 The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
@@ -1510,14 +1520,15 @@ Synchronous `get-bulk-request` (See RFC1905).
 
 `Remaining` is the remaining time of the given (or default) timeout time.
 
-When _Reason_ is _\{send_failed, ...\}_ it means that the net_if process failed
-to send the message. This could happen because of any number of reasons, i.e.
-encoding error. _ActualReason_ is the actual reason in this case.
+When _Reason_ is _\{send_failed, ...\}_ it means that the `net-if` process
+failed to send the message. This could happen because of any number of reasons,
+i.e. encoding error. _ActualReason_ is the actual reason in this case.
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes, with one
+`net-if` process.
+The `net-if` process included in this application makes, with one
 exception, no use of this info, so the only use for it (when using the built in
-net-if) would be tracing. The one usage exception is: _Any_ tuple with
+`net-if`) would be tracing. The one usage exception is: _Any_ tuple with
 `snmpm_extra_info_tag` as its first element is reserved for internal use.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
@@ -1525,7 +1536,7 @@ Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 override any configuration done when the agent was registered.
 
 For `SnmpInfo`, see the user callback function
-[handle_report](`c:snmpm_user:handle_report/3`).
+[`snmpm_user:handle_report/3`](`c:snmpm_user:handle_report/3`).
 """.
 -doc(#{since => <<"OTP R14B03">>}).
 -spec sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
@@ -1595,9 +1606,10 @@ The send option `timeout` specifies for how long the request is valid (after
 which the manager is free to delete it).
 
 The send option `extra` specifies an opaque data structure passed on to the
-net-if process. The net-if process included in this application makes no use of
+`net-if` process.
+The `net-if` process included in this application makes no use of
 this info, so the only use for it in such a configuration (when using the built
-in net-if) would be tracing.
+in `net-if`) would be tracing.
 
 Some of the send options (`community`, `sec_model`, `sec_name`, `sec_level` and
 `max_message_size`) are `override options`. That is, for _this_ request, they
@@ -1795,9 +1807,6 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) ->
                     Start, Stop).
 
 -doc """
-log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> ok |
-{ok, Cnt} | {error, Reason}
-
 Converts an Audit Trail Log to a readable text file. `OutFile` defaults to
 "./snmpm_log.txt". `LogName` defaults to "snmpm_log". `LogFile` defaults to
 "snmpm.log".
@@ -1806,7 +1815,12 @@ The `Block` argument indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
+`Start` and `Stop` indicates which log entries should be converted,
+from when (`Start`) to when (`Stop`). `Start = null` => Start from the
+beginning of the log. `Stop = null` => Stop the conversion at the end
+of the log. Defaults to `Start = null` and `Stop = null` (the entire log).
+
+See [`snmp:log_to_txt/8`](`snmp:log_to_txt/8`) for more info.
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir  :: snmp:dir(), 
@@ -1998,7 +2012,12 @@ The `Block` argument indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
+`Start` and `Stop` indicates which log entries should be converted,
+from when (`Start`) to when (`Stop`). `Start = null` => Start from the
+beginning of the log. `Stop = null` => Stop the conversion at the end
+of the log. Defaults to `Start = null` and `Stop = null` (the entire log).
+
+See [`snmp:log_to_io/7`](`snmp:log_to_io/7`) for more info.
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
