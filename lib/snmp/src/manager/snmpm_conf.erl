@@ -297,7 +297,7 @@ do_write_manager_conf(_Fd, Crap) ->
 %% ------ users.conf ------
 %% 
 
--doc(#{equiv => users_entry/4}).
+-doc(#{equiv => users_entry(UserId, snmpm_user_default)}).
 -spec users_entry(UserId) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserEntry :: user_entry().
@@ -305,7 +305,7 @@ do_write_manager_conf(_Fd, Crap) ->
 users_entry(UserId) ->
     users_entry(UserId, snmpm_user_default).
 
--doc(#{equiv => users_entry/4}).
+-doc(#{equiv => users_entry(UserId, UserMod, undefined)}).
 -spec users_entry(UserId, UserMod) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserMod   :: snmpm:snmpm_user(),
@@ -314,7 +314,7 @@ users_entry(UserId) ->
 users_entry(UserId, UserMod) ->
     users_entry(UserId, UserMod, undefined).
 
--doc(#{equiv => users_entry/4}).
+-doc(#{equiv => users_entry(UserId, UserMod, UserData, [])}).
 -spec users_entry(UserId, UserMod, UserData) -> UserEntry when
       UserId    :: snmpm:user_id(),
       UserMod   :: snmpm:snmpm_user(),
@@ -327,13 +327,8 @@ users_entry(UserId, UserMod, UserData) ->
 -doc """
 Create an entry for the manager users config file, `users.conf`.
 
-[`users_entry(UserId)`](`users_entry/1`) translates to the following call:
-[`users_entry(UserId, snmpm_user_default)`](`users_entry/2`).
-
-[`users_entry(UserId, UserMod)`](`users_entry/2`) translates to the following
-call: [`users_entry(UserId, UserMod, undefined)`](`users_entry/3`).
-
-See [Users](snmp_manager_config_files.md#users) for more info.
+See the [`Users`](snmp_manager_config_files.md#users) chapter of the
+(SNMP) `Manager Configuration` User Guide for more info.
 """.
 -spec users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
           UserEntry when
@@ -630,7 +625,9 @@ usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
 -doc """
 Create an entry for the agent community config file, `community.conf`.
 
-See [Security data for USM](snmp_manager_config_files.md#security-data-for-usm) for more info.
+See
+[`Security data for USM`](snmp_manager_config_files.md#security-data-for-usm)
+for more info.
 """.
 -spec usm_entry(EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey) ->
           UsmEntry when
