@@ -251,6 +251,7 @@ set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
         || erts_thr_progress_is_blocking());
 
     if (ERTS_TRACER_IS_NIL(tracer)
+        || !erts_is_trace_session_alive(session)
         || erts_is_tracer_enabled(tracer, &tracee_p->common))
         return set_tracee_flags(tracee_p, tracer, session, d_flags, e_flags);
     return fail_term;
