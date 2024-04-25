@@ -893,7 +893,7 @@ encrypt_public(PlainText, Key) ->
 
 -doc(#{title => <<"Deprecated API">>,
        deprecated => ~"Do not use",
-       since => <<"OTP R14B">>}).
+       since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the public key. See also `crypto:public_encrypt/4`.
 
