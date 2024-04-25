@@ -39,15 +39,7 @@ A misbehaving filter will be removed.
 -type notification() :: term().
 -type trap() :: term().
 
-%% handle_notification(Notification, Data) -> Reply
-%% Notification -> notification() | trap()
-%% Data -> term()
-%% Reply -> send | {send, NewNotif} | ignore
-%% NewNotif -> notification() | trap()
-%% 
-%% send -> This means it is ok for this filter to send the notification as is
-%% {send, NewNotif} -> Send this notification instead
-%% dont_sent -> Dont send this notification. 
+
 -doc """
 Handle a notification to be sent. The filter can either accept the notification
 as is, return `send`, modify the notification, return `{send, NewNotif}` or
@@ -57,9 +49,9 @@ suppress the notification, return `dont_send`.
 `snmpa:register_notification_filter/5`.
 """.
 -callback handle_notification(Notif, Data) -> Reply when
-      Reply :: send |
-               {send, NewNotif} |
-               dont_send,
-      Notif :: notification() | trap(),
-      NewNotif :: notification() | trap(),
-      Data :: term().
+      Notif    :: notification() | trap(),
+      Data     :: term(),
+      Reply    :: send |
+                  {send, NewNotif} |
+                  dont_send,
+      NewNotif :: notification() | trap().
