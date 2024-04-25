@@ -110,6 +110,17 @@ macros described here and in the User's Guide:
 
 %%----------------
 %% Moved to ssh
+
+-deprecated([{encrypt_private, 2, "use public_key:sign/3 instead"},
+             {encrypt_private, 3, "use public_key:sign 4 instead"},
+             {decrypt_private, 2, "do not use"},
+             {decrypt_private, 3, "do not use"},
+             {encrypt_public, 2,  "do not use"},
+             {encrypt_public, 3,  "do not use"},
+             {decrypt_public, 2,  "use public_key:verify/4 instead"},
+             {decrypt_public, 3,  "use public_key:verify/5 instead"}
+            ]).
+
 -removed([{ssh_decode,2, "use ssh_file:decode/2 instead"},
           {ssh_encode,2, "use ssh_file:encode/2 instead"},
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
@@ -160,6 +171,13 @@ macros described here and in the User's Guide:
               test_config/0,
               test_root_cert/0
              ]).
+
+%% Needed for legacy TLS-1.0 and TLS-1.1 functionality
+-compile({nowarn_deprecated_function, [{crypto, private_encrypt, 4},
+                                       {crypto, private_decrypt, 4},
+                                       {crypto, public_encrypt, 4},
+                                       {crypto, public_decrypt, 4}
+                                      ]}).
 
 -doc(#{title => <<"Keys">>}).
 -doc "Supported public keys".

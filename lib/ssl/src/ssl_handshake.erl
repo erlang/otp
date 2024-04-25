@@ -48,6 +48,15 @@
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
 			 #hello_request{} | #next_protocol{} | #end_of_early_data{}.
 
+%% Needed for legacy TLS-1.0 and TLS-1.1 functionality
+-compile({nowarn_deprecated_function, [{crypto, private_encrypt, 4},
+                                       {crypto, private_decrypt, 4},
+                                       {public_key, encrypt_private, 3},
+                                       {public_key, decrypt_private, 3},
+                                       {public_key, encrypt_public, 3},
+                                       {public_key, decrypt_public, 3}
+                                      ]}).
+
 %% Create handshake messages
 -export([hello_request/0,
          server_hello/4,
