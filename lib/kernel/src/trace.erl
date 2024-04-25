@@ -1241,9 +1241,13 @@ Destroy a trace session and cleanup all its settings on processes, ports and
 functions.
 
 The only things not cleaned up are trace messages that have already been sent.
+
+Returns `true` if the session was active. Returns `false` if the session had
+already been destroyed by either an earler call to this function or the garbage
+collector.
 """.
 -doc #{ since => <<"OTP 27.0">> }.
--spec session_destroy(Session) -> ok when
+-spec session_destroy(Session) -> true | false  when
       Session :: session().
 session_destroy(Session) ->
     try erts_internal:trace_session_destroy(Session) of

@@ -668,7 +668,7 @@ trace_pattern(_Session, _MFA, _MatchSpec, _FlagList) ->
 trace_session_create(_Name, _Tracer, _TracerOpts) ->
     erlang:nif_error(undefined).
 
--spec trace_session_destroy(reference()) -> ok.
+-spec trace_session_destroy(reference()) -> true | false.
 trace_session_destroy(_TraceSession) ->
     erlang:nif_error(undefined).
 
