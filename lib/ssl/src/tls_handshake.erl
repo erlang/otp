@@ -315,7 +315,7 @@ get_tls_handshakes(Version, Data, Buffer, Options) ->
 ocsp_nonce(SslOpts) ->
     case maps:get(stapling, SslOpts, disabled) of
         #{ocsp_nonce := true} ->
-            public_key:der_encode('Nonce', crypto:strong_rand_bytes(8));
+            public_key:der_encode('Nonce', crypto:strong_rand_bytes(32)); %RFC8954 2.1
         _ ->
             undefined
     end.
