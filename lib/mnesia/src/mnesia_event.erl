@@ -110,7 +110,7 @@ handle_any_event(Msg, State) ->
     {ok, State}.
 
 handle_table_event({Oper, Record, TransId}, State) ->
-    report_info("~p performed by ~p on record:~n\t~tp~n",
+    report_info("~p performed by ~p on record:~n\t~0tp~n",
 		[Oper, TransId, Record]),
     {ok, State}.  
 
@@ -161,9 +161,12 @@ handle_system_event({mnesia_overload, Details}, State) ->
     report_warning("Mnesia is overloaded: ~tw~n", [Details]),
     {ok, State}; 
 
-handle_system_event({mnesia_info, Format, Args}, State) ->
-    report_info(Format, Args),
-    {ok, State}; 
+handle_system_event({mnesia_info, Format, Args} = Event, State) ->
+    case put(last, Event) of
+        Event -> ok;
+        _ -> report_info(Format, Args)
+    end,
+    {ok, State};
 
 handle_system_event({mnesia_warning, Format, Args}, State) ->
     report_warning(Format, Args),
