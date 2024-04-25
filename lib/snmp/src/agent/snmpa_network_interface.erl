@@ -111,11 +111,19 @@ See `snmpa:set_log_type/2` for more info.
       OldType :: snmp:atl_type(),
       Reason  :: term().
 
+-doc """
+The request limit is the number of simultaneous requests the agent will accept.
+This function retrieve the current value.
+""".
 -callback get_request_limit(Pid) ->
     {ok, Limit} when
       Pid   :: pid(),
       Limit :: non_neg_integer() | infinity.
 
+-doc """
+The request limit is the number of simultaneous requests the agent will accept.
+This function sets a new value.
+""".
 -callback set_request_limit(Pid, NewLimit) ->
     {ok, OldLimit} when
       Pid      :: pid(),
