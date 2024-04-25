@@ -138,13 +138,18 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 -compile({inline, [error_with_inherited_info/3]}).
 
 
--export_type([session/0]).
+-export_type([session/0,
+              session_strong_ref/0,
+              session_weak_ref/0]).
 
 -doc """
 A handle to an isolated trace session.
 """.
 -doc #{ since => "OTP 27.0" }.
--opaque session() :: reference().
+-type session() :: {session_strong_ref(), session_weak_ref()}
+                   | session_weak_ref().
+-opaque session_strong_ref() :: reference().
+-opaque session_weak_ref() :: {atom(), integer()}.
 
 -type trace_info_flag() ::
       arity |
