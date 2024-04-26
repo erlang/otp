@@ -335,6 +335,8 @@ file(F)
 
 Equivalent to [file(Filename, [])](`file/2`).
 """.
+-spec file(Filename :: string()) ->
+          {document(), Rest :: list()} | {error, Reason :: term()}.
 file(F) ->
     file(F, []).
 
@@ -383,6 +385,7 @@ string(Str)
 
 Equivalent to [string(Text, [])](`string/2`).
 """.
+-spec string(Text::list()) -> {xmlElement(),Rest::list()}.
 string(Str) ->
     string(Str, []).
 
