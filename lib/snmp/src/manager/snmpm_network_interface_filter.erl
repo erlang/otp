@@ -25,10 +25,10 @@ This module defines the behaviour of the manager network interface filter. A
 `snmpm_network_interface_filter` compliant module must export the following
 functions:
 
-- [accept_recv/2](`m:snmpm_network_interface_filter#accept_recv`)
-- [accept_send/2](`m:snmpm_network_interface_filter#accept_send`)
-- [accept_recv_pdu/3](`m:snmpm_network_interface_filter#accept_recv_pdu`)
-- [accept_send_pdu/2](`m:snmpm_network_interface_filter#accept_send_pdu`)
+- [`accept_recv/2`](`c:accept_recv/2`)
+- [`accept_send/2`](`c:accept_send/2`)
+- [`accept_recv_pdu/3`](`c:accept_recv_pdu/3`)
+- [`accept_send_pdu/3`](`c:accept_send_pdu/3`)
 
 The semantics of them and their exact signatures are explained below.
 
@@ -74,8 +74,8 @@ Called at the reception of a message (before _any_ processing has been done).
 For the message to be rejected, the function _must_ return _false_.
 """.
 -callback accept_recv(Domain, Addr) -> boolean() when
-                             Domain :: transportDomain(),
-                             Addr :: transportAddressWithPort().
+      Domain :: transportDomain(),
+      Addr   :: transportAddressWithPort().
 
 
 %% **************************************************************************
@@ -88,8 +88,8 @@ Called before the sending of a message (after _all_ processing has been done).
 For the message to be rejected, the function _must_ return _false_.
 """.
 -callback accept_send(Domain, Addr) -> boolean() when
-                             Domain :: transportDomain(),
-                             Addr :: transportAddressWithPort().
+      Domain :: transportDomain(),
+      Addr   :: transportAddressWithPort().
 
 
 %% **************************************************************************
@@ -104,9 +104,9 @@ pdu is handed over to the server for primary processing.
 For the pdu to be rejected, the function _must_ return _false_.
 """.
 -callback accept_recv_pdu(Domain, Addr, PduType) -> boolean() when
-                                 Domain :: transportDomain(),
-                                 Addr :: transportAddressWithPort(),
-                                 PduType :: pdu_type().
+      Domain  :: transportDomain(),
+      Addr    :: transportAddressWithPort(),
+      PduType :: pdu_type().
 
 %% **************************************************************************
 %% accept_send_pdu(Addr, Port, pdu_type()) -> boolean()
@@ -119,9 +119,9 @@ received from the master-agent.
 For the message to be rejected, the function _must_ return _false_.
 """.
 -callback accept_send_pdu(Domain, Addr, PduType) -> boolean() when
-                                 Domain :: transportDomain(),
-                                 Addr :: transportAddressWithPort(),
-                                 PduType :: pdu_type().
+      Domain  :: transportDomain(),
+      Addr    :: transportAddressWithPort(),
+      PduType :: pdu_type().
 
 -doc false.
 verify(Module) ->
