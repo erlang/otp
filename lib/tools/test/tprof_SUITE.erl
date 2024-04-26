@@ -51,10 +51,11 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() ->
-    [{group, all}].
+    [call_count_ad_hoc, %% Cannot be run in parallel
+     {group, all}].
 
 groups() ->
-    [{all, [parallel], [call_count_ad_hoc, call_time_ad_hoc, call_memory_ad_hoc,
+    [{all, [parallel], [call_time_ad_hoc, call_memory_ad_hoc,
                         call_memory_total, sort, rootset, set_on_spawn,
                         code_load, code_reload,
                         {group, default_session},
@@ -84,18 +85,15 @@ call_count_ad_hoc(Config) when is_list(Config) ->
     ok = tprof:profile(lists, seq, [1, 16]),
     ct:capture_stop(),
     Output = string:lexemes(lists:flatten(ct:capture_get()), "\n"),
-    %% expect one line to contain lists:seq_loop: "lists:seq_loop/3    5   [  ...]",
-    true =
-        lists:any(
-            fun
-                ("lists:seq_loop/3" ++ Rest) ->
-                    [_, "[", _] = string:lexemes(Rest, " "),
-                    true;
-                (_) ->
-                    false
-            end,
-            Output
-        ),
+
+    %% We check that only the things profiled are lists:seq/2 and lists:seq_loop/3
+    %% and that the output looks good
+    ?assertMatch(
+       ["FUNCTION          CALLS  [    %]",
+        "lists:seq/2           1  ["++_,
+        "lists:seq_loop/3      5  ["++_,
+        "                         [100.0]"], Output),
+
     %% spawn examples
     SpawnFun =
         fun () ->
@@ -103,35 +101,43 @@ call_count_ad_hoc(Config) when is_list(Config) ->
             receive {'DOWN', MRef, process, Pid, normal} -> done end
        end,
     %% trace subset examples
-    {done, Profile1} = tprof:profile(SpawnFun, #{pattern => [{lists, seq_loop, '_'}], report => return, type => call_count}),
+    {done, Profile1} = tprof:profile(SpawnFun, #{pattern => [{lists, seq_loop, '_'}],
+                                                 report => return, type => call_count}),
     ?assertMatch({call_count, [{lists, seq_loop, 3, [{all, _, _}]}]}, Profile1),
+
     %% timer
-    {{'EXIT', timeout}, Profile2} = tprof:profile(
+    {{'EXIT', timeout}, {call_count, Profile2}} = tprof:profile(
+        fun () -> Delay = hd(lists:seq(5001, 5032)), receive after Delay -> ok end end,
+        #{timeout => 1000, report => return, type => call_count }),
+    ?assertMatch([{lists, seq, 2, [{_, 1, _}]},
+                  {lists, seq_loop, 3, [{_, 9, _}]},
+                  {?MODULE, _, _, _}], lists:sort(Profile2)),
+
+    %% timer with patterns
+    {{'EXIT', timeout}, Profile3} = tprof:profile(
         fun () -> Delay = hd(lists:seq(5001, 5032)), timer:sleep(Delay) end,
         #{timeout => 1000, report => return, type => call_count,
           pattern => [{lists, seq_loop, '_'}]}),
-    ?assertMatch({call_count, [{lists, seq_loop, 3, [{all, _, _}]}]}, Profile2).
+    ?assertMatch({call_count, [{lists, seq_loop, 3, [{all, _, _}]}]}, Profile3).
 
 call_time_ad_hoc() ->
     [{doc, "Ad-hoc examples for call_time measurement"}].
 
 call_time_ad_hoc(Config) when is_list(Config) ->
     ct:capture_start(),
-    ok = tprof:profile(lists, seq, [1, 16], #{type => call_time}),
+    ok = tprof:profile(lists, seq, [1, 1000], #{type => call_time}),
     ct:capture_stop(),
     Output = string:lexemes(lists:flatten(ct:capture_get()), "\n"),
-    %% expect one line to contain lists:seq_loop: "lists:seq_loop/3    5   ...   ...  [...]",
-    true =
-        lists:any(
-            fun
-                ("lists:seq_loop/3" ++ Rest) ->
-                    ["5", _, _, "[" ++ _ | _] = string:lexemes(Rest, " "),
-                    true;
-                (_) ->
-                    false
-            end,
-            Output
-        ),
+
+    %% We check that only the things profiled are lists:seq/2 and lists:seq_loop/3
+    ?assertMatch(
+       ["****** Process "++_,
+        "FUNCTION          CALLS  TIME"++_,
+        "lists:seq/2           1       "++_,
+        "lists:seq_loop/3    251       "++_,
+        "                              "++_],
+       Output),
+
     %% spawn examples
     SpawnFun =
         fun () ->
@@ -139,14 +145,25 @@ call_time_ad_hoc(Config) when is_list(Config) ->
             receive {'DOWN', MRef, process, Pid, normal} -> done end
        end,
     %% trace subset examples
-    {done, Profile1} = tprof:profile(SpawnFun, #{pattern => [{lists, seq_loop, '_'}], report => return, type => call_time}),
+    {done, Profile1} = tprof:profile(SpawnFun, #{pattern => [{lists, seq_loop, '_'}],
+                                                 report => return, type => call_time}),
     ?assertMatch({call_time, [{lists, seq_loop, 3, [{_, 9, _}]}]}, Profile1),
+
     %% timer
-    {{'EXIT', timeout}, Profile2} = tprof:profile(
+    {{'EXIT', timeout}, {call_time, Profile2}} = tprof:profile(
+        fun () -> Delay = hd(lists:seq(5001, 5032)), receive after Delay -> ok end end,
+        #{timeout => 1000, report => return, type => call_time }),
+    ?assertMatch([{lists, seq, 2, [{_, 1, _}]},
+                  {lists, seq_loop, 3, [{_, 9, _}]},
+                  {?MODULE, _, _, _}
+                 ], lists:sort(Profile2)),
+
+    %% timer with filter
+    {{'EXIT', timeout}, Profile3} = tprof:profile(
         fun () -> Delay = hd(lists:seq(5001, 5032)), timer:sleep(Delay) end,
         #{timeout => 1000, report => return, type => call_time,
           pattern => [{lists, seq_loop, '_'}]}),
-    ?assertMatch({call_time, [{lists, seq_loop, 3, [{_, 9, _}]}]}, Profile2).
+    ?assertMatch({call_time, [{lists, seq_loop, 3, [{_, 9, _}]}]}, Profile3).
 
 call_memory_ad_hoc() ->
     [{doc, "Ad-hoc examples for call_memory measurement"}].
@@ -156,8 +173,13 @@ call_memory_ad_hoc(Config) when is_list(Config) ->
     ok = tprof:profile(lists, seq, [1, 16], #{type => call_memory}),
     ct:capture_stop(),
     Output = string:lexemes(lists:flatten(ct:capture_get()), "\n"),
-    %% expect third line to contain lists:seq_loop: "lists:seq_loop/3   5     32   6.40  [...]",
-    ?assertMatch(["lists:seq_loop/3", "5", "32", _, "[" ++ _ | _], string:lexemes(lists:nth(3, Output), " ")),
+    %% We check that only the things profiled are lists:seq/2 and lists:seq_loop/3
+    %% and that the output looks good
+    ?assertMatch(
+       ["****** Process "++_,
+        "FUNCTION          CALLS  WORDS  PER CALL  [     %]",
+        "lists:seq_loop/3      5     32      6.40  [100.00]",
+        "                            32            [ 100.0]"], Output),
     %% spawn examples
     SpawnFun =
         fun () ->
@@ -435,7 +457,10 @@ hierarchy() ->
 
 hierarchy(Config) when is_list(Config) ->
     {ok, Srv} = start_link(Config, #{type => call_memory}),
-    Traced = enable_trace(Config, Srv, {all_children, kernel_sup}, #{ set_on_spawn => false }),
+    Traced = case enable_trace(Config, Srv, {all_children, kernel_sup}, #{ set_on_spawn => false }) of
+                 {T, _} -> T;
+                 T -> T
+             end,
     ?assert(Traced > 5),
     ?assert(set_pattern(Config, Srv, code_server, '_', '_') > 5),
     _ = code:get_path(), %% makes a call to code_server

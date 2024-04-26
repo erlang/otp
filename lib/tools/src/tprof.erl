@@ -309,7 +309,7 @@ the Kernel supervisor:
 3> tprof:set_pattern('_', '_' , '_').
 16728
 4> Sample = tprof:collect().
-{call_count,
+{call_memory,
     [{gen_server,try_dispatch,4,[{<0.154.0>,2,6}]},
      {erlang,iolist_to_iovec,1,[{<0.161.0>,1,8}]},
 <...>
@@ -666,6 +666,12 @@ names:
   specified process, or any recursive descendant of it. This mode is designed to
   facilitate tracing of supervision trees.
 
+Returns the number of processes for which tracing was enabled.
+
+When a list of pids, `children` or `all_children` is used, the processes that
+tracing failed to be enabled on will also be returned. Tracing can fail to be
+enabled if the process has terminated before tracing could be enabled.
+
 > #### Note {: .info }
 >
 > The profiling server does not keep track of processes that were added to the
@@ -680,10 +686,10 @@ Specify `Options` to modify tracing behavior:
 - **`set_on_spawn`** - Automatically start tracing for processes spawned by the
   traced process. On by default.
 """.
--spec enable_trace(Spec, trace_options()) -> non_neg_integer()
-              when Spec :: pid() | all | new | existing |
-                           {children | all_children, process()};
-                  ([process()], trace_options()) -> non_neg_integer() | {non_neg_integer(), [process()]}.
+-spec enable_trace(Spec, trace_options()) -> Traced :: non_neg_integer()
+              when Spec :: pid() | all | new | existing;
+                  (Spec, trace_options()) -> Traced :: non_neg_integer() | {Traced :: non_neg_integer(), Failed :: [process()]}
+              when Spec :: [process()] | {children | all_children, process()}.
 enable_trace(Spec, Options) ->
     enable_trace(?MODULE, Spec, Options).
 
@@ -741,9 +747,12 @@ disable_trace(Server, Spec, Options) ->
 
 disable_session_trace(Session, Procs) ->
     disable_session_trace(Session, Procs, default_trace_options()).
-disable_session_trace(Session, Procs, Options) when Procs =:= all; Procs =:= new_processes; Procs =:= existing_processes ->
+disable_session_trace(Session, Procs, Options) when Procs =:= all;
+                                                    Procs =:= new_processes;
+                                                    Procs =:= existing_processes ->
     trace:process(Session,  Procs, false, trace_options(Options));
-disable_session_trace(Session, {Children, PidOrName}, Options) when Children =:= children; Children =:= all_children ->
+disable_session_trace(Session, {Children, PidOrName}, Options) when Children =:= children;
+                                                                    Children =:= all_children ->
     Pids = children(Children, PidOrName),
     toggle_trace(Session, Pids, false, trace_options(Options), 0, []);
 disable_session_trace(Session, Pid, Options) when is_pid(Pid); is_atom(Pid) ->
@@ -967,8 +976,8 @@ handle_call(collect, _From, #tprof_state{session = Session, trace_map = Map, typ
     {reply, collect(Session, Map, Type), State};
 handle_call({profile, What, Options}, From, #tprof_state{session = Session, ad_hoc = undefined, trace_map = Map, type = Type} = State) ->
     %% ad-hoc profile routed via gen_server to handle 'EXIT' signal
-    {Pid, Timer, Patterns, RootSet, NewMap} = ad_hoc_run(Session, What, Options, Map, Type),
-    {noreply, State#tprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From}, trace_map = NewMap}};
+    {Ref, Pid, Patterns, RootSet, NewMap} = ad_hoc_run(Session, What, Options, Map, Type),
+    {noreply, State#tprof_state{ad_hoc = {Ref, Pid, Patterns, RootSet, From}, trace_map = NewMap}};
 handle_call({profile, _What, _Options}, _From, State) ->
     {reply, {error, running}, State}.
 
@@ -979,19 +988,12 @@ handle_cast(_Req, _State) ->
 
 -doc false.
 -spec handle_info(term(), state()) -> {noreply, state()}.
-handle_info({'EXIT', Pid, Reason}, #tprof_state{ad_hoc = {Pid, Timer, Patterns, RootSet, From},
+handle_info({'DOWN', Ref, process, Pid, Reason},
+            #tprof_state{ad_hoc = {Pid, Ref, Patterns, RootSet, From},
     trace_map = Map, type = Type, session = Session} = State) ->
     _ = disable_session_trace(Session, RootSet),
-    Profile = collect(Session, Map, Type),
-    gen:reply(From, {Reason, Profile}),
-    Timer =/= false andalso erlang:cancel_timer(Timer),
-    {noreply, State#tprof_state{ad_hoc = undefined, trace_map = disable_patterns(Session, Patterns, Map, Type)}};
-
-handle_info({cancel, Pid}, #tprof_state{ad_hoc = {Pid, _Timer, Patterns, RootSet, From},
-    trace_map = Map, type = Type, session = Session} = State) ->
-    _ = disable_session_trace(Session, RootSet),
-    Profile = collect(Session, Map, Type),
-    gen:reply(From, {{'EXIT', timeout}, Profile}),
+    Profile = collect_ad_hoc(Session, Map, Type),
+    gen_server:reply(From, {Reason, Profile}),
     {noreply, State#tprof_state{ad_hoc = undefined, trace_map = disable_patterns(Session, Patterns, Map, Type)}}.
 
 -doc false.
@@ -1255,7 +1257,7 @@ disable_patterns(Session, Patterns, Map, Type) ->
 
 %% ad-hoc profiler implementation
 do_profile(What, Options) ->
-    %% start a new tprof server, potentially registered to a new name
+    %% start a new tprof server
     Pid = start_result(start_link(Options#{ session => tprof_profile })),
     try
         {Ret, Profile} = gen_server:call(Pid, {profile, What, Options}, infinity),
@@ -1357,6 +1359,15 @@ collect(S, all, Type) ->
 collect(S, Pattern, Type) ->
     {Type, maps:fold(fun(K, V, Acc) -> collect_trace(S, K, V, Acc, Type) end, [], Pattern)}.
 
+collect_ad_hoc(Session, Pattern, Type) ->
+    {Type, TraceInfo} = collect(Session, Pattern, Type),
+    {Type, [TI || TI = {Mod, Fun, Arity, _} <- TraceInfo,
+                  Mod =/= trace,
+                  Mod =/= tprof,
+                  not (Mod =:= erts_internal andalso Fun =:= trace_pattern andalso Arity =:= 4),
+                  not (Mod =:= erts_internal andalso Fun =:= trace andalso Arity =:= 4)
+           ]}.
+
 foreach(S, Map, Action, Type) ->
     maps:foreach(
         fun (Mod, Funs) ->
@@ -1371,21 +1382,21 @@ ad_hoc_run(Session, What, Options, Map, Type) ->
             {_, NewMap} = enable_pattern(Session, M, F, A, Acc, Type),
             NewMap
         end, Map, Patterns),
+
     %% check whether spawned processes are also traced
     OnSpawn = maps:get(set_on_spawn, Options, true),
     %% enable tracing for items in the rootset
     RootSet = maps:get(rootset, Options, []),
     %% ignore errors when setting up rootset trace
     _ = enable_session_trace(Session, RootSet),
+
     %% spawn a separate process to run the user-supplied MFA
     %% if RootSet is 'all' or 'new', skip the trace flags
     Flags = trace_flags(RootSet, OnSpawn),
-    Pid = spawn_profiled(Session, What, Flags),
-    %% start timer to terminate the function being profiled if it takes too long
-    %%  to complete
-    Timer = is_map_key(timeout, Options) andalso
-        erlang:send_after(maps:get(timeout, Options), self(), {cancel, Pid}),
-    {Pid, Timer, Patterns, RootSet, NewMap}.
+
+    {Pid, Ref} = spawn_profiled(Session, What, Type, Flags, maps:get(timeout, Options, infinity)),
+
+    {Pid, Ref, Patterns, RootSet, NewMap}.
 
 trace_flags(all, _) -> [];
 trace_flags(new, _) -> [];
@@ -1395,19 +1406,63 @@ trace_flags(_, false) -> [call, silent].
 make_list({M, F, A}) -> [{M, F, A}];
 make_list(List) -> List.
 
-spawn_profiled(Session, Fun, Flags) when is_function(Fun) ->
-    spawn_link(
-        fun() ->
-            Flags =/= [] andalso begin 1 = trace:process(Session, self(), true, Flags) end,
-            Ret = catch Fun(),
-            Flags =/= [] andalso begin 1 = trace:process(Session, self(), false, Flags) end,
-            exit(Ret)
-        end);
-spawn_profiled(Session, {M, F, A}, Flags) ->
-    spawn_link(
-        fun() ->
-            Flags =/= [] andalso begin 1 = trace:process(Session, self(), true, Flags) end,
-            Ret = catch erlang:apply(M, F, A),
-            Flags =/= [] andalso begin 1 = trace:process(Session, self(), false, Flags) end,
-            exit(Ret)
-        end).
+spawn_profiled(Session, Fun, call_count, _Flags, Timeout) when is_function(Fun) ->
+    spawn_monitor(
+      fun() ->
+              start_timer(Session, call_count, Timeout),
+              _ = trace:function(Session, {'_','_','_'}, restart, [call_count]),
+              Ret = catch Fun(),
+              _ = trace:function(Session, {'_','_','_'}, pause, [call_count]),
+              exit(Ret)
+      end);
+spawn_profiled(Session, {M, F, A}, call_count, _Flags, Timeout) ->
+    spawn_monitor(
+      fun() ->
+              start_timer(Session, call_count, Timeout),
+              _ = trace:function(Session, {'_','_','_'}, restart, [call_count]),
+              Ret = catch erlang:apply(M, F, A),
+              _ = trace:function(Session, {'_','_','_'}, pause, [call_count]),
+              exit(Ret)
+      end);
+spawn_profiled(Session, Fun, Type, Flags, Timeout) when is_function(Fun) ->
+    spawn_monitor(
+      fun() ->
+              start_timer(Session, Type, Timeout),
+              Flags =/= [] andalso begin 1 = trace:process(Session, self(), true, Flags) end,
+              Ret = catch Fun(),
+              Flags =/= [] andalso begin 1 = trace:process(Session, self(), false, Flags) end,
+              exit(Ret)
+      end);
+spawn_profiled(Session, {M, F, A}, Type, Flags, Timeout) ->
+    spawn_monitor(
+      fun() ->
+              start_timer(Session, Type, Timeout),
+              Flags =/= [] andalso begin 1 = trace:process(Session, self(), true, Flags) end,
+              Ret = catch erlang:apply(M, F, A),
+              Flags =/= [] andalso begin 1 = trace:process(Session, self(), false, Flags) end,
+              exit(Ret)
+      end).
+
+%% In order for the timer to not trigger any profiling code, we
+%% make sure to start it before profiling is started. 
+start_timer(_Session, _Type, infinity) ->
+    ok;
+start_timer(Session, Type, Timeout) ->
+    Ref = make_ref(),
+    Pid = self(),
+    spawn(fun() ->
+                  MonRef = monitor(process, Pid),
+                  Pid ! Ref,
+                  receive
+                      {'DOWN', MonRef, _, _, _} ->
+                          ok
+                  after Timeout ->
+                          %% Pause call_count profiling before the
+                          %% timer triggers so that the code in gen_server
+                          %% does not become part of the profiling
+                          Type =/= call_count orelse
+                              trace:function(Session, {'_','_','_'}, pause, [Type]),
+                          exit(Pid, {'EXIT',timeout})
+                  end
+          end),
+    receive Ref -> ok end.
