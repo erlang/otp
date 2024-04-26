@@ -43,18 +43,6 @@ If the manager is not configured to use any particular transport domain, the
 behaviour `handle_agent/5` will for backwards copmpatibility reasons be called
 with the old `IpAddr` and `PortNumber` arguments
 
-## DATA TYPES
-
-```erlang
-snmp_gen_info() = {ErrorStatus :: atom(),
-                   ErrorIndex  :: pos_integer(),
-                   Varbinds    :: [snmp:varbind()]}
-snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
-                        Generic   :: integer(),
-                        Spec      :: integer(),
-                        Timestamp :: integer(),
-                        Varbinds  :: [snmp:varbind()]}
-```
 """.
 
 -export_type([
@@ -62,14 +50,22 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 	      snmp_v1_trap_info/0 
 	     ]).
 
+-doc """
+General error information (does not _have_ to indicate an error)..
+""".
 -type snmp_gen_info() :: {ErrorStatus :: atom(), 
 			  ErrorIndex :: pos_integer(), 
 			  Varbinds :: [snmp:varbind()]}.
+
+-doc """
+Trap related information.
+""".
 -type snmp_v1_trap_info() :: {Enteprise :: snmp:oid(), 
 			      Generic   :: integer(), 
 			      Spec      :: integer(), 
 			      Timestamp :: integer(), 
 			      Varbinds  :: [snmp:varbind()]}.
+
 -type ip_address()  :: inet:ip_address().
 -type port_number() :: inet:port_number().
 
