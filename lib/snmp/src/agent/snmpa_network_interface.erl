@@ -35,12 +35,10 @@ The semantics of them and their exact signatures are explained below.
 But this is not enough. There is also a set of _mandatory_ messages which the
 network interface entity must be able to receive and be able to send. This is
 described in chapter [snmp_agent_netif](snmp_agent_netif.md).
-""".
 
-%% Note that this behaviour is not enough!
-%% There is also a set of mandatory messages which the
-%% network interface entity must be able to receive and
-%% be able to send. See the documentation for more info.
+This module has existed in the snmp app since before R13B03.
+""".
+-moduledoc(#{since => "OTP R13B03"}).
 
 -doc """
 Start-link the network interface process.
