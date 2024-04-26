@@ -243,32 +243,37 @@ open(TransportRef, Opts) ->
                  post_process_opts(IB, Options)],
 	    case (catch gen_udp:open(Port, IpOpts)) of
 		{ok, Socket} ->
+                    Handle = Socket,
 		    ?udp_debug(UdpRec, "udp open", []),
-		    NewUdpRec = UdpRec#megaco_udp{socket = Socket},
+		    NewUdpRec = UdpRec#megaco_udp{handle = Handle,
+                                                  socket = Socket},
 		    case start_udp_server(TransportRef, NewUdpRec) of
 			{ok, ControlPid} ->
 			    _ = gen_udp:controlling_process(Socket, ControlPid),
-			    {ok, Socket, ControlPid};
+			    {ok, Handle, ControlPid};
 			{error, Reason} ->
-			    Error = {error, {could_not_start_udp_server, Reason}},
+                            Reason2 = {could_not_start_udp_server, Reason},
+			    Error   = {error, Reason2},
 			    ?udp_debug({socket, Socket}, "udp close", []),
 			    gen_udp:close(Socket),
 			    Error
 
 		    end;
 		{'EXIT', Reason} ->
-		    Error = {error, {could_not_open_udp_port, Reason}},
+                    Reason2 = {could_not_open_udp_port, Reason},
+		    Error   = {error, Reason2},
 		    ?udp_debug(UdpRec, "udp open exited", [Error]),
 		    Error;
 		{error, Reason} ->
-		    Error = {error, {could_not_open_udp_port, Reason}},
+		    Reason2 = {could_not_open_udp_port, Reason},
+		    Error   = {error, Reason2},
 		    ?udp_debug(UdpRec, "udp open failed", [Error]),
 		    Error
 	    end;
-	{error, Reason} = Error ->
+	{error, _Reason} = Error ->
 	    ?udp_debug(#megaco_udp{}, "udp open failed",
 		       [Error, {options, Opts}]),
-	    {error, Reason}
+	    Error
     end.
 
 

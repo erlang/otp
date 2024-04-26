@@ -29,8 +29,8 @@
 -record(megaco_udp,
 	{port                   :: undefined | inet:port_number(),
 	 options = [],
-	 %% socket                 :: undefined | inet:socket(),
-	 socket                 :: undefined | megaco_udp:handle(),
+         handle                 :: undefined | megaco_udp:handle(),
+	 socket                 :: undefined | inet:socket(),
 	 receive_handle         :: term(),
 	 module    = megaco     :: module(),
          %% false: Spawn a new process for each message
