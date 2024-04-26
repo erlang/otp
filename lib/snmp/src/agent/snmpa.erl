@@ -2521,7 +2521,7 @@ The `Block` option indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
+See [`snmp:log_to_txt/8`](`snmp:log_to_txt/8`) for more info.
 """.
 -doc(#{since => <<"OTP R15B01, OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
@@ -2719,7 +2719,7 @@ The `Block` option indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
+See [`snmp:log_to_io/7`](`snmp:log_to_io/7`) for more info.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->

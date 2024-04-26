@@ -1062,8 +1062,8 @@ definition in RFC2579.
 The validation fun, `Validate`, allows for a more "flexible" validation of the
 `DateAndTime` argument. Whenever the data is found to not follow RFC2579, the
 fun is called to allow a more "lax" validation. See the
-[validate_date_and_time/2](`m:snmp#vdat`) function for more info on the
-`Validate` fun.
+[`validate_date_and_time/2`](`snmp:validate_date_and_time/2`) function for
+more info on the `Validate` fun.
 
 """.
 -spec date_and_time_to_string(DAT, Validate) -> string() when
