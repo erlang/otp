@@ -1280,21 +1280,17 @@ session_info(PidPortFuncEvent) ->
 
 %% Make sure that we have loaded the tracer module.
 %% Copy-paste from erlang.erl
-ensure_tracer_module_loaded(Flag, FlagList) ->
-    try lists:keyfind(Flag, 1, FlagList) of
-        {Flag, Module, State} when erlang:is_atom(Module) ->
-            case erlang:module_loaded(Module) of
-                false ->
-                    Module:enabled(trace_status, erlang:self(), State);
-                true ->
-                    ok
-            end;
-        _ ->
-            ok
-    catch
-        _:_ ->
-            ok
-    end.
+ensure_tracer_module_loaded(Flag, [{Flag, Module, State}|T]) when erlang:is_atom(Module) ->
+    case erlang:module_loaded(Module) of
+        false ->
+            Module:enabled(trace_status, erlang:self(), State);
+        true ->
+            ensure_tracer_module_loaded(Flag, T)
+    end;
+ensure_tracer_module_loaded(Flag, [_ | T]) ->
+    ensure_tracer_module_loaded(Flag, T);
+ensure_tracer_module_loaded(_, _) ->
+    ok.
 
 error_with_inherited_info(Reason0, Args, [{_,_,_,ExtraInfo}|_]) ->
     Reason1 = case Reason0 of
