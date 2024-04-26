@@ -232,8 +232,8 @@ convert_moduledoc(#{ <<"en">> := ModuleHeader }, Meta, Application, Module) ->
                Application, Module,
                shell_docs:normalize(ModuleHeader)),
     [{moduledoc,String} | modulemeta(Meta)];
-convert_moduledoc(#{}, Meta, _, _) ->
-    [{moduledoc,""} | modulemeta(Meta)];
+convert_moduledoc(M, Meta, _, _) when M =:= #{} ->
+    ["-moduledoc false." | modulemeta(Meta)];
 convert_moduledoc(hidden, Meta, _, _) ->
     ["-moduledoc false." | modulemeta(Meta)].
 
