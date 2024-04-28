@@ -601,8 +601,22 @@ verify_cert_extensions(Cert, #{stapling_state := StaplingState,
                 end
         end,
     case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponseDer, Nonce,
-                                       [{is_trusted_responder_fun, IsTrustedResponderFun}]) of
-        ok ->
+                                       [{is_trusted_responder_fun,
+                                         IsTrustedResponderFun}]) of
+        {ok, Details} ->
+            HandleOcspDetails =
+                fun H([{missing, ocsp_nonce} | Rest]) ->
+                        Desc = "Certificate Status - stapling response "
+                            "provided but with nonce missing",
+                        ssl_logger:log(info, LogLevel,
+                                       #{description => Desc,
+                                         reason => [{missing, stapling_nonce}]},
+                                       ?LOCATION),
+                        H(Rest);
+                    H([_ | Rest]) ->
+                        H(Rest);
+                    H([]) -> ok end,
+            HandleOcspDetails(Details),
             verify_cert_extensions(Cert, UserState, Exts,
                                    Context#{certificate_valid => true});
         {error, {bad_cert, _} = Reason} ->

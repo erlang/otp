@@ -2169,13 +2169,13 @@ pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options)
                 end,
         OcspResponseCerts = [combined_cert(C) || C <- Certs] ++
             [#cert{der = <<>>, otp = IssuerCert}],
-        {ok, Responses} ?=
+        {ok, Responses, Details} ?=
             pubkey_ocsp:verify_response(
               BasicOcspResponse, OcspResponseCerts, NonceExt, IssuerCert,
               IsTrustedResponderFun),
         {ok, #'SingleResponse'{certStatus = CertStatus}} ?=
             pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses),
-        pubkey_ocsp:status(CertStatus)
+        pubkey_ocsp:status(CertStatus, Details)
     else
         {error, Reason} ->
             {error, {bad_cert, {revocation_status_undetermined, Reason}}}
