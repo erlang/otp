@@ -16,12 +16,12 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1.7.0
+        uses: actions/create-github-app-token@v1.9.3
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PEM }}
 
-      - uses: actions/add-to-project@v0.5.0
+      - uses: actions/add-to-project@v1.0.1
         with:
           project-url: https://github.com/orgs/erlang/projects/13
           github-token: ${{ steps.generate_token.outputs.token }}
