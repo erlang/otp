@@ -192,14 +192,24 @@ staple_with_nonce(Config)
   when is_list(Config) ->
     stapling_helper(Config, #{ocsp_nonce => true}).
 
+staple_missing() ->
+    [{doc, "Verify OCSP stapling works with a missing OCSP response."}].
+staple_missing(Config)
+  when is_list(Config) ->
+    %% Start a server that will not include an OCSP response.
+    stapling_helper(Config, openssl,  #{ocsp_nonce => true}).
+
 stapling_helper(Config, StaplingOpt) ->
+    stapling_helper(Config, openssl_ocsp, StaplingOpt).
+
+stapling_helper(Config, ServerType, StaplingOpt) ->
     %% ok = logger:set_application_level(ssl, debug),
     PrivDir = proplists:get_value(priv_dir, Config),
     CACertsFile = filename:join(PrivDir, "a.server/cacerts.pem"),
     Data = "ping",  %% 4 bytes
     GroupName = undefined,
     ServerOpts = [{group, GroupName}],
-    Server = ssl_test_lib:start_server(openssl_ocsp,
+    Server = ssl_test_lib:start_server(ServerType,
                                        [{options, ServerOpts}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
@@ -250,14 +260,6 @@ cert_status_undetermined(Config)
   when is_list(Config) ->
     stapling_negative_helper(Config, "undetermined/cacerts.pem",
                                   openssl_ocsp_undetermined, bad_certificate).
-
-staple_missing() ->
-    [{doc, "Verify OCSP stapling works with a missing OCSP response."}].
-staple_missing(Config)
-  when is_list(Config) ->
-    %% Start a server that will not include an OCSP response.
-    stapling_negative_helper(Config, "a.server/cacerts.pem",
-                                  openssl, bad_certificate).
 
 stapling_negative_helper(Config, CACertsPath, ServerVariant, ExpectedError) ->
     PrivDir = proplists:get_value(priv_dir, Config),

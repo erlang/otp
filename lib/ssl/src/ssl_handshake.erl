@@ -2070,15 +2070,17 @@ validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
-					   SslState) of
+					   SslState,
+                                           LogLevel) of
 		 {valid, NewSslState} ->
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				            SslState, CertPath, LogLevel);
+                                    SslState, CertPath, LogLevel);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				            Extension, UserState, SslState, CertPath, LogLevel)
+                                    Extension, UserState, SslState, CertPath,
+                                    LogLevel)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
@@ -2088,19 +2090,20 @@ validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
-				      SslState);
+				      SslState,
+                                      LogLevel);
 	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
                                                (VerifyResult == valid_peer) -> 
 	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		 valid ->
-                     ssl_certificate:validate(OtpCert, VerifyResult, SslState);
+                     ssl_certificate:validate(OtpCert, VerifyResult, SslState, LogLevel);
 		 Reason ->
 		     {fail, Reason}
 	     end;
 	(OtpCert, VerifyResult, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
-				      SslState)
+				      SslState, LogLevel)
      end, VerifyState}.
 
 path_validation_options(Opts, ValidationFunAndState) ->
@@ -2110,7 +2113,7 @@ path_validation_options(Opts, ValidationFunAndState) ->
 
 apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
-    VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState),
+    VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState, LogLevel),
     case apply_fun(Fun, OtpCert, VerifyResult, UserState0, CertPath) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer) ->
 	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
@@ -2140,14 +2143,14 @@ apply_fun(Fun, OtpCert, ExtensionOrError, UserState, CertPath) ->
             Fun(OtpCert, ExtensionOrError, UserState)
     end.
 
-maybe_check_hostname(OtpCert, valid_peer, SslState) ->
-    case ssl_certificate:validate(OtpCert, valid_peer, SslState) of 
+maybe_check_hostname(OtpCert, valid_peer, SslState, LogLevel) ->
+    case ssl_certificate:validate(OtpCert, valid_peer, SslState, LogLevel) of
         {valid, _} ->
             valid_peer;
         {fail, Reason} ->
             Reason
     end;
-maybe_check_hostname(_, valid, _) ->
+maybe_check_hostname(_, valid, _, _) ->
     valid.
 
 
@@ -2269,7 +2272,12 @@ cert_status_check(_OtpCert,
                                         status := StaplingStatus}},
                   _VerifyResult, _CertPath, _LogLevel)
   when StaplingStatus == not_negotiated; StaplingStatus == not_received ->
-    {bad_cert, {revocation_status_undetermined, not_stapled}}.
+    %% RFC6066 section 8
+    %% Servers that receive a client hello containing the "status_request"
+    %% extension MAY return a suitable certificate status response to the
+    %% client along with their certificate.
+    valid.
+
 
 maybe_check_crl(_, #{crl_check := false}, _, _, _) ->
     valid;
