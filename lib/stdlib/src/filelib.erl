@@ -997,7 +997,7 @@ safe_relative_path(Path, "") ->
 safe_relative_path(Path, Cwd) ->
     srp_path(filename:split(Path),
              Cwd,
-             sets:new([{version, 2}]),
+             sets:new(),
              []).
 
 srp_path([], _Cwd, _Seen, []) ->
@@ -1017,7 +1017,7 @@ srp_path([<<"..">>|_Segs], _Cwd, _Seen, []) ->
 srp_path([<<"..">>|Segs], Cwd, Seen, [_|_]=Acc) ->
     srp_path(Segs, Cwd, Seen, lists:droplast(Acc));
 srp_path([clear|Segs], Cwd, _Seen, Acc) ->
-    srp_path(Segs, Cwd, sets:new([{version, 2}]), Acc);
+    srp_path(Segs, Cwd, sets:new(), Acc);
 srp_path([Seg|_]=Segs, Cwd, Seen, Acc) ->
     case filename:pathtype(Seg) of
         relative ->

@@ -34,7 +34,7 @@ module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Order = [Lbl || {function,_,_,Lbl,_} <- Fs1],
     All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs1},
     WorkList = rootset(Fs1, Exp, Attr),
-    Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
+    Used = find_all_used(WorkList, All, sets:from_list(WorkList)),
     Fs2 = remove_unused(Order, Used, All),
     {Fs3,Lc} = clean_labels(Fs2),
     Fs4 = fix_bs_create_bin(Fs3, Opts),

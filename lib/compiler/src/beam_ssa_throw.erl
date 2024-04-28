@@ -57,7 +57,7 @@
 %% Per-module scan state
 -record(gst, {tlh_roots :: gb_trees:tree(#b_local{}, gb_sets:set(handler())),
               tlh_edges=#{} :: #{ #b_local{} => gb_sets:set(#b_local{}) },
-              throws=sets:new([{version, 2}]) :: sets:set(#b_local{})}).
+              throws=sets:new() :: sets:set(#b_local{})}).
 
 %% Per-function scan state
 -record(lst, {suitability=#{} :: #{ #b_var{} => suitability() },

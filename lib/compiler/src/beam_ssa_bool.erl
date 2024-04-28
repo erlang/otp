@@ -213,7 +213,7 @@ pre_opt(Blocks, Count) ->
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = sets:from_list([hd(Top)], [{version, 2}]),
+    Reached = sets:from_list([hd(Top)]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -319,13 +319,13 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
                     Reached = sets:union(Reached0,
-                                              sets:from_list(Successors, [{version, 2}])),
+                                              sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -788,7 +788,7 @@ split_dom_block_is([], PreAcc) ->
 
 collect_digraph_blocks(FirstL, LastL, #b_br{succ=Succ,fail=Fail}, Blocks) ->
     Ws = gb_sets:singleton(FirstL),
-    Seen = sets:from_list([Succ,Fail], [{version, 2}]),
+    Seen = sets:from_list([Succ,Fail]),
     collect_digraph_blocks(Ws, LastL, Blocks, Seen, []).
 
 collect_digraph_blocks(Ws0, LastL, Blocks, Seen0, Acc0) ->
@@ -1582,7 +1582,7 @@ join_inits_1([], VarMap) ->
 %%%
 
 digraph_to_ssa(Ls, G, Blocks0) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Blocks,_} = digraph_to_ssa(Ls, G, Blocks0, Seen),
     Blocks.
 

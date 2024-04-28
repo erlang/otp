@@ -1615,7 +1615,7 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     %% remove_message blocks.
     RPO = beam_ssa:rpo(Blocks),
     {Dominators,_} = beam_ssa:dominators(RPO, Blocks),
-    RmSet = sets:from_list(RmBlocks, [{version, 2}]),
+    RmSet = sets:from_list(RmBlocks),
     RmRPO = beam_ssa:rpo(RmBlocks, Blocks),
     find_loop_exit_1(RmRPO, RmSet, Dominators, Blocks);
 find_loop_exit(_, _) ->
@@ -1732,10 +1732,10 @@ find_yregs(#st{frames=[_|_]=Frames,args=Args,ssa=Blocks0}=St) ->
     St#st{ssa=Blocks}.
 
 find_yregs_1([{F,Defs}|Fs], Blocks0) ->
-    DK = #dk{d=Defs,k=sets:new([{version, 2}])},
+    DK = #dk{d=Defs,k=sets:new()},
     D0 = #{F => DK,?EXCEPTION_BLOCK => DK#dk{d=[]}},
     Ls = beam_ssa:rpo([F], Blocks0),
-    Yregs0 = sets:new([{version, 2}]),
+    Yregs0 = sets:new(),
     Yregs = find_yregs_2(Ls, Blocks0, D0, Yregs0),
     Blk0 = map_get(F, Blocks0),
     Blk = beam_ssa:add_anno(yregs, Yregs, Blk0),
@@ -1810,7 +1810,7 @@ find_yregs_is([#b_set{dst=Dst}=I|Is], #dk{d=Defs0,k=Killed0}=Ys, Yregs0) ->
             Defs = ordsets:add_element(Dst, Defs0),
             find_yregs_is(Is, Ys#dk{d=Defs}, Yregs);
         true ->
-            Killed = sets:union(sets:from_list(Defs0, [{version, 2}]), Killed0),
+            Killed = sets:union(sets:from_list(Defs0), Killed0),
             Defs = [Dst],
             find_yregs_is(Is, Ys#dk{d=Defs,k=Killed}, Yregs)
     end;
@@ -1825,17 +1825,17 @@ intersect_used(#b_br{bool=#b_var{}=V}, Set) ->
 intersect_used(#b_ret{arg=#b_var{}=V}, Set) ->
     intersect_used_keep_singleton(V, Set);
 intersect_used(#b_set{op=phi,args=Args}, Set) ->
-    sets:from_list([V || {#b_var{}=V,_} <- Args, sets:is_element(V, Set)], [{version, 2}]);
+    sets:from_list([V || {#b_var{}=V,_} <- Args, sets:is_element(V, Set)]);
 intersect_used(#b_set{args=Args}, Set) ->
-    sets:from_list(intersect_used_keep(used_args(Args), Set), [{version, 2}]);
+    sets:from_list(intersect_used_keep(used_args(Args), Set));
 intersect_used(#b_switch{arg=#b_var{}=V}, Set) ->
     intersect_used_keep_singleton(V, Set);
-intersect_used(_, _) -> sets:new([{version, 2}]).
+intersect_used(_, _) -> sets:new().
 
 intersect_used_keep_singleton(V, Set) ->
     case sets:is_element(V, Set) of
-        true -> sets:from_list([V], [{version, 2}]);
-        false -> sets:new([{version, 2}])
+        true -> sets:from_list([V]);
+        false -> sets:new()
     end.
 
 intersect_used_keep(Vs, Set) ->
@@ -2574,7 +2574,7 @@ reserve_arg_regs([], _, Acc) -> Acc.
 
 reserve_zregs(RPO, Blocks, Intervals, Res) ->
     ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
-    ShortLived = sets:from_list(ShortLived0, [{version, 2}]),
+    ShortLived = sets:from_list(ShortLived0),
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
                 reserve_zreg(Is, Last, ShortLived, A)
         end,

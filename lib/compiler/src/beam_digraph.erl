@@ -132,7 +132,7 @@ in_neighbours(#dg{in_es=InEsMap}, V) ->
 
 -spec is_path(graph(), vertex(), vertex()) -> boolean().
 is_path(G, From, To) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     try
         _ = is_path_1([From], To, G, Seen),
         false
@@ -182,7 +182,7 @@ vertices(#dg{vs=Vs}) ->
 
 -spec reverse_postorder(graph(), [vertex()]) -> [vertex()].
 reverse_postorder(G, Vs) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {RPO, _} = reverse_postorder_1(Vs, G, Seen, []),
     RPO.
 

@@ -145,7 +145,7 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                fargs=[] :: [#b_var{}], %Arguments for current function
                vcount=0,               %Variable counter
                fcount=0,               %Fun counter
-               ds=sets:new([{version, 2}]) :: sets:set(), %Defined variables
+               ds=sets:new() :: sets:set(), %Defined variables
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                ws=[]   :: [warning()],          %Warnings.
@@ -1555,7 +1555,7 @@ partition_keys(#ialias{pat=Map}=Alias, Ks) ->
     {Map1,Alias#ialias{pat=Map2}}.
 
 find_key_intersection(Ps) ->
-    Sets = [sets:from_list(Ks, [{version, 2}]) || Ks <- Ps],
+    Sets = [sets:from_list(Ks) || Ks <- Ps],
     Intersection = sets:intersection(Sets),
     case sets:is_empty(Intersection) of
         true ->

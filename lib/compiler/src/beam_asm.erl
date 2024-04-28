@@ -73,7 +73,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     Dict3 = reject_unsupported_versions(Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    Exp = sets:from_list(Exp0, [{version, 2}]),
+    Exp = sets:from_list(Exp0),
     {Code,Dict} = assemble_1(Asm, Exp, Dict3, []),
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).

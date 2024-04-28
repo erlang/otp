@@ -384,10 +384,10 @@ is_literal_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 -record(set, {set :: sets:set()}).
 
 set__singleton(Val) ->
-  #set{set = sets:add_element(Val, sets:new([{version, 2}]))}.
+  #set{set = sets:add_element(Val, sets:new())}.
 
 set__from_list(List) ->
-  #set{set = sets:from_list(List, [{version, 2}])}.
+  #set{set = sets:from_list(List)}.
 
 set__is_element(_El, none) ->
   false;

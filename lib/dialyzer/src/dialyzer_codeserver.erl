@@ -124,7 +124,7 @@ ets_set_insert_list(List, Table) ->
 
 ets_set_to_set(Table) ->
   Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
-  ets:foldl(Fold, sets:new([{version, 2}]), Table).
+  ets:foldl(Fold, sets:new(), Table).
 
 %%--------------------------------------------------------------------
 

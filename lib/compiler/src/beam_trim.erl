@@ -351,7 +351,7 @@ safe_labels([{label,L}|Is], Acc) ->
     end;
 safe_labels([_|Is], Acc) ->
     safe_labels(Is, Acc);
-safe_labels([], Acc) -> sets:from_list(Acc, [{version, 2}]).
+safe_labels([], Acc) -> sets:from_list(Acc).
 
 is_safe_label([{'%',_}|Is]) ->
     is_safe_label(Is);

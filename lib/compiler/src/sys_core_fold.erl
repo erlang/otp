@@ -99,7 +99,7 @@
 
 %% Variable value info.
 -record(sub, {v=[],                                 %Variable substitutions
-              s=sets:new([{version, 2}]) :: sets:set(), %Variables in scope
+              s=sets:new() :: sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
               in_guard=false,                       %In guard or not.
               top=true}).                           %Not inside a term.
@@ -1332,7 +1332,7 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=sets:new([{version, 2}]),t=#{}}.
+sub_new() -> #sub{v=orddict:new(),s=sets:new(),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
     Sub#sub{v=orddict:new(),t=#{}}.
@@ -2124,7 +2124,7 @@ is_bool_expr_list([]) -> true.
 %%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
-    is_safe_bool_expr_1(Core, sets:new([{version, 2}])).
+    is_safe_bool_expr_1(Core, sets:new()).
 
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
@@ -2427,7 +2427,7 @@ opt_let_1(#c_let{vars=Vs0,body=B0}=Let, Arg0, Ctxt, Sub0) ->
     %% Optimise let and add new substitutions.
     {Vs,Args,Sub1} = let_substs(Vs0, Arg0, Sub0),
     BodySub = update_let_types(Vs, Args, Sub1),
-    Sub = Sub1#sub{v=[],s=sets:new([{version, 2}])},
+    Sub = Sub1#sub{v=[],s=sets:new()},
     B = body(B0, Ctxt, BodySub),
     Arg = core_lib:make_values(Args),
     opt_let_2(Let, Vs, Arg, B, B0, Sub).
