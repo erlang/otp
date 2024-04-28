@@ -74,7 +74,7 @@ jobs:
               echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
           fi
       - name: Check if there are any C-code changes, if not then limit CI run
-        uses: dorny/paths-filter@v3.0.0
+        uses: dorny/paths-filter@v3.0.2
         id: c-code-changes
         with:
           filters: .github/scripts/c-code-path-filters.yaml
