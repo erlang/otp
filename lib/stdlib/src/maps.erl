@@ -379,33 +379,30 @@ _Example:_
 merge_with(Combiner, Map1, Map2) when is_map(Map1),
                                  is_map(Map2),
                                  is_function(Combiner, 3) ->
-    case map_size(Map1) > map_size(Map2) of
+    %% Use >= because we want to avoid reversing the combiner if we can
+    case map_size(Map1) >= map_size(Map2) of
         true ->
             Iterator = maps:iterator(Map2),
-            merge_with_1(maps:next(Iterator),
-                         Map1,
-                         Map2,
-                         Combiner);
+            merge_with_1(maps:next(Iterator), Map1, Combiner);
         false ->
             Iterator = maps:iterator(Map1),
             merge_with_1(maps:next(Iterator),
                          Map2,
-                         Map1,
                          fun(K, V1, V2) -> Combiner(K, V2, V1) end)
     end;
 merge_with(Combiner, Map1, Map2) ->
     error_with_info(error_type_merge_intersect(Map1, Map2, Combiner),
                     [Combiner, Map1, Map2]).
 
-merge_with_1({K, V2, Iterator}, Map1, Map2, Combiner) ->
+merge_with_1({K, V2, Iterator}, Map1, Combiner) ->
     case Map1 of
         #{ K := V1 } ->
             NewMap1 = Map1#{ K := Combiner(K, V1, V2) },
-            merge_with_1(maps:next(Iterator), NewMap1, Map2, Combiner);
+            merge_with_1(maps:next(Iterator), NewMap1, Combiner);
         #{ } ->
-            merge_with_1(maps:next(Iterator), maps:put(K, V2, Map1), Map2, Combiner)
+            merge_with_1(maps:next(Iterator), maps:put(K, V2, Map1), Combiner)
     end;
-merge_with_1(none, Result, _, _) ->
+merge_with_1(none, Result, _) ->
     Result.
 
 
