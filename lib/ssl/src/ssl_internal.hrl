@@ -193,5 +193,5 @@
 
 -define(DEFAULT_DEPTH, 10).
 -define(DEFAULT_STAPLING_OPT, no_staple).
--define(DEFAULT_OCSP_NONCE_OPT, true).
+-define(DEFAULT_OCSP_NONCE_OPT, false).
 -endif. % -ifdef(ssl_internal).

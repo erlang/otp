@@ -3013,9 +3013,9 @@ options_stapling(_Config) ->
     ?OK(#{}, [], client, [stapling]),
     ?OK(#{}, [{stapling, no_staple}], client, [stapling]),
 
-    ?OK(#{stapling := #{ocsp_nonce := true}},
+    ?OK(#{stapling := #{ocsp_nonce := false}},
         [{stapling, staple}], client),
-    ?OK(#{stapling := #{ocsp_nonce := true}},
+    ?OK(#{stapling := #{ocsp_nonce := false}},
         [{stapling, #{}}], client),
     ?OK(#{stapling := #{ocsp_nonce := true}},
         [{stapling, #{ocsp_nonce => true}}], client),

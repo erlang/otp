@@ -1385,7 +1385,7 @@ Certificate related options specific to the client side, or with different seman
   stapling will be disabled.
 
   When map is used, boolean ocsp_nonce key may indicate if OCSP nonce should be
-  requested by the client (default is `true`).
+  requested by the client (default is `false`).
 """.
 
 -type client_option_cert() :: {verify, Verify ::verify_peer | verify_none} |
