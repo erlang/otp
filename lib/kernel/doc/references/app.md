@@ -189,18 +189,6 @@ The other keys are ignored by `systools`.
   such optional dependencies exist, these are specified and documented in the
   corresponding "App" documentation of the specific application.
 
-  > #### Warning {: .warning }
-  >
-  > The `runtime_dependencies` key was introduced in OTP 17.0. The type of its
-  > value might be subject to changes during the OTP 17 release.
-
-  > #### Warning {: .warning }
-  >
-  > All runtime dependencies specified in OTP applications during the OTP 17
-  > release may not be completely correct. This is actively being worked on.
-  > Declared runtime dependencies in OTP applications are expected to be correct
-  > in OTP 18.
-
 ## See Also
 
 `m:application`, `m:systools`
