@@ -484,7 +484,14 @@ vsn_str(S)
 vsn_str(B)
   when is_binary(B) ->
     {ok, _} = re:compile(B),
-    binary_to_list(B).
+    %% Check if its a wildcard version: "1\\.."
+    Str = binary_to_list(B),
+    case lists:reverse(Str) of
+        [$*, $., $., $\\ | Rest] ->
+            lists:reverse(Rest);
+        _ ->
+            Str
+    end.
 
 match(S, RE) ->
     re:run(S, RE, [{capture, none}]).
