@@ -155,8 +155,8 @@ variable.")
       ("New Clause" erlang-generate-new-clause)
       ("Clone Arguments" erlang-clone-arguments)
       nil
-      ("Align Current" align-current)
-      ("Align Arrows" erlang-align-arrows)))
+      ("Align Region" align)
+      ("Align Current" align-current)))
     ("Syntax Highlighting"
      (("Level 4" erlang-font-lock-level-4)
       ("Level 3" erlang-font-lock-level-3)
@@ -1052,33 +1052,32 @@ behaviour.")
 
 (defvar erlang-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map ";"       'erlang-electric-semicolon)
-    (define-key map ","       'erlang-electric-comma)
-    (define-key map "<"         'erlang-electric-lt)
-    (define-key map ">"         'erlang-electric-gt)
-    (define-key map "\C-m"      'erlang-electric-newline)
-    (define-key map (kbd "DEL") 'backward-delete-char-untabify)
-    (define-key map "\M-q"      'erlang-fill-paragraph)
-    (define-key map "\M-\t"     'erlang-complete-tag)
-    (define-key map "\C-c\M-\t" 'tempo-complete-tag)
-    (define-key map "\M-+"      'erlang-find-next-tag)
-    (define-key map "\C-c\M-a"  'erlang-beginning-of-clause)
-    (define-key map "\C-c\M-b"  'tempo-backward-mark)
-    (define-key map "\C-c\M-e"  'erlang-end-of-clause)
-    (define-key map "\C-c\M-f"  'tempo-forward-mark)
-    (define-key map "\C-c\M-h"  'erlang-mark-clause)
-    (define-key map "\C-c\C-c"  'comment-region)
-    (define-key map "\C-c\C-j"  'erlang-generate-new-clause)
-    (define-key map "\C-c\C-k"  'erlang-compile)
-    (define-key map "\C-c\C-l"  'erlang-compile-display)
-    (define-key map "\C-c\C-s"  'erlang-show-syntactic-information)
-    (define-key map "\C-c\C-q"  'erlang-indent-function)
-    (define-key map "\C-c\C-u"  'uncomment-region)
-    (define-key map "\C-c\C-y"  'erlang-clone-arguments)
-    (define-key map "\C-c\a"    'align-current)
-    (define-key map "\C-c\C-a"  'erlang-align-arrows)  ; maybe obsolete
-    (define-key map "\C-c\C-z"  'erlang-shell-display)
-    (define-key map "\C-c\C-d"  'erlang-man-function-no-prompt)
+    (define-key map (kbd ";")           'erlang-electric-semicolon)
+    (define-key map (kbd ",")           'erlang-electric-comma)
+    (define-key map (kbd "<")           'erlang-electric-lt)
+    (define-key map (kbd ">")           'erlang-electric-gt)
+    (define-key map (kbd "C-m")         'erlang-electric-newline)
+    (define-key map (kbd "DEL")         'backward-delete-char-untabify)
+    (define-key map (kbd "M-q")         'erlang-fill-paragraph)
+    (define-key map (kbd "M-<tab>")     'erlang-complete-tag)
+    (define-key map (kbd "M-+")         'erlang-find-next-tag)
+    (define-key map (kbd "C-c M-<tab>") 'tempo-complete-tag)
+    (define-key map (kbd "C-c M-a")     'erlang-beginning-of-clause)
+    (define-key map (kbd "C-c M-b")     'tempo-backward-mark)
+    (define-key map (kbd "C-c M-e")     'erlang-end-of-clause)
+    (define-key map (kbd "C-c M-f")     'tempo-forward-mark)
+    (define-key map (kbd "C-c M-h")     'erlang-mark-clause)
+    (define-key map (kbd "C-c C-c")     'comment-region)
+    (define-key map (kbd "C-c C-j")     'erlang-generate-new-clause)
+    (define-key map (kbd "C-c C-k")     'erlang-compile)
+    (define-key map (kbd "C-c C-l")     'erlang-compile-display)
+    (define-key map (kbd "C-c C-s")     'erlang-show-syntactic-information)
+    (define-key map (kbd "C-c C-q")     'erlang-indent-function)
+    (define-key map (kbd "C-c C-u")     'uncomment-region)
+    (define-key map (kbd "C-c C-y")     'erlang-clone-arguments)
+    (define-key map (kbd "C-c C-a")     'align-current)
+    (define-key map (kbd "C-c C-z")     'erlang-shell-display)
+    (define-key map (kbd "C-c C-d")     'erlang-man-function-no-prompt)
     map)
   "Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
@@ -6352,73 +6351,6 @@ The default is to go to the directory of the current buffer."
   (inferior-erlang-send-empty-cmd-unless-already-at-prompt)
   (inferior-erlang-wait-prompt)
   (inferior-erlang-send-command (format "cd('%s')." dir) nil))
-
-;; should this be completely dropped now that standard align seems to work?
-(defun erlang-align-arrows (start end)
-  "Align arrows (\"->\") in function clauses from START to END.
-When called interactively, aligns arrows after function clauses inside
-the region.
-
-With a prefix argument, aligns all arrows, not just those in function
-clauses.
-
-Example:
-
-sum(L) -> sum(L, 0).
-sum([H|T], Sum) -> sum(T, Sum + H);
-sum([], Sum) -> Sum.
-
-becomes:
-
-sum(L)          -> sum(L, 0).
-sum([H|T], Sum) -> sum(T, Sum + H);
-sum([], Sum)    -> Sum."
-  (interactive "r")
-  (save-excursion
-    (let (;; regexp for matching arrows. without a prefix argument,
-          ;; the regexp matches function heads. With a prefix, it
-          ;; matches any arrow.
-          (re (if current-prefix-arg
-                  "^.*\\(\\)->"
-                (eval-when-compile
-                  (concat "^" erlang-atom-regexp ".*\\(\\)->"))))
-          ;; part of regexp matching directly before the arrow
-          (arrow-match-pos (if current-prefix-arg
-                               1
-                             (1+ erlang-atom-regexp-matches)))
-          ;; accumulator for positions where arrows are found, ordered
-          ;; by buffer position (from greatest to smallest)
-          (arrow-positions '())
-          ;; accumulator for longest distance from start of line to arrow
-          (most-indent 0)
-          ;; marker to track the end of the region we're aligning
-          (end-marker (progn (goto-char end)
-                             (point-marker))))
-      ;; Pass 1: Find the arrow positions, adjust the whitespace
-      ;; before each arrow to one space, and find the greatest
-      ;; indentation level.
-      (goto-char start)
-      (while (re-search-forward re end-marker t)
-        (goto-char (match-beginning arrow-match-pos))
-        (just-one-space)                ; adjust whitespace
-        (setq arrow-positions (cons (point) arrow-positions))
-        (setq most-indent (max most-indent (erlang-column-number))))
-      (set-marker end-marker nil)       ; free the marker
-      ;; Pass 2: Insert extra padding so that all arrow indentation is
-      ;; equal. This is done last-to-first by buffer position, so that
-      ;; inserting spaces before one arrow doesn't change the
-      ;; positions of the next ones.
-      (mapc (lambda (arrow-pos)
-              (goto-char arrow-pos)
-              (let* ((pad (- most-indent (erlang-column-number))))
-                (when (> pad 0)
-                  (insert-char ?\  pad))))
-            arrow-positions))))
-
-(defun erlang-column-number ()
-  "Return the column number of the current position in the buffer.
-Tab characters are counted by their visual width."
-  (string-width (buffer-substring (line-beginning-position) (point))))
 
 (defun erlang-current-defun ()
   "`add-log-current-defun-function' for Erlang."

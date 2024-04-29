@@ -99,23 +99,31 @@ _`C-c C-u`_ will undo a comment-region command.
     preceding Erlang clause. This command is useful when defining a new clause
     with almost the same argument as the preceding.
 
-## Edit - Arrows
+## Edit - Alignment
 
--   _`C-c C-a`_ (`erlang-align-arrows`) - aligns arrows after clauses inside a
-    region.
+-   _`C-c C-a`_ (`align-current`) - aligns comments, arrows, assignments,
+    and type annotations around the cursor.
 
 ```erlang
 Example:
 
 sum(L) -> sum(L, 0).
-sum([H|T], Sum) -> sum(T, Sum + H);
-sum([], Sum) -> Sum.
+sum([H|T], Sum) -> sum(T, Sum + H);  % recurse
+sum([], Sum) -> Sum.   % base case
+
+-record { two :: int(), % hello
+          three = hello :: string(),    % there
+          four = 42 :: int() }.
 
 becomes:
 
-sum(L)          -> sum(L, 0).
-sum([H|T], Sum) -> sum(T, Sum + H);
-sum([], Sum)    -> Sum.
+sum(L) -> sum(L, 0).
+sum([H|T], Sum) -> sum(T, Sum + H); % recurse
+sum([], Sum)    -> Sum.             % base case
+
+-record { two           :: int(),    % hello
+          three = hello :: string(), % there
+          four  = 42    :: int() }.
 ```
 
 ## Syntax highlighting
