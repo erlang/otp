@@ -195,8 +195,6 @@ This module was introduced in OTP 22.0, as experimental code.
 
 ## Examples
 
-[](){: #examples }
-
 ```erlang
 client(SAddr, SPort) ->
    {ok, Sock} = socket:open(inet, stream, tcp),
@@ -1658,7 +1656,7 @@ Information element designators for the  `i/1` and `i/2` functions.
 			     monitor | staticarp | dying | renaming | nogroup |
 			     lower_up | dormant | echo.
 
-%% When reading the device map (gifmap), the resulting map will be 
+%% When reading the device map (gifmap), the resulting map will be
 %% "fully" populated.
 %% <DOES-THIS-WORK>
 %% When writing, it is expected that only the fields that is
@@ -2279,7 +2277,7 @@ fmt_sockaddr(#{family := Fam,
     end;
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
-    "local:" ++ 
+    "local:" ++
 	if is_list(Path) ->
 		Path;
 	   is_binary(Path) ->
@@ -2302,7 +2300,7 @@ fmt_port(N, Proto) ->
 %% Generates a list of various info about the socket, such as counter values.
 %%
 %% Do *not* call this function often.
-%% 
+%%
 %% ===========================================================================
 
 -doc(#{since => <<"OTP 24.0">>}).
@@ -2447,11 +2445,11 @@ cancel_monitor(MRef) ->
 %%
 %% supports - get information about what the platform "supports".
 %%
-%% Generates a list of various info about what the platform can support. 
-%% The most obvious case is 'options'. 
+%% Generates a list of various info about what the platform can support.
+%% The most obvious case is 'options'.
 %%
 %% Each item in a 'supports'-list will appear only *one* time.
-%% 
+%%
 %% ===========================================================================
 
 -doc(#{since => <<"OTP 22.0">>}).
@@ -2628,7 +2626,7 @@ protocol(Proto) ->
 %% The NIF sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
-%% We may therefore need monitor function(s): 
+%% We may therefore need monitor function(s):
 %%
 %%               socket:monitor(Socket)
 %%               socket:demonitor(Socket)
@@ -2883,7 +2881,7 @@ bind(Socket, Addr) ->
 %%
 %% bind - Add or remove a bind addresses on a socket
 %%
-%% Calling this function is only valid if the socket is: 
+%% Calling this function is only valid if the socket is:
 %%   type     = seqpacket
 %%   protocol = sctp
 %%
@@ -3273,7 +3271,7 @@ accept_deadline(LSockRef, Deadline) ->
     case prim_socket:accept(LSockRef, AccRef) of
         select ->
             %% Each call is non-blocking, but even then it takes
-            %% *some* time, so just to be sure, recalculate before 
+            %% *some* time, so just to be sure, recalculate before
             %% the receive.
 	    Timeout = timeout(Deadline),
             receive
@@ -3287,7 +3285,7 @@ accept_deadline(LSockRef, Deadline) ->
             end;
         completion ->
             %% Each call is non-blocking, but even then it takes
-            %% *some* time, so just to be sure, recalculate before 
+            %% *some* time, so just to be sure, recalculate before
             %% the receive.
 	    Timeout = timeout(Deadline),
             receive
@@ -3520,7 +3518,7 @@ send(?socket(SockRef), Data, Flags, Timeout)
             send_nowait(SockRef, Data, Flags, Handle);
         Deadline ->
             send_deadline(SockRef, Data, Flags, Deadline)
-    end;
+     end;
 send(?socket(SockRef) = Socket, [Bin], Flags, Timeout)
   when is_reference(SockRef), is_binary(Bin) ->
     send(Socket, Bin, Flags, Timeout);
@@ -3971,6 +3969,8 @@ Under the key `ctrl` there may be a list of protocol and platform dependent
 control messages (a.k.a ancillary data, a.k.a control information)
 to send.
 
+[](){: #sendmsg-iov }
+
 The message data is given to the platform's network layer as an
 I/O vector without copying the content. If the number of elements
 in the I/O vector is larger than allowed on the platform (reported
@@ -4209,86 +4209,65 @@ sendv(Socket, IOV) ->
 
 
 -doc """
-[](){: #sendv-timeout }
 Send `t:erlang:iovec/0` data on a connected socket.
 
-- **`Cont`** - (clause 1; `Cont` :: [`select_info()`](`t:select_info/0`)) This call translates to the following call: [`sendv(Socket, IOV, Cont, infinity)`](`sendv/4`).
-
-- **`Handle`** - (clause 3; `Handle` :: [`select_handle()`](`t:select_handle/0`) `|` [`completion_handle()`](`t:completion_handle/0`)) that term will be contained in the returned `SelectInfo` or `CompletionInfo` and the corresponding `select` or `completion` message. The handle is presumed to be unique to this call.
-
-- **`Timeout = infinity`** - waiting for the data to be sent.
-This call will not return until the `IOV` has been accepted by
-the platform's network layer, or it reports an error.
-
-- **`Timeout >= 0`** - waiting at most `Timeout` milliseconds for the data to be sent.
-
-- **`Timeout = nowait`** - returns (on Unix) `select` _or_ (on Windows) a `completion` continuation if the data could not be sent immediately.
+See [`sendmsg/4`](#sendmsg-iov) about how the [`IOV`](`t:erlang:iovec/0`)
+data is handled towards the platform's network layer.
 
 The return value indicates the result from the platform's network layer:
 
-- **`ok`** - All data has been accepted.
+- **`ok`** - All data has been accepted by the OS for delivery.
 
-- **`{select, `[`SelectInfo`](`t:select_info/0`)` | {`[`SelectInfo`](`t:select_info/0`)`, RestIOV}}`** - All data was not immediately accepted by the platform network layer. The caller will then receive this messages: `{'$socket', socket(), select, SelectHandle}`, after which a subsequent call to `sendv/4` will send the data. Only when `Timeout = nowait`.
+- **`{ok, RestIOV}`** - Some but not all data was accepted,
+  but no error was reported (partially successful send).  `RestIOV`
+  is the tail of `IOV` that wasn't accepted.
 
-- **`{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`** - All data was not immediately accepted by the platform network layer. The caller will then receive this messages: `{'$socket', socket(), completion, {CompletionHandle, CompletionStatus}}`. The result of the send will be in the `CompletionStatus`. Only when `Timeout = nowait`.
+- **`{error, Reason}`** - An error has been reported and no data
+  was accepted for delivery.  [`Reason :: posix/0`](`t:posix/0`)
+  is what the platform's network layer reported.  `closed` means
+  that this socket library was informed that the socket was closed,
+  and `t:invalid/0` means that this socket library found
+  an argument to be invalid.
 
-- **`{ok, RestIOV}`** - Not all data has been accepted, but no error has been reported. `RestIOV` is the tail of `IOV` that has not been accepted. It is nevertheless possible for the platform's network layer to return this.
+- **`{error, {Reason, RestIOV}}`** -  - An error was reported but before that
+  some data was accepted for delivery. `RestIOV` is the tail of `IOV`
+  that wasn't accepted. See `{error, Reason}` above.
 
-- **`{error, timeout | {timeout, RestIOV}}`** - Was unable to send (all or part of) the data within the specified `Timeout` (only if `Timeout >= 0`).
+[](){: #sendv-infinity }
 
-- **`{error, {Reason, RestIOV}}`** - An error has been reported, but before that, some data was accepted. `RestIOV` is the tail of `IOV` that has not been accepted. For `Reason`, see above.
+If the `Timeout` argument is `infinity`; wait for the OS to
+complete the send operation (take responsibility for the data),
+or return an error.
 
-- **`{error, Reason}`** - An error has been reported and no data has been accepted. The [posix()](`t:posix/0`) `Reason` are from the platform's network layer.
-`closed` means that this socket library knows that the socket is closed, and
-[invalid()](`t:invalid/0`) means that something about an argument is invalid.
+[](){: #sendv-timeout }
 
+If the `Timeout` argument is a time-out value
+(`t:non_neg_integer/0`); return `{error, timeout}`
+if no data has been sent within `Timeout` millisecond,
+or `{error, {timeout, RestIOV}}` if some data was sent
+(accepted by the OS for delivery).  `RestIOV` is the tail of the data
+that hasn't been sent.
+
+[](){: #sendv-nowait }
+
+If the `Handle` argument is `nowait`,
+starts an [asynchronous call](#asynchronous-calls) if the operation
+couldn't be completed immediately.
+
+If the `Handle` argument is a `t:select_handle/0`,
+or on _Windows_, the equivalent `t:completion_handle/0`, starts
+an [asynchronous call](#asynchronous-calls) like for `nowait`.
+
+See the note [Asynchronous Calls](#asynchronous-calls)
+at the start of this module reference manual page.
+
+[](){: #sendv-cont }
+
+With the argument [`Cont`](`t:select_info/0`), equivalent to
+[`sendv(Socket, IOV, Cont, infinity)`](`sendv/4`).
 """.
 -doc(#{since => <<"OTP 27.0">>}).
--spec sendv(Socket, IOV, Cont) ->
-          'ok' |
-          {'ok', RestIOV} |
-          {'error', Reason} |
-          {'error', {Reason, RestIOV}}
-              when
-      Socket  :: socket(),
-      IOV     :: erlang:iovec(),
-      Cont    :: select_info(),
-      RestIOV :: erlang:iovec(),
-      Reason  :: posix() | 'closed' | invalid();
-
-           (Socket, IOV, Timeout :: 'nowait') ->
-          'ok' |
-          {'ok', RestIOV} |
-          {'select', SelectInfo} |
-          {'select', {SelectInfo, RestIOV}} |
-          {'completion', CompletionInfo} |
-          {'error', Reason} |
-          {'error', {Reason, RestIOV}}
-              when
-      Socket         :: socket(),
-      IOV            :: erlang:iovec(),
-      RestIOV        :: erlang:iovec(),
-      SelectInfo     :: select_info(),
-      CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
-
-             (Socket, IOV, Handle :: select_handle() | completion_handle()) ->
-          'ok' |
-          {'ok', RestIOV} |
-          {'select', SelectInfo} |
-          {'select', {SelectInfo, RestIOV}} |
-          {'completion', CompletionInfo} |
-          {'error', Reason} |
-          {'error', {Reason, RestIOV}}
-              when
-      Socket         :: socket(),
-      IOV            :: erlang:iovec(),
-      RestIOV        :: erlang:iovec(),
-      SelectInfo     :: select_info(),
-      CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
-
-             (Socket, IOV, Timeout :: 'infinity') ->
+-spec sendv(Socket, IOV, Timeout :: 'infinity') ->
           'ok' |
           {'ok', RestIOV} |
           {'error', Reason} |
@@ -4302,16 +4281,45 @@ The return value indicates the result from the platform's network layer:
              (Socket, IOV, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestIOV} |
-          {'error', Reason | 'timeout'} |
-          {'error', {Reason | 'timeout', RestIOV}}
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
               when
       Socket  :: socket(),
       IOV     :: erlang:iovec(),
       RestIOV :: erlang:iovec(),
+      Reason  :: posix() | 'closed' | invalid() | 'timeout';
+
+           (Socket, IOV, 'nowait' | Handle) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestIOV}} |
+          {'completion', CompletionInfo} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket         :: socket(),
+      IOV            :: erlang:iovec(),
+      Handle         :: select_handle() | completion_handle(),
+      RestIOV        :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      CompletionInfo :: completion_info(),
+      Reason         :: posix() | 'closed' | invalid();
+
+           (Socket, IOV, Cont) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket  :: socket(),
+      IOV     :: erlang:iovec(),
+      Cont    :: select_info(),
+      RestIOV :: erlang:iovec(),
       Reason  :: posix() | 'closed' | invalid().
 
 sendv(?socket(SockRef) = Socket, IOV,
-      ?SELECT_INFO(SelectTag, _) = Cont) 
+      ?SELECT_INFO(SelectTag, _) = Cont)
   when is_reference(SockRef) ->
     case SelectTag of
         {sendv, _} -> % We do not use ContData here
@@ -4337,40 +4345,20 @@ sendv(Socket, IOV, Timeout) ->
     erlang:error(badarg, [Socket, IOV, Timeout]).
 
 -doc """
-[](){: #sendv-cont }
-
 Send data on a connected socket, continuation.
 
-Continues sending data on a connected socket, where the
-send operation was initiated by `sendv/3` with
-`Timeout = nowait` that returned a `SelectInfo` continuation.
-Otherwise like infinite time-out `sendv/2,3,4` or
-limited time-out `sendv/3` respectively.
-`Cont` is the `SelectInfo` that was returned from the previous
-`sendv()` call.
+Continues sending data on a connected socket.
+`Cont` is the [`SelectInfo`](`t:select_info/0`) returned from
+the previous [`sendv/2,3`](`sendv/2`) call.
+`IOV` should be the rest data that wasn't sent.
 
-The return value indicates the result from the platform's network layer.
-See `sendv/3` (with `Timeout = infinity | nowait`)
+See [asynchronous calls](#asynchronous-calls) about continuing
+unfinished calls.
 
+See `sendv/3` about the return values.
 """.
 
--spec sendv(Socket, IOV, Cont, Timeout :: 'nowait') ->
-          'ok' |
-          {'ok', RestIOV} |
-          {'select', SelectInfo} |
-          {'select', {SelectInfo, RestIOV}} |
-          {'completion', CompletionInfo} |
-          {'error', Reason} |
-          {'error', {Reason, RestIOV}}
-              when
-      Socket         :: socket(),
-      IOV            :: erlang:iovec(),
-      Cont           :: select_info(),
-      RestIOV        :: erlang:iovec(),
-      SelectInfo     :: select_info(),
-      CompletionInfo :: completion_info(),
-      Reason         :: posix() | 'closed' | invalid();
-           (Socket, IOV, Cont, Timeout :: 'infinity') ->
+-spec sendv(Socket, IOV, Cont, Timeout :: 'infinity') ->
           'ok' |
           {'ok', RestIOV} |
           {'error', Reason} |
@@ -4385,18 +4373,34 @@ See `sendv/3` (with `Timeout = infinity | nowait`)
            (Socket, IOV, Cont, Timeout :: non_neg_integer()) ->
           'ok' |
           {'ok', RestIOV} |
-          {'error', Reason | 'timeout'} |
-          {'error', {Reason | 'timeout', RestIOV}}
+          {'error', Reason} |
+          {'error', {Reason | RestIOV}}
               when
       Socket     :: socket(),
       IOV        :: erlang:iovec(),
       Cont       :: select_info(),
       RestIOV    :: erlang:iovec(),
-      Reason     :: posix() | 'closed' | invalid().
+      Reason     :: posix() | 'closed' | invalid() | 'timeout';
+
+(Socket, IOV, Cont, 'nowait' | SelectHandle ) ->
+          'ok' |
+          {'ok', RestIOV} |
+          {'select', SelectInfo} |
+          {'select', {SelectInfo, RestIOV}} |
+          {'error', Reason} |
+          {'error', {Reason, RestIOV}}
+              when
+      Socket         :: socket(),
+      IOV            :: erlang:iovec(),
+      Cont           :: select_info(),
+      SelectHandle   :: select_handle(),
+      RestIOV        :: erlang:iovec(),
+      SelectInfo     :: select_info(),
+      Reason         :: posix() | 'closed' | invalid().
 
 -doc(#{since => <<"OTP 27.0">>}).
 sendv(?socket(SockRef) = _Socket, IOV,
-      ?SELECT_INFO(SelectTag, _) = Cont, Timeout) 
+      ?SELECT_INFO(SelectTag, _) = Cont, Timeout)
   when is_reference(SockRef) andalso is_list(IOV) ->
     %%
     case SelectTag of

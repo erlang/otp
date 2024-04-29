@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1997-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,15 +14,15 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_udp).
 -moduledoc """
 Interface to UDP sockets.
 
-This module provides functions for communicating with sockets using the UDP
-protocol.
+This module provides functions for communicating over UDP
+protocol sockets.
 
 > #### Note {: .info }
 >
@@ -146,11 +146,11 @@ protocol.
                      | {bind_to_device, binary()}
                      | option().
 
--doc "As returned by [`open/1,2`](`open/1`).".
+-doc "A socket as returned by [`open/1,2`](`open/1`).".
 -type socket() :: inet:socket().
 
 -type ip_multicast_if()  :: inet:ip4_address().
--doc "For IPv6 this is an interface index (an integer).".
+-doc "IPv6 this multicast interface index (an integer).".
 -type ip6_multicast_if() :: integer(). % interface index
 -type multicast_if()     :: ip_multicast_if() | ip6_multicast_if().
 
@@ -160,8 +160,10 @@ protocol.
 %% 'ifindex' defaults to zero (0) on platforms that
 %% supports the 3-tuple variant.
 -doc """
-The tuple with size 3 is _not_ supported on all platforms. 'ifindex' defaults to
-zero (0) on platforms that supports the 3-tuple variant.
+IP multicast membership.
+
+The 3-tuple form _isn't_ supported on all platforms.
+'ifindex' defaults to zero (0) on platforms that supports the 3-tuple variant.
 """.
 -type ip_membership()  :: {MultiAddress :: inet:ip4_address(),    % multiaddr
                            Interface    :: inet:ip4_address()} |  % local addr
@@ -179,42 +181,48 @@ zero (0) on platforms that supports the 3-tuple variant.
 
 %% -- open ------------------------------------------------------------------
 
--doc(#{equiv => open/2}).
+-doc(#{equiv => open(Port, [])}).
 -spec open(Port) -> {ok, Socket} | {error, Reason} when
       Port   :: inet:port_number(),
       Socket :: socket(),
       Reason :: system_limit | inet:posix().
 
-open(Port) -> 
+open(Port) ->
     open(Port, []).
 
 -doc """
-Associates a UDP port number (`Port`) with the calling process.
+Open a UDP socket.
 
-The following options are available:
+The created socket is bound to the UDP port number `Port`.
+If `Port == 0`, the underlying OS assigns a free (ephemeral) UDP port;
+use `inet:port/1` to retrieve it.
+
+The process that calls this function becomes the `Socket`'s
+controlling process (socket owner).
+
+### UDP socket options
 
 - **`list`** - Received `Packet` is delivered as a list.
 
 - **`binary`** - Received `Packet` is delivered as a binary.
 
-- **`{ip, Address}`** - If the host has many network interfaces, this option
-  specifies which one to use.
+- **`{ip, Address}`** - If the local host has many IP addresses,
+  this option specifies which one to use.
 
-- **`{ifaddr, Address}`** - Same as `{ip, Address}`. If the host has many
-  network interfaces, this option specifies which one to use.
+- **`{ifaddr, Address}`** - Same as `{ip, Address}`.
 
-  However, if this instead is an `t:socket:sockaddr_in/0` or
-  `t:socket:sockaddr_in6/0` this takes precedence over any value previously set
-  with the `ip` options. If the `ip` option comes _after_ the `ifaddr` option,
-  it may be used to _update_ its corresponding field of the `ifaddr` option (the
-  `addr` field).
+  However, if this instead is a `t:socket:sockaddr_in/0` or
+  `t:socket:sockaddr_in6/0` this takes precedence over any value
+  previously set with the `ip` options. If the `ip` option comes
+  _after_ the `ifaddr` option, it may be used to _update_ its corresponding
+  field of the `ifaddr` option (the `addr` field).
 
-- **`{fd, integer() >= 0}`** - If a socket has somehow been opened without using
-  `gen_udp`, use this option to pass the file descriptor for it. If `Port` is
-  not set to `0` and/or `{ip, ip_address()}` is combined with this option, the
-  `fd` is bound to the specified interface and port after it is being opened. If
-  these options are not specified, it is assumed that the `fd` is already bound
-  appropriately.
+- **`{fd, integer() >= 0}`** - If a socket has somehow been opened without
+  using `gen_udp`, use this option to pass the file descriptor for it.
+  If `Port` is not set to `0` and/or `{ip, ip_address()}` is combined
+  with this option, the `fd` is bound to the specified interface
+  and port after it is being opened.  If these options are not specified,
+  it is assumed that the `fd` is already bound appropriately.
 
 - **`inet6`** - Sets up the socket for IPv6.
 
@@ -222,63 +230,71 @@ The following options are available:
 
 - **`local`** - Sets up a Unix Domain Socket. See `t:inet:local_address/0`
 
-- **`{udp_module, module()}`** - Overrides which callback module is used.
+- **`{udp_module, module()}`** - Overrides which callback module is used.
   Defaults to `inet_udp` for IPv4 and `inet6_udp` for IPv6.
 
-- **`{multicast_if, Address}`** - Sets the local device for a multicast socket.
+- **`{multicast_if, Address}`** - Sets the local device for a multicast socket.
 
-- **`{multicast_loop, true | false}`** - When `true`, sent multicast packets are
-  looped back to the local sockets.
+- **`{multicast_loop, true | false}`** - When `true`, sent multicast packets
+  are looped back to the local sockets.
 
-- **`{multicast_ttl, Integer}`** - Option `multicast_ttl` changes the
+- **`{multicast_ttl, Integer}`** - Option `multicast_ttl` changes the
   time-to-live (TTL) for outgoing multicast datagrams to control the scope of
   the multicasts.
 
-  Datagrams with a TTL of 1 are not forwarded beyond the local network. Defaults
-  to `1`.
+  Datagrams with a TTL of 1 are not forwarded beyond the local network.
+  Defaults to `1`.
 
-- **`{add_membership, {MultiAddress, InterfaceAddress}}`** - Joins a multicast
-  group.
+- **`{add_membership, {MultiAddress, InterfaceAddress}}`** -
+  Joins a multicast group.
 
-- **`{drop_membership, {MultiAddress, InterfaceAddress}}`** - Leaves a multicast
-  group.
+- **`{drop_membership, {MultiAddress, InterfaceAddress}}`** -
+  Leaves a multicast group.
 
-- **`Opt`** - See `inet:setopts/2`.
+- **`t:option/0`** - See `inet:setopts/2`.
 
-The returned socket `Socket` is used to send packets from this port with
-`send/4`. When UDP packets arrive at the opened port, if the socket is in an
-active mode, the packets are delivered as messages to the controlling process:
+UDP packets are sent with this socket using [`send(Socket, ...)`](`send/3`).
+When UDP packets arrive to the `Socket`'s UDP port, and the socket is in
+an _active mode_, the packets are delivered as messages to the
+controlling process (socket owner):
 
 ```erlang
-{udp, Socket, IP, InPortNo, Packet} % Without ancillary data
-{udp, Socket, IP, InPortNo, AncData, Packet} % With ancillary data
+{udp, Socket, PeerIP, PeerPort, Packet} % Without ancillary data
+{udp, Socket, PeerIP, PeerPort, AncData, Packet} % With ancillary data
 ```
 
-The message contains an `AncData` field if any of the socket
+`PeerIP` and `PeerPort` are the address from which `Packet` was sent.
+`Packet` is a list of bytes (`[`[`byte/0`](`t:byte/0`)`]` if option `list`
+is active and a `t:binary/0` if option `binary`is active
+(they are mutually exclusive).
+
+The message contains an `AncData` field only if any of the socket
 [options](`t:option/0`) [`recvtos`](`m:inet#option-recvtos`),
 [`recvtclass`](`m:inet#option-recvtclass`) or
-[`recvttl`](`m:inet#option-recvttl`) are active, otherwise it does not.
+[`recvttl`](`m:inet#option-recvttl`) are active.
 
-If the socket is not in an active mode, data can be retrieved through the
-[`recv/2,3`](`recv/2`) calls. Notice that arriving UDP packets that are longer
-than the receive buffer option specifies can be truncated without warning.
+When a socket in `{active, N}` mode (see `inet:setopts/2` for details),
+transitions to passive (`{active, false}`) mode (`N` counts down to `0`),
+the controlling process is notified by a message on this form:
 
-When a socket in `{active, N}` mode (see `inet:setopts/2` for details),
-transitions to passive (`{active, false}`) mode, the controlling process is
-notified by a message of the following form:
-
-```text
-{udp_passive, Socket}
+```erlang
+{udp_passive, Socket}
 ```
 
-`IP` and `InPortNo` define the address from which `Packet` comes. `Packet` is a
-list of bytes if option `list` is specified. `Packet` is a binary if option
-`binary` is specified.
+If the OS protocol stack reports an error for the socket, the following
+message is sent to the controlling process:
 
-Default value for the receive buffer option is `{recbuf, 8192}`.
+```erlang
+{udp_error, Socket, Reason}
+```
+`Reason` is mostly a [POSIX Error Code](`m:inet#posix-error-codes`).
 
-If `Port == 0`, the underlying OS assigns a free UDP port, use `inet:port/1` to
-retrieve it.
+If the socket is in _passive mode_ (not in an _active mode_), received data
+can be retrieved with the`recv/2,3`](`recv/2`) calls. Note that incoming
+UDP packets that are longer than the receive buffer option specifies
+can be truncated without warning.
+
+The default value for the receive buffer option is `{recbuf, 8192}`.
 """.
 -spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
       Port   :: inet:port_number(),
@@ -302,7 +318,7 @@ open1(Port, Opts0) ->
     {ok, UP} = Mod:getserv(Port),
     %% ?DBG([{up, UP}]),
     Mod:open(UP, Opts).
-    
+
 
 %% -- close -----------------------------------------------------------------
 
@@ -321,11 +337,11 @@ close(S) ->
 %% Connected send
 
 -doc """
-Sends a packet on a connected socket (see
-[`connect/2`](`m:gen_udp#connect-sockaddr`) and
-[`connect/3`](`m:gen_udp#connect-addr-port`)).
+Send a packet on a connected UDP socket.
+
+To connect a UDP socket, use `connect/2` or `connect/3`.
 """.
--doc(#{since => <<"OTP 24.3">>}).
+-doc(#{since => ~"OTP 24.3"}).
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Packet :: iodata(),
@@ -343,12 +359,9 @@ send(S, Packet) when is_port(S) ->
     end.
 
 -doc """
-Sends a packet to the specified `Destination`.
-
-This function is equivalent to
-[`send(Socket, Destination, [], Packet)`](`m:gen_udp#send-4-AncData`).
+Equivalent to [`send(Socket, Destination, [], Packet)`](#send-4-AncData).
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{since => ~"OTP 22.1"}).
 -spec send(Socket, Destination, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Destination :: {inet:ip_address(), inet:port_number()} |
@@ -364,13 +377,17 @@ send(Socket, Destination, Packet) ->
     send(Socket, Destination, [], Packet).
 
 -doc """
-[](){: #send-4-1 }
+Send a UDP packet to the specified destination.
 
-Sends a packet to the specified `Host` and `Port`.
+### With arguments `Host` and `Port`
 
-This clause is equivalent to [`send(Socket, Host, Port, [], Packet)`](`send/5`).
+Argument `Host` can be a hostname or a socket address, and `Port`
+can be a port number or a service name atom. These are resolved to
+a `Destination` and then this function is equivalent to
+[`send(Socket, Destination, [], Packet)`](#send-4-AncData)
+just below.
 
-[](){: #send-4-AncData }
+### [](){: #send-4-AncData } With arguments `Destination` and `AncData` _(since OTP 22.1)_
 
 Sends a packet to the specified `Destination` with ancillary data `AncData`.
 
@@ -382,15 +399,14 @@ Sends a packet to the specified `Destination` with ancillary data `AncData`.
 > than one of an ancillary data item type may also not be supported.
 > `AncData =:= []` is always supported.
 
-[](){: #send-4-3 }
+### With arguments `Destination` and `PortZero` _(since OTP 22.1)_
 
-Sends a packet to the specified `Destination`. Since `Destination` is complete,
-`PortZero` is redundant and has to be `0`.
+Sends a packet to the specified `Destination`.  Since `Destination`
+is a complete address, `PortZero` is redundant and has to be `0`.
 
-This is a legacy clause mostly for `Destination = {local, Binary}` where
-`PortZero` is superfluous. It is equivalent to
-[`send(Socket, Destination, [], Packet)`](`m:gen_udp#send-4-AncData`), the
-clause right above here.
+This is a legacy clause mostly for `Destination = {local, Binary}`
+where `PortZero` is superfluous. Equivalent to
+[`send(Socket, Destination, [], Packet)`](#send-4-AncData), right above here.
 """.
 -spec send(Socket, Host, Port, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
@@ -456,16 +472,14 @@ send(S, Host, Port, Packet) when is_port(S) ->
     send(S, Host, Port, [], Packet).
 
 -doc """
-Sends a packet to the specified `Host` and `Port`, with ancillary data
-`AncData`.
+Send a packet to the specified destination, with ancillary data.
 
-Argument `Host` can be a hostname or a socket address, and `Port` can be a port
-number or a service name atom. These are resolved into a `Destination` and after
-that this function is equivalent to
-[`send(Socket, Destination, AncData, Packet)`](`m:gen_udp#send-4-AncData`), read
-there about ancillary data.
+Equvalent to [`send(Socket, Host, Port, Packet)`](`send/4`)
+regarding `Host` and `Port` and also equivalent to
+[`send(Socket, Destination, AncData, Packet)`](#send-4-AncData)
+regarding the ancillary data: `AncData`.
 """.
--doc(#{since => <<"OTP 22.1">>}).
+-doc(#{since => ~"OTP 22.1"}).
 -spec send(Socket, Host, Port, AncData, Packet) -> ok | {error, Reason} when
       Socket :: socket(),
       Host :: inet:hostname() | inet:ip_address() | inet:local_address(),
@@ -499,7 +513,7 @@ send(S, Host, Port, AncData, Packet)
 
 %% -- recv ------------------------------------------------------------------
 
--doc(#{equiv => recv/3}).
+-doc(#{equiv => recv(Socket, Length, infinity)}).
 -spec recv(Socket, Length) ->
                   {ok, RecvData} | {error, Reason} when
       Socket :: socket(),
@@ -523,13 +537,16 @@ recv(S, Len) when is_port(S) andalso is_integer(Len) ->
     end.
 
 -doc """
-Receives a packet from a socket in passive mode. Optional parameter `Timeout`
-specifies a time-out in milliseconds. Defaults to `infinity`.
+Receive a packet from a socket in _passive mode_.
+
+`Timeout` specifies a time-out in milliseconds.
 
 If any of the socket [options](`t:option/0`)
-[`recvtos`](`m:inet#option-recvtos`), [`recvtclass`](`m:inet#option-recvtclass`)
-or [`recvttl`](`m:inet#option-recvttl`) are active, the `RecvData` tuple
-contains an `AncData` field, otherwise it does not.
+[`recvtos`](`m:inet#option-recvtos`),
+[`recvtclass`](`m:inet#option-recvtclass`)
+or [`recvttl`](`m:inet#option-recvttl`) are active,
+the `RecvData` tuple contains an `AncData` field,
+otherwise it doesn't.
 """.
 -spec recv(Socket, Length, Timeout) ->
                   {ok, RecvData} | {error, Reason} when
@@ -558,18 +575,21 @@ recv(S, Len, Time) when is_port(S) ->
 %% -- connect ---------------------------------------------------------------
 
 -doc """
-[](){: #connect-sockaddr }
+Connect a UDP socket.
 
 Connecting a UDP socket only means storing the specified (destination) socket
 address, as specified by `SockAddr`, so that the system knows where to send
 data.
 
-This means that it is not necessary to specify the destination address when
-sending a datagram. That is, we can use `send/2`.
+When the socket is "connected" it is not necessary to specify
+the destination address when sending a datagram.
+That is; `send/2` may be used.
 
-It also means that the socket will only receive data from this address.
+It also means that the socket will only receive data from
+the connected address.  Other messages are discarded on arrival
+by the OS protocol stack.
 """.
--doc(#{since => <<"OTP 24.3">>}).
+-doc(#{since => ~"OTP 24.3"}).
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
       Socket   :: socket(),
       SockAddr :: socket:sockaddr_in() | socket:sockaddr_in6(),
@@ -584,18 +604,16 @@ connect(S, SockAddr) when is_port(S) andalso is_map(SockAddr) ->
     end.
 
 -doc """
-[](){: #connect-addr-port }
+Connect a UDP socket.
 
-Connecting a UDP socket only means storing the specified (destination) socket
-address, as specified by `Address` and `Port`, so that the system knows where to
-send data.
+See `connect/2`.
 
-This means that it is not necessary to specify the destination address when
-sending a datagram. That is, we can use `send/2`.
-
-It also means that the socket will only receive data from this address.
+With this function the destination is specified
+with separate `Address` and `Port` arguments where `Address` may be
+an [IP address](`t:inet:socket_address/0`)
+or a [host name](`t:inet:hostname/0`).
 """.
--doc(#{since => <<"OTP 24.3">>}).
+-doc(#{since => ~"OTP 24.3"}).
 -spec connect(Socket, Address, Port) -> ok | {error, Reason} when
       Socket   :: socket(),
       Address  :: inet:socket_address() | inet:hostname(),
@@ -611,7 +629,7 @@ connect(S, Address, Port) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
 	    %% ?DBG([{mod, Mod}]),
-	    case Mod:getaddr(Address) of    
+	    case Mod:getaddr(Address) of
 		{ok, IP} ->
 		    %% ?DBG([{ip, IP}]),
 		    Mod:connect(S, IP, Port);
@@ -628,12 +646,24 @@ connect(S, Address, Port) when is_port(S) ->
 %% -- controlling_process ---------------------------------------------------
 
 -doc """
-Assigns a new controlling process `Pid` to `Socket`. The controlling process is
-the process that receives messages from the socket. If called by any other
-process than the current controlling process, `{error, not_owner}` is returned.
-If the process identified by `Pid` is not an existing local pid,
-`{error, badarg}` is returned. `{error, badarg}` may also be returned in some
-cases when `Socket` is closed during the execution of this function.
+Change the controlling process (owner) of a socket.
+
+Assigns a new controlling process `Pid` to `Socket`. The controlling process
+is the process that the socket sends messages to.  If this function
+is called from any other process than the current controlling process,
+`{error, not_owner}` is returned.
+
+If the process identified by `Pid` is not an existing local `t:pid/0`,
+`{error, badarg}` is returned. `{error, badarg}` may also be returned
+in some cases when `Socket` is closed during the execution of this function.
+
+If the socket is in _active mode_, this function will transfer any messages
+from the socket in the mailbox of the caller to the new controlling process.
+
+If any other process is interacting with the socket during the transfer,
+it may not work correctly and messages may remain in the caller's mailbox.
+For instance, changing the sockets active mode during the transfer
+could cause this.
 """.
 -spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: socket(),
