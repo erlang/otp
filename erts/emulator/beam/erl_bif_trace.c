@@ -278,8 +278,7 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
     ErtsTraceSession* session;
 
     if (!term_to_session(BIF_ARG_1, &session, 0)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        goto session_error;
     }
 
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
@@ -288,7 +287,18 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
+    /* Double check liveness with seized code mod permission */
+    if (!erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     return trace_pattern(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static Eterm
@@ -856,8 +866,7 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
     Eterm ret;
 
     if (!term_to_session(BIF_ARG_1, &session, 0)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        goto session_error;
     }
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
         erts_deref_trace_session(session);
@@ -865,10 +874,21 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
+    /* Double check liveness with seized code mod permission */
+    if (!erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     ret = trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 
     erts_deref_trace_session(session);
     return ret;
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static
@@ -1352,8 +1372,7 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
         session = NULL;
     }
     else if (!term_to_session(BIF_ARG_1, &session, 0)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        goto session_error;
     }
 
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
@@ -1363,12 +1382,24 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
         ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_info_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
+
+    /* Double check session liveness with seized code mod permission */
+    if (session && !erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     ret = trace_info(BIF_P, session, BIF_ARG_2, BIF_ARG_3);
     erts_release_code_mod_permission();
     if (session) {
         erts_deref_trace_session(session);
     }
     return ret;
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static
