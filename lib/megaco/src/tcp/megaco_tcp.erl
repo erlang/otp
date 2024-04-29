@@ -32,13 +32,13 @@ Interface module to TPKT transport protocol for Megaco/H.248.
 This module contains the public interface to the TPKT (TCP/IP) version transport
 protocol for Megaco/H.248.
 
-## Version note
-
-This module has existed in the megaco app for long time,
-but none of the functions have a proper since tag, so
-we use the oldest we know; OTP R13B04.
 """.
--moduledoc(#{since => <<"OTP R13B04">>}).
+%% ## Version note
+
+%% This module has existed in the megaco app for long time,
+%% but none of the functions have a proper since tag, so
+%% we use the oldest we know; OTP R13B04.
+%% -moduledoc(#{since => <<"OTP R13B04">>}).
 
 -behaviour(gen_server).
 
