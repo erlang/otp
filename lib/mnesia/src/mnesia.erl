@@ -23,7 +23,7 @@
 
 -module(mnesia).
 -moduledoc """
-A distributed telecommunications DBMS
+A distributed key-value DBMS
 
 The following are some of the most important and attractive capabilities
 provided by Mnesia:
@@ -112,11 +112,11 @@ The first record attribute is the primary key, or key for short.
 
 The function descriptions are sorted in alphabetical order. It is recommended to
 start to read about `mnesia:create_table/2`, `mnesia:lock/2`, and
-`mnesia:activity/4` before you continue and learn about the rest.
+ `mnesia:activity/4` before you continue and learn about the rest.
 
 Writing or deleting in transaction-context creates a local copy of each modified
-record during the transaction. During iteration, that is, `mnesia:fold[lr]/4`,
-`mnesia:next/2`, `mnesia:prev/2`, and `mnesia:snmp_get_next_index/2`, Mnesia
+record during the transaction. During iteration, that is, `mnesia:foldl/4`,
+`mnesia:foldr/4`, `mnesia:next/2`, `mnesia:prev/2`, and `mnesia:snmp_get_next_index/2`, Mnesia
 compensates for every written or deleted record, which can reduce the
 performance.
 
@@ -476,7 +476,7 @@ e_has_var(X, Pos) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start and stop
 -doc """
-[](){: #start }
+Start a local Mnesia system.
 
 Mnesia startup is asynchronous. The function call `mnesia:start()` returns the
 atom `ok` and then starts to initialize the different tables. Depending on the
@@ -554,9 +554,7 @@ patched_start([]) ->
     start_().
 
 -doc """
-[](){: #stop }
-
-Stops Mnesia locally on the current node.
+Stop Mnesia locally on the current node.
 
 `application:stop(mnesia)` can also be used.
 """.
@@ -569,7 +567,7 @@ stop() ->
     end.
 
 -doc """
-[](){: #change_config }
+Change a configuration setting.
 
 `Config` is to be an atom of the following configuration parameters:
 
@@ -610,10 +608,9 @@ change_config(BadKey, _BadVal) ->
 
 
 -doc """
-[](){: #set_debug_level }
+Change the internal debug level of Mnesia.
 
-Changes the internal debug level of Mnesia. For details, see
-[Section Configuration Parameters](`m:mnesia#configuration_parameters`).
+For details, see Section Configuration Parameters](`m:mnesia#configuration_parameters`).
 """.
 -spec set_debug_level(Level  :: debug_level()) ->
           OldLevel :: debug_level().
@@ -672,19 +669,21 @@ ms() ->
 %% Activity mgt
 
 -doc """
+Terminate the current transaction.
+
 Makes the transaction silently return the tuple `{aborted, Reason}`. Termination
 of a Mnesia transaction means that an exception is thrown to an enclosing
 `catch`. Thus, the expression `catch mnesia:abort(x)` does not terminate the
 transaction.
 """.
--spec abort(_) -> no_return().
+-spec abort(Reason::term()) -> no_return().
 abort(Reason = {aborted, _}) ->
     exit(Reason);
 abort(Reason) ->
     exit({aborted, Reason}).
 
 -doc """
-[](){: #is_transaction }
+Return true if inside a transaction context.
 
 When this function is executed inside a transaction-context, it returns `true`,
 otherwise `false`.
@@ -698,7 +697,7 @@ is_transaction() ->
 	    false
     end.
 
--doc(#{equiv => transaction/3}).
+-doc(#{equiv => transaction(Fun, [], infinity)}).
 -spec transaction(Fun) -> t_result(Res) when
       Fun :: fun(() -> Res).
 transaction(Fun) ->
@@ -718,9 +717,7 @@ transaction(Fun, Args) ->
     transaction(get(mnesia_activity_state), Fun, Args, infinity, ?DEFAULT_ACCESS, async).
 
 -doc """
-[](){: #transaction }
-
-Executes the functional object `Fun` with arguments `Args` as a transaction.
+Execute `Fun` with arguments `Args` as a transaction.
 
 The code that executes inside the transaction can consist of a series of table
 manipulation functions. If something goes wrong inside the transaction as a
@@ -792,7 +789,7 @@ exceptions with reason `{aborted, term()}`.
 transaction(Fun, Args, Retries) ->
     transaction(get(mnesia_activity_state), Fun, Args, Retries, ?DEFAULT_ACCESS, async).
 
--doc(#{equiv => sync_transaction/3}).
+-doc(#{equiv => sync_transaction(Fun, [], infinity)}).
 -spec sync_transaction(Fun) -> t_result(Res) when
       Fun :: fun(() -> Res).
 sync_transaction(Fun) ->
@@ -812,7 +809,7 @@ sync_transaction(Fun, Args) ->
     transaction(get(mnesia_activity_state), Fun, Args, infinity, ?DEFAULT_ACCESS, sync).
 
 -doc """
-[](){: #sync_transaction }
+Synchronously execute a transaction.
 
 Waits until data have been committed and logged to disk (if disk is used) on
 every involved node before it returns, otherwise it behaves as
@@ -842,22 +839,23 @@ non_transaction(State, Fun, Args, ActivityKind, Mod)
 non_transaction(_State, Fun, Args, _ActivityKind, _Mod) ->
     {aborted, {badarg, Fun, Args}}.
 
--doc(#{equiv => async_dirty/2}).
+-doc(#{equiv => async_dirty(Fun, [])}).
 -spec async_dirty(Fun) -> Res | no_return() when
       Fun :: fun(() -> Res).
 async_dirty(Fun) ->
     async_dirty(Fun, []).
 
 -doc """
-[](){: #async_dirty }
+Call the `Fun` in a context that is not protected by a transaction.
 
-Calls the `Fun` in a context that is not protected by a transaction. The Mnesia
-function calls performed in the `Fun` are mapped to the corresponding dirty
-functions. This still involves logging, replication, and subscriptions, but
-there is no locking, local transaction storage, or commit protocols involved.
-Checkpoint retainers and indexes are updated, but they are updated dirty. As for
+The Mnesia function calls performed in the `Fun` are mapped to the
+corresponding dirty functions. This still involves logging,
+replication, and subscriptions, but there is no locking, local
+transaction storage, or commit protocols involved.  Checkpoint
+retainers and indexes are updated, but they are updated dirty. As for
 normal `mnesia:dirty_*` operations, the operations are performed
-semi-asynchronously. For details, see `mnesia:activity/4` and the User's Guide.
+semi-asynchronously. For details, see `mnesia:activity/4` and the
+User's Guide.
 
 The Mnesia tables can be manipulated without using transactions. This has some
 serious disadvantages, but is considerably faster, as the transaction manager is
@@ -893,10 +891,9 @@ sync_dirty(Fun) ->
     sync_dirty(Fun, []).
 
 -doc """
-[](){: #sync_dirty }
+Call the `Fun` in a context that is not protected by a transaction.
 
-Calls the `Fun` in a context that is not protected by a transaction. The Mnesia
-function calls performed in the `Fun` are mapped to the corresponding dirty
+The Mnesia function calls performed in the `Fun` are mapped to the corresponding dirty
 functions. It is performed in almost the same context as
 `mnesia:async_dirty/1,2`. The difference is that the operations are performed
 synchronously. The caller waits for the updates to be performed on all active
@@ -908,17 +905,16 @@ User's Guide.
 sync_dirty(Fun, Args) ->
     non_transaction(get(mnesia_activity_state), Fun, Args, sync_dirty, ?DEFAULT_ACCESS).
 
--doc(#{equiv => ets/2}).
+-doc(#{equiv => ets(Fun, [])}).
 -spec ets(Fun) -> Res | no_return() when
       Fun :: fun(() -> Res).
 ets(Fun) ->
     ets(Fun, []).
 
 -doc """
-[](){: #ets }
+Call `Fun` in a raw context that is not protected by a transaction.
 
-Calls the `Fun` in a raw context that is not protected by a transaction. The
-Mnesia function call is performed in the `Fun` and performed directly on the
+The Mnesia function call is performed in the `Fun` and performed directly on the
 local ETS tables on the assumption that the local storage type is `ram_copies`
 and the tables are not replicated to other nodes. Subscriptions are not
 triggered and checkpoints are not updated, but it is extremely fast. This
@@ -934,24 +930,24 @@ ets(Fun, Args) ->
     non_transaction(get(mnesia_activity_state), Fun, Args, ets, ?DEFAULT_ACCESS).
 
 -doc """
-[](){: #activity_2_3 }
+Execute `Fun` in `AccessContext`.
 
-Calls `mnesia:activity(AccessContext, Fun, Args, AccessMod)`, where `AccessMod`
+Calls [`mnesia:activity(AccessContext, Fun, Args, AccessMod)`](`activity/4`), where `AccessMod`
 is the default access callback module obtained by
 `mnesia:system_info(access_module)`. `Args` defaults to `[]` (empty list).
 """.
--spec activity(Kind, Fun) -> t_result(Res) | Res when
-      Kind :: activity(),
+-spec activity(AccessContext, Fun) -> t_result(Res) | Res when
+      AccessContext :: activity(),
       Fun  :: fun(() -> Res).
 activity(Kind, Fun) ->
     activity(Kind, Fun, []).
 
 -doc false.
--spec activity(Kind, Fun, [Arg::_]) -> t_result(Res) | Res when
-      Kind :: activity(),
+-spec activity(AccessContext, Fun, [Arg::_]) -> t_result(Res) | Res when
+      AccessContext :: activity(),
       Fun  :: fun((...) -> Res);
-              (Kind, Fun, Mod) -> t_result(Res) | Res when
-      Kind :: activity(),
+              (AccessContext, Fun, Mod) -> t_result(Res) | Res when
+      AccessContext :: activity(),
       Fun  :: fun(() -> Res),
       Mod  :: atom().
 
@@ -961,7 +957,7 @@ activity(Kind, Fun, Mod) ->
     activity(Kind, Fun, [], Mod).
 
 -doc """
-[](){: #activity_4 }
+Execute `Fun` in `AccessContext`.
 
 Executes the functional object `Fun` with argument `Args`.
 
@@ -971,14 +967,14 @@ the following access contexts are supported:
 
 - **`transaction`** - Short for `{transaction, infinity}`
 
-- **`{transaction, Retries}`** - Calls `mnesia:transaction(Fun, Args, Retries)`.
+- **`{transaction, Retries}`** - Calls [`mnesia:transaction(Fun, Args, Retries)`](`transaction/3`).
   Notice that the result from `Fun` is returned if the transaction is successful
   (atomic), otherwise the function exits with an abort reason.
 
 - **`sync_transaction`** - Short for `{sync_transaction, infinity}`
 
 - **`{sync_transaction, Retries}`** - Calls
-  `mnesia:sync_transaction(Fun, Args, Retries)`. Notice that the result from
+  [`mnesia:sync_transaction(Fun, Args, Retries)`](`sync_transaction/3`). Notice that the result from
   `Fun` is returned if the transaction is successful (atomic), otherwise the
   function exits with an abort reason.
 
@@ -989,8 +985,8 @@ the following access contexts are supported:
 - **`ets`** - Calls `mnesia:ets(Fun, Args)`.
 
 This function (`mnesia:activity/4`) differs in an important way from the
-functions `mnesia:transaction`, `mnesia:sync_transaction`, `mnesia:async_dirty`,
-`mnesia:sync_dirty`, and `mnesia:ets`. Argument `AccessMod` is the name of a
+functions `mnesia:transaction/3`, `mnesia:sync_transaction/3`, `mnesia:async_dirty/2`,
+`mnesia:sync_dirty/2`, and `mnesia:ets/2`. Argument `AccessMod` is the name of a
 callback module, which implements the `mnesia_access` behavior.
 
 Mnesia forwards calls to the following functions:
@@ -1036,8 +1032,8 @@ identity record is internal to Mnesia.
 
 `Opaque` is an opaque data structure that is internal to Mnesia.
 """.
--spec activity(Kind, Fun, [Arg::_], Mod) -> t_result(Res) | Res when
-      Kind :: activity(),
+-spec activity(AccessContext, Fun, [Arg::_], Mod) -> t_result(Res) | Res when
+      AccessContext :: activity(),
       Fun  :: fun((...) -> Res),
       Mod  :: atom().
 
@@ -1071,7 +1067,7 @@ wrap_trans(State, Fun, Args, Retries, Mod, Kind) ->
 %% Mnesia on all Nodes must be connected to each other, but
 %% it is not necessary that they are up and running.
 -doc """
-[](){: #lock }
+Explicitly grab lock.
 
 Write locks are normally acquired on all nodes where a replica of the table
 resides (and is active). Read locks are acquired on one node (the local node if
@@ -1173,22 +1169,14 @@ lock(Tid, Ts, LockItem, LockKind) ->
     end.
 
 %% Grab a read lock on a whole table
--doc """
-[](){: #read_lock_table }
-
-Calls the function `mnesia:lock({table, Tab}, read)`.
-""".
+-doc(#{equiv => lock({table, Tab}, read)}).
 -spec read_lock_table(Tab::table()) -> 'ok'.
 read_lock_table(Tab) ->
     lock({table, Tab}, read),
     ok.
 
 %% Grab a write lock on a whole table
--doc """
-[](){: #write_lock_table }
-
-Calls the function `mnesia:lock({table, Tab}, write)`.
-""".
+-doc(#{equiv => lock({table, Tab}, write)}).
 -spec write_lock_table(Tab::table()) -> 'ok'.
 write_lock_table(Tab) ->
     lock({table, Tab}, write),
@@ -1255,7 +1243,7 @@ good_global_nodes(Nodes) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Access within an activity - updates
 -doc """
-[](){: #write_1 }
+Write a record into the database.
 
 Calls the function `mnesia:write(Tab, Record, write)`, where `Tab` is
 [`element(1, Record)`](`element/2`).
@@ -1267,21 +1255,14 @@ write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 write(Val) ->
     abort({bad_type, Val}).
 
--doc """
-[](){: #s_write }
-
-Calls the function `mnesia:write(Tab, Record, sticky_write)`, where `Tab` is
-[`element(1, Record)`](`element/2`).
-""".
+-doc(#{equiv => write(Tab, Val, sticky_write)}).
 -spec s_write(Record::tuple()) -> 'ok'.
 s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
     write(Tab, Val, sticky_write).
 
 -doc """
-[](){: #write_3 }
-
-Writes record `Record` to table `Tab`.
+Write `Record` to table `Tab`.
 
 The function returns `ok`, or terminates if an error occurs. For example, the
 transaction terminates if no `person` table exists.
@@ -1338,32 +1319,24 @@ write_to_store(Tab, Store, Oid, Val) ->
     end,
     ok.
 
--doc """
-[](){: #delete_1 }
-
-Calls `mnesia:delete(Tab, Key, write)`.
-""".
--spec delete({Tab::table(), Key::_}) -> 'ok'.
+-doc(#{equiv => delete(Tab, Key, write)}).
+-spec delete(TabKey::{Tab::table(), Key::term()}) -> 'ok'.
 delete({Tab, Key}) ->
     delete(Tab, Key, write);
 delete(Oid) ->
     abort({bad_type, Oid}).
 
 -doc """
-[](){: #s_delete }
-
-Calls the function `mnesia:delete(Tab, Key, sticky_write)`
+Call the function `mnesia:delete(Tab, Key, sticky_write)`
 """.
--spec s_delete({Tab::table(), Key::_}) -> 'ok'.
+-spec s_delete(TabKey::{Tab::table(), Key::_}) -> 'ok'.
 s_delete({Tab, Key}) ->
     delete(Tab, Key, sticky_write);
 s_delete(Oid) ->
     abort({bad_type, Oid}).
 
 -doc """
-[](){: #delete_3 }
-
-Deletes all records in table `Tab` with the key `Key`.
+Delete all records in table `Tab` with the key `Key`.
 
 The semantics of this function is context-sensitive. For details, see
 `mnesia:activity/4`. In transaction-context, it acquires a lock of type
@@ -1408,12 +1381,7 @@ delete(Tid, Ts, Tab, Key, LockKind)
 delete(_Tid, _Ts, Tab, _Key, _LockKind) ->
     abort({bad_type, Tab}).
 
--doc """
-[](){: #delete_object_1 }
-
-Calls `mnesia:delete_object(Tab, Record, write)`, where `Tab` is
-[`element(1, Record)`](`element/2`).
-""".
+-doc(#{equiv => delete_object(Tab, Key, write)}).
 -spec delete_object(Rec::tuple()) -> 'ok'.
 delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
@@ -1421,12 +1389,7 @@ delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 delete_object(Val) ->
     abort({bad_type, Val}).
 
--doc """
-[](){: #s_delete_object }
-
-Calls the function `mnesia:delete_object(Tab, Record, sticky_write)`, where
-`Tab` is [`element(1, Record)`](`element/2`).
-""".
+-doc(#{equiv => delete_object(element(1,Rec), Rec, sticky_write)}).
 -spec s_delete_object(Rec::tuple()) -> 'ok'.
 s_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
@@ -1435,7 +1398,7 @@ s_delete_object(Val) ->
     abort({bad_type, Val}).
 
 -doc """
-[](){: #delete_object_3 }
+Delete a record.
 
 If a table is of type `bag`, it can sometimes be needed to delete only some of
 the records with a certain key. This can be done with the function
@@ -1513,35 +1476,27 @@ do_delete_object(Tid, Ts, Tab, Val, LockKind) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Access within an activity - read
 
--doc """
-[](){: #read_2 }
-
-Calls function `mnesia:read(Tab, Key, read)`.
-""".
+-doc(#{equiv => read(Tab, Key, read)}).
 -spec read(Tab::table(), Key::_) -> [tuple()].
 read(Tab, Key) ->
     read(Tab, Key, read).
 
--doc(#{equiv => read/2}).
--spec read({Tab::table(), Key::_}) -> [tuple()].
+-doc(#{equiv => read(Tab, Key, read)}).
+-spec read(TabKey::{Tab::table(), Key::_}) -> [tuple()].
 read({Tab, Key}) ->
     read(Tab, Key, read);
 read(Oid) ->
     abort({bad_type, Oid}).
 
--doc """
-[](){: #wread }
-
-Calls the function `mnesia:read(Tab, Key, write)`.
-""".
--spec wread({Tab::table(), Key::_}) -> [tuple()].
+-doc(#{equiv => read(Tab, Key, write)}).
+-spec wread(TabKey::{Tab::table(), Key::_}) -> [tuple()].
 wread({Tab, Key}) ->
     read(Tab, Key, write);
 wread(Oid) ->
     abort({bad_type, Oid}).
 
 -doc """
-[](){: #read_3 }
+Read records(s) with a given key.
 
 Reads all records from table `Tab` with key `Key`. This function has the same
 semantics regardless of the location of `Tab`. If the table is of type `bag`,
@@ -1599,7 +1554,7 @@ read(_Tid, _Ts, Tab, _Key, _LockKind) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #first }
+Return the key for the first record in a table.
 
 Records in `set` or `bag` tables are not ordered. However, there is an ordering
 of the records that is unknown to the user. A table can therefore be traversed
@@ -1639,6 +1594,8 @@ first(_Tid, _Ts,Tab) ->
     abort({bad_type, Tab}).
 
 -doc """
+Return the key for the last record in a table.
+
 Works exactly like `mnesia:first/1`, but returns the last object in Erlang term
 order for the `ordered_set` table type. For all other table types,
 `mnesia:first/1` and `mnesia:last/1` are synonyms.
@@ -1673,7 +1630,7 @@ last(_Tid, _Ts,Tab) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #next }
+Return the next key in a table.
 
 Traverses a table and performs operations on all records in the table. When the
 end of the table is reached, the special key `'$end_of_table'` is returned.
@@ -1708,6 +1665,8 @@ next(_Tid, _Ts,Tab,_) ->
     abort({bad_type, Tab}).
 
 -doc """
+Return the previous key in a table.
+
 Works exactly like `mnesia:next/2`, but returns the previous object in Erlang
 term order for the `ordered_set` table type. For all other table types,
 `mnesia:next/2` and `mnesia:prev/2` are synonyms.
@@ -1848,14 +1807,14 @@ ts_keys_1([], Acc) ->
 %%%%%%%%%%%%%%%%%%%%%
 %% Iterators
 
--doc(#{equiv => foldl/4}).
+-doc(#{equiv => foldl(Fun, Acc0, Tab, read)}).
 -spec foldl(Fun, Acc0, Tab::table()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldl(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab, read).
 
 -doc """
-[](){: #foldl }
+Call `Fun` for each record in `Table`.
 
 Iterates over the table `Table` and calls `Function(Record, NewAcc)` for each
 `Record` in the table. The term returned from `Function` is used as the second
@@ -1903,13 +1862,13 @@ do_foldl(A, O, Tab, Key, Fun, Acc, Type, Stored) ->  %% Type is set or bag
     {_, Tid, Ts} = get(mnesia_activity_state),
     do_foldl(Tid, Ts, Tab, dirty_next(Tab, Key), Fun, NewAcc, Type, NewStored).
 
--doc(#{equiv => foldr/4}).
+-doc(#{equiv => foldr(Fun, Acc0, Tab, read)}).
 -spec foldr(Fun, Acc0, Tab::table()) -> Acc when
       Fun::fun((Record::tuple(), Acc0) -> Acc).
 foldr(Fun, Acc, Tab) ->
     foldr(Fun, Acc, Tab, read).
 -doc """
-[](){: #foldr }
+Call `Fun` for each record in `Table`.
 
 Works exactly like [`foldl/3`](`foldl/3`) but iterates the table in the opposite
 order for the `ordered_set` table type. For all other table types,
@@ -2044,12 +2003,7 @@ add_written_to_bag([{_, _ , delete} | Tail], _Objs, _Ack) ->
 add_written_to_bag([{_, Val, delete_object} | Tail], Objs, Ack) ->
     add_written_to_bag(Tail, lists:delete(Val, Objs), lists:delete(Val, Ack)).
 
--doc """
-[](){: #match_object_1 }
-
-Calls `mnesia:match_object(Tab, Pattern, read)`, where `Tab` is
-[`element(1, Pattern)`](`element/2`).
-""".
+-doc(#{equiv => match_object(Tab, Pattern, read)}).
 -spec match_object(Pattern::tuple()) -> [Record::tuple()].
 match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 ->
     Tab = element(1, Pat),
@@ -2058,7 +2012,7 @@ match_object(Pat) ->
     abort({bad_type, Pat}).
 
 -doc """
-[](){: #match_object_3 }
+Match `Pattern` for records.
 
 Takes a pattern with "don't care" variables denoted as a `'_'` parameter. This
 function returns a list of records that matched the pattern. Since the second
@@ -2287,13 +2241,13 @@ deloid(Oid, [H | T]) ->
 
 %%%%%%%%%%%%%%%%%%
 % select
--doc(#{equiv => select/3}).
--spec select(Tab, Spec) -> [Match] when
-      Tab::table(), Spec::ets:match_spec(), Match::term().
+-doc(#{equiv => select(Tab, MatchSpec, read)}).
+-spec select(Tab, MatchSpec) -> [Match] when
+      Tab::table(), MatchSpec::ets:match_spec(), Match::term().
 select(Tab, Pat) ->
     select(Tab, Pat, read).
 -doc """
-[](){: #select_2_3 }
+Select the objects in `Tab` against `MatchSpec`.
 
 Matches the objects in table `Tab` using a `match_spec` as described in the
 `ets:select/3`. Optionally a lock `read` or `write` can be given as the third
@@ -2387,7 +2341,7 @@ select_lock(Tid,Ts,LockKind,Spec,Tab) ->
 
 %% Breakable Select
 -doc """
-[](){: #select_4 }
+Select the objects in `Tab` against `MatchSpec`.
 
 Matches the objects in table `Tab` using a `match_spec` as described in the
 [ERTS](`e:erts:index.html`) User's Guide, and returns a chunk of terms and a
@@ -2465,6 +2419,8 @@ fun_select(Tid, Ts, Tab, Spec, LockKind, TabPat, Init, NObjects, Node, Storage) 
     end.
 
 -doc """
+Continue selecting objects.
+
 Selects more objects with the match specification initiated by
 `mnesia:select/4`.
 
@@ -2526,7 +2482,7 @@ get_record_pattern([{M,C,_B}|R]) ->
     [{M,C,['$_']} | get_record_pattern(R)].
 
 -doc """
-[](){: #all_keys }
+Return all keys in a table.
 
 Returns a list of all keys in the table named `Tab`. The semantics of this
 function is context-sensitive. For more information, see `mnesia:activity/4`. In
@@ -2559,7 +2515,7 @@ all_keys(_Tid, _Ts, Tab, _LockKind) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #index_match_object_2 }
+Match records and uses index information.
 
 Starts `mnesia:index_match_object(Tab, Pattern, Pos, read)`, where `Tab` is
 [`element(1, Pattern)`](`element/2`).
@@ -2573,7 +2529,7 @@ index_match_object(Pat, _Attr) ->
     abort({bad_type, Pat}).
 
 -doc """
-[](){: #index_match_object_4 }
+Match records and uses index information.
 
 In a manner similar to the function `mnesia:index_read/3`, any index information
 can be used when trying to match records. This function takes a pattern that
@@ -2647,7 +2603,7 @@ index_match_object(_Tid, _Ts, Tab, Pat, _Attr, _LockKind) ->
     abort({bad_type, Tab, Pat}).
 
 -doc """
-[](){: #index_read }
+Read records through the index table.
 
 Assume that there is an index on position `Pos` for a certain record type. This
 function can be used to read the records without knowing the actual key for the
@@ -2706,12 +2662,7 @@ index_read(_Tid, _Ts, Tab, _Key, _Attr, _LockKind) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty access regardless of activities - updates
--doc """
-[](){: #dirty_write_1 }
-
-Calls `mnesia:dirty_write(Tab, Record)`, where `Tab` is
-[`element(1, Record)`](`element/2`).
-""".
+-doc(#{equiv => dirty_write(Tab, Record)}).
 -spec dirty_write(Record::tuple()) -> 'ok'.
 dirty_write(Val) when is_tuple(Val), tuple_size(Val) > 2  ->
     Tab = element(1, Val),
@@ -2719,7 +2670,7 @@ dirty_write(Val) when is_tuple(Val), tuple_size(Val) > 2  ->
 dirty_write(Val) ->
     abort({bad_type, Val}).
 
--doc "Dirty equivalent of the function `mnesia:write/3`.".
+-doc "Dirty equivalent to `mnesia:write/3`.".
 -spec dirty_write(Tab::table(), Record::tuple()) -> 'ok'.
 dirty_write(Tab, Val) ->
     do_dirty_write(async_dirty, Tab, Val).
@@ -2732,18 +2683,14 @@ do_dirty_write(SyncMode, Tab, Val)
 do_dirty_write(_SyncMode, Tab, Val) ->
     abort({bad_type, Tab, Val}).
 
--doc """
-[](){: #dirty_delete }
-
-Calls `mnesia:dirty_delete(Tab, Key)`.
-""".
+-doc(#{equiv => dirty_delete/2}).
 -spec dirty_delete({Tab::table(), Key::_}) -> 'ok'.
 dirty_delete({Tab, Key}) ->
     dirty_delete(Tab, Key);
 dirty_delete(Oid) ->
     abort({bad_type, Oid}).
 
--doc "Dirty equivalent of the function `mnesia:delete/3`.".
+-doc "Dirty equivalent to `mnesia:delete/3`.".
 -spec dirty_delete(Tab::table(), Key::_) -> 'ok'.
 dirty_delete(Tab, Key) ->
     do_dirty_delete(async_dirty, Tab, Key).
@@ -2754,12 +2701,7 @@ do_dirty_delete(SyncMode, Tab, Key) when is_atom(Tab), Tab /= schema  ->
 do_dirty_delete(_SyncMode, Tab, _Key) ->
     abort({bad_type, Tab}).
 
--doc """
-[](){: #dirty_delete_object_1 }
-
-Calls `mnesia:dirty_delete_object(Tab, Record)`, where `Tab` is
-[`element(1, Record)`](`element/2`).
-""".
+-doc(#{equiv => dirty_delete_object/2}).
 -spec dirty_delete_object(Record::tuple()) -> 'ok'.
 dirty_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
     Tab = element(1, Val),
@@ -2767,7 +2709,7 @@ dirty_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
 dirty_delete_object(Val) ->
     abort({bad_type, Val}).
 
--doc "Dirty equivalent of the function `mnesia:delete_object/3`.".
+-doc "Dirty equivalent to `mnesia:delete_object/3`.".
 -spec dirty_delete_object(Tab::table(), Record::tuple()) -> 'ok'.
 dirty_delete_object(Tab, Val) ->
     do_dirty_delete_object(async_dirty, Tab, Val).
@@ -2786,11 +2728,7 @@ do_dirty_delete_object(_SyncMode, Tab, Val) ->
     abort({bad_type, Tab, Val}).
 
 %% A Counter is an Oid being {CounterTab, CounterName}
--doc """
-[](){: #dirty_update_counter }
-
-Calls `mnesia:dirty_update_counter(Tab, Key, Incr)`.
-""".
+-doc(#{equiv => dirty_update_counter/3}).
 -spec dirty_update_counter({Tab::table(), Key::_}, Incr::integer()) ->
                                   NewVal::integer().
 dirty_update_counter({Tab, Key}, Incr) ->
@@ -2799,6 +2737,8 @@ dirty_update_counter(Counter, _Incr) ->
     abort({bad_type, Counter}).
 
 -doc """
+Dirty update of a counter record.
+
 Mnesia has no special counter records. However, records of the form
 `{Tab, Key, Integer}` can be used as (possibly disc-resident) counters when
 `Tab` is a `set`. This function updates a counter with a positive or negative
@@ -2837,18 +2777,14 @@ do_dirty_update_counter(_SyncMode, Tab, _Key, Incr) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty access regardless of activities - read
 
--doc """
-[](){: #dirty_read }
-
-Calls `mnesia:dirty_read(Tab, Key)`.
-""".
--spec dirty_read({Tab::table(), Key::_}) -> [tuple()].
+-doc(#{equiv => dirty_read(Tab,Key)}).
+-spec dirty_read(TabKey::{Tab::table(), Key::_}) -> [tuple()].
 dirty_read({Tab, Key}) ->
     dirty_read(Tab, Key);
 dirty_read(Oid) ->
     abort({bad_type, Oid}).
 
--doc "Dirty equivalent of the function `mnesia:read/3`.".
+-doc "Dirty equivalent to `mnesia:read/3`.".
 -spec dirty_read(Tab::table(), Key::_) -> [tuple()].
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
@@ -2856,12 +2792,8 @@ dirty_read(Tab, Key)
 dirty_read(Tab, _Key) ->
     abort({bad_type, Tab}).
 
--doc """
-[](){: #dirty_match_object_1 }
 
-Calls `mnesia:dirty_match_object(Tab, Pattern)`, where `Tab` is
-[`element(1, Pattern)`](`element/2`).
-""".
+-doc(#{equiv => dirty_match_object/2}).
 -spec dirty_match_object(Pattern::tuple()) -> [Record::tuple()].
 dirty_match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 ->
     Tab = element(1, Pat),
@@ -2869,7 +2801,7 @@ dirty_match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 ->
 dirty_match_object(Pat) ->
     abort({bad_type, Pat}).
 
--doc "Dirty equivalent of the function `mnesia:match_object/3`.".
+-doc "Dirty equivalent to `mnesia:match_object/3`.".
 -spec dirty_match_object(Tab,Pattern) -> [Record] when
       Tab::table(), Pattern::tuple(), Record::tuple().
 dirty_match_object(Tab, Pat)
@@ -2903,9 +2835,7 @@ remote_dirty_match_object(Tab, Pat, _PosList) ->
     abort({bad_type, Tab, Pat}).
 
 -doc """
-[](){: #dirty_select }
-
-Dirty equivalent of the function `mnesia:select/2`.
+Dirty equivalent to `mnesia:select/2`.
 """.
 -spec dirty_select(Tab, Spec) -> [Match] when
       Tab::table(), Spec::ets:match_spec(), Match::term().
@@ -2960,9 +2890,7 @@ dirty_sel_cont(#mnesia_select{node=Node,tab=Tab,storage=Type,cont=Cont,orig=Ms})
     do_dirty_rpc(Tab,Node,mnesia_lib,db_select_cont,[Type,Cont,Ms]).
 
 -doc """
-[](){: #delete_all_keys }
-
-Dirty equivalent of the function `mnesia:all_keys/1`.
+Dirty equivalent to `mnesia:all_keys/1`.
 """.
 -spec dirty_all_keys(Tab::table()) -> [Key::term()].
 dirty_all_keys(Tab) when is_atom(Tab), Tab /= schema ->
@@ -2980,12 +2908,7 @@ dirty_all_keys(Tab) when is_atom(Tab), Tab /= schema ->
 dirty_all_keys(Tab) ->
     abort({bad_type, Tab}).
 
--doc """
-[](){: #dirty_index_match_object_2 }
-
-Starts `mnesia:dirty_index_match_object(Tab, Pattern, Pos)`, where `Tab` is
-[`element(1, Pattern)`](`element/2`).
-""".
+-doc(#{equiv => dirty_index_match_object/3}).
 -spec dirty_index_match_object(Pattern, Attr) -> [Record] when
       Pattern::tuple(), Attr::index_attr(), Record::tuple().
 dirty_index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
@@ -2994,7 +2917,7 @@ dirty_index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
 dirty_index_match_object(Pat, _Attr) ->
     abort({bad_type, Pat}).
 
--doc "Dirty equivalent of the function `mnesia:index_match_object/4`.".
+-doc "Dirty equivalent to `mnesia:index_match_object/4`.".
 -spec dirty_index_match_object(Tab, Pattern, Attr) -> [Record] when
       Tab::table(),
       Pattern::tuple(),
@@ -3026,9 +2949,7 @@ dirty_index_match_object(Tab, Pat, _Attr) ->
     abort({bad_type, Tab, Pat}).
 
 -doc """
-[](){: #dirty_index_read }
-
-Dirty equivalent of the function `mnesia:index_read/3`.
+Dirty equivalent to `mnesia:index_read/3`.
 """.
 -spec dirty_index_read(Tab, Key, Attr) -> [Record] when
       Tab::table(),
@@ -3054,7 +2975,7 @@ dirty_slot(Tab, Slot) ->
     abort({bad_type, Tab, Slot}).
 
 -doc """
-[](){: #dirty_first }
+Return the key for the first record in a table.
 
 Records in `set` or `bag` tables are not ordered. However, there is an ordering
 of the records that is unknown to the user. Therefore, a table can be traversed
@@ -3071,7 +2992,7 @@ dirty_first(Tab) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #dirty_last }
+Return the key for the last record in a table.
 
 Works exactly like `mnesia:dirty_first/1` but returns the last object in Erlang
 term order for the `ordered_set` table type. For all other table types,
@@ -3084,7 +3005,7 @@ dirty_last(Tab) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #dirty_next }
+Return the next key in a table.
 
 Traverses a table and performs operations on all records in the table. When the
 end of the table is reached, the special key `'$end_of_table'` is returned.
@@ -3100,7 +3021,7 @@ dirty_next(Tab, _Key) ->
     abort({bad_type, Tab}).
 
 -doc """
-[](){: #dirty_prev }
+Return the previous key in a table.
 
 Works exactly like `mnesia:dirty_next/2` but returns the previous object in
 Erlang term order for the `ordered_set` table type. For all other table types,
@@ -3165,7 +3086,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 
 %% Info about one table
 -doc """
-[](){: #table_info }
+Return local information about table.
 
 The [`table_info/2`](`table_info/2`) function takes two arguments. The first is
 the name of a Mnesia table. The second is one of the following keys:
@@ -3325,19 +3246,23 @@ bad_info_reply(_Tab, memory) -> 0;
 bad_info_reply(Tab, Item) -> abort({no_exists, Tab, Item}).
 
 %% Raw info about all tables
--doc "Prints information about all table definitions on the terminal.".
+-doc """
+Print information about all table definitions on the terminal.
+""".
 -spec schema() -> 'ok'.
 schema() ->
     mnesia_schema:info().
 
 %% Raw info about one tables
--doc "Prints information about one table definition on the terminal.".
+-doc """
+Print information about one table definition on the terminal.
+""".
 -spec schema(Tab::table()) -> 'ok'.
 schema(Tab) ->
     mnesia_schema:info(Tab).
 
 -doc """
-[](){: #error_description }
+Return a string describing a particular Mnesia error.
 
 All Mnesia transactions, including all the schema update functions, either
 return value `{atomic, Val}` or the tuple `{aborted, Reason}`. `Reason` can be
@@ -3382,7 +3307,7 @@ error_description(Err) ->
     mnesia_lib:error_desc(Err).
 
 -doc """
-[](){: #info }
+Print system information on the terminal.
 
 Prints system information on the terminal. This function can be used even if
 Mnesia is not started. However, more information is displayed if Mnesia is
@@ -3573,10 +3498,12 @@ storage_count(T, {U, R, D, DO, Ext}) ->
     end.
 
 -doc """
-[](){: #system_info }
+Return information about the Mnesia system.
 
-Returns information about the Mnesia system, such as transaction statistics,
-`db_nodes`, and configuration parameters. The valid keys are as follows:
+Such as transaction statistics, `db_nodes`, and configuration
+parameters.
+
+The valid keys are as follows:
 
 - `all`. Returns a list of all local system information. Each element is a
   `{InfoKey, InfoVal}` tuple.
@@ -3918,7 +3845,7 @@ load_mnesia_or_abort() ->
 %% Database mgt
 
 -doc """
-[](){: #create_schema }
+Create a new schema on the specified nodes.
 
 Creates a new database on disc. Various files are created in the local Mnesia
 directory of each node. Notice that the directory must be unique for each node.
@@ -3947,7 +3874,7 @@ create_schema(Ns, Properties) ->
     mnesia_bup:create_schema(Ns, Properties).
 
 -doc """
-[](){: #delete_schema }
+Delete the schema on the given nodes.
 
 Deletes a database created with `mnesia:create_schema/1`.
 `mnesia:delete_schema/1` fails if any of the Erlang nodes given as `DiscNodes`
@@ -3977,7 +3904,7 @@ backup(Opaque) ->
     mnesia_log:backup(Opaque).
 
 -doc """
-[](){: #backup }
+Back up all tables in the database.
 
 Activates a new checkpoint covering all Mnesia tables, including the schema,
 with maximum degree of redundancy, and performs a backup using
@@ -3997,7 +3924,7 @@ traverse_backup(S, T, Fun, Acc) ->
     mnesia_bup:traverse_backup(S, T, Fun, Acc).
 
 -doc """
-[](){: #traverse_backup }
+Traverse a backup.
 
 Iterates over a backup, either to transform it into a new backup, or read it.
 The arguments are explained briefly here. For details, see the User's Guide.
@@ -4022,18 +3949,15 @@ The arguments are explained briefly here. For details, see the User's Guide.
 traverse_backup(S, SM, T, TM, F, A) ->
     mnesia_bup:traverse_backup(S, SM, T, TM, F, A).
 
--doc """
-[](){: #install_fallback_1 }
-
-Calls `mnesia:install_fallback(Opaque, Args)`, where `Args` is
-`[{scope, global}]`.
-""".
+-doc(#{equiv => install_fallback(Opaque, [{scope, global}])}).
 -spec install_fallback(Src::term()) -> result().
 install_fallback(Opaque) ->
     mnesia_bup:install_fallback(Opaque).
 
 -doc """
-Installs a backup as fallback. The fallback is used to restore the database at
+Install a backup as fallback.
+
+The fallback is used to restore the database at
 the next startup. Installation of fallbacks requires Erlang to be operational on
 all the involved nodes, but it does not matter if Mnesia is running or not. The
 installation of the fallback fails if the local node is not one of the
@@ -4077,16 +4001,14 @@ disc-resident nodes in the backup.
 install_fallback(Opaque, Mod) ->
     mnesia_bup:install_fallback(Opaque, Mod).
 
--doc """
-[](){: #uninstall_fallback_0 }
-
-Calls the function `mnesia:uninstall_fallback([{scope, global}])`.
-""".
+-doc(#{equiv => uninstall_fallback([{scope, global}])}).
 -spec uninstall_fallback() -> result().
 uninstall_fallback() ->
     mnesia_bup:uninstall_fallback().
 
 -doc """
+Uninstall a fallback.
+
 Deinstalls a fallback before it has been used to restore the database. This is
 normally a distributed operation that is either performed on all nodes with disc
 resident schema, or none. Uninstallation of fallbacks requires Erlang to be
@@ -4106,7 +4028,7 @@ uninstall_fallback(Args) ->
     mnesia_bup:uninstall_fallback(Args).
 
 -doc """
-[](){: #activate_checkpoint }
+Activate a checkpoint.
 
 A checkpoint is a consistent view of the system. A checkpoint can be activated
 on a set of tables. This checkpoint can then be traversed and presents a view of
@@ -4151,7 +4073,7 @@ activate_checkpoint(Args) ->
     mnesia_checkpoint:activate(Args).
 
 -doc """
-[](){: #deactivate_checkpoint }
+Deactivate a checkpoint.
 
 The checkpoint is automatically deactivated when some of the tables involved
 have no retainer attached to them. This can occur when nodes go down or when a
@@ -4169,7 +4091,7 @@ backup_checkpoint(Name, Opaque) ->
     mnesia_log:backup_checkpoint(Name, Opaque).
 
 -doc """
-[](){: #backup_checkpoint }
+Back up all tables in a checkpoint.
 
 The tables are backed up to external media using backup module `BackupMod`.
 Tables with the local contents property are backed up as they exist on the
@@ -4183,7 +4105,7 @@ backup_checkpoint(Name, Opaque, Mod) ->
     mnesia_log:backup_checkpoint(Name, Opaque, Mod).
 
 -doc """
-[](){: #restore }
+Restore a backup.
 
 With this function, tables can be restored online from a backup without
 restarting Mnesia. `Opaque` is forwarded to the backup module. `Args` is a list
@@ -4234,7 +4156,7 @@ create_table(Arg) ->
     mnesia_schema:create_table(Arg).
 
 -doc """
-[](){: #create_table }
+Create a table.
 
 Creates a Mnesia table called `Name` according to argument `TabDef`. This list
 must be a list of `{Item, Value}` tuples, where the following values are
@@ -4350,23 +4272,21 @@ and all other schema manipulation functions, are implemented with the normal
 transaction management system. This guarantees that schema updates are performed
 on all nodes in an atomic manner.
 """.
--spec create_table(Name::table(), [create_option()]) -> t_result('ok').
+-spec create_table(Name::table(), Opts::[create_option()]) -> t_result('ok').
 create_table(Name, Arg) when is_list(Arg) ->
     mnesia_schema:create_table([{name, Name}| Arg]);
 create_table(Name, Arg) ->
     {aborted, {badarg, Name, Arg}}.
 
 -doc """
-[](){: #delete_table }
-
-Permanently deletes all replicas of table `Tab`.
+Permanently delete all replicas of table `Tab`.
 """.
 -spec delete_table(Tab::table()) -> t_result('ok').
 delete_table(Tab) ->
     mnesia_schema:delete_table(Tab).
 
 -doc """
-[](){: #add_table_copy }
+Copy a table to a remote node.
 
 Makes another copy of a table at the node `Node`. Argument `Type` must be either
 of the atoms `ram_copies`, `disc_copies`, or `disc_only_copies`. For example,
@@ -4385,7 +4305,7 @@ add_table_copy(Tab, N, S) ->
     mnesia_schema:add_table_copy(Tab, N, S).
 
 -doc """
-[](){: #del_table_copy }
+Delete the replica of table.
 
 Deletes the replica of table `Tab` at node `Node`. When the last replica is
 deleted with this function, the table disappears entirely.
@@ -4399,7 +4319,7 @@ del_table_copy(Tab, N) ->
     mnesia_schema:del_table_copy(Tab, N).
 
 -doc """
-[](){: #move_table_copy }
+Move a table copy.
 
 Moves the copy of table `Tab` from node `From` to node `To`.
 
@@ -4414,7 +4334,7 @@ move_table_copy(Tab, From, To) ->
     mnesia_schema:move_table(Tab, From, To).
 
 -doc """
-[](){: #add_table_index }
+Add table index.
 
 Table indexes can be used whenever the user wants to use frequently some other
 field than the key field to look up records. If this other field has an
@@ -4435,7 +4355,7 @@ table size, and they cause insertions into the table to execute slightly slower.
 add_table_index(Tab, Ix) ->
     mnesia_schema:add_table_index(Tab, Ix).
 -doc """
-[](){: #del_table_index }
+Delete table index.
 
 Deletes the index on attribute with name `AttrName` in a table.
 """.
@@ -4444,10 +4364,7 @@ Deletes the index on attribute with name `AttrName` in a table.
 del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
--doc """
-Calls `mnesia:transform_table(Tab, Fun, NewAttributeList, RecName)`, where
-`RecName` is `mnesia:table_info(Tab, record_name)`.
-""".
+-doc(#{equiv => transform_table(Tab, Fun, NewAttributeList, mnesia:table_info(Tab, record_name))}).
 -spec transform_table(Tab::table(), Fun, [Attr]) -> t_result('ok') when
       Attr :: atom(),
       Fun:: fun((Record::tuple()) -> Transformed::tuple()) | ignore.
@@ -4459,7 +4376,7 @@ transform_table(Tab, Fun, NewA) ->
     end.
 
 -doc """
-[](){: #transform_table_4 }
+Change format on all records in table.
 
 Applies argument `Fun` to all records in the table. `Fun` is a function that
 takes a record of the old type and returns a transformed record of the new type.
@@ -4480,7 +4397,7 @@ transform_table(Tab, Fun, NewA, NewRN) ->
     mnesia_schema:transform_table(Tab, Fun, NewA, NewRN).
 
 -doc """
-[](){: #change_table_copy_type }
+Change the storage type of a table.
 
 For example:
 
@@ -4501,9 +4418,7 @@ change_table_copy_type(T, N, S) ->
     mnesia_schema:change_table_copy_type(T, N, S).
 
 -doc """
-[](){: #clear_table }
-
-Deletes all entries in the table `Tab`.
+Delete all entries in the table `Tab`.
 """.
 -spec clear_table(Tab::table()) -> t_result('ok').
 clear_table(Tab) ->
@@ -4553,9 +4468,49 @@ delete_table_property(Tab, PropKey) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Table mgt - user properties
+-doc """
+Reconfigure table fragment properties.
 
--doc false.
--spec change_table_frag(Tab::table(), FP::term()) -> t_result('ok').
+Argument `FragProp` should have one of the following values:
+
+- **`{activate, FragProps}`** - Activates the fragmentation properties of an
+  existing table. `FragProps` is either to contain `{node_pool, Nodes}` or be
+  empty.
+
+- **`deactivate`** - Deactivates the fragmentation properties of a table. The
+  number of fragments must be `1`. No other table can refer to this table in its
+  foreign key.
+
+- **`{add_frag, NodesOrDist}`** - Adds a fragment to a fragmented table. All
+  records in one of the old fragments are rehashed and about half of them are
+  moved to the new (last) fragment. All other fragmented tables, which refer to
+  this table in their foreign key, automatically get a new fragment. Also, their
+  records are dynamically rehashed in the same manner as for the main table.
+
+  Argument `NodesOrDist` can either be a list of nodes or the result from the
+  function [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`). Argument
+  `NodesOrDist` is assumed to be a sorted list with the best nodes to host new
+  replicas first in the list. The new fragment gets the same number of replicas
+  as the first fragment (see `n_ram_copies`, `n_disc_copies`, and
+  `n_disc_only_copies`). The `NodesOrDist` list must at least contain one
+  element for each replica that needs to be allocated.
+
+- **`del_frag`** - Deletes a fragment from a fragmented table. All records in
+  the last fragment are moved to one of the other fragments. All other
+  fragmented tables, which refer to this table in their foreign key,
+  automatically lose their last fragment. Also, their records are dynamically
+  rehashed in the same manner as for the main table.
+
+- **`{add_node, Node}`** - Adds a node to `node_pool`. The new node pool affects
+  the list returned from the function
+  [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`).
+
+- **`{del_node, Node}`** - Deletes a node from `node_pool`. The new node pool
+  affects the list returned from the function
+  [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`).
+
+""".
+-spec change_table_frag(Tab::table(), FragProp::term()) -> t_result('ok').
 change_table_frag(Tab, FragProp) ->
     mnesia_schema:change_table_frag(Tab, FragProp).
 
@@ -4564,7 +4519,7 @@ change_table_frag(Tab, FragProp) ->
 
 %% Dump a ram table to disc
 -doc """
-[](){: #dump_tables }
+Dump ram_copies tables to disc.
 
 Dumps a set of `ram_copies` tables to disc. The next time the system is started,
 these tables are initiated with the data found in the files that are the result
@@ -4576,7 +4531,7 @@ dump_tables(Tabs) ->
 
 %% allow the user to wait for some tables to be loaded
 -doc """
-[](){: #wait_for_tables }
+Wait for tables to be accessible.
 
 Some applications need to wait for certain tables to be accessible to do useful
 work. `mnesia:wait_for_tables/2` either hangs until all tables in `TabList` are
@@ -4588,7 +4543,7 @@ wait_for_tables(Tabs, Timeout) ->
     mnesia_controller:wait_for_tables(Tabs, Timeout).
 
 -doc """
-[](){: #force_load_table }
+Force a table to be loaded into the system.
 
 The Mnesia algorithm for table load can lead to a situation where a table cannot
 be loaded. This situation occurs when a node is started and Mnesia concludes, or
@@ -4608,7 +4563,7 @@ force_load_table(Tab) ->
     end.
 
 -doc """
-[](){: #change_table_access_mode }
+Change table access mode.
 
 `AcccessMode` is by default the atom `read_write` but it can also be set to the
 atom `read_only`. If `AccessMode` is set to `read_only`, updates to the table
@@ -4621,7 +4576,7 @@ change_table_access_mode(T, Access) ->
     mnesia_schema:change_table_access_mode(T, Access).
 
 -doc """
-[](){: #change_table_load_order }
+Change table load order.
 
 The `LoadOrder` priority is by default `0` (zero) but can be set to any integer.
 The tables with the highest `LoadOrder` priority are loaded first at startup.
@@ -4632,6 +4587,8 @@ change_table_load_order(T, O) ->
     mnesia_schema:change_table_load_order(T, O).
 
 -doc """
+Change table majority.
+
 `Majority` must be a boolean. Default is `false`. When `true`, a majority of the
 table replicas must be available for an update to succeed. When used on
 fragmented tables, `Tab` must be the base table name. Directly changing the
@@ -4643,7 +4600,7 @@ change_table_majority(T, M) ->
     mnesia_schema:change_table_majority(T, M).
 
 -doc """
-[](){: #set_master_nodes_1 }
+Set the master nodes for all tables.
 
 For each table Mnesia determines its replica nodes (`TabNodes`) and starts
 `mnesia:set_master_nodes(Tab, TabMasterNodes)`. where `TabMasterNodes` is the
@@ -4690,7 +4647,7 @@ log_valid_master_nodes(Cstructs, Nodes, UseDir, IsRunning) ->
     mnesia_recover:log_master_nodes(Args, UseDir, IsRunning).
 
 -doc """
-[](){: #set_master_nodes_2 }
+Set the master nodes for a table.
 
 If the application detects a communication failure (in a potentially partitioned
 network) that can have caused an inconsistent database, it can use the function
@@ -4760,10 +4717,9 @@ set_master_nodes(Tab, Nodes) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Misc admin
 -doc """
-[](){: #dump_log }
+Perform a user-initiated dump of the local log file.
 
-Performs a user-initiated dump of the local log file. This is usually not
-necessary, as Mnesia by default manages this automatically. See configuration
+This is usually not necessary, as Mnesia by default manages this automatically. See configuration
 parameters [dump_log_time_threshold](`m:mnesia#dump_log_time_threshold`) and
 [dump_log_write_threshold](`m:mnesia#dump_log_write_threshold`).
 """.
@@ -4772,6 +4728,8 @@ dump_log() ->
     mnesia_controller:sync_dump_log(user).
 
 -doc """
+Perform a file sync of the local log file.
+
 Ensures that the local transaction log file is synced to disk. On a single node
 system, data written to disk tables since the last dump can be lost if there is
 a power outage. See `dump_log/0`.
@@ -4782,7 +4740,7 @@ sync_log() ->
     mnesia_monitor:sync_log(latest_log).
 
 -doc """
-[](){: #subscribe }
+Subscribe to events of type `EventCategory`.
 
 Ensures that a copy of all events of type `EventCategory` is sent to the caller.
 The available event types are described in the
@@ -4794,9 +4752,7 @@ subscribe(What) ->
     mnesia_subscr:subscribe(self(), What).
 
 -doc """
-[](){: #unsubscribe }
-
-Stops sending events of type `EventCategory` to the caller.
+Stop sending events of type `EventCategory` to the caller.
 
 `Node` is the local node.
 """.
@@ -4806,7 +4762,7 @@ unsubscribe(What) ->
     mnesia_subscr:unsubscribe(self(), What).
 
 -doc """
-[](){: #report_event }
+Report a user event to the Mnesia event handler.
 
 When tracing a system of Mnesia applications it is useful to be able to
 interleave Mnesia own events with application-related events that give
@@ -4825,6 +4781,8 @@ report_event(Event) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Snmp
 -doc """
+Organize a Mnesia table as an SNMP table.
+
 A direct one-to-one mapping can be established between Mnesia tables and SNMP
 tables. Many telecommunication applications are controlled and monitored by the
 SNMP protocol. This connection between Mnesia and SNMP makes it simple and
@@ -4876,16 +4834,18 @@ the actual SNMP monitoring.
 snmp_open_table(Tab, Us) ->
     mnesia_schema:add_snmp(Tab, Us).
 
--doc "Removes the possibility for SNMP to manipulate the table.".
+-doc "Remove the possibility for SNMP to manipulate the table.".
 -spec snmp_close_table(Tab::table()) -> 'ok'.
 snmp_close_table(Tab) ->
     mnesia_schema:del_snmp(Tab).
 
 -doc """
+Retrieve a row indexed by an SNMP index.
+
 Reads a row by its SNMP index. This index is specified as an SNMP Object
 Identifier, a list of integers.
 """.
--spec snmp_get_row(Tab::table(), [integer()]) -> {'ok', Row::tuple()} | 'undefined'.
+-spec snmp_get_row(Tab::table(), RowIndex::[integer()]) -> {'ok', Row::tuple()} | 'undefined'.
 snmp_get_row(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) ->
     case get(mnesia_activity_state) of
  	{Mod, Tid, Ts=#tidstore{store=Store}} when element(1, Tid) =:= tid ->
@@ -4922,11 +4882,13 @@ snmp_get_row(Tab, _RowIndex) ->
 
 %%%%%%%%%%%%%
 -doc """
+Get the index of the next lexicographical row.
+
 `RowIndex` can specify a non-existing row. Specifically, it can be the empty
 list. Returns the index of the next lexicographical row. If `RowIndex` is the
 empty list, this function returns the index of the first row in the table.
 """.
--spec snmp_get_next_index(Tab::table(), [integer()]) -> {'ok', [integer()]} | 'endOfTable'.
+-spec snmp_get_next_index(Tab::table(), RowIndex::[integer()]) -> {'ok', [integer()]} | 'endOfTable'.
 snmp_get_next_index(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) ->
     {Next,OrigKey} = dirty_rpc(Tab, mnesia_snmp_hook, get_next_index, [Tab, RowIndex]),
     case get(mnesia_activity_state) of
@@ -4969,10 +4931,12 @@ get_ordered_snmp_key(_, []) ->
 
 %%%%%%%%%%
 -doc """
+Get the corresponding Mnesia key from an SNMP index.
+
 Transforms an SNMP index to the corresponding Mnesia key. If the SNMP table has
 multiple keys, the key is a tuple of the key columns.
 """.
--spec snmp_get_mnesia_key(Tab::table(), [integer()]) -> {'ok', Key::term()} | 'undefined'.
+-spec snmp_get_mnesia_key(Tab::table(), RowIndex::[integer()]) -> {'ok', Key::term()} | 'undefined'.
 snmp_get_mnesia_key(Tab, RowIndex) when is_atom(Tab), Tab /= schema, is_list(RowIndex) ->
     case get(mnesia_activity_state) of
  	{_Mod, Tid, Ts} when element(1, Tid) =:= tid ->
@@ -5037,7 +5001,7 @@ snmp_filter_key(undefined, RowIndex, Tab, Store) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Textfile access
 -doc """
-[](){: #load_textfile }
+Load tables from a text file.
 
 Loads a series of definitions and data found in the text file (generated with
 `mnesia:dump_to_textfile/1`) into Mnesia. This function also starts Mnesia and
@@ -5050,7 +5014,7 @@ load_textfile(F) ->
     mnesia_text:load_textfile(F).
 
 -doc """
-[](){: #dump_to_textfile }
+Dump local tables into a text file.
 
 Dumps all local tables of a Mnesia system into a text file, which can be edited
 (by a normal text editor) and then be reloaded with `mnesia:load_textfile/1`.
@@ -5070,7 +5034,7 @@ table(Tab) ->
     table(Tab, []).
 
 -doc """
-[](){: #table }
+Return a QLC query handle.
 
 Returns a Query List Comprehension (QLC) query handle, see the `m:qlc` manual
 page in STDLIB. The module `qlc` implements a query language that can use Mnesia
