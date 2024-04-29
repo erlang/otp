@@ -47,7 +47,14 @@ In the functions defined below, the following limitation applies:
 ## See Also
 
 ets(3), dets(3), snmp_generic(3)
+
+## Version note
+
+This module has existed in the megaco app for long time,
+but none of the functions have a proper since tag, so
+we use the oldest we know; OTP R13B03.
 """.
+-moduledoc(#{since => <<"OTP R13B03">>}).
 
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").
@@ -430,7 +437,12 @@ table_get_row(Name, RowIndex) ->
 Get a column value (element) from a row of the table.
 
 Database (only table name specified) defaults to `volatile`.
+
+This function has existed for long time,
+but not had a proper since tag, so to simplify
+we set the since tag to when it was documented.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec table_get_element(Table, RowIndex, Col) ->
           {value, Value} | undefined when
       Table    :: snmpa:name_db() | snmpa:name(),
@@ -448,7 +460,12 @@ table_get_element(Name, RowIndex, Col) ->
 Update the specified columnar objects of the row of this table.
 
 Database (only table name specified) defaults to `volatile`.
+
+This function has existed for long time,
+but not had a proper since tag, so to simplify
+we set the since tag to when it was documented.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec table_set_elements(Table, RowIndex, Cols) ->
           boolean() when
       Table    :: snmpa:name_db() | snmpa:name(),

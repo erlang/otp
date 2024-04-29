@@ -113,8 +113,8 @@ handle duplicate mib- and trap- entries.
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback unload_mib(State :: term(), FileName :: filename(),
-		   MeOverride :: boolean(), 
-		   TeOverride :: boolean()) -> 
+                     MeOverride :: boolean(), 
+                     TeOverride :: boolean()) -> 
     {ok, NewState :: term()} | {error, Reason :: not_loaded | term()}.
 
 -doc """

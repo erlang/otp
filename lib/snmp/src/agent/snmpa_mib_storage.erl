@@ -231,6 +231,7 @@ Retrieve implementation dependent mib-storage table information.
 -callback info(TabId :: mib_storage_table_id()) ->
     Info :: term().
 
+-doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback info(TabId :: mib_storage_table_id(), Item :: atom()) ->
     Info :: term().
 

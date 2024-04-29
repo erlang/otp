@@ -333,7 +333,11 @@ Stops the SNMP application.
 
 See `m:application` for more info.
 
+This function has existed for long time,
+but not had a proper since tag, so to simplify
+we set the since tag to when it was documented.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec stop() -> ok | {error, Reason} when
       Reason :: term().
 
