@@ -1338,6 +1338,7 @@ static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
 static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void       packet_inet_drv_input(ErlDrvData data, ErlDrvEvent event);
+static void       packet_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
 static ErlDrvData udp_inet_start(ErlDrvPort, char* command);
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort, char* command);
@@ -1359,10 +1360,10 @@ static struct erl_drv_entry udp_inet_driver_entry =
     packet_inet_command,
 #ifdef __WIN32__
     packet_inet_event,
-    NULL, 
+    NULL,
 #else
     packet_inet_drv_input,
-    NULL,
+    packet_inet_drv_output,
 #endif
     "udp_inet",
     NULL,
@@ -1394,10 +1395,10 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     packet_inet_command,
 #ifdef __WIN32__
     packet_inet_event,
-    NULL, 
+    NULL,
 #else
     packet_inet_drv_input,
-    NULL,
+    packet_inet_drv_output,
 #endif
     "sctp_inet",
     NULL,
@@ -2590,9 +2591,35 @@ inet_reply_finish(inet_descriptor *desc, ErlDrvTermData *spec, int i) {
 }
 
 /* send:
-**   {inet_reply, S, ok[, CallerTag]}
+**   {inet_reply, S, CallerTag}
 */
-static int inet_reply_ok(inet_descriptor* desc)
+static int inet_reply_caller_ref(inet_descriptor* desc)
+{
+    ErlDrvTermData
+        spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_TUPLE_CNT +
+             LOAD_EXT_CNT];
+    CallerRef *cref_p = &desc->caller_ref;
+    int i = 0;
+
+    if (is_not_internal_pid(desc->caller)) return 0; /* XXX what value for error? */
+    i = LOAD_ATOM(spec, i, am_inet_reply);
+    i = LOAD_PORT(spec, i, desc->dport);
+    if (cref_p->tag_buf != NULL) {
+        i = LOAD_EXT(spec, i, cref_p->tag_buf, cref_p->tag_len);
+    }
+    else {
+        i = LOAD_ATOM(spec, i, am_undefined);
+    }
+    i = LOAD_TUPLE(spec, i, 3);
+
+    ASSERT(sizeof(spec)/sizeof(*spec) >= i);
+    return erl_drv_send_term(desc->dport, desc->caller, spec, i);
+}
+
+/* send:
+**   {inet_reply, S, Atom[, CallerTag]}
+*/
+static int inet_reply_am(inet_descriptor* desc, ErlDrvTermData am)
 {
     ErlDrvTermData
         spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_TUPLE_CNT +
@@ -2603,11 +2630,19 @@ static int inet_reply_ok(inet_descriptor* desc)
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
-    i = LOAD_ATOM(spec, i, am_ok);
+    i = LOAD_ATOM(spec, i, am);
     i = LOAD_TUPLE(spec, i, 3);
     ASSERT(i == sizeof(spec)/sizeof(*spec) - LOAD_EXT_CNT);
  done:
     return inet_reply_finish(desc, spec, i);
+}
+
+/* send:
+**   {inet_reply, S, ok[, CallerTag]}
+*/
+static int inet_reply_ok(inet_descriptor* desc)
+{
+    return inet_reply_am(desc, am_ok);
 }
 
 #ifdef HAVE_SCTP
@@ -12870,10 +12905,10 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
 #ifdef DEBUG
-    long port = (long) desc->inet.port;  /* Used after driver_exit() */
+    void *port = desc->inet.port; /* Used after driver_exit() */
 #endif
     ASSERT(!INET_IGNORED(INETP(desc)));
-    DEBUGF(("tcp_inet_input(%lx) {s=%d\r\n", port, desc->inet.s));
+    DEBUGF(("tcp_inet_input(%p) {s=%d\r\n", port, desc->inet.s));
     if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
@@ -13010,11 +13045,11 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
     else {
 	/* maybe a close op from connection attempt?? */
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	DEBUGF(("tcp_inet_input(%lx): s=%d bad state: %04x\r\n", 
+	DEBUGF(("tcp_inet_input(%p): s=%d bad state: %04x\r\n", 
 		port, desc->inet.s, desc->inet.state));
     }
  done:
-    DEBUGF(("tcp_inet_input(%lx) }\r\n", port));
+    DEBUGF(("tcp_inet_input(%p) }\r\n", port));
     return ret;
 }
 
@@ -14447,7 +14482,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     char* qtr;
     char* xerror;
     ErlDrvSizeT sz;
-    int code;
+    long code;
     inet_address other;
 
     if (! init_caller(&desc->caller, &desc->caller_ref,
@@ -14505,7 +14540,8 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
 	code = sock_sendmsg(desc->s, &mhdr, 0);
-	goto check_result_code;
+
+        goto check_result_code;
     }
 #endif
     {
@@ -14585,16 +14621,30 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 
 #ifdef HAVE_SCTP
  check_result_code:
-    /* "code" analysis is the same for both SCTP and UDP cases above: */
+    /* "code" analysis is the same for both SCTP and UDP above,
+     * although ERRNO_BLOCK | EINTR never happens for UDP
+     */
 #endif
     if (IS_SOCKET_ERROR(code)) {
-	int err = sock_errno();
-	inet_reply_error(desc, err);
+        int err = sock_errno();
+        if ((err != ERRNO_BLOCK) && (err != EINTR)) {
+            inet_reply_error(desc, err);
+            return;
+        }
+        else {
+            /* XXX if(! INET_IGNORED(INETP(desc))) */
+            sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
+            set_busy_port(desc->port, 1);
+            /* XXX add_multi_timer(... desc->send_timeout, ...); */
+            inet_reply_caller_ref(desc);
+            return;
+        }
     }
-    else
-	inet_reply_ok(desc);
-    return;
-    
+    else {
+        inet_reply_ok(desc);
+        return;
+    }
+
  return_einval:
     inet_reply_error(desc, EINVAL);
     return;
@@ -14621,6 +14671,17 @@ static void packet_inet_event(ErlDrvData e, ErlDrvEvent event)
     }
 }
 
+#endif /* #ifdef __WIN32__ */
+
+#ifdef HAVE_UDP
+static void packet_inet_drv_output(ErlDrvData e, ErlDrvEvent event)
+{
+    inet_descriptor *desc = INETP((udp_descriptor *) e);
+
+    sock_select(desc, (FD_WRITE|FD_CLOSE), 0);
+    set_busy_port(desc->port, 0);
+    inet_reply_ok(desc);
+}
 #endif
 
 #ifdef HAVE_UDP

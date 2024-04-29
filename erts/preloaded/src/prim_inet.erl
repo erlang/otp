@@ -563,27 +563,53 @@ peeloff(S, AssocId) ->
 %% NOT delegating this task to any back-end.  For SCTP, this function MUST NOT
 %% be called directly -- use "sendmsg" instead:
 %%
+send(S, Data) ->
+    send(S, Data, []).
+
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
     Mref = monitor(port, S),
     MrefBin = term_to_binary(Mref, [local]),
     MrefBinSize = byte_size(MrefBin),
     MrefBinSize = MrefBinSize band 16#FFFF,
-    try
-        erlang:port_command(
-          S, [<<MrefBinSize:16,MrefBin/binary>>, Data], OptList)
-    of
+    HdrAndData = [<<MrefBinSize:16,MrefBin/binary>>, Data],
+    send(S, HdrAndData, OptList, Mref).
+
+send(S, HdrAndData, OptList, Mref) ->
+    try erlang:port_command(S, HdrAndData, OptList) of
         false -> % Port busy when nosuspend option was passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
             {error,busy};
         true ->
             receive
+                {inet_reply,S,Mref} ->
+                    %% This causes a wait even though nosuspend was used.
+                    %% It only happens when the OS send operation returns
+                    %% that it would block, which should only happen
+                    %% for SCTP (seqpacket), never for UDP (dgram)
+                    %%
+                    %% To fix this we probably need to pass down
+                    %% the nosuspend option to inform inet_drv
+                    %% to not use driver_select and send a late second reply.
+                    %%
+                    ?DBG_FORMAT(
+                       "prim_inet:send(~p,,,) Waiting~n",
+                       [S]),
+                    receive
+                        {inet_reply,S,ok,Mref} ->
+                            send(S, HdrAndData, OptList, Mref);
+                        {'DOWN',Mref,_,_,_Reason} ->
+                            ?DBG_FORMAT(
+                               "prim_inet:send(~p,,,) 'DOWN' ~p~n",
+                               [S,_Reason]),
+                            {error,closed}
+                    end;
                 {inet_reply,S,Status,Mref} ->
                     demonitor(Mref, [flush]),
                     Status;
                 {'DOWN',Mref,_,_,_Reason} ->
                     ?DBG_FORMAT(
-                       "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
+                       "prim_inet:send(~p,,,) 'DOWN' ~p~n",
                        [S,_Reason]),
                     {error,closed}
             end
@@ -591,9 +617,6 @@ send(S, Data, OptList) when is_port(S), is_list(OptList) ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
 	     {error,einval}
     end.
-
-send(S, Data) ->
-    send(S, Data, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
