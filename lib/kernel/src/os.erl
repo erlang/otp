@@ -501,6 +501,19 @@ extensions() ->
     end.
 
 %% Executes the given command in the default shell for the operating system.
+-doc(#{equiv => cmd(Command, #{})}).
+-spec cmd(Command) -> string() when
+      Command :: os_command().
+cmd(Cmd) ->
+    try
+        do_cmd(Cmd, #{ })
+    catch
+        throw:{open_port, Reason} ->
+            badarg_with_cause([Cmd], {open_port, Reason});
+        throw:badarg ->
+            badarg_with_info([Cmd])
+    end.
+
 -doc """
 Executes `Command` in a command shell of the target OS, captures the standard
 output and standard error of the command, and returns this result as a string.
@@ -515,21 +528,6 @@ DirOut = os:cmd("dir"), % on Win32 platform
 Notice that in some cases, standard output of a command when called from another
 program can differ, compared with the standard output of the command when called
 directly from an OS command shell.
-""".
--spec cmd(Command) -> string() when
-      Command :: os_command().
-cmd(Cmd) ->
-    try
-        do_cmd(Cmd, #{ })
-    catch
-        throw:{open_port, Reason} ->
-            badarg_with_cause([Cmd], {open_port, Reason});
-        throw:badarg ->
-            badarg_with_info([Cmd])
-    end.
-
--doc """
-
 
 The possible options are:
 

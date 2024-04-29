@@ -344,12 +344,12 @@ Handler configuration data for Logger.
 Create a " Level " log event.
 
 Equivalent to [`log(" Level ", StringOrReport, Metadata)`](`log/3`) if called
-as `" Level "(StringOrReport, Metadata)`.
+as [`" Level "(StringOrReport, Metadata)`](`" Level "/2`).
 
-Equivalent to [`" Level "(FormatOrFun, Args, #{})`](`emergency/3`) if called as
-`" Level "(FormatOrFun, Args)`.
+Equivalent to [`" Level "(FormatOrFun, Args, #{})`](`" Level "/3`) if called as
+[`" Level "(FormatOrFun, Args)`](`" Level "/2`).
 ").
--define(LOG_DOC_3(Level), #{equiv => log(level, FormatOrFun, Args, Metadata) } ).
+-define(LOG_DOC_3(Level), #{equiv => log(Level, FormatOrFun, Args, Metadata) } ).
 
 -doc ?LOG_DOC_1(emergency).
 -doc(#{title => <<"Logging API functions">>,since => <<"OTP 21.0">>}).
