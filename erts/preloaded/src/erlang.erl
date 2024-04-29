@@ -10980,18 +10980,15 @@ external funs:
 
 The following elements are only present in the list if `Fun` is local:
 
-- **`{pid, Pid}`** - `Pid` is the process identifier of the process that
-  originally created the fun.
-
-  It might point to the `init` process if the `Fun` was statically allocated
-  when module was loaded (this optimisation is performed for local functions
-  that do not capture the environment).
+- **`{pid, Pid}`** - `Pid` is the process identifier of `init` process on
+  the local node.
 
   > #### Change {: .info }
   >
-  > In Erlang/OTP 27, we plan to change the return value so that it always
-  > points to the local `init` process, regardless of which process or node the
-  > fun was originally created on. See
+  > Starting in Erlang/OTP 27, `Pid` always points to the local `init` process,
+  > regardless of which process or node the fun was originally created on.
+  >
+  > See
   > [Upcoming Potential Incompatibilities ](`e:general_info:upcoming_incompatibilities.md#fun-creator-pid-will-always-be-local-init-process`).
 
 - **`{index, Index}`** - `Index` (an integer) is an index into the module fun
