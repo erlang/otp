@@ -23,26 +23,26 @@
 
 -module(dialyzer).
 -moduledoc """
-Dialyzer, a DIscrepancy AnaLYZer for ERlang programs.
+Dialyzer is a **DI**screpancy **A**na**LYZ**er for **ER**lang programs.
 
-Dialyzer is a static analysis tool that identifies software discrepancies, such
-as definite type errors, code that has become dead or unreachable because of
-programming errors, and unnecessary tests, in single Erlang modules or entire
-(sets of) applications.
+Dialyzer is a static analysis tool that identifies software
+discrepancies, such as definite type errors, code that is unreachable
+because of programming errors, and unnecessary tests in single Erlang
+modules or an entire codebase.
 
-Dialyzer starts its analysis from either debug-compiled BEAM bytecode or from
-Erlang source code. The file and line number of a discrepancy is reported along
-with an indication of what the discrepancy is about. Dialyzer bases its analysis
-on the concept of success typings, which allows for sound warnings (no false
-positives).
+Dialyzer starts its analysis from either debug-compiled BEAM code or
+from Erlang source code. The file and line number of a discrepancy is
+reported along with an indication of the nature of the discrepancy.
+Dialyzer bases its analysis on the concept of success typings,
+ensuring sound warnings without false positives.
 
 [](){: #command_line }
 
 ## Using Dialyzer from the Command Line
 
-Dialyzer has a command-line version for automated use. This section provides a
-brief description of the options. The same information can be obtained by
-writing the following in a shell:
+This section provides a brief description of the options available
+when running Dialyzer from the command line. The same information can
+be obtained by writing the following in a shell:
 
 ```text
 dialyzer --help
@@ -80,9 +80,9 @@ _Options of the command-line version:_
 
 - **`--add_to_plt`** - The PLT is extended to also include the files specified
   with `-c` and `-r`. Use `--plt` to specify which PLT to start from, and
-  `--output_plt` to specify where to put the PLT. Notice that the analysis
-  possibly can include files from the PLT if they depend on the new files. This
-  option only works for BEAM files.
+  `--output_plt` to specify where to put the PLT. Note that files already
+  included in the PLT will be reanalyzed if they depend on the new files.
+  This option only works for BEAM files, not source files.
 
 - **`--apps applications`** - By default, warnings will be reported to all
   applications given by `--apps`. However, if `--warning_apps` is used, only
@@ -101,10 +101,10 @@ _Options of the command-line version:_
   dialyzer --build_plt --apps erts kernel stdlib mnesia ...
   ```
 
-  to refer conveniently to library applications corresponding to the Erlang/OTP
-  installation. However, this option is general and can also be used during
-  analysis to refer to Erlang/OTP applications. File or directory names can also
-  be included, as in:
+  to refer conveniently to library applications corresponding to the
+  Erlang/OTP installation. This option can also be used during
+  analysis to refer to Erlang/OTP applications. File or directory
+  names can also be included, as in:
 
   ```text
   dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
@@ -124,7 +124,7 @@ _Options of the command-line version:_
 - **`--dump_callgraph file`** - Dump the call graph into the specified file
   whose format is determined by the filename extension. Supported extensions
   are: `raw`, `dot`, and `ps`. If something else is used as filename extension,
-  default format `.raw` is used.
+  the default `.raw` format is used.
 
 - **`--error_location column | line`{: #error_location }** - Use a pair
   `{Line, Column}` or an integer `Line` to pinpoint the location of warnings.
@@ -142,7 +142,7 @@ _Options of the command-line version:_
 - **`--get_warnings`** - Make Dialyzer emit warnings even when manipulating the
   PLT. Warnings are only emitted for files that are analyzed.
 
-- **`--help` (or `-h`)** - Print this message and exit.
+- **`--help` (or `-h`)** - Print a help message and exit.
 
 - **`-I include_dir`** - When analyzing from source, pass the `include_dir` to
   Dialyzer. (\*\*)
@@ -246,7 +246,7 @@ _Options of the command-line version:_
 > #### Note {: .info }
 >
 > \*\* the syntax of defines and includes is the same as that used by
-> [erlc(1)](`e:erts:erlc_cmd.md`).
+> [erlc](`e:erts:erlc_cmd.md`).
 
 [](){: #warning_options }
 
@@ -314,10 +314,10 @@ are mostly for Dialyzer developers and internal debugging):
 >
 > \*\*\* denotes options that turn on warnings rather than turning them off.
 
-The following option is not strictly needed as it specifies the default. It is
-primarily intended to be used with the `-dialyzer` attribute. For an example see
-section
-[Requesting or Suppressing Warnings in Source Files](`m:dialyzer#suppression`).
+The following options are not strictly needed as they specify the
+default. They are primarily intended to be used with the `-dialyzer`
+attribute. For an example see section [Requesting or Suppressing
+Warnings in Source Files](`m:dialyzer#suppression`).
 
 - **`-Wno_underspecs`** - Suppress warnings about underspecified functions (the
   specification is strictly more allowing than the success typing).
@@ -331,7 +331,7 @@ section
 ## Using Dialyzer from Erlang
 
 Dialyzer can be used directly from Erlang. The options are similar to the ones
-given from the command line, see section
+given from the command line. See section
 [Using Dialyzer from the Command Line](`m:dialyzer#command_line`).
 
 ## Default Dialyzer Options
@@ -578,7 +578,7 @@ cl(Opts) ->
     end,
   doit(F).
 
--doc "Dialyzer command-line version.".
+-doc "Run Dialyzer and return warnings.".
 -spec run(Options) -> Warnings when
     Options :: [dial_option()],
     Warnings :: [dial_warning()].
