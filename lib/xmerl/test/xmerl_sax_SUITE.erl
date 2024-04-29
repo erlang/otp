@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -188,14 +188,14 @@ external_entities_test(Config) ->
     File1 = filename:join(DataDir, "entity_test_1.xml"),
     File2 = filename:join(DataDir, "entity_test_2.xml"),
     %% Allow all (default)
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, []),
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, [{external_entities, all}]),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, all}]),
     %% Allow file
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File1, [{external_entities, file}]),
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, file}]),
-    %% Allow none
-    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, [{external_entities, none}]),
-    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, none}]), %% Not included but parsed, See if it can be fixed
+    %% Allow none (default)
+    {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, []),
+    {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []), %% Not included but parsed, See if it can be fixed
     ok.
 
 %%----------------------------------------------------------------------

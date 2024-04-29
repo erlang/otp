@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@
 	  col = 1,
 	  line = 1,
           common_data = [],
-          allow_entities = true % If true entities are allowed in the document
+          allow_entities = false % If true entities are allowed in the document
 	 }).
 
 
