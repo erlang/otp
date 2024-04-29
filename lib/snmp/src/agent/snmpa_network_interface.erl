@@ -38,9 +38,9 @@ described in chapter [snmp_agent_netif](snmp_agent_netif.md).
 
 ## Version note
 
-This module has existed in the snmp app since before R13B03.
+This module has existed in the snmp app since before R13B04.
 """.
--moduledoc(#{since => <<"OTP R13B03">>}).
+-moduledoc(#{since => <<"OTP R13B04">>}).
 
 -doc """
 Start-link the network interface process.

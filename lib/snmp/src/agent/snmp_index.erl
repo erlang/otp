@@ -86,9 +86,9 @@ get_next_pid(Oid, SnmpIndex) ->
 
 This module has existed in the snmp app for long time,
 but none of the functions have a proper since tag, so
-we use the oldest we know; OTP R13B03.
+we use the oldest we know; OTP R13B04.
 """.
--moduledoc(#{since => <<"OTP R13B03">>}).
+-moduledoc(#{since => <<"OTP R13B04">>}).
 
 -export([new/1, new/2, 
 	 insert/3, 
