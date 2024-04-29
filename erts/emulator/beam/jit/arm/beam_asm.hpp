@@ -978,6 +978,8 @@ class BeamModuleAssembler : public BeamAssembler,
     void reg_cache_put(arm::Mem mem, a64::Gp src) {
         if (src != SUPER_TMP) {
             reg_cache.put(mem, src);
+        } else {
+            reg_cache.invalidate(mem);
         }
     }
 

@@ -25,7 +25,8 @@
 	 packed_registers/1, apply_last/1, apply_last_bif/1,
 	 heap_sizes/1, big_lists/1, fconv/1,
          select_val/1, select_tuple_arity/1,
-         swap_temp_apply/1, beam_init_yregs/1]).
+         swap_temp_apply/1, beam_init_yregs/1,
+         beam_register_cache/1]).
 
 -export([applied/2,swap_temp_applied/1]).
 
@@ -38,7 +39,8 @@ all() ->
     [packed_registers, apply_last, apply_last_bif,
      heap_sizes, big_lists, fconv,
      select_val, select_tuple_arity,
-     swap_temp_apply, beam_init_yregs].
+     swap_temp_apply, beam_init_yregs,
+     beam_register_cache].
 
 groups() -> 
     [].
@@ -502,6 +504,26 @@ beam_init_yregs(Config) ->
     %% Clean up.
     true = code:delete(Mod),
     false = code:purge(Mod),
+
+    ok.
+
+%% GH-8433: The register cache wasn't properly maintained for certain helper
+%% functions in the ARM JIT.
+beam_register_cache(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Mod = ?FUNCTION_NAME,
+
+    File = filename:join(DataDir, Mod),
+    {ok,Mod,Code} = compile:file(File, [from_asm,no_postopt,binary]),
+    {module,Mod} = code:load_binary(Mod, Mod, Code),
+
+    try
+        ok = Mod:Mod()
+    after
+        %% Clean up.
+        true = code:delete(Mod),
+        false = code:purge(Mod)
+    end,
 
     ok.
 
