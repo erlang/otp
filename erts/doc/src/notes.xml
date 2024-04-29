@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ETS functions did not properly handle keys containing
+	    maps, sometimes matching too many or too few objects.</p>
+          <p>
+	    Own Id: OTP-19070 Aux Id: GH-8385 </p>
+        </item>
+        <item>
+          <p>
+	    Fix CPU quota determination for cgroups.</p>
+          <p>
+	    The bug was introduced through OTP-18999.</p>
+          <p>
+	    Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
