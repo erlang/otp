@@ -25,13 +25,13 @@ Utility functions for handling the manager config files.
 The module `snmpm_conf` contains various utility functions to used for
 manipulating (write/append/read) the config files of the SNMP manager.
 
-## Version note
-
-This module has existed in the snmp app for long time,
-but none of the functions have a proper since tag, so
-we use the oldest we know; OTP R13B04.
 """.
--moduledoc(#{since => <<"OTP R13B04">>}).
+%% ## Version note
+
+%% This module has existed in the snmp app for long time,
+%% but none of the functions have a proper since tag, so
+%% we use the oldest we know; OTP R13B04.
+%% -moduledoc(#{since => <<"OTP R13B04">>}).
 
 -include_lib("kernel/include/file.hrl").
 
