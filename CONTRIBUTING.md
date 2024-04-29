@@ -162,3 +162,7 @@ to your pull request should give you an internal ticket number (for example `OTP
 as a placeholder in the respective `since` tags, like `-doc #{ since => ~"OTP @OTP-12345@" }.`.
 When your new functions are released with an OTP release, this placeholder will get replaced with
 the actual OTP version, leading to something like "OTP 26.0".
+
+* If you are asked to write a release note for your pull request, see
+[Writing release notes](https://github.com/erlang/otp/blob/master/HOWTO/RELEASE-NOTES.md)
+for advice.
