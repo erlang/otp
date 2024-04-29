@@ -38,7 +38,7 @@ This module has existed in the megaco app for long time,
 but none of the functions have a proper since tag, so
 we use the oldest we know; OTP R13B03.
 """.
--moduledoc(#{since => "OTP R13B03"}).
+-moduledoc(#{since => <<"OTP R13B03">>}).
 
 -behaviour(gen_server).
 

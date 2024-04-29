@@ -35,7 +35,7 @@ This module has existed in the megaco app for long time,
 but none of the functions have a proper since tag, so
 we use the oldest we know; OTP R13B03.
 """.
--moduledoc(#{since => "OTP R13B03"}).
+-moduledoc(#{since => <<"OTP R13B03">>}).
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/udp/megaco_udp.hrl").
