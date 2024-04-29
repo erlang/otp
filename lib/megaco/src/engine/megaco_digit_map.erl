@@ -61,6 +61,8 @@ Digit Map utility module.
 
 This is a Digit Map utility module (types).
 
+## Version note
+
 This module has existed in the megaco app for long time,
 but is now (as of 27.0) also documented.
 """.
