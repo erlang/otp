@@ -37,10 +37,6 @@ network interface entity must be able to receive and be able to send. This is
 described in chapter [snmp_agent_netif](snmp_agent_netif.md).
 
 """.
-%% ## Version note
-
-%% This module has existed in the snmp app since before R13B04.
-%% -moduledoc(#{since => <<"OTP R13B04">>}).
 
 -doc """
 Start-link the network interface process.
@@ -115,6 +111,7 @@ See `snmpa:set_log_type/2` for more info.
 The request limit is the number of simultaneous requests the agent will accept.
 This function retrieve the current value.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -callback get_request_limit(Pid) ->
     {ok, Limit} when
       Pid   :: pid(),
@@ -124,6 +121,7 @@ This function retrieve the current value.
 The request limit is the number of simultaneous requests the agent will accept.
 This function sets a new value.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -callback set_request_limit(Pid, NewLimit) ->
     {ok, OldLimit} when
       Pid      :: pid(),
