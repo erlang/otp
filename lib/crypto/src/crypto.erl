@@ -794,13 +794,13 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
     end.
 
 -doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to application:start(crypto).".
+-doc "Equivalent to [`application:start(crypto)`](`application:start/1`).".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
 -doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to application:stop(crypto).".
+-doc "Equivalent to [`application:stop(crypto)`](`application:stop/1`).".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
     application:stop(crypto).
@@ -831,8 +831,8 @@ supports() ->
 
 
 -doc """
-Can be used to determine which crypto algorithms that are supported by the
-underlying libcrypto library
+Get which crypto algorithms that are supported by the underlying libcrypto
+library.
 
 See `hash_info/1` and `cipher_info/1` for information about the hash and cipher
 algorithms.
@@ -870,7 +870,7 @@ supports(rsa_opts)    -> rsa_opts_algorithms().
 
 -doc(#{title => <<"Utility Functions">>}).
 -doc """
-Provides the name and version of the libraries used by crypto.
+Get the name and version of the libraries used by crypto.
 
 `Name` is the name of the library. `VerNum` is the numeric version according to
 the library's own versioning scheme. `VerStr` contains a text variant of the
@@ -895,7 +895,9 @@ info_lib() -> ?nif_stub.
 
 -doc(#{title => <<"Utility Functions">>}).
 -doc """
-Provides a map with information about the compilation and linking of crypto.
+Get information about crypto and the OpenSSL backend.
+
+Returns a map with information about the compilation and linking of crypto.
 
 Example:
 
@@ -926,9 +928,11 @@ info_nif() -> ?nif_stub.
 
 
 -doc """
-Provides information about the FIPS operating status of crypto and the
-underlying libcrypto library. If crypto was built with FIPS support this can be
-either `enabled` (when running in FIPS mode) or `not_enabled`. For other builds
+Get information about the operating status of FIPS.
+
+Returns the FIPS operating status of crypto and the underlying libcrypto
+library. If crypto was built with FIPS support this can be either `enabled`
+(when running in FIPS mode) or `not_enabled`. For other builds
 this value is always `not_supported`.
 
 See `enable_fips_mode/1` about how to enable FIPS mode.
@@ -946,8 +950,10 @@ See `enable_fips_mode/1` about how to enable FIPS mode.
 info_fips() -> ?nif_stub.
 
 -doc """
-Enables (`Enable = true`) or disables (`Enable = false`) FIPS mode. Returns
-`true` if the operation was successful or `false` otherwise.
+Enable or disable FIPs mode.
+
+Argument `Enable` should be `true` to enable and `false` to disable FIPS mode.
+Returns `true` if the operation was successful or `false` otherwise.
 
 Note that to enable FIPS mode successfully, OTP must be built with the configure
 option `--enable-fips`, and the underlying libcrypto must also support FIPS.
@@ -995,7 +1001,9 @@ pbkdf2_hmac_nif(_, _, _, _, _) -> ?nif_stub.
 -type hash_xof_algorithm() :: sha3_xof() .
 
 -doc """
-Provides a map with information about block_size, size and possibly other
+Get information about a hash algorithm.
+
+Returns a map with information about block_size, size and possibly other
 properties of the hash algorithm in question.
 
 For a list of supported hash algorithms, see [supports(hashs)](`supports/1`).
@@ -1012,7 +1020,9 @@ hash_info(Type) ->
     hash_info_nif(Type).
 
 -doc """
-Computes a message digest of type `Type` from `Data`.
+Compute a message digest.
+
+Argument `Type` is the digest type and argument `Data` is the full message.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1027,8 +1037,10 @@ hash(Type, Data) ->
     hash(Type, Data1, erlang:byte_size(Data1), MaxBytes).
 
 -doc """
-Computes a message digest of type `Type` from `Data` of `Length` for the chosen
-`xof_algorithm`.
+Compute a message digest for an `xof_algorithm`.
+
+Argument `Type` is the type of digest, `Data` is the full text and `Length` is
+the digest length in bits.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
@@ -1049,9 +1061,10 @@ hash_xof(Type, Data, Length) ->
 -opaque hash_state() :: reference().
 
 -doc """
-Initializes the context for streaming hash operations. `Type` determines which
-digest to use. The returned context should be used as argument to
-[hash_update](`hash_update/2`).
+Initialize the state for a streaming hash digest calculation.
+
+Argument `Type` determines which digest to use. The returned state should be
+used as argument to `hash_update/2`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1063,10 +1076,15 @@ hash_init(Type) ->
     ?nif_call(hash_init_nif(Type)).
 
 -doc """
-Updates the digest represented by `Context` using the given `Data`. `Context`
-must have been generated using [hash_init](`hash_init/1`) or a previous call to
-this function. `Data` can be any length. `NewContext` must be passed into the
-next call to `hash_update` or [hash_final](`hash_final/1`).
+Add data to a streaming digest calculation.
+
+Update the digest using the given `Data` of any length.
+
+Argument `State` must have been generated by [hash_init](`hash_init/1`) or a
+previous call to this function.
+
+Returns `NewState` that must be passed into the next call to `hash_update/2` or
+`hash_final/1`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1075,31 +1093,33 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 -spec hash_update(State, Data) -> NewState when State :: hash_state(),
                                                 NewState :: hash_state(),
                                                 Data :: iodata() .
-hash_update(Context, Data) ->
+hash_update(State, Data) ->
     Data1 = iolist_to_binary(Data),
     MaxBytes = max_bytes(),
-    hash_update(Context, Data1, erlang:byte_size(Data1), MaxBytes).
+    hash_update(State, Data1, erlang:byte_size(Data1), MaxBytes).
 
 -doc """
-Finalizes the hash operation referenced by `Context` returned from a previous
-call to [hash_update](`hash_update/2`). The size of `Digest` is determined by
+Finalize a streaming hash calculation.
+
+Argument `State` as returned from the last call to
+[hash_update](`hash_update/2`). The size of `Digest` is determined by
 the type of hash function used to generate it.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{title => <<"Hash API">>,
        since => <<"OTP R15B02">>}).
--spec hash_final(State) -> Digest when  State :: hash_state(),
-                                        Digest :: binary().
-hash_final(Context) ->
-    ?nif_call(hash_final_nif(Context)).
+-spec hash_final(State) -> Digest when State :: hash_state(),
+                                       Digest :: binary().
+hash_final(State) ->
+    ?nif_call(hash_final_nif(State)).
 
 -doc false.
 -spec hash_final_xof(State, Length) -> Digest when State :: hash_state(),
                                                    Length :: non_neg_integer(),
                                                    Digest :: binary().
-hash_final_xof(Context, Length) ->
-    hash_final_xof_nif(Context, Length).
+hash_final_xof(State, Length) ->
+    hash_final_xof_nif(State, Length).
 
 %%%================================================================
 %%%
@@ -1121,7 +1141,9 @@ hash_final_xof(Context, Length) ->
 %%% Calculate MAC for the whole text at once
 
 -doc """
-Short for [mac(Type, undefined, Key, Data)](`mac/4`).
+Compute a `poly1305` MAC (Message Authentication Code).
+
+Same as [`mac(Type, undefined, Key, Data)`](`mac/4`).
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1136,7 +1158,9 @@ mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data).
 
 
 -doc """
-Computes a MAC (Message Authentication Code) of type `Type` from `Data`.
+Compute a MAC (Message Authentication Code).
+
+Argument `Type` is the type of MAC and `Data` is the full message.
 
 `SubType` depends on the MAC `Type`:
 
@@ -1176,7 +1200,9 @@ mac(Type, SubType, Key0, Data) ->
 
 
 -doc """
-Short for [macN(Type, undefined, Key, Data, MacLength)](`macN/5`).
+Compute a `poly1305` MAC (Message Authentication Code) with a limited length.
+
+Same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`).
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1193,11 +1219,12 @@ macN(Type, Key, Data, MacLength) ->
 
 
 -doc """
-Computes a MAC (Message Authentication Code) as `mac/3` and `mac/4` but
-`MacLength` will limit the size of the resultant `Mac` to at most `MacLength`
-bytes. Note that if `MacLength` is greater than the actual number of bytes
-returned from the underlying hash, the returned hash will have that shorter
-length instead.
+Compute a MAC (Message Authentication Code) with a limited length.
+
+Works like `mac/3` and `mac/4` but `MacLength` will limit the size of the
+resultant `Mac` to at most `MacLength` bytes. Note that if `MacLength` is
+greater than the actual number of bytes returned from the underlying hash, the
+returned hash will have that shorter length instead.
 
 The max `MacLength` is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
@@ -1228,7 +1255,9 @@ between function calls.
 -opaque mac_state() :: reference() .
 
 -doc """
-Short for [mac_init(Type, undefined, Key)](`mac_init/3`).
+Initialize a state for streaming `poly1305` MAC calculation.
+
+Same as [`mac_init(Type, undefined, Key)`](`mac_init/3`).
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1242,7 +1271,7 @@ mac_init(poly1305, Key) ->
 
 
 -doc """
-Initializes the context for streaming MAC operations.
+Initialize the state for streaming MAC calculation.
 
 `Type` determines which mac algorithm to use in the MAC operation.
 
@@ -1283,13 +1312,16 @@ mac_init(Type, SubType, Key0) ->
 
 
 -doc """
-Updates the MAC represented by `State0` using the given `Data` which could be of
+Add data to a streaming MAC calculation.
+
+Update the MAC represented by `State0` using the given `Data` which could be of
 any length.
 
 The `State0` is the State value originally from a MAC init function, that is
-`mac_init/2`, `mac_init/3` or a previous call of
-[`mac_update/2`](`mac_update/2`). The value `State0` is returned unchanged by
-the function as `State`.
+`mac_init/2`, `mac_init/3` or the last call to `mac_update/2`. The value
+`State0` is returned unchanged by the function as a reference to a mutated
+internal state. Hence, it is not possible to branch off a data stream by reusing
+old states.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1305,8 +1337,11 @@ mac_update(Ref, Data) ->
 
 
 -doc """
-Finalizes the MAC operation referenced by `State`. The `Mac` result will have a
-default length depending on the `Type` and `SubType` in the
+Finalize a streaming MAC operation.
+
+Argument `State` is the state as returned by the last call to `mac_update/2`.
+
+The `Mac` result will have a default length depending on the `Type` and `SubType` in the
 [mac_init/2,3](`mac_init/3`) call. To set a shorter length, use `mac_finalN/2`
 instead. The default length is documented in
 [Algorithm Details](algorithm_details.md#message-authentication-codes-macs) in
@@ -1324,7 +1359,9 @@ mac_final(Ref) ->
 
 
 -doc """
-Finalizes the MAC operation referenced by `State`.
+Finalize a MAC operation with a custom length.
+
+Argument `State` is the state as returned by the last call to `mac_update/2`.
 
 `Mac` will be a binary with at most `MacLength` bytes. Note that if `MacLength`
 is greater than the actual number of bytes returned from the underlying hash,
@@ -1367,7 +1404,9 @@ mac_final_nif(_Ref) -> ?nif_stub.
 
 %%%---- Cipher info
 -doc """
-Provides a map with information about block_size, key_length, iv_length, aead
+Get information about a cipher algorithm.
+
+Returns a map with information about block size, key length, IV length, aead
 support and possibly other properties of the cipher algorithm in question.
 
 > #### Note {: .info }
@@ -1474,6 +1513,9 @@ For OpenSSL, see the [OpenSSL documentation](https://openssl.org). and find
 %%%
 
 -doc """
+Initialize the state for a streaming encryption or decryption
+operation.
+
 Equivalent to the call
 [`crypto_init(Cipher, Key, <<>>, FlagOrOptions)`](`crypto_init/4`). It is
 intended for ciphers without an IV (nounce).
@@ -1493,13 +1535,13 @@ crypto_init(Cipher, Key, FlagOrOptions) ->
              ).
 
 -doc """
-Initializes a series of encryptions or decryptions and creates an internal state
-with a reference that is returned.
+Initialize the state for a streaming encryptions or decryptions operation.
+
+The returned state should be used as argument to `crypto_update/2` and
+`crypto_final/1` to do the actual encryption or decryption.
 
 If `IV = <<>>`, no IV is used. This is intended for ciphers without an IV
 (nounce). See `crypto_init/3`.
-
-The actual encryption or decryption is done by `crypto_update/2`.
 
 For encryption, set the `FlagOrOptions` to `true` or `[{encrypt,true}]`. For
 decryption, set it to `false` or `[{encrypt,false}]`.
@@ -1548,9 +1590,10 @@ crypto_init(Cipher, Key, IV, FlagOrOptions) ->
 %%%
 
 -doc """
-It does an actual crypto operation on a part of the full text. If the part is
-less than a number of full blocks, only the full blocks (possibly none) are
-encrypted or decrypted and the remaining bytes are saved to the next
+Add data to a streaming encryption or decryption operation.
+
+If the part is less than a number of full blocks, only the full blocks (possibly
+none) are encrypted or decrypted and the remaining bytes are saved to the next
 `crypto_update` operation. The `State` should be created with `crypto_init/3` or
 `crypto_init/4`.
 
@@ -1576,9 +1619,11 @@ crypto_update(State, Data) ->
 %%% is returned from this function.
 
 -doc """
-Finalizes a series of encryptions or decryptions and delivers the final bytes of
-the final block. The data returned from this function may be empty if no padding
-was enabled in [crypto_init/3,4](`crypto_init/3`).
+Finalize a streaming encryptions or decryptions operation and delivers the final
+bytes of the final block.
+
+The data returned from this function may be empty if no padding was enabled in
+`crypto_init/3` or `crypto_init/4`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -1595,8 +1640,9 @@ crypto_final(State) ->
 %%% Get result of padding etc
 
 -doc """
-Returns information about the State in the argument. The information is the form
-of a map, which currently contains at least:
+Return information about a `t:crypto_state/0`.
+
+The information returned is a map, which currently contains at least:
 
 - **`size`** - The number of bytes encrypted or decrypted so far.
 
@@ -1604,7 +1650,7 @@ of a map, which currently contains at least:
   of bytes padded. Otherwise 0.
 
 - **`padding_type`** - The type of the padding as provided in the call to
-  [crypto_init/3,4](`crypto_init/3`).
+  `crypto_init/3` or `crypto_init/4`.
 
 - **`encrypt`** - Is `true` if encryption is performed. It is `false` otherwise.
 
@@ -1625,6 +1671,8 @@ crypto_get_data(State) ->
 %%%
 
 -doc """
+Do a complete encrypt or decrypt of the full text.
+
 As `crypto_one_time/5` but for ciphers without IVs.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
@@ -1647,7 +1695,9 @@ crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
 
 
 -doc """
-Do a complete encrypt or decrypt of the full text in the argument `Data`.
+Do a complete encrypt or decrypt of the full text.
+
+Argument `Data` is the text to be encrypted or decrypted.
 
 For encryption, set the `FlagOrOptions` to `true`. For decryption, set it to
 `false`. For setting other options, see `crypto_init/4`.
@@ -1868,8 +1918,11 @@ alias1_rev(C) -> C.
         nonempty_improper_list(non_neg_integer(), binary()).
 
 -doc """
-Generates N bytes randomly uniform 0..255, and returns the result in a binary.
-Uses a cryptographically secure prng seeded and periodically mixed with
+Generate bytes with randomly uniform values 0..255.
+
+Returns the result in a binary with `N` bytes.
+
+Uses a cryptographically secure PRNG seeded and periodically mixed with
 operating system provided entropy. By default this is the `RAND_bytes` method
 from OpenSSL.
 
@@ -1888,9 +1941,11 @@ strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
 
 
 -doc """
-Creates state object for [random number generation](`m:rand`), in order to
+Create a state object for [random number generation](`m:rand`), in order to
 generate cryptographically strong random numbers (based on OpenSSL's
-`BN_rand_range`), and saves it in the process dictionary before returning it as
+`BN_rand_range`).
+
+Saves the state in the process dictionary before returning it as
 well. See also `rand:seed/1` and `rand_seed_s/0`.
 
 When using the state object from this function the `m:rand` functions using it
@@ -1912,7 +1967,7 @@ rand_seed() ->
     rand:seed(rand_seed_s()).
 
 -doc """
-Creates state object for [random number generation](`m:rand`), in order to
+Create a state object for [random number generation](`m:rand`), in order to
 generate cryptographically strongly random numbers (based on OpenSSL's
 `BN_rand_range`). See also `rand:seed_s/1`.
 
@@ -1936,12 +1991,11 @@ rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
 -doc """
-rand_seed_alg(Alg) -> rand:state()
+Create a state object for [random number generation](`m:rand`), in order to
+generate cryptographically strong random numbers.
 
-Creates state object for [random number generation](`m:rand`), in order to
-generate cryptographically strong random numbers, and saves it in the process
-dictionary before returning it as well. See also `rand:seed/1` and
-`rand_seed_alg_s/1`.
+Saves the state in the process dictionary before returning it as well. See also
+`rand:seed/1` and `rand_seed_alg_s/1`.
 
 When using the state object from this function the `m:rand` functions using it
 may raise exception `error:low_entropy` in case the random generator failed due
@@ -1964,11 +2018,11 @@ rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -doc """
-rand_seed_alg(Alg, Seed) -> rand:state()
-
 Creates a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers, and saves it in the
-process dictionary before returning it as well. See also `rand_seed_alg_s/2`.
+generate cryptographically unpredictable random numbers.
+
+Saves the state in the process dictionary before returning it as well. See also
+`rand_seed_alg_s/2`.
 
 _Example_
 
@@ -1994,10 +2048,10 @@ rand_seed_alg(Alg, Seed) ->
 
 -doc(#{title => <<"Random API">>}).
 -doc """
-rand_seed_alg_s(Alg) -> rand:state()
+Create a state object for [random number generation](`m:rand`), in order to
+generate cryptographically strongly random numbers.
 
-Creates state object for [random number generation](`m:rand`), in order to
-generate cryptographically strongly random numbers. See also `rand:seed_s/1`.
+See also `rand:seed_s/1`.
 
 If `Alg` is `crypto` this function behaves exactly like `rand_seed_s/0`.
 
@@ -2011,10 +2065,6 @@ to lack of secure "randomness".
 
 The cache size can be changed from its default value using the
 [crypto app's ](crypto_app.md)configuration parameter `rand_cache_size`.
-
-When using the state object from this function the `m:rand` functions using it
-may throw exception `low_entropy` in case the random generator failed due to
-lack of secure "randomness".
 
 > #### Note {: .info }
 >
@@ -2040,11 +2090,10 @@ rand_seed_alg_s({Alg, AlgState}) when is_atom(Alg) ->
     {mk_alg_handler(Alg),mk_alg_state(Alg)}.
 %%
 -doc """
-rand_seed_alg_s(Alg, Seed) -> rand:state()
+Create a state object for [random number generation](`m:rand`), in order to
+generate cryptographically unpredictable random numbers.
 
-Creates a state object for [random number generation](`m:rand`), in order to
-generate cryptographically unpredictable random numbers. See also
-`rand_seed_alg/1`.
+See also `rand_seed_alg/1`.
 
 To get a long period the Xoroshiro928 generator from the `m:rand` module is used
 as a counter (with period 2^928 - 1) and the generator states are scrambled
@@ -2262,10 +2311,10 @@ strong_rand_float() ->
 
 -doc(#{title => <<"Random API">>}).
 -doc """
-rand_uniform(Lo, Hi) -> N
+Generate a random integer number.
 
-Generate a random number `N, Lo =< N < Hi.` Uses the `crypto` library
-pseudo-random number generator. `Hi` must be larger than `Lo`.
+The interval is `From =< N < To`. Uses the `crypto` library
+pseudo-random number generator. `To` must be larger than `From`.
 """.
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
@@ -2299,10 +2348,11 @@ rand_uniform_nif(_From,_To) -> ?nif_stub.
 
 
 -doc """
-Set the seed for PRNG to the given binary. This calls the RAND_seed function
-from openssl. Only use this if the system you are running on does not have
-enough "randomness" built in. Normally this is when `strong_rand_bytes/1` raises
-`error:low_entropy`
+Set the seed for PRNG to the given binary.
+
+This calls the RAND_seed function from openssl. Only use this if the system you
+are running on does not have enough "randomness" built in. Normally this is when
+`strong_rand_bytes/1` raises `error:low_entropy`.
 """.
 -doc(#{title => <<"Random API">>,
        since => <<"OTP 17.0">>}).
@@ -2373,7 +2423,7 @@ sign(Algorithm, Type, Data, Key) ->
 
 
 -doc """
-Creates a digital signature.
+Create a digital signature.
 
 The msg is either the binary "cleartext" data to be signed or it is the hashed
 value of "cleartext" i.e. the digest (plaintext).
@@ -2436,7 +2486,7 @@ verify(Algorithm, Type, Data, Signature, Key) ->
     verify(Algorithm, Type, Data, Signature, Key, []).
 
 -doc """
-Verifies a digital signature
+Verify a digital signature.
 
 The msg is either the binary "cleartext" data to be signed or it is the hashed
 value of "cleartext" i.e. the digest (plaintext).
@@ -2528,6 +2578,8 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 %%%---- Encrypt with public key
 
 -doc """
+Encrypt using a public key.
+
 Encrypts the `PlainText` (message digest) using the `PublicKey` and returns the
 `CipherText`. This is a low level signature operation used for instance by older
 versions of the SSL protocol. See also
@@ -2555,6 +2607,8 @@ public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
 %%%---- Decrypt with private key
 
 -doc """
+Decrypt using a private key.
+
 Decrypts the `CipherText`, encrypted with `public_encrypt/4` (or equivalent
 function) using the `PrivateKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
@@ -2584,6 +2638,8 @@ private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
 %%%---- Encrypt with private key
 
 -doc """
+Encrypt using a private key.
+
 Encrypts the `PlainText` using the `PrivateKey` and returns the ciphertext. This
 is a low level signature operation used for instance by older versions of the
 SSL protocol. See also
@@ -2614,8 +2670,10 @@ private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
 %%%---- Decrypt with public key
 
 -doc """
+Decrypt using a public key.
+
 Decrypts the `CipherText`, encrypted with `private_encrypt/4`(or equivalent
-function) using the `PrivateKey`, and returns the plaintext (message digest).
+function) using the `PublicKey`, and returns the plaintext (message digest).
 This is a low level signature verification operation used for instance by older
 versions of the SSL protocol. See also
 [public_key:decrypt_public/2,3](`public_key:decrypt_public/2`)
@@ -2671,7 +2729,9 @@ generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
 
 -doc """
-Generates a public key of type `Type`. See also `public_key:generate_key/1`.
+Generate a public key.
+
+See also `public_key:generate_key/1`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
@@ -2772,8 +2832,10 @@ evp_generate_key_nif(_Curve, _PrivKey) -> ?nif_stub.
 
 
 -doc """
-Computes the shared secret from the private key and the other party's public
-key. See also `public_key:compute_key/2`
+Compute the shared secret from the private key and the other party's public
+key.
+
+See also `public_key:compute_key/2`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
@@ -2854,7 +2916,11 @@ evp_compute_key_nif(_Curve, _OthersBin, _MyBin) -> ?nif_stub.
 %%%================================================================
 
 -doc(#{title => <<"Utility Functions">>}).
--doc "Performs bit-wise XOR (exclusive or) on the data supplied.".
+-doc """
+Perform bit-wise XOR (exclusive or) on the data supplied.
+
+The two byte sequences mus be of equal length.
+""".
 -spec exor(iodata(), iodata()) -> binary().
 
 exor(Bin1, Bin2) ->
@@ -2872,7 +2938,7 @@ exor(Bin1, Bin2) ->
 
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP R16B01">>}).
--doc "Computes the function `N^P mod M`.".
+-doc "Compute the function `N^P mod M`.".
 -spec mod_pow(N, P, M) -> Result when N :: binary() | integer(),
                                       P :: binary() | integer(),
                                       M :: binary() | integer(),
@@ -2927,7 +2993,7 @@ passed to the `ENGINE_load_(private|public)_key` functions in libcrypto.
 -type engine_ref() :: term().
 
 -doc """
-Returns a list of all possible engine methods.
+Return a list of all possible engine methods.
 
 May raise exception `error:notsup` in case there is no engine support in the
 underlying OpenSSL implementation.
@@ -2944,8 +3010,10 @@ engine_get_all_methods() ->
 %% Function: engine_load/3
 %%----------------------------------------------------------------------
 -doc """
+Load an OpenSSL engine.
+
 Loads the OpenSSL engine given by `EngineId` if it is available and intialize
-it. Returns ok and an engine handle, if the engine can't be loaded an error
+it. Returns `ok` and an engine handle, or if the engine can't be loaded an error
 tuple is returned.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
@@ -3021,6 +3089,8 @@ engine_load_2(Engine, PostCmds) ->
 %% Function: engine_unload/1
 %%----------------------------------------------------------------------
 -doc """
+Unload an OpenSSL engine.
+
 Unloads the OpenSSL engine given by `Engine`. An error tuple is returned if the
 engine can't be unloaded.
 
@@ -3234,9 +3304,10 @@ engine_list(Engine0, IdList) ->
 %% Function: engine_ctrl_cmd_string/3
 %%----------------------------------------------------------------------
 -doc """
-Sends ctrl commands to the OpenSSL engine given by `Engine`. This function is
-the same as calling [`engine_ctrl_cmd_string/4`](`engine_ctrl_cmd_string/4`)
-with `Optional` set to `false`.
+Send ctrl commands to an OpenSSL engine.
+
+This function is the same as calling `engine_ctrl_cmd_string/4` with `Optional`
+set to `false`.
 
 The function raises a `error:badarg` if the parameters are in wrong format. It
 may also raise the exception `error:notsup` in case there is no engine support
@@ -3255,7 +3326,9 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg) ->
 %% Function: engine_ctrl_cmd_string/4
 %%----------------------------------------------------------------------
 -doc """
-Sends ctrl commands to the OpenSSL engine given by `Engine`. `Optional` is a
+Send ctrl commands to an OpenSSL engine.
+
+`Optional` is a
 boolean argument that can relax the semantics of the function. If set to `true`
 it will only return failure if the ENGINE supported the given command name but
 failed while executing it, if the ENGINE doesn't support the command name it
@@ -3289,7 +3362,9 @@ engine_ctrl_cmd_string(Engine, CmdName, CmdArg, Optional) ->
 %% Special version of load that only uses dynamic engine to load
 %%----------------------------------------------------------------------
 -doc """
-Loads an engine given by `EngineId` and the path to the dynamic library
+Load a dynamic engine if not already done.
+
+Loada the engine given by `EngineId` and the path to the dynamic library
 implementing the engine. An error tuple is returned if the engine can't be
 loaded.
 
@@ -3559,7 +3634,7 @@ ecdh_compute_key_nif(_Others, _Curve, _My) -> ?nif_stub.
 
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 17.0">>}).
--doc "Can be used to determine which named elliptic curves are supported.".
+-doc "Return all supported named elliptic curves.".
 -spec ec_curves() -> [EllipticCurve] when EllipticCurve :: ec_named_curve()
                                                          | edwards_curve_dh()
                                                          | edwards_curve_ed() .
@@ -3577,8 +3652,9 @@ ec_curve(X) ->
 
 
 -doc """
-Fetches the corresponding public key from a private key stored in an Engine. The
-key must be of the type indicated by the Type parameter.
+Fetch public key from a private key stored in an Engine.
+
+The key must be of the type indicated by the Type parameter.
 """.
 -doc(#{title => <<"Engine API">>,since => <<"OTP 20.2">>}).
 -spec privkey_to_pubkey(Type, EnginePrivateKeyRef) -> PublicKey when Type :: rsa | dss,
@@ -3653,14 +3729,13 @@ exor(Data1, Data2, _Size, MaxByts, Acc) ->
 do_exor(_A, _B) -> ?nif_stub.
 
 -doc """
-Constant time memory comparison for fixed length binaries, such as results of
-HMAC computations.
+Compare two binaries in constant time, such as results of HMAC computations.
 
 Returns true if the binaries are identical, false if they are of the same length
 but not identical. The function raises an `error:badarg` exception if the
 binaries are of different size.
 """.
--doc(#{title => <<"Engine API">>,since => <<"OTP 25.0">>}).
+-doc(#{title => <<"Utility Functions">>, since => <<"OTP 25.0">>}).
 -spec hash_equals(BinA, BinB) -> Result
           when BinA :: binary(),
                BinB :: binary(),
