@@ -25,11 +25,11 @@ Redirect Erlang input and output streams on Unix systems.
 
 The `run_erl` program is specific to Unix systems. This program redirects the
 standard input and standard output streams so that all output can be logged. It
-also lets the program `to_erl` connect to the Erlang console, making it possible
-to monitor and debug an embedded system remotely.
+also lets the program [`to_erl`](`e:system:embedded.md#to_erl`) connect to the
+Erlang console, making it possible to monitor and debug an embedded system remotely.
 
 For more information about the use, see the
-[Embedded System User's Guide](`e:system:embedded_solaris.md`) in System
+[Embedded System User's Guide](`e:system:embedded.md`) in System
 Documentation.
 
 ```text
