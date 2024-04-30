@@ -337,6 +337,7 @@ Create an entry for the manager users config file, `users.conf`.
 See the [`Users`](snmp_manager_config_files.md#users) chapter of the
 (SNMP) `Manager Configuration` User Guide for more info.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec users_entry(UserId, UserMod, UserData, DefaultAgentConfig) ->
           UserEntry when
       UserId             :: snmpm:user_id(),
