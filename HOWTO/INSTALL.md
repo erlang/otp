@@ -82,7 +82,7 @@ also find the utilities needed for building the documentation.
     Download from <http://sourceforge.net/projects/wxwindows/files/3.0.0/>
     or get it from GitHub: <https://github.com/wxWidgets/wxWidgets>
 
-    Further instructions on wxWidgets, read [Building with wxErlang][].
+    Further instructions on wxWidgets, read [Building with Wx][].
 
 ### Building Documentation ###
 
@@ -565,9 +565,9 @@ suffix.
 If you have Xcode 4.3, or later, you will also need to download
 "Command Line Tools" via the Downloads preference pane in Xcode.
 
-[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-wxErlang }
+[](){: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-Wx }
 
-#### Building with wxErlang ####
+#### Building with Wx ####
 
 wxWidgets-3.2.x is recommended for building the `wx` application
 (wxWidgets-3.0.x will also work). Download it from
@@ -810,5 +810,5 @@ Operating system
 [Required Utilities]: #Required-Utilities
 [Optional Utilities]: #Optional-Utilities
 [Building on a Mac]: #advanced-configuration-and-build-of-erlang-otp_Building_macOS-Darwin
-[Building with wxErlang]: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-wxErlang
+[Building with Wx]: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-Wx
 [libatomic_ops]: https://github.com/ivmai/libatomic_ops/

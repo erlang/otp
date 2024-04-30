@@ -17,9 +17,9 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# wxErlang Release Notes
+# Wx Release Notes
 
-This document describes the changes made to the wxErlang application.
+This document describes the changes made to the Wx application.
 
 ## Wx 2.4.1
 
