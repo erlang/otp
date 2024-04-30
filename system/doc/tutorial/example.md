@@ -25,8 +25,7 @@ A common interoperability situation is when you want to incorporate a piece of
 code, solving a complex problem, in your Erlang program. Suppose for example,
 that you have the following C functions that you would like to call from Erlang:
 
-```text
-
+```c
 /* complex.c */
 
 int foo(int x) {
