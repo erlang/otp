@@ -68,5 +68,5 @@
     {applications, [kernel, stdlib, runtime_tools, et]},
     {optional_applications, [wx, runtime_tools, et]},
     {env, []},
-    {runtime_dependencies, ["wx-2.3","stdlib-5.0","runtime_tools-1.19",
-			    "kernel-9.0","et-1.5","erts-14.0"]}]}.
+    {runtime_dependencies, ["wx-2.3","stdlib-5.0","runtime_tools-@OTP-19081@",
+			    "kernel-@OTP-18980@","et-1.5","erts-@OTP-18980@"]}]}.
