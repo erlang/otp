@@ -975,9 +975,8 @@ tables, they are synonyms for other tables. When the end of the table is
 reached, the special key `'$end_of_table'` is returned.
 
 If records are written and deleted during the traversal, use the function
-[mnesia:foldl/3](`m:mnesia#foldl/3`) or [mnesia:foldr/3](`m:mnesia#foldr/3`) with a
-`write` lock. Or the function `mnesia:write_lock_table/1` when using `first` and
-`next`.
+`mnesia:foldl/3` or `mnesia:foldr/3` with a `write` lock. Or the function
+`mnesia:write_lock_table/1` when using `first` and `next`.
 
 Writing or deleting in transaction context creates a local copy of each modified
 record. Thus, modifying each record in a large table uses much memory. `Mnesia`
