@@ -21,55 +21,56 @@ limitations under the License.
 
 [](){: #sys-and-proc_lib }
 
-The `sys` module has functions for simple debugging of processes implemented
+The `m:sys` module has functions for simple debugging of processes implemented
 using behaviours. It also has functions that, together with functions in the
 `proc_lib` module, can be used to implement a _special process_ that complies to
 the OTP design principles without using a standard behaviour. These functions
 can also be used to implement user-defined (non-standard) behaviours.
 
-Both `sys` and `proc_lib` belong to the STDLIB application.
+Both `m:sys` and `m:proc_lib` belong to the STDLIB application.
 
 ## Simple Debugging
 
-The `sys` module has functions for simple debugging of processes implemented
+The `m:sys` module has functions for simple debugging of processes implemented
 using behaviours. The `code_lock` example from
 [gen_statem Behaviour](statem.md#example) is used to illustrate this:
 
 ```erlang
-Erlang/OTP 20 [DEVELOPMENT] [erts-9.0] [source-5ace45e] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false]
+Erlang/OTP 27 [erts-15.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-Eshell V9.0  (abort with ^G)
-1>  code_lock:start_link([1,2,3,4]).
+Eshell V15.0 (press Ctrl+G to abort, type help(). for help)
+1> code_lock:start_link([1,2,3,4]).
 Lock
-{ok,<0.63.0>}
+{ok,<0.90.0>}
 2> sys:statistics(code_lock, true).
 ok
-3>  sys:trace(code_lock, true).
+3> sys:trace(code_lock, true).
 ok
-4>  code_lock:button(1).
+4> code_lock:button(1).
 *DBG* code_lock receive cast {button,1} in state locked
 ok
 *DBG* code_lock consume cast {button,1} in state locked
-5>  code_lock:button(2).
+5> code_lock:button(2).
 *DBG* code_lock receive cast {button,2} in state locked
 ok
 *DBG* code_lock consume cast {button,2} in state locked
-6>  code_lock:button(3).
+6> code_lock:button(3).
 *DBG* code_lock receive cast {button,3} in state locked
 ok
 *DBG* code_lock consume cast {button,3} in state locked
-7>  code_lock:button(4).
+7> code_lock:button(4).
 *DBG* code_lock receive cast {button,4} in state locked
 ok
 Unlock
-*DBG* code_lock consume cast {button,4} in state locked
+*DBG* code_lock consume cast {button,4} in state locked => open
+*DBG* code_lock start_timer {state_timeout,10000,lock,[]} in state open
 *DBG* code_lock receive state_timeout lock in state open
 Lock
-*DBG* code_lock consume state_timeout lock in state open
+*DBG* code_lock consume state_timeout lock in state open => locked
 8> sys:statistics(code_lock, get).
-{ok,[{start_time,{{2017,4,21},{16,8,7}}},
-     {current_time,{{2017,4,21},{16,9,42}}},
-     {reductions,2973},
+{ok,[{start_time,{{2024,5,3},{8,11,1}}},
+     {current_time,{{2024,5,3},{8,11,48}}},
+     {reductions,4098},
      {messages_in,5},
      {messages_out,0}]}
 9> sys:statistics(code_lock, false).
@@ -77,18 +78,22 @@ ok
 10> sys:trace(code_lock, false).
 ok
 11> sys:get_status(code_lock).
-{status,<0.63.0>,
+{status,<0.90.0>,
         {module,gen_statem},
         [[{'$initial_call',{code_lock,init,1}},
-          {'$ancestors',[<0.61.0>]}],
-         running,<0.61.0>,[],
+          {'$ancestors',[<0.88.0>,<0.87.0>,<0.70.0>,<0.65.0>,<0.69.0>,
+                         <0.64.0>,kernel_sup,<0.47.0>]}],
+         running,<0.88.0>,[],
          [{header,"Status for state machine code_lock"},
           {data,[{"Status",running},
-                 {"Parent",<0.61.0>},
+                 {"Parent",<0.88.0>},
+                 {"Modules",[code_lock]},
+                 {"Time-outs",{0,[]}},
                  {"Logged Events",[]},
                  {"Postponed",[]}]},
           {data,[{"State",
-                  {locked,#{code => [1,2,3,4],remaining => [1,2,3,4]}}}]}]]}
+                  {locked,#{code => [1,2,3,4],
+                            length => 4,buttons => []}}}]}]]}
 ```
 
 ## Special Processes
@@ -107,10 +112,11 @@ implemented using standard behaviours automatically understand these messages.
 
 ### Example
 
-The simple server from [Overview](design_principles.md#ch1), implemented using
-`sys` and `proc_lib` so it fits into a supervision tree:
+Here follows the simple server from
+[Overview](design_principles.md#ch1),
+implemented using `sys` and `proc_lib` to fit into a supervision tree:
 
-```text
+```erlang
 -module(ch4).
 -export([start_link/0]).
 -export([alloc/0, free/1]).
@@ -178,33 +184,38 @@ write_debug(Dev, Event, Name) ->
     io:format(Dev, "~p event = ~p~n", [Name, Event]).
 ```
 
+As it is not relevant to the example, the channel handling functions have been
+omitted. To compile this example, the
+[implementation of channel handling](design_principles.md#channels-implementation)
+needs to be added to the module.
+
 {: #ex }
 
-Example on how the simple debugging functions in the `sys` module can also be
-used for `ch4`:
+Here is an example showing how the debugging functions in the `sys`
+module can be used for `ch4`:
 
 ```erlang
 % erl
-Erlang (BEAM) emulator version 5.2.3.6 [hipe] [threads:0]
+Erlang/OTP 27 [erts-15.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-Eshell V5.2.3.6  (abort with ^G)
+Eshell V15.0 (press Ctrl+G to abort, type help(). for help)
 1> ch4:start_link().
-{ok,<0.30.0>}
+{ok,<0.90.0>}
 2> sys:statistics(ch4, true).
 ok
 3> sys:trace(ch4, true).
 ok
 4> ch4:alloc().
-ch4 event = {in,alloc,<0.25.0>}
-ch4 event = {out,{ch4,ch1},<0.25.0>}
-ch1
+ch4 event = {in,alloc,<0.88.0>}
+ch4 event = {out,{ch4,1},<0.88.0>}
+1
 5> ch4:free(ch1).
 ch4 event = {in,{free,ch1}}
 ok
 6> sys:statistics(ch4, get).
-{ok,[{start_time,{{2003,6,13},{9,47,5}}},
-     {current_time,{{2003,6,13},{9,47,56}}},
-     {reductions,109},
+{ok,[{start_time,{{2024,5,3},{8,26,13}}},
+     {current_time,{{2024,5,3},{8,26,49}}},
+     {reductions,202},
      {messages_in,2},
      {messages_out,1}]}
 7> sys:statistics(ch4, false).
@@ -212,26 +223,30 @@ ok
 8> sys:trace(ch4, false).
 ok
 9> sys:get_status(ch4).
-{status,<0.30.0>,
+{status,<0.90.0>,
         {module,ch4},
-        [[{'$ancestors',[<0.25.0>]},{'$initial_call',{ch4,init,[<0.25.0>]}}],
-         running,<0.25.0>,[],
-         [ch1,ch2,ch3]]}
+        [[{'$initial_call',{ch4,init,1}},
+          {'$ancestors',[<0.88.0>,<0.87.0>,<0.70.0>,<0.65.0>,<0.69.0>,
+                         <0.64.0>,kernel_sup,<0.47.0>]}],
+         running,<0.88.0>,[],
+         {[1],[2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19|...]}]}
 ```
 
 ### Starting the Process
 
-A function in the `proc_lib` module is to be used to start the process. Several
-functions are available, for example, `spawn_link/3,4` for asynchronous start
-and `start_link/3,4,5` for synchronous start.
+A function in the `m:proc_lib` module is to be used to start the process. Several
+functions are available, for example,
+[`proc_lib:spawn_link/3,4`](`proc_lib:spawn_link/4`)
+for asynchronous start and
+[`proc_lib:start_link/3,4,5`](`proc_lib:start_link/5`) for synchronous start.
 
-A process started using one of these functions stores information (for example,
-about the ancestors and initial call) that is needed for a process in a
-supervision tree.
+Information necessary for a process within a supervision tree, such as
+details on ancestors and the initial call, is stored when a process
+is started through one of these functions.
 
-If the process terminates with another reason than `normal` or `shutdown`, a
-crash report is generated. For more information about the crash report, see the
-SASL User's Guide.
+If the process terminates with a reason other than `normal` or `shutdown`, a
+crash report is generated. For more information about the crash report, see
+[Logging](`e:kernel:logger_chapter.md`) in Kernel User's Guide.
 
 In the example, synchronous start is used. The process starts by calling
 `ch4:start_link()`:
@@ -241,14 +256,15 @@ start_link() ->
     proc_lib:start_link(ch4, init, [self()]).
 ```
 
-`ch4:start_link` calls the function `proc_lib:start_link`. This function takes a
-module name, a function name, and an argument list as arguments, spawns, and
-links to a new process. The new process starts by executing the given function,
-here `ch4:init(Pid)`, where `Pid` is the pid (`self/0`) of the first process,
-which is the parent process.
+`ch4:start_link/0` calls `proc_lib:start_link/3`, which takes a module
+name, a function name, and an argument list as arguments. It then
+spawns a new process and establishes a link. The new process starts
+by executing the given function, here `ch4:init(Pid)`, where `Pid` is
+the pid of the parent process (obtained by the call to
+[`self()`](`erlang:self/0`) in the call to `proc_lib:start_link/3`).
 
-All initialization, including name registration, is done in `init`. The new
-process must also acknowledge that it has been started to the parent:
+All initialization, including name registration, is done in `init/1`. The new
+process has to acknowledge that it has been started to the parent:
 
 ```erlang
 init(Parent) ->
@@ -257,9 +273,10 @@ init(Parent) ->
     loop(...).
 ```
 
-`proc_lib:start_link` is synchronous and does not return until
-`proc_lib:init_ack` or `proc_lib:init_fail` has been called, or when the process
-exits.
+`proc_lib:start_link/3` is synchronous and does not return until
+[`proc_lib:init_ack/1,2`](`proc_lib:init_ack/2`) or
+[`proc_lib:init_fail/2,3`](`proc_lib:init_fail/3`) has been called,
+or the process has exited.
 
 [](){: #debug }
 
@@ -276,38 +293,38 @@ init(Parent) ->
     loop(Chs, Parent, Deb).
 ```
 
-`sys:debug_options/1` takes a list of options as argument. Here the list is
-empty, which means no debugging is enabled initially. For information about the
-possible options, see the `m:sys` manual page in STDLIB.
+`sys:debug_options/1` takes a list of options. Given an empty list as in this
+example means that debugging is initially disabled. For information about the
+possible options, see `m:sys` in STDLIB.
 
-Then, for each _system event_ to be logged or traced, the following function is
-to be called.
+For each _system event_ to be logged or traced, the following function
+is to be called:
 
 ```erlang
 sys:handle_debug(Deb, Func, Info, Event) => Deb1
 ```
 
-Here:
+The arguments have the follow meaning:
 
-- `Deb` is the debug structure.
+- `Deb` is the debug structure as returned from `sys:debug_options/1`.
 - `Func` is a fun specifying a (user-defined) function used to format trace
   output. For each system event, the format function is called as
   `Func(Dev, Event, Info)`, where:
-  - `Dev` is the I/O device to which the output is to be printed. See the `m:io`
-    manual page in STDLIB.
-  - `Event` and `Info` are passed as is from `handle_debug`.
-- `Info` is used to pass more information to `Func`. It can be any term and is
-  passed as is.
+  - `Dev` is the I/O device to which the output is to be printed. See `m:io`
+    in STDLIB.
+  - `Event` and `Info` are passed as-is from the call to `sys:handle_debug/4`.
+- `Info` is used to pass more information to `Func`. It can be any term, and it
+  is passed as-is.
 - `Event` is the system event. It is up to the user to define what a system
-  event is and how it is to be represented. Typically at least incoming and
+  event is and how it is to be represented. Typically, at least incoming and
   outgoing messages are considered system events and represented by the tuples
   `{in,Msg[,From]}` and `{out,Msg,To[,State]}`, respectively.
 
-`handle_debug` returns an updated debug structure `Deb1`.
+`sys:handle_debug/4` returns an updated debug structure `Deb1`.
 
-In the example, `handle_debug` is called for each incoming and outgoing message.
-The format function `Func` is the function `ch4:write_debug/3`, which prints the
-message using `io:format/3`.
+In the example, `sys:handle_debug/4` is called for each incoming and
+outgoing message. The format function `Func` is the function
+`ch4:write_debug/3`, which prints the message using `io:format/3`.
 
 ```erlang
 loop(Chs, Parent, Deb) ->
@@ -342,52 +359,49 @@ _System messages_ are received as:
 {system, From, Request}
 ```
 
-The content and meaning of these messages do not need to be interpreted by the
+The content and meaning of these messages are not to be interpreted by the
 process. Instead the following function is to be called:
 
 ```erlang
 sys:handle_system_msg(Request, From, Parent, Module, Deb, State)
 ```
 
-This function does not return. It handles the system message and then either
-calls the following if process execution is to continue:
+The arguments have the following meaning:
 
-```erlang
-Module:system_continue(Parent, Deb, State)
-```
+- `Request` and `From` from the received system message are to be
+  passed as-is to the call to `sys:handle_system_msg/6`.
+- `Parent` is the pid of the parent process.
+- `Module` is the name of the module implementing the speciall process.
+- `Deb` is the debug structure.
+- `State` is a term describing the internal state and is passed on to
+  `Module:system_continue/3`, `Module:system_terminate/4`/
+  `Module:system_get_state/1`, and `Module:system_replace_state/2`.
 
-Or calls the following if the process is to terminate:
+`sys:handle_system_msg/6` does not return. It handles the system
+message and *eventually* calls either of the following functions:
 
-```text
-Module:system_terminate(Reason, Parent, Deb, State)
-```
+* `Module:system_continue(Parent, Deb, State)` - if process execution is to
+  continue.
+
+* `Module:system_terminate(Reason, Parent, Deb, State)` - if the
+  process is to terminate.
+
+While handling the system message, `sys:handle_system_msg/6` can call
+one of the following functions:
+
+* `Module:system_get_state(State)` - if the process is to return its state.
+
+* `Module:system_replace_state(StateFun, State)` - if the process is
+  to replace its state using the fun `StateFun` fun. See `sys:replace_state/3`
+  for more information.
+
+* `system_code_change(Misc, Module, OldVsn, Extra)` - if the process is to
+  perform a code change.
 
 A process in a supervision tree is expected to terminate with the same reason as
 its parent.
 
-- `Request` and `From` are to be passed as is from the system message to the
-  call to `handle_system_msg`.
-- `Parent` is the pid of the parent.
-- `Module` is the name of the module.
-- `Deb` is the debug structure.
-- `State` is a term describing the internal state and is passed to
-  `system_continue`/`system_terminate`/
-  `system_get_state`/`system_replace_state`.
-
-If the process is to return its state, `handle_system_msg` calls:
-
-```text
-Module:system_get_state(State)
-```
-
-If the process is to replace its state using the fun `StateFun`,
-`handle_system_msg` calls:
-
-```text
-Module:system_replace_state(StateFun, State)
-```
-
-In the example:
+In the example, system messages are handed by the following code:
 
 ```erlang
 loop(Chs, Parent, Deb) ->
@@ -413,22 +427,24 @@ system_replace_state(StateFun, Chs) ->
     {ok, NChs, NChs}.
 ```
 
-If the special process is set to trap exits and if the parent process
-terminates, the expected behavior is to terminate with the same reason:
+If a special process is configured to trap exits, it must take notice
+of 'EXIT' messages from its parent process and terminate using the
+same exit reason once the parent process has terminated.
+
+Here is an example:
 
 ```erlang
-init(...) ->
+init(Parent) ->
     ...,
     process_flag(trap_exit, true),
     ...,
-    loop(...).
+    loop(Parent).
 
-loop(...) ->
+loop(Parent) ->
     receive
         ...
-
         {'EXIT', Parent, Reason} ->
-            ..maybe some cleaning up here..
+            %% Clean up here, if needed.
             exit(Reason);
         ...
     end.
@@ -495,7 +511,7 @@ module `Mod`, it calls `Behaviour:behaviour_info(callbacks)` and compares the
 result with the set of functions actually exported from `Mod`, and issues a
 warning if any callback function is missing.
 
-Example:
+_Example:_
 
 ```erlang
 %% User-defined behaviour module

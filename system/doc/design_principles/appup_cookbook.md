@@ -41,11 +41,11 @@ for example:
 
 In a system implemented according to the OTP design principles, all processes,
 except system processes and special processes, reside in one of the behaviours
-`supervisor`, `gen_server`, `gen_fsm`, `gen_statem` or `gen_event`. These belong
-to the STDLIB application and upgrading/downgrading normally requires an
-emulator restart.
+`m:supervisor`, `m:gen_server`, `m:gen_statem`, `m:gen_event`, or `m:gen_fsm`.
+These belong to the STDLIB application and upgrading/downgrading normally
+requires a runtime system restart.
 
-OTP thus provides no support for changing residence modules except in the case
+Thus, OTP provides no support for changing residence modules except in the case
 of [special processes](appup_cookbook.md#spec).
 
 ## Changing a Callback Module
@@ -53,7 +53,9 @@ of [special processes](appup_cookbook.md#spec).
 A callback module is a functional module, and for code extensions simple code
 replacement is sufficient.
 
-_Example:_ When adding a function to `ch3`, as described in the example in
+_Example_
+
+When adding a function to `ch3`, as described in the example in
 [Release Handling](release_handling.md#appup), `ch_app.appup` looks as follows:
 
 ```erlang
@@ -63,7 +65,7 @@ _Example:_ When adding a function to `ch3`, as described in the example in
 }.
 ```
 
-OTP also supports changing the internal state of behaviour processes, see
+OTP also supports changing the internal state of behaviour processes; see
 [Changing Internal State](appup_cookbook.md#int_state).
 
 [](){: #int_state }
@@ -71,11 +73,13 @@ OTP also supports changing the internal state of behaviour processes, see
 ## Changing Internal State
 
 In this case, simple code replacement is not sufficient. The process must
-explicitly transform its state using the callback function `code_change` before
+explicitly transform its state using the callback function `code_change/3` before
 switching to the new version of the callback module. Thus, synchronized code
 replacement is used.
 
-_Example:_ Consider `gen_server` `ch3` from
+_Example_
+
+Consider the `ch3` module from
 [gen_server Behaviour](gen_server_concepts.md#ex). The internal state is a term
 `Chs` representing the available channels. Assume you want to add a counter `N`,
 which keeps track of the number of `alloc` requests so far. This means that the
@@ -93,7 +97,7 @@ The `.appup` file can look as follows:
 The third element of the `update` instruction is a tuple `{advanced,Extra}`,
 which says that the affected processes are to do a state transformation before
 loading the new version of the module. This is done by the processes calling the
-callback function `code_change` (see the `m:gen_server` manual page in STDLIB).
+callback function `code_change/3` (see `m:gen_server` in STDLIB).
 The term `Extra`, in this case `[]`, is passed as is to the function:
 
 [](){: #code_change }
@@ -141,7 +145,9 @@ handling instruction, this is expressed by the `DepMods` element:
 
 `DepMods` is a list of modules, on which `Module` is dependent.
 
-_Example:_ The module `m1` in application `myapp` is dependent on `ch3` when
+_Example_
+
+The module `m1` in application `myapp` is dependent on `ch3` when
 upgrading from "1" to "2", or downgrading from "2" to "1":
 
 ```erlang
@@ -194,7 +200,9 @@ synchronized code replacement must be used.
 > `Modules` part of the child specification for the special process. Otherwise
 > the release handler cannot find the process.
 
-_Example:_ Consider the example `ch4` in [sys and proc_lib](spec_proc.md#ex).
+_Example_
+
+Consider the example `ch4` in [sys and proc_lib](spec_proc.md#ex).
 When started by a supervisor, the child specification can look as follows:
 
 ```erlang
@@ -228,10 +236,11 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
     {ok, Chs}.
 ```
 
-- The first argument is the internal state `State`, passed from function
-  `sys:handle_system_msg(Request, From, Parent, Module, Deb, State)`, and called
-  by the special process when a system message is received. In `ch4`, the
-  internal state is the set of available channels `Chs`.
+- The first argument is the internal state `State`, passed from
+  function [`sys:handle_system_msg(Request, From, Parent, Module, Deb,
+  State)`](`sys:handle_system_msg/6`), and called by the special
+  process when a system message is received. In `ch4`, the internal
+  state is the set of available channels `Chs`.
 - The second argument is the name of the module (`ch4`).
 - The third argument is `Vsn` or `{down,Vsn}`, as described for
   `c:gen_server:code_change/3` in
@@ -269,7 +278,9 @@ The following `upgrade` instruction is used for supervisors:
 {update, Module, supervisor}
 ```
 
-_Example:_ To change the restart strategy of `ch_sup` (from
+_Example_
+
+To change the restart strategy of `ch_sup` (from
 [Supervisor Behaviour](sup_princ.md#ex)) from `one_for_one` to `one_for_all`,
 change the callback function `init/1` in `ch_sup.erl`:
 
@@ -321,7 +332,9 @@ processes. New child specifications are automatically added, but not deleted.
 Child processes are not automatically started or terminated, this must be done
 using `apply` instructions.
 
-_Example:_ Assume a new child process `m1` is to be added to `ch_sup` when
+_Example_
+
+Assume a new child process `m1` is to be added to `ch_sup` when
 upgrading `ch_app` from "1" to "2". This means `m1` is to be deleted when
 downgrading from "2" to "1":
 
@@ -373,7 +386,9 @@ terminated before the child specification is changed and the module is deleted.
 
 ## Adding or Deleting a Module
 
-_Example:_ A new functional module `m` is added to `ch_app`:
+_Example
+
+_ A new functional module `m` is added to `ch_app`:
 
 ```erlang
 {"2",
@@ -400,7 +415,9 @@ Restarting an application is useful when a change is too complicated to be made
 without restarting the processes, for example, if the supervisor hierarchy has
 been restructured.
 
-_Example:_ When adding a child `m1` to `ch_sup`, as in
+_Example_
+
+When adding a child `m1` to `ch_sup`, as in
 [Adding and Deleting Child Processes](appup_cookbook.md#sup_add) in Changing a
 Supervisor, an alternative to updating the supervisor is to restart the entire
 application:
@@ -442,10 +459,12 @@ The release handling instructions for adding, removing, and restarting
 applications apply to primary applications only. There are no corresponding
 instructions for included applications. However, since an included application
 is really a supervision tree with a topmost supervisor, started as a child
-process to a supervisor in the including application, a `relup` file can be
+process to a supervisor in the including application, a `.relup` file can be
 manually created.
 
-_Example:_ Assume there is a release containing an application `prim_app`, which
+_Example_
+
+Assume there is a release containing an application `prim_app`, which
 have a supervisor `prim_sup` in its supervision tree.
 
 In a new version of the release, the application `ch_app` is to be included in
@@ -496,7 +515,7 @@ _Step 4a)_ One way to start the included application is to restart the entire
 `prim_app` application. Normally, the `restart_application` instruction in the
 `.appup` file for `prim_app` would be used.
 
-However, if this is done and a `relup` file is generated, not only would it
+However, if this is done and a `.relup` file is generated, not only would it
 contain instructions for restarting (that is, removing and adding) `prim_app`,
 it would also contain instructions for starting `ch_app` (and stopping it, in
 the case of downgrade). This is because `ch_app` is included in the new `.rel`
@@ -548,7 +567,7 @@ of downgrade) is by combining instructions for adding and removing child
 processes to/from `prim_sup` with instructions for loading/unloading all
 `ch_app` code and its application specification.
 
-Again, the `relup` file is created manually. Either from scratch or by editing a
+Again, the `.relup` file is created manually, either from scratch or by editing a
 generated version. Load all code for `ch_app` first, and also load the
 application specification, before `prim_sup` is updated. When downgrading,
 `prim_sup` is to updated first, before the code for `ch_app` and its application
@@ -590,9 +609,11 @@ specification are unloaded.
 
 Changing code for a program written in another programming language than Erlang,
 for example, a port program, is application-dependent and OTP provides no
-special support for it.
+special support.
 
-_Example:_ When changing code for a port program, assume that the Erlang process
+_Example_
+
+When changing code for a port program, assume that the Erlang process
 controlling the port is a `gen_server` `portc` and that the port is opened in
 the callback function `init/1`:
 
@@ -606,7 +627,7 @@ init(...) ->
 ```
 
 If the port program is to be updated, the code for the `gen_server` can be
-extended with a `code_change` function, which closes the old port and opens a
+extended with a `code_change/3` function, which closes the old port and opens a
 new port. (If necessary, the `gen_server` can first request data that must be
 saved from the port program and pass this data to the new port):
 
@@ -640,9 +661,9 @@ the new release package:
 ...
 ```
 
-## Emulator Restart and Upgrade
+## Runtime System Restart and Upgrade
 
-Two upgrade instructions restart the emulator:
+Two upgrade instructions restart the runtime system:
 
 - `restart_new_emulator`
 
@@ -654,14 +675,14 @@ Two upgrade instructions restart the emulator:
 
 - `restart_emulator`
 
-  Used when a restart of the emulator is required after all other upgrade
+  Used when a restart of the runtime system is required after all other upgrade
   instructions are executed. For more information about this instruction, see
   restart_emulator (Low-Level) in
   [Release Handling Instructions](release_handling.md#restart_emulator_instr).
 
-If an emulator restart is necessary and no upgrade instructions are needed, that
-is, if the restart itself is enough for the upgraded applications to start
-running the new versions, a simple `relup` file can be created manually:
+If a runtime system restart is necessary and no upgrade instructions are needed,
+that is, if the restart itself is enough for the upgraded applications to start
+running the new versions, a simple `.relup` file can be created manually:
 
 ```erlang
 {"B",
@@ -677,18 +698,3 @@ running the new versions, a simple `relup` file can be created manually:
 In this case, the release handler framework with automatic packing and unpacking
 of release packages, automatic path updates, and so on, can be used without
 having to specify `.appup` files.
-
-## Emulator Upgrade From Pre OTP R15
-
-From OTP R15, an emulator upgrade is performed by restarting the emulator with
-new versions of the core applications (Kernel, STDLIB, and SASL) before loading
-code and running upgrade instruction for other applications. For this to work,
-the release to upgrade from must include OTP R15 or later.
-
-For the case where the release to upgrade from includes an earlier emulator
-version, `systools:make_relup` creates a backwards compatible relup file. This
-means that all upgrade instructions are executed before the emulator is
-restarted. The new application code is therefore loaded into the old emulator.
-If the new code is compiled with the new emulator, there can be cases where the
-beam format has changed and beam files cannot be loaded. To overcome this
-problem, compile the new code with the old emulator.

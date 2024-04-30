@@ -77,7 +77,7 @@ Generates a boot script `Name.script` and its binary version, the boot file
 `Name.boot`, unless the `{script_name, ScriptName}` option is given, in which
 case the names are `ScriptName.script` and `ScriptName.boot`.
 
-The boot file§ specifies which code to be loaded and which
+The boot file specifies which code to be loaded and which
 applications to be started when the Erlang runtime system is
 started. See [`script(4)`](script.md).
 

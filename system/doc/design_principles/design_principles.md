@@ -21,7 +21,7 @@ limitations under the License.
 
 [](){: #otp-design-principles }
 
-The _OTP design principles_ define how to structure Erlang code in terms of
+The _OTP Design Principles_ define how to structure Erlang code in terms of
 processes, modules, and directories.
 
 ## Supervision Trees
@@ -29,9 +29,8 @@ processes, modules, and directories.
 A basic concept in Erlang/OTP is the _supervision tree_. This is a process
 structuring model based on the idea of _workers_ and _supervisors_:
 
-- Workers are processes that perform computations, that is, they do the actual
-  work.
-- Supervisors are processes that monitor the behaviour of workers. A supervisor
+- Workers are processes that perform computations and other actual work.
+- Supervisors are processes that monitor workers. A supervisor
   can restart a worker if something goes wrong.
 - The supervision tree is a hierarchical arrangement of code into supervisors
   and workers, which makes it possible to design and program fault-tolerant
@@ -59,18 +58,18 @@ flowchart
 
 ## Behaviours
 
-In a supervision tree, many of the processes have similar structures, they
-follow similar patterns. For example, the supervisors are similar in structure.
-The only difference between them is which child processes they supervise. Many
-of the workers are servers in a server-client relation, finite-state machines,
-or event handlers.
+In a supervision tree, many of the processes have similar structures
+and follow similar patterns. For example, the supervisors share a
+similar structure, with the sole distinction lying in the child
+processes they supervise. Many of the workers are servers in a
+server-client relation, finite-state machines, or event handlers.
 
 _Behaviours_ are formalizations of these common patterns. The idea is to divide
 the code for a process in a generic part (a behaviour module) and a specific
 part (a _callback module_).
 
 The behaviour module is part of Erlang/OTP. To implement a process such as a
-supervisor, the user only has to implement the callback module which is to
+supervisor, the user only needs to implement the callback module, which is to
 export a pre-defined set of functions, the _callback functions_.
 
 The following example illustrate how code can be divided into a generic and a
@@ -202,9 +201,11 @@ example. For completeness, one way to write these functions is given below. This
 is an example only, a realistic implementation must be able to handle situations
 like running out of channels to allocate, and so on.
 
+[](){: #channels-implementation }
+
 ```erlang
 channels() ->
-   {_Allocated = [], _Free = lists:seq(1,100)}.
+   {_Allocated = [], _Free = lists:seq(1, 100)}.
 
 alloc({Allocated, [H|T] = _Free}) ->
    {H, {[H|Allocated], T}}.
@@ -291,8 +292,8 @@ applications and a set of user-specific applications.
 
 How to program releases is described in [Releases](release_structure.md).
 
-How to install a release in a target environment is described in the section
-about target systems in Section 2 System Principles.
+How to install a release in a target environment is described in
+[Creating and Upgrading a Target System](`e:system:create_target.md`) in System Principles.
 
 ## Release Handling
 

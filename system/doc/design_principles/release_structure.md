@@ -21,8 +21,9 @@ limitations under the License.
 
 [](){: #releases-section }
 
-This section is to be read with the `rel(4)`, `m:systools`, and `script(4)`
-manual pages in SASL.
+It is recommended to read this section alongside
+[`rel`](`e:sasl:rel.md`), `m:systools`, and
+[`script`](`e:sasl:script.md`) in SASL.
 
 ## Release Concept
 
@@ -37,7 +38,9 @@ The release resource file is used to generate
 [boot scripts](release_structure.md#boot) and
 [release packages](release_structure.md#pack). A system that is transferred to
 and installed at another site is called a _target system_. How to use a release
-package to create a target system is described in System Principles.
+package to create a target system is described in
+[Creating and Upgrading a Target System](`e:system:create_target.md`)
+in System Principles.
 
 [](){: #res_file }
 
@@ -67,8 +70,8 @@ If the release is to be upgraded, it must also include the SASL application.
 
 [](){: #ch_rel }
 
-*Example: *A release of `ch_app` from [Applications](applications.md#ch_app) has
-the following `.app` file:
+Here is an example showing the `.app` file for a release of `ch_app` from
+the [Applications](applications.md#ch_app) section:
 
 ```erlang
 {application, ch_app,
@@ -87,10 +90,10 @@ applications are required by `ch_app`. The file is called `ch_rel-1.rel`:
 ```erlang
 {release,
  {"ch_rel", "A"},
- {erts, "5.3"},
- [{kernel, "2.9"},
-  {stdlib, "1.12"},
-  {sasl, "1.10"},
+ {erts, "14.2.5"},
+ [{kernel, "9.2.4"},
+  {stdlib, "5.2.3"},
+  {sasl, "4.2.1"},
   {ch_app, "1"}]
 }.
 ```
@@ -99,18 +102,20 @@ applications are required by `ch_app`. The file is called `ch_rel-1.rel`:
 
 ## Generating Boot Scripts
 
-`systools` in the SASL application includes tools to build and check releases.
-The functions read the `rel` and `.app` files and perform syntax and dependency
-checks. The `systools:make_script/1,2` function is used to generate a boot
-script (see System Principles):
+`m:systools` in the SASL application includes tools to build and check
+releases. The functions read the `.rel` and `.app` files and perform
+syntax and dependency checks. The
+[`systools:make_script/1,2`](`systools:make_script/2`) function is
+used to generate a boot script:
 
 ```text
 1> systools:make_script("ch_rel-1", [local]).
 ok
 ```
 
-This creates a boot script, both the readable version, `ch_rel-1.script`, and
-the binary version, `ch_rel-1.boot`, used by the runtime system.
+This call creates both the human-readable boot script,
+`ch_rel-1.script`, and the binary boot script, `ch_rel-1.boot`, used
+by the runtime system.
 
 - `"ch_rel-1"` is the name of the `.rel` file, minus the extension.
 - `local` is an option that means that the directories where the applications
@@ -124,38 +129,23 @@ file are automatically loaded and started:
 
 ```text
 % erl -boot ch_rel-1
-Erlang (BEAM) emulator version 5.3
+Erlang/OTP 26 [erts-14.2.5] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-Eshell V5.3  (abort with ^G)
-1>
-=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
-          supervisor: {local,sasl_safe_sup}
-             started: [{pid,<0.33.0>},
-                       {name,alarm_handler},
-                       {mfa,{alarm_handler,start_link,[]}},
-                       {restart_type,permanent},
-                       {shutdown,2000},
-                       {child_type,worker}]
-
-...
-
-=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
-         application: sasl
-          started_at: nonode@nohost
-
-...
-=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
-         application: ch_app
-          started_at: nonode@nohost
+Eshell V14.2.5 (press Ctrl+G to abort, type help(). for help)
+1> application:which_applications().
+[{ch_app,"Channel allocator","1"},
+ {sasl,"SASL  CXC 138 11","4.2.1"},
+ {stdlib,"ERTS  CXC 138 10","5.2.3"},
+ {kernel,"ERTS  CXC 138 10","9.2.4"}]
 ```
 
 [](){: #pack }
 
 ## Creating a Release Package
 
-The `systools:make_tar/1,2` function takes a `.rel` file as input and creates a
-zipped tar file with the code for the specified applications, a _release
-package_:
+The [`systools:make_tar/1,2`](`systools:make_tar/2`) function takes a
+`.rel` file as input and creates a zipped tar file with the code for
+the specified applications, a _release package_:
 
 ```erlang
 1> systools:make_script("ch_rel-1").
@@ -174,22 +164,22 @@ The release package by default contains:
 
 ```text
 % tar tf ch_rel-1.tar
-lib/kernel-2.9/ebin/kernel.app
-lib/kernel-2.9/ebin/application.beam
+lib/kernel-9.2.4/ebin/kernel.app
+lib/kernel-9.2.4/ebin/application.beam
 ...
-lib/stdlib-1.12/ebin/stdlib.app
-lib/stdlib-1.12/ebin/beam_lib.beam
+lib/stdlib-5.2.3/ebin/stdlib.app
+lib/stdlib-5.2.3/ebin/argparse.beam
 ...
-lib/sasl-1.10/ebin/sasl.app
-lib/sasl-1.10/ebin/sasl.beam
+lib/sasl-4.2.1/ebin/sasl.app
+lib/sasl-4.2.1/ebin/sasl.beam
 ...
 lib/ch_app-1/ebin/ch_app.app
 lib/ch_app-1/ebin/ch_app.beam
 lib/ch_app-1/ebin/ch_sup.beam
 lib/ch_app-1/ebin/ch3.beam
-releases/A/start.boot
-releases/A/ch_rel-1.rel
 releases/ch_rel-1.rel
+releases/A/ch_rel-1.rel
+releases/A/start.boot
 ```
 
 A new boot script was generated, without the `local` option set, before the

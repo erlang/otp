@@ -21,8 +21,7 @@ limitations under the License.
 
 [](){: #gen_server }
 
-This section is to be read with the `m:gen_server` manual page in `stdlib`,
-where all interface functions and callback functions are described in detail.
+It is recommended to read this section alongside `m:gen_server` in STDLIB.
 
 ## Client-Server Principles
 
@@ -115,7 +114,7 @@ start_link() ->
     gen_server:start_link({local, ch3}, ch3, [], []) => {ok, Pid}
 ```
 
-`start_link` calls function `gen_server:start_link/4`. This function spawns and
+`start_link/0` calls function `gen_server:start_link/4`. This function spawns and
 links to a new process, a `gen_server`.
 
 - The first argument, `{local, ch3}`, specifies the name. The gen_server is then
@@ -125,19 +124,20 @@ links to a new process, a `gen_server`.
   must be used. The name can also be given as `{global, Name}`, in which case
   the `gen_server` is registered using `global:register_name/2`.
 
-- The second argument, `ch3`, is the name of the callback module, that is, the
-  module where the callback functions are located.
+- The second argument, `ch3`, is the name of the callback module, which is
+  the module where the callback functions are located.
 
-  The interface functions (`start_link`, `alloc`, and `free`) are then located
-  in the same module as the callback functions (`init`, `handle_call`, and
-  `handle_cast`). This is normally good programming practice, to have the code
-  corresponding to one process contained in one module.
+  The interface functions (`start_link/0`, `alloc/0`, and `free/1`) are located
+  in the same module as the callback functions (`init/1`, `handle_call/3`, and
+  `handle_cast/2`). It is usually good programming practice to have the code
+  corresponding to one process contained in a single module.
 
 - The third argument, `[]`, is a term that is passed as is to the callback
   function `init`. Here, `init` does not need any indata and ignores the
   argument.
-- The fourth argument, `[]`, is a list of options. See the `m:gen_server` manual
-  page for available options.
+
+- The fourth argument, `[]`, is a list of options. See `m:gen_server`
+  for the available options.
 
 If name registration succeeds, the new `gen_server` process calls the callback
 function `ch3:init([])`. `init` is expected to return `{ok, State}`, where
@@ -149,13 +149,13 @@ init(_Args) ->
     {ok, channels()}.
 ```
 
-`gen_server:start_link` is synchronous. It does not return until the
+`gen_server:start_link/4` is synchronous. It does not return until the
 `gen_server` has been initialized and is ready to receive requests.
 
-`gen_server:start_link` must be used if the `gen_server` is part of a
-supervision tree, that is, started by a supervisor. There is another function,
-`gen_server:start`, to start a standalone `gen_server`, that is, a `gen_server`
-that is not part of a supervision tree.
+`gen_server:start_link/4` must be used if the `gen_server` is part of
+a supervision tree, meaning that it was started by a supervisor. There
+is another function, `gen_server:start/4`, to start a standalone
+`gen_server` that is not part of a supervision tree.
 
 ## Synchronous Requests - Call
 
@@ -239,7 +239,8 @@ init(Args) ->
 ...
 
 terminate(shutdown, State) ->
-    ..code for cleaning up here..
+    %% Code for cleaning up here
+    ...
     ok.
 ```
 
@@ -260,7 +261,7 @@ stop() ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 handle_cast({free, Ch}, State) ->
-    ....
+    ...
 
 ...
 
@@ -279,18 +280,20 @@ gracefully.
 If the `gen_server` is to be able to receive other messages than requests, the
 callback function `handle_info(Info, State)` must be implemented to handle them.
 Examples of other messages are exit messages, if the `gen_server` is linked to
-other processes (than the supervisor) and trapping exit signals.
+other processes than the supervisor and it is trapping exit signals.
 
 ```erlang
 handle_info({'EXIT', Pid, Reason}, State) ->
-    ..code to handle exits here..
+    %% Code to handle exits here.
+    ...
     {noreply, State1}.
 ```
 
-The `code_change` method must also be implemented.
+The final function to implement is `code_change/3`:
 
 ```erlang
 code_change(OldVsn, State, Extra) ->
-    ..code to convert state (and more) during code change
+    %% Code to convert state (and more) during code change.
+    ...
     {ok, NewState}.
 ```
