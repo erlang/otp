@@ -1384,8 +1384,19 @@ Certificate related options specific to the client side, or with different seman
   receive certificate status information. If `no_staple` (the default), OCSP
   stapling will be disabled.
 
+> #### Note {: .info }
+> Even if requested by the client, OCSP response might not be provided by the server.
+> In such event, ssl will proceed with handshake and generate notice
+> {missing, stapling_response} logger event.
+
   When map is used, boolean ocsp_nonce key may indicate if OCSP nonce should be
   requested by the client (default is `false`).
+
+> #### Note {: .info }
+>
+> OCSP response can be provided without a nonce value - even if it was requested
+> by the client. In such cases ssl will proceed with handshake and generate info
+> {missing, ocsp_nonce} logger event.
 """.
 
 -type client_option_cert() :: {verify, Verify ::verify_peer | verify_none} |
