@@ -48,8 +48,6 @@ Erlang/OTP. Each application then has a local `docs.exs` (for example
 Modules is documentation about Erlang modules, and "extra pages" is [Markdown] files
 describing anything else.
 
-<!--
-
 In `moduledoc` and extra pages it is also allowed to use [mermaid diagrams] to
 complement the documentation text. For example
 
@@ -72,8 +70,6 @@ sequenceDiagram
     John->>Alice: Great!
     Alice-)John: See you later!
 ```
-
--->
 
 Any images or other static assets needed by the documentation should be placed
 in the `assets` folder.
@@ -453,6 +449,7 @@ will get replaced with the actual OTP version, leading to something
 like "OTP 26.0".
 
 [Markdown]: https://en.wikipedia.org/wiki/Markdown
+[mermaid diagrams]: https://mermaid.js.org/
 [Markdown flavor]: https://en.wikipedia.org/wiki/Markdown#Rise_and_divergence
 [Documentation]: ../system/doc/reference_manual/documentation.md
 [GFM]: https://github.github.com/gfm/

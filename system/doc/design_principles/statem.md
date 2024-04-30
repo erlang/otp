@@ -515,8 +515,26 @@ buttons are collected, up to the number of buttons in the correct code. If
 correct, the door is unlocked for 10 seconds. If not correct, we wait for a new
 button to be pressed.
 
-![Code Lock State Diagram](assets/code_lock.svg "Code Lock State Diagram"){:
-width=80% }
+```mermaid
+---
+title: Code Lock State
+---
+
+flowchart TD
+    init((init)) --> a[do_lock\nClear Buttons]
+    a --> locked{{locked}}
+    locked --> b>"`*{button, Button}*`"]
+    b --> c[Collect Buttons]
+    c --> correct?{Correct Code?}
+    correct? -->|No| locked
+    correct? -->
+        |Yes| d[do_unlock\nClear Buttons\nstate_timeout 10s]
+    d --> open{{open}}
+    open --> e>"`*state_timeout*`"]
+    e --> f["do_lock()"]
+    f --> locked
+    open --> g>"`*{button, Digit}*`"] --> open
+```
 
 This code lock state machine can be implemented using `gen_statem` with the
 following _callback module_:
@@ -1313,8 +1331,29 @@ If you start this program with `code_lock:start([17])` you can unlock with
 This section includes the example after most of the mentioned modifications and
 some more using _state enter calls_, which deserves a new state diagram:
 
-![Code Lock State Diagram Revisited](assets/code_lock_2.svg "Code Lock State Diagram Revisited"){:
-width=80% }
+```mermaid
+---
+title: Code Lock State
+---
+
+flowchart TD
+    init((init)) --> a[do_lock\nClear Buttons]
+    a --> locked{{locked}}
+    locked --> b>"`*{button, Button}*`"]
+
+    locked --> b1>"`*state_timeout*`"]
+    b1 --> b2[Clear Buttons]
+    b2 --> locked
+
+    b --> c[Collect Buttons]
+    c --> correct?{Correct Code?}
+    correct? -->|No| c2[state_timeout 30s] --> locked
+
+    correct? -->
+        |Yes| d[do_unlock\nstate_timeout 10s]
+    d --> open{{open}}
+    open --> e>"`*state_timeout*`"] --> init
+```
 
 Notice that this state diagram does not specify how to handle a button event in
 the state `open`. So, you need to read in some side notes, that is, here: that

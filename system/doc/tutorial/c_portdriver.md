@@ -35,7 +35,28 @@ in the port driver brings the emulator down too.
 
 The scenario is illustrated in the following figure:
 
-![Port Driver Communication](assets/port_driver.gif "Port Driver Communication")
+```mermaid
+---
+title: Port Driver Communication
+---
+flowchart
+    subgraph Legend
+        direction LR
+
+        os[OS Process]
+        erl([Erlang Process])
+    end
+
+    subgraph emulator
+        direction LR
+
+        port{Port} --> erlProc
+        erlProc([Connected process]) --> port
+
+        port --> proc[Port Driver Shared Library]
+        proc --> port
+    end
+```
 
 ## Erlang Program
 
