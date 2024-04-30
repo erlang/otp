@@ -54,8 +54,7 @@ NIF libraries are loaded by calling `erlang:load_nif/2`, with the name of the
 shared library as argument. The second argument can be any term that will be
 passed on to the library and used for initialization:
 
-```text
-
+```erlang
 -module(complex6).
 -export([foo/1, bar/1]).
 -nifs([foo/1, bar/1]).
@@ -93,8 +92,7 @@ argument that serves as an opaque handle that is needed to be passed on to most
 API functions. The environment contains information about the calling Erlang
 process:
 
-```text
-
+```c
 #include <erl_nif.h>
 
 extern int foo(int x);

@@ -22,9 +22,7 @@ limitations under the License.
 ## Built-In Mechanisms
 
 Two interoperability mechanisms are built into the Erlang runtime system,
-_distributed Erlang_ and _ports_. A variation of ports is _linked-in drivers_.
-
-[](){: #dist }
+_distributed Erlang_, _ports_, and _nifs_. A variation of ports is _linked-in drivers_.
 
 ### Distributed Erlang
 
@@ -32,14 +30,14 @@ An Erlang runtime system is made a distributed Erlang node by giving it a name.
 A distributed Erlang node can connect to, and monitor, other nodes. It can also
 spawn processes at other nodes. Message passing and error handling between
 processes at different nodes are transparent. A number of useful STDLIB modules
-are available in a distributed Erlang system. For example, `global`, which
+are available in a distributed Erlang system. For example, `m:global`, which
 provides global name registration. The distribution mechanism is implemented
 using TCP/IP sockets.
 
 _When to use:_ Distributed Erlang is primarily used for Erlang-Erlang
 communication. It can also be used for communication between Erlang and C, if
 the C program is implemented as a C node, see
-[C and Java Libraries](overview.md#cnode).
+[C and Java Libraries](overview.md#c-nodes).
 
 _Where to read more:_ Distributed Erlang and some distributed programming
 techniques are described in the Erlang book.
@@ -62,8 +60,8 @@ Relevant manual pages are the following:
 Ports provide the basic mechanism for communication with the external world,
 from Erlang's point of view. The ports provide a byte-oriented interface to an
 external program. When a port is created, Erlang can communicate with it by
-sending and receiving lists of bytes (not Erlang terms). This means that the
-programmer might have to invent a suitable encoding and decoding scheme.
+sending and receiving [lists of bytes](`t:iolist/0`) or [binaries](`t:binary/0`) (not Erlang terms).
+This means that the programmer might have to invent a suitable encoding and decoding scheme.
 
 The implementation of the port mechanism depends on the platform. For UNIX,
 pipes are used and the external program is assumed to read from standard input
@@ -83,6 +81,9 @@ Programming is fairly straight-forward.
 
 Linked-in drivers involves writing certain call-back functions in C. This
 requires very good skills as the code is linked to the Erlang runtime system.
+It is recommended to use [NIFs](#native-implemented-functions-nifs)
+instead of linked-in drivers as they provide a richer feature set and can use
+[dirty schedulers for lengthy work](`e:erts:erl_nif.md#dirty_nifs`).
 
 > #### Warning {: .warning }
 >
@@ -99,6 +100,26 @@ For linked-in drivers, the programmer needs to read the `m:erl_ddll` manual page
 in Kernel.
 
 _Examples:_ Port example in [Ports](c_port.md).
+
+### Native implemented functions (Nifs)
+
+NIFs provide an alternative to a port using linked-in drivers to link C code into
+the Erlang runtime system. NIFs make it possible to provide C implementation of
+normal Erlang functions when interacting with the OS or some other external library.
+
+> #### Warning {: .warning }
+>
+> A faulty NIFs causes the entire Erlang runtime system to leak
+> memory, hang, crash, or leak sensitive information.
+
+_When to use:_ Since a faulty NIF can cause many different problems related to both
+stability and security it is recommended to use an external Port if possible. If the
+overhead is not acceptable then a NIF is a good solution for interacting with any
+native code, be it in C, C++ or Rust.
+
+_Where to read more:_ NIFs are described in [API functions for an Erlang NIF library](`e:erts:erl_nif.md`).
+
+_Examples:_ Port example in [NIFs](nif.md).
 
 ## C and Java Libraries
 
@@ -130,8 +151,6 @@ is part of the Kernel application.
 
 _Examples:_ Erl_Interface example in [Erl_Interface](erl_interface.md).
 
-[](){: #cnode }
-
 ### C Nodes
 
 A C program that uses the Erl_Interface functions for setting up a connection
@@ -148,7 +167,7 @@ _Where to read more:_ See the `ei_connect` part of the
 [Erl_Interface](erl_interface.md) documentation. The programmer also needs to be
 familiar with TCP/IP sockets, see Sockets in
 [Standard Protocols](overview.md#sockets) and Distributed Erlang in
-[Built-In Mechanisms](overview.md#dist).
+[Built-In Mechanisms](overview.md#distributed-erlang).
 
 _Example:_ C node example in [C Nodes](cnode.md).
 
@@ -204,18 +223,3 @@ specification, automatically generates stub code in Erlang, C, or Java. See the
 IC User's Guide and IC Reference Manual.
 
 For details, see the [corba repository](https://github.com/erlang/corba).
-
-## Old Applications
-
-Two old applications are of interest regarding interoperability. Both have been
-replaced by IC and are mentioned here for reference only:
-
-- IG - Removed from Erlang/OTP R6B.
-
-  IG (Interface Generator) automatically generated code for port or socket
-  communication between an Erlang program and a C program, given a C header file
-  with certain keywords.
-
-- Jive - Removed from Erlang/OTP R7B.
-
-  Jive provided a simple interface between an Erlang program and a Java program.
