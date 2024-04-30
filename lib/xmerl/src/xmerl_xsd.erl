@@ -116,6 +116,13 @@ validate(Xml,State)
 
 Equivalent to [validate(Element, State, [])](`validate/3`).
 """.
+-spec validate(Element,State) -> Result when
+      Element :: xmerl:element(),
+      State :: global_state(),
+      Result :: {ValidElement,global_state()} | {error,Reasons},
+      ValidElement :: xmerl:element(),
+      Reasons :: [ErrorReason] | ErrorReason,
+      ErrorReason :: term().
 validate(Xml,State) ->
     validate(Xml,State,[]).
 
@@ -281,6 +288,15 @@ process_validate(Schema,Xml)
 
 Equivalent to [process_validate(Schema, Xml, [])](`process_validate/3`).
 """.
+-spec process_validate(Schema,Element,Options) -> Result when
+      Schema :: string(),
+      Element :: xmerl:element(),
+      Options :: option_list(),
+      Result :: {ValidElement,State} | {error,Reasons},
+      ValidElement :: xmerl:element(),
+      State :: global_state(),
+      Reasons :: [ErrorReason] | ErrorReason,
+      ErrorReason :: term().
 process_validate(Schema,Xml) ->
     process_validate(Schema,Xml,[]).
 %% @spec process_validate(Schema,Element,Options) -> Result

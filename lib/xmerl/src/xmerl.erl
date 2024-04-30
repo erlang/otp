@@ -50,6 +50,7 @@
 -type comment() :: #xmlComment{}.
 -type decl() :: #xmlDecl{}.
 
+-export_type([element/0]).
 %% @spec export(Content, Callback) -> ExportedFormat
 %% @equiv export(Data, Callback, [])
 
