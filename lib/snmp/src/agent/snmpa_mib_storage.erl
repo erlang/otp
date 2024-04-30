@@ -39,6 +39,7 @@ A `snmpa_mib_storage` compliant module must export the following functions:
 - [match_delete/2](`c:snmpa_mib_storage:match_delete/2`)
 - [tab2list/1](`c:snmpa_mib_storage:tab2list/1`)
 - [info/1](`c:snmpa_mib_storage:info/1`)
+- [info/2](`c:snmpa_mib_storage:info/2`)
 - [sync/1](`c:snmpa_mib_storage:sync/1`)
 - [backup/2](`c:snmpa_mib_storage:backup/2`)
 
