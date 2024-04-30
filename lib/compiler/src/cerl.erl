@@ -50,7 +50,7 @@ function `type/1`.
 > we do not give any guarantees on how an abstract syntax tree may or may not be
 > represented, _with the following exceptions_: no syntax tree is represented by a
 > single atom, such as `none`, by a list constructor `[X | Y]`, or by the empty
->list `[]`. This can be relied on when writing functions that operate on syntax
+> list `[]`. This can be relied on when writing functions that operate on syntax
 > trees.
 """.
 
