@@ -609,7 +609,7 @@ trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
 -spec trace(Session, PidPortSpec, How, FlagList) -> integer() when
-      Session :: reference(),
+      Session :: term(),
       PidPortSpec :: pid() | port()
                    | all | processes | ports
                    | existing | existing_processes | existing_ports
@@ -621,7 +621,7 @@ trace(_Session, _PidSpec, _How, _FlagList) ->
 
 %% trace_info/3
 -spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
-      Session :: reference() | any,
+      Session :: term(),
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
                         | MFA | on_load | send | 'receive'
                         | any,
@@ -651,7 +651,7 @@ trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
 -spec trace_pattern(Session, MFA, MatchSpec, FlagList) -> non_neg_integer() when
-      Session :: reference(),
+      Session :: term(),
       MFA :: trace_pattern_mfa(),
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
@@ -661,14 +661,14 @@ trace_pattern(_MFA, _MatchSpec, _FlagList) ->
 trace_pattern(_Session, _MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
--spec trace_session_create(Name, Tracer, Opts) -> reference() when
+-spec trace_session_create(Name, Tracer, Opts) -> term() when
       Name :: atom(),
       Tracer :: pid() | port() | {module(), term()},
       Opts :: [].
 trace_session_create(_Name, _Tracer, _TracerOpts) ->
     erlang:nif_error(undefined).
 
--spec trace_session_destroy(reference()) -> ok.
+-spec trace_session_destroy(term()) -> true | false.
 trace_session_destroy(_TraceSession) ->
     erlang:nif_error(undefined).
 

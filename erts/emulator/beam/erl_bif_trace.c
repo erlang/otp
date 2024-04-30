@@ -171,7 +171,8 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
 /*
  * Does refc++ on returned trace session.
  */
-static int term_to_session(Eterm term, ErtsTraceSession **session_p)
+static int term_to_session(Eterm term, ErtsTraceSession **session_p,
+                           int allow_dead)
 {
     ErtsTraceSession *s = NULL;
     Binary *bin;
@@ -190,6 +191,10 @@ static int term_to_session(Eterm term, ErtsTraceSession **session_p)
         for (s = erts_trace_session_0.next; s; s = s->next) {
             ASSERT(s != &erts_trace_session_0);
             if (s->name_atom == name && s->weak_id == weak_id) {
+                if (!allow_dead && !erts_is_trace_session_alive(s)) {
+                    s = NULL;
+                    break;
+                }
                 bin = &ERTS_MAGIC_BIN_FROM_DATA(s)->binary;
                 /*
                  * Make sure we don't resurrect a dying session with refc==0.
@@ -212,7 +217,10 @@ static int term_to_session(Eterm term, ErtsTraceSession **session_p)
         s = (ErtsTraceSession*) ERTS_MAGIC_BIN_DATA(bin);
         ASSERT(s != &erts_trace_session_0);
 
-        if (s->name_atom != weak_tpl[1] || s->weak_id != weak_tpl[2]) {
+        if (s->name_atom != weak_tpl[1]
+            || s->weak_id != weak_tpl[2]
+            || (!allow_dead && !erts_is_trace_session_alive(s))) {
+
             return 0;
         }
 
@@ -269,9 +277,8 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
 {
     ErtsTraceSession* session;
 
-    if (!term_to_session(BIF_ARG_1, &session)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    if (!term_to_session(BIF_ARG_1, &session, 0)) {
+        goto session_error;
     }
 
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
@@ -280,7 +287,18 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
+    /* Double check liveness with seized code mod permission */
+    if (!erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     return trace_pattern(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static Eterm
@@ -847,9 +865,8 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
     ErtsTraceSession* session;
     Eterm ret;
 
-    if (!term_to_session(BIF_ARG_1, &session)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    if (!term_to_session(BIF_ARG_1, &session, 0)) {
+        goto session_error;
     }
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
         erts_deref_trace_session(session);
@@ -857,10 +874,21 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
     }
 
+    /* Double check liveness with seized code mod permission */
+    if (!erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     ret = trace(BIF_P, session, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 
     erts_deref_trace_session(session);
     return ret;
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static
@@ -1135,7 +1163,7 @@ tracer_session_destructor(Binary *bin)
 {
     ErtsTraceSession *s = (ErtsTraceSession*) ERTS_MAGIC_BIN_DATA(bin);
 
-    if (erts_atomic_read_nob(&s->state) == ERTS_TRACE_SESSION_ALIVE) {
+    if (erts_is_trace_session_alive(s)) {
         /*
          * trace_session_destroy() not called.
          * We must initiate cleanup here without a process.
@@ -1224,13 +1252,13 @@ Eterm
 erts_internal_trace_session_destroy_1(BIF_ALIST_1)
 {
     ErtsTraceSession* session;
-    if (!term_to_session(BIF_ARG_1, &session)) {
+    if (!term_to_session(BIF_ARG_1, &session, 1)) {
         BIF_P->fvalue = am_badopt;
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
-    if (erts_atomic_read_nob(&session->state) != ERTS_TRACE_SESSION_ALIVE) {
+    if (!erts_is_trace_session_alive(session)) {
         erts_deref_trace_session(session);
-        BIF_RET(am_ok);
+        BIF_RET(am_false);
     }
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
         erts_deref_trace_session(session);
@@ -1252,13 +1280,13 @@ erts_internal_trace_session_destroy_1(BIF_ALIST_1)
 
         erts_proc_inc_refc(BIF_P);
         erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-        ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+        ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
     }
     else {
         erts_release_code_mod_permission();
         erts_deref_trace_session(erts_staging_trace_session);
     }
-    BIF_RET(am_ok);
+    BIF_RET(am_false);
 }
 
 static void trace_session_destroy_aux(void *session_v)
@@ -1272,6 +1300,10 @@ static void trace_session_destroy_aux(void *session_v)
 
     erts_lc_soften_code_mod_permission_check();
 
+    /*
+     * We came here from destructor as refc==0 and session was ALIVE.
+     * No one else could have done anything to the session.
+     */
     ASSERT(erts_atomic_read_nob(&s->state) == ERTS_TRACE_SESSION_ALIVE);
     erts_atomic_set_nob(&s->state, ERTS_TRACE_SESSION_CLEARING);
 
@@ -1339,9 +1371,8 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
     if (BIF_ARG_1 == am_any) {
         session = NULL;
     }
-    else if (!term_to_session(BIF_ARG_1, &session)) {
-        BIF_P->fvalue = am_session;
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+    else if (!term_to_session(BIF_ARG_1, &session, 0)) {
+        goto session_error;
     }
 
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
@@ -1351,12 +1382,24 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
         ERTS_BIF_YIELD3(BIF_TRAP_EXPORT(BIF_erts_internal_trace_info_3),
                         BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
+
+    /* Double check session liveness with seized code mod permission */
+    if (session && !erts_is_trace_session_alive(session)) {
+        erts_release_code_mod_permission();
+        erts_deref_trace_session(session);
+        goto session_error;
+    }
+
     ret = trace_info(BIF_P, session, BIF_ARG_2, BIF_ARG_3);
     erts_release_code_mod_permission();
     if (session) {
         erts_deref_trace_session(session);
     }
     return ret;
+
+session_error:
+    BIF_P->fvalue = am_session;
+    BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
 }
 
 static
@@ -1477,9 +1520,7 @@ build_trace_sessions_term(Eterm **hpp, Uint *szp, ErtsPTabElementCommon *t_p)
     }
 
     for (ref = t_p->tracee.first_ref; ref; ref = ref->next) {
-        if (erts_atomic_read_nob(&ref->session->state)
-            == ERTS_TRACE_SESSION_ALIVE) {
-
+        if (erts_is_trace_session_alive(ref->session)) {
             sz += ERTS_TRACE_SESSION_WEAK_REF_SZ + 2;
             if (hp) {
                 Eterm weak_ref = erts_make_trace_session_weak_ref(ref->session, &hp);

@@ -201,7 +201,7 @@ init_group([pre_session|Tail], Config) ->
     %% Create an omnipresent dynamic dummy session before.
     %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = trace:session_create(undefined, Tracer, []),
+    S = trace:session_create(pre_session, Tracer, []),
 
     %% Set a dummy call_count on all (local) functions.
     trace:function(S, {'_','_','_'}, true, [local]),
@@ -225,7 +225,7 @@ init_group([post_session | Tail], Config) ->
     %% Create a dynamic dummy session after
     %%
     Tracer = proplists:get_value(suite_controller, Config),
-    S = trace:session_create(undefined, Tracer, []),
+    S = trace:session_create(post_session, Tracer, []),
     1 = trace:send(S, false, []),
     1 = trace:recv(S, false, []),
     ets:insert(?MODULE, {post_session, S, Tracer}),
@@ -234,7 +234,12 @@ init_group([dynamic_session | Tail], Config) ->
     %%
     %% Run tests with a dynamically created session.
     %%
-    S = trace:session_create(undefined, undefined, []),
+    %% Note: The 'undefined' tracer argument used here is an *undocumented*
+    %% feature kept for this test purpose. That is, to reuse all existing trace
+    %% test suites but rerun them with a dynamic session that behaves like the
+    %% legacy session and allows setting tracer per traced process/port.
+    %%
+    S = trace:session_create(dynamic_session, undefined, []),
     ets:insert(?MODULE, {dynamic_session, S}),
     init_group(Tail, Config).
 

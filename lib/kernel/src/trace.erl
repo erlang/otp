@@ -33,6 +33,15 @@ used as building blocks to build more sophisticated debugging or
 profiling tools. For debugging Erlang code it is recommended to use
 `m:dbg` and for profiling to use `m:tprof`.
 
+## Trace Sessions
+
+All tracing is done within a trace session. Trace sessions can be
+[created](`session_create/3`) and [destroyed](`session_destroy/1`)
+dynamically. Each session has its own tracer that will receive all trace
+messages. Several sessions can exist at the same time without interfering with
+each other. When a trace session is destroyed, all its trace settings are
+automatically cleaned up.
+
 *Example*:
 
 ```erlang
@@ -41,7 +50,7 @@ profiling tools. For debugging Erlang code it is recommended to use
 <0.91.0>
 %% Create a session using the Tracer
 2> Session = trace:session_create(my_session, Tracer, []).
-#Ref<0.1543805153.1548353537.92331>
+{#Ref<0.1543805153.1548353537.92331>,{my_session, 0}}
 %% Setup call tracing on self()
 3> trace:process(Session, self(), true, [call]).
 1
@@ -56,15 +65,6 @@ profiling tools. For debugging Erlang code it is recommended to use
 6> trace:session_destroy(Session).
 ok
 ```
-
-## Trace Sessions
-
-All tracing is done within a trace session. Trace sessions can be
-[created](`session_create/3`) and [destroyed](`session_destroy/1`)
-dynamically. Each session has its own tracer that will receive all trace
-messages. Several sessions can exist at the same time without interfering with
-each other. When a trace session is destroyed, all its trace settings are
-automatically cleaned up.
 
 ## Node Local Tracing Only
 
@@ -140,13 +140,18 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 -compile({inline, [error_with_inherited_info/3]}).
 
 
--export_type([session/0]).
+-export_type([session/0,
+              session_strong_ref/0,
+              session_weak_ref/0]).
 
 -doc """
 A handle to an isolated trace session.
 """.
 -doc #{ since => "OTP 27.0" }.
--opaque session() :: reference().
+-type session() :: {session_strong_ref(), session_weak_ref()}
+                   | session_weak_ref().
+-opaque session_strong_ref() :: reference().
+-opaque session_weak_ref() :: {atom(), integer()}.
 
 -type trace_info_flag() ::
       arity |
@@ -1243,9 +1248,13 @@ Destroy a trace session and cleanup all its settings on processes, ports, and
 functions.
 
 The only things not cleaned up are trace messages that have already been sent.
+
+Returns `true` if the session was active. Returns `false` if the session had
+already been destroyed by either an earler call to this function or the garbage
+collector.
 """.
 -doc #{ since => <<"OTP 27.0">> }.
--spec session_destroy(Session) -> ok when
+-spec session_destroy(Session) -> true | false  when
       Session :: session().
 session_destroy(Session) ->
     try erts_internal:trace_session_destroy(Session) of

@@ -205,9 +205,9 @@ test_set_on_spawn(_Config) ->
     set_on_spawn2(S0, Tracer0, [{tracer,Tracer0}],
                   S1, Tracer1, []),
 
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -238,9 +238,9 @@ test_set_on_first_spawn(_Config) ->
     set_on_first_spawn2(S0, Tracer0, [{tracer,Tracer0}],
                         S1, Tracer1, []),
 
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -270,9 +270,9 @@ test_set_on_link(_Config) ->
                  S0, Tracer0, [{tracer,Tracer0}]),
     set_on_link2(S0, Tracer0, [{tracer,Tracer0}],
                  S1, Tracer1, []),
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -303,9 +303,9 @@ test_set_on_first_link(_Config) ->
                        S0, Tracer0, [{tracer,Tracer0}]),
     set_on_first_link2(S0, Tracer0, [{tracer,Tracer0}],
                        S1, Tracer1, []),
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -817,9 +817,9 @@ procs(_Config) ->
     procs_do2(S0, Tracer0, [{tracer,Tracer0}],
               S1, Tracer1, []),
 
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -953,9 +953,9 @@ basic(_Config) ->
     basic_do2(S0, Tracer0, [{tracer,Tracer0}],
               S1, Tracer1, []),
 
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),
@@ -1052,9 +1052,9 @@ call(_Config) ->
                      {[local], fun() -> ?MODULE:foo() end}]
     ],
 
-    ok = trace:session_destroy(S0),
-    ok = trace:session_destroy(S1),
-    ok = trace:session_destroy(S2),
+    true = trace:session_destroy(S0),
+    true = trace:session_destroy(S1),
+    true = trace:session_destroy(S2),
 
     unlink(Tracer0),
     exit(Tracer0, die),

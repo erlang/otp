@@ -3003,8 +3003,6 @@ is_tracer_ref_enabled(Process* c_p, ErtsProcLocks c_p_locks,
                       ErtsTracerNif **tnif_ret,
                       enum ErtsTracerOpt topt, Eterm tag)
 {
-    Eterm nif_result;
-
     ASSERT(t_p);
     ASSERT(ref);
 
@@ -3023,18 +3021,20 @@ is_tracer_ref_enabled(Process* c_p, ErtsProcLocks c_p_locks,
     }
 #endif
 
-    nif_result = call_enabled_tracer(ref->tracer, tnif_ret,
+    if (erts_is_trace_session_alive(ref->session)) {
+        Eterm nif_result = call_enabled_tracer(ref->tracer, tnif_ret,
                                      topt, tag, t_p->id);
-    switch (nif_result) {
-    case am_discard: return 0;
-    case am_trace: return 1;
-    case THE_NON_VALUE:
-    case am_remove: ASSERT(tag == am_trace_status); break;
-    default:
-        /* only am_remove should be returned, but if
-           something else is returned we fall-through
-           and remove the tracer. */
-        ASSERT(0);
+        switch (nif_result) {
+        case am_discard: return 0;
+        case am_trace: return 1;
+        case THE_NON_VALUE:
+        case am_remove: ASSERT(tag == am_trace_status); break;
+        default:
+            /* only am_remove should be returned, but if
+               something else is returned we fall-through
+               and remove the tracer. */
+            ASSERT(0);
+        }
     }
 
     /* Only remove tracer on (self() or ports) AND we are on a normal scheduler */
@@ -3352,7 +3352,7 @@ ErtsTracerRef* new_tracer_ref(ErtsPTabElementCommon* t_p,
     ErtsTracerRef *ref = t_p->tracee.first_ref;
 
     ASSERT(get_tracer_ref(t_p, session) == NULL);
-    ASSERT(erts_atomic_read_nob(&session->state) == ERTS_TRACE_SESSION_ALIVE);
+    ASSERT(erts_is_trace_session_alive(session));
 
     ref = erts_alloc(ERTS_ALC_T_HEAP_FRAG,  // ToDo type?
                      sizeof(ErtsTracerRef));
@@ -3425,7 +3425,7 @@ Uint delete_unalive_trace_refs(ErtsPTabElementCommon* t_p)
         next_ref = ref->next;
 
         ASSERT(ref->session);
-        if (erts_atomic_read_nob(&ref->session->state) == ERTS_TRACE_SESSION_ALIVE) {
+        if (erts_is_trace_session_alive(ref->session)) {
             prev_p = &ref->next;
         } else {
             dbg_remove_p_ref(t_p, ref);

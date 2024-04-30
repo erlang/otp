@@ -296,4 +296,14 @@ ERTS_DECLARE_DUMMY(erts_tracer_nil) = NIL;
 #define ERTS_TRACER_FROM_ETERM(termp) \
     ((ErtsTracer*)(termp))
 
+ERTS_GLB_INLINE Eterm erts_is_trace_session_alive(ErtsTraceSession*);
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Eterm erts_is_trace_session_alive(ErtsTraceSession *s) {
+    return ERTS_LIKELY(erts_atomic_read_nob(&s->state)
+                       == ERTS_TRACE_SESSION_ALIVE);
+
+}
+#endif
+
+
 #endif /* ERL_TRACE_H__ */
