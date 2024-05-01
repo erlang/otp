@@ -20,7 +20,7 @@
 
 %%
 -module(ssl_cert_tests).
-
+-compile({nowarn_deprecated_function, [{public_key, encrypt_private, 3}]}).
 -include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 

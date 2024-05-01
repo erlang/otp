@@ -1206,7 +1206,7 @@ pkix_verify_hostname_subjAltName_IP(Config) ->
                                                 ],
                                           [{match_fun,
                                             fun(Ref,Pres) -> 
-                                                    ct:pal("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
+                                                    ct:log("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
                                                     false
                                             end}]),
 
@@ -1238,7 +1238,7 @@ pkix_dist_point_uri(Config) when is_list(Config) ->
     DpExt = pubkey_cert:select_extension(?'id-ce-cRLDistributionPoints', Extensions),
     #'Extension'{extnValue = DPs} = DpExt,
     [#'DistributionPoint'{distributionPoint = {fullName, DPNames}}|_] = DPs,
-    ct:pal("~p", [DPNames]),
+    ct:log("~p", [DPNames]),
     true = pubkey_crl:match_one(DPNames, [{uniformResourceIdentifier, "http://ca.eait.uq.edu.au/crl/labs-LILY-CA"}]).
 
 %%--------------------------------------------------------------------
