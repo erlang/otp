@@ -20,6 +20,8 @@
 -module(group).
 -moduledoc false.
 
+-include_lib("kernel/include/logger.hrl").
+
 %% A group leader process for user io.
 %% This process receives input data from user_drv in this format
 %%   {Drv,{data,unicode:charlist()}}
@@ -1080,7 +1082,12 @@ save_line_buffer("\n", Lines) ->
 save_line_buffer(Line, [Line|_Lines]=Lines) ->
     save_line_buffer(Lines);
 save_line_buffer(Line, Lines) ->
-    group_history:add(Line),
+    try
+        group_history:add(Line)
+    catch E:R:ST ->
+            ?LOG_ERROR(#{ msg => "Failed to write to shell history",
+                          error => {E, R, ST} })
+    end,
     save_line_buffer([Line|Lines]).
 
 save_line_buffer(Lines) ->

@@ -160,7 +160,8 @@
          {net_tickintensity, 4},
          {net_ticktime, 60},
          {prevent_overlapping_partitions, true},
-         {shell_docs_ansi,auto}
+         {shell_docs_ansi,auto},
+         {shell_history_drop,[]}
         ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-@OTP-18941:OTP-18980@", "stdlib-6.0",
