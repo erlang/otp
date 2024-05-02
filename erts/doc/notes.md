@@ -929,6 +929,19 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.9
+
+### Fixed Bugs and Malfunctions
+
+* ETS functions did not properly handle keys containing maps, sometimes matching too many or too few objects.
+
+  Own Id: OTP-19070 Aux Id: GH-8385
+* Fix CPU quota determination for cgroups.
+
+  The bug was introduced through OTP-18999.
+
+  Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380
+
 ## Erts 13.2.2.8
 
 ### Fixed Bugs and Malfunctions

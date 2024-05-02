@@ -67,6 +67,14 @@ is the version number of Mnesia.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Mnesia 4.21.4.3
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could crash during startup if `del_table_copy/2` and `add_table_copy/3` was invoked when the table was loading.
+
+  Own Id: OTP-19076 Aux Id: ERIERL-1073
+
 ## Mnesia 4.21.4.2
 
 ### Fixed Bugs and Malfunctions

@@ -319,6 +319,14 @@ This document describes the changes made to the SSL application.
 
   Own Id: OTP-18572
 
+## SSL 10.9.1.4
+
+### Fixed Bugs and Malfunctions
+
+* Fix certificate authorities check so that CA closest to peer is not lost. It could manifest itself in a failed connection as the client failed to realize it had a valid certificate chain to send to the server.
+
+  Own Id: OTP-19065 Aux Id: GH-8356, PR-8367
+
 ## SSL 10.9.1.3
 
 ### Fixed Bugs and Malfunctions
