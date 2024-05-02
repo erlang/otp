@@ -26,7 +26,7 @@ Main API of the ssh application
 
 This is the interface module for the `SSH` application. The Secure Shell (SSH)
 Protocol is a protocol for secure remote login and other secure network services
-over an insecure network. See [ssh(6)](ssh_app.md#supported) for details of
+over an insecure network. See [ssh](ssh_app.md#supported) for details of
 supported RFCs, versions, algorithms and unicode handling.
 
 With the SSH application it is possible to start _clients_ and to start
@@ -71,8 +71,7 @@ The descriptions of the options uses the
 
 > #### Note {: .info }
 >
-> The [User's Guide](index.html) has examples and a
-> [Getting Started](using_ssh.md) section.
+> See also [SSH Application Reference](index.html) and [Examples](using_ssh.md) section.
 
 ## Keys and files
 
@@ -86,7 +85,7 @@ The paths could easily be changed by options:
 [`user_dir`](`t:ssh_file:user_dir_common_option/0`) and
 [`system_dir`](`t:ssh_file:system_dir_daemon_option/0`).
 
-A completely different storage could be interfaced by writing call-back modules
+A completely different storage could be interfaced by writing callback modules
 using the behaviours `m:ssh_client_key_api` and/or `m:ssh_server_key_api`. A
 callback module is installed with the option
 [`key_cb`](`t:key_cb_common_option/0`) to the client and/or the daemon.
@@ -135,7 +134,7 @@ The directory could be changed with the option
 -moduledoc(#{titles =>
                  [{type,<<"Client Options">>},
                   {type,<<"Daemon Options (Server Options)">>},
-                  {type,<<"Options common to clients and daemons">>},
+                  {type,<<"Common Options">>},
                   {type,<<"Other data types">>}]}).
 
 -include("ssh.hrl").

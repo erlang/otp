@@ -91,7 +91,7 @@ There are from OTP-23.0 two main ways to set an option:
   A server (daemon) will use the user name `foo`, and a client will use the name
   `bar`.
 
-## Precedens
+## Precedence
 
 If an option is set in more than one way, what happens?
 
@@ -285,7 +285,7 @@ The config file `ex3.config` has the contents:
 A newly started erlang shell shows that no `'ssh-dss'` is present in the
 `public_key` entry:
 
-```text
+```erlang
 1> proplists:get_value(public_key, ssh:default_algorithms()).
 ['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
  'ecdsa-sha2-nistp256','ssh-ed25519','ssh-ed448',

@@ -23,12 +23,12 @@ limitations under the License.
 
 To fully understand how to configure the algorithms, it is essential to have a
 basic understanding of the SSH protocol and how OTP SSH app handles the
-corresponding items
+corresponding items.
 
 The first subsection will give a short background of the SSH protocol while
-later sections describes the implementation and provides some examples
+later sections describes the implementation and provides some examples.
 
-How the different levels of configuration "interfer" with this, see the section
+How the different levels of configuration "interfere" with this, see the section
 [Algorithm Configuration](configurations.md#algorithm-configuration) in the
 chapter [Configuration in SSH](configurations.md).
 
@@ -41,7 +41,7 @@ Shell (SSH) Transport Layer Protocol" for details.
 
 The negotiation is simple: both peers sends their list of supported alghorithms
 to the other part. The first algorithm on the client's list that also in on the
-server's list is selected. So it is the client's orderering of the list that
+server's list is selected. So it is the client's ordering of the list that
 gives the priority for the algorithms.
 
 There are five lists exchanged in the connection setup. Three of them are also
@@ -49,7 +49,7 @@ divided in two directions, to and from the server.
 
 The lists are (named as in the SSH application's options):
 
-- **`kex`** - Key exchange.
+- **`kex`** - Key exchange
 
   An algorithm is selected for computing a secret encryption key. Among examples
   are: the old nowadays week `'diffie-hellman-group-exchange-sha1'` and the very
@@ -98,7 +98,7 @@ available in a certain installation.
 There is an important command to list the actual algorithms and their ordering:
 `ssh:default_algorithms/0`.
 
-```text
+```erlang
 0> ssh:default_algorithms().
 [{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
        'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
@@ -153,7 +153,7 @@ friends does.
 Replace the kex algorithms list with the single algorithm
 `'diffie-hellman-group14-sha256'`:
 
-```text
+```erlang
 1> ssh:chk_algos_opts(
                [{preferred_algorithms,
                      [{kex, ['diffie-hellman-group14-sha256']}
@@ -179,14 +179,14 @@ Replace the kex algorithms list with the single algorithm
 ```
 
 Note that the unmentioned lists (`public_key`, `cipher`, `mac` and
-`compression`) are un-changed.
+`compression`) are unchanged.
 
 ### Example 2
 
-In the lists that are divided in two for the two directions (c.f `cipher`) it is
+In the lists that are divided in two for the two directions (for example `cipher`) it is
 possible to change both directions at once:
 
-```text
+```erlang
 2> ssh:chk_algos_opts(
                [{preferred_algorithms,
                      [{cipher,['aes128-ctr']}
@@ -218,10 +218,10 @@ Note that both lists in `cipher` has been changed to the provided value
 
 ### Example 3
 
-In the lists that are divided in two for the two directions (c.f `cipher`) it is
+In the lists that are divided in two for the two directions (for example `cipher`) it is
 possible to change only one of the directions:
 
-```text
+```erlang
 3> ssh:chk_algos_opts(
                [{preferred_algorithms,
                      [{cipher,[{client2server,['aes128-ctr']}]}
@@ -276,7 +276,7 @@ It is of course possible to change more than one list:
                {server2client,[none]}]}]
 ```
 
-Note that the ordering of the tuples in the lists didn't matter.
+Note that the order of the tuples in the lists does not matter.
 
 ## Modifying the default set: modify_algorithms
 

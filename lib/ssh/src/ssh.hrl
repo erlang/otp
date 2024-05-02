@@ -153,10 +153,10 @@ to run any subsystems.
 -doc(#{title => <<"Daemon Options (Server Options)">>}).
 -type subsystem_spec()        :: {Name::string(), mod_args()} .
                               
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type algs_list()             :: list( alg_entry() ).
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type alg_entry()             :: {kex, [kex_alg()]} 
                                | {public_key, [pubkey_alg()]}
@@ -164,7 +164,7 @@ to run any subsystems.
                                | {mac, double_algs(mac_alg())}
                                | {compression, double_algs(compression_alg())} .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type kex_alg()          :: 'curve25519-sha256' |
                             'curve25519-sha256@libssh.org' |
@@ -181,7 +181,7 @@ to run any subsystems.
                             'diffie-hellman-group1-sha1'
                             .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type pubkey_alg()       :: 'ssh-ed25519' |
                             'ssh-ed448' |
@@ -194,7 +194,7 @@ to run any subsystems.
                             'ssh-dss'
                             .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type cipher_alg()       :: 'aes256-gcm@openssh.com' |
                             'aes256-ctr' |
@@ -210,7 +210,7 @@ to run any subsystems.
                             '3des-cbc'
                             .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type mac_alg()          :: 'hmac-sha2-512-etm@openssh.com' |
                             'hmac-sha2-256-etm@openssh.com' |
@@ -223,7 +223,7 @@ to run any subsystems.
                             'AEAD_AES_128_GCM'
                             .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type compression_alg()  :: 'none' |
                             'zlib' |
@@ -268,7 +268,7 @@ time.
 > you know exactly what you are doing. If you do not understand the values then
 > you are not supposed to change them.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type double_algs(AlgType)  :: list( {client2server,[AlgType]} | {server2client,[AlgType]} )
                              | [AlgType].
 
@@ -319,7 +319,7 @@ The example specifies that:
 For background and more examples see the
 [User's Guide](configure_algos.md#introduction).
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type modify_algs_list()      :: list( {append,algs_list()} | {prepend,algs_list()} | {rm,algs_list()} ) .
 
 -type internal_options()      :: ssh_options:private_options().
@@ -332,14 +332,14 @@ For background and more examples see the
 -type daemon_options()        :: [ daemon_option() ].
                               
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => common_option/0}).
 -type common_options() :: [ common_option() ].
 -doc """
 The options above can be used both in clients and in daemons (servers). They are
 further explained below.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type common_option() :: 
         ssh_file:user_dir_common_option()
       | profile_common_option()
@@ -368,7 +368,7 @@ one server that has the same `ip-address` and `port`. If this property is not
 explicitly set, it is assumed that the the `ip-address` and `port` uniquely
 identifies the SSH daemon.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type profile_common_option()       :: {profile,   atom() }.
 -doc """
 Sets a time-out on a connection when no channels are open. Defaults to
@@ -381,9 +381,9 @@ For more information about timeouts, see the
 [Timeouts section ](hardening.md#timeouts)in the User's Guide
 [Hardening](hardening.md) chapter.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => limit_time/0}).
 -type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
                                                      {Minutes::limit_time(), Bytes::limit_bytes()}
@@ -392,10 +392,10 @@ For more information about timeouts, see the
 Sets a limit for the size of a logged item excluding a header. The unit is bytes
 and the value defaults to 500.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type max_log_item_len_common_option() :: {max_log_item_len, limit_bytes()} .
 
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => limit_time/0}).
 -type limit_bytes() :: non_neg_integer() | infinity .  % non_neg_integer due to compatibility
 -doc """
@@ -415,7 +415,7 @@ certain amount of data has been transferred. If the option value is set to
 `{infinity, infinity}`, no rekeying will be initiated. Note that rekeying
 initiated by the peer will still be performed.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type limit_time()  :: pos_integer() | infinity .
 
 -doc """
@@ -440,10 +440,10 @@ where `...` are arguments to `F` as in `m:ssh_client_key_api` and/or
 `m:ssh_server_key_api`. The `UserOptions` are the options given to
 [ssh:connect](`connect/3`), [ssh:shell](`shell/1`) or [ssh:daemon](`daemon/2`).
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
 -doc "Provides a fun to implement your own logging or other handling at disconnects.".
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type disconnectfun_common_option()     ::
         {disconnectfun, fun((Reason::term()) -> void | any()) }.
 -doc """
@@ -451,7 +451,7 @@ Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but
 if `skip` is returned no report is generated.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type unexpectedfun_common_option()     ::
         {unexpectedfun, fun((Message::term(),{Host::term(),Port::term()}) -> report | skip ) }.
 -doc """
@@ -465,7 +465,7 @@ The default behaviour is ignore the message. To get a printout for each message
 with `AlwaysDisplay = true`, use for example
 `{ssh_msg_debug_fun, fun(_,true,M,_)-> io:format("DEBUG: ~p~n", [M]) end}`
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type ssh_msg_debug_fun_common_option() ::
         {ssh_msg_debug_fun, fun((ssh:connection_ref(),AlwaysDisplay::boolean(),Msg::binary(),LanguageTag::binary()) -> any()) } .
 
@@ -480,7 +480,7 @@ the ssh software brand and version.
 The value `{random, Nmin, Nmax}` will make a random string with at least `Nmin`
 characters and at most `Nmax` characters.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type id_string_common_option()           :: {id_string,  string() | random | {random,Nmin::pos_integer(),Nmax::pos_integer()} }.
 -doc """
 List of user (client) public key algorithms to try to use.
@@ -495,12 +495,12 @@ and current user's public keys.
 See also the option [`user_dir`](`t:ssh_file:user_dir_common_option/0`) for
 specifying the path to the user's keys.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type pref_public_key_algs_common_option() :: {pref_public_key_algs, [pubkey_alg()] } .
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => double_algs/1}).
 -type preferred_algorithms_common_option():: {preferred_algorithms, algs_list()}.
--doc(#{title => <<"Options common to clients and daemons">>,
+-doc(#{title => <<"Common Options">>,
        equiv => modify_algs_list/0}).
 -type modify_algorithms_common_option()   :: {modify_algorithms,    modify_algs_list()}.
 -doc """
@@ -510,17 +510,17 @@ client shall support and in which order they are tried. Defaults to
 
 Note that the client is free to use any order and to exclude methods.
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type auth_methods_common_option()        :: {auth_methods,         string() }.
 
 -doc "IP version to use when the host address is specified as `any`.".
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type inet_common_option() :: {inet, inet | inet6} .
 -doc """
 Allows an existing file-descriptor to be used (passed on to the transport
 protocol).
 """.
--doc(#{title => <<"Options common to clients and daemons">>}).
+-doc(#{title => <<"Common Options">>}).
 -type fd_common_option() :: {fd, gen_tcp:socket()} .
 
 
@@ -690,7 +690,7 @@ phase.
 Make the client tell the server that the client accepts extension negotiation,
 that is, include `ext-info-c` in the kexinit message sent. See
 [RFC 8308](https://tools.ietf.org/html/rfc8308) for details and
-[ssh(6)](ssh_app.md#supported-ext-info) for a list of currently implemented
+[ssh](ssh_app.md#supported-ext-info) for a list of currently implemented
 extensions.
 
 Default value is `true` which is compatible with other implementations not
@@ -886,7 +886,7 @@ connection in to a [server](`daemon/2`). Disabled per default.
 Make the server (daemon) tell the client that the server accepts extension
 negotiation, that is, include `ext-info-s` in the kexinit message sent. See
 [RFC 8308](https://tools.ietf.org/html/rfc8308) for details and
-[ssh(6)](ssh_app.md#supported-ext-info) for a list of currently implemented
+[ssh](ssh_app.md#supported-ext-info) for a list of currently implemented
 extensions.
 
 Default value is `true` which is compatible with other implementations not

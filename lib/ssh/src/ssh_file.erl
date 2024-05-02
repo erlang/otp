@@ -455,14 +455,6 @@ OpenSSH public key.
 
 > #### Note {: .info }
 >
-> The following key types have been renamed from the deprecated
-> `public_key:ssh_decode/2`:
->
-> - rfc4716_public_key -> rfc4716_key
-> - openssh_public_key -> openssh_key
-
-> #### Note {: .info }
->
 > The implementation of the `openssh_key_v1` format is still experimental.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
@@ -606,14 +598,6 @@ decode(_KeyBin, _Type) ->
 %%%----------------------------------------------------------------
 -doc """
 Encodes a list of SSH file entries (public keys and attributes) to a binary.
-
-> #### Note {: .info }
->
-> The following key types have been renamed from the removed
-> `public_key:ssh_encode/2`:
->
-> - rfc4716_public_key -> rfc4716_key
-> - openssh_public_key -> openssh_key
 
 > #### Note {: .info }
 >

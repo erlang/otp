@@ -123,7 +123,7 @@ order:
 #### Public key authentication in Erlang SSH
 
 The user name, public key and cryptographic data (a signature) that is sent by
-the client, are used as follows (some steps left out for clearity):
+the client are used as follows (some steps left out for clarity):
 
 1. A callback module is selected using the options
    [`key_cb`](`t:ssh:key_cb_common_option/0`).
