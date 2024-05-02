@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed an issue with bitstring type inference on segments following UTF-8/16/32 segments.
+
+  Own Id: OTP-19068 Aux Id: GH-8383
+
 ## Dialyzer 5.1.2
 
 ### Fixed Bugs and Malfunctions

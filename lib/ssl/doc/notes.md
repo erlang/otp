@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.1.4
+
+### Fixed Bugs and Malfunctions
+
+* Fix certificate authorities check so that CA closest to peer is not lost. It could manifest itself in a failed connection as the client failed to realize it had a valid certificate chain to send to the server.
+
+  Own Id: OTP-19065 Aux Id: GH-8356, PR-8367
+* ssl:signature_algs/2 did not list some legacy algorithm schemes correctly when listing all algorithms available.
+
+  Own Id: OTP-19067 Aux Id: PR-8379
+
 ## SSL 11.1.3
 
 ### Fixed Bugs and Malfunctions

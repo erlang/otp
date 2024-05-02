@@ -21,6 +21,28 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 14.2.5
+
+### Fixed Bugs and Malfunctions
+
+* [`gen_sctp:send/3,4`](`gen_sctp:send/4`) now waits for the send to complete instead of returning an OS result such as `{error, ewouldblock}`.
+
+  Own Id: OTP-19061
+* ETS functions did not properly handle keys containing maps, sometimes matching too many or too few objects.
+
+  Own Id: OTP-19070 Aux Id: GH-8385
+* Fix CPU quota determination for cgroups.
+
+  The bug was introduced through OTP-18999.
+
+  Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380
+
+### Improvements and New Features
+
+* Added a warning to open_port/2 regarding the BadBatBut attack affecting Windows.
+
+  Own Id: OTP-19069
+
 ## Erts 14.2.4
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,19 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 9.2.4
+
+### Fixed Bugs and Malfunctions
+
+* Fix the shell Job Control Mode to not crash when typing `TAB` or `CTRL+R`.
+
+  Own Id: OTP-19072 Aux Id: PR-8391
+* Fix calls to blocking `m:application` APIs to throw an exception with reason `terminating` if called when the system is terminating.
+
+  This is done in order to avoid deadlocks during shutdown or restart.
+
+  Own Id: OTP-19078 Aux Id: PR-8422
+
 ## Kernel 9.2.3
 
 ### Fixed Bugs and Malfunctions

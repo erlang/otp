@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 5.2.3
+
+### Fixed Bugs and Malfunctions
+
+* Fix shell expansion of `-type a() :: $a.` in the erlang shell.
+
+  Own Id: OTP-19062
+* Fix the shell Job Control Mode to not crash when typing `TAB` or `CTRL+R`.
+
+  Own Id: OTP-19072 Aux Id: PR-8391
+
 ## STDLIB 5.2.2
 
 ### Fixed Bugs and Malfunctions

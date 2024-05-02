@@ -25,6 +25,14 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.1
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could crash during startup if `del_table_copy/2` and `add_table_copy/3` was invoked when the table was loading.
+
+  Own Id: OTP-19076 Aux Id: ERIERL-1073
+
 ## Mnesia 4.23
 
 ### Fixed Bugs and Malfunctions
