@@ -31,6 +31,51 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> <seemfa
+	    marker="kernel:gen_sctp#send/4"><c>gen_sctp:send/3,4</c></seemfa>
+	    now waits for the send to complete instead of returning
+	    an OS result such as <c>{error, ewouldblock}</c>. </p>
+          <p>
+	    Own Id: OTP-19061 </p>
+        </item>
+        <item>
+          <p>
+	    ETS functions did not properly handle keys containing
+	    maps, sometimes matching too many or too few objects.</p>
+          <p>
+	    Own Id: OTP-19070 Aux Id: GH-8385 </p>
+        </item>
+        <item>
+          <p>
+	    Fix CPU quota determination for cgroups.</p>
+          <p>
+	    The bug was introduced through OTP-18999.</p>
+          <p>
+	    Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a warning to open_port/2 regarding the BadBatBut
+	    attack affecting Windows.</p>
+          <p>
+	    Own Id: OTP-19069 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

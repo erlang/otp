@@ -31,6 +31,34 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the shell Job Control Mode to not crash when typing
+	    <c>TAB</c> or <c>CTRL+R</c>.</p>
+          <p>
+	    Own Id: OTP-19072 Aux Id: PR-8391 </p>
+        </item>
+        <item>
+          <p>
+	    Fix calls to blocking <seeerl
+	    marker="application"><c>application</c></seeerl> APIs to
+	    throw an exception with reason <c>terminating</c> if
+	    called when the system is terminating.</p>
+          <p>
+	    This is done in order to avoid deadlocks during shutdown
+	    or restart.</p>
+          <p>
+	    Own Id: OTP-19078 Aux Id: PR-8422 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

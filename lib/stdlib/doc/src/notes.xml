@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix shell expansion of <c>-type a() :: $a.</c> in the
+	    erlang shell.</p>
+          <p>
+	    Own Id: OTP-19062 </p>
+        </item>
+        <item>
+          <p>
+	    Fix the shell Job Control Mode to not crash when typing
+	    <c>TAB</c> or <c>CTRL+R</c>.</p>
+          <p>
+	    Own Id: OTP-19072 Aux Id: PR-8391 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
