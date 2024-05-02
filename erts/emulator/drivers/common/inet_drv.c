@@ -12905,10 +12905,10 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
 #ifdef DEBUG
-    long port = (long) desc->inet.port;  /* Used after driver_exit() */
+    void *port = desc->inet.port; /* Used after driver_exit() */
 #endif
     ASSERT(!INET_IGNORED(INETP(desc)));
-    DEBUGF(("tcp_inet_input(%lx) {s=%d\r\n", port, desc->inet.s));
+    DEBUGF(("tcp_inet_input(%p) {s=%d\r\n", port, desc->inet.s));
     if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
@@ -13045,11 +13045,11 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
     else {
 	/* maybe a close op from connection attempt?? */
 	sock_select(INETP(desc),FD_ACCEPT,0);
-	DEBUGF(("tcp_inet_input(%lx): s=%d bad state: %04x\r\n", 
+	DEBUGF(("tcp_inet_input(%p): s=%d bad state: %04x\r\n", 
 		port, desc->inet.s, desc->inet.state));
     }
  done:
-    DEBUGF(("tcp_inet_input(%lx) }\r\n", port));
+    DEBUGF(("tcp_inet_input(%p) }\r\n", port));
     return ret;
 }
 
