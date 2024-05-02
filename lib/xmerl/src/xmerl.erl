@@ -44,6 +44,11 @@
 -include("xmerl.hrl").
 -include("xmerl_internal.hrl").
 
+-type text() :: #xmlText{}.
+-type element() :: #xmlElement{}.
+-type pi() :: #xmlPI{}.
+-type comment() :: #xmlComment{}.
+-type decl() :: #xmlDecl{}.
 
 %% @spec export(Content, Callback) -> ExportedFormat
 %% @equiv export(Data, Callback, [])
@@ -53,6 +58,10 @@ export(Content,Callback)
 
 Equivalent to [export(Data, Callback, [])](`export/3`).
 """.
+-spec export(Content, Callback) -> ExportedFormat when
+    Content :: [text()|element()|pi()|comment()|decl()],
+    Callback :: atom(),
+    ExportedFormat :: term().
 export(Content, Callback) ->
     export(Content, Callback, []).
 
@@ -290,6 +299,9 @@ export_content(Es,Callbacks)
 
 Exports normal XML content directly, without further context.
 """.
+-spec export_content(Content, Callbacks) -> term() when
+	Content :: [term()],
+	Callbacks:: [atom()].
 export_content([#xmlText{value = Text} | Es], Callbacks) ->
     [apply_text_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlPI{} | Es], Callbacks) ->
@@ -396,6 +408,7 @@ callbacks(Module)
 
 Find the list of inherited callback modules for a given module.
 """.
+-spec callbacks(Module::atom()) -> Result::[atom()].
 callbacks(Module) ->
     Result = check_inheritance(Module, []),
 %%%     ?dbg("callbacks = ~p~n", [lists:reverse(Result)]),
