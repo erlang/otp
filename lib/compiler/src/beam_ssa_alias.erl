@@ -1299,17 +1299,11 @@ eru_blocks([], Cnt, Acc) ->
 
 eru_is([#b_set{op=update_record,
                args=[_Hint,#b_literal{val=Size},Src|Updates]=Args,
-               anno=Anno0}=I0|Rest], First, Acc) ->
-    ArgTypes0 = maps:get(arg_types, Anno0, #{}),
+               anno=#{arg_types:=ArgTypes0}=Anno0}=I0|Rest], First, Acc) ->
     TupleType = maps:get(2, ArgTypes0, any),
     {Extracts,ExtraArgs,Next,ArgTypes} =
         eru_args(Updates, First, Src, Size, TupleType, ArgTypes0),
-    Anno = if map_size(ArgTypes) =:= 0 ->
-                   Anno0;
-              true ->
-                   Anno0#{arg_types=>ArgTypes}
-           end,
-    I = I0#b_set{args=Args++ExtraArgs,anno=Anno},
+    I = I0#b_set{args=Args++ExtraArgs,anno=Anno0#{arg_types=>ArgTypes}},
     eru_is(Rest, Next, [I|Extracts]++Acc);
 eru_is([I|Rest], First, Acc) ->
     eru_is(Rest, First, [I|Acc]);
