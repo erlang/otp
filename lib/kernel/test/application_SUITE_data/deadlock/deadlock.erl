@@ -54,7 +54,9 @@ handle_info(_Msg, State) ->
 terminate(_Reason, _State) ->
     case application:get_env(deadlock, fail_stop) of
         {ok, false} -> ok;
-        {ok, Tester}  ->
+        {ok, Fun} when is_function(Fun, 0) ->
+            Fun();
+        {ok, Tester} when is_pid(Tester) ->
 	    Tester ! {deadlock, self()},
 	    io:format("~p: Waiting in terminate (~p)~n",[?MODULE,Tester]),
 	    receive continue -> ok end
