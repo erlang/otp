@@ -106,7 +106,11 @@
 
          fuzz0/0, fuzz0/1,
          alias_after_phi/0,
-         check_identifier_type/0]).
+         check_identifier_type/0,
+
+         nested_tuple/0,
+         nested_cons/0,
+         nested_mixed/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1153,3 +1157,40 @@ should_return_unique({X}) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% ret(R) { unique => [R] }.
     X.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% tuples.
+nested_tuple_inner() ->
+    {{{{<<>>, e:x()}}}}.
+
+nested_tuple() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    {{{{Z,X}}}} = nested_tuple_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% pairs.
+nested_cons_inner() ->
+    [[[[<<>>, e:x()]]]].
+
+nested_cons() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [[[[Z,X]]]] = nested_cons_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+nested_mixed_inner() ->
+    [{[{<<>>, e:x()}]}].
+
+nested_mixed() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [{[{Z,X}]}] = nested_mixed_inner(),
+    {<<Z/binary, 1:8>>,X}.
