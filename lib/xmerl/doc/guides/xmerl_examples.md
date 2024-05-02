@@ -23,7 +23,7 @@ function with two arguments (e.g.: `event_state(NewEventState, GlobalState)`)
 will modify it.
 
 For each function, the description starts with the syntax for specifying the
-function in the [`Option_list`](`xmerl_scan#type-option_list`). The general
+function in the [`Option_list`](`t:xmerl_scan:option_list/0`). The general
 forms are `{Tag, Fun}`, or `{Tag, Fun, LocalState}`. The second form can be used
 to initialize the state variable in question.
 
