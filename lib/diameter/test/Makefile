@@ -40,6 +40,7 @@ RELSYSDIR = $(RELEASE_PATH)/diameter_test
 
 include modules.mk
 
+HRL_FILES    = diameter_util.hrl
 ERL_FILES    = $(MODULES:%=%.erl)
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
@@ -183,7 +184,8 @@ release_spec release_docs_spec:
 
 release_tests_spec:
 	$(INSTALL_DIR)  "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
+	$(INSTALL_DATA) $(HRL_FILES) \
+	                $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
 	                "$(RELSYSDIR)"
 	$(MAKE) $(DATA_DIRS:%/=release_data_%)

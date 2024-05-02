@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +29,19 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         traffic/1]).
+
+         %% The test cases
+         traffic/1
+        ]).
 
 %% rpc calls
 -export([ping/1,
          start/1,
+         stop/1,
          connect/1,
          call/1]).
 
@@ -52,9 +58,13 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
 
+-include("diameter_util.hrl").
+
+
 %% ===========================================================================
 
--define(util, diameter_util).
+-define(DL(F),    ?DL(F, [])).
+-define(DL(F, A), ?LOG("DDISTS", F, A)).
 
 -define(CLIENT, 'CLIENT').
 -define(SERVER, 'SERVER').
@@ -92,10 +102,11 @@
 
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
--define(NODES, [{server, ?SERVER},
+-define(NODES, [{server,  ?SERVER},
                 {client0, ?CLIENT},
                 {client1, ?CLIENT},
                 {client2, ?CLIENT}]).
+
 
 %% ===========================================================================
 
@@ -106,28 +117,43 @@ all() ->
     [traffic].
 
 traffic(_Config) ->
-    traffic().
+    ?DL("traffic -> entry"),
+    Res = traffic(),
+    ?DL("traffic -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
 
 %% ===========================================================================
 
 run() ->
-    [] = ?util:run([{fun traffic/0, 60000}]).
+    [] = ?DUTIL:run([{fun traffic/0, 60000}]).
     %% process for linked peers to die with
 
 %% traffic/0
 
 traffic() ->
+    ?DL("traffic -> make sure we have distro"),
     true = is_alive(),  %% need distribution for peer nodes
+    ?DL("traffic -> get nodes"),
     Nodes = enslave(),
+    ?DL("traffic -> ping nodes"),
     [] = ping(Nodes),  %% drop client node
+    ?DL("traffic -> start nodes"),
     [] = start(Nodes),
+    ?DL("traffic -> connect nodes"),
     [_] = connect(Nodes),
-    [] = send(Nodes).
+    ?DL("traffic -> send (to) nodes"),
+    [] = send(Nodes),
+    ?DL("traffic -> stop nodes"),
+    [] = stop(Nodes),
+    ?DL("traffic -> done"),
+    ok.
 
 %% enslave/0
 %%
-%% Start four slave nodes, one to implement a Diameter server,
-%% three to implement a client.
+%% Start four nodes;
+%%   - one to implement a Diameter server,
+%%   - three to implement a client.
 
 enslave() ->
     Here = filename:dirname(code:which(?MODULE)),
@@ -136,7 +162,7 @@ enslave() ->
     [{N,S} || {M,S} <- ?NODES, N <- [start(M, Args)]].
 
 start(Name, Args) ->
-    {ok, _, Node} = ?util:peer(#{name => Name, args => Args}),
+    {ok, _, Node} = ?DUTIL:peer(#{name => Name, args => Args}),
     Node.
 
 %% ping/1
@@ -171,6 +197,20 @@ start(Nodes) ->
                RC <- [rpc:call(N, ?MODULE, start, [S])],
                RC /= ok].
 
+%% stop/1
+%%
+%% Stop diameter services.
+
+stop(SvcName)
+  when is_atom(SvcName) ->
+    ok = diameter:stop_service(SvcName),
+    ok = diameter:stop();
+
+stop(Nodes) ->
+    [{N,RC} || {N,S} <- Nodes,
+               RC <- [rpc:call(N, ?MODULE, stop, [S])],
+               RC /= ok].
+
 sequence() ->
     sequence(sname()).
 
@@ -203,10 +243,10 @@ peers(client2) -> nodes().
 %% nodes.
 
 connect({?SERVER, _, []}) ->
-    [_LRef = ?util:listen(?SERVER, tcp)];
+    [_LRef = ?DUTIL:listen(?SERVER, tcp)];
 
 connect({?CLIENT, [{Node, _} | _], [LRef] = Acc}) ->
-    ?util:connect(?CLIENT, tcp, {Node, LRef}),
+    ?DUTIL:connect(?CLIENT, tcp, {Node, LRef}),
     Acc;
 
 connect(Nodes) ->
@@ -221,31 +261,43 @@ connect(Nodes) ->
 %% send/1
 
 send(Nodes) ->
-    ?util:run([[fun send/2, Nodes, T]
-               || T <- [local, remote, timeout, failover]]).
+    ?RUN([[fun send/2, Nodes, T]
+          || T <- [local, remote, timeout, failover]]).
 
 %% send/2
 
 %% Send a request from the first client node, using a the local
 %% transport.
 send(Nodes, local) ->
+    ?DL("send(local) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 0, str(?LOGOUT));
+        = send(Nodes, 0, str(?LOGOUT)),
+    ?DL("send(local) -> success (=success)"),
+    ok;
 
 %% Send a request from the first client node, using a transport on the
 %% another node.
 send(Nodes, remote) ->
+    ?DL("send(remote) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 1, str(?LOGOUT));
+        = send(Nodes, 1, str(?LOGOUT)),
+    ?DL("send(remote) -> success (=success)"),
+    ok;
 
 %% Send a request that the server discards.
 send(Nodes, timeout) ->
-    {error, timeout} = send(Nodes, 1, str(?TIMEOUT));
+    ?DL("send(timeout) -> entry - expect timeout"),
+    {error, timeout} = send(Nodes, 1, str(?TIMEOUT)),
+    ?DL("send(timeout) -> success (=timeout)"),
+    ok;
 
 %% Send a request that causes the server to take the transport down.
 send(Nodes, failover) ->
+    ?DL("send(failover) -> entry - expect busy (~p)", [?BUSY]),
     #'diameter_base_answer-message'{'Result-Code' = ?BUSY}
-        = send(Nodes, 2, str(?MOVED)).
+        = send(Nodes, 2, str(?MOVED)),
+    ?DL("send(failover) -> success (=busy)"),
+    ok.
 
 %% ===========================================================================
 

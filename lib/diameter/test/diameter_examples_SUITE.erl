@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,10 +29,15 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         
+         %% The test cases
          dict/1,
-         code/1]).
+         code/1
+        ]).
 
 %% rpc calls
 -export([install/1,
@@ -41,9 +46,13 @@
 
 -include("diameter.hrl").
 
-%% ===========================================================================
+-include("diameter_util.hrl").
 
--define(util, diameter_util).
+
+-define(EL(F, A), ?LOG("DEXS", F, A)).
+
+
+%% ===========================================================================
 
 %% The order here is significant and causes the server to listen
 %% before the clients connect.
@@ -60,10 +69,11 @@
 -define(DICT0, [rfc3588_base, rfc6733_base]).
 
 %% Transport protocols over which the example Diameter nodes are run.
--define(PROTS, [sctp || ?util:have_sctp()] ++ [tcp]).
+-define(PROTS, [sctp || ?HAVE_SCTP()] ++ [tcp]).
 
 -define(L, atom_to_list).
 -define(A, list_to_atom).
+
 
 %% ===========================================================================
 %% common_test wrapping
@@ -74,11 +84,24 @@ suite() ->
 all() ->
     [dict, code].
 
+
 dict(Config) ->
-    run(dict, Config).
+    ?EL("dict -> entry with"
+        "~n   Config: ~p", [Config]),
+    Res = run(dict, Config),
+    ?EL("dict -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 code(Config) ->
-    run(code, Config).
+    ?EL("code -> entry with"
+        "~n   Config: ~p", [Config]),
+    Res = run(code, Config),
+    ?EL("code -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
@@ -90,16 +113,27 @@ run() ->
 %% run/1
 
 run({dict, Dir}) ->
-    compile_dicts(Dir);
+    ?EL("run(dict) -> entry with"
+        "~n   Dir: ~p", [Dir]),
+    Res = compile_dicts(Dir),
+    ?EL("run(dict) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
+
 %% The example code doesn't use the example dictionaries, so a
 %% separate testcase.
 
 run({code, Dir}) ->
-    run_code(Dir);
+    ?EL("run(code) -> entry with"
+        "~n   Dir: ~p", [Dir]),
+    Res = run_code(Dir),
+    ?EL("run(code) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
 
 run(List)
   when is_list(List) ->
-    Tmp = ?util:mktemp("diameter_examples"),
+    Tmp = ?MKTEMP("diameter_examples"),
     try
         run(List, Tmp)
     after
@@ -111,10 +145,11 @@ run(List)
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
 run(List, Dir)
   when is_list(List) ->
-    ?util:run([{[fun run/1, {F, Dir}], 60000} || F <- List]);
+    ?RUN([{[fun run/1, {F, Dir}], 60000} || F <- List]);
 
 run(F, Config) ->
     run([F], proplists:get_value(priv_dir, Config)).
+
 
 %% ===========================================================================
 %% compile_dicts/1
@@ -301,7 +336,7 @@ enslave(Prefix) ->
 
 slave(Name, Dir) ->
     Args = ["-pa", Dir, filename:join([Dir, "..", "ebin"])],
-    {ok, _Pid, _Node} = ?util:peer(#{name => Name, args => Args}).
+    {ok, _Pid, _Node} = ?PEER(#{name => Name, args => Args}).
 
 here() ->
     filename:dirname(code:which(?MODULE)).
@@ -320,7 +355,7 @@ start({server, Prot, Ebin}) ->
     ok = diameter:start(),
     ok = server:start(),
     {ok, Ref} = server:listen({Prot, any, 3868}),
-    [_] = ?util:lport(Prot, Ref),
+    [_] = ?LPORT(Prot, Ref),
     ok;
 
 start({client = Svc, Prot, Ebin}) ->
@@ -365,7 +400,7 @@ traffic({Prot, Ebin}) ->
 run_code(Dir) ->
     true = is_alive(),  %% need distribution for peer nodes
     {ok, Ebin} = compile_code(mkdir(Dir, "code")),
-    ?util:run([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
+    ?RUN([[fun traffic/1, {T, Ebin}] || T <- ?PROTS]).
 
 %% call/1
 
