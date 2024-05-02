@@ -2112,7 +2112,7 @@ pkix_test_root_cert(Name, Opts) ->
 
 %%--------------------------------------------------------------------
 -doc """
-Perform OCSP response validation according to RFC 6960. Returns 'ok' when OCSP
+Perform OCSP response validation according to RFC 6960. Returns {'ok', Details} when OCSP
 response is successfully validated and \{error, \{bad_cert, Reason\}\}
 otherwise.
 
@@ -2132,17 +2132,24 @@ Available options:
   ```text
    fun(_) -> false end
   ```
+
+> #### Note {: .info }
+>
+> OCSP response can be provided without a nonce value - even if it was requested
+> by the client. In such cases {missing, ocsp_nonce} will be returned
+> in Details list.
 """.
 -doc(#{title => <<"Certificate Revocation API">>,
        since => <<"OTP 27.0">>}).
 -spec pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options) ->
-          ok | {error, {bad_cert, Reason}}
+          {ok, Details} | {error, {bad_cert, Reason}}
               when Cert::cert(),
                    IssuerCert::cert(),
                    OcspRespDer::der_encoded(),
                    NonceExt::undefined | binary(),
                    Options::[{is_trusted_responder_fun,
                               fun((combined_cert()) -> boolean)}],
+                   Details::list(),
                    Reason::bad_cert_reason().
 %% Description: Validate OCSP response
 %%--------------------------------------------------------------------
@@ -2169,13 +2176,13 @@ pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, Options)
                 end,
         OcspResponseCerts = [combined_cert(C) || C <- Certs] ++
             [#cert{der = <<>>, otp = IssuerCert}],
-        {ok, Responses} ?=
+        {ok, Responses, Details} ?=
             pubkey_ocsp:verify_response(
               BasicOcspResponse, OcspResponseCerts, NonceExt, IssuerCert,
               IsTrustedResponderFun),
         {ok, #'SingleResponse'{certStatus = CertStatus}} ?=
             pubkey_ocsp:find_single_response(Cert, IssuerCert, Responses),
-        pubkey_ocsp:status(CertStatus)
+        pubkey_ocsp:status(CertStatus, Details)
     else
         {error, Reason} ->
             {error, {bad_cert, {revocation_status_undetermined, Reason}}}

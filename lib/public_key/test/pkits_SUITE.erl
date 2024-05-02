@@ -1608,7 +1608,7 @@ crl_options(Chap) ->
     CRLs = crls(CRLNames),
     Paths = lists:map(fun(CRLName) -> crl_path(CRLName) end, CRLNames),
 
-    ct:print("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
+    ct:log("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
     Fun =
 	fun(_,{bad_cert, _} = Reason, _) ->
 		{fail, Reason};
@@ -1653,7 +1653,7 @@ crl_path_db([{_, CRL} |CRLs], [Path | Paths], Acc) ->
     CertPath = lists:flatten(lists:map(fun([]) ->
 					       [];
 					  (CertFile) ->
-					       ct:print("Certfile ~p", [CertFile]),
+					       ct:log("Certfile ~p", [CertFile]),
 					       read_certs(CertFile)
 				       end, Path)),
     crl_path_db(CRLs, Paths, [{CRL, CertPath}| Acc]).

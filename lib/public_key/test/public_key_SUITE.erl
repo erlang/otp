@@ -1206,7 +1206,7 @@ pkix_verify_hostname_subjAltName_IP(Config) ->
                                                 ],
                                           [{match_fun,
                                             fun(Ref,Pres) -> 
-                                                    ct:pal("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
+                                                    ct:log("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
                                                     false
                                             end}]),
 
@@ -1238,7 +1238,7 @@ pkix_dist_point_uri(Config) when is_list(Config) ->
     DpExt = pubkey_cert:select_extension(?'id-ce-cRLDistributionPoints', Extensions),
     #'Extension'{extnValue = DPs} = DpExt,
     [#'DistributionPoint'{distributionPoint = {fullName, DPNames}}|_] = DPs,
-    ct:pal("~p", [DPNames]),
+    ct:log("~p", [DPNames]),
     true = pubkey_crl:match_one(DPNames, [{uniformResourceIdentifier, "http://ca.eait.uq.edu.au/crl/labs-LILY-CA"}]).
 
 %%--------------------------------------------------------------------
@@ -1567,7 +1567,7 @@ pkix_ocsp_validate(_Config) ->
           99,175,203,211,108,177,156,17,27,40,87,195,19,56,39,102,103,42,27,60,30,44,204,157,107,121,128,68,93,216,123,106,112,105,74,7,142,155,171,1,8,31,123,245,78,142,111,142,178,127,169,202,110,125,35,192,199,23,203,201,103,44,99,100,192,156,214,62,109,71,205,66,32,81,252,124,138,238,225,88,247,85,255,65,141,131,234,184,248,20,51,81,71,19,98,102,114,96,49,77,1,79,27,18,218,79,37,232,194,204,172,54,124,167,188,158,43,54,183,230,40,230,152,216,12,27,56,66,104,238,235,52,176,110,159,88,151,7,228,201,
           248,195,82,131,220,31,104,44,239,147,61,71,35,245>>,
     NonceExt = <<4,8,244,183,192,191,230,8,236,82>>,
-    ok =
+    {ok, []} =
         public_key:pkix_ocsp_validate(Cert, IssuerCert, OcspRespDer, NonceExt, []).
 
 %%--------------------------------------------------------------------
