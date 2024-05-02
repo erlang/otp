@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -564,25 +564,49 @@ peeloff(S, AssocId) ->
 %%
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
-    Mref = monitor(port, S),
-    MrefBin = term_to_binary(Mref, [local]),
-    MrefBinSize = byte_size(MrefBin),
-    MrefBinSize = MrefBinSize band 16#FFFF,
+    send(S, Data, OptList, monitor(port, S), make_ref()).
+
+send(S, Data, OptList, Mref, Sref) ->
+    SrefBin = term_to_binary(Sref, [local]),
+    SrefBinSize = byte_size(SrefBin),
+    SrefBinSize = SrefBinSize band 16#FFFF,
     try
         erlang:port_command(
-          S, [<<MrefBinSize:16,MrefBin/binary>>, Data], OptList)
+          S, [<<SrefBinSize:16,SrefBin/binary>>, Data], OptList)
     of
         false -> % Port busy when nosuspend option was passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
             {error,busy};
         true ->
             receive
-                {inet_reply,S,Status,Mref} ->
+                {inet_reply,S,Sref} ->
+                    %% This causes a wait even though nosuspend was used.
+                    %% It only happens when the OS send operation returns
+                    %% that it would block, which should only happen
+                    %% for SCTP (seqpacket), never for UDP (dgram)
+                    %%
+                    %% To fix this we probably need to pass down
+                    %% the nosuspend option to inform inet_drv
+                    %% to not use driver_select and send a late second reply.
+                    %%
+                    ?DBG_FORMAT(
+                       "prim_inet:send(~p,,,) Waiting~n",
+                       [S]),
+                    receive
+                        {inet_reply,S,ok,Sref} ->
+                            send(S, Data, OptList, Mref, make_ref());
+                        {'DOWN',Mref,_,_,_Reason} ->
+                            ?DBG_FORMAT(
+                               "prim_inet:send(~p,,,) 'DOWN' ~p~n",
+                               [S,_Reason]),
+                            {error,closed}
+                    end;
+                {inet_reply,S,Status,Sref} ->
                     demonitor(Mref, [flush]),
                     Status;
                 {'DOWN',Mref,_,_,_Reason} ->
                     ?DBG_FORMAT(
-                       "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
+                       "prim_inet:send(~p,,,) 'DOWN' ~p~n",
                        [S,_Reason]),
                     {error,closed}
             end

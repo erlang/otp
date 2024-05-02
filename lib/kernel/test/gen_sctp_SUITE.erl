@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@
          open_multihoming_ipv4_and_ipv6_socket/1,
          basic_stream/1, xfer_stream_min/1, active_n/1,
          peeloff_active_once/1, peeloff_active_true/1, peeloff_active_n/1,
-         buffers/1,
+         buffers/1, send_block/1,
          names_unihoming_ipv4/1, names_unihoming_ipv6/1,
          names_multihoming_ipv4/1, names_multihoming_ipv6/1,
          recv_close/1,
@@ -95,7 +95,7 @@ extensive_cases() ->
      open_multihoming_ipv6_socket,
      open_multihoming_ipv4_and_ipv6_socket, active_n,
      xfer_stream_min, peeloff_active_once,
-     peeloff_active_true, peeloff_active_n, buffers,
+     peeloff_active_true, peeloff_active_n, buffers, send_block,
      names_unihoming_ipv4, names_unihoming_ipv6,
      names_multihoming_ipv4, names_multihoming_ipv6,
      recv_close
@@ -223,7 +223,7 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 
--define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).
+-define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]), Var end).
 -define(no_return(Expr), error({unexpected, Expr})).
 
 check_sctp_connectx(Case, Config) ->
@@ -1507,41 +1507,12 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     Stream = 0,
     Timeout = 333,
     StartTime = timestamp(),
-    S1 = socket_open([{ifaddr,Addr}|SockOpts], Timeout),
-    ?LOGVAR(S1),
-    P1 = socket_call(S1, get_port),
-    ?LOGVAR(P1),
+    {{S1,P1,S1Ai}, {S2,P2,S2Ai}} =
+        socket_pair_open(Addr, StartTime, Timeout),
     Socket1 = socket_call(S1, get_socket),
     ?LOGVAR(Socket1),
-    socket_call(S1, {listen,true}),
-    S2 = socket_open([{ifaddr,Addr}|SockOpts], Timeout),
-    ?LOGVAR(S2),
-    P2 = socket_call(S2, get_port),
-    ?LOGVAR(P2),
     Socket2 = socket_call(S2, get_socket),
     ?LOGVAR(Socket2),
-    %%
-    socket_call(S2, {connect_init,Addr,P1,[]}),
-    S2Ai =
-	receive
-	    {S2,{Addr,P1,
-		 #sctp_assoc_change{
-		    state=comm_up,
-		    assoc_id=AssocId2}}} -> AssocId2
-	after Timeout ->
-		socket_bailout([S1,S2], StartTime)
-	end,
-    ?LOGVAR(S2Ai),
-    S1Ai =
-	receive
-	    {S1,{Addr,P2,
-		 #sctp_assoc_change{
-		    state=comm_up,
-		    assoc_id=AssocId1}}} -> AssocId1
-	after Timeout ->
-		socket_bailout([S1,S2], StartTime)
-	end,
-    ?LOGVAR(S1Ai),
     %%
     socket_call(S2, {send,S2Ai,Stream,<<"Number one">>}),
     receive
@@ -1600,8 +1571,6 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     [] = flush(),
     ok.
 
-
-
 %% Check sndbuf and recbuf behaviour.
 buffers(Config) when is_list(Config) ->
     Limit = 4096,
@@ -1609,35 +1578,8 @@ buffers(Config) when is_list(Config) ->
     Stream = 1,
     Timeout = 3333,
     StartTime = timestamp(),
-    S1 = socket_open([{ip,Addr}], Timeout),
-    ?LOGVAR(S1),
-    P1 = socket_call(S1, get_port),
-    ?LOGVAR(P1),
-    ok = socket_call(S1, {listen,true}),
-    S2 = socket_open([{ip,Addr}], Timeout),
-    ?LOGVAR(S2),
-    P2 = socket_call(S2, get_port),
-    ?LOGVAR(P2),
-    %%
-    socket_call(S2, {connect_init,Addr,P1,[]}),
-    S2Ai =
-	receive
-	    {S2,{Addr,P1,
-		 #sctp_assoc_change{
-		    state=comm_up,
-		    assoc_id=AssocId2}}} -> AssocId2
-	after Timeout ->
-		socket_bailout([S1,S2], StartTime)
-	end,
-    S1Ai =
-	receive
-	    {S1,{Addr,P2,
-		 #sctp_assoc_change{
-		    state=comm_up,
-		    assoc_id=AssocId1}}} -> AssocId1
-	after Timeout ->
-		socket_bailout([S1,S2], StartTime)
-	end,
+    {{S1,_P1,S1Ai}, {S2,P2,S2Ai}} = SocketPair =
+        socket_pair_open(Addr, StartTime, Timeout),
     %%
     socket_call(S1, {setopts,[{recbuf,Limit}]}),
     Recbuf =
@@ -1653,21 +1595,7 @@ buffers(Config) when is_list(Config) ->
 	    socket_bailout([S1,S2], StartTime)
     end,
     %%
-    socket_close_verbose(S1, StartTime),
-    receive
-	{S2,{Addr,P1,#sctp_shutdown_event{assoc_id=S2Ai}}} -> ok
-    after Timeout ->
-	    socket_bailout([S2], StartTime)
-    end,
-    receive
-	{S2,{Addr,P1,#sctp_assoc_change{state=shutdown_comp,
-					assoc_id=S2Ai}}} -> ok
-    after Timeout ->
-	    socket_bailout([S2], StartTime)
-    end,
-    socket_close_verbose(S2, StartTime),
-    [] = flush(),
-    ok.
+    socket_pair_close(Addr, StartTime, Timeout, SocketPair).
 
 mk_data(Bytes) ->
     mk_data(0, Bytes, <<>>).
@@ -1678,6 +1606,72 @@ mk_data(_, _, Bin) ->
     Bin.
 
 
+send_block(Config) when is_list(Config) ->
+    Limit          = 4096,
+    Addr           = {127,0,0,1},
+    Stream         = 1,
+    Timeout        = 1111,
+    ReceiveTimeout = 3333,
+    StartTime      = timestamp(),
+    N              = 8,
+    %%
+    {{S1,P1,S1Ai}, {S2,_P2,S2Ai}} = SocketPair =
+        socket_pair_open(Addr, StartTime, Timeout),
+    %%
+    socket_call(S1, {setopts,[{sndbuf,Limit}]}),
+    Sndbuf =
+	case socket_call(S1, {getopts,[sndbuf]}) of
+	    [{sndbuf,SB1}] when SB1 >= Limit -> SB1
+	end,
+    ?LOGVAR(Sndbuf),
+    Data = mk_data(Sndbuf div 2),
+    Seq = lists:seq(1, N),
+    ok = socket_call(S2, {setopts,[{recbuf,Sndbuf*2},{active,false}]}),
+    Sender = self(),
+    ReceiveFun =
+        fun RF(J) when 0 < J ->
+                receive
+                    {Sender, send, J} ->
+                        ct:log("send signalled {~w}: ~w~n", [self(), J]),
+                        RF(J + 1)
+                after Timeout ->
+                        ct:log("send timed out {~w}: ~w~n", [self(), J]),
+                        ok = socket_call(S2, {setopts, [{active, true}]}),
+                        ct:log("set active true {~w}: ~w~n", [self(), J]),
+                        RF(-1)
+                end;
+            RF(J) when -N =< J, J < 0 ->
+                receive
+                    {S2,{Addr,P1,S2Ai,Stream,<<I:32,Data/binary>>}} ->
+                        ct:log("recv {~w}: ~w~n", [self(), I]),
+                        I = -J,
+                        RF(J - 1)
+                after ReceiveTimeout ->
+                        %% For some reason, hopefully not our fault,
+                        %% we'll say OS reason for now, there is a 1..2 s
+                        %% delay between the first and the second message
+                        %% received after setting active=true,
+                        %% even though there are 2 (at least) messages
+                        %% buffered by the sending side.
+                        %%
+                        %% Therefore ReceiveTimeout is above 3 s
+                        %% while Timeout can be shorter...
+                        socket_bailout([S1,S2], StartTime)
+                end;
+            RF(J) when J < -N ->
+                ok = socket_controlling_process(S2, Sender),
+                Sender ! {self(), ok}
+        end,
+    Receiver = spawn_link(fun () -> ReceiveFun(1) end),
+    ok = socket_controlling_process(S2, Receiver),
+    [begin
+         ok = socket_call(S1, {send,S1Ai,Stream,<<J:32,Data/binary>>}),
+         ct:log("send {~w}: ~w~n", [self(), J]),
+         Receiver ! {Sender, send, J}
+     end || J <- Seq],
+    receive {Receiver, ok} -> ok end,
+    %%
+    socket_pair_close(Addr, StartTime, Timeout, SocketPair).
 
 %% Test opening a multihoming ipv4 socket.
 open_multihoming_ipv4_socket(Config) when is_list(Config) ->
@@ -2437,6 +2431,57 @@ t_simple_local_sockaddr_in_connectx_init(Config) when is_list(Config) ->
 
 
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+socket_pair_open(Addr, StartTime, Timeout) ->
+    S1 = socket_open([{ip,Addr}], Timeout),
+    ?LOGVAR(S1),
+    P1 = socket_call(S1, get_port),
+    ?LOGVAR(P1),
+    ok = socket_call(S1, {listen,true}),
+    S2 = socket_open([{ip,Addr}], Timeout),
+    ?LOGVAR(S2),
+    P2 = socket_call(S2, get_port),
+    ?LOGVAR(P2),
+    %%
+    socket_call(S2, {connect_init,Addr,P1,[]}),
+    S2Ai =
+	receive
+	    {S2,{Addr,P1,
+		 #sctp_assoc_change{
+		    state=comm_up,
+		    assoc_id=S2AssocId}}} -> S2AssocId
+	after Timeout ->
+		socket_bailout([S1,S2], StartTime)
+	end,
+    S1Ai =
+	receive
+	    {S1,{Addr,P2,
+		 #sctp_assoc_change{
+		    state=comm_up,
+		    assoc_id=S1AssocId}}} -> S1AssocId
+	after Timeout ->
+		socket_bailout([S1,S2], StartTime)
+	end,
+    {{S1,P1,S1Ai}, {S2,P2,S2Ai}}.
+
+socket_pair_close(Addr, StartTime, Timeout, {{S1,P1,_S1Ai}, {S2,_P2,S2Ai}}) ->
+    socket_close_verbose(S1, StartTime),
+    receive
+	{S2,{Addr,P1,#sctp_shutdown_event{assoc_id=S2Ai}}} -> ok
+    after Timeout ->
+	    socket_bailout([S2], StartTime)
+    end,
+    receive
+	{S2,{Addr,P1,#sctp_assoc_change{state=shutdown_comp,
+					assoc_id=S2Ai}}} -> ok
+    after Timeout ->
+	    socket_bailout([S2], StartTime)
+    end,
+    socket_close_verbose(S2, StartTime),
+    [] = flush(),
+    ok.
+
+%%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
 
 socket_open(SockOpts0, Timeout) ->
@@ -2475,6 +2520,9 @@ socket_close_verbose(S, StartTime) ->
 socket_close(S) ->
     s_req(S, close).
 
+socket_controlling_process(S, Pid) when is_pid(Pid) ->
+    s_req(S, {controlling_process, Pid}).
+
 socket_call(S, Request) ->
     s_req(S, {Request}).
 
@@ -2487,7 +2535,11 @@ socket_bailout([S|Ss], StartTime) ->
     socket_bailout(Ss, StartTime);
 socket_bailout([], _) ->
     io:format("flush: ~p.~n", [flush()]),
-    ct:fail(socket_bailout).
+    try throw(socket_bailout)
+    catch throw : Reason : Stacktrace ->
+            io:format("Stacktrace:~n    ~p.~n", [Stacktrace]),
+            ct:fail(Reason)
+    end, ok.
 
 socket_history({State,Flush}, StartTime) ->
     {lists:keysort(
@@ -2497,75 +2549,71 @@ socket_history({State,Flush}, StartTime) ->
 	  || {Key,Vals} <- gb_trees:to_list(State)])),
      Flush}.
 
-s_handler(Socket) ->
-    fun ({listen,Listen}) ->
-	    ok = gen_sctp:listen(Socket, Listen);
-	(get_port) ->
-	    ok(inet:port(Socket));
-	(get_socket) ->
-	    Socket;
-	({connect_init,ConAddr,ConPort,ConOpts}) ->
-	    ok = gen_sctp:connect_init(Socket, ConAddr, ConPort, ConOpts);
-	({send,AssocId,Stream,Data}) ->
-	    ok = gen_sctp:send(Socket, AssocId, Stream, Data);
-	({send,OtherSocket,AssocId,Stream,Data}) ->
-	    ok = gen_sctp:send(OtherSocket, AssocId, Stream, Data);
-	({setopts,Opts}) ->
-	    ok = inet:setopts(Socket, Opts);
-	({getopts,Optnames}) ->
-	    ok(inet:getopts(Socket, Optnames))
+s_req(S, Req) ->
+    AMref = erlang:monitor(process, S, [{alias, reply_demonitor}]),
+    S ! {?MODULE, AMref, Req},
+    receive
+        {'DOWN', AMref, _, _, Error} ->
+            exit(Error);
+        {?MODULE, AMref, Reply} ->
+            Reply
     end.
 
-s_req(S, Req) ->
-    Mref = erlang:monitor(process, S),
-    S ! {self(),Mref,Req},
-    receive
-	{'DOWN',Mref,_,_,Error} ->
-	    exit(Error);
-	{S,Mref,Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    Reply
+s_handle_req(Socket, Req) ->
+    case Req of
+        {listen,Listen} ->
+	    ok = gen_sctp:listen(Socket, Listen);
+	get_port ->
+	    ok(inet:port(Socket));
+	get_socket ->
+	    Socket;
+	{connect_init,ConAddr,ConPort,ConOpts} ->
+	    ok = gen_sctp:connect_init(Socket, ConAddr, ConPort, ConOpts);
+	{send,AssocId,Stream,Data} ->
+	    ok = gen_sctp:send(Socket, AssocId, Stream, Data);
+	{send,OtherSocket,AssocId,Stream,Data} ->
+	    ok = gen_sctp:send(OtherSocket, AssocId, Stream, Data);
+	{setopts,Opts} ->
+	    ok = inet:setopts(Socket, Opts);
+	{getopts,Optnames} ->
+	    ok(inet:getopts(Socket, Optnames))
     end.
 
 s_start(Starter, Timeout) ->
     Parent = self(),
-    Owner =
-	spawn_link(
-	  fun () ->
-		  s_start(Starter(), Timeout, Parent)
-	  end),
-    Owner.
+    spawn_link(
+      fun () ->
+              try
+                  Socket = Starter(),
+                  s_loop(Socket, Timeout, Parent, gb_trees:empty())
+              catch
+                  Class:Reason:Stacktrace ->
+                      io:format(?MODULE_STRING":socket exception ~w:~w at~n"
+                                "~p.~n", [Class,Reason,Stacktrace]),
+                      erlang:raise(Class, Reason, Stacktrace)
+              end
+      end).
 
-s_start(Socket, Timeout, Parent) ->
-    Handler = s_handler(Socket),
-    try
-	s_loop(Socket, Timeout, Parent, Handler, gb_trees:empty())
-    catch
-	Class:Reason:Stacktrace ->
-	    io:format(?MODULE_STRING":socket exception ~w:~w at~n"
-		      "~p.~n", [Class,Reason,Stacktrace]),
-	    erlang:raise(Class, Reason, Stacktrace)
-    end.
-
-s_loop(Socket, Timeout, Parent, Handler, State) ->
+s_loop(Socket, Timeout, Parent, State) ->
     receive
-	{Parent,Ref,close} -> % socket_close()
-	    erlang:send_after(Timeout, self(), {Parent,Ref,exit}),
-	    s_loop(Socket, Timeout, Parent, Handler, State);
-	{Parent,Ref,exit} ->
+	{?MODULE,AMref,{controlling_process, NewParent}} ->
+	    AMref ! {?MODULE,AMref,ok},
+	    s_loop(Socket, Timeout, NewParent, State);
+	{?MODULE,AMref,close} -> % socket_close()
+	    erlang:send_after(Timeout, self(), {?MODULE,AMref,exit}),
+	    s_loop(Socket, Timeout, Parent, State);
+	{?MODULE,AMref,exit} ->
 	    ok = gen_sctp:close(Socket),
-	    Key = exit,
-	    NewState = gb_push(Key, Socket, State),
-	    Parent ! {self(),Ref,{NewState,flush()}};
-	{Parent,Ref,{Msg}} ->
-	    Result = Handler(Msg),
-	    Key = req,
-	    NewState = gb_push(Key, {Msg,Result}, State),
-	    Parent ! {self(),Ref,Result},
-	    s_loop(Socket, Timeout, Parent, Handler, NewState);
-	%% {Parent,Ref,{get,Key}} ->
-	%%     Parent ! {self(),Ref,gb_get(Key, State)},
-	%%     s_loop(Socket, Timeout, Parent, Handler, State);
+	    NewState = gb_push(exit, Socket, State),
+	    AMref ! {?MODULE,AMref,{NewState,flush()}};
+	{?MODULE,AMref,{Req}} ->
+            Result = s_handle_req(Socket, Req),
+	    NewState = gb_push(req, {Req,Result}, State),
+	    AMref ! {?MODULE, AMref,Result},
+	    s_loop(Socket, Timeout, Parent, NewState);
+	%% {Parent,AMref,{get,Key}} ->
+	%%     AMref ! {?MODULE,AMref,gb_get(Key, State)},
+	%%     s_loop(Socket, Timeout, Parent, State);
 	{sctp,Socket,Addr,Port,
 	 {[#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}=SRI],Data}}
 	  when not is_tuple(Data) ->
@@ -2581,7 +2629,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    NewState = gb_push(Key, {Addr,Port,SRI,Data}, State),
 	    Parent ! {self(),{Addr,Port,AssocId,Stream,Data}},
 	    again(Socket),
-	    s_loop(Socket, Timeout, Parent, Handler, NewState);
+	    s_loop(Socket, Timeout, Parent, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_assoc_change{assoc_id=AssocId,state=St}=SAC}} ->
 	    case SRI of
@@ -2597,7 +2645,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    NewState = gb_push(Key, {Addr,Port,SAC}, State),
 	    Parent ! {self(),{Addr,Port,SAC}},
 	    again(Socket),
-	    s_loop(Socket, Timeout, Parent, Handler, NewState);
+	    s_loop(Socket, Timeout, Parent, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_paddr_change{assoc_id=AssocId,
 				 addr={_,P},
@@ -2616,7 +2664,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    Key = {paddr_change,AssocId},
 	    NewState = gb_push(Key, {Addr,Port,SPC}, State),
 	    again(Socket),
-	    s_loop(Socket, Timeout, Parent, Handler, NewState);
+	    s_loop(Socket, Timeout, Parent, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_shutdown_event{assoc_id=AssocId}=SSE}} ->
 	    case SRI of
@@ -2631,7 +2679,7 @@ s_loop(Socket, Timeout, Parent, Handler, State) ->
 	    NewState = gb_push(Key, {Addr,Port}, State),
 	    Parent ! {self(), {Addr,Port,SSE}},
 	    again(Socket),
-	    s_loop(Socket, Timeout, Parent, Handler, NewState);
+	    s_loop(Socket, Timeout, Parent, NewState);
 	Unexpected ->
 	    erlang:error({unexpected,Unexpected})
     end.
