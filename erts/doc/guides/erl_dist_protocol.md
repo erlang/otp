@@ -55,7 +55,17 @@ The integers in all multibyte fields are in big-endian order.
 
 ## EPMD Protocol
 
-The requests served by the EPMD are summarized in the following figure.
+The EPMD Protocol supports various tasks:
+
+- Registering a Node
+- Unregistering a Node
+- Getting the Distributing Port of Another Node
+- Getting all Registered Names
+- Dumping all Data from EPMD
+- Killing EPMD
+- `STOP_REQ` (Not Used)
+
+The requests served by the EPMD for these tasks are summarized in the following figure.
 
 ```mermaid
 ---
@@ -66,7 +76,7 @@ sequenceDiagram
     participant client as Client (or Node)
     participant EPMD
 
-    Note over EPMD: Register a Node
+    Note over EPMD: Register a Node in EPMD
     client ->> EPMD: ALIVE2_REQ
     alt
         EPMD -->> client: ALIVE2_X_RESP
@@ -74,22 +84,22 @@ sequenceDiagram
         EPMD -->> client: ALIVE2_RESP
     end
 
-    Note over EPMD: Unregister a Node
+    Note over EPMD: Unregister a Node in EPMD
     client ->> EPMD: ALIVE_CLOSE_REQ
 
     Note over client: Get the Distribution Port of Another Node
     client ->> EPMD: PORT_PLEASE2_REQ
     EPMD -->> client: PORT2_RESP
 
-    Note over client: Get All Registered Names
+    Note over client: Get All Registered Names from EPMD
     client ->> EPMD: NAMES_REQ
     EPMD -->> client: NAMES_RESP
 
-    Note over EPMD: Dump all Data
+    Note over EPMD: Dump all Data from EPMD
     client ->> EPMD: DUMP_REQ
     EPMD -->> client: DUMP_RESP
 
-    Note over EPMD: Kill
+    Note over EPMD: Kill EPMD
     client ->> EPMD: KILL_REQ
     EPMD -->> client: KILL_RESP
 
