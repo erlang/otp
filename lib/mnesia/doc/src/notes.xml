@@ -39,7 +39,24 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.23</title>
+  <section><title>Mnesia 4.23.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia could crash during startup if
+	    <c>del_table_copy/2</c> and <c>add_table_copy/3</c> was
+	    invoked when the table was loading.</p>
+          <p>
+	    Own Id: OTP-19076 Aux Id: ERIERL-1073 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.23</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
