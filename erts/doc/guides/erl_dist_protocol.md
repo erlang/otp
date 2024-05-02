@@ -57,7 +57,43 @@ The integers in all multibyte fields are in big-endian order.
 
 The requests served by the EPMD are summarized in the following figure.
 
-![Summary of EPMD Requests](assets/erl_ext_fig.gif "Summary of EPMD Requests")
+```mermaid
+---
+title: Summary of EPMD Requests
+---
+
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+
+    Note over EPMD: Register a Node
+    client ->> EPMD: ALIVE2_REQ
+    EPMD -->> client: ALIVE2_X_RESP
+
+    Note over EPMD: Unregister a Node
+    client ->> EPMD: ALIVE_CLOSE_REQ
+
+    Note over client: Get the Distribution Port of Another Node
+    client ->> EPMD: PORT_PLEASE2_REQ
+    EPMD -->> client: PORT2_RESP
+
+    Note over client: Get All Registered Names
+    client ->> EPMD: NAMES_REQ
+    EPMD -->> client: NAMES_RESP
+
+    Note over EPMD: Dump all Data
+    client ->> EPMD: DUMP_REQ
+    EPMD -->> client: DUMP_RESP
+
+    Note over EPMD: Kill
+    client ->> EPMD: KILL_REQ
+    EPMD -->> client: KILL_RESP
+
+    Note over EPMD: STOP_REQ (Not Used)
+    client ->> EPMD: STOP_REQ
+    EPMD -->> client: STOP_OK_RESP
+    EPMD -->> client: STOP_NOTOK_RESP
+```
 
 Each request `*_REQ` is preceded by a 2 byte length field. Thus, the overall
 request format is as follows:
