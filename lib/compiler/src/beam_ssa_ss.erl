@@ -218,6 +218,8 @@ extract(Dst, Src, Element, State) ->
             OutEdges = beam_digraph:out_edges(State, Src),
             ?ASSERT(true = is_integer(Element)
                     orelse (Element =:= hd) orelse (Element =:= tl)),
+            ?DP("dst: ~p, src: ~p, e: ~p, out-edges: ~p~n",
+                [Dst, Src, Element, OutEdges]),
             extract_element(Dst, Src, Element, OutEdges, State)
     end.
 
@@ -239,39 +241,65 @@ extract_element(Dst, Src, Element, [], State0) ->
     State = ?assert_state(add_edge(State0, Src, Dst, {extract,Element})),
     extract_status_for_element(Element, Src, Dst, State).
 
-extract_status_for_element(Element, Src, Dst, State) ->
+extract_status_for_element(Element, Src, Dst, State0) ->
     ?DP("    extract_status_for_element(~p, ~p)~n", [Element, Src]),
-    InEdges = beam_digraph:in_edges(State, Src),
-    extract_status_for_element(InEdges, Element, Src, Dst, State).
-
-extract_status_for_element([{N,_,{embed,Element}}|_InEdges],
-                           Element, _Src, Dst, State0) ->
-    ?DP("    found new source ~p~n", [N]),
-    ?DP("    SS ~p~n", [State0]),
-    ?DP("    status ~p~n", [beam_digraph:vertex(State0, N)]),
-    State = set_status(Dst, beam_digraph:vertex(State0, N), State0),
-    ?DP("    Returned SS ~p~n", [State]),
-    ?assert_state(State);
-extract_status_for_element([{N,_,{extract,SrcElement}}|InEdges],
-                           Element, Src, Dst, State0) ->
-    ?DP("    found source: ~p[~p]~n", [N,SrcElement]),
-    Origs = [Var || {Var,_,{embed,SE}} <- beam_digraph:in_edges(State0, N),
-                    SrcElement =:= SE],
-    ?DP("    original var: ~p~n", [Origs]),
-    case Origs of
-        [] ->
+    InEdges = beam_digraph:in_edges(State0, Src),
+    ?DP("    in-edges: ~p~n", [InEdges]),
+    Embeddings = [Var || {Var,_,{embed,SE}} <- InEdges, Element =:= SE],
+    Extracts = [Ex || {_,_,{extract,_}}=Ex <- InEdges],
+    case {Embeddings,Extracts} of
+        {[],[]} ->
+            %% Nothing found, the status will be aliased.
             ?DP("    no known source~n"),
-            extract_status_for_element(InEdges, Element, Src, Dst, State0);
-        [Orig] ->
-            extract_status_for_element(Element, Orig, Dst, State0)
+            ?DP("    status of ~p will be aliased~n", [Dst]),
+            ?assert_state(set_status(Dst, aliased, State0));
+        {[Var],[]} ->
+            %% The element which is looked up is an embedding.
+            ?DP("    found embedding~n"),
+            ?DP("    the source is ~p~n", [Var]),
+            ?DP("    SS ~p~n", [State0]),
+            ?DP("    status ~p~n", [beam_digraph:vertex(State0, Var)]),
+            State = set_status(Dst, beam_digraph:vertex(State0, Var), State0),
+            ?DP("    Returned SS ~p~n", [State]),
+            ?assert_state(State);
+        {[], [{Aggregate,_Dst,{extract,E}}]} ->
+            %% We are trying extract from an extraction. The database
+            %% keeps no information about the strucure of the
+            %% extracted term. We have to conservatively set the
+            %% status of Dst to aliased.
+
+            S = get_status_of_extracted_element(Aggregate, [E,Element], State0),
+            ?DP("    status of ~p will be ~p~n", [Dst, S]),
+            ?assert_state(set_status(Dst, S, State0))
+    end.
+
+
+get_status_of_extracted_element(Aggregate, [First|Rest]=Elements, State) ->
+    ?DP("    ~s(~p, ~p, ...)~n", [?FUNCTION_NAME, Aggregate, Elements]),
+    %% This clause will only be called when there is a chain of
+    %% extracts from unique aggregates. This implies that when the
+    %% chain is traced backwards, no aliased aggregates will be found,
+    %% but in case that invariant is ever broken, assert.
+    unique = beam_digraph:vertex(State, Aggregate),
+    ?DP("      aggregate is unique~n"),
+    InEdges = beam_digraph:in_edges(State, Aggregate),
+    Embeddings = [Src || {Src,_,{embed,E}} <- InEdges, First =:= E],
+    Extracts = [{Src,E} || {Src,_,{extract,E}} <- InEdges],
+    ?DP("      embeddings ~p~n", [Embeddings]),
+    ?DP("      extracts ~p~n", [Extracts]),
+    case {Embeddings,Extracts} of
+        {[Embedding],[]} ->
+            get_status_of_extracted_element(Embedding, Rest, State);
+        {[],[{Extract,E}]} ->
+            get_status_of_extracted_element(Extract, [E|Elements], State);
+        {[],[]} ->
+            aliased
     end;
-extract_status_for_element([_Edge|InEdges], Element, Src, Dst, State) ->
-    ?DP("    ignoring in-edge ~p~n", [_Edge]),
-    extract_status_for_element(InEdges, Element, Src, Dst, State);
-extract_status_for_element([], _Element, _Src, Dst, State) ->
-    %% Nothing found, the status will be aliased.
-    ?DP("    status of ~p will be aliased~n", [Dst]),
-    ?assert_state(set_status(Dst, aliased, State)).
+get_status_of_extracted_element(Aggregate, [], State) ->
+    ?DP("    ~s(~p, [], ...)~n", [?FUNCTION_NAME, Aggregate]),
+    S = beam_digraph:vertex(State, Aggregate),
+    ?DP("      bottomed out, status is ~p~n", [S]),
+    S.
 
 %% A cut-down version of merge/2 which only considers variables in
 %% Main and whether they have been aliased in Other.
