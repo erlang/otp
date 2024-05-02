@@ -48,6 +48,9 @@
 
 -define(L, atom_to_list).
 
+-define(LOG(F, A), log(?LINE, F, A)).
+
+
 %% ---------------------------------------------------------------------------
 
 eprof(start) ->
@@ -125,11 +128,24 @@ down(Parent, Worker)
           end);
 
 %% Die with the worker, kill the worker if the parent dies.
-down(MRef, Pid) ->
+down(ParentMRef, WorkerPid) ->
+    ?LOG("down -> await worker (~p) termination", [WorkerPid]),
     receive
-        {'DOWN', MRef, process, _, _} ->
-            exit(Pid, kill);
-        {'DOWN', _, process, Pid, _} ->
+        {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCStack}} ->
+            ?LOG("down -> test case timetrap timeout when"
+                 "~n   (test case) Pid:     ~p"
+                 "~n   (test case) Timeout: ~p"
+                 "~n   (test case) Stack:   ~p", [TCPid, TCTimeout, TCStack]),
+            exit(WorkerPid, kill),
+            %% So many wrapper levels, make sure we go with a bang
+            exit({TCPid, R, TCStack});
+        {'DOWN', ParentMRef, process, PPid, PReason} ->
+            ?LOG("down -> parent process (~p) died: "
+                 "~n   Reason: ~p", [PPid, PReason]),
+            exit(WorkerPid, kill);
+        {'DOWN', _, process, WorkerPid, WReason} ->
+            ?LOG("down -> worker process (~p) died: "
+                 "~n   Reason: ~p", [WorkerPid, WReason]),
             ok
     end.
 
@@ -453,3 +469,6 @@ info(S) ->
 
 info(Key, SvcName) ->
     [{Key, _}] = diameter:service_info(SvcName, [Key]).
+
+log(LINE, F, A) ->
+    ct:log("[DUTIL:~w,~p] " ++ F ++ "~n", [LINE,self()|A]).

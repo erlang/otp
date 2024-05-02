@@ -189,11 +189,17 @@ appvsn(Name) ->
 %% ===========================================================================
 
 xref({App, _Config}) ->
+    i("xref -> entry with"
+      "~n   App:    ~p"
+      "~n   Config: ~p", [App, _Config]),
+
     Mods = fetch(modules, App),  %% modules listed in the app file
 
     %% List of application names extracted from runtime_dependencies.
+    i("xref -> get deps"),
     Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
+    i("xref -> start xref"),
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
 
@@ -203,19 +209,30 @@ xref({App, _Config}) ->
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
+    i("xref -> add own and dep apps"),
     ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
                        [diameter, erts | fetch(applications, App)]),
 
+    i("xref -> analyze undefined_function_calls"),
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
+    i("xref -> analyze module use: "
+      "~n   For mods: ~p", [Mods]),
     {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    i("xref -> analyze (compiler) module use: "
+      "~n   For mods: ~p", [?COMPILER_MODULES]),
     {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
+    i("xref -> analyze module call: "
+      "~n   For mods: ~p", [Mods]),
     {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
+    i("xref -> stop xref"),
     xref:stop(XRef),
 
+    i("xref -> get OTP release"),
     Rel = release(),  %% otp_release-ish
 
     %% Only care about calls from our own application.
+    i("xref -> Only care about calls from our own application"),
     [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
                                   andalso not ignored(From, To, Rel)
@@ -227,20 +244,31 @@ xref({App, _Config}) ->
     %% depend on other diameter modules but it's a simple source of
     %% build errors if not properly encoded in the makefile so guard
     %% against it.
+    i("xref -> ensure only runtime and info mod"),
     [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
     %% Ensure that runtime modules don't call compiler modules.
+    i("xref -> ensure runtime mods don't call compiler mods"),
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared in runtime_dependencies in the app file.
     %% The declared application versions are ignored since we only
     %% know what we see now.
+    i("xref -> ensure runtime mods only call runtime mods"),
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
-                      RTdeps -- Mods);
+                      RTdeps -- Mods),
+
+    i("xref -> done"),
+    ok;
 
 xref(Config) ->
-    run(Config, [xref]).
+    i("xref -> entry with"
+      "~n   Config: ~p", [Config]),
+    Res = run(Config, [xref]),
+    i("xref -> done when"
+      "~n   Res: ~p", [Res]),
+    Res.
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
     %% diameter_tcp does call ssl despite the latter not being listed
