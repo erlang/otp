@@ -1616,7 +1616,7 @@ setup_tty(Config) ->
                    "strace" ->
                        STraceLog = filename:join(proplists:get_value(priv_dir,Config),
                                                  Name++".strace"),
-                       ct:pal("Link to strace: file://~ts", [STraceLog]),
+                       ct:log("Link to strace: file://~ts", [STraceLog]),
                        [os:find_executable("strace"),"-f",
                         "-o",STraceLog,
                         "-e","trace=all",
@@ -2018,7 +2018,7 @@ shell_history_eaccess(Config) ->
                {expect, "echo\r\n"}
               ], [], [], mk_history_param(Path)),
 
-        ct:pal("~p",[Logs1]),
+        ct:log("~p",[Logs1]),
         rtnode:check_logs("erlang.log.1", "Error handling file", Logs1),
 
         %% shell_docs recursively creates the folder to store the
@@ -2278,6 +2278,14 @@ job_control_local(Config) when is_list(Config) ->
                {putline, "h"},
                {expect,  "this message"},
                {expect,  "--> $"},
+               {putdata, "\t"}, %% Test that we don't crash
+               {sleep, 100},
+               {putline, ""},
+               {expect,  "^\r\n\r\n --> $"},
+               {putdata, "\^r"}, %% Test that we don't crash
+               {sleep, 100},
+               {putline, ""},
+               {expect,  "^\r\n\r\n --> $"},
                {putline, "c 1"},
                {expect, "\r\n"},
                {putline, "35."},
