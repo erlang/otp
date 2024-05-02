@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -509,31 +509,28 @@ postponed event that is delivered due to the state change.
 
 ## Example
 
-A door with a code lock can be seen as a state machine. Initially, the door is
-locked. When someone presses a button, an event is generated. The pressed
-buttons are collected, up to the number of buttons in the correct code. If
-correct, the door is unlocked for 10 seconds. If not correct, we wait for a new
-button to be pressed.
+A door with a code lock can be seen as a state machine.  Initially,
+the door is locked.  When someone presses a button, a `{button, Button}`
+event is generated.  In the state diagram below, "Collect Buttons" means
+to store buttons up to as many as in the correct code; append to
+a length capped list.  If correct, the door is unlocked for 10 seconds.
+If incorrect, we wait for a new button to be pressed.
 
 ```mermaid
 ---
-title: Code Lock State
+title: Code Lock State Diagram
 ---
+stateDiagram-v2
+    state check_code <<choice>>
 
-flowchart TD
-    init((init)) --> a[do_lock\nClear Buttons]
-    a --> locked{{locked}}
-    locked --> b>"`*{button, Button}*`"]
-    b --> c[Collect Buttons]
-    c --> correct?{Correct Code?}
-    correct? -->|No| locked
-    correct? -->
-        |Yes| d[do_unlock\nClear Buttons\nstate_timeout 10s]
-    d --> open{{open}}
-    open --> e>"`*state_timeout*`"]
-    e --> f["do_lock()"]
-    f --> locked
-    open --> g>"`*{button, Digit}*`"] --> open
+    [*]         --> locked : * do_lock()\n* Clear Buttons
+
+    locked      --> check_code : {button, Button}\n* Collect Buttons
+    check_code  --> locked     : Incorrect code
+    check_code  --> open       : Correct code\n* do_unlock()\n* Clear Buttons\n* Set state_timeout 10 s
+
+    open        --> open   : {button, Digit}
+    open        --> locked : state_timeout\n* do_lock()
 ```
 
 This code lock state machine can be implemented using `gen_statem` with the
@@ -1333,26 +1330,23 @@ some more using _state enter calls_, which deserves a new state diagram:
 
 ```mermaid
 ---
-title: Code Lock State
+title: Code Lock State Diagram Revisited
 ---
+stateDiagram-v2
+    state enter_locked <<choice>>
+    state enter_open   <<choice>>
+    state check_code   <<choice>>
 
-flowchart TD
-    init((init)) --> a[do_lock\nClear Buttons]
-    a --> locked{{locked}}
-    locked --> b>"`*{button, Button}*`"]
+    [*] --> enter_locked
 
-    locked --> b1>"`*state_timeout*`"]
-    b1 --> b2[Clear Buttons]
-    b2 --> locked
+    enter_locked --> locked     : * do_lock()\n* Clear Buttons
+    locked       --> check_code : {button, Button}\n* Collect Buttons
+    locked       --> locked     : state_timeout\n* Clear Buttons
+    check_code   --> locked     : Incorrect code\n* Set state_timeout 30 s
+    check_code   --> enter_open : Correct code
 
-    b --> c[Collect Buttons]
-    c --> correct?{Correct Code?}
-    correct? -->|No| c2[state_timeout 30s] --> locked
-
-    correct? -->
-        |Yes| d[do_unlock\nstate_timeout 10s]
-    d --> open{{open}}
-    open --> e>"`*state_timeout*`"] --> init
+    enter_open --> open         : * do_unlock()\n* Set state_timeout 10 s
+    open       --> enter_locked : state_timeout
 ```
 
 Notice that this state diagram does not specify how to handle a button event in
