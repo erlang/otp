@@ -104,7 +104,37 @@ as location and persistence.
 This example shows how to create a database called `Company` and the
 relationships shown in the following diagram:
 
-![Company Entity-Relation Diagram](assets/company.gif "Company Entity-Relation Diagram")
+```mermaid
+---
+title: Company Entity-Relation Diagram
+---
+
+erDiagram
+    Dept {
+        atom id
+        string name
+    }
+
+    Employee {
+        int emp_no
+        string name
+        int salary
+        atom sex
+        int phone
+        tuple room_no
+
+    }
+
+    Project {
+        atom name
+        int number
+    }
+
+    Dept ||--|| Employee: Manager
+    Employee }|--|| Dept: At_dep
+    Employee }|--|{ Project: in_proj
+```
+
 
 The database model is as follows:
 
