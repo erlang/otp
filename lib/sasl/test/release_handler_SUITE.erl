@@ -2388,7 +2388,10 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 	fun(NodeInfo={Node,OldInitPid}, A) ->
 		case rpc:call(Node, application, which_applications, []) of
 		    {badrpc, nodedown} ->
-			test_server:format( "  ~p = {badarg, nodedown}",[Node]),
+			test_server:format( "  ~p = {badrpc, nodedown}",[Node]),
+			[NodeInfo | A];
+                    {badrpc, {'EXIT',terminating}} ->
+			test_server:format( "  ~p = {badrpc, {'EXIT',terminating}}",[Node]),
 			[NodeInfo | A];
 		    List when is_list(List)->
 			test_server:format( "  ~p = [~p]",[Node, List]),
@@ -2406,7 +2409,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 			    false ->
 				[NodeInfo | A]
 			end
-		end
+                end
 	end,
     Pang = lists:foldl(Fun,[],Nodes),
     case Pang of
