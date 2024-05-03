@@ -17,7 +17,7 @@
 %% 
 %% %CopyrightEnd%
 
-%% This is example of the widgets and usage of wxErlang
+%% This is example of the widgets and usage of Wx.
 %% Hopefully it will contain all implemented widgets, it's event handling
 %% and some tutorials of how to use sizers and other stuff.
 

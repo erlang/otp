@@ -335,7 +335,7 @@ STDLIB
 Syntax_Tools
 TFTP
 Tools
-wxErlang
+Wx
 Xmerl
 ```
 

@@ -105,7 +105,7 @@ start() ->
 %%    
 %%    
 create_frame(Wx) ->
-    Frame = wxFrame:new(Wx, -1, "wxErlang menu sample", [{size, {600,400}}]),
+    Frame = wxFrame:new(Wx, -1, "Wx menu sample", [{size, {600,400}}]),
 
     Path = code:priv_dir(wx),
     wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"erlang-logo128.png"), [{type, ?wxBITMAP_TYPE_PNG}])),
@@ -137,7 +137,7 @@ create_frame(Wx) ->
 				  {style, ?wxTE_MULTILINE}]),
     wxTextCtrl:setEditable(LogTextCtrl, false),
 
-    ok = wxFrame:setStatusText(Frame, "Welcome to wxErlang menu sample",[]),
+    ok = wxFrame:setStatusText(Frame, "Welcome to Wx menu sample",[]),
     
     ok = wxFrame:connect(Frame, command_menu_selected), 
     
@@ -554,14 +554,14 @@ findLogger(Frame) ->
     
    
 showDialog(?menuID_HELP_ABOUT,  Frame) ->
-    String = lists:flatten(io_lib:format("Welcome to wxErlang 0.97.5.26!~n~n"
-		       "This is the minimal wxErlang sample~n"
+    String = lists:flatten(io_lib:format("Welcome to Wx 0.97.5.26!~n~n"
+		       "This is the minimal Wx sample~n"
 		       "running under ~p.",
 		       [wx_misc:getOsDescription()])),
     MessageDialog = wxMessageDialog:new(Frame,
    			     String,
    			     [{style, ?wxOK bor ?wxICON_INFORMATION}, 
-   			      {caption, "About wxErlang minimal sample"}]),
+			      {caption, "About Wx minimal sample"}]),
 
     wxDialog:showModal(MessageDialog),
     wxDialog:destroy(MessageDialog);
@@ -571,7 +571,7 @@ showDialog(Id,  Frame) ->
     MessageDialog = wxMessageDialog:new(Frame,
    			     String,
    			     [{style, ?wxOK bor ?wxICON_INFORMATION}, 
-   			      {caption, "wxErlang minimal sample"}]),
+			      {caption, "Wx minimal sample"}]),
 
     wxDialog:showModal(MessageDialog),
     wxDialog:destroy(MessageDialog).

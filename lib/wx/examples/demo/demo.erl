@@ -17,7 +17,7 @@
 %% 
 %% %CopyrightEnd%
 
-%% This is example of the widgets and usage of wxErlang
+%% This is example of the widgets and usage of Wx.
 %% Hopefully it will contain all implemented widgets, it's event handling
 %% and some tutorials of how to use sizers and other stuff.
 
@@ -63,7 +63,7 @@ init(Options) ->
     wx:new(Options),
     process_flag(trap_exit, true),
 
-    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "wxErlang widgets", [{size,{1400,800}}]),
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Wx widgets", [{size,{1400,800}}]),
     MB = wxMenuBar:new(),
     File    = wxMenu:new([]),
     wxMenu:append(File, ?wxID_PRINT, "&Print code"),

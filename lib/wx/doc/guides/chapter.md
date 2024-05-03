@@ -26,7 +26,7 @@ wxWidgets documentation instead. _wx_ tries to keep a one-to-one mapping with
 the original API so that the original documentation and examples shall be as
 easy as possible to use.
 
-wxErlang examples and test suite can be found in the erlang src release. They
+Wx examples and test suite can be found in the erlang src release. They
 can also provide some help on how to use the API.
 
 This is currently a very brief introduction to _wx_. The application is still
@@ -122,7 +122,7 @@ name and a underscore as in `ClassName_Enum`.
 Additionally some global functions, i.e. non-class functions, exist in the
 `wx_misc` module.
 
-_wxErlang_ is implemented as a (threaded) driver and a rather direct interface
+_Wx_ is implemented as a (threaded) driver and a rather direct interface
 to the C++ API, with the drawback that if the erlang programmer does an error,
 it might crash the emulator.
 

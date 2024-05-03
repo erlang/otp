@@ -30,7 +30,7 @@
 %% This module contains functions for
 %% starting and stopping the wx-server, as well as  other utility functions.
 %%
-%% wxWidgets is object oriented, and not functional. Thus, in wxErlang a
+%% wxWidgets is object oriented, and not functional. Thus, in Wx a
 %% module represents a class, and the object created by this class
 %% has an own type, wxCLASS().  This module represents the base
 %% class, and all other wxMODULE's are sub-classes of this class.
@@ -70,7 +70,7 @@ This is the base api of [wxWidgets](http://www.wxwidgets.org/). This module
 contains functions for starting and stopping the wx-server, as well as other
 utility functions.
 
-wxWidgets is object oriented, and not functional. Thus, in wxErlang a module
+wxWidgets is object oriented, and not functional. Thus, in Wx a module
 represents a class, and the object created by this class has an own type,
 wxCLASS(). This module represents the base class, and all other wxMODULE's are
 sub-classes of this class.
@@ -569,11 +569,11 @@ set_debug(Level) when is_integer(Level) ->
 	    ok
     end.
 
-%% @doc Starts a wxErlang demo if examples directory exists and is compiled
+%% @doc Starts a Wx demo if examples directory exists and is compiled
 -doc """
 demo() -> ok | {error, atom()}
 
-Starts a wxErlang demo if examples directory exists and is compiled
+Starts a Wx demo if examples directory exists and is compiled
 """.
 -spec demo() -> 'ok' | {'error', atom()}.
 demo() ->
