@@ -32,7 +32,7 @@ This module contains various things related to SDP.
 ## Version note
 
 This module has existed in the megaco app for long time,
-but is now (as of 27.0) also documented.
+but as of 27.0 its also documented.
 """.
 -moduledoc(#{since => "OTP 27.0"}).
 
