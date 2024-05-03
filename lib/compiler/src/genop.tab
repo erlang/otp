@@ -384,10 +384,10 @@ BEAM_FORMAT_NUMBER=0
 #
 87: -bs_init/2
 88: -bs_final/2
-89: bs_put_integer/5
-90: bs_put_binary/5
-91: bs_put_float/5
-92: bs_put_string/2
+89: -bs_put_integer/5
+90: -bs_put_binary/5
+91: -bs_put_float/5
+92: -bs_put_string/2
 
 #
 # Binary construction (R7B).
@@ -421,9 +421,9 @@ BEAM_FORMAT_NUMBER=0
 108: raise/2
 
 # New instructions in R10B.
-109: bs_init2/6
+109: -bs_init2/6
 110: -bs_bits_to_bytes/3
-111: bs_add/5
+111: -bs_add/5
 112: apply/1
 113: apply_last/2
 ## @spec is_boolean Lbl Arg1
@@ -482,15 +482,15 @@ BEAM_FORMAT_NUMBER=0
 131: bs_test_unit/3
 132: bs_match_string/4
 133: bs_init_writable/0
-134: bs_append/8
-135: bs_private_append/6
+134: -bs_append/8
+135: -bs_private_append/6
 
 ## @spec trim N Remaining
 ## @doc Reduce the stack usage by N words,
 ##      keeping the CP on the top of the stack.
 136: trim/2
 
-137: bs_init_bits/6
+137: -bs_init_bits/6
 
 # R12B-5
 138: bs_get_utf8/5
@@ -502,13 +502,13 @@ BEAM_FORMAT_NUMBER=0
 142: bs_get_utf32/5
 143: bs_skip_utf32/4
 
-144: bs_utf8_size/3
-145: bs_put_utf8/3
+144: -bs_utf8_size/3
+145: -bs_put_utf8/3
 
-146: bs_utf16_size/3
-147: bs_put_utf16/3
+146: -bs_utf16_size/3
+147: -bs_put_utf16/3
 
-148: bs_put_utf32/3
+148: -bs_put_utf32/3
 
 # R13B03
 

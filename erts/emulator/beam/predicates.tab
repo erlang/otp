@@ -178,12 +178,6 @@ pred.is_empty_map(Lit) {
     return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
 }
 
-// Test whether a binary construction is too big.
-pred.binary_too_big(Size) {
-    return Size.type == TAG_o ||
-        (Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0));
-}
-
 // Mark this label. Always succeeds.
 pred.smp_mark_target_label(L) {
     ASSERT(L.type == TAG_f);

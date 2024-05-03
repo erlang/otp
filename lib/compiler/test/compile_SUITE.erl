@@ -1707,43 +1707,36 @@ bc_options(Config) ->
 
     DataDir = proplists:get_value(data_dir, Config),
 
-    L = [{171, small_float, [no_line_info,
-                             no_ssa_opt_float,
-                             no_type_opt]},
-         {171, small_float, [no_line_info]},
-         {171, small_float, []},
-         {171, small_float, [r24]},
-         {171, small_float, [r25]},
+    L = [{177, small_float, []},
 
-         {172, small, [no_ssa_opt_record,
+         {177, small, [no_ssa_opt_record,
                        no_ssa_opt_float,
                        no_line_info,
                        no_type_opt,
                        no_bs_match]},
-         {172, small, [r24]},
 
-         {172, funs, [no_ssa_opt_record,
-                      no_ssa_opt_float,no_line_info,
-                      no_type_opt]},
-         {172, funs, [no_ssa_opt_record,
+         {177, funs, [no_ssa_opt_record,
+                      no_ssa_opt_float,
                       no_line_info,
                       no_stack_trimming,
                       no_type_opt]},
-         {172, funs, [r24]},
 
-         {172, small_maps, [r24]},
-         {172, small_maps, [no_type_opt]},
+         {177, small_maps, [no_type_opt]},
 
-         {172, big, [no_ssa_opt_record,
+         {177, big, [no_ssa_opt_record,
                      no_ssa_opt_float,
                      no_line_info,
                      no_type_opt]},
-         {172, big, [r24]},
 
          {178, small, [r25]},
          {178, big, [r25]},
          {178, funs, []},
-         {178, big, []}
+         {178, big, []},
+
+         {182, small, [r26]},
+         {182, small, []},
+
+         {183, small, [line_coverage]}
         ],
 
     Test = fun({Expected,Mod,Options}) ->

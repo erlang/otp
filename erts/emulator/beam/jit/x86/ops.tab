@@ -1007,133 +1007,7 @@ bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* =>
 
 i_bs_create_bin j I t d *
 
-# ================================================================
-# Old instruction for constructing binaries (up to OTP 24).
-# ================================================================
-
-%warm
-
-bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
-
-bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
-
-bs_init2 Fail Sz=u Words Regs Flags Dst =>
-    i_bs_init_heap Sz Words Regs Dst
-
-bs_init2 Fail Sz Words=u==0 Regs Flags Dst =>
-    i_bs_init_fail Sz Fail Regs Dst
-bs_init2 Fail Sz Words Regs Flags Dst =>
-    i_bs_init_fail_heap Sz Words Fail Regs Dst
-
-i_bs_init_fail S j t S
-
-i_bs_init_fail_heap s I j t S
-
-i_bs_init W t S
-
-i_bs_init_heap W I t S
-
-
-bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
-
-bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst =>
-    i_bs_init_bits Sz Regs Dst
-bs_init_bits Fail Sz=u Words Regs Flags Dst =>
-    i_bs_init_bits_heap Sz Words Regs Dst
-
-bs_init_bits Fail Sz Words=u==0 Regs Flags Dst =>
-    i_bs_init_bits_fail Sz Fail Regs Dst
-bs_init_bits Fail Sz Words Regs Flags Dst =>
-    i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
-
-i_bs_init_bits_fail S j t S
-
-i_bs_init_bits_fail_heap s I j t S
-
-i_bs_init_bits W t S
-i_bs_init_bits_heap W I t S
-
-bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
-
-bs_add j s s t x
-
-bs_append Fail Size Extra Live Unit Bin Flags Dst =>
-    i_bs_append Fail Extra Live Unit Size Bin Dst
-
-bs_private_append Fail Size Unit Bin Flags Dst =>
-    i_bs_private_append Fail Unit Size Bin Dst
-
-i_bs_private_append Fail Unit Size Bin Dst=y =>
-    i_bs_private_append Fail Unit Size Bin x | move x Dst
-
 bs_init_writable
-
-i_bs_append j I t t s s S
-i_bs_private_append j t s S x
-
-#
-# Storing integers into binaries.
-#
-
-bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s =>
-    put_integer(Fail, Sz, Unit, Flags, Src)
-
-i_new_bs_put_integer j S t s
-i_new_bs_put_integer_imm s j W t
-
-#
-# Utf8/utf16/utf32 support. (R12B-5)
-#
-
-bs_utf8_size j Src Dst=d => i_bs_utf8_size Src Dst
-bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
-
-bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
-bs_put_utf16 Fail Flags Src => put_utf16(Fail, Flags, Src)
-
-bs_put_utf32 Fail=j Flags=u Src=s =>
-    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
-
-i_bs_utf8_size s x
-i_bs_utf16_size s x
-
-i_bs_put_utf8 j s
-i_bs_put_utf16 j t s
-
-i_bs_validate_unicode j s
-
-#
-# Storing floats into binaries.
-#
-
-# Will fail. No need to keep the instruction, because bs_add or
-# bs_init* would already have raised an exception.
-bs_put_float Fail Sz=q Unit Flags Val => _
-
-bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s =>
-    put_float(Fail, Sz, Unit, Flags, Src)
-
-i_new_bs_put_float j S t s
-i_new_bs_put_float_imm j W t s
-
-#
-# Storing binaries into binaries.
-#
-
-bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s =>
-    put_binary(Fail, Sz, Unit, Flags, Src)
-
-i_new_bs_put_binary j s t s
-i_new_bs_put_binary_imm j W s
-i_new_bs_put_binary_all s j t
-
-#
-# Warning: The i_bs_put_string and i_new_bs_put_string instructions
-# are specially treated in the loader.
-# Don't change the instruction format unless you change the loader too.
-#
-
-bs_put_string W M
 
 #
 # New floating point instructions (R8).
@@ -1158,8 +1032,6 @@ i_fsub l l l
 i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
-
-%hot
 
 #
 # New apply instructions in R10B.

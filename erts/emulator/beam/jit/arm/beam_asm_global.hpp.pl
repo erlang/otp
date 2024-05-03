@@ -34,8 +34,6 @@ my @beam_global_funcs = qw(
     bif_is_ne_exact_shared
     bif_tuple_size_body
     bif_tuple_size_guard
-    bs_add_guard_shared
-    bs_add_body_shared
     bs_create_bin_error_shared
     bs_get_tail_shared
     bs_get_utf8_shared

@@ -598,12 +598,6 @@ Uint beam_jit_get_map_elements(Eterm map,
 
 void beam_jit_bs_field_size_argument_error(Process *c_p, Eterm size);
 void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B);
-Eterm beam_jit_bs_init(Process *c_p,
-                       Eterm *reg,
-                       ERL_BITS_DECLARE_STATEP,
-                       Eterm num_bytes,
-                       Uint alloc,
-                       unsigned Live);
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
                             ERL_BITS_DECLARE_STATEP,
