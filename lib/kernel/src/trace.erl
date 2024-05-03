@@ -832,7 +832,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
   The match specification function `{return_trace}` works with meta-trace.
 
-- **`call_count`** - Start (`MatchSpec == true`) or stop
+- **`call_count`**{: #call_count } - Start (`MatchSpec == true`) or stop
   (`MatchSpec == false`) call count tracing for all types of function calls. For
   every function, a counter is incremented when the function is called, in any
   process. No process trace flags need to be activated.
@@ -844,7 +844,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
   To read the counter value for a function, call
   [`trace:info(_, MFA, call_count)`](`info/3`).
 
-- **`call_time`** - Start (`MatchSpec` is `true`) or stops (`MatchSpec` is `false`)
+- **`call_time`**{: #call_time } - Start (`MatchSpec` is `true`) or stops (`MatchSpec` is `false`)
   call time tracing for all types of function calls. For every function, a
   counter is incremented when the function is called and the time spent in the
   function is measured and accumulated in another counter. The counters are
@@ -856,7 +856,7 @@ Argument **`FlagList`** is a list of options. The following are the valid option
 
   To read the counter values, use `info/3`.
 
-- **`call_memory`** - Start (`MatchSpec == true`) or stop
+- **`call_memory`**{: #call_memory } - Start (`MatchSpec == true`) or stop
   (`MatchSpec == false`) call memory tracing for all types of function calls.
 
   If call memory tracing is started while already running, counters and
@@ -1289,21 +1289,17 @@ session_info(PidPortFuncEvent) ->
 
 %% Make sure that we have loaded the tracer module.
 %% Copy-paste from erlang.erl
-ensure_tracer_module_loaded(Flag, FlagList) ->
-    try lists:keyfind(Flag, 1, FlagList) of
-        {Flag, Module, State} when erlang:is_atom(Module) ->
-            case erlang:module_loaded(Module) of
-                false ->
-                    Module:enabled(trace_status, erlang:self(), State);
-                true ->
-                    ok
-            end;
-        _ ->
-            ok
-    catch
-        _:_ ->
-            ok
-    end.
+ensure_tracer_module_loaded(Flag, [{Flag, Module, State}|T]) when erlang:is_atom(Module) ->
+    case erlang:module_loaded(Module) of
+        false ->
+            Module:enabled(trace_status, erlang:self(), State);
+        true ->
+            ensure_tracer_module_loaded(Flag, T)
+    end;
+ensure_tracer_module_loaded(Flag, [_ | T]) ->
+    ensure_tracer_module_loaded(Flag, T);
+ensure_tracer_module_loaded(_, _) ->
+    ok.
 
 error_with_inherited_info(Reason0, Args, [{_,_,_,ExtraInfo}|_]) ->
     Reason1 = case Reason0 of
