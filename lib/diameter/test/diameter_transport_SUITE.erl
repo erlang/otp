@@ -346,15 +346,15 @@ init(gen_accept, {Prot, Ref}) ->
     {ok, Sock} = gen_accept(Prot, LSock),
     Bin = gen_recv(Prot, Sock),
     ok = gen_send(Prot, Sock, Bin),
-    Res = receive
-              {tcp_closed, Sock} = T ->
-                  T;
-              ?SCTP(Sock, {_, #sctp_assoc_change{}}) = T ->
-                  T
-          end,
+    _Res = receive
+               {tcp_closed, Sock} = T ->
+                   T;
+               ?SCTP(Sock, {_, #sctp_assoc_change{}}) = T ->
+                   T
+           end,
 
     ?TL("init(gen_accept) -> done when"
-        "~n   T: ~p", [T]),
+        "~n   Res: ~p", [_Res]),
     ok;
 
 init(connect, {Prot, Ref}) ->
@@ -486,12 +486,22 @@ gen_send(tcp, Sock, Bin) ->
 %% gen_recv/2
 
 gen_recv(sctp, Sock) ->
-    {_OS, _IS, Id} = getr(assoc),
+    {OS, IS, Id} = getr(assoc),
     receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], Bin})
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I} = INFO], Bin})
           when is_binary(Bin) ->
-            {Id, _} = {I, Id},  %% assert
-            Bin
+            case {I, Id} of
+                {Id, _} -> % assert
+                    Bin;
+                _ ->
+                    ?TL("unexpected assoc id in received info msg:"
+                        "~n   Expected Assoc ID: ~p"
+                        "~n      OS: ~p"
+                        "~n      IS: ~p"
+                        "~n   Received Assoc ID: ~p"
+                        "~n   Info:              ~p", [Id, OS, IS, I, INFO]),
+                    ct:fail({unexpected_assoc_id, I, Id})
+            end
     end;
 gen_recv(tcp, Sock) ->
     tcp_recv(Sock, <<>>).
