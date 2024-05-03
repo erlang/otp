@@ -407,8 +407,8 @@ aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
 aa_blocks([], _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
-    ?DP("I: ~p~n", [I]),
+aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
+    ?DP("I: ~p~n", [_I]),
     SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
@@ -559,11 +559,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             resume ->
                 {SS1, AAS0};
             wait_timeout ->
-                {SS1, AAS0};
-            _ ->
-                exit({unknown_instruction, I})
+                {SS1, AAS0}
         end,
-    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
