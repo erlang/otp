@@ -760,7 +760,6 @@ Read the current agent community config file.
 
 See [Communities](snmp_agent_config_files.md#community) for more info.
 
-[](){: #target_addr_entry } [](){: #target_addr_entry_1 }
 """.
 -spec read_community_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),

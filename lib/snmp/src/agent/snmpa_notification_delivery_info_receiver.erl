@@ -113,7 +113,6 @@ It informs the `receiver` which targets will get the notification. The result of
 the delivery will be provided via successive calls to
 [`delivery_info/4`](`c:delivery_info/4`) function, see below.
 
-[](){: #delivery_info }
 """.
 -callback delivery_targets(Tag, Targets, Extra) -> snmp:void() when
       Tag :: term(),

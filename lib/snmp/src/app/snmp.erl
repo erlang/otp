@@ -428,7 +428,6 @@ config() -> snmp_config:config().
 Starts a dbg tracer that prints trace events to stdout (using plain io:format
 after a minor formatting).
 
-[](){: #disable_trace }
 """.
 -spec enable_trace() -> void().
 
@@ -1161,8 +1160,6 @@ local_time_to_date_and_time_dst(Local) ->
 Converts a DateAndTime list to a list of possible universal time(s). The
 universal time value on the same format as defined in calendar(3).
 
-[](){: #dat2s } [](){: #date_and_time_to_string } [](){:
-#date_and_time_to_string1_1 } [](){: #date_and_time_to_string1_2 }
 """.
 -spec date_and_time_to_universal_time_dst(DAT) -> UTCs when
       DAT  :: rfc1903_date_and_time(),

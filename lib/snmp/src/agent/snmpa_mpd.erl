@@ -124,7 +124,6 @@ the net-if process).
 -doc """
 This is the message specific data used in the SNMPv3 message.
 
-[](){: #init }
 """.
 -opaque acm_data_v3() ::
           {v3,
