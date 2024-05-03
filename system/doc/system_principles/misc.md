@@ -21,10 +21,13 @@ limitations under the License.
 
 ## Introduction
 
-This document describes strategy regarding supported Releases, compatibility,
-deprecations and removal of functionality. This document was introduced in
-OTP 21. Actions taken regarding these issues before OTP 21 did not adhere this
-document.
+This document describes the strategy regarding supported Releases,
+compatibility, deprecations, and removal of functionality.
+
+> #### Change {: .info }
+>
+> This document and the strategy it describes was introduced in
+> Erlang/OTP 21.
 
 [](){: #supported_releases }
 
@@ -32,20 +35,20 @@ document.
 
 In general, bugs are only fixed on the latest
 [release](versions.md#releases_and_patches), and new features are introduced in
-the upcoming release that is under development. However, when we, due to
+the upcoming release that is under development. However, when we, for
 internal reasons, fix bugs on older releases, these will be available and
 announced as well.
 
-Due to the above, pull requests are only accepted on the `maint` and the
-`master` branches in our [git repository](https://github.com/erlang/otp). The
-`maint` branch contains changes planned for the next
-[maintenance patch package](versions.md#releases_and_patches) on the latest OTP
-release and the `master` branch contain changes planned for the upcoming OTP
-release.
+Pull requests are only accepted on the `maint` and the `master`
+branches in our [git repository](https://github.com/erlang/otp). The
+`maint` branch contains changes planned for the next [maintenance
+patch package](versions.md#releases_and_patches) on the latest OTP
+release and the `master` branch contain changes planned for the
+upcoming OTP release.
 
 ## Compatibility
 
-We always strive to remain as compatible as possible even in the cases where we
+We strive to remain as compatible as possible, even in cases where we
 give no compatibility guarantees.
 
 Different parts of the system will be handled differently regarding
@@ -55,8 +58,10 @@ are handled.
 - **Erlang Distribution** - Erlang nodes can communicate across at least two
   preceding and two subsequent releases.
 
-- **Compiled BEAM Code, NIF Libraries and Drivers** - Compiled code can be
-  loaded on at least two subsequent releases.
+- **Compiled BEAM Code, NIF Libraries, and Drivers** - Compiled code
+  can be loaded on at least two subsequent releases. To achive the
+  highest possible performance for Erlang code, ensure it is compiled
+  using the same release as the one it will be deployed on.
 
   Loading on previous releases is _not_ supported.
 
@@ -79,38 +84,54 @@ might trigger incompatible changes like this are:
 - **Bug Fixes** - We will not be bug-compatible. A bug fix might introduce
   incompatible changes. This kind of incompatibility might occur in a patch.
 
-- **Severe Previous Design Issues** - Some parts of OTP were designed a very
-  long time ago and did not necessarily take today's computing environments into
-  account. In some cases the consequences of those design decisions are too
-  severe. This may be performance wise, scalability wise, etc. If we deem the
-  consequences too severe, we might introduce incompatible changes. This kind of
-  incompatibility will not be introduced in a patch, but instead in the next
-  release.
+- **Severe Previous Design Issues** - Some parts of OTP were designed
+  a very long time ago and did not necessarily take today's computing
+  environments into account. Consequently, the ramifications of these
+  design choices can be quite significant, impacting performance,
+  scalability, and more. If we determine that these consequences are
+  too substantial, we may implement incompatible changes. Such changes
+  are never introduced in a patch, but in the subsequent release.
 
 Peripheral, trace, and debug functionality is at greater risk of being changed
 in an incompatible way than functionality in the language itself and core
 libraries used during operation.
 
+There is a page in the documentation regarding incompatibilities:
+
+* [Upcoming Potential Incompatibilities](`e:general_info:upcoming_incompatibilities.md`) -
+  lists all upcoming potential incompatibilities.
+
 ## Deprecation
 
-Functionality is deprecated when new functionality is introduced that is
-preferred to be used instead of the old functionality that is being deprecated.
-The deprecation does _not_ imply removal of the functionality unless an upcoming
-removal is explicitly stated in the deprecation.
+Deprecation of functionality occurs when newer, preferred alternatives
+are introduced. The deprecation does **not** imply future removal of the
+functionality unless an upcoming removal is explicitly stated in the
+deprecation notice.
 
-Deprecated functionality will be documented as deprecated, and compiler warnings
-will be issued, when appropriate, as early as possible. That is, the new
-preferred functionality will appear at the same time as the deprecation is
-issued. A new deprecation will at least be announced in a release note and the
-documentation.
+Deprecated functionality will be documented as deprecated and highlighted
+in a release note as early possible. If appropriate, the compiler will
+issue warnings when the deprecated functionality is used.
+
+There is a page in the documentation regarding deprecations:
+
+* [Deprecations](`e:general_info:deprecations.md`) - lists all
+  deprecated functionality.
 
 ## Removal
 
-Legacy solutions may eventually need to be removed. In such cases, they will be
-phased out on a long enough time period to give users the time to adapt. Before
-removal of functionality it will be deprecated at least during one release with
-an explicit announcement about the upcoming removal. A new deprecation will at
-least be announced in a release note and the documentation.
+It can become necessary to remove legacy solutions. In such instances,
+they will be gradually phased out over a sufficient period to allow
+users to adjust. Before functionality is removed, it will be
+deprecated for at least one release, with an explicit announcement
+about the upcoming removal.
 
 Peripheral, trace, and debug functionality is at greater risk of removal than
 functionality in the language itself and core libraries used during operation.
+
+There are two pages in the documentation regarding removal:
+
+* [Scheduled for Removal](`e:general_info:scheduled_for_removal.md`) - lists
+  all functionality that is schedule for removal in upcoming releases.
+
+* [Removed Functionality](`e:general_info:removed.md`) - lists
+  functionality that has been removed.

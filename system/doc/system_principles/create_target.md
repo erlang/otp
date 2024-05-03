@@ -41,11 +41,9 @@ functionality:
 
 - A _basic target system_ that can be started by calling the ordinary `erl`
   script.
-- A _simple target system_ where also code replacement in runtime can be
-  performed.
-- An _embedded target system_ where there is also support for logging output
-  from the system to file for later inspection, and where the system can be
-  started automatically at boot time.
+- A _simple target system_ that also supports code replacement in runtime.
+- An _embedded target system_ that also supports starting automatically
+  at boot time, and logging output from the system files for later inspection.
 
 Here is only considered the case when Erlang/OTP is running on a UNIX system.
 
@@ -86,10 +84,11 @@ _Step 2._ Start Erlang/OTP from the directory where the `mysystem.rel` file
 resides:
 
 ```text
-os> erl -pa /home/user/target_system/myapps/pea-1.0/ebin
+% erl -pa /home/user/target_system/myapps/pea-1.0/ebin
 ```
 
-Here also the path to the `pea-1.0` ebin directory is provided.
+The `-pa` argument prepends the path to the `ebin` directory for
+the Pea application to the code path.
 
 _Step 3._ Create the target system:
 
@@ -99,13 +98,15 @@ _Step 3._ Create the target system:
 
 The function `target_system:create/1` performs the following:
 
-1. Reads the file `mysystem.rel` and creates a new file `plain.rel` that is
-   identical to the former, except that it only lists the Kernel and STDLIB
-   applications.
+1. Reads the file `mysystem.rel` and creates a new file `plain.rel`.
+   The new file is identical to the original, except that it only
+   lists the Kernel and STDLIB applications.
+
 1. From the files `mysystem.rel` and `plain.rel` creates the files
-   `mysystem.script`, `mysystem.boot`, `plain.script`, and `plain.boot` through
-   a call to `systools:make_script/2`.
-1. Creates the file `mysystem.tar.gz` by a call to `systools:make_tar/2`. That
+   `mysystem.script`, `mysystem.boot`, `plain.script`, and `plain.boot`
+   by calling `systools:make_script/2`.
+
+1. Creates the file `mysystem.tar.gz` by calling `systools:make_tar/2`. That
    file has the following contents:
 
 ```text
@@ -126,9 +127,9 @@ Originally, this file was only stored in the `releases` directory to make it
 possible for the `release_handler` to extract this file separately. After
 unpacking the tar file, `release_handler` would automatically copy the file to
 `releases/FIRST`. However, sometimes the tar file is unpacked without involving
-the `release_handler` (for example, when unpacking the first target system). The
-file is therefore now instead duplicated in the tar file so no manual copying is
-needed.
+the `release_handler` (for example, when unpacking the first target system).
+Hence, the file is now duplicated within the tar archive, eliminating the
+need for manual copying.
 
 1. Creates the temporary directory `tmp` and extracts the tar file
    `mysystem.tar.gz` into that directory.
@@ -174,7 +175,7 @@ Now we have a target system that can be started in various ways. We start it as
 a _basic target system_ by invoking:
 
 ```text
-os> /usr/local/erl-target/bin/erl
+% /usr/local/erl-target/bin/erl
 ```
 
 Here only the Kernel and STDLIB applications are started, that is, the system is
@@ -190,7 +191,7 @@ To start all applications specified in the original `mysystem.rel` file, use
 flag `-boot` as follows:
 
 ```text
-os> /usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FIRST/start
+% /usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FIRST/start
 ```
 
 We start a _simple target system_ as above. The only difference is that also the
@@ -200,8 +201,8 @@ To start an _embedded target system_, the shell script `bin/start` is used. The
 script calls `bin/run_erl`, which in turn calls `bin/start_erl` (roughly,
 `start_erl` is an embedded variant of `erl`).
 
-The shell script `start`, which is generated from erts-5.10.4/bin/start.src
-during installation, is only an example. Edit it to suite your needs. Typically
+The shell script `start`, which is generated from `erts-5.10.4/bin/start.src`
+during installation, is merely an example. Edit it to suite your needs. Typically
 it is executed when the UNIX system boots.
 
 `run_erl` is a wrapper that provides logging of output from the runtime system
@@ -274,8 +275,8 @@ _Step 1._ Create the file `.rel`:
   {pea, "2.0"}]}.
 ```
 
-_Step 2._ Create the application upgrade file (see the
-[appup(4)](`e:sasl:appup.md`) manual page in SASL) for Pea, for example:
+_Step 2._ Create the application upgrade file (see
+[appup](`e:sasl:appup.md`) in SASL) for Pea, for example:
 
 ```erlang
 %% pea.appup
@@ -288,11 +289,11 @@ _Step 3._ From the directory where the file `mysystem2.rel` resides, start the
 Erlang/OTP system, giving the path to the new version of Pea:
 
 ```text
-os> erl -pa /home/user/target_system/myapps/pea-2.0/ebin
+% erl -pa /home/user/target_system/myapps/pea-2.0/ebin
 ```
 
-_Step 4._ Create the release upgrade file (see the [relup(4)](`e:sasl:relup.md`)
-manual page in SASL):
+_Step 4._ Create the release upgrade file (see [relup](`e:sasl:relup.md`)
+in SASL):
 
 ```text
 1> systools:make_relup("mysystem2",["mysystem"],["mysystem"],
@@ -352,19 +353,19 @@ Finally, to prepare the upgrade, we must put the new release package in the
 `releases` directory of the first target system:
 
 ```text
-os> cp mysystem2.tar.gz /usr/local/erl-target/releases
+% cp mysystem2.tar.gz /usr/local/erl-target/releases
 ```
 
 Assuming that the node has been started as follows:
 
 ```text
-os> /usr/local/erl-target/bin/start
+% /usr/local/erl-target/bin/start
 ```
 
 It can be accessed as follows:
 
 ```text
-os> /usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.1
+% /usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.1
 ```
 
 Logs can be found in `/usr/local/erl-target/log`. This directory is specified as
@@ -395,12 +396,12 @@ information, see [Upgrade when Erlang/OTP has Changed](upgrade.md).
 The node is accessible through a new pipe:
 
 ```text
-os> /usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2
+% /usr/local/erl-target/bin/to_erl /tmp/erlang.pipe.2
 ```
 
-Check which releases there are in the system:
+List the available releases in the system:
 
-```c
+```erlang
 1> release_handler:which_releases().
 [{"MYSYSTEM","SECOND",
   ["kernel-3.0","stdlib-2.0","sasl-2.4","pea-2.0"],

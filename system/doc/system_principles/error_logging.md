@@ -25,7 +25,7 @@ limitations under the License.
 
 Error information from the runtime system, that is, information about a process
 terminating because of an uncaught error exception, is by default written to
-terminal (tty):
+the terminal (TTY):
 
 ```text
 =ERROR REPORT==== 9-Dec-2003::13:25:02 ===
@@ -41,7 +41,7 @@ The exit reasons (such as `badarg`) used by the runtime system are described in
 For information about Logger and its user interface, see the `m:logger` manual
 page and the [Logging](`e:kernel:logger_chapter.md`) section in the Kernel
 User's Guide. The system can be configured so that log events are written to
-file or to tty, or both. In addition, user-defined applications can send and
+file or to the TTY, or both. In addition, user-defined applications can send and
 format log events using Logger.
 
 ## Log events from OTP behaviours
