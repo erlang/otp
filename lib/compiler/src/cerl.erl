@@ -1339,6 +1339,7 @@ All `Ei` must be abstract pairs constructed by `c_map_pair/2`.
 _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1`,
 `map_es/1`, `c_map_pair/2`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec c_map(Pairs :: [c_map_pair()]) -> c_map().
 
@@ -1360,6 +1361,7 @@ All `Ei` must be abstract pairs constructed by either `c_map_pair/2` or
 _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1`,
 `map_es/1`, `c_map_pair/2`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 
 -spec c_map(Argument :: cerl(), Pairs :: [c_map_pair()]) -> c_map().
 
@@ -1377,6 +1379,7 @@ All `Ei` must be abstract pairs constructed by `c_map_pair_exact/2`.
 _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1`,
 `map_es/1`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec c_map_pattern(Pairs :: [c_map_pair()]) -> c_map().
 
@@ -1392,6 +1395,7 @@ updating or matching), otherwise `false`.
 
 _See also: _`ann_c_map/3`, `c_map/1`, `c_map_pattern/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec is_c_map(Node :: cerl()) -> boolean().
 
@@ -1407,6 +1411,8 @@ Returns the list of map pair subtrees of an abstract map.
 
 _See also: _`c_map/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
+
 -spec map_es(Node :: c_map() | c_literal()) -> [c_map_pair()].
 
 map_es(#c_literal{anno=As,val=M}) when is_map(M) ->
@@ -1422,6 +1428,7 @@ Returns the argument subtree of an abstract map.
 
 _See also: _`c_map/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec map_arg(Node :: c_map() | c_literal()) -> c_map() | c_literal().
 
@@ -1436,6 +1443,7 @@ Returns `true` if `Node` represents an empty abstract map, otherwise `false`.
 
 _See also: _`c_map/1`, `c_map_pattern/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec is_c_map_empty(Node :: c_map() | c_literal()) -> boolean().
 
@@ -1451,6 +1459,7 @@ Returns `true` if `Node` is an abstract map pattern, otherwise `false`.
 
 _See also: _`c_map/1`, `c_map_pattern/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec is_c_map_pattern(Node :: c_map()) -> boolean().
 
@@ -1458,6 +1467,7 @@ is_c_map_pattern(#c_map{is_pat=IsPat}) ->
     IsPat.
 
 -doc "_See also: _`c_map/1`.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ann_c_map(Annotations :: [term()], Pairs :: [c_map_pair()]) ->
           c_map() | c_literal().
 
@@ -1466,6 +1476,7 @@ ann_c_map(As, Es) ->
 
 
 -doc "_See also: _`c_map/2`".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ann_c_map(Annotations :: [term()],
                 Argument :: c_map() | c_literal(),
                 Pairs :: [c_map_pair()]) -> c_map() | c_literal().
@@ -1482,6 +1493,7 @@ ann_c_map(As, M, Es) ->
 
 
 -doc "_See also: _`c_map_pattern/2`".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ann_c_map_pattern(Annotations :: [term()], Pairs :: [c_map_pair()]) -> c_map().
 
 ann_c_map_pattern(As, Pairs) ->
@@ -1514,6 +1526,7 @@ update_map_literal([], M) ->
     M.
 
 -doc "_See also: _`c_map/1`, `c_map_pattern/1`.".
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec update_c_map(Node :: c_map(), Map :: cerl(),
                    Pairs :: [c_map_pair()]) -> c_map() | c_literal().
@@ -1536,6 +1549,7 @@ The result represents "`Key => Value`".
 
 _See also: _`map_pair_key/1`, `map_pair_op/1`, `map_pair_val/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec c_map_pair(Key :: cerl(), Value:: cerl()) -> c_map_pair().
 
@@ -1553,6 +1567,7 @@ The result represents "`Key := Value`".
 
 _See also: _`map_pair_key/1`, `map_pair_op/1`, `map_pair_val/1`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec c_map_pair_exact(Key :: cerl(), Value :: cerl()) -> c_map_pair().
 
@@ -1560,6 +1575,7 @@ c_map_pair_exact(Key, Val) ->
     #c_map_pair{op = #c_literal{val=exact}, key = Key, val = Val}.
 
 -doc "_See also: _`c_map_pair/2`, `c_map_pair_exact/2`.".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec ann_c_map_pair(Annotations :: [term()], Operation :: cerl(),
                      Key :: cerl(), Value :: cerl()) -> c_map_pair().
 
@@ -1567,6 +1583,7 @@ ann_c_map_pair(As, Op, K, V) ->
     #c_map_pair{op = Op, key = K, val=V, anno = As}.
 
 -doc "_See also: _`c_map_pair/2`, `c_map_pair_exact/2`.".
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec update_c_map_pair(Node :: c_map_pair(), Operation ::map_op(),
                         Key :: cerl(), Value :: cerl()) -> c_map_pair().
@@ -1579,6 +1596,7 @@ Returns the key subtree of an abstract map pair.
 
 _See also: _`c_map_pair/2`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec map_pair_key(Node :: c_map_pair()) -> cerl().
 
@@ -1589,6 +1607,7 @@ Returns the value subtree of an abstract map pair.
 
 _See also: _`c_map_pair/2`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 
 -spec map_pair_val(Node :: c_map_pair()) -> cerl().
 
@@ -1599,6 +1618,7 @@ Returns the operation subtree of an abstract map pair.
 
 _See also: _`c_map_pair/2`, `c_map_pair_exact/2`.
 """.
+-doc(#{since => <<"OTP 17.0">>}).
 -spec map_pair_op(Node :: c_map_pair()) -> map_op().
 
 map_pair_op(#c_map_pair{op=Op}) -> Op.
