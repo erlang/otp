@@ -13,8 +13,6 @@
     "system_principles/versions.md": [],
     "system_principles/misc.md": [],
     "embedded/embedded.md": [],
-    "embedded/embedded_solaris.md": [],
-    "embedded/embedded_nt.md": [],
     "getting_started/getting_started.md": [],
     "getting_started/seq_prog.md": [],
     "getting_started/conc_prog.md": [],
