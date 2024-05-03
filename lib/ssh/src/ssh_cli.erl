@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %% over SSH
 
 -module(ssh_cli).
+-moduledoc false.
 
 -behaviour(ssh_server_channel).
 
@@ -79,7 +80,7 @@ handle_ssh_msg({ssh_cm, _ConnectionHandler,
 	       #state{group = Group} = State0) ->
     {Enc, State} = guess_encoding(Data, State0),
     List = unicode:characters_to_list(Data, Enc),
-    to_group(List, Group),
+    to_group(List, Group, get_dumb(State#state.pty)),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, ConnectionHandler,
@@ -281,6 +282,10 @@ handle_msg({Group, get_unicode_state}, State) ->
     Group ! {self(), get_unicode_state, false},
     {ok, State};
 
+handle_msg({Group, get_terminal_state}, State) ->
+    Group ! {self(), get_terminal_state, #{ stdout => true, stdin => true }},
+    {ok, State};
+
 handle_msg({Group, tty_geometry}, #state{group = Group,
 					 pty = Pty
 					} = State) ->
@@ -389,21 +394,28 @@ out_enc(#state{encoding = PeerEnc,
 
 %%--------------------------------------------------------------------
 
-to_group([], _Group) ->
+to_group([], _Group, _Dumb) ->
     ok;
-to_group([$\^C | Tail], Group) ->
+to_group([$\^C | Tail], Group, Dumb) ->
     exit(Group, interrupt),
-    to_group(Tail, Group);
-to_group(Data, Group) ->
+    to_group(Tail, Group, Dumb);
+to_group(Data, Group, Dumb) ->
     Func = fun(C) -> C /= $\^C end,
     Tail = case lists:splitwith(Func, Data) of
         {[], Right} ->
             Right;
         {Left, Right} ->
-            Group ! {self(), {data, Left}},
+            %% Filter out escape sequences, only support Ctrl sequences
+            Left1 = if Dumb -> replace_escapes(Left); true -> Left end,
+            Group ! {self(), {data, Left1}},
             Right
     end,
-    to_group(Tail, Group).
+    to_group(Tail, Group, Dumb).
+replace_escapes(Data) ->
+    lists:flatten([ if C =:= 27 ->
+        [$^,C+64];
+         true -> C
+    end || C <- Data]).
 
 %%--------------------------------------------------------------------
 %%% io_request, handle io requests from the user process,
@@ -420,14 +432,44 @@ io_request({put_chars, Cs}, Buf, Tty, _Group) ->
     put_chars(bin_to_list(Cs), Buf, Tty);
 io_request({put_chars, unicode, Cs}, Buf, Tty, _Group) ->
     put_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
+io_request({put_expand, unicode, Expand, _N}, Buf, Tty, _Group) ->
+    insert_chars(unicode:characters_to_list("\n"++Expand, unicode), Buf, Tty);
 io_request({insert_chars, Cs}, Buf, Tty, _Group) ->
     insert_chars(bin_to_list(Cs), Buf, Tty);
 io_request({insert_chars, unicode, Cs}, Buf, Tty, _Group) ->
     insert_chars(unicode:characters_to_list(Cs,unicode), Buf, Tty);
 io_request({move_rel, N}, Buf, Tty, _Group) ->
     move_rel(N, Buf, Tty);
+io_request({move_line, N}, Buf, Tty, _Group) ->
+    move_line(N, Buf, Tty);
+io_request({move_combo, L, V, R}, Buf, Tty, _Group) ->
+    {ML, Buf1} = move_rel(L, Buf, Tty),
+    {MV, Buf2} = move_line(V, Buf1, Tty),
+    {MR, Buf3} = move_rel(R, Buf2, Tty),
+    {[ML,MV,MR], Buf3};
+io_request(new_prompt, _Buf, _Tty, _Group) ->
+    {[], {[], {[],[]}, [], 0 }};
+io_request(delete_line, {_, {_, _}, _, Col}, Tty, _Group) ->
+    MoveToBeg = move_cursor(Col, 0, Tty),
+    {[MoveToBeg, "\e[J"],
+     {[],{[],[]},[],0}};
+io_request({redraw_prompt, Pbs, Pbs2, {LB, {Bef, Aft}, LA}}, Buf, Tty, _Group) ->
+    {ClearLine, Cleared} = io_request(delete_line, Buf, Tty, _Group),
+    CL = lists:reverse(Bef,Aft),
+    Text = Pbs ++ lists:flatten(lists:join("\n"++Pbs2, lists:reverse(LB)++[CL|LA])),
+    Moves = if LA /= [] ->
+                    [Last|_] = lists:reverse(LA),
+                    {move_combo, -length(Last), -length(LA), length(Bef)};
+               true ->
+                    {move_rel, -length(Aft)}
+            end,
+    {T, InsertedText} = io_request({insert_chars, unicode:characters_to_binary(Text)}, Cleared, Tty, _Group),
+    {M, Moved} = io_request(Moves, InsertedText, Tty, _Group),
+    {[ClearLine, T, M], Moved};
 io_request({delete_chars,N}, Buf, Tty, _Group) ->
     delete_chars(N, Buf, Tty);
+io_request(clear, Buf, _Tty, _Group) ->
+    {"\e[H\e[2J", Buf};
 io_request(beep, Buf, _Tty, _Group) ->
     {[7], Buf};
 
@@ -441,13 +483,12 @@ io_request({requests,Rs}, Buf, Tty, Group) ->
 io_request(tty_geometry, Buf, Tty, Group) ->
     io_requests([{move_rel, 0}, {put_chars, unicode, [10]}],
                 Buf, Tty, [], Group);
-     %{[], Buf};
 
 %% New in 18
 io_request({put_chars_sync, Class, Cs, Reply}, Buf, Tty, Group) ->
     %% We handle these asynchronous for now, if we need output guarantees
     %% we have to handle these synchronously
-    Group ! {reply, Reply},
+    Group ! {reply, Reply, ok},
     io_request({put_chars, Class, Cs}, Buf, Tty, Group);
 
 io_request(_R, Buf, _Tty, _Group) ->
@@ -478,57 +519,67 @@ get_tty_command(left, N, _TerminalType) ->
 -define(TABWIDTH, 8).
 
 %% convert input characters to buffer and to writeout
-%% Note that the buf is reversed but the buftail is not
+%% Note that Bef is reversed but Aft is not
 %% (this is handy; the head is always next to the cursor)
-conv_buf([], AccBuf, AccBufTail, AccWrite, Col, _Tty) ->
-    {AccBuf, AccBufTail, lists:reverse(AccWrite), Col};
-conv_buf([13, 10 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
-    conv_buf(Rest, [], tl2(AccBufTail), [10, 13 | AccWrite], 0, Tty);
-conv_buf([13 | Rest], _AccBuf, AccBufTail, AccWrite, _Col, Tty) ->
-    conv_buf(Rest, [], tl1(AccBufTail), [13 | AccWrite], 0, Tty);
-conv_buf([10 | Rest], _AccBuf, AccBufTail, AccWrite0, _Col, Tty) ->
+conv_buf([], {LB, {Bef, Aft}, LA, Col}, AccWrite, _Tty) ->
+    {{LB, {Bef, Aft}, LA, Col}, lists:reverse(AccWrite)};
+conv_buf([13, 10 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl2(Aft)}, LA, Col+(W-(Col rem W))}, [10, 13 | AccWrite], Tty);
+conv_buf([13 | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty = #ssh_pty{width = W}) ->
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl1(Aft)}, LA, Col+(W-(Col rem W))}, [13 | AccWrite], Tty);
+conv_buf([10 | Rest],{LB, {Bef, Aft}, LA, Col}, AccWrite0, Tty = #ssh_pty{width = W}) ->
     AccWrite =
         case pty_opt(onlcr,Tty) of
             0 -> [10 | AccWrite0];
             1 -> [10,13 | AccWrite0];
             undefined -> [10 | AccWrite0]
         end,
-    conv_buf(Rest, [], tl1(AccBufTail), AccWrite, 0, Tty);
-conv_buf([C | Rest], AccBuf, AccBufTail, AccWrite, Col, Tty) ->
-    conv_buf(Rest, [C | AccBuf], tl1(AccBufTail), [C | AccWrite], Col + 1, Tty).
+    conv_buf(Rest, {[lists:reverse(Bef)|LB], {[], tl1(Aft)}, LA, Col+(W - (Col rem W))}, AccWrite, Tty);
+conv_buf([C | Rest], {LB, {Bef, Aft}, LA, Col}, AccWrite, Tty) ->
+    conv_buf(Rest, {LB, {[C|Bef], tl1(Aft)}, LA, Col+1}, [C | AccWrite], Tty).
 
-
-%%% put characters at current position (possibly overwriting
-%%% characters after current position in buffer)
-put_chars(Chars, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, BufTail, [], Col, Tty),
-    {WriteBuf, {NewBuf, NewBufTail, NewCol}}.
+%%% put characters before the prompt
+put_chars(Chars, Buf, Tty) ->
+    Dumb = get_dumb(Tty),
+    case Buf of
+        {[],{[],[]},[],_} -> {_, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
+            {WriteBuf, Buf};
+        _ when Dumb =:= false ->
+            {Delete, DeletedState} = io_request(delete_line, Buf, Tty, []),
+            {_, PutBuffer} = conv_buf(Chars, DeletedState, [], Tty),
+            {Redraw, _} = io_request(redraw_prompt_pre_deleted, Buf, Tty, []),
+            {[Delete, PutBuffer, Redraw], Buf};
+        _ ->
+            %% When we have a dumb terminal, we get messages via put_chars requests
+            %% so state should be empty {[],{[],[]},[],_},
+            %% but if we end up here its not, so keep the state
+            {_, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
+            {WriteBuf, Buf}
+    end.
 
 %%% insert character at current position
-insert_chars([], {Buf, BufTail, Col}, _Tty) ->
-    {[], {Buf, BufTail, Col}};
-insert_chars(Chars, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, _NewBufTail, WriteBuf, NewCol} =
-	conv_buf(Chars, Buf, [], [], Col, Tty),
-    M = move_cursor(special_at_width(NewCol+length(BufTail), Tty), NewCol, Tty),
-    {[WriteBuf, BufTail | M], {NewBuf, BufTail, NewCol}}.
+insert_chars([], Buf, _Tty) ->
+    {[], Buf};
+insert_chars(Chars, {_LB,{_Bef, Aft},LA, _Col}=Buf, Tty) ->
+    {{NewLB, {NewBef, _NewAft}, _NewLA, NewCol}, WriteBuf} = conv_buf(Chars, Buf, [], Tty),
+    M = move_cursor(special_at_width(NewCol+length(Aft), Tty), NewCol, Tty),
+    {[WriteBuf, Aft | M], {NewLB,{NewBef, Aft},LA, NewCol}}.
 
 %%% delete characters at current position, (backwards if negative argument)
-delete_chars(0, {Buf, BufTail, Col}, _Tty) ->
-    {[], {Buf, BufTail, Col}};
-delete_chars(N, {Buf, BufTail, Col}, Tty) when N > 0 ->
-    NewBufTail = nthtail(N, BufTail),
-    M = move_cursor(Col + length(NewBufTail) + N, Col, Tty),
-    {[NewBufTail, lists:duplicate(N, $ ) | M],
-     {Buf, NewBufTail, Col}};
-delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
-    NewBuf = nthtail(-N, Buf),
+delete_chars(0, {LB,{Bef, Aft},LA, Col}, _Tty) ->
+    {[], {LB,{Bef, Aft},LA, Col}};
+delete_chars(N, {LB,{Bef, Aft},LA, Col}, Tty) when N > 0 ->
+    NewAft = nthtail(N, Aft),
+    M = move_cursor(Col + length(NewAft) + N, Col, Tty),
+    {[NewAft, lists:duplicate(N, $ ) | M],
+     {LB,{Bef, NewAft},LA, Col}};
+delete_chars(N, {LB,{Bef, Aft},LA, Col}, Tty) -> % N < 0
+    NewBef = nthtail(-N, Bef),
     NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
-    M2 = move_cursor(special_at_width(NewCol+length(BufTail)-N, Tty), NewCol, Tty),
-    {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
-     {NewBuf, BufTail, NewCol}}.
+    M2 = move_cursor(special_at_width(NewCol+length(Aft)-N, Tty), NewCol, Tty),
+    {[M1, Aft, lists:duplicate(-N, $ ) | M2],
+     {LB,{NewBef, Aft},LA, NewCol}}.
 
 %%% Window change, redraw the current line (and clear out after it
 %%% if current window is wider than previous)
@@ -536,52 +587,74 @@ window_change(Tty, OldTty, Buf)
   when OldTty#ssh_pty.width == Tty#ssh_pty.width ->
      %% No line width change
     {[], Buf};
-window_change(Tty, OldTty, {Buf, BufTail, Col}) ->
+window_change(Tty, OldTty, {LB, {Bef, Aft}, LA, Col}) ->
     case OldTty#ssh_pty.width - Tty#ssh_pty.width of
         0 ->
             %% No line width change
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 < 0,
-                     BufTail == [] ->
+                     Aft == [] ->
             % Line width is decreased, cursor is at end of input
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 < 0,
-                     BufTail =/= [] ->
+                     Aft =/= [] ->
             % Line width is decreased, cursor is not at end of input
-            {[], {Buf,BufTail,Col}};
+            {[], {LB, {Bef, Aft}, LA, Col}};
 
         DeltaW0 when DeltaW0 > 0 ->
             % Line width is increased
-            {[], {Buf,BufTail,Col}}
+            {[], {LB, {Bef, Aft}, LA, Col}}
         end.
 
 %% move around in buffer, respecting pad characters
-step_over(0, Buf, [?PAD | BufTail], Col) ->
-    {[?PAD | Buf], BufTail, Col+1};
-step_over(0, Buf, BufTail, Col) ->
-    {Buf, BufTail, Col};
-step_over(N, [C | Buf], BufTail, Col) when N < 0 ->
+step_over(0, {LB, {Bef, [?PAD |Aft]}, LA, Col}) ->
+    {LB, {[?PAD | Bef], Aft}, LA, Col+1};
+step_over(0, {LB, {Bef, Aft}, LA, Col}) ->
+    {LB, {Bef, Aft}, LA, Col};
+step_over(N, {LB, {[C | Bef], Aft}, LA, Col}) when N < 0 ->
     N1 = ifelse(C == ?PAD, N, N+1),
-    step_over(N1, Buf, [C | BufTail], Col-1);
-step_over(N, Buf, [C | BufTail], Col) when N > 0 ->
+    step_over(N1, {LB, {Bef, [C | Aft]}, LA, Col-1});
+step_over(N, {LB, {Bef, [C | Aft]}, LA, Col}) when N > 0 ->
     N1 = ifelse(C == ?PAD, N, N-1),
-    step_over(N1, [C | Buf], BufTail, Col+1).
+    step_over(N1, {LB, {[C | Bef], Aft}, LA, Col+1}).
 
 %%% an empty line buffer
-empty_buf() -> {[], [], 0}.
+empty_buf() -> {[], {[], []}, [], 0}.
 
 %%% col and row from position with given width
 col(N, W) -> N rem W.
 row(N, W) -> N div W.
 
 %%% move relative N characters
-move_rel(N, {Buf, BufTail, Col}, Tty) ->
-    {NewBuf, NewBufTail, NewCol} = step_over(N, Buf, BufTail, Col),
+move_rel(N, {_LB, {_Bef, _Aft}, _LA, Col}=Buf, Tty) ->
+    {NewLB, {NewBef, NewAft}, NewLA, NewCol} = step_over(N, Buf),
     M = move_cursor(Col, NewCol, Tty),
-    {M, {NewBuf, NewBufTail, NewCol}}.
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}}.
 
+move_line(V, {_LB, {_Bef, _Aft}, _LA, Col}, Tty = #ssh_pty{width=W})
+        when V < 0, length(_LB) >= -V ->
+    {LinesJumped, [B|NewLB]} = lists:split(-V -1, _LB),
+    CL = lists:reverse(_Bef,_Aft),
+    NewLA = lists:reverse([CL|LinesJumped], _LA),
+    {NewBB, NewAft} = lists:split(min(length(_Bef),length(B)), B),
+    NewBef = lists:reverse(NewBB),
+    NewCol = Col - length(_Bef) - lists:sum([((length(L)-1) div W)*W + W || L <- [B|LinesJumped]]) + length(NewBB),
+    M = move_cursor(Col, NewCol, Tty),
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}};
+move_line(V, {_LB, {_Bef, _Aft}, _LA, Col}, Tty = #ssh_pty{width=W})
+        when V > 0, length(_LA) >= V ->
+    {LinesJumped, [A|NewLA]} = lists:split(V -1, _LA),
+    CL = lists:reverse(_Bef,_Aft),
+    NewLB = lists:reverse([CL|LinesJumped],_LB),
+    {NewBB, NewAft} = lists:split(min(length(_Bef),length(A)), A),
+    NewBef = lists:reverse(NewBB),
+    NewCol = Col - length(_Bef) + lists:sum([((length(L)-1) div W)*W + W || L <- [CL|LinesJumped]]) + length(NewBB),
+    M = move_cursor(Col, NewCol, Tty),
+    {M, {NewLB, {NewBef, NewAft}, NewLA, NewCol}};
+move_line(_, Buf, _) ->
+    {"", Buf}.
 %%% give move command for tty
 move_cursor(A, A, _Tty) ->
     [];
@@ -666,7 +739,9 @@ start_shell(ConnectionHandler, State) ->
             {_,_,_} = Shell ->
                 Shell
         end,
-    State#state{group = group:start(self(), ShellSpawner, [{echo, get_echo(State#state.pty)}]),
+    State#state{group = group:start(self(), ShellSpawner,
+                                    [{dumb, get_dumb(State#state.pty)},{expand_below, false},
+                                     {echo, get_echo(State#state.pty)}]),
                 buf = empty_buf()}.
 
 %%--------------------------------------------------------------------
@@ -687,7 +762,8 @@ start_exec_shell(ConnectionHandler, Cmd, State) ->
             {M,F,A} ->
                 {M, F, A++[Cmd]}
         end,
-    State#state{group = group:start(self(), ExecShellSpawner, [{echo,false}]),
+    State#state{group = group:start(self(), ExecShellSpawner, [{expand_below, false},
+                                                               {echo,false}]),
                 buf = empty_buf()}.
 
 %%--------------------------------------------------------------------
@@ -771,7 +847,8 @@ exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun) ->
                           end
                   end)
         end,
-    {ok, State#state{group = group:start(self(), Exec, [{echo,false}]),
+    {ok, State#state{group = group:start(self(), Exec, [{expand_below, false},
+                                                        {echo,false}]),
                      buf = empty_buf()}}.
     
 
@@ -780,6 +857,13 @@ t2str(T) -> try io_lib:format("~s",[T])
             end.
 
 %%--------------------------------------------------------------------
+get_dumb(Tty) ->
+    try
+        Tty#ssh_pty.term =:= "dumb"
+    catch
+        _:_ -> false
+    end.
+
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.
 get_echo(Tty) ->
@@ -923,4 +1007,3 @@ fmt_kv1({K,h,V}) -> io_lib:format("~n~p: ~s",[K, [$\n|ssh_dbg:hex_dump(V)]]).
 type(0) -> "0 (normal data)";
 type(1) -> "1 (extended data, i.e. errors)";
 type(T) -> T.
-

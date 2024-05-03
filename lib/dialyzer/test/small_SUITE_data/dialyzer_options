@@ -1,1 +1,1 @@
-{dialyzer_options, [{indent_opt, false}, {error_location, column}]}.
+{dialyzer_options, [{indent_opt, false}, {error_location, column}, {warnings, [no_unknown, overlapping_contract]}]}.

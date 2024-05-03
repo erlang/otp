@@ -5,6 +5,7 @@
 
 #include "../core/api-build_p.h"
 #include "../core/archtraits.h"
+#include "../core/environment.h"
 #include "../core/misc_p.h"
 
 #if !defined(ASMJIT_NO_X86)

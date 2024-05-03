@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,29 +51,34 @@ MODULES =  \
 	beam_bounds \
 	beam_block \
 	beam_call_types \
+	beam_core_to_ssa \
 	beam_clean \
 	beam_dict \
 	beam_digraph \
 	beam_disasm \
+	beam_doc \
 	beam_flatten \
 	beam_jump \
 	beam_listing \
 	beam_opcodes \
 	beam_ssa \
+	beam_ssa_alias \
 	beam_ssa_bc_size \
 	beam_ssa_bool \
 	beam_ssa_bsm \
+	beam_ssa_check \
 	beam_ssa_codegen \
 	beam_ssa_dead \
+	beam_ssa_destructive_update \
 	beam_ssa_lint \
 	beam_ssa_opt \
 	beam_ssa_pp \
 	beam_ssa_pre_codegen \
 	beam_ssa_recv \
 	beam_ssa_share \
+	beam_ssa_ss \
 	beam_ssa_throw \
 	beam_ssa_type \
-	beam_kernel_to_ssa \
 	beam_trim \
 	beam_types \
 	beam_utils \
@@ -97,11 +102,10 @@ MODULES =  \
 	sys_core_fold_lists \
 	sys_core_inline \
 	sys_core_prepare \
+	sys_coverage \
 	sys_messages \
 	sys_pre_attributes \
-	v3_core \
-	v3_kernel \
-	v3_kernel_pp
+	v3_core
 
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
@@ -111,8 +115,7 @@ HRL_FILES= \
 	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
 	beam_types.hrl \
-	core_parse.hrl \
-	v3_kernel.hrl
+	core_parse.hrl
 
 YRL_FILE = core_parse.yrl
 
@@ -154,7 +157,7 @@ docs:
 
 clean:
 	rm -f $(TARGET_FILES)
-	rm -f $(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl
+	rm -f $(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl $(EGEN)/OPCODES-GENERATED
 	rm -f $(EGEN)/core_parse.erl
 	rm -f core
 
@@ -168,8 +171,10 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
-$(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl: genop.tab
-	$(gen_verbose)$(PERL) $(ERL_TOP)/erts/emulator/utils/beam_makeops -compiler -outdir $(EGEN) $<
+$(EGEN)/beam_opcodes.erl $(EGEN)/beam_opcodes.hrl: $(EGEN)/OPCODES-GENERATED
+
+$(EGEN)/OPCODES-GENERATED: genop.tab
+	$(gen_verbose)$(PERL) $(ERL_TOP)/erts/emulator/utils/beam_makeops -compiler -outdir $(EGEN) $< && echo $? >$(EGEN)/OPCODES-GENERATED
 
 $(EBIN)/beam_asm.beam: $(ESRC)/beam_asm.erl $(EGEN)/beam_opcodes.hrl
 	$(V_ERLC) $(ERL_COMPILE_FLAGS) -DCOMPILER_VSN='"$(VSN)"' -o$(EBIN) $<
@@ -199,25 +204,33 @@ release_docs_spec:
 # Dependencies -- alphabetically, please
 # ---------------------------------------------------- 
 
-$(EBIN)/beam_asm.beam: beam_asm.hrl
-$(EBIN)/beam_call_types.beam: beam_types.hrl
+$(EBIN)/beam_a.beam: beam_asm.hrl beam_types.hrl
+$(EBIN)/beam_asm.beam: beam_asm.hrl $(EGEN)/beam_opcodes.hrl beam_types.hrl
 $(EBIN)/beam_block.beam: beam_asm.hrl
-$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl beam_asm.hrl
+$(EBIN)/beam_call_types.beam: beam_types.hrl
+$(EBIN)/beam_core_to_ssa.beam: core_parse.hrl beam_ssa.hrl
+$(EBIN)/beam_dict.beam: beam_types.hrl
+$(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl \
+     beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_jump.beam: beam_asm.hrl
-$(EBIN)/beam_kernel_to_ssa.beam: v3_kernel.hrl beam_ssa.hrl
-$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl beam_ssa.hrl beam_asm.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl beam_ssa.hrl \
+     beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_alias_opt.beam: beam_ssa_opt.hrl beam_types.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_dead.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_destructive_update.beam: beam_ssa_opt.hrl beam_types.hrl
 $(EBIN)/beam_ssa_lint.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_opt.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl
+$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_types.hrl
+$(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_trim.beam: beam_asm.hrl
 $(EBIN)/beam_types.beam: beam_types.hrl
@@ -234,5 +247,3 @@ $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
-$(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl
-$(EBIN)/v3_kernel_pp.beam: v3_kernel.hrl

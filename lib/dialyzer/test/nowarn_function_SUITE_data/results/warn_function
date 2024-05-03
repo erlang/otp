@@ -1,0 +1,12 @@
+
+warn_function.erl:12:17: Guard test 1 =:= B::fun((none()) -> no_return()) can never succeed
+warn_function.erl:18:1: Function b/1 has no local return
+warn_function.erl:22:5: Guard test 2 =:= A::fun((none()) -> no_return()) can never succeed
+warn_function.erl:26:1: Function c/0 has no local return
+warn_function.erl:27:5: Record construction #r{a::'a'} violates the declared type of field a::integer()
+warn_function.erl:30:5: Unknown function nonexistent:foo/0
+warn_function.erl:5:2: Invalid type specification for function warn_function:a/1.
+ The success typing is warn_function:a(_) -> fun((_) -> none())
+ But the spec is warn_function:a(_) -> integer()
+ The return types do not overlap
+warn_function.erl:8:9: The created fun has no local return

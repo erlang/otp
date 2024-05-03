@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -674,7 +674,7 @@ sync(Config) ->
     check_tracer(100),
     ok.
 sync(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_wrap(Config) ->
@@ -720,7 +720,7 @@ disk_log_wrap(Config) ->
 
     %% wait for trace messages
     timer:sleep(1000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
                                   [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
@@ -732,7 +732,7 @@ disk_log_wrap(Config) ->
     ok.
 
 disk_log_wrap(cleanup,_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).
 
 disk_log_full(Config) ->
@@ -766,7 +766,7 @@ disk_log_full(Config) ->
 
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:flatmap(fun({trace,_M,handle_info,
                                   [_,{disk_log,_Node,_Name,What},_]}) ->
                                      [{trace,What}];
@@ -782,7 +782,7 @@ disk_log_full(Config) ->
     %%  {trace,{error_status,{error,{full,_}}}}] = Received,
     ok.
 disk_log_full(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
 disk_log_events(_Config) ->
@@ -816,7 +816,7 @@ disk_log_events(_Config) ->
     [whereis(h_proc_name()) ! E || E <- Events],
     %% wait for trace messages
     timer:sleep(2000),
-    dbg:stop_clear(),
+    dbg:stop(),
     Received = lists:map(fun({trace,_M,handle_info,
                               [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
@@ -828,7 +828,7 @@ disk_log_events(_Config) ->
                   end, Received),
     ok.
 disk_log_events(cleanup, _Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
     logger:remove_handler(?MODULE).    
 
 write_failure(Config) ->
@@ -1050,7 +1050,7 @@ op_switch_to_flush(Config) ->
                                             flush_qlen => 300,
                                             burst_limit_enable => false}},    
                 ok = logger:update_handler_config(?MODULE, NewHConfig),
-                NumOfReqs = 1500,
+                NumOfReqs = 10000,
                 Procs = 10,
                 Bursts = 10,
                 %% It sometimes happens that the handler either gets
@@ -1170,13 +1170,14 @@ qlen_kill_new(Config) ->
     RestartAfter = ?OVERLOAD_KILL_RESTART_AFTER,
     NewHConfig =
         HConfig#{config =>
-                     DLHConfig#{overload_kill_enable=>true,
+                     DLHConfig#{burst_limit_enable=>false,
+                                overload_kill_enable=>true,
                                 overload_kill_qlen=>10,
                                 overload_kill_mem_size=>Mem0+50000,
                                 overload_kill_restart_after=>RestartAfter}},
     ok = logger:update_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
-    NumOfReqs = 100,
+    NumOfReqs = 5000,
     Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
@@ -1213,7 +1214,7 @@ mem_kill_new(Config) ->
                                 overload_kill_restart_after=>RestartAfter}},
     ok = logger:update_handler_config(?MODULE, NewHConfig),
     MRef = erlang:monitor(process, Pid0),
-    NumOfReqs = 100,
+    NumOfReqs = 500,
     Procs = 4,
     send_burst({n,NumOfReqs}, {spawn,Procs,0}, {chars,79}, notice),
     %% send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
@@ -1248,7 +1249,7 @@ restart_after(Config) ->
     ok = logger:update_handler_config(?MODULE, NewHConfig1),
     MRef1 = erlang:monitor(process, whereis(h_proc_name())),
     %% kill handler
-    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
+    send_burst({n,1000}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef1, _, _, _Reason1} ->
             file_delete(Log),
@@ -1271,7 +1272,7 @@ restart_after(Config) ->
     Pid0 = whereis(h_proc_name()),
     MRef2 = erlang:monitor(process, Pid0),
     %% kill handler
-    send_burst({n,100}, {spawn,5,0}, {chars,79}, notice),
+    send_burst({n,500}, {spawn,5,0}, {chars,79}, notice),
     receive
         {'DOWN', MRef2, _, _, _Reason2} ->
             file_delete(Log),
@@ -1603,7 +1604,7 @@ tpl([{{M,F,A},MS}|Trace]) ->
         {_,_,1} ->
             ok;
         _ ->
-            dbg:stop_clear(),
+            dbg:stop(),
             throw({skip,"Can't trace "++atom_to_list(M)++":"++
                        atom_to_list(F)++"/"++integer_to_list(A)})
     end,
@@ -1636,13 +1637,13 @@ maybe_tracer_done(Pid,Expected,Got,Caller) ->
 check_tracer(T) ->
     receive
         tracer_done ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ok;
         {tracer_got_unexpected,Got,Expected} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({tracer_got_unexpected,Got,Expected})
     after T ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({timeout,tracer})
     end.
 

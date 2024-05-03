@@ -24,7 +24,8 @@
     {line,[{location,"receive_stacked.erl",15}]}.
     {func_info,{atom,receive_stacked},{atom,f1},0}.
   {label,2}.
-    {allocate_zero,1,0}.
+    {allocate,1,0}.
+    {init_yregs,{list,[{y,0}]}}.
   {label,3}.
     {loop_rec,{f,5},{x,0}}.
     {move,{x,0},{y,0}}.
@@ -47,7 +48,8 @@
     {line,[{location,"receive_stacked.erl",22}]}.
     {func_info,{atom,receive_stacked},{atom,f2},0}.
   {label,7}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
   {label,8}.
     {loop_rec,{f,10},{x,0}}.
     {test,is_nonempty_list,{f,9},[{x,0}]}.
@@ -55,16 +57,12 @@
     {test,is_nil,{f,9},[{x,0}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",26}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,9}.
@@ -78,7 +76,8 @@
     {line,[{location,"receive_stacked.erl",30}]}.
     {func_info,{atom,receive_stacked},{atom,f3},0}.
   {label,12}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
   {label,13}.
     {loop_rec,{f,15},{x,0}}.
     {test,is_nonempty_list,{f,14},[{x,0}]}.
@@ -86,16 +85,12 @@
     {test,is_integer,{f,14},[{y,1}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",34}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,14}.
@@ -109,7 +104,8 @@
     {line,[{location,"receive_stacked.erl",38}]}.
     {func_info,{atom,receive_stacked},{atom,f4},0}.
   {label,17}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
   {label,18}.
     {loop_rec,{f,20},{x,0}}.
     {test,is_nonempty_list,{f,19},[{x,0}]}.
@@ -117,16 +113,12 @@
     {test,is_list,{f,19},[{y,1}]}.
     {test_heap,3,0}.
     remove_message.
-    {put_tuple,2,{y,0}}.
-    {put,{atom,ok}}.
-    {put,{y,1}}.
+    {put_tuple2,{y,0},{list,[{atom,ok},{y,1}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",42}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,19}.
@@ -140,7 +132,8 @@
     {line,[{location,"receive_stacked.erl",46}]}.
     {func_info,{atom,receive_stacked},{atom,f5},0}.
   {label,22}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
   {label,23}.
     {loop_rec,{f,25},{x,0}}.
     {test,is_tuple,{f,24},[{x,0}]}.
@@ -153,9 +146,7 @@
     {line,[{location,"receive_stacked.erl",50}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,0}}.
-    {put,{y,1}}.
+    {put_tuple2,{x,0},{list,[{y,0},{y,1}]}}.
     {deallocate,2}.
     return.
   {label,24}.
@@ -169,7 +160,8 @@
     {line,[{location,"receive_stacked.erl",54}]}.
     {func_info,{atom,receive_stacked},{atom,f6},0}.
   {label,27}.
-    {allocate_zero,1,0}.
+    {allocate,1,0}.
+    {init_yregs,{list,[{y,0}]}}.
   {label,28}.
     {loop_rec,{f,30},{x,0}}.
     {test,bs_start_match3,{f,29},1,[{x,0}],{x,0}}.
@@ -216,7 +208,8 @@
     {line,[{location,"receive_stacked.erl",61}]}.
     {func_info,{atom,receive_stacked},{atom,f7},0}.
   {label,32}.
-    {allocate_zero,1,0}.
+    {allocate,1,0}.
+    {init_yregs,{list,[{y,0}]}}.
   {label,33}.
     {loop_rec,{f,35},{x,0}}.
     {test,bs_start_match3,{f,34},1,[{x,0}],{x,0}}.
@@ -259,7 +252,8 @@
     {line,[{location,"receive_stacked.erl",68}]}.
     {func_info,{atom,receive_stacked},{atom,f8},0}.
   {label,37}.
-    {allocate_zero,1,0}.
+    {allocate,1,0}.
+    {init_yregs,{list,[{y,0}]}}.
   {label,38}.
     {loop_rec,{f,40},{x,0}}.
     {test,bs_start_match3,{f,39},1,[{x,0}],{x,1}}.
@@ -302,7 +296,8 @@
     {line,[{location,"receive_stacked.erl",75}]}.
     {func_info,{atom,receive_stacked},{atom,m1},0}.
   {label,42}.
-    {allocate_zero,1,0}.
+    {allocate,1,0}.
+    {init_yregs,{list,[{y,0}]}}.
   {label,43}.
     {loop_rec,{f,45},{x,0}}.
     {test,is_map,{f,44},[{x,0}]}.
@@ -327,7 +322,8 @@
     {line,[{location,"receive_stacked.erl",82}]}.
     {func_info,{atom,receive_stacked},{atom,m2},0}.
   {label,47}.
-    {allocate_zero,4,0}.
+    {allocate,4,0}.
+    {init_yregs,{list,[{y,0},{y,1},{y,2},{y,3}]}}.
     {move,{atom,key1},{x,0}}.
     {line,[{location,"receive_stacked.erl",83}]}.
     {call,1,{f,52}}.
@@ -344,15 +340,12 @@
     {test,is_integer,{f,49},[{y,1}]}.
     {test,is_integer,{f,49},[{y,0}]}.
     remove_message.
-    {kill,{y,2}}.
-    {kill,{y,3}}.
+    {init_yregs,{list,[{y,2},{y,3}]}}.
     {move,{integer,42},{x,0}}.
     {line,[{location,"receive_stacked.erl",87}]}.
     {call,1,{f,52}}.
     {test_heap,3,0}.
-    {put_tuple,2,{x,0}}.
-    {put,{y,1}}.
-    {put,{y,0}}.
+    {put_tuple2,{x,0},{list,[{y,1},{y,0}]}}.
     {deallocate,4}.
     return.
   {label,49}.

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2016-2020. All Rights Reserved.
+# Copyright Ericsson AB 2016-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ dirty-io erts_debug:dirty_io/2
 dirty-cpu erts_debug:lcnt_control/2
 dirty-cpu erts_debug:lcnt_collect/0
 dirty-cpu erts_debug:lcnt_clear/0
+dirty-cpu erlang:display_string/2
 
 # --- TEST of Dirty BIF functionality ---
 #  Functions below will execute on dirty schedulers when emulator has

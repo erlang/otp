@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(gen).
+-moduledoc false.
 -compile({inline,[get_node/1]}).
 
 %%%-----------------------------------------------------------------
@@ -39,6 +40,8 @@
 -export([init_it/6, init_it/7]).
 
 -export([format_status_header/2, format_status/4]).
+
+-export(['@wait_response_recv_opt'/3]).
 
 -define(MAX_INT_TIMEOUT, 4294967295).
 -define(default_timeout, 5000).
@@ -193,7 +196,8 @@ init_it(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 	true ->
 	    init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options);
 	{false, Pid} ->
-	    proc_lib:init_ack(Starter, {error, {already_started, Pid}})
+	    proc_lib:init_fail(
+              Starter, {error, {already_started, Pid}}, {exit, normal})
     end.
 
 init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
@@ -312,6 +316,17 @@ do_send_request(Process, Tag, Request) ->
     ReqId = erlang:monitor(process, Process, [{alias, demonitor}]),
     _ = erlang:send(Process, {Tag, {self(), [alias|ReqId]}, Request}, [noconnect]),
     ReqId.
+
+-spec '@wait_response_recv_opt'(term(), term(), term()) -> ok.
+'@wait_response_recv_opt'(Process, Tag, Request) ->
+    %% Enables reference optimization in wait_response/2 and
+    %% receive_response/2
+    %%
+    %% This never actually runs and is only used to trigger the optimization,
+    %% see the module comment in beam_ssa_recv for details.
+    _ = wait_response(send_request(Process, Tag, Request), infinity),
+    _ = receive_response(send_request(Process, Tag, Request), infinity),
+    ok.
 
 %%
 %% Wait for a reply to the client.
@@ -600,7 +615,9 @@ do_for_proc({_Name, Node} = Process, Fun) when is_atom(Node) ->
 %%%-----------------------------------------------------------------
 where({global, Name}) -> global:whereis_name(Name);
 where({via, Module, Name}) -> Module:whereis_name(Name);
-where({local, Name})  -> whereis(Name).
+where({local, Name})  -> whereis(Name);
+where(ServerName) ->
+    error(badarg, [ServerName]).
 
 register_name({local, Name} = LN) ->
     try register(Name, self()) of

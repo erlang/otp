@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 -module(tls_1_3_record_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/tls_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
@@ -87,8 +88,10 @@ encode_decode(_Config) ->
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
                      undefined,undefined,undefined,16},
-                client_verify_data => undefined,compression_state => undefined,
-                mac_secret => undefined,secure_renegotiation => undefined,
+                mac_secret => undefined,
+                reneg => #{secure_renegotiation => undefined,
+                           client_verify_data => undefined,
+                           server_verify_data => undefined},
                 security_parameters =>
                     #security_parameters{
                        cipher_suite          = <<19,2>>,
@@ -105,10 +108,12 @@ encode_decode(_Config) ->
                        server_random         =
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
-                sequence_number => 0,server_verify_data => undefined,
-                pending_early_data_size => 0,
-                trial_decryption => false,
-                early_data_accepted => false},
+                sequence_number => 0,
+                early_data => #{
+                                pending_early_data_size => 0,
+                                trial_decryption => false,
+                                early_data_accepted => false}
+               },
           current_write =>
               #{beast_mitigation => one_n_minus_one,
                 cipher_state =>
@@ -118,8 +123,10 @@ encode_decode(_Config) ->
                      <<197,54,168,218,54,91,157,58,30,201,197,142,51,58,53,231,228,
                        131,57,122,170,78,82,196,30,48,23,16,95,255,185,236>>,
                      undefined,undefined,undefined,16},
-                client_verify_data => undefined,compression_state => undefined,
-                mac_secret => undefined,secure_renegotiation => undefined,
+                mac_secret => undefined,
+                reneg => #{secure_renegotiation => undefined,
+                           client_verify_data => undefined,
+                           server_verify_data => undefined},
                 security_parameters =>
                     #security_parameters{
                        cipher_suite          = <<19,2>>,
@@ -136,7 +143,7 @@ encode_decode(_Config) ->
                      server_random         =
                            <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                              147,61,168,145,177,118,160,153,33,53,48,108,191,174>>},
-                sequence_number => 0,server_verify_data => undefined},max_fragment_length => undefined},
+                sequence_number => 0},max_fragment_length => undefined},
 
     PlainText = [11,
                  <<0,2,175>>,
@@ -174,13 +181,13 @@ encode_decode(_Config) ->
                    146,152,146,151,107,126,216,210,9,93,0,0>>],
 
     {[_Header|Encoded], _} = tls_record_1_3:encode_plain_text(22, PlainText, ConnectionStates),
-    CipherText = #ssl_tls{type = 23, version = {3,3}, fragment = Encoded},
+    CipherText = #ssl_tls{type = 23, version = ?TLS_1_2, fragment = Encoded},
 
-    {#ssl_tls{type = 22, version = {3,4}, fragment = DecodedText}, _} =
+    {#ssl_tls{type = 22, version = ?TLS_1_3, fragment = DecodedText}, _} =
         tls_record_1_3:decode_cipher_text(CipherText, ConnectionStates),
 
     DecodedText = iolist_to_binary(PlainText),
-    ct:log("Decoded: ~p ~n", [DecodedText]),
+    ?CT_LOG("Decoded: ~p ~n", [DecodedText]),
     ok.
 %%--------------------------------------------------------------------
 '1_RTT_handshake'() ->
@@ -260,7 +267,7 @@ encode_decode(_Config) ->
           01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01"),
 
     {CHEncrypted, _} =
-	tls_record:encode_handshake(ClientHello, {3,4}, ConnStatesNull),
+	tls_record:encode_handshake(ClientHello, ?TLS_1_3, ConnStatesNull),
     ClientHelloRecord = iolist_to_binary(CHEncrypted),
 
     %% {server}  extract secret "early":
@@ -346,7 +353,7 @@ encode_decode(_Config) ->
           20 e3 b0 c4 42 98 fc 1c 14 9a fb f4 c8 99 6f b9 24 27 ae 41 e4
           64 9b 93 4c a4 95 99 1b 78 52 b8 55"),
 
-    Info = tls_v1:create_info(<<"derived">>, Hash,  ssl_cipher:hash_size(HKDFAlgo)),
+    Info = create_info(<<"derived">>, Hash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     Expanded =
         hexstr2bin("6f 26 15 a1 08 c7 02 c5 67 8f 54 fc 9d ba
@@ -411,7 +418,7 @@ encode_decode(_Config) ->
 
     CHSH =  <<ClientHello/binary,ServerHello/binary>>,
     CHSTHash = crypto:hash(HKDFAlgo, CHSH),
-    CHSTInfo =  tls_v1:create_info(<<"c hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
+    CHSTInfo =  create_info(<<"c hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     CHSTrafficSecret =
         tls_v1:client_handshake_traffic_secret(HKDFAlgo, {handshake_secret, HandshakeSecret}, CHSH),
@@ -442,7 +449,7 @@ encode_decode(_Config) ->
         hexstr2bin("b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d
           37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38"),
 
-    SHSTInfo =  tls_v1:create_info(<<"s hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
+    SHSTInfo =  create_info(<<"s hs traffic">>, CHSTHash,  ssl_cipher:hash_size(HKDFAlgo)),
 
     SHSTrafficSecret =
         tls_v1:server_handshake_traffic_secret(HKDFAlgo, {handshake_secret, HandshakeSecret}, CHSH),
@@ -515,7 +522,7 @@ encode_decode(_Config) ->
           cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04"),
 
     {SHEncrypted, _} =
-	tls_record:encode_handshake(ServerHello, {3,4}, ConnStatesNull),
+	tls_record:encode_handshake(ServerHello, ?TLS_1_3, ConnStatesNull),
     ServerHelloRecord = iolist_to_binary(SHEncrypted),
 
     %% {server}  derive write traffic keys for handshake data:
@@ -547,9 +554,9 @@ encode_decode(_Config) ->
 
     Cipher = aes_128_gcm, %% TODO: get from ServerHello
 
-    WriteKeyInfo = tls_v1:create_info(<<"key">>, <<>>,  ssl_cipher:key_material(Cipher)),
+    WriteKeyInfo = create_info(<<"key">>, <<>>,  ssl_cipher:key_material(Cipher)),
     %% TODO: remove hardcoded IV size
-    WriteIVInfo = tls_v1:create_info(<<"iv">>, <<>>,  12),
+    WriteIVInfo = create_info(<<"iv">>, <<>>,  12),
 
     KeyLength = ssl_cipher:key_material(Cipher),
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, KeyLength, SHSTrafficSecret),
@@ -661,7 +668,7 @@ encode_decode(_Config) ->
         hexstr2bin("9b 9b 14 1d 90 63 37 fb d2 cb dc e7 1d f4
           de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07 18"),
 
-    FInfo = tls_v1:create_info(<<"finished">>, <<>>,  ssl_cipher:hash_size(HKDFAlgo)),
+    FInfo = create_info(<<"finished">>, <<>>,  ssl_cipher:hash_size(HKDFAlgo)),
 
     FExpanded = tls_v1:finished_key(SHSTrafficSecret, HKDFAlgo),
 
@@ -685,7 +692,7 @@ encode_decode(_Config) ->
 
     FinishedHS = #finished{verify_data = FinishedVerifyData},
 
-    FinishedIOList = tls_handshake:encode_handshake(FinishedHS, {3,4}),
+    FinishedIOList = tls_handshake:encode_handshake(FinishedHS, ?TLS_1_3),
     FinishedHSBin = iolist_to_binary(FinishedIOList),
 
     %% {server}  derive secret "tls13 c ap traffic":
@@ -726,7 +733,7 @@ encode_decode(_Config) ->
     CAPTHash = crypto:hash(HKDFAlgo, CHSF),
 
     CAPTInfo =
-        tls_v1:create_info(<<"c ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"c ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     CAPTrafficSecret =
         tls_v1:client_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -758,7 +765,7 @@ encode_decode(_Config) ->
           50 32 82 04 b4 f4 4b fb 6b 3a 4b 4f 1f 3f cb 63 16 43"),
 
     SAPTInfo =
-        tls_v1:create_info(<<"s ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"s ap traffic">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     SAPTrafficSecret =
         tls_v1:server_application_traffic_secret_0(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -804,7 +811,7 @@ encode_decode(_Config) ->
           92 c5 0c 9a 3f 89 45 2f 68 d8 ae 31 1b 43 09 d3 cf 50"),
 
     ExporterInfo =
-        tls_v1:create_info(<<"exp master">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"exp master">>, CAPTHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     ExporterMasterSecret =
         tls_v1:exporter_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
@@ -907,7 +914,7 @@ encode_decode(_Config) ->
 
     CFinished = #finished{verify_data = CFinishedVerifyData},
 
-    CFinishedIOList = tls_handshake:encode_handshake(CFinished, {3,4}),
+    CFinishedIOList = tls_handshake:encode_handshake(CFinished, ?TLS_1_3),
     CFinishedBin = iolist_to_binary(CFinishedIOList),
 
     %% {client}  derive write traffic keys for application data:
@@ -983,7 +990,7 @@ encode_decode(_Config) ->
     CRMHash = crypto:hash(HKDFAlgo, CHCF),
 
     CRMInfo =
-        tls_v1:create_info(<<"res master">>, CRMHash, ssl_cipher:hash_size(HKDFAlgo)),
+        create_info(<<"res master">>, CRMHash, ssl_cipher:hash_size(HKDFAlgo)),
 
     ResumptionMasterSecret =
         tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, MessageHistory3),
@@ -1054,7 +1061,7 @@ encode_decode(_Config) ->
        ticket_nonce = Nonce,
        ticket = Ticket,
        extensions = _Extensions
-      } = tls_handshake:decode_handshake({3,4}, NWT, TicketBody),
+      } = tls_handshake:decode_handshake(?TLS_1_3, NWT, TicketBody),
 
     %% ResPRK = resumption master secret
     ResExpanded = tls_v1:pre_shared_key(ResPRK, Nonce, HKDFAlgo),
@@ -1288,7 +1295,7 @@ encode_decode(_Config) ->
 
     <<?BYTE(CH), ?UINT24(_Length), ClientHelloBody/binary>> = ClientHelloRecord,
     #client_hello{extensions = #{pre_shared_key := PreSharedKey}} =
-        tls_handshake:decode_handshake({3,4}, CH, ClientHelloBody),
+        tls_handshake:decode_handshake(?TLS_1_3, CH, ClientHelloBody),
 
     #pre_shared_key_client_hello{
        offered_psks = #offered_psks{
@@ -1455,3 +1462,6 @@ hex2int(C) when $A =< C, C =< $F ->
     C - $A + 10;
 hex2int(C) when $a =< C, C =< $f ->
     C - $a + 10.
+
+create_info(Label, Context, Length) ->
+    tls_v1:create_info(Label, Context, Length, << "tls13 ">>).

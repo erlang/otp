@@ -59,7 +59,7 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneHashBase() noexcept {
+  ASMJIT_INLINE_NODEBUG ZoneHashBase() noexcept {
     reset();
   }
 
@@ -99,8 +99,8 @@ public:
   //! \name Accessors
   //! \{
 
-  inline bool empty() const noexcept { return _size == 0; }
-  inline size_t size() const noexcept { return _size; }
+  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return _size == 0; }
+  ASMJIT_INLINE_NODEBUG size_t size() const noexcept { return _size; }
 
   //! \}
 
@@ -150,10 +150,10 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  inline ZoneHash() noexcept
+  ASMJIT_INLINE_NODEBUG ZoneHash() noexcept
     : ZoneHashBase() {}
 
-  inline ZoneHash(ZoneHash&& other) noexcept
+  ASMJIT_INLINE_NODEBUG ZoneHash(ZoneHash&& other) noexcept
     : ZoneHash(other) {}
 
   //! \}
@@ -161,7 +161,7 @@ public:
   //! \name Utilities
   //! \{
 
-  inline void swap(ZoneHash& other) noexcept { ZoneHashBase::_swap(other); }
+  ASMJIT_INLINE_NODEBUG void swap(ZoneHash& other) noexcept { ZoneHashBase::_swap(other); }
 
   template<typename KeyT>
   inline NodeT* get(const KeyT& key) const noexcept {
@@ -173,8 +173,8 @@ public:
     return node;
   }
 
-  inline NodeT* insert(ZoneAllocator* allocator, NodeT* node) noexcept { return static_cast<NodeT*>(_insert(allocator, node)); }
-  inline NodeT* remove(ZoneAllocator* allocator, NodeT* node) noexcept { return static_cast<NodeT*>(_remove(allocator, node)); }
+  ASMJIT_INLINE_NODEBUG NodeT* insert(ZoneAllocator* allocator, NodeT* node) noexcept { return static_cast<NodeT*>(_insert(allocator, node)); }
+  ASMJIT_INLINE_NODEBUG NodeT* remove(ZoneAllocator* allocator, NodeT* node) noexcept { return static_cast<NodeT*>(_remove(allocator, node)); }
 
   //! \}
 };

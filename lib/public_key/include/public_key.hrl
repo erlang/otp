@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,47 +41,51 @@
 		 {valid, UserState}
 	 end, []}).
 
--record(path_validation_state, {
-	  valid_policy_tree,
-	  explicit_policy,
-	  inhibit_any_policy,
-	  policy_mapping,
-	  cert_num,
-	  last_cert = false,
-	  permitted_subtrees = no_constraints, %% Name constraints
-	  excluded_subtrees = [],      %% Name constraints   
-	  working_public_key_algorithm,
-	  working_public_key,
-	  working_public_key_parameters,
-	  working_issuer_name,
-	  max_path_length,
-	  verify_fun,
-	  user_state
-	 }).
+-record(path_validation_state,
+        {
+         valid_policy_tree,
+         user_initial_policy_set,
+         explicit_policy,
+         inhibit_any_policy,
+         inhibit_policy_mapping,
+         policy_mapping_ext,
+         policy_constraint_ext,
+         policy_inhibitany_ext,
+         policy_ext_present,
+         policy_ext_any,
+         current_any_policy_qualifiers,
+         cert_num,
+         last_cert = false,
+         permitted_subtrees = no_constraints, %% Name constraints
+         excluded_subtrees = [],      %% Name constraints
+         working_public_key_algorithm,
+         working_public_key,
+         working_public_key_parameters,
+         working_issuer_name,
+         max_path_length,
+         verify_fun,
+         user_state
+        }).
 
--record(policy_tree_node, {
-	  valid_policy,
-	  qualifier_set,
-	  criticality_indicator,
-	  expected_policy_set
-	 }).
+-record(revoke_state,
+        {
+         reasons_mask,
+         cert_status,
+         interim_reasons_mask,
+         valid_ext,
+         details
+        }).
 
--record(revoke_state, {
-	  reasons_mask,
-	  cert_status,
-	  interim_reasons_mask,
-	  valid_ext,
-          details
-	 }).
+-record('ECPoint',
+        {
+         point
+        }).
 
--record('ECPoint', {
-	  point
-	 }).
-
--record(cert, {
-               der :: public_key:der_encoded(),
-               otp :: #'OTPCertificate'{}
-              }).
+-record(cert,
+        {
+         der :: public_key:der_encoded(),
+         otp :: #'OTPCertificate'{}
+        }).
 
 -define(unspecified, 0).
 -define(keyCompromise, 1).

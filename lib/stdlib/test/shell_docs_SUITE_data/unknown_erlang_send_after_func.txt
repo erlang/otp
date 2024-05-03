@@ -1,0 +1,28 @@
+
+  [;1m-spec erlang:send_after(Time, Dest, Msg) -> TimerRef[0m
+  [;1m                           when[0m
+  [;1m                               Time :: non_neg_integer(),[0m
+  [;1m                               Dest :: pid() | atom(),[0m
+  [;1m                               Msg :: term(),[0m
+  [;1m                               TimerRef :: reference().[0m
+
+  Starts a timer. The same as calling [;;4merlang:send_after(Time, Dest,[0m
+  [;;4mMsg, [])[0m.
+
+  [;1m-spec erlang:send_after(Time, Dest, Msg, Options) -> TimerRef[0m
+  [;1m                           when[0m
+  [;1m                               Time :: integer(),[0m
+  [;1m                               Dest :: pid() | atom(),[0m
+  [;1m                               Msg :: term(),[0m
+  [;1m                               Options :: [Option],[0m
+  [;1m                               Abs :: boolean(),[0m
+  [;1m                               Option :: {abs, Abs},[0m
+  [;1m                               TimerRef :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Starts a timer. When the timer expires, the message [;;4mMsg[0m is sent
+  to the process identified by [;;4mDest[0m. Apart from the format of the
+  time-out message, this function works exactly as [;;4m[0m
+  [;;4merlang:start_timer/4[0m.

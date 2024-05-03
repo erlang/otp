@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 %%------------------------------------------------------------------
 -module(ssh_message).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 

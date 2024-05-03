@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@
 %% %CopyrightEnd%
 %%
 -module(erl_compile).
+-moduledoc false.
 
 -include("erl_compile.hrl").
 -include("file.hrl").
 
 -export([compile_cmdline/0, compile/2]).
-
--export_type([cmd_line_arg/0]).
 
 %% Mapping from extension to {M,F} to run the correct compiler.
 
@@ -43,8 +42,6 @@ compiler(".asn1") ->   {asn1ct,          compile_asn1};
 compiler(".asn") ->    {asn1ct,          compile_asn};
 compiler(".py") ->     {asn1ct,          compile_py};
 compiler(_) ->         no.
-
--type cmd_line_arg() :: atom() | string().
 
 %% Run a compilation based on the command line arguments and then halt.
 %% Intended for one-off compilation by erlc.

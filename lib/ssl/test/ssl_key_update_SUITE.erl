@@ -39,6 +39,7 @@
          explicit_key_update/0,
          explicit_key_update/1]).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/ssl_connection.hrl").
@@ -121,7 +122,7 @@ key_update_at(Config, Role) ->
                        {Server, {socket, S}} -> S
                    end,
     Keys0 = get_traffic_secrets(ClientSocket, ServerSocket),
-    ct:log("connected", []),
+    ?CT_LOG("connected", []),
     {Sender, Receiver} = case Role of
                              client -> {Client, Server};
                              server -> {Server, Client}
@@ -131,14 +132,14 @@ key_update_at(Config, Role) ->
     Data = ssl_test_lib:check_active_receive(Receiver, Data),
     %% TODO check if key has been updated (needs debug logging of secrets)
     ct:sleep(500),
-    ct:log("sent and waited", []),
+    ?CT_LOG("sent and waited", []),
     Keys1 = get_traffic_secrets(ClientSocket, ServerSocket),
     verify_key_update(Keys0, Keys1),
     %% Test mechanism to prevent infinite loop of key updates
     BigData = binary:copy(<<"1234567890">>, 10),  %% 100 bytes
     ok = ssl_test_lib:send(Sender, BigData),
     ct:sleep(500),
-    ct:log("sent and waited 2", []),
+    ?CT_LOG("sent and waited 2", []),
     Keys2 = get_traffic_secrets(ClientSocket, ServerSocket),
     verify_key_update(Keys1, Keys2),
     ssl_test_lib:close(Server),
@@ -168,7 +169,7 @@ get_traffic_secrets(ClientSocket, ServerSocket) ->
                         [{ClientSocket, client}, {ServerSocket, server}]]),
     P = fun(Direction) ->
                 Vals = proplists:get_all_values(Direction, Secrets),
-                ct:log("~30s ~10s(c) ~10s(s)",
+                ?CT_LOG("~30s ~10s(c) ~10s(s)",
                      [Direction, proplists:get_value(client, Vals),
                       proplists:get_value(server, Vals)]),
                 {Direction, [proplists:get_value(client, Vals),

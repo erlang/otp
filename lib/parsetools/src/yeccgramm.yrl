@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@ token -> ':' : {':', anno_of('$1')}.   % manner, because they are also
                                        % special symbols of the metagrammar
 
 Erlang code.
+-moduledoc false.
 
 -record(symbol, {anno, name}).
 

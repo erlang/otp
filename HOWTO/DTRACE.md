@@ -52,5 +52,5 @@ DTrace probe specifications
 Probe specifications can be found in `erts/emulator/beam/erlang_dtrace.d`, and
 a few example scripts can be found under `lib/runtime_tools/examples/`.
 
-   [1]: http://www.erlang.org/euc/08/
+   [1]: https://erlang.org/euc/08/
    [$ERL_TOP/HOWTO/SYSTEMTAP.md]: SYSTEMTAP.md

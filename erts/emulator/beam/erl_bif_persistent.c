@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -971,8 +971,8 @@ cleanup_trap_data(Binary *bp)
 static Uint
 lookup(HashTable* hash_table, Eterm key, Eterm *bucket)
 {
+    erts_ihash_t idx = erts_internal_hash(key);
     Uint mask = hash_table->mask;
-    Uint32 idx = make_internal_hash(key, 0);
     Eterm term;
 
     while (1) {

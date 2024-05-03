@@ -13,6 +13,7 @@
 %% limitations under the License.
 
 -module(dialyzer_clean_core).
+-moduledoc false.
 -export([clean/1]).
 
 -spec clean(cerl:cerl()) -> cerl:cerl().

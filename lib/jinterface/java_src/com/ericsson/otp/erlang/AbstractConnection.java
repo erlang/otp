@@ -425,29 +425,12 @@ public abstract class AbstractConnection extends Thread {
         header.write1(passThrough);
         header.write1(version);
 
-        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
-            // header
-            header.write_tuple_head(4);
-            header.write_long(unlinkIdTag);
-            header.write_long(unlink_id);
-            header.write_any(from);
-            header.write_any(dest);
-        }
-        else {
-            /*
-             * A node that isn't capable of talking the new link protocol.
-             *
-             * Send an old unlink op, and send ourselves an unlink-ack. We may
-             * end up in an inconsistent state as we could before the new link
-             * protocol was introduced...
-             */
-            // header
-            header.write_tuple_head(3);
-            header.write_long(unlinkTag);
-            header.write_any(from);
-            header.write_any(dest);
-            deliver(new OtpMsg(unlinkIdAckTag, dest, from, unlink_id));
-        }
+        // header
+        header.write_tuple_head(4);
+        header.write_long(unlinkIdTag);
+        header.write_long(unlink_id);
+        header.write_any(from);
+        header.write_any(dest);
 
         // fix up length in preamble
         header.poke4BE(0, header.size() - 4);
@@ -471,26 +454,25 @@ public abstract class AbstractConnection extends Thread {
         if (!connected) {
             throw new IOException("Not connected");
         }
-        if ((peer.flags & AbstractNode.dFlagUnlinkId) != 0) {
-            @SuppressWarnings("resource")
+
+        @SuppressWarnings("resource")
             final OtpOutputStream header = new OtpOutputStream(headerLen);
 
-            // preamble: 4 byte length + "passthrough" tag
-            header.write4BE(0); // reserve space for length
-            header.write1(passThrough);
-            header.write1(version);
+        // preamble: 4 byte length + "passthrough" tag
+        header.write4BE(0); // reserve space for length
+        header.write1(passThrough);
+        header.write1(version);
 
-            // header
-            header.write_tuple_head(4);
-            header.write_long(unlinkIdAckTag);
-            header.write_long(unlink_id);
-            header.write_any(from);
-            header.write_any(dest);
-            // fix up length in preamble
-            header.poke4BE(0, header.size() - 4);
+        // header
+        header.write_tuple_head(4);
+        header.write_long(unlinkIdAckTag);
+        header.write_long(unlink_id);
+        header.write_any(from);
+        header.write_any(dest);
+        // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
 
-            do_send(header);
-        }
+        do_send(header);
 
     }
 

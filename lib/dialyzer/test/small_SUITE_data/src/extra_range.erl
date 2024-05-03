@@ -34,14 +34,14 @@ t2(X, Y) when is_integer(X), is_integer(Y) ->
 %% this is overspecified, and should cause a warning for trying
 %% to match on `no = over(X)', because it cannot succeed and either
 %% the spec should be updated or the code should be extended
--spec over(integer()) -> yes | no | maybe.
+-spec over(integer()) -> 'yes' | 'no' | 'maybe'.
 over(1) -> yes;
-over(_) -> maybe.
+over(_) -> 'maybe'.
 
 t3(X, Y) when is_integer(X), is_integer(Y) ->
     yes = over(X),
     no = over(Y),  % warning expected - spec or code needs fixing
-    maybe = over(X + Y),
+    'maybe' = over(X + Y),
     ok.
 
 
@@ -50,10 +50,10 @@ t3(X, Y) when is_integer(X), is_integer(Y) ->
 -spec under(integer()) -> yes | no.
 under(1) -> yes;
 under(2) -> no;
-under(_) -> maybe.
+under(_) -> 'maybe'.
 
 t4(X, Y) when is_integer(X), is_integer(Y) ->
     yes = under(X),
     no = under(Y),
-    maybe = under(X + Y), % warning expected - not in spec
+    'maybe' = under(X + Y), % warning expected - not in spec
     ok.

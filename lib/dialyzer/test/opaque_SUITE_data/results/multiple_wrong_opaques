@@ -1,2 +1,5 @@
 
-multiple_wrong_opaques.erl:5:2: Invalid type specification for function multiple_wrong_opaques:weird/1. The success typing is ('gazonk') -> 42
+multiple_wrong_opaques.erl:5:2: Invalid type specification for function multiple_wrong_opaques:weird/1.
+ The success typing is multiple_wrong_opaques:weird('gazonk') -> 42
+ But the spec is multiple_wrong_opaques:weird(dict:dict() | gb_trees:tree()) -> 42
+ They do not overlap in the 1st argument

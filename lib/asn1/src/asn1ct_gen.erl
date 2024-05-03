@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_gen).
+-moduledoc false.
 
 -include("asn1_records.hrl").
 
@@ -101,9 +102,18 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
           objects=Objects,objsets=ObjectSets} = Code,
     Rtmod = ct_gen_module(Erules),
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,Types),
-    pgen_values(Values, Module),
-    pgen_objects(Rtmod,Erules,Module,Objects),
-    pgen_objectsets(Rtmod,Erules,Module,ObjectSets),
+    case Erules of
+        #gen{erule=jer} ->
+            pgen_objects(Rtmod, Erules, Module, Objects),
+            pgen_objectsets(Rtmod, Erules, Module, ObjectSets),
+            emit(["typeinfo(Type) ->",nl,
+                  "  exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]),
+            pgen_values(Values, Module);
+        #gen{} ->
+            pgen_values(Values, Module),
+            pgen_objects(Rtmod, Erules, Module, Objects),
+            pgen_objectsets(Rtmod, Erules, Module, ObjectSets)
+    end,
     pgen_partial_decode(Rtmod,Erules,Module),
     %% If the encoding rule is ber, per or uper and jer is also given as option
     %% then we generate "extra" support for jer in the same file
@@ -111,7 +121,10 @@ pgen_typeorval(Erules, N2nConvEnums, Code) ->
         true ->
             NewErules = Erules#gen{erule=jer,jer=false},
             JER_Rtmod = ct_gen_module(NewErules),
-            pgen_types(JER_Rtmod,Erules#gen{erule=jer,jer=false},[],Module,Types);
+            pgen_types(JER_Rtmod, Erules#gen{erule=jer,jer=false},
+                       [], Module, Types),
+            emit(["typeinfo(Type) ->",nl,
+                  "  exit({error,{asn1,{undefined_type,Type}}}).",nl,nl]);
         false ->
             ok
     end.
@@ -129,7 +142,7 @@ pgen_values([], _) ->
     ok.
 
 pgen_types(_, _, _, _, []) ->
-    true;
+    ok;
 pgen_types(Rtmod,Erules,N2nConvEnums,Module,[H|T]) ->
     asn1ct_name:clear(),
     Typedef = asn1_db:dbget(Module,H),
@@ -283,7 +296,7 @@ pgen_partial_types1(Erules,[{FuncName,[TopType|RestTypes]}|Rest]) ->
     CurrMod = get(currmod),
     TypeDef = asn1_db:dbget(CurrMod,TopType),
     traverse_type_structure(Erules,TypeDef,RestTypes,FuncName,
-			    TypeDef#typedef.name),
+			    [TypeDef#typedef.name]),
     pgen_partial_types1(Erules,Rest);
 pgen_partial_types1(_,[]) ->
     ok;
@@ -467,24 +480,20 @@ pgen_partial_incomplete_decode1(#gen{erule=ber}) ->
     gen_part_decode_funcs(GeneratedFs,0);
 pgen_partial_incomplete_decode1(#gen{}) -> ok.
 
-emit_partial_incomplete_decode({FuncName,TopType,Pattern}) ->
+emit_partial_incomplete_decode({FuncName,TopType,Pattern})
+  when is_atom(TopType) ->
     TypePattern = asn1ct:get_gen_state_field(inc_type_pattern),
-    TPattern =
-	case lists:keysearch(FuncName,1,TypePattern) of
-	    {value,{_,TP}} -> TP;
-	    _ -> exit({error,{asn1_internal_error,exclusive_decode}})
-	end,
+    {_,TPattern} = lists:keyfind(FuncName, 1, TypePattern),
     TopTypeName =
-	case asn1ct:maybe_saved_sindex(TopType,TPattern) of
-	    I when is_integer(I),I>0 ->
-		lists:concat([TopType,"_",I]);
-	    _ ->
-		atom_to_list(TopType)
-	end,
+        case asn1ct:maybe_saved_sindex(TopType, TPattern) of
+            I when is_integer(I), I > 0 ->
+                list_to_atom(lists:concat([TopType,"_",I]));
+            _ ->
+                TopType
+        end,
     emit([{asis,FuncName},"(Bytes) ->",nl,
-	  "  decode_partial_incomplete('",TopTypeName,"',Bytes,",{asis,Pattern},").",nl]);
-emit_partial_incomplete_decode(D) ->
-    throw({error,{asn1,{"bad data in asn1config file",D}}}).
+          "  decode_partial_incomplete(",{asis,TopTypeName},", Bytes, ",
+          {asis,Pattern},").",nl]).
 
 gen_part_decode_funcs([Data={Name,_,_,Type}|GeneratedFs],N) ->
     InnerType = 
@@ -495,12 +504,18 @@ gen_part_decode_funcs([Data={Name,_,_,Type}|GeneratedFs],N) ->
 		get_inner(Type#type.def)
 	end,
     WhatKind = type(InnerType),
-    TypeName=list2name(Name),
+    DispatchId = list_to_atom(list2name(Name)),
+    TypeName = case Name of
+                   [parts|TypeName0] ->
+                       list2name(TypeName0);
+                   _ ->
+                       list2name(Name)
+               end,
     if
 	N > 0 -> emit([";",nl]);
 	true -> ok
     end,
-    emit(["decode_inc_disp('",TypeName,"',Data) ->",nl]),
+    emit(["decode_inc_disp(",{asis,DispatchId},",Data) ->",nl]),
     gen_part_decode_funcs(WhatKind,TypeName,Data),
     gen_part_decode_funcs(GeneratedFs,N+1);
 gen_part_decode_funcs([_H|T],N) ->
@@ -660,32 +675,24 @@ pgen_exports(#gen{options=Options}=Gen, Code) ->
 	  "         legacy_erlang_types/0]).",nl]),
     emit(["-export([",{asis,?SUPPRESSION_FUNC},"/1]).",nl]),
     case Gen of
+        #gen{erule=Erule,jer=Jer} when Erule =:= jer; Jer ->
+            emit(["-export([typeinfo/1]).",nl]);
+        #gen{} ->
+            ok
+    end,
+    case Gen of
         #gen{erule=ber} ->
             gen_exports(Types, "enc_", 2),
             gen_exports(Types, "dec_", 2),
             gen_exports(Objects, "enc_", 3),
             gen_exports(Objects, "dec_", 3),
             gen_exports(ObjectSets, "getenc_", 1),
-            gen_exports(ObjectSets, "getdec_", 1),
-            case Gen#gen.jer of
-                true ->
-                    gen_exports(Types, "typeinfo_", 0);
-                _ ->
-                    true
-            end;
+            gen_exports(ObjectSets, "getdec_", 1);
         #gen{erule=per} ->
             gen_exports(Types, "enc_", 1),
-            gen_exports(Types, "dec_", 1),
-            case Gen#gen.jer of
-                true ->
-                    gen_exports(Types, "typeinfo_", 0);
-                _ ->
-                    true
-            end;
+            gen_exports(Types, "dec_", 1);
         #gen{erule=jer} ->
-            gen_exports(Types, "typeinfo_", 0),
-            gen_exports(ObjectSets, "typeinfo_", 0)
-%%            gen_exports(Types, "dec_", 1)
+            ok
     end,
 
     A2nNames = [X || {n2n,X} <- Options],
@@ -758,10 +765,7 @@ pgen_dispatcher(Gen, Types) ->
 	       #gen{erule=ber} ->
 		   "iolist_to_binary(element(1, encode_disp(Type, Data)))";
                #gen{erule=jer} ->
-                   ["?JSON_ENCODE(",
-                    {call,jer,encode_jer,[CurrMod,
-                                          "list_to_existing_atom(lists:concat([typeinfo_,Type]))",
-                                          "Data"]},")"];
+                   [{call,jer,encode_jer,[CurrMod,"Type","Data"]}];
 	       #gen{erule=per,aligned=false} when NoFinalPadding ->
 		   asn1ct_func:need({uper,complete_NFP,1}),
 		   "complete_NFP(encode_disp(Type, Data))";
@@ -778,18 +782,14 @@ pgen_dispatcher(Gen, Types) ->
 	    emit(["try ",Call," of",nl,
 		  "  Bytes ->",nl,
 		  "    {ok,Bytes}",nl,
-		  try_catch()])
+		  try_catch(),".",nl])
     end,
     emit([nl,nl]),
 
     case Gen#gen.jer of
         true ->
             emit(["jer_encode(Type, Data) ->",nl]),
-            JerCall = ["?JSON_ENCODE(",
-                    {call,jer,encode_jer,
-                     [CurrMod,
-                      "list_to_existing_atom(lists:concat([typeinfo_,Type]))",
-                      "Data"]},")"],
+            JerCall = [{call,jer,encode_jer,[CurrMod,"Type","Data"]}],
             case NoOkWrapper of
                 true ->
                     emit(["  ",JerCall,"."]);
@@ -797,7 +797,7 @@ pgen_dispatcher(Gen, Types) ->
                     emit(["try ",JerCall," of",nl,
                           "  Bytes ->",nl,
                           "    {ok,Bytes}",nl,
-                          try_catch()])
+                          try_catch(),".",nl])
             end,
             emit([nl,nl]);
         false ->
@@ -827,7 +827,7 @@ pgen_dispatcher(Gen, Types) ->
 		emit(["   {Data,Rest} = ber_decode_nif(Data0),",nl]),
 		"Data";
 	    {#gen{erule=jer},false} ->
-		"?JSON_DECODE(Data)";
+		"json:decode(Data)";
 	    {#gen{erule=jer},true} ->
 		exit("JER + return rest not supported");
 	    {_,_} ->
@@ -843,9 +843,7 @@ pgen_dispatcher(Gen, Types) ->
 	    emit(["   Result = ",DecodeDisp,",",nl]),
             result_line(NoOkWrapper, ["Result"]);
 	{#gen{erule=jer},false} ->
-	    emit(["   Result = ",{call,jer,decode_jer,[ CurrMod,
-                                                        "list_to_existing_atom(lists:concat([typeinfo_,Type]))", 
-                                                        DecWrap]},",",nl]),
+	    emit(["   Result = ",{call,jer,decode_jer,[CurrMod,"Type",DecWrap]},",",nl]),
             result_line(NoOkWrapper, ["Result"]);
 
 
@@ -859,7 +857,7 @@ pgen_dispatcher(Gen, Types) ->
 
     case NoOkWrapper of
 	false ->
-	    emit([nl,try_catch(),nl,nl]);
+	    emit([nl,try_catch(),".",nl,nl]);
 	true ->
 	    emit([".",nl,nl])
     end,
@@ -871,17 +869,15 @@ pgen_dispatcher(Gen, Types) ->
                 false -> emit(["try",nl]);
                 true -> ok
             end,
-            JerDecWrap = "?JSON_DECODE(Data)",
+            JerDecWrap = "json:decode(Data)",
 	    emit(["   Result = ",
                   {call,jer,
                    decode_jer,
-                   [CurrMod,
-                    "list_to_existing_atom(lists:concat([typeinfo_,Type]))", 
-                    JerDecWrap]},",",nl]),
+                   [CurrMod,"Type",JerDecWrap]},",",nl]),
             result_line(false, ["Result"]),
             case NoOkWrapper of
                 false ->
-                    emit([nl,try_catch(),nl,nl]);
+                    emit([nl,try_catch(),".",nl,nl]);
                 true ->
                     emit([".",nl,nl])
             end;        
@@ -891,7 +887,7 @@ pgen_dispatcher(Gen, Types) ->
     
 
     %% REST of MODULE
-    gen_decode_partial_incomplete(Gen),
+    gen_decode_partial_incomplete(Gen, NoOkWrapper),
     gen_partial_inc_dispatcher(Gen),
 
     case Gen of
@@ -923,7 +919,7 @@ try_catch() ->
      "        Reason ->",nl,
      "         {error,{asn1,{Reason,Stk}}}",nl,
      "      end",nl,
-     "end."].
+     "end"].
 
 gen_info_functions(Gen) ->
     Erule = case Gen of
@@ -945,7 +941,7 @@ gen_info_functions(Gen) ->
 	  "legacy_erlang_types() -> ",
 	  {asis,asn1ct:use_legacy_types()},".",nl,nl]).
 
-gen_decode_partial_incomplete(#gen{erule=ber}) ->
+gen_decode_partial_incomplete(#gen{erule=ber}, NoOkWrapper) ->
     case {asn1ct:read_config_data(partial_incomplete_decode),
 	  asn1ct:get_gen_state_field(inc_type_pattern)} of
 	{undefined,_} ->
@@ -953,37 +949,44 @@ gen_decode_partial_incomplete(#gen{erule=ber}) ->
 	{_,undefined} ->
 	    ok;
 	_ ->
-	    EmitCaseClauses =
-		fun() ->
-			emit(["   {'EXIT',{error,Reason}} ->",nl,
-			      "      {error,Reason};",nl,
-			      "    {'EXIT',Reason} ->",nl,
-			      "      {error,{asn1,Reason}};",nl,
-			      "    Result ->",nl,
-			      "      {ok,Result}",nl,
-			      "  end"])
-		end,
-	    emit(["decode_partial_incomplete(Type,Data0,",
-		  "Pattern) ->",nl]),
-	    emit(["  {Data,_RestBin} =",nl,
-		  "    ",{call,ber,decode_primitive_incomplete,
-			  ["Pattern","Data0"]},com,nl,
-		  "  case catch decode_partial_inc_disp(Type,",
-		  "Data) of",nl]),
-	    EmitCaseClauses(),
-	    emit([".",nl,nl]),
-	    emit(["decode_part(Type, Data0) "
-		  "when is_binary(Data0) ->",nl]),
-	    emit(["  case catch decode_inc_disp(Type,element(1, ",
-		  {call,ber,ber_decode_nif,["Data0"]},")) of",nl]),
-	    EmitCaseClauses(),
-	    emit([";",nl]),
-	    emit(["decode_part(Type, Data0) ->",nl]),
-	    emit(["  case catch decode_inc_disp(Type, Data0) of",nl]),
-	    EmitCaseClauses(),
-	    emit([".",nl,nl])
+            emit(["decode_partial_incomplete(Type, Data0, Pattern) ->",nl,
+                  "  {Data,_RestBin} =",nl,
+                  "    ",{call,ber,decode_primitive_incomplete,
+                          ["Pattern","Data0"]},com,nl]),
+            case NoOkWrapper of
+                true ->
+                    emit(["  decode_partial_inc_disp(Type, Data)",nl]);
+                false ->
+                    emit(["  try {ok,decode_partial_inc_disp(Type, Data)}",nl,
+                         try_catch()])
+            end,
+            emit([".",nl,nl]),
+
+            emit(["decode_part(Type, Data0) when is_binary(Data0) ->",nl]),
+            case NoOkWrapper of
+                true ->
+                    emit(["  decode_inc_disp(Type, element(1, ",
+                          {call,ber,ber_decode_nif,["Data0"]},
+                          "))",nl]);
+                false ->
+                    emit(["  try {ok,decode_inc_disp(Type, element(1, ",
+                          {call,ber,ber_decode_nif,["Data0"]},
+                          "))}",nl,
+                          try_catch()])
+            end,
+            emit([";",nl]),
+
+            emit(["decode_part(Type, Data0) ->",nl]),
+            case NoOkWrapper of
+                true ->
+                    emit(["  decode_inc_disp(Type, Data0)"]);
+                false ->
+                    emit(["  try {ok,decode_inc_disp(Type, Data0)}",nl,
+                          try_catch()])
+            end,
+            emit([".",nl,nl])
     end;
-gen_decode_partial_incomplete(#gen{}) ->
+gen_decode_partial_incomplete(#gen{}, _) ->
     ok.
 
 gen_partial_inc_dispatcher(#gen{erule=ber}) ->
@@ -1319,6 +1322,7 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
           "%% Purpose: Encoding and decoding of the types in ",
           Mod,".",nl,nl,
           "-module('",Mod,"').",nl,
+          "-moduledoc false.",nl,
           "-compile(nowarn_unused_vars).",nl,
           "-dialyzer(no_improper_lists).",nl,
           "-dialyzer(no_match).",nl
@@ -1345,27 +1349,7 @@ gen_head(#gen{options=Options}=Gen, Mod, Hrl) ->
          end,
     emit(["-asn1_info([{vsn,'",asn1ct:vsn(),"'},",nl,
 	  "            {module,'",Mod,"'},",nl,
-	  "            {options,",io_lib:format("~p",[Options1]),"}]).",nl,nl]),
-    JerDefines = case Gen of
-                     #gen{erule=jer} ->
-                         true;
-                     #gen{jer=true} ->
-                         true;
-                     _ ->
-                         false
-                 end,
-    JerDefines andalso 
-%% FIXME add jiffy as well and maybe a third argument where the user
-%% can provide the JSON encode/decode as a fun (or atom).
-        emit([
-              "-ifdef(jsone).",nl,
-              "-define(JSON_DECODE(Data),jsone:decode(Data)).",nl,
-              "-define(JSON_ENCODE(Term),jsone:encode(Term)).",nl,
-              "-else.",nl,
-              "-define(JSON_DECODE(Data),jsx:decode(Data,[return_maps])).",nl,
-              "-define(JSON_ENCODE(Term),jsx:encode(Term)).",nl,
-              "-endif.",nl
-             ]).
+	  "            {options,",io_lib:format("~p",[Options1]),"}]).",nl,nl]).
 
 gen_hrlhead(Mod) ->
     emit(["%% Generated by the Erlang ASN.1 compiler. Version: ",

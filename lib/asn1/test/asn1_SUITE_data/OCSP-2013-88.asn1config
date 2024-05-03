@@ -1,0 +1,23 @@
+%% -*- erlang -*-
+{exclusive_decode,
+ {'OCSP-2013-88',
+  [
+   {decode_version_undec,
+    ['BasicOCSPResponse',[{tbsResponseData,[{version,undecoded}]}]]},
+   {decode_responderID_undec,
+    ['BasicOCSPResponse',[{tbsResponseData,[{responderID,undecoded}]}]]},
+   {decode_producedAt_undec,
+    ['BasicOCSPResponse',[{tbsResponseData,[{producedAt,undecoded}]}]]},
+   {decode_responses_undec,
+    ['BasicOCSPResponse',[{tbsResponseData,[{responses,undecoded}]}]]},
+   {decode_responses_parts,
+    ['BasicOCSPResponse',[{tbsResponseData,[{responses,parts}]}]]},
+   {decode_tbsResponseData_undec,
+    ['BasicOCSPResponse',[{tbsResponseData,undecoded}]]},
+   {decode_BasicOCSPResponse_signature_undec,
+    ['BasicOCSPResponse',[{signature,undecoded}]]},
+   {decode_BasicOCSPResponse_certs_undec,
+    ['BasicOCSPResponse',[{certs,undecoded}]]},
+   {decode_BasicOCSPResponse_certs_parts,
+    ['BasicOCSPResponse',[{certs,parts}]]}
+  ]}}.

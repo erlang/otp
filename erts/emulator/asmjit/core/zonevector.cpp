@@ -52,7 +52,8 @@ Error ZoneVectorBase::_grow(ZoneAllocator* allocator, uint32_t sizeOfT, uint32_t
 
 Error ZoneVectorBase::_reserve(ZoneAllocator* allocator, uint32_t sizeOfT, uint32_t n) noexcept {
   uint32_t oldCapacity = _capacity;
-  if (oldCapacity >= n) return kErrorOk;
+  if (oldCapacity >= n)
+    return kErrorOk;
 
   uint32_t nBytes = n * sizeOfT;
   if (ASMJIT_UNLIKELY(nBytes < n))
@@ -65,11 +66,10 @@ Error ZoneVectorBase::_reserve(ZoneAllocator* allocator, uint32_t sizeOfT, uint3
     return DebugUtils::errored(kErrorOutOfMemory);
 
   void* oldData = _data;
-  if (_size)
+  if (oldData && _size) {
     memcpy(newData, oldData, size_t(_size) * sizeOfT);
-
-  if (oldData)
     allocator->release(oldData, size_t(oldCapacity) * sizeOfT);
+  }
 
   _capacity = uint32_t(allocatedBytes / sizeOfT);
   ASMJIT_ASSERT(_capacity >= n);
@@ -272,26 +272,26 @@ static void test_zone_vector(ZoneAllocator* allocator, const char* typeName) {
   ZoneVector<T> vec;
 
   INFO("ZoneVector<%s> basic tests", typeName);
-  EXPECT(vec.append(allocator, 0) == kErrorOk);
-  EXPECT(vec.empty() == false);
-  EXPECT(vec.size() == 1);
-  EXPECT(vec.capacity() >= 1);
-  EXPECT(vec.indexOf(0) == 0);
-  EXPECT(vec.indexOf(-11) == Globals::kNotFound);
+  EXPECT_EQ(vec.append(allocator, 0), kErrorOk);
+  EXPECT_FALSE(vec.empty());
+  EXPECT_EQ(vec.size(), 1u);
+  EXPECT_GE(vec.capacity(), 1u);
+  EXPECT_EQ(vec.indexOf(0), 0u);
+  EXPECT_EQ(vec.indexOf(-11), Globals::kNotFound);
 
   vec.clear();
-  EXPECT(vec.empty());
-  EXPECT(vec.size() == 0);
-  EXPECT(vec.indexOf(0) == Globals::kNotFound);
+  EXPECT_TRUE(vec.empty());
+  EXPECT_EQ(vec.size(), 0u);
+  EXPECT_EQ(vec.indexOf(0), Globals::kNotFound);
 
   for (i = 0; i < kMax; i++) {
-    EXPECT(vec.append(allocator, T(i)) == kErrorOk);
+    EXPECT_EQ(vec.append(allocator, T(i)), kErrorOk);
   }
-  EXPECT(vec.empty() == false);
-  EXPECT(vec.size() == uint32_t(kMax));
-  EXPECT(vec.indexOf(T(kMax - 1)) == uint32_t(kMax - 1));
+  EXPECT_FALSE(vec.empty());
+  EXPECT_EQ(vec.size(), uint32_t(kMax));
+  EXPECT_EQ(vec.indexOf(T(kMax - 1)), uint32_t(kMax - 1));
 
-  EXPECT(vec.rbegin()[0] == kMax - 1);
+  EXPECT_EQ(vec.rbegin()[0], kMax - 1);
 
   vec.release(allocator);
 }
@@ -303,31 +303,31 @@ static void test_zone_bitvector(ZoneAllocator* allocator) {
   uint32_t kMaxCount = 100;
 
   ZoneBitVector vec;
-  EXPECT(vec.empty());
-  EXPECT(vec.size() == 0);
+  EXPECT_TRUE(vec.empty());
+  EXPECT_EQ(vec.size(), 0u);
 
   INFO("ZoneBitVector::resize()");
   for (count = 1; count < kMaxCount; count++) {
     vec.clear();
-    EXPECT(vec.resize(allocator, count, false) == kErrorOk);
-    EXPECT(vec.size() == count);
+    EXPECT_EQ(vec.resize(allocator, count, false), kErrorOk);
+    EXPECT_EQ(vec.size(), count);
 
     for (i = 0; i < count; i++)
-      EXPECT(vec.bitAt(i) == false);
+      EXPECT_FALSE(vec.bitAt(i));
 
     vec.clear();
-    EXPECT(vec.resize(allocator, count, true) == kErrorOk);
-    EXPECT(vec.size() == count);
+    EXPECT_EQ(vec.resize(allocator, count, true), kErrorOk);
+    EXPECT_EQ(vec.size(), count);
 
     for (i = 0; i < count; i++)
-      EXPECT(vec.bitAt(i) == true);
+      EXPECT_TRUE(vec.bitAt(i));
   }
 
   INFO("ZoneBitVector::fillBits() / clearBits()");
   for (count = 1; count < kMaxCount; count += 2) {
     vec.clear();
-    EXPECT(vec.resize(allocator, count) == kErrorOk);
-    EXPECT(vec.size() == count);
+    EXPECT_EQ(vec.resize(allocator, count), kErrorOk);
+    EXPECT_EQ(vec.size(), count);
 
     for (i = 0; i < (count + 1) / 2; i++) {
       bool value = bool(i & 1);
@@ -338,7 +338,7 @@ static void test_zone_bitvector(ZoneAllocator* allocator) {
     }
 
     for (i = 0; i < count; i++) {
-      EXPECT(vec.bitAt(i) == bool(i & 1));
+      EXPECT_EQ(vec.bitAt(i), bool(i & 1));
     }
   }
 }

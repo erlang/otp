@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2858,30 +2858,9 @@ start(Server) ->
     end.
 
 add_erts_code_path(KernelPath) ->
-    VersionDirs =
-    filelib:is_dir(
-      filename:join(
-        [code:lib_dir(),
-         lists:flatten(
-           ["kernel-",
-            [X ||
-             {kernel,_,X} <-
-             application_controller:which_applications()]])])),
-    case VersionDirs of
-        true ->
-            case code:lib_dir(erts) of
-                String when is_list(String) ->
-                    [KernelPath, fname(String,"ebin")];
-                _Other1 ->
-                    [KernelPath]
-            end;
-        false ->
-            % Clearcase?
-            PrelPath = filename:join([code:lib_dir(),"..","erts","preloaded"]),
-            case filelib:is_dir(PrelPath) of
-                true ->
-                    [KernelPath, fname(PrelPath,"ebin")];
-                false ->
-                    [KernelPath]
-            end
+    case code:lib_dir(erts) of
+        String when is_list(String) ->
+            [KernelPath, fname(String,"ebin")];
+        _Other1 ->
+            [KernelPath]
     end.

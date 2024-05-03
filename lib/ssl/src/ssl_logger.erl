@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(ssl_logger).
+-moduledoc false.
 
 -export([log/4, 
          debug/4,
@@ -34,8 +35,6 @@
 
 -include("ssl_internal.hrl").
 -include("tls_record.hrl").
--include("ssl_cipher.hrl").
--include("ssl_internal.hrl").
 -include("tls_handshake.hrl").
 -include("dtls_handshake.hrl").
 -include("tls_handshake_1_3.hrl").
@@ -57,6 +56,8 @@ log(Level, LogLevel, ReportMap, Meta) ->
             ok
     end.
 
+debug(undefined, _Direction, _Protocol, _Message) ->
+    ok;
 debug(LogLevel, Direction, Protocol, Message)
   when (Direction =:= inbound orelse Direction =:= outbound) andalso
        (Protocol =:= 'record' orelse Protocol =:= 'handshake') ->
@@ -290,19 +291,20 @@ get_server_version(Version, Extensions) ->
             Version
     end.
 
-version({3,4}) ->
+-spec version(ssl_record:ssl_version()) -> string().
+version(?TLS_1_3) ->
     "TLS 1.3";
-version({3,3}) ->
+version(?TLS_1_2) ->
     "TLS 1.2";
-version({3,2}) ->
+version(?TLS_1_1) ->
     "TLS 1.1";
-version({3,1}) ->
+version(?TLS_1_0) ->
     "TLS 1.0";
-version({3,0}) ->
+version(?SSL_3_0) ->
     "SSL 3.0";
-version({254,253}) ->
+version(?DTLS_1_2) ->
     "DTLS 1.2";
-version({254,255}) ->
+version(?DTLS_1_0) ->
     "DTLS 1.0";
 version({M,N}) ->
     io_lib:format("TLS/DTLS [0x0~B0~B]", [M,N]).

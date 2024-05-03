@@ -9,4 +9,6 @@
   cookie set with [;;4mset_cookie/2[0m [;;4mCookie[0m (see section Distributed
   Erlang in the Erlang Reference Manual in System Documentation).
 
+  You can get this value using [;;4mget_cookie/0[0m.
+
   Failure: [;;4mfunction_clause[0m if the local node is not alive.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 -module(openssl_cipher_suite_SUITE).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 %% Callback functions
@@ -527,21 +528,25 @@ init_certs(rsa_psk, Config) ->
                                       {user_lookup_fun, {fun ssl_test_lib:user_lookup/3, PskSharedSecret}} | ClientOpts]}} |
      proplists:delete(tls_config, Config)];
 init_certs(rsa, Config) ->
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    SigAlgs = ssl_test_lib:sig_algs(rsa, Version),
     Ext = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
     {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
                                                                    [[ssl_test_lib:digest()],[ssl_test_lib:digest()],
                                                                     [ssl_test_lib:digest(), {extensions, Ext}]]}
                                                                  ],
                                                                  Config, "_peer_keyEncipherment"),
-    [{tls_config, #{server_config => ServerOpts,
-                    client_config => ClientOpts}} |
+    [{tls_config, #{server_config => SigAlgs ++ ServerOpts,
+                    client_config => SigAlgs ++ ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(dhe_dss, Config) ->
-     {ClientOpts, ServerOpts} = ssl_test_lib:make_dsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    SigAlgs = ssl_test_lib:sig_algs(dsa, Version),
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_dsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
                                                                   {client_chain, ssl_test_lib:default_cert_chain_conf()}],
-                                                                  Config, ""),
-    [{tls_config, #{server_config => ServerOpts,
-                    client_config => ClientOpts}} |
+                                                                 Config, ""),
+    [{tls_config, #{server_config => SigAlgs ++ ServerOpts,
+                    client_config => SigAlgs ++ClientOpts}} |
      proplists:delete(tls_config, Config)];
 init_certs(srp_dss, Config) ->
     {ClientOpts, ServerOpts} = ssl_test_lib:make_dsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
@@ -922,9 +927,9 @@ cipher_suite_test(CipherSuite, Version, Config) ->
       client_config := COpts} = proplists:get_value(tls_config, Config),
     ServerOpts = ssl_test_lib:ssl_options(SOpts, Config),
     ClientOpts = ssl_test_lib:ssl_options(COpts, Config),
-    ct:log("Testing CipherSuite ~p~n", [CipherSuite]),
-    ct:log("Server Opts ~p~n", [ServerOpts]),
-    ct:log("Client Opts ~p~n", [ClientOpts]),
+    ?CT_LOG("Testing CipherSuite ~p~n", [CipherSuite]),
+    ?CT_LOG("Server Opts ~p~n", [ServerOpts]),
+    ?CT_LOG("Client Opts ~p~n", [ClientOpts]),
     case proplists:get_value(server_type, Config) of
         erlang ->
             ssl_test_lib:basic_test([{ciphers, ssl:cipher_suites(all, Version)} | COpts],
@@ -945,17 +950,13 @@ test_ciphers(Kex, Cipher, Version) ->
                                          fun(Cipher0) when Cipher0 == Cipher -> true;
                                             (_) -> false
                                          end}]),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = ssl_test_lib:openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
-
-
-openssl_suitestr_to_map(OpenSSLSuiteStrs) ->
-    [ssl_cipher_format:suite_openssl_str_to_map(SuiteStr) || SuiteStr <- OpenSSLSuiteStrs].
 
 
 supported_cipher(Cipher, CipherStr) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
@@ -227,8 +228,7 @@ connect_twice(Config) when is_list(Config) ->
 				   {options, [{keepalive, true},{active, false}
 					      | ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-			 [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:check_result(Server, ok, Client1, ok),
@@ -313,12 +313,18 @@ cipher_suites_mix(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
 
+    ServerCipherSuites =  ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                                   [{key_exchange, fun(srp_rsa) -> false;
+                                                                      (srp_dss) -> false;
+                                                                      (_) -> true
+                                                                   end}]),
+
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+					{options, [{ciphers, ServerCipherSuites} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -414,8 +420,6 @@ eccs(Config) when is_list(Config) ->
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
     [_|_] = Tls1 = ssl:eccs('dtlsv1'),
     [_|_] = Tls2 = ssl:eccs('dtlsv1.2'),
-    %% ordering is currently not verified by the test
-    true = lists:sort(All) =:= lists:usort(Tls ++ Tls1 ++ Tls2),
     ok.
 
 tls_versions_option() ->
@@ -483,7 +487,8 @@ fake_root(Config) when is_list(Config) ->
     Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
     ROOT = #{cert := Cert,
              key := _Key} = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
-                                                                             {extensions, Ext}]),
+                                                                              {digest, sha256},
+                                                                              {extensions, Ext}]),
     FakeKey = ssl_test_lib:hardcode_rsa_key(1),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
     TBS = OTPCert#'OTPCertificate'.tbsCertificate,
@@ -495,29 +500,42 @@ fake_root(Config) when is_list(Config) ->
                                           AuthExt,
                                           false}]),
     #{server_config := ServerConf,
-      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
-                                                                                          {extensions, [AuthKeyExt]}]],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
+      client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256},
+                                                             {extensions, [AuthKeyExt]}]],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
+                                                    {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
 
-    #{server_config := FakeServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                         #{root =>  #{cert => FakeCert, key => FakeKey},
-                                                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
-                                                                                              {extensions, [AuthKeyExt]}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]},
-                                                                     client_chain =>
-                                                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                           intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                                  ),
+    #{server_config := FakeServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root =>  #{cert => FakeCert, key => FakeKey},
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256},
+                                                             {extensions, [AuthKeyExt]}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                              {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
 
-    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf, ClientConf, FakeCert, FakeServerConf, bad_certificate, bad_certificate).
+    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf,
+                   ClientConf, FakeCert, FakeServerConf, bad_certificate, bad_certificate).
 
 fake_root_no_intermediate() ->
     [{doc,"Test that we can not use a fake root signed by other key but with correct name and serial number."}].
@@ -528,7 +546,8 @@ fake_root_no_intermediate(Config) when is_list(Config) ->
     Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
     ROOT = #{cert := Cert,
              key := _Key} = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
-                                                                             {extensions, Ext}]),
+                                                                              {digest, sha256},
+                                                                              {extensions, Ext}]),
 
     FakeKey = ssl_test_lib:hardcode_rsa_key(1),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
@@ -541,28 +560,38 @@ fake_root_no_intermediate(Config) when is_list(Config) ->
                                           AuthExt,
                                           false}]),
     #{server_config := ServerConf,
-      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
-                                                                                 {extensions, [AuthKeyExt]}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
+      client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
+                                                    {digest, sha256},
+                                                    {extensions, [AuthKeyExt]}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}),
 
-    #{server_config := FakeServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                         #{root =>  #{cert => FakeCert, key => FakeKey},
-                                                                           intermediates => [],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
-                                                                                    {extensions, [AuthKeyExt]}]},
-                                                                     client_chain =>
-                                                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                           intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                                  ),
-    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf, ClientConf, FakeCert, FakeServerConf, bad_certificate, bad_certificate).
+    #{server_config := FakeServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root =>  #{cert => FakeCert, key => FakeKey},
+                                          intermediates => [],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256},
+                                                   {extensions, [AuthKeyExt]}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                              {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}),
+
+    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf,
+                   ClientConf, FakeCert, FakeServerConf, bad_certificate, bad_certificate).
 
 fake_root_legacy() ->
     [{doc,"Test that we can not use a fake root signed by other key but with correct name and serial number."}].
@@ -572,34 +601,44 @@ fake_root_legacy(Config) when is_list(Config) ->
     Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
     ROOT = #{cert := Cert,
              key := _Key} = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
-                                                                             {extensions, Ext}]),
+                                                                              {digest, sha256},
+                                                                              {extensions, Ext}]),
     FakeKey = ssl_test_lib:hardcode_rsa_key(1),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
     TBS = OTPCert#'OTPCertificate'.tbsCertificate,
     FakeCert = public_key:pkix_sign(TBS, FakeKey),
     #{server_config := ServerConf,
-      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
-
-    #{server_config := FakeServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                         #{root =>  #{cert => FakeCert, key => FakeKey},
-                                                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]},
-                                                                     client_chain =>
-                                                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                           intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                                  ),
-
-
-    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf, ClientConf, FakeCert, FakeServerConf, unknown_ca, unknown_ca).
+      client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256}]],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
+                                                    {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}),
+    #{server_config := FakeServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root =>  #{cert => FakeCert, key => FakeKey},
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256} ],
+                                          intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                              {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
+    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf,
+                   ClientConf, FakeCert, FakeServerConf, unknown_ca, unknown_ca).
 
 fake_root_no_intermediate_legacy() ->
     [{doc,"Test that we can not use a fake root signed by other key but with correct name and serial number."}].
@@ -609,7 +648,8 @@ fake_root_no_intermediate_legacy(Config) when is_list(Config) ->
     Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
     ROOT = #{cert := Cert,
              key := _Key} = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
-                                                                             {extensions, Ext}]),
+                                                                              {digest, sha256},
+                                                                              {extensions, Ext}]),
 
     FakeKey = ssl_test_lib:hardcode_rsa_key(1),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
@@ -617,26 +657,35 @@ fake_root_no_intermediate_legacy(Config) when is_list(Config) ->
     FakeCert = public_key:pkix_sign(TBS, FakeKey),
 
     #{server_config := ServerConf,
-      client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
-
-    #{server_config := FakeServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                         #{root =>  #{cert => FakeCert, key => FakeKey},
-                                                                           intermediates => [],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]},
-                                                                     client_chain =>
-                                                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                           intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                                  ),
-    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf, ClientConf, FakeCert, FakeServerConf, unknown_ca, unknown_ca).
+      client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
+                                                    {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
+                                 ),
+    #{server_config := FakeServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root =>  #{cert => FakeCert, key => FakeKey},
+                                          intermediates => [],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}
+                                                  ],
+                                          intermediates =>  [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                              {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}),
+    test_fake_root(Hostname, ServerNode, ClientNode, ServerConf,
+                   ClientConf, FakeCert, FakeServerConf, unknown_ca, unknown_ca).
 
 fake_intermediate_cert() ->
     [{doc,"Test that we can not use a fake intermediat cert claiming to be signed by a trusted ROOT but is not."}].
@@ -646,32 +695,48 @@ fake_intermediate_cert(Config) when is_list(Config) ->
      Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
      ROOT = #{cert := Cert,
               key := _Key} = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
+                                                                               {digest, sha256},
                                                                                {extensions, Ext}]),
     OtherSROOT = #{cert := OtherSCert,
-                  key := OtherSKey} = public_key:pkix_test_root_cert("OTHER SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(3)},
-                                                                                              {extensions, Ext}]),
+                   key := OtherSKey} =
+        public_key:pkix_test_root_cert("OTHER SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                                {digest, sha256},
+                                                                {extensions, Ext}]),
     OtherCROOT = #{cert := OtherCCert,
-                   key := _OtherCKey} = public_key:pkix_test_root_cert("OTHER Client ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(1)},
-                                                                                              {extensions, Ext}]),
-    #{client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
+                   key := _OtherCKey} =
+        public_key:pkix_test_root_cert("OTHER Client ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                                {digest, sha256},
+                                                                {extensions, Ext}]),
+    #{client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256}]],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)},
+                                                    {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
 
-    #{server_config := OtherServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                          #{root => OtherSROOT,
-                                                                            intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                            peer =>  [{key, ssl_test_lib:hardcode_rsa_key(1)}]},
-                                                                      client_chain =>
-                                                                          #{root => OtherCROOT,
-                                                                            intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                            peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                                   ),
+    #{server_config := OtherServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => OtherSROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                    {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => OtherCROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
     OTPCert = public_key:pkix_decode_cert(Cert, otp),
     TBS = OTPCert#'OTPCertificate'.tbsCertificate,
     TBSExt = TBS#'OTPTBSCertificate'.extensions,
@@ -711,32 +776,44 @@ incomplete_chain_length(Config) when is_list(Config)->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Ext = x509_test:extensions([{key_usage, [keyCertSign, cRLSign, digitalSignature, keyAgreement]}]),
     ROOT = public_key:pkix_test_root_cert("SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(6)},
+                                                             {digest, sha256},
                                                              {extensions, Ext}]),
 
     OtherROOT = public_key:pkix_test_root_cert("OTHER SERVER ROOT CA", [{key, ssl_test_lib:hardcode_rsa_key(3)},
                                                                                               {extensions, Ext}]),
-    #{client_config := ClientConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => ROOT,
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}]},
-                                                                 client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
+    #{client_config := ClientConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => ROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256}]],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(4)}, {digest, sha256}]},
+                                    client_chain =>
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256} ],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
 
-    #{server_config := ServerConf} = public_key:pkix_test_data(#{server_chain =>
-                                                                     #{root => OtherROOT,
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}],
-                                                                                         [{key, ssl_test_lib:hardcode_rsa_key(3)}]
-                                                                                         ],
-                                                                       peer =>  [{key, ssl_test_lib:hardcode_rsa_key(1)}]},
+    #{server_config := ServerConf} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => OtherROOT,
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256} ],
+                                                            [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                             {digest, sha256} ]
+                                                           ],
+                                          peer =>  [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                    {digest, sha256}]},
                                                                  client_chain =>
-                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]}}
-                                                              ),
-
+                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)},
+                                                   {digest, sha256}],
+                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(3)},
+                                                   {digest, sha256}]}}
+                                 ),
 
     VerifyFun = {fun(_,{bad_cert, unknown_ca}, UserState) ->
                          %% accept this error to provoke the
@@ -744,7 +821,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                          %% than the one received
                          {valid, UserState};
                     (_,{extension, _} = Extension, #{ext := N} = UserState) ->
-                         ct:pal("~p", [Extension]),
+                         ?CT_LOG("~p", [Extension]),
                          {unknown,  UserState#{ext => N +1}};
                     (_, valid, #{intermediates := N} = UserState) ->
                          {valid, UserState#{intermediates => N +1}};
@@ -752,7 +829,7 @@ incomplete_chain_length(Config) when is_list(Config)->
                                       ext := 1} = UserState) ->
                          {valid, UserState};
                     (_, valid_peer, UserState) ->
-                         ct:pal("~p", [UserState]),
+                         ?CT_LOG("~p", [UserState]),
                          {error, {bad_cert, too_short_path}}
                  end, #{intermediates => 0,
                         ext => 0}},
@@ -852,8 +929,7 @@ version_option_test(Config, Version) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options, [{active, false}, {versions, [Version]}| ClientOpts]}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-	   [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -927,10 +1003,14 @@ anon_chipher_suite_checks(Version) ->
     [_|_] = ssl:cipher_suites(exclusive_anonymous, Version).
 
 chipher_suite_checks(Version) ->
-    MandatoryCipherSuiteTLS1_0TLS1_1 = #{key_exchange => rsa,
-                                         cipher => '3des_ede_cbc',
-                                         mac => sha,
-                                         prf => default_prf},
+    MandatoryCipherSuiteTLS1_0 = #{key_exchange => dhe_dss,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
+    MandatoryCipherSuiteTLS1_1 = #{key_exchange => rsa,
+                                   cipher => '3des_ede_cbc',
+                                   mac => sha,
+                                   prf => default_prf},
     MandatoryCipherSuiteTLS1_0TLS1_2 = #{key_exchange =>rsa,
                                          cipher => 'aes_128_cbc',
                                          mac => sha,
@@ -939,6 +1019,7 @@ chipher_suite_checks(Version) ->
     Default = [_|_] = ssl:cipher_suites(default, Version),
     Anonymous = ssl:cipher_suites(anonymous, Version),
     true = length(Default) < length(All),
+
     Filters = [{key_exchange,
                 fun(dhe_rsa) ->
                         true;
@@ -954,6 +1035,7 @@ chipher_suite_checks(Version) ->
                 end
                },
                {mac,
+
                 fun(sha) ->
                         true;
                    (_) ->
@@ -967,20 +1049,30 @@ chipher_suite_checks(Version) ->
                prf => default_prf},
     [Cipher] = ssl:filter_cipher_suites(All, Filters),
     [Cipher | Rest0] = ssl:prepend_cipher_suites([Cipher], Default),
-    [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest0),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1')  orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest0] = ssl:prepend_cipher_suites(Filters, Default),
+            false = lists:member(Cipher, Rest0);
+        false ->
+            false = lists:member(Cipher, Default)
+    end,
     [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites([Cipher], Default)),
-    [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
-    true = lists:member(Cipher, Default),
-    false = lists:member(Cipher, Rest1),
+    case (Version == 'tlsv1') orelse (Version == 'tlsv1.1') orelse (Version == 'dtlsv1') of
+        true ->
+            true = lists:member(Cipher, Default),
+            [Cipher | Rest1] = lists:reverse(ssl:append_cipher_suites(Filters, Default)),
+            false = lists:member(Cipher, Rest1);
+         false ->
+            false = lists:member(Cipher, Default)
+    end,
     [] = lists:dropwhile(fun(X) -> not lists:member(X, Default) end, Anonymous),
     [] = lists:dropwhile(fun(X) -> not lists:member(X, All) end, Anonymous),
     case Version of
         tlsv1 ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All);
+           true = lists:member(MandatoryCipherSuiteTLS1_0, All);
         'tlsv1.1' ->
-            true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_1, All),
+            true = lists:member(MandatoryCipherSuiteTLS1_1, All),
             true = lists:member(MandatoryCipherSuiteTLS1_0TLS1_2, All);
         'tlsv1.2' ->
             ok;
@@ -1027,7 +1119,8 @@ check_process_count(Count, Try) ->
         Count ->
             ok;
         Other ->
-            ct:pal("Not expected number of cildren ~p on try ~p", [Other, Try]),
+            ?CT_PAL("Not expected number of cildren ~p on try ~p",
+                    [Other, Try]),
             ct:sleep(500), %% Wait long enough
             check_process_count(Count, Try - 1)
     end.

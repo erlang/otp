@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,7 +103,12 @@ typedef EI_ULONGLONG DistFlags;
                                 | DFLAG_NEW_FLOATS                \
                                 | DFLAG_MAP_TAG                   \
                                 | DFLAG_EXPORT_PTR_TAG            \
-                                | DFLAG_BIT_BINARIES)
+                                | DFLAG_BIT_BINARIES              \
+                                | DFLAG_HANDSHAKE_23)
+
+/* New mandatory flags for distribution in OTP 26. */
+#define DFLAG_DIST_MANDATORY_26 (DFLAG_V4_NC                      \
+                                 | DFLAG_UNLINK_ID)
 
 /* Mandatory flags for distribution. */
 
@@ -111,8 +116,8 @@ typedef EI_ULONGLONG DistFlags;
  * Mandatory flags for distribution. Keep them in sync with
  * erts/emulator/beam/dist.h.
  */
-#define DFLAG_DIST_MANDATORY DFLAG_DIST_MANDATORY_25
-
+#define DFLAG_DIST_MANDATORY (DFLAG_DIST_MANDATORY_25             \
+                              | DFLAG_DIST_MANDATORY_26)
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

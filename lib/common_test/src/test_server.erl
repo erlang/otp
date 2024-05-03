@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 %%
 %% %CopyrightEnd%
 -module(test_server).
+-moduledoc false.
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
@@ -466,7 +467,7 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    From ! {self(),Tag,ok},
 	    run_test_case_msgloop(St);
 	{abort_current_testcase,_,_}=Abort when St0#st.status =:= starting ->
-	    %% we're in init phase, must must postpone this operation
+	    %% we're in init phase, must postpone this operation
 	    %% until test case execution is in progress (or FW:init_tc
 	    %% gets killed)
 	    self() ! Abort,
@@ -561,8 +562,16 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			handle_tc_exit(Reason, St0)
 		end,
 	    run_test_case_msgloop(St);
-	{EndConfPid0,{call_end_conf,Data,_Result}} ->
-	    #st{mf={Mod,Func},config=CurrConf} = St0,
+	{EndConfPid0,{call_end_conf,Data,EndConf,_Result}} ->
+            #st{mf={Mod,Func},config=CurrConfFromState} = St0,
+            CurrConf = case EndConf of
+                           [] ->
+                               %% use latest stored Config
+                               CurrConfFromState;
+                           _ ->
+                               %% use latest Config prepared in pre_end_per_testcase
+                               EndConf
+                       end,
 	    case CurrConf of
 		_ when is_list(CurrConf) ->
 		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
@@ -742,7 +751,7 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     case erlang:function_exported(Mod,end_per_testcase,2) of
 	false ->
 	    spawn_link(fun() ->
-			       Starter ! {self(),{call_end_conf,Data,ok}}
+			       Starter ! {self(),{call_end_conf,Data,[],ok}}
 		       end);
 	true ->
 	    do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal)
@@ -776,15 +785,18 @@ do_call_end_conf(Starter,Mod,Func,Data,TCExitReason,Conf,TVal) ->
 				    print_end_conf_result(Mod,Func,Conf,
 							  "crashed",Error)
 			    end,
-			    Supervisor ! {self(),end_conf}
+			    Supervisor ! {self(),end_conf, EndConf}
 		    end,
 		Pid = spawn_link(EndConfApply),
 		receive
-		    {Pid,end_conf} ->
-			Starter ! {self(),{call_end_conf,Data,ok}};
+		    {Pid,end_conf, EndConf} ->
+                        %% Return EndConf to parent process to
+                        %% post_end_per_testcase callback can receive latest
+                        %% Config returned from pre_end_per_testcase
+			Starter ! {self(),{call_end_conf,Data,EndConf,ok}};
 		    {'EXIT',Pid,Reason} ->
 			print_end_conf_result(Mod,Func,Conf,"failed",Reason),
-			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
+			Starter ! {self(),{call_end_conf,Data,[],{error,Reason}}};
 		    {'EXIT',_OtherPid,Reason} ->
 			%% Probably the parent - not much to do about that
 			exit(Reason)
@@ -1863,22 +1875,14 @@ log(Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% capture_start() -> ok
-%% capture_stop() -> ok
-%%
-%% Starts/stops capturing all output from io:format, and similar. Capturing
-%% output doesn't stop output from happening. It just makes it possible
-%% to retrieve the output using capture_get/0.
-%% Starting and stopping capture doesn't affect already captured output.
-%% All output is stored as messages in the message queue until retrieved
+%% @see test_server_gl:capture_start/2
 
 capture_start() ->
-    group_leader() ! {capture,self()},
-    ok.
+    test_server_gl:capture_start(group_leader(), self()).
 
+%% @see test_server_gl:capture_stop/1
 capture_stop() ->
-    group_leader() ! {capture,false},
-    ok.
+    test_server_gl:capture_stop(group_leader()).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% capture_get() -> Output
@@ -2789,7 +2793,8 @@ peer_name(Module, TestCase) ->
     peer:random_name(lists:concat([Module, "-", TestCase])).
 
 %% Command line arguments passed
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string()) ->
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string()) ->
     {ok, gen_statem:server_ref(), node()} | {error, term()}.
 start_peer(Args, Module, TestCase) when is_list(Args) ->
     start_peer(#{args => Args, name => peer_name(Module, TestCase)}, Module);
@@ -2801,9 +2806,10 @@ start_peer(Opts, Module, TestCase) ->
     start_peer(Opts#{name => peer_name(Module, TestCase)}, Module).
 
 %% Release compatibility testing
--spec start_peer([string()] | peer:start_options(), atom() | string(), TestCase :: atom() | string(),
-    Release :: string(), OutDir :: file:filename()) ->
-        {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
+-spec start_peer([string()] | peer:start_options() | #{ start_cover => boolean() },
+                 atom() | string(), TestCase :: atom() | string(),
+                 Release :: string(), OutDir :: file:filename()) ->
+          {ok, gen_statem:server_ref(), node()} | {error, term()} | not_available.
 start_peer(Args, Module, TestCase, Release, OutDir) when is_list(Args) ->
     start_peer(#{args => Args}, Module, TestCase, Release, OutDir);
 start_peer(Opts, Module, TestCase, Release, OutDir) ->
@@ -2815,8 +2821,8 @@ start_peer(Opts, Module, TestCase, Release, OutDir) ->
             %% for old releases. Keep ERL_FLAGS, and ERL_ZFLAGS for sometimes you might need it...
             Env = maps:get(env, Opts, []) ++ [{"ERL_AFLAGS", false}],
             NewArgs = ["-pa", peer_compile(Erl, code:which(peer), OutDir) | maps:get(args, Opts, [])],
-            start_peer(Opts#{exec => Erl, args => NewArgs,
-                env => Env}, Module, TestCase)
+            start_peer(Opts#{exec => Erl, args => NewArgs, env => Env,
+                             start_cover => false }, Module, TestCase)
     end.
 
 %% Internal implementation
@@ -2844,7 +2850,6 @@ start_peer(#{name := Name} = Opts, Module) ->
             Shutdown = binary_to_term(term_to_binary({10000, CoverMain})),
             case peer:start_link(Opts#{args => FullArgs, shutdown => Shutdown}) of
                 {ok, Peer, Node} ->
-                    do_cover_for_node(Node, start),
                     {ok, Peer, Node};
                 Other ->
                     Other
@@ -2861,7 +2866,7 @@ peer_compile(Erl, cover_compiled, OutDir) ->
 peer_compile(Erl, ModPath, OutDir) ->
     {ok, ModSrc} = filelib:find_source(ModPath),
     Erlc = filename:join(filename:dirname(Erl), "erlc"),
-    cmd(Erlc, ["-o", OutDir, ModSrc]),
+    cmd(Erlc, ["-o", OutDir, unicode:characters_to_binary(ModSrc)]),
     OutDir.
 
 %% This should really be implemented as os:cmd.

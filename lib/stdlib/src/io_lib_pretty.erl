@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(io_lib_pretty).
+-moduledoc false.
 
 %%% Pretty printing Erlang terms
 %%%
@@ -27,7 +28,7 @@
 -export([print/1,print/2,print/3,print/4,print/5,print/6]).
 
 %% To be used by io_lib only.
--export([intermediate/6, write/1]).
+-export([intermediate/7, write/1]).
 
 %%%
 %%% Exported functions
@@ -64,7 +65,8 @@ print(Term) ->
                 | {'line_length', line_length()}
                 | {'line_max_chars', line_max_chars()}
                 | {'record_print_fun', rec_print_fun()}
-                | {'strings', boolean()}.
+                | {'strings', boolean()}
+                | {'maps_order', maps:iterator_order()}.
 -type options() :: [option()].
 
 -spec print(term(), rec_print_fun()) -> chars();
@@ -79,7 +81,8 @@ print(Term, Options) when is_list(Options) ->
     RecDefFun = get_option(record_print_fun, Options, no_fun),
     Encoding = get_option(encoding, Options, epp:default_encoding()),
     Strings = get_option(strings, Options, true),
-    print(Term, Col, Ll, D, M, T, RecDefFun, Encoding, Strings);
+    MapsOrder = get_option(maps_order, Options, undefined),
+    print(Term, Col, Ll, D, M, T, RecDefFun, Encoding, Strings, MapsOrder);
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
 
@@ -91,7 +94,7 @@ print(Term, Depth, RecDefFun) ->
 -spec print(term(), column(), line_length(), depth()) -> chars().
 
 print(Term, Col, Ll, D) ->
-    print(Term, Col, Ll, D, _M=-1, _T=-1, no_fun, latin1, true).
+    print(Term, Col, Ll, D, _M=-1, _T=-1, no_fun, latin1, true, undefined).
 
 -spec print(term(), column(), line_length(), depth(), rec_print_fun()) ->
                    chars().
@@ -102,7 +105,7 @@ print(Term, Col, Ll, D, RecDefFun) ->
             rec_print_fun()) -> chars().
 
 print(Term, Col, Ll, D, M, RecDefFun) ->
-    print(Term, Col, Ll, D, M, _T=-1, RecDefFun, latin1, true).
+    print(Term, Col, Ll, D, M, _T=-1, RecDefFun, latin1, true, undefined).
 
 %% D = Depth, default -1 (infinite), or LINEMAX=30 when printing from shell
 %% T = chars_limit, that is, maximal number of characters, default -1
@@ -111,22 +114,22 @@ print(Term, Col, Ll, D, M, RecDefFun) ->
 %% Col = current column, default 1
 %% Ll = line length/~p field width, default 80
 %% M = CHAR_MAX (-1 if no max, 60 when printing from shell)
-print(_, _, _, 0, _M, _T, _RF, _Enc, _Str) -> "...";
-print(_, _, _, _D, _M, 0, _RF, _Enc, _Str) -> "...";
-print(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str) when Col =< 0 ->
+print(_, _, _, 0, _M, _T, _RF, _Enc, _Str, _Ord) -> "...";
+print(_, _, _, _D, _M, 0, _RF, _Enc, _Str, _Ord) -> "...";
+print(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str, Ord) when Col =< 0 ->
     %% ensure Col is at least 1
-    print(Term, 1, Ll, D, M, T, RecDefFun, Enc, Str);
-print(Atom, _Col, _Ll, _D, _M, _T, _RF, Enc, _Str) when is_atom(Atom) ->
+    print(Term, 1, Ll, D, M, T, RecDefFun, Enc, Str, Ord);
+print(Atom, _Col, _Ll, _D, _M, _T, _RF, Enc, _Str, _Ord) when is_atom(Atom) ->
     write_atom(Atom, Enc);
-print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str) when is_tuple(Term);
+print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord) when is_tuple(Term);
                                                          is_list(Term);
                                                          is_map(Term);
                                                          is_bitstring(Term) ->
     %% preprocess and compute total number of chars
     {_, Len, _Dots, _} = If =
         case T < 0 of
-            true -> print_length(Term, D, T, RecDefFun, Enc, Str);
-            false -> intermediate(Term, D, T, RecDefFun, Enc, Str)
+            true -> print_length(Term, D, T, RecDefFun, Enc, Str, Ord);
+            false -> intermediate(Term, D, T, RecDefFun, Enc, Str, Ord)
         end,
     %% use Len as CHAR_MAX if M0 = -1
     M = max_cs(M0, Len),
@@ -143,7 +146,7 @@ print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str) when is_tuple(Term);
                               1),
             pp(If, Col, Ll, M, TInd, indent(Col), 0, 0)
     end;
-print(Term, _Col, _Ll, _D, _M, _T, _RF, _Enc, _Str) ->
+print(Term, _Col, _Ll, _D, _M, _T, _RF, _Enc, _Str, _Ord) ->
     %% atomic data types (bignums, atoms, ...) are never truncated
     io_lib:write(Term).
 
@@ -442,19 +445,19 @@ write_tail(E, S) ->
         }.
 
 -spec intermediate(term(), depth(), pos_integer(), rec_print_fun(),
-                   encoding(), boolean()) -> intermediate_format().
+                   encoding(), boolean(), boolean()) -> intermediate_format().
 
-intermediate(Term, D, T, RF, Enc, Str) when T > 0 ->
+intermediate(Term, D, T, RF, Enc, Str, Ord) when T > 0 ->
     D0 = 1,
-    If = print_length(Term, D0, T, RF, Enc, Str),
+    If = print_length(Term, D0, T, RF, Enc, Str, Ord),
     case If of
         {_, Len, Dots, _} when Dots =:= 0; Len > T; D =:= 1 ->
             If;
         {_, Len, _, _} ->
-            find_upper(If, Term, T, D0, 2, D, RF, Enc, Str, Len)
+            find_upper(If, Term, T, D0, 2, D, RF, Enc, Str, Ord, Len)
     end.
 
-find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str, LastLen) ->
+find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str, Ord, LastLen) ->
     Dd2 = Dd * 2,
     D1 = case D < 0 of
              true -> Dl + Dd2;
@@ -468,14 +471,14 @@ find_upper(Lower, Term, T, Dl, Dd, D, RF, Enc, Str, LastLen) ->
             %% Cannot happen if print_length() is free of bugs.
             If;
         {_, Len, _, _} when Len =< T, D1 < D orelse D < 0 ->
-	    find_upper(If, Term, T, D1, Dd2, D, RF, Enc, Str, Len);
+	    find_upper(If, Term, T, D1, Dd2, D, RF, Enc, Str, Ord, Len);
         _ ->
-	    search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str)
+	    search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str, Ord)
     end.
 
 %% Lower has NumOfDots > 0 and Len =< T.
 %% Upper has NumOfDots > 0 and Len > T.
-search_depth(Lower, Upper, _Term, T, Dl, Du, _RF, _Enc, _Str)
+search_depth(Lower, Upper, _Term, T, Dl, Du, _RF, _Enc, _Str, _Ord)
         when Du - Dl =:= 1 ->
     %% The returned intermediate format has Len >= T.
     case Lower of
@@ -484,7 +487,7 @@ search_depth(Lower, Upper, _Term, T, Dl, Du, _RF, _Enc, _Str)
         _ ->
             Upper
     end;
-search_depth(Lower, Upper, Term, T, Dl, Du, RF, Enc, Str) ->
+search_depth(Lower, Upper, Term, T, Dl, Du, RF, Enc, Str, Ord) ->
     D1 = (Dl  + Du) div 2,
     If = expand(Lower, T, D1 - Dl),
     case If of
@@ -493,9 +496,9 @@ search_depth(Lower, Upper, Term, T, Dl, Du, RF, Enc, Str) ->
             %% This is a bit expensive since the work to
             %% crate Upper is wasted. It is the price
             %% to pay to get a more balanced output.
-            search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str);
+            search_depth(Lower, If, Term, T, Dl, D1, RF, Enc, Str, Ord);
         _ ->
-            search_depth(If, Upper, Term, T, D1, Du, RF, Enc, Str)
+            search_depth(If, Upper, Term, T, D1, Du, RF, Enc, Str, Ord)
     end.
 
 %% The depth (D) is used for extracting and counting the characters to
@@ -504,16 +507,16 @@ search_depth(Lower, Upper, Term, T, Dl, Du, RF, Enc, Str) ->
 %% counted but need to be added later.
 
 %% D =/= 0
-print_length([], _D, _T, _RF, _Enc, _Str) ->
+print_length([], _D, _T, _RF, _Enc, _Str, _Ord) ->
     {"[]", 2, 0, no_more};
-print_length({}, _D, _T, _RF, _Enc, _Str) ->
+print_length({}, _D, _T, _RF, _Enc, _Str, _Ord) ->
     {"{}", 2, 0, no_more};
-print_length(#{}=M, _D, _T, _RF, _Enc, _Str) when map_size(M) =:= 0 ->
+print_length(#{}=M, _D, _T, _RF, _Enc, _Str, _Ord) when map_size(M) =:= 0 ->
     {"#{}", 3, 0, no_more};
-print_length(Atom, _D, _T, _RF, Enc, _Str) when is_atom(Atom) ->
+print_length(Atom, _D, _T, _RF, Enc, _Str, _Ord) when is_atom(Atom) ->
     S = write_atom(Atom, Enc),
     {S, io_lib:chars_length(S), 0, no_more};
-print_length(List, D, T, RF, Enc, Str) when is_list(List) ->
+print_length(List, D, T, RF, Enc, Str, Ord) when is_list(List) ->
     %% only flat lists are "printable"
     case Str andalso printable_list(List, D, T, Enc) of
         true ->
@@ -527,37 +530,37 @@ print_length(List, D, T, RF, Enc, Str) when is_list(List) ->
             %% does not make Prefix longer.
             {[S | "..."], 3 + io_lib:chars_length(S), 0, no_more};
         false ->
-            case print_length_list(List, D, T, RF, Enc, Str) of
+            case print_length_list(List, D, T, RF, Enc, Str, Ord) of
                 {What, Len, Dots, _More} when Dots > 0 ->
                     More = fun(T1, Dd) ->
-                                   ?FUNCTION_NAME(List, D+Dd, T1, RF, Enc, Str)
+                                   ?FUNCTION_NAME(List, D+Dd, T1, RF, Enc, Str, Ord)
                            end,
                     {What, Len, Dots, More};
                 If ->
                     If
             end
     end;
-print_length(Fun, _D, _T, _RF, _Enc, _Str) when is_function(Fun) ->
+print_length(Fun, _D, _T, _RF, _Enc, _Str, _Ord) when is_function(Fun) ->
     S = io_lib:write(Fun),
     {S, iolist_size(S), 0, no_more};
-print_length(R, D, T, RF, Enc, Str) when is_atom(element(1, R)),
-                                         is_function(RF) ->
+print_length(R, D, T, RF, Enc, Str, Ord) when is_atom(element(1, R)),
+                                              is_function(RF) ->
     case RF(element(1, R), tuple_size(R) - 1) of
         no -> 
-            print_length_tuple(R, D, T, RF, Enc, Str);
+            print_length_tuple(R, D, T, RF, Enc, Str, Ord);
         RDefs ->
-            print_length_record(R, D, T, RF, RDefs, Enc, Str)
+            print_length_record(R, D, T, RF, RDefs, Enc, Str, Ord)
     end;
-print_length(Tuple, D, T, RF, Enc, Str) when is_tuple(Tuple) ->
-    print_length_tuple(Tuple, D, T, RF, Enc, Str);
-print_length(Map, D, T, RF, Enc, Str) when is_map(Map) ->
-    print_length_map(Map, D, T, RF, Enc, Str);
-print_length(<<>>, _D, _T, _RF, _Enc, _Str) ->
+print_length(Tuple, D, T, RF, Enc, Str, Ord) when is_tuple(Tuple) ->
+    print_length_tuple(Tuple, D, T, RF, Enc, Str, Ord);
+print_length(Map, D, T, RF, Enc, Str, Ord) when is_map(Map) ->
+    print_length_map(Map, D, T, RF, Enc, Str, Ord);
+print_length(<<>>, _D, _T, _RF, _Enc, _Str, _Ord) ->
     {"<<>>", 4, 0, no_more};
-print_length(<<_/bitstring>> = Bin, 1, _T, RF, Enc, Str) ->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Bin, 1+Dd, T1, RF, Enc, Str) end,
+print_length(<<_/bitstring>> = Bin, 1, _T, RF, Enc, Str, Ord) ->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Bin, 1+Dd, T1, RF, Enc, Str, Ord) end,
     {"<<...>>", 7, 3, More};
-print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
+print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str, Ord) ->
     D1 = D - 1,
     case
         Str andalso
@@ -573,13 +576,13 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
         {true, true, Prefix} ->
             S = io_lib:write_string(Prefix, $"), %"
             More = fun(T1, Dd) ->
-                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
                    end,
             {[$<,$<,S|"...>>"], 7 + length(S), 3, More};
         {false, true, Prefix} ->
             S = io_lib:write_string(Prefix, $"), %"
             More = fun(T1, Dd) ->
-                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
+                           ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
                    end,
             {[$<,$<,S|"/utf8...>>"], 12 + io_lib:chars_length(S), 3, More};
         false ->
@@ -588,135 +591,135 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str) ->
                     {{bin, S}, iolist_size(S), 0, no_more};
                 {S, _Rest} ->
                     More = fun(T1, Dd) ->
-                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str)
+                                   ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
                            end,
                     {{bin, S}, iolist_size(S), 3, More}
             end
     end;    
-print_length(Term, _D, _T, _RF, _Enc, _Str) ->
+print_length(Term, _D, _T, _RF, _Enc, _Str, _Ord) ->
     S = io_lib:write(Term),
     %% S can contain unicode, so iolist_size(S) cannot be used here
     {S, io_lib:chars_length(S), 0, no_more}.
 
-print_length_map(Map, 1, _T, RF, Enc, Str) ->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Map, 1+Dd, T1, RF, Enc, Str) end,
+print_length_map(Map, 1, _T, RF, Enc, Str, Ord) ->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Map, 1+Dd, T1, RF, Enc, Str, Ord) end,
     {"#{...}", 6, 3, More};
-print_length_map(Map, D, T, RF, Enc, Str) when is_map(Map) ->
-    Next = maps:next(maps:iterator(Map)),
-    PairsS = print_length_map_pairs(Next, D, D - 1, tsub(T, 3), RF, Enc, Str),
+print_length_map(Map, D, T, RF, Enc, Str, Ord) when is_map(Map) ->
+    Next = maps:next(maps:iterator(Map, Ord)),
+    PairsS = print_length_map_pairs(Next, D, D - 1, tsub(T, 3), RF, Enc, Str, Ord),
     {Len, Dots} = list_length(PairsS, 3, 0),
     {{map, PairsS}, Len, Dots, no_more}.
 
-print_length_map_pairs(none, _D, _D0, _T, _RF, _Enc, _Str) ->
+print_length_map_pairs(none, _D, _D0, _T, _RF, _Enc, _Str, _Ord) ->
     [];
-print_length_map_pairs(Term, D, D0, T, RF, Enc, Str) when D =:= 1; T =:= 0->
+print_length_map_pairs(Term, D, D0, T, RF, Enc, Str, Ord) when D =:= 1; T =:= 0->
     More = fun(T1, Dd) ->
-                   ?FUNCTION_NAME(Term, D+Dd, D0, T1, RF, Enc, Str)
+                   ?FUNCTION_NAME(Term, D+Dd, D0, T1, RF, Enc, Str, Ord)
            end,
     {dots, 3, 3, More};
-print_length_map_pairs({K, V, Iter}, D, D0, T, RF, Enc, Str) ->
+print_length_map_pairs({K, V, Iter}, D, D0, T, RF, Enc, Str, Ord) ->
     Next = maps:next(Iter),
     T1 = case Next =:= none of
              false -> tsub(T, 1);
              true -> T
          end,
-    Pair1 = print_length_map_pair(K, V, D0, T1, RF, Enc, Str),
+    Pair1 = print_length_map_pair(K, V, D0, T1, RF, Enc, Str, Ord),
     {_, Len1, _, _} = Pair1,
     [Pair1 |
-     print_length_map_pairs(Next, D - 1, D0, tsub(T1, Len1), RF, Enc, Str)].
+     print_length_map_pairs(Next, D - 1, D0, tsub(T1, Len1), RF, Enc, Str, Ord)].
 
-print_length_map_pair(K, V, D, T, RF, Enc, Str) ->
-    {_, KL, KD, _} = P1 = print_length(K, D, T, RF, Enc, Str),
+print_length_map_pair(K, V, D, T, RF, Enc, Str, Ord) ->
+    {_, KL, KD, _} = P1 = print_length(K, D, T, RF, Enc, Str, Ord),
     KL1 = KL + 4,
-    {_, VL, VD, _} = P2 = print_length(V, D, tsub(T, KL1), RF, Enc, Str),
+    {_, VL, VD, _} = P2 = print_length(V, D, tsub(T, KL1), RF, Enc, Str, Ord),
     {{map_pair, P1, P2}, KL1 + VL, KD + VD, no_more}.
 
-print_length_tuple(Tuple, 1, _T, RF, Enc, Str) ->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, 1+Dd, T1, RF, Enc, Str) end,
+print_length_tuple(Tuple, 1, _T, RF, Enc, Str, Ord) ->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, 1+Dd, T1, RF, Enc, Str, Ord) end,
     {"{...}", 5, 3, More};
-print_length_tuple(Tuple, D, T, RF, Enc, Str) ->
-    L = print_length_tuple1(Tuple, 1, D, tsub(T, 2), RF, Enc, Str),
+print_length_tuple(Tuple, D, T, RF, Enc, Str, Ord) ->
+    L = print_length_tuple1(Tuple, 1, D, tsub(T, 2), RF, Enc, Str, Ord),
     IsTagged = is_atom(element(1, Tuple)) and (tuple_size(Tuple) > 1),
     {Len, Dots} = list_length(L, 2, 0),
     {{tuple,IsTagged,L}, Len, Dots, no_more}.
 
-print_length_tuple1(Tuple, I, _D, _T, _RF, _Enc, _Str)
+print_length_tuple1(Tuple, I, _D, _T, _RF, _Enc, _Str, _Ord)
              when I > tuple_size(Tuple) ->
     [];
-print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, I, D+Dd, T1, RF, Enc, Str) end,
+print_length_tuple1(Tuple, I, D, T, RF, Enc, Str, Ord) when D =:= 1; T =:= 0->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Tuple, I, D+Dd, T1, RF, Enc, Str, Ord) end,
     {dots, 3, 3, More};
-print_length_tuple1(Tuple, I, D, T, RF, Enc, Str) ->
+print_length_tuple1(Tuple, I, D, T, RF, Enc, Str, Ord) ->
     E = element(I, Tuple),
     T1 = case I =:= tuple_size(Tuple) of
              false -> tsub(T, 1);
              true -> T
          end,
-    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
+    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str, Ord),
     T2 = tsub(T1, Len1),
-    [Elem1 | print_length_tuple1(Tuple, I + 1, D - 1, T2, RF, Enc, Str)].
+    [Elem1 | print_length_tuple1(Tuple, I + 1, D - 1, T2, RF, Enc, Str, Ord)].
 
-print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str) ->
+print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str, Ord) ->
     More = fun(T1, Dd) ->
-                   ?FUNCTION_NAME(Tuple, 1+Dd, T1, RF, RDefs, Enc, Str)
+                   ?FUNCTION_NAME(Tuple, 1+Dd, T1, RF, RDefs, Enc, Str, Ord)
            end,
     {"{...}", 5, 3, More};
-print_length_record(Tuple, D, T, RF, RDefs, Enc, Str) ->
+print_length_record(Tuple, D, T, RF, RDefs, Enc, Str, Ord) ->
     Name = [$# | write_atom(element(1, Tuple), Enc)],
     NameL = io_lib:chars_length(Name),
     T1 = tsub(T, NameL+2),
-    L = print_length_fields(RDefs, D - 1, T1, Tuple, 2, RF, Enc, Str),
+    L = print_length_fields(RDefs, D - 1, T1, Tuple, 2, RF, Enc, Str, Ord),
     {Len, Dots} = list_length(L, NameL + 2, 0),
     {{record, [{Name,NameL} | L]}, Len, Dots, no_more}.
 
-print_length_fields([], _D, _T, Tuple, I, _RF, _Enc, _Str)
+print_length_fields([], _D, _T, Tuple, I, _RF, _Enc, _Str, _Ord)
                 when I > tuple_size(Tuple) ->
     [];
-print_length_fields(Term, D, T, Tuple, I, RF, Enc, Str)
+print_length_fields(Term, D, T, Tuple, I, RF, Enc, Str, Ord)
                 when D =:= 1; T =:= 0 ->
     More = fun(T1, Dd) ->
-                   ?FUNCTION_NAME(Term, D+Dd, T1, Tuple, I, RF, Enc, Str)
+                   ?FUNCTION_NAME(Term, D+Dd, T1, Tuple, I, RF, Enc, Str, Ord)
            end,
     {dots, 3, 3, More};
-print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str) ->
+print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str, Ord) ->
     E = element(I, Tuple),
     T1 = case I =:= tuple_size(Tuple) of
              false -> tsub(T, 1);
              true -> T
          end,
-    Field1 = print_length_field(Def, D - 1, T1, E, RF, Enc, Str),
+    Field1 = print_length_field(Def, D - 1, T1, E, RF, Enc, Str, Ord),
     {_, Len1, _, _} = Field1,
     T2 = tsub(T1, Len1),
     [Field1 |
-     print_length_fields(Defs, D - 1, T2, Tuple, I + 1, RF, Enc, Str)].
+     print_length_fields(Defs, D - 1, T2, Tuple, I + 1, RF, Enc, Str, Ord)].
 
-print_length_field(Def, D, T, E, RF, Enc, Str) ->
+print_length_field(Def, D, T, E, RF, Enc, Str, Ord) ->
     Name = write_atom(Def, Enc),
     NameL = io_lib:chars_length(Name) + 3,
     {_, Len, Dots, _} =
-        Field = print_length(E, D, tsub(T, NameL), RF, Enc, Str),
+        Field = print_length(E, D, tsub(T, NameL), RF, Enc, Str, Ord),
     {{field, Name, NameL, Field}, NameL + Len, Dots, no_more}.
 
-print_length_list(List, D, T, RF, Enc, Str) ->
-    L = print_length_list1(List, D, tsub(T, 2), RF, Enc, Str),
+print_length_list(List, D, T, RF, Enc, Str, Ord) ->
+    L = print_length_list1(List, D, tsub(T, 2), RF, Enc, Str, Ord),
     {Len, Dots} = list_length(L, 2, 0),
     {{list, L}, Len, Dots, no_more}.
 
-print_length_list1([], _D, _T, _RF, _Enc, _Str) ->
+print_length_list1([], _D, _T, _RF, _Enc, _Str, _Ord) ->
     [];
-print_length_list1(Term, D, T, RF, Enc, Str) when D =:= 1; T =:= 0->
-    More = fun(T1, Dd) -> ?FUNCTION_NAME(Term, D+Dd, T1, RF, Enc, Str) end,
+print_length_list1(Term, D, T, RF, Enc, Str, Ord) when D =:= 1; T =:= 0->
+    More = fun(T1, Dd) -> ?FUNCTION_NAME(Term, D+Dd, T1, RF, Enc, Str, Ord) end,
     {dots, 3, 3, More};
-print_length_list1([E | Es], D, T, RF, Enc, Str) ->
+print_length_list1([E | Es], D, T, RF, Enc, Str, Ord) ->
     %% If E is the last element in list, don't account length for a comma.
     T1 = case Es =:= [] of
              false -> tsub(T, 1);
              true -> T
          end,
-    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str),
-    [Elem1 | print_length_list1(Es, D - 1, tsub(T1, Len1), RF, Enc, Str)];
-print_length_list1(E, D, T, RF, Enc, Str) ->
-    print_length(E, D - 1, T, RF, Enc, Str).
+    {_, Len1, _, _} = Elem1 = print_length(E, D - 1, T1, RF, Enc, Str, Ord),
+    [Elem1 | print_length_list1(Es, D - 1, tsub(T1, Len1), RF, Enc, Str, Ord)];
+print_length_list1(E, D, T, RF, Enc, Str, Ord) ->
+    print_length(E, D - 1, T, RF, Enc, Str, Ord).
 
 list_length([], Acc, DotsAcc) ->
     {Acc, DotsAcc};

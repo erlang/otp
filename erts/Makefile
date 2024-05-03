@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2022. All Rights Reserved.
+# Copyright Ericsson AB 2006-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ all: $(if $(FLAVOR),$(FLAVOR),$(PRIMARY_FLAVOR))
 
 .PHONY: docs
 docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
+	$(V_at)( cd doc && $(MAKE) $@ )
 
 .PHONY: debug opt lcnt clean test
 $(TYPES) clean:
@@ -47,7 +47,7 @@ $(TYPES) clean:
 			( cd $$d && $(MAKE) $@ ) || exit $$?; \
 		fi ; \
 	done
-	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
+	(cd preloaded/src && $(MAKE) ../../ebin/erts.app)
 
 
 .PHONY: test
@@ -86,10 +86,8 @@ local_setup:
 		cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe $(ERL_TOP)/bin/erlc.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl.exe $(ERL_TOP)/bin/erl.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/erl_call.exe $(ERL_TOP)/bin/erl_call.exe; \
-		cp $(ERL_TOP)/bin/$(TARGET)/werl.exe $(ERL_TOP)/bin/werl.exe; \
 		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
-	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
-			 $(ERL_TOP)/bin/werl.exe; \
+	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe; \
 		make_local_ini.sh $(ERL_TOP); \
 		cp $(ERL_TOP)/bin/erl.ini $(ERL_TOP)/bin/$(TARGET)/erl.ini; \
 	else \
@@ -169,8 +167,4 @@ endif
 
 .PHONY: release_docs
 release_docs:
-	$(V_at)( cd doc/src && $(MAKE) $@ )
-
-.PHONY: xmllint
-xmllint:
-	$(MAKE) -C doc/src $@
+	$(V_at)( cd doc && $(MAKE) $@ )

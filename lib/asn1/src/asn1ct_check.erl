@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct_check).
+-moduledoc false.
 
 %% Main Module for ASN.1 compile time functions
 
@@ -1855,8 +1856,8 @@ validate_oid(S, OidType, [{'NamedNumber',_Name,Value}|Vrest], Acc)
     validate_oid(S, OidType, Vrest, [Value|Acc]);
 validate_oid(S, OidType, [#'Externalvaluereference'{}=Id|Vrest], Acc) ->
     NeededOidType = case Acc of
-			[] -> o_id;
-			[_|_] -> rel_oid
+			[] when OidType =:= o_id -> o_id;
+			_ -> rel_oid
 		    end,
     try get_oid_value(S, NeededOidType, true, Id) of
 	Val when is_integer(Val) ->
@@ -2294,9 +2295,8 @@ use_maps(#state{options=Opts}) ->
 
 create_map_value(Components, ListOfVals) ->
     Zipped = lists:zip(Components, ListOfVals),
-    L = [{Name,V} || {#'ComponentType'{name=Name},V} <- Zipped,
-                     V =/= asn1_NOVALUE],
-    maps:from_list(L).
+    #{Name => V || {#'ComponentType'{name=Name},V} <- Zipped,
+                   V =/= asn1_NOVALUE}.
 
 normalize_seq_or_set(SorS, S,
 		     [{#seqtag{val=Cname},V}|Vs],
@@ -3560,6 +3560,20 @@ range_union_1([]) ->
 finish_constraints(Cs) ->
     finish_constraints_1(Cs, fun smart_collapse/1).
 
+finish_constraints_1([{element_set,{'SizeConstraint',
+                                    {element_set,Root,none}},
+                       {set,[]}=Set}|T],
+                     Collapse) ->
+    %% Rewrite:
+    %%
+    %%     (SIZE (Lower..Upper), ...)
+    %%
+    %% to:
+    %%
+    %%     (SIZE (Lower..Upper, ...))
+
+    C = {element_set,{'SizeConstraint',{element_set,Root,Set}},none},
+    finish_constraints_1([C|T], Collapse);
 finish_constraints_1([{element_set,{Tag,{element_set,_,_}=Set0},none}|T],
 		     Collapse0) ->
     Collapse = collapse_fun(Tag),
@@ -4921,7 +4935,7 @@ componentrelation_leadingattr(S,CompList) ->
     %% get_simple_table_if_used/2 should find out whether there are any
     %% component relation constraints in the entire tree of Cs1 that
     %% relates to this level. It returns information about the simple
-    %% table constraint necessary for the the call to
+    %% table constraint necessary for the call to
     %% componentrelation_leadingattr/6. The step when the leading
     %% attribute and the syntax tree is modified to support the code
     %% generating.

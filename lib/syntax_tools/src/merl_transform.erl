@@ -30,6 +30,15 @@
 %% transform, unless the macro `MERL_NO_TRANSFORM' is defined first.
 
 -module(merl_transform).
+-moduledoc """
+Parse transform for merl. Enables the use of automatic metavariables and using
+quasi-quotes in matches and case switches. Also optimizes calls to functions in
+`merl` by partially evaluating them, turning strings to templates, etc., at
+compile-time.
+
+Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform,
+unless the macro `MERL_NO_TRANSFORM` is defined first.
+""".
 
 -export([parse_transform/2]).
 
@@ -41,7 +50,10 @@
 %% TODO: unroll calls to switch? it will probably get messy
 
 %% TODO: use Igor to make resulting code independent of merl at runtime?
-
+-doc "".
+-spec parse_transform(InForms, Options :: term()) -> OutForms when
+      InForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      OutForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
 parse_transform(Forms, _Options) ->
     erl_syntax:revert_forms(expand(erl_syntax:form_list(Forms))).
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,11 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint16   ErtsHalfDigit;
 
+#elif (SIZEOF_VOID_P == 8) && defined(__GNUC__) && (__GNUC__ >= 4)
+typedef __uint128_t ErtsDoubleDigit;
+#define BIG_HAVE_DOUBLE_DIGIT 1
+
 #elif (SIZEOF_VOID_P == 8)
-/* Assume 64-bit machine, does it exist 128 bit long long long ? */
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint32   ErtsHalfDigit;
 #else
@@ -122,16 +125,17 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_integer_estimate(Wterm, Uint base);
+int big_integer_estimate(Eterm, Uint base);
 Eterm erts_big_to_list(Eterm, int base, Eterm**);
-char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz);
+char *erts_big_to_string(Eterm x, int base, char *buf, Uint buf_sz);
 Uint erts_big_to_binary_bytes(Eterm x, int base, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
-Eterm big_plus(Wterm, Wterm, Eterm*);
+Eterm big_plus(Eterm, Eterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r);
 
 int big_div_rem(Eterm lhs, Eterm rhs,
                 Eterm *q_hp, Eterm *q,
@@ -148,9 +152,9 @@ Eterm big_bxor(Eterm, Eterm, Eterm*);
 Eterm big_bnot(Eterm, Eterm*);
 
 Eterm big_lshift(Eterm, Sint, Eterm*);
-int big_comp (Wterm, Wterm);
+int big_comp (Eterm, Eterm);
 int big_ucomp (Eterm, Eterm);
-int big_to_double(Wterm x, double* resp);
+int big_to_double(Eterm x, double* resp);
 Eterm double_to_big(double, Eterm*, Uint hsz);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
@@ -180,19 +184,4 @@ int term_equals_2pow32(Eterm);
 
 Eterm erts_uint64_to_big(Uint64, Eterm **);
 Eterm erts_sint64_to_big(Sint64, Eterm **);
-
-Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
-
-/* How list_to_integer classifies the input, was it even a string? */
-typedef enum {
-    LTI_BAD_STRUCTURE = 0,
-    LTI_NO_INTEGER    = 1,
-    LTI_SOME_INTEGER  = 2,
-    LTI_ALL_INTEGER   = 3,
-    LTI_SYSTEM_LIMIT  = 4,
-} LTI_result_t;
-
-LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
-                                  const Uint base,
-                                  Eterm *integer_out, Eterm *tail_out);
 #endif

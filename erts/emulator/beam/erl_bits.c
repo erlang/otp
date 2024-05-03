@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,46 +83,6 @@ static byte get_bit(byte b, size_t a_offs);
 #define GROW_PROC_BIN_SIZE(size) \
     (((size) > (1ull << 24)) ? 1.2*(size) : 2*(size))
 
-/* the state resides in the current process' scheduler data */
-
-#define byte_buf	(ErlBitsState.byte_buf_)
-#define byte_buf_len	(ErlBitsState.byte_buf_len_)
-
-static erts_atomic_t bits_bufs_size;
-
-Uint
-erts_bits_bufs_size(void)
-{
-    return (Uint) erts_atomic_read_nob(&bits_bufs_size);
-}
-
-void
-erts_bits_init_state(ERL_BITS_PROTO_0)
-{
-    byte_buf_len = 1;
-    byte_buf = erts_alloc(ERTS_ALC_T_BITS_BUF, byte_buf_len);
-
-    erts_bin_offset = 0;
-}
-
-void
-erts_bits_destroy_state(ERL_BITS_PROTO_0)
-{
-    erts_free(ERTS_ALC_T_BITS_BUF, byte_buf);
-}
-
-void
-erts_init_bits(void)
-{
-    ERTS_CT_ASSERT(offsetof(Binary,orig_bytes) % 8 == 0);
-    ERTS_CT_ASSERT(offsetof(ErtsMagicBinary,u.aligned.data) % 8 == 0);
-    ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
-                == offsetof(Binary,orig_bytes));
-
-    erts_atomic_init_nob(&bits_bufs_size, 0);
-    /* erl_process.c calls erts_bits_init_state() on all state instances */
-}
-
 /*****************************************************************
  ***
  *** New matching binaries functions
@@ -138,97 +98,66 @@ erts_init_bits(void)
 	}					\
   }while(0)					\
 
-Eterm
-erts_bs_start_match_2(Process *p, Eterm Binary, Uint Max)
+ErlSubBits *erts_bs_start_match_3(Process *p, Eterm bin)
 {
-    Eterm Orig;
-    Uint offs;
-    Uint* hp;
-    Uint NeededSize;
-    ErlBinMatchState *ms;
-    Uint bitoffs;
-    Uint bitsize;
-    Uint total_bin_size;
-    ProcBin* pb;
+    ErlSubBits *sb;
+    Uint offset, size;
+    byte *base;
+    Eterm br_flags;
+    BinRef *br;
+    Uint *hp;
 
-    ASSERT(is_binary(Binary));
+    ASSERT(is_bitstring(bin));
 
-    total_bin_size = binary_size(Binary);
-    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
+    hp = HeapOnlyAlloc(p, ERL_SUB_BITS_SIZE);
+    sb = (ErlSubBits *) hp;
 
-    NeededSize = ERL_BIN_MATCHSTATE_SIZE(Max);
-    hp = HeapOnlyAlloc(p, NeededSize);
-    ms = (ErlBinMatchState *) hp;
-    ERTS_GET_REAL_BIN(Binary, Orig, offs, bitoffs, bitsize);
-    pb = (ProcBin *) boxed_val(Orig);
-    if (pb->thing_word == HEADER_PROC_BIN && pb->flags != 0) {
-	erts_emasculate_writable_binary(pb);
-    }
-    ms->thing_word = HEADER_BIN_MATCHSTATE(Max);
-    (ms->mb).orig = Orig;
-    (ms->mb).base = binary_bytes(Orig);
-    (ms->mb).offset = ms->save_offset[0] = 8 * offs + bitoffs;
-    (ms->mb).size = total_bin_size * 8 + (ms->mb).offset + bitsize;
-    return make_matchstate(ms);
-}
+    ERTS_PIN_BITSTRING(bin, br_flags, br, base, offset, size);
 
-ErlBinMatchState *erts_bs_start_match_3(Process *p, Eterm Binary)
-{
-    Eterm Orig;
-    Uint offs;
-    Uint* hp;
-    Uint NeededSize;
-    ErlBinMatchState *ms;
-    Uint bitoffs;
-    Uint bitsize;
-    Uint total_bin_size;
-    ProcBin* pb;
+    erl_sub_bits_init(sb,
+                      ERL_SUB_BITS_FLAGS_MATCH_CONTEXT,
+                      br ? ((Eterm)br | br_flags) : bin,
+                      base,
+                      offset,
+                      size);
 
-    ASSERT(is_binary(Binary));
-
-    total_bin_size = binary_size(Binary);
-    ASSERT(total_bin_size <= ERTS_UWORD_MAX / CHAR_BIT);
-
-    NeededSize = ERL_BIN_MATCHSTATE_SIZE(0);
-    hp = HeapOnlyAlloc(p, NeededSize);
-    ms = (ErlBinMatchState *) hp;
-    ERTS_GET_REAL_BIN(Binary, Orig, offs, bitoffs, bitsize);
-    pb = (ProcBin *) boxed_val(Orig);
-    if (pb->thing_word == HEADER_PROC_BIN && pb->flags != 0) {
-        erts_emasculate_writable_binary(pb);
-    }
-
-    ms->thing_word = HEADER_BIN_MATCHSTATE(0);
-    (ms->mb).orig = Orig;
-    (ms->mb).base = binary_bytes(Orig);
-    (ms->mb).offset = 8 * offs + bitoffs;
-    (ms->mb).size = total_bin_size * 8 + (ms->mb).offset + bitsize;
-
-    return ms;
+    return sb;
 }
 
 #ifdef DEBUG
 # define CHECK_MATCH_BUFFER(MB) check_match_buffer(MB)
 
-static void check_match_buffer(ErlBinMatchBuffer* mb)
+static void check_match_buffer(const ErlSubBits *sb)
 {
-    Eterm realbin;
-    Uint byteoffs;
-    byte* bytes, bitoffs, bitsz;
-    ProcBin* pb;
-    ERTS_GET_REAL_BIN(mb->orig, realbin, byteoffs, bitoffs, bitsz);
-    bytes = binary_bytes(realbin) + byteoffs;
-    ERTS_ASSERT(mb->base >= bytes && mb->base <= (bytes + binary_size(mb->orig)));
-    pb = (ProcBin *) boxed_val(realbin);
-    if (pb->thing_word == HEADER_PROC_BIN)
-        ERTS_ASSERT(pb->flags == 0);
+    Eterm *unboxed = boxed_val(sb->orig);
+    const byte *match_base = erl_sub_bits_get_base(sb);
+    const byte *orig_base;
+    Uint size;
+
+    if (*unboxed == HEADER_BIN_REF) {
+        const BinRef *br = (BinRef*)unboxed;
+        ASSERT(!((br->val)->intern.flags &
+                 (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
+        size = NBITS((br->val)->orig_size);
+        orig_base = (byte*)(sb->base_flags & ~ERL_SUB_BITS_FLAG_MASK);
+    } else {
+        const ErlHeapBits *hb = (ErlHeapBits*)unboxed;
+        size = hb->size;
+        orig_base = (byte*)hb->data;
+    }
+
+    ASSERT(sb->end >= sb->start);
+    ASSERT(size >= (sb->end - sb->start));
+    ASSERT(match_base >= orig_base && match_base <= (orig_base + NBYTES(size)));
+    ASSERT(sb->start <= (size - NBITS(match_base - orig_base)));
 }
 #else
 # define CHECK_MATCH_BUFFER(MB)
 #endif
 
 Eterm
-erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
+erts_bs_get_integer_2(
+Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 {
     Uint bytes;
     Uint bits;
@@ -247,8 +176,8 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	return SMALL_ZERO;
     }
     
-    CHECK_MATCH_BUFFER(mb);
-    if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
+    CHECK_MATCH_BUFFER(sb);
+    if (sb->end - sb->start < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
 
@@ -256,14 +185,14 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
      * Special cases for field sizes up to the size of Uint.
      */
 
-    if (num_bits <= 8-(offs = BIT_OFFSET(mb->offset))) {
+    if (num_bits <= 8-(offs = BIT_OFFSET(sb->start))) {
 	/*
 	 * All bits are in one byte in the binary. We only need
 	 * shift them right and mask them.
 	 */
-	Uint b = mb->base[BYTE_OFFSET(mb->offset)];
+	Uint b = *(erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start));
 	Uint mask = MAKE_MASK(num_bits);
-	mb->offset += num_bits;
+	sb->start += num_bits;
 	b >>= 8 - offs - num_bits;
 	b &= mask;
 	if ((flags & BSF_SIGNED) && b >> (num_bits-1)) {
@@ -276,10 +205,11 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	 * combine the bytes to a word first, and then shift right and
 	 * mask to extract the bits.
 	 */
-	Uint byte_offset = BYTE_OFFSET(mb->offset);
-	Uint w = mb->base[byte_offset] << 8 | mb->base[byte_offset+1];
+	Uint byte_offset = BYTE_OFFSET(sb->start);
+	const byte* bp = erl_sub_bits_get_base(sb) + byte_offset;
+	Uint w = bp[0] << 8 | bp[1];
 	Uint mask = MAKE_MASK(num_bits);
-	mb->offset += num_bits;
+	sb->start += num_bits;
 	w >>= 16 - offs - num_bits;
 	w &= mask;
 	if ((flags & BSF_SIGNED) && w >> (num_bits-1)) {
@@ -291,12 +221,12 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 	 * Handle field sizes from 9 up to SMALL_BITS-1 bits, big-endian,
 	 * stored in at least two bytes.
 	 */
-	byte* bp = mb->base + BYTE_OFFSET(mb->offset);
+	const byte* bp = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
 	Uint n;
 	Uint w;
 
 	n = num_bits;
-	mb->offset += num_bits;
+	sb->start += num_bits;
 
 	/*
 	 * Handle the most signicant byte if it contains 1 to 7 bits.
@@ -374,13 +304,15 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
      */
     
     if (flags & BSF_LITTLE) {
-	erts_copy_bits(mb->base, mb->offset, 1, LSB, 0, 1, num_bits);
+	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
+                       LSB, 0, 1, num_bits);
 	*MSB >>= offs;		/* adjust msb */
     } else {
 	*MSB = 0;
-	erts_copy_bits(mb->base, mb->offset, 1, MSB, offs, -1, num_bits);
+	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
+                       MSB, offs, -1, num_bits);
     }
-    mb->offset += num_bits;
+    sb->start += num_bits;
 
     /*
      * Get the sign bit.
@@ -484,12 +416,12 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
 }
 
 Eterm
-erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
+erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 {
     Eterm result;
 
-    CHECK_MATCH_BUFFER(mb);
-    if (mb->size - mb->offset < num_bits) {
+    CHECK_MATCH_BUFFER(sb);
+    if (sb->end - sb->start < num_bits) {
         /* Asked for too many bits.  */
         return THE_NON_VALUE;
     }
@@ -498,17 +430,19 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffe
      * From now on, we can't fail.
      */
 
-    result = erts_extract_sub_binary(&HEAP_TOP(p),
-                                     mb->orig, mb->base,
-                                     mb->offset, num_bits);
+    result = erts_build_sub_bitstring(&HEAP_TOP(p),
+                                      sb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(sb->orig),
+                                      erl_sub_bits_get_base(sb),
+                                      sb->start, num_bits);
 
-    mb->offset += num_bits;
+    sb->start += num_bits;
 
     return result;
 }
 
 Eterm
-erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
+erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 {
     Eterm* hp;
     erlfp16 f16;
@@ -517,14 +451,14 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     byte* fptr;
     FloatDef f;
 
-    CHECK_MATCH_BUFFER(mb);
+    CHECK_MATCH_BUFFER(sb);
     if (num_bits == 0) {
 	f.fd = 0.0;
 	hp = HeapOnlyAlloc(p, FLOAT_SIZE_OBJECT);
 	PUT_DOUBLE(f, hp);
 	return make_float(hp);
     }
-    if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
+    if (sb->end - sb->start < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
     }
     if (num_bits == 16) {
@@ -538,11 +472,11 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
     }
 
     if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	erts_copy_bits(mb->base, mb->offset, 1,
+	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
 		  fptr, 0, 1,
 		  num_bits);
     } else {
-	erts_copy_bits(mb->base, mb->offset, 1,
+	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
 		  fptr + NBYTES(num_bits) - 1, 0, -1,
 		  num_bits);
     }
@@ -565,26 +499,28 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer
 	f.fd = f64;
 #endif
     }
-    mb->offset += num_bits;
+    sb->start += num_bits;
     hp = HeapOnlyAlloc(p, FLOAT_SIZE_OBJECT);
     PUT_DOUBLE(f, hp);
     return make_float(hp);
 }
 
 Eterm
-erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
+erts_bs_get_binary_all_2(Process *p, ErlSubBits *sb)
 {
     Uint bit_size;
     Eterm result;
 
-    CHECK_MATCH_BUFFER(mb);
-    bit_size = mb->size - mb->offset;
+    CHECK_MATCH_BUFFER(sb);
+    bit_size = sb->end - sb->start;
 
-    result = erts_extract_sub_binary(&HEAP_TOP(p),
-                                     mb->orig, mb->base,
-                                     mb->offset, bit_size);
+    result = erts_build_sub_bitstring(&HEAP_TOP(p),
+                                      sb->orig & TAG_PTR_MASK__,
+                                      (BinRef*)boxed_val(sb->orig),
+                                      erl_sub_bits_get_base(sb),
+                                      sb->start, bit_size);
 
-    mb->offset = mb->size;
+    sb->start = sb->end;
 
     return result;
 }
@@ -614,6 +550,33 @@ erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
    } \
  } while(0)
 
+static void
+fmt_small(byte *buf, Uint num_bytes, Eterm arg, Uint num_bits, Uint flags)
+{
+    Uint bit_offset;
+    Sint val;
+
+    ASSERT(is_small(arg));
+    ASSERT(num_bits != 0);      /* Tested by caller */
+
+    bit_offset = BIT_OFFSET(num_bits);
+    val = signed_val(arg);
+
+    if (flags & BSF_LITTLE) { /* Little endian */
+        num_bytes--;
+        COPY_VAL(buf, 1, val, num_bytes);
+        *buf = bit_offset ? (val << (8-bit_offset)) : val;
+    } else {		/* Big endian */
+        buf += num_bytes - 1;
+        if (bit_offset) {
+            *buf-- = val << (8-bit_offset);
+            num_bytes--;
+            val >>= bit_offset;
+        }
+        COPY_VAL(buf, -1, val, num_bytes);
+    }
+}
+
 /* calculate a - *cp (carry)  (store result in b), *cp is updated! */
 #define SUBc(a, cp, b) do { \
    byte __x = (a); \
@@ -621,177 +584,150 @@ erts_bs_get_binary_all_2(Process *p, ErlBinMatchBuffer* mb)
    (*cp) = (__y > __x); \
    *(b) = ~__y; \
  } while(0)
-  
-static int
-fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
-{
-    unsigned long offs;
-
-    offs = BIT_OFFSET(size);
-    if (is_small(val)) {
-	Sint v = signed_val(val);
-
-	ASSERT(size != 0);	  /* Tested by caller */
-	if (flags & BSF_LITTLE) { /* Little endian */
-	    sz--;
-	    COPY_VAL(buf,1,v,sz);
-	    *buf = offs ? ((v << (8-offs)) & 0xff) : (v & 0xff);
-	} else {		/* Big endian */
-	    buf += (sz - 1);
-	    if (offs) {
-		*buf-- = (v << (8-offs)) & 0xff;
-		sz--;
-		v >>= offs;
-	    }
-	    COPY_VAL(buf,-1,v,sz);
-	}
-    } else if (is_big(val)) {
-	int sign   = big_sign(val);
-	Uint ds  = big_size(val)*sizeof(ErtsDigit);  /* number of digits bytes */
-	ErtsDigit* dp = big_v(val);
-	int n = MIN(sz,ds);
-
-	if (size == 0) {
-	    return 0;
-	}
-	if (flags & BSF_LITTLE) {
-	    sz -= n;                       /* pad with this amount */
-	    if (sign) {
-		int c = 1;
-		while(n >= sizeof(ErtsDigit)) {
-		    ErtsDigit d = *dp++;
-		    int i;
-		    for(i = 0; i < sizeof(ErtsDigit); ++i) {
-			SUBc((d&0xff), &c, buf);
-			buf++;
-			d >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    ErtsDigit d = *dp;
-		    do {
-			SUBc((d&0xff), &c, buf);
-			buf++;
-			d >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz--) {
-		    SUBc(0, &c, buf);
-		    buf++;
-		}
-	    }
-	    else {
-		while(n >= sizeof(ErtsDigit)) {
-		    ErtsDigit d = *dp++;
-		    int i;
-		    for(i = 0; i < sizeof(ErtsDigit); ++i) {
-			*buf++ = (d & 0xff);
-			d >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    ErtsDigit d = *dp;
-		    do {
-			*buf++ = (d & 0xff);
-			d >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz) {
-		    *buf++ = 0;
-		    sz--;
-		}
-	    }
-	    /* adjust MSB!!! */
-	    if (offs) {
-		buf--;
-		*buf <<= (8 - offs);
-	    }
-	}
-	else {   /* BIG ENDIAN */
-	    ErtsDigit acc = 0;
-	    ErtsDigit d;
-
-	    buf += (sz - 1);              /* end of buffer */
-	    sz -= n;                      /* pad with this amount */
-	    offs = offs ? (8-offs) : 0;   /* shift offset */
-
-	    if (sign) { /* SIGNED */
-		int c = 1;
-
-		while (n >= sizeof(ErtsDigit)) {
-		    int i;
-
-		    d = *dp++;
-		    acc |= d << offs;
-		    SUBc((acc&0xff), &c, buf);
-		    buf--;
-		    acc = d >> (8-offs);
-		    for (i = 0; i < sizeof(ErtsDigit)-1; ++i) {
-			SUBc((acc&0xff), &c, buf);
-			buf--;
-			acc >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    acc |= ((ErtsDigit)*dp << offs);
-		    do {
-			SUBc((acc & 0xff), &c, buf);
-			buf--;
-			acc >>= 8;
-		    } while (--n > 0);
-		}
-		/* pad */
-		while(sz--) {
-		    SUBc((acc & 0xff), &c, buf);
-		    buf--;
-		    acc >>= 8;
-		}
-	    }
-	    else { /* UNSIGNED */
-		while (n >= sizeof(ErtsDigit)) {
-		    int i;
-
-		    d = *dp++;
-		    acc |= d << offs;
-		    *buf-- = acc;
-		    acc = d >> (8-offs);
-		    for (i = 0; i < sizeof(ErtsDigit)-1; ++i) {
-			*buf-- = acc;
-			acc >>= 8;
-		    }
-		    n -= sizeof(ErtsDigit);
-		}
-		if (n) {
-		    acc |= ((ErtsDigit)*dp << offs);
-		    do {
-			*buf-- = acc & 0xff;
-			acc >>= 8;
-		    } while (--n > 0);
-		}
-		while (sz--) {
-		    *buf-- = acc & 0xff;
-		    acc >>= 8;
-		}
-	    }
-	}
-    } else {			/* Neither small nor big */
-	return -1;
-    }
-    return 0;
-}
 
 static void
-ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
+fmt_big(byte *buf, Uint num_bytes, Eterm val, Uint num_bits, Uint flags)
 {
-    if (byte_buf_len < need) {
-	erts_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
-	byte_buf_len = need;
-	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
+    unsigned long offs;
+    int sign;
+    Uint ds;
+    ErtsDigit* dp;
+    int n;
+
+    ASSERT(is_big(val));
+
+    if (num_bits == 0) {
+        return;
+    }
+
+    sign = big_sign(val);
+    ds = big_size(val)*sizeof(ErtsDigit); /* number of digits bytes */
+    dp = big_v(val);
+    n = MIN(num_bytes, ds);
+
+    offs = BIT_OFFSET(num_bits);
+    if (flags & BSF_LITTLE) {
+        num_bytes -= n;         /* pad with this amount */
+        if (sign) {             /* negative */
+            int c = 1;
+            while (n >= sizeof(ErtsDigit)) {
+                ErtsDigit d = *dp++;
+                int i;
+                for (i = 0; i < sizeof(ErtsDigit); i++) {
+                    SUBc(d & 0xff, &c, buf);
+                    buf++;
+                    d >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                ErtsDigit d = *dp;
+                do {
+                    SUBc(d & 0xff, &c, buf);
+                    buf++;
+                    d >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes--) {
+                SUBc(0, &c, buf);
+                buf++;
+            }
+        } else {                /* positive */
+            while (n >= sizeof(ErtsDigit)) {
+                ErtsDigit d = *dp++;
+                int i;
+                for(i = 0; i < sizeof(ErtsDigit); i++) {
+                    *buf++ = d;
+                    d >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                ErtsDigit d = *dp;
+                do {
+                    *buf++ = d;
+                    d >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes) {
+                *buf++ = 0;
+                num_bytes--;
+            }
+        }
+
+        /* adjust MSB */
+        if (offs) {
+            buf--;
+            *buf <<= (8 - offs);
+        }
+    } else {   /* BIG ENDIAN */
+        ErtsDigit acc = 0;
+        ErtsDigit d;
+
+        buf += num_bytes - 1;       /* end of buffer */
+        num_bytes -= n;             /* pad with this amount */
+        offs = offs ? (8-offs) : 0; /* shift offset */
+
+        if (sign) {             /* negative bignum */
+            int c = 1;
+
+            while (n >= sizeof(ErtsDigit)) {
+                int i;
+
+                d = *dp++;
+                acc |= d << offs;
+                SUBc(acc & 0xff, &c, buf);
+                buf--;
+                acc = d >> (8-offs);
+                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
+                    SUBc(acc & 0xff, &c, buf);
+                    buf--;
+                    acc >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                acc |= ((ErtsDigit)*dp << offs);
+                do {
+                    SUBc(acc & 0xff, &c, buf);
+                    buf--;
+                    acc >>= 8;
+                } while (--n > 0);
+            }
+            /* pad */
+            while (num_bytes--) {
+                SUBc(acc & 0xff, &c, buf);
+                buf--;
+                acc >>= 8;
+            }
+        } else {                /* positive bignum */
+            while (n >= sizeof(ErtsDigit)) {
+                int i;
+
+                d = *dp++;
+                acc |= d << offs;
+                *buf-- = acc;
+                acc = d >> (8-offs);
+                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
+                    *buf-- = acc;
+                    acc >>= 8;
+                }
+                n -= sizeof(ErtsDigit);
+            }
+            if (n) {
+                acc |= (*dp << offs);
+                do {
+                    *buf-- = acc;
+                    acc >>= 8;
+                } while (--n > 0);
+            }
+            while (num_bytes--) {
+                *buf-- = acc;
+                acc >>= 8;
+            }
+        }
     }
 }
 
@@ -812,25 +748,80 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	} else if (bit_offset + num_bits <= 8) {
 	    /*
 	     * All bits are in the same byte.
-	     */ 
+	     */
 	    iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
 	    b = *iptr & (0xff << rbits);
-	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (8-bit_offset-num_bits);
+	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (rbits-num_bits);
 	    *iptr = b;
 	} else if (bit_offset == 0) {
 	    /*
 	     * More than one bit, starting at a byte boundary.
-	     * That will be quite efficiently handled by fmt_int().
-	     *
-	     * (We know that fmt_int() can't fail here.)
 	     */
-	    (void) fmt_int(erts_current_bin+BYTE_OFFSET(bin_offset),
-			   NBYTES(num_bits), arg, num_bits, flags);
+            iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
+            fmt_small(iptr, NBYTES(num_bits), arg, num_bits, flags);
 	} else if (flags & BSF_LITTLE) {
-	    /*
-	     * Can't handle unaligned little-endian in a simple way.
-	     */
-	    goto unaligned;
+            /*
+             * Little endian small in more than one byte, not
+             * aligned on a byte boundary.
+             */
+            Sint val = signed_val(arg);
+            Uint rshift = bit_offset;
+            Uint lshift = rbits;
+            Uint lmask = MAKE_MASK(rbits);
+            Uint count = (num_bits - rbits) / 8;
+            Uint bits, bits1;
+
+            iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
+
+            if (BIT_OFFSET(num_bits) == 0) {
+                bits = val;
+                bits1 = bits >> rshift;
+                *iptr = MASK_BITS(bits1, *iptr, lmask);
+                iptr++;
+                val >>= 8;
+
+                while (count--) {
+                    bits1 = bits << lshift;
+                    bits = val & 0xff;
+                    *iptr++ = bits1 | (bits >> rshift);
+                    val >>= 8;
+                }
+
+                *iptr = bits << lshift;
+            } else {
+                Sint num_bytes = NBYTES(num_bits) - 1;
+                Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
+
+                if (num_bytes-- > 0) {
+                    bits = val;
+                } else {
+                    bits = (val << (8 - BIT_OFFSET(num_bits)));
+                }
+                bits1 = bits >> rshift;
+                *iptr = MASK_BITS(bits1, *iptr, lmask);
+                iptr++;
+                val >>= 8;
+
+                while (count--) {
+                    bits1 = bits << lshift;
+                    if (num_bytes-- > 0) {
+                        bits = val & 0xff;
+                    } else {
+                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
+                    }
+                    *iptr++ = bits1 | (bits >> rshift);
+                    val >>= 8;
+                }
+
+                if (deoffs) {
+                    bits1 = bits << lshift;
+                    if (rshift < deoffs) {
+                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
+                        bits1 |= bits >> rshift;
+                    }
+                    *iptr = bits1;
+                }
+            }
 	} else {		/* Big endian */
 	    /*
 	     * Big-endian, more than one byte, but not aligned on a byte boundary.
@@ -857,34 +848,76 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
 	    }
 	    *iptr++ = b;
 
-	    /* fmt_int() can't fail here. */
-	    (void) fmt_int(iptr, NBYTES(num_bits-rbits), arg,
-			   num_bits-rbits, flags);
+            fmt_small(iptr, NBYTES(num_bits-rbits), arg, num_bits-rbits, flags);
 	}
-    } else if (bit_offset == 0) {
+    } else if (is_big(arg) && bit_offset == 0) {
 	/*
 	 * Big number, aligned on a byte boundary. We can format the
 	 * integer directly into the binary.
 	 */
-	if (fmt_int(erts_current_bin+BYTE_OFFSET(bin_offset),
-		    NBYTES(num_bits), arg, num_bits, flags) < 0) {
-	    return 0;
-	}
+	fmt_big(erts_current_bin+BYTE_OFFSET(bin_offset),
+                NBYTES(num_bits), arg, num_bits, flags);
+    } else if (is_big(arg) && bit_offset + num_bits <= 8) {
+        /*
+         * All bits are in the same byte.
+         */
+        Uint rbits = 8 - bit_offset;
+        Sint sign = big_sign(arg);
+        ErtsDigit* dp = big_v(arg);
+        Uint val = sign ? -*dp : *dp;
+
+        iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
+        b = *iptr & (0xff << rbits);
+        b |= (val & ((1 << num_bits)-1)) << (rbits-num_bits);
+        *iptr = b;
+    } else if (is_big(arg)) {
+        /*
+         * Big number, not aligned on a byte boundary.
+         */
+        Uint rshift = bit_offset;
+        Uint lshift = 8 - bit_offset;
+        Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
+        Uint lmask = MAKE_MASK(8 - bit_offset);
+        Uint rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
+        Uint count = (num_bits - lshift) / 8;
+        Uint bits, bits1;
+
+        ASSERT(num_bits - lshift >= 0);
+
+        /*
+         * Format the integer byte-aligned using the binary itself as
+         * a temporary buffer.
+         */
+        iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
+        b = *iptr;
+        fmt_big(iptr, NBYTES(num_bits), arg, num_bits, flags);
+
+        /*
+         * Now restore the overwritten bits of the first byte and
+         * shift everything to the right.
+         */
+        bits = *iptr;
+        bits1 = bits >> rshift;
+        *iptr = MASK_BITS(bits1, b, lmask);
+        iptr++;
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *iptr;
+            *iptr++ = bits1 | (bits >> rshift);
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *iptr;
+                bits1 |= (bits >> rshift);
+            }
+            *iptr = MASK_BITS(bits1, *iptr, rmask);
+        }
     } else {
-    unaligned:
-	/*
-	 * Big number or small little-endian number, not byte-aligned,
-	 * or not a number at all.
-	 *
-	 * We must format the number into a temporary buffer, and then
-	 * copy that into the binary.
-	 */
-	need_byte_buf(ERL_BITS_ARGS_1(NBYTES(num_bits)));
-	iptr = byte_buf;
-	if (fmt_int(iptr, NBYTES(num_bits), arg, num_bits, flags) < 0) {
-	    return 0;
-	}
-	erts_copy_bits(iptr, 0, 1, erts_current_bin, bin_offset, 1, num_bits);
+        /* Not an integer. */
+        return 0;
     }
     erts_bin_offset = bin_offset + num_bits;
     return 1;
@@ -1015,22 +1048,26 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
 int
 erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
 {
-    byte *bptr;
-    Uint bitoffs;
-    Uint bitsize; 
     ERL_BITS_DEFINE_STATEP(c_p);
+    Uint offset, size;
+    byte *base;
 
-    if (!is_binary(arg)) {
+    if (!is_bitstring(arg)) {
         c_p->fvalue = arg;
         return 0;
     }
-    ERTS_GET_BINARY_BYTES(arg, bptr, bitoffs, bitsize);
-    if (num_bits > 8*binary_size(arg)+bitsize) {
+
+    ERTS_GET_BITSTRING(arg, base, offset, size);
+
+    if (num_bits > size) {
         c_p->fvalue = arg;
-	return 0;
+        return 0;
     }
-    copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
+
+    copy_binary_to_buffer(erts_current_bin, erts_bin_offset,
+                          base, offset, num_bits);
     erts_bin_offset += num_bits;
+
     BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
     return 1;
 }
@@ -1038,33 +1075,26 @@ erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
 int
 erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
 {
-   byte *bptr;
-   Uint bitoffs;
-   Uint bitsize;
-   Uint num_bits;
-   ERL_BITS_DEFINE_STATEP(c_p);
+    ERL_BITS_DEFINE_STATEP(c_p);
+    Uint offset, size;
+    byte *base;
 
-   /*
-    * This instruction is always preceded by a size calculation that
-    * will guarantee that 'arg' is a binary.
-    */
-   ASSERT(is_binary(arg));
+    /* This instruction is always preceded by a size calculation that 
+     * guarantees that 'arg' is a bitstring. */
+    ASSERT(is_bitstring(arg));
+    ERTS_GET_BITSTRING(arg, base, offset, size);
 
-   ERTS_GET_BINARY_BYTES(arg, bptr, bitoffs, bitsize);
-   num_bits = 8*binary_size(arg)+bitsize;
-   if (unit == 8) {
-       if (bitsize != 0) {
-           c_p->fvalue = arg;
-	   return 0;
-       }
-   } else if (unit != 1 && num_bits % unit != 0) {
-       c_p->fvalue = arg;
-       return 0;
-   }
-   copy_binary_to_buffer(erts_current_bin, erts_bin_offset, bptr, bitoffs, num_bits);
-   erts_bin_offset += num_bits;
-   BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
-   return 1;
+    if (unit != 1 && (size % unit) != 0) {
+        c_p->fvalue = arg;
+        return 0;
+    }
+
+    copy_binary_to_buffer(erts_current_bin, erts_bin_offset,
+                          base, offset, size);
+    erts_bin_offset += size;
+
+    BUMP_REDS(c_p, size / BITS_PER_REDUCTION);
+    return 1;
 }
 
 /*
@@ -1377,23 +1407,73 @@ erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes))
 }
 
 static ERTS_INLINE
-void increase_proc_bin_sz(Process* p, ProcBin* pb, Uint new_size)
+void update_wb_overhead(Process *p,
+                        const BinRef *bin_ref,
+                        Uint old_size,
+                        Uint new_size)
 {
-    if (new_size > pb->size) {
-        const Uint incr = (new_size / sizeof(Eterm) -
-                           pb->size / sizeof(Eterm));
-        if (ErtsInBetween(pb, OLD_HEAP(p), OLD_HTOP(p))) {
+    ASSERT(new_size >= old_size);
+    if (new_size > old_size) {
+        const Uint incr = (NBYTES(new_size) / sizeof(Eterm) -
+                           NBYTES(old_size) / sizeof(Eterm));
+        if (ErtsInBetween(bin_ref, OLD_HEAP(p), OLD_HTOP(p))) {
             p->bin_old_vheap += incr;
-        }
-        else {
+        } else {
             OH_OVERHEAD(&MSO(p), incr);
         }
-        pb->size = new_size;
     }
-    else
-        ASSERT(new_size == pb->size);
 }
 
+static void
+build_writable_bitstring(Process *p,
+                         Eterm **hpp,
+                         Binary *bin,
+                         Uint current_size,
+                         Uint apparent_size,
+                         BinRef **brp,
+                         ErlSubBits **sbp)
+{
+    ErlSubBits *sb;
+    BinRef *br;
+
+    sb = (ErlSubBits*)&(*hpp)[0];
+    br = (BinRef*)&(*hpp)[ERL_SUB_BITS_SIZE];
+    *hpp += ERL_SUB_BITS_SIZE + ERL_BIN_REF_SIZE;
+
+    bin->intern.flags |= BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER;
+    bin->intern.apparent_size = NBYTES(apparent_size);
+
+    br->thing_word = HEADER_BIN_REF;
+    br->next = p->wrt_bins;
+    p->wrt_bins = (struct erl_off_heap_header*)br;
+    br->val = bin;
+
+    OH_OVERHEAD(&MSO(p), NBYTES(apparent_size) / sizeof(Eterm));
+
+    erl_sub_bits_init(sb,
+                      ERL_SUB_BITS_FLAGS_WRITABLE,
+                      make_boxed((Eterm*)br),
+                      &bin->orig_bytes[0],
+                      0,
+                      current_size);
+
+    *brp = br;
+    *sbp = sb;
+}
+
+/*
+ * This function either returns a term or THE_NON_VALUE.
+ *
+ * If THE_NON_VALUE is returned, it can mean one of two things:
+ *
+ * - The max_heap_size limit for the process was exceeded and the
+ *   process was killed. This situation can be recognized by calling
+ *   the ERTS_PROC_IS_EXITING(P) macro. The caller must immediately
+ *   pass control to the scheduler.
+ *
+ * - A BADARG or SYSTEM_LIMIT exception happened. The caller must
+ *   raise an exception.
+ */
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                Uint extra_words, Uint unit)
@@ -1421,6 +1501,9 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                                   extra_words, unit);
 }
 
+/*
+ * See erts_bs_append().
+ */
 Eterm
 erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                        Uint build_size_in_bits, Uint extra_words,
@@ -1429,8 +1512,8 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     Eterm bin;			/* Given binary */
     Eterm* ptr;
     Eterm hdr;
-    ErlSubBin* sb;
-    ProcBin* pb;
+    ErlSubBits* sb;
+    BinRef* br;
     Binary* binp;
     Uint heap_need;
     Uint used_size_in_bits;
@@ -1450,27 +1533,30 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     }
     ptr = boxed_val(bin);
     hdr = *ptr;
-    if (!is_binary_header(hdr)) {
+    if (!is_bitstring_header(hdr)) {
 	goto type_error;
     }
-    if (hdr != HEADER_SUB_BIN) {
+    if (hdr != HEADER_SUB_BITS) {
 	goto not_writable;
     }
-    sb = (ErlSubBin *) ptr;
-    if (!sb->is_writable) {
-	goto not_writable;
+    sb = (ErlSubBits*)ptr;
+    if (!erl_sub_bits_is_writable(sb)) {
+        goto not_writable;
     }
-    pb = (ProcBin *) boxed_val(sb->orig);
-    ASSERT(pb->thing_word == HEADER_PROC_BIN);
-    if ((pb->flags & PB_IS_WRITABLE) == 0) {
-	goto not_writable;
+
+    br = (BinRef *) boxed_val(sb->orig);
+    ASSERT(br->thing_word == HEADER_BIN_REF);
+    binp = br->val;
+
+    if ((binp->intern.flags & BIN_FLAG_WRITABLE) == 0) {
+        goto not_writable;
     }
 
     /*
      * OK, the binary is writable.
      */
-
-    erts_bin_offset = 8*sb->size + sb->bitsize;
+    ASSERT(sb->start == 0);
+    erts_bin_offset = sb->end;
     if (unit > 1) {
 	if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
 	    (unit != 8 && (erts_bin_offset % unit) != 0)) {
@@ -1482,6 +1568,9 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     if (build_size_in_bits == 0) {
         if (HeapWordsLeft(c_p) < extra_words) {
             (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                return THE_NON_VALUE;
+            }
             bin = reg[live];
         }
 	return bin;
@@ -1495,44 +1584,47 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
 
-    sb->is_writable = 0;	/* Make sure that no one else can write. */
+    /* Make sure that no one else can append to the incoming bitstring. */
+    erl_sub_bits_clear_writable(sb);
 
-    increase_proc_bin_sz(c_p, pb, NBYTES(used_size_in_bits));
-    pb->flags |= PB_ACTIVE_WRITER;
+    update_wb_overhead(c_p, br, sb->end, used_size_in_bits);
+    binp->intern.flags |= BIN_FLAG_ACTIVE_WRITER;
 
-    /*
-     * Reallocate the binary if it is too small.
-     */
-    binp = pb->val;
-    if (binp->orig_size < pb->size) {
-	Uint new_size = GROW_PROC_BIN_SIZE(pb->size);
+    /* Reallocate the underlying binary if it is too small. */
+    if (binp->orig_size < NBYTES(used_size_in_bits)) {
+        Uint new_size = GROW_PROC_BIN_SIZE(NBYTES(used_size_in_bits));
 
-	binp = erts_bin_realloc(binp, new_size);
-	pb->val = binp;
-	pb->bytes = (byte *) binp->orig_bytes;
-        BUMP_REDS(c_p, pb->size / BITS_PER_REDUCTION);
+        binp = erts_bin_realloc(binp, new_size);
+        br->val = binp;
+
+        BUMP_REDS(c_p, erts_bin_offset / BITS_PER_REDUCTION);
     }
-    erts_current_bin = pb->bytes;
 
-    /*
-     * Allocate heap space and build a new sub binary.
-     */
+    binp->intern.apparent_size = NBYTES(used_size_in_bits);
+    erts_current_bin = (byte*)binp->orig_bytes;
+
+    /* Allocate heap space and build a new sub binary. */
     reg[live] = sb->orig;
-    heap_need = ERL_SUB_BIN_SIZE + extra_words;
-    if (HeapWordsLeft(c_p) < heap_need) {
-	(void) erts_garbage_collect(c_p, heap_need, reg, live+1);
-    }
-    sb = (ErlSubBin *) c_p->htop;
-    c_p->htop += ERL_SUB_BIN_SIZE;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = BYTE_OFFSET(used_size_in_bits);
-    sb->bitsize = BIT_OFFSET(used_size_in_bits);
-    sb->offs = 0;
-    sb->bitoffs = 0;
-    sb->is_writable = 1;
-    sb->orig = reg[live];
 
-    return make_binary(sb);
+    heap_need = ERL_SUB_BITS_SIZE + extra_words;
+    if (HeapWordsLeft(c_p) < heap_need) {
+        (void)erts_garbage_collect(c_p, heap_need, reg, live + 1);
+        if (ERTS_PROC_IS_EXITING(c_p)) {
+            return THE_NON_VALUE;
+        }
+    }
+
+    sb = (ErlSubBits*)c_p->htop;
+    c_p->htop += ERL_SUB_BITS_SIZE;
+
+    erl_sub_bits_init(sb,
+                      ERL_SUB_BITS_FLAGS_WRITABLE,
+                      reg[live],
+                      erts_current_bin,
+                      0,
+                      used_size_in_bits);
+
+    return make_bitstring(sb);
 
     /*
      * The binary is not writable. We must create a new writable binary and
@@ -1540,103 +1632,69 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
      */
  not_writable:
     {
-	Uint used_size_in_bytes; /* Size of old binary + data to be built */
-	Uint bin_size;
-	Binary* bptr;
-	byte* src_bytes;
-	Uint bitoffs;
-	Uint bitsize;
-	Eterm* hp;
+        Uint src_offset, src_size;
+        byte* src_bytes;
+        Uint alloc_size;
+        ErlSubBits *sb;
+        BinRef *br;
 
-        /*
-	 * Allocate heap space.
-	 */
-	heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE + extra_words;
-	if (HeapWordsLeft(c_p) < heap_need) {
-	    (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
+        heap_need = ERL_REFC_BITS_SIZE + extra_words;
+        if (HeapWordsLeft(c_p) < heap_need) {
+            (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                return THE_NON_VALUE;
+            }
             bin = reg[live];
-	}
-	hp = c_p->htop;
+        }
 
-	/*
-	 * Calculate sizes. The size of the new binary, is the sum of the
-	 * build size and the size of the old binary. Allow some room
-	 * for growing.
-	 */
-	ERTS_GET_BINARY_BYTES(bin, src_bytes, bitoffs, bitsize);
-	erts_bin_offset = 8*binary_size(bin) + bitsize;
-	if (unit > 1) {
-	    if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
-                (unit != 8 && (erts_bin_offset % unit) != 0)) {
-                c_p->fvalue = am_unit;
-		goto badarg;
-	    }
-	}
+        /* Calculate sizes. The size of the new binary is the sum of the
+         * build size and the size of the old binary. Allow some room
+         * for growing. */
+        ERTS_GET_BITSTRING(bin, src_bytes, src_offset, src_size);
 
-	if (build_size_in_bits == 0) {
+        if (unit > 1 && (src_size % unit) != 0) {
+            c_p->fvalue = am_unit;
+            goto badarg;
+        }
+
+        if (build_size_in_bits == 0) {
             return bin;
-	}
+        }
 
-        if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        if((ERTS_UINT_MAX - build_size_in_bits) < src_size) {
             c_p->fvalue = am_size;
             c_p->freason = SYSTEM_LIMIT;
             return THE_NON_VALUE;
         }
 
-        used_size_in_bits = erts_bin_offset + build_size_in_bits;
-        used_size_in_bytes = NBYTES(used_size_in_bits);
+        used_size_in_bits = src_size + build_size_in_bits;
 
         if(used_size_in_bits < (ERTS_UINT_MAX / 2)) {
-            bin_size = GROW_PROC_BIN_SIZE(used_size_in_bytes);
+            alloc_size = GROW_PROC_BIN_SIZE(NBYTES(used_size_in_bits));
         } else {
-            bin_size = NBYTES(ERTS_UINT_MAX);
+            alloc_size = NBYTES(ERTS_UINT_MAX);
         }
 
-	bin_size = (bin_size < 256) ? 256 : bin_size;
+        ASSERT(HeapWordsLeft(c_p) >= ERL_REFC_BITS_SIZE);
+        build_writable_bitstring(c_p,
+                                 &c_p->htop,
+                                 erts_bin_nrml_alloc(MAX(alloc_size, 256)),
+                                 used_size_in_bits,
+                                 used_size_in_bits,
+                                 &br,
+                                 &sb);
 
-	/*
-	 * Allocate the binary data struct itself.
-	 */
-	bptr = erts_bin_nrml_alloc(bin_size);
-	erts_current_bin = (byte *) bptr->orig_bytes;
+        erts_current_bin = (byte*)(br->val)->orig_bytes;
+        erts_bin_offset = src_size;
 
-	/*
-	 * Now allocate the ProcBin on the heap.
-	 */
-	pb = (ProcBin *) hp;
-	hp += PROC_BIN_SIZE;
-	pb->thing_word = HEADER_PROC_BIN;
-	pb->size = used_size_in_bytes;
-	pb->next = c_p->wrt_bins;
-        c_p->wrt_bins = (struct erl_off_heap_header*)pb;
-	pb->val = bptr;
-	pb->bytes = (byte*) bptr->orig_bytes;
-	pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-	OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
+        copy_binary_to_buffer(erts_current_bin,
+                              0,
+                              src_bytes,
+                              src_offset,
+                              src_size);
+        BUMP_REDS(c_p, src_size / BITS_PER_REDUCTION);
 
-	/*
-	 * Now allocate the sub binary and set its size to include the
-	 * data about to be built.
-	 */
-	sb = (ErlSubBin *) hp;
-	hp += ERL_SUB_BIN_SIZE;
-	sb->thing_word = HEADER_SUB_BIN;
-	sb->size = BYTE_OFFSET(used_size_in_bits);
-	sb->bitsize = BIT_OFFSET(used_size_in_bits);
-	sb->offs = 0;
-	sb->bitoffs = 0;
-	sb->is_writable = 1;
-	sb->orig = make_binary(pb);
-
-	c_p->htop = hp;
-	
-	/*
-	 * Now copy the data into the binary.
-	 */
-	copy_binary_to_buffer(erts_current_bin, 0, src_bytes, bitoffs, erts_bin_offset);
-        BUMP_REDS(c_p, erts_bin_offset / BITS_PER_REDUCTION);
-
-	return make_binary(sb);
+        return make_bitstring(sb);
     }
 }
 
@@ -1668,26 +1726,22 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 Eterm
 erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, Uint unit)
 {
-    Eterm* ptr;
-    ErlSubBin* sb;
-    ProcBin* pb;
-    Binary* binp;
-    Uint pos_in_bits_after_build;
+    Uint new_position, new_size, used_size;
+    Binary *refc_binary;
+    ErlSubBits *sb;
+    BinRef *br;
+
     ERL_BITS_DEFINE_STATEP(p);
 
-    ptr = boxed_val(bin);
-    ASSERT(*ptr == HEADER_SUB_BIN);
+    sb = (ErlSubBits*)bitstring_val(bin);
+    ASSERT(sb->thing_word == HEADER_SUB_BITS);
 
-    sb = (ErlSubBin *) ptr;
-    ASSERT(sb->is_writable);
+    br = (BinRef*)boxed_val(sb->orig);
+    ASSERT(br->thing_word == HEADER_BIN_REF);
 
-    pb = (ProcBin *) boxed_val(sb->orig);
-    ASSERT(pb->thing_word == HEADER_PROC_BIN);
-
-    /*
-     * Calculate new size in bytes.
-     */
-    erts_bin_offset = 8*sb->size + sb->bitsize;
+    /* Calculate new size in bits. */
+    ASSERT(sb->start == 0);
+    erts_bin_offset = sb->end;
 
     if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
         p->fvalue = am_size;
@@ -1695,162 +1749,133 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
         return THE_NON_VALUE;
     }
 
-    pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
-    increase_proc_bin_sz(p, pb, (pos_in_bits_after_build+7) >> 3);
+    refc_binary = br->val;
 
-    /*
-     * Reallocate the binary if it is too small.
-     */
-    binp = pb->val;
-    if (binp->orig_size < pb->size) {
-	Uint new_size = GROW_PROC_BIN_SIZE(pb->size);
+    new_position = erts_bin_offset + build_size_in_bits;
+    update_wb_overhead(p, br, sb->end, new_position);
 
-        BUMP_REDS(p, pb->size / BITS_PER_REDUCTION);
-	if (pb->flags & PB_IS_WRITABLE) {
-	    /*
-	     * This is the normal case - the binary is writable.
-	     * There are no other references to the binary, so it
-	     * is safe to reallocate it.
-	     */
-	    binp = erts_bin_realloc(binp, new_size);
-	    pb->val = binp;
-	    pb->bytes = (byte *) binp->orig_bytes;
-	} else {
-	    /*
-	     * The binary is NOT writable. The only way that is
-	     * supposed to happen if is call trace has been turned
-	     * on. That means that a trace process now has (or have
-	     * had) a reference to the binary, so we are not allowed
-	     * to reallocate the binary. Instead, we must allocate a new
-             * binary and copy the contents of the old binary into it.
-             *
-             * Also make a new ProcBin as the old one may have been moved
-             * from the 'wrt_bins' list to the regular 'off_heap' list by
-             * the GC. To move it back would mean traversing the off_heap list
-             * from the start. So instead create a new ProcBin for this
-             * (hopefully) rare case.
-	     */
-	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-            ProcBin* new_pb;
-            Uint sz = PROC_BIN_SIZE;
+    used_size = NBYTES(new_position);
+    new_size = GROW_PROC_BIN_SIZE(used_size);
 
-            sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
+    if (refc_binary->intern.flags & BIN_FLAG_WRITABLE) {
+        /* This is the normal case - the binary is writable. There are no other
+         * references to the binary, so it is safe to reallocate it when it's
+         * too small. */
+        ASSERT(erl_sub_bits_is_writable(sb));
+        ASSERT(erts_refc_read(&refc_binary->intern.refc, 1) == 1);
+        if (refc_binary->orig_size < used_size) {
+            refc_binary = erts_bin_realloc(refc_binary, new_size);
+            br->val = refc_binary;
 
-            /* If the subbinary is on the mature or old heap, we need to also move it */
-            if (ErtsInBetween(sb, OLD_HEAP(p), OLD_HTOP(p)) ||
-                ErtsInBetween(sb, HEAP_START(p), HIGH_WATER(p))) {
-                sz += ERL_SUB_BIN_SIZE;
-            }
+            BUMP_REDS(p, erts_bin_offset / BITS_PER_REDUCTION);
+        }
 
-            new_pb = (ProcBin*) HeapFragOnlyAlloc(p, sz);
-            new_pb->thing_word = HEADER_PROC_BIN;
-            new_pb->size = pb->size;
-            new_pb->val = bptr;
-            new_pb->bytes = (byte *) bptr->orig_bytes;
-            new_pb->next = p->wrt_bins;
-            p->wrt_bins = (struct erl_off_heap_header*) new_pb;
-            pb = new_pb;
-            if (sz != PROC_BIN_SIZE) {
-                ErlSubBin *new_sb = (ErlSubBin*)(new_pb+1);
-                sys_memcpy(new_sb, sb, sizeof(*new_sb));
-                sb = new_sb;
-                bin = make_binary(sb);
-            }
-            sb->orig = make_binary(new_pb);
-	}
+        ASSERT(sb->start == 0);
+        sb->end = new_position;
+
+        refc_binary->intern.flags |= BIN_FLAG_ACTIVE_WRITER;
+        refc_binary->intern.apparent_size = used_size;
+    } else {
+        /* The binary is NOT writable. The only way that this can happen is
+         * when call tracing is turned on, which means that a trace process now
+         * has (or have had) a reference to underlying binary. We are therefore
+         * unable to reallocate the binary, and must instead allocate a new
+         * binary and make a copy of the data.
+         *
+         * We'll also make a new BinRef as the old one may have been moved from
+         * the `wrt_bins` list to the regular `off_heap` list by the GC. To
+         * To move it back would mean traversing the `off_heap` list from the
+         * start, so we'll create a new BinRef instead for this (hopefully)
+         * rare case. */
+        Binary *new_binary = erts_bin_nrml_alloc(new_size);
+        Eterm *hp = HeapFragOnlyAlloc(p, ERL_REFC_BITS_SIZE);
+
+        build_writable_bitstring(p,
+                                 &hp,
+                                 new_binary,
+                                 new_position,
+                                 new_position,
+                                 &br,
+                                 &sb);
+
+        sys_memcpy(new_binary->orig_bytes,
+                   refc_binary->orig_bytes,
+                   MIN(refc_binary->orig_size, new_size));
+
+        BUMP_REDS(p, erts_bin_offset / BITS_PER_REDUCTION);
+        refc_binary = new_binary;
     }
-    pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 
-    erts_current_bin = pb->bytes;
+    ASSERT(refc_binary->intern.flags & BIN_FLAG_WRITABLE);
+    erts_current_bin = (byte*)&refc_binary->orig_bytes[0];
 
-    sb->size = pos_in_bits_after_build >> 3;
-    sb->bitsize = pos_in_bits_after_build & 7;
-    return bin;
+    return make_bitstring(sb);
 }
 
 Eterm
 erts_bs_init_writable(Process* p, Eterm sz)
 {
     Uint bin_size = 1024;
-    Uint heap_need;
-    Binary* bptr;
-    ProcBin* pb;
-    ErlSubBin* sb;
-    Eterm* hp;
-    
+    Binary *refc_binary;
+    ErlSubBits *sb;
+    BinRef *br;
+
     if (is_small(sz)) {
-	Sint s = signed_val(sz);
-	if (s >= 0) {
-	    bin_size = (Uint) s;
-	}
+        Sint s = signed_val(sz);
+        if (s >= 0) {
+            bin_size = (Uint) s;
+        }
     }
 
-    /*
-     * Allocate heap space.
-     */
-    heap_need = PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
-    if (HeapWordsLeft(p) < heap_need) {
-	(void) erts_garbage_collect(p, heap_need, NULL, 0);
+    if (HeapWordsLeft(p) < ERL_REFC_BITS_SIZE) {
+        (void)erts_garbage_collect(p, ERL_REFC_BITS_SIZE, NULL, 0);
     }
-    hp = p->htop;
-    
-    /*
-     * Allocate the binary data struct itself.
-     */
-    bptr = erts_bin_nrml_alloc(bin_size);
-    
-    /*
-     * Now allocate the ProcBin on the heap.
-     */
-    pb = (ProcBin *) hp;
-    hp += PROC_BIN_SIZE;
-    pb->thing_word = HEADER_PROC_BIN;
-    pb->size = 0;
-    pb->next = p->wrt_bins;
-    p->wrt_bins = (struct erl_off_heap_header*) pb;
-    pb->val = bptr;
-    pb->bytes = (byte*) bptr->orig_bytes;
-    pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
-    
-    /*
-     * Now allocate the sub binary.
-     */
-    sb = (ErlSubBin *) hp;
-    hp += ERL_SUB_BIN_SIZE;
-    sb->thing_word = HEADER_SUB_BIN;
-    sb->size = 0;
-    sb->offs = 0;
-    sb->bitsize = 0;
-    sb->bitoffs = 0;
-    sb->is_writable = 1;
-    sb->orig = make_binary(pb);
 
-    p->htop = hp;
-    return make_binary(sb);
+    refc_binary = erts_bin_nrml_alloc(bin_size);
+    build_writable_bitstring(p,
+                             &p->htop,
+                             refc_binary,
+                             0,
+                             bin_size * 8,
+                             &br, &sb);
+    (void)br;
+
+    return make_bitstring(sb);
 }
 
-void
-erts_emasculate_writable_binary(ProcBin* pb)
-{
-    Binary* binp;
-    Uint unused;
+void erts_pin_writable_binary(ErlSubBits *sb, BinRef *br) {
+    if (erl_sub_bits_was_writable(sb)) {
+        enum binary_flags flags;
+        Binary *refc_binary;
 
-    pb->flags = 0;
-    binp = pb->val;
-    ASSERT(binp->orig_size >= pb->size);
-    unused = binp->orig_size - pb->size;
-    /* Our allocators are 8 byte aligned, i.e., shrinking with
-       less than 8 bytes will have no real effect */
-    if (unused >= 8) {
-	binp = erts_bin_realloc(binp, pb->size);
-	pb->val = binp;
-	pb->bytes = (byte *) binp->orig_bytes;
+        refc_binary = br->val;
+        flags = refc_binary->intern.flags;
+
+        if (flags & (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)) {
+            Uint apparent_size = refc_binary->intern.apparent_size;
+
+            ASSERT(refc_binary->orig_size >= apparent_size);
+            ASSERT(!(flags & ~(BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
+            ASSERT(erts_refc_read(&refc_binary->intern.refc, 1) == 1);
+
+            refc_binary->intern.flags = 0;
+
+            /* Our allocators are 8 byte aligned, i.e., shrinking with less
+             * than 8 bytes will have no real effect */
+            if (refc_binary->orig_size - apparent_size >= 8) {
+                refc_binary = erts_bin_realloc(refc_binary, apparent_size);
+                br->val = refc_binary;
+            }
+        }
+
+        sb->base_flags = (UWord)refc_binary->orig_bytes;
     }
+
+    ASSERT(erl_sub_bits_is_normal(sb));
 }
 
 Uint32
-erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
+erts_bs_get_unaligned_uint32(ErlSubBits* sb)
 {
     Uint bytes;
     Uint offs;
@@ -1858,9 +1883,9 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     byte* LSB;
     byte* MSB;
 	
-    CHECK_MATCH_BUFFER(mb);
-    ASSERT((mb->offset & 7) != 0);
-    ASSERT(mb->size - mb->offset >= 32);
+    CHECK_MATCH_BUFFER(sb);
+    ASSERT((sb->start & 7) != 0);
+    ASSERT(sb->end - sb->start >= 32);
 
     bytes = 4;
     offs = 0;
@@ -1869,14 +1894,14 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     MSB = LSB + bytes - 1;
 
     *MSB = 0;
-    erts_copy_bits(mb->base, mb->offset, 1, MSB, offs, -1, 32);
+    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, MSB, offs, -1, 32);
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
 static void
-erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf)
+erts_align_utf8_bytes(ErlSubBits *sb, byte* buf)
 {
-    Uint bits = mb->size - mb->offset;
+    Uint bits = sb->end - sb->start;
 
     /*
      * Copy up to 4 bytes into the supplied buffer.
@@ -1892,15 +1917,15 @@ erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf)
     } else {
 	bits = 16;
     }
-    erts_copy_bits(mb->base, mb->offset, 1, buf, 0, 1, bits);
+    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, buf, 0, 1, bits);
 }
 
 Eterm
-erts_bs_get_utf8(ErlBinMatchBuffer* mb)
+erts_bs_get_utf8(ErlSubBits *sb)
 {
     Eterm result;
     Uint remaining_bits;
-    byte* pos;
+    const byte *pos;
     byte tmp_buf[4];
     Eterm a, b, c;
 
@@ -1918,22 +1943,22 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,9,9,9,9,9,9,9,9
     };
 
-    CHECK_MATCH_BUFFER(mb);
+    CHECK_MATCH_BUFFER(sb);
 
-    if ((remaining_bits = mb->size - mb->offset) < 8) {
+    if ((remaining_bits = sb->end - sb->start) < 8) {
 	return THE_NON_VALUE;
     }
-    if (BIT_OFFSET(mb->offset) == 0) {
-	pos = mb->base + BYTE_OFFSET(mb->offset);
+    if (BIT_OFFSET(sb->start) == 0) {
+	pos = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
     } else {
-	erts_align_utf8_bytes(mb, tmp_buf);
+	erts_align_utf8_bytes(sb, tmp_buf);
 	pos = tmp_buf;
     }
     result = pos[0];
     switch (erts_trailing_bytes_for_utf8[result]) {
       case 0:
 	/* One byte only */
-	mb->offset += 8;
+	sb->start += 8;
 	break;
       case 1:
 	/* Two bytes */
@@ -1945,7 +1970,7 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	    return THE_NON_VALUE;
 	}
 	result = (result << 6) + a - (Eterm) 0x00003080UL;
-	mb->offset += 16;
+	sb->start += 16;
 	break;
       case 2:
 	/* Three bytes */
@@ -1962,7 +1987,7 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	if (0xD800 <= result && result <= 0xDFFF) {
 	    return THE_NON_VALUE;
 	}
-	mb->offset += 24;
+	sb->start += 24;
 	break;
       case 3:
 	/* Four bytes */
@@ -1982,7 +2007,7 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 	if (result > 0x10FFFF) {
 	    return THE_NON_VALUE;
 	}
-	mb->offset += 32;
+	sb->start += 32;
 	break;
       default:
 	return THE_NON_VALUE;
@@ -1991,10 +2016,10 @@ erts_bs_get_utf8(ErlBinMatchBuffer* mb)
 }
 
 Eterm
-erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
+erts_bs_get_utf16(ErlSubBits *sb, Uint flags)
 {
     Uint bit_offset;
-    Uint num_bits = mb->size - mb->offset;
+    Uint num_bits = sb->end - sb->start;
     byte* src;
     byte tmp_buf[4];
     Uint16 w1;
@@ -2004,20 +2029,21 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
 	return THE_NON_VALUE;
     }
 
-    CHECK_MATCH_BUFFER(mb);
+    CHECK_MATCH_BUFFER(sb);
     /*
      * Set up the pointer to the source bytes.
      */
-    if ((bit_offset = BIT_OFFSET(mb->offset)) == 0) {
+    if ((bit_offset = BIT_OFFSET(sb->start)) == 0) {
 	/* We can access the binary directly because the bytes are aligned. */
-	src = mb->base + BYTE_OFFSET(mb->offset);
+	src = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
     } else {
 	/*
 	 * We must copy the data to a temporary buffer. If possible,
 	 * get 4 bytes, otherwise two bytes.
 	 */
 	Uint n = num_bits < 32 ? 16 : 32;
-	erts_copy_bits(mb->base, mb->offset, 1, tmp_buf, 0, 1, n);
+	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
+                       tmp_buf, 0, 1, n);
 	src = tmp_buf;
     }
     
@@ -2030,7 +2056,7 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
 	w1 = (src[0] << 8) | src[1];
     }
     if (w1 < 0xD800 || w1 > 0xDFFF) {
-	mb->offset += 16;
+	sb->start += 16;
 	return make_small(w1);
     } else if (w1 > 0xDBFF) {
 	return THE_NON_VALUE;
@@ -2049,7 +2075,7 @@ erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags)
     if (!(0xDC00 <= w2 && w2 <= 0xDFFF)) {
 	return THE_NON_VALUE;
     }
-    mb->offset += 32;
+    sb->start += 32;
     return make_small((((w1 & 0x3FF) << 10) | (w2 & 0x3FF)) + 0x10000UL);
 }
 
@@ -2059,26 +2085,21 @@ get_bit(byte b, size_t offs)
     return (b >> (7-offs)) & 1;
 }
 
-int
-erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t size) 
+int erts_cmp_bits__(const byte *a_ptr,
+                    Uint a_offs,
+                    const byte *b_ptr,
+                    Uint b_offs,
+                    Uint size)
 {
-    byte a;
-    byte b;
-    byte a_bit;
-    byte b_bit;
-    Uint lshift;
-    Uint rshift;
+    Uint lshift, rshift;
+    byte a_bit, b_bit;
+    byte a, b;
     int cmp;
-    
-    ASSERT(a_offs < 8 && b_offs < 8);
 
-    if (size == 0)
-        return 0;
-
-    if (((a_offs | b_offs | size) & 7) == 0) {
-	int byte_size = size >> 3;
-	return sys_memcmp(a_ptr, b_ptr, byte_size);
-    }
+    /* The inlined wrapper should take care of these cases. */
+    ASSERT(((a_offs | b_offs | size) & 7) != 0);
+    ASSERT(((a_offs | b_offs) & ~7) == 0);
+    ASSERT(size > 0);
 
     /* Compare bit by bit until a_ptr is aligned on byte boundary */
     a = *a_ptr++;
@@ -2162,13 +2183,13 @@ erts_cmp_bits(byte* a_ptr, size_t a_offs, byte* b_ptr, size_t b_offs, size_t siz
 
 
 void 
-erts_copy_bits(byte* src,	/* Base pointer to source. */
-	       size_t soffs,	/* Bit offset for source relative to src. */
-	       int sdir,	/* Direction: 1 (forward) or -1 (backward). */
-	       byte* dst,	/* Base pointer to destination. */
-	       size_t doffs,	/* Bit offset for destination relative to dst. */
-	       int ddir,	/* Direction: 1 (forward) or -1 (backward). */
-	       size_t n)	/* Number of bits to copy. */
+erts_copy_bits(const byte* src, /* Base pointer to source. */
+               size_t soffs,    /* Bit offset for source relative to src. */
+               int sdir,        /* Direction: 1 (forward) or -1 (backward). */
+               byte* dst,       /* Base pointer to destination. */
+               size_t doffs,    /* Bit offset for destination relative to dst. */
+               int ddir,        /* Direction: 1 (forward) or -1 (backward). */
+               size_t n)        /* Number of bits to copy. */
 {
     Uint lmask;
     Uint rmask;
@@ -2288,38 +2309,276 @@ erts_copy_bits(byte* src,	/* Base pointer to source. */
     }
 }
 
-Eterm erts_extract_sub_binary(Eterm **hp, Eterm base_bin, byte *base_data,
-                              Uint bit_offset, Uint bit_size)
+Eterm erts_build_sub_bitstring(Eterm **hp,
+                               Eterm br_flags,
+                               const BinRef *br,
+                               const byte *base,
+                               Uint offset, Uint size)
 {
-    Uint byte_offset, byte_size;
+    ERTS_CT_ASSERT(sizeof(ErlSubBits) <= ERL_ONHEAP_BINARY_LIMIT);
 
-    ERTS_CT_ASSERT(ERL_SUB_BIN_SIZE <= ERL_ONHEAP_BIN_LIMIT);
-
-    byte_offset = BYTE_OFFSET(bit_offset);
-    byte_size = BYTE_OFFSET(bit_size);
-
-    if (BIT_OFFSET(bit_size) == 0 && byte_size <= ERL_ONHEAP_BIN_LIMIT) {
-        ErlHeapBin *hb = (ErlHeapBin*)*hp;
-        *hp += heap_bin_size(byte_size);
-
-        hb->thing_word = header_heap_bin(byte_size);
-        hb->size = byte_size;
-
-        copy_binary_to_buffer(hb->data, 0, base_data, bit_offset, bit_size);
-
-        return make_binary(hb);
+    if (size <= ERL_ONHEAP_BITS_LIMIT) {
+        Eterm result = HEAP_BITSTRING(*hp, base, offset, size);
+        *hp += heap_bits_size(size);
+        return result;
     } else {
-        ErlSubBin *sb = (ErlSubBin*)*hp;
-        *hp += ERL_SUB_BIN_SIZE;
+        ErlSubBits *sb = (ErlSubBits*)*hp;
+        UWord flags = 0;
 
-        sb->thing_word = HEADER_SUB_BIN;
-        sb->size = byte_size;
-        sb->offs = byte_offset;
-        sb->orig = base_bin;
-        sb->bitoffs = BIT_OFFSET(bit_offset);
-        sb->bitsize = BIT_OFFSET(bit_size);
-        sb->is_writable = 0;
+        ASSERT(br && ((br_flags & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED));
 
-        return make_binary(sb);
+        /* If the underlying binary is writable, we have to mark the result as
+         * volatile. We can skip this indirection once the flags move into
+         * br_flags. */
+        if ((br->val)->intern.flags & BIN_FLAG_WRITABLE) {
+            flags |= ERL_SUB_BITS_FLAG_VOLATILE;
+        }
+
+        erl_sub_bits_init(sb,
+                          flags,
+                          ((Eterm)br) | br_flags,
+                          base,
+                          offset,
+                          size);
+
+        *hp += ERL_SUB_BITS_SIZE;
+        return make_bitstring(sb);
     }
+}
+
+Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
+                               Uint64 *overhead,
+                               Eterm **hpp,
+                               Binary *bin,
+                               byte *bytes,
+                               Uint offset,
+                               Uint size)
+{
+    ErlSubBits *sb = (ErlSubBits*)&(*hpp)[ERL_BIN_REF_SIZE];
+    BinRef *br = (BinRef*)*hpp;
+    UWord flags = 0;
+
+    ASSERT(bin != NULL);
+
+    br->thing_word = HEADER_BIN_REF;
+    br->next = (*oh);
+    br->val = bin;
+
+    /* If the underlying binary is writable, we have to mark the result as
+     * volatile. */
+    if (bin->intern.flags & BIN_FLAG_WRITABLE) {
+        flags |= ERL_SUB_BITS_FLAG_VOLATILE;
+    }
+
+    erl_sub_bits_init(sb,
+                      flags,
+                      make_boxed((Eterm*)br),
+                      bytes,
+                      offset,
+                      size);
+
+    /* Note that the overhead must be the actual allocated size of the off-heap
+     * `Binary`, not the apparent size of the binary, in order for virtual heap
+     * sizes to be accounted correctly. */
+    *overhead += bin->orig_size / sizeof(Eterm);
+
+    *oh = (struct erl_off_heap_header*)br;
+    *hpp += ERL_REFC_BITS_SIZE;
+
+    return make_bitstring(sb);
+}
+
+Eterm erts_make_sub_bitstring(Process *p,
+                              Eterm bitstring,
+                              Uint offset,
+                              Uint size)
+{
+    Uint inner_offset, inner_size;
+    const byte *base;
+    Eterm br_flags;
+    BinRef *br;
+    Eterm *hp;
+
+    ERTS_GET_BITSTRING_REF(bitstring,
+                           br_flags,
+                           br,
+                           base,
+                           inner_offset,
+                           inner_size);
+
+    ASSERT((offset + size) <= inner_size);
+    (void)inner_size;
+
+    hp = HAlloc(p, erts_extracted_bitstring_size(size));
+    return erts_build_sub_bitstring(&hp,
+                                    br_flags,
+                                    br,
+                                    base,
+                                    inner_offset + offset,
+                                    size);
+}
+
+Eterm erts_make_sub_binary(Process *p,
+                           Eterm bitstring,
+                           Uint offset,
+                           Uint size)
+{
+    ASSERT(offset < (ERTS_UWORD_MAX - size));
+    ASSERT(IS_BINARY_SIZE_OK(offset + size));
+    return erts_make_sub_bitstring(p,
+                                   bitstring,
+                                   NBITS(offset),
+                                   NBITS(size));
+}
+
+Eterm
+erts_hfact_new_bitstring(ErtsHeapFactory *hfact, Uint reserve_size,
+                         Uint size, byte **datap)
+{
+    if (size <= ERL_ONHEAP_BITS_LIMIT) {
+        ErlHeapBits *hb = (ErlHeapBits*)erts_produce_heap(hfact,
+                                                          heap_bits_size(size),
+                                                          reserve_size);
+
+        hb->thing_word = header_heap_bits(size);
+        hb->size = size;
+
+        *datap = (byte*)hb->data;
+
+        return make_bitstring(hb);
+    } else {
+        Binary *refc_binary = erts_bin_nrml_alloc(NBYTES(size));
+        Eterm *hp = erts_produce_heap(hfact,
+                                      ERL_REFC_BITS_SIZE,
+                                      reserve_size);
+
+        *datap = (byte*)refc_binary->orig_bytes;
+
+        return erts_wrap_refc_bitstring(&(hfact->off_heap)->first,
+                                        &(hfact->off_heap)->overhead,
+                                        &hp,
+                                        refc_binary,
+                                        (byte*)refc_binary->orig_bytes,
+                                        0,
+                                        size);
+    }
+}
+
+Eterm
+erts_hfact_new_binary_from_data(ErtsHeapFactory *hfact, Uint reserve_size,
+                                Uint size, const byte *data)
+{
+    Eterm result;
+    byte *base;
+
+    ASSERT(IS_BINARY_SIZE_OK(size));
+    result = erts_hfact_new_bitstring(hfact,
+                                      reserve_size,
+                                      NBITS(size),
+                                      &base);
+
+    if (size > 0) {
+        sys_memcpy(base, data, size);
+    }
+
+    return result;
+}
+
+Eterm
+erts_new_bitstring_refc(Process *p, Uint size, Binary **binp, byte **datap)
+{
+    if (size <= ERL_ONHEAP_BITS_LIMIT) {
+        ErlHeapBits *hb;
+
+        hb = (ErlHeapBits *)HAlloc(p, heap_bits_size(size));
+        hb->thing_word = header_heap_bits(size);
+        hb->size = size;
+
+        *datap = (byte*)hb->data;
+
+        return make_bitstring(hb);
+    } else {
+        Binary *refc_binary = erts_bin_nrml_alloc(NBYTES(size));
+        Eterm *hp = HAlloc(p, ERL_REFC_BITS_SIZE);
+
+        *datap = (byte*)refc_binary->orig_bytes;
+        *binp = refc_binary;
+
+        return erts_wrap_refc_bitstring(&MSO(p).first,
+                                        &MSO(p).overhead,
+                                        &hp,
+                                        refc_binary,
+                                        (byte*)refc_binary->orig_bytes,
+                                        0,
+                                        size);
+    }
+}
+
+Eterm
+erts_new_bitstring(Process *p, Uint size, byte **datap)
+{
+    Binary *unused;
+    return erts_new_bitstring_refc(p, size, &unused, datap);
+}
+
+Eterm erts_new_bitstring_from_data(Process *p, Uint size, const byte *data) {
+    Eterm result;
+    byte *bytes;
+
+    result = erts_new_bitstring(p, size, &bytes);
+
+    if (size > 0) {
+        sys_memcpy(bytes, data, NBYTES(size));
+    }
+
+    return result;
+}
+
+Eterm
+erts_new_binary_refc(Process *p, Uint size, Binary **binp, byte **datap)
+{
+    ASSERT(IS_BINARY_SIZE_OK(size));
+    return erts_new_bitstring_refc(p, NBITS(size), binp, datap);
+}
+
+Eterm
+erts_new_binary(Process *p, Uint size, byte **datap)
+{
+    ASSERT(IS_BINARY_SIZE_OK(size));
+    return erts_new_bitstring(p, NBITS(size), datap);
+}
+
+Eterm erts_new_binary_from_data(Process *p, Uint size, const byte *data)
+{
+    ASSERT(IS_BINARY_SIZE_OK(size));
+    return erts_new_bitstring_from_data(p, NBITS(size), data);
+}
+
+Eterm
+erts_shrink_binary_term(Eterm binary, size_t size)
+{
+    Eterm* ptr = bitstring_val(binary);
+
+    if (thing_subtag(*ptr) == HEAP_BITS_SUBTAG) {
+        ErlHeapBits *hb = (ErlHeapBits*)ptr;
+        ASSERT(TAIL_BITS(hb->size) == 0 && hb->size >= NBITS(size));
+        hb->size = NBITS(size);
+    } else {
+        ErlSubBits *sb = (ErlSubBits*)ptr;
+        BinRef *br = (BinRef*)boxed_val(sb->orig);
+
+        ASSERT(erl_sub_bits_is_normal(sb));
+        ASSERT(TAIL_BITS(sb->end) == 0 && sb->end >= NBITS(size));
+        ASSERT(sb->start == 0);
+        sb->end = NBITS(size);
+
+        /* Our allocators are 8-byte aligned, so don't bother reallocating for
+         * differences smaller than that. */
+        if (size < (NBYTES(sb->end) + 8)) {
+            br->val = erts_bin_realloc(br->val, size);
+            sb->base_flags = (UWord)&(br->val)->orig_bytes[0];
+        }
+    }
+
+    return binary;
 }

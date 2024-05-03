@@ -1,9 +1,4 @@
 
-  [;1m-spec from_sets(TupleOfSets) -> Ordset[0m
-  [;1m                   when[0m
-  [;1m                       Ordset :: ordset(),[0m
-  [;1m                       TupleOfSets :: tuple_of(anyset()).[0m
-
   [;1m-spec from_sets(ListOfSets) -> Set[0m
   [;1m                   when Set :: a_set(), ListOfSets :: [anyset()].[0m
 
@@ -15,3 +10,11 @@
     S = sofs:from_sets([S1,S2]),
     sofs:to_external(S).
     [[{a,1},{b,2}],[{x,3},{y,4}]]
+
+  [;1m-spec from_sets(TupleOfSets) -> Ordset[0m
+  [;1m                   when[0m
+  [;1m                       Ordset :: ordset(),[0m
+  [;1m                       TupleOfSets :: tuple_of(anyset()).[0m
+
+  Returns the ordered set containing the sets of the non-empty
+  tuple [;;4mTupleOfSets[0m.

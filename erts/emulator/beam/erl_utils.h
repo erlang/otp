@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include "sys.h"
 #include "atom.h"
 #include "erl_printf.h"
+#include "erl_term_hashing.h"
 
 struct process;
 
@@ -63,17 +64,11 @@ erts_current_interval_acqb(erts_interval_t *icp)
  */
 void erts_silence_warn_unused_result(long unused);
 
-
 int erts_fit_in_bits_int64(Sint64);
 int erts_fit_in_bits_int32(Sint32);
 int erts_fit_in_bits_uint(Uint);
 Sint erts_list_length(Eterm);
 int erts_is_builtin(Eterm, Eterm, int);
-Uint32 make_hash2(Eterm);
-Uint32 trapping_make_hash2(Eterm, Eterm*, struct process*);
-Uint32 make_hash(Eterm);
-Uint32 make_internal_hash(Eterm, Uint32 salt);
-Uint32 make_map_hash(Eterm key, int level);
 
 void erts_save_emu_args(int argc, char **argv);
 Eterm erts_get_emu_args(struct process *c_p);
@@ -117,6 +112,7 @@ int eq(Eterm, Eterm);
 
 ERTS_GLB_INLINE Sint erts_cmp(Eterm, Eterm, int, int);
 ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b);
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm, Eterm);
 
 Sint erts_cmp_compound(Eterm, Eterm, int, int);
 
@@ -188,6 +184,8 @@ Sint erts_cmp_compound(Eterm, Eterm, int, int);
 
 #define erts_float_comp(x,y) (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
 
+ERTS_GLB_INLINE Uint64 erts_float_exact_sortable(const FloatDef *value);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
@@ -219,6 +217,22 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
     return len_a - len_b;
 }
 
+/* Provides a sortable integer from the raw bits of a floating-point number.
+ *
+ * When these are compared, they return the exact same result as a floating-
+ * point comparison of the inputs aside from the fact that -0.0 < +0.0, making
+ * it suitable for use in term equivalence operators and map key order. */
+ERTS_GLB_INLINE Uint64 erts_float_exact_sortable(const FloatDef *value) {
+    static const Uint64 sign_bit = ((Uint64)1) << 63;
+    Uint64 float_bits = value->fdw;
+
+    if (float_bits & sign_bit) {
+        return ~float_bits;
+    }
+
+    return float_bits ^ sign_bit;
+}
+
 ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
     if (is_atom(a) && is_atom(b)) {
         return erts_cmp_atoms(a, b);
@@ -230,11 +244,31 @@ ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
         GET_DOUBLE(a, af);
         GET_DOUBLE(b, bf);
 
-        return erts_float_comp(af.fd, bf.fd);
+        if (exact) {
+            Uint64 sortable_a, sortable_b;
+
+            sortable_a = erts_float_exact_sortable(&af);
+            sortable_b = erts_float_exact_sortable(&bf);
+
+            return erts_float_comp(sortable_a, sortable_b);
+        } else {
+            return erts_float_comp(af.fd, bf.fd);
+        }
     }
 
     return erts_cmp_compound(a,b,exact,eq_only);
 }
+
+/*
+ * Only to be used for the *internal* sort order of flatmap keys.
+ */
+ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm key_a, Eterm key_b) {
+    if (is_atom(key_a) && is_atom(key_b)) {
+        return key_a - key_b;
+    }
+    return erts_cmp(key_a, key_b, 1, 0);
+}
+
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %% Purpose: Core Erlang abstract syntax functions.
 
 -module(core_lib).
+-moduledoc false.
 
 -export([make_values/1]).
 -export([is_var_used/2]).

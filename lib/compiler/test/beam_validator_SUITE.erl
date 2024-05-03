@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,8 +41,10 @@
          missing_return_type/1,will_succeed/1,
          bs_saved_position_units/1,parent_container/1,
          container_performance/1,
-         not_equal_inference/1,
-         inert_update_type/1]).
+         infer_relops/1,
+         not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
+         inert_update_type/1,range_inference/1,
+         bif_inference/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -77,9 +79,10 @@ groups() ->
        receive_marker,safe_instructions,
        missing_return_type,will_succeed,
        bs_saved_position_units,parent_container,
-       container_performance,
-       not_equal_inference,
-       inert_update_type]}].
+       container_performance,infer_relops,
+       not_equal_inference,bad_bin_unit,singleton_inference,
+       inert_update_type,range_inference,
+       bif_inference]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -152,8 +155,8 @@ stack(Config) when is_list(Config) ->
     Errors = do_val(stack, Config),
     [{{t,a,2},{return,9,{stack_frame,2}}},
      {{t,b,2},{{deallocate,2},4,{allocated,none}}},
-     {{t,bad_1,0},{{allocate_zero,2,10},4,{{x,9},not_live}}},
-     {{t,bad_2,0},{{move,{y,0},{x,0}},5,{unassigned,{y,0}}}},
+     {{t,bad_1,0},{{allocate,2,10},4,{{x,9},not_live}}},
+     {{t,bad_2,0},{{move,{y,0},{x,0}},6,{unassigned,{y,0}}}},
      {{t,c,2},{{deallocate,2},10,{allocated,none}}},
      {{t,d,2},
       {{allocate,2,2},5,{existing_stack_frame,{size,2}}}},
@@ -183,9 +186,11 @@ call_without_stack(Config) when is_list(Config) ->
 merge_undefined(Config) when is_list(Config) ->
     Errors = do_val(merge_undefined, Config),
     [{{t,undecided,2},
-      {{call_ext,2,{extfunc,debug,filter,2}},
-       22,
-       {allocated,undecided}}},
+      {{label,11},
+       19,
+       {unsafe_stack,{y,1},
+        #{{y,0} := uninitialized,
+          {y,1} := uninitialized}}}},
      {{t,uninitialized,2},
       {{call_ext,2,{extfunc,io,format,2}},
        17,
@@ -200,7 +205,7 @@ uninit(Config) when is_list(Config) ->
       {{call,1,{f,8}},5,{uninitialized_reg,{y,0}}}},
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
-       6,
+       7,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -209,7 +214,7 @@ unsafe_catch(Config) when is_list(Config) ->
     [{{t,small,2},
       {{bs_put_integer,{f,0},{integer,16},1,
         {field_flags,[unsigned,big]},{y,0}},
-       20,
+       21,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 
@@ -226,7 +231,7 @@ overwrite_catchtag(Config) when is_list(Config) ->
 overwrite_trytag(Config) when is_list(Config) ->
     Errors = do_val(overwrite_trytag, Config),
     [{{overwrite_trytag,foo,1},
-      {{kill,{y,2}},8,{trytag,_}}}] = Errors,
+      {{init_yregs,{list,[{y,2}]}},9,{trytag,_}}}] = Errors,
     ok.
 
 accessing_tags(Config) when is_list(Config) ->
@@ -248,11 +253,11 @@ bad_catch_try(Config) when is_list(Config) ->
      {{bad_catch_try,bad_3,1},
       {{catch_end,{y,1}},9,{invalid_tag,{y,1},{t_atom,[kalle]}}}},
      {{bad_catch_try,bad_4,1},
-      {{'try',{x,0},{f,15}},5,{invalid_tag_register,{x,0}}}},
+      {{'try',{x,0},{f,15}},6,{invalid_tag_register,{x,0}}}},
      {{bad_catch_try,bad_5,1},
-      {{try_case,{y,1}},12,{invalid_tag,{y,1},any}}},
+      {{try_case,{y,1}},13,{invalid_tag,{y,1},any}}},
      {{bad_catch_try,bad_6,1},
-      {{move,{integer,1},{y,1}},7,
+      {{move,{integer,1},{y,1}},8,
        {invalid_store,{y,1}}}}] = Errors,
     ok.
 
@@ -324,7 +329,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{try_case_end,{x,0}},180,ambiguous_catch_try_state}}] = Errors,
+      {{try_case_end,{x,0}},152,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -522,13 +527,8 @@ destroy_reg({Tag,N}) ->
 bad_tuples(Config) ->
     Errors = do_val(bad_tuples, Config),
     [{{bad_tuples,heap_overflow,1},
-      {{put,{x,0}},9,{heap_overflow,{left,0},{wanted,1}}}},
-     {{bad_tuples,long,2},
-      {{put,{atom,too_long}},9,not_building_a_tuple}},
-     {{bad_tuples,self_referential,1},
-      {{put,{x,1}},8,{unfinished_tuple,{x,1}}}},
-     {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},8,{unfinished_tuple,{x,1}}}}] = Errors,
+      {{put_tuple2,{x,0},{list,[{atom,ok},{x,0}]}},6,
+       {heap_overflow,{left,2},{wanted,3}}}}] = Errors,
 
     ok.
 
@@ -536,7 +536,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       8,
+       9,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -545,37 +545,37 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       18,
+       19,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},12,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       24,
+       23,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       13,
+       14,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       21,
+       22,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
-       34,
+       32,
        {fragile_message_reference,{y,_}}}}] = Errors,
 
     %% Compile the original source code as a smoke test.
@@ -1039,6 +1039,25 @@ container_performance(Config) ->
         _ -> ok
     end.
 
+%% Type inference was half-broken for relational operators, being implemented
+%% for is_lt/is_ge instructions but not the {bif,RelOp} form.
+infer_relops(_Config) ->
+    [lt = infer_relops_1(N) || N <- lists:seq(0,3)],
+    [ge = infer_relops_1(N) || N <- lists:seq(4,7)],
+    ok.
+
+infer_relops_1(N) ->
+    true = N >= 0,
+    Below4 = N < 4,
+    id(N), %% Force Below4 to use the {bif,'<'} form instead of is_lt
+    case Below4 of
+        true -> infer_relops_true(Below4, N);
+        false -> infer_relops_false(Below4, N)
+    end.
+
+infer_relops_true(_, _) -> lt.
+infer_relops_false(_, _) -> ge.
+
 %% OTP-18365: A brainfart in inference for '=/=' inverted the results.
 not_equal_inference(_Config) ->
     {'EXIT', {function_clause, _}} = (catch not_equal_inference_1(id([0]))),
@@ -1046,6 +1065,58 @@ not_equal_inference(_Config) ->
 
 not_equal_inference_1(X) when (X /= []) /= is_port(0 div 0) ->
     [X || _ <- []].
+
+bad_bin_unit(_Config) ->
+    {'EXIT', {function_clause,_}} = catch bad_bin_unit_1(<<1:1>>),
+    [] = bad_bin_unit_2(),
+    ok.
+
+bad_bin_unit_1(<<X:((ok > {<<(true andalso ok)>>}) orelse 1)>>) ->
+    try
+        bad_bin_unit_1_a()
+    after
+        -(X + bad_bin_unit_1_b(not ok)),
+        try
+            ok
+        catch
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok;
+            _ ->
+                ok
+        end
+    end.
+
+bad_bin_unit_1_a() -> ok.
+bad_bin_unit_1_b(_) -> ok.
+
+bad_bin_unit_2() ->
+   [
+       ok
+       || <<X:(is_number(<<(<<(0 bxor 0)>>)>>) orelse 1)>> <= <<>>,
+       #{X := _} <- ok
+   ].
+
+%% GH-6962: Type inference with singleton types in registers was weaker than
+%% inference on their corresponding literals.
+singleton_inference(Config) ->
+    Mod = ?FUNCTION_NAME,
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "singleton_inference.erl"),
+
+    {ok, Mod} = compile:file(File, [no_copt, no_bool_opt, no_ssa_opt]),
+
+    ok = Mod:test(),
+
+    ok.
 
 %% GH-6969: A type was made concrete even though that added no additional
 %% information.
@@ -1059,6 +1130,44 @@ mike([Head | _Rest]) -> joe(Head).
 
 joe({Name, 42}) -> Name;
 joe({sys_period, {A, _B}}) -> {41, 42, A}.
+
+range_inference(_Config) ->
+    ok = range_inference_1(id(<<$a>>)),
+    ok = range_inference_1(id(<<0>>)),
+    ok = range_inference_1(id(<<1114111/utf8>>)),
+
+    ok.
+
+range_inference_1(<<X/utf8>>) ->
+    case 9223372036854775807 - abs(X) of
+        Y when X < Y ->
+            ok;
+        9223372036854775807 ->
+            ok;
+        -2147483648 ->
+            ok
+    end.
+
+bif_inference(_Config) ->
+    ok = bif_inference_is_bitstring(id(<<>>), id(<<>>)),
+    error = bif_inference_is_bitstring(id(a), id(a)),
+
+    ok = bif_inference_is_function(id(fun id/1), id(fun id/1)),
+    ok = bif_inference_is_function(true, true),
+    error = bif_inference_is_function(id(fun id/1), a),
+    error = bif_inference_is_function(a, a),
+
+    ok.
+
+bif_inference_is_bitstring(A, A) when A andalso ok; is_bitstring(A) ->
+    ok;
+bif_inference_is_bitstring(_, _) ->
+    error.
+
+bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
+    ok;
+bif_inference_is_function(_, _) ->
+    error.
 
 id(I) ->
     I.

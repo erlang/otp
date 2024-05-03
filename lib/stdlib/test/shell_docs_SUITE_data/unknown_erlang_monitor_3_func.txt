@@ -81,7 +81,6 @@
               {'DOWN', AliasMonReqId, process, ServerPid, ExitReason} ->
                   error(ExitReason)
           end.
-      	    
 
     Note that both the server and the client in this example must
     be executing on at least OTP 24 systems in order for this to
@@ -137,7 +136,6 @@
                         {error, ServerPid, ExitReason}
                 end,
           receive_replies(ReqId, N-1, [Res | Acc]).
-      	    
 
     In order for this example to work as intended, the client must
     be executing on at least an OTP 24 system, but the servers may

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,9 +24,26 @@
 %% of XML documents in streams and for parsing in SAX style.
 %% Each contain more elaborate settings of xmerl_scan that makes usage of
 %% the customization functions.
-%% 
+-module(xmerl_eventp).
+-moduledoc """
+Simple event-based front-ends to xmerl_scan for processing of XML documents in
+streams and for parsing in SAX style. Each contain more elaborate settings of
+xmerl_scan that makes usage of the customization functions.
+""".
+-vsn('0.19').
+-date('03-09-17').
+
+-export([stream/2,stream_sax/4, file_sax/4, string_sax/4]).
+
+% -export([cont/3, rules_read/3,rules_write/4,fetch/2,close/1]).
+
+-include("xmerl.hrl").
+-include("xmerl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
+
 %% @type xmlElement() = #xmlElement{}.
-%%
+-type xmlElement() :: #xmlElement{}.
+
 %% @type option_list(). <p>Options allow to customize the behaviour of the
 %%     scanner.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
@@ -108,18 +125,7 @@
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
 %% </dl> 
-%% 
--module(xmerl_eventp).
--vsn('0.19').
--date('03-09-17').
-
--export([stream/2,stream_sax/4, file_sax/4, string_sax/4]).
-
-% -export([cont/3, rules_read/3,rules_write/4,fetch/2,close/1]).
-
--include("xmerl.hrl").
--include("xmerl_internal.hrl").
--include_lib("kernel/include/file.hrl").
+-type option_list() :: [{atom(),term()}].
 
 %% @spec stream(Fname::string(), Options::option_list()) -> xmlElement()
 %%
@@ -129,6 +135,13 @@
 %% Note that the <code>continuation_fun</code>, <code>acc_fun</code>,
 %% <code>fetch_fun</code>, <code>rules</code> and <code>close_fun</code>
 %% options cannot be user defined using this parser.
+-doc """
+Parse file containing an XML document as a stream, DOM style. Wrapper for a call
+to the XML parser `xmerl_scan` with a `continuation_fun` for handling streams of
+XML data. Note that the `continuation_fun`, `acc_fun`, `fetch_fun`, `rules` and
+`close_fun` options cannot be user defined using this parser.
+""".
+-spec stream(Fname::string(), Options::option_list()) -> {xmlElement(), list()} | {error, Reason :: term()}.
 stream(Fname, Options) ->
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
     case file:open(Fname, [read, raw, binary]) of
@@ -159,6 +172,15 @@ stream(Fname, Options) ->
 %% <code>fetch_fun</code>, <code>rules</code>, <code>hook_fun</code>,
 %% <code>close_fun</code> and <code>user_state</code> options cannot be user
 %% defined using this parser.
+-doc """
+stream_sax(Fname,CallBack,UserState,Options)
+
+Parse file containing an XML document as a stream, SAX style. Wrapper for a call
+to the XML parser `xmerl_scan` with a `continuation_fun` for handling streams of
+XML data. Note that the `continuation_fun`, `acc_fun`, `fetch_fun`, `rules`,
+`hook_fun`, `close_fun` and `user_state` options cannot be user defined using
+this parser.
+""".
 stream_sax(Fname, CallBack, UserState,Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF = fun(X, Acc, S) -> acc(X,Acc,S) end,
@@ -205,6 +227,13 @@ stream_sax(Fname, CallBack, UserState,Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-doc """
+file_sax(Fname,CallBack,UserState,Options)
+
+Parse file containing an XML document, SAX style. Wrapper for a call to the XML
+parser `xmerl_scan` with a `hook_fun` for using xmerl export functionality
+directly after an entity is parsed.
+""".
 file_sax(Fname,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,
@@ -238,6 +267,13 @@ file_sax(Fname,CallBack, UserState, Options) ->
 %% Wrapper for a call to the XML parser <code>xmerl_scan</code> with a
 %% <code>hook_fun</code> for using xmerl export functionality directly after
 %% an entity is parsed.
+-doc """
+string_sax(String,CallBack,UserState,Options)
+
+Parse file containing an XML document, SAX style. Wrapper for a call to the XML
+parser `xmerl_scan` with a `hook_fun` for using xmerl export functionality
+directly after an entity is parsed.
+""".
 string_sax(String,CallBack, UserState, Options) ->
     US={xmerl:callbacks(CallBack), UserState},
     AccF=fun(X,Acc,S) -> {[X|Acc], S} end,

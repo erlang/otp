@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 %% Description: This module implements handling of ftp server responses.
 
 -module(ftp_response).
+-moduledoc false.
 
 %% Internal API
 -export([parse_lines/3, interpret/1, error_string/1]).

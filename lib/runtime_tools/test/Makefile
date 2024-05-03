@@ -5,10 +5,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES =  \
 	dyntrace_SUITE \
 	dyntrace_lttng_SUITE \
+	instrument_SUITE \
 	runtime_tools_SUITE \
 	system_information_SUITE \
 	dbg_SUITE \
-	erts_alloc_config_SUITE \
 	scheduler_SUITE \
 	msacc_SUITE \
 	zzz_SUITE
@@ -30,7 +30,7 @@ RELSYSDIR = $(RELEASE_PATH)/runtime_tools_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

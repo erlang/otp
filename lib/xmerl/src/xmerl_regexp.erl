@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 %%
 -module(xmerl_regexp).
+-moduledoc false.
 
 %% This module provides a basic set of regular expression functions
 %% for strings. The functions provided are taken from AWK.

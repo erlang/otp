@@ -15,9 +15,6 @@
 
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
-// a64 uses everything from arm namespace and adds into it.
-using namespace arm;
-
 //! \addtogroup asmjit_a64
 //! \{
 
@@ -293,6 +290,7 @@ struct Inst {
     kIdPacdza,                           //!< Instruction 'pacdza'.
     kIdPacdzb,                           //!< Instruction 'pacdzb'.
     kIdPacga,                            //!< Instruction 'pacga'.
+    kIdPrfm,                             //!< Instruction 'prfm'.
     kIdPssbb,                            //!< Instruction 'pssbb'.
     kIdRbit,                             //!< Instruction 'rbit'.
     kIdRet,                              //!< Instruction 'ret'.
@@ -797,14 +795,14 @@ struct Inst {
   };
 
   //! Tests whether the `instId` is defined (counts also Inst::kIdNone, which must be zero).
-  static inline bool isDefinedId(InstId instId) noexcept { return (instId & uint32_t(InstIdParts::kRealId)) < _kIdCount; }
+  static ASMJIT_INLINE_NODEBUG bool isDefinedId(InstId instId) noexcept { return (instId & uint32_t(InstIdParts::kRealId)) < _kIdCount; }
 };
 
 namespace Predicate {
 
 //! Address translate options (AT).
 namespace AT {
-  static inline constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
     return (op1 << 11) | (cRn << 7) | (cRm << 3) | (op2 << 0);
   }
 
@@ -862,7 +860,7 @@ namespace DB {
 
 //! Data cache maintenance options.
 namespace DC {
-  static inline constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
     return (op1 << 11) | (cRn << 7) | (cRm << 3) | (op2 << 0);
   }
 
@@ -901,7 +899,7 @@ namespace DC {
 
 //! Instruction cache maintenance options.
 namespace IC {
-  static inline constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
     return (op1 << 11) | (cRn << 7) | (cRm << 3) | (op2 << 0);
   }
 
@@ -955,7 +953,7 @@ namespace PSB {
 }
 
 namespace TLBI {
-  static inline constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
     return (op1 << 11) | (cRn << 7) | (cRm << 3) | (op2 << 0);
   }
 
@@ -1054,7 +1052,7 @@ namespace TSB {
 //! Processor state access through MSR.
 namespace PState {
   //! Encodes a pstate from `op0` and `op1`.
-  static inline constexpr uint32_t encode(uint32_t op0, uint32_t op1) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op0, uint32_t op1) noexcept {
     return (op0 << 3) | (op1 << 0);
   }
 
@@ -1083,17 +1081,17 @@ namespace SysReg {
   };
 
   //! Encodes a system register from `op0`, `op1`, `cRn`, `cRm`, and `op2` fields.
-  static inline constexpr uint32_t encode(uint32_t op0, uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(uint32_t op0, uint32_t op1, uint32_t cRn, uint32_t cRm, uint32_t op2) noexcept {
     return (op0 << 14) | (op1 << 11) | (cRn << 7) | (cRm << 3) | (op2 << 0);
   }
 
   //! Encodes a system register from `fields`.
-  static inline constexpr uint32_t encode(const Fields& fields) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr uint32_t encode(const Fields& fields) noexcept {
     return encode(fields.op0, fields.op1, fields.cRn, fields.cRm, fields.op2);
   }
 
   //! Decodes a system register to \ref Fields.
-  static inline constexpr Fields decode(uint32_t id) noexcept {
+  static ASMJIT_INLINE_NODEBUG constexpr Fields decode(uint32_t id) noexcept {
     return Fields {
       uint8_t((id >> 14) & 0x3u),
       uint8_t((id >> 11) & 0x7u),
@@ -1417,9 +1415,12 @@ namespace SysReg {
     kID_AA64DFR1_EL1      = encode(0b11, 0b000, 0b0000, 0b0101, 0b001), // RO
     kID_AA64ISAR0_EL1     = encode(0b11, 0b000, 0b0000, 0b0110, 0b000), // RO
     kID_AA64ISAR1_EL1     = encode(0b11, 0b000, 0b0000, 0b0110, 0b001), // RO
+    kID_AA64ISAR2_EL1     = encode(0b11, 0b000, 0b0000, 0b0110, 0b010), // RO
     kID_AA64MMFR0_EL1     = encode(0b11, 0b000, 0b0000, 0b0111, 0b000), // RO
     kID_AA64MMFR1_EL1     = encode(0b11, 0b000, 0b0000, 0b0111, 0b001), // RO
     kID_AA64MMFR2_EL1     = encode(0b11, 0b000, 0b0000, 0b0111, 0b010), // RO
+    kID_AA64MMFR3_EL1     = encode(0b11, 0b000, 0b0000, 0b0111, 0b011), // RO
+    kID_AA64MMFR4_EL1     = encode(0b11, 0b000, 0b0000, 0b0111, 0b100), // RO
     kID_AA64PFR0_EL1      = encode(0b11, 0b000, 0b0000, 0b0100, 0b000), // RO
     kID_AA64PFR1_EL1      = encode(0b11, 0b000, 0b0000, 0b0100, 0b001), // RO
     kID_AA64ZFR0_EL1      = encode(0b11, 0b000, 0b0000, 0b0100, 0b100), // RO

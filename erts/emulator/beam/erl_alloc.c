@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -185,7 +185,6 @@ struct au_init {
 }
 
 typedef struct {
-    int erts_alloc_config;
 #if HAVE_ERTS_MSEG
     ErtsMsegInit_t mseg;
 #endif
@@ -607,7 +606,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     UWord extra_block_size = 0;
     int i, ncpu;
     erts_alc_hndl_args_init_t init = {
-	0,
 #if HAVE_ERTS_MSEG
 	ERTS_MSEG_INIT_DEFAULT_INITIALIZER,
 #endif
@@ -708,44 +706,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_carrier_migration_support(&init.driver_alloc);
     adjust_carrier_migration_support(&init.fix_alloc);
     adjust_carrier_migration_support(&init.literal_alloc);
-
-    if (init.erts_alloc_config) {
-	/* Adjust flags that erts_alloc_config won't like */
-
-	/* No thread specific instances */
-	init.temp_alloc.thr_spec = 0;
-	init.sl_alloc.thr_spec = 0;
-	init.std_alloc.thr_spec = 0;
-	init.ll_alloc.thr_spec = 0;
-	init.eheap_alloc.thr_spec = 0;
-	init.binary_alloc.thr_spec = 0;
-	init.ets_alloc.thr_spec = 0;
-	init.driver_alloc.thr_spec = 0;
-	init.fix_alloc.thr_spec = 0;
-        init.literal_alloc.thr_spec = 0;
-
-	/* No carrier migration */
-	init.temp_alloc.init.util.acul = 0;
-	init.sl_alloc.init.util.acul = 0;
-	init.std_alloc.init.util.acul = 0;
-	init.ll_alloc.init.util.acul = 0;
-	init.eheap_alloc.init.util.acul = 0;
-	init.binary_alloc.init.util.acul = 0;
-	init.ets_alloc.init.util.acul = 0;
-	init.driver_alloc.init.util.acul = 0;
-	init.fix_alloc.init.util.acul = 0;
-        init.literal_alloc.init.util.acul = 0;
-        init.temp_alloc.init.util.acful = 0;
-	init.sl_alloc.init.util.acful = 0;
-	init.std_alloc.init.util.acful = 0;
-	init.ll_alloc.init.util.acful = 0;
-	init.eheap_alloc.init.util.acful = 0;
-	init.binary_alloc.init.util.acful = 0;
-	init.ets_alloc.init.util.acful = 0;
-	init.driver_alloc.init.util.acful = 0;
-	init.fix_alloc.init.util.acful = 0;
-        init.literal_alloc.init.util.acful = 0;
-    }
 
     /* Only temp_alloc can use thread specific interface */
     if (init.temp_alloc.thr_spec)
@@ -1421,7 +1381,35 @@ handle_au_arg(struct au_init *auip,
 		auip->init.util.acful = 0;
             }
 	} else if (has_prefix("atags", sub_param)) {
-            auip->init.util.atags = get_bool_value(sub_param + 5, argv, ip);
+            char *param_end = &sub_param[5];
+            char *value;
+            
+            value = get_value(param_end, argv, ip);
+
+            if (sys_strcmp(value, "true") == 0) {
+                auip->init.util.atags = 1;
+            } else if (sys_strcmp(value, "false") == 0) {
+                auip->init.util.atags = 0;
+            } else if (sys_strcmp(value, "code") == 0) {
+                /* Undocumented option for point-of-origin tracking: overrides
+                 * per-pid/port tracking in favor of tracking which Erlang code
+                 * led to the allocation (best effort, but pretty accurate
+                 * under the JIT). */
+                auip->init.util.atags = 2;
+
+#if !defined(BEAMASM)
+                if (!erts_alcu_enable_code_atags) {
+                    erts_fprintf(stderr,
+                                 "WARNING: The experimental +M<S>atags code "
+                                 "flag is inaccurate under the interpreter. "
+                                 "Consider running with the JIT instead\n");
+                }
+#endif
+
+                erts_alcu_enable_code_atags = 1;
+            } else {
+                bad_value(sub_param, param_end, value);
+            }
         }
 	else
 	    goto bad_switch;
@@ -1662,6 +1650,23 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 #endif
 			    get_amount_value(argv[i]+9, argv, &i);
 		    }
+		    else if (has_prefix("lp", argv[i]+3)) {
+                        char *param_end = argv[i]+5;
+			char *value = get_value(param_end, argv, &i);
+			if (sys_strcmp(value, "on") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 1;
+			    init->mseg.literal_mmap.lp = 1;
+#endif
+			} else if (sys_strcmp(value, "off") == 0) {
+#if HAVE_ERTS_MSEG
+			    init->mseg.dflt_mmap.lp = 0;
+			    init->mseg.literal_mmap.lp = 0;
+#endif
+			} else {
+			    bad_value(param, param_end, value);
+			}
+		    }
 		    else {
 			bad_param(param, param+2);
 		    }
@@ -1735,9 +1740,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 			else if (sys_strcmp("max", arg) == 0) {
 			    for (a = 0; a < aui_sz; a++)
 				aui[a]->enable = 1;
-			}
-			else if (sys_strcmp("config", arg) == 0) {
-			    init->erts_alloc_config = 1;
 			}
 			else if (sys_strcmp("r9c", arg) == 0
 				 || sys_strcmp("r10b", arg) == 0
@@ -2654,11 +2656,6 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "node_table";
     values[i].ui[0] = erts_node_table_size();
-    i++;
-
-    values[i].arity = 2;
-    values[i].name = "bits_bufs_size";
-    values[i].ui[0] = erts_bits_bufs_size();
     i++;
 
     values[i].arity = 2;

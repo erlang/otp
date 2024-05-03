@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 -module(tls_client_ticket_store_SUITE).
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
@@ -80,7 +81,7 @@ ticket_obfuscated_age(_Config) ->
     [#ticket_data{identity = Identity}] = tls_client_ticket_store:get_tickets(self(), [Key]),
     #psk_identity{obfuscated_ticket_age = ObfAge} = Identity,
     Age = ObfAge - TicketAgeAdd,
-    ct:log("Ticket age: ~p (obfuscated age: ~p, ticket age add: ~p)~n",
+    ?CT_LOG("Ticket age: ~p (obfuscated age: ~p, ticket age add: ~p)~n",
            [Age, ObfAge, TicketAgeAdd]),
     true = Age < 1000 andalso Age >= 100.
 

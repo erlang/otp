@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,11 +147,38 @@ static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
 #endif
 
 
+/* *** esock_get_uint_from_map ***
+ *
+ * Simple utility function used to extract a unsigned int value from a map.
+ * If it fails to extract the value (for whatever reason) the default
+ * value is used.
+ */
+
+extern
+unsigned int esock_get_uint_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     unsigned int def)
+{
+    ERL_NIF_TERM eval;
+    unsigned int val;
+
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
+        return def;
+    } else {
+        if (GET_UINT(env, eval, &val))
+            return val;
+        else
+            return def;
+    }
+}
+
+
 /* *** esock_get_bool_from_map ***
  *
  * Simple utility function used to extract a boolean value from a map.
  * If it fails to extract the value (for whatever reason) the default
- * value is returned.
+ * value is used.
  */
 
 extern
@@ -160,14 +187,14 @@ BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
                                   ERL_NIF_TERM key,
                                   BOOLEAN_T    def)
 {
-    ERL_NIF_TERM val;
+    ERL_NIF_TERM eval;
 
-    if (!GET_MAP_VAL(env, map, key, &val)) {
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
         return def;
     } else {
-        if (COMPARE(val, esock_atom_true) == 0)
+        if (COMPARE(eval, esock_atom_true) == 0)
             return TRUE;
-        else if (COMPARE(val, esock_atom_false) == 0)
+        else if (COMPARE(eval, esock_atom_false) == 0)
             return FALSE;
         else
             return def;
@@ -1013,10 +1040,11 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
     size_t       n, m;
 
     UDBG( ("SUTIL", "esock_encode_sockaddr_un -> entry with"
-           "\r\n.  addrLen: %d"
+           "\r\n   addrLen: %d"
            "\r\n", addrLen) );
 
     n = sockAddrP->sun_path - (char *)sockAddrP; // offsetof
+
     if (addrLen >= n) {
         n = addrLen - n; // sun_path length
         if (255 < n) {
@@ -1028,6 +1056,7 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
             unsigned char *path;
 
             m = esock_strnlen(sockAddrP->sun_path, n);
+
 #ifdef __linux__
             /* Assume that the address is a zero terminated string,
              * except when the first byte is \0 i.e the string length is 0,
@@ -1039,6 +1068,8 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                 m = n;
             }
 #endif
+
+            UDBG( ("SUTIL", "esock_encode_sockaddr_un -> m: %d\r\n", m) );
 
             /* And finally build the 'path' attribute */
             path = enif_make_new_binary(env, m, &ePath);
@@ -2259,15 +2290,15 @@ ERL_NIF_TERM esock_encode_bool(BOOLEAN_T val)
 
 /* *** esock_decode_level ***
  *
- * Decode option or cmsg level - 'socket' or protocol number.
+ * Decode option or cmsg level - 'socket' or level number.
  *
  */
 extern
-BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM eVal, int *val)
+BOOLEAN_T esock_decode_level(ErlNifEnv* env, ERL_NIF_TERM elevel, int *level)
 {
-    if (COMPARE(esock_atom_socket, eVal) == 0)
-        *val = SOL_SOCKET;
-    else if (! GET_INT(env, eVal, val))
+    if (COMPARE(esock_atom_socket, elevel) == 0)
+        *level = SOL_SOCKET;
+    else if (! GET_INT(env, elevel, level))
         return FALSE;
 
     return TRUE;
@@ -2302,6 +2333,154 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 }
 
 
+/* Takes an 'errno' value and converts it to a term.
+ *
+ * If the errno can be translated using erl_errno_id,
+ * then we use that value otherwise we use the errno
+ * integer value converted to a term.
+ * Unless there is a specific error code that can be
+ * handled specially.
+ */
+extern
+ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
+{
+    switch (err) {
+#if defined(NO_ERROR)
+    case NO_ERROR:
+        return MKA(env, "no_error");
+        break;
+#endif
+
+#if defined(WSA_IO_PENDING)
+    case WSA_IO_PENDING:
+        return MKA(env, "io_pending");
+        break;
+#endif
+
+#if defined(WSA_IO_INCOMPLETE)
+    case WSA_IO_INCOMPLETE:
+        return MKA(env, "io_incomplete");
+        break;
+#endif
+
+#if defined(WSA_OPERATION_ABORTED)
+    case WSA_OPERATION_ABORTED:
+        return MKA(env, "operation_aborted");
+        break;
+#endif
+
+#if defined(WSA_INVALID_PARAMETER)
+    case WSA_INVALID_PARAMETER:
+        return MKA(env, "invalid_parameter");
+        break;
+#endif
+
+#if defined(ERROR_INVALID_NETNAME)
+    case ERROR_INVALID_NETNAME:
+        return MKA(env, "invalid_netname");
+        break;
+#endif
+
+#if defined(ERROR_NETNAME_DELETED)
+    case ERROR_NETNAME_DELETED:
+        return MKA(env, "netname_deleted");
+        break;
+#endif
+
+#if defined(ERROR_TOO_MANY_CMDS)
+        /* The network command limit has been reached */
+    case ERROR_TOO_MANY_CMDS:
+        return MKA(env, "too_many_cmds");
+        break;
+#endif        
+
+#if defined(ERROR_DUP_NAME)
+        /*  Not connected because a duplicate name exists on the network */
+    case ERROR_DUP_NAME:
+        return MKA(env, "duplicate_name");
+        break;
+#endif        
+
+#if defined(ERROR_MORE_DATA)
+        /*
+         * https://stackoverflow.com/questions/31883438/sockets-using-getqueuedcompletionstatus-and-error-more-data
+         */
+    case ERROR_MORE_DATA:
+        return MKA(env, "more_data");
+        break;
+#endif
+
+#if defined(ERROR_NOT_FOUND)
+    case ERROR_NOT_FOUND:
+        return MKA(env, "not_found");
+        break;
+#endif
+
+#if defined(ERROR_NETWORK_UNREACHABLE)
+    case ERROR_NETWORK_UNREACHABLE:
+        return MKA(env, "network_unreachable");
+        break;
+#endif
+
+#if defined(ERROR_PORT_UNREACHABLE)
+    case ERROR_PORT_UNREACHABLE:
+        return MKA(env, "port_unreachable");
+        break;
+#endif        
+
+    default:
+        {
+            char* str = erl_errno_id(err);
+            if ( strcmp(str, "unknown") == 0 )
+                return MKI(env, err);
+            else
+                return MKA(env, str);
+        }
+        break;
+    }
+
+    /* This is just in case of programming error.
+     * We should not get this far!
+     */
+    return MKI(env, err);
+}
+
+
+
+/* *** esock_make_extra_error_info_term ***
+ * This is used primarily for debugging.
+ * Is supposed to be called via the 'MKEEI' macro.
+ */
+extern
+ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
+                                              const char*  file,
+                                              const char*  function,
+                                              const int    line,
+                                              ERL_NIF_TERM rawinfo,
+                                              ERL_NIF_TERM info)
+{
+    ERL_NIF_TERM keys[] = {MKA(env, "file"),
+                           MKA(env, "function"),
+                           MKA(env, "line"),
+                           MKA(env, "raw_info"),
+                           MKA(env, "info")};
+    ERL_NIF_TERM vals[] = {MKS(env, file),
+                           MKS(env, function),
+                           MKI(env, line),
+                           rawinfo,
+                           info};
+    unsigned int numKeys = NUM(keys);
+    unsigned int numVals = NUM(vals);
+    ERL_NIF_TERM map;
+
+    ESOCK_ASSERT( numKeys == numVals );
+    ESOCK_ASSERT( MKMA(env, keys, vals, numKeys, &map) );
+
+    return map;
+}
+
+
+                                              
 /* Create an error two (2) tuple in the form:
  *
  *          {error, Reason}
@@ -2313,6 +2492,18 @@ extern
 ERL_NIF_TERM esock_make_error(ErlNifEnv* env, ERL_NIF_TERM reason)
 {
     return MKT2(env, esock_atom_error, reason);
+}
+
+
+
+/* Create an error two (2) tuple in the form:
+ *
+ *          {error, closed}
+ */
+extern
+ERL_NIF_TERM esock_make_error_closed(ErlNifEnv* env)
+{
+    return esock_make_error(env, esock_atom_closed);
 }
 
 
@@ -2342,6 +2533,23 @@ extern
 ERL_NIF_TERM esock_make_error_errno(ErlNifEnv* env, int err)
 {
     return esock_make_error_str(env, erl_errno_id(err));
+}
+
+
+
+/* Create an error two (2) tuple in the form:
+ *
+ *          {error, {Tag, Reason}}
+ *
+ * Both 'Tag' and 'Reason' are already in the form of an
+ * ERL_NIF_TERM so all we have to do is create "the" tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv*   env,
+                                  ERL_NIF_TERM tag,
+                                  ERL_NIF_TERM reason)
+{
+    return MKT2(env, esock_atom_error, MKT2(env, tag, reason));
 }
 
 
@@ -2427,11 +2635,16 @@ esock_abort(const char* expr,
                  const char* file,
                  int         line)
 {
+#if 0
     fflush(stdout);
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
             file, line, func, expr);
     fflush(stderr);
     abort();
+#else
+    erts_exit(ERTS_DUMP_EXIT, "%s:%d:%s() Assertion failed: %s\n",
+              file, line, func, expr);
+#endif
 }
 
 
@@ -2457,45 +2670,53 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
 
 
 
-/* *** esock_warning_msg ***
+/*
+ * We should really include self in the printout,
+ * so we can se which process are executing the code.
+ * But then I must change the API....something for later.
  *
- * Temporary function for issuing warning messages.
- *
+ * esock_info_msg
+ * esock_warning_msg
+ * esock_error_msg
  */
-extern
-void esock_warning_msg( const char* format, ... )
-{
-  va_list         args;
-  char            f[512 + sizeof(format)]; // This has to suffice...
-  char            stamp[64]; // Just in case...
-  int             res;
 
-  /*
-   * We should really include self in the printout,
-   * so we can se which process are executing the code.
-   * But then I must change the API....something for later.
-   */
+#define MSG_FUNCS                            \
+    MSG_FUNC_DECL(info,    INFO)             \
+    MSG_FUNC_DECL(warning, WARNING)          \
+    MSG_FUNC_DECL(error,   ERROR)
 
-  // 2018-06-29 12:13:21.232089
-  // 29-Jun-2018::13:47:25.097097
+#define MSG_FUNC_DECL(FN, MC)                                  \
+    extern                                                     \
+    void esock_##FN##_msg( const char* format, ... )           \
+    {                                                          \
+       va_list         args;                                   \
+       char            f[512 + sizeof(format)];                \
+       char            stamp[64];                              \
+       int             res;                                    \
+                                                               \
+       if (esock_timestamp_str(stamp, sizeof(stamp))) {        \
+          res = enif_snprintf(f, sizeof(f),                    \
+                              "=" #MC " MSG==== %s ===\r\n%s", \
+                              stamp, format);                  \
+       } else {                                                \
+          res = enif_snprintf(f,                               \
+                              sizeof(f),                       \
+                              "=" #MC " MSG==== %s", format);  \
+       }                                                       \
+                                                               \
+       if (res > 0) {                                          \
+           va_start (args, format);                            \
+           enif_vfprintf (stdout, f, args);                    \
+           va_end (args);                                      \
+           fflush(stdout);                                     \
+       }                                                       \
+                                                               \
+       return;                                                 \
+    }                                                          \
 
-  if (esock_timestamp_str(stamp, sizeof(stamp))) {
-      res = enif_snprintf(f, sizeof(f),
-                          "=WARNING MSG==== %s ===\r\n%s",
-                          stamp, format);
-  } else {
-      res = enif_snprintf(f, sizeof(f), "=WARNING MSG==== %s", format);
-  }
-
-  if (res > 0) {
-      va_start (args, format);
-      enif_vfprintf (stdout, f, args);
-      va_end (args);
-      fflush(stdout);
-  }
-
-  return;
-}
+MSG_FUNCS
+#undef MSG_FUNC_DECL
+#undef MSG_FUNCS
 
 
 /* *** esock_timestamp ***
@@ -2507,7 +2728,7 @@ void esock_warning_msg( const char* format, ... )
  */
 
 extern
-ErlNifTime esock_timestamp()
+ErlNifTime esock_timestamp(void)
 {
     ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
     ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);

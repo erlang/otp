@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_olp).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("logger_olp.hrl").
@@ -193,13 +194,11 @@ init([Name,Module,Args,Options]) ->
             gen_server:enter_loop(?MODULE, [], State);
         Error ->
             unregister(Name),
-            proc_lib:init_ack(Error),
-            ignore %% Just to shut Dialyzer up - ignored
+            proc_lib:init_fail(Error, {exit,normal})
     catch
-        _:Error ->
+        _:Reason ->
             unregister(Name),
-            proc_lib:init_ack(Error),
-            ignore %% Just to shut Dialyzer up - ignored
+            proc_lib:init_fail({error,Reason}, {exit,normal})
     end.
 
 %% This is the synchronous load event.
@@ -475,7 +474,7 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
                      sync_mode_qlen := SyncModeQLen,
                      drop_mode_qlen := DropModeQLen,
                      flush_qlen := FlushQLen}) ->
-    {_,Mem} = process_info(self(), memory),
+    Mem = maybe_self_memory(State),
     ?observe(_Name,{max_mem,Mem}),
     {_,QLen} = process_info(self(), message_queue_len),
     ?observe(_Name,{max_qlen,QLen}),
@@ -508,6 +507,24 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
     {Mode1, QLen, Mem,
      ?update_other(flushes,FLUSHES,_NewFlushes,
                    State4#{last_qlen => QLen})}.
+
+%% Calling process_info(self(), memory) is linear on the size of the message queue,
+%% which is an extremely bad thing to do in high load situations, so only do that
+%% if the value actually is required.
+-ifdef(OBSERVER_MOD). % does ?observe/2 use Mem
+maybe_self_memory(_State) -> do_self_memory().
+-else.
+-ifdef(SAVE_STATS). % does ?update_max_mem/2 use Mem
+maybe_self_memory(_State) -> do_self_memory().
+-else.
+maybe_self_memory(#{overload_kill_enable := KillIfOL}) -> % does kill_if_choked/3 use Mem
+    KillIfOL andalso do_self_memory(). % deliberate non-number if unused
+-endif.
+-endif.
+
+do_self_memory() ->
+  {_, Mem} = process_info(self(), memory),
+  Mem.
 
 limit_burst(#{burst_limit_enable := false}=State) ->
      {true,State};

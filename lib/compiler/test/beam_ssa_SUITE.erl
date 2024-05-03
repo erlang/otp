@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
          beam_ssa_dead_crash/1,stack_init/1,
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
-         coverage/1,normalize/1]).
+         coverage/1,normalize/1,
+         trycatch/1,gh_6599/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -48,7 +49,9 @@ groups() ->
        grab_bag,
        redundant_br,
        coverage,
-       normalize
+       normalize,
+       trycatch,
+       gh_6599
       ]}].
 
 init_per_suite(Config) ->
@@ -72,6 +75,11 @@ calls(Config) ->
     {'EXIT',{badarg,_}} = (catch call_error()),
     {'EXIT',{badarg,_}} = (catch call_error(42)),
     5 = start_it([erlang,length,1,2,3,4,5]),
+
+    {_,ok} = cover_call(id(true)),
+    {_,ok} = cover_call(id(false)),
+    {'EXIT',{{case_clause,ok},_}} = catch cover_call(id(ok)),
+
     ok.
 
 fun_call(Fun, X0) ->
@@ -101,6 +109,16 @@ start_it([_|_]=MFA) ->
     case MFA of
 	[M,F|Args] -> M:F(Args)
     end.
+
+cover_call(A) ->
+    case A =/= ok of
+        B ->
+            {(term_to_binary(ok)),
+             case ok of
+                 _  when B -> ok
+             end}
+    end.
+
 
 tuple_matching(_Config) ->
     do_tuple_matching({tag,42}),
@@ -451,6 +469,12 @@ maps(_Config) ->
     {jkl,nil,nil} = maps_2(#{jkl => 0}),
     error = maps_2(#{}),
 
+    [] = maps_3(),
+
+    {'EXIT',{{badmap,true},_}} = catch maps_4(id(true), id(true)),
+    error = maps_4(id(#{}), id(true)),
+    error = maps_4(id(#{}), id(#{})),
+
     ok.
 
 maps_1(K) ->
@@ -522,6 +546,25 @@ maps_2b(#{}=Map) ->
                     end
             end
     end.
+
+%% Cover code in beam_ssa_codegen.
+maps_3() ->
+    [] = case #{} of
+             #{ok := {}} ->
+                 ok;
+             _ ->
+                 []
+         end -- [].
+
+maps_4(A, B = A) when B; A ->
+    A#{ok := ok},
+    try A of
+        B -> B
+    after
+        ok
+    end#{ok := ok};
+maps_4(_, _) ->
+    error.
 
 -record(wx_ref, {type=any_type,ref=any_ref}).
 
@@ -887,6 +930,18 @@ grab_bag(_Config) ->
 
     {'EXIT',{{try_clause,[]},[_|_]}} = catch grab_bag_18(),
 
+    {'EXIT',{{badmatch,[whatever]},[_|_]}} = catch grab_bag_19(),
+
+    {'EXIT',{if_clause,[_|_]}} = catch grab_bag_20(),
+
+    6 = grab_bag_21(id(64)),
+    {'EXIT',{badarith,_}} = catch grab_bag_21(id(a)),
+
+    false = grab_bag_22(),
+
+    {reply,{ok,foo_bar},#{page_title := foo_bar}} =
+        grab_bag_23(id(#{page_title => unset})),
+
     ok.
 
 grab_bag_1() ->
@@ -1113,6 +1168,80 @@ grab_bag_18() ->
         end
     end.
 
+grab_bag_19() ->
+    ([<<bad/utf8>>] =
+         %% beam_ssa_pre_codegen would produce single-valued phi
+         %% nodes, which in turn would cause the constant propagation
+         %% in beam_ssa_codegen:prefer_xregs/2 to produce get_hd and
+         %% get_tl instructions with literal operands.
+         try
+             [whatever]
+         catch
+             _:_ when false ->
+                 ok
+         end) ! (some_atom ++ <<>>).
+
+grab_bag_20() ->
+    %% Similarly to grab_bag_19, beam_ssa_pre_codegen would produce
+    %% single-valued phi nodes. The fix for grab_bag_19 would not
+    %% suffice because several phi nodes were involved.
+    {[_ | _] =
+         receive
+             list ->
+                 "list";
+             1 when day ->
+                 []
+         after
+             0 ->
+                 if
+                     false ->
+                         error
+                 end
+         end,
+     try
+         ok
+     catch
+         error:_ ->
+             error
+     end}.
+
+%% With the `no_copt` and `no_ssa_opt` options, an internal
+%% consistency error would be reported:
+%%
+%% Internal consistency check failed - please report this bug.
+%% Instruction: {test_heap,2,2}
+%% Error:       {{x,0},not_live}:
+grab_bag_21(A) ->
+    _ = id(0),
+    grab_bag_21(ok, A div 10, node(), [-1]).
+
+grab_bag_21(_, D, _, _) ->
+    D.
+
+%% GH-7128: With optimizations disabled, the code would fail to
+%% load with the following message:
+%%
+%%    beam/beam_load.c(367): Error loading function
+%%      beam_ssa_no_opt_SUITE:grab_bag_22/0: op get_list: Sdd:
+%%         bad tag 2 for destination
+grab_bag_22() ->
+    maybe
+        [_ | _] ?= ((true xor true) andalso foo),
+        bar ?= id(42)
+    end.
+
+%% GH-8296: When the cse pass in beam_ssa_opt was changed to
+%% eliminate unreachable phi nodes, it failed to fix up phi nodes
+%% that reference eliminated blocks.
+grab_bag_23(#{page_title := unset} = State1) ->
+    State2 = State1#{page_title := foo_bar},
+    {reply,
+     {ok,
+      case State2 of
+          #{page_title := Val} -> Val;
+          _ -> lists:flatten([State2])
+      end},
+     State2}.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
@@ -1252,6 +1381,16 @@ normalize_swapped(Op, [#b_literal{}=Lit,#b_var{}=Var]=Args) ->
     I2 = make_bset(ArgTypes0, Op, Args),
     {[{0,IntRange}],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I2)),
 
+    LitType = beam_types:make_type_from_value(Lit),
+
+    ArgTypes1 = [{0,LitType}],
+    I3 = make_bset(ArgTypes1, Op, Args),
+    {[],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I3)),
+
+    ArgTypes2 = [{0,LitType},{1,IntRange}],
+    I4 = make_bset(ArgTypes1, Op, Args),
+    {[],Op,[Var,Lit]} = unpack_bset(beam_ssa:normalize(I4)),
+
     ok.
 
 make_bset(ArgTypes, Op, Args) when is_list(ArgTypes) ->
@@ -1263,6 +1402,137 @@ make_bset(Anno, Op, Args) when is_map(Anno) ->
 unpack_bset({b_set,Anno,{b_var,1000},Op,Args}) ->
     ArgTypes = maps:get(arg_types, Anno, #{}),
     {lists:sort(maps:to_list(ArgTypes)),Op,Args}.
+
+trycatch(_Config) ->
+    8 = trycatch_1(),
+
+    ok = trycatch_2(id(ok)),
+    ok = trycatch_2(id(z)),
+
+    false = trycatch_3(id(42)),
+
+    ok.
+
+trycatch_1() ->
+    try B = (A = bit_size(iolist_to_binary("a"))) rem 1 of
+        _ ->
+            A;
+        _ ->
+            B
+    after
+        ok
+    end.
+
+trycatch_2(A) ->
+    try not (B = (ok >= A)) of
+        B ->
+            iolist_size(maybe
+                            [] ?= B,
+                            <<>> ?= list_to_binary(ok)
+                        end);
+        _ ->
+            ok
+    after
+        ok
+    end.
+
+trycatch_3(A) ->
+    try erlang:bump_reductions(A) of
+        B ->
+            try not (C = (B andalso is_number(ok))) of
+                C ->
+                    ok andalso ok;
+                _ ->
+                    C
+            catch
+                _ ->
+                    ok
+            end
+    after
+        ok
+    end.
+
+%% GH-6599. beam_validator would not realize that the code was safe.
+gh_6599(_Config) ->
+    ok = gh_6599_1(id(42), id(42)),
+    #{ok := ok} = gh_6599_1(id(#{ok => 0}), id(#{ok => 0})),
+
+    {'EXIT',{{try_clause,#{ok:=ok}},_}} =
+        catch gh_6599_2(id(whatever), id(#{0 => whatever})),
+
+    ok = gh_6599_3(id(true), id(true)),
+    {'EXIT',{function_clause,_}} = catch gh_6599_3(id(false), id(false)),
+    0.0 = gh_6599_3(id(0.0), id(0.0)),
+
+    {'EXIT',{{badmatch,true},_}} = catch gh_6599_4(id(false)),
+
+    {'EXIT',{{badmatch,ok},_}} = catch gh_6599_5(id([a]), id(#{0 => [a]}), id([a])),
+
+    #{ok := ok} = gh_6599_6(id(#{}), id(#{})),
+    {'EXIT',{{badmap,a},_}} = catch gh_6599_6(id(a), id(a)),
+
+    {'EXIT',{{badarg,ok},_}} = catch gh_6599_7(id([a]), id([a])),
+
+    ok.
+
+gh_6599_1(X, X) when is_integer(X) ->
+    ok;
+gh_6599_1(Y, Y = #{}) ->
+    Y#{ok := ok}.
+
+gh_6599_2(X, #{0 := X, 0 := Y}) ->
+    try #{ok => ok} of
+        Y ->
+            bnot (Y = X)
+    after
+        ok
+    end.
+
+gh_6599_3(X, X) when X ->
+    ok;
+gh_6599_3(X, X = 0.0) ->
+    X + X.
+
+gh_6599_4(X) ->
+    Y =
+        try
+            false = X
+        catch
+            _ ->
+                ok
+        end /= ok,
+    X = Y,
+    false = Y,
+    0 = ok.
+
+%% Crashes in beam_ssa_type because a type assertion fails.
+gh_6599_5(X, #{0 := X, 0 := Y}, Y=[_ | _]) ->
+    try
+        Y = ok
+    catch
+        _ ->
+            [_ | []] = Y = X
+    end.
+
+gh_6599_6(A, B = A) ->
+    A#{},
+    case A of B -> B end#{ok => ok}.
+
+gh_6599_7(X, Y) ->
+    try Y of
+        X ->
+            (id(
+                try ([_ | _] = Y) of
+                    X ->
+                        ok
+                after
+                    ok
+                end
+            ) orelse X) bsl 0
+    after
+        ok
+    end.
+
 
 %% The identity function.
 id(I) -> I.

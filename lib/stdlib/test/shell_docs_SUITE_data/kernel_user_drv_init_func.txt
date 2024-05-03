@@ -1,0 +1,10 @@
+
+[;1m  init/1[0m
+
+  The documentation for init/1 is hidden. This probably means that
+  it is internal and not to be used by other applications.
+
+[;1m  init/3[0m
+
+  The documentation for init/3 is hidden. This probably means that
+  it is internal and not to be used by other applications.

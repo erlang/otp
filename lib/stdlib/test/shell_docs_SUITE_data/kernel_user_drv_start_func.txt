@@ -1,0 +1,10 @@
+
+[;1m  start/0[0m
+
+  The documentation for start/0 is hidden. This probably means
+  that it is internal and not to be used by other applications.
+
+[;1m  start/1[0m
+
+  The documentation for start/1 is hidden. This probably means
+  that it is internal and not to be used by other applications.

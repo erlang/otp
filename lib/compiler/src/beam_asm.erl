@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,13 +20,14 @@
 %% Purpose : Assembler for threaded Beam.
 
 -module(beam_asm).
+-moduledoc false.
 
 -export([module/4]).
 -export([encode/2]).
 
 -export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
+-import(lists, [append/1,duplicate/2,map/2,member/2,keymember/3,splitwith/2]).
 
 -include("beam_opcodes.hrl").
 -include("beam_asm.hrl").
@@ -55,6 +56,10 @@
 -type module_code() ::
         {module(),[_],[_],[asm_function()],pos_integer()}.
 
+%% Flags for the line table.
+-define(BEAMFILE_EXECUTABLE_LINE, 1).
+-define(BEAMFILE_FORCE_LINE_COUNTERS, 2).
+
 -spec module(module_code(), [{binary(), binary()}], [{atom(),term()}], [compile:option()]) ->
                     {'ok',binary()}.
 
@@ -65,7 +70,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     {0,Dict2} = beam_dict:type(any, Dict1),
-    Dict3 = shared_fun_wrappers(CompilerOpts, Dict2),
+    Dict3 = reject_unsupported_versions(Dict2),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0, [{version, 2}]),
@@ -73,22 +78,11 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
     build_file(Code, Attr, Dict, NumLabels, NumFuncs,
                ExtraChunks, CompileInfo, CompilerOpts).
 
-shared_fun_wrappers(Opts, Dict) ->
-    case proplists:get_bool(no_shared_fun_wrappers, Opts) of
-        false ->
-            %% The compiler in OTP 23 depends on the on the loader
-            %% using the new indices in funs and being able to have
-            %% multiple make_fun2 instructions referring to the same
-            %% fun entry. Artificially set the highest opcode for the
-            %% module to ensure that it cannot be loaded in OTP 22
-            %% and earlier.
-            Swap = beam_opcodes:opcode(swap, 2),
-            beam_dict:opcode(Swap, Dict);
-        true ->
-            %% Fun wrappers are not shared for compatibility with a
-            %% previous OTP release.
-            Dict
-    end.
+reject_unsupported_versions(Dict) ->
+    %% Emit an instruction that was added in our lowest supported
+    %% version so that it cannot be loaded by earlier releases.
+    Instr = beam_opcodes:opcode(make_fun3, 3),  %OTP 24
+    beam_dict:opcode(Instr, Dict).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -191,7 +185,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, Com
 		   end,
 
     %% Create the line chunk.
-    LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
+    LineChunk = chunk(<<"Line">>, build_line_table(Dict, CompilerOpts)),
 
     %% Create the type table chunk.
     {NumTypes, TypeTab} = beam_dict:type_table(Dict),
@@ -293,8 +287,8 @@ build_attributes(Attr, Compile, MD5) ->
     CompileBinary = term_to_binary([{version,?COMPILER_VSN}|Compile]),
     {AttrBinary,CompileBinary}.
 
-build_line_table(Dict) ->
-    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0} =
+build_line_table(Dict, Options) ->
+    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0,ExecLine} =
 	beam_dict:line_table(Dict),
     NumFnames = NumFnames0 - 1,
     [_|Fnames1] = Fnames0,
@@ -303,9 +297,19 @@ build_line_table(Dict) ->
     Lines1 = encode_line_items(Lines0, 0),
     Lines = iolist_to_binary(Lines1),
     Ver = 0,
-    Bits = 0,
+    Bits = line_bits(ExecLine, Options),
     <<Ver:32,Bits:32,NumLineInstrs:32,NumLines:32,NumFnames:32,
      Lines/binary,Fnames/binary>>.
+
+line_bits(ExecLine, Options) ->
+        case member(force_line_counters, Options) of
+            true ->
+                ?BEAMFILE_FORCE_LINE_COUNTERS bor ?BEAMFILE_EXECUTABLE_LINE;
+            false when ExecLine =:= true ->
+                ?BEAMFILE_EXECUTABLE_LINE;
+            false ->
+                0
+        end.
 
 %% encode_line_items([{FnameIndex,Line}], PrevFnameIndex)
 %%  Encode the line items compactly. Tag the FnameIndex with
@@ -358,9 +362,12 @@ bif_type(_, 2)      -> bif2.
 
 make_op({'%',_}, Dict) ->
     {[],Dict};
-make_op({line,Location}, Dict0) ->
-    {Index,Dict} = beam_dict:line(Location, Dict0),
+make_op({line=Op,Location}, Dict0) ->
+    {Index,Dict} = beam_dict:line(Location, Dict0, Op),
     encode_op(line, [Index], Dict);
+make_op({executable_line=Op,Location,Index}, Dict0) ->
+    {LocationIndex,Dict} = beam_dict:line(Location, Dict0, Op),
+    encode_op(executable_line, [LocationIndex,Index], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);
@@ -391,9 +398,6 @@ make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail|Ops], Dict);
 make_op({test,Cond,Fail,Live,[Op|Ops],Dst}, Dict) when is_list(Ops) ->
     encode_op(Cond, [Fail,Op,Live|Ops++[Dst]], Dict);
-make_op({make_fun2,{f,Lbl},_Index,_OldUniq,NumFree}, Dict0) ->
-    {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
-    make_op({make_fun2,Fun}, Dict);
 make_op({make_fun3,{f,Lbl},_Index,_OldUniq,Dst,{list,Env}}, Dict0) ->
     NumFree = length(Env),
     {Fun,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
@@ -404,8 +408,6 @@ make_op({call_fun2,{f,Lbl},Arity,Func}, Dict0) ->
     NumFree = TotalArity - Arity,
     {Lambda,Dict} = beam_dict:lambda(Lbl, NumFree, Dict0),
     make_op({call_fun2,Lambda,Arity,Func}, Dict);
-make_op({kill,Y}, Dict) ->
-    make_op({init,Y}, Dict);
 make_op({Name,Arg1}, Dict) ->
     encode_op(Name, [Arg1], Dict);
 make_op({Name,Arg1,Arg2}, Dict) ->
@@ -481,6 +483,13 @@ encode_arg({extfunc, M, F, A}, Dict0) ->
 encode_arg({list, List}, Dict0) ->
     {L, Dict} = encode_list(List, Dict0, []),
     {[encode(?tag_z, 1), encode(?tag_u, length(List))|L], Dict};
+encode_arg({commands, List0}, Dict) ->
+    List1 = [begin
+                 [H|T] = tuple_to_list(Tuple),
+                 [{atom,H}|T]
+             end || Tuple <- List0],
+    List = append(List1),
+    encode_arg({list, List}, Dict);
 encode_arg({float, Float}, Dict) when is_float(Float) ->
     encode_literal(Float, Dict);
 encode_arg({fr,Fr}, Dict) ->
@@ -540,13 +549,13 @@ encode_alloc_list_1([], Dict, Acc) ->
 
 -spec encode(non_neg_integer(), integer()) -> iolist() | integer().
 
-encode(Tag, N) when N < 0 ->
+encode(Tag, N) when is_integer(N), N < 0 ->
     encode1(Tag, negative_to_bytes(N));
-encode(Tag, N) when N < 16 ->
+encode(Tag, N) when is_integer(N), N < 16 ->
     (N bsl 4) bor Tag;
-encode(Tag, N) when N < 16#800  ->
+encode(Tag, N) when is_integer(N), N < 16#800  ->
     [((N bsr 3) band 2#11100000) bor Tag bor 2#00001000, N band 16#ff];
-encode(Tag, N) ->
+encode(Tag, N) when is_integer(N) ->
     encode1(Tag, to_bytes(N)).
 
 encode1(Tag, Bytes) ->

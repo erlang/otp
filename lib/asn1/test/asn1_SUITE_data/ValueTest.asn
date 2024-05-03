@@ -33,6 +33,10 @@ include-roid OBJECT IDENTIFIER ::= {0 rel-oid-1}
 include-oid OBJECT IDENTIFIER ::= {integer-first 1}
 include-all OBJECT IDENTIFIER ::= {integer-first 1 rel-oid-1 42}
 
+-- RELATIVE-OID
+rel-oid-2 RELATIVE-OID ::= {rel-oid-1 6}
+rel-oid-3 RELATIVE-OID ::= {rel-oid-1 rel-oid-2 7}
+
 --Character strings
 numericstring NumericString ::= "01234567"
 printablestring PrintableString ::= "PrintableString"

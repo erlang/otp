@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ err:
 int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
 // HAS_3_0_API
 {
-    ERL_NIF_TERM result[5];
+    ERL_NIF_TERM result[4];
     BIGNUM *p = NULL, *q = NULL, *g = NULL, *pub = NULL;
 
     if (
@@ -119,8 +119,8 @@ int dss_privkey_to_pubkey(ErlNifEnv* env, EVP_PKEY *pkey, ERL_NIF_TERM *ret)
         || !EVP_PKEY_get_bn_param(pkey, "pub", &pub)
         || ((result[0] = bin_from_bn(env, p)) == atom_error)
         || ((result[1] = bin_from_bn(env, q)) == atom_error)
-        || ((result[1] = bin_from_bn(env, g)) == atom_error)
-        || ((result[1] = bin_from_bn(env, pub)) == atom_error)
+        || ((result[2] = bin_from_bn(env, g)) == atom_error)
+        || ((result[3] = bin_from_bn(env, pub)) == atom_error)
         )
         goto err;
 

@@ -3,7 +3,7 @@
 # 
 #  %CopyrightBegin%
 #  
-#  Copyright Ericsson AB 2019-2021. All Rights Reserved.
+#  Copyright Ericsson AB 2019-2023. All Rights Reserved.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -24,45 +24,135 @@
 # This is just a simple convenience wrapper to the esock-ttest.
 # That means that there are some options not available here.
 #
+# Example:
+# Assuming your pwd is $ERL_TOP
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-client --msgid 1 --addr 1.2.3.4 --port 11111)
 
-EMU=$ERL_TOP/erts/emulator
-EMU_TEST=$EMU/test
-ESOCK_TTEST=$EMU_TEST/esock_ttest
+program="`basename "$0"`"
+
+KERNEL=$ERL_TOP/lib/kernel
+KERNEL_TEST=$KERNEL/test
+ESOCK_TTEST=$KERNEL_TEST/esock_ttest
 
 RUNTIME=30
 # RUNTIME=60
 # RUNTIME=600
+# PROFILE="--profile"
+MSGID=1
+ADDR=none
+PORT=none
+DOMAIN=inet
 
-if [ $# = 3 ]; then
-    MSGID=$1
-    SERVER_INFO=$2:$3
 
-    ITERATIONS="\
-       gen  false $MSGID
-       gen  true  $MSGID
-       gen  once  $MSGID
-       sock false $MSGID --async
-       sock true  $MSGID --async
-       sock once  $MSGID --async"
+######################################################################
 
-else
-    if [ $# = 2 ]; then
-	MSGID=$1
-	SERVER_INFO=$2
+usage="\
+Usage: $program [options] 
 
-	ITERATIONS="\
-           sock false $MSGID --async
-           sock true  $MSGID --async
-           sock once  $MSGID --async"
+This shell script is used to run the esock ttest client part.
 
-    else
-	echo "Invalid number of args"
-	exit 1;
-    fi
+Options:
+  --help                Display this help and exit.
+  --profile             Perform a 'profile' run.
+  --msgid  <id>         The type of message by the test. There are three:
+  	                1: small
+  	                2: medium
+  	                3: large
+                        Defaults to 1
+  --runtime  <runtime>  The length of the test in seconds.
+                        Defaults to 30
+  --addr <address>      Address of the server.
+  	                Mandatory
+  --port <port-number>  Port number of the server.
+  	                Mandatory when 
+"
+
+######################################################################
+
+now() { date '+%T'; }
+
+die () {
+    TIME=`now`
+    reason=$?
+    echo "ERROR [$TIME]: $@" >&2
+    echo "$usage"
+    exit $reason
+}
+
+while test $# != 0; do
+    # echo "arg $1"
+    case $1 in
+        --help)
+            echo "$usage" ; 
+            exit 0 ;;
+
+        --profile)
+	    PROFILE="--profile"
+            shift ;;
+
+        --msgid)
+	    shift ;
+	    MSGID=$1
+            shift ;;
+
+        --addr)
+	    shift ;
+	    ADDR=$1
+            shift ;;
+
+        --port)
+	    shift ;
+	    PORT=$1
+            shift ;;
+
+        --runtime)
+	    shift ;
+	    RUNTIME=$1
+            shift ;;
+
+        *)
+            die "Unexpected option $1";
+            ;;
+    esac
+done
+
+
+if [ $ADDR = none ]; then
+   die "Mandatory option '--addr' missing";
 fi
+
+if [ $PORT = none ]; then
+    die "Mandatory option '--port' missing";
+fi
+
+SERVER_INFO=$ADDR:$PORT
 
 
 # ---------------------------------------------------------------------------
+
+ITERATIONS="\
+       gen  false $MSGID
+       gen  true  $MSGID
+       gen  once  $MSGID
+       gen  1     $MSGID
+       gen  5     $MSGID
+       gen  10    $MSGID
+       gen  20    $MSGID
+       gs   false $MSGID
+       gs   true  $MSGID
+       gs   once  $MSGID
+       gs   1     $MSGID
+       gs   5     $MSGID
+       gs   10    $MSGID
+       gs   20    $MSGID
+       sock false $MSGID --async
+       sock true  $MSGID --async
+       sock once  $MSGID --async
+       sock 1     $MSGID --async
+       sock 5     $MSGID --async
+       sock 10    $MSGID --async
+       sock 20    $MSGID --async"
+
 
 # For when we have figured out how to configure local for gen_tcp...
 
@@ -70,6 +160,9 @@ fi
 #   gen  false  $MSGID
 #   gen  true   $MSGID
 #   gen  once   $MSGID
+#   gs   false  $MSGID
+#   gs   true   $MSGID
+#   gs   once   $MSGID
 #   sock false  $MSGID
 #   sock true   $MSGID
 #   sock once   $MSGID"
@@ -81,12 +174,10 @@ echo "$ITERATIONS" |
 
       echo ""
       echo "=========== transport = $TRANSPORT, active = $ACTIVE, msg-id = $MSG_ID ==========="
-      # The /dev/null at the end is necessary because erlang "does things" with stdin
-      # and this case would cause the 'while read' to "fail" so that we only would
-      # loop one time
-      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME </dev/null
+      # The /dev/null at the end is necessary because erlang "does things"
+      # with stdin and this case would cause the 'while read' to "fail" so
+      # that we only would loop one time.
+      $ESOCK_TTEST/esock-ttest --client --transport $TRANSPORT $ASYNC --active $ACTIVE --msg-id $MSG_ID --scon $SERVER_INFO --runtime $RUNTIME $PROFILE </dev/null
       echo ""
 
   done
-
-

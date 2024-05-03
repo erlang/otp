@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 %%%
 
 -module(beam_ssa_throw).
+-moduledoc false.
 
 -export([module/2]).
 
@@ -166,6 +167,21 @@ si_is([#b_set{op=raw_raise,args=[_,_,Stacktrace]} | Is],
 si_is([#b_set{op=build_stacktrace,args=[Stacktrace]} | Is],
       Id, Lbl, Last, Lst, Gst) ->
     si_handler_end(Is, Id, Lbl, Last, Stacktrace, Lst, Gst);
+si_is([#b_set{op=MakeFun,args=[#b_local{}=Callee | _]} | _Is],
+      _Id, _Lbl, _Last, Lst, Gst)
+  when MakeFun =:= make_fun;
+       MakeFun =:= old_make_fun ->
+    #gst{tlh_roots = Roots0} = Gst,
+
+    %% Funs may be called from anywhere which may result in a throw escaping
+    %% the module, so we'll add an unsuitable top-level handler to all funs.
+    Handlers = case gb_trees:lookup(Callee, Roots0) of
+                    {value, Handlers0} -> gb_sets:add(unsuitable, Handlers0);
+                    none -> gb_sets:singleton(unsuitable)
+                end,
+    Roots = gb_trees:enter(Callee, Handlers, Roots0),
+
+    {Lst, Gst#gst{tlh_roots=Roots}};
 si_is([#b_set{op=call,
               dst=Dst,
               args=[#b_remote{mod=#b_literal{val=erlang},
@@ -442,7 +458,7 @@ ois_is([#b_set{op={bif,is_list},dst=Dst,args=[Src]} | Is], Ts) ->
 ois_is([#b_set{op={bif,is_map},dst=Dst,args=[Src]} | Is], Ts) ->
     ois_type_test(Src, Dst, #t_map{}, Is, Ts);
 ois_is([#b_set{op={bif,is_number},dst=Dst,args=[Src]} | Is], Ts) ->
-    ois_type_test(Src, Dst, number, Is, Ts);
+    ois_type_test(Src, Dst, #t_number{}, Is, Ts);
 ois_is([#b_set{op={bif,is_tuple},dst=Dst,args=[Src]} | Is], Ts) ->
     ois_type_test(Src, Dst, #t_tuple{}, Is, Ts);
 ois_is([#b_set{op=is_nonempty_list,dst=Dst,args=[Src]} | Is], Ts) ->

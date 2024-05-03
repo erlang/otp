@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(observer_traceoptions_wx).
+-moduledoc false.
 
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").

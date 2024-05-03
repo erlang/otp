@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
 	 no_no_file/1,configuration/1,supplies/1,
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
-         receive_effect/1,map_effect/1]).
+         receive_effect/1,nested_lets/1,
+         map_effect/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -50,8 +51,8 @@ groups() ->
        no_no_file,configuration,supplies,
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
-       receive_effect,map_effect]}].
-
+       receive_effect,nested_lets,
+       map_effect]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -675,6 +676,7 @@ cover_letrec_effect(_Config) ->
     end,
 
     _ = catch cover_letrec_effect_1(),
+    _ = catch cover_letrec_effect_2(),
 
     ok.
 
@@ -692,6 +694,12 @@ cover_letrec_effect_1() ->
         end
     end.
 
+cover_letrec_effect_2() ->
+    maybe
+	<< ok || ok, _ <- (catch ok)>>,
+	ok
+    end.
+
 receive_effect(_Config) ->
     self() ! whatever,
     {} = do_receive_effect(),
@@ -699,6 +707,154 @@ receive_effect(_Config) ->
 
 do_receive_effect() ->
     {} = receive _ -> {} = {} end.
+
+nested_lets(_Config) ->
+    {'EXIT',{{case_clause,ok},_}} = catch nested_lets_1(<<42>>),
+    {'EXIT',{badarith,_}} = catch nested_lets_2(id(0), id(0)),
+    {'EXIT',{badarith,_}} = catch nested_lets_3(),
+    {'EXIT',{undef,_}} = catch nested_lets_4(),
+    {'EXIT',{{case_clause,_},_}} = catch nested_lets_5(),
+    {'EXIT',{badarith,_}} = catch nested_lets_6(),
+
+    ok.
+
+%% GH-6572: Deeply nested `let` expressions caused `sys_core_fold` to generate
+%% unsafe code that it would attempt to fix up later. Unfortunately it did so
+%% through a limited fixpoint iteration, and would leak said code once the
+%% limit was hit.
+nested_lets_1(<<X>>) ->
+    Y =
+        case ok of
+            X ->
+                true = (ok > (Y = -1)),
+                <<>> =
+                    {id(
+                       <<
+                         (ok - ok),
+                         (bnot ok),
+                         (nested_lets_1_f() band ok),
+                         (nested_lets_1_f()),
+                         (not ok),
+                         (ok or nested_lets_1_f()),
+                         (id(
+                            id(
+                              <<
+                                (id(
+                                   <<
+                                     (id(
+                                        <<0 || _ <- []>>
+                                       ))
+                                   >>
+                                  ) * ok)
+                              >>
+                             )
+                           ))
+                       >>
+                      )}
+        end.
+
+nested_lets_1_f() ->
+    ok.
+
+%% GH-6612: A variant of GH-6572 that slipped through the initial fix.
+nested_lets_2(X, 0) ->
+    try
+        0 = {
+             _ = 0 + 0,
+             Z = bnot ok,
+             {(_ = ok), (_ = X)}#{ok => ok},
+             ok +
+                 (nested_lets_2_f(
+                    ok +
+                        nested_lets_2_f(
+                          ok +
+                              (nested_lets_2_f(
+                                                (Y =
+                                                     -nested_lets_2_f(
+                                                        #{
+                                                            (ok +
+                                                                 (ok +
+                                                                      nested_lets_2_f(
+                                                                        case
+                                                                            try ok of
+                                                                                _ ->
+                                                                                    fun(_) ->
+                                                                                            ok
+                                                                                    end
+                                                                            after
+                                                                                ok
+                                                                            end
+                                                                        of
+                                                                            #{} ->
+                                                                                ok
+                                                                        end
+                                                                       ))) => ok
+                                                         } > ok
+                                                       ))
+                                ) + ok)
+                         ) >
+                        ok
+                   ))
+            }
+    of
+        _ ->
+            Z;
+        _ ->
+            Y
+    after
+        ok
+    end.
+
+nested_lets_2_f(_) ->
+    ok.
+
+nested_lets_3() ->
+    try ((true = [X | _]) = (ok * (_ = ok))) of
+        _ ->
+            X
+    after
+        ok
+    end.
+
+nested_lets_4() ->
+    try
+        not (case {(_ = ok), (Y = ?MODULE:undef())} of
+            a ->
+                ok;
+            0 ->
+                ok
+        end)
+    of
+        _ ->
+            Y
+    after
+        ok
+    end.
+
+%% GH-6633.
+nested_lets_5() ->
+    case self() of
+        [_ | X] ->
+            ok;
+        false ->
+            {ok#{
+                (X = ok) :=
+                    ((ok /=
+                        maybe
+                            ok
+                        end) =/= ok)
+            }}
+    end,
+    X.
+
+%% GH-6635.
+nested_lets_6() ->
+    try {not (false orelse (ok#{(1 / 0) := ok})), X = ok} of
+        X ->
+            ok
+    after
+        ok
+    end.
 
 map_effect(_Config) ->
     {'EXIT',{{badkey,key},_}} = catch map_effect_1(),
@@ -715,5 +871,7 @@ map_effect_1() ->
 map_effect_2(Map) ->
     Map#{key := value},
     ok.
+
+%%% Common utility functions.
 
 id(I) -> I.

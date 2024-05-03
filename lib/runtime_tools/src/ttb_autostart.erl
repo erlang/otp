@@ -8,6 +8,7 @@
 %%% Created : 31 Jul 2010 by <bartlomiej.puzon@erlang-solutions.com>
 %%%-------------------------------------------------------------------
 -module(ttb_autostart).
+-moduledoc false.
 
 -behaviour(gen_server).
 

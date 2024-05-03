@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@
 %% 
 
 -module(httpd_request_handler).
-
+-moduledoc false.
+-compile(nowarn_deprecated_callback).
 -behaviour(gen_server).
 
 %% Application internal API
@@ -97,8 +98,10 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     %%link(Manager), 
     %% At this point the function httpd_request_handler:start/2 will return.
     proc_lib:init_ack({ok, self()}),
-    
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
+    ServerName = erlang:iolist_to_binary(httpd_util:lookup(ConfigDB, server_name)),
+    Protocol = protocol(SocketType),
+    proc_lib:set_label({Protocol, ServerName}),
     
     Peername = http_transport:peername(SocketType, Socket),
     Sockname = http_transport:sockname(SocketType, Socket),
@@ -137,34 +140,47 @@ continue_init(Manager, ConfigDB, SocketType, Socket, Peername, Sockname,
                socket_type = SocketType,
                socket = Socket,
                init_data = InitData},
-    
-    MaxHeaderSize = max_header_size(ConfigDB), 
-    MaxURISize    = max_uri_size(ConfigDB), 
-    NrOfRequest   = max_keep_alive_request(ConfigDB), 
+
+    MaxHeaderSize = max_header_size(ConfigDB),
+    MaxURISize    = max_uri_size(ConfigDB),
+    NrOfRequest   = max_keep_alive_request(ConfigDB),
     MaxContentLen = max_content_length(ConfigDB),
     Customize = customize(ConfigDB),
     MaxChunk = max_client_body_chunk(ConfigDB),
-    
-    {_, Status} = httpd_manager:new_connection(Manager),
-    
-    MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
-				   {max_version, ?HTTP_MAX_VERSION_STRING}, 
-				   {max_method, ?HTTP_MAX_METHOD_STRING},
-				   {max_content_length, MaxContentLen},
-				   {customize, Customize}
-				  ]]}, 
 
-    State = #state{mod                    = Mod, 
-		   manager                = Manager, 
-		   status                 = Status,
-		   timeout                = TimeOut, 
-		   max_keep_alive_request = NrOfRequest,
-		   mfa                    = MFA,
-                   chunk                   = chunk_start(MaxChunk)},
-    setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
-    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
-     gen_server:enter_loop(?MODULE, [], NewState).
+    {Result, Status} = httpd_manager:new_connection(Manager),
+    case Result of
+        error ->
+            %% this error might happen when httpd manager is stopped
+            %% during execution of httpd_transport:negotiate; this is
+            %% most likely to happen for TLS requiring more processing
+            %% 'HTTP' as error category(Protocol) because transport
+            %% information is wanted in logs
+            httpd_util:error_log(ConfigDB,
+                                 httpd_logger:error_report('HTTP', Status,
+                                                           Mod, ?LOCATION)),
+            exit({shutdown, Status});
+        _ ->
+            MFA = {httpd_request, parse, [[{max_uri, MaxURISize}, {max_header, MaxHeaderSize},
+                                           {max_version, ?HTTP_MAX_VERSION_STRING},
+                                           {max_method, ?HTTP_MAX_METHOD_STRING},
+                                           {max_content_length, MaxContentLen},
+                                           {customize, Customize}
+                                          ]]},
 
+            State = #state{mod                    = Mod,
+                           manager                = Manager,
+                           status                 = Status,
+                           timeout                = TimeOut,
+                           max_keep_alive_request = NrOfRequest,
+                           mfa                    = MFA,
+                           chunk                   = chunk_start(MaxChunk)},
+            setopts(Socket, SocketType, [binary, {packet, 0}, {active, once}]),
+            NewState =
+                data_receive_counter(activate_request_timeout(State),
+                                     httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
+            gen_server:enter_loop(?MODULE, [], NewState)
+    end.
 
 %%====================================================================
 %% gen_server callbacks
@@ -327,16 +343,16 @@ do_terminate(#state{mod = ModData} = State) ->
     httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket).
 
 format_status(normal, [_, State]) ->
-    [{data, [{"StateData", State}]}];  
+    [{data, [{"StateData", State}]}];
 format_status(terminate, [_, State]) ->
     Mod = (State#state.mod),
     case Mod#mod.socket_type of
-	ip_comm ->
-	    [{data, [{"StateData", State}]}];  
-	{essl, _} ->
-	    %% Do not print ssl options in superviosr reports
-	    [{data, [{"StateData", 
-		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}]
+	{ssl, _} ->
+	    %% Do not print ssl options in supervisor reports
+	    [{data, [{"StateData",
+		      State#state{mod = Mod#mod{socket_type = 'TLS'}}}]}];
+        _  ->
+            [{data, [{"StateData", State}]}]
     end.
 
 %%--------------------------------------------------------------------
@@ -362,8 +378,10 @@ await_socket_ownership_transfer(AcceptTimeout) ->
     end.
 
 
+handle_msg(Body, State) when is_binary(Body) ->
+    handle_response(State#state{body = Body});
 %%% Internal chunking of client body 
-handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbState}} = State) ->
+handle_msg({{continue, Chunk}, Module, Function, Args}, #state{chunk = {_, CbState}} = State) when is_binary(Chunk) ->
     handle_internal_chunk(State#state{chunk = {continue, CbState},
                                       body = Chunk}, Module, Function, Args);
 handle_msg({continue, Module, Function, Args}, 	#state{mod = ModData} = State) ->
@@ -375,38 +393,42 @@ handle_msg({last, Body}, #state{headers = Headers, chunk = {_, CbState}} = State
                                 headers = NewHeaders,
                                 body = Body});
 %%% Last data chunked by client
-handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {ChunkState, CbState}} = State) when ChunkState =/= undefined ->
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {ChunkState, CbState}} = State) when ChunkState =/= undefined, is_binary(Body) ->
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
     handle_response(State#state{chunk = {last, CbState},
                                 headers = NewHeaders,
                                 body = Body});
-handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {undefined, _}} = State) ->
+handle_msg({ChunkedHeaders, Body}, #state{headers = Headers , chunk = {undefined, _}} = State) when is_binary(Body) ->
     NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),
     handle_response(State#state{headers = NewHeaders,
                                 body = Body});
+%%%
 handle_msg(Result, State) ->
     handle_http_msg(Result, State).
 
-handle_http_msg({_, _, Version, {_, _}, _}, 
-		#state{status = busy, mod = ModData} = State) -> 
-    handle_manager_busy(State#state{mod = 
+%% status = busy
+handle_http_msg({_, _, Version, {_, _}, _},
+		#state{status = busy, mod = ModData} = State) ->
+    handle_manager_busy(State#state{mod =
 				    ModData#mod{http_version = Version}}),
-    {stop, normal, State}; 
+    {stop, normal, State};
 
-handle_http_msg({_, _, Version, {_, _}, _}, 
+%% status = blocked
+handle_http_msg({_, _, Version, {_, _}, _},
 		#state{status = blocked, mod = ModData} = State) ->
-    handle_manager_blocked(State#state{mod = 
+    handle_manager_blocked(State#state{mod =
 				       ModData#mod{http_version = Version}}),
-    {stop, normal, State}; 
+    {stop, normal, State};
 
+%% status = accept
 handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
-		#state{status = accept, mod = ModData} = State) ->        
+		#state{status = accept, mod = ModData} = State) ->
+    true = is_binary(Body),
     case httpd_request:validate(Method, Uri, Version) of
 	{ok, NormalizedURI}  ->
-	    {ok, NewModData} = 
+	    {ok, NewModData} =
 		httpd_request:update_mod_data(ModData, Method, NormalizedURI,
 					      Version, Headers),
-      
 	    case is_host_specified_if_required(NewModData#mod.absolute_uri,
 					       RecordHeaders, Version) of
 		true ->
@@ -414,8 +436,8 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 					    body = Body,
 					    mod = NewModData});
 		false ->
-		    httpd_response:send_status(ModData#mod{http_version = 
-							   Version}, 
+		    httpd_response:send_status(ModData#mod{http_version =
+							   Version},
 					       400, none),
 		    {stop, normal, State#state{response_sent = true}}
 	    end;
@@ -432,9 +454,7 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
             ModData#mod{http_version = httpd_request:default_version()},
             400, Ver, {malformed_syntax, Ver}),
 	    {stop, normal, State#state{response_sent = true}}
-    end;
-handle_http_msg(Body, State) ->
-    handle_response(State#state{body = Body}).
+    end.
 
 handle_manager_busy(#state{mod = #mod{config_db = ConfigDB}} = State) ->
     MaxClients = httpd_util:lookup(ConfigDB, max_clients, 150),
@@ -479,7 +499,7 @@ handle_body(#state{headers = Headers, body = Body,
 		    {noreply, State#state{mfa = 
                                               {Module, Function, Args},
                                           chunk = chunk_start(MaxChunk)}};
-                {ok, {ChunkedHeaders, NewBody}} ->
+                {ok, {ChunkedHeaders, NewBody}} when is_binary(NewBody) ->
 		    NewHeaders = http_chunk:handle_headers(Headers, ChunkedHeaders),	
                     handle_response(State#state{headers = NewHeaders,
                                                 body = NewBody,
@@ -512,12 +532,12 @@ handle_body(#state{headers = Headers, body = Body,
                             setopts(ModData#mod.socket, ModData#mod.socket_type, [{active, once}]),
                             {noreply, State#state{mfa = 
 						      {Module, Function, Args}}};
-                        {ok, {{continue, Chunk}, Module, Function, Args}} ->
+                        {ok, {{continue, Chunk}, Module, Function, Args}} when is_binary(Chunk) ->
                             handle_internal_chunk(State#state{chunk =  chunk_start(MaxChunk), 
                                                               body = Chunk}, Module, Function, Args);                   
                         %% Whole body delivered, if chunking mechanism is enabled the whole
                         %% body fits in one chunk.
-                        {ok, NewBody} ->
+                        {ok, NewBody} when is_binary(NewBody) ->
                             handle_response(State#state{chunk = chunk_finish(ChunkState, 
                                                                              CbState, MaxChunk),
                                                         headers = Headers,
@@ -665,7 +685,7 @@ handle_next_request(#state{mod = #mod{connection = true} = ModData,
 			   mfa                    = MFA,
 			   max_keep_alive_request = decrease(Max),
 			   headers                = #http_request_h{}, 
-			   body                   = undefined,
+			   body                   = <<>>,
                            chunk                  = chunk_start(MaxChunk),
 			   response_sent          = false},
     
@@ -756,3 +776,8 @@ setopts(Socket, SocketType, Options) ->
         {error, _} -> %% inet can return einval instead of closed
             self() ! {http_transport:close_tag(SocketType), Socket}
     end.
+
+protocol({ssl,_}) ->
+    https;
+protocol(_) ->
+    http.

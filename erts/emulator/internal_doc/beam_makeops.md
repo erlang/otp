@@ -39,7 +39,7 @@ specific instructions.  The OTP 20 release has 389 specific
 instructions.
 
 * The implementation of specific instructions for the traditional
-BEAM interpreter. For the [BeamAsm JIT](BeamAsm) introduced
+BEAM interpreter. For the [BeamAsm JIT](BeamAsm.md) introduced
 in OTP 24, the implementation of instructions are defined in emitter
 functions written in C++.
 
@@ -379,15 +379,11 @@ Give the option `-emulator` to produce output files for the emulator.
 The following output files will be generated in the output directory.
 
 * `beam_opcodes.c` - Defines static data used by the loader
-(`beam_load.c`).  Data about generic instructions, specific
-instructions (including how to pack their operands), and
-transformation rules are all part of this file.
+(`beam_load.c`), providing information about generic and specific
+instructions, as well as all C code for the transformation rules.
 
 * `beam_opcodes.h` - Miscellaneous preprocessor definitions, mainly
 used by `beam_load.c` but also by `beam_{hot,warm,cold}.h`.
-
-* `beam_transform.c` - Implementation of guard constraints and generators
-called from transformation rules.
 
 For the traditional BEAM interpreter, the following files are also
 generated:
@@ -461,7 +457,7 @@ probably never happen in practice.
 #### GC\_REGEXP ####
 
 In `macros.tab`, there is a definition of `GC_REGEXP`.
-It will be described in [a later section](#the-gc_regexp-definition).
+It will be described in [a later section](#the-GC_REGEXP-definition).
 
 #### FORBIDDEN\_TYPES ####
 
@@ -1075,8 +1071,8 @@ Here is first an example how it is used:
    is_map Fail Lit=q | literal_is_map(Lit) => _
 
 If the `Lit` operand is a literal, then the `literal_is_map()`
-predicate is called to determine wheter is is a map literal.
-It it is, the instruction is not needed and can be removed.
+predicate is called to determine whether it is a map literal.
+If it is, the instruction is not needed and can be removed.
 
 `literal_is_map()` is implemented like this (in `emu/predicates.tab`):
 
@@ -1507,6 +1503,8 @@ the wheel.
 
 We will describe a few of the most useful macros here.
 
+[](){: #the-GC_REGEXP-definition }
+
 ##### The GC_REGEXP definition #####
 
 The following line defines a regular expression that will recognize
@@ -1686,7 +1684,7 @@ similar to this:
 
 #### Variable number of operands ####
 
-Here follows an example of how to to handle an instruction with a variable number
+Here follows an example of how to handle an instruction with a variable number
 of operands for the interpreter.  Here is the instruction definition in `emu/ops.tab`:
 
     put_tuple2 xy I *
@@ -2058,6 +2056,8 @@ only a single `emit_fload()` function is allowed:
         .
         .
     }
+
+[](){: #handling-a-variable-number-of-operands }
 
 #### Handling a variable number of operands ####
 

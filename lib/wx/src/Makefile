@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2022. All Rights Reserved.
+# Copyright Ericsson AB 2008-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #
 
 include ../vsn.mk
-ifdef TERTIARY_BOOTSTRAP
+ifdef BOOTSTRAP
  VSN = $(WX_VSN)
  include $(ERL_TOP)/make/target.mk
  include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -33,7 +33,7 @@ EGEN = gen
 EBIN = ../ebin
 ERLC = erlc
 ERLINC = ../include
-ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars
+ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars +nowarn_missing_doc
 
 ARCHIVE         = wx-$(VSN).ez
 

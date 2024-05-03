@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -129,6 +129,8 @@ misc(Config) when is_list(Config) ->
     error = if abs(Zero > One) -> ok; true -> error end,
     ok = if is_integer(Zero) >= is_integer(One) -> ok end,
 
+    {'EXIT',{function_clause,_}} = catch misc_4(),
+
     ok.
 
 misc_1([{W},{X},{Y},{Z}]) ->
@@ -149,6 +151,9 @@ misc_3(LenUp, LenDw) ->
 	LenUp >= 1 orelse ((LenDw >= 2) xor true) -> true;
 	true -> false
     end.
+
+misc_4() when <<(is_atom((#{} #{ ok := ok })) orelse <<>>)/bytes>> >= ok ->
+    ok.
 
 get_data({o,Active,Raw}, BytesToRead, Buffer) 
   when Raw =:= raw; Raw =:= 0 ->
@@ -1156,11 +1161,19 @@ do_complex_guard_2(X, Y, Z) ->
 gbif(Config) when is_list(Config) ->
     error = gbif_1(1, {false,true}),
     ok = gbif_1(2, {false,true}),
+
+    error = gbif_2(id(0)),
+    error = gbif_2(id(<<>>)),
+
     ok.
 
 gbif_1(P, T) when element(P, T) -> ok;
 gbif_1(_, _) -> error.
 
+gbif_2(A) when bnot trunc((<<(true orelse ok)>> =/= A orelse 0) + 1) =:= A ->
+    ok;
+gbif_2(_) ->
+    error.
 
 t_is_boolean(Config) when is_list(Config) ->
     true = is_boolean(true),
@@ -1360,6 +1373,23 @@ rb(_, _, _) -> false.
 
 
 rel_ops(Config) when is_list(Config) ->
+    TupleUnion = case id(2) of
+                     2 -> {a,id(b)};
+                     3 -> {b,id(b),c}
+                 end,
+    Float = float(id(42)),
+    Int = trunc(id(42.0)),
+
+    IntFunFloat = make_fun(Float),
+    IntFunInt = make_fun(Int),
+
+    FloatFun = make_fun(Float, Float),
+    IntFun = make_fun(Int, Int),
+    MixedFun = make_fun(42, 42.0),
+
+    MixedFun14 = make_fun(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13.0, 14.0),
+    IntFun14 = make_fun(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
+
     ?T(=/=, 1, 1.0),
     ?F(=/=, 2, 2),
     ?F(=/=, {a}, {a}),
@@ -1368,9 +1398,50 @@ rel_ops(Config) when is_list(Config) ->
     ?F(/=, 0, 0.0),
     ?T(/=, 0, 1),
     ?F(/=, {a}, {a}),
+    ?F(/=, {a,b}, TupleUnion),
+    ?T(/=, {x,y}, TupleUnion),
+    ?T(/=, TupleUnion, {x,y}),
+    ?F(/=, #{key => Int}, #{key => Float}),
 
+    ?F(/=, #{key => Int}, #{key => Float}),
+    ?F(/=, #{40 => Int}, #{40 => Int}),
+    ?F(/=, #{42 => Float}, #{42 => Int}),
+    ?T(/=, #{100.0 => Float}, #{100 => Float}),
+
+    ?F(/=, FloatFun, FloatFun),
+    ?T(/=, FloatFun, MixedFun14),
+
+    ?T(==, Int, 42.0),
+    ?T(==, Float, 42),
     ?T(==, 1, 1.0),
+    ?T(==, 1.0, 1),
+    ?F(==, Float, a),
+    ?T(==, Float, Float),
     ?F(==, a, {}),
+    ?T(==, TupleUnion, {a,b}),
+    ?F(==, {x,y}, TupleUnion),
+    ?F(==, {a,Float}, TupleUnion),
+
+    ?T(==, #{key => Float}, #{key => Int}),
+    ?T(==, #{40 => Int}, #{40 => Int}),
+    ?T(==, #{42 => Int}, #{42 => Float}),
+    ?F(==, #{100 => Float}, #{100.0 => Float}),
+
+    case ?MODULE of
+        guard_inline_SUITE ->
+            %% Inlining will inline the fun environment into the fun bodies,
+            %% creating funs having no enviroment and different bodies.
+            ok;
+        _ ->
+            ?T(==, IntFunInt, IntFunFloat),
+            ?T(==, FloatFun, FloatFun),
+            ?T(==, FloatFun, IntFun),
+            ?T(==, MixedFun, IntFun),
+            ?T(==, MixedFun, FloatFun),
+            ?T(==, IntFun14, MixedFun14),
+            ?T(==, MixedFun14, IntFun14),
+            ?F(==, IntFun14, IntFun)
+    end,
 
     ?F(=:=, 1, 1.0),
     ?T(=:=, 42.0, 42.0),
@@ -1426,6 +1497,17 @@ rel_ops(Config) when is_list(Config) ->
     false = Arrow(""),
 
     ok.
+
+make_fun(N) ->
+    fun() -> round(N + 0.5) end.
+
+make_fun(A, B) ->
+    fun() -> {A,B} end.
+
+make_fun(A, B, C, D, E, F, G, H, I, J, K, L, M, N) ->
+    fun() ->
+            {A, B, C, D, E, F, G, H, I, J, K, L, M, N}
+    end.
 
 -undef(TestOp).
 
@@ -2336,6 +2418,8 @@ binary_part(Config) when is_list(Config) ->
 		    true ->
 			error
 		end,
+    error = bp_coverage_1(id(<<>>)),
+
     ok.
 
 
@@ -2392,6 +2476,11 @@ bptest(B,A,C) when erlang:binary_part(B,A,C) =:= <<1>> ->
 bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
     3;
 bptest(_,_,_) ->
+    error.
+
+bp_coverage_1(A) when binary_part(A, A, floor(float(0))) ->
+    ok;
+bp_coverage_1(_) ->
     error.
 
 -define(FAILING(C),
@@ -2549,6 +2638,10 @@ beam_bool_SUITE(_Config) ->
     bad_map_in_guard(),
     gh_6164(),
     gh_6184(),
+    gh_7252(),
+    gh_7339(),
+    gh_7370(),
+    gh_7517(),
     ok.
 
 before_and_inside_if() ->
@@ -3046,6 +3139,27 @@ do_gh4788(N) ->
 beam_ssa_bool_coverage() ->
     {"*","abc"} = collect_modifiers("abc*", []),
     error = beam_ssa_bool_coverage_1(true),
+
+    ok = beam_ssa_bool_coverage_2(self()),
+    ok = beam_ssa_bool_coverage_2(true),
+    error = beam_ssa_bool_coverage_2(false),
+    error = beam_ssa_bool_coverage_2(42),
+
+    error = beam_ssa_bool_coverage_3(42),
+    error = beam_ssa_bool_coverage_3(a),
+
+    error = beam_ssa_bool_coverage_4(42, 42),
+    error = beam_ssa_bool_coverage_4(ok, ok),
+    error = beam_ssa_bool_coverage_4(a, b),
+
+    ok = beam_ssa_bool_coverage_5(ok),
+    ok = beam_ssa_bool_coverage_5(2.0),
+    ok = beam_ssa_bool_coverage_5(42),
+
+    ok = beam_ssa_bool_coverage_6(<<>>),
+    error = beam_ssa_bool_coverage_6(a),
+    error = beam_ssa_bool_coverage_6(42),
+
     ok.
 
 collect_modifiers([H | T], Buffer)
@@ -3059,6 +3173,45 @@ beam_ssa_bool_coverage_1(V) when V andalso 0, tuple_size(0) ->
     ok;
 beam_ssa_bool_coverage_1(_) ->
     error.
+
+beam_ssa_bool_coverage_2(A) when is_pid(A) andalso true; A ->
+    ok;
+beam_ssa_bool_coverage_2(_) ->
+    error.
+
+beam_ssa_bool_coverage_3(A) when ok; ((ok =< A + 1) or false) and true orelse ok ->
+    ok;
+beam_ssa_bool_coverage_3(_) ->
+    error.
+
+beam_ssa_bool_coverage_4(A, A) when ok == A andalso ok ->
+    ok;
+beam_ssa_bool_coverage_4(_, _) ->
+    error.
+
+beam_ssa_bool_coverage_5(A) ->
+    maybe
+        case case maybe ok end of
+                 2.0 ->
+                     false;
+                 A ->
+                     true;
+                 _ ->
+                     true
+             end of
+            true ->
+                ok;
+            _ ->
+                error
+        end
+    end.
+
+beam_ssa_bool_coverage_6(A) when is_bitstring(A) orelse ok;
+                                 is_bitstring(A) andalso ok bsr ok ->
+    ok;
+beam_ssa_bool_coverage_6(_) ->
+    error.
+
 
 gh_6164() ->
     true = do_gh_6164(id([])),
@@ -3095,6 +3248,65 @@ bad_map_in_guard_1() when (a#{key => value})#bad_map_in_guard.name ->
     ok;
 bad_map_in_guard_1() ->
     error.
+
+gh_7252() ->
+    bar = gh_7252_a(id(bar), id([])),
+    bar = gh_7252_a(id(bar), id(ok)),
+
+    foo = gh_7252_b(id(ok), id(<<>>)),
+    bar = gh_7252_b(id(ok), id(ok)),
+
+    bar = gh_7252_c(id(ok)),
+
+    ok.
+
+gh_7252_a(_, B) when ((ok == B) and (ok =/= trunc(ok))) or (ok < B) ->
+    foo;
+gh_7252_a(A, _) ->
+    A.
+
+gh_7252_b(A, B)
+  when (true xor is_float(A)) or (is_bitstring(B) orelse <<(ok):(ok)>>) ->
+    foo;
+gh_7252_b(_, _) ->
+    bar.
+
+gh_7252_c(A) when ((ok > A) and ((bnot ok) =:= ok)) or (not (ok > A)) ->
+    foo;
+gh_7252_c(_) ->
+    bar.
+
+gh_7339() ->
+    b = do_gh_7339(id(42)),
+    b = do_gh_7339(id(42.0)),
+    b = do_gh_7339(id(#{})),
+    ok.
+
+do_gh_7339(M) when is_number(M) or (not is_map(M#{a => b})) ->
+  a;
+do_gh_7339(_) ->
+  b.
+
+gh_7370() ->
+    b = gh_7370(id(42)),
+    b = gh_7370(id(42.0)),
+    ok.
+
+gh_7370(A) when (not (not is_float(A))) =/= ((ok and ok) or true) ->
+    a;
+gh_7370(_) ->
+    b.
+
+gh_7517() ->
+    ok = catch do_gh_7517([]),
+    ok = catch do_gh_7517([a,b,c]),
+    {'EXIT',{function_clause,_}} = catch do_gh_7517(ok),
+    {'EXIT',{function_clause,_}} = catch do_gh_7517(<<>>),
+    ok.
+
+do_gh_7517(A) when (ok /= A) or is_float(is_list(A) orelse ok andalso ok) ->
+    ok.
+
 
 %%%
 %%% End of beam_bool_SUITE tests.

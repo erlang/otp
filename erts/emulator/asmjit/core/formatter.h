@@ -37,7 +37,9 @@ enum class FormatFlags : uint32_t {
   //! Show casts between virtual register types (Compiler output).
   kRegCasts = 0x00000010u,
   //! Show positions associated with nodes (Compiler output).
-  kPositions = 0x00000020u
+  kPositions = 0x00000020u,
+  //! Always format a register type (Compiler output).
+  kRegType = 0x00000040u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(FormatFlags)
 
@@ -89,7 +91,7 @@ public:
   //! \{
 
   //! Resets FormatOptions to its default initialized state.
-  inline void reset() noexcept {
+  ASMJIT_INLINE_NODEBUG void reset() noexcept {
     _flags = FormatFlags::kNone;
     _indentation.fill(uint8_t(0));
     _padding.fill(uint16_t(0));
@@ -101,31 +103,31 @@ public:
   //! \{
 
   //! Returns format flags.
-  inline FormatFlags flags() const noexcept { return _flags; }
+  ASMJIT_INLINE_NODEBUG FormatFlags flags() const noexcept { return _flags; }
   //! Tests whether the given `flag` is set in format flags.
-  inline bool hasFlag(FormatFlags flag) const noexcept { return Support::test(_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool hasFlag(FormatFlags flag) const noexcept { return Support::test(_flags, flag); }
 
   //! Resets all format flags to `flags`.
-  inline void setFlags(FormatFlags flags) noexcept { _flags = flags; }
+  ASMJIT_INLINE_NODEBUG void setFlags(FormatFlags flags) noexcept { _flags = flags; }
   //! Adds `flags` to format flags.
-  inline void addFlags(FormatFlags flags) noexcept { _flags |= flags; }
+  ASMJIT_INLINE_NODEBUG void addFlags(FormatFlags flags) noexcept { _flags |= flags; }
   //! Removes `flags` from format flags.
-  inline void clearFlags(FormatFlags flags) noexcept { _flags &= ~flags; }
+  ASMJIT_INLINE_NODEBUG void clearFlags(FormatFlags flags) noexcept { _flags &= ~flags; }
 
   //! Returns indentation for the given indentation `group`.
-  inline uint8_t indentation(FormatIndentationGroup group) const noexcept { return _indentation[group]; }
+  ASMJIT_INLINE_NODEBUG uint8_t indentation(FormatIndentationGroup group) const noexcept { return _indentation[group]; }
   //! Sets indentation for the given indentation `group`.
-  inline void setIndentation(FormatIndentationGroup group, uint32_t n) noexcept { _indentation[group] = uint8_t(n); }
+  ASMJIT_INLINE_NODEBUG void setIndentation(FormatIndentationGroup group, uint32_t n) noexcept { _indentation[group] = uint8_t(n); }
   //! Resets indentation for the given indentation `group` to zero.
-  inline void resetIndentation(FormatIndentationGroup group) noexcept { _indentation[group] = uint8_t(0); }
+  ASMJIT_INLINE_NODEBUG void resetIndentation(FormatIndentationGroup group) noexcept { _indentation[group] = uint8_t(0); }
 
-  //! Returns pading for the given padding `group`.
-  inline size_t padding(FormatPaddingGroup group) const noexcept { return _padding[group]; }
-  //! Sets pading for the given padding `group`.
-  inline void setPadding(FormatPaddingGroup group, size_t n) noexcept { _padding[group] = uint16_t(n); }
-  //! Resets pading for the given padding `group` to zero, which means that a default padding will be used
+  //! Returns padding for the given padding `group`.
+  ASMJIT_INLINE_NODEBUG size_t padding(FormatPaddingGroup group) const noexcept { return _padding[group]; }
+  //! Sets padding for the given padding `group`.
+  ASMJIT_INLINE_NODEBUG void setPadding(FormatPaddingGroup group, size_t n) noexcept { _padding[group] = uint16_t(n); }
+  //! Resets padding for the given padding `group` to zero, which means that a default padding will be used
   //! based on the target architecture properties.
-  inline void resetPadding(FormatPaddingGroup group) noexcept { _padding[group] = uint16_t(0); }
+  ASMJIT_INLINE_NODEBUG void resetPadding(FormatPaddingGroup group) noexcept { _padding[group] = uint16_t(0); }
 
   //! \}
 };

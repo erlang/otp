@@ -374,8 +374,8 @@ gen_decode_set(Erules,Typename,D) when record(D,type) ->
 	    emit(["SetFun = fun(FunTlv) ->", nl]),
 	    emit(["case FunTlv of ",nl]),
 	    NextNum = gen_dec_set_cases(Erules,Typename,CompList,1),
-	    emit([indent(6), {curr,else}," -> ",nl,
-		  indent(9),"{",NextNum,", ",{curr,else},"}",nl]),
+	    emit([indent(6), {curr,'else'}," -> ",nl,
+		  indent(9),"{",NextNum,", ",{curr,'else'},"}",nl]),
 	    emit([indent(3),"end",nl]),
 	    emit([indent(3),"end,",nl]),
 
@@ -781,17 +781,17 @@ gen_dec_choice(Erules,TopType, _ChTag, CompList, Ext) ->
     asn1ct_name:new(choTags),
     asn1ct_name:new(res),
     gen_dec_choice_cases(Erules,TopType,CompList),
-    emit([indent(6), {curr,else}," -> ",nl]),
+    emit([indent(6), {curr,'else'}," -> ",nl]),
     case Ext of
 	noext ->
 	    emit([indent(9),"exit({error,{asn1,{invalid_choice_tag,",
-		  {curr,else},"}}})",nl]);
+		  {curr,'else'},"}}})",nl]);
 	_ ->
-	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,else},")}",nl])
+	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,'else'},")}",nl])
     end,
     emit([indent(3),"end",nl]),
     asn1ct_name:new(tag),
-    asn1ct_name:new(else).
+    asn1ct_name:new('else').
 
 
 gen_dec_choice_cases(_Erules,_TopType, []) ->

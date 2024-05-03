@@ -11,6 +11,7 @@
 	 external_function_link/0,
 	 local_function_link/0,
 	 local_type_link/0,
+	 local_type_link_macro/0,
 	 external_type_link/0]).
 
 -export([see_module/0,
@@ -56,6 +57,10 @@ local_function_link() -> ok.
 %% @doc Local type link {@link t()}.
 %% Should map to `seetype'.
 local_type_link() -> ok.
+
+%% @doc Local type link {@type {type, t()@}}.
+%% Should map to `seetype'.
+local_type_link_macro() -> ok.
 
 %% @doc External type link {@link eep48_links:t()}.
 %% Should map to `seetype'.

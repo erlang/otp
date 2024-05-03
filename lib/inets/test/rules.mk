@@ -18,11 +18,7 @@ DEFAULT_TARGETS =  opt debug instr release release_docs clean docs
 # ----------------------------------------------------
 EMULATOR = beam
 
-ifdef BOOTSTRAP
-ERL_COMPILE_FLAGS += +slim
-else
 ERL_COMPILE_FLAGS += +debug_info
-endif
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL.beam =  erl.beam -boot start_clean
@@ -47,8 +43,3 @@ $(EBIN)/%.beam: $(ESRC)/%.erl
 
 .erl.beam:
 	$(ERLC) -bbeam $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
-
-
-
-
-

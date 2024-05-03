@@ -34,6 +34,8 @@
 
 -export([module/2, overview/2, type/1]).
 
+-export([copyright/1, version/1, since/1, authors/1, references/1, sees/1, todos/1]).
+
 -callback module(edoc:edoc_module(), _) -> binary().
 %% Layout entrypoint.
 
@@ -54,6 +56,12 @@
 -define(FUNCTION_INDEX_LABEL, "index").
 -define(FUNCTIONS_TITLE, "Function Details").
 -define(FUNCTIONS_LABEL, "functions").
+
+-type options() :: [{index_columns, integer()} |
+                    {pretty_printer, atom()} |
+                    {stylesheet, string()} |
+                    {sort_functions, boolean()} |
+                    {xml_export, module()}].
 
 %% @doc The layout function.
 %%
@@ -85,7 +93,7 @@
 %%  </dd>
 %%  <dt>{@type {xml_export, Module::atom()@}}
 %%  </dt>
-%%  <dd>Specifies an {@link //xmerl. `xmerl'} callback module to be
+%%  <dd>Specifies an {@link //xmerl/xmerl. `xmerl'} callback module to be
 %%      used for exporting the documentation. See {@link
 %%      //xmerl/xmerl:export_simple/3} for details.
 %%  </dd>
@@ -94,7 +102,9 @@
 %% @see edoc:layout/2
 
 %% NEW-OPTIONS: xml_export, index_columns, stylesheet
-
+-spec module(Element, Options) -> term() when
+      Element :: edoc:edoc_module(),
+      Options :: options().
 module(Element, Options) ->
     XML = layout_module(Element, init_opts(Element, Options)),
     Export = proplists:get_value(xml_export, Options,
@@ -426,7 +436,7 @@ label_anchor(Content, E) ->
 %% This is currently only done for functions without type spec.
 
 signature(Es, Name) ->
-    [{tt, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
+    [{code, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
 
 arg(#xmlElement{content = Es}) ->
     [get_text(argName, Es)].
@@ -441,7 +451,7 @@ params(Es) ->
     if As1 == [] ->
 	    [];
        true ->
-	    [ { [{tt, [A]}, ": "] ++  D ++ [br, ?NL] }
+	    [ { [{code, [A]}, ": "] ++  D ++ [br, ?NL] }
 	      || {A, D} <- As1]
     end.
 
@@ -460,7 +470,7 @@ throws(Es, Opts) ->
 	[] -> [];
 	Es1 ->
             %% Doesn't use format_type; keep it short!
-	    [{p, (["throws ", {tt, t_utype(get_elem(type, Es1), Opts)}]
+	    [{p, (["throws ", {code, t_utype(get_elem(type, Es1), Opts)}]
 		  ++ local_defs(get_elem(localdef, Es1), Opts))},
 	     ?NL]
     end.
@@ -497,7 +507,7 @@ typedef(Es, Opts) ->
     Name = ([t_name(get_elem(erlangName, Es), Opts), "("]
             ++ seq(t_utype_elem_fun(Opts), get_content(argtypes, Es), [")"])),
     (case get_elem(type, Es) of
- 	 [] -> [{b, ["abstract datatype"]}, ": ", {tt, Name}];
+ 	 [] -> [{b, ["abstract datatype"]}, ": ", {code, Name}];
          Type -> format_type(Name, Name, Type, [], Opts)
      end
      ++ local_defs(get_elem(localdef, Es), Opts)).
@@ -540,7 +550,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
 format_spec(Sep, Type, Defs, Opts) ->
     %% Very limited formatting.
     Br = if Defs =:= [] -> br; true -> [] end,
-    [{tt, t_clause(Sep, Type, Opts)}, Br].
+    [{code, t_clause(Sep, Type, Opts)}, Br].
 
 t_clause(Name, Type, Opts) ->
     #xmlElement{content = [#xmlElement{name = 'fun', content = C}]} = Type,
@@ -567,7 +577,7 @@ format_type(Prefix, Name, Type, Last, #opts{pretty_printer = erl_pp}=Opts) ->
         format_type(Prefix, Name, Type, Last, Opts#opts{pretty_printer =''})
     end;
 format_type(Prefix, _Name, Type, Last, Opts) ->
-    [{tt, Prefix ++ [" = "] ++ t_utype(Type, Opts) ++ Last}].
+    [{code, Prefix ++ [" = "] ++ t_utype(Type, Opts) ++ Last}].
 
 pp_type(Prefix, Type, Opts) ->
     Atom = list_to_atom(lists:duplicate(string:length(Prefix), $a)),
@@ -630,6 +640,7 @@ fulldesc(Es) ->
 	Desc -> [{p, Desc}, ?NL]
     end.
 
+%% @hidden
 sees(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -652,10 +663,13 @@ href(E) ->
     case get_attrval(href, E) of
 	"" -> [];
 	URI ->
-	    T = case get_attrval(target, E) of
-		    "" -> [];
-		    S -> [{target, S}]
-		end,
+	    T = lists:flatmap(
+                  fun(K) ->
+                          case get_attrval(K, E) of
+                              "" -> [];
+                              S -> [{K, S}]
+                          end
+                  end, [target, 'docgen-rel', 'docgen-href']),
 	    [{href, URI} | T]
     end.
 
@@ -672,7 +686,7 @@ equiv(Es, P) ->
 	    case get_content(expr, Es1) of
 		[] -> [];
 		[Expr] ->
-		    Expr1 = [{tt, [Expr]}],
+		    Expr1 = [{code, [Expr]}],
 		    Expr2 = case get_elem(see, Es1) of
 				[] ->
 				    Expr1;
@@ -688,6 +702,7 @@ equiv(Es, P) ->
 	    end
     end.
 
+%% @hidden
 copyright(Es) ->
     case get_content(copyright, Es) of
 	[] -> [];
@@ -695,6 +710,7 @@ copyright(Es) ->
 	    [{p, ["Copyright \251 " | Es1]}, ?NL]
     end.
 
+%% @hidden
 version(Es) ->
     case get_content(version, Es) of
 	[] -> [];
@@ -702,6 +718,7 @@ version(Es) ->
 	    [{p, [{b, ["Version:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 since(Es) ->
     case get_content(since, Es) of
 	[] -> [];
@@ -709,6 +726,7 @@ since(Es) ->
 	    [{p, [{b, ["Introduced in:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 deprecated(Es, S) ->
     Es1 = get_content(description, get_content(deprecated, Es)),
     case get_content(fullDescription, Es1) of
@@ -745,20 +763,21 @@ behaviours(Es, Name, Opts) ->
                            [br, " Optional callback functions: "]
                            ++ seq(CBFun, OCBs, ["."])
                    end,
-	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
+	     [{p, ([{b, ["This module defines the ", {code, [Name]},
 			 " behaviour."]}]
                    ++ Req ++ Opt)},
 	      ?NL]
      end).
 
 behaviour(E=#xmlElement{content = Es}) ->
-    see(E, [{tt, Es}]).
+    see(E, [{code, Es}]).
 
 callback(E=#xmlElement{}, Opts) ->
     Name = get_attrval(name, E),
     Arity = get_attrval(arity, E),
-    [{tt, [atom(Name, Opts), "/", Arity]}].
+    [{code, [atom(Name, Opts), "/", Arity]}].
 
+%% @hidden
 authors(Es) ->
     case get_elem(author, Es) of
 	[] -> [];
@@ -782,21 +801,22 @@ author(E=#xmlElement{}) ->
     Mail = get_attrval(email, E),
     URI = get_attrval(website, E),
     (if Name == Mail ->
-	     [{a, [{href, "mailto:" ++ Mail}],[{tt, [Mail]}]}];
+	     [{a, [{href, "mailto:" ++ Mail}],[{code, [Mail]}]}];
 	true ->
 	     if Mail == "" -> [Name];
 		true -> [Name, " (", {a, [{href, "mailto:" ++ Mail}],
-				      [{tt, [Mail]}]}, ")"]
+				      [{code, [Mail]}]}, ")"]
 	     end
      end
      ++ if URI == "" ->
 		[];
 	   true ->
 		[" [", {em, ["web site:"]}, " ",
-		 {tt, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
+		 {code, [{a, [{href, URI}, {target, "_top"}], [URI]}]},
 		 "]"]
 	end).
 
+%% @hidden
 references(Es) ->
     case get_elem(reference, Es) of
 	[] -> [];
@@ -806,6 +826,7 @@ references(Es) ->
 	     ?NL]
     end.
 
+%% @hidden
 todos(Es) ->
     case get_elem(todo, Es) of
 	[] -> [];
@@ -1034,6 +1055,7 @@ xhtml(Title, CSS, Body, Encoding) ->
 
 %% ---------------------------------------------------------------------
 
+-spec type(Element :: term()) -> term().
 type(E) ->
     Opts = init_opts(E, []),
     type(E, [], Opts).
@@ -1042,6 +1064,7 @@ type(E, Ds, Opts) ->
     xmerl:export_simple_content(t_utype_elem(E, Opts) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
 
+-spec overview(Element :: term(), Options :: options()) -> term().
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
     Title = [get_text(title, Es)],

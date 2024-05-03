@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,13 +24,14 @@
 %%
 
 -module(beam_ssa_dead).
+-moduledoc false.
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
 -import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
                 reverse/1,reverse/2,takewhile/2]).
 
--type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:var_name())}.
+-type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
 
 -type basic_type_test() :: atom() | {'is_tagged_tuple',pos_integer(),atom()}.
 -type type_test() :: basic_type_test() | {'not',basic_type_test()}.
@@ -826,13 +827,13 @@ will_succeed_1('/=', A, '==', B) when A == B -> no;
 
 will_succeed_1(_, _, _, _) -> 'maybe'.
 
-will_succeed_vars('=/=', Val, '=:=', Val) -> no;
-will_succeed_vars('=:=', Val, '=/=', Val) -> no;
-will_succeed_vars('=:=', Val, '>=',  Val) -> yes;
-will_succeed_vars('=:=', Val, '=<',  Val) -> yes;
+will_succeed_vars('=/=', Var, '=:=', Var) -> no;
+will_succeed_vars('=:=', Var, '=/=', Var) -> no;
+will_succeed_vars('=:=', Var, '>=',  Var) -> yes;
+will_succeed_vars('=:=', Var, '=<',  Var) -> yes;
 
-will_succeed_vars('/=', Val1, '==', Val2) when Val1 == Val2 -> no;
-will_succeed_vars('==', Val1, '/=', Val2) when Val1 == Val2 -> no;
+will_succeed_vars('/=', Var, '==', Var) -> no;
+will_succeed_vars('==', Var, '/=', Var) -> no;
 
 will_succeed_vars(_, _, _, _) -> 'maybe'.
 
@@ -1176,9 +1177,19 @@ opt_redundant_tests_is([#b_set{op=Op,args=Args,dst=Bool}=I0], Tests, Acc) ->
         {Test,MustInvert} ->
             case old_result(Test, Tests) of
                 Result0 when is_boolean(Result0) ->
-                    Result = #b_literal{val=Result0 xor MustInvert},
-                    I = I0#b_set{op={bif,'=:='},args=[Result,#b_literal{val=true}]},
-                    {old_test,reverse(Acc, [I]),Bool,Result};
+                    case gains_type_information(I0) of
+                        false ->
+                            Result = #b_literal{val=Result0 xor MustInvert},
+                            I = I0#b_set{op={bif,'=:='},args=[Result,#b_literal{val=true}]},
+                            {old_test,reverse(Acc, [I]),Bool,Result};
+                        true ->
+                            %% At least one variable will gain type
+                            %% information from this `=:=`
+                            %% operation. Removing it could make it
+                            %% impossible for beam_validator to
+                            %% realize that the code is type-safe.
+                            none
+                    end;
                 none ->
                     {new_test,Bool,Test,MustInvert}
             end
@@ -1186,6 +1197,33 @@ opt_redundant_tests_is([#b_set{op=Op,args=Args,dst=Bool}=I0], Tests, Acc) ->
 opt_redundant_tests_is([I|Is], Tests, Acc) ->
     opt_redundant_tests_is(Is, Tests, [I|Acc]);
 opt_redundant_tests_is([], _Tests, _Acc) -> none.
+
+%% Will any of the variables gain type information from this
+%% operation?
+gains_type_information(#b_set{anno=Anno,op={bif,'=:='},args=Args}) ->
+    Types0 = maps:get(arg_types, Anno, #{}),
+    Types = complete_type_information(Args, 0, Types0),
+    case map_size(Types) of
+        0 ->
+            false;
+        1 ->
+            true;
+        2 ->
+            case Types of
+                #{0 := Same,1 := Same} ->
+                    false;
+                #{} ->
+                    true
+            end
+    end;
+gains_type_information(#b_set{}) -> false.
+
+complete_type_information([#b_literal{val=Value}|As], N, Types) ->
+    Type = beam_types:make_type_from_value(Value),
+    complete_type_information(As, N+1, Types#{N => Type});
+complete_type_information([#b_var{}|As], N, Types) ->
+    complete_type_information(As, N+1, Types);
+complete_type_information([], _, Types) -> Types.
 
 old_result(Test, Tests) ->
     case Tests of
@@ -1428,9 +1466,9 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
-                    PhiLive = [{{L,P},list_set_union(Vs, Live0)} ||
-                                  {P,Vs} <- PhiLive0],
-                    maps:merge(UsedVars, maps:from_list(PhiLive));
+                    PhiLive = #{{L,P} => list_set_union(Vs, Live0) ||
+                                  {P,Vs} <- PhiLive0},
+                    maps:merge(UsedVars, PhiLive);
                 [] ->
                     %% There were only literals in the phi node(s).
                     UsedVars

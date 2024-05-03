@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2022. All Rights Reserved.
+# Copyright Ericsson AB 2000-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,5 @@ release_spec: opt
 	$(V_at)$(INSTALL_DATA) $(APPUP_TARGET) "$(RELSYSDIR)/ebin/$(APPUP_FILE)"
 
 release_docs_spec:
-
-xmllint:
 
 # ----------------------------------------------------

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,6 +93,12 @@ int beam_load_prepare_emit(LoaderState *stp) {
         init_label(&stp->labels[i]);
     }
 
+    stp->fun_refs = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                               stp->beam.lambdas.count * sizeof(SWord));
+    for (i = 0; i < stp->beam.lambdas.count; i++) {
+        stp->fun_refs[i] = ERTS_SWORD_MAX;
+    }
+
     stp->import_patches =
         erts_alloc(ERTS_ALC_T_PREPARED_CODE,
                    stp->beam.imports.count * sizeof(BeamInstr));
@@ -182,6 +188,11 @@ int beam_load_prepared_dtor(Binary* magic)
         }
         erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
         stp->labels = NULL;
+    }
+
+    if (stp->fun_refs != NULL) {
+        erts_free(ERTS_ALC_T_PREPARED_CODE, (void *)stp->fun_refs);
+        stp->fun_refs = NULL;
     }
 
     if (stp->import_patches != NULL) {
@@ -543,6 +554,7 @@ int beam_load_finish_emit(LoaderState *stp) {
 
 void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_p)
 {
+    ErtsCodeIndex staging_ix;
     unsigned int i;
     int on_load = stp->on_load;
     unsigned catches;
@@ -554,6 +566,13 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
 
     inst_p->code_hdr = stp->code_hdr;
     inst_p->code_length = size;
+    inst_p->writable_region = (void*)inst_p->code_hdr;
+    inst_p->executable_region = inst_p->writable_region;
+
+    staging_ix = erts_staging_code_ix();
+
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_load_permission() ||
+                   erts_thr_progress_is_blocking());
 
     /* Update ranges (used for finding a function from a PC value). */
     erts_update_ranges(inst_p->code_hdr, size);
@@ -605,16 +624,18 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
     if (stp->beam.lambdas.count) {
         BeamFile_LambdaTable *lambda_table;
         ErlFunEntry **fun_entries;
-        LambdaPatch* lp;
-        int i;
+        LambdaPatch *lp;
 
         lambda_table = &stp->beam.lambdas;
+
         fun_entries = erts_alloc(ERTS_ALC_T_LOADER_TMP,
                                  sizeof(ErlFunEntry*) * lambda_table->count);
 
-        for (i = 0; i < lambda_table->count; i++) {
+        for (int i = 0; i < lambda_table->count; i++) {
             BeamFile_LambdaEntry *lambda;
             ErlFunEntry *fun_entry;
+            FunRef *fun_refp;
+            Eterm fun_ref;
 
             lambda = &lambda_table->entries[i];
 
@@ -626,14 +647,35 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                             lambda->arity - lambda->num_free);
             fun_entries[i] = fun_entry;
 
-            if (erts_is_fun_loaded(fun_entry)) {
-                /* We've reloaded a module over itself and inherited the old
-                 * instance's fun entries, so we need to undo the reference
-                 * bump in `erts_put_fun_entry2` to make fun purging work. */
-                erts_refc_dectest(&fun_entry->refc, 1);
+            fun_ref = beamfile_get_literal(&stp->beam, stp->fun_refs[i]);
+
+            /* If there are no free variables, the literal refers to an
+             * ErlFunThing that needs to be fixed up before we process the
+             * FunRef. */
+            if (lambda->num_free == 0) {
+                ErlFunThing *funp = (ErlFunThing*)boxed_val(fun_ref);
+                ASSERT(funp->entry.fun == NULL);
+                funp->entry.fun = fun_entry;
+                fun_ref = funp->env[0];
+            }
+
+            /* Patch up the fun reference literal. */
+            fun_refp = (FunRef*)boxed_val(fun_ref);
+            fun_refp->entry = fun_entry;
+
+            /* Bump the reference count: this could not be done when copying
+             * the literal as we had no idea which entry it belonged to.
+             *
+             * We also need to parry an annoying wrinkle: when reloading a
+             * module over itself, we inherit the old instance's fun entries,
+             * and thus have to cancel the reference bump in
+             * `erts_put_fun_entry2` to make fun purging work. */
+            if (!erts_is_fun_loaded(fun_entry, staging_ix)) {
+                erts_refc_inctest(&fun_entry->refc, 1);
             }
 
             erts_set_fun_code(fun_entry,
+                              staging_ix,
                               stp->codev + stp->labels[lambda->label].value);
         }
 
@@ -690,7 +732,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
              */
             ep->trampoline.not_loaded.deferred = (BeamInstr) address;
         } else {
-            ep->dispatch.addresses[erts_staging_code_ix()] = address;
+            ep->dispatch.addresses[staging_ix] = address;
         }
     }
 
@@ -704,7 +746,7 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
                                          entry->name,
                                          entry->arity);
             const BeamInstr *addr =
-                ep->dispatch.addresses[erts_staging_code_ix()];
+                ep->dispatch.addresses[staging_ix];
 
             if (!ErtsInArea(addr, stp->codev, stp->ci * sizeof(BeamInstr))) {
                 erts_exit(ERTS_ABORT_EXIT,
@@ -1479,4 +1521,8 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
 
 load_error:
     return 0;
+}
+
+void beam_load_purge_aux(const BeamCodeHeader *hdr)
+{
 }

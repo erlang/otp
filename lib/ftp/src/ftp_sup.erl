@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 %%%-------------------------------------------------------------------
 
 -module(ftp_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -61,7 +62,7 @@ init(_) ->
 %%====================================================================
 child_specs() ->
     [#{id => undefined,
-       start => {ftp, start_link, []},
+       start => {ftp_internal, start_link, []},
        restart => temporary,
        shutdown => 4000,
        type => worker,

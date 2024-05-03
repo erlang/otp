@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -207,14 +207,38 @@ format_core(Conf, Core) ->
     %% Try print (log dir) name of offending application
     CoreDir = filename:dirname(Core),
     lists:foreach(fun(TestDir) ->
-			  case filelib:is_dir(filename:join(CoreDir,TestDir)) of
+                          FullTestDir = filename:join(CoreDir,TestDir),
+			  case filelib:is_dir(FullTestDir) of
 			      true ->
-				  io:format("  from ~s~n", [TestDir]);
+				  io:format("  from ~s\n", [TestDir]),
+                                  print_last_testcase(FullTestDir);
 			      false ->
 				  no
 			  end
 		  end,
 		  filelib:wildcard("*.logs", CoreDir)).
+
+print_last_testcase(FullTestDir) ->
+    lists:foreach(fun(RunDir) ->
+                          SuiteLog = filename:join([FullTestDir,RunDir,"suite.log"]),
+                          try last_testcase(SuiteLog) of
+                              TestCase ->
+                                  io:format("       ~s\n", [TestCase])
+                          catch
+                              error:Reason ->
+                                  io:format("  could not find last test case: ~p\n", [Reason])
+                          end
+		  end,
+		  filelib:wildcard("run.*", FullTestDir)).
+
+last_testcase(SuiteLog) ->
+    {ok, Bin} = file:read_file(SuiteLog),
+    case string:find(Bin, "\n=case", trailing) of
+        TailBin when is_binary(TailBin) ->
+            {match, [TestCase]} = re:run(TailBin, "=case\\s+(.+)",
+                                         [{capture,all_but_first,binary}]),
+            TestCase
+    end.
 
 format_core(#core_search_conf{file = false}, Core, Ignore) ->
     io:format("  ~s~s " ++ time_fstr() ++ "~s~n",

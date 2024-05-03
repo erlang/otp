@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_break).
+-moduledoc false.
 
 %% External exports
 -export([start/3, start/4, start/5]).
@@ -89,10 +90,10 @@ gui_cmd({break, DataL, Action}, _Win) ->
 	fun(Data) ->
 		case Data of
 		    [Mod, Line] ->
-			int:break(Mod, Line),
+			_ = int:break(Mod, Line),
 			int:action_at_break(Mod, Line, Action);
 		    [Mod, Line, CMod, CFunc] ->
-			int:break(Mod, Line),
+			_ = int:break(Mod, Line),
 			int:test_at_break(Mod, Line, {CMod, CFunc}),
 			int:action_at_break(Mod, Line, Action);
 		    [Mod, Func, Arity] ->

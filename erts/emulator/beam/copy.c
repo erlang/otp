@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,12 @@
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
 #include "erl_global_literals.h"
+
+/* The shared_xyz functions temporarily use the primary tag bits of the header
+ * word to store whether the term has been visited/processed before, preventing
+ * us from directly comparing the header to constants (e.g. HEADER_BIN_REF) and
+ * breaking an assertion in * `thing_subtag`. */
+#define shared_thing_subtag(Header) _unchecked_thing_subtag(Header)
 
 static void move_one_frag(Eterm** hpp, ErlHeapFragment*, ErlOffHeap*, int);
 
@@ -137,22 +143,29 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 		    }
 		    obj = *++ptr;
 		    break;
-		case FUN_SUBTAG:
-		    {
-			Eterm* bptr = fun_val(obj);
-			ErlFunThing* funp = (ErlFunThing *) bptr;
-			unsigned eterms = 1 /* creator */ + funp->num_free;
-			unsigned sz = thing_arityval(hdr);
-			sum += 1 /* header */ + sz + eterms;
-			bptr += 1 /* header */ + sz;
-			while (eterms-- > 1) {
-			  obj = *bptr++;
-			  if (!IS_CONST(obj)) {
-			    ESTACK_PUSH(s, obj);
-			  }
-			}
-			obj = *bptr;
-			break;
+		case FUN_REF_SUBTAG:
+                    sum += ERL_FUN_REF_SIZE;
+                    goto pop_next;
+                case FUN_SUBTAG:
+                    {
+                        const ErlFunThing* funp = (ErlFunThing*)fun_val(obj);
+
+                        ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                        sum += ERL_FUN_SIZE + fun_env_size(funp);
+
+                        for (int i = 1; i < fun_env_size(funp); i++) {
+                            obj = funp->env[i];
+                            if (!IS_CONST(obj)) {
+                                ESTACK_PUSH(s, obj);
+                            }
+                        }
+
+                        if (fun_env_size(funp) > 0) {
+                            obj = funp->env[0];
+                            break;
+                        }
+
+                        goto pop_next;
 		    }
 		case MAP_SUBTAG:
 		    switch (MAP_HEADER_TYPE(hdr)) {
@@ -201,36 +214,31 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 			    erts_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		    }
 		    break;
-		case SUB_BINARY_SUBTAG:
+		case SUB_BITS_SUBTAG:
 		    {
-			Eterm real_bin;
-			ERTS_DECLARE_DUMMY(Uint offset); /* Not used. */
-			Uint bitsize;
-			Uint bitoffs;
-			Uint extra_bytes;
-			Eterm hdr;
-			ERTS_GET_REAL_BIN(obj, real_bin, offset, bitoffs, bitsize);
-			if ((bitsize + bitoffs) > 8) {
-			    sum += ERL_SUB_BIN_SIZE;
-			    extra_bytes = 2;
-			} else if ((bitsize + bitoffs) > 0) {
-			    sum += ERL_SUB_BIN_SIZE;
-			    extra_bytes = 1;
-			} else {
-			    extra_bytes = 0;
-			}
-			hdr = *binary_val(real_bin);
-			if (thing_subtag(hdr) == REFC_BINARY_SUBTAG) {
-			    sum += PROC_BIN_SIZE;
-			} else {
-			    sum += heap_bin_size(binary_size(obj)+extra_bytes);
-			}
+                        const ErlSubBits *sb = (ErlSubBits*)boxed_val(obj);
+                        const Eterm *underlying = boxed_val(sb->orig);
+
+                        if (*underlying == HEADER_BIN_REF) {
+                            /* Note that we copy the structure verbatim even if
+                             * the size is lower than the off-heap limit as it
+                             * was most likely created that way on purpose.
+                             *
+                             * We also include the size of the attached BinRef
+                             * to save us another lap through the main loop. */
+                            sum += ERL_REFC_BITS_SIZE;
+                        } else {
+                            /* When an ErlSubBits is used as a match context it
+                             * may refer to an on-heap bitstring instead of a
+                             * BinRef, in which case we need to copy the
+                             * underlying data instead of the match context. */
+                            ASSERT(erl_sub_bits_is_match_context(sb));
+                            sum += heap_bits_size(sb->end - sb->start);
+                        }
+
 			goto pop_next;
 		    }
 		    break;
-                case BIN_MATCHSTATE_SUBTAG:
-		    erts_exit(ERTS_ABORT_EXIT,
-			     "size_object: matchstate term not allowed");
 		default:
 		    sum += thing_arityval(hdr) + 1;
 		    goto pop_next;
@@ -388,44 +396,47 @@ Uint size_shared(Eterm obj)
 		}
 		goto pop_next;
 	    }
-	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		unsigned sz = thing_arityval(hdr);
-		sum += 1 /* header */ + sz + eterms;
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT(s, obj);
-		    }
-		}
-		goto pop_next;
-	    }
-	    case SUB_BINARY_SUBTAG: {
-		ErlSubBin* sb = (ErlSubBin *) ptr;
-		Uint extra_bytes;
-		Eterm hdr;
-		ASSERT((sb->thing_word & ~BOXED_VISITED_MASK) == HEADER_SUB_BIN);
-		if (sb->bitsize + sb->bitoffs > 8) {
-		    sum += ERL_SUB_BIN_SIZE;
-		    extra_bytes = 2;
-		} else if (sb->bitsize + sb->bitoffs > 0) {
-		    sum += ERL_SUB_BIN_SIZE;
-		    extra_bytes = 1;
-		} else {
-		    extra_bytes = 0;
-		}
-		ptr = binary_val(sb->orig);
-		hdr = (*ptr) & ~BOXED_VISITED_MASK;
-		if (thing_subtag(hdr) == REFC_BINARY_SUBTAG) {
-		    sum += PROC_BIN_SIZE;
-		} else {
-		    ASSERT(thing_subtag(hdr) == HEAP_BINARY_SUBTAG);
-		    sum += heap_bin_size(binary_size(obj) + extra_bytes);
-		}
-		goto pop_next;
-	    }
+            case FUN_REF_SUBTAG:
+                sum += ERL_FUN_REF_SIZE;
+                goto pop_next;
+            case FUN_SUBTAG: {
+                const ErlFunThing* funp = (ErlFunThing *) ptr;
+
+                ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                sum += ERL_FUN_SIZE + fun_env_size(funp);
+
+                for (int i = 0; i < fun_env_size(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+
+                goto pop_next;
+            }
+            case BIN_REF_SUBTAG: {
+                sum += ERL_BIN_REF_SIZE;
+                goto pop_next;
+            }
+            case SUB_BITS_SUBTAG: {
+                const ErlSubBits *sb = (ErlSubBits*)ptr;
+                const Eterm *underlying = boxed_val(sb->orig);
+
+                if (shared_thing_subtag(*underlying) == BIN_REF_SUBTAG) {
+                    EQUEUE_PUT(s, sb->orig);
+                    sum += ERL_SUB_BITS_SIZE;
+                } else {
+                    /* This is a match context referring to a heap bitstring.
+                     * As this is fairly rare and sharing multiple instances of
+                     * the same match context is rarer still, we'll ignore any
+                     * potential sharing here and assume that a blunt copy will
+                     * be made. */
+                    ASSERT(erl_sub_bits_is_match_context(sb));
+                    sum += heap_bits_size(sb->end - sb->start);
+                }
+
+                goto pop_next;
+            }
             case MAP_SUBTAG:
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
@@ -460,9 +471,6 @@ Uint size_shared(Eterm obj)
                     default:
                         erts_exit(ERTS_ABORT_EXIT, "size_shared: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
                 }
-	    case BIN_MATCHSTATE_SUBTAG:
-		erts_exit(ERTS_ABORT_EXIT,
-			 "size_shared: matchstate term not allowed");
 	    default:
 		sum += thing_arityval(hdr) + 1;
 		goto pop_next;
@@ -550,19 +558,28 @@ cleanup:
 		}
 		goto cleanup_next;
 	    }
-	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		unsigned sz = thing_arityval(hdr);
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT_UNCHECKED(s, obj);
-		    }
-		}
-		goto cleanup_next;
-	    }
+            case FUN_SUBTAG: {
+                const ErlFunThing *funp = (ErlFunThing *) ptr;
+
+                for (int i = 0; i < fun_env_size(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT_UNCHECKED(s, obj);
+                    }
+                }
+                goto cleanup_next;
+            }
+            case SUB_BITS_SUBTAG: {
+                const ErlSubBits *sb = (ErlSubBits*)ptr;
+                const Eterm *underlying = boxed_val(sb->orig);
+
+                /* We only visit BinRefs: see comment above on match
+                 * contexts. */
+                if (shared_thing_subtag(*underlying) == BIN_REF_SUBTAG) {
+                    EQUEUE_PUT_UNCHECKED(s, sb->orig);
+                }
+                goto cleanup_next;
+            }
             case MAP_SUBTAG:
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
@@ -618,7 +635,6 @@ cleanup:
     DESTROY_BITSTORE(b);
     return sum;
 }
-
 
 /*
  *  Copy a structure to a heap.
@@ -776,116 +792,103 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    }
 		}
 		break;
-	    case REFC_BINARY_SUBTAG:
-		{
-		    ProcBin* pb;
+            case SUB_BITS_SUBTAG:
+                {
+                    ErlSubBits *from_sb = (ErlSubBits*)objp;
+                    Eterm *underlying = boxed_val(from_sb->orig);
 
-		    pb = (ProcBin *) objp;
-		    if (pb->flags) {
-			erts_emasculate_writable_binary(pb);
-		    }
-		    i = thing_arityval(*objp) + 1;
-		    hbot -= i;
-		    tp = hbot;
-		    while (i--)  {
-			*tp++ = *objp++;
-		    }
-		    *argp = make_binary(hbot);
-		    pb = (ProcBin*) hbot;
-		    erts_refc_inc(&pb->val->intern.refc, 2);
-		    pb->next = off_heap->first;
-		    pb->flags = 0;
-		    off_heap->first = (struct erl_off_heap_header*) pb;
-		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
-		}
-		break;
-	    case SUB_BINARY_SUBTAG:
-		{
-		    ErlSubBin* sb = (ErlSubBin *) objp;
-		    Eterm real_bin = sb->orig;
-		    Uint bit_offset = sb->bitoffs;
-		    Uint bit_size = sb -> bitsize;
-		    Uint offset = sb->offs;
-		    size_t size = sb->size;
-		    Uint extra_bytes;
-		    Uint real_size;
-		    if ((bit_size + bit_offset) > 8) {
-			extra_bytes = 2;
-		    } else if ((bit_size + bit_offset) > 0) {
-			extra_bytes = 1;
-		    } else {
-			extra_bytes = 0;
-		    }
-		    real_size = size+extra_bytes;
-		    objp = binary_val(real_bin);
-		    if (thing_subtag(*objp) == HEAP_BINARY_SUBTAG) {
-			ErlHeapBin* from = (ErlHeapBin *) objp;
-			ErlHeapBin* to;
-			i = heap_bin_size(real_size);
-			hbot -= i;
-			to = (ErlHeapBin *) hbot;
-			to->thing_word = header_heap_bin(real_size);
-			to->size = real_size;
-			sys_memcpy(to->data, ((byte *)from->data)+offset, real_size);
-		    } else {
-			ProcBin* from = (ProcBin *) objp;
-			ProcBin* to;
+                    if (*underlying == HEADER_BIN_REF) {
+                        BinRef *from_br, *to_br;
+                        ErlSubBits *to_sb;
 
-			ASSERT(thing_subtag(*objp) == REFC_BINARY_SUBTAG);
-			if (from->flags) {
-			    erts_emasculate_writable_binary(from);
-			}
-			hbot -= PROC_BIN_SIZE;
-			to = (ProcBin *) hbot;
-			to->thing_word = HEADER_PROC_BIN;
-			to->size = real_size;
-			to->val = from->val;
-			erts_refc_inc(&to->val->intern.refc, 2);
-			to->bytes = from->bytes + offset;
-			to->next = off_heap->first;
-			to->flags = 0;
-			off_heap->first = (struct erl_off_heap_header*) to;
-			OH_OVERHEAD(off_heap, to->size / sizeof(Eterm));
-		    }
-		    *argp = make_binary(hbot);
-		    if (extra_bytes != 0) {
-			ErlSubBin* res;
-			hbot -= ERL_SUB_BIN_SIZE;
-			res = (ErlSubBin *) hbot;
-			res->thing_word = HEADER_SUB_BIN;
-			res->size = size;
-			res->bitsize = bit_size;
-			res->bitoffs = bit_offset;
-			res->offs = 0;
-			res->is_writable = 0;
-			res->orig = *argp;
-			*argp = make_binary(hbot);
-		    }
-		    break;
-		}
-		break;
-	    case FUN_SUBTAG:
-		{
-		    ErlFunThing* funp = (ErlFunThing *) objp;
+                        from_br = (BinRef*)underlying;
 
-		    i =  thing_arityval(hdr) + 2 + funp->num_free;
-		    tp = htop;
-		    while (i--)  {
-			*htop++ = *objp++;
-		    }
-		    funp = (ErlFunThing *) tp;
+                        /* As BinRefs are only reachable through ErlSubBits and
+                         * we aren't doing a shared copy, and certain functions
+                         * like copy_ets_element assume that outer objects
+                         * appear before inner ones on the heap, we'll handle
+                         * them together here. */
+                        hbot -= ERL_BIN_REF_SIZE;
+                        to_br = (BinRef*)hbot;
+                        hbot -= ERL_SUB_BITS_SIZE;
+                        to_sb = (ErlSubBits*)hbot;
 
-                    if (is_local_fun(funp)) {
-                        funp->next = off_heap->first;
-                        off_heap->first = (struct erl_off_heap_header*) funp;
-                        erts_refc_inc(&funp->entry.fun->refc, 2);
+                        ASSERT(from_br->thing_word == HEADER_BIN_REF);
+                        erts_pin_writable_binary(from_sb, from_br);
+
+                        erts_refc_inc(&(from_br->val)->intern.refc, 2);
+
+                        *to_sb = *from_sb;
+                        *to_br = *from_br;
+
+                        ASSERT(erl_sub_bits_is_normal(to_sb));
+                        to_sb->orig = make_boxed((Eterm*)to_br);
+
+                        to_br->next = off_heap->first;
+                        off_heap->first = (struct erl_off_heap_header*)to_br;
+                        ERTS_BR_OVERHEAD(off_heap, to_br);
+
+                        *argp = make_bitstring(to_sb);
                     } else {
-                        ASSERT(is_external_fun(funp) && funp->next == NULL);
+                        /* When an ErlSubBits is used as a match context it may
+                         * refer to an on-heap bitstring instead of a BinRef,
+                         * in which case we need to copy the underlying data
+                         * instead of the match context. */
+                        Uint size = from_sb->end - from_sb->start;
+
+                        ASSERT(erl_sub_bits_is_match_context(from_sb));
+
+                        hbot -= heap_bits_size(size);
+                        *argp = HEAP_BITSTRING(hbot,
+                                               erl_sub_bits_get_base(from_sb),
+                                               from_sb->start,
+                                               size);
+                    }
+                }
+                break;
+            case FUN_REF_SUBTAG:
+                {
+                    const FunRef *src_ref = (const FunRef *)objp;
+                    FunRef *dst_ref;
+
+                    hbot -= ERL_FUN_REF_SIZE;
+                    dst_ref = (FunRef *)hbot;
+
+                    dst_ref->thing_word = HEADER_FUN_REF;
+                    dst_ref->entry = src_ref->entry;
+
+                    dst_ref->next = off_heap->first;
+                    off_heap->first = (struct erl_off_heap_header*)dst_ref;
+
+                    /* All fun entries are NULL during module loading, before
+                     * the code is finalized.
+                     *
+                     * Strictly speaking it would be nice to crash when we see
+                     * this outside of loading, but it's too complicated to
+                     * keep track of whether we are. */
+                    if (dst_ref->entry != NULL) {
+                        erts_refc_inc(&(dst_ref->entry)->refc, 2);
                     }
 
-		    *argp = make_fun(tp);
-		}
-		break;
+                    *argp = make_boxed((Eterm*)dst_ref);
+                }
+                break;
+            case FUN_SUBTAG:
+                {
+                    const ErlFunThing *src_fun = (const ErlFunThing *)objp;
+                    ErlFunThing *dst_fun = (ErlFunThing *)htop;
+
+                    *dst_fun = *src_fun;
+
+                    for (int i = 0; i < fun_env_size(dst_fun); i++) {
+                        dst_fun->env[i] = src_fun->env[i];
+                    }
+
+                    ASSERT(&htop[ERL_FUN_SIZE] == &dst_fun->env[0]);
+                    htop = &dst_fun->env[fun_env_size(dst_fun)];
+                    *argp = make_fun(dst_fun);
+                }
+                break;
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -937,9 +940,6 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 			erts_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		}
 		break;
-	    case BIN_MATCHSTATE_SUBTAG:
-		erts_exit(ERTS_ABORT_EXIT,
-			 "copy_struct: matchstate term not allowed");
 	    case REF_SUBTAG:
 		if (is_magic_ref_thing(objp)) {
 		    ErtsMRefThing *mreft = (ErtsMRefThing *) objp;
@@ -978,11 +978,12 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
                     " not equal to copy %T\n",
                     org_obj, res);
         }
-        if (htop != hbot)
+        if (htop != hbot) {
             erts_exit(ERTS_ABORT_EXIT,
                     "Internal error in copy_struct() when copying %T:"
                     " htop=%p != hbot=%p (sz=%beu)\n",
                     org_obj, htop, hbot, org_sz);
+        }
 #else
         if (htop > hbot) {
             erts_exit(ERTS_ABORT_EXIT,
@@ -1118,7 +1119,6 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 {
     Uint sum;
     Uint e;
-    unsigned sz;
     Eterm* ptr;
     Eterm *lit_purge_ptr = info->lit_purge_ptr;
     Uint lit_purge_sz = info->lit_purge_sz;
@@ -1260,63 +1260,54 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 		goto pop_next;
 	    }
 	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		sz = thing_arityval(hdr);
-		sum += 1 /* header */ + sz + eterms;
-		ptr += 1 /* header */ + sz;
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (!IS_CONST(obj)) {
-			EQUEUE_PUT(s, obj);
-		    }
-		}
-		goto pop_next;
-	    }
-	    case SUB_BINARY_SUBTAG: {
-		ErlSubBin* sb = (ErlSubBin *) ptr;
-		Eterm real_bin = sb->orig;
-		Uint bit_offset = sb->bitoffs;
-		Uint bit_size = sb->bitsize;
-		size_t size = sb->size;
-		Uint extra_bytes;
-		Eterm hdr;
-		if (bit_size + bit_offset > 8) {
-		    sum += ERL_SUB_BIN_SIZE;
-		    extra_bytes = 2;
-		} else if (bit_size + bit_offset > 0) {
-		    sum += ERL_SUB_BIN_SIZE;
-		    extra_bytes = 1;
-		} else {
-		    extra_bytes = 0;
-		}
-                ASSERT(is_boxed(real_bin));
-                hdr = *_unchecked_binary_val(real_bin);
-                switch (primary_tag(hdr)) {
-                case TAG_PRIMARY_HEADER:
-                    /* real_bin is untouched, only referred by sub-bins so far */
-                    break;
-                case BOXED_VISITED:
-                    /* real_bin referred directly once so far */
-                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
-                    break;
-                case BOXED_SHARED_PROCESSED:
+                const ErlFunThing* funp = (ErlFunThing *) ptr;
+
+                ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+                sum += ERL_FUN_SIZE + fun_env_size(funp);
+
+                for (int i = 0; i < fun_env_size(funp); i++) {
+                    obj = funp->env[i];
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT(s, obj);
+                    }
+                }
+
+                goto pop_next;
+            }
+            case BIN_REF_SUBTAG: {
+                sum += ERL_BIN_REF_SIZE;
+                goto pop_next;
+            }
+            case SUB_BITS_SUBTAG: {
+                ErlSubBits *sb = (ErlSubBits*)ptr;
+                Eterm *underlying = boxed_val(sb->orig);
+                Eterm orig_hdr = *underlying;
+
+                switch (primary_tag(orig_hdr)) {
                 case BOXED_SHARED_UNPROCESSED:
-                    /* real_bin referred directly more than once */
-                    e = hdr >> _TAG_PRIMARY_SIZE;
-                    hdr = SHTABLE_X(t, e);
-                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                case BOXED_SHARED_PROCESSED:
+                    orig_hdr = SHTABLE_X(t, orig_hdr >> _TAG_PRIMARY_SIZE);
                     break;
                 }
 
-		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
-		    sum += heap_bin_size(size+extra_bytes);
-		} else {
-		    ASSERT(thing_subtag(hdr) == REFC_BINARY_SUBTAG);
-		    sum += PROC_BIN_SIZE;
-		}
-		goto pop_next;
-	    }
+                if (shared_thing_subtag(orig_hdr) == BIN_REF_SUBTAG) {
+                    erts_pin_writable_binary(sb, (BinRef*)underlying);
+
+                    EQUEUE_PUT(s, sb->orig);
+                    sum += ERL_SUB_BITS_SIZE;
+                } else {
+                    /* This is a match context referring to an on-heap
+                     * bitstring.
+                     *
+                     * As this is fairly rare and sharing multiple instances of
+                     * the same match context is rarer still, we'll make a
+                     * blunt copy that ignores sharing. */
+                    ASSERT(erl_sub_bits_is_match_context(sb));
+                    sum += heap_bits_size(sb->end - sb->start);
+                }
+
+                goto pop_next;
+            }
             case MAP_SUBTAG:
                 switch (MAP_HEADER_TYPE(hdr)) {
                     case MAP_HEADER_TAG_FLATMAP_HEAD : {
@@ -1354,9 +1345,6 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                     default:
                         erts_exit(ERTS_ABORT_EXIT, "copy_shared_calculate: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
                 }
-            case BIN_MATCHSTATE_SUBTAG:
-		erts_exit(ERTS_ABORT_EXIT,
-			 "size_shared: matchstate term not allowed");
 	    default:
 		sum += thing_arityval(hdr) + 1;
 		goto pop_next;
@@ -1596,38 +1584,50 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		}
 		goto cleanup_next;
 	    }
-	    case FUN_SUBTAG: {
-		ErlFunThing* funp = (ErlFunThing *) ptr;
-		unsigned eterms = 1 /* creator */ + funp->num_free;
-		sz = thing_arityval(hdr);
-		funp = (ErlFunThing *) hp;
-		*resp = make_fun(hp);
-		*hp++ = hdr;
-		ptr++;
-		while (sz-- > 0) {
-		    *hp++ = *ptr++;
-		}
-		while (eterms-- > 0) {
-		    obj = *ptr++;
-		    if (IS_CONST(obj)) {
-			*hp++ = obj;
-		    } else {
-			EQUEUE_PUT_UNCHECKED(s, obj);
-			*hp++ = HEAP_ELEM_TO_BE_FILLED;
-		    }
-		}
+            case FUN_REF_SUBTAG:
+                {
+                    const FunRef *src_ref = (const FunRef *)ptr;
+                    FunRef *dst_ref = (FunRef *)hp;
 
-                if (is_local_fun(funp)) {
-                    funp->next = off_heap->first;
-                    off_heap->first = (struct erl_off_heap_header*) funp;
-                    erts_refc_inc(&funp->entry.fun->refc, 2);
-                } else {
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
+                    dst_ref->thing_word = HEADER_FUN_REF;
+                    dst_ref->entry = src_ref->entry;
+
+                    dst_ref->next = off_heap->first;
+                    off_heap->first = (struct erl_off_heap_header*)dst_ref;
+                    erts_refc_inc(&(dst_ref->entry)->refc, 2);
+
+                    *resp = make_boxed((Eterm*)dst_ref);
+                    hp += ERL_FUN_REF_SIZE;
+                }
+                goto cleanup_next;
+            case FUN_SUBTAG: {
+                const ErlFunThing *src_fun = (const ErlFunThing *)ptr;
+                ErlFunThing *dst_fun = (ErlFunThing *)hp;
+
+                *dst_fun = *src_fun;
+
+                /* The header of the source fun may have been clobbered,
+                 * restore it. */
+                dst_fun->thing_word = hdr;
+
+                for (int i = 0; i < fun_env_size(dst_fun); i++) {
+                    obj = src_fun->env[i];
+
+                    if (!IS_CONST(obj)) {
+                        EQUEUE_PUT_UNCHECKED(s, obj);
+                        obj = HEAP_ELEM_TO_BE_FILLED;
+                    }
+
+                    dst_fun->env[i] = obj;
                 }
 
-		goto cleanup_next;
-	    }
-	    case MAP_SUBTAG:
+                ASSERT(&hp[ERL_FUN_SIZE] == &dst_fun->env[0]);
+                hp = &dst_fun->env[fun_env_size(dst_fun)];
+                *resp = make_fun(dst_fun);
+
+                goto cleanup_next;
+            }
+            case MAP_SUBTAG:
                 *resp  = make_flatmap(hp);
                 *hp++  = hdr;
                 switch (MAP_HEADER_TYPE(hdr)) {
@@ -1666,101 +1666,75 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                     default:
                         erts_exit(ERTS_ABORT_EXIT, "copy_shared_perform: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
                 }
-	    case REFC_BINARY_SUBTAG: {
-		ProcBin* pb = (ProcBin *) ptr;
-		sz = thing_arityval(hdr);
-		if (pb->flags) {
-		    erts_emasculate_writable_binary(pb);
-		}
-		pb = (ProcBin *) hp;
-		*resp = make_binary(hp);
-		*hp++ = hdr;
-		ptr++;
-		while (sz-- > 0) {
-		    *hp++ = *ptr++;
-		}
-		erts_refc_inc(&pb->val->intern.refc, 2);
-		pb->next = off_heap->first;
-		pb->flags = 0;
-		off_heap->first = (struct erl_off_heap_header*) pb;
-		OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
-		goto cleanup_next;
-	    }
-	    case SUB_BINARY_SUBTAG: {
-		ErlSubBin* sb = (ErlSubBin *) ptr;
-		Eterm real_bin = sb->orig;
-		Uint bit_offset = sb->bitoffs;
-		Uint bit_size = sb->bitsize;
-		Uint offset = sb->offs;
-		size_t size = sb->size;
-		Uint extra_bytes;
-		Uint real_size;
-		if ((bit_size + bit_offset) > 8) {
-		    extra_bytes = 2;
-		} else if ((bit_size + bit_offset) > 0) {
-		    extra_bytes = 1;
-		} else {
-		    extra_bytes = 0;
-		}
-		real_size = size+extra_bytes;
-		*resp = make_binary(hp);
-		if (extra_bytes != 0) {
-		    ErlSubBin* res = (ErlSubBin *) hp;
-		    hp += ERL_SUB_BIN_SIZE;
-		    res->thing_word = HEADER_SUB_BIN;
-		    res->size = size;
-		    res->bitsize = bit_size;
-		    res->bitoffs = bit_offset;
-		    res->offs = 0;
-		    res->is_writable = 0;
-		    res->orig = make_binary(hp);
-		}
-                ASSERT(is_boxed(real_bin));
-                ptr = _unchecked_binary_val(real_bin);
-                hdr = *ptr;
-                switch (primary_tag(hdr)) {
-                case TAG_PRIMARY_HEADER:
-                    /* real_bin is untouched, ie only referred by sub-bins */
-                    break;
-                case BOXED_VISITED:
-                    /* real_bin referred directly once */
-                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
-                    break;
-                case BOXED_SHARED_PROCESSED:
+            case BIN_REF_SUBTAG: {
+                const BinRef *from_br;
+                BinRef *to_br;
+
+                from_br = (BinRef*)ptr;
+                to_br = (BinRef*)hp;
+
+                *to_br = *from_br;
+                to_br->thing_word = hdr;
+
+                /* Note that we don't need to pin the binary as that was done
+                 * earlier during copy_shared_calculate */
+                ASSERT(!((from_br->val)->intern.flags &
+                         (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
+                erts_refc_inc(&(from_br->val)->intern.refc, 2);
+
+                to_br->next = off_heap->first;
+                off_heap->first = (struct erl_off_heap_header*)to_br;
+                ERTS_BR_OVERHEAD(off_heap, to_br);
+
+                *resp = make_boxed((Eterm*)to_br);
+                hp += ERL_BIN_REF_SIZE;
+
+                goto cleanup_next;
+            }
+            case SUB_BITS_SUBTAG: {
+                const ErlSubBits *from_sb = (ErlSubBits*)ptr;
+                const Eterm *underlying = boxed_val(from_sb->orig);
+                Eterm orig_hdr = *underlying;
+
+                switch (primary_tag(orig_hdr)) {
                 case BOXED_SHARED_UNPROCESSED:
-                    /* real_bin referred directly more than once */
-                    e = hdr >> _TAG_PRIMARY_SIZE;
-                    hdr = SHTABLE_X(t, e);
-                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                case BOXED_SHARED_PROCESSED:
+                    orig_hdr = SHTABLE_X(t, orig_hdr >> _TAG_PRIMARY_SIZE);
                     break;
                 }
-		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
-		    ErlHeapBin* from = (ErlHeapBin *) ptr;
-		    ErlHeapBin* to = (ErlHeapBin *) hp;
-		    hp += heap_bin_size(real_size);
-		    to->thing_word = header_heap_bin(real_size);
-		    to->size = real_size;
-		    sys_memcpy(to->data, ((byte *)from->data)+offset, real_size);
-		} else {
-		    ProcBin* from = (ProcBin *) ptr;
-		    ProcBin* to = (ProcBin *) hp;
-		    ASSERT(thing_subtag(hdr) == REFC_BINARY_SUBTAG);
-		    if (from->flags) {
-			erts_emasculate_writable_binary(from);
-		    }
-		    hp += PROC_BIN_SIZE;
-		    to->thing_word = HEADER_PROC_BIN;
-		    to->size = real_size;
-		    to->val = from->val;
-		    erts_refc_inc(&to->val->intern.refc, 2);
-		    to->bytes = from->bytes + offset;
-		    to->next = off_heap->first;
-		    to->flags = 0;
-		    off_heap->first = (struct erl_off_heap_header*) to;
-		    OH_OVERHEAD(off_heap, to->size / sizeof(Eterm));
-		}
-		goto cleanup_next;
-	    }
+
+                if (shared_thing_subtag(orig_hdr) == BIN_REF_SUBTAG) {
+                    ErlSubBits *to_sb;
+
+                    to_sb = (ErlSubBits*)hp;
+
+                    EQUEUE_PUT_UNCHECKED(s, from_sb->orig);
+
+                    *to_sb = *from_sb;
+                    to_sb->thing_word = hdr;
+                    to_sb->orig = HEAP_ELEM_TO_BE_FILLED;
+
+                    *resp = make_bitstring(to_sb);
+                    hp += ERL_SUB_BITS_SIZE;
+                } else {
+                    /* This is a match context referring to an on-heap
+                     * bitstring.
+                     *
+                     * As this is fairly rare and sharing multiple instances of
+                     * the same match context is rarer still, we'll make a
+                     * blunt copy that ignores sharing. */
+                    Uint size = from_sb->end - from_sb->start;
+                    ASSERT(erl_sub_bits_is_match_context(from_sb));
+
+                    hbot -= heap_bits_size(size);
+                    *resp = HEAP_BITSTRING(hbot,
+                                           erl_sub_bits_get_base(from_sb),
+                                           from_sb->start,
+                                           size);
+                }
+
+                goto cleanup_next;
+            }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
@@ -1828,10 +1802,11 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 			    hscan++;
 			    break;
 			case FUN_SUBTAG: {
-			    ErlFunThing* funp = (ErlFunThing *) hscan;
-			    hscan += 1 + thing_arityval(*hscan);
-			    remaining = 1 + funp->num_free;
-			    break;
+                            const ErlFunThing* funp = (ErlFunThing *) hscan;
+                            ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(*hscan)));
+                            hscan += ERL_FUN_SIZE;
+                            remaining = fun_env_size(funp);
+                            break;
 			}
 			case MAP_SUBTAG:
                             switch (MAP_HEADER_TYPE(*hscan)) {
@@ -1854,11 +1829,17 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                                             MAP_HEADER_TYPE(*hscan));
                             }
                             break;
-			case SUB_BINARY_SUBTAG:
-			    ASSERT(((ErlSubBin *) hscan)->bitoffs +
-				   ((ErlSubBin *) hscan)->bitsize > 0);
-			    hscan += ERL_SUB_BIN_SIZE;
-			    break;
+                        case SUB_BITS_SUBTAG: {
+                            const ErlSubBits *sb = (ErlSubBits*)hscan;
+                            if (sb->orig == HEAP_ELEM_TO_BE_FILLED) {
+                                hscan += offsetof(ErlSubBits, orig) / sizeof(Eterm);
+                                remaining = 1;
+                            } else {
+                                ASSERT(erl_sub_bits_is_match_context(sb));
+                                hscan += ERL_SUB_BITS_SIZE;
+                            }
+                            break;
+                        }
 			default:
 			    hscan += 1 + thing_arityval(*hscan);
 			    break;
@@ -1932,19 +1913,52 @@ all_clean:
  * pointers are offsetted to point correctly in the new location.
  *
  * Typically used to copy a term from an ets table.
- *
- * NOTE: Assumes that term is a tuple (ptr is an untagged tuple ptr).
  */
-Eterm
-copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap
+Eterm copy_shallow_obj_x(Eterm obj, Uint sz, Eterm **hpp, ErlOffHeap *off_heap
 #ifdef ERTS_COPY_REGISTER_LOCATION
-               , char *file, int line
+                         ,
+                         char *file, int line
 #endif
-    )
-{
-    Eterm* tp = ptr;
-    Eterm* hp = *hpp;
-    const Eterm res = make_tuple(hp);
+) {
+    Eterm *source_ptr;
+    Eterm *target_ptr;
+
+    if (sz == 0) {
+        ASSERT(is_zero_sized(obj));
+        return obj;
+    }
+
+    ASSERT(is_boxed(obj) || is_list(obj));
+    ASSERT(!is_zero_sized(obj));
+
+    source_ptr = ptr_val(obj);
+#ifdef ERTS_COPY_REGISTER_LOCATION
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap, file, line);
+#else
+    target_ptr = copy_shallow_x(source_ptr, sz, hpp, off_heap);
+#endif
+
+    return is_boxed(obj) ? make_boxed(target_ptr) : make_list(target_ptr);
+}
+
+
+/*
+ * Copy a term that is guaranteed to be contained in a single
+ * heap block. The heap block is copied word by word, and any
+ * pointers are offsetted to point correctly in the new location.
+ *
+ * Typically used to copy a term from an ets table.
+ */
+Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
+                     ErlOffHeap *off_heap
+#ifdef ERTS_COPY_REGISTER_LOCATION
+                     ,
+                     char *file, int line
+#endif
+) {
+    Eterm *tp = ptr;
+    Eterm *hp = *hpp;
+    Eterm* res = hp;
     const Sint offs = (hp - tp) * sizeof(Eterm);
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
@@ -1968,25 +1982,34 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 	    switch (val & _HEADER_SUBTAG_MASK) {
 	    case ARITYVAL_SUBTAG:
 		break;
-	    case REFC_BINARY_SUBTAG:
-		{
-		    ProcBin* pb = (ProcBin *) (tp-1);
-		    erts_refc_inc(&pb->val->intern.refc, 2);
-		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
-		}
-		goto off_heap_common;
-
-            case FUN_SUBTAG:
+            case SUB_BITS_SUBTAG:
                 {
-                    ErlFunThing* funp = (ErlFunThing *) (tp-1);
+                    const ErlSubBits *sb = (ErlSubBits*)(&tp[-1]);
+                    const Uint orig_offset = ERL_SUB_BITS_SIZE - 2;
 
-                    if (is_local_fun(funp)) {
-                        erts_refc_inc(&funp->entry.fun->refc, 2);
-                        goto off_heap_common;
-                    } else {
-                        ASSERT(is_external_fun(funp) && funp->next == NULL);
-                        goto default_copy;
-                    }
+                    ASSERT(erl_sub_bits_is_normal(sb));
+
+                    sys_memcpy(hp, tp, orig_offset * sizeof(Eterm));
+                    hp[orig_offset] = byte_offset_ptr(sb->orig, offs);
+
+                    hp += orig_offset + 1;
+                    tp += orig_offset + 1;
+
+                    sz -= ERL_SUB_BITS_SIZE - 1;
+                }
+                break;
+            case BIN_REF_SUBTAG:
+                {
+                    BinRef *br = (BinRef*)(&tp[-1]);
+                    erts_refc_inc(&(br->val)->intern.refc, 2);
+                    ERTS_BR_OVERHEAD(off_heap, br);
+                    goto off_heap_common;
+                }
+            case FUN_REF_SUBTAG:
+                {
+                    FunRef *refp = (FunRef *) (tp-1);
+                    erts_refc_inc(&(refp->entry)->refc, 2);
+                    goto off_heap_common;
                 }
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
@@ -2021,7 +2044,6 @@ copy_shallow_x(Eterm* ERTS_RESTRICT ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_h
 		}
 		/* Fall through... */
 	    }
-            default_copy:
 	    default:
 		{
 		    int tari = header_arity(val);
@@ -2093,11 +2115,16 @@ void erts_move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* f
 	    }
 	    break;
 	case TAG_PRIMARY_HEADER:
-	    if (header_is_thing(gval)) {
-		hp += thing_arityval(gval);
-	    }
-	    break;
-	}
+            if (gval == HEADER_SUB_BITS) {
+                /* Tag the `orig` field as a literal. It's the last field
+                 * inside the thing structure so we can handle it by pretending
+                 * it's not part of the thing. */
+                hp += thing_arityval(gval) - 1;
+            } else if (header_is_thing(gval)) {
+                hp += thing_arityval(gval);
+            }
+            break;
+        }
     }
     for (i=0; i<nrefs; ++i) {
 	refs[i] = follow_moved(refs[i], literal_tag);
@@ -2129,24 +2156,13 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
                 if (!is_magic_ref_thing(hdr)) {
                     break;
                 }
-            case REFC_BINARY_SUBTAG:
+            case BIN_REF_SUBTAG:
             case EXTERNAL_PID_SUBTAG:
             case EXTERNAL_PORT_SUBTAG:
             case EXTERNAL_REF_SUBTAG:
+            case FUN_REF_SUBTAG:
                 hdr->next = off_heap->first;
                 off_heap->first = hdr;
-                break;
-            case FUN_SUBTAG:
-                {
-                    ErlFunThing *funp = (ErlFunThing*)hdr;
-
-                    if (is_local_fun(funp)) {
-                        hdr->next = off_heap->first;
-                        off_heap->first = hdr;
-                    } else {
-                        ASSERT(is_external_fun(funp) && funp->next == NULL);
-                    }
-                }
                 break;
             }
         } else { /* must be a cons cell */

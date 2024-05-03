@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,6 +245,19 @@ struct ArgRegister : public ArgSource {
 
     constexpr int typeIndex() const {
         return (int)(val >> 10);
+    }
+
+    constexpr ArgVal trimmed(int n) const {
+        if (isYRegister()) {
+            return ArgVal(TYPE::YReg, UWord((val & REG_MASK) - n));
+        } else {
+            return *this;
+        }
+    }
+
+    template<typename T>
+    constexpr T copy(int n) const {
+        return T(n | (val & ~REG_MASK));
     }
 };
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -224,7 +224,7 @@ notify(X) ->
 %%
 basic_test() ->
     685556714 = erlang:phash({a,b,c},16#FFFFFFFF),
-    37442646 =  erlang:phash([a,b,c,{1,2,3},c:pid(0,2,3),
+    37442646 =  erlang:phash([a,b,c,{1,2,3},c:pid(0,2,0),
 				    16#77777777777777],16#FFFFFFFF),
     ExternalReference = <<131,114,0,3,100,0,13,110,111,110,111,100,101,64,
 			 110,111,104,111,115,116,0,0,0,0,122,0,0,0,0,0,0,0,0>>,
@@ -835,9 +835,10 @@ hash_zero_test() ->
 hash_zero_test([Z|Zs],F) ->
     hash_zero_test(Zs,Z,F(Z),F).
 hash_zero_test([Z|Zs],Z0,V,F) ->
-    true = Z0 =:= Z, %% assert exact equal
-    Z0   = Z,        %% assert matching
-    V    = F(Z),     %% assert hash
+    true = (0.0 == Z0) andalso (0.0 == Z),
+    %% assert that phash and phash2 yield the same hash for both -0.0 and +0.0,
+    %% even though they are different terms since OTP 27.
+    V    = F(Z),
     hash_zero_test(Zs,Z0,V,F);
 hash_zero_test([],_,_,_) ->
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,11 @@
          kill_after2/1,
          kill_after3/1,
          apply_interval1/1,
+         apply_interval2/1,
          apply_interval_invalid_args/1,
+         apply_repeatedly1/1,
+         apply_repeatedly2/1,
+         apply_repeatedly_invalid_args/1,
          send_interval1/1,
          send_interval2/1,
          send_interval3/1,
@@ -95,6 +99,7 @@ all() ->
         {group, exit_after},
         {group, kill_after},
         {group, apply_interval},
+        {group, apply_repeatedly},
         {group, send_interval},
         {group, cancel},
         {group, sleep},
@@ -152,7 +157,17 @@ groups() ->
             [],
             [
                 apply_interval1,
+                apply_interval2,
                 apply_interval_invalid_args
+            ]
+        },
+        {
+            apply_repeatedly,
+            [],
+            [
+                apply_repeatedly1,
+                apply_repeatedly2,
+                apply_repeatedly_invalid_args
             ]
         },
         {
@@ -225,14 +240,20 @@ init_per_testcase(_, Config) when is_list(Config) ->
 %% Test of apply_after with time = 0, with sending of message.
 apply_after1(Config) when is_list(Config) ->
     Msg = make_ref(),
-    {ok, {instant, _}} = timer:apply_after(0, ?MODULE, send, [self(), Msg]),
-    ok = get_mess(1000, Msg).
+    {ok, {instant, _}} = timer:apply_after(0, ?MODULE, send, [self(), {Msg, 1}]),
+    {ok, {instant, _}} = timer:apply_after(0, fun erlang:send/2, [self(), {Msg, 2}]),
+    Self = self(),
+    {ok, {instant, _}} = timer:apply_after(0, fun() -> Self ! {Msg, 3} end),
+    ok = get_messes(1000, Msg, [1, 2, 3]).
 
 %% Test of apply_after with time = 500, with sending of message.
 apply_after2(Config) when is_list(Config) ->
     Msg = make_ref(),
-    {ok, {once, _}} = timer:apply_after(500, ?MODULE, send, [self(), Msg]),
-    ok = get_mess(1000, Msg).
+    {ok, {once, _}} = timer:apply_after(500, ?MODULE, send, [self(), {Msg, 1}]),
+    {ok, {once, _}} = timer:apply_after(500, fun erlang:send/2, [self(), {Msg, 2}]),
+    Self = self(),
+    {ok, {once, _}} = timer:apply_after(500, fun() -> Self ! {Msg, 3} end),
+    ok = get_messes(1000, Msg, [1, 2, 3]).
 
 %% Test that a request starts the timer server if it is not running.
 apply_after3(Config) when is_list(Config) ->
@@ -255,6 +276,14 @@ apply_after4(Config) when is_list(Config) ->
 
 %% Test that apply_after rejects invalid arguments.
 apply_after_invalid_args(Config) when is_list(Config) ->
+    {error, badarg} = timer:apply_after(-1, fun() -> ok end),
+    {error, badarg} = timer:apply_after(0, foo),
+    {error, badarg} = timer:apply_after(0, fun(_X) -> ok end),
+    {error, badarg} = timer:apply_after(-1, fun(_X) -> ok end, [foo]),
+    {error, badarg} = timer:apply_after(0, foo, []),
+    {error, badarg} = timer:apply_after(0, fun(_X) -> ok end, []),
+    {error, badarg} = timer:apply_after(0, fun(_X) -> ok end, [foo, bar]),
+    {error, badarg} = timer:apply_after(0, fun(_X) -> ok end, foo),
     {error, badarg} = timer:apply_after(-1, foo, bar, []),
     {error, badarg} = timer:apply_after(0, "foo", bar, []),
     {error, badarg} = timer:apply_after(0, foo, "bar", []),
@@ -400,18 +429,112 @@ kill_after3(Config) when is_list(Config) ->
 %% not get any more messages.
 apply_interval1(Config) when is_list(Config) ->
     Msg = make_ref(),
-    {ok, Ref} = timer:apply_interval(1000, ?MODULE, send,
-                                     [self(), Msg]),
-    ok = get_mess(1500, Msg, 3),
-    {ok, cancel} = timer:cancel(Ref),
-    nor = get_mess(1000, Msg).
+    {ok, Ref1} = timer:apply_interval(1000, ?MODULE, send,
+                                      [self(), {Msg, 1}]),
+    {ok, Ref2} = timer:apply_interval(1000, fun erlang:send/2,
+				      [self(), {Msg, 2}]),
+    Self = self(),
+    {ok, Ref3} = timer:apply_interval(1000, fun() -> Self ! {Msg, 3} end),
+    ok = get_messes(1500, Msg, [1, 2, 3], 3),
+    {ok, cancel} = timer:cancel(Ref1),
+    {ok, cancel} = timer:cancel(Ref2),
+    {ok, cancel} = timer:cancel(Ref3),
+    nor = get_messes(1000, Msg, [1, 2, 3]).
+
+%% Test apply_interval with the execution time of the action
+%% longer than the timer interval. The timer should not wait for
+%% the action to complete, ie start another action while the
+%% previously started action is still running.
+apply_interval2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Fn = fun(P, Idx) ->
+             P ! {Msg, Idx},
+	    receive after 1000 -> ok end
+         end,
+    {ok, Ref1} = timer:apply_interval(500, erlang, apply,
+                                     [Fn, [self(), 1]]),
+    {ok, Ref2} = timer:apply_interval(500, Fn, [self(), 2]),
+    Self = self(),
+    {ok, Ref3} = timer:apply_interval(500, fun() -> Fn(Self, 3) end),
+    receive after 1800 -> ok end,
+    {ok, cancel} = timer:cancel(Ref1),
+    {ok, cancel} = timer:cancel(Ref2),
+    {ok, cancel} = timer:cancel(Ref3),
+    ok = get_messes(1000, Msg, [1, 2, 3], 3),
+    nor = get_messes(1000, Msg, [1, 2, 3]).
 
 %% Test that apply_interval rejects invalid arguments.
 apply_interval_invalid_args(Config) when is_list(Config) ->
+    {error, badarg} = timer:apply_interval(-1, fun() -> ok end),
+    {error, badarg} = timer:apply_interval(0, foo),
+    {error, badarg} = timer:apply_interval(0, fun(_X) -> ok end),
+    {error, badarg} = timer:apply_interval(-1, fun(_X) -> ok end, [foo]),
+    {error, badarg} = timer:apply_interval(0, foo, []),
+    {error, badarg} = timer:apply_interval(0, fun(_X) -> ok end, []),
+    {error, badarg} = timer:apply_interval(0, fun(_X) -> ok end, [foo, bar]),
+    {error, badarg} = timer:apply_interval(0, fun(_X) -> ok end, foo),
     {error, badarg} = timer:apply_interval(-1, foo, bar, []),
     {error, badarg} = timer:apply_interval(0, "foo", bar, []),
     {error, badarg} = timer:apply_interval(0, foo, "bar", []),
     {error, badarg} = timer:apply_interval(0, foo, bar, baz),
+    ok.
+
+%% Test of apply_repeatedly by sending messages. Receive
+%% 3 messages, cancel the timer, and check that we do
+%% not get any more messages. In a case like this, ie where
+%% the execution time of the action is shorter than the timer
+%% interval, this should behave the same as apply_interval.
+apply_repeatedly1(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    {ok, Ref1} = timer:apply_repeatedly(1000, ?MODULE, send,
+                                        [self(), {Msg, 1}]),
+    {ok, Ref2} = timer:apply_repeatedly(1000, fun erlang:send/2,
+                                        [self(), {Msg, 2}]),
+    Self = self(),
+    {ok, Ref3} = timer:apply_repeatedly(1000, fun() -> Self ! {Msg, 3} end),
+    ok = get_messes(1500, Msg, [1, 2, 3], 3),
+    {ok, cancel} = timer:cancel(Ref1),
+    {ok, cancel} = timer:cancel(Ref2),
+    {ok, cancel} = timer:cancel(Ref3),
+    nor = get_messes(1000, Msg, [1, 2, 3]).
+
+%% Test apply_repeatedly with the execution time of the action
+%% longer than the timer interval. The timer should wait for
+%% the action to complete, ie not start another action until it
+%% has completed.
+apply_repeatedly2(Config) when is_list(Config) ->
+    Msg = make_ref(),
+    Fn = fun(P, I) ->
+             P ! {Msg, I},
+             receive after 1000 -> ok end
+         end,
+    Self = self(),
+    {ok, Ref1} = timer:apply_repeatedly(1, erlang, apply,
+                                        [Fn, [self(), 1]]),
+    {ok, Ref2} = timer:apply_repeatedly(1, Fn, [self(), 2]),
+    Self = self(),
+    {ok, Ref3} = timer:apply_repeatedly(1, fun() -> Fn(Self, 3) end),
+    receive after 2500 -> ok end,
+    {ok, cancel} = timer:cancel(Ref1),
+    {ok, cancel} = timer:cancel(Ref2),
+    {ok, cancel} = timer:cancel(Ref3),
+    ok = get_messes(1000, Msg, [1, 2, 3], 3),
+    nor = get_messes(1000, Msg, [1, 2, 3]).
+
+%% Test that apply_repeatedly rejects invalid arguments.
+apply_repeatedly_invalid_args(Config) when is_list(Config) ->
+    {error, badarg} = timer:apply_repeatedly(-1, fun() -> ok end),
+    {error, badarg} = timer:apply_repeatedly(0, foo),
+    {error, badarg} = timer:apply_repeatedly(0, fun(_X) -> ok end),
+    {error, badarg} = timer:apply_repeatedly(-1, fun(_X) -> ok end, [foo]),
+    {error, badarg} = timer:apply_repeatedly(0, foo, []),
+    {error, badarg} = timer:apply_repeatedly(0, fun(_X) -> ok end, []),
+    {error, badarg} = timer:apply_repeatedly(0, fun(_X) -> ok end, [foo, bar]),
+    {error, badarg} = timer:apply_repeatedly(0, fun(_X) -> ok end, foo),
+    {error, badarg} = timer:apply_repeatedly(-1, foo, bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, "foo", bar, []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, "bar", []),
+    {error, badarg} = timer:apply_repeatedly(0, foo, bar, baz),
     ok.
 
 %% Test of send_interval/2. Receive 5 messages, cancel the timer, and
@@ -661,7 +784,19 @@ tc(Config) when is_list(Config) ->
              true -> ok
          end,
 
+    %% tc/4
+    {Res4, ok} = timer:tc(timer, sleep, [500], millisecond),
+    ok = if
+             Res4 < 500 -> {too_early, Res4};
+             Res4 > 800 -> {too_late, Res4};
+             true -> ok
+         end,
+
     %% Check that timer:tc don't catch errors
+    ok = try timer:tc(erlang, exit, [foo], second)
+         catch exit:foo -> ok
+         end,
+
     ok = try timer:tc(erlang, exit, [foo])
          catch exit:foo -> ok
          end,
@@ -676,6 +811,7 @@ tc(Config) when is_list(Config) ->
 
     %% Check that return values are propageted
     Self = self(),
+    {_, Self} = timer:tc(erlang, self, [], second),
     {_, Self} = timer:tc(erlang, self, []),
     {_, Self} = timer:tc(fun(P) -> P end, [self()]),
     {_, Self} = timer:tc(fun() -> self() end),
@@ -696,6 +832,16 @@ get_mess(Time, Mess, N) ->
         Mess -> get_mess(Time, Mess, N-1)
     after Time ->
         nor   % Not Received
+    end.
+
+get_messes(Time, Mess, Indexes) -> get_messes(Time, Mess, Indexes, 1).
+get_messes(Time, Mess, Indexes, N) -> get_messes1(Time, Mess, lists:append(lists:duplicate(N, Indexes))).
+get_messes1(_, _, []) -> ok;
+get_messes1(Time, Mess, Indexes) ->
+    receive
+        {Mess, Index} -> get_messes1(Time, Mess, lists:delete(Index, Indexes))
+    after Time ->
+        nor
     end.
 
 forever() ->

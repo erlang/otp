@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(xmerl_xsd_type).
+-moduledoc false.
 
 -export([check_simpleType/3,facet_fun/2,compare_floats/2,
 	 replace_ws/2,collapse_ws/1]).

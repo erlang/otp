@@ -44,7 +44,7 @@ struct CodeBuffer {
   //! \name Overloaded Operators
   //! \{
 
-  //! Returns a referebce to the byte at the given `index`.
+  //! Returns a reference to the byte at the given `index`.
   inline uint8_t& operator[](size_t index) noexcept {
     ASMJIT_ASSERT(index < _size);
     return _data[index];
@@ -61,46 +61,46 @@ struct CodeBuffer {
   //! \{
 
   //! Returns code buffer flags.
-  inline CodeBufferFlags flags() const noexcept { return _flags; }
+  ASMJIT_INLINE_NODEBUG CodeBufferFlags flags() const noexcept { return _flags; }
   //! Tests whether the code buffer has the given `flag` set.
-  inline bool hasFlag(CodeBufferFlags flag) const noexcept { return Support::test(_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool hasFlag(CodeBufferFlags flag) const noexcept { return Support::test(_flags, flag); }
 
   //! Tests whether this code buffer has a fixed size.
   //!
   //! Fixed size means that the code buffer is fixed and cannot grow.
-  inline bool isFixed() const noexcept { return hasFlag(CodeBufferFlags::kIsFixed); }
+  ASMJIT_INLINE_NODEBUG bool isFixed() const noexcept { return hasFlag(CodeBufferFlags::kIsFixed); }
 
   //! Tests whether the data in this code buffer is external.
   //!
   //! External data can only be provided by users, it's never used by AsmJit.
-  inline bool isExternal() const noexcept { return hasFlag(CodeBufferFlags::kIsExternal); }
+  ASMJIT_INLINE_NODEBUG bool isExternal() const noexcept { return hasFlag(CodeBufferFlags::kIsExternal); }
 
   //! Tests whether the data in this code buffer is allocated (non-null).
-  inline bool isAllocated() const noexcept { return _data != nullptr; }
+  ASMJIT_INLINE_NODEBUG bool isAllocated() const noexcept { return _data != nullptr; }
 
   //! Tests whether the code buffer is empty.
-  inline bool empty() const noexcept { return !_size; }
+  ASMJIT_INLINE_NODEBUG bool empty() const noexcept { return !_size; }
 
   //! Returns the size of the data.
-  inline size_t size() const noexcept { return _size; }
+  ASMJIT_INLINE_NODEBUG size_t size() const noexcept { return _size; }
   //! Returns the capacity of the data.
-  inline size_t capacity() const noexcept { return _capacity; }
+  ASMJIT_INLINE_NODEBUG size_t capacity() const noexcept { return _capacity; }
 
   //! Returns the pointer to the data the buffer references.
-  inline uint8_t* data() noexcept { return _data; }
+  ASMJIT_INLINE_NODEBUG uint8_t* data() noexcept { return _data; }
   //! \overload
-  inline const uint8_t* data() const noexcept { return _data; }
+  ASMJIT_INLINE_NODEBUG const uint8_t* data() const noexcept { return _data; }
 
   //! \}
 
   //! \name Iterators
   //! \{
 
-  inline uint8_t* begin() noexcept { return _data; }
-  inline const uint8_t* begin() const noexcept { return _data; }
+  ASMJIT_INLINE_NODEBUG uint8_t* begin() noexcept { return _data; }
+  ASMJIT_INLINE_NODEBUG const uint8_t* begin() const noexcept { return _data; }
 
-  inline uint8_t* end() noexcept { return _data + _size; }
-  inline const uint8_t* end() const noexcept { return _data + _size; }
+  ASMJIT_INLINE_NODEBUG uint8_t* end() noexcept { return _data + _size; }
+  ASMJIT_INLINE_NODEBUG const uint8_t* end() const noexcept { return _data + _size; }
 
   //! \}
 };

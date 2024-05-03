@@ -7,18 +7,18 @@ do(P,D,T,O) ->
     do_it(P,D,T,O).
 
 do_it(Priv, Data, Type, Opts) ->
-    File = filename:join(Data, "my_code_test2"),
-    Code = filename:join(Priv, "my_code_test2"),
+    OrigFile = filename:join(Data, "call_purged_fun"),
+    Code = filename:join(Priv, "call_purged_fun"),
 
-    catch erlang:purge_module(my_code_test2),
-    catch erlang:delete_module(my_code_test2),
-    catch erlang:purge_module(my_code_test2),
+    catch erlang:purge_module(call_purged_fun),
+    catch erlang:delete_module(call_purged_fun),
+    catch erlang:purge_module(call_purged_fun),
 
-    {ok,my_code_test2} = c:c(File, [{outdir,Priv} | Opts]),
+    {ok,call_purged_fun} = c:c(OrigFile, [{outdir,Priv} | Opts]),
 
-    T = ets:new(my_code_test2_fun_table, []),
-    ets:insert(T, {my_fun,my_code_test2:make_fun(4711)}),
-    ets:insert(T, {my_fun2,my_code_test2:make_fun2()}),
+    T = ets:new(call_purged_fun_fun_table, []),
+    ets:insert(T, {my_fun,call_purged_fun:make_fun(4711)}),
+    ets:insert(T, {my_fun2,call_purged_fun:make_fun2()}),
 
     Papa = self(),
     {P0,M0} = spawn_monitor(fun () ->
@@ -37,30 +37,43 @@ do_it(Priv, Data, Type, Opts) ->
 			true;
 		    code_reload ->
 			true;
+		    code_altered ->
+			true;
 		    code_there ->
 			false
 		end,
 
     %% fun_info/1,2 must behave as documented on purged funs.
     FunInfoBefore = fun(F) ->
-                            {module, my_code_test2} = erlang:fun_info(F, module),
+                            {module, call_purged_fun} = erlang:fun_info(F, module),
                             {name, []} = erlang:fun_info(F, name),
                             {arity, 1} = erlang:fun_info(F, arity)
                     end,
     FunInfoAfter = fun(F) ->
-                           {module, my_code_test2} = erlang:fun_info(F, module),
+                           {module, call_purged_fun} = erlang:fun_info(F, module),
                            {name, Name} = erlang:fun_info(F, name),
                            true = is_atom(Name),
                            {arity, 1} = erlang:fun_info(F, arity)
                    end,
 
-    true = erlang:delete_module(my_code_test2),
+    true = erlang:delete_module(call_purged_fun),
+
+    case Type of
+        code_altered -> 
+            AlteredFile = filename:join(Data, "call_purged_fun_altered.erl"),
+            {ok,call_purged_fun,AlteredBin} =
+                compile:file(AlteredFile, [no_error_module_mismatch,
+                                           binary | Opts]),
+            code:load_binary(call_purged_fun, AlteredFile, AlteredBin);
+        _ ->
+            ok
+    end,
 
     ok = receive {P0, "going to sleep"} -> ok
 	 after 1000 -> timeout
 	 end,
 
-    Purge = start_purge(my_code_test2, PurgeType),
+    Purge = start_purge(call_purged_fun, PurgeType),
 
     {P1, M1} = spawn_monitor(fun () ->
                                      [{my_fun,F}] = ets:lookup(T, my_fun),
@@ -129,13 +142,17 @@ do_it(Priv, Data, Type, Opts) ->
             {undef, _} = wait_for_down(P1,M1),
             {undef, _} = wait_for_down(P2,M2),
             {undef, _} = wait_for_down(P3,M3);
+	code_altered ->
+            {{badfun, _}, _} = wait_for_down(P1,M1),
+            {{badfun, _}, _} = wait_for_down(P2,M2),
+            {{badfun, _}, _} = wait_for_down(P3,M3);
 	_ ->
             completed = wait_for_down(P1,M1),
             completed = wait_for_down(P2,M2),
             completed = wait_for_down(P3,M3),
-	    catch erlang:purge_module(my_code_test2),
-	    catch erlang:delete_module(my_code_test2),
-	    catch erlang:purge_module(my_code_test2)
+	    catch erlang:purge_module(call_purged_fun),
+	    catch erlang:delete_module(call_purged_fun),
+	    catch erlang:purge_module(call_purged_fun)
     end,
     ok.
 

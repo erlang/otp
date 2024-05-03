@@ -8,4 +8,6 @@
   (see section Distributed Erlang in the Erlang Reference Manual
   in System Documentation).
 
+  You can get this value using [;;4mget_cookie/1[0m.
+
   Failure: [;;4mfunction_clause[0m if the local node is not alive.

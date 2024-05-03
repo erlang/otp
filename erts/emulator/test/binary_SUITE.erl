@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@
 	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, float_middle_endian/1,
          b2t_used_big/1, t2b_deterministic/1,
+         t2b_minor_version/1,
 	 external_size/1, t_iolist_size/1,
          t_iolist_size_huge_list/1,
          t_iolist_size_huge_bad_arg_list/1,
@@ -76,7 +77,8 @@
 	 error_after_yield/1, cmp_old_impl/1,
          t2b_system_limit/1,
          term_to_iovec/1,
-         is_binary_test/1]).
+         is_binary_test/1,
+         local_ext/1]).
 
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
@@ -93,6 +95,7 @@ all() ->
      t_iolist_size_huge_bad_arg_list,
      {group, iolist_size_benchmarks},
      b2t_used_big, t2b_deterministic,
+     t2b_minor_version,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
@@ -104,7 +107,8 @@ all() ->
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
      robustness, otp_8180, trapping, large,
      error_after_yield, cmp_old_impl,
-     is_binary_test].
+     is_binary_test,
+     local_ext].
 
 groups() -> 
     [
@@ -151,6 +155,15 @@ end_per_testcase(_Func, _Config) ->
     ok.
 
 -define(heap_binary_size, 64).
+
+-define(MAP_EXT, 116).
+-define(SMALL_INTEGER_EXT, 97).
+-define(SMALL_ATOM_UTF8_EXT, 119).
+-define(ATOM_EXT, 100).
+-define(NIL, 106).
+-define(MAP_SMALL_MAP_LIMIT, 32).
+-define(FLOAT_EXT, 99).
+-define(NEW_FLOAT_EXT, 70).
 
 copy_terms(Config) when is_list(Config) ->
     Self = self(),
@@ -688,6 +701,53 @@ float_middle_endian(Config) when is_list(Config) ->
     <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
     1.0 = binary_to_term_stress(<<131,70,63,240,0,0,0,0,0,0>>).
 
+t2b_minor_version(_Config) ->
+    Umlaut = "ätöm",
+    UmlautLatin1 = unicode:characters_to_binary(Umlaut, latin1, latin1),
+    UmlautUtf8   = unicode:characters_to_binary(Umlaut, latin1, utf8),
+    UmlautAtom = binary_to_atom(UmlautLatin1, latin1),
+    UmlautAtom = binary_to_atom(UmlautUtf8, utf8),
+    ExoticBin = <<"こんにちは"/utf8>>,
+    ExoticAtom = binary_to_atom(ExoticBin, utf8),
+
+    <<131, ?SMALL_ATOM_UTF8_EXT, 4, "atom">> = term_to_binary(atom),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 6, UmlautUtf8/binary>> =
+        term_to_binary(UmlautAtom),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom),
+
+    <<131, ?SMALL_ATOM_UTF8_EXT, 4, "atom">> =
+        term_to_binary(atom, [{minor_version,2}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 6, UmlautUtf8/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,2}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,2}]),
+
+    <<131, ?ATOM_EXT, 4:16, "atom">> =
+        term_to_binary(atom, [{minor_version,1}]),
+    <<131, ?ATOM_EXT, 4:16, UmlautLatin1/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,1}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,1}]),
+
+    <<131, ?ATOM_EXT, 4:16, "atom">> =
+        term_to_binary(atom, [{minor_version,0}]),
+    <<131, ?ATOM_EXT, 4:16, UmlautLatin1/binary>> =
+        term_to_binary(UmlautAtom, [{minor_version,0}]),
+    <<131, ?SMALL_ATOM_UTF8_EXT, 15, ExoticBin/binary>> =
+        term_to_binary(ExoticAtom, [{minor_version,0}]),
+
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14),
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14, [{minor_version, 2}]),
+    <<131,?NEW_FLOAT_EXT,64,9,30,184,81,235,133,31>> =
+        term_to_binary(3.14, [{minor_version, 1}]),
+    <<131,?FLOAT_EXT,FloatStr:31/binary>> =
+        term_to_binary(3.14, [{minor_version, 0}]),
+    3.14 = binary_to_float(FloatStr),
+    ok.
+
 %% Test term_to_binary(Term, [deterministic]).
 t2b_deterministic(_Config) ->
     _ = rand:uniform(),				%Seed generator
@@ -1108,10 +1168,6 @@ bad_bin_to_term(BadBin) ->
 bad_bin_to_term(BadBin,Opts) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
--define(MAP_EXT, 116).
--define(SMALL_INTEGER_EXT, 97).
--define(NIL, 106).
--define(MAP_SMALL_MAP_LIMIT, 32).
 
 %% OTP-18343: Decode unsorted flatmap as key in hashmap
 unsorted_map_in_map(Config) when is_list(Config) ->
@@ -1510,9 +1566,7 @@ ordering(Config) when is_list(Config) ->
     true = B1 > fun() -> 1 end,
     true = B1 > fun erlang:send/2,
 
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
+    Port = hd(erlang:ports()),
     true = B1 > Port,
 
     true = B1 >= 0,
@@ -1731,7 +1785,10 @@ gc_test(Config) when is_list(Config) ->
 		gc(),
 		{binary,L1} = process_info(self(), binary),
 		[Binfo1,Binfo2,Binfo3] = L1,
-		{_,192,3} = Binfo1 = Binfo2 = Binfo3,
+		{_,192,Refc} = Binfo1 = Binfo2 = Binfo3,
+                %% This is usually 3 but sharing-preserving can bring this down
+                %% to 2, and in theory even 1.
+                true = Refc =< 3,
 		192 = size(B),
 		68 = size(B1),
 		124 = size(B2),
@@ -1754,11 +1811,14 @@ gc_test1(Pid) ->
 %% Like split binary, but returns REFC binaries. Only useful for gc_test/1.
 
 my_split_binary(B, Pos) ->
-    Self = self(),
-    Ref = make_ref(),
-    spawn(fun() -> Self ! {Ref,split_binary(B, Pos)} end),
+    %% Make sure that all references on the faraway process side are cleaned
+    %% up by receiving the response in a monitor down and waiting "long enough"
+    %% for it to have terminated.
+    {Pid, Mon} = spawn_monitor(fun() -> exit(split_binary(B, Pos)) end),
     receive
-	{Ref,Result} -> Result
+        {'DOWN', Mon, process, Pid, Result} ->
+            timer:sleep(1000),
+            Result
     end.
 
 gc() ->
@@ -1914,7 +1974,7 @@ large(Config) when is_list(Config) ->
     ok.
 
 error_after_yield(Config) when is_list(Config) ->
-    L2BTrap = {erts_internal, list_to_binary_continue, 1},
+    L2BTrap = {erts_internal, list_to_bitstring_continue, 1},
     error_after_yield(badarg, erlang, list_to_binary, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, iolist_to_binary, 1, fun () -> [[list2iolist(mk_list(1000000)), oops]] end, L2BTrap),
     error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
@@ -2294,3 +2354,177 @@ list2bitstrlist([X0, X1, X2, X3, X4, X5 | Xs], Acc) when is_integer(X0), 0 =< X0
     list2bitstrlist(Xs, NewAcc);
 list2bitstrlist([X | Xs], Acc) ->
     list2bitstrlist(Xs, [Acc,X]).
+
+local_ext(Config) when is_list(Config) ->
+    SDrv = send_term_local_drv,
+    CDrv = call_local_drv,
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileName = filename:join(PrivDir, "local_ext.data"),
+    Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
+            "-pa", filename:dirname(code:which(?MODULE))],
+    {ok, Peer1, _} = peer:start_link(#{connection => 0, args => Args}),
+    {ok, Peer2, _} = peer:start_link(#{connection => 0, args => Args}),
+    LongNames = net_kernel:longnames(),
+    DynStartOpts = #{name_domain => if LongNames -> longnames;
+                                       true -> shortnames
+                                    end},
+    ExternalPid = self(),
+    ExternalRef = make_ref(),
+    ExternalPort = hd(erlang:ports()),
+    EncDecLocal = fun () ->
+                          erl_ddll:start(),
+                          ok = erl_ddll:load_driver(DataDir, SDrv),
+                          SPort = open_port({spawn, SDrv}, []),
+                          ok = erl_ddll:load_driver(DataDir, CDrv),
+                          CPort = open_port({spawn, CDrv}, []),
+                          false = erlang:is_alive(),
+                          nonode@nohost = node(),
+                          LocalPid = self(),
+                          LocalRef = make_ref(),
+                          LocalPort = hd(erlang:ports()),
+                          Bin1 = <<4711:800>>,
+                          Bin2 = <<4711:703>>,
+                          Bin3 = <<4711:600>>,
+                          Terms = [
+                                   LocalPid,
+                                   ExternalPid,
+                                   LocalRef,
+                                   ExternalRef,
+                                   LocalPort,
+                                   ExternalPort,
+                                   [LocalPid, Bin1, ExternalPid, LocalRef, Bin2,
+                                    ExternalRef, Bin3, Bin2, LocalPort,
+                                    ExternalPort],
+                                   "hej",
+                                   [],
+                                   {processes(), Bin3, erlang:ports(), Bin3},
+                                   #{pid => LocalPid, ref => LocalRef, port => LocalPort}
+                                  ],
+                          {ok, FD} = file:open(FileName, [write]),
+                          ETs = lists:map(fun (Term) ->
+                                                  {enc_local(FD, Term), Term}
+                                          end, Terms),
+                          ok = file:close(FD),
+                          CheckET = fun ({LExt, Term}) ->
+                                            Term = binary_to_term(LExt),
+                                            SPort ! {self(), {command, LExt}},
+                                            receive
+                                                {SPort, Reply} ->
+                                                    Term = Reply
+                                            end
+                                    end,
+                          lists:foreach(CheckET, ETs),
+                          call_local_success(CPort, ETs),
+                          NodeName = peer:random_name(),
+                          {ok, _} = net_kernel:start(list_to_atom(NodeName),
+                                                     DynStartOpts),
+                          true = erlang:is_alive(),
+                          true = nonode@nohost /= node(),
+                          lists:foreach(CheckET, ETs),
+                          call_local_success(CPort, ETs),
+                          ok = net_kernel:stop(),
+                          false = erlang:is_alive(),
+                          nonode@nohost = node(),
+                          lists:foreach(CheckET, ETs),
+                          call_local_success(CPort, ETs),
+                          {ok, ExtList} = file:consult(FileName),
+                          lists:foreach(fun (Ext) when is_binary(Ext) ->
+                                                _ = binary_to_term(Ext),
+                                                SPort ! {self(), {command, Ext}},
+                                                receive
+                                                    {SPort, "bad_term_error"} ->
+                                                        error(bad_term_error);
+                                                    {SPort, _} ->
+                                                        ok
+                                                end
+                                        end,
+                                        ExtList),
+                          true = port_close(SPort),
+                          true = port_close(CPort),
+                          ok
+                  end,
+    ok = peer:call(Peer1, erlang, apply, [EncDecLocal, []]),
+    DecOthersLocal = fun () ->
+                             %% Verify that decoding of the terms encoded
+                             %% on local external format by the other runtime
+                             %% system instance fails on this runtime system
+                             %% instance...
+                             erl_ddll:start(),
+                             ok = erl_ddll:load_driver(DataDir, SDrv),
+                             SPort = open_port({spawn, SDrv}, []),
+                             ok = erl_ddll:load_driver(DataDir, CDrv),
+                             CPort = open_port({spawn, CDrv}, []),
+                             false = erlang:is_alive(),
+                             nonode@nohost = node(),
+                             {ok, ExtList} = file:consult(FileName),
+                             lists:foreach(fun (Ext) when is_binary(Ext) ->
+                                                   try
+                                                       Term = binary_to_term(Ext),
+                                                       error({successful_decode, Term})
+                                                   catch
+                                                       error:badarg ->
+                                                           ok
+                                                   end,
+                                                   SPort ! {self(), {command, Ext}},
+                                                   receive
+                                                       {SPort, Reply} ->
+                                                           "bad_term_error" = Reply
+                                                   end
+                                           end,
+                                           ExtList),
+                             call_local_fail(CPort, ExtList),
+                             true = port_close(SPort),
+                             true = port_close(CPort),
+                             ok
+                     end,
+    ok = peer:call(Peer2, erlang, apply, [DecOthersLocal, []]),
+    peer:stop(Peer1),
+    peer:stop(Peer2),
+    ok.
+
+enc_local(FD, Term) ->
+    Ext = term_to_binary(Term, [local]),
+    Ext = iolist_to_binary(term_to_iovec(Term, [local])),
+    Term = binary_to_term(Ext),
+    io:format(FD, "~p.~n", [Ext]),
+    Ext.
+
+call_local_success(Port, []) ->
+    ok;
+call_local_success(Port, [{Lext1, T1}]) ->
+    Me = self(),
+    Ref = make_ref(),
+    Term =  {term_to_binary(Me), Lext1, term_to_binary(Ref)},
+    {call_result, Me, 4711, T1, 17, Ref, "end_of_data"} = erlang:port_call(Port, 0, Term),
+    ok;
+call_local_success(Port, [{Lext1, T1}, {Lext3, T3} | Rest]) ->
+    Me = self(),
+    Term =  {Lext1, term_to_binary(Me), Lext3},
+    {call_result, T1, 4711, Me, 17, T3, "end_of_data"} = erlang:port_call(Port, 0, Term),
+    call_local_success(Port, Rest).
+
+call_local_fail(Port, []) ->
+    ok;
+call_local_fail(Port, [Lext1]) ->
+    Me = self(),
+    Ref = make_ref(),
+    Term =  {term_to_binary(Me), Lext1, term_to_binary(Ref)},
+    try
+        erlang:port_call(Port, 0, Term),
+        error(unexpected_port_call_success)
+    catch
+        error:badarg ->
+            ok
+    end;
+call_local_fail(Port, [Lext1, Lext3 | Rest]) ->
+    Me = self(),
+    Term =  {Lext1, term_to_binary(Me), Lext3},
+    try
+        erlang:port_call(Port, 0, Term),
+        error(unexpected_port_call_success)
+    catch
+        error:badarg ->
+            ok
+    end,
+    call_local_fail(Port, Rest).

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,10 +82,24 @@ struct LoaderState_ {
     unsigned int current_li; /* Current line instruction */
     unsigned int *func_line; /* Mapping from function to first line instr */
 
+    /*
+     * Coverage tables used during loading.
+     */
+    void *coverage;
+    byte *line_coverage_valid;
+    unsigned int current_index;
+    unsigned int *loc_index_to_cover_id;
+
+    /* Translates lambda indexes to the literal holding their FunRef.
+     *
+     * Lambdas that lack an environment are represented by an ErlFunThing that
+     * is immediately followed by an FunRef. */
+    SWord *fun_refs;
+
     void *ba; /* Assembler used to create x86 assembly */
 
-    const void *native_module_exec; /* Native module after codegen */
-    void *native_module_rw; /* Native module after codegen, writable mapping */
+    const void *executable_region; /* Native module after codegen */
+    void *writable_region; /* Native module after codegen, writable mapping */
 
     int function_number;
     int last_label;

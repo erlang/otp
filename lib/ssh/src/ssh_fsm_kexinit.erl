@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %% ----------------------------------------------------------------------
 
 -module(ssh_fsm_kexinit).
+-moduledoc false.
 
 -include("ssh.hrl").
 -include("ssh_transport.hrl").
@@ -58,7 +59,7 @@ callback_mode() ->
 handle_event(internal, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
 	     D = #data{key_exchange_init_msg = OwnKex}) ->
     Ssh1 = ssh_transport:key_init(peer_role(Role), D#data.ssh_params, Payload),
-    Ssh = case ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1) of
+    Ssh = case ssh_transport:handle_kexinit_msg(Kex, OwnKex, Ssh1, ReNeg) of
 	      {ok, NextKexMsg, Ssh2} when Role==client ->
 		  ssh_connection_handler:send_bytes(NextKexMsg, D),
 		  Ssh2;

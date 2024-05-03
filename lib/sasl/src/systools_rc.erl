@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_rc).
+-moduledoc false.
 -export([translate_scripts/3, translate_scripts/4, format_error/1]).
 
 -include("systools.hrl").
@@ -426,7 +427,7 @@ translate_dependent_instrs(Mode, Before, After, Appls) ->
     {Before ++ NBefore, NAfter}.
 
 translate_dep_loop(G, WCs, [I| Is], Appls, Before, After, Mode) 
-  when is_tuple(I), size(I) > 1 ->
+  when tuple_size(I) > 1 ->
     IName = element(1, I),
     case lists:member(IName, ?DEP_INSTRS) of 
 	true ->
@@ -465,7 +466,7 @@ make_dependency_graph(Instructions) ->
     {VDs, _} = lists:mapfoldl(
 			     fun(I, N) ->
 				     Mod = element(2, I),
-				     Mods = element(size(I), I),
+				     Mods = element(tuple_size(I), I),
 				     {{Mod, Mods, {N, I}}, N+1}
 			     end, 1, DepIs),
     G = digraph:new(),

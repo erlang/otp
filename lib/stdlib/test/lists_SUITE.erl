@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,22 +39,20 @@
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
 	 dropwhile/1, takewhile/1,
-	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
-	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
+	 sort_1/1, merge/1, rmerge/1, sort_rand/1,
+	 usort_1/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
-	 keysort_1/1, keysort_i/1, keysort_stable/1,
+	 keysort_1/1, keysort_i/1,
 	 keysort_rand/1, keysort_error/1,
 	 ukeymerge/1, rukeymerge/1,
-	 ukeysort_1/1, ukeysort_i/1, ukeysort_stable/1,
+	 ukeysort_1/1, ukeysort_i/1,
 	 ukeysort_rand/1, ukeysort_error/1,
-	 funmerge/1, rfunmerge/1,
-	 funsort_1/1, funsort_stable/1, funsort_rand/1,
-	 funsort_error/1,
-	 ufunmerge/1, rufunmerge/1,
-	 ufunsort_1/1, ufunsort_stable/1, ufunsort_rand/1,
-	 ufunsort_error/1,
 	 uniq_1/1, uniq_2/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
+	 zip_fail/1, zip_trim/1, zip_pad/1,
+	 zip3_fail/1, zip3_trim/1, zip3_pad/1,
+	 zipwith_fail/1, zipwith_trim/1, zipwith_pad/1,
+	 zipwith3_fail/1, zipwith3_trim/1, zipwith3_pad/1,
 	 filter_partition/1, 
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
@@ -68,9 +66,6 @@
 %% both sort_loop/0 and sort_loop/1 with a small argument (30-50 say).
 
 -export([sort_loop/0, sort_loop/1, sloop/1]).
-
-%% Internal export.
--export([make_fun/1]).
 
 %%
 %% all/1
@@ -87,8 +82,6 @@ all() ->
      {group, keysort},
      {group, ukeysort},
      {group, uniq},
-     {group, funsort},
-     {group, ufunsort},
      {group, sublist},
      {group, flatten},
      {group, seq},
@@ -99,29 +92,27 @@ all() ->
 groups() -> 
     [{append, [parallel], [append_1, append_2]},
      {usort, [parallel],
-      [umerge, rumerge, usort_1, usort_rand, usort_stable]},
+      [umerge, rumerge, usort_1, usort_rand]},
      {keysort, [parallel],
       [keymerge, rkeymerge, keysort_1, keysort_rand,
-       keysort_i, keysort_stable, keysort_error]},
+       keysort_i, keysort_error]},
      {key, [parallel], [keymember, keysearch_keyfind, keystore,
 			keytake, keyreplace]},
      {sort,[parallel],[merge, rmerge, sort_1, sort_rand]},
      {ukeysort, [parallel],
       [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
-       ukeysort_i, ukeysort_stable, ukeysort_error]},
-     {funsort, [parallel],
-      [funmerge, rfunmerge, funsort_1, funsort_stable,
-       funsort_error, funsort_rand]},
-     {ufunsort, [parallel],
-      [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
-       ufunsort_error, ufunsort_rand]},
+       ukeysort_i, ukeysort_error]},
      {seq, [parallel], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
      {sublist, [parallel],
       [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
      {flatten, [parallel],
       [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
      {tickets, [parallel], [otp_5939, otp_6023, otp_6606, otp_7230]},
-     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3]},
+     {zip, [parallel], [zip_unzip, zip_unzip3, zipwith, zipwith3,
+			zip_fail, zip_trim, zip_pad,
+		        zip3_fail, zip3_trim, zip3_pad,
+		        zipwith_fail, zipwith_trim, zipwith_pad,
+		        zipwith3_fail, zipwith3_trim, zipwith3_pad]},
      {uniq, [parallel], [uniq_1, uniq_2]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
@@ -433,6 +424,8 @@ keyreplace(Config) when is_list(Config) ->
 
 merge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
+
     %% merge list of lists
     [] = lists:merge([]),
     [] = lists:merge([[]]),
@@ -455,6 +448,33 @@ merge(Config) when is_list(Config) ->
     Seq = lists:seq(1,100),
     true = Seq == lists:merge(lists:map(fun(E) -> [E] end, Seq)),
 
+    true = erts_debug:same(Singleton, lists:merge([Singleton])),
+    true = erts_debug:same(Singleton, lists:merge([Singleton, []])),
+    true = erts_debug:same(Singleton, lists:merge([[], Singleton])),
+    true = erts_debug:same(Singleton, lists:merge([Singleton, [], []])),
+    true = erts_debug:same(Singleton, lists:merge([[], Singleton, []])),
+    true = erts_debug:same(Singleton, lists:merge([[], [], Singleton])),
+
+    {'EXIT', _} = (catch lists:merge([a])),
+    {'EXIT', _} = (catch lists:merge([a, b])),
+    {'EXIT', _} = (catch lists:merge([a, []])),
+    {'EXIT', _} = (catch lists:merge([[], b])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b])),
+    {'EXIT', _} = (catch lists:merge([a, b, c])),
+    {'EXIT', _} = (catch lists:merge([a, b, []])),
+    {'EXIT', _} = (catch lists:merge([a, [], c])),
+    {'EXIT', _} = (catch lists:merge([a, [], []])),
+    {'EXIT', _} = (catch lists:merge([[], b, c])),
+    {'EXIT', _} = (catch lists:merge([[], b, []])),
+    {'EXIT', _} = (catch lists:merge([[], [], c])),
+    {'EXIT', _} = (catch lists:merge([a, b, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], c])),
+    {'EXIT', _} = (catch lists:merge([a, [1, 2, 3], [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, c])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], b, [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:merge([[1, 2, 3], [4, 5, 6], c])),
+
     Two = [1,2],
     Six = [1,2,3,4,5,6],
 
@@ -474,6 +494,15 @@ merge(Config) when is_list(Config) ->
     [1,2,3,4,5,7] = lists:merge([2,4], [1,3,5,7]),
     [1,2,3,4,5,6,7] = lists:merge([2,4,6], [1,3,5,7]),
 
+    true = erts_debug:same(Singleton, lists:merge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:merge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:merge(a, b)),
+    {'EXIT', _} = (catch lists:merge(a, [])),
+    {'EXIT', _} = (catch lists:merge([], b)),
+    {'EXIT', _} = (catch lists:merge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:merge([1, 2, 3], b)),
+
     %% 3-way merge
     [] = lists:merge3([], [], []),
     Two = lists:merge3([], [], Two),
@@ -490,11 +519,28 @@ merge(Config) when is_list(Config) ->
     Nine = lists:merge3([7,8,9],[4,5,6],[1,2,3]),
     Nine = lists:merge3([4,5,6],[7,8,9],[1,2,3]),
 
+    true = erts_debug:same(Singleton, lists:merge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:merge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:merge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:merge3(a, b, c)),
+    {'EXIT', _} = (catch lists:merge3(a, b, [])),
+    {'EXIT', _} = (catch lists:merge3(a, [], c)),
+    {'EXIT', _} = (catch lists:merge3(a, [], [])),
+    {'EXIT', _} = (catch lists:merge3([], b, [])),
+    {'EXIT', _} = (catch lists:merge3([], [], c)),
+    {'EXIT', _} = (catch lists:merge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:merge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:merge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:merge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 %% reverse merge functions
 rmerge(Config) when is_list(Config) ->
 
+    Singleton = id([a, b, c]),
     Two = [2,1],
     Six = [6,5,4,3,2,1],
 
@@ -514,6 +560,15 @@ rmerge(Config) when is_list(Config) ->
     [7,5,4,3,2,1] = lists:rmerge([4,2], [7,5,3,1]),
     [7,6,5,4,3,2,1] = lists:rmerge([6,4,2], [7,5,3,1]),
 
+    true = erts_debug:same(Singleton, lists:rmerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:rmerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:rmerge(a, b)),
+    {'EXIT', _} = (catch lists:rmerge(a, [])),
+    {'EXIT', _} = (catch lists:rmerge([], b)),
+    {'EXIT', _} = (catch lists:rmerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rmerge([1, 2, 3], b)),
+
     Nine = [9,8,7,6,5,4,3,2,1],
 
     %% 3-way reversed merge
@@ -531,6 +586,22 @@ rmerge(Config) when is_list(Config) ->
     Nine = lists:rmerge3([3,2,1],[6,5,4],[9,8,7]),
     Nine = lists:rmerge3([9,8,7],[6,5,4],[3,2,1]),
     Nine = lists:rmerge3([6,5,4],[9,8,7],[3,2,1]),
+
+    true = erts_debug:same(Singleton, lists:rmerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:rmerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rmerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:rmerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:rmerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:rmerge3([], b, [])),
+    {'EXIT', _} = (catch lists:rmerge3([], [], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:rmerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rmerge3([1, 2, 3], [4, 5, 6], c)),
 
     ok.
 
@@ -559,21 +630,6 @@ sort_rand(Config) when is_list(Config) ->
     ok = check(biglist(10000)),
     ok.
 
-%% sort/1 was really stable for a while - the order of equal elements
-%% was kept - but since the performance suffered a bit, this "feature"
-%% was removed.
-
-%% sort/1 should be stable for equal terms.
-sort_stable(Config) when is_list(Config) ->
-    ok = check_stability(bigfunlist(10)),
-    ok = check_stability(bigfunlist(100)),
-    ok = check_stability(bigfunlist(1000)),
-    case erlang:system_info(modified_timing_level) of
-	undefined -> ok = check_stability(bigfunlist(10000));
-	_ -> ok
-    end,
-    ok.
-
 check([]) ->
     ok;
 check(L) ->
@@ -592,23 +648,6 @@ check(A, [B | L]) when A =< B ->
     check(B, L);
 check(_A, _L) ->
     no.
-
-%% The check that sort/1 is stable is no longer used.
-%% Equal elements are no longer always kept in order.
-check_stability(L) ->
-    S = lists:sort(L),
-    LP = explicit_pid(L),
-    SP = explicit_pid(S),
-    check_sorted(1, 2, LP, SP).
-
-explicit_pid(L) ->
-    lists:reverse(expl_pid(L, [])).
-
-expl_pid([{I,F} | T], L) when is_function(F) ->
-    expl_pid(T, [{I,fun_pid(F)} | L]);
-expl_pid([], L) ->
-    L.
-
 
 usort_1(Conf) when is_list(Conf) ->
     [] = lists:usort([]),
@@ -632,6 +671,8 @@ usort_1(Conf) when is_list(Conf) ->
     ok.
 
 umerge(Conf) when is_list(Conf) ->
+    Singleton = id([a, b, c]),
+
     %% merge list of lists
     [] = lists:umerge([]),
     [] = lists:umerge([[]]),
@@ -654,6 +695,33 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,4,6,8] = lists:umerge([[1,2],[2,4,6,8]]),
     Seq = lists:seq(1,100),
     true = Seq == lists:umerge(lists:map(fun(E) -> [E] end, Seq)),
+
+    true = erts_debug:same(Singleton, lists:umerge([Singleton])),
+    true = erts_debug:same(Singleton, lists:umerge([Singleton, []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], Singleton])),
+    true = erts_debug:same(Singleton, lists:umerge([Singleton, [], []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], Singleton, []])),
+    true = erts_debug:same(Singleton, lists:umerge([[], [], Singleton])),
+
+    {'EXIT', _} = (catch lists:umerge([a])),
+    {'EXIT', _} = (catch lists:umerge([a, b])),
+    {'EXIT', _} = (catch lists:umerge([a, []])),
+    {'EXIT', _} = (catch lists:umerge([[], b])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b])),
+    {'EXIT', _} = (catch lists:umerge([a, b, c])),
+    {'EXIT', _} = (catch lists:umerge([a, b, []])),
+    {'EXIT', _} = (catch lists:umerge([a, [], c])),
+    {'EXIT', _} = (catch lists:umerge([a, [], []])),
+    {'EXIT', _} = (catch lists:umerge([[], b, c])),
+    {'EXIT', _} = (catch lists:umerge([[], b, []])),
+    {'EXIT', _} = (catch lists:umerge([[], [], c])),
+    {'EXIT', _} = (catch lists:umerge([a, b, [1, 2, 3]])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], c])),
+    {'EXIT', _} = (catch lists:umerge([a, [1, 2, 3], [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, c])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], b, [4, 5, 6]])),
+    {'EXIT', _} = (catch lists:umerge([[1, 2, 3], [4, 5, 6], c])),
 
     Two = [1,2],
     Six = [1,2,3,4,5,6],
@@ -681,6 +749,15 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,3,4,5,7] = lists:umerge([2,4], [1,2,3,4,5,7]),
     [1,2,3,4,5,6,7] = lists:umerge([2,4,6], [1,2,3,4,5,6,7]),
 
+    true = erts_debug:same(Singleton, lists:umerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:umerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:umerge(a, b)),
+    {'EXIT', _} = (catch lists:umerge(a, [])),
+    {'EXIT', _} = (catch lists:umerge([], b)),
+    {'EXIT', _} = (catch lists:umerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:umerge([1, 2, 3], b)),
+
     %% 3-way unique merge
     [] = lists:umerge3([], [], []),
     Two = lists:umerge3([], [], Two),
@@ -702,9 +779,27 @@ umerge(Conf) when is_list(Conf) ->
     [1,2,3] = lists:umerge3([1,2,3],[2,3],[1,2,3]),
     [1,2,3,4] = lists:umerge3([2,3,4],[3,4],[1,2,3]),
 
+    true = erts_debug:same(Singleton, lists:umerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:umerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:umerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:umerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:umerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:umerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:umerge3([], b, [])),
+    {'EXIT', _} = (catch lists:umerge3([], [], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:umerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:umerge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 rumerge(Conf) when is_list(Conf) ->
+    Singleton = id([a, b, c]),
+
     Two = [2,1],
     Six = [6,5,4,3,2,1],
 
@@ -730,6 +825,15 @@ rumerge(Conf) when is_list(Conf) ->
     [7,5,3,2,1] = lists:rumerge([2], [7,5,3,2,1]),
     [7,5,4,3,2,1] = lists:rumerge([4,2], [7,5,4,3,2,1]),
     [7,6,5,4,3,2,1] = lists:rumerge([6,4,2], [7,6,5,4,3,2,1]),
+
+    true = erts_debug:same(Singleton, lists:rumerge([], Singleton)),
+    true = erts_debug:same(Singleton, lists:rumerge(Singleton, [])),
+
+    {'EXIT', _} = (catch lists:rumerge(a, b)),
+    {'EXIT', _} = (catch lists:rumerge(a, [])),
+    {'EXIT', _} = (catch lists:rumerge([], b)),
+    {'EXIT', _} = (catch lists:rumerge(a, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rumerge([1, 2, 3], b)),
 
     Nine = [9,8,7,6,5,4,3,2,1],
 
@@ -759,6 +863,23 @@ rumerge(Conf) when is_list(Conf) ->
     true =
 	lists:umerge(L1, L2) == 
 	lists:reverse(lists:rumerge(lists:reverse(L1), lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rumerge3([], [], Singleton)),
+    true = erts_debug:same(Singleton, lists:rumerge3([], Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rumerge3(Singleton, [], [])),
+
+    {'EXIT', _} = (catch lists:rumerge3(a, b, c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, b, [])),
+    {'EXIT', _} = (catch lists:rumerge3(a, [], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, [], [])),
+    {'EXIT', _} = (catch lists:rumerge3([], b, [])),
+    {'EXIT', _} = (catch lists:rumerge3([], [], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, b, [1, 2, 3])),
+    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], c)),
+    {'EXIT', _} = (catch lists:rumerge3(a, [1, 2, 3], [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], b, [4, 5, 6])),
+    {'EXIT', _} = (catch lists:rumerge3([1, 2, 3], [4, 5, 6], c)),
+
     ok.
 
 %% usort/1 on big randomized lists.
@@ -772,18 +893,6 @@ usort_rand(Config) when is_list(Config) ->
     ok = ucheck(ubiglist(100)),
     ok = ucheck(ubiglist(1000)),
     ok = ucheck(ubiglist(10000)),
-    ok.
-
-%% usort/1 should keep the first duplicate.
-usort_stable(Config) when is_list(Config) ->
-    ok = ucheck_stability(bigfunlist(3)),
-    ok = ucheck_stability(bigfunlist(10)),
-    ok = ucheck_stability(bigfunlist(100)),
-    ok = ucheck_stability(bigfunlist(1000)),
-    case erlang:system_info(modified_timing_level) of
-	undefined -> ok = ucheck_stability(bigfunlist(10000));
-	_ -> ok
-    end,
     ok.
 
 ucheck([]) ->
@@ -805,16 +914,10 @@ ucheck(A, [B | L]) when A < B ->
 ucheck(_A, _L) ->
     no.
 
-%% Check that usort/1 is stable and correct relative ukeysort/2.
-ucheck_stability(L) ->
-    S = no_dups(lsort(L)),
-    U = lists:usort(L),
-    check_stab(L, U, S, "usort/1", "ukeysort/2").
-
-
 %% Key merge two lists.
 keymerge(Config) when is_list(Config) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{1,a},{2,b}],
     Six = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f}],
 
@@ -843,11 +946,21 @@ keymerge(Config) when is_list(Config) ->
     [{b,2},{c,11},{c,12},{c,21},{c,22},{e,5}] =
 	lists:keymerge(1,[{c,11},{c,12},{e,5}], [{b,2},{c,21},{c,22}]),
 
+    true = erts_debug:same(Singleton, lists:keymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:keymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:keymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:keymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:keymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:keymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:keymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+
     ok.
 
 %% Reverse key merge two lists.
 rkeymerge(Config) when is_list(Config) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{2,b},{1,a}],
     Six = [{6,f},{5,e},{4,d},{3,c},{2,b},{1,a}],
 
@@ -879,6 +992,15 @@ rkeymerge(Config) when is_list(Config) ->
 	lists:keymerge(1, L1, L2) == 
 	lists:reverse(lists:rkeymerge(1,lists:reverse(L1), 
 				      lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rkeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rkeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:rkeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:rkeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:rkeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -913,18 +1035,6 @@ keysort_1(Config) when is_list(Config) ->
     L4 = [{a,1},{a,1},{b,2},{b,2},{c,3},{d,4},{e,5},{f,6}],
     lists:foreach(SFun(L4), perms(L4)),
 
-    ok.
-
-%% keysort should be stable
-keysort_stable(Config) when is_list(Config) ->
-    ok = keysort_check(1, [{1,b},{1,c}], [{1,b},{1,c}]),
-    ok = keysort_check(1, [{1,c},{1,b}], [{1,c},{1,b}]),
-    ok = keysort_check(1,
-		       [{1,c},{1,b},{2,x},{3,p},{2,a}],
-		       [{1,c},{1,b},{2,x},{2,a},{3,p}]),
-    ok = keysort_check(1,
-		       [{1,a},{1,b},{1,a},{1,a}],
-		       [{1,a},{1,b},{1,a},{1,a}]),
     ok.
 
 %% keysort should exit when given bad arguments
@@ -998,6 +1108,7 @@ keycompare(I, J, A, B) when element(I, A) == element(I, B),
 %% Merge two lists while removing duplicates.
 ukeymerge(Conf) when is_list(Conf) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{1,a},{2,b}],
     Six = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f}],
 
@@ -1047,11 +1158,21 @@ ukeymerge(Conf) when is_list(Conf) ->
     L2 = [{b,1},{b,3},{b,5},{b,7}],
     L1 = lists:ukeymerge(2, L1, L2),
 
+    true = erts_debug:same(Singleton, lists:ukeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:ukeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:ukeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:ukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:ukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
+
     ok.
 
 %% Reverse merge two lists while removing duplicates.
 rukeymerge(Conf) when is_list(Conf) ->
 
+    Singleton = id([{1, a}, {2, b}, {3, c}]),
     Two = [{2,b},{1,a}],
     Six = [{6,f},{5,e},{4,d},{3,c},{2,b},{1,a}],
 
@@ -1100,6 +1221,15 @@ rukeymerge(Conf) when is_list(Conf) ->
 	lists:ukeymerge(2, L1, L2) == 
 	lists:reverse(lists:rukeymerge(2, lists:reverse(L1), 
 				       lists:reverse(L2))),
+
+    true = erts_debug:same(Singleton, lists:rukeymerge(1, Singleton, [])),
+    true = erts_debug:same(Singleton, lists:rukeymerge(1, [], Singleton)),
+
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, b)),
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, [])),
+    {'EXIT', _} = (catch lists:rukeymerge(1, [], b)),
+    {'EXIT', _} = (catch lists:rukeymerge(1, a, [{1, a}, {2, b}, {3, c}])),
+    {'EXIT', _} = (catch lists:rukeymerge(1, [{1, a}, {2, b}, {3, c}], b)),
 
     ok.
 
@@ -1163,27 +1293,6 @@ ukeysort_1(Config) when is_list(Config) ->
 
     ok.
 
-%% ukeysort should keep the first duplicate.
-ukeysort_stable(Config) when is_list(Config) ->
-    ok = ukeysort_check(1, [{1,b},{1,c}], [{1,b}]),
-    ok = ukeysort_check(1, [{1,c},{1,b}], [{1,c}]),
-    ok = ukeysort_check(1,
-			[{1,c},{1,b},{2,x},{3,p},{2,a}],
-			[{1,c},{2,x},{3,p}]),
-
-    ok = ukeysort_check(1, [{1,a},{1,b},{1,b}], [{1,a}]),
-    ok = ukeysort_check(1, [{2,a},{1,b},{2,a}], [{1,b},{2,a}]),
-
-    ok = ukeysort_check_stability(bigfunlist(3)),
-    ok = ukeysort_check_stability(bigfunlist(10)),
-    ok = ukeysort_check_stability(bigfunlist(100)),
-    ok = ukeysort_check_stability(bigfunlist(1000)),
-    case erlang:system_info(modified_timing_level) of
-	undefined -> ok = ukeysort_check_stability(bigfunlist(10000));
-	_ -> ok
-    end,
-    ok.
-
 %% ukeysort should exit when given bad arguments.
 ukeysort_error(Config) when is_list(Config) ->
     {'EXIT', _} = (catch lists:ukeysort(0, [{1,b},{1,c}])),
@@ -1228,13 +1337,6 @@ gen_ukeysort_check(I, Input) ->
 	    erlang:error(gen_ukeysort_check)
     end.
 
-%% Used for checking that the first copy is kept.
-ukeysort_check_stability(L) ->
-    I = 1,
-    U = lists:ukeysort(I, L),
-    S = no_dups_keys(lkeysort(I, L), I),
-    check_stab(L, U, S, "ukeysort/2", "usort/2").
-
 %%% Uniquely keysort a list, check that the returned list is what we
 %%% expected, and that it is actually sorted.
 ukeysort_check(I, Input, Expected) ->
@@ -1273,355 +1375,6 @@ ukeycompare(I, J, A, B) when A =/= B,
 			     element(J, A) =< element(J, B) ->
     ok.
 
-
-
-%% Merge two lists using a fun.
-funmerge(Config) when is_list(Config) ->
-
-    Two = [1,2],
-    Six = [1,2,3,4,5,6],
-    F = fun(X, Y) -> X =< Y end,
-
-    %% 2-way merge
-    [] = lists:merge(F, [], []),
-    Two = lists:merge(F, Two, []),
-    Two = lists:merge(F, [], Two),
-    Six = lists:merge(F, [1,3,5], [2,4,6]),
-    Six = lists:merge(F, [2,4,6], [1,3,5]),
-    Six = lists:merge(F, [1,2,3], [4,5,6]),
-    Six = lists:merge(F, [4,5,6], [1,2,3]),
-    Six = lists:merge(F, [1,2,5],[3,4,6]),
-    [1,2,3,5,7] = lists:merge(F, [1,3,5,7], [2]),
-    [1,2,3,4,5,7] = lists:merge(F, [1,3,5,7], [2,4]),
-    [1,2,3,4,5,6,7] = lists:merge(F, [1,3,5,7], [2,4,6]),
-    [1,2,3,5,7] = lists:merge(F, [2], [1,3,5,7]),
-    [1,2,3,4,5,7] = lists:merge(F, [2,4], [1,3,5,7]),
-    [1,2,3,4,5,6,7] = lists:merge(F, [2,4,6], [1,3,5,7]),
-
-    F2 = fun(X,Y) -> element(1,X) =< element(1,Y) end,
-    [{b,2},{c,11},{c,12},{c,21},{c,22},{e,5}] =
-	lists:merge(F2,[{c,11},{c,12},{e,5}], [{b,2},{c,21},{c,22}]),
-
-    ok.
-
-%% Reverse merge two lists using a fun.
-rfunmerge(Config) when is_list(Config) ->
-
-    Two = [2,1],
-    Six = [6,5,4,3,2,1],
-    F = fun(X, Y) -> X =< Y end,
-
-    %% 2-way reversed merge
-    [] = lists:rmerge(F, [], []),
-    Two = lists:rmerge(F, Two, []),
-    Two = lists:rmerge(F, [], Two),
-    Six = lists:rmerge(F, [5,3,1], [6,4,2]),
-    Six = lists:rmerge(F, [6,4,2], [5,3,1]),
-    Six = lists:rmerge(F, [3,2,1], [6,5,4]),
-    Six = lists:rmerge(F, [6,5,4], [3,2,1]),
-    Six = lists:rmerge(F, [4,3,2],[6,5,1]),
-    [7,6,5,3,1] = lists:rmerge(F, [7,5,3,1], [6]),
-    [7,6,5,4,3,1] = lists:rmerge(F, [7,5,3,1], [6,4]),
-    [7,6,5,4,3,2,1] = lists:rmerge(F, [7,5,3,1], [6,4,2]),
-    [7,5,3,2,1] = lists:rmerge(F, [2], [7,5,3,1]),
-    [7,5,4,3,2,1] = lists:rmerge(F, [4,2], [7,5,3,1]),
-    [7,6,5,4,3,2,1] = lists:rmerge(F, [6,4,2], [7,5,3,1]),
-
-    F2 = fun(X,Y) -> element(1,X) =< element(1,Y) end,
-    L1 = [{c,11},{c,12},{e,5}],
-    L2 = [{b,2},{c,21},{c,22}],
-    true =
-	lists:merge(F2, L1, L2) == 
-	lists:reverse(lists:rmerge(F2,lists:reverse(L1), lists:reverse(L2))),
-
-    ok.
-
-
-funsort_1(Config) when is_list(Config) ->
-    ok = funsort_check(1, [], []),
-    ok = funsort_check(1, [{a,b}], [{a,b}]),
-    ok = funsort_check(1, [{a,b},{a,b}], [{a,b},{a,b}]),
-    ok = funsort_check(1, [{a,b},{b,c}], [{a,b},{b,c}]),
-    ok = funsort_check(1, [{b,c},{a,b}], [{a,b},{b,c}]),
-    ok = funsort_check(1,
-		       [{1,e},{3,f},{2,y},{0,z},{x,14}],
-		       [{0,z},{1,e},{2,y},{3,f},{x,14}]),
-    F = funsort_fun(1),
-
-    [{b,1},{c,1}] = lists:sort(F, [{c,1},{b,1}]),
-    [{a,0},{b,2},{c,3},{d,4}] =
-	lists:sort(F, [{d,4},{c,3},{b,2},{a,0}]),
-    [{a,0},{b,1},{b,2},{c,1}] =
-	lists:sort(F, [{c,1},{b,1},{b,2},{a,0}]),
-    [{a,0},{b,1},{b,2},{c,1},{d,4}] =
-	lists:sort(F, [{c,1},{b,1},{b,2},{a,0},{d,4}]),
-
-    SFun = fun(L) -> fun(X) -> funsort_check(1, X, L) end end,
-    L1 = [{1,a},{1,a},{2,b},{2,b},{3,c},{4,d},{5,e},{6,f}],
-    lists:foreach(SFun(L1), perms(L1)),
-
-    ok.
-
-%% sort/2 should be stable.
-funsort_stable(Config) when is_list(Config) ->
-    ok = funsort_check(1, [{1,b},{1,c}], [{1,b},{1,c}]),
-    ok = funsort_check(1, [{1,c},{1,b}], [{1,c},{1,b}]),
-    ok = funsort_check(1,
-		       [{1,c},{1,b},{2,x},{3,p},{2,a}],
-		       [{1,c},{1,b},{2,x},{2,a},{3,p}]),
-    ok.
-
-%% sort/2 should exit when given bad arguments.
-funsort_error(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch lists:sort(1, [{1,b} , {1,c}])),
-    {'EXIT', _} = (catch lists:sort(fun(X,Y) -> X =< Y end,
-				    [{1,b} | {1,c}])),
-    ok.
-
-%% sort/2 on big randomized lists.
-funsort_rand(Config) when is_list(Config) ->
-    ok = funsort_check3(1, biglist(10)),
-    ok = funsort_check3(1, biglist(100)),
-    ok = funsort_check3(1, biglist(1000)),
-    ok = funsort_check3(1, biglist(10000)),
-    ok.
-
-%% Do a keysort
-funsort(I, L) ->
-    lists:sort(funsort_fun(I), L).
-
-funsort_check3(I, Input) ->
-    check_sorted(I, 3, Input, funsort(I, Input)).
-
-%%% Keysort a list, check that the returned list is what we expected,
-%%% and that it is actually sorted.
-funsort_check(I, Input, Expected) ->
-    Expected = funsort(I, Input),
-    check_sorted(I, Input, Expected).
-
-
-%% Merge two lists while removing duplicates using a fun.
-ufunmerge(Conf) when is_list(Conf) ->
-
-    Two = [1,2],
-    Six = [1,2,3,4,5,6],
-    F = fun(X, Y) -> X =< Y end,
-
-    %% 2-way unique merge
-    [] = lists:umerge(F, [], []),
-    Two = lists:umerge(F, Two, []),
-    Two = lists:umerge(F, [], Two),
-    Six = lists:umerge(F, [1,3,5], [2,4,6]),
-    Six = lists:umerge(F, [2,4,6], [1,3,5]),
-    Six = lists:umerge(F, [1,2,3], [4,5,6]),
-    Six = lists:umerge(F, [4,5,6], [1,2,3]),
-    Six = lists:umerge(F, [1,2,5],[3,4,6]),
-    [1,2,3,5,7] = lists:umerge(F, [1,3,5,7], [2]),
-    [1,2,3,4,5,7] = lists:umerge(F, [1,3,5,7], [2,4]),
-    [1,2,3,4,5,6,7] = lists:umerge(F, [1,3,5,7], [2,4,6]),
-    [1,2,3,5,7] = lists:umerge(F, [2], [1,3,5,7]),
-    [1,2,3,4,5,7] = lists:umerge(F, [2,4], [1,3,5,7]),
-    [1,2,3,4,5,6,7] = lists:umerge(F, [2,4,6], [1,3,5,7]),
-
-    [1,2,3,5,7] = lists:umerge(F, [1,2,3,5,7], [2]),
-    [1,2,3,4,5,7] = lists:umerge(F, [1,2,3,4,5,7], [2,4]),
-    [1,2,3,4,5,6,7] = lists:umerge(F, [1,3,5,6,7], [2,4,6]),
-    [1,2,3,5,7] = lists:umerge(F, [2], [1,2,3,5,7]),
-    [1,2,3,4,5,7] = lists:umerge(F, [2,4], [1,2,3,4,5,7]),
-    [1,2,3,4,5,6,7] = lists:umerge(F, [2,4,6], [1,2,3,4,5,6,7]),
-
-    L1 = [{a,1},{a,3},{a,5},{a,7}],
-    L2 = [{b,1},{b,3},{b,5},{b,7}],
-    F2 = fun(X,Y) -> element(2,X) =< element(2,Y) end,
-    L1 = lists:umerge(F2, L1, L2),
-    [{b,2},{e,5},{c,11},{c,12},{c,21},{c,22}] =
-	lists:umerge(F2, [{e,5},{c,11},{c,12}], [{b,2},{c,21},{c,22}]),
-
-    ok.
-
-%% Reverse merge two lists while removing duplicates using a fun.
-rufunmerge(Conf) when is_list(Conf) ->
-    Two = [2,1],
-    Six = [6,5,4,3,2,1],
-    F = fun(X, Y) -> X =< Y end,
-
-    %% 2-way reversed unique merge
-    [] = lists:rumerge(F, [], []),
-    Two = lists:rumerge(F, Two, []),
-    Two = lists:rumerge(F, [], Two),
-    Six = lists:rumerge(F, [5,3,1], [6,4,2]),
-    Six = lists:rumerge(F, [6,4,2], [5,3,1]),
-    Six = lists:rumerge(F, [3,2,1], [6,5,4]),
-    Six = lists:rumerge(F, [6,5,4], [3,2,1]),
-    Six = lists:rumerge(F, [4,3,2],[6,5,1]),
-    [7,6,5,3,1] = lists:rumerge(F, [7,5,3,1], [6]),
-    [7,6,5,4,3,1] = lists:rumerge(F, [7,5,3,1], [6,4]),
-    [7,6,5,4,3,2,1] = lists:rumerge(F, [7,5,3,1], [6,4,2]),
-    [7,5,3,2,1] = lists:rumerge(F, [2], [7,5,3,1]),
-    [7,5,4,3,2,1] = lists:rumerge(F, [4,2], [7,5,3,1]),
-    [7,6,5,4,3,2,1] = lists:rumerge(F, [6,4,2], [7,5,3,1]),
-
-    [7,6,5,3,1] = lists:rumerge(F, [7,6,5,3,1], [6]),
-    [7,6,5,4,3,1] = lists:rumerge(F, [7,6,5,4,3,1], [6,4]),
-    [7,6,5,4,3,2,1] = lists:rumerge(F, [7,6,5,4,3,2,1], [6,4,2]),
-    [7,5,3,2,1] = lists:rumerge(F, [2], [7,5,3,2,1]),
-    [7,5,4,3,2,1] = lists:rumerge(F, [4,2], [7,5,4,3,2,1]),
-    [7,6,5,4,3,2,1] = lists:rumerge(F, [6,4,2], [7,6,5,4,3,2,1]),
-
-    F2 = fun(X,Y) -> element(1,X) =< element(1,Y) end,
-    L1 = [{1,a},{1,b},{1,a}],
-    L2 = [{1,a},{1,b},{1,a}],
-    true = lists:umerge(F2, L1, L2) ==
-	lists:reverse(lists:rumerge(F, lists:reverse(L2), lists:reverse(L1))),
-
-    L3 = [{c,11},{c,12},{e,5}],
-    L4 = [{b,2},{c,21},{c,22}],
-    true =
-	lists:umerge(F2, L3, L4) == 
-	lists:reverse(lists:rumerge(F2,lists:reverse(L3), lists:reverse(L4))),
-
-    ok.
-
-ufunsort_1(Config) when is_list(Config) ->
-    ok = ufunsort_check(1, [], []),
-    ok = ufunsort_check(1, [{a,b}], [{a,b}]),
-    ok = ufunsort_check(1, [{a,b},{a,b}], [{a,b}]),
-    ok = ufunsort_check(1, [{a,b},{b,c}], [{a,b},{b,c}]),
-    ok = ufunsort_check(1, [{b,c},{a,b}], [{a,b},{b,c}]),
-    ok = ufunsort_check(1,
-			[{1,e},{3,f},{2,y},{0,z},{x,14}],
-			[{0,z},{1,e},{2,y},{3,f},{x,14}]),
-    ok = ufunsort_check(1,
-			[{1,a},{2,b},{3,c},{2,b},{1,a},{2,b},{3,c},
-			 {2,b},{1,a}],
-			[{1,a},{2,b},{3,c}]),
-    ok = ufunsort_check(1,
-			[{1,a},{1,a},{1,b},{1,b},{1,a},{2,a}],
-			[{1,a},{2,a}]),
-
-    F = funsort_fun(1),
-    L1 = [{1,a},{1,b},{1,a}],
-    L2 = [{1,a},{1,b},{1,a}],
-    ok = ufunsort_check(1, lists:keymerge(1, L1, L2),
-			lists:umerge(F, lists:usort(F, L1),
-				     lists:usort(F, L2))),
-    L3 = [{1,a},{1,b},{1,a},{2,a}],
-    ok = ufunsort_check(1, lists:keymerge(1, L3, L2),
-			lists:umerge(F, lists:usort(F, L3),
-				     lists:usort(F, L2))),
-    L4 = [{1,b},{1,a}],
-    ok = ufunsort_check(1, lists:keymerge(1, L1, L4),
-			lists:umerge(F, lists:usort(F, L1),
-				     lists:usort(F, L4))),
-    L5 = [{1,a},{1,b},{1,a},{2,a}],
-    ok = ufunsort_check(1, lists:keymerge(1, L5, []),
-			lists:umerge(F, lists:usort(F, L5), [])),
-    L6 = [{3,a}],
-    ok = ufunsort_check(1, lists:keymerge(1, L5, L6),
-			lists:umerge(F, lists:usort(F, L5),
-				     lists:usort(F, L6))),
-
-    [{b,1},{c,1}] = lists:usort(F, [{c,1},{c,1},{b,1}]),
-    [{a,0},{b,2},{c,3},{d,4}] =
-	lists:usort(F, [{d,4},{c,3},{b,2},{b,2},{a,0}]),
-    [{a,0},{b,1},{c,1}] =
-	lists:usort(F, [{c,1},{b,1},{b,1},{b,2},{b,2},{a,0}]),
-    [{a,0},{b,1},{c,1},{d,4}] =
-	lists:usort(F, [{c,1},{b,1},{b,2},{a,0},{a,0},{d,4},{d,4}]),
-
-    SFun = fun(L) -> fun(X) -> ufunsort_check(1, X, L) end end,
-    PL = [{1,a},{2,b},{3,c},{4,d},{5,e},{6,f}],
-    Ps = perms([{1,a},{2,b},{3,c},{4,d},{5,e},{6,f},{2,b},{1,a}]),
-    lists:foreach(SFun(PL), Ps),
-
-    ok.
-
-%% usort/2 should be stable.
-ufunsort_stable(Config) when is_list(Config) ->
-    ok = ufunsort_check(1, [{1,b},{1,c}], [{1,b}]),
-    ok = ufunsort_check(1, [{1,c},{1,b}], [{1,c}]),
-    ok = ufunsort_check(1,
-			[{1,c},{1,b},{2,x},{3,p},{2,a}],
-			[{1,c},{2,x},{3,p}]),
-
-    ok = ufunsort_check_stability(bigfunlist(10)),
-    ok = ufunsort_check_stability(bigfunlist(100)),
-    ok = ufunsort_check_stability(bigfunlist(1000)),
-    case erlang:system_info(modified_timing_level) of
-	undefined -> ok = ufunsort_check_stability(bigfunlist(10000));
-	_ -> ok
-    end,
-    ok.
-
-%% usort/2 should exit when given bad arguments.
-ufunsort_error(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch lists:usort(1, [{1,b} , {1,c}])),
-    {'EXIT', _} = (catch lists:usort(fun(X,Y) -> X =< Y end,
-				     [{1,b} | {1,c}])),
-    ok.
-
-%% usort/2 on big randomized lists.
-ufunsort_rand(Config) when is_list(Config) ->
-    ok = ufunsort_check3(1, biglist(10)),
-    ok = ufunsort_check3(1, biglist(100)),
-    ok = ufunsort_check3(1, biglist(1000)),
-    ok = ufunsort_check3(1, biglist(10000)),
-
-    ok = gen_ufunsort_check(1, ubiglist(100)),
-    ok = gen_ufunsort_check(1, ubiglist(1000)),
-    ok = gen_ufunsort_check(1, ubiglist(10000)),
-    ok.
-
-%% Check that usort/2 is stable and correct relative sort/2.
-gen_ufunsort_check(I, Input) ->
-    U = ufunsort(I, Input),
-    S = funsort(I, Input),
-    case U == no_dups_keys(S, I) of
-	true ->
-	    ok;
-	false ->
-	    io:format("~w~n", [Input]),
-	    erlang:error(gen_ufunsort_check)
-    end.
-
-%% Used for checking that the first copy is kept.
-ufunsort_check_stability(L) ->
-    I = 1,
-    U = ufunsort(I, L),
-    S = no_dups(funsort(I, L)),
-    check_stab(L, U, S, "usort/2", "sort/2").
-
-ufunsort_check3(I, Input) ->
-    ucheck_sorted(I, 3, Input, ufunsort(I, Input)).
-
-%%% Keysort a list, check that the returned list is what we expected,
-%%% and that it is actually sorted.
-ufunsort_check(I, Input, Expected) ->
-    Expected = ufunsort(I, Input),
-    ucheck_sorted(I, Input, Expected).
-
-%% Do a keysort
-ufunsort(I, L) ->
-    lists:usort(funsort_fun(I), L).
-
-funsort_fun(I) ->
-    fun(A, B) when tuple_size(A) >= I, tuple_size(B) >= I ->
-            element(I, A) =< element(I, B)
-    end.
-
-check_stab(L, U, S, US, SS) ->
-    UP = explicit_pid(U),
-    SP = explicit_pid(S),
-    case UP == SP of
-	true ->
-	    ok;
-	false ->
-	    io:format("In: ~w~n", [explicit_pid(L)]),
-	    io:format("~s: ~w~n", [US, UP]),
-	    io:format("~s:  ~w~n", [SS, SP]),
-	    erlang:error(unstable)
-    end.
-
 %%%------------------------------------------------------------
 %%% Generate lists of given length, containing 3-tuples with
 %%% random integer elements in the range 0..44 as elements 1 and 2.
@@ -1658,50 +1411,6 @@ urandom_tuple(N, I) ->
     R2 = randint(I),
     {R1, R2}.
 
-%%%------------------------------------------------------------
-%%% Generate lists of given length, containing 2-tuples with random
-%%% integer elements in the range 0..10 as elements 1. All tuples have
-%%% the same function as element 2, but every function is created in a
-%%% unique process. ==/2 will return 'true' for any pair of functions,
-%%% but erlang:fun_info(Fun, pid) can be used for distinguishing
-%%% functions created in different processes. The pid acts like a
-%%% sequence number.
-
-bigfunlist(N) ->
-    rand:seed(exsplus),
-    bigfunlist_1(N).
-
-bigfunlist_1(N) when N < 30000 -> % Now (R8) max 32000 different pids.
-    case catch bigfunlist(N, 0, []) of
-	{'EXIT', _} ->
-	    bigfunlist_1(N);
-	Reply ->
-	    Reply
-    end.
-
-bigfunlist(0, _P, L) ->
-    lists:reverse(L);
-bigfunlist(N, P, L) ->
-    {E, NP} = random_funtuple(P, 11),
-    bigfunlist(N-1, NP, [E | L]).
-
-random_funtuple(P, N) ->
-    R = randint(N),
-    F = make_fun(),
-    NP = fun_pid(F),
-    true = NP > P,
-    {{R, F}, NP}.
-
-make_fun() ->
-    Pid = spawn(?MODULE, make_fun, [self()]),
-    receive {Pid, Fun} -> Fun end.
-
-make_fun(Pid) ->
-    Pid ! {self(), fun (X) -> {X, Pid} end}.
-
-fun_pid(Fun) ->
-    erlang:fun_info(Fun, pid).
-
 random_tuple(N, Seq) ->
     R1 = randint(N),
     R2 = randint(N),
@@ -1709,19 +1418,6 @@ random_tuple(N, Seq) ->
 
 randint(N) ->
     trunc(rand:uniform() * N).
-
-%% The first "duplicate" is kept.
-no_dups([]) ->
-    [];
-no_dups([H | T]) ->
-    no_dups(H, T, []).
-
-no_dups(H, [H1 | T], L) when H == H1 ->
-    no_dups(H, T, L);
-no_dups(H, [H1 | T], L) ->
-    no_dups(H1, T, [H | L]);
-no_dups(H, [], L) ->
-    lists:reverse([H | L]).
 
 %% The first "duplicate" is kept.
 no_dups_keys([], _I) ->
@@ -1744,7 +1440,7 @@ perms(L) ->
 %%%------------------------------------------------------------
 %%% Test the sort routines with randomly generated lists.
 
--record(state, {sort = 0, usort = 0, stable = 0}).
+-record(state, {sort = 0, usort = 0}).
 
 %% Run it interactively. 'stop' or 'info' recognized commands.
 sort_loop() ->
@@ -1787,289 +1483,19 @@ sloop(N, S) ->
 			 BL = biglist(Len, []),
 			 ok = check(BL),
 			 ok = keysort_check3(1, BL),
-			 ok = funsort_check3(1, BL),
 			 S#state{sort = S#state.sort + 1};
 		     1 ->
 			 BL = ubiglist(Len, []),
 			 ok = ucheck(BL),
 			 ok = gen_ukeysort_check(1, BL),
-			 ok = gen_ufunsort_check(1, BL),
-			 S#state{usort = S#state.usort + 1};
-		     2 ->
-			 BL = bigfunlist(Len),
-			 %% ok = check_stability(BL),
-			 ok = ucheck_stability(BL),
-			 ok = ukeysort_check_stability(BL),
-			 ok = ufunsort_check_stability(BL),
-			 S#state{stable = S#state.stable + 1}
+			 S#state{usort = S#state.usort + 1}
 		 end,
 	    sloop(N, NS)
     end.
 
 display_state(S) ->    
     io:format("sort:   ~p~n", [S#state.sort]),
-    io:format("usort:  ~p~n", [S#state.usort]),
-    io:format("stable: ~p~n", [S#state.stable]).
-
-%% This version of sort/1 is really stable; the order of equal
-%% elements is kept. It is used for checking the current
-%% implementation of usort/1 etc.
-
-lsort([X, Y | L] = L0) when X =< Y ->
-    case L of
-	[] -> 
-	    L0;
-	[Z] when Y =< Z ->
-	    L0;
-	[Z] when X =< Z ->
-	    [X, Z, Y];
-	[Z] ->
-	    [Z, X, Y];
-	_ ->
-	    split_1(X, Y, L, [], [])
-    end;
-lsort([X, Y | L]) ->
-    case L of
-	[] ->
-	    [Y, X];
-	[Z] when X =< Z ->
-	    [Y, X | L];
-	[Z] when Y =< Z ->
-	    [Y, Z, X];
-	[Z] ->
-	    [Z, Y, X];
-	_ ->
-	    split_2(X, Y, L, [], [])
-    end;
-lsort([_] = L) ->
-    L;
-lsort([] = L) ->
-    L.
-
-split_1(X, Y, [Z | L], R, Rs) when Z >= Y ->
-    split_1(Y, Z, L, [X | R], Rs);
-split_1(X, Y, [Z | L], R, Rs) when Z >= X ->
-    split_1(Z, Y, L, [X | R], Rs);
-split_1(X, Y, [Z | L], [], Rs) ->
-    split_1(X, Y, L, [Z], Rs);
-split_1(X, Y, [Z | L], R, Rs) ->
-    split_1_1(X, Y, L, R, Rs, Z);
-split_1(X, Y, [], R, Rs) ->
-    rmergel([[Y, X | R] | Rs], [], asc).
-
-split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= Y ->
-    split_1_1(Y, Z, L, [X | R], Rs, S);
-split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= X ->
-    split_1_1(Z, Y, L, [X | R], Rs, S);
-split_1_1(X, Y, [Z | L], R, Rs, S) when S =< Z ->
-    split_1(S, Z, L, [], [[Y, X | R] | Rs]);
-split_1_1(X, Y, [Z | L], R, Rs, S) ->
-    split_1(Z, S, L, [], [[Y, X | R] | Rs]);
-split_1_1(X, Y, [], R, Rs, S) ->
-    rmergel([[S], [Y, X | R] | Rs], [], asc).
-
-split_2(X, Y, [Z | L], R, Rs) when Z < Y ->
-    split_2(Y, Z, L, [X | R], Rs);
-split_2(X, Y, [Z | L], R, Rs) when Z < X ->
-    split_2(Z, Y, L, [X | R], Rs);
-split_2(X, Y, [Z | L], [], Rs) ->
-    split_2(X, Y, L, [Z], Rs);
-split_2(X, Y, [Z | L], R, Rs) ->
-    split_2_1(X, Y, L, R, Rs, Z);
-split_2(X, Y, [], R, Rs) ->
-    mergel([[Y, X | R] | Rs], [], desc).
-
-split_2_1(X, Y, [Z | L], R, Rs, S) when Z < Y ->
-    split_2_1(Y, Z, L, [X | R], Rs, S);
-split_2_1(X, Y, [Z | L], R, Rs, S) when Z < X ->
-    split_2_1(Z, Y, L, [X | R], Rs, S);
-split_2_1(X, Y, [Z | L], R, Rs, S) when S > Z ->
-    split_2(S, Z, L, [], [[Y, X | R] | Rs]);
-split_2_1(X, Y, [Z | L], R, Rs, S) ->
-    split_2(Z, S, L, [], [[Y, X | R] | Rs]);
-split_2_1(X, Y, [], R, Rs, S) ->
-    mergel([[S], [Y, X | R] | Rs], [], desc).
-
-mergel([[] | L], Acc, O) ->
-    mergel(L, Acc, O);
-mergel([T1, [H2 | T2] | L], Acc, asc) ->
-    mergel(L, [merge2_1(T1, H2, T2, []) | Acc], asc);
-mergel([[H2 | T2], T1 | L], Acc, desc) ->
-    mergel(L, [merge2_1(T1, H2, T2, []) | Acc], desc);
-mergel([L], [], _O) ->
-    L;
-mergel([L], Acc, O) ->
-    rmergel([lists:reverse(L, []) | Acc], [], O);
-mergel([], [], _O) ->
-    [];
-mergel([], Acc, O) ->
-    rmergel(Acc, [], O);
-mergel([A, [] | L], Acc, O) ->
-    mergel([A | L], Acc, O);
-mergel([A, B, [] | L], Acc, O) ->
-    mergel([A, B | L], Acc, O).
-
-rmergel([[H2 | T2], T1 | L], Acc, asc) ->
-    rmergel(L, [rmerge2_1(T1, H2, T2, []) | Acc], asc);
-rmergel([T1, [H2 | T2] | L], Acc, desc) ->
-    rmergel(L, [rmerge2_1(T1, H2, T2, []) | Acc], desc);
-rmergel([L], Acc, O) ->
-    mergel([lists:reverse(L, []) | Acc], [], O);
-rmergel([], Acc, O) ->
-    mergel(Acc, [], O).
-
-merge2_1([H1 | T1], H2, T2, M) when H1 =< H2 ->
-    merge2_1(T1, H2, T2, [H1 | M]);
-merge2_1([H1 | T1], H2, T2, M) ->
-    merge2_2(T1, H1, T2, [H2 | M]);
-merge2_1([], H2, T2, M) ->
-    lists:reverse(T2, [H2 | M]).
-
-merge2_2(T1, H1, [H2 | T2], M) when H1 =< H2 ->
-    merge2_1(T1, H2, T2, [H1 | M]);
-merge2_2(T1, H1, [H2 | T2], M) ->
-    merge2_2(T1, H1, T2, [H2 | M]);
-merge2_2(T1, H1, [], M) ->
-    lists:reverse(T1, [H1 | M]).
-
-rmerge2_1([H1 | T1], H2, T2, M) when H1 =< H2 ->
-    rmerge2_2(T1, H1, T2, [H2 | M]);
-rmerge2_1([H1 | T1], H2, T2, M) ->
-    rmerge2_1(T1, H2, T2, [H1 | M]);
-rmerge2_1([], H2, T2, M) ->
-    lists:reverse(T2, [H2 | M]).
-
-rmerge2_2(T1, H1, [H2 | T2], M) when H1 =< H2 ->
-    rmerge2_2(T1, H1, T2, [H2 | M]);
-rmerge2_2(T1, H1, [H2 | T2], M) ->
-    rmerge2_1(T1, H2, T2, [H1 | M]);
-rmerge2_2(T1, H1, [], M) ->
-    lists:reverse(T1, [H1 | M]).
-
-
-
-%% This version of keysort/2 is really stable; the order of equal
-%% elements is kept. It is used for checking the current
-%% implementation of ukeysort/2 etc.
-
-lkeysort(Index, L) when is_integer(Index), Index > 0 ->
-    case L of
-	[] -> L;
-	[_] -> L;
-	[X, Y | T] ->
-	    EX = element(Index, X),
-	    EY = element(Index, Y),
-	    if
-		EX =< EY ->
-		    keysplit_1(Index, X, EX, Y, EY, T, [], []);
-		true ->
-		    keysplit_2(Index, Y, EY, T, [X])
-	    end
-    end.
-
-keysplit_1(I, X, EX, Y, EY, [Z | L], R, Rs) ->
-    EZ = element(I, Z),
-    if 
-	EY =< EZ ->
-	    keysplit_1(I, Y, EY, Z, EZ, L, [X | R], Rs);
-	EX =< EZ ->
-	    keysplit_1(I, Z, EZ, Y, EY, L, [X | R], Rs);
-	true, R == [] ->
-	    keysplit_1(I, X, EX, Y, EY, L, [Z], Rs);
-	true ->
-	    keysplit_1_1(I, X, EX, Y, EY, L, R, Rs, Z, EZ)
-    end;
-keysplit_1(I, X, _EX, Y, _EY, [], R, Rs) ->
-    rkeymergel(I, [[Y, X | R] | Rs], []).
-
-%% One out-of-order element, S.
-keysplit_1_1(I, X, EX, Y, EY, [Z | L], R, Rs, S, ES) ->
-    EZ = element(I, Z),
-    if
-	EY =< EZ ->
-	    keysplit_1_1(I, Y, EY, Z, EZ, L, [X | R], Rs, S, ES);
-	EX =< EZ ->
-	    keysplit_1_1(I, Z, EZ, Y, EY, L, [X | R], Rs, S, ES);
-	ES =< EZ ->
-	    keysplit_1(I, S, ES, Z, EZ, L, [], [[Y, X | R] | Rs]);
-	true ->
-	    keysplit_1(I, Z, EZ, S, ES, L, [], [[Y, X | R] | Rs])
-    end;
-keysplit_1_1(I, X, _EX, Y, _EY, [], R, Rs, S, _ES) ->
-    rkeymergel(I, [[S], [Y, X | R] | Rs], []).
-
-%% Descending.
-keysplit_2(I, Y, EY, [Z | L], R) ->
-    EZ = element(I, Z),
-    if
-	EY =< EZ ->
-            keysplit_1(I, Y, EY, Z, EZ, L, [], [lists:reverse(R, [])]);
-        true ->
-            keysplit_2(I, Z, EZ, L, [Y | R])
-    end;
-keysplit_2(_I, Y, _EY, [], R) ->
-    [Y | R].
-
-keymergel(I, [T1, [H2 | T2] | L], Acc) ->
-    keymergel(I, L, [keymerge2_1(I, T1, element(I, H2), H2, T2, []) | Acc]);
-keymergel(_I, [L], []) ->
-    L;
-keymergel(I, [L], Acc) ->
-    rkeymergel(I, [lists:reverse(L, []) | Acc], []);
-keymergel(I, [], Acc) ->
-    rkeymergel(I, Acc, []).
-
-rkeymergel(I, [[H2 | T2], T1 | L], Acc) ->
-    rkeymergel(I, L, [rkeymerge2_1(I, T1, element(I, H2), H2, T2, []) | Acc]);
-rkeymergel(I, [L], Acc) ->
-    keymergel(I, [lists:reverse(L, []) | Acc], []);
-rkeymergel(I, [], Acc) ->
-    keymergel(I, Acc, []).
-
-keymerge2_1(I, [H1 | T1], E2, H2, T2, M) ->
-    E1 = element(I, H1),
-    if 
-	E1 =< E2 ->
-	    keymerge2_1(I, T1, E2, H2, T2, [H1 | M]);
-	true ->
-	    keymerge2_2(I, T1, E1, H1, T2, [H2 | M])
-    end;
-keymerge2_1(_I, [], _E2, H2, T2, M) ->
-    lists:reverse(T2, [H2 | M]).
-
-keymerge2_2(I, T1, E1, H1, [H2 | T2], M) ->
-    E2 = element(I, H2),
-    if
-	E1 =< E2 ->
-	    keymerge2_1(I, T1, E2, H2, T2, [H1 | M]);
-	true ->
-	    keymerge2_2(I, T1, E1, H1, T2, [H2 | M])
-    end;
-keymerge2_2(_I, T1, _E1, H1, [], M) ->
-    lists:reverse(T1, [H1 | M]).
-
-rkeymerge2_1(I, [H1 | T1], E2, H2, T2, M) ->
-    E1 = element(I, H1),
-    if
-	E1 =< E2 ->
-	    rkeymerge2_2(I, T1, E1, T2, [H2 | M], H1);
-	true ->
-	    rkeymerge2_1(I, T1, E2, H2, T2, [H1 | M])
-    end;
-rkeymerge2_1(_I, [], _E2, H2, T2, M) ->
-    lists:reverse(T2, [H2 | M]).
-
-rkeymerge2_2(I, T1, E1, [H2 | T2], M, H1) ->
-    E2 = element(I, H2),
-    if
-	E1 =< E2 ->
-	    rkeymerge2_2(I, T1, E1, T2, [H2 | M], H1);
-	true ->
-	    rkeymerge2_1(I, T1, E2, H2, T2, [H1 | M])
-    end;
-rkeymerge2_2(_I, T1, _E1, [], M, H1) ->
-    lists:reverse(T1, [H1 | M]).
-
+    io:format("usort:  ~p~n", [S#state.usort]).
 
 %%%------------------------------------------------------------
 
@@ -2293,7 +1719,6 @@ sublist_3_e(Config) when is_list(Config) ->
 
 
 -define(flatten_error1(X), {'EXIT', _} = (catch lists:flatten(X))).
--define(flatten_error2(X,Y), {'EXIT', _} = (catch lists:flatten(X,Y))).
 
 %% Test lists:flatten/1,2 and lists:flatlength/1.
 flatten_1(Config) when is_list(Config) ->
@@ -2362,6 +1787,41 @@ zip_unzip(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zip([a], [b,c])),
     ok.
 
+zip_fail(Config) when is_list(Config) ->
+    [] = lists:zip([], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([], [c], fail)),
+
+    [{a, c}] = lists:zip([a], [c], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a, b], [c], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip([a], [c, d], fail)),
+
+    ok.
+
+zip_trim(Config) when is_list(Config) ->
+    [] = lists:zip([], [], trim),
+    [] = lists:zip([a], [], trim),
+    [] = lists:zip([], [c], trim),
+
+    [{a, c}] = lists:zip([a], [c], trim),
+    [{a, c}] = lists:zip([a, b], [c], trim),
+    [{a, c}] = lists:zip([a], [c, d], trim),
+
+    ok.
+
+zip_pad(Config) when is_list(Config) ->
+    How = {pad, {x, y}},
+
+    [] = lists:zip([], [], How),
+    [{a, y}] = lists:zip([a], [], How),
+    [{x, c}] = lists:zip([], [c], How),
+
+    [{a, c}] = lists:zip([a], [c], How),
+    [{a, c}, {b, y}] = lists:zip([a, b], [c], How),
+    [{a, c}, {x, d}] = lists:zip([a], [c, d], How),
+
+    ok.
+
 %% Test lists:zip3/3, lists:unzip3/1.
 zip_unzip3(Config) when is_list(Config) ->
     [] = lists:zip3([], [], []),
@@ -2388,6 +1848,65 @@ zip_unzip3(Config) when is_list(Config) ->
 
     ok.
 
+zip3_fail(Config) when is_list(Config) ->
+    [] = lists:zip3([], [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([], [c], [e], fail)),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c, d], [e], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c], [e, f], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a, b], [c], [e, f], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zip3([a], [c, d], [e, f], fail)),
+
+    ok.
+
+zip3_trim(Config) when is_list(Config) ->
+    [] = lists:zip3([], [], [], trim),
+    [] = lists:zip3([a], [], [], trim),
+    [] = lists:zip3([], [c], [], trim),
+    [] = lists:zip3([a], [c], [], trim),
+    [] = lists:zip3([], [], [e], trim),
+    [] = lists:zip3([a], [], [e], trim),
+    [] = lists:zip3([], [c], [e], trim),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c], [e], trim),
+    [{a, c, e}] = lists:zip3([a], [c, d], [e], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c, d], [e], trim),
+    [{a, c, e}] = lists:zip3([a], [c], [e, f], trim),
+    [{a, c, e}] = lists:zip3([a, b], [c], [e, f], trim),
+    [{a, c, e}] = lists:zip3([a], [c, d], [e, f], trim),
+
+    ok.
+
+zip3_pad(Config) when is_list(Config) ->
+    How = {pad, {x, y, z}},
+
+    [] = lists:zip3([], [], [], How),
+    [{a, y, z}] = lists:zip3([a], [], [], How),
+    [{x, c, z}] = lists:zip3([], [c], [], How),
+    [{a, c, z}] = lists:zip3([a], [c], [], How),
+    [{x, y, e}] = lists:zip3([], [], [e], How),
+    [{a, y, e}] = lists:zip3([a], [], [e], How),
+    [{x, c, e}] = lists:zip3([], [c], [e], How),
+
+    [{a, c, e}] = lists:zip3([a], [c], [e], How),
+    [{a, c, e}, {b, y, z}] = lists:zip3([a, b], [c], [e], How),
+    [{a, c, e}, {x, d, z}] = lists:zip3([a], [c, d], [e], How),
+    [{a, c, e}, {b, d, z}] = lists:zip3([a, b], [c, d], [e], How),
+    [{a, c, e}, {x, y, f}] = lists:zip3([a], [c], [e, f], How),
+    [{a, c, e}, {b, y, f}] = lists:zip3([a, b], [c], [e, f], How),
+    [{a, c, e}, {x, d, f}] = lists:zip3([a], [c, d], [e, f], How),
+
+    ok.
+
 %% Test lists:zipwith/3.
 zipwith(Config) when is_list(Config) ->
     Zip = fun(A, B) -> [A|B] end,
@@ -2408,6 +1927,47 @@ zipwith(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith(Zip, [a], [b,c])),
+    ok.
+
+zipwith_fail(Config) when is_list(Config) ->
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [], [5], fail)),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2, 3], [5], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith(Zip, [2], [5, 7], fail)),
+
+    ok.
+
+zipwith_trim(Config) when is_list(Config) ->
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], trim),
+    [] = lists:zipwith(Zip, [2], [], trim),
+    [] = lists:zipwith(Zip, [], [5], trim),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], trim),
+    [2 * 5] = lists:zipwith(Zip, [2, 3], [5], trim),
+    [2 * 5] = lists:zipwith(Zip, [2], [5, 7], trim),
+
+    ok.
+
+zipwith_pad(Config) when is_list(Config) ->
+    How = {pad, {17, 19}},
+
+    Zip = fun(A, B) -> A * B end,
+
+    [] = lists:zipwith(Zip, [], [], How),
+    [ 2 * 19] = lists:zipwith(Zip, [2], [], How),
+    [17 *  5] = lists:zipwith(Zip, [], [5], How),
+
+    [2 * 5] = lists:zipwith(Zip, [2], [5], How),
+    [2 * 5,  3 * 19] = lists:zipwith(Zip, [2, 3], [5], How),
+    [2 * 5, 17 *  7] = lists:zipwith(Zip, [2], [5, 7], How),
+
     ok.
 
 %% Test lists:zipwith3/4.
@@ -2431,6 +1991,69 @@ zipwith3(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [], [c])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [], [b], [])),
     {'EXIT',{function_clause,_}} = (catch lists:zipwith3(Zip, [a], [], [])),
+
+    ok.
+
+zipwith3_fail(Config) when is_list(Config) ->
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [], [5], [11], fail)),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], fail),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5, 7], [11], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5], [11, 13], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2, 3], [5], [11, 13], fail)),
+    {'EXIT', {function_clause, _}} = (catch lists:zipwith3(Zip, [2], [5, 7], [11, 13], fail)),
+
+    ok.
+
+zipwith3_trim(Config) when is_list(Config) ->
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], trim),
+    [] = lists:zipwith3(Zip, [2], [], [], trim),
+    [] = lists:zipwith3(Zip, [], [5], [], trim),
+    [] = lists:zipwith3(Zip, [], [], [11], trim),
+    [] = lists:zipwith3(Zip, [2], [], [11], trim),
+    [] = lists:zipwith3(Zip, [], [5], [11], trim),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2, 3], [5], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5, 7], [11], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11, 13], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2, 3], [5], [11, 13], trim),
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5, 7], [11, 13], trim),
+
+    ok.
+
+zipwith3_pad(Config) when is_list(Config) ->
+    How = {pad, {17, 19, 23}},
+
+    Zip = fun(A, B, C) -> A * B * C end,
+
+    [] = lists:zipwith3(Zip, [], [], [], How),
+    [ 2 * 19 * 23] = lists:zipwith3(Zip, [2], [], [], How),
+    [17 *  5 * 23] = lists:zipwith3(Zip, [], [5], [], How),
+    [ 2 *  5 * 23] = lists:zipwith3(Zip, [2], [5], [], How),
+    [17 * 19 * 11] = lists:zipwith3(Zip, [], [], [11], How),
+    [ 2 * 19 * 11] = lists:zipwith3(Zip, [2], [], [11], How),
+    [17 *  5 * 11] = lists:zipwith3(Zip, [], [5], [11], How),
+
+    [2 * 5 * 11] = lists:zipwith3(Zip, [2], [5], [11], How),
+    [2 * 5 * 11,  3 * 19 * 23] = lists:zipwith3(Zip, [2, 3], [5], [11], How),
+    [2 * 5 * 11, 17 *  7 * 23] = lists:zipwith3(Zip, [2], [5, 7], [11], How),
+    [2 * 5 * 11,  3 *  7 * 23] = lists:zipwith3(Zip, [2, 3], [5, 7], [11], How),
+    [2 * 5 * 11, 17 * 19 * 13] = lists:zipwith3(Zip, [2], [5], [11, 13], How),
+    [2 * 5 * 11,  3 * 19 * 13] = lists:zipwith3(Zip, [2, 3], [5], [11, 13], How),
+    [2 * 5 * 11, 17 *  7 * 13] = lists:zipwith3(Zip, [2], [5, 7], [11, 13], How),
 
     ok.
 
@@ -2750,15 +2373,39 @@ hof(Config) when is_list(Config) ->
 enumerate(Config) when is_list(Config) ->
     [] = lists:enumerate([]),
     [] = lists:enumerate(10, []),
+    [] = lists:enumerate(-10, []),
+    [] = lists:enumerate(10, 2, []),
+    [] = lists:enumerate(10, -2, []),
+    [] = lists:enumerate(-10, 2, []),
+    [] = lists:enumerate(-10, -2, []),
     [{1,a},{2,b},{3,c}] = lists:enumerate([a,b,c]),
     [{10,a},{11,b},{12,c}] = lists:enumerate(10, [a,b,c]),
+    [{-10,a},{-9,b},{-8,c}] = lists:enumerate(-10, [a,b,c]),
+    [{10,a},{12,b},{14,c}] = lists:enumerate(10, 2, [a,b,c]),
+    [{10,a},{8,b},{6,c}] = lists:enumerate(10, -2, [a,b,c]),
+    [{-10,a},{-12,b},{-14,c}] = lists:enumerate(-10, -2, [a,b,c]),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(0),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(0, 10, 20),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, []),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2.0, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2.0, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2.0, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1.0, 2.0, [a,b,c]),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, []),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, 2, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, 2, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<2>>, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<2>>, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, <<2>>, []),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1>>, <<2>>, [a,b,c]),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(<<1,2,3>>),
     {'EXIT', {function_clause, _}} = catch lists:enumerate(1, <<1,2,3>>),
+    {'EXIT', {function_clause, _}} = catch lists:enumerate(1, 2, <<1,2,3>>),
 
     ok.
 

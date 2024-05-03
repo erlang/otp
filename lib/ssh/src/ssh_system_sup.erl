@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_system_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -37,7 +38,6 @@
          start_system/3,
          start_subsystem/4,
 	 get_daemon_listen_address/1,
-         addresses/1,
          addresses/2,
          get_options/2,
          get_acceptor_options/1,
@@ -53,8 +53,10 @@
 
 start_system(Role, Address0, Options) ->
     case find_system_sup(Role, Address0) of
-        {ok,{SysPid,Address}} ->
+        {ok,{SysPid,Address}} when Role =:= server->
             restart_acceptor(SysPid, Address, Options);
+        {ok,{SysPid,_}}->
+            {ok,SysPid};
         {error,not_found} ->
             supervisor:start_child(sup(Role),
                                    #{id       => {?MODULE,Address0},
@@ -67,18 +69,18 @@ start_system(Role, Address0, Options) ->
 %%%----------------------------------------------------------------
 stop_system(Role, SysSup) when is_pid(SysSup) ->
     case lists:keyfind(SysSup, 2, supervisor:which_children(sup(Role))) of
-        {{?MODULE,Name}, SysSup, _, _} -> stop_system(Role, Name);
-        false -> undefind
+        {{?MODULE, Id}, SysSup, _, _} -> stop_system(Role, Id);
+        false -> ok
     end;
-stop_system(Role, Name) ->
-    supervisor:terminate_child(sup(Role), {?MODULE,Name}).
+stop_system(Role, Id) ->
+    supervisor:terminate_child(sup(Role), {?MODULE, Id}).
 
 
 %%%----------------------------------------------------------------
 stop_listener(SystemSup) when is_pid(SystemSup) ->
-    {Name, _, _, _} = lookup(ssh_acceptor_sup, SystemSup),
-    supervisor:terminate_child(SystemSup, Name),
-    supervisor:delete_child(SystemSup, Name).
+    {Id, _, _, _} = lookup(ssh_acceptor_sup, SystemSup),
+    supervisor:terminate_child(SystemSup, Id),
+    supervisor:delete_child(SystemSup, Id).
 
 %%%----------------------------------------------------------------
 get_daemon_listen_address(SystemSup) ->
@@ -116,7 +118,6 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
                             {new_connection_ref, Id, ConnPid} ->
                                 ssh_connection_handler:takeover(ConnPid, Role, Socket, Options)
                         after 10000 ->
-
                                 error(timeout)
                         end
                     catch
@@ -136,18 +137,13 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
             Others
     end.
 
-
 %%%----------------------------------------------------------------
 start_link(Role, Address, Options) ->
     supervisor:start_link(?MODULE, [Role, Address, Options]).
 
-
 %%%----------------------------------------------------------------
-addresses(Role) ->
-    addresses(Role,  #address{address=any, port=any, profile=any}).
-
 addresses(Role,  #address{address=Address, port=Port, profile=Profile}) ->
-    [{SysSup,A} || {{ssh_system_sup,A},SysSup,supervisor,_} <- 
+    [{SysSup,A} || {{ssh_system_sup,A},SysSup,supervisor,_} <-
                      supervisor:which_children(sup(Role)),
                  Address == any orelse A#address.address == Address,
                  Port == any    orelse A#address.port == Port,
@@ -155,7 +151,6 @@ addresses(Role,  #address{address=Address, port=Port, profile=Profile}) ->
 
 %%%----------------------------------------------------------------
 %% SysPid is the DaemonRef
-
 get_acceptor_options(SysPid) ->
     case get_daemon_listen_address(SysPid) of
         {ok,Address} ->
@@ -183,6 +178,7 @@ replace_acceptor_options(SysPid, NewOpts) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Address, Options]) ->
+    ssh_lib:set_label(Role, system_sup),
     SupFlags = #{strategy      => one_for_one,
                  auto_shutdown => all_significant,
                  intensity =>    0,
@@ -230,8 +226,7 @@ acceptor_sup_child_spec(SysSup, Address, Options) ->
      }.
 
 lookup(SupModule, SystemSup) ->
-    lists:keyfind([SupModule], 4,
-                  supervisor:which_children(SystemSup)).
+    lists:keyfind([SupModule], 4, supervisor:which_children(SystemSup)).
 
 get_system_sup(Role, Address0, Options) ->
     case find_system_sup(Role, Address0) of

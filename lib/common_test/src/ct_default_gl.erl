@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(ct_default_gl).
+-moduledoc false.
 -export([start_link/1, stop/0]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).

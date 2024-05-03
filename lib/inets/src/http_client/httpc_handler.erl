@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 
 -module(httpc_handler).
+-moduledoc false.
 
 -behaviour(gen_server).
 
@@ -50,23 +51,23 @@
 
 -record(state, 
         {
-          request                   :: request() | undefined,
-          session                   :: session() | undefined,
-          status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
-          headers                   :: http_response_h() | undefined,
-          body                      :: binary() | undefined,
-          mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
-          pipeline = queue:new()    :: queue:queue(),
-          keep_alive = queue:new()  :: queue:queue(),
-          status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
-          canceled = [],             % [RequestId]
-          max_header_size = nolimit :: nolimit | integer(),
-          max_body_size = nolimit   :: nolimit | integer(),
-          options                   :: options(),
-          timers = #timers{}        :: #timers{},
-          profile_name              :: atom(), % id of httpc_manager process.
-          once = inactive           :: inactive | once
-         }).
+         request                   :: request() | undefined,
+         session                   :: session() | undefined,
+         status_line               :: tuple()   | undefined,     % {Version, StatusCode, ReasonPharse}
+         headers                   :: http_response_h() | undefined,
+         body                      :: binary() | undefined,
+         mfa                       :: {atom(), atom(), term()} | undefined, % {Module, Function, Args}
+         pipeline = queue:new()    :: queue:queue(),
+         keep_alive = queue:new()  :: queue:queue(),
+         status                    :: undefined | new | pipeline | keep_alive | close | {ssl_tunnel, request()},
+         canceled = []             :: [RequestId::reference()],
+         max_header_size = nolimit :: nolimit | integer(),
+         max_body_size = nolimit   :: nolimit | integer(),
+         options                   :: options(),
+         timers = #timers{}        :: #timers{},
+         profile_name              :: atom(), % id of httpc_manager process.
+         once = inactive           :: inactive | once
+        }).
 
 
 %%====================================================================
@@ -221,6 +222,8 @@ init([Parent, Request, Options, ProfileName]) ->
 
     %% Do not let initial tcp-connection block the manager-process
     proc_lib:init_ack(Parent, self()),
+    {Host, Port} = Request#request.address,
+    proc_lib:set_label({Request#request.scheme, erlang:iolist_to_binary(Host), Port}),
     handle_verbose(Options#options.verbose),
     ProxyOptions = handle_proxy_options(Request#request.scheme, Options),
     Address = handle_proxy(Request#request.address, ProxyOptions),
@@ -292,75 +295,35 @@ handle_info(Info, State) ->
 %% Function: terminate(Reason, State) -> _  (ignored by gen_server)
 %% Description: Shutdown the httpc_handler
 %%--------------------------------------------------------------------
-
 terminate(normal, #state{session = undefined}) ->
-    ok;  
-
+    ok;
 %% Init error sending, no session information has been setup but
 %% there is a socket that needs closing.
-terminate(normal, 
-          #state{session = #session{id = undefined} = Session}) ->  
+terminate(normal,
+          #state{session = #session{id = undefined} = Session}) ->
     close_socket(Session);
-
 %% Socket closed remotely
-terminate(normal, 
-          #state{session = #session{socket      = {remote_close, Socket},
-                                    socket_type = SocketType,
-                                    type        = Type,
-                                    id          = Id},
-                 profile_name = ProfileName,
-                 request      = Request,
-                 timers       = Timers,
-                 pipeline     = Pipeline,
-                 keep_alive   = KeepAlive} = State) ->  
-    %% Clobber session
-    (catch httpc_manager:delete_session(Id, ProfileName)),
-
-    case Type of
-        pipeline ->
-            maybe_retry_queue(Pipeline, State);
-        _ ->
-            maybe_retry_queue(KeepAlive, State)
-    end,
-
-    %% Cancel timers
+terminate(normal, #state{session = #session{socket = {remote_close, Socket},
+                                            socket_type = SocketType},
+                         request = Request,
+                         timers = Timers} = State) ->
+    clobber_and_retry(State),
     cancel_timers(Timers),
-
-    %% Maybe deliver answers to requests
     maybe_deliver_answer(Request, State),
-
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
-
-terminate(_Reason, #state{session = #session{id          = Id,
-                                             socket      = Socket,
-                                             type        = Type,
+terminate(_Reason, #state{session = #session{socket = Socket,
                                              socket_type = SocketType},
-                    request      = undefined,
-                    profile_name = ProfileName,
-                    timers       = Timers,
-                    pipeline     = Pipeline,
-                    keep_alive   = KeepAlive} = State) -> 
-
-    %% Clobber session
-    (catch httpc_manager:delete_session(Id, ProfileName)),
-
-    case Type of
-        pipeline ->
-            maybe_retry_queue(Pipeline, State);
-        _ ->
-            maybe_retry_queue(KeepAlive, State)
-    end,
-
+                          request = undefined,
+                          timers = Timers} = State) ->
+    clobber_and_retry(State),
     cancel_timer(Timers#timers.queue_timer, timeout_queue),
     http_transport:close(SocketType, Socket);
-
-terminate(_Reason, #state{request = undefined}) -> 
+terminate(_Reason, #state{request = undefined}) ->
     ok;
-
-terminate(Reason, #state{request = Request} = State) -> 
-    NewState = maybe_send_answer(Request, 
-                                 httpc_response:error(Request, Reason), 
+terminate(Reason, #state{request = Request} = State) ->
+    NewState = maybe_send_answer(Request,
+                                 httpc_response:error(Request, Reason),
                                  State),
     terminate(Reason, NewState#state{request = undefined}).
 
@@ -1065,7 +1028,8 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
            options      = Options,
            profile_name = ProfileName} = State,
     handle_cookies(Headers, Request, Options, ProfileName), 
-    case httpc_response:result({StatusLine, Headers, Body}, Request) of
+    RequestWithIpFamily = add_ipfamily_to_request(Request, Options#options.ipfamily),
+    case httpc_response:result({StatusLine, Headers, Body}, RequestWithIpFamily) of
 	%% 100-continue
 	continue ->
 	    %% Send request body
@@ -1112,6 +1076,22 @@ handle_response(#state{status = Status0} = State0) when Status0 =/= new ->
 	    NewState = maybe_send_answer(Request, Msg, State),
 	    {stop, normal, NewState}
     end.
+
+sanitize_request_socket_opts(undefined) -> [];
+sanitize_request_socket_opts(Opts) -> Opts.
+
+% Carry over the IP family from the existing state options for the case
+% where we perform a retry or redirect. Without interpolating the ipfamily
+% into the request socket options, the newly started httpc_handler would lose
+% context of the IP family and may try to contact IPv6 hosts over IPv4 via
+% the default ipfamily option "inet". Skip adding it for IPv4 (inet) to
+% prevent TLS errors on following redirects.
+add_ipfamily_to_request(Request, inet) -> Request;
+add_ipfamily_to_request(Request, IpFamily) ->
+    SocketOpts = sanitize_request_socket_opts(Request#request.socket_opts),
+    Request#request{
+        socket_opts = [{ipfamily, IpFamily} | SocketOpts]
+    }.
 
 handle_cookies(_,_, #options{cookies = disabled}, _) ->
     ok;
@@ -1736,3 +1716,17 @@ format_address({[$[|T], Port}) ->
     {Address, Port};
 format_address(HostPort) ->
     HostPort.
+
+clobber_and_retry(#state{session = #session{id = Id,
+                                            type = Type},
+                         profile_name = ProfileName,
+                         pipeline = Pipeline,
+                         keep_alive = KeepAlive} = State) ->
+    %% Clobber session
+    (catch httpc_manager:delete_session(Id, ProfileName)),
+    case Type of
+        pipeline ->
+            maybe_retry_queue(Pipeline, State);
+        _ ->
+            maybe_retry_queue(KeepAlive, State)
+    end.

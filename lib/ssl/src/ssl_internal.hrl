@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,19 +26,10 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--define(SECRET_PRINTOUT, "***").
+-define(CLIENT_ROLE, client).
+-define(SERVER_ROLE, server).
 
--type reason()            :: any().
--type reply()             :: any().
--type msg()               :: any().
--type from()              :: any().
--type certdb_ref()        :: reference().
--type db_handle()         :: any().
--type der_cert()          :: binary().
--type issuer()            :: tuple().
--type serialnumber()      :: integer().
--type cert_key()          :: {reference(), integer(), issuer()}.
--type secret_printout()   :: list().
+-define(SECRET_PRINTOUT, "***").
 
 %% basic binary constructors
 -define(BOOLEAN(X),  X:8/unsigned-big-integer).
@@ -70,6 +61,9 @@
 -define(NULL, 0).
 -define(TRUE, 0).
 -define(FALSE, 1).
+
+
+-define(NO_COMPRESSION, ?NULL).
 
 %% sslv3 is considered insecure due to lack of padding check (Poodle attack)
 %% Keep as interop with legacy software but do not support as default
@@ -117,109 +111,6 @@
 -define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
 
 -define(DEFAULT_MAX_EARLY_DATA_SIZE, 16384).
-
-%% This map stores all supported options with default values and
-%% list of dependencies:
-%%   #{<option> => {<default_value>, [<option>]},
-%%     ...}
--define(RULES,
-        #{
-          alpn_advertised_protocols  => {undefined, [versions]},
-          alpn_preferred_protocols   => {undefined, [versions]},
-          anti_replay                => {undefined, [versions, session_tickets]},
-          beast_mitigation           => {one_n_minus_one, [versions]},
-          cacertfile                 => {undefined, [versions,
-                                                     verify_fun,
-                                                     cacerts]},
-          cacerts                    => {undefined, [versions]},
-          cert                       => {undefined, [versions]},
-          certs_keys                 => {undefined, [versions]},
-          certfile                   => {<<>>,      [versions]},
-          certificate_authorities    => {false,     [versions]},
-          ciphers                    => {[],        [versions]},
-          client_renegotiation       => {undefined, [versions]},
-          cookie                     => {true,      [versions]},
-          crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
-          crl_check                  => {false,     [versions]},
-          customize_hostname_check   => {[],        [versions]},
-          depth                      => {10,         [versions]},
-          dh                         => {undefined, [versions]},
-          dhfile                     => {undefined, [versions]},
-          early_data                 => {undefined, [versions,
-                                                     session_tickets,
-                                                     use_ticket]},
-          eccs                       => {undefined, [versions]},
-          erl_dist                   => {false,     [versions]},
-          fail_if_no_peer_cert       => {false,     [versions]},
-          fallback                   => {false,     [versions]},
-          handshake                  => {full,      [versions]},
-          hibernate_after            => {infinity,  [versions]},
-          honor_cipher_order         => {false,     [versions]},
-          honor_ecc_order            => {undefined, [versions]},
-          keep_secrets               => {false,     [versions]},
-          key                        => {undefined, [versions]},
-          keyfile                    => {undefined, [versions,
-                                                     certfile]},
-          key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
-          log_level                  => {notice,    [versions]},
-          max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
-          middlebox_comp_mode        => {true, [versions]},
-          max_fragment_length        => {undefined, [versions]},
-          next_protocol_selector     => {undefined, [versions]},
-          next_protocols_advertised  => {undefined, [versions]},
-          %% If enable OCSP stapling
-          ocsp_stapling              => {false, [versions]},
-          %% Optional arg, if give suggestion of OCSP responders
-          ocsp_responder_certs       => {[], [versions,
-                                              ocsp_stapling]},
-          %% Optional arg, if add nonce extension in request
-          ocsp_nonce                 => {true, [versions,
-                                                ocsp_stapling]},
-          padding_check              => {true,      [versions]},
-          partial_chain              => {fun(_) -> unknown_ca end, [versions]},
-          password                   => {"",        [versions]},
-          protocol                   => {tls,       []},
-          psk_identity               => {undefined, [versions]},
-          receiver_spawn_opts        => {[],        [versions]},
-          renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
-          reuse_session              => {undefined, [versions]},
-          reuse_sessions             => {true,      [versions]},
-          secure_renegotiate         => {true,      [versions]},
-          sender_spawn_opts          => {[],        [versions]},
-          server_name_indication     => {undefined, [versions]},
-          session_tickets            => {disabled,     [versions]},
-          signature_algs             => {undefined, [versions]},
-          signature_algs_cert        => {undefined, [versions]},
-          sni_fun                    => {undefined, [versions,
-                                                     sni_hosts]},
-          sni_hosts                  => {[],        [versions]},
-          srp_identity               => {undefined, [versions]},
-          supported_groups           => {undefined, [versions]},
-          use_ticket                 => {undefined, [versions]},
-          user_lookup_fun            => {undefined, [versions]},
-          verify                     => {verify_none, [versions,
-                                                       fail_if_no_peer_cert,
-                                                       partial_chain]},
-          verify_fun                 =>
-              {
-               {fun(_, {bad_cert, _}, UserState) ->
-                        {valid, UserState};
-                   (_, {extension, #'Extension'{critical = true}}, UserState) ->
-                        %% This extension is marked as critical, so
-                        %% certificate verification should fail if we don't
-                        %% understand the extension.  However, this is
-                        %% `verify_none', so let's accept it anyway.
-                        {valid, UserState};
-                   (_, {extension, _}, UserState) ->
-                        {unknown, UserState};
-                   (_, valid, UserState) ->
-                        {valid, UserState};
-                   (_, valid_peer, UserState) ->
-                        {valid, UserState}
-                end, []},
-               [versions, verify]},
-          versions                   => {[], [protocol]}
-         }).
 
 -define('TLS-1_3_ONLY_OPTIONS', [anti_replay,
                                  certificate_authorities,
@@ -300,10 +191,7 @@
          max_size              %% max early data size allowed by this ticket
         }).
 
-
+-define(DEFAULT_DEPTH, 10).
+-define(DEFAULT_STAPLING_OPT, no_staple).
+-define(DEFAULT_OCSP_NONCE_OPT, false).
 -endif. % -ifdef(ssl_internal).
-
-
-
-
-

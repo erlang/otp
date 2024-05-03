@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ gen_asn1ct_rtt(Ms) ->
     io:nl(Fd),
     io:put_chars(Fd,
 		 "-module(asn1ct_rtt).\n"
+                 "-moduledoc false.\n"
 		 "-export([assert_defined/1,dependencies/1,code/0]).\n"
 		 "\n"),
     Forms = lists:sort(lists:append([abstract(M) || M <- Ms])),
@@ -62,6 +63,7 @@ gen_asn1ct_eval([File]) ->
 	      "%%\n"
 	      "%% Input file: ~s\n\n", [?MODULE,File]),
     io:format(Fd, "-module(~s).\n", [filename:rootname(File)]),
+    io:format(Fd, "-moduledoc false.\n", []),
     gen_asn1ct_eval_exp(Fd, Funcs),
     asn1ct_func:generate(Fd),
     ok = file:close(Fd),

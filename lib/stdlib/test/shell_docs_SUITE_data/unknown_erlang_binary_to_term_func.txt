@@ -1,0 +1,79 @@
+
+  [;1m-spec binary_to_term(Binary) -> term() when Binary :: ext_binary().[0m
+
+  Returns an Erlang term that is the result of decoding binary
+  object [;;4mBinary[0m, which must be encoded according to the Erlang
+  external term format.
+
+    > Bin = term_to_binary(hello).
+    <<131,100,0,5,104,101,108,108,111>>
+    > hello = binary_to_term(Bin).
+    hello
+
+  Warning:
+    When decoding binaries from untrusted sources, the untrusted
+    source may submit data in a way to create resources, such as
+    atoms and remote references, that cannot be garbage collected
+    and lead to Denial of Service attack. In such cases, consider
+    using [;;4mbinary_to_term/2[0m with the [;;4msafe[0m option.
+
+  See also [;;4mterm_to_binary/1[0m and [;;4mbinary_to_term/2[0m.
+
+  [;1m-spec binary_to_term(Binary, Opts) -> term() | {term(), Used}[0m
+  [;1m                        when[0m
+  [;1m                            Binary :: ext_binary(),[0m
+  [;1m                            Opt :: safe | used,[0m
+  [;1m                            Opts :: [Opt],[0m
+  [;1m                            Used :: pos_integer().[0m
+
+[;;4mSince[0m:
+  OTP R13B04
+
+  As [;;4mbinary_to_term/1[0m, but takes these options:
+
+  [;;4m[;;4msafe[0m[0m:
+    Use this option when receiving binaries from an untrusted
+    source.
+
+    When enabled, it prevents decoding data that can be used to
+    attack the Erlang runtime. In the event of receiving unsafe
+    data, decoding fails with a [;;4mbadarg[0m error.
+
+    This prevents creation of new atoms directly, creation of new
+    atoms indirectly (as they are embedded in certain structures,
+    such as process identifiers, refs, and funs), and creation of
+    new external function references. None of those resources are
+    garbage collected, so unchecked creation of them can exhaust
+    available memory.
+
+      > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
+      ** exception error: bad argument
+      > hello.
+      hello
+      > binary_to_term(<<131,100,0,5,"hello">>, [safe]).
+      hello
+
+    Warning:
+      The [;;4msafe[0m option ensures the data is safely processed by
+      the Erlang runtime but it does not guarantee the data is
+      safe to your application. You must always validate data
+      from untrusted sources. If the binary is stored or
+      transits through untrusted sources, you should also
+      consider cryptographically signing it.
+
+  [;;4m[;;4mused[0m[0m:
+    Changes the return value to [;;4m{Term, Used}[0m where [;;4mUsed[0m is the
+    number of bytes actually read from [;;4mBinary[0m.
+
+      > Input = <<131,100,0,5,"hello","world">>.
+      <<131,100,0,5,104,101,108,108,111,119,111,114,108,100>>
+      > {Term, Used} = binary_to_term(Input, [used]).
+      {hello, 9}
+      > split_binary(Input, Used).
+      {<<131,100,0,5,104,101,108,108,111>>, <<"world">>}
+
+  Failure: [;;4mbadarg[0m if [;;4msafe[0m is specified and unsafe data is
+  decoded.
+
+  See also [;;4mterm_to_binary/1[0m, [;;4mbinary_to_term/1[0m, and [;;4m[0m
+  [;;4mlist_to_existing_atom/1[0m.

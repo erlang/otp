@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -342,9 +342,7 @@ ordering(Config) when is_list(Config) ->
 
     %% Create a port and ref.
 
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    P = open_port(AFile, [out]),
+    P = hd(erlang:ports()),
     R = make_ref(),
 
     %% Compare funs with ports and refs.
@@ -404,20 +402,23 @@ make_fun(X, Y) ->
 
 %% Try sending funs to ports (should fail).
 fun_to_port(Config) when is_list(Config) ->
-    fun_to_port(Config, xxx),
-    fun_to_port(Config, fun() -> 42 end),
-    fun_to_port(Config, [fun() -> 43 end]),
-    fun_to_port(Config, [1,fun() -> 44 end]),
-    fun_to_port(Config, [0,1|fun() -> 45 end]),
+    Port = open_port({spawn_executable, os:find_executable("erl")},
+                     [{args, ["-noshell", "-eval", "timer:sleep(2000)",
+                              "-run", "erlang", "halt"]},
+                      use_stdio]),
+    fun_to_port(Port, xxx),
+    fun_to_port(Port, fun() -> 42 end),
+    fun_to_port(Port, [fun() -> 43 end]),
+    fun_to_port(Port, [1,fun() -> 44 end]),
+    fun_to_port(Port, [0,1|fun() -> 45 end]),
     B64K = build_io_list(65536),
-    fun_to_port(Config, [B64K,fun() -> 45 end]),
-    fun_to_port(Config, [B64K|fun() -> 45 end]),
+    fun_to_port(Port, [B64K,fun() -> 45 end]),
+    fun_to_port(Port, [B64K|fun() -> 45 end]),
+    unlink(Port),
+    exit(Port, kill),
     ok.
 
-fun_to_port(Config, IoList) ->
-    Path = proplists:get_value(priv_dir, Config),
-    AFile = filename:join(Path, "vanilla_file"),
-    Port = open_port(AFile, [out]),
+fun_to_port(Port, IoList) ->
     case catch port_command(Port, IoList) of
 	{'EXIT',{badarg,_}} -> ok;
 	Other -> ct:fail({unexpected_retval,Other})
@@ -508,13 +509,19 @@ bad_md5(Bad) ->
     {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
 
 refc(Config) when is_list(Config) ->
+    %% As the fun entry is owned by the fun's shared reference holder and not
+    %% the fun itself, its reference count should be generally be unchanged
+    %% regardless of how many copies we create, and on which process we do so.
+    %%
+    %% Only certain operations that break the sharing of the literal reference
+    %% holder should have an impact.
     F1 = fun_factory(2),
     {refc,2} = erlang:fun_info(F1, refc),
     F2 = fun_factory(42),
-    {refc,3} = erlang:fun_info(F1, refc),
+    {refc,2} = erlang:fun_info(F1, refc),
 
     process_flag(trap_exit, true),
-    Pid = spawn_link(fun() -> {refc,4} = erlang:fun_info(F1, refc) end),
+    Pid = spawn_link(fun() -> {refc,2} = erlang:fun_info(F1, refc) end),
     receive
 	{'EXIT',Pid,normal} -> ok;
 	Other -> ct:fail({unexpected,Other})
@@ -522,13 +529,20 @@ refc(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     %% Wait to make sure that the process has terminated completely.
     receive after 1 -> ok end,
-    {refc,3} = erlang:fun_info(F1, refc),
+    {refc,2} = erlang:fun_info(F1, refc),
+
+    %% Force a copy of the underlying reference holder by passing through the
+    %% external term format.
+    F3 = binary_to_term(term_to_binary(F1)),
+    3 = fun_refc(F1),
+    3 = fun_refc(F3),
 
     %% Garbage collect. Only the F2 fun will be left.
     7 = F1(5),
     true = erlang:garbage_collect(),
     40 = F2(-2),
     {refc,2} = erlang:fun_info(F2, refc),
+
     ok.
 
 fun_factory(Const) ->
@@ -585,7 +599,7 @@ refc_dist(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Pid = spawn_link(Node, fun() -> receive
                                         Fun when is_function(Fun) ->
-                                            2 = fun_refc(Fun),
+                                            3 = fun_refc(Fun),
                                             exit({normal,Fun}) end
                            end),
     F = fun() -> 42 end,
@@ -608,7 +622,7 @@ refc_dist_send(Node, F) ->
     Pid = spawn_link(Node, fun() -> receive
                                         {To,Fun} when is_function(Fun) ->
                                             wait_until(fun () ->
-                                                               2 =:= fun_refc(Fun)
+                                                               3 =:= fun_refc(Fun)
                                                        end),
                                             To ! Fun
                                     end
@@ -636,7 +650,7 @@ refc_dist_reg_send(Node, F) ->
                                    Me ! Ref,
                                    receive
                                        {Me,Fun} when is_function(Fun) ->
-                                           2 = fun_refc(Fun),
+                                           3 = fun_refc(Fun),
                                            Me ! Fun
                                    end
                            end),
@@ -698,19 +712,35 @@ t_arity(Config) when is_list(Config) ->
 t_is_function2(Config) when is_list(Config) ->
     false = is_function(id({a,b}), 0),
     false = is_function(id({a,b}), 234343434333433433),
-    true = is_function(fun() -> ok end, 0),
-    true = is_function(fun(_) -> ok end, 1),
-    false = is_function(fun(_) -> ok end, 0),
+    true = is_function(id(fun() -> ok end), 0),
+    true = is_function(id(fun(_) -> ok end), 1),
+    false = is_function(id(fun(_) -> ok end), 0),
 
-    true = is_function(fun erlang:abs/1, 1),
-    true = is_function(fun erlang:abs/99, 99),
-    false = is_function(fun erlang:abs/1, 0),
-    false = is_function(fun erlang:abs/99, 0),
+    true = is_function(id(fun erlang:abs/1), 1),
+    true = is_function(id(fun erlang:abs/99), 99),
+    false = is_function(id(fun erlang:abs/1), 0),
+    false = is_function(id(fun erlang:abs/99), 0),
 
     false = is_function(id(self()), 0),
     false = is_function(id({a,b,c}), 0),
     false = is_function(id({a}), 0),
     false = is_function(id([a,b,c]), 0),
+
+    %% Larger arities.
+    F16 = id(fun f/16),
+    F255 = id(fun f/255),
+
+    false = is_function(id(self()), 16),
+    true = is_function(F16, 16),
+    ok = id(if is_function(F16, 16) -> ok; true -> error end),
+    false = is_function(F255, 16),
+    error = id(if is_function(F255, 16) -> ok; true -> error end),
+
+    false = is_function(id(self()), 255),
+    true = is_function(F255, 255),
+    false = is_function(F16, 255),
+    error = id(if is_function(F16, 255) -> ok; true -> error end),
+    ok = id(if is_function(F255, 255) -> ok; true -> error end),
 
     %% Bad arity argument.
     bad_arity(a),
@@ -723,7 +753,7 @@ t_is_function2(Config) when is_list(Config) ->
     bad_arity(self()),
 
     %% Bad arity argument in guard test.
-    Fun = fun erlang:abs/1,
+    Fun = id(fun erlang:abs/1),
     ok = if
              is_function(Fun, -1) -> error;
              is_function(Fun, 256) -> error;
@@ -731,6 +761,44 @@ t_is_function2(Config) when is_list(Config) ->
              is_function(Fun, Fun) -> error;
              true -> ok
          end,
+    ok.
+
+f(_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8,
+  _A9, _A10, _A11, _A12, _A13, _A14, _A15, _A16) ->
+    ok.
+
+f(_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8,
+  _A9, _A10, _A11, _A12, _A13, _A14, _A15, _A16,
+  _A17, _A18, _A19, _A20, _A21, _A22, _A23, _A24,
+  _A25, _A26, _A27, _A28, _A29, _A30, _A31, _A32,
+  _A33, _A34, _A35, _A36, _A37, _A38, _A39, _A40,
+  _A41, _A42, _A43, _A44, _A45, _A46, _A47, _A48,
+  _A49, _A50, _A51, _A52, _A53, _A54, _A55, _A56,
+  _A57, _A58, _A59, _A60, _A61, _A62, _A63, _A64,
+  _A65, _A66, _A67, _A68, _A69, _A70, _A71, _A72,
+  _A73, _A74, _A75, _A76, _A77, _A78, _A79, _A80,
+  _A81, _A82, _A83, _A84, _A85, _A86, _A87, _A88,
+  _A89, _A90, _A91, _A92, _A93, _A94, _A95, _A96,
+  _A97, _A98, _A99, _A100, _A101, _A102, _A103, _A104,
+  _A105, _A106, _A107, _A108, _A109, _A110, _A111, _A112,
+  _A113, _A114, _A115, _A116, _A117, _A118, _A119, _A120,
+  _A121, _A122, _A123, _A124, _A125, _A126, _A127, _A128,
+  _A129, _A130, _A131, _A132, _A133, _A134, _A135, _A136,
+  _A137, _A138, _A139, _A140, _A141, _A142, _A143, _A144,
+  _A145, _A146, _A147, _A148, _A149, _A150, _A151, _A152,
+  _A153, _A154, _A155, _A156, _A157, _A158, _A159, _A160,
+  _A161, _A162, _A163, _A164, _A165, _A166, _A167, _A168,
+  _A169, _A170, _A171, _A172, _A173, _A174, _A175, _A176,
+  _A177, _A178, _A179, _A180, _A181, _A182, _A183, _A184,
+  _A185, _A186, _A187, _A188, _A189, _A190, _A191, _A192,
+  _A193, _A194, _A195, _A196, _A197, _A198, _A199, _A200,
+  _A201, _A202, _A203, _A204, _A205, _A206, _A207, _A208,
+  _A209, _A210, _A211, _A212, _A213, _A214, _A215, _A216,
+  _A217, _A218, _A219, _A220, _A221, _A222, _A223, _A224,
+  _A225, _A226, _A227, _A228, _A229, _A230, _A231, _A232,
+  _A233, _A234, _A235, _A236, _A237, _A238, _A239, _A240,
+  _A241, _A242, _A243, _A244, _A245, _A246, _A247, _A248,
+  _A249, _A250, _A251, _A252, _A253, _A254, _A255) ->
     ok.
 
 bad_arity(A) ->
@@ -838,8 +906,7 @@ id(X) ->
     X.
 
 spawn_call(Node, AFun) ->
-    Parent = self(),
-    Init = erlang:whereis(init),
+    Self = self(),
     Pid = spawn_link(Node,
 		     fun() ->
 			     receive
@@ -850,10 +917,7 @@ spawn_call(Node, AFun) ->
 						_ -> lists:seq(0, Arity-1)
 					    end,
 				     Res = apply(Fun, Args),
-                     case erlang:fun_info(Fun, pid) of
-                        {pid,Init} -> Parent ! {result,Res};
-                        {pid,Creator} -> Creator ! {result,Res}
-                     end
+                                     Self ! {result,Res}
 			     end
 		     end),
     Pid ! {AFun,AFun,AFun},

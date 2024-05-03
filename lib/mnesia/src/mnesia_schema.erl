@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %% used by mnesia:start() to initialize the entire schema.
 
 -module(mnesia_schema).
+-moduledoc false.
 
 -export([
          add_backend_type/2,
@@ -2466,7 +2467,6 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
 		_  ->
 		    ok
 	    end,
-            mnesia_lib:verbose("~w:~w Adding table~n",[?MODULE,?LINE]),
 
 	    case mnesia_controller:get_network_copy(Tid, Tab, Cs) of
 		{loaded, ok} ->
@@ -2474,6 +2474,8 @@ prepare_op(Tid, {op, add_table_copy, Storage, Node, TabDef}, _WaitFor) ->
                     insert_cstruct(Tid, Cs, true),
                     mnesia_controller:i_have_tab(Tab, Cs),
 		    {true, optional};
+                {not_loaded, {not_active, schema, Node}} ->
+                    mnesia:abort({node_not_running, Node});
 		{not_loaded, ErrReason} ->
 		    Reason = {system_limit, Tab, {Node, ErrReason}},
 		    mnesia:abort(Reason)

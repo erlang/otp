@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ struct erl_msacc_t_ {
     Eterm id;
     char *type;
 
-    /* the the values below are protected by mtx iff unmanaged = 1 */
+    /* the values below are protected by mtx iff unmanaged = 1 */
     ErtsSysPerfCounter perf_counter;
     Uint state;
     ErtsMsAccPerfCntr counters[];

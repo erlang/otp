@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %%% module may be used as a template for other event handlers
 %%% that can be plugged in to handle local logging and reporting.
 -module(ct_event).
+-moduledoc false.
 
 -behaviour(gen_event).
 

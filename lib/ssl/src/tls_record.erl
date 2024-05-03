@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_record).
+-moduledoc false.
 
 -include("tls_record.hrl").
 -include("ssl_internal.hrl").
@@ -49,7 +50,7 @@
 -export([build_tls_record/1]).
 
 %% Protocol version handling
--export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
+-export([protocol_version/1, protocol_version_name/1,  lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
 	 is_higher/2, supported_protocol_versions/0, sufficient_crypto_support/1,
 	 is_acceptable_version/1, is_acceptable_version/2, hello_version/1]).
@@ -90,15 +91,14 @@ init_connection_states(Role, Version, BeastMitigation) ->
 
 init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
-    Current = initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize),
-    Pending = ssl_record:empty_connection_state(ConnectionEnd,
-                                                Version,
-                                                BeastMitigation,
-                                                MaxEarlyDataSize),
-    #{current_read  => Current,
-      pending_read  => Pending,
-      current_write => Current,
-      pending_write => Pending}.
+    Current = initial_connection_state(ConnectionEnd, MaxEarlyDataSize),
+    Pending = ssl_record:empty_connection_state(ConnectionEnd, Version, MaxEarlyDataSize),
+    CS = #{current_read  => Current,  pending_read  => Pending,
+           current_write => Current,  pending_write => Pending},
+    case BeastMitigation of
+        disabled -> CS;
+        _NotDisabled -> CS#{beast_mitigation => BeastMitigation}
+    end.
 
 %%--------------------------------------------------------------------
 -spec get_tls_records(
@@ -106,19 +106,19 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
         [tls_version()] | tls_version(),
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
         tls_max_frag_len(),
-        ssl_options()) ->
-                             {Records :: [#ssl_tls{}],
-                              Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
-                             #alert{}.
-%%			     
-%% and returns it as a list of tls_compressed binaries also returns leftover
+        Downgrade :: {NewController::pid(), From::gen_statem:from()} | 'undefined') ->
+          {Records :: [#ssl_tls{}],
+           Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
+          #alert{}.
+%%
+%% and returns it as a list of binaries also returns leftover
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer, MaxFragLen, SslOpts) when is_binary(Buffer) ->
-    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, SslOpts, undefined);
-get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) ->
-    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, SslOpts, Hdr).
+get_tls_records(Data, Versions, Buffer, MaxFragLen, Downgrade) when is_binary(Buffer) ->
+    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, Downgrade, undefined);
+get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, Downgrade) ->
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, Downgrade, Hdr).
 
 %%====================================================================
 %% Encoding
@@ -130,23 +130,17 @@ get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) -
 %
 %% Description: Encodes a handshake message to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_handshake(Frag, {3, 4}, ConnectionStates) ->
+encode_handshake(Frag, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_handshake(Frag, ConnectionStates);
-encode_handshake(Frag, Version, 
+encode_handshake(Frag, Version,
 		 #{current_write :=
-		       #{beast_mitigation := BeastMitigation,
-                         max_fragment_length := MaxFragmentLength,
-			  security_parameters :=
-			     #security_parameters{bulk_cipher_algorithm = BCA}}} = 
-		     ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
+		       #{security_parameters := #security_parameters{bulk_cipher_algorithm = BCA}}
+                  } = ConnectionStates) ->
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
+    BeastM = maps:get(beast_mitigation, ConnectionStates, disabled),
     case iolist_size(Frag) of
 	N when N > MaxLength ->
-            Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation, MaxLength),
+            Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastM, MaxLength),
 	    encode_fragments(?HANDSHAKE, Version, Data, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
@@ -158,7 +152,7 @@ encode_handshake(Frag, Version,
 %%
 %% Description: Encodes an alert message to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_alert_record(Alert, {3, 4}, ConnectionStates) ->
+encode_alert_record(Alert, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_alert_record(Alert, ConnectionStates);
 encode_alert_record(#alert{level = Level, description = Description},
                     Version, ConnectionStates) ->
@@ -180,20 +174,15 @@ encode_change_cipher_spec(Version, ConnectionStates) ->
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
-encode_data(Data, {3, 4}, ConnectionStates) ->
+encode_data(Data, ?TLS_1_3, ConnectionStates) ->
     tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Data, Version,
-	    #{current_write := #{beast_mitigation := BeastMitigation,
-                                 max_fragment_length := MaxFragmentLength,
-				 security_parameters :=
-				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
-		ConnectionStates) ->
-    MaxLength = if is_integer(MaxFragmentLength) ->
-                        MaxFragmentLength;
-                   true ->
-                        ?MAX_PLAIN_TEXT_LENGTH
-                end,
-    Fragments = split_iovec(Data, Version, BCA, BeastMitigation, MaxLength),
+	    #{current_write :=
+                  #{security_parameters := #security_parameters{bulk_cipher_algorithm = BCA}}
+             } = ConnectionStates) ->
+    MaxLength = maps:get(max_fragment_length, ConnectionStates, ?MAX_PLAIN_TEXT_LENGTH),
+    BeastM = maps:get(beast_mitigation, ConnectionStates, disabled),
+    Fragments = split_iovec(Data, Version, BCA, BeastM, MaxLength),
     encode_fragments(?APPLICATION_DATA, Version, Fragments, ConnectionStates).
 
 %%====================================================================
@@ -207,7 +196,7 @@ encode_data(Data, Version,
 %%
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------
-decode_cipher_text({3,4}, CipherTextRecord, ConnectionStates, _) -> 
+decode_cipher_text(?TLS_1_3, CipherTextRecord, ConnectionStates, _) ->
     tls_record_1_3:decode_cipher_text(CipherTextRecord, ConnectionStates);
 decode_cipher_text(_, CipherTextRecord,
 		   #{current_read :=
@@ -219,24 +208,19 @@ decode_cipher_text(_, CipherTextRecord,
                           }
                     } = ConnectionStates0, _) ->
     SeqBin = <<?UINT64(Seq)>>,
-    #ssl_tls{type = Type, version = {MajVer,MinVer} = Version, fragment = Fragment} = CipherTextRecord,
+    #ssl_tls{type = Type, version = Version, fragment = Fragment} = CipherTextRecord,
+    {MajVer,MinVer} = Version,
     StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer)>>,
     CipherS = ssl_record:nonce_seed(BulkCipherAlgo, SeqBin, CipherS0),
     case ssl_record:decipher_aead(
            BulkCipherAlgo, CipherS, StartAdditionalData, Fragment, Version)
     of
 	PlainFragment when is_binary(PlainFragment) ->
-            #{current_read :=
-                  #{security_parameters := SecParams,
-                    compression_state := CompressionS0} = ReadState0} = ConnectionStates0,
-	    {Plain, CompressionS} = ssl_record:uncompress(SecParams#security_parameters.compression_algorithm,
-                                                          PlainFragment, CompressionS0),
-	    ConnectionStates = ConnectionStates0#{
-				  current_read => ReadState0#{
-                                                    cipher_state => CipherS,
-                                                    sequence_number => Seq + 1,
-                                                    compression_state => CompressionS}},
-	    {CipherTextRecord#ssl_tls{fragment = Plain}, ConnectionStates};
+            #{current_read := ReadState0} = ConnectionStates0,
+            ConnectionStates =
+                ConnectionStates0#{current_read => ReadState0#{cipher_state => CipherS,
+                                                               sequence_number => Seq + 1}},
+            {CipherTextRecord#ssl_tls{fragment = PlainFragment}, ConnectionStates};
 	#alert{} = Alert ->
 	    Alert
     end;
@@ -246,24 +230,19 @@ decode_cipher_text(_, #ssl_tls{version = Version,
 		   #{current_read := ReadState0} = ConnnectionStates0, PaddingCheck) ->
     case ssl_record:decipher(Version, CipherFragment, ReadState0, PaddingCheck) of
 	{PlainFragment, Mac, ReadState1} ->
-	    MacHash = ssl_cipher:calc_mac_hash(CipherTextRecord#ssl_tls.type, Version, PlainFragment, ReadState1),
+	    MacHash = ssl_cipher:calc_mac_hash(CipherTextRecord#ssl_tls.type, Version,
+                                               PlainFragment, ReadState1),
 	    case ssl_record:is_correct_mac(Mac, MacHash) of
 		true ->
-                    #{sequence_number := Seq,
-                      compression_state := CompressionS0,
-                      security_parameters :=
-                          #security_parameters{compression_algorithm = CompAlg}} = ReadState0,
-		    {Plain, CompressionS1} = ssl_record:uncompress(CompAlg,
-								   PlainFragment, CompressionS0),
+                    #{sequence_number := Seq} = ReadState0,
 		    ConnnectionStates =
                         ConnnectionStates0#{current_read =>
-                                                ReadState1#{sequence_number => Seq + 1,
-                                                            compression_state => CompressionS1}},
-		    {CipherTextRecord#ssl_tls{fragment = Plain}, ConnnectionStates};
+                                                ReadState1#{sequence_number => Seq + 1}},
+		    {CipherTextRecord#ssl_tls{fragment = PlainFragment}, ConnnectionStates};
 		false ->
                     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
 	    end;
-	    #alert{} = Alert ->
+        #alert{} = Alert ->
 	    Alert
     end.
 
@@ -272,99 +251,91 @@ decode_cipher_text(_, #ssl_tls{version = Version,
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec protocol_version(tls_atom_version() | tls_version()) -> 
-			      tls_version() | tls_atom_version().		      
+-spec protocol_version_name(tls_atom_version()) -> tls_version().
 %%     
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
-protocol_version('tlsv1.3') ->
-    {3, 4};
-protocol_version('tlsv1.2') ->
-    {3, 3};
-protocol_version('tlsv1.1') ->
-    {3, 2};
-protocol_version(tlsv1) ->
-    {3, 1};
-protocol_version(sslv3) ->
-    {3, 0};
-protocol_version(sslv2) -> %% Backwards compatibility
-    {2, 0};
-protocol_version({3, 4}) ->
+protocol_version_name('tlsv1.3') ->
+    ?TLS_1_3;
+protocol_version_name('tlsv1.2') ->
+    ?TLS_1_2;
+protocol_version_name('tlsv1.1') ->
+    ?TLS_1_1;
+protocol_version_name(tlsv1) ->
+    ?TLS_1_0;
+protocol_version_name(sslv3) ->
+    ?SSL_3_0;
+protocol_version_name(sslv2) -> %% Backwards compatibility
+    ?SSL_2_0.
+
+%%--------------------------------------------------------------------
+-spec protocol_version(tls_version()) -> tls_atom_version().
+%%
+%% Description: Creates a protocol version record from a version atom
+%% or vice versa.
+%%--------------------------------------------------------------------
+
+protocol_version(?TLS_1_3) ->
     'tlsv1.3';
-protocol_version({3, 3}) ->
+protocol_version(?TLS_1_2) ->
     'tlsv1.2';
-protocol_version({3, 2}) ->
+protocol_version(?TLS_1_1) ->
     'tlsv1.1';
-protocol_version({3, 1}) ->
+protocol_version(?TLS_1_0) ->
     tlsv1;
-protocol_version({3, 0}) ->
+protocol_version(?SSL_3_0) ->
     sslv3.
 %%--------------------------------------------------------------------
 -spec lowest_protocol_version(tls_version(), tls_version()) -> tls_version().
 %%     
 %% Description: Lowes protocol version of two given versions 
 %%--------------------------------------------------------------------
-lowest_protocol_version(Version = {M, N}, {M, O})   when N < O ->
-    Version;
-lowest_protocol_version({M, _}, 
-			Version = {M, _}) ->
-    Version;
-lowest_protocol_version(Version = {M,_}, 
-			{N, _}) when M < N ->
-    Version;
-lowest_protocol_version(_,Version) ->
-    Version.
+lowest_protocol_version(Version1, Version2) when ?TLS_LT(Version1, Version2) ->
+    Version1;
+lowest_protocol_version(_, Version2) ->
+    Version2.
 
 %%--------------------------------------------------------------------
 -spec lowest_protocol_version([tls_version()]) -> tls_version().
 %%     
 %% Description: Lowest protocol version present in a list
 %%--------------------------------------------------------------------
-lowest_protocol_version([]) ->
-    lowest_protocol_version();
 lowest_protocol_version(Versions) ->
-    [Ver | Vers] = Versions,
-    lowest_list_protocol_version(Ver, Vers).
+    check_protocol_version(Versions, fun lowest_protocol_version/2).
 
 %%--------------------------------------------------------------------
 -spec highest_protocol_version([tls_version()]) -> tls_version().
 %%     
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
-highest_protocol_version([]) ->
-    highest_protocol_version();
 highest_protocol_version(Versions) ->
-    [Ver | Vers] = Versions,
-    highest_list_protocol_version(Ver, Vers).
+    check_protocol_version(Versions, fun highest_protocol_version/2).
+
+
+check_protocol_version([], Fun) -> check_protocol_version(supported_protocol_versions(), Fun);
+check_protocol_version([Ver | Versions], Fun) -> lists:foldl(Fun, Ver, Versions).
 
 %%--------------------------------------------------------------------
 -spec highest_protocol_version(tls_version(), tls_version()) -> tls_version().
 %%     
 %% Description: Highest protocol version of two given versions 
 %%--------------------------------------------------------------------
-highest_protocol_version(Version = {M, N}, {M, O})   when N > O ->
-    Version;
-highest_protocol_version({M, _}, 
-			Version = {M, _}) ->
-    Version;
-highest_protocol_version(Version = {M,_}, 
-			{N, _}) when M > N ->
-    Version;
-highest_protocol_version(_,Version) ->
-    Version.
+highest_protocol_version(Version1, Version2) when ?TLS_GT(Version1, Version2) ->
+    Version1;
+highest_protocol_version(_, Version2) ->
+    Version2.
 
 %%--------------------------------------------------------------------
 -spec is_higher(V1 :: tls_version(), V2::tls_version()) -> boolean().
 %%     
 %% Description: Is V1 > V2
 %%--------------------------------------------------------------------
-is_higher({M, N}, {M, O}) when N > O ->
+is_higher(V1, V2) when ?TLS_GT(V1, V2) ->
     true;
-is_higher({M, _}, {N, _}) when M > N ->
-    true; 
 is_higher(_, _) ->
     false.
+
 
 %%--------------------------------------------------------------------
 -spec supported_protocol_versions() -> [tls_version()].					 
@@ -373,7 +344,7 @@ is_higher(_, _) ->
 %%--------------------------------------------------------------------
 supported_protocol_versions() ->
     Fun = fun(Version) ->
-		  protocol_version(Version) 
+		  protocol_version_name(Version)
 	  end,
     case application:get_env(ssl, protocol_version) of
 	undefined ->
@@ -399,8 +370,6 @@ supported_protocol_versions([_|_] = Vsns) ->
 sufficient_crypto_support(Version) ->
     sufficient_crypto_support(crypto:supports(), Version).
 
-sufficient_crypto_support(CryptoSupport, {_,_} = Version) ->
-    sufficient_crypto_support(CryptoSupport, protocol_version(Version));
 sufficient_crypto_support(CryptoSupport, Version) when Version == 'tlsv1';
                                                        Version == 'tlsv1.1' ->
     Hashes =  proplists:get_value(hashs, CryptoSupport),
@@ -453,28 +422,28 @@ sufficient_crypto_support(CryptoSupport, 'tlsv1.3') ->
          %% {public_keys, eddsa},  %% TODO
          {curves, secp256r1},               %% key exchange with secp256r1
          {curves, x25519}],                 %% key exchange with X25519
-    lists:all(Fun, L).
+    lists:all(Fun, L);
+sufficient_crypto_support(CryptoSupport, Version) ->
+    sufficient_crypto_support(CryptoSupport, protocol_version(Version)).
+
 
 is_algorithm_supported(CryptoSupport, Group, Algorithm) ->
     proplists:get_bool(Algorithm, proplists:get_value(Group, CryptoSupport)).
 
 -spec is_acceptable_version(tls_version()) -> boolean().
-is_acceptable_version({N,_}) 
-  when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
+is_acceptable_version(Version)
+  when ?TLS_1_X(Version) ->
     true;
 is_acceptable_version(_) ->
     false.
 
 -spec is_acceptable_version(tls_version(), Supported :: [tls_version()]) -> boolean().
-is_acceptable_version({N,_} = Version, Versions)   
-  when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
-    lists:member(Version, Versions);
-is_acceptable_version(_,_) ->
-    false.
+is_acceptable_version(Version, Versions) ->
+    ?TLS_1_X(Version) andalso lists:member(Version, Versions).
 
 -spec hello_version([tls_version()]) -> tls_version().
-hello_version([Highest|_]) when Highest >= {3,3} ->
-    {3,3};
+hello_version([Highest|_]) when ?TLS_GTE(Highest, ?TLS_1_2) ->
+    ?TLS_1_2;
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
 
@@ -487,115 +456,115 @@ split_iovec(Data, MaximumFragmentLength) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-initial_connection_state(ConnectionEnd, BeastMitigation, MaxEarlyDataSize) ->
-    #{security_parameters =>
-	  ssl_record:initial_security_params(ConnectionEnd),
+initial_connection_state(ConnectionEnd, MaxEarlyDataSize) ->
+    #{security_parameters => ssl_record:initial_security_params(ConnectionEnd),
       sequence_number => 0,
-      beast_mitigation => BeastMitigation,
-      compression_state  => undefined,
       cipher_state  => undefined,
       mac_secret  => undefined,
-      secure_renegotiation => undefined,
-      client_verify_data => undefined,
-      server_verify_data => undefined,
-      pending_early_data_size => MaxEarlyDataSize,
-      max_fragment_length => undefined,
-      trial_decryption => false,
-      early_data_expected => false
+      early_data => #{pending_early_data_size => MaxEarlyDataSize,
+                      trial_decryption => false,
+                      early_data_expected => false
+                     },
+      reneg => #{secure_renegotiation => undefined,
+                 client_verify_data => undefined,
+                 server_verify_data => undefined}
      }.
 
 %% Used by logging to recreate the received bytes
-build_tls_record(#ssl_tls{type = Type, version = {MajVer, MinVer}, fragment = Fragment}) ->
+build_tls_record(#ssl_tls{type = Type, version = Version, fragment = Fragment}) ->
     Length = byte_size(Fragment),
+    {MajVer, MinVer} = Version,
     <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),?UINT16(Length), Fragment/binary>>.
 
 
-parse_tls_records(Versions, Q, MaxFragLen, SslOpts, undefined) ->
-    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], undefined, undefined, undefined);
-parse_tls_records(Versions, Q, MaxFragLen, SslOpts, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
-    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], Type, Version, Length).
+parse_tls_records(Versions, Q, MaxFragLen, Downgrade, undefined) ->
+    decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [], undefined, undefined, undefined);
+parse_tls_records(Versions, Q, MaxFragLen, Downgrade, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
+    decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [], Type, Version, Length).
 
 %% Generic code path
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, undefined, _Version, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, undefined, _Version, _Length) ->
     if
         5 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(5, Q0),
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
+            %% TODO: convert the MajVer and MinVer to corresponding macro
+            Version = {MajVer,MinVer},
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         3 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(3, Q0),
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
+            Version = {MajVer,MinVer},
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, undefined);
         1 =< Size ->
             {<<?BYTE(Type)>>, Q} = binary_from_front(1, Q0),
-            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, undefined, undefined);
+            validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, undefined, undefined);
         true ->
-            validate_tls_records_type(Versions, Q0, MaxFragLen, SslOpts, Acc, undefined, undefined, undefined)
+            validate_tls_records_type(Versions, Q0, MaxFragLen, Downgrade, Acc, undefined, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, undefined, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, Type, undefined, _Length) ->
     if
         4 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(4, Q0),
-            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
+            Version = {MajVer,MinVer},
+            validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         2 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(2, Q0),
-            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
+            Version = {MajVer,MinVer},
+            validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, undefined);
         true ->
-            validate_tls_record_version(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, undefined, undefined)
+            validate_tls_record_version(Versions, Q0, MaxFragLen, Downgrade, Acc, Type, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, Downgrade, Acc, Type, Version, undefined) ->
     if
         2 =< Size ->
             {<<?UINT16(Length)>>, Q} = binary_from_front(2, Q0),
-            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
         true ->
-            validate_tls_record_length(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined)
+            validate_tls_record_length(Versions, Q0, MaxFragLen, Downgrade, Acc, Type, Version, undefined)
     end;
-decode_tls_records(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
-    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length).
+decode_tls_records(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
+    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length).
 
-validate_tls_records_type(_Versions, Q, _MaxFragLen, _SslOpts, Acc, undefined, _Version, _Length) ->
+
+%% TODO: separate validation logic from modification of the record
+validate_tls_records_type(_Versions, Q, _MaxFragLen, _Downgrade, Acc, undefined, _Version, _Length) ->
     {lists:reverse(Acc),
      {undefined, Q}};
-validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
-    if
-        ?KNOWN_RECORD_TYPE(Type) ->
-            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-        true ->
-            %% Not ?KNOWN_RECORD_TYPE(Type)
-            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type})
-    end.
+validate_tls_records_type(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) when ?KNOWN_RECORD_TYPE(Type) ->
+    validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_records_type(_Versions, _Q, _MaxFragLen, _Downgrade, _Acc, Type, _Version, _Length) ->
+    %% Not ?KNOWN_RECORD_TYPE(Type)
+    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type}).
 
-validate_tls_record_version(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, undefined, _Length) ->
+
+validate_tls_record_version(_Versions, Q, _MaxFragLen, _Downgrade, Acc, Type, undefined, _Length) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = undefined, fragment = undefined}, Q}};
-validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
-    case Versions of
-        _ when is_list(Versions) ->
-            case is_acceptable_version(Version, Versions) of
-                true ->
-                    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-                false ->
-                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
-            end;
-        {3, 4} when Version =:= {3, 3} ->
-            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-        Version ->
-            %% Exact version match
-            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
-        _ ->
+validate_tls_record_version(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) when is_list(Versions) ->
+    case is_acceptable_version(Version, Versions) of
+        true ->
+            validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+        false ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
-    end.
+    end;
+validate_tls_record_version(?TLS_1_3=Versions, Q, MaxFragLen, Downgrade, Acc, Type, ?TLS_1_2=Version, Length) ->
+    validate_tls_record_length(Versions, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length) ->
+    %% Exact version match
+    validate_tls_record_length(Version, Q, MaxFragLen, Downgrade, Acc, Type, Version, Length);
+validate_tls_record_version(_Versions, _Q, _MaxFragLen, _Downgrade, _Acc, _Type, Version, _Length) ->
+    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version}).
 
-validate_tls_record_length(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, Version, undefined) ->
+
+validate_tls_record_length(_Versions, Q, _MaxFragLen, _Downgrade, Acc, Type, Version, undefined) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
 validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
-                           #{log_level := LogLevel, downgrade := Downgrade} = SslOpts,
-                           Acc, Type, Version, Length) ->
+                           Downgrade, Acc, Type, Version, Length) ->
     Max = if is_integer(MaxFragLen) ->
-                        MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
-                   true ->
-                        max_len(Versions)
-                end,
+                  MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
+             true ->
+                  max_len(Versions)
+          end,
     if
         Length =< Max ->
             if
@@ -603,13 +572,13 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
                     %% Complete record
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
-                    ssl_logger:debug(LogLevel, inbound, 'record', Record),
+                    ssl_logger:debug(get(log_level), inbound, 'record', Record),
                     case Downgrade of
                         {_Pid, _From} ->
                             %% parse only single record for downgrade scenario, buffer remaining data
                             {[Record], {undefined, Q}};
                         _ ->
-                            decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [Record|Acc], undefined, undefined, undefined)
+                            decode_tls_records(Versions, Q, MaxFragLen, Downgrade, [Record|Acc], undefined, undefined, undefined)
                     end;
                 true ->
                     {lists:reverse(Acc),
@@ -671,62 +640,58 @@ encode_plain_text(Type, Version, Data, ConnectionStates0) ->
     {CipherText,ConnectionStates}.
 %%--------------------------------------------------------------------
 encode_fragments(Type, Version, Data,
-              #{current_write := #{compression_state := CompS,
-                                   cipher_state := CipherS,
-                                   sequence_number := Seq}} = ConnectionStates) ->
-    encode_fragments(Type, Version, Data, ConnectionStates, CompS, CipherS, Seq, []).
+                 #{current_write := #{cipher_state := CipherS,
+                                      sequence_number := Seq}} = ConnectionStates) ->
+    encode_fragments(Type, Version, Data, ConnectionStates, CipherS, Seq, []).
 %%
 encode_fragments(_Type, _Version, [], #{current_write := WriteS} = CS,
-              CompS, CipherS, Seq, CipherFragments) ->
+                 CipherS, Seq, CipherFragments) ->
     {lists:reverse(CipherFragments),
-     CS#{current_write := WriteS#{compression_state := CompS,
-                                  cipher_state := CipherS,
-                                  sequence_number := Seq}}};
+     CS#{current_write := WriteS#{cipher_state := CipherS, sequence_number := Seq}}};
 encode_fragments(Type, Version, [Text|Data],
-              #{current_write := #{security_parameters :=
-                                       #security_parameters{cipher_type = ?AEAD,
-                                                            bulk_cipher_algorithm = BCAlg,
-                                                            compression_algorithm = CompAlg} = SecPars}} = CS,
-              CompS0, CipherS0, Seq, CipherFragments) ->
-    {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
+                 #{current_write :=
+                       #{security_parameters :=
+                             #security_parameters{cipher_type = ?AEAD,
+                                                  bulk_cipher_algorithm = BCAlg} = SecPars}} = CS,
+                 CipherS0, Seq, CipherFragments) ->
     SeqBin = <<?UINT64(Seq)>>,
     CipherS1 = ssl_record:nonce_seed(BCAlg, SeqBin, CipherS0),
     {MajVer, MinVer} = Version,
     VersionBin = <<?BYTE(MajVer), ?BYTE(MinVer)>>,
     StartAdditionalData = <<SeqBin/binary, ?BYTE(Type), VersionBin/binary>>,
-    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, CompText, CipherS1, StartAdditionalData, SecPars),
+    {CipherFragment,CipherS} = ssl_record:cipher_aead(Version, Text, CipherS1,
+                                                      StartAdditionalData, SecPars),
     Length = byte_size(CipherFragment),
     CipherHeader = <<?BYTE(Type), VersionBin/binary, ?UINT16(Length)>>,
-    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
-                  [[CipherHeader, CipherFragment] | CipherFragments]);
+    encode_fragments(Type, Version, Data, CS, CipherS, Seq + 1,
+                     [[CipherHeader, CipherFragment] | CipherFragments]);
 encode_fragments(Type, Version, [Text|Data],
-              #{current_write := #{security_parameters :=
-                                       #security_parameters{compression_algorithm = CompAlg,
-                                                            mac_algorithm = MacAlgorithm} = SecPars,
-                                   mac_secret := MacSecret}} = CS,
-              CompS0, CipherS0, Seq, CipherFragments) ->
-    {CompText, CompS} = ssl_record:compress(CompAlg, Text, CompS0),
-    MacHash = ssl_cipher:calc_mac_hash(Type, Version, CompText, MacAlgorithm, MacSecret, Seq),
-    {CipherFragment,CipherS} = ssl_record:cipher(Version, CompText, CipherS0, MacHash, SecPars),
+                 #{current_write :=
+                       #{security_parameters :=
+                             #security_parameters{mac_algorithm = MacAlgorithm} = SecPars,
+                         mac_secret := MacSecret}} = CS,
+                 CipherS0, Seq, CipherFragments) ->
+    MacHash = ssl_cipher:calc_mac_hash(Type, Version, Text, MacAlgorithm, MacSecret, Seq),
+    {CipherFragment,CipherS} = ssl_record:cipher(Version, Text, CipherS0, MacHash, SecPars),
     Length = byte_size(CipherFragment),
     {MajVer, MinVer} = Version,
     CipherHeader = <<?BYTE(Type), ?BYTE(MajVer), ?BYTE(MinVer), ?UINT16(Length)>>,
-    encode_fragments(Type, Version, Data, CS, CompS, CipherS, Seq + 1,
+    encode_fragments(Type, Version, Data, CS, CipherS, Seq + 1,
                      [[CipherHeader, CipherFragment] | CipherFragments]).
+
+
 %%--------------------------------------------------------------------
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 ciphers are
 %% not vulnerable to this attack.
-split_iovec(Data, Version, BCA, one_n_minus_one, MaxLength)
-  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
-                               {3, 0} == Version) ->
+split_iovec(Data, ?TLS_1_0, BCA, one_n_minus_one, MaxLength)
+  when BCA =/= ?RC4 ->
     {Part, RestData} = split_iovec(Data, 1, []),
     [Part|split_iovec(RestData, MaxLength)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
-split_iovec(Data, Version, BCA, zero_n, MaxLength)
-  when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
-                               {3, 0} == Version) ->
+split_iovec(Data, ?TLS_1_0, BCA, zero_n, MaxLength)
+  when BCA =/= ?RC4 ->
     {Part, RestData} = split_iovec(Data, 0, []),
     [Part|split_iovec(RestData, MaxLength)];
 split_iovec(Data, _Version, _BCA, _BeatMitigation, MaxLength) ->
@@ -747,23 +712,9 @@ split_iovec([], _SplitSize, Acc) ->
     {lists:reverse(Acc),[]}.
 
 %%--------------------------------------------------------------------
-lowest_list_protocol_version(Ver, []) ->
-    Ver;
-lowest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    lowest_list_protocol_version(lowest_protocol_version(Ver1, Ver2), Rest).
 
-highest_list_protocol_version(Ver, []) ->
-    Ver;
-highest_list_protocol_version(Ver1,  [Ver2 | Rest]) ->
-    highest_list_protocol_version(highest_protocol_version(Ver1, Ver2), Rest).
 
-highest_protocol_version() ->
-    highest_protocol_version(supported_protocol_versions()).
-
-lowest_protocol_version() ->
-    lowest_protocol_version(supported_protocol_versions()).
-
-max_len([{3,4}|_])->
+max_len([?TLS_1_3|_])->
     ?TLS13_MAX_CIPHER_TEXT_LENGTH;
 max_len(_) ->
     ?MAX_CIPHER_TEXT_LENGTH.

@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% The SCTP protocol was added 2006
@@ -23,6 +23,7 @@
 %% at IDT Corp. Adapted by the OTP team at Ericsson AB.
 %%
 -module(prim_inet).
+-moduledoc false.
 
 %% Primitive inet_drv interface
 
@@ -493,7 +494,7 @@ accept_opts(L, S, FamilyOpts) ->
     case
         getopts(
           L,
-          [active, nodelay, keepalive, delay_send, priority, linger]
+          [active, nodelay, keepalive, delay_send, priority, linger, reuseaddr]
           ++ FamilyOpts)
     of
 	{ok, Opts} ->
@@ -562,52 +563,60 @@ peeloff(S, AssocId) ->
 %% NOT delegating this task to any back-end.  For SCTP, this function MUST NOT
 %% be called directly -- use "sendmsg" instead:
 %%
+send(S, Data) ->
+    send(S, Data, []).
+
 send(S, Data, OptList) when is_port(S), is_list(OptList) ->
     ?DBG_FORMAT("prim_inet:send(~p, _, ~p)~n", [S,OptList]),
-    try erlang:port_command(S, Data, OptList) of
-	false -> % Port busy and nosuspend option passed
+    Mref = monitor(port, S),
+    MrefBin = term_to_binary(Mref, [local]),
+    MrefBinSize = byte_size(MrefBin),
+    MrefBinSize = MrefBinSize band 16#FFFF,
+    HdrAndData = [<<MrefBinSize:16,MrefBin/binary>>, Data],
+    send(S, HdrAndData, OptList, Mref).
+
+send(S, HdrAndData, OptList, Mref) ->
+    try erlang:port_command(S, HdrAndData, OptList) of
+        false -> % Port busy when nosuspend option was passed
 	    ?DBG_FORMAT("prim_inet:send() -> {error,busy}~n", []),
-	    {error,busy};
-	true ->
-            send_recv_reply(S, undefined)
-    catch
-	error:_Error ->
+            {error,busy};
+        true ->
+            receive
+                {inet_reply,S,Mref} ->
+                    %% This causes a wait even though nosuspend was used.
+                    %% It only happens when the OS send operation returns
+                    %% that it would block, which should only happen
+                    %% for SCTP (seqpacket), never for UDP (dgram)
+                    %%
+                    %% To fix this we probably need to pass down
+                    %% the nosuspend option to inform inet_drv
+                    %% to not use driver_select and send a late second reply.
+                    %%
+                    ?DBG_FORMAT(
+                       "prim_inet:send(~p,,,) Waiting~n",
+                       [S]),
+                    receive
+                        {inet_reply,S,ok,Mref} ->
+                            send(S, HdrAndData, OptList, Mref);
+                        {'DOWN',Mref,_,_,_Reason} ->
+                            ?DBG_FORMAT(
+                               "prim_inet:send(~p,,,) 'DOWN' ~p~n",
+                               [S,_Reason]),
+                            {error,closed}
+                    end;
+                {inet_reply,S,Status,Mref} ->
+                    demonitor(Mref, [flush]),
+                    Status;
+                {'DOWN',Mref,_,_,_Reason} ->
+                    ?DBG_FORMAT(
+                       "prim_inet:send(~p,,,) 'DOWN' ~p~n",
+                       [S,_Reason]),
+                    {error,closed}
+            end
+    catch error: _ ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
 	     {error,einval}
     end.
-
-send_recv_reply(S, Mref) ->
-    ReplyTimeout =
-        case Mref of
-            undefined ->
-                ?INET_CLOSE_TIMEOUT;
-            _ ->
-                infinity
-        end,
-    receive
-        {inet_reply,S,Status} ->
-            ?DBG_FORMAT(
-               "prim_inet:send_recv_reply(~p, _): inet_reply ~p~n",
-               [S,Status]),
-            case Mref of
-                undefined -> ok;
-                _ ->
-                    demonitor(Mref, [flush]),
-                    ok
-            end,
-            Status;
-        {'DOWN',Mref,_,_,_Reason} when Mref =/= undefined ->
-            ?DBG_FORMAT(
-               "prim_inet:send_recv_reply(~p, _) 'DOWN' ~p~n",
-               [S,_Reason]),
-            {error,closed}
-    after ReplyTimeout ->
-            send_recv_reply(S, monitor(port, S))
-    end.
-
-
-send(S, Data) ->
-    send(S, Data, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -645,10 +654,19 @@ do_sendto(S, Address, AncOpts, Data) ->
                         [enc_value(set, addr, Address),
                          enc_value(set, uint32, AncDataLen), AncData,
                          Data],
-                    try erlang:port_command(S, PortCommandData) of
+                    Ref = make_ref(),
+                    RefBin = term_to_binary(Ref, [local]),
+                    RefBinSize = byte_size(RefBin),
+                    RefBinSize = RefBinSize band 16#FFFF,
+                    try
+                        erlang:port_command(
+                          S,
+                          [<<RefBinSize:16,RefBin/binary>>,
+                           PortCommandData])
+                    of
                         true ->
                             receive
-                                {inet_reply,S,Reply} ->
+                                {inet_reply,S,Reply,Ref} ->
                                     ?DBG_FORMAT(
                                        "prim_inet:sendto() -> ~p~n", [Reply]),
                                     Reply
@@ -669,7 +687,6 @@ do_sendto(S, Address, AncOpts, Data) ->
                "prim_inet:sendto() -> {error,einval}~n", []),
             {error,einval}
     end.
-    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1513,6 +1530,9 @@ is_sockopt_val(Opt, Val) ->
 %% Socket options processing: Encoding option NAMES:
 %%
 enc_opt(reuseaddr)       -> ?INET_OPT_REUSEADDR;
+enc_opt(reuseport)       -> ?INET_OPT_REUSEPORT;
+enc_opt(reuseport_lb)    -> ?INET_OPT_REUSEPORT_LB;
+enc_opt(exclusiveaddruse) -> ?INET_OPT_EXCLUSIVEADDRUSE;
 enc_opt(keepalive)       -> ?INET_OPT_KEEPALIVE;
 enc_opt(dontroute)       -> ?INET_OPT_DONTROUTE;
 enc_opt(linger)          -> ?INET_OPT_LINGER;
@@ -1581,6 +1601,9 @@ enc_opt(sctp_get_peer_addr_info)   -> ?SCTP_OPT_GET_PEER_ADDR_INFO.
 %% Decoding option NAMES:
 %%
 dec_opt(?INET_OPT_REUSEADDR)      -> reuseaddr;
+dec_opt(?INET_OPT_REUSEPORT)      -> reuseport;
+dec_opt(?INET_OPT_REUSEPORT_LB)   -> reuseport_lb;
+dec_opt(?INET_OPT_EXCLUSIVEADDRUSE) -> exclusiveaddruse;
 dec_opt(?INET_OPT_KEEPALIVE)      -> keepalive;
 dec_opt(?INET_OPT_DONTROUTE)      -> dontroute;
 dec_opt(?INET_OPT_LINGER)         -> linger;
@@ -1664,6 +1687,9 @@ type_opt(_,   Opt) ->
 %% Types of option values, by option name:
 %%
 type_opt_1(reuseaddr)       -> bool;
+type_opt_1(reuseport)       -> bool;
+type_opt_1(reuseport_lb)    -> bool;
+type_opt_1(exclusiveaddruse) -> bool;
 type_opt_1(keepalive)       -> bool;
 type_opt_1(dontroute)       -> bool;
 type_opt_1(linger)          -> {bool,int};
@@ -2770,7 +2796,7 @@ rev([C|L],Acc) -> rev(L,[C|Acc]);
 rev([],Acc) -> Acc.
 
 split(N, L) -> split(N, L, []).
-split(0, L, R) when is_list(L) -> {rev(R),L};
+split(0, L, R) when is_list(L); is_binary(L) -> {rev(R),L};
 split(N, [H|T], R) when is_integer(N), N > 0 -> split(N-1, T, [H|R]).
 
 len(L, N) -> len(L, N, 0).

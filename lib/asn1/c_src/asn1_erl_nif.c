@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1167,7 +1167,7 @@ static mem_chunk_t *ber_new_chunk(unsigned int length) {
     new->next = NULL;
     new->top = enif_alloc(sizeof(char) * length);
     if (new->top == NULL) {
-	free(new);
+	enif_free(new);
 	return NULL;
     }
     new->curr = new->top + length - 1;

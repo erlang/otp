@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,6 +53,8 @@
          process_info_self_msgq_len/1,
          process_info_self_msgq_len_messages/1,
          process_info_self_msgq_len_more/1,
+         process_info_msgq_len_no_very_long_delay/1,
+         process_info_dict_lookup/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -60,7 +62,6 @@
          process_flag_fullsweep_after/1, process_flag_heap_size/1,
          command_line_max_heap_size/1,
 	 spawn_opt_heap_size/1, spawn_opt_max_heap_size/1,
-         more_spawn_opt_max_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -92,13 +93,16 @@
          spawn_against_old_node/1,
          spawn_against_new_node/1,
          spawn_request_reply_option/1,
+         dist_spawn_arg_list_mixup/1,
          alias_bif/1,
+         dist_frag_alias/1,
+         dist_frag_unaliased/1,
          monitor_alias/1,
          spawn_monitor_alias/1,
-         alias_process_exit/1,
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
-         monitor_tag/1]).
+         monitor_tag/1,
+         no_pid_wrap/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -122,7 +126,6 @@ all() ->
      process_flag_fullsweep_after, process_flag_heap_size,
      command_line_max_heap_size,
      spawn_opt_heap_size, spawn_opt_max_heap_size,
-     more_spawn_opt_max_heap_size,
      spawn_huge_arglist,
      otp_6237,
      {group, spawn_request},
@@ -131,7 +134,8 @@ all() ->
      {group, otp_7738}, garb_other_running,
      {group, system_task},
      {group, alias},
-     monitor_tag].
+     monitor_tag,
+     no_pid_wrap].
 
 groups() -> 
     [{t_exit_2, [],
@@ -151,7 +155,8 @@ groups() ->
        spawn_against_ei_node,
        spawn_against_old_node,
        spawn_against_new_node,
-       spawn_request_reply_option]},
+       spawn_request_reply_option,
+       dist_spawn_arg_list_mixup]},
      {processes_bif, [],
       [processes_large_tab, processes_default_tab,
        processes_small_tab, processes_this_tab,
@@ -175,7 +180,9 @@ groups() ->
        process_info_self_signal,
        process_info_self_msgq_len,
        process_info_self_msgq_len_messages,
-       process_info_self_msgq_len_more]},
+       process_info_self_msgq_len_more,
+       process_info_msgq_len_no_very_long_delay,
+       process_info_dict_lookup]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -185,8 +192,9 @@ groups() ->
        gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
        otp_16436, otp_16642]},
      {alias, [],
-      [alias_bif, monitor_alias, spawn_monitor_alias, alias_process_exit,
-       demonitor_aliasmonitor, down_aliasmonitor]}].
+      [alias_bif, monitor_alias, spawn_monitor_alias,
+       demonitor_aliasmonitor, down_aliasmonitor,
+       dist_frag_alias, dist_frag_unaliased]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -205,15 +213,9 @@ end_per_suite(Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
-init_per_group(alias, Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
-    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(alias, Config) ->
-    erts_debug:set_internal_state(available_internal_state, false),
-    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -234,6 +236,7 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     erlang:system_flag(max_heap_size,
                        #{size => 0,
                          kill => true,
+                         include_shared_binaries => false,
                          error_logger => true}),
     erts_test_utils:ept_check_leaked_nodes(Config).
 
@@ -539,7 +542,8 @@ t_process_info(Config) when is_list(Config) ->
     {status, running} = process_info(self(), status),
     {min_heap_size, 233} = process_info(self(), min_heap_size),
     {min_bin_vheap_size,46422} = process_info(self(), min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
         process_info(self(), max_heap_size),
     {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
@@ -697,8 +701,9 @@ process_info_other_msg(Config) when is_list(Config) ->
 
     {min_heap_size, 233} = process_info(Pid, min_heap_size),
     {min_bin_vheap_size, 46422} = process_info(Pid, min_bin_vheap_size),
-    {max_heap_size, #{ size := 0, kill := true, error_logger := true}} =
-        process_info(self(), max_heap_size),
+    {max_heap_size, #{ size := 0, kill := true, error_logger := true,
+                       include_shared_binaries := false}} =
+        process_info(Pid, max_heap_size),
 
     Pid ! stop,
     ok.
@@ -1089,6 +1094,20 @@ check_proc_infos(A, B) ->
 
     GC = lists:keysearch(garbage_collection, 1, A),
     GC = lists:keysearch(garbage_collection, 1, B),
+    {value, {garbage_collection, GClist}} = GC,
+
+    %% This is not really documented
+    true = is_integer(gv(minor_gcs, GClist)),
+    true = is_integer(gv(fullsweep_after, GClist)),
+    true = is_integer(gv(min_heap_size, GClist)),
+    #{error_logger := Bool1,
+      include_shared_binaries := Bool2,
+      kill := Bool3,
+      size := MaxHeapSize} = gv(max_heap_size, GClist),
+    true = is_boolean(Bool1),
+    true = is_boolean(Bool2),
+    true = is_boolean(Bool3),
+    true = is_integer(MaxHeapSize),
 
     ok.
 
@@ -1246,7 +1265,8 @@ process_info_smoke_all(Config) when is_list(Config) ->
                     message_queue_data,
                     garbage_collection_info,
                     magic_ref,
-                    fullsweep_after],
+                    fullsweep_after,
+                    {dictionary, ets_ref}],
 
     {ok, Peer, Node} = ?CT_PEER(),
     RP = spawn_link(Node, fun process_info_smoke_all_tester/0),
@@ -1514,7 +1534,225 @@ pi_sig_spam_test(SpamFun, PITest, PICheckRes) ->
     after
         _ = erlang:system_flag(schedulers_online, SO)
     end.
-    
+
+process_info_msgq_len_no_very_long_delay(Config) when is_list(Config) ->
+    Tester = self(),
+    P1 = spawn_link(fun () ->
+                            receive after infinity -> ok end
+                    end),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    {message_queue_len, 0} = process_info(P1, message_queue_len),
+    P2 = spawn_link(fun () ->
+                            Tester ! hello,
+                            P1 ! hello,
+                            receive after infinity -> ok end
+                    end),
+    receive after 100 -> ok end,
+    {message_queue_len, 1} = process_info(self(), message_queue_len),
+    {message_queue_len, 1} = process_info(P1, message_queue_len),
+    receive hello -> ok end,
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    unlink(P1),
+    exit(P1, kill),
+    unlink(P2),
+    exit(P2, kill),
+    false = is_process_alive(P1),
+    false = is_process_alive(P2),
+    ok.
+
+process_info_dict_lookup(Config) when is_list(Config) ->
+    Pid = spawn_link(fun proc_dict_helper/0),
+    {async_dist, AsyncDist} = process_info(Pid, async_dist),
+    Ref = make_ref(),
+    Bin = <<17:4096>>,
+    Int0 = 9999999999999999999999999999999999,
+    Int1 = 1111111111111111111111111111111111,
+    Tuple = {make_ref(), erlang:monotonic_time()},
+
+    %% Check that we can lookup dictionary values on another process...
+    pdh(Pid, put_async, [hej, hopp]),
+    pdh(Pid, put_async, [hopp, hej]),
+    pdh(Pid, put_async, [Ref, Int0]),
+    pdh(Pid, put_async, [Int0, Int1]),
+    pdh(Pid, put_async, [Pid, Ref]),
+    pdh(Pid, put_async, [Tuple, Bin]),
+    undefined = pdh(Pid, put, [Bin, Ref]),
+
+    erlang:garbage_collect(Pid),
+
+    {{dictionary, Ref}, Int0} = process_info(Pid, {dictionary, Ref}),
+    [{{dictionary, Ref}, Int0}] = process_info(Pid, [{dictionary, Ref}]),
+
+    PIRes = process_info(Pid, [async_dist,
+                               trap_exit,
+                               {dictionary, hej},
+                               {dictionary, hopp},
+                               {dictionary, Ref},
+                               {dictionary, Int0},
+                               async_dist,
+                               trap_exit,
+                               {dictionary, Pid},
+                               {dictionary, Tuple},
+                               {dictionary, Bin}]),
+    ct:log("PIRes = ~p", [PIRes]),
+    PIRes = [{async_dist, AsyncDist},
+             {trap_exit, false},
+             {{dictionary, hej}, hopp},
+             {{dictionary, hopp}, hej},
+             {{dictionary, Ref}, Int0},
+             {{dictionary, Int0}, Int1},
+             {async_dist, AsyncDist},
+             {trap_exit, false},
+             {{dictionary, Pid}, Ref},
+             {{dictionary, Tuple}, Bin},
+             {{dictionary, Bin}, Ref}],
+
+    pdh(Pid, erase_async, [hej]),
+    pdh(Pid, erase_async, [hopp]),
+    pdh(Pid, erase_async, [Ref]),
+    pdh(Pid, erase_async, [Int0]),
+    pdh(Pid, erase_async, [Pid]),
+    pdh(Pid, erase_async, [Tuple]),
+    Ref = pdh(Pid, erase, [Bin]),
+
+    erlang:garbage_collect(Pid),
+
+    {{dictionary, Ref}, undefined} = process_info(Pid, {dictionary, Ref}),
+    [{{dictionary, Ref}, undefined}] = process_info(Pid, [{dictionary, Ref}]),
+
+    PIRes2 = process_info(Pid, [async_dist,
+                                trap_exit,
+                                {dictionary, hej},
+                                {dictionary, hopp},
+                                {dictionary, Ref},
+                                {dictionary, Int0},
+                                async_dist,
+                                trap_exit,
+                                {dictionary, Pid},
+                                {dictionary, Tuple},
+                                {dictionary, Bin}]),
+    ct:log("PIRes2 = ~p", [PIRes2]),
+
+    PIRes2 = [{async_dist, AsyncDist},
+             {trap_exit, false},
+             {{dictionary, hej}, undefined},
+             {{dictionary, hopp}, undefined},
+             {{dictionary, Ref}, undefined},
+             {{dictionary, Int0}, undefined},
+             {async_dist, AsyncDist},
+             {trap_exit, false},
+             {{dictionary, Pid}, undefined},
+             {{dictionary, Tuple}, undefined},
+             {{dictionary, Bin}, undefined}],
+
+    unlink(Pid),
+    exit(Pid,kill),
+
+    %% Also check that it works on ourself...
+
+    put(hej, hopp),
+    put(hopp, hej),
+    put(Ref, Int0),
+    put(Int0, Int1),
+    put(Pid, Ref),
+    put(Tuple, Bin),
+    undefined = put(Bin, Ref),
+
+    erlang:garbage_collect(),
+
+    {{dictionary, Ref}, Int0} = process_info(self(), {dictionary, Ref}),
+    [{{dictionary, Ref}, Int0}] = process_info(self(), [{dictionary, Ref}]),
+
+    PIRes3 = process_info(self(), [async_dist,
+                                   trap_exit,
+                                   {dictionary, hej},
+                                   {dictionary, hopp},
+                                   {dictionary, Ref},
+                                   {dictionary, Int0},
+                                   async_dist,
+                                   trap_exit,
+                                   {dictionary, Pid},
+                                   {dictionary, Tuple},
+                                   {dictionary, Bin}]),
+    ct:log("PIRes3 = ~p", [PIRes3]),
+    PIRes3 = [{async_dist, AsyncDist},
+              {trap_exit, false},
+              {{dictionary, hej}, hopp},
+              {{dictionary, hopp}, hej},
+              {{dictionary, Ref}, Int0},
+              {{dictionary, Int0}, Int1},
+              {async_dist, AsyncDist},
+              {trap_exit, false},
+              {{dictionary, Pid}, Ref},
+              {{dictionary, Tuple}, Bin},
+              {{dictionary, Bin}, Ref}],
+
+    erase(hej),
+    erase(hopp),
+    erase(Ref),
+    erase(Int0),
+    erase(Pid),
+    erase(Tuple),
+    Ref = erase(Bin),
+
+    erlang:garbage_collect(),
+
+    {{dictionary, Ref}, undefined} = process_info(self(), {dictionary, Ref}),
+    [{{dictionary, Ref}, undefined}] = process_info(self(), [{dictionary, Ref}]),
+
+    PIRes4 = process_info(self(), [async_dist,
+                                   trap_exit,
+                                   {dictionary, hej},
+                                   {dictionary, hopp},
+                                   {dictionary, Ref},
+                                   {dictionary, Int0},
+                                   async_dist,
+                                   trap_exit,
+                                   {dictionary, Pid},
+                                   {dictionary, Tuple},
+                                   {dictionary, Bin}]),
+    ct:log("PIRes4 = ~p", [PIRes4]),
+
+    PIRes4 = [{async_dist, AsyncDist},
+              {trap_exit, false},
+              {{dictionary, hej}, undefined},
+              {{dictionary, hopp}, undefined},
+              {{dictionary, Ref}, undefined},
+              {{dictionary, Int0}, undefined},
+              {async_dist, AsyncDist},
+              {trap_exit, false},
+              {{dictionary, Pid}, undefined},
+              {{dictionary, Tuple}, undefined},
+              {{dictionary, Bin}, undefined}],
+
+    false = is_process_alive(Pid),
+    ok.
+
+pdh(Pid, AsyncOp, Args) when AsyncOp == put_async;
+                             AsyncOp == erase_async ->
+    Pid ! {AsyncOp, Args},
+    ok;
+pdh(Pid, SyncOp, Args) ->
+    Ref = make_ref(),
+    Pid ! {SyncOp, self(), Ref, Args},
+    receive {Ref, Res} -> Res end.
+
+proc_dict_helper() ->
+    receive
+        {put, From, Ref, [Key, Value]} ->
+            From ! {Ref, put(Key, Value)};
+        {get, From, Ref, [Key]} ->
+            From ! {Ref, get(Key)};
+        {get, From, Ref, []} ->
+            From ! {Ref, get()};
+        {erase, From, Ref, [Key]} ->
+            From ! {Ref, erase(Key)};
+        {put_async, [Key, Value]} ->
+            _ = put(Key, Value);
+        {erase_async, [Key]} ->
+            _ = erase(Key)
+    end,
+    proc_dict_helper().
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->
@@ -1955,6 +2193,8 @@ process_flag_badarg(Config) when is_list(Config) ->
                                                         kill => gurka }) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         error_logger => gurka }) end),
+    chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
+                                                        include_shared_binaries => gurka}) end),
     chk_badarg(fun () -> process_flag(max_heap_size, #{ size => 233,
                                                         kill => true,
                                                         error_logger => gurka }) end),
@@ -2605,63 +2845,72 @@ spawn_opt_max_heap_size(_Config) ->
             flush()
     end,
 
+    spawn_opt_max_heap_size_do(fun oom_fun/1),
+
+    io:format("Repeat tests with refc binaries\n",[]),
+
+    spawn_opt_max_heap_size_do(fun oom_bin_fun/1),
+
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
+spawn_opt_max_heap_size_do(OomFun) ->
+    Max = 2024,
     %% Test that numerical limit works
-    max_heap_size_test(1024, 1024, true, true),
+    max_heap_size_test(Max, Max, true, true, OomFun),
 
     %% Test that map limit works
-    max_heap_size_test(#{ size => 1024 }, 1024, true, true),
+    max_heap_size_test(#{ size => Max }, Max, true, true, OomFun),
 
     %% Test that no kill is sent
-    max_heap_size_test(#{ size => 1024, kill => false }, 1024, false, true),
+    max_heap_size_test(#{ size => Max, kill => false }, Max, false, true, OomFun),
 
     %% Test that no error_logger report is sent
-    max_heap_size_test(#{ size => 1024, error_logger => false }, 1024, true, false),
+    max_heap_size_test(#{ size => Max, error_logger => false }, Max, true, false, OomFun),
 
     %% Test that system_flag works
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => false,
-                                         error_logger => true}),
-    max_heap_size_test(#{ size => 1024 }, 1024, false, true),
-    max_heap_size_test(#{ size => 1024, kill => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => false,
+                                                error_logger => true})),
+    max_heap_size_test(#{ size => Max }, Max, false, true, OomFun),
+    max_heap_size_test(#{ size => Max, kill => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
-                                         error_logger => false}),
-    max_heap_size_test(#{ size => 1024 }, 1024, true, false),
-    max_heap_size_test(#{ size => 1024, error_logger => true }, 1024, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 0, kill => true,
+                                                error_logger => false})),
+    max_heap_size_test(#{ size => Max }, Max, true, false, OomFun),
+    max_heap_size_test(#{ size => Max, error_logger => true }, Max, true, true, OomFun),
 
-    erlang:system_flag(max_heap_size, #{ size => 1 bsl 20, kill => true,
-                                         error_logger => true}),
-    max_heap_size_test(#{ }, 1 bsl 20, true, true),
+    erlang:system_flag(max_heap_size, OomFun(#{ size => 1 bsl 16, kill => true,
+                                                error_logger => true})),
+    max_heap_size_test(#{ }, 1 bsl 16, true, true, OomFun),
 
     erlang:system_flag(max_heap_size, #{ size => 0, kill => true,
                                          error_logger => true}),
 
     %% Test that ordinary case works as expected again
-    max_heap_size_test(1024, 1024, true, true),
-
-    error_logger:delete_report_handler(?MODULE),
-
+    max_heap_size_test(Max, Max, true, true, OomFun),
     ok.
 
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when map_size(Option) == 0 ->
-    max_heap_size_test([], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger)
-  when is_map(Option); is_integer(Option) ->
-    max_heap_size_test([{max_heap_size, Option}], Size, Kill, ErrorLogger);
-max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
-    OomFun = fun () -> oom_fun([]) end,
-    Pid = spawn_opt(OomFun, Option),
+
+mhs_spawn_opt(Option) when map_get(size, Option) > 0;
+                           is_integer(Option) ->
+    [{max_heap_size, Option}];
+mhs_spawn_opt(_) ->
+    [].
+
+max_heap_size_test(Option, Size, Kill, ErrorLogger, OomFun) ->
+    SpOpt = mhs_spawn_opt(OomFun(Option)),
+    Pid = spawn_opt(fun()-> OomFun(run) end, SpOpt),
     {max_heap_size, MHSz} = erlang:process_info(Pid, max_heap_size),
-    ct:log("Default: ~p~nOption: ~p~nProc: ~p~n",
-           [erlang:system_info(max_heap_size), Option, MHSz]),
+    ct:log("Default: ~p~nOption: ~p~nProc: ~p~nSize = ~p~nSpOpt = ~p~n",
+           [erlang:system_info(max_heap_size), Option, MHSz, Size, SpOpt]),
 
     #{ size := Size} = MHSz,
 
     Ref = erlang:monitor(process, Pid),
     if Kill ->
             receive
-                {'DOWN', Ref, process, Pid, killed} ->
-                    ok
+                {'DOWN', Ref, process, Pid, Reason} ->
+                    killed = Reason
             end;
        true ->
             ok
@@ -2692,12 +2941,37 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
     %% Make sure that there are no unexpected messages.
     receive_unexpected().
 
-oom_fun(Acc0) ->
+oom_fun(Max) when is_integer(Max) -> Max;
+oom_fun(Map) when is_map(Map)-> Map;
+oom_fun(run) ->
+    io:format("oom_fun() started\n",[]),
+    oom_run_fun([], 100).
+
+oom_run_fun(Acc0, 0) ->
+    done;
+oom_run_fun(Acc0, N) ->
     %% This is tail-recursive since the compiler is smart enough to figure
     %% out that a body-recursive variant never returns, and loops forever
     %% without keeping the list alive.
     timer:sleep(5),
-    oom_fun([lists:seq(1, 1000) | Acc0]).
+    oom_run_fun([lists:seq(1, 1000) | Acc0], N-1).
+
+oom_bin_fun(Max) when is_integer(Max) -> oom_bin_fun(#{size => Max});
+oom_bin_fun(Map) when is_map(Map) -> Map#{include_shared_binaries => true};
+oom_bin_fun(run) ->
+    oom_bin_run_fun([], 10).
+
+oom_bin_run_fun(Acc0, 0) ->
+    done;
+oom_bin_run_fun(Acc0, N) ->
+    timer:sleep(5),
+    oom_bin_run_fun([build_refc_bin(160, <<>>) | Acc0], N-1).
+
+build_refc_bin(0, Acc) ->
+    Acc;
+build_refc_bin(N, Acc) ->
+    build_refc_bin(N-1, <<Acc/binary, 0:(1000*8)>>).
+
 
 receive_error_messages(Pid) ->
     receive
@@ -2724,111 +2998,6 @@ flush() ->
     after 0 ->
             ok
     end.
-
-%% Make sure that when maximum allowed heap size is exceeded, the
-%% process will actually terminate.
-%%
-%% Despite the timetrap and limit of number of iterations, bugs
-%% provoked by the test case can cause the runtime system to hang in
-%% this test case.
-more_spawn_opt_max_heap_size(_Config) ->
-    ct:timetrap({minutes,1}),
-    Funs = [fun build_and_bif/0,
-            fun build_bin_and_bif/0,
-            fun build_and_recv_timeout/0,
-            fun build_and_recv_msg/0,
-            fun bif_and_recv_timeout/0,
-            fun bif_and_recv_msg/0
-           ],
-    _ = [begin
-             {Pid,Ref} = spawn_opt(F, [{max_heap_size,
-                                        #{size => 233, kill => true,
-                                          error_logger => false}},
-                                       monitor]),
-             io:format("~p ~p\n", [Pid,F]),
-             receive
-                 {'DOWN',Ref,process,Pid,Reason} ->
-                     killed = Reason
-             end
-         end || F <- Funs],
-    ok.
-
-%% This number should be greater than the default heap size.
--define(MANY_ITERATIONS, 10_000).
-
-build_and_bif() ->
-    build_and_bif(?MANY_ITERATIONS, []).
-
-build_and_bif(0, Acc0) ->
-    Acc0;
-build_and_bif(N, Acc0) ->
-    Acc = [0|Acc0],
-    _ = erlang:crc32(Acc),
-    build_and_bif(N-1, Acc).
-
-build_bin_and_bif() ->
-    build_bin_and_bif(?MANY_ITERATIONS, <<>>).
-
-build_bin_and_bif(0, Acc0) ->
-    Acc0;
-build_bin_and_bif(N, Acc0) ->
-    Acc = <<0, Acc0/binary>>,
-    _ = erlang:crc32(Acc),
-    build_bin_and_bif(N-1, Acc).
-
-build_and_recv_timeout() ->
-    build_and_recv_timeout(?MANY_ITERATIONS, []).
-
-build_and_recv_timeout(0, Acc0) ->
-    Acc0;
-build_and_recv_timeout(N, Acc0) ->
-    Acc = [0|Acc0],
-    receive
-    after 1 ->
-            ok
-    end,
-    build_and_recv_timeout(N-1, Acc).
-
-build_and_recv_msg() ->
-    build_and_recv_msg(?MANY_ITERATIONS, []).
-
-build_and_recv_msg(0, Acc0) ->
-    Acc0;
-build_and_recv_msg(N, Acc0) ->
-    Acc = [0|Acc0],
-    receive
-        _ ->
-            ok
-    after 0 ->
-            ok
-    end,
-    build_and_recv_msg(N-1, Acc).
-
-bif_and_recv_timeout() ->
-    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
-    bif_and_recv_timeout(Bin).
-
-bif_and_recv_timeout(Bin) ->
-    List = binary_to_list(Bin),
-    receive
-    after 1 ->
-            ok
-    end,
-    List.
-
-bif_and_recv_msg() ->
-    Bin = <<0:?MANY_ITERATIONS/unit:8>>,
-    bif_and_recv_msg(Bin).
-
-bif_and_recv_msg(Bin) ->
-    List = binary_to_list(Bin),
-    receive
-        _ ->
-            ok
-    after 0 ->
-            ok
-    end,
-    List.
 
 %% error_logger report handler proxy
 init(Pid) ->
@@ -3918,6 +4087,75 @@ spawn_request_reply_option_test(Peer, Node) ->
             ok
     end.
 
+dist_spawn_arg_list_mixup(Config) when is_list(Config) ->
+    %% A process newly spawned via the distribution is passed the
+    %% argument list to use as the first message followed by an intialization
+    %% message. Those two messages *must* be the first messages in its queue
+    %% when it begins execution. The parallel receive/send signal optimization
+    %% could potentially cause reordering of messages if certain future
+    %% changes are made. This test case tries to cause a situation where a
+    %% message reordering potentially could happen, and hopefully will detect
+    %% such problematic changes.
+    Tester = self(),
+    NoScheds = 8,
+    NoSchedsStr = integer_to_list(NoScheds),
+    NoSchedsList = lists:seq(1, NoScheds),
+    {ok, Peer, Node} = ?CT_PEER(["+S"++NoSchedsStr++":"++NoSchedsStr]),
+    AttackMsg = make_ref(),
+    AttackArgList = [Tester, AttackMsg],
+    OkMsg = make_ref(),
+    As = lists:map(
+           fun (_) ->
+                   spawn_opt(
+                     Node,
+                     fun () ->
+                             dist_spawn_arg_list_mixup_sender(AttackArgList,
+                                                              1000)
+                     end, [{priority, high}, link])
+           end, NoSchedsList),
+    Relay = spawn_opt(
+              Node,
+              fun () ->
+                      receive
+                          {attack, Victim} ->
+                              lists:foreach(fun (A) ->
+                                                    A ! {attack, Victim}
+                                            end, As)
+                      end
+              end, [{priority, max}, link]),
+    receive after 100 -> ok end,
+    Victim = spawn_opt(Node, erlang, send, [Tester, OkMsg],
+                       [{message_queue_data, off_heap},
+                        {priority, normal},
+                        link]),
+    Relay ! {attack, Victim},
+    receive
+        OkMsg ->
+            ok;
+        AttackMsg ->
+            ct:fail(child_process_used_message_as_argument_list)
+    end,
+    lists:foreach(fun (P) ->
+                          unlink(P)
+                  end, [Victim] ++ [Relay] ++ As),
+    peer:stop(Peer),
+    ok.
+
+dist_spawn_arg_list_mixup_sender(Msg, N) ->
+    receive
+        {attack, Victim} ->
+            dist_spawn_arg_list_mixup_sender(Victim, Msg, N)
+    after
+        0 ->
+            dist_spawn_arg_list_mixup_sender(Msg, N)
+    end.
+
+dist_spawn_arg_list_mixup_sender(_Pid, _Msg, 0) ->
+    ok;
+dist_spawn_arg_list_mixup_sender(Pid, Msg, N) ->
+    Pid ! Msg,
+    dist_spawn_arg_list_mixup_sender(Pid, Msg, N-1).
+
 processes_term_proc_list(Config) when is_list(Config) ->
     Tester = self(),
 
@@ -4692,25 +4930,11 @@ otp_16642(Config) when is_list(Config) ->
     false = is_process_alive(Pid),
     ok.
 
-pid_ref_table_size() ->
-    erts_debug:get_internal_state(pid_ref_table_size).
-
-check_pid_ref_table_size(PRTSz) ->
-    receive after 500 -> ok end,
-    case pid_ref_table_size() of
-        PRTSz ->
-            ok;
-        NewPRTSz ->
-            ct:fail({port_ref_table_size_mismatch, PRTSz, NewPRTSz})
-    end.
-
 alias_bif(Config) when is_list(Config) ->
-    PRTSz = pid_ref_table_size(),
     alias_bif_test(node()),
     {ok, Peer, Node} = ?CT_PEER(),
     alias_bif_test(Node),
     stop_node(Peer, Node),
-    check_pid_ref_table_size(PRTSz),
     ok.
 
 alias_bif_test(Node) ->
@@ -4752,15 +4976,90 @@ alias_bif_test(Node) ->
                               end),
     [{A3,1},{'DOWN', M3, _, _, _}] = recv_msgs(2),
     ok.
-             
+
+dist_frag_alias(Config) when is_list(Config) ->
+    Tester = self(),
+    {ok, Peer, Node} = ?CT_PEER(),
+    {P,M} = spawn_monitor(Node,
+                          fun () ->
+                                  Alias = alias(),
+                                  Tester ! {alias, Alias},
+                                  receive
+                                      {data, Data} ->
+                                          garbage_collect(),
+                                          Tester ! {received_data, Data}
+                                  end,
+                                  exit(end_of_test)
+                          end),
+    Data = term_to_binary(lists:seq(1, 1000000)),
+    receive
+        {alias, Alias} ->
+            Alias ! {data, Data},
+            receive
+                {received_data, RecvData} ->
+                    Data = RecvData;
+                {'DOWN', M, process, P, R2} ->
+                    ct:fail(R2)
+            end;
+        {'DOWN', M, process, P, R1} ->
+            ct:fail(R1)
+    end,
+    receive
+        {'DOWN', M, process, P, R3} ->
+            end_of_test = R3
+    end,
+    peer:stop(Peer),
+    ok.
+
+dist_frag_unaliased(Config) when is_list(Config) ->
+    %% Leak fixed by PR-7915 would have been detected using asan or valgrind
+    %% when running this test...
+    Tester = self(),
+    {ok, Peer, Node} = ?CT_PEER(),
+    {P,M} = spawn_monitor(Node,
+                          fun () ->
+                                  Alias = alias(),
+                                  Tester ! {alias, Alias},
+                                  receive
+                                      {data, Data} ->
+                                          garbage_collect(),
+                                          unalias(Alias),
+                                          Tester ! {received_data, Data},
+                                          receive
+                                              {data, _Data} ->
+                                                  exit(received_data_again);
+                                              end_of_test ->
+                                                  exit(end_of_test)
+                                          end
+                                  end
+                          end),
+    Data = term_to_binary(lists:seq(1, 1000000)),
+    receive
+        {alias, Alias} ->
+            Alias ! {data, Data},
+            receive
+                {received_data, RecvData} ->
+                    Data = RecvData;
+                {'DOWN', M, process, P, R2} ->
+                    ct:fail(R2)
+            end,
+            Alias ! {data, Data},
+            P ! end_of_test;
+        {'DOWN', M, process, P, R1} ->
+            ct:fail(R1)
+    end,
+    receive
+        {'DOWN', M, process, P, R3} ->
+            end_of_test = R3
+    end,
+    peer:stop(Peer),
+    ok.
 
 monitor_alias(Config) when is_list(Config) ->
-    PRTSz = pid_ref_table_size(),
     monitor_alias_test(node()),
     {ok, Peer, Node} = ?CT_PEER(),
     monitor_alias_test(Node),
     stop_node(Peer, Node),
-    check_pid_ref_table_size(PRTSz),
     ok.
 
 monitor_alias_test(Node) ->
@@ -4844,7 +5143,6 @@ monitor_alias_test(Node) ->
 spawn_monitor_alias(Config) when is_list(Config) ->
     %% Exit signals with immediate exit reasons are sent
     %% in a different manner than compound exit reasons.
-    PRTSz = pid_ref_table_size(),
     spawn_monitor_alias_test(undefined, node(), spawn_opt, normal),
     spawn_monitor_alias_test(undefined, node(), spawn_opt, make_ref()),
     spawn_monitor_alias_test(undefined, node(), spawn_request, normal),
@@ -4857,7 +5155,6 @@ spawn_monitor_alias(Config) when is_list(Config) ->
     spawn_monitor_alias_test(Peer3, Node3, spawn_request, normal),
     {ok, Peer4, Node4} = ?CT_PEER(),
     spawn_monitor_alias_test(Peer4, Node4, spawn_request, make_ref()),
-    check_pid_ref_table_size(PRTSz),
     ok.
 
 spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
@@ -4998,28 +5295,6 @@ spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
             ok
     end.
 
-alias_process_exit(Config) when is_list(Config) ->
-    Tester = self(),
-    CreatedAliases = make_ref(),
-    PRTSz = pid_ref_table_size(),
-    P = spawn_link(fun () ->
-                           A0 = alias([explicit_unalias]),
-                           A1 = alias([reply]),
-                           A2 = monitor(process, Tester, [{alias, explicit_unalias}]),
-                           A3 = monitor(process, Tester, [{alias, demonitor}]),
-                           A4 = monitor(process, Tester, [{alias, reply_demonitor}]),
-                           Tester ! CreatedAliases,
-                           receive after infinity -> ok end,
-                           some_module:some_function([A0, A1, A2, A3, A4])
-                   end),
-    receive CreatedAliases -> ok end,
-    PRTSz = erts_debug:get_internal_state(pid_ref_table_size) - 5,
-    unlink(P),
-    exit(P, kill),
-    false = is_process_alive(P),
-    check_pid_ref_table_size(PRTSz),
-    ok.
-
 demonitor_aliasmonitor(Config) when is_list(Config) ->
     {ok, Peer, Node} = ?CT_PEER(),
     Fun = fun () ->
@@ -5154,6 +5429,54 @@ monitor_tag_test(Peer, Node, SpawnType, Tag, ExitReason) ->
                     ok
             end,
             ok
+    end.
+
+no_pid_wrap(Config) when is_list(Config) ->
+    process_flag(priority, high),
+    SOnln = erlang:system_info(schedulers_online),
+    Pid = spawn(fun () -> ok end),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ChkSpwndPid = fun () ->
+                          check_spawned_pid(Pid)
+                  end,
+    MPs = maps:from_list(lists:map(fun (_) ->
+                                           {P, M} = spawn_monitor(ChkSpwndPid),
+                                           {M, P}
+                                   end, lists:seq(1, SOnln))),
+    Res = receive
+              {'DOWN', M, process, _, pid_reused} when is_map_key(M, MPs) ->
+                  case erlang:system_info(wordsize) of
+                      8 ->
+                          ct:fail("Process identifier reused"),
+                          error;
+                      4 ->
+                          {comment,
+                           "Process identifer reused, but this is"
+                           ++ "expected since this is a 32-bit system"}
+                  end;
+              {'DOWN', _, _, _, _} = Down ->
+                  ct:fail({unexpected_down, Down}),
+                  error
+          after
+              3*60*1000 ->
+                  ok
+          end,
+    maps:foreach(fun (_, P) ->
+                         exit(P, kill)
+                 end, MPs),
+    maps:foreach(fun (_, P) ->
+                         false = is_process_alive(P)
+                 end, MPs),
+    Res.
+
+check_spawned_pid(OldPid) ->
+    Pid = spawn(fun () -> ok end),
+    case OldPid == Pid of
+        false ->
+            check_spawned_pid(OldPid);
+        true ->
+            exit(pid_reused)
     end.
 
 %% Internal functions

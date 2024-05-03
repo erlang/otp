@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -366,7 +366,7 @@ nomatch(Config) when is_list(Config) ->
                     end]).
         ">>,
         [],
-        {warnings,[{{5,24},v3_kernel,{nomatch,{shadow,4}}}]}},
+        {warnings,[{{5,24},beam_core_to_ssa,{nomatch,{shadow,4}}}]}},
 
        {nomatch1,
         <<"generator1() ->
@@ -401,6 +401,7 @@ nomatch(Config) when is_list(Config) ->
         %% {warnings,[{{3,52},qlc,nomatch_pattern}]}},
         {warnings,[{{3,37},v3_core,{nomatch,pattern}}]}},
 
+       %% No longer illegal in OTP 26.
        {nomatch4,
         <<"nomatch() ->
               etsc(fun(E) ->
@@ -411,7 +412,7 @@ nomatch(Config) when is_list(Config) ->
                     end, [{<<34>>},{<<40>>}]).
         ">>,
         [],
-        {errors,[{{3,48},erl_lint,illegal_bin_pattern}],[]}},
+        []},
 
        {nomatch5,
         <<"nomatch() ->
@@ -6556,15 +6557,15 @@ otp_7114(Config) when is_list(Config) ->
 
 %% OTP-7232. qlc:info() bug (pids, ports, refs, funs).
 otp_7232(Config) when is_list(Config) ->
-    Ts = [<<"L = [fun math:sqrt/1, list_to_pid(\"<0.4.1>\"),
+    Ts = [<<"L = [fun math:sqrt/1, list_to_pid(\"<0.4.0>\"),
                   erlang:make_ref()],
-             \"[fun math:sqrt/1, <0.4.1>, #Ref<\" ++ _  = qlc:info(L),
+             \"[fun math:sqrt/1, <0.4.0>, #Ref<\" ++ _  = qlc:info(L),
              {call,_,
                {remote,_,{atom,_,qlc},{atom,_,sort}},
                [{cons,_,
                       {'fun',_,{function,{atom,_,math},{atom,_,sqrt},_}},
                       {cons,_,
-                            {string,_,\"<0.4.1>\"}, % could use list_to_pid..
+                            {string,_,\"<0.4.0>\"}, % could use list_to_pid..
                             {cons,_,{string,_,\"#Ref<\"++_},{nil,_}}}},
                 {nil,_}]} = 
               qlc:info(qlc:sort(L),{format,abstract_code})">>,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -603,14 +603,15 @@ single_trans_req(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_single_trans_req/1,
+    Case = fun(Nodes) -> do_single_trans_req(Config, Nodes) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(single_trans_req, Pre, Case, Post).
 
-do_single_trans_req([MgcNode, MgNode]) ->
+do_single_trans_req(Config,
+                    [MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -638,7 +639,8 @@ do_single_trans_req([MgcNode, MgNode]) ->
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
     d("[MG] create the event sequence"),
-    MgEvSeq = str_mg_event_sequence(text, tcp),
+    MgEvSeq = str_mg_event_sequence(Config,
+                                    text, tcp),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
@@ -890,7 +892,8 @@ str_mgc_notify_reply_ar(Cid, TermId) ->
 	fun str_mg_verify_notify_reply/1).
 -endif.
 
-str_mg_event_sequence(text, tcp) ->
+str_mg_event_sequence(Config,
+                      text, tcp) ->
     Mid = {deviceName,"mg"},
     RI = [
 	  {port,             2944},
@@ -909,7 +912,7 @@ str_mg_event_sequence(text, tcp) ->
 	     megaco_start,
 	     {megaco_start_user, Mid, RI, []},
 	     start_transport,
-	     {megaco_trace, max}, 
+	     ?MEGACO_TRACE(Config, max), % {megaco_trace, max}, 
 	     {megaco_system_info, users},
 	     {megaco_system_info, connections},
 	     connect,
@@ -8852,14 +8855,15 @@ otp_7192_3(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_otp_7192_3/1,
+    Case = fun(Nodes) -> do_otp_7192_3(Config, Nodes) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(otp_7192_3, Pre, Case, Post).
 
-do_otp_7192_3([MgcNode, MgNode]) ->
+do_otp_7192_3(Config,
+              [MgcNode, MgNode]) ->
 
     MgMid = {deviceName,"mg"},
 
@@ -8867,7 +8871,8 @@ do_otp_7192_3([MgcNode, MgNode]) ->
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = otp72923_mgc_event_sequence(text, udp, MgMid),
+    MgcEvSeq = otp72923_mgc_event_sequence(Config,
+                                           text, udp, MgMid),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -8936,7 +8941,8 @@ do_otp_7192_3([MgcNode, MgNode]) ->
 	fun otp72923_mgc_verify_handle_disconnect/1).
 -endif.
 
-otp72923_mgc_event_sequence(text, udp, MgMid) ->
+otp72923_mgc_event_sequence(Config,
+                            text, udp, MgMid) ->
     CTRL = self(),
     Mid = {deviceName, "ctrl"},
     RI = [
@@ -8957,7 +8963,7 @@ otp72923_mgc_event_sequence(text, udp, MgMid) ->
     %% DiscoVerify            = ?otp72923_mgc_verify_handle_disconnect_fun(), 
     EvSeq = [
 	     {debug, true},
-	     {megaco_trace, max}, 
+	     ?MEGACO_TRACE(Config, max), % {megaco_trace, max}, 
 	     %% {megaco_trace, disable}, 
 	     megaco_start,
 	     {megaco_start_user, Mid, RI, []},

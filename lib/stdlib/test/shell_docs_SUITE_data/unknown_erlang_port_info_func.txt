@@ -1,0 +1,290 @@
+
+  [;1m-spec erlang:port_info(Port) -> Result[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              ResultItem ::[0m
+  [;1m                                  {registered_name,[0m
+  [;1m                                   RegisteredName :: atom()} |[0m
+  [;1m                                  {id, Index :: non_neg_integer()} |[0m
+  [;1m                                  {connected, Pid :: pid()} |[0m
+  [;1m                                  {links, Pids :: [pid()]} |[0m
+  [;1m                                  {name, String :: string()} |[0m
+  [;1m                                  {input, Bytes :: non_neg_integer()} |[0m
+  [;1m                                  {output, Bytes :: non_neg_integer()} |[0m
+  [;1m                                  {os_pid,[0m
+  [;1m                                   OsPid ::[0m
+  [;1m                                       non_neg_integer() | undefined},[0m
+  [;1m                              Result :: [ResultItem] | undefined.[0m
+
+  Returns a list containing tuples with information about [;;4mPort[0m, or [;;4m[0m
+  [;;4mundefined[0m if the port is not open. The order of the tuples is
+  undefined, and all the tuples are not mandatory. If the port is
+  closed and the calling process was previously linked to the port,
+  the exit signal from the port is guaranteed to be delivered before [;;4m[0m
+  [;;4mport_info/1[0m returns [;;4mundefined[0m.
+
+  The result contains information about the following [;;4mItem[0ms:
+
+   • [;;4mregistered_name[0m (if the port has a registered name)
+
+   • [;;4mid[0m
+
+   • [;;4mconnected[0m
+
+   • [;;4mlinks[0m
+
+   • [;;4mname[0m
+
+   • [;;4minput[0m
+
+   • [;;4moutput[0m
+
+  For more information about the different [;;4mItem[0ms, see [;;4mport_info/2[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, connected) -> {connected, Pid} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Pid :: pid().[0m
+
+  [;;4mPid[0m is the process identifier of the process connected to the
+  port.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, id) -> {id, Index} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Index :: non_neg_integer().[0m
+
+  [;;4mIndex[0m is the internal index of the port. This index can be used
+  to separate ports.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, input) -> {input, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+  [;;4mBytes[0m is the total number of bytes read from the port.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, links) -> {links, Pids} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Pids :: [pid()].[0m
+
+  [;;4mPids[0m is a list of the process identifiers of the processes that
+  the port is linked to.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, locking) -> {locking, Locking} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Locking ::[0m
+  [;1m                                  false | port_level | driver_level.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mLocking[0m is one of the following:
+
+   • [;;4mport_level[0m (port-specific locking)
+
+   • [;;4mdriver_level[0m (driver-specific locking)
+
+  Notice that these results are highly implementation-specific and
+  can change in a future release.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, memory) -> {memory, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mBytes[0m is the total number of bytes allocated for this port by the
+  runtime system. The port itself can have allocated memory that is
+  not included in [;;4mBytes[0m.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, monitors) ->[0m
+  [;1m                          {monitors, Monitors} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Monitors :: [{process, pid()}].[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mMonitors[0m represent processes monitored by this port.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, monitored_by) ->[0m
+  [;1m                          {monitored_by, MonitoredBy} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              MonitoredBy :: [pid()].[0m
+
+[;;4mSince[0m:
+  OTP 19.0
+
+  Returns list of pids that are monitoring given port at the moment.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, name) -> {name, Name} | undefined[0m
+  [;1m                          when Port :: port() | atom(), Name :: string().[0m
+
+  [;;4mName[0m is the command name set by [;;4mopen_port/2[0m.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, os_pid) -> {os_pid, OsPid} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              OsPid :: non_neg_integer() | undefined.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mOsPid[0m is the process identifier (or equivalent) of an OS process
+  created with [;;4mopen_port({spawn | spawn_executable, Command},[0m
+  [;;4mOptions)[0m. If the port is not the result of spawning an OS
+  process, the value is [;;4mundefined[0m.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, output) -> {output, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+  [;;4mBytes[0m is the total number of bytes written to the port from
+  Erlang processes using [;;4mport_command/2[0m, [;;4mport_command/3[0m, or [;;4m[0m
+  [;;4mPort ! {Owner, {command, Data}[0m.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, parallelism) ->[0m
+  [;1m                          {parallelism, Boolean} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Boolean :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mBoolean[0m corresponds to the port parallelism hint used by this
+  port. For more information, see option [;;4mparallelism[0m of [;;4m[0m
+  [;;4mopen_port/2[0m.
+
+  [;1m-spec erlang:port_info(Port, queue_size) ->[0m
+  [;1m                          {queue_size, Bytes} | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Bytes :: non_neg_integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  [;;4mBytes[0m is the total number of bytes queued by the port using the
+  ERTS driver queue implementation.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.
+
+  [;1m-spec erlang:port_info(Port, registered_name) ->[0m
+  [;1m                          {registered_name, RegisteredName} |[0m
+  [;1m                          [] | undefined[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              RegisteredName :: atom().[0m
+
+  [;;4mRegisteredName[0m is the registered name of the port. If the port
+  has no registered name, [;;4m[][0m is returned.
+
+  If the port identified by [;;4mPort[0m is not open, [;;4mundefined[0m is
+  returned. If the port is closed and the calling process was
+  previously linked to the port, the exit signal from the port is
+  guaranteed to be delivered before [;;4mport_info/2[0m returns [;;4mundefined[0m.
+
+  Failure: [;;4mbadarg[0m if [;;4mPort[0m is not a local port identifier, or an
+  atom.

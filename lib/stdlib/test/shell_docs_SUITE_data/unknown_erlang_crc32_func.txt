@@ -1,0 +1,20 @@
+
+  [;1m-spec erlang:crc32(Data) -> non_neg_integer() when Data :: iodata().[0m
+
+  Computes and returns the crc32 (IEEE 802.3 style) checksum for [;;4m[0m
+  [;;4mData[0m.
+
+  [;1m-spec erlang:crc32(OldCrc, Data) -> non_neg_integer()[0m
+  [;1m                      when OldCrc :: non_neg_integer(), Data :: iodata().[0m
+
+  Continues computing the crc32 checksum by combining the previous
+  checksum, [;;4mOldCrc[0m, with the checksum of [;;4mData[0m.
+
+  The following code:
+
+    X = erlang:crc32(Data1),
+    Y = erlang:crc32(X,Data2).
+
+  assigns the same value to [;;4mY[0m as this:
+
+    Y = erlang:crc32([Data1,Data2]).

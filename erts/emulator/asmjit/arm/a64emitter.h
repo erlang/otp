@@ -11,6 +11,14 @@
 #include "../arm/a64instdb.h"
 #include "../arm/a64operand.h"
 
+// MSVC targeting AArch64 defines a lot of macros without underscores clashing
+// with AArch64 instruction names. We have to workaround until it's fixed in SDK.
+#if defined(_MSC_VER) && defined(mvn)
+  #define ASMJIT_RESTORE_MSVC_AARCH64_MACROS
+  #pragma push_macro("mvn")
+  #undef mvn
+#endif
+
 ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 
 #define ASMJIT_INST_0x(NAME, ID) \
@@ -63,7 +71,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 //! ARM emitter.
 //!
 //! NOTE: This class cannot be instantiated, you can only cast to it and use it as emitter that emits to either
-//! \ref Assembler, \ref Builder, or \ref Compiler (use withcaution with \ref Compiler as it expects virtual
+//! \ref Assembler, \ref Builder, or \ref Compiler (use with caution with \ref Compiler as it expects virtual
 //! registers to be used).
 template<typename This>
 struct EmitterExplicitT {
@@ -71,22 +79,11 @@ struct EmitterExplicitT {
 
   // These two are unfortunately reported by the sanitizer. We know what we do, however, the sanitizer doesn't.
   // I have tried to use reinterpret_cast instead, but that would generate bad code when compiled by MSC.
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline This* _emitter() noexcept { return static_cast<This*>(this); }
-  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF inline const This* _emitter() const noexcept { return static_cast<const This*>(this); }
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE_NODEBUG This* _emitter() noexcept { return static_cast<This*>(this); }
+  ASMJIT_ATTRIBUTE_NO_SANITIZE_UNDEF ASMJIT_INLINE_NODEBUG const This* _emitter() const noexcept { return static_cast<const This*>(this); }
 
   //! \endcond
 
-  // --------------------------------------------------------------------------
-  // [Options]
-  // --------------------------------------------------------------------------
-
-protected:
-  inline This& _addInstOptions(InstOptions options) noexcept {
-    static_cast<This*>(this)->addInstOptions(options);
-    return *static_cast<This*>(this);
-  }
-
-public:
   //! \name General Purpose Instructions
   //! \{
 
@@ -516,6 +513,8 @@ public:
   ASMJIT_INST_2x(ldxr, Ldxr, Gp, Mem)
   ASMJIT_INST_2x(ldxrb, Ldxrb, Gp, Mem)
   ASMJIT_INST_2x(ldxrh, Ldxrh, Gp, Mem)
+
+  ASMJIT_INST_2x(prfm, Prfm, Imm, Mem)
 
   ASMJIT_INST_2x(stadd, Stadd, Gp, Mem)
   ASMJIT_INST_2x(staddb, Staddb, Gp, Mem)
@@ -1111,14 +1110,14 @@ public:
 
   //! \}
 
-  //! \name FJCVTZS Instruction (ARMv8.3-A)
+  //! \name JSCVT Instruction (ARMv8.3-A)
   //! \{
 
   ASMJIT_INST_2x(fjcvtzs, Fjcvtzs_v, Gp, Vec);
 
   //! \}
 
-  //! \name FP16FML Instructions (ARMv8.4-A, optional in ARMv8.2-A)
+  //! \name FHM Instructions
   //! \{
 
   ASMJIT_INST_3x(fmlal, Fmlal_v, Vec, Vec, Vec);
@@ -1224,5 +1223,10 @@ class Emitter : public BaseEmitter, public EmitterExplicitT<Emitter> {
 #undef ASMJIT_INST_1cc
 
 ASMJIT_END_SUB_NAMESPACE
+
+// Restore undefined MSVC AArch64 macros.
+#if defined(ASMJIT_RESTORE_MSVC_AARCH64_MACROS)
+  #pragma pop_macro("mvn")
+#endif
 
 #endif // ASMJIT_ARM_A64EMITTER_H_INCLUDED

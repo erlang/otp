@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 -module(ssl_reject_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("ssl/src/ssl_record.hrl").
+-include("ssl_record.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_handshake.hrl").
 
@@ -48,15 +48,15 @@
          accept_sslv3_record_hello/1
         ]).
 
--define(TLS_MAJOR, 3).
--define(SSL_3_0_MAJOR, 3).
--define(SSL_3_0_MINOR, 0).
--define(TLS_1_0_MINOR, 1).
--define(TLS_1_1_MINOR, 2).
--define(TLS_1_2_MINOR, 3).
--define(TLS_1_3_MINOR, 4).
--define(SSL_2_0_MAJOR, 0).
--define(SSL_2_0_MINOR, 1).
+-define(TLS_MAJOR,     (element(1, ?TLS_1_2))).
+-define(SSL_3_0_MAJOR, (element(1, ?SSL_3_0))).
+-define(SSL_3_0_MINOR, (element(2, ?SSL_3_0))).
+-define(TLS_1_0_MINOR, (element(2, ?TLS_1_0))).
+-define(TLS_1_1_MINOR, (element(2, ?TLS_1_1))).
+-define(TLS_1_2_MINOR, (element(2, ?TLS_1_2))).
+-define(TLS_1_3_MINOR, (element(2, ?TLS_1_3))).
+-define(SSL_2_0_MAJOR, (element(1, ?SSL_2_0))).
+-define(SSL_2_0_MINOR, (element(2, ?SSL_2_0))).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -184,9 +184,17 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
 
     Allversions = all_versions(),
 
+    AllSigAlgs = ssl:signature_algs(all, 'tlsv1.3'),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
+
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
-                                        {options, [{versions, Allversions} | ServerOpts]}]),
+                                        {options, [{versions, Allversions}, 
+                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version
@@ -194,10 +202,11 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [{active, false}]),
     gen_tcp:send(Socket, ClientHello),
+    TLS_Major = ?TLS_MAJOR,
     case gen_tcp:recv(Socket, 3, 5000) of
         %% Minor needs to be a TLS version that is a version
         %% above SSL-3.0
-        {ok, [?HANDSHAKE, ?TLS_MAJOR, Minor]} when Minor > ?SSL_3_0_MINOR ->
+        {ok, [?HANDSHAKE, TLS_Major, Minor]} when Minor > ?SSL_3_0_MINOR ->
             ok;
         {error, timeout} ->
             ct:fail(ssl3_record_not_accepted)

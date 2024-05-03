@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,8 +34,10 @@ badarg(Config) when is_list(Config) ->
     true = erlang:is_process_alive(whereis(standard_error)),
     ok.
 
+%% Check that standard_out and standard_error have the same encoding
 getopts(Config) when is_list(Config) ->
-    [{encoding,latin1}] = io:getopts(standard_error),
+    Encoding = proplists:get_value(encoding, io:getopts(user)),
+    Encoding = proplists:get_value(encoding, io:getopts(standard_error)),
     ok.
 
 %% Test that writing a lot of output to standard_error does not cause the

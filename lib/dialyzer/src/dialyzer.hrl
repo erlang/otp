@@ -33,29 +33,30 @@
 %% Warning classification
 %%--------------------------------------------------------------------
 
+-define(WARN_BEHAVIOUR, warn_behaviour).
+-define(WARN_BIN_CONSTRUCTION, warn_bin_construction).
+-define(WARN_CALLGRAPH, warn_callgraph).
+-define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
+-define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
+-define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
+-define(WARN_CONTRACT_RANGE, warn_contract_range).
+-define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
+-define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
+-define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
+-define(WARN_CONTRACT_TYPES, warn_contract_types).
+-define(WARN_FAILING_CALL, warn_failing_call).
+-define(WARN_FUN_APP, warn_fun_app).
+-define(WARN_MAP_CONSTRUCTION, warn_map_construction).
+-define(WARN_MATCHING, warn_matching).
+-define(WARN_NON_PROPER_LIST, warn_non_proper_list).
+-define(WARN_NOT_CALLED, warn_not_called).
+-define(WARN_OPAQUE, warn_opaque).
+-define(WARN_OVERLAPPING_CONTRACT, warn_overlapping_contract).
 -define(WARN_RETURN_NO_RETURN, warn_return_no_exit).
 -define(WARN_RETURN_ONLY_EXIT, warn_return_only_exit).
--define(WARN_NOT_CALLED, warn_not_called).
--define(WARN_NON_PROPER_LIST, warn_non_proper_list).
--define(WARN_FUN_APP, warn_fun_app).
--define(WARN_MATCHING, warn_matching).
--define(WARN_OPAQUE, warn_opaque).
--define(WARN_FAILING_CALL, warn_failing_call).
--define(WARN_BIN_CONSTRUCTION, warn_bin_construction).
--define(WARN_CONTRACT_TYPES, warn_contract_types).
--define(WARN_CONTRACT_SYNTAX, warn_contract_syntax).
--define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
--define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
--define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
--define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
--define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
--define(WARN_CONTRACT_RANGE, warn_contract_range).
--define(WARN_CALLGRAPH, warn_callgraph).
--define(WARN_UNMATCHED_RETURN, warn_umatched_return).
--define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
--define(WARN_MAP_CONSTRUCTION, warn_map_construction).
+-define(WARN_UNMATCHED_RETURN, warn_umatched_return).
 
 %%
 %% The following type has double role:
@@ -63,14 +64,15 @@
 %%   2. It is also the set of tags for warnings that will be returned.
 %%
 -type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
-                       | ?WARN_CALLGRAPH | ?WARN_CONTRACT_NOT_EQUAL
+                       | ?WARN_CALLGRAPH | ?WARN_CONTRACT_EXTRA_RETURN
+                       | ?WARN_CONTRACT_MISSING_RETURN | ?WARN_CONTRACT_NOT_EQUAL
                        | ?WARN_CONTRACT_RANGE | ?WARN_CONTRACT_SUBTYPE
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CONTRACT_SYNTAX
                        | ?WARN_CONTRACT_TYPES | ?WARN_FAILING_CALL
                        | ?WARN_FUN_APP | ?WARN_MAP_CONSTRUCTION
                        | ?WARN_MATCHING | ?WARN_NON_PROPER_LIST
                        | ?WARN_NOT_CALLED | ?WARN_OPAQUE
-                       | ?WARN_RETURN_NO_RETURN
+                       | ?WARN_OVERLAPPING_CONTRACT | ?WARN_RETURN_NO_RETURN
                        | ?WARN_RETURN_ONLY_EXIT | ?WARN_UNDEFINED_CALLBACK
                        | ?WARN_UNKNOWN | ?WARN_UNMATCHED_RETURN.
 
@@ -108,10 +110,14 @@
 %%--------------------------------------------------------------------
 
 -type anal_type()     :: 'succ_typings' | 'plt_build'.
--type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove'.
+-type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove' | 'incremental'.
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
+-doc """
+See section [Warning options](`m:dialyzer#warning_options`) for a description of
+the warning options.
+""".
 -type warn_option()   :: 'error_handling'
                        | 'no_behaviours'
                        | 'no_contracts'
@@ -124,6 +130,7 @@
                        | 'no_return'
                        | 'no_undefined_callbacks'
                        | 'no_underspecs'
+                       | 'no_unknown'
                        | 'no_unused'
                        | 'underspecs'
                        | 'unknown'
@@ -134,6 +141,10 @@
                        | 'no_extra_return'
                        | 'missing_return'
                        | 'no_missing_return'.
+-doc """
+Option `from` defaults to `byte_code`. Options `init_plt` and `plts` change the
+default.
+""".
 -type dial_option()   :: {'files', [FileName :: file:filename()]}
                        | {'files_rec', [DirName :: file:filename()]}
                        | {'defines', [{Macro :: atom(), Value :: term()}]}
@@ -142,18 +153,31 @@
                        | {'plts', [FileName :: file:filename()]}
                        | {'include_dirs', [DirName :: file:filename()]}
                        | {'output_file', FileName :: file:filename()}
+                       | {'metrics_file', FileName :: file:filename()}
+                       | {'module_lookup_file', FileName :: file:filename()}
                        | {'output_plt', FileName :: file:filename()}
                        | {'check_plt', boolean()}
                        | {'analysis_type', 'succ_typings' |
                                            'plt_add' |
                                            'plt_build' |
                                            'plt_check' |
-                                           'plt_remove'}
+                                           'plt_remove' |
+                                           'incremental'}
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
+                       | {'use_spec', boolean()}
+                       | {'filename_opt', filename_opt()}
+                       | {'callgraph_file', file:filename()}
+                       | {'mod_deps_file', file:filename()}
+                       | {'warning_files_rec', [DirName :: file:filename()]}
                        | {'error_location', error_location()}.
 -type dial_options()  :: [dial_option()].
 -type filename_opt()  :: 'basename' | 'fullpath'.
+-doc """
+If the value of this option is `line`, an integer `Line` is used as `Location`
+in messages. If the value is `column`, a pair `{Line, Column}` is used as
+`Location`. The default is `column`.
+""".
 -type error_location():: 'column' | 'line'.
 -type format()        :: 'formatted' | 'raw'.
 -type iopt()          :: boolean().
@@ -172,7 +196,21 @@
 -define(ERROR_LOCATION, column).
 
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
--record(plt_info, {files :: [dialyzer_plt:file_md5()], mod_deps :: dict:dict()}).
+-record(plt_info, {files :: [dialyzer_cplt:file_md5()],
+                   mod_deps = dict:new() :: dialyzer_callgraph:mod_deps()}).
+-record(iplt_info, {files :: [dialyzer_iplt:module_md5()],
+                   mod_deps = dict:new() :: dialyzer_callgraph:mod_deps(),
+                   warning_map = none :: 'none' | dialyzer_iplt:warning_map(),
+                   legal_warnings  = none  :: none | dial_warn_tags()}).
+
+-record(plt, {info      :: ets:tid(), %% {mfa() | integer(), ret_args_types()}
+              types     :: ets:tid(), %% {module(), erl_types:type_table()}
+              contracts :: ets:tid(), %% {mfa(), #contract{}}
+              callbacks :: ets:tid(), %% {module(),
+                                      %%  [{mfa(),
+                                      %%  dialyzer_contracts:file_contract()}]
+              exported_types :: ets:tid() %% {module(), sets:set()}
+             }).
 
 -record(analysis, {analysis_pid			   :: pid() | 'undefined',
 		   type		  = succ_typings   :: anal_type(),
@@ -187,15 +225,18 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
+		   mod_deps_file  = ""             :: file:filename(),
                    solvers                         :: [solver()]}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
+		  warning_files   = []	           :: [file:filename()],
+		  warning_files_rec = []           :: [file:filename()],
 		  analysis_type   = succ_typings   :: anal_type1(),
 		  timing          = false          :: boolean() | 'debug',
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
-		  get_warnings    = maybe          :: boolean() | 'maybe',
+		  get_warnings    = 'maybe'        :: boolean() | 'maybe',
 		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
@@ -208,13 +249,17 @@
 		  filename_opt	  = basename       :: filename_opt(),
                   indent_opt      = ?INDENT_OPT    :: iopt(),
 		  callgraph_file  = ""             :: file:filename(),
+		  mod_deps_file  = ""              :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   error_location  = ?ERROR_LOCATION :: error_location(),
+                  metrics_file       = none	   :: none | file:filename(),
+		  module_lookup_file = none	   :: none | file:filename(),
                   solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],
 		   forms	  = []		   :: [{_, _}]}).
+
 
 %%--------------------------------------------------------------------
 

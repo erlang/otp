@@ -13,6 +13,8 @@
     suite/0,
     all/0,
     groups/0,
+    init_per_suite/1,
+    end_per_suite/1,
     init_per_group/2,
     end_per_group/2
 ]).
@@ -46,6 +48,9 @@
     old_release/0, old_release/1,
     ssh/0, ssh/1,
     docker/0, docker/1,
+    post_process_args/0, post_process_args/1,
+    attached/0, attached/1,
+    attached_cntrl_channel_handler_crash/0, attached_cntrl_channel_handler_crash/1,
     cntrl_channel_handler_crash/0, cntrl_channel_handler_crash/1,
     cntrl_channel_handler_crash_old_release/0, cntrl_channel_handler_crash_old_release/1
 ]).
@@ -53,18 +58,29 @@
 suite() ->
     [{timetrap, {minutes, 1}}].
 
+init_per_suite(Config) ->
+    %% Restrict number of schedulers so that we do not run out of
+    %% file descriptors during test
+    os:putenv("ERL_FLAGS","+S1 +SDio 1"),
+    Config.
+
+end_per_suite(_Config) ->
+    os:unsetenv("ERL_FLAGS"),
+    ok.
+
 shutdown_alternatives() ->
     [shutdown_halt, shutdown_halt_timeout, shutdown_stop, shutdown_stop_timeout, shutdown_close].
 
 alternative() ->
     [basic, peer_states, cast, detached, dyn_peer, stop_peer,
-     io_redirect, multi_node, duplicate_name, cntrl_channel_handler_crash,
-     cntrl_channel_handler_crash_old_release | shutdown_alternatives()].
+     io_redirect, multi_node, duplicate_name, attached, attached_cntrl_channel_handler_crash,
+     cntrl_channel_handler_crash, cntrl_channel_handler_crash_old_release | shutdown_alternatives()].
 
 groups() ->
     [
         {dist, [parallel], [errors, dist, peer_down_crash, peer_down_continue, peer_down_boot,
-                            dist_up_down, dist_localhost, cntrl_channel_handler_crash,
+                            dist_up_down, dist_localhost, post_process_args, attached,
+                            attached_cntrl_channel_handler_crash, cntrl_channel_handler_crash,
                             cntrl_channel_handler_crash_old_release | shutdown_alternatives()]},
         {dist_seq, [], [dist_io_redirect,      %% Cannot be run in parallel in dist group
                         peer_down_crash_tcp]},
@@ -80,7 +96,7 @@ all() ->
 
 init_per_group(remote, Config) ->
     %% check that SSH can connect to localhost, skip the test if not
-    try os:cmd("ssh localhost echo ok") of
+    try os:cmd("timeout 10s ssh localhost echo ok") of
         "ok\n" -> Config;
         _ -> {skip, "'ssh localhost echo ok' did not return ok"}
     catch
@@ -487,6 +503,29 @@ duplicate_name(Config) when is_list(Config) ->
     ?assertException(exit, _, peer:start_link(#{connection => standard_io, name => ?FUNCTION_NAME})),
     peer:stop(Peer).
 
+post_process_args() ->
+    [{doc, "Test that the post_process_args option works"}].
+
+post_process_args(Config) when is_list(Config) ->
+    case {os:type(),os:find_executable("bash")} of
+        {{win32,_}, _Bash} ->
+            {skip,"Test does not work on windows"};
+        {_, false} ->
+            {skip,"Test needs bash to run"};
+        {_, Bash} ->
+            Erl = string:split(ct:get_progname()," ",all),
+            [throw({skip, "Needs bash to run"}) || Bash =:= false],
+            {ok, Peer, _Node} =
+                peer:start_link(
+                  #{ name => ?CT_PEER_NAME(),
+                     exec => {Bash,["-c"|Erl]},
+                     post_process_args =>
+                         fun(["-c"|Args]) ->
+                                 ["-c", lists:flatten(lists:join($\s, Args))]
+                         end }),
+            peer:stop(Peer)
+    end.
+
 %% -------------------------------------------------------------------
 %% Compatibility: old releases
 old_release() ->
@@ -578,6 +617,54 @@ docker(Config) when is_list(Config) ->
                 exec => {Docker, ["run", "-i", "lambda"]}, connection => standard_io}),
             ?assertEqual(Node, peer:call(Peer, erlang, node, [])),
             peer:stop(Peer)
+    end.
+
+attached() ->
+    [{doc, "Test that it is possible to start a peer node using run_erl aka attached"}].
+
+attached(Config) ->
+    attached_test(false, Config).
+
+attached_cntrl_channel_handler_crash() ->
+    [{doc, "Test that peer node is halted if peer control channel handler process crashes and peer node is attached"}].
+
+attached_cntrl_channel_handler_crash(Config) ->
+    attached_test(true, Config).
+
+attached_test(CrashConnectionHandler, Config) ->
+    RunErl = os:find_executable("run_erl"),
+    [throw({skip, "Could not find run_erl"}) || RunErl =:= false],
+    Erl = string:split(ct:get_progname()," ",all),
+    RunErlDir = filename:join(proplists:get_value(priv_dir, Config),?FUNCTION_NAME),
+    filelib:ensure_path(RunErlDir),
+    Connection = proplists:get_value(connection, Config),
+    Conn = if Connection =:= undefined -> #{ name => ?CT_PEER_NAME() };
+              true ->
+                   case CrashConnectionHandler of
+                       false ->
+                           #{ connection => Connection };
+                       true ->
+                           #{name => ?CT_PEER_NAME(),
+                             connection => Connection}
+                   end
+           end,
+    try peer:start(
+           Conn#{
+                 exec => {RunErl, Erl},
+                 detached => false,
+                 post_process_args =>
+                     fun(Args) ->
+                             [RunErlDir ++ "/", RunErlDir,
+                              lists:flatten(lists:join(" ",[[$',A,$'] || A <- Args]))]
+                     end
+                }) of
+        {ok, Peer, Node} when Connection =:= undefined; Connection =:= 0 ->
+            case CrashConnectionHandler of
+                false -> peer:stop(Peer);
+                true -> cntrl_channel_handler_crash_test(Node)
+            end
+    catch error:{detached,_} when Connection =:= standard_io ->
+            ok
     end.
 
 cntrl_channel_handler_crash() ->

@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-Autoconf-*
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2018-2023. All Rights Reserved.
+dnl Copyright Ericsson AB 2018-2024. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ dnl define([AC_CACHE_SAVE], )dnl
 
 AC_INIT
 AC_CONFIG_SRCDIR([vsn.mk])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
@@ -861,27 +861,8 @@ AS_IF([test "$enable_fips_support" = "yes"],
       [
           AS_IF([test "$CRYPTO_APP" = ""],
                 [AC_MSG_ERROR([FIPS support requested, but no crypto library found])])
-          saveCFLAGS="$CFLAGS"
-          saveLDFLAGS="$LDFLAGS"
-          saveLIBS="$LIBS"
-          CFLAGS="$DED_BASIC_CFLAGS $SSL_INCLUDE"
-          AS_IF([test $SSL_DYNAMIC_ONLY = yes],
-                [
-                    LDFLAGS="$DED_LDFLAGS_CONFTEST $ded_ld_rpath -L$SSL_LIBDIR"
-                    LIBS="$LIBS -l$SSL_CRYPTO_LIBNAME $SSL_EXTRA_LIBS"
-                ],
-                [
-                    LDFLAGS="$DED_LDFLAGS_CONFTEST"
-                    AS_IF([test "$host_os" = "win32"],
-                          [LIBS="$LIBS $SSL_LIBDIR/$SSL_CRYPTO_LIBNAME.lib $SSL_EXTRA_LIBS"],
-                          [LIBS="$LIBS $SSL_LIBDIR/lib$SSL_CRYPTO_LIBNAME.a $SSL_EXTRA_LIBS"])
-                ])
-          AC_CHECK_FUNC([FIPS_mode_set],
-                        [SSL_FLAGS="-DFIPS_SUPPORT"],
-                        [AC_MSG_ERROR([FIPS support requested, but cannot be enabled])])
-          CFLAGS="$saveCFLAGS"
-          LDFLAGS="$saveLDFLAGS"
-          LIBS="$saveLIBS"
+          # Insert check for FIPS support here
+          SSL_FLAGS="-DFIPS_SUPPORT"
       ])
 
 AS_IF([test "x$v3_include" = "xyes"],

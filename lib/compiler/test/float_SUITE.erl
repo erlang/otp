@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ float_zero(Config) when is_list(Config) ->
     <<16#8000000000000000:64>> = match_on_zero_and_to_binary(-1*0.0),
     ok.
 
-match_on_zero_and_to_binary(0.0 = X) -> <<X/float>>.
+match_on_zero_and_to_binary(X) when X == 0.0 -> <<X/float>>.
 
 %% Thanks to Tobias Lindahl <tobias.lindahl@it.uu.se>
 %% Shows the effect of pending exceptions on the x86.

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 #
 # Targets that don't affect documentation directories
 #
-$(TYPES) release docs release_docs tests release_tests clean depend static_lib xmllint:
+$(TYPES) release docs release_docs tests release_tests clean depend static_lib:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -80,6 +80,8 @@ ambiguous_catch_try_state(Config) ->
 
     {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
     {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
+
+    {'EXIT',{badarg,_}} = catch ambiguous_catch_try_state_4(),
 
     ok.
 
@@ -228,6 +230,12 @@ ambiguous_catch_try_state_3() ->
     end.
 
 
+ambiguous_catch_try_state_4() ->
+    0.0 = try binary_to_float(garbage_collect() orelse ((1.0 = tuple_to_list(ok)) -- ok))
+          after
+              ok
+          end.
+
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).
 
@@ -253,6 +261,10 @@ coverage(_Config) ->
 
     error = coverage_3(#{key => <<"child">>}),
     error = coverage_3(#{}),
+
+    ok = coverage_4(whatever),
+    -0.5 = coverage_4(any),
+
     ok.
 
 coverage_1(Var) ->
@@ -286,6 +298,15 @@ coverage_3(#{key := <<child>>}) when false ->
     ok;
 coverage_3(#{}) ->
     error.
+
+%% Cover beam_jump:value_to_literal/1.
+coverage_4(whatever) ->
+    maybe
+        coverage_4(ok),
+        ok
+    end;
+coverage_4(_) ->
+    (bnot 0) / 2.
 
 %% ERIERL-478: The validator failed to validate argument types when calls were
 %% shared and the types at the common block turned out wider than the join of
@@ -328,6 +349,9 @@ undecided_allocation(_Config) ->
     {'EXIT',{{badmatch,error},_}} = catch undecided_allocation_2(id("foo,bar")),
     {'EXIT',_} = catch undecided_allocation_2(id(foobar)),
     {'EXIT',_} = catch undecided_allocation_2(id(make_ref())),
+
+    ok = undecided_allocation_3(id(<<0>>), gurka),
+    {'EXIT', {badarith, _}} = catch undecided_allocation_3(id(<<>>), gurka),
 
     ok.
 
@@ -381,6 +405,21 @@ undecided_allocation_2(Order) ->
                 error
         end.
 
+%% GH-6571: bs_init_writable can only be shared when the stack frame size is
+%% known.
+undecided_allocation_3(<<_>>, _) ->
+    ok;
+undecided_allocation_3(X, _) ->
+    case 0 + get_keys() of
+        X ->
+            ok;
+        _ ->
+            (node() orelse garbage_collect()) =:=
+                case <<0 || false>> of
+                    #{} ->
+                        ok
+                end
+    end.
 
 id(I) ->
     I.

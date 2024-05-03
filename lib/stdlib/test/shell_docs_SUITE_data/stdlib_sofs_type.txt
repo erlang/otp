@@ -31,4 +31,4 @@ These types are documented in this module:
 
   [;1m-type type() :: term().[0m
 
-  [;1m-type tuple_of(_T) :: tuple().[0m
+[;1m  tuple_of(T)[0m

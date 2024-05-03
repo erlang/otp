@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,7 +197,6 @@ atom_alloc(Atom* tmpl)
 static void
 atom_free(Atom* obj)
 {
-    ASSERT(obj->slot.index == atom_val(am_ErtsSecretAtom));
 }
 
 static void latin1_to_utf8(byte* conv_buf, Uint buf_sz,
@@ -509,8 +508,6 @@ init_atom_table(void)
 	atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
 
-    /* Hide am_ErtsSecretAtom */
-    hash_erase(&erts_atom_table.htable, atom_tab(atom_val(am_ErtsSecretAtom)));
 }
 
 void

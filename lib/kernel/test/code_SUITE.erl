@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,12 +24,15 @@
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
-	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
+	 replace_path/1, load_file/1, load_abs/1,
+         ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
+         ensure_loaded_bad_case/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
          soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/0, upgrade/1,
-	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
+	 sticky_dir/1, add_del_path/1,
+         pa_pz_option/1, remove_pa_pz_option/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
@@ -37,10 +40,10 @@
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
          on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
-	 on_load_deleted/1,
+	 on_load_deleted/1, on_load_deadlock/1,
 	 big_boot_embedded/1,
          module_status/1,
-	 get_mode/1,
+	 get_mode/1, code_path_cache/1,
 	 normalized_paths/1, mult_embedded_flags/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
@@ -59,18 +62,21 @@ suite() ->
 
 all() ->
     [set_path, get_path, add_path, add_paths, del_path,
-     replace_path, load_file, load_abs, ensure_loaded,
+     replace_path, load_file, load_abs,
+     ensure_loaded, ensure_loaded_many, ensure_loaded_many_kill,
+     ensure_loaded_bad_case,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
      all_available, load_binary, dir_req, object_code, set_path_file,
-     upgrade,
-     sticky_dir, pa_pz_option, add_del_path, dir_disappeared,
+     upgrade, code_path_cache,
+     pa_pz_option, remove_pa_pz_option,
+     sticky_dir, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
      on_load_binary, on_load_embedded, on_load_errors,
      {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
-     on_load_deleted,
+     on_load_deleted, on_load_deadlock,
      module_status,
      big_boot_embedded, get_mode, normalized_paths,
      mult_embedded_flags].
@@ -316,6 +322,68 @@ replace_path(Config) when is_list(Config) ->
 
     ok.
 
+code_path_cache(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    non_existing = code:which(?TESTMOD), % verify dummy name not in path
+    code:purge(?TESTMOD), % ensure no previous version in memory
+    code:delete(?TESTMOD),
+    code:purge(?TESTMOD),
+
+    Original = code:get_path(),
+    Dir = filename:join(PrivDir, "myebin"),
+    filelib:ensure_path(Dir),
+    ToBeReplacedDir1 = filename:join(PrivDir, "tobereplaced-1/ebin"),
+    ToBeReplacedDir2 = filename:join(PrivDir, "tobereplaced-2/ebin"),
+    filelib:ensure_path(ToBeReplacedDir1),
+    filelib:ensure_path(ToBeReplacedDir2),
+
+    File = filename:join(Dir, ?TESTMODOBJ),
+    {ok,?TESTMOD,Bin} = compile:forms(dummy_ast(), []),
+
+    %% Adding a cached path and re-adding for clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        true = code:Fun(Dir, cache),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        code:del_path(Dir),
+        ok = file:delete(File)
+     end || Fun <- [add_path, add_patha, add_pathz]],
+
+    Original = code:get_path(),
+
+    %% Adding several cached paths and explicit cache clearing
+    [begin
+        error = code:get_object_code(?TESTMOD),
+        ok = code:Fun([Dir, ToBeReplacedDir1], cache),
+        error = code:get_object_code(?TESTMOD),
+        ok = file:write_file(File, Bin),
+        error = code:get_object_code(?TESTMOD),
+        ok = code:clear_cache(),
+        {_,_,_} = code:get_object_code(?TESTMOD),
+        ok = code:del_paths([Dir, ToBeReplacedDir1]),
+        ok = file:delete(File)
+     end || Fun <- [add_paths, add_pathsa, add_pathsz]],
+
+    Original = code:get_path(),
+
+    %% Replacing a non-cached path with cache and set_path for clearing
+    error = code:get_object_code(?TESTMOD),
+    true = code:add_path(ToBeReplacedDir1),
+    true = code:replace_path(tobereplaced, ToBeReplacedDir2, cache),
+    error = code:get_object_code(?TESTMOD),
+    ok = file:write_file(filename:join(ToBeReplacedDir2, ?TESTMODOBJ), Bin),
+    error = code:get_object_code(?TESTMOD),
+    true = code:set_path(code:get_path(), nocache),
+    {_,_,_} = code:get_object_code(?TESTMOD),
+
+    true = code:set_path(Original),
+    ok.
+
 %% OTP-3977.
 dir_disappeared(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -352,6 +420,13 @@ load_abs(Config) when is_list(Config) ->
     code:unstick_dir(TestDir),
     ok.
 
+ensure_loaded_bad_case(Config) when is_list(Config) ->
+    %% Make sure loading an invalid .beam file does
+    %% not hold a permanent lock on the server.
+    {error, _} = code:ensure_loaded('STRING'),
+    {error, _} = code:ensure_loaded('STRING'),
+    ok.
+
 ensure_loaded(Config) when is_list(Config) ->
     {module, lists} = code:ensure_loaded(lists),
     case init:get_argument(mode) of
@@ -367,6 +442,52 @@ ensure_loaded(Config) when is_list(Config) ->
 	    {module, code_b_test} = code:ensure_loaded(code_b_test),
 	    ok
     end.
+
+ensure_loaded_many(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        %% Without special handling for async loading in code server,
+        %% this operation seemed to consistently take 5s+
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []], 1_000)
+    end).
+
+ensure_loaded_many_kill(Config) when is_list(Config) ->
+    with_large_loadpath_peer(Config, fun(Node) ->
+        Action = fun() ->
+            Self = self(),
+            Fun = fun() -> code:ensure_loaded(code_b_test), Self ! {done, self()} end,
+            sys:suspend(code_server),
+            First = spawn_opt(Fun, [{priority, max}]),
+            Pids = [spawn(Fun) || _ <- lists:seq(1, 1_000)],
+            sys:resume(code_server),
+            exit(First, kill),
+            [receive {done, Pid} -> ok end || Pid <- Pids],
+            {file, _} = code:is_loaded(code_b_test),
+            ok
+        end,
+        ok = rpc:call(Node, erlang, apply, [Action, []])
+    end).
+
+with_large_loadpath_peer(Config, Fun) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ok = rpc:call(Node, erlang, apply, [fun set_up_large_loadpath/1, [Priv]]),
+    try Fun(Node)
+    after peer:stop(Peer)
+    end.
+
+set_up_large_loadpath(Priv) ->
+    false = code:delete(code_b_test),
+    Dirs = [filename:join(Priv, integer_to_list(N)) || N <- lists:seq(1, 500)],
+    [ok = filelib:ensure_path(Dir) || Dir <- Dirs],
+    [true = code:add_patha(Dir) || Dir <- Dirs],
+    ok.
 
 delete(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
@@ -720,6 +841,16 @@ pa_pz_option(Config) when is_list(Config) ->
     [PzDir|_] = lists:reverse(Paths2),
     peer:stop(Peer2).
 
+%% Test that we can remove paths added via -pa and -pz.
+remove_pa_pz_option(Config) when is_list(Config) ->
+    DDir = proplists:get_value(data_dir,Config),
+    PaDir = filename:join(DDir,"clash/foobar-0.1/ebin"),
+    {ok, Peer, Node} = ?CT_PEER(["-pa", PaDir]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [blarg]),
+    true = rpc:call(Node, code, del_path, [PaDir]),
+    error = rpc:call(Node, code, get_object_code, [blarg]),
+    peer:stop(Peer).
+
 %% add_path, del_path should not cause priv_dir(App) to fail.
 add_del_path(Config) when is_list(Config) ->
     DDir = proplists:get_value(data_dir,Config),
@@ -997,8 +1128,12 @@ purge_stacktrace_test(Config) when is_list(Config) ->
 mult_lib_roots(Config) when is_list(Config) ->
     DataDir = filename:join(proplists:get_value(data_dir, Config), "mult_lib_roots"),
     mult_lib_compile(DataDir, "my_dummy_app-b/ebin/lists"),
-    mult_lib_compile(DataDir,
-			   "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+
+    %% We will use this module to test both code path loading and
+    %% code path caching. So we ensure its beam file does not exist.
+    CodeSuiteMultRootBeam =
+	filename:join(DataDir, "first_root/my_dummy_app-c/ebin/code_SUITE_mult_root_module.beam"),
+    file:delete(CodeSuiteMultRootBeam),
 
     %% Set up ERL_LIBS and start a peer node.
     ErlLibs = filename:join(DataDir, "first_root") ++ mult_lib_sep() ++
@@ -1026,9 +1161,31 @@ mult_lib_roots(Config) when is_list(Config) ->
 	    E <- lists:sort([Lib1,Lib2,Lib3,Lib4,Lib5])],
     io:format("~p\n", [Path]),
 
+    %% Now let's attempt to dynamically add a module,
+    %% this will fail due to the boot paths cache.
+    error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
+    mult_lib_compile(DataDir, "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+    error = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
+    %% Test that the CWD is not cached
+    File = filename:join([DataDir, "first_root/my_dummy_app-c/ebin/code_SUITE_mult_root_module"]),
+    {ok, _} = compile:file(File, [{outdir, "."}]),
+    {_,_,_} = rpc:call(Node, code, get_object_code, [code_SUITE_mult_root_module]),
     true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
+    file:delete("code_SUITE_mult_root_module.beam"),
+    %% Clean up so we can start again
+    file:delete(CodeSuiteMultRootBeam),
     peer:stop(Peer),
 
+    NoCacheArgs = ["-env", "ERL_LIBS", ErlLibs, "-cache_boot_paths", "false"],
+    {ok, NoCachePeer, NoCacheNode} = ?CT_PEER(NoCacheArgs),
+
+    %% Now the same code should work
+    error = rpc:call(NoCacheNode, code, get_object_code, [code_SUITE_mult_root_module]),
+    mult_lib_compile(DataDir, "my_dummy_app-c/ebin/code_SUITE_mult_root_module"),
+    {_,_,_} = rpc:call(NoCacheNode, code, get_object_code, [code_SUITE_mult_root_module]),
+    true = rpc:call(NoCacheNode, code_SUITE_mult_root_module, works_fine, []),
+
+    peer:stop(NoCachePeer),
     ok.
 
 mult_lib_compile(Root, Last) ->
@@ -1660,9 +1817,9 @@ on_load_self_call(_Config) ->
     ok.
 
 on_load_do_load(Mod, Code) ->
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code)
+               end),
     receive
 	Any -> Any
     end.
@@ -1753,9 +1910,9 @@ on_load_deleted(_Config) ->
 			    "  receive _ -> ok end.\n"]),
 		 merl:print(Tree),
 		 {ok,Mod,Code} = merl:compile(Tree),
-		 spawn(fun() ->
-			       {module,Mod} = code:load_binary(Mod, "", Code)
-		       end),
+		 spawn_link(fun() ->
+                                    {module,Mod} = code:load_binary(Mod, "", Code)
+                            end),
 		 receive after 1 -> ok end,
 		 {module,OtherMod} = code:load_binary(OtherMod, "",
 						      OtherCode),
@@ -1763,6 +1920,31 @@ on_load_deleted(_Config) ->
 	 end,
     delete_before_reload(Mod, R2),
 
+    ok.
+
+on_load_deadlock(Config) ->
+    Mod = ?FUNCTION_NAME,
+    register(Mod, self()),
+    Tree = ?Q(["-module('@Mod@').\n",
+               "-export([ext/0]).\n",
+               "-on_load(f/0).\n",
+               "f() ->\n",
+               "  timer:sleep(1000),\n",
+               "  '@Mod@':ext().\n",
+               "ext() -> ok.\n"]),
+    merl:print(Tree),
+    {ok,Mod,Code} = merl:compile(Tree),
+
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, atom_to_list(Mod) ++ ".beam"),
+    ok = file:write_file(File, Code),
+    code:add_path(Dir),
+
+    spawn(fun() -> code:ensure_loaded(Mod) end),
+    {error,Reason} = code:ensure_loaded(Mod),
+    true = (Reason =:= deadlock) or (Reason =:= on_load_failure),
+
+    code:del_path(Dir),
     ok.
 
 delete_before_reload(Mod, Reload) ->
@@ -1778,10 +1960,10 @@ delete_before_reload(Mod, Reload) ->
     {ok,Mod,Code1} = merl:compile(Tree1),
 
     Self = self(),
-    spawn(fun() ->
-		  {module,Mod} = code:load_binary(Mod, "", Code1),
-		  Mod:f(Self)
-	  end),
+    spawn_link(fun() ->
+                       {module,Mod} = code:load_binary(Mod, "", Code1),
+                       Mod:f(Self)
+               end),
     receive started -> ok end,
 
     true = code:delete(Mod),

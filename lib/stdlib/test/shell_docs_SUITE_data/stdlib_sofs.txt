@@ -1,10 +1,18 @@
 
 [;1m	sofs[0m
 
+  Functions for manipulating sets of sets.
+
   This module provides operations on finite sets and relations
   represented as sets. Intuitively, a set is a collection of
   elements; every element belongs to the set, and the set contains
   every element.
+
+  The data representing [;;4msofs[0m as used by this module is to be
+  regarded as opaque by other modules. In abstract terms, the
+  representation is a composite type of existing Erlang terms. See
+  note on data types. Any code assuming knowledge of the format is
+  running on thin ice.
 
   Given a set A and a sentence S(x), where x is a free variable, a
   new set B whose elements are exactly those elements of A for which

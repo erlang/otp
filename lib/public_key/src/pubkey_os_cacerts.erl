@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,11 @@
 %%
 
 -module(pubkey_os_cacerts).
+-moduledoc false.
 
 -include("public_key.hrl").
--export([load/0, load/1, get/0, clear/0]).
+-include_lib("kernel/include/file.hrl").
+-export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
 -nifs([os_cacerts/0]).
@@ -35,8 +37,16 @@
 get() ->
     case persistent_term:get(?MODULE, not_loaded) of
         not_loaded ->
-            ok = load(),
-            persistent_term:get(?MODULE);
+            case load() of
+                ok ->
+                    persistent_term:get(?MODULE);
+                {error, Reason} ->
+                    erlang:error(
+                        {failed_load_cacerts, conv_error_reason(Reason)},
+                        none,
+                        [{error_info, #{cause => Reason, module => ?MODULE}}]
+                    )
+            end;
         CaCerts ->
             CaCerts
     end.
@@ -46,15 +56,15 @@ get() ->
 load() ->
     case os:type() of
         {unix, linux} ->
-            load_from_file(linux_paths());
+            load(linux_paths(), undefined);
         {unix, openbsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, freebsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, netbsd} ->
-            load_from_file(bsd_paths());
+            load(bsd_paths(), undefined);
         {unix, sunos} ->
-            load_from_files(sunos_path());
+            load(sunos_paths(), undefined);
         {win32, _} ->
             load_win32();
 	{unix, darwin} ->
@@ -68,24 +78,53 @@ load() ->
 %% Can be used when load/0 doesn't work for an unsupported os type.
 -spec load([file:filename_all()]) -> ok | {error, Reason::term()}.
 load(Paths) ->
-    load_from_file(Paths).
-
+    load(Paths, {error, enoent}).
 
 %% cleanup persistent_key
 -spec clear() -> boolean().
 clear() ->
     persistent_term:erase(?MODULE).
 
+load([Path|Paths], Error) ->
+    case dir_or_file(Path) of
+        enoent ->
+            load(Paths, Error);
+        directory ->
+            case load_from_files(Path) of
+                ok -> ok;
+                Err -> load(Paths, Err)
+            end;
+        file ->
+            case load_from_file(Path) of
+                ok -> ok;
+                Err -> load(Paths, Err)
+            end
+    end;
+load([], Error) ->
+    Error.
+
+dir_or_file(Path) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type = directory}} ->
+            directory;
+        {ok, #file_info{type = regular}} ->
+            file;
+        {ok, #file_info{}} ->  %% Link
+            case filelib:is_dir(Path) of
+                true -> directory;
+                false -> file
+            end;
+        {error, _} -> enoent
+    end.
+
 %% Implementation
-load_from_file([Path|Paths]) when is_list(Path); is_binary(Path) ->
+load_from_file(Path) when is_list(Path); is_binary(Path) ->
     try
         {ok, Binary} = file:read_file(Path),
         ok = decode_result(Binary)
     catch _:_Reason ->
-            load_from_file(Paths)
-    end;
-load_from_file([]) ->
-    {error, enoent}.
+            {error, enoent}
+    end.
 
 decode_result(Binary) ->
     try
@@ -103,7 +142,6 @@ decode_result(Binary) ->
             {error, Reason}
     end.
 
-
 load_from_files(Path) ->
     MakeCert = fun(FileName, Acc) ->
                        try
@@ -117,7 +155,6 @@ load_from_files(Path) ->
                end,
     Certs = filelib:fold_files(Path, ".*\.pem", false, MakeCert, []),
     store(Certs).
-
 
 load_win32() ->
     Dec = fun({_Enc, Der}, Acc) ->
@@ -155,14 +192,16 @@ linux_paths() ->
     ].
 
 bsd_paths() ->
-    ["/usr/local/share/certs/ca-root-nss.crt",
-     "/etc/ssl/cert.pem",
+    ["/etc/ssl/cert.pem",
      "/etc/openssl/certs/cacert.pem",   %% netbsd (if installed)
-     "/etc/openssl/certs/ca-certificates.crt"
+     "/etc/openssl/certs/ca-certificates.crt",
+     "/usr/local/share/certs/ca-root-nss.crt"
     ].
 
-sunos_path() ->
-    "/etc/certs/CA/".
+sunos_paths() ->
+    ["/etc/certs/CA/", %% Oracle Solaris, some older illumos distros
+     "/etc/ssl/cacert.pem" %% OmniOS
+    ].
 
 run_cmd(Cmd, Args) ->
     Opts = [binary, exit_status, stderr_to_stdout],
@@ -204,7 +243,10 @@ load_nif() ->
         {error, {load_failed, _}}=Error1 ->
             Arch = erlang:system_info(system_architecture),
             ArchLibDir = filename:join([PrivDir, "lib", Arch]),
-            Candidate =  filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+            Candidate =
+                filelib:wildcard(
+                  filename:join([ArchLibDir,LibName ++ "*" ]),
+                  erl_prim_loader),
             case Candidate of
                 [] -> Error1;
                 _ ->
@@ -213,3 +255,35 @@ load_nif() ->
             end;
         Error1 -> Error1
     end.
+
+%%%
+%%% Error Handling
+%%%
+
+conv_error_reason(enoent) -> enoent;
+conv_error_reason({enotsup, _OS}) -> enotsup;
+conv_error_reason({eopnotsupp, _Reason}) -> eopnotsupp;
+conv_error_reason({eopnotsupp, _Status, _Acc}) -> eopnotsupp.
+
+-spec format_error(Reason, StackTrace) -> ErrorMap when
+      Reason :: term(),
+      StackTrace :: erlang:stacktrace(),
+      ErrorMap :: #{pos_integer() => unicode:chardata(),
+                    general => unicode:chardata(),
+                    reason => unicode:chardata()}.
+
+format_error(Reason, [{_M, _F, _As, Info} | _]) ->
+    ErrorInfoMap = proplists:get_value(error_info, Info, #{}),
+    Cause = maps:get(cause, ErrorInfoMap, none),
+    Message = case Cause of
+        enoent ->
+            "operating system CA bundle could not be located";
+        {enotsup, OS} ->
+            io_lib:format("operating system ~p is not supported", [OS]);
+        {eopnotsupp, SubReason} ->
+            io_lib:format("operation failed because of ~p", [SubReason]);
+        {eopnotsupp, Status, _Acc} ->
+            io_lib:format("operation failed with status ~B", [Status])
+    end,
+    #{general => io_lib:format("Failed to load cacerts: ~s", [Message]),
+      reason => io_lib:format("~p: ~p", [?MODULE, Reason])}.

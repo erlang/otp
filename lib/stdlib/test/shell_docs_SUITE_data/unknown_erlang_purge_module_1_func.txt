@@ -9,7 +9,7 @@
     This BIF is intended for the code server (see [;;4mcode(3)[0m) and
     is not to be used elsewhere.
 
-  Note:
+  Change:
     As from ERTS 8.0 (Erlang/OTP 19), any lingering processes that
     still execute the old code is killed by this function. In
     earlier versions, such incorrect use could cause much more

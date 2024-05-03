@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_literal_area_collector).
+-moduledoc false.
 
 -export([start/0, send_copy_request/3, release_area_switch/0]).
 

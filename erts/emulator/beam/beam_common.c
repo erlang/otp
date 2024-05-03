@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -415,11 +415,11 @@ ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
         erts_inspect_frame(scanner, &return_address);
 
         if (BeamIsReturnTrace(return_address)) {
-            scanner += CP_SIZE + 2;
-        } else if (BeamIsReturnTimeTrace(return_address)) {
-            scanner += CP_SIZE + 1;
+            scanner += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+        } else if (BeamIsReturnCallAccTrace(return_address)) {
+            scanner += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(return_address)) {
-            scanner += CP_SIZE;
+            scanner += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
         } else {
             return return_address;
         }
@@ -520,7 +520,7 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     c_p->fvalue = NIL;
 
     /* Find a handler or die */
-    if ((c_p->catches > 0 || IS_TRACED_FL(c_p, F_EXCEPTION_TRACE))
+    if ((c_p->catches > 0 || c_p->return_trace_frames > 0)
 	&& !(c_p->freason & EXF_PANIC)) {
 	ErtsCodePtr new_pc;
         /* The Beam handler code (catch_end or try_end) checks reg[0]
@@ -556,10 +556,6 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             /* To avoid keeping stale references. */
             c_p->stop[0] = NIL;
 #endif
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-	    /* No longer safe to use this position */
-            erts_msgq_recv_marker_clear(c_p, erts_old_recv_marker_id);
-#endif
             c_p->ftrace = NIL;
 	    return new_pc;
 	}
@@ -579,21 +575,12 @@ next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
     ErtsCodePtr return_to_trace_address = NULL;
     int have_return_to_trace = 0;
+    Eterm session_weak_id = NIL;
     Eterm *ptr, *prev;
     ErtsCodePtr handler;
 
     ptr = prev = c_p->stop;
-    ASSERT(ptr <= STACK_START(c_p));
-
-    /* This function is only called if we have active catch tags or have
-     * previously called a function that was exception-traced. As the exception
-     * trace flag isn't cleared after the traced function returns (and the
-     * catch tag inserted by it is gone), it's possible to land here with an
-     * empty stack, and the process should simply die when that happens. */
-    if (ptr == STACK_START(c_p)) {
-        ASSERT(!active_catches && IS_TRACED_FL(c_p, F_EXCEPTION_TRACE));
-        return NULL;
-    }
+    ASSERT(ptr < STACK_START(c_p));
 
     while (ptr < STACK_START(c_p)) {
         Eterm val = ptr[0];
@@ -613,24 +600,25 @@ next_catch(Process* c_p, Eterm *reg) {
 
             if (BeamIsReturnTrace(return_address)) {
                 if (return_address == beam_exception_trace) {
-                    ErtsTracer *tracer;
                     ErtsCodeMFA *mfa;
 
                     mfa = (ErtsCodeMFA*)cp_val(frame[0]);
-                    tracer = ERTS_TRACER_FROM_ETERM(&frame[1]);
 
                     ASSERT_MFA(mfa);
-                    erts_trace_exception(c_p, mfa, reg[3], reg[1], tracer);
+                    erts_trace_exception(c_p, mfa, reg[3], reg[1], frame[1], frame[2]);
                 }
+                ASSERT(c_p->return_trace_frames > 0);
+                c_p->return_trace_frames--;
 
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
                 have_return_to_trace = 1; /* Record next cp */
+                session_weak_id = frame[0];
                 return_to_trace_address = NULL;
 
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 /* This is an ordinary call frame: if the previous frame was a
                  * return_to trace we should record this CP as a return_to
@@ -655,13 +643,17 @@ next_catch(Process* c_p, Eterm *reg) {
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
 
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO) && return_to_trace_address) {
-        /* The stackframe closest to the catch contained an
-         * return_to_trace entry, so since the execution now
-         * continues after the catch, a return_to trace message
-         * would be appropriate.
-         */
-        erts_trace_return_to(c_p, return_to_trace_address);
+    if (return_to_trace_address) {
+        ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
+                                                         session_weak_id);
+        if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+            /* The stackframe closest to the catch contained an
+             * return_to_trace entry, so since the execution now
+             * continues after the catch, a return_to trace message
+             * would be appropriate.
+             */
+            erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
+        }
     }
 
     /* Clear the try_tag or catch_tag in the stack frame so that we
@@ -801,11 +793,11 @@ gather_stacktrace(Process* p, struct StackTrace* s, int depth)
             erts_inspect_frame(ptr, &return_address);
 
             if (BeamIsReturnTrace(return_address)) {
-                ptr += CP_SIZE + 2;
-            } else if (BeamIsReturnTimeTrace(return_address)) {
-                ptr += CP_SIZE + 1;
+                ptr += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
+            } else if (BeamIsReturnCallAccTrace(return_address)) {
+                ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                ptr += CP_SIZE;
+                ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
                 if (return_address != prev) {
                     ErtsCodePtr adjusted_address;
@@ -953,6 +945,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
             break;
 
             /* Kernel */
+        case am_code:
+            format_module = am_erl_kernel_errors;
+            break;
         case am_os:
             format_module = am_erl_kernel_errors;
             break;
@@ -1680,6 +1675,7 @@ erts_hibernate(Process* c_p, Eterm* reg)
     }
 
     c_p->catches = 0;
+    c_p->return_trace_frames = 0;
     c_p->i = beam_run_process;
 
     /*
@@ -1730,8 +1726,14 @@ call_fun(Process* p,    /* Current process. */
     code_ix = erts_active_code_ix();
     code_ptr = (funp->entry.disp)->addresses[code_ix];
 
-    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun && funp->arity == arity)) {
-        for (int i = 0, num_free = funp->num_free; i < num_free; i++) {
+    if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
+                    fun_arity(funp) == arity)) {
+        /* Copy the free variables, skipping the FunRef in the environment.
+         *
+         * Note that we avoid using fun_num_free as it asserts that the
+         * argument is a local function, which we don't need to care about
+         * here. */
+        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1740,7 +1742,6 @@ call_fun(Process* p,    /* Current process. */
             DTRACE_LOCAL_CALL(p, erts_code_to_codemfa(code_ptr));
         } else {
             Export *ep = funp->entry.exp;
-            ASSERT(is_external_fun(funp) && funp->next == NULL);
             DTRACE_GLOBAL_CALL(p, &ep->info.mfa);
         }
 #endif
@@ -1770,7 +1771,7 @@ call_fun(Process* p,    /* Current process. */
             }
         }
 
-        if (funp->arity != arity) {
+        if (fun_arity(funp) != arity) {
             /* There is a fun defined, but the call has the wrong arity. */
             Eterm *hp = HAlloc(p, 3);
             p->freason = EXC_BADARITY;
@@ -1870,7 +1871,7 @@ is_function2(Eterm Term, Uint arity)
 {
     if (is_any_fun(Term)) {
         ErlFunThing *funp = (ErlFunThing*)fun_val(Term);
-        return funp->arity == arity;
+        return fun_arity(funp) == arity;
     }
 
     return 0;
@@ -1878,7 +1879,7 @@ is_function2(Eterm Term, Uint arity)
 
 Eterm get_map_element(Eterm map, Eterm key)
 {
-    Uint32 hx;
+    erts_ihash_t hx;
     const Eterm *vs;
     if (is_flatmap(map)) {
 	flatmap_t *mp;
@@ -1911,7 +1912,7 @@ Eterm get_map_element(Eterm map, Eterm key)
     return vs ? *vs : THE_NON_VALUE;
 }
 
-Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
+Eterm get_map_element_hash(Eterm map, Eterm key, erts_ihash_t hx)
 {
     const Eterm *vs;
 
@@ -2076,12 +2077,14 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
     Eterm new_key;
     Eterm* kp;
     Eterm map;
+    int changed_values = 0;
+    int changed_keys = 0;
 
     num_updates = n / 2;
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	ASSERT(is_hashmap(map));
@@ -2127,35 +2130,46 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
      * Build the skeleton for the map, ready to be filled in.
      *
      * +-----------------------------------+
-     * | (Space for aritvyal for keys)     | <-----------+
-     * +-----------------------------------+		 |
-     * | (Space for key 1)		   |		 |    <-- kp
-     * +-----------------------------------+		 |
-     *        .				    		 |
-     *        .				    		 |
-     *        .				    		 |
-     * +-----------------------------------+		 |
-     * | (Space for last key)		   |		 |
-     * +-----------------------------------+		 |
-     * | MAP_HEADER			   |		 |
-     * +-----------------------------------+		 |
-     * | (Space for number of keys/values) |		 |
-     * +-----------------------------------+		 |
-     * | Boxed tuple pointer            >----------------+
+     * | MAP_HEADER_FLATMAP                |
      * +-----------------------------------+
-     * | (Space for value 1)		   |                  <-- hp
+     * | (Space for number of keys/values) |
+     * +-----------------------------------+
+     * | Boxed tuple pointer            >----------------+
+     * +-----------------------------------+             |
+     * | (Space for value 1)               |             |    <-- hp
+     * +-----------------------------------+             |
+     *        .                                          |
+     *        .                                          |
+     *        .                                          |
+     * +-----------------------------------+             |
+     * | (Space for last value)	           |             |
+     * +-----------------------------------+             |
+     * +-----------------------------------+             |
+     * | (Space for aritvyal for keys)     | <-----------+
+     * +-----------------------------------+
+     * | (Space for key 1)                 |                  <-- kp
+     * +-----------------------------------+
+     *        .
+     *        .
+     *        .
+     * +-----------------------------------+
+     * | (Space for last key)              |
      * +-----------------------------------+
      */
 
+    hp = p->htop;
     E = p->stop;
-    kp = p->htop + 1;		/* Point to first key */
-    hp = kp + num_old + num_updates;
 
     res = make_flatmap(hp);
     mp = (flatmap_t *)hp;
     hp += MAP_HEADER_FLATMAP_SZ;
     mp->thing_word = MAP_HEADER_FLATMAP;
-    mp->keys = make_tuple(kp-1);
+
+    kp = hp + num_old + num_updates; /* Point to key tuple. */
+
+    mp->keys = make_tuple(kp);
+
+    kp = kp + 1;                /* Point to first key. */
 
     old_vals = flatmap_get_values(old_mp);
     old_keys = flatmap_get_keys(old_mp);
@@ -2172,21 +2186,25 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	Eterm key;
 	Sint c;
 
-	ASSERT(kp < (Eterm *)mp);
 	key = *old_keys;
-	if ((c = CMP_TERM(key, new_key)) < 0) {
+	if ((c = (key == new_key) ? 0 : erts_cmp_flatmap_keys(key, new_key)) < 0) {
 	    /* Copy old key and value */
 	    *kp++ = key;
 	    *hp++ = *old_vals;
 	    old_keys++, old_vals++, num_old--;
 	} else {		/* Replace or insert new */
-	    GET_TERM(new_p[1], *hp++);
+	    GET_TERM(new_p[1], *hp);
 	    if (c > 0) {	/* If new key */
 		*kp++ = new_key;
+                changed_keys = 1;
 	    } else {		/* If replacement */
+                if (*old_vals != *hp) {
+                    changed_values = 1;
+                }
 		*kp++ = key;
 		old_keys++, old_vals++, num_old--;
 	    }
+            hp++;
 	    n--;
 	    if (n == 0) {
 		break;
@@ -2218,6 +2236,28 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	    GET_TERM(new_p[1], *hp++);
 	    new_p += 2;
 	}
+    } else if (!changed_keys && !changed_values) {
+        /*
+         * All updates are now done, no new keys were introduced, and
+         * all new values were the same as old ones. We can just
+         * return the old map and skip committing the new allocation,
+         * effectively releasing it.
+         */
+        ASSERT(n == 0);
+        return map;
+    } else if (!changed_keys) {
+        /*
+         * All updates are now done, no new keys were introduced, but
+         * some values were changed. We can retain the old key tuple.
+         */
+        ASSERT(n == 0);
+        mp->size = old_mp->size;
+        mp->keys = old_mp->keys;
+        while (num_old-- > 0) {
+            *hp++ = *old_vals++;
+        }
+        p->htop = hp;
+        return res;
     } else {
 	/*
 	 * All updates are now done. We may still have old
@@ -2225,7 +2265,6 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 	 */
 	ASSERT(n == 0);
 	while (num_old-- > 0) {
-	    ASSERT(kp < (Eterm *)mp);
 	    *kp++ = *old_keys++;
 	    *hp++ = *old_vals++;
 	}
@@ -2233,20 +2272,22 @@ erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 
     /*
      * Calculate how many values that are unused at the end of the
-     * key tuple and fill it out with a bignum header.
+     * value array and fill it out with a bignum header.
      */
-    if ((n = (Eterm *)mp - kp) > 0) {
-	*kp = make_pos_bignum_header(n-1);
+    if ((n = boxed_val(mp->keys) - hp) > 0) {
+        ASSERT(n <= num_updates);
+	*hp = make_pos_bignum_header(n-1);
     }
 
     /*
      * Fill in the size of the map in both the key tuple and in the map.
      */
 
-    n = kp - p->htop - 1;	/* Actual number of keys/values */
-    *p->htop = make_arityval(n);
-    p->htop  = hp;
+    n = hp - (Eterm *)mp - MAP_HEADER_FLATMAP_SZ;	/* Actual number of keys/values */
+    ASSERT(n <= old_mp->size + num_updates);
     mp->size = n;
+    *(boxed_val(mp->keys)) = make_arityval(n);
+    p->htop  = kp;
 
     /* The expensive case, need to build a hashmap */
     if (n > MAP_SMALL_MAP_LIMIT) {
@@ -2286,7 +2327,7 @@ erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
     map = reg[live];
 
     if (is_not_flatmap(map)) {
-	Uint32 hx;
+	erts_ihash_t hx;
 	Eterm val;
 
 	/* apparently the compiler does not emit is_map instructions,

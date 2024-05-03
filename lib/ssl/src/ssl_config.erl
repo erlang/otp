@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 %%
 
 -module(ssl_config).
+-moduledoc false.
 
 -include("ssl_internal.hrl").
 -include("ssl_connection.hrl").
@@ -34,46 +35,31 @@
          get_ticket_lifetime/0,
          get_ticket_store_size/0,
          get_internal_active_n/0,
-         get_internal_active_n/1
+         get_internal_active_n/1,
+         new_emulated/2
         ]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
-init(#{erl_dist := ErlDist,
-       dh := DH,
-       dhfile := DHFile} = SslOpts, Role) ->
-    
-    init_manager_name(ErlDist),
+init(SslOpts, Role) ->
+    init_manager_name(maps:get(erl_dist, SslOpts, false)),
     #{pem_cache := PemCache} = Config = init_cacerts(SslOpts, Role),
-    DHParams = init_diffie_hellman(PemCache, DH, DHFile, Role),
-
+    DHParams = init_diffie_hellman(PemCache, SslOpts, Role),
     CertKeyAlts = init_certs_keys(SslOpts, Role, PemCache),
-
     {ok, Config#{cert_key_alts => CertKeyAlts, dh_params => DHParams}}.
 
-init_certs_keys(#{certs_keys := CertsKeys}, Role, PemCache) ->
-    Pairs = lists:map(fun(CertKey) -> cert_key_pair(CertKey, Role, PemCache) end, CertsKeys),
+init_certs_keys(#{certs_keys := CertsKeys} = Opts, Role, PemCache) ->
+    Pairs = lists:map(fun(CertKey) -> init_cert_key_pair(CertKey, Role, PemCache) end, CertsKeys),
     CertKeyGroups = group_pairs(Pairs),
-    prioritize_groups(CertKeyGroups);
-init_certs_keys(SslOpts, Role, PemCache) ->
-    KeyPair = init_cert_key_pair(SslOpts, Role, PemCache),
-    group_pairs([KeyPair]).
+    prioritize_groups(CertKeyGroups, Opts).
 
-init_cert_key_pair(#{key := Key,
-                      keyfile := KeyFile,
-                      password :=  Password} = Opts, Role, PemCache) ->
-    {ok, Certs} = init_certificates(Opts, PemCache, Role),
-    PrivateKey =
-	init_private_key(PemCache, Key, KeyFile, Password, Role),
+init_cert_key_pair(CertKey, Role, PemCache) ->
+    Certs = init_certificates(CertKey, PemCache, Role),
+    PrivateKey = init_private_key(maps:get(key, CertKey, undefined), CertKey, PemCache),
     #{private_key => PrivateKey, certs => Certs}.
 
-cert_key_pair(CertKey, Role, PemCache) ->
-    CertKeyPairConf = cert_conf(key_conf(CertKey)),
-    init_cert_key_pair(CertKeyPairConf, Role, PemCache).
-
-
-group_pairs([#{certs := [[]]}]) ->
+group_pairs([#{certs := []}]) ->
     #{eddsa => [],
       ecdsa => [],
       rsa_pss_pss => [],
@@ -87,8 +73,7 @@ group_pairs(Pairs) ->
                          rsa => [],
                          dsa => []
                         }).
-group_pairs([], Group) ->
-    Group;
+
 group_pairs([#{private_key := #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed25519'}}} = Pair | Rest], #{eddsa := EDDSA} = Group) ->
     group_pairs(Rest, Group#{eddsa => [Pair | EDDSA]});
 group_pairs([#{private_key := #'ECPrivateKey'{parameters = {namedCurve, ?'id-Ed448'}}} = Pair | Rest], #{eddsa := EDDSA} = Group) ->
@@ -104,33 +89,47 @@ group_pairs([#{private_key := #'DSAPrivateKey'{}} = Pair | Rest], #{dsa := DSA} 
 group_pairs([#{private_key := #{algorithm := dss, engine := _}} = Pair | Rest], Group) ->
     Pairs = maps:get(dsa, Group),
     group_pairs(Rest, Group#{dsa => [Pair | Pairs]});
+group_pairs([#{private_key := #{algorithm := Alg, sign_fun := _}} = Pair | Rest], Group) ->
+    Pairs = maps:get(Alg, Group),
+    group_pairs(Rest, Group#{Alg => [Pair | Pairs]});
 group_pairs([#{private_key := #{algorithm := Alg, engine := _}} = Pair | Rest], Group) ->
     Pairs = maps:get(Alg, Group),
-    group_pairs(Rest, Group#{Alg => [Pair | Pairs]}).
+    group_pairs(Rest, Group#{Alg => [Pair | Pairs]});
+group_pairs([], Group) ->
+    Group.
+
 
 prioritize_groups(#{eddsa := EDDSA,
                     ecdsa := ECDSA,
                     rsa_pss_pss := RSAPSS,
                     rsa := RSA,
-                    dsa := DSA} = CertKeyGroups) ->
+                    dsa := DSA} = CertKeyGroups, Opts) ->
+    EC = ecdsa_support(Opts),
     CertKeyGroups#{eddsa => prio_eddsa(EDDSA),
-                   ecdsa => prio_ecdsa(ECDSA),
+                   ecdsa => prio_ecdsa(ECDSA, EC),
                    rsa_pss_pss => prio_rsa_pss(RSAPSS),
                    rsa => prio_rsa(RSA),
                    dsa => prio_dsa(DSA)}.
 
 prio_eddsa(EDDSA) ->
     %% Engine not supported yet
-    using_curve({namedCurve, ?'id-Ed25519'}, EDDSA, []) ++ using_curve({namedCurve, ?'id-Ed448'}, EDDSA, []).
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- EDDSA],
+    SignFunPairs
+        ++ using_curve({namedCurve, ?'id-Ed25519'}, EDDSA, [])
+        ++ using_curve({namedCurve, ?'id-Ed448'}, EDDSA, []).
 
-prio_ecdsa(ECDSA) ->
+prio_ecdsa(ECDSA, Curves) ->
     EnginePairs = [Pair || Pair = #{private_key := #{engine := _}} <- ECDSA],
-    Curves = tls_v1:ecc_curves(all),
-    EnginePairs ++ lists:foldr(fun(Curve, AccIn) ->
-                                       CurveOid = pubkey_cert_records:namedCurves(Curve),
-                                       Pairs = using_curve({namedCurve, CurveOid}, ECDSA -- EnginePairs, []),
-                                       Pairs ++ AccIn
-                               end, [], Curves).
+    SignFunPairs = [Pair || Pair = #{private_key := #{sign_fun := _}} <- ECDSA],
+    EnginePairs
+        ++ SignFunPairs
+        ++ lists:foldr(
+            fun(Curve, AccIn) ->
+                CurveOid = pubkey_cert_records:namedCurves(Curve),
+                Pairs = using_curve({namedCurve, CurveOid}, ECDSA -- EnginePairs -- SignFunPairs, []),
+                Pairs ++ AccIn
+             end, [], Curves).
+
 using_curve(_, [], Acc) ->
     lists:reverse(Acc);
 using_curve(Curve, [#{private_key := #'ECPrivateKey'{parameters = Curve}} = Pair | Rest], Acc) ->
@@ -178,25 +177,6 @@ prio_dsa(DSA) ->
     end,
     lists:sort(Order, DSA).
 
-key_conf(#{key := _} = Conf) ->
-    Conf#{certfile => <<>>,
-          keyfile => <<>>,
-          password => undefined};
-key_conf(#{keyfile := _} = Conf) ->
-    case maps:get(password, Conf, undefined) of
-        undefined ->
-            Conf#{key => undefined,
-                  password => undefined};
-        _ ->
-            Conf#{key => undefined}
-    end.
-
-cert_conf(#{cert := Bin} = Conf) when is_binary(Bin)->
-    Conf#{cert => [Bin]};
-cert_conf(#{cert := _} = Conf) ->
-    Conf#{certfile => <<>>};
-cert_conf(#{certfile := _} = Conf) ->
-      Conf#{cert => undefined}.
 
 pre_1_3_session_opts(Role) ->
     {Cb, InitArgs} = session_cb_opts(Role),
@@ -251,6 +231,11 @@ get_internal_active_n(false) ->
             ?INTERNAL_ACTIVE_N
     end.
 
+new_emulated([], EmOpts) ->
+    EmOpts;
+new_emulated(NewEmOpts, _) ->
+    NewEmOpts.
+
 %%====================================================================
 %% Internal functions 
 %%====================================================================	     
@@ -261,17 +246,13 @@ init_manager_name(true) ->
     put(ssl_manager, ssl_manager:name(dist)),
     put(ssl_pem_cache, ssl_pem_cache:name(dist)).
 
-init_cacerts(#{cacerts := CaCerts,
-               cacertfile := CACertFile,
-               crl_cache := CRLCache
-              }, Role) ->
+init_cacerts(#{cacerts := CaCerts, crl_cache := CRLCache} = Opts, Role) ->
+    CACertFile = maps:get(cacertfile, Opts, <<>>),
     {ok, Config} =
-	try 
+	try
 	    Certs = case CaCerts of
-			undefined ->
-			    CACertFile;
-			_ ->
-			    {der, CaCerts}
+			undefined -> CACertFile;
+			_ -> {der, CaCerts}
 		    end,
 	    {ok,_} = ssl_manager:connection_init(Certs, Role, CRLCache)
 	catch
@@ -280,65 +261,58 @@ init_cacerts(#{cacerts := CaCerts,
 	end,
     Config.
 
-init_certificates(#{certfile := CertFile,
-                    cert := OwnCerts}, PemCache, Role) ->
-    init_certificates(OwnCerts, PemCache, CertFile, Role).
+init_certificates(CertKey, PemCache, Role) ->
+    case maps:get(cert, CertKey, undefined) of
+        undefined ->
+            init_certificate_file(maps:get(certfile, CertKey, <<>>), PemCache, Role);
+        Bin when is_binary(Bin) ->
+            [Bin];
+        Certs when is_list(Certs) ->
+            Certs
+    end.
 
-init_certificates(undefined, _, <<>>, _) ->
-    {ok, [[]]};
-init_certificates(undefined, PemCache, CertFile, client) ->
-    try 
-        %% OwnCert | [OwnCert | Chain]
-	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, OwnCerts}
-    catch _Error:_Reason  ->
-	    {ok, [[]]}
-    end; 
-init_certificates(undefined, PemCache, CertFile, server) ->
-    try
-        %% OwnCert | [OwnCert | Chain]
-	OwnCerts = ssl_certificate:file_to_certificats(CertFile, PemCache),
-	{ok, OwnCerts}
+init_certificate_file(<<>>, _PemCache, _Role) ->
+    [];
+init_certificate_file(CertFile, PemCache, Role) ->
+    try %% OwnCert | [OwnCert | Chain]
+        ssl_certificate:file_to_certificats(CertFile, PemCache)
     catch
-	_:Reason ->
-	    file_error(CertFile, {certfile, Reason})	    
-    end;
-init_certificates(OwnCerts, _, _, _) when is_binary(OwnCerts)->
-    {ok, [OwnCerts]};
-init_certificates(OwnCerts, _, _, _) ->
-    {ok, OwnCerts}.
+        _Error:_Reason when Role =:= client ->
+            [];
+        _Error:Reason ->
+            file_error(CertFile, {certfile, Reason})
+    end.
 
-init_private_key(_, #{algorithm := Alg} = Key, _, _Password, _Client) when Alg == ecdsa;
-                                                                           Alg == rsa;
-                                                                           Alg == dss ->
+init_private_key(#{algorithm := _, sign_fun := _SignFun} = Key, _, _) ->
+    Key;
+init_private_key(#{algorithm := Alg} = Key, _, _PemCache)
+  when Alg =:= ecdsa; Alg =:= rsa; Alg =:= dss ->
     case maps:is_key(engine, Key) andalso maps:is_key(key_id, Key) of
-        true ->
-            Key;
-        false ->
-            throw({key, {invalid_key_id, Key}})
+        true ->  Key;
+        false -> throw({key, {invalid_key_id, Key}})
     end;
-init_private_key(_, undefined, <<>>, _Password, _Client) ->
-    #{};
-init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
-    try
-	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
-	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
-				  PKey =:= 'RSAPrivateKey' orelse
-				      PKey =:= 'DSAPrivateKey' orelse
-				      PKey =:= 'ECPrivateKey' orelse
-				      PKey =:= 'PrivateKeyInfo'
-		     ],
-	private_key(public_key:pem_entry_decode(PemEntry, Password))
-    catch 
-	_:Reason ->
-	    file_error(KeyFile, {keyfile, Reason}) 
-    end;
-
-init_private_key(_,{Asn1Type, PrivateKey},_,_,_) ->
-    private_key(init_private_key(Asn1Type, PrivateKey)).
-
-init_private_key(Asn1Type, PrivateKey) ->
-    public_key:der_decode(Asn1Type, PrivateKey).
+init_private_key({Asn1Type, PrivateKey},_,_) ->
+    private_key(public_key:der_decode(Asn1Type, PrivateKey));
+init_private_key(undefined, CertKey, DbHandle) ->
+    case maps:get(keyfile, CertKey, undefined) of
+        undefined ->
+            #{};
+        KeyFile ->
+            Password = maps:get(password, CertKey, undefined),
+            try
+                {ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
+                [PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
+                                          PKey =:= 'RSAPrivateKey' orelse
+                                              PKey =:= 'DSAPrivateKey' orelse
+                                              PKey =:= 'ECPrivateKey' orelse
+                                              PKey =:= 'PrivateKeyInfo'
+                             ],
+                private_key(public_key:pem_entry_decode(PemEntry, Password))
+            catch
+                _:Reason ->
+                    file_error(KeyFile, {keyfile, Reason})
+            end
+    end.
 
 private_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
@@ -370,26 +344,34 @@ file_error(File, Throw) ->
 	    throw(Throw)
     end.
 
-init_diffie_hellman(_,Params, _,_) when is_binary(Params)->
-    public_key:der_decode('DHParameter', Params);
-init_diffie_hellman(_,_,_, client) ->
+init_diffie_hellman(_, _, client) ->
     undefined;
-init_diffie_hellman(_,_,undefined, _) ->
-    ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
-init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
-    try
-	{ok, List} = ssl_manager:cache_pem_file(DHParamFile,DbHandle),
-	case [Entry || Entry = {'DHParameter', _ , _} <- List] of
-	    [Entry] ->
-		public_key:pem_entry_decode(Entry);
-	    [] ->
-		?DEFAULT_DIFFIE_HELLMAN_PARAMS
-	end
-    catch
-	_:Reason ->
-	    file_error(DHParamFile, {dhfile, Reason}) 
+init_diffie_hellman(DbHandle, Opts, server) ->
+    case maps:get(dh, Opts, undefined) of
+        Bin when is_binary(Bin) ->
+            public_key:der_decode('DHParameter', Bin);
+        _ ->
+            case maps:get(dhfile, Opts, undefined) of
+                undefined ->
+                    ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
+                DHParamFile ->
+                    dh_file(DbHandle, DHParamFile)
+            end
     end.
 
+dh_file(DbHandle, DHParamFile) ->
+    try
+        {ok, List} = ssl_manager:cache_pem_file(DHParamFile,DbHandle),
+        case [Entry || Entry = {'DHParameter', _ , _} <- List] of
+            [Entry] ->
+                public_key:pem_entry_decode(Entry);
+            [] ->
+                ?DEFAULT_DIFFIE_HELLMAN_PARAMS
+        end
+    catch
+        _:Reason ->
+            file_error(DHParamFile, {dhfile, Reason}) 
+    end.
 
 session_cb_init_args(client) ->
     case application:get_env(ssl, client_session_cb_init_args) of
@@ -453,3 +435,14 @@ session_cb_opts(server = Role) ->
         ServerCb ->
             {ServerCb, session_cb_init_args(Role)}
     end.
+
+ecdsa_support(#{versions := [?TLS_1_3]}) ->
+    [secp521r1,
+     secp384r1,
+     secp256r1,
+     brainpoolP512r1,
+     brainpoolP384r1,
+     brainpoolP256r1
+    ];
+ecdsa_support(_) ->
+    ssl:eccs() -- [x25519, x448].

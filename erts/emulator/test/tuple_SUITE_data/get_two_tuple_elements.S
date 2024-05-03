@@ -29,7 +29,8 @@
     {line,[{location,"get_two_tuple_elements.erl",4}]}.
     {func_info,{atom,get_two_tuple_elements},{atom,get_two_tuple_elements},0}.
   {label,2}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
     {move,{atom,x},{x,0}}.
     {line,[{location,"get_two_tuple_elements.erl",5}]}.
     {call,1,{f,9}}.
@@ -63,7 +64,7 @@
     {trim,2,0}.
     {line,[{location,"get_two_tuple_elements.erl",5}]}.
     {call,2,{f,5}}.
-    {'%',{var_info,{x,0},[{type,number}]}}.
+    {'%',{var_info,{x,0},[{type,{t_number,any}}]}}.
     {test,is_eq_exact,{f,3},[{x,0},{integer,3}]}.
     {move,{atom,ok},{x,0}}.
     {deallocate,0}.

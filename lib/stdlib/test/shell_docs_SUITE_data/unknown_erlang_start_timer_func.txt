@@ -1,0 +1,64 @@
+
+  [;1m-spec erlang:start_timer(Time, Dest, Msg) -> TimerRef[0m
+  [;1m                            when[0m
+  [;1m                                Time :: non_neg_integer(),[0m
+  [;1m                                Dest :: pid() | atom(),[0m
+  [;1m                                Msg :: term(),[0m
+  [;1m                                TimerRef :: reference().[0m
+
+  Starts a timer. The same as calling [;;4merlang:start_timer(Time,[0m
+  [;;4mDest, Msg, [])[0m.
+
+  [;1m-spec erlang:start_timer(Time, Dest, Msg, Options) -> TimerRef[0m
+  [;1m                            when[0m
+  [;1m                                Time :: integer(),[0m
+  [;1m                                Dest :: pid() | atom(),[0m
+  [;1m                                Msg :: term(),[0m
+  [;1m                                Options :: [Option],[0m
+  [;1m                                Abs :: boolean(),[0m
+  [;1m                                Option :: {abs, Abs},[0m
+  [;1m                                TimerRef :: reference().[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Starts a timer. When the timer expires, the message [;;4m{timeout,[0m
+  [;;4mTimerRef, Msg}[0m is sent to the process identified by [;;4mDest[0m.
+
+  [;;4mOption[0ms:
+
+  [;;4m[;;4m{abs, false}[0m[0m:
+    This is the default. It means the [;;4mTime[0m value is interpreted
+    as a time in milliseconds relative current Erlang monotonic
+    time.
+
+  [;;4m[;;4m{abs, true}[0m[0m:
+    Absolute [;;4mTime[0m value. The [;;4mTime[0m value is interpreted as an
+    absolute Erlang monotonic time in milliseconds.
+
+  More [;;4mOption[0ms can be added in the future.
+
+  The absolute point in time, the timer is set to expire on, must be
+  in the interval [;;4m[ [0merlang:convert_time_unit[;;4m([0merlang:system_info[;;4m[0m
+  [;;4m(start_time), native, millisecond), [0merlang:convert_time_unit[;;4m([0m
+  erlang:system_info[;;4m(end_time), native, millisecond) ][0m. If a
+  relative time is specified, the [;;4mTime[0m value is not allowed to be
+  negative.
+
+  If [;;4mDest[0m is a [;;4mpid()[0m, it must be a [;;4mpid()[0m of a process created
+  on the current runtime system instance. This process has either
+  terminated or not. If [;;4mDest[0m is an [;;4matom()[0m, it is interpreted as
+  the name of a locally registered process. The process referred to
+  by the name is looked up at the time of timer expiration. No error
+  is returned if the name does not refer to a process.
+
+  If [;;4mDest[0m is a [;;4mpid()[0m, the timer is automatically canceled if the
+  process referred to by the [;;4mpid()[0m is not alive, or if the process
+  exits. This feature was introduced in ERTS 5.4.11. Notice that
+  timers are not automatically canceled when [;;4mDest[0m is an [;;4matom()[0m.
+
+  See also [;;4merlang:send_after/4[0m, [;;4merlang:cancel_timer/2[0m, and [;;4m[0m
+  [;;4merlang:read_timer/2[0m.
+
+  Failure: [;;4mbadarg[0m if the arguments do not satisfy the requirements
+  specified here.

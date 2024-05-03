@@ -169,6 +169,9 @@
     The variants [;;4mhttp_bin[0m and [;;4mhttph_bin[0m return strings ([;;4m[0m
     [;;4mHttpString[0m) as binaries instead of lists.
 
+    Since OTP 26.0, [;;4mHost[0m may be an IPv6 address enclosed in [;;4m[][0m,
+    as defined in RFC2732 .
+
   Options:
 
   [;;4m[;;4m{packet_size, integer() >= 0}[0m[0m:

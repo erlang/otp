@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,6 @@ do {									\
 
 #define x(N) reg[N]
 #define y(N) E[N]
-#define r(N) x(N)
 #define Q(N) (N*sizeof(Eterm *))
 #define l(N) (freg[N].fd)
 
@@ -268,7 +267,7 @@ Eterm erts_gc_update_map_assoc(Process* p, Eterm* reg, Uint live,
 Eterm erts_gc_update_map_exact(Process* p, Eterm* reg, Uint live,
                                Uint n, const Eterm* data);
 Eterm get_map_element(Eterm map, Eterm key);
-Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
+Eterm get_map_element_hash(Eterm map, Eterm key, erts_ihash_t hx);
 int raw_raise(Eterm stacktrace, Eterm exc_class, Eterm value, Process *c_p);
 void erts_sanitize_freason(Process* c_p, Eterm exc);
 Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
@@ -280,7 +279,8 @@ void check_monitor_long_schedule(Process *c_p, Uint64 start_time,
 extern ErtsCodePtr beam_run_process;
 extern ErtsCodePtr beam_normal_exit;
 extern ErtsCodePtr beam_exit;
-extern ErtsCodePtr beam_save_calls;
+extern ErtsCodePtr beam_save_calls_export;
+extern ErtsCodePtr beam_save_calls_fun;
 extern ErtsCodePtr beam_bif_export_trap;
 extern ErtsCodePtr beam_export_trampoline;
 extern ErtsCodePtr beam_continue_exit;
@@ -289,7 +289,7 @@ extern ErtsCodePtr beam_unloaded_fun;
 extern ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */
 extern ErtsCodePtr beam_exception_trace;   /* OpCode(i_exception_trace) */
-extern ErtsCodePtr beam_return_time_trace; /* OpCode(i_return_time_trace) */
+extern ErtsCodePtr beam_call_trace_return; /* OpCode(i_call_trace_return) */
 
 /** @brief Inspects an Erlang stack frame, returning the base of the data
  *         (first Y register).

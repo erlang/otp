@@ -8,7 +8,7 @@
 	 sub_word/2,sub_word/3,left/2,left/3,right/2,right/3,
 	 sub_string/2,sub_string/3,centre/2,centre/3, join/2]).
 -export([to_upper/1, to_lower/1]).
--export([eep49/0]).
+-export([eep49/0, eep58/0]).
 
 -import(lists,[reverse/1,member/2]).
 
@@ -579,5 +579,14 @@ eep49() ->
     else
         error -> error
     end,
+
+    ok.
+
+%% EEP-58: Map comprehensions.
+eep58() ->
+    Seq = lists:seq(1, 10),
+    Map = #{{key,I} => I || I <- Seq},
+    MapDouble = #{K => 2 * V || K := V <- Map},
+    MapDouble = maps:from_list([{{key,I}, 2 * I} || I <- Seq]),
 
     ok.

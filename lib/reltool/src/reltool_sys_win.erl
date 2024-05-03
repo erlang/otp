@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_sys_win).
+-moduledoc false.
 
 %% Public
 -export([start_link/1, get_server/1, set_app/2, open_app/2]).
@@ -183,7 +184,7 @@ do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
 
 restart_server_safe_config(true,Parent,Reason) ->
     io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
-    proc_lib:init_ack(Parent, {error,Reason});
+    proc_lib:init_fail(Parent, {error,Reason}, {exit,normal});
 restart_server_safe_config(false,Parent,Reason) ->
     wx:new(),
     Strings =
@@ -200,7 +201,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
 	    io:format("~w(~w): <ERROR> ~tp\n", [?MODULE, ?LINE, Reason]),
-	    proc_lib:init_ack(Parent,{error,Reason})
+	    proc_lib:init_fail(Parent, {error,Reason}, {exit,normal})
     end.
 
 exit_dialog([]) ->

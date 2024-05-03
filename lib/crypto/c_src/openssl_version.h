@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@
 
 #ifdef LIBRESSL_VERSION_NUMBER
 # define HAS_LIBRESSL
+# define HAS_LIBRESSL_VSN LIBRESSL_VERSION_NUMBER
+#else
+# define HAS_LIBRESSL_VSN 0
 #endif
 
 /* Helper macros to construct a OPENSSL_VERSION_NUMBER.

@@ -18,6 +18,40 @@
 %%
 -module(erl_id_trans).
 
+-moduledoc """
+This module performs an identity parse transformation of Erlang code.
+
+It is included as an example for users who wants to write their own
+parse transformers. If option `{parse_transform,Module}` is passed
+to the compiler, a user-written function `parse_transform/2`
+is called by the compiler before the code is checked for errors.
+
+Before the function `parse_transform/2` is called, the Erlang
+Compiler checks if the parse transformation can handle abstract code
+with column numbers: If the function `parse_transform_info/0`
+is implemented and returns a map where the key `error_location` is
+associated with the value `line`, the compiler removes
+column numbers from the abstract code before calling the parse
+transform. Otherwise, the compiler passes the abstract code on
+without modification.
+
+## Parse Transformations
+
+Parse transformations are used if a programmer wants to use
+Erlang syntax, but with different semantics. The original Erlang
+code is then transformed into other Erlang code.
+
+> #### Note {: .info }
+>
+> Programmers are strongly advised not to engage in parse
+> transformations. No support is offered for problems encountered.
+>
+
+## See Also
+
+`m:erl_parse` and `m:compile`.
+""".
+
 %% An identity transformer of Erlang abstract syntax.
 
 %% This module only traverses legal Erlang code. This is most noticeable
@@ -27,9 +61,17 @@
 
 -export([parse_transform/2, parse_transform_info/0]).
 
+-doc "Performs an identity transformation on Erlang forms, as an example.".
+-spec parse_transform(Forms, Options) -> NewForms when
+      Forms :: [erl_parse:abstract_form() | erl_parse:form_info()],
+      NewForms :: Forms,
+      Options :: [compile:option()].
 parse_transform(Forms, _Options) ->
     forms(Forms).
 
+-doc "Returns information about the parse transform itself.".
+-doc(#{since => <<"OTP 24.0">>}).
+-spec parse_transform_info() -> #{ 'error_location' => 'column' | 'line' }.
 parse_transform_info() ->
     #{error_location => column}.
 
@@ -409,13 +451,17 @@ expr({cons,Anno,H0,T0}) ->
     T1 = expr(T0),				%They see the same variables
     {cons,Anno,H1,T1};
 expr({lc,Anno,E0,Qs0}) ->
-    Qs1 = lc_bc_quals(Qs0),
+    Qs1 = comprehension_quals(Qs0),
     E1 = expr(E0),
     {lc,Anno,E1,Qs1};
 expr({bc,Anno,E0,Qs0}) ->
-    Qs1 = lc_bc_quals(Qs0),
+    Qs1 = comprehension_quals(Qs0),
     E1 = expr(E0),
     {bc,Anno,E1,Qs1};
+expr({mc,Anno,E0,Qs0}) ->
+    Qs1 = comprehension_quals(Qs0),
+    E1 = expr(E0),
+    {mc,Anno,E1,Qs1};
 expr({tuple,Anno,Es0}) ->
     Es1 = expr_list(Es0),
     {tuple,Anno,Es1};
@@ -570,21 +616,25 @@ icr_clauses([C0|Cs]) ->
     [C1|icr_clauses(Cs)];
 icr_clauses([]) -> [].
 
-%% -type lc_bc_quals([Qualifier]) -> [Qualifier].
+%% -type comprehension_quals([Qualifier]) -> [Qualifier].
 %%  Allow filters to be both guard tests and general expressions.
 
-lc_bc_quals([{generate,Anno,P0,E0}|Qs]) ->
+comprehension_quals([{generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
-    [{generate,Anno,P1,E1}|lc_bc_quals(Qs)];
-lc_bc_quals([{b_generate,Anno,P0,E0}|Qs]) ->
+    [{generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{b_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
-    [{b_generate,Anno,P1,E1}|lc_bc_quals(Qs)];
-lc_bc_quals([E0|Qs]) ->
+    [{b_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{m_generate,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
-    [E1|lc_bc_quals(Qs)];
-lc_bc_quals([]) -> [].
+    P1 = pattern(P0),
+    [{m_generate,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([E0|Qs]) ->
+    E1 = expr(E0),
+    [E1|comprehension_quals(Qs)];
+comprehension_quals([]) -> [].
 
 %% -type fun_clauses([Clause]) -> [Clause].
 

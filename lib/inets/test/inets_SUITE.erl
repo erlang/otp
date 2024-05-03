@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,61 +45,22 @@ groups() ->
       ]},
      {app_test, [], [app, appup]}].
 
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
 
-%%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initiation before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    Config.
-
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
-end_per_suite(_Config) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% Function: init_per_testcase(Case, Config) -> Config
-% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initiation before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%%--------------------------------------------------------------------
-init_per_testcase(httpd_reload, Config) ->
-    inets:stop(),
-    ct:timetrap({seconds, 40}),
-    Config;
 init_per_testcase(_Case, Config) ->
     inets:stop(),
     Config.
 
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(Case, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
-%%--------------------------------------------------------------------
 end_per_testcase(_, Config) ->
     Config.
 
@@ -202,8 +163,7 @@ start_httpd() ->
 start_httpd(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     PrivDir = proplists:get_value(priv_dir, Config),
-    HttpdConf = [{server_name, "httpd_test"}, {server_root, PrivDir},
-		 {document_root, PrivDir}, {bind_address, any}],
+    HttpdConf = [{server_root, PrivDir}, {document_root, PrivDir}, {bind_address, any}],
     
     ok = inets:start(),
     {ok, Pid0} = inets:start(httpd, [{port, 0}, {ipfamily, inet} | HttpdConf]),
@@ -262,26 +222,20 @@ httpd_reload(Config) when is_list(Config) ->
 		 {bind_address,  "localhost"}],
 
     ok = inets:start(),
-    ct:sleep(5000),
 
     {ok, Pid0} = inets:start(httpd, [{port, 0}, 
 				     {ipfamily, inet} | HttpdConf]),
-    ct:sleep(5000),
 
     [{port, Port0}] = httpd:info(Pid0, [port]),         
-    ct:sleep(5000),
 
     [{document_root, PrivDir}] =  httpd:info(Pid0, [document_root]),
-    ct:sleep(5000),
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 
 			      {server_root, PrivDir},
 			      {document_root, DataDir}, 
 			      {bind_address, "localhost"}], non_disturbing),
-    ct:sleep(5000),    
     [{document_root, DataDir}] =  httpd:info(Pid0, [document_root]),
-    ct:sleep(5000),    
 
     ok = httpd:reload_config([{port, Port0}, {ipfamily, inet},
 			      {server_name, "httpd_test"}, 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,34 +60,36 @@ extern "C"
 
 using namespace asmjit;
 
-class BeamAssembler : public ErrorHandler {
+struct BeamAssembler : public BeamAssemblerCommon {
+    BeamAssembler() : BeamAssemblerCommon(a) {
+        Error err = code.attach(&a);
+        ERTS_ASSERT(!err && "Failed to attach codeHolder");
+    }
+
+    BeamAssembler(const std::string &log) : BeamAssembler() {
+        if (erts_jit_asm_dump) {
+            setLogger(log + ".asm");
+        }
+    }
+
 protected:
-    /* Holds code and relocation information. */
-    CodeHolder code;
-
     a64::Assembler a;
-
-    FileLogger logger;
-
-    Section *rodata = nullptr;
-
-    /* * * * * * * * * */
 
     /* Points at x_reg_array inside an ErtsSchedulerRegisters struct, allowing
      * the aux_regs field to be addressed with an 8-bit displacement. */
-    const arm::Gp scheduler_registers = a64::x19;
+    const a64::Gp scheduler_registers = a64::x19;
 
-    const arm::Gp E = a64::x20;
-    const arm::Gp c_p = a64::x21;
-    const arm::Gp FCALLS = a64::x22;
-    const arm::Gp HTOP = a64::x23;
+    const a64::Gp E = a64::x20;
+    const a64::Gp c_p = a64::x21;
+    const a64::Gp FCALLS = a64::w22;
+    const a64::Gp HTOP = a64::x23;
 
     /* Local copy of the active code index.
      *
      * This is set to ERTS_SAVE_CALLS_CODE_IX when save_calls is active, which
      * routes us to a common handler routine that calls save_calls before
      * jumping to the actual code. */
-    const arm::Gp active_code_ix = a64::x24;
+    const a64::Gp active_code_ix = a64::x24;
 
     /* X registers */
 #if defined(DEBUG)
@@ -98,38 +100,38 @@ protected:
      */
 #    define ERTS_HIGHEST_CALLEE_SAVE_XREG 2
 #    define ERTS_HIGHEST_CALLER_SAVE_XREG 5
-    const arm::Gp XREG0 = a64::x25;
-    const arm::Gp XREG1 = a64::x26;
-    const arm::Gp XREG2 = a64::x27;
+    const a64::Gp XREG0 = a64::x25;
+    const a64::Gp XREG1 = a64::x26;
+    const a64::Gp XREG2 = a64::x27;
 
     /*
      * Caller-save X registers. Must be flushed before calling C
      * code.
      */
-    const arm::Gp XREG3 = a64::x15;
-    const arm::Gp XREG4 = a64::x16;
-    const arm::Gp XREG5 = a64::x17;
+    const a64::Gp XREG3 = a64::x15;
+    const a64::Gp XREG4 = a64::x16;
+    const a64::Gp XREG5 = a64::x17;
 #else
 #    define ERTS_HIGHEST_CALLEE_SAVE_XREG 3
 #    define ERTS_HIGHEST_CALLER_SAVE_XREG 5
-    const arm::Gp XREG0 = a64::x25;
-    const arm::Gp XREG1 = a64::x26;
-    const arm::Gp XREG2 = a64::x27;
-    const arm::Gp XREG3 = a64::x28;
+    const a64::Gp XREG0 = a64::x25;
+    const a64::Gp XREG1 = a64::x26;
+    const a64::Gp XREG2 = a64::x27;
+    const a64::Gp XREG3 = a64::x28;
 
     /*
      * Caller-save X registers. Must be flushed before calling C
      * code.
      */
-    const arm::Gp XREG4 = a64::x15;
-    const arm::Gp XREG5 = a64::x16;
+    const a64::Gp XREG4 = a64::x15;
+    const a64::Gp XREG5 = a64::x16;
 #endif
 
 #define ERTS_LOWEST_CALLEE_SAVE_XREG (0)
 #define ERTS_LOWEST_CALLER_SAVE_XREG (ERTS_HIGHEST_CALLEE_SAVE_XREG + 1)
 
     static const int num_register_backed_xregs = 6;
-    const arm::Gp register_backed_xregs[num_register_backed_xregs] =
+    const a64::Gp register_backed_xregs[num_register_backed_xregs] =
             {XREG0, XREG1, XREG2, XREG3, XREG4, XREG5};
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
@@ -138,33 +140,33 @@ protected:
 #endif
 
     /* * * * * * * * * */
-    const arm::Gp ZERO = a64::xzr;
+    const a64::Gp ZERO = a64::xzr;
 
     /*
      * All of the following registers are caller-save.
      *
      * Note that ARG1 is also the register for the return value.
      */
-    const arm::Gp ARG1 = a64::x0;
-    const arm::Gp ARG2 = a64::x1;
-    const arm::Gp ARG3 = a64::x2;
-    const arm::Gp ARG4 = a64::x3;
-    const arm::Gp ARG5 = a64::x4;
-    const arm::Gp ARG6 = a64::x5;
-    const arm::Gp ARG7 = a64::x6;
-    const arm::Gp ARG8 = a64::x7;
+    const a64::Gp ARG1 = a64::x0;
+    const a64::Gp ARG2 = a64::x1;
+    const a64::Gp ARG3 = a64::x2;
+    const a64::Gp ARG4 = a64::x3;
+    const a64::Gp ARG5 = a64::x4;
+    const a64::Gp ARG6 = a64::x5;
+    const a64::Gp ARG7 = a64::x6;
+    const a64::Gp ARG8 = a64::x7;
 
-    const arm::Gp TMP1 = a64::x8;
-    const arm::Gp TMP2 = a64::x9;
-    const arm::Gp TMP3 = a64::x10;
-    const arm::Gp TMP4 = a64::x11;
-    const arm::Gp TMP5 = a64::x12;
-    const arm::Gp TMP6 = a64::x13;
+    const a64::Gp TMP1 = a64::x8;
+    const a64::Gp TMP2 = a64::x9;
+    const a64::Gp TMP3 = a64::x10;
+    const a64::Gp TMP4 = a64::x11;
+    const a64::Gp TMP5 = a64::x12;
+    const a64::Gp TMP6 = a64::x13;
 
     /*
      * Assume that SUPER_TMP will be destroyed by any helper function.
      */
-    const arm::Gp SUPER_TMP = a64::x14;
+    const a64::Gp SUPER_TMP = a64::x14;
 
     /*
      * Note that x18 is reserved on Apple platforms and must not be used.
@@ -174,16 +176,16 @@ protected:
      *
      * Note that only the bottom 64 bits of these (128-bit) registers are
      * callee-save, so we cannot pack two floats into each register. */
-    const arm::VecD FREG0 = a64::d8;
-    const arm::VecD FREG1 = a64::d9;
-    const arm::VecD FREG2 = a64::d10;
-    const arm::VecD FREG3 = a64::d11;
-    const arm::VecD FREG4 = a64::d12;
-    const arm::VecD FREG5 = a64::d13;
-    const arm::VecD FREG6 = a64::d14;
-    const arm::VecD FREG7 = a64::d15;
+    const a64::VecD FREG0 = a64::d8;
+    const a64::VecD FREG1 = a64::d9;
+    const a64::VecD FREG2 = a64::d10;
+    const a64::VecD FREG3 = a64::d11;
+    const a64::VecD FREG4 = a64::d12;
+    const a64::VecD FREG5 = a64::d13;
+    const a64::VecD FREG6 = a64::d14;
+    const a64::VecD FREG7 = a64::d15;
     static const int num_register_backed_fregs = 8;
-    const arm::VecD register_backed_fregs[num_register_backed_fregs] =
+    const a64::VecD register_backed_fregs[num_register_backed_fregs] =
             {FREG0, FREG1, FREG2, FREG3, FREG4, FREG5, FREG6, FREG7};
 
     const arm::Mem TMP_MEM1q = getSchedulerRegRef(
@@ -204,6 +206,7 @@ protected:
     /* Number of highest element displacement for L/SDP and L/STR. */
     static const size_t MAX_LDP_STP_DISPLACEMENT = 0x3F;
     static const size_t MAX_LDR_STR_DISPLACEMENT = 0xFFF;
+    static const size_t MAX_LDUR_STUR_DISPLACEMENT = 0xFF;
 
     /* Constants for "alternate flag state" operands, which are distinct from
      * `arm::CondCode::xyz`. Mainly used in `CCMP` instructions. */
@@ -222,27 +225,6 @@ protected:
 
         kNone = 0
     };
-
-public:
-    static bool hasCpuFeature(uint32_t featureId);
-
-    BeamAssembler();
-    BeamAssembler(const std::string &log);
-
-    ~BeamAssembler();
-
-    void *getBaseAddress();
-    size_t getOffset();
-
-protected:
-    void _codegen(JitAllocator *allocator,
-                  const void **executable_ptr,
-                  void **writable_ptr);
-
-    void *getCode(Label label);
-    byte *getCode(char *labelName);
-
-    void handleError(Error err, const char *message, BaseEmitter *origin);
 
 #ifdef JIT_HARD_DEBUG
     constexpr arm::Mem getInitialSPRef() const {
@@ -279,24 +261,24 @@ protected:
         return arm::Mem(E, index * sizeof(Eterm));
     }
 
-    constexpr arm::Mem getCARRef(arm::Gp Src) const {
+    constexpr arm::Mem getCARRef(a64::Gp Src) const {
         return arm::Mem(Src, -TAG_PRIMARY_LIST);
     }
 
-    constexpr arm::Mem getCDRRef(arm::Gp Src,
+    constexpr arm::Mem getCDRRef(a64::Gp Src,
                                  size_t size = sizeof(UWord)) const {
         return arm::Mem(Src, -TAG_PRIMARY_LIST + sizeof(Eterm));
     }
 
     /* Loads the X register array into `to`. Remember to sync the registers in
      * `emit_enter_runtime`. */
-    void load_x_reg_array(arm::Gp to) {
+    void load_x_reg_array(a64::Gp to) {
         int offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
 
         lea(to, getSchedulerRegRef(offset));
     }
 
-    void load_erl_bits_state(arm::Gp to) {
+    void load_erl_bits_state(a64::Gp to) {
         int offset =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state);
 
@@ -342,7 +324,7 @@ protected:
         a.bl(target);
     }
 
-    void aligned_call(arm::Gp target) {
+    void aligned_call(a64::Gp target) {
         a.blr(target);
     }
 
@@ -356,7 +338,7 @@ protected:
         a.blr(TMP1);
     }
 
-    void runtime_call(arm::Gp func, unsigned args) {
+    void runtime_call(a64::Gp func, unsigned args) {
         ASSERT(args < 5);
         a.blr(func);
     }
@@ -399,12 +381,12 @@ protected:
      * Export tracing, save_calls, etc are implemented by shared fragments that
      * assume that the respective entry is in ARG1, so we have to copy it over
      * if it isn't already. */
-    arm::Mem emit_setup_dispatchable_call(const arm::Gp &Src) {
+    arm::Mem emit_setup_dispatchable_call(const a64::Gp &Src) {
         return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
-    arm::Mem emit_setup_dispatchable_call(const arm::Gp &Src,
-                                          const arm::Gp &CodeIndex) {
+    arm::Mem emit_setup_dispatchable_call(const a64::Gp &Src,
+                                          const a64::Gp &CodeIndex) {
         if (ARG1 != Src) {
             a.mov(ARG1, Src);
         }
@@ -416,12 +398,28 @@ protected:
         return arm::Mem(ARG1, CodeIndex, arm::lsl(3));
     }
 
+    /* Prefer `eHeapAlloc` over `eStack | eHeap` when calling
+     * functions in the runtime system that allocate heap
+     * memory (`HAlloc`, heap factories, etc).
+     *
+     * Prefer `eHeapOnlyAlloc` over `eHeapAlloc` for functions
+     * that assume there's already a certain amount of free
+     * space on the heap, such as those using `HeapOnlyAlloc`
+     * or similar. It's slightly cheaper in release builds,
+     * and in debug builds it updates `eStack` to ensure that
+     * we can make heap size assertions. */
     enum Update : int {
         eStack = (1 << 0),
         eHeap = (1 << 1),
         eReductions = (1 << 2),
         eCodeIndex = (1 << 3),
-        eXRegs = (1 << 4)
+        eXRegs = (1 << 4),
+        eHeapAlloc = Update::eHeap | Update::eStack,
+#ifndef DEBUG
+        eHeapOnlyAlloc = Update::eHeap,
+#else
+        eHeapOnlyAlloc = Update::eHeapAlloc
+#endif
     };
 
     void emit_enter_erlang_frame() {
@@ -463,10 +461,24 @@ protected:
             /* Store HTOP and E in one go. */
             ERTS_CT_ASSERT_FIELD_PAIR(Process, htop, stop);
             a.stp(HTOP, E, arm::Mem(c_p, offsetof(Process, htop)));
-        } else if (Spec & Update::eStack) {
-            a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
-        } else if (Spec & Update::eHeap) {
-            a.str(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+        } else {
+            if (Spec & Update::eStack) {
+                a.str(E, arm::Mem(c_p, offsetof(Process, stop)));
+            } else {
+#ifdef DEBUG
+                /* Store some garbage in the process structure to catch missing
+                 * updates. */
+                a.str(active_code_ix, arm::Mem(c_p, offsetof(Process, stop)));
+#endif
+            }
+
+            if (Spec & Update::eHeap) {
+                a.str(HTOP, arm::Mem(c_p, offsetof(Process, htop)));
+            } else {
+#ifdef DEBUG
+                a.str(active_code_ix, arm::Mem(c_p, offsetof(Process, htop)));
+#endif
+            }
         }
 
         if (Spec & Update::eReductions) {
@@ -598,21 +610,35 @@ protected:
         }
     }
 
-    void emit_is_boxed(Label Fail, arm::Gp Src) {
+    void emit_is_cons(Label Fail, a64::Gp Src) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tbnz(Src, imm(bitNumber), Fail);
+    }
+
+    void emit_is_not_cons(Label Fail, a64::Gp Src) {
+        const int bitNumber = 1;
+        ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST ==
+                       (1 << bitNumber));
+        a.tbz(Src, imm(bitNumber), Fail);
+    }
+
+    void emit_is_boxed(Label Fail, a64::Gp Src) {
         const int bitNumber = 0;
         ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED ==
                        (1 << bitNumber));
         a.tbnz(Src, imm(bitNumber), Fail);
     }
 
-    void emit_is_not_boxed(Label Fail, arm::Gp Src) {
+    void emit_is_not_boxed(Label Fail, a64::Gp Src) {
         const int bitNumber = 0;
         ERTS_CT_ASSERT(_TAG_PRIMARY_MASK - TAG_PRIMARY_BOXED ==
                        (1 << bitNumber));
         a.tbz(Src, imm(bitNumber), Fail);
     }
 
-    arm::Gp emit_ptr_val(arm::Gp Dst, arm::Gp Src) {
+    a64::Gp emit_ptr_val(a64::Gp Dst, a64::Gp Src) {
 #if !defined(TAG_LITERAL_PTR)
         return Src;
 #else
@@ -627,24 +653,24 @@ protected:
 #endif
     }
 
-    void emit_untag_ptr(arm::Gp Dst, arm::Gp Src) {
+    void emit_untag_ptr(a64::Gp Dst, a64::Gp Src) {
         a.and_(Dst, Src, imm(~TAG_PTR_MASK__));
     }
 
-    constexpr arm::Mem emit_boxed_val(arm::Gp Src, int32_t bytes = 0) const {
+    constexpr arm::Mem emit_boxed_val(a64::Gp Src, int32_t bytes = 0) const {
         ASSERT(bytes % sizeof(Eterm) == 0);
         return arm::Mem(Src, bytes - TAG_PRIMARY_BOXED);
     }
 
-    void emit_branch_if_not_value(arm::Gp reg, Label lbl) {
+    void emit_branch_if_not_value(a64::Gp reg, Label lbl) {
         emit_branch_if_eq(reg, THE_NON_VALUE, lbl);
     }
 
-    void emit_branch_if_value(arm::Gp reg, Label lbl) {
+    void emit_branch_if_value(a64::Gp reg, Label lbl) {
         emit_branch_if_ne(reg, THE_NON_VALUE, lbl);
     }
 
-    void emit_branch_if_eq(arm::Gp reg, Uint value, Label lbl) {
+    void emit_branch_if_eq(a64::Gp reg, Uint value, Label lbl) {
         if (value == 0) {
             a.cbz(reg, lbl);
         } else {
@@ -653,7 +679,7 @@ protected:
         }
     }
 
-    void emit_branch_if_ne(arm::Gp reg, Uint value, Label lbl) {
+    void emit_branch_if_ne(a64::Gp reg, Uint value, Label lbl) {
         if (value == 0) {
             a.cbnz(reg, lbl);
         } else {
@@ -662,18 +688,10 @@ protected:
         }
     }
 
-    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
-    void emit_are_both_immediate(arm::Gp Reg1, arm::Gp Reg2) {
-        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
-        a.and_(SUPER_TMP, Reg1, Reg2);
-        a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
-        a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
-    }
-
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
      * on their tags alone. (They may still be equal if both are
      * immediates and all other bits are equal too.) */
-    void emit_is_unequal_based_on_tags(arm::Gp Reg1, arm::Gp Reg2) {
+    void emit_is_unequal_based_on_tags(a64::Gp Reg1, a64::Gp Reg2) {
         ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
         ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
                        TAG_PRIMARY_IMMED1);
@@ -688,22 +706,32 @@ protected:
         a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
     }
 
+    a64::Gp follow_size(const a64::Gp &reg, const a64::Gp &size) {
+        ASSERT(reg.isGpX());
+
+        if (size.isGpW()) {
+            return reg.w();
+        }
+
+        return reg;
+    }
+
     template<typename T>
-    void mov_imm(arm::Gp to, T value) {
+    void mov_imm(a64::Gp to, T value) {
         static_assert(std::is_integral<T>::value || std::is_pointer<T>::value);
         if (value) {
             a.mov(to, imm(value));
         } else {
-            a.mov(to, ZERO);
+            a.mov(to, follow_size(ZERO, to));
         }
     }
 
-    void mov_imm(arm::Gp to, std::nullptr_t value) {
+    void mov_imm(a64::Gp to, std::nullptr_t value) {
         (void)value;
         mov_imm(to, 0);
     }
 
-    void sub(arm::Gp to, arm::Gp src, int64_t val) {
+    void sub(a64::Gp to, a64::Gp src, int64_t val) {
         if (val < 0) {
             add(to, src, -val);
         } else if (val == 0 && to != src) {
@@ -718,12 +746,14 @@ protected:
                 a.sub(to, src, imm(val & 0xFFF000));
             }
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.sub(to, src, SUPER_TMP);
+            a64::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.sub(to, src, super_tmp);
         }
     }
 
-    void add(arm::Gp to, arm::Gp src, int64_t val) {
+    void add(a64::Gp to, a64::Gp src, int64_t val) {
         if (val < 0) {
             sub(to, src, -val);
         } else if (val == 0 && to != src) {
@@ -738,31 +768,48 @@ protected:
                 a.add(to, src, imm(val & 0xFFF000));
             }
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.add(to, src, SUPER_TMP);
+            a64::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.add(to, src, super_tmp);
         }
     }
 
-    void cmp(arm::Gp src, int64_t val) {
+    void subs(a64::Gp to, a64::Gp src, int64_t val) {
+        if (Support::isUInt12(val)) {
+            a.subs(to, src, imm(val));
+        } else if (Support::isUInt12(-val)) {
+            a.adds(to, src, imm(-val));
+        } else {
+            a64::Gp super_tmp = follow_size(SUPER_TMP, to);
+
+            mov_imm(super_tmp, val);
+            a.subs(to, src, super_tmp);
+        }
+    }
+
+    void cmp(a64::Gp src, int64_t val) {
         if (Support::isUInt12(val)) {
             a.cmp(src, imm(val));
         } else if (Support::isUInt12(-val)) {
             a.cmn(src, imm(-val));
         } else {
-            mov_imm(SUPER_TMP, val);
-            a.cmp(src, SUPER_TMP);
+            a64::Gp super_tmp = follow_size(SUPER_TMP, src);
+
+            mov_imm(super_tmp, val);
+            a.cmp(src, super_tmp);
         }
     }
 
-    void ldur(arm::Gp reg, arm::Mem mem) {
+    void ldur(a64::Gp reg, arm::Mem mem) {
         safe_9bit_imm(a64::Inst::kIdLdur, reg, mem);
     }
 
-    void stur(arm::Gp reg, arm::Mem mem) {
+    void stur(a64::Gp reg, arm::Mem mem) {
         safe_9bit_imm(a64::Inst::kIdStur, reg, mem);
     }
 
-    void safe_9bit_imm(uint32_t instId, arm::Gp reg, arm::Mem mem) {
+    void safe_9bit_imm(uint32_t instId, a64::Gp reg, arm::Mem mem) {
         int64_t offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
@@ -780,141 +827,57 @@ protected:
      * to use helpers based on getSchedulerRegRef() that return an
      * arm::Mem class.
      */
-    void lea(arm::Gp to, arm::Mem mem) {
+    void lea(a64::Gp to, arm::Mem mem) {
         int64_t offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
 
         if (offset == 0) {
-            a.mov(to, arm::GpX(mem.baseId()));
+            a.mov(to, a64::GpX(mem.baseId()));
         } else {
-            add(to, arm::GpX(mem.baseId()), offset);
+            add(to, a64::GpX(mem.baseId()), offset);
         }
-    }
-
-public:
-    void embed_rodata(const char *labelName, const char *buff, size_t size);
-    void embed_bss(const char *labelName, size_t size);
-    void embed_zeros(size_t size);
-
-    void setLogger(std::string log);
-    void setLogger(FILE *log);
-
-    void comment(const char *format) {
-        if (logger.file()) {
-            a.commentf("# %s", format);
-        }
-    }
-
-    template<typename... Ts>
-    void comment(const char *format, Ts... args) {
-        if (logger.file()) {
-            char buff[1024];
-            erts_snprintf(buff, sizeof(buff), format, args...);
-            a.commentf("# %s", buff);
-        }
-    }
-
-    struct AsmRange {
-        ErtsCodePtr start;
-        ErtsCodePtr stop;
-        const std::string name;
-
-        struct LineData {
-            ErtsCodePtr start;
-            const std::string file;
-            unsigned line;
-        };
-
-        const std::vector<LineData> lines;
-    };
-
-    void embed(void *data, uint32_t size) {
-        a.embed((char *)data, size);
     }
 };
 
 #include "beam_asm_global.hpp"
 
-class BeamModuleAssembler : public BeamAssembler {
-    typedef unsigned BeamLabel;
-
-    /* Map of BEAM label number to asmjit Label. These should not be used
-     * directly by most instructions because of displacement limits, use
-     * `resolve_beam_label` instead. */
-    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
-    LabelMap rawLabels;
+class BeamModuleAssembler : public BeamAssembler,
+                            public BeamModuleAssemblerCommon {
+    BeamGlobalAssembler *ga;
 
     /* Sequence number used to create unique named labels by
      * resolve_label(). Only used when assembly output has been
      * requested. */
     long labelSeq = 0;
 
-    struct patch {
-        Label where;
-        uint64_t val_offs;
-    };
-
-    struct patch_catch {
-        struct patch patch;
-        Label handler;
-    };
-    std::vector<struct patch_catch> catches;
-
-    /* Map of import entry to patch labels and mfa */
-    struct patch_import {
-        std::vector<struct patch> patches;
-        ErtsCodeMFA mfa;
-    };
-    typedef std::unordered_map<unsigned, struct patch_import> ImportMap;
-    ImportMap imports;
-
-    /* Map of fun entry to patch labels */
-    struct patch_lambda {
-        std::vector<struct patch> patches;
-        Label trampoline;
-    };
-    typedef std::unordered_map<unsigned, struct patch_lambda> LambdaMap;
-    LambdaMap lambdas;
-
-    /* Map of literals to patch labels */
-    struct patch_literal {
-        std::vector<struct patch> patches;
-    };
-    typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
-    LiteralMap literals;
-
-    /* All string patches */
-    std::vector<struct patch> strings;
-
-    /* All functions that have been seen so far */
-    std::vector<BeamLabel> functions;
-
-    /* The BEAM file we've been loaded from, if any. */
-    const BeamFile *beam;
-
-    BeamGlobalAssembler *ga;
-
-    /* Used by emit to populate the labelToMFA map */
-    Label current_label;
-
-    /* The offset of our BeamCodeHeader, if any. */
-    Label code_header;
-
-    /* The module's on_load function, if any. */
-    Label on_load;
-
-    /* The end of the last function. Note that the dispatch table, constants,
-     * and veneers may follow. */
-    Label code_end;
-
-    Eterm mod;
-
     /* Save the last PC for an error. */
     size_t last_error_offset = 0;
 
     static constexpr ptrdiff_t STUB_CHECK_INTERVAL = 4 << 10;
+    static constexpr ptrdiff_t STUB_CHECK_INTERVAL_UNREACHABLE =
+            (4 << 10) - 128;
     size_t last_stub_check_offset = 0;
+
+    /* Save the last known unreachable position. */
+    size_t last_unreachable_offset = 0;
+
+    /* Mark this point unreachable. This must be placed at the very end when
+     * used in a BEAM instruction, and should not be used in helper
+     * functions. */
+    void mark_unreachable() {
+        last_unreachable_offset = a.offset();
+    }
+
+    /* Use within BEAM instructions. */
+    void mark_unreachable_check_pending_stubs() {
+        mark_unreachable();
+        check_pending_stubs();
+    }
+
+    bool is_unreachable() {
+        return a.offset() == last_unreachable_offset;
+    }
 
     enum Displacement : size_t {
         /* Pessimistic estimate for helper functions, where we don't know the
@@ -963,6 +926,17 @@ class BeamModuleAssembler : public BeamAssembler {
         }
     };
 
+    struct EmbeddedLabel {
+        ssize_t latestOffset;
+        Label anchor;
+
+        Label label;
+
+        constexpr bool operator>(const EmbeddedLabel &other) const {
+            return latestOffset > other.latestOffset;
+        }
+    };
+
     /* ArgVal -> Constant
      *
      * `_pending_constants` points directly into this container, which is
@@ -980,6 +954,11 @@ class BeamModuleAssembler : public BeamAssembler {
                                 std::deque<std::reference_wrapper<const T>>,
                                 std::greater<const T &>>;
 
+    /* Index of Label -> EmbeddedLabel
+     *
+     * `_pending_labels` points directly into this container. */
+    std::unordered_map<uint32_t, EmbeddedLabel> _embedded_labels;
+
     /* All pending stubs, segregated by type and sorted by `latestOffset` in
      * ascending order.
      *
@@ -987,10 +966,127 @@ class BeamModuleAssembler : public BeamAssembler {
      * different sizes and alignment requirements. */
     PendingStubs<Constant> _pending_constants;
     PendingStubs<Veneer> _pending_veneers;
+    PendingStubs<EmbeddedLabel> _pending_labels;
 
     /* Maps code pointers to thunks that jump to them, letting us treat global
      * fragments as if they were local. */
     std::unordered_map<void (*)(), Label> _dispatchTable;
+
+    RegisterCache<16, arm::Mem, a64::Gp> reg_cache =
+            RegisterCache<16, arm::Mem, a64::Gp>(scheduler_registers, E, {});
+
+    void reg_cache_put(arm::Mem mem, a64::Gp src) {
+        if (src != SUPER_TMP) {
+            reg_cache.put(mem, src);
+        } else {
+            reg_cache.invalidate(mem);
+        }
+    }
+
+    a64::Gp find_cache(arm::Mem mem) {
+        return reg_cache.find(a.offset(), mem);
+    }
+
+    /* Works as the STR instruction, but also updates the cache. */
+    void str_cache(a64::Gp src, arm::Mem mem_dst) {
+        reg_cache.consolidate(a.offset());
+        reg_cache.invalidate(src);
+
+        a.str(src, mem_dst);
+
+        reg_cache_put(mem_dst, src);
+        reg_cache.update(a.offset());
+    }
+
+    /* Works as the STP instruction, but also updates the cache. */
+    void stp_cache(a64::Gp src1, a64::Gp src2, arm::Mem mem_dst) {
+        arm::Mem next_dst =
+                arm::Mem(a64::GpX(mem_dst.baseId()), mem_dst.offset() + 8);
+
+        reg_cache.consolidate(a.offset());
+
+        reg_cache.invalidate(src1);
+        reg_cache.invalidate(src2);
+
+        safe_stp(src1, src2, mem_dst);
+
+        reg_cache_put(mem_dst, src1);
+        reg_cache_put(next_dst, src2);
+
+        reg_cache.update(a.offset());
+    }
+
+    /* Works like LDR, but looks in the cache first. */
+    void ldr_cached(a64::Gp dst, arm::Mem mem) {
+        a64::Gp cached_reg = find_cache(mem);
+
+        if (cached_reg.isValid()) {
+            /* This memory location is cached. */
+            if (cached_reg == dst) {
+                comment("skipped fetching of BEAM register");
+            } else {
+                comment("simplified fetching of BEAM register");
+                a.mov(dst, cached_reg);
+                reg_cache.invalidate(dst);
+                reg_cache.update(a.offset());
+            }
+        } else {
+            /* Not cached. Load and update cache. */
+            a.ldr(dst, mem);
+            reg_cache.invalidate(dst);
+            reg_cache_put(mem, dst);
+            reg_cache.update(a.offset());
+        }
+    }
+
+    template<typename L, typename... Any>
+    void preserve_cache(L generate, Any... clobber) {
+        bool valid = reg_cache.validAt(a.offset());
+
+        generate();
+
+        if (valid) {
+            if (sizeof...(clobber) > 0) {
+                reg_cache.invalidate(clobber...);
+            }
+
+            reg_cache.update(a.offset());
+        }
+    }
+
+    void trim_preserve_cache(const ArgWord &Words) {
+        if (Words.get() > 0) {
+            ASSERT(Words.get() <= 1023);
+
+            preserve_cache([&]() {
+                auto offset = Words.get() * sizeof(Eterm);
+                add(E, E, offset);
+                reg_cache.trim_yregs(-offset);
+            });
+        }
+    }
+
+    void mov_preserve_cache(a64::VecD dst, a64::VecD src) {
+        a.mov(dst, src);
+    }
+
+    void mov_preserve_cache(a64::Gp dst, a64::Gp src) {
+        preserve_cache(
+                [&]() {
+                    a.mov(dst, src);
+                },
+                dst);
+    }
+
+    void untag_ptr_preserve_cache(a64::Gp dst, a64::Gp src) {
+        preserve_cache(
+                [&]() {
+                    emit_untag_ptr(dst, src);
+                },
+                dst);
+    }
+
+    arm::Mem embed_label(const Label &label, enum Displacement disp);
 
 public:
     BeamModuleAssembler(BeamGlobalAssembler *ga,
@@ -1005,6 +1101,8 @@ public:
 
     bool emit(unsigned op, const Span<ArgVal> &args);
 
+    void emit_coverage(void *coverage, Uint index, Uint size);
+
     void codegen(JitAllocator *allocator,
                  const void **executable_ptr,
                  void **writable_ptr,
@@ -1018,7 +1116,7 @@ public:
 
     void codegen(char *buff, size_t len);
 
-    void register_metadata(const BeamCodeHeader *header);
+    void *register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
     ErtsCodePtr getLambda(unsigned index);
@@ -1043,209 +1141,94 @@ public:
     const ErtsCodeInfo *getOnLoad(void);
 
     unsigned patchCatches(char *rw_base);
-    void patchLambda(char *rw_base, unsigned index, BeamInstr I);
+    void patchLambda(char *rw_base, unsigned index, const ErlFunEntry *fe);
     void patchLiteral(char *rw_base, unsigned index, Eterm lit);
-    void patchImport(char *rw_base, unsigned index, BeamInstr I);
+    void patchImport(char *rw_base, unsigned index, const Export *import);
     void patchStrings(char *rw_base, const byte *string);
 
 protected:
-    int getTypeUnion(const ArgSource &arg) const {
-        auto typeIndex =
-                arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-
-        ASSERT(typeIndex < beam->types.count);
-        return beam->types.entries[typeIndex].type_union;
-    }
-
-    auto getIntRange(const ArgSource &arg) const {
-        if (arg.isSmall()) {
-            Sint value = arg.as<ArgSmall>().getSigned();
-            return std::make_pair(value, value);
-        } else {
-            auto typeIndex =
-                    arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
-
-            ASSERT(typeIndex < beam->types.count);
-            const auto &entry = beam->types.entries[typeIndex];
-            ASSERT(entry.type_union & BEAM_TYPE_INTEGER);
-            return std::make_pair(entry.min, entry.max);
-        }
-    }
-
-    bool always_small(const ArgSource &arg) const {
-        if (arg.isSmall()) {
-            return true;
-        }
-
-        int type_union = getTypeUnion(arg);
-        if (type_union == BEAM_TYPE_INTEGER) {
-            auto [min, max] = getIntRange(arg);
-            return min <= max;
-        } else {
-            return false;
-        }
-    }
-
-    bool always_immediate(const ArgSource &arg) const {
-        if (arg.isImmed() || always_small(arg)) {
-            return true;
-        }
-
-        int type_union = getTypeUnion(arg);
-        return (type_union & BEAM_TYPE_MASK_ALWAYS_IMMEDIATE) == type_union;
-    }
-
-    bool always_same_types(const ArgSource &lhs, const ArgSource &rhs) const {
-        int lhs_types = getTypeUnion(lhs);
-        int rhs_types = getTypeUnion(rhs);
-
-        /* We can only be certain that the types are the same when there's
-         * one possible type. For example, if one is a number and the other
-         * is an integer, they could differ if the former is a float. */
-        if ((lhs_types & (lhs_types - 1)) == 0) {
-            return lhs_types == rhs_types;
-        }
-
-        return false;
-    }
-
-    bool always_one_of(const ArgSource &arg, int types) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return !!(types & BEAM_TYPE_INTEGER);
-            } else if (arg.isAtom()) {
-                return !!(types & BEAM_TYPE_ATOM);
-            } else if (arg.isNil()) {
-                return !!(types & BEAM_TYPE_NIL);
-            }
-
-            return false;
-        } else {
-            int type_union = getTypeUnion(arg);
-            return type_union == (type_union & types);
-        }
-    }
-
-    int masked_types(const ArgSource &arg, int mask) const {
-        if (arg.isImmed()) {
-            if (arg.isSmall()) {
-                return mask & BEAM_TYPE_INTEGER;
-            } else if (arg.isAtom()) {
-                return mask & BEAM_TYPE_ATOM;
-            } else if (arg.isNil()) {
-                return mask & BEAM_TYPE_NIL;
-            }
-
-            return BEAM_TYPE_NONE;
-        } else {
-            return getTypeUnion(arg) & mask;
-        }
-    }
-
-    bool exact_type(const ArgSource &arg, int type_id) const {
-        return always_one_of(arg, type_id);
-    }
-
-    bool is_sum_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 + min2;
-            max = max1 + max2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
-    }
-
-    bool is_difference_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            Sint min, max;
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            min = min1 - max2;
-            max = max1 - min2;
-            return IS_SSMALL(min) && IS_SSMALL(max);
-        }
-    }
-
-    bool is_product_small(const ArgSource &LHS, const ArgSource &RHS) {
-        if (!(always_small(LHS) && always_small(RHS))) {
-            return false;
-        } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto [min2, max2] = getIntRange(RHS);
-            auto mag1 = std::max(std::abs(min1), std::abs(max1));
-            auto mag2 = std::max(std::abs(min2), std::abs(max2));
-
-            /*
-             * mag1 * mag2 <= MAX_SMALL
-             * mag1 <= MAX_SMALL / mag2   (when mag2 != 0)
-             */
-            ERTS_CT_ASSERT(MAX_SMALL < -MIN_SMALL);
-            return mag2 == 0 || mag1 <= MAX_SMALL / mag2;
-        }
-    }
-
-    bool is_bsl_small(const ArgSource &LHS, const ArgSource &RHS) {
-        /*
-         * In the code compiled by scripts/diffable, there never
-         * seems to be any range information for the RHS. Therefore,
-         * don't bother unless RHS is an immediate small.
-         */
-        if (!(always_small(LHS) && RHS.isSmall())) {
-            return false;
-        } else {
-            auto [min1, max1] = getIntRange(LHS);
-            auto rhs_val = RHS.as<ArgSmall>().getSigned();
-
-            if (min1 < 0 || max1 == 0 || rhs_val < 0) {
-                return false;
-            }
-
-            return rhs_val < Support::clz(max1) - _TAG_IMMED1_SIZE;
-        }
-    }
-
-    /* Helpers */
     void emit_gc_test(const ArgWord &Stack,
                       const ArgWord &Heap,
                       const ArgWord &Live);
     void emit_gc_test_preserve(const ArgWord &Need,
                                const ArgWord &Live,
-                               arm::Gp term);
+                               const ArgSource &Preserve,
+                               a64::Gp preserve_reg);
 
     arm::Mem emit_variable_apply(bool includeI);
     arm::Mem emit_fixed_apply(const ArgWord &arity, bool includeI);
 
-    arm::Gp emit_call_fun(bool skip_box_test = false,
-                          bool skip_fun_test = false,
-                          bool skip_arity_test = false);
+    a64::Gp emit_call_fun(bool skip_box_test = false,
+                          bool skip_header_test = false);
 
-    arm::Gp emit_is_binary(const ArgLabel &Fail,
-                           const ArgSource &Src,
-                           Label next,
-                           Label subbin);
-
-    void emit_is_boxed(Label Fail, arm::Gp Src) {
-        BeamAssembler::emit_is_boxed(Fail, Src);
+    void emit_is_cons(Label Fail, a64::Gp Src) {
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_cons(Fail, Src);
+        });
     }
 
-    void emit_is_boxed(Label Fail, const ArgVal &Arg, arm::Gp Src) {
-        if (always_one_of(Arg, BEAM_TYPE_MASK_ALWAYS_BOXED)) {
+    void emit_is_not_cons(Label Fail, a64::Gp Src) {
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_not_cons(Fail, Src);
+        });
+    }
+
+    void emit_is_list(Label Fail, a64::Gp Src) {
+        preserve_cache([&]() {
+            a.tst(Src, imm(_TAG_PRIMARY_MASK - TAG_PRIMARY_LIST));
+            a.mov(SUPER_TMP, NIL);
+            a.ccmp(Src, SUPER_TMP, imm(NZCV::kEqual), imm(arm::CondCode::kNE));
+            a.b_ne(Fail);
+        });
+    }
+
+    void emit_is_boxed(Label Fail, a64::Gp Src) {
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src);
+        });
+    }
+
+    void emit_is_boxed(Label Fail, const ArgVal &Arg, a64::Gp Src) {
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Arg)) {
             comment("skipped box test since argument is always boxed");
             return;
         }
 
-        BeamAssembler::emit_is_boxed(Fail, Src);
+        preserve_cache([&]() {
+            BeamAssembler::emit_is_boxed(Fail, Src);
+        });
     }
 
-    void emit_get_list(const arm::Gp boxed_ptr,
+    /* Copies `count` words from the address at `from`, to the address at `to`.
+     *
+     * Clobbers v30 and v31. */
+    void emit_copy_words_increment(a64::Gp from, a64::Gp to, size_t count);
+
+    void emit_get_list(const a64::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
+
+    void emit_add_sub_types(bool is_small_result,
+                            const ArgSource &LHS,
+                            const a64::Gp lhs_reg,
+                            const ArgSource &RHS,
+                            const a64::Gp rhs_reg,
+                            const Label next);
+
+    void emit_are_both_small(const ArgSource &LHS,
+                             const a64::Gp lhs_reg,
+                             const ArgSource &RHS,
+                             const a64::Gp rhs_reg,
+                             const Label next);
+
+    void emit_div_rem_literal(Sint divisor,
+                              const ArgSource &Dividend,
+                              a64::Gp dividend,
+                              a64::Gp quotient,
+                              a64::Gp remainder,
+                              const Label &generic,
+                              bool need_div,
+                              bool need_rem);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
@@ -1261,16 +1244,44 @@ protected:
                     const ArgRegister &Dst);
 
     void emit_error(int code);
+    void emit_error(int reason, const ArgSource &Src);
 
     int emit_bs_get_field_size(const ArgSource &Size,
                                int unit,
                                Label Fail,
-                               const arm::Gp &out);
+                               const a64::Gp &out);
 
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,
                            const ArgWord &Flags);
+    void update_bin_state(a64::Gp bin_offset,
+                          Sint bit_offset,
+                          Sint size,
+                          a64::Gp size_reg);
+    void set_zero(Sint effectiveSize);
+    void emit_construct_utf8(const ArgVal &Src,
+                             Sint bit_offset,
+                             bool is_byte_aligned);
+
+    void emit_read_bits(Uint bits,
+                        const a64::Gp bin_offset,
+                        const a64::Gp bin_base,
+                        const a64::Gp bitdata);
+
+    void emit_extract_integer(const a64::Gp &bitdata,
+                              const a64::Gp &small_tag,
+                              Uint flags,
+                              Uint position,
+                              Uint bits,
+                              const ArgRegister &Dst);
+
+    void emit_extract_bitstring(const a64::Gp bitdata,
+                                Uint position,
+                                Uint bits,
+                                const ArgRegister &Dst);
+
+    UWord bs_get_flags(const ArgVal &val);
 
     void emit_raise_exception();
     void emit_raise_exception(const ErtsCodeMFA *exp);
@@ -1279,20 +1290,31 @@ protected:
     void emit_validate(const ArgWord &Arity);
     void emit_bs_skip_bits(const ArgLabel &Fail, const ArgRegister &Ctx);
 
-    void emit_linear_search(arm::Gp val, Label fail, const Span<ArgVal> &args);
+    void emit_linear_search(a64::Gp val, Label fail, const Span<ArgVal> &args);
 
     void emit_float_instr(uint32_t instId,
                           const ArgFRegister &LHS,
                           const ArgFRegister &RHS,
                           const ArgFRegister &Dst);
 
-    void emit_validate_unicode(Label next, Label fail, arm::Gp value);
+    void emit_validate_unicode(Label next, Label fail, a64::Gp value);
 
-    void emit_bif_is_eq_ne_exact_immed(const ArgSource &LHS,
-                                       const ArgSource &RHS,
-                                       const ArgRegister &Dst,
-                                       Eterm fail_value,
-                                       Eterm succ_value);
+    void ubif_comment(const ArgWord &Bif);
+
+    void emit_cmp_immed_to_bool(arm::CondCode cc,
+                                const ArgSource &LHS,
+                                const ArgSource &RHS,
+                                const ArgRegister &Dst);
+
+    void emit_cond_to_bool(arm::CondCode cc, const ArgRegister &Dst);
+    void emit_bif_is_ge_lt(arm::CondCode cc,
+                           const ArgSource &LHS,
+                           const ArgSource &RHS,
+                           const ArgRegister &Dst);
+    void emit_bif_min_max(arm::CondCode cc,
+                          const ArgSource &LHS,
+                          const ArgSource &RHS,
+                          const ArgRegister &Dst);
 
     void emit_proc_lc_unrequire(void);
     void emit_proc_lc_require(void);
@@ -1302,25 +1324,29 @@ protected:
 
     /* Returns a vector of the untagged and rebased `args`. The adjusted
      * `comparand` is stored in ARG1. */
-    const std::vector<ArgVal> emit_select_untag(const Span<ArgVal> &args,
+    const std::vector<ArgVal> emit_select_untag(const ArgSource &Src,
+                                                const Span<ArgVal> &args,
                                                 a64::Gp comparand,
                                                 Label fail,
                                                 UWord base,
                                                 int shift);
 
-    void emit_binsearch_nodes(arm::Gp reg,
+    void emit_binsearch_nodes(a64::Gp reg,
                               size_t Left,
                               size_t Right,
                               Label fail,
                               const Span<ArgVal> &args);
 
-    bool emit_optimized_three_way_select(arm::Gp reg,
-                                         Label fail,
-                                         const Span<ArgVal> &args);
+    void emit_optimized_two_way_select(a64::Gp reg,
+                                       const ArgVal &value1,
+                                       const ArgVal &value2,
+                                       const ArgVal &label);
 
 #ifdef DEBUG
-    void emit_tuple_assertion(const ArgSource &Src, arm::Gp tuple_reg);
+    void emit_tuple_assertion(const ArgSource &Src, a64::Gp tuple_reg);
 #endif
+
+    void emit_dispatch_return();
 
 #include "beamasm_protos.h"
 
@@ -1371,6 +1397,10 @@ protected:
      * every `STUB_CHECK_INTERVAL` bytes for veneers and constants to work. */
     void check_pending_stubs();
 
+    /* Unconditionally emits all pending labels. Must only be called when
+     * the current code position is unreachable. */
+    void flush_pending_labels();
+
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
     template<typename Any>
@@ -1413,7 +1443,7 @@ protected:
         return false;
     }
 
-    template<typename RegType = arm::Gp>
+    template<typename RegType = a64::Gp>
     struct Variable {
         RegType reg;
         arm::Mem mem;
@@ -1424,7 +1454,7 @@ protected:
         }
     };
 
-    Variable<arm::Gp> init_destination(const ArgVal &arg, arm::Gp tmp) {
+    Variable<a64::Gp> init_destination(const ArgVal &arg, a64::Gp tmp) {
         /* We don't support storing into GpW since their maximum displacement
          * is 16K, which means we have to check stubs far more often. */
         ASSERT(tmp.isGpX());
@@ -1437,7 +1467,7 @@ protected:
         }
     }
 
-    Variable<arm::VecD> init_destination(const ArgVal &arg, arm::VecD tmp) {
+    Variable<a64::VecD> init_destination(const ArgVal &arg, a64::VecD tmp) {
         if (isRegisterBacked(arg)) {
             auto index = arg.as<ArgFRegister>().get();
             return Variable(register_backed_fregs[index]);
@@ -1446,22 +1476,28 @@ protected:
         }
     }
 
-    Variable<arm::Gp> load_source(const ArgVal &arg, arm::Gp tmp) {
+    Variable<a64::Gp> load_source(const ArgVal &arg, a64::Gp tmp) {
         /* We don't support loading into GpW since their maximum displacement
          * is 16K, which means we have to check stubs far more often. */
         ASSERT(tmp.isGpX());
 
         if (arg.isLiteral()) {
-            a.ldr(tmp, embed_constant(arg, disp32K));
+            preserve_cache(
+                    [&]() {
+                        a.ldr(tmp, embed_constant(arg, disp32K));
+                    },
+                    tmp);
             return Variable(tmp);
         } else if (arg.isRegister()) {
             if (isRegisterBacked(arg)) {
                 auto index = arg.as<ArgXRegister>().get();
-                return Variable(register_backed_xregs[index]);
+                a64::Gp reg = register_backed_xregs[index];
+                reg_cache.invalidate(reg);
+                return Variable(reg);
             }
 
             auto ref = getArgRef(arg);
-            a.ldr(tmp, ref);
+            ldr_cached(tmp, ref);
             return Variable(tmp, ref);
         } else {
             if (arg.isImmed() || arg.isWord()) {
@@ -1469,22 +1505,64 @@ protected:
                                          : arg.as<ArgWord>().get();
 
                 if (Support::isIntOrUInt32(val)) {
-                    mov_imm(tmp, val);
+                    preserve_cache(
+                            [&]() {
+                                mov_imm(tmp, val);
+                            },
+                            tmp);
                     return Variable(tmp);
                 }
             }
 
-            a.ldr(tmp, embed_constant(arg, disp32K));
+            preserve_cache(
+                    [&]() {
+                        a.ldr(tmp, embed_constant(arg, disp32K));
+                    },
+                    tmp);
             return Variable(tmp);
         }
     }
 
+    /*
+     * Load the argument into ANY register, using the
+     * cache to avoid reloading the value.
+     *
+     * Because it is not possible to predict into which register
+     * the value will end up, the following code is UNSAFE:
+     *
+     *    auto src = load_source(Src);
+     *    a.tst(src.reg, ...);
+     *    a.mov(TMP2, NIL);
+     *    a.ccmp(src.reg, TMP2, ..., ...);
+     *
+     * If the value of Src happens to end up in TMP2, it will be
+     * overwritten before its second use.
+     *
+     * Basically, the only safe way to use this function is when the
+     * register is used immediately and only once. For example:
+     *
+     *    a.and_(TMP1, load_source(Src), imm(...));
+     *    a.cmp(TMP1, imm(...));
+     */
+    Variable<a64::Gp> load_source(const ArgVal &arg) {
+        if (!arg.isRegister()) {
+            return load_source(arg, TMP1);
+        } else {
+            a64::Gp cached_reg = find_cache(getArgRef(arg));
+
+            if (cached_reg.isValid()) {
+                return load_source(arg, cached_reg);
+            } else {
+                return load_source(arg, TMP1);
+            }
+        }
+    }
+
     auto load_sources(const ArgVal &Src1,
-                      arm::Gp tmp1,
+                      a64::Gp tmp1,
                       const ArgVal &Src2,
-                      arm::Gp tmp2) {
-        if (Src1.isRegister() && Src2.isRegister() && !isRegisterBacked(Src1) &&
-            !isRegisterBacked(Src2)) {
+                      a64::Gp tmp2) {
+        if (!isRegisterBacked(Src1) && !isRegisterBacked(Src2)) {
             switch (ArgVal::memory_relation(Src1, Src2)) {
             case ArgVal::Relation::consecutive:
                 safe_ldp(tmp1, tmp2, Src1, Src2);
@@ -1502,14 +1580,44 @@ protected:
         return std::make_pair(load_source(Src1, tmp1), load_source(Src2, tmp2));
     }
 
-    Variable<arm::VecD> load_source(const ArgVal &arg, arm::VecD tmp) {
+    Variable<a64::VecD> load_source(const ArgVal &arg, a64::VecD tmp) {
         if (isRegisterBacked(arg)) {
             auto index = arg.as<ArgFRegister>().get();
-            return Variable<arm::VecD>(register_backed_fregs[index]);
+            return Variable<a64::VecD>(register_backed_fregs[index]);
         }
 
         a.ldr(tmp, getArgRef(arg));
-        return Variable<arm::VecD>(tmp);
+        return Variable<a64::VecD>(tmp);
+    }
+
+    void emit_load_args(const ArgSource &Src1,
+                        a64::Gp src1_default,
+                        const ArgSource &Src2,
+                        a64::Gp src2_default,
+                        const ArgSource &Src3,
+                        a64::Gp src3_default) {
+        if (isRegisterBacked(Src1) || !Src1.isRegister()) {
+            auto src1 = load_source(Src1, src1_default);
+            auto [src2, src3] =
+                    load_sources(Src2, src2_default, Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else if (isRegisterBacked(Src2) || !Src2.isRegister()) {
+            auto [src1, src3] =
+                    load_sources(Src1, src1_default, Src3, src3_default);
+            auto src2 = load_source(Src2, src2_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        } else {
+            auto [src1, src2] =
+                    load_sources(Src1, src1_default, Src2, src2_default);
+            auto src3 = load_source(Src3, src3_default);
+            mov_var(src1_default, src1);
+            mov_var(src2_default, src2);
+            mov_var(src3_default, src3);
+        }
     }
 
     template<typename Reg>
@@ -1520,46 +1628,82 @@ protected:
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, Reg from) {
         if (to.reg != from) {
-            a.mov(to.reg, from);
+            mov_preserve_cache(to.reg, from);
         }
     }
 
     template<typename Reg>
     void mov_var(Reg to, const Variable<Reg> &from) {
         if (to != from.reg) {
-            a.mov(to, from.reg);
+            mov_preserve_cache(to, from.reg);
         }
     }
 
-    template<typename Reg>
-    void flush_var(const Variable<Reg> &to) {
+    void flush_var(const Variable<a64::Gp> &to) {
+        if (to.mem.hasBase()) {
+            str_cache(to.reg, to.mem);
+        } else {
+            reg_cache.invalidate(to.reg);
+        }
+    }
+
+    void flush_var(const Variable<a64::VecD> &to) {
         if (to.mem.hasBase()) {
             a.str(to.reg, to.mem);
         }
     }
 
-    void flush_vars(const Variable<arm::Gp> &to1,
-                    const Variable<arm::Gp> &to2) {
-        const arm::Mem &mem1 = to1.mem;
-        const arm::Mem &mem2 = to2.mem;
+    enum Relation { none, consecutive, reverse_consecutive };
 
+    static Relation memory_relation(const arm::Mem &mem1,
+                                    const arm::Mem &mem2) {
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
             if (mem1.offset() + 8 == mem2.offset()) {
-                safe_stp(to1.reg, to2.reg, mem1);
-                return;
+                return consecutive;
             } else if (mem1.offset() == mem2.offset() + 8) {
-                safe_stp(to2.reg, to1.reg, mem2);
-                return;
+                return reverse_consecutive;
             }
         }
-
-        /* Not possible to optimize with stp. */
-        flush_var(to1);
-        flush_var(to2);
+        return none;
     }
 
-    void mov_arg(const ArgVal &To, const ArgVal &From) {
+    void flush_vars(const Variable<a64::Gp> &to1,
+                    const Variable<a64::Gp> &to2) {
+        const arm::Mem &mem1 = to1.mem;
+        const arm::Mem &mem2 = to2.mem;
+
+        switch (memory_relation(to1.mem, to2.mem)) {
+        case Relation::consecutive:
+            stp_cache(to1.reg, to2.reg, mem1);
+            break;
+        case Relation::reverse_consecutive:
+            stp_cache(to2.reg, to1.reg, mem2);
+            break;
+        case Relation::none:
+            /* Not possible to optimize with stp. */
+            flush_var(to1);
+            flush_var(to2);
+            break;
+        }
+    }
+
+    void flush_vars(const Variable<a64::Gp> &to1,
+                    const Variable<a64::Gp> &to2,
+                    const Variable<a64::Gp> &to3) {
+        if (memory_relation(to2.mem, to3.mem) != Relation::none) {
+            flush_vars(to2, to3);
+            flush_var(to1);
+        } else if (memory_relation(to1.mem, to3.mem) != Relation::none) {
+            flush_vars(to1, to3);
+            flush_var(to2);
+        } else {
+            flush_vars(to1, to2);
+            flush_var(to3);
+        }
+    }
+
+    void mov_arg(const ArgRegister &To, const ArgVal &From) {
         if (isRegisterBacked(To)) {
             auto to = init_destination(To, SUPER_TMP);
             auto from = load_source(From, to.reg);
@@ -1573,7 +1717,7 @@ protected:
         }
     }
 
-    void mov_arg(const ArgVal &To, arm::Mem From) {
+    void mov_arg(const ArgRegister &To, arm::Mem From) {
         auto to = init_destination(To, SUPER_TMP);
         a.ldr(to.reg, From);
         flush_var(to);
@@ -1585,41 +1729,51 @@ protected:
         flush_var(to);
     }
 
-    void mov_arg(arm::Gp to, const ArgVal &from) {
+    void mov_arg(a64::Gp to, const ArgVal &from) {
         auto r = load_source(from, to);
         if (r.reg != to) {
-            a.mov(to, r.reg);
+            mov_preserve_cache(to, r.reg);
         }
     }
 
-    void mov_arg(const ArgVal &to, arm::Gp from) {
+    void mov_arg(const ArgVal &to, a64::Gp from) {
         auto r = init_destination(to, from);
         if (r.reg != from) {
-            a.mov(r.reg, from);
+            mov_preserve_cache(r.reg, from);
         }
         flush_var(r);
     }
 
-    void cmp_arg(arm::Gp gp, const ArgVal &arg) {
+    void cmp_arg(a64::Gp gp, const ArgVal &arg) {
         if (arg.isImmed() || arg.isWord()) {
             Sint val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                      : arg.as<ArgWord>().get();
-
-            if (Support::isUInt12(val)) {
-                a.cmp(gp, imm(val));
-                return;
-            } else if (Support::isUInt12(-val)) {
-                a.cmn(gp, imm(-val));
-                return;
-            }
+            cmp(gp, val);
+            return;
         }
 
-        mov_arg(SUPER_TMP, arg);
-        a.cmp(gp, SUPER_TMP);
+        auto tmp = load_source(arg, SUPER_TMP);
+        a.cmp(gp, tmp.reg);
     }
 
-    void safe_stp(arm::Gp gp1,
-                  arm::Gp gp2,
+    void safe_str(a64::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGpX());
+
+        if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            a.str(gp, mem);
+        } else {
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
+            a.str(gp, a64::Mem(SUPER_TMP));
+        }
+    }
+
+    void safe_stp(a64::Gp gp1,
+                  a64::Gp gp2,
+
                   const ArgVal &Dst1,
                   const ArgVal &Dst2) {
         ASSERT(ArgVal::memory_relation(Dst1, Dst2) ==
@@ -1627,41 +1781,61 @@ protected:
         safe_stp(gp1, gp2, getArgRef(Dst1));
     }
 
-    void safe_stp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+    void safe_stp(a64::Gp gp1, a64::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
             a.stp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.str(gp1, mem);
             a.str(gp2, mem.cloneAdjusted(sizeof(Eterm)));
         } else {
-            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
             a.stp(gp1, gp2, arm::Mem(SUPER_TMP));
         }
     }
 
-    void safe_ldr(arm::Gp gp, arm::Mem mem) {
+    void safe_ldr(a64::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(mem.hasBaseReg() && !mem.hasIndex());
         ASSERT(gp.isGpX());
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
-            a.ldr(gp, mem);
+        if (abs_offset <= sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+            preserve_cache(
+                    [&]() {
+                        a.ldr(gp, mem);
+                    },
+                    gp);
         } else {
-            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
             a.ldr(gp, arm::Mem(SUPER_TMP));
         }
     }
 
-    void safe_ldp(arm::Gp gp1,
-                  arm::Gp gp2,
+    void safe_ldur(a64::Gp gp, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
+        auto offset = mem.offset();
+
+        ASSERT(mem.hasBaseReg() && !mem.hasIndex());
+        ASSERT(gp.isGpX());
+
+        if (abs_offset <= MAX_LDUR_STUR_DISPLACEMENT) {
+            a.ldur(gp, mem);
+        } else {
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
+            a.ldr(gp, arm::Mem(SUPER_TMP));
+        }
+    }
+
+    void safe_ldp(a64::Gp gp1,
+                  a64::Gp gp2,
                   const ArgVal &Src1,
                   const ArgVal &Src2) {
         ASSERT(ArgVal::memory_relation(Src1, Src2) ==
@@ -1670,31 +1844,95 @@ protected:
         safe_ldp(gp1, gp2, getArgRef(Src1));
     }
 
-    void safe_ldp(arm::Gp gp1, arm::Gp gp2, arm::Mem mem) {
+    void safe_ldp(a64::Gp gp1, a64::Gp gp2, arm::Mem mem) {
+        size_t abs_offset = std::abs(mem.offset());
         auto offset = mem.offset();
 
         ASSERT(gp1.isGpX() && gp2.isGpX());
         ASSERT(gp1 != gp2);
 
-        if (std::abs(offset) <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
-            a.ldp(gp1, gp2, mem);
-        } else if (std::abs(offset) <
-                   sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
+        if (abs_offset <= sizeof(Eterm) * MAX_LDP_STP_DISPLACEMENT) {
+            preserve_cache(
+                    [&]() {
+                        a.ldp(gp1, gp2, mem);
+                    },
+                    gp1,
+                    gp2);
+        } else if (abs_offset < sizeof(Eterm) * MAX_LDR_STR_DISPLACEMENT) {
             /* Note that we used `<` instead of `<=`, as we're loading two
              * elements rather than one. */
             a.ldr(gp1, mem);
             a.ldr(gp2, mem.cloneAdjusted(sizeof(Eterm)));
         } else {
-            add(SUPER_TMP, arm::GpX(mem.baseId()), offset);
+            add(SUPER_TMP, a64::GpX(mem.baseId()), offset);
             a.ldp(gp1, gp2, arm::Mem(SUPER_TMP));
         }
     }
+
+    /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
+     * on their tags alone. (They may still be equal if both are
+     * immediates and all other bits are equal too.) */
+    void emit_is_unequal_based_on_tags(Label Unequal,
+                                       const ArgVal &Src1,
+                                       a64::Gp Reg1,
+                                       const ArgVal &Src2,
+                                       a64::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        ERTS_CT_ASSERT((TAG_PRIMARY_LIST | TAG_PRIMARY_BOXED) ==
+                       TAG_PRIMARY_IMMED1);
+
+        if (always_one_of<BeamTypeId::AlwaysBoxed>(Src1)) {
+            emit_is_boxed(Unequal, Reg2);
+        } else if (always_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+            emit_is_boxed(Unequal, Reg1);
+        } else if (exact_type<BeamTypeId::Cons>(Src1)) {
+            emit_is_cons(Unequal, Reg2);
+        } else if (exact_type<BeamTypeId::Cons>(Src2)) {
+            emit_is_cons(Unequal, Reg1);
+        } else {
+            a.orr(SUPER_TMP, Reg1, Reg2);
+
+            if (never_one_of<BeamTypeId::Cons>(Src1) ||
+                never_one_of<BeamTypeId::Cons>(Src2)) {
+                emit_is_boxed(Unequal, SUPER_TMP);
+            } else if (never_one_of<BeamTypeId::AlwaysBoxed>(Src1) ||
+                       never_one_of<BeamTypeId::AlwaysBoxed>(Src2)) {
+                emit_is_cons(Unequal, SUPER_TMP);
+            } else {
+                a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
+                a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
+
+                /*
+                 * SUPER_TMP will now be TAG_PRIMARY_IMMED1 if either
+                 * one or both registers are immediates, or if one
+                 * register is a list and the other a boxed.
+                 */
+                a.b_eq(Unequal);
+            }
+        }
+    }
+
+    /* Set the Z flag if Reg1 and Reg2 are both immediates. */
+    void emit_are_both_immediate(const ArgVal &Src1,
+                                 a64::Gp Reg1,
+                                 const ArgVal &Src2,
+                                 a64::Gp Reg2) {
+        ERTS_CT_ASSERT(TAG_PRIMARY_IMMED1 == _TAG_PRIMARY_MASK);
+        if (always_immediate(Src1)) {
+            a.and_(SUPER_TMP, Reg2, imm(_TAG_PRIMARY_MASK));
+        } else if (always_immediate(Src2)) {
+            a.and_(SUPER_TMP, Reg1, imm(_TAG_PRIMARY_MASK));
+        } else {
+            a.and_(SUPER_TMP, Reg1, Reg2);
+            a.and_(SUPER_TMP, SUPER_TMP, imm(_TAG_PRIMARY_MASK));
+        }
+        a.cmp(SUPER_TMP, imm(TAG_PRIMARY_IMMED1));
+    }
 };
 
-void beamasm_metadata_update(
-        std::string module_name,
-        ErtsCodePtr base_address,
-        size_t code_size,
-        const std::vector<BeamAssembler::AsmRange> &ranges);
+void *beamasm_metadata_insert(std::string module_name,
+                              ErtsCodePtr base_address,
+                              size_t code_size,
+                              const std::vector<AsmRange> &ranges);
 void beamasm_metadata_early_init();
 void beamasm_metadata_late_init();

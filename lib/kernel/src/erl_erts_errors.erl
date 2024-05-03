@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(erl_erts_errors).
+-moduledoc false.
 -export([format_error/2, format_bs_fail/2]).
 
 -spec format_error(Reason, StackTrace) -> ErrorMap when
@@ -352,8 +353,19 @@ format_erlang_error(demonitor, [_], _) ->
 format_erlang_error(demonitor, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
     [Arg1,maybe_option_list_error(Options, Arg1)];
-format_erlang_error(display_string, [_], _) ->
+format_erlang_error(display_string, [_], none) ->
     [not_string];
+format_erlang_error(display_string, [_], Cause) ->
+    maybe_posix_message(Cause, false);
+format_erlang_error(display_string, [Device, _], none) ->
+    case lists:member(Device,[stdin,stdout,stderr]) of
+        true ->
+            [[],not_string];
+        false ->
+            [not_device,[]]
+    end;
+format_erlang_error(display_string, [_, _], Cause) ->
+    maybe_posix_message(Cause, true);
 format_erlang_error(element, [Index, Tuple], _) ->
     [if
          not is_integer(Index) ->
@@ -672,9 +684,9 @@ format_erlang_error(open_port, [Name, Settings], Cause) ->
             must_be_tuple(Name)
     end;
 format_erlang_error(phash, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(phash2, [_,N], _) ->
-    [must_be_pos_int(N)];
+    [[], must_be_pos_int(N)];
 format_erlang_error(posixtime_to_universaltime, [_], _) ->
     [not_integer];
 format_erlang_error(pid_to_list, [_], _) ->
@@ -1020,6 +1032,13 @@ format_erlang_error(term_to_iovec, [_,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(time_offset, [_], _) ->
     [bad_time_unit];
+format_erlang_error(trace, [_Session,PidOrPort,How,Options], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        _ ->
+            [[] | format_erlang_error(trace, [PidOrPort,How,Options], Cause)]
+    end;
 format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
     PidOrPortError =
         if
@@ -1041,6 +1060,13 @@ format_erlang_error(trace, [PidOrPort,How,Options], Cause) ->
                 _ ->
                     [PidOrPortError, HowError, []]
             end
+    end;
+format_erlang_error(trace_pattern, [_Session,MFA,MatchSpec,Options], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        _ ->
+            [[] | format_erlang_error(trace_pattern, [MFA,MatchSpec,Options], Cause)]
     end;
 format_erlang_error(trace_pattern=F, [_,_]=Args, Cause) ->
     [Err1,Err2|_] = format_erlang_error(F, Args ++ [[]], Cause),
@@ -1067,6 +1093,13 @@ format_erlang_error(tuple_size, [_], _) ->
     [not_tuple];
 format_erlang_error(tl, [_], _) ->
     [not_cons];
+format_erlang_error(trace_info, [_Session,Tracee,Item], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        _ ->
+            [[] | format_erlang_error(trace_info, [Tracee,Item], Cause)]
+    end;
 format_erlang_error(trace_info, [Tracee,_], Cause) ->
     case Cause of
         badopt ->
@@ -1081,6 +1114,27 @@ format_erlang_error(trace_info, [Tracee,_], Cause) ->
         none ->
             [[],<<"invalid trace item">>]
     end;
+format_erlang_error(trace_session_create, [Name,Tracer,Options], _) ->
+    NameError = if
+                    is_atom(Name) -> [];
+                    true -> not_atom
+                end,
+    TracerError = case Tracer of
+                      _ when is_pid(Tracer), node(Tracer) =:= node() -> [];
+                      _ when is_port(Tracer), node(Tracer) =:= node() -> [];
+                      {Mod,_} when is_atom(Mod) -> [];
+                      _ -> bad_tracer
+                  end,
+    OptError = case Options of
+                   [] -> [];
+                   [_|_] -> bad_option;
+                   _ -> not_list
+               end,
+    [NameError, TracerError, OptError];
+format_erlang_error(trace_session_destroy, [_Session], _) ->
+    [bad_session];
+format_erlang_error(trace_session_info, [_PidPortFuncEvent], _) ->
+    [<<"not a valid tracee specification">>];
 format_erlang_error(trunc, [_], _) ->
     [not_number];
 format_erlang_error(tuple_to_list, [_], _) ->
@@ -1430,8 +1484,23 @@ is_flat_char_list([H|T]) ->
 is_flat_char_list([]) -> true;
 is_flat_char_list(_) -> false.
 
+maybe_posix_message(Cause, HasDevice) ->
+    case erl_posix_msg:message(Cause) of
+        "unknown POSIX error" ++ _ ->
+            unknown;
+        PosixStr when HasDevice ->
+            [unicode:characters_to_binary(
+               io_lib:format("~ts (~tp)",[PosixStr, Cause]))];
+        PosixStr when not HasDevice ->
+            [{general,
+              unicode:characters_to_binary(
+                io_lib:format("~ts (~tp)",[PosixStr, Cause]))}]
+    end.
+
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
+format_error_map([{general, E}|Es], ArgNum, Map) ->
+    format_error_map(Es, ArgNum, Map#{ general => expand_error(E)});
 format_error_map([E|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map#{ArgNum => expand_error(E)});
 format_error_map([], _, Map) ->
@@ -1463,10 +1532,14 @@ expand_error(bad_option) ->
     <<"invalid option in list">>;
 expand_error(bad_path) ->
     <<"not a valid path name">>;
+expand_error(bad_session) ->
+    <<"invalid trace session">>;
 expand_error(bad_status) ->
     <<"invalid status">>;
 expand_error(bad_time_unit) ->
     <<"invalid time unit">>;
+expand_error(bad_tracer) ->
+    <<"invalid tracer">>;
 expand_error(bad_unicode) ->
     <<"invalid UTF8 encoding">>;
 expand_error(bad_universaltime) ->
@@ -1519,6 +1592,8 @@ expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->
     <<"not a list of characters">>;
+expand_error(not_device) ->
+    <<"not a valid device type">>;
 expand_error(not_tuple) ->
     <<"not a tuple">>;
 expand_error(range) ->

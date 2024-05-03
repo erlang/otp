@@ -82,7 +82,7 @@
 %% Doclet entrypoint.
 
 %% @doc Main doclet entry point. See the file <a
-%% href="edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
+%% href="assets/edoc_doclet.hrl">`edoc_doclet.hrl'</a> for the data
 %% structures used for passing parameters.
 %%
 %% Also see {@link edoc:layout/2} for layout-related options, and

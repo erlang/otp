@@ -29,7 +29,7 @@ public:
   //! \{
 
   ASMJIT_API explicit Builder(CodeHolder* code = nullptr) noexcept;
-  ASMJIT_API virtual ~Builder() noexcept;
+  ASMJIT_API ~Builder() noexcept override;
 
   //! \}
 

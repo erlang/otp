@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,10 +96,18 @@ erlang_display(Config) when is_list(Config) ->
 
     MyCre = my_cre(),
 
+    {Ser1, Ser2, LPort} = case erlang:system_info(wordsize) of
+                              4 -> {0, 0, 1 bsl 27};
+                              8 -> {42, 1 bsl 30, 1 bsl 40}
+                   end,
+
     %% pids
-    chk_display(mk_pid_xstr({node(), MyCre}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), MyCre}, 4711, Ser1)),
+    chk_display(mk_pid_xstr({node(), MyCre}, 1 bsl 27, Ser2)),
     chk_display(mk_pid_xstr({node(), oth_cre(MyCre)}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), oth_cre(MyCre)}, 1 bsl 27, Ser2)),
     chk_display(mk_pid_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711, 42)),
+    chk_display(mk_pid_xstr({node(), oth_cre(oth_cre(MyCre))}, 1 bsl 27, Ser2)),
 
     chk_display(mk_pid_xstr({a@b, MyCre}, 4711, 42)),
     chk_display(mk_pid_xstr({a@b, oth_cre(MyCre)}, 4711, 42)),
@@ -107,12 +115,18 @@ erlang_display(Config) when is_list(Config) ->
 
     %% ports
     chk_display(mk_port_xstr({node(), MyCre}, 4711)),
+    chk_display(mk_port_xstr({node(), MyCre}, LPort)),
     chk_display(mk_port_xstr({node(), oth_cre(MyCre)}, 4711)),
+    chk_display(mk_port_xstr({node(), oth_cre(MyCre)}, LPort)),
     chk_display(mk_port_xstr({node(), oth_cre(oth_cre(MyCre))}, 4711)),
+    chk_display(mk_port_xstr({node(), oth_cre(oth_cre(MyCre))}, LPort)),
 
     chk_display(mk_port_xstr({c@d, MyCre}, 4711)),
+    chk_display(mk_port_xstr({c@d, MyCre}, LPort)),
     chk_display(mk_port_xstr({c@d, oth_cre(MyCre)}, 4711)),
+    chk_display(mk_port_xstr({c@d, oth_cre(MyCre)}, LPort)),
     chk_display(mk_port_xstr({c@d, oth_cre(oth_cre(MyCre))}, 4711)),
+    chk_display(mk_port_xstr({c@d, oth_cre(oth_cre(MyCre))}, LPort)),
 
     %% refs
     chk_display(mk_ref_xstr({node(), MyCre}, [1,2,3])),
@@ -160,8 +174,8 @@ get_chnl_no(NodeName) when is_atom(NodeName) ->
     erts_debug:get_internal_state({channel_number, NodeName}).
 
 chk_display(Term, Expect) when is_list(Expect) ->
-    Dstr = erts_debug:display(Term),
-    case Expect ++ io_lib:nl() of
+    Dstr = erts_internal:term_to_string(Term),
+    case Expect of
         Dstr ->
             io:format("Test of \"~p\" succeeded.~n"
                       "  Expected and got: ~s~n",
@@ -316,102 +330,14 @@ run_case(Config, TestArgs, Fun) ->
             ct:fail({open_port_failed, Error})
     end.
 
+mk_pid(Node, Number, Serial) ->
+    erts_test_utils:mk_ext_pid(Node, Number, Serial).
 
--define(VERSION_MAGIC,       131).
+mk_port(Node, Number) ->
+    erts_test_utils:mk_ext_port(Node, Number).
 
--define(ATOM_EXT,            100).
--define(REFERENCE_EXT,       101).
--define(PORT_EXT,            102).
--define(PID_EXT,             103).
--define(NEW_REFERENCE_EXT,   114).
--define(NEW_PID_EXT,         $X).
--define(NEW_PORT_EXT,        $Y).
--define(NEWER_REFERENCE_EXT, $Z).
-
-uint32_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 32 ->
-    [(Uint bsr 24) band 16#ff,
-     (Uint bsr 16) band 16#ff,
-     (Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint32_be(Uint) ->
-    exit({badarg, uint32_be, [Uint]}).
-
-
-uint16_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 16 ->
-    [(Uint bsr 8) band 16#ff,
-     Uint band 16#ff];
-uint16_be(Uint) ->
-    exit({badarg, uint16_be, [Uint]}).
-
-uint8(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 8 ->
-    Uint band 16#ff;
-uint8(Uint) ->
-    exit({badarg, uint8, [Uint]}).
-
-
-
-mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
-    mk_pid({atom_to_list(NodeName), Creation}, Number, Serial);
-mk_pid({NodeName, Creation}, Number, Serial) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?NEW_PID_EXT,
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Number),
-                                              uint32_be(Serial),
-                                              uint32_be(Creation)])) of
-        Pid when is_pid(Pid) ->
-            Pid;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_pid, [{NodeName, Creation}, Number, Serial]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
-    end.
-
-mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
-    mk_port({atom_to_list(NodeName), Creation}, Number);
-mk_port({NodeName, Creation}, Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?NEW_PORT_EXT,
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Number),
-                                              uint32_be(Creation)])) of
-        Port when is_port(Port) ->
-            Port;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_port, [{NodeName, Creation}, Number]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
-    end.
-
-mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
-                                           is_integer(Creation),
-                                           is_list(Numbers) ->
-    mk_ref({atom_to_list(NodeName), Creation}, Numbers);
-mk_ref({NodeName, Creation}, Numbers) when is_list(NodeName),
-                                           is_integer(Creation),
-                                           is_list(Numbers) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?NEWER_REFERENCE_EXT,
-                                              uint16_be(length(Numbers)),
-                                              ?ATOM_EXT,
-                                              uint16_be(length(NodeName)),
-                                              NodeName,
-                                              uint32_be(Creation),
-                                              lists:map(fun (N) ->
-                                                                uint32_be(N)
-                                                        end,
-                                                        Numbers)])) of
-        Ref when is_reference(Ref) ->
-            Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeName, Creation}, Numbers]});
-        Other ->
-            exit({unexpected_binary_to_term_result, Other})
-    end.
+mk_ref(Node, Numbers) ->
+    erts_test_utils:mk_ext_ref(Node, Numbers).
 
 my_cre() -> erlang:system_info(creation).
 

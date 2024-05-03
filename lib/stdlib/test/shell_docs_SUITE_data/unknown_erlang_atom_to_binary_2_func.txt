@@ -10,7 +10,7 @@
   characters are encoded using UTF-8 where characters may require
   multiple bytes.
 
-  Note:
+  Change:
     As from Erlang/OTP 20, atoms can contain any Unicode character
     and [;;4matom_to_binary(Atom, latin1)[0m may fail if the text
     representation for [;;4mAtom[0m contains a Unicode character > 255.

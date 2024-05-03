@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 %%% template for other event handlers that can be plugged in to 
 %%% handle logging and reporting on the master node.
 -module(ct_master_event).
+-moduledoc false.
 
 -behaviour(gen_event).
 

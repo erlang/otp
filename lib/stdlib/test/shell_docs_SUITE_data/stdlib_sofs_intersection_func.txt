@@ -1,0 +1,16 @@
+
+  [;1m-spec intersection(SetOfSets) -> Set[0m
+  [;1m                      when Set :: a_set(), SetOfSets :: set_of_sets().[0m
+
+  Returns the intersection of the set of sets [;;4mSetOfSets[0m.
+
+  Intersecting an empty set of sets exits the process with a [;;4mbadarg[0m
+  message.
+
+  [;1m-spec intersection(Set1, Set2) -> Set3[0m
+  [;1m                      when[0m
+  [;1m                          Set1 :: a_set(),[0m
+  [;1m                          Set2 :: a_set(),[0m
+  [;1m                          Set3 :: a_set().[0m
+
+  Returns the intersection of [;;4mSet1[0m and [;;4mSet2[0m.

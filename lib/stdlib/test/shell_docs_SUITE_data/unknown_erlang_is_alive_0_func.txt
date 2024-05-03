@@ -10,5 +10,5 @@
    • [;;4m"erl -sname SHORTNAME"[0m.
 
   A node can also be alive if it has got a name from a call to [;;4m[0m
-  [;;4mnet_kernel:start/1[0m and has not been stopped by a call to [;;4m[0m
+  [;;4mnet_kernel:start/2[0m and has not been stopped by a call to [;;4m[0m
   [;;4mnet_kernel:stop/0[0m.

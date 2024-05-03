@@ -1,0 +1,26 @@
+
+  [;1m-spec erlang:make_tuple(Arity, InitialValue) -> tuple()[0m
+  [;1m                           when Arity :: arity(), InitialValue :: term().[0m
+
+  Creates a new tuple of the specified [;;4mArity[0m, where all elements
+  are [;;4mInitialValue[0m, for example:
+
+    > erlang:make_tuple(4, []).
+    {[],[],[],[]}
+
+  [;1m-spec erlang:make_tuple(Arity, DefaultValue, InitList) -> tuple()[0m
+  [;1m                           when[0m
+  [;1m                               Arity :: arity(),[0m
+  [;1m                               DefaultValue :: term(),[0m
+  [;1m                               InitList ::[0m
+  [;1m                                   [{Position :: pos_integer(), term()}].[0m
+
+  Creates a tuple of size [;;4mArity[0m, where each element has value [;;4m[0m
+  [;;4mDefaultValue[0m, and then fills in values from [;;4mInitList[0m. Each list
+  element in [;;4mInitList[0m must be a two-tuple, where the first element
+  is a position in the newly created tuple and the second element is
+  any term. If a position occurs more than once in the list, the
+  term corresponding to the last occurrence is used. Example:
+
+    > erlang:make_tuple(5, [], [{2,ignored},{5,zz},{2,aa}]).
+    {[],aa,[],[],zz}

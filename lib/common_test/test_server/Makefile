@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ TS_TARGETS = $(TS_MODULES:%=$(EBIN)/%.$(EMULATOR))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I../include -Werror
+ERL_COMPILE_FLAGS += -I../include -Werror +nowarn_missing_spec_documented
 
 # ----------------------------------------------------
 # Targets

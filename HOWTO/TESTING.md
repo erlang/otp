@@ -193,7 +193,7 @@ Examining the results
 ---------------------
 
 Open the file `$ERL_TOP/release/tests/test_server/index.html` in a web browser. Or open
-`$ERL_TOP/release/tests/test_server/last_test.html` when a test suite is running to
+`$ERL_TOP/release/tests/test_server/suite.log.latest.html` when a test suite is running to
 examine the results so far for the currently executing test suite.
 
 

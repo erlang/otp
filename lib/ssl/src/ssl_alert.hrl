@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@
 -define(BAD_RECORD_MAC, 20).
 -define(DECRYPTION_FAILED_RESERVED, 21).
 -define(RECORD_OVERFLOW, 22).
--define(DECOMPRESSION_FAILURE, 30).
+%%-define(DECOMPRESSION_FAILURE, 30).  NOT USED
 -define(HANDSHAKE_FAILURE, 40).
 -define(NO_CERTIFICATE_RESERVED, 41).
 -define(BAD_CERTIFICATE, 42).

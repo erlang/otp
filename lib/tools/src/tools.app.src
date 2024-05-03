@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 	     cprof,
 	     eprof,
 	     fprof,
-	     instrument,
 	     lcnt,
 	     make,
 	     tags,
@@ -42,7 +41,11 @@
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
   },
-  {runtime_dependencies, ["stdlib-3.4","runtime_tools-1.8.14",
-			  "kernel-5.4","erts-9.1","compiler-5.0", "erts-11.0"]}
+  {runtime_dependencies, ["stdlib-@OTP-18856@",
+                          "runtime_tools-@OTP-18856@",
+			  "kernel-@OTP-18856@",
+                          "erts-@OTP-18856@",
+                          "compiler-@OTP-18856@",
+                          "erts-@OTP-18856@"]}
  ]
 }. 

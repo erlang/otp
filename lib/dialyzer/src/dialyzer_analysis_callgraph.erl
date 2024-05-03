@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_analysis_callgraph).
+-moduledoc false.
 
 -export([start/3]).
 
@@ -117,25 +118,16 @@ loop(#server_state{parent = Parent} = State,
 analysis_start(Parent, Analysis, LegalWarnings) ->
   CServer = dialyzer_codeserver:new(),
   Plt = Analysis#analysis.plt,
-  State = #analysis_state{codeserver = CServer,
-			  analysis_type = Analysis#analysis.type,
-			  defines = Analysis#analysis.defines,
-			  doc_plt = Analysis#analysis.doc_plt,
-			  include_dirs = Analysis#analysis.include_dirs,
-			  plt = Plt,
-			  parent = Parent,
-                          legal_warnings = LegalWarnings,
-			  start_from = Analysis#analysis.start_from,
-			  use_contracts = Analysis#analysis.use_contracts,
-			  timing_server = Analysis#analysis.timing_server,
-                          solvers = Analysis#analysis.solvers
-			 },
+  Args = {Plt, Analysis, Parent},
+  State = create_analysis_state(Args, LegalWarnings, CServer),
+
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, ModCallDeps, Modules, TmpCServer0} = compile_and_store(Files, State),
-  %% Remote type postprocessing
-  Args = {Plt, Analysis, Parent},
+
+ %% Remote type postprocessing
   NewCServer = remote_type_postprocessing(TmpCServer0, Args),
   dump_callgraph(Callgraph, State, Analysis),
+
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
   Plt1_a = dialyzer_plt:delete_list(Plt, AllNodes),
@@ -147,6 +139,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   State2 = analyze_callgraph(Callgraph, State1),
   ModTypeDeps = dict:from_list(maps:to_list(dialyzer_typegraph:module_type_deps(Analysis#analysis.use_contracts, CServer, Modules))),
   ModDeps = dialyzer_callgraph:merge_module_deps(ModCallDeps, ModTypeDeps),
+  dump_mod_deps(ModDeps, State, Analysis),
   send_mod_deps(Parent, ModDeps),
   #analysis_state{plt = Plt2,
                   doc_plt = DocPlt,
@@ -158,6 +151,21 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   dialyzer_plt:delete(DummyPlt),
   Plt4 = dialyzer_plt:delete_list(Plt3, NonExportsList),
   send_analysis_done(Parent, Plt4, DocPlt).
+
+create_analysis_state({Plt, Analysis, Parent}, LegalWarnings, CServer) ->
+  #analysis_state{ codeserver = CServer,
+                   analysis_type = Analysis#analysis.type,
+                   defines = Analysis#analysis.defines,
+                   doc_plt = Analysis#analysis.doc_plt,
+                   include_dirs = Analysis#analysis.include_dirs,
+                   plt = Plt,
+                   parent = Parent,
+                   legal_warnings = LegalWarnings,
+                   start_from = Analysis#analysis.start_from,
+                   use_contracts = Analysis#analysis.use_contracts,
+                   timing_server = Analysis#analysis.timing_server,
+                   solvers = Analysis#analysis.solvers }.
+
 
 remote_type_postprocessing(TmpCServer, Args) ->
   Fun = fun() ->
@@ -372,7 +380,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
 		  CServer, Callgraph, Modules) ->
   ModCallDeps = dialyzer_callgraph:module_call_deps(Callgraph),
   {Callgraph1, ExtCalls} = dialyzer_callgraph:remove_external(Callgraph),
-  ExtCalls1 = [Call || Call = {_From, To} <- ExtCalls,
+  ExtCalls1 = [Call || Call = {_From1, To} <- ExtCalls,
 		       not dialyzer_plt:contains_mfa(InitPlt, To)],
   {BadCalls1, RealExtCalls} =
     if ExtCalls1 =:= [] -> {[], []};
@@ -380,11 +388,11 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
 	ModuleSet = sets:from_list(Modules, [{version, 2}]),
 	PltModuleSet = dialyzer_plt:all_modules(InitPlt),
 	AllModules = sets:union(ModuleSet, PltModuleSet),
-	Pred = fun({_From, {M, _F, _A}}) -> sets:is_element(M, AllModules) end,
+	Pred = fun({_From2, {M, _F, _A}}) -> sets:is_element(M, AllModules) end,
 	lists:partition(Pred, ExtCalls1)
     end,
   NonLocalCalls = dialyzer_callgraph:non_local_calls(Callgraph1),
-  BadCalls2 = [Call || Call = {_From, To} <- NonLocalCalls,
+  BadCalls2 = [Call || Call = {_From3, To} <- NonLocalCalls,
 		       not dialyzer_codeserver:is_exported(To, CServer)],
   case BadCalls1 ++ BadCalls2 of
     [] -> ok;
@@ -497,10 +505,11 @@ expand_files(Analysis = #analysis{files = Files, start_from = StartFrom}) ->
   case expand_files(Files, Ext, []) of
     [] ->
       Msg = "No " ++ Ext ++ " files to analyze" ++
-	case StartFrom of
-	  byte_code -> " (no --src specified?)";
-	  src_code -> ""
-	end,
+        case StartFrom of
+          byte_code -> " (no --src specified?)";
+          src_code -> ""
+        end ++
+        "\nConsider setting some default apps in your dialyzer.config file",
       exit({error, Msg});
     NewFiles ->
       Analysis#analysis{files = NewFiles}
@@ -583,7 +592,7 @@ is_ok_fun({_Filename, _Loc, {_M, _F, _A} = MFA}, Codeserver) ->
 
 is_ok_tag(Tag, {_F, _L, MorMFA}, Codeserver) ->
   not dialyzer_utils:is_suppressed_tag(MorMFA, Tag, Codeserver).
-  
+
 send_analysis_done(Parent, Plt, DocPlt) ->
   Parent ! {self(), done, Plt, DocPlt},
   ok.
@@ -617,8 +626,7 @@ format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
   format_bad_calls(Left, CodeServer, Acc);
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
   Msg = {call_to_missing, [M, F, A]},
-  {File, Loc} = find_call_file_and_location(FromMFA, To, CodeServer),
-  WarningInfo = {File, Loc, FromMFA},
+  WarningInfo = find_call_file_and_location(FromMFA, To, CodeServer),
   NewAcc = [{?WARN_CALLGRAPH, WarningInfo, Msg}|Acc],
   format_bad_calls(Left, CodeServer, NewAcc);
 format_bad_calls([], _CodeServer, Acc) ->
@@ -640,7 +648,7 @@ find_call_file_and_location({Module, _, _} = FromMFA, ToMFA, CodeServer) ->
 		    Ann = cerl:get_ann(SubTree),
                     File = get_file(CodeServer, Module, Ann),
                     Location = get_location(SubTree),
-		    [{File, Location}|Acc];
+		    [{File, Location, FromMFA}|Acc];
 		  {erlang, make_fun, 3} ->
 		    [CA1, CA2, CA3] = cerl:call_args(SubTree),
 		    case
@@ -657,7 +665,7 @@ find_call_file_and_location({Module, _, _} = FromMFA, ToMFA, CodeServer) ->
 			  ToMFA ->
 			    Ann = cerl:get_ann(SubTree),
 			    [{get_file(CodeServer, Module, Ann),
-                              get_location(SubTree)}|Acc];
+                              get_location(SubTree), FromMFA}|Acc];
 			  _ ->
 			    Acc
 			end;
@@ -712,3 +720,26 @@ dump_callgraph(CallGraph, State, #analysis{callgraph_file = File}, _Ext) ->
 			  [File, Reason]),
       send_log(State#analysis_state.parent, Msg)
   end.
+
+
+dump_mod_deps(_ModDeps, _State, #analysis{mod_deps_file = ""}) -> ok;
+dump_mod_deps(ModDeps, State, #analysis{mod_deps_file = File} = Analysis) ->
+  Extension = filename:extension(File),
+  Start_Msg = io_lib:format("Dumping the full module dependencies graph... ", []),
+  send_log(State#analysis_state.parent, Start_Msg),
+  {T1, _} = statistics(wall_clock),
+  dump_mod_deps(ModDeps, State, Analysis, Extension),
+  {T2, _} = statistics(wall_clock),
+  Finish_Msg = io_lib:format("done in ~2f secs\n", [(T2-T1)/1000]),
+  send_log(State#analysis_state.parent, Finish_Msg),
+  ok.
+
+dump_mod_deps(ModDeps, _State, #analysis{mod_deps_file = File}, ".dot") ->
+  dialyzer_callgraph:mod_deps_to_dot(ModDeps, File);
+dump_mod_deps(ModDeps, _State, #analysis{mod_deps_file = File}, ".ps") ->
+  Args = "-Gratio=compress -Gsize=\"100,100\"",
+  dialyzer_callgraph:mod_deps_to_ps(ModDeps, File, Args);
+dump_mod_deps(_ModDeps, State, #analysis{mod_deps_file = File}, Ext) ->
+  Msg = io_lib:format("Could not write full modules dependencies file ~tp, Reason: Unrecognised file extension '~ts'. Only .dot and .ps are supported\n",
+    [File, Ext]),
+  send_log(State#analysis_state.parent, Msg).

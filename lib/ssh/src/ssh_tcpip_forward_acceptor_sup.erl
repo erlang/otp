@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_tcpip_forward_acceptor_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -include("ssh.hrl").
@@ -51,6 +52,7 @@ start_child(Sup, LSock, ListenAddr, ConnectToAddr, ChanType, ChanCB, ConnPid) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([]) ->
+    ssh_lib:set_label(tcpip_fw_acceptor_sup),
     SupFlags = #{strategy  => one_for_one, 
                  intensity =>   10,
                  period    => 3600

@@ -79,7 +79,7 @@ run(OutDir, InDir) ->
     {ok, Host} = inet:gethostname(),
     Seconds = (erlang:monotonic_time(millisecond) - StartTime) / 1000,
     ok = io:format(Out, "\n<hr><p><small>This page was generated ~s\n"
-                   " by <tt>~s</tt>\n"
+                   " by <code>~s</code>\n"
                    " run by ~s@~s in ~.1f seconds.</small></p>\n",
                    [Time, ThisFile, User, Host, Seconds]),
 

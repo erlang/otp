@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +29,13 @@
 	 many_restarts/0, many_restarts/1, restart_with_mode/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
-         dot_erlang/1,
-	 find_system_processes/0]).
+         dot_erlang/1, unknown_module/1, dash_S/1, dash_extra/1,
+         dash_run/1, dash_s/1,
+	 find_system_processes/0
+         ]).
 -export([boot1/1, boot2/1]).
+-export([test_dash_S/1, test_dash_s/1, test_dash_extra/0,
+         test_dash_run/0, test_dash_run/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -48,7 +52,8 @@ all() ->
     [get_arguments, get_argument, boot_var,
      many_restarts, restart_with_mode,
      get_plain_arguments, restart, stop_status, get_status, script_id,
-     dot_erlang, {group, boot}].
+     dot_erlang, unknown_module, {group, boot},
+     dash_S, dash_extra, dash_run, dash_s].
 
 groups() -> 
     [{boot, [], [boot1, boot2]}].
@@ -376,6 +381,7 @@ restart(Config) when is_list(Config) ->
     [InitPid, PurgerPid, LitCollectorPid,
      DirtySigNPid, DirtySigHPid, DirtySigMPid,
      PrimFilePid,
+     TraceCleanerPid,
      ESockRegPid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
@@ -397,6 +403,7 @@ restart(Config) when is_list(Config) ->
     [InitPid1, PurgerPid1, LitCollectorPid1,
      DirtySigNPid1, DirtySigHPid1, DirtySigMPid1,
      PrimFilePid1,
+     TraceCleanerPid1,
      ESockRegPid1] = SysProcs1,
 
     %% Still the same init process!
@@ -426,6 +433,10 @@ restart(Config) when is_list(Config) ->
     %% and same prim_file helper process!
     PrimFileP = pid_to_list(PrimFilePid),
     PrimFileP = pid_to_list(PrimFilePid1),
+
+    %% and same trace_cleaner process!
+    TraceCleanerP = pid_to_list(TraceCleanerPid),
+    TraceCleanerP = pid_to_list(TraceCleanerPid1),
 
     %% and same socket_registry helper process!
     if ESockRegPid =:= undefined, ESockRegPid1 =:= undefined ->
@@ -467,6 +478,7 @@ restart(Config) when is_list(Config) ->
 		    dirty_sig_handler_high,
 		    dirty_sig_handler_max,
                     prim_file,
+                    trace_cleaner,
                     socket_registry}).
 
 find_system_processes() ->
@@ -480,6 +492,7 @@ find_system_procs([], SysProcs) ->
      SysProcs#sys_procs.dirty_sig_handler_high,
      SysProcs#sys_procs.dirty_sig_handler_max,
      SysProcs#sys_procs.prim_file,
+     SysProcs#sys_procs.trace_cleaner,
      SysProcs#sys_procs.socket_registry];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, [initial_call, priority]) of
@@ -507,6 +520,9 @@ find_system_procs([P|Ps], SysProcs) ->
         [{initial_call,{prim_file,start,0}},_] ->
 	    undefined = SysProcs#sys_procs.prim_file,
 	    find_system_procs(Ps, SysProcs#sys_procs{prim_file = P});
+        [{initial_call,{erts_trace_cleaner,start,0}}, _] ->
+	    undefined = SysProcs#sys_procs.trace_cleaner,
+	    find_system_procs(Ps, SysProcs#sys_procs{trace_cleaner = P});
         [{initial_call,{socket_registry,start,0}},_] ->
 	    undefined = SysProcs#sys_procs.socket_registry,
 	    find_system_procs(Ps, SysProcs#sys_procs{socket_registry = P});
@@ -689,6 +705,21 @@ dot_erlang(Config) ->
 
     ok.
 
+unknown_module(Config) when is_list(Config) ->
+    Port = open_port({spawn, "erl -s unknown_module"},
+                     [exit_status, use_stdio, stderr_to_stdout]),
+    Error = "Error! Failed to load module 'unknown_module' because it cannot be found.",
+    [_ | _] = string:find(collect_until_exit_one(Port), Error),
+    ok.
+
+collect_until_exit_one(Port) ->
+    receive
+        {Port, {data, Msg}} -> Msg ++ collect_until_exit_one(Port);
+        {Port, {exit_status, 1}} -> []
+    after
+        30_000 -> ct:fail(erl_timeout)
+    end.
+
 %% ------------------------------------------------
 %% Start the slave system with -boot flag.
 %% ------------------------------------------------
@@ -732,6 +763,217 @@ boot2(Config) when is_list(Config) ->
     end,
 
     ok.
+
+dash_S(_Config) ->
+
+    %% Test that arguments are passed correctly
+    {[],[],[]} = run_dash_S_test([]),
+    {["a"],[],[]} = run_dash_S_test(["a"]),
+    {["-S","--"],[],[]} = run_dash_S_test(["-S","--"]),
+    {["--help"],[],[]} = run_dash_S_test(["--help"]),
+    {["-extra"],[],[]} = run_dash_S_test(["-extra"]),
+    {["-run"],[],[]} = run_dash_S_test(["-run"]),
+    {["-args_file"],[],[]} = run_dash_S_test(["-args_file"]),
+    {["+A","-1"],[],[]} = run_dash_S_test(["+A","-1"]),
+    {["-s","init","stop"],[],[]} = run_dash_S_test(["-s","init","stop"]),
+
+    %% Test that environment variables are handled correctly
+    {["a"],["b","c","d"],[]} =
+        run_dash_S_test([{"ERL_AFLAGS","b"},{"ERL_FLAGS","c"},{"ERL_ZFLAGS","d"}],["a"]),
+    %% test that -S in environment variables are interpreted as flags
+    {["a"],[],[["a"],["b"],["c"]]} =
+        run_dash_S_test([{"ERL_AFLAGS","+S 1 -S a"},{"ERL_FLAGS","-S b"},
+                         {"ERL_ZFLAGS","-S c"}],["a"]),
+
+    %% Test that -s and -run work
+    ?assertMatch(
+       "[a].{[\"a\""++_,
+       run_dash_test(["-s",?MODULE,"test_dash_s","a","-S",?MODULE,"test_dash_S","a"])),
+    ?assertMatch(
+       "[\"a\"].{[\"a\""++_,
+       run_dash_test(["-run",?MODULE,"test_dash_s","a","-S",?MODULE,"test_dash_S","a"])),
+
+    %% Test error conditions
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-S"]),
+                   "Error! The -S option must be followed by at least a module to start")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-S","a"]),
+                   "Error! Failed to load module 'a' because it cannot be found.")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-S",?MODULE,"a"]),
+                   "Error! init_SUITE:a/1 is not exported.")),
+
+    ok.
+
+run_dash_S_test(Args) ->
+    run_dash_S_test("", Args).
+run_dash_S_test(Prefix, Args) ->
+    run_dash_test(Prefix, ["-S", ?MODULE, "test_dash_S" | Args]).
+
+test_dash_S(Args) ->
+    AllArgs = {Args, init:get_plain_arguments(),
+               proplists:get_all_values('S',init:get_arguments()),
+               erlang:system_info(emu_args)},
+    io:format("~p.",[AllArgs]),
+    erlang:halt().
+
+test_dash_s(Args) ->
+    io:format("~p.",[Args]).
+
+dash_run(_Config) ->
+
+    {undefined,[]} =
+        run_dash_test(["-run",?MODULE,"test_dash_run","-s","init","stop"]),
+
+    {["a"],["b"]} =
+        run_dash_test(["-run",?MODULE,"test_dash_run","a","--","b","-s","init","stop"]),
+
+    %% Test error conditions
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-run","a"]),
+                   "Error! Failed to load module 'a' because it cannot be found.")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-run",?MODULE]),
+                   "Error! init_SUITE:start/0 is not exported.")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-run",?MODULE,"a"]),
+                   "Error! init_SUITE:a/0 is not exported.")),
+
+    ok.
+
+test_dash_run() ->
+    test_dash_run(undefined).
+test_dash_run(Args) ->
+    io:format("~p.",[{Args, init:get_plain_arguments(), erlang:system_info(emu_args)}]),
+    ok.
+
+dash_s(_Config) ->
+
+    {undefined,[]} =
+        run_dash_test(["-s",?MODULE,"test_dash_run","-s","init","stop"]),
+
+    {[a],["b"]} =
+        run_dash_test(["-s",?MODULE,"test_dash_run","a","--","b","-s","init","stop"]),
+
+    %% Test error conditions
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-s","a"]),
+                   "Error! Failed to load module 'a' because it cannot be found.")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-s",?MODULE]),
+                   "Error! init_SUITE:start/0 is not exported.")),
+
+    ?assertNotEqual(
+       nomatch,
+       string:find(run_dash_test(["-s",?MODULE,"a"]),
+                   "Error! init_SUITE:a/0 is not exported.")),
+
+    ok.
+
+dash_extra(Config) ->
+    %% Test that arguments are passed correctly
+    {[]} = run_dash_extra_test([]),
+    {["a"]} = run_dash_extra_test(["a"]),
+    {["--help"]} = run_dash_extra_test(["--help"]),
+    {["-S","--"]} = run_dash_extra_test(["-S","--"]),
+    {["-extra","--"]} = run_dash_extra_test(["-extra","--"]),
+    {["-run"]} = run_dash_extra_test(["-run"]),
+    {["-args_file"]} = run_dash_extra_test(["-args_file"]),
+    {["+A","-1"]} = run_dash_extra_test(["+A","-1"]),
+    {["-s","init","stop"]} = run_dash_extra_test(["-s","init","stop"]),
+
+    %% Test that environment variables are handled correctly
+    {["b","c","d","a"]} =
+        run_dash_extra_test([{"ERL_AFLAGS","b"},{"ERL_FLAGS","c"},{"ERL_ZFLAGS","d"}],
+                            ["a"]),
+    {["c","d","+A","1","--","a"]} =
+        run_dash_extra_test([{"ERL_AFLAGS","-extra +A 1 --"},{"ERL_FLAGS","c"},{"ERL_ZFLAGS","d"}],
+                            ["a"]),
+    {["+A","a","+B","+C"]} =
+        run_dash_extra_test([{"ERL_AFLAGS","-extra +A"},
+                             {"ERL_FLAGS","-extra +B"},
+                             {"ERL_ZFLAGS","-extra +C"}],["a"]),
+
+    %% Test that arguments from -args_file work as they should
+    ArgsFile = filename:join(?config(priv_dir, Config),
+                             atom_to_list(?MODULE) ++ "_args_file.args"),
+    NestedArgsFile = filename:join(?config(priv_dir, Config),
+                             atom_to_list(?MODULE) ++ "_nexted_args_file.args"),
+    file:write_file(NestedArgsFile,"y -extra +Y"),
+
+    file:write_file(ArgsFile,["z -args_file ",NestedArgsFile," -extra +Z"]),
+
+    {["c","z","y","d",
+      %% -extra starts here
+      "a","+Y","+Z","b"]} =
+        run_dash_extra_test([{"ERL_FLAGS",["c -args_file ",ArgsFile," d -extra b"]}],["a"]),
+
+    ok.
+
+run_dash_extra_test(Args) ->
+    run_dash_extra_test([], Args).
+run_dash_extra_test(Prefix, Args) ->
+    run_dash_test(Prefix, ["-run", ?MODULE, "test_dash_extra", "-extra" | Args]).
+
+test_dash_extra() ->
+    AllArgs = {init:get_plain_arguments(), erlang:system_info(emu_args)},
+    io:format("~p.",[AllArgs]),
+    erlang:halt().
+
+
+run_dash_test(Args) ->
+    run_dash_test([],Args).
+run_dash_test(Env, Args) ->
+    [Exec | ExecArgs] = string:split(ct:get_progname()," ", all),
+    PortExec = os:find_executable(Exec),
+    PortArgs = ExecArgs ++ ["-pa",filename:dirname(code:which(?MODULE)),
+                            "-noshell" | Args],
+    PortEnv = [{"ERL_CRASH_DUMP_SECONDS","0"} |
+               [{K,lists:flatten(V)} || {K, V} <- Env]],
+    ct:log("Exec: ~p~nPortArgs: ~p~nPortEnv: ~p~n",[PortExec, PortArgs, PortEnv]),
+    Port =
+        open_port({spawn_executable, PortExec},
+                  [stderr_to_stdout,binary,out,in,hide,exit_status,
+                   {args, PortArgs}, {env, PortEnv}]),
+    receive
+        {Port,{exit_status,N}} ->
+            N
+    after 5000 ->
+            ct:fail({timeout, receive M -> M after 0 -> [] end})
+    end,
+    Res = unicode:characters_to_list(
+            iolist_to_binary(
+              (fun F() ->
+                       receive
+                           {Port,{data,Data}} ->
+                               [Data | F()]
+                       after 0 ->
+                               []
+                       end
+               end)())),
+    ct:log("Res: ~ts~n",[Res]),
+    maybe
+        {ok, Toks, _} ?= erl_scan:string(Res),
+        {ok, Tuple} ?= erl_parse:parse_term(Toks),
+        erlang:delete_element(tuple_size(Tuple), Tuple)
+    else
+        _ ->
+            Res
+    end.
 
 %% Misc. functions    
 

@@ -1,0 +1,168 @@
+diff -u original/crypto/md5/md5_dgst.c crypto/md5/md5_dgst.c
+--- original/crypto/md5/md5_dgst.c	2023-11-24 15:57:21.151284250 +0100
++++ crypto/md5/md5_dgst.c	2023-11-24 23:08:56.359410118 +0100
+@@ -11,11 +11,15 @@
+  * MD5 low level APIs are deprecated for public use, but still ok for
+  * internal use.
+  */
++#if !defined(ERLANG_OPENSSL_INTEGRATION)
+ #include "internal/deprecated.h"
++#endif
+ 
+ #include <stdio.h>
+ #include "md5_local.h"
++#if !defined(ERLANG_OPENSSL_INTEGRATION)
+ #include <openssl/opensslv.h>
++#endif
+ 
+ /*
+  * Implemented from RFC1321 The MD5 Message-Digest Algorithm
+@@ -26,6 +30,10 @@
+ #define INIT_DATA_C (unsigned long)0x98badcfeL
+ #define INIT_DATA_D (unsigned long)0x10325476L
+ 
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++#define MD5_Init MD5_INIT_FUNCTION_NAME
++#endif
++
+ int MD5_Init(MD5_CTX *c)
+ {
+     memset(c, 0, sizeof(*c));
+@@ -40,6 +48,9 @@
+ # ifdef X
+ #  undef X
+ # endif
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++#define md5_block_data_order MD5_BLOCK_DATA_ORDER_FUNCTION_NAME
++#endif
+ void md5_block_data_order(MD5_CTX *c, const void *data_, size_t num)
+ {
+     const unsigned char *data = data_;
+diff -u original/crypto/md5/md5_local.h crypto/md5/md5_local.h
+--- original/crypto/md5/md5_local.h	2023-11-24 15:57:11.999228660 +0100
++++ crypto/md5/md5_local.h	2023-11-24 22:46:24.091772692 +0100
+@@ -9,8 +9,14 @@
+ 
+ #include <stdlib.h>
+ #include <string.h>
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++#include "openssl_local/md5.h"
++#define md5_block_data_order MD5_BLOCK_DATA_ORDER_FUNCTION_NAME
++#undef MD5_ASM
++#else
+ #include <openssl/e_os2.h>
+ #include <openssl/md5.h>
++#endif
+ 
+ #ifdef MD5_ASM
+ # if defined(__i386) || defined(__i386__) || defined(_M_IX86) || \
+@@ -31,9 +37,15 @@
+ #define HASH_LONG               MD5_LONG
+ #define HASH_CTX                MD5_CTX
+ #define HASH_CBLOCK             MD5_CBLOCK
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++#define HASH_UPDATE             MD5_UPDATE_FUNCTION_NAME
++#define HASH_TRANSFORM          MD5_TRANSFORM_FUNCTION_NAME
++#define HASH_FINAL              MD5_FINAL_FUNCTION_NAME
++#else
+ #define HASH_UPDATE             MD5_Update
+ #define HASH_TRANSFORM          MD5_Transform
+ #define HASH_FINAL              MD5_Final
++#endif
+ #define HASH_MAKE_STRING(c,s)   do {    \
+         unsigned long ll;               \
+         ll=(c)->A; (void)HOST_l2c(ll,(s));      \
+@@ -41,7 +53,12 @@
+         ll=(c)->C; (void)HOST_l2c(ll,(s));      \
+         ll=(c)->D; (void)HOST_l2c(ll,(s));      \
+         } while (0)
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++#define HASH_BLOCK_DATA_ORDER   MD5_BLOCK_DATA_ORDER_FUNCTION_NAME
++#undef md5_block_data_order
++#else
+ #define HASH_BLOCK_DATA_ORDER   md5_block_data_order
++#endif
+ 
+ #include "crypto/md32_common.h"
+ 
+diff -u original/include/crypto/md32_common.h include/crypto/md32_common.h
+--- original/include/crypto/md32_common.h	2023-11-24 15:58:01.910884892 +0100
++++ include/crypto/md32_common.h	2023-11-24 22:49:19.072662368 +0100
+@@ -63,7 +63,9 @@
+  *      #define HASH_BLOCK_DATA_ORDER   md5_block_data_order
+  */
+ 
++#if !defined(ERLANG_OPENSSL_INTEGRATION)
+ #include <openssl/crypto.h>
++#endif
+ 
+ #if !defined(DATA_ORDER_IS_BIG_ENDIAN) && !defined(DATA_ORDER_IS_LITTLE_ENDIAN)
+ # error "DATA_ORDER must be defined!"
+@@ -236,7 +238,15 @@
+     p -= HASH_CBLOCK;
+     HASH_BLOCK_DATA_ORDER(c, p, 1);
+     c->num = 0;
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++    /*
++     * We are not using this anywhere where we consider
++     * this to be a security issue.
++     */
++    memset(p, 0, HASH_CBLOCK);
++#else
+     OPENSSL_cleanse(p, HASH_CBLOCK);
++#endif
+ 
+ #ifndef HASH_MAKE_STRING
+ # error "HASH_MAKE_STRING must be defined!"
+diff -u original/include/openssl/md5.h include/openssl/md5.h
+--- original/include/openssl/md5.h	2023-11-24 15:58:28.610171865 +0100
++++ include/openssl_local/md5.h	2023-11-24 23:10:52.570854593 +0100
+@@ -11,6 +11,15 @@
+ # define OPENSSL_MD5_H
+ # pragma once
+ 
++#if defined(ERLANG_OPENSSL_INTEGRATION)
++
++#include "erl_md5.h"
++
++#undef OPENSSL_NO_MD5
++#undef OPENSSL_NO_DEPRECATED_3_0
++
++#else  /* !defined(ERLANG_OPENSSL_INTEGRATION) */
++
+ # include <openssl/macros.h>
+ # ifndef OPENSSL_NO_DEPRECATED_3_0
+ #  define HEADER_MD5_H
+@@ -18,8 +27,12 @@
+ 
+ # include <openssl/opensslconf.h>
+ 
++#endif /* !defined(ERLANG_OPENSSL_INTEGRATION) */
++
+ # ifndef OPENSSL_NO_MD5
++#if !defined(ERLANG_OPENSSL_INTEGRATION)
+ #  include <openssl/e_os2.h>
++#endif
+ #  include <stddef.h>
+ #  ifdef  __cplusplus
+ extern "C" {
+@@ -46,12 +59,19 @@
+ } MD5_CTX;
+ #  endif
+ #  ifndef OPENSSL_NO_DEPRECATED_3_0
++#    if defined(ERLANG_OPENSSL_INTEGRATION)
++int MD5_INIT_FUNCTION_NAME(MD5_CTX *c);
++int MD5_UPDATE_FUNCTION_NAME(MD5_CTX *c, const void *data, size_t len);
++int MD5_FINAL_FUNCTION_NAME(unsigned char *md, MD5_CTX *c);
++void MD5_TRANSFORM_FUNCTION_NAME(MD5_CTX *c, const unsigned char *b);
++#    else /* !defined(ERLANG_OPENSSL_INTEGRATION) */
+ OSSL_DEPRECATEDIN_3_0 int MD5_Init(MD5_CTX *c);
+ OSSL_DEPRECATEDIN_3_0 int MD5_Update(MD5_CTX *c, const void *data, size_t len);
+ OSSL_DEPRECATEDIN_3_0 int MD5_Final(unsigned char *md, MD5_CTX *c);
+ OSSL_DEPRECATEDIN_3_0 unsigned char *MD5(const unsigned char *d, size_t n,
+                                          unsigned char *md);
+ OSSL_DEPRECATEDIN_3_0 void MD5_Transform(MD5_CTX *c, const unsigned char *b);
++#    endif /* !defined(ERLANG_OPENSSL_INTEGRATION) */
+ #  endif
+ 
+ #  ifdef  __cplusplus

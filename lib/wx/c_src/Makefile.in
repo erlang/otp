@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2022. All Rights Reserved.
+# Copyright Ericsson AB 2008-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ $(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
 
 $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 	$(V_at)mkdir -p $(TARGET_DIR)
-	$(V_CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
+	$(V_CXX) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
 $(WEBVIEW_LOADER_DLL_DEST): $(WEBVIEW_LOADER_DLL_ORIG)
 	$(INSTALL_PROGRAM) $< $@
@@ -199,7 +199,11 @@ release_spec: opt
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver$(SO_EXT) "$(RELSYSDIR)/priv/"
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) "$(RELSYSDIR)/priv/"
 ifneq ($(WEBVIEW_LOADER_DLL_ORIG),)
-		$(INSTALL_PROGRAM) $(WEBVIEW_LOADER_DLL_DEST) "$(RELSYSDIR)/priv/"
+	$(INSTALL_PROGRAM) $(WEBVIEW_LOADER_DLL_DEST) "$(RELSYSDIR)/priv/"
+endif
+ifeq ($(SYS_TYPE),win32)
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/wxe_driver.pdb "$(RELSYSDIR)/priv/"
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl.pdb "$(RELSYSDIR)/priv/"
 endif
 
 release_docs_spec:

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2022. All Rights Reserved.
+# Copyright Ericsson AB 1996-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,5 +31,5 @@ ifndef TERTIARY_BOOTSTRAP
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 endif
 
-clean depend docs release release_docs tests release_tests check xmllint:
+clean depend docs release release_docs tests release_tests check:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

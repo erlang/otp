@@ -7,7 +7,7 @@
 ;
 ; %CopyrightBegin%
 ;
-; Copyright Ericsson AB 2012-2023. All Rights Reserved.
+; Copyright Ericsson AB 2012-2024. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ SectionIn 1 RO
     	CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
 continue_create:
   	CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Erlang.lnk" \
-		"$INSTDIR\bin\werl.exe"
+		"$INSTDIR\bin\erl.exe"
   
   	!insertmacro MUI_STARTMENU_WRITE_END
 ; And once again, the verbosity...
@@ -233,7 +233,7 @@ done_startmenu:
 		"Publisher" "Ericsson AB"
   	WriteRegStr HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"UninstallString" "$INSTDIR\Uninstall.exe"
+		"UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   	WriteRegDWORD HKLM \
 		"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1
@@ -263,7 +263,7 @@ done_startmenu:
 		"Publisher" "Ericsson AB"
   	WriteRegStr HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
-		"UninstallString" "$INSTDIR\Uninstall.exe"
+		"UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
   	WriteRegDWORD HKCU \
 		"Software\Microsoft\Windows\CurrentVersion\Uninstall\Erlang OTP" \
 		"NoModify" 1

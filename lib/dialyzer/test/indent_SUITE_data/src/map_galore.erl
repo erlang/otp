@@ -2644,7 +2644,7 @@ t_dets(_Config) ->
 
 t_tracing(_Config) ->
 
-    dbg:stop_clear(),
+    dbg:stop(),
     {ok,Tracer} = dbg:tracer(process,{fun trace_collector/2, self()}),
     dbg:p(self(),c),
 
@@ -2697,7 +2697,7 @@ t_tracing(_Config) ->
     %% Check to extra messages
     timeout = getmsg(Tracer),
 
-    dbg:stop_clear(),
+    dbg:stop(),
     ok.
 
 getmsg(_Tracer) ->

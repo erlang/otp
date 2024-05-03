@@ -114,11 +114,14 @@ Error BaseRAPass::runOnFunction(Zone* zone, Logger* logger, FuncNode* func) {
 #ifndef ASMJIT_NO_LOGGING
   _logger = logger;
   _formatOptions.reset();
-  _diagnosticOptions = DiagnosticOptions::kNone;
+  _diagnosticOptions = _cb->diagnosticOptions();
 
   if (logger) {
     _formatOptions = logger->options();
-    _diagnosticOptions = _cb->diagnosticOptions();
+  }
+  else {
+    _diagnosticOptions &= ~(DiagnosticOptions::kRADebugCFG |
+                            DiagnosticOptions::kRADebugUnreachable);
   }
 #else
   DebugUtils::unused(logger);
@@ -192,6 +195,12 @@ Error BaseRAPass::onPerformAllSteps() noexcept {
 
   return kErrorOk;
 }
+
+// BaseRAPass - Events
+// ===================
+
+void BaseRAPass::onInit() noexcept {}
+void BaseRAPass::onDone() noexcept {}
 
 // BaseRAPass - CFG - Basic Block Management
 // =========================================
@@ -304,6 +313,11 @@ Error BaseRAPass::addBlock(RABlock* block) noexcept {
 // BaseRAPass - CFG - Build
 // ========================
 
+// [[pure virtual]]
+Error BaseRAPass::buildCFG() noexcept {
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
 Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssignmentsMap) noexcept {
   if (sharedAssignmentsMap.empty())
     return kErrorOk;
@@ -328,9 +342,14 @@ Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssign
         RABlock* firstSuccessor = successors[0];
         // NOTE: Shared assignments connect all possible successors so we only need the first to propagate exit scratch
         // GP registers.
-        ASMJIT_ASSERT(firstSuccessor->hasSharedAssignmentId());
-        RASharedAssignment& sa = _sharedAssignments[firstSuccessor->sharedAssignmentId()];
-        sa.addEntryScratchGpRegs(block->exitScratchGpRegs());
+        if (firstSuccessor->hasSharedAssignmentId()) {
+          RASharedAssignment& sa = _sharedAssignments[firstSuccessor->sharedAssignmentId()];
+          sa.addEntryScratchGpRegs(block->exitScratchGpRegs());
+        }
+        else {
+          // This is only allowed if there is a single successor - in that case shared assignment is not necessary.
+          ASMJIT_ASSERT(successors.size() == 1u);
+        }
       }
     }
     if (block->hasSharedAssignmentId()) {
@@ -347,21 +366,18 @@ Error BaseRAPass::initSharedAssignments(const ZoneVector<uint32_t>& sharedAssign
 
 class RABlockVisitItem {
 public:
+  RABlock* _block {};
+  uint32_t _index {};
+
   inline RABlockVisitItem(RABlock* block, uint32_t index) noexcept
     : _block(block),
       _index(index) {}
 
-  inline RABlockVisitItem(const RABlockVisitItem& other) noexcept
-    : _block(other._block),
-      _index(other._index) {}
-
+  inline RABlockVisitItem(const RABlockVisitItem& other) noexcept = default;
   inline RABlockVisitItem& operator=(const RABlockVisitItem& other) noexcept = default;
 
   inline RABlock* block() const noexcept { return _block; }
   inline uint32_t index() const noexcept { return _index; }
-
-  RABlock* _block;
-  uint32_t _index;
 };
 
 Error BaseRAPass::buildCFGViews() noexcept {
@@ -460,11 +476,17 @@ Error BaseRAPass::buildCFGDominators() noexcept {
   entryBlock->setIDom(entryBlock);
 
   bool changed = true;
-  uint32_t nIters = 0;
+
+#ifndef ASMJIT_NO_LOGGING
+  uint32_t numIters = 0;
+#endif
 
   while (changed) {
-    nIters++;
     changed = false;
+
+#ifndef ASMJIT_NO_LOGGING
+    numIters++;
+#endif
 
     uint32_t i = _pov.size();
     while (i) {
@@ -492,7 +514,7 @@ Error BaseRAPass::buildCFGDominators() noexcept {
     }
   }
 
-  ASMJIT_RA_LOG_FORMAT("  Done (%u iterations)\n", nIters);
+  ASMJIT_RA_LOG_FORMAT("  Done (%u iterations)\n", numIters);
   return kErrorOk;
 }
 
@@ -782,7 +804,6 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
   uint32_t numAllBlocks = blockCount();
   uint32_t numReachableBlocks = reachableBlockCount();
 
-  uint32_t numVisits = numReachableBlocks;
   uint32_t numWorkRegs = workRegCount();
   uint32_t numBitWords = ZoneBitVector::_wordsPerBits(numWorkRegs);
 
@@ -872,6 +893,10 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
   // Calculate IN/OUT of Each Block
   // ------------------------------
 
+#ifndef ASMJIT_NO_LOGGING
+  uint32_t numVisits = numReachableBlocks;
+#endif
+
   {
     ZoneStack<RABlock*> workList;
     ZoneBitVector workBits;
@@ -902,7 +927,9 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
           }
         }
       }
+#ifndef ASMJIT_NO_LOGGING
       numVisits++;
+#endif
     }
 
     workList.reset();
@@ -1146,7 +1173,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::initGlobalLiveSpans() noexcept {
         return DebugUtils::errored(kErrorOutOfMemory);
 
       for (size_t physId = 0; physId < physCount; physId++)
-        new(&liveSpans[physId]) LiveRegSpans();
+        new(Support::PlacementNew{&liveSpans[physId]}) LiveRegSpans();
     }
 
     _globalLiveSpans[group] = liveSpans;
@@ -1483,18 +1510,12 @@ Error BaseRAPass::runLocalAllocator() noexcept {
       cc()->_setCursor(unconditionalJump ? prev->prev() : prev);
 
       if (consecutive->hasEntryAssignment()) {
-        ASMJIT_PROPAGATE(
-          lra.switchToAssignment(
-            consecutive->entryPhysToWorkMap(),
-            consecutive->entryWorkToPhysMap(),
-            consecutive->liveIn(),
-            consecutive->isAllocated(),
-            false));
+        ASMJIT_PROPAGATE(lra.switchToAssignment(consecutive->entryPhysToWorkMap(), consecutive->liveIn(), consecutive->isAllocated(), false));
       }
       else {
         ASMJIT_PROPAGATE(lra.spillRegsBeforeEntry(consecutive));
         ASMJIT_PROPAGATE(setBlockEntryAssignment(consecutive, block, lra._curAssignment));
-        lra._curAssignment.copyFrom(consecutive->entryPhysToWorkMap(), consecutive->entryWorkToPhysMap());
+        lra._curAssignment.copyFrom(consecutive->entryPhysToWorkMap());
       }
     }
 
@@ -1526,7 +1547,7 @@ Error BaseRAPass::runLocalAllocator() noexcept {
     }
 
     // If we switched to some block we have to update the local allocator.
-    lra.replaceAssignment(block->entryPhysToWorkMap(), block->entryWorkToPhysMap());
+    lra.replaceAssignment(block->entryPhysToWorkMap());
   }
 
   _clobberedRegs.op<Support::Or>(lra._clobberedRegs);
@@ -1546,12 +1567,10 @@ Error BaseRAPass::setBlockEntryAssignment(RABlock* block, const RABlock* fromBlo
   }
 
   PhysToWorkMap* physToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-  WorkToPhysMap* workToPhysMap = cloneWorkToPhysMap(fromAssignment.workToPhysMap());
-
-  if (ASMJIT_UNLIKELY(!physToWorkMap || !workToPhysMap))
+  if (ASMJIT_UNLIKELY(!physToWorkMap))
     return DebugUtils::errored(kErrorOutOfMemory);
 
-  block->setEntryAssignment(physToWorkMap, workToPhysMap);
+  block->setEntryAssignment(physToWorkMap);
 
   // True if this is the first (entry) block, nothing to do in this case.
   if (block == fromBlock) {
@@ -1561,10 +1580,6 @@ Error BaseRAPass::setBlockEntryAssignment(RABlock* block, const RABlock* fromBlo
 
     return kErrorOk;
   }
-
-  RAAssignment as;
-  as.initLayout(_physRegCount, workRegs());
-  as.initMaps(physToWorkMap, workToPhysMap);
 
   const ZoneBitVector& liveOut = fromBlock->liveOut();
   const ZoneBitVector& liveIn = block->liveIn();
@@ -1578,94 +1593,85 @@ Error BaseRAPass::setBlockEntryAssignment(RABlock* block, const RABlock* fromBlo
       RAWorkReg* workReg = workRegById(workId);
 
       RegGroup group = workReg->group();
-      uint32_t physId = as.workToPhysId(group, workId);
+      uint32_t physId = fromAssignment.workToPhysId(group, workId);
 
       if (physId != RAAssignment::kPhysNone)
-        as.unassign(group, workId, physId);
+        physToWorkMap->unassign(group, physId, _physRegIndex.get(group) + physId);
     }
   }
 
-  return blockEntryAssigned(as);
+  return blockEntryAssigned(physToWorkMap);
 }
 
 Error BaseRAPass::setSharedAssignment(uint32_t sharedAssignmentId, const RAAssignment& fromAssignment) noexcept {
   ASMJIT_ASSERT(_sharedAssignments[sharedAssignmentId].empty());
 
   PhysToWorkMap* physToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-  WorkToPhysMap* workToPhysMap = cloneWorkToPhysMap(fromAssignment.workToPhysMap());
-
-  if (ASMJIT_UNLIKELY(!physToWorkMap || !workToPhysMap))
+  if (ASMJIT_UNLIKELY(!physToWorkMap))
     return DebugUtils::errored(kErrorOutOfMemory);
 
-  _sharedAssignments[sharedAssignmentId].assignMaps(physToWorkMap, workToPhysMap);
+  _sharedAssignments[sharedAssignmentId].assignPhysToWorkMap(physToWorkMap);
+
   ZoneBitVector& sharedLiveIn = _sharedAssignments[sharedAssignmentId]._liveIn;
   ASMJIT_PROPAGATE(sharedLiveIn.resize(allocator(), workRegCount()));
 
-  RAAssignment as;
-  as.initLayout(_physRegCount, workRegs());
-
   Support::Array<uint32_t, Globals::kNumVirtGroups> sharedAssigned {};
-
   for (RABlock* block : blocks()) {
     if (block->sharedAssignmentId() == sharedAssignmentId) {
       ASMJIT_ASSERT(!block->hasEntryAssignment());
 
       PhysToWorkMap* entryPhysToWorkMap = clonePhysToWorkMap(fromAssignment.physToWorkMap());
-      WorkToPhysMap* entryWorkToPhysMap = cloneWorkToPhysMap(fromAssignment.workToPhysMap());
-
-      if (ASMJIT_UNLIKELY(!entryPhysToWorkMap || !entryWorkToPhysMap))
+      if (ASMJIT_UNLIKELY(!entryPhysToWorkMap))
         return DebugUtils::errored(kErrorOutOfMemory);
 
-      block->setEntryAssignment(entryPhysToWorkMap, entryWorkToPhysMap);
-      as.initMaps(entryPhysToWorkMap, entryWorkToPhysMap);
+      block->setEntryAssignment(entryPhysToWorkMap);
 
       const ZoneBitVector& liveIn = block->liveIn();
       sharedLiveIn.or_(liveIn);
 
       for (RegGroup group : RegGroupVirtValues{}) {
         sharedAssigned[group] |= entryPhysToWorkMap->assigned[group];
+
+        uint32_t physBaseIndex = _physRegIndex.get(group);
         Support::BitWordIterator<RegMask> it(entryPhysToWorkMap->assigned[group]);
 
         while (it.hasNext()) {
           uint32_t physId = it.next();
-          uint32_t workId = as.physToWorkId(group, physId);
+          uint32_t workId = entryPhysToWorkMap->workIds[physBaseIndex + physId];
 
           if (!liveIn.bitAt(workId))
-            as.unassign(group, workId, physId);
+            entryPhysToWorkMap->unassign(group, physId, physBaseIndex + physId);
         }
       }
     }
   }
 
-  {
-    as.initMaps(physToWorkMap, workToPhysMap);
+  for (RegGroup group : RegGroupVirtValues{}) {
+    uint32_t physBaseIndex = _physRegIndex.get(group);
+    Support::BitWordIterator<RegMask> it(_availableRegs[group] & ~sharedAssigned[group]);
 
-    for (RegGroup group : RegGroupVirtValues{}) {
-      Support::BitWordIterator<RegMask> it(_availableRegs[group] & ~sharedAssigned[group]);
-
-      while (it.hasNext()) {
-        uint32_t physId = it.next();
-        if (as.isPhysAssigned(group, physId)) {
-          uint32_t workId = as.physToWorkId(group, physId);
-          as.unassign(group, workId, physId);
-        }
-      }
+    while (it.hasNext()) {
+      uint32_t physId = it.next();
+      if (Support::bitTest(physToWorkMap->assigned[group], physId))
+        physToWorkMap->unassign(group, physId, physBaseIndex + physId);
     }
   }
 
-  return blockEntryAssigned(as);
+  return blockEntryAssigned(physToWorkMap);
 }
 
-Error BaseRAPass::blockEntryAssigned(const RAAssignment& as) noexcept {
+Error BaseRAPass::blockEntryAssigned(const PhysToWorkMap* physToWorkMap) noexcept {
   // Complex allocation strategy requires to record register assignments upon block entry (or per shared state).
   for (RegGroup group : RegGroupVirtValues{}) {
     if (!_strategy[group].isComplex())
       continue;
 
-    Support::BitWordIterator<RegMask> it(as.assigned(group));
+    uint32_t physBaseIndex = _physRegIndex[group];
+    Support::BitWordIterator<RegMask> it(physToWorkMap->assigned[group]);
+
     while (it.hasNext()) {
       uint32_t physId = it.next();
-      uint32_t workId = as.physToWorkId(group, physId);
+      uint32_t workId = physToWorkMap->workIds[physBaseIndex + physId];
 
       RAWorkReg* workReg = workRegById(workId);
       workReg->addAllocatedMask(Support::bitMask(physId));
@@ -1825,6 +1831,50 @@ Error BaseRAPass::insertPrologEpilog() noexcept {
 
 Error BaseRAPass::rewrite() noexcept {
   return _rewrite(_func, _stop);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::_rewrite(BaseNode* first, BaseNode* stop) noexcept {
+  DebugUtils::unused(first, stop);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// BaseRAPass - Emit
+// =================
+
+// [[pure virtual]]
+Error BaseRAPass::emitMove(uint32_t workId, uint32_t dstPhysId, uint32_t srcPhysId) noexcept {
+  DebugUtils::unused(workId, dstPhysId, srcPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitSwap(uint32_t aWorkId, uint32_t aPhysId, uint32_t bWorkId, uint32_t bPhysId) noexcept {
+  DebugUtils::unused(aWorkId, aPhysId, bWorkId, bPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitLoad(uint32_t workId, uint32_t dstPhysId) noexcept {
+  DebugUtils::unused(workId, dstPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitSave(uint32_t workId, uint32_t srcPhysId) noexcept {
+  DebugUtils::unused(workId, srcPhysId);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseRAPass::emitJump(const Label& label) noexcept {
+  DebugUtils::unused(label);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+Error BaseRAPass::emitPreCall(InvokeNode* invokeNode) noexcept {
+  DebugUtils::unused(invokeNode);
+  return DebugUtils::errored(kErrorOk);
 }
 
 // BaseRAPass - Logging

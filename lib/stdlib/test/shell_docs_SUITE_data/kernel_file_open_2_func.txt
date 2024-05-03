@@ -113,6 +113,10 @@
     [;;4mread_file_info/1[0m does probably not match the number of bytes
     that can be read from a compressed file.
 
+  [;;4m[;;4mcompressed_one[0m[0m:
+    Read one member of a gzip compressed file. Option [;;4m[0m
+    [;;4mcompressed_one[0m can only be combined with [;;4mread[0m.
+
   [;;4m[;;4m{encoding, Encoding}[0m[0m:
     Makes the file perform automatic translation of characters to
     and from a specific (Unicode) encoding. Notice that the data

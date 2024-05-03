@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%%------------------------------------------------------------------
 
 -module(erl2html2).
+-moduledoc false.
 -export([convert/3, convert/4]).
 
 convert([], _Dest, _InclPath) ->   % Fake clause.
@@ -274,7 +275,13 @@ possibly_enhance(Str,false) ->
 %%%-----------------------------------------------------------------
 %%% End of the file
 footer() ->
-    "".
+    %% If the URL has an anchor part at the end (# with line number),
+    %% color that line to make it easier to find on the screen.
+    "<script>\n"
+    "var hash = window.location.hash.substring(1);\n"
+    "var anchor = document.getElementsByName(hash);\n"
+    "anchor[0].style.backgroundColor=\"orange\";\n"
+    "</script>\n".
 
 %%%-----------------------------------------------------------------
 %%% Read encoding from source file

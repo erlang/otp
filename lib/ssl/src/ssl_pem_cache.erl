@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 20016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 20016-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_pem_cache).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Internal application API
@@ -91,7 +92,7 @@ start_link_dist(_) ->
 
 
 %%--------------------------------------------------------------------
--spec insert(binary(), term()) -> ok | {error, reason()}.
+-spec insert(binary(), term()) -> ok | {error, ssl:reason()}.
 %%		    
 %% Description: Cache a pem file and return its content.
 %%--------------------------------------------------------------------
@@ -142,12 +143,12 @@ init([Name]) ->
 	       }}.
 
 %%--------------------------------------------------------------------
--spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+-spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
 %% Possible return values not used now.  
-%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {reply, term(), #state{}, timeout()} |
 %%					      {noreply, #state{}} |
 %%					      {noreply, #state{}, timeout()} |
-%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), term(), #state{}} |
 %%					      {stop, reason(), #state{}}.
 %%
 %% Description: Handling call messages
@@ -159,7 +160,7 @@ handle_call({unconditionally_clear_pem_cache, _},_,
     {reply, Result,  State}.
 
 %%--------------------------------------------------------------------
--spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+-spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.  
 %%				      | {noreply, #state{}, timeout()} |
 %%				       {stop, reason(), #state{}}.
@@ -177,7 +178,7 @@ handle_cast({invalidate_pem, File}, #state{pem_cache = Db} = State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
+-spec handle_info(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.
 %%				      |{noreply, #state{}, timeout()} |
 %%				      {stop, reason(), #state{}}.
@@ -196,7 +197,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), #state{}) -> ok.
+-spec terminate(ssl:reason(), #state{}) -> ok.
 %%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary

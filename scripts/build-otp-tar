@@ -439,7 +439,7 @@ else
 
     progress "Unpacking OTP source code into build-directory"
 
-    $gtar -z -x -C $build_root -f $src_tgz
+    $gtar -i -z -x -C $build_root -f $src_tgz
     if [ $? -ne 0 ]; then
 	error "Failed to unpack source"
     fi
@@ -530,7 +530,7 @@ if [ $? -ne 0 ]; then
 fi
 
 progress "Unpacking OTP source code into source-directory"
-$gtar -z -x -C $src_root -f $src_tgz
+$gtar -i -z -x -C $src_root -f $src_tgz
 if [ $? -ne 0 ]; then
     error "Failed to unpack source"
 fi
@@ -541,7 +541,13 @@ if [ ! -d $src_dir -o ! -f $src_dir/otp_build ]; then
 fi
 
 progress "Checking target directory name"
-target_dirname=`$prebld_dir/make/autoconf/config.guess`
+if [ -f "$prebld_dir/make/autoconf/config.guess" ]; then
+    target_dirname=`$prebld_dir/make/autoconf/config.guess`
+elif [ -f "$prebld_dir/erts/autoconf/config.guess" ]; then
+    target_dirname=`$prebld_dir/erts/autoconf/config.guess`
+else
+    error "Failed to find config.guess"
+fi
 if [  $? -ne 0 ]; then
     error "Failed to check target directory name"
 fi
@@ -651,7 +657,7 @@ done
 
 for kobj in $kobjs; do
     progress "Keeping $kobj in pre-build-directory"
-    copy $build_dir/../$kobj $prebld_root/$kobj
+    copy $build_dir/../$kobj $prebld_root/$(dirname $kobj)
 done
 
 cd $prebld_dir

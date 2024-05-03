@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(beam_trim).
+-moduledoc false.
 -export([module/2]).
 
 -import(lists, [any/2,reverse/1,reverse/2,seq/2,sort/1]).
@@ -212,8 +213,7 @@ is_recipe_viable({_,Trim,Moves}, UsedRegs) ->
 
 expand_recipe({Layout,Trim,Moves}, FrameSize) ->
     Is = reverse(Moves, [{trim,Trim,FrameSize-Trim}]),
-    Map0 = [{Src,Dst-Trim} || {move,{y,Src},{y,Dst}} <- Moves],
-    Map = maps:from_list(Map0),
+    Map = #{Src => Dst - Trim || {move,{y,Src},{y,Dst}} <- Moves},
     Remap = {Trim,Map},
     case [Y || {kill,Y} <- Layout] of
         [] ->
@@ -278,6 +278,12 @@ remap([{make_fun3,F,Index,OldUniq,Dst0,{list,Env0}}|Is], Remap) ->
     Dst = remap_arg(Dst0, Remap),
     I = {make_fun3,F,Index,OldUniq,Dst,{list,Env}},
     [I|remap(Is, Remap)];
+remap([{update_record,Hint,Size,Src0,Dst0,{list,Updates0}}|Is], Remap) ->
+    Updates = remap_args(Updates0, Remap),
+    Src = remap_arg(Src0, Remap),
+    Dst = remap_arg(Dst0, Remap),
+    I = {update_record,Hint,Size,Src,Dst,{list,Updates}},
+    [I|remap(Is, Remap)];
 remap([{deallocate,N}|Is], {Trim,_}=Remap) ->
     I = {deallocate,N-Trim},
     [I|remap(Is, Remap)];
@@ -286,9 +292,6 @@ remap([{recv_marker_clear,Ref}|Is], Remap) ->
     [I|remap(Is, Remap)];
 remap([{recv_marker_reserve,Mark}|Is], Remap) ->
     I = {recv_marker_reserve,remap_arg(Mark, Remap)},
-    [I|remap(Is, Remap)];
-remap([{swap,Reg1,Reg2}|Is], Remap) ->
-    I = {swap,remap_arg(Reg1, Remap),remap_arg(Reg2, Remap)},
     [I|remap(Is, Remap)];
 remap([{test,Name,Fail,Ss}|Is], Remap) ->
     I = {test,Name,Fail,remap_args(Ss, Remap)},
@@ -527,6 +530,12 @@ do_usage([{make_fun3,_,_,_,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
     Ns = ordsets:union(yregs([Dst]), Ns0),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
+do_usage([{update_record,_,_,Src,Dst,{list,Ss}}|Is], Safe, Regs0, Ns0, Acc) ->
+    Regs1 = ordsets:del_element(Dst, Regs0),
+    Regs = ordsets:union(Regs1, yregs([Src|Ss])),
+    Ns = ordsets:union(yregs([Dst]), Ns0),
+    U = {Regs,Ns},
+    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{line,_}|Is], Safe, Regs, Ns, Acc) ->
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
@@ -536,12 +545,6 @@ do_usage([{recv_marker_clear,Src}|Is], Safe, Regs0, Ns, Acc) ->
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{recv_marker_reserve,Src}|Is], Safe, Regs0, Ns, Acc) ->
     Regs = ordsets:union(Regs0, yregs([Src])),
-    U = {Regs,Ns},
-    do_usage(Is, Safe, Regs, Ns, [U|Acc]);
-do_usage([{swap,R1,R2}|Is], Safe, Regs0, Ns0, Acc) ->
-    Ds = yregs([R1,R2]),
-    Regs = ordsets:union(Regs0, Ds),
-    Ns = ordsets:union(Ns0, Ds),
     U = {Regs,Ns},
     do_usage(Is, Safe, Regs, Ns, [U|Acc]);
 do_usage([{test,_,Fail,Ss}|Is], Safe, Regs0, Ns, Acc) ->

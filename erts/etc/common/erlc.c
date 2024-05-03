@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -742,14 +742,16 @@ call_compile_server(char** argv)
     ei_x_encode_atom(&args, "encoding");
     ei_x_encode_atom(&args, get_encoding());
     ei_x_encode_atom(&args, "cwd");
-    ei_x_encode_string(&args, cwd);
+    ei_x_encode_binary(&args, cwd, strlen(cwd));
     ei_x_encode_atom(&args, "env");
     encode_env(&args);
     ei_x_encode_atom(&args, "command_line");
     argc = 0;
     while (argv[argc]) {
+        char *arg;
         ei_x_encode_list_header(&args, 1);
-        ei_x_encode_string(&args, possibly_unquote(argv[argc]));
+        arg = possibly_unquote(argv[argc]);
+        ei_x_encode_binary(&args, arg, strlen(arg));
         argc++;
     }
     ei_x_encode_empty_list(&args); /* End of command_line */
@@ -773,7 +775,6 @@ call_compile_server(char** argv)
     /*
      * Decode the answer.
      */
-
     dec_index = 0;
     if (ei_decode_atom(reply.buff, &dec_index, atom) == 0 &&
         strcmp(atom, "wrong_config") == 0) {

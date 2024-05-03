@@ -65,7 +65,7 @@
 #include "ei_locking.h"
 #include "eisend.h"
 #include "eirecv.h"
-#include "eimd5.h"
+#include "erl_md5.h"
 #include "putget.h"
 #include "ei_resolve.h"
 #include "ei_epmd.h"
@@ -1058,11 +1058,11 @@ int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name,
 	    strcpy(thishostname, hp->h_name);
 	}
     }
-    if (strlen(this_node_name) + 1 + strlen(thishostname) > MAXNODELEN) {
+    if (snprintf(thisnodename, sizeof(thisnodename), "%s@%s",
+                 this_node_name, thishostname) > sizeof(thisnodename)) {
         EI_TRACE_ERR0("ei_connect_init_ussi","this node name is too long");
         return ERL_ERROR;
     }
-    sprintf(thisnodename, "%s@%s", this_node_name, thishostname);
     res = ei_connect_xinit_ussi(ec, thishostname, thisalivename, thisnodename,
                                 (struct in_addr *)*hp->h_addr_list, cookie, creation,
                                 cbs, cbs_sz, setup_context);
@@ -2249,21 +2249,9 @@ static DistFlags preferred_flags(void)
 {
     DistFlags flags =
         DFLAG_MANDATORY_25_DIGEST
-        | DFLAG_EXTENDED_REFERENCES
+        | DFLAG_DIST_MANDATORY
         | DFLAG_DIST_MONITOR
-        | DFLAG_EXTENDED_PIDS_PORTS
-        | DFLAG_FUN_TAGS
-        | DFLAG_NEW_FUN_TAGS
-        | DFLAG_NEW_FLOATS
-        | DFLAG_SMALL_ATOM_TAGS
-        | DFLAG_UTF8_ATOMS
-        | DFLAG_MAP_TAG
-        | DFLAG_BIG_CREATION
-        | DFLAG_EXPORT_PTR_TAG
-        | DFLAG_BIT_BINARIES
-        | DFLAG_HANDSHAKE_23
-        | DFLAG_V4_NC
-        | DFLAG_UNLINK_ID;
+        | DFLAG_SMALL_ATOM_TAGS;
     return flags;
 }
 

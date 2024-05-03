@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ int get_bn_from_bin_sz(ErlNifEnv* env, ERL_NIF_TERM term, BIGNUM** bnp, size_t* 
 int get_ossl_octet_string_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest);
 int get_ossl_BN_param_from_bin(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest);
 int get_ossl_BN_param_from_bin_sz(ErlNifEnv* env, char* key, ERL_NIF_TERM bin, OSSL_PARAM *dest, size_t *size);
+int get_ossl_BN_param_from_bn(ErlNifEnv* env, char* key, const BIGNUM* bn, OSSL_PARAM *dest);
 
 int get_ossl_param_from_bin_in_list(ErlNifEnv* env, char* key, ERL_NIF_TERM *listcell, OSSL_PARAM *dest);
 #endif

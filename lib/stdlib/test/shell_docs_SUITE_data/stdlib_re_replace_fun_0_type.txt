@@ -1,0 +1,5 @@
+
+  [;1m-type replace_fun() ::[0m
+  [;1m          fun((binary(), [binary()]) -> iodata() | unicode:charlist()).[0m
+
+  There is no documentation for replace_fun/0

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2000-2022. All Rights Reserved.
+# Copyright Ericsson AB 2000-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,7 +60,8 @@ include ../app/megaco.mk
 
 ERL_COMPILE_FLAGS += \
 	$(MEGACO_ERL_COMPILE_FLAGS) \
-	-I../../include
+	-I../../include \
+        +nowarn_missing_spec_documented
 
 
 # ----------------------------------------------------

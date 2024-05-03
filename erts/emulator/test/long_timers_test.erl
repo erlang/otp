@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -462,7 +462,7 @@ start_node(Name) ->
 
 stop_node(Node) ->
     monitor_node(Node, true),
-    spawn(Node, fun () -> halt() end),
+    spawn(Node, fun erlang:halt/0),
     receive {nodedown, Node} -> ok end.
 	    
 load_driver(Dir, Driver) ->

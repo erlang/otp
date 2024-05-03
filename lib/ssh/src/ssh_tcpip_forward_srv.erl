@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(ssh_tcpip_forward_srv).
+-moduledoc false.
 
 -behaviour(ssh_server_channel).
 

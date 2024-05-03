@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,34 +32,7 @@ FORBIDDEN_TYPES=h
 # instruction transformations; thus, they never occur in BEAM files.
 #
 
-# The too_old_compiler/0 instruction is specially handled in beam_load.c
-# to produce a user-friendly message informing the user that the module
-# needs to be re-compiled with a modern compiler.
-
-too_old_compiler/0
-too_old_compiler | never() => _
-
-# In R9C and earlier, the loader used to insert special instructions inside
-# the module_info/0,1 functions. (In R10B and later, the compiler inserts
-# an explicit call to an undocumented BIF, so that no loader trickery is
-# necessary.) Since the instructions don't work correctly in R12B, simply
-# refuse to load the module.
-
-func_info M=a a==am_module_info A=u==0 | label L | move n x==0 =>
-    too_old_compiler
-func_info M=a a==am_module_info A=u==1 | label L | move n x==0 =>
-    too_old_compiler
-
-# The undocumented and unsupported guard BIF is_constant/1 was removed
-# in R13. The is_constant/2 operation is marked as obsolete in genop.tab,
-# so the loader will automatically generate a too_old_compiler message
-# it is used, but we need to handle the is_constant/1 BIF specially here.
-
-bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
-
-#
-# All the other instructions.
-#
+func_info a a u | never() => _
 
 %cold
 label L
@@ -69,7 +42,7 @@ nif_start
 
 i_generic_breakpoint
 i_debug_breakpoint
-i_return_time_trace
+i_call_trace_return
 i_return_to_trace
 i_yield
 trace_jump W
@@ -122,6 +95,8 @@ move S X0=x==0 | line Loc => line Loc | move S X0
 line n => _
 line I
 
+executable_line Id Line => _
+
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
 # For the BEAM interpreter, though, it will probably be more efficient to
 # translate all uses of init_yregs/1 back to the instructions that the compiler
@@ -135,10 +110,10 @@ init_yregs N Yregs=* =>
 
 allocate t t?
 allocate_heap t I t?
-allocate_zero t t?
-allocate_heap_zero t I t?
+i_allocate_zero t t?
+i_allocate_heap_zero t I t?
 
-init y
+i_init y
 
 # This instruction when a BIF is called tail-recursively when
 # there is a stack frame.
@@ -153,21 +128,21 @@ i_trim t
 test_heap I t?
 
 allocate_heap S u==0 R => allocate S R
-allocate_heap_zero S u==0 R => allocate_zero S R
+i_allocate_heap_zero S u==0 R => i_allocate_zero S R
 
-init Y1 | init Y2 | init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => init_seq3 Y1
-init_seq3 Y1 | init Y4 | succ3(Y1,Y4) => init_seq4 Y1
-init_seq4 Y1 | init Y5 | succ4(Y1,Y5) => init_seq5 Y1
+i_init Y1 | i_init Y2 | i_init Y3 | succ(Y1,Y2) | succ(Y2,Y3) => i_init_seq3 Y1
+i_init_seq3 Y1 | i_init Y4 | succ3(Y1,Y4) => i_init_seq4 Y1
+i_init_seq4 Y1 | i_init Y5 | succ4(Y1,Y5) => i_init_seq5 Y1
 
-init_seq3 y
-init_seq4 y
-init_seq5 y
+i_init_seq3 y
+i_init_seq4 y
+i_init_seq5 y
 
-init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
-init Y1 | init Y2 => init2 Y1 Y2
+i_init Y1 | i_init Y2 | i_init Y3 => i_init3 Y1 Y2 Y3
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
-init2 y y
-init3 y y y
+i_init2 y y
+i_init3 y y y
 
 # Selecting values.
 
@@ -391,7 +366,7 @@ move SD=y    D=x | move Src=x  SDOther=y  |
   equal(SD, SDOther) | distinct(D, Src) =>
     move_shift Src SD D
 
-move SD=y    D=x | init SDOther           |
+move SD=y    D=x | i_init SDOther           |
   equal(SD, SDOther) =>
      move_shift n   SD D
 
@@ -848,9 +823,9 @@ cold_is_function2 f? x x
 %hot
 hot_is_function2 f? S t
 
-# Allocating & initializing.
-allocate Need Regs | init Y => allocate_init Need Regs Y
-init Y1 | init Y2 => init2 Y1 Y2
+# Allocating & i_initializing.
+allocate Need Regs | i_init Y => allocate_init Need Regs Y
+i_init Y1 | i_init Y2 => i_init2 Y1 Y2
 
 allocate_init t t? y
 
@@ -1013,7 +988,7 @@ bif1 Fail=f Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
 bif2 p Bif S1 S2 Dst      => i_bif2_body S2 S1 Bif Dst
 bif2 Fail=f Bif S1 S2 Dst => i_bif2 S2 S1 Fail Bif Dst
 
-i_get_hash c I d
+i_get_hash c W d
 i_get s d
 
 self xy
@@ -1083,11 +1058,8 @@ call_fun2 Tag Arity Func => call_fun2(Tag, Arity, Func)
 
 #
 # A fun with an empty environment can be converted to a literal.
-# As a further optimization, the we try to move the fun to its
-# final destination directly.
+#
 
-make_fun2 OldIndex=u =>
-    make_fun2(OldIndex)
 make_fun3 OldIndex=u Dst=d NumFree=u Env=* =>
     make_fun3(OldIndex, Dst, NumFree, Env)
 
@@ -1106,10 +1078,73 @@ is_function Fail=f c => jump Fail
 func_info M F A => i_func_info u M F A
 
 # ================================================================
-# New bit syntax matching (R11B).
+# New bit syntax matching for fixed sizes (from OTP 26).
 # ================================================================
 
 %warm
+
+bs_match Fail Ctx Size Rest=* => bs_match(Fail, Ctx, Size, Rest)
+
+# The bs_match generator breaks the bs_match instruction into
+# the instructions that follow.
+
+i_bs_ensure_bits xy I f
+i_bs_ensure_bits_unit xy I t f
+
+i_bs_read_bits xy t
+
+i_bs_eq f t W
+
+i_bs_extract_integer t d
+
+i_bs_read_bits Ctx=x u==8 | i_bs_extract_integer u==8 Dst=x =>
+    i_bs_read_integer_8 Ctx Dst
+
+i_bs_read_integer_8 x x
+
+i_bs_get_fixed_integer xy I t d
+
+i_bs_get_fixed_binary xy I d
+
+i_bs_get_tail xy d
+
+i_bs_skip xy I
+
+i_bs_drop I
+
+i_bs_ensure_bits Ctx1 Size1 Fail | i_bs_read_bits Ctx2 Size2 |
+  equal(Ctx1, Ctx2) | equal(Size1, Size2) =>
+    i_bs_ensure_bits_read Ctx1 Size1 Fail
+
+i_bs_ensure_bits_read xy t f
+
+# Optimize extraction of a single segment for some popular sizes.
+
+i_bs_ensure_bits Ctx1 u==8 Fail | i_bs_read_bits Ctx2 u==8 |
+  i_bs_extract_integer u==8 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_8 Ctx1 Fail Dst
+
+i_bs_ensure_bits Ctx1 u==16 Fail | i_bs_read_bits Ctx2 u==16 |
+  i_bs_extract_integer u==16 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_16 Ctx1 Fail Dst
+
+%if ARCH_64
+i_bs_ensure_bits Ctx1 u==32 Fail | i_bs_read_bits Ctx2 u==32 |
+  i_bs_extract_integer u==32 Dst=x | equal(Ctx1, Ctx2) =>
+    i_bs_get_integer_32 Ctx1 Fail Dst
+%endif
+
+#
+# The following instruction is specially handled in beam_load.c
+# to produce a user-friendly message if a bad bs_match instruction
+# is encountered.
+#
+bad_bs_match/1
+bad_bs_match A | never() => _
+
+# ================================================================
+# Bit syntax matching (from R11B).
+# ================================================================
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
@@ -1434,13 +1469,6 @@ i_fmul l l l
 i_fdiv l l l
 i_fnegate l l
 
-#
-# FPE signals were disabled in OTP 21 and we don't intend to ever
-# enable them again.
-#
-fclearerror => _
-fcheckerror p => _
-
 %hot
 
 #
@@ -1510,7 +1538,7 @@ i_get_map_elements f? s I *
 
 i_get_map_element_hash Fail Src=c Key Hash Dst =>
     move Src x | i_get_map_element_hash Fail x Key Hash Dst
-i_get_map_element_hash f? xy c I xy
+i_get_map_element_hash f? xy c W xy
 
 i_get_map_element Fail Src=c Key Dst =>
     move Src x | i_get_map_element Fail x Key Dst
@@ -1628,16 +1656,6 @@ i_int_bnot Fail Src=c Dst => move Src x | i_int_bnot Fail x Dst
 i_int_bnot j? S d
 
 #
-# Old guard BIFs that creates heap fragments are no longer allowed.
-#
-bif1 Fail u$bif:erlang:length/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:size/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:abs/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:float/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:round/1 s d => too_old_compiler
-bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
-
-#
 # Handle the length/1 guard BIF specially to make it trappable.
 #
 
@@ -1675,19 +1693,6 @@ unsupported_guard_bif A B C | never() => _
 on_load
 
 #
-# R14A.
-#
-# Superseded in OTP 24 by 'recv_marker_reserve' and friends.
-#
-
-recv_mark f => i_recv_mark
-i_recv_mark
-
-recv_set Fail | label Lbl | loop_rec Lf Reg =>
-    i_recv_set | label Lbl | loop_rec Lf Reg
-i_recv_set
-
-#
 # OTP 21.
 #
 
@@ -1706,7 +1711,7 @@ raw_raise
 move C=aiq X=x==1 => move_x1 C
 move C=aiq X=x==2 => move_x2 C
 
-move n D=y => init D
+move n D=y => i_init D
 
 move_x1 c
 move_x2 c
@@ -1719,3 +1724,24 @@ recv_marker_reserve S
 recv_marker_bind S S
 recv_marker_clear S
 recv_marker_use S
+
+#
+# OTP 26
+#
+
+update_record Hint=a Size=u Src=s Dst=d N=u Updates=* =>
+    update_record(Hint, Size, Src, Dst, N, Updates)
+
+i_update_record_copy Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_copy Size x Dst Offset Element
+
+i_update_record_in_place Size=u Src=c Dst=xy Offset=u Element=s =>
+    move Src x | i_update_record_in_place Size x Dst Offset Element
+
+i_update_record_copy t xy xy t s
+i_update_record_in_place t xy xy t s
+
+i_update_record_continue t s
+
+i_update_record_in_place_done
+

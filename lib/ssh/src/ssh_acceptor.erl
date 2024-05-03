@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 %%
 
 -module(ssh_acceptor).
+-moduledoc false.
 
 -include("ssh.hrl").
 
@@ -73,6 +74,9 @@ close(Socket, Options) ->
 acceptor_init(Parent, SystemSup,
               #address{address=Address, port=Port, profile=_Profile},
               Opts) ->
+    ssh_lib:set_label(server,
+                      {acceptor,
+                       list_to_binary(ssh_lib:format_address_port(Address, Port))}),
     AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
     case ?GET_INTERNAL_OPT(lsocket, Opts, undefined) of
         {LSock, SockOwner} ->
@@ -93,7 +97,7 @@ acceptor_init(Parent, SystemSup,
                             Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
                             acceptor_loop(Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
                         {error,Error} ->
-                            proc_lib:init_ack(Parent, {error,Error})
+                            proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
                     end
             end;
 
@@ -104,7 +108,7 @@ acceptor_init(Parent, SystemSup,
                     proc_lib:init_ack(Parent, {ok, self()}),
                     acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
                 {error,Error} ->
-                    proc_lib:init_ack(Parent, {error,Error})
+                    proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
             end
     end.
 

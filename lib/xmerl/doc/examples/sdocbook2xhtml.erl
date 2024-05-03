@@ -258,10 +258,10 @@ colspec(_, Attrs,_,_)->
     [].
 
 command(Data,_,_,_)->
-    ["<b><tt>", Data, "</tt></b>"].
+    ["<b><code>", Data, "</code></b>"].
 
 computeroutput(Data,_,_,_)->
-    ["<tt>", Data, "</tt>"].
+    ["<code>", Data, "</code>"].
 
 copyright(Data,_,_,_)->
     [ "&copy; ", Data].
@@ -402,7 +402,7 @@ listitem(Data, Attrs, Parents, _)->
     markup("li", Attrs, Data).
 
 literal(Data, Attrs, Parents, _)->
-    markup("tt", Attrs, Data).
+    markup("code", Attrs, Data).
 
 %literallayout
 %{
@@ -669,7 +669,7 @@ ulink(Data, Attrs, Parents, E)->
 
 %% User input is Constant Bold
 userinput(Data, Attrs, Parents, E)->
-    ["<tt><b>", Data, "</b></tt>"].
+    ["<code><b>", Data, "</b></code>"].
 
 variablelist(Data, Attrs, Parents, E)->
     markup("dl", Attrs, Data).

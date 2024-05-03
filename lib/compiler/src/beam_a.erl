@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +22,11 @@
 %%          (Mandatory.)
 
 -module(beam_a).
+-moduledoc false.
 
 -export([module/2]).
+
+-include("beam_asm.hrl").
 
 -spec module(beam_asm:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -85,6 +88,24 @@ rename_instrs([I|Is]) ->
     [rename_instr(I)|rename_instrs(Is)];
 rename_instrs([]) -> [].
 
+rename_instr({bif,Bif,Fail,[A,B],Dst}=I) ->
+    case Bif of
+        '=<' ->
+            {bif,'>=',Fail,[B,A],Dst};
+        '<' ->
+            case [A,B] of
+                [{integer,N},{tr,_,#t_integer{}}=Src] ->
+                    {bif,'>=',Fail,[Src,{integer,N+1}],Dst};
+                [{tr,_,#t_integer{}}=Src,{integer,N}] ->
+                    {bif,'>=',Fail,[{integer,N-1},Src],Dst};
+                [_,_] ->
+                    I
+            end;
+        '>' ->
+            rename_instr({bif,'<',Fail,[B,A],Dst});
+        _ ->
+            I
+    end;
 rename_instr({bs_put_binary=I,F,Sz,U,Fl,Src}) ->
     {bs_put,F,{I,U,Fl},[Sz,Src]};
 rename_instr({bs_put_float=I,F,Sz,U,Fl,Src}) ->

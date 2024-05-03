@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,138 @@
 %%
 
 -module(ct_snmp).
+-moduledoc """
+Common Test user interface module for the SNMP application.
+
+`Common Test` user interface module for the `SNMP` application.
+
+The purpose of this module is to simplify SNMP configuration for the test case
+writer. Many test cases can use default values for common operations and then no
+SNMP configuration files need to be supplied. When it is necessary to change
+particular configuration parameters, a subset of the relevant SNMP configuration
+files can be passed to `ct_snmp` by `Common Test` configuration files. For more
+specialized configuration parameters, a simple SNMP configuration file can be
+placed in the test suite data directory. To simplify the test suite,
+`Common Test` keeps track of some of the SNMP manager information. This way the
+test suite does not have to handle as many input parameters as if it had to
+interface wthe OTP SNMP manager directly.
+
+_Configurable SNMP Manager and Agent Parameters:_
+
+Manager configuration:
+
+- **`[{start_manager, boolean()}`** - Optional. Default is `true`.
+
+- **`{users, [{user_name(), [call_back_module(), user_data()]}]}`** - Optional.
+
+- **`{usm_users, [{usm_user_name(), [usm_config()]}]}`** - Optional. SNMPv3
+  only.
+
+- **`{managed_agents,[{agent_name(), [user_name(), agent_ip(), agent_port(), [agent_config()]]}]}`** -
+  `managed_agents` is optional.
+
+- **`{max_msg_size, integer()}`** - Optional. Default is `484`.
+
+- **`{mgr_port, integer()}`** - Optional. Default is `5000`.
+
+- **`{engine _id, string()}`** - Optional. Default is `"mgrEngine"`.
+
+Agent configuration:
+
+- **`{start_agent, boolean()}`** - Optional. Default is `false`.
+
+- **`{agent_sysname, string()}`** - Optional. Default is `"ct_test"`.
+
+- **`{agent_manager_ip, manager_ip()}`** - Optional. Default is `localhost`.
+
+- **`{agent_vsns, list()}`** - Optional. Default is `[v2]`.
+
+- **`{agent_trap_udp, integer()}`** - Optional. Default is `5000`.
+
+- **`{agent_udp, integer()}`** - Optional. Default is `4000`.
+
+- **`{agent_notify_type, atom()}`** - Optional. Default is `trap`.
+
+- **`{agent_sec_type, sec_type()}`** - Optional. Default is `none`.
+
+- **`{agent_passwd, string()}`** - Optional. Default is `""`.
+
+- **`{agent_engine_id, string()}`** - Optional. Default is `"agentEngine"`.
+
+- **`{agent_max_msg_size, string()}`** - Optional. Default is `484`.
+
+The following parameters represents the SNMP configuration files `context.conf`,
+`standard.conf`, `community.conf`, `vacm.conf`, `usm.conf`, `notify.conf`,
+`target_addr.conf`, and `target_params.conf`. Notice that all values in
+`agent.conf` can be modified by the parameters listed above. All these
+configuration files have default values set by the `SNMP` application. These
+values can be overridden by suppling a list of valid configuration values or a
+file located in the test suites data directory, which can produce a list of
+valid configuration values if you apply function `file:consult/1` to the file.
+
+- **`{agent_contexts, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_community, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_sysinfo, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_vacm, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_usm, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_notify_def, [term()] | {data_dir_file, rel_path()}}`** - Optional.
+
+- **`{agent_target_address_def, [term()] | {data_dir_file, rel_path()}}`** -
+  Optional.
+
+- **`{agent_target_param_def, [term()] | {data_dir_file, rel_path()}}`** -
+  Optional.
+
+Parameter `MgrAgentConfName` in the functions is to be a name you allocate in
+your test suite using a `require` statement. Example (where
+`MgrAgentConfName = snmp_mgr_agent`):
+
+```erlang
+ suite() -> [{require, snmp_mgr_agent, snmp}].
+```
+
+or
+
+```text
+ ct:require(snmp_mgr_agent, snmp).
+```
+
+Notice that USM users are needed for SNMPv3 configuration and are not to be
+confused with users.
+
+SNMP traps, inform, and report messages are handled by the user callback module.
+For details, see the [`SNMP`](`e:snmp:index.html`) application.
+
+It is recommended to use the `.hrl` files created by the Erlang/OTP MIB compiler
+to define the Object Identifiers (OIDs). For example, to get the Erlang node
+name from `erlNodeTable` in the OTP-MIB:
+
+```erlang
+ Oid = ?erlNodeEntry ++ [?erlNodeName, 1]
+```
+
+Furthermore, values can be set for `SNMP` application configuration parameters,
+`config`, `server`, `net_if`, and so on (for a list of valid parameters and
+types, see the [`User's Guide for the SNMP application`](`e:snmp:index.html`)).
+This is done by defining a configuration data variable on the following form:
+
+```erlang
+ {snmp_app, [{manager, [snmp_app_manager_params()]},
+             {agent, [snmp_app_agent_params()]}]}.
+```
+
+A name for the data must be allocated in the suite using `require` (see the
+example above). Pass this name as argument `SnmpAppConfName` to
+[`ct_snmp:start/3`](`start/3`). `ct_snmp` specifies default values for some
+`SNMP` application configuration parameters (such as `{verbosity,trace}` for
+parameter `config`). This set of defaults is merged with the parameters
+specified by the user. The user values override `ct_snmp` defaults.
+""".
 
 -include("snmp_types.hrl").
 -include("inet.hrl").
@@ -30,6 +162,43 @@
 	 unregister_users/1, unregister_users/2, unregister_agents/1,
 	 unregister_agents/2, unregister_usm_users/1, unregister_usm_users/2,
 	 load_mibs/1, unload_mibs/1]).
+
+-type agent_config() :: {Item :: term(), Value :: term()}.
+-type agent_ip() :: ip().
+-type agent_name() :: atom().
+-type agent_port() :: integer().
+-type call_back_module() :: atom().
+-type error_index() :: integer().
+-type error_status() :: noError | atom().
+-type ip() :: string() | {integer(), integer(), integer(), integer()}.
+-type manager_ip() :: ip().
+-type oid() :: [byte()].
+-type oids() :: [oid()].
+-type rel_path() :: string().
+-type sec_type() :: none | minimum | semi.
+-type snmp_app_agent_params() :: term().
+-type snmp_app_manager_params() :: term().
+-type snmpreply() :: {error_status(), error_index(), varbinds()}.
+-type user_data() :: term().
+-type user_name() :: atom().
+-type usm_config() :: {Item :: term(), Value :: term()}.
+-type usm_user_name() :: string().
+-type value_type() :: o | i | u | g | s.
+-type var_and_val() :: {oid(), value_type(), term()}.
+-type varbind() :: term().
+-type varbinds() :: [varbind()].
+-doc """
+These data types are described in the documentation for the
+[`SNMP`](`e:snmp:index.html`) application.
+""".
+-type varsandvals() :: [var_and_val()].
+
+-export_type([agent_config/0, agent_ip/0, agent_name/0, agent_port/0,
+              call_back_module/0, error_index/0, error_status/0, ip/0,
+              manager_ip/0, oid/0, oids/0, rel_path/0, sec_type/0,
+              snmp_app_agent_params/0, snmp_app_manager_params/0, snmpreply/0,
+              user_data/0, user_name/0, usm_config/0, usm_user_name/0,
+              value_type/0, var_and_val/0, varbind/0, varbinds/0, varsandvals/0]).
 
 %% Manager values
 -define(CT_SNMP_LOG_FILE, "ct_snmp_set.log").
@@ -50,9 +219,32 @@
 %%%  API
 %%%=========================================================================
 
+-doc """
+start(Config, MgrAgentConfName) -> ok
+
+Equivalent to [`ct_snmp:start(Config, MgrAgentConfName, undefined)`](`start/3`).
+""".
 start(Config, MgrAgentConfName) ->
     start(Config, MgrAgentConfName, undefined).
 
+-doc """
+start(Config, MgrAgentConfName, SnmpAppConfName) -> ok
+
+Starts an SNMP manager and/or agent. In the manager case, registrations of users
+and agents, as specified by the configuration `MgrAgentConfName`, are performed.
+When using SNMPv3, called USM users are also registered. Users, `usm_users`, and
+managed agents can also be registered later using
+[`ct_snmp:register_users/2`](`register_users/2`),
+[`ct_snmp:register_agents/2`](`register_agents/2`), and
+[`ct_snmp:register_usm_users/2`](`register_usm_users/2`).
+
+The agent started is called `snmp_master_agent`. Use
+[`ct_snmp:load_mibs/1`](`load_mibs/1`) to load MIBs into the agent.
+
+With `SnmpAppConfName` SNMP applications can be configured with parameters
+`config`, `mibs`, `net_if`, and so on. The values are merged with (and possibly
+override) default values set by `ct_snmp`.
+""".
 start(Config, MgrAgentConfName, SnmpAppConfName) ->
     StartManager= ct:get_config({MgrAgentConfName, start_manager}, true),
     StartAgent = ct:get_config({MgrAgentConfName, start_agent}, false),
@@ -80,6 +272,11 @@ start_application(App) ->
             Else
     end.
  
+-doc """
+stop(Config) -> ok
+
+Stops the SNMP manager and/or agent, and removes all files created.
+""".
 stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
     ok = application:stop(snmp),
@@ -92,16 +289,31 @@ stop(Config) ->
     catch del_dir(DbDir).
     
     
+-doc """
+get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+
+Issues a synchronous SNMP `get` request.
+""".
 get_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
+-doc """
+get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+
+Issues a synchronous SNMP `get next` request.
+""".
 get_next_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get_next2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
+-doc """
+set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
+
+Issues a synchronous SNMP `set` request.
+""".
 set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
@@ -117,6 +329,15 @@ set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     end,
     SnmpSetReply.
 
+-doc """
+set_info(Config) -> [{Agent, OldVarsAndVals, NewVarsAndVals}]
+
+Returns a list of all successful `set` requests performed in the test case in
+reverse order. The list contains the involved user and agent, the value before
+`set`, and the new value. This is intended to simplify the cleanup in function
+`end_per_testcase`, that is, the undoing of the `set` requests and their
+possible side-effects.
+""".
 set_info(Config) ->
     PrivDir = ?config(priv_dir, Config),
     SetLogFile = filename:join(PrivDir, ?CT_SNMP_LOG_FILE),
@@ -128,6 +349,15 @@ set_info(Config) ->
 	    []
     end.
 
+-doc """
+register_users(MgrAgentConfName, Users) -> ok | {error, Reason}
+
+Registers the manager entity (=user) responsible for specific agent(s).
+Corresponds to making an entry in `users.conf`.
+
+This function tries to register the specified users, without checking if any of
+them exist. To change a registered user, the user must first be unregistered.
+""".
 register_users(MgrAgentConfName, Users) ->
     case setup_users(Users) of
 	ok ->
@@ -141,6 +371,16 @@ register_users(MgrAgentConfName, Users) ->
 	    Error
     end.
 
+-doc """
+register_agents(MgrAgentConfName, ManagedAgents) -> ok | {error, Reason}
+
+Explicitly instructs the manager to handle this agent. Corresponds to making an
+entry in `agents.conf`.
+
+This function tries to register the specified managed agents, without checking
+if any of them exist. To change a registered managed agent, the agent must first
+be unregistered.
+""".
 register_agents(MgrAgentConfName, ManagedAgents) ->
     case setup_managed_agents(MgrAgentConfName,ManagedAgents) of
 	ok ->
@@ -155,6 +395,15 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
 	    Error
     end.
 
+-doc """
+register_usm_users(MgrAgentConfName, UsmUsers) -> ok | {error, Reason}
+
+Explicitly instructs the manager to handle this USM user. Corresponds to making
+an entry in `usm.conf`.
+
+This function tries to register the specified users, without checking if any of
+them exist. To change a registered user, the user must first be unregistered.
+""".
 register_usm_users(MgrAgentConfName, UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     case setup_usm_users(UsmUsers, EngineID) of
@@ -169,10 +418,21 @@ register_usm_users(MgrAgentConfName, UsmUsers) ->
 	    Error
     end.
 
+-doc """
+unregister_users(MgrAgentConfName) -> ok
+
+Unregisters all users.
+""".
 unregister_users(MgrAgentConfName) ->
     Users = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, users},[])],
     unregister_users(MgrAgentConfName,Users).
 
+-doc """
+unregister_users(MgrAgentConfName, Users) -> ok
+
+Unregisters the specified users.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 unregister_users(MgrAgentConfName,Users) ->
     takedown_users(Users),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -185,12 +445,23 @@ unregister_users(MgrAgentConfName,Users) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+-doc """
+unregister_agents(MgrAgentConfName) -> ok
+
+Unregisters all managed agents.
+""".
 unregister_agents(MgrAgentConfName) ->    
     ManagedAgents =  [AgentName ||
 			 {AgentName, _} <-
 			     ct:get_config({MgrAgentConfName,managed_agents},[])],
     unregister_agents(MgrAgentConfName,ManagedAgents).
 
+-doc """
+unregister_agents(MgrAgentConfName, ManagedAgents) -> ok
+
+Unregisters the specified managed agents.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 unregister_agents(MgrAgentConfName,ManagedAgents) ->
     takedown_managed_agents(MgrAgentConfName, ManagedAgents),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -204,10 +475,22 @@ unregister_agents(MgrAgentConfName,ManagedAgents) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+-doc """
+unregister_usm_users(MgrAgentConfName) -> ok
+
+Unregisters all USM users.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 unregister_usm_users(MgrAgentConfName) ->
     UsmUsers = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, usm_users},[])],
     unregister_usm_users(MgrAgentConfName,UsmUsers).
 
+-doc """
+unregister_usm_users(MgrAgentConfName, UsmUsers) -> ok
+
+Unregisters the specified USM users.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     takedown_usm_users(UsmUsers,EngineID),
@@ -222,9 +505,20 @@ unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     ct_config:update_config(MgrAgentConfName, NewSnmpVals),
     ok.
 
+-doc """
+load_mibs(Mibs) -> ok | {error, Reason}
+
+Loads the MIBs into agent `snmp_master_agent`.
+""".
 load_mibs(Mibs) ->       
     snmpa:load_mibs(snmp_master_agent, Mibs).
  
+-doc """
+unload_mibs(Mibs) -> ok | {error, Reason}
+
+Unloads the MIBs from agent `snmp_master_agent`.
+""".
+-doc(#{since => <<"OTP R16B">>}).
 unload_mibs(Mibs) ->
     snmpa:unload_mibs(snmp_master_agent, Mibs).
 

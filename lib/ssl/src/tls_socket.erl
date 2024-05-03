@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@
 %% %CopyrightEnd%
 %%
 -module(tls_socket).
+-moduledoc false.
 
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
+-include("ssl_record.hrl").
 
 -export([send/3, 
          listen/3, 
@@ -250,46 +252,49 @@ internal_inet_values() ->
 default_inet_values() ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
 
-inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
-    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]);
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
-    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
+    ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]);
+inherit_tracker(ListenSocket, EmOpts, SslOpts) ->
+    ssl_listen_tracker_sup:start_child([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(_,_, _, _, #{erl_dist := false,
-                                   session_tickets := disabled}) ->
-    {ok, disabled};
-session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
-                        #{erl_dist := false,
-                          session_tickets := Mode,
-                          anti_replay := AntiReplay}) ->
-    tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
-                                               TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
 session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
                         #{erl_dist := true,
                           session_tickets := Mode,
-                          anti_replay := AntiReplay}) ->
+                          anti_replay := AntiReplay,
+                          stateless_tickets_seed := Seed}) ->
     SupName = tls_server_session_ticket_sup:sup_name(dist),
     Children = supervisor:count_children(SupName),
     Workers = proplists:get_value(workers, Children),
     case Workers of
         0 ->
             tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
-                                                       TicketStoreSize, MaxEarlyDataSize, AntiReplay]);
+                                                       TicketStoreSize, MaxEarlyDataSize,
+                                                       AntiReplay, Seed]);
         1 ->
             [{_,Child,_, _}] = supervisor:which_children(SupName),
             {ok, Child}
-    end.
-session_id_tracker(_, #{versions := [{3,4}]}) ->
+    end;
+session_tickets_tracker(_,_, _, _, #{session_tickets := disabled}) ->
+    {ok, disabled};
+session_tickets_tracker(ListenSocket, Lifetime, TicketStoreSize, MaxEarlyDataSize,
+                        #{session_tickets := Mode,
+                          anti_replay := AntiReplay,
+                          stateless_tickets_seed := Seed}) ->
+    tls_server_session_ticket_sup:start_child([ListenSocket, Mode, Lifetime,
+                                               TicketStoreSize, MaxEarlyDataSize,
+                                               AntiReplay, Seed]).
+
+session_id_tracker(_, #{versions := [?TLS_1_3]}) ->
     {ok, not_relevant};
 %% Regardless of the option reuse_sessions we need the session_id_tracker
 %% to generate session ids, but no sessions will be stored unless
 %% reuse_sessions = true.
-session_id_tracker(ssl_unknown_listener, #{erl_dist := false}) ->
-    ssl_upgrade_server_session_cache_sup:start_child(normal);
-session_id_tracker(ListenSocket, #{erl_dist := false}) ->
-    ssl_server_session_cache_sup:start_child(ListenSocket);
 session_id_tracker(_, #{erl_dist := true}) ->
-    ssl_upgrade_server_session_cache_sup:start_child(dist).
+    ssl_upgrade_server_session_cache_sup:start_child(dist);
+session_id_tracker(ssl_unknown_listener, _) ->
+    ssl_upgrade_server_session_cache_sup:start_child(normal);
+session_id_tracker(ListenSocket, _) ->
+    ssl_server_session_cache_sup:start_child(ListenSocket).
        
 get_emulated_opts(TrackerPid) -> 
     call(TrackerPid, get_emulated_opts).
@@ -314,18 +319,19 @@ start_link(Port, SockOpts, SslOpts) ->
 %%--------------------------------------------------------------------
 init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
+    proc_lib:set_label({tls_listen_tracker, Listen}),
     Monitor = inet:monitor(Listen),
     {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
                 listen_monitor = Monitor,
                 ssl_opts = SslOpts}}.
 
 %%--------------------------------------------------------------------
--spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+-spec handle_call(term(), gen_server:from(), #state{}) -> {reply, Reply::term(), #state{}}.
 %% Possible return values not used now.  
-%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {reply, term(), #state{}, timeout()} |
 %%					      {noreply, #state{}} |
 %%					      {noreply, #state{}, timeout()} |
-%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), term(), #state{}} |
 %%					      {stop, reason(), #state{}}.
 %%
 %% Description: Handling call messages
@@ -343,7 +349,7 @@ handle_call(get_all_opts, _From,
     {reply, {ok, EmOpts, SslOpts}, State}.
 
 %%--------------------------------------------------------------------
--spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+-spec  handle_cast(term(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.  
 %%				      | {noreply, #state{}, timeout()} |
 %%				       {stop, reason(), #state{}}.
@@ -354,7 +360,7 @@ handle_cast(_, State)->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) ->  {stop, reason(), #state{}}. 
+-spec handle_info(term(), #state{}) ->  {stop, ssl:reason(), #state{}}.
 %% Possible return values not used now.
 %%			              {noreply, #state{}}.
 %%				      |{noreply, #state{}, timeout()} |
@@ -367,7 +373,7 @@ handle_info({'DOWN', Monitor, _, _, _}, #state{listen_monitor = Monitor} = State
 
 
 %%--------------------------------------------------------------------
--spec terminate(reason(), #state{}) -> ok.
+-spec terminate(ssl:reason(), #state{}) -> ok.
 %%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
@@ -391,9 +397,10 @@ code_change(_OldVsn, State, _Extra) ->
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
-start_tls_server_connection(#{sender_spawn_opts := SenderOpts} = SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
+start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
     try
         {ok, DynSup} = tls_connection_sup:start_child([]),
+        SenderOpts = maps:get(sender_spawn_opts, SslOpts, []),
         {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
         ConnArgs = [server, Sender, "localhost", Port, Socket,
                     {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],

@@ -43,7 +43,7 @@ ok. % indentation error, OTP-9710
 %% Function inside macro definition
 ?MACRO_DEFINING_A_FUNCTION.
 
-%% Two function one one line
+%% Two function on one line
 quuux() -> ok. quuuux() -> ok.
 
 %% do_something/0 does something

@@ -1,0 +1,51 @@
+
+[;1m  port_call/2[0m
+
+  The documentation for port_call/2 is hidden. This probably means
+  that it is internal and not to be used by other applications.
+
+  [;1m-spec erlang:port_call(Port, Operation, Data) -> term()[0m
+  [;1m                          when[0m
+  [;1m                              Port :: port() | atom(),[0m
+  [;1m                              Operation :: integer(),[0m
+  [;1m                              Data :: term().[0m
+
+  Performs a synchronous call to a port. The meaning of [;;4mOperation[0m
+  and [;;4mData[0m depends on the port, that is, on the port driver. Not
+  all port drivers support this feature.
+
+  [;;4mPort[0m is a port identifier, referring to a driver.
+
+  [;;4mOperation[0m is an integer, which is passed on to the driver.
+
+  [;;4mData[0m is any Erlang term. This data is converted to binary term
+  format and sent to the port.
+
+  Returns a term from the driver. The meaning of the returned data
+  also depends on the port driver.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPort[0m is not an identifier of an open port, or the
+    registered name of an open port. If the calling process was
+    previously linked to the closed port, identified by [;;4mPort[0m,
+    the exit signal from the port is guaranteed to be delivered
+    before this [;;4mbadarg[0m exception occurs.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOperation[0m does not fit in a 32-bit integer.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the port driver does not support synchronous control
+    operations.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If the port driver so decides for any reason (probably
+    something wrong with [;;4mOperation[0m or [;;4mData[0m).
+
+    Warning:
+      Do not call [;;4mport_call[0m with an unknown [;;4mPort[0m identifier
+      and expect [;;4mbadarg[0m exception. Any undefined behavior is
+      possible (including node crash) depending on how the port
+      driver interprets the supplied arguments.

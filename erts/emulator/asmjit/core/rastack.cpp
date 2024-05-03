@@ -62,7 +62,7 @@ Error RAStackAllocator::calculateStackFrame() noexcept {
 
   // STEP 1:
   //
-  // Update usage based on the size of the slot. We boost smaller slots in a way that 32-bit register has higher
+  // Update usage based on the size of the slot. We boost smaller slots in a way that 32-bit register has a higher
   // priority than a 128-bit register, however, if one 128-bit register is used 4 times more than some other 32-bit
   // register it will overweight it.
   for (RAStackSlot* slot : _slots) {

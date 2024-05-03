@@ -1,5 +1,6 @@
 %% -*- erlang-indent-level: 2 -*-
 -module(dialyzer_typegraph).
+-moduledoc false.
 
 -export([module_type_deps/3]).
 
@@ -29,17 +30,14 @@ module_type_deps(UseContracts, CodeServer, Modules) ->
   Contracts =
     case UseContracts of
       true -> maps:from_list(dict:to_list(dialyzer_codeserver:get_contracts(CodeServer)));
-      false -> []
+      false -> #{}
     end,
   Callbacks = maps:from_list(dialyzer_codeserver:get_callbacks(CodeServer)),
   TypeDefinitions =
-    maps:from_list(
-      [{M, dialyzer_codeserver:lookup_mod_records(M, CodeServer)} || M <- Modules]
-    ),
+    #{M => dialyzer_codeserver:lookup_mod_records(M, CodeServer) ||
+      M <- Modules},
   Behaviours =
-    maps:from_list(
-      [{M, get_behaviours_for_module(M, CodeServer)} || M <- Modules]
-    ),
+    #{M => get_behaviours_for_module(M, CodeServer) || M <- Modules},
   collect_module_type_deps(Contracts, Callbacks, TypeDefinitions, Behaviours).
 
 -spec get_behaviours_for_module(module(), dialyzer_codeserver:codeserver()) -> [module()].
@@ -59,12 +57,12 @@ get_behaviours_for_module(M, CodeServer) ->
 collect_module_type_deps(Specs, Callbacks, TypeDefinitions, Behaviours) ->
 
   Contracts =
-    [{M, Spec} || {{M, _F, _A}, {_FileLine, Spec, _Extra}} <- maps:to_list(Specs)] ++
-    [{M, Callback} || {{M, _F, _A}, {_FileLine, Callback, _Extra}} <- maps:to_list(Callbacks)],
+    [{M, Spec} || {M, _F, _A} := {_FileLine, Spec, _Extra} <- Specs] ++
+    [{M, Callback} || {M, _F, _A} := {_FileLine, Callback, _Extra} <- Callbacks],
 
   ModulesMentionedInTypeDefinitions =
     [{FromTypeDefM, erl_types:module_type_deps_of_type_defs(TypeTable)}
-      || {FromTypeDefM, TypeTable} <- maps:to_list(TypeDefinitions)],
+     || FromTypeDefM := TypeTable <- TypeDefinitions],
 
   ModulesMentionedInContracts =
     [{FromContractM, module_type_deps_of_contract(C)}

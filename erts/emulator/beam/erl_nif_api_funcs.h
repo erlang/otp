@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -219,6 +219,11 @@ ERL_NIF_API_FUNC_DECL(ErlNifTermType,enif_term_type,(ErlNifEnv* env, ERL_NIF_TER
 ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_init_resource_type,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
 ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM mod, ERL_NIF_TERM name, ERL_NIF_TERM rsrc, void* call_data));
 
+ERL_NIF_API_FUNC_DECL(int, enif_get_string_length, (ErlNifEnv *env, ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom, (ErlNifEnv *env, const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_make_new_atom_len, (ErlNifEnv *env, const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding encoding));
+ERL_NIF_API_FUNC_DECL(int, enif_set_option, (ErlNifEnv *env, ErlNifOption opt, ...));
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -408,6 +413,10 @@ ERL_NIF_API_FUNC_DECL(int,enif_dynamic_resource_call,(ErlNifEnv*, ERL_NIF_TERM m
 #  define enif_term_type ERL_NIF_API_FUNC_MACRO(enif_term_type)
 #  define enif_init_resource_type ERL_NIF_API_FUNC_MACRO(enif_init_resource_type)
 #  define enif_dynamic_resource_call ERL_NIF_API_FUNC_MACRO(enif_dynamic_resource_call)
+#  define enif_get_string_length ERL_NIF_API_FUNC_MACRO(enif_get_string_length)
+#  define enif_make_new_atom ERL_NIF_API_FUNC_MACRO(enif_make_new_atom)
+#  define enif_make_new_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_new_atom_len)
+#  define enif_set_option ERL_NIF_API_FUNC_MACRO(enif_set_option)
 /*
 ** ADD NEW ENTRIES HERE (before this comment)
 */
@@ -640,13 +649,13 @@ static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
 #  define enif_make_pid(ENV, PID) ((void)(ENV),(const ERL_NIF_TERM)((PID)->pid))
 #  define enif_compare_pids(A, B) (enif_compare((A)->pid,(B)->pid))
 #  define enif_select_read(ENV, E, OBJ, PID, MSG, MSG_ENV) \
-    enif_select_x(ENV, E, ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG, \
+    enif_select_x(ENV, E, (enum ErlNifSelectFlags)(ERL_NIF_SELECT_READ | ERL_NIF_SELECT_CUSTOM_MSG), \
                   OBJ, PID, MSG, MSG_ENV)
 #  define enif_select_write(ENV, E, OBJ, PID, MSG, MSG_ENV) \
-    enif_select_x(ENV, E, ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG, \
+    enif_select_x(ENV, E, (enum ErlNifSelectFlags)(ERL_NIF_SELECT_WRITE | ERL_NIF_SELECT_CUSTOM_MSG), \
                   OBJ, PID, MSG, MSG_ENV)
 #  define enif_select_error(ENV, E, OBJ, PID, MSG, MSG_ENV) \
-    enif_select_x(ENV, E, ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_CUSTOM_MSG, \
+    enif_select_x(ENV, E, (enum ErlNifSelectFlags)(ERL_NIF_SELECT_ERROR | ERL_NIF_SELECT_CUSTOM_MSG), \
                   OBJ, PID, MSG, MSG_ENV)
 
 #if SIZEOF_LONG == 8

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_snmp_hook).
+-moduledoc false.
 
 %% Hooks (called from mnesia)
 -export([check_ustruct/1, create_table/3, delete_table/2,

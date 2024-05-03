@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %% 
 
 -module(snmp_misc).
+-moduledoc false.
 
 %% need definition of mib record
 -include("snmp_types.hrl").
@@ -84,7 +85,12 @@ verify_behaviour(Behaviour, UserMod)
     case (catch UserMod:module_info(exports)) of
         Exps when is_list(Exps) ->
             Callbacks = Behaviour:behaviour_info(callbacks),
-            (catch verify_behaviour2(Callbacks, Exps));
+            OptionalCallbacks =
+                case Behaviour:behaviour_info(optional_callbacks) of
+                    undefined -> [];
+                    OC -> OC
+                end,
+            (catch verify_behaviour2(Callbacks -- OptionalCallbacks, Exps));
         _ ->
             {error, {bad_module, UserMod}}
     end;

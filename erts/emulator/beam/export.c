@@ -34,6 +34,14 @@
 
 #define EXPORT_HASH(m,f,a) ((atom_val(m) * atom_val(f)) ^ (a))
 
+#ifndef DEBUG
+#  define SHARED_LAMBDA_INITIAL_SIZE EXPORT_INITIAL_SIZE
+#  define SHARED_LAMBDA_EXPAND_SIZE 512
+#else
+#  define SHARED_LAMBDA_INITIAL_SIZE 256
+#  define SHARED_LAMBDA_EXPAND_SIZE 16
+#endif
+
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
 #else
@@ -48,6 +56,18 @@ static erts_atomic_t total_entries_bytes;
  * AND it protects the staging table from becoming active.
  */
 erts_mtx_t export_staging_lock;
+
+/* Bump allocator for globally shared external funs, allocating them in
+ * reasonably large chunks to simplify crash dumping and avoid fragmenting the
+ * literal heap too much.
+ *
+ * This is protected by the export staging lock. */
+struct lambda_chunk {
+    struct lambda_chunk *next;
+    Eterm *hp;
+
+    ErtsLiteralArea area;
+} *lambda_chunk = NULL;
 
 struct export_entry
 {
@@ -109,6 +129,71 @@ export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
 	     tmpl->info.mfa.arity == obj->info.mfa.arity);
 }
 
+ErtsLiteralArea *erts_get_next_lambda_lit_area(ErtsLiteralArea *prev)
+{
+    struct lambda_chunk *next;
+
+    ASSERT(ERTS_IS_CRASH_DUMPING);
+
+    if (prev != NULL) {
+        struct lambda_chunk *chunk = ErtsContainerStruct(prev,
+                                                         struct lambda_chunk,
+                                                         area);
+        next = chunk->next;
+
+        if (next == NULL) {
+            return NULL;
+        }
+    } else {
+        next = lambda_chunk;
+    }
+
+    next->area.end = next->hp;
+    return &next->area;
+}
+
+static void expand_shared_lambda_area(Uint count)
+{
+    struct lambda_chunk *chunk;
+    Uint heap_size;
+
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&export_staging_lock));
+
+    heap_size = count * ERL_FUN_SIZE;
+    chunk = erts_alloc(ERTS_ALC_T_LITERAL,
+                       sizeof(struct lambda_chunk) +
+                        (heap_size - 1) * sizeof(Eterm));
+    chunk->hp = &chunk->area.start[0];
+    chunk->area.end = &chunk->hp[heap_size];
+    chunk->area.off_heap = NULL;
+    chunk->next = lambda_chunk;
+
+    lambda_chunk = chunk;
+}
+
+static void create_shared_lambda(Export *export)
+{
+    ErlFunThing *lambda;
+
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&export_staging_lock));
+
+    ASSERT((lambda_chunk->hp <= lambda_chunk->area.end &&
+            lambda_chunk->hp >= lambda_chunk->area.start) &&
+           ((lambda_chunk->area.end - lambda_chunk->hp) % ERL_FUN_SIZE) == 0);
+    if (lambda_chunk->hp == lambda_chunk->area.end) {
+        expand_shared_lambda_area(SHARED_LAMBDA_EXPAND_SIZE);
+    }
+
+    lambda = (ErlFunThing*)lambda_chunk->hp;
+    lambda_chunk->hp += ERL_FUN_SIZE;
+
+    lambda->thing_word = MAKE_FUN_HEADER(export->info.mfa.arity, 0, 1);
+    lambda->entry.exp = export;
+
+    export->lambda = make_fun(lambda);
+
+    erts_set_literal_tag(&export->lambda, (Eterm*)lambda, ERL_FUN_SIZE);
+}
 
 static struct export_entry*
 export_alloc(struct export_entry* tmpl_e)
@@ -130,6 +215,8 @@ export_alloc(struct export_entry* tmpl_e)
 	obj->info.mfa.arity = tmpl->info.mfa.arity;
         obj->bif_number = -1;
         obj->is_bif_traced = 0;
+
+        create_shared_lambda(obj);
 
         sys_memset(&obj->trampoline, 0, sizeof(obj->trampoline));
 
@@ -197,6 +284,16 @@ init_export_table(void)
 	erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_tables[i], "export_list",
 			EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
     }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    export_staging_lock();
+#endif
+
+    expand_shared_lambda_area(SHARED_LAMBDA_INITIAL_SIZE);
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    export_staging_unlock();
+#endif
 }
 
 static struct export_entry* init_template(struct export_templ* templ,
@@ -293,7 +390,7 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
     res = ee->ep;
 
 #ifdef BEAMASM
-    res->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+    res->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls_export;
 #endif
 
     return res;
@@ -337,7 +434,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 
 #ifdef BEAMASM
                 ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] =
-                    beam_save_calls;
+                    beam_save_calls_export;
 #endif
 
 		ASSERT(ep);
@@ -387,7 +484,7 @@ Export *export_get(Export *e)
     return entry ? entry->ep : NULL;
 }
 
-IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
+IF_DEBUG(static ErtsCodeIndex debug_export_load_ix = 0;)
 
 
 void export_start_staging(void)
@@ -399,7 +496,7 @@ void export_start_staging(void)
     int i;
 
     ASSERT(dst_ix != src_ix);
-    ASSERT(debug_start_load_ix == -1);
+    ASSERT(debug_export_load_ix == ~0);
 
     export_staging_lock();
     /*
@@ -426,12 +523,12 @@ void export_start_staging(void)
     }
     export_staging_unlock();
 
-    IF_DEBUG(debug_start_load_ix = dst_ix);
+    IF_DEBUG(debug_export_load_ix = dst_ix);
 }
 
 void export_end_staging(int commit)
 {
-    ASSERT(debug_start_load_ix == erts_staging_code_ix());
-    IF_DEBUG(debug_start_load_ix = -1);
+    ASSERT(debug_export_load_ix == erts_staging_code_ix());
+    IF_DEBUG(debug_export_load_ix = ~0);
 }
 

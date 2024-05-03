@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,12 @@ typedef struct {
             int current_level;
         } catree;
     } u;
+    Eterm* old_tpl;
+#ifdef DEBUG
+    Eterm old_tpl_dflt[2];
+#else
+    Eterm old_tpl_dflt[8];
+#endif
 } DbUpdateHandle;
 
 /* How safe are we from double-hits or missed objects
@@ -250,6 +256,21 @@ typedef struct db_table_method
        Only internal use by ets:info(_,binary) */
     int (*db_raw_first)(Process*, DbTable*, Eterm* ret);
     int (*db_raw_next)(Process*, DbTable*, Eterm key, Eterm* ret);
+    /* Same as first/last/next/prev, but returns object(s) along with key */
+    int (*db_first_lookup)(Process* p,
+		    DbTable* tb, /* [in out] */
+		    Eterm* ret   /* [out] */);
+    int (*db_next_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm key,   /* [in] */
+		   Eterm* ret /* [out] */);
+    int (*db_last_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm* ret   /* [out] */);
+    int (*db_prev_lookup)(Process* p,
+		   DbTable* tb, /* [in out] */
+		   Eterm key,
+		   Eterm* ret);
 } DbTableMethod;
 
 typedef struct db_fixation {
@@ -379,14 +400,14 @@ void db_free_tmp_uncompressed(DbTerm* obj);
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b);
-Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
+Eterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 {
     Eterm key = GETKEY(tb, obj->tpl);
-    if IS_CONST(key) return key;
+    if is_immed(key) return key;
     else {
 	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);
@@ -400,10 +421,10 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap)
 {
     if (tb->compress) {
-	return db_copy_from_comp(tb, bp, hpp, off_heap);
+        return db_copy_from_comp(tb, bp, hpp, off_heap);
     }
     else {
-	return copy_shallow(bp->tpl, bp->size, hpp, off_heap);
+        return make_tuple(copy_shallow(bp->tpl, bp->size, hpp, off_heap));
     }
 }
 
@@ -451,13 +472,13 @@ void* db_store_term_comp(DbTableCommon *tb, /*May be NULL*/
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
 int db_has_map(Eterm obj);
-int db_has_variable(Eterm obj);
+int db_is_fully_bound(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,
 			  Sint position,
 			  Eterm newval);
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset);
-Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
+Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags, Uint *freasonp);
 int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body);
@@ -474,6 +495,7 @@ typedef struct match_prog {
     Eterm saved_program;
     Uint heap_size;          /* size of: heap + eheap + stack */
     Uint stack_offset;
+    struct ErtsTraceSession* trace_session;
 #ifdef DMC_DEBUG
     UWord* prog_end;		/* End of program */
 #endif
@@ -571,14 +593,15 @@ ERTS_GLB_INLINE Binary *erts_db_get_match_prog_binary_unchecked(Eterm term);
 
 /** @brief Ensure off-heap header is word aligned, make a temporary copy if
  * not. Needed when inspecting ETS off-heap lists that may contain unaligned
- * ProcBins if table is 'compressed'.
+ * BinRef and ErtsMRefThing if table is 'compressed'.
  */
-struct erts_tmp_aligned_offheap
+union erts_tmp_aligned_offheap
 {
-    ProcBin proc_bin;
+    BinRef proc_bin;
+    ErtsMRefThing mref_thing;
 };
 ERTS_GLB_INLINE void erts_align_offheap(union erl_off_heap_ptr*,
-                                        struct erts_tmp_aligned_offheap* tmp);
+                                        union erts_tmp_aligned_offheap* tmp);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -614,20 +637,27 @@ erts_db_get_match_prog_binary(Eterm term)
 
 ERTS_GLB_INLINE void
 erts_align_offheap(union erl_off_heap_ptr* ohp,
-                   struct erts_tmp_aligned_offheap* tmp)
+                   union erts_tmp_aligned_offheap* tmp)
 {
     if ((UWord)ohp->voidp % sizeof(UWord) != 0) {
         /*
-         * ETS store word unaligned ProcBins in its compressed format.
-         * Make a temporary aligned copy.
+         * ETS store word unaligned BinRef and ErtsMRefThing in its compressed
+         * format. Make a temporary aligned copy.
          *
          * Warning, must pass (void*)-variable to memcpy. Otherwise it will
          * cause Bus error on Sparc due to false compile time assumptions
          * about word aligned memory (type cast is not enough).
          */
-        sys_memcpy(tmp, ohp->voidp, sizeof(*tmp));
-        ASSERT(tmp->proc_bin.thing_word == HEADER_PROC_BIN);
-        ohp->pb = &tmp->proc_bin;
+        sys_memcpy(tmp, ohp->voidp, sizeof(Eterm)); /* thing_word */
+        if (tmp->proc_bin.thing_word == HEADER_BIN_REF) {
+            sys_memcpy(tmp, ohp->voidp, sizeof(tmp->proc_bin));
+            ohp->br = &tmp->proc_bin;
+        }
+        else {
+            sys_memcpy(tmp, ohp->voidp, sizeof(tmp->mref_thing));
+            ASSERT(is_magic_ref_thing(&tmp->mref_thing));
+            ohp->mref = &tmp->mref_thing;
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,33 +26,33 @@
 %%
 %% @doc wx_object - Generic wx object behaviour
 %%
-%% This is a behaviour module that can be used for "sub classing" 
+%% This is a behaviour module that can be used for "sub classing"
 %% wx objects. It works like a regular gen_server module and creates
-%% a server per object.  
+%% a server per object.
 %%
 %% NOTE: Currently no form of inheritance is implemented.
-%% 
-%% 
+%%
+%%
 %% The user module should export:
-%%   
+%%
 %%   init(Args) should return <br/>
-%%     {wxObject, State} | {wxObject, State, Timeout} |
+%%     {wxWindow, State} | {wxWindow State, Timeout} |
 %%         ignore | {stop, Reason}
 %%
 %%   Asynchronous window event handling: <br/>
 %%   handle_event(#wx{}, State)  should return <br/>
-%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State} 
+%%    {noreply, State} | {noreply, State, Timeout} | {stop, Reason, State}
 %%
 %% The user module can export the following callback functions:
 %%
 %%   handle_call(Msg, {From, Tag}, State) should return <br/>
 %%    {reply, Reply, State} | {reply, Reply, State, Timeout} |
 %%        {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, Reply, State}  
+%%        {stop, Reason, Reply, State}
 %%
 %%   handle_cast(Msg, State) should return <br/>
 %%    {noreply, State} | {noreply, State, Timeout} |
-%%        {stop, Reason, State}  
+%%        {stop, Reason, State}
 %%
 %% If the above are not exported but called, the wx_object process will crash.
 %% The user module can also export:
@@ -109,6 +109,94 @@
 %% '''
 
 -module(wx_object).
+-moduledoc """
+wx_object - Generic wx object behaviour.
+
+wx_object - Generic wx object behaviour
+
+This is a behaviour module that can be used for "sub classing" wx objects. It
+works like a regular gen_server module and creates a server per object.
+
+NOTE: Currently no form of inheritance is implemented.
+
+The user module should export:
+
+init(Args) should return  
+\{wxWindow, State\} | \{wxWindow, State, Timeout\} | ignore | \{stop, Reason\}
+
+Asynchronous window event handling:  
+handle_event(#wx\{\}, State) should return  
+\{noreply, State\} | \{noreply, State, Timeout\} | \{stop, Reason, State\}
+
+The user module can export the following callback functions:
+
+handle_call(Msg, \{From, Tag\}, State) should return  
+\{reply, Reply, State\} | \{reply, Reply, State, Timeout\} | \{noreply, State\}
+| \{noreply, State, Timeout\} | \{stop, Reason, Reply, State\}
+
+handle_cast(Msg, State) should return  
+\{noreply, State\} | \{noreply, State, Timeout\} | \{stop, Reason, State\}
+
+If the above are not exported but called, the wx_object process will crash. The
+user module can also export:
+
+Info is message e.g. \{'EXIT', P, R\}, \{nodedown, N\}, ...  
+handle_info(Info, State) should return , ...  
+\{noreply, State\} | \{noreply, State, Timeout\} | \{stop, Reason, State\}
+
+If a message is sent to the wx_object process when handle_info is not exported,
+the message will be dropped and ignored.
+
+When stop is returned in one of the functions above with Reason = normal |
+shutdown | Term, terminate(State) is called. It lets the user module clean up,
+it is always called when server terminates or when wx_object() in the driver is
+deleted. If the Parent process terminates the Module:terminate/2 function is
+called.  
+terminate(Reason, State)
+
+Example:
+
+```erlang
+  -module(myDialog).
+  -export([new/2, show/1, destroy/1]).  %% API
+  -export([init/1, handle_call/3, handle_event/2,
+           handle_info/2, code_change/3, terminate/2]).
+           new/2, showModal/1, destroy/1]).  %% Callbacks
+
+  %% Client API
+  new(Parent, Msg) ->
+     wx_object:start(?MODULE, [Parent,Id], []).
+
+  show(Dialog) ->
+     wx_object:call(Dialog, show_modal).
+
+  destroy(Dialog) ->
+     wx_object:call(Dialog, destroy).
+
+  %% Server Implementation ala gen_server
+  init([Parent, Str]) ->
+     Dialog = wxDialog:new(Parent, 42, "Testing", []),
+     ...
+     wxDialog:connect(Dialog, command_button_clicked),
+     {Dialog, MyState}.
+
+  handle_call(show, _From, State) ->
+     wxDialog:show(State#state.win),
+     {reply, ok, State};
+  ...
+  handle_event(#wx{}, State) ->
+     io:format("Users clicked button~n",[]),
+     {noreply, State};
+  ...
+```
+
+## DATA TYPES
+
+- **[](){: #type-request_id } request_id() = term()**
+
+- **[](){: #type-server_ref } server_ref() =
+  [wx:wx_object()](`m:wx#type-wx_object`) | atom() | pid()**
+""".
 -include("wxe.hrl").
 -include("../include/wx.hrl").
 
@@ -194,48 +282,76 @@
 %%  -----------------------------------------------------------------
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-doc false.
 -spec start(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()} when
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start(Mod, Args, Options)
+  when is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-doc """
+start(Name, Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
+
+Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
+""".
 -spec start(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
       Name::{local, atom()},
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start(Name, Mod, Args, Options)
+  when is_tuple(Name), is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Name, Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Name, Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-doc """
+start_link(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
+
+Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
+""".
 -spec start_link(Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start_link(Mod, Args, Options)
+  when is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start_link(Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Mod, Args, Options]).
 
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
+-doc """
+start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
+
+Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
+""".
 -spec start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
       Name::{local, atom()},
       Mod::atom(),
       Args::term(),
       Flag::trace | log | {logfile, string()} | statistics | debug,
       Options::[{timeout, timeout()} | {debug, [Flag]}].
+start_link(Name, Mod, Args, Options)
+  when is_tuple(Name), is_atom(Mod), is_list(Options) ->
+    gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start_link(Name, Mod, Args, Options) ->
-    gen_response(gen:start(?MODULE, link, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options])).
+    error(badarg, [Name, Mod, Args, Options]).
 
 gen_response({ok, Pid}) ->
-    receive {ack, Pid, Ref = #wx_ref{}} -> Ref end;
+    receive {started, Pid, Ref = #wx_ref{}} -> Ref end;
 gen_response(Reply) ->
     Reply.
 
@@ -243,6 +359,13 @@ gen_response(Reply) ->
 %% Invokes terminate(Reason,State) in the server. The call waits until
 %% the process is terminated. If the process does not exist, an
 %% exception is raised.
+-doc """
+stop(Obj) -> ok
+
+Stops a generic wx_object server with reason 'normal'. Invokes
+terminate(Reason,State) in the server. The call waits until the process is
+terminated. If the process does not exist, an exception is raised.
+""".
 -spec stop(Obj) -> ok when
       Obj::wx:wx_object()|atom()|pid().
 stop(Ref = #wx_ref{state=Pid}) when is_pid(Pid) ->
@@ -262,6 +385,14 @@ stop(Name) when is_atom(Name) orelse is_pid(Name) ->
 %% Invokes terminate(Reason,State) in the server. The call waits until
 %% the process is terminated. If the call times out, or if the process
 %% does not exist, an exception is raised.
+-doc """
+stop(Obj, Reason, Timeout) -> ok
+
+Stops a generic wx_object server with the given Reason. Invokes
+terminate(Reason,State) in the server. The call waits until the process is
+terminated. If the call times out, or if the process does not exist, an
+exception is raised.
+""".
 -spec stop(Obj, Reason, Timeout) -> ok when
       Obj::wx:wx_object()|atom()|pid(),
       Reason::term(),
@@ -282,6 +413,12 @@ stop(Name, Reason, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 %% @doc Make a call to a wx_object server.
 %% The call waits until it gets a result.
 %% Invokes handle_call(Request, From, State) in the server
+-doc """
+call(Obj, Request) -> term()
+
+Make a call to a wx_object server. The call waits until it gets a result.
+Invokes handle_call(Request, From, State) in the server
+""".
 -spec call(Obj, Request) -> term() when
       Obj::wx:wx_object()|atom()|pid(),
       Request::term().
@@ -302,6 +439,12 @@ call(Name, Request) when is_atom(Name)  orelse is_pid(Name) ->
 
 %% @doc Make a call to a wx_object server with a timeout.
 %% Invokes handle_call(Request, From, State) in server
+-doc """
+call(Obj, Request, Timeout) -> term()
+
+Make a call to a wx_object server with a timeout. Invokes handle_call(Request,
+From, State) in server
+""".
 -spec call(Obj, Request, Timeout) -> term() when
       Obj::wx:wx_object()|atom()|pid(),
       Request::term(),
@@ -324,6 +467,13 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 %% @doc Make an send_request to a generic server.
 %% and return a RequestId which can/should be used with wait_response/[1|2].
 %% Invokes handle_call(Request, From, State) in server.
+-doc """
+send_request(Obj, Request::term()) -> request_id()
+
+Make an send_request to a generic server. and return a RequestId which
+can/should be used with wait_response/\[1|2]. Invokes handle_call(Request, From,
+State) in server.
+""".
 -spec send_request(Obj, Request::term()) -> request_id() when
       Obj::wx:wx_object()|atom()|pid().
 send_request(#wx_ref{state=Pid}, Request) ->
@@ -332,18 +482,36 @@ send_request(Pid, Request) when is_atom(Pid) orelse is_pid(Pid) ->
     gen:send_request(Pid, '$gen_call', Request).
 
 %% @doc Wait infinitely for a reply from a generic server.
+-doc """
+wait_response(RequestId::request_id()) -> {reply, Reply::term()} | {error,
+{term(), server_ref()}}
+
+Wait infinitely for a reply from a generic server.
+""".
 -spec wait_response(RequestId::request_id()) ->
         {reply, Reply::term()} | {error, {term(), server_ref()}}.
 wait_response(RequestId) ->
     gen:wait_response(RequestId, infinity).
 
 %% @doc Wait 'timeout' for a reply from a generic server.
+-doc """
+wait_response(Key::request_id(), Timeout::timeout()) -> {reply, Reply::term()} |
+timeout | {error, {term(), server_ref()}}
+
+Wait 'timeout' for a reply from a generic server.
+""".
 -spec wait_response(Key::request_id(), timeout()) ->
         {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
 %% @doc Check if a received message was a reply to a RequestId
+-doc """
+check_response(Msg::term(), Key::request_id()) -> {reply, Reply::term()} | false
+| {error, {term(), server_ref()}}
+
+Check if a received message was a reply to a RequestId
+""".
 -spec check_response(Msg::term(), Key::request_id()) ->
         {reply, Reply::term()} | 'false' | {error, {term(), server_ref()}}.
 check_response(Msg, RequestId) ->
@@ -351,6 +519,12 @@ check_response(Msg, RequestId) ->
 
 %% @doc Make a cast to a wx_object server.
 %% Invokes handle_cast(Request, State) in the server
+-doc """
+cast(Obj, Request) -> ok
+
+Make a cast to a wx_object server. Invokes handle_cast(Request, State) in the
+server
+""".
 -spec cast(Obj, Request) -> ok when
       Obj::wx:wx_object()|atom()|pid(),
       Request::term().
@@ -362,12 +536,22 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
     ok.
 
 %% @doc Get the pid of the object handle.
+-doc """
+get_pid(Obj) -> pid()
+
+Get the pid of the object handle.
+""".
 -spec get_pid(Obj) -> pid() when
       Obj::wx:wx_object()|atom()|pid().
 get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
     Pid.
 
 %% @doc Sets the controlling process of the object handle.
+-doc """
+set_pid(Obj, Pid::pid()) -> wx:wx_object()
+
+Sets the controlling process of the object handle.
+""".
 -spec set_pid(Obj, pid()) -> wx:wx_object() when
       Obj::wx:wx_object()|atom()|pid().
 set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
@@ -377,6 +561,11 @@ set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
 %% Send a reply to the client.
 %% -----------------------------------------------------------------
 %% @doc Get the pid of the object handle.
+-doc """
+reply(X1::{pid(), Tag::term()}, Reply::term()) -> pid()
+
+Get the pid of the object handle.
+""".
 -spec reply({pid(), Tag::term()}, Reply::term()) -> pid().
 reply({To, Tag}, Reply) ->
     catch To ! {Tag, Reply}.
@@ -392,6 +581,7 @@ reply({To, Tag}, Reply) ->
 %%% loop is entered.
 %%% ---------------------------------------------------
 %% @hidden
+-doc false.
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name, Mod, Args, [WxEnv|Options]) ->
@@ -407,30 +597,23 @@ init_it(Starter, Parent, Name, Mod, Args, [WxEnv|Options]) ->
 	{#wx_ref{} = Ref, State, Timeout} ->
 	    init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug);
 	{stop, Reason} ->
-	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	ignore ->
-	    proc_lib:init_ack(Starter, ignore),
-	    exit(normal);
+	    proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{'EXIT', Reason} ->
-	    proc_lib:init_ack(Starter, {error, Reason}),
 	    exit(Reason);
 	Else ->
-	    Error = {bad_return_value, Else},
-	    proc_lib:init_ack(Starter, {error, Error}),
-	    exit(Error)
+	    exit({bad_return_value, Else})
     end.
 %% @hidden
 init_it2(Ref, Starter, Parent, Name, State, Mod, Timeout, Debug) ->
     ok = wxe_util:register_pid(Ref),
     case ?CLASS_T(Ref#wx_ref.type, wxWindow) of
 	false -> 
-	    Reason = {Ref, "not a wxWindow subclass"},
-	    proc_lib:init_ack(Starter, {error, Reason}),
-	    exit(Reason);
+	    exit({Ref, "not a wxWindow subclass"});
 	true ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
-	    proc_lib:init_ack(Starter, Ref#wx_ref{state=self()}),
+	    Starter ! {started, self(), Ref#wx_ref{state=self()}},
 	    loop(Parent, Name, State, Mod, Timeout, Debug)
     end.    
 
@@ -571,15 +754,18 @@ reply(Name, {To, Tag}, Reply, State, Debug) ->
 %% Callback functions for system messages handling.
 %%-----------------------------------------------------------------
 %% @hidden
+-doc false.
 system_continue(Parent, Debug, [Name, State, Mod, Time]) ->
     loop(Parent, Name, State, Mod, Time, Debug).
 
 %% @hidden
+-doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
 system_terminate(Reason, _Parent, Debug, [Name, State, Mod, _Time]) ->
     terminate(Reason, Name, [], Mod, State, Debug).
 
 %% @hidden
+-doc false.
 system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
         {ok, NewState} -> {ok, [Name, NewState, Mod, Time]};
@@ -700,6 +886,7 @@ dbg_opts(Name, Opts) ->
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
+-doc false.
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
     Header = gen:format_status_header("Status for wx object ", Name),

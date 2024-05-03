@@ -20,6 +20,7 @@
 %% @author Kostis Sagonas <kostis@it.uu.se>
 
 -module(erl_bif_types).
+-moduledoc false.
 
 -define(BITS, 128). %This is only in bsl to convert answer to pos_inf/neg_inf.
 -export([type/3, type/4, type/5, arg_types/3,

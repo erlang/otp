@@ -22,6 +22,7 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -170,8 +171,7 @@ getstat(Config) when is_list(Config) ->
     {ok, PassiveC} = rpc:call(ClientNode, ssl, connect,
                           [Hostname,Port2,[{active, false}|ClientOpts]]),
 
-    ct:log("Testcase ~p, Client ~p  Servers ~p, ~p ~n",
-                       [self(), self(), Server1, Server2]),
+    ?CT_LOG("Servers ~p, ~p ~n", [Server1, Server2]),
 
     %% We only check that the values are non-zero initially
     %% (due to the handshake), and that sending more changes the values.
@@ -179,21 +179,21 @@ getstat(Config) when is_list(Config) ->
     %% Passive socket.
 
     {ok, InitialStats} = ssl:getstat(PassiveC),
-    ct:pal("InitialStats  ~p~n", [InitialStats]),
+    ?CT_LOG("InitialStats  ~p~n", [InitialStats]),
     [true] = lists:usort([0 =/= proplists:get_value(Name, InitialStats)
         || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
 
     ok = ssl:send(PassiveC, "Hello world"),
     wait_for_send(PassiveC),
     {ok, SStats} = ssl:getstat(PassiveC, [send_cnt, send_oct]),
-    ct:pal("SStats  ~p~n", [SStats]),
+    ?CT_LOG("SStats  ~p~n", [SStats]),
     [true] = lists:usort([proplists:get_value(Name, SStats) =/= proplists:get_value(Name, InitialStats)
         || Name <- [send_cnt, send_oct]]),
 
     %% Active socket.
 
     {ok, InitialAStats} = ssl:getstat(ActiveC),
-    ct:pal("InitialAStats  ~p~n", [InitialAStats]),
+    ?CT_LOG("InitialAStats  ~p~n", [InitialAStats]),
     [true] = lists:usort([0 =/= proplists:get_value(Name, InitialAStats)
         || Name <- [recv_cnt, recv_oct, recv_avg, recv_max, send_cnt, send_oct, send_avg, send_max]]),
 
@@ -208,7 +208,7 @@ getstat(Config) when is_list(Config) ->
     ok = ssl:send(ActiveC, "Hello world"),
     wait_for_send(ActiveC),
     {ok, ASStats} = ssl:getstat(ActiveC, [send_cnt, send_oct]),
-    ct:pal("ASStats  ~p~n", [ASStats]),
+    ?CT_LOG("ASStats  ~p~n", [ASStats]),
     [true] = lists:usort([proplists:get_value(Name, ASStats) =/= proplists:get_value(Name, InitialAStats)
         || Name <- [send_cnt, send_oct]]),
 
@@ -290,8 +290,7 @@ invalid_inet_get_option(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -316,8 +315,7 @@ invalid_inet_get_option_not_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
     
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -342,8 +340,7 @@ invalid_inet_get_option_improper_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -368,8 +365,7 @@ invalid_inet_set_option(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -394,8 +390,7 @@ invalid_inet_set_option_not_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -420,8 +415,7 @@ invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
 			   {mfa, {ssl_test_lib, no_result, []}},
 			   {options, ClientOpts}]),
 
-    ct:log("Testcase ~p, Client ~p  Server ~p ~n",
-		       [self(), Client, Server]),
+    ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -439,7 +433,7 @@ socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set inet opts
     {ok,[{reuseaddr, _}]} = ssl:getopts(Socket, [reuseaddr]),  
     {ok, All} = ssl:getopts(Socket, []),
-    ct:log("All opts ~p~n", [All]),
+    ?CT_LOG("All opts ~p~n", [All]),
     ok.
 
 get_invalid_inet_option(Socket) ->

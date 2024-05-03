@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1_db).
+-moduledoc false.
 
 -export([dbstart/1,dbnew/3,dbload/1,dbload/4,dbsave/2,dbput/2,
 	 dbput/3,dbget/2]).
@@ -82,11 +83,11 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             includes = Includes} = State) ->
     receive
         {set, Mod, K2, V} ->
-            [{_, Modtab}] = ets:lookup(Table, Mod),
+            Modtab = ets:lookup_element(Table, Mod, 2),
             ets:insert(Modtab, {K2, V}),
             loop(State);
         {set, Mod, Kvs} ->
-            [{_, Modtab}] = ets:lookup(Table, Mod),
+            Modtab = ets:lookup_element(Table, Mod, 2),
             ets:insert(Modtab, Kvs),
             loop(State);
         {From, {get, Mod, K2}} ->
@@ -105,8 +106,10 @@ loop(#state{parent = Parent, monitor = MRef, table = Table,
             end,
             loop(State);
         {save, OutFile, Mod} ->
-            [{_,Mtab}] = ets:lookup(Table, Mod),
-	    TempFile = OutFile ++ ".#temp",
+            Mtab = ets:lookup_element(Table, Mod, 2),
+	    TempFile = OutFile ++
+                integer_to_list(erlang:unique_integer([positive])) ++
+                ".#temp",
             ok = ets:tab2file(Mtab, TempFile),
 	    ok = file:rename(TempFile, OutFile),
             loop(State);
@@ -146,10 +149,7 @@ get_table(Table, Mod, Includes) ->
     end.
 
 lookup(Tab, K) ->
-    case ets:lookup(Tab, K) of
-        []      -> undefined;
-        [{K,V}] -> V
-    end.
+	ets:lookup_element(Tab, K, 2, undefined).
 
 info(EruleMaps) ->
     {asn1ct:vsn(),EruleMaps}.

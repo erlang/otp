@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_code_purger).
+-moduledoc false.
 
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.
@@ -270,7 +271,8 @@ cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
                         PReqs);
 	PReq when element(1, PReq) == purge;
 		  element(1, PReq) == soft_purge;
-		  element(1, PReq) == test_purge ->
+		  element(1, PReq) == test_purge;
+                  element(1, PReq) == finish_after_on_load ->
 	    %% A new purge request; save it until later...
 	    cpc_receive(CpcS, ReqInfo, KillState0, [PReq | PReqs]);
 

@@ -23,7 +23,7 @@ namespace EmitterUtils {
 
 //! Default paddings used by Emitter utils and Formatter.
 
-static constexpr Operand noExt[3];
+static constexpr Operand noExt[3] = { {}, {}, {} };
 
 enum kOpIndex : uint32_t {
   kOp3 = 0,
@@ -71,7 +71,7 @@ void logInstructionEmitted(
   uint32_t relSize, uint32_t immSize, uint8_t* afterCursor);
 
 Error logInstructionFailed(
-  BaseAssembler* self,
+  BaseEmitter* self,
   Error err,
   InstId instId,
   InstOptions options,

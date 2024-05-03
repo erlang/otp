@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 
 %% Internal export
 -export([init/1, terminate_all_children/1,
-         middle9212/0, gen_server9212/0, handle_info/2]).
+         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -68,7 +68,8 @@
           simple_one_for_one_corruption/1,
 	  rest_for_one/1, rest_for_one_escalation/1,
 	  rest_for_one_other_child_fails_restart/1,
-	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1]).
+	  simple_one_for_one_extra/1, simple_one_for_one_shutdown/1,
+          simple_one_for_one_restart_ignore/1]).
 
 %% Significant child tests
 -export([ nonsignificant_temporary/1, nonsignificant_transient/1,
@@ -90,7 +91,7 @@
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
-         format_log_1/1, format_log_2/1]).
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -119,7 +120,7 @@ all() ->
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
-     format_log_1, format_log_2].
+     format_log_1, format_log_2, already_started_outside_supervisor].
 
 groups() -> 
     [{sup_start, [],
@@ -154,7 +155,7 @@ groups() ->
      {restart_simple_one_for_one, [],
       [simple_one_for_one, simple_one_for_one_shutdown,
        simple_one_for_one_extra, simple_one_for_one_escalation,
-       simple_one_for_one_corruption]},
+       simple_one_for_one_corruption, simple_one_for_one_restart_ignore]},
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation,
        rest_for_one_other_child_fails_restart]},
@@ -200,7 +201,7 @@ start_link(InitResult) ->
 
 %% Simulate different supervisors callback.  
 init(fail) ->
-    erlang:error({badmatch,2});
+    erlang:error(fail);
 init(InitResult) ->
     InitResult.
 
@@ -227,7 +228,7 @@ sup_start_normal(Config) when is_list(Config) ->
 sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ignore = start_link(ignore),
-    check_exit_reason(normal).
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns ignore.
@@ -325,15 +326,20 @@ sup_start_ignore_permanent_child_start_child_simple(Config)
 %% Tests what happens if init-callback returns a invalid value.
 sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(invalid),
-    check_exit_reason(Term).
+    %% The bad return is processed in supervisor:init/1
+    InitResult = invalid,
+    {error, {bad_return, {?MODULE, init, InitResult}}} =
+        start_link(InitResult),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback fails.
 sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    {error, Term} = start_link(fail),
-    check_exit_reason(Term).
+    %% The exception is processed in gen_server:init_it/2
+    ErrorReason = fail,
+    {error, {ErrorReason, _Stacktrace}} = start_link(ErrorReason),
+    check_no_exit(100).
 
 %%-------------------------------------------------------------------------
 %% Test what happens when the start function for a child returns
@@ -706,11 +712,15 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+
+    %% Test that supervisors of static nature are hibernated after start
+    {current_function, {erlang, hibernate, 3}} =
+	process_info(Pid, current_function),
+
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
     link(CPid),
-
     %% Start of an already runnig process 
     {error,{already_started, CPid}} =
 	supervisor:start_child(sup_test, Child),
@@ -771,7 +781,13 @@ child_adm(Config) when is_list(Config) ->
 child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    {ok, _Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+
+       %% Test that supervisors of dynamic nature are not hibernated after start
+    {current_function, {_, Function, _}} =
+	process_info(Pid, current_function),
+    true = Function =/= hibernate,
+
     %% In simple_one_for_one all children are added dynamically 
     [] = supervisor:which_children(sup_test),
     [1,0,0,0] = get_child_counts(sup_test),
@@ -1486,6 +1502,35 @@ simple_one_for_one(Config) when is_list(Config) ->
 
     terminate(SupPid, Pid4, Id4, abnormal),
     check_exit_reason(SupPid,shutdown).
+
+
+%%-------------------------------------------------------------------------
+%% Test simple_one_for_one children restarts and returning ignore.
+simple_one_for_one_restart_ignore(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Self = self(),
+    lists:foreach(
+        fun(Restart) ->
+            Child = {child, {supervisor_3, start_child, []}, Restart, 1000, worker, []},
+            {ok, SupPid} = start_link({ok, {{simple_one_for_one, 10, 3600}, [Child]}}),
+            StarterPid1 = spawn_link(fun() -> supervisor:start_child(SupPid, [child1, Self]) end),
+            ChildPid1 = receive {child1, CPid1} -> CPid1 end,
+            ChildPid1 ! {{ok, 0}, Self},
+            check_exit([StarterPid1]),
+            [{undefined, ChildPid1, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid1, kill),
+            ChildPid2 = receive {child1, CPid2} -> CPid2 end,
+            ChildPid2 ! {{ok, 0}, Self},
+            [{undefined, ChildPid2, _, _}] = supervisor:which_children(SupPid),
+            terminate(ChildPid2, kill),
+            ChildPid3 = receive {child1, CPid3} -> CPid3 end,
+            ChildPid3 ! {ignore, Self},
+            [] = supervisor:which_children(SupPid),
+            terminate(SupPid, shutdown),
+            ok = check_exit_reason(SupPid, shutdown)
+        end,
+        [transient, permanent]
+    ).
 
 
 %%-------------------------------------------------------------------------
@@ -2618,7 +2663,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected1],
     terminate(Pid3, abnormal),
     receive {exited,ExitedPids1} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids1 of
                 Expected1 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2626,7 +2671,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids1}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
 
@@ -2647,7 +2692,7 @@ order_of_children(_Config) ->
     [{ok,[_]} = dbg:p(P,procs) || P <- Expected2],
     exit(SupPid,shutdown),
     receive {exited,ExitedPids2} ->
-            dbg:stop_clear(),
+            dbg:stop(),
             case ExitedPids2 of
                 Expected2 -> ok;
                 _ -> ct:fail({faulty_termination_order,
@@ -2655,7 +2700,7 @@ order_of_children(_Config) ->
                               {got,ExitedPids2}})
             end
     after 3000 ->
-            dbg:stop_clear(),
+            dbg:stop(),
             ct:fail({shutdown_fail,timeout})
     end,
     ok.
@@ -3294,41 +3339,25 @@ significant_transient(_Config) ->
 
     ok.
 
-% Test the auto-shutdown feature in a simple_one_for_one supervisor.
+% The auto-shutdown feature is not allowed with simple_one_for_one supervisors.
 significant_simple(_Config) ->
     process_flag(trap_exit, true),
     Child1 = #{id => child1,
-	       start => {supervisor_1, start_child, []},
-	       restart => temporary,
-	       significant => true},
+	       start => {supervisor_1, start_child, []}},
 
-    % Test auto-shutdown on the exit of any significant child.
-    {ok, Sup1} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => any_significant},
-				  [Child1]}}),
-    {ok, ChildPid1_1} = supervisor:start_child(Sup1, []),
-    {ok, ChildPid1_2} = supervisor:start_child(Sup1, []),
-    link(ChildPid1_1),
-    link(ChildPid1_2),
-    terminate(ChildPid1_1, normal),
-    ok = check_exit([ChildPid1_1, ChildPid1_2, Sup1]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => any_significant},
+                                                                        [Child1]}}),
 
-    % Test auto-shutdown on the exit of all significant children.
-    {ok, Sup2} = start_link({ok, {#{strategy => simple_one_for_one,
-				    auto_shutdown => all_significant},
-				  [Child1]}}),
-    {ok, ChildPid2_1} = supervisor:start_child(Sup2, []),
-    {ok, ChildPid2_2} = supervisor:start_child(Sup2, []),
-    link(ChildPid2_1),
-    link(ChildPid2_2),
-    terminate(ChildPid2_1, normal),
-    ok = check_exit([ChildPid2_1]),
-    error = check_exit([ChildPid2_2], 1000),
-    error = check_exit([Sup2], 1000),
-    terminate(ChildPid2_2, normal),
-    ok = check_exit([ChildPid2_2, Sup2]),
+    {error, {supervisor_data, {bad_combination, _}}} = start_link({ok, {#{strategy => simple_one_for_one,
+                                                                          auto_shutdown => all_significant},
+                                                                        [Child1]}}),
 
-    ok.
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one,
+                                      auto_shutdown => never},
+                                    [Child1]}}),
+    terminate(SupPid, shutdown),
+    check_exit([SupPid]).
 
 % Test that terminations of significant children caused by
 % the death of a sibling does not trigger auto-shutdown.
@@ -3662,6 +3691,31 @@ significant_upgrade_child(_Config) ->
 
     ok.
 
+%% Test trying to start a child that uses an already registered name.
+already_started_outside_supervisor(_Config) ->
+    %% Avoid inter-testcase flakiness
+    ensure_supervisor_is_stopped(),
+    process_flag(trap_exit, true),
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+    RegName = registered_name,
+    Child = #{id => child,
+	      start => {?MODULE, start_registered_name, [RegName]},
+	      restart => transient,
+	      significant => false},
+    %% We start another process and register the name.
+    Pid = spawn_link(fun() ->
+                             true = register(RegName, self()),
+                             receive
+                                 die -> ok
+                             end
+                     end),
+    {error, {already_started, P}} = supervisor:start_child(SupPid, Child),
+    Pid = P,
+    terminate(SupPid, shutdown),
+    Pid ! die,
+    ok = check_exit([SupPid]),
+    ok.
+
 %%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
     terminate(dummy, Pid, dummy, Reason).
@@ -3739,18 +3793,29 @@ check_exit([Pid | Pids], Timeout) ->
 	error
     end.
 
-check_exit_reason(Reason) ->
-    receive
-	{'EXIT', _, Reason} ->
-	    ok;
-	{'EXIT', _, Else} ->
-	    ct:fail({bad_exit_reason, Else})
-    end.
-
-check_exit_reason(Pid, Reason) ->
+check_exit_reason(Pid, Reason) when is_pid(Pid) ->
     receive
 	{'EXIT', Pid, Reason} ->
 	    ok;
 	{'EXIT', Pid, Else} ->
 	    ct:fail({bad_exit_reason, Else})
+    end.
+
+check_no_exit(Timeout) ->
+    receive
+        {'EXIT', Pid, _} = Exit when is_pid(Pid) ->
+            ct:fail({unexpected_message, Exit})
+    after Timeout ->
+            ok
+    end.
+
+start_registered_name(Name) ->
+    supervisor:start_link({local, Name}, ?MODULE, []).
+
+ensure_supervisor_is_stopped() ->
+    case whereis(sup_test) of
+        undefined ->
+            ok;
+        Pid ->
+            terminate(Pid, shutdown)
     end.

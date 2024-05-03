@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -507,13 +507,13 @@ save_sched_table(Process *c_p, DbTable *tb)
     DbTable *first;
 
     ASSERT(esdp);
-    erts_atomic_inc_nob(&esdp->ets_tables.count);
+    erts_atomic_inc_nob(&esdp->u.ets_tables.count);
     erts_refc_inc(&tb->common.refc, 1);
 
-    first = esdp->ets_tables.clist;
+    first = esdp->u.ets_tables.clist;
     if (!first) {
         tb->common.all.next = tb->common.all.prev = tb;
-        esdp->ets_tables.clist = tb;
+        esdp->u.ets_tables.clist = tb;
     }
     else {
         tb->common.all.prev = first->common.all.prev;
@@ -531,14 +531,14 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
     ASSERT(erts_get_ref_numbers_thr_id(ERTS_MAGIC_BIN_REFN(tb->common.btid))
            == (Uint32) esdp->no);
 
-    ASSERT(erts_atomic_read_nob(&esdp->ets_tables.count) > 0);
-    erts_atomic_dec_nob(&esdp->ets_tables.count);
+    ASSERT(erts_atomic_read_nob(&esdp->u.ets_tables.count) > 0);
+    erts_atomic_dec_nob(&esdp->u.ets_tables.count);
 
     eaydp = ERTS_SCHED_AUX_YIELD_DATA(esdp, ets_all);
     if (eaydp->ongoing) {
         /* ets:all() op process list from last to first... */
         if (eaydp->tab == tb) {
-            if (eaydp->tab == esdp->ets_tables.clist)
+            if (eaydp->tab == esdp->u.ets_tables.clist)
                 eaydp->tab = NULL;
             else
                 eaydp->tab = tb->common.all.prev;
@@ -547,23 +547,23 @@ remove_sched_table(ErtsSchedulerData *esdp, DbTable *tb)
 
     if (tb->common.all.next == tb) {
         ASSERT(tb->common.all.prev == tb);
-        ASSERT(esdp->ets_tables.clist == tb);
-        esdp->ets_tables.clist = NULL;
+        ASSERT(esdp->u.ets_tables.clist == tb);
+        esdp->u.ets_tables.clist = NULL;
     }
     else {
 #ifdef DEBUG
-        DbTable *tmp = esdp->ets_tables.clist;
+        DbTable *tmp = esdp->u.ets_tables.clist;
         do {
             if (tmp == tb) break;
             tmp = tmp->common.all.next;
-        } while (tmp != esdp->ets_tables.clist);
+        } while (tmp != esdp->u.ets_tables.clist);
         ASSERT(tmp == tb);
 #endif
         tb->common.all.prev->common.all.next = tb->common.all.next;
         tb->common.all.next->common.all.prev = tb->common.all.prev;
 
-        if (esdp->ets_tables.clist == tb)
-            esdp->ets_tables.clist = tb->common.all.next;
+        if (esdp->u.ets_tables.clist == tb)
+            esdp->u.ets_tables.clist = tb->common.all.next;
 
     }
 
@@ -1115,6 +1115,29 @@ BIF_RETTYPE ets_first_1(BIF_ALIST_1)
     BIF_RET(ret);
 }
 
+/*
+** Returns the first {key, object(s)} in a table
+*/
+BIF_RETTYPE ets_first_lookup_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_first_lookup_1);
+
+    cret = tb->common.meth->db_first_lookup(BIF_P, tb, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
 /* 
 ** The next BIF, given a key, return the "next" key 
 */
@@ -1138,6 +1161,30 @@ BIF_RETTYPE ets_next_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
+
+/*
+** The next_lookup BIF, given a key, return the "next" {key, object(s)}
+*/
+BIF_RETTYPE ets_next_lookup_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_next_lookup_2);
+
+    cret = tb->common.meth->db_next_lookup(BIF_P, tb, BIF_ARG_2, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
 /* 
 ** Returns the last Key in a table 
 */
@@ -1152,6 +1199,29 @@ BIF_RETTYPE ets_last_1(BIF_ALIST_1)
     DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_last_1);
 
     cret = tb->common.meth->db_last(BIF_P, tb, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+/*
+** Returns the last {key, object(s)} in a table
+*/
+BIF_RETTYPE ets_last_lookup_1(BIF_ALIST_1)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_last_lookup_1);
+
+    cret = tb->common.meth->db_last_lookup(BIF_P, tb, &ret);
 
     db_unlock(tb, LCK_READ);
 
@@ -1185,6 +1255,29 @@ BIF_RETTYPE ets_prev_2(BIF_ALIST_2)
 }
 
 /*
+** The prev_lookup BIF, given a key, return the "previous" {key, object(s)}
+*/
+BIF_RETTYPE ets_prev_lookup_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_prev_lookup_2);
+
+    cret = tb->common.meth->db_prev_lookup(BIF_P, tb, BIF_ARG_2, &ret);
+
+    db_unlock(tb, LCK_READ);
+
+    if (cret != DB_ERROR_NONE) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(ret);
+}
+
+/*
 ** take(Tab, Key)
 */
 BIF_RETTYPE ets_take_2(BIF_ALIST_2)
@@ -1203,35 +1296,29 @@ BIF_RETTYPE ets_take_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
-/* 
-** update_element(Tab, Key, {Pos, Value})
-** update_element(Tab, Key, [{Pos, Value}])
-*/
-BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
+static BIF_RETTYPE do_update_element(Process *p, DbTable *tb,
+		Eterm key, Eterm pos_val, Eterm default_obj)
 {
-    DbTable* tb;
     int cret = DB_ERROR_BADITEM;
     Eterm list;
     Eterm iter;
-    DeclareTmpHeap(cell,2,BIF_P);
+    DeclareTmpHeap(cell,2,p);
     DbUpdateHandle handle;
 
-    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_3);
-
-    UseTmpHeap(2,BIF_P);
+    UseTmpHeap(2,p);
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET | DB_CA_ORDERED_SET))) {
-	BIF_P->fvalue = EXI_TAB_TYPE;
+	p->fvalue = EXI_TAB_TYPE;
 	cret = DB_ERROR_BADPARAM;
 	goto bail_out;
     }
-    if (is_tuple(BIF_ARG_3)) {
-	list = CONS(cell, BIF_ARG_3, NIL);
+    if (is_tuple(pos_val)) {
+	list = CONS(cell, pos_val, NIL);
     }
     else {
-	list = BIF_ARG_3;
+	list = pos_val;
     }
 
-    if (!tb->common.meth->db_lookup_dbterm(BIF_P, tb, BIF_ARG_2, THE_NON_VALUE, &handle)) {
+    if (!tb->common.meth->db_lookup_dbterm(p, tb, key, default_obj, &handle)) {
 	cret = DB_ERROR_BADKEY;
 	goto bail_out;
     }
@@ -1256,12 +1343,13 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
 	}
 	position = signed_val(pvp[1]);
 	if (position == tb->common.keypos) {
-            BIF_P->fvalue = EXI_KEY_POS;
+            p->fvalue = EXI_KEY_POS;
             cret = DB_ERROR_UNSPEC;
             goto finalize;
 	}
-	if (position < 1 || position == tb->common.keypos ||
-	    position > arityval(handle.dbterm->tpl[0])) {
+	if (position < 1 || position > arityval(handle.dbterm->tpl[0])) {
+	    p->fvalue = EXI_POSITION;
+	    cret = DB_ERROR_UNSPEC;
 	    goto finalize;
         }
     }
@@ -1278,7 +1366,7 @@ finalize:
     tb->common.meth->db_finalize_dbterm(cret, &handle);
 
 bail_out:
-    UnUseTmpHeap(2,BIF_P);
+    UnUseTmpHeap(2,p);
     db_unlock(tb, LCK_WRITE_REC);
 
     switch (cret) {
@@ -1287,13 +1375,44 @@ bail_out:
     case DB_ERROR_BADKEY:
 	BIF_RET(am_false);
     case DB_ERROR_SYSRES:
-	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+	BIF_ERROR(p, SYSTEM_LIMIT);
     case DB_ERROR_UNSPEC:
-        BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
     default:
 	break;
     }
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_ERROR(p, BADARG);
+}
+
+/* 
+** update_element(Tab, Key, {Pos, Value})
+** update_element(Tab, Key, [{Pos, Value}])
+*/
+BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
+{
+    DbTable* tb;
+
+    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_3);
+
+    return do_update_element(BIF_P, tb, BIF_ARG_2, BIF_ARG_3, THE_NON_VALUE);
+}
+
+/* 
+** update_element(Tab, Key, {Pos, Value}, Default)
+** update_element(Tab, Key, [{Pos, Value}], Default)
+*/
+BIF_RETTYPE ets_update_element_4(BIF_ALIST_4)
+{
+    DbTable* tb;
+
+    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_update_element_4);
+
+    if (is_not_tuple(BIF_ARG_4)) {
+        db_unlock(tb, LCK_WRITE_REC);
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    return do_update_element(BIF_P, tb, BIF_ARG_2, BIF_ARG_3, BIF_ARG_4);
 }
 
 static BIF_RETTYPE
@@ -1349,7 +1468,7 @@ do_update_counter(Process *p, DbTable* tb,
 	Eterm* tpl;
 	Sint position;
 	Eterm incr, warp;
-	Wterm oldcnt;
+	Eterm oldcnt;
 
 	if (is_not_list(iter)) {
 	    goto finalize;
@@ -1433,7 +1552,7 @@ do_update_counter(Process *p, DbTable* tb,
 	Eterm* tpl = tuple_val(CAR(list_val(iter)));
 	Sint position = signed_val(tpl[1]);
 	Eterm incr = tpl[2];
-	Wterm oldcnt = db_do_read_element(&handle,position);
+	Eterm oldcnt = db_do_read_element(&handle,position);
 	Eterm newcnt = db_add_counter(&htop, oldcnt, incr);
 
 	if (newcnt == NIL) {
@@ -1927,11 +2046,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  */
-#if defined(DEBUG) && defined(ARCH_64)
-#include "erl_db_insert_list.debug.ycf.h"
-#else
 #include "erl_db_insert_list.ycf.h"
-#endif
 
 static void* ets_insert_2_yield_alloc(size_t size, void* ctx)
 {
@@ -2765,8 +2880,44 @@ BIF_RETTYPE ets_lookup_element_3(BIF_ALIST_3)
     }
 }
 
-/* 
- * BIF to erase a whole table and release all memory it holds 
+/*
+** Get an element from a term
+** get_element_4(Tab, Key, Index, Default)
+** return the element or a list of elements if bag or Default if the element is not present
+*/
+BIF_RETTYPE ets_lookup_element_4(BIF_ALIST_4)
+{
+    DbTable* tb;
+    Sint index;
+    int cret;
+    Eterm ret;
+
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_READ, LCK_READ, BIF_ets_lookup_element_4);
+
+    if (is_not_small(BIF_ARG_3) || ((index = signed_val(BIF_ARG_3)) < 1)) {
+	    db_unlock(tb, LCK_READ);
+	    BIF_ERROR(BIF_P, BADARG);
+    }
+
+    cret = tb->common.meth->db_get_element(BIF_P, tb,
+					   BIF_ARG_2, index, &ret);
+    db_unlock(tb, LCK_READ);
+    switch (cret) {
+        case DB_ERROR_NONE:
+            BIF_RET(ret);
+        case DB_ERROR_BADKEY:
+            BIF_RET(BIF_ARG_4);
+        case DB_ERROR_SYSRES:
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        default:
+            BIF_ERROR(BIF_P, BADARG);
+    }
+}
+
+/*
+ * BIF to erase a whole table and release all memory it holds
  */
 BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 {
@@ -3311,7 +3462,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         hp = &hfragp->mem[hfragp->used_size];
         list = *hp;
         hfragp->used_size = hfragp->alloc_size;
-        first = esdp->ets_tables.clist;
+        first = esdp->u.ets_tables.clist;
         tb = *tablepp;
     }
     else {
@@ -3319,7 +3470,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         ASSERT(!*tablepp);
 
         /* Max heap size needed... */
-        sz = erts_atomic_read_nob(&esdp->ets_tables.count);
+        sz = erts_atomic_read_nob(&esdp->u.ets_tables.count);
         sz *= ERTS_MAGIC_REF_THING_SIZE + 2;
         sz += 3 + ERTS_REF_THING_SIZE;
         hfragp = new_message_buffer(sz);
@@ -3327,7 +3478,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
         hp = &hfragp->mem[0];
         ohp = &hfragp->off_heap;
         list = NIL;
-        first = esdp->ets_tables.clist;
+        first = esdp->u.ets_tables.clist;
         tb = first ? first->common.all.prev : NULL;
     }
 
@@ -3413,7 +3564,7 @@ erts_handle_yielded_ets_all_request(ErtsAuxWorkData *awdp)
                 return 0; /* All work completed! */
 
             if (yc < ERTS_ETS_ALL_TB_YCNT_START &&
-                yc > erts_atomic_read_nob(&esdp->ets_tables.count))
+                yc > erts_atomic_read_nob(&esdp->u.ets_tables.count))
                 return 1; /* Yield! */
 
             eaydp->ongoing = ongoing = eaydp->queue;
@@ -4615,8 +4766,8 @@ erts_ets_sched_spec_data_init(ErtsSchedulerData *esdp)
     eaydp->hfrag = NULL;
     eaydp->tab = NULL;
     eaydp->queue = NULL;
-    esdp->ets_tables.clist = NULL;
-    erts_atomic_init_nob(&esdp->ets_tables.count, 0);
+    esdp->u.ets_tables.clist = NULL;
+    erts_atomic_init_nob(&esdp->u.ets_tables.count, 0);
 }
 
 
@@ -5455,7 +5606,7 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg, int alive_only
 
     for (ix = 0; ix < erts_no_schedulers; ix++) {
         ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
-        DbTable *first = esdp->ets_tables.clist;
+        DbTable *first = esdp->u.ets_tables.clist;
         if (first) {
             DbTable *tb = first;
             do {
@@ -5487,7 +5638,7 @@ erts_db_foreach_thr_prgr_offheap(void (*func)(ErlOffHeap *, void *),
 
 /* retrieve max number of ets tables */
 Uint
-erts_db_get_max_tabs()
+erts_db_get_max_tabs(void)
 {
     return db_max_tabs;
 }
@@ -5499,7 +5650,7 @@ Uint erts_ets_table_count(void)
 
     for (six = 0; six < erts_no_schedulers; six++) {
         ErtsSchedulerData *esdp = &erts_aligned_scheduler_data[six].esd;
-        tb_count += erts_atomic_read_nob(&esdp->ets_tables.count);
+        tb_count += erts_atomic_read_nob(&esdp->u.ets_tables.count);
     }
     return tb_count;
 }
@@ -5566,7 +5717,7 @@ static void lcnt_update_db_locks_per_sched(void *enable) {
     DbTable *head;
 
     esdp = erts_get_scheduler_data();
-    head = esdp->ets_tables.clist;
+    head = esdp->u.ets_tables.clist;
 
     if(head) {
         DbTable *iterator = head;

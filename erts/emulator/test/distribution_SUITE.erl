@@ -63,6 +63,7 @@
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
          bad_dist_ext_size/1,
+         bad_dist_ext_spawn_request_arg_list/1,
 	 start_epmd_false/1, no_epmd/1, epmd_module/1,
          bad_dist_fragments/1,
          exit_dist_fragments/1,
@@ -134,7 +135,8 @@ groups() ->
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_size,
-       bad_dist_ext_control, bad_dist_ext_connection_id]},
+       bad_dist_ext_control, bad_dist_ext_connection_id,
+       bad_dist_ext_spawn_request_arg_list]},
      {message_latency, [],
       [message_latency_large_message,
        message_latency_large_link_exit,
@@ -877,9 +879,12 @@ make_busy(Node, Time) when is_integer(Time) ->
     receive after Own -> ok end,
     until(fun () ->
                   case {DCtrl, process_info(Pid, status)} of
-                      {DPrt, {status, suspended}} when is_port(DPrt) -> true;
-                      {DPid, {status, waiting}} when is_pid(DPid) -> true;
-                      _ -> false
+                      {DPrt, {status, waiting}} when is_port(DPrt) ->
+                          verify_busy(DPrt);
+                      {DPid, {status, waiting}} when is_pid(DPid) ->
+                          true;
+                      _ ->
+                          false
                   end
           end),
     %% then dist entry
@@ -895,6 +900,28 @@ make_busy(Node, Opts, Data) ->
 unmake_busy(Pid) ->
     unlink(Pid),
     exit(Pid, bang).
+
+verify_busy(Port) ->
+    Parent = self(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  port_command(Port, "Just some data"),
+                  Error = {not_busy, Port},
+                  exit(Parent, Error),
+                  error(Error)
+          end),
+    receive after 30 -> ok end,
+    case process_info(Pid, status) of
+        {status, suspended} ->
+            unlink(Pid),
+            exit(Pid, kill),
+            true;
+        {status, _} = WrongStatus ->
+            unlink(Pid),
+            exit(Pid, WrongStatus),
+            error(WrongStatus)
+    end.
 
 do_busy_test(Node, Fun) ->
     Busy = make_busy(Node, 1000),
@@ -1135,7 +1162,7 @@ roundtrip(Term) ->
     exit(Term).
 
 %% Test that the smallest external term [] aka NIL can be sent to
-%% another node node and back again.
+%% another node and back again.
 nil_roundtrip(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     {ok, Peer, Node} = ?CT_PEER(),
@@ -1944,6 +1971,8 @@ test_system_limit(Config) when is_list(Config) ->
 -define(DOP_PAYLOAD_EXIT2_TT, 27).
 -define(DOP_PAYLOAD_MONITOR_P_EXIT, 28).
 
+-define(DOP_SPAWN_REQUEST, 29).
+
 start_monitor(Offender,P) ->
     Parent = self(),
     Q = spawn(Offender,
@@ -2512,6 +2541,53 @@ bad_dist_ext_size(Config) when is_list(Config) ->
     peer_stop(OffenderPeer, Offender),
     peer_stop(VictimPeer, Victim).
 
+bad_dist_ext_spawn_request_arg_list(Config) when is_list(Config) ->
+    {ok, OffenderPeer, Offender} = ?CT_PEER(["-connect_all", "false"]),
+    {ok, VictimPeer, Victim} = ?CT_PEER(["-connect_all", "false"]),
+    Parent = self(),
+    start_node_monitors([Offender,Victim]),
+    SuccessfulSpawn = make_ref(),
+    BrokenSpawn = make_ref(),
+    P = spawn_link(
+          Offender,
+          fun () ->
+                  ReqId1 = make_ref(),
+                  dctrl_dop_spawn_request(Victim, ReqId1, self(), group_leader(),
+                                          {erlang, send, 2}, [],
+                                          dmsg_ext([self(), SuccessfulSpawn])),
+                  receive SuccessfulSpawn -> Parent ! SuccessfulSpawn end,
+                  receive BrokenSpawn -> ok end,
+                  ReqId2 = make_ref(),
+                  dctrl_dop_spawn_request(Victim, ReqId2, self(), group_leader(),
+                                          {erlang, send, 2}, [],
+                                          dmsg_bad_atom_cache_ref()),
+                  Parent ! BrokenSpawn,
+                  receive after infinity -> ok end
+          end),
+    receive SuccessfulSpawn -> ok end,
+    verify_up(Offender, Victim),
+    P ! BrokenSpawn,
+    receive BrokenSpawn -> ok end,
+    verify_down(Offender, connection_closed, Victim, killed),
+    [] = erpc:call(
+           Victim,
+           fun () ->
+                   lists:filter(
+                     fun (Proc) ->
+                             case process_info(Proc, current_function) of
+                                 {current_function,
+                                  {erts_internal, dist_spawn_init, 1}} ->
+                                     true;
+                                 _ ->
+                                     false
+                             end
+                     end,
+                     processes())
+           end),
+    unlink(P),
+    peer:stop(OffenderPeer),
+    peer:stop(VictimPeer),
+    ok.
 
 bad_dist_struct_check_msgs([]) ->
     receive
@@ -2553,7 +2629,19 @@ ensure_dctrl(Node) ->
     end.
 
 dctrl_send(DPrt, Data) when is_port(DPrt) ->
-    port_command(DPrt, Data);
+    try prim_inet:send(DPrt, Data) of
+        ok ->
+            ok;
+        Result ->
+            io:format("~w/2: ~p~n", [?FUNCTION_NAME, Result]),
+            Result
+    catch
+        Class: Reason: Stacktrace ->
+            io:format(
+              "~w/2: ~p: ~p: ~p ~n",
+              [?FUNCTION_NAME, Class, Reason, Stacktrace]),
+            erlang:raise(Class, Reason, Stacktrace)
+    end;
 dctrl_send(DPid, Data) when is_pid(DPid) ->
     Ref = make_ref(),
     DPid ! {send, self(), Ref, Data},
@@ -2574,6 +2662,15 @@ dctrl_dop_send(To, Msg) ->
                [dmsg_hdr(),
                 dmsg_ext({?DOP_SEND, ?COOKIE, To}),
                 dmsg_ext(Msg)]).
+
+dctrl_dop_spawn_request(Node, ReqId, From, GL, MFA, OptList, ArgListExt) ->
+    %% {29, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList}
+    %%
+    %% Followed by ArgList.
+    dctrl_send(ensure_dctrl(Node),
+               [dmsg_hdr(),
+                dmsg_ext({?DOP_SPAWN_REQUEST, ReqId, From, GL, MFA, OptList}),
+                ArgListExt]).
 
 send_bad_structure(Offender,Victim,Bad,WhereToPutSelf) ->
     send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,[]).
@@ -3246,7 +3343,7 @@ is_alive_tester(Node) ->
             ok
     end.
 
-dyn_node_name_monitor_node(Config) ->
+dyn_node_name_monitor_node(_Config) ->
     %% Test that monitor_node() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3284,7 +3381,7 @@ dyn_node_name_monitor_node_test(StartOpts, TestNode) ->
     ok.
 
 
-dyn_node_name_monitor(Config) ->
+dyn_node_name_monitor(_Config) ->
     %% Test that monitor() does not fail when erlang:is_alive() return true
     %% but we have not yet gotten a name...
     Args = ["-setcookie", atom_to_list(erlang:get_cookie()),
@@ -3716,7 +3813,7 @@ id(X) ->
 wait_until(Fun) ->
     wait_until(Fun, 24*60*60*1000).
 
-wait_until(Fun, Timeout) when Timeout < 0 ->
+wait_until(_Fun, Timeout) when Timeout < 0 ->
     timeout;
 wait_until(Fun, Timeout) ->
     case catch Fun() of
@@ -3887,8 +3984,8 @@ forever(Fun) ->
     Fun(),
     forever(Fun).
 
-abort(Why) ->
-    set_internal_state(abort, Why).
+%% abort(Why) ->
+%%     set_internal_state(abort, Why).
 
 
 start_busy_dist_port_tracer() ->

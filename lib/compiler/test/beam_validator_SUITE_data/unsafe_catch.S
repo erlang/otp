@@ -11,7 +11,8 @@
   {label,4}.
     {func_info,{atom,t},{atom,small},2}.
   {label,5}.
-    {allocate_zero,2,2}.
+    {allocate,2,2}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
     {'catch',{y,1},{f,6}}.
     {bs_init2,{f,0},1,0,2,{field_flags,[]},{x,2}}.
     {bs_put_integer,{f,0},

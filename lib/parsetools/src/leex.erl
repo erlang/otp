@@ -31,6 +31,216 @@
 %%% Hollub.
 
 -module(leex).
+-moduledoc """
+Lexical analyzer generator for Erlang
+
+A regular expression based lexical analyzer generator for Erlang, similar to
+`lex` or `flex`.
+
+> #### Note {: .info }
+>
+> The `leex` module was considered experimental when it was introduced.
+
+## Default Leex Options
+
+The (host operating system) environment variable `ERL_COMPILER_OPTIONS` can be
+used to give default Leex options. Its value must be a valid Erlang term. If the
+value is a list, it is used as is. If it is not a list, it is put into a list.
+
+The list is appended to any options given to `file/2`.
+
+The list can be retrieved with `compile:env_compiler_options/0`.
+
+## Input File Format
+
+Erlang style comments starting with a `%` are allowed in scanner files. A
+definition file has the following format:
+
+```text
+<Header>
+
+Definitions.
+
+<Macro Definitions>
+
+Rules.
+
+<Token Rules>
+
+Erlang code.
+
+<Erlang code>
+```
+
+The `Definitions.`, `Rules.`, and `Erlang code` headings are mandatory
+and must start at the beginning of a source line. The `<Header>`,
+`<Macro Definitions>`, and `<Erlang code>` sections are allowed to be
+empty, but there must be at least one rule.
+
+Macro definitions have the following format:
+
+```text
+NAME = VALUE
+```
+
+and there must be spaces around `=`. Macros can be used in the regular
+expressions of rules by writing `{NAME}`.
+
+> #### Note {: .info }
+>
+> When macros are expanded in expressions, the macro calls are replaced by the
+> macro value without any form of quoting or enclosing in parentheses.
+
+Rules have the following format:
+
+```text
+<Regexp> : <Erlang code>.
+```
+
+The `<Regexp>` must occur at the start of a line and not include any blanks; use
+`\t` and `\s` to include TAB and SPACE characters in the regular expression. If
+`<Regexp>` matches then the corresponding `<Erlang code>` is evaluated to generate a
+token. With the Erlang code the following predefined variables are available:
+
+- **`TokenChars`** - A list of the characters in the matched token.
+
+- **`TokenLen`** - The number of characters in the matched token.
+
+- **`TokenLine`** - The line number where the token occurred.
+
+- **`TokenCol`** - The column number where the token occurred (column of the
+  first character included in the token).
+
+- **`TokenLoc`** - Token location. Expands to `{TokenLine,TokenCol}` (even when
+  `error_location` is set to `line`).
+
+The code must return:
+
+- **`{token,Token}`** - Return `Token` to the caller.
+
+- **`{end_token,Token}`** - Return `Token` and is last token in a tokens call.
+
+- **`skip_token`** - Skip this token completely.
+
+- **`{error,ErrString}`** - An error in the token, `ErrString` is a string
+  describing the error.
+
+It is also possible to push back characters into the input characters with the
+following returns:
+
+- `{token,Token,PushBackList}`
+- `{end_token,Token,PushBackList}`
+- `{skip_token,PushBackList}`
+
+These have the same meanings as the normal returns but the characters in
+`PushBackList` will be prepended to the input characters and scanned for the
+next token. Note that pushing back a newline will mean the line numbering will
+no longer be correct.
+
+> #### Note {: .info }
+>
+> Pushing back characters gives you unexpected possibilities to cause the
+> scanner to loop\!
+
+The following example would match a simple Erlang integer or float and return a
+token which could be sent to the Erlang parser:
+
+```erlang
+D = [0-9]
+
+{D}+ :
+  {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
+
+{D}+\.{D}+((E|e)(\+|\-)?{D}+)? :
+  {token,{float,TokenLine,list_to_float(TokenChars)}}.
+```
+
+The Erlang code in the `Erlang code.` section is written into the output file
+directly after the module declaration and predefined exports declaration, making
+it possible to add extra exports, define imports, and other attributes, which are
+visible in the whole file.
+
+## Regular Expressions
+
+The regular expressions allowed here is a subset of the set found in `egrep` and
+in the AWK programming language, as defined in the book _The AWK Programming
+Language_ by A. V. Aho, B. W. Kernighan, and P. J. Weinberger. They are composed of
+the following characters:
+
+- **`c`** - Matches the non-metacharacter c.
+
+- **`\c`** - Matches the escape sequence or literal character c.
+
+- **`.`** - Matches any character.
+
+- **`^`** - Matches the beginning of a string.
+
+- **`$`** - Matches the end of a string.
+
+- **`[abc...]`** - Character class, which matches any of the characters
+  `abc...`. Character ranges are specified by a pair of characters separated by
+  a `-`.
+
+- **`[^abc...]`** - Negated character class, which matches any character except
+  `abc...`.
+
+- **`r1 | r2`** - Alternation. It matches either `r1` or `r2`.
+
+- **`r1r2`** - Concatenation. It matches `r1` and then `r2`.
+
+- **`r+`** - Matches one or more `r`s.
+
+- **`r*`** - Matches zero or more `r`s.
+
+- **`r?`** - Matches zero or one `r`s.
+
+- **`(r)`** - Grouping. It matches `r`.
+
+The escape sequences allowed are the same as for Erlang strings:
+
+- **`\b`** - Backspace.
+
+- **`\f`** - Form feed.
+
+- **`\n`** - Newline (line feed).
+
+- **`\r`** - Carriage return.
+
+- **`\t`** - Tab.
+
+- **`\e`** - Escape.
+
+- **`\v`** - Vertical tab.
+
+- **`\s`** - Space.
+
+- **`\d`** - Delete.
+
+- **`\ddd`** - The octal value `ddd`.
+
+- **`\xhh`** - The hexadecimal value `hh`.
+
+- **`\x{h...}`** - The hexadecimal value `h...`.
+
+- **`\c`** - Any other character literally, for example `\\` for backslash, `\"`
+  for `"`.
+
+The following examples define simplified versions of a few Erlang data types:
+
+```text
+Atoms [a-z][0-9a-zA-Z_]*
+
+Variables [A-Z_][0-9a-zA-Z_]*
+
+Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?
+```
+
+> #### Note {: .info }
+>
+> Anchoring a regular expression with `^` and `$` is not implemented in the
+> current version of `leex` and generates a parse error.
+""".
+-moduledoc(#{titles => [{function,<<"Generated Scanner Exports">>}]}).
 
 -export([compile/3,file/1,file/2,format_error/1]).
 
@@ -66,11 +276,158 @@
 -record(dfa_state, {no,nfa=[],trans=[],accept=noaccept}).
 
 %%%
+%%% Functions that generated scanner exports,
+%%% only used for documentation purposes
+%%%
+-export([string/1, string/2, token/2, token/3, tokens/2, tokens/3]).
+-doc #{equiv => string(String, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec string(String) -> StringRet when
+      String :: string(),
+      StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      EndLoc :: erl_anno:location().
+string(_String) -> error(undef).
+-doc """
+Scans `String` and returns either all the tokens in it or an `error` tuple.
+
+`StartLoc` and `EndLoc` are either [`erl_anno:line()`](`t:erl_anno:line/0`)
+or [`erl_anno:location()`](`t:erl_anno:location/0`), depending on the
+`error_location` option.
+
+> #### Note {: .info }
+>
+> It is an error if not all of the characters in `String` are consumed.
+""".
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec string(String, StartLoc) -> StringRet when
+      String :: string(),
+      StringRet :: {ok, Tokens, EndLoc} | ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+string(_String, _StartLoc) -> error(undef).
+
+-doc #{equiv => token(Cont, Chars, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec token(Cont, Chars) ->
+    {more, Cont1} | {done, TokenRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokenRet :: {ok, Token, EndLoc} |
+                  {eof, EndLoc} |
+                  ErrorInfo,
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      Token :: term(),
+      EndLoc :: erl_anno:location().
+token(_Cont, _Chars) -> error(undef).
+
+-doc """
+This is a re-entrant call to try and scan a single token from `Chars`.
+
+If there are enough characters in `Chars` to either scan a token or
+detect an error then this will be returned with
+`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+used in the next call to `token()` with more characters to try an scan
+the token. This is continued until a token has been scanned. `Cont` is
+initially `[]`.
+
+It is not designed to be called directly by an application, but is
+used through the I/O system where it can typically be called in an
+application by:
+
+```erlang
+io:request(InFile, {get_until,unicode,Prompt,Module,token,[Loc]})
+  -> TokenRet
+```
+""".
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec token(Cont, Chars, StartLoc) ->
+    {more, Cont1} | {done, TokenRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokenRet :: {ok, Token, EndLoc} |
+                  {eof, EndLoc} |
+                  ErrorInfo,
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      Token :: term(),
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+token(_Cont, _Chars, _StartLoc) -> error(undef).
+
+-doc #{equiv => tokens(Cont, Chars, 1)}.
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec tokens(Cont, Chars) ->
+    {more, Cont1} | {done, TokensRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokensRet :: {ok, Tokens, EndLoc} |
+                   {eof, EndLoc} |
+                   ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      EndLoc :: erl_anno:location().
+tokens(_Cont, _Chars) -> error(undef).
+-doc """
+This is a re-entrant call to try and scan tokens from `Chars`.
+
+If there are enough characters in `Chars` to either scan tokens or
+detect an error then this will be returned with
+`{done,...}`. Otherwise `{cont,Cont}` will be returned where `Cont` is
+used in the next call to `tokens()` with more characters to try an
+scan the tokens. This is continued until all tokens have been
+scanned. `Cont` is initially `[]`.
+
+This functions differs from `token` in that it will continue to scan tokens up
+to and including an `{end_token,Token}` has been scanned (see next section). It
+will then return all the tokens. This is typically used for scanning grammars
+like Erlang where there is an explicit end token, `'.'`. If no end token is
+found then the whole file will be scanned and returned. If an error occurs then
+all tokens up to and including the next end token will be skipped.
+
+It is not designed to be called directly by an application, but used through the
+I/O system where it can typically be called in an application by:
+
+```erlang
+io:request(InFile, {get_until,unicode,Prompt,Module,tokens,[Loc]})
+  -> TokensRet
+```
+""".
+-doc(#{title => <<"Generated Scanner Exports">>}).
+-spec tokens(Cont, Chars, StartLoc) ->
+    {more, Cont1} | {done, TokensRet, RestChars} when
+      Cont :: [] | Cont1,
+      Cont1 :: tuple(),
+      Chars :: string() | eof,
+      RestChars :: string() | eof,
+      TokensRet :: {ok, Tokens, EndLoc} |
+                   {eof, EndLoc} |
+                   ErrorInfo,
+      Tokens :: [Token],
+      Token :: term(),
+      ErrorInfo :: {error, error_info(), erl_anno:location()},
+      StartLoc :: erl_anno:location(),
+      EndLoc :: erl_anno:location().
+tokens(_Cont, _Chars, _StartLoc) -> error(undef).
+
+%%%
 %%% Exported functions
 %%%
 
 %%% Interface to erl_compile.
 
+-doc false.
 compile(Input0, Output0,
         #options{warning = WarnLevel, verbose=Verbose, includes=Includes,
 		 specific=Specific}) ->
@@ -89,6 +446,10 @@ compile(Input0, Output0,
             error
     end.
 
+-doc """
+The standard `t:error_info/0` structure that is returned from all I/O modules.
+`ErrorDescriptor` is formattable by `format_error/1`.
+""".
 -type error_info() :: {erl_anno:line() | 'none',
                        module(), ErrorDescriptor :: term()}.
 -type errors() :: [{file:filename(), [error_info()]}].
@@ -99,11 +460,80 @@ compile(Input0, Output0,
                   | {'error', Errors :: errors(), Warnings :: warnings()}.
 -type leex_ret() :: ok_ret() | error_ret().
 
+-doc #{equiv => file(File, [])}.
 -spec file(FileName) -> leex_ret() when
       FileName :: file:filename().
 
 file(File) -> file(File, []).
 
+-doc """
+Generates a lexical analyzer from the definition in the input file.
+
+The input file has the extension `.xrl`. This is added to the filename
+if it is not given.  The resulting module is the Xrl filename without
+the `.xrl` extension.
+
+The current options are:
+
+- **`dfa_graph`** - Generates a `.dot` file which contains a description of the
+  DFA in a format which can be viewed with Graphviz, `www.graphviz.com`.
+
+- **`{includefile,Includefile}`** - Uses a specific or customised prologue file
+  instead of default `lib/parsetools/include/leexinc.hrl` which is otherwise
+  included.
+
+- **`{report_errors, boolean()}`** - Causes errors to be printed as they occur.
+  Default is `true`.
+
+- **`{report_warnings, boolean()}`** - Causes warnings to be printed as they
+  occur. Default is `true`.
+
+- **`{report, boolean()}`** - This is a short form for both `report_errors` and
+  `report_warnings`.
+
+- **`{return_errors, boolean()}`** - If this flag is set,
+  `{error, Errors, Warnings}` is returned when there are errors. Default is
+  `false`.
+
+- **`{return_warnings, boolean()}`** - If this flag is set, an extra field
+  containing `Warnings` is added to the tuple returned upon success. Default is
+  `false`.
+
+- **`{return, boolean()}`** - This is a short form for both `return_errors` and
+  `return_warnings`.
+
+- **`{scannerfile, Scannerfile}`** - `Scannerfile` is the name of the file that
+  will contain the Erlang scanner code that is generated. The default (`""`) is
+  to add the extension `.erl` to `FileName` stripped of the `.xrl` extension.
+
+- **`{verbose, boolean()}`** - Outputs information from parsing the input file
+  and generating the internal tables.
+
+- **`{warnings_as_errors, boolean()}`** - Causes warnings to be treated as
+  errors.
+
+- **`{deterministic, boolean()}`** - Causes generated `-file()` attributes to only
+  include the basename of the file path.
+
+- **`{error_location, line | column}`** - If set to `column`, error location
+  will be `{Line,Column}` tuple instead of just `Line`. Also, `StartLoc` and
+  `EndLoc` in [`string/2`](`string/2`), [`token/3`](`token/3`), and
+  [`tokens/3`](`tokens/3`) functions will be `{Line,Column}` tuple instead of
+  just `Line`. Default is `line`. Note that you can use `TokenLoc` for token
+  location independently, even if the `error_location` is set to `line`.
+
+  Unicode characters are counted as many columns as they use bytes to represent.
+
+- **`{tab_size, pos_integer()}`** - Sets the width of `\t` character (only
+  relevant if `error_location` is set to `column`). Default is `8`.
+
+Any of the Boolean options can be set to `true` by stating the name of the
+option. For example, `verbose` is equivalent to `{verbose, true}`.
+
+Leex will add the extension `.hrl` to the `Includefile` name and the extension
+`.erl` to the `Scannerfile` name, unless the extension is already there.
+""".
+-doc(#{since => <<"OTP R16B02">>}).
 -spec file(FileName, Options) -> leex_ret() when
       FileName :: file:filename(),
       Options :: Option | [Option],
@@ -119,6 +549,8 @@ file(File) -> file(File, []).
               | {'verbose', boolean()}
               | {'warnings_as_errors', boolean()}
               | {'deterministic', boolean()}
+              | {'error_location', line | column}
+              | {'tab_size', pos_integer()}
               | 'dfa_graph'
               | 'report_errors' | 'report_warnings' | 'report'
               | 'return_errors' | 'return_warnings' | 'return'
@@ -160,6 +592,11 @@ file(File, Opts0) when is_list(Opts0) ->
 file(File, Opt) ->
     file(File, [Opt]).
 
+-doc """
+Returns a descriptive string in English of an error reason `ErrorDescriptor`
+returned by [`leex:file/1,2`](`file/1`) when there is an error in a regular
+expression.
+""".
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
       ErrorDescriptor :: term().
 
@@ -281,6 +718,12 @@ check_options([{Option, Boolean} | Options], AllOptions, L)
         false ->
             badarg
         end;
+check_options([{error_location, Loc}=O | Options], AllOptions, L)
+        when Loc =:= line; Loc =:= column ->
+    check_options(Options, AllOptions, [O | L]);
+check_options([{tab_size, S}=O | Options], AllOptions, L)
+        when is_integer(S) andalso S>0 ->
+    check_options(Options, AllOptions, [O | L]);
 check_options([], _AllOptions, L) ->
     L;
 check_options(_Options, _, _L) ->
@@ -289,7 +732,7 @@ check_options(_Options, _, _L) ->
 all_options() ->
     [dfa_graph,includefile,report_errors,report_warnings,
      return_errors,return_warnings,scannerfile,verbose,
-     warnings_as_errors, deterministic].
+     warnings_as_errors,deterministic,error_location,tab_size].
 
 default_option(dfa_graph) -> false;
 default_option(includefile) -> [];
@@ -300,7 +743,9 @@ default_option(return_warnings) -> false;
 default_option(scannerfile) -> [];
 default_option(verbose) -> false;
 default_option(warnings_as_errors) -> false;
-default_option(deterministic) -> false.
+default_option(deterministic) -> false;
+default_option(error_location) -> line;
+default_option(tab_size) -> 8.
 
 atom_option(dfa_graph) -> {dfa_graph,true};
 atom_option(report_errors) -> {report_errors,true};
@@ -596,7 +1041,9 @@ parse_rule(S, Line, Atoks, Ms, N, St) ->
             TokenChars = var_used('TokenChars', Atoks),
             TokenLen = var_used('TokenLen', Atoks),
             TokenLine = var_used('TokenLine', Atoks),
-            {ok,{R,N},{N,Atoks,TokenChars,TokenLen,TokenLine},St};
+            TokenCol = var_used('TokenCol', Atoks),
+            TokenLoc = var_used('TokenLoc', Atoks),
+            {ok,{R,N},{N,Atoks,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc},St};
         {error,E} ->
             add_error({Line,leex,E}, St)
     end.
@@ -1415,6 +1862,10 @@ out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
             case string:slice(Line, 0, 5) of
                 "##mod" -> out_module(Ofile, St);
                 "##cod" -> out_erlang_code(Ofile, St, Code, L);
+                "##str" -> out_string(Ofile, St#leex.opts);
+                "##tkn" -> out_token(Ofile, St#leex.opts);
+                "##tks" -> out_tokens(Ofile, St#leex.opts);
+                "##tab" -> out_tab_size(Ofile, St#leex.opts);
                 "##dfa" -> out_dfa(Ofile, St, DFA, Code, DF, L);
                 "##act" -> out_actions(Ofile, St#leex.xfile, Deterministic, Actions);
                 _ -> io:put_chars(Ofile, Line)
@@ -1440,6 +1891,92 @@ out_erlang_code(File, St, Code, L) ->
     io:nl(File),
     output_file_directive(File, St#leex.ifile, Deterministic, L).
 
+out_tab_size(File, Opts) ->
+    Size = proplists:get_value(tab_size, Opts),
+    io:fwrite(File, "tab_size() -> ~p.\n", [Size]).
+
+%% Exclude column number if needed
+out_string(File, Opts) ->
+    out_string_1(File, Opts),
+    out_string_2(File, Opts),
+    Vars = lists:join(", ",["Ics","L0","C0","Tcs","Ts"]),
+    out_head(File,string,Vars),
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            io:fwrite(File,"    do_string(~s).\n",[Vars]);
+        line ->
+            io:fwrite(File,"    case do_string(~s) of\n",[Vars]),
+            io:fwrite(File,"        {ok, T, {L,_}} -> {ok, T, L};\n",[]),
+            io:fwrite(File,"        {error, {{EL,_},M,D}, {L,_}} ->\n",[]),
+            io:fwrite(File,"            EI = {EL,M,D},\n",[]),
+            io:fwrite(File,"            {error, EI, L}\n",[]),
+            io:fwrite(File,"    end.\n",[])
+    end.
+
+out_string_1(File, Opts) ->
+    out_head(File,string,"Ics"),
+    EL = proplists:get_value(error_location, Opts),
+    DefLoc = case EL of
+                column -> "{1,1}";
+                line   -> "1"
+    end,
+    io:fwrite(File,"    string(~s).\n",["Ics,"++DefLoc]).
+
+out_string_2(File, Opts) ->
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            out_head(File,string,"Ics,{L0,C0}"),
+            CallVars = lists:join(", ", ["Ics","L0","C0","Ics","[]"]),
+            io:fwrite(File,"    string(~s).\n",[CallVars]);
+        line ->
+            out_head(File,string,"Ics,L0"),
+            CallVars = lists:join(", ", ["Ics","L0","1","Ics","[]"]),
+            io:fwrite(File,"    string(~s).\n",[CallVars])
+    end.
+
+out_token(File, Opts) ->
+    out_tokens_wrapper(File, Opts, token).
+
+out_tokens(File, Opts) ->
+    out_tokens_wrapper(File, Opts, tokens).
+
+out_tokens_wrapper(File, Opts, Fun) ->
+    out_token_2(File, Opts, Fun),
+    EL = proplists:get_value(error_location, Opts),
+    case EL of
+        column ->
+            VarsCol = lists:join(", ",["Cont","Chars","{Line,Col}"]),
+            out_head(File, Fun, VarsCol),
+            io:fwrite(File,"    do_~s(~s).\n",[Fun,"Cont,Chars,Line,Col"]);
+        line ->
+            VarsCol = lists:join(", ",["Cont","Chars","Line"]),
+            out_head(File, Fun, VarsCol),
+            io:fwrite(File,"    case do_~s(~s) of\n",[Fun,"Cont,Chars,Line,1"]),
+            io:fwrite(File,"        {more, _} = C -> C;\n",[]),
+            io:fwrite(File,"        {done, Ret0, R} ->\n",[]),
+            io:fwrite(File,"            Ret1 = case Ret0 of\n",[]),
+            io:fwrite(File,"                {ok, T, {L,_}} -> {ok, T, L};\n",[]),
+            io:fwrite(File,"                {eof, {L,_}} -> {eof, L};\n",[]),
+            io:fwrite(File,"                {error, {{EL,_},M,D},{L,_}} -> {error, {EL,M,D},L}\n",[]),
+            io:fwrite(File,"            end,\n",[]),
+            io:fwrite(File,"            {done, Ret1, R}\n",[]),
+            io:fwrite(File,"    end.\n",[])
+    end.
+
+out_token_2(File, Opts, Fun) ->
+    out_head(File, Fun, "Cont,Chars"),
+    EL = proplists:get_value(error_location, Opts),
+    DefLoc = case EL of
+        column -> "{1,1}";
+        line   -> "1"
+    end,
+    io:fwrite(File,"    ~s(~s).\n",[Fun,"Cont,Chars,"++DefLoc]).
+
+out_head(File, Fun, Vars) ->
+    io:fwrite(File, "~s(~s) -> \n",[Fun,Vars]).
+
 file_copy(From, To) ->
     case io:get_line(From, leex) of
         eof -> ok;
@@ -1455,36 +1992,36 @@ out_dfa(File, St, DFA, Code, DF, L) ->
     output_file_directive(File, St#leex.efile, Deterministic, L+(NCodeLines-1)+3),
     io:fwrite(File, "yystate() -> ~w.~n~n", [DF]),
     foreach(fun (S) -> out_trans(File, S) end, DFA),
-    io:fwrite(File, "yystate(S, Ics, Line, Tlen, Action, Alen) ->~n", []),
-    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,S}.~n", []).
+    io:fwrite(File, "yystate(S, Ics, Line, Col, Tlen, Action, Alen) ->~n", []),
+    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,Col,S}.~n", []).
 
 out_trans(File, #dfa_state{no=N,trans=[],accept={accept,A}}) ->
     %% Accepting end state, guaranteed done.
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, _, _) ->~n", [N]),
-    io:fwrite(File, "    {~w,Tlen,Ics,Line};~n", [A]);
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, _, _) ->~n", [N]),
+    io:fwrite(File, "    {~w,Tlen,Ics,Line,Col};~n", [A]);
 out_trans(File, #dfa_state{no=N,trans=Tr,accept={accept,A}}) ->
     %% Accepting state, but there maybe more.
     foreach(fun (T) -> out_accept_tran(File, N, A, T) end, pack_trans(Tr)),
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, _, _) ->~n", [N]),
-    io:fwrite(File, "    {~w,Tlen,Ics,Line,~w};~n", [A,N]);
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, _, _) ->~n", [N]),
+    io:fwrite(File, "    {~w,Tlen,Ics,Line,Col,~w};~n", [A,N]);
 out_trans(File, #dfa_state{no=N,trans=Tr,accept=noaccept}) ->
     %% Non-accepting transition state.
     foreach(fun (T) -> out_noaccept_tran(File, N, T) end, pack_trans(Tr)),
-    io:fwrite(File, "yystate(~w, Ics, Line, Tlen, Action, Alen) ->~n", [N]),
-    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,~w};~n", [N]).
+    io:fwrite(File, "yystate(~w, Ics, Line, Col, Tlen, Action, Alen) ->~n", [N]),
+    io:fwrite(File, "    {Action,Alen,Tlen,Ics,Line,Col,~w};~n", [N]).
 
 out_accept_tran(File, N, A, {{Cf,maxchar},S}) ->
     out_accept_head_max(File, N, Cf),
-    out_accept_body(File, S, "Line", A);
+    out_accept_body(File, S, "Line", "Col", A);
 out_accept_tran(File, N, A, {{Cf,Cl},S}) ->
     out_accept_head_range(File, N, Cf, Cl),
-    out_accept_body(File, S, "Line", A);
+    out_accept_body(File, S, "Line", "Col", A);
 out_accept_tran(File, N, A, {$\n,S}) ->
     out_accept_head_1(File, N, $\n),
-    out_accept_body(File, S, "Line+1", A);
+    out_accept_body(File, S, "Line+1", "1", A);
 out_accept_tran(File, N, A, {C,S}) ->
     out_accept_head_1(File, N, C),
-    out_accept_body(File, S, "Line", A).
+    out_accept_body(File, S, "Line", "Col", A).
 
 out_accept_head_1(File, State, Char) ->
     out_head_1(File, State, Char, "_", "_").
@@ -1495,21 +2032,21 @@ out_accept_head_max(File, State, Min) ->
 out_accept_head_range(File, State, Min, Max) ->
     out_head_range(File, State, Min, Max, "_", "_").
 
-out_accept_body(File, Next, Line, Action) ->
-    out_body(File, Next, Line, io_lib:write(Action), "Tlen").
+out_accept_body(File, Next, Line, Col, Action) ->
+    out_body(File, Next, Line, Col, io_lib:write(Action), "Tlen").
 
 out_noaccept_tran(File, N, {{Cf,maxchar},S}) ->
     out_noaccept_head_max(File, N, Cf),
-    out_noaccept_body(File, S, "Line");
+    out_noaccept_body(File, S, "Line", "Col");
 out_noaccept_tran(File, N, {{Cf,Cl},S}) ->
     out_noaccept_head_range(File, N, Cf, Cl),
-    out_noaccept_body(File, S, "Line");
+    out_noaccept_body(File, S, "Line", "Col");
 out_noaccept_tran(File, N, {$\n,S}) ->
     out_noaccept_head_1(File, N, $\n),
-    out_noaccept_body(File, S, "Line+1");
+    out_noaccept_body(File, S, "Line+1", "1");
 out_noaccept_tran(File, N, {C,S}) ->
     out_noaccept_head_1(File, N, C),
-    out_noaccept_body(File, S, "Line").
+    out_noaccept_body(File, S, "Line", "Col").
 
 out_noaccept_head_1(File, State, Char) ->
     out_head_1(File, State, Char, "Action", "Alen").
@@ -1520,24 +2057,27 @@ out_noaccept_head_max(File, State, Min) ->
 out_noaccept_head_range(File, State, Min, Max) ->
     out_head_range(File, State, Min, Max, "Action", "Alen").
 
-out_noaccept_body(File, Next, Line) ->
-    out_body(File, Next, Line, "Action", "Alen").
+out_noaccept_body(File, Next, Line, Col) ->
+    out_body(File, Next, Line, Col, "Action", "Alen").
 
+out_head_1(File, State, Char = $\n, Action, Alen) ->
+    io:fwrite(File, "yystate(~w, [~w|Ics], Line, _, Tlen, ~s, ~s) ->\n",
+                [State,Char,Action,Alen]);
 out_head_1(File, State, Char, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [~w|Ics], Line, Tlen, ~s, ~s) ->\n",
+    io:fwrite(File, "yystate(~w, [~w|Ics], Line, Col, Tlen, ~s, ~s) ->\n",
               [State,Char,Action,Alen]).
 
 out_head_max(File, State, Min, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [C|Ics], Line, Tlen, ~s, ~s) when C >= ~w ->\n",
+    io:fwrite(File, "yystate(~w, [C|Ics], Line, Col, Tlen, ~s, ~s) when C >= ~w ->\n",
               [State,Action,Alen,Min]).
 
 out_head_range(File, State, Min, Max, Action, Alen) ->
-    io:fwrite(File, "yystate(~w, [C|Ics], Line, Tlen, ~s, ~s) when C >= ~w, C =< ~w ->\n",
+    io:fwrite(File, "yystate(~w, [C|Ics], Line, Col, Tlen, ~s, ~s) when C >= ~w, C =< ~w ->\n",
               [State,Action,Alen,Min,Max]).
 
-out_body(File, Next, Line, Action, Alen) ->
-    io:fwrite(File, "    yystate(~w, Ics, ~s, Tlen+1, ~s, ~s);\n",
-              [Next,Line,Action,Alen]).
+out_body(File, Next, Line, Col, Action, Alen) ->
+    io:fwrite(File, "    yystate(~w, Ics, ~s, ~s, Tlen+1, ~s, ~s);\n",
+              [Next,Line,Col,Action,Alen]).
 
 %% pack_trans([{Crange,State}]) -> [{Crange,State}] when
 %%      Crange = {Char,Char} | Char.
@@ -1581,31 +2121,32 @@ pack_trans([], Pt) -> Pt.
 out_actions(File, XrlFile, Deterministic, As) ->
     As1 = prep_out_actions(As),
     foreach(fun (A) -> out_action(File, A) end, As1),
-    io:fwrite(File, "yyaction(_, _, _, _) -> error.~n", []),
+    io:fwrite(File, "yyaction(_, _, _, _, _) -> error.~n", []),
     foreach(fun (A) -> out_action_code(File, XrlFile, Deterministic, A) end, As1).
 
 prep_out_actions(As) ->
     map(fun ({A,empty_action}) ->
                 {A,empty_action};
-            ({A,Code,TokenChars,TokenLen,TokenLine}) ->
+            ({A,Code,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc}) ->
                 Vs = [{TokenChars,"TokenChars"},
                       {TokenLen,"TokenLen"},
-                      {TokenLine,"TokenLine"},
+                      {TokenLine or TokenLoc,"TokenLine"},
+                      {TokenCol or TokenLoc,"TokenCol"},
                       {TokenChars,"YYtcs"},
                       {TokenLen or TokenChars,"TokenLen"}],
                 Vars = [if F -> S; true -> "_" end || {F,S} <- Vs],
                 Name = list_to_atom(lists:concat([yyaction_,A])),
-                [Chars,Len,Line,_,_] = Vars,
-                Args = [V || V <- [Chars,Len,Line], V =/= "_"],
+                [Chars,Len,Line,Col,_,_] = Vars,
+                Args = [V || V <- [Chars,Len,Line,Col], V =/= "_"],
                 ArgsChars = lists:join(", ", Args),
-                {A,Code,Vars,Name,Args,ArgsChars}
+                {A,Code,Vars,Name,Args,ArgsChars, TokenLoc}
         end, As).
 
 out_action(File, {A,empty_action}) ->
-    io:fwrite(File, "yyaction(~w, _, _, _) -> skip_token;~n", [A]);
-out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars}) ->
-    [_,_,Line,Tcs,Len] = Vars,
-    io:fwrite(File, "yyaction(~w, ~s, ~s, ~s) ->~n", [A,Len,Tcs,Line]),
+    io:fwrite(File, "yyaction(~w, _, _, _, _) -> skip_token;~n", [A]);
+out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars,_TokenLoc}) ->
+    [_,_,Line,Col,Tcs,Len] = Vars,
+    io:fwrite(File, "yyaction(~w, ~s, ~s, ~s, ~s) ->~n", [A,Len,Tcs,Line,Col]),
     if
         Tcs =/= "_" ->
             io:fwrite(File, "    TokenChars = yypre(YYtcs, TokenLen),~n", []);
@@ -1615,13 +2156,17 @@ out_action(File, {A,_Code,Vars,Name,_Args,ArgsChars}) ->
 
 out_action_code(_File, _XrlFile, _Deterministic, {_A,empty_action}) ->
     ok;
-out_action_code(File, XrlFile, Deterministic, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
+out_action_code(File, XrlFile, Deterministic, {_A,Code,_Vars,Name,Args,ArgsChars, TokenLoc}) ->
     %% Should set the file to the .erl file, but instead assumes that
     %% ?LEEXINC is syntactically correct.
     io:fwrite(File, "\n-compile({inline,~w/~w}).\n", [Name, length(Args)]),
     L = erl_scan:line(hd(Code)),
     output_file_directive(File, XrlFile, Deterministic, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
+    if
+        TokenLoc -> io:fwrite(File,"    TokenLoc={TokenLine,TokenCol},~n",[]);
+        true -> ok
+    end,
     io:fwrite(File, "    ~ts\n", [pp_tokens(Code, L, File)]).
 
 %% pp_tokens(Tokens, Line, File) -> [char()].

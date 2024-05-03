@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2024. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,6 @@
 
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
-#endif
-
-/* These need to be undef:ed to not break activation of
- * micro level process accounting on /proc/self 
- */
-#ifdef _LARGEFILE_SOURCE
-#  undef _LARGEFILE_SOURCE
-#endif
-#ifdef _FILE_OFFSET_BITS
-#  undef _FILE_OFFSET_BITS
 #endif
 
 #include <stdlib.h>

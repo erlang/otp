@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -255,7 +255,7 @@ req_and_rep(Config) when is_list(Config) ->
                     "~n      Mg4Node: ~p", 
                     [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
                   Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node],
-                  ok    = ?START_NODES(Nodes),
+                  ok    = ?START_NODES(Nodes, true),
                   Nodes
           end,
     Case = fun(X) ->

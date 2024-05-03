@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 #    include "sys.h"
 #    include "bif.h"
+#    include "erl_fun.h"
 #    include "erl_process.h"
 #    include "beam_code.h"
 #    include "beam_file.h"
@@ -45,6 +46,7 @@ enum beamasm_perf_flags {
 };
 extern enum beamasm_perf_flags erts_jit_perf_support;
 #    endif
+extern int erts_jit_single_map;
 
 void beamasm_init(void);
 void *beamasm_new_assembler(Eterm mod,
@@ -52,16 +54,22 @@ void *beamasm_new_assembler(Eterm mod,
                             int num_functions,
                             BeamFile *beam);
 void beamasm_codegen(void *ba,
-                     const void **native_module_exec,
-                     void **native_module_rw,
+                     const void **executable_region,
+                     void **writable_region,
                      const BeamCodeHeader *in_hdr,
                      const BeamCodeHeader **out_exec_hdr,
                      BeamCodeHeader **out_rw_hdr);
-void beamasm_register_metadata(void *ba, const BeamCodeHeader *hdr);
-void beamasm_purge_module(const void *native_module_exec,
-                          void *native_module_rw);
+void *beamasm_register_metadata(void *ba, const BeamCodeHeader *header);
+void beamasm_unregister_metadata(void *handle);
+void beamasm_purge_module(const void *executable_region,
+                          void *writable_region,
+                          size_t size);
 void beamasm_delete_assembler(void *ba);
 int beamasm_emit(void *ba, unsigned specific_op, BeamOp *op);
+void beamasm_emit_coverage(void *instance,
+                           void *coverage,
+                           Uint index,
+                           Uint size);
 ErtsCodePtr beamasm_get_code(void *ba, int label);
 ErtsCodePtr beamasm_get_lambda(void *ba, int index);
 const byte *beamasm_get_rodata(void *ba, char *label);
@@ -72,9 +80,15 @@ void beamasm_embed_rodata(void *ba,
 void beamasm_embed_bss(void *ba, char *labelName, size_t size);
 
 unsigned int beamasm_patch_catches(void *ba, char *rw_base);
-void beamasm_patch_import(void *ba, char *rw_base, int index, BeamInstr import);
+void beamasm_patch_import(void *ba,
+                          char *rw_base,
+                          int index,
+                          const Export *import);
 void beamasm_patch_literal(void *ba, char *rw_base, int index, Eterm lit);
-void beamasm_patch_lambda(void *ba, char *rw_base, int index, BeamInstr fe);
+void beamasm_patch_lambda(void *ba,
+                          char *rw_base,
+                          int index,
+                          const ErlFunEntry *fe);
 void beamasm_patch_strings(void *ba, char *rw_base, const byte *strtab);
 
 void beamasm_emit_call_nif(const ErtsCodeInfo *info,
@@ -92,6 +106,12 @@ char *beamasm_get_base(void *instance);
 /* Return current instruction offset, for line information. */
 size_t beamasm_get_offset(void *ba);
 
+void beamasm_unseal_module(const void *executable_region,
+                           void *writable_region,
+                           size_t size);
+void beamasm_seal_module(const void *executable_region,
+                         void *writable_region,
+                         size_t size);
 void beamasm_flush_icache(const void *address, size_t size);
 
 /* Number of bytes emitted at first label in order to support trace and nif
@@ -159,10 +179,10 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
                                         const ErtsCodeInfo *ci_exec,
                                         enum erts_asm_bp_flag flag) {
     ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
+    (void)ci_exec;
 
     if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
 #    if defined(__aarch64__)
-        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
         Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
         /* B .next, .enabled: BL breakpoint_handler, .next: */
@@ -170,8 +190,6 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction to `.enabled`. */
         rw_code[1] = 0x14000001;
-
-        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
@@ -181,8 +199,6 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction to `.enabled`. */
         rw_code[1] = 1;
-
-        (void)ci_exec;
 #    endif
     }
 
@@ -193,6 +209,7 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
                                           const ErtsCodeInfo *ci_exec,
                                           enum erts_asm_bp_flag flag) {
     ASSERT(flag != ERTS_ASM_BP_FLAG_NONE);
+    (void)ci_exec;
 
     ci_rw->u.metadata.breakpoint_flag &= ~flag;
 
@@ -201,7 +218,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
          * past the prologue. */
 
 #    if defined(__aarch64__)
-        const Uint32 *exec_code = (Uint32 *)erts_codeinfo_to_code(ci_exec);
         Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
 
         /* B .enabled, .enabled: BL breakpoint_handler, .next: */
@@ -210,8 +226,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
         /* Reroute the initial jump instruction back to `.next`. */
         ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
         rw_code[1] = 0x14000002;
-
-        beamasm_flush_icache(&exec_code[1], sizeof(Uint32));
 #    else /* x86_64 */
         byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
 
@@ -221,8 +235,6 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
 
         /* Reroute the initial jump instruction back to `.next`. */
         rw_code[1] = BEAM_ASM_FUNC_PROLOGUE_SIZE - 2;
-
-        (void)ci_exec;
 #    endif
     }
 }

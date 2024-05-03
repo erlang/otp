@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,11 +19,12 @@
 %%
 
 -module(beam_types).
+-moduledoc false.
 
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1, usort/1]).
+-import(lists, [foldl/3, mapfoldl/3, reverse/1, usort/1]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
@@ -35,7 +36,9 @@
          is_singleton_type/1,
          normalize/1]).
 
--export([get_tuple_element/2, set_tuple_element/3]).
+-export([get_tuple_element/2,
+         set_tuple_element/3,
+         update_tuple/2]).
 
 -export([make_type_from_value/1]).
 
@@ -43,13 +46,12 @@
          make_boolean/0,
          make_cons/2,
          make_float/1,
-         make_float/2,
          make_integer/1,
          make_integer/2]).
 
 -export([limit_depth/1]).
 
--export([decode_ext/1, encode_ext/1]).
+-export([decode_ext/1, encode_ext/1, convert_ext/2]).
 
 %% This is exported to help catch errors in property test generators and is not
 %% meant to be used outside of test suites.
@@ -61,7 +63,7 @@
         N =:= nil).
 
 -define(IS_NUMBER_TYPE(N),
-        N =:= number orelse
+        is_record(N, t_number) orelse
         is_record(N, t_float) orelse
         is_record(N, t_integer)).
 
@@ -167,10 +169,16 @@ mts_records([{Key, A} | RsA], [{Key, B} | RsB], Acc) ->
         none -> mts_records(RsA, RsB, Acc);
         T -> mts_records(RsA, RsB, [{Key, T} | Acc])
     end;
-mts_records([{KeyA, _} | _ ]=RsA, [{KeyB, _} | RsB], Acc) when KeyA > KeyB ->
-    mts_records(RsA, RsB, Acc);
-mts_records([{KeyA, _} | RsA], [{KeyB, _} | _] = RsB, Acc) when KeyA < KeyB ->
-    mts_records(RsA, RsB, Acc);
+mts_records([{KeyA, _} | _]=RsA, [{KeyB, _} | _]=RsB, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            mts_records(tl(RsA), RsB, Acc);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            mts_records(RsA, tl(RsB), Acc)
+    end;
 mts_records(_RsA, [], [_|_]=Acc) ->
     reverse(Acc);
 mts_records([], _RsB, [_|_]=Acc) ->
@@ -252,10 +260,15 @@ join(#t_tuple{}=A, #t_tuple{}=B) ->
             lub(A, B);
         {_Key, none} ->
             lub(A, B);
-        {KeyA, KeyB} when KeyA < KeyB ->
-            #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
-        {KeyA, KeyB} when KeyA > KeyB ->
-            #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+        {KeyA, KeyB} ->
+            %% We must use total ordering rather than plain '<' as -0.0 differs
+            %% from +0.0
+            case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+                true ->
+                    #t_union{tuple_set=[{KeyA, A}, {KeyB, B}]};
+                false ->
+                    #t_union{tuple_set=[{KeyB, B}, {KeyA, A}]}
+            end
     end;
 join(#t_tuple{}=A, B) ->
     %% All other combinations have been tried already, so B must be 'other'
@@ -277,19 +290,17 @@ join_unions(#t_union{atom=AtomA,list=ListA,number=NumberA,
                      other=lub(OtherA, OtherB)},
     shrink_union(Union);
 join_unions(#t_union{atom=AtomA}=A, #t_atom{}=B) ->
-    A#t_union{atom=lub(AtomA, B)};
+    shrink_union(A#t_union{atom=lub(AtomA, B)});
 join_unions(#t_union{list=ListA}=A, B) when ?IS_LIST_TYPE(B) ->
-    A#t_union{list=lub(ListA, B)};
+    shrink_union(A#t_union{list=lub(ListA, B)});
 join_unions(#t_union{number=NumberA}=A, B) when ?IS_NUMBER_TYPE(B) ->
-    A#t_union{number=lub(NumberA, B)};
+    shrink_union(A#t_union{number=lub(NumberA, B)});
 join_unions(#t_union{tuple_set=TSetA}=A, #t_tuple{}=B) ->
     Set = join_tuple_sets(TSetA, new_tuple_set(B)),
     shrink_union(A#t_union{tuple_set=Set});
 join_unions(#t_union{other=OtherA}=A, B) ->
-    case lub(OtherA, B) of
-        any -> any;
-        T -> A#t_union{other=T}
-    end.
+    T = lub(OtherA, B),
+    shrink_union(A#t_union{other=T}).
 
 join_tuple_sets(A, none) ->
     A;
@@ -320,10 +331,16 @@ jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
     #t_tuple{} = normalize_tuple_set(Acc, B);
 jts_records([{Key, A} | RsA], [{Key, B} | RsB], N, Acc) ->
     jts_records(RsA, RsB, N + 1, [{Key, lub(A, B)} | Acc]);
-jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
-jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
-    jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
+jts_records([{KeyA, A} | _]=RsA, [{KeyB, B} | _]=RsB, N, Acc) ->
+    %% We must use total ordering rather than plain '<' as -0.0 differs from
+    %% +0.0
+    case total_compare(KeyA, KeyB, fun erlang:'<'/2) of
+        true ->
+            jts_records(tl(RsA), RsB, N + 1, [{KeyA, A} | Acc]);
+        false ->
+            true = KeyA =/= KeyB,               %Assertion.
+            jts_records(RsA, tl(RsB), N + 1, [{KeyB, B} | Acc])
+    end;
 jts_records([{KeyA, A} | RsA], [], N, Acc) ->
     jts_records(RsA, [], N + 1, [{KeyA, A} | Acc]);
 jts_records([], [{KeyB, B} | RsB], N, Acc) ->
@@ -334,6 +351,47 @@ jts_records([], [{KeyB, B} | RsB], N, Acc) ->
 
 -spec subtract(type(), type()) -> type().
 
+subtract(any, #t_number{elements={'-inf',Max}}) ->
+    %% We handle this case specially in order to represent the type
+    %% Var in Var =< Integer.
+    #t_union{atom=#t_atom{},
+             list=#t_list{},
+             number=#t_number{elements={Max,'+inf'}},
+             tuple_set=#t_tuple{},
+             other=other};
+subtract(any, nil) ->
+    %%
+    %% We handle this subtraction mainly for correctness. Consider:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), L =/= [], hd(L) -> ok.
+    %%
+    %% The type-based optimizations would rewrite the hd/1 BIF call to
+    %% a get_hd instruction:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), L =/= [], get_hd(L) -> ok.
+    %%
+    %% The beam_ssa_dead pass would later remove the redundant second
+    %% test of `L =/= []`:
+    %%
+    %%   foobar(L) when L =/= [], is_list(L), get_hd(L) -> ok.
+    %%
+    %% With that test removed, the type for L in the get_hd instruction
+    %% would be #t_list{} instead of the required #t_cons{} and that
+    %% would trigger an assertion. (If the assertion were to be removed,
+    %% beam_validator would complain instead.)
+    %%
+    %% By letting the type subtraction of `any` by `nil` return a
+    %% union, the optimized code above becomes legal. As an added bonus,
+    %% the is_list/1 guard test can be replaced with the cheaper
+    %% is_nonempty_list instruction:
+    %%
+    %%   foobar(L) when L =/= [], is_nonempty_list(L), get_hd(L) -> ok.
+    %%
+    #t_union{atom=#t_atom{},
+             list=#t_cons{},
+             number=#t_number{},
+             tuple_set=#t_tuple{},
+             other=other};
 subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     case ordsets:subtract(Set0, Set1) of
         [] -> none;
@@ -341,8 +399,11 @@ subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
     end;
 subtract(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
-subtract(#t_bitstring{size_unit=UnitA}=T, #t_bitstring{size_unit=UnitB}) ->
+subtract(#t_bitstring{appendable=App,size_unit=UnitA}=T,
+         #t_bitstring{appendable=App,size_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bitstring{}=T, #t_bitstring{}) ->
+    T;
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
     subtract_matchable(T, UnitA, UnitB);
 subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_context{tail_unit=UnitB}) ->
@@ -358,8 +419,10 @@ subtract(#t_integer{elements={Min, Max}}, #t_integer{elements={N,N}}) ->
         Max =:= N ->
             #t_integer{elements={Min, Max - 1}}
     end;
-subtract(number, #t_float{elements=any}) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> #t_float{};
+subtract(#t_number{elements=R}, #t_float{elements=any}) ->
+    integer_from_range(R);
+subtract(#t_number{elements=R}, #t_integer{elements=any}) ->
+    float_from_range(R);
 
 %% A list is essentially `#t_cons{} | nil`, so we're left with nil if we
 %% subtract a cons cell that is more general than the one in the list.
@@ -371,6 +434,9 @@ subtract(#t_list{type=TypeA,terminator=TermA}=T,
     end;
 subtract(#t_list{type=Type,terminator=Term}, nil) ->
     #t_cons{type=Type,terminator=Term};
+
+subtract(identifier, other) ->
+    identifier;
 
 subtract(#t_union{atom=Atom}=A, #t_atom{}=B)->
     shrink_union(A#t_union{atom=subtract(Atom, B)});
@@ -430,8 +496,7 @@ is_bs_matchable_type(Type) ->
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
-get_singleton_value(#t_float{elements={Float,Float}}) when Float =/= 0.0 ->
-    %% 0.0 is not actually a singleton as it has two encodings: 0.0 and -0.0
+get_singleton_value(#t_float{elements={Float,Float}}) ->
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
@@ -475,7 +540,7 @@ is_boolean_type(_) ->
 
 -spec is_numerical_type(type()) -> boolean().
 is_numerical_type(#t_integer{}) -> true;
-is_numerical_type(number) -> true;
+is_numerical_type(#t_number{}) -> true;
 is_numerical_type(_) -> false.
 
 -spec set_tuple_element(Index, Type, Elements) -> Elements when
@@ -499,6 +564,58 @@ get_tuple_element(Index, Es) ->
         #{ Index := T } -> T;
         #{} -> any
     end.
+
+%% Helper routine for `update_tuple` / `update_record` instructions, which copy
+%% an existing type and updates a few fields.
+-spec update_tuple(Type, Updates) -> Tuple when
+      Type :: type(),
+      Updates :: [{pos_integer(), type()}, ...],
+      Tuple :: type().
+update_tuple(#t_union{tuple_set=[_|_]=Set0}, [_|_]=Updates) ->
+    case Updates of
+        [{1, _} | _] ->
+            %% The update overwrites the tag, so we can no longer keep any
+            %% records apart. Normalize the set before trying again.
+            update_tuple(normalize_tuple_set(Set0, none), Updates);
+        [_|_] ->
+            case update_tuple_set(Set0, Updates) of
+                [] ->
+                    none;
+                [_|_]=Set ->
+                    verified_type(shrink_union(#t_union{tuple_set=Set}))
+            end
+    end;
+update_tuple(#t_union{tuple_set=#t_tuple{}=Tuple}, [_|_]=Updates) ->
+    update_tuple(Tuple, Updates);
+update_tuple(#t_tuple{exact=Exact,
+                      size=Size,
+                      elements=Es0}=Tuple,
+             [_|_]=Updates) ->
+    case update_tuple_1(Updates, Size, Es0) of
+        {MinSize, _Es} when Exact, MinSize > Size ->
+            none;
+        {MinSize, Es} ->
+            verified_normal_type(Tuple#t_tuple{size=MinSize,elements=Es})
+    end;
+update_tuple(Type, [_|_]=Updates) ->
+    case meet(Type, #t_tuple{size=1}) of
+        none -> none;
+        Tuple -> update_tuple(Tuple, Updates)
+    end.
+
+update_tuple_set([{Tag, Record0} | Set], Updates) ->
+    case update_tuple(Record0, Updates) of
+        none -> update_tuple_set(Set, Updates);
+        #t_tuple{}=Record -> [{Tag, Record} | update_tuple_set(Set, Updates)]
+    end;
+update_tuple_set([], _Es) ->
+    [].
+
+update_tuple_1([{Index, Type} | Updates], MinSize, Es0) ->
+    Es = set_tuple_element(Index, Type, Es0),
+    update_tuple_1(Updates, max(Index, MinSize), Es);
+update_tuple_1([], MinSize, Es) ->
+    {MinSize, Es}.
 
 -spec normalize(type()) -> normal_type().
 normalize(#t_union{atom=Atom,list=List,number=Number,
@@ -530,11 +647,11 @@ mtfv_1(A) when is_atom(A) ->
 mtfv_1(B) when is_bitstring(B) ->
     case bit_size(B) of
         0 ->
-            %% This is a bit of a hack, but saying that empty binaries have a
-            %% unit of 8 helps us get rid of is_binary/1 checks.
-            #t_bitstring{size_unit=8};
+            %% See the #t_bitstring{} definition in beam_types.hrl for
+            %% why empty binaries are considered appendable.
+            #t_bitstring{size_unit=256,appendable=true};
         Size ->
-            #t_bitstring{size_unit=Size}
+            #t_bitstring{size_unit=gcd(Size, 256)}
     end;
 mtfv_1(F) when is_float(F) ->
     make_float(F);
@@ -551,9 +668,9 @@ mtfv_1(L) when is_list(L) ->
 mtfv_1(M) when is_map(M) ->
     {SKey, SValue} =
         maps:fold(fun(Key, Value, {SKey0, SValue0}) ->
-                        SKey = join(mtfv_1(Key), SKey0),
-                        SValue = join(mtfv_1(Value), SValue0),
-                        {SKey, SValue}
+                          SKey = join(mtfv_1(Key), SKey0),
+                          SValue = join(mtfv_1(Value), SValue0),
+                          {SKey, SValue}
                   end, {none, none}, M),
     #t_map{super_key=SKey,super_value=SValue};
 mtfv_1(T) when is_tuple(T) ->
@@ -596,11 +713,7 @@ make_cons(Head0, Tail) ->
 
 -spec make_float(float()) -> type().
 make_float(Float) when is_float(Float) ->
-    make_float(Float, Float).
-
--spec make_float(float(), float()) -> type().
-make_float(Min, Max) when is_float(Min), is_float(Max), Min =< Max ->
-    #t_float{elements={Min, Max}}.
+    #t_float{elements={Float,Float}}.
 
 -spec make_integer(integer()) -> type().
 make_integer(Int) when is_integer(Int) ->
@@ -725,11 +838,13 @@ glb(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
-glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2)};
-glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+glb(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2),appendable=A1 or A2};
+glb(#t_bitstring{size_unit=UnitA,appendable=Appendable}=T,
+    #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_context{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_context{tail_unit=Unit};
@@ -739,9 +854,10 @@ glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     #t_bs_matchable{tail_unit=Unit};
-glb(#t_bs_matchable{tail_unit=UnitA}, #t_bitstring{size_unit=UnitB}=T) ->
+glb(#t_bs_matchable{tail_unit=UnitA},
+    #t_bitstring{size_unit=UnitB,appendable=Appendable}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
-    T#t_bitstring{size_unit=Unit};
+    T#t_bitstring{size_unit=Unit,appendable=Appendable};
 glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}=T) ->
     Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     T#t_bs_context{tail_unit=Unit};
@@ -760,15 +876,8 @@ glb(#t_cons{type=TypeA,terminator=TermA},
         {_, none} -> none;
         {Type, Term} -> #t_cons{type=Type,terminator=Term}
     end;
-glb(#t_float{}=T, #t_float{elements=any}) ->
-    T;
-glb(#t_float{elements=any}, #t_float{}=T) ->
-    T;
-glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
-  when MinA >= MinB, MinA =< MaxB;
-       MinB >= MinA, MinB =< MaxA ->
-    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
-    #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
+glb(#t_float{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(glb_ranges(R1, R2));
 glb(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
     #t_fun{arity=SameArity,target=SameTarget,type=TypeB}=T) ->
     T#t_fun{type=meet(TypeA, TypeB)};
@@ -780,19 +889,12 @@ glb(#t_fun{arity=any}=A, #t_fun{arity=ArityB}=B) when ArityB =/= any->
     glb(A#t_fun{arity=ArityB}, B);
 glb(#t_fun{arity=ArityA}=A, #t_fun{arity=any}=B) when ArityA =/= any ->
     glb(A, B#t_fun{arity=ArityA});
-glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
-    T;
-glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
-    T;
-glb(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
-  when MinA >= MinB, MinA =< MaxB;
-       MinB >= MinA, MinB =< MaxA ->
-    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
-    #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-glb(#t_integer{}=T, number) ->
-    T;
-glb(#t_float{}=T, number) ->
-    T;
+glb(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_integer{elements=R1}, #t_number{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_float{elements=R1}, #t_number{elements=R2}) ->
+    float_from_range(glb_ranges(R1, number_to_float_range(R2)));
 glb(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     %% A list is a union of `[type() | _]` and `[]`, so we're left with
@@ -808,10 +910,12 @@ glb(#t_list{}, nil) ->
     nil;
 glb(nil, #t_list{}) ->
     nil;
-glb(number, #t_integer{}=T) ->
-    T;
-glb(number, #t_float{}=T) ->
-    T;
+glb(#t_number{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(glb_ranges(R1, R2));
+glb(#t_number{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(glb_ranges(R1, R2));
+glb(#t_number{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(glb_ranges(number_to_float_range(R1), R2));
 glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of meet/2; elements don't need to be normal types.
@@ -820,9 +924,45 @@ glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKey,super_value=SValue};
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
+glb(identifier, T) ->
+    case is_identifier(T) of
+        true ->
+            T;
+        false ->
+            case T of
+                other -> identifier;
+                _ -> none
+            end
+    end;
+glb(T, identifier) ->
+    glb(identifier, T);
+glb(other, T) ->
+    case is_other(T) of
+        true -> T;
+        false -> none
+    end;
+glb(T, other) ->
+    glb(other, T);
 glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
+
+glb_ranges({MinA,MaxA}, {MinB,MaxB}) ->
+    true = inf_le(MinA, MaxA) andalso inf_le(MinB, MaxB), %Assertion.
+    case (inf_ge(MinA, MinB) andalso inf_le(MinA, MaxB)) orelse
+        (inf_ge(MinB, MinA) andalso inf_le(MinB, MaxA)) of
+        true ->
+            true = inf_le(MinA, MaxA) andalso inf_le(MinB, MaxB),   %Assertion.
+            {inf_max(MinA, MinB),inf_min(MaxA, MaxB)};
+        false ->
+            none
+    end;
+glb_ranges({MinA,MaxA}, any) ->
+    {MinA,MaxA};
+glb_ranges(any, {MinB,MaxB}) ->
+    {MinB,MaxB};
+glb_ranges(_, _) ->
+    any.
 
 glb_tuples(#t_tuple{size=Sz1,exact=Ex1}, #t_tuple{size=Sz2,exact=Ex2})
   when Ex1, Sz1 < Sz2;
@@ -894,8 +1034,9 @@ lub(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
     end;
 lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-lub(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
-    #t_bitstring{size_unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=U1,appendable=A1},
+    #t_bitstring{size_unit=U2,appendable=A2}) ->
+    #t_bitstring{size_unit=gcd(U1, U2),appendable=A1 and A2};
 lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
     #t_bs_matchable{tail_unit=gcd(U1, U2)};
 lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
@@ -921,15 +1062,12 @@ lub(#t_cons{type=TypeA,terminator=TermA},
     #t_list{type=join(TypeA,TypeB),terminator=join(TermA, TermB)};
 lub(#t_cons{type=Type,terminator=Term}, nil) ->
     #t_list{type=Type,terminator=Term};
-lub(#t_float{elements={MinA,MaxA}},
-    #t_float{elements={MinB,MaxB}}) ->
-    #t_float{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-lub(#t_float{}, #t_float{}) ->
-    #t_float{};
-lub(#t_float{}, #t_integer{}) ->
-    number;
-lub(#t_float{}, number) ->
-    number;
+lub(#t_float{elements=R1}, #t_float{elements=R2}) ->
+    float_from_range(lub_ranges(R1, R2));
+lub(#t_float{elements=R1}, #t_integer{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_float{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_fun{arity=SameArity,target=SameTarget,type=TypeA},
     #t_fun{arity=SameArity,target=SameTarget,type=TypeB}) ->
     #t_fun{arity=SameArity,target=SameTarget,type=join(TypeA, TypeB)};
@@ -937,15 +1075,12 @@ lub(#t_fun{arity=SameArity,type=TypeA}, #t_fun{arity=SameArity,type=TypeB}) ->
     #t_fun{arity=SameArity,type=join(TypeA, TypeB)};
 lub(#t_fun{type=TypeA}, #t_fun{type=TypeB}) ->
     #t_fun{type=join(TypeA, TypeB)};
-lub(#t_integer{elements={MinA,MaxA}},
-    #t_integer{elements={MinB,MaxB}}) ->
-    #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-lub(#t_integer{}, #t_integer{}) ->
-    #t_integer{};
-lub(#t_integer{}, #t_float{}) ->
-    number;
-lub(#t_integer{}, number) ->
-    number;
+lub(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
+    integer_from_range(lub_ranges(R1, R2));
+lub(#t_integer{elements=R1}, #t_float{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_integer{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     #t_list{type=join(TypeA, TypeB),terminator=join(TermA, TermB)};
@@ -957,10 +1092,12 @@ lub(nil, #t_list{}=T) ->
     T;
 lub(#t_list{}=T, nil) ->
     T;
-lub(number, #t_integer{}) ->
-    number;
-lub(number, #t_float{}) ->
-    number;
+lub(#t_number{elements=R1}, #t_number{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_number{elements=R1}, #t_integer{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
+lub(#t_number{elements=R1}, #t_float{elements=R2}) ->
+    number_from_range(lub_ranges(R1, R2));
 lub(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of join/2; elements don't need to be normal types.
@@ -976,16 +1113,51 @@ lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
     Sz = min(SzA, SzB),
     Es = lub_tuple_elements(Sz, EsA, EsB),
     #t_tuple{size=Sz,elements=Es};
-lub(_T1, _T2) ->
-    %%io:format("~p ~p\n", [_T1,_T2]),
+lub(T1, T2) ->
+    %%io:format("~p ~p\n", [T1,T2]),
+    case is_identifier(T1) andalso is_identifier(T2) of
+        true ->
+            identifier;
+        false ->
+            case is_other(T1) andalso is_other(T2) of
+                true -> other;
+                false -> any
+            end
+    end.
+
+is_other(Type) ->
+    AnyMinusOther = #t_union{atom=#t_atom{},
+                             list=#t_list{},
+                             number=#t_number{},
+                             tuple_set=#t_tuple{},
+                             other=none},
+    meet(AnyMinusOther, Type) =:= none.
+
+is_identifier(identifier) -> true;
+is_identifier(pid) -> true;
+is_identifier(port) -> true;
+is_identifier(reference) -> true;
+is_identifier(_) -> false.
+
+lub_ranges({MinA,MaxA}, {MinB,MaxB}) ->
+    {inf_min(MinA, MinB), inf_max(MaxA, MaxB)};
+lub_ranges(_, _) ->
     any.
+
+%% Expands integer 0 to `-0.0 .. +0.0`
+number_to_float_range({Min, 0}) ->
+    number_to_float_range({Min, +0.0});
+number_to_float_range({0, Max}) ->
+    number_to_float_range({-0.0, Max});
+number_to_float_range(Other) ->
+    Other.
 
 lub_bs_matchable(UnitA, UnitB) ->
     #t_bs_matchable{tail_unit=gcd(UnitA, UnitB)}.
 
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
-    maps:filter(fun(Index, _Type) -> Index =< MinSize end, Es0).
+    #{Index => Type || Index := Type <- Es0, Index =< MinSize}.
 
 lub_elements(Es1, Es2) ->
     Keys = if
@@ -1014,6 +1186,102 @@ gcd(A, B) ->
         X -> gcd(B, X)
     end.
 
+%%%
+%%% Handling of ranges.
+%%%
+%%% A range can begin with '-inf' OR end with '+inf'.
+%%%
+%%% Atoms are greater than all integers. Therefore, we don't
+%%% need any special handling of '+inf'.
+%%%
+
+float_from_range(none) ->
+    none;
+float_from_range(any) ->
+    #t_float{};
+float_from_range({Min0, Max0}) ->
+    true = inf_le(Min0, Max0),                  %Assertion.
+    case {safe_float(Min0), safe_float(Max0)} of
+        {'-inf','+inf'} ->
+            #t_float{};
+        {Min, Max} ->
+            #t_float{elements={Min, Max}}
+    end.
+
+safe_float(N) when is_number(N) ->
+    try
+        float(N)
+    catch
+        error:_ when N < 0 -> '-inf';
+        error:_ when N > 0 -> '+inf'
+    end;
+safe_float('-inf'=NegInf) -> NegInf;
+safe_float('+inf'=PosInf) -> PosInf.
+
+integer_from_range(none) ->
+    none;
+integer_from_range(any) ->
+    #t_integer{};
+integer_from_range({'-inf','+inf'}) ->
+    #t_integer{};
+integer_from_range({'-inf',Max}) ->
+    #t_integer{elements={'-inf',ceil(Max)}};
+integer_from_range({Min,'+inf'}) ->
+    #t_integer{elements={floor(Min),'+inf'}};
+integer_from_range({Min,Max}) ->
+    #t_integer{elements={floor(Min),ceil(Max)}}.
+
+number_from_range(N) ->
+    case integer_from_range(N) of
+        #t_integer{elements=R} ->
+            #t_number{elements=R};
+        none ->
+            none
+    end.
+
+inf_le('-inf', _) ->
+    true;
+inf_le(A, B) when is_float(A), is_float(B) ->
+    %% When float ranges are compared to float ranges, the total ordering
+    %% function must be used to preserve `-0.0 =/= +0.0`.
+    total_compare(A, B, fun erlang:'=<'/2);
+inf_le(A, B) ->
+    A =< B.
+
+inf_ge(_, '-inf') ->
+    true;
+inf_ge('-inf', _) ->
+    false;
+inf_ge(A, B) when is_float(A), is_float(B) ->
+    total_compare(A, B, fun erlang:'>='/2);
+inf_ge(A, B) ->
+    A >= B.
+
+inf_min(A, B) when A =:= '-inf'; B =:= '-inf' ->
+    '-inf';
+inf_min(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'=<'/2) of
+        true -> A;
+        false -> B
+    end;
+inf_min(A, B) ->
+    min(A, B).
+
+inf_max('-inf', B) ->
+    B;
+inf_max(A, '-inf') ->
+    A;
+inf_max(A, B) when is_float(A), is_float(B) ->
+    case total_compare(A, B, fun erlang:'>='/2) of
+        true -> A;
+        false -> B
+    end;
+inf_max(A, B) ->
+    max(A, B).
+
+total_compare(A, B, Order) ->
+    Order(erts_internal:cmp_term(A, B), 0).
+
 %%
 
 record_key(#t_tuple{exact=true,size=Size,elements=#{ 1 := Tag }}) ->
@@ -1032,8 +1300,6 @@ new_tuple_set(T) ->
 
 %%
 
-shrink_union(#t_union{other=any}) ->
-    any;
 shrink_union(#t_union{atom=Atom,list=none,number=none,
                       tuple_set=none,other=none}) ->
     Atom;
@@ -1052,6 +1318,12 @@ shrink_union(#t_union{atom=none,list=none,number=none,
 shrink_union(#t_union{atom=none,list=none,number=none,
                       tuple_set=none,other=Other}) ->
     Other;
+shrink_union(#t_union{atom=#t_atom{elements=any},
+                      list=#t_list{type=any,terminator=any},
+                      number=#t_number{elements=any},
+                      tuple_set=#t_tuple{size=0,exact=false},
+                      other=other}) ->
+    any;
 shrink_union(#t_union{}=T) ->
     T.
 
@@ -1127,6 +1399,12 @@ verified_normal_type(#t_fun{arity=Arity,
     T;
 verified_normal_type(#t_float{}=T) -> T;
 verified_normal_type(#t_integer{elements=any}=T) -> T;
+verified_normal_type(#t_integer{elements={'-inf',Max}}=T)
+  when is_integer(Max) ->
+    T;
+verified_normal_type(#t_integer{elements={Min,'+inf'}}=T)
+  when is_integer(Min) ->
+    T;
 verified_normal_type(#t_integer{elements={Min,Max}}=T)
   when is_integer(Min), is_integer(Max), Min =< Max ->
     T;
@@ -1136,21 +1414,22 @@ verified_normal_type(#t_list{type=Type,terminator=Term}=T) ->
     T;
 verified_normal_type(#t_map{}=T) -> T;
 verified_normal_type(nil=T) -> T;
-verified_normal_type(number=T) -> T;
+verified_normal_type(#t_number{}=T) -> T;
+verified_normal_type(other=T) -> T;
 verified_normal_type(pid=T) -> T;
 verified_normal_type(port=T) -> T;
 verified_normal_type(reference=T) -> T;
+verified_normal_type(identifier=T) -> T;
 verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
     %% All known elements must have a valid index and type (which may be a
     %% union). 'any' is prohibited since it's implicit and should never be
     %% present in the map, and a 'none' element ought to have reduced the
     %% entire tuple to 'none'.
-    maps:fold(fun(Index, Element, _) when is_integer(Index),
-                                          1 =< Index, Index =< Size,
-                                          Index =< ?TUPLE_ELEMENT_LIMIT,
-                                          Element =/= any, Element =/= none ->
-                      verified_type(Element)
-              end, [], Es),
+    _ = [verified_type(Element) ||
+            Index := Element <- Es,
+            is_integer(Index), 1 =< Index, Index =< Size,
+            Index =< ?TUPLE_ELEMENT_LIMIT,
+            Element =/= any, Element =/= none],
     T.
 
 %%%
@@ -1166,22 +1445,71 @@ verified_normal_type(#t_tuple{size=Size,elements=Es}=T) ->
 
 -define(BEAM_TYPE_ATOM,          (1 bsl 0)).
 -define(BEAM_TYPE_BITSTRING,     (1 bsl 1)).
--define(BEAM_TYPE_BS_MATCHSTATE, (1 bsl 2)).
--define(BEAM_TYPE_CONS,          (1 bsl 3)).
--define(BEAM_TYPE_FLOAT,         (1 bsl 4)).
--define(BEAM_TYPE_FUN,           (1 bsl 5)).
--define(BEAM_TYPE_INTEGER,       (1 bsl 6)).
--define(BEAM_TYPE_MAP,           (1 bsl 7)).
--define(BEAM_TYPE_NIL,           (1 bsl 8)).
--define(BEAM_TYPE_PID,           (1 bsl 9)).
--define(BEAM_TYPE_PORT,          (1 bsl 10)).
--define(BEAM_TYPE_REFERENCE,     (1 bsl 11)).
--define(BEAM_TYPE_TUPLE,         (1 bsl 12)).
+-define(BEAM_TYPE_CONS,          (1 bsl 2)).
+-define(BEAM_TYPE_FLOAT,         (1 bsl 3)).
+-define(BEAM_TYPE_FUN,           (1 bsl 4)).
+-define(BEAM_TYPE_INTEGER,       (1 bsl 5)).
+-define(BEAM_TYPE_MAP,           (1 bsl 6)).
+-define(BEAM_TYPE_NIL,           (1 bsl 7)).
+-define(BEAM_TYPE_PID,           (1 bsl 8)).
+-define(BEAM_TYPE_PORT,          (1 bsl 9)).
+-define(BEAM_TYPE_REFERENCE,     (1 bsl 10)).
+-define(BEAM_TYPE_TUPLE,         (1 bsl 11)).
+
+-define(BEAM_TYPE_HAS_LOWER_BOUND, (1 bsl 12)).
+-define(BEAM_TYPE_HAS_UPPER_BOUND, (1 bsl 13)).
+-define(BEAM_TYPE_HAS_UNIT,        (1 bsl 14)).
+
+-define(BEAM_TYPES_VERSION_27, ?BEAM_TYPES_VERSION).
+-define(BEAM_TYPES_VERSION_26, 2).
+-define(BEAM_TYPES_VERSION_25, 1).
+
+-spec convert_ext(pos_integer(), binary()) -> binary() | 'none'.
+convert_ext(?BEAM_TYPES_VERSION_27, Types) ->
+    Types;
+convert_ext(?BEAM_TYPES_VERSION_26, Types) ->
+    convert_ext(?BEAM_TYPES_VERSION_27, convert_ext_26(Types, <<>>));
+convert_ext(?BEAM_TYPES_VERSION_25, Types0) ->
+    NumberMask = (?BEAM_TYPE_FLOAT bor ?BEAM_TYPE_INTEGER),
+    Types = << case Min =< Max of
+                   true ->
+                       true = 0 =/= (TypeBits0 band NumberMask), %Assertion.
+                       TypeBits = TypeBits0 bor
+                           ((?BEAM_TYPE_HAS_LOWER_BOUND bor
+                                 ?BEAM_TYPE_HAS_UPPER_BOUND) bsl 1),
+                       <<TypeBits:16,Min:64/signed,Max:64/signed>>;
+                   false ->
+                       <<TypeBits0:16>>
+               end || <<TypeBits0:16,Min:64/signed,Max:64/signed>> <= Types0 >>,
+    convert_ext(?BEAM_TYPES_VERSION_26, Types);
+convert_ext(_Version, _Types) ->
+    none.
+
+convert_ext_26(<<TypeBits0:16/big,More/binary>>, Types) ->
+    true = TypeBits0 =/= 0,                      %Assertion.
+    %% OTP 27 removed #t_bs_context{} from the type information, which used to
+    %% occupy bit 2. As these are now considered to be a regular bitstring that
+    %% happens to be mutable, we'll combine it with the #t_bitstring{} type
+    %% bit.
+    TypeBits = (TypeBits0 band 3) bor ((TypeBits0 band (bnot 3)) bsr 1),
+
+    Res = foldl(fun({Id, Type}, Acc) ->
+                        decode_ext_bits(TypeBits, Id, Type, Acc)
+                end, none, ext_type_mapping()),
+    {[Min, Max, Unit], Rest} = decode_extra(TypeBits, More),
+    R = case {Min,Max} of
+            {'-inf','+inf'} -> any;
+            R0 -> R0
+        end,
+
+    Encoded = encode_ext(decode_fix(Res, R, Unit)),
+    convert_ext_26(Rest, <<Types/bits, Encoded/bits>>);
+convert_ext_26(<<>>, Types) ->
+    Types.
 
 ext_type_mapping() ->
     [{?BEAM_TYPE_ATOM,          #t_atom{}},
-     {?BEAM_TYPE_BITSTRING,     #t_bitstring{}},
-     {?BEAM_TYPE_BS_MATCHSTATE, #t_bs_context{}},
+     {?BEAM_TYPE_BITSTRING,     #t_bs_matchable{}},
      {?BEAM_TYPE_CONS,          #t_cons{}},
      {?BEAM_TYPE_FLOAT,         #t_float{}},
      {?BEAM_TYPE_FUN,           #t_fun{}},
@@ -1193,12 +1521,20 @@ ext_type_mapping() ->
      {?BEAM_TYPE_REFERENCE,     reference},
      {?BEAM_TYPE_TUPLE,         #t_tuple{}}].
 
--spec decode_ext(binary()) -> type().
-decode_ext(<<TypeBits:16/big,Min:64,Max:64>>) ->
+-spec decode_ext(binary()) -> {type(),binary()} | 'done'.
+decode_ext(<<TypeBits:16/big,More/binary>>) ->
+    true = TypeBits =/= 0,                      %Assertion.
     Res = foldl(fun({Id, Type}, Acc) ->
                         decode_ext_bits(TypeBits, Id, Type, Acc)
                 end, none, ext_type_mapping()),
-    {Res,Min,Max}.
+    {[Min,Max,Unit],Extra} = decode_extra(TypeBits, More),
+    R = case {Min,Max} of
+            {'-inf','+inf'} -> any;
+            R0 -> R0
+        end,
+    {decode_fix(Res, R, Unit),Extra};
+decode_ext(<<>>) ->
+    done.
 
 decode_ext_bits(Input, TypeBit, Type, Acc) ->
     case Input band TypeBit of
@@ -1206,17 +1542,52 @@ decode_ext_bits(Input, TypeBit, Type, Acc) ->
         _ -> join(Type, Acc)
     end.
 
+decode_extra(TypeBits, Extra) ->
+    L = [{?BEAM_TYPE_HAS_LOWER_BOUND, 64, signed, '-inf'},
+         {?BEAM_TYPE_HAS_UPPER_BOUND, 64, signed, '+inf'},
+         {?BEAM_TYPE_HAS_UNIT, 8, unsigned, 1}],
+    mapfoldl(fun({Bit,Size,Spec,Default}, Acc0) ->
+                     case {TypeBits band Bit, Spec, Acc0} of
+                         {Bit, unsigned, <<Value:Size/unsigned,Acc/binary>>} ->
+                             {Value, Acc};
+                         {Bit, signed, <<Value:Size/signed,Acc/binary>>} ->
+                             {Value, Acc};
+                         {0, _Spec, <<_/binary>>} ->
+                             {Default,Acc0}
+                     end
+             end, Extra, L).
+
+decode_fix(#t_integer{}, Range, _Unit) ->
+    #t_integer{elements=Range};
+decode_fix(#t_number{}, Range, _Unit) ->
+    #t_number{elements=Range};
+decode_fix(#t_bitstring{}, _Range, Unit) ->
+    #t_bitstring{size_unit=Unit+1};
+decode_fix(#t_union{}=Type0, Range, Unit) ->
+    Type1 = case meet(Type0, #t_integer{}) of
+                #t_integer{} ->
+                    Type0#t_union{number=#t_integer{elements=Range}};
+                _ ->
+                    Type0
+            end,
+    case meet(Type1, #t_bitstring{}) of
+        #t_bitstring{} ->
+            Type1#t_union{other=#t_bitstring{size_unit=Unit}};
+        _ ->
+            Type1
+    end;
+decode_fix(Type, _, _) ->
+    Type.
+
 -spec encode_ext(type()) -> binary().
 encode_ext(Input) ->
-    TypeBits = foldl(fun({Id, Type}, Acc) ->
-                             encode_ext_bits(Input, Id, Type, Acc)
-                     end, 0, ext_type_mapping()),
-    case get_integer_range(Input) of
-        none ->
-            <<TypeBits:16/big,0:64,-1:64>>;
-        {Min,Max} ->
-            <<TypeBits:16/big,Min:64,Max:64>>
-    end.
+    TypeBits0 = foldl(fun({Id, Type}, Acc) ->
+                              encode_ext_bits(Input, Id, Type, Acc)
+                      end, 0, ext_type_mapping()),
+    {TypeBits1,Extra} = encode_extra(Input),
+    TypeBits = TypeBits0 bor TypeBits1,
+    true = TypeBits =/= 0,                      %Assertion.
+    <<TypeBits:16,Extra/binary>>.
 
 encode_ext_bits(Input, TypeBit, Type, Acc) ->
     case meet(Input, Type) of
@@ -1224,21 +1595,49 @@ encode_ext_bits(Input, TypeBit, Type, Acc) ->
         _ -> Acc bor TypeBit
     end.
 
-get_integer_range(#t_integer{elements={Min,Max}}) ->
-    case is_small(Min) andalso is_small(Max) of
+encode_extra(Input) ->
+    {TypeBits0,Extra0} = encode_range(Input),
+    {TypeBits1,Extra1} = encode_unit(Input),
+    {TypeBits0 bor TypeBits1,<<Extra0/binary,Extra1/binary>>}.
+
+encode_range(#t_integer{elements={Min,Max}}) ->
+    encode_range(Min, Max);
+encode_range(#t_number{elements={Min,Max}}) ->
+    encode_range(Min, Max);
+encode_range(#t_union{number=N}) ->
+    encode_range(N);
+encode_range(_) ->
+    {0,<<>>}.
+
+encode_range(Min, Max) ->
+    case is_small(Min) of
         true ->
-            {Min,Max};
+            encode_range(Max, ?BEAM_TYPE_HAS_LOWER_BOUND, <<Min:64>>);
         false ->
-            %% Not an integer with range, or at least one of the
-            %% endpoints is a bignum.
-            none
-    end;
-get_integer_range(#t_union{number=N}) ->
-    get_integer_range(N);
-get_integer_range(_) -> none.
+            encode_range(Max, 0, <<>>)
+    end.
+
+encode_range(Max, TypeBits, Extra) ->
+    case is_small(Max) of
+        true ->
+            {TypeBits bor ?BEAM_TYPE_HAS_UPPER_BOUND,
+             <<Extra/binary,Max:64>>};
+        false ->
+            {TypeBits,Extra}
+    end.
+
+encode_unit(#t_bitstring{size_unit=Unit}) ->
+    true = is_integer(Unit) andalso 0 < Unit andalso Unit =< 256, %Assertion.
+    {?BEAM_TYPE_HAS_UNIT,<<(Unit-1):8>>};
+encode_unit(#t_union{other=Other}) ->
+    encode_unit(Other);
+encode_unit(_) ->
+    {0,<<>>}.
 
 %% Test whether the number is a small on a 64-bit machine.
 %% (Normally the compiler doesn't know/doesn't care whether something is
 %% bignum, but because the type representation is versioned this is safe.)
-is_small(N) ->
-    -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1.
+is_small(N) when is_integer(N), -(1 bsl 59) =< N andalso N =< (1 bsl 59) - 1 ->
+    true;
+is_small(_) ->
+    false.

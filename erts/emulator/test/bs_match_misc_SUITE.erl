@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,8 @@
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1,
-	 float_middle_endian/1,unsafe_get_binary_reuse/1, fp16/1]).
+	 float_middle_endian/1,unsafe_get_binary_reuse/1, fp16/1,
+         bad_bs_match/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +38,8 @@ all() ->
      kenneth, encode_binary, native, happi, size_var, wiger,
      x0_context, huge_float_field, writable_binary_matched,
      otp_7198, unordered_bindings, float_middle_endian,
-     unsafe_get_binary_reuse, fp16].
+     unsafe_get_binary_reuse, fp16,
+     bad_bs_match].
 
 
 %% Test matching of bound variables.
@@ -89,7 +91,7 @@ float_middle_endian(Config) when is_list(Config) ->
     ok.
 
 
-fcmp(0.0, 0.0) -> ok;
+fcmp(F1, F2) when F1 == 0.0, F2 == 0.0 -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok.
     
 match_float(Bin0, Fsz, I) ->
@@ -579,8 +581,6 @@ unsafe_get_binary_reuse(Config) when is_list(Config) ->
 ubgr_1(<<_CP/utf8, Rest/binary>>) -> id(Rest);
 ubgr_1(_) -> false.
 
-id(I) -> I.
-
 -define(FP16(EncodedInt, Float),
         (fun(NlInt, NlFloat) ->
                   <<F1:16/float>> = <<NlInt:16>>,
@@ -638,3 +638,30 @@ fp16(_Config) ->
     ?FP16(16#4000, 2),
     ?FP16(16#4000, 2.0),
     ok.
+
+bad_bs_match(_Config) ->
+    Lines = ["-module(bad_bs_match).",
+             "-export([f/1]).",
+             "f(<<X:16,_/binary>>) -> X."],
+    {Forms,_} =
+        lists:mapfoldl(fun(Line, L0) ->
+                               {ok,Tokens,L} = erl_scan:string(Line ++ "\n", L0),
+                               {ok,Form} = erl_parse:parse_form(Tokens),
+                               {Form,L}
+                       end, 1, Lines),
+    {ok,Mod,Beam0} = compile:forms(Forms, [binary]),
+
+    %% Introduce a non-existing sub command of the bs_match instruction.
+    Beam = binary:replace(Beam0, <<"ensure_at_least">>, <<"future_cool_cmd">>),
+    true = Beam0 =/= Beam,
+
+    %% There should be an error when attempting to load this BEAM
+    %% file, not a runtime crash.
+    {error,badfile} = code:load_binary(Mod, "", Beam),
+
+    ok.
+
+
+%%% Common utilities.
+id(I) -> I.
+

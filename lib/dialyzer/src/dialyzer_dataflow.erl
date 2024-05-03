@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_dataflow).
+-moduledoc false.
 
 -export([get_fun_types/5, get_warnings/5, format_args/3]).
 
@@ -1557,8 +1558,9 @@ bind_tuple(Pat, Type, Map, State, Opaques, Rev) ->
           true ->
             Any = t_any(),
             [_Head|AnyTail] = [Any || _ <- Es],
-            UntypedRecord = t_tuple([Tag|AnyTail]),
-            case state__lookup_record(cerl:atom_val(Tag), length(Tags), State) of
+            TagAtomVal = cerl:atom_val(Tag),
+            UntypedRecord = t_tuple([t_atom(TagAtomVal)|AnyTail]),
+            case state__lookup_record(TagAtomVal, length(Tags), State) of
               error ->
                 {false, UntypedRecord};
               {ok, Record, _FieldNames} ->
@@ -1601,20 +1603,24 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
   UnitVal = cerl:concrete(cerl:bitstr_unit(Seg)),
   Size = cerl:bitstr_size(Seg),
   case bitstr_bitsize_type(Size) of
-    all ->
-      binary = SegType, [] = Segs, %% just an assert
+    {literal, all} ->
+      binary = SegType, [] = Segs,              %Assertion.
       T = t_inf(t_bitstr(UnitVal, 0), BinType),
       {Map1, [Type]} = do_bind_pat_vars([Val], [T], Map,
                                         State, false, []),
       Type1 = remove_local_opaque_types(Type, State#state.opaques),
-      bind_bin_segs(Segs, t_bitstr(0, 0), [Type1|Acc], Map1, State);
-    utf ->                         % XXX: can possibly be strengthened
-      true = lists:member(SegType, [utf8, utf16, utf32]),
+      bind_bin_segs(Segs, t_none(), [Type1|Acc], Map1, State);
+    SizeType when SegType =:= utf8; SegType =:= utf16; SegType =:= utf32 ->
+      {literal, undefined} = SizeType,          %Assertion.
       {Map1, [_]} = do_bind_pat_vars([Val], [t_integer()],
                                      Map, State, false, []),
       Type = t_binary(),
-      bind_bin_segs(Segs, BinType, [Type|Acc], Map1, State);
-    any ->
+      bind_bin_segs(Segs, t_bitstr_match(Type, BinType),
+                    [Type | Acc], Map1, State);
+    {literal, N} when not is_integer(N); N < 0 ->
+      %% Bogus literal size, fails in runtime.
+      bind_error([Seg], BinType, t_none(), bind);
+    _ ->
       {Map1, [SizeType]} = do_bind_pat_vars([Size], [t_non_neg_integer()],
                                             Map, State, false, []),
       Opaques = State#state.opaques,
@@ -1667,14 +1673,8 @@ bind_bin_segs([], _BinType, Acc, Map, _State) ->
 
 bitstr_bitsize_type(Size) ->
   case cerl:is_literal(Size) of
-    true ->
-      case cerl:concrete(Size) of
-        all -> all;
-        undefined -> utf;
-        _ -> any
-      end;
-    false ->
-      any
+    true -> {literal, cerl:concrete(Size)};
+    false -> variable
   end.
 
 %% Return the infimum (meet) of ExpectedType and Type if it describes a
@@ -1800,16 +1800,17 @@ bind_guard(Guard, Map, Env, Eval, State) ->
       {Map, Type};
     var ->
       ?debug("Looking for var(~w)...", [cerl_trees:get_label(Guard)]),
-      case maps:find(get_label(Guard), Env) of
-	error ->
+      GuardLabel = get_label(Guard),
+      case Env of
+        #{GuardLabel := Tree} ->
+	  ?debug("Found it\n", []),
+	  {Map1, Type} = bind_guard(Tree, Map, Env, Eval, State),
+	  {enter_type(Guard, Type, Map1), Type};
+        #{} ->
 	  ?debug("Did not find it\n", []),
 	  Type = lookup_type(Guard, Map),
 	  Inf = guard_eval_inf(Eval, Type),
-	  {enter_type(Guard, Inf, Map), Inf};
-	{ok, Tree} ->
-	  ?debug("Found it\n", []),
-	  {Map1, Type} = bind_guard(Tree, Map, Env, Eval, State),
-	  {enter_type(Guard, Type, Map1), Type}
+	  {enter_type(Guard, Inf, Map), Inf}
       end;
     call ->
       handle_guard_call(Guard, Map, Env, Eval, State)
@@ -2709,19 +2710,19 @@ enter_type(Key, Val, MS) ->
 	false ->
           #map{map = Map, subst = Subst} = MS,
 	  KeyLabel = get_label(Key),
-	  case maps:find(KeyLabel, Subst) of
-	    {ok, NewKey} ->
+          case Subst of
+            #{KeyLabel := NewKey} ->
 	      ?debug("Binding ~p to ~p\n", [KeyLabel, NewKey]),
 	      enter_type(NewKey, Val, MS);
-	    error ->
+	    #{} ->
 	      ?debug("Entering ~p :: ~ts\n", [KeyLabel, t_to_string(Val)]),
-	      case maps:find(KeyLabel, Map) of
-		{ok, Value} ->
+              case Map of
+                #{KeyLabel := Value} ->
                   case erl_types:t_is_equal(Val, Value) of
                     true -> MS;
                     false -> store_map(KeyLabel, Val, MS)
                   end;
-		error -> store_map(KeyLabel, Val, MS)
+		#{} -> store_map(KeyLabel, Val, MS)
 	      end
 	  end
       end
@@ -2730,7 +2731,7 @@ enter_type(Key, Val, MS) ->
 store_map(Key, Val, #map{map = Map, ref = undefined} = MapRec) ->
   MapRec#map{map = maps:put(Key, Val, Map)};
 store_map(Key, Val, #map{map = Map, modified = Mod} = MapRec) ->
-  MapRec#map{map = maps:put(Key, Val, Map), modified = [Key | Mod]}.
+  MapRec#map{map = Map#{Key => Val}, modified = [Key | Mod]}.
 
 enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
   KeyLabel = get_label(Key),
@@ -2743,10 +2744,10 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
 	false -> MS;
 	true ->
 	  ValLabel = get_label(Val),
-	  case maps:find(ValLabel, Subst) of
-	    {ok, NewVal} ->
+          case Subst of
+            #{ValLabel := NewVal} ->
 	      enter_subst(Key, NewVal, MS);
-	    error ->
+	    #{} ->
 	      if KeyLabel =:= ValLabel -> MS;
 		 true ->
 		  ?debug("Subst: storing ~p = ~p\n", [KeyLabel, ValLabel]),
@@ -2759,7 +2760,7 @@ enter_subst(Key, Val0, #map{subst = Subst} = MS) ->
 store_subst(Key, Val, #map{subst = S, ref = undefined} = Map) ->
   Map#map{subst = maps:put(Key, Val, S)};
 store_subst(Key, Val, #map{subst = S, modified = Mod} = Map) ->
-  Map#map{subst = maps:put(Key, Val, S), modified = [Key | Mod]}.
+  Map#map{subst = S#{Key => Val}, modified = [Key | Mod]}.
 
 lookup_type(Key, #map{map = Map, subst = Subst}) ->
   lookup(Key, Map, Subst, t_none()).
@@ -2769,13 +2770,14 @@ lookup(Key, Map, Subst, AnyNone) ->
     true -> literal_type(Key);
     false ->
       Label = get_label(Key),
-      case maps:find(Label, Subst) of
-	{ok, NewKey} -> lookup(NewKey, Map, Subst, AnyNone);
-	error ->
-	  case maps:find(Label, Map) of
-	    {ok, Val} -> Val;
-	    error -> AnyNone
-	  end
+      case Subst of
+        #{Label := NewKey} ->
+          lookup(NewKey, Map, Subst, AnyNone);
+	#{} ->
+          case Map of
+            #{Label := Val} -> Val;
+            #{} -> AnyNone
+          end
       end
   end.
 

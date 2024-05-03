@@ -47,7 +47,7 @@ t2(Host, Port) ->
 
 
 t4(Host, Port) ->
-    t(essl, Host, Port).
+    t(ssl, Host, Port).
 
 
 t(SocketType, Host, Port) ->

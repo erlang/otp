@@ -65,7 +65,7 @@ Error BaseBuilder::newInstNode(InstNode** out, InstId instId, InstOptions instOp
   if (ASMJIT_UNLIKELY(!node))
     return reportError(DebugUtils::errored(kErrorOutOfMemory));
 
-  *out = new(node) InstNode(this, instId, instOptions, opCount, opCapacity);
+  *out = new(Support::PlacementNew{node}) InstNode(this, instId, instOptions, opCount, opCapacity);
   return kErrorOk;
 }
 
@@ -151,14 +151,13 @@ BaseNode* BaseBuilder::addNode(BaseNode* node) noexcept {
   ASMJIT_ASSERT(!node->isActive());
 
   if (!_cursor) {
-    if (!_firstNode) {
-      _firstNode = node;
-      _lastNode = node;
+    if (_nodeList.empty()) {
+      _nodeList.reset(node, node);
     }
     else {
-      node->_next = _firstNode;
-      _firstNode->_prev = node;
-      _firstNode = node;
+      node->_next = _nodeList.first();
+      _nodeList._first->_prev = node;
+      _nodeList._first = node;
     }
   }
   else {
@@ -172,7 +171,7 @@ BaseNode* BaseBuilder::addNode(BaseNode* node) noexcept {
     if (next)
       next->_prev = node;
     else
-      _lastNode = node;
+      _nodeList._last = node;
   }
 
   node->addFlags(NodeFlags::kIsActive);
@@ -201,7 +200,7 @@ BaseNode* BaseBuilder::addAfter(BaseNode* node, BaseNode* ref) noexcept {
   if (next)
     next->_prev = node;
   else
-    _lastNode = node;
+    _nodeList._last = node;
 
   return node;
 }
@@ -226,7 +225,7 @@ BaseNode* BaseBuilder::addBefore(BaseNode* node, BaseNode* ref) noexcept {
   if (prev)
     prev->_next = node;
   else
-    _firstNode = node;
+    _nodeList._first = node;
 
   return node;
 }
@@ -238,13 +237,13 @@ BaseNode* BaseBuilder::removeNode(BaseNode* node) noexcept {
   BaseNode* prev = node->prev();
   BaseNode* next = node->next();
 
-  if (_firstNode == node)
-    _firstNode = next;
+  if (_nodeList._first == node)
+    _nodeList._first = next;
   else
     prev->_next = next;
 
-  if (_lastNode == node)
-    _lastNode  = prev;
+  if (_nodeList._last == node)
+    _nodeList._last  = prev;
   else
     next->_prev = prev;
 
@@ -272,13 +271,13 @@ void BaseBuilder::removeNodes(BaseNode* first, BaseNode* last) noexcept {
   BaseNode* prev = first->prev();
   BaseNode* next = last->next();
 
-  if (_firstNode == first)
-    _firstNode = next;
+  if (_nodeList._first == first)
+    _nodeList._first = next;
   else
     prev->_next = next;
 
-  if (_lastNode == last)
-    _lastNode  = prev;
+  if (_nodeList._last == last)
+    _nodeList._last  = prev;
   else
     next->_prev = prev;
 
@@ -368,7 +367,7 @@ Error BaseBuilder::section(Section* section) {
     if (node->_nextSection)
       _cursor = node->_nextSection->_prev;
     else
-      _cursor = _lastNode;
+      _cursor = _nodeList.last();
   }
 
   return kErrorOk;
@@ -378,7 +377,7 @@ void BaseBuilder::updateSectionLinks() noexcept {
   if (!_dirtySectionLinks)
     return;
 
-  BaseNode* node_ = _firstNode;
+  BaseNode* node_ = _nodeList.first();
   SectionNode* currentSection = nullptr;
 
   while (node_) {
@@ -591,13 +590,15 @@ Error BaseBuilder::_emit(InstId instId, const Operand_& o0, const Operand_& o1, 
       EmitterUtils::opArrayFromEmitArgs(opArray, o0, o1, o2, opExt);
 
       ValidationFlags validationFlags = isCompiler() ? ValidationFlags::kEnableVirtRegs : ValidationFlags::kNone;
-      Error err = _funcs.validate(arch(), BaseInst(instId, options, _extraReg), opArray, opCount, validationFlags);
+      Error err = _funcs.validate(BaseInst(instId, options, _extraReg), opArray, opCount, validationFlags);
 
       if (ASMJIT_UNLIKELY(err)) {
-        resetInstOptions();
-        resetExtraReg();
-        resetInlineComment();
+#ifndef ASMJIT_NO_LOGGING
+        return EmitterUtils::logInstructionFailed(this, err, instId, options, o0, o1, o2, opExt);
+#else
+        resetState();
         return reportError(err);
+#endif
       }
     }
 #endif
@@ -620,7 +621,7 @@ Error BaseBuilder::_emit(InstId instId, const Operand_& o0, const Operand_& o1, 
     return reportError(DebugUtils::errored(kErrorOutOfMemory));
   }
 
-  node = new(node) InstNode(this, instId, options, opCount, opCapacity);
+  node = new(Support::PlacementNew{node}) InstNode(this, instId, options, opCount, opCapacity);
   node->setExtraReg(extraReg());
   node->setOp(0, o0);
   node->setOp(1, o1);
@@ -756,7 +757,7 @@ Error BaseBuilder::comment(const char* data, size_t size) {
 
 Error BaseBuilder::serializeTo(BaseEmitter* dst) {
   Error err = kErrorOk;
-  BaseNode* node_ = _firstNode;
+  BaseNode* node_ = _nodeList.first();
 
   Operand_ opArray[Globals::kMaxOpCount];
 
@@ -852,8 +853,7 @@ Error BaseBuilder::onAttach(CodeHolder* code) noexcept {
 
   ASMJIT_ASSUME(initialSection != nullptr);
   _cursor = initialSection;
-  _firstNode = initialSection;
-  _lastNode = initialSection;
+  _nodeList.reset(initialSection, initialSection);
   initialSection->setFlags(NodeFlags::kIsActive);
 
   return kErrorOk;
@@ -871,8 +871,7 @@ Error BaseBuilder::onDetach(CodeHolder* code) noexcept {
 
   _nodeFlags = NodeFlags::kNone;
   _cursor = nullptr;
-  _firstNode = nullptr;
-  _lastNode = nullptr;
+  _nodeList.reset();
 
   return Base::onDetach(code);
 }
@@ -883,6 +882,15 @@ Error BaseBuilder::onDetach(CodeHolder* code) noexcept {
 Pass::Pass(const char* name) noexcept
   : _name(name) {}
 Pass::~Pass() noexcept {}
+
+// Pass - Interface
+// ================
+
+// [[pure virtual]]
+Error Pass::run(Zone* zone, Logger* logger) {
+  DebugUtils::unused(zone, logger);
+  return DebugUtils::errored(kErrorInvalidState);
+}
 
 ASMJIT_END_NAMESPACE
 

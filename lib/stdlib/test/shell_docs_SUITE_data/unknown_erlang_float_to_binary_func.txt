@@ -1,0 +1,36 @@
+
+  [;1m-spec float_to_binary(Float) -> binary() when Float :: float().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  The same as [;;4mfloat_to_binary(Float,[{scientific,20}])[0m.
+
+  [;1m-spec float_to_binary(Float, Options) -> binary()[0m
+  [;1m                         when[0m
+  [;1m                             Float :: float(),[0m
+  [;1m                             Options :: [Option],[0m
+  [;1m                             Option ::[0m
+  [;1m                                 {decimals, Decimals :: 0..253} |[0m
+  [;1m                                 {scientific, Decimals :: 0..249} |[0m
+  [;1m                                 compact | short.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns a binary corresponding to the text representation of [;;4m[0m
+  [;;4mFloat[0m using fixed decimal point formatting. [;;4mOptions[0m behaves in
+  the same way as [;;4mfloat_to_list/2[0m. Examples:
+
+    > float_to_binary(7.12, [{decimals, 4}]).
+    <<"7.1200">>
+    > float_to_binary(7.12, [{decimals, 4}, compact]).
+    <<"7.12">>
+    > float_to_binary(7.12, [{scientific, 3}]).
+    <<"7.120e+00">>
+    > float_to_binary(7.12, [short]).
+    <<"7.12">>
+    > float_to_binary(0.1+0.2, [short]).
+    <<"0.30000000000000004">>
+    > float_to_binary(0.1+0.2)
+    <<"3.00000000000000044409e-01">>

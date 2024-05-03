@@ -6,6 +6,7 @@
     1. [Fixing a bug](#fixing-a-bug)
     2. [Adding a new feature](#adding-a-new-feature)
     3. [Before you submit your pull request](#before-you-submit-your-pull-request)
+    4. [After you have submitted your pull request](#after-you-have-submitted-your-pull-request)
 
 ## License
 
@@ -63,7 +64,7 @@ There are exceptions, for example corrections to bugs that have been introduced 
 * TIP: Write the test case **before** fixing the bug so that you can know that it catches the bug.
 
 * For applications without a test suite in the git repository, it would be appreciated if you provide a
-small code sample in the commit message or email a module that will provoke the failure.
+small code sample in the commit message or attach a module to the PR that will provoke the failure.
 
 ### Adding a new feature
 
@@ -99,8 +100,7 @@ a discussion on the mailing list.
 
 * Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
 but you should at least run the tests for the application you have changed.
-* Make sure the documentation builds and is according to the dtd. eg. `make xmllint` or `cd lib/stdlib/ && make xmllint`
-* Make sure no new dialyzer warnings have been added. eg. `make dialyzer` or `cd lib/stdlib/ && make dialyzer`
+* Make sure all static checks pass by calling `./otp_build check`. Call `./otp_build check --help` for details on what `./otp_build check` does.
 * Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
 
 See the [Testing](https://github.com/erlang/otp/blob/master/HOWTO/TESTING.md) and
@@ -149,3 +149,20 @@ If you want to change the setting only for the Erlang mode, you can use a hook l
 (defun my-erlang-hook ()
   (setq indent-tabs-mode nil))
 ```
+
+### After you have submitted your pull request
+
+* Follow the discussion following your pull request, answer questions, discuss and implement
+changes requested by reviewers. Smaller changes should be squashed into their associated commits.
+
+* If your pull requests introduces new public functions, they need to be tagged with the
+OTP release in which they _will_ appear in the `since` tag in the functions' documentation.
+As this is generally not yet certain at the time when your PR gets merged, the person assigned
+to your pull request should give you an internal ticket number (for example `OTP-12345`) to use
+as a placeholder in the respective `since` tags, like `-doc #{ since => ~"OTP @OTP-12345@" }.`.
+When your new functions are released with an OTP release, this placeholder will get replaced with
+the actual OTP version, leading to something like "OTP 26.0".
+
+* If you are asked to write a release note for your pull request, see
+[Writing release notes](https://github.com/erlang/otp/blob/master/HOWTO/RELEASE-NOTES.md)
+for advice.

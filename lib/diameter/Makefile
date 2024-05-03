@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2021. All Rights Reserved.
+# Copyright Ericsson AB 2010-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include vsn.mk
 include subdirs.mk
 
-SUB_DIRECTORIES = $(SUB_DIRS) doc/src
+SUB_DIRECTORIES = $(SUB_DIRS)
 SPECIAL_TARGETS =
 
 include $(ERL_TOP)/make/otp_subdir.mk

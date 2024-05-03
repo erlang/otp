@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,
          init_per_testcase/2,end_per_testcase/2,
-         basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
+         basic/1, ipv6/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
          otp_9389/1, otp_9389_line/1]).
 
 suite() ->
@@ -35,7 +35,7 @@ suite() ->
 
 all() -> 
     [basic, packet_size, neg, http, line, ssl, otp_8536,
-     otp_9389, otp_9389_line].
+     otp_9389, otp_9389_line, ipv6].
 
 groups() -> 
     [].
@@ -66,7 +66,7 @@ basic(Config) when is_list(Config) ->
 
     %% Run tests for different header types and bit offsets.
 
-    lists:foreach(fun({Type,Bits})->basic_pack(Type,Packet,Rest,Bits), 
+    lists:foreach(fun({Type,Bits})->basic_pack(Type,Packet,Rest,Bits),
                                     more_length(Type,Packet,Bits) end,
                   [{T,B} || T<-Types, B<-lists:seq(0,32)]),
     ok.
@@ -77,7 +77,7 @@ basic_pack(Type,Body,Rest,BitOffs) ->
     case Rest of
         <<>> -> ok;
         _ -> 
-            <<_:1,NRest/bits>> = Rest,
+            <<_, NRest/binary>> = Rest,
             basic_pack(Type,Body,NRest,BitOffs)
     end.
 
@@ -113,14 +113,16 @@ pack(Type,Packet,Rest) ->
 %    Orig = <<0:BitOffs,Body/binary,Rest/bits>>,
 %    <<_:BitOffs,Bin/bits>> = Orig,
 %    {Bin,<<Bin/binary,Rest/bits>>,Orig};
-pack(Type,Body,Rest,BitOffs) ->
-    {Packet,Unpacked} = pack(Type,Body),
+pack(Type, Body, Rest, BitOffs) ->
+    {Packet, Unpacked} = pack(Type, Body),
 
-    %% Make Bin a sub-bin with an arbitrary bitoffset within Orig
+    %% Make Bin a sub-binary with an arbitrary bitoffset within Orig. Note that
+    %% we do not tolerate the Rest to be a bitstring.
     Prefix = rand:uniform(1 bsl BitOffs) - 1,
-    Orig = <<Prefix:BitOffs,Packet/binary,Rest/bits>>,
-    <<_:BitOffs,Bin/bits>> = Orig,
-    {Bin,Unpacked,Orig}.
+    Orig = <<Prefix:BitOffs, Packet/binary, Rest/binary>>,
+    <<_:BitOffs, Bin/binary>> = Orig,
+
+    {Bin, Unpacked, Orig}.
 
 pack(1,Bin) ->
     Psz = byte_size(Bin),
@@ -206,6 +208,23 @@ pack_ssl(Content, Major, Minor, Body) ->
     end,
     {Res, {ssl_tls,[],C,{Major,Minor}, Data}}.
 
+ipv6(Config) when is_list(Config) ->
+    %% Test with port
+    Packet = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:4000/echo_components HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]">>, 4000, <<"/echo_components">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet, []),
+    %% Test no port
+    Packet2 = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]/1234 HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]">>, undefined, <<"/1234">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet2, []),
+    %% Test short ipv6 form
+    Packet3 = <<"GET http://[::1]/1234 HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[::1]">>, undefined, <<"/1234">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet3, []),
+    %% Test missing `]`
+    Packet4 = <<"GET http://[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210:4000/echo_components HTTP/1.1\r\nhost: orange\r\n\r\n">>,
+    {ok, {http_request, 'GET',  {absoluteURI, http, <<"[FEDC">>, undefined, <<"/echo_components">>}, {1, 1}}, <<"host: orange\r\n\r\n">>} =
+      erlang:decode_packet(http_bin, Packet4, []).
 
 packet_size(Config) when is_list(Config) ->
     Packet = <<101,22,203,54,175>>,

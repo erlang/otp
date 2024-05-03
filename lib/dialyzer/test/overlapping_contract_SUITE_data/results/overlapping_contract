@@ -1,0 +1,2 @@
+
+overlapping_contract.erl:6:2: Overloaded contract for overlapping_contract:t1/0 has overlapping domains; such contracts cannot establish a dependency between the overloaded input and output types

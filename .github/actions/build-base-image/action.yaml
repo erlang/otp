@@ -1,0 +1,61 @@
+name: Build Base Image
+description: 'Builds the base testing image (using cache if possible)'
+
+inputs:
+  BASE_BRANCH:
+    required: true
+  TYPE:
+    default: '64-bit'
+  BUILD_IMAGE:
+    default: true
+  github_token:
+    description: 'GITHUB_TOKEN'
+    default: '${{ github.token }}'
+
+runs:
+    using: composite
+    steps:
+      - name: Cleanup GH Runner
+        shell: bash
+        run: .github/scripts/cleanup_gh_runner.sh
+
+      - name: Cache BASE image
+        uses: actions/cache@v4.0.2
+        if: inputs.TYPE == '64-bit' || inputs.TYPE == 'clang'
+        with:
+            path: otp_docker_base.tar
+            key: ${{ runner.os }}-${{ hashFiles('.github/dockerfiles/Dockerfile.ubuntu-base', '.github/scripts/build-base-image.sh') }}-${{ hashFiles('OTP_VERSION') }}
+
+      - name: Docker login
+        uses: docker/login-action@v3.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ inputs.github_token }}
+
+      - name: Build BASE image
+        shell: bash
+        run: .github/scripts/build-base-image.sh "${{ inputs.BASE_BRANCH }}" "${{ inputs.TYPE }}"
+
+      - name: Cache pre-built src
+        if: inputs.BUILD_IMAGE == 'true'
+        uses: actions/cache@v4.0.2
+        with:
+            path: otp_src.tar.gz
+            key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
+      - name: Cache pre-built binaries
+        if: inputs.BUILD_IMAGE == 'true'
+        uses: actions/cache@v4.0.2
+        with:
+            path: otp_cache.tar.gz
+            key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
+      - name: Build image
+        if: inputs.BUILD_IMAGE == 'true'
+        shell: bash -eo pipefail {0}
+        run: |
+          .github/scripts/restore-from-prebuilt.sh `pwd` .github/otp.tar.gz
+          rm -f otp_{src,cache}.tar.gz
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.${{ inputs.TYPE }}" \
+            .github/

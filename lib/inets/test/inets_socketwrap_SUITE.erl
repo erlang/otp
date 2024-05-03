@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,18 +71,17 @@ start_httpd_fd(Config) when is_list(Config) ->
 	    Skip;
 	{Node, NodeArg} ->
 	    InetPort = inets_test_lib:inet_port(node()),
-	    ct:pal("Node: ~p  Port ~p~n", [Node, InetPort]),
+	    ct:log("Node: ~p  Port ~p~n", [Node, InetPort]),
       	    Wrapper = filename:join(DataDir, "setuid_socket_wrap"),
-	    Cmd = Wrapper ++  
-		" -s -httpd_80,0:" ++ integer_to_list(InetPort) 
-		++ " -p " ++ os:find_executable("erl") ++
-		" -- " ++ NodeArg, 
-	    ct:pal("cmd: ~p~n", [Cmd]),
-	    case open_port({spawn, Cmd}, [stderr_to_stdout]) of 
+            Args = ["-s","-httpd_80,0:" ++ integer_to_list(InetPort),
+                    "-p",os:find_executable("erl"),"--" | NodeArg],
+	    ct:log("cmd: ~p ~p~n", [Wrapper, Args]),
+	    case open_port({spawn_executable, Wrapper},
+                           [stderr_to_stdout,{args,Args}]) of
 	    	Port when is_port(Port) ->
-		    wait_node_up(Node, 10),
+		    wait_node_up(Node, 200),
 		    ct:pal("~p", [rpc:call(Node, init, get_argument, [httpd_80])]),
-		    ok  = rpc:call(Node, inets, start, []),
+		    {ok, _} = rpc:call(Node, application, ensure_all_started, [inets]),
 		    {ok, Pid} = rpc:call(Node, inets, start, [httpd, HttpdConf]),
 		    [{port, InetPort}] = rpc:call(Node, httpd, info, [Pid, [port]]),
 		    rpc:call(Node, erlang, halt, []);
@@ -97,28 +96,27 @@ start_httpd_fd(Config) when is_list(Config) ->
 setup_node_info(nonode@nohost) ->
     {skip, needs_distributed_node};
 setup_node_info(Node) ->
-    Static = "-detached -noinput",
     Name = "inets_fd_test",
     NameSw = case net_kernel:longnames() of
-		 false -> "-sname ";
-		 _ -> "-name "
-		     end,
-    StrNode = 
-	Static ++ " "
-	++ NameSw ++ " " ++ Name ++ " "
-	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()),
-	    [_, Location] = string:tokens(atom_to_list(Node), "$@"),
-    TestNode =  Name ++ "@" ++ Location, 
-    {list_to_atom(TestNode), StrNode}.
+		 false -> "-sname";
+		 _ -> "-name"
+             end,
+    NodeArgs = ["-detached","-noinput",
+                NameSw, Name, "-setcookie", atom_to_list(erlang:get_cookie())],
+
+    [_, Location] = string:tokens(atom_to_list(Node), "$@"),
+    TestNode =  Name ++ "@" ++ Location,
+
+    {list_to_atom(TestNode), NodeArgs}.
 
 wait_node_up(Node, 0) ->
     ct:fail({failed_to_start_node, Node});
 wait_node_up(Node, N) ->
-    ct:pal("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
+    ct:log("(Node ~p: net_adm:ping(~p)~n", [node(), Node]),
     case net_adm:ping(Node) of
 	pong ->
 	    ok;
 	pang ->
-	    ct:sleep(5000),
+	    ct:sleep(250),
 	    wait_node_up(Node, N-1)
     end.

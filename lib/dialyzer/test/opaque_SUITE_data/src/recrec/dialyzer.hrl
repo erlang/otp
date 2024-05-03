@@ -99,7 +99,7 @@
 %%--------------------------------------------------------------------
 
 -type anal_type()     :: 'succ_typings' | 'plt_build'.
--type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove'.
+-type anal_type1()    :: anal_type() | 'plt_add' | 'plt_check' | 'plt_remove' | 'incremental'.
 -type contr_constr()  :: {'subtype', erl_types:erl_type(), erl_types:erl_type()}.
 -type contract_pair() :: {erl_types:erl_type(), [contr_constr()]}.
 -type dial_define()   :: {atom(), term()}.
@@ -134,6 +134,7 @@
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server  = none           :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename(),
+		   mod_deps_file  = ""             :: file:filename(),
                    solvers                         :: [solver()]}).
 
 -record(options, {files           = []		   :: [file:filename()],
@@ -142,7 +143,7 @@
 		  timing          = false          :: boolean() | 'debug',
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
-		  get_warnings    = maybe          :: boolean() | 'maybe',
+		  get_warnings    = 'maybe'        :: boolean() | 'maybe',
 		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
@@ -154,6 +155,7 @@
 		  output_format   = formatted      :: format(),
 		  filename_opt	  = basename       :: fopt(),
 		  callgraph_file  = ""             :: file:filename(),
+		  mod_deps_file  = ""             :: file:filename(),
 		  check_plt       = true           :: boolean(),
                   solvers         = []             :: [solver()]}).
 

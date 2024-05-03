@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,22 +20,26 @@
 %% Purpose : Clean up, such as removing unused labels and unused functions.
 
 -module(beam_clean).
+-moduledoc false.
 
 -export([module/2]).
+
+-import(lists, [reverse/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
-    Order = [Lbl || {function,_,_,Lbl,_} <- Fs0],
-    All = maps:from_list([{Lbl,Func} || {function,_,_,Lbl,_}=Func <- Fs0]),
-    WorkList = rootset(Fs0, Exp, Attr),
+    Fs1 = move_out_funs(Fs0),
+    Order = [Lbl || {function,_,_,Lbl,_} <- Fs1],
+    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs1},
+    WorkList = rootset(Fs1, Exp, Attr),
     Used = find_all_used(WorkList, All, sets:from_list(WorkList, [{version, 2}])),
-    Fs1 = remove_unused(Order, Used, All),
-    {Fs2,Lc} = clean_labels(Fs1),
-    Fs3 = fix_swap(Fs2, Opts),
+    Fs2 = remove_unused(Order, Used, All),
+    {Fs3,Lc} = clean_labels(Fs2),
     Fs4 = fix_bs_create_bin(Fs3, Opts),
-    Fs = maybe_remove_lines(Fs4, Opts),
+    Fs5 = fix_badrecord(Fs4, Opts),
+    Fs = maybe_remove_lines(Fs5, Opts),
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
 %% Determine the rootset, i.e. exported functions and
@@ -53,12 +57,8 @@ rootset(Fs, Root0, Attr) ->
 
 %% Remove the unused functions.
 
-remove_unused([F|Fs], Used, All) ->
-    case sets:is_element(F, Used) of
-	false -> remove_unused(Fs, Used, All);
-	true -> [map_get(F, All)|remove_unused(Fs, Used, All)]
-    end;
-remove_unused([], _, _) -> [].
+remove_unused(Fs, Used, All) ->
+    [map_get(F, All) || F <- Fs, sets:is_element(F, Used)].
 
 %% Find all used functions.
 
@@ -69,8 +69,6 @@ find_all_used([F|Fs0], All, Used0) ->
 find_all_used([], _All, Used) -> Used.
 
 update_work_list([{call,_,{f,L}}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun3,{f,L},_,_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
@@ -84,6 +82,31 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
+%% Move out make_fun3 instructions from blocks. That is necessary because
+%% they contain labels that must be seen and renumbered.
+
+move_out_funs([{function,Name,Arity,Entry,Is0}|Fs]) ->
+    Is = move_out_funs_is(Is0),
+    [{function,Name,Arity,Entry,Is}|move_out_funs(Fs)];
+move_out_funs([]) -> [].
+
+move_out_funs_is([{block,Bl}|Is]) ->
+    move_out_funs_block(Bl, Is, []);
+move_out_funs_is([I|Is]) ->
+    [I|move_out_funs_is(Is)];
+move_out_funs_is([]) -> [].
+
+move_out_funs_block([{set,[D],Ss,{make_fun3,F,I,U}}|Bl], Is, Acc) ->
+    make_block(Acc) ++
+        [{make_fun3,F,I,U,D,{list,Ss}} |
+         move_out_funs_block(Bl, Is, [])];
+move_out_funs_block([B|Bl], Is, Acc) ->
+    move_out_funs_block(Bl, Is, [B|Acc]);
+move_out_funs_block([], Is, Acc) ->
+    make_block(Acc) ++ move_out_funs_is(Is).
+
+make_block([_|_]=Is) -> [{block,reverse(Is)}];
+make_block([]) -> [].
 
 %%%
 %%% Coalesce adjacent labels. Renumber all labels to eliminate gaps.
@@ -135,24 +158,6 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
 	  end,
     function_replace(Fs, Dict, [{function,Name,Arity,Entry,Asm}|Acc]);
 function_replace([], _, Acc) -> Acc.
-
-%%%
-%%% If compatibility with a previous release (OTP 22 or earlier) has
-%%% been requested, replace swap instructions with a sequence of moves.
-%%%
-
-fix_swap(Fs, Opts) ->
-    case proplists:get_bool(no_swap, Opts) of
-        false -> Fs;
-        true -> fold_functions(fun swap_moves/1, Fs)
-    end.
-
-swap_moves([{swap,Reg1,Reg2}|Is]) ->
-    Temp = {x,1022},
-    [{move,Reg1,Temp},{move,Reg2,Reg1},{move,Temp,Reg2}|swap_moves(Is)];
-swap_moves([I|Is]) ->
-    [I|swap_moves(Is)];
-swap_moves([]) -> [].
 
 %%%
 %%% Remove line instructions if requested.
@@ -317,6 +322,28 @@ bs_puts([{atom,Type},_Seg,Unit,Flags0,Src,Size|Is], Fail) ->
         end,
     [I|bs_puts(Is, Fail)];
 bs_puts([], _Fail) -> [].
+
+%%%
+%%% If compatibility with a previous release (OTP 24 or earlier) has
+%%% been requested, eliminate badrecord instructions by translating
+%%% them to calls to error({badrecord,Value}).
+%%%
+
+fix_badrecord(Fs, Opts) ->
+    case proplists:get_bool(no_badrecord, Opts) of
+        false -> Fs;
+        true -> fold_functions(fun fix_badrecord/1, Fs)
+    end.
+
+fix_badrecord([{badrecord,Value}|Is]) ->
+    [{move,Value,{x,0}},
+     {test_heap,3,1},
+     {put_tuple2,{x,0},{list,[{atom,badrecord},{x,0}]}},
+     {call_ext_only,1,{extfunc,erlang,error,1}}|fix_badrecord(Is)];
+fix_badrecord([I|Is]) ->
+    [I|fix_badrecord(Is)];
+fix_badrecord([]) -> [].
+
 
 %%%
 %%% Helpers.

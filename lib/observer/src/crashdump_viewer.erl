@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@
 %% %CopyrightEnd%
 %%
 -module(crashdump_viewer).
+-moduledoc """
+A WxWidgets based tool for browsing Erlang crashdumps.
+
+For details about how to get started with the Crashdump Viewer, see the
+[User's Guide](crashdump_ug.md).
+""".
 
 %%
 %% This module is the main module in the crashdump viewer. It implements
@@ -162,6 +168,7 @@
 %% Functions = local | global | FunctionList
 %% FunctionList = [Function]
 %% Function = {FunctionName,Arity} | FunctionName
+-doc false.
 debug(F) -> 
     ttb:tracer(all,[{file,"cdv"}]), % tracing all nodes
     ttb:p(all,[call,timestamp]),
@@ -169,6 +176,7 @@ debug(F) ->
     tp(F,MS),
     ttb:ctp(?MODULE,stop_debug), % don't want tracing of the stop_debug func
     ok.
+-doc false.
 tp([{M,F,A}|T],MS) -> % mod:func/arity
     ttb:tpl(M,F,A,MS),
     tp(T,MS);
@@ -180,16 +188,27 @@ tp([M|T],MS) -> % mod
     tp(T,MS);
 tp([],_MS) ->
     ok.
+-doc false.
 stop_debug() ->
     ttb:stop([format]).
 
 %%%-----------------------------------------------------------------
 %%% User API
+-doc """
+Starts the Crashdump Viewer GUI and opens a file dialog where the
+crashdump can be selected.
+""".
+-spec start() -> ok | {error, term()}.
 start() ->
-    start(undefined).
+    cdv_wx:start(undefined).
+-doc "Starts the Crashdump Viewer GUI and loads the specified crashdump.".
+-doc #{ since => "OTP 17.0" }.
+-spec start(File :: string()) -> ok | {error, term()}.
 start(File) ->
     cdv_wx:start(File).
 
+-doc "Terminates the Crashdump Viewer and closes all GUI windows.".
+-spec stop() -> ok.
 stop() ->
     case whereis(?SERVER) of
 	undefined ->
@@ -203,9 +222,11 @@ stop() ->
 %%%-----------------------------------------------------------------
 %%% Start crashdump_viewer via the cdv script located in
 %%% $OBSERVER_PRIV_DIR/bin
+-doc false.
 script_start() ->
     do_script_start(fun() -> start() end),
     erlang:halt().
+-doc false.
 script_start([FileAtom]) ->
     File = atom_to_list(FileAtom),
     case filelib:is_regular(File) of
@@ -253,6 +274,7 @@ usage() ->
 %%====================================================================
 %%%--------------------------------------------------------------------
 %%% Start the server - called by cdv_wx
+-doc false.
 start_link() ->
     case whereis(?SERVER) of
 	undefined ->
@@ -263,69 +285,93 @@ start_link() ->
 
 %%%-----------------------------------------------------------------
 %%% Called by cdv_wx
+-doc false.
 read_file(File) ->
     cast({read_file,File}).
 
 %%%-----------------------------------------------------------------
 %%% The following functions are called when the different tabs are
 %%% created
+-doc false.
 general_info() ->
     call(general_info).
+-doc false.
 processes() ->
     call(procs_summary).
+-doc false.
 ports() ->
     call(ports).
+-doc false.
 ets_tables(Owner) ->
     call({ets_tables,Owner}).
+-doc false.
 internal_ets_tables() ->
     call(internal_ets_tables).
+-doc false.
 timers(Owner) ->
     call({timers,Owner}).
+-doc false.
 funs() ->
     call(funs).
+-doc false.
 atoms() ->
     call(atoms).
+-doc false.
 dist_info() ->
     call(dist_info).
+-doc false.
 node_info(Channel) ->
     call({node_info,Channel}).
+-doc false.
 loaded_modules() ->
     call(loaded_mods).
+-doc false.
 loaded_mod_details(Mod) ->
     call({loaded_mod_details,Mod}).
+-doc false.
 memory() ->
     call(memory).
+-doc false.
 persistent_terms() ->
     call(persistent_terms).
+-doc false.
 allocated_areas() ->
     call(allocated_areas).
+-doc false.
 allocator_info() ->
     call(allocator_info).
+-doc false.
 hash_tables() ->
     call(hash_tables).
+-doc false.
 index_tables() ->
     call(index_tables).
+-doc false.
 schedulers() ->
     call(schedulers).
 
 %%%-----------------------------------------------------------------
 %%% Called when a link to a process (Pid) is clicked.
+-doc false.
 proc_details(Pid) ->
     call({proc_details,Pid}).
 
 %%%-----------------------------------------------------------------
 %%% Called when a link to a port is clicked.
+-doc false.
 port(Id) ->
     call({port,Id}).
 
 %%%-----------------------------------------------------------------
 %%% Called when "<< xxx bytes>>" link is clicket to open a new window
 %%% displaying the whole binary.
+-doc false.
 expand_binary(Pos) ->
     call({expand_binary,Pos}).
 
 %%%-----------------------------------------------------------------
 %%% For testing only - called from crashdump_viewer_SUITE
+-doc false.
 get_dump_versions() ->
     call(get_dump_versions).
 
@@ -341,6 +387,7 @@ get_dump_versions() ->
 %%          ignore               |
 %%          {stop, Reason}
 %%--------------------------------------------------------------------
+-doc false.
 init([]) ->
     ets:new(cdv_dump_index_table,[ordered_set,named_table,public]),
     ets:new(cdv_reg_proc_table,[ordered_set,named_table,public]),
@@ -358,6 +405,7 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
+-doc false.
 handle_call(general_info,_From,State=#state{file=File}) ->
     GenInfo = general_info(File),
     NumAtoms = GenInfo#general_info.num_atoms,
@@ -511,6 +559,7 @@ handle_call(get_dump_versions,_From,State=#state{dump_vsn=DumpVsn}) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
+-doc false.
 handle_cast({read_file,File}, _State) ->
     case do_read_file(File) of
 	{ok,DumpVsn} ->
@@ -531,6 +580,7 @@ handle_cast(stop,State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
+-doc false.
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -539,6 +589,7 @@ handle_info(_Info, State) ->
 %% Description: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %%--------------------------------------------------------------------
+-doc false.
 terminate(_Reason, _State) ->
     ok.
 
@@ -547,6 +598,7 @@ terminate(_Reason, _State) ->
 %% Purpose: Convert process state when code is changed
 %% Returns: {ok, NewState}
 %%--------------------------------------------------------------------
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -1399,7 +1451,7 @@ get_pid_from_name(Name,Node) ->
 		[{_,Pid}] when is_pid(Pid) ->
 		    pid_to_list(Pid);
 		_ ->
-		    "<unkonwn_pid>"
+		    "<unknown_pid>"
 	    end;
 	_ ->
 	    "<unknown_pid_other_node>"
@@ -2894,7 +2946,12 @@ parse_heap_term("Mh"++Line0, Addr, DecodeOpts, D0) -> %Head node in a hashmap.
     {Map,Line,D};
 parse_heap_term("Mn"++Line0, Addr, DecodeOpts, D) -> %Interior node in a hashmap.
     {N,":"++Line} = get_hex(Line0),
-    parse_tuple(N, Line, Addr, DecodeOpts, D, []).
+    parse_tuple(N, Line, Addr, DecodeOpts, D, []);
+parse_heap_term("Rf"++Line0, Addr, _DecodeOpts, D0) -> %Fun reference
+    {N,[]} = get_hex(Line0),
+    Term = {'#CDVFRef', N},
+    D = gb_trees:insert(Addr, Term, D0),
+    {Term,[],D}.
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
@@ -3288,12 +3345,14 @@ lookup_and_parse_index(File,What,ParseFun,Str) when is_list(File) ->
 
 %%%-----------------------------------------------------------------
 %%% Convert a record to a proplist
+-doc false.
 to_proplist(Fields,Record) ->
     Values = to_value_list(Record),
     lists:zip(Fields,Values).
 
 %%%-----------------------------------------------------------------
 %%% Convert a record to a simple list of field values
+-doc false.
 to_value_list(Record) ->
     [_RecordName|Values] = tuple_to_list(Record),
     Values.

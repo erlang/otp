@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
--export([annotate/1, named_labels/1, symbols/1]).
+-export([annotate/1, jmsingle/1, named_labels/1, symbols/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
@@ -33,7 +33,7 @@ groups() ->
     [{perf, [symbols, annotate]}].
 
 all() ->
-    [{group, perf}, named_labels].
+    [{group, perf}, jmsingle, named_labels].
 
 init_per_suite(Config) ->
     case erlang:system_info(emu_flavor) of
@@ -179,6 +179,62 @@ annotate(Config) ->
             ct:fail("Did not find disassembly for ~ts.~n~ts",
                     [Symbol, Anno])
     end.
+
+run_jmsingle_test(Param, ExpectSuccess, ErrorMsg) ->
+    Cmd = "erl +JMsingle " ++ Param ++ " -noshell " ++
+        "-eval \"erlang:display(all_is_well),erlang:halt(0).\"",
+    Result = os:cmd(Cmd),
+    SuccessfulEmulatorStart =
+        case Result of
+            "all_is_well" ++ _ ->
+                true;
+            _ ->
+                Error = "Failed to allocate executable+writable memory",
+                case string:find(Result, Error) of
+                    nomatch -> false;
+                    _ -> internal_error
+                end
+        end,
+    case SuccessfulEmulatorStart of
+        ExpectSuccess ->
+            ok;
+        _ ->
+            ct:fail(ErrorMsg)
+    end.
+
+jmsingle(Config) ->
+    %% Smoke test to check that the emulator starts with the +JMsingle
+    %% true/false option and fails with a non-boolean, that is, we
+    %% parse the command line correctly.
+    case os:type() of
+        {_, BSD} when BSD =:= netbsd;
+                      BSD =:= openbsd ->
+            %% +JMsingle true might not work on these platforms, and dump core
+            %% because the emulator cannot be started.
+            %% 
+            %% Set the cwd to a temporary directory that we'll delete when the
+            %% test is done.
+            {ok, Cwd} = file:get_cwd(),
+            TestDir = filename:join(proplists:get_value(priv_dir, Config),
+                                    "jmsingle"),
+            ok = file:make_dir(TestDir),
+            try
+                ok = file:set_cwd(TestDir),
+                run_jmsingle_test("true", internal_error,
+                                  "Emulator did not print the correct diagnostic "
+                                  "(crashed?) with +JMsingle true")
+            after
+                file:set_cwd(Cwd),
+                file:del_dir_r(TestDir)
+            end;
+        {_, _} ->
+            run_jmsingle_test("true", true,
+                              "Emulator did not start with +JMsingle true")
+    end,
+    run_jmsingle_test("false", true,
+                      "Emulator did not start with +JMsingle false"),
+    run_jmsingle_test("broken", false,
+                      "Emulator started with bad +JMsingle parameter").
 
 get_tmp_asm_files() ->
     {ok, Cwd} = file:get_cwd(),

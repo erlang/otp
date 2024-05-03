@@ -11,10 +11,12 @@
               non_neg_integer() |
               #{size => non_neg_integer(),
                 kill => boolean(),
-                error_logger => boolean()}.
+                error_logger => boolean(),
+                include_shared_binaries => boolean()}.
     -type message_queue_data() :: off_heap | on_heap.
     -type priority_level() :: low | normal | high | max.
     -type process_info_result_item() ::
+          {async_dist, Enabled :: boolean()} |
           {backtrace, Bin :: binary()} |
           {binary,
            BinInfo ::
@@ -59,6 +61,7 @@
                      port() |
                      {RegName :: atom(), Node :: node()}}]} |
           {message_queue_data, MQD :: message_queue_data()} |
+          {parent, pid() | undefined} |
           {priority, Level :: priority_level()} |
           {reductions, Number :: non_neg_integer()} |
           {registered_name, [] | (Atom :: atom())} |

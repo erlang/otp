@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,6 +127,15 @@
 #  define HAS_EVP_PKEY_CTX
 #  define HAVE_EVP_CIPHER_CTX_COPY
 # endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3070200fL
+#   define HAVE_PKEY_new_raw_private_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3030300fL
+#   define HAVE_EVP_PKEY_new_CMAC_key
+# endif
+# if LIBRESSL_VERSION_NUMBER >= 0x3040100fL
+#   define HAVE_DigestSign_as_single_op
+# endif
 #endif
 
 #if defined(HAS_EVP_PKEY_CTX)                                           \
@@ -171,6 +180,22 @@
     && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SM3) && defined(NID_sm3)
+# define HAVE_SM3
+#endif
+
+// SM4
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)	\
+    && !defined(OPENSSL_NO_SM4)
+# define HAVE_SM4
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,1,0)	\
+    && !defined(OPENSSL_NO_SM4)
+# define HAVE_SM4_GCM
+# define HAVE_SM4_CCM
+#endif
 
 // SHA3:
 #if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,1)
@@ -181,7 +206,14 @@
 # ifdef NID_sha3_256
 #  define HAVE_SHA3_256
 # endif
+# ifdef NID_shake128
+#  define HAVE_SHAKE128
+# endif
+# ifdef NID_shake256
+#  define HAVE_SHAKE256
+# endif
 #endif
+
 # ifdef NID_sha3_384
 #  define HAVE_SHA3_384
 # endif
@@ -202,21 +234,21 @@
 
 #ifndef OPENSSL_NO_DES
 # define HAVE_DES
-#endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cfb
-#endif
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+#  define HAVE_DES_ede3_cfb
+# endif
 
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
-# define HAVE_DES_ede3_cbc
+# if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION(0,9,7,'e')
+#  define HAVE_DES_ede3_cbc
+# endif
 #endif
 
 #ifndef OPENSSL_NO_DH
 # define HAVE_DH
 #endif
 
-#ifndef OPENSSL_NO_DSA
+#if !defined(OPENSSL_NO_DSA) && !(HAS_LIBRESSL_VSN >= 0x2060100fL)
 # define HAVE_DSA
 #endif
 
@@ -306,6 +338,13 @@
 # endif
 #endif
 
+#ifdef HAS_LIBRESSL
+# if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
+#   define HAVE_CHACHA20_POLY1305
+#   define HAVE_CHACHA20
+# endif
+#endif
+
 #if OPENSSL_VERSION_NUMBER <= PACKED_OPENSSL_VERSION(0,9,8,'l')
 # define HAVE_ECB_IVEC_BUG
 # define HAVE_UPDATE_EMPTY_DATA_BUG
@@ -329,9 +368,7 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
-#if !defined(OPENSSL_NO_ENGINE) && \
-    !defined(HAS_3_0_API)
-/* Disable FIPS for 3.0 temporaryly until the support is added (might core dump) */
+#if !defined(OPENSSL_NO_ENGINE)
 # define HAS_ENGINE_SUPPORT
 #endif
 #endif
@@ -449,12 +486,6 @@ do {                                                    \
 /* FIPS is not supported for versions < 1.0.1.  If FIPS_SUPPORT is enabled
    there are some warnings/errors for thoose
 */
-# undef FIPS_SUPPORT
-#endif
-
-/* Disable FIPS for 3.0 temporaryly until the support is added */
-#if defined(FIPS_SUPPORT) &&                                            \
-    defined(HAS_3_0_API)
 # undef FIPS_SUPPORT
 #endif
 

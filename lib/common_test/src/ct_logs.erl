@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,15 +26,16 @@
 %%% Compilation of test results into index pages on several levels
 
 -module(ct_logs).
+-moduledoc false.
 
--export([init/2, close/2, init_tc/1, end_tc/1]).
+-export([init/3, close/3, init_tc/1, end_tc/1]).
 -export([register_groupleader/2, unregister_groupleader/1]).
 -export([get_log_dir/0, get_log_dir/1]).
 -export([log/3, start_log/1, cont_log/2, cont_log_no_timestamp/2, end_log/0]).
 -export([set_stylesheet/2, clear_stylesheet/1]).
 -export([add_external_logs/1, add_link/3]).
 -export([make_last_run_index/0]).
--export([make_all_suites_index/1,make_all_runs_index/1]).
+-export([make_all_suites_index/2,make_all_runs_index/2]).
 -export([get_ts_html_wrapper/5, escape_chars/1]).
 -export([xhtml/2, locate_priv_file/1, make_relative/1]).
 -export([insert_javascript/1]).
@@ -82,8 +83,9 @@
 		    tests = []}).
 
 %%%-----------------------------------------------------------------
-%%% -spec init(Mode, Verbosity) -> Result
+%%% -spec init(Mode, Verbosity, CustomStylesheet) -> Result
 %%%   Mode = normal | interactive
+%%%   CustomStylesheet = string() | undefined | unknown
 %%%   Result = {StartTime,LogDir}
 %%%   StartTime = term()
 %%%   LogDir = string()
@@ -94,9 +96,9 @@
 %%% started. A new directory named ct_run.<timestamp> is created
 %%% and all logs are stored under this directory.
 %%%
-init(Mode, Verbosity) ->
+init(Mode, Verbosity, CustomStylesheet) ->
     Self = self(),
-    Pid = spawn_link(fun() -> logger(Self, Mode, Verbosity) end),
+    Pid = spawn_link(fun() -> logger(Self, Mode, Verbosity, CustomStylesheet) end),
     MRef = erlang:monitor(process,Pid),
     receive 
 	{started,Pid,Result} -> 
@@ -127,11 +129,11 @@ datestr_from_dirname([]) ->
     "".
 
 %%%-----------------------------------------------------------------
-%%% -spec close(Info, StartDir) -> ok
+%%% -spec close(Info, StartDir, CustomStylesheet) -> ok
 %%%
 %%% Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
-close(Info, StartDir) ->
+close(Info, StartDir, CustomStylesheet) ->
     %% close executes on the ct_util process, not on the logger process
     %% so we need to use a local copy of the log cache data
     LogCacheBin = 
@@ -175,13 +177,13 @@ close(Info, StartDir) ->
 		Error ->
 		    io:format("Warning! Cleanup failed: ~tp~n", [Error])
 	    end,
-	    _ = make_all_suites_index(stop),
-	    make_all_runs_index(stop),
+	    _ = make_all_suites_index(stop, CustomStylesheet),
+	    make_all_runs_index(stop, CustomStylesheet),
 	    Cache2File();
        true -> 
 	    ok = file:set_cwd(".."),
-	    _ = make_all_suites_index(stop),
-	    make_all_runs_index(stop),
+	    _ = make_all_suites_index(stop, CustomStylesheet),
+	    make_all_runs_index(stop, CustomStylesheet),
 	    Cache2File(),
 	    case ct_util:get_profile_data(browser, StartDir) of
 		undefined ->
@@ -200,6 +202,11 @@ close(Info, StartDir) ->
 	    end
     end,
     ok.
+
+%%%-----------------------------------------------------------------
+%%% -spec get_stylesheet() -> string() | undefined
+get_stylesheet() ->
+    call(get_stylesheet).
 
 %%%-----------------------------------------------------------------
 %%% -spec set_stylesheet(TC,SSFile) -> ok
@@ -658,7 +665,7 @@ log_timestamp({MS,S,US}) ->
 		      tc_esc_chars,
 		      log_index}).
 
-logger(Parent, Mode, Verbosity) ->
+logger(Parent, Mode, Verbosity, CustomStylesheet) ->
     register(?MODULE,self()),
     ct_util:mark_process(),
     %%! Below is a temporary workaround for the limitation of
@@ -726,7 +733,7 @@ logger(Parent, Mode, Verbosity) ->
 
     {MiscIoHeader,MiscIoFooter} =
 	case get_ts_html_wrapper("Pre/post-test I/O log", Dir, false,
-				 Dir, undefined, utf8) of
+				 Dir, undefined, utf8, CustomStylesheet) of
 	    {basic_html,UH,UF} ->
 		{UH,UF};
 	    {xhtml,UH,UF} ->
@@ -747,15 +754,15 @@ logger(Parent, Mode, Verbosity) ->
 
     ct_event:notify(#event{name=start_logging,node=node(),
 			   data=AbsDir}),
-    make_all_runs_index(start),
-    _ = make_all_suites_index(start),
+    make_all_runs_index(start, CustomStylesheet),
+    _ = make_all_suites_index(start, CustomStylesheet),
     case Mode of
 	interactive -> interactive_link();
 	_ -> ok
     end,
     ok = file:set_cwd(Dir),
-    _ = make_last_run_index(Time),
-    CtLogFd = open_ctlog(?misc_io_log),
+    _ = make_last_run_index(Time, CustomStylesheet),
+    CtLogFd = open_ctlog(?misc_io_log, CustomStylesheet),
     io:format(CtLogFd,int_header()++int_footer(),
 	      [log_timestamp(?now),"Common Test Logger started"]),
     Parent ! {started,self(),{Time,filename:absname("")}},
@@ -788,6 +795,7 @@ logger(Parent, Mode, Verbosity) ->
 			      tc_groupleaders=[],
 			      async_print_jobs=[],
 			      tc_esc_chars=TcEscChars,
+			      stylesheet=CustomStylesheet,
 			      log_index=1}).
 
 copy_priv_files([SrcF | SrcFs], [DestF | DestFs]) ->
@@ -855,7 +863,7 @@ logger_loop(State) ->
 	    _ = if not RefreshLog ->
 		    ok;
 	       true ->
-		    make_last_run_index(State#logger_state.start_time)
+		    make_last_run_index(State#logger_state.start_time, State#logger_state.stylesheet)
 	    end,
 	    return(From,ok),
 	    logger_loop(State#logger_state{tc_groupleaders = TCGLs});
@@ -879,9 +887,12 @@ logger_loop(State) ->
 	    return(From,{ok,filename:basename(State#logger_state.log_dir)}),
 	    logger_loop(State);
 	{make_last_run_index,From} ->
-	    _ = make_last_run_index(State#logger_state.start_time),
+	    _ = make_last_run_index(State#logger_state.start_time, State#logger_state.stylesheet),
 	    return(From,get(ct_log_cache)),
 	    logger_loop(State);
+        {get_stylesheet, From} ->
+            return(From, State#logger_state.stylesheet),
+            logger_loop(State);
 	{set_stylesheet,_,SSFile} when State#logger_state.stylesheet ==
 				       SSFile ->
 	    logger_loop(State);
@@ -1152,9 +1163,9 @@ set_evmgr_gl(GL) ->
 	EvMgrPid -> group_leader(GL,EvMgrPid)
     end.
 
-open_ctlog(MiscIoName) ->
+open_ctlog(MiscIoName, CustomStylesheet) ->
     {ok,Fd} = file:open(?ct_log_name,[write,{encoding,utf8}]),
-    io:format(Fd, "~ts", [header("Common Test Framework Log", {[],[1,2],[]})]),
+    io:format(Fd, "~ts", [header("Common Test Framework Log", "", {[],[1,2],[]}, CustomStylesheet)]),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
 	    io:format(Fd, "~ts", [config_table(Vars)]);
@@ -1197,28 +1208,11 @@ print_style(Fd, IoFormat, undefined) ->
     end;
 
 print_style(Fd, IoFormat, StyleSheet) ->
-    case file:read_file(StyleSheet) of
-	{ok,Bin} ->
-	    Str = b2s(Bin,encoding(StyleSheet)),
-            case re:run(Str,"<style>.*</style>",
-                        [dotall,caseless,{capture,all,list}]) of
-                nomatch ->
-                    case re:run(Str,"</?style>",[caseless,{capture,all,list}]) of
-                        nomatch ->
-                            IoFormat(Fd,"<style>\n~ts</style>\n",[Str]);
-                        {match,["</"++_]} ->
-                            print_style_error(Fd, IoFormat,
-                                              StyleSheet,
-                                              missing_style_start_tag);
-                        {match,[_]} ->
-                            print_style_error(Fd, IoFormat,
-                                              StyleSheet,missing_style_end_tag)
-                    end;
-                {match,[Style]} ->
-                    IoFormat(Fd,"~ts\n",[Style])
-            end;
-	{error,Reason} ->
-	    print_style_error(Fd,IoFormat,StyleSheet,Reason)
+    case stylesheet_to_style_html(StyleSheet) of
+        {ok, Markup} ->
+            IoFormat(Fd, Markup, []);
+        {error, Reason} ->
+            print_style_error(Fd, IoFormat, StyleSheet, Reason)
     end.
 
 print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
@@ -1226,6 +1220,30 @@ print_style_error(Fd, IoFormat, StyleSheet, Reason) ->
 		       [StyleSheet,Reason]),
     IoFormat(Fd, IO, []),
     print_style(Fd, IoFormat, undefined).
+
+%% Convert a stylesheet on disk to inline HTML `<style>' with all of the file's contents.
+-spec stylesheet_to_style_html(string()) -> {ok, string()} | {error, atom()}.
+stylesheet_to_style_html(Path) ->
+    case file:read_file(Path) of
+	{ok,Bin} ->
+	    Str = b2s(Bin,encoding(Path)),
+            case re:run(Str,"<style>.*</style>",
+                        [dotall,caseless,{capture,all,list}]) of
+                nomatch ->
+                    case re:run(Str,"</?style>",[caseless,{capture,all,list}]) of
+                        nomatch ->
+                            {ok, io_lib:fwrite("<style>\n~ts</style>\n",[Str])};
+                        {match,["</"++_]} ->
+                            {error, missing_style_start_tag};
+                        {match,[_]} ->
+                            {error, missing_style_end_tag}
+                    end;
+                {match,[Style]} ->
+                    {ok, io_lib:fwrite("~ts\n", [Style])}
+            end;
+	{error, _Reason} = Result ->
+            Result
+    end.
 
 close_ctlog(Fd) ->
     io:format(Fd, "\n</pre>\n", []),
@@ -1258,11 +1276,11 @@ cloaked_true() ->
 
 %%%-----------------------------------------------------------------
 %%% Make an index page for the last run
-make_last_run_index(StartTime) ->
+make_last_run_index(StartTime,CustomStylesheet) ->
     IndexName = ?index_name,
     AbsIndexName = ?abs(IndexName),
     Result =
-	case catch make_last_run_index1(StartTime,IndexName) of
+	case catch make_last_run_index1(StartTime,IndexName,CustomStylesheet) of
 	    {'EXIT', Reason} ->
 		io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
 		io:format("~tp~n", [Reason]),
@@ -1281,7 +1299,7 @@ make_last_run_index(StartTime) ->
 	end,
     Result.
 
-make_last_run_index1(StartTime,IndexName) ->
+make_last_run_index1(StartTime,IndexName,CustomStylesheet) ->
     Logs1 =
 	case filelib:wildcard([$*|?logdir_ext]) of
 	    [Log] ->				% first test
@@ -1304,9 +1322,12 @@ make_last_run_index1(StartTime,IndexName) ->
 		{ok,Lbl} -> Lbl;
 		_ -> undefined
 	    end,
-    {ok,Index0,Totals} = make_last_run_index(Logs1,
-					     index_header(Label,StartTime),
-					     0, 0, 0, 0, 0, Missing),
+    {ok,Index0,Totals0} = make_last_run_index(Logs1,
+					      index_header(Label,StartTime,CustomStylesheet),
+					      0, 0, 0, 0, 0, 0, Missing),
+    {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,_TotElapsedTime} = Totals0,
+    %% TotElapsedTime is not used in all_runs, remove it
+    Totals = {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt},
     %% write current Totals to file, later to be used in all_runs log
     write_totals_file(?totals_name,Label,Logs1,Totals),
     Index = [Index0|last_run_index_footer()],
@@ -1331,35 +1352,36 @@ insert_dir(D,[]) ->
     [D].
 
 make_last_run_index([Name|Rest], Result, TotSucc, TotFail,
-		    UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+                    UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing) ->
     case get_run_dirs(Name) of
-	false ->
-	    %% Silently skip.
-	    make_last_run_index(Rest, Result, TotSucc, TotFail,
-				UserSkip, AutoSkip, TotNotBuilt, Missing);
-	LogDirs ->
-	    SuiteName = filename:rootname(filename:basename(Name)),
-	    {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1} = 
-		make_last_run_index1(SuiteName, LogDirs, Result,
-				     TotSucc, TotFail,
-				     UserSkip, AutoSkip,
-				     TotNotBuilt, Missing),
-	    make_last_run_index(Rest, Result1, TotSucc1, TotFail1,
-				UserSkip1, AutoSkip1,
-				TotNotBuilt1, Missing)
+        false ->
+            %% Silently skip.
+            make_last_run_index(Rest, Result, TotSucc, TotFail,
+                                UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing);
+        LogDirs ->
+            SuiteName = filename:rootname(filename:basename(Name)),
+            {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1,TotElapsedTime1} =
+                make_last_run_index1(SuiteName, LogDirs, Result,
+                                     TotSucc, TotFail,
+                                     UserSkip, AutoSkip,
+                                     TotNotBuilt, TotElapsedTime,
+                                     Missing),
+            make_last_run_index(Rest, Result1, TotSucc1, TotFail1,
+                                UserSkip1, AutoSkip1,
+                                TotNotBuilt1, TotElapsedTime1, Missing)
     end;
 
 make_last_run_index([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
-		    TotNotBuilt, _) ->
+		    TotNotBuilt, TotElapsedTime, _) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip,
-			   TotNotBuilt, false)],
-     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
+			   TotNotBuilt, TotElapsedTime, false)],
+     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}}.
 	    
 make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
-		     UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing) ->
     case make_one_index_entry(SuiteName, LogDir, "-", false,
 			      Missing, undefined) of
-	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs1} ->
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,_URIs1,ElapsedTime} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -1368,31 +1390,37 @@ make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
 	    make_last_run_index1(SuiteName, LogDirs, [Result|Result1],
 				 TotSucc+Succ, 
 				 TotFail+Fail, UserSkip+USkip, AutoSkip1,
-				 TotNotBuilt+NotBuilt, Missing);
+				 TotNotBuilt+NotBuilt, TotElapsedTime+ElapsedTime,
+				 Missing);
 	error ->
 	    make_last_run_index1(SuiteName, LogDirs, Result, TotSucc, TotFail,
-				 UserSkip, AutoSkip, TotNotBuilt, Missing)
+				 UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, Missing)
     end;
 make_last_run_index1(_, [], Result, TotSucc, TotFail,
-		     UserSkip, AutoSkip, TotNotBuilt, _) ->
-    {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}.
+		     UserSkip, AutoSkip, TotNotBuilt, TotElapsedTime, _) ->
+    {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt,TotElapsedTime}.
 
 make_one_index_entry(SuiteName, LogDir, Label, All, Missing, URIs) ->
+    MaybeAddElapsedTime =
+        fun(_All = false, ElapsedTime) -> ElapsedTime;
+           (_, _) -> undefined
+        end,
     case count_cases(LogDir) of
-	{Succ,Fail,UserSkip,AutoSkip} ->
-	    NotBuilt = not_built(SuiteName, LogDir, All, Missing),
-	    {NewResult,URIs1} = make_one_index_entry1(SuiteName, LogDir, Label,
-						      Succ, Fail,
-						      UserSkip, AutoSkip,
-						      NotBuilt, All,
-						      normal, URIs),
-	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1};
-	error ->
-	    error
+        {Succ,Fail,UserSkip,AutoSkip,ElapsedTime} ->
+            NotBuilt = not_built(SuiteName, LogDir, All, Missing),
+            {NewResult,URIs1} = make_one_index_entry1(SuiteName, LogDir, Label,
+                                                      Succ, Fail,
+                                                      UserSkip, AutoSkip,
+                                                      NotBuilt, All,
+                                                      normal, URIs,
+                                                      MaybeAddElapsedTime(All, ElapsedTime)),
+            {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1,ElapsedTime};
+        error ->
+            error
     end.
 
 make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
-		      NotBuilt, All, Mode, URIs) ->
+		      NotBuilt, All, Mode, URIs, ElapsedTime) ->
     LogFile = filename:join(Link, ?suitelog_name ++ ".html"),
     CtRunDir = filename:dirname(filename:dirname(Link)),
     CrashDumpName = SuiteName ++ "_erl_crash.dump",
@@ -1483,6 +1511,16 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			end,
 		{UserSkip+AutoSkip,integer_to_list(UserSkip),ASStr}
 	end,
+
+    ElapsedTimeStr =
+        if ElapsedTime == undefined ->
+                "";
+           true ->
+                ["<td align=right>",
+                 float_to_list(ElapsedTime / 1000000, [{decimals, 3}]),
+                 "s</td>\n"]
+        end,
+
     {[xhtml("<tr valign=top>\n",
 	    ["<tr class=\"",odd_or_even(),"\">\n"]),
       xhtml("<td><font size=\"-1\"><a href=\"", "<td><a href=\""),
@@ -1493,34 +1531,48 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
       "<td align=right>",FailStr,"</td>\n",
       "<td align=right>",integer_to_list(AllSkip),
       " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
-      NotBuiltStr, Node, AllInfo, "</tr>\n"], URIs1}.
+      NotBuiltStr, ElapsedTimeStr, Node, AllInfo, "</tr>\n"], URIs1}.
 
-total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
+total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, ElapsedTime, All) ->
     {Label,TimestampCell,AllInfo} =
-	case All of
-	    true ->
-		{"<td>&nbsp;</td>\n",
-		 "<td>&nbsp;</td>\n",
-		 "<td>&nbsp;</td>\n"
-		 "<td>&nbsp;</td>\n"
-		 "<td>&nbsp;</td>\n"};
-	    false ->
-		{"","",""}
-	end,
+        case All of
+            true ->
+                {"<td>&nbsp;</td>\n",
+                 "<td>&nbsp;</td>\n",
+                 "<td>&nbsp;</td>\n"
+                 "<td>&nbsp;</td>\n"
+                 "<td>&nbsp;</td>\n"};
+            false ->
+                {"","",""}
+        end,
 
     {AllSkip,UserSkipStr,AutoSkipStr} =
-	if AutoSkip == undefined -> {UserSkip,"?","?"};
-	   true -> {UserSkip+AutoSkip,
-		    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
-	end,
-    [xhtml("<tr valign=top>\n", 
-	   ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
+        if AutoSkip == undefined -> {UserSkip,"?","?"};
+           true -> {UserSkip+AutoSkip,
+                    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
+        end,
+    ElapsedTimeStr =
+        if ElapsedTime == undefined ->
+                %% Empty string is used when generating following pages:
+                %% - ct_logs/all_runs.html
+                %% - ct_logs/index.html
+                "";
+           true ->
+                %% ElapsedTime is used when generating following pages:
+                %% - ct_logs/ct_run.*/index.html
+                ["<td align=right><b>",
+                 float_to_list(ElapsedTime / 1000000, [{decimals, 3}]),
+                 "s</b></td>\n"]
+        end,
+    [xhtml("<tr valign=top>\n",
+           ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
      "<td><b>Total</b></td>\n", Label, TimestampCell,
      "<td align=right><b>",integer_to_list(Success),"</b></td>\n",
      "<td align=right><b>",integer_to_list(Fail),"</b></td>\n",
      "<td align=right>",integer_to_list(AllSkip),
-     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
+     " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",
      "<td align=right><b>",integer_to_list(NotBuilt),"</b></td>\n",
+     ElapsedTimeStr,
      AllInfo, "</tr>\n",
      xhtml("","</tfoot>\n")].
 
@@ -1575,16 +1627,16 @@ term_to_text(Term) ->
 
 %%% Headers and footers.
 
-index_header(Label, StartTime) ->
+index_header(Label, StartTime, CustomStylesheet) ->
     Head =
 	case Label of
 	    undefined ->
 		header("Test Results", format_time(StartTime),
-		       {[],[1],[2,3,4,5]});
+		       {[],[1],[2,3,4,5]}, CustomStylesheet);
 	    _ ->
 		header("Test Results for '" ++ Label ++ "'",
 		       format_time(StartTime),
-		       {[],[1],[2,3,4,5]})
+		       {[],[1],[2,3,4,5]}, CustomStylesheet)
 	end,
     Cover =
 	case filelib:is_regular(?abs(?coverlog_name)) of
@@ -1619,20 +1671,21 @@ index_header(Label, StartTime) ->
       "<th>Failed</th>\n",
       "<th>Skipped", xhtml("<br>", "<br />"), "(User/Auto)</th>\n"
       "<th>Missing", xhtml("<br>", "<br />"), "Suites</th>\n",
+      "<th>Elapsed", xhtml("<br>", "<br />"), "Time</th>\n",
       xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
-all_suites_index_header() ->
+all_suites_index_header(CustomStylesheet) ->
     {ok,Cwd} = file:get_cwd(),
-    all_suites_index_header(Cwd).
+    all_suites_index_header(Cwd, CustomStylesheet).
 
-all_suites_index_header(IndexDir) ->
+all_suites_index_header(IndexDir, CustomStylesheet) ->
     LogDir = filename:basename(IndexDir),
     AllRuns = xhtml(["All test runs in \"" ++ LogDir ++ "\""],
 		    "ALL RUNS"),
     AllRunsLink = xhtml(["<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n"],
 			["<div id=\"button_holder\" class=\"btn\">\n"
 			 "<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n</div>"]),
-    [header("Test Results", {[3],[1,2,8,9,10],[4,5,6,7]}) | 
+    [header("Test Results", "", {[3],[1,2,8,9,10],[4,5,6,7]}, CustomStylesheet) | 
      ["<center>\n",
       AllRunsLink,
       xhtml("<br><br>\n", "<br /><br />\n"),
@@ -1654,7 +1707,7 @@ all_suites_index_header(IndexDir) ->
       "<th>Old Runs</th>\n",
       xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
-all_runs_header() ->
+all_runs_header(CustomStylesheet) ->
     {ok,Cwd} = file:get_cwd(),
     LogDir = filename:basename(Cwd),
     Title = "All test runs in \"" ++ LogDir ++ "\"",
@@ -1664,7 +1717,7 @@ all_runs_header() ->
 		     "<a href=\"",?index_name,
 		     "\">TEST INDEX PAGE</a>\n</div>"]),
 	      xhtml("<br>\n", "<br /><br />\n")],
-    [header(Title, {[1],[2,3,5],[4,6,7,8,9,10]}) |
+    [header(Title, "", {[1],[2,3,5],[4,6,7,8,9,10]}, CustomStylesheet) |
      ["<center>\n", IxLink,
       xhtml(["<table border=\"3\" cellpadding=\"5\" "
 	     "bgcolor=\"",?table_color1,"\">\n"],
@@ -1684,12 +1737,7 @@ all_runs_header() ->
       "<th>Missing<br>Suites</th>\n",
       xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
-header(Title, TableCols) ->
-    header1(Title, "", TableCols).
-header(Title, SubTitle, TableCols) ->
-    header1(Title, SubTitle, TableCols).
-
-header1(Title, SubTitle, TableCols) ->
+header(Title, SubTitle, TableCols, CustomStylesheet) ->
     SubTitleHTML = if SubTitle =/= "" ->
 			   ["<center>\n",
 			    "<h3>" ++ SubTitle ++ "</h3>\n",
@@ -1704,6 +1752,7 @@ header1(Title, SubTitle, TableCols) ->
     TableSorterFile =
 	xhtml(fun() -> "" end, 
 	      fun() -> make_relative(locate_priv_file(?tablesorter_script)) end),
+    CustomCSSFileHtml = custom_stylesheet_header(CustomStylesheet),
     [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	    "<html>\n"],
 	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
@@ -1718,6 +1767,7 @@ header1(Title, SubTitle, TableCols) ->
      xhtml("",
 	   ["<link rel=\"stylesheet\" href=\"",uri(CSSFile),
 	    "\" type=\"text/css\"></link>\n"]),
+     CustomCSSFileHtml,
      xhtml("",
 	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
 	    "\"></script>\n"]),
@@ -1734,6 +1784,26 @@ header1(Title, SubTitle, TableCols) ->
      "<h1>" ++ Title ++ "</h1>\n",
      "</center>\n",
      SubTitleHTML,"\n"].
+
+% This function may be called either internally via the logger
+% process when it starts up - in which case we know the stylesheet
+% already - or via a separate server, which will not have the
+% stylesheet. In that case we will receive the stylesheet as `unknown`
+% and can ask the logger for it. Having the logger ask itself would hang.
+% If the user has not passed any stylesheet on the command line, the value
+% `undefined` should be used.
+-spec custom_stylesheet_header(string() | unknown | undefined) -> string().
+custom_stylesheet_header(unknown) ->
+    % Not known
+    custom_stylesheet_header(get_stylesheet());
+custom_stylesheet_header(undefined) ->
+    % Not configured
+    "";
+custom_stylesheet_header(Path) when is_list(Path) ->
+    case stylesheet_to_style_html(Path) of
+        {ok, StyleMarkup} -> xhtml("", StyleMarkup);
+        {error, _Reason} -> ""
+    end.
 
 last_run_index_footer() ->
     AllRuns = filename:join("../",?all_runs_name),
@@ -1820,7 +1890,9 @@ count_cases(Dir) ->
     SumFile = filename:join(Dir, ?run_summary),
     case read_summary(SumFile, [summary]) of
 	{ok, [{Succ,Fail,Skip}]} ->
-	    {Succ,Fail,Skip,undefined};
+	    {Succ,Fail,Skip,undefined,undefined};
+	{ok, [{Succ,Fail,UserSkip,AutoSkip}]} ->
+		{Succ,Fail,UserSkip,AutoSkip,undefined};
 	{ok, [Summary]} ->
 	    Summary;
 	{error, _} ->
@@ -1828,11 +1900,11 @@ count_cases(Dir) ->
 	    case file:read_file(LogFile) of
 		{ok, Bin} ->
 		    case count_cases1(b2s(Bin),
-				      {undefined,undefined,undefined,undefined}) of
+				      {undefined,undefined,undefined,undefined,undefined}) of
 			{error,not_complete} ->
 			    %% The test is not complete - dont write summary
 			    %% file yet.
-			    {0,0,0,0};
+			    {0,0,0,0,0};
 			Summary ->
 			    _ = write_summary(SumFile, Summary),
 			    Summary
@@ -1861,22 +1933,25 @@ read_summary(Name, Keys) ->
 	    {error, Reason}
     end.
 
-count_cases1("=failed" ++ Rest, {Success, _Fail, UserSkip,AutoSkip}) ->
+count_cases1("=failed" ++ Rest, {Success, _Fail, UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Count, UserSkip,AutoSkip});
-count_cases1("=successful" ++ Rest, {_Success, Fail, UserSkip,AutoSkip}) ->
+    count_cases1(NextLine, {Success, Count, UserSkip, AutoSkip, ElapsedTime});
+count_cases1("=successful" ++ Rest, {_Success, Fail, UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Count, Fail, UserSkip,AutoSkip});
-count_cases1("=skipped" ++ Rest, {Success, Fail, _UserSkip,_AutoSkip}) ->
+    count_cases1(NextLine, {Count, Fail, UserSkip, AutoSkip, ElapsedTime});
+count_cases1("=skipped" ++ Rest, {Success, Fail, _UserSkip, _AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, Count,undefined});
-count_cases1("=user_skipped" ++ Rest, {Success, Fail, _UserSkip,AutoSkip}) ->
+    count_cases1(NextLine, {Success, Fail, Count, undefined, ElapsedTime});
+count_cases1("=user_skipped" ++ Rest, {Success, Fail, _UserSkip, AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, Count,AutoSkip});
-count_cases1("=auto_skipped" ++ Rest, {Success, Fail, UserSkip,_AutoSkip}) ->
+    count_cases1(NextLine, {Success, Fail, Count, AutoSkip, ElapsedTime});
+count_cases1("=auto_skipped" ++ Rest, {Success, Fail, UserSkip, _AutoSkip, ElapsedTime}) ->
     {NextLine, Count} = get_number(Rest),
-    count_cases1(NextLine, {Success, Fail, UserSkip,Count});
-count_cases1([], {Su,F,USk,_ASk}) when Su==undefined;F==undefined;
+    count_cases1(NextLine, {Success, Fail, UserSkip, Count, ElapsedTime});
+count_cases1("=elapsed_time" ++ Rest, {Success, Fail, UserSkip, AutoSkip, _ElapsedTime}) ->
+	{NextLine, Count} = get_number(Rest),
+	count_cases1(NextLine, {Success, Fail, UserSkip, AutoSkip, Count});
+count_cases1([], {Su,F,USk,_ASk,_ElapsedTime}) when Su==undefined;F==undefined;
 				       USk==undefined ->
     {error,not_complete};
 count_cases1([], Counters) ->
@@ -1929,7 +2004,7 @@ config_table1([]) ->
     [xhtml("","</tbody>\n"),"</table>\n"].
 
 
-make_all_runs_index(When) ->
+make_all_runs_index(When, CustomStylesheet) ->
     put(basic_html, basic_html()),
     AbsName = ?abs(?all_runs_name),
     notify_and_lock_file(AbsName),
@@ -1968,11 +2043,11 @@ make_all_runs_index(When) ->
 	case LogCacheInfo of
 	    {ok,LogCache} ->
 		%% use the log cache file to generate the index
-		make_all_runs_from_cache(AbsName,DirsSorted,LogCache);
+		make_all_runs_from_cache(AbsName,DirsSorted,LogCache,CustomStylesheet);
 	    
 	    _WhyNot ->
 		%% no cache file exists (or feature has been disabled)
-		Header = all_runs_header(),
+		Header = all_runs_header(CustomStylesheet),
 		GetLogResult =
 		    fun(Dir,{RunData,LogTxt}) ->
 			    {Tot,XHTML,IxLink} = runentry(Dir,
@@ -1999,8 +2074,8 @@ make_all_runs_index(When) ->
     end,
     Result.
 
-make_all_runs_from_cache(AbsName, Dirs, LogCache) ->
-    Header = all_runs_header(),
+make_all_runs_from_cache(AbsName, Dirs, LogCache, CustomStylesheet) ->
+    Header = all_runs_header(CustomStylesheet),
 
     %% Note that both Dirs and the cache is sorted!
     AllRunsDirs = dir_diff_all_runs(Dirs, LogCache),
@@ -2392,7 +2467,7 @@ timestamp(Dir) ->
 
 %% Creates the top level index file. When == start | stop | refresh.
 %% A copy of the dir tree under logdir is saved temporarily as a result.
-make_all_suites_index(When) when is_atom(When) ->
+make_all_suites_index(When, CustomStylesheet) when is_atom(When) ->
     put(basic_html, basic_html()),
     AbsIndexName = ?abs(?index_name),
     notify_and_lock_file(AbsIndexName),
@@ -2425,11 +2500,11 @@ make_all_suites_index(When) when is_atom(When) ->
 	    {ok,LogCache} ->
 		%% use the log cache file to generate the index
 		make_all_suites_index_from_cache(When,AbsIndexName,
-						 LogDirs,LogCache);
+						 LogDirs,LogCache,CustomStylesheet);
 	    _WhyNot ->
 		%% no cache file exists (or feature has been disabled)
 		Sorted = sort_and_filter_logdirs(LogDirs),
-		TempData = make_all_suites_index1(When,AbsIndexName,Sorted),
+		TempData = make_all_suites_index1(When,AbsIndexName,Sorted,CustomStylesheet),
 		notify_and_unlock_file(AbsIndexName),
 		
 		%% save new cache file unless the feature is disabled
@@ -2446,7 +2521,7 @@ make_all_suites_index(When) when is_atom(When) ->
 		
 %% This updates the top level index file using data from the initial
 %% index file creation, saved temporarily in a table.
-make_all_suites_index(NewTestData = {_TestName,DirName}) ->    
+make_all_suites_index(NewTestData = {_TestName,DirName}, CustomStylesheet) ->    
     put(basic_html, basic_html()),
 
     %% AllLogDirs = [{TestName,Label,Missing,
@@ -2468,7 +2543,8 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
 	case catch make_all_suites_ix_temp(AbsIndexName,
 					   NewTestData,
 					   Label,
-					   LogDirData) of
+					   LogDirData,
+					   CustomStylesheet) of
 	    {'EXIT',Reason} ->
 		io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
 		io:format("~tp~n", [Reason]),
@@ -2488,7 +2564,7 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
     notify_and_unlock_file(AbsIndexName),        
     Result.
 
-make_all_suites_index_from_cache(When, AbsIndexName, LogDirs, LogCache) ->
+make_all_suites_index_from_cache(When, AbsIndexName, LogDirs, LogCache, CustomStylesheet) ->
 
     %% The structure of the cache:
     %%
@@ -2506,7 +2582,7 @@ make_all_suites_index_from_cache(When, AbsIndexName, LogDirs, LogCache) ->
     TempData =
 	if Sorted /= [] ->
 		make_all_suites_index1(When,AbsIndexName,
-				       Sorted);
+				       Sorted,CustomStylesheet);
 	   true ->
 		Data = LogCache1#log_cache.tests,
 		ct_util:set_testdata_async({test_index,{AbsIndexName,
@@ -2692,12 +2768,12 @@ update_tests_in_cache(TempData,LogCache=#log_cache{tests=Tests}) ->
 %%   [{TestName,[IxDir|IxDirs]} | ...] (non-cached), or
 %%   [{TestName,Label,Missing,{IxDir,Summary,URIs},IxDirs} | ...] (cached)
 %%
-make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
+make_all_suites_index1(When, AbsIndexName, AllTestLogDirs, CustomStylesheet) ->
     IndexName = ?index_name,
     if When == start -> ok;
        true -> io:put_chars("Updating " ++ AbsIndexName ++ " ... ")
     end,
-    case catch make_all_suites_index2(IndexName, AllTestLogDirs) of
+    case catch make_all_suites_index2(IndexName, AllTestLogDirs, CustomStylesheet) of
 	{'EXIT', Reason} ->
 	    io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
 	    io:format("~tp~n", [Reason]),
@@ -2723,10 +2799,10 @@ make_all_suites_index1(When, AbsIndexName, AllTestLogDirs) ->
 	    {error, Err}
     end.
 
-make_all_suites_index2(IndexName, AllTestLogDirs) ->
+make_all_suites_index2(IndexName, AllTestLogDirs, CustomStylesheet) ->
     {ok,Index0,_Totals,TempData} =
 	make_all_suites_index3(AllTestLogDirs,
-			       all_suites_index_header(),
+			       all_suites_index_header(CustomStylesheet),
 			       0, 0, 0, 0, 0, [], []),
     Index = [Index0|all_suites_index_footer()],
     case force_write_file(IndexName, unicode:characters_to_binary(Index)) of
@@ -2755,7 +2831,7 @@ make_all_suites_index3([IxEntry = {TestName,Label,Missing,
 
 	    {Result1,_} = make_one_index_entry1(TestName, LastLogDir, Label,
 						Succ, Fail, USkip, ASkip,
-						NotBuilt, All, temp, URIs),
+						NotBuilt, All, temp, URIs, undefined),
 
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -2793,7 +2869,7 @@ make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 	end,
     case make_one_index_entry(TestName, LastLogDir, Label,
 			      {true,OldDirs}, Missing, undefined) of
-	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,URIs} ->
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt,URIs,_ElapsedTime} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
@@ -2824,15 +2900,15 @@ make_all_suites_index3([_|Rest], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 make_all_suites_index3([], Result, TotSucc, TotFail, UserSkip, AutoSkip, 
 		       TotNotBuilt, _, TempData) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip,
-			   TotNotBuilt,true)], 
+			   TotNotBuilt,undefined,true)], 
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}, lists:reverse(TempData)}.
 
 
-make_all_suites_ix_temp(AbsIndexName, NewTestData, Label, AllTestLogDirs) ->
+make_all_suites_ix_temp(AbsIndexName, NewTestData, Label, AllTestLogDirs, CustomStylesheet) ->
     AllTestLogDirs1 = insert_new_test_data(NewTestData, Label, AllTestLogDirs),
     IndexDir = filename:dirname(AbsIndexName),
     Index0 = make_all_suites_ix_temp1(AllTestLogDirs1,
-				      all_suites_index_header(IndexDir),
+				      all_suites_index_header(IndexDir, CustomStylesheet),
 				      0, 0, 0, 0, 0),
     Index = [Index0|all_suites_index_footer()],
     case force_write_file(AbsIndexName, unicode:characters_to_binary(Index)) of
@@ -2875,7 +2951,7 @@ make_all_suites_ix_temp1([{TestName,Label,Missing,LastLogDirData,OldDirs}|Rest],
     end;
 make_all_suites_ix_temp1([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 			 TotNotBuilt) ->
-    [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, true)].
+    [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, undefined, true)].
 
 make_one_ix_entry_temp(TestName, {LogDir,Summary,URIs}, Label, All, Missing) ->
     case Summary of
@@ -2884,7 +2960,7 @@ make_one_ix_entry_temp(TestName, {LogDir,Summary,URIs}, Label, All, Missing) ->
 	    {NewResult,URIs1} = make_one_index_entry1(TestName, LogDir, Label,
 						      Succ, Fail,
 						      UserSkip, AutoSkip,
-						      NotBuilt, All, temp, URIs),
+						      NotBuilt, All, temp, URIs, undefined),
 	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt,URIs1};
 	error ->
 	    error
@@ -3176,9 +3252,9 @@ make_relative1(DirTs, CwdTs) ->
 %%%           -> {Mode,Header,Footer}
 %%%
 get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols, Encoding) ->
-    get_ts_html_wrapper(TestName, undefined, PrintLabel, Cwd, TableCols, Encoding).
+    get_ts_html_wrapper(TestName, undefined, PrintLabel, Cwd, TableCols, Encoding, unknown).
 
-get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
+get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding, CustomStylesheet) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);
 		   true ->
@@ -3256,6 +3332,7 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 		      fun() -> make_relative(locate_priv_file(?css_default),
 					     Cwd)
 		      end),
+            CustomCSSFileHtml = custom_stylesheet_header(CustomStylesheet),
 	    JQueryFile =
 		xhtml(fun() -> "" end, 
 		      fun() -> make_relative(locate_priv_file(?jquery_script),
@@ -3281,6 +3358,7 @@ get_ts_html_wrapper(TestName, Logdir, PrintLabel, Cwd, TableCols, Encoding) ->
 	      "charset=utf-8\"></meta>\n",
 	      "<link rel=\"stylesheet\" href=\"", uri(CSSFile),
 	      "\" type=\"text/css\"></link>\n",
+              CustomCSSFileHtml,
 	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
 	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
 	      TableSorterScript ++ ["</head>\n","<body>\n", LabelStr, "\n"],

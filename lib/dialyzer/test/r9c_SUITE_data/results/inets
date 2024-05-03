@@ -1,6 +1,6 @@
 
 ftp.erl:1243:5: The pattern {'ok', {N, Bytes}} can never match the type 'eof' | {'error',atom() | {'no_translation','unicode','latin1'}} | {'ok',binary() | string()}
-ftp.erl:640:2: The pattern {'closed', _Why} can never match the type 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'trans_neg_compl' | 'trans_no_space' | {'error' | 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'pos_prel' | 'trans_neg_compl' | 'trans_no_space',atom() | [any()] | {'invalid_server_response',[any(),...]} | {'timeout',binary()}}
+ftp.erl:640:2: The pattern {'closed', _Why} can never match the type 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'trans_neg_compl' | 'trans_no_space' | {'error' | 'perm_fname_not_allowed' | 'perm_neg_compl' | 'perm_no_space' | 'pos_compl' | 'pos_interm' | 'pos_interm_acct' | 'pos_prel' | 'trans_neg_compl' | 'trans_no_space',atom() | [any()] | {'invalid_server_response',[any(),...]} | {'timeout',binary() | [binary()]}}
 http.erl:117:3: The pattern {'error', Reason} can never match the type #req_headers{connection::[45 | 97 | 101 | 105 | 107 | 108 | 112 | 118,...],content_length::[48,...],other::[{_,_}]}
 http.erl:138:1: Function close_session/2 will never be called
 http_lib.erl:286:21: The call http_lib:close('ip_comm' | {'ssl',_},any()) will never return since it differs in the 1st argument from the success typing arguments: ('http' | 'https',any())

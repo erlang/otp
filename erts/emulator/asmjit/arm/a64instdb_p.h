@@ -7,6 +7,7 @@
 #define ASMJIT_ARM_A64INSTDB_H_P_INCLUDED
 
 #include "../core/codeholder.h"
+#include "../core/instdb_p.h"
 #include "../arm/a64instdb.h"
 #include "../arm/a64operand.h"
 
@@ -58,14 +59,14 @@ enum RWInfoType : uint32_t {
 // a64::InstDB - ElementType
 // =========================
 
-enum ElementType : uint8_t {
-  kET_None = Vec::kElementTypeNone,
-  kET_B    = Vec::kElementTypeB,
-  kET_H    = Vec::kElementTypeH,
-  kET_S    = Vec::kElementTypeS,
-  kET_D    = Vec::kElementTypeD,
-  kET_2H   = Vec::kElementTypeH2,
-  kET_4B   = Vec::kElementTypeB4
+enum InstElementType : uint8_t {
+  kET_None = uint8_t(VecElementType::kNone),
+  kET_B    = uint8_t(VecElementType::kB),
+  kET_H    = uint8_t(VecElementType::kH),
+  kET_S    = uint8_t(VecElementType::kS),
+  kET_D    = uint8_t(VecElementType::kD),
+  kET_2H   = uint8_t(VecElementType::kH2),
+  kET_4B   = uint8_t(VecElementType::kB4)
 };
 
 // a64::InstDB - GpType
@@ -192,6 +193,7 @@ enum EncodingId : uint32_t {
   kEncodingBaseMvnNeg,
   kEncodingBaseOp,
   kEncodingBaseOpImm,
+  kEncodingBasePrfm,
   kEncodingBaseR,
   kEncodingBaseRM_NoImm,
   kEncodingBaseRM_SImm10,
@@ -262,7 +264,7 @@ namespace EncodingData {
 
 #define M_OPCODE(field, bits) \
   uint32_t _##field : bits; \
-  inline constexpr uint32_t field() const noexcept { return uint32_t(_##field) << (32 - bits); }
+  ASMJIT_INLINE_NODEBUG constexpr uint32_t field() const noexcept { return uint32_t(_##field) << (32 - bits); }
 
 struct BaseOp {
   uint32_t opcode;
@@ -410,6 +412,13 @@ struct BaseRM_SImm10 {
   uint32_t rHiId : 6;
   uint32_t xOffset : 5;
   uint32_t immShift : 4;
+};
+
+struct BasePrfm {
+  uint32_t registerOp : 11;
+  uint32_t sOffsetOp  : 10;
+  uint32_t uOffsetOp  : 11;
+  uint32_t literalOp;
 };
 
 struct BaseLdSt {
@@ -787,6 +796,7 @@ extern const BaseMovKNZ baseMovKNZ[3];
 extern const BaseMvnNeg baseMvnNeg[3];
 extern const BaseOp baseOp[23];
 extern const BaseOpImm baseOpImm[14];
+extern const BasePrfm basePrfm[1];
 extern const BaseR baseR[10];
 extern const BaseRM_NoImm baseRM_NoImm[21];
 extern const BaseRM_SImm10 baseRM_SImm10[2];
@@ -843,26 +853,13 @@ extern const SimdTblTbx simdTblTbx[2];
 
 } // {EncodingData}
 
-// a64::InstDB - InstNameIndex
-// ===========================
-
-// ${NameLimits:Begin}
-// ------------------- Automatically generated, do not edit -------------------
-enum : uint32_t { kMaxNameSize = 9 };
-// ----------------------------------------------------------------------------
-// ${NameLimits:End}
-
-struct InstNameIndex {
-  uint16_t start;
-  uint16_t end;
-};
-
 // a64::InstDB - Tables
 // ====================
 
 #ifndef ASMJIT_NO_TEXT
-extern const char _nameData[];
-extern const InstNameIndex instNameIndex[26];
+extern const InstNameIndex instNameIndex;
+extern const char _instNameStringTable[];
+extern const uint32_t _instNameIndexTable[];
 #endif // !ASMJIT_NO_TEXT
 
 } // {InstDB}

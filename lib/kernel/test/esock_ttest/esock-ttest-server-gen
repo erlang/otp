@@ -3,7 +3,7 @@
 # 
 #  %CopyrightBegin%
 #  
-#  Copyright Ericsson AB 2019-2021. All Rights Reserved.
+#  Copyright Ericsson AB 2019-2024. All Rights Reserved.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -20,13 +20,90 @@
 #  %CopyrightEnd%
 # 
 
-EMU=$ERL_TOP/erts/emulator
-EMU_TEST=$EMU/test
-ESOCK_TTEST=$EMU_TEST/esock_ttest
+# Example:
+# Assuming your pwd is $ERL_TOP
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-server-gen [--active true --domain inet])
 
-if [ $# = 1 ]; then
-    ACTIVE="--active $1"
-fi
+program="`basename "$0"`"
 
-$ESOCK_TTEST/esock-ttest --server --transport gen $ACTIVE
+KERNEL=$ERL_TOP/lib/kernel
+KERNEL_TEST=$KERNEL/test
+ESOCK_TTEST=$KERNEL_TEST/esock_ttest
 
+ACTIVE=true
+DOMAIN=inet
+
+
+######################################################################
+
+usage="\
+Usage: $program [options] 
+
+This shell script is used to run the esock ttest server part with
+'gen' (plain gen_tcp) as transport.
+
+Options:
+  --help              Display this help and exit.
+  --active <active>   Active
+  	              once | boolean()
+                      Defaults to true
+  --domain <domain>   Domain of the transport
+  	   	      inet | inet6 | local
+  	              Defaults to 'inet'.
+"
+
+######################################################################
+
+now() { date '+%T'; }
+
+die () {
+    TIME=`now`
+    reason=$?
+    echo "ERROR [$TIME]: $@" >&2
+    echo "$usage"
+    exit $reason
+}
+
+while test $# != 0; do
+    # echo "arg $1"
+    case $1 in
+        --help)
+            echo "$usage" ; 
+            exit 0 ;;
+
+        --active)
+	    shift ;
+	    TMP=$1
+	    if [ $TMP = once ]; then
+		ACTIVE=$TMP
+	    elif [ $TMP = true ]; then
+		ACTIVE=$TMP
+	    elif [ $TMP = false ]; then
+		ACTIVE=$TMP
+	    else
+		die "Invalid 'active' value '$TMP'";
+	    fi
+            shift ;;
+
+        --domain)
+	    shift ;
+	    TMP=$1
+	    if [ $TMP = inet ]; then
+		DOMAIN=$TMP
+	    elif [ $TMP = inet6 ]; then
+		DOMAIN=$TMP
+	    elif [ $TMP = inet6 ]; then
+		DOMAIN=$TMP
+	    else
+		die "Invalid 'domain' value '$TMP'";
+	    fi
+            shift ;;
+
+        *)
+            die "Unexpected option $1";
+            ;;
+    esac
+done
+
+
+$ESOCK_TTEST/esock-ttest --server --domain $DOMAIN --transport gen --active $ACTIVE

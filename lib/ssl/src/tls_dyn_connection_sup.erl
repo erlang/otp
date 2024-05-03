@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2021-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %% ----------------------------------------------------------------------
 
 -module(tls_dyn_connection_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -74,5 +75,11 @@ receiver(Args) ->
       type        => worker,
       significant => true,
       start       => {ssl_gen_statem, start_link, Args},
-      modules     => [ssl_gen_statem, tls_connection, tls_connection_1_3]
+      modules     => [ssl_gen_statem,
+                      tls_client_connection,
+                      tls_server_connection,
+                      tls_gen_connection,
+                      tls_client_connection_1_3,
+                      tls_server_connection_1_3,
+                      tls_gen_connection_1_3]
      }.

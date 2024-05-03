@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_response).
+-moduledoc false.
 -export([generate_and_send_response/1, send_status/3, send_status/4, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, send_final_chunk/3, 
 	 split_header/2, is_disable_chunked_send/1, cache_headers/2, handle_continuation/1]).

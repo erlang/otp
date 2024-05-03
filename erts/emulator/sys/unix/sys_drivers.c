@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2020. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -198,10 +198,6 @@ static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);
 static ErlDrvSSizeT spawn_control(ErlDrvData, unsigned int, char *,
                                   ErlDrvSizeT, char **, ErlDrvSizeT);
 
-/* II.II Vanilla prototypes */
-static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
-
-
 /* II.III FD prototypes */
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
 static void fd_async(void *);
@@ -271,33 +267,6 @@ struct erl_drv_entry fd_driver_entry = {
     outputv,
     fd_ready_async, /* ready_async */
     fd_flush, /* flush */
-    NULL, /* call */
-    NULL, /* event */
-    ERL_DRV_EXTENDED_MARKER,
-    ERL_DRV_EXTENDED_MAJOR_VERSION,
-    ERL_DRV_EXTENDED_MINOR_VERSION,
-    0, /* ERL_DRV_FLAGs */
-    NULL, /* handle2 */
-    NULL, /* process_exit */
-    stop_select
-};
-
-/* III.III The vanilla driver */
-struct erl_drv_entry vanilla_driver_entry = {
-    NULL,
-    vanilla_start,
-    stop,
-    output,
-    ready_input,
-    ready_output,
-    "vanilla",
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL, /* flush */
     NULL, /* call */
     NULL, /* event */
     ERL_DRV_EXTENDED_MARKER,
@@ -1059,30 +1028,6 @@ static void fd_flush(ErlDrvData ev)
         dd->terminating = 1;
 }
 
-static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
-				SysDriverOpts* opts)
-{
-    int flags, fd;
-    ErlDrvData res;
-
-    flags = (opts->read_write == DO_READ ? O_RDONLY :
-	     opts->read_write == DO_WRITE ? O_WRONLY|O_CREAT|O_TRUNC :
-	     O_RDWR|O_CREAT);
-    if ((fd = open(name, flags, 0666)) < 0)
-	return ERL_DRV_ERROR_GENERAL;
-    if (fd >= sys_max_files()) {
-	close(fd);
-	return ERL_DRV_ERROR_GENERAL;
-    }
-    SET_NONBLOCKING(fd);
-
-    res = (ErlDrvData)(long)create_driver_data(port_num, fd, fd,
-                                               opts->packet_bytes,
-                                               opts->read_write, 0, -1, 0,
-                                               opts);
-    return res;
-}
-
 /* Note that driver_data[fd].ifd == fd if the port was opened for reading, */
 /* otherwise (i.e. write only) driver_data[fd].ofd = fd.  */
 
@@ -1186,7 +1131,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
     /* return 0;*/
 }
 
-/* Used by spawn_driver and vanilla driver */
+/* Used by spawn_driver */
 static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     ErtsSysDriverData *dd = (ErtsSysDriverData*)e;
@@ -1635,6 +1580,7 @@ void fd_ready_async(ErlDrvData drv_data,
 /* Forker driver */
 
 static int forker_fd;
+extern struct termios erl_sys_initial_tty_mode;
 
 static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
                                SysDriverOpts* opts)
@@ -1716,6 +1662,28 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
     erts_free(ERTS_ALC_T_CS_PROG_PATH, child_setup_prog);
 
     close(fds[1]);
+
+    /* If stdin is a tty then we need to restore its settings when we exit.
+       So we send the tty mode to erl_child_setup so that it can cleanup
+       in case the emulator is terminated with SIGKILL. */
+    if (isatty(0)) {
+        ssize_t res, pos = 0;
+        size_t size = sizeof(struct termios);
+        byte *buff = (byte *)&erl_sys_initial_tty_mode;
+        do {
+            if ((res = write(forker_fd, buff + pos, size - pos)) < 0) {
+                if (errno == ERRNO_BLOCK || errno == EINTR)
+                    continue;
+                erts_exit(ERTS_ABORT_EXIT,
+                          "Could not write tty mode to domain socket in spawn_init: %d\n",
+                          errno);
+            }
+            if (res == 0) {
+                erts_exit(0, "erl_child_setup closed\n");
+            }
+            pos += res;
+        } while (size - pos != 0);
+    }
 
     SET_NONBLOCKING(forker_fd);
 

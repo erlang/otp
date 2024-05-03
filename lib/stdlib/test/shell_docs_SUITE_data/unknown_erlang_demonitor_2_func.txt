@@ -44,7 +44,7 @@
     If option [;;4minfo[0m is combined with option [;;4mflush[0m, [;;4mfalse[0m is
     returned if a flush was needed, otherwise [;;4mtrue[0m.
 
-  Note:
+  Change:
     More options can be added in a future release.
 
   Failures:

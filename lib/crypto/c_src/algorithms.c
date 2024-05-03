@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 #ifdef HAS_3_0_API
 #else
 static unsigned int algo_hash_cnt, algo_hash_fips_cnt;
-static ERL_NIF_TERM algo_hash[14];   /* increase when extending the list */
+static ERL_NIF_TERM algo_hash[17];   /* increase when extending the list */
 void init_hash_types(ErlNifEnv* env);
 #endif
 
@@ -51,7 +51,6 @@ void init_rsa_opts_types(ErlNifEnv* env);
 
 void init_algorithms_types(ErlNifEnv* env)
 {
-    mtx_init_curve_types =  enif_mutex_create("init_curve_types");
 #ifdef HAS_3_0_API
 #else
     init_hash_types(env);
@@ -62,9 +61,21 @@ void init_algorithms_types(ErlNifEnv* env)
     /* ciphers and macs are initiated statically */
 }
 
-void cleanup_algorithms_types(ErlNifEnv* env)
+
+int create_curve_mutex(void)
 {
-    enif_mutex_destroy(mtx_init_curve_types);
+    if (!mtx_init_curve_types) {
+        mtx_init_curve_types =  enif_mutex_create("init_curve_types");
+    }
+    return !!mtx_init_curve_types;
+}
+
+void destroy_curve_mutex(void)
+{
+    if (mtx_init_curve_types) {
+        enif_mutex_destroy(mtx_init_curve_types);
+        mtx_init_curve_types = NULL;
+    }
 }
 
 /*================================================================
@@ -112,6 +123,15 @@ void init_hash_types(ErlNifEnv* env) {
 #endif
 #ifdef HAVE_SHA3_512
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha3_512");
+#endif
+#ifdef HAVE_SHAKE128
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake128");
+#endif
+#ifdef HAVE_SHAKE256
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "shake256");
+#endif
+#ifdef HAVE_SM3
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sm3");
 #endif
 #ifdef HAVE_BLAKE2
     algo_hash[algo_hash_cnt++] = enif_make_atom(env, "blake2b");

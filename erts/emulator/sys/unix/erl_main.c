@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2024. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@
 int
 main(int argc, char **argv)
 {
+    /* Must be done before we have a chance to spawn any scheduler threads. */
+    sys_init_signal_stack();
+
     erl_start(argc, argv);
     return 0;
 }

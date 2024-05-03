@@ -1,0 +1,47 @@
+
+  [;1m-spec erlang:localtime_to_universaltime(Localtime) -> Universaltime[0m
+  [;1m                                           when[0m
+  [;1m                                               Localtime ::[0m
+  [;1m                                                   calendar:datetime(),[0m
+  [;1m                                               Universaltime ::[0m
+  [;1m                                                   calendar:datetime().[0m
+
+  Converts local date and time to Universal Time Coordinated (UTC),
+  if supported by the underlying OS. Otherwise no conversion is done
+  and [;;4mLocaltime[0m is returned. Example:
+
+    > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}).
+    {{1996,11,6},{13,45,17}}
+
+  Failure: [;;4mbadarg[0m if [;;4mLocaltime[0m denotes an invalid date and time.
+
+  [;1m-spec erlang:localtime_to_universaltime(Localtime, IsDst) ->[0m
+  [;1m                                           Universaltime[0m
+  [;1m                                           when[0m
+  [;1m                                               Localtime ::[0m
+  [;1m                                                   calendar:datetime(),[0m
+  [;1m                                               Universaltime ::[0m
+  [;1m                                                   calendar:datetime(),[0m
+  [;1m                                               IsDst ::[0m
+  [;1m                                                   true | false |[0m
+  [;1m                                                   undefined.[0m
+
+  Converts local date and time to Universal Time Coordinated (UTC)
+  as [;;4merlang:localtime_to_universaltime/1[0m, but the caller decides
+  if Daylight Saving Time is active.
+
+  If [;;4mIsDst == true[0m, [;;4mLocaltime[0m is during Daylight Saving Time, if [;;4m[0m
+  [;;4mIsDst == false[0m it is not. If [;;4mIsDst == undefined[0m, the underlying
+  OS can guess, which is the same as calling [;;4m[0m
+  [;;4merlang:localtime_to_universaltime(Localtime)[0m.
+
+  Examples:
+
+    > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}, true).
+    {{1996,11,6},{12,45,17}}
+    > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}, false).
+    {{1996,11,6},{13,45,17}}
+    > erlang:localtime_to_universaltime({{1996,11,6},{14,45,17}}, undefined).
+    {{1996,11,6},{13,45,17}}
+
+  Failure: [;;4mbadarg[0m if [;;4mLocaltime[0m denotes an invalid date and time.

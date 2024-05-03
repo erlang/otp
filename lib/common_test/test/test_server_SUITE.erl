@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,7 +283,7 @@ get_latest_run_dir(Dir) ->
 	    Dir
     end.
 
-l(X) when is_binary(X) -> size(X);
+l(X) when is_binary(X) -> byte_size(X);
 l(X) when is_list(X) -> length(X).
 
 get_latest_dir([H|T],Latest) when H>Latest ->

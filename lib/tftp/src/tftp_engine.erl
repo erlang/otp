@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 %%-------------------------------------------------------------------
 
 -module(tftp_engine).
+-moduledoc false.
 
 %%%-------------------------------------------------------------------
 %%% Interface
@@ -73,6 +74,14 @@
 %%% Info
 %%%-------------------------------------------------------------------
 
+-spec info(Procs) -> [{Pid, Result}] when
+    Procs   :: daemons | servers,
+    Pid     :: pid(),
+    Result  :: term();
+          (Pid) -> Result when
+    Pid     :: pid(),
+    Result  :: term().
+
 info(daemons) ->
     Daemons = supervisor:which_children(tftp_sup),
     [{Pid, info(Pid)} || {_, Pid, _, _} <- Daemons];
@@ -81,6 +90,18 @@ info(servers) ->
                          {server, Pid}   <- DeamonInfo];
 info(ToPid) when is_pid(ToPid) ->
     call(info, ToPid, timer:seconds(10)).
+
+-spec change_config(Procs, Options) -> [{Pid, Result}] when
+    Procs   :: daemons | servers,
+    Options :: [tftp:option()],
+    Pid     :: pid(),
+    Result  :: ok | {error, Reason},
+    Reason  :: term();
+                   (Pid, Options) -> Result when
+    Pid     :: pid(),
+    Options :: [tftp:option()],
+    Result  :: ok | {error, Reason},
+    Reason  :: term().
 
 change_config(daemons, Options) ->
     Daemons = supervisor:which_children(tftp_sup),
@@ -714,7 +735,9 @@ pre_terminate(Config, Req, Result) ->
     if
         Req#tftp_msg_req.local_filename =/= undefined,
         Config#config.parent_pid =/= undefined ->
-            proc_lib:init_ack(Result),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result, {throw, ok}),
             unlink(Config#config.parent_pid),
             Config#config{parent_pid = undefined, polite_ack = true};
         true ->
@@ -739,7 +762,9 @@ terminate(Config, Req, Result) ->
         Req#tftp_msg_req.local_filename =/= undefined  ->
             %% Client
             close_port(Config, client, Req),
-            proc_lib:init_ack(Result2),
+            %% Ugly trick relying on that we will exit soon;
+            %% the parent will wait for us to exit before returning Result
+            _ = catch proc_lib:init_fail(Result2, {throw, ok}),
             unlink(Config#config.parent_pid),
             exit(normal);
         true ->

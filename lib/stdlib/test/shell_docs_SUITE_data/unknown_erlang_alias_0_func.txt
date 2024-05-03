@@ -45,7 +45,6 @@
                 after 0 -> exit(timeout)
                 end
         end.
-    	
 
   Note that both the server and the client in this example must be
   executing on at least OTP 24 systems in order for this to work.

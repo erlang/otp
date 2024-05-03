@@ -140,12 +140,12 @@ docgen_uri({module, M}) ->
 docgen_uri({module, M, Ref}) ->
     [atom_to_list(M), docgen_uri(Ref)];
 docgen_uri({function, F, A}) ->
-    ["#", atom_to_list(F), "/", integer_to_list(A)];
+    ["#", escape_uri(atom_to_list(F)), "/", integer_to_list(A)];
 docgen_uri({type, T}) ->
-    ["#", atom_to_list(T), "/0"];
+    ["#", escape_uri(atom_to_list(T)), "/0"];
 docgen_uri({type, T, A}) ->
     %% This case is not used yet, but since types also have arity it should be in the future.
-    ["#", atom_to_list(T), "/", integer_to_list(A)].
+    ["#", escape_uri(atom_to_list(T)), "/", integer_to_list(A)].
 
 get_uri({app, App}, Env) ->
     join_uri(app_ref(App, Env), ?INDEX_FILE);

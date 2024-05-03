@@ -26,6 +26,7 @@
 %% @doc Parse transform for stripping EUnit test functions.
 
 -module(eunit_striptests).
+-moduledoc false.
 
 -include("eunit_internal.hrl").
 

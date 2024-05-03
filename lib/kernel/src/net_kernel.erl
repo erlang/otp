@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,60 @@
 %% %CopyrightEnd%
 %%
 -module(net_kernel).
+-moduledoc """
+Erlang networking kernel.
+
+The net kernel is a system process, registered as `net_kernel`, which must be
+operational for distributed Erlang to work. The purpose of this process is to
+implement parts of the BIFs [`spawn/4`](`spawn/4`) and
+[`spawn_link/4`](`spawn_link/4`), and to provide monitoring of the network.
+
+An Erlang node is started using command-line flag `-name` or `-sname`:
+
+```text
+$ erl -sname foobar
+```
+
+It is also possible to call [`net_kernel:start(foobar, #{})`](`start/2`)
+directly from the normal Erlang shell prompt:
+
+```erlang
+1> net_kernel:start(foobar, #{name_domain => shortnames}).
+{ok,<0.64.0>}
+(foobar@gringotts)2>
+```
+
+If the node is started with command-line flag `-sname`, the node name is
+`foobar@Host`, where `Host` is the short name of the host (not the fully
+qualified domain name). If started with flag `-name`, the node name is
+`foobar@Host`, where `Host` is the fully qualified domain name. For more
+information, see [`erl`](`e:erts:erl_cmd.md`).
+
+Normally, connections are established automatically when another node is
+referenced. This functionality can be disabled by setting Kernel configuration
+parameter `dist_auto_connect` to `never`, see [`kernel(6)`](kernel_app.md). In
+this case, connections must be established explicitly by calling
+`connect_node/1`.
+
+Which nodes that are allowed to communicate with each other is handled by the
+magic cookie system, see section [Distributed Erlang](`e:system:distributed.md`)
+in the Erlang Reference Manual.
+
+> #### Warning {: .warning }
+>
+> Starting a distributed node without also specifying
+> [`-proto_dist inet_tls`](`e:erts:erl_cmd.md#proto_dist`) will expose the node
+> to attacks that may give the attacker complete access to the node and in
+> extension the cluster. When using un-secure distributed nodes, make sure that
+> the network is configured to keep potential attackers out. See the
+> [Using SSL for Erlang Distribution](`e:ssl:ssl_distribution.md`) User's Guide
+> for details on how to setup a secure distributed node.
+""".
 
 -behaviour(gen_server).
 
 -define(nodedown(N, State), verbose({?MODULE, ?LINE, nodedown, N}, 1, State)).
--define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
+%%-define(nodeup(N, State), verbose({?MODULE, ?LINE, nodeup, N}, 1, State)).
 
 %%-define(dist_debug, true).
 
@@ -174,6 +223,7 @@
 
 -export([dflag_unicode_io/1]).
 
+-doc false.
 -spec dflag_unicode_io(pid()) -> boolean().
 
 dflag_unicode_io(_) ->
@@ -183,18 +233,75 @@ dflag_unicode_io(_) ->
 
 %% Interface functions
 
+-doc false.
 kernel_apply(M,F,A) ->         request({apply,M,F,A}).
 
+-doc """
+Permits access to the specified set of nodes.
+
+Before the first call to [`allow/1`](`allow/1`), any node with the correct
+cookie can be connected. When [`allow/1`](`allow/1`) is called, a list of
+allowed nodes is established. Any access attempts made from (or to) nodes not in
+that list will be rejected.
+
+Subsequent calls to [`allow/1`](`allow/1`) will add the specified nodes to the
+list of allowed nodes. It is not possible to remove nodes from the list.
+
+Returns `error` if any element in `Nodes` is not an atom.
+""".
 -spec allow(Nodes) -> ok | error when
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
 
+-doc false.
 allowed() ->                   request(allowed).
 
+-doc false.
 longnames() ->                 request(longnames).
 
+-doc false.
 nodename() ->                  request(nodename).
 
+-doc """
+Get the current state of the distribution for the local node.
+
+Returns a map with (at least) the following key-value pairs:
+
+- **`started => Started`** - Valid values for `Started`:
+
+  - **`no`** - The distribution is not started. In this state none of the other
+    keys below are present in the map.
+
+  - **`static`** - The distribution was started with command line arguments
+    [`-name`](`e:erts:erl_cmd.md#name`) or
+    [`-sname`](`e:erts:erl_cmd.md#sname`).
+
+  - **`dynamic`** - The distribution was started with
+    [`net_kernel:start/1`](`start/1`) and can be stopped with
+    [`net_kernel:stop/0`](`start/1`).
+
+- **`name => Name`** - The name of the node. Same as returned by `erlang:node/0`
+  except when `name_type` is `dynamic` in which case `Name` may be `undefined`
+  (instead of `nonode@nohost`).
+
+- **`name_type => NameType`** - Valid values for `NameType`:
+
+  - **`static`** - The node has a static node name set by the node itself.
+
+  - **`dynamic`** - The distribution was started in
+    [dynamic node name](`e:system:distributed.md#dyn_node_name`) mode, and will
+    get its node name assigned from the first node it connects to. If key `name`
+    has value `undefined` that has not happened yet.
+
+- **`name_domain => NameDomain`** - Valid values for `NameDomain`:
+
+  - **`shortnames`** - The distribution was started to use node names with a
+    short host portion (not fully qualified).
+
+  - **`longnames`** - The distribution was started to use node names with a long
+    fully qualified host portion.
+""".
+-doc(#{since => <<"OTP 25.0">>}).
 -spec get_state() -> #{started => no | static | dynamic,
                        name => atom(),
                        name_type => static | dynamic,
@@ -212,6 +319,14 @@ get_state() ->
             request(get_state)
     end.
 
+-doc """
+Turns a distributed node into a non-distributed node.
+
+For other nodes in the network, this is the same as the node going down.
+Only possible when the net kernel was started using `start/2`, otherwise
+`{error, not_allowed}` is returned. Returns `{error, not_found}` if the local
+node is not alive.
+""".
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.
 stop() ->
@@ -225,10 +340,12 @@ stop() ->
     {owner, pid()} |
     {state, connection_state()}.
 
+-doc false.
 -spec node_info(node()) -> {ok, [node_info()]} | {error, bad_node}.
 node_info(Node) ->
     get_node_info(Node).
 
+-doc false.
 -spec node_info(node(), address) -> {ok, Address} | {error, bad_node} when Address :: #net_address{};
     (node(), type) -> {ok, Type} | {error, bad_node} when Type :: connection_type();
     (node(), in | out) -> {ok, Bytes} | {error, bad_node} when Bytes :: non_neg_integer();
@@ -238,16 +355,56 @@ node_info(Node) ->
 node_info(Node, Key) ->
     get_node_info(Node, Key).
 
+-doc false.
 -spec nodes_info() -> {ok, [{node(), [node_info()]}]}.
 nodes_info() ->
     get_nodes_info().
 
+-doc false.
 i() ->                         print_info().
+-doc false.
 i(Node) ->                     print_info(Node).
 
+-doc false.
 verbose(Level) when is_integer(Level) ->
     request({verbose, Level}).
 
+-doc """
+Sets `net_ticktime` (see [`kernel(6)`](kernel_app.md)) to `NetTicktime` seconds.
+`TransitionPeriod` defaults to `60`.
+
+Some definitions:
+
+- **Minimum transition traffic interval (`MTTI`)** -
+  `minimum(NetTicktime, PreviousNetTicktime)*1000 div 4` milliseconds.
+
+- **Transition period** - The time of the least number of consecutive `MTTI`s to
+  cover `TransitionPeriod` seconds following the call to
+  [`set_net_ticktime/2`](`set_net_ticktime/2`) (that is,
+  ((`TransitionPeriod*1000 - 1) div MTTI + 1)*MTTI` milliseconds).
+
+If `NetTicktime < PreviousNetTicktime`, the `net_ticktime` change is done at the
+end of the transition period; otherwise at the beginning. During the transition
+period, `net_kernel` ensures that there is outgoing traffic on all connections
+at least every `MTTI` millisecond.
+
+> #### Note {: .info }
+>
+> The `net_ticktime` changes must be initiated on all nodes in the network (with
+> the same `NetTicktime`) before the end of any transition period on any node;
+> otherwise connections can erroneously be disconnected.
+
+Returns one of the following:
+
+- **`unchanged`** - `net_ticktime` already has the value of `NetTicktime` and is
+  left unchanged.
+
+- **`change_initiated`** - `net_kernel` initiated the change of `net_ticktime`
+  to `NetTicktime` seconds.
+
+- **`{ongoing_change_to, NewNetTicktime}`** - The request is _ignored_ because
+  `net_kernel` is busy changing `net_ticktime` to `NewNetTicktime` seconds.
+""".
 -spec set_net_ticktime(NetTicktime, TransitionPeriod) -> Res when
       NetTicktime :: pos_integer(),
       TransitionPeriod :: non_neg_integer(),
@@ -258,6 +415,7 @@ verbose(Level) when is_integer(Level) ->
 set_net_ticktime(T, TP) when is_integer(T), T > 0, is_integer(TP), TP >= 0 ->
     ticktime_res(request({new_ticktime, T*1000, TP*1000})).
 
+-doc(#{equiv => set_net_ticktime(NetTicktime, ?DEFAULT_TRANSITION_PERIOD)}).
 -spec set_net_ticktime(NetTicktime) -> Res when
       NetTicktime :: pos_integer(),
       Res :: unchanged
@@ -267,6 +425,21 @@ set_net_ticktime(T, TP) when is_integer(T), T > 0, is_integer(TP), TP >= 0 ->
 set_net_ticktime(T) when is_integer(T) ->
     set_net_ticktime(T, ?DEFAULT_TRANSITION_PERIOD).
 
+-doc """
+Returns currently used net tick time in seconds.
+
+For more information see the [`net_ticktime`](kernel_app.md#net_ticktime)
+`Kernel` parameter.
+
+Defined return values (`Res`):
+
+- **`NetTicktime`** - `net_ticktime` is `NetTicktime` seconds.
+
+- **`{ongoing_change_to, NetTicktime}`** - `net_kernel` is currently changing
+  `net_ticktime` to `NetTicktime` seconds.
+
+- **`ignored`** - The local node is not alive.
+""".
 -spec get_net_ticktime() -> Res when
       Res :: NetTicktime | {ongoing_change_to, NetTicktime} | ignored,
       NetTicktime :: pos_integer().
@@ -278,6 +451,7 @@ get_net_ticktime() ->
 %% flags (we may want to move it elsewhere later). In order to easily
 %% be backward compatible, errors are created here when process_flag()
 %% fails.
+-doc(#{equiv => monitor_nodes(Flag, [])}).
 -spec monitor_nodes(Flag) -> ok | Error when
       Flag :: boolean(),
       Error :: error | {error, term()}.
@@ -287,6 +461,163 @@ monitor_nodes(Flag) ->
 	_ -> mk_monitor_nodes_error(Flag, [])
     end.
 
+-doc """
+The calling process subscribes or unsubscribes to node status change messages. A
+`nodeup` message is delivered to all subscribing processes when a new node is
+connected, and a `nodedown` message is delivered when a node is disconnected.
+
+If `Flag` is `true`, a new subscription is started. If `Flag` is `false`, all
+previous subscriptions started with the same `Options` are stopped. Two option
+lists are considered the same if they contain the same set of options.
+
+Delivery guarantees of `nodeup`/`nodedown` messages:
+
+- `nodeup` messages are delivered before delivery of any signals from the remote
+  node through the newly established connection.
+- `nodedown` messages are delivered after all the signals from the remote node
+  over the connection have been delivered.
+- `nodeup` messages are delivered after the corresponding node appears in
+  results from `erlang:nodes()`.
+- `nodedown` messages are delivered after the corresponding node has disappeared
+  in results from `erlang:nodes()`.
+- As of OTP 23.0, a `nodedown` message for a connection being taken down will be
+  delivered before a `nodeup` message due to a new connection to the same node.
+  Prior to OTP 23.0, this was not guaranteed to be the case.
+
+The format of the node status change messages depends on `Options`. If `Options`
+is the empty list or if `net_kernel:monitor_nodes/1` is called, the format is as
+follows:
+
+```erlang
+{nodeup, Node} | {nodedown, Node}
+  Node = node()
+```
+
+When `Options` is the empty map or empty list, the caller will only subscribe
+for status change messages for visible nodes. That is, only nodes that appear in
+the result of `erlang:nodes/0`.
+
+If `Options` equals anything other than the empty list, the format of the status
+change messages is as follows:
+
+```erlang
+{nodeup, Node, Info} | {nodedown, Node, Info}
+  Node = node()
+  Info = #{Tag => Val} | [{Tag, Val}]
+```
+
+`Info` is either a map or a list of 2-tuples. Its content depends on `Options`.
+If `Options` is a map, `Info` will also be a map. If `Options` is a list, `Info`
+will also be a list.
+
+When `Options` is a map, currently the following associations are allowed:
+
+- **`connection_id => boolean()`** - If the value of the association equals
+  `true`, a `connection_id => ConnectionId` association will be included in the
+  `Info` map where `ConnectionId` is the connection identifier of the connection
+  coming up or going down. For more info about this connection identifier see
+  the documentation of [erlang:nodes/2](`m:erlang#connection_id`).
+
+- **`node_type => NodeType`** - Valid values for `NodeType`:
+
+  - **`visible`** - Subscribe to node status change messages for visible nodes
+    only. The association `node_type => visible` will be included in the `Info`
+    map.
+
+  - **`hidden`** - Subscribe to node status change messages for hidden nodes
+    only. The association `node_type => hidden` will be included in the `Info`
+    map.
+
+  - **`all`** - Subscribe to node status change messages for both visible and
+    hidden nodes. The association `node_type => visible | hidden` will be
+    included in the `Info` map.
+
+  If no `node_type => NodeType` association is included in the `Options` map,
+  the caller will subscribe for status change messages for visible nodes only,
+  but _no_ `node_type => visible` association will be included in the `Info`
+  map.
+
+- **`nodedown_reason => boolean()`** - If the value of the association equals
+  `true`, a `nodedown_reason => Reason` association will be included in the
+  `Info` map for `nodedown` messages.
+
+  [](){: #nodedown_reasons } `Reason` can, depending on which distribution
+  module or process that is used, be any term, but for the standard TCP
+  distribution module it is one of the following:
+
+  - **`connection_setup_failed`** - The connection setup failed (after `nodeup`
+    messages were sent).
+
+  - **`no_network`** - No network is available.
+
+  - **`net_kernel_terminated`** - The `net_kernel` process terminated.
+
+  - **`shutdown`** - Unspecified connection shutdown.
+
+  - **`connection_closed`** - The connection was closed.
+
+  - **`disconnect`** - The connection was disconnected (forced from the current
+    node).
+
+  - **`net_tick_timeout`** - Net tick time-out.
+
+  - **`send_net_tick_failed`** - Failed to send net tick over the connection.
+
+  - **`get_status_failed`** - Status information retrieval from the `Port`
+    holding the connection failed.
+
+When `Options` is a list, currently `ListOption` can be one of the following:
+
+- **`connection_id`** - A `{connection_id, ConnectionId}` tuple will be included
+  in `Info` where `ConnectionId` is the connection identifier of the connection
+  coming up or going down. For more info about this connection identifier see
+  the documentation of [erlang:nodes/2](`m:erlang#connection_id`).
+
+- **`{node_type, NodeType}`** - Valid values for `NodeType`:
+
+  - **`visible`** - Subscribe to node status change messages for visible nodes
+    only. The tuple `{node_type, visible}` will be included in the `Info` list.
+
+  - **`hidden`** - Subscribe to node status change messages for hidden nodes
+    only. The tuple `{node_type, hidden}` will be included in the `Info` list.
+
+  - **`all`** - Subscribe to node status change messages for both visible and
+    hidden nodes. The tuple `{node_type, visible | hidden}` will be included in
+    the `Info` list.
+
+  If no `{node_type, NodeType}` option has been given. The caller will subscribe
+  for status change messages for visible nodes only, but _no_
+  `{node_type, visible}` tuple will be included in the `Info` list.
+
+- **`nodedown_reason`** - The tuple `{nodedown_reason, Reason}` will be included
+  in the `Info` list for `nodedown` messages.
+
+  See the documentation of the
+  [`nodedown_reason => boolean()`](`m:net_kernel#nodedown_reasons`) association
+  above for information about possible `Reason` values.
+
+Example:
+
+```erlang
+(a@localhost)1> net_kernel:monitor_nodes(true, #{connection_id=>true, node_type=>all, nodedown_reason=>true}).
+ok
+(a@localhost)2> flush().
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067552,node_type => visible}}
+Shell got {nodeup,c@localhost,
+                  #{connection_id => 13892107,node_type => hidden}}
+Shell got {nodedown,b@localhost,
+                    #{connection_id => 3067552,node_type => visible,
+                      nodedown_reason => connection_closed}}
+Shell got {nodedown,c@localhost,
+                    #{connection_id => 13892107,node_type => hidden,
+                      nodedown_reason => net_tick_timeout}}
+Shell got {nodeup,b@localhost,
+                  #{connection_id => 3067553,node_type => visible}}
+ok
+(a@localhost)3>
+```
+""".
 -spec monitor_nodes(Flag, Options) -> ok | Error when
       Flag :: boolean(),
       Options :: OptionsList | OptionsMap,
@@ -335,31 +666,44 @@ ticktime_res(A)      when is_atom(A)             -> A.
 
 %%% Long timeout if blocked (== barred), only affects nodes with
 %%% {dist_auto_connect, once} set.
+-doc false.
 passive_cnct(Node) ->
     case request({passive_cnct, Node}) of
         ignored -> false;
         Other -> Other
     end.
 
+-doc false.
 disconnect(Node) ->            request({disconnect, Node}).
 
+-doc false.
 async_disconnect(Node) ->
     gen_server:cast(net_kernel, {async_disconnect, Node}).
 
 %% Should this node publish itself on Node?
+-doc false.
 publish_on_node(Node) when is_atom(Node) ->
     global_group:publish(persistent_term:get({?MODULE, publish_type},
                                              hidden),
                          Node).
 
+-doc """
+Establishes a connection to `Node`.
+
+Returns `true` if a connection was established or was already established or if
+`Node` is the local node itself. Returns `false` if the connection attempt failed,
+and `ignored` if the local node is not alive.
+""".
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
 %% explicit connects
 connect_node(Node) when is_atom(Node) ->
     request({connect, normal, Node}).
+-doc false.
 hidden_connect_node(Node) when is_atom(Node) ->
     request({connect, hidden, Node}).
 
+-doc false.
 passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
     Reply = case lists:member(Node,nodes([connected])) of
@@ -411,6 +755,54 @@ retry_request_maybe(Req) ->
 %% This function is used to dynamically start the
 %% distribution.
 
+-doc """
+Turns a non-distributed node into a distributed node by starting `net_kernel`
+and other necessary processes.
+
+If `Name` is set to _`undefined`_ the distribution will be started to request a
+dynamic node name from the first node it connects to. See
+[Dynamic Node Name](`e:system:distributed.md#dyn_node_name`). Setting `Name` to
+`undefined` implies options `dist_listen => false` and `hidden => true`.
+
+Currently supported options:
+
+- **`name_domain => NameDomain`** - Determines the host name part of the node
+  name. If `NameDomain` equals `longnames`, fully qualified domain names will be
+  used which also is the default. If `NameDomain` equals `shortnames`, only the
+  short name of the host will be used.
+
+- **`net_ticktime => NetTickTime`** - _Net tick time_ to use in seconds.
+  Defaults to the value of the [`net_ticktime`](kernel_app.md#net_ticktime)
+  `kernel(6)` parameter. For more information about _net tick time_, see the
+  `kernel` parameter. However, note that if the value of the `kernel` parameter
+  is invalid, it will silently be replaced by a valid value, but if an invalid
+  `NetTickTime` value is passed as option value to this function, the call will
+  fail.
+
+- **`net_tickintensity => NetTickIntensity`** - _Net tick intensity_ to use.
+  Defaults to the value of the
+  [`net_tickintensity`](kernel_app.md#net_tickintensity) `kernel(6)` parameter.
+  For more information about _net tick intensity_, see the `kernel` parameter.
+  However, note that if the value of the `kernel` parameter is invalid, it will
+  silently be replaced by a valid value, but if an invalid `NetTickIntensity`
+  value is passed as option value to this function, the call will fail.
+
+- **`dist_listen => boolean()`** - Enable or disable listening for incoming
+  connections. Defaults to the value of the
+  [`-dist_listen`](`e:erts:erl_cmd.md#dist_listen`) `erl` command line argument.
+  Note that `dist_listen => false` implies `hidden => true`.
+
+  If `undefined` has been passed as `Name`, the `dist_listen` option will be
+  overridden with `dist_listen => false`.
+
+- **`hidden => boolean()`** - Enable or disable hidden node. Defaults to `true`
+  if the [`-hidden`](`e:erts:erl_cmd.md#hidden`) `erl` command line argument has
+  been passed; otherwise `false`.
+
+  If `undefined` has been passed as `Name`, or the option `dist_listen` equals
+  `false`, the `hidden` option will be overridden with `hidden => true`.
+""".
+-doc(#{since => <<"OTP 24.3">>}).
 -spec start(Name, Options) -> {ok, pid()} | {error, Reason} when
       Options :: #{name_domain => NameDomain,
                    net_ticktime => NetTickTime,
@@ -451,6 +843,25 @@ start(Name, Options) when is_map(Options) ->
 start(Name, Options) ->
     error(invalid_options, [Name, Options]).
 
+-doc """
+Turns a non-distributed node into a distributed node by starting `net_kernel`
+and other necessary processes.
+
+`Options` list can only be exactly one of the following lists (order is
+imporant):
+
+- **`[Name]`** - The same as `net_kernel:start([Name, longnames, 15000])`.
+
+- **`[Name, NameDomain]`** - The same as
+  `net_kernel:start([Name, NameDomain, 15000])`.
+
+- **`[Name, NameDomain, TickTime]`** - The same as
+  [`net_kernel:start(Name, #{name_domain => NameDomain, net_ticktime => ((TickTime*4-1) div 1000) + 1, net_tickintensity => 4})`](`start/2`).
+  Note that `TickTime` is _not_ the same as net tick time expressed in
+  milliseconds. `TickTime` is the time between ticks when net tick intensity
+  equals `4`.
+""".
+-doc(#{ deprecated => ~"Use start/2 instead" }).
 -spec start(Options) -> {ok, pid()} | {error, Reason} when
       Options :: nonempty_list(Name | NameDomain | TickTime),
       Name :: atom(),
@@ -477,6 +888,7 @@ start([Name, NameDomain, TickTime]) when is_atom(Name),
 %% This is the main startup routine for net_kernel (only for internal
 %% use) by the Kernel application.
 
+-doc false.
 start_link(StartOpts) ->
     case gen_server:start_link({local, net_kernel}, ?MODULE,
 			       make_init_opts(StartOpts), []) of
@@ -569,6 +981,7 @@ make_init_opts(Opts) ->
           dist_listen => DL,
           hidden => H}.
 
+-doc false.
 init(#{name := Name,
        name_domain := NameDomain,
        net_ticktime := NetTicktime,
@@ -577,6 +990,10 @@ init(#{name := Name,
        supervisor := Supervisor,
        dist_listen := DistListen,
        hidden := Hidden}) ->
+    %% We enable async_dist so that we won't need to do the
+    %% nosuspend/spawn trick which just cause even larger
+    %% memory consumption...
+    _ = process_flag(async_dist, true),
     process_flag(trap_exit,true),
     persistent_term:put({?MODULE, publish_type},
                         if Hidden -> hidden;
@@ -702,6 +1119,7 @@ do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
 %% Passive auto-connect to Node.
 %% The response is delayed until the connection is up and running.
 %%
+-doc false.
 handle_call({passive_cnct, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
 handle_call({passive_cnct, Node}, From, State) ->
@@ -794,12 +1212,9 @@ handle_call({is_auth, _Node}, From, State) ->
 %%
 %% Not applicable any longer !?
 %%
-handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State)
-  when is_pid(From), node(From) =:= node() ->
-    async_gen_server_reply({From,Tag}, not_implemented),
-%    Port = State#state.port,
-%    catch apply(Mod,Fun,[Port|Args]),
-    {noreply,State};
+handle_call({apply,_Mod,_Fun,_Args}, {Pid, _Tag} = From, State)
+  when is_pid(Pid), node(Pid) =:= node() ->
+    async_reply({reply, not_implemented, State}, From);
 
 handle_call(longnames, From, State) ->
     async_reply({reply, get(longnames), State}, From);
@@ -914,6 +1329,7 @@ handle_call(_Msg, _From, State) ->
 %% handle_cast.
 %% ------------------------------------------------------------
 
+-doc false.
 handle_cast({async_disconnect, Node}, State) when Node =:= node() ->
     {noreply, State};
 handle_cast({async_disconnect, Node}, State) ->
@@ -928,6 +1344,7 @@ handle_cast(_, State) ->
 %% code_change.
 %% ------------------------------------------------------------
 
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok,State}.
 
@@ -935,6 +1352,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% terminate.
 %% ------------------------------------------------------------
 
+-doc false.
 terminate(Reason, State) ->
     case State of
         #state{supervisor = {restart, _}} ->
@@ -966,6 +1384,7 @@ terminate(Reason, State) ->
 %%
 %% Asynchronous auto connect request
 %%
+-doc false.
 handle_info({auto_connect,Node, DHandle}, State) ->
     verbose({auto_connect, Node, DHandle}, 1, State),
     ConnId = DHandle,
@@ -985,7 +1404,7 @@ handle_info({auto_connect,Node, DHandle}, State) ->
 %%
 %% accept a new connection.
 %%
-handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
+handle_info({accept,AcceptPid,Socket,Family,Proto}=Accept, State) ->
     case get_proto_mod(Family,Proto,State#state.listen) of
 	{ok, Mod} ->
 	    Pid = Mod:accept_connection(AcceptPid,
@@ -993,9 +1412,11 @@ handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
                                         State#state.node,
 					State#state.allowed,
 					State#state.connecttime),
+            verbose({Accept,Pid}, 2, State),
 	    AcceptPid ! {self(), controller, Pid},
 	    {noreply,State};
 	_ ->
+            verbose({Accept,unsupported_protocol}, 2, State),
 	    AcceptPid ! {self(), unsupported_protocol},
 	    {noreply, State}
     end;
@@ -1012,6 +1433,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
                     andalso (is_port(Ctrlr) orelse is_pid(Ctrlr))
                     andalso (node(Ctrlr) == node()) ->
             link(Ctrlr),
+            verbose(Msg, 2, State),
             ets:insert(sys_dist, Conn#connection{ctrlr = Ctrlr}),
             {noreply, State#state{dist_ctrlrs = DistCtrlrs#{Ctrlr => Node}}};
 	_ ->
@@ -1022,7 +1444,7 @@ handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
 %%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}},
+handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe} = Nodeup},
             #state{tick = Tick} = State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when (Conn#connection.state =:= pending)
@@ -1043,6 +1465,8 @@ handle_info({SetupPid, {nodeup,Node,Address,Type,NamedMe}},
                          true -> State#state{node = node()};
                          false -> State
                      end,
+            verbose(Nodeup, 1, State1),
+            verbose({nodeup,Node,SetupPid,Conn#connection.ctrlr}, 2, State1),
             {noreply, State1};
 	_ ->
 	    SetupPid ! {self(), bad_request},
@@ -1060,6 +1484,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 	    if
 		MyNode > Node ->
 		    AcceptPid ! {self(),{accept_pending,nok_pending}},
+                    verbose({accept_pending_nok, Node, AcceptPid}, 2, State),
 		    {noreply,State};
 		true ->
 		    %%
@@ -1069,13 +1494,18 @@ handle_info({AcceptPid, {accept_pending,MyNode,NodeOrHost,Type}}, State0) ->
 		    OldOwner = Conn#connection.owner,
                     case maps:is_key(OldOwner, State#state.conn_owners) of
                         true ->
+                            verbose({remark,OldOwner,AcceptPid}, 2, State),
                             ?debug({net_kernel, remark, old, OldOwner, new, AcceptPid}),
                             exit(OldOwner, remarked),
                             receive
-                                {'EXIT', OldOwner, _} ->
+                                {'EXIT', OldOwner, _} = Exit ->
+                                    verbose(Exit, 2, State),
                                     true
                             end;
                         false ->
+                            verbose(
+                              {accept_pending, OldOwner, inconsistency},
+                              2, State),
                             ok % Owner already exited
                     end,
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
@@ -1157,7 +1587,6 @@ handle_info({'DOWN', ReqId, process, _Pid, Reason},
 %% Handle different types of process terminations.
 %%
 handle_info({'EXIT', From, Reason}, State) ->
-    verbose({'EXIT', From, Reason}, 1, State),
     handle_exit(From, Reason, State);
 
 %%
@@ -1271,30 +1700,33 @@ handle_exit(Pid, Reason, State) ->
     catch do_handle_exit(Pid, Reason, State).
 
 do_handle_exit(Pid, Reason, State) ->
-    listen_exit(Pid, State),
-    accept_exit(Pid, State),
+    listen_exit(Pid, Reason, State),
+    accept_exit(Pid, Reason, State),
     conn_own_exit(Pid, Reason, State),
     dist_ctrlr_exit(Pid, Reason, State),
-    pending_own_exit(Pid, State),
-    ticker_exit(Pid, State),
-    restarter_exit(Pid, State),
+    pending_own_exit(Pid, Reason, State),
+    ticker_exit(Pid, Reason, State),
+    restarter_exit(Pid, Reason, State),
+    verbose({'EXIT', Pid, Reason}, 2, State),
     {noreply,State}.
 
-listen_exit(Pid, State) ->
+listen_exit(Pid, Reason, State) ->
     case lists:keymember(Pid, ?LISTEN_ID, State#state.listen) of
 	true ->
+            verbose({listen_exit, Pid, Reason}, 2, State),
 	    error_msg("** Netkernel terminating ... **\n", []),
 	    throw({stop,no_network,State});
 	false ->
 	    false
     end.
 
-accept_exit(Pid, State) ->
+accept_exit(Pid, Reason, State) ->
     Listen = State#state.listen,
     case lists:keysearch(Pid, ?ACCEPT_ID, Listen) of
 	{value, ListenR} ->
 	    ListenS = ListenR#listen.listen,
 	    Mod = ListenR#listen.module,
+            verbose({accept_exit, Pid, Reason, Mod}, 2, State),
 	    AcceptPid = Mod:accept(ListenS),
 	    L = lists:keyreplace(Pid, ?ACCEPT_ID, Listen,
 				 ListenR#listen{accept = AcceptPid}),
@@ -1306,16 +1738,20 @@ accept_exit(Pid, State) ->
 conn_own_exit(Pid, Reason, #state{conn_owners = Owners} = State) ->
     case maps:get(Pid, Owners, undefined) of
         undefined -> false;
-        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
+        Node ->
+            verbose({conn_own_exit, Pid, Reason, Node}, 2, State),
+            throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
 dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
     case maps:get(Pid, DCs, undefined) of
         undefined -> false;
-        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
+        Node ->
+            verbose({dist_ctrlr_exit, Pid, Reason, Node}, 2, State),
+            throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
-pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
+pending_own_exit(Pid, Reason, #state{pend_owners = Pend} = State) ->
     case maps:get(Pid, Pend, undefined) of
         undefined ->
             false;
@@ -1323,31 +1759,43 @@ pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
 	    State1 = State#state { pend_owners = maps:remove(Pid, Pend)},
 	    case get_conn(Node) of
 		{ok, Conn} when Conn#connection.state =:= up_pending ->
+                    verbose(
+                      {pending_own_exit, Pid, Reason, Node, up_pending},
+                      2, State),
 		    reply_waiting(Node,Conn#connection.waiting, true),
 		    Conn1 = Conn#connection { state = up,
 					      waiting = [],
 					      pending_owner = undefined },
 		    ets:insert(sys_dist, Conn1);
 		_ ->
+                    verbose({pending_own_exit, Pid, Reason, Node}, 2, State),
 		    ok
 	    end,
 	    throw({noreply, State1})
     end.
 
-ticker_exit(Pid, #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
+ticker_exit(
+  Pid, Reason,
+  #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
+    verbose({ticker_exit, Pid, Reason, Tck}, 2, State),
     Tckr = restart_ticker(T),
     throw({noreply, State#state{tick = Tck#tick{ticker = Tckr}}});
-ticker_exit(Pid, #state{tick = #tick_change{ticker = Pid,
-					    time = T} = TckCng} = State) ->
+ticker_exit(
+  Pid, Reason,
+  #state{tick = #tick_change{ticker = Pid, time = T} = TckCng} = State) ->
+    verbose({ticker_exit, Pid, Reason, TckCng}, 2, State),
     Tckr = restart_ticker(T),
-    throw({noreply, State#state{tick = TckCng#tick_change{ticker = Tckr}}});
-ticker_exit(_, _) ->
+    throw({noreply, Reason, State#state{tick = TckCng#tick_change{ticker = Tckr}}});
+ticker_exit(_, _, _) ->
     false.
 
-restarter_exit(Pid, State) ->
+restarter_exit(Pid, Reason, State) ->
     case State#state.supervisor of
         {restart, Pid} ->
-	    error_msg("** Distribution restart failed, net_kernel terminating... **\n", []),
+            verbose({restarter_exit, Pid, Reason}, 2, State),
+	    error_msg(
+              "** Distribution restart failed, net_kernel terminating... **\n",
+              []),
 	    throw({stop, restarter_exit, State});
         _ ->
             false
@@ -1674,11 +2122,13 @@ get_nodes_up_normal() ->
                            [],
                            ['$1']}]).
 
+-doc false.
 ticker(Kernel, Tick) when is_integer(Tick) ->
     process_flag(priority, max),
     ?tckr_dbg(ticker_started),
     ticker_loop(Kernel, Tick).
 
+-doc false.
 ticker_loop(Kernel, Tick) ->
     receive
 	{new_ticktime, NewTick} ->
@@ -1693,6 +2143,7 @@ start_aux_ticker(NewTick, OldTick, TransitionPeriod) ->
     spawn_link(?MODULE, aux_ticker,
 	       [self(), NewTick, OldTick, TransitionPeriod]).
 
+-doc false.
 aux_ticker(NetKernel, NewTick, OldTick, TransitionPeriod) ->
     process_flag(priority, max),
     ?tckr_dbg(aux_ticker_started),
@@ -1742,6 +2193,7 @@ safesend(Pid, Mess) -> Pid ! Mess.
 
 -endif.
 
+-doc false.
 do_spawn(SpawnFuncArgs, SpawnOpts, State) ->
     [_,From|_] = SpawnFuncArgs,
     case catch spawn_opt(?MODULE, spawn_func, SpawnFuncArgs, SpawnOpts) of
@@ -1758,6 +2210,7 @@ do_spawn(SpawnFuncArgs, SpawnOpts, State) ->
 %% If the link message would not arrive, the runtime system shall
 %% generate a nodedown message
 
+-doc false.
 spawn_func(link,{From,Tag},M,F,A,Gleader) ->
     link(From),
     gen_server:reply({From,Tag},self()),  %% ahhh
@@ -1783,6 +2236,9 @@ setup(Node, ConnId, Type, From, State) ->
 				    MyNode,
 				    State#state.type,
 				    State#state.connecttime),
+                    verbose(
+                      {setup,Node,Type,MyNode,State#state.type,Pid},
+                      2, State),
 		    Addr = LAddr#net_address {
 					      address = undefined,
 					      host = undefined },
@@ -1941,6 +2397,7 @@ split_node(Name) ->
 %%
 %%
 %%
+-doc false.
 protocol_childspecs() ->
     case init:get_argument(proto_dist) of
 	{ok, [Protos]} ->
@@ -1964,6 +2421,7 @@ protocol_childspecs([H|T]) ->
 %% epmd_module argument -> module_name of erl_epmd or similar gen_server_module.
 %%
 
+-doc false.
 epmd_module() ->
     case init:get_argument(epmd_module) of
         {ok,[[Module | _] | _]} ->
@@ -2026,7 +2484,7 @@ start_protos(Node, Ps, CleanHalt, Listen) ->
     end.
 
 start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
-    {Name, "@"++_Host}  = split_node(Node),
+    {Name, "@"++Host}  = split_node(Node),
     Ok = case Name of
              "undefined" ->
                  erts_internal:dynamic_node_name(true),
@@ -2038,9 +2496,14 @@ start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
         true ->
             auth:sync_cookie(),
             Mod = list_to_atom(Proto ++ "_dist"),
+            Address =
+                try Mod:address(Host)
+                catch error:undef ->
+                        Mod:address()
+                end,
             L = #listen {
                    listen = undefined,
-                   address = Mod:address(),
+                   address = Address,
                    accept = undefined,
                    module = Mod },
             start_protos_no_listen(Node, Ps, [L|Ls], CleanHalt);
@@ -2124,7 +2587,7 @@ register_error(false, Proto, Reason) ->
     proto_error(false, Proto, lists:flatten(S));
 register_error(true, Proto, Reason) ->
     S = "Protocol '" ++ Proto ++ "': register/listen error: ",
-    erlang:display_string(S),
+    erlang:display_string(stdout, S),
     erlang:display(Reason).
 
 proto_error(CleanHalt, Proto, String) ->
@@ -2148,6 +2611,7 @@ set_node(Node, Creation) when node() =:= nonode@nohost ->
 set_node(Node, _Creation) when node() =:= Node ->
     ok.
 
+-doc false.
 connecttime() ->
     case application:get_env(kernel, net_setuptime) of
 	{ok,Time} when is_number(Time), Time >= 120 ->
@@ -2248,7 +2712,7 @@ reply_waiting(_Node, Waiting, Rep) ->
     reply_waiting1(lists:reverse(Waiting), Rep).
 
 reply_waiting1([From|W], Rep) ->
-    async_gen_server_reply(From, Rep),
+    gen_server:reply(From, Rep),
     reply_waiting1(W, Rep);
 reply_waiting1([], _) ->
     ok.
@@ -2354,24 +2818,23 @@ return_call({noreply, _State}=R, _From) ->
 return_call(R, From) ->
     async_reply(R, From).
 
-async_reply({reply, Msg, State}, From) ->
-    async_gen_server_reply(From, Msg),
-    {noreply, State}.
-
-async_gen_server_reply(From, Msg) ->
-    {Pid, Tag} = From,
-    M = {Tag, Msg},
-    try erlang:send(Pid, M, [nosuspend, noconnect]) of
-        ok ->
-            ok;
-        nosuspend ->
-            _ = spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end),
-	    ok;
-        noconnect ->
-            ok % The gen module takes care of this case.
-    catch
-        _:_ -> ok
-    end.
+-compile({inline, [async_reply/2]}).
+async_reply({reply, _Msg, _State} = Res, _From) ->
+    %% This function call is kept in order to not unnecessarily create a huge diff
+    %% in the code.
+    %%
+    %% Here we used to send the reply explicitly using 'noconnect' and 'nosuspend'.
+    %%
+    %% * 'noconnect' since setting up a connection from net_kernel itself would
+    %%   deadlock when connects were synchronous. Since connects nowadays are
+    %%   asynchronous this is no longer an issue.
+    %% * 'nosuspend' and spawn a process taking care of the reply in case
+    %%   we would have suspended. This in order not to block net_kernel. We now
+    %%   use 'async_dist' enabled and by this prevent the blocking, keep the
+    %%   signal order, avoid one extra copying of the reply, avoid the overhead
+    %%   of creating a process, and avoid the extra memory consumption due to the
+    %%   extra process.
+    Res.
 
 handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S0) ->
     if ResponseType == down -> ok;
@@ -2385,20 +2848,19 @@ handle_async_response(ResponseType, ReqId, Result, #state{req_map = ReqMap0} = S
                         reply -> Result;
                         down -> {error, noconnection}
                     end,
-            S1 = S0#state{req_map = ReqMap1},
-            async_reply({reply, Reply, S1}, From);
+            gen_server:reply(From, Reply),
+            {noreply, S0#state{req_map = ReqMap1}};
 
         {{setopts_new, Op}, ReqMap1} ->
             case maps:get(Op, ReqMap1) of
                 {setopts_new, From, 1} ->
                     %% Last response for this operation...
+                    gen_server:reply(From, ok),
                     ReqMap2 = maps:remove(Op, ReqMap1),
-                    S1 = S0#state{req_map = ReqMap2},
-                    async_reply({reply, ok, S1}, From);
+                    {noreply, S0#state{req_map = ReqMap2}};
                 {setopts_new, From, N} ->
                     ReqMap2 = ReqMap1#{Op => {setopts_new, From, N-1}},
-                    S1 = S0#state{req_map = ReqMap2},
-                    {noreply, S1}
+                    {noreply, S0#state{req_map = ReqMap2}}
             end
     end.
 
@@ -2407,6 +2869,21 @@ send_owner_request(ReqOpMap, Label, Owner, Msg) ->
     Owner ! {self(), ReqId, Msg},
     ReqOpMap#{ReqId => Label}.
 
+-doc """
+Set one or more options for distribution sockets. Argument `Node` can be either
+one node name or the atom `new` to affect the distribution sockets of all future
+connected nodes.
+
+The return value is the same as from `inet:setopts/2` or `{error, noconnection}`
+if `Node` is not a connected node or `new`.
+
+If `Node` is `new` the `Options` will then also be added to kernel configuration
+parameters [inet_dist_listen_options](kernel_app.md#inet_dist_listen_options)
+and [inet_dist_connect_options](kernel_app.md#inet_dist_connect_options).
+
+Returns `ignored` if the local node is not alive.
+""".
+-doc(#{since => <<"OTP 19.1">>}).
 -spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
       Node :: node() | new,
       Options :: [inet:socket_setopt()],
@@ -2498,6 +2975,17 @@ merge_opts([H|T], B0) ->
     B1 = lists:filter(fun({K,_}) -> K =/= Key end, B0),
     merge_opts(T, [H | B1]).
 
+-doc """
+Get one or more options for the distribution socket connected to `Node`.
+
+If `Node` is a connected node the return value is the same as from
+[`inet:getopts(Sock, Options)`](`inet:getopts/2`) where `Sock` is the
+distribution socket for `Node`.
+
+Returns `ignored` if the local node is not alive or `{error, noconnection}` if
+`Node` is not connected.
+""".
+-doc(#{since => <<"OTP 19.1">>}).
 -spec getopts(Node, Options) ->
 	{'ok', OptionValues} | {'error', Reason} | ignored when
       Node :: node(),

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 2019-2021. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 2019-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ ycf_node* mk_print_offsets_for_struct_fields(char* ycf_trap_state_name,
     }
     char* ret =
         ycf_string_new(("static void %s_print_offsets_for_struct_fields(void);\n"
-                        "static void %s_print_offsets_for_struct_fields() {\n"
+                        "static void %s_print_offsets_for_struct_fields(void) {\n"
                         "fprintf(stderr, \"Field offsets for struct %s:\\n\");\n"
                         "%s\n"
                         "}\n"),
@@ -906,13 +906,13 @@ void ast_add_yield_code_generated_define(ycf_node* source_out_tree/*Will be chan
      "#include <inttypes.h>\n"
      "static void* ycf_find_stack_bottom_conservative_helper(void);\n"
      "static void* ycf_find_stack_bottom_conservative(void);\n"
-     "static void* ycf_find_stack_bottom_conservative_helper() {\n"
+     "static void* ycf_find_stack_bottom_conservative_helper(void) {\n"
      "  void* p = NULL;\n"
      "  volatile intptr_t tmp = (intptr_t)&p;\n"
      "  /* codechecker_intentional [StackAddrEscapeBase] */\n"
      "  return (void*)tmp;\n"
      "}\n"
-     "static void* ycf_find_stack_bottom_conservative() {\n"
+     "static void* ycf_find_stack_bottom_conservative(void) {\n"
      "  jmp_buf env;\n"
      "  setjmp(env);\n"
      "\n"

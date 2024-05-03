@@ -1,14 +1,8 @@
 
   [;1m-spec erlang:send_nosuspend(Dest, Msg) -> boolean()[0m
-  [;1m                               when Dest :: dst(), Msg :: term().[0m
-
-  Types:
-    -type dst() ::
-          pid() |
-          reference() |
-          port() |
-          (RegName :: atom()) |
-          {RegName :: atom(), Node :: node()}.
+  [;1m                               when[0m
+  [;1m                                   Dest :: send_destination(),[0m
+  [;1m                                   Msg :: term().[0m
 
   The same as [;;4merlang:send(Dest, Msg, [nosuspend])[0m, but returns [;;4m[0m
   [;;4mtrue[0m if the message was sent and [;;4mfalse[0m if the message was not

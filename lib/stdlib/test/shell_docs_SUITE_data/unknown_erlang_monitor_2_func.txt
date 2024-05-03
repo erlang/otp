@@ -74,7 +74,7 @@
     remote), an atom [;;4mRegisteredName[0m or a tuple [;;4m{RegisteredName,[0m
     [;;4mNode}[0m for a registered process, located elsewhere.
 
-    Note:
+    Change:
       Before ERTS 10.0 (OTP 21.0), monitoring a process could
       fail with [;;4mbadarg[0m if the monitored process resided on a
       primitive node (such as erl_interface or jinterface),
@@ -151,3 +151,8 @@
     If or when [;;4mmonitor/2[0m is extended, other possible values for [;;4m[0m
     [;;4mTag[0m, [;;4mObject[0m, and [;;4mInfo[0m in the monitor message will be
     introduced.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

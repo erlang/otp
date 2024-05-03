@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin% 
 # 
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# Copyright Ericsson AB 1999-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ RELSYSDIR = $(RELEASE_PATH)/odbc_test
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS += $(INCLUDES) \
-
+		+nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,36 @@
 %% %CopyrightEnd%
 %%
 -module(shell_docs).
+-moduledoc """
+Functions used to render [EEP-48](`e:kernel:eep48_chapter.md`) style documentation for a shell.
+
+This module can be used to render function and type documentation to be printed
+in a shell. This is the module that is used to render the documentation accessed through
+the shell through [`c:h/1,2,3`](`\\c:h/1`). Example:
+
+```txt
+1> h(maps,new,0).
+
+  -spec new() -> Map when Map :: #{}.
+
+Since:
+  OTP 17.0
+
+  Returns a new empty map.
+
+  Example:
+
+    > maps:new().
+    #{}
+```
+
+This module formats and renders EEP-48 documentation of the format
+`application/erlang+html`. For more information about this format see
+[Documentation Storage](`e:edoc:doc_storage.md`) in EDoc's User's
+Guide. It can also render any other format of "text" type, although those will
+be rendered as is.
+""".
+-moduledoc(#{since => "OTP 23.0"}).
 
 %% This module takes care of rendering and normalization of
 %% application/erlang+html style documentation.
@@ -39,7 +69,7 @@
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1, supported_tags/0]).
 
-%% Convinience functions
+%% Convenience functions
 -export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
 -export_type([chunk_elements/0, chunk_element_attr/0]).
@@ -51,7 +81,7 @@
                   columns
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,h4,h5,h6,
+-define(ALL_ELEMENTS,[a,p,'div',blockquote,br,h1,h2,h3,h4,h5,h6,
                       i,b,em,strong,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
 -define(INLINE,[i,b,em,strong,code,a]).
@@ -59,13 +89,36 @@
                          orelse ((ELEM) =:= i) orelse ((ELEM) =:= em)
                          orelse ((ELEM) =:= b) orelse ((ELEM) =:= strong))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
+-define(BLOCK,[p,'div',pre,blockquote,br,ul,ol,li,dl,dt,dd,h1,h2,h3,h4,h5,h6]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
 %% If you update the below types, make sure to update the documentation in
 %% erl_docgen/doc/src/doc_storage.xml as well!!!
+-doc """
+The record holding EEP-48 documentation for a module. You can use
+`code:get_doc/1` to fetch this information from a module.
+""".
 -type docs_v1() :: #docs_v1{}.
+-doc """
+The configuration of how the documentation should be rendered.
+
+- **encoding** - Configure the encoding that should be used by the renderer for
+  graphical details such as bullet-points. By default `shell_docs` uses the
+  value returned by [`io:getopts()`](`io:getopts/0`).
+
+- **ansi** - Configure whether
+  [ansi escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code) should be
+  used to render graphical details such as bold and underscore. By default
+  `shell_docs` will try to determine if the receiving shell supports ansi escape
+  codes. It is possible to override the automated check by setting the kernel
+  configuration parameter `shell_docs_ansi` to a `t:boolean/0` value.
+
+- **columns** - Configure how wide the target documentation should be rendered.
+  By default `shell_docs` used the value returned by
+  [`io:columns()`](`io:columns/0`).
+""".
+-doc #{ since => ~"OTP 23.2" }.
 -type config() :: #{ encoding => unicode | latin1,
                      columns => pos_integer(),
                      ansi => boolean() }.
@@ -74,16 +127,27 @@
                           chunk_elements()} | binary().
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
+-doc "The HTML tags allowed in `application/erlang+html`.".
 -type chunk_element_type() :: chunk_element_inline_type() | chunk_element_block_type().
 -type chunk_element_inline_type() :: a | code | em | strong | i | b.
--type chunk_element_block_type() :: p | 'div' | br | pre | ul |
+-type chunk_element_block_type() :: p | 'div' | blockquote | br | pre | ul |
                                     ol | li | dl | dt | dd |
                                     h1 | h2 | h3 | h4 | h5 | h6.
 
+-doc """
+This function can be used to find out which tags are supported by
+`application/erlang+html` documentation.
+""".
+-doc(#{since => <<"OTP 24.0">>}).
 -spec supported_tags() -> [chunk_element_type()].
 supported_tags() ->
     ?ALL_ELEMENTS.
 
+-doc """
+This function can be used to do a basic validation of the doc content of
+`application/erlang+html` format.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec validate(Module) -> ok when
       Module :: module() | docs_v1().
 %% Simple validation of erlang doc chunk. Check that all tags are supported and
@@ -91,7 +155,7 @@ supported_tags() ->
 validate(Module) when is_atom(Module) ->
     {ok, Doc} = code:get_doc(Module),
     validate(Doc);
-validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
+validate(#docs_v1{ format = ?NATIVE_FORMAT, module_doc = MDocs, docs = AllDocs }) ->
 
     %% Check some macro in-variants
     AE = lists:sort(?ALL_ELEMENTS),
@@ -190,12 +254,18 @@ validate_docs([],_) ->
 %% * https://medium.com/@patrickbrosset/when-does-white-space-matter-in-html-b90e8a7cdd33
 %% which in turn follows this:
 %% * https://www.w3.org/TR/css-text-3/#white-space-processing
+-doc """
+This function can be used to do whitespace normalization of
+`application/erlang+html` documentation.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec normalize(Docs) -> NormalizedDocs when
       Docs :: chunk_elements(),
       NormalizedDocs :: chunk_elements().
 normalize(Docs) ->
     Trimmed = normalize_trim(Docs,true),
-    normalize_space(Trimmed).
+    Space = normalize_space(Trimmed),
+    normalize_paragraph(Space).
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
@@ -208,6 +278,17 @@ normalize_trim(Bin,true) when is_binary(Bin) ->
     re:replace(NoNewLine,"\\s+"," ",[unicode,global,{return,binary}]);
 normalize_trim(Bin,false) when is_binary(Bin) ->
     Bin;
+normalize_trim([{code,Attr,Content}|T],false) ->
+    TrimmedContent =
+        case lists:reverse(normalize_trim(Content,false)) of
+            %% When in a <pre><code>, we strip the trailing
+            %% whitespace from the last binary.
+            [Bin|Rest] when is_binary(Bin) ->
+                lists:reverse([string:trim(Bin,trailing) | Rest]);
+            Else ->
+                lists:reverse(Else)
+        end,
+    [{code,Attr,TrimmedContent} | normalize_trim(T,false)];
 normalize_trim([{pre,Attr,Content}|T],Trim) ->
     [{pre,Attr,normalize_trim(Content,false)} | normalize_trim(T,Trim)];
 normalize_trim([{Tag,Attr,Content}|T],Trim) ->
@@ -330,14 +411,36 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
 trim_last([],_What) ->
     {[],false}.
 
+%% Any non-block elements at top level are wrapped in a p so that tools
+%% don't have to deal with that.
+normalize_paragraph([{Tag,_,_} = Block | T]) when ?IS_BLOCK(Tag) ->
+    [Block | normalize_paragraph(T)];
+normalize_paragraph([{_,_,[]} = NoContent | T]) ->
+    %% If an inline tag has no content we don't wrap it in a <p>. This is
+    %% aimed at fixing <a id=""/> tags at top-level.
+    [NoContent | normalize_paragraph(T)];
+normalize_paragraph([]) ->
+    [];
+normalize_paragraph(Elems) ->
+    case lists:splitwith(
+           fun(E) ->
+                   is_binary(E) orelse
+                     (?IS_INLINE(element(1, E)) andalso element(3, E) =/= [])
+           end, Elems) of
+        {NotP, P} ->
+            [{p,[],NotP} | normalize_paragraph(P)]
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the function documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-doc false.
 -spec get_doc(Module :: module()) -> chunk_elements().
 get_doc(Module) ->
-    {ok, #docs_v1{ module_doc = ModuleDoc } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ module_doc = ModuleDoc } = D} = code:get_doc(Module),
     get_local_doc(Module, ModuleDoc, D).
 
+-doc false.
 -spec get_doc(Module :: module(), Function, Arity) ->
           [{{Function,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
       Function :: atom(),
@@ -346,7 +449,7 @@ get_doc(Module) ->
       Signature :: [binary()],
       Metadata :: map().
 get_doc(Module, Function, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D}  = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                              F =:= Function andalso A =:= Arity;
@@ -356,12 +459,25 @@ get_doc(Module, Function, Arity) ->
 
     [{F,A,S,get_local_doc(F,Dc,D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
+-doc(#{equiv => render(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render(Module, #docs_v1{ } = D) when is_atom(Module) ->
     render(Module, D, #{}).
 
+-doc """
+render(Module, DocsOrFunction, ConfigOrDocs)
+
+Render module or function documentation.
+
+Renders the module documentation if called as `render(Module, Docs, Config)`.
+
+Equivalent to [`render(Module, Function, Docs, #{})`](`render/4`) if called
+as `render(Module, Function, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -372,13 +488,24 @@ render(Module, #docs_v1{ } = D) when is_atom(Module) ->
       Function :: atom(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, #docs_v1{ module_doc = ModuleDoc } = D, Config)
+render(Module, #docs_v1{module_doc = ModuleDoc} = D, Config)
   when is_atom(Module), is_map(Config) ->
     render_headers_and_docs([[{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]}]],
                             get_local_doc(Module, ModuleDoc, D), D, Config);
 render(_Module, Function, #docs_v1{ } = D) ->
     render(_Module, Function, D, #{}).
 
+-doc """
+render(Module, Function, DocsOrArity, ConfigOrDocs)
+
+Render function documentation.
+
+Renders the function documentation if called as `render(Module, Function, Docs, Config)`.
+
+Equivalent to [`render(Module, Function, Arity, Docs, #{})`](`render/4`) if called
+as `render(Module, Function, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render(Module, Function, Docs, Config) -> Res when
       Module :: module(),
       Function :: atom(),
@@ -392,7 +519,7 @@ render(_Module, Function, #docs_v1{ } = D) ->
       Arity :: arity(),
       Docs :: docs_v1(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, #docs_v1{docs = Docs} = D, Config)
   when is_atom(Module), is_atom(Function), is_map(Config) ->
     render_function(
       lists:filter(fun({{function, F, _},_Anno,_Sig,_Doc,_Meta}) ->
@@ -403,6 +530,8 @@ render(Module, Function, #docs_v1{ docs = Docs } = D, Config)
 render(_Module, Function, Arity, #docs_v1{ } = D) ->
     render(_Module, Function, Arity, D, #{}).
 
+-doc "Render the documentation for a function.".
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render(Module, Function, Arity, Docs, Config) -> Res when
       Module :: module(),
       Function :: atom(),
@@ -410,18 +539,19 @@ render(_Module, Function, Arity, #docs_v1{ } = D) ->
       Docs :: docs_v1(),
       Config :: config(),
       Res :: unicode:chardata() | {error,function_missing}.
-render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
+render(Module, Function, Arity, #docs_v1{ docs = Docs }=DocV1, Config)
   when is_atom(Module), is_atom(Function), is_integer(Arity), is_map(Config) ->
     render_function(
       lists:filter(fun({{function, F, A},_Anno,_Sig,_Doc,_Meta}) ->
                            F =:= Function andalso A =:= Arity;
                         (_) ->
                              false
-                   end, Docs), D, Config).
+                   end, Docs), DocV1, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the type documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-doc false.
 -spec get_type_doc(Module :: module(), Type :: atom(), Arity :: arity()) ->
           [{{Type,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
       Type :: atom(),
@@ -430,7 +560,7 @@ render(Module, Function, Arity, #docs_v1{ docs = Docs } = D, Config)
       Signature :: [binary()],
       Metadata :: map().
 get_type_doc(Module, Type, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D} = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type andalso A =:= Arity;
@@ -439,12 +569,25 @@ get_type_doc(Module, Type, Arity) ->
                      end, Docs),
     [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
+-doc(#{equiv => render_type(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render_type(Module, D) ->
     render_type(Module, D, #{}).
 
+-doc """
+render_type(Module, DocsOrType, ConfigOrDocs)
+
+Render all types in a module or type documentation.
+
+Renders a list with all types if called as `render_type(Module, Docs, Config)`.
+
+Equivalent to [`render_type(Module, Type, Docs, #{})`](`render_type/4`) if called
+as `render_type(Module, Type, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -458,6 +601,17 @@ render_type(Module, D = #docs_v1{}, Config) ->
 render_type(Module, Type, D = #docs_v1{}) ->
     render_type(Module, Type, D, #{}).
 
+-doc """
+render_type(Module, Type, DocsOrArity, ConfigOrDocs)
+
+Render type documentation.
+
+Renders the type documentation if called as `render_type(Module, Type, Docs, Config)`.
+
+Equivalent to [`render_type(Module, Type, Arity, Docs, #{})`](`render_type/4`) if called
+as `render_type(Module, Type, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_type(Module, Type, Docs, Config) -> Res when
       Module :: module(), Type :: atom(),
       Docs :: docs_v1(),
@@ -477,6 +631,8 @@ render_type(_Module, Type, #docs_v1{ docs = Docs } = D, Config) ->
 render_type(_Module, Type, Arity, #docs_v1{ } = D) ->
     render_type(_Module, Type, Arity, D, #{}).
 
+-doc "Render the documentation of a type in a module.".
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render_type(Module, Type, Arity, Docs, Config) -> Res when
       Module :: module(), Type :: atom(), Arity :: arity(),
       Docs :: docs_v1(),
@@ -493,6 +649,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API function for dealing with the callback documentation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-doc false.
 -spec get_callback_doc(Module :: module(), Callback :: atom(), Arity :: arity()) ->
           [{{Callback,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
       Callback :: atom(),
@@ -501,7 +658,7 @@ render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D, Config) ->
       Signature :: [binary()],
       Metadata :: map().
 get_callback_doc(Module, Callback, Arity) ->
-    {ok, #docs_v1{ docs = Docs } = D } = code:get_doc(Module),
+    {ok, #docs_v1{ docs = Docs } = D} = code:get_doc(Module),
     FnFunctions =
         lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Callback andalso A =:= Arity;
@@ -510,12 +667,25 @@ get_callback_doc(Module, Callback, Arity) ->
                      end, Docs),
     [{F,A,S,get_local_doc(F, Dc, D),M} || {F,A,S,Dc,M} <- FnFunctions].
 
+-doc(#{equiv => render_callback(Module, Docs, #{})}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Docs) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1().
 render_callback(Module, D) ->
     render_callback(Module, D, #{}).
 
+-doc """
+render_callback(Module, DocsOrCallback, ConfigOrDocs)
+
+Render all callbacks in a module or callback documentation.
+
+Renders a list with all callbacks if called as `render_callback(Module, Docs, Config)`.
+
+Equivalent to [`render_callback(Module, Callback, Docs, #{})`](`render_callback/4`) if called
+as `render_callback(Module, Callback, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Docs, Config) -> unicode:chardata() when
       Module :: module(),
       Docs :: docs_v1(),
@@ -529,6 +699,17 @@ render_callback(_Module, Callback, #docs_v1{ } = D) ->
 render_callback(Module, D, Config) ->
     render_signature_listing(Module, callback, D, Config).
 
+-doc """
+render_callback(Module, Callback, DocsOrArity, ConfigOrDocs)
+
+Render callback documentation.
+
+Renders the callback documentation if called as `render_callback(Module, Callback, Docs, Config)`.
+
+Equivalent to [`render_callback(Module, Callback, Arity, Docs, #{})`](`render_callback/4`) if called
+as `render_callback(Module, Callback, Arity, Docs)`.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec render_callback(Module, Callback, Docs, Config) -> Res when
       Module :: module(), Callback :: atom(),
       Docs :: docs_v1(),
@@ -548,6 +729,8 @@ render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D, Config) ->
                            false
                    end, Docs), D, Config).
 
+-doc "Render the documentation of a callback in a module.".
+-doc(#{since => <<"OTP 23.2">>}).
 -spec render_callback(Module, Callback, Arity, Docs, Config) -> Res when
       Module :: module(), Callback :: atom(), Arity :: arity(),
       Docs :: docs_v1(),
@@ -562,6 +745,9 @@ render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D, Config) -
                    end, Docs), D, Config).
 
 %% Get the docs in the correct locale if it exists.
+-spec get_local_doc(atom() | tuple() | binary(), Docs, D) -> term() when
+    Docs :: map() | none | hiddden,
+    D    :: docs_v1().
 get_local_doc(MissingMod, Docs, D) when is_atom(MissingMod) ->
     get_local_doc(atom_to_binary(MissingMod), Docs, D);
 get_local_doc({F,A}, Docs, D) ->
@@ -584,6 +770,8 @@ get_local_doc(Missing, None, _D) when None =:= none; None =:= #{} ->
 
 normalize_format(Docs, #docs_v1{ format = ?NATIVE_FORMAT }) ->
     normalize(Docs);
+normalize_format(Docs, #docs_v1{ format = <<"text/markdown">> }) when is_binary(Docs) ->
+    normalize(shell_docs_markdown:parse_md(Docs));
 normalize_format(Docs, #docs_v1{ format = <<"text/", _/binary>> }) when is_binary(Docs) ->
     [{pre, [], [Docs]}].
 
@@ -592,16 +780,21 @@ render_function([], _D, _Config) ->
     {error,function_missing};
 render_function(FDocs, D, Config) when is_map(Config) ->
     render_function(FDocs, D, init_config(D, Config));
-render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
+render_function(FDocs, #docs_v1{ docs = Docs } = DocV1, Config) ->
     Grouping =
         lists:foldl(
-          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func,Acc) ->
-                  Members = maps:get(Group, Acc, []),
-                  Acc#{ Group => [Func|Members] };
+          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func, Acc) ->
+                  case lists:keytake(Group, 1, Acc) of
+                      false -> [{Group, [Func]} | Acc];
+                      {value, {Group, Members}, NewAcc} ->
+                          [{Group,[Func|Members]} | NewAcc]
+                  end;
              ({Group, _Anno, _Sig, _Doc, _Meta} = Func, Acc) ->
-                  Members = maps:get(Group, Acc, []),
-                  Acc#{ Group => [Func|Members] }
-          end, #{}, lists:sort(FDocs)),
+                  [{Group, [Func]} | Acc]
+          end, [],
+          %% We sort only on the group element, so that multiple entries with
+          %% the same group do not change order. For example erlang:halt/1.
+          lists:sort(fun(A, B) -> element(1, A) =< element(1, B) end, FDocs)),
     lists:map(
       fun({Group,Members}) ->
               Signatures = lists:flatmap(fun render_signature/1, lists:reverse(Members)),
@@ -610,18 +803,18 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
                                 end, Members) of
                   {value, {_,_,_,Doc,_Meta}} ->
                       render_headers_and_docs(
-                        Signatures, get_local_doc(Group, Doc, D), D, Config);
+                        Signatures, get_local_doc(Group, Doc, DocV1), DocV1, Config);
                   false ->
                       case lists:keyfind(Group, 1, Docs) of
                           false ->
                               render_headers_and_docs(
-                                Signatures, get_local_doc(Group, none, D), D, Config);
+                                Signatures, get_local_doc(Group, none, DocV1), DocV1, Config);
                           {_,_,_,Doc,_} ->
                               render_headers_and_docs(
-                                Signatures, get_local_doc(Group, Doc, D), D, Config)
+                                Signatures, get_local_doc(Group, Doc, DocV1), DocV1, Config)
                       end
               end
-      end, maps:to_list(Grouping)).
+      end, lists:reverse(Grouping)).
 
 %% Render the signature of either function, type, or anything else really.
 render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}) ->
@@ -654,10 +847,10 @@ render_meta(M) ->
             [[{dl,[],Meta}]]
     end.
 render_meta_(#{ since := Vsn } = M) ->
-    [{dt,[],<<"Since">>},{dd,[],[Vsn]}
+    [{dt,[],<<"Since">>},{dd,[],[unicode:characters_to_binary(Vsn)]}
     | render_meta_(maps:remove(since, M))];
 render_meta_(#{ deprecated := Depr } = M) ->
-    [{dt,[],<<"Deprecated">>},{dd,[],[Depr]}
+    [{dt,[],<<"Deprecated">>},{dd,[],[unicode:characters_to_binary(Depr)]}
     | render_meta_(maps:remove(deprecated, M))];
 render_meta_(_) ->
     [].
@@ -745,8 +938,7 @@ init_config(D, Config) ->
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->
-%%%                           io:format("Elem: ~p (~p) (~p,~p)~n",[Elem,State,P,Ind]),
-                           render_docs(Elem,State,P,Ind,D)
+                          render_docs(Elem,State,P,Ind,D)
                    end,Pos,Elems);
 render_docs(Elem,State,Pos,Ind,D) ->
     render_element(Elem,State,Pos,Ind,D).
@@ -797,6 +989,8 @@ render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BL
 render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
     {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
+render_element({blockquote,_Attr,Content},State,_Pos,Ind,D) ->
+    trimnlnl(render_docs(Content, ['div'|State], 0, Ind+2, D));
 render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
     trimnlnl(render_docs(Content, [Tag|State], Pos, Ind, D));
 
@@ -872,10 +1066,16 @@ render_element({li,[],Content},[l | _] = State, Pos, Ind,D) ->
 
 render_element({dl,_,Content},State,Pos,Ind,D) ->
     render_docs(Content, [dl|State], Pos, Ind,D);
-render_element({dt,_,Content},[dl | _] = State,Pos,Ind,D) ->
+render_element({dt,Attr,Content},[dl | _] = State,Pos,Ind,D) ->
+    Since = case Attr of
+                [{since, Vsn}] ->
+                    ["     (since ",unicode:characters_to_list(Vsn),$)];
+                [] ->
+                    []
+             end,
     Underline = sansi(underline),
     {Docs, _NewPos} = render_docs(Content, [li | State], Pos, Ind, D),
-    {[Underline,Docs,ransi(underline),":","\n"], 0};
+    {[Underline,Docs,ransi(underline),$:,Since,$\n], 0};
 render_element({dd,_,Content},[dl | _] = State,Pos,Ind,D) ->
     trimnlnl(render_docs(Content, [li | State], Pos, Ind + 2, D));
 
@@ -1005,18 +1205,18 @@ nl(Chars) ->
 init_ansi(#config{ ansi = undefined, io_opts = Opts }) ->
     %% We use this as our heuristic to see if we should print ansi or not
     case {application:get_env(kernel, shell_docs_ansi),
+          proplists:get_value(terminal, Opts, false),
           proplists:is_defined(echo, Opts) andalso
-          proplists:is_defined(expand_fun, Opts),
-          os:type()} of
+          proplists:is_defined(expand_fun, Opts)} of
         {{ok,false}, _, _} ->
             put(ansi, noansi);
         {{ok,true}, _, _} ->
             put(ansi, []);
-        {_, _, {win32,_}} ->
-            put(ansi, noansi);
-        {_, true,_} ->
+        {_, true, _} ->
             put(ansi, []);
-        {_, false,_} ->
+        {_, _, true} ->
+            put(ansi, []);
+        {_, _, false} ->
             put(ansi, noansi)
     end;
 init_ansi(#config{ ansi = true }) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +29,49 @@
 -export([all/0, suite/0,
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2, groups/0,
 	 dirty_nif/1, dirty_nif_send/1,
 	 dirty_nif_exception/1, call_dirty_nif_exception/1,
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
 	 dirty_process_register/1, dirty_process_trace/1,
 	 code_purge/1, literal_area/1, dirty_nif_send_traced/1,
-	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1]).
+	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1,
+         set_halt_options_from_nif/1,
+         delay_halt/1,
+         delay_halt_old_code/1,
+         delay_halt_old_and_new_code/1,
+         flush_false/1,
+         on_halt/1,
+         on_halt_old_code/1,
+         on_halt_old_and_new_code/1,
+         sync_halt/1,
+         many_delay_halt/1,
+         many_on_halt/1]).
+
+-export([load_nif/2]).
+
+-nifs([lib_loaded/0,
+       call_dirty_nif/3,
+       send_from_dirty_nif/1,
+       send_wait_from_dirty_nif/1,
+       call_dirty_nif_exception/1,
+       call_dirty_nif_zero_args/0,
+       dirty_call_while_terminated_nif/1,
+       dirty_sleeper/0,
+       dirty_sleeper/1,
+       dirty_heap_access_nif/1,
+       whereis_term/2,
+       whereis_send/3,
+       dirty_terminating_literal_access/2,
+       delay_halt_normal/3,
+       delay_halt_io_bound/3,
+       delay_halt_cpu_bound/3,
+       sync_halt_io_bound/2,
+       sync_halt_cpu_bound/2,
+       set_halt_option_from_nif_normal/1,
+       set_halt_option_from_nif_io_bound/1,
+       set_halt_option_from_nif_cpu_bound/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
@@ -55,23 +91,38 @@ all() ->
      literal_area,
      dirty_nif_send_traced,
      nif_whereis,
-     nif_whereis_parallel].
+     nif_whereis_parallel,
+     {group, halt_normal},
+     {group, halt_dirty_cpu},
+     {group, halt_dirty_io},
+     {group, halt_misc}].
+
+halt_sched_tests() ->
+    [set_halt_options_from_nif, delay_halt, delay_halt_old_code, delay_halt_old_and_new_code].
+halt_dirty_sched_tests() ->
+    [sync_halt, flush_false].
+
+groups() ->
+    [{halt_normal, [parallel], halt_sched_tests()},
+     {halt_dirty_cpu, [parallel], halt_sched_tests()++halt_dirty_sched_tests()},
+     {halt_dirty_io, [parallel], halt_sched_tests()++halt_dirty_sched_tests()},
+     {halt_misc, [parallel], [on_halt, on_halt_old_code, on_halt_old_and_new_code, many_on_halt, many_delay_halt]}].
+
+init_per_group(Group, Config) ->
+    [{group, Group} | Config].
+
+end_per_group(_, Config) ->
+    proplists:delete(group, Config).
 
 init_per_suite(Config) ->
-    case erlang:system_info(dirty_cpu_schedulers) of
-	N when N > 0 ->
-	    case lib_loaded() of
-		false ->
-		    ok = erlang:load_nif(
-			   filename:join(?config(data_dir, Config),
-					 "dirty_nif_SUITE"), []);
-		true ->
-		    ok
-	    end,
-	    Config;
-        _ ->
-	    {skipped, "No dirty scheduler support"}
-    end.
+    case lib_loaded() of
+        false ->
+            ok = erlang:load_nif(filename:join(?config(data_dir, Config),
+                                               "dirty_nif_SUITE"), []);
+        true ->
+            ok
+    end,
+    Config.
 
 end_per_suite(_Config) ->
     ok.
@@ -81,6 +132,9 @@ init_per_testcase(Case, Config) ->
 
 end_per_testcase(_Case, _Config) ->
     ok.
+
+load_nif(NifLib, LibInfo) ->
+    erlang:load_nif(NifLib, LibInfo).
 
 dirty_nif(Config) when is_list(Config) ->
     Val1 = 42,
@@ -466,7 +520,7 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
     true = Time2 >= 1900,
 
     %% Make sure that the send trace is
-    %% in between an in and and out trace
+    %% in between an in and an out trace
     (fun F() ->
              %% We got an in trace, look for out or send
              {trace,Sndr,in,_} = recv_trace_from(Sndr),
@@ -535,6 +589,356 @@ literal_area(Config) when is_list(Config) ->
     receive after TMO -> ok end,
     literal_area_collector_test:check_idle(5000),
     {comment, "Waited "++integer_to_list(TMO)++" milliseconds after purge"}.
+
+set_halt_options_from_nif(Config) when is_list(Config) ->
+    case ?config(group, Config) of
+        halt_normal ->
+            error = set_halt_option_from_nif_normal(set_on_halt_handler),
+            error = set_halt_option_from_nif_normal(delay_halt);
+        halt_dirty_cpu ->
+            error = set_halt_option_from_nif_cpu_bound(set_on_halt_handler),
+            error = set_halt_option_from_nif_cpu_bound(delay_halt);
+        halt_dirty_io ->
+            error = set_halt_option_from_nif_io_bound(set_on_halt_handler),
+            error = set_halt_option_from_nif_io_bound(delay_halt)
+    end,
+    ok.
+
+delay_halt(Config) when is_list(Config) ->
+    delay_halt(Config, new_code).
+
+delay_halt_old_code(Config) when is_list(Config) ->
+    delay_halt(Config, old_code).
+
+delay_halt_old_and_new_code(Config) when is_list(Config) ->
+    delay_halt(Config, old_and_new_code).
+
+delay_halt(Config, Type) ->
+    Suite = filename:join(?config(data_dir, Config), ?MODULE_STRING),
+    Priv = proplists:get_value(priv_dir, Config),
+    TypeSuffix = "_"++atom_to_list(Type),
+    {Fun, FileName} = case ?config(group, Config) of
+                          halt_normal ->
+                              {fun delay_halt_normal/3, "delay_halt_normal"++TypeSuffix};
+                          halt_dirty_io ->
+                              {fun delay_halt_io_bound/3, "delay_halt_io_bound"++TypeSuffix};
+                          halt_dirty_cpu ->
+                              {fun delay_halt_cpu_bound/3, "delay_halt_cpu_bound"++TypeSuffix}
+                      end,
+    Tester = self(),
+    NifFileName = filename:join(Priv, FileName),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {delay_halt}]),
+    ok = erpc:call(Node, file, set_cwd, [Priv]),
+    Proxy = spawn_link(Node,
+                       fun () ->
+                               receive
+                                   {delay_halt, _} = Msg ->
+                                       unlink(Tester),
+                                       Tester ! Msg
+                               end
+                       end),
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, fun () -> Fun(Proxy, FileName, 2) end),
+    receive {delay_halt, Pid} when is_pid(Pid), Node == node(Pid) -> ok end,
+    case Type of
+        new_code ->
+            ok;
+        old_code ->
+            true = erpc:call(Node, erlang, delete_module, [dirty_nif_SUITE]);
+        old_and_new_code ->
+            true = erpc:call(Node, erlang, delete_module, [dirty_nif_SUITE]),
+            ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {delay_halt}]),
+            Proxy2 = spawn_link(Node,
+                                fun () ->
+                                        receive
+                                            {delay_halt, _} = Msg ->
+                                                unlink(Tester),
+                                                Tester ! Msg
+                                        end
+                                end),
+            ok = erpc:cast(Node, fun () -> Fun(Proxy2, FileName++"_new_code", 2) end),
+            receive {delay_halt, Pid2} when is_pid(Pid2), Node == node(Pid2) -> ok end
+    end,
+    ok = erpc:cast(Node, erlang, halt, []),
+    ok = wait_until(fun () ->
+                            {ok, <<"ok">>} == file:read_file(NifFileName)
+                                andalso
+                                  (Type /= old_and_new_code
+                                   orelse {ok, <<"ok">>} == file:read_file(NifFileName++"_new_code"))
+                    end,
+                    6000),
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("~s time=~pms", [FileName, Time]),
+    true = Time >= 2000,
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    ok.
+
+flush_false(Config) when is_list(Config) ->
+    Suite = filename:join(?config(data_dir, Config), ?MODULE_STRING),
+    Priv = proplists:get_value(priv_dir, Config),
+    {Fun, FileName} = case ?config(group, Config) of
+                          halt_dirty_io ->
+                              {fun delay_halt_io_bound/3, "flush_false_io_bound"};
+                          halt_dirty_cpu ->
+                              {fun delay_halt_cpu_bound/3, "flush_false_cpu_bound"}
+                      end,
+    Tester = self(),
+    NifFileName = filename:join(Priv, FileName),
+    OnHaltBaseName = FileName++"_on_halt",
+    OnHaltFileName = filename:join(Priv, OnHaltBaseName),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {sync_halt, OnHaltBaseName, 1}]),
+    ok = erpc:call(Node, file, set_cwd, [Priv]),
+    Proxy = spawn_link(Node,
+                       fun () ->
+                               receive
+                                   {delay_halt, _} = Msg ->
+                                       unlink(Tester),
+                                       Tester ! Msg
+                               end
+                       end),
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, fun () -> Fun(Proxy, FileName, 1) end),
+    receive {delay_halt, Pid} when is_pid(Pid), Node == node(Pid) -> ok end,
+    ok = erpc:cast(Node, erlang, halt, [0, [{flush,false}]]),
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("~s time=~pms", [FileName, Time]),
+    Wait = 3000-Time,
+    if Wait > 0 -> receive after Wait -> ok end;
+       true -> ok
+    end,
+    {error,enoent} = file:read_file(NifFileName),
+    {error,enoent} = file:read_file(OnHaltFileName),
+    ok.
+
+many_delay_halt(Config) when is_list(Config) ->
+    try
+        many_delay_halt_test(Config)
+    catch
+        throw:{skip, _} = Skip ->
+            Skip
+    end.
+
+many_delay_halt_test(Config) ->
+    Suite = filename:join(?config(data_dir, Config), ?MODULE_STRING),
+    Priv = proplists:get_value(priv_dir, Config),
+    Tester = self(),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Chk = fun () ->
+                  case erlang:system_info(schedulers_online) of
+                      1 -> throw({skip, "Too few schedulers online"});
+                      _ -> ok
+                  end,
+                  case erlang:system_info(dirty_cpu_schedulers_online) of
+                      1 -> throw({skip, "Too few dirty cpu schedulers online"});
+                      _ -> ok
+                  end,
+                  case erlang:system_info(dirty_io_schedulers) of
+                      1 -> throw({skip, "Too few dirty io schedulers online"});
+                      _ -> ok
+                  end
+          end,
+    try
+        erpc:call(Node, Chk)
+    catch
+        throw:{skip, _} = Skip ->
+            peer:stop(Peer),
+            throw(Skip)
+    end,
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {delay_halt}]),
+    ok = erpc:call(Node, file, set_cwd, [Priv]),
+    ProxyFun = fun (Tag) ->
+                       fun () ->
+                               receive
+                                   {delay_halt, _} = Msg ->
+                                       unlink(Tester),
+                                       Tester ! {Tag, Msg}
+                               end
+                       end
+               end,
+    [P1, P2, P3, P4, P5] = [spawn_link(Node, ProxyFun(X)) || X <- lists:seq(1, 5)],
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, fun () -> delay_halt_io_bound(P1, "many_delay_halt_io2", 2) end),
+    ok = erpc:cast(Node, fun () -> delay_halt_io_bound(P2, "many_delay_halt_io1", 1) end),
+    ok = erpc:cast(Node, fun () -> delay_halt_cpu_bound(P3, "many_delay_halt_cpu1", 1) end),
+    ok = erpc:cast(Node, fun () -> delay_halt_cpu_bound(P4, "many_delay_halt_cpu2", 2) end),
+    _ = [receive
+             {X, {delay_halt, Pid}} when is_pid(Pid), Node == node(Pid) ->
+                 ok
+         end || X <- lists:seq(1, 4)],
+    ok = erpc:cast(Node, fun () -> delay_halt_normal(P5, "many_delay_halt_normal", 1) end),
+    receive
+        {5, {delay_halt, Pid}} when is_pid(Pid), Node == node(Pid) ->
+            ok
+    end,
+    ok = erpc:cast(Node, erlang, halt, []),
+    ok = wait_until(fun () ->
+                            {ok, <<"ok">>} == file:read_file(filename:join(Priv, "many_delay_halt_io2"))
+                                andalso {ok, <<"ok">>} == file:read_file(filename:join(Priv, "many_delay_halt_cpu2"))
+                    end,
+                    3000),
+    {ok, <<"ok">>} = file:read_file(filename:join(Priv, "many_delay_halt_cpu1")),
+    {ok, <<"ok">>} = file:read_file(filename:join(Priv, "many_delay_halt_io1")),
+    {ok, <<"ok">>} = file:read_file(filename:join(Priv, "many_delay_halt_normal")),
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("many_delay_halt time=~pms", [Time]),
+    true = Time >= 2000,
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    ok.
+
+on_halt(Config) when is_list(Config) ->
+    on_halt(Config, new_code).
+
+on_halt_old_code(Config) when is_list(Config) ->
+    on_halt(Config, old_code).
+
+on_halt_old_and_new_code(Config) when is_list(Config) ->
+    on_halt(Config, old_and_new_code).
+
+on_halt(Config, Type) ->
+    Suite = filename:join(?config(data_dir, Config), ?MODULE_STRING),
+    Priv = proplists:get_value(priv_dir, Config),
+    FileName = "on_halt_"++atom_to_list(Type),
+    OnHaltFileName = filename:join(Priv, FileName),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {on_halt, FileName, 1}]),
+    case Type of
+        new_code ->
+            ok;
+        old_code ->
+            true = erpc:call(Node, erlang, delete_module, [dirty_nif_SUITE]);
+        old_and_new_code ->
+            true = erpc:call(Node, erlang, delete_module, [dirty_nif_SUITE]),
+            ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {on_halt, FileName++"_new", 1}])
+    end,
+    ok = erpc:call(Node, file, set_cwd, [Priv]),
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, erlang, halt, []),
+    ok = wait_until(fun () ->
+                            {ok, <<"ok">>} == file:read_file(OnHaltFileName)
+                                andalso (Type /= old_and_new_code
+                                         orelse {ok, <<"ok">>} == file:read_file(OnHaltFileName++"_new"))
+                    end,
+                    3000),
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("~s time=~pms", [FileName, Time]),
+    if Type == old_and_new_code -> true = Time >= 2000;
+       true -> true = Time >= 1000
+       end,
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    ok.
+
+on_halt_module_code_format() ->
+    lists:flatten(["-module(~s).~n",
+                   "-export([load/1, lib_loaded/0]).~n",
+                   "-nifs([lib_loaded/0]).~n",
+                   "load(SoFile) -> erlang:load_nif(SoFile, ?MODULE_STRING).~n",
+                   "lib_loaded() -> false.~n"]).
+
+many_on_halt(Config) when is_list(Config) ->
+    DDir = ?config(data_dir, Config),
+    Priv = proplists:get_value(priv_dir, Config),
+    OnHaltModules = ["on_halt_a","on_halt_b","on_halt_c","on_halt_d","on_halt_e","on_halt_f"],
+    DeleteOnHaltModules = ["on_halt_a","on_halt_c","on_halt_d","on_halt_f"],
+    PurgeOnHaltModules = DeleteOnHaltModules -- ["on_halt_d"],
+    ActiveOnHaltModules = OnHaltModules -- PurgeOnHaltModules,
+    lists:foreach(fun (ModStr) ->
+                          Code = io_lib:format(on_halt_module_code_format(), [ModStr]),
+                          ok = file:write_file(filename:join(DDir, ModStr++".erl"), Code)
+                  end,
+                  OnHaltModules),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node,
+                   fun () ->
+                           ok = file:set_cwd(Priv),
+                           lists:foreach(fun (ModStr) ->
+                                                 AbsModStr = filename:join(DDir, ModStr),
+                                                 {ok,Mod,Bin} = compile:file(AbsModStr, [binary]),
+                                                 {module, Mod} = erlang:load_module(Mod, Bin),
+                                                 ok = Mod:load(AbsModStr),
+                                                 true = Mod:lib_loaded()
+                                         end,
+                                         OnHaltModules),
+                           lists:foreach(fun (ModStr) ->
+                                                 Mod = list_to_atom(ModStr),
+                                                 true = erlang:delete_module(Mod)
+                                         end, DeleteOnHaltModules),
+                           lists:foreach(fun (ModStr) ->
+                                                 Mod = list_to_atom(ModStr),
+                                                 true = erlang:purge_module(Mod)
+                                         end, PurgeOnHaltModules),
+                           ok
+                   end),
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, erlang, halt, []),
+    ok = wait_until(fun () ->
+                            try
+                                lists:foreach(fun (ModStr) ->
+                                                      FileName = filename:join(Priv, ModStr),
+                                                      {ok, <<"ok">>} = file:read_file(FileName)
+                                              end, ActiveOnHaltModules),
+                                true
+                            catch
+                                _:_ ->
+                                    false
+                            end
+                    end,
+                    1000*(length(ActiveOnHaltModules)+1)),
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("many_on_halt time=~pms", [Time]),
+    true = Time >= length(ActiveOnHaltModules)*1000,
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    ok.
+
+sync_halt(Config) when is_list(Config) ->
+    Suite = filename:join(?config(data_dir, Config), ?MODULE_STRING),
+    Priv = proplists:get_value(priv_dir, Config),
+    {Fun, FileName} = case ?config(group, Config) of
+                          halt_dirty_io ->
+                              {fun sync_halt_io_bound/2, "sync_halt_io_bound"};
+                          halt_dirty_cpu ->
+                              {fun sync_halt_cpu_bound/2, "sync_halt_cpu_bound"}
+                      end,
+    Tester = self(),
+    NifFileName = filename:join(Priv, FileName),
+    OnHaltBaseFileName = FileName++".onhalt",
+    OnHaltFileName = filename:join(Priv, OnHaltBaseFileName),
+    {ok, Peer, Node} = ?CT_PEER(),
+    Mon = erlang:monitor(process, Peer),
+    ok = erpc:call(Node, ?MODULE, load_nif, [Suite, {sync_halt, OnHaltBaseFileName, 1}]),
+    ok = erpc:call(Node, file, set_cwd, [Priv]),
+    Proxy = spawn_link(Node,
+                       fun () ->
+                               receive
+                                   {sync_halt, _} = Msg ->
+                                       unlink(Tester),
+                                       Tester ! Msg
+                               end
+                       end),
+    ok = erpc:cast(Node, fun () -> Fun(Proxy, FileName) end),
+    receive {sync_halt, Pid} when is_pid(Pid), Node == node(Pid) -> ok end,
+    Start = erlang:monotonic_time(millisecond),
+    ok = erpc:cast(Node, erlang, halt, []),
+    ok = wait_until(fun () ->
+                            {ok, <<"ok">>} == file:read_file(OnHaltFileName)
+                    end,
+                    2000),
+    ok = wait_until(fun () ->
+                            {ok, <<"ok">>} == file:read_file(NifFileName)
+                    end,
+                    4000),
+    Time = erlang:monotonic_time(millisecond) - Start,
+    ct:log("~s time=~pms", [FileName, Time]),
+    true = Time >= 1000,
+    receive {'DOWN', Mon, process, Peer, _} -> ok end,
+    ok.
 
 %%
 %% Internal...
@@ -774,6 +1178,14 @@ dirty_heap_access_nif(_) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
 dirty_terminating_literal_access(_Me, _Literal) -> ?nif_stub.
+delay_halt_normal(_Pid, _FileName, _Delay) -> ?nif_stub.
+delay_halt_io_bound(_Pid, _FileName, _Delay) -> ?nif_stub.
+delay_halt_cpu_bound(_Pid, _FileName, _Delay) -> ?nif_stub.
+sync_halt_io_bound(_Pid, _FileName) -> ?nif_stub.
+sync_halt_cpu_bound(_Pid, _FileName) -> ?nif_stub.
+set_halt_option_from_nif_normal(_Op) -> ?nif_stub.
+set_halt_option_from_nif_io_bound(_Op) -> ?nif_stub.
+set_halt_option_from_nif_cpu_bound(_Op) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

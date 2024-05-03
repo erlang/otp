@@ -1,0 +1,5 @@
+
+a.erl:4:2: Invalid type specification for function a:vi/1.
+ The success typing is a:vi(integer()) -> 'ok'
+ But the spec is a:vi(b:integer()) -> 'ok'
+ They do not overlap in the 1st argument

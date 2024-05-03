@@ -38,5 +38,5 @@ emu jit:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
 
 clean generate depend docs release release_spec release_docs release_docs_spec \
-  tests release_tests release_tests_spec static_lib xmllint format format-check compdb:
+  tests release_tests release_tests_spec static_lib format format-check compdb:
 	$(make_verbose)$(MAKE) -f $(TARGET)/Makefile $@

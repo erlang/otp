@@ -21,3 +21,8 @@
 
     > max("abc", "b").
     "b"
+
+  Allowed in guard tests.
+
+  Change:
+    Allowed in guards tests from Erlang/OTP 26.

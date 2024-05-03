@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
          no_return_in_try_block/1,
          expression_export/1,
          throw_opt_crash/1,
-         coverage/1]).
+         coverage/1,
+         throw_opt_funs/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -50,7 +51,8 @@ groups() ->
        stacktrace,nested_stacktrace,raise,
        no_return_in_try_block,expression_export,
        throw_opt_crash,
-       coverage]}].
+       coverage,
+       throw_opt_funs]}].
 
 
 init_per_suite(Config) ->
@@ -1124,6 +1126,8 @@ grab_bag(_Config) ->
 
     {'EXIT',_} = (catch grab_bag_3()),
 
+    true = grab_bag_4(),
+
     ok.
 
 grab_bag_1(V) ->
@@ -1177,6 +1181,16 @@ grab_bag_3() ->
             %% The default clause here (which re-throws the exception)
             %% would not return two values as expected.
     end =:= (V0 = 42).
+
+grab_bag_4() ->
+    try
+        erlang:yield()
+    after
+        %% beam_jump would do an unsafe sharing of blocks, resulting
+        %% in an ambiguous_catch_try_state diagnostic from beam_validator.
+        catch <<>> = size(catch ([_ | _] = ok))
+    end.
+
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],
@@ -1671,5 +1685,29 @@ bad_class(Config) ->
         [never_ever] -> bad_class;
         _ -> also_bad
     end.
+
+%% GH-7356: Funs weren't considered when checking whether an exception could
+%% escape the module, erroneously triggering the optimization in some cases.
+throw_opt_funs(_Config) ->
+    try throw_opt_funs_1(id(a)) of
+        _ -> unreachable
+    catch
+        _:Val -> a = id(Val)                    %Assertion.
+    end,
+
+    F = id(fun throw_opt_funs_1/1),
+
+    try F(a) of
+        _ -> unreachable
+    catch
+        _:_:Stack -> true = length(Stack) > 0   %Assertion.
+    end,
+
+    ok.
+
+throw_opt_funs_1(a) ->
+    throw(a);
+throw_opt_funs_1(I) ->
+    I.
 
 id(I) -> I.

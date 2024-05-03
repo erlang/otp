@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2020. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,11 +231,10 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
 /* This is not really a NIF library, but we use ERL_NIF_INIT in order to
  * get access to the erl_nif API (on Windows).
+ *
+ * Unused 'dummy_funcv' has size 1 to avoid warning "sizeof returns 0".
  */
-static struct {
-    int dummy__;
-    ErlNifFunc funcv[0];
-} empty;
-ERL_NIF_INIT(dummy, empty.funcv, NULL, NULL, NULL, NULL)
+ErlNifFunc dummy_funcv[1];
+ERL_NIF_INIT(dummy, dummy_funcv, NULL, NULL, NULL, NULL)
 #endif
 

@@ -86,7 +86,8 @@
   {label,13}.
     {func_info,{atom,bad_catch_try},{atom,bad_4},1}.
   {label,14}.
-    {allocate_zero,1,1}.
+    {allocate,1,1}.
+    {init_yregs,{list,[{y,0}]}}.
     {'try',{x,0},{f,15}}.
     {call,1,{f,26}}.
     {try_end,{y,0}}.
@@ -106,7 +107,8 @@
   {label,17}.
     {func_info,{atom,bad_catch_try},{atom,bad_5},1}.
   {label,18}.
-    {allocate_zero,2,1}.
+    {allocate,2,1}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
     {'try',{y,0},{f,19}}.
     {call,1,{f,26}}.
     {try_end,{y,0}}.
@@ -127,7 +129,8 @@
   {label,21}.
     {func_info,{atom,bad_catch_try},{atom,bad_6},1}.
   {label,22}.
-    {allocate_zero,1,1}.
+    {allocate,1,1}.
+    {init_yregs,{list,[{y,0}]}}.
     {'try',{y,0},{f,23}}.
     {call,1,{f,26}}.
     {move,{integer,1},{y,1}}.

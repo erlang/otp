@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% derived  - Include only those modules that others are dependent on
 -type mod_cond()         :: all | app | ebin | derived | none.
 -type incl_cond()        :: include | exclude | derived.
--type debug_info()       :: keep | strip.
+-type debug_info()       :: keep | strip | [beam_lib:chunkid()].
 -type app_file()         :: keep | strip | all.
 -type re_regexp()        :: string(). % re:regexp()
 -type regexps()          :: [re_regexp()] |
@@ -38,9 +38,6 @@
 -type excl_sys_filters() :: regexps().
 -type incl_app_filters() :: regexps().
 -type excl_app_filters() :: regexps().
--type incl_archive_filters() :: regexps().
--type excl_archive_filters() :: regexps().
--type archive_opt()      :: term(). % zip:create()
 -type root_dir()         :: dir().
 -type lib_dir()          :: dir().
 -type profile()          :: development | embedded | standalone.
@@ -72,9 +69,7 @@
                           | {app_file, app_file()}
                           | {debug_info, debug_info()}
                           | {incl_app_filters, incl_app_filters()}
-                          | {excl_app_filters, excl_app_filters()}
-                          | {incl_archive_filters, incl_archive_filters()}
-                          | {excl_archive_filters, excl_archive_filters()}.
+                          | {excl_app_filters, excl_app_filters()}.
 -type escript()          :: {incl_cond, incl_cond()}.
 -type sys()              :: {mod_cond, mod_cond()}
                           | {incl_cond, incl_cond()}
@@ -86,9 +81,6 @@
                           | {excl_sys_filters, excl_sys_filters()}
                           | {incl_app_filters, incl_app_filters()}
                           | {excl_app_filters, excl_app_filters()}
-                          | {incl_archive_filters, incl_archive_filters()}
-                          | {excl_archive_filters, excl_archive_filters()}
-                          | {archive_opts, [archive_opt()]}
                           | {root_dir, root_dir()}
                           | {lib_dirs, [lib_dir()]}
                           | {boot_rel, boot_rel()}
@@ -119,7 +111,6 @@
 -type target_spec()      :: [target_spec()]
                           | {create_dir, base_dir(), [target_spec()]}
                           | {create_dir, base_dir(), top_dir(), [target_spec()]}
-                          | {archive, base_file(), [archive_opt()], [target_spec()]}
                           | {copy_file, base_file()}
                           | {copy_file, base_file(), top_file()}
                           | {write_file, base_file(), binary()}
@@ -198,9 +189,6 @@
           app_type              :: '_' | app_type() | undefined,
           incl_app_filters      :: '_' | [#regexp{}] | undefined,
           excl_app_filters      :: '_' | [#regexp{}] | undefined,
-          incl_archive_filters  :: '_' | [#regexp{}] | undefined,
-          excl_archive_filters  :: '_' | [#regexp{}] | undefined,
-          archive_opts          :: '_' | [archive_opt()] | undefined,
 
           %% Dynamic
           status          :: '_' | status(),
@@ -247,9 +235,6 @@
           excl_sys_filters     :: [#regexp{}],
           incl_app_filters     :: [#regexp{}],
           excl_app_filters     :: [#regexp{}],
-          incl_archive_filters :: [#regexp{}],
-          excl_archive_filters :: [#regexp{}],
-          archive_opts         :: [archive_opt()],
           relocatable          :: boolean(),
           rel_app_type         :: app_type(),
           embedded_app_type    :: app_type() | undefined,
@@ -279,10 +264,6 @@
 -define(DEFAULT_EMBEDDED_APP_TYPE, undefined).
 -define(DEFAULT_APP_FILE,          keep).
 -define(DEFAULT_DEBUG_INFO,        keep).
-
--define(DEFAULT_INCL_ARCHIVE_FILTERS, [".*"]).
--define(DEFAULT_EXCL_ARCHIVE_FILTERS, ["^include\$", "^priv\$"]).
--define(DEFAULT_ARCHIVE_OPTS,         []).
 
 -define(DEFAULT_INCL_SYS_FILTERS,    [".*"]).
 -define(DEFAULT_EXCL_SYS_FILTERS,    []).

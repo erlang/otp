@@ -27,6 +27,25 @@
     #define NOMINMAX
   #endif
   #include <windows.h>
+#else
+  // Most production code is compiled with large file support, so do the same.
+  #if !defined(_WIN32) && !defined(_LARGEFILE64_SOURCE)
+    #define _LARGEFILE64_SOURCE 1
+  #endif
+
+  // These OSes use 64-bit API by default.
+  #if defined(__APPLE__    ) || \
+      defined(__HAIKU__    ) || \
+      defined(__bsdi__     ) || \
+      defined(__DragonFly__) || \
+      defined(__FreeBSD__  ) || \
+      defined(__NetBSD__   ) || \
+      defined(__OpenBSD__  )
+    #define ASMJIT_FILE64_API(NAME) NAME
+  #else
+    #define ASMJIT_FILE64_API(NAME) NAME##64
+  #endif
+
 #endif
 
 #include "./api-config.h"

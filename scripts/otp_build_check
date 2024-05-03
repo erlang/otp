@@ -1,0 +1,341 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2023-2024. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+#
+# Performs a lot of (but not always all) build checking that you want to do...
+#
+
+docs=yes
+dialyzer=yes
+tests=all
+opt_only=no
+format_check=yes
+
+have_printf=no
+
+print_error() {
+    if [ $have_printf = yes ]; then
+	printf "\033[31mERROR: %s\033[0m\n" "$1" 1>&2
+    else
+	echo "ERROR: $1" 1>&2
+    fi
+}
+
+progress() {
+    if [ $have_printf = yes ]; then
+	printf "\n\033[33m*** %s ***\033[0m\n\n" "$1" 1>&2
+    else
+	echo "\n*** $1 ***\n" 1>&2
+    fi
+}
+
+print_usage() {
+    cat <<EOF
+Usage:
+  otp_build check [--help|-h] [--only-opt|-o] [--no-docs|-d] \\
+                  [--no-dialyzer|-y] [--no-tests|-n] [--no-format-check|-f] \\
+                  [--tests|-t <App0> ... <AppN>]
+
+
+By default all currently implemented checks will be performed. If any of the
+currently used tools are missing, checking will fail. If libraries or tools
+needed to support certain conditional features are missing, those features
+will not be checked.
+
+If any of these checks do not pass, the code is *not* ready for testing in OTP
+daily builds. Note that this script does not check all requirements for testing
+in OTP daily builds. These checks are the bare minimum for even considering
+testing in OTP daily builds. Currently the following will be performed by
+default:
+
+ * Build all applications in optimized mode. If configure already has been run,
+   it wont be run again.
+ * Debug compile C-code in all applications.
+ * Format checking of JIT code.
+ * Run dialyzer on all applications.
+ * Build all documentation.
+ * Run html link check on all documentation.
+ * Build all test suites.
+
+Certain build checking can be disabled using the following options:
+* [--only-opt|-o] - Only build optimized system. No debug, etc.
+* [--no-format-check|-f] - No JIT format checking.
+* [--no-docs|-d] - No documentation checking.
+* [--no-dialyzer|-y] - No dialyzer checking.
+* [--no-tests|-n] - No build checking of test suites.
+* [--tests|-t <App0> ... <AppN>] - Only build checking of test suites for
+  listed applications.
+
+Only disable build checking for parts of the system that you are certain your
+changes wont effect. Note that even though you've made no changes in
+documentation source files, documentation build is effected by type changes
+in code.
+
+Environment variables used:
+* CONFIG_FLAGS - Arguments to pass to configure if it is executed.
+
+Build results will be placed under the \$ERL_TOP/release/<TARGET> directory
+
+EOF
+}
+
+usage () {
+    print_error "$1"
+    print_usage >&2
+    exit 1
+}
+
+fail () {
+    print_error "$1"
+    exit 1
+}
+
+type printf >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    have_printf=yes
+fi
+
+[ "$ERL_TOP" != "" ] || fail "ERL_TOP needs to be set"
+
+cd "$ERL_TOP" 2>&1 >/dev/null || {
+    fail "Failed to change directory into $ERL_TOP"
+}
+
+[ -f "$ERL_TOP/OTP_VERSION" ] || fail "ERL_TOP not valid"
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        --help|-h)
+            print_usage
+            exit 0;;
+        --only-opt|-o)
+            opt_only=yes;;
+        --no-docs|-d)
+            docs=no;;
+        --no-dialyzer|-y)
+            dialyzer=no;;
+        --no-format-check|-f)
+            format_check=no;;
+        --no-tests|-n)
+            tests=none;;
+        --tests|-t)
+            shift
+            while [ $# -gt 0 ]; do
+                case $1 in
+                    -*)
+                        break;;
+	            test_server|emulator|system|epmd)
+                        ;;
+	            *)
+                        [ -d "$ERL_TOP/lib/$1/test" ] || {
+                            fail "Invalid application: $1"
+                        }
+                        ;;
+                esac
+                tapps="$1 $tapps"
+                shift
+            done
+            [ "$tapps" != "" ] || usage "No test apps given"
+            tests="$tapps"
+            continue;;
+        *)
+            usage "Invalid option: $1"
+    esac
+    shift
+done
+
+[ -f "$ERL_TOP/make/config.status" ] || {
+    ./configure $CONFIG_FLAGS || fail "configure failed"
+}
+
+type gmake >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+    export MAKE="gmake"
+else
+    type make >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+	export MAKE="make"
+    fi
+fi
+
+target=`$MAKE target_configured` || fail "Failed to determine target directory"
+
+unset TESTROOT
+unset RELEASE_ROOT
+unset ERL_LIBS
+unset OTP_SMALL_BUILD
+unset OTP_TINY_BUILD
+unset TARGET
+
+progress "Building OTP in $ERL_TOP"
+$MAKE || fail "OTP build failed"
+progress "Booting optimized runtime"
+$ERL_TOP/bin/cerl -eval "erlang:halt()" || {
+    fail "Failed to boot runtime"
+}
+
+[ $opt_only = yes ] || {
+    progress "Building debug OTP in $ERL_TOP"
+    $MAKE TYPE=debug || fail "OTP debug build failed"
+    progress "Booting debug runtime"
+    $ERL_TOP/bin/cerl -debug -eval "erlang:halt()" || {
+        fail "Failed to boot debug runtime"
+    }
+}
+
+[ $format_check = no ] || {
+    clang-format --help 2>&1 >/dev/null || {
+        fail "clang-format not installed. Use --no-format-check option to skip."
+    }
+
+    progress "Checking C & C++ code formatting"
+    $MAKE format-check || {
+        fail "Failed to format C & C++ code"
+    }
+}
+
+progress "Releasing OTP"
+$MAKE release || fail "Releasing OTP failed"
+
+cd "$ERL_TOP/release/$target" 2>&1 >/dev/null || {
+    fail "Failed to change directory into release directory: $ERL_TOP/release/$target"
+}
+
+progress "Installing OTP"
+./Install -minimal `pwd` || fail "Failed to install release"
+
+progress "Booting optimized installed runtime"
+./bin/erl -eval "erlang:halt()" || {
+    fail "Failed to boot installed runtime"
+}
+
+cd "$ERL_TOP" 2>&1 >/dev/null || {
+    fail "Failed to change directory into $ERL_TOP"
+}
+
+export PATH="$ERL_TOP/release/$target/bin:$PATH"
+
+[ $docs = no ] || {
+    progress "Building OTP documentation"
+    $MAKE docs || fail "Building documentation failed"
+    progress "Releasing OTP documentation"
+    $MAKE release_docs || fail "Releasing documentation failed"
+    progress "Running HTML check on OTP documentation"
+    ./scripts/otp_check_html_links.exs || {
+        fail "HTML check of documentation failed, see $ERL_TOP/HOWTO/DEVELOPMENT.md -> Validating documentation"
+    }
+}
+
+[ $dialyzer = no ] || {
+    progress "Running dialyzer on OTP"
+    $MAKE dialyzer || fail "Dialyzing OTP failed"
+}
+
+[ "$tests" = none ] || {
+    test_dir="$ERL_TOP/release/$target/test"
+    [ -d "$test_dir" ] || mkdir "$test_dir" 2>&1 >/dev/null || {
+        fail "Failed to create $test_dir directory"
+    }
+    if [ "$tests" = all ]; then
+        progress "Releasing all OTP tests"
+        ./otp_build tests "$test_dir" || fail "Release of tests failed"
+    else
+        for tapp in $tests; do
+            case $tapp in
+	        test_server)
+	            tapp_dir="$ERL_TOP/lib/test_server"
+	            if [ ! -d "$tapp_dir" ]; then
+		        tapp_dir="$ERL_TOP/lib/common_test/test_server"
+	            fi
+	            ;;
+	        emulator) tapp_dir="$ERL_TOP/erts/emulator/test";;
+	        system) tapp_dir="$ERL_TOP/erts/test";;
+	        epmd) tapp_dir="$ERL_TOP/erts/epmd/test";;
+	        *) tapp_dir="$ERL_TOP/lib/$tapp/test";;
+            esac
+            cd "$tapp_dir" 2>&1 >/dev/null || {
+                fail "Failed to change directory into $tapp_dir"
+            }
+            progress "Releasing $tapp tests"
+            $MAKE "TESTROOT=$test_dir" release_tests || {
+                fail "Release of $tapp tests failed"
+            }
+        done
+
+    fi
+
+    cd "$test_dir" 2>&1 >/dev/null || {
+        fail "Failed to change directory into $test_dir"
+    }
+
+    for dir in *; do
+
+        [ -d "$test_dir/$dir" ] || continue
+
+        progress "Building $dir tests"
+
+        cd "$test_dir/$dir" 2>&1 >/dev/null || {
+            fail "Failed to change directory into $test_dir/$dir"
+        }
+
+        for mfile in *_data/Makefile.first; do
+
+            [ "$mfile" != '*_data/Makefile.first' ] || continue
+
+            ddir=`dirname $mfile` || fail "dirname on $test_dir/$dir/$mfile failed"
+
+            cd "$test_dir/$dir/$ddir" 2>&1 >/dev/null || {
+                fail "Failed to change directory into $test_dir/$dir/$ddir"
+            }
+
+            $MAKE -f Makefile.first || {
+                fail "Make of $test_dir/$dir/$ddir/Makefile.first failed"
+            }
+
+        done
+
+        cd "$test_dir/$dir" 2>&1 >/dev/null || {
+            fail "Failed to change directory into $test_dir/$dir"
+        }
+
+        if [ -f Emakefile ]; then
+            erl -noshell -eval 'case make:all() of error -> erlang:halt(1); _ -> init:stop() end.' || {
+                fail "Build of $dir failed"
+            }
+        else
+            erlc -I `erl -noshell -eval 'io:format("~ts",[code:lib_dir(common_test)]),init:stop()'`/include -I . *.erl || {
+                fail "Build of $dir failed"
+            }
+        fi
+
+    done
+
+    cd "$ERL_TOP" 2>&1 >/dev/null || {
+        fail "Failed to change directory into $ERL_TOP"
+    }
+}
+
+if [ $have_printf = yes ]; then
+    printf "\n\033[32m*** Success! ***\033[0m\n\n"
+else
+    echo "\n*** Success! ***\n"
+fi
+exit 0

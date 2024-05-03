@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
+-include("ssh_transport.hrl").
 
 -export([
          suite/0,
@@ -38,7 +39,9 @@
 
 -export([
          erlang_server_openssh_client_renegotiate/1,
+         eserver_oclient_kex_strict/1,
          erlang_shell_client_openssh_server/1,
+         eclient_oserver_kex_strict/1,
          exec_direct_with_io_in_sshc/1,
          exec_with_io_in_sshc/1,
          tunnel_in_erlclient_erlserver/1,
@@ -73,12 +76,14 @@ groups() ->
     [{erlang_client, [], [tunnel_in_erlclient_erlserver,
                           tunnel_out_erlclient_erlserver,
                           {group, tunnel_distro_server},
-                          erlang_shell_client_openssh_server
+                          erlang_shell_client_openssh_server,
+                          eclient_oserver_kex_strict
 			 ]},
      {tunnel_distro_server, [], [tunnel_in_erlclient_openssh_server,
                                  tunnel_out_erlclient_openssh_server]},
      {erlang_server, [], [{group, tunnel_distro_client},
                           erlang_server_openssh_client_renegotiate,
+                          eserver_oclient_kex_strict,
                           exec_with_io_in_sshc,
                           exec_direct_with_io_in_sshc
                          ]
@@ -87,16 +92,15 @@ groups() ->
                                  tunnel_out_non_erlclient_erlserver]}
     ].
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
     ?CHECK_CRYPTO(
-       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, []) of
+       case gen_tcp:connect("localhost", ?SSH_DEFAULT_PORT, [{active, false}]) of
 	   {error,econnrefused} ->
 	       {skip,"No openssh daemon (econnrefused)"};
-	   _ ->
+	   {ok, Sock} ->
                ssh_test_lib:openssh_sanity_check(
-                 [{ptty_supported, ssh_test_lib:ptty_supported()}
-                  | Config]
-                )
+                 [{ptty_supported, ssh_test_lib:ptty_supported()},
+                  {kex_strict, check_kex_strict(Sock)}| Config0])
        end
       ).
 
@@ -127,12 +131,15 @@ end_per_group(_, Config) ->
 
 init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
     case os:type() of
-	{unix,_} -> ssh:start(), Config;
-	Type -> {skip, io_lib:format("Unsupported test on ~p",[Type])}
+	{unix,_} ->
+            ssh:start(),
+            ssh_test_lib:verify_sanity_check(Config);
+	Type ->
+            {skip, io_lib:format("Unsupported test on ~p",[Type])}
     end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
-    Config.
+    ssh_test_lib:verify_sanity_check(Config).
 
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
@@ -142,10 +149,32 @@ end_per_testcase(_TestCase, _Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
+    eclient_oserver_helper2(eclient_oserver_helper1(), Config).
+
+eclient_oserver_kex_strict(Config) when is_list(Config)->
+    case proplists:get_value(kex_strict, Config) of
+        true ->
+            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+            HelperParams = eclient_oserver_helper1(),
+            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            true = ssh_test_lib:kex_strict_negotiated(client, Events),
+            ssh_test_lib:set_log_level(Level),
+            ssh_test_lib:rm_log_handler(),
+            eclient_oserver_helper2(HelperParams, Config);
+        _ ->
+            {skip, "KEX strict not support by local OpenSSH"}
+    end.
+
+eclient_oserver_helper1() ->
     process_flag(trap_exit, true),
     IO = ssh_test_lib:start_io_server(),
     Prev = lists:usort(supervisor:which_children(sshc_sup)),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
+    {Shell, Prev, IO}.
+
+eclient_oserver_helper2({Shell, Prev, IO}, Config) ->
     IO ! {input, self(), "echo Hej\n"},
     case proplists:get_value(ptty_supported, Config) of
         true ->
@@ -166,7 +195,6 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
                                  false
                          end)
     end.
-
 %%--------------------------------------------------------------------
 %% Test that the server could redirect stdin and stdout from/to an
 %% OpensSSH client when handling an exec request
@@ -231,6 +259,28 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Test that the Erlang/OTP server can renegotiate with openSSH
 erlang_server_openssh_client_renegotiate(Config) ->
+    eserver_oclient_renegotiate_helper2(
+      eserver_oclient_renegotiate_helper1(Config)).
+
+eserver_oclient_kex_strict(Config) ->
+    case proplists:get_value(kex_strict, Config) of
+        true ->
+            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+
+            HelperParams = eserver_oclient_renegotiate_helper1(Config),
+            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            ct:log("Events = ~n~p", [Events]),
+            true = ssh_test_lib:kex_strict_negotiated(server, Events),
+            ssh_test_lib:set_log_level(Level),
+            ssh_test_lib:rm_log_handler(),
+            eserver_oclient_renegotiate_helper2(HelperParams);
+        _ ->
+            {skip, "KEX strict not support by local OpenSSH"}
+    end.
+
+eserver_oclient_renegotiate_helper1(Config) ->
     _PubKeyAlg = ssh_rsa,
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -254,10 +304,12 @@ erlang_server_openssh_client_renegotiate(Config) ->
 
 
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd++" < "++DataFile}),
+    {Data, OpenSsh, Pid}.
 
-    Expect = fun({data,R}) -> 
+eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
+    Expect = fun({data,R}) ->
 		     try
-			 NonAlphaChars = [C || C<-lists:seq(1,255), 
+			 NonAlphaChars = [C || C<-lists:seq(1,255),
 					       not lists:member(C,lists:seq($a,$z)),
 					       not lists:member(C,lists:seq($A,$Z))
 					 ],
@@ -275,15 +327,14 @@ erlang_server_openssh_client_renegotiate(Config) ->
 		(_) ->
 		     false
 	     end,
-    
-    try 
-	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
+    try
+        ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
     of
-	_ ->
-	    %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
-	    ssh:stop_daemon(Pid)
+        _ ->
+            %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
+            ssh:stop_daemon(Pid)
     catch
-	throw:{skip,R} -> {skip,R}
+        throw:{skip,R} -> {skip,R}
     end.
 
 %%--------------------------------------------------------------------
@@ -569,3 +620,18 @@ no_forwarding(Config) ->
            "---- The function no_forwarding() returns ~p",
            [Cmnd,TheText, FailRegExp, Result]),
     Result.
+
+check_kex_strict(Sock) ->
+    %% Send some version, in order to receive KEXINIT from server
+    ok = gen_tcp:send(Sock, "SSH-2.0-OpenSSH_9.5\r\n"),
+    ct:sleep(100),
+    {ok, Packet} = gen_tcp:recv(Sock, 0),
+    case string:find(Packet, ?kex_strict_s) of
+        nomatch ->
+            ct:log("KEX strict NOT supported by local OpenSSH"),
+            false;
+        _ ->
+            ct:log("KEX strict supported by local OpenSSH"),
+            true
+    end.
+

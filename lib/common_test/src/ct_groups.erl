@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%% tests.
 
 -module(ct_groups).
+-moduledoc false.
 
 -export([find_groups/4]).
 -export([make_all_conf/3, make_all_conf/4, make_conf/5]).
@@ -191,8 +192,8 @@ find(Mod, GrNames, all, [{testcase,TC,[Prop]} | Gs], Known,
 %% Check if test case should be saved
 find(Mod, GrNames, TCs, [TC | Gs], Known, Defs, FindAll)
   when is_atom(TC) orelse
-       ((size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
-       ((size(TC) == 2) and (element(1,TC) /= group)) ->
+       ((tuple_size(TC) == 3) andalso (element(1,TC) == testcase)) orelse
+       ((tuple_size(TC) == 2) andalso (element(1,TC) /= group)) ->
     Case =
         case TC of
             _ when is_atom(TC) ->
@@ -333,8 +334,7 @@ modify_tc_list1(GrSpecTs, TSCs) ->
 					  false -> []
 				      end
 			      end;
-                         (Test) when is_tuple(Test),
-				     (size(Test) > 2) ->
+                         (Test) when tuple_size(Test) > 2 ->
 			      [Test];
 			 (Test={group,_}) ->
 			      [Test];

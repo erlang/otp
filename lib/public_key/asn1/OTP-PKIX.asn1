@@ -834,4 +834,20 @@ invalidityDate EXTENSION-CLASS ::= {
 	ID id-ce-invalidityDate 
 	TYPE InvalidityDate }
 
+-- Used to workaround that some CAs create too long User Notices
+
+OTPUserNotice ::= SEQUENCE {
+     noticeRef        OTPNoticeReference OPTIONAL,
+     explicitText     OTPDisplayText OPTIONAL}
+
+OTPNoticeReference ::= SEQUENCE {
+     organization     OTPDisplayText,
+     noticeNumbers    SEQUENCE OF INTEGER }
+
+OTPDisplayText ::= CHOICE {
+     ia5String        IA5String      (SIZE (1..350)),
+     visibleString    VisibleString  (SIZE (1..350)),
+     bmpString        BMPString      (SIZE (1..350)),
+     utf8String       UTF8String     (SIZE (1..350)) }
+
 END

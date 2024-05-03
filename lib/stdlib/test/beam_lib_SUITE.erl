@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -453,7 +453,7 @@ strip_add_chunks(Conf) when is_list(Conf) ->
     compare_chunks(B1, NB1, NBId1),
 
     %% Keep all the extra chunks
-    ExtraChunks = ["Abst", "Dbgi", "Attr", "CInf", "LocT", "Atom"],
+    ExtraChunks = ["Abst", "Dbgi", "Attr", "CInf", "Docs", "LocT", "Atom"],
     {ok, {simple, AB1}} = beam_lib:strip(B1, ExtraChunks),
     ABId1 = chunk_ids(AB1),
     true = length(BId1) == length(ABId1),

@@ -1,0 +1,8 @@
+{application, extra_modules,
+ [{description, "An app with some extra modules"},
+  {vsn, "1"},
+  {modules, [extra_module]},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {mod, {extra_module,[]}}
+ ]}.

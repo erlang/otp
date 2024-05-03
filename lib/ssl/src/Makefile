@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# Copyright Ericsson AB 1999-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,12 +39,14 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
 # ----------------------------------------------------
 
 BEHAVIOUR_MODULES= \
+	ssl_trace \
 	ssl_crl_cache_api \
 	ssl_session_cache_api
 
 
 MODULES= \
-	dtls_connection \
+	dtls_server_connection \
+        dtls_client_connection \
 	dtls_connection_sup \
 	dtls_handshake \
 	dtls_gen_connection \
@@ -91,11 +93,16 @@ MODULES= \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \
-	tls_dtls_connection \
-	tls_connection \
+	tls_dtls_client_connection \
+	tls_dtls_server_connection \
+	tls_dtls_gen_connection \
+	tls_server_connection \
+	tls_client_connection \
 	tls_connection_sup \
-	tls_connection_1_3 \
-	tls_gen_connection \
+	tls_server_connection_1_3 \
+	tls_client_connection_1_3 \
+	tls_gen_connection_1_3 \
+        tls_gen_connection \
 	tls_handshake \
 	tls_handshake_1_3 \
 	tls_record \
@@ -163,7 +170,7 @@ endif
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EXTRA_ERLC_FLAGS = +warn_unused_vars -Werror
+EXTRA_ERLC_FLAGS = +warn_unused_vars -Werror +nowarn_deprecated_callback
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(EBIN) \
 	-pz $(ERL_TOP)/lib/public_key/ebin \

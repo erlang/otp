@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2012-2022. All Rights Reserved.
+# Copyright Ericsson AB 2012-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ INCLUDES= -I. -I ../include
 
 MODULES= \
 	eldap_basic_SUITE \
+	eldap_collect_labmachine_info_SUITE \
 	make_certs
 
 
@@ -53,7 +54,7 @@ RELSYSDIR = $(RELEASE_PATH)/eldap_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += $(INCLUDES) -pa $(ERL_TOP)/lib/eldap/ebin
+ERL_COMPILE_FLAGS += $(INCLUDES) -pa $(ERL_TOP)/lib/eldap/ebin +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

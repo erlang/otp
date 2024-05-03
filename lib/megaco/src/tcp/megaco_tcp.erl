@@ -26,6 +26,12 @@
 %%
 %%-----------------------------------------------------------------
 -module(megaco_tcp).
+-moduledoc """
+Interface module to TPKT transport protocol for Megaco/H.248.
+
+This module contains the public interface to the TPKT (TCP/IP) version transport
+protocol for Megaco/H.248.
+""".
 
 -behaviour(gen_server).
 
@@ -33,6 +39,7 @@
 %%-----------------------------------------------------------------
 %% Include files
 %%-----------------------------------------------------------------
+-define(megaco_debug, true).
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/tcp/megaco_tcp.hrl"). 
 -include_lib("megaco/src/app/megaco_internal.hrl"). 
@@ -98,12 +105,19 @@
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
+-doc(#{equiv => get_stats/2}).
 get_stats() ->
     megaco_stats:get_stats(megaco_tcp_stats).
 
+-doc(#{equiv => get_stats/2}).
 get_stats(Socket) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket).
 
+-doc """
+get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason}
+
+Retreive the TCP related (SNMP) statistics counters.
+""".
 get_stats(Socket, Counter) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket, Counter).
 
@@ -112,9 +126,15 @@ get_stats(Socket, Counter) ->
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
+-doc(#{equiv => reset_stats/1}).
 reset_stats() ->
     megaco_stats:reset_stats(megaco_tcp_stats).
 
+-doc """
+reset_stats(SendHandle) -> void()
+
+Reset all TCP related (SNMP) statistics counters.
+""".
 reset_stats(Socket) ->
     megaco_stats:reset_stats(megaco_tcp_stats, Socket).
 
@@ -123,6 +143,12 @@ reset_stats(Socket) ->
 %% Func: start_transport/0
 %% Description: Starts the TPKT transport service
 %%-----------------------------------------------------------------
+-doc """
+start_transport() -> {ok, TransportRef}
+
+This function is used for starting the TCP/IP transport service. Use
+exit(TransportRef, Reason) to stop the transport service.
+""".
 start_transport() ->
     ?d2("start_transport -> entry"),
     (catch megaco_stats:init(megaco_tcp_stats)),
@@ -133,6 +159,7 @@ start_transport() ->
 %% Func: stop_transport/1, 2
 %% Description: Stop the TPKT transport service
 %%-----------------------------------------------------------------
+-doc false.
 stop_transport(Pid) ->
     (catch unlink(Pid)), 
     stop_transport(Pid, shutdown).
@@ -148,6 +175,19 @@ stop_transport(Pid, Reason) ->
 %% Func: listen/2
 %% Description: Starts new TPKT listener sockets
 %%-----------------------------------------------------------------
+-doc """
+listen(TransportRef, ListenPortSpecList) -> ok
+
+This function is used for starting new TPKT listening socket for TCP/IP. The
+option list contains the socket definitions.
+
+- **`inet_backend`** - Choose the inet-backend.
+
+  This option make it possible to use a different inet-backend ('default',
+  'inet' or 'socket').
+
+  Default is `default` (system default).
+""".
 listen(SupPid, Parameters) ->
     ?d1("listen -> entry with"
 	"~n   SupPid:     ~p"
@@ -168,6 +208,29 @@ listen(SupPid, Parameters) ->
 %% Description: Function is used when opening an TCP socket 
 %%              at the MG side when trying to connect an MGC
 %%-----------------------------------------------------------------
+-doc """
+connect(TransportRef, OptionList) -> {ok, Handle, ControlPid} | {error, Reason}
+
+This function is used to open a TPKT connection.
+
+- **`module`** - This option makes it possible for the user to provide their own
+  callback module. The `receive_message/4` or `process_received_message/4`
+  functions of this module is called when a new message is received. Which one
+  is called depends on the size of the message;
+
+  - **`small`** - receive_message
+
+  - **`large`** - process_received_message
+
+  Default value is _megaco_.
+
+- **`inet_backend`** - Choose the inet-backend.
+
+  This option make it possible to use a different inet-backend ('default',
+  'inet' or 'socket').
+
+  Default is `default` (system default).
+""".
 connect(SupPid, Parameters) ->
     ?d1("connect -> entry with"
 	"~n   SupPid:     ~p"
@@ -183,18 +246,31 @@ connect(SupPid, Parameters) ->
 			port         = Port,
 			options      = Options,
                         inet_backend = IB} = Rec,
-	    
-	    IpOpt =
+
+	    %% When using 'socket on Windows':
+	    %% Unless 'Options' contain the 'ip' option,
+	    %% we *will* use our own value (selected from net:getifaddr/1).
+	    %% If 'host' is a string, we need to check 'Options'
+	    %% to see if 'local' is present (which does not, currently,
+	    %% work on Windows)?
+	    %% If not (local), we *assume* domain = 'inet'.
+
+	    IpOpts =
                 case IB of
                     default ->
                         [];
                     _ ->
                         [{inet_backend, IB}]
-                end ++ [binary, {packet, tpkt}, {active, once} | Options], 
+                end ++ [binary, {packet, tpkt}, {active, once} |
+			post_process_opts(Host, IB, Options)], 
 
             %%------------------------------------------------------
             %% Connect the other side
-	    case (catch gen_tcp:connect(Host, Port, IpOpt)) of
+	    ?d1("connect -> connect with: "
+		"~n   Host:   ~p"
+		"~n   Port:   ~p"
+		"~n   IpOpts: ~p", [Host, Port, IpOpts]),
+	    case (catch gen_tcp:connect(Host, Port, IpOpts)) of
 		{ok, Socket} ->
 		    ?d1("connect -> connected: "
 			"~n   Socket: ~p", [Socket]),
@@ -217,14 +293,14 @@ connect(SupPid, Parameters) ->
 		{error, Reason} ->
 		    ?d1("connect -> failed connecting: "
 			"~n   Reason: ~p", [Reason]),
-		    Error = {error, {gen_tcp_connect, Reason, {Host, Port, IpOpt}}},
+		    Error = {error, {gen_tcp_connect, Reason, {Host, Port, IpOpts}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error;
 
 		{'EXIT', _Reason} = Exit ->
 		    ?d1("connect -> connect exited: "
 			"~n   Exit: ~p", [Exit]),
-		    Error = {error, {gen_tcp_connect, Exit, {Host, Port, IpOpt}}},
+		    Error = {error, {gen_tcp_connect, Exit, {Host, Port, IpOpts}}},
 		    ?tcp_debug(Rec, "tcp connect failed", [Error]),
 		    Error
 
@@ -239,10 +315,132 @@ connect(SupPid, Parameters) ->
     end.
 
 
+%% In some cases we must bind and therefor we must have the
+%% ip (or ifaddr) option.
+post_process_opts(Host, socket = _IB, Opts) ->
+    case os:type() of
+	{win32, nt} ->
+	    %% We must bind, and therefor we must provide a "proper" address.
+	    %% Therefor...we need to figure out our domain.
+	    post_process_opts(Host, Opts);
+	_ ->
+	    Opts
+    end;
+post_process_opts(_Host, _IB, Opts) ->
+    Opts.
+
+
+%% Socket on Windows: We need the ip (or ifaddr) option
+post_process_opts(Host, Opts) ->
+    case lists:keymember(ip, 1, Opts) orelse
+	lists:keymember(ifaddr, 1, Opts) of
+	true ->
+	    %% No need to do anything, user has provided an address
+	    Opts;
+	false ->
+	    %% We need to figure out a proper address and provide 
+	    %% the ip option our selves.
+	    post_process_opts2(Host, Opts)
+    end.
+	
+%% We do not have the ip (or ifaddr) option
+post_process_opts2(Host, Opts)
+  when is_tuple(Host) andalso (tuple_size(Host) =:= 4) ->
+    post_process_opts3(inet, Opts);
+post_process_opts2(Host, Opts)
+  when is_tuple(Host) andalso (tuple_size(Host) =:= 8) ->
+    post_process_opts3(inet6, Opts);
+%% This works even if Host is 'undefined'
+post_process_opts2(Host, Opts) when is_atom(Host) ->
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    post_process_opts3(inet, Opts)
+	    end
+    end;
+post_process_opts2(Host, Opts) when is_list(Host) ->
+    %% Either hostname (inet or inet6) or a path (local)
+    case lists:member(inet, Opts) of
+	true ->
+	    post_process_opts3(inet, Opts);
+	false ->
+	    case lists:member(inet6, Opts) of
+		true ->
+		    post_process_opts3(inet6, Opts);
+		false ->
+		    case lists:member(local, Opts) of
+			true ->
+			    %% Not supported on windows,
+			    %% so we leave it as is and... 
+			    Opts;
+			false ->
+			    post_process_opts3(inet, Opts)
+		    end
+	    end
+    end.
+
+post_process_opts3(Domain, Opts) ->
+    case net:getifaddrs(Domain) of
+	{ok, IfAddrs} ->
+	    post_process_opts4(Domain, IfAddrs, Opts);
+	{error, _} ->
+	    Opts
+    end.
+
+post_process_opts4(_Domain, [] = _IfAddrs, Opts) ->
+    Opts;
+post_process_opts4(inet,
+		   [#{addr := #{family := inet,
+				addr   := {A, B, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 127) orelse ((A =:= 169) andalso (B =:= 254)) ->
+    post_process_opts4(inet, IfAddrs, Opts);
+post_process_opts4(inet,
+		   [#{addr   := #{family := inet,
+				  addr   := Addr},
+		      flags  := Flags} | IfAddrs],
+		   Opts) ->
+    case lists:member(up, Flags) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet, IfAddrs, Opts)
+    end;
+post_process_opts4(inet6,
+		   [#{addr := #{family := inet6,	
+				addr   := {A, _, _, _, _, _, _, _}}} | IfAddrs],
+		   Opts)
+  when (A =:= 0) orelse (A =:= 16#fe80) ->
+    post_process_opts4(inet6, IfAddrs, Opts);
+post_process_opts4(inet6,
+		   [#{addr  := #{family := inet6,
+				 addr   := Addr},
+		      flags := Flags} | IfAddrs],
+		   Opts) ->
+    %% The loopback should really have been covered above, but just in case...
+    case lists:member(up, Flags) andalso (not lists:member(loopback, Flags)) of
+	true ->
+	    [{ip, Addr} | Opts];
+	false ->
+	    post_process_opts4(inet6, IfAddrs, Opts)
+    end.
+
+    
+
 %%-----------------------------------------------------------------
 %% Func: send_message
 %% Description: Function is used for sending data on the TCP socket
 %%-----------------------------------------------------------------
+-doc """
+send_message(Handle, Message) -> ok
+
+Sends a message on a connection.
+""".
 send_message(Socket, Data) ->
     ?d1("send_message -> entry with"
 	"~n   Socket:     ~p"
@@ -271,6 +469,11 @@ sz(List) when is_list(List) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+-doc """
+block(Handle) -> ok
+
+Stop receiving incoming messages on the socket.
+""".
 block(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp block", []),
     inet:setopts(Socket, [{active, false}]).
@@ -281,6 +484,12 @@ block(Socket) ->
 %% Description: Function is used for blocking incomming messages
 %%              on the TCP socket
 %%-----------------------------------------------------------------
+-doc """
+unblock(Handle) -> ok
+
+Starting to receive incoming messages from the socket again.
+
+""".
 unblock(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp unblock", []),
     inet:setopts(Socket, [{active, once}]).
@@ -290,6 +499,11 @@ unblock(Socket) ->
 %% Func: close
 %% Description: Function is used for closing the TCP socket
 %%-----------------------------------------------------------------
+-doc """
+close(Handle) -> ok
+
+This function is used for closing an active TPKT connection.
+""".
 close(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp close", []),
     gen_tcp:close(Socket).
@@ -299,9 +513,22 @@ close(Socket) ->
 %% Func: socket
 %% Description: Returns the inet socket
 %%-----------------------------------------------------------------
+-doc """
+socket(Handle) -> Socket
+
+This function is used to convert a socket_handle() to a inet_socket().
+inet_socket() is a plain socket, see the inet module for more info.
+""".
 socket(Socket) ->
     Socket.
 
+-doc """
+upgrade_receive_handle(ControlPid, NewHandle) -> ok
+
+Update the receive handle of the control process (e.g. after having changed
+protocol version).
+
+""".
 upgrade_receive_handle(Pid, NewHandle) 
   when is_pid(Pid) andalso is_record(NewHandle, megaco_receive_handle) ->
     megaco_tcp_connection:upgrade_receive_handle(Pid, NewHandle).
@@ -314,6 +541,7 @@ upgrade_receive_handle(Pid, NewHandle)
 %% Func: start_link/1
 %% Description: Starts the net server
 %%-----------------------------------------------------------------
+-doc false.
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
@@ -323,6 +551,7 @@ start_link(Args) ->
 %% Description: Function is used for starting up a connection
 %%              process
 %%-----------------------------------------------------------------
+-doc false.
 start_connection(SupPid, #megaco_tcp{socket = Socket} = TcpRec) ->
     ?d1("start_connection -> entry with"
 	"~n   SupPid: ~p" 
@@ -383,6 +612,7 @@ create_snmp_counters(Socket, [Counter|Counters]) ->
 %% Func: init/1
 %% Description: Init funcion for the supervisor
 %%-----------------------------------------------------------------
+-doc false.
 init({SupPid, _}) ->
     process_flag(trap_exit, true),
     {ok, #state{supervisor_pid = SupPid, linkdb = []}}.
@@ -391,6 +621,7 @@ init({SupPid, _}) ->
 %% Func: terminate/1
 %% Description: Termination function for the generic server
 %%-----------------------------------------------------------------
+-doc false.
 terminate(_Reason, _State) ->
     ok.
 
@@ -430,6 +661,7 @@ start_tcp_listener(P, State) ->
 %% Func: handle_call/3
 %% Description: Handling call messages (really just garbage)
 %%-----------------------------------------------------------------
+-doc false.
 handle_call({add_listener, Parameters}, _From, State) ->
     ?d1("handle_call(add_listener) -> entry with"
 	"~n   Parameters: ~p", [Parameters]),
@@ -444,6 +676,7 @@ handle_call(Req, From, State) ->
 %% Func: handle_cast/2
 %% Description: Handling cast messages (really just garbage)
 %%------------------------------------------------------------
+-doc false.
 handle_cast(Msg, State) ->
     warning_msg("received unexpected message: "
 		"~n~w", [Msg]),
@@ -454,6 +687,7 @@ handle_cast(Msg, State) ->
 %% Func: handle_info/2
 %% Description: Handling non call/cast messages, eg exit messages
 %%-----------------------------------------------------------------
+-doc false.
 handle_info({'EXIT', Pid, Reason}, State) when is_pid(Pid) ->
     %% Accept process died
     NewState = resetup(Pid, Reason, State),
@@ -468,6 +702,7 @@ handle_info(Info, State) ->
 %% Func: code_change/3
 %% Descrition: Handles code change messages during upgrade.
 %%-----------------------------------------------------------------
+-doc false.
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
 
@@ -486,7 +721,9 @@ setup(SupPid, Options) ->
 	"~n   Options: ~p", [SupPid, Options]),
     Mand = [port, receive_handle],
     case parse_options(Options, #megaco_tcp{}, Mand) of
-	{ok, TcpRec} ->
+	{ok, #megaco_tcp{port         = Port,
+			 options      = Opts,
+			 inet_backend = IB} = TcpRec} ->
     
 	    ?d1("setup -> options parsed"
 		"~n   TcpRec: ~p", [TcpRec]),
@@ -494,20 +731,22 @@ setup(SupPid, Options) ->
             %%------------------------------------------------------
             %% Setup the listen socket
 	    IpOpts =
-                case TcpRec#megaco_tcp.inet_backend of
+                case IB of
                     default ->
                         [];
-                    IB ->
+                    _ ->
                         [{inet_backend, IB}]
                 end ++
-                [binary, {packet, tpkt}, {active, once},
-                 {reuseaddr, true} | TcpRec#megaco_tcp.options],
-            Port = TcpRec#megaco_tcp.port,
+                [binary, {packet, tpkt}, {active, once}, {reuseaddr, true} |
+		 post_process_opts(undefined, IB, Opts)],
+	    ?d1("setup -> listen with: "
+		"~n   Port:   ~p"
+		"~n   IpOpts: ~p", [Port, IpOpts]),
 	    case catch gen_tcp:listen(Port, IpOpts) of
 		{ok, LSock} ->
 
 		    ?d1("setup -> listen ok"
-			"~n   Listen: ~p", [Listen]),
+			"~n   Listen: ~p", [LSock]),
 
 	            %%-----------------------------------------------
 	            %% Startup the accept process that will wait for 

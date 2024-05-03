@@ -15,6 +15,7 @@ JitRuntime::JitRuntime(const JitAllocator::CreateParams* params) noexcept
   : _allocator(params) {
   _environment = Environment::host();
   _environment.setObjectFormat(ObjectFormat::kJIT);
+  _cpuFeatures = CpuInfo::host().features();
 }
 
 JitRuntime::~JitRuntime() noexcept {}
@@ -29,45 +30,43 @@ Error JitRuntime::_add(void** dst, CodeHolder* code) noexcept {
   if (ASMJIT_UNLIKELY(estimatedCodeSize == 0))
     return DebugUtils::errored(kErrorNoCodeGenerated);
 
-  uint8_t* rx;
-  uint8_t* rw;
-  ASMJIT_PROPAGATE(_allocator.alloc((void**)&rx, (void**)&rw, estimatedCodeSize));
+  JitAllocator::Span span;
+  ASMJIT_PROPAGATE(_allocator.alloc(span, estimatedCodeSize));
 
   // Relocate the code.
-  Error err = code->relocateToBase(uintptr_t((void*)rx));
+  Error err = code->relocateToBase(uintptr_t(span.rx()));
   if (ASMJIT_UNLIKELY(err)) {
-    _allocator.release(rx);
+    _allocator.release(span.rx());
     return err;
   }
 
   // Recalculate the final code size and shrink the memory we allocated for it
   // in case that some relocations didn't require records in an address table.
   size_t codeSize = code->codeSize();
-  if (codeSize < estimatedCodeSize)
-    _allocator.shrink(rx, codeSize);
+  ASMJIT_ASSERT(codeSize <= estimatedCodeSize);
 
-  if (codeSize < estimatedCodeSize)
-    _allocator.shrink(rx, codeSize);
-
-  {
-    VirtMem::ProtectJitReadWriteScope rwScope(rx, codeSize);
+  _allocator.write(span, [&](JitAllocator::Span& span) noexcept -> Error {
+    uint8_t* rw = static_cast<uint8_t*>(span.rw());
 
     for (Section* section : code->_sections) {
       size_t offset = size_t(section->offset());
       size_t bufferSize = size_t(section->bufferSize());
       size_t virtualSize = size_t(section->virtualSize());
 
-      ASMJIT_ASSERT(offset + bufferSize <= codeSize);
+      ASMJIT_ASSERT(offset + bufferSize <= span.size());
       memcpy(rw + offset, section->data(), bufferSize);
 
       if (virtualSize > bufferSize) {
-        ASMJIT_ASSERT(offset + virtualSize <= codeSize);
+        ASMJIT_ASSERT(offset + virtualSize <= span.size());
         memset(rw + offset + bufferSize, 0, virtualSize - bufferSize);
       }
     }
-  }
 
-  *dst = rx;
+    span.shrink(codeSize);
+    return kErrorOk;
+  });
+
+  *dst = span.rx();
   return kErrorOk;
 }
 

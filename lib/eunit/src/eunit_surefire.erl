@@ -30,6 +30,19 @@
 %%               [{report,{eunit_surefire,[{dir,"."}]}}]).'''
 
 -module(eunit_surefire).
+-moduledoc """
+Surefire reports for EUnit (Format used by Maven and Atlassian Bamboo for
+example to integrate test results). Based on initial code from Paul Guyot.
+
+Example: Generate XML result file in the current directory:
+
+```text
+     eunit:test([fib, eunit_examples],
+                [{report,{eunit_surefire,[{dir,"."}]}}]).
+```
+
+_See also: _`m:eunit`.
+""".
 
 -behaviour(eunit_listener).
 
@@ -87,12 +100,15 @@
 		testsuites = [] :: [#testsuite{}]
 	       }).
 
+-doc false.
 start() ->
     start([]).
 
+-doc false.
 start(Options) ->
     eunit_listener:start(?MODULE, Options).
 
+-doc false.
 init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
     ensure_xmldir(XMLDir),
@@ -104,6 +120,7 @@ init(Options) ->
 	    St
     end.
 
+-doc false.
 terminate({ok, _Data}, St) ->
     TestSuites = St#state.testsuites,
     XmlDir = St#state.xmldir,
@@ -114,6 +131,7 @@ terminate({error, _Reason}, _St) ->
     %% Just terminate.
     ok.
 
+-doc false.
 handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
     %% Run this code both for groups and tests; test is a bit
     %% surprising: This is a workaround for the fact that we don't get
@@ -132,6 +150,8 @@ handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
 	_ ->
 	    St
     end.
+
+-doc false.
 handle_end(group, Data, St) ->
     %% Retrieve existing test suite:
     case proplists:get_value(id, Data) of
@@ -167,6 +187,7 @@ handle_end(test, Data, St) ->
 
 %% Cancel group does not give information on the individual cancelled test case
 %% We ignore this event...
+-doc false.
 handle_cancel(group, Data, St) ->
     %% ...except when it tells us that a fixture setup or cleanup failed.
     case proplists:get_value(reason, Data) of

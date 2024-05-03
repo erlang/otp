@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 %%
 -module(asn1ct_parser2).
+-moduledoc false.
 
 -export([parse/2,format_error/1]).
 -include("asn1_records.hrl").
@@ -283,7 +284,7 @@ parse_Assignment([{typereference,_,_},{'{',_}|_]=Tokens) ->
     %% 2) ValueSet{...} Type ::= ...
     %%    ObjectSet{...} CLASS-NAME ::= CLASS {...}
     %% 3) CLASS-NAME{...} ::= CLASS {...}
-    %% A parameterized value set and and a parameterized object set
+    %% A parameterized value set and a parameterized object set
     %% cannot be distinguished from each other without type information.
     Flist = [fun parse_ParameterizedTypeAssignment/1,
 	     fun parse_ParameterizedValueSetTypeAssignment/1,

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@
 
 #define IS_MOVED_BOXED(x)	(!is_header((x)))
 #define IS_MOVED_CONS(x)	(is_non_value((x)))
-Eterm* erts_sub_binary_to_heap_binary(Eterm *ptr, Eterm **hpp, Eterm *orig);
 
 ERTS_GLB_INLINE void move_cons(Eterm *ERTS_RESTRICT ptr, Eterm car, Eterm **hpp,
                                Eterm *orig);
@@ -67,28 +66,26 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
     ASSERT(is_header(hdr));
     nelts = header_arity(hdr);
     switch ((hdr) & _HEADER_SUBTAG_MASK) {
-    case SUB_BINARY_SUBTAG:
-        {
-            ErlSubBin *sb = (ErlSubBin *)ptr;
-            /* convert sub-binary to heap-binary if applicable */
-            if (sb->bitsize == 0 && sb->bitoffs == 0 &&
-                sb->is_writable == 0 && sb->size <= sizeof(Eterm) * 3) {
-                return erts_sub_binary_to_heap_binary(ptr, hpp, orig);
-            }
-        }
-        nelts++;
-        break;
     case MAP_SUBTAG:
-        if (is_flatmap_header(hdr)) nelts+=flatmap_get_size(ptr) + 1;
-        else nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
-    break;
-    case FUN_SUBTAG: nelts+=((ErlFunThing*)(ptr))->num_free+1; break;
+        if (is_flatmap_header(hdr)) {
+            nelts += flatmap_get_size(ptr) + 1;
+        } else {
+            nelts += hashmap_bitcount(MAP_HEADER_VAL(hdr));
+        }
+        break;
+    case FUN_SUBTAG:
+        nelts += fun_env_size((ErlFunThing*)(ptr));
+        break;
     }
+
     gval    = make_boxed(htop);
     *orig   = gval;
     *htop++ = hdr;
     *ptr++  = gval;
-    while (nelts--) *htop++ = *ptr++;
+
+    while (nelts--) {
+        *htop++ = *ptr++;
+    }
 
     *hpp = htop;
     return ptr;
@@ -160,7 +157,7 @@ typedef struct {
   Uint64 garbage_cols;
 } ErtsGCInfo;
 
-#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*3 + 1 + MAP_HEADER_FLATMAP_SZ)
+#define ERTS_MAX_HEAP_SIZE_MAP_SZ (2*4 + 1 + MAP_HEADER_FLATMAP_SZ)
 
 #define ERTS_PROCESS_GC_INFO_MAX_TERMS (11)  /* number of elements in process_gc_info*/
 #define ERTS_PROCESS_GC_INFO_MAX_SIZE                                   \
@@ -186,7 +183,7 @@ void erts_offset_off_heap(struct erl_off_heap*, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(struct process* p);
-Eterm erts_max_heap_size_map(Sint, Uint, Eterm **, Uint *);
+Eterm erts_max_heap_size_map(ErtsHeapFactory *factory, Sint, Uint);
 int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
 void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,

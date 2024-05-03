@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(file_io_server).
+-moduledoc false.
 
 %% A simple file server for io to one file instance per server instance.
 
@@ -80,8 +81,8 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 				  Self ! {Ref, ok},
 				  server_loop(
 				    #state{handle    = Handle,
-					   owner     = Owner, 
-					   mref      = M, 
+					   owner     = Owner,
+					   mref      = M,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
 					   unic = UnicodeMode})
@@ -321,11 +322,7 @@ file_request({read_handle_info, Opts},
             {stop,Reason,Reply,State};
         Reply ->
             {reply,Reply,State}
-    end;
-file_request(Unknown, 
-	     #state{}=State) ->
-    Reason = {request, Unknown},
-    {error,{error,Reason},State}.
+    end.
 
 %% Standard reply and clear buffer
 std_reply({error,_}=Reply, State) ->
@@ -675,18 +672,22 @@ get_chars_apply(Mod, Func, XtraArg, S0, OutEnc,
 	error:ErrReason ->
 	   {stop,ErrReason,{error,err_func(Mod, Func, XtraArg)},State}
     end.
-	    
+
 %% A hack that tries to inform the caller about the position where the
 %% error occurred.
-invalid_unicode_error(Mod, Func, XtraArg, S) ->
+invalid_unicode_error(Mod = io_lib, Func = get_until,
+                      XtraArg = {erl_scan,tokens,_Args},
+                      {GetUntilState, S})
+  when is_boolean(GetUntilState) ->
     try
-        {erl_scan,tokens,_Args} = XtraArg,
         Location = erl_scan:continuation_location(S),
         {error,{Location, ?MODULE, invalid_unicode},Location}
     catch
         _:_ ->
             {error,err_func(Mod, Func, XtraArg)}
-    end.
+    end;
+invalid_unicode_error(Mod, Func, XtraArg, _S) ->
+    {error,err_func(Mod, Func, XtraArg)}.
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->

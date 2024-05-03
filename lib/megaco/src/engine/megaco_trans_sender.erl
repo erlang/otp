@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_trans_sender).
+-moduledoc false.
 
 -export([start_link/5, 
 	 stop/1,

@@ -1,0 +1,8 @@
+
+<!ENTITY mindefault "1">
+<!ENTITY maxdefault "10">
+
+<!ELEMENT data (pair)*>
+<!ELEMENT pair (min, max)>
+<!ELEMENT min (#PCDATA)>
+<!ELEMENT max (#PCDATA)>

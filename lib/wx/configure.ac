@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2008-2022. All Rights Reserved.
+dnl Copyright Ericsson AB 2008-2024. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -60,6 +60,11 @@ esac
 
 TARGET=$host
 AC_SUBST(TARGET)
+
+# The resulting binary should be a library, not an executable. Therefore, the
+# various PIE flags are not needed.
+CFLAGS="$(echo $CFLAGS | sed -e 's!-fPIE!!g' -e 's!-fpie!!g')"
+LDFLAGS="$(echo $LDFLAGS | sed -e 's!-fPIE!!' -e 's!-fpie!!' -e 's!-pie!!')"
 
 AC_PROG_CC
 AC_PROG_CXX
@@ -200,13 +205,14 @@ AC_SUBST(GLIB_LIBS)
 AC_SUBST(OBJC_CC)
 AC_SUBST(OBJC_CFLAGS)
 
+EXTRA_LDFLAGS=
+
 case $host_os in
     darwin*)
-	LDFLAGS="$MAC_MIN -bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
-	# Check sizof_void_p as future will hold 64bit MacOS wx
-	if test $ac_cv_sizeof_void_p = 4; then
-	    LDFLAGS="-m32 $LDFLAGS"
-	fi		   
+        # beam.smp has not been built yet, so we must not use the
+        # -bundle_loader option in the configuration tests.
+	LDFLAGS="$MAC_MIN -bundle $LDFLAGS"
+	EXTRA_LDFLAGS=" -bundle_loader ${ERL_TOP}/bin/$host/beam.smp"
 	GL_LIBS="-framework OpenGL"
 	;;
     win32)
@@ -218,7 +224,10 @@ case $host_os in
 	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     *)
-	LDFLAGS="-shared -fPIC $LDFLAGS"
+        # When checking linkage we'd like to see that symbols are resolved.
+        # In order to notice errors, we must test without `-shared`.
+	LDFLAGS="-fPIC $LDFLAGS"
+	EXTRA_LDFLAGS=" -shared "
 	GL_LIBS="-lGL -lGLU"
 	;;
 esac
@@ -666,6 +675,8 @@ saved_LIBS=$LIBS
 
 if test X"$WX_HAVE_STATIC_LIBS" = X"true" ; then
    LIBS=$WX_LIBS_STATIC   
+else
+   LIBS=$WX_LIBS
 fi
 
 AC_LINK_IFELSE([AC_LANG_SOURCE([[
@@ -703,6 +714,8 @@ fi
 
 ]) dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
 
+LDFLAGS="$LDFLAGS$EXTRA_LDFLAGS"
+
 AC_SUBST(WXERL_CAN_BUILD_DRIVER)
 
 AS_IF([test "x$GCC" = xyes],
@@ -711,27 +724,6 @@ AS_IF([test "x$GCC" = xyes],
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
   ])
-
-dnl ----------------------------------------------------------------------
-dnl Enable -fsanitize= flags.
-dnl ----------------------------------------------------------------------
-
-m4_define(DEFAULT_SANITIZERS, [address,undefined])
-AC_ARG_ENABLE(
-    sanitizers,
-    AS_HELP_STRING(
-        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
-	    [Default=DEFAULT_SANITIZERS]),
-[
-case "$enableval" in
-    no) sanitizers= ;;
-    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
-    *) sanitizers="-fsanitize=$enableval" ;;
-esac
-CFLAGS="$CFLAGS $sanitizers"
-CXXFLAGS="$CXXFLAGS $sanitizers"
-LDFLAGS="$LDFLAGS $sanitizers"
-])
 
 #############################################################################
 

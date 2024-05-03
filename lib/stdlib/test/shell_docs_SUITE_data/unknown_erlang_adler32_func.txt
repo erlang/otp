@@ -1,0 +1,21 @@
+
+  [;1m-spec erlang:adler32(Data) -> non_neg_integer() when Data :: iodata().[0m
+
+  Computes and returns the adler32 checksum for [;;4mData[0m.
+
+  [;1m-spec erlang:adler32(OldAdler, Data) -> non_neg_integer()[0m
+  [;1m                        when[0m
+  [;1m                            OldAdler :: non_neg_integer(),[0m
+  [;1m                            Data :: iodata().[0m
+
+  Continues computing the adler32 checksum by combining the previous
+  checksum, [;;4mOldAdler[0m, with the checksum of [;;4mData[0m.
+
+  The following code:
+
+    X = erlang:adler32(Data1),
+    Y = erlang:adler32(X,Data2).
+
+  assigns the same value to [;;4mY[0m as this:
+
+    Y = erlang:adler32([Data1,Data2]).

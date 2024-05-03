@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,12 +120,14 @@
 #endif
 
 /* Descriptor debug */
+/* #define INET_DRV_DEBUG 1 */
 #ifdef INET_DRV_DEBUG
 #define DDBG_DEFAULT TRUE
 #else
 #define DDBG_DEFAULT FALSE
 #endif
-#define DDBG(__D__, __ARG__) if ( (__D__)->debug ) erts_printf __ARG__
+#define DDBG(__D__, __ARG__)                                    \
+    do if ( (__D__)->debug ) { erts_printf __ARG__ ; } while (0)
 
 #define B2S(__B__)   ((__B__) ? "true" : "false")
 #define SH2S(__H__)  (((__H__) == TCP_SHUT_WR) ? "write" :          \
@@ -575,7 +577,6 @@ static int (*p_sctp_connectx)
 #endif
 #include "sys.h"
 
-/* #define INET_DRV_DEBUG 1 */
 #ifdef INET_DRV_DEBUG
 #define DEBUG 1
 #undef  DEBUGF
@@ -862,6 +863,9 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define UDP_OPT_ADD_MEMBERSHIP 14 /* add an IP group membership */
 #define UDP_OPT_DROP_MEMBERSHIP 15 /* drop an IP group membership */
 #define INET_OPT_IPV6_V6ONLY 16 /* IPv6 only socket, no mapped v4 addrs */
+#define INET_OPT_REUSEPORT   17 /* enable/disable local port reuse */
+#define INET_OPT_REUSEPORT_LB 18 /* enable/disable local port reuse */
+#define INET_OPT_EXCLUSIVEADDRUSE 19 /* windows specific exclusive addr */
 /* LOPT is local options */
 #define INET_LOPT_BUFFER      20  /* min buffer size hint */
 #define INET_LOPT_HEADER      21  /* list header size */
@@ -1114,6 +1118,11 @@ typedef union {
      (1 + 2 + 4) : localaddrlen(data))
 #endif
 
+typedef struct {
+    ErlDrvSizeT  tag_len;
+    char        *tag_buf;
+} CallerRef;
+
 typedef int (MultiTimerFunction)(ErlDrvData drv_data, ErlDrvTermData caller);
 
 typedef struct _multi_timer_data {
@@ -1184,10 +1193,13 @@ typedef struct {
 				   (affect how to interpret hsz) */
     int   exitf;                /* exit port on close or not */
     int   deliver;              /* Delivery mode, TERM or PORT */
+#ifdef __WIN32__
+    /* placed here in order to not consume more memory in 64-bit case... */
+    int bsd_compat;             /* State for Windows compatibility with BSD */
+#endif
 
-    ErlDrvTermData caller;      /* recipient of sync reply */
-    ErlDrvTermData busy_caller; /* recipient of sync reply when caller busy.
-				 * Only valid while INET_F_BUSY. */
+    ErlDrvTermData  caller;     /* recipient of sync reply */
+    CallerRef       caller_ref;
 
     inet_async_op* oph;          /* queue head or NULL */
     inet_async_op* opt;          /* queue tail or NULL */
@@ -1326,6 +1338,7 @@ static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
 static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
 static void       packet_inet_drv_input(ErlDrvData data, ErlDrvEvent event);
+static void       packet_inet_drv_output(ErlDrvData data, ErlDrvEvent event);
 static ErlDrvData udp_inet_start(ErlDrvPort, char* command);
 #ifdef HAVE_SCTP
 static ErlDrvData sctp_inet_start(ErlDrvPort, char* command);
@@ -1347,10 +1360,10 @@ static struct erl_drv_entry udp_inet_driver_entry =
     packet_inet_command,
 #ifdef __WIN32__
     packet_inet_event,
-    NULL, 
+    NULL,
 #else
     packet_inet_drv_input,
-    NULL,
+    packet_inet_drv_output,
 #endif
     "udp_inet",
     NULL,
@@ -1382,10 +1395,10 @@ static struct erl_drv_entry sctp_inet_driver_entry =
     packet_inet_command,
 #ifdef __WIN32__
     packet_inet_event,
-    NULL, 
+    NULL,
 #else
     packet_inet_drv_input,
-    NULL,
+    packet_inet_drv_output,
 #endif
     "sctp_inet",
     NULL,
@@ -1536,6 +1549,9 @@ static ErlDrvTermData am_linger;
 static ErlDrvTermData am_recbuf;
 static ErlDrvTermData am_sndbuf;
 static ErlDrvTermData am_reuseaddr;
+static ErlDrvTermData am_reuseport;
+static ErlDrvTermData am_reuseport_lb;
+static ErlDrvTermData am_exclusiveaddruse;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_recvtos;
@@ -1720,6 +1736,100 @@ static void *realloc_wrapper(void *current, ErlDrvSizeT size){
   (((vec)[(i)] = ERL_DRV_LIST), \
   ((vec)[(i)+1] = (size)), \
   ((i)+LOAD_LIST_CNT))
+
+#define LOAD_EXT_CNT 3
+#define LOAD_EXT(vec, i, buf, len) \
+  (((vec)[(i)] = ERL_DRV_EXT2TERM), \
+  ((vec)[(i)+1] = (ErlDrvTermData)(buf)), \
+  ((vec)[(i)+2] = (len)), \
+  ((i)+LOAD_EXT_CNT))
+
+
+static void iov_memmove(char *buf, SysIOVec **iov_pp, ErlDrvSizeT size) {
+    int i;
+    for (i = 0;  size != 0;  i++) {
+        if ((*iov_pp)[i].iov_len < size) {
+            if ((*iov_pp)[i].iov_len == 0) continue;
+            sys_memcpy(buf, (*iov_pp)[i].iov_base, (*iov_pp)[i].iov_len);
+            buf += (*iov_pp)[i].iov_len;
+            size -= (*iov_pp)[i].iov_len;
+            (*iov_pp)[i].iov_base =
+                (char*)((*iov_pp)[i].iov_base) + (*iov_pp)[i].iov_len;
+            (*iov_pp)[i].iov_len = 0;
+        }
+        else {
+            sys_memcpy(buf, (*iov_pp)[i].iov_base, size);
+            (*iov_pp)[i].iov_base = (char*)((*iov_pp)[i].iov_base) + size;
+            (*iov_pp)[i].iov_len -= size;
+            break;
+        }
+    }
+}
+
+/* Returns TRUE on success, FALSE on failure */
+static int init_caller_iov(ErlDrvTermData *caller_p,
+                           CallerRef      *cref_p,
+                           ErlDrvPort      port,
+                           SysIOVec      **iov_pp,
+                           ErlDrvSizeT    *size_p) {
+    ErlDrvTermData  caller;
+    char            buf[2];
+    ErlDrvUInt      n;
+    /**/
+    caller = driver_caller(port);
+    if (is_not_internal_pid(caller)) {
+        return TRUE;
+    }
+    *caller_p = caller;
+    if (*size_p < 2) return FALSE;
+    iov_memmove(buf, iov_pp, 2);
+    *size_p -= 2;
+    n = get_int16(buf);
+    if (*size_p < n) return FALSE;
+    cref_p->tag_buf = ALLOC(n);
+    iov_memmove(cref_p->tag_buf, iov_pp, n);
+    *size_p -= n;
+    cref_p->tag_len = n;
+    return TRUE;
+}
+
+/* Returns TRUE on success, FALSE on failure */
+static int init_caller(ErlDrvTermData *caller_p,
+                       CallerRef      *cref_p,
+                       ErlDrvPort      port,
+                       char          **buf_p,
+                       ErlDrvSizeT    *size_p) {
+    ErlDrvTermData  caller;
+    ErlDrvUInt      n;
+    /**/
+    caller = driver_caller(port);
+    if (is_not_internal_pid(caller)) {
+        return TRUE;
+    }
+    *caller_p = caller;
+    if (*size_p < 2) return FALSE;
+    n = get_int16(*buf_p);
+    *buf_p += 2;
+    *size_p -= 2;
+    if (*size_p < n) return FALSE;
+    cref_p->tag_buf = ALLOC(n);
+    sys_memcpy(cref_p->tag_buf, *buf_p, n);
+    *buf_p += n;
+    *size_p -= n;
+    cref_p->tag_len = n;
+    return TRUE;
+}
+
+static CallerRef no_caller_ref(void) {
+    CallerRef ret = {0, NULL};
+    return ret;
+}
+
+static void end_caller_ref(CallerRef *cref_p) {
+    if (cref_p->tag_buf != NULL) FREE(cref_p->tag_buf);
+    *cref_p = no_caller_ref();
+}
+
 
 
 #ifdef HAVE_SCTP
@@ -2456,35 +2566,94 @@ static int async_error(inet_descriptor* desc, int err)
     return async_error_am(desc, error_atom(err));
 }
 
-/* send:
-**   {inet_reply, S, ok} 
-*/
 
-static int inet_reply_ok(inet_descriptor* desc)
+/* Maybe append the caller tag then send to caller */
+static int
+inet_reply_finish(inet_descriptor *desc, ErlDrvTermData *spec, int i) {
+    int          ret;
+    ErlDrvSizeT  tuple_size;
+    CallerRef   *cref_p;
+    /**/
+    ret = 0;
+    cref_p = &desc->caller_ref;
+    if (i == 0) goto done;
+    if (cref_p->tag_buf != NULL) {
+        tuple_size = spec[i - 1];
+        i = LOAD_EXT(spec, i - LOAD_TUPLE_CNT,
+                     cref_p->tag_buf, cref_p->tag_len);
+        i = LOAD_TUPLE(spec, i, tuple_size + 1);
+    }
+    ret = erl_drv_send_term(desc->dport, desc->caller, spec, i);
+ done:
+    desc->caller = am_undefined;
+    end_caller_ref(cref_p);
+    return ret;
+}
+
+/* send:
+**   {inet_reply, S, CallerTag}
+*/
+static int inet_reply_caller_ref(inet_descriptor* desc)
 {
-    ErlDrvTermData spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_TUPLE_CNT];
-    ErlDrvTermData caller = desc->caller;
+    ErlDrvTermData
+        spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_TUPLE_CNT +
+             LOAD_EXT_CNT];
+    CallerRef *cref_p = &desc->caller_ref;
     int i = 0;
-    
-    desc->caller = 0;
-    if (is_not_internal_pid(caller))
-        return 0;
+
+    if (is_not_internal_pid(desc->caller)) return 0; /* XXX what value for error? */
+    i = LOAD_ATOM(spec, i, am_inet_reply);
+    i = LOAD_PORT(spec, i, desc->dport);
+    if (cref_p->tag_buf != NULL) {
+        i = LOAD_EXT(spec, i, cref_p->tag_buf, cref_p->tag_len);
+    }
+    else {
+        i = LOAD_ATOM(spec, i, am_undefined);
+    }
+    i = LOAD_TUPLE(spec, i, 3);
+
+    ASSERT(sizeof(spec)/sizeof(*spec) >= i);
+    return erl_drv_send_term(desc->dport, desc->caller, spec, i);
+}
+
+/* send:
+**   {inet_reply, S, Atom[, CallerTag]}
+*/
+static int inet_reply_am(inet_descriptor* desc, ErlDrvTermData am)
+{
+    ErlDrvTermData
+        spec[2*LOAD_ATOM_CNT + LOAD_PORT_CNT + LOAD_TUPLE_CNT +
+             LOAD_EXT_CNT];
+    int i = 0;
+
+    if (is_not_internal_pid(desc->caller)) goto done;
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
-    i = LOAD_ATOM(spec, i, am_ok);
+    i = LOAD_ATOM(spec, i, am);
     i = LOAD_TUPLE(spec, i, 3);
-    ASSERT(i == sizeof(spec)/sizeof(*spec));
-    
-    return erl_drv_send_term(desc->dport, caller, spec, i);    
+    ASSERT(i == sizeof(spec)/sizeof(*spec) - LOAD_EXT_CNT);
+ done:
+    return inet_reply_finish(desc, spec, i);
+}
+
+/* send:
+**   {inet_reply, S, ok[, CallerTag]}
+*/
+static int inet_reply_ok(inet_descriptor* desc)
+{
+    return inet_reply_am(desc, am_ok);
 }
 
 #ifdef HAVE_SCTP
 static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
 {
-    ErlDrvTermData spec[2*LOAD_ATOM_CNT + 2*LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT];
-    ErlDrvTermData caller = desc->caller;
+    ErlDrvTermData
+        spec[2*LOAD_ATOM_CNT + 2*LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT +
+             LOAD_EXT_CNT];
     int i = 0;
+
+    if (is_not_internal_pid(desc->caller)) goto done;
 
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
@@ -2492,37 +2661,40 @@ static int inet_reply_ok_port(inet_descriptor* desc, ErlDrvTermData dport)
     i = LOAD_PORT(spec, i, dport);
     i = LOAD_TUPLE(spec, i, 2);
     i = LOAD_TUPLE(spec, i, 3);
-    ASSERT(i == sizeof(spec)/sizeof(*spec));
-
-    desc->caller = 0;
-    return erl_drv_send_term(desc->dport, caller, spec, i);
+    ASSERT(i == sizeof(spec)/sizeof(*spec) - LOAD_EXT_CNT);
+ done:
+    return inet_reply_finish(desc, spec, i);
 }
 #endif
 
 /* send:
-**   {inet_reply, S, {error, Reason}} 
+**   {inet_reply, S, {error, Reason}[, CallerTag]}
 */
 static int inet_reply_error_am(inet_descriptor* desc, ErlDrvTermData reason)
 {
-    ErlDrvTermData spec[3*LOAD_ATOM_CNT + LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT];
-    ErlDrvTermData caller = desc->caller;
+    ErlDrvTermData
+        spec[3*LOAD_ATOM_CNT + LOAD_PORT_CNT + 2*LOAD_TUPLE_CNT +
+             LOAD_EXT_CNT];
     int i = 0;
-    
+
+    if (is_not_internal_pid(desc->caller)) goto done;
+
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
     i = LOAD_ATOM(spec, i, am_error);
     i = LOAD_ATOM(spec, i, reason);
     i = LOAD_TUPLE(spec, i, 2);
     i = LOAD_TUPLE(spec, i, 3);
-    ASSERT(i == sizeof(spec)/sizeof(*spec));
-    desc->caller = 0;
-    
-    DEBUGF(("inet_reply_error_am %ld %ld\r\n", caller, reason));
-    return erl_drv_send_term(desc->dport, caller, spec, i);
+    ASSERT(i == sizeof(spec)/sizeof(*spec) - LOAD_EXT_CNT);
+
+    DEBUGF(("inet_reply_error_am %ld %ld\r\n",
+            desc->caller, reason));
+ done:
+    return inet_reply_finish(desc, spec, i);
 }
 
 /* send:
-**   {inet_reply, S, {error, Reason}} 
+**   {inet_reply, S, {error, Reason}[, CallerTag]}
 */
 static int inet_reply_error(inet_descriptor* desc, int err)
 {
@@ -2596,7 +2768,7 @@ static int http_response_inetdrv(void *arg, int major, int minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[27];
-    ErlDrvTermData caller = ERL_DRV_NIL;
+    ErlDrvTermData caller = am_undefined;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_response,Version,Status,Phrase}}} */
@@ -2689,7 +2861,7 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[43];
-    ErlDrvTermData caller = ERL_DRV_NIL;
+    ErlDrvTermData caller = am_undefined;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async, S, Ref, {ok,{http_request,Meth,Uri,Version}}} */
@@ -2742,7 +2914,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[27];
-    ErlDrvTermData caller = ERL_DRV_NIL;
+    ErlDrvTermData caller = am_undefined;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,Oname,Value}} */
@@ -2871,7 +3043,7 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[30];
-    ErlDrvTermData caller = ERL_DRV_NIL;
+    ErlDrvTermData caller = am_undefined;
     ErlDrvBinary* bin;
     int ret;
 
@@ -2966,7 +3138,7 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
 	i = LOAD_TUPLE(spec, i, 2);
 	i = LOAD_TUPLE(spec, i, 4);
 	ASSERT(i == 15);
-	desc->caller = 0;
+	/* desc->caller = am_undefined; XXX */
 	return erl_drv_send_term(desc->dport, caller, spec, i);
     }
     else {
@@ -2980,7 +3152,7 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
 	i = LOAD_TUPLE(spec, i, 2);
 	i = LOAD_TUPLE(spec, i, 4);
 	ASSERT(i <= 20);
-	desc->caller = 0;
+	/* desc->caller = am_undefined; XXX */
 	code = erl_drv_send_term(desc->dport, caller, spec, i);
 	return code;
     }
@@ -3638,7 +3810,7 @@ inet_async_binary_data
 {
     unsigned int hsz = desc->hsz + phsz;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
-    ErlDrvTermData caller = desc->caller;
+    ErlDrvTermData caller;
     int aid;
     int req;
     int i = 0;
@@ -3739,8 +3911,9 @@ inet_async_binary_data
     /* Close up the outer {inet_async, S, Ref, {ok|error, ...}} tuple: */
     i = LOAD_TUPLE(spec, i, 4);
 
-    ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);    
-    desc->caller = 0;
+    ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);
+    desc->caller = am_undefined;
+    end_caller_ref(&desc->caller_ref);
     return erl_drv_send_term(desc->dport, caller, spec, i);
 }
 
@@ -4171,6 +4344,9 @@ static void inet_init_sctp(void) {
     INIT_ATOM(recbuf);
     INIT_ATOM(sndbuf);
     INIT_ATOM(reuseaddr);
+    INIT_ATOM(reuseport);
+    INIT_ATOM(reuseport_lb);
+    INIT_ATOM(exclusiveaddruse);
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
     INIT_ATOM(recvtos);
@@ -4280,7 +4456,7 @@ static void inet_init_sctp(void) {
 }
 #endif /* HAVE_SCTP */
 
-static int inet_init()
+static int inet_init(void)
 {
     if (!sock_init())
 	goto error;
@@ -6584,8 +6760,6 @@ int inet_setopt(int fd,
     return res;
 }
 
-
-
 /* set socket options:
 ** return -1 on error
 **         0 if ok
@@ -6634,6 +6808,10 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
     while(len >= 5) {
         int recv_cmsgflags;
+#ifdef __WIN32__
+        int bsd_compat_set = 0;
+        int bsd_compat_unset = 0;
+#endif
 
 	opt = *ptr++;
 	ival = get_int32(ptr);
@@ -6913,41 +7091,82 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->delimiter = (char)ival;
 	    continue;
 
-	case INET_OPT_REUSEADDR:
+        case INET_OPT_EXCLUSIVEADDRUSE:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(exclusiveaddruse) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 #ifdef __WIN32__
-            /* The behaviour changed in Windows Server 2003.
-             * Now it works as the combo of `SO_REUSEADDR` and 
-             * `SO_REUSEPORT` does on *BSD.
-             */
-            if (desc->stype != SOCK_DGRAM) {
-                /*
-                 * We refuse usage of SO_REUSEADDR on non-UDP sockets since it
-                 * mostly (perhaps only) opens up for socket collisions and
-                 * probably hasn't got any useful use-cases. There are useful
-                 * use-cases for multicast sockets, though. For more
-                 * information see:
-                 *   https://learn.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
-                 *
-                 * Prior to OTP 25 we also refused to use SO_REUSEADDR on any
-                 * sockets on Windows. See
-                 * 2a6ac6f3f027fcab6d607599e82714e930d9fde2
-                 *
-                 * We certainly do not want to use it for the Erlang
-                 * distribution TCP sockets since we can end up reusing our
-                 * own active sockets as demonstrated in the issue:
-                 *   https://github.com/erlang/otp/issues/6461
-                 *
-                 * We probably want to expose the Windows specific
-                 * SO_EXCLUSIVEADDRUSE in the API as well...
-                 */
-                continue;
-            }
+            type = SO_EXCLUSIVEADDRUSE;
+#else
+            continue;
 #endif
-            type = SO_REUSEADDR;
+            break;
+
+        case INET_OPT_REUSEPORT_LB:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(reuseport_lb) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#if defined(__WIN32__)
+            continue;
+#elif defined(__linux__) && defined(SO_REUSEPORT)
+            /* SO_REUSEPORT is load balancing on linux */
+            type = SO_REUSEPORT;
+            break;
+#elif defined(SO_REUSEPORT_LB)
+            type = SO_REUSEPORT_LB;
+            break;
+#else
+            continue;
+#endif
+
+        case INET_OPT_REUSEPORT:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(reuseport) -> %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#if defined(__WIN32__)
+            /* fall through to INET_OPT_REUSEADDR */
+#elif defined(SO_REUSEPORT)
+            type = SO_REUSEPORT;
+            break;
+#else
+            continue;
+#endif
+
+	case INET_OPT_REUSEADDR:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(reuseaddr) -> %s\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
+#ifdef __WIN32__
+            {
+                int old_ra, new_ra, compat, ra_bits, opt_bit;
+                /*
+                 * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
+                 * 'reuseport' has been passed as options, since SO_REUSEADDR
+                 * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
+                 */
+                ra_bits = (1<<INET_OPT_REUSEADDR) | (1<<INET_OPT_REUSEPORT);
+                opt_bit = (1<<opt);
+                compat = desc->bsd_compat;
+                old_ra = (compat & ra_bits) == ra_bits;
+                if (ival) {
+                    bsd_compat_set = opt_bit;
+                    compat |= opt_bit;
+                }
+                else {
+                    bsd_compat_unset = opt_bit;
+                    compat &= ~opt_bit;
+                }
+                new_ra = (compat & ra_bits) == ra_bits;
+                desc->bsd_compat = compat;
+                if (old_ra == new_ra)
+                    continue;
+            }
+#endif
+            type = SO_REUSEADDR;
 	    break;
 
 	case INET_OPT_KEEPALIVE: type = SO_KEEPALIVE;
@@ -6978,7 +7197,8 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                   __LINE__, desc->s, driver_caller(desc->port), B2S(ival)) );
 	    break;
 
-	case INET_OPT_SNDBUF:    type = SO_SNDBUF;             DDBG(desc,
+	case INET_OPT_SNDBUF:    type = SO_SNDBUF;
+            DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "inet_set_opts(sndbuf) -> %d\r\n",
                   __LINE__, desc->s, driver_caller(desc->port), ival) );
@@ -7227,7 +7447,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
             else if (ival == INET_AF_INET6) {
                 proto = IPPROTO_IPV6;
 #if defined(INET_ADD_MEMBERSHIP)
-                type  = INET_DROP_MEMBERSHIP;
+                type  = INET_ADD_MEMBERSHIP;
 #else
                 return -1;
 #endif
@@ -7297,7 +7517,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
                           "inet_set_opts(L_init_mreq,inet) -> mreqn\r\n",
                           __LINE__, desc->s, driver_caller(desc->port)));
 
-                    mreq4.imr_ifindex          = sock_htonl(ival);
+                    mreq4.imr_ifindex          = ival;
                     ival = get_int32(ptr);
                     ptr += 4;
                     len -= 4;
@@ -7493,9 +7713,18 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
               "inet_set_opts -> set opt result: %d\r\n",
 	      __LINE__, desc->s, driver_caller(desc->port), res) );
 
-        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
-	if (propagate && res != 0) {
-	    return -1;
+        if (res == 0) {
+            desc->recv_cmsgflags = recv_cmsgflags;
+        }
+        else {
+#ifdef __WIN32__
+            if (bsd_compat_set)
+                desc->bsd_compat &= ~bsd_compat_set;
+            if (bsd_compat_unset)
+                desc->bsd_compat |= bsd_compat_unset;
+#endif
+            if (propagate)
+                return -1;
 	}
     }
 
@@ -7639,6 +7868,10 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
         int recv_cmsgflags;
 	/* Get the Erlang-encoded option type -- always 1 byte: */
 	int eopt;
+#ifdef __WIN32__
+        int bsd_compat_set = 0;
+        int bsd_compat_unset = 0;
+#endif
 
         eopt = *curr;
 	curr++;
@@ -7882,13 +8115,99 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	    break;
 	}
+
+        case INET_OPT_EXCLUSIVEADDRUSE:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> EXCLUSIVEADDRUSE\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#ifdef __WIN32__
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+	    type    = SO_EXCLUSIVEADDRUSE;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+
+	case INET_OPT_REUSEPORT_LB:
+	{
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> REUSEPORT_LB\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#if defined(__WIN32__)
+            continue;
+#elif defined(SO_REUSEPORT_LB) || (defined(__linux__) && defined(SO_REUSEPORT))
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+#if defined(__linux__)
+            /* SO_REUSEPORT is load balancing on linux */
+	    type    = SO_REUSEPORT;
+#else
+	    type    = SO_REUSEPORT_LB;
+#endif
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+	}
+
+	case INET_OPT_REUSEPORT:
+	{
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_set_opts -> REUSEPORT\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port)) );
+#if defined(__WIN32__)
+            /* fall through to INET_OPT_REUSEADDR */
+#elif defined(SO_REUSEPORT)
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_SOCKET;
+	    type    = SO_REUSEPORT;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+#else
+            continue;
+#endif
+	}
 	case INET_OPT_REUSEADDR:
 	{
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "sctp_set_opts -> REUSEADDR\r\n",
                   __LINE__, desc->s, driver_caller(desc->port)) );
-
+#ifdef __WIN32__
+            {
+                int old_ra, new_ra, compat, ra_bits, opt_bit;
+                /*
+                 * We only set SO_REUSEADDR on Windows if both 'reuseaddr' and
+                 * 'reuseport' has been passed as options, since SO_REUSEADDR
+                 * on Windows behaves like SO_REUSEADDR|SO_REUSEPORT does on BSD.
+                 */
+                ra_bits = (1<<INET_OPT_REUSEADDR) | (1<<INET_OPT_REUSEPORT);
+                opt_bit = (1<<opt);
+                compat = desc->bsd_compat;
+                old_ra = (compat & ra_bits) == ra_bits;
+                if (ival) {
+                    bsd_compat_set = opt_bit;
+                    compat |= opt_bit;
+                }
+                else {
+                    bsd_compat_unset = opt_bit;
+                    compat &= ~opt_bit;
+                }
+                new_ra = (compat & ra_bits) == ra_bits;
+                desc->bsd_compat = compat;
+                if (old_ra == new_ra)
+                    continue;
+            }
+#endif
 	    arg.ival= get_int32 (curr);	  curr += 4;
 	    proto   = SOL_SOCKET;
 	    type    = SO_REUSEADDR;
@@ -8421,7 +8740,17 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	/* The return values of "sock_setopt" can only be 0 or -1: */
 	ASSERT(res == 0 || res == -1);
-        if (res == 0) desc->recv_cmsgflags = recv_cmsgflags;
+        if (res == 0) {
+            desc->recv_cmsgflags = recv_cmsgflags;
+        }
+#ifdef __WIN32__
+        else {
+            if (bsd_compat_set)
+                desc->bsd_compat &= ~bsd_compat_set;
+            if (bsd_compat_unset)
+                desc->bsd_compat |= bsd_compat_unset;
+        }
+#endif
 	if (res == -1)
 	{  /* Got an error, DO NOT continue with other options. However, on
 	      Solaris 10, we DO allow SO_SNDBUF and SO_RCVBUF to fail, assu-
@@ -8770,9 +9099,55 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 #endif
-	case INET_OPT_REUSEADDR: 
-	    type = SO_REUSEADDR; 
+	case INET_OPT_REUSEADDR: {
+#if defined(__WIN32__)
+            int res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEADDR));
+	    *ptr++ = opt;
+	    put_int32(res, ptr);
+            continue;
+#else
+	    type = SO_REUSEADDR;
+#endif
 	    break;
+        }
+	case INET_OPT_REUSEPORT_LB: {
+#if defined(__linux__) && defined(SO_REUSEPORT)
+            /* SO_REUSEPORT is load balancing on linux */
+	    type = SO_REUSEPORT;
+	    break;
+#elif defined(SO_REUSEPORT_LB)
+	    type = SO_REUSEPORT_LB;
+	    break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
+        }
+	case INET_OPT_REUSEPORT: {
+#if defined(__WIN32__)
+            int res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEPORT));
+	    *ptr++ = opt;
+	    put_int32(res, ptr);
+            continue;
+#elif defined(SO_REUSEPORT)
+	    type = SO_REUSEPORT;
+	    break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
+        }
+        case INET_OPT_EXCLUSIVEADDRUSE:
+#ifdef __WIN32__
+            type = SO_EXCLUSIVEADDRUSE;
+            break;
+#else
+	    *ptr++ = opt;
+	    put_int32(0, ptr);
+	    continue;
+#endif
 	case INET_OPT_KEEPALIVE: 
 	    type = SO_KEEPALIVE; 
 	    break;
@@ -8819,8 +9194,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 
 	case UDP_OPT_MULTICAST_IF:
             {
-                int          mif   = 0;
-                unsigned int mifSz = sizeof(mif);
+                int            mif   = 0;
+                unsigned int   mifSz = sizeof(mif);
 
                 *ptr++ = opt;
                 /* We use up the 4 (value) places for the domain/family
@@ -8841,7 +9216,8 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
                 }
                 if (IS_SOCKET_ERROR(sock_getopt(desc->s,
                                                 proto, type,
-                                                &mif, &mifSz))) {
+                                                (void *) &mif,
+                                                (void *) &mifSz))) {
                     TRUNCATE_TO(0,ptr);
                     continue;
                 }
@@ -9351,7 +9727,6 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	/* The following options just return an integer value: */
 	case INET_OPT_RCVBUF   :
 	case INET_OPT_SNDBUF   :
-	case INET_OPT_REUSEADDR:
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
@@ -9361,6 +9736,10 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
 	/* The following options return true or false:	       */
+	case INET_OPT_REUSEADDR:
+	case INET_OPT_REUSEPORT:
+	case INET_OPT_REUSEPORT_LB:
+        case INET_OPT_EXCLUSIVEADDRUSE:
 	case SCTP_OPT_NODELAY  :
 	case SCTP_OPT_DISABLE_FRAGMENTS:
 	case SCTP_OPT_I_WANT_MAPPED_V4_ADDR:
@@ -9391,13 +9770,66 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		tag    = am_sndbuf;
 		break;
 	    }
+	    case INET_OPT_EXCLUSIVEADDRUSE:
+	    {
+#if defined(__WIN32__)
+		proto  = SOL_SOCKET;
+		type   = SO_EXCLUSIVEADDRUSE;
+		is_int = 0;
+		tag    = am_exclusiveaddruse;
+		break;
+#else
+                continue;
+#endif
+	    }
+	    case INET_OPT_REUSEPORT_LB:
+	    {
+#if defined(SO_REUSEPORT_LB) || (defined(__linux__) && defined(SO_REUSEPORT))
+		proto  = SOL_SOCKET;
+#if defined(__linux__)
+                /* SO_REUSEPORT is load balancing on linux */
+		type   = SO_REUSEPORT;
+#else
+                type   = SO_REUSEPORT_LB;
+#endif
+		is_int = 0;
+		tag    = am_reuseport_lb;
+		break;
+#else
+                continue;
+#endif
+	    }
+	    case INET_OPT_REUSEPORT:
+	    {
+#if defined(__WIN32__)
+                res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEPORT));
+		is_int = 0;
+		tag    = am_reuseaddr;
+                goto form_result;
+#elif defined(SO_REUSEPORT)
+		proto  = SOL_SOCKET;
+		type   = SO_REUSEPORT;
+		is_int = 0;
+		tag    = am_reuseport;
+		break;
+#else
+                continue;
+#endif
+	    }
 	    case INET_OPT_REUSEADDR:
 	    {
+#if defined(__WIN32__)
+                res = !!(desc->bsd_compat & (1<<INET_OPT_REUSEADDR));
+		is_int = 0;
+		tag    = am_reuseaddr;
+                goto form_result;
+#else
 		proto  = SOL_SOCKET;
 		type   = SO_REUSEADDR;
 		is_int = 0;
 		tag    = am_reuseaddr;
 		break;
+#endif
 	    }
 	    case INET_OPT_DONTROUTE:
 	    {
@@ -9556,6 +9988,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    }
 	    if (sock_getopt (desc->s, proto, type, &res, &sz) < 0) continue;
 	    /* Form the result: */
+#ifdef __WIN32__
+form_result:
+#endif
 	    PLACE_FOR(spec, i, LOAD_ATOM_CNT + 
 		      (is_int ? LOAD_INT_CNT : LOAD_BOOL_CNT) +
 		      LOAD_TUPLE_CNT);
@@ -10144,6 +10579,9 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->opt = NULL;
     desc->op_ref = 0;
 
+    desc->caller     = am_undefined;
+    desc->caller_ref = no_caller_ref();
+
     desc->peer_ptr = NULL;
     desc->name_ptr = NULL;
 
@@ -10193,6 +10631,8 @@ which is always 255 across all platforms */
 static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 			     ErlDrvSizeT len, char** rbuf, ErlDrvSizeT rsize)
 {
+    int save_errno = 0;
+
     switch (cmd) {
 
     case INET_REQ_GETSTAT: {
@@ -10627,8 +11067,19 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	     (desc->sfamily, &local, &buf, &len)) != NULL)
 	    return ctl_xerror(xerror, rbuf, rsize);
 
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][%d,%T] inet_ctl -> try bind\r\n",
+              __LINE__, desc->s, driver_caller(desc->port)) );
+
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len))) {
-	    return ctl_error(sock_errno(), rbuf, rsize);
+
+            save_errno = sock_errno();
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][%d,%T] inet_ctl -> bind failed: %d\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port), save_errno) );
+
+	    return ctl_error(save_errno, rbuf, rsize);
         }
 
 	desc->state = INET_STATE_OPEN;
@@ -11331,7 +11782,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	if (desc->inet.state == INET_STATE_ACCEPTING) {
 	    unsigned long time_left = 0;
 	    int oid = 0;
-	    ErlDrvTermData ocaller = ERL_DRV_NIL;
+	    ErlDrvTermData ocaller = am_undefined;
 	    int oreq = 0;
 	    unsigned otimeout = 0;
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
@@ -11395,17 +11846,17 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 		    return ctl_error(sock_errno(), rbuf, rsize);
 		}
 	    } else {
-		ErlDrvTermData caller = driver_caller(desc->inet.port);
+		ErlDrvTermData owner = driver_caller(desc->inet.port);
 		tcp_descriptor* accept_desc;
 		int err;
 
-		if ((accept_desc = tcp_inet_copy(desc,s,caller,&err)) == NULL) {
+		if ((accept_desc = tcp_inet_copy(desc,s,owner,&err)) == NULL) {
 		    sock_close(s);
 		    return ctl_error(err, rbuf, rsize);
 		}
 		/* FIXME: may MUST lock access_port 
 		 * 1 - Port is accessible via the erlang:ports()
-		 * 2 - Port is accessible via callers process_info(links)
+		 * 2 - Port is accessible via owners process_info(links)
 		 */
 		accept_desc->inet.remote = remote;
 		SET_NONBLOCKING(accept_desc->inet.s);
@@ -11477,7 +11928,7 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 		async_error_am(INETP(desc), am_timeout);
 	    else {
 		if (timeout != INET_INFINITY)
-                    add_multi_timer(desc, INETP(desc)->port, 0,
+                    add_multi_timer(desc, INETP(desc)->port, am_undefined,
                                     timeout, &tcp_inet_recv_timeout);
 		if (!INET_IGNORED(INETP(desc)))
 		    sock_select(INETP(desc),(FD_READ|FD_CLOSE),1);
@@ -11596,8 +12047,6 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
         desc->sendfile.ioq_skip = driver_sizeq(desc->inet.port);
         desc->sendfile.bytes_sent = 0;
-
-        desc->inet.caller = driver_caller(desc->inet.port);
         desc->tcp_add_flags |= TCP_ADDF_SENDFILE;
 
         /* See if we can finish sending without selecting & rescheduling. */
@@ -11628,7 +12077,6 @@ static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
     tcp_descriptor* desc = (tcp_descriptor*)e;
     ASSERT(IS_BUSY(INETP(desc)));
     ASSERT(desc->busy_on_send);
-    desc->inet.caller = desc->inet.busy_caller;
     desc->inet.state &= ~INET_F_BUSY;
     desc->busy_on_send = 0;
     set_busy_port(desc->inet.port, 0);
@@ -11717,42 +12165,54 @@ static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)
 
 static void tcp_inet_command(ErlDrvData e, char *buf, ErlDrvSizeT len)
 {
-    tcp_descriptor* desc   = (tcp_descriptor*)e;
-    ErlDrvTermData  caller = driver_caller(desc->inet.port);
+    tcp_descriptor  *desc    = (tcp_descriptor*)e;
+    inet_descriptor *inetp   = INETP(desc);
 
-    desc->inet.caller = caller;
+    if (! init_caller(&inetp->caller, &inetp->caller_ref,
+                      inetp->port, &buf, &len)) {
+        driver_failure_posix(inetp->port, EINVAL);
+	return;
+    }
 
-    DDBG(INETP(desc),
+    DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_command -> entry\r\n",
-          __LINE__, desc->inet.s, caller) );
+          __LINE__, inetp->s, inetp->caller) );
 
-    if (!IS_CONNECTED(INETP(desc)))
-	inet_reply_error(INETP(desc), ENOTCONN);
+    if (!IS_CONNECTED(inetp))
+	inet_reply_error(inetp, ENOTCONN);
     else if (tcp_send(desc, buf, len) == 0)
-	inet_reply_ok(INETP(desc));
+	inet_reply_ok(inetp);
 
-    DDBG(INETP(desc),
+    DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_command -> done\r\n",
-          __LINE__, desc->inet.s, caller) );
+          __LINE__, inetp->s, inetp->caller) );
 
 }
 
-static void tcp_inet_commandv(ErlDrvData e, ErlIOVec* ev)
+static void tcp_inet_commandv(ErlDrvData e, ErlIOVec *ev)
 {
-    tcp_descriptor* desc   = (tcp_descriptor*)e;
-    ErlDrvTermData  caller = driver_caller(desc->inet.port);
+    tcp_descriptor  *desc    = (tcp_descriptor*)e;
+    inet_descriptor *inetp   = INETP(desc);
+#ifdef INET_DRV_DEBUG
+    ErlDrvTermData   caller;
+#endif
 
-    desc->inet.caller = caller;
+    if (! init_caller_iov(&inetp->caller, &inetp->caller_ref,
+                          inetp->port, &ev->iov, &ev->size)) {
+        driver_failure_posix(inetp->port, EINVAL);
+        return;
+    }
 
 #ifdef INET_DRV_DEBUG
+    caller  = inetp->caller;
     /* This function is just called to much to be part of this     *
      * by default. Atleast as long as there are no 'debug levels'. */
-    DDBG(INETP(desc),
+    DDBG(inetp,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
           "tcp_inet_commandv -> entry\r\n",
-          __LINE__, desc->inet.s, caller) );
+          __LINE__, inetp->s, caller) );
 #endif
 
     if (!IS_CONNECTED(INETP(desc))) {
@@ -11762,22 +12222,22 @@ static void tcp_inet_commandv(ErlDrvData e, ErlIOVec* ev)
 		/* Don't clear flag. Leave it enabled for the next receive
 		 * operation.
 		 */
-		inet_reply_error(INETP(desc), ECONNRESET);
+		inet_reply_error(inetp, ECONNRESET);
 	    } else
-		inet_reply_error_am(INETP(desc), am_closed);
+		inet_reply_error_am(inetp, am_closed);
 	}
 	else
-	    inet_reply_error(INETP(desc), ENOTCONN);
+	    inet_reply_error(inetp, ENOTCONN);
     }
     else if (desc->tcp_add_flags & TCP_ADDF_PENDING_SHUTDOWN)
 	tcp_shutdown_error(desc, EPIPE);
     else if (tcp_sendv(desc, ev) == 0)
-	inet_reply_ok(INETP(desc));
+	inet_reply_ok(inetp);
  
 #ifdef INET_DRV_DEBUG
     DDBG(INETP(desc),
          ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] tcp_inet_commandv -> done\r\n",
-          __LINE__, desc->inet.s, caller) );
+          __LINE__, inetp->s, caller) );
 #endif
 
 }
@@ -11867,7 +12327,6 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 	    port, desc->inet.s, __LINE__));
     if (IS_BUSY(INETP(desc))) {
 	/* A send is blocked */
-	desc->inet.caller = desc->inet.busy_caller;
 	tcp_clear_output(desc);
 	if (desc->busy_on_send) {
             cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
@@ -11929,7 +12388,6 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
     if (err != ERRNO_BLOCK) {
 	if (IS_BUSY(INETP(desc))) {
 	    /* A send is blocked */
-	    desc->inet.caller = desc->inet.busy_caller;
 	    tcp_clear_output(desc);
 	    if (desc->busy_on_send) {
                 cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
@@ -12447,11 +12905,10 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 {
     int ret = 0;
 #ifdef DEBUG
-    long port = (long) desc->inet.port;  /* Used after driver_exit() */
+    void *port = desc->inet.port; /* Used after driver_exit() */
 #endif
     ASSERT(!INET_IGNORED(INETP(desc)));
     DEBUGF(("tcp_inet_input(%p) {s=%d\r\n", port, desc->inet.s));
-    /* XXX fprintf(stderr,"tcp_inet_input(%p) {s=%d}\r\n",(long) desc->inet.port, desc->inet.s); */
     if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
@@ -12605,7 +13062,6 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
      * If the port is busy, we must do some clean-up before proceeding.
      */
     if (IS_BUSY(INETP(desc))) {
-	desc->inet.caller = desc->inet.busy_caller;
 	if (desc->busy_on_send) {
             cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_send_timeout);
 	    desc->busy_on_send = 0;
@@ -12631,7 +13087,7 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
             err_atom = am_closed;
 	}
         tcp_closed_message(desc);
-        if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE))
+        if (! (desc->tcp_add_flags & TCP_ADDF_SENDFILE))
             inet_reply_error_am(INETP(desc), err_atom);
 
 	if (desc->inet.exitf)
@@ -12641,21 +13097,19 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
     } else {
 	tcp_close_check(desc);
 
-	if (desc->inet.caller) {
-            if (!(desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
-                if (show_econnreset)
-                    inet_reply_error(INETP(desc), err);
-                else
-                    inet_reply_error_am(INETP(desc), am_closed);
-            }
-	}
-	else {
+        if (is_not_internal_pid(desc->inet.caller)) {
 	    /* No blocking send op to reply to right now.
 	     * If next op is a send, make sure it returns {error,closed}
 	     * rather than {error,enotconn}.
 	     */
 	    desc->tcp_add_flags |= TCP_ADDF_DELAYED_CLOSE_SEND;
-	}
+        }
+        else if (! (desc->tcp_add_flags & TCP_ADDF_SENDFILE)) {
+            if (show_econnreset)
+                inet_reply_error(INETP(desc), err);
+            else
+                inet_reply_error_am(INETP(desc), am_closed);
+        }
         tcp_desc_close(desc);
 
 	/*
@@ -12770,12 +13224,12 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	    DEBUGF(("tcp_sendv(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
-	    desc->inet.busy_caller = desc->inet.caller;
 	    set_busy_port(desc->inet.port, 1);
 	    if (desc->send_timeout != INET_INFINITY) {
 		desc->busy_on_send = 1;
                 add_multi_timer(desc, INETP(desc)->port,
-                                0 /* arg */, desc->send_timeout /* timeout */,
+                                am_undefined, /* caller */
+                                desc->send_timeout /* timeout */,
                                 &tcp_inet_send_timeout);
 	    }
 	    return 1;
@@ -12798,7 +13252,7 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	    n = 0;
 	} else if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
             driver_enqv(ix, ev, 0);
-            add_multi_timer(desc, INETP(desc)->port, 0,
+            add_multi_timer(desc, INETP(desc)->port, am_undefined,
                             0, &tcp_inet_delay_send);
 	    return 0;
 	} else if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, ev->iov,
@@ -12882,12 +13336,12 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
 	    DEBUGF(("tcp_send(%p): s=%d, sender forced busy\r\n",
 		    desc->inet.port, desc->inet.s));
 	    desc->inet.state |= INET_F_BUSY;  /* mark for low-watermark */
-	    desc->inet.busy_caller = desc->inet.caller;
 	    set_busy_port(desc->inet.port, 1);
 	    if (desc->send_timeout != INET_INFINITY) {
 		desc->busy_on_send = 1;
                 add_multi_timer(desc, INETP(desc)->port,
-                                0 /* arg */, desc->send_timeout /* timeout */,
+                                am_undefined /* caller */,
+                                desc->send_timeout /* timeout */,
                                 &tcp_inet_send_timeout);
 	    }
 	    return 1;
@@ -12994,7 +13448,6 @@ static int tcp_sendfile_completed(tcp_descriptor* desc) {
 
     if (driver_sizeq(desc->inet.port) <= desc->low) {
         if (IS_BUSY(INETP(desc))) {
-            desc->inet.caller = desc->inet.busy_caller;
             desc->inet.state &= ~INET_F_BUSY;
 
             set_busy_port(desc->inet.port, 0);
@@ -13339,7 +13792,6 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    }
 	    if (driver_deq(ix, n) <= desc->low) {
 		if (IS_BUSY(INETP(desc))) {
-		    desc->inet.caller = desc->inet.busy_caller;
 		    desc->inet.state &= ~INET_F_BUSY;
 		    set_busy_port(desc->inet.port, 0);
 		    /* if we have a timer then cancel and send ok to client */
@@ -13415,7 +13867,8 @@ static int should_use_so_bsdcompat(void)
  */
 static ErlDrvData packet_inet_start(ErlDrvPort port, char* args, int protocol);
 
-static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
+static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s,
+                                      ErlDrvTermData owner, int* err)
 {
     ErlDrvSizeT q_low, q_high;
     ErlDrvPort port = desc->inet.port;
@@ -13444,8 +13897,8 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
     copy_desc->inet.hsz      = desc->inet.hsz;
     copy_desc->inet.bufsz    = desc->inet.bufsz;
 
-    /* The new port will be linked and connected to the caller */
-    port = driver_create_port(port, desc->inet.caller, "sctp_inet",
+    /* The new port will be linked and connected to the owner */
+    port = driver_create_port(port, owner, "sctp_inet",
 			      (ErlDrvData) copy_desc);
     if ((long)port == -1) {
 	*err = ENFILE;
@@ -13470,7 +13923,7 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 
 
 #ifdef HAVE_UDP
-static int packet_inet_init()
+static int packet_inet_init(void)
 {
     sys_memzero((char *)&disassoc_sa, sizeof(disassoc_sa));
 #ifdef AF_UNSPEC
@@ -13908,11 +14361,14 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    udp_descriptor* new_udesc;
 	    int err;
 	    SOCKET new_socket;
+            ErlDrvTermData caller;
+
+            caller = driver_caller(desc->port);
 
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
                   "packet_inet_ctl -> PEELOFF\r\n",
-                  __LINE__, desc->s, driver_caller(desc->port)) );
+                  __LINE__, desc->s, caller) );
 
 	    if (!IS_SCTP(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -13930,12 +14386,14 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 		return ctl_error(sock_errno(), rbuf, rsize);
 	    }
 
-	    desc->caller = driver_caller(desc->port);
-	    if ((new_udesc = sctp_inet_copy(udesc, new_socket, &err)) == NULL) {
+	    if ((new_udesc =
+                 sctp_inet_copy(udesc, new_socket, caller, &err)) == NULL) {
 		sock_close(new_socket);
-		desc->caller = 0;
 		return ctl_error(err, rbuf, rsize);
 	    }
+            else {
+                desc->caller = caller;
+            }
 	    new_udesc->inet.state = INET_STATE_CONNECTED;
 	    new_udesc->inet.stype = SOCK_STREAM;
 	    SET_NONBLOCKING(new_udesc->inet.s);
@@ -14020,14 +14478,19 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     udp_descriptor * udesc= (udp_descriptor*) e;
     inet_descriptor* desc = INETP(udesc);
-    char* ptr		  = buf;
+    char* ptr;
     char* qtr;
     char* xerror;
     ErlDrvSizeT sz;
-    int code;
+    long code;
     inet_address other;
 
-    desc->caller = driver_caller(desc->port);
+    if (! init_caller(&desc->caller, &desc->caller_ref,
+                      desc->port, &buf, &len)) {
+        driver_failure_posix(desc->port, EINVAL);
+	return;
+    }
+    ptr = buf;
 
     if (!IS_OPEN(desc)) {
 	inet_reply_error(desc, EINVAL);
@@ -14077,7 +14540,8 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
 	code = sock_sendmsg(desc->s, &mhdr, 0);
-	goto check_result_code;
+
+        goto check_result_code;
     }
 #endif
     {
@@ -14157,16 +14621,30 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 
 #ifdef HAVE_SCTP
  check_result_code:
-    /* "code" analysis is the same for both SCTP and UDP cases above: */
+    /* "code" analysis is the same for both SCTP and UDP above,
+     * although ERRNO_BLOCK | EINTR never happens for UDP
+     */
 #endif
     if (IS_SOCKET_ERROR(code)) {
-	int err = sock_errno();
-	inet_reply_error(desc, err);
+        int err = sock_errno();
+        if ((err != ERRNO_BLOCK) && (err != EINTR)) {
+            inet_reply_error(desc, err);
+            return;
+        }
+        else {
+            /* XXX if(! INET_IGNORED(INETP(desc))) */
+            sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
+            set_busy_port(desc->port, 1);
+            /* XXX add_multi_timer(... desc->send_timeout, ...); */
+            inet_reply_caller_ref(desc);
+            return;
+        }
     }
-    else
-	inet_reply_ok(desc);
-    return;
-    
+    else {
+        inet_reply_ok(desc);
+        return;
+    }
+
  return_einval:
     inet_reply_error(desc, EINVAL);
     return;
@@ -14193,6 +14671,17 @@ static void packet_inet_event(ErlDrvData e, ErlDrvEvent event)
     }
 }
 
+#endif /* #ifdef __WIN32__ */
+
+#ifdef HAVE_UDP
+static void packet_inet_drv_output(ErlDrvData e, ErlDrvEvent event)
+{
+    inet_descriptor *desc = INETP((udp_descriptor *) e);
+
+    sock_select(desc, (FD_WRITE|FD_CLOSE), 0);
+    set_busy_port(desc->port, 0);
+    inet_reply_ok(desc);
+}
 #endif
 
 #ifdef HAVE_UDP
@@ -14645,8 +15134,7 @@ static MultiTimerData *add_multi_timer(tcp_descriptor *desc, ErlDrvPort port,
 -----------------------------------------------------------------------------*/
 
 static int
-save_subscriber(subs, subs_pid)
-subs_list *subs; ErlDrvTermData subs_pid;
+save_subscriber(subs_list *subs, ErlDrvTermData subs_pid)
 {
   subs_list *tmp;
 
@@ -14668,8 +15156,7 @@ subs_list *subs; ErlDrvTermData subs_pid;
 }
 
 static void
-free_subscribers(subs)
-subs_list *subs;
+free_subscribers(subs_list *subs)
 {
   subs_list *this;
   subs_list *next;

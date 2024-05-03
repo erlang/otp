@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 %%
 
 -module(beam_ssa_bc_size).
+-moduledoc false.
 -export([opt/1]).
 
 -import(lists, [any/2,member/2,reverse/1,sort/1]).
@@ -44,7 +45,7 @@
 
 -spec opt(st_map()) -> st_map().
 
-opt(StMap) ->
+opt(StMap) when is_map(StMap) ->
     opt(maps:keys(StMap), StMap).
 
 opt([Id|Ids], StMap0) ->
@@ -71,7 +72,8 @@ opt_function(Id, StMap) ->
 opt_blks([{L,#b_blk{is=Is}=Blk}|Blks], ParamInfo, StMap, AnyChange, Count0, Acc0) ->
     case Is of
         [#b_set{op=bs_init_writable,dst=Dst}] ->
-            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}}},
+            Bs = #{st_map => StMap, Dst => {writable,#b_literal{val=0}},
+                   seen => sets:new([{version,2}])},
             try opt_writable(Bs, L, Blk, Blks, ParamInfo, Count0, Acc0) of
                 {Acc,Count} ->
                     opt_blks(Blks, ParamInfo, StMap, changed, Count, Acc)
@@ -90,19 +92,14 @@ opt_blks([], _ParamInfo, _StMap, unchanged, _Count, _Acc) ->
 opt_writable(Bs0, L, Blk, Blks, ParamInfo, Count0, Acc0) ->
     case {Blk,Blks} of
         {#b_blk{last=#b_br{succ=Next,fail=Next}},
-         [{Next,#b_blk{is=[#b_set{op=call,args=[_|Args],dst=Dst}=Call|_],
-                       last=CallLast}}|_]} ->
+         [{Next,#b_blk{is=[#b_set{op=call,args=[_|Args],dst=Dst}=Call|_]}}|_]} ->
             ensure_not_match_context(Call, ParamInfo),
 
-            ArgTypes = maps:from_list([{Arg,{arg,Arg}} || Arg <- Args]),
+            ArgTypes = #{Arg => {arg,Arg} || Arg <- Args},
             Bs = maps:merge(ArgTypes, Bs0),
             Result = map_get(Dst, call_size_func(Call, Bs)),
-            {Expr,Annos} = make_expr_tree(Result),
-
-            %% Note that we pass the generator call's terminator: should we
-            %% need to raise a `bad_generator` exception, it needs to fail in
-            %% the same manner as the generator itself.
-            cg_size_calc(Expr, L, Blk, CallLast, Annos, Count0, Acc0);
+            Expr = make_expr_tree(Result),
+            cg_size_calc(Expr, L, Blk, Count0, Acc0);
         {_,_} ->
             throw(not_possible)
     end.
@@ -139,7 +136,7 @@ ensure_not_match_context(#b_set{anno=Anno,args=[_|Args]}, ParamInfo) ->
 %%% and how many bits are appended to the writable binary.
 %%%
 
-call_size_func(#b_set{anno=Anno,op=call,args=[Name|Args],dst=Dst}, Bs) ->
+call_size_func(#b_set{op=call,args=[Name|Args],dst=Dst}, Bs) ->
     StMap = map_get(st_map, Bs),
     case StMap of
         #{Name := #opt_st{ssa=Linear,args=Params}} ->
@@ -153,38 +150,60 @@ call_size_func(#b_set{anno=Anno,op=call,args=[Name|Args],dst=Dst}, Bs) ->
                     %% and there is no need to analyze it.
                     Bs#{Dst => any};
                 true ->
-                    NewBs = NewBs0#{Name => self, st_map => StMap},
-                    Map0 = #{0 => NewBs},
-                    Result = calc_size(Linear, Map0),
-                    Bs#{Dst => Result}
+                    Seen0 = map_get(seen, Bs),
+                    case sets:is_element(Name, Seen0) of
+                        true ->
+                            %% This can happen if there is a call such as:
+                            %%
+                            %%     foo(<< 0 || false >>)
+                            %%
+                            %% Essentially, this is reduced to:
+                            %%
+                            %%     foo(<<>>)
+                            %%
+                            %% This sub pass will then try to analyze
+                            %% the code in foo/1 and everything it
+                            %% calls. To prevent an infinite loop in
+                            %% case there is mutual recursion between
+                            %% some of the functions called by foo/1,
+                            %% give up if function that has already
+                            %% been analyzed is called again.
+                            throw(not_possible);
+                        false ->
+                            Seen = sets:add_element(Name, Seen0),
+                            NewBs = NewBs0#{Name => self, st_map => StMap, seen => Seen},
+                            Map0 = #{0 => NewBs},
+                            Result = calc_size(Linear, Map0),
+                            Bs#{Dst => Result}
+                    end
             end;
         #{} ->
             case Name of
                 #b_remote{mod=#b_literal{val=erlang},
                           name=#b_literal{val=error},
                           arity=1} ->
-                    capture_anno(Anno, Dst, Args, Bs#{Dst => exception});
+                    capture_generator(Dst, Args, Bs#{Dst => exception});
                 _ ->
                     Bs#{Dst => any}
             end
     end.
 
-capture_anno(Anno, Dst, [ErrorTerm], Bs) ->
+capture_generator(Dst, [ErrorTerm], Bs) ->
     case get_value(ErrorTerm, Bs) of
         {tuple,Elements} ->
             Ts = [get_value(E, Bs) || E <- Elements],
-            capture_anno_1(Anno, Dst, Ts, Bs);
+            capture_generator_1(Dst, Ts, Bs);
         _ ->
             Bs
     end.
 
-capture_anno_1(Anno, Dst, [{nil_or_bad,Generator}|_], Bs) ->
-    Bs#{Dst => {generator_anno,{Generator,Anno}}};
-capture_anno_1(Anno, Dst, [{arg,Generator}|_], Bs) ->
-    Bs#{Dst => {generator_anno,{Generator,Anno}}};
-capture_anno_1(Anno, Dst, [_|T], Bs) ->
-    capture_anno_1(Anno, Dst, T, Bs);
-capture_anno_1(_, _, [], Bs) ->
+capture_generator_1(Dst, [{nil_or_bad,_Generator}|_], Bs) ->
+    Bs#{Dst => generator};
+capture_generator_1(Dst, [{arg,_Generator}|_], Bs) ->
+    Bs#{Dst => generator};
+capture_generator_1(Dst, [_|T], Bs) ->
+    capture_generator_1(Dst, T, Bs);
+capture_generator_1(_, [], Bs) ->
     Bs.
 
 setup_call_bs([V|Vs], [A0|As], OldBs, NewBs) ->
@@ -199,7 +218,7 @@ setup_call_bs([], [], #{}, NewBs) -> NewBs.
 
 calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     case maps:take(L, Map0) of
-        {Bs0,Map1} ->
+        {Bs0,Map1} when is_map(Bs0) ->
             Bs1 = calc_size_is(Is, Bs0),
             Map2 = update_successors(Last, Bs1, Map1),
             case get_ret(Last, Bs1) of
@@ -216,8 +235,8 @@ calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     end;
 calc_size([], Map) ->
     case sort(maps:values(Map)) of
-        [{call,_}=Call,{generator_anno,GenAnno}] ->
-            {Call,GenAnno};
+        [generator,{call,_}=Call] ->
+            Call;
         _ ->
             throw(not_possible)
     end.
@@ -228,8 +247,8 @@ get_ret(#b_ret{arg=Arg}, Bs) ->
             none;
         {writable,#b_literal{val=0}} ->
             none;
-        {generator_anno,_}=GenAnno ->
-            GenAnno;
+        generator ->
+            generator;
         Ret ->
             Ret
     end;
@@ -239,6 +258,8 @@ update_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Bs0, Map0) ->
     case get_value(Bool, Bs0) of
         #b_literal{val=true} ->
             update_successor(Succ, Bs0, Map0);
+        #b_literal{val=false} ->
+            update_successor(Fail, Bs0, Map0);
         {succeeded,Var} ->
             Map = update_successor(Succ, Bs0, Map0),
             update_successor(Fail, maps:remove(Var, Bs0), Map);
@@ -291,7 +312,7 @@ calc_size_instr(#b_set{op=bs_match,args=[_Type,Ctx,_Flags,
         none ->
             Bs#{Dst => any};
         Val ->
-            update_match(Dst, Ctx, {{safe,{bif,'*'}},[Val,Unit]}, Bs)
+            update_match(Dst, Ctx, {{bif,'*'},[Val,Unit]}, Bs)
     end;
 calc_size_instr(#b_set{op=bs_start_match,args=[#b_literal{val=new},Arg],dst=Dst}, Bs) ->
     case get_arg_value(Arg, Bs) of
@@ -403,30 +424,33 @@ join_bs_1([], _Bigger, Smaller) -> Smaller.
 %%% Turn the result of the traversal of the SSA code into an expression tree.
 %%%
 
-make_expr_tree({{call,Alloc0},GenAnno}) ->
-    {Alloc1,Annos} = make_expr_tree_list(Alloc0, none, none, [GenAnno]),
-    Alloc2 = opt_expr(Alloc1),
-    Alloc = round_up_to_byte_size(Alloc2),
-    {Alloc,maps:from_list(Annos)};
+make_expr_tree({call,Alloc0}) ->
+    Alloc1 = make_expr_tree_list(Alloc0, none, none),
+    Alloc = opt_expr(Alloc1),
+    round_up_to_byte_size(Alloc);
 make_expr_tree(_) ->
     throw(not_possible).
 
-make_expr_tree_list([{{call,List},GenAnno}|T], Match, none, Annos0) ->
-    {BuildSize,Annos} = make_expr_tree_list(List, none, none, [GenAnno|Annos0]),
-    make_expr_tree_list(T, Match, BuildSize, Annos);
-make_expr_tree_list([{match,NumItems,N}|T], none, BuildSize, Annos) ->
-    make_expr_tree_list(T, {NumItems,N}, BuildSize, Annos);
-make_expr_tree_list([{writable,BuildSize}|T], Match, none, Annos) ->
-    make_expr_tree_list(T, Match, BuildSize, Annos);
-make_expr_tree_list([_|T], Match, BuildSize, Annos) ->
-    make_expr_tree_list(T, Match, BuildSize, Annos);
-make_expr_tree_list([], Match, BuildSize, Annos)
+make_expr_tree_list([{call,List}|T], Match, none) ->
+    BuildSize = make_expr_tree_list(List, none, none),
+    make_expr_tree_list(T, Match, BuildSize);
+make_expr_tree_list([{match,NumItems,N}|T], none, BuildSize) ->
+    make_expr_tree_list(T, {NumItems,N}, BuildSize);
+make_expr_tree_list([{writable,BuildSize}|T], Match, none) ->
+    make_expr_tree_list(T, Match, BuildSize);
+make_expr_tree_list([_|T], Match, BuildSize) ->
+    make_expr_tree_list(T, Match, BuildSize);
+make_expr_tree_list([], Match, BuildSize)
   when Match =/= none, BuildSize =/= none ->
     {NumItems,N} = Match,
-    Expr = {{bif,'*'},[{{safe,{bif,'div'}},[NumItems,N]},BuildSize]},
-    {Expr,Annos};
-make_expr_tree_list([], _, _, Annos) ->
-    {none,Annos}.
+    case N of
+        #b_literal{val=0} ->
+            throw(not_possible);
+        _ ->
+            {{bif,'*'},[{{bif,'div'},[NumItems,N]},BuildSize]}
+    end;
+make_expr_tree_list([], _, _) ->
+    none.
 
 round_up_to_byte_size(Alloc0) ->
     Alloc = case divisible_by_eight(Alloc0) of
@@ -451,10 +475,7 @@ opt_expr({Op,Args0}) ->
         none ->
             opt_expr_1(Op, Args);
         LitArgs ->
-            Bif = case Op of
-                      {safe,{bif,Bif0}} -> Bif0;
-                      {bif,Bif0} -> Bif0
-                  end,
+            {bif,Bif} = Op,
             try apply(erlang, Bif, LitArgs) of
                 Result ->
                     #b_literal{val=Result}
@@ -465,15 +486,10 @@ opt_expr({Op,Args0}) ->
     end;
 opt_expr(none) -> none.
 
-opt_expr_1({safe,{bif,'div'}}=Op, Args) ->
-    case Args of
-        [Int,#b_literal{val=1}] ->
-            Int;
-        [_Int,#b_literal{val=N}] when N > 1 ->
-            opt_expr_1({bif,'div'}, Args);
-        [_,_] ->
-            {Op,Args}
-    end;
+opt_expr_1({bif,'div'}=Op, [_,#b_literal{val=0}]=Args) ->
+    {Op,Args};
+opt_expr_1({bif,'div'}, [Numerator,#b_literal{val=1}]) ->
+    Numerator;
 opt_expr_1({bif,'div'}=Op, [Numerator,#b_literal{val=Denominator}]=Args) ->
     try
         opt_expr_div(Numerator, Denominator)
@@ -491,10 +507,10 @@ opt_expr_1({bif,'div'}=Op, [Numerator,#b_literal{val=Denominator}]=Args) ->
                     {Op,Args}
             end
     end;
-opt_expr_1({bif,'*'}, [{{safe,_},_},#b_literal{val=0}=Zero]) ->
-    Zero;
 opt_expr_1({bif,'*'}, [Factor,#b_literal{val=1}]) ->
     Factor;
+opt_expr_1({bif,'+'}, [#b_literal{val=0},Term]) ->
+    Term;
 opt_expr_1(Op, Args) ->
     {Op,Args}.
 
@@ -526,90 +542,44 @@ literal_expr_args([], Acc) ->
 
 %%%
 %%% Given an expression tree, generate SSA code to calculate the number
-%%% bytes to allocate for the writable binary.
+%%% of bytes to allocate for the writable binary.
 %%%
 
-cg_size_calc(Expr, L, #b_blk{is=Is0}=Blk0, CallLast, Annos, Count0, Acc0) ->
-    [InitWr] = Is0,
-    FailBlk0 = [],
-    {Acc1,Alloc,NextBlk,FailBlk,Count} = cg_size_calc_1(L, Expr, Annos,
-                                                        CallLast, FailBlk0,
-                                                        Count0, Acc0),
-    Is = [InitWr#b_set{args=[Alloc]}],
+cg_size_calc(Expr, L, #b_blk{}=Blk0, Count0, Acc0) ->
+    {[Fail,PhiL,InitWrL],Count1} = new_blocks(3, Count0),
+    {PhiDst,Count2} = new_var(Count1),
+    {Acc1,Alloc,NextBlk,Count} = cg_size_calc_1(L, Expr, Fail, Count2, Acc0),
+
+    BrPhiBlk = #b_blk{is=[],last=cg_br(PhiL)},
+
+    PhiArgs = [{Alloc,NextBlk},
+               {#b_literal{val=256},Fail}],
+    PhiIs = [#b_set{op=phi,dst=PhiDst,args=PhiArgs}],
+    PhiBlk = #b_blk{is=PhiIs,last=cg_br(InitWrL)},
+
+    #b_blk{is=[InitWr]} = Blk0,
+    Is = [InitWr#b_set{args=[PhiDst]}],
     Blk = Blk0#b_blk{is=Is},
-    Acc = [{NextBlk,Blk}|FailBlk++Acc1],
+
+    Acc = [{InitWrL,Blk},
+           {PhiL,PhiBlk},
+           {NextBlk,BrPhiBlk},
+           {Fail,BrPhiBlk}|Acc1],
     {Acc,Count}.
 
-cg_size_calc_1(L, #b_literal{}=Alloc, _Annos, _CallLast, FailBlk, Count, Acc) ->
-    {Acc,Alloc,L,FailBlk,Count};
-cg_size_calc_1(L0, {Op0,Args0}, Annos, CallLast, FailBlk0, Count0, Acc0) ->
-    {Args,Acc1,L,FailBlk1,Count1} = cg_atomic_args(Args0, L0, Annos, CallLast,
-                                                   FailBlk0, Count0, Acc0, []),
-    {BadGenL,FailBlk,Count2} = cg_bad_generator(Args, Annos, CallLast,
-                                                FailBlk1, Count1),
-    {Dst,Count3} = new_var('@ssa_tmp', Count2),
-    case Op0 of
-        {safe,Op} ->
-            {OpDst,Count4} = new_var('@ssa_size', Count3),
-            {[OpSuccL,OpFailL,PhiL,NextL],Count5} = new_blocks(4, Count4),
-            I = #b_set{op=Op,args=Args,dst=OpDst},
-            {Blk,Count} = cg_succeeded(I, OpSuccL, OpFailL, Count5),
-            JumpBlk = #b_blk{is=[],last=cg_br(PhiL)},
-            PhiIs = [#b_set{op=phi,
-                            args=[{OpDst,OpSuccL},{#b_literal{val=0},OpFailL}],
-                            dst=Dst}],
-            PhiBlk = #b_blk{is=PhiIs,last=cg_br(NextL)},
-            Acc = [{PhiL,PhiBlk},{OpSuccL,JumpBlk},
-                   {OpFailL,JumpBlk},{L,Blk}|Acc1],
-            {Acc,Dst,NextL,FailBlk,Count};
-        _ ->
-            {NextBlkL,Count4} = new_block(Count3),
-            I = #b_set{op=Op0,args=Args,dst=Dst},
-            {SuccBlk,Count} = cg_succeeded(I, NextBlkL, BadGenL, Count4),
-            Acc = [{L,SuccBlk}|Acc1],
-            {Acc,Dst,NextBlkL,FailBlk,Count}
-    end.
-
-cg_bad_generator([Arg|_], Annos, CallLast, FailBlk, Count) ->
-    case Annos of
-        #{Arg := Anno} ->
-            cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count);
-        #{} ->
-            case FailBlk of
-                [{L,_}|_] ->
-                    {L,FailBlk,Count};
-                [] ->
-                    cg_bad_generator_1(#{}, Arg, CallLast, FailBlk, Count)
-            end
-    end.
-
-cg_bad_generator_1(Anno, Arg, CallLast, FailBlk, Count0) ->
-    {L,Count1} = new_block(Count0),
-    {TupleDst,Count2} = new_var('@ssa_tuple', Count1),
-    {SuccDst,Count3} = new_var('@ssa_bool', Count2),
-    {Ret,Count4} = new_var('@ssa_ret', Count3),
-    MFA = #b_remote{mod=#b_literal{val=erlang},
-                    name=#b_literal{val=error},
-                    arity=1},
-    TupleI = #b_set{op=put_tuple,
-                    args=[#b_literal{val=bad_generator},Arg],
-                    dst=TupleDst},
-    CallI = #b_set{anno=Anno,op=call,args=[MFA,TupleDst],dst=Ret},
-    SuccI = #b_set{op={succeeded,body},args=[Ret],dst=SuccDst},
-    Is = [TupleI,CallI,SuccI],
-
-    %% The `bad_generator` call must refer to the same fail label (either a
-    %% landing pad or ?EXCEPTION_BLOCK) as the caller, or else we'll break
-    %% optimizations that assume exceptions are always reflected in the control
-    %% flow.
-    #b_br{fail=FailLbl} = CallLast,             %Assertion.
-    Last = #b_br{bool=SuccDst,succ=FailLbl,fail=FailLbl},
-
-    Blk = #b_blk{is=Is,last=Last},
-    {L,[{L,Blk}|FailBlk],Count4}.
+cg_size_calc_1(L, #b_literal{}=Alloc, _Fail, Count, Acc) ->
+    {Acc,Alloc,L,Count};
+cg_size_calc_1(L0, {Op,Args0}, Fail, Count0, Acc0) ->
+    {Args,Acc1,L,Count1} = cg_atomic_args(Args0, L0, Fail, Count0, Acc0, []),
+    {Dst,Count3} = new_var(Count1),
+    {NextBlkL,Count4} = new_block(Count3),
+    I = #b_set{op=Op,args=Args,dst=Dst},
+    {SuccBlk,Count} = cg_succeeded(I, NextBlkL, Fail, Count4),
+    Acc = [{L,SuccBlk}|Acc1],
+    {Acc,Dst,NextBlkL,Count}.
 
 cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
-    {Bool,Count} = new_var('@ssa_bool', Count0),
+    {Bool,Count} = new_var(Count0),
     SuccI = #b_set{op={succeeded,guard},args=[OpDst],dst=Bool},
     Blk = #b_blk{is=[I,SuccI],last=#b_br{bool=Bool,succ=Succ,fail=Fail}},
     {Blk,Count}.
@@ -617,28 +587,24 @@ cg_succeeded(#b_set{dst=OpDst}=I, Succ, Fail, Count0) ->
 cg_br(Target) ->
     #b_br{bool=#b_literal{val=true},succ=Target,fail=Target}.
 
-cg_atomic_args([A|As], L, Annos, CallLast, FailBlk0, Count0, BlkAcc0, Acc) ->
+cg_atomic_args([A|As], L, Fail, Count0, BlkAcc0, Acc) ->
     case A of
         #b_literal{} ->
-            cg_atomic_args(As, L, Annos, CallLast, FailBlk0,
-                           Count0, BlkAcc0, [A|Acc]);
+            cg_atomic_args(As, L, Fail, Count0, BlkAcc0, [A|Acc]);
         #b_var{} ->
-            cg_atomic_args(As, L, Annos, CallLast, FailBlk0,
-                           Count0, BlkAcc0, [A|Acc]);
+            cg_atomic_args(As, L, Fail, Count0, BlkAcc0, [A|Acc]);
         none ->
             throw(not_possible);
         _ ->
-            {BlkAcc,Var,NextBlk,FailBlk,Count} =
-                cg_size_calc_1(L, A, Annos, CallLast, FailBlk0,
-                               Count0, BlkAcc0),
-            cg_atomic_args(As, NextBlk, Annos, CallLast, FailBlk,
-                               Count, BlkAcc, [Var|Acc])
+            {BlkAcc,Var,NextBlk,Count} =
+                cg_size_calc_1(L, A, Fail, Count0, BlkAcc0),
+            cg_atomic_args(As, NextBlk, Fail, Count, BlkAcc, [Var|Acc])
     end;
-cg_atomic_args([], NextBlk, _Annos, _CallLast, FailBlk, Count, BlkAcc, Acc) ->
-    {reverse(Acc),BlkAcc,NextBlk,FailBlk,Count}.
+cg_atomic_args([], NextBlk, _Fail, Count, BlkAcc, Acc) ->
+    {reverse(Acc),BlkAcc,NextBlk,Count}.
 
-new_var(Base, Count) ->
-    {#b_var{name={Base,Count}},Count+1}.
+new_var(Count) ->
+    {#b_var{name=Count},Count+1}.
 
 new_blocks(N, Count) ->
     new_blocks(N, Count, []).

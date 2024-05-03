@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,17 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_edist_compress).
+-moduledoc """
+Megaco erlang dist compress behaviour.
 
+The following functions should be exported from a `megaco_edist_compress`
+callback module:
+""".
+
+-doc """
+Compress a megaco component. The erlang dist encoder makes no assumption on the
+how or even if the component is compressed.
+""".
 -callback encode(R, Version) -> T when
       R       :: megaco_encoder:megaco_message() |
                  megaco_encoder:transaction() | 
@@ -34,6 +44,7 @@
       Version :: megaco_encoder:protocol_version(),
       T       :: term().
 
+-doc "Decompress a megaco component.".
 -callback decode(T, Version) -> R when
       T       :: term(),
       Version :: megaco_encoder:protocol_version() | dynamic,

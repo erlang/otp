@@ -9,8 +9,10 @@
 %%
 %%    -deprecated([{foo,1,"use bar/1 instead"}]).
 %%    -deprecated_type([{gadget,1,"use widget/1 instead"}]).
+%%    -deprecated_callback([{gadget,1,"use widget/1 instead"}]).
 %%    -removed([{hello,2,"use there/2 instead"}]).
 %%    -removed_type([{frobnitz,1,"use grunka/1 instead"}]).
+%%    -removed_callback([{frobnitz,1,"use grunka/1 instead"}]).
 %%
 %% Descriptions cannot be given with the `f/1` shorthand, and
 %% it will fall back to a generic description referring the
@@ -20,6 +22,7 @@
 %% after adding an attribute.
 %%
 -module(otp_internal).
+-moduledoc false.
 -include("otp_internal.hrl").
 %%
 -dialyzer({no_match, obsolete/3}).
@@ -31,50 +34,32 @@ obsolete(auth, is_auth, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
-obsolete(code, is_module_native, 1) ->
-    {deprecated, "HiPE has been removed", "OTP 26"};
-obsolete(code, rehash, 0) ->
-    {deprecated, "the code path cache feature has been removed", "OTP 26"};
-obsolete(crypto, crypto_dyn_iv_init, 3) ->
-    {deprecated, "see the documentation for details", "OTP 27"};
-obsolete(crypto, crypto_dyn_iv_update, 3) ->
-    {deprecated, "see the documentation for details", "OTP 27"};
+obsolete(code, lib_dir, 2) ->
+    {deprecated, "this functionality will be removed in a future release"};
+obsolete(crypto, private_decrypt, 4) ->
+    {deprecated, "do not use"};
+obsolete(crypto, private_encrypt, 4) ->
+    {deprecated, "use public_key:sign/3 instead"};
+obsolete(crypto, public_decrypt, 4) ->
+    {deprecated, "use public_key:verify/4 instead"};
+obsolete(crypto, public_encrypt, 4) ->
+    {deprecated, "do not use"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
-obsolete(disk_log, accessible_logs, 0) ->
-    {deprecated, "use disk_log:all/0 instead", "OTP 26"};
-obsolete(disk_log, lclose, 1) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
-obsolete(disk_log, lclose, 2) ->
-    {deprecated, "use disk_log:close/1 instead", "OTP 26"};
+obsolete(dbg, stop_clear, 0) ->
+    {deprecated, "use dbg:stop/0 instead", "OTP 27"};
+obsolete(disk_log, inc_wrap_file, 1) ->
+    {deprecated, "use disk_log:next_file/1 instead", "OTP 28"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(erlang, phash, 2) ->
     {deprecated, "use erlang:phash2/2 instead"};
-obsolete(ftp, start_service, 1) ->
-    {deprecated, "use ftp:open/2 instead", "OTP 26"};
-obsolete(ftp, stop_service, 1) ->
-    {deprecated, "use ftp:close/1 instead", "OTP 26"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
+    {deprecated, "use uri_string:unquote function instead"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
+    {deprecated, "use uri_string:quote function instead"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
-obsolete(httpd_util, decode_hex, 1) ->
-    {deprecated, "use uri_string:unquote function instead", "OTP 26"};
-obsolete(httpd_util, encode_hex, 1) ->
-    {deprecated, "use uri_string:quote function instead", "OTP 26"};
-obsolete(httpd_util, flatlength, 1) ->
-    {deprecated, "use erlang:iolist_size/1 instead", "OTP 26"};
-obsolete(httpd_util, hexlist_to_integer, 1) ->
-    {deprecated, "use erlang:list_to_integer/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, integer_to_hexlist, 1) ->
-    {deprecated, "use erlang:integer_to_list/2 with base 16 instead", "OTP 26"};
-obsolete(httpd_util, strip, 1) ->
-    {deprecated, "use string:trim/1 instead", "OTP 26"};
-obsolete(httpd_util, suffix, 1) ->
-    {deprecated, "use filename:extension/1 and string:trim/2 instead", "OTP 26"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
@@ -85,36 +70,36 @@ obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
+obsolete(public_key, decrypt_private, 2) ->
+    {deprecated, "do not use"};
+obsolete(public_key, decrypt_private, 3) ->
+    {deprecated, "do not use"};
+obsolete(public_key, decrypt_public, 2) ->
+    {deprecated, "use public_key:verify/4 instead"};
+obsolete(public_key, decrypt_public, 3) ->
+    {deprecated, "use public_key:verify/5 instead"};
+obsolete(public_key, encrypt_private, 2) ->
+    {deprecated, "use public_key:sign/3 instead"};
+obsolete(public_key, encrypt_private, 3) ->
+    {deprecated, "use public_key:sign 4 instead"};
+obsolete(public_key, encrypt_public, 2) ->
+    {deprecated, "do not use"};
+obsolete(public_key, encrypt_public, 3) ->
+    {deprecated, "do not use"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
+obsolete(ssl, prf, 5) ->
+    {deprecated, "Use export_key_materials/4 instead. Note that in OTP 28 the 'testing' way of calling this function will no longer be supported."};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxCalendarCtrl, enableYearChange, 2) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
-obsolete(zlib, adler32, 2) ->
-    {deprecated, "use erlang:adler32/1 instead", "OTP 27"};
-obsolete(zlib, adler32, 3) ->
-    {deprecated, "use erlang:adler32/2 instead", "OTP 27"};
-obsolete(zlib, adler32_combine, 4) ->
-    {deprecated, "use erlang:adler_combine/3 instead", "OTP 27"};
-obsolete(zlib, crc32, 1) ->
-    {deprecated, "use erlang:crc32/1 on the uncompressed data instead", "OTP 27"};
-obsolete(zlib, crc32, 2) ->
-    {deprecated, "use erlang:crc32/1 instead", "OTP 27"};
-obsolete(zlib, crc32, 3) ->
-    {deprecated, "use erlang:crc32/2 instead", "OTP 27"};
-obsolete(zlib, crc32_combine, 4) ->
-    {deprecated, "use erlang:crc32_combine/3 instead", "OTP 27"};
-obsolete(zlib, getBufSize, 1) ->
-    {deprecated, "this function will be removed in a future release", "OTP 27"};
-obsolete(zlib, inflateChunk, 1) ->
-    {deprecated, "use safeInflate/2 instead", "OTP 27"};
-obsolete(zlib, inflateChunk, 2) ->
-    {deprecated, "use safeInflate/2 instead", "OTP 27"};
-obsolete(zlib, setBufSize, 2) ->
-    {deprecated, "this function will be removed in a future release", "OTP 27"};
+obsolete(code, is_module_native, 1) ->
+    {removed, "HiPE has been removed"};
+obsolete(code, rehash, 0) ->
+    {removed, "the code path cache feature has been removed"};
 obsolete(core_lib, get_anno, 1) ->
     {removed, "use cerl:get_ann/1 instead"};
 obsolete(core_lib, is_literal, 1) ->
@@ -128,15 +113,19 @@ obsolete(core_lib, set_anno, 2) ->
 obsolete(crypto, block_decrypt, 3) ->
     {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
 obsolete(crypto, block_decrypt, 4) ->
-    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_init + crypto:crypto_update + crypto:crypto_final instead"};
 obsolete(crypto, block_encrypt, 3) ->
     {removed, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
 obsolete(crypto, block_encrypt, 4) ->
-    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {removed, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_init + crypto:crypto_update + crypto:crypto_final instead"};
 obsolete(crypto, cmac, 3) ->
     {removed, "use crypto:mac/4 instead"};
 obsolete(crypto, cmac, 4) ->
     {removed, "use crypto:macN/5 instead"};
+obsolete(crypto, crypto_dyn_iv_init, 3) ->
+    {removed, "not supported, use crypto_init/4"};
+obsolete(crypto, crypto_dyn_iv_update, 3) ->
+    {removed, "not supported, use crypto_update/2"};
 obsolete(crypto, hmac, 3) ->
     {removed, "use crypto:mac/4 instead"};
 obsolete(crypto, hmac, 4) ->
@@ -155,6 +144,12 @@ obsolete(crypto, stream_decrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
 obsolete(crypto, stream_encrypt, 2) ->
     {removed, "use crypto:crypto_update/2 instead"};
+obsolete(disk_log, accessible_logs, 0) ->
+    {removed, "use disk_log:all/0 instead"};
+obsolete(disk_log, lclose, 1) ->
+    {removed, "use disk_log:close/1 instead"};
+obsolete(disk_log, lclose, 2) ->
+    {removed, "use disk_log:close/1 instead"};
 obsolete(erl_lint, modify_line, 2) ->
     {removed, "use erl_parse:map_anno/2 instead"};
 obsolete(erl_parse, get_attribute, 2) ->
@@ -169,8 +164,14 @@ obsolete(erlang, get_stacktrace, 0) ->
     {removed, "use the new try/catch syntax for retrieving the stack backtrace"};
 obsolete(erlang, hash, 2) ->
     {removed, "use erlang:phash2/2 instead"};
+obsolete(file, pid2name, 1) ->
+    {removed, "this functionality is no longer supported"};
 obsolete(filename, safe_relative_path, 1) ->
     {removed, "use filelib:safe_relative_path/2 instead"};
+obsolete(ftp, start_service, 1) ->
+    {removed, "use ftp:open/2 instead"};
+obsolete(ftp, stop_service, 1) ->
+    {removed, "use ftp:close/1 instead"};
 obsolete(http_uri, parse, 1) ->
     {removed, "use uri_string functions instead"};
 obsolete(http_uri, parse, 2) ->
@@ -189,6 +190,20 @@ obsolete(httpd_conf, is_file, 1) ->
     {removed, "use filelib:is_file/1 instead"};
 obsolete(httpd_conf, make_integer, 1) ->
     {removed, "use erlang:list_to_integer/1 instead"};
+obsolete(httpd_util, decode_hex, 1) ->
+    {removed, "use uri_string:unquote function instead"};
+obsolete(httpd_util, encode_hex, 1) ->
+    {removed, "use uri_string:quote function instead"};
+obsolete(httpd_util, flatlength, 1) ->
+    {removed, "use erlang:iolist_size/1 instead"};
+obsolete(httpd_util, hexlist_to_integer, 1) ->
+    {removed, "use erlang:list_to_integer/2 with base 16 instead"};
+obsolete(httpd_util, integer_to_hexlist, 1) ->
+    {removed, "use erlang:integer_to_list/2 with base 16 instead"};
+obsolete(httpd_util, strip, 1) ->
+    {removed, "use string:trim/1 instead"};
+obsolete(httpd_util, suffix, 1) ->
+    {removed, "use filename:extension/1 and string:trim/2 instead"};
 obsolete(net, relay, 1) ->
     {removed, "use fun Relay(Pid) -> receive X -> Pid ! X end, Relay(Pid) instead"};
 obsolete(public_key, ssh_decode, 2) ->
@@ -211,8 +226,32 @@ obsolete(ssl, connection_info, 1) ->
     {removed, "use ssl:connection_information/[1,2] instead"};
 obsolete(ssl, negotiated_next_protocol, 1) ->
     {removed, "use ssl:negotiated_protocol/1 instead"};
+obsolete(zlib, adler32, 2) ->
+    {removed, "use erlang:adler32/1 instead"};
+obsolete(zlib, adler32, 3) ->
+    {removed, "use erlang:adler32/2 instead"};
+obsolete(zlib, adler32_combine, 4) ->
+    {removed, "use erlang:adler_combine/3 instead"};
+obsolete(zlib, crc32, 1) ->
+    {removed, "use erlang:crc32/1 on the uncompressed data instead"};
+obsolete(zlib, crc32, 2) ->
+    {removed, "use erlang:crc32/1 instead"};
+obsolete(zlib, crc32, 3) ->
+    {removed, "use erlang:crc32/2 instead"};
+obsolete(zlib, crc32_combine, 4) ->
+    {removed, "use erlang:crc32_combine/3 instead"};
+obsolete(zlib, getBufSize, 1) ->
+    {removed, "this function has been removed"};
+obsolete(zlib, inflateChunk, 1) ->
+    {removed, "use safeInflate/2 instead"};
+obsolete(zlib, inflateChunk, 2) ->
+    {removed, "use safeInflate/2 instead"};
+obsolete(zlib, setBufSize, 2) ->
+    {removed, "this function has been removed"};
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
+obsolete(mnesia_registry, create_table, _) ->
+    {deprecated, "use mnesia:create_table/2 instead", "OTP 28"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
@@ -230,15 +269,15 @@ obsolete(filename, find_src, _) ->
 obsolete(ssl, ssl_accept, _) ->
     {removed, "use ssl_handshake/1,2,3 instead"};
 obsolete(ct_slave, _, _) ->
-    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 27"};
-obsolete(erts_alloc_config, _, _) ->
-    {deprecated, "this module will be removed in OTP 26.0. See the documentation for details", "OTP 26"};
+    {deprecated, "use ?CT_PEER(), or the 'peer' module instead", "OTP 29"};
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(slave, _, _) ->
-    {deprecated, "use the 'peer' module instead", "OTP 27"};
+    {deprecated, "use the 'peer' module instead", "OTP 29"};
+obsolete(erts_alloc_config, _, _) ->
+    {removed, "this module has as of OTP 26.0 been removed"};
 obsolete(os_mon_mib, _, _) ->
     {removed, "this module was removed in OTP 22.0"};
 obsolete(pg2, _, _) ->
@@ -246,6 +285,8 @@ obsolete(pg2, _, _) ->
 obsolete(_,_,_) -> no.
 
 -dialyzer({no_match, obsolete_type/3}).
+obsolete_type(ssl, prf_random, 0) ->
+    {deprecated, "Only used in deprecated function prf/5 and will no longer be needed."};
 obsolete_type(crypto, hmac_state, 0) ->
     {removed, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
 obsolete_type(crypto, retired_cbc_cipher_aliases, 0) ->
@@ -276,7 +317,18 @@ obsolete_type(http_uri, query, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(http_uri, scheme, 0) ->
     {removed, "use uri_string instead"};
+obsolete_type(http_uri, uri, 0) ->
+    {removed, "use uri_string instead"};
 obsolete_type(http_uri, user_info, 0) ->
     {removed, "use uri_string instead"};
 obsolete_type(_,_,_) -> no.
+
+-dialyzer({no_match, obsolete_callback/3}).
+obsolete_callback(gen_event, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_server, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_statem, format_status, 2) ->
+    {deprecated, "use format_status/1 instead"};
+obsolete_callback(_,_,_) -> no.
 

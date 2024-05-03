@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,15 @@
 %%% Kernel application test suite.
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
--include_lib("common_test/include/ct.hrl").
 
--compile(r22).
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
+-compile(r24).
+
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 

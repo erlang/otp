@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2022. All Rights Reserved.
+# Copyright Ericsson AB 1999-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ LD = @DED_LD@
 SHELL = /bin/sh
 LIBS = @DED_LIBS@
 LDFLAGS += @DED_LDFLAGS@
-CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@
+CFLAGS = @DED_CFLAGS@ @SSL_FLAGS@ @DEFS@
 
 # From configure
 SSL_LIBDIR = @SSL_LIBDIR@
@@ -205,13 +205,24 @@ $(LIBDIR)/otp_test_engine$(TYPEMARKER).dll: $(TEST_ENGINE_OBJS)
 	$(V_LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(TEST_ENGINE_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME) $(SSL_EXTRA_LIBS)
 endif
 
-$(OBJDIR)/ec$(TYPEMARKER).o: ec.c
+# $(OBJDIR)/ec$(TYPEMARKER).o: ec.c
+# 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+# 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
+
+# ---- Hard-coded removal of deprecated warning for ENGINE function calls
+$(OBJDIR)/engine$(TYPEMARKER).o: engine.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
 	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
 
+$(OBJDIR)/pkey$(TYPEMARKER).o: pkey.c
+	$(V_at)$(INSTALL_DIR) $(OBJDIR)
+	$(V_CC) -c -o $@ $(ALL_CFLAGS) $(CRYPTO_NO_DEPRECATE_WARN) $<
+
+# ---- End of Hard-coded removal of deprecated warning for ENGINE function calls
+
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(V_at)$(INSTALL_DIR) $(OBJDIR)
-	$(V_CC) -c -o $@ $(ALL_CFLAGS) $<
+	$(V_CC) -MMD -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/crypto$(TYPEMARKER).so: $(CRYPTO_OBJS)
 	$(V_at)$(INSTALL_DIR) $(LIBDIR)
@@ -277,3 +288,4 @@ endif
 
 release_docs_spec:
 
+-include $(CRYPTO_OBJS:%.o=%.d)

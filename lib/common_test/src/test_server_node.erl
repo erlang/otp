@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,7 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r22).
+-moduledoc false.
+
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
+-compile(r24).
 
 %% Test Controller interface
 -export([is_release_available/1, find_release/1]).
@@ -485,7 +492,7 @@ find_release(Rel) ->
                 none ->
                     case string:take(Rel,"_",true) of
                         {Rel,[]} ->
-                            false;
+                            none;
                         {RelNum,_} ->
                             find_release_path(RelNum)
                     end;
@@ -504,19 +511,19 @@ find_release_path([Path|T], Rel) ->
         false ->
             find_release_path(T, Rel);
         ErlExec ->
-            Pattern = filename:join([Path,"..","releases","*","OTP_VERSION"]),
-            case filelib:wildcard(Pattern) of
-                [VersionFile] ->
-                    {ok, VsnBin} = file:read_file(VersionFile),
-                    [MajorVsn|_] = string:lexemes(VsnBin, "."),
-                    case unicode:characters_to_list(MajorVsn) of
-                        Rel ->
-                            ErlExec;
-                        _Else ->
-                            find_release_path(T, Rel)
+            QuotedExec = "\""++ErlExec++"\"",
+            Release = os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~ts\", [erlang:system_info(otp_release)])' -s init stop"),
+            case Release =:= Rel of
+                true ->
+                    %% Check is the release is a source tree release,
+                    %% if so we should not use it.
+                    case os:cmd(QuotedExec ++ " -noinput -eval 'io:format(\"~p\",[filelib:is_file(filename:join([code:root_dir(),\"OTP_VERSION\"]))]).' -s init stop") of
+                        "true" ->
+                            find_release_path(T, Rel);
+                        "false" ->
+                            ErlExec
                     end;
-                _Else ->
-                    find_release_path(T, Rel)
+                false -> find_release_path(T, Rel)
             end
     end;
 find_release_path([], _) ->
@@ -631,14 +638,20 @@ suse_release(Fd) ->
 
 find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 16 ->
     [];
-find_rel_ubuntu(Rel, UbuntuRel) when is_integer(UbuntuRel) ->
+find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel), UbuntuRel < 20 ->
+    find_rel_ubuntu(_Rel, 16, UbuntuRel);
+find_rel_ubuntu(_Rel, UbuntuRel) when is_integer(UbuntuRel) ->
+    find_rel_ubuntu(_Rel, 20, UbuntuRel).
+
+find_rel_ubuntu(Rel, MinUbuntuRel, MaxUbuntuRel) when
+      is_integer(MinUbuntuRel), is_integer(MaxUbuntuRel) ->
     Root = otp_release_path("ubuntu"),
     lists:foldl(fun (ChkUbuntuRel, Acc) ->
                         find_rel_ubuntu_aux1(Rel, Root++integer_to_list(ChkUbuntuRel))
                             ++ Acc
                 end,
                 [],
-                lists:seq(16, UbuntuRel)).
+                lists:seq(MinUbuntuRel, MaxUbuntuRel)).
 
 find_rel_ubuntu_aux1(Rel, RootWc) ->
     case erlang:system_info(wordsize) of

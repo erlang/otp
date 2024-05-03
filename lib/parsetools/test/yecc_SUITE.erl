@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -346,8 +346,8 @@ syntax(Config) when is_list(Config) ->
                         {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Bad macro in action. OTP-7224.
@@ -366,8 +366,8 @@ syntax(Config) when is_list(Config) ->
                         {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
-            L1 = 36 + SzYeccPre,
-            L2 = 45 + SzYeccPre
+            ?assertEqual(L1, 38 + SzYeccPre),
+            ?assertEqual(L2, 47 + SzYeccPre)
     end(),
 
     %% Check line numbers. OTP-7224.
@@ -1697,8 +1697,8 @@ otp_7292(Config) when is_list(Config) ->
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
              [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 46 + SzYeccPre,
-            L2 = 55 + SzYeccPre
+            ?assertEqual(L1, 48 + SzYeccPre),
+            ?assertEqual(L2, 57 + SzYeccPre)
     end(),
 
     YeccPre = filename:join(Dir, "yeccpre.hrl"),
@@ -1717,8 +1717,8 @@ otp_7292(Config) when is_list(Config) ->
                         {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
                    [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
-            L1 = 45 + SzYeccPre,
-            L2 = 54 + SzYeccPre
+            ?assertEqual(L1, 45 + SzYeccPre),
+            ?assertEqual(L2, 54 + SzYeccPre)
     end(),
 
     file:delete(YeccPre),
@@ -2326,7 +2326,7 @@ safe_second_element(Other) -> Other.
 search_for_file_attr(PartialFilePathRegex, Forms) ->
     lists:search(fun
                    ({attribute, _, file, {FileAttr, _}}) ->
-                      case re:run(FileAttr, PartialFilePathRegex) of
+                      case re:run(FileAttr, PartialFilePathRegex, [unicode]) of
                         nomatch -> false;
                         _ -> true
                       end;

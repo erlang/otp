@@ -38,13 +38,14 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Decide between 32-bit CDECL, WIN64, and SysV64 calling conventions:
 //!   //   32-BIT - passed all arguments by stack.
 //!   //   WIN64  - passes first 4 arguments by RCX, RDX, R8, and R9.
-//!   //   UNIX64 - passes first 6 arguments by RDI, RSI, RCX, RDX, R8, and R9.
+//!   //   UNIX64 - passes first 6 arguments by RDI, RSI, RDX, RCX, R8, and R9.
 //!   x86::Gp arr, cnt;
 //!   x86::Gp sum = x86::eax;           // Use EAX as 'sum' as it's a return register.
 //!
@@ -100,7 +101,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //! The example should be self-explanatory. It shows how to work with labels, how to use operands, and how to emit
 //! instructions that can use different registers based on runtime selection. It implements 32-bit CDECL, WIN64,
-//! and SysV64 caling conventions and will work on most X86/X64 environments.
+//! and SysV64 calling conventions and will work on most X86/X64 environments.
 //!
 //! Although functions prologs / epilogs can be implemented manually, AsmJit provides utilities that can be used
 //! to create function prologs and epilogs automatically, see \ref asmjit_function for more details.
@@ -131,7 +132,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Enable strict validation.
@@ -187,7 +189,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.
@@ -281,21 +284,21 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //! #include <asmjit/x86.h>
 //! using namespace asmjit;
 //!
-//! void embedData(x86::Assembler& a, const Label& L_Data) {
+//! void processData(x86::Assembler& a, const Label& L_Data) {
 //!   x86::Gp addr = a.zax();  // EAX or RAX.
 //!   x86::Gp val = x86::edi;  // Where to store some value...
 //!
 //!   // Approach 1 - Load the address to register through LEA. This approach
 //!   //              is flexible as the address can be then manipulated, for
 //!   //              example if you have a data array, which would need index.
-//!   a.lea(addr, L_Data);     // Loads the address of the label to EAX or RAX.
-//!   a.mov(val, dword_ptr(addr));
+//!   a.lea(addr, x86::ptr(L_Data));
+//!   a.mov(val, x86::dword_ptr(addr));
 //!
 //!   // Approach 2 - Load the data directly by using L_Data in address. It's
 //!   //              worth noting that this doesn't work with indexes in X64
 //!   //              mode. It will use absolute address in 32-bit mode and
 //!   //              relative address (RIP) in 64-bit mode.
-//!   a.mov(val, dword_ptr(L_Data));
+//!   a.mov(val, x86::dword_ptr(L_Data));
 //! }
 //! ```
 //!
@@ -346,7 +349,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create JIT Runtime.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Decide which registers will be mapped to function arguments. Try changing
@@ -361,7 +365,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!
 //!   // Create/initialize FuncDetail and FuncFrame.
 //!   FuncDetail func;
-//!   func.init(FuncSignatureT<void, int*, const int*, const int*>(CallConvId::kHost));
+//!   func.init(FuncSignature::build<void, int*, const int*, const int*>(CallConvId::kHost));
 //!
 //!   FuncFrame frame;
 //!   frame.init(func);
@@ -453,7 +457,8 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   JitRuntime rt;                    // Create a runtime specialized for JIT.
 //!   CodeHolder code;                  // Create a CodeHolder.
 //!
-//!   code.init(rt.environment());      // Initialize code to match the JIT environment.
+//!   code.init(rt.environment(),       // Initialize code to match the JIT environment.
+//!             rt.cpuFeatures());
 //!   x86::Assembler a(&code);          // Create and attach x86::Assembler to code.
 //!
 //!   // Let's get these registers from x86::Assembler.
@@ -610,7 +615,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(x86)
 //!   // vaddpd zmm0 {k1} {z}, zmm1, [rcx] {1to8}
 //!   a.k(k1).z().vaddpd(zmm0, zmm1, x86::mem(rcx)._1to8());
 //!
-//!   // Embedded Rounding & Suppress-All-Exceptoins
+//!   // Embedded Rounding & Suppress-All-Exceptions
 //!   // -------------------------------------------
 //!   //
 //!   //   - Rounding mode and {sae} are part of instruction options.
@@ -637,7 +642,7 @@ public:
   //! \{
 
   ASMJIT_API explicit Assembler(CodeHolder* code = nullptr) noexcept;
-  ASMJIT_API virtual ~Assembler() noexcept;
+  ASMJIT_API ~Assembler() noexcept override;
 
   //! \}
 
@@ -648,12 +653,13 @@ public:
   // NOTE: x86::Assembler uses _privateData to store 'address-override' bit that is used to decide whether to emit
   // address-override (67H) prefix based on the memory BASE+INDEX registers. It's either `kX86MemInfo_67H_X86` or
   // `kX86MemInfo_67H_X64`.
-  inline uint32_t _addressOverrideMask() const noexcept { return _privateData; }
-  inline void _setAddressOverrideMask(uint32_t m) noexcept { _privateData = m; }
+  ASMJIT_INLINE_NODEBUG uint32_t _addressOverrideMask() const noexcept { return _privateData; }
+  ASMJIT_INLINE_NODEBUG void _setAddressOverrideMask(uint32_t m) noexcept { _privateData = m; }
 
   //! \}
   //! \endcond
 
+  //! \cond INTERNAL
   //! \name Emit
   //! \{
 

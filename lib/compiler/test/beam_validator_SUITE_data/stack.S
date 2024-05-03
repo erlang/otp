@@ -63,12 +63,13 @@
     {deallocate,5}.
     return.
 
-	
+
 {function, bad_1, 0, 10}.
   {label,9}.
     {func_info,{atom,t},{atom,bad_1},0}.
   {label,10}.
-    {allocate_zero,2,10}.
+    {allocate,2,10}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
     {move,{y,0},{x,0}}.
     return.
 
@@ -77,7 +78,8 @@
   {label,11}.
     {func_info,{atom,t},{atom,bad_2},0}.
   {label,12}.
-    {allocate_zero,2,0}.
+    {allocate,2,0}.
+    {init_yregs,{list,[{y,0},{y,1}]}}.
     {move,{y,0},{x,0}}.
     return.
 

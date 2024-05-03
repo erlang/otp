@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2015-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_custom).
+-moduledoc false.
 
 -export([response_header/1, request_header/1, response_default_headers/0]).
 -export([customize_headers/3, response_default_headers/1]).

@@ -1,0 +1,10 @@
+<?xml version="1.0"  encoding="utf-8"?>
+<!DOCTYPE data [ <!ENTITY xxe SYSTEM "test_entities_file.xml">]>
+
+<data>
+  &xxe;
+  <pair>
+    <min>15</min>
+    <max>20</max>
+  </pair>
+</data>

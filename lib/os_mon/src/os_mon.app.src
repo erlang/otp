@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,4 +31,4 @@
 	   {start_memsup, true},
 	   {start_os_sup, false}]},
     {mod, {os_mon, []}},
-    {runtime_dependencies, ["stdlib-3.4","sasl-2.4","kernel-3.0","erts-6.0"]}]}.
+    {runtime_dependencies, ["stdlib-5.0","sasl-4.2.1","kernel-9.0","erts-14.0"]}]}.

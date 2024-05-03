@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,11 @@ typedef struct {
     Sint32 item_count;
     BeamFile_LineEntry *items;
 } BeamFile_LineTable;
+
+enum beamfile_line_flags {
+    BEAMFILE_EXECUTABLE_LINE = 1, /* The executable_line instruction is used. */
+    BEAMFILE_FORCE_LINE_COUNTERS = 2 /* Force emission of line counters. */
+};
 
 typedef struct {
     struct erl_heap_fragment *heap_fragments;
@@ -253,10 +258,14 @@ beamfile_read(const byte *data, size_t size, BeamFile *beam);
  * it. */
 void beamfile_free(BeamFile *beam);
 
-/** @brief Copies a term into the dynamic literal table.
+/** @brief Copies a term into the dynamic literal table
+ *
+ * @param[in] deduplicate Whether to try to deduplicate the term before
+ * insertion. Set to zero if you require a new unique literal, for example if
+ * it needs to be modified in the late stages of loading.
  *
  * @return A literal index that can be used in beamfile_get_literal */
-Sint beamfile_add_literal(BeamFile *beam, Eterm term);
+Sint beamfile_add_literal(BeamFile *beam, Eterm term, int deduplicate);
 
 /** @brief Gets a term from the literal table.
  *

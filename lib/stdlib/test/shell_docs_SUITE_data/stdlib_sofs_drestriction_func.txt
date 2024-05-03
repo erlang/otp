@@ -1,0 +1,38 @@
+
+  [;1m-spec drestriction(BinRel1, Set) -> BinRel2[0m
+  [;1m                      when[0m
+  [;1m                          BinRel1 :: binary_relation(),[0m
+  [;1m                          BinRel2 :: binary_relation(),[0m
+  [;1m                          Set :: a_set().[0m
+
+  Returns the difference between the binary relation [;;4mBinRel1[0m and
+  the restriction of [;;4mBinRel1[0m to [;;4mSet[0m.
+
+    1> R1 = sofs:relation([{1,a},{2,b},{3,c}]),
+    S = sofs:set([2,4,6]),
+    R2 = sofs:drestriction(R1, S),
+    sofs:to_external(R2).
+    [{1,a},{3,c}]
+
+  [;;4mdrestriction(R, S)[0m is equivalent to [;;4m[0m
+  [;;4mdifference(R, restriction(R, S))[0m.
+
+  [;1m-spec drestriction(SetFun, Set1, Set2) -> Set3[0m
+  [;1m                      when[0m
+  [;1m                          SetFun :: set_fun(),[0m
+  [;1m                          Set1 :: a_set(),[0m
+  [;1m                          Set2 :: a_set(),[0m
+  [;1m                          Set3 :: a_set().[0m
+
+  Returns a subset of [;;4mSet1[0m containing those elements that do not
+  give an element in [;;4mSet2[0m as the result of applying [;;4mSetFun[0m.
+
+    1> SetFun = {external, fun({_A,B,C}) -> {B,C} end},
+    R1 = sofs:relation([{a,aa,1},{b,bb,2},{c,cc,3}]),
+    R2 = sofs:relation([{bb,2},{cc,3},{dd,4}]),
+    R3 = sofs:drestriction(SetFun, R1, R2),
+    sofs:to_external(R3).
+    [{a,aa,1}]
+
+  [;;4mdrestriction(F, S1, S2)[0m is equivalent to [;;4m[0m
+  [;;4mdifference(S1, restriction(F, S1, S2))[0m.

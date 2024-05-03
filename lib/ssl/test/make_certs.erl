@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,19 +24,20 @@
 %-export([all/1, all/2, rootCA/2, intermediateCA/3, endusers/3, enduser/3, revoke/3, gencrl/2, verify/3]).
 
 -record(config, {commonName, 
-	     organizationalUnitName = "Erlang OTP",
-	     organizationName = "Ericsson AB",
-	     localityName = "Stockholm",
-	     countryName = "SE",
-	     emailAddress = "peter@erix.ericsson.se",
-	     default_bits = 2048,
-	     v2_crls = true,
-	     ecc_certs = false,
-	     issuing_distribution_point = false,
-	     crldp_crlissuer = false,
-	     crl_port = 8000,
-             openssl_cmd = "openssl",
-             hostname = "host.example.com"}).
+                 organizationalUnitName = "Erlang OTP",
+                 organizationName = "Ericsson AB",
+                 localityName = "Stockholm",
+                 countryName = "SE",
+                 emailAddress = "peter@erix.ericsson.se",
+                 default_bits = 2048,
+                 v2_crls = true,
+                 ecc_certs = false,
+                 issuing_distribution_point = false,
+                 crldp_crlissuer = false,
+                 crl_port = 8000,
+                 openssl_cmd = "openssl",
+                 hostname = "host.example.com",
+                 cert_profile = "user_cert"}).
 
 
 default_config() ->
@@ -88,7 +89,10 @@ all(DataDir, PrivDir, C = #config{}) ->
     create_rnd(DataDir, PrivDir),			% For all requests
     rootCA(PrivDir, "erlangCA", C),
     intermediateCA(PrivDir, "otpCA", "erlangCA", C),
-    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined", "a.server", "b.server"], C),
+    endusers(PrivDir, "otpCA", ["client", "server", "revoked", "undetermined",
+                                "a.server"], C),
+    endusers(PrivDir, "otpCA", ["b.server"],
+             C#config{cert_profile="user_cert_ocsp_signing"}),
     endusers(PrivDir, "erlangCA", ["localhost"], C),
     %% Create keycert files 
     SDir = filename:join([PrivDir, "server"]),
@@ -165,7 +169,7 @@ enduser(Root, CA, User, C) ->
     create_req(Root, CnfFile, KeyFile, ReqFile, C),
     %create_req(Root, CnfFile, KeyFile, ReqFile),
     CertFileAllUsage =  filename:join([UsrRoot, "cert.pem"]),
-    sign_req(Root, CA, "user_cert", ReqFile, CertFileAllUsage, C),
+    sign_req(Root, CA, C#config.cert_profile, ReqFile, CertFileAllUsage, C),
     CertFileDigitalSigOnly =  filename:join([UsrRoot, "digital_signature_only_cert.pem"]),
     sign_req(Root, CA, "user_cert_digital_signature_only", ReqFile, CertFileDigitalSigOnly, C),
     CACertsFile = filename:join(UsrRoot, "cacerts.pem"),
@@ -651,6 +655,14 @@ ca_cnf(
      "issuerAltName	= issuer:copy\n"
      %"crlDistributionPoints=@crl_section\n"
 
+     "[user_cert_ocsp_signing]\n"
+     "basicConstraints	= CA:false\n"
+     "keyUsage 		= nonRepudiation, digitalSignature, keyEncipherment\n"
+     "extendedKeyUsage = OCSPSigning\n"
+     "subjectKeyIdentifier = hash\n"
+     "authorityKeyIdentifier = keyid,issuer:always\n"
+     "subjectAltName	= DNS.1:" ++ Hostname ++ "\n"
+     "issuerAltName	= issuer:copy\n"
      %%"[crl_section]\n"
      %% intentionally invalid
      %%"URI.1=http://localhost/",C#config.commonName,"/crl.pem\n"

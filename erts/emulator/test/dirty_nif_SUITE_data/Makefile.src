@@ -1,5 +1,5 @@
 
-NIF_LIBS = dirty_nif_SUITE@dll@
+NIF_LIBS = dirty_nif_SUITE@dll@ on_halt_a@dll@ on_halt_b@dll@ on_halt_c@dll@ on_halt_d@dll@ on_halt_e@dll@ on_halt_f@dll@
 
 all: $(NIF_LIBS) echo_drv@dll@
 

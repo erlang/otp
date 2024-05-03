@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@
          kill2killed/1,
          contended_signal_handling/1,
          dirty_signal_handling_race/1,
+         dirty_signal_handling_race_dirty_access/1,
+         dirty_signal_handling/1,
          busy_dist_exit_signal/1,
          busy_dist_demonitor_signal/1,
          busy_dist_down_signal/1,
@@ -60,7 +62,10 @@
          simultaneous_signals_basic/1,
          simultaneous_signals_recv/1,
          simultaneous_signals_exit/1,
-         simultaneous_signals_recv_exit/1]).
+         simultaneous_signals_recv_exit/1,
+         parallel_signal_enqueue_race_1/1,
+         parallel_signal_enqueue_race_2/1,
+         dirty_schedule/1]).
 
 -export([spawn_spammers/3]).
 
@@ -74,6 +79,9 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch  _:_ -> ok
+    end,
     ok.
 
 suite() ->
@@ -85,6 +93,8 @@ all() ->
      kill2killed,
      contended_signal_handling,
      dirty_signal_handling_race,
+     dirty_signal_handling_race_dirty_access,
+     dirty_signal_handling,
      busy_dist_exit_signal,
      busy_dist_demonitor_signal,
      busy_dist_down_signal,
@@ -95,6 +105,9 @@ all() ->
      monitor_named_order_local,
      monitor_named_order_remote,
      monitor_nodes_order,
+     parallel_signal_enqueue_race_1,
+     parallel_signal_enqueue_race_2,
+     dirty_schedule,
      {group, adjust_message_queue}].
 
 groups() ->
@@ -359,6 +372,88 @@ dirty_signal_handling_race(Config) ->
     end,
     ok.
 
+dirty_signal_handling_race_dirty_access(Config) ->
+    %% This test case trigger more or less the same
+    %% problematic scenario as the contended_signal_handling
+    %% and dirty_signal_handling_race, but when a dirty
+    %% scheduler access the signal queue.
+    dirty_signal_handling_race_dirty_access_test(Config).
+
+dirty_signal_handling_race_dirty_access_test(Config) ->
+    Tester = self(),
+    move_dirty_signal_handlers_to_first_scheduler(),
+    {S0, S1} = case erlang:system_info(schedulers_online) of
+                   1 -> {1, 1};
+                   2 -> {2, 1};
+                   SOnln -> {SOnln, SOnln-1}
+               end,
+    process_flag(priority, high),
+    process_flag(scheduler, S0),
+    erts_debug:set_internal_state(available_internal_state, true),
+    Drv = unlink_signal_drv,
+    ok = load_driver(Config, Drv),
+    DCpuOnln = erlang:system_flag(dirty_cpu_schedulers_online, 1),
+    try
+        _ = process_flag(fullsweep_after, 0),
+        Data = lists:seq(1, 1000000),
+        %% {parallelism, true} option will ensure that each
+        %% signal to the port from a process is scheduled which
+        %% forces the process to release its main lock when
+        %% sending the signal...
+        Port = open_port({spawn, Drv}, [{parallelism, true}]),
+        true = is_port(Port),
+        %% The {alias, reply_demonitor} option will trigger a
+        %% 'demonitor' signal from Tester to the port when an
+        %% alias message sent using the alias is received by
+        %% Tester...
+        MA1 = erlang:monitor(port, Port, [{alias, reply_demonitor}]),
+        P0 = spawn_link(fun () ->
+                                erlang:yield(),
+                                Tester ! {self(), going_dirty},
+                                erts_debug:dirty_cpu(wait, 1000)
+                        end),
+        receive {P0, going_dirty} -> ok end,
+        P1 = spawn_opt(fun () ->
+                               receive after 500 -> ok end,
+                               %% The 'proc_sig_block' test signal will cause
+                               %% dirty signal handling to start and be
+                               %% blocked in the signal handling.
+                               erts_debug:set_internal_state(proc_sig_block,
+                                                             {Tester, 1000}),
+                               %% Tester will be stuck waiting for main lock
+                               %% when being scheduled in for dirty GC. When
+                               %% the following alias message is handled by
+                               %% the dirty signal handler Tester will be
+                               %% able to aquire the main lock and begin
+                               %% execution while the dirt signal handler
+                               %% still is not finnished.
+                               MA1 ! {MA1, trigger_demonitor_port_please},
+                               ok
+                       end, [link, {scheduler, S1}]),
+        receive after 250 -> ok end,
+        %% Do a GC. It will be performed on a dirty scheduler due to
+        %% the amount of data on the heap. Since we only got one dirty
+        %% cpu scheduler online, we will be stuck in dirty cpu runq until
+        %% P0 is done
+        garbage_collect(), %% Dirty GC due to Data
+        receive
+            {'DOWN', MA1, port, Port, _} -> ct:fail(unexpected_port_down);
+            {MA1, trigger_demonitor_port_please} -> ok
+        end,
+        unlink(P1),
+        unlink(Port),
+        exit(P0, kill),
+        exit(P1, kill),
+        exit(Port, kill),
+        false = erlang:is_process_alive(P0),
+        false = erlang:is_process_alive(P1),
+        _ = id(Data)
+    after
+        erlang:system_flag(dirty_cpu_schedulers_online, DCpuOnln),
+        ok = erl_ddll:unload_driver(Drv)
+    end,
+    ok.
+
 move_dirty_signal_handlers_to_first_scheduler() ->
     SOnln = erlang:system_flag(schedulers_online, 1),
     try
@@ -377,6 +472,33 @@ move_dirty_signal_handlers_to_first_scheduler() ->
     after
         erlang:system_flag(schedulers_online, SOnln)
     end,
+    ok.
+
+dirty_signal_handling(Config) when is_list(Config) ->
+    %%
+    %% PR-7822 (third commit)
+    %%
+    %% Make sure signals are handled regardless of whether a process is
+    %% executing dirty or is scheduled for dirty execution...
+
+    %% Make sure all dirty I/O schedulers are occupied with work...
+    Ps = lists:map(fun (_) ->
+                           spawn(fun () ->
+                                         erts_debug:dirty_io(wait, 1000)
+                                 end)
+                   end, lists:seq(1, erlang:system_info(dirty_io_schedulers))),
+    %% P ends up in the run queue waiting for a free dirty I/O scheduler...
+    P = spawn(fun () ->
+                      erts_debug:dirty_io(wait, 1000)
+              end),
+    receive after 300 -> ok end,
+    %% current_function is added to prevent read of status from being optimized
+    %% to read status directly...
+    [{status,runnable},{current_function, _}] = process_info(P, [status,current_function]),
+    receive after 1000 -> ok end,
+    [{status,running},{current_function, _}] = process_info(P, [status,current_function]),
+    lists:foreach(fun (X) -> exit(X, kill) end, [P|Ps]),
+    lists:foreach(fun (X) -> false = is_process_alive(X) end, [P|Ps]),
     ok.
 
 busy_dist_exit_signal(Config) when is_list(Config) ->
@@ -1132,6 +1254,251 @@ receive_integer_pairs(Tmo) ->
             ok
     end.
 
+parallel_signal_enqueue_race_1(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+        lists:foreach(fun (_) -> parallel_signal_enqueue_race_1_test() end,
+                      lists:seq(1, 5))
+    after
+        erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+parallel_signal_enqueue_race_1_test() ->
+    %%
+    %% PR-7822 (first commit)
+    %%
+    %% This bug could be triggered when
+    %% * receiver had parallel signal enqueue optimization enabled
+    %% * receiver fetched signals while it wasn't in a running state (only
+    %%   happens when receive traced)
+    %% * signals were enqueued simultaneously as the fetch of signals
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    R = spawn_opt(fun () ->
+                          true = erts_debug:set_internal_state(proc_sig_buffers,
+                                                               true),
+                          receive after infinity -> ok end
+                  end,
+                  [{message_queue_data, off_heap}, {priority, high}, link]),
+    T = spawn_link(fun FlushTrace () ->
+                           receive {trace,R,'receive',_} -> ok end,
+                           FlushTrace()
+                   end),
+    1 = erlang:trace(R, true, ['receive', {tracer, T}]),
+    CountLoop = fun CountLoop (0) ->
+                        ok;
+                    CountLoop (N) ->
+                        CountLoop(N-1)
+                end,
+    SigLoop = fun SigLoop (0)  ->
+                      ok;
+                  SigLoop (N) ->
+                      CountLoop(rand:uniform(4000)),
+                      erlang:demonitor(erlang:monitor(process, R), [flush]),
+                      receive after 1 -> ok end,
+                      SigLoop(N-1)
+              end,
+    SMs = lists:map(fun (X) ->
+                            spawn_opt(fun () -> SigLoop(1000) end,
+                                      [{scheduler, X}, link, monitor])
+                    end, lists:seq(1,erlang:system_info(schedulers_online))),
+    R ! hello,
+    lists:foreach(fun ({P, M}) ->
+                          receive {'DOWN', M, process, P, _} -> ok end
+                  end, SMs),
+
+    %% These signals would typically not be delivered if the bug was
+    %% triggered and the test case would time out.
+    true = is_process_alive(R),
+    unlink(R),
+    exit(R, kill),
+    false = is_process_alive(R),
+
+    true = is_process_alive(T),
+    unlink(T),
+    exit(T, kill),
+    false = is_process_alive(T),
+
+    ok.
+
+parallel_signal_enqueue_race_2(Config) when is_list(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
+    try
+        parallel_signal_enqueue_race_2_test()
+    after
+        erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+parallel_signal_enqueue_race_2_test() ->
+    %%
+    %% PR-7822 (first commit)
+    %%
+    %% This bug could be triggered when
+    %% * A signal receiver process had the parallel signal enqueue optimization
+    %%   enabled
+    %% * Another process called process_info(Receiver, message_queue_len)
+    %%   while the receiver was not executing and the process_info() call
+    %%   internaly called erts_proc_sig_fetch() on receiver trying to
+    %%   optimize the process_info() call
+    %% * Yet another process simultaneously sent the receiver another
+    %%   signal.
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    process_flag(scheduler, 1),
+    {RSched, PISched, LUSched} = case erlang:system_info(schedulers_online) of
+                                     1 ->
+                                         {1, 1, 1};
+                                     2 ->
+                                         {2, 1, 2};
+                                     3 ->
+                                         {1, 2, 3};
+                                     _ ->
+                                         {2, 3, 4}
+                                 end,
+    Tester = self(),
+    R = spawn_opt(fun () ->
+                          true = erts_debug:set_internal_state(proc_sig_buffers,
+                                                               true),
+                          Tester ! recv_ready,
+                          receive after infinity -> ok end
+                  end,
+                  [{message_queue_data, off_heap}, link, {scheduler, RSched}]),
+
+    PI = spawn_opt(fun PILoop () ->
+                           true = is_process_alive(R),
+                           Tester ! pi_ready,
+                           receive go -> ok end,
+                           _ = process_info(R, message_queue_len),
+                           PILoop()
+                   end,
+                   [link, {scheduler, PISched}]),
+    LU = spawn_opt(fun LULoop () ->
+                           true = is_process_alive(R),
+                           Tester ! lu_ready,
+                           receive go -> ok end,
+                           link(R),
+                           unlink(R),
+                           LULoop()
+                   end,
+                   [link, {scheduler, LUSched}]),
+
+    receive recv_ready -> ok end,
+    TriggerLoop = fun TriggerLoop(0) ->
+                          ok;
+                      TriggerLoop (N) ->
+                          receive lu_ready -> ok end,
+                          receive pi_ready -> ok end,
+                          %% Give them some time to schedule out...
+                          erlang:yield(),
+                          case N rem 2 of
+                              0 ->
+                                  PI ! go,
+                                  LU ! go;
+                              1 ->
+                                  LU ! go,
+                                  PI ! go
+                          end,
+                          TriggerLoop(N-1)
+                  end,
+    TriggerLoop(400000),
+
+    unlink(PI),
+    exit(PI, kill),
+    false = is_process_alive(PI),
+    unlink(LU),
+    exit(LU, kill),
+    false = is_process_alive(LU),
+    unlink(R),
+    exit(R, kill),
+    false = is_process_alive(R),
+    ok.
+
+dirty_schedule(Config) when is_list(Config) ->
+    lists:foreach(fun (_) ->
+                          dirty_schedule_test()
+                  end,
+                  lists:seq(1, 5)),
+    ok.
+
+dirty_schedule_test() ->
+    %%
+    %% PR-7822 (second commit)
+    %%
+    %% This bug could occur when a process was to be scheduled due to an
+    %% incomming signal just as the receiving process was selected for
+    %% execution on a dirty scheduler. The process could then be inserted
+    %% into a run-queue simultaneously as it began executing dirty. If
+    %% the scheduled instance was selected for execution on one dirty
+    %% scheduler simultaneously as it was scheduled out on another scheduler
+    %% a race could cause the thread scheduling out the process to think it
+    %% already was in the run-queue, so there is no need to insert it in the
+    %% run-queue, while the other thread selecting it for execution dropped
+    %% the process, since it was already running on another scheduler. By
+    %% this the process ended up stuck in a runnable state, but not in the
+    %% run-queue.
+    %%
+    %% When the bug was triggered, the receiver could end up in an inconsistent
+    %% state where it potentially would be stuck for ever.
+    %%
+    %% The above scenario is very hard to trigger, so the test typically do
+    %% not fail even with the bug present, but we at least try to massage
+    %% the scenario...
+    %%
+    Proc = spawn_link(fun DirtyLoop () ->
+                              erts_debug:dirty_io(scheduler,type),
+                              DirtyLoop()
+                      end),
+    NoPs = lists:seq(1, erlang:system_info(schedulers_online)),
+    SpawnSender =
+        fun (Prio) ->
+                spawn_opt(
+                  fun () ->
+                          Loop = fun Loop (0) ->
+                                         ok;
+                                     Loop (N) ->
+                                         _ = process_info(Proc,
+                                                          current_function),
+                                         Loop(N-1)
+                                 end,
+                          receive go -> ok end,
+                          Loop(100000)
+                  end, [monitor,{priority,Prio}])
+        end,
+    Go = fun ({P, _M}) -> P ! go end,
+    WaitProcs = fun ({P, M}) ->
+                        receive {'DOWN', M, process, P, R} ->
+                                normal = R
+                        end
+                end,
+    PM1s = lists:map(fun (_) -> SpawnSender(normal) end, NoPs),
+    lists:foreach(Go, PM1s),
+    lists:foreach(WaitProcs, PM1s),
+    PM2s = lists:map(fun (_) -> SpawnSender(high) end, NoPs),
+    lists:foreach(Go, PM2s),
+    lists:foreach(WaitProcs, PM2s),
+    PM3s = lists:map(fun (N) ->
+                             Prio = case N rem 2 of
+                                        0 -> normal;
+                                        1 -> high
+                                    end,
+                             SpawnSender(Prio) end, NoPs),
+    lists:foreach(Go, PM3s),
+    lists:foreach(WaitProcs, PM3s),
+    unlink(Proc),
+    exit(Proc, kill),
+    false = is_process_alive(Proc),
+    ok.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
@@ -1265,3 +1632,7 @@ busy_wait_until(Fun) ->
         true -> ok;
         _ -> busy_wait_until(Fun)
     end.
+
+id(X) ->
+    X.
+

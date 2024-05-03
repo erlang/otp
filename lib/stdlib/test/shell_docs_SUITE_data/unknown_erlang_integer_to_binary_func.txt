@@ -1,0 +1,23 @@
+
+  [;1m-spec integer_to_binary(Integer) -> binary() when Integer :: integer().[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns a binary corresponding to the text representation of [;;4m[0m
+  [;;4mInteger[0m, for example:
+
+    > integer_to_binary(77).
+    <<"77">>
+
+  [;1m-spec integer_to_binary(Integer, Base) -> binary()[0m
+  [;1m                           when Integer :: integer(), Base :: 2..36.[0m
+
+[;;4mSince[0m:
+  OTP R16B
+
+  Returns a binary corresponding to the text representation of [;;4m[0m
+  [;;4mInteger[0m in base [;;4mBase[0m, for example:
+
+    > integer_to_binary(1023, 16).
+    <<"3FF">>

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2022. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,17 +25,22 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 SOCKET_MODULES = \
+	gen_tcp_socket_SUITE \
 	socket_test_lib \
 	socket_test_logger \
 	socket_test_evaluator \
+	socket_test_profile \
 	socket_test_ttest_lib \
 	socket_test_ttest_tcp_gen \
+	socket_test_ttest_tcp_gs \
 	socket_test_ttest_tcp_socket \
 	socket_test_ttest_tcp_client \
 	socket_test_ttest_tcp_client_gen \
+	socket_test_ttest_tcp_client_gs \
 	socket_test_ttest_tcp_client_socket \
 	socket_test_ttest_tcp_server \
 	socket_test_ttest_tcp_server_gen \
+	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
 	socket_SUITE
 
@@ -63,6 +68,7 @@ MODULES= \
 	appinc2B \
 	code_SUITE \
 	code_b_test \
+	code_coverage_SUITE \
 	disk_log_SUITE \
 	erl_boot_server_SUITE \
 	erl_distribution_SUITE \
@@ -106,6 +112,7 @@ MODULES= \
 	net_SUITE \
 	os_SUITE \
 	pg_SUITE \
+	rtnode \
 	seq_trace_SUITE \
 	$(SOCKET_MODULES) \
 	wrap_log_reader_SUITE \
@@ -149,7 +156,7 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
-COVERFILE=kernel.cover logger.cover
+COVERFILE=kernel.cover logger.cover tty.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -161,7 +168,7 @@ RELSYSDIR = $(RELEASE_PATH)/kernel_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
@@ -213,10 +220,11 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) $(EXTRA_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) \
-		kernel.spec kernel_smoke.spec kernel_bench.spec logger.spec \
+		kernel.spec kernel_smoke.spec kernel_bench.spec kernel_gh.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
 
 release_docs_spec:

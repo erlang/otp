@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
-         external/1,eep37/1,eep37_dup/1,badarity/1,badfun/1,
+         external/1,eep37/1,badarity/1,badfun/1,
          duplicated_fun/1,unused_fun/1,parallel_scopes/1,
-         coverage/1]).
+         coverage/1,leaky_environment/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -39,9 +39,9 @@ all() ->
 groups() ->
     [{p,[parallel],
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,
-       eep37_dup,badarity,badfun,duplicated_fun,unused_fun,
+       badarity,badfun,duplicated_fun,unused_fun,
        parallel_scopes,
-       coverage]}].
+       coverage,leaky_environment]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -223,7 +223,14 @@ bad_external_fun() ->
     fun V0:V0/V0,                               %Should fail.
     never_reached.
 
-eep37(Config) when is_list(Config) ->
+%% Named funs.
+eep37(_Config) ->
+    eep37_basic(),
+    eep37_dup(),
+    eep37_gh6515(),
+    ok.
+
+eep37_basic() ->
     F = fun Fact(N) when N > 0 -> N * Fact(N - 1); Fact(0) -> 1 end,
     Add = fun _(N) -> N + 1 end,
     UnusedName = fun _BlackAdder(N) -> N + 42 end,
@@ -232,7 +239,7 @@ eep37(Config) when is_list(Config) ->
     50 = UnusedName(8),
     ok.
 
-eep37_dup(Config) when is_list(Config) ->
+eep37_dup() ->
     dup1 = (dup1())(),
     dup2 = (dup2())(),
     ok.
@@ -242,6 +249,39 @@ dup1() ->
 
 dup2() ->
     fun _F() -> dup2 end.
+
+eep37_gh6515() ->
+    {0,F1} = eep37_gh6515_1(),
+    F1 = F1(),
+
+    [0,F2] = eep37_gh6515_2(),
+    1 = F2(0),
+    120 = F2(5),
+
+    ok.
+
+eep37_gh6515_1() ->
+    {case [] of
+         #{} ->
+             X = 0;
+         X ->
+             0
+     end,
+     fun X() ->
+             X
+     end}.
+
+eep37_gh6515_2() ->
+    [case [] of
+         #{} ->
+             Fact = 0;
+         Fact ->
+             0
+     end,
+     fun Fact(N) when N > 0 ->
+             N * Fact(N - 1);
+         Fact(0) -> 1
+     end].
 
 badarity(Config) when is_list(Config) ->
     {'EXIT',{{badarity,{_,[]}},_}} = (catch (fun badarity/1)()),
@@ -524,6 +564,12 @@ parallel_scopes_13(A, B) ->
 
 coverage(_Config) ->
     ok = coverage_1(),
+
+    [2,3,4] = coverage_2(id([1,2,3])),
+
+    {42,F} = coverage_3(id({[], x})),
+    x = F(),
+
     ok.
 
 coverage_1() ->
@@ -534,5 +580,21 @@ coverage_1() ->
            ("abc") -> party
         end,
         ok.
+
+coverage_2(List) ->
+    %% Cover a line in beam_ssa_pre_codegen:need_frame_1/2 when the
+    %% no_make_fun3 option is given.
+    lists:map(fun(E) -> E + 1 end, List).
+
+%% Cover a line in beam_block when no_make_fun3 option is given.
+coverage_3({[], A}) ->
+    {id(42), fun() -> A end}.
+
+leaky_environment(_Config) ->
+    G = fun(X, Y) -> X + Y end,
+    F = fun(A) -> G(A, 0) end,
+    {'EXIT', {{badarity, {_, [1, flurb]}}, _}} = catch F(1, flurb),
+    ok.
+
 id(I) ->
     I.

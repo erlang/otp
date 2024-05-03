@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%% Description: Default Callback module for ssh_sftpd
 
 -module(ssh_sftpd_file).
+-moduledoc false.
 
 -behaviour(ssh_sftpd_file_api).
 

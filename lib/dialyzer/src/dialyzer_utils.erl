@@ -20,6 +20,7 @@
 %%% Created :  5 Dec 2006 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_utils).
+-moduledoc false.
 
 -export([
 	 format_sig/1,
@@ -45,7 +46,9 @@
          ets_tab2list/1,
          ets_move/2,
 	 parallelism/0,
-         family/1
+         family/1,
+   p_foreach/2,
+   p_map/2
 	]).
 
 %% For dialyzer_worker.
@@ -550,13 +553,59 @@ get_spec_info([], SpecMap, CallbackMap,
   {ok, SpecMap, CallbackMap}.
 
 core_to_attr_tuples(Core) ->
-  [{cerl:concrete(Key), get_core_location(cerl:get_ann(Key)), cerl:concrete(Value)} ||
-   {Key, Value} <- cerl:module_attrs(Core)].
+  As = [{cerl:concrete(Key), get_core_location(cerl:get_ann(Key)), cerl:concrete(Value)} ||
+         {Key, Value} <- cerl:module_attrs(Core)],
+  case cerl:concrete(cerl:module_name(Core)) of
+    erlang ->
+      As;
+    _ ->
+      %% Starting from Erlang/OTP 26, locally defining a type having
+      %% the same name as a built-in type is allowed. Change the tag
+      %% from `type` to `user_type` for all such redefinitions.
+      massage_forms(As, sets:new([{version, 2}]))
+  end.
 
 get_core_location([L | _As]) when is_integer(L) -> L;
 get_core_location([{L, C} | _As]) when is_integer(L), is_integer(C) -> {L, C};
 get_core_location([_ | As]) -> get_core_location(As);
 get_core_location([]) -> undefined.
+
+massage_forms([{type, Loc, [{Name, Type0, Args}]} | T], Defs0) ->
+  Type = massage_type(Type0, Defs0),
+  Defs = sets:add_element({Name, length(Args)}, Defs0),
+  [{type, Loc, [{Name, Type, Args}]} | massage_forms(T, Defs)];
+massage_forms([{spec, Loc, [{Name, [Type0]}]} | T], Defs) ->
+  Type = massage_type(Type0, Defs),
+  [{spec, Loc, [{Name, [Type]}]} | massage_forms(T, Defs)];
+massage_forms([H | T], Defs) ->
+  [H | massage_forms(T, Defs)];
+massage_forms([], _Defs) ->
+  [].
+
+massage_type({type, Loc, 'fun',
+              [{type, ArgsLoc, product, ArgTypes}, Ret0]},
+             Defs) ->
+  %% We must make sure that we keep the built-in `product` type here.
+  Args = {type, ArgsLoc, product, massage_type_list(ArgTypes, Defs)},
+  Ret = massage_type(Ret0, Defs),
+  {type, Loc, 'fun', [Args, Ret]};
+massage_type({type, Loc, Name, Args0}, Defs) when is_list(Args0) ->
+  case sets:is_element({Name, length(Args0)}, Defs) of
+    true ->
+      %% This name for a built-in type has been overriden locally
+      %% with a new definition.
+      {user_type, Loc, Name, Args0};
+    false ->
+      Args = massage_type_list(Args0, Defs),
+      {type, Loc, Name, Args}
+  end;
+massage_type(Type, _Defs) ->
+  Type.
+
+massage_type_list([H|T], Defs) ->
+  [massage_type(H, Defs) | massage_type_list(T, Defs)];
+massage_type_list([], _Defs) ->
+  [].
 
 -spec get_fun_meta_info(module(), cerl:c_module(), [dial_warn_tag()]) ->
                 dialyzer_codeserver:fun_meta_info() | {'error', string()}.
@@ -718,7 +767,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors,
-   no_inline, strict_record_tests, strict_record_updates,
+   no_inline, strict_record_tests,
    dialyzer, no_spawn_compiler_process].
 
 -spec format_errors([{module(), string()}]) -> [string()].
@@ -948,9 +997,15 @@ pp_map(Node, Ctxt, Cont) ->
 	       prettypr:beside(Cont(Arg,Ctxt),
 			       prettypr:floating(prettypr:text("#{")))
 	   end,
+  MapEs = case cerl:is_literal(Node) of
+            true ->
+              lists:sort(cerl:map_es(Node));
+            false ->
+              cerl:map_es(Node)
+          end,
   prettypr:beside(
     Before, prettypr:beside(
-	      prettypr:par(seq(cerl:map_es(Node),
+	      prettypr:par(seq(MapEs,
 			       prettypr:floating(prettypr:text(",")),
 			       Ctxt, Cont)),
 	      prettypr:floating(prettypr:text("}")))).
@@ -1062,7 +1117,7 @@ refold_concrete_pat(Val) ->
       %% N.B.: The key in a map pattern is an expression, *not* a pattern.
       label(cerl:c_map_pattern([cerl:c_map_pair_exact(cerl:abstract(K),
 						      refold_concrete_pat(V))
-				|| {K, V} <- maps:to_list(M)]));
+				|| K := V <- M]));
     _ ->
       cerl:abstract(Val)
   end.
@@ -1132,9 +1187,8 @@ ets_take('$end_of_table', T, F, A) ->
     Key -> ets_take(Key, T, F, A)
   end;
 ets_take(Key, T, F, A) ->
-  Vs = ets:lookup(T, Key),
   Key1 = ets:next(T, Key),
-  true = ets:delete(T, Key),
+  Vs = ets:take(T, Key),
   ets_take(Key1, T, F, F(Vs, A)).
 
 -spec parallelism() -> integer().
@@ -1146,3 +1200,79 @@ parallelism() ->
 
 family(L) ->
     sofs:to_external(sofs:rel2fam(sofs:relation(L))).
+
+-spec p_foreach(fun((X) -> any()), [X]) -> ok.
+p_foreach(Fun, List) ->
+  N = dialyzer_utils:parallelism(),
+  Ref = make_ref(),
+  start(Fun, List, Ref, N, gb_sets:new()).
+
+start(Fun, [Arg|Rest], Ref, N, Outstanding) when N > 0 ->
+  Self = self(),
+  Pid = spawn_link(
+    fun() ->
+      try Fun(Arg) of
+        _Val -> Self ! {done, Ref, self()}
+      catch
+        throw:Throw -> Self ! {throw, Throw, Ref, self()}
+      end
+    end),
+  start(Fun, Rest, Ref, N-1, gb_sets:add_element(Pid, Outstanding));
+start(Fun, Args, Ref, N, Outstanding) when N >= 0 ->
+  case {gb_sets:is_empty(Outstanding), Args} of
+    {true, []} -> ok;
+    {true, Args} -> start(Fun, Args, Ref, 1, Outstanding);
+    {false, _} ->
+      receive
+        {done, Ref, Pid} ->
+          start(Fun, Args, Ref, N+1, gb_sets:delete(Pid, Outstanding));
+        {throw, Throw, Ref, Pid} ->
+          clean_up(Throw, Ref, gb_sets:delete(Pid, Outstanding))
+      end
+  end.
+
+-spec p_map(fun((X) -> Y), [X]) -> [Y].
+p_map(Fun, List) ->
+  Parent = self(),
+  Batches = batch(List, dialyzer_utils:parallelism()),
+  BatchJobs =
+    [spawn_link(
+      fun() ->
+        try
+          Result = lists:map(Fun,Batch),
+          Parent ! {done, self(), Result}
+        catch
+          throw:Throw -> Parent ! {throw, self(), Throw}
+        end
+      end)
+    || Batch <- Batches],
+  lists:append([
+    receive
+      {done, Pid, BatchResult} -> BatchResult;
+      {throw, Pid, Throw} -> throw(Throw)
+    end
+  || Pid <- BatchJobs]).
+
+-spec batch([X], non_neg_integer()) -> [[X]].
+batch(List, BatchSize) ->
+  batch(BatchSize, 0, List, []).
+batch(_, _, [], Acc) ->
+  [lists:reverse(Acc)];
+batch(BatchSize, BatchSize, List, Acc) ->
+  [lists:reverse(Acc) | batch(BatchSize, 0, List, [])];
+batch(BatchSize, PartialBatchSize, [H|T], Acc) ->
+  batch(BatchSize, PartialBatchSize+1, T, [H|Acc]).
+
+
+clean_up(ThrowVal, Ref, Outstanding) ->
+  case gb_sets:is_empty(Outstanding) of
+    true ->
+      throw(ThrowVal);
+    false ->
+      receive
+        {done, Ref, Pid} ->
+          clean_up(ThrowVal, Ref, gb_sets:delete(Pid, Outstanding));
+        {throw, _Throw, Ref, Pid} ->
+          clean_up(ThrowVal, Ref, gb_sets:delete(Pid, Outstanding))
+      end
+  end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 
 -export([write/1, read/1, wread/1, delete/1,
          delete_object_bag/1, delete_object_set/1,
-         match_object/1, select/1, select14/1, all_keys/1, transaction/1,
+         match_object/1, select/1, select14/1, all_keys/1, transaction/1, transaction_counters/1,
          basic_nested/1, mix_of_nested_activities/1,
          nested_trans_both_ok/1, nested_trans_child_dies/1,
          nested_trans_parent_dies/1, nested_trans_both_dies/1,
@@ -65,7 +65,7 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() ->
     [write, read, wread, delete, delete_object_bag, delete_object_set,
-     match_object, select, select14, all_keys, transaction,
+     match_object, select, select14, all_keys, transaction, transaction_counters,
      {group, nested_activities}, {group, index_tabs},
      {group, index_lifecycle}].
 
@@ -546,6 +546,28 @@ transaction(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+transaction_counters(suite) -> [];
+transaction_counters(Config) ->
+    Nodes = ?acquire_nodes(1, Config),
+
+    {atomic, {{Participants1, Coordinators1}, {Participants2, Coordinators2}}} =
+        mnesia:transaction(fun get_transactions_counters/0),
+
+    ?match(Coordinators1, Coordinators2),
+    ?match(Coordinators1, 1),
+    ?match(Participants1, Participants2),
+    ?match(Participants1, 0),
+
+    ?verify_mnesia(Nodes, []).
+
+get_transactions_counters() ->
+    {count_sides(mnesia_tm:get_transactions()), mnesia_tm:get_transactions_count()}.
+
+count_sides(TransactionsList) ->
+    lists:foldl(
+        fun({_Tid, _Pid, participant}, {Participants, Coordinators}) -> {Participants + 1, Coordinators};
+            ({_Tid, _Pid, coordinator}, {Participants, Coordinators}) -> {Participants, Coordinators + 1}
+        end, {0, 0}, TransactionsList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

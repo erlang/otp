@@ -1,0 +1,34 @@
+
+  [;1m-spec family_union(Family1) -> Family2[0m
+  [;1m                      when Family1 :: family(), Family2 :: family().[0m
+
+  If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a set of sets for
+  each i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the family
+  with the same index set as [;;4mFamily1[0m such that [;;4mFamily2[0m[i] is the 
+  union of [;;4mFamily1[0m[i].
+
+    1> F1 = sofs:from_term([{a,[[1,2],[2,3]]},{b,[[]]}]),
+    F2 = sofs:family_union(F1),
+    sofs:to_external(F2).
+    [{a,[1,2,3]},{b,[]}]
+
+  [;;4mfamily_union(F)[0m is equivalent to [;;4mfamily_projection(fun[0m
+  [;;4msofs:union/1, F)[0m.
+
+  [;1m-spec family_union(Family1, Family2) -> Family3[0m
+  [;1m                      when[0m
+  [;1m                          Family1 :: family(),[0m
+  [;1m                          Family2 :: family(),[0m
+  [;1m                          Family3 :: family().[0m
+
+  If [;;4mFamily1[0m and [;;4mFamily2[0m are families, then [;;4mFamily3[0m is the
+  family such that the index set is the union of [;;4mFamily1[0m:s and [;;4m[0m
+  [;;4mFamily2[0m:s index sets, and [;;4mFamily3[0m[i] is the union of [;;4mFamily1[0m
+  [i] and [;;4mFamily2[0m[i] if both map i, otherwise [;;4mFamily1[0m[i] or [;;4m[0m
+  [;;4mFamily2[0m[i].
+
+    1> F1 = sofs:family([{a,[1,2]},{b,[3,4]},{c,[5,6]}]),
+    F2 = sofs:family([{b,[4,5]},{c,[7,8]},{d,[9,10]}]),
+    F3 = sofs:family_union(F1, F2),
+    sofs:to_external(F3).
+    [{a,[1,2]},{b,[3,4,5]},{c,[5,6,7,8]},{d,[9,10]}]

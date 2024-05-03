@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
         }
     }
     ASSERT(objects == h->nobjs);
+    (void)objects;
 
     hi->name  = h->name;
     hi->size  = hash_get_slots(h);

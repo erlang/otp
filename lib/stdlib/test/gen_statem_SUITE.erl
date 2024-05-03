@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ all() ->
      {group, stop_handle_event},
      {group, abnormal},
      {group, abnormal_handle_event},
-     shutdown, stop_and_reply, state_enter, event_order,
+     shutdown, loop_start_fail, stop_and_reply, state_enter, event_order,
      state_timeout, timeout_cancel_and_update,
      event_types, generic_timers, code_change,
      {group, sys},
@@ -61,7 +61,7 @@ groups() ->
      {format_log, [], tcs(format_log)}].
 
 tcs(start) ->
-    [start1, start2, start3, start4, start5, start6, start7,
+    [start1, start2, start3, start4, start5a, start5b, start6, start7,
      start8, start9, start10, start11, start12, next_events];
 tcs(stop) ->
     [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10];
@@ -77,7 +77,7 @@ tcs(undef_callbacks) ->
     [undef_code_change, undef_terminate1, undef_terminate2,
      pop_too_many];
 tcs(format_log) ->
-    [format_log_1, format_log_2].
+    [format_log_1, format_log_2, format_log_with_process_label].
 
 init_per_suite(Config) ->
     Config.
@@ -210,10 +210,20 @@ start4(Config) ->
     ok = verify_empty_msgq().
 
 %% anonymous with stop
-start5(Config) ->
+start5a(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     {error,stopped} = gen_statem:start(?MODULE, start_arg(Config, stop), []),
+
+    process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq().
+
+%% anonymous with shutdown
+start5b(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {error, foobar} =
+        gen_statem:start(?MODULE, start_arg(Config, {error, foobar}), []),
 
     process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
@@ -674,6 +684,53 @@ shutdown(Config) ->
     after 500 ->
 	    ok
     end.
+
+
+loop_start_fail(Config) ->
+    _ = process_flag(trap_exit, true),
+    loop_start_fail(
+      Config,
+      [{start, []}, {start, [link]},
+       {start_link, []},
+       {start_monitor, [link]}, {start_monitor, []}]).
+
+loop_start_fail(_Config, []) ->
+    ok;
+loop_start_fail(Config, [{Start, Opts} | Start_Opts]) ->
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, {stop, failed_to_start}}}, Opts,
+      fun ({error, failed_to_start}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, ignore}}, Opts,
+      fun (ignore) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {return, 4711}}, Opts,
+      fun ({error, {bad_return_from_init, 4711}}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, error, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {crash, exit, bailout}}, Opts,
+      fun ({error, bailout}) -> ok end),
+    loop_start_fail(
+      fun gen_statem:Start/3,
+      {ets, {wait, 1000, void}}, [{timeout, 200} | Opts],
+      fun ({error, timeout}) -> ok end),
+    loop_start_fail(Config, Start_Opts).
+
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun) ->
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, 5).
+%%
+loop_start_fail(_GenStartFun, _Arg, _Opts, _ValidateFun, 0) ->
+    ok;
+loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N) ->
+    ok = ValidateFun(GenStartFun(?MODULE, Arg, Opts)),
+    loop_start_fail(GenStartFun, Arg, Opts, ValidateFun, N - 1).
 
 
 
@@ -1352,7 +1409,7 @@ terminate_crash_format(Config) ->
         terminate_crash_format(Config,format_status_statem,
                                {{formatted,idle},{formatted,crash_terminate}})
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         process_flag(trap_exit, OldFl),
         error_logger_forwarder:unregister()
     end.
@@ -1506,17 +1563,25 @@ replace_state(Config) ->
     {state0,NState3} = sys:replace_state(Pid, Replace4),
     ok = sys:resume(Pid),
     {state0,NState3} = sys:get_state(Pid, 5000),
+    %% State 'error' does not exist but is never touched,
+    %% just verify that sys handles it as a state, not as an error return
+    {error,NState3} =
+        sys:replace_state(Pid, fun ({state0, SD}) -> {error, SD} end),
+    {error, NState3} = sys:get_state(Pid),
+    {state0,NState3} =
+        sys:replace_state(Pid, fun ({error, SD}) -> {state0, SD} end),
     stop_it(Pid),
     ok = verify_empty_msgq().
 
 %% Hibernation
 hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
+    WaitHibernate = 500,
 
     {ok,Pid0} =
 	gen_statem:start_link(
 	  ?MODULE, start_arg(Config, hiber_now), []),
-    wait_erlang_hibernate(Pid0),
+    wait_erlang_hibernate(Pid0, WaitHibernate),
     stop_it(Pid0),
     receive
 	{'EXIT',Pid0,normal} -> ok
@@ -1529,38 +1594,38 @@ hibernate(Config) ->
     true = ({current_function,{erlang,hibernate,3}} =/=
 		erlang:process_info(Pid,current_function)),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
 
-    Pid ! hibernate_later,
+    Pid ! {hibernate_later, WaitHibernate div 2},
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
 	({current_function,{erlang,hibernate,3}} =/=
 	     erlang:process_info(Pid, current_function)),
     Pid ! hibernate_now,
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     'alive!' = gen_statem:call(Pid, 'alive?'),
     true =
@@ -1568,37 +1633,37 @@ hibernate(Config) ->
 	     erlang:process_info(Pid, current_function)),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     please_just_five_more = gen_statem:call(Pid, snooze_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     good_morning = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok  = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, hibernate_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, snooze_async),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     ok = gen_statem:cast(Pid, wakeup_async),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
 
     hibernating = gen_statem:call(Pid, hibernate_sync),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     sys:suspend(Pid),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
     sys:resume(Pid),
-    wait_erlang_hibernate(Pid),
-    receive after 1000 -> ok end,
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, WaitHibernate),
+    receive after WaitHibernate -> ok end,
+    wait_erlang_hibernate(Pid, WaitHibernate),
 
     good_morning  = gen_statem:call(Pid, wakeup_sync),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, WaitHibernate),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1611,73 +1676,74 @@ hibernate(Config) ->
 %% Auto-hibernation timeout
 auto_hibernate(Config) ->
     OldFl = process_flag(trap_exit, true),
-    HibernateAfterTimeout = 1000,
+    HibernateAfterTimeout = 500,
+    WaitTime = 1000,
 
     {ok,Pid} =
         gen_statem:start_link(
             ?MODULE, start_arg(Config, []),
           [{hibernate_after, HibernateAfterTimeout}]),
     %% After init test
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After info test
     Pid ! {hping, self()},
     receive
         {Pid, hpong} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(info)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After cast test
     ok = gen_statem:cast(Pid, {hping, self()}),
     receive
         {Pid, hpong} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(cast)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% After call test
     hpong = gen_statem:call(Pid, hping),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 1
     TimerTimeout1 = HibernateAfterTimeout div 2,
     ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout1}),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(TimerTimeout1),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     receive
         {Pid, htimer_timeout} ->
             ok
-    after 1000 ->
+    after WaitTime ->
         ct:fail(timer1)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     %% Timer test 2
     TimerTimeout2 = HibernateAfterTimeout * 2,
     ok = gen_statem:call(Pid, {start_htimer, self(), TimerTimeout2}),
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     receive
         {Pid, htimer_timeout} ->
             ok
     after TimerTimeout2 ->
         ct:fail(timer2)
     end,
-    is_not_in_erlang_hibernate(Pid),
+    is_not_in_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     timer:sleep(HibernateAfterTimeout),
-    wait_erlang_hibernate(Pid),
+    wait_erlang_hibernate(Pid, 2 * HibernateAfterTimeout),
     stop_it(Pid),
     process_flag(trap_exit, OldFl),
     receive
@@ -1688,35 +1754,35 @@ auto_hibernate(Config) ->
     ok = verify_empty_msgq().
 
 
-wait_erlang_hibernate(Pid) ->
+wait_erlang_hibernate(Pid, Time) ->
     receive after 1 -> ok end,
-    wait_erlang_hibernate_1(200, Pid).
+    wait_erlang_hibernate_1(Pid, Time, Time div 100).
 
-wait_erlang_hibernate_1(0, Pid) ->
+wait_erlang_hibernate_1(Pid, Time, _T) when Time =< 0 ->
     ct:log("~p\n", [erlang:process_info(Pid, current_function)]),
     ct:fail(should_be_in_erlang_hibernate_3);
-wait_erlang_hibernate_1(N, Pid) ->
+wait_erlang_hibernate_1(Pid, Time, T) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
 	{erlang,hibernate,3} ->
 	    ok;
 	_ ->
-	    receive after 10 -> ok end,
-	    wait_erlang_hibernate_1(N-1, Pid)
+	    receive after T -> ok end,
+	    wait_erlang_hibernate_1(Pid, Time - T, T)
     end.
 
-is_not_in_erlang_hibernate(Pid) ->
+is_not_in_erlang_hibernate(Pid, Time) ->
     receive after 1 -> ok end,
-    is_not_in_erlang_hibernate_1(200, Pid).
+    is_not_in_erlang_hibernate_1(Pid, Time, Time div 100).
 
-is_not_in_erlang_hibernate_1(0, _Pid) ->
+is_not_in_erlang_hibernate_1(_Pid, Time, _T) when Time =< 0 ->
     ct:fail(should_not_be_in_erlang_hibernate_3);
-is_not_in_erlang_hibernate_1(N, Pid) ->
+is_not_in_erlang_hibernate_1(Pid, Time, T) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
  	{erlang,hibernate,3} ->
-	    receive after 10 -> ok end,
-	    is_not_in_erlang_hibernate_1(N-1, Pid);
+	    receive after T -> ok end,
+	    is_not_in_erlang_hibernate_1(Pid, Time - T, T);
  	_ ->
  	    ok
     end.
@@ -2262,6 +2328,77 @@ format_log_2_elaborate() ->
     end,
     ok.
 
+format_log_with_process_label(_Config) ->
+    %% Previous test cases test with process_label set to undefined,
+    %% so in this test case, test setting it, and test:
+    %% * multiple and single line line
+    %% * depth-limited and unlimited
+
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    ProcessLabel = {some_id, #{term => Term}},
+    Reason = dummy_reason,
+    State = dummy_state,
+    Report0 = simple_report(Name, State, Reason),
+    Report = Report0#{process_label=>ProcessLabel},
+
+    %% multiple and single line (unlimited depth)
+
+    {F1,A1} = gen_statem:format_log(Report),
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1 = "** State machine ~tp terminating~n"
+        "** Process label = ~tp~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
+        "** Callback mode = ~tp~n",
+    FExpected1 = F1,
+    [Name,ProcessLabel,State,error,Reason,[?MODULE],state_functions] = A1,
+
+    FormatOpts2 = #{single_line=>true},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    Expected2 = "State machine " ++ NameStr ++ " terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}}. "
+        "Reason: dummy_reason. "
+        "State: dummy_state.",
+    ct:log("Str2: ~ts", [Str2]),
+    true = Expected2 =:= Str2,
+
+    %% multiple and single line (depth-limited)
+
+    Depth = 10,
+    FormatOpts3 = #{depth=>Depth},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Process label = {some_id,#{term => [1,2,3,4,5,6|...]}}\n"
+        "** When server state  = dummy_state\n"
+        "** Reason for termination = "
+           "error:dummy_reason\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str3: ~ts", [Str3]),
+    true = Expected3 =:= Str3,
+
+    FormatOpts4 = #{single_line=>true, depth=>Depth},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Label: {some_id,#{term => [1,2,3,4,5,6|...]}}. "
+        "Reason: dummy_reason. "
+        "State: dummy_state.",
+    ct:log("Str4: ~ts", [Str4]),
+    true = Expected4 =:= Str4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
 simple_report(Name, Term, Reason) ->
     #{label=>{gen_statem,terminate},
       name=>Name,
@@ -2274,7 +2411,8 @@ simple_report(Name, Term, Reason) ->
       timeouts=>{0,[]},
       log=>[],
       reason=>{error,Reason,[]},
-      client_info=>undefined}.
+      client_info=>undefined,
+      process_label=>undefined}.
 
 elaborate_report(Name, Term, Reason) ->
     #{label=>{gen_statem,terminate},
@@ -2288,7 +2426,8 @@ elaborate_report(Name, Term, Reason) ->
       timeouts=>{1,[{timeout,message}]},
       log=>[Term],
       reason=>{error,Reason,stacktrace()},
-      client_info=>{self(),{self(),[]}}}.
+      client_info=>{self(),{self(),[]}},
+      process_label=>undefined}.
 
 stacktrace() ->
     [{m,f,1,lists:seq(1, 15)}].
@@ -2751,25 +2890,37 @@ start_arg(Config, Arg) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ignore) ->
+    io:format("init(ignore)~n", []),
     ignore;
 init(stop) ->
+    io:format("init(stop)~n", []),
     {stop,stopped};
+init({error, Reason}) ->
+    io:format("init(error) -> Reason: ~p~n", [Reason]),
+    {error, Reason};
 init(stop_shutdown) ->
+    io:format("init(stop_shutdown)~n", []),
     {stop,shutdown};
 init(sleep) ->
+    io:format("init(sleep)~n", []),
     ct:sleep(1000),
     init_sup({ok,idle,data});
 init(hiber) ->
+    io:format("init(hiber)~n", []),
     init_sup({ok,hiber_idle,[]});
 init(hiber_now) ->
+    io:format("init(hiber_now)~n", []),
     init_sup({ok,hiber_idle,[],[hibernate]});
 init({data, Data}) ->
+    io:format("init(data)~n", []),
     init_sup({ok,idle,Data});
 init({callback_mode,CallbackMode,Arg}) ->
+    io:format("init(callback_mode)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,CallbackMode}),
     init(Arg);
 init({map_statem,#{init := Init}=Machine,Modes}) ->
+    io:format("init(map_statem)~n", []),
     ets:new(?MODULE, [named_table,private]),
     ets:insert(?MODULE, {callback_mode,[handle_event_function|Modes]}),
     case Init() of
@@ -2780,7 +2931,19 @@ init({map_statem,#{init := Init}=Machine,Modes}) ->
 	Other ->
 	    init_sup(Other)
     end;
+init({ets, InitResult}) ->
+    ?MODULE = ets:new(?MODULE, [named_table]),
+    init_sup(
+      case InitResult of
+          {return, Value} ->
+              Value;
+          {crash, Class, Reason} ->
+              erlang:Class(Reason);
+          {wait, Time, Value} ->
+              receive after Time -> Value end
+      end);
 init([]) ->
+    io:format("init~n", []),
     init_sup({ok,idle,data}).
 
 %% Supervise state machine parent i.e the test case, and if it dies
@@ -2972,8 +3135,8 @@ hiber_idle({call,From}, hibernate_sync, Data) ->
     {next_state,hiber_wakeup,Data,
      [{reply,From,hibernating},
       hibernate]};
-hiber_idle(info, hibernate_later, _) ->
-    Tref = erlang:start_timer(1000, self(), hibernate),
+hiber_idle(info, {hibernate_later, Time}, _) ->
+    Tref = erlang:start_timer(Time, self(), hibernate),
     {keep_state,Tref};
 hiber_idle(info, hibernate_now, Data) ->
     {keep_state,Data,

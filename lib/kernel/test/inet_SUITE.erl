@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@
 
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
-	 t_gethostbyname/0, t_gethostbyname/1,
+	 t_gethostbyname/0, t_gethostbyname/1, t_gethostbyname_empty/1,
 	 t_gethostbyaddr_v6/0, t_gethostbyaddr_v6/1,
 	 t_getaddr_v6/0, t_getaddr_v6/1,
 	 t_gethostbyname_v6/0, t_gethostbyname_v6/1,
@@ -70,7 +70,7 @@ suite() ->
 
 all() -> 
     [
-     t_gethostbyaddr, t_gethostbyname, t_getaddr,
+     t_gethostbyaddr, t_gethostbyname, t_gethostbyname_empty, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, is_ip_address, {group, parse},
      t_gethostnative, gethostnative_parallell, cname_loop,
@@ -133,9 +133,13 @@ init_per_suite(Config0) ->
 
         Config1 when is_list(Config1) ->
             
+            %% We need a monitor on this node also
+            ?P("init_per_suite -> try start system monitor"),
+            kernel_test_sys_monitor:start(),
+
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
-            
+
             Config1
     end.
 
@@ -144,6 +148,10 @@ end_per_suite(Config0) ->
     ?P("end_per_suite -> entry with"
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    %% Stop the local monitor
+    ?P("init_per_suite -> try stop system monitor"),
+    kernel_test_sys_monitor:stop(),
 
     Config1 = ?LIB:end_per_suite(Config0),
 
@@ -166,7 +174,7 @@ init_per_testcase(Case, Config0) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config0, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config0, erlang:nodes(), links(), monitors()]),
 
     kernel_test_global_sys_monitor:reset_events(),
 
@@ -176,7 +184,7 @@ init_per_testcase(Case, Config0) ->
        "~n   Config:   ~p"
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
-       "~n   Monitors: ~p", [Config1, erlang:nodes(), pi(links), pi(monitors)]),
+       "~n   Monitors: ~p", [Config1, erlang:nodes(), links(), monitors()]),
     Config1.
 
 init_per_testcase2(gethostnative_debug_level, Config) ->
@@ -204,7 +212,7 @@ end_per_testcase(Case, Config) ->
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
        "~n   Monitors: ~p",
-       [Config, erlang:nodes(), pi(links), pi(monitors)]),
+       [Config, erlang:nodes(), links(), monitors()]),
 
     ?P("system events during test: "
        "~n   ~p", [kernel_test_global_sys_monitor:events()]),
@@ -214,7 +222,7 @@ end_per_testcase(Case, Config) ->
     ?P("end_per_testcase -> done with"
        "~n   Nodes:    ~p"
        "~n   Links:    ~p"
-       "~n   Monitors: ~p", [erlang:nodes(), pi(links), pi(monitors)]),
+       "~n   Monitors: ~p", [erlang:nodes(), links(), monitors()]),
     ok.
 
 end_per_testcase2(lookup_bad_search_option, Config) ->
@@ -366,6 +374,18 @@ do_gethostbyname(Config) when is_list(Config) ->
     {error,nxdomain} = inet:gethostbyname(DName),
     {error,nxdomain} = inet:gethostbyname(IP_46_Str),
     ok.
+
+
+t_gethostbyname_empty(Config) when is_list(Config) ->
+    element(1, os:type()) =:= unix andalso
+        begin
+            {error,nxdomain} = inet:gethostbyname(""),
+            {error,nxdomain} = inet:gethostbyname('')
+        end,
+    {error,nxdomain} = inet:gethostbyname("."),
+    {error,nxdomain} = inet:gethostbyname('.'),
+    ok.
+
 
 t_gethostbyname_v6() -> required(v6).
 %% Test the inet:gethostbyname/1 inet6 function.
@@ -1955,18 +1975,28 @@ socknames_sctp(Config) when is_list(Config) ->
 
 
 socknames_tcp(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_tcp0(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_socknames_tcp0(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_socknames_tcp0(_Config) ->
+do_socknames_tcp0(_Config, Addr) ->
     %% Begin with a the plain old boring (= port) socket(s)
     ?P("Test socknames for 'old' socket (=port)"),
-    do_socknames_tcp1([]),
+    do_socknames_tcp1([], Addr),
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
         #{} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_tcp1([{inet_backend, socket}])
+            do_socknames_tcp1([{inet_backend, socket}], Addr)
     catch
         error:notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -1979,9 +2009,13 @@ do_socknames_tcp0(_Config) ->
     end.
 
 
-do_socknames_tcp1(Conf) ->
+do_socknames_tcp1(Conf, Addr) ->
+    %% For socket on windows, we require binding...
+    ?P("try to bind to ~p", [Addr]),
+    BaseOpts = [{ip, Addr}],
+
     ?P("try create listen socket"),
-    {ok, S1} = gen_tcp:listen(0, Conf),
+    {ok, S1} = gen_tcp:listen(0, Conf ++ BaseOpts),
     ?P("try get socknames for (listen) socket: "
        "~n      ~p", [S1]),
     PortNumber1 = case inet:socknames(S1) of
@@ -1997,7 +2031,7 @@ do_socknames_tcp1(Conf) ->
 			  exit({skip, {listen_socket, Reason1}})
 		  end,
     ?P("try connect to listen socket on port ~p", [PortNumber1]),
-    {ok, S2} = gen_tcp:connect("localhost", PortNumber1, Conf),
+    {ok, S2} = gen_tcp:connect(Addr, PortNumber1, Conf ++ BaseOpts),
     ?P("try get socknames for (connected) socket: "
        "~n      ~p", [S2]),
     case inet:socknames(S2) of
@@ -2037,18 +2071,28 @@ do_socknames_tcp1(Conf) ->
 
 
 socknames_udp(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_socknames_udp0(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_socknames_udp0(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_socknames_udp0(_Config) ->
+do_socknames_udp0(_Config, Addr) ->
     %% Begin with a the plain old boring (= port) socket(s)
     ?P("Test socknames for 'old' socket (=port)"),
-    do_socknames_udp1([]),
+    do_socknames_udp1([], Addr),
 
     %% And *maybe* also check the 'new' shiny socket sockets
     try socket:info() of
         #{} ->
             ?P("Test socknames for 'new' socket (=socket nif)"),
-            do_socknames_udp1([{inet_backend, socket}])
+            do_socknames_udp1([{inet_backend, socket}], Addr)
     catch
         error : notsup ->
             ?P("Skip test of socknames for 'new' socket (=socket nif)"),
@@ -2061,9 +2105,13 @@ do_socknames_udp0(_Config) ->
     end.
 
 
-do_socknames_udp1(Conf) ->
+do_socknames_udp1(Conf, Addr) ->
+    %% For socket on windows, we require binding...
+    ?P("try to bind to ~p", [Addr]),
+    BaseOpts = [{ip, Addr}],
+
     ?P("try create socket"),
-    {ok, S1} = gen_udp:open(0, Conf),
+    {ok, S1} = gen_udp:open(0, Conf ++ BaseOpts),
     ?P("try get socknames for socket: "
        "~n      ~p", [S1]),
     case inet:socknames(S1) of
@@ -2078,6 +2126,8 @@ do_socknames_udp1(Conf) ->
                "~n      ~p", [Reason1]),
             exit({skip, {listen_socket, Reason1}})
     end,
+    ?P("enable debug"),
+    inet:setopts(S1, [{debug, true}]),
     ?P("close socket"),
     (catch gen_udp:close(S1)),
     ?P("done"),
@@ -2086,6 +2136,12 @@ do_socknames_udp1(Conf) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+links() ->
+    pi(links).
+
+monitors() ->
+    pi(monitors).
 
 pi(Item) ->
     {Item, Val} = process_info(self(), Item),

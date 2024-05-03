@@ -14,8 +14,4 @@
 //!
 //! API shared between AArch32 & AArch64 backends.
 
-ASMJIT_BEGIN_SUB_NAMESPACE(arm)
-
-ASMJIT_END_SUB_NAMESPACE
-
 #endif // ASMJIT_ARM_ARMGLOBALS_H_INCLUDED

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2022. All Rights Reserved.
+# Copyright Ericsson AB 2003-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ MODULES = $(EDOC_MODULES) \
 	xmerl_validate \
 	xmerl_xlate \
 	xmerl_xml \
+	xmerl_xml_indent \
 	xmerl_xpath_lib \
 	xmerl_xpath_parse \
 	xmerl_xpath_pred \
@@ -123,7 +124,8 @@ TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += \
 		-I ../include \
-		+warn_unused_vars 
+		+warn_unused_vars \
+                +nowarn_missing_spec_documented
 
 #		+bin_opt_info 
 

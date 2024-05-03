@@ -32,7 +32,7 @@ These types are documented in this module:
   [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
   [;1m                              binary() | []).[0m
 
-  [;1m-type list() :: list().[0m
+  [;1m-type list() :: [any()].[0m
 
   [;1m-type list(ContentType) :: [ContentType].[0m
 
@@ -134,7 +134,8 @@ These types are documented in this module:
   [;1m          {min_heap_size, Size :: non_neg_integer()} |[0m
   [;1m          {min_bin_vheap_size, VSize :: non_neg_integer()} |[0m
   [;1m          {max_heap_size, Size :: max_heap_size()} |[0m
-  [;1m          {message_queue_data, MQD :: message_queue_data()}.[0m
+  [;1m          {message_queue_data, MQD :: message_queue_data()} |[0m
+  [;1m          {async_dist, Enabled :: boolean()}.[0m
 
   [;1m-type priority_level() :: low | normal | high | max.[0m
 
@@ -143,7 +144,8 @@ These types are documented in this module:
   [;1m              non_neg_integer() |[0m
   [;1m              #{size => non_neg_integer(),[0m
   [;1m                kill => boolean(),[0m
-  [;1m                error_logger => boolean()}.[0m
+  [;1m                error_logger => boolean(),[0m
+  [;1m                include_shared_binaries => boolean()}.[0m
 
   [;1m-type message_queue_data() :: off_heap | on_heap.[0m
 
@@ -160,3 +162,10 @@ These types are documented in this module:
   [;1m            arity() | [term()],[0m
   [;1m            [stacktrace_extrainfo()]} |[0m
   [;1m           {function(), arity() | [term()], [stacktrace_extrainfo()]}].[0m
+
+  [;1m-type send_destination() ::[0m
+  [;1m          pid() |[0m
+  [;1m          reference() |[0m
+  [;1m          port() |[0m
+  [;1m          (RegName :: atom()) |[0m
+  [;1m          {RegName :: atom(), Node :: node()}.[0m

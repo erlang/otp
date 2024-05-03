@@ -279,24 +279,17 @@ explicit_inet_backend() ->
     end.
 
 test_inet_backends() ->
-    case init:get_argument(snmp) of
-        {ok, SnmpArgs} when is_list(SnmpArgs) ->
-            test_inet_backends(SnmpArgs, atom_to_list(?FUNCTION_NAME));
-        error ->
-            false
-    end.
-
-test_inet_backends([], _) ->
-    false;
-test_inet_backends([[Key, Val] | _], Key) ->
-    case list_to_atom(string:to_lower(Val)) of
-        Bool when is_boolean(Bool) ->
-            Bool;
+    case application:get_all_env(snmp) of
+        Env when is_list(Env) ->
+            case lists:keysearch(test_inet_backends, 1, Env) of
+                {value, {test_inet_backends, true}} ->
+                    true;
+                _ ->
+                    false
+            end;
         _ ->
-            false
-    end;
-test_inet_backends([_|Args], Key) ->
-    test_inet_backends(Args, Key).
+            false 
+    end.
 
 
 
@@ -2718,66 +2711,118 @@ analyze_and_print_solaris_host_info(Version) ->
 
 
 analyze_and_print_win_host_info(Version) ->
+    Label          = ts_extra_platform_label(),
+    AddLabelFactor = label2factor(simplify_label(Label)),
+
     SysInfo    = which_win_system_info(),
     OsName     = win_sys_info_lookup(os_name,             SysInfo),
     OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
     SysMan     = win_sys_info_lookup(system_manufacturer, SysInfo),
     SysMod     = win_sys_info_lookup(system_model,        SysInfo),
+    SysType    = win_sys_info_lookup(system_type,         SysInfo),
     NumProcs   = win_sys_info_lookup(num_processors,      SysInfo),
     TotPhysMem = win_sys_info_lookup(total_phys_memory,   SysInfo),
     io:format("Windows: ~s"
               "~n   OS Version:             ~s (~p)"
               "~n   System Manufacturer:    ~s"
               "~n   System Model:           ~s"
+              "~n   System Type:            ~s"
               "~n   Number of Processor(s): ~s"
               "~n   Total Physical Memory:  ~s"
+              "~n   (Erlang) WordSize:      ~w"
               "~n   Num Online Schedulers:  ~s"
               "~n~n", [OsName, OsVersion, Version,
-                       SysMan, SysMod, NumProcs, TotPhysMem,
+                       SysMan, SysMod, SysType,
+                       NumProcs, TotPhysMem,
+                       erlang:system_info(wordsize),
                        str_num_schedulers()]),
-    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+
+    io:format("TS: "
+              "~n   TimeTrap Factor:      ~w"
+              "~n   Extra Platform Label: ~s"
+              "~n~n",
+              [timetrap_scale_factor(), Label]),
+
+    %% 'VirtFactor' will be 0 unless virtual
+    VirtFactor = win_virt_factor(SysMod),
+
+    %% On some machines this is a badly formated string
+    %% (contains a char of 255), so we need to do some nasty stuff...
     MemFactor =
         try
             begin
-                [MStr, MUnit|_] =
-                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
+                %% "Normally" this looks like this: "16,123 MB"
+                %% But sometimes the "," is replaced by a
+		%% 255 or 160 char, which I assume must be some
+		%% unicode screwup...
+                %% Anyway, filter out both of them!
+                TotPhysMem1 = lists:delete($,, TotPhysMem),
+                TotPhysMem2 = lists:delete(255, TotPhysMem1),
+                TotPhysMem3 = lists:delete(160, TotPhysMem2),
+                [MStr, MUnit|_] = string:tokens(TotPhysMem3, [$\ ]),
                 case string:to_lower(MUnit) of
                     "gb" ->
                         try list_to_integer(MStr) of
-                            M when M > 8 ->
+                            M when M >= 16 ->
                                 0;
-                            M when M > 4 ->
+                            M when M >= 8 ->
                                 1;
-                            M when M > 2 ->
-                                2;
+                            M when M >= 4 ->
+                                3;
+                            M when M >= 2 ->
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   [gb] ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     "mb" ->
                         try list_to_integer(MStr) of
-                            M when M > 8192 ->
+                            M when M >= 16384 ->
                                 0;
-                            M when M > 4096 ->
+                            M when M >= 8192 ->
                                 1;
-                            M when M > 2048 ->
-                                2;
+                            M when M >= 4096 ->
+                                3;
+                            M when M >= 2048 ->
+                                6;
                             _ -> 
-                                5
+                                10
                         catch
                             _:_:_ ->
+                                %% For some reason the string contains
+                                %% "unusual" characters...
+                                %% ...so print the string as a list...
+                                io:format("Bad memory string: "
+                                          "~n   [mb] ~w"
+                                          "~n", [MStr]),
                                 10
                         end;
                     _ ->
+                        io:format("Bad memory string: "
+                                  "~n   ~w"
+                                  "~n", [MStr]),
                         10
                 end
             end
         catch
             _:_:_ ->
+                %% For some reason the string contains
+                %% "unusual" characters...
+                %% ...so print the string as a list...
+                io:format("Bad memory string: "
+                          "~n   (y) ~w"
+                          "~n", [TotPhysMem]),
                 10
         end,
+
     CPUFactor = 
         case erlang:system_info(schedulers) of
             1 ->
@@ -2787,7 +2832,19 @@ analyze_and_print_win_host_info(Version) ->
             _ ->
                 2
         end,
-    {CPUFactor + MemFactor, SysInfo}.
+    io:format("Factor calc:"
+              "~n      CPU Factor:     ~w"
+              "~n      Mem Factor:     ~w"
+              "~n      Label Factor:   ~w"
+              "~n      Virtual Factor: ~w"
+              "~n~n",
+              [CPUFactor, MemFactor, AddLabelFactor, VirtFactor]),
+    {CPUFactor + MemFactor + AddLabelFactor + VirtFactor, SysInfo}.
+
+win_virt_factor("VMware" ++ _) ->
+    2;
+win_virt_factor(_) ->
+    0.
 
 win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").

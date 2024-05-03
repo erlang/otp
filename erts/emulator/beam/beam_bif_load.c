@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,13 +57,13 @@ static struct {
     ErlFunEntry **funs;
     ErlFunEntry *def_funs[10];
     Uint fe_size;
-    Uint fe_ix;
+    Uint fe_count;
     struct erl_module_instance saved_old;
 } purge_state;
 
 Process *erts_code_purger = NULL;
 
-static void set_default_trace_pattern(Eterm module);
+static void set_on_load_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int *redsp, int fcalls);
 static void delete_code(Module* modp);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -88,7 +88,7 @@ init_purge_state(void)
 
     purge_state.funs = &purge_state.def_funs[0];
     purge_state.fe_size = sizeof(purge_state.def_funs) / sizeof(purge_state.def_funs[0]);
-    purge_state.fe_ix = 0;
+    purge_state.fe_count = 0;
 
     purge_state.saved_old.code_hdr = 0;
 }
@@ -165,45 +165,29 @@ erts_internal_beamfile_chunk_2(BIF_ALIST_2)
     IFF_Chunk chunk;
     IFF_File iff;
 
-    byte* temp_alloc;
-    byte* start;
-    Eterm Bin;
+    const byte *temp_alloc = NULL, *start;
+    Eterm binary;
+    Uint size;
     Eterm res;
 
     res = am_undefined;
-    temp_alloc = NULL;
-    Bin = BIF_ARG_1;
+    binary = BIF_ARG_1;
 
     if (!read_iff_list(BIF_ARG_2, &search_iff)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    start = erts_get_aligned_binary_bytes(binary, &size, &temp_alloc);
+    if (start == NULL) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (iff_init(start, binary_size(Bin), &iff)) {
+    if (iff_init(start, size, &iff)) {
         if (iff_read_chunk(&iff, search_iff, &chunk) && chunk.size > 0) {
-            Sint offset, bitoffs, bitsize;
-            Eterm real_bin;
-
-            ERTS_GET_REAL_BIN(Bin, real_bin, offset, bitoffs, bitsize);
-
-            if (bitoffs) {
-                res = new_binary(BIF_P, (byte*)chunk.data, chunk.size);
-            } else {
-                ErlSubBin *sb = (ErlSubBin*)HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
-
-                sb->thing_word = HEADER_SUB_BIN;
-                sb->orig = real_bin;
-                sb->size = chunk.size;
-                sb->bitsize = 0;
-                sb->bitoffs = 0;
-                sb->offs = offset + (chunk.data - start);
-                sb->is_writable = 0;
-
-                res = make_binary(sb);
-            }
+            res = erts_make_sub_binary(BIF_P,
+                                       binary,
+                                       (chunk.data - start),
+                                       chunk.size);
         }
     }
 
@@ -216,22 +200,20 @@ erts_internal_beamfile_chunk_2(BIF_ALIST_2)
 BIF_RETTYPE
 erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
 {
-    byte* temp_alloc;
-    byte* bytes;
-
+    const byte *temp_alloc = NULL, *bytes;
     BeamFile beam;
-    Eterm Bin;
+    Uint size;
     Eterm res;
 
-    temp_alloc = NULL;
-    Bin = BIF_ARG_1;
-
-    if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
+    if (bytes == NULL) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (beamfile_read(bytes, binary_size(Bin), &beam) == BEAMFILE_READ_SUCCESS) {
-        res = new_binary(BIF_P, beam.checksum, sizeof(beam.checksum));
+    if (beamfile_read(bytes, size, &beam) == BEAMFILE_READ_SUCCESS) {
+        res = erts_new_binary_from_data(BIF_P,
+                                        sizeof(beam.checksum),
+                                        beam.checksum);
         beamfile_free(&beam);
     } else {
         res = am_undefined;
@@ -245,33 +227,34 @@ erts_internal_beamfile_module_md5_1(BIF_ALIST_1)
 BIF_RETTYPE
 erts_internal_prepare_loading_2(BIF_ALIST_2)
 {
-    byte* temp_alloc = NULL;
-    byte* code;
-    Uint sz;
+    const byte *temp_alloc = NULL, *code;
+    Uint size;
     Binary* magic;
     Eterm reason;
     Eterm* hp;
     Eterm res;
 
     if (is_not_atom(BIF_ARG_1)) {
-    error:
-	erts_free_aligned_binary_bytes(temp_alloc);
-	BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);
     }
-    if ((code = erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc)) == NULL) {
-	goto error;
+
+    code = erts_get_aligned_binary_bytes(BIF_ARG_2, &size, &temp_alloc);
+    if (code == NULL) {
+        BIF_ERROR(BIF_P, BADARG);
     }
 
     magic = erts_alloc_loader_state();
-    sz = binary_size(BIF_ARG_2);
     reason = erts_prepare_loading(magic, BIF_P, BIF_P->group_leader,
-				  &BIF_ARG_1, code, sz);
+                                  &BIF_ARG_1, code, size);
+
     erts_free_aligned_binary_bytes(temp_alloc);
+
     if (reason != NIL) {
-	hp = HAlloc(BIF_P, 3);
-	res = TUPLE2(hp, am_error, reason);
-	BIF_RET(res);
+        hp = HAlloc(BIF_P, 3);
+        res = TUPLE2(hp, am_error, reason);
+        BIF_RET(res);
     }
+
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
     res = erts_mk_magic_ref(&hp, &MSO(BIF_P), magic);
     erts_refc_dec(&magic->intern.refc, 1);
@@ -302,7 +285,8 @@ struct m {
     Eterm exception;
 };
 
-static struct /* Protected by code_write_permission */
+
+static struct /* Protected by code loading permission */
 {
     Process* stager;
     ErtsCodeBarrier barrier;
@@ -320,7 +304,7 @@ static void commit_code_ix(void *null)
     committer_state.stager = NULL;
 #endif
 
-    erts_release_code_write_permission();
+    erts_release_code_load_permission();
 
     erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (!ERTS_PROC_IS_EXITING(p)) {
@@ -360,8 +344,9 @@ finish_loading_1(BIF_ALIST_1)
     int is_blocking = 0;
     int do_commit = 0;
 
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
-	ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_finish_loading_1), BIF_P, BIF_ARG_1);
+    if (!erts_try_seize_code_load_permission(BIF_P)) {
+        ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_finish_loading_1),
+                        BIF_P, BIF_ARG_1);
     }
 
     /*
@@ -376,11 +361,11 @@ finish_loading_1(BIF_ALIST_1)
     n = erts_list_length(BIF_ARG_1);
     if (n < 0) {
     badarg:
-	if (p) {
-	    erts_free(ERTS_ALC_T_LOADER_TMP, p);
-	}
-	erts_release_code_write_permission();
-	BIF_ERROR(BIF_P, BADARG);
+        if (p) {
+            erts_free(ERTS_ALC_T_LOADER_TMP, p);
+        }
+        erts_release_code_load_permission();
+        BIF_ERROR(BIF_P, BADARG);
     }
     p = erts_alloc(ERTS_ALC_T_LOADER_TMP, n*sizeof(struct m));
 
@@ -412,13 +397,13 @@ finish_loading_1(BIF_ALIST_1)
      */
 
     if (n > 1) {
-	for (i = 0; i < n; i++) {
-	    if (erts_has_code_on_load(p[i].code) == am_true) {
-		erts_free(ERTS_ALC_T_LOADER_TMP, p);
-		erts_release_code_write_permission();
-		BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-	    }
-	}
+        for (i = 0; i < n; i++) {
+            if (erts_has_code_on_load(p[i].code) == am_true) {
+                erts_free(ERTS_ALC_T_LOADER_TMP, p);
+                erts_release_code_load_permission();
+                BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+            }
+        }
     }
 
     /*
@@ -451,10 +436,29 @@ finish_loading_1(BIF_ALIST_1)
 	goto done;
     }
 
+    exceptions = 0;
+    for (i = 0; i < n; i++) {
+        p[i].exception = THE_NON_VALUE;
+        if (p[i].modp->curr.code_hdr && p[i].modp->old.code_hdr) {
+            p[i].exception = am_not_purged;
+            exceptions++;
+        }
+    }
+
+    if (exceptions) {
+        res = exception_list(BIF_P, am_not_purged, p, exceptions);
+        goto done;
+    }
+
+    /*
+     * Now we can load all code. This can't fail.
+     */
+    do_commit = 1;
+
     for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
-	    erts_is_default_trace_enabled()) {
+	    erts_is_on_load_trace_enabled()) {
 	    /* tracing needs thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
@@ -475,42 +479,24 @@ finish_loading_1(BIF_ALIST_1)
 
     exceptions = 0;
     for (i = 0; i < n; i++) {
-	p[i].exception = THE_NON_VALUE;
-	if (p[i].modp->curr.code_hdr && p[i].modp->old.code_hdr) {
-	    p[i].exception = am_not_purged;
-	    exceptions++;
-	}
+        Eterm mod;
+        Eterm retval;
+
+        erts_refc_inc(&p[i].code->intern.refc, 1);
+        retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
+        ASSERT(retval == NIL || retval == am_on_load);
+        if (retval == am_on_load) {
+            p[i].exception = am_on_load;
+            exceptions++;
+        }
     }
 
+    /*
+     * Check whether any module has an on_load_handler.
+     */
+
     if (exceptions) {
-	res = exception_list(BIF_P, am_not_purged, p, exceptions);
-    } else {
-	/*
-	 * Now we can load all code. This can't fail.
-	 */
-
-	exceptions = 0;
-	for (i = 0; i < n; i++) {
-	    Eterm mod;
-	    Eterm retval;
-
-	    erts_refc_inc(&p[i].code->intern.refc, 1);
-	    retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
-	    ASSERT(retval == NIL || retval == am_on_load);
-	    if (retval == am_on_load) {
-		p[i].exception = am_on_load;
-		exceptions++;
-	    }
-	}
-
-	/*
-	 * Check whether any module has an on_load_handler.
-	 */
-
-	if (exceptions) {
-	    res = exception_list(BIF_P, am_on_load, p, exceptions);
-	}
-	do_commit = 1;
+        res = exception_list(BIF_P, am_on_load, p, exceptions);
     }
 
 done:
@@ -531,7 +517,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
             for (i=0; i < nmods; i++) {
                 if (mods[i].modp->curr.code_hdr
                      && mods[i].exception != am_on_load) {
-                    set_default_trace_pattern(mods[i].module);
+                    set_on_load_trace_pattern(mods[i].module);
                 }
             }
 
@@ -546,7 +532,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	if (is_blocking) {
 	    erts_thr_progress_unblock();
 	}
-	erts_release_code_write_permission();
+	erts_release_code_load_permission();
 	return res;
     }
     else {
@@ -645,7 +631,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
 {
     erts_aint32_t state;
     Process *rp;
-    int dirty, busy, reds = 0;
+    int busy, reds = 0;
     Eterm res;
 
     if (BIF_P != erts_dirty_process_signal_handler
@@ -667,13 +653,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
         BIF_RET(am_false);
 
     state = erts_atomic32_read_nob(&rp->state);
-    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
-    /*
-     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
-     * comment in erts_execute_dirty_system_task()
-     * in erl_process.c).
-     */
-    if (!dirty)
+    if (!ERTS_PROC_IN_DIRTY_STATE(state))
         BIF_RET(am_normal);
 
     busy = erts_proc_trylock(rp, ERTS_PROC_LOCK_MAIN) == EBUSY;
@@ -704,7 +684,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
+    if (!erts_try_seize_code_load_permission(BIF_P)) {
 	ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_delete_module_1), BIF_P, BIF_ARG_1);
     }
 
@@ -841,7 +821,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (!erts_try_seize_code_write_permission(BIF_P)) {
+    if (!erts_try_seize_code_load_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_finish_after_on_load_2),
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
@@ -852,7 +832,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     if (!modp || !modp->on_load || !(modp->on_load)->code_hdr
 	|| !((modp->on_load)->code_hdr)->on_load) {
 
-	erts_release_code_write_permission();
+	erts_release_code_load_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
 
@@ -868,7 +848,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
 	       && ((modp->on_load)->code_hdr)->on_load);
 
-        if (erts_is_default_trace_enabled()) {
+        if (erts_is_on_load_trace_enabled()) {
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
@@ -917,10 +897,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
         {
             BeamCodeHeader *code_hdr_rw;
 
+            erts_unseal_module(&modp->curr);
+
             code_hdr_rw = erts_writable_code_ptr(&modp->curr,
                                                  modp->curr.code_hdr);
-
             code_hdr_rw->on_load = NULL;
+
+            erts_seal_module(&modp->curr);
         }
 
 	mods[0].modp = modp;
@@ -949,33 +932,40 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
             ep->trampoline.not_loaded.deferred = 0;
 	}
     }
-    erts_release_code_write_permission();
+    erts_release_code_load_permission();
     BIF_RET(am_true);
 }
 
 static void
-set_default_trace_pattern(Eterm module)
+set_on_load_trace_pattern(Eterm module)
 {
-    int trace_pattern_is_on;
-    Binary *match_spec;
-    Binary *meta_match_spec;
-    struct trace_pattern_flags trace_pattern_flags;
-    ErtsTracer meta_tracer;
-
-    erts_get_default_trace_pattern(&trace_pattern_is_on,
-				   &match_spec,
-				   &meta_match_spec,
-				   &trace_pattern_flags,
-				   &meta_tracer);
-    if (trace_pattern_is_on) {
-        ErtsCodeMFA mfa;
-        mfa.module = module;
-	(void) erts_set_trace_pattern(0, &mfa, 1,
-				      match_spec,
-				      meta_match_spec,
-				      1, trace_pattern_flags,
-				      meta_tracer, 1);
+    // int trace_pattern_is_on;
+    // Binary *match_spec;
+    // Binary *meta_match_spec;
+    // struct trace_pattern_flags trace_pattern_flags;
+    // ErtsTracer meta_tracer;
+    /* iterate through all trace sessions,
+     * the trace session is referenced in the match spec
+     * so this should be easy?
+    */
+    ErtsTraceSession *s_p;
+    ERTS_LC_ASSERT(erts_has_code_mod_permission() ||
+                   erts_thr_progress_is_blocking());
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for(s_p = &erts_trace_session_0; s_p; s_p = s_p->next){
+        if (s_p->on_load_trace_pattern_is_on){
+            ErtsCodeMFA mfa;
+            mfa.module = module;
+            erts_staging_trace_session = s_p;
+            (void) erts_set_trace_pattern(&mfa, 1,
+                                          s_p->on_load_match_spec,
+                                          s_p->on_load_meta_match_spec,
+                                          1, s_p->on_load_trace_pattern_flags,
+                                          s_p->on_load_meta_tracer, 1);
+        }
     }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    erts_staging_trace_session = NULL;
 }
 
 int
@@ -1242,19 +1232,21 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    if (!header_is_transparent(val)) {
-		Eterm* new_p;
-                if (header_is_bin_matchstate(val)) {
-                    ErlBinMatchState *ms = (ErlBinMatchState*) p;
-                    ErlBinMatchBuffer *mb = &(ms->mb);
-                    if (ErtsInArea(mb->orig, mod_start, mod_size)) {
+                Eterm* new_p;
+
+                if (val == HEADER_SUB_BITS) {
+                    ErlSubBits *sb = (ErlSubBits*) p;
+
+                    if (ErtsInArea(sb->orig, mod_start, mod_size)) {
                         return 1;
                     }
                 }
-		new_p = p + thing_arityval(val);
-		ASSERT(start <= new_p && new_p < end);
-		p = new_p;
-	    }
-	}
+
+                new_p = p + thing_arityval(val);
+                ASSERT(start <= new_p && new_p < end);
+                p = new_p;
+            }
+        }
     }
     return 0;
 }
@@ -1755,19 +1747,19 @@ void
 erts_purge_state_add_fun(ErlFunEntry *fe)
 {
     ASSERT(is_value(purge_state.module));
-    if (purge_state.fe_ix >= purge_state.fe_size) {
+    if (purge_state.fe_count >= purge_state.fe_size) {
 	ErlFunEntry **funs;
 	purge_state.fe_size += 100;
 	funs = erts_alloc(ERTS_ALC_T_PURGE_DATA,
 			  sizeof(ErlFunEntry *)*purge_state.fe_size);
 	sys_memcpy((void *) funs,
 		   (void *) purge_state.funs,
-		   purge_state.fe_ix*sizeof(ErlFunEntry *));
+		   purge_state.fe_count*sizeof(ErlFunEntry *));
 	if (purge_state.funs != &purge_state.def_funs[0])
 	    erts_free(ERTS_ALC_T_PURGE_DATA, purge_state.funs);
 	purge_state.funs = funs;
     }
-    purge_state.funs[purge_state.fe_ix++] = fe;
+    purge_state.funs[purge_state.fe_count++] = fe;
 }
 
 Export *
@@ -1850,7 +1842,7 @@ finalize_purge_operation(Process *c_p, int succeded)
 	purge_state.fe_size = sizeof(purge_state.def_funs);
 	purge_state.fe_size /= sizeof(purge_state.def_funs[0]);
     }
-    purge_state.fe_ix = 0;
+    purge_state.fe_count = 0;
 }
 
 
@@ -1868,7 +1860,12 @@ resume_purger(void *unused)
 static void
 finalize_purge_abort(void *unused)
 {
-    erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_ix);
+    /* We're not supposed to land here if we don't have any funs to abort
+     * purging for. */
+    ASSERT(purge_state.fe_count > 0);
+
+    erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_count);
+    erts_release_code_stage_permission();
 
     finalize_purge_operation(NULL, 0);
 
@@ -1878,240 +1875,253 @@ finalize_purge_abort(void *unused)
 
 BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 {
-    if (BIF_P != erts_code_purger)
-	BIF_ERROR(BIF_P, EXC_NOTSUP);
+    if (BIF_P != erts_code_purger) {
+        BIF_ERROR(BIF_P, EXC_NOTSUP);
+    }
 
-    if (is_not_atom(BIF_ARG_1))
-	BIF_ERROR(BIF_P, BADARG);
+    if (is_not_atom(BIF_ARG_1)) {
+        goto raise_badarg;
+    }
 
     switch (BIF_ARG_2) {
 
     case am_prepare:
     case am_prepare_on_load: {
-	/*
-	 * Prepare for purge by marking all fun
-	 * entries referring to the code to purge
-	 * with "pending purge" markers.
-	 */
-	ErtsCodeIndex code_ix;
-	Module* modp;
-	Eterm res;
+        /* Prepare for purge by marking all fun entries referring to the code
+         * to purge with "pending purge" markers. */
+        ErtsCodeIndex code_ix;
+        Module* modp;
+        Eterm res;
 
-	if (is_value(purge_state.module))
-	    BIF_ERROR(BIF_P, BADARG);
+        if (is_value(purge_state.module)) {
+            goto raise_badarg;
+        }
 
-	code_ix = erts_active_code_ix();
+        /* Fun purging requires that we don't stage new code while any purge
+         * markers are alive, lest we kill them by reloading a new module on
+         * top of an old instance of the same module. */
+        if (!erts_try_seize_code_stage_permission(BIF_P)) {
+            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_internal_purge_module_2),
+                            BIF_P, BIF_ARG_1, BIF_ARG_2);
+        }
 
-	/*
-	 * Correct module?
-	 */
-	modp = erts_get_module(BIF_ARG_1, code_ix);
-	if (!modp)
-	    res = am_false;
-	else {
-	    /*
-	     * Any code to purge?
-	     */
+        code_ix = erts_active_code_ix();
 
-	    if (BIF_ARG_2 == am_prepare_on_load) {
+        /* Correct module? */
+        modp = erts_get_module(BIF_ARG_1, code_ix);
+        if (!modp) {
+            res = am_false;
+        } else {
+            /* Any code to purge? */
+            if (BIF_ARG_2 == am_prepare_on_load) {
                 erts_rwlock_old_code(code_ix);
-	    } else {
-		erts_rlock_old_code(code_ix);
-	    }
+            } else {
+                erts_rlock_old_code(code_ix);
+            }
 
-	    if (BIF_ARG_2 == am_prepare_on_load) {
-		ASSERT(modp->on_load);
-		ASSERT(modp->on_load->code_hdr);
-		purge_state.saved_old = modp->old;
-		modp->old = *modp->on_load;
-		erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) modp->on_load);
-		modp->on_load = 0;
-	    }
+            if (BIF_ARG_2 == am_prepare_on_load) {
+                ASSERT(modp->on_load);
+                ASSERT(modp->on_load->code_hdr);
+                purge_state.saved_old = modp->old;
+                modp->old = *modp->on_load;
+                erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) modp->on_load);
+                modp->on_load = 0;
+            }
 
-	    if (!modp->old.code_hdr)
-		res = am_false;
-	    else {
-		erts_mtx_lock(&purge_state.mtx);
-		purge_state.module = BIF_ARG_1;
-		erts_mtx_unlock(&purge_state.mtx);
-		res = am_true;
-		erts_fun_purge_prepare(&modp->old);
-	    }
+            if (!modp->old.code_hdr) {
+                res = am_false;
+            } else {
+                erts_mtx_lock(&purge_state.mtx);
+                purge_state.module = BIF_ARG_1;
+                erts_mtx_unlock(&purge_state.mtx);
+
+                /* Set up "pending purge" markers for the funs in this module.
+                 * Processes trying to call these funs will be suspended
+                 * _before_ calling them, which will then either crash or
+                 * succeed when resumed after the purge finishes or is aborted.
+                 *
+                 * This guarantees that we won't get any more direct references
+                 * into the code while checking for such funs. */
+                erts_fun_purge_prepare(&modp->old);
+
+                res = am_true;
+            }
 
             if (BIF_ARG_2 == am_prepare_on_load) {
                 erts_rwunlock_old_code(code_ix);
-	    } else {
+            } else {
                 erts_runlock_old_code(code_ix);
-	    }
-	}
-	
-	if (res != am_true)
-	    BIF_RET(res);
-	else {
-	    /*
-	     * We'll be resumed when all schedulers are guaranteed
-	     * to see the "pending purge" markers that we've made on
-	     * all fun entries of the code that we are about to purge.
-	     * Processes trying to call these funs will be suspended
-	     * before calling the funs. That is we are guaranteed not
-	     * to get any more direct references into the code while
-	     * checking for such references...
-	     */
-	    erts_schedule_thr_prgr_later_op(resume_purger,
-					    NULL,
-					    &purger_lop_data);
-	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-	    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-	}
+            }
+        }
+
+        if (res == am_true) {
+            if (purge_state.fe_count == 0) {
+                /* No funs to purge, so we can safely release stage permission
+                 * and allow code to be loaded while checking process code. */
+                erts_release_code_stage_permission();
+            }
+
+            /* Resume ourselves when all schedulers are guaranteed to either
+             * call the newest instance of the module, or see the "pending
+             * purge" markers that we set on all fun entries related to the
+             * code we're about to purge. */
+            erts_schedule_thr_prgr_later_op(resume_purger,
+                                            NULL,
+                                            &purger_lop_data);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+        }
+
+        erts_release_code_stage_permission();
+        BIF_RET(res);
     }
 
     case am_abort: {
-	/*
-	 * Soft purge that detected direct references into the code
-	 * we set out to purge. Abort the purge.
-	 */
+        /* Soft purge that detected direct references into the code we set out
+         * to purge. Abort the purge. */
+        if (purge_state.module != BIF_ARG_1) {
+            goto raise_badarg;
+        }
 
-	if (purge_state.module != BIF_ARG_1)
-	    BIF_ERROR(BIF_P, BADARG);
+        if (purge_state.fe_count > 0) {
+            erts_fun_purge_abort_prepare(purge_state.funs,
+                                         purge_state.fe_count);
 
-	erts_fun_purge_abort_prepare(purge_state.funs, purge_state.fe_ix);
+            /* We need to restore the code addresses of the funs in two stages
+             * to ensure that we do not get any stale suspended processes due
+             * to the purge abort.
+             *
+             * Restore address pointer (erts_fun_purge_abort_prepare); wait for
+             * thread progress; clear pending purge address pointer
+             * (erts_fun_purge_abort_finalize), and then resume processes that
+             * got suspended (finalize_purge_operation). */
+            erts_schedule_thr_prgr_later_op(finalize_purge_abort,
+                                            NULL,
+                                            &purger_lop_data);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
+        }
 
-	/*
-	 * We need to restore the code addresses of the funs in
-	 * two stages in order to ensure that we do not get any
-	 * stale suspended processes due to the purge abort.
-	 * Restore address pointer (erts_fun_purge_abort_prepare);
-	 * wait for thread progress; clear pending purge address
-	 * pointer (erts_fun_purge_abort_finalize), and then
-	 * resume processes that got suspended
-	 * (finalize_purge_operation).
-	 */
-	erts_schedule_thr_prgr_later_op(finalize_purge_abort,
-					NULL,
-					&purger_lop_data);
-	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-	ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
+        /* No funs to restore, just clean up and return. */
+        finalize_purge_operation(NULL, 0);
+        BIF_RET(am_false);
     }
 
     case am_complete: {
-	ErtsCodeIndex code_ix;
-	Module* modp;
-	int is_blocking = 0;
-	Eterm ret;
-	ErtsLiteralArea *literals = NULL;
+        ErtsCodeIndex code_ix;
+        Module* modp;
+        int is_blocking = 0;
+        Eterm ret;
+        ErtsLiteralArea *literals = NULL;
 
+        /* We have no direct references into the code. Go ahead with the
+         * purge. */
+        if (purge_state.module != BIF_ARG_1) {
+            goto raise_badarg;
+        }
 
-	/*
-	 * We have no direct references into the code.
-	 * Complete to purge.
-	 */
+        if (!erts_try_seize_code_mod_permission(BIF_P)) {
+            ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_internal_purge_module_2),
+                            BIF_P, BIF_ARG_1, BIF_ARG_2);
+        }
 
-	if (purge_state.module != BIF_ARG_1)
-	    BIF_ERROR(BIF_P, BADARG);
+        code_ix = erts_active_code_ix();
 
-	if (!erts_try_seize_code_write_permission(BIF_P)) {
-	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_erts_internal_purge_module_2),
-			    BIF_P, BIF_ARG_1, BIF_ARG_2);
-	}
+        /* Correct module? */
+        if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
+            ERTS_BIF_PREP_RET(ret, am_false);
+        } else {
+            erts_rwlock_old_code(code_ix);
 
-	code_ix = erts_active_code_ix();
+            /* Any code to purge? */
+            if (!modp->old.code_hdr) {
+                ERTS_BIF_PREP_RET(ret, am_false);
+            } else {
+                literals = (modp->old.code_hdr)->literal_area;
 
-	/*
-	 * Correct module?
-	 */
-
-	if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
-	    ERTS_BIF_PREP_RET(ret, am_false);
-	}
-	else {
-
-	    erts_rwlock_old_code(code_ix);
-
-	    /*
-	     * Any code to purge?
-	     */
-	    if (!modp->old.code_hdr) {
-		ERTS_BIF_PREP_RET(ret, am_false);
-	    }
-	    else {
-                /*
-                 * Unload any NIF library
-                 */
+                /* Unload any NIF library. */
                 if (modp->old.nif) {
-                  erts_unload_nif(modp->old.nif);
-                  modp->old.nif = NULL;
+                    erts_unload_nif(modp->old.nif);
+                    modp->old.nif = NULL;
                 }
 
-		/*
-		 * Remove the old code.
-		 */
-		ASSERT(erts_total_code_size >= modp->old.code_length);
-		erts_total_code_size -= modp->old.code_length;
-		erts_fun_purge_complete(purge_state.funs, purge_state.fe_ix);
+                /* Remove the old code. */
+                ASSERT(erts_total_code_size >= modp->old.code_length);
+                erts_total_code_size -= modp->old.code_length;
+
+                if (purge_state.fe_count > 0) {
+                    erts_fun_purge_complete(purge_state.funs,
+                                            purge_state.fe_count);
+                }
 
                 beam_catches_delmod(modp->old.catches,
                                     modp->old.code_hdr,
                                     modp->old.code_length,
                                     code_ix);
 
-                {
-                    BeamCodeHeader *code_hdr_rw;
-
-                    code_hdr_rw = erts_writable_code_ptr(&modp->old,
-                                                         modp->old.code_hdr);
-
-                    literals = code_hdr_rw->literal_area;
-                    code_hdr_rw->literal_area = NULL;
-                }
-
-		erts_remove_from_ranges(modp->old.code_hdr);
+                erts_remove_from_ranges(modp->old.code_hdr);
 
                 if (modp->old.code_hdr->are_nifs) {
                     erts_free(ERTS_ALC_T_PREPARED_CODE,
                               modp->old.code_hdr->are_nifs);
                 }
+
+                beam_load_purge_aux(modp->old.code_hdr);
 #ifndef BEAMASM
                 erts_free(ERTS_ALC_T_CODE, (void *) modp->old.code_hdr);
 #else
-#  ifdef ADDRESS_SANITIZER
+#   ifdef ADDRESS_SANITIZER
                 __lsan_unregister_root_region(modp->old.code_hdr,
                                               modp->old.code_length);
-#  endif
-                beamasm_purge_module(modp->old.native_module_exec,
-                                     modp->old.native_module_rw);
+#   endif
+                beamasm_unregister_metadata(modp->old.metadata);
+                beamasm_purge_module(modp->old.executable_region,
+                                     modp->old.writable_region,
+                                     modp->old.code_length);
 #endif
 
-		modp->old.code_hdr = NULL;
-		modp->old.code_length = 0;
-		modp->old.catches = BEAM_CATCHES_NIL;
-		ERTS_BIF_PREP_RET(ret, am_true);
-	    }
+                modp->old.code_hdr = NULL;
+                modp->old.code_length = 0;
+                modp->old.catches = BEAM_CATCHES_NIL;
+                ERTS_BIF_PREP_RET(ret, am_true);
+            }
 
-	    if (purge_state.saved_old.code_hdr) {
-		modp->old = purge_state.saved_old;
-		purge_state.saved_old.code_hdr = 0;
-	    }
-	    erts_rwunlock_old_code(code_ix);
-	}
-	if (is_blocking) {
-	    erts_thr_progress_unblock();
-	    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	}
+            if (purge_state.saved_old.code_hdr) {
+                modp->old = purge_state.saved_old;
+                purge_state.saved_old.code_hdr = 0;
+            }
 
-	erts_release_code_write_permission();
+            erts_rwunlock_old_code(code_ix);
+        }
 
-	finalize_purge_operation(BIF_P, ret == am_true);
+        if (is_blocking) {
+            erts_thr_progress_unblock();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+        }
 
-	if (literals) {
+        erts_release_code_mod_permission();
+
+        if (purge_state.fe_count > 0) {
+            erts_release_code_stage_permission();
+        }
+
+        finalize_purge_operation(BIF_P, ret == am_true);
+
+        if (literals) {
             erts_queue_release_literals(BIF_P, literals);
-	}
+        }
 
-	return ret;
+        return ret;
     }
 
     default:
-	BIF_ERROR(BIF_P, BADARG);
+    raise_badarg:
+        if (purge_state.fe_count > 0) {
+            ASSERT(is_value(purge_state.module));
+            erts_release_code_stage_permission();
+        }
 
+        BIF_ERROR(BIF_P, BADARG);
     }
 }
 
@@ -2202,7 +2212,7 @@ delete_code(Module* modp)
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);
-		    erts_clear_export_break(modp, ep);
+		    erts_clear_all_export_break(modp, ep);
 		}
 		else {
                     ASSERT(BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler) ||

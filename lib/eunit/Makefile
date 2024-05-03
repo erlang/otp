@@ -21,7 +21,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = src examples doc/src
+SUB_DIRECTORIES = src examples doc
 
 include vsn.mk
 VSN = $(EUNIT_VSN)
@@ -52,41 +52,5 @@ include $(ERL_TOP)/make/otp_subdir.mk
 
 version:
 	@echo "$(VSN)"
-
-#docs:
-#	erl -noshell -run edoc_run application "'$(APPNAME)'" '"."' '$(DOC_OPTS)' -s init stop
-
-#edocs: docs
-
-# ----------------------------------------------------
-# Application (source) release targets
-# ----------------------------------------------------
-app_release: tar
-
-app_dir: $(APP_DIR)
-
-$(APP_DIR):
-	cat TAR.exclude > TAR.exclude2; \
-        echo "eunit/TAR.exclude2" >> TAR.exclude2; \
-	(cd ..; find eunit -name 'findmerge.*' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name '*.contrib*' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name '*.keep*' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name '*~' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name 'erl_crash.dump' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name '*.log' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name 'core' >> eunit/TAR.exclude2)
-	(cd ..; find eunit -name '.cmake.state' >> eunit/TAR.exclude2)
-	mkdir $(APP_DIR); \
-        (cd ..; tar cfX - eunit/TAR.exclude2 eunit) | \
-        (cd $(APP_DIR); tar xf -); \
-        mv $(APP_DIR)/eunit/* $(APP_DIR)/; \
-        rmdir $(APP_DIR)/eunit
-	mkdir $(APP_DIR)/doc; \
-	(cd doc; tar cf - man3 html) | (cd $(APP_DIR)/doc; tar xf -)
-
-tar: $(APP_TAR_FILE)
-
-$(APP_TAR_FILE): $(APP_DIR)
-	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
 include $(ERL_TOP)/make/app_targets.mk

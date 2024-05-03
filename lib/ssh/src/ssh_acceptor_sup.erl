@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_acceptor_sup).
+-moduledoc false.
 -behaviour(supervisor).
 
 -include("ssh.hrl").
@@ -54,6 +55,7 @@ restart_child(AccSup, Address) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([SystemSup, Address, Options]) ->
+    ssh_lib:set_label(server, acceptor_sup),
     %% Initial start of ssh_acceptor_sup for this port
     SupFlags = #{strategy  => one_for_one, 
                  intensity =>   10,

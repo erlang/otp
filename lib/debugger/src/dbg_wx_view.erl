@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 %%
 -module(dbg_wx_view).
+-moduledoc false.
 
 %% External exports
 -export([start/2]).
@@ -190,13 +191,13 @@ gui_cmd('Delete All', State) ->
     int:no_break(State#state.mod),
     State;
 gui_cmd({break, {Mod, Line}, What}, State) ->
-    case What of
-	add -> int:break(Mod, Line);
-	delete -> int:delete_break(Mod, Line);
-	{status, inactive} -> int:disable_break(Mod, Line);
-	{status, active} -> int:enable_break(Mod, Line);
-	{trigger, Action} -> int:action_at_break(Mod, Line, Action)
-    end,
+    _ = case What of
+            add -> int:break(Mod, Line);
+            delete -> int:delete_break(Mod, Line);
+            {status, inactive} -> int:disable_break(Mod, Line);
+            {status, active} -> int:enable_break(Mod, Line);
+            {trigger, Action} -> int:action_at_break(Mod, Line, Action)
+        end,
     State;
 
 %% Help menu

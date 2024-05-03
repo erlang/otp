@@ -27,136 +27,136 @@ UNIT(zone_list) {
   INFO("Append / Unlink");
 
   // []
-  EXPECT(list.empty() == true);
+  EXPECT_TRUE(list.empty());
 
   // [A]
   list.append(a);
-  EXPECT(list.empty() == false);
-  EXPECT(list.first() == a);
-  EXPECT(list.last() == a);
-  EXPECT(a->prev() == nullptr);
-  EXPECT(a->next() == nullptr);
+  EXPECT_FALSE(list.empty());
+  EXPECT_EQ(list.first(), a);
+  EXPECT_EQ(list.last(), a);
+  EXPECT_NULL(a->prev());
+  EXPECT_NULL(a->next());
 
   // [A, B]
   list.append(b);
-  EXPECT(list.first() == a);
-  EXPECT(list.last() == b);
-  EXPECT(a->prev() == nullptr);
-  EXPECT(a->next() == b);
-  EXPECT(b->prev() == a);
-  EXPECT(b->next() == nullptr);
+  EXPECT_EQ(list.first(), a);
+  EXPECT_EQ(list.last(), b);
+  EXPECT_NULL(a->prev());
+  EXPECT_EQ(a->next(), b);
+  EXPECT_EQ(b->prev(), a);
+  EXPECT_NULL(b->next());
 
   // [A, B, C]
   list.append(c);
-  EXPECT(list.first() == a);
-  EXPECT(list.last() == c);
-  EXPECT(a->prev() == nullptr);
-  EXPECT(a->next() == b);
-  EXPECT(b->prev() == a);
-  EXPECT(b->next() == c);
-  EXPECT(c->prev() == b);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), a);
+  EXPECT_EQ(list.last(), c);
+  EXPECT_NULL(a->prev());
+  EXPECT_EQ(a->next(), b);
+  EXPECT_EQ(b->prev(), a);
+  EXPECT_EQ(b->next(), c);
+  EXPECT_EQ(c->prev(), b);
+  EXPECT_NULL(c->next());
 
   // [B, C]
   list.unlink(a);
-  EXPECT(list.first() == b);
-  EXPECT(list.last() == c);
-  EXPECT(a->prev() == nullptr);
-  EXPECT(a->next() == nullptr);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == c);
-  EXPECT(c->prev() == b);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), b);
+  EXPECT_EQ(list.last(), c);
+  EXPECT_NULL(a->prev());
+  EXPECT_NULL(a->next());
+  EXPECT_NULL(b->prev());
+  EXPECT_EQ(b->next(), c);
+  EXPECT_EQ(c->prev(), b);
+  EXPECT_NULL(c->next());
 
   // [B]
   list.unlink(c);
-  EXPECT(list.first() == b);
-  EXPECT(list.last() == b);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == nullptr);
-  EXPECT(c->prev() == nullptr);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), b);
+  EXPECT_EQ(list.last(), b);
+  EXPECT_NULL(b->prev());
+  EXPECT_NULL(b->next());
+  EXPECT_NULL(c->prev());
+  EXPECT_NULL(c->next());
 
   // []
   list.unlink(b);
-  EXPECT(list.empty() == true);
-  EXPECT(list.first() == nullptr);
-  EXPECT(list.last() == nullptr);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == nullptr);
+  EXPECT_TRUE(list.empty());
+  EXPECT_NULL(list.first());
+  EXPECT_NULL(list.last());
+  EXPECT_NULL(b->prev());
+  EXPECT_NULL(b->next());
 
   INFO("Prepend / Unlink");
 
   // [A]
   list.prepend(a);
-  EXPECT(list.empty() == false);
-  EXPECT(list.first() == a);
-  EXPECT(list.last() == a);
-  EXPECT(a->prev() == nullptr);
-  EXPECT(a->next() == nullptr);
+  EXPECT_FALSE(list.empty());
+  EXPECT_EQ(list.first(), a);
+  EXPECT_EQ(list.last(), a);
+  EXPECT_NULL(a->prev());
+  EXPECT_NULL(a->next());
 
   // [B, A]
   list.prepend(b);
-  EXPECT(list.first() == b);
-  EXPECT(list.last() == a);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == a);
-  EXPECT(a->prev() == b);
-  EXPECT(a->next() == nullptr);
+  EXPECT_EQ(list.first(), b);
+  EXPECT_EQ(list.last(), a);
+  EXPECT_NULL(b->prev());
+  EXPECT_EQ(b->next(), a);
+  EXPECT_EQ(a->prev(), b);
+  EXPECT_NULL(a->next());
 
   INFO("InsertAfter / InsertBefore");
 
   // [B, A, C]
   list.insertAfter(a, c);
-  EXPECT(list.first() == b);
-  EXPECT(list.last() == c);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == a);
-  EXPECT(a->prev() == b);
-  EXPECT(a->next() == c);
-  EXPECT(c->prev() == a);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), b);
+  EXPECT_EQ(list.last(), c);
+  EXPECT_NULL(b->prev());
+  EXPECT_EQ(b->next(), a);
+  EXPECT_EQ(a->prev(), b);
+  EXPECT_EQ(a->next(), c);
+  EXPECT_EQ(c->prev(), a);
+  EXPECT_NULL(c->next());
 
   // [B, D, A, C]
   list.insertBefore(a, d);
-  EXPECT(list.first() == b);
-  EXPECT(list.last() == c);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == d);
-  EXPECT(d->prev() == b);
-  EXPECT(d->next() == a);
-  EXPECT(a->prev() == d);
-  EXPECT(a->next() == c);
-  EXPECT(c->prev() == a);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), b);
+  EXPECT_EQ(list.last(), c);
+  EXPECT_NULL(b->prev());
+  EXPECT_EQ(b->next(), d);
+  EXPECT_EQ(d->prev(), b);
+  EXPECT_EQ(d->next(), a);
+  EXPECT_EQ(a->prev(), d);
+  EXPECT_EQ(a->next(), c);
+  EXPECT_EQ(c->prev(), a);
+  EXPECT_NULL(c->next());
 
   INFO("PopFirst / Pop");
 
   // [D, A, C]
-  EXPECT(list.popFirst() == b);
-  EXPECT(b->prev() == nullptr);
-  EXPECT(b->next() == nullptr);
+  EXPECT_EQ(list.popFirst(), b);
+  EXPECT_NULL(b->prev());
+  EXPECT_NULL(b->next());
 
-  EXPECT(list.first() == d);
-  EXPECT(list.last() == c);
-  EXPECT(d->prev() == nullptr);
-  EXPECT(d->next() == a);
-  EXPECT(a->prev() == d);
-  EXPECT(a->next() == c);
-  EXPECT(c->prev() == a);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.first(), d);
+  EXPECT_EQ(list.last(), c);
+  EXPECT_NULL(d->prev());
+  EXPECT_EQ(d->next(), a);
+  EXPECT_EQ(a->prev(), d);
+  EXPECT_EQ(a->next(), c);
+  EXPECT_EQ(c->prev(), a);
+  EXPECT_NULL(c->next());
 
   // [D, A]
-  EXPECT(list.pop() == c);
-  EXPECT(c->prev() == nullptr);
-  EXPECT(c->next() == nullptr);
+  EXPECT_EQ(list.pop(), c);
+  EXPECT_NULL(c->prev());
+  EXPECT_NULL(c->next());
 
-  EXPECT(list.first() == d);
-  EXPECT(list.last() == a);
-  EXPECT(d->prev() == nullptr);
-  EXPECT(d->next() == a);
-  EXPECT(a->prev() == d);
-  EXPECT(a->next() == nullptr);
+  EXPECT_EQ(list.first(), d);
+  EXPECT_EQ(list.last(), a);
+  EXPECT_NULL(d->prev());
+  EXPECT_EQ(d->next(), a);
+  EXPECT_EQ(a->prev(), d);
+  EXPECT_NULL(a->next());
 }
 #endif
 

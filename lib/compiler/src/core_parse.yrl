@@ -1,7 +1,7 @@
 %% -*-Erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -453,6 +453,7 @@ Header
 "".
 
 Erlang code.
+-moduledoc false.
 
 -include("core_parse.hrl").
 

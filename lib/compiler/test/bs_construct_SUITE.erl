@@ -31,7 +31,7 @@
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
-         strings/1,bad_size/1]).
+         strings/1,bad_size/1,private_append/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,7 +47,7 @@ groups() ->
       [verify_highest_opcode,
        two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
-       otp_8054,strings,bad_size]}].
+       otp_8054,strings,bad_size,private_append]}].
 
 
 init_per_suite(Config) ->
@@ -78,7 +78,15 @@ verify_highest_opcode(_Config) ->
                 Highest when Highest =< 176 ->
                     ok;
                 TooHigh ->
-                    ct:fail({too_high_opcode_for_21,TooHigh})
+                    ct:fail({too_high_opcode,TooHigh})
+            end;
+        bs_construct_r25_SUITE ->
+            {ok,Beam} = file:read_file(code:which(?MODULE)),
+            case test_lib:highest_opcode(Beam) of
+                Highest when Highest =< 180 ->
+                    ok;
+                TooHigh ->
+                    ct:fail({too_high_opcode,TooHigh})
             end;
         _ ->
             ok
@@ -514,6 +522,11 @@ nasty_literals(Config) when is_list(Config) ->
     I = 16#7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF7777FFFF,
     id(<<I:260>>),
 
+    %% GH-6643: Excessively large literals could cause the compiler to run out
+    %% of memory.
+    catch id(<<0:16777216/big-integer-unit:1>>),
+    catch id(<<0:(16777216*2)/big-integer-unit:1>>),
+
     ok.
 
 -define(COF(Int0),
@@ -741,3 +754,26 @@ bad_binary_size2() ->
 
 bad_binary_size3(Bin) ->
     <<Bin:all/binary>>.
+
+private_append(_Config) ->
+    <<"alpha=\"alpha\",beta=\"beta\"">> =
+        private_append_1(#{ <<"alpha">> => <<"alpha">>,
+                            <<"beta">> => <<"beta">> }),
+
+    <<>> = private_append_2(false),
+    {'EXIT', _} = catch private_append_2(true),
+
+    ok.
+
+%% GH-7121: Alias analysis would not mark fun arguments as aliased,
+%% fooling the beam_ssa_destructive_update pass.
+private_append_1(M) when is_map(M) ->
+    maps:fold(fun (K, V, Acc = <<>>) ->
+                        <<Acc/binary, K/binary, "=\"", V/binary, "\"">>;
+                    (K, V, Acc) ->
+                        <<Acc/binary, ",", K/binary, "=\"", V/binary, "\"">>
+                end, <<>>, M).
+
+%% GH-7142: The private append pass crashed on oddly structured code.
+private_append_2(Boolean) ->
+    <<<<(id(Boolean) orelse <<>>)/binary>>/binary>>.

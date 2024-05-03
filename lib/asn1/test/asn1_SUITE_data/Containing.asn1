@@ -1,0 +1,20 @@
+Containing DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+   Config ::= SEQUENCE {
+     a INTEGER,
+     b BOOLEAN
+   }
+
+   Seq ::= SEQUENCE {
+     tag INTEGER,
+     contains BIT STRING (CONTAINING Config)
+   }
+
+   Str ::= OCTET STRING (CONTAINING Seq)
+
+   -- CONTAINING is ignored when ENCODED BY is present
+   Other ::= OCTET STRING (CONTAINING INTEGER ENCODED BY {joint-iso-itu-t(2) asn1(1)
+                                                          packed-encoding(3) basic(0) aligned(0)})
+   -- CONTAINING is ignored for nameless constructed types
+   NewSequence ::= BIT STRING (CONTAINING SEQUENCE { z BOOLEAN })
+END

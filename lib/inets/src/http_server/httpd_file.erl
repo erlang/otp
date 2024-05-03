@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(httpd_file).
+-moduledoc false.
 
 -export([handle_error/4]).
 
@@ -35,13 +36,17 @@ handle_error(enotdir, Op, ModData, Path) ->
 	         ": A component of the file name is not a directory");
 handle_error(eisdir, Op, ModData, Path) ->
     handle_error(403, Op, ModData, Path,
-	         ":Illegal operation expected a file not a directory");
+	         ": Illegal operation expected a file not a directory");
+handle_error(enametoolong, Op, ModData, Path) ->
+    handle_error(404, Op, ModData, Path,
+	         ": Filename too long");
 handle_error(emfile, Op, _ModData, Path) ->
-    handle_error(500, Op, none, Path, ": Too many open files");
+    handle_error(503, Op, none, Path, ": Too many open files");
 handle_error({enfile,_}, Op, _ModData, Path) ->
-    handle_error(500, Op, none, Path, ": File table overflow");
-handle_error(_Reason, Op, _ModData, Path) ->
-    handle_error(500, Op, none, Path, "").
+    handle_error(503, Op, none, Path, ": File table overflow");
+handle_error(Reason, Op, _ModData, Path) ->
+    ReasonStr = lists:flatten(io_lib:format("File error ~p", [Reason])),
+    handle_error(503, Op, none, Path, ReasonStr).
 	    
 handle_error(StatusCode, Op, none, Path, Reason) ->
     {StatusCode, none, ?NICE("Can't " ++ Op ++ " " ++ Path ++ Reason)};

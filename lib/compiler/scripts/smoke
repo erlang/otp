@@ -29,7 +29,7 @@ clone_elixir() ->
         true ->
             GetHeadSHA1 = "cd elixir && git rev-parse --verify HEAD",
             Before = os:cmd(GetHeadSHA1),
-            cmd("cd elixir && git pull --ff-only origin master"),
+            cmd("cd elixir && git pull --ff-only origin main"),
             case os:cmd(GetHeadSHA1) of
                 Before ->
                     ok;

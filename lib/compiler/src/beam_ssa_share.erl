@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 %%
 
 -module(beam_ssa_share).
+-moduledoc false.
 -export([module/2,block/2]).
 
 -include("beam_ssa.hrl").
@@ -51,7 +52,7 @@ module(#b_module{body=Fs0}=Module, _Opts) ->
       Blocks0 :: beam_ssa:block_map(),
       Blk :: beam_ssa:b_blk().
 
-block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
+block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) when is_map(Blocks) ->
     case share_terminator(Last0, Blocks) of
         none ->
             Blk;
@@ -75,7 +76,7 @@ block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
 %%% Local functions.
 %%%
 
-function(#b_function{anno=Anno,bs=Blocks0}=F) ->
+function(#b_function{anno=Anno,bs=Blocks0}=F) when is_map(Blocks0) ->
     try
         PO = reverse(beam_ssa:rpo(Blocks0)),
         {Blocks1,Changed} = blocks(PO, Blocks0, false),
@@ -284,8 +285,9 @@ canonical_block({L,VarMap0}, Blocks) ->
 %%    * Variables defined in the instruction sequence are replaced with
 %%    {var,0}, {var,1}, and so on. Free variables are not changed.
 %%
-%%    * `location` annotations that would produce a `line` instruction are
-%%    kept. All other annotations are cleared.
+%%    * `location` annotations that would produce `line` or
+%%    `executable_line` instructions are kept. All other annotations
+%%    are cleared.
 %%
 %%    * Instructions are repackaged into tuples instead of into the
 %%    usual records. The main reason is to avoid violating the types for
@@ -300,17 +302,21 @@ canonical_is([#b_set{op=Op,dst=Dst,args=Args0}=I|Is], VarMap0, Acc) ->
     Args = [canonical_arg(Arg, VarMap0) || Arg <- Args0],
     Var = {var,map_size(VarMap0)},
     VarMap = VarMap0#{Dst=>Var},
-    LineAnno = case Op of
-                   bs_match ->
-                       %% The location annotation for a bs_match instruction
-                       %% is only used in warnings, never to emit a `line`
-                       %% instruction. Therefore, it should not be included.
-                       [];
-                   _ ->
-                       %% The location annotation will be used in a `line`
-                       %% instruction. It must be included.
-                       beam_ssa:get_anno(location, I, none)
-               end,
+    LineAnno =
+        case {Op,Is} of
+            {executable_line, _} ->
+                %% The location annotation will be used in a
+                %% `executable_line` instruction.
+                beam_ssa:get_anno(location, I, none);
+            {_, [#b_set{op={succeeded,body},args=[Dst]}|_]} ->
+                %% The location annotation will be used in a `line`
+                %% instruction.
+                beam_ssa:get_anno(location, I, none);
+            {_, _} ->
+                %% The location annotation will not be included in
+                %% any BEAM instruction.
+                []
+        end,
     canonical_is(Is, VarMap, {Op,LineAnno,Var,Args,Acc});
 canonical_is([#b_ret{arg=Arg}], VarMap, Acc) ->
     {{ret,canonical_arg(Arg, VarMap),Acc},VarMap};

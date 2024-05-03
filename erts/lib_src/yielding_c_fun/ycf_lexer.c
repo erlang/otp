@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB and Kjell Winblad 2019-2021. All Rights Reserved.
+ * Copyright Ericsson AB and Kjell Winblad 2019-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
  */
 
 
-#include "lib/tiny_regex_c/re.h"
 #include "ycf_yield_fun.h"
 #include "ycf_utils.h"
 
@@ -102,36 +101,99 @@ typedef struct symbol_finder {
   char *str_2;
 } symbol_finder;
 
+static int is_whitespace(char c)
+{
+    return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f';
+}
+
+static int is_alphanum(char c)
+{
+    if ('a' <= c && c <= 'z') {
+        return !0;
+    }
+    if ('A' <= c && c <= 'Z') {
+        return !0;
+    }
+    if ('0' <= c && c <= '9') {
+        return !0;
+    }
+    return c == '_';
+}
+
+static int is_alpha(char c)
+{
+    if ('a' <= c && c <= 'z') {
+        return !0;
+    }
+    return ('A' <= c && c <= 'Z');
+}
+
+static int is_digit(char c)
+{
+    return ('0' <= c && c <= '9');
+}
+
 int starts_with(char *str, char *prefix)
 {
   return strncmp(str, prefix, strlen(prefix)) == 0;
 }
 
-int until_no_match(symbol_finder* f, char* text){
-  int pos = 0;
-  while(re_match(f->str_1, &(text[pos])) == 0){
-    pos++;
-  }
-  return pos;
+int until_not_whitespace(symbol_finder *f, char *text)
+{
+    int pos = 0;
+    while (is_whitespace(text[pos])) {
+        pos++;
+    }
+    return pos;
 }
 
-int string_litteral_finder(symbol_finder* f, char* text){
-  int pos = 0;
-  if (starts_with(text, "\"")){
-    pos++;
-    //\"(\\.|[^"\\])*\"
-    while(re_match("\\.", &(text[pos])) == 0 ||
-          re_match("[^\"]", &(text[pos])) == 0){
-      pos++;
+int until_not_digit(symbol_finder *f, char *text)
+{
+    int pos = 0;
+    while (is_digit(text[pos])) {
+        pos++;
     }
-    if(starts_with(&(text[pos]), "\"")){
-      return pos + 1;
-    }else {
-      printf("Broken string literal\n");
-      exit(1);
+    return pos;
+}
+
+int starts_with_alpha_until_not_alphanum(symbol_finder *f, char *text)
+{
+    int pos = 0;
+
+    if (is_alpha(text[pos])) {
+        pos++;
+        while (is_alphanum(text[pos])) {
+            pos++;
+        }
     }
-  }
-  return pos;
+    return pos;
+}
+
+int string_litteral_finder(symbol_finder* f, char* text)
+{
+    int pos, quoted;
+    if (text[0] != '"') {
+        return 0;
+    }
+    pos = 1;
+    quoted = 0;
+    while (!0) {
+        char c = text[pos++];
+        if (c == '\0') {
+            printf("Broken string literal\n");
+            exit(1);
+        }
+        if (quoted) {
+            quoted = 0;
+            continue;
+        }
+        if (c == '"') {
+            return pos;
+        }
+        if (c == '\\') {
+            quoted = !0;
+        }
+    }
 }
 
 int macro_define_finder(symbol_finder* f, char* text){
@@ -146,17 +208,6 @@ int macro_define_finder(symbol_finder* f, char* text){
       } else {
         pos++;
       }
-    }
-  }
-  return pos;
-}
-
-
-int starts_with_until_no_match(symbol_finder* f, char* text){
-  int pos = 0;
-  if(re_match(f->str_1, text) == 0){
-    while(re_match(f->str_2, &(text[pos])) == 0){
-      pos++;
     }
   }
   return pos;
@@ -180,19 +231,20 @@ int fixed_string(symbol_finder* f, char* text){
   return 0;
 }
 
-int fixed_alpha_string(symbol_finder* f, char* text){
-  if(starts_with(text, f->str_1) &&
-     re_match("[^\\W]", &text[strlen(f->str_1)])){
-    return strlen(f->str_1);
-  }
-  return 0;
+int fixed_alpha_string(symbol_finder* f, char* text)
+{
+    if (starts_with(text, f->str_1)) {
+        int len = (int) strlen(f->str_1);
+        if (!is_alphanum(text[len])) {
+            return len;
+        }
+    }
+    return 0;
 }
 
-int regex_char(symbol_finder* f, char* text){
-  if(re_match(f->str_1, text) == 0){
-    return 1;
-  }
-  return 0;
+int is_char(symbol_finder* f, char* text)
+{
+    return text[0] != '\0';
 }
 
 void fold_whitespace_and_comments(ycf_symbol_list* symbols){
@@ -267,8 +319,7 @@ ycf_symbol_list ycf_symbol_list_from_text(char* text){
       },
       {
         .type = ycf_symbol_type_whitespace,
-        .str_1 = "\\s",
-        .finder = until_no_match
+        .finder = until_not_whitespace
       },
       {
         .type = ycf_symbol_type_void,
@@ -347,14 +398,11 @@ ycf_symbol_list ycf_symbol_list_from_text(char* text){
       },
       {
         .type = ycf_symbol_type_identifier,
-        .str_1 = "[a-zA-Z]",
-        .str_2 = "\\w",
-        .finder = starts_with_until_no_match
-      },
+        .finder = starts_with_alpha_until_not_alphanum
+       },
       {
         .type = ycf_symbol_type_number,
-        .str_1 = "\\d",
-        .finder = until_no_match
+        .finder = until_not_digit
       },
       {
         .type = ycf_symbol_type_open_parenthesis,
@@ -433,8 +481,7 @@ ycf_symbol_list ycf_symbol_list_from_text(char* text){
       },
       {
         .type = ycf_symbol_type_something_else,
-        .str_1 = ".",
-        .finder = regex_char
+        .finder = is_char
       }
     };
   while(text[pos] != 0){

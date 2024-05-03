@@ -1,0 +1,79 @@
+
+  [;1m-spec erlang:cancel_timer(TimerRef) -> Result[0m
+  [;1m                             when[0m
+  [;1m                                 TimerRef :: reference(),[0m
+  [;1m                                 Time :: non_neg_integer(),[0m
+  [;1m                                 Result :: Time | false.[0m
+
+  Cancels a timer. The same as calling [;;4m[0m
+  [;;4merlang:cancel_timer(TimerRef, [])[0m.
+
+  [;1m-spec erlang:cancel_timer(TimerRef, Options) -> Result | ok[0m
+  [;1m                             when[0m
+  [;1m                                 TimerRef :: reference(),[0m
+  [;1m                                 Async :: boolean(),[0m
+  [;1m                                 Info :: boolean(),[0m
+  [;1m                                 Option :: {async, Async} | {info, Info},[0m
+  [;1m                                 Options :: [Option],[0m
+  [;1m                                 Time :: non_neg_integer(),[0m
+  [;1m                                 Result :: Time | false.[0m
+
+[;;4mSince[0m:
+  OTP 18.0
+
+  Cancels a timer that has been created by [;;4merlang:start_timer[0m or [;;4m[0m
+  [;;4merlang:send_after[0m. [;;4mTimerRef[0m identifies the timer, and was
+  returned by the BIF that created the timer.
+
+  [;;4mOption[0ms:
+
+  [;;4m[;;4m{async, Async}[0m[0m:
+    Asynchronous request for cancellation. [;;4mAsync[0m defaults to [;;4m[0m
+    [;;4mfalse[0m, which causes the cancellation to be performed
+    synchronously. When [;;4mAsync[0m is set to [;;4mtrue[0m, the cancel
+    operation is performed asynchronously. That is, [;;4m[0m
+    [;;4mcancel_timer()[0m sends an asynchronous request for cancellation
+    to the timer service that manages the timer, and then returns [;;4m[0m
+    [;;4mok[0m.
+
+  [;;4m[;;4m{info, Info}[0m[0m:
+    Requests information about the [;;4mResult[0m of the cancellation. [;;4m[0m
+    [;;4mInfo[0m defaults to [;;4mtrue[0m, which means the [;;4mResult[0m is given.
+    When [;;4mInfo[0m is set to [;;4mfalse[0m, no information about the result
+    of the cancellation is given.
+
+     • When [;;4mAsync[0m is [;;4mfalse[0m: if [;;4mInfo[0m is [;;4mtrue[0m, the [;;4m[0m
+       [;;4mResult[0m is returned by [;;4merlang:cancel_timer()[0m.
+       otherwise [;;4mok[0m is returned.
+
+     • When [;;4mAsync[0m is [;;4mtrue[0m: if [;;4mInfo[0m is [;;4mtrue[0m, a message
+       on the form [;;4m{cancel_timer, TimerRef, Result}[0m is sent
+       to the caller of [;;4merlang:cancel_timer()[0m when the
+       cancellation operation has been performed, otherwise no
+       message is sent.
+
+  More [;;4mOption[0ms may be added in the future.
+
+  If [;;4mResult[0m is an integer, it represents the time in milliseconds
+  left until the canceled timer would have expired.
+
+  If [;;4mResult[0m is [;;4mfalse[0m, a timer corresponding to [;;4mTimerRef[0m could
+  not be found. This can be either because the timer had expired,
+  already had been canceled, or because [;;4mTimerRef[0m never
+  corresponded to a timer. Even if the timer had expired, it does
+  not tell you if the time-out message has arrived at its
+  destination yet.
+
+  Note:
+    The timer service that manages the timer can be co-located
+    with another scheduler than the scheduler that the calling
+    process is executing on. If so, communication with the timer
+    service takes much longer time than if it is located locally.
+    If the calling process is in critical path, and can do other
+    things while waiting for the result of this operation, or is
+    not interested in the result of the operation, you want to use
+    option [;;4m{async, true}[0m. If using option [;;4m{async, false}[0m, the
+    calling process blocks until the operation has been performed.
+
+  See also [;;4merlang:send_after/4[0m, [;;4merlang:start_timer/4[0m, and [;;4m[0m
+  [;;4merlang:read_timer/2[0m.

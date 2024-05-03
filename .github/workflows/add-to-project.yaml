@@ -1,0 +1,27 @@
+name: Add bugs to bugs project
+
+on:
+  issues:
+    types:
+      - opened
+  pull_request_target:
+    types:
+      - opened
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp'
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v1.9.3
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PEM }}
+
+      - uses: actions/add-to-project@v1.0.1
+        with:
+          project-url: https://github.com/orgs/erlang/projects/13
+          github-token: ${{ steps.generate_token.outputs.token }}

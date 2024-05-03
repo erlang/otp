@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2024. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,12 +74,6 @@
 /*
  * Various configuration options, used to be in the Makefile.
  */
-
-#define NO_ASINH
-#define NO_ACOSH
-#define NO_ATANH
-#define NO_ERF
-#define NO_ERFC
 
 #define NO_SYSCONF
 #define NO_DAEMON

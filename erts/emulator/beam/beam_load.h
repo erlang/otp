@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,8 @@ int beam_load_finish_emit(LoaderState *stp);
 struct erl_module_instance;
 void beam_load_finalize_code(LoaderState *stp,
                              struct erl_module_instance* inst_p);
+
+void beam_load_purge_aux(const BeamCodeHeader *hdr);
 
 void beam_load_new_genop(LoaderState* stp);
 

@@ -6,7 +6,7 @@
 
 -module(bs_utf8).
 
--export([doit/2]).
+-export([doit/2, gh_8383/1]).
 
 doit(N, Bin) when is_integer(N), N > 0 ->
     count_and_find(Bin, N).
@@ -25,3 +25,13 @@ cafu(<<_/utf8, Rest/binary>> = Whole, N, Count, ByteCount, SavePos) ->
     cafu(Rest, N-1, Count+1, ByteCount+Delta, SavePos);
 cafu(_Other, _N, Count, ByteCount, _SavePos) -> % Non Unicode character at end
     {Count, ByteCount}.
+
+%% GH-8383: UTF-8 segments did not update the type for the next segment.
+%%
+%% In the case below, this left the type at the start of the `Rest` segment as
+%% the incoming <<_:32>>, causing `X` to be inferred to <<_:32>> and the
+%% subsequent match on the empty binary to fail.
+gh_8383(_) -> <<>> == gh_8383_1(<<"exit">>).
+
+gh_8383_1(<<_/utf8, Rest/binary>>) -> gh_8383_1(Rest);
+gh_8383_1(X) -> X.

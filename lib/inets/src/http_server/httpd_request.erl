@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(httpd_request).
+-moduledoc false.
 
 -include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpd.hrl").

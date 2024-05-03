@@ -10,6 +10,9 @@
 [;;4mSince[0m:
   OTP 23.0
 
+  The same as the call [;;4mspawn_request(Node,Module,Function,Args,[])[0m.
+  That is, a spawn request with no options.
+
   [;1m-spec spawn_request(Module, Function, Args, Options) -> ReqId[0m
   [;1m                       when[0m
   [;1m                           Module :: module(),[0m

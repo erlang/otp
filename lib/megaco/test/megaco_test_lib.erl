@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,11 +64,15 @@
          stop_node/3,
          ping/1, ping/2,
 
+	 which_inet_backend/1,
          is_socket_backend/1,
          inet_backend_opts/1,
          explicit_inet_backend/0, test_inet_backends/0,
          open/3,
-         listen/3, connect/3
+         listen/3, connect/3,
+
+         megaco_trace/2,
+         enable_trace/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -498,7 +502,7 @@ init_per_suite(Config) ->
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
                     maybe_start_global_sys_monitor(Config),
-                    [{megaco_factor, Factor} | Config]
+                    maybe_disable_trace([{megaco_factor, Factor} | Config])
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP
@@ -506,6 +510,18 @@ init_per_suite(Config) ->
     catch
         throw:{skip, _} = SKIP ->
             SKIP
+    end.
+
+
+%% For tace to work, we need the 'et' app.
+%% Specifically, we need the et_selector module,
+%% so check if that module can be found!
+maybe_disable_trace(Config) ->
+    case code:ensure_loaded(et_selector) of
+        {error, _} ->
+            [{megaco_trace, disable} | Config];
+        _ ->
+            Config
     end.
 
 maybe_skip(_HostInfo) ->
@@ -3101,6 +3117,40 @@ stop_node(Node) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% ----------------------------------------------------------------
+%% Generates a 'megaco_trace' tuple based on Config and a default
+%% value.
+%%
+
+megaco_trace(Config, Default) ->
+    Key = megaco_trace,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} ->
+            p("default megaco-trace ~w", [Value]),
+            {Key, Value};
+        _ ->
+            {Key, Default}
+    end.
+
+
+%% ----------------------------------------------------------------
+%% Conditionally enable megaco trace at Level and for Destination.
+%%
+
+enable_trace(Config, Level, Destination) ->
+    Key = megaco_trace,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, disable}} ->
+            p("megaco-trace disabled => skip enabling trace at: ~w; ~w",
+              [Level, Destination]),
+            ok;
+        _ ->
+            megaco:enable_trace(Level, Destination)
+    end.
+    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 timetrap_scale_factor() ->
     case (catch test_server:timetrap_scale_factor()) of
 	{'EXIT', _} ->
@@ -3150,25 +3200,17 @@ explicit_inet_backend() ->
     end.
 
 test_inet_backends() ->
-    case init:get_argument(megaco) of
-        {ok, SnmpArgs} when is_list(SnmpArgs) ->
-            test_inet_backends(SnmpArgs, atom_to_list(?FUNCTION_NAME));
-        error ->
-            false
-    end.
-
-test_inet_backends([], _) ->
-    false;
-test_inet_backends([[Key, Val] | _], Key) ->
-    case list_to_atom(string:to_lower(Val)) of
-        Bool when is_boolean(Bool) ->
-            Bool;
+    case application:get_all_env(megaco) of
+        Env when is_list(Env) ->
+            case lists:keysearch(test_inet_backends, 1, Env) of
+                {value, {test_inet_backends, true}} ->
+                    true;
+                _ ->
+                    false
+            end;
         _ ->
-            false
-    end;
-test_inet_backends([_|Args], Key) ->
-    test_inet_backends(Args, Key).
-
+            false 
+    end.
 
 inet_backend_opts(Config) when is_list(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
@@ -3178,13 +3220,16 @@ inet_backend_opts(Config) when is_list(Config) ->
             []
     end.
 
-is_socket_backend(Config) when is_list(Config) ->
+which_inet_backend(Config) ->
     case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
-            true;
+        {value, {socket_create_opts, [{inet_backend, Backend}]}} ->
+            Backend;
         _ ->
-            false
+            default
     end.
+    
+is_socket_backend(Config) when is_list(Config) ->
+    (which_inet_backend(Config) =:= socket).
 
 
 open(Config, Pid, Opts)

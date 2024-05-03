@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1, maps/1,
+	 otp_7078/1, maps/1,
          side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -59,7 +59,7 @@ all() ->
 
 groups() -> 
     [{tickets, [],
-      [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101]}].
+      [otp_5915, otp_7931, otp_5990, otp_7078]}].
 
 init_per_suite(Config) ->
     Config.
@@ -223,21 +223,60 @@ guard(Config) when is_list(Config) ->
 %% Wildcard initialisation.
 init(Config) when is_list(Config) ->
     Ts = [
-      <<"
-         -record(r, {a,b,c,d = foo}).
+          ~"""
+          -record(r, {a,b,c,d = foo}).
 
-         t() ->
-             R = #r{_ = init, b = b},
-             #r{c = init, b = b, a = init} = R,
-             case R of
-                 #r{b = b, _ = init} -> ok;
-                 _ -> not_ok
-             end.
-      ">>
-      ],
+          t() ->
+              R = #r{_ = init, b = b},
+              #r{c = init, b = b, a = init} = R,
+              case R of
+                  #r{b = b, _ = init} -> ok;
+                  _ -> not_ok
+              end.
+          """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {rf1 = (#r0{a = #{ok => ok || ok}})}).
+
+            t() ->
+                catch <<0 || #r1{}>>,
+                ok.
+            """,
+          ~"""
+            -record(r0, {a}).
+            -record(r1, {
+                         rf1 = fun
+                                   (+0.0) ->
+                                       (list_to_bitstring(ok))#r0.a;
+                                   (_) when ok ->
+                                       ok
+                               end
+                        }).
+
+            t() ->
+                catch <<0 || (#r1{})>>,
+                ok.
+            """,
+          ~"""
+           -record(r0, {a}).
+           -record(r1, {
+                        a = {
+                             ((ok)#r0{})#r0.a,
+                             case whatever of
+                                   _ when cucumber ->
+                                       banan
+                               end
+                              }
+                       }).
+
+           t() ->
+               catch #{ok => ok || #r1{}},
+               ok.
+           """
+         ],
     run(Config, Ts),
     ok.
-    
+
 %% Some patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [
@@ -719,66 +758,7 @@ otp_7078(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
--record(otp_7101, {a,b,c=[],d=[],e=[]}).
-
 id(I) -> I.
-
-%% OTP-7101. Record update: more than one call to setelement/3.
-otp_7101(Config) when is_list(Config) ->
-    %% Ensure the compiler won't do any funny constant propagation tricks.
-    id(#otp_7101{a=a,b=b,c=c,d=d,e=e}),
-    Rec = id(#otp_7101{}),
-
-    %% Spawn a tracer process to count the number of setelement/3 calls.
-    %% The tracer will forward all trace messages to us.
-    Self = self(),
-    Tracer = spawn_link(fun() -> otp_7101_tracer(Self, 0) end),
-    1 = erlang:trace_pattern({erlang,setelement,3}, true),
-    erlang:trace(self(), true, [{tracer,Tracer},call]),
-    
-    %% Update the record.
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update1(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update2(Rec),
-    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update3(Rec),
-    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update4(Rec),
-
-    %% Verify that setelement/3 was called the same number of times as
-    %% the number of record updates.
-    Ref = erlang:trace_delivered(Self),
-    receive
-	{trace_delivered, Self, Ref} ->
-	    Tracer ! done
-    end,
-    1 = erlang:trace_pattern({erlang,setelement,3}, false),
-    receive
-	4 ->
-	    ok;
-	Other ->
-	    ct:fail({unexpected,Other})
-    end.
-
-otp_7101_tracer(Parent, N) ->
-    receive
-	{trace,Parent,call,{erlang,setelement,[_,_,_]}} ->
-	    otp_7101_tracer(Parent, N+1);
-	done ->
-	    Parent ! N
-    end.
-
-otp_7101_update1(R) ->
-    R#otp_7101{b=1,
-	       a=2}.
-
-otp_7101_update2(R) ->
-    R#otp_7101{a=1,
-	       b=2}.
-
-otp_7101_update3(R) ->
-    R#otp_7101{b=1,a=2}.
-
-otp_7101_update4(R) ->
-    R#otp_7101{a=1,b=2}.
-
 
 -record(side_effects, {a,b,c}).
 

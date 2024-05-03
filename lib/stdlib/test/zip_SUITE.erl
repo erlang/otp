@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1]).
+	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
+         explicit_file_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -40,7 +41,8 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir].
+     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir,
+     explicit_file_info].
 
 groups() -> 
     [].
@@ -280,6 +282,8 @@ zip_api(Config) when is_list(Config) ->
     Name1 = hd(Names),
     {ok, Data1} = file:read_file(Name1),
     {ok, {Name1, Data1}} = zip:zip_get(Name1, ZipSrv),
+    Data1Crc = erlang:crc32(Data1),
+    {ok, Data1Crc} = zip:zip_get_crc32(Name1, ZipSrv),
 
     %% Get all files
     FilesDatas = lists:map(fun(Name) -> {ok, B} = file:read_file(Name),
@@ -1052,3 +1056,10 @@ run_command(Command, Args) ->
              end
      end)().
     
+explicit_file_info(_Config) ->
+    Epoch = {{1980,1,1},{0,0,0}},
+    FileInfo = #file_info{type=regular, size=0, mtime=Epoch},
+    Files = [{"datetime", <<>>, FileInfo},
+             {"seconds", <<>>, FileInfo#file_info{mtime=315532800}}],
+    {ok, _} = zip:zip("", Files, [memory]),
+    ok.

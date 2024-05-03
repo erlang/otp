@@ -1449,28 +1449,14 @@ erts_dsig_send_unlink(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Uint6
     Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
     Eterm unlink_id;    
     Eterm ctl;
-    if (ctx->dflags & DFLAG_UNLINK_ID) {
-        if (IS_USMALL(0, id))
-            unlink_id = make_small(id);
-        else {
-            Eterm *hp = &big_heap[0];
-            unlink_id = erts_uint64_to_big(id, &hp);
-        }
-        ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID),
-                     unlink_id, local, remote);
-    }
+    if (IS_USMALL(0, id))
+        unlink_id = make_small(id);
     else {
-        /*
-         * A node that isn't capable of talking the new link protocol.
-         *
-         * Send an old unlink op, and send ourselves an unlink-ack. We may
-         * end up in an inconsistent state as we could before the new link
-         * protocol was introduced...
-         */
-        erts_proc_sig_send_dist_unlink_ack(ctx->dep, ctx->connection_id,
-                                           remote, local, id);
-        ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_UNLINK), local, remote);
+        Eterm *hp = &big_heap[0];
+        unlink_id = erts_uint64_to_big(id, &hp);
     }
+    ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_UNLINK_ID),
+                 unlink_id, local, remote);
     return dsig_send_ctl(ctx, ctl);
 }
 
@@ -1480,11 +1466,6 @@ erts_dsig_send_unlink_ack(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, U
     Eterm big_heap[ERTS_MAX_UINT64_HEAP_SIZE];
     Eterm unlink_id;
     Eterm ctl;
-
-    if (!(ctx->dflags & DFLAG_UNLINK_ID)) {
-        /* Receiving node does not understand it, so drop it... */
-        return ERTS_DSIG_SEND_OK;
-    }
 
     if (IS_USMALL(0, id))
         unlink_id = make_small(id);
@@ -2016,7 +1997,7 @@ int erts_net_message(Port *prt,
 		     byte *hbuf,
 		     ErlDrvSizeT hlen,
                      Binary *bin,
-		     byte *buf,
+		     const byte *buf,
 		     ErlDrvSizeT len)
 {
     ErtsDistExternal ede, *edep = &ede;
@@ -2269,6 +2250,13 @@ int erts_net_message(Port *prt,
 	break;
     }
 
+    case DOP_UNLINK:
+        /*
+         * DOP_UNLINK should never be passed. The new link protocol is
+         * mandatory as of OTP 26.
+         */
+        goto invalid_message;
+        
     case DOP_UNLINK_ID: {
         Eterm *element;
         Uint64 id;
@@ -2282,14 +2270,6 @@ int erts_net_message(Port *prt,
         if (id == 0)
             goto invalid_message;
 
-        if (0) {
-        case DOP_UNLINK:
-            if (tuple_arity != 3)
-                goto invalid_message;
-            element = &tuple[2];
-            id = 0;
-        }
-        
 	from = *(element++);
 	to = *element;
 	if (is_not_external_pid(from))
@@ -2607,11 +2587,12 @@ int erts_net_message(Port *prt,
             if (!is_external_pid(watcher))
                 goto invalid_message;
             if (erts_this_dist_entry == external_pid_dist_entry(watcher))
-                break;
+                goto monitored_process_not_alive;
             goto invalid_message;
         }
 
         if (!erts_proc_lookup(watcher)) {
+        monitored_process_not_alive:
             if (ede_hfrag != NULL) {
                 erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
                 free_message_buffer(ede_hfrag);
@@ -4212,52 +4193,55 @@ BIF_RETTYPE
 dist_ctrl_put_data_2(BIF_ALIST_2)
 {
     DistEntry *dep;
-    ErlDrvSizeT size;
     Eterm input_handler;
     Uint32 conn_id;
     Binary *bin = NULL;
 
-    if (is_binary(BIF_ARG_2))
-        size = binary_size(BIF_ARG_2);
-    else if (is_nil(BIF_ARG_2))
-        size = 0;
-    else if (is_list(BIF_ARG_2))
+    if (is_list(BIF_ARG_2)) {
         BIF_TRAP2(dist_ctrl_put_data_trap,
                   BIF_P, BIF_ARG_1, BIF_ARG_2);
-    else
-        BIF_ERROR(BIF_P, BADARG);
+    }
 
     dep = erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id);
-    if (!dep)
+    if (!dep) {
         BIF_ERROR(BIF_P, BADARG);
+    }
 
-    input_handler = (Eterm) erts_atomic_read_nob(&dep->input_handler);
+    input_handler = (Eterm)erts_atomic_read_nob(&dep->input_handler);
 
-    if (input_handler != BIF_P->common.id)
+    if (input_handler != BIF_P->common.id) {
         BIF_ERROR(BIF_P, EXC_NOTSUP);
+    }
 
     erts_atomic64_inc_nob(&dep->in);
 
-    if (size != 0) {
-        byte *data, *temp_alloc = NULL;
+    if (is_bitstring(BIF_ARG_2)) {
+        ERTS_DECLARE_DUMMY(Eterm br_flags);
+        const byte *data, *temp_alloc = NULL;
+        Uint offset, size;
+        BinRef *br;
 
-        if (binary_bitoffset(BIF_ARG_2))
-            data = (byte *) erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc);
-        else {
-            Eterm real_bin;
-            ProcBin *proc_bin;
-            Uint offset, bitoffs, bitsize;
+        ERTS_PIN_BITSTRING(BIF_ARG_2, br_flags, br, data, offset, size);
 
-            ERTS_GET_REAL_BIN(BIF_ARG_2, real_bin, offset, bitoffs, bitsize);
-            ASSERT(bitoffs == 0);
-            data = binary_bytes(real_bin) + offset;
-            proc_bin = (ProcBin *)binary_val(real_bin);
-            if (proc_bin->thing_word == HEADER_PROC_BIN)
-                bin = proc_bin->val;
+        if (TAIL_BITS(size) != 0) {
+            BIF_ERROR(BIF_P, BADARG);
         }
 
-        if (!data)
+        if (BIT_OFFSET(offset) == 0) {
+            data = &data[BYTE_OFFSET(offset)];
+            size = BYTE_SIZE(size);
+
+            bin = br ? br->val : NULL;
+        } else {
+            ERTS_DECLARE_DUMMY(Uint dummy);
+            data = (byte *) erts_get_aligned_binary_bytes(BIF_ARG_2,
+                                                          &size,
+                                                          &temp_alloc);
+        }
+
+        if (!data) {
             BIF_ERROR(BIF_P, BADARG);
+        }
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
@@ -4274,6 +4258,8 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
 
         erts_free_aligned_binary_bytes(temp_alloc);
 
+    } else if (is_not_nil(BIF_ARG_2)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
 
     BIF_RET(am_ok);
@@ -4406,13 +4392,13 @@ dist_get_stat_1(BIF_ALIST_1)
 BIF_RETTYPE
 dist_ctrl_input_handler_2(BIF_ALIST_2)
 {
-    DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
     Uint32 conn_id;
+    DistEntry *dep = erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id);
 
     if (!dep)
         BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    if (erts_dhandle_to_dist_entry(BIF_ARG_1, &conn_id) != dep)
+    if ((ERTS_PROC_GET_DIST_ENTRY(BIF_P) != dep) && !is_internal_port(dep->cid))
         BIF_ERROR(BIF_P, BADARG);
 
     if (is_not_internal_pid(BIF_ARG_2))
@@ -4545,7 +4531,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     ASSERT(iov[0].iov_len == 0);
     ASSERT(!binv[0]);
 
-    hsz = 2 /* cons */ + PROC_BIN_SIZE;
+    hsz = 2 /* cons */ + ERL_REFC_BITS_SIZE;
     hsz *= vlen - 1;
 
     get_size = dep->opts & ERTS_DIST_CTRL_OPT_GET_SIZE;
@@ -4563,32 +4549,18 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     res = NIL;
 
     for (ix = vlen - 1; ix > 0; ix--) {
-        Binary *bin;
-        ProcBin *pb;
         Eterm bin_term;
+        Binary *bin;
 
         ASSERT(binv[ix]);
-
-        /*
-         * We intentionally avoid using sub binaries
-         * since the GC might convert those to heap
-         * binaries and by this ruin the nice preparation
-         * for usage of this data as I/O vector in
-         * nifs/drivers.
-         */
-        
         bin = ErlDrvBinary2Binary(binv[ix]);
-        pb = (ProcBin *) (char *) hp;
-        hp += PROC_BIN_SIZE;
-        pb->thing_word = HEADER_PROC_BIN;
-        pb->size = (Uint) iov[ix].iov_len;
-        pb->next = MSO(BIF_P).first;
-        MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
-        pb->val = bin;
-        pb->bytes = (byte*) iov[ix].iov_base;
-        pb->flags = 0;
-        OH_OVERHEAD(&MSO(BIF_P), pb->size / sizeof(Eterm));
-        bin_term = make_binary(pb);
+        bin_term = erts_wrap_refc_bitstring(&MSO(BIF_P).first,
+                                            &MSO(BIF_P).overhead,
+                                            &hp,
+                                            bin,
+                                            iov[ix].iov_base,
+                                            0,
+                                            NBITS(iov[ix].iov_len));
 
         res = CONS(hp, bin_term, res);
         hp += 2;
@@ -4904,7 +4876,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     erts_thr_progress_block();
 
     success = (!ERTS_PROC_IS_EXITING(net_kernel)
-               & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
+               && !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
     if (success) {
         /*
          * Ensure we don't use a nodename-creation pair with
@@ -5622,6 +5594,9 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
             return 0;
         }
 
+        if (proc == net_kernel)
+            nk_locks |= ERTS_PROC_LOCK_MAIN;
+
         /*
          * Send {auto_connect, Node, DHandle} to net_kernel
          */
@@ -5632,6 +5607,10 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         msg = TUPLE3(hp, am_auto_connect, dep->sysname, dhandle);
         ERL_MESSAGE_TOKEN(mp) = am_undefined;
         erts_queue_proc_message(proc, net_kernel, nk_locks, mp, msg);
+
+        if (proc == net_kernel)
+            nk_locks &= ~ERTS_PROC_LOCK_MAIN;
+
         erts_proc_unlock(net_kernel, nk_locks);
     }
 
@@ -5924,10 +5903,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ok_result = ref;
     else {
         Eterm *hp = HAlloc(BIF_P, 3);
-        Eterm bool = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
+        Eterm spawns_monitor = ((monitor_oflags & ERTS_ML_FLG_SPAWN_MONITOR)
                       ? am_true : am_false);
         ASSERT(BIF_ARG_4 == am_spawn_opt);
-        ok_result = TUPLE2(hp, ref, bool);
+        ok_result = TUPLE2(hp, ref, spawns_monitor);
     }
 
     code = erts_dsig_prepare(&ctx, dep,
@@ -6066,7 +6045,8 @@ send_error:
 /* node(Object) -> Node */
 
 BIF_RETTYPE node_1(BIF_ALIST_1)
-{ 
+{
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_not_node_container(BIF_ARG_1))
       BIF_ERROR(BIF_P, BADARG);
     BIF_RET(node_container_node_name(BIF_ARG_1));
@@ -6259,7 +6239,7 @@ nodes(Process *c_p, Eterm node_types, Eterm options)
         }
     }
     else {
-        Eterm ks[2], *hp, keys_tuple = THE_NON_VALUE;
+        Eterm ks[2], *hp;
         Uint map_size = 0, el_xtra, xtra;
         ErtsHeapFactory hfact;
 
@@ -6294,8 +6274,8 @@ nodes(Process *c_p, Eterm node_types, Eterm options)
                 vs[map_size++] = eni->type;
             }
 
-            info_map = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
-                                                      map_size, &keys_tuple);
+            info_map = erts_map_from_ks_and_vs(&hfact, ks, vs, map_size);
+            ASSERT(is_value(info_map));
 
             hp = erts_produce_heap(&hfact, 3+2, xtra);
 
@@ -6881,8 +6861,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node,
                     map_size++;
                 }
 
-                info = erts_map_from_sorted_ks_and_vs(&hfact, ks, vs,
-                                                      map_size, NULL);
+                info = erts_map_from_ks_and_vs(&hfact, ks, vs, map_size);
                 ASSERT(is_value(info));
             }
             else { /* Info list */

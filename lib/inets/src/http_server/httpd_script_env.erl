@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 
 -module(httpd_script_env).
+-moduledoc false.
 
 -export([create_env/3]).
 
@@ -61,12 +62,11 @@ which_port(#mod{config_db = ConfigDb}) ->
 which_peername(#mod{init_data = #init_data{peername = {_, RemoteAddr}}}) ->
     RemoteAddr.
 
-which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl;
-								    Type == ssl ->
+which_peercert(#mod{socket_type = {ssl, _}, socket = Socket}) ->
     case ssl:peercert(Socket) of
 	{ok, Cert} ->
 	    Cert;
-	{error, no_peercert} -> 
+	{error, no_peercert} ->
 	    no_peercert;
 	_  ->
 	    undefined

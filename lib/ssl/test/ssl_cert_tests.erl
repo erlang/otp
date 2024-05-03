@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 
 %%
 -module(ssl_cert_tests).
-
+-compile({nowarn_deprecated_function, [{public_key, encrypt_private, 3}]}).
+-include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Test cases
@@ -28,6 +29,8 @@
          no_auth/1,
          auth/0,
          auth/1,
+         client_auth_custom_key/0,
+         client_auth_custom_key/1,
          client_auth_empty_cert_accepted/0,
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
@@ -86,25 +89,54 @@ auth() ->
 
 auth(Config) ->
     Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ClientOpts =  case Version of
                       'tlsv1.3' ->
-                          [{verify, verify_peer},
-                           {certificate_authorities, true} |
-                           ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)];
+                          [{certificate_authorities, true} | CommonClientOpts];
                       _ ->
-                          [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)]
+                          CommonClientOpts
                   end,
     ServerOpts =  [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
+client_auth_custom_key() ->
+    [{doc,"Test that client and server can connect using their own signature function"}].
+
+client_auth_custom_key(Config) when is_list(Config) ->
+    Version = proplists:get_value(version,Config),
+    CommonClientOpts = [{verify, verify_peer} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
+    ClientOpts0 =  case Version of
+                      'tlsv1.3' ->
+                           [{certificate_authorities, true} | CommonClientOpts];
+                      _ ->
+                           CommonClientOpts
+                  end,
+    ClientKeyFilePath =  proplists:get_value(keyfile, ClientOpts0),
+    [ClientKeyEntry] = ssl_test_lib:pem_to_der(ClientKeyFilePath),
+    ClientKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ClientKeyEntry)),
+    ClientCustomKey = choose_custom_key(ClientKey, Version),
+
+    ClientOpts = [ ClientCustomKey | proplists:delete(key, proplists:delete(keyfile, ClientOpts0))],
+
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    ServerKeyFilePath =  proplists:get_value(keyfile, ServerOpts0),
+    [ServerKeyEntry] = ssl_test_lib:pem_to_der(ServerKeyFilePath),
+    ServerKey = ssl_test_lib:public_key(public_key:pem_entry_decode(ServerKeyEntry)),
+    ServerCustomKey = choose_custom_key(ServerKey, Version),
+
+    ServerOpts = [ ServerCustomKey, {verify, verify_peer} | ServerOpts0],
+
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+%%--------------------------------------------------------------------
 client_auth_empty_cert_accepted() ->
     [{doc,"Client sends empty cert chain as no cert is configured and server allows it"}].
 
 client_auth_empty_cert_accepted(Config) ->
-    ClientOpts = proplists:delete(keyfile,
-                                  proplists:delete(certfile, 
-                                                   ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config))),
+    ClientOpts = [{verify, verify_peer} |
+                    proplists:delete(keyfile,
+                                     proplists:delete(certfile,
+                                                      ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)))],
     ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
     ServerOpts = [{verify, verify_peer},
                   {fail_if_no_peer_cert, false} | ServerOpts0],
@@ -115,8 +147,8 @@ client_auth_empty_cert_rejected() ->
 
 client_auth_empty_cert_rejected(Config) ->
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, [], Config),
+                 | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+    ClientOpts0 = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, [], Config)],
     %% Delete Client Cert and Key
     ClientOpts1 = proplists:delete(certfile, ClientOpts0),
     ClientOpts = proplists:delete(keyfile, ClientOpts1),
@@ -140,11 +172,11 @@ client_auth_no_suitable_chain(Config) when is_list(Config) ->
                                                                   client_chain => #{root => CRoot,
                                                                                     intermediates => [[]],
                                                                                     peer => []}}),
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
+    ClientOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config)],
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
-		  | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
+                 | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
     Version = proplists:get_value(version, Config),
-
+    
     case Version of
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
@@ -274,10 +306,14 @@ client_auth_seelfsigned_peer(Config) when is_list(Config) ->
     #{cert := Cert,
       key := Key} = public_key:pkix_test_root_cert("OTP test server ROOT", [{key, ssl_test_lib:hardcode_rsa_key(6)},
                                                                             {extensions, Ext}]),
+    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     DerKey = public_key:der_encode('RSAPrivateKey', Key),
-    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer}, {cacerts , [Cert]}], Config),
+    ssl_test_lib:basic_alert(ssl_test_lib:ssl_options(extra_client, [{verify, verify_peer}, {cacerts , [Cert]}] ++
+                                                          ssl_test_lib:sig_algs(rsa, Version), Config),
                              ssl_test_lib:ssl_options(extra_server, [{cert, Cert},
-                                                                     {key, {'RSAPrivateKey', DerKey}}], Config), Config, bad_certificate).
+                                                                     {key, {'RSAPrivateKey', DerKey}}] ++
+                                                          ssl_test_lib:sig_algs(rsa, Version), Config),
+                             Config, bad_certificate).
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
      [{doc,"Test that the client succeeds if the ROOT CA is unknown in verify_none mode"}].
@@ -285,12 +321,12 @@ missing_root_cert_no_auth() ->
 missing_root_cert_no_auth(Config) ->
     ClientOpts = [{verify, verify_none} | ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config)],
     ServerOpts =  [{verify, verify_none} | ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config)],
-    
+
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 invalid_signature_client() ->
-    [{doc,"Test server with invalid signature"}].
+    [{doc,"Test that server detects invalid client signature"}].
 
 invalid_signature_client(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
@@ -314,7 +350,7 @@ invalid_signature_client(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 invalid_signature_server() ->
-    [{doc,"Test client with invalid signature"}].
+    [{doc,"Test that client detects invalid server signature"}].
 
 invalid_signature_server(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
@@ -453,32 +489,32 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
 
 test_ciphers(_, 'tlsv1.3' = Version) ->
     Ciphers = ssl:cipher_suites(default, Version),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
 test_ciphers(_, Version) when Version == 'dtlsv1';
                                 Version == 'dtlsv1.2' ->
-    {_, Minor} = dtls_record:protocol_version(Version),
-    Ciphers = [ssl_cipher_format:suite_bin_to_map(Bin) ||  Bin <- dtls_v1:suites(Minor)],
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    NVersion = dtls_record:protocol_version_name(Version),
+    Ciphers = [ssl_cipher_format:suite_bin_to_map(Bin) ||  Bin <- dtls_v1:suites(NVersion)],
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers);
 test_ciphers(Kex, Version) ->
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version), 
                                        [{key_exchange, Kex}]),
-    ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
+    ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
-    ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
+    ?CT_LOG("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
     lists:filter(fun(C) ->
-                         ct:log("Cipher ~p~n", [C]),
+                         ?CT_LOG("Cipher ~p~n", [C]),
                          lists:member(ssl_cipher_format:suite_map_to_openssl_str(C), OpenSSLCiphers)
                  end, Ciphers).
 
@@ -511,3 +547,30 @@ group_config(Config, ServerOpts, ClientOpts) ->
                 {[{supported_groups, [x448, x25519]} | ServerOpts],
                  [{groups,"P-256:X25519"} | ClientOpts]}
         end.
+
+choose_custom_key(#'RSAPrivateKey'{} = Key, Version)
+  when (Version == 'dtlsv1') or (Version == 'tlsv1') or (Version == 'tlsv1.1') ->
+    EFun = fun (PlainText, Options) ->
+                   public_key:encrypt_private(PlainText, Key, Options)
+          end,
+    SFun = fun (Msg, HashAlgo, Options) ->
+                   public_key:sign(Msg, HashAlgo, Key, Options)
+           end,
+    {key, #{algorithm => rsa, sign_fun => SFun, encrypt_fun => EFun}};
+choose_custom_key(Key, _) ->
+    Fun = fun (Msg, HashAlgo, Options) ->
+                  public_key:sign(Msg, HashAlgo, Key, Options)
+          end,
+    {key, #{algorithm => alg_key(Key), sign_fun => Fun}}.
+
+alg_key(#'RSAPrivateKey'{}) ->
+    rsa;
+alg_key({#'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}) ->
+    rsa_pss_pss;
+alg_key(#'DSAPrivateKey'{}) ->
+    dsa;
+alg_key(#'ECPrivateKey'{parameters = {namedCurve, CurveOId}}) when CurveOId == ?'id-Ed25519' orelse
+                                                                   CurveOId == ?'id-Ed448' ->
+    eddsa;
+alg_key(#'ECPrivateKey'{}) ->
+    ecdsa.

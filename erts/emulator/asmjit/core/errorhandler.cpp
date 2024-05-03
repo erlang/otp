@@ -11,4 +11,8 @@ ASMJIT_BEGIN_NAMESPACE
 ErrorHandler::ErrorHandler() noexcept {}
 ErrorHandler::~ErrorHandler() noexcept {}
 
+void ErrorHandler::handleError(Error err, const char* message, BaseEmitter* origin) {
+  DebugUtils::unused(err, message, origin);
+}
+
 ASMJIT_END_NAMESPACE

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_client_ticket_store).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("ssl_internal.hrl").

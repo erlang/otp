@@ -1,9 +1,24 @@
 
-opaque_key_adt.erl:35:2: Invalid type specification for function opaque_key_adt:s2/0. The success typing is () -> #{3:='a'}
-opaque_key_adt.erl:41:2: Invalid type specification for function opaque_key_adt:s4/0. The success typing is () -> #{1:='a'}
-opaque_key_adt.erl:44:2: Invalid type specification for function opaque_key_adt:s5/0. The success typing is () -> #{2:=3}
-opaque_key_adt.erl:56:2: Invalid type specification for function opaque_key_adt:smt1/0. The success typing is () -> #{3:='a'}
-opaque_key_adt.erl:59:2: Invalid type specification for function opaque_key_adt:smt2/0. The success typing is () -> #{1:='a'}
+opaque_key_adt.erl:35:2: Invalid type specification for function opaque_key_adt:s2/0.
+ The success typing is opaque_key_adt:s2() -> #{3:='a'}
+ But the spec is opaque_key_adt:s2() -> s(atom() | 3)
+ The return types do not overlap
+opaque_key_adt.erl:41:2: Invalid type specification for function opaque_key_adt:s4/0.
+ The success typing is opaque_key_adt:s4() -> #{1:='a'}
+ But the spec is opaque_key_adt:s4() -> s(integer())
+ The return types do not overlap
+opaque_key_adt.erl:44:2: Invalid type specification for function opaque_key_adt:s5/0.
+ The success typing is opaque_key_adt:s5() -> #{2:=3}
+ But the spec is opaque_key_adt:s5() -> s(1)
+ The return types do not overlap
+opaque_key_adt.erl:56:2: Invalid type specification for function opaque_key_adt:smt1/0.
+ The success typing is opaque_key_adt:smt1() -> #{3:='a'}
+ But the spec is opaque_key_adt:smt1() -> smt(1)
+ The return types do not overlap
+opaque_key_adt.erl:59:2: Invalid type specification for function opaque_key_adt:smt2/0.
+ The success typing is opaque_key_adt:smt2() -> #{1:='a'}
+ But the spec is opaque_key_adt:smt2() -> smt(1)
+ The return types do not overlap
 opaque_key_use.erl:13:5: The test opaque_key_use:t() =:= opaque_key_use:t(_) can never evaluate to 'true'
 opaque_key_use.erl:24:5: Attempt to test for equality between a term of type opaque_key_adt:t(_) and a term of opaque type opaque_key_adt:t()
 opaque_key_use.erl:37:1: Function adt_mm1/0 has no local return

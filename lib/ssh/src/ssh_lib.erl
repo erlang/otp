@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@
 %% 
 
 -module(ssh_lib).
+-moduledoc false.
 
 -export([
          format_address_port/2, format_address_port/1,
          format_address/1,
          format_time_ms/1,
-         comp/2
+         comp/2,
+         set_label/1,
+         set_label/2
         ]).
 
 -include("ssh.hrl").
@@ -86,3 +89,11 @@ comp([], [], Truth) ->
 
 comp(_, _, _) ->
     false.
+
+set_label(Details) ->
+    proc_lib:set_label({ssh, Details}).
+
+set_label(client, Details) ->
+    proc_lib:set_label({sshc, Details});
+set_label(server, Details) ->
+    proc_lib:set_label({sshd, Details}).

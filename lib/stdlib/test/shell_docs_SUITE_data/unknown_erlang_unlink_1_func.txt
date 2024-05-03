@@ -40,5 +40,10 @@
   protocol can be found in the Distribution Protocol chapter of
   the ERTS User's Guide.
 
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
+
   Failure: [;;4mbadarg[0m if [;;4mId[0m does not identify a process or a node
   local port.

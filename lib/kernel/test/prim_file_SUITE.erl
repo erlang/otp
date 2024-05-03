@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -710,7 +710,7 @@ file_info_basic_file(Config) when is_list(Config) ->
     %% Create a short file.
     Name = filename:join(RootDir,
 			 atom_to_list(?MODULE)
-			 ++"_basic_test"".fil"),
+			 ++"_basic_test.fil"),
     {ok,Fd1} = ?PRIM_FILE:open(Name, [write]),
     ?PRIM_FILE:write(Fd1, "foo bar"),
     ok = ?PRIM_FILE:close(Fd1),

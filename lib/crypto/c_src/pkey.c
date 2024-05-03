@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ static int check_pkey_algorithm_type(ErlNifEnv *env,
         
 
 #ifdef HAVE_EDDSA
-    if (FIPS_MODE())
+    if (FIPS_MODE() && algorithm == atom_eddsa)
         assign_goto(*err_return, err, EXCP_NOTSUP_N(env, alg_arg_num, "Unsupported algorithm in FIPS mode"));
 #endif    
 
@@ -582,11 +582,6 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 # endif
                 assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "eddsa not supported"));
         } else {
-
-# ifndef HAVE_DSA
-            if (argv[0] == atom_dss)  assign_goto(ret, err, EXCP_NOTSUP_N(env, 0, "dsa not supported"));
-        } else {
-# endif
             if (EVP_PKEY_sign(ctx, NULL, &siglen, tbs, tbslen) != 1)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign"));
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_server).
+-moduledoc false.
 
 %% Public
 -export([
@@ -129,12 +130,13 @@ gen_spec(Pid) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Server
 
+-spec init(_) -> no_return().
 init([{parent,Parent}|_] = Options) ->
     try
         do_init(Options)
     catch
 	throw:{error,Reason} ->
-	    proc_lib:init_ack(Parent,{error,Reason});
+	    proc_lib:init_fail(Parent,{error,Reason},{exit,normal});
         error:Reason:Stacktrace ->
             exit({Reason, Stacktrace})
     end.
@@ -196,13 +198,6 @@ default_sys() ->
 	 rel_app_type      = ?DEFAULT_REL_APP_TYPE,
 	 embedded_app_type = ?DEFAULT_EMBEDDED_APP_TYPE,
 	 app_file          = ?DEFAULT_APP_FILE,
-	 incl_archive_filters = dec_re(incl_archive_filters,
-				       ?DEFAULT_INCL_ARCHIVE_FILTERS,
-				       []),
-	 excl_archive_filters = dec_re(excl_archive_filters,
-				       ?DEFAULT_EXCL_ARCHIVE_FILTERS,
-				       []),
-	 archive_opts      = ?DEFAULT_ARCHIVE_OPTS,
 	 debug_info        = ?DEFAULT_DEBUG_INFO}.
 
 dec_re(Key, Regexps, Old) ->
@@ -450,9 +445,6 @@ app_set_config_only([],#app{name                 = Name,
 			    app_type             = undefined,
 			    incl_app_filters     = undefined,
 			    excl_app_filters     = undefined,
-			    incl_archive_filters = undefined,
-			    excl_archive_filters = undefined,
-			    archive_opts         = undefined,
 			    is_escript           = false})->
     {delete,Name};
 app_set_config_only(Mods,#app{name                 = Name,
@@ -464,9 +456,6 @@ app_set_config_only(Mods,#app{name                 = Name,
 			      app_type             = AppType,
 			      incl_app_filters     = InclAppFilters,
 			      excl_app_filters     = ExclAppFilters,
-			      incl_archive_filters = InclArchiveFilters,
-			      excl_archive_filters = ExclArchiveFilters,
-			      archive_opts         = ArchiveOpts,
 			      vsn                  = Vsn,
 			      is_escript           = IsEscript,
 			      label                = Label,
@@ -481,9 +470,6 @@ app_set_config_only(Mods,#app{name                 = Name,
 				  app_type             = AppType,
 				  incl_app_filters     = InclAppFilters,
 				  excl_app_filters     = ExclAppFilters,
-				  incl_archive_filters = InclArchiveFilters,
-				  excl_archive_filters = ExclArchiveFilters,
-				  archive_opts         = ArchiveOpts,
 				  vsn                  = Vsn,
 				  mods                 = Mods},
 
@@ -1563,13 +1549,11 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{excl_app_filters =
 			    dec_re(Key, Val, Sys#sys.excl_app_filters)};
             incl_archive_filters ->
-                Sys#sys{incl_archive_filters =
-			    dec_re(Key, Val, Sys#sys.incl_archive_filters)};
+                io:format("incl_archive_filters is no longer supported in reltool");
             excl_archive_filters ->
-                Sys#sys{excl_archive_filters =
-			    dec_re(Key, Val, Sys#sys.excl_archive_filters)};
+                io:format("excl_archive_filters is no longer supported in reltool");
             archive_opts when is_list(Val) ->
-                Sys#sys{archive_opts = Val};
+                io:format("archive_opts is no longer supported in reltool");
             relocatable when Val =:= true; Val =:= false ->
                 Sys#sys{relocatable = Val};
             rel_app_type when Val =:= permanent;
@@ -1587,7 +1571,7 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
                 Sys#sys{embedded_app_type = Val};
             app_file when Val =:= keep; Val =:= strip; Val =:= all ->
                 Sys#sys{app_file = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            debug_info when Val =:= keep; Val =:= strip; is_list(Val) ->
                 Sys#sys{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
@@ -1608,7 +1592,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{incl_cond = Val};
 
             debug_info when Val =:= keep;
-			    Val =:= strip ->
+			    Val =:= strip;
+                            is_list(Val) ->
                 App#app{debug_info = Val};
             app_file when Val =:= keep;
 			  Val =:= strip;
@@ -1628,13 +1613,11 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
                 App#app{excl_app_filters =
 			    dec_re(Key, Val, App#app.excl_app_filters)};
             incl_archive_filters ->
-                App#app{incl_archive_filters =
-			    dec_re(Key, Val, App#app.incl_archive_filters)};
+                io:format("incl_archive_filters is no longer supported in reltool");
             excl_archive_filters ->
-                App#app{excl_archive_filters =
-			    dec_re(Key, Val, App#app.excl_archive_filters)};
+                io:format("excl_archive_filters is no longer supported in reltool");
             archive_opts when is_list(Val) ->
-                App#app{archive_opts = Val};
+                io:format("archive_opts is no longer supported in reltool");
             vsn when is_list(Val), App#app.use_selected_vsn=:=undefined ->
 		App#app{use_selected_vsn = vsn, vsn = Val};
 	    lib_dir when is_list(Val), App#app.use_selected_vsn=:=undefined ->
@@ -1663,7 +1646,7 @@ decode(#mod{} = Mod, [{Key, Val} | KeyVals]) ->
         case Key of
             incl_cond when Val =:= include; Val =:= exclude; Val =:= derived ->
                 Mod#mod{incl_cond = Val};
-            debug_info when Val =:= keep; Val =:= strip ->
+            debug_info when Val =:= keep; Val =:= strip; is_list(Val) ->
                 Mod#mod{debug_info = Val};
             _ ->
 		reltool_utils:throw_error("Illegal option: ~tp", [{Key, Val}])
@@ -1789,16 +1772,10 @@ libs_to_dirs(RootDir, LibDirs) ->
                 [] ->
                     Fun = fun(Base) ->
                                   AppDir = filename:join([RootLibDir, Base]),
-                                  case filelib:is_dir(filename:join([AppDir,
-								     "ebin"]),
-						      erl_prim_loader) of
-                                      true ->
-                                          AppDir;
-                                      false ->
-                                          filename:join([RootDir,
-							 Base,
-							 "preloaded"])
-                                  end
+                                  true = filelib:is_dir(
+                                           filename:join([AppDir, "ebin"]),
+                                           erl_prim_loader),
+                                  AppDir
                           end,
                     ErtsFiles = [{erts, Fun(F)} || F <- RootFiles,
 						   lists:prefix("erts", F)],
@@ -2201,18 +2178,8 @@ find_dir(Dir, [Info | _], [Dir | _]) ->
 find_dir(Dir, [_ | MoreInfo], [_ | MoreDirs]) ->
     find_dir(Dir, MoreInfo, MoreDirs).
 
-get_base(Name, Dir) ->
-    case Name of
-        erts ->
-            case filename:basename(Dir) of
-                "preloaded" ->
-                    filename:basename(filename:dirname(Dir));
-                TmpBase ->
-                    TmpBase
-            end;
-        _ ->
-            filename:basename(Dir)
-    end.
+get_base(_Name, Dir) ->
+    filename:basename(Dir).
 
 sys_all_apps(#state{app_tab=AppTab, sys=Sys}) ->
     Sys#sys{apps = ets:match_object(AppTab,'_')}.

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 
 #ifndef __SYS_H__
 #define __SYS_H__
-
-#define ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
 
 #if !defined(__GNUC__) || defined(__e2k__)
 #  define ERTS_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
@@ -245,6 +243,7 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *func,
 						 const char* file, int line);
 
+#undef ASSERT
 #ifdef DEBUG
 #  define ASSERT(e) ERTS_ASSERT(e)
 #else
@@ -427,6 +426,7 @@ typedef long long          Sint  erts_align_attribute(sizeof(long long));
 typedef Uint UWord;
 typedef Sint SWord;
 #define ERTS_UINT_MAX ERTS_UWORD_MAX
+#define ERTS_SINT_MAX ERTS_SWORD_MAX
 
 typedef const void *ErtsCodePtr;
 typedef UWord BeamInstr;
@@ -608,7 +608,7 @@ extern erts_tsd_key_t erts_is_crash_dumping_key;
 static unsigned long zero_value = 0, one_value = 1;
 #    define SET_BLOCKING(fd)	{ if (ioctlsocket((fd), FIONBIO, &zero_value) != 0) fprintf(stderr, "Error setting socket to non-blocking: %d\n", WSAGetLastError()); }
 #    define SET_NONBLOCKING(fd)	ioctlsocket((fd), FIONBIO, &one_value)
-
+#    define ERRNO_BLOCK EAGAIN /* We use the posix way for windows */
 #  else
 #    ifdef NB_FIONBIO		/* Old BSD */
 #      include <sys/ioctl.h>
@@ -648,6 +648,8 @@ __decl_noreturn void __noreturn erts_exit(int n, const char*, ...);
 	     __FILE__, __LINE__, __func__, What)
 
 UWord erts_sys_get_page_size(void);
+
+UWord erts_sys_get_large_page_size(void);
 
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
@@ -708,7 +710,6 @@ typedef struct preload {
  */
 typedef Eterm ErtsTracer;
 
-
 /*
  * This structure contains the rb tree for the erlang osenv copy
  * see erl_osenv.h for more details.
@@ -723,6 +724,10 @@ extern char *erts_default_arg0;
 
 extern char os_type[];
 
+#if !defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
+#  undef ERTS_ENSURE_OS_MONOTONIC_TIME
+#endif
+
 typedef struct {
     int have_os_monotonic_time;
     int have_corrected_os_monotonic_time;
@@ -730,6 +735,7 @@ typedef struct {
     ErtsMonotonicTime sys_clock_resolution;
     struct {
 	Uint64 resolution;
+        Uint64 used_resolution;
 	char *func;
 	char *clock_id;
 	int locked_use;
@@ -847,6 +853,7 @@ int sys_double_to_chars(double, char*, size_t);
 int sys_double_to_chars_ext(double, char*, size_t, size_t);
 int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *, size_t);
+int sys_get_hostname(char *buf, size_t size);
 
 /* erl_drv_get/putenv have been implicitly 8-bit for so long that we can't
  * change them without breaking things on Windows. Their return values are
@@ -903,6 +910,9 @@ typedef struct {
 } SysAllocStat;
 
 void sys_alloc_stat(SysAllocStat *);
+
+extern UWord sys_page_size;
+extern UWord sys_large_page_size;
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #undef ERTS_REFC_DEBUG
@@ -1079,6 +1089,8 @@ ERTS_GLB_INLINE void *sys_memmove(void *dest, const void *src, size_t n);
 ERTS_GLB_INLINE int sys_memcmp(const void *s1, const void *s2, size_t n);
 ERTS_GLB_INLINE void *sys_memset(void *s, int c, size_t n);
 ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n);
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n);
+ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n);
 ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2);
 ERTS_GLB_INLINE int sys_strncmp(const char *s1, const char *s2, size_t n);
 ERTS_GLB_INLINE char *sys_strcpy(char *dest, const char *src);
@@ -1111,6 +1123,26 @@ ERTS_GLB_INLINE void *sys_memzero(void *s, size_t n)
 {
     ASSERT(s != NULL);
     return memset(s,'\0',n);
+}
+ERTS_GLB_INLINE void *sys_memchr(const void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+    return (void*)memchr(s, c, n);
+}
+ERTS_GLB_INLINE void *sys_memrchr(const void *s, int c, size_t n)
+{
+    ASSERT(s != NULL);
+#ifdef HAVE_MEMRCHR
+    return (void*)memrchr(s, c, n);
+#else
+    {
+        const unsigned char* ptr = (const unsigned char*)s + n;
+        while (ptr != s)
+            if (*(--ptr) == (unsigned char)c)
+                return (void*)ptr;
+        return NULL;
+    }
+#endif
 }
 ERTS_GLB_INLINE int sys_strcmp(const char *s1, const char *s2)
 {

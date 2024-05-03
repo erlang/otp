@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,13 +37,6 @@
 #include "bif.h"
 #include "big.h"
 #include "atom.h"
-
-#ifndef MAX
-#  define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#endif
-
-#define DECLARE_TMP(VariableName,N,P)  Eterm VariableName[2]
-#define ARG_IS_NOT_TMP(Arg,Tmp) ((Arg) != make_big((Tmp)))
 
 static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint alloc)
 {
@@ -154,7 +147,7 @@ erts_shift(Process* p, Eterm arg1, Eterm arg2, int right)
 {
     Sint i;
     Sint ires;
-    DECLARE_TMP(tmp_big1,0,p);
+    Eterm tmp_big1[2];
     Eterm* bigp;
     Uint need;
 
@@ -319,8 +312,7 @@ BIF_RETTYPE bnot_1(BIF_ALIST_1)
 Eterm
 erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm res;
     Eterm hdr;
     FloatDef f1, f2;
@@ -529,8 +521,7 @@ erts_unary_minus(Process* p, Eterm arg)
 Eterm
 erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -672,8 +663,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm hdr;
     Eterm res;
     FloatDef f1, f2;
@@ -697,8 +687,8 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		    } else if (arg2 == SMALL_ONE) {
 			return(arg1);
 		    } else {
-			DeclareTmpHeap(big_res,3,p);
-			UseTmpHeap(3,p);
+                        Eterm big_res[3];
+
 			/*
 			 * The following code is optimized for the case that
 			 * result is small (which should be the most common case
@@ -706,7 +696,6 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			 */
 			res = small_times(signed_val(arg1), signed_val(arg2), big_res);
 			if (is_small(res)) {
-			    UnUseTmpHeap(3,p);
 			    return res;
 			} else {
 			    /*
@@ -728,7 +717,6 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 			    if (arity > 1) {
 				*hp = big_res[2];
 			    }
-			    UnUseTmpHeap(3,p);
 			    return res;
 			}
 		    }
@@ -790,8 +778,16 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 
 		do_big:
 		    need_heap = BIG_NEED_SIZE(sz);
+#ifdef DEBUG
+                    need_heap++;
+#endif
                     hp = HeapFragOnlyAlloc(p, need_heap);
+
+#ifdef DEBUG
+                    hp[need_heap-1] = ERTS_HOLE_MARKER;
+#endif
 		    res = big_times(arg1, arg2, hp);
+                    ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
 
 		    /*
 		     * Note that the result must be big in this case, since
@@ -856,6 +852,98 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 	}
     default:
 	goto badarith;
+    }
+}
+
+Eterm
+erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp)
+{
+    Eterm tmp_big1[2];
+    Eterm tmp_big2[2];
+    Eterm tmp_big3[2];
+    Eterm hdr;
+    Eterm res;
+    Eterm big_arg1, big_arg2, big_arg3;
+    dsize_t sz1, sz2, sz3, sz;
+    int need_heap;
+    Eterm* hp;
+    Eterm product;
+
+    big_arg1 = arg1;
+    big_arg2 = arg2;
+    big_arg3 = arg3;
+    switch (big_arg1 & _TAG_PRIMARY_MASK) {
+    case TAG_PRIMARY_IMMED1:
+        if (is_not_small(big_arg1)) {
+            break;
+        }
+        big_arg1 = small_to_big(signed_val(big_arg1), tmp_big1);
+        /* Fall through */
+    case TAG_PRIMARY_BOXED:
+        hdr = *boxed_val(big_arg1);
+        switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+        case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+        case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+            switch (big_arg2 & _TAG_PRIMARY_MASK) {
+            case TAG_PRIMARY_IMMED1:
+                if (is_not_small(big_arg2)) {
+                    break;
+                }
+                big_arg2 = small_to_big(signed_val(big_arg2), tmp_big2);
+                /* Fall through */
+            case TAG_PRIMARY_BOXED:
+                hdr = *boxed_val(big_arg2);
+                switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+                case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+                case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+                    switch (big_arg3 & _TAG_PRIMARY_MASK) {
+                    case TAG_PRIMARY_IMMED1:
+                        if (is_not_small(big_arg3)) {
+                            break;
+                        }
+                        big_arg3 = small_to_big(signed_val(big_arg3), tmp_big3);
+                        /* Fall through */
+                    case TAG_PRIMARY_BOXED:
+                        hdr = *boxed_val(big_arg3);
+                        switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
+                        case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
+                        case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
+                            sz1 = big_size(big_arg1);
+                            sz2 = big_size(big_arg2);
+                            sz3 = big_size(big_arg3);
+                            sz = sz1 + sz2;
+                            sz = MAX(sz, sz3) + 1;
+                            need_heap = BIG_NEED_SIZE(sz);
+#ifdef DEBUG
+                            need_heap++;
+#endif
+                            hp = HeapFragOnlyAlloc(p, need_heap);
+
+#ifdef DEBUG
+                            hp[need_heap-1] = ERTS_HOLE_MARKER;
+#endif
+                            res = big_mul_add(big_arg1, big_arg2, big_arg3, hp);
+                            ASSERT(hp[need_heap-1] == ERTS_HOLE_MARKER);
+                            maybe_shrink(p, hp, res, need_heap);
+                            if (is_nil(res)) {
+                                p->freason = SYSTEM_LIMIT;
+                                return THE_NON_VALUE;
+                            }
+                            return res;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* At least one of the arguments is a float or invalid. */
+    product = erts_mixed_times(p, arg1, arg2);
+    *pp = product;
+    if (is_non_value(product)) {
+        return product;
+    } else {
+        return erts_mixed_plus(p, product, arg3);
     }
 }
 
@@ -1020,9 +1108,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
     Eterm quotient, remainder;
     Eterm lhs, rhs;
     int cmp;
-
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
 
     lhs = arg1;
     rhs = arg2;
@@ -1102,8 +1188,7 @@ int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r)
 Eterm
 erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -1154,8 +1239,7 @@ erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 Eterm
 erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     int ires;
 
     switch (NUMBER_CODE(arg1, arg2)) {
@@ -1206,8 +1290,7 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
@@ -1234,8 +1317,7 @@ Eterm erts_band(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
@@ -1262,8 +1344,7 @@ Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2)
 
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2)
 {
-    DECLARE_TMP(tmp_big1,0,p);
-    DECLARE_TMP(tmp_big2,1,p);
+    Eterm tmp_big1[2], tmp_big2[2];
     Eterm* hp;
     int need;
 
@@ -1310,6 +1391,6 @@ Eterm erts_bnot(Process* p, Eterm arg)
 } 
 
 /* Needed to remove compiler optimization */
-double erts_get_positive_zero_float() {
+double erts_get_positive_zero_float(void) {
     return 0.0f;
 }

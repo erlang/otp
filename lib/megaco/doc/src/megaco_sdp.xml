@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2023</year><year>2023</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>megaco_sdp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2023-12-22</date>
+    <rev>%VSN%</rev>
+    <file>megaco_sdp.xml</file>
+  </header>
+  <module since="">megaco_sdp</module>
+  <modulesummary>SDP utility module.</modulesummary>
+  <description>
+    <p>This module contains various things related to SDP.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="property_parm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="property_group"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="property_groups"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_v"/>
+      <desc>
+	<p>
+	  Protocol version.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_o"/>
+      <desc>
+	<p>
+	  Owner/creator and session identifier.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_s"/>
+      <desc>
+	<p>
+	  Session name.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_i"/>
+      <desc>
+	<p>
+	  Session information.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_u"/>
+      <desc>
+	<p>
+	  URI of description.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_e"/>
+      <desc>
+	<p>
+	  Email address.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_p"/>
+      <desc>
+	<p>
+	  Phone number.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_c"/>
+      <desc>
+	<p>
+	  Connection information.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_b"/>
+      <desc>
+	<p>
+	  Bandwidth information.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_k"/>
+      <desc>
+	<p>
+	  Encryption key.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_a"/>
+      <desc>
+	<p>
+	  Session attribute.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_a_rtpmap"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_a_ptime"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_a_quality"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_a_fmtp"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_z"/>
+      <desc>
+	<p>
+	  Time zone adjustment.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_t"/>
+      <!--
+      <desc>
+	<p>
+	  Time the session is active.
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_r"/>
+      <desc>
+	<p>
+	  Repeat times.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_m"/>
+      <desc>
+	<p>
+	  Media name and transport address.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="sdp_property_parm"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_property_group"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+    <datatype>
+      <name name="sdp_property_groups"/>
+      <!--
+      <desc>
+	<p>
+	  TBD
+	</p>
+      </desc>
+      -->
+    </datatype>
+
+  </datatypes>
+  
+</erlref>
+

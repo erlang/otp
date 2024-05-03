@@ -30,65 +30,23 @@ extern "C"
 #endif
 }
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
-static void recv_mark(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(p, erts_old_recv_marker_id);
-}
-
-static void recv_mark_set(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(p, erts_old_recv_marker_id);
-}
-
-void BeamModuleAssembler::emit_i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark);
-
-    emit_leave_runtime();
-}
-
-void BeamModuleAssembler::emit_i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark_set);
-
-    emit_leave_runtime();
-}
-
-#endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
-
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_msgq_recv_marker_insert);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     mov_arg(Dst, ARG1);
 }
 
 void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
                                                 const ArgRegister &Reference) {
-    mov_arg(ARG2, Marker);
-    mov_arg(ARG3, Reference);
+    auto [marker, reference] = load_sources(Marker, ARG2, Reference, ARG3);
+
+    mov_var(ARG2, marker);
+    mov_var(ARG3, reference);
 
     emit_enter_runtime();
 
@@ -175,12 +133,12 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.cbnz(ARG1, check_is_distributed);
         comment("Inner queue empty, fetch more from outer/middle queues");
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc |
                            Update::eHeap>(0);
 
         a.str(ZERO, message_ptr);
         a.mov(ARG1, c_p);
-        a.mov(ARG2, FCALLS);
+        a.mov(ARG2.w(), FCALLS);
         mov_imm(ARG3, 0);
         lea(ARG4, message_ptr);
         lea(ARG5, get_out);
@@ -196,10 +154,9 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Also note that another process may have loaded new code and sent us
          * a message to notify us about it, so we must update the active code
          * index. */
-        emit_leave_runtime<Update::eStack | Update::eHeap | Update::eCodeIndex>(
-                0);
+        emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>(0);
 
-        a.sub(FCALLS, FCALLS, ARG1);
+        a.sub(FCALLS, FCALLS, ARG1.w());
 
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it. */
         a.ldr(ARG1, message_ptr);
@@ -228,7 +185,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         a.ldr(TMP1.w(), flags);
         a.and_(TMP1, TMP1, imm(~F_DELAY_GC));
         a.str(TMP1.w(), flags);
-        a.str(ZERO, arm::Mem(c_p, offsetof(Process, arity)));
+        a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
         a.str(ZERO, arm::Mem(c_p, offsetof(Process, current)));
 
         a.b(labels[do_schedule]);
@@ -283,10 +240,10 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
+    a.mov(ARG2.w(), FCALLS);
     a.mov(ARG5, active_code_ix);
     runtime_call<5>(beam_jit_remove_message);
-    a.mov(FCALLS, ARG1);
+    a.mov(FCALLS, ARG1.w());
 
     emit_leave_runtime();
 }
@@ -301,6 +258,7 @@ void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
 
     a.sub(FCALLS, FCALLS, imm(1));
     a.b(resolve_beam_label(Dest, disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
@@ -313,6 +271,7 @@ void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
     emit_leave_runtime(0);
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
+    mark_unreachable();
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
@@ -325,6 +284,10 @@ void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
     emit_leave_runtime(0);
 
     a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
+
+    /* Must check stubs here because this branch is followed by
+     * a label when part of `wait_timeout_locked`. */
+    mark_unreachable_check_pending_stubs();
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 %%
 -module(mnesia_tm).
+-moduledoc false.
 
 -export([
 	 start/0,
@@ -32,6 +33,7 @@
 	 do_update_op/3,
 	 get_info/1,
 	 get_transactions/0,
+         get_transactions_count/0,
 	 info/1,
 	 mnesia_down/1,
 	 prepare_checkpoint/2,
@@ -422,6 +424,10 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	{From, info} ->
 	    reply(From, {info, gb_trees:values(Participants),
 			 gb_trees:to_list(Coordinators)}, State);
+
+	{From, transactions_count} ->
+	    reply(From, {transactions_count, gb_trees:size(Participants),
+                         gb_trees:size(Coordinators)}, State);
 
 	{mnesia_down, N} ->
 	    verbose("Got mnesia_down from ~p, reconfiguring...~n", [N]),
@@ -934,27 +940,26 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 	    return_abort(Fun, Args, Why),
 	    Factor = 1,
 	    SleepTime = mnesia_lib:random_time(Factor, Tid#tid.counter),
-	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
+	    log_restart("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
 	    timer:sleep(SleepTime),
 	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
 	{node_not_running, _N} ->   %% Avoids hanging in receive_release_tid_ack
 	    return_abort(Fun, Args, Why),
 	    Factor = 1,
 	    SleepTime = mnesia_lib:random_time(Factor, Tid#tid.counter),
-	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
+	    log_restart("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
 	    timer:sleep(SleepTime),
 	    execute_outer(Mod, Fun, Args, Factor, Retries, Type);
 	_ ->
 	    SleepTime = mnesia_lib:random_time(Factor0, Tid#tid.counter),
 	    dbg_out("Restarting transaction ~w: in ~wms ~w~n", [Tid, SleepTime, Why]),
-
+            
 	    if
 		Factor0 /= 10 ->
 		    ignore;
 		true ->
 		    %% Our serial may be much larger than other nodes ditto
 		    AllNodes = val({current, db_nodes}),
-		    verbose("Sync serial ~p~n", [Tid]),
 		    rpc:abcast(AllNodes, ?MODULE, {sync_trans_serial, Tid})
 	    end,
 	    intercept_friends(Tid, Ts),
@@ -971,6 +976,24 @@ restart(Mod, Tid, Ts, Fun, Args, Factor0, Retries0, Type, Why) ->
 		{error, Reason} ->
 		    mnesia:abort(Reason)
 	    end
+    end.
+
+log_restart(F,A) ->
+    case get(transaction_client) of
+        undefined ->
+            dbg_out(F,A);
+        _ ->
+            case get(transaction_count) of
+                undefined ->
+                    put(transaction_count, 1),
+                    verbose(F,A);
+                N when (N rem 10) == 0 ->
+                    put(transaction_count, N+1),
+                    verbose(F,A);
+                N ->
+                    put(transaction_count, N+1),
+                    dbg_out(F,A)
+            end
     end.
 
 get_restarted(Tid) ->
@@ -2128,6 +2151,7 @@ new_cr_format(#commit{ext=Snmp}=Cr) ->
     Cr#commit{ext=[{snmp,Snmp}]}.
 
 rec_all([Node | Tail], Tid, Res, Pids) ->
+    put({?MODULE, ?FUNCTION_NAME}, {Node, Tail}),
     receive
 	{?MODULE, Node, {vote_yes, Tid}} ->
 	    rec_all(Tail, Tid, Res, Pids);
@@ -2146,8 +2170,12 @@ rec_all([Node | Tail], Tid, Res, Pids) ->
 	    Abort = {do_abort, {bad_commit, Node}},
 	    ?SAFE({?MODULE, Node} ! {Tid, Abort}),
 	    rec_all(Tail, Tid, Abort, Pids)
+    after 15000 ->
+            mnesia_lib:verbose("~p: trans ~p waiting ~p~n", [self(), Tid, Node]),
+            rec_all([Node | Tail], Tid, Res, Pids)
     end;
 rec_all([], _Tid, Res, Pids) ->
+    erase({?MODULE, ?FUNCTION_NAME}),
     {Res, Pids}.
 
 get_transactions() ->
@@ -2161,6 +2189,14 @@ tr_status(Tid,Participant) ->
     case lists:keymember(Tid, 1, Participant) of
 	true -> participant;
 	false  -> coordinator
+    end.
+
+get_transactions_count() ->
+    case req(transactions_count) of
+        {transactions_count, ParticipantsCount, CoordinatorsCount} ->
+            {ParticipantsCount, CoordinatorsCount};
+        Error ->
+            Error
     end.
 
 get_info(Timeout) ->

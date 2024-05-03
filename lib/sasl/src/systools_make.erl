@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(systools_make).
+-moduledoc false.
 
 %% Purpose : Create start script. RelName.rel --> RelName.{script,boot}.
 %%           and create a tar file of a release (RelName.tar.gz)
@@ -696,7 +697,15 @@ specified([], _) ->
     [].
 
 get_items([H|T], Dict) ->
-    Item = check_item(keysearch(H, 1, Dict),H),
+    Item = case check_item(keysearch(H, 1, Dict),H) of
+        [Atom|_]=Atoms when is_atom(Atom), is_list(Atoms) ->
+            %% Check for duplicate entries in lists
+            case Atoms =/= lists:uniq(Atoms) of
+                true -> throw({dupl_entry, H, lists:subtract(Atoms, lists:uniq(Atoms))});
+                false -> Atoms
+            end;
+        X -> X
+    end,
     [Item|get_items(T, Dict)];
 get_items([], _Dict) ->
     [].
@@ -1571,7 +1580,7 @@ preloaded() ->
       ?ESOCK_MODS ++
           [atomics,counters,erl_init,erl_prim_loader,erl_tracer,erlang,
            erts_code_purger,erts_dirty_process_signal_handler,
-           erts_internal,erts_literal_area_collector,
+           erts_internal,erts_literal_area_collector,erts_trace_cleaner,
            init,persistent_term,prim_buffer,prim_eval,prim_file,
            prim_inet,prim_zip,zlib]).
 
@@ -2436,6 +2445,8 @@ form_reading({read,File}) ->
     io_lib:format("Cannot read ~tp~n",[File]);
 form_reading({{bad_param, P},_}) ->
     io_lib:format("Bad parameter in .app file: ~tp~n",[P]);
+form_reading({{dupl_entry, P, DE},_}) ->
+    io_lib:format("~tp parameter contains duplicates of: ~tp~n", [P, DE]);
 form_reading({{missing_param,P},_}) ->
     io_lib:format("Missing parameter in .app file: ~p~n",[P]);
 form_reading({badly_formatted_application,_}) ->

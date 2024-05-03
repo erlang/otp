@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,15 +167,12 @@ erts_cleanup_offheap_list(struct erl_off_heap_header* first)
 
     for (u.hdr = first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
-	case REFC_BINARY_SUBTAG:
-            erts_bin_release(u.pb->val);
+	case BIN_REF_SUBTAG:
+            erts_bin_release(u.br->val);
 	    break;
-	case FUN_SUBTAG:
-            /* We _KNOW_ that this is a local fun, otherwise it would not
-             * be part of the off-heap list. */
-            ASSERT(is_local_fun(u.fun));
-            if (erts_refc_dectest(&u.fun->entry.fun->refc, 0) == 0) {
-                erts_erase_fun_entry(u.fun->entry.fun);
+	case FUN_REF_SUBTAG:
+            if (erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
+                erts_erase_fun_entry(u.fref->entry);
             }
 	    break;
 	case REF_SUBTAG:
@@ -320,8 +317,8 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	ERL_MESSAGE_TOKEN(mp) = token;
 
-    /* If the sender is known, try to enqueue to an outer message queue buffer
-     * instead of directly to the outer message queue.
+    /* If the sender is known, try to enqueue to an outer signal queue buffer
+     * instead of directly to the outer signal queue.
      *
      * Otherwise, the code below flushes the buffer before adding the message
      * to ensure the signal order is maintained. This should only happen for
@@ -329,7 +326,7 @@ erts_queue_dist_message(Process *rcvr,
     if (is_external_pid(from) &&
          erts_proc_sig_queue_try_enqueue_to_buffer(from, rcvr, rcvr_locks,
                                                    mp, &mp->next,
-                                                   NULL, 1, 0)) {
+                                                   NULL, 1)) {
         return;
     }
 
@@ -363,7 +360,7 @@ erts_queue_dist_message(Process *rcvr,
             erts_proc_sig_queue_flush_buffers(rcvr);
         }
 
-        LINK_MESSAGE(rcvr, mp);
+        LINK_MESSAGE(rcvr, mp, state);
 
         if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
             erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
@@ -401,11 +398,11 @@ queue_messages(Eterm from,
                    == (receiver_locks & ERTS_PROC_LOCK_MSGQ));
 
     /*
-     * Try to enqueue to an outer message queue buffer instead of
-     * directly to the outer message queue
+     * Try to enqueue to an outer signal queue buffer instead of
+     * directly to the outer signal queue
      */
     if (erts_proc_sig_queue_try_enqueue_to_buffer(from, receiver, receiver_locks,
-                                                  first, last, NULL, len, 0)) {
+                                                  first, last, NULL, len)) {
         return;
     }
 
@@ -449,10 +446,10 @@ queue_messages(Eterm from,
              */
             erts_proc_sig_queue_flush_buffers(receiver);
         }
-        LINK_MESSAGE(receiver, first);
+        LINK_MESSAGE(receiver, first, state);
     }
     else {
-        erts_enqueue_signals(receiver, first, last, NULL, len, state);
+        state = erts_enqueue_signals(receiver, first, last, len, state);
     }
 
     if (locked_msgq) {
@@ -540,8 +537,9 @@ erts_queue_proc_message(Process* sender,
                         ErtsMessage* mp, Eterm msg)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->state,
-					  ERTS_PSFLG_MAYBE_SELF_SIGS);
+	(void) erts_atomic32_read_bor_nob(&sender->xstate,
+					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
+
     ERL_MESSAGE_TERM(mp) = msg;
     ERL_MESSAGE_FROM(mp) = sender->common.id;
     queue_messages(sender->common.id, receiver, receiver_locks,
@@ -556,8 +554,9 @@ erts_queue_proc_messages(Process* sender,
                          ErtsMessage* first, ErtsMessage** last, Uint len)
 {
     if (sender == receiver)
-	(void) erts_atomic32_read_bor_nob(&sender->state,
-					  ERTS_PSFLG_MAYBE_SELF_SIGS);
+	(void) erts_atomic32_read_bor_nob(&sender->xstate,
+					  ERTS_PXSFLG_MAYBE_SELF_SIGS);
+
     queue_messages(sender->common.id, receiver, receiver_locks,
                    prepend_pending_sig_maybe(sender, receiver, first),
                    last, len);
@@ -660,6 +659,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 	mp = erts_alloc_message(0, NULL);
 	mp->data.attached = NULL;
 	*on_heap_p = !0;
+        erts_adjust_memory_break(pp, -sz);
     }
     else if (pp && erts_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
 	locked_main = 1;
@@ -975,6 +975,7 @@ void erts_save_message_in_proc(Process *p, ErtsMessage *msgp)
 	hfp = msgp->data.heap_frag;
     }
     else {
+        erts_adjust_message_break(p, ERL_MESSAGE_TERM(msgp));
 	erts_free_message(msgp);
 	return; /* Nothing to save */
     }

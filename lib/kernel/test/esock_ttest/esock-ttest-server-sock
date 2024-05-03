@@ -3,7 +3,7 @@
 # 
 #  %CopyrightBegin%
 #  
-#  Copyright Ericsson AB 2019-2021. All Rights Reserved.
+#  Copyright Ericsson AB 2019-2024. All Rights Reserved.
 #  
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,38 +19,100 @@
 #  
 #  %CopyrightEnd%
 # 
+# Assuming your pwd is $ERL_TOP
+# Using default values for active (=false) and domain (=inet)
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-server-sock)
 
-EMU=$ERL_TOP/erts/emulator
-EMU_TEST=$EMU/test
-ESOCK_TTEST=$EMU_TEST/esock_ttest
+# Example:
+# Assuming your pwd is $ERL_TOP
+# (cd lib/kernel/test && ./esock_ttest/esock-ttest-server-sock [--active true --domain inet])
 
-#  $1 - async  - boolean()
-#  $2 - active - once | boolean()
-# [$3 - domain - inet (default) | inet6 | local]
-if [ $# -ge 2 ]; then
+program="`basename "$0"`"
 
-    async=$1
-    active=$2
+KERNEL=$ERL_TOP/lib/kernel
+KERNEL_TEST=$KERNEL/test
+ESOCK_TTEST=$KERNEL_TEST/esock_ttest
 
-    if [ $async = true ]; then
-	ASYNC="--async"
-    else
-	ASYNC=
-    fi
-
-    ACTIVE="--active $active"
-
-    if [ $# = 3 ]; then
-	DOMAIN="--domain $3"
-    fi
+ASYNC=
+ACTIVE=true
+DOMAIN=inet
+# PROFILE="--profile"
 
 
-else
-    echo "<ERROR> Missing args: async and active"
-    echo ""
-    exit 1
-fi
+######################################################################
 
+usage="\
+Usage: $program [options] 
 
-$ESOCK_TTEST/esock-ttest --server $DOMAIN $ASYNC --transport sock $ACTIVE
+This shell script is used to run the esock ttest server part with
+'socket' as transport.
 
+Options:
+  --help              Display this help and exit.
+  --async             Asynchronous.
+  --active <active>   Active
+  	              once | boolean()
+                      Defaults to true
+  --domain <domain>   Domain of the transport
+  	   	      inet | inet6 | local
+  	              Defaults to 'inet'.
+"
+
+######################################################################
+
+now() { date '+%T'; }
+
+die () {
+    TIME=`now`
+    reason=$?
+    echo "ERROR [$TIME]: $@" >&2
+    echo "$usage"
+    exit $reason
+}
+
+while test $# != 0; do
+    # echo "arg $1"
+    case $1 in
+        --help)
+            echo "$usage" ; 
+            exit 0 ;;
+
+        --async)
+	    ASYNC="--async"
+            shift ;;
+
+        --active)
+	    shift ;
+	    TMP=$1
+	    if [ $TMP = once ]; then
+		ACTIVE=$TMP
+	    elif [ $TMP = true ]; then
+		ACTIVE=$TMP
+	    elif [ $TMP = false ]; then
+		ACTIVE=$TMP
+	    else
+		die "Invalid 'active' value '$TMP'";
+	    fi
+            shift ;;
+
+        --domain)
+	    shift ;
+	    TMP=$1
+	    if [ $TMP = inet ]; then
+		DOMAIN=$TMP
+	    elif [ $TMP = inet6 ]; then
+		DOMAIN=$TMP
+	    elif [ $TMP = inet6 ]; then
+		DOMAIN=$TMP
+	    else
+		die "Invalid 'domain' value '$TMP'";
+	    fi
+            shift ;;
+
+        *)
+            die "Unexpected option $1";
+            ;;
+    esac
+done
+
+$ESOCK_TTEST/esock-ttest --server --domain $DOMAIN $ASYNC --transport sock --active $ACTIVE

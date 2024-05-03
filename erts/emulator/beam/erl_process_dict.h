@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@
 
 #ifndef _ERL_PROCESS_DICT_H
 #define _ERL_PROCESS_DICT_H
+
 #include "sys.h"
+#include "erl_term_hashing.h"
 
 typedef struct proc_dict {
     unsigned int sizeMask;
@@ -43,7 +45,8 @@ void erts_deep_dictionary_dump(fmtfn_t to, void *to_arg,
 Eterm erts_dictionary_copy(ErtsHeapFactory *hfact, ProcDict *pd, Uint reserve_size);
 
 Eterm erts_pd_hash_get(struct process *p, Eterm id);
-Uint32 erts_pd_make_hx(Eterm key);
-Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id);
+
+erts_ihash_t erts_pd_make_hx(Eterm key);
+Eterm erts_pd_hash_get_with_hx(Process *p, erts_ihash_t hx, Eterm id);
 
 #endif

@@ -20,42 +20,44 @@
 %%% Created :  4 Apr 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_codeserver).
+-moduledoc false.
 
 -export([delete/1,
-	 store_temp_contracts/4,
+         store_temp_contracts/4,
          give_away/2,
-	 finalize_contracts/1,
+         finalize_contracts/1,
          finalize_exported_types/2,
-	 finalize_records/1,
-	 get_contracts/1,
-	 get_callbacks/1,
+         finalize_records/1,
+         get_contracts/1,
+         get_callbacks/1,
          get_exported_types_table/1,
          extract_exported_types/1,
-	 get_exports/1,
-	 get_records_table/1,
+         get_exports/1,
+         get_records_table/1,
          extract_records/1,
-	 get_next_core_label/1,
+         get_next_core_label/1,
          get_temp_contracts/2,
          all_temp_modules/1,
          store_contracts/4,
          get_temp_exported_types/1,
          get_temp_records_table/1,
-	 lookup_temp_mod_records/2,
-	 insert/3,
-	 insert_exports/2,
+         lookup_temp_mod_records/2,
+         insert/3,
+         insert_exports/2,
          insert_temp_exported_types/2,
          insert_fun_meta_info/2,
-	 is_exported/2,
-	 lookup_mod_code/2,
-	 lookup_mfa_code/2,
-	 lookup_mfa_var_label/2,
-	 lookup_mod_records/2,
-	 lookup_mod_contracts/2,
-	 lookup_mfa_contract/2,
+         is_exported/2,
+         is_member_meta_info/2,
+         lookup_mod_code/2,
+         lookup_mfa_code/2,
+         lookup_mfa_var_label/2,
+         lookup_mod_records/2,
+         lookup_mod_contracts/2,
+         lookup_mfa_contract/2,
          lookup_meta_info/2,
-	 new/0,
-	 set_next_core_label/2,
-	 store_temp_records/3,
+         new/0,
+         set_next_core_label/2,
+         store_temp_records/3,
          translate_fake_file/3]).
 
 -export_type([codeserver/0, fun_meta_info/0, contracts/0]).
@@ -96,11 +98,11 @@
 
 %%--------------------------------------------------------------------
 
+%% We KNOW that `error` is not a valid value in the table.
 ets_dict_find(Key, Table) ->
-  try ets:lookup_element(Table, Key, 2) of
-      Val -> {ok, Val}
-  catch
-    _:_ -> error
+  case ets:lookup_element(Table, Key, 2, error) of
+    error -> error;
+    Val -> {ok, Val}
   end.
 
 ets_map_store(Key, Element, Table) ->
@@ -112,7 +114,7 @@ ets_dict_to_dict(Table) ->
   ets:foldl(Fold, dict:new(), Table).
 
 ets_set_is_element(Key, Table) ->
-  ets:lookup(Table, Key) =/= [].
+  ets:member(Table, Key).
 
 ets_set_insert_set(Set, Table) ->
   ets_set_insert_list(sets:to_list(Set), Table).
@@ -266,10 +268,7 @@ set_next_core_label(NCL, CS) ->
 -spec lookup_mod_records(atom(), codeserver()) -> types().
 
 lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
-  case ets_dict_find(Mod, RecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(RecDict, Mod, 2, #{}).
 
 -spec get_records_table(codeserver()) -> map_ets().
 
@@ -298,10 +297,7 @@ get_temp_records_table(#codeserver{temp_records = TempRecDict}) ->
 -spec lookup_temp_mod_records(module(), codeserver()) -> types().
 
 lookup_temp_mod_records(Mod, #codeserver{temp_records = TempRecDict}) ->
-  case ets_dict_find(Mod, TempRecDict) of
-    error -> maps:new();
-    {ok, Map} -> Map
-  end.
+  ets:lookup_element(TempRecDict, Mod, 2, #{}).
 
 -spec finalize_records(codeserver()) -> codeserver().
 
@@ -320,14 +316,8 @@ finalize_records(#codeserver{temp_records = TmpRecords,
 
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
-  case ets_dict_find(Mod, ContDict) of
-    error -> maps:new();
-    {ok, Keys} ->
-      maps:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
-  end.
-
-get_file_contract(Key, ContDict) ->
-  {Key, ets:lookup_element(ContDict, Key, 2)}.
+  Keys = ets:lookup_element(ContDict, Mod, 2, []),
+  #{Key => ets:lookup_element(ContDict, Key, 2) || Key <- Keys}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
          'error' | {'ok', dialyzer_contracts:file_contract()}.
@@ -340,6 +330,11 @@ lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
 
 lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
   ets_dict_find(MorMFA, FunMetaInfo).
+
+-spec is_member_meta_info(module() | mfa(), codeserver()) -> boolean().
+
+is_member_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
+  ets_set_is_element(MorMFA, FunMetaInfo).
 
 -spec get_contracts(codeserver()) ->
                        dict:dict(mfa(), dialyzer_contracts:file_contract()).

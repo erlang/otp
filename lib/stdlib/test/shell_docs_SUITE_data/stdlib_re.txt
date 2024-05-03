@@ -1,6 +1,8 @@
 
 [;1m	re[0m
 
+  Perl-like regular expressions for Erlang.
+
   This module contains regular expression matching functions for
   strings and binaries.
 

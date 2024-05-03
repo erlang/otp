@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ del_dirs/1,
 del_dir_contents/1,
 do_del_files/2,
 openssh_sanity_check/1,
+verify_sanity_check/1,
 default_algorithms/1,
 default_algorithms/3,
 default_algorithms/2,
@@ -121,13 +122,26 @@ setup_host_key_create_dir/3,
 setup_host_key/3,
 setup_known_host/3,
 get_addr_str/0,
-file_base_name/2
+file_base_name/2,
+kex_strict_negotiated/2,
+event_logged/3
         ]).
+%% logger callbacks and related helpers
+-export([log/2,
+         get_log_level/0, set_log_level/1, add_log_handler/0,
+         rm_log_handler/0, get_log_events/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
+
+-define(SANITY_CHECK_NOTE,
+        "For enabling test, make sure following commands work:~n"
+        "ok = ssh:start(), "
+        "{ok, _} = ssh:connect(\"localhost\", 22, "
+        "[{password,\"\"},{silently_accept_hosts, true}, "
+        "{save_accepted_host, false}, {user_interaction, false}]).").
 
 %%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
@@ -484,7 +498,7 @@ receive_exec_result(Msgs) when is_list(Msgs) ->
                             receive_exec_result(Msgs);
                         Other ->
                             ct:log("~p:~p unexpected Other ~p", [?MODULE,?FUNCTION_NAME,Other]),
-                            {unexpected_msg, Other}
+                            receive_exec_result(Msgs)
                     end
             end
     after 
@@ -562,7 +576,6 @@ do_del_files(Dir, Files) ->
                           end
                   end, Files).
 
-
 openssh_sanity_check(Config) ->
     ssh:start(),
     case ssh:connect("localhost", ?SSH_DEFAULT_PORT,
@@ -574,11 +587,24 @@ openssh_sanity_check(Config) ->
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
-	    Config;
+	    [{sanity_check_result, ok} | Config];
 	Err ->
 	    Str = lists:append(io_lib:format("~p", [Err])),
+            ct:log("Error = ~p", [Err]),
+            ct:log(?SANITY_CHECK_NOTE),
 	    ssh:stop(),
-	    {skip, Str}
+	    [{sanity_check_result, Str} | Config]
+    end.
+
+verify_sanity_check(Config) ->
+    SanityCheckResult = proplists:get_value(sanity_check_result, Config, ok),
+    case SanityCheckResult of
+        ok ->
+            Config;
+        Err ->
+            ct:log("Error = ~p", [Err]),
+            ct:log(?SANITY_CHECK_NOTE),
+            {fail, passwordless_connection_failed}
     end.
 
 %%%--------------------------------------------------------------------
@@ -1267,3 +1293,82 @@ file_base_name(system_src, 'ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key521";
 file_base_name(system_src, Alg) -> file_base_name(system, Alg).
 
 %%%----------------------------------------------------------------
+-define(SEARCH_FUN(EXP),
+        begin
+            fun(#{msg := {string, EXP},
+                  level := debug}) ->
+                    true;
+               (_) ->
+                    false
+            end
+        end).
+-define(SEARCH_SUFFIX, " will use strict KEX ordering").
+
+kex_strict_negotiated(client, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("client" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(server, Events) ->
+    kex_strict_negotiated(?SEARCH_FUN("server" ++ ?SEARCH_SUFFIX), Events);
+kex_strict_negotiated(SearchFun, Events) when is_function(SearchFun) ->
+    %% FIXME use event_logged?
+    case lists:search(SearchFun, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+event_logged(Role, Events, Reason) ->
+    SearchF =
+        fun(#{msg := {report, #{args := Args}}}) ->
+                AnyF = fun (E) when is_list(E) ->
+                               case string:find(E, Reason) of
+                                   nomatch -> false;
+                                   _ -> true
+                               end;
+                           (_) ->
+                               false
+                       end,
+                lists:member(Role, Args) andalso
+                    lists:any(AnyF, Args);
+           (_Event) ->
+                false
+        end,
+    case lists:search(SearchF, Events) of
+        {value, _} -> true;
+        _ -> false
+    end.
+
+get_log_level() ->
+    #{level := Level} = logger:get_primary_config(),
+    Level.
+
+set_log_level(Level) ->
+    ok = logger:set_primary_config(level, Level).
+
+add_log_handler() ->
+    TestRef = make_ref(),
+    ok = logger:add_handler(?MODULE, ?MODULE,
+                            #{level => debug,
+                              filter_default => log,
+                              recipient => self(),
+                              test_ref => TestRef}),
+    {ok, TestRef}.
+
+rm_log_handler() ->
+    ok = logger:remove_handler(?MODULE).
+
+get_log_events(TestRef) ->
+    {ok, get_log_events(TestRef, [])}.
+
+get_log_events(TestRef, Acc) ->
+    receive
+        {TestRef, Event} ->
+            get_log_events(TestRef, [Event | Acc])
+    after
+        500 ->
+            Acc
+    end.
+
+%% logger callbacks
+log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
+    #{test_ref := TestRef, recipient := Recipient}) ->
+    Recipient ! {TestRef, LogEvent},
+    ok.

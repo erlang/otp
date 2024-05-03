@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -133,26 +133,30 @@ render_smoke(_Config) ->
                             E(shell_docs:render(Mod, D, Config)),
                             E(shell_docs:render_type(Mod, D, Config)),
                             E(shell_docs:render_callback(Mod, D, Config)),
+
                             Exports = try Mod:module_info(exports)
                                       catch _:undef -> []
                                       end, %% nif file not available on this platform
 
+                            DHTML = markdown_to_shelldoc(D),
                             [try
-                                 E(shell_docs:render(Mod, F, A, D, Config))
+                                 E(shell_docs:render(Mod, F, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,F,A,R,ST,shell_docs:get_doc(Mod,F,A)]),
                                      erlang:raise(error,R,ST)
                              end || {F,A} <- Exports],
+
                             [try
-                                 E(shell_docs:render_type(Mod, T, A, D, Config))
+                                 E(shell_docs:render_type(Mod, T, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render type ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,T,A,R,ST,shell_docs:get_type_doc(Mod,T,A)]),
                                      erlang:raise(error,R,ST)
                              end || {{type,T,A},_,_,_,_} <- Docs],
+
                             [try
-                                 E(shell_docs:render_callback(Mod, T, A, D, Config))
+                                 E(shell_docs:render_callback(Mod, T, A, DHTML, Config))
                              catch _E:R:ST ->
                                      io:format("Failed to render callback ~p:~p/~p~n~p:~p~n~p~n",
                                                [Mod,T,A,R,ST,shell_docs:get_callback_doc(Mod,T,A)]),
@@ -172,6 +176,38 @@ render_smoke(_Config) ->
       end),
     ok.
 
+markdown_to_shelldoc(#docs_v1{format = Format}=Docs) ->
+    DefaultFormat = <<"text/markdown">>,
+    DFormat = binary_to_list(DefaultFormat),
+    case Format of
+        _ when Format =:= DefaultFormat orelse Format =:= DFormat ->
+            ModuleDoc = Docs#docs_v1.module_doc,
+            Doc = Docs#docs_v1.docs,
+            Docs#docs_v1{format = ?NATIVE_FORMAT,
+                         module_doc = process_moduledoc(ModuleDoc),
+                         docs = process_doc_attr(Doc)};
+        _  ->
+            Docs
+    end.
+
+-spec process_moduledoc(Doc :: map() | none | hidden) -> map() | none | hidden.
+process_moduledoc(Doc) when Doc =:= none orelse Doc =:= hidden ->
+    Doc;
+process_moduledoc(Doc) when is_map(Doc) ->
+    maps:map(fun (_K, V) -> shell_docs_markdown:parse_md(V) end, Doc).
+
+process_doc_attr(Doc) ->
+    lists:map(fun process_doc/1, Doc).
+
+process_doc(Docs) when is_list(Docs) ->
+    lists:map(fun process_doc/1, Docs);
+process_doc({_At, _A, _S, Doc, _M}=Entry) when Doc =:= none orelse Doc =:= hidden ->
+    Entry;
+process_doc({Attributes, Anno, Signature, Doc, Metadata}) ->
+    Docs = maps:map(fun (_K, V) -> shell_docs_markdown:parse_md(V) end, Doc),
+    {Attributes, Anno, Signature, Docs, Metadata}.
+
+
 render_prop(Config) ->
 %    dbg:tracer(),dbg:p(all,c),dbg:tpl(shell_docs_prop,[]),
     ct_property_test:quickcheck(
@@ -179,7 +215,7 @@ render_prop(Config) ->
 
 links(_Config) ->
     docsmap(
-      fun(Mod, #docs_v1{ module_doc = MDoc, docs = Docs }) ->
+      fun(Mod, #docs_v1{ module_doc = MDoc, docs = Docs, format = ?NATIVE_FORMAT }) ->
               try
                   [check_links(Mod, maps:get(<<"en">>,MDoc)) || MDoc =/= none, MDoc =/= hidden]
               catch _E1:R1:ST1 ->
@@ -193,7 +229,10 @@ links(_Config) ->
                        io:format("Failed to render ~p:~p~n~p:~p~n~p~n",
                                  [Mod,Kind,R,ST,D]),
                        erlang:raise(error,R,ST)
-               end || {Kind,_Anno,_Sig,#{ <<"en">> := D },_MD} <- Docs]
+               end || {Kind,_Anno,_Sig,#{ <<"en">> := D },_MD} <- Docs];
+         (Mod, #docs_v1{ format = Fmt }) ->
+              io:format("Skipping ~p because format is ~ts~n",
+                        [Mod, Fmt])
       end).
 
 check_links(Mod, [{a,Attr,C}|T]) ->
@@ -255,14 +294,15 @@ render_non_native(_Config) ->
         beam_language = not_erlang,
         format = <<"text/asciidoc">>,
         module_doc = #{<<"en">> => <<"This is\n\npure text">>},
-        docs= []
+        docs = []
     },
 
     <<"\n\tnot_an_erlang_module\n\n"
       "    This is\n"
       "    \n"
       "    pure text\n">> =
-        unicode:characters_to_binary(shell_docs:render(not_an_erlang_module, Docs, #{})),
+        unicode:characters_to_binary(
+          shell_docs:render(not_an_erlang_module, Docs, #{ ansi => false })),
 
     ok.
 
@@ -308,9 +348,17 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
       fun({_Type,_Anno,_Sig,none,_Meta}, Acc) ->
               Acc;
          ({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
-              FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
-              Acc#{ sanitize(FName) =>
-                        unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts))};
+              FAName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
+              FName = SMod ++ "_"++atom_to_list(Name)++"_func.txt",
+              FADocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D, Opts)),
+              FDocs = unicode:characters_to_binary(shell_docs:render(Mod, Name, D, Opts)),
+              case string:equal(FADocs,FDocs) of
+                  true -> 
+                      Acc#{ sanitize(FAName) => FADocs };
+                  false ->
+                      Acc#{ sanitize(FAName) => FADocs,
+                            sanitize(FName) => FDocs}
+              end;
          ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}, Acc) ->
               FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
               Acc#{ sanitize(FName) =>

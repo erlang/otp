@@ -26,5 +26,5 @@
 -record(opts, {node=node(), port = 8415, accum = false, intv = 5000, lines = 10,
 	       width = 700, height = 340, sort = runtime, tracing = on,
 	       %% Other state information
-	       out_mod=etop_txt, out_proc, server, host, tracer, store,
+	       out_mod=etop_txt, out_proc, server, host, tracer, session, store,
 	       accum_tab, remote}).

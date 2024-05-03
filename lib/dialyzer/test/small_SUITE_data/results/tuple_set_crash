@@ -1,12 +1,30 @@
 
-tuple_set_crash.erl:103:2: Invalid type specification for function tuple_set_crash:parse_device_properties/1. The success typing is (<<_:48>>) -> [{'controller_description',binary()} | {'controller_name',binary()} | {'controller_status',byte()} | {'fw_version',<<_:24>>}]
-tuple_set_crash.erl:123:2: Invalid type specification for function tuple_set_crash:parse_video_target_info/1. The success typing is (<<_:48>>) -> [{'status',byte()} | {'target_id',non_neg_integer()},...]
-tuple_set_crash.erl:127:2: Invalid type specification for function tuple_set_crash:parse_audio_target_info/1. The success typing is (<<_:48>>) -> [{'master_volume',char()} | {'status',byte()} | {'target_id',non_neg_integer()},...]
-tuple_set_crash.erl:138:2: Invalid type specification for function tuple_set_crash:parse_av_device_info/1. The success typing is (<<_:48>>) -> [{'address',byte()} | {'device_id',non_neg_integer()} | {'model',binary()} | {'status',byte()},...]
+tuple_set_crash.erl:103:2: Invalid type specification for function tuple_set_crash:parse_device_properties/1.
+ The success typing is tuple_set_crash:parse_device_properties(<<_:48>>) -> [{'controller_description',binary()} | {'controller_name',binary()} | {'controller_status',byte()} | {'fw_version',<<_:24>>}]
+ But the spec is tuple_set_crash:parse_device_properties(binary()) -> config_change()
+ The return types do not overlap
+tuple_set_crash.erl:123:2: Invalid type specification for function tuple_set_crash:parse_video_target_info/1.
+ The success typing is tuple_set_crash:parse_video_target_info(<<_:48>>) -> [{'status',byte()} | {'target_id',non_neg_integer()},...]
+ But the spec is tuple_set_crash:parse_video_target_info(binary()) -> config_change()
+ The return types do not overlap
+tuple_set_crash.erl:127:2: Invalid type specification for function tuple_set_crash:parse_audio_target_info/1.
+ The success typing is tuple_set_crash:parse_audio_target_info(<<_:48>>) -> [{'master_volume',char()} | {'status',byte()} | {'target_id',non_neg_integer()},...]
+ But the spec is tuple_set_crash:parse_audio_target_info(binary()) -> [config_change()]
+ The return types do not overlap
+tuple_set_crash.erl:138:2: Invalid type specification for function tuple_set_crash:parse_av_device_info/1.
+ The success typing is tuple_set_crash:parse_av_device_info(<<_:48>>) -> [{'address',byte()} | {'device_id',non_neg_integer()} | {'model',binary()} | {'status',byte()},...]
+ But the spec is tuple_set_crash:parse_av_device_info(binary()) -> [config_change()]
+ The return types do not overlap
 tuple_set_crash.erl:141:25: The pattern <<TargetId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
-tuple_set_crash.erl:155:2: Invalid type specification for function tuple_set_crash:parse_video_output_info/1. The success typing is (<<_:48>>) -> [{'audio_volume',char()} | {'display_type',binary()} | {'output_id',non_neg_integer()},...]
+tuple_set_crash.erl:155:2: Invalid type specification for function tuple_set_crash:parse_video_output_info/1.
+ The success typing is tuple_set_crash:parse_video_output_info(<<_:48>>) -> [{'audio_volume',char()} | {'display_type',binary()} | {'output_id',non_neg_integer()},...]
+ But the spec is tuple_set_crash:parse_video_output_info(binary()) -> [config_change()]
+ The return types do not overlap
 tuple_set_crash.erl:158:25: The pattern <<DeviceId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
-tuple_set_crash.erl:171:2: Invalid type specification for function tuple_set_crash:parse_audio_output_info/1. The success typing is (<<_:48>>) -> [{'output_id',non_neg_integer()},...]
+tuple_set_crash.erl:171:2: Invalid type specification for function tuple_set_crash:parse_audio_output_info/1.
+ The success typing is tuple_set_crash:parse_audio_output_info(<<_:48>>) -> [{'output_id',non_neg_integer()},...]
+ But the spec is tuple_set_crash:parse_audio_output_info(binary()) -> [config_change()]
+ The return types do not overlap
 tuple_set_crash.erl:174:25: The pattern <<DeviceId:32/integer-little-unit:1,Rest1/binary>> can never match the type <<_:8>>
 tuple_set_crash.erl:177:25: The pattern <<AudioVolume:16/integer-little-unit:1,Rest2/binary>> can never match the type <<_:8>>
 tuple_set_crash.erl:180:25: The pattern <<Delay:16/integer-little-unit:1,_Padding/binary>> can never match the type <<_:8>>

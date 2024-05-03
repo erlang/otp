@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
          compile_yecc/1, compile_script/1,
          compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1,
          make_dep_options/1,
+         unicode_paths/1,
          features_erlc_describe/1,
          features_erlc_unknown/1,
          features_directives/1,
@@ -56,7 +57,8 @@ groups() ->
 
 tests() ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
-     good_citizen, deep_cwd, arg_overflow, make_dep_options].
+     good_citizen, deep_cwd, arg_overflow, make_dep_options,
+     unicode_paths].
 
 feature_tests() ->
     [features_erlc_describe,
@@ -487,6 +489,28 @@ make_dep_options(Config) ->
     false = exists(BeamFileName),
     ok.
 
+unicode_paths(Config) ->
+    case {os:type(), file:native_name_encoding()} of
+        {{win32,_}, _} -> {skip, "Unicode paths not supported on windows"};
+        {_,latin1} -> {skip, "Cannot interpret unicode filenames when native_name_encoding is latin1"};
+        _ ->
+            DepRE = ["_OK_"],
+            {SrcDir,OutDir0,Cmd0} = get_cmd(Config),
+            OutDir = filename:join(OutDir0,"😀"),
+            ok = case file:make_dir(OutDir) of
+                {error, eexist} -> ok;
+                ok -> ok;
+                E -> E
+            end,
+            Cmd = Cmd0 ++ " +brief -o "++OutDir,
+            FileName = filename:join([SrcDir, "😀", "erl_test_unicode.erl"]),
+            BeamFileName = filename:join(OutDir, "erl_test_unicode.beam"),
+            run(Config, Cmd, FileName, "", DepRE),
+            true = exists(BeamFileName),
+            file:delete(BeamFileName),
+            file:delete(OutDir),
+            ok
+    end.
 
 %%% Tests related to the features mechanism
 %% Support macros and functions
@@ -693,20 +717,6 @@ features_atom_warnings(Config) when is_list(Config) ->
                     atom_warning(while, experimental_ftr_2),
                     skip_lines])),
 
-    %% Check for keyword warnings.  Not all warnings are checked.
-    %% This file has a -compile attribute for keyword warnings.
-    Compile("ignorant_directive.erl", "",
-            ?OK([atom_warning(ifn, experimental_ftr_1),
-                 skip_lines,
-                 atom_warning(while, experimental_ftr_2),
-                 skip_lines,
-                 atom_warning(until, experimental_ftr_2),
-                 skip_lines])),
-
-    %% Override warning attribute inside file
-    Compile("ignorant_directive.erl", "+nowarn_keywords",
-            ?OK([])),
-
     %% File has quoted atoms which are keywords in experimental_ftr_2.
     %% We should see no warnings.
     Compile("foo.erl", options([longopt(enable, experimental_ftr_2),
@@ -816,9 +826,9 @@ features_macros(Config) when is_list(Config) ->
 
     true = erpc:call(Node1, erlang, module_loaded, [erl_features]),
 
-    %% We can't load this due to experimental_ftr_1 not being enabled
-    %% in the runtime
-    {error, {features_not_allowed, [experimental_ftr_1]}} =
+    %% Starting from OTP 26, compile-time features don't need to be
+    %% enabled in the runtime system.
+    {module, f_macros} =
         erpc:call(Node1, code, load_file, [f_macros]),
     %% Check features enabled during compilation
     [approved_ftr_1, approved_ftr_2, experimental_ftr_1] =
@@ -910,8 +920,6 @@ features_all(Config) when is_list(Config) ->
                            "-disable-feature", "all"]),
     %% Check features enabled during compilation
     [approved_ftr_2] = erpc:call(Node2, erl_features, used, [foo]),
-    {error, {features_not_allowed, [approved_ftr_2]}} =
-        erpc:call(Node2, code, load_file, [foo]),
     peer:stop(Peer2),
 
     ok.
@@ -953,7 +961,7 @@ features_runtime(Config) when is_list(Config) ->
     Approved = [approved_ftr_2,
                 approved_ftr_1],
 
-    {Compile, _SrcDir, _OutDir} = compile_fun(Config),
+    {_Compile, _SrcDir, _OutDir} = compile_fun(Config),
 
     {Peer0, Node0} = peer([]),
 

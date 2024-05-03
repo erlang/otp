@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,54 +22,45 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
-
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
 	 binary_options/1, read_modes_gl/1,
-	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
+	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
+         unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
+         file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
+         file_read_stdin_unicode_translation_error_binary_mode/1,
+         file_read_stdin_unicode_translation_error_list_mode/1,
+         file_read_line_stdin_cr_without_nl/1,
+         file_read_line_stdin_unicode_translation_error_binary_mode/1,
+         file_read_line_stdin_unicode_translation_error_list_mode/1,
+         io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
+         io_get_until_stdin_binary_mode/1, io_get_until_stdin_list_mode/1,
+         io_get_chars_file_read_stdin_binary_mode/1,
+         file_read_stdin_latin1_binary_mode/1,
+         file_read_stdin_latin1_list_mode/1,
+         io_fwrite_stdin_latin1_mode/1
+        ]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
 	 proxy_setnext/2, proxy_quit/1]).
 %% For spawn
--export([toerl_server/3,answering_machine1/3,
-	 answering_machine2/3]).
+-export([answering_machine1/3, answering_machine2/3]).
 
--export([uprompt/1]).
+-export([uprompt/1, slogan/0, session_slogan/0]).
 
-%%-define(without_test_server, true).
+-export([write_raw_to_stdout/0, read_raw_from_stdin/1]).
 
--ifdef(without_test_server).
--define(line, put(line, ?LINE), ).
--define(config(X,Y), foo).
--define(t, test_server).
--define(privdir(_), "./io_SUITE_priv").
--else.
--include_lib("common_test/include/ct.hrl").
--define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
--endif.
+-export([get_until_eof/2]).
+
+-include_lib("stdlib/include/assert.hrl").
 
 %%-define(debug, true).
 
 -ifdef(debug).
--define(format(S, A), io:format(S, A)).
 -define(dbg(Data),io:format(standard_error, "DBG: ~p\r\n",[Data])).
--define(RM_RF(Dir),begin io:format(standard_error, "Not Removed: ~p\r\n",[Dir]), 
-			 ok end).
 -else.
--define(format(S, A), ok).
 -define(dbg(Data),noop).
--define(RM_RF(Dir),rm_rf(Dir)).
 -endif.
-
-init_per_testcase(_Case, Config) ->
-    Term = os:getenv("TERM", "dumb"),
-    os:putenv("TERM","vt100"),
-    [{term, Term} | Config].
-end_per_testcase(_Case, Config) ->
-    Term = proplists:get_value(term,Config),
-    os:putenv("TERM",Term),
-    ok.
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -78,16 +69,36 @@ suite() ->
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
      binary_options, read_modes_gl, read_modes_ogl,
-     broken_unicode, eof_on_pipe, unicode_prompt].
+     broken_unicode, eof_on_pipe, unicode_prompt,
+     shell_slogan, raw_stdout, raw_stdout_isatty,
+     file_read_stdin_binary_mode,
+     file_read_stdin_list_mode,
+     file_read_stdin_unicode_translation_error_binary_mode,
+     file_read_stdin_unicode_translation_error_list_mode,
+     file_read_line_stdin_unicode_translation_error_binary_mode,
+     file_read_line_stdin_unicode_translation_error_list_mode,
+     io_get_chars_stdin_binary_mode,
+     io_get_chars_stdin_list_mode,
+     io_get_until_stdin_binary_mode,
+     io_get_until_stdin_list_mode,
+     io_get_chars_file_read_stdin_binary_mode,
+     file_read_stdin_latin1_binary_mode,
+     file_read_stdin_latin1_list_mode,
+     io_fwrite_stdin_latin1_mode
+    ].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
-    DefShell = get_default_shell(),
-    [{default_shell,DefShell}|Config].
+    Term = os:getenv("TERM", "dumb"),
+    os:putenv("TERM","vt100"),
+    DefShell = rtnode:get_default_shell(),
+    [{default_shell,DefShell},{term, Term}|Config].
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    Term = proplists:get_value(term,Config),
+    os:putenv("TERM",Term),
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -96,13 +107,11 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-
 -record(state, {
-	  q = [],
-	  nxt = eof,
-	  mode = list
-	 }).
+                q = [],
+                nxt = eof,
+                mode = list
+               }).
 
 uprompt(_L) ->
     [1050,1072,1082,1074,1086,32,1077,32,85,110,105,99,111,100,101,32,63].
@@ -111,41 +120,73 @@ uprompt(_L) ->
 unicode_prompt(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     case proplists:get_value(default_shell,Config) of
-	old ->
-	    ok;
 	new ->
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-		    {getline, "default"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true}])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"}
-		   ],[],[],"-pa \""++ PA++"\"")
+	    rtnode:run(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2"},
+               {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+               {expect, "[\n ]default"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true}])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect,"[\n ]hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"}
+              ],[],"",["-pa",PA]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-	    {getline_re, ".*default"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"}
-	   ],[],[],"-oldshell -pa \""++PA++"\""),
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2"},
+       {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+       {expect, "default"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true}])."},
+       {expect, "[\n ]\\?*ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect,"[\n ]\\?*hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"}
+      ],[],"",["-oldshell","-pa",PA]),
     ok.
 
+%% Test that an Unicode prompt does not crash the shell.
+shell_slogan(Config) when is_list(Config) ->
+    PA = filename:dirname(code:which(?MODULE)),
+    case proplists:get_value(default_shell,Config) of
+	new ->
+	    rtnode:run(
+              [{expect, "\\Q"++string:trim(erlang:system_info(system_version))++"\\E"},
+               {expect, "\\Q"++io_lib:format("Eshell V~s (press Ctrl+G to abort, type help(). for help)",[erlang:system_info(version)])++"\\E"}
+              ],[],"",[]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"},
+               {expect, "\nTest session slogan \\("}
+              ],[],"",["-stdlib","shell_slogan","\"Test slogan\"",
+                       "-stdlib","shell_session_slogan","\"Test session slogan\""]),
+      	    rtnode:run(
+              [{expect, "\nTest slogan"},
+               {expect, "\\Q\nTest session slogan (\\E"}
+              ],[],"",["-stdlib","shell_slogan","fun io_proto_SUITE:slogan/0",
+                       "-stdlib","shell_session_slogan","fun io_proto_SUITE:session_slogan/0",
+                       "-pa",PA]);
+        _ ->
+            ok
+    end.
+
+slogan() ->
+    "Test slogan".
+session_slogan() ->
+    "Test session slogan".
 
 %% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->
@@ -222,42 +263,453 @@ setopts_getopts(Config) when is_list(Config) ->
     eof = io:get_line(RFile,''),
     file:close(RFile),
     case proplists:get_value(default_shell,Config) of
-	old ->
-	    ok;
 	new ->
 	    %% So, lets test another node with new interactive shell
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(binary,1,io:getopts())."},
-		    {getline, "{binary,false}"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true}])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"}
-		   ],[])
+	    rtnode:run(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(binary,1,io:getopts())."},
+               {expect, "{binary,false}"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true}])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "proplists:get_value(terminal,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdin,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdout,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stderr,io:getopts())."},
+               {expect, "true"}
+              ],[]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(binary,1,io:getopts())."},
-	    {getline_re, ".*{binary,false}"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"}
-	   ],[],[],"-oldshell"),
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(binary,1,io:getopts())."},
+       {expect, "[\n ]{binary,false}"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true}])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "proplists:get_value(terminal,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdin,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdout,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stderr,io:getopts())."},
+       {expect, "true"}
+      ],[],"",["-oldshell"]),
+
+    %% Test that terminal options when used in non-terminal
+    %% are returned as they should
+    Erl = ct:get_progname(),
+    Str = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    maybe
+        {ok, T, _} ?= erl_scan:string(Str),
+        {ok, Opts} ?= erl_parse:parse_term(T),
+        ?assertEqual(false, proplists:get_value(terminal,Opts)),
+        ?assertEqual(false, proplists:get_value(stdin,Opts)),
+        ?assertEqual(false, proplists:get_value(stdout,Opts)),
+        ?assertEqual(false, proplists:get_value(stderr,Opts))
+    else
+        _ -> ct:fail({failed_to_parse, Str})
+    end,
     ok.
 
+%% Test that reading from stdin using file:read works when io is in binary mode
+file_read_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [binary]),
+
+    erlang:port_command(ErlPort, "abc"),
+    {ok, "got: <<\"abc\">>\n"} = gen_tcp:recv(P, 0),
+    erlang:port_command(ErlPort, "def"),
+    {ok, "got: <<\"def\">>\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is in binary mode
+file_read_stdin_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [list]),
+
+    erlang:port_command(ErlPort, "abc"),
+    {ok, "got: \"abc\"\n"} = gen_tcp:recv(P, 0),
+    erlang:port_command(ErlPort, "def"),
+    {ok, "got: \"def\"\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read returns
+%% correct error when in binary mode
+file_read_stdin_unicode_translation_error_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [binary]),
+
+    erlang:port_command(ErlPort, <<"ęö€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read returns
+%% correct error when in list mode
+file_read_stdin_unicode_translation_error_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read(standard_io, 3) end, [list]),
+
+    erlang:port_command(ErlPort, <<"ęö€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line works when \r is sent without \n
+file_read_line_stdin_cr_without_nl(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, []),
+
+    erlang:port_command(ErlPort, "abc\r"),
+    {error,timeout} = gen_tcp:recv(P, 0, 2000),
+    erlang:port_command(ErlPort, "def\r\n"),
+    {ok, ~S'got: <<"abc\rdef\r\n">>\n'} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+
+%% Test that reading from stdin using file:read_line returns
+%% correct error when in binary mode
+file_read_line_stdin_unicode_translation_error_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, [binary]),
+
+    erlang:port_command(ErlPort, <<"ę\nö\n€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line returns
+%% correct error when in list mode
+file_read_line_stdin_unicode_translation_error_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, [list]),
+
+    erlang:port_command(ErlPort, <<"ę\nö\n€"/utf8>>),
+    {ok, "error: {no_translation,unicode,latin1}\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using io:get_chars works when io is in binary mode
+io_get_chars_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() ->
+                                 case io:get_chars(standard_io, "", 1) of
+                                     eof -> eof;
+                                     Chars -> {ok, Chars}
+                                 end
+                         end, [binary]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {ok, "got: <<\"x\">>\n"} = gen_tcp:recv(P, 0),
+    {ok, "got: <<\"\\n\">>\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using custom io_request works when io is in binary mode
+io_get_until_stdin_binary_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [binary]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: <<\"x\\n\">>\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [binary]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+%% Test that reading from stdin using custom io_request works when io is in list mode
+io_get_until_stdin_list_mode(_Config) ->
+
+    GetUntilEof =
+        fun() ->
+                IoServer = group_leader(),
+                IoServer !
+                    {io_request,
+                     self(),
+                     IoServer,
+                     {get_until, unicode, '', ?MODULE, get_until_eof, []}},
+                receive
+                    {io_reply, IoServer, Data} ->
+                        {ok, Data}
+                end
+        end,
+
+    {ok, P, ErlPort} = start_stdin_node(GetUntilEof, [list]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {error, timeout} = gen_tcp:recv(P, 0, 250),
+    ErlPort ! {self(), close},
+    {ok, "got: \"x\\n\"\n"} = gen_tcp:recv(P, 0),
+
+    {ok, P2, ErlPort2} = start_stdin_node(GetUntilEof, [list]),
+
+    {error, timeout} = gen_tcp:recv(P2, 0, 250),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof\n"} = gen_tcp:recv(P2, 0),
+
+    ok.
+
+get_until_eof([],eof) -> {done,eof,[]};
+get_until_eof(ThisFar,eof) -> {done,ThisFar,eof};
+get_until_eof(ThisFar,CharList) -> {more,ThisFar++CharList}.
+
+%% Test that reading from stdin using io:get_chars works when io is in list mode
+io_get_chars_stdin_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> case io:get_chars(standard_io, "", 1) of
+                                      eof -> eof;
+                                      Chars -> {ok, Chars}
+                                  end
+                         end, [list]),
+
+    erlang:port_command(ErlPort, "x\n"),
+    {ok, "got: \"x\"\n"} = gen_tcp:recv(P, 0),
+    {ok, "got: \"\\n\"\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that mixing io:get_chars and file:read works when stdin is in binary mode.
+io_get_chars_file_read_stdin_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> case file:read(standard_io, 1) of
+                                      eof -> eof;
+                                      {ok, Chars} ->
+                                          case io:get_line(standard_io, "") of
+                                              eof -> Chars;
+                                              Line ->
+                                                  {ok, [Chars, Line]}
+                                          end
+                                  end
+                         end, [binary]),
+
+    erlang:port_command(ErlPort, "1\n"),
+    {ok, "got: [<<\"1\">>,<<\"\\n\">>]\n"} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line works when io is not utf8
+file_read_stdin_latin1_binary_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [binary],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P, 0, 5000),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
+    {ok, P2, ErlPort2} = start_stdin_node(
+                         fun() -> file:read(standard_io, 5) end,
+                         [binary],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort2, <<"duπaduπaduπa"/utf8>>),
+
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: <<100,117,207,128,97>>\n"} = gen_tcp:recv(P2, 0, 5000),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P2, 0, 5000),
+
+    %% Setting using io:setopts used to hang on Windows, see #7459 for details.
+    {ok, P3, ErlPort3} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [binary],
+                         "-eval \"io:setopts([{encoding, latin1}])\""),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort3, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    {ok, "got: <<192,128,10>>\n"} = gen_tcp:recv(P3, 0, 5000),
+    ErlPort3 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P3, 0, 5000),
+
+    ok.
+
+%% Test that reading from stdin using file:read_line works when io is not utf8
+file_read_stdin_latin1_list_mode(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(
+                         fun() -> file:read_line(standard_io) end,
+                         [list],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Invalid utf8
+    erlang:port_command(ErlPort, <<192,128,10,192,128,10,192,128,10>>),
+
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    {ok, "got: [192,128,10]\n"} = gen_tcp:recv(P, 0, 5000),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
+    {ok, P2, ErlPort2} = start_stdin_node(
+                         fun() -> file:read(standard_io, 5) end,
+                         [list],
+                         "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort2, <<"duπaduπaduπa"/utf8>>),
+
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P2, 0, 5000),
+    ErlPort2 ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P2, 0, 5000),
+
+    ok.
+
+%% Test that reading from stdin using file:read works when io is not utf8,
+%% but unicode is printed out
+io_fwrite_stdin_latin1_mode(_Config) ->
+    {ok, P, ErlPort} =
+        start_stdin_node(
+          fun() -> case file:read(standard_io, 5) of
+                       {ok, Chars} ->
+                           %% We've read a unicode string as latin1,
+                           %% which means that if we convert it to
+                           %% a binary it will be seen as the original
+                           %% unicode string.
+                           io:format("~ts",[list_to_binary(Chars)]),
+                           {ok, Chars};
+                       Else ->
+                           Else
+                   end
+          end,
+          [list],
+          "-kernel standard_io_encoding latin1"),
+
+    %% Valid utf8
+    erlang:port_command(ErlPort, <<"duπa"/utf8>>),
+
+    {ok, "got: [100,117,207,128,97]\n"} = gen_tcp:recv(P, 0, 5000),
+    receive
+        {ErlPort, {data, Data}} ->
+            %% On stdout any unicode should be translated to hex syntax
+            "du\\x{3C0}a" = Data
+    end,
+
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0, 5000),
+
+    ok.
+
+start_stdin_node(ReadFun, IoOptions) ->
+    start_stdin_node(ReadFun, IoOptions, "").
+start_stdin_node(ReadFun, IoOptions, ExtraArgs) ->
+    {ok, L} = gen_tcp:listen(0,[{active, false},{packet,4}]),
+    {ok, Port} = inet:port(L),
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell ",
+             ExtraArgs,
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " read_raw_from_stdin ", integer_to_list(Port)]),
+    ct:log("~p~n", [Cmd]),
+    ErlPort = open_port({spawn, Cmd}, [stream, eof, stderr_to_stdout,
+                                       {env, [{"LC_CTYPE","en_US.UTF-8"}]}]),
+    {ok, P} = gen_tcp:accept(L),
+    gen_tcp:send(P, term_to_binary(IoOptions)),
+    gen_tcp:send(P, term_to_binary(ReadFun)),
+    {ok, P, ErlPort}.
+
+read_raw_from_stdin([Port]) ->
+    try
+        {ok, P} = gen_tcp:connect(localhost, list_to_integer(atom_to_list(Port)),
+                                  [binary, {packet, 4}, {active, false}]),
+        {ok, OptionsBin} = gen_tcp:recv(P, 0),
+        io:setopts(standard_io, binary_to_term(OptionsBin)),
+        {ok, ReadFunBin} = gen_tcp:recv(P, 0),
+        spawn(fun() ->
+                      gen_tcp:recv(P, 0),
+                      init:stop("crash")
+              end),
+        read_raw_from_stdin(binary_to_term(ReadFunBin), P)
+    catch E:R:ST ->
+            io:format(standard_error, "~p  ~p",[Port,{E,R,ST}])
+    end.
+read_raw_from_stdin(ReadFun, P) ->
+    case ReadFun() of
+        eof ->
+            gen_tcp:send(P, "got: eof"),
+            init:stop();
+        {ok, Char} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("got: ~p\n",[Char]))),
+            read_raw_from_stdin(ReadFun, P);
+        {ok, Fmt, Char} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("got: "++Fmt++"\n",[Char]))),
+            read_raw_from_stdin(ReadFun, P);
+        {error, Reason} ->
+            gen_tcp:send(P, unicode:characters_to_binary(
+                              io_lib:format("error: ~p\n",[Reason]))),
+            read_raw_from_stdin(ReadFun, P)
+    end.
 
 get_lc_ctype() ->
     case {os:type(),os:version()} of
@@ -419,42 +871,38 @@ unicode_options(Config) when is_list(Config) ->
     [ ok = CannotWriteFile(F,FailDir) || F <- AllNoBom ],
 
     case proplists:get_value(default_shell,Config) of
-	old ->
-	    ok;
 	new ->
 	    %% OK, time for the group_leaders...
-	    rtnode([{putline,""},
-		    {putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(encoding,1,io:getopts())."},
-		    {getline, "{encoding,latin1}"},
-		    {putline, "io:format(\"~ts~n\",[[1024]])."},
-		    {getline, "\\x{400}"},
-		    {putline, "io:setopts([unicode])."},
-		    {getline, "ok"},
-		    {putline, "io:format(\"~ts~n\",[[1024]])."},
-		    {getline,
-		     binary_to_list(unicode:characters_to_binary(
-				      [1024],unicode,utf8))}
-		   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
-		   "export LC_CTYPE; ")
+	    rtnode:run(
+              [{putline,""},
+               {putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(encoding,1,io:getopts())."},
+               {expect, "{encoding,latin1}"},
+               {putline, "io:format(\"~ts~n\",[[1024]])."},
+               {expect, "\\Q\\x{400}\\E"},
+               {putline, "io:setopts([unicode])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:format(\"~ts~n\",[[1024]])."},
+               {expect, "[\n ]"++[1024]}
+              ],[],"",["-env","LC_ALL",get_lc_ctype()]);
+        _ ->
+            ok
     end,
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(encoding,1,io:getopts())."},
-	    {getline_re, ".*{encoding,latin1}"},
-	    {putline, "io:format(\"~ts~n\",[[1024]])."},
-	    {getline_re, ".*\\\\x{400\\}"},
-	    {putline, "io:setopts([{encoding,unicode}])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:format(\"~ts~n\",[[1024]])."},
-	    {getline_re,
-	     ".*"++binary_to_list(unicode:characters_to_binary(
-				    [1024],unicode,utf8))}
-	   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
-	   " -oldshell "),
-
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(encoding,1,io:getopts())."},
+       {expect, "[\n ]{encoding,latin1}"},
+       {putline, "io:format(\"~ts~n\",[[1024]])."},
+       {expect, "\\Q\\x{400}\\E"},
+       {putline, "io:setopts([{encoding,unicode}])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:format(\"~ts~n\",[[1024]])."},
+       {expect, "[\n ]"++[1024]}
+      ],[],"",
+      ["-oldshell","-env","LC_ALL",get_lc_ctype()]),
     ok.
 
 %% Tests various unicode options on random generated files.
@@ -709,115 +1157,124 @@ binary_options(Config) when is_list(Config) ->
 
     %% OK, time for the group_leaders...
     case proplists:get_value(default_shell,Config) of
-	old ->
-	    ok;
 	new ->
-	    rtnode([{putline, "2."},
-		    {getline, "2"},
-		    {putline, "lists:keyfind(binary,1,io:getopts())."},
-		    {getline, "{binary,false}"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "\"hej\\n\""},
-		    {putline, "io:setopts([{binary,true},unicode])."},
-		    {getline, "ok"},
-		    {putline, "io:get_line('')."},
-		    {putline, "hej"},
-		    {getline, "<<\"hej\\n\">>"},
-		    {putline, "io:get_line('')."},
-		    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-		    {getline, "<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>"}
-		   ],[])
+	    rtnode:run(
+              [{putline, "2."},
+               {expect, "[\n ]2[^.]"},
+               {putline, "lists:keyfind(binary,1,io:getopts())."},
+               {expect, "[\n ]{binary,false}"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q\"hej\\n\"\\E"},
+               {putline, "io:setopts([{binary,true},unicode])."},
+               {expect, "[\n ]ok"},
+               {putline, "io:get_line('')."},
+               {putline, "hej"},
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "io:get_line('')."},
+               {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+               {expect, latin1, "[\n ]\\Q<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+              ],[]);
+        _ ->
+            ok
     end,
     %% And one with oldshell
-    rtnode([{putline, "2."},
-	    {getline_re, ".*2$"},
-	    {putline, "lists:keyfind(binary,1,io:getopts())."},
-	    {getline_re, ".*{binary,false}"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*\"hej\\\\n\""},
-	    {putline, "io:setopts([{binary,true},unicode])."},
-	    {getline_re, ".*ok"},
-	    {putline, "io:get_line('')."},
-	    {putline, "hej"},
-	    {getline_re, ".*<<\"hej\\\\n\">>"},
-	    {putline, "io:get_line('')."},
-	    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-	    {getline_re, ".*<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\\\n\"/utf8>>"}
-	   ],[],[],"-oldshell"),
+    rtnode:run(
+      [{putline, "2."},
+       {expect, "[\n ]2[^.]"},
+       {putline, "lists:keyfind(binary,1,io:getopts())."},
+       {expect, "[\n ]{binary,false}"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "[\n ]\\Q\"hej\\n\"\\E"},
+       {putline, "io:setopts([{binary,true},unicode])."},
+       {expect, "[\n ]ok"},
+       {putline, "io:get_line('')."},
+       {putline, "hej"},
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "io:get_line('')."},
+       {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+       {expect, latin1, "[\n ]\\Q<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>\\E"}
+      ],[],"",["-oldshell"]),
     ok.
-
-
-
 
 answering_machine1(OthNode,OthReg,Me) ->
     TestDataLine1 = [229,228,246],
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline, "2"},
-	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-	    {getline, "<"},
-	    %% get_line
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    %% get_chars
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    %% fread
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"}
+    TestDataLine1Oct = "\\\\345( \b)*\\\\344( \b)*\\\\366",
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "2"},
+       {putline, "io:getopts()."},
+       {expect, ">"},
+       {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
+       {expect, "<"},
+       %% get_line
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       %% get_chars
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       %% fread
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1Oct},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"}
 
-	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
+      ],Me,"",["-env","LC_ALL",get_lc_ctype()]),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -825,70 +1282,77 @@ answering_machine1(OthNode,OthReg,Me) ->
 answering_machine2(OthNode,OthReg,Me) ->
     TestDataLine1 = [229,228,246],
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
-    rtnode([{putline,""},
-	    {putline, "2."},
-	    {getline, "2"},
-	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-	    {getline_re, ".*<[0-9].*"},
-	    %% get_line
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    %% get_chars
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    %% fread
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, "Hej"},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataLine1},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"},
-	    {getline_re, ".*Prompt"},
-	    {putline, TestDataUtf},
-	    {getline_re, ".*Okej"}
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "2"},
+       {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
+       {expect, "<[0-9].*"},
+       %% get_line
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       %% get_chars
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       %% fread
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, "Hej"},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataLine1},
+       {expect, latin1, "\n" ++ TestDataLine1},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"},
+       {expect, "Prompt"},
+       {putline, TestDataUtf},
+       {expect, "Okej"}
 
-	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "," -oldshell "),
+      ],Me,"",["-oldshell","-env","LC_ALL",get_lc_ctype()]),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -896,20 +1360,20 @@ answering_machine2(OthNode,OthReg,Me) ->
 
 %% Test various modes when reading from the group leade from another machine.
 read_modes_ogl(Config) when is_list(Config) -> 
-    case get_progs() of
-	{error,Reason} ->
-	    {skipped,Reason};
+    case proplists:get_value(default_shell,Config) of
+	noshell ->
+	    {skipped,"No run_erl"};
 	_ ->
 	    read_modes_gl_1(Config,answering_machine2)
     end.
 
 %% Test various modes when reading from the group leade from another machine.
 read_modes_gl(Config) when is_list(Config) -> 
-    case {get_progs(),proplists:get_value(default_shell,Config)} of
-	{{error,Reason},_} ->
-	    {skipped,Reason};
-	{_,old} ->
-	    {skipper,"No new shell"};
+    case proplists:get_value(default_shell,Config) of
+	noshell ->
+	    {skipped,"No run_erl"};
+	old ->
+	    {skipped,"No new shell"};
 	_ ->
 	    read_modes_gl_1(Config,answering_machine1)
     end.
@@ -919,7 +1383,7 @@ read_modes_gl_1(_Config,Machine) ->
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
 
-    {ok,N2List} = create_nodename(),
+    N2List = peer:random_name(?FUNCTION_NAME),
     MyNodeList = atom2list(node()),
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
@@ -1023,14 +1487,10 @@ loop_through_file2(_,{error,_Err},_,_) ->
 loop_through_file2(F,Bin,Chunk,Enc) when is_binary(Bin) ->
     loop_through_file2(F,io:get_chars(F,'',Chunk),Chunk,Enc).
 
-
-
 %% Test eof before newline on stdin when erlang is in pipe.
 eof_on_pipe(Config) when is_list(Config) ->
-    case {get_progs(),os:type()} of
-	{{error,Reason},_} ->
-	    {skipped,Reason};
-	{{_,_,Erl},{unix,linux}} -> 
+    case {ct:get_progname(),os:type()} of
+	{Erl,{unix,linux}} ->
 	    %% Not even Linux is reliable - echo can be both styles
 	    try
 		EchoLine = case os:cmd("echo -ne \"test\\ntest\"") of
@@ -1074,453 +1534,45 @@ eof_on_pipe(Config) when is_list(Config) ->
 	    {skipped,"Only on linux"}
     end.
 
+raw_stdout(Config) when is_list(Config) ->
+    Cmd = lists:append(
+            [ct:get_progname(),
+             " -noshell -noinput",
+             " -pa ", filename:dirname(code:which(?MODULE)),
+             " -s ", atom_to_list(?MODULE), " write_raw_to_stdout"]),
+    ct:log("~p~n", [Cmd]),
+    Port = open_port({spawn, Cmd}, [stream, eof]),
+    Expected = lists:seq(0,255),
+    Expected = get_all_port_data(Port, []),
+    Port ! {self(), close},
+    ok.
 
-%%
-%% Tool for running interactive shell (stolen from the kernel
-%% test suite interactive_shell_SUITE)
-%%
--undef(line).
--define(line,).
-rtnode(C,N) ->
-    rtnode(C,N,[]).
-rtnode(Commands,Nodename,ErlPrefix) ->
-    rtnode(Commands,Nodename,ErlPrefix,[]).
-rtnode(Commands,Nodename,ErlPrefix,Extra) ->
-    case get_progs() of
-	{error,_Reason} ->
-	    {skip,"No runerl present"};
-	{RunErl,ToErl,Erl} ->
-	    case create_tempdir() of
-		{error, Reason2} ->
-		    {skip, Reason2};
-		Tempdir ->
-		    SPid = start_runerl_node(RunErl, ErlPrefix++
-						 "\\\""++Erl++"\\\"",
-					     Tempdir, Nodename, Extra),
-		    CPid = start_toerl_server(ToErl, Tempdir),
-		    put(getline_skipped, []),
-		    Res = (catch get_and_put(CPid, Commands, 1)),
-		    case stop_runerl_node(CPid) of
-			{error,_} ->
-			    CPid2 = start_toerl_server(ToErl, Tempdir),
-			    put(getline_skipped, []),
-			    ok = get_and_put
-				   (CPid2,
-				    [{putline,[7]},
-				     {sleep,
-				      timeout(short)},
-				     {putline,""},
-				     {getline," -->"},
-				     {putline,"s"},
-				     {putline,"c"},
-				     {putline,""}], 1),
-			    stop_runerl_node(CPid2);
-			_ ->
-			    ok
-		    end,
-		    wait_for_runerl_server(SPid),
-		    ok = ?RM_RF(Tempdir),
-		    ok = Res
-	    end
+get_all_port_data(Port, Acc) ->
+    receive
+        {Port, {data, Data}} ->
+            get_all_port_data(Port, [Acc|Data]);
+        {Port, eof} ->
+            lists:flatten(Acc)
     end.
 
-timeout(long) ->
-    2 * timeout(normal);
-timeout(short) ->
-    timeout(normal) div 10;
-timeout(normal) ->
-    10000 * test_server:timetrap_scale_factor().
-
-
-%% start_noshell_node(Name) ->
-%%     PADir =  filename:dirname(code:which(?MODULE)),
-%%     {ok, Node} = test_server:start_node(Name,slave,[{args," -noshell -pa "++
-%% 						     PADir++" "}]),
-%%     Node.
-%% stop_noshell_node(Node) ->
-%%     test_server:stop_node(Node).
-
--ifndef(debug).
-rm_rf(Dir) ->
+write_raw_to_stdout() ->
     try
-	{ok,List} = file:list_dir(Dir),
-	Files = [filename:join([Dir,X]) || X <- List],
-	[case file:list_dir(Y) of
-	     {error, enotdir} ->
-		 ok = file:delete(Y);
-	     _ ->
-		 ok = rm_rf(Y)
-	 end || Y <- Files],
-	ok = file:del_dir(Dir),
-	ok
+        ok = io:setopts(standard_io, [{encoding, latin1}]),
+        ok = file:write(standard_io, lists:seq(0,255)),
+        halt(0)
     catch
-	_:Exception -> {error, {Exception,Dir}}
-    end.
--endif.       
-
-get_and_put(_CPid,[],_) ->
-    ok;
-get_and_put(CPid, [{sleep, X}|T],N) ->
-    ?dbg({sleep, X}),
-    receive
-    after X ->
-	    get_and_put(CPid,T,N+1)
-    end;
-get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
-  when is_function(Pred) ->
-    ?dbg({getline, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE,Msg,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case Pred(Data) of
-		yes ->
-		    put(getline_skipped, []),
-		    get_and_put(CPid, T,N+1);
-		no ->
-		    error_logger:error_msg("~p: getline match failure "
-					   "\"~s\" "
-					   "(command number ~p)\n",
-					   [?MODULE,Msg,N]),
-		    {error, no_match};
-		'maybe' ->
-		    List = get(getline_skipped),
-		    put(getline_skipped, List ++ [Data]),
-		    get_and_put(CPid, T0, N)
-	    end
-    end;
-get_and_put(CPid, [{getline, Match}|T],N) ->
-    ?dbg({getline, Match}),
-    F = fun(Data) ->
-		case lists:prefix(Match, Data) of
-		    true -> yes;
-		    false -> 'maybe'
-		end
-	end,
-    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
-get_and_put(CPid, [{getline_re, Match}|T],N) ->
-    F = fun(Data) ->
-		case re:run(Data, Match, [{capture,none}]) of
-		    match -> yes;
-		    _ -> 'maybe'
-		end
-	end,
-    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
-get_and_put(CPid, [{putline_raw, Line}|T],N) ->
-    ?dbg({putline_raw, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
-    receive
-	{send_line, ok} ->
-	    get_and_put(CPid, T,N+1)
-    after Timeout ->
-	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n",
-				   [?MODULE, Timeout, Line, N]),
-	    {error, timeout}
-    end;
-
-get_and_put(CPid, [{putline, Line}|T],N) ->
-    ?dbg({putline, Line}),
-    CPid ! {self(), {send_line, Line}},
-    Timeout = timeout(normal),
-    receive
-	{send_line, ok} ->
-	    get_and_put(CPid, [{getline, []}|T],N)
-    after Timeout ->
-	    error_logger:error_msg("~p: putline timeout (~p) sending "
-				   "\"~s\" (command number ~p)~n[~p]~n",
-				   [?MODULE, Timeout, Line, N,get()]),
-	    {error, timeout}
+        Class:Reason:StackTrace ->
+            io:format(standard_error, "~p~p~p", [Class, Reason, StackTrace]),
+            halt(17)
     end.
 
-wait_for_runerl_server(SPid) ->
-    Ref = erlang:monitor(process, SPid), 
-    Timeout = timeout(long),
-    receive
-	{'DOWN', Ref, process, SPid, _} ->
-	    ok
-    after Timeout ->
-	    {error, timeout}
-    end.
-
-
-
-stop_runerl_node(CPid) ->
-    Ref = erlang:monitor(process, CPid),
-    CPid ! {self(), kill_emulator},
-    Timeout = timeout(long),
-    receive
-	{'DOWN', Ref, process, CPid, noproc} ->
-	    ok;
-	{'DOWN', Ref, process, CPid, normal} ->
-	    ok;
-	{'DOWN', Ref, process, CPid, {error, Reason}} ->
-	    {error, Reason}
-    after Timeout ->
-	    {error, timeout}
-    end.
-
-get_progs() ->
-    case os:type() of
-	{unix,freebsd} ->
-	    {error,"cant use run_erl on freebsd"};
-	{unix,openbsd} ->
-	    {error,"cant use run_erl on openbsd"};
-	{unix,_} ->
-	    case os:find_executable("run_erl") of
-		RE when is_list(RE) ->
-		    case  os:find_executable("to_erl") of
-			TE when is_list(TE) ->
-			    case os:find_executable("erl") of
-				E when is_list(E) ->
-				    {RE,TE,E};
-				_ ->
-				    {error, "Could not find erl command"}
-			    end;
-			_ ->
-			    {error, "Could not find to_erl command"}
-		    end;
-		_ ->
-		    {error, "Could not find run_erl command"}
-	    end;
-	_ ->
-	    {error, "Not a unix OS"}
-    end.
-
-create_tempdir() ->
-    create_tempdir(filename:join(["/tmp","rtnode"++os:getpid()]),$A).
-
-create_tempdir(Dir,X) when X > $Z, X < $a ->
-    create_tempdir(Dir,$a);
-create_tempdir(Dir,X) when X > $z -> 
-    Estr = lists:flatten(
-	     io_lib:format("Unable to create ~s, reason eexist",
-			   [Dir++[$z]])),
-    {error, Estr};
-create_tempdir(Dir0, Ch) ->
-    %% Expect fairly standard unix.
-    Dir = Dir0++[Ch],
-    case file:make_dir(Dir) of
-	{error, eexist} ->
-	    create_tempdir(Dir0, Ch+1);
-	{error, Reason} ->
-	    Estr = lists:flatten(
-		     io_lib:format("Unable to create ~s, reason ~p",
-				   [Dir,Reason])),
-	    {error,Estr};
-	ok ->
-	    Dir
-    end.
-
-create_nodename() ->
-    create_nodename($A).
-
-create_nodename(X) when X > $Z, X < $a ->
-    create_nodename($a);
-create_nodename(X) when X > $z -> 
-    {error,out_of_nodenames};
-create_nodename(X) ->
-    NN = "rtnode"++os:getpid()++[X],
-    case file:read_file_info(filename:join(["/tmp",NN])) of
-	{error,enoent} ->
-	    Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
-	    {ok,NN++"@"++Host};
-	_ ->
-	    create_nodename(X+1)
-    end.
-
-
-start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
-    XArg = case Nodename of
-	       [] ->
-		   [];
-	       _ ->
-		   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
-				   true -> Nodename
-				end)++
-		       " -setcookie "++atom_to_list(erlang:get_cookie())
-	   end,
-    XXArg = case Extra of
-		[] ->
-		    [];
-		_ ->
-		    " "++Extra
-	    end,
-    spawn(fun() ->
-		  ?dbg("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-			   " \""++Erl++XArg++XXArg++"\""),
-		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-			     " \""++Erl++XArg++XXArg++"\"")
-	  end).
-
-start_toerl_server(ToErl,Tempdir) ->
-    Pid = spawn(?MODULE,toerl_server,[self(),ToErl,Tempdir]),
-    receive
-	{Pid,started} ->
-	    Pid;
-	{Pid,error,Reason} ->
-	    {error,Reason}
-    end.
-
-try_to_erl(_Command, 0) ->
-    {error, cannot_to_erl};
-try_to_erl(Command, N) ->
-    ?dbg({?LINE,N}),
-    Port = open_port({spawn, Command},[eof,{line,1000}]),
-    Timeout = timeout(normal) div 2,
-    receive
-	{Port, eof} -> 	
-	    receive after Timeout ->
-			    ok
-		    end,
-	    try_to_erl(Command, N-1)
-    after Timeout ->
-	    ?dbg(Port),
-	    Port
-    end.
-
-toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
-    case Port of
-	P when is_port(P) ->
-	    Parent ! {self(),started};
-	{error,Other} ->
-	    Parent ! {self(),error,Other},
-	    exit(Other)
-    end,
-    case toerl_loop(Port,[]) of
-	normal ->
-	    ok;
-	{error, Reason} ->
-	    error_logger:error_msg("toerl_server exit with reason ~p~n",
-				   [Reason]),
-	    exit(Reason)
-    end.
-
-toerl_loop(Port,Acc) ->
-    ?dbg({toerl_loop, Port, Acc}),
-    receive
-	{Port,{data,{Tag0,Data}}} when is_port(Port) ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    case Acc of
-		[{noeol,Data0}|T0] ->
-		    toerl_loop(Port,[{Tag0, Data0++Data}|T0]);
-		_ ->
-		    toerl_loop(Port,[{Tag0,Data}|Acc])
-	    end;
-	{Pid,{get_line,Timeout}} ->
-	    case Acc of
-		[] ->
-		    case get_data_within(Port,Timeout,[]) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[]);
-			{noeol,Data1} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data1}]);
-			{eol,Data2} ->
-			    Pid ! {get_line, Data2}, 
-			    toerl_loop(Port,[])
-		    end;
-		[{noeol,Data3}] ->
-		    case get_data_within(Port,Timeout,Data3) of
-			timeout ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,Acc);
-			{noeol,Data4} ->
-			    Pid ! {get_line, timeout},
-			    toerl_loop(Port,[{noeol,Data4}]);
-			{eol,Data5} ->
-			    Pid ! {get_line, Data5},
-			    toerl_loop(Port,[])
-		    end;
-		List ->
-		    {NewAcc,[{eol,Data6}]} = lists:split(length(List)-1,List),
-		    Pid ! {get_line,Data6},
-		    toerl_loop(Port,NewAcc)
-	    end;
-	{Pid, {send_line, Data7}} ->
-	    Port ! {self(),{command, Data7++"\n"}},
-	    Pid ! {send_line, ok},
-	    toerl_loop(Port,Acc);
-	{_Pid, kill_emulator} ->
-	    Port ! {self(),{command, "init:stop().\n"}},
-	    Timeout1 = timeout(long),
-	    receive
-		{Port,eof} ->
-		    normal
-	    after Timeout1 ->
-		    {error, kill_timeout}
-	    end;
-	{Port, eof} ->
-	    {error, unexpected_eof};
-	Other ->
-	    {error, {unexpected, Other}}
-    end.
-
-millistamp() ->
-    erlang:monotonic_time(millisecond).
-
-get_data_within(Port, X, Acc) when X =< 0 ->
-    ?dbg({get_data_within, X, Acc, ?LINE}),
-    receive
-	{Port,{data,{Tag0,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{Tag0,Data}}}),
-	    {Tag0, Acc++Data}
-    after 0 ->
-	    case Acc of
-		[] ->
-		    timeout;
-		Noeol ->
-		    {noeol,Noeol}
-	    end
-    end;
-
-
-get_data_within(Port, Timeout, Acc) ->	
-    ?dbg({get_data_within, Timeout, Acc, ?LINE}),
-    T1 = millistamp(),
-    receive 
-	{Port,{data,{noeol,Data}}} ->
-	    ?dbg({?LINE,Port,{data,{noeol,Data}}}),
-	    Elapsed = millistamp() - T1 + 1,
-	    get_data_within(Port, Timeout - Elapsed, Acc ++ Data); 
-	{Port,{data,{eol,Data1}}} ->
-	    ?dbg({?LINE,Port,{data,{eol,Data1}}}),
-	    {eol, Acc ++ Data1}
-    after Timeout ->
-	    timeout
-    end.
-
-get_default_shell() ->
-    Match = fun(Data) ->
-		    case lists:prefix("undefined", Data) of
-			true ->
-			    yes;
-			false ->
-			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
-					[{capture,none}]) of
-				match -> no;
-				_ -> 'maybe'
-			    end
-		    end
-	    end,
-    try
-	rtnode([{putline,""},
-		{putline, "whereis(user_drv)."},
-		{getline_pred, Match, "matching of user_drv pid"}], []),
-	old
-    catch _E:_R ->
-	    ?dbg({_E,_R}),
-	    new
-    end.
-
+raw_stdout_isatty(Config) when is_list(Config) ->
+    rtnode:run(
+        [{putline,"io:setopts(group_leader(), [{encoding, latin1}])."},
+         {putline,"file:write(group_leader(),[90, 127, 128, 255, 131, 90, 10])."},%
+         {expect, "\\QZ^?\\200\\377\\203Z\\E"}
+        ],[]),
+        ok.
 %%
 %% Test I/O-server
 %%

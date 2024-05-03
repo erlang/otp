@@ -84,7 +84,6 @@ they are directly mapped to corresponding erlang terms:
   <dt><em>wxSize</em> is represented by {Width,Height}</dt>
   <dt><em>wxRect</em> is represented by {Xcoord,Ycoord,Width,Height}</dt>
   <dt><em>wxColour</em> is represented by {Red,Green,Blue[,Alpha]}</dt>
-  <dt><em>wxPoint</em> is represented by {Xcoord,Ycoord}</dt>
   <dt><em>wxString</em> is represented by {@link //stdlib/unicode:charlist()}</dt>
   <dt><em>wxGBPosition</em> is represented by {Row,Column}</dt>
   <dt><em>wxGBSpan</em> is represented by {RowSpan,ColumnSPan}</dt>

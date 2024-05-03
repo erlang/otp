@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 %% Internal exports
 -export([setup_server/1]).
 
+-include("ssl_test_lib.hrl").
 -define(remote_host, "NETMARKS_REMOTE_HOST").
 
 setup(Name) ->
@@ -46,7 +47,7 @@ setup(Name) ->
             PeerOptions =
                 #{name => NameStr,
                   host => Host},
-            ct:pal("PeerOptions: ~p~n", [PeerOptions]),
+            ?CT_LOG("PeerOptions: ~p~n", [PeerOptions]),
             {ok, _Pid, Node} =
                 peer:start(
                   case Remote of
@@ -60,7 +61,7 @@ setup(Name) ->
             Path = code:get_path(),
             true = erpc:call(Node, code, set_path, [Path]),
             ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
-            ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
+            ?CT_LOG("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
             (Node =:= node()) andalso restrict_schedulers(client),
             Node
     end.
@@ -71,46 +72,9 @@ find_executable(Prog) ->
         P     -> P
     end.
 
--ifdef(undefined).
-setup(Name) ->
-    Host = case os:getenv(?remote_host) of
-	       false ->
-		   {ok, This} = inet:gethostname(),
-		   This;
-	       RemHost ->
-		   RemHost
-	   end,
-    Node = list_to_atom(atom_to_list(Name) ++ "@" ++ Host),
-    SlaveArgs = case init:get_argument(pa) of
-	       {ok, PaPaths} ->
-		   lists:append([" -pa " ++ P || [P] <- PaPaths]);
-	       _ -> []
-	   end,
-    %% ct:pal("Slave args: ~p~n",[SlaveArgs]),
-    Prog =
-	case os:find_executable("erl") of
-	    false -> "erl";
-	    P -> P
-	end,
-    ct:pal("Prog = ~p~n", [Prog]),
-
-    case net_adm:ping(Node) of
-	pong -> ok;
-	pang ->
-	    {ok, Node} =
-                slave:start(Host, Name, SlaveArgs, no_link, Prog)
-    end,
-    Path = code:get_path(),
-    true = rpc:call(Node, code, set_path, [Path]),
-    ok = rpc:call(Node, ?MODULE, setup_server, [node()]),
-    ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
-    (Node =:= node()) andalso restrict_schedulers(client),
-    Node.
--endif.
-
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
-    ct:pal("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
+    ?CT_PAL("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
     ok.
 
 restrict_schedulers(Type) ->

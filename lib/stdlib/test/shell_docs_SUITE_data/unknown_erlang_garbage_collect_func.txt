@@ -1,0 +1,73 @@
+
+  [;1m-spec garbage_collect() -> true.[0m
+
+  Forces an immediate garbage collection of the executing process.
+  The function is not to be used unless it has been noticed (or
+  there are good reasons to suspect) that the spontaneous garbage
+  collection will occur too late or not at all.
+
+  Warning:
+    Improper use can seriously degrade system performance.
+
+  [;1m-spec garbage_collect(Pid) -> GCResult[0m
+  [;1m                         when Pid :: pid(), GCResult :: boolean().[0m
+
+  The same as [;;4mgarbage_collect(Pid, [])[0m.
+
+  [;1m-spec garbage_collect(Pid, OptionList) -> GCResult | async[0m
+  [;1m                         when[0m
+  [;1m                             Pid :: pid(),[0m
+  [;1m                             RequestId :: term(),[0m
+  [;1m                             Option ::[0m
+  [;1m                                 {async, RequestId} |[0m
+  [;1m                                 {type, major | minor},[0m
+  [;1m                             OptionList :: [Option],[0m
+  [;1m                             GCResult :: boolean().[0m
+
+[;;4mSince[0m:
+  OTP 17.0
+
+  Garbage collects the node local process identified by [;;4mPid[0m.
+
+  [;;4mOption[0m:
+
+  [;;4m[;;4m{async, RequestId}[0m[0m:
+    The function [;;4mgarbage_collect/2[0m returns the value [;;4masync[0m
+    immediately after the request has been sent. When the request
+    has been processed, the process that called this function is
+    passed a message on the form [;;4m{garbage_collect, RequestId,[0m
+    [;;4mGCResult}[0m.
+
+  [;;4m[;;4m{type, 'major' | 'minor'}[0m[0m:
+    Triggers garbage collection of requested type. Default value
+    is [;;4m'major'[0m, which would trigger a fullsweep GC. The option [;;4m[0m
+    [;;4m'minor'[0m is considered a hint and may lead to either minor or
+    major GC run.
+
+  If [;;4mPid[0m equals [;;4mself()[0m, and no [;;4masync[0m option has been passed,
+  the garbage collection is performed at once, that is, the same as
+  calling [;;4mgarbage_collect/0[0m. Otherwise a request for garbage
+  collection is sent to the process identified by [;;4mPid[0m, and will be
+  handled when appropriate. If no [;;4masync[0m option has been passed,
+  the caller blocks until [;;4mGCResult[0m is available and can be
+  returned.
+
+  [;;4mGCResult[0m informs about the result of the garbage collection
+  request as follows:
+
+  [;;4m[;;4mtrue[0m[0m:
+    The process identified by [;;4mPid[0m has been garbage collected.
+
+  [;;4m[;;4mfalse[0m[0m:
+    No garbage collection was performed, as the process identified
+    by [;;4mPid[0m terminated before the request could be satisfied.
+
+  Notice that the same caveats apply as for [;;4mgarbage_collect/0[0m.
+
+  Failures:
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mPid[0m is not a node local process identifier.
+
+  [;;4m[;;4mbadarg[0m[0m:
+    If [;;4mOptionList[0m is an invalid list of options.

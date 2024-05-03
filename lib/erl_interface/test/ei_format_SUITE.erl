@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
          init_per_testcase/2,
          atoms/1,
          tuples/1,
-         lists/1]).
+         lists/1,
+         maps/1]).
 
 -import(runner, [get_term/1]).
 
@@ -40,7 +41,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [format_wo_ver, atoms, tuples, lists].
+    [format_wo_ver, atoms, tuples, lists, maps].
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
@@ -100,6 +101,8 @@ tuples(Config) when is_list(Config) ->
     {term, {[], a, b, c}} = get_term(P),
     {term, {[], a, [], b, c}} = get_term(P),
     {term, {[], a, '', b, c}} = get_term(P),
+    {term, {[], a, '', b, M}} = get_term(P),
+    #{c:=3} = M,
 
     runner:recv_eot(P),
     ok.
@@ -123,6 +126,8 @@ lists(Config) when is_list(Config) ->
     {term, [[], a, '', b, c]} = get_term(P),
     {term, [[x, 2], [y, 3], [z, 4]]}= get_term(P),
     {term, [{a,b},{c,d}]} = get_term(P),
+    {term, [{a,b},M]} = get_term(P),
+    #{c:=d} = M,
     %% {term, [{name, 'Madonna'}, {age, 21}, {data, [{addr, "E-street", 42}]}]} = get_term(P),
 
     {term, [{pi, F1}, {'cos(70)', F2}]} = get_term(P),
@@ -149,10 +154,43 @@ lists(Config) when is_list(Config) ->
     ok.
 
 
+%% Tests formatting various maps
+
+maps(Config) when is_list(Config) ->
+    P = runner:start(Config, ?maps),
+
+    {term, M1} = get_term(P),
+    0 = maps:size(M1),
+    {term, M1} = get_term(P),
+
+    {term, M2} = get_term(P),
+    true = (M2 =:= #{a => 1}),
+    {term, M2} = get_term(P),
+
+    {term, M3} = get_term(P),
+    true = (M3 =:= #{a => 1, b => 2}),
+    {term, M3} = get_term(P),
+
+    {term, M4} = get_term(P),
+    true = (M4 =:= #{[a] => 1, 2 => [b,c], "3" => {c,d}}),
+    {term, M4} = get_term(P),
+
+    {term, M5} = get_term(P),
+    true = (M5 =:= #{a => [], [] => #{2=>d}}),
+    {term, M5} = get_term(P),
+
+    [{term, {"FAILED ei_x_format",_,_}} = get_term(P)
+     || _ <- lists:seq(1,10)],
+
+    runner:recv_eot(P),
+    ok.
+
+
 format_wo_ver(Config) when is_list(Config) ->
     P = runner:start(Config, ?format_wo_ver),
 
-    {term, [-1, 2, $c, {a, "b"}, {c, 10}]} = get_term(P),
+    {term, [-1, 2, $c, {a, "b"}, {c, 10}, M]} = get_term(P),
+    #{d := 32} = M,
 
     runner:recv_eot(P),
     ok.

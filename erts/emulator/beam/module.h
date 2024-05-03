@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2021. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,12 @@ struct erl_module_instance {
     int num_breakpoints;
     int num_traced_exports;
 
-#if defined(BEAMASM)
-    const void *native_module_exec;
-    void *native_module_rw;
-#endif
+    const void *executable_region;
+    void *writable_region;
+    void *metadata;
+
+    /* Protected by code modification permission. */
+    int unsealed;
 };
 
 typedef struct erl_module {
@@ -52,17 +54,24 @@ void erts_module_instance_init(struct erl_module_instance* modi);
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
 
-/* Converts the given code pointer into a writable one.
+/** @brief Converts the given code pointer into a writable one. The module must
+ * have been made writable through \ref erts_unseal_module.
  *
- * `ptr` must point within the given module. */
+ * @param[in] ptr Pointer to convert. Must point within the given module. */
 void *erts_writable_code_ptr(struct erl_module_instance* modi,
                              const void *ptr);
 
-/* Debug function for asserting whether `ptr` is writable or not.
+/** @brief Opens a module for modification.
  *
- * `ptr` must point within the given module. */
-int erts_is_code_ptr_writable(struct erl_module_instance* modi,
-                              const void *ptr);
+ * This may only be used for one module at a time. Remember to call
+ * \ref erts_seal_module before returning to Erlang code or unsealing another
+ * module. */
+void erts_unseal_module(struct erl_module_instance *modi);
+
+/** @brief Seals a previously unsealed module, changing page permissions,
+ * flushing code cache, et cetera as needed. The caller is responsible for
+ * setting up a code barrier. */
+void erts_seal_module(struct erl_module_instance *modi);
 
 void init_module_table(void);
 void module_start_staging(void);

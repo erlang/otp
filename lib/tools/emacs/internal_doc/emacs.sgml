@@ -2729,8 +2729,8 @@ individual user configures their Emacs Init files to use it.
 
 <P>
 If we assume that OTP has been installed in
-<em>OTP_ROOT</em>, the editing mode can be found in
-<em>OTP_ROOT</em><c>/misc/emacs</C>.
+<em>$OTPROOT</em>, the editing mode can be found in
+<em>$OTPROOT</em><c>/misc/emacs</C>.
 
 <P>
 The <C>erlang.el</C> file found in the installation directory is already
@@ -2777,15 +2777,15 @@ Emacs will look for the <c>.emacs</c> file in <c>C:\</c>.
 <TITLE> Extending the load path</TITLE>
 <P>		
 The directory with the editing mode,
-<em>OTP_ROOT</em><c>/misc/emacs</C>, must be in the load path for Emacs.
+<em>$OTPROOT</em><c>/misc/emacs</C>, must be in the load path for Emacs.
 
 <P>
 Add the following line to the selected initialization file (replace
-<C> OTP_ROOT </C> with the name of the installation
+<C> OTPROOT </C> with the name of the installation
 directory for OTP, keep the quote characters):
 </P>
 <CODE>
-	(setq load-path (cons "OTP_ROOT/misc/emacs" load-path))
+	(setq load-path (cons "OTPROOT/misc/emacs" load-path))
 </CODE>
 
 
@@ -2805,12 +2805,12 @@ an escape character.
 <P>
 Some functions in the Erlang editing mode require that the OTP
 installation directory is known.  The following is an example where we
-assume that they are installed in the directory <C>OTP_ROOT</C>,
+assume that they are installed in the directory <C>$OTPROOT</C>,
 change this to reflect the location on your system.
 </P>
 
 <CODE>
-	(setq erlang-root-dir "OTP_ROOT")
+	(setq erlang-root-dir "OTPROOT")
 </CODE>
 
 </section>
@@ -2832,11 +2832,11 @@ platform for details.
 
 <p>
 You can also extend the execution path for Emacs as described
-below. If the executable is located in <c>OTP_ROOT/bin</c> then you
+below. If the executable is located in <c>$OTPROOT/bin</c> then you
 add the following line to you Emacs Init file:
 
 <code>
-	(setq exec-path (cons "OTP_ROOT/bin" exec-path))
+	(setq exec-path (cons "OTPROOT/bin" exec-path))
 
 </code>
 </section>
@@ -2923,7 +2923,7 @@ Restart the Emacs and load or create an Erlang file (with the <C>.erl</C>
 extension).  If the installation was performed correctly the mode line
 should contain the word "Erlang".  Select the "Version" menu item in
 the "Erlang" menu, check that the version number matches the version in
-found in the files in <c>OTP_ROOT/misc/emacs</c>.
+found in the files in <c>$OTPROOT/misc/emacs</c>.
 </P>
 
 </SECTION>

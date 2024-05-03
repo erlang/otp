@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@
 
 %% Test functions
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
-         big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
+         groups/0, init_per_group/2, end_per_group/2]).
+-export([big/1, tiny/1, simple/1, message/1, distributed/1, port/1,
 	 send/1, recv/1,
-         ip_port/1, file_port/1, file_port2/1,
+         ip_port/1, file_port/1, file_port2/1, file_tracer/1,
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
@@ -39,18 +40,29 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [big, tiny, simple, message, distributed, port, ip_port,
-     send, recv,
-     file_port, file_port2, ip_port_busy,
-     wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
-     local_trace, saved_patterns, tracer_exit_on_stop,
-     erl_tracer, distributed_erl_tracer].
+    [{group, global}].
+
+groups() ->
+    [{global,[],[{group, tests}]},
+     {tests,[],[
+                big, tiny, simple, message, distributed, port, ip_port,
+                send, recv,
+                file_port, file_port2, file_tracer, ip_port_busy,
+                wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
+                local_trace, saved_patterns, tracer_exit_on_stop,
+                erl_tracer, distributed_erl_tracer]}].
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    dbg:stop_clear(),
+    dbg:stop(),
+    ok.
+
+init_per_group(_, Config) ->
+    Config.
+
+end_per_group(_, _Config) ->
     ok.
 
 %% Rudimentary interface test
@@ -89,7 +101,7 @@ big(Config) when is_list(Config) ->
 
         ok=file:set_cwd(OldCurDir)
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -120,7 +132,7 @@ tiny(Config) when is_list(Config) ->
                 failure
         end
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         ok = file:set_cwd(OldCurDir)
     end,
     ok.
@@ -136,7 +148,7 @@ simple(Config) when is_list(Config) ->
         S = self(),
         [{trace,S,call,{dbg,ltp,[]}}] = flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -152,7 +164,7 @@ message(Config) when is_list(Config) ->
         ok = dbg:ltp(),
         ok = dbg:ln()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     S = self(),
     [{trace,S,call,{dbg,ltp,[]},S},
@@ -235,7 +247,7 @@ send(Config) when is_list(Config) ->
         ok
 
     after
-	dbg:stop_clear(),
+	dbg:stop(),
         peer:stop(Peer)
     end.
 
@@ -347,7 +359,7 @@ recv(Config) when is_list(Config) ->
         ok
 
     after
-	dbg:stop_clear(),
+	dbg:stop(),
         peer:stop(Peer)
     end.
 
@@ -412,7 +424,7 @@ distributed(Config) when is_list(Config) ->
         %%
         stop()
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         peer:stop(Peer)
     end,
     ok.
@@ -463,7 +475,7 @@ local_trace(Config) when is_list(Config) ->
           {dbg_SUITE,not_exported,1},
           {error,badarith}}] = flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -478,7 +490,7 @@ port(Config) when is_list(Config) ->
         %% Do a run to get rid of all extra port operations
         port_close(Fun()),
 
-        dbg:p(new,ports),
+        dbg:p(new_ports,ports),
         Port = Fun(),
         port_close(Port),
         stop(),
@@ -488,7 +500,7 @@ port(Config) when is_list(Config) ->
          {trace,Port,getting_linked,S},
          {trace,Port,closed,normal}] = flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -514,7 +526,7 @@ saved_patterns(Config) when is_list(Config) ->
         S = self(),
         [{trace,S,call,{dbg,ltp,[]},blahonga}] = flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -546,7 +558,7 @@ ip_port(Config) when is_list(Config) ->
         [{trace,S,call,{dbg,ltp,[]},S},
          {trace,S,call,{dbg,ln,[]},hej}] = flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -562,7 +574,7 @@ ip_port_busy(Config) when is_list(Config) ->
         io:format("Error reason = ~p~n", [Reason]),
         true = port_close(Port)
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -587,7 +599,7 @@ file_port(Config) when is_list(Config) ->
          {trace,S,call,{dbg,ln,[]},hej},
          end_of_trace] = flush()
     after
-        dbg:stop_clear(),
+        dbg:stop(),
         file:delete(FName)
     end,
     ok.
@@ -616,7 +628,32 @@ file_port2(Config) when is_list(Config) ->
         stop(),
         [] = flush()
     after
-        dbg:stop_clear(),
+        dbg:stop(),
+        file:delete(FName)
+    end,
+    ok.
+
+%% Test tracing to file
+file_tracer(Config) when is_list(Config) ->
+    stop(),
+    FName = make_temp_name(Config),
+    %% Ok, lets try with flush and follow_file.
+    {ok, _} = dbg:tracer(file, FName),
+    try
+        {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+        {ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+        {ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+        ok = dbg:ltp(),
+        timer:sleep(100),
+        {ok, LTP} = file:read_file(FName),
+        <<"dbg:ltp()",_/binary>> = string:find(LTP, "dbg:ltp() ("++pid_to_list(self())++")"),
+        ok = dbg:ln(),
+        timer:sleep(100),
+        {ok, LN} = file:read_file(FName),
+        <<"dbg:ln()",_/binary>> = string:find(LN, "dbg:ln() (hej)"),
+        stop()
+    after
+        dbg:stop(),
         file:delete(FName)
     end,
     ok.
@@ -684,7 +721,7 @@ wrap_port(Config) when is_list(Config) ->
         %%
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -756,7 +793,7 @@ wrap_port_time(Config) when is_list(Config) ->
          end_of_trace] = flush(),
         lists:map(fun(F) -> file:delete(F) end, Files)
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -782,7 +819,7 @@ with_seq_trace(Config) when is_list(Config) ->
          {seq_trace,0,{send,_,Server,S,{dbg,{ok,Tracer}}}}] =
         flush()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end,
     ok.
 
@@ -793,7 +830,7 @@ dead_suspend(Config) when is_list(Config) ->
     try
         survived = run_dead_suspend()
     after
-        dbg:stop_clear()
+        dbg:stop()
     end.
 
 run_dead_suspend() ->

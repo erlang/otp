@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%% This module implements a logger for the master
 %%% node.
 -module(ct_master_logs).
+-moduledoc false.
 
 -export([start/2, make_all_runs_index/0, log/3, nodedir/2,
 	 stop/0]).

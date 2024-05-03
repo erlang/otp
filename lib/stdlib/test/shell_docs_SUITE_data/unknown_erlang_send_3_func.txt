@@ -1,18 +1,10 @@
 
   [;1m-spec erlang:send(Dest, Msg, Options) -> Res[0m
   [;1m                     when[0m
-  [;1m                         Dest :: dst(),[0m
+  [;1m                         Dest :: send_destination(),[0m
   [;1m                         Msg :: term(),[0m
   [;1m                         Options :: [nosuspend | noconnect],[0m
   [;1m                         Res :: ok | nosuspend | noconnect.[0m
-
-  Types:
-    -type dst() ::
-          pid() |
-          reference() |
-          port() |
-          (RegName :: atom()) |
-          {RegName :: atom(), Node :: node()}.
 
   Either sends a message and returns [;;4mok[0m, or does not send the
   message but returns something else (see below). Otherwise the same
@@ -28,6 +20,11 @@
   [;;4m[;;4mnoconnect[0m[0m:
     If the destination node would have to be auto-connected to do
     the send, [;;4mnoconnect[0m is returned instead.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.
 
   Warning:
     As with [;;4merlang:send_nosuspend/2,3[0m: use with extreme care.

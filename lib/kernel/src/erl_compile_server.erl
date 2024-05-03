@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(erl_compile_server).
+-moduledoc false.
 -behaviour(gen_server).
 -export([start_link/0, compile/1]).
 
@@ -51,8 +52,7 @@ start_link() ->
 init([]) ->
     %% We don't want the current directory in the code path.
     %% Remove it.
-    Path = [D || D <- code:get_path(), D =/= "."],
-    true = code:set_path(Path),
+    _ = code:del_path("."),
     Config = init_config(),
     {ok, #st{config=Config}, ?IDLE_TIMEOUT}.
 
@@ -68,7 +68,7 @@ handle_call({compile, Parameters}, From, #st{jobs=Jobs}=St0) ->
     case verify_context(PathArgs, Parameters, St0) of
         {ok, St1} ->
             #{cwd := Cwd, encoding := Enc} = Parameters,
-            PidRef = spawn_monitor(fun() -> exit(do_compile(ErlcArgs, Cwd, Enc)) end),
+            PidRef = spawn_monitor(fun() -> exit(do_compile(ErlcArgs, unicode:characters_to_list(Cwd, Enc), Enc)) end),
             St = St1#st{jobs=Jobs#{PidRef => From}},
             {noreply, St#st{timeout=?IDLE_TIMEOUT}};
         wrong_config ->
@@ -145,8 +145,9 @@ do_compile(ErlcArgs, Cwd, Enc) ->
             {error, StdOutput, StdErrorOutput}
     end.
 
-parse_command_line(#{command_line := CmdLine, cwd := Cwd}) ->
-    parse_command_line_1(CmdLine, Cwd, [], []).
+parse_command_line(#{command_line := CmdLine0, cwd := Cwd, encoding := Enc}) ->
+    CmdLine = lists:map(fun(A) -> unicode:characters_to_list(A, Enc) end, CmdLine0),
+    parse_command_line_1(CmdLine, unicode:characters_to_list(Cwd, Enc), [], []).
 
 parse_command_line_1(["-pa", Pa|T], Cwd, PaAcc, PzAcc) ->
     parse_command_line_1(T, Cwd, [Pa|PaAcc], PzAcc);
@@ -194,8 +195,12 @@ clean_path_args(PathArgs, Cwd) ->
     [filename:absname(P, Cwd) || P <- PathArgs].
 
 make_config(PathArgs, Env0) ->
+    {ok,Files} = file:list_dir(code:lib_dir()),
+    LibDirSize = length(Files),
     Env = lists:sort(Env0),
-    PathArgs ++ [iolist_to_binary([[Name,$=,Val,$\n] || {Name,Val} <- Env])].
+    PathArgs ++ [LibDirSize] ++
+        [iolist_to_binary([[Name,$=,Val,$\n] || {Name,Val} <- Env])].
+
 
 %%%
 %%% A group leader that will capture all output to the group leader.

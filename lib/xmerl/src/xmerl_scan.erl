@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,14 +22,49 @@
 
 %% @doc This module is the interface to the XML parser, it handles XML 1.0.
 %%     The XML parser is activated through
-%%     <tt>xmerl_scan:string/[1,2]</tt> or
-%%     <tt>xmerl_scan:file/[1,2]</tt>.
+%%     <code>xmerl_scan:string/[1,2]</code> or
+%%     <code>xmerl_scan:file/[1,2]</code>.
 %%     It returns records of the type defined in xmerl.hrl.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
 %% functions.
+
+-module(xmerl_scan).
+-moduledoc """
+This module is the interface to the XML parser, it handles XML 1.0. The XML
+parser is activated through `xmerl_scan:string/[1,2]` or
+`xmerl_scan:file/[1,2]`. It returns records of the type defined in xmerl.hrl.
+See also [tutorial](assets/xmerl_examples.html) on customization functions.
+""".
+-vsn('0.20').
+-date('03-09-16').
+
+%% main API
+-export([string/1, string/2,
+	 file/1, file/2]).
+
+%% access functions for various states
+-export([user_state/1, user_state/2,
+	 event_state/1, event_state/2,
+	 hook_state/1, hook_state/2,
+	 rules_state/1, rules_state/2,
+	 fetch_state/1, fetch_state/2,
+	 cont_state/1, cont_state/2]).
+
+%% helper functions. To xmerl_lib ??
+-export([accumulate_whitespace/4]).
+
+-export_type([xmlElement/0]).
+
+%-define(debug, 1).
+-include("xmerl.hrl").		% record def, macros
+-include("xmerl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
+
 %% @type global_state(). <p>
 %% The global state of the scanner, represented by the #xmerl_scanner{} record.
 %% </p>
+-type global_state() :: #xmerl_scanner{}.
+
 %% @type option_list(). <p>Options allow to customize the behaviour of the
 %%     scanner.
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
@@ -110,44 +145,26 @@
 %%  <dt><code>{default_attrs, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
+%%  <dt><code>{allow_entities, Flag}</code></dt>
+%%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
+%%        in the XML document (default 'true').</dd>
 %% </dl>
+-type option_list() :: [{atom(),term()}].
+
 %% @type xmlElement() = #xmlElement{}.
 %% The record definition is found in xmerl.hrl.
+-type xmlElement() :: #xmlElement{}.
+
 %% @type xmlDocument() = #xmlDocument{}.
 %% The record definition is found in xmerl.hrl.
+-type xmlDocument() :: #xmlDocument{}.
+
 %% @type document() = xmlElement() | xmlDocument(). <p>
-%% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
-%% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
+%% The document returned by <code>xmerl_scan:string/[1,2]</code> and
+%% <code>xmerl_scan:file/[1,2]</code>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
-
--module(xmerl_scan).
--vsn('0.20').
--date('03-09-16').
-
-%% main API
--export([string/1, string/2,
-	 file/1, file/2]).
-
-%% access functions for various states
--export([user_state/1, user_state/2,
-	 event_state/1, event_state/2,
-	 hook_state/1, hook_state/2,
-	 rules_state/1, rules_state/2,
-	 fetch_state/1, fetch_state/2,
-	 cont_state/1, cont_state/2]).
-
-%% helper functions. To xmerl_lib ??
--export([accumulate_whitespace/4]).
-
--export_type([xmlElement/0]).
-
-%-define(debug, 1).
--include("xmerl.hrl").		% record def, macros
--include("xmerl_internal.hrl").
--include_lib("kernel/include/file.hrl").
-
--type xmlElement() :: #xmlElement{}.
+-type document() :: xmlElement() | xmlDocument().
 
 -define(fatal(Reason, S),
 	if
@@ -167,26 +184,56 @@
 
 %%% @spec user_state(S::global_state()) -> global_state()
 %%% @equiv user_state(UserState,S)
+-doc """
+user_state(Xmerl_scanner)
+
+Equivalent to [user_state(UserState, S)](`user_state/2`).
+""".
 user_state(#xmerl_scanner{user_state = S}) -> S.
 
 %%% @spec event_state(S::global_state()) -> global_state()
 %%% @equiv event_state(EventState,S)
+-doc """
+event_state(Xmerl_scanner)
+
+Equivalent to [event_state(EventState, S)](`event_state/2`).
+""".
 event_state(#xmerl_scanner{fun_states = #xmerl_fun_states{event = S}}) -> S.
 
 %%% @spec hook_state(S::global_state()) -> global_state()
 %%% @equiv hook_state(HookState,S)
+-doc """
+hook_state(Xmerl_scanner)
+
+Equivalent to [hook_state(HookState, S)](`hook_state/2`).
+""".
 hook_state(#xmerl_scanner{fun_states = #xmerl_fun_states{hook = S}}) -> S.
 
 %%% @spec rules_state(S::global_state()) -> global_state()
 %%% @equiv rules_state(RulesState,S)
+-doc """
+rules_state(Xmerl_scanner)
+
+Equivalent to [rules_state(RulesState, S)](`rules_state/2`).
+""".
 rules_state(#xmerl_scanner{fun_states = #xmerl_fun_states{rules = S}}) -> S.
 
 %%% @spec fetch_state(S::global_state()) -> global_state()
 %%% @equiv fetch_state(FetchState,S)
+-doc """
+fetch_state(Xmerl_scanner)
+
+Equivalent to [fetch_state(FetchState, S)](`fetch_state/2`).
+""".
 fetch_state(#xmerl_scanner{fun_states = #xmerl_fun_states{fetch = S}}) -> S.
 
 %%% @spec cont_state(S::global_state()) -> global_state()
 %%% @equiv cont_state(ContinuationState,S)
+-doc """
+cont_state(Xmerl_scanner)
+
+Equivalent to [cont_state(ContinuationState, S)](`cont_state/2`).
+""".
 cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 
 
@@ -195,6 +242,11 @@ cont_state(#xmerl_scanner{fun_states = #xmerl_fun_states{cont = S}}) -> S.
 %%% @spec user_state(UserState, S::global_state()) -> global_state()
 %%% @doc For controlling the UserState, to be used in a user function.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+For controlling the UserState, to be used in a user function. See
+[tutorial](assets/xmerl_examples.html) on customization functions.
+""".
+-spec user_state(UserState :: term(), S :: global_state()) -> global_state().
 user_state(X, S) ->
     S#xmerl_scanner{user_state = X}.
 
@@ -202,6 +254,13 @@ user_state(X, S) ->
 %%% @doc For controlling the EventState, to be used in an event
 %%% function, and called at the beginning and at the end of a parsed entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+event_state(X,S)
+
+For controlling the EventState, to be used in an event function, and called at
+the beginning and at the end of a parsed entity. See
+[tutorial](assets/xmerl_examples.html) on customization functions.
+""".
 event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{event = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -210,6 +269,13 @@ event_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the HookState, to be used in a hook
 %%% function, and called when the parser has parsed a complete entity.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+hook_state(X,S)
+
+For controlling the HookState, to be used in a hook function, and called when
+the parser has parsed a complete entity. See [tutorial](assets/xmerl_examples.html) on
+customization functions.
+""".
 hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{hook = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -219,6 +285,13 @@ hook_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% function, and called when the parser store scanner information in a rules
 %%% database.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+rules_state(X,S)
+
+For controlling the RulesState, to be used in a rules function, and called when
+the parser store scanner information in a rules database. See
+[tutorial](assets/xmerl_examples.html) on customization functions.
+""".
 rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{rules = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -227,6 +300,13 @@ rules_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the FetchState, to be used in a fetch
 %%% function, and called when the parser fetch an external resource (eg. a DTD).
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+fetch_state(X,S)
+
+For controlling the FetchState, to be used in a fetch function, and called when
+the parser fetch an external resource (eg. a DTD). See
+[tutorial](assets/xmerl_examples.html) on customization functions.
+""".
 fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{fetch = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -235,6 +315,13 @@ fetch_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %%% @doc For controlling the ContinuationState, to be used in a continuation
 %%% function, and called when the parser encounters the end of the byte stream.
 %%% See <a href="xmerl_examples.html">tutorial</a> on customization functions.
+-doc """
+cont_state(X,S)
+
+For controlling the ContinuationState, to be used in a continuation function,
+and called when the parser encounters the end of the byte stream. See
+[tutorial](assets/xmerl_examples.html) on customization functions.
+""".
 cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
     FS1 = FS#xmerl_fun_states{cont = X},
     S#xmerl_scanner{fun_states = FS1}.
@@ -243,12 +330,22 @@ cont_state(X, S=#xmerl_scanner{fun_states = FS}) ->
 %% @spec file(Filename::string()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv file(Filename, [])
+-doc """
+file(F)
+
+Equivalent to [file(Filename, [])](`file/2`).
+""".
+-spec file(Filename :: string()) ->
+          {document(), Rest :: list()} | {error, Reason :: term()}.
 file(F) ->
     file(F, []).
 
 %% @spec file(Filename::string(), Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse file containing an XML document
+-doc "Parse file containing an XML document".
+-spec file(Filename :: string(), Options :: option_list()) ->
+          {document(), Rest :: list()} | {error, Reason :: term()}.
 file(F, Options) ->
     ExtCharset=case lists:keysearch(encoding,1,Options) of
 		   {value,{_,Val}} -> Val;
@@ -283,12 +380,23 @@ int_file_decl(F, Options,_ExtCharset) ->
 %% @spec string(Text::list()) -> {xmlElement(),Rest}
 %%   Rest = list()
 %% @equiv string(Text, [])
+-doc """
+string(Str)
+
+Equivalent to [string(Text, [])](`string/2`).
+""".
+-spec string(Text::list()) -> {xmlElement(),Rest::list()}.
 string(Str) ->
     string(Str, []).
 
 %% @spec string(Text::list(),Options::option_list()) -> {document(),Rest}
 %%   Rest = list()
 %%% @doc Parse string containing an XML document
+-doc """
+string(Str,Options)
+
+Parse string containing an XML document
+""".
 string(Str, Options) ->
      {Res, Tail, S=#xmerl_scanner{close_fun = Close}} =
 	int_string(Str, Options,file_name_unknown),
@@ -417,6 +525,8 @@ initial_state([{xmlbase, D}|T], S) ->
     initial_state(T, S#xmerl_scanner{xmlbase = D});
 initial_state([{encoding, Enc}|T], S) ->
     initial_state(T, S#xmerl_scanner{encoding = Enc});
+initial_state([{allow_entities, F} |T], S) when F==true; F==false ->
+    initial_state(T, S#xmerl_scanner{allow_entities = F});
 initial_state([], S=#xmerl_scanner{rules = undefined}) ->
     Tab = ets:new(rules, [set, public]),
     S#xmerl_scanner{rules = Tab};
@@ -1688,10 +1798,15 @@ scan_markup_decl("<!ENTITY" ++ T, S0) ->
     %% <!ENTITY [%] entity.name "replacement text">
     %% <!ENTITY [%] entity.name SYSTEM "system.identifier">
     %% <!ENTITY [%] entity.name PUBLIC public.identifier "system.identifier">
-    ?bump_col(8),
-    {_,T1,S1} = mandatory_strip(T,S),
-    {T2, S2} = scan_entity(T1, S1),
-    strip(T2,S2);
+    case S0#xmerl_scanner.allow_entities of
+        false ->
+            ?fatal( {error, entities_not_allowed}, S0);
+        true ->
+            ?bump_col(8),
+            {_,T1,S1} = mandatory_strip(T,S),
+            {T2, S2} = scan_entity(T1, S1),
+            strip(T2,S2)
+    end;
 scan_markup_decl("<!NOTATION" ++ T, S0) ->
     %% <!NOTATION notation.name "public.identifier" "helper.application">
     ?bump_col(10),
@@ -4019,6 +4134,11 @@ fast_acc_end(T, S, N, Col, C, CD_I) ->
 %%%                             atom(),Acc::string()) -> {Acc, T1, S1}
 %%%
 %%% @doc Function to accumulate and normalize whitespace.
+-doc """
+accumulate*whitespace(T,S,*,Acc)
+
+Function to accumulate and normalize whitespace.
+""".
 accumulate_whitespace(T, S, preserve, Acc) ->
     accumulate_whitespace(T, S, Acc);
 accumulate_whitespace(T, S, normalize, Acc) ->

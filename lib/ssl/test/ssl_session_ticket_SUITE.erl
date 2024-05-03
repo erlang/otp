@@ -1,6 +1,4 @@
 %%
-%% %CopyrightBegin%
-%%
 %% Copyright Ericsson AB 2007-2022. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,6 +43,8 @@
          ticket_reuse_anti_replay/1,
          ticket_reuse_anti_replay_server_restart/0,
          ticket_reuse_anti_replay_server_restart/1,
+         ticket_reuse_anti_replay_server_restart_reused_seed/0,
+         ticket_reuse_anti_replay_server_restart_reused_seed/1,
          basic_stateful_stateless/0,
          basic_stateful_stateless/1,
          basic_stateless_stateful/0,
@@ -78,10 +78,12 @@
          early_data_basic/0,
          early_data_basic/1,
          early_data_basic_auth/0,
-         early_data_basic_auth/1]).
+         early_data_basic_auth/1,
+         stateless_multiple_servers/0,
+         stateless_multiple_servers/1]).
 
+-include("ssl_test_lib.hrl").
 -include("tls_handshake.hrl").
-
 -include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).
@@ -98,13 +100,13 @@ all() ->
 groups() ->
     [{'tlsv1.3', [], [{group, stateful},
                       {group, stateless},
+                      {group, stateful_with_cert},
+                      {group, stateless_with_cert},
                       {group, mixed}]},
      {stateful, [], session_tests()},
-     {stateless, [], session_tests() ++
-          [ticketage_smaller_than_windowsize_anti_replay,
-           ticketage_bigger_than_windowsize_anti_replay,
-           ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
-           ticket_reuse_anti_replay_server_restart]},
+     {stateless, [], session_tests() ++ anti_replay_tests()},
+     {stateful_with_cert, [], session_tests()},
+     {stateless_with_cert, [], session_tests() ++ anti_replay_tests()},
      {mixed, [], mixed_tests()}].
 
 session_tests() ->
@@ -120,6 +122,16 @@ session_tests() ->
      early_data_enabled_small_limit,
      early_data_basic,
      early_data_basic_auth].
+
+anti_replay_tests() ->
+    [
+     ticketage_smaller_than_windowsize_anti_replay,
+     ticketage_bigger_than_windowsize_anti_replay,
+     ticketage_out_of_lifetime_anti_replay, ticket_reuse_anti_replay,
+     ticket_reuse_anti_replay_server_restart,
+     ticket_reuse_anti_replay_server_restart_reused_seed,
+     stateless_multiple_servers
+    ].
 
 mixed_tests() ->
     [
@@ -145,10 +157,12 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(stateful, Config) ->
-    [{server_ticket_mode, stateful} | proplists:delete(server_ticket_mode, Config)];
-init_per_group(stateless, Config) ->
-    [{server_ticket_mode, stateless} | proplists:delete(server_ticket_mode, Config)];
+init_per_group(GroupName, Config)
+    when GroupName == stateful
+         orelse GroupName == stateless
+         orelse GroupName == stateful_with_cert
+         orelse GroupName == stateless_with_cert ->
+    [{server_ticket_mode, GroupName} | proplists:delete(server_ticket_mode, Config)];
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).
 
@@ -164,6 +178,7 @@ init_per_testcase(_, Config)  ->
 
 end_per_testcase(_TestCase, Config) ->
     application:unset_env(ssl, server_session_ticket_max_early_data),
+    application:unset_env(ssl, server_session_ticket_lifetime),
     Config.
 
 %%--------------------------------------------------------------------
@@ -202,6 +217,15 @@ basic(Config) when is_list(Config) ->
                                          {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
+    Server0 ! get_socket,
+    SSocket0 =
+        receive
+            {Server0, {socket, Socket0}} ->
+                Socket0
+        end,
+
+    {ok, ClientCert} = ssl:peercert(SSocket0),
+
     Server0 ! {listen, {mfa, {ssl_test_lib,
                               verify_active_session_resumption,
                               [true]}}},
@@ -219,6 +243,21 @@ basic(Config) when is_list(Config) ->
                                                 [true]}},
                                          {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    Server0 ! get_socket,
+    SSocket1 =
+        receive
+            {Server0, {socket, Socket1}} ->
+                Socket1
+        end,
+
+    ExpectedPeercert = case ServerTicketMode of
+                           stateful_with_cert -> {ok, ClientCert};
+                           stateless_with_cert -> {ok, ClientCert};
+                           _ -> {error, no_peercert}
+                       end,
+
+    ExpectedPeercert = ssl:peercert(SSocket1),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0),
@@ -243,7 +282,7 @@ ticketage_smaller_than_windowsize_anti_replay(Config) when is_list(Config) ->
 ticketage_bigger_than_windowsize_anti_replay() ->
     [{doc, "Session resumption with stateless tickets and anti_replay enabled."
       "Fresh ClientHellos."
-      "Ticket age bigger than windowsize. 0-RTT is expected to fail."
+      "Ticket age bigger than windowsize. 0-RTT is expected to succeed."
       "(Erlang client - Erlang server)"}].
 ticketage_bigger_than_windowsize_anti_replay(Config) when is_list(Config) ->
     WindowSize = 3,
@@ -252,10 +291,10 @@ ticketage_bigger_than_windowsize_anti_replay(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
     Client1 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
                                          Hostname, ClientOpts,
-                                         {seconds, WindowSize + 2}, false),
+                                         {seconds, WindowSize + 2}, true),
     Client2 = anti_replay_helper_connect(Server0, Client0, Port0, ClientNode,
                                          Hostname, ClientOpts,
-                                         {seconds, 2*WindowSize + 2}, false),
+                                         {seconds, 2*WindowSize + 2}, true),
     process_flag(trap_exit, false),
     [ssl_test_lib:close(A) || A <- [Server0, Client0, Client1, Client2]].
 
@@ -325,6 +364,36 @@ ticket_reuse_anti_replay_server_restart(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     [ssl_test_lib:close(A) || A <- [Server0, Client2, Server1]].
 
+ticket_reuse_anti_replay_server_restart_reused_seed() ->
+    [{doc, "Verify 2 connection attempts with same stateless tickets "
+      "and server restart between, with the server using the same session "
+      "ticket encryption seed between restarts. Second attempt is expected to "
+      "fail as long as the Bloom filter window overlaps with startup time."
+     }].
+ticket_reuse_anti_replay_server_restart_reused_seed(Config) when is_list(Config) ->
+    WindowSize = 10,
+    Seed = crypto:strong_rand_bytes(32),
+    Config1 = [{server_ticket_seed, Seed} | Config],
+    {Server1 , Port1} = anti_replay_helper_start_server(Config1, WindowSize),
+    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ClientOpts1 = [{session_tickets, manual},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0],
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port1}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% full handshake
+                                                verify_active_session_resumption,
+                                                [false, wait_reply, {tickets, 1}]}},
+                                         {from, self()}, {options, ClientOpts1}]),
+    [Ticket] = ssl_test_lib:check_tickets(Client1),
+    ssl_test_lib:check_result(Server1, ok),
+    ClientOpts2 = [{use_ticket, [Ticket]} | ClientOpts1],
+    {Server2, Port2} = anti_replay_helper_start_server(Config1, WindowSize),
+    Client2 = anti_replay_helper_connect(Server2, Client1, Port2, ClientNode,
+                                         Hostname, ClientOpts2, 0, false, false),
+    process_flag(trap_exit, false),
+    [ssl_test_lib:close(A) || A <- [Server1, Client2, Server2]].
+
 anti_replay_helper_init(Config, Mode, WindowSize) ->
     DefaultLifetime = ssl_config:get_ticket_lifetime(),
     anti_replay_helper_init(Config, Mode, WindowSize, DefaultLifetime).
@@ -360,9 +429,17 @@ anti_replay_helper_start_server(Config, WindowSize) ->
     {_ClientNode, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    ServerTicketSeed =
+        case proplists:get_value(server_ticket_seed, Config) of
+            undefined ->
+                [];
+            Seed ->
+                [{stateless_tickets_seed, Seed}]
+        end,
     ServerOpts = [{session_tickets, ServerTicketMode},
                   {anti_replay, {WindowSize, 5, 72985}},
-                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
+                  {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0
+                 ] ++ ServerTicketSeed,
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -571,7 +648,7 @@ multiple_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -633,7 +710,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -657,7 +734,7 @@ multiple_tickets_2hash(Config) when is_list(Config) ->
 
     Tickets1 = ssl_test_lib:check_tickets(Client1),
 
-    ct:pal("Received tickets: ~p~n", [Tickets1]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets1]),
 
     ssl_test_lib:check_result(Server0, ok),
 
@@ -1227,6 +1304,69 @@ early_data_basic_auth(Config) when is_list(Config) ->
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
 
+stateless_multiple_servers() ->
+    [{doc, "Test session resumption with session tickets, resuming on different server"}].
+stateless_multiple_servers(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Seed = crypto:strong_rand_bytes(64),
+
+    %% Configure session tickets
+    ClientOpts = [{session_tickets, auto},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ClientOpts0],
+    ServerOpts = [{session_tickets, stateless},
+                  {stateless_tickets_seed, Seed},
+                  {versions, ['tlsv1.2','tlsv1.3']} | ServerOpts0],
+
+    Server0 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    Server1 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,  %% Short handshake
+                                          verify_active_session_resumption,
+                                          [true]}},
+                                   {options, ServerOpts}]),
+    Port1 = ssl_test_lib:inet_port(Server1),
+
+    %% Store ticket from first connection to server 0
+    Client0 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port0}, {host, Hostname},
+                                   {mfa, {ssl_test_lib,  %% Full handshake
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    %% Wait for session ticket
+    ct:sleep(100),
+
+    ssl_test_lib:close(Client0),
+
+    %% Use ticket when connecting to server 1
+    Client1 =
+        ssl_test_lib:start_client([{node, ClientNode},
+                                   {port, Port1}, {host, Hostname},
+                                   {mfa, {ssl_test_lib,  %% Short handshake
+                                          verify_active_session_resumption,
+                                          [true]}},
+                                   {from, self()}, {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server1, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client1).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

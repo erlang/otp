@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2017-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2017-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ int erts_osenv_unset_term(erts_osenv_t *env, Eterm key);
  * @param value [in,out] The buffer to copy the value into, may be NULL if you
  * only wish to query presence.
  *
- * @return 1 on success, 0 if the key couldn't be found, and -1 if if the value
+ * @return 1 on success, 0 if the key couldn't be found, and -1 if the value
  * didn't fit into the buffer. */
 int erts_osenv_get_native(const erts_osenv_t *env, const erts_osenv_data_t *key,
     erts_osenv_data_t *value);

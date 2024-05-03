@@ -70,7 +70,7 @@ void BeamModuleAssembler::emit_fload(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
     auto src = load_source(Src, TMP1);
     auto dst = init_destination(Dst, a64::d0);
-    arm::Gp float_ptr = emit_ptr_val(TMP1, src.reg);
+    a64::Gp float_ptr = emit_ptr_val(TMP1, src.reg);
 
     a.ldur(dst.reg, emit_boxed_val(float_ptr, sizeof(Eterm)));
     flush_var(dst);
@@ -159,12 +159,12 @@ void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
 
     a.bind(not_small);
     {
-        if (masked_types(Src, BEAM_TYPE_FLOAT) == BEAM_TYPE_NONE) {
+        if (never_one_of<BeamTypeId::Float>(Src)) {
             comment("skipped float path since source cannot be a float");
         } else {
             /* If the source is always a number, we can skip the box test when
              * it's not a small. */
-            if (always_one_of(Src, BEAM_TYPE_FLOAT | BEAM_TYPE_INTEGER)) {
+            if (always_one_of<BeamTypeId::Number>(Src)) {
                 comment("skipped box test since source is always a number");
             } else {
                 emit_is_boxed(fallback, Src, src.reg);

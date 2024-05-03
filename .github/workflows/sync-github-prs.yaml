@@ -1,0 +1,45 @@
+name: Sync all github prs with erlang.github.io/prs/
+
+## Sync all github prs twice a day
+on:
+  workflow_dispatch:
+  schedule:
+  ## In UTC
+  - cron: '0 */4 * * *'
+
+jobs:
+
+  sync-prs:
+    if: github.repository == 'erlang/otp'
+    concurrency: erlang.github.io-deploy
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.4
+        with:
+          token: ${{ secrets.ERLANG_TOKEN }}
+          repository: 'erlang/erlang.github.io'
+          path: erlang.github.io
+      - name: Update PRs
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+            git clone https://github.com/talentdeficit/jsx
+            (cd jsx && rebar3 compile)
+            mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+            touch "${GITHUB_WORKSPACE}/erlang.github.io/.nojekyll"
+            .github/scripts/sync-github-prs.es erlang/otp "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
+
+      - name: Deploy to github pages 🚀
+        run: |
+          cd erlang.github.io
+          set -x
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git add -u
+          git update-index --refresh
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Update github pages content"
+            git push origin master
+          fi

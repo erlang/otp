@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1514,7 +1514,7 @@ max_sessions(Config, ParallelLogin, Connect0) when is_function(Connect0,2) ->
 	    [_|_] = Connections,
 
 	    %% N w try one more than allowed:
-	    ct:pal("Info Report expected here (if not disabled) ...",[]),
+	    ct:log("Info Report expected here (if not disabled) ...",[]),
 	    try Connect(Host,Port)
 	    of
 		_ConnectionRef1 ->

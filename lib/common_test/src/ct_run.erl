@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,13 +19,14 @@
 %%
 
 -module(ct_run).
+-moduledoc false.
 
 %% Script interface
 -export([script_start/0,script_usage/0]).
 
 %% User interface
 -export([install/1,install/2,run/1,run/2,run/3,run_test/1,
-	 run_testspec/1,step/3,step/4,refresh_logs/1]).
+	 run_testspec/1,step/3,step/4,refresh_logs/2]).
 
 %% Misc internal API functions
 -export([variables_file_name/1,script_start1/2,run_test2/1, run_make/3]).
@@ -59,6 +60,7 @@
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
+	       ct_hooks_order,
 	       enable_builtin_hooks,
 	       include = [],
 	       auto_compile,
@@ -248,6 +250,10 @@ script_start1(Parent, Args) ->
 				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
     CTHooks = ct_hooks_args2opts(Args),
+    CTHooksOrder = get_start_opt(ct_hooks_order,
+                                 fun([CTHO]) -> list_to_atom(CTHO);
+                                    ([]) -> undefined
+                                 end, undefined, Args),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
 				       fun([CT]) -> list_to_atom(CT);
 					  ([]) -> undefined
@@ -352,6 +358,7 @@ script_start1(Parent, Args) ->
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
+                 ct_hooks_order = CTHooksOrder,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
 		 abort_if_missing_suites = AbortIfMissing,
@@ -369,7 +376,7 @@ script_start1(Parent, Args) ->
     %% send final results to starting process waiting in script_start/0
     Parent ! {self(), Result}.
 
-run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
+run_or_refresh(Opts = #opts{logdir = LogDir, stylesheet = CustomStylesheet}, Args) ->
     case proplists:get_value(refresh_logs, Args) of
 	undefined ->
 	    script_start2(Opts, Args);
@@ -383,12 +390,12 @@ run_or_refresh(Opts = #opts{logdir = LogDir}, Args) ->
 	    %% give the shell time to print version etc
 	    timer:sleep(500),
 	    io:nl(),
-	    case catch ct_logs:make_all_runs_index(refresh) of
+	    case catch ct_logs:make_all_runs_index(refresh, CustomStylesheet) of
 		{'EXIT',ARReason} ->
 		    ok = file:set_cwd(Cwd),
 		    {error,{all_runs_index,ARReason}};
 		_ ->
-		    case catch ct_logs:make_all_suites_index(refresh) of
+		    case catch ct_logs:make_all_suites_index(refresh, CustomStylesheet) of
 			{'EXIT',ASReason} ->
 			    ok = file:set_cwd(Cwd),
 			    {error,{all_suites_index,ASReason}};
@@ -539,6 +546,10 @@ combine_test_opts(TS, Specs, Opts) ->
 		   [Opts#opts.ct_hooks,
 		    TSOpts#opts.ct_hooks]),
 
+    AllCTHooksOrder =
+        choose_val(Opts#opts.ct_hooks_order,
+                   TSOpts#opts.ct_hooks_order),
+
     EnableBuiltinHooks =
 	choose_val(
 	  Opts#opts.enable_builtin_hooks,
@@ -603,6 +614,7 @@ combine_test_opts(TS, Specs, Opts) ->
 	      config = TSOpts#opts.config,
 	      event_handlers = AllEvHs,
 	      ct_hooks = AllCTHooks,
+              ct_hooks_order = AllCTHooksOrder,
 	      enable_builtin_hooks = EnableBuiltinHooks,
 	      stylesheet = Stylesheet,
 	      auto_compile = AutoCompile,
@@ -614,14 +626,16 @@ combine_test_opts(TS, Specs, Opts) ->
 
 check_and_install_configfiles(
   Configs, LogDir, #opts{
-	     event_handlers = EvHandlers,
-	     ct_hooks = CTHooks,
-	     enable_builtin_hooks = EnableBuiltinHooks} ) ->
+                      event_handlers = EvHandlers,
+                      ct_hooks = CTHooks,
+                      ct_hooks_order = CTHooksOrder,
+                      enable_builtin_hooks = EnableBuiltinHooks} ) ->
     case ct_config:check_config_files(Configs) of
 	false ->
 	    install([{config,Configs},
 		     {event_handler,EvHandlers},
 		     {ct_hooks,CTHooks},
+		     {ct_hooks_order,CTHooksOrder},
 		     {enable_builtin_hooks,EnableBuiltinHooks}], LogDir);
 	{value,{error,{nofile,File}}} ->
 	    {error,{cant_read_config_file,File}};
@@ -705,6 +719,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    logopts = LogOpts,
 		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
+		    stylesheet = CustomStylesheet,
 		    logdir = LogDir, testspec_files = Specs}, _Args) ->
 
     %% label - used by ct_logs
@@ -723,7 +738,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
 	    _ = ct_util:start(interactive, LogDir,
-			      add_verbosity_defaults(Verbosity)),
+			      add_verbosity_defaults(Verbosity), CustomStylesheet),
 	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
@@ -753,6 +768,7 @@ script_usage() ->
 	      "\n\t [-cover_stop Bool]"
 	      "\n\t [-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t [-ct_hooks CTHook1 CTHook2 .. CTHookN]"
+	      "\n\t [-ct_hooks_order test | config]"
 	      "\n\t [-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t [-no_auto_compile]"
 	      "\n\t [-abort_if_missing_suites]"
@@ -799,22 +815,7 @@ script_usage() ->
     io:format("Run CT in interactive mode:\n\n"
 	      "\tct_run -shell"
 	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
-	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]\n\n"),
-    io:format("Run tests in web based GUI:\n\n"
-	      "\n\t [-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
-	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]"
-	      "\n\t [-dir TestDir1 TestDir2 .. TestDirN] |"
-	      "\n\t [-suite Suite [-case Case]]"
-	      "\n\t [-logopts LogOpt1 LogOpt2 .. LogOptN]"
-	      "\n\t [-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
-	      "\n\t [-include InclDir1 InclDir2 .. InclDirN]"
-	      "\n\t [-no_auto_compile]"
-	      "\n\t [-abort_if_missing_suites]"
-	      "\n\t [-multiply_timetraps N]"
-	      "\n\t [-scale_timetraps]"
-	      "\n\t [-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
-	      "\n\t [-basic_html]"
-	      "\n\t [-no_esc_chars]\n\n").
+	      "\n\t [-decrypt_key Key] | [-decrypt_file KeyFile]\n\n").
 
 install(Opts) ->
     install(Opts, ".").
@@ -908,7 +909,8 @@ run_test1(StartOpts) when is_list(StartOpts) ->
                                      all,
                                      StartOpts),
             application:set_env(common_test, keep_logs, KeepLogs),
-	    ok = refresh_logs(?abs(RefreshDir)),
+            CustomStylesheet = proplists:get_value(stylesheet, StartOpts),
+	    ok = refresh_logs(?abs(RefreshDir), CustomStylesheet),
 	    exit(done)
     end.
 
@@ -972,6 +974,11 @@ run_test2(StartOpts) ->
 
     %% CT Hooks
     CTHooks = get_start_opt(ct_hooks, value, [], StartOpts),
+    CTHooksOrder = get_start_opt(ct_hooks_order,
+                                 fun(CHO) when CHO == test;
+                                               CHO == config ->
+                                         CHO
+                                 end, undefined, StartOpts),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
 				       fun(EBH) when EBH == true;
 						     EBH == false ->
@@ -1088,6 +1095,7 @@ run_test2(StartOpts) ->
 		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
+                 ct_hooks_order = CTHooksOrder,
 		 enable_builtin_hooks = EnableBuiltinHooks,
 		 auto_compile = AutoCompile,
 		 abort_if_missing_suites = AbortIfMissing,
@@ -1215,6 +1223,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers,
 		     ct_hooks = CTHook,
+                     ct_hooks_order = CTHooksOrder,
 		     enable_builtin_hooks = EnableBuiltinHooks},
 	StartOpts) ->
     LogDir1 = which(logdir, LogDir),
@@ -1241,6 +1250,7 @@ run_dir(Opts = #opts{logdir = LogDir,
     case install([{config,AbsCfgFiles},
 		  {event_handler,EvHandlers},
 		  {ct_hooks, CTHook},
+                  {ct_hooks_order, CTHooksOrder},
 		  {enable_builtin_hooks,EnableBuiltinHooks}], LogDir1) of
 	ok -> ok;
 	{error,_IReason} = IError -> exit(IError)
@@ -1432,6 +1442,7 @@ get_data_for_node(#testspec{label = Labels,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
 			    ct_hooks = CTHooks,
+                            ct_hooks_order = CTHooksOrder,
 			    enable_builtin_hooks = EnableBuiltinHooks,
 			    auto_compile = ACs,
 			    abort_if_missing_suites = AiMSs,
@@ -1486,6 +1497,7 @@ get_data_for_node(#testspec{label = Labels,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
 	  ct_hooks = FiltCTHooks,
+          ct_hooks_order = CTHooksOrder,
 	  enable_builtin_hooks = EnableBuiltinHooks,
 	  auto_compile = AutoCompile,
 	  abort_if_missing_suites = AbortIfMissing,
@@ -1494,18 +1506,18 @@ get_data_for_node(#testspec{label = Labels,
 	  scale_timetraps = ST,
 	  create_priv_dir = CreatePrivDir}.
 
-refresh_logs(LogDir) ->
+refresh_logs(LogDir, CustomStylesheet) ->
     {ok,Cwd} = file:get_cwd(),
     case file:set_cwd(LogDir) of
 	E = {error,_Reason} ->
 	    E;
 	_ ->
-	    case catch ct_logs:make_all_suites_index(refresh) of
+	    case catch ct_logs:make_all_suites_index(refresh, CustomStylesheet) of
 		{'EXIT',ASReason} ->
 		    ok = file:set_cwd(Cwd),
 		    {error,{all_suites_index,ASReason}};
 		_ ->
-		    case catch ct_logs:make_all_runs_index(refresh) of
+		    case catch ct_logs:make_all_runs_index(refresh, CustomStylesheet) of
 			{'EXIT',ARReason} ->
 			    ok = file:set_cwd(Cwd),
 			    {error,{all_runs_index,ARReason}};
@@ -1667,7 +1679,7 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
     #opts{label = Label, profile = Profile,
-	  verbosity = VLvls} = Opts,
+	  verbosity = VLvls, stylesheet = CustomStylesheet} = Opts,
     %% label - used by ct_logs
     TestLabel =
 	if Label == undefined -> undefined;
@@ -1704,7 +1716,7 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 			"Note: TEST_SERVER_FRAMEWORK = " ++ Other))
 	    end,
 	    Verbosity = add_verbosity_defaults(VLvls),
-	    case ct_util:start(Opts#opts.logdir, Verbosity) of
+	    case ct_util:start(Opts#opts.logdir, Verbosity, CustomStylesheet) of
 		{error,interactive_mode} ->
 		    io:format("CT is started in interactive mode. "
 			      "To exit this mode, "
@@ -3276,7 +3288,7 @@ do_trace(Terms) ->
     ok.
 
 stop_trace(true) ->
-    dbg:stop_clear();
+    dbg:stop();
 stop_trace(false) ->
     ok.
 

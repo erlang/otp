@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2020-2021. All Rights Reserved.
+// Copyright Ericsson AB 2020-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -300,111 +300,97 @@ gen.skip_bits2(Fail, Ms, Size, Unit, Flags) {
     return op;
 }
 
-gen_increment(stp, reg, val, dst) {
-    BeamOp* op;
-    $NewBeamOp($stp, op);
-    $BeamOpNameArity(op, i_increment, 3);
-    op->a[0] = $reg;
-    op->a[1].type = TAG_u;
-    op->a[1].val = $val;
-    op->a[2] = $dst;
-    return op;
-}
+// Creates an instruction that moves a literal lambda to a register.
+MakeLiteralFun(Op, Index, Arity, Dst) {
+    SWord literal;
 
-gen.increment(Reg, Integer, Dst) {
-    $gen_increment(S, Reg, Integer.val, Dst);
-}
+    /* If we haven't already done so, we need to create a placeholder for the
+     * lambda. */
+    literal = S->fun_refs[$Index];
+    if (literal == ERTS_SWORD_MAX) {
+        Eterm tmp_hp[ERL_FUN_SIZE + ERL_FUN_REF_SIZE + 1];
+        ErlFunThing *funp;
+        FunRef *refp;
 
-gen.increment_from_minus(Reg, Integer, Dst) {
-    $gen_increment(S, Reg, -Integer.val, Dst);
-}
+        /* +1 to skip funp->env[0] */
+        refp = (FunRef*)&tmp_hp[ERL_FUN_SIZE + 1];
+        refp->thing_word = HEADER_FUN_REF;
+        refp->entry = NULL;
+        refp->next = NULL;
 
-gen.plus_from_minus(Fail, Live, Src, Integer, Dst) {
-    BeamOp* op;
+        funp = (ErlFunThing*)tmp_hp;
+        funp->thing_word = MAKE_FUN_HEADER($Arity, 0, 0);
+        funp->entry.exp = NULL;
+        funp->env[0] = make_boxed((Eterm*)refp);
 
-    ASSERT(Integer.type == TAG_i && IS_SSMALL(-(Sint)Integer.val));
-
-    $NewBeamOp(S, op);
-    $BeamOpNameArity(op, gen_plus, 5);
-    op->a[0] = Fail;
-    op->a[1] = Live;
-    op->a[2] = Src;
-    op->a[3].type = TAG_i;
-    op->a[3].val = -(Sint)Integer.val;
-    op->a[4] = Dst;
-
-    return op;
-}
-
-gen.make_fun2(idx) {
-    BeamOp* op;
-    BeamOp* th;
-
-    $NewBeamOp(S, op);
-
-    if (idx.val >= S->beam.lambdas.count) {
-        $BeamOpNameArity(op, i_lambda_error, 1);
-        op->a[0].type = TAG_o;
-        op->a[0].val = 0;
-	return op;
-    } else {
-	int i;
-        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[idx.val];
-	unsigned num_free = entry->num_free;
-	unsigned arity = entry->arity;
-
-	$NewBeamOp(S, th);
-
-	$BeamOpNameArity(th, test_heap, 2);
-	th->a[0].type = TAG_u;
-	th->a[0].val = ERL_FUN_SIZE + num_free;
-	th->a[1].type = TAG_u;
-	th->a[1].val = num_free;
-	th->next = op;
-
-	$BeamOpNameArity(op, i_make_fun3, 4);
-	$BeamOpArity(op, 4 + num_free);
-	op->a[0].type = TAG_u;
-	op->a[0].val = idx.val;
-	op->a[1].type = TAG_x;
-	op->a[1].val = 0;
-	op->a[2].type = TAG_u;
-	op->a[2].val = arity - num_free;
-	op->a[3].type = TAG_u;
-	op->a[3].val = num_free;
-	for (i = 0; i < num_free; i++) {
-	    op->a[i+4].type = TAG_x;
-	    op->a[i+4].val = i;
-	}
-	return th;
+        literal = beamfile_add_literal(&S->beam, make_fun((Eterm*)funp), 0);
+        S->fun_refs[$Index] = literal;
     }
+
+    $BeamOpNameArity($Op, move, 2);
+    ($Op)->a[0].type = TAG_q;
+    ($Op)->a[0].val = literal;
+    ($Op)->a[1] = $Dst;
 }
 
-gen.make_fun3(idx, Dst, NumFree, Env) {
+MakeFun(Op, Index, Arity, NumFree, Env, Dst) {
+    SWord literal;
+
+    $BeamOpNameArity(op, i_make_fun3, 4);
+    $BeamOpArity(op, 5 + $NumFree);
+
+    op->a[0].type = TAG_u;
+    op->a[0].val = $Index;
+    op->a[1] = $Dst;
+    op->a[2].type = TAG_u;
+    op->a[2].val = $Arity - $NumFree;
+    op->a[3].type = TAG_u;
+    op->a[3].val = $NumFree;
+
+    for (int i = 0; i < $NumFree; i++) {
+        op->a[4 + i] = $Env[i];
+    }
+
+    /* Create a FunRef if we haven't already done so (may be shared with other
+     * make_fun3 instructions). */
+    literal = S->fun_refs[$Index];
+    if (literal == ERTS_SWORD_MAX) {
+        Eterm tmp_hp[ERL_FUN_REF_SIZE];
+        FunRef *refp = (FunRef*)tmp_hp;
+
+        refp->thing_word = HEADER_FUN_REF;
+        refp->entry = NULL;
+        refp->next = NULL;
+
+        literal = beamfile_add_literal(&S->beam, make_boxed((Eterm*)refp), 0);
+        S->fun_refs[$Index] = literal;
+    }
+
+    /* Add the FunRef as part of the environment, just past the free
+     * variables. */
+    op->a[4 + $NumFree].type = TAG_q;
+    op->a[4 + $NumFree].val = literal;
+}
+
+gen.make_fun3(Idx, Dst, NumFree, Env) {
     BeamOp* op;
 
     $NewBeamOp(S, op);
 
-    if (idx.val < S->beam.lambdas.count) {
-        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[idx.val];
-	if (NumFree.val == entry->num_free) {
-	    int i;
+    if (Idx.val < S->beam.lambdas.count) {
+        BeamFile_LambdaEntry *entry = &S->beam.lambdas.entries[Idx.val];
 
-	    $BeamOpNameArity(op, i_make_fun3, 4);
-	    $BeamOpArity(op, 4 + NumFree.val);
-	    op->a[0].type = TAG_u;
-	    op->a[0].val = idx.val;
-	    op->a[1] = Dst;
-	    op->a[2].type = TAG_u;
-	    op->a[2].val = entry->arity - entry->num_free;
-	    op->a[3].type = TAG_u;
-	    op->a[3].val = entry->num_free;
-	    for (i = 0; i < NumFree.val; i++) {
-		op->a[i+4] = Env[i];
-	    }
-	    return op;
-	}
+        if (NumFree.val == entry->num_free) {
+            if (entry->num_free == 0) {
+                $MakeLiteralFun(op, Idx.val, entry->arity, Dst);
+            } else {
+                $MakeFun(op, Idx.val, entry->arity, entry->num_free, Env, Dst);
+            }
+
+            return op;
+        }
     }
+
     $BeamOpNameArity(op, i_lambda_error, 1);
     op->a[0].type = TAG_o;
     op->a[0].val = 0;

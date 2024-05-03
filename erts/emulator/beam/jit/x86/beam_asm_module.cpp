@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -285,7 +285,8 @@ void BeamGlobalAssembler::emit_i_func_info_shared() {
 
     a.add(ARG1, imm(offsetof(ErtsCodeInfo, mfa)));
 
-    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)), EXC_FUNCTION_CLAUSE);
+    a.mov(x86::qword_ptr(c_p, offsetof(Process, freason)),
+          imm(EXC_FUNCTION_CLAUSE));
     a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), ARG1);
 
     mov_imm(ARG2, 0);
@@ -297,7 +298,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info;
+    ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
      * label is always encoded as a word, even though the signature ought to
@@ -307,7 +308,6 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
     info.mfa.module = Module.get();
     info.mfa.function = Function.get();
     info.mfa.arity = Arity.get();
-    info.gen_bp = NULL;
 
     comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
 
@@ -332,6 +332,8 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
 
     current_label = rawLabels[Label.get()];
     a.bind(current_label);
+
+    reg_cache.invalidate();
 }
 
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
@@ -381,6 +383,10 @@ void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
 void BeamModuleAssembler::emit_empty_func_line() {
 }
 
+void BeamModuleAssembler::emit_executable_line(const ArgWord &Loc,
+                                               const ArgWord &Index) {
+}
+
 /*
  * Here follows stubs for instructions that should never be called.
  */
@@ -399,79 +405,6 @@ void BeamModuleAssembler::emit_trace_jump(const ArgWord &) {
 
 void BeamModuleAssembler::emit_call_error_handler() {
     emit_nyi("call_error_handler should never be called");
-}
-
-unsigned BeamModuleAssembler::patchCatches(char *rw_base) {
-    unsigned catch_no = BEAM_CATCHES_NIL;
-
-    for (const auto &c : catches) {
-        const auto &patch = c.patch;
-        ErtsCodePtr handler;
-
-        handler = (ErtsCodePtr)getCode(c.handler);
-        catch_no = beam_catches_cons(handler, catch_no, nullptr);
-
-        /* Patch the `mov` instruction with the catch tag */
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (unsigned *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(0x7fffffff == *where);
-        Eterm catch_term = make_catch(catch_no);
-
-        /* With the current tag scheme, more than 33 million
-         * catches can exist at once. */
-        ERTS_ASSERT(catch_term >> 31 == 0);
-        *where = (unsigned)catch_term;
-    }
-
-    return catch_no;
-}
-
-void BeamModuleAssembler::patchImport(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : imports[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLambda(char *rw_base,
-                                      unsigned index,
-                                      BeamInstr I) {
-    for (const auto &patch : lambdas[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = I + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchLiteral(char *rw_base,
-                                       unsigned index,
-                                       Eterm lit) {
-    for (const auto &patch : literals[index].patches) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
-
-        ASSERT(LLONG_MAX == *where);
-        *where = lit + patch.val_offs;
-    }
-}
-
-void BeamModuleAssembler::patchStrings(char *rw_base,
-                                       const byte *string_table) {
-    for (const auto &patch : strings) {
-        auto offset = code.labelOffsetFromBase(patch.where);
-        auto where = (const byte **)&rw_base[offset + 2];
-
-        ASSERT(LLONG_MAX == (Eterm)*where);
-        *where = string_table + patch.val_offs;
-    }
 }
 
 const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)()) {

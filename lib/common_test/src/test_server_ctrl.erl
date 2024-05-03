@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_ctrl).
+-moduledoc false.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                                                  %%
 %%                      The Erlang Test Server                      %%
@@ -116,7 +117,8 @@
 	       create_priv_dir=auto_per_run, finish=false,
 	       target_info, cover=false, wait_for_node=[],
 	       testcase_callback=undefined, idle_notify=[],
-	       get_totals=false, random_seed=undefined}).
+	       get_totals=false, random_seed=undefined,
+               old_releases=#{}}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OPERATOR INTERFACE
@@ -917,13 +919,19 @@ handle_call({is_release_available, Release}, _From, State) ->
 %%
 %% Find the path of the release's erl file if available
 
-handle_call({find_release, Release}, _From, State) ->
-    R =
-        case test_server_node:is_release_available(Release) of
-            true -> test_server_node:find_release(Release);
-            _ -> not_available
-        end,
-    {reply, R, State}.
+handle_call({find_release, Release}, From, State = #state{ old_releases = OldReleases }) ->
+    case maps:find(Release, OldReleases) of
+        error ->
+            R =
+                case test_server_node:find_release(Release) of
+                    none -> not_available;
+                    PathToRelease -> PathToRelease
+                end,
+            handle_call({find_release, Release}, From,
+                        State#state{ old_releases = OldReleases#{ Release =>  R }});
+        {ok, R} ->
+            {reply, R, State}
+    end.
 
 %%--------------------------------------------------------------------
 set_hosts(Hosts) ->
@@ -1077,7 +1085,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     put(app, common_test),
     put(test_server_name, Name),
     put(test_server_dir, Dir),
-    put(test_server_total_time, 0),
+    put(test_server_total_time, 0.0),
     put(test_server_ok, 0),
     put(test_server_failed, 0),
     put(test_server_skipped, {0,0}),
@@ -1115,7 +1123,8 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 				 {auto_nl,not lists:member(no_nl, LogOpts)},
 				 {reject_io_reqs,RejectIoReqs}]),
     group_leader(test_server_io:get_gl(true), self()),
-    {TimeMy,Result} = ts_tc(Mod, Func, Args),
+    {ElapsedTime,Result} = ts_tc(Mod, Func, Args),
+    print(major, "=elapsed_time  ~w", [ElapsedTime]),
     set_io_buffering(undefined),
     test_server_io:set_job_name(undefined),
     catch stop_extra_tools(StartedExtraTools),
@@ -1128,7 +1137,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	    report_severe_error(Reason),
 	    print(1, "EXIT, reason ~tp", [Reason])
     end,
-    Time = TimeMy/1000000,
+    ElapsedTimeSeconds = ElapsedTime/1000000,
     SuccessStr =
 	case get(test_server_failed) of
 	    0 -> "Ok";
@@ -1144,11 +1153,15 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
+    TotalTestTime = get(test_server_total_time),
     print(html,"\n</tbody>\n<tfoot>\n"
-	  "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
-	  "<td>~.3fs</td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w</td></tr>\n"
-	  "</tfoot>\n",
-	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
+          "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
+          "<td>~.3fs<br></td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w<br>"
+          "Elapsed Time: ~.3fs</td></tr>\n"
+          "</tfoot>\n",
+          [TotalTestTime,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN,
+           ElapsedTimeSeconds]),
+
 
     test_server_io:stop([major,html,unexpected_io]),
     {UnexpectedIoName,UnexpectedIoFooter} = get(test_server_unexpected_footer),
@@ -1516,7 +1529,7 @@ do_test_cases(TopCases, SkipCases,
 	    print(html, xhtml("\n<p><b>Host info:</b><br>\n",
 			      "\n<p><b>Host info:</b><br />\n")),
 	    print_who(test_server_sup:hoststr(), test_server_sup:get_username()),
-	    print(html, xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+	    print(html, xhtml("<br>Used Erlang v~ts in <code>~ts</code></p>\n",
 			      "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 		  [erlang:system_info(version), code:root_dir()]),
 	    
@@ -1524,7 +1537,7 @@ do_test_cases(TopCases, SkipCases,
 		    print(html, xhtml("\n<p><b>Target Info:</b><br>\n",
 				      "\n<p><b>Target Info:</b><br />\n")),
 		    print_who(TI#target_info.host, TI#target_info.username),
-		    print(html,xhtml("<br>Used Erlang v~ts in <tt>~ts</tt></p>\n",
+		    print(html,xhtml("<br>Used Erlang v~ts in <code>~ts</code></p>\n",
 				     "<br />Used Erlang v~ts in \"~ts\"</p>\n"),
 			  [TI#target_info.version, TI#target_info.root_dir]);
 	       true ->
@@ -2495,7 +2508,6 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			After = ?now,
 			Before = get(test_server_parallel_start_time),
 			Elapsed = timer:now_diff(After, Before)/1000000,
-			put(test_server_total_time, Elapsed),
 			{false,tl(Mode0),undefined,Elapsed,
 			 update_status(Ref, OkSkipFail, Status)};
 		    _ ->
@@ -3653,37 +3665,46 @@ handle_io_and_exit_loop(_, [], Ok,Skip,Fail) ->
 
 handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
     receive
-	{abort_current_testcase=Tag,_Reason,From} ->
-	    %% If a parallel group is executing, there is no unique
-	    %% current test case, so we must generate an error.
-	    From ! {self(),Tag,{error,parallel_group}},
-	    handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases);
-	%% end of io session from test case executed by main process
-	{finished,_,Main,CaseNum,Mod,Func,Result,_RetVal} ->
-	    test_server_io:print_buffered(CurrPid),
-	    {Result,{Mod,Func}};
-	%% end of io session from test case executed by parallel process
-	{finished,_,CurrPid,CaseNum,Mod,Func,Result,RetVal} ->
-	    test_server_io:print_buffered(CurrPid),
-	    case Result of
-		ok ->
-		    put(test_server_ok, get(test_server_ok)+1);
-		failed ->
-		    put(test_server_failed, get(test_server_failed)+1);
-		skipped ->
-		    SkipCounters =
-			update_skip_counters(RetVal, get(test_server_skipped)),
-		    put(test_server_skipped, SkipCounters)
-	    end,
-	    {Result,{Mod,Func}};
+        {abort_current_testcase=Tag,_Reason,From} ->
+            %% If a parallel group is executing, there is no unique
+            %% current test case, so we must generate an error.
+            From ! {self(),Tag,{error,parallel_group}},
+            handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases);
+        %% end of io session from test case executed by main process
+        {finished,_,Main,CaseNum,Mod,Func,Result,_RetVal} ->
+            test_server_io:print_buffered(CurrPid),
+            {Result,{Mod,Func}};
+        %% end of io session from test case executed by parallel process
+        {finished,_,CurrPid,CaseNum,Mod,Func,Result,RetVal} ->
+            test_server_io:print_buffered(CurrPid),
+            case Result of
+                ok ->
+                    {ReturnTime, _, _} = RetVal,
+                    put(test_server_total_time, get(test_server_total_time) + ReturnTime),
+                    put(test_server_ok, get(test_server_ok)+1),
+                    ReturnTime;
+                failed ->
+                    ReturnTime = case RetVal of
+                                     {_, T} when is_number(T) -> T;
+                                     _ -> 0
+                                 end,
+                    put(test_server_total_time, get(test_server_total_time) + ReturnTime),
+                    put(test_server_failed, get(test_server_failed)+1),
+                    ReturnTime;
+                skipped ->
+                    SkipCounters =
+                    update_skip_counters(RetVal, get(test_server_skipped)),
+                    put(test_server_skipped, SkipCounters)
+            end,
+            {Result,{Mod,Func}};
 
-	%% unexpected termination of test case process
-	{'EXIT',TCPid,Reason} when Reason /= normal ->
-	    test_server_io:print_buffered(CurrPid),
-	    {value,{_,_,Num,M,F}} = lists:keysearch(TCPid, 2, Cases),
-	    print(1, "Error! Process for test case #~w (~w:~tw) died! Reason: ~tp",
-		  [Num, M, F, Reason]),
-	    exit({unexpected_termination,{Num,M,F},{TCPid,Reason}})
+        %% unexpected termination of test case process
+        {'EXIT',TCPid,Reason} when Reason /= normal ->
+            test_server_io:print_buffered(CurrPid),
+            {value,{_,_,Num,M,F}} = lists:keysearch(TCPid, 2, Cases),
+            print(1, "Error! Process for test case #~w (~w:~tw) died! Reason: ~tp",
+            [Num, M, F, Reason]),
+            exit({unexpected_termination,{Num,M,F},{TCPid,Reason}})
     end.
 
 
@@ -3899,18 +3920,31 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     %% status count on the main process (status of parallel test cases
     %% is updated later by the handle_test_case_io_and_status/0 function)
     case {RunInit,Status} of
-	{skip_init,_} ->			% conf doesn't count
-	    ok;
-	{_,ok} ->
-	    put(test_server_ok, get(test_server_ok)+1);
-	{_,failed} ->
-	    put(test_server_failed, get(test_server_failed)+1);
-	{_,skip} ->
-	    {US,AS} = get(test_server_skipped),
-	    put(test_server_skipped, {US+1,AS});
-	{_,auto_skip} ->
-	    {US,AS} = get(test_server_skipped),
-	    put(test_server_skipped, {US,AS+1})
+        {skip_init,_} ->			% conf doesn't count
+            ok;
+        {_,ok} ->
+            case Loc of
+                [{Module, _}] when Module =/= ct_framework ->
+                    put(test_server_total_time, get(test_server_total_time) + Time);
+                _ -> not_a_test_fun
+            end,
+            put(test_server_ok, get(test_server_ok)+1);
+        {_,failed} ->
+            DiedTime = case Time of
+                           died -> case RetVal of
+                                       {_,T} when is_number(T) -> T;
+                                       _ -> 0
+                                   end;
+                           T when is_number(T) -> T
+                       end,
+            put(test_server_total_time, get(test_server_total_time) + DiedTime),
+            put(test_server_failed, get(test_server_failed)+1);
+        {_,skip} ->
+            {US,AS} = get(test_server_skipped),
+            put(test_server_skipped, {US+1,AS});
+        {_,auto_skip} ->
+            {US,AS} = get(test_server_skipped),
+            put(test_server_skipped, {US,AS+1})
     end,
     %% only if test case execution is sequential do we care about the
     %% remaining processes and slave nodes count
@@ -3956,9 +3990,9 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     %% time count on the main process (adding execution time of parallel test
     %% case groups is done in run_test_cases_loop/4)
     if is_number(Time) ->
-	    put(test_server_total_time, get(test_server_total_time)+Time);
+            put(test_server_total_time, get(test_server_total_time)+Time);
        true ->
-	    ok
+            ok
     end,
     test_server_sup:check_new_crash_dumps(),
 
@@ -4625,7 +4659,7 @@ update_config(Config, []) ->
 %% simple list of test cases to call, when executing the test suite.
 %%
 %% CurMod is the "current" module, that is, the module the last instruction
-%% was read from. May be be set to 'none' initially.
+%% was read from. May be set to 'none' initially.
 %%
 %% SkipList is the list of test cases to skip and requirements to deny.
 %%

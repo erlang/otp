@@ -6,6 +6,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
+	crypto_collect_labmachine_info_SUITE \
 	crypto_bench_SUITE \
 	crypto_SUITE \
 	crypto_property_test_SUITE \

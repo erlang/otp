@@ -111,7 +111,7 @@
     dynamically allocated memory blocks can be much larger than
     the total size of the dynamically allocated memory blocks.
 
-  Note:
+  Change:
     As from ERTS 5.6.4, [;;4merlang:memory/0[0m requires that all [;;4m[0m
     [;;4merts_alloc(3)[0m allocators are enabled (default behavior).
 

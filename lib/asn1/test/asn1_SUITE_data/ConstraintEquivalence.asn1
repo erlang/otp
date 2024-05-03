@@ -106,6 +106,8 @@ BEGIN
  ExtConstrainedStringX04 ::= IA5String (SIZE (1|2), ..., SIZE (1|2|3|4|5))
  ExtConstrainedStringX05 ::= IA5String (SIZE (1|2, ...), ...,
                                         SIZE (1|2|3|4|5, ...))
+ -- The following syntax is not recommended, but should work.
+ ExtConstrainedStringX06 ::= IA5String (SIZE (1..2), ...)
 
  integer4 INTEGER ::= 4
  integer11 INTEGER ::= 11

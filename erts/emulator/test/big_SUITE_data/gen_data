@@ -1,0 +1,33 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+-mode(compile).
+
+main([N]) ->
+    eq_big_mul_div(N);
+main([]) ->
+    eq_big_mul_div(1000).
+
+eq_big_mul_div(N) when is_integer(N) ->
+    L0 = [gen() || _ <- lists:seq(1, N)],
+    L1 = lists:append(L0),
+    L = sets:to_list(sets:from_list(L1, [{version,2}])),
+    ok = file:write_file("eq_big_mul_div.dat", L).
+
+gen() ->
+    A = rand_int(),
+    B = rand_int(),
+    P = A * B,
+    L = [if
+             B < 0 ->
+                 io_lib:format("~.36# = ~.36# * (~.36#).\n", [P,A,B]);
+             true ->
+                 io_lib:format("~.36# = ~.36# * ~.36#.\n", [P,A,B])
+         end,
+         io_lib:format("~.36# = ~.36# div ~.36#.\n", [A,P,B]),
+         io_lib:format("~.36# = ~.36# div ~.36#.\n", [B,P,A])],
+    [lists:flatten(S) || S <- L].
+
+rand_int() ->
+    Sz = floor(max(rand:normal() * 256 + 128, 4*8)),
+    <<Int:Sz/signed-unit:8>> = rand:bytes(Sz),
+    Int.

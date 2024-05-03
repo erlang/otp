@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -411,7 +411,8 @@ move_system_unix(NodeA, PeerA, TestRootDir, ErtsBinDir, NewSystemPath) ->
              [{env,[{"PATH",TestRootDir ++ ":" ++ os:getenv("PATH")}]}]),
 
     %% Wait for node to start
-    receive _ -> ok end,
+    receive M1 -> ct:pal("~p",[M1]) end,
+    receive M2 -> ct:pal("~p",[M2]) end,
 
     hej = erpc:call(LinkNode, app_callback_module, get_response, []),
 
@@ -2387,7 +2388,10 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 	fun(NodeInfo={Node,OldInitPid}, A) ->
 		case rpc:call(Node, application, which_applications, []) of
 		    {badrpc, nodedown} ->
-			test_server:format( "  ~p = {badarg, nodedown}",[Node]),
+			test_server:format( "  ~p = {badrpc, nodedown}",[Node]),
+			[NodeInfo | A];
+                    {badrpc, {'EXIT',terminating}} ->
+			test_server:format( "  ~p = {badrpc, {'EXIT',terminating}}",[Node]),
 			[NodeInfo | A];
 		    List when is_list(List)->
 			test_server:format( "  ~p = [~p]",[Node, List]),
@@ -2405,7 +2409,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 			    false ->
 				[NodeInfo | A]
 			end
-		end
+                end
 	end,
     Pang = lists:foldl(Fun,[],Nodes),
     case Pang of
@@ -3229,7 +3233,7 @@ create_fake_release(Dir,RelName,RelVsn,AppDirs) ->
     ok = copy_file(Rel++".boot", filename:join(RelDir,"start.boot")),
 
     %% Use an own 'releases' directory - we don't want to change the
-    %% contents of $OTP_ROOT/releases
+    %% contents of $OTPROOT/releases
     %% Inform SASL about this via sys.config
     ReleasesDir = filename:join(Dir, "releases"),
     Config = [{sasl,[{releases_dir,ReleasesDir}]}],

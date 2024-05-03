@@ -25,6 +25,8 @@
 %% reported values. Functions will be added to this as time goes by.
 
 -module(system_information).
+-moduledoc "System Information".
+-moduledoc(#{since => "OTP 17.0"}).
 -behaviour(gen_server).
 
 %% API
@@ -38,7 +40,6 @@
          application/1, application/2,
          environment/0, environment/1,
          module/1, module/2,
-         modules/1,
          sanity_check/0]).
 
 %% gen_server callbacks
@@ -62,19 +63,24 @@
 %% API
 %%===================================================================
 
+-doc false.
 start() ->
     gen_server:start({local, ?SERVER}, ?MODULE, [], []).
 
 
+-doc false.
 stop() ->
     gen_server:call(?SERVER, stop, infinity).
 
+-doc false.
 load_report() -> load_report(data, report()).
 
+-doc false.
 load_report(file, File)   -> load_report(data, from_file(File));
 load_report(data, Report) ->
     ok = start_internal(), gen_server:call(?SERVER, {load_report, Report}, infinity).
 
+-doc false.
 report() ->
     %% This is ugly but beats having to maintain two distinct implementations,
     %% and we don't really care about memory use since it's internal and
@@ -84,6 +90,11 @@ report() ->
     {ok, _} = file:position(Fd, bof),
     from_fd(Fd).
 
+-doc """
+Writes miscellaneous system information to file. This information will typically
+be requested by the Erlang/OTP team at Ericsson AB when reporting an issue.
+""".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec to_file(FileName) -> ok | {error, Reason} when
       FileName :: file:name_all(),
       Reason :: file:posix() | badarg | terminated | system_limit.
@@ -100,6 +111,7 @@ to_file(File) ->
             {error, Reason}
     end.
 
+-doc false.
 from_file(File) ->
     {ok, Fd} = file:open(File, [raw, read]),
     try
@@ -108,26 +120,69 @@ from_file(File) ->
         file:close(Fd)
     end.
 
+-doc false.
 applications() -> applications([]).
+-doc false.
 applications(Opts) when is_list(Opts) ->
     gen_server:call(?SERVER, {applications, Opts}, infinity).
 
+-doc false.
 application(App) when is_atom(App) -> application(App, []).
+-doc false.
 application(App, Opts) when is_atom(App), is_list(Opts) ->
     gen_server:call(?SERVER, {application, App, Opts}, infinity).
 
+-doc false.
 environment() -> environment([]).
+-doc false.
 environment(Opts) when is_list(Opts) ->
     gen_server:call(?SERVER, {environment, Opts}, infinity).
 
+-doc false.
 module(M) when is_atom(M) -> module(M, []).
+-doc false.
 module(M, Opts) when is_atom(M), is_list(Opts) ->
     gen_server:call(?SERVER, {module, M, Opts}, infinity).
 
-modules(Opt) when is_atom(Opt) ->
-    gen_server:call(?SERVER, {modules, Opt}, infinity).
+-doc """
+Performs a sanity check on the system.
 
+If no issues were found, `ok` is returned. If issues were found,
+`{failed, Failures}` is returned. All failures found will be part of
+the `Failures` list. Currently defined `Failure` elements in the
+`Failures` list:
 
+- **`InvalidAppFile`** - An application has an invalid `.app` file. The second
+  element identifies the application which has the invalid `.app` file.
+
+- **`InvalidApplicationVersion`** - An application has an invalid application
+  version. The second element identifies the application version that is
+  invalid.
+
+- **`MissingRuntimeDependencies`** - An application is missing
+  [runtime dependencies](`e:kernel:app.md#runtime_dependencies`). The second
+  element identifies the application (with version) that has missing
+  dependencies. The third element contains the missing dependencies.
+
+  Note that this check use application versions that are loaded, or will be
+  loaded when used. You might have application versions that satisfies all
+  dependencies installed in the system, but if those are not loaded this check
+  will fail. Of course, the system will also fail when used like this. This can
+  happen when you have multiple [branched versions](`e:system:versions.md`) of
+  the same application installed in the system, but there does not exist a
+  [boot script](`e:system:system_principles.md#BOOTSCRIPT`) identifying the
+  correct application version.
+
+Currently the sanity check is limited to verifying runtime dependencies found in
+the `.app` files of all applications. More checks will be introduced in the
+future. This implies that the return type _will_ change in the future.
+
+> #### Note {: .info }
+>
+> An `ok` return value only means that `sanity_check/0` did not find any issues,
+> _not_ that no issues exist.
+""".
+-doc(#{since => <<"OTP 17.0">>}).
 -spec sanity_check() -> ok | {failed, Failures} when
       Application :: atom(),
       ApplicationVersion :: string(),
@@ -152,9 +207,11 @@ sanity_check() ->
 %% gen_server callbacks
 %%===================================================================
 
+-doc false.
 init([]) ->
     {ok, #state{}}.
 
+-doc false.
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S};
 
@@ -190,24 +247,22 @@ handle_call({module, M, Opts}, _From, #state{ report = Report } = S) ->
     print_modules_from_code(M, Mods, Opts),
     {reply, ok, S};
 
-handle_call({modules, native}, _From, #state{ report = Report } = S) ->
-    Codes = get_native_modules_from_code(get_value([code],Report)),
-    io:format("~p~n", [Codes]),
-    {reply, ok, S};
-
-
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
+-doc false.
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+-doc false.
 handle_info(_Info, State) ->
     {noreply, State}.
 
+-doc false.
 terminate(_Reason, _State) ->
     ok.
 
+-doc false.
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -248,31 +303,6 @@ find_modules_from_code(_, []) -> [].
 find_modules(M, [{M, _}=Info|Ms]) -> [Info|find_modules(M,Ms)];
 find_modules(M, [_|Ms]) -> find_modules(M, Ms);
 find_modules(_, []) -> [].
-
-get_native_modules_from_code([{application, {App, Info}}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    Vsn  = get_value([vsn], Info),
-	    [{App, Vsn, Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([{code, Info}|Cs]) ->
-    case get_native_modules(get_value([modules], Info)) of
-	[] -> get_native_modules_from_code(Cs);
-	Mods ->
-	    Path = get_value([path], Info),
-	    [{Path, Mods}|get_native_modules_from_code(Cs)]
-    end;
-get_native_modules_from_code([]) -> [].
-
-get_native_modules([]) -> [];
-get_native_modules([{Mod, Info}|Ms]) ->
-    case proplists:get_value(native, Info) of
-	false -> get_native_modules(Ms);
-	_     -> [Mod|get_native_modules(Ms)]
-    end.
-
 
 %% print information
 
@@ -320,14 +350,12 @@ print_module_from_code(M, {Path, [{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (no application):~n", [Path]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok;
 print_module_from_code(M, {App,Vsn,Path,[{M,ModInfo}]}) ->
     io:format(" from path \"~ts\" (~w-~s):~n", [Path,App,Vsn]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -335,7 +363,6 @@ print_module({Mod, ModInfo}) ->
     io:format("   - ~w:~n", [Mod]),
     io:format("     - compiler: ~s~n", [get_value([compiler], ModInfo)]),
     io:format("     -      md5: ~s~n", [get_value([md5], ModInfo)]),
-    io:format("     -   native: ~w~n", [get_value([native], ModInfo)]),
     io:format("     -   loaded: ~w~n", [get_value([loaded], ModInfo)]),
     ok.
 
@@ -571,7 +598,6 @@ emit_module_info(EmitChunk, Beam) ->
 
     EmitChunk("{~w,["
                   "{loaded,~w},"
-                  "{native,false},"
                   "{compiler,~w},"
                   "{md5,~w}"
               "]}",

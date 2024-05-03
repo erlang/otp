@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,15 +22,25 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_crl_cache).
+-moduledoc """
+CRL cache
+
+Implements an internal CRL (Certificate Revocation List) cache. In addition to
+implementing the `m:ssl_crl_cache_api` behaviour the following functions are
+available.
+""".
+-moduledoc(#{since => "OTP 18.0"}).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -behaviour(ssl_crl_cache_api).
 
--export_type([crl_src/0, uri/0]).
+-export_type([crl_src/0]).
+-doc """
+A source to input CRLs
+""".
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
--type uri()     :: uri_string:uri_string().
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
@@ -39,6 +49,7 @@
 %% Cache callback API
 %%====================================================================
 
+-doc false.
 lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
        _Issuer,
        CRLDbInfo) ->
@@ -46,6 +57,7 @@ lookup(#'DistributionPoint'{distributionPoint = {fullName, Names}},
 lookup(_,_,_) ->
     not_available.
 
+-doc false.
 select(GenNames, CRLDbHandle) when is_list(GenNames) ->
     lists:flatmap(fun({directoryName, Issuer}) ->
                           select(Issuer, CRLDbHandle);
@@ -60,6 +72,7 @@ select(Issuer, {{_Cache, Mapping},_}) ->
 	    CRLs
     end.
 
+-doc false.
 fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
     case get_crls(Names, undefined) of
 	not_available ->
@@ -72,22 +85,49 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 %% API 
 %%====================================================================
 
-insert(CRLs) ->
-    insert(?NO_DIST_POINT, CRLs).
+%%--------------------------------------------------------------------
+-doc(#{equiv => insert/2}).
+-doc(#{since => <<"OTP 18.0">>}).
+-spec insert(CRLSrc) -> ok | {error, Reason} when
+      CRLSrc :: crl_src(),
+      Reason :: ssl:reason().
+%%--------------------------------------------------------------------
+insert(CRLSrc) ->
+    insert(?NO_DIST_POINT, CRLSrc).
 
-insert(URI, {file, File}) when is_list(URI) ->				     
+%%--------------------------------------------------------------------
+-doc """
+Insert CRLs into the ssl applications local cache, with or without a
+distribution point reference URI
+""".
+-doc(#{since => <<"OTP 18.0">>}).
+-spec insert(DistPointURI, CRLSrc) -> ok | {error, Reason} when
+      DistPointURI :: uri_string:uri_string(),
+      CRLSrc :: crl_src(),
+      Reason :: ssl:reason().
+%%--------------------------------------------------------------------
+insert(DistPointURI, {file, File}) when is_list(DistPointURI) ->
     case file:read_file(File) of
 	{ok, PemBin} ->
 	    PemEntries = public_key:pem_decode(PemBin),
 	    CRLs = [ CRL || {'CertificateList', CRL, not_encrypted} 
 				<- PemEntries],
-	    do_insert(URI, CRLs);
+	    do_insert(DistPointURI, CRLs);
 	Error ->
 	    Error
     end;
-insert(URI, {der, CRLs}) ->	
-    do_insert(URI, CRLs).
+insert(DistPointURI, {der, CRLs}) ->	
+    do_insert(DistPointURI, CRLs).
 
+%%--------------------------------------------------------------------
+-doc """
+Delete CRLs from the ssl applications local cache.
+""".
+-doc(#{since => <<"OTP 18.0">>}).
+-spec delete(Entries) -> ok | {error, Reason} when
+      Entries :: crl_src() | uri_string:uri_string(),
+      Reason :: ssl:reason().
+%%--------------------------------------------------------------------
 delete({file, File}) ->
     case file:read_file(File) of
 	{ok, PemBin} ->

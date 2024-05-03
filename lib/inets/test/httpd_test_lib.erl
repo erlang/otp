@@ -216,7 +216,7 @@ request(#state{mfa = {Module, Function, Args},
 	{Socket, closed} ->
 	    exit({test_failed, connection_closed})
     after TimeOut ->
-	    ct:pal("~p ~w[~w]request -> timeout"
+	    ct:log("~p ~w[~w]request -> timeout"
 		   "~p~n", [self(), ?MODULE, ?LINE, Args]),
 	    ct:fail(connection_timed_out)    
     end.

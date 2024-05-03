@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ typedef struct {
     void *prep_func_res;
     size_t stacksize;
     char *name;
-    char name_buff[32];
+    char name_buff[ETHR_THR_NAME_MAX + 1];
 } ethr_thr_wrap_data__;
 
 static void *thr_wrapper(void *vtwd)
@@ -334,21 +334,9 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     twd.stacksize = 0;
 
     if (opts && opts->name) {
-        size_t nlen = sizeof(twd.name_buff);
-#ifdef __HAIKU__
-        if (nlen > B_OS_NAME_LENGTH)
-            nlen = B_OS_NAME_LENGTH;
-#else
-        /*
-         * Length of 16 is known to work. At least pthread_setname_np()
-         * is documented to fail on too long name string, but documentation
-         * does not say what the limit is. Do not have the time to dig
-         * further into that now...
-         */
-        if (nlen > 16)
-            nlen = 16;
-#endif
-        snprintf(twd.name_buff, nlen, "%s", opts->name);
+	if (strlen(opts->name) >= sizeof(twd.name_buff))
+	    return EINVAL;
+	strcpy(twd.name_buff, opts->name);
 	twd.name = twd.name_buff;
     } else
         twd.name = NULL;
@@ -506,6 +494,8 @@ ethr_getname(ethr_tid tid, char *buf, size_t len)
 void
 ethr_setname(char *name)
 {
+    if (strlen(name) > ETHR_THR_NAME_MAX)
+        return;
 #if defined(ETHR_HAVE_PTHREAD_SETNAME_NP_2) 
     pthread_setname_np(ethr_self(), name);
 #elif defined(ETHR_HAVE_PTHREAD_SET_NAME_NP_2)

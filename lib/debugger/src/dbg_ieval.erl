@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_ieval).
+-moduledoc false.
 
 -export([eval/3,exit_info/5]).
 -export([eval_expr/3]).
@@ -229,6 +230,8 @@ meta(Int, Debugged, M, F, As) ->
     put(trace, false),       % bool() Trace on/off
     put(user_eval, []),
 
+    Session = trace:session_create(debugger, self(), []),
+    put(trace_session, Session),
 
     %% Send the result of the meta process
     Ieval = #ieval{},
@@ -620,8 +623,12 @@ seq([E|Es], Bs0, Ieval) ->
 	{skip,Bs} ->
 	    seq(Es, Bs, Ieval);
 	Bs1 ->
-	    {value,_,Bs} = expr(E, Bs1, Ieval#ieval{top=false}),
-	    seq(Es, Bs, Ieval)
+	    case expr(E, Bs1, Ieval#ieval{top=false}) of
+                {value,_,Bs} ->
+                    seq(Es, Bs, Ieval);
+                {bad_maybe_match,_}=Bad ->
+                    Bad
+            end
     end;
 seq([], Bs, _) ->
     {value,true,Bs}.
@@ -755,6 +762,24 @@ expr({'orelse',Line,E1,E2}, Bs0, Ieval) ->
             exception(error, {badarg,Val}, Bs, Ieval)
     end;
 
+%% Maybe statement without else
+expr({'maybe',Line,Es}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            {value,Val,Bs};
+        {value,_,_}=Other ->
+            Other
+    end;
+
+%% Maybe statement with else
+expr({'maybe',Line,Es,Cs}, Bs, Ieval) ->
+    case seq(Es, Bs, Ieval#ieval{line=Line}) of
+        {bad_maybe_match,Val} ->
+            case_clauses(Val, Cs, Bs, else_clause, Ieval#ieval{line=Line});
+        {value,_,_}=Other ->
+            Other
+    end;
+
 %% Matching expression
 expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -764,6 +789,17 @@ expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 	    {value,Rhs,Bs};
 	nomatch ->
 	    exception(error, {badmatch,Rhs}, Bs1, Ieval)
+    end;
+
+%% Conditional match expression (?=)
+expr({maybe_match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Ieval#ieval{top=false}),
+    case match(Lhs, Rhs, Bs1) of
+	{match,Bs} ->
+	    {value,Rhs,Bs};
+	nomatch ->
+            {bad_maybe_match,Rhs}
     end;
 
 %% Construct a fun
@@ -1054,6 +1090,8 @@ expr({lc,_Line,E,Qs}, Bs, Ieval) ->
     eval_lc(E, Qs, Bs, Ieval);
 expr({bc,_Line,E,Qs}, Bs, Ieval) ->
     eval_bc(E, Qs, Bs, Ieval);
+expr({mc,_Line,E,Qs}, Bs, Ieval) ->
+    eval_mc(E, Qs, Bs, Ieval);
 
 %% Brutal exit on unknown expressions/clauses/values/etc.
 expr(E, _Bs, _Ieval) ->
@@ -1074,16 +1112,9 @@ eval_named_fun(As, RF, {Info,Bs,Cs,FName}) ->
 eval_lc(E, Qs, Bs, Ieval) ->
     {value,eval_lc1(E, Qs, Bs, Ieval),Bs}.
 
-eval_lc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+eval_lc1(E, [{generator,G}|Qs], Bs, Ieval) ->
     CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
-    eval_generate(L1, P, Bs1, CompFun, Ieval);
-eval_lc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
-    CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
+    eval_generator(G, Bs, CompFun, Ieval);
 eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_lc1(E, Qs, Bs0, Ieval);
@@ -1107,16 +1138,9 @@ eval_bc(E, Qs, Bs, Ieval) ->
     Val = erlang:list_to_bitstring(eval_bc1(E, Qs, Bs, Ieval)),
     {value,Val,Bs}.
 
-eval_bc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+eval_bc1(E, [{generator,G}|Qs], Bs, Ieval) ->
     CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
-    eval_generate(L1, P, Bs1, CompFun, Ieval);
-eval_bc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
-    CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
+    eval_generator(G, Bs, CompFun, Ieval);
 eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_bc1(E, Qs, Bs0, Ieval);
@@ -1131,6 +1155,56 @@ eval_bc1(E, [Q|Qs], Bs0, Ieval) ->
 eval_bc1(E, [], Bs, Ieval) ->
     {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
     [V].
+
+eval_mc(E, Qs, Bs, Ieval) ->
+    Map = eval_mc1(E, Qs, Bs, Ieval),
+    {value,maps:from_list(Map),Bs}.
+
+eval_mc1(E, [{generator,G}|Qs], Bs, Ieval) ->
+    CompFun = fun(NewBs) -> eval_mc1(E, Qs, NewBs, Ieval) end,
+    eval_generator(G, Bs, CompFun, Ieval);
+eval_mc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
+    case guard(Q, Bs0) of
+	true -> eval_mc1(E, Qs, Bs0, Ieval);
+	false -> []
+    end;
+eval_mc1(E, [Q|Qs], Bs0, Ieval) ->
+    case expr(Q, Bs0, Ieval#ieval{top=false}) of
+	{value,true,Bs} -> eval_mc1(E, Qs, Bs, Ieval);
+	{value,false,_Bs} -> [];
+	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
+    end;
+eval_mc1({map_field_assoc,_,K0,V0}, [], Bs, Ieval) ->
+    {value,K,_} = expr(K0, Bs, Ieval#ieval{top=false}),
+    {value,V,_} = expr(V0, Bs, Ieval#ieval{top=false}),
+    [{K,V}].
+
+eval_generator({generate,Line,P,L0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
+    eval_generate(L1, P, Bs1, CompFun, Ieval);
+eval_generator({b_generate,Line,P,Bin0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,Bin,Bs1} = expr(Bin0, Bs0, Ieval#ieval{top=false}),
+    eval_b_generate(Bin, P, Bs1, CompFun, Ieval);
+eval_generator({m_generate,Line,P,Map0}, Bs0, CompFun, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {map_field_exact,_,K,V} = P,
+    {value,Map,_Bs1} = expr(Map0, Bs0, Ieval),
+    Iter = case is_map(Map) of
+               true ->
+                   maps:iterator(Map);
+               false ->
+                   %% Validate iterator.
+                   try maps:foreach(fun(_, _) -> ok end, Map) of
+                       _ ->
+                           Map
+                   catch
+                       _:_ ->
+                           exception(error, {bad_generator,Map}, Bs0, Ieval)
+                   end
+           end,
+    eval_m_generate(Iter, {tuple,Line,[K,V]}, Bs0, CompFun, Ieval).
 
 eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
     case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
@@ -1159,6 +1233,20 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
     end;
 eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
+
+eval_m_generate(Iter0, P, Bs0, CompFun, Ieval) ->
+    case maps:next(Iter0) of
+        {K,V,Iter} ->
+            case catch match1(P, {K,V}, erl_eval:new_bindings(), Bs0) of
+                {match,Bsn} ->
+                    Bs2 = add_bindings(Bsn, Bs0),
+                    CompFun(Bs2) ++ eval_m_generate(Iter, P, Bs0, CompFun, Ieval);
+                nomatch ->
+                    eval_m_generate(Iter, P, Bs0, CompFun, Ieval)
+            end;
+        none ->
+            []
+    end.
 
 safe_bif(M, F, As, Bs, Ieval0) ->
     try apply(M, F, As) of
@@ -1190,8 +1278,8 @@ eval_receive(Debugged, Cs, Bs0,
 	     #ieval{module=M,line=Line,level=Le}=Ieval) ->
     %% To avoid private message passing protocol between META
     %% and interpreted process.
-    erlang:trace(Debugged,true,['receive']),
-    {_,Msgs} = erlang:process_info(Debugged,messages),
+    session_recv_trace(Debugged, true),
+    {_,Msgs} = erlang:process_info(Debugged, messages),
     case receive_clauses(Cs, Bs0, Msgs) of
 	nomatch ->
 	    dbg_iserver:cast(get(int), {set_status, self(),waiting,{}}),
@@ -1232,8 +1320,8 @@ eval_receive(Debugged, Cs, 0, ToExprs, ToBs, Bs0, 0, _Stamp, Ieval) ->
     end;
 eval_receive(Debugged, Cs, ToVal, ToExprs, ToBs, Bs0,
 	     0, Stamp, #ieval{module=M,line=Line,level=Le}=Ieval)->
-    erlang:trace(Debugged,true,['receive']),
-    {_,Msgs} = erlang:process_info(Debugged,messages),
+    session_recv_trace(Debugged, true),
+    {_,Msgs} = erlang:process_info(Debugged, messages),
     case receive_clauses(Cs, Bs0, Msgs) of
 	nomatch ->
 	    {Stamp1,Time1} = newtime(Stamp,ToVal),
@@ -1306,13 +1394,13 @@ newtime(Stamp,Time) ->
     end.
 
 rec_mess(Debugged, Msg, Bs, Ieval) ->
-    erlang:trace(Debugged, false, ['receive']),
+    session_recv_trace(Debugged, false),
     flush_traces(Debugged),
     Debugged ! {sys,self(),{'receive',Msg}},
     rec_ack(Debugged, Bs, Ieval).
 
 rec_mess(Debugged) ->
-    erlang:trace(Debugged, false, ['receive']),
+    session_recv_trace(Debugged, false),
     flush_traces(Debugged).
 
 rec_mess_no_trace(Debugged, Msg, Bs, Ieval) ->
@@ -1463,6 +1551,9 @@ guard_expr({'orelse',_,E1,E2}, Bs) ->
 		{value,_Val}=Res -> Res
 	    end
     end;
+guard_expr({'case',_,E0,Cs}, Bs) ->
+    {value,E} = guard_expr(E0, Bs),
+    guard_case_clauses(E, Cs, Bs);
 guard_expr({dbg,_,self,[]}, _) ->
     {value,get(self)};
 guard_expr({safe_bif,_,erlang,'not',As0}, Bs) ->
@@ -1505,6 +1596,20 @@ guard_expr({bin,_,Flds}, Bs) ->
 			   end),
     {value,V}.
 
+%% guard_case_clauses(Value, Clauses, Bindings, Error, Ieval)
+%%   Error = try_clause | case_clause
+guard_case_clauses(Val, [{clause,_,[P],G,B}|Cs], Bs0) ->
+    case match(P, Val, Bs0) of
+	{match,Bs} ->
+	    case guard(G, Bs) of
+		true ->
+		    guard_expr(hd(B), Bs);
+		false ->
+		    guard_case_clauses(Val, Cs, Bs0)
+	    end;
+	nomatch ->
+	    guard_case_clauses(Val, Cs, Bs0)
+    end.
 
 %% eval_map_fields([Field], Bindings, IEvalState) ->
 %%  {[{map_assoc | map_exact,Key,Value}],Bindings}
@@ -1848,3 +1953,8 @@ used_records(T) when is_tuple(T) ->
     {expr, tuple_to_list(T)};
 used_records(E) ->
     {expr, E}.
+
+session_recv_trace(Subject, How) ->
+    Session = get(trace_session),
+    _ = trace:process(Session, Subject, How, ['receive']),
+    ok.

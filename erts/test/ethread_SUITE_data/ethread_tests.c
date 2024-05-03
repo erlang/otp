@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 
 #define PRINT_VA_LIST(FRMT)						\
 do {									\
-    if (FRMT && FRMT != '\0') {						\
+    if (FRMT && *(FRMT) != '\0') {					\
 	va_list args;							\
 	va_start(args, FRMT);						\
 	vfprintf(stderr, FRMT, args);					\
@@ -1757,6 +1757,7 @@ at_dw_thr(void *vval)
 		break;
 	}
     }
+    return NULL;
 }
 
 static void
@@ -1781,6 +1782,120 @@ dw_atomic_massage_test(void)
 	res = ethr_thr_join(tid[i-AT_DW_MIN], NULL);
 	ASSERT(res == 0);
     }
+}
+
+static ethr_mutex thread_name_mutex;
+static ethr_cond thread_name_cond;
+static int thread_name_state;
+
+static void *
+thread_name_thread(void *my_tid)
+{
+    int res;
+
+    ethr_mutex_lock(&thread_name_mutex);
+    thread_name_state = 1;
+    while (thread_name_state == 1) {
+	res = ethr_cond_wait(&thread_name_cond, &thread_name_mutex);
+	ASSERT(res == 0);
+    }
+    ethr_mutex_unlock(&thread_name_mutex);
+    return NULL;
+}
+
+static void
+thread_name(void)
+{
+    static const ethr_thr_opts default_thr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
+    ethr_tid tid;
+    ethr_thr_opts thr_opts;
+    int res;
+    char buf[ETHR_THR_NAME_MAX + 1];
+
+    res = ethr_mutex_init(&thread_name_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&thread_name_cond);
+    ASSERT(res == 0);
+
+    if (ethr_getname(ethr_self(), buf, sizeof(buf)) == ENOSYS) {
+        skip("thread names are not supported");
+        return;
+    }
+
+    /* create a thread with the minimum name length */
+    thread_name_state = 0;
+
+    memcpy(&thr_opts, &default_thr_opts, sizeof(thr_opts));
+    thr_opts.name = "";
+    res = ethr_thr_create(&tid, thread_name_thread, NULL, &thr_opts);
+    ASSERT(res == 0);
+
+    memset(buf, 0xFF, sizeof(buf));
+    res = ethr_getname(tid, buf, sizeof(buf));
+    ASSERT(res == 0);
+
+    res = strcmp(buf, "");
+    ASSERT(res == 0);
+
+    ethr_mutex_lock(&thread_name_mutex);
+    thread_name_state = 0;
+    ethr_cond_signal(&thread_name_cond);
+    ethr_mutex_unlock(&thread_name_mutex);
+
+    res = ethr_thr_join(tid, NULL);
+    ASSERT(res == 0);
+
+    /* create a thread with a middling name length */
+    thread_name_state = 0;
+
+    memcpy(&thr_opts, &default_thr_opts, sizeof(thr_opts));
+    thr_opts.name = "123456789";
+    res = ethr_thr_create(&tid, thread_name_thread, NULL, &thr_opts);
+    ASSERT(res == 0);
+
+    memset(buf, 0xFF, sizeof(buf));
+    res = ethr_getname(tid, buf, sizeof(buf));
+    ASSERT(res == 0);
+
+    res = strcmp(buf, "123456789");
+    ASSERT(res == 0);
+
+    ethr_mutex_lock(&thread_name_mutex);
+    thread_name_state = 0;
+    ethr_cond_signal(&thread_name_cond);
+    ethr_mutex_unlock(&thread_name_mutex);
+
+    res = ethr_thr_join(tid, NULL);
+    ASSERT(res == 0);
+
+    /* create a thread with the maximum name length */
+    thread_name_state = 0;
+
+    memcpy(&thr_opts, &default_thr_opts, sizeof(thr_opts));
+    thr_opts.name = "123456789012345";
+    res = ethr_thr_create(&tid, thread_name_thread, NULL, &thr_opts);
+    ASSERT(res == 0);
+
+    memset(buf, 0xFF, sizeof(buf));
+    res = ethr_getname(tid, buf, sizeof(buf));
+    ASSERT(res == 0);
+
+    res = strcmp(buf, "123456789012345");
+    ASSERT(res == 0);
+
+    ethr_mutex_lock(&thread_name_mutex);
+    thread_name_state = 0;
+    ethr_cond_signal(&thread_name_cond);
+    ethr_mutex_unlock(&thread_name_mutex);
+
+    res = ethr_thr_join(tid, NULL);
+    ASSERT(res == 0);
+
+    /* create a thread with an over-sized name length */
+    memcpy(&thr_opts, &default_thr_opts, sizeof(thr_opts));
+    thr_opts.name = "1234567890123456";
+    res = ethr_thr_create(&tid, thread_name_thread, NULL, &thr_opts);
+    ASSERT(res == EINVAL);
 }
 
 void *
@@ -1958,6 +2073,8 @@ main(int argc, char *argv[])
 	    atomic_test();
 	else if (strcmp(testcase, "dw_atomic_massage") == 0)
 	    dw_atomic_massage_test();
+        else if (strcmp(testcase, "thread_name") == 0)
+            thread_name();
 	else
 	    skip("Test case \"%s\" not implemented yet", testcase);
 

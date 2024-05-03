@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ typedef struct process Process;
 #define ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 #define ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS ERTS_MAX_NO_OF_SCHEDULERS
 
-#define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
+#define ERTS_DEFAULT_MAX_PROCESSES (1 << 20)
 
 #define ERTS_HEAP_ALLOC(Type, Size)					\
      erts_alloc((Type), (Size))
@@ -606,6 +606,9 @@ typedef struct ErtsAuxWorkData_ {
 	    void *arg;
 	} wait_completed;
     } debug;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    void* lc_aux_arg;
+#endif
 } ErtsAuxWorkData;
 
 #define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
@@ -705,6 +708,9 @@ struct ErtsSchedulerData_ {
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsMonotonicTime last_monotonic_time;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    ErtsMonotonicTime last_os_monotonic_time;
+#endif
     int check_time_reds;
 
     Uint32 thr_id;
@@ -728,7 +734,10 @@ struct ErtsSchedulerData_ {
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-    ErtsEtsTables ets_tables;
+    union {
+        ErtsEtsTables ets_tables;
+        erts_atomic32_t dirty_nif_halt_info;
+    } u;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
@@ -868,9 +877,11 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_ETS_OWNED_TABLES               6
 #define ERTS_PSD_ETS_FIXED_TABLES               7
 #define ERTS_PSD_DIST_ENTRY	                8
-#define ERTS_PSD_PENDING_SUSPEND                9 /* keep last... */
+#define ERTS_PSD_CALL_MEMORY_BP	                9
+#define ERTS_PSD_TS_EVENT                       10
+#define ERTS_PSD_PENDING_SUSPEND                11 /* keep last... */
 
-#define ERTS_PSD_SIZE				10
+#define ERTS_PSD_SIZE				12
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -891,6 +902,9 @@ typedef struct {
 #define ERTS_PSD_CALL_TIME_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_CALL_TIME_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
+#define ERTS_PSD_CALL_MEMORY_BP_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_CALL_MEMORY_BP_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
@@ -905,6 +919,9 @@ typedef struct {
 
 #define ERTS_PSD_DIST_ENTRY_GET_LOCKS ERTS_LC_PSD_ANY_LOCK
 #define ERTS_PSD_DIST_ENTRY_SET_LOCKS ERTS_PROC_LOCKS_ALL
+
+#define ERTS_PSD_TS_EVENT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_TS_EVENT_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 #define ERTS_PSD_PENDING_SUSPEND_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_PENDING_SUSPEND_SET_LOCKS ERTS_PROC_LOCK_MAIN
@@ -990,28 +1007,24 @@ typedef struct ErtsProcSysTaskQs_ ErtsProcSysTaskQs;
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
 
-#  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
-#  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
-#  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
-#  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
-
-#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 2)
-#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 2) |  \
+#  define MAX_HEAP_SIZE_GET(p)     ((p)->max_heap_size >> 3)
+#  define MAX_HEAP_SIZE_SET(p, sz) ((p)->max_heap_size = ((sz) << 3) |  \
                                     MAX_HEAP_SIZE_FLAGS_GET(p))
-#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x3)
+#  define MAX_HEAP_SIZE_FLAGS_GET(p)          ((p)->max_heap_size & 0x7)
 #  define MAX_HEAP_SIZE_FLAGS_SET(p, flags)   ((p)->max_heap_size = flags | \
-                                               ((p)->max_heap_size & ~0x3))
+                                               ((p)->max_heap_size & ~0x7))
 #  define MAX_HEAP_SIZE_KILL 1
 #  define MAX_HEAP_SIZE_LOG  2
+#  define MAX_HEAP_SIZE_INCLUDE_OH_BINS 4
 
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
-    /* Place fields that are frequently used from loaded BEAMASM
-     * instructions near the beginning of this struct so that a
-     * shorter instruction can be used to access them.
-     */
+    /* Place fields that are frequently used from BEAMASM instructions near the
+     * beginning of this struct so that a shorter instruction can be used to
+     * access them. */
 
+    /* These are paired to exploit the STP instruction in the ARM JIT. */
     Eterm *htop;                /* Heap top */
     Eterm *stop;                /* Stack top */
 
@@ -1019,64 +1032,64 @@ struct process {
     Eterm *frame_pointer;       /* Frame pointer */
 #endif
 
-    Sint fcalls;		/* Number of reductions left to execute.
-				 * Only valid for the current process.
-				 */
-    Uint freason;		/* Reason for detected failure */
-    Eterm fvalue;		/* Exit & Throw value (failure reason) */
+    /* These are paired to exploit the STP instruction in the ARM JIT. */
+    Uint freason;               /* Reason for detected failure. */
+    Eterm fvalue;               /* Exit & Throw value (failure reason) */
+
+    Sint32 fcalls;              /* Number of reductions left to execute.
+                                 * Only valid for the current process while it
+                                 * is executing. */
+
+    Uint32 flags;               /* Trap exit, etc */
 
     /* End of frequently used fields by BEAMASM code. */
 
-    Eterm* heap;		/* Heap start */
-    Eterm* hend;		/* Heap end */
+    Uint32 rcount;              /* Suspend count */
+    byte schedule_count;        /* Times left to reschedule a low prio process */
+
+    /* Saved x registers. */
+    byte arity;                 /* Number of live argument registers (only
+                                 * valid when process is *not* running). */
+    byte max_arg_reg;           /* Maximum number of argument registers
+                                 * available. */
+    Eterm* arg_reg;             /* Pointer to argument registers. */
+    Eterm def_arg_reg[6];       /* Default array for argument registers. */
+
+    Eterm* heap;                /* Heap start */
+    Eterm* hend;                /* Heap end */
     Eterm* abandoned_heap;
-    Uint heap_sz;		/* Size of heap in words */
+    Uint heap_sz;               /* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
     Uint max_heap_size;         /* Maximum size of heap (in words). */
 
-    /*
-     * Saved x registers.
-     */
-    Uint arity;			/* Number of live argument registers (only valid
-				 * when process is *not* running).
-				 */
-    Eterm* arg_reg;		/* Pointer to argument registers. */
-    unsigned max_arg_reg;	/* Maximum number of argument registers available. */
-    Eterm def_arg_reg[6];	/* Default array for argument registers. */
-
     ErtsCodePtr i;              /* Program counter. */
-    Sint catches;		/* Number of catches on stack */
-    Uint32 rcount;		/* suspend count */
-    int  schedule_count;	/* Times left to reschedule a low prio process */
-    Uint reds;			/* No of reductions for this process  */
-    Uint32 flags;		/* Trap exit, etc */
-    Eterm group_leader;		/* Pid in charge (can be boxed) */
-    Eterm ftrace;		/* Latest exception stack trace dump */
+    Sint catches;               /* Number of catches on stack */
+    Sint return_trace_frames;   /* Number of return trace frames on stack */
+    Uint reds;                  /* No of reductions for this process  */
+    Eterm group_leader;         /* Pid in charge (can be boxed) */
+    Eterm ftrace;               /* Latest exception stack trace dump */
 
-    Process *next;		/* Pointer to next process in run queue */
+    Process *next;              /* Pointer to next process in run queue */
 
-    Sint64 uniq;                /* Used for process unique integer */
+    Sint64 uniq;                 /* Used for process unique integer */
     ErtsSignalPrivQueues sig_qs; /* Signal queues */
-    ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
+    ErtsBifTimers *bif_timers;   /* Bif timers aiming at this process */
 
-    ProcDict  *dictionary;       /* Process dictionary, may be NULL */
+    ProcDict *dictionary;        /* Process dictionary, may be NULL */
 
     Uint seq_trace_clock;
     Uint seq_trace_lastcnt;
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
-#ifdef USE_VM_PROBES
-    Eterm dt_utag;              /* Place to store the dynamic trace user tag */
-    Uint dt_utag_flags;         /* flag field for the dt_utag */
-#endif
     union {
         struct process *real_proc;
-	void *terminate;
-	ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
+        void *terminate;
+        ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
                                    often used instead of pointer to funcinfo
                                    instruction. */
     } u;
+
     const ErtsCodeMFA* current; /* Current Erlang function, part of the
                                  * funcinfo:
                                  *
@@ -1089,7 +1102,7 @@ struct process {
     /*
      * Information mainly for post-mortem use (erl crash dump).
      */
-    Eterm parent;		/* Pid of process that created this process. */
+    Eterm parent;               /* Pid of process that created this process. */
 
     Uint32 static_flags;        /* Flags that do *not* change */
 
@@ -1097,12 +1110,12 @@ struct process {
      * architectures, have gone to.
      */
 
+    Uint16 gen_gcs;             /* Number of (minor) generational GCs. */
+    Uint16 max_gen_gcs;         /* Max minor gen GCs before fullsweep. */
     Eterm *high_water;
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
-    Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
-    Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
     struct erl_off_heap_header* wrt_bins; /* Writable binaries */
     ErlHeapFragment* mbuf;	/* Pointer to heap fragment list */
@@ -1118,8 +1131,8 @@ struct process {
     ErtsProcSysTaskQs *sys_task_qs;
     ErtsProcSysTask *dirty_sys_tasks;
 
-    erts_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
-    erts_atomic32_t dirty_state; /* Process dirty state flags (see ERTS_PDSFLG_*) */
+    erts_atomic32_t state;      /* Process state flags (see ERTS_PSFLG_*) */
+    erts_atomic32_t xstate; /* Process extra state flags (see ERTS_PXSFLG_*) */
     Uint sig_inq_contention_counter;
     ErtsSignalInQueue sig_inq;
     erts_atomic_t sig_inq_buffers;
@@ -1127,6 +1140,11 @@ struct process {
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
     erts_atomic_t run_queue;
+
+#ifdef USE_VM_PROBES
+    Eterm dt_utag;              /* Place to store the dynamic trace user tag */
+    Uint dt_utag_flags;         /* flag field for the dt_utag */
+#endif
 
 #ifdef CHECK_FOR_HOLES
     Eterm* last_htop;		/* No need to scan the heap below this point. */
@@ -1247,9 +1265,9 @@ void erts_check_for_holes(Process* p);
    process table. Always ACTIVE while EXITING. Never
    SUSPENDED unless also FREE. */
 #define ERTS_PSFLG_EXITING		ERTS_PSFLG_BIT(5)
-/* MAYBE_SELF_SIGS - We might have outstanding signals
-   from ourselves to ourselvs. */
-#define ERTS_PSFLG_MAYBE_SELF_SIGS	ERTS_PSFLG_BIT(6)
+/* MSG_SIG_IN_Q - Have unhandled message signals in signal
+   in-queue */
+#define ERTS_PSFLG_MSG_SIG_IN_Q         ERTS_PSFLG_BIT(6)
 /* ACTIVE - Process "wants" to execute */
 #define ERTS_PSFLG_ACTIVE		ERTS_PSFLG_BIT(7)
 /* IN_RUNQ - Real process (not proxy) struct used in a
@@ -1264,8 +1282,9 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
 /* SYS_TASKS - Have normal system tasks scheduled */
 #define ERTS_PSFLG_SYS_TASKS		ERTS_PSFLG_BIT(12)
-/* SIG_IN_Q - Have unhandled signals in signal in-queue */
-#define ERTS_PSFLG_SIG_IN_Q		ERTS_PSFLG_BIT(13)
+/* NMSG_SIG_IN_Q - Have unhandled non-message signals in
+   signal in-queue */
+#define ERTS_PSFLG_NMSG_SIG_IN_Q        ERTS_PSFLG_BIT(13)
 /* ACTIVE_SYS - Process "wants" to execute normal system
    tasks or handle signals */
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
@@ -1313,6 +1332,34 @@ void erts_check_for_holes(Process* p);
 					 | ERTS_PSFLG_DIRTY_RUNNING	\
 					 | ERTS_PSFLG_DIRTY_RUNNING_SYS)
 
+/*
+ * Process is in a dirty state if it got dirty work scheduled or
+ * is running dirty. We do not include the dirty-running-sys state
+ * since it executing while holding the main process lock which makes
+ * it hard or impossible to manipulate from the outside. The time spent
+ * in the dirty-running-sys is also limited compared to the other dirty
+ * states.
+ *
+ * For more info on why we ignore dirty running sys see
+ * erts_execute_dirty_system_task() in erl_process.c.
+ */
+#define ERTS_PROC_IN_DIRTY_STATE(S)                                     \
+    ((!!((S) & (ERTS_PSFLGS_DIRTY_WORK                                  \
+                | ERTS_PSFLG_DIRTY_RUNNING)))                           \
+     & (!((S) & (ERTS_PSFLG_DIRTY_RUNNING_SYS                           \
+                 | ERTS_PSFLG_RUNNING_SYS                               \
+                 | ERTS_PSFLG_RUNNING))))
+
+/*
+ * A process needs dirty signal handling if it has unhandled signals
+ * and is in a dirty state...
+ */
+#define ERTS_PROC_NEED_DIRTY_SIG_HANDLING(S)                            \
+    ((!!((S) & (ERTS_PSFLG_SIG_Q                                        \
+                | ERTS_PSFLG_NMSG_SIG_IN_Q                              \
+                | ERTS_PSFLG_MSG_SIG_IN_Q)))                            \
+     & ERTS_PROC_IN_DIRTY_STATE((S)))
+
 #define ERTS_PSFLGS_GET_ACT_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_ACT_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 #define ERTS_PSFLGS_GET_USR_PRIO(PSFLGS) \
@@ -1322,30 +1369,33 @@ void erts_check_for_holes(Process* p);
 
 
 /*
- * Flags in the dirty_state field.
+ * Flags in the xstate field.
  */
 
-#define ERTS_PDSFLG_IN_CPU_PRQ_MAX 	(((erts_aint32_t) 1) << 0)
-#define ERTS_PDSFLG_IN_CPU_PRQ_HIGH	(((erts_aint32_t) 1) << 1)
-#define ERTS_PDSFLG_IN_CPU_PRQ_NORMAL	(((erts_aint32_t) 1) << 2)
-#define ERTS_PDSFLG_IN_CPU_PRQ_LOW 	(((erts_aint32_t) 1) << 3)
-#define ERTS_PDSFLG_IN_IO_PRQ_MAX 	(((erts_aint32_t) 1) << 4)
-#define ERTS_PDSFLG_IN_IO_PRQ_HIGH	(((erts_aint32_t) 1) << 5)
-#define ERTS_PDSFLG_IN_IO_PRQ_NORMAL	(((erts_aint32_t) 1) << 6)
-#define ERTS_PDSFLG_IN_IO_PRQ_LOW 	(((erts_aint32_t) 1) << 7)
+#define ERTS_PXSFLG_IN_CPU_PRQ_MAX 	(((erts_aint32_t) 1) << 0)
+#define ERTS_PXSFLG_IN_CPU_PRQ_HIGH	(((erts_aint32_t) 1) << 1)
+#define ERTS_PXSFLG_IN_CPU_PRQ_NORMAL	(((erts_aint32_t) 1) << 2)
+#define ERTS_PXSFLG_IN_CPU_PRQ_LOW 	(((erts_aint32_t) 1) << 3)
+#define ERTS_PXSFLG_IN_IO_PRQ_MAX 	(((erts_aint32_t) 1) << 4)
+#define ERTS_PXSFLG_IN_IO_PRQ_HIGH	(((erts_aint32_t) 1) << 5)
+#define ERTS_PXSFLG_IN_IO_PRQ_NORMAL	(((erts_aint32_t) 1) << 6)
+#define ERTS_PXSFLG_IN_IO_PRQ_LOW 	(((erts_aint32_t) 1) << 7)
+/* MAYBE_SELF_SIGS - We might have outstanding signals
+   from ourselves to ourselves. */
+#define ERTS_PXSFLG_MAYBE_SELF_SIGS	(((erts_aint32_t) 1) << 8)
 
-#define ERTS_PDSFLGS_QMASK 		ERTS_PSFLGS_QMASK
-#define ERTS_PDSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
-#define ERTS_PDSFLGS_IN_IO_PRQ_MASK_OFFSET ERTS_PSFLGS_QMASK_BITS
+#define ERTS_PXSFLGS_QMASK 		ERTS_PSFLGS_QMASK
+#define ERTS_PXSFLGS_IN_CPU_PRQ_MASK_OFFSET 0
+#define ERTS_PXSFLGS_IN_IO_PRQ_MASK_OFFSET ERTS_PSFLGS_QMASK_BITS
 
-#define ERTS_PDSFLG_IN_CPU_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
-#define ERTS_PDSFLG_IN_IO_PRQ_MASK 	(ERTS_PDSFLG_IN_CPU_PRQ_MAX	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
-					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
+#define ERTS_PXSFLG_IN_CPU_PRQ_MASK 	(ERTS_PXSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_LOW)
+#define ERTS_PXSFLG_IN_IO_PRQ_MASK 	(ERTS_PXSFLG_IN_CPU_PRQ_MAX	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_HIGH	\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_NORMAL\
+					 | ERTS_PXSFLG_IN_CPU_PRQ_LOW)
 
 
 /*
@@ -1525,6 +1575,8 @@ extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
 struct erts_system_monitor_flags_t {
 	 unsigned int busy_port : 1;
     unsigned int busy_dist_port : 1;
@@ -1581,9 +1633,17 @@ extern int erts_system_profile_ts_type;
 #define FS_UNUSED              (1 << 3) /* Unused */
 #define FS_HANDLING_SIGS       (1 << 4) /* Process is handling signals */
 #define FS_WAIT_HANDLE_SIGS    (1 << 5) /* Process is waiting to handle signals */
-#define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
+#define FS_UNUSED2             (1 << 6) /* Unused */
 #define FS_FLUSHING_SIGS       (1 << 7) /* Currently flushing signals */
 #define FS_FLUSHED_SIGS        (1 << 8) /* Flushing of signals completed */
+#define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
+#define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
+#define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
+#define FS_MON_MSGQ_LEN        (1 << 12) /* Monitor of msgq len enabled */
+#define FS_MON_MSGQ_LEN_LONG   (1 << 13)/* --"-- and it is currently long */
+
+#define FS_NON_FETCH_CNT_MASK \
+    (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1622,8 +1682,7 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_ARITY_ONLY   F_TRACE_FLAG(12)
 #define F_TRACE_RETURN_TO    F_TRACE_FLAG(13) /* Return_to trace when breakpoint tracing */
 #define F_TRACE_SILENT       F_TRACE_FLAG(14) /* No call trace msg suppress */
-#define F_EXCEPTION_TRACE    F_TRACE_FLAG(15) /* May have exception trace on stack */
-
+#define F_TRACE_DBG_CANARY   F_TRACE_FLAG(15)
 /* port trace flags, currently the same as process trace flags */
 #define F_TRACE_SCHED_PORTS  F_TRACE_FLAG(17) /* Trace of port scheduling */
 #define F_TRACE_SCHED_PROCS  F_TRACE_FLAG(18) /* With virtual scheduling */
@@ -1631,14 +1690,16 @@ extern int erts_system_profile_ts_type;
 #define F_TRACE_SCHED_NO     F_TRACE_FLAG(20) /* Trace with scheduler id */
 #define F_TRACE_SCHED_EXIT   F_TRACE_FLAG(21)
 
+
 #define F_NUM_FLAGS          (ERTS_TRACE_TS_TYPE_BITS + 22)
 #ifdef DEBUG
-#  define F_INITIAL_TRACE_FLAGS (5 << F_NUM_FLAGS)
+// Was there a point with this high 5?
+#  define F_INITIAL_TRACE_FLAGS 0 //(5 << F_NUM_FLAGS)
 #else
 #  define F_INITIAL_TRACE_FLAGS 0
 #endif
 
-/* F_TIMESTAMP_MASK is a bit-field of all all timestamp types */
+/* F_TIMESTAMP_MASK is a bit-field of all timestamp types */
 #define F_TIMESTAMP_MASK \
     (ERTS_TRACE_TS_TYPE_MASK << ERTS_TRACE_FLAGS_TS_TYPE_SHIFT)
 
@@ -2019,9 +2080,18 @@ void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp
 void erts_print_run_queue_info(fmtfn_t, void *to_arg, ErtsRunQueue*);
 void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+
+#define ERTS_PI_FLAG_SINGELTON                          (1 << 0)
+#define ERTS_PI_FLAG_ALWAYS_WRAP                        (1 << 1)
+#define ERTS_PI_FLAG_WANT_MSGS                          (1 << 2)
+#define ERTS_PI_FLAG_NEED_MSGQ                          (1 << 3)
+#define ERTS_PI_FLAG_FORCE_SIG_SEND                     (1 << 4)
+#define ERTS_PI_FLAG_REQUEST_FOR_OTHER                  (1 << 5)
+#define ERTS_PI_FLAG_KEY_TUPLE2                         (1 << 6)
+
 Eterm erts_process_info(Process *c_p, ErtsHeapFactory *hfact,
                         Process *rp, ErtsProcLocks rp_locks,
-                        int *item_ix, int item_ix_len,
+                        int *item_ix, Eterm *item_extra, int item_len,
                         int flags, Uint reserve_size, Uint *reds);
 
 typedef struct {
@@ -2078,9 +2148,7 @@ Uint erts_process_memory(Process *c_p, int include_sigs_in_transit);
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
 #  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(P)					\
 do {										\
-    ErtsSchedulerData *esdp__ = ((P)						\
-				 ? erts_proc_sched_data((Process *) (P))	\
-				 : erts_get_scheduler_data());			\
+    ErtsSchedulerData *esdp__ = erts_get_scheduler_data();			\
     if (esdp__ && !ERTS_SCHEDULER_IS_DIRTY(esdp__))				\
 	esdp__->verify_unused_temp_alloc(					\
 	    esdp__->verify_unused_temp_alloc_data);				\
@@ -2096,18 +2164,9 @@ erts_aint32_t erts_proc_sys_schedule(Process *p, erts_aint32_t state,
                                      erts_aint32_t enable_flag);
 int erts_have_non_prio_elev_sys_tasks(Process *c_p, ErtsProcLocks locks);
 
-ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
 ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE void
-erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
-{
-    /* No barrier needed, due to msg lock */
-    erts_aint32_t state = erts_atomic32_read_nob(&p->state);
-    if (!(state & ERTS_PSFLG_ACTIVE))
-	erts_schedule_process(p, state, locks);
-}
 
 ERTS_GLB_INLINE void
 erts_schedule_dirty_sys_execution(Process *c_p)
@@ -2234,9 +2293,9 @@ erts_psd_set(Process *p, int ix, void *data)
   ((struct saved_calls *) erts_psd_set((P), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
 
 #define ERTS_PROC_GET_CALL_TIME(P) \
-  ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
+  ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
 #define ERTS_PROC_SET_CALL_TIME(P, PBT) \
-  ((process_breakpoint_time_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+  ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
 
 #define ERTS_PROC_GET_DELAYED_GC_TASK_QS(P) \
     ((ErtsProcSysTaskQs *) erts_psd_get((P), ERTS_PSD_DELAYED_GC_TASK_QS))
@@ -2253,10 +2312,20 @@ erts_psd_set(Process *p, int ix, void *data)
 #define ERTS_PROC_SET_DIST_ENTRY(P, DE) \
     ((DistEntry *) erts_psd_set((P), ERTS_PSD_DIST_ENTRY, (void *) (DE)))
 
+#define ERTS_PROC_GET_TS_EVENT(P) \
+    ((erts_tse_t *) erts_psd_get((P), ERTS_PSD_TS_EVENT))
+#define ERTS_PROC_SET_TS_EVENT(P, TSE) \
+    ((erts_tse_t *) erts_psd_set((P), ERTS_PSD_TS_EVENT, (void *) (TSE)))
+
 #define ERTS_PROC_GET_PENDING_SUSPEND(P) \
     ((void *) erts_psd_get((P), ERTS_PSD_PENDING_SUSPEND))
 #define ERTS_PROC_SET_PENDING_SUSPEND(P, PS) \
     ((void *) erts_psd_set((P), ERTS_PSD_PENDING_SUSPEND, (void *) (PS)))
+
+#define ERTS_PROC_GET_CALL_MEMORY(P) \
+    ((process_breakpoint_trace_t *) erts_psd_get((P), ERTS_PSD_CALL_MEMORY_BP))
+#define ERTS_PROC_SET_CALL_MEMORY(P, PBT) \
+    ((process_breakpoint_trace_t *) erts_psd_set((P), ERTS_PSD_CALL_MEMORY_BP, (void *) (PBT)))
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p, Eterm handler);
@@ -2928,6 +2997,10 @@ float erts_sched_local_random_float(Uint additional_seed)
 #endif
 
 
-void erts_halt(int code);
+void erts_halt(int code, ErtsMonotonicTime tmo);
 extern erts_atomic32_t erts_halt_progress;
 extern int erts_halt_code;
+
+extern Eterm
+erts_build_stacktrace(ErtsHeapFactory *hfact, Process* rp,
+                      Uint reserve_size, int max_depth, int include_i);

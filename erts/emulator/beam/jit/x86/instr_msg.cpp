@@ -30,57 +30,13 @@ extern "C"
 #endif
 }
 
-#ifdef ERTS_SUPPORT_OLD_RECV_MARK_INSTRS
-
-static void recv_mark(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_insert_bind(p, erts_old_recv_marker_id);
-}
-
-static void recv_mark_set(Process *p) {
-    /* inlined here... */
-    erts_msgq_recv_marker_set_save(p, erts_old_recv_marker_id);
-}
-
-void BeamModuleAssembler::emit_i_recv_mark() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * Save the current end of message queue
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark);
-
-    emit_leave_runtime();
-}
-
-void BeamModuleAssembler::emit_i_recv_set() {
-    /*
-     * OLD INSTRUCTION: This instruction is to be removed
-     *                  in OTP 26.
-     *
-     * If previously saved recv mark, set save pointer to it
-     */
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<1>(recv_mark_set);
-
-    emit_leave_runtime();
-}
-
-#endif /* ERTS_SUPPORT_OLD_RECV_MARK_INSTRS */
-
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
-    emit_enter_runtime<Update::eStack | Update::eHeap>();
+    emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
     runtime_call<1>(erts_msgq_recv_marker_insert);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>();
+    emit_leave_runtime<Update::eHeapAlloc>();
 
     mov_arg(Dst, RET);
 }
@@ -183,12 +139,11 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
         comment("Inner queue empty, fetch more from outer/middle queues");
 
-        emit_enter_runtime<Update::eReductions | Update::eStack |
-                           Update::eHeap>();
+        emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
 
         a.mov(message_ptr, imm(0));
         a.mov(ARG1, c_p);
-        a.mov(ARG2, FCALLS);
+        a.mov(ARG2d, FCALLS);
         mov_imm(ARG3, 0);
         a.lea(ARG4, message_ptr);
         a.lea(ARG5, get_out);
@@ -204,10 +159,9 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
          * Also note that another process may have loaded new code and sent us
          * a message to notify us about it, so we must update the active code
          * index. */
-        emit_leave_runtime<Update::eStack | Update::eHeap |
-                           Update::eCodeIndex>();
+        emit_leave_runtime<Update::eHeapAlloc | Update::eCodeIndex>();
 
-        a.sub(FCALLS, RET);
+        a.sub(FCALLS, RETd);
 
         /* Need to spill message_ptr to ARG1 as check_is_distributed uses it */
         a.mov(ARG1, message_ptr);
@@ -234,7 +188,7 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
         /* We either ran out of reductions or received an exit signal; schedule
          * ourselves out. The yield address (`c_p->i`) was set on ingress. */
         a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)), imm(~F_DELAY_GC));
-        a.mov(x86::qword_ptr(c_p, offsetof(Process, arity)), imm(0));
+        a.mov(x86::byte_ptr(c_p, offsetof(Process, arity)), imm(0));
         a.mov(x86::qword_ptr(c_p, offsetof(Process, current)), imm(0));
 
         emit_unwind_frame();
@@ -296,10 +250,10 @@ void BeamModuleAssembler::emit_remove_message() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    a.mov(ARG2, FCALLS);
+    a.mov(ARG2d, FCALLS);
     a.mov(ARG5, active_code_ix);
     runtime_call<5>(beam_jit_remove_message);
-    a.mov(FCALLS, RET);
+    a.mov(FCALLS, RETd);
 
     emit_leave_runtime();
 }

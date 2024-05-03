@@ -1,0 +1,33 @@
+
+  [;1m-spec product(TupleOfSets) -> Relation[0m
+  [;1m                 when[0m
+  [;1m                     Relation :: relation(),[0m
+  [;1m                     TupleOfSets :: tuple_of(a_set()).[0m
+
+  Returns the Cartesian product of the non-empty tuple of sets [;;4m[0m
+  [;;4mTupleOfSets[0m. If (x[1], ..., x[n]) is an element of the n-ary
+  relation [;;4mRelation[0m, then x[i] is drawn from element i of [;;4m[0m
+  [;;4mTupleOfSets[0m.
+
+    1> S1 = sofs:set([a,b]),
+    S2 = sofs:set([1,2]),
+    S3 = sofs:set([x,y]),
+    P3 = sofs:product({S1,S2,S3}),
+    sofs:to_external(P3).
+    [{a,1,x},{a,1,y},{a,2,x},{a,2,y},{b,1,x},{b,1,y},{b,2,x},{b,2,y}]
+
+  [;1m-spec product(Set1, Set2) -> BinRel[0m
+  [;1m                 when[0m
+  [;1m                     BinRel :: binary_relation(),[0m
+  [;1m                     Set1 :: a_set(),[0m
+  [;1m                     Set2 :: a_set().[0m
+
+  Returns the Cartesian product of [;;4mSet1[0m and [;;4mSet2[0m.
+
+    1> S1 = sofs:set([1,2]),
+    S2 = sofs:set([a,b]),
+    R = sofs:product(S1, S2),
+    sofs:to_external(R).
+    [{1,a},{1,b},{2,a},{2,b}]
+
+  [;;4mproduct(S1, S2)[0m is equivalent to [;;4mproduct({S1, S2})[0m.

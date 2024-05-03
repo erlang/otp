@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2022. All Rights Reserved.
+# Copyright Ericsson AB 2010-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ DATA_DIRS = $(sort $(dir $(DATA)))
 # This is only used to compile suite locally when running with a
 # target like 'all' below. Target release_tests only installs source.
 ERL_COMPILE_FLAGS += +warn_export_vars \
+		     +nowarn_missing_spec_documented \
                      +warn_unused_vars \
                      -I ../include \
                      -I ../src/gen \
@@ -66,6 +67,8 @@ ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 # ----------------------------------------------------
 
 all $(TYPES): $(TARGET_FILES)
+
+targets: all
 
 strict:
 	$(MAKE) opt STRICT_FLAGS=-Werror

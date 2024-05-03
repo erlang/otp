@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ random_binary() ->
     << <<($a + rand:uniform($z - $a)):8>> || _ <- Seq >>.
 
 random_binaries(N) when N > 0 ->
-    random_binary(),
+    80 = bit_size(random_binary()),
     random_binaries(N - 1);
 random_binaries(_) -> ok.
 

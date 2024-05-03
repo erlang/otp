@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1468,6 +1468,12 @@ gen_macros() ->
     w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
     w("  #define wxICON_DEFAULT_BITMAP_TYPE wxBITMAP_TYPE_ICO_RESOURCE~n",[]),
     w("#endif~n", []),
+
+    w("~n~n", []),
+    w("#if defined(wxSTC_DISABLE_MACRO_DEPRECATIONS) && defined(wxSTC_DEPRECATED_MACRO_VALUE)~n",[]),
+    w("#undef wxSTC_DEPRECATED_MACRO_VALUE~n",[]),
+    w("#define wxSTC_DEPRECATED_MACRO_VALUE(value, msg) value~n",[]),
+    w("#endif~n",[]),
 
     %% [w("#define ~s_~s ~p~n", [Class,Name,Id]) ||
     %%     {Class,Name,_,Id} <- wx_gen_erl:get_unique_names()],

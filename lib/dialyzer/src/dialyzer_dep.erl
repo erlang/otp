@@ -22,6 +22,7 @@
 %%% Created : 28 Oct 2005 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
 -module(dialyzer_dep).
+-moduledoc false.
 
 -export([analyze/1]).
 -define(NO_UNUSED, true).

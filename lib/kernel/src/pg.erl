@@ -53,6 +53,64 @@
 %%  * all leave/join operations are serialised through pg server process
 %%
 -module(pg).
+-moduledoc """
+Distributed named process groups.
+
+This module implements process groups. A message can be sent to one, some, or
+all group members.
+
+Up until OTP 17 there used to exist an experimental `pg` module in `stdlib`.
+This `pg` module is not the same module as that experimental `pg` module, and
+only share the same module name.
+
+A group of processes can be accessed by a common name. For example, if there is
+a group named `foobar`, there can be a set of processes (which can be located on
+different nodes) that are all members of the group `foobar`. There are no
+special functions for sending a message to the group. Instead, client functions
+are to be written with the functions `get_members/1` and `get_local_members/1`
+to determine which processes are members of the group. Then the message can be
+sent to one or more group members.
+
+If a member terminates, it is automatically removed from the group.
+
+A process may join multiple groups. It may join the same group multiple times.
+It is only allowed to join processes running on local node.
+
+Process Groups implement strong eventual consistency. Process Groups membership
+view may temporarily diverge. For example, when processes on `node1` and `node2`
+join concurrently, `node3` and `node4` may receive updates in a different order.
+
+Membership view is not transitive. If `node1` is not directly connected to
+`node2`, they will not see each other groups. But if both are connected to
+`node3`, `node3` will have the full view.
+
+Groups are automatically created when any process joins, and are removed when
+all processes leave the group. Non-existing group is considered empty
+(containing no processes).
+
+Process groups can be organised into multiple scopes. Scopes are completely
+independent of each other. A process may join any number of groups in any number
+of scopes. Scopes are designed to decouple single mesh into a set of overlay
+networks, reducing amount of traffic required to propagate group membership
+information. Default scope `pg` is started automatically when
+[Kernel](kernel_app.md#start_pg) is configured to do so.
+
+> #### Note {: .info }
+>
+> Scope name is used to register process locally, and to name an ETS table. If
+> there is another process registered under this name, or another ETS table
+> exists, scope fails to start.
+>
+> Local membership is not preserved if scope process exits and restarts.
+>
+> A scope can be kept local-only by using a scope name that is unique
+> cluster-wide, e.g. the node name: `pg:start_link(node()).`
+
+## See Also
+
+[Kernel](kernel_app.md)
+""".
+-moduledoc(#{since => "OTP 23.0"}).
 
 %% API: default scope
 -export([
@@ -95,6 +153,7 @@
 ]).
 
 %% Types
+-doc "The identifier of a process group.".
 -type group() :: any().
 
 %% Default scope started by kernel app
@@ -104,12 +163,21 @@
 %% @doc
 %% Starts the server and links it to calling process.
 %% Uses default scope, which is the same as as the module name.
+-doc """
+Starts the default `pg` scope within supervision tree.
+
+Kernel may be configured to do it automatically by setting
+the Kernel configuration parameter [`start_pg`](kernel_app.md#start_pg).
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_link() -> {ok, pid()} | {error, any()}.
 start_link() ->
     start_link(?DEFAULT_SCOPE).
 
 %% @doc
 %% Starts the server outside of supervision hierarchy.
+-doc "Starts additional scope.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start(Scope) when is_atom(Scope) ->
     gen_server:start({local, Scope}, ?MODULE, [Scope], []).
@@ -117,6 +185,11 @@ start(Scope) when is_atom(Scope) ->
 %% @doc
 %% Starts the server and links it to calling process.
 %% Scope name is supplied.
+-doc """
+Equivalent to [`start(Scope)`](`start/1`), except that it also creates
+a `link/1` with the calling process.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec start_link(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start_link(Scope) when is_atom(Scope) ->
     gen_server:start_link({local, Scope}, ?MODULE, [Scope], []).
@@ -126,10 +199,19 @@ start_link(Scope) when is_atom(Scope) ->
 %% Joins a single or a list of processes.
 %% Group is created automatically.
 %% Processes must be local to this node.
+-doc(#{equiv => join(?DEFAULT_SCOPE, Group, PidOrPids)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec join(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Group, PidOrPids) ->
     join(?DEFAULT_SCOPE, Group, PidOrPids).
 
+-doc """
+Joins single process or multiple processes to the group `Group`. A process can
+join a group many times and must then leave the group the same number of times.
+
+`PidOrPids` may contain the same process multiple times.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec join(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
     ok = ensure_local(PidOrPids),
@@ -139,10 +221,20 @@ join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %% @doc
 %% Single or list of processes leaving the group.
 %% Processes must be local to this node.
+-doc(#{equiv => leave(?DEFAULT_SCOPE, Group, PidOrPids)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec leave(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 leave(Group, PidOrPids) ->
     leave(?DEFAULT_SCOPE, Group, PidOrPids).
 
+-doc """
+Makes the process `PidOrPids` leave the group `Group`. If the process is not a
+member of the group, `not_joined` is returned.
+
+When list of processes is passed as `PidOrPids`, function returns `not_joined`
+only when all processes of the list are not joined.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec leave(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok | not_joined.
 leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
     ok = ensure_local(PidOrPids),
@@ -154,10 +246,30 @@ leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %%  all group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc(#{equiv => monitor_scope(?DEFAULT_SCOPE)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor_scope() -> {reference(), #{group() => [pid()]}}.
 monitor_scope() ->
     monitor_scope(?DEFAULT_SCOPE).
 
+-doc """
+Subscribes the caller to updates from the specified scope.
+
+Returns content of the entire scope and a reference to match the upcoming
+notifications.
+
+Whenever any group membership changes, an update message is sent to the
+subscriber:
+
+```erlang
+{Ref, join, Group, [JoinPid1, JoinPid2]}
+```
+
+```erlang
+{Ref, leave, Group, [LeavePid1]}
+```
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor_scope(Scope :: atom()) -> {reference(), #{group() => [pid()]}}.
 monitor_scope(Scope) ->
     gen_server:call(Scope, monitor, infinity).
@@ -168,6 +280,8 @@ monitor_scope(Scope) ->
 %%  group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc(#{equiv => monitor(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor(Group :: group()) -> {reference(), [pid()]}.
 monitor(Group) ->
     ?MODULE:monitor(?DEFAULT_SCOPE, Group).
@@ -178,6 +292,15 @@ monitor(Group) ->
 %%  group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
+-doc """
+Subscribes the caller to updates for the specified group.
+
+Returns list of processes currently in the group, and a reference to match the
+upcoming notifications.
+
+See `monitor_scope/0` for the update message structure.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec monitor(Scope :: atom(), Group :: group()) -> {reference(), [pid()]}.
 monitor(Scope, Group) ->
     gen_server:call(Scope, {monitor, Group}, infinity).
@@ -186,10 +309,17 @@ monitor(Scope, Group) ->
 %% @doc
 %% Stops monitoring Scope for groups changes. Flushes all
 %%  {Ref, join|leave, Group, Pids} messages from the calling process queue.
+-doc(#{equiv => demonitor(?DEFAULT_SCOPE, Ref)}).
+-doc(#{since => <<"OTP 25.1">>}).
 -spec demonitor(Ref :: reference()) -> ok | false.
 demonitor(Ref) ->
     pg:demonitor(?DEFAULT_SCOPE, Ref).
 
+-doc """
+Unsubscribes the caller from updates (scope or group). Flushes all outstanding
+updates that were already in the message queue of the calling process.
+""".
+-doc(#{since => <<"OTP 25.1">>}).
 -spec demonitor(Scope :: atom(), Ref :: reference()) -> ok | false.
 demonitor(Scope, Ref) ->
     gen_server:call(Scope, {demonitor, Ref}, infinity) =:= ok andalso flush(Ref).
@@ -197,42 +327,60 @@ demonitor(Scope, Ref) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns all processes in a group
+-doc(#{equiv => get_members(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_members(Group :: group()) -> [pid()].
 get_members(Group) ->
     get_members(?DEFAULT_SCOPE, Group).
 
+-doc """
+Returns all processes in the group `Group`. Processes are returned in no
+specific order. This function is optimised for speed.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_members(Scope, Group) ->
     try
-        ets:lookup_element(Scope, Group, 2)
+        ets:lookup_element(Scope, Group, 2, [])
     catch
-        error:badarg ->
-            []
+        %% Case where the table does not exist yet.
+        error:badarg -> []
     end.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns processes in a group, running on local node.
+-doc(#{equiv => get_local_members(?DEFAULT_SCOPE, Group)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_local_members(Group :: group()) -> [pid()].
 get_local_members(Group) ->
     get_local_members(?DEFAULT_SCOPE, Group).
 
+-doc """
+Returns all processes running on the local node in the group `Group`. Processes
+are returned in no specific order. This function is optimised for speed.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec get_local_members(Scope :: atom(), Group :: group()) -> [pid()].
 get_local_members(Scope, Group) ->
     try
-        ets:lookup_element(Scope, Group, 3)
+        ets:lookup_element(Scope, Group, 3, [])
     catch
-        error:badarg ->
-            []
+        %% Case where the table does not exist yet.
+        error:badarg -> []
     end.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a list of all known groups.
+-doc(#{equiv => which_groups(?DEFAULT_SCOPE)}).
+-doc(#{since => <<"OTP 23.0">>}).
 -spec which_groups() -> [Group :: group()].
 which_groups() ->
     which_groups(?DEFAULT_SCOPE).
 
+-doc "Returns a list of all known groups.".
+-doc(#{since => <<"OTP 23.0">>}).
 -spec which_groups(Scope :: atom()) -> [Group :: group()].
 which_groups(Scope) when is_atom(Scope) ->
     [G || [G] <- ets:match(Scope, {'$1', '_', '_'})].
@@ -240,10 +388,12 @@ which_groups(Scope) when is_atom(Scope) ->
 %%--------------------------------------------------------------------
 %% @private
 %% Returns a list of groups that have any local processes joined.
+-doc false.
 -spec which_local_groups() -> [Group :: group()].
 which_local_groups() ->
     which_local_groups(?DEFAULT_SCOPE).
 
+-doc false.
 -spec which_local_groups(Scope :: atom()) -> [Group :: group()].
 which_local_groups(Scope) when is_atom(Scope) ->
     ets:select(Scope, [{{'$1', '_', '$2'}, [{'=/=', '$2', []}], ['$1']}]).
@@ -268,6 +418,7 @@ which_local_groups(Scope) when is_atom(Scope) ->
 
 -type state() :: #state{}.
 
+-doc false.
 -spec init([Scope :: atom()]) -> {ok, state()}.
 init([Scope]) ->
     ok = net_kernel:monitor_nodes(true),
@@ -276,6 +427,7 @@ init([Scope]) ->
     Scope = ets:new(Scope, [set, protected, named_table, {read_concurrency, true}]),
     {ok, #state{scope = Scope}}.
 
+-doc false.
 -spec handle_call(Call :: {join_local, Group :: group(), Pid :: pid()}
                         | {leave_local, Group :: group(), Pid :: pid()}
                         | monitor
@@ -305,14 +457,14 @@ handle_call({leave_local, Group, PidOrPids}, _From, #state{scope = Scope, local 
 
 handle_call(monitor, {Pid, _Tag}, #state{scope = Scope, scope_monitors = ScopeMon} = State) ->
     %% next line could also be done with iterating over process state, but it appears to be slower
-    Local = maps:from_list([{G,P} || [G,P] <- ets:match(Scope, {'$1', '$2', '_'})]),
-    MRef = erlang:monitor(process, Pid), %% monitor the monitor, to discard it upon termination, and generate MRef
+    Local = #{G => P || [G,P] <- ets:match(Scope, {'$1', '$2', '_'})},
+    MRef = erlang:monitor(process, Pid, [{tag, {'DOWN', scope_monitors}}]), %% to discard it upon termination
     {reply, {MRef, Local}, State#state{scope_monitors = ScopeMon#{MRef => Pid}}};
 
 handle_call({monitor, Group}, {Pid, _Tag}, #state{scope = Scope, group_monitors = GM, monitored_groups = MG} = State) ->
     %% ETS cache is writable only from this process - so get_members is safe to use
     Members = get_members(Scope, Group),
-    MRef = erlang:monitor(process, Pid),
+    MRef = erlang:monitor(process, Pid, [{tag, {'DOWN', group_monitors}}]),
     NewMG = maps:update_with(Group, fun (Ex) -> [{Pid, MRef} | Ex] end, [{Pid, MRef}], MG),
     {reply, {MRef, Members}, State#state{group_monitors = GM#{MRef => {Pid, Group}}, monitored_groups = NewMG}};
 
@@ -338,11 +490,9 @@ handle_call({demonitor, Ref}, _From, #state{scope_monitors = ScopeMon, group_mon
 handle_call(_Request, _From, _S) ->
     erlang:error(badarg).
 
+-doc false.
 -spec handle_cast(
-    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]} |
-    {discover, Peer :: pid()} |
-    {join, Peer :: pid(), group(), pid() | [pid()]} |
-    {leave, Peer :: pid(), pid() | [pid()], [group()]},
+    {sync, Peer :: pid(), Groups :: [{group(), [pid()]}]},
     State :: state()) -> {noreply, state()}.
 
 handle_cast({sync, Peer, Groups}, #state{scope = Scope, remote = Remote, scope_monitors = ScopeMon,
@@ -352,8 +502,10 @@ handle_cast({sync, Peer, Groups}, #state{scope = Scope, remote = Remote, scope_m
 handle_cast(_, _State) ->
     erlang:error(badarg).
 
+-doc false.
 -spec handle_info(
     {discover, Peer :: pid()} |
+    {discover, Peer :: pid(), any()} |
     {join, Peer :: pid(), group(), pid() | [pid()]} |
     {leave, Peer :: pid(), pid() | [pid()], [group()]} |
     {'DOWN', reference(), process, pid(), term()} |
@@ -395,24 +547,21 @@ handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, remote = Rem
     end;
 
 %% we're being discovered, let's exchange!
-handle_info({discover, Peer}, #state{remote = Remote, local = Local} = State) ->
-    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
-    %% do we know who is looking for us?
-    case maps:is_key(Peer, Remote) of
-        true ->
-            {noreply, State};
-        false ->
-            MRef = erlang:monitor(process, Peer),
-            erlang:send(Peer, {discover, self()}, [noconnect]),
-            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
-    end;
+handle_info({discover, Peer}, State) ->
+    handle_discover(Peer, State);
 
-%% handle local process exit, or a local monitor exit
+%% New discover message sent by a future pg version.
+%% Accepted first in OTP 26, to be used by OTP 28 or later.
+handle_info({discover, Peer, _ProtocolVersion}, State) ->
+    handle_discover(Peer, State);
+
+%% handle local process exit
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = Local,
     remote = Remote, scope_monitors = ScopeMon, monitored_groups = MG} = State) when node(Pid) =:= node() ->
     case maps:take(Pid, Local) of
         error ->
-            {noreply, maybe_drop_monitor(MRef, State)};
+            %% ignore late monitor: this can only happen when leave request and 'DOWN' are in pg queue
+            {noreply, State};
         {{MRef, Groups}, NewLocal} ->
             [leave_local_update_ets(Scope, ScopeMon, MG, Group, Pid) || Group <- Groups],
             %% send update to all remote peers
@@ -420,7 +569,7 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, local = L
             {noreply, State#state{local = NewLocal}}
     end;
 
-%% handle remote node down or scope leaving overlay network, or a monitor from the remote node went down
+%% handle remote node down or scope leaving overlay network
 handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = Remote,
     scope_monitors = ScopeMon, monitored_groups = MG} = State)  ->
     case maps:take(Pid, Remote) of
@@ -429,7 +578,22 @@ handle_info({'DOWN', MRef, process, Pid, _Info}, #state{scope = Scope, remote = 
                 leave_remote_update_ets(Scope, ScopeMon, MG, Pids, [Group]) end, RemoteMap),
             {noreply, State#state{remote = NewRemote}};
         error ->
-            {noreply, maybe_drop_monitor(MRef, State)}
+            {noreply, State}
+    end;
+
+%% handle scope monitor exiting
+handle_info({{'DOWN', scope_monitors}, MRef, process, _Pid, _Info}, #state{scope_monitors = ScopeMon} = State) ->
+    {noreply, State#state{scope_monitors = maps:remove(MRef, ScopeMon)}};
+
+%% handle group monitor exiting
+handle_info({{'DOWN', group_monitors}, MRef, process, Pid, _Info}, #state{
+    group_monitors = GMs, monitored_groups = MG} = State) ->
+    case maps:take(MRef, GMs) of
+        error ->
+            {noreply, State};
+        {{Pid, Group}, NewGM} ->
+            %% clean up the inverse map
+            {noreply, State#state{group_monitors = NewGM, monitored_groups = demonitor_group({Pid, MRef}, Group, MG)}}
     end;
 
 %% nodedown: ignore, and wait for 'DOWN' signal for monitored process
@@ -440,18 +604,34 @@ handle_info({nodedown, _Node}, State) ->
 handle_info({nodeup, Node}, State) when Node =:= node() ->
     {noreply, State};
 handle_info({nodeup, Node}, #state{scope = Scope} = State) ->
-    {Scope, Node} ! {discover, self()},
+    erlang:send({Scope, Node}, {discover, self()}, [noconnect]),
     {noreply, State};
 
 handle_info(_Info, _State) ->
     erlang:error(badarg).
 
+-doc false.
 -spec terminate(Reason :: any(), State :: state()) -> true.
 terminate(_Reason, #state{scope = Scope}) ->
     true = ets:delete(Scope).
 
 %%--------------------------------------------------------------------
 %% Internal implementation
+
+handle_discover(Peer, #state{remote = Remote, local = Local} = State) ->
+    gen_server:cast(Peer, {sync, self(), all_local_pids(Local)}),
+    %% do we know who is looking for us?
+    case maps:is_key(Peer, Remote) of
+        true ->
+            {noreply, State};
+        false ->
+            MRef = erlang:monitor(process, Peer),
+            erlang:send(Peer, {discover, self()}, [noconnect]),
+            {noreply, State#state{remote = Remote#{Peer => {MRef, #{}}}}}
+    end;
+handle_discover(_, _) ->
+    erlang:error(badarg).
+
 
 %% Ensures argument is either a node-local pid or a list of such, or it throws an error
 ensure_local(Pid) when is_pid(Pid), node(Pid) =:= node() ->
@@ -492,7 +672,7 @@ sync_groups(Scope, ScopeMon, MG, RemoteGroups, [{Group, Pids} | Tail]) ->
         {Pids, NewRemoteGroups} ->
             sync_groups(Scope, ScopeMon, MG, NewRemoteGroups, Tail);
         {OldPids, NewRemoteGroups} ->
-            [{Group, AllOldPids, LocalPids}] = ets:lookup(Scope, Group),
+            [{_Group, AllOldPids, LocalPids}] = ets:lookup(Scope, Group),
             %% should be really rare...
             AllNewPids = Pids ++ AllOldPids -- OldPids,
             true = ets:insert(Scope, {Group, AllNewPids, LocalPids}),
@@ -517,7 +697,7 @@ join_local([Pid | Tail], Group, Local) ->
 
 join_local_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     case ets:lookup(Scope, Group) of
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, [Pid | All], [Pid | Local]});
         [] ->
             ets:insert(Scope, {Group, [Pid], [Pid]})
@@ -525,7 +705,7 @@ join_local_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     notify_group(ScopeMon, MG, join, Group, [Pid]);
 join_local_update_ets(Scope, ScopeMon, MG, Group, Pids) ->
     case ets:lookup(Scope, Group) of
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, Pids ++ All, Pids ++ Local});
         [] ->
             ets:insert(Scope, {Group, Pids, Pids})
@@ -534,7 +714,7 @@ join_local_update_ets(Scope, ScopeMon, MG, Group, Pids) ->
 
 join_remote_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     case ets:lookup(Scope, Group) of
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, [Pid | All], Local});
         [] ->
             ets:insert(Scope, {Group, [Pid], []})
@@ -542,7 +722,7 @@ join_remote_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     notify_group(ScopeMon, MG, join, Group, [Pid]);
 join_remote_update_ets(Scope, ScopeMon, MG, Group, Pids) ->
     case ets:lookup(Scope, Group) of
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, Pids ++ All, Local});
         [] ->
             ets:insert(Scope, {Group, Pids, []})
@@ -576,10 +756,10 @@ leave_local([Pid | Tail], Group, Local) ->
 
 leave_local_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     case ets:lookup(Scope, Group) of
-        [{Group, [Pid], [Pid]}] ->
+        [{_Group, [Pid], [Pid]}] ->
             ets:delete(Scope, Group),
             notify_group(ScopeMon, MG, leave, Group, [Pid]);
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             ets:insert(Scope, {Group, lists:delete(Pid, All), lists:delete(Pid, Local)}),
             notify_group(ScopeMon, MG, leave, Group, [Pid]);
         [] ->
@@ -588,7 +768,7 @@ leave_local_update_ets(Scope, ScopeMon, MG, Group, Pid) when is_pid(Pid) ->
     end;
 leave_local_update_ets(Scope, ScopeMon, MG, Group, Pids) ->
     case ets:lookup(Scope, Group) of
-        [{Group, All, Local}] ->
+        [{_Group, All, Local}] ->
             case All -- Pids of
                 [] ->
                     ets:delete(Scope, Group);
@@ -603,10 +783,10 @@ leave_local_update_ets(Scope, ScopeMon, MG, Group, Pids) ->
 leave_remote_update_ets(Scope, ScopeMon, MG, Pid, Groups) when is_pid(Pid) ->
     _ = [
         case ets:lookup(Scope, Group) of
-            [{Group, [Pid], []}] ->
+            [{_Group, [Pid], []}] ->
                 ets:delete(Scope, Group),
                 notify_group(ScopeMon, MG, leave, Group, [Pid]);
-            [{Group, All, Local}] ->
+            [{_Group, All, Local}] ->
                 ets:insert(Scope, {Group, lists:delete(Pid, All), Local}),
                 notify_group(ScopeMon, MG, leave, Group, [Pid]);
             [] ->
@@ -616,7 +796,7 @@ leave_remote_update_ets(Scope, ScopeMon, MG, Pid, Groups) when is_pid(Pid) ->
 leave_remote_update_ets(Scope, ScopeMon, MG, Pids, Groups) ->
     _ = [
         case ets:lookup(Scope, Group) of
-            [{Group, All, Local}] ->
+            [{_Group, All, Local}] ->
                 case All -- Pids of
                     [] when Local =:= [] ->
                         ets:delete(Scope, Group);
@@ -660,23 +840,6 @@ broadcast([Dest | Tail], Msg) ->
     %%   join/leave messages when dist buffer is full
     erlang:send(Dest, Msg, [noconnect]),
     broadcast(Tail, Msg).
-
-%% drops a monitor if DOWN was received
-maybe_drop_monitor(MRef, #state{scope_monitors = ScopeMon, group_monitors = GMs, monitored_groups = MG} = State) ->
-    %% could be a local monitor going DOWN. Since it's a rare event, check should
-    %%  not stay in front of any other, more frequent events
-    case maps:take(MRef, ScopeMon) of
-        error ->
-            case maps:take(MRef, GMs) of
-                error ->
-                    State;
-                {{Pid, Group}, NewGM} ->
-                    %% clean up the inverse map
-                    State#state{group_monitors = NewGM, monitored_groups = demonitor_group({Pid, MRef}, Group, MG)}
-            end;
-        {_Pid, NewScopeMon} ->
-            State#state{scope_monitors = NewScopeMon}
-    end.
 
 demonitor_group(Tag, Group, MG) ->
     case maps:find(Group, MG) of

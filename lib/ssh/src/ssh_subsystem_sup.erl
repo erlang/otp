@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssh_subsystem_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 
@@ -59,6 +60,7 @@ tcpip_fwd_supervisor(SubSysSup) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Address, Id, Socket, Options]) ->
+    ssh_lib:set_label(Role, {subsystem_sup, Socket}),
     SubSysSup = self(),
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
@@ -102,8 +104,8 @@ find_child(Id, Sup) when is_pid(Sup) ->
        {Id, Pid, _, _} = lists:keyfind(Id, 1, supervisor:which_children(Sup)),
        Pid
     catch
-        exit:{no_proc,_} ->
-            {error, no_proc};
+        exit:{noproc,_} ->
+            {error, noproc};
         _:_ ->
             {error, {id_not_found,?MODULE,Id}}
     end.

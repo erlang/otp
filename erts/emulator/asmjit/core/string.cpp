@@ -491,68 +491,68 @@ bool String::eq(const char* other, size_t size) const noexcept {
 UNIT(core_string) {
   String s;
 
-  EXPECT(s.isLargeOrExternal() == false);
-  EXPECT(s.isExternal() == false);
+  EXPECT_FALSE(s.isLargeOrExternal());
+  EXPECT_FALSE(s.isExternal());
 
-  EXPECT(s.assign('a') == kErrorOk);
-  EXPECT(s.size() == 1);
-  EXPECT(s.capacity() == String::kSSOCapacity);
-  EXPECT(s.data()[0] == 'a');
-  EXPECT(s.data()[1] == '\0');
-  EXPECT(s.eq("a") == true);
-  EXPECT(s.eq("a", 1) == true);
+  EXPECT_EQ(s.assign('a'), kErrorOk);
+  EXPECT_EQ(s.size(), 1u);
+  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
+  EXPECT_EQ(s.data()[0], 'a');
+  EXPECT_EQ(s.data()[1], '\0');
+  EXPECT_TRUE(s.eq("a"));
+  EXPECT_TRUE(s.eq("a", 1));
 
-  EXPECT(s.assignChars('b', 4) == kErrorOk);
-  EXPECT(s.size() == 4);
-  EXPECT(s.capacity() == String::kSSOCapacity);
-  EXPECT(s.data()[0] == 'b');
-  EXPECT(s.data()[1] == 'b');
-  EXPECT(s.data()[2] == 'b');
-  EXPECT(s.data()[3] == 'b');
-  EXPECT(s.data()[4] == '\0');
-  EXPECT(s.eq("bbbb") == true);
-  EXPECT(s.eq("bbbb", 4) == true);
+  EXPECT_EQ(s.assignChars('b', 4), kErrorOk);
+  EXPECT_EQ(s.size(), 4u);
+  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
+  EXPECT_EQ(s.data()[0], 'b');
+  EXPECT_EQ(s.data()[1], 'b');
+  EXPECT_EQ(s.data()[2], 'b');
+  EXPECT_EQ(s.data()[3], 'b');
+  EXPECT_EQ(s.data()[4], '\0');
+  EXPECT_TRUE(s.eq("bbbb"));
+  EXPECT_TRUE(s.eq("bbbb", 4));
 
-  EXPECT(s.assign("abc") == kErrorOk);
-  EXPECT(s.size() == 3);
-  EXPECT(s.capacity() == String::kSSOCapacity);
-  EXPECT(s.data()[0] == 'a');
-  EXPECT(s.data()[1] == 'b');
-  EXPECT(s.data()[2] == 'c');
-  EXPECT(s.data()[3] == '\0');
-  EXPECT(s.eq("abc") == true);
-  EXPECT(s.eq("abc", 3) == true);
+  EXPECT_EQ(s.assign("abc"), kErrorOk);
+  EXPECT_EQ(s.size(), 3u);
+  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
+  EXPECT_EQ(s.data()[0], 'a');
+  EXPECT_EQ(s.data()[1], 'b');
+  EXPECT_EQ(s.data()[2], 'c');
+  EXPECT_EQ(s.data()[3], '\0');
+  EXPECT_TRUE(s.eq("abc"));
+  EXPECT_TRUE(s.eq("abc", 3));
 
   const char* large = "Large string that will not fit into SSO buffer";
-  EXPECT(s.assign(large) == kErrorOk);
-  EXPECT(s.isLargeOrExternal() == true);
-  EXPECT(s.size() == strlen(large));
-  EXPECT(s.capacity() > String::kSSOCapacity);
-  EXPECT(s.eq(large) == true);
-  EXPECT(s.eq(large, strlen(large)) == true);
+  EXPECT_EQ(s.assign(large), kErrorOk);
+  EXPECT_TRUE(s.isLargeOrExternal());
+  EXPECT_EQ(s.size(), strlen(large));
+  EXPECT_GT(s.capacity(), String::kSSOCapacity);
+  EXPECT_TRUE(s.eq(large));
+  EXPECT_TRUE(s.eq(large, strlen(large)));
 
   const char* additional = " (additional content)";
-  EXPECT(s.isLargeOrExternal() == true);
-  EXPECT(s.append(additional) == kErrorOk);
-  EXPECT(s.size() == strlen(large) + strlen(additional));
+  EXPECT_TRUE(s.isLargeOrExternal());
+  EXPECT_EQ(s.append(additional), kErrorOk);
+  EXPECT_EQ(s.size(), strlen(large) + strlen(additional));
 
-  EXPECT(s.clear() == kErrorOk);
-  EXPECT(s.size() == 0);
-  EXPECT(s.empty() == true);
-  EXPECT(s.data()[0] == '\0');
-  EXPECT(s.isLargeOrExternal() == true); // Clear should never release the memory.
+  EXPECT_EQ(s.clear(), kErrorOk);
+  EXPECT_EQ(s.size(), 0u);
+  EXPECT_TRUE(s.empty());
+  EXPECT_EQ(s.data()[0], '\0');
+  EXPECT_TRUE(s.isLargeOrExternal()); // Clear should never release the memory.
 
-  EXPECT(s.appendUInt(1234) == kErrorOk);
-  EXPECT(s.eq("1234") == true);
+  EXPECT_EQ(s.appendUInt(1234), kErrorOk);
+  EXPECT_TRUE(s.eq("1234"));
 
-  EXPECT(s.assignUInt(0xFFFF, 16, 0, StringFormatFlags::kAlternate) == kErrorOk);
-  EXPECT(s.eq("0xFFFF"));
+  EXPECT_EQ(s.assignUInt(0xFFFF, 16, 0, StringFormatFlags::kAlternate), kErrorOk);
+  EXPECT_TRUE(s.eq("0xFFFF"));
 
   StringTmp<64> sTmp;
-  EXPECT(sTmp.isLargeOrExternal());
-  EXPECT(sTmp.isExternal());
-  EXPECT(sTmp.appendChars(' ', 1000) == kErrorOk);
-  EXPECT(!sTmp.isExternal());
+  EXPECT_TRUE(sTmp.isLargeOrExternal());
+  EXPECT_TRUE(sTmp.isExternal());
+  EXPECT_EQ(sTmp.appendChars(' ', 1000), kErrorOk);
+  EXPECT_FALSE(sTmp.isExternal());
 }
 #endif
 

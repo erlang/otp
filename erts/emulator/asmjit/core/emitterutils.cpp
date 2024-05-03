@@ -96,7 +96,7 @@ void logInstructionEmitted(
 }
 
 Error logInstructionFailed(
-  BaseAssembler* self,
+  BaseEmitter* self,
   Error err,
   InstId instId,
   InstOptions options,
@@ -109,16 +109,14 @@ Error logInstructionFailed(
   Operand_ opArray[Globals::kMaxOpCount];
   opArrayFromEmitArgs(opArray, o0, o1, o2, opExt);
 
-  self->_funcs.formatInstruction(sb, FormatFlags::kNone, self, self->arch(), BaseInst(instId, options, self->extraReg()), opArray, Globals::kMaxOpCount);
+  self->_funcs.formatInstruction(sb, FormatFlags::kRegType, self, self->arch(), BaseInst(instId, options, self->extraReg()), opArray, Globals::kMaxOpCount);
 
   if (self->inlineComment()) {
     sb.append(" ; ");
     sb.append(self->inlineComment());
   }
 
-  self->resetInstOptions();
-  self->resetExtraReg();
-  self->resetInlineComment();
+  self->resetState();
   return self->reportError(err, sb.data());
 }
 

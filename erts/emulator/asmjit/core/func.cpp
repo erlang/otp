@@ -283,4 +283,18 @@ ASMJIT_FAVOR_SIZE Error FuncArgsAssignment::updateFuncFrame(FuncFrame& frame) co
   return kErrorOk;
 }
 
+// Func API - Tests
+// ================
+
+#if defined(ASMJIT_TEST)
+UNIT(func_signature) {
+  FuncSignature signature;
+  signature.setRetT<int8_t>();
+  signature.addArgT<int16_t>();
+  signature.addArg(TypeId::kInt32);
+
+  EXPECT_EQ(signature, FuncSignature::build<int8_t, int16_t, int32_t>());
+}
+#endif
+
 ASMJIT_END_NAMESPACE

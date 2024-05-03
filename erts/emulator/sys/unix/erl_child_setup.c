@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2002-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2023. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <termios.h>
 
 #define WANT_NONBLOCKING
 
@@ -432,6 +433,17 @@ static int system_properties_fd(void)
 }
 #endif /* __ANDROID__ */
 
+/*
+  If beam is terminated using kill -9 or Ctrl-C when +B is set it may not
+  cleanup the terminal properly. So to clean it up we save the initial state in
+  erl_child_setup and then reset the terminal if we detect that beam terminated.
+
+  Not all shells and OSs have this issue, but we do it on all unixes anyway as
+  it is hard for us to know where the bug exists or not and there is no hard in
+  doing it.
+ */
+static struct termios initial_tty_mode;
+
 int
 main(int argc, char *argv[])
 {
@@ -516,6 +528,13 @@ main(int argc, char *argv[])
 
     SET_CLOEXEC(uds_fd);
 
+    if (isatty(0)) {
+        ssize_t res = read_all(uds_fd, (char*)&initial_tty_mode, sizeof(struct termios));
+        if (res <= 0) {
+            ABORT("Failed to read initial_tty_mode: %d (%d)", res, errno);
+        }
+    }
+
     DEBUG_PRINT("Starting forker %d", max_files);
 
     while (1) {
@@ -541,12 +560,18 @@ main(int argc, char *argv[])
                                     pipes, 3, MSG_DONTWAIT)) < 0) {
                 if (errno == EINTR)
                     continue;
+                if (isatty(0)) {
+                    tcsetattr(0,TCSANOW,&initial_tty_mode);
+                }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
                 _exit(0);
             }
 
             if (res == 0) {
                 DEBUG_PRINT("uds was closed!");
+                if (isatty(0)) {
+                    tcsetattr(0,TCSANOW,&initial_tty_mode);
+                }
                 _exit(0);
             }
             /* Since we use unix domain sockets and send the entire data in

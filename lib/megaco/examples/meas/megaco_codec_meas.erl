@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,6 +39,14 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_codec_meas).
+-moduledoc """
+This module implements a simple megaco codec measurement tool.
+
+Results are written to file (excel compatible text files) and on stdout.
+
+_Note_ that this module is _not_ included in the runtime part of the
+application.
+""".
 
 %% -compile(export_all).
 
@@ -84,13 +92,21 @@
 
 %% Runs the measurement on all "official" codecs
 
+-doc false.
 start1() ->
     put(everbose,true),
     start().
 
+-doc(#{equiv => start/1}).
 start() ->
     meas_init(1, ?DEFAULT_OPTS, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
 
+-doc """
+start(MessagePackage) -> void()
+
+This function runs the measurement on all the _official_ codecs; pretty,
+compact, ber, per and erlang.
+""".
 start([MessagePackage]) ->
     do_start(1, ?DEFAULT_OPTS, MessagePackage, ?MEASURE_CODECS);
 start(Factor) when is_integer(Factor) andalso (Factor > 0) ->
@@ -98,6 +114,7 @@ start(Factor) when is_integer(Factor) andalso (Factor > 0) ->
 start(MessagePackage) ->
     do_start(1, ?DEFAULT_OPTS, MessagePackage, ?MEASURE_CODECS).
 
+-doc false.
 start(Factor, Opts) when is_integer(Factor) andalso (Factor > 0) andalso
                          is_map(Opts) ->
     do_start(Factor, Opts, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
@@ -393,7 +410,7 @@ do_measure(Factor, Opts, _Id, Codec, Conf, Name, BinMsg, MCount) ->
     {ok, #stat{name   = Name, 
 	       ecount = Ecnt, etime = Etime, 
 	       dcount = Dcnt, dtime = Dtime, 
-	       size = size(NewBin)}}.
+	       size = byte_size(NewBin)}}.
 
 detect_version(#{verbose := Verbose} = _Opts, Codec, Conf, Bin) ->
     case (catch Codec:version_of(Conf, Bin)) of
@@ -401,7 +418,7 @@ detect_version(#{verbose := Verbose} = _Opts, Codec, Conf, Bin) ->
             vprint(Verbose, "[~w]", [V]),
  	    {ok, M} = Codec:decode_message(Conf, V, Bin),
 	    {ok, NewBin} = Codec:encode_message(Conf, V, M),
-            vprint(Verbose, "[~w]", [size(NewBin)]),
+            vprint(Verbose, "[~w]", [byte_size(NewBin)]),
 	    {V, NewBin};
 	Error ->
             if
@@ -463,6 +480,7 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
     end.
 
 
+-doc false.
 do_measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
     {ok, Count} = measure_warmup(Codec, Func, Conf, Version, Bin, MCount),
     Count2      = Count div Factor,
@@ -501,6 +519,7 @@ measure_warmup(Codec, Func, Conf, Version, M, MCount) ->
     end.
 
 
+-doc false.
 do_measure_codec_loop(_Codec, _Func, _Conf, _Version, _Bin, 0, M) ->
     {ok, M};
 do_measure_codec_loop(Codec, Func, Conf, Version, Bin, Count, _) ->
@@ -646,6 +665,7 @@ start_flex_scanner() ->
 stop_flex_scanner(Pid) ->
     Pid ! stop_flex_scanner.
 
+-doc false.
 flex_scanner_handler(Pid) ->
     case (catch megaco_flex_scanner:start()) of
         {ok, Port} when is_port(Port) ->

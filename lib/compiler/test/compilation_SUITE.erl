@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,7 +58,8 @@
 	 vsn_1/1,
 	 vsn_2/1,
          vsn_3/1,
-         infinite_loop/0,infinite_loop/1]).
+         infinite_loop/0,infinite_loop/1,
+         use_nifs/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -86,7 +87,8 @@ groups() ->
        otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
        otp_7202,on_load,on_load_inline,
        string_table,otp_8949_a,split_cases,
-       infinite_loop]}].
+       infinite_loop,
+       use_nifs]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -137,6 +139,8 @@ end_per_group(_GroupName, Config) ->
 ?comp(otp_7202).
 ?comp(on_load).
 ?comp(on_load_inline).
+
+?comp(use_nifs).
 
 infinite_loop() -> [{timetrap,{minutes,1}}].
 ?comp(infinite_loop).
@@ -402,7 +406,7 @@ string_table(Config) when is_list(Config) ->
     File = filename:join(DataDir, "string_table.erl"),
     {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
     {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    {"StrT", <<"stringtable">>} = StringTableChunk,
+    {"StrT", <<"abcdefghiABCDEFGHI">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->
@@ -441,6 +445,5 @@ do_split_cases(A) ->
 	    a=b
     end,
     Z.
-
 
 id(I) -> I.

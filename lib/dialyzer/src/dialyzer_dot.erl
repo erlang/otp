@@ -21,6 +21,7 @@
 %%%-------------------------------------------------------------------
 
 -module(dialyzer_dot).
+-moduledoc false.
 
 -export([translate_digraph/3, translate_digraph/5,
 	 translate_list/3, translate_list/4, translate_list/5]).

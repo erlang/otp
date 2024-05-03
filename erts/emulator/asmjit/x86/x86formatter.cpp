@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Zlib
 
 #include "../core/api-build_p.h"
-#ifndef ASMJIT_NO_LOGGING
+#if !defined(ASMJIT_NO_X86) && !defined(ASMJIT_NO_LOGGING)
 
 #include "../core/cpuinfo.h"
 #include "../core/misc_p.h"
@@ -95,6 +95,24 @@ struct RegFormatInfo_T {
                     X == uint32_t(RegType::kX86_Gpd  ) ? 8   :
                     X == uint32_t(RegType::kX86_Gpq  ) ? 8   :
                     X == uint32_t(RegType::kX86_SReg ) ? 7   :
+                    X == uint32_t(RegType::kX86_Rip  ) ? 1   : 0,
+
+    kRegCount =     X == uint32_t(RegType::kX86_GpbLo) ? 32  :
+                    X == uint32_t(RegType::kX86_GpbHi) ? 4   :
+                    X == uint32_t(RegType::kX86_Gpw  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Gpd  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Gpq  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Xmm  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Ymm  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Zmm  ) ? 32  :
+                    X == uint32_t(RegType::kX86_Mm   ) ? 8   :
+                    X == uint32_t(RegType::kX86_KReg ) ? 8   :
+                    X == uint32_t(RegType::kX86_SReg ) ? 7   :
+                    X == uint32_t(RegType::kX86_CReg ) ? 16  :
+                    X == uint32_t(RegType::kX86_DReg ) ? 16  :
+                    X == uint32_t(RegType::kX86_St   ) ? 8   :
+                    X == uint32_t(RegType::kX86_Bnd  ) ? 4   :
+                    X == uint32_t(RegType::kX86_Tmm  ) ? 8   :
                     X == uint32_t(RegType::kX86_Rip  ) ? 1   : 0
   };
 };
@@ -104,7 +122,7 @@ struct RegFormatInfo_T {
 }
 
 #define ASMJIT_REG_NAME_ENTRY(TYPE) {   \
-  RegTraits<RegType(TYPE)>::kCount,     \
+  RegFormatInfo_T<TYPE>::kRegCount,     \
   RegFormatInfo_T<TYPE>::kFormatIndex,  \
   RegFormatInfo_T<TYPE>::kSpecialIndex, \
   RegFormatInfo_T<TYPE>::kSpecialCount  \
@@ -198,8 +216,11 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "AESNI\0"
     "ALTMOVCR8\0"
     "AMX_BF16\0"
+    "AMX_COMPLEX\0"
+    "AMX_FP16\0"
     "AMX_INT8\0"
     "AMX_TILE\0"
+    "APX_F\0"
     "AVX\0"
     "AVX2\0"
     "AVX512_4FMAPS\0"
@@ -207,30 +228,36 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "AVX512_BF16\0"
     "AVX512_BITALG\0"
     "AVX512_BW\0"
-    "AVX512_CDI\0"
+    "AVX512_CD\0"
     "AVX512_DQ\0"
-    "AVX512_ERI\0"
+    "AVX512_ER\0"
     "AVX512_F\0"
     "AVX512_FP16\0"
     "AVX512_IFMA\0"
-    "AVX512_PFI\0"
+    "AVX512_PF\0"
     "AVX512_VBMI\0"
     "AVX512_VBMI2\0"
     "AVX512_VL\0"
     "AVX512_VNNI\0"
     "AVX512_VP2INTERSECT\0"
     "AVX512_VPOPCNTDQ\0"
+    "AVX_IFMA\0"
+    "AVX_NE_CONVERT\0"
     "AVX_VNNI\0"
+    "AVX_VNNI_INT16\0"
+    "AVX_VNNI_INT8\0"
     "BMI\0"
     "BMI2\0"
     "CET_IBT\0"
     "CET_SS\0"
+    "CET_SSS\0"
     "CLDEMOTE\0"
     "CLFLUSH\0"
     "CLFLUSHOPT\0"
     "CLWB\0"
     "CLZERO\0"
     "CMOV\0"
+    "CMPCCXADD\0"
     "CMPXCHG16B\0"
     "CMPXCHG8B\0"
     "ENCLV\0"
@@ -241,14 +268,20 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "FMA4\0"
     "FPU\0"
     "FSGSBASE\0"
+    "FSRM\0"
+    "FSRC\0"
+    "FSRS\0"
     "FXSR\0"
     "FXSROPT\0"
+    "FZRM\0"
     "GEODE\0"
     "GFNI\0"
     "HLE\0"
     "HRESET\0"
     "I486\0"
+    "INVLPGB\0"
     "LAHFSAHF\0"
+    "LAM\0"
     "LWP\0"
     "LZCNT\0"
     "MCOMMIT\0"
@@ -261,15 +294,19 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "MOVDIRI\0"
     "MPX\0"
     "MSR\0"
+    "MSRLIST\0"
     "MSSE\0"
     "OSXSAVE\0"
     "OSPKE\0"
     "PCLMULQDQ\0"
     "PCONFIG\0"
     "POPCNT\0"
+    "PREFETCHI\0"
     "PREFETCHW\0"
     "PREFETCHWT1\0"
     "PTWRITE\0"
+    "RAO_INT\0"
+    "RMPQUERY\0"
     "RDPID\0"
     "RDPRU\0"
     "RDRAND\0"
@@ -277,13 +314,20 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "RDTSC\0"
     "RDTSCP\0"
     "RTM\0"
+    "SEAM\0"
     "SERIALIZE\0"
+    "SEV\0"
+    "SEV_ES\0"
+    "SEV_SNP\0"
     "SHA\0"
+    "SHA512\0"
     "SKINIT\0"
+    "SM3\0"
+    "SM4\0"
     "SMAP\0"
+    "SME\0"
     "SMEP\0"
     "SMX\0"
-    "SNP\0"
     "SSE\0"
     "SSE2\0"
     "SSE3\0"
@@ -293,6 +337,7 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "SSSE3\0"
     "SVM\0"
     "TBM\0"
+    "TSE\0"
     "TSX\0"
     "TSXLDTRK\0"
     "UINTR\0"
@@ -301,6 +346,7 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "VPCLMULQDQ\0"
     "WAITPKG\0"
     "WBNOINVD\0"
+    "WRMSRNS\0"
     "XOP\0"
     "XSAVE\0"
     "XSAVEC\0"
@@ -309,14 +355,16 @@ Error FormatterInternal::formatFeature(String& sb, uint32_t featureId) noexcept 
     "<Unknown>\0";
 
   static const uint16_t sFeatureIndex[] = {
-    0, 5, 8, 11, 17, 24, 28, 34, 44, 53, 62, 71, 75, 80, 94, 108, 120, 134, 144,
-    155, 165, 176, 185, 197, 209, 220, 232, 245, 255, 267, 287, 304, 313, 317,
-    322, 330, 337, 346, 354, 365, 370, 377, 382, 393, 403, 409, 416, 421, 426,
-    430, 435, 439, 448, 453, 461, 467, 472, 476, 483, 488, 497, 501, 507, 515,
-    519, 524, 532, 541, 547, 557, 565, 569, 573, 578, 586, 592, 602, 610, 617,
-    627, 639, 647, 653, 659, 666, 673, 679, 686, 690, 700, 704, 711, 716, 721,
-    725, 729, 733, 738, 743, 750, 757, 763, 769, 773, 777, 781, 790, 796, 801,
-    805, 816, 824, 833, 837, 843, 850, 859, 866
+    0, 5, 8, 11, 17, 24, 28, 34, 44, 53, 65, 74, 83, 92, 98, 102, 107, 121, 135,
+    147, 161, 171, 181, 191, 201, 210, 222, 234, 244, 256, 269, 279, 291, 311,
+    328, 337, 352, 361, 376, 390, 394, 399, 407, 414, 422, 431, 439, 450, 455,
+    462, 467, 477, 488, 498, 504, 511, 516, 521, 525, 530, 534, 543, 548, 553,
+    558, 563, 571, 576, 582, 587, 591, 598, 603, 611, 620, 624, 628, 634, 642,
+    646, 651, 659, 668, 674, 684, 692, 696, 700, 708, 713, 721, 727, 737, 745,
+    752, 762, 772, 784, 792, 800, 809, 815, 821, 828, 835, 841, 848, 852, 857,
+    867, 871, 878, 886, 890, 897, 904, 908, 912, 917, 921, 926, 930, 934, 939,
+    944, 951, 958, 964, 970, 974, 978, 982, 986, 995, 1001, 1006, 1010, 1021,
+    1029, 1038, 1046, 1050, 1056, 1063, 1072, 1079
   };
   // @EnumStringEnd@
 
@@ -344,7 +392,10 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatRegister(String& sb, FormatFlag
         else
           ASMJIT_PROPAGATE(sb.appendFormat("%%%u", unsigned(Operand::virtIdToIndex(id))));
 
-        if (vReg->type() != type && uint32_t(type) <= uint32_t(RegType::kMaxValue) && Support::test(formatFlags, FormatFlags::kRegCasts)) {
+        bool formatType = (Support::test(formatFlags, FormatFlags::kRegType)) ||
+                          (Support::test(formatFlags, FormatFlags::kRegCasts) && vReg->type() != type);
+
+        if (formatType && uint32_t(type) <= uint32_t(RegType::kMaxValue)) {
           const RegFormatInfo::TypeEntry& typeEntry = info.typeEntries[size_t(type)];
           if (typeEntry.index)
             ASMJIT_PROPAGATE(sb.appendFormat("@%s", info.typeStrings + typeEntry.index));
@@ -481,8 +532,8 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatOperand(
 // =====================================================
 
 static constexpr char kImmCharStart = '{';
-static constexpr char kImmCharEnd   = '}';
-static constexpr char kImmCharOr    = '|';
+static constexpr char kImmCharEnd = '}';
+static constexpr char kImmCharOr = '|';
 
 struct ImmBits {
   enum Mode : uint32_t {
@@ -496,29 +547,29 @@ struct ImmBits {
   char text[48 - 3];
 };
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmShuf(String& sb, uint32_t u8, uint32_t bits, uint32_t count) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmShuf(String& sb, uint32_t imm8, uint32_t bits, uint32_t count) noexcept {
   uint32_t mask = (1 << bits) - 1;
+  uint32_t lastPredicateShift = bits * (count - 1u);
 
-  for (uint32_t i = 0; i < count; i++, u8 >>= bits) {
-    uint32_t value = u8 & mask;
+  for (uint32_t i = 0; i < count; i++, imm8 <<= bits) {
+    uint32_t index = (imm8 >> lastPredicateShift) & mask;
     ASMJIT_PROPAGATE(sb.append(i == 0 ? kImmCharStart : kImmCharOr));
-    ASMJIT_PROPAGATE(sb.appendUInt(value));
+    ASMJIT_PROPAGATE(sb.appendUInt(index));
   }
 
-  if (kImmCharEnd)
-    ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
+  ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
 
   return kErrorOk;
 }
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint32_t u8, const ImmBits* bits, uint32_t count) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint32_t imm8, const ImmBits* bits, uint32_t count) noexcept {
   uint32_t n = 0;
   char buf[64];
 
   for (uint32_t i = 0; i < count; i++) {
     const ImmBits& spec = bits[i];
 
-    uint32_t value = (u8 & uint32_t(spec.mask)) >> spec.shift;
+    uint32_t value = (imm8 & uint32_t(spec.mask)) >> spec.shift;
     const char* str = nullptr;
 
     switch (spec.mode) {
@@ -542,26 +593,23 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmBits(String& sb, uint3
     ASMJIT_PROPAGATE(sb.append(str));
   }
 
-  if (n && kImmCharEnd)
+  if (n)
     ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
 
   return kErrorOk;
 }
 
-ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmText(String& sb, uint32_t u8, uint32_t bits, uint32_t advance, const char* text, uint32_t count = 1) noexcept {
+ASMJIT_FAVOR_SIZE static Error FormatterInternal_formatImmText(String& sb, uint32_t imm8, uint32_t bits, uint32_t advance, const char* text, uint32_t count = 1) noexcept {
   uint32_t mask = (1u << bits) - 1;
   uint32_t pos = 0;
 
-  for (uint32_t i = 0; i < count; i++, u8 >>= bits, pos += advance) {
-    uint32_t value = (u8 & mask) + pos;
+  for (uint32_t i = 0; i < count; i++, imm8 >>= bits, pos += advance) {
+    uint32_t value = (imm8 & mask) + pos;
     ASMJIT_PROPAGATE(sb.append(i == 0 ? kImmCharStart : kImmCharOr));
     ASMJIT_PROPAGATE(sb.append(Support::findPackedString(text, value)));
   }
 
-  if (kImmCharEnd)
-    ASMJIT_PROPAGATE(sb.append(kImmCharEnd));
-
-  return kErrorOk;
+  return sb.append(kImmCharEnd);
 }
 
 ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
@@ -583,8 +631,8 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
   static const char vpcmpx[] = "EQ\0" "LT\0" "LE\0" "FALSE\0" "NEQ\0" "GE\0"  "GT\0"    "TRUE\0";
   static const char vpcomx[] = "LT\0" "LE\0" "GT\0" "GE\0"    "EQ\0"  "NEQ\0" "FALSE\0" "TRUE\0";
 
-  static const char vshufpd[] = "A0\0A1\0B0\0B1\0A2\0A3\0B2\0B3\0A4\0A5\0B4\0B5\0A6\0A7\0B6\0B7\0";
-  static const char vshufps[] = "A0\0A1\0A2\0A3\0A0\0A1\0A2\0A3\0B0\0B1\0B2\0B3\0B0\0B1\0B2\0B3\0";
+  static const char vshufpd[] = "A0\0" "A1\0" "B0\0" "B1\0" "A2\0" "A3\0" "B2\0" "B3\0" "A4\0" "A5\0" "B4\0" "B5\0" "A6\0" "A7\0" "B6\0" "B7\0";
+  static const char vshufps[] = "A0\0" "A1\0" "A2\0" "A3\0" "A0\0" "A1\0" "A2\0" "A3\0" "B0\0" "B1\0" "B2\0" "B3\0" "B0\0" "B1\0" "B2\0" "B3\0";
 
   static const ImmBits vfpclassxx[] = {
     { 0x07u, 0, ImmBits::kModeLookup, "QNAN\0" "+0\0" "-0\0" "+INF\0" "-INF\0" "DENORMAL\0" "-FINITE\0" "SNAN\0" }
@@ -608,25 +656,25 @@ ASMJIT_FAVOR_SIZE static Error FormatterInternal_explainConst(
   };
 
   static const ImmBits vmpsadbw[] = {
-    { 0x04u, 2, ImmBits::kModeLookup, "BLK1[0]\0" "BLK1[1]\0" },
-    { 0x03u, 0, ImmBits::kModeLookup, "BLK2[0]\0" "BLK2[1]\0" "BLK2[2]\0" "BLK2[3]\0" },
     { 0x40u, 6, ImmBits::kModeLookup, "BLK1[4]\0" "BLK1[5]\0" },
-    { 0x30u, 4, ImmBits::kModeLookup, "BLK2[4]\0" "BLK2[5]\0" "BLK2[6]\0" "BLK2[7]\0" }
+    { 0x30u, 4, ImmBits::kModeLookup, "BLK2[4]\0" "BLK2[5]\0" "BLK2[6]\0" "BLK2[7]\0" },
+    { 0x04u, 2, ImmBits::kModeLookup, "BLK1[0]\0" "BLK1[1]\0" },
+    { 0x03u, 0, ImmBits::kModeLookup, "BLK2[0]\0" "BLK2[1]\0" "BLK2[2]\0" "BLK2[3]\0" }
   };
 
   static const ImmBits vpclmulqdq[] = {
-    { 0x01u, 0, ImmBits::kModeLookup, "LQ\0" "HQ\0" },
-    { 0x10u, 4, ImmBits::kModeLookup, "LQ\0" "HQ\0" }
+    { 0x10u, 4, ImmBits::kModeLookup, "LQ\0" "HQ\0" },
+    { 0x01u, 0, ImmBits::kModeLookup, "LQ\0" "HQ\0" }
   };
 
   static const ImmBits vperm2x128[] = {
-    { 0x0Bu, 0, ImmBits::kModeLookup, "A0\0" "A1\0" "B0\0" "B1\0" "\0" "\0" "\0" "\0" "0\0" "0\0" "0\0" "0\0" },
-    { 0xB0u, 4, ImmBits::kModeLookup, "A0\0" "A1\0" "B0\0" "B1\0" "\0" "\0" "\0" "\0" "0\0" "0\0" "0\0" "0\0" }
+    { 0xB0u, 4, ImmBits::kModeLookup, "A0\0" "A1\0" "B0\0" "B1\0" "\0" "\0" "\0" "\0" "0\0" "0\0" "0\0" "0\0" },
+    { 0x0Bu, 0, ImmBits::kModeLookup, "A0\0" "A1\0" "B0\0" "B1\0" "\0" "\0" "\0" "\0" "0\0" "0\0" "0\0" "0\0" }
   };
 
   static const ImmBits vrangexx[] = {
-    { 0x03u, 0, ImmBits::kModeLookup, "MIN\0" "MAX\0" "MIN_ABS\0" "MAX_ABS\0" },
-    { 0x0Cu, 2, ImmBits::kModeLookup, "SIGN_A\0" "SIGN_B\0" "SIGN_0\0" "SIGN_1\0" }
+    { 0x0Cu, 2, ImmBits::kModeLookup, "SIGN_A\0" "SIGN_B\0" "SIGN_0\0" "SIGN_1\0" },
+    { 0x03u, 0, ImmBits::kModeLookup, "MIN\0" "MAX\0" "MIN_ABS\0" "MAX_ABS\0" }
   };
 
   static const ImmBits vreducexx_vrndscalexx[] = {
@@ -881,7 +929,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
       }
     }
 
-    ASMJIT_PROPAGATE(InstInternal::instIdToString(arch, instId, sb));
+    ASMJIT_PROPAGATE(InstInternal::instIdToString(instId, sb));
   }
   else {
     ASMJIT_PROPAGATE(sb.appendFormat("[InstId=#%u]", unsigned(instId)));
@@ -898,7 +946,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
       uint32_t vecSize = 16;
       for (uint32_t j = 0; j < opCount; j++)
         if (operands[j].isReg())
-          vecSize = Support::max<uint32_t>(vecSize, operands[j].size());
+          vecSize = Support::max<uint32_t>(vecSize, operands[j].as<Reg>().size());
       ASMJIT_PROPAGATE(FormatterInternal_explainConst(sb, formatFlags, instId, vecSize, op.as<Imm>()));
     }
 
@@ -941,4 +989,4 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
 
 ASMJIT_END_SUB_NAMESPACE
 
-#endif // !ASMJIT_NO_LOGGING
+#endif // !ASMJIT_NO_X86 && !ASMJIT_NO_LOGGING

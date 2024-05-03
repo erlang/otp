@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(logger_h_common).
+-moduledoc false.
 -behaviour(gen_server).
 
 -include("logger_h_common.hrl").
@@ -168,7 +169,7 @@ changing_config(SetOrUpdate,
 %%% Log a string or report
 -spec log(LogEvent, Config) -> ok when
       LogEvent :: logger:log_event(),
-      Config :: logger:handler_config().
+      Config :: logger_handler:config().
 
 log(LogEvent, Config = #{config := #{olp:=Olp}}) ->
     %% if the handler has crashed, we must drop this event
@@ -350,7 +351,7 @@ call(_, Name, Op) ->
     {error,{badarg,{Op,[Name]}}}.
 
 notify({mode_change,Mode0,Mode1},#{id:=Name}=State) ->
-    log_handler_info(Name,"Handler ~p switched from  ~p to ~p mode",
+    log_handler_info(Name,"Handler ~p switched from ~p to ~p mode",
                      [Name,Mode0,Mode1], State);
 notify({flushed,Flushed},#{id:=Name}=State) ->
     log_handler_info(Name, "Handler ~p flushed ~w log events",
@@ -379,7 +380,7 @@ log_handler_info(Name, Format, Args, #{module:=Module,
 %%% Convert log data on any form to binary
 -spec log_to_binary(LogEvent,Config) -> LogString when
       LogEvent :: logger:log_event(),
-      Config :: logger:handler_config(),
+      Config :: logger_handler:config(),
       LogString :: binary().
 log_to_binary(#{msg:={report,_},meta:=#{report_cb:=_}}=Log,Config) ->
     do_log_to_binary(Log,Config);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@
          openssl_client_early_data_basic/0,
          openssl_client_early_data_basic/1]).
 
+-include("ssl_test_lib.hrl").
 -include("tls_handshake.hrl").
 
 -include_lib("common_test/include/ct.hrl").
@@ -346,7 +347,7 @@ openssl_server_hrr_multiple_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -479,7 +480,7 @@ openssl_server_early_data_manual(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -528,7 +529,7 @@ openssl_server_early_data_manual_big(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -575,7 +576,7 @@ openssl_server_early_data_manual_2_tickets(Config) when is_list(Config) ->
 
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -626,7 +627,7 @@ openssl_server_early_data_manual_2_chacha_tickets(Config) when is_list(Config) -
     %% Receive 2 tickets that used Chacha20-Poly1305 and sha256
     Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    ct:pal("Received tickets: ~p~n", [Tickets0]),
+    ?CT_LOG("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -657,7 +658,7 @@ openssl_client_early_data_basic(Config) when is_list(Config) ->
     RequestFile = filename:join([proplists:get_value(priv_dir, Config), "request"]),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     %% Create request file to be used with early data
-    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n">>,
+    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n", 0, 0>>,
     create_request(RequestFile, EarlyData),
 
     %% Configure session tickets

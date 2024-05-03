@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 %% Used to handle tls_plain_text, tls_compressed and tls_cipher_text
 -record(ssl_tls, {
                   type,
-                  version, 
+                  version :: tls_record:tls_version() | undefined,
                   fragment,
                   early_data = false % TLS-1.3
                  }).

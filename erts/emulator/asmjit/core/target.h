@@ -7,6 +7,7 @@
 #define ASMJIT_CORE_TARGET_H_INCLUDED
 
 #include "../core/archtraits.h"
+#include "../core/cpuinfo.h"
 #include "../core/func.h"
 
 ASMJIT_BEGIN_NAMESPACE
@@ -22,6 +23,8 @@ public:
 
   //! Target environment information.
   Environment _environment;
+  //! Target CPU features.
+  CpuFeatures _cpuFeatures;
 
   //! \name Construction & Destruction
   //! \{
@@ -37,11 +40,14 @@ public:
   //! \{
 
   //! Returns target's environment.
-  inline const Environment& environment() const noexcept { return _environment; }
+  ASMJIT_INLINE_NODEBUG const Environment& environment() const noexcept { return _environment; }
   //! Returns the target architecture.
-  inline Arch arch() const noexcept { return _environment.arch(); }
+  ASMJIT_INLINE_NODEBUG Arch arch() const noexcept { return _environment.arch(); }
   //! Returns the target sub-architecture.
-  inline SubArch subArch() const noexcept { return _environment.subArch(); }
+  ASMJIT_INLINE_NODEBUG SubArch subArch() const noexcept { return _environment.subArch(); }
+
+  //! Returns target CPU features.
+  ASMJIT_INLINE_NODEBUG const CpuFeatures& cpuFeatures() const noexcept { return _cpuFeatures; }
 
   //! \}
 };

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 %%
 -module(asn1ct_imm).
+-moduledoc false.
 -export([per_dec_raw_bitstring/2,
 	 per_dec_boolean/0,per_dec_enumerated/2,per_dec_enumerated/3,
 	 per_dec_extension_map/1,
@@ -498,7 +499,7 @@ is_aligned(k_m_string, _Lb, Ub) ->
     Ub >= 16.
 
 %%%
-%%% Generating the intermediate format format for decoding.
+%%% Generating the intermediate format for decoding.
 %%%
 
 dec_string(Sv, U, Aligned0, T) when is_integer(Sv) ->
@@ -1791,7 +1792,7 @@ enc_pre_cg_nonbuilding(Imm, _) -> Imm.
 %%% an expensive complete/1 implementation). If we can be sure that
 %%% complete/1 will be called with an iolist (no 'align' atoms or
 %%% bitstrings in the list), we can call iolist_to_binary/1
-%%% instead. If the list may include bitstrings, we can can call
+%%% instead. If the list may include bitstrings, we can call
 %%% list_to_bitstring/1 (note that list_to_bitstring/1 does not accept
 %%% a binary or bitstring, so we MUST be sure that we only pass it a
 %%% list).  If complete/1 is called with a binary, we can omit the
@@ -2199,7 +2200,7 @@ propagate({var,Var}, Propagate, #ost{sym=Sym0}=St) when is_function(Propagate, 2
 %%% any         Anything.
 %%%
 %%% align       Basically iodata, but the list may contain bitstrings
-%%%             and the the atom 'align'. Can be passed to complete/1
+%%%             and the atom 'align'. Can be passed to complete/1
 %%%             to construct a binary. Only used for aligned PER (per).
 %%%
 %%% bitstring   An Erlang bitstring.

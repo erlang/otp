@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,10 @@
 
 -behaviour(ct_suite).
 
+-include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_record.hrl").
 
 %% Common test
 -export([all/0,
@@ -60,7 +62,9 @@
          renegotiate_dos_mitigate_passive/0,
          renegotiate_dos_mitigate_passive/1,
          renegotiate_dos_mitigate_absolute/0,
-         renegotiate_dos_mitigate_absolute/1
+         renegotiate_dos_mitigate_absolute/1,
+         active_error_disallowed_client_renegotiate/0,
+         active_error_disallowed_client_renegotiate/1
         ]).
 
 %% Apply export
@@ -87,11 +91,10 @@ all() ->
 
 groups() ->
     [{'dtlsv1.2', [], renegotiate_tests()},
-     {'dtlsv1', [], renegotiate_tests()},
-     {'tlsv1.3', [], renegotiate_tests()},
-     {'tlsv1.2', [], renegotiate_tests()},
-     {'tlsv1.1', [], renegotiate_tests()},
-     {'tlsv1', [], renegotiate_tests()}
+     {'dtlsv1',   [], renegotiate_tests()},
+     {'tlsv1.2',  [], renegotiate_tests()},
+     {'tlsv1.1',  [], renegotiate_tests()},
+     {'tlsv1',    [], renegotiate_tests()}
     ].
 
 renegotiate_tests() ->
@@ -105,18 +108,8 @@ renegotiate_tests() ->
      server_no_wrap_sequence_number,
      renegotiate_dos_mitigate_active,
      renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute].
-
-ssl3_renegotiate_tests() ->
-    [client_renegotiate,
-     server_renegotiate,
-     client_renegotiate_reused_session,
-     server_renegotiate_reused_session,
-     client_no_wrap_sequence_number,
-     server_no_wrap_sequence_number,
-     renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute].
+     renegotiate_dos_mitigate_absolute,
+     active_error_disallowed_client_renegotiate].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -141,7 +134,7 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
                                           TestCase == renegotiate_dos_mitigate_passive;
                                           TestCase == renegotiate_dos_mitigate_absolute ->
-    ct:timetrap({seconds, 160}),
+    ct:timetrap({seconds, 25}),
     Config;
 init_per_testcase(_, Config) ->
     ct:timetrap({seconds, 15}),
@@ -478,12 +471,37 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+active_error_disallowed_client_renegotiate() ->
+    [{doc,"Test that an active client socket gets an error when server denies client renegotiation."}].
+active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, [{client_renegotiation, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Client} = ssl:connect(Hostname, Port, [{renegotiate_at, 1}, {active, true} | ClientOpts]),
+
+    {error, closed} = ssl:send(Client, crypto:strong_rand_bytes(20)),
+
+    receive
+        {ssl_error, Client, _} ->
+            ok
+    end.
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 renegotiate(Socket, Data) ->
-    ct:log("Renegotiating ~n", []),
+    ?CT_LOG("Renegotiating ~n", []),
     Result = ssl:renegotiate(Socket),
-    ct:log("Result ~p~n", [Result]),
+    ?CT_LOG("Result ~p~n", [Result]),
     ssl:send(Socket, Data),
     case Result of
 	ok ->
@@ -503,7 +521,7 @@ renegotiate_immediately(Socket) ->
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
     ok = ssl:renegotiate(Socket),
-    ct:log("Renegotiated again"),
+    ?CT_LOG("Renegotiated again"),
     ssl:send(Socket, "Hello world"),
     ok.
 
@@ -513,14 +531,12 @@ renegotiate_rejected(Socket) ->
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
-    ct:log("Failed to renegotiate again"),
+    ?CT_LOG("Failed to renegotiate again"),
     ssl:send(Socket, "Hello world"),
     ok.
 
 %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-treashold(N, {3,0}) ->
-    (N div 2) + 1;
-treashold(N, {3,1}) ->
+treashold(N, ?TLS_1_0) ->
     (N div 2) + 1;
 treashold(N, _) ->
     N + 1.

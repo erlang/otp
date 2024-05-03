@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 %%
 
 -module(diameter_config).
+-moduledoc false.
 -behaviour(gen_server).
 
 -export([start_service/2,
@@ -45,6 +46,10 @@
          have_transport/2,
          lookup/1,
          subscribe/2]).
+
+-export([
+         which_transports/0, which_transports/1
+        ]).
 
 %% server start
 -export([start_link/0,
@@ -67,6 +72,7 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
+
 
 %% Server state.
 -record(state, {id = diameter_lib:now(),
@@ -126,6 +132,7 @@
 
 %%% The return values below assume the server diameter_config is started.
 %%% The functions will exit if it isn't.
+
 
 %% --------------------------------------------------------------------------
 %% # start_service/2
@@ -232,6 +239,7 @@ pred(_) ->
 subscribe(Ref, T) ->
     diameter_reg:subscribe(?TRANSPORT_KEY(Ref), T).
 
+
 %% --------------------------------------------------------------------------
 %% # have_transport/2
 %%
@@ -245,6 +253,32 @@ have_transport(SvcName, Ref) ->
              [{'andalso', {'=:=', '$1', {const, SvcName}},
                           {'=:=', '$2', {const, Ref}}}],
              [true]}]).
+
+
+%% --------------------------------------------------------------------------
+%% # which_transports/0,1
+%% --------------------------------------------------------------------------
+
+which_transports() ->
+    MatchHead = #transport{service = '$1',
+                           ref     = '$2',
+                           type    = '$3',
+                           _       = '_'},
+    Guard     = [],
+    Return    = [{{'$2', '$3', '$1'}}],
+    [#{ref => Ref, type => Type, service => Service} ||
+        {Ref, Type, Service} <- select([{MatchHead, Guard, Return}])].
+
+which_transports(SvcName) ->
+    MatchHead = #transport{service = '$1',
+                           ref     = '$2',
+                           type    = '$3',
+                           _       = '_'},
+    Guard     = [{'=:=', '$1', {const, SvcName}}],
+    Return    = [{{'$2', '$3'}}],
+    [#{ref => Ref, type => Type} ||
+        {Ref, Type} <- select([{MatchHead, Guard, Return}])].
+
 
 %% --------------------------------------------------------------------------
 %% # lookup/1
@@ -260,6 +294,7 @@ lookup(SvcName) ->
                         options = '$4'},
              [{'=:=', '$1', {const, SvcName}}],
              [{{'$2', '$3', '$4'}}]}]).
+
 
 %% ---------------------------------------------------------
 %% EXPORTED INTERNAL FUNCTIONS
@@ -291,21 +326,14 @@ init([]) ->
 
 %% Child start as a consequence of add_transport.
 init({SvcName, Type, Opts}) ->
-    Res = try
-              add(SvcName, Type, Opts)
-          catch
-              ?FAILURE(Reason) -> {error, Reason}
-          end,
-    proc_lib:init_ack({ok, self(), Res}),
-    loop(Res).
-
-%% loop/1
-
-loop({ok, _}) ->
-    gen_server:enter_loop(?MODULE, [], #state{role = transport});
-
-loop({error, _}) ->
-    ok.  %% die
+    try add(SvcName, Type, Opts) of
+        Ref ->
+            proc_lib:init_ack({ok, self(), Ref}),
+            gen_server:enter_loop(?MODULE, [], #state{role = transport})
+    catch
+        ?FAILURE(Reason) ->
+            proc_lib:init_fail({error, Reason}, {exit, normal})  %% die
+    end.
 
 %%% ----------------------------------------------------------
 %%% # handle_call/2
@@ -443,8 +471,12 @@ sync({stop_service, SvcName}) ->
 %% This is to provide a way for processes to to be notified when the
 %% configuration is removed (diameter_reg:subscribe/2).
 sync({add, SvcName, Type, Opts}) ->
-    {ok, _Pid, Res} = diameter_config_sup:start_child({SvcName, Type, Opts}),
-    Res;
+    case diameter_config_sup:start_child({SvcName, Type, Opts}) of
+        {ok, _Pid, Ref} ->
+            {ok, Ref};
+        {error, _} = Res ->
+            Res
+    end;
 
 sync({remove, SvcName, Pred}) ->
     Recs = select([{#transport{service = '$1', _ = '_'},
@@ -545,16 +577,12 @@ add(SvcName, Type, Opts0) ->
     %% The call to the service returns error if the service isn't
     %% started yet, which is harmless. The transport will be started
     %% when the service is in that case.
-    case start_transport(SvcName, T) of
-        ok ->
-            insert(#transport{service = SvcName,
-                              ref = Ref,
-                              type = Type,
-                              options = Opts}),
-            {ok, Ref};
-        {error, _} = No ->
-            No
-    end.
+    start_transport(SvcName, T),
+    insert(#transport{service = SvcName,
+                      ref = Ref,
+                      type = Type,
+                      options = Opts}),
+    Ref.
 
 transport_opts(Opts) ->
     [setopt(transport, T) || T <- Opts].
@@ -655,6 +683,9 @@ opt(service = S, {sequence = K, F}) ->
             {error, {E, R, Stack}}
     end;
 
+opt(service, {bins_info, BI}) ->
+    is_boolean(BI) orelse (is_integer(BI) andalso (BI >= 0));
+
 opt(transport, {transport_module, M}) ->
     is_atom(M);
 
@@ -751,8 +782,8 @@ start_transport(SvcName, T) ->
             ok;
         {error, no_service} ->
             ok;
-        {error, _} = No ->
-            No
+        {error, Reason} ->
+            ?THROW(Reason)
     end.
 
 %% remove/2
@@ -792,6 +823,7 @@ stop_transport(SvcName, Refs) ->
 %% make_config/2
 
 make_config(SvcName, Opts) ->
+
     AppOpts = [T || {application, _} = T <- Opts],
     Apps = [init_app(T) || T <- AppOpts],
 
@@ -809,10 +841,14 @@ make_config(SvcName, Opts) ->
 
     D = proplists:get_value(string_decode, SvcOpts, true),
 
-    #service{name = SvcName,
-             rec = #diameter_service{applications = Apps,
-                                     capabilities = binary_caps(Caps, D)},
-             options = SvcOpts}.
+    Service =
+        #service{name = SvcName,
+                 rec = #diameter_service{applications = Apps,
+                                         capabilities = binary_caps(Caps, D)},
+                 options = SvcOpts},
+
+    Service.
+
 
 binary_caps(Caps, true) ->
     Caps;

@@ -1,5 +1,6 @@
 -module(telnet_server).
 -compile(export_all).
+-compile([export_all,nowarn_export_all]).
 
 %% telnet control characters
 -define(SE,	240).
@@ -306,7 +307,7 @@ check_user(User,State) ->
 
 check_pwd(Pwd,#state{authorized={user,Pwd}}=State) ->
     dbg("password ok\n"),
-    send("Welcome to the ultimate telnet server!\r\n> ",State),
+    send("Welcomé to the ultimate telnet server!\r\n> ",State),
     {ok,State#state{authorized=true}};
 check_pwd(_,_State) ->
     throw({error,authentication}).

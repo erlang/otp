@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2219,7 +2219,7 @@ tpl([]) ->
     ok.
 
 stop_clear() ->
-    dbg:stop_clear(),
+    dbg:stop(),
     %% Remove tracer from all processes in order to eliminate
     %% race conditions.
     erlang:trace(all,false,[all]).

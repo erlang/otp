@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%% Purpose : Optimise jumps and remove unreachable code.
 
 -module(beam_jump).
+-moduledoc false.
 
 -export([module/2,
 	 remove_unused_labels/1]).
@@ -407,30 +408,43 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-unambigous_deallocation([{call_ext,_,_}|Is]) ->
+unambigous_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
     %% beam_validator requires that the size of the stack frame is
-    %% unambigously known when a function is called.
+    %% unambigously known when certain instructions are used.
     %%
-    %% That means that we must be careful when sharing function calls.
+    %% That means that we must be careful when sharing them.
     %%
     %% To ensure that the frame size is unambigous, only allow sharing
     %% of calls if the call is followed by instructions that
     %% indicates the size of the stack frame.
     find_deallocation(Is);
+unambigous_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
 unambigous_deallocation([{call,_,_}|Is]) ->
     find_deallocation(Is);
 unambigous_deallocation([_|Is]) ->
     unambigous_deallocation(Is);
-unambigous_deallocation([]) -> true.
+unambigous_deallocation([]) ->
+    true.
 
-find_deallocation([{line,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{call,_,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{call_ext,_,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{init_yregs,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{block,_}|Is]) -> find_deallocation(Is);
-find_deallocation([{deallocate,_}|_]) -> true;
-find_deallocation([return]) -> true;
-find_deallocation(_) -> false.
+find_deallocation([{block,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{call_ext,_,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{deallocate,_}|_]) ->
+    true;
+find_deallocation([{init_yregs,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([{line,_}|Is]) ->
+    find_deallocation(Is);
+find_deallocation([return]) ->
+    true;
+find_deallocation(_) ->
+    false.
 
 %% If the label has a scope set, assign it to any line instruction
 %% in the sequence.
@@ -451,6 +465,7 @@ add_scope([I|Is], Scope) ->
     [I|add_scope(Is, Scope)];
 add_scope([], _Scope) -> [].
 
+is_shareable([{badmatch,_}|_]) -> false;
 is_shareable([build_stacktrace|_]) -> false;
 is_shareable([{case_end,_}|_]) -> false;
 is_shareable([{'catch',_,_}|_]) -> false;
@@ -473,22 +488,26 @@ is_shareable([]) -> true.
 %% branches to them are located.
 %%
 %% If there is more than one scope in the function (that is, if there
-%% try/catch or catch in the function), the scope identifiers will be
-%% added to the line instructions. Recording the scope in the line
-%% instructions makes beam_jump idempotent, ensuring that beam_jump
-%% will not do any unsafe optimizations when when compiling from a .S
-%% file.
+%% is any try/catch or catch in the function), the scope identifiers
+%% will be added to the line instructions. Recording the scope in the
+%% line instructions makes beam_jump idempotent, ensuring that
+%% beam_jump will not do any unsafe optimizations when compiling from
+%% a .S file.
 %%
 
 classify_labels(Is) ->
     classify_labels(Is, 0, #{}).
 
-classify_labels([{'catch',_,_}|Is], Scope, Safe) ->
-    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'catch',_,{f,L}}|Is], Scope0, Safe0) ->
+    Scope = Scope0 + 1,
+    Safe = classify_add_label(L, Scope, Safe0),
+    classify_labels(Is, Scope, Safe);
 classify_labels([{catch_end,_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
-classify_labels([{'try',_,_}|Is], Scope, Safe) ->
-    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try',_,{f,L}}|Is], Scope0, Safe0) ->
+    Scope = Scope0 + 1,
+    Safe = classify_add_label(L, Scope, Safe0),
+    classify_labels(Is, Scope, Safe);
 classify_labels([{'try_end',_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
 classify_labels([{'try_case',_}|Is], Scope, Safe) ->
@@ -498,11 +517,7 @@ classify_labels([{'try_case_end',_}|Is], Scope, Safe) ->
 classify_labels([I|Is], Scope, Safe0) ->
     Labels = instr_labels(I),
     Safe = foldl(fun(L, A) ->
-                         case A of
-                             #{L := [Scope]} -> A;
-                             #{L := Other} -> A#{L => ordsets:add_element(Scope, Other)};
-                             #{} -> A#{L => [Scope]}
-                         end
+                         classify_add_label(L, Scope, A)
                  end, Safe0, Labels),
     classify_labels(Is, Scope, Safe);
 classify_labels([], Scope, Safe) ->
@@ -513,6 +528,16 @@ classify_labels([], Scope, Safe) ->
             #{};
         _ ->
             Safe
+    end.
+
+classify_add_label(L, Scope, Map) ->
+    case Map of
+        #{L := [Scope]} ->
+            Map;
+        #{L := [_|_]=Set} ->
+            Map#{L => ordsets:add_element(Scope, Set)};
+        #{} ->
+            Map#{L => [Scope]}
     end.
 
 %% Eliminate all fallthroughs. Return the result reversed.
@@ -599,20 +624,23 @@ find_fixpoint(OptFun, Is0) ->
 opt([{test,is_eq_exact,{f,L},_}|[{jump,{f,L}}|_]=Is], Acc, St) ->
     %% The is_eq_exact test is not needed.
     opt(Is, Acc, St);
-opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
+opt([{test,Test0,{f,L}=Lbl,Ops}=I0|[{jump,To}|Is]=Is0], Acc, St) ->
     case is_label_defined(Is, L) of
 	false ->
+            I = is_lt_to_is_ge(I0),
 	    opt(Is0, [I|Acc], label_used(Lbl, St));
 	true ->
 	    case invert_test(Test0) of
 		not_possible ->
+                    I = is_lt_to_is_ge(I0),
 		    opt(Is0, [I|Acc], label_used(Lbl, St));
 		Test ->
 		    %% Invert the test and remove the jump.
 		    opt([{test,Test,To,Ops}|Is], Acc, St)
 	    end
     end;
-opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
+opt([{test,_,{f,_}=Lbl,_}=I0|Is], Acc, St) ->
+    I = is_lt_to_is_ge(I0),
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
@@ -672,6 +700,17 @@ opt([], Acc, #st{replace=Replace0}) when Replace0 =/= #{} ->
     beam_utils:replace_labels(Acc, [], Replace, fun(Old) -> Old end);
 opt([], Acc, #st{replace=Replace}) when Replace =:= #{} ->
     reverse(Acc).
+
+is_lt_to_is_ge({test,is_lt,Lbl,Args}=I) ->
+    case Args of
+        [{integer,N},{tr,_,#t_integer{}}=Src] ->
+            {test,is_ge,Lbl,[Src,{integer,N+1}]};
+        [{tr,_,#t_integer{}}=Src,{integer,N}] ->
+            {test,is_ge,Lbl,[{integer,N-1},Src]};
+        [_,_] ->
+            I
+    end;
+is_lt_to_is_ge(I) -> I.
 
 prune_redundant_values([_Val,F|Vls], F) ->
     prune_redundant_values(Vls, F);
@@ -911,6 +950,8 @@ instr_labels({bs_start_match4,Fail,_,_,_}) ->
         {f,L} -> [L];
         {atom,_} -> []
     end;
+instr_labels({bs_match,{f,Fail},_Ctx,_List}) ->
+    [Fail];
 instr_labels(_) ->
     [].
 

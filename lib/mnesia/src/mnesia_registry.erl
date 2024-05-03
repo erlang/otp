@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,18 @@
 
 %%
 -module(mnesia_registry).
+-moduledoc """
+This module is deprecated and the functions should not be used.
+
+This module was intended for internal use within OTP by the `erl_interface` application,
+but it has two functions that are exported for public use.
+
+Since the `erl_interface` have removed the registry functionality a long time ago,
+these functions are deprecated.
+
+## See Also
+ `m:mnesia`
+""".
 
 %%%----------------------------------------------------------------------
 %%% File    : mnesia_registry.erl
@@ -71,7 +83,9 @@
 -export([start_dump/2, start_restore/2]).
 -export([create_table/1, create_table/2]).
 
-%% Internal exports 
+-deprecated([{create_table, '_', "use mnesia:create_table/2 instead"}]).
+
+%% Internal exports
 -export([init/4]).
 
 -record(state, {table, ops = [], link_to}).
@@ -118,6 +132,7 @@ start(Type, Tab, LinkTo) ->
 %% and it is up to he LinkTo process to act properly when it receives an exit
 %% signal.
 
+-doc false.
 start_dump(Tab, LinkTo) ->
     start(dump, Tab, LinkTo).
 
@@ -140,16 +155,48 @@ start_dump(Tab, LinkTo) ->
 %% and it is up to he LinkTo process to act properly when it receives an
 %% exit signal.
 
+-doc false.
 start_restore(Tab, LinkTo) ->
     start(restore, Tab, LinkTo).
 
+-doc """
+> #### Warning {: .warning }
+>
+> _This function is deprecated. Do not use it._
+>
 
+A wrapper function for `mnesia:create_table/2`, which creates a table (if there
+is no existing table) with an appropriate set of `attributes`. The table only
+resides on the local node and its storage type is the same as the `schema` table
+on the local node, that is, `{ram_copies,[node()]}` or `{disc_copies,[node()]}`.
+
+This function is used by `erl_interface` to create the Mnesia table if it does
+not already exist.
+""".
+-spec create_table(Tab :: atom()) -> 'ok'.
 %% Optionally creates the Mnesia table Tab with suitable default values.
 %% Returns ok or EXIT's
 create_table(Tab) ->
     Storage = mnesia:table_info(schema, storage_type),
     create_table(Tab, [{Storage, [node()]}]).
 
+-doc """
+> #### Warning {: .warning }
+>
+> _This function is deprecated. Do not use it._
+>
+
+A wrapper function for `mnesia:create_table/2`, which creates a table (if there
+is no existing table) with an appropriate set of `attributes`. The attributes
+and `TabDef` are forwarded to `mnesia:create_table/2`. For example, if the table
+is to reside as `disc_only_copies` on all nodes, a call looks as follows:
+
+```erlang
+          TabDef = [{{disc_only_copies, node()|nodes()]}],
+          mnesia_registry:create_table(my_reg, TabDef)
+```
+""".
+-spec create_table(Tab :: atom(), Opt :: [{atom(), term()}]) -> ok.
 create_table(Tab, TabDef) ->
     Attrs = record_info(fields, registry_entry),
     case mnesia:create_table(Tab, [{attributes, Attrs} | TabDef]) of
@@ -165,6 +212,7 @@ create_table(Tab, TabDef) ->
 %%% Server
 %%%----------------------------------------------------------------------
 
+-doc false.
 init(Type, Starter, LinkTo, Tab) ->
     if
 	LinkTo /= Starter ->

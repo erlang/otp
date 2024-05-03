@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 %%
 
 -module(httpd_manager).
+-moduledoc false.
 
 -include("httpd.hrl").
 
@@ -454,28 +455,37 @@ report_error(State,String) ->
 call(ServerRef, Request) ->
     try gen_server:call(ServerRef, Request, infinity) 
     catch
-	exit:_ ->
-	    {error, closed} 
+	exit:Reason:Stacktrace ->
+            String =
+                lists:flatten(
+                  io_lib:format(
+                    "Request"
+                    "~n   ~p"
+                    "~nto manager (~p) from ~p failed:"
+                    "~n   ~p"
+                    "~n   ~p",
+                    [Request, ServerRef, self(), Reason, Stacktrace])),
+            error_logger:warning_report(String),
+	    {error, Reason}
     end.
 
 count_children(Sup) ->
     Children = supervisor:count_children(whereis(Sup)),
     proplists:get_value(workers, Children).
 
-shutdown_connections(Sup) ->
-    Children = [Child || {_,Child,_,_} <- supervisor:which_children(Sup)],
-    lists:foreach(fun(Pid) -> exit(Pid, kill) end,
-		  Children).
+shutdown_connections(CSup) ->
+    Children = [Child || {_,Child,_,_} <- supervisor:which_children(CSup)],
+    lists:foreach(
+      fun(Child) ->
+              _ = supervisor:terminate_child(CSup, Child)
+      end, Children).
 
-wait_for_shutdown(CSup, Manager) ->	      
-    case count_children(CSup) of
-	0 ->
-	    Manager ! connections_terminated;
-	_ ->
-	    receive 
-	    after 500 ->
-		    ok
-	    end,
-	    wait_for_shutdown(CSup, Manager)
-    end.	
-
+wait_for_shutdown(CSup, Manager) ->
+    Children = [Child || {_,Child,_,_} <- supervisor:which_children(CSup)],
+    Monitors = [erlang:monitor(process, Child) || Child <- Children],
+    lists:foreach(
+      fun(Mref) ->
+              receive {'DOWN', Mref, _, _, _} -> ok end
+      end, Monitors),
+    Manager ! connections_terminated,
+    ok.

@@ -2,7 +2,7 @@
 //
 // %CopyrightBegin%
 //
-// Copyright Ericsson AB 2017-2021. All Rights Reserved.
+// Copyright Ericsson AB 2017-2023. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,10 +24,10 @@ return_trace() {
 
     SWAPOUT;		/* Needed for shared heap */
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+2)/* tracer */);
+    erts_trace_return(c_p, mfa, x(0), E[2]/*tracer*/, E[3]/*session_id*/);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
     SWAPIN;
-    E += 3;
+    E += 1 + BEAM_RETURN_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next
@@ -49,7 +49,7 @@ i_generic_breakpoint() {
     //| -no_next
 }
 
-i_return_time_trace() {
+i_call_trace_return() {
     const ErtsCodeInfo *cinfo;
 
     if (is_CP(E[1])) {
@@ -59,18 +59,20 @@ i_return_time_trace() {
     }
 
     SWAPOUT;
-    erts_trace_time_return(c_p, cinfo);
+    erts_call_trace_return(c_p, cinfo, E[2], E[3]);
     SWAPIN;
 
-    E += 2;
+    E += 1 + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next
 }
 
 i_return_to_trace() {
-    if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
-        Uint *cpp = (Uint*) E;
+    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+	Eterm session_id = E[1];
+        Uint *cpp = (Uint*) E + 1;
+
         while (is_not_CP(*cpp)) {
             cpp++;
         }
@@ -90,11 +92,11 @@ i_return_to_trace() {
         }
         SWAPOUT;		/* Needed for shared heap */
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, cp_val(*cpp));
+        erts_trace_return_to(c_p, cp_val(*cpp), session_id);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
     }
-    E += 1;
+    E += 1 + BEAM_RETURN_TO_TRACE_FRAME_SZ;
     $RETURN();
     Goto(*I);
     //| -no_next
@@ -135,10 +137,10 @@ i_perf_counter() {
 
     ts = erts_sys_perf_counter();
     if (IS_SSMALL(ts)) {
-        r(0) = make_small((Sint)ts);
+        x(0) = make_small((Sint)ts);
     } else {
         $GC_TEST(0, ERTS_SINT64_HEAP_SIZE(ts), 0);
-        r(0) = make_big(HTOP);
+        x(0) = make_big(HTOP);
 #if defined(ARCH_32)
         if (ts >= (((Uint64) 1) << 32)) {
             *HTOP = make_pos_bignum_header(2);

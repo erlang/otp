@@ -25,6 +25,7 @@
 %% @doc Parse transform for automatic exporting of test functions.
 
 -module(eunit_autoexport).
+-moduledoc false.
 
 -include("eunit_internal.hrl").
 
@@ -89,7 +90,8 @@ rewrite([], As, Module, Test) ->
 	     [{function,L,test,0,
 	       [{clause,L,[],[],
 		 [{call,L,{remote,L,{atom,L,eunit},{atom,L,test}},
-		   [{atom,L,Module}]}]}]}
+		   [{atom,L,Module}]}]}]},
+              {attribute,L,doc,false}
 	      | As];
 	true ->
 	     As

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %%
 
 -module(diameter_info).
+-moduledoc false.
 
 -export([usage/1,
          format/1,
@@ -688,10 +689,10 @@ f(SFun, Width, [HF | _] = Fields, Values) ->
     end.
 
 values(Fields, Rec)
-  when length(Fields) == size(Rec) - 1 ->
+  when length(Fields) == tuple_size(Rec) - 1 ->
     ?VALUES(Rec);
 values(Fields, T)
-  when length(Fields) == size(T) ->
+  when length(Fields) == tuple_size(T) ->
     tuple_to_list(T).
 
 %% format_local/2

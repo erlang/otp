@@ -17,6 +17,7 @@ typedef struct
     int ref_cnt;
     CallInfo* call_history;
     ErlNifResourceType* rt_arr[RT_MAX];
+    ErlNifPid tester_pid;
 }NifModPrivData;
 
 #define NifModPrivData_release(NMPD) \

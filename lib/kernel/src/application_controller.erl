@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,24 +18,26 @@
 %% %CopyrightEnd%
 %%
 -module(application_controller).
+-moduledoc false.
 
 %% External exports
 -export([start/1, 
 	 load_application/1, unload_application/1, 
-	 start_application/2, start_boot_application/2, stop_application/1,
+	 start_application/2, start_application_request/2,
+	 start_boot_application/2, stop_application/1,
 	 control_application/1, is_running/1,
 	 change_application_data/2, prep_config_change/0, config_change/1,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, info/0, set_env/2,
-	 get_pid_env/2, get_env/2, get_pid_all_env/1, get_all_env/1,
+	 get_pid_env/2, get_env/2, get_env/3, get_pid_all_env/1, get_all_env/1,
 	 get_pid_key/2, get_key/2, get_pid_all_key/1, get_all_key/1,
 	 get_master/1, get_application/1, get_application_module/1,
 	 start_type/1, permit_application/2, do_config_diff/2,
 	 set_env/3, set_env/4, unset_env/2, unset_env/3]).
 
 %% Internal exports
--export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
-	 code_change/3, init_starter/4, get_loaded/1]).
+-export([handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	 code_change/3, get_loaded/1]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -158,7 +160,7 @@
 %% Env         = [{Key, Value}]
 %%-----------------------------------------------------------------
 
--record(appl, {name, appl_data, descr, id, vsn, restart_type, inc_apps, opt_apps, apps}).
+-record(appl, {name, appl_data, descr, id, vsn, inc_apps, opt_apps, apps}).
 
 %%-----------------------------------------------------------------
 %% Func: start/1
@@ -208,10 +210,10 @@ start(KernelApp) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 load_application(Application) ->
-    gen_server:call(?AC, {load_application, Application}, infinity).
+    call({load_application, Application}, infinity).
 
 unload_application(AppName) ->
-    gen_server:call(?AC, {unload_application, AppName}, infinity).
+    call({unload_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_application/2
@@ -235,7 +237,10 @@ unload_application(AppName) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 start_application(AppName, RestartType) ->
-    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity).
+    call({start_application, AppName, RestartType}, infinity).
+
+start_application_request(AppName, RestartType) ->
+    gen_server:send_request(?AC, {start_application, AppName, RestartType}).
 
 %%-----------------------------------------------------------------
 %% Func: is_running/1
@@ -246,7 +251,7 @@ start_application(AppName, RestartType) ->
 %% Returns: boolean
 %%-----------------------------------------------------------------
 is_running(AppName) when is_atom(AppName) ->
-    gen_server:call(?AC, {is_running, AppName}, infinity).
+    call({is_running, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_boot_application/2
@@ -259,9 +264,9 @@ start_boot_application(Application, RestartType) ->
     case {application:load(Application), RestartType} of
 	{ok, _} ->
 	    AppName = get_appl_name(Application),
-	    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity);
+	    call({start_application, AppName, RestartType}, infinity);
 	{{error, {already_loaded, AppName}}, _} ->
-	    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity);
+	    call({start_application, AppName, RestartType}, infinity);
 	{{error,{bad_environment_value,Env}}, permanent} ->
 	    Txt = io_lib:format("Bad environment variable: ~tp  Application: ~p",
 				[Env, Application]),
@@ -271,15 +276,15 @@ start_boot_application(Application, RestartType) ->
     end.
 
 stop_application(AppName) ->
-    gen_server:call(?AC, {stop_application, AppName}, infinity).
+    call({stop_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Descr, Vsn}]
 %%-----------------------------------------------------------------
 which_applications() ->
-    gen_server:call(?AC, which_applications).    
+    call(which_applications).
 which_applications(Timeout) ->
-    gen_server:call(?AC, which_applications, Timeout).
+    call(which_applications, Timeout).
 
 loaded_applications() ->
     ets:select(ac_tab,
@@ -291,10 +296,10 @@ loaded_applications() ->
 
 %% Returns some debug info
 info() ->
-    gen_server:call(?AC, info).    
+    call(info).
 
 control_application(AppName) ->
-    gen_server:call(?AC, {control_application, AppName}, infinity).
+    call({control_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: change_application_data/2
@@ -319,21 +324,14 @@ control_application(AppName) ->
 %%          some applicatation may have got new config data.
 %%-----------------------------------------------------------------
 change_application_data(Applications, Config) ->
-    gen_server:call(?AC, 
-		    {change_application_data, Applications, Config},
-		    infinity).
+    call({change_application_data, Applications, Config},infinity).
 
 prep_config_change() ->
-    gen_server:call(?AC, 
-		    prep_config_change,
-		    infinity).
+    call(prep_config_change, infinity).
 
 
 config_change(EnvPrev) ->
-    gen_server:call(?AC, 
-		    {config_change, EnvPrev},
-		    infinity).
-
+    call({config_change, EnvPrev},infinity).
 
 
 get_pid_env(Master, Key) ->
@@ -343,10 +341,14 @@ get_pid_env(Master, Key) ->
     end.
 
 get_env(AppName, Key) ->
-    case ets:lookup(ac_tab, {env, AppName, Key}) of
-	[{_, Val}] -> {ok, Val};
-	_ -> undefined
+    NotFound = make_ref(),
+    case ets:lookup_element(ac_tab, {env, AppName, Key}, 2, NotFound) of
+        NotFound -> undefined;
+        Val -> {ok, Val}
     end.
+
+get_env(AppName, Key, Default) ->
+    ets:lookup_element(ac_tab, {env, AppName, Key}, 2, Default).
 
 get_pid_all_env(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
@@ -364,42 +366,47 @@ get_pid_key(Master, Key) ->
 	_ -> undefined
     end.
 
-get_key(AppName, Key) ->
-    case ets:lookup(ac_tab, {loaded, AppName}) of
-	[{_, Appl}] ->
-	    case Key of 
-		description ->
-		    {ok, Appl#appl.descr};
-		id ->
-		    {ok, Appl#appl.id};
-		vsn ->
-		    {ok, Appl#appl.vsn};
-		modules ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mods};
-		maxP ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxP};
-		maxT ->
-		    {ok, (Appl#appl.appl_data)#appl_data.maxT};
-		registered ->
-		    {ok, (Appl#appl.appl_data)#appl_data.regs};
-		included_applications ->
-		    {ok, Appl#appl.inc_apps};
-                optional_applications ->
-                    {ok, Appl#appl.opt_apps};
-		applications ->
-		    {ok, Appl#appl.apps};
-		env ->
-		    {ok, get_all_env(AppName)};
-		mod ->
-		    {ok, (Appl#appl.appl_data)#appl_data.mod};
-		start_phases ->
-		    {ok, (Appl#appl.appl_data)#appl_data.phases};
-		_ -> undefined
-	    end;
-	_ ->
-	    undefined
+get_key(AppName, description) ->
+    get_key_direct(AppName, #appl{descr = '$1', _ = '_'});
+get_key(AppName, id) ->
+    get_key_direct(AppName, #appl{id = '$1', _ = '_'});
+get_key(AppName, vsn) ->
+    get_key_direct(AppName, #appl{vsn = '$1', _ = '_'});
+get_key(AppName, modules) ->
+    get_key_data(AppName, #appl_data{mods = '$1', _ = '_'});
+get_key(AppName, maxP) ->
+    get_key_data(AppName, #appl_data{maxP = '$1', _ = '_'});
+get_key(AppName, maxT) ->
+    get_key_data(AppName, #appl_data{maxT = '$1', _ = '_'});
+get_key(AppName, registered) ->
+    get_key_data(AppName, #appl_data{regs = '$1', _ = '_'});
+get_key(AppName, included_applications) ->
+    get_key_direct(AppName, #appl{inc_apps = '$1', _ = '_'});
+get_key(AppName, optional_applications) ->
+    get_key_direct(AppName, #appl{opt_apps = '$1', _ = '_'});
+get_key(AppName, applications) ->
+    get_key_direct(AppName, #appl{apps = '$1', _ = '_'});
+get_key(AppName, env) ->
+    case ets:member(ac_tab, {loaded, AppName}) of
+        true -> {ok, get_all_env(AppName)};
+        false -> undefined
+    end;
+get_key(AppName, mod) ->
+    get_key_data(AppName, #appl_data{mod = '$1', _ = '_'});
+get_key(AppName, start_phases) ->
+    get_key_data(AppName, #appl_data{phases = '$1', _ = '_'});
+get_key(_, _) ->
+    undefined.
+
+get_key_direct(AppName, Match) ->
+    case ets:match(ac_tab, {{loaded, AppName}, Match}) of
+        [[Value]] -> {ok, Value};
+        [] -> undefined
     end.
-	    
+
+get_key_data(AppName, Match) ->
+	get_key_direct(AppName, #appl{appl_data = Match, _ = '_'}).
+
 get_pid_all_key(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> get_all_key(AppName);
@@ -431,7 +438,7 @@ get_all_key(AppName) ->
 start_type(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> 
-	    gen_server:call(?AC, {start_type, AppName}, infinity);
+	    call({start_type, AppName}, infinity);
 	_X -> 
 	    undefined
     end.
@@ -442,10 +449,7 @@ start_type(Master) ->
 
 
 get_master(AppName) ->
-    case ets:lookup(ac_tab, {application_master, AppName}) of
-	[{_, Pid}] -> Pid;
-	_ -> undefined
-    end.
+    ets:lookup_element(ac_tab, {application_master, AppName}, 2, undefined).
 
 get_application(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
@@ -470,31 +474,44 @@ get_application_module(_Module, []) ->
     undefined.
 
 permit_application(ApplName, Flag) ->
-    gen_server:call(?AC, 
-		    {permit_application, ApplName, Flag},
-		    infinity).
+    call({permit_application, ApplName, Flag},infinity).
 
 set_env(Config, Opts) ->
     case check_conf_data(Config) of
 	ok ->
 	    Timeout = proplists:get_value(timeout, Opts, 5000),
-	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
+	    call({set_env, Config, Opts}, Timeout);
 
 	{error, _} = Error ->
 	    Error
     end.
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+    call({set_env, AppName, Key, Val, []}).
 set_env(AppName, Key, Val, Opts) ->
     Timeout = proplists:get_value(timeout, Opts, 5000),
-    gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
+    call({set_env, AppName, Key, Val, Opts}, Timeout).
 
 unset_env(AppName, Key) ->
-    gen_server:call(?AC, {unset_env, AppName, Key, []}).
+    call({unset_env, AppName, Key, []}).
 unset_env(AppName, Key, Opts) ->
     Timeout = proplists:get_value(timeout, Opts, 5000),
-    gen_server:call(?AC, {unset_env, AppName, Key, Opts}, Timeout).
+    call({unset_env, AppName, Key, Opts}, Timeout).
+
+call(Cmd) ->
+    case gen_server:call(?AC, Cmd) of
+        {error, terminating} ->
+            exit(terminating);
+        Res ->
+            Res
+    end.
+call(Cmd, Timeout) ->
+    case gen_server:call(?AC, Cmd, Timeout) of
+        {error, terminating} ->
+            exit(terminating);
+        Res ->
+            Res
+    end.
 
 %%%-----------------------------------------------------------------
 %%% call-back functions from gen_server
@@ -685,14 +702,14 @@ handle_call({start_application, AppName, RestartType}, From, S) ->
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, undefined} ->
-			    spawn_starter(From, Appl, S, normal),
+			    spawn_starter(Appl, S, normal),
 			    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 							  Starting],
 					      start_req = [{AppName, From} | Start_req]}};
 			{false, {ok, Perms}} ->
 			    case lists:member({AppName, false}, Perms) of
 				false ->
-				    spawn_starter(From, Appl, S, normal),
+				    spawn_starter(Appl, S, normal),
 				    {noreply, S#state{starting = [{AppName, RestartType, normal, From} |
 								  Starting],
 						      start_req = [{AppName, From} | Start_req]}};
@@ -770,16 +787,16 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 		{true, {true, Appl}, false, {value, Tuple}, false, false} ->
 		    update_permissions(AppName, Bool),
 		    {_AppName2, RestartType, normal, _From} = Tuple,
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 start_p_false = keydelete(AppName, 1, SPF),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
 		%% started but not running
 		{true, {true, Appl}, _, _, {value, {AppName, RestartType}}, false} ->
 		    update_permissions(AppName, Bool),
-		    spawn_starter(From, Appl, S, normal),
-		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting], 
+		    spawn_starter(Appl, S, normal),
+		    SS = S#state{starting = [{AppName, RestartType, normal, From} | Starting],
 				 started = keydelete(AppName, 1, Started),
 				 start_req = [{AppName, From} | Start_req]},
 		    {noreply, SS};
@@ -1054,7 +1071,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 	    case Res of
 		start_it ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Type),
+		    spawn_starter(Appl, S, Type),
 		    {noreply, S};
 		{started, Node} ->
 		    handle_application_started(AppName, 
@@ -1070,7 +1087,7 @@ handle_info({ac_start_application_reply, AppName, Res}, S) ->
 			     start_req = Start_reqN}};
 		{takeover, _Node} = Takeover ->
 		    {true, Appl} = get_loaded(AppName),
-		    spawn_starter(From, Appl, S, Takeover),
+		    spawn_starter(Appl, S, Takeover),
 		    NewStarting1 = keydelete(AppName, 1, Starting),
 		    NewStarting = [{AppName, RestartType, Takeover, From} | NewStarting1],
 		    {noreply, S#state{starting = NewStarting}};
@@ -1228,14 +1245,21 @@ terminate(Reason, S) ->
 			%% Proc died before link
 			{'EXIT', Id, _} -> ok
 		    after 0 ->
-			    receive
-				{'DOWN', Ref, process, Id, _} -> ok
-			    after ShutdownTimeout ->
-				    exit(Id, kill),
-				    receive
-					{'DOWN', Ref, process, Id, _} -> ok
-				    end
-			    end
+                            (fun F() ->
+                                     receive
+                                         {'DOWN', Ref, process, Id, _} -> ok;
+                                         %% We need to handle any gen_server:call here
+                                         %% and reply to them so that they don't deadlock
+                                         {'$gen_call', From, _Msg} ->
+                                             gen_server:reply(From, {error, terminating}),
+                                             F()
+                                     after ShutdownTimeout ->
+                                             exit(Id, kill),
+                                             receive
+                                                 {'DOWN', Ref, process, Id, _} -> ok
+                                             end
+                                     end
+                             end)()
 		    end;
 	       (_) -> ok
 	    end,
@@ -1340,14 +1364,10 @@ check_start_cond(AppName, RestartType, Started, Running) ->
 		true ->
 		    {error, {already_started, AppName}};
 		false ->
-		    foreach(
-			fun(AppName2) ->
-			    case lists:keymember(AppName2, 1, Started) orelse
-				     lists:member(AppName2, Appl#appl.opt_apps) of
-				true -> ok;
-				false -> throw({error, {not_started, AppName2}})
-			    end
-		    end, Appl#appl.apps),
+                    case find_missing_dependency(Appl, Started) of
+                        {value, NotStarted} -> throw({error, {not_started, NotStarted}});
+                        false -> ok
+                    end,
 		    {ok, Appl}
 	    end;
 	false ->
@@ -1367,7 +1387,7 @@ do_start(AppName, RT, Type, From, S) ->
 	false ->
 	    {true, Appl} = get_loaded(AppName),
 	    Start_req = S#state.start_req,
-	    spawn_starter(undefined, Appl, S, Type),
+	    spawn_starter(Appl, S, Type),
 	    Starting = case lists:keymember(AppName, 1, S#state.starting) of
 			   false ->
 			       %% UW: don't know if this is necessary
@@ -1381,45 +1401,26 @@ do_start(AppName, RT, Type, From, S) ->
 	true -> % otherwise we're already starting the app...
 	    S
     end.
-    
-spawn_starter(From, Appl, S, Type) ->
-    spawn_link(?MODULE, init_starter, [From, Appl, S, Type]).
 
-init_starter(_From, Appl, S, Type) ->
-    process_flag(trap_exit, true),
-    AppName = Appl#appl.name,
-    gen_server:cast(?AC, {application_started, AppName, 
-			  catch start_appl(Appl, S, Type)}).
+spawn_starter(#appl{appl_data=#appl_data{mod=[]},name=Name}, _S, _Type) ->
+    gen_server:cast(?AC, {application_started, Name, {ok, undefined}});
+spawn_starter(Appl, S, Type) ->
+    case find_missing_dependency(Appl, S#state.running) of
+        {value, NotRunning} ->
+            Reply = {info, {not_running, NotRunning}},
+            gen_server:cast(?AC, {application_started, Appl#appl.name, Reply});
+        false ->
+            application_master:start_link(Appl#appl.appl_data, Type)
+    end.
 
-reply(undefined, _Reply) -> 
+reply(undefined, _Reply) ->
     ok;
 reply(From, Reply) -> gen_server:reply(From, Reply).
 
-start_appl(Appl, S, Type) ->
-    ApplData = Appl#appl.appl_data,
-    case ApplData#appl_data.mod of
-	[] ->
-	    {ok, undefined};
-	_ ->
-	    %% Name = ApplData#appl_data.name,
-	    Running = S#state.running,
-	    foreach(
-		fun(AppName) ->
-		    case lists:keymember(AppName, 1, Running) orelse
-			     lists:member(AppName, Appl#appl.opt_apps) of
-			true -> ok;
-			false -> throw({info, {not_running, AppName}})
-		    end
-		end, Appl#appl.apps),
-	    case application_master:start_link(ApplData, Type) of
-		{ok, _Pid} = Ok ->
-		    Ok;
-		{error, _Reason} = Error ->
-		    throw(Error)
-	    end
-    end.
+find_missing_dependency(Appl, Applications) ->
+    Pred = fun(AppName) -> not lists:keymember(AppName, 1, Applications) end,
+    lists:search(Pred, Appl#appl.apps -- Appl#appl.opt_apps).
 
-    
 %%-----------------------------------------------------------------
 %% Stop application locally.
 %%-----------------------------------------------------------------
@@ -1489,8 +1490,8 @@ make_appl(Application) ->
     {ok, make_appl_i(Application)}.
 
 prim_consult(FullName) ->
-    case erl_prim_loader:get_file(FullName) of
-	{ok, Bin, _} ->
+    case erl_prim_loader:read_file(FullName) of
+	{ok, Bin} ->
             case file_binary_to_list(Bin) of
                 {ok, String} ->
                     case erl_scan:string(String) of
@@ -1541,6 +1542,11 @@ make_appl_i({application, Name, Opts}) when is_atom(Name), is_list(Opts) ->
 	end,
     Phases = get_opt(start_phases, Opts, undefined),
     Env = get_opt(env, Opts, []),
+    case check_para(Env, Name) of
+        ok -> ok;
+        {error, Reason} ->
+            throw({error, {invalid_options, Reason}})
+    end,
     MaxP = get_opt(maxP, Opts, infinity),
     MaxT = get_opt(maxT, Opts, infinity),
     IncApps = get_opt(included_applications, Opts, []),
@@ -1959,8 +1965,8 @@ check_conf_sys([], SysEnv, Errors, _) ->
 
 load_file(File) ->
     %% We can't use file:consult/1 here. Too bad.
-    case erl_prim_loader:get_file(File) of
-	{ok, Bin, _FileName} ->
+    case erl_prim_loader:read_file(File) of
+	{ok, Bin} ->
 	    %% Make sure that there is some whitespace at the end of the string
 	    %% (so that reading a file with no NL following the "." will work).
             case file_binary_to_list(Bin) of

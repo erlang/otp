@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@
 %%
 
 -module(bs_match_SUITE).
--compile(nowarn_shadow_vars).
+
+%% Limiting error locations to lines makes it more likely that unsafe
+%% reordering of clauses will be noticed.
+-compile([nowarn_shadow_vars, {error_location,line}]).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -49,7 +52,11 @@
          bad_phi_paths/1,many_clauses/1,
          combine_empty_segments/1,hangs_forever/1,
          bs_saved_position_units/1,empty_matches/1,
-         trim_bs_start_match_resume/1]).
+         trim_bs_start_match_resume/1,
+         gh_6410/1,bs_match/1,
+         binary_aliases/1,gh_6923/1,
+         bs_test_tail/1,
+         otp_19019/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -89,7 +96,11 @@ groups() ->
        exceptions_after_match_failure,bad_phi_paths,
        many_clauses,combine_empty_segments,hangs_forever,
        bs_saved_position_units,empty_matches,
-       trim_bs_start_match_resume]}].
+       trim_bs_start_match_resume,
+       gh_6410,bs_match,binary_aliases,
+       gh_6923,
+       bs_test_tail,
+       otp_19019]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -113,14 +124,18 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_match_r21_SUITE ->
+        bs_match_r25_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 163 ->
+                Highest when Highest =< 180 ->
                     ok;
                 TooHigh ->
                     ct:fail({too_high_opcode_for_21,TooHigh})
-            end;
+            end,
+
+            %% Cover min/max for OTP 25.
+            10 = max(0, min(10, id(42))),
+            ok;
         _ ->
             ok
     end.
@@ -856,6 +871,16 @@ coverage(Config) when is_list(Config) ->
     %% Cover code in beam_ssa_codegen.
     ok = coverage_beam_ssa_codegen(<<2>>),
 
+    %% Cover code in beam_ssa_pre_codegen.
+    {'EXIT',{function_clause,_}} = catch coverage_beam_ssa_pre_codegen(<<>>),
+
+    %% Cover code in beam_ssa_bsm.
+    {'EXIT',{{badarg,<<>>},_}} = catch coverage_beam_ssa_bsm_error(id(<<>>)),
+
+    %% Cover code for merging registers in beam_validator.
+    42 = coverage_beam_validator(id(fun() -> 42 end)),
+    ok = coverage_beam_validator(id(fun() -> throw(whatever) end)),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -1005,6 +1030,25 @@ coverage_beam_ssa_codegen(Bin) ->
             << <<0>> || <<2>> <= Bin >>
     end,
     ok.
+
+coverage_beam_ssa_pre_codegen(<<V0:0, V1:(V0 div V0), _:(V0 bsl V1)/bits>>) ->
+    ok.
+
+coverage_beam_ssa_bsm_error(<<B/bitstring>>) ->
+    B andalso ok.
+
+coverage_beam_validator(F) ->
+    coverage_beam_validator(ok, ok, ok,
+       try
+           F()
+       catch
+           <<V:ok/binary>> ->
+               V;
+           _ ->
+               ok
+       end).
+
+coverage_beam_validator(_, _, _, Result) -> Result.
 
 multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
@@ -1311,7 +1355,7 @@ match_string(Config) when is_list(Config) ->
     %% To make sure that native endian really is handled correctly
     %% (i.e. that the compiler does not attempt to use bs_match_string/4
     %% instructions for native segments), running this test is not enough.
-    %% Either examine the generated for do_match_string_native/1 or
+    %% Either examine the generated code for do_match_string_native/1 or
     %% check the coverage for the v3_kernel module.
     case erlang:system_info(endian) of
 	little ->
@@ -1329,6 +1373,14 @@ match_string(Config) when is_list(Config) ->
     plain = no_match_string_opt(<<"abc">>),
     strange = no_match_string_opt(<<$a:9,$b:9,$c:9>>),
 
+    d = do_match_string_tail(id(<<"d">>)),
+    dd = do_match_string_tail(id(<<"dd">>)),
+
+    a = do_match_string_var_size(id(<<"a">>), id(0)),
+    a = do_match_string_var_size(id(<<"ab">>), id(8)),
+    ab = do_match_string_var_size(id(<<"ab">>), id(0)),
+    ab = do_match_string_var_size(id(<<"abc">>), id(8)),
+
     ok.
 
 do_match_string_native(<<$a:16/native,$b:16/native>>) -> ok.
@@ -1343,7 +1395,13 @@ do_match_string_little_signed(<<(-1):16/little-signed>>) -> ok.
 
 no_match_string_opt(<<"abc">>) -> plain;
 no_match_string_opt(<<$a:9,$b:9,$c:9>>) -> strange.
-    
+
+%% GH-7259: Unsafe reordering of clauses. (The clauses must be on the
+%% same line to trigger this bug.)
+do_match_string_tail(<<"dd", _T/binary>>) -> dd; do_match_string_tail(<<"d", _T/binary>>) -> d.
+
+do_match_string_var_size(Bin, Size) ->
+    case Bin of <<"ab",_T:Size>> -> ab; <<"a",_T:Size>> -> a end.
 
 %% OTP-7591: A zero-width segment in matching would crash the compiler.
 
@@ -1406,6 +1464,15 @@ bad_size(Config) when is_list(Config) ->
     true = bad_size_1(<<0>>),
     error = bad_size_1(<<0,1>>),
 
+    [] = bad_size_2([a]),
+    [] = bad_size_2([<<1,2,3>>]),
+    {'EXIT',{{bad_generator,no_list},_}} = catch bad_size_2(no_list),
+
+    error = bad_size_3(<<>>),
+    error = bad_size_3(<<0>>),
+
+    <<>> = id(<<_V1 || <<_V0/float, _V1:_V0>> <= <<>>>>),
+
     ok.
 
 bad_all_size(Bin) ->
@@ -1464,6 +1531,19 @@ bad_all_size_6(Bin) ->
 bad_size_1(<<0>>) -> true;
 bad_size_1(<<0:[]>>) -> false;
 bad_size_1(_) -> error.
+
+-record(rec_bad_size_2, {a}).
+
+bad_size_2(L) ->
+    [
+     ok ||
+        <<_:(bad#rec_bad_size_2.a)/float>> <- L
+    ].
+
+bad_size_3(<<0:((bnot (1 div 0)))>>) ->
+    ok;
+bad_size_3(_) ->
+    error.
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),
@@ -2491,143 +2571,95 @@ trim_bs_start_match_resume_1(<<Context/binary>>) ->
     _ = id(Context),
     Context.
 
-id(I) -> I.
-
 expand_and_squeeze(Config) when is_list(Config) ->
     %% UTF8 literals are expanded and then squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<$á/utf8,_/binary>>"),
-	?Q("<<$é/utf8,_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<$á/utf8,_/binary>>"),
+                         ?Q("<<$é/utf8,_/binary>>")]),
 
     %% Sized integers are expanded and then squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<0:32,_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<0:32,_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>")]),
 
     %% Groups of 8 bits are squeezed into integer16
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<\"aaaa\",_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>")]),
 
     %% Groups of 8 bits with empty binary are also squeezed
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,16}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>"),
-	?Q("<<>>")
-    ]),
+    ensure_squeezed(16, [?Q("<<\"aaaa\",_/binary>>"),
+                         ?Q("<<\"bbbb\",_/binary>>"),
+                         ?Q("<<>>")]),
 
     %% Groups of 8 bits with float lookup are not squeezed
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aaaa\",_/binary>>"),
-	?Q("<<\"bbbb\",_/binary>>"),
-	?Q("<<_/float>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aaaa\",_/binary>>"),
+                        ?Q("<<\"bbbb\",_/binary>>"),
+                        ?Q("<<_/float>>")]),
 
     %% Groups of diverse bits go with minimum possible
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aa\",_/binary>>"),
-	?Q("<<\"bb\",_/binary>>"),
-	?Q("<<\"c\",_/binary>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aa\",_/binary>>"),
+                        ?Q("<<\"bb\",_/binary>>"),
+                        ?Q("<<\"c\",_/binary>>")]),
 
     %% Groups of diverse bits go with minimum possible but are recursive...
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| RestDiverse
-    ] = binary_match_to_asm([
-	?Q("<<\"aaa\",_/binary>>"),
-	?Q("<<\"abb\",_/binary>>"),
-	?Q("<<\"c\",_/binary>>")
-    ]),
+    [{bs_match,{f,_},_Ctx,
+      {commands,[{ensure_at_least,Size,1},
+                 {integer,_Live,_Flags,Size,1,_Dst}]}} | RestDiverse] =
+        binary_match_to_asm([?Q("<<\"aaa\",_/binary>>"),
+                             ?Q("<<\"abb\",_/binary>>"),
+                             ?Q("<<\"c\",_/binary>>")]),
 
-    %% so we still perform a 16 bits lookup for the remaining
-    true = lists:any(fun({test,bs_get_integer2,_,_,[_,{integer,16}|_],_}) -> true;
-			(_) -> false end, RestDiverse),
+    %% ... so we still perform a 16 bits lookup for the remaining
+    F = fun({bs_match,{f,_},_,
+             {commands,[{ensure_at_least,16,1},
+                        {integer,_Live,_Flags,16,1,_Dst}]}}) ->
+                true;
+           (_) -> false
+        end,
+    true = lists:any(F, RestDiverse),
 
     %% Large match is kept as is if there is a sized match later
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,64}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<255,255,255,255,255,255,255,255>>"),
-	?Q("<<_:64>>")
-    ]),
+    ensure_squeezed(64, [?Q("<<255,255,255,255,255,255,255,255>>"),
+                         ?Q("<<_:64>>")]),
 
     %% Large match is kept as is with large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32,_:A>>"),
-	?Q("<<0:32>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32,_:A>>"),
+                         ?Q("<<0:32>>"),
+                         ?Q("<<_:32>>")]),
 
     %% Large match is kept as is with large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32,_:A>>"),
-	?Q("<<0,0,0,0>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32,_:A>>"),
+                         ?Q("<<0,0,0,0>>"),
+                         ?Q("<<_:32>>")]),
 
     %% Large match is kept as is with smaller but still large matches before and after
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,32}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<A:32, _:A>>"),
-	?Q("<<0:64>>"),
-	?Q("<<_:32>>")
-    ]),
+    ensure_squeezed(32, [?Q("<<A:32, _:A>>"),
+                         ?Q("<<0:64>>"),
+                         ?Q("<<_:32>>")]),
 
     %% There is no squeezing for groups with more than 16 matches
-    [
-	{test,bs_get_integer2,_,_,[_,{integer,8}|_],_}
-	| _
-    ] = binary_match_to_asm([
-	?Q("<<\"aa\", _/binary>>"),
-	?Q("<<\"bb\", _/binary>>"),
-	?Q("<<\"cc\", _/binary>>"),
-	?Q("<<\"dd\", _/binary>>"),
-	?Q("<<\"ee\", _/binary>>"),
-	?Q("<<\"ff\", _/binary>>"),
-	?Q("<<\"gg\", _/binary>>"),
-	?Q("<<\"hh\", _/binary>>"),
-	?Q("<<\"ii\", _/binary>>"),
-	?Q("<<\"jj\", _/binary>>"),
-	?Q("<<\"kk\", _/binary>>"),
-	?Q("<<\"ll\", _/binary>>"),
-	?Q("<<\"mm\", _/binary>>"),
-	?Q("<<\"nn\", _/binary>>"),
-	?Q("<<\"oo\", _/binary>>"),
-	?Q("<<\"pp\", _/binary>>")
-    ]),
+    ensure_squeezed(8, [?Q("<<\"aa\", _/binary>>"),
+                        ?Q("<<\"bb\", _/binary>>"),
+                        ?Q("<<\"cc\", _/binary>>"),
+                        ?Q("<<\"dd\", _/binary>>"),
+                        ?Q("<<\"ee\", _/binary>>"),
+                        ?Q("<<\"ff\", _/binary>>"),
+                        ?Q("<<\"gg\", _/binary>>"),
+                        ?Q("<<\"hh\", _/binary>>"),
+                        ?Q("<<\"ii\", _/binary>>"),
+                        ?Q("<<\"jj\", _/binary>>"),
+                        ?Q("<<\"kk\", _/binary>>"),
+                        ?Q("<<\"ll\", _/binary>>"),
+                        ?Q("<<\"mm\", _/binary>>"),
+                        ?Q("<<\"nn\", _/binary>>"),
+                        ?Q("<<\"oo\", _/binary>>"),
+                        ?Q("<<\"pp\", _/binary>>")]),
 
     ok.
+
+ensure_squeezed(ExpectedSize, Fields) ->
+    [{bs_match,{f,_},_,
+      {commands,[{ensure_at_least,ExpectedSize,1},
+                 {integer,_Live,_Flags,ExpectedSize,1,_Dst}]}} | _] =
+        binary_match_to_asm(Fields).
 
 binary_match_to_asm(Matches) ->
     Clauses = [
@@ -2676,3 +2708,584 @@ many_clauses(_Config) ->
 
 one_clause(I) ->
     ?Q(<<"{_@I@,<<L:8,Val:L>>} -> _@I@ + Val">>).
+
+%% GH-6410: Fix crash in beam_ssa_bsm.
+gh_6410(_Config) ->
+    0 = do_gh_6410(<<42>>),
+    {'EXIT',{{case_clause,<<>>},[_|_]}} = catch do_gh_6410(<<>>),
+    {'EXIT',{{case_clause,a},[_|_]}} = catch do_gh_6410(a),
+    {'EXIT',{badarith,[_|_]}} = catch do_gh_6410([]),
+
+    ok.
+
+do_gh_6410(<<_>>) ->
+    0;
+do_gh_6410(X) ->
+    +(case X of
+        <<_>> ->
+            X;
+        [] ->
+            X
+    end).
+
+bs_match(_Config) ->
+    <<1,0>> = do_bs_match_1(whatever, <<1,0>>),
+    <<1,1>> = do_bs_match_1(whatever, <<1,1>>),
+    {a,b,c} = do_bs_match_1(whatever, {a,b,c}),
+
+    {'EXIT',{badarg,_}} = catch do_bs_match_gh_6551a(<<>>),
+    false = do_bs_match_gh_6551a(<<42>>),
+
+    {0,0} = do_bs_match_gh_6551b(0),
+    {<<42>>,<<42>>} = do_bs_match_gh_6551b(<<42>>),
+
+    ok = do_bs_match_gh_6613(<<0>>),
+    <<0,0>> = do_bs_match_gh_6613(<<0,0>>),
+
+    <<"abc">> = do_bs_match_gh_6660(id(<<"abc">>)),
+    {'EXIT', {{try_clause,abc},_}} = catch do_bs_match_gh_6660(id(abc)),
+
+    {'EXIT',{{case_clause,_},_}} = catch do_bs_match_gh_6755(id(<<"1000">>)),
+
+    {'EXIT',{{badmatch,<<>>},_}} = catch do_bs_match_gh_7467(<<>>),
+
+    {0,<<1,2,3>>} = do_bs_match_gh_8280(),
+
+    ok.
+
+do_bs_match_1(_, X) ->
+    case X of
+        <<_, 0>> ->
+            id(42);
+        _ ->
+            true
+    end,
+    X.
+
+do_bs_match_gh_6551a(X) ->
+    case X of
+        <<>> ->
+            true -- [];
+        <<_>> ->
+            X
+    end /= X.
+
+
+do_bs_match_gh_6551b(X) ->
+    {X,
+        case X of
+            0 ->
+                0;
+            <<_>> ->
+                X
+        end}.
+
+do_bs_match_gh_6613(<<_>>) ->
+    ok;
+do_bs_match_gh_6613(X) ->
+    try
+        try X of
+            #{(not ok) := _} ->
+                ok;
+            <<Z, Z>> ->
+                ok
+        after
+            ok
+        end
+    catch
+        _ ->
+            ok
+    end,
+    X.
+
+do_bs_match_gh_6660(X) ->
+    try X of
+        <<Y/bytes>> ->
+            %% The `bs_extract` instruction was sunk to after the
+            %% `kill_try_tag` instruction, preventing
+            %% beam_ssa_pre_codegen from combining it with the
+            %% preceding bs_match instruction.
+            Y
+    after
+        ok
+    end.
+
+do_bs_match_gh_6755(B) ->
+    C = case B of
+            <<"1000">> -> test;
+            <<"1001">> -> test2
+        end,
+
+    _ = atom_to_list(C),
+
+    case B of
+        <<"b">> -> b
+    end.
+
+do_bs_match_gh_7467(A) ->
+    do_bs_match_gh_7467(<<_:1/bits>> = A).
+
+do_bs_match_gh_8280() ->
+    A = 0,
+    B = <<1, 2, 3>>,
+    <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
+    {A, B}.
+
+%% GH-6348/OTP-18297: Allow aliases for binaries.
+-record(ba_foo, {a,b,c}).
+
+binary_aliases(_Config) ->
+    F1 = fun(<<A:8>> = <<B:8>>) -> {A,B} end,
+    {42,42} = F1(id(<<42>>)),
+    {99,99} = F1(id(<<99>>)),
+
+    F2 = fun(#ba_foo{a = <<X:8>>} = #ba_foo{a = <<Y:8>>}) -> {X,Y} end,
+    {255,255} = F2(id(#ba_foo{a = <<-1>>})),
+    {107,107} = F2(id(#ba_foo{a = <<107>>})),
+
+    F3 = fun(#ba_foo{a = <<X:8>>} = #ba_foo{a = <<Y:4,Z:4>>}) -> {X,Y,Z} end,
+    {255,15,15} = F3(id(#ba_foo{a = <<-1>>})),
+    {16#5c,16#5,16#c} = F3(id(#ba_foo{a = <<16#5c>>})),
+
+    F4 = fun([<<A:8>> = {C,D} = <<B:8>>]) ->
+                 {A,B,C,D};
+            (L) ->
+                 lists:sum(L)
+         end,
+    6 = F4(id([1,2,3])),
+
+    F5 = fun(Val) ->
+                 <<A:8>> = X = <<B:8>> = Val,
+                 {A,B,X}
+         end,
+    {42,42,<<42>>} = F5(id(<<42>>)),
+
+    F6 = fun(X, Y) ->
+                  <<A:8>> = <<X:4,Y:4>>,
+                 A
+         end,
+    16#7c = F6(16#7, 16#c),
+    16#ed = F6(16#e, 16#d),
+
+    F7 = fun(Val) ->
+                 (<<A:8>> = X) = (<<B:8>> = <<A:4,B:4>>) = Val,
+                 {A,B,X}
+         end,
+    {0,0,<<0>>} = F7(id(<<0>>)),
+    {'EXIT',{{badmatch,<<1>>},_}} = catch F7(<<1>>),
+
+    F8 = fun(Val) ->
+                  (<<A:8>> = X) = (Y = <<B:8>>) = Val,
+                  {A,B,X,Y}
+         end,
+    {253,253,<<253>>,<<253>>} = F8(id(<<253>>)),
+
+    F9 = fun(Val) ->
+                  (Z = <<A:8>> = X) = (Y = <<B:8>> = W) = Val,
+                  {A,B,X,Y,Z,W}
+         end,
+    {201,201,<<201>>,<<201>>,<<201>>,<<201>>} = F9(id(<<201>>)),
+
+    F10 = fun(X) ->
+                  <<>> = (<<>> = X)
+          end,
+    <<>> = F10(id(<<>>)),
+    {'EXIT',{{badmatch,42},_}} = catch F10(id(42)),
+
+    F11 = fun(Bin) ->
+                  <<A:8/bits,B:24/bits>> = <<C:16,D:16>> = <<E:8,F:8,G:8,H:8>> = Bin,
+                  {A,B,C,D,E,F,G,H}
+          end,
+    {<<0>>,<<0,0,0>>, 0,0, 0,0,0,0} = F11(id(<<0:32>>)),
+    {<<16#ab>>,<<16#cdef57:24>>, 16#abcd,16#ef57, 16#ab,16#cd,16#ef,16#57} =
+        F11(id(<<16#abcdef57:32>>)),
+
+    F12 = fun(#{key := <<X:8>>} = #{key := <<Y:8>>}) -> {X,Y} end,
+    {255,255} = F12(id(#{key => <<-1>>})),
+    {209,209} = F12(id(#{key => <<209>>})),
+
+    F13 = fun(Bin) ->
+                  <<_:8,A:Size>> = <<_:8,B:Size/bits>> = <<Size:8,_/bits>> = Bin,
+                  {Size,A,B}
+          end,
+    {0,0,<<>>} = F13(id(<<0>>)),
+    {1,1,<<1:1>>} = F13(id(<<1,1:1>>)),
+    {8,42,<<42>>} = F13(id(<<8,42>>)),
+
+    F14 = fun(Bin) ->
+                  [<<_:Y>> | _] = [_ | Y] = id(Bin),
+                  ok
+          end,
+    ok = F14([<<>>|0]),
+    ok = F14([<<-1:32>>|32]),
+    {'EXIT',{{badmatch,[<<0:16>>|0]},_}} = catch F14([<<0:16>>|0]),
+    {'EXIT',{{badmatch,[<<0:16>>|atom]},_}} = catch F14([<<0:16>>|atom]),
+
+    F15 = fun(Bin) ->
+                  {<<_:Y>>, _} = {_, Y} = id(Bin),
+                  Y
+          end,
+    0 = F15({<<>>, 0}),
+    32 = F15({<<-1:32>>, 32}),
+    {'EXIT',{{badmatch,{<<0:16>>,0}},_}} = catch F15({<<0:16>>, 0}),
+    {'EXIT',{{badmatch,{<<0:16>>,atom}},_}} = catch F15({<<0:16>>, atom}),
+
+    F16 = fun(Bin) ->
+                  [{<<_:Y>>, _}] = [{_, Y}] = id(Bin),
+                  Y
+          end,
+    0 = F16([{<<>>, 0}]),
+    32 = F16([{<<-1:32>>, 32}]),
+    {'EXIT',{{badmatch,[{<<0:16>>,0}]},_}} = catch F16([{<<0:16>>, 0}]),
+    {'EXIT',{{badmatch,[{<<0:16>>,atom}]},_}} = catch F16([{<<0:16>>, atom}]),
+
+    F17 = fun(#{[] := <<_>>, [] := <<_>>}) -> ok end,
+    ok = F17(id(#{[] => <<42>>})),
+    {'EXIT',{function_clause,_}} = catch F17(id(#{[] => <<>>})),
+    {'EXIT',{function_clause,_}} = catch F17(id(atom)),
+
+    F18 = fun(<<_>> = Bin) ->
+                  case Bin of
+                      <<_>> -> ok;
+                      _ -> error
+                  end;
+             (_) -> error
+          end,
+    ok = F18(id(<<42>>)),
+    error = F18(<<>>),
+    error = F18(<<1:1>>),
+    error = F18(atom),
+
+    F19 = fun(B) ->
+                  <<42:Sz>> = Sz = <<_>> = B
+          end,
+    {'EXIT',{{badmatch,<<0>>},_}} = catch F19(<<0>>),
+    {'EXIT',{{badmatch,<<>>},_}} = catch F19(<<>>),
+    {'EXIT',{{badmatch,0},_}} = catch F19(0),
+
+    F20 = fun([<<>>] = [<<>>]) -> ok end,
+    ok = F20([<<>>]),
+
+    a = gh_6467(id(0), id(<<0>>), id(0)),
+    {'EXIT',{{badmatch,0},_}} = catch gh_6467(id(0), id(<<0>>), id([])),
+    {'EXIT',{{badmatch,<<7>>},_}} = catch gh_6467(id(<<7>>), id(<<33>>), id([])),
+
+    F21 = fun(<<_:(true andalso 0)>> = <<>>) -> ok;
+             (_) -> error
+          end,
+    ok = F21(<<>>),
+    error = F21(<<42>>),
+    error = F21(42),
+
+    true = gh6415_a(<<42>>, true),
+    error = gh6415_a(<<42>>, false),
+    error = gh6415_a(<<>>, false),
+    error = gh6415_a(<<>>, not_bool),
+    error = gh6415_a(any, true),
+    error = gh6415_a(any, false),
+
+    ok = gh6415_b(true, <<99>>),
+    ok = gh6415_b(false, <<99>>),
+    error = gh6415_b(true, <<>>),
+    error = gh6415_b(false, <<>>),
+
+    ok = gh6415_c(<<10>>, true),
+    error = gh6415_c(<<10>>, false),
+    error = gh6415_c(<<>>, true),
+    error = gh6415_c(42, true),
+
+    gh6415_case_clause(42),
+    gh6415_case_clause(<<42>>),
+    gh6415_case_clause(a),
+
+    error = gh6415_nomatch(<<>>),
+    error = gh6415_nomatch(<<42>>),
+    error = gh6415_nomatch(<<97,98>>),
+    error = gh6415_nomatch(#{0 => <<>>}),
+    error = gh6415_nomatch(#{0 => <<42>>}),
+    error = gh6415_nomatch(#{0 => 42}),
+    error = gh6415_nomatch(#{}),
+    error = gh6415_nomatch({a,tuple}),
+    error = gh6415_nomatch(an_atom),
+
+    42 = gh6415_match_a(id(<<42>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_a(id(a)),
+
+    {42,<<>>} = gh6415_match_b(id(<<42>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<1,2>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_b(id(a)),
+
+    {'EXIT',{_,_}} = catch gh6415_match_c(),
+
+    ok = gh6415_match_d(id(<<163>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_d(id(a)),
+
+    ok = gh6415_match_e(id(<<163,0>>)),
+    ok = gh6415_match_e(id(<<99,8,42>>)),
+    ok = gh6415_match_e(id(<<99,17,-1:17>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<163>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(<<>>)),
+    {'EXIT',{function_clause,_}} = catch gh6415_match_e(id(a)),
+
+    7777 = gh6415_match_f(id(<<17,7777:17>>)),
+    1234 = gh6415_match_f(id(<<17,1234:17>>)),
+    error = gh6415_match_f(id(<<0>>)),
+    error = gh6415_match_f(id(<<8,42>>)),
+
+    ok.
+
+%% GH-6467. When a matched out value was never used, the bs_match instruction
+%% was not rewritten to a bs_skip instruction, causing an assertion fail in
+%% beam_ssa_pre_codegen.
+gh_6467(X, _, []) ->
+    [0 || _ <- (<<_:Y>> = (Y = ((_ = X) = X)))];
+gh_6467(_, <<Y>>, _) ->
+    a.
+
+gh6415_a(<<X>>, Y) when (<<X>> == false orelse (Y andalso true)); Y ->
+    Y;
+gh6415_a(_, _) ->
+    error.
+
+gh6415_b(X, <<Y>>) when ((Y > X) xor X); not X; X ->
+    ok;
+gh6415_b(_, _) ->
+    error.
+
+gh6415_c(<<X>>, Y) when {(X / 1), (Y andalso true)}; Y ->
+    ok;
+gh6415_c(_, _) ->
+    error.
+
+gh6415_case_clause(X) ->
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_a(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_b(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_c(X),
+    {'EXIT',{{case_clause,0},_}} = catch gh6415_case_clause_d(X),
+    ok.
+
+gh6415_case_clause_a(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = Y = X
+    end,
+    Y.
+
+gh6415_case_clause_b(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = X
+    end,
+    Y.
+
+gh6415_case_clause_c(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = X + 1
+    end,
+    Y.
+
+gh6415_case_clause_d(X) ->
+    case 0 of
+        <<_:(X bor X)>> ->
+            <<_:Y>> = <<Y>> = [X]
+    end,
+    Y.
+
+gh6415_nomatch(E0) ->
+    E = id(E0),
+    Res = gh6415_nomatch_a(E),
+    Res = gh6415_nomatch_b(E),
+    Res = gh6415_nomatch_c(E),
+    Res = gh6415_nomatch_d(E),
+    Res = gh6415_nomatch_e(E),
+    Res = gh6415_nomatch_f(E),
+    Res = gh6415_nomatch_g(E),
+    Res = gh6415_nomatch_h(E),
+    Res = gh6415_nomatch_i(E),
+    Res = gh6415_nomatch_j(E),
+    Res = gh6415_nomatch_k(E),
+    Res = gh6415_nomatch_l(E),
+    Res.
+
+gh6415_nomatch_a(#{0 := <<_:0>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_a(_) -> error.
+
+gh6415_nomatch_b(#{0 := <<_:16>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_b(_) -> error.
+
+gh6415_nomatch_c(#{0 := <<>>, 0 := <<_:8>>}) -> ok;
+gh6415_nomatch_c(_) -> error.
+
+gh6415_nomatch_d(#{0 := <<_:8>>, 0 := <<_:0>>}) -> ok;
+gh6415_nomatch_d(_) -> error.
+
+gh6415_nomatch_e(#{0 := <<_:8>>, 0 := <<>>}) -> ok;
+gh6415_nomatch_e(_) -> error.
+
+gh6415_nomatch_f(#{0 := <<_:8>>, 0 := <<_:16>>}) -> ok;
+gh6415_nomatch_f(_) -> error.
+
+gh6415_nomatch_g(#{0 := <<_>> = <<_, 0>>}) -> ok;
+gh6415_nomatch_g(_) -> error.
+
+gh6415_nomatch_h(#{0 := <<X:0>>, 0 := <<X>>}) -> ok;
+gh6415_nomatch_h(_) -> error.
+
+gh6415_nomatch_i(<<_>> = <<_:16,T/binary>>) ->
+    _ = binary_to_list(T),
+    ok;
+gh6415_nomatch_i(_) ->
+    error.
+
+gh6415_nomatch_j(<<_>> = <<X:16,T/binary>>) ->
+    {X,T};
+gh6415_nomatch_j(_) ->
+    error.
+
+gh6415_nomatch_k(#{0 := <<_>>, 0 := <<_, _:(0 div 0)>>}) ->
+    ok;
+gh6415_nomatch_k(_) ->
+    error.
+
+gh6415_nomatch_l(Bin) ->
+    case Bin of
+        <<X:0, _:X/integer>> = <<_:8>> ->
+            ok;
+        _ ->
+            error
+    end.
+
+gh6415_match_a(<<_>> = <<X>>) ->
+    X.
+
+gh6415_match_b(<<_>> = <<X,T/binary>>) ->
+    {X,T}.
+
+gh6415_match_c() ->
+    case catch <<0 || true>> of
+        #{[] := <<_>>, [] := <<X>>} ->
+            X
+    end.
+
+gh6415_match_d(<<_, _:(true andalso 0)>> = <<_>>) ->
+    ok.
+
+gh6415_match_e(<<_, _:(true andalso 0), Size, _:Size>> = <<_, Size, _:Size>>) ->
+    ok.
+
+gh6415_match_f(<<_:(true andalso 0), Size, Var:Size>> =
+                   <<Size, _:(true andalso 0), Var:Size>> =
+                   <<17,Var:17,_:(true andalso 0)>>) ->
+    Var;
+gh6415_match_f(_) ->
+    error.
+
+gh_6923(_Config) ->
+    Mod = list_to_atom(?MODULE_STRING ++ "_" ++ atom_to_list(?FUNCTION_NAME)),
+
+    %% The second clause of match_route/1 has lower line numbers than
+    %% the first clause.
+    %%
+    %% -module(bs_match_SUITE_gh_6923).                     %Line 29
+    %% -export([match_route/1]).                            %Line 29
+    %% match_route([<<"prefix">>, <<"action">>]) -> first;  %Line 4
+    %% match_route([<<"prefix">>, _Ignore]) -> second.      %Line 2
+    Forms =
+        [{attribute,29,module,Mod},
+         {attribute,29,export,[{match_route,1}]},
+         {function,4,match_route,1,
+          [{clause,4,
+            [{cons,4,
+              {bin,4,[{bin_element,4,{string,4,"prefix"},default,default}]},
+              {cons,4,
+               {bin,4,
+                [{bin_element,4,
+                  {string,4,"action"},
+                  default,default}]},
+               {nil,4}}}],
+            [],
+            [{atom,4,first}]},
+           {clause,2,
+            [{cons,2,
+              {bin,2,[{bin_element,2,{string,2,"prefix"},default,default}]},
+              {cons,2,{var,2,'_Ignore'},{nil,2}}}],
+            [],
+            [{atom,2,second}]}]}],
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok, Mod, Beam} = compile:forms(Forms, Opts),
+    {module, Mod} = code:load_binary(Mod, "", Beam),
+    first = Mod:match_route([<<"prefix">>, <<"action">>]),
+    second = Mod:match_route([<<"prefix">>, whatever]),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+
+    %% For coverage.
+    first = do_gh_6923([id(<<"abc">>), id(42)]),
+    second = do_gh_6923([id(<<"abc">>), id({a,b,c})]),
+
+    ok.
+
+do_gh_6923([<<"abc">>, A]) when is_integer(A) -> first;
+do_gh_6923([<<"abc">>, A]) when is_tuple(A) -> second.
+
+bs_test_tail(Config) ->
+    Bin = term_to_binary(Config),
+
+    ok = bs_test_tail_skip(Bin),
+
+    "abc" = bs_test_tail_int(<<(id(<<"abc">>))/binary>>),
+
+    [2.0,3.0] = bs_test_tail_float(<<(id(2.0)):64/float,(id(3.0)):64/float>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_tail_float(<<(id(-1)):128>>),
+
+    ok = bs_test_partial_tail(<<(id(0))>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_partial_tail(<<(id(1))>>),
+
+    ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_skip(<<_, T/binary>>) -> bs_test_tail_skip(T);
+bs_test_tail_skip(<<>>) -> ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_int(<<H:8, T/binary>>) ->
+    [H|bs_test_tail_int(T)];
+bs_test_tail_int(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_tail_float(<<F:64/float, T/binary>>) ->
+    [F|bs_test_tail_float(T)];
+bs_test_tail_float(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_partial_tail(<<0:8, T/binary>>) -> bs_test_partial_tail(T);
+bs_test_partial_tail(<<>>) -> ok.
+
+otp_19019(_Config) ->
+    ok = do_otp_19019(id(<<42>>)),
+    <<>> = do_otp_19019(id(<<>>)),
+
+    ok.
+
+do_otp_19019(<<_:8>>) ->
+    ok;
+do_otp_19019(A) ->
+    try
+        %% The `bs_start_match` instruction would be replaced with an
+        %% `is_bitstring/1` test, which is in Erlang/OTP 27 and later is
+        %% safe even if `A` is a match context. However, the type analysis
+        %% pass would assume that the `is_bitstring/1` test would always
+        %% fail.
+        << (ok) || <<_:ok>> <= A>>
+    after
+        ok
+    end.
+
+
+%%% Utilities.
+
+id(I) -> I.

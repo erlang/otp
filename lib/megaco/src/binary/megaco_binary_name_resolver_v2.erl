@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_name_resolver_v2).
+-moduledoc false.
 
 -include_lib("megaco/src/engine/megaco_message_internal.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").

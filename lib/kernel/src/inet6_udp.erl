@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(inet6_udp).
+-moduledoc false.
 
 -export([open/1, open/2, close/1]).
 -export([send/2, send/4, recv/2, recv/3, connect/2, connect/3]).
@@ -32,6 +33,8 @@
 -define(PROTO,  udp).
 -define(TYPE,   dgram).
 
+
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% inet_udp port lookup
 getserv(Port) when is_integer(Port) -> {ok, Port};
@@ -49,6 +52,7 @@ open(Port) -> open(Port, []).
 
 -spec open(_, _) -> {ok, port()} | {error, atom()}.
 open(Port, Opts) ->
+    %% ?DBG(['entry', {port, Port}, {opts, Opts}]),
     case inet:udp_options(
 	   [{port,Port} | Opts],
 	   ?MODULE) of
@@ -62,6 +66,10 @@ open(Port, Opts) ->
           when is_map(BAddr); % sockaddr_in()
                ?port(BPort), ?ip6(BAddr);
                ?port(BPort), BAddr =:= undefined ->
+            %% ?DBG(['udp-options',
+            %%       {fd, Fd},
+            %%       {baddr, BAddr}, {bport, BPort},
+            %%       {sock_opts, SockOpts}]),
 	    inet:open_bind(
 	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)

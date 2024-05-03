@@ -61,7 +61,7 @@ class BaseEmitter;
 //!   SimpleErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   // Try to emit instruction that doesn't exist.
@@ -117,7 +117,7 @@ class BaseEmitter;
 //!   ThrowableErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   x86::Assembler a(&code);
@@ -166,7 +166,7 @@ class BaseEmitter;
 //!   LongJmpErrorHandler eh;
 //!
 //!   CodeHolder code;
-//!   code.init(rt.rt.environment());
+//!   code.init(rt.environment(), rt.cpuFeatures());
 //!   code.setErrorHandler(&eh);
 //!
 //!   x86::Assembler a(&code);
@@ -215,7 +215,7 @@ public:
   //!    calling `handleError()`  so `longjmp()` can be used without any issues to cancel the code generation if an
   //!    error occurred. There is no difference between exceptions and `longjmp()` from AsmJit's perspective, however,
   //!    never jump outside of `CodeHolder` and `BaseEmitter` scope as you would leak memory.
-  virtual void handleError(Error err, const char* message, BaseEmitter* origin) = 0;
+  ASMJIT_API virtual void handleError(Error err, const char* message, BaseEmitter* origin);
 
   //! \}
 };

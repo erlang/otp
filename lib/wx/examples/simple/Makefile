@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2022. All Rights Reserved.
+# Copyright Ericsson AB 2009-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ ERLC = erlc
 TESTMODS = hello hello2 minimal menu
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
+
+ERL_COMPILE_FLAGS += +nowarn_missing_doc +nowarn_missing_spec_documented
 
 # Targets
 $(TYPES):	$(TESTTARGETS)

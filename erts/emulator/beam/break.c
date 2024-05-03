@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -294,7 +294,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
 	       p->u.initial.module,
 	       p->u.initial.function,
-	       p->u.initial.arity);
+	       (Uint)p->u.initial.arity);
     
     if (p->current != NULL) {
 	if (running) {
@@ -305,7 +305,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 	erts_print(to, to_arg, "%T:%T/%bpu\n",
 		   p->current->module,
 		   p->current->function,
-		   p->current->arity);
+		   (Uint)p->current->arity);
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n",
@@ -316,7 +316,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
         len = erts_proc_sig_fetch(p);
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     } else {
-        len = p->sig_qs.len;
+        len = p->sig_qs.mq_len;
     }
     erts_print(to, to_arg, "Message queue length: %d\n", len);
 
@@ -324,14 +324,13 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
        and we can do it safely */
     if (!ERTS_IS_CRASH_DUMPING && p->sig_qs.first != NULL && !garbing
         && (locks & ERTS_PROC_LOCK_MAIN)) {
+        ErtsMessage *mp;
 	erts_print(to, to_arg, "Message queue: [");
-        ERTS_FOREACH_SIG_PRIVQS(
-            p, mp,
-            {
-                if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
-                    erts_print(to, to_arg, mp->next ? "%T," : "%T",
-                               ERL_MESSAGE_TERM(mp));
-            });
+        for (mp = p->sig_qs.first; mp; mp = mp->next) {
+            if (ERTS_SIG_IS_NON_MSG((ErtsSignal *) mp))
+                erts_print(to, to_arg, mp->next ? "%T," : "%T",
+                           ERL_MESSAGE_TERM(mp));
+        }
 	erts_print(to, to_arg, "]\n");
     }
 
@@ -366,7 +365,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
 		 erts_print(to, to_arg, "%T:%T/%bpu\n",
 			    scb->ct[j]->info.mfa.module,
 			    scb->ct[j]->info.mfa.function,
-			    scb->ct[j]->info.mfa.arity);
+			    (Uint)scb->ct[j]->info.mfa.arity);
        }
        erts_print(to, to_arg, "\n");
     }
@@ -401,12 +400,12 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p, ErtsProcLocks orig_lock
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
     erts_print(to, to_arg, "BinVHeap: %b64u\n", p->off_heap.overhead);
-    erts_print(to, to_arg, "OldBinVHeap: %b64u\n", BIN_OLD_VHEAP(p));
+    erts_print(to, to_arg, "OldBinVHeap: %b64u\n", p->bin_old_vheap);
     erts_print(to, to_arg, "BinVHeap unused: %b64u\n",
-               BIN_VHEAP_SZ(p) - p->off_heap.overhead);
-    if (BIN_OLD_VHEAP_SZ(p) >= BIN_OLD_VHEAP(p)) {
+               p->bin_vheap_sz - p->off_heap.overhead);
+    if (p->bin_old_vheap_sz >= p->bin_old_vheap) {
         erts_print(to, to_arg, "OldBinVHeap unused: %b64u\n",
-                   BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p));
+                   p->bin_old_vheap_sz - p->bin_old_vheap);
     } else {
         erts_print(to, to_arg, "OldBinVHeap unused: overflow\n");
     }
@@ -576,19 +575,29 @@ do_break(void)
         "       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n";
     int i;
 #ifdef __WIN32__
+    char *clearscreen = "\033[J";
     char *mode; /* enough for storing "window" */
 
     /* check if we're in console mode and, if so,
        halt immediately if break is called */
     mode = erts_read_env("ERL_CONSOLE_MODE");
-    if (mode && sys_strcmp(mode, "window") != 0)
+    if (mode && sys_strcmp(mode, "detached") == 0)
 	erts_exit(0, "");
     erts_free_read_env(mode);
-#endif /* __WIN32__ */
+#else
+    char *clearscreen = "\E[J";
+#endif
 
     ASSERT(erts_thr_progress_is_blocking());
 
-    erts_printf("\n%s", helpstring);
+    /* If we are writing to something known to be a tty we clear the screen
+       after doing newline as the shell tab completion may have written
+       things there. */
+    if (!isatty(fileno(stdin)) || !isatty(fileno(stdout))) {
+        clearscreen = "";
+    }
+
+    erts_printf("\n%s%s", clearscreen, helpstring);
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
@@ -726,16 +735,16 @@ bin_check(void)
         oh_list = rp->off_heap.first;
         for (;;) {
             for (hdr = oh_list; hdr; hdr = hdr->next) {
-                if (hdr->thing_word == HEADER_PROC_BIN) {
-                    ProcBin *bp = (ProcBin*) hdr;
+                if (hdr->thing_word == HEADER_BIN_REF) {
+                    Binary *bin = ((BinRef*)hdr)->val;
                     if (!printed) {
                         erts_printf("Process %T holding binary data \n", rp->common.id);
                         printed = 1;
                     }
                     erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
-                                bp->val,
-                                bp->val->orig_size,
-                                erts_refc_read(&bp->val->intern.refc, 1));
+                                bin,
+                                bin->orig_size,
+                                erts_refc_read(&bin->intern.refc, 1));
                 }
             }
             if (oh_list == rp->wrt_bins)
@@ -781,7 +790,7 @@ crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
     }
 
     /* We assume that crash dump was called from erts_exit_vv() */
-    erts_exit_epilogue();
+    erts_exit_epilogue(0);
 }
 
 /* XXX THIS SHOULD BE IN SYSTEM !!!! */

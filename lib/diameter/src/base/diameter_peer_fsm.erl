@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 %%
 
 -module(diameter_peer_fsm).
+-moduledoc false.
 -behaviour(gen_server).
 
 %% Interface towards diameter_watchdog.
@@ -696,16 +697,16 @@ recv(#diameter_header{length = Len} = H, Bin, Msg, #state{length_errors = E,
                                                           dictionary = Dict0}
                                                    = S)
   when E == handle;
-       0 == Len rem 4, bit_size(Bin) == 8*Len, size(Bin) =< M ->
+       is_binary(Bin), 0 == Len rem 4, bit_size(Bin) == 8*Len, byte_size(Bin) =< M ->
     recv1(diameter_codec:msg_name(Dict0, H), H, Msg, S);
 
 recv(H, Bin, _, #state{incoming_maxlen = M})
-  when M < size(Bin) ->
-    invalid(false, incoming_maxlen_exceeded, {size(Bin), H}),
+  when is_binary(Bin), M < byte_size(Bin) ->
+    invalid(false, incoming_maxlen_exceeded, {byte_size(Bin), H}),
     H;
 
-recv(H, Bin, _, #state{length_errors = E}) ->
-    T = {size(Bin), bit_size(Bin) rem 8, H},
+recv(H, Bin, _, #state{length_errors = E}) when is_binary(Bin) ->
+    T = {byte_size(Bin), bit_size(Bin) rem 8, H},
     invalid(E, message_length_mismatch, T),
     H.
 

@@ -11,12 +11,13 @@
   {label,1}.
     {func_info,{atom,overwrite_trytag},{atom,foo},1}.
   {label,2}.
-    {allocate_zero,3,1}.
+    {allocate,3,1}.
+    {init_yregs,{list,[{y,0},{y,1},{y,2}]}}.
     {'try',{y,2},{f,3}}.
     {move,{x,0},{y,1}}.
     {'%live',1}.
     {call,1,{f,2}}.
-    {kill,{y,2}}.
+    {init_yregs,{list,[{y,2}]}}.
     {try_end,{y,2}}.
     {move,{x,0},{y,2}}.
     {move,{y,1},{x,0}}.

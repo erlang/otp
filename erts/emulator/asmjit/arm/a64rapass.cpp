@@ -102,7 +102,7 @@ public:
 
 // TODO: [ARM] This is just a workaround...
 static InstControlFlow getControlFlowType(InstId instId) noexcept {
-  switch (instId) {
+  switch (BaseInst::extractRealId(instId)) {
     case Inst::kIdB:
     case Inst::kIdBr:
       if (BaseInst::extractARMCondCode(instId) == CondCode::kAL)
@@ -127,14 +127,16 @@ static InstControlFlow getControlFlowType(InstId instId) noexcept {
 Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstBuilder& ib) noexcept {
   InstRWInfo rwInfo;
 
-  InstId instId = inst->id();
-  if (Inst::isDefinedId(instId)) {
+  if (Inst::isDefinedId(inst->realId())) {
+    InstId instId = inst->id();
     uint32_t opCount = inst->opCount();
     const Operand* opArray = inst->operands();
-    ASMJIT_PROPAGATE(InstInternal::queryRWInfo(_arch, inst->baseInst(), opArray, opCount, &rwInfo));
+    ASMJIT_PROPAGATE(InstInternal::queryRWInfo(inst->baseInst(), opArray, opCount, &rwInfo));
 
     const InstDB::InstInfo& instInfo = InstDB::infoById(instId);
     uint32_t singleRegOps = 0;
+
+    ib.addInstRWFlags(rwInfo.instFlags());
 
     if (opCount) {
       uint32_t consecutiveOffset = 0xFFFFFFFFu;
@@ -228,7 +230,7 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& controlType, RAInstB
             if (reg.as<Vec>().hasElementIndex()) {
               // Only the first 0..15 registers can be used if the register uses
               // element accessor that accesses half-words (h[0..7] elements).
-              if (instInfo.hasFlag(InstDB::kInstFlagVH0_15) && reg.as<Vec>().elementType() == Vec::kElementTypeH) {
+              if (instInfo.hasFlag(InstDB::kInstFlagVH0_15) && reg.as<Vec>().elementType() == VecElementType::kH) {
                 if (Support::test(flags, RATiedFlags::kUse))
                   useId &= 0x0000FFFFu;
                 else
@@ -712,6 +714,50 @@ ASMJIT_FAVOR_SPEED Error ARMRAPass::_rewrite(BaseNode* first, BaseNode* stop) no
             mem._setBase(_sp.type(), slot->baseRegId());
             mem.clearRegHome();
             mem.addOffsetLo32(offset);
+          }
+        }
+      }
+
+      // Rewrite `loadAddressOf()` construct.
+      if (inst->realId() == Inst::kIdAdr && inst->opCount() == 2 && inst->op(1).isMem()) {
+        BaseMem mem = inst->op(1).as<BaseMem>();
+        int64_t offset = mem.offset();
+
+        if (!mem.hasBaseOrIndex()) {
+          inst->setId(Inst::kIdMov);
+          inst->setOp(1, Imm(offset));
+        }
+        else {
+          if (mem.hasIndex())
+            return DebugUtils::errored(kErrorInvalidAddressIndex);
+
+          GpX dst(inst->op(0).as<Gp>().id());
+          GpX base(mem.baseId());
+
+          InstId arithInstId = offset < 0 ? Inst::kIdSub : Inst::kIdAdd;
+          uint64_t absOffset = offset < 0 ? Support::neg(uint64_t(offset)) : uint64_t(offset);
+
+          inst->setId(arithInstId);
+          inst->setOpCount(3);
+          inst->setOp(1, base);
+          inst->setOp(2, Imm(absOffset));
+
+          // Use two operations if the offset cannot be encoded with ADD/SUB.
+          if (absOffset > 0xFFFu && (absOffset & ~uint64_t(0xFFF000u)) != 0) {
+            if (absOffset <= 0xFFFFFFu) {
+              cc()->_setCursor(inst->prev());
+              ASMJIT_PROPAGATE(cc()->emit(arithInstId, dst, base, Imm(absOffset & 0xFFFu)));
+
+              inst->setOp(1, dst);
+              inst->setOp(2, Imm(absOffset & 0xFFF000u));
+            }
+            else {
+              cc()->_setCursor(inst->prev());
+              ASMJIT_PROPAGATE(cc()->emit(Inst::kIdMov, inst->op(0), Imm(absOffset)));
+
+              inst->setOp(1, base);
+              inst->setOp(2, dst);
+            }
           }
         }
       }

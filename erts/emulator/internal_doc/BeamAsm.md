@@ -22,7 +22,7 @@ aarch64 assembler.
 
 The code is loaded very similarly to how it is loaded for the interpreter. Each beam
 file is parsed and then optimized through the transformations described in
-[beam_makeops](beam_makeops#defining-transformation-rules). The transformations
+[beam_makeops](beam_makeops.md#defining-transformation-rules). The transformations
 used in BeamAsm are much simpler than the interpreter's, as most of the
 transformations for the interpreter are done only to eliminate the instruction
 dispatch overhead.
@@ -218,13 +218,15 @@ executable page and once with a writable page. Since they're backed by the
 same memory, writes to the writable page appear magically in the executable
 one.
 
-The `erts_writable_code_ptr` function can be used to get writable pointers,
-given a module instance:
+The `erts_writable_code_ptr` function can be used to get writable pointers
+given a module instance, provided that it has been unsealed first:
 
-    for (i = 0; i < n; ++i) {
+    for (i = 0; i < n; i++) {
         const ErtsCodeInfo* ci_exec;
         ErtsCodeInfo* ci_rw;
         void *w_ptr;
+
+        erts_unseal_module(&modp->curr);
 
         ci_exec = code_hdr->functions[i];
         w_ptr = erts_writable_code_ptr(&modp->curr, ci_exec);
@@ -233,11 +235,15 @@ given a module instance:
         uninstall_breakpoint(ci_rw, ci_exec);
         consolidate_bp_data(modp, ci_rw, 1);
         ASSERT(ci_rw->gen_bp == NULL);
+
+        erts_seal_module(&modp->curr);
     }
 
 Without the module instance there's no reliable way to figure out the writable
 address of a code page, and we rely on _address space layout randomization_
-(ASLR) to make it difficult to guess.
+(ASLR) to make it difficult to guess. On some platforms, security is further
+enhanced by protecting the writable area from writes until the module has been
+unsealed by `erts_unseal_module`.
 
 ### Export tracing
 
@@ -283,7 +289,7 @@ The files are:
     * The C -> C++ interface functions.
 * `$ARCH/generators.tab`, `$ARCH/predicates.tab`, `$ARCH/ops.tab`
     * BeamAsm specific transformations for instructions. See
-      [beam_makeops](beam_makeops) for more details.
+      [beam_makeops](beam_makeops.md) for more details.
 * `$ARCH/beam_asm_module.cpp`
     * The code for the BeamAsm module code generator logic
 * `$ARCH/beam_asm_global.cpp`
@@ -296,21 +302,29 @@ The files are:
 
 ## Linux perf support
 
-perf can also be instrumented using BeamAsm symbols to provide more information. As with
-gdb, only the currently executing function will show up in the stack trace, which means
-that perf provides functionality similar to that of [eprof](https://erlang.org/doc/man/eprof.html).
+The JIT can provide symbols to the Linux profiler `perf`, making it possible to
+profile Erlang code with it. Depending on the mode used, `perf` will provide
+functionality similar to [eprof](https://erlang.org/doc/man/eprof.html) or
+[fprof](https://erlang.org/doc/man/fprof.html) but with much lower (and
+configurable) overhead.
 
 You can run perf on BeamAsm like this:
 
-    perf record erl +JPperf true
+    # Start Erlang under perf
+    perf record -- erl +JPperf true
+    # Record a running instance started with `+JPperf true` for 10s
+    perf record --pid $BEAM_PID -- sleep 10
+    # Record a running instance started with `+JPperf true` until interrupted
+    perf record --pid $BEAM_PID
 
 and then look at the results using `perf report` as you normally would with
 perf.
 
 Frame pointers are enabled when the `+JPperf true` option is passed, so you can
-use `perf record --call-graph=fp` to get more context. This will give you
-accurate call graphs for pure Erlang code, but in rare cases it fails to track
-transitions from Erlang to C code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
+use `perf record --call-graph=fp` to get more context, making the results
+similar to that of `fprof`. This will give you accurate call graphs for pure
+Erlang code, but in rare cases it fails to track transitions from Erlang to C
+code and back. [`perf record --call-graph=lbr`](https://lwn.net/Articles/680985/)
 may work better in those cases, but it's worse at tracking in general.
 
 For example, you can run perf to analyze dialyzer building a PLT like this:
@@ -321,9 +335,10 @@ For example, you can run perf to analyze dialyzer building a PLT like this:
        sasl runtime_tools snmp ssl tftp wx xmerl tools
 
 The above code is run using `+S 1` to make the perf output easier to understand.
-If you then run `perf report -f --no-children` you may get something similar to this:
+If you then run `perf report -f --no-children` you may get something similar to
+this:
 
-![Linux Perf report: dialyzer PLT build](figures/perf-beamasm.png)
+![Linux Perf report: dialyzer PLT build](assets/perf-beamasm.png)
 
 Any Erlang function in the report is prefixed with a `$` and all C functions have
 their normal names. Any Erlang function that has the prefix `$global::` refers
@@ -365,23 +380,24 @@ web page as follows:
 
 We get a graph that would look something like this:
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/perf-beamasm.svg)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/perf-beamasm.svg)
 
-You can view a larger version [here](seefile/figures/perf-beamasm.svg). It contains
+You can view a larger version [here](assets/perf-beamasm.svg). It contains
 the same information, but it is easier to share with others as it does
 not need the symbols in the executable.
 
 Using the same data we can also produce a graph where the scheduler profile data
 has been merged by using `sed`:
 
-    ## Strip [0-9]+_ from all scheduler names
-    sed -e 's/^[0-9]\+_//' out.folded > out.folded_sched
+    ## Strip [0-9]+_ and/or _[0-9]+ from all scheduler names
+    ## scheduler names changed in OTP26, hence two expressions
+    sed -e 's/^[0-9]\+_//' -e 's/^erts_\([^_]\+\)_[0-9]\+/erts_\1/' out.folded > out.folded_sched
     ## Create the svg
     flamegraph.pl out.folded_sched > out_sched.svg
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/perf-beamasm-merged.svg)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/perf-beamasm-merged.svg)
 
-You can view a larger version [here](seefile/figures/perf-beamasm-merged.svg).
+You can view a larger version [here](assets/perf-beamasm-merged.svg).
 There are many different transformations that you can do to make the graph show
 you what you want.
 
@@ -408,7 +424,7 @@ and then you can view an annotated function like this:
 
 or by pressing `a` in the `perf report` ui. Then you get something like this:
 
-![Linux Perf FlameGraph: dialyzer PLT build](figures/beamasm-perf-annotate.png)
+![Linux Perf FlameGraph: dialyzer PLT build](assets/beamasm-perf-annotate.png)
 
 `perf annotate` will interleave the listing with the original source code
 whenever possible. You can use the `+{source,Filename}` or `+absolute_paths`
@@ -417,6 +433,32 @@ compiler options to tell `perf` where to find the source code.
 > *WARNING*: Calling `perf inject --jit` will create a lot of files in `/tmp/`
 > and in `~/.debug/tmp/`. So make sure to cleanup in those directories from time to
 > time or you may run out of inodes.
+
+### Inspecting perf data on another host
+
+Sometimes it's not possible or desirable to inspect a recording on the target
+machine, which gets a bit tricky because `perf report` relies on having all
+symbols available.
+
+To inspect recordings on another machine, you can use the `perf archive`
+command to bundle all the required symbols into an archive. This requires that
+the recording is made with the `-k mono` flag and that it has been processed
+with `perf inject --jit`:
+
+    perf inject --jit -i perf.data -o perf.jitted.data
+    perf archive perf.jitted.data
+
+Once you have the archive, move it together with the processed recording to
+the host you wish to inspect the recording on, and extract the archive to
+`~/.debug`. You can then use `perf report -i perf.jitted.data` as usual.
+
+If you get an error message along the lines of:
+
+   perf: 'archive' is not a perf-command. See 'perf --help'.
+
+Then your `perf` version is too old, and you should use
+[this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh)
+instead.
 
 ### perf tips and tricks
 
@@ -427,12 +469,8 @@ we have found useful:
     Do not include the accumulation of all children in a call.
 * `perf report  --call-graph callee`
     Show the callee rather than the caller when expanding a function call.
-* `perf archive`
-    Create an archive with all the artifacts needed to inspect the data
-    on another host. In early version of perf this command does not work,
-    instead you can use [this bash script](https://github.com/torvalds/linux/blob/master/tools/perf/perf-archive.sh).
 * `perf report` gives "failed to process sample" and/or "failed to process type: 68"
-    This probably means that you are running a bugge version of perf. We have
+    This probably means that you are running a bugged version of perf. We have
     seen this when running Ubuntu 18.04 with kernel version 4. If you update
     to Ubuntu 20.04 or use Ubuntu 18.04 with kernel version 5 the problem
     should go away.

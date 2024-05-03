@@ -154,7 +154,7 @@
     the name of an environment variable, and [;;4mVal[0m is the value it
     is to have in the spawned port process. Both [;;4mName[0m and [;;4mVal[0m
     must be strings. The one exception is [;;4mVal[0m being the atom [;;4m[0m
-    [;;4mfalse[0m (in analogy with [;;4mos:getenv/1[0m, which removes the
+    [;;4mfalse[0m (in analogy with [;;4mos:getenv/1[0m), which removes the
     environment variable.
 
     For information about encoding requirements, see documentation

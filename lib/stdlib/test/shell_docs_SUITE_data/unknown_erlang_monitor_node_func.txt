@@ -1,0 +1,53 @@
+
+  [;1m-spec monitor_node(Node, Flag) -> true[0m
+  [;1m                      when Node :: node(), Flag :: boolean().[0m
+
+  Monitor the status of the node [;;4mNode[0m. If [;;4mFlag[0m is [;;4mtrue[0m,
+  monitoring is turned on. If [;;4mFlag[0m is [;;4mfalse[0m, monitoring is
+  turned off.
+
+  Making several calls to [;;4mmonitor_node(Node, true)[0m for the same [;;4m[0m
+  [;;4mNode[0m is not an error; it results in as many independent
+  monitoring instances.
+
+  If [;;4mNode[0m fails or does not exist, the message [;;4m{nodedown, Node}[0m
+  is delivered to the process. If a process has made two calls to [;;4m[0m
+  [;;4mmonitor_node(Node, true)[0m and [;;4mNode[0m terminates, two [;;4mnodedown[0m
+  messages are delivered to the process. If there is no connection
+  to [;;4mNode[0m, an attempt is made to create one. If this fails, a [;;4m[0m
+  [;;4mnodedown[0m message is delivered.
+
+  The delivery of the [;;4mnodedown[0m signal is not ordered with respect
+  to other link or monitor signals from the node that goes down. If
+  you need a guarantee that all signals from the remote node has
+  been delivered before the [;;4mnodedown[0m signal is sent, you should
+  use [;;4mnet_kernel:monitor_nodes/1[0m.
+
+  Nodes connected through hidden connections can be monitored as any
+  other nodes.
+
+  Failure: [;;4mnotalive[0m if the local node is not alive.
+
+  [;1m-spec erlang:monitor_node(Node, Flag, Options) -> true[0m
+  [;1m                             when[0m
+  [;1m                                 Node :: node(),[0m
+  [;1m                                 Flag :: boolean(),[0m
+  [;1m                                 Options :: [Option],[0m
+  [;1m                                 Option :: allow_passive_connect.[0m
+
+  Behaves as [;;4mmonitor_node/2[0m except that it allows an extra option
+  to be specified, namely [;;4mallow_passive_connect[0m. This option
+  allows the BIF to wait the normal network connection time-out for
+  the monitored node to connect itself, even if it cannot be
+  actively connected from this node (that is, it is blocked). The
+  state where this can be useful can only be achieved by using the
+  Kernel option [;;4mdist_auto_connect once[0m. If that option is not
+  used, option [;;4mallow_passive_connect[0m has no effect.
+
+  Note:
+    Option [;;4mallow_passive_connect[0m is used internally and is
+    seldom needed in applications where the network topology and
+    the Kernel options in effect are known in advance.
+
+  Failure: [;;4mbadarg[0m if the local node is not alive or the option
+  list is malformed.

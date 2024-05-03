@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,6 +88,15 @@ main([RelArchiveFile]) ->
     {ok,Bin,RelBeam} = erl_prim_loader:get_file(RelBeam),
     {ok,Bin,DotSlashBeam} = erl_prim_loader:get_file(DotSlashBeam),
 
+    error = erl_prim_loader:read_file(AbsArchiveFile),
+    error = erl_prim_loader:read_file(RelArchiveFile),
+    error = erl_prim_loader:read_file(DotSlashArchiveFile),
+    error = erl_prim_loader:read_file(AbsArchiveFile ++ "/"),
+    error = erl_prim_loader:read_file(AbsArchiveFile ++ "/."),
+    {ok,Bin} = erl_prim_loader:read_file(AbsBeam),
+    {ok,Bin} = erl_prim_loader:read_file(RelBeam),
+    {ok,Bin} = erl_prim_loader:read_file(DotSlashBeam),
+
     {ok,#file_info{type=directory}=DFI} =
 	erl_prim_loader:read_file_info(AbsArchiveFile),
     {ok,DFI} = erl_prim_loader:read_file_info(RelArchiveFile),
@@ -101,6 +110,7 @@ main([RelArchiveFile]) ->
     F = AbsArchiveFile ++ ".extension",
     error = erl_prim_loader:list_dir(F),
     {ok,_,_} = erl_prim_loader:get_file(F),
+    {ok,_} = erl_prim_loader:read_file(F),
     {ok,#file_info{type=regular}} = erl_prim_loader:read_file_info(F),
 
     ok.

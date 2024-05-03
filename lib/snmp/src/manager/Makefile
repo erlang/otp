@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2022. All Rights Reserved.
+# Copyright Ericsson AB 2004-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -93,7 +93,8 @@ ERL_COMPILE_FLAGS += -I../../include \
                      +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}' \
                      -I$(ERL_TOP)/lib/stdlib \
-                     $(SNMP_FLAGS)
+                     $(SNMP_FLAGS) \
+                     +nowarn_missing_spec_documented
 
 
 # ----------------------------------------------------

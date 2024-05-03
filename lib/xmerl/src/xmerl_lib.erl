@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 %%%----------------------------------------------------------------------
 
 -module(xmerl_lib).
+-moduledoc false.
 
 -export([normalize_content/1, normalize_content/3, expand_content/1,
 	 expand_content/3, normalize_element/1, normalize_element/3,

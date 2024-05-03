@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(xref_reader).
+-moduledoc false.
 
 -export([module/5]).
 
@@ -77,10 +78,6 @@ forms([], S) ->
              F ->
                  [{M, F, 0}]
          end,
-    #xrefr{def_at = DefAt,
-	   l_call_at = LCallAt, x_call_at = XCallAt,
-	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
-	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
     Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
     {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
 

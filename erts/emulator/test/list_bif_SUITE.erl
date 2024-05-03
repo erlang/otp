@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,10 +60,13 @@ t_list_to_integer(Config) when is_list(Config) ->
     {error,badarg} = string:to_integer($A),
 
     %% System limit.
-    Digits = lists:duplicate(11_000_000, $9),
+    Digits = lists:duplicate(3_000_000, $9),
     {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    _ = erlang:garbage_collect(),
     {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    _ = erlang:garbage_collect(),
     {error,system_limit} = string:to_integer(Digits),
+    _ = erlang:garbage_collect(),
 
     ok.
 

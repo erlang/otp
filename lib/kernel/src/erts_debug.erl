@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2021. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(erts_debug).
+-moduledoc false.
 
 %% Low-level debugging support. EXPERIMENTAL!
 
@@ -31,7 +32,7 @@
 
 %%% BIFs
 
--export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
+-export([breakpoint/2, disassemble/1, dist_ext_to_term/2,
          flat_size/1, get_internal_state/1, instructions/0,
          interpreter_size/0,
          map_info/1, same/2, set_internal_state/2,
@@ -67,12 +68,6 @@ breakpoint(_, _) ->
       Code :: binary().
 
 disassemble(_) ->
-    erlang:nif_error(undef).
-
--spec display(Term) -> string() when
-      Term :: term().
-
-display(_) ->
     erlang:nif_error(undef).
 
 -spec dist_ext_to_term(Tuple, Binary) -> term() when
@@ -447,7 +442,7 @@ lc_graph_to_dot(OutFile, InFile) ->
     {ok, [LL0]} = file:consult(InFile),
 
     [{"NO LOCK",0} | LL] = LL0,
-    Map = maps:from_list([{Id, Name} || {Name, Id, _, _} <- LL]),
+    Map = #{Id => Name || {Name, Id, _, _} <- LL},
 
     case file:open(OutFile, [exclusive]) of
         {ok, Out} ->

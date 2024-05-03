@@ -7,11 +7,10 @@
 ## not possible so we need to rebuild all of Erlang/OTP multiple
 ## times.
 ##
-## When ghcr.io support using the GITHUB_TOKEN we should migrate
-## over to use it instead as that should allow us to use the
+## Now that we have migrated to ghcr.io we use the
 ## built-in caching mechanisms of docker/build-push-action@v2.
 ## However as things are now we use docker directly to make things
-## work.
+## work due to historical reasons.
 ##
 
 name: Build and check Erlang/OTP
@@ -19,8 +18,16 @@ name: Build and check Erlang/OTP
 on:
   push:
   pull_request:
+  schedule:
+      - cron: 0 1 * * *
+
+## We cancel any multiple runs from PRs, while runs from tags/branches are allowed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 env:
+    ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
 
 jobs:
@@ -30,93 +37,160 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
         BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: Create initial pre-release tar
-        run: .github/scripts/init-pre-release.sh
-      - name: Upload source tar archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp_git_archive
-          path: otp_src.tar.gz
-      - name: Docker login
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build BASE image
-        id: base-build
-        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" 64-bit
-      - name: Save BASE image
-        if: steps.base-build.outputs.BASE_BUILD == 're-built'
-        uses: actions/upload-artifact@v2
-        with:
-            name: otp_docker_base
-            path: otp_docker_base.tar
-      - name: Build image
-        run: |
-          mv otp_src.tar.gz .github/otp.tar.gz
-          docker build --tag otp \
-            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
-            --file ".github/dockerfiles/Dockerfile.64-bit" \
-            .github/
-      - name: Save Erlang/OTP image
-        run: |
-            docker run -v $PWD:/github --entrypoint "" otp \
-              tar czf /github/otp-ubuntu-20.04.tar.gz /buildroot/ /otp/
-      - name: Upload otp ubuntu image
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp-ubuntu-20.04
-          path: otp-ubuntu-20.04.tar.gz
-      - name: Build pre-built tar archives
-        run: |
-          docker run -v $PWD:/github --entrypoint "" otp \
-            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz
-      - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp_prebuilt_no_chunks
-          path: otp_src.tar.gz
-
-  changed-apps:
-    name: Calculate changed applications
-    runs-on: ubuntu-latest
-    outputs:
         changes: ${{ steps.changes.outputs.changes }}
+        c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+            BUILD_IMAGE: false
       - name: Get applications
         id: apps
         run: |
           .github/scripts/path-filters.sh > .github/scripts/path-filters.yaml
+          .github/scripts/c-code-path-filters.sh > .github/scripts/c-code-path-filters.yaml
+          ## Print path-filters for debug purposes
+          cat .github/scripts/path-filters.yaml
+          cat .github/scripts/c-code-path-filters.yaml
           ALL_APPS=$(grep '^[a-z_]*:' .github/scripts/path-filters.yaml | sed 's/:.*$//')
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
-          echo "::set-output name=all::${ALL_APPS}"
-      - uses: dorny/paths-filter@v2
-        id: changes
+          echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
+      - name: Check which applications have changed
+        uses: dorny/paths-filter@v3.0.2
+        id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
+      - name: Override which applications have changed
+        id: changes
+        env:
+            ALL_APPS: ${{ steps.apps.outputs.all }}
+            CHANGED_APPS: ${{ steps.app-changes.outputs.changes }}
+        run: |
+          if ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check') }} || ${{ github.event_name == 'schedule' }}; then
+              echo "changes=${ALL_APPS}" >> "$GITHUB_OUTPUT"
+          else
+              echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check if there are any C-code changes, if not then limit CI run
+        uses: dorny/paths-filter@v3.0.2
+        id: c-code-changes
+        with:
+          filters: .github/scripts/c-code-path-filters.yaml
+      - name: Cache pre-built src
+        uses: actions/cache@v4.0.2
+        with:
+            path: otp_src.tar.gz
+            key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+      - name: Cache pre-built binaries
+        uses: actions/cache@v4.0.2
+        with:
+            path: otp_cache.tar.gz
+            key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
+            restore-keys: |
+                prebuilt-cache-64-bit-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+      - name: Create initial pre-release tar
+        run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
+      - name: Upload source tar archive
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: otp_git_archive
+          path: otp_archive.tar.gz
+      - name: Check how we can use the pre-built cache
+        uses: dorny/paths-filter@v3.0.2
+        id: cache
+        with:
+          filters: |
+              no-cache:
+                  - '.github/**'
+                  - deleted: '**/*.h'
+              deleted:
+                  - deleted: '**'
+              bootstrap:
+                  - 'bootstrap/**'
+              configure:
+                  - '**.ac'
+                  - '**.in'
+          list-files: shell
+      - name: "Check '@github-action disable-cache' in PR Comment"
+        id: issue_comment
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        shell: /usr/bin/bash {0}
+        run: |
+            ISSUE_COMMENTS=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments | jq ".[] | .body")
+            if echo "${ISSUE_COMMENTS}" | grep "@github-actions disable-cache"; then
+              echo "DISABLE_CACHE=true" >> $GITHUB_OUTPUT
+            else
+              echo "DISABLE_CACHE=false" >> $GITHUB_OUTPUT
+            fi
+      - name: Restore from cache
+        env:
+            NO_CACHE: ${{ fromJson(steps.cache.outputs.no-cache) || fromJson(steps.issue_comment.outputs.DISABLE_CACHE) || fromJson(steps.cache.outputs.deleted_count) > 20 }}
+            BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
+            CONFIGURE: ${{ steps.cache.outputs.configure }}
+            EVENT: ${{ github.event_name }}
+            DELETED: ${{ steps.cache.outputs.deleted_files }}
+        run: |
+            .github/scripts/restore-from-prebuilt.sh "`pwd`" \
+              "`pwd`/.github/otp.tar.gz" \
+              "`pwd`/otp_archive.tar.gz"
+      - name: Upload restored cache
+        uses: actions/upload-artifact@v4.3.3
+        if: runner.debug == 1
+        with:
+          name: restored-cache
+          path: .github/otp.tar.gz
+      - name: Build image
+        run: |
+          docker build --tag otp \
+            --build-arg MAKEFLAGS=-j$(($(nproc) + 2)) \
+            --file ".github/dockerfiles/Dockerfile.64-bit" \
+            .github/
+      - name: Build pre-built tar archives
+        run: |
+          docker run -v $PWD:/github --entrypoint "" otp \
+            scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /github/otp_archive.tar.gz
+      - name: Build cache
+        run: |
+          if [ -f otp_cache.tar.gz ]; then
+            gunzip otp_cache.tar.gz
+          else
+            docker run -v $PWD:/github --entrypoint "" otp \
+              bash -c 'cp ../otp_cache.tar /github/'
+          fi
+          docker run -v $PWD:/github --entrypoint "" otp \
+            bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
+          gzip otp_cache.tar
+      - name: Upload pre-built tar archives
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: otp_prebuilt
+          path: |
+              otp_src.tar.gz
+              otp_cache.tar.gz
 
   build-macos:
     name: Build Erlang/OTP (macOS)
     runs-on: macos-12
     needs: pack
+    if: needs.pack.outputs.c-code-changes
     env:
       WXWIDGETS_VERSION: 3.1.5
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.4
 
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4.0.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
@@ -130,7 +204,7 @@ jobs:
           tar -xzf ./otp_src.tar.gz
           export PATH=$PWD/wxWidgets/release/bin:$PATH
           cd otp
-          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh build_docs --disable-dynamic-ssl-lib
           tar -czf otp_macos_$(cat OTP_VERSION)_x86-64.tar.gz -C release .
 
       - name: Test Erlang
@@ -142,7 +216,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -155,21 +229,17 @@ jobs:
     runs-on: macos-12
     needs: pack
     steps:
+      - uses: actions/checkout@v4.1.4
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Compile Erlang
         run: |
           tar -xzf ./otp_src.tar.gz
           cd otp
-          export ERL_TOP=`pwd`
-          export MAKEFLAGS="-j$(($(nproc) + 2)) -O"
-          export ERLC_USE_SERVER=true
-          ./otp_build configure --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
-          ./otp_build boot -a
-          ./otp_build release -a
+          $GITHUB_WORKSPACE/.github/scripts/build-macos.sh --xcomp-conf=./xcomp/erl-xcomp-arm64-ios.conf --without-ssl
 
       - name: Package .xcframework
         run: |
@@ -180,7 +250,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -194,8 +264,9 @@ jobs:
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
+    if: needs.pack.outputs.c-code-changes
     steps:
-      - uses: Vampire/setup-wsl@v1.2.1
+      - uses: Vampire/setup-wsl@v3.0.0
         with:
           distribution: Ubuntu-18.04
 
@@ -205,11 +276,11 @@ jobs:
       - name: Install openssl
         shell: cmd
         run: |
-          choco install openssl
-          move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64"
+          choco install openssl --version=3.1.1
+          IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Cache wxWidgets
-        uses: actions/cache@v2
+        uses: actions/cache@v4.0.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -217,11 +288,13 @@ jobs:
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
         id: wxwidgets-cache
+        env:
+          WSLENV: GITHUB_OUTPUT/p
         run: |
           if [ -d wxWidgets ]; then
-            echo "::set-output name=cache-hit::true"
+            echo "cache-hit=true" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=cache-hit::false"
+            echo "cache-hit=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Download wxWidgets
@@ -249,9 +322,9 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
-          name: otp_prebuilt_no_chunks
+          name: otp_prebuilt
 
       - name: Compile Erlang
         run: |
@@ -265,22 +338,51 @@ jobs:
           export ERTS_SKIP_DEPEND=true
           eval `./otp_build env_win32 x64`
           ./otp_build configure
-          if cat erts/CONF_INFO || cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi
+          if cat erts/CONF_INFO ||
+             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
+             cat lib/*/SKIP ||
+             cat lib/SKIP-APPLICATIONS; then
+             exit 1
+          fi
           ./otp_build boot -a
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
+
+  build-flavors:
+    name: Build Erlang/OTP (Types and Flavors)
+    runs-on: ubuntu-latest
+    needs: pack
+    if: needs.pack.outputs.c-code-changes
+
+    steps:
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
+        with:
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+      - name: Build Erlang/OTP flavors and types
+        run: |
+            TYPES="opt debug lcnt"
+            FLAVORS="emu jit"
+            for TYPE in ${TYPES}; do
+              for FLAVOR in ${FLAVORS}; do
+                echo "::group::{TYPE=$TYPE FLAVOR=$FLAVOR}"
+                docker run otp "make TYPE=$TYPE FLAVOR=$FLAVOR"
+                echo "::endgroup::"
+              done
+            done
 
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
     needs: pack
+    if: needs.pack.outputs.c-code-changes
 
     strategy:
       matrix:
@@ -288,122 +390,59 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Download source archive
-        uses: actions/download-artifact@v2
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
         with:
-          name: otp_prebuilt_no_chunks
-      - name: Docker login
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build base image
-        run: .github/scripts/build-base-image.sh "${BASE_BRANCH}" ${{ matrix.type }}
-      - name: Build ${{ matrix.type }} image
-        run: |
-          mv otp_src.tar.gz .github/otp.tar.gz
-          docker build --tag otp --file .github/dockerfiles/Dockerfile.${{ matrix.type }} \
-            .github
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
+            TYPE: ${{ matrix.type }}
 
   documentation:
     name: Build and check documentation
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v2
-      ## Download docker images
-      - name: Docker login
-        uses: docker/login-action@v1
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
         with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
-        with:
-          name: otp_docker_base
-      - name: Download otp build
-        uses: actions/download-artifact@v2
-        with:
-          name: otp-ubuntu-20.04
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
-      ## Build pre-built tar with chunks
-      - name: Build doc chunks
-        run: |
-          docker build -t otp - <<EOF
-          FROM otp
-          RUN make docs DOC_TARGETS=chunks
-          EOF
-      - name: Build pre-built tar archives
-        run: |
-          docker run -v $PWD:/github otp \
-          "scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-      - name: Upload pre-built tar archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp_prebuilt
-          path: otp_src.tar.gz
       ## Build all the documentation
       - name: Build documentation
         run: |
-          docker build -t otp - <<EOF
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_URL="${{ github.event.pull_request.head.repo.full_name }}/blob/${{ github.event.pull_request.head.ref }}/"
+          else
+            BASE_URL="${{ github.repository }}/blob/${{ github.ref_name }}/"
+          fi
+          docker build --build-arg BASE_URL="$BASE_URL" -t otp - <<EOF
           FROM otp
-          RUN make docs
+          ENV BASE_URL=$BASE_URL
+          RUN ./otp_build download_ex_doc
+          RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
         run: |
           docker run -v $PWD/:/github otp \
-            "make release docs release_docs && make release_docs DOC_TARGETS='man html pdf' RELEASE_ROOT=/github/docs"
+            "make release_docs DOC_TARGETS='html' RELEASE_ROOT=/github/docs"
             sudo chown -R `whoami` docs
-            cd docs
-            tar czf ../otp_doc_man.tar.gz man
-            rm -rf man
-            tar czf ../otp_doc_html.tar.gz *
+            cd docs && tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
-      - name: Upload man documentation archive
-        uses: actions/upload-artifact@v2
-        with:
-          name: otp_doc_man
-          path: otp_doc_man.tar.gz
-      ## Documentation checks
-      - name: Run xmllint
-        run: docker run otp "make xmllint"
       - name: Run html link check
-        run: docker run -v $PWD/:/github otp "scripts/otp_html_check /github/docs doc/index.html"
+        run: docker run -v $PWD/:/github otp "cd /github/docs && /github/scripts/otp_check_html_links.exs"
 
   static:
     name: Run static analysis
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@v2
-      ## Download docker images
-      - name: Docker login
-        uses: docker/login-action@v1
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
         with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
-        with:
-          name: otp_docker_base
-      - name: Download otp build
-        uses: actions/download-artifact@v2
-        with:
-          name: otp-ubuntu-20.04
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Install clang-format
         run: |
           docker build -t otp - <<EOF
@@ -415,39 +454,24 @@ jobs:
         run: docker run otp "make format-check"
         ## Run dialyzer
       - name: Run dialyzer
-        run: docker run otp 'scripts/run-dialyzer'
+        run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
 
   test:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
-    needs: [pack, changed-apps]
-    if: needs.changed-apps.outputs.changes != '[]'
+    needs: pack
+    if: needs.pack.outputs.changes != '[]'
     strategy:
       matrix:
-        # type: ${{ fromJson(needs.changed-apps.outputs.all) }}
-        type: ${{ fromJson(needs.changed-apps.outputs.changes) }}
+        # type: ${{ fromJson(needs.pack.outputs.all) }}
+        type: ${{ fromJson(needs.pack.outputs.changes) }}
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v2
-      ## Download docker images
-      - name: Download base build
-        if: needs.pack.outputs.BASE_BUILD == 're-built'
-        uses: actions/download-artifact@v2
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
         with:
-          name: otp_docker_base
-      - name: Download otp build
-        uses: actions/download-artifact@v2
-        with:
-          name: otp-ubuntu-20.04
-      - name: Docker login
-        uses: docker/login-action@v1
-        with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Run tests
         id: run-tests
         run: |
@@ -463,24 +487,26 @@ jobs:
           esac
           sudo service apport stop
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
-          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 512 \
+          docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
+            -e TEST_NEEDS_RELEASE=true -e "RELEASE_ROOT=/buildroot/otp/Erlang ∅⊤℞" \
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/$DIR/make_test_dir/${{ matrix.type }}_junit.xml\"}]" \
             -v "$PWD/make_test_dir:/buildroot/otp/$DIR/make_test_dir" \
+            -v "$PWD/scripts:/buildroot/otp/scripts" \
             otp "make TYPE=${TYPE} && make ${APP}_test TYPE=${TYPE}"
           ## Rename os_mon to debug for debug build
           if [ "$APP" != "${{ matrix.type }}" ]; then
             mv make_test_dir/${APP}_test "make_test_dir/${{ matrix.type }}_test"
           fi
       - name: Cleanup tests
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           rm -rf make_test_dir/otp || true
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@v2
-        if: always()
+        uses: actions/upload-artifact@v4.3.3
+        if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
           path: ${{ matrix.type }}_test_results.tar.gz
@@ -488,21 +514,15 @@ jobs:
   system-test:
     name: Test Erlang/OTP (system)
     runs-on: ubuntu-latest
-    if: always() # Run even if the need has failed
+    if: ${{ !cancelled() }} # Run even if the need has failed
     needs: test
     steps:
-      - uses: actions/checkout@v2
-      - name: Docker login
-        uses: docker/login-action@v1
+      - uses: actions/checkout@v4.1.4
+      - uses: ./.github/actions/build-base-image
         with:
-          registry: docker.pkg.github.com
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+            BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Download test results
-        uses: actions/download-artifact@v2
-      - run: mv otp-ubuntu-20.04/otp-ubuntu-20.04.tar.gz .
-      - name: Restore docker image
-        run: .github/scripts/restore-otp-image.sh "${BASE_BRANCH}"
+        uses: actions/download-artifact@v4.1.7
       - name: Merge test results
         run: |
           shopt -s nullglob
@@ -521,7 +541,7 @@ jobs:
             -v $PWD/make_test_dir:/buildroot/otp/erts/make_test_dir otp \
             "make system_test"
       - name: Cleanup tests
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           rm -rf make_test_dir/otp || true
           tar czf test_results.tar.gz make_test_dir
@@ -532,14 +552,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@v2
-        if: always()
+        uses: actions/upload-artifact@v4.3.3
+        if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v2
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: Unit Test Results
           path: |
@@ -551,6 +571,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: documentation
     if: startsWith(github.ref, 'refs/tags/') && github.repository == 'erlang/otp'
+    ## Needed to create releases
+    permissions:
+      contents: write
     steps:
       ## This step outputs the tag name and whether the tag is a release or patch
       ## (all releases have only two version identifiers, while patches have three
@@ -560,24 +583,20 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           VSN=${TAG#OTP-}
-          echo "::set-output name=tag::${TAG}"
-          echo "::set-output name=vsn::${VSN}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4.1.4
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4.1.7
         with:
           name: otp_doc_html
-      - name: Download man docs
-        uses: actions/download-artifact@v2
-        with:
-          name: otp_doc_man
 
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
@@ -594,7 +613,7 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.0.4
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
@@ -613,7 +632,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4.3.3
         with:
           name: Event File
           path: ${{ github.event_path }}

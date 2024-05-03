@@ -27,6 +27,7 @@
 	 coverage/1,grab_bag/1,literal_binary/1,
          unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
          tuple_size_in_try/1,match_boolean_list/1,
+         heisen_variables/1,
          mutable_variables/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
@@ -45,8 +46,8 @@ groups() ->
        grab_bag,literal_binary,unary_op,eq_types,
        match_after_return,match_right_tuple,
        tuple_size_in_try,match_boolean_list,
+       heisen_variables,
        mutable_variables]}].
-
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -153,14 +154,19 @@ aliases(Config) when is_list(Config) ->
     6 = tup_lit_alias({1,2,3}),
     6 = tup_lit_alias_rev({1,2,3}),
 
-    {42,42,42,42} = multiple_aliases_1(42),
-    {7,7,7} = multiple_aliases_2(7),
-    {{a,b},{a,b},{a,b}} = multiple_aliases_3({a,b}),
+    {1,2,3,4} = list_in_tuple({container, [1,2,3], 4}),
+    {a,b,c,d} = list_in_tuple({container, [a,b,c], d}),
+
+    {13,y,13,17,x,{y,13},17} = tuple_in_tuple({x, {y,13}, 17}),
+    {a,y,a,b,x,{y,a},b} = tuple_in_tuple({x, {y,a}, b}),
+
+    {42,42,42,42} = multiple_aliases_1(id(42)),
+    {7,7,7} = multiple_aliases_2(id(7)),
+    {{a,b},{a,b},{a,b}} = multiple_aliases_3(id({a,b})),
+    {[x,y,z],[x,y,z],[x,y,z]} = multiple_aliases_4(id([x,y,z])),
 
     %% Lists/literals.
-    {a,b} = list_alias1([a,b]),
-    {a,b} = list_alias2([a,b]),
-    {a,b} = list_alias3([a,b]),
+    {a,b} = list_alias(id([a,b])),
 
     %% Multiple matches.
     {'EXIT',{{badmatch,home},_}} =
@@ -261,9 +267,20 @@ three_2(A=
 	C) ->
     {A,B,C}.
 
-tuple_alias({A,B,C}={X,Y,Z}) ->
+tuple_alias(Expr) ->
+    Res = tuple_alias_a(Expr),
+    Res = tuple_alias_b(Expr).
+
+tuple_alias_a({A,B,C} = {X,Y,Z}) ->
     {A,B,C,X,Y,Z};
-tuple_alias({A,B}={C,D}={E,F}) ->
+tuple_alias_a({A,B} = {C,D} = {E,F}) ->
+    {A,B,C,D,E,F}.
+
+tuple_alias_b({_,_,_}=Expr) ->
+    {A,B,C} = {X,Y,Z} = Expr,
+    {A,B,C,X,Y,Z};
+tuple_alias_b({_,_}=Expr) ->
+    {A,B} = {C,D} = {E,F} = Expr,
     {A,B,C,D,E,F}.
 
 tup_lit_alias({A,B,C}={1,2,3}) ->
@@ -272,22 +289,91 @@ tup_lit_alias({A,B,C}={1,2,3}) ->
 tup_lit_alias_rev({1,2,3}={A,B,C}) ->
     A+B+C.
 
-multiple_aliases_1((A=B)=(C=D)) ->
+list_in_tuple(E) ->
+    Res = list_in_tuple_a(E),
+    Res = list_in_tuple_b(E).
+
+list_in_tuple_a({container, [_,_,_] = [A,B,C], D}) ->
     {A,B,C,D}.
 
-multiple_aliases_2((A=B)=(A=C)) ->
+list_in_tuple_b(E) ->
+    {container, [_,_,_] = [A,B,C], D} = E,
+    {A,B,C,D}.
+
+tuple_in_tuple(Expr) ->
+    Res = tuple_in_tuple_a(Expr),
+    Res = tuple_in_tuple_b(Expr).
+
+tuple_in_tuple_a({x, {y,A} = {B,C}, D} = {E, F, G}) ->
+    {A,B,C,D,E,F,G}.
+
+tuple_in_tuple_b(Expr) ->
+    {x, {y,A} = {B,C}, D} = {E, F, G} = Expr,
+    {A,B,C,D,E,F,G}.
+
+multiple_aliases_1(Expr) ->
+    Res = multiple_aliases_1a(Expr),
+    Res = multiple_aliases_1b(Expr).
+
+multiple_aliases_1a((A=B) = (C=D)) ->
+    {A,B,C,D}.
+
+multiple_aliases_1b(Expr) ->
+    (A=B) = (C=D) = Expr,
+    {A,B,C,D}.
+
+multiple_aliases_2((A=B) = (A=C)) ->
     {A,B,C}.
 
-multiple_aliases_3((A={_,_}=B)={_,_}=C) ->
+multiple_aliases_3(Expr) ->
+    Res = multiple_aliases_3a(Expr),
+    Res = multiple_aliases_3b(Expr).
+
+multiple_aliases_3a((A={_,_}=B)={_,_}=C) ->
     {A,B,C}.
 
-list_alias1([a,b]=[X,Y]) ->
+multiple_aliases_3b(Expr) ->
+    (A={_,_}=B) = {_,_} = C = Expr,
+    {A,B,C}.
+
+multiple_aliases_4(Expr) ->
+    Res = multiple_aliases_4a(Expr),
+    Res = multiple_aliases_4b(Expr).
+
+multiple_aliases_4a((A=[_,_,_]=B) = [_,_,_] = C) ->
+    {A,B,C}.
+
+multiple_aliases_4b(Expr) ->
+    (A=[_,_,_]=B) = [_,_,_] = C = Expr,
+    {A,B,C}.
+
+list_alias(Expr) ->
+    Res = list_alias1a(Expr),
+    Res = list_alias1b(Expr),
+    Res = list_alias2a(Expr),
+    Res = list_alias2b(Expr),
+    Res = list_alias3a(Expr),
+    Res = list_alias3b(Expr).
+
+list_alias1a([a,b]=[X,Y]) ->
     {X,Y}.
 
-list_alias2([X,Y]=[a,b]) ->
+list_alias1b(Expr) ->
+    [a,b] = [X,Y] = Expr,
     {X,Y}.
 
-list_alias3([X,b]=[a,Y]) ->
+list_alias2a([X,Y]=[a,b]) ->
+    {X,Y}.
+
+list_alias2b(Expr) ->
+    [X,Y] = [a,b] = Expr,
+    {X,Y}.
+
+list_alias3a([X,b]=[a,Y]) ->
+    {X,Y}.
+
+list_alias3b(Expr) ->
+    [X,b] = [a,Y]= Expr,
     {X,Y}.
 
 non_matching_aliases(_Config) ->
@@ -321,6 +407,9 @@ non_matching_aliases(_Config) ->
 
     {'EXIT',{{case_clause,whatever},_}} = (catch pike1(whatever)),
     {'EXIT',{{case_clause,whatever},_}} = (catch pike2(whatever)),
+
+    {'EXIT',{badarith,_}} = catch squid(a),
+    {'EXIT',{{badmatch,43},_}} = catch squid(42),
 
     ok.
 
@@ -403,6 +492,11 @@ pike2(X) ->
             end
     end,
     Var.
+
+squid(E) ->
+    ([X] = {Y}) = V = E + 1,
+    {V,X + Y}.
+
 
 %% OTP-7018.
 
@@ -710,6 +804,7 @@ match_map(Config) when is_list(Config) ->
     Map = #{key=>{x,y},ignore=>anything},
     #s{map=Map,t={x,y}} = do_match_map(#s{map=Map}),
     {a,#{k:={a,b,c}}} = do_match_map_2(#{k=>{a,b,c}}),
+    {'EXIT',{{badmatch,whatever},_}} = catch do_match_map_none(id(whatever)),
     ok.
 
 do_match_map(#s{map=#{key:=Val}}=S) ->
@@ -721,6 +816,17 @@ do_match_map_2(Map) ->
 	{a,#{k:=_}}=Tuple ->
 	    Tuple
     end.
+
+do_match_map_none(V) ->
+    %% Cover handling of has_map_fields in beam_validator.
+    #{42 := _} = try
+                     {} = {{} = V}
+                 catch
+                     throw:V ->
+                         #{};
+                     throw:_ ->
+                         V
+                 end.
 
 map_vars_used(Config) when is_list(Config) ->
     {some,value} = do_map_vars_used(a, b, #{{a,b}=>42,v=>{some,value}}),
@@ -752,6 +858,15 @@ coverage(Config) when is_list(Config) ->
 
     %% Cover beam_ssa_opt.
     ok = coverage_6(),
+
+    %% Cover beam_ssa_dead.
+    a = coverage_7(x, x, id(true)),
+    b = coverage_7(x, 0, id(false)),
+
+    {'EXIT',{{badmatch,{42}},_}} = catch coverage_8(id(42)),
+
+    error = coverage_9(id(1)),
+    true = coverage_9(id(0)),
 
     ok.
 
@@ -796,6 +911,29 @@ coverage_6() ->
             %% Cover beam_ssa_opt:make_literal/2.
             error([error,X,V])
     end.
+
+%% Cover beam_ssa_dead:opt_switch_1/3.
+coverage_7(_, _, true)  ->
+    a;
+coverage_7(_, 0, false)  ->
+    b;
+coverage_7(_, _, true)  ->
+    c.
+
+%% Cover beam_ssa_dead:will_succeed_*
+coverage_8(V) ->
+    V =/= (V = {V}).
+
+coverage_9(V) when V == 0 ->
+    -1 /= try ok of
+              _ ->
+                  V
+          catch
+              _ ->
+                  ok
+          end;
+coverage_9(_) ->
+    error.
 
 grab_bag(_Config) ->
     [_|T] = id([a,b,c]),
@@ -1020,6 +1158,19 @@ match_boolean_list(Config) when is_list(Config) ->
              [false | _] -> ok
          end.
 
+
+heisen_variables(_Config) ->
+    {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope1(),
+    {'EXIT',{{badmatch,3},_}} = catch gh_6516_scope2(),
+
+    ok.
+
+gh_6516_scope1() ->
+    {X = 4, X = 3}.
+
+gh_6516_scope2() ->
+  {X = 4, _ = X = 3}.
+
 %% GH-6873. Bound variables would be overwritten.
 mutable_variables(_Config) ->
     {'EXIT',{{badmatch,0},_}} = catch mutable_variables_1(),
@@ -1039,5 +1190,6 @@ mutable_variables_1() ->
 mutable_variables_2(Middle, Fun) ->
     {tag,V} = Middle = Fun(),
     V.
+
 
 id(I) -> I.

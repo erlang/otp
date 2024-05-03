@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 %%% Purpose : Loads tables from local disc or from remote node
 
 -module(mnesia_loader).
+-moduledoc false.
 
 %% Mnesia internal stuff
 -export([disc_load_table/3,
@@ -47,7 +48,7 @@ val(Var) ->
 disc_load_table(Tab, Reason, Cs) ->
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     Type = val({Tab, setorbag}),
-    dbg_out("Getting table ~tp (~p) from disc: ~tp~n",
+    dbg_out("Getting table ~0tp (~0p) from disc: ~0tp~n",
 	    [Tab, Storage, Reason]),
     ?eval_debug_fun({?MODULE, do_get_disc_copy},
 		    [{tab, Tab},
@@ -56,9 +57,9 @@ disc_load_table(Tab, Reason, Cs) ->
 		     {type, Type}]),
     do_get_disc_copy2(Tab, Reason, Storage, Type).
 
-do_get_disc_copy2(Tab, _Reason, Storage, _Type) when Storage == unknown ->
-    verbose("Local table copy of ~tp has recently been deleted, ignored.~n",
-	    [Tab]),
+do_get_disc_copy2(Tab, Reason, Storage, _Type) when Storage == unknown ->
+    verbose("Local table copy of ~0tp ~0p has recently been deleted, ignored.~n",
+	    [Tab, Reason]),
     {not_loaded, storage_unknown};
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     %% NOW we create the actual table
@@ -206,14 +207,14 @@ try_net_load_table(Tab, Reason, Ns, Cs) ->
               end,
     do_get_network_copy(Tab, Reason, Ns, Storage, Cs).
 
-do_get_network_copy(Tab, _Reason, _Ns, unknown, _Cs) ->
-    verbose("Local table copy of ~tp has recently been deleted, ignored.~n", [Tab]),
+do_get_network_copy(Tab, Reason, _Ns, unknown, _Cs) ->
+    verbose("Local table copy of ~0tp (~0p) has recently been deleted, ignored.~n", [Tab,Reason]),
     {not_loaded, storage_unknown};
 do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
     [Node | Tail] = Ns,
     case lists:member(Node,val({current, db_nodes})) of
 	true ->
-	    dbg_out("Getting table ~tp (~p) from node ~p: ~tp~n",
+	    dbg_out("Getting table ~0tp (~0p) from node ~0p: ~0tp~n",
 		    [Tab, Storage, Node, Reason]),
 	    ?eval_debug_fun({?MODULE, do_get_network_copy},
 			    [{tab, Tab}, {reason, Reason},
@@ -225,6 +226,7 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		    dbg_out("Table ~tp copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
+                    verbose("Copy failed: ~tp ~p~n", [Tab, Err]),
 		    {not_loaded,Err};
 		restart ->
 		    try_net_load_table(Tab, Reason, Tail ++ [Node], Cs);
@@ -287,6 +289,14 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 	    {atomic, {error,Result}} when
 		  element(1,Reason) == dumper ->
 		{error,Result};
+	    {atomic, {error,{mktab, _} = Reason}} ->
+                case val({Tab,where_to_read}) == node() of
+                    true ->  %% Already loaded
+                        ok;
+                    false ->
+                        fatal("Cannot create table ~tp: ~tp~n",
+                              [[Tab, Storage], Reason])
+                end;
 	    {atomic, {error,Result}} ->
 		fatal("Cannot create table ~tp: ~tp~n",
 		      [[Tab, Storage], Result]);
@@ -342,6 +352,7 @@ start_receiver(Tab,Storage,Cs,SenderPid,TabSize,DetsData,{dumper,{add_table_copy
     Init = table_init_fun(SenderPid, Storage),
     case do_init_table(Tab,Storage,Cs,SenderPid,TabSize,DetsData,self(), Init) of
 	Err = {error, _} ->
+            verbose("Init table failed: ~tp ~p~n", [Tab, Err]),
 	    SenderPid ! {copier_done, node()},
 	    Err;
 	Else ->
@@ -366,6 +377,7 @@ wait_on_load_complete(Pid) ->
 	{Pid, Res} ->
 	    Res;
 	{'EXIT', Pid, Reason} ->
+            verbose("Loader crashed : ~tp ~p~n", [Pid, Reason]),
 	    error(Reason);
 	Else ->
 	    Pid ! Else,
@@ -415,9 +427,9 @@ create_table(Tab, TabSize, Storage, Cs) ->
 		{ok, _} ->
 		    mnesia_lib:unlock_table(Tab),
 		    {Storage, Tab};
-		Else ->
+		{error, Reason} ->
 		    mnesia_lib:unlock_table(Tab),
-		    Else
+		    {error, {mktab, Reason}}
 	    end;
 	(Storage == ram_copies) or (Storage == disc_copies) ->
 	    EtsOpts = proplists:get_value(ets, StorageProps, []),
@@ -425,16 +437,18 @@ create_table(Tab, TabSize, Storage, Cs) ->
 	    case mnesia_monitor:unsafe_mktab(Tab, Args) of
 		Tab ->
 		    {Storage, Tab};
-		Else ->
-		    Else
+		{error, Reason} ->
+		    {error, {mktab, Reason}}
 	    end;
         element(1, Storage) == ext ->
             {_, Alias, Mod} = Storage,
             case mnesia_monitor:unsafe_create_external(Tab, Alias, Mod, Cs) of
                 ok ->
                     {Storage, Tab};
-                Else ->
-                    Else
+                {error, Reason} ->
+                    {error, {mktab, Reason}};
+                Reason ->
+                    {error, {mktab, Reason}}
             end
     end.
 

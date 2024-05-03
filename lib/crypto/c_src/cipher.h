@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2022. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ struct evp_cipher_ctx {
 
 ERL_NIF_TERM cipher_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-int init_cipher_ctx(ErlNifEnv *env);
+int init_cipher_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 void init_cipher_types(ErlNifEnv* env);
 const struct cipher_type_t* get_cipher_type_no_key(ERL_NIF_TERM type);

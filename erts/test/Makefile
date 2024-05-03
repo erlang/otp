@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2021. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,10 @@ MODULES= \
 	upgrade_SUITE \
 	parallel_messages_SUITE
 
-ERL_FILES= $(MODULES:%=%.erl)
+ERTS_MODULES= erts_test_utils
+
+ERL_FILES= $(MODULES:%=%.erl) \
+           $(ERTS_MODULES:%=$(ERL_TOP)/erts/emulator/test/%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
@@ -55,7 +58,7 @@ RELSYSDIR = $(RELEASE_PATH)/system_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += +nowarn_missing_spec_documented
 
 # ----------------------------------------------------
 # Targets

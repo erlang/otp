@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,9 +115,10 @@
 %%
 
 -module(beam_ssa_bool).
+-moduledoc false.
 -export([module/2]).
 
--import(lists, [all/2,foldl/3,keyfind/3,last/1,partition/2,
+-import(lists, [all/2,any/2,foldl/3,keyfind/3,last/1,partition/2,
                 reverse/1,reverse/2,sort/1]).
 
 -include("beam_ssa.hrl").
@@ -126,7 +127,8 @@
              ldefs=#{},
              count :: beam_ssa:label(),
              dom,
-             uses}).
+             uses,
+             in_or=false :: boolean()}).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
@@ -167,7 +169,8 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
         true ->
             %% There are no boolean operators that can be optimized in
             %% this function.
-            F#b_function{bs=Blocks1,cnt=Count1}
+            Blocks2 = beam_ssa:trim_unreachable(Blocks1), %Fix up phi nodes.
+            F#b_function{bs=Blocks2,cnt=Count1}
     end.
 
 %%%
@@ -309,7 +312,7 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                 {#b_set{}=Test0,#b_br{}=Br0} ->
                     %% Here is a #b_switch{} that has been reduced to
                     %% a '=:=' followed by a two-way `br`.
-                    Bool = #b_var{name={'@ssa_bool',Count0}},
+                    Bool = #b_var{name=Count0},
                     Count = Count0 + 1,
                     Test = Test0#b_set{dst=Bool},
                     Br = beam_ssa:normalize(Br0#b_br{bool=Bool}),
@@ -366,7 +369,10 @@ pre_opt_is([#b_set{op={succeeded,_},dst=Dst,args=Args0}=I0|Is],
             Sub = Sub0#{Dst=>#b_literal{val=true}},
             pre_opt_is(Is, Reached, Sub, Acc);
         false ->
-            pre_opt_is(Is, Reached, Sub0, [I|Acc])
+            %% Don't remember boolean expressions that can potentially fail,
+            %% because that can cause unsafe optimizations.
+            Sub = maps:remove(Arg, Sub0),
+            pre_opt_is(Is, Reached, Sub, [I|Acc])
     end;
 pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
     Args = sub_args(Args0, Sub0),
@@ -388,8 +394,33 @@ pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                     pre_opt_is(Is, Reached, Sub, Acc)
             end;
         false ->
-            pre_opt_is(Is, Reached, Sub0, [I|Acc])
-        end;
+            case beam_ssa:eval_instr(I) of
+                any ->
+                    pre_opt_is(Is, Reached, Sub0, [I|Acc]);
+                failed ->
+                    case Is of
+                        [#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}] ->
+                            %% In a guard. The failure reason doesn't
+                            %% matter, so we can discard this
+                            %% instruction and the `succeeded`
+                            %% instruction. Since the success branch
+                            %% will never be taken, it usually means
+                            %% that one or more blocks can be
+                            %% discarded as well, saving some
+                            %% compilation time.
+                            Sub = Sub0#{SuccDst => #b_literal{val=false}},
+                            {reverse(Acc),Sub};
+                        _ ->
+                            %% In a body. We must preserve the exact
+                            %% failure reason, which is most easily
+                            %% done by keeping the instruction.
+                            pre_opt_is(Is, Reached, Sub0, [I|Acc])
+                    end;
+                #b_literal{}=Lit ->
+                    Sub = Sub0#{Dst => Lit},
+                    pre_opt_is(Is, Reached, Sub, Acc)
+            end
+    end;
 pre_opt_is([], _Reached, Sub, Acc) ->
     {reverse(Acc),Sub}.
 
@@ -909,7 +940,7 @@ do_opt_digraph([A|As], G0, St) ->
         G ->
             do_opt_digraph(As, G, St)
     catch
-        throw:not_possible ->
+        throw:not_possible when not St#st.in_or ->
             do_opt_digraph(As, G0, St)
     end;
 do_opt_digraph([], G, _St) -> G.
@@ -923,19 +954,33 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
         #b_set{op={bif,'and'},args=Args} ->
             G2 = convert_to_br_node(I, Succ, G1, St),
             {First,Second} = order_args(Args, G2, St),
+            case St of
+                #st{in_or=true} ->
+                    %% This code is part of the left-hand side operand
+                    %% of `or`.  The optimization is unsafe if there
+                    %% any instructions that may fail.
+                    ensure_no_failing_instructions(First, Second, G1, St);
+                #st{} ->
+                    ok
+            end,
             G = redirect_test(First, {fail,Fail}, G2, St),
             redirect_test(Second, {fail,Fail}, G, St);
         #b_set{op={bif,'or'},args=Args} ->
             {First,Second} = order_args(Args, G1, St),
 
-            %% Here we give up the optimization if the optimization
-            %% would skip instructions that may fail. A possible
-            %% future improvement would be to hoist the failing
-            %% instructions so that they would always be executed.
+            %% Here we give up if the optimization would skip
+            %% instructions that may fail in the right-hand side
+            %% operand.
             ensure_no_failing_instructions(First, Second, G1, St),
 
             G2 = convert_to_br_node(I, Succ, G1, St),
-            G = redirect_test(First, {succ,Succ}, G2, St),
+
+            %% Be sure to give up if the left-hand side operation of
+            %% the `or` has a failing operation thay may be
+            %% skipped. Example:
+            %%
+            %%   f(_, B) when ((ok == B) and (ok =/= trunc(ok))) or (ok < B) -> ...
+            G = redirect_test(First, {succ,Succ}, G2, St#st{in_or=true}),
             redirect_test(Second, {fail,Fail}, G, St);
         #b_set{op={bif,'xor'}} ->
             %% Rewriting 'xor' is not practical. Fortunately,
@@ -999,36 +1044,58 @@ convert_to_br_node(I, Target, G0, St) ->
 
 %% ensure_no_failing_instructions(First, Second, G, St) -> ok.
 %%  Ensure that there are no instructions that can fail that would not
-%%  be executed if right-hand side of the `or` would be skipped. That
-%%  means that the `or` could succeed when it was supposed to
+%%  be executed if right-hand side of the operation would be skipped. That
+%%  means that the operation could succeed when it was supposed to
 %%  fail. Example:
 %%
 %%    (element(1, T) =:= tag) or
 %%    (element(10, T) =:= y)
 
 ensure_no_failing_instructions(First, Second, G, St) ->
-    Vs0 = covered(get_vertex(First, St), get_vertex(Second, St), G),
-    Vs = [{V,beam_digraph:vertex(G, V)} || V <- Vs0],
-    Failing = [P || {V,#b_set{op={succeeded,_}}}=P <- Vs,
-                    not eaten_by_phi(V, G)],
-    case Failing of
-        [] -> ok;
-        [_|_] -> not_possible()
+    Vs = covered(get_vertex(First, St), get_vertex(Second, St), G),
+    case any(fun(V) ->
+                     case beam_digraph:vertex(G, V) of
+                         #b_set{op=Op} ->
+                             can_fail(Op, V, G);
+                         _ ->
+                             false
+                     end
+             end, Vs) of
+        true -> not_possible();
+        false -> ok
     end.
 
-eaten_by_phi(V, G) ->
-    {br,_,Fail} = get_targets(V, G),
-    case beam_digraph:vertex(G, Fail) of
-        br ->
-            [To] = beam_digraph:out_neighbours(G, Fail),
-            case beam_digraph:vertex(G, To) of
-                #b_set{op=phi} ->
+can_fail({succeeded,_}, V, G) -> not eaten_by_phi(V, G);
+can_fail(put_map, _, _) -> true;
+can_fail(_, V, G) ->
+    case get_targets(V, G) of
+        {br,_Succ,Fail} ->
+            case follow_branch(G, Fail) of
+                {external,_} ->
                     true;
                 _ ->
                     false
             end;
         _ ->
             false
+    end.
+
+eaten_by_phi(V, G) ->
+    {br,_,Fail} = get_targets(V, G),
+    case follow_branch(G, Fail) of
+        #b_set{op=phi} ->
+            true;
+        _ ->
+            false
+    end.
+
+follow_branch(G, Br) ->
+    case beam_digraph:vertex(G, Br) of
+        br ->
+            [To] = beam_digraph:out_neighbours(G, Br),
+            beam_digraph:vertex(G, To);
+        _ ->
+            none
     end.
 
 %% order_args([Arg1,Arg2], G, St) -> {First,Second}.
@@ -1198,9 +1265,7 @@ redirect_phi_1(_PhiVtx, _Args, _SuccFail, _G, _St) ->
 
 digraph_bool_def(G) ->
     Vs = beam_digraph:vertices(G),
-    Ds = [{Dst,Vtx} || {Vtx,#b_set{dst=Dst}} <- Vs],
-    maps:from_list(Ds).
-
+    #{Dst => Vtx || {Vtx,#b_set{dst=Dst}} <- Vs}.
 
 %% ensure_disjoint_paths(G, Vertex1, Vertex2) -> ok.
 %%  Ensure that there is no path from Vertex1 to Vertex2 in
@@ -1378,8 +1443,7 @@ ensure_init(Root, G, G0) ->
     %% Build a map of all variables that are set by instructions in
     %% the digraph. Variables not included in this map have been
     %% defined by code before the code in the digraph.
-    Vars = maps:from_list([{Dst,unset} ||
-                              {_,#b_set{dst=Dst}} <- Vs]),
+    Vars = #{Dst => unset || {_,#b_set{dst=Dst}} <- Vs},
     RPO = beam_digraph:reverse_postorder(G, [Root]),
     ensure_init_1(RPO, Used, G, #{Root=>Vars}).
 
@@ -1403,7 +1467,7 @@ ensure_init_instr(Vtx, Used, G, InitMaps0) ->
             %% originate from a guard, it is possible that a
             %% variable set in the optimized code will be used
             %% here.
-            case [V || {V,unset} <- maps:to_list(VarMap0)] of
+            case [V || V := unset <- VarMap0] of
                 [] ->
                     InitMaps0;
                 [_|_]=Unset0 ->
@@ -1638,35 +1702,34 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = sets:new([{version, 2}]),
+    Seen0 = #{},
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    sets:to_list(Seen).
+    [V || {V,reached} <- maps:to_list(Seen)].
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
-covered_1(From, To, G, Seen0) ->
-    Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not sets:is_element(V, Seen0)],
-    Seen = sets:union(sets:from_list(Vs, [{version, 2}]), Seen0),
-    case Vs of
-        [] ->
-            no;
-        [_|_] ->
-            covered_list(Vs, To, G, Seen, false)
-    end.
+covered_1(From, To, G, Seen) ->
+    Vs = beam_digraph:out_neighbours(G, From),
+    covered_list(Vs, To, G, Seen, no).
 
 covered_list([V|Vs], To, G, Seen0, AnyFound) ->
-    case covered_1(V, To, G, Seen0) of
-        {yes,Seen} ->
-            covered_list(Vs, To, G, Seen, true);
-        no ->
-            covered_list(Vs, To, G, Seen0, AnyFound)
+    case Seen0 of
+        #{V := reached} ->
+            covered_list(Vs, To, G, Seen0, yes);
+        #{V := not_reached} ->
+            covered_list(Vs, To, G, Seen0, AnyFound);
+        #{} ->
+            case covered_1(V, To, G, Seen0) of
+                {yes,Seen1} ->
+                    Seen = Seen1#{V => reached},
+                    covered_list(Vs, To, G, Seen, yes);
+                {no,Seen1} ->
+                    Seen = Seen1#{V => not_reached},
+                    covered_list(Vs, To, G, Seen, AnyFound)
+            end
     end;
 covered_list([], _, _, Seen, AnyFound) ->
-    case AnyFound of
-        true -> {yes,Seen};
-        false -> no
-    end.
+    {AnyFound,Seen}.
 
 digraph_roots(G) ->
     digraph_roots_1(beam_digraph:vertices(G), G).

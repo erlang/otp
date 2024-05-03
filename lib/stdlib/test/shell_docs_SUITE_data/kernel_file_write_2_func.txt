@@ -1,7 +1,7 @@
 
   [;1m-spec write(IoDevice, Bytes) -> ok | {error, Reason}[0m
   [;1m               when[0m
-  [;1m                   IoDevice :: io_device() | atom(),[0m
+  [;1m                   IoDevice :: io_device() | io:device(),[0m
   [;1m                   Bytes :: iodata(),[0m
   [;1m                   Reason :: posix() | badarg | terminated.[0m
 
@@ -14,7 +14,8 @@
   [;;4mlatin1[0m, each byte written can result in many bytes being written
   to the file, as the byte range 0..255 can represent anything
   between one and four bytes depending on value and UTF encoding
-  type.
+  type. If you want to write [;;4municode:chardata()[0m to the [;;4mIoDevice[0m
+  you should use [;;4mio:put_chars/2[0m instead.
 
   Typical error reasons:
 

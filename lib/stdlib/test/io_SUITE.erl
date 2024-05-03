@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,8 @@
 	 maps/1, coverage/1, otp_14178_unicode_atoms/1, otp_14175/1,
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
-         github_4801/1, chars_limit/1, error_info/1, otp_17525/1]).
+         github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
+         unscan_format_without_maps_order/1, build_text_without_maps_order/1]).
 
 -export([pretty/2, trf/3]).
 
@@ -67,7 +68,8 @@ all() ->
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
-     error_info, otp_17525].
+     error_info, otp_17525, unscan_format_without_maps_order,
+     build_text_without_maps_order].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -1560,7 +1562,7 @@ f2r({S,BE,M}) when 0 =< S, S =< 1,
     <<F:64/float>> = <<S:1, BE:11, M:52>>,
     case catch T/N of
         {'EXIT', _} -> ok;
-        TN -> true = F =:= TN
+        TN -> true = F == TN
     end,
     Vr.
 
@@ -2184,14 +2186,16 @@ otp_10755(Suite) when is_list(Suite) ->
         "    io:format(\"~ltw\", [S]),\n"
         "    io:format(\"~tlw\", [S]),\n"
         "    io:format(\"~ltW\", [S, 1]),\n"
-        "    io:format(\"~tlW\", [S, 1]).\n",
+        "    io:format(\"~tlW\", [S, 1]),\n"
+        "    io:format(\"~ltp\", [S, 1]).\n",
     {ok,l_mod,[{_File,Ws}]} = compile_file("l_mod.erl", Text, Suite),
-    ["format string invalid (invalid control ~lw)",
-     "format string invalid (invalid control ~lW)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltw)",
-     "format string invalid (invalid control ~ltW)",
-     "format string invalid (invalid control ~ltW)"] =
+    ["format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lw)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (invalid modifier/control combination ~lW)",
+     "format string invalid (conflicting modifiers ~ltp)"] =
         [lists:flatten(M:format_error(E)) || {_L,M,E} <- Ws],
     ok.
 
@@ -2271,34 +2275,64 @@ format_string(_Config) ->
     ok.
 
 maps(_Config) ->
-    %% Note that order in which a map is printed is arbitrary.  In
-    %% practice, small maps (non-HAMT) are printed in key order, but
-    %% the breakpoint for creating big maps (HAMT) is lower in the
-    %% debug-compiled run-time system than in the optimized run-time
-    %% system.
-    %%
+    %% Note that order in which a map is printed is arbitrary.
     %% Therefore, play it completely safe by not assuming any order
     %% in a map with more than one element.
 
+    AOrdCmpFun = fun(A, B) -> A =< B end,
+    ARevCmpFun = fun(A, B) -> B < A end,
+
+    AtomMap1 = #{a => b},
+    AtomMap2 = #{a => b, c => d},
+    AtomMap3 = #{a => b, c => d, e => f},
+
     "#{}" = fmt("~w", [#{}]),
-    "#{a => b}" = fmt("~w", [#{a=>b}]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
-	     "~W", [#{a => b,c => d},2]),
-    re_fmt(<<"#\\{(a => b),[.][.][.]\\}">>,
-	   "~W", [#{a => b,c => d,e => f},2]),
+    "#{a => b}" = fmt("~w", [AtomMap1]),
+    re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
+	     "~W", [AtomMap2, 2]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+	   "~W", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kw", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KW", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kw", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kw", [ARevCmpFun, AtomMap3]),
 
     "#{}" = fmt("~p", [#{}]),
-    "#{a => b}" = fmt("~p", [#{a => b}]),
-    "#{...}" = fmt("~P", [#{a => b},1]),
+    "#{a => b}" = fmt("~p", [AtomMap1]),
+    "#{...}" = fmt("~P", [AtomMap1, 1]),
     re_fmt(<<"#\\{(a => b|c => d),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d},2]),
+	   "~P", [AtomMap2, 2]),
     re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
-	   "~P", [#{a => b,c => d,e => f},2]),
+	   "~P", [AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~kp", [AtomMap3]),
+    re_fmt(<<"#\\{(a => b|c => d|e => f),[.][.][.]\\}">>,
+           "~KP", [undefined, AtomMap3, 2]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [ordered, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [reversed, AtomMap3]),
+    "#{a => b,c => d,e => f}" = fmt("~Kp", [AOrdCmpFun, AtomMap3]),
+    "#{e => f,c => d,a => b}" = fmt("~Kp", [ARevCmpFun, AtomMap3]),
 
-    List = [{I,I*I} || I <- lists:seq(1, 20)],
+    List = [{I, I * I} || I <- lists:seq(1, 64)],
     Map = maps:from_list(List),
 
-    "#{...}" = fmt("~P", [Map,1]),
+    "#{...}" = fmt("~P", [Map, 1]),
+    "#{1 => 1,...}" = fmt("~kP", [Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [ordered, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [reversed, Map, 2]),
+    "#{1 => 1,...}" = fmt("~KP", [AOrdCmpFun, Map, 2]),
+    "#{64 => 4096,...}" = fmt("~KP", [ARevCmpFun, Map, 2]),
+
+    FloatIntegerMap = #{-1.0 => a, 0.0 => b, -1 => c, 0 => d},
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~P", [FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~kp", [FloatIntegerMap]),
+    re_fmt(<<"#\\{(-1.0 => a|0.0 => b|-1 => c|0 => d),[.][.][.]\\}">>,
+           "~KP", [undefined, FloatIntegerMap, 2]),
+    "#{-1 => c,0 => d,-1.0 => a,0.0 => b}" = fmt("~Kp", [ordered, FloatIntegerMap]),
+    "#{0.0 => b,-1.0 => a,0 => d,-1 => c}" = fmt("~Kp", [reversed, FloatIntegerMap]),
 
     %% Print a map and parse it back to a map.
     S = fmt("~p\n", [Map]),
@@ -3150,3 +3184,29 @@ otp_17525(_Config) ->
     "                                                                         {...}|...]" =
     lists:flatten(S),
     ok.
+
+unscan_format_without_maps_order(_Config) ->
+    FormatSpec = #{
+        adjust => right,
+        args => [[<<"1">>]],
+        control_char => 115,
+        encoding => unicode,
+        pad_char => 32,
+        precision => none,
+        strings => true,
+        width => none
+    },
+    {"~ts",[[<<"1">>]]} = io_lib:unscan_format([FormatSpec]).
+
+build_text_without_maps_order(_Config) ->
+    FormatSpec = #{
+        adjust => right,
+        args => [[<<"1">>]],
+        control_char => 115,
+        encoding => unicode,
+        pad_char => 32,
+        precision => none,
+        strings => true,
+        width => none
+    },
+    [["1"]] = io_lib:build_text([FormatSpec]).

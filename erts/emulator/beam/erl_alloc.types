@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2021. All Rights Reserved.
+# Copyright Ericsson AB 2003-2023. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -280,6 +280,7 @@ type	CML_CLEANUP	SHORT_LIVED	SYSTEM		connection_ml_cleanup
 type	ML_YIELD_STATE	SHORT_LIVED	SYSTEM		monitor_link_yield_state
 type	ML_DIST		STANDARD	SYSTEM		monitor_link_dist
 type	PF3_ARGS	SHORT_LIVED	PROCESSES	process_flag_3_arguments
+type	TRACE_INFO_REQ	SHORT_LIVED	PROCESSES	trace_info_proc_request
 type	SETUP_CONN_ARG	SHORT_LIVED	PROCESSES	setup_connection_argument
 type    LIST_TRAP       SHORT_LIVED     PROCESSES       list_bif_trap_state
 type    CONT_EXIT_TRAP  SHORT_LIVED     PROCESSES       continue_exit_trap_state
@@ -289,7 +290,7 @@ type    MAP_TRAP        SHORT_LIVED     PROCESSES       map_bif_trap_state
 
 type	ENVIRONMENT	SYSTEM		SYSTEM		environment
 
-type	PERSISTENT_TERM	LONG_LIVED	CODE		persisten_term
+type	PERSISTENT_TERM	LONG_LIVED	CODE		persistent_term
 type	PERSISTENT_LOCK_Q SHORT_LIVED	SYSTEM		persistent_lock_q
 type	PERSISTENT_TERM_TMP SHORT_LIVED	SYSTEM		persistent_term_tmp_table
 
@@ -305,6 +306,10 @@ type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 
 type	T2B_DETERMINISTIC SHORT_LIVED	PROCESSES	term_to_binary_deterministic
+
+type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_notification
+type    SCHD_SIG_NTFY   SHORT_LIVED     PROCESSES       scheduled_signal_notify
+type	CODE_COVERAGE   STANDARD        SYSTEM          code_coverage
 
 #
 # Types used for special emulators

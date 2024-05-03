@@ -125,11 +125,37 @@ Error BaseEmitter::reportError(Error err, const char* message) {
   return err;
 }
 
+// BaseEmitter - Sections
+// ======================
+
+// [[pure virtual]]
+Error BaseEmitter::section(Section* section) {
+  DebugUtils::unused(section);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
 // BaseEmitter - Labels
 // ====================
 
+// [[pure virtual]]
+Label BaseEmitter::newLabel() {
+  return Label(Globals::kInvalidId);
+}
+
+// [[pure virtual]]
+Label BaseEmitter::newNamedLabel(const char* name, size_t nameSize, LabelType type, uint32_t parentId) {
+  DebugUtils::unused(name, nameSize, type, parentId);
+  return Label(Globals::kInvalidId);
+}
+
 Label BaseEmitter::labelByName(const char* name, size_t nameSize, uint32_t parentId) noexcept {
   return Label(_code ? _code->labelIdByName(name, nameSize, parentId) : Globals::kInvalidId);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::bind(const Label& label) {
+  DebugUtils::unused(label);
+  return DebugUtils::errored(kErrorInvalidState);
 }
 
 bool BaseEmitter::isLabelValid(uint32_t labelId) const noexcept {
@@ -170,6 +196,12 @@ Error BaseEmitter::_emitI(InstId instId, const Operand_& o0, const Operand_& o1,
 Error BaseEmitter::_emitI(InstId instId, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_& o3, const Operand_& o4, const Operand_& o5) {
   Operand_ opExt[3] = { o3, o4, o5 };
   return _emit(instId, o0, o1, o2, opExt);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::_emit(InstId instId, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* oExt) {
+  DebugUtils::unused(instId, o0, o1, o2, oExt);
+  return DebugUtils::errored(kErrorInvalidState);
 }
 
 Error BaseEmitter::_emitOpArray(InstId instId, const Operand_* operands, size_t opCount) {
@@ -233,8 +265,56 @@ Error BaseEmitter::emitArgsAssignment(const FuncFrame& frame, const FuncArgsAssi
   return _funcs.emitArgsAssignment(this, frame, args);
 }
 
+// BaseEmitter - Align
+// ===================
+
+// [[pure virtual]]
+Error BaseEmitter::align(AlignMode alignMode, uint32_t alignment) {
+  DebugUtils::unused(alignMode, alignment);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// BaseEmitter - Embed
+// ===================
+
+// [[pure virtual]]
+Error BaseEmitter::embed(const void* data, size_t dataSize) {
+  DebugUtils::unused(data, dataSize);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::embedDataArray(TypeId typeId, const void* data, size_t itemCount, size_t repeatCount) {
+  DebugUtils::unused(typeId, data, itemCount, repeatCount);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::embedConstPool(const Label& label, const ConstPool& pool) {
+  DebugUtils::unused(label, pool);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::embedLabel(const Label& label, size_t dataSize) {
+  DebugUtils::unused(label, dataSize);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
+// [[pure virtual]]
+Error BaseEmitter::embedLabelDelta(const Label& label, const Label& base, size_t dataSize) {
+  DebugUtils::unused(label, base, dataSize);
+  return DebugUtils::errored(kErrorInvalidState);
+}
+
 // BaseEmitter - Comment
 // =====================
+
+// [[pure virtual]]
+Error BaseEmitter::comment(const char* data, size_t size) {
+  DebugUtils::unused(data, size);
+  return DebugUtils::errored(kErrorInvalidState);
+}
 
 Error BaseEmitter::commentf(const char* fmt, ...) {
   if (!hasEmitterFlag(EmitterFlags::kLogComments)) {
@@ -304,6 +384,7 @@ Error BaseEmitter::onDetach(CodeHolder* code) noexcept {
     _errorHandler = nullptr;
 
   _clearEmitterFlags(~kEmitterPreservedFlags);
+  _instructionAlignment = uint8_t(0);
   _forcedInstOptions = InstOptions::kReserved;
   _privateData = 0;
 
@@ -313,6 +394,7 @@ Error BaseEmitter::onDetach(CodeHolder* code) noexcept {
   _instOptions = InstOptions::kNone;
   _extraReg.reset();
   _inlineComment = nullptr;
+  _funcs.reset();
 
   return kErrorOk;
 }

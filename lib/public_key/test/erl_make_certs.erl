@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -340,7 +340,7 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
 	       md2    -> ?'md2WithRSAEncryption'
 	   end,
     {Type, 'NULL'};
-sign_algorithm({#'RSAPrivateKey'{},#'RSASSA-PSS-params'{}=P}, Opts) ->
+sign_algorithm({#'RSAPrivateKey'{},#'RSASSA-PSS-params'{}=P}, _Opts) ->
     {?'id-RSASSA-PSS', P};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}};

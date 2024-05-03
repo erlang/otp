@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +29,10 @@
 -include("tls_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 -include("ssl_handshake.hrl"). %% Common TLS and DTLS records and Constantes
 -include("ssl_api.hrl").
+-include("ssl_record.hrl").
 
 -define(HELLO_VERIFY_REQUEST, 3).
--define(HELLO_VERIFY_REQUEST_VERSION, {254, 255}).
+-define(HELLO_VERIFY_REQUEST_VERSION, ?DTLS_1_0).
 
 -record(hello_verify_request, {
 	  protocol_version,
@@ -48,10 +49,9 @@
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% RFC 7764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
+%% RFC 5764  Datagram Transport Layer Security (DTLS) Extension to Establish Keys
 %% for the Secure Real-time Transport Protocol (SRTP)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Not supported
--define(USE_SRTP, 14).
+%% Defined in ssl_handshake.hrl because extension parsing code is in ssl_handshake.erl
 
 -endif. % -ifdef(dtls_handshake).

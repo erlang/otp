@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1529,6 +1529,7 @@ safeToken2           -> 'ServiceChangeIncompleteToken'  : '$1' .
 
 
 Erlang code.
+-moduledoc false.
 
 -include("megaco_text_parser_v2.hrl").
 

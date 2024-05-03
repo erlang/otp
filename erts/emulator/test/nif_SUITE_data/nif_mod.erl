@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@ on_load() ->
     [{data_dir, Path}] = ets:lookup(nif_SUITE, data_dir),
     [{lib_version, Ver}] = ets:lookup(nif_SUITE, lib_version),
     [{nif_api_version, API}] = ets:lookup(nif_SUITE, nif_api_version),
-    R = erlang:load_nif(filename:join(Path,libname(Ver,API)), []),
+    [{tester, Tester}] = ets:lookup(nif_SUITE, tester),
+    R = erlang:load_nif(filename:join(Path,libname(Ver,API)), [{tester,Tester}]),
     check_api_version(R, API).
 
 -endif.

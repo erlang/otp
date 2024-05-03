@@ -65,3 +65,8 @@
     a process sends an exit signal with reason [;;4mnormal[0m to another
     process. This is arguably strange but this behavior is kept
     for backward compatibility reasons.
+
+  Note:
+    For some important information about distributed signals, see
+    the Blocking Signaling Over Distribution section in the 
+    Processes chapter of the Erlang Reference Manual.

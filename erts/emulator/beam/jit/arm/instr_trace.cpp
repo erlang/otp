@@ -37,7 +37,7 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
 
     lea(ARG2, arm::Mem(ARG1, offsetof(Export, info)));
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     a.mov(ARG1, c_p);
@@ -45,7 +45,7 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
     load_x_reg_array(ARG3);
     runtime_call<3>(erts_generic_breakpoint);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     /* This is technically a tail call so we must leave the current frame
@@ -72,7 +72,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeInfo)));
 
     emit_enter_runtime_frame();
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     a.mov(ARG1, c_p);
@@ -80,7 +80,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     load_x_reg_array(ARG3);
     runtime_call<3>(erts_generic_breakpoint);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     a.cmp(ARG1, imm(BeamOpCodeAddr(op_i_debug_breakpoint)));
@@ -101,7 +101,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.ldr(ARG2, TMP_MEM1q);
     a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeMFA)));
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     a.mov(ARG1, c_p);
@@ -109,7 +109,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.mov(ARG4, imm(am_breakpoint));
     runtime_call<4>(call_error_handler);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
 
     /* We skip two runtime frames (ours and the one entered in the module
@@ -135,74 +135,82 @@ void BeamGlobalAssembler::emit_debug_bp() {
 static void return_trace(Process *c_p,
                          ErtsCodeMFA *mfa,
                          Eterm val,
-                         ErtsTracer *tracer) {
+                         ErtsTracer tracer,
+                         Eterm session_id) {
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-    erts_trace_return(c_p, mfa, val, tracer);
+    erts_trace_return(c_p, mfa, val, tracer, session_id);
     ERTS_REQ_PROC_MAIN_LOCK(c_p);
 }
 
 void BeamModuleAssembler::emit_return_trace() {
     a.ldr(ARG2, getYRef(0));
     a.mov(ARG3, XREG0);
-    lea(ARG4, getYRef(1));
+    a.ldr(ARG4, getYRef(1)); /* tracer */
+    a.ldr(ARG5, getYRef(2)); /* session_id */
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
-    emit_enter_runtime<Update::eStack | Update::eHeap>(1);
+    emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(return_trace);
+    runtime_call<5>(return_trace);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>(1);
+    emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 2));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TRACE_FRAME_SZ));
     emit_return();
 }
 
-void BeamModuleAssembler::emit_i_return_time_trace() {
+void BeamModuleAssembler::emit_i_call_trace_return() {
     /* Pass prev_info if present (is a CP), otherwise null. */
     a.ldr(ARG2, getYRef(0));
-    mov_imm(ARG3, 0);
+    mov_imm(ARG4, 0);
 
     a.tst(ARG2, imm(_CPMASK));
     a.sub(ARG2, ARG2, imm(sizeof(ErtsCodeInfo)));
-    a.csel(ARG2, ARG2, ARG3, arm::CondCode::kEQ);
+    a.csel(ARG2, ARG2, ARG4, arm::CondCode::kEQ);
+    a.ldr(ARG3, getYRef(1));
+    a.ldr(ARG4, getYRef(2));
 
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
-    emit_enter_runtime<Update::eStack | Update::eHeap>(1);
+    emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_trace_time_return);
+    runtime_call<4>(erts_call_trace_return);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>(1);
+    emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 1));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ));
     emit_return();
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
+    a.ldr(ARG2, getYRef(0)); /* session_id */
+    a.add(ARG3, E, imm(BEAM_RETURN_TO_TRACE_FRAME_SZ * sizeof(Eterm)));
+
     ERTS_CT_ASSERT(ERTS_HIGHEST_CALLEE_SAVE_XREG >= 1);
-    emit_enter_runtime<Update::eStack | Update::eHeap>(1);
+
+    emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(beam_jit_return_to_trace);
+    runtime_call<3>(beam_jit_return_to_trace);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap>(1);
+    emit_leave_runtime<Update::eHeapAlloc>(1);
 
-    emit_deallocate(ArgVal(ArgVal::Word, 0));
+    emit_deallocate(ArgVal(ArgVal::Word, BEAM_RETURN_TO_TRACE_FRAME_SZ));
     emit_return();
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
     Label error = a.newLabel();
 
-    emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>(3);
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
     runtime_call<2>(erts_hibernate);
 
-    emit_leave_runtime<Update::eStack | Update::eHeap | Update::eXRegs |
+    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>(3);
 
     a.cbz(ARG1, error);
@@ -214,4 +222,5 @@ void BeamModuleAssembler::emit_i_hibernate() {
 
     a.bind(error);
     emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    mark_unreachable();
 }

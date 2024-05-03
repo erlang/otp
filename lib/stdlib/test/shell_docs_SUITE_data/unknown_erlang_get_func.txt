@@ -1,0 +1,25 @@
+
+  [;1m-spec get() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+
+  Returns the process dictionary as a list of [;;4m{Key, Val}[0m tuples.
+  The items in the returned list can be in any order. Example:
+
+    > put(key1, merry),
+    put(key2, lambs),
+    put(key3, {are, playing}),
+    get().
+    [{key1,merry},{key2,lambs},{key3,{are,playing}}]
+
+  [;1m-spec get(Key) -> Val | undefined when Key :: term(), Val :: term().[0m
+
+  Returns the value [;;4mVal[0m associated with [;;4mKey[0m in the process
+  dictionary, or [;;4mundefined[0m if [;;4mKey[0m does not exist. The expected
+  time complexity for the current implementation of this function is
+  O([;;4m1[0m) and the worst case time complexity is O([;;4mN[0m), where [;;4mN[0m is
+  the number of items in the process dictionary. Example:
+
+    > put(key1, merry),
+    put(key2, lambs),
+    put({any, [valid, term]}, {are, playing}),
+    get({any, [valid, term]}).
+    {are,playing}

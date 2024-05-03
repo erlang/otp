@@ -73,6 +73,7 @@ $(EBIN)/%.$(EMULATOR):%.erl
 $(EBIN)/merl_transform.beam: $(EBIN)/merl.beam ./merl_transform.beam \
 			../include/merl.hrl $(EBIN)/erl_comment_scan.beam \
 			$(EBIN)/erl_syntax.beam $(EBIN)/erl_syntax_lib.beam
+	$(V_ERLC) -pa $(ERL_TOP)/lib/syntax_tools/src $(ERL_COMPILE_FLAGS) -o $(EBIN) merl_transform.erl
 ./merl_transform.beam: ./merl_transform.erl $(EBIN)/merl.beam \
 			../include/merl.hrl
 	$(V_ERLC) -DMERL_NO_TRANSFORM $(ERL_COMPILE_FLAGS) -o ./ $<

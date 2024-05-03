@@ -8,7 +8,7 @@
   [;;4mEncoding[0m is [;;4mutf8[0m or [;;4municode[0m, the binary must contain valid
   UTF-8 sequences.
 
-  Note:
+  Change:
     As from Erlang/OTP 20, [;;4mbinary_to_atom(Binary, utf8)[0m is
     capable of decoding any Unicode character. Earlier versions
     would fail if the binary contained Unicode characters > 255.

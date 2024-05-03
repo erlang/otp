@@ -21,7 +21,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Macros
 #
 
-SUB_DIRECTORIES = bin src include priv doc/src
+SUB_DIRECTORIES = bin src include priv doc
 
 include vsn.mk
 VSN = $(EDOC_VSN)
@@ -91,36 +91,6 @@ edocs:
 	erl -noshell -pa $(BINDIR) -pa $(SYNTAX_TOOLS_DIR)/ebin \
 	    -pa $(XMERL_DIR)/ebin -run edoc_run application \
 	    "'$(APPNAME)'" '"."' '$(DOC_OPTS)'
-
-
-app_release: tar
-
-app_dir: $(APP_DIR)
-
-
-$(APP_DIR):
-	cat TAR.exclude > TAR.exclude2; \
-        echo "edoc/TAR.exclude2" >> TAR.exclude2; \
-	(cd ..; find edoc -name 'findmerge.*' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name '*.contrib*' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name '*.keep*' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name '*~' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name 'erl_crash.dump' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name '*.log' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name 'core' >> edoc/TAR.exclude2)
-	(cd ..; find edoc -name '.cmake.state' >> edoc/TAR.exclude2)
-	mkdir $(APP_DIR); \
-        (cd ..; tar cfX - edoc/TAR.exclude2 edoc) | \
-        (cd $(APP_DIR); tar xf -); \
-        mv $(APP_DIR)/edoc/* $(APP_DIR)/; \
-        rmdir $(APP_DIR)/edoc
-	mkdir $(APP_DIR)/doc; \
-	(cd doc; tar cf - man3 html) | (cd $(APP_DIR)/doc; tar xf -)
-
-tar: $(APP_TAR_FILE)
-
-$(APP_TAR_FILE): $(APP_DIR)
-	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
 DIA_PLT_APPS=syntax_tools xmerl inets
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2021. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -372,7 +372,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	Eterm* ptr;
     }popped;
     Eterm* nobj;
-    Wterm wobj;
+    Eterm wobj;
 
     res = 0;
 
@@ -462,7 +462,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
             }
 	    goto L_done;
 	}
-	wobj = (Wterm)obj;
+	wobj = (Eterm)obj;
 	switch (tag_val_def(wobj)) {
 	case NIL_DEF:
 	    PRINT_STRING(res, fn, arg, "[]");
@@ -576,14 +576,18 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	    PRINT_DOUBLE(res, fn, arg, 'e', 6, 0, ff.fd);
 	}
 	    break;
-	case BINARY_DEF:
+	case BITSTRING_DEF:
 	    {
-		byte* bytep;
-		Uint bytesize = binary_size(obj);
-		Uint bitoffs;
-		Uint bitsize;
-		byte octet;
-		ERTS_GET_BINARY_BYTES(obj, bytep, bitoffs, bitsize);
+                Uint bitoffs, bitsize, bytesize;
+                Uint size, offset;
+                byte* bytep;
+                byte octet;
+
+                ERTS_GET_BITSTRING(obj, bytep, offset, size);
+                bytep += BYTE_OFFSET(offset);
+                bitoffs = BIT_OFFSET(offset);
+                bytesize = BYTE_SIZE(size);
+                bitsize = TAIL_BITS(size);
 
 		if (bitsize || !bytesize
 		    || !is_printable_ascii(bytep, bytesize, bitoffs)) {
@@ -666,8 +670,6 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                     long tdcount;
                     int tres;
 
-                    ASSERT(is_external_fun(funp) && funp->next == NULL);
-
                     PRINT_STRING(res, fn, arg, "fun ");
 
                     /* We pass a temporary 'dcount' and adjust the real one
@@ -722,54 +724,58 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 }
             } else {
                 Uint n, mapval;
+                Eterm* assoc;
+                Eterm key, val;
+
                 mapval = MAP_HEADER_VAL(*head);
                 switch (MAP_HEADER_TYPE(*head)) {
                 case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
                 case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
-                    PRINT_STRING(res, fn, arg, "#<");
-                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-                    PRINT_STRING(res, fn, arg, ">{");
-                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
-                    n = hashmap_bitcount(mapval);
-                    ASSERT(n < 17);
-                    head += 2;
-                    if (n > 0) {
-                        n--;
-                        WSTACK_PUSH(s, head[n]);
-                        WSTACK_PUSH(s, PRT_TERM);
-                        while (n--) {
-                            WSTACK_PUSH(s, PRT_COMMA);
-                            WSTACK_PUSH(s, head[n]);
-                            WSTACK_PUSH(s, PRT_TERM);
-                        }
-                    }
-                    break;
+                    PRINT_STRING(res, fn, arg, "#{");
+                    WSTACK_PUSH(s, PRT_CLOSE_TUPLE);
+                    head++;
+                    /* fall through */
                 case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
                     n = hashmap_bitcount(mapval);
-                    head++;
-                    PRINT_CHAR(res, fn, arg, '<');
-                    PRINT_UWORD(res, fn, arg, 'x', 0, 1, mapval);
-                    PRINT_STRING(res, fn, arg, ">{");
-                    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
-                    ASSERT(n < 17);
-                    if (n > 0) {
-                        n--;
-                        WSTACK_PUSH(s, head[n]);
-                        WSTACK_PUSH(s, PRT_TERM);
-                        while (n--) {
-                            WSTACK_PUSH(s, PRT_COMMA);
-                            WSTACK_PUSH(s, head[n]);
-                            WSTACK_PUSH(s, PRT_TERM);
+                    ASSERT(0 < n && n < 17);
+                    while (1) {
+                        if (is_list(head[n])) {
+                            assoc = list_val(head[n]);
+                            key = CAR(assoc);
+                            val = CDR(assoc);
+                            WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
                         }
+                        else if (is_tuple(head[n])) { /* collision node */
+                            Eterm *tpl = tuple_val(head[n]);
+                            Uint arity = arityval(tpl[0]);
+                            ASSERT(arity >= 2);
+                            while (1) {
+                                assoc = list_val(tpl[arity]);
+                                key = CAR(assoc);
+                                val = CDR(assoc);
+                                WSTACK_PUSH5(s, val, PRT_TERM, PRT_ASSOC, key, PRT_TERM);
+                                if (--arity == 0)
+                                    break;
+                                WSTACK_PUSH(s, PRT_COMMA);
+                            }
+                        } else {
+                            WSTACK_PUSH2(s, head[n], PRT_TERM);
+                        }
+                        if (--n == 0)
+                            break;
+                        WSTACK_PUSH(s, PRT_COMMA);
                     }
                     break;
                 }
             }
             break;
         }
-	case MATCHSTATE_DEF:
-	    PRINT_STRING(res, fn, arg, "#MatchState");
-	    break;
+        case BIN_REF_DEF:
+            PRINT_STRING(res, fn, arg, "#BinRef");
+            break;
+        case FUN_REF_DEF:
+            PRINT_STRING(res, fn, arg, "#FunRef");
+            break;
         default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
 	    PRINT_POINTER(res, fn, arg, wobj);

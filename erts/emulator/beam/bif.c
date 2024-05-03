@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@
 #endif
 
 #include <stddef.h> /* offsetof() */
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+#define WANT_NONBLOCKING
 #include "sys.h"
 #include "erl_vm.h"
 #include "erl_sys_driver.h"
@@ -104,7 +108,7 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
 /* create a link to the process */
 BIF_RETTYPE link_1(BIF_ALIST_1)
 {
-    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
+    if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
 	trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P, am_link, BIF_ARG_1);
     }
     /* check that the pid or port which is our argument is OK */
@@ -376,7 +380,6 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    }
    case ERTS_ML_STATE_ALIAS_ONCE:
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
-       erts_pid_ref_delete(ref);
        /* fall through... */
    default:
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
@@ -1063,7 +1066,7 @@ BIF_RETTYPE spawn_request_abandon_1(BIF_ALIST_1)
 /* remove a link from a process */
 BIF_RETTYPE unlink_1(BIF_ALIST_1)
 {
-    if (IS_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
+    if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
         trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN,
                    BIF_P, am_unlink, BIF_ARG_1);
     }
@@ -1703,9 +1706,7 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                     */
 
                    state = erts_atomic32_read_nob(&c_p->state);
-                   if (state & (ERTS_PSFLG_RUNNING_SYS
-                                | ERTS_PSFLG_DIRTY_RUNNING_SYS
-                                | ERTS_PSFLG_DIRTY_RUNNING)) {
+                   if (!(state & ERTS_PSFLG_RUNNING)) {
                        /*
                         * We are either processing signals before
                         * being executed or executing dirty. That
@@ -1714,7 +1715,6 @@ static Eterm process_flag_aux(Process *c_p, int *redsp, Eterm flag, Eterm val)
                        *redsp = 1;
                    }
                    else {
-                       ASSERT(state & ERTS_PSFLG_RUNNING);
 
                        /*
                         * F_DELAY_GC is currently only set when
@@ -1896,8 +1896,8 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_max_heap_size) {
-       Eterm *hp;
-       Uint sz = 0, max_heap_size, max_heap_flags;
+       ErtsHeapFactory factory;
+       Uint max_heap_size, max_heap_flags;
 
        if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
            goto error;
@@ -1905,9 +1905,11 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        if ((max_heap_size < MIN_HEAP_SIZE(BIF_P) && max_heap_size != 0))
 	   goto error;
 
-       erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), NULL, &sz);
-       hp = HAlloc(BIF_P, sz);
-       old_value = erts_max_heap_size_map(MAX_HEAP_SIZE_GET(BIF_P), MAX_HEAP_SIZE_FLAGS_GET(BIF_P), &hp, NULL);
+       erts_factory_proc_init(&factory, BIF_P);
+       old_value = erts_max_heap_size_map(&factory,
+                                          MAX_HEAP_SIZE_GET(BIF_P),
+                                          MAX_HEAP_SIZE_FLAGS_GET(BIF_P));
+       erts_factory_close(&factory);
        MAX_HEAP_SIZE_SET(BIF_P, max_heap_size);
        MAX_HEAP_SIZE_FLAGS_SET(BIF_P, max_heap_flags);
        BIF_RET(old_value);
@@ -1919,6 +1921,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_sensitive) {
+       ErtsTracerRef* ref;
        Uint is_sensitive;
        if (BIF_ARG_2 == am_true) {
 	   is_sensitive = 1;
@@ -1928,13 +1931,18 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   goto error;
        }
        erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
-       old_value = (ERTS_TRACE_FLAGS(BIF_P) & F_SENSITIVE
+       old_value = (ERTS_P_ALL_TRACE_FLAGS(BIF_P) & F_SENSITIVE
 		    ? am_true
 		    : am_false);
        if (is_sensitive) {
-	   ERTS_TRACE_FLAGS(BIF_P) |= F_SENSITIVE;
+           for (ref = BIF_P->common.tracee.first_ref; ref; ref = ref->next)
+               ref->flags |= F_SENSITIVE;
+	   ERTS_P_ALL_TRACE_FLAGS(BIF_P) = F_SENSITIVE;
        } else {
-	   ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
+           for (ref = BIF_P->common.tracee.first_ref; ref; ref = ref->next)
+               ref->flags &= ~F_SENSITIVE;
+	   ERTS_P_ALL_TRACE_FLAGS(BIF_P) = 0;
+           ERTS_P_ALL_TRACE_FLAGS(BIF_P) = erts_sum_all_trace_flags(&BIF_P->common);
        }
        erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
        /* make sure to bump all reds so that we get
@@ -2192,7 +2200,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     }
 
     if (res >= 0) {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, full_to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2212,7 +2220,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
     Eterm* tp;
 
     if (is_internal_pid(to)) {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2247,7 +2255,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 
 	rp = erts_proc_lookup_raw(id);
 	if (rp) {
-	    if (IS_TRACED_FL(p, F_TRACE_SEND))
+	    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -2263,7 +2271,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    goto port_common;
 	}
 
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+	if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2299,7 +2307,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    int ps_flags = suspend ? 0 : ERTS_PORT_SIG_FLG_NOSUSPEND;
 	    *refp = NIL;
 
-            if (IS_TRACED_FL(p, F_TRACE_SEND)) 	/* trace once only !! */
+            if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
                 trace_send(p, portid, msg);
 
             if (have_seqtrace(SEQ_TRACE_TOKEN(p))) {
@@ -2362,7 +2370,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
-	    if (IS_TRACED_FL(p, F_TRACE_SEND))
+	    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
@@ -2395,7 +2403,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
             erts_deref_dist_entry(dep);
 	return ret;
     } else {
-	if (IS_TRACED_FL(p, F_TRACE_SEND))
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
@@ -2637,6 +2645,7 @@ done:
    and is only here to keep Robert happy (Even more, since it's OP as well) */
 BIF_RETTYPE hd_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
      if (is_not_list(BIF_ARG_1)) {
 	 BIF_ERROR(BIF_P, BADARG);
      }
@@ -2649,255 +2658,11 @@ BIF_RETTYPE hd_1(BIF_ALIST_1)
 
 BIF_RETTYPE tl_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_not_list(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
     BIF_RET(CDR(list_val(BIF_ARG_1)));
-}
-
-
-/**********************************************************************/
-/* return the size of an I/O list */
-
-static Eterm
-accumulate(Eterm acc, Uint size)
-{
-    if (is_non_value(acc)) {
-	/*
-	 * There is no pre-existing accumulator. Allocate a
-	 * bignum buffer with one extra word to be used if
-	 * the bignum grows in the future.
-	 */
-	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_SHORT_LIVED_TERM,
-					 (BIG_UINT_HEAP_SIZE+1) *
-					 sizeof(Eterm));
-	return uint_to_big(size, hp);
-    } else {
-	Eterm* big;
-	int need_heap;
-
-	/*
-	 * Add 'size' to 'acc' in place. There is always one
-	 * extra word allocated in case the bignum grows by one word.
-	 */
-	big = big_val(acc);
-	need_heap = BIG_NEED_SIZE(BIG_SIZE(big));
-	acc = big_plus_small(acc, size, big);
-	if (BIG_NEED_SIZE(big_size(acc)) > need_heap) {
-	    /*
-	     * The extra word has been consumed. Grow the
-	     * allocation by one word.
-	     */
-	    big = (Eterm *) erts_realloc(ERTS_ALC_T_SHORT_LIVED_TERM,
-					 big_val(acc),
-					 (need_heap+1) * sizeof(Eterm));
-	    acc = make_big(big);
-	}
-	return acc;
-    }
-}
-
-static Eterm
-consolidate(Process* p, Eterm acc, Uint size)
-{
-    Eterm* hp;
-
-    if (is_non_value(acc)) {
-	return erts_make_integer(size, p);
-    } else {
-	Eterm* big;
-	Uint sz;
-	Eterm res;
-	
-	acc = accumulate(acc, size);
-	big = big_val(acc);
-	sz = BIG_NEED_SIZE(BIG_SIZE(big));
-	hp = HAlloc(p, sz);
-	res = make_big(hp);
-	while (sz--) {
-	    *hp++ = *big++;
-	}
-	erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(acc));
-	return res;
-    }
-}
-
-typedef struct {
-    Eterm obj;
-    Uint size;
-    Eterm acc;
-    Eterm input_list;
-    ErtsEStack stack;
-    int is_trap_at_L_iter_list;
-} ErtsIOListSizeContext;
-
-static int iolist_size_ctx_bin_dtor(Binary *context_bin) {
-    ErtsIOListSizeContext* context = ERTS_MAGIC_BIN_DATA(context_bin);
-    DESTROY_SAVED_ESTACK(&context->stack);
-    if (context->acc != THE_NON_VALUE) {
-        erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(context->acc));
-    }
-    return 1;
-}
-
-BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
-{
-    static const Uint ITERATIONS_PER_RED = 64;
-    Eterm input_list, obj, hd;
-    Eterm* objp;
-    Uint size = 0;
-    Uint cur_size;
-    Uint new_size;
-    Eterm acc = THE_NON_VALUE;
-    DECLARE_ESTACK(s);
-    Uint max_iterations;
-    Uint iterations_until_trap = max_iterations =
-        ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(BIF_P);
-    ErtsIOListSizeContext* context = NULL;
-    Eterm state_mref;
-    int is_trap_at_L_iter_list;
-    ERTS_UNDEF(state_mref, THE_NON_VALUE);
-    ESTACK_CHANGE_ALLOCATOR(s, ERTS_ALC_T_SAVED_ESTACK);
-#ifdef DEBUG
-    iterations_until_trap = iterations_until_trap / 10;
-#endif
-    input_list = obj = BIF_ARG_1;
-    if (is_internal_magic_ref(obj)) {
-        /* Restore state after a trap */
-        Binary* state_bin;
-        state_mref = obj;
-        state_bin = erts_magic_ref2bin(state_mref);
-        if (ERTS_MAGIC_BIN_DESTRUCTOR(state_bin) != iolist_size_ctx_bin_dtor) {
-            BIF_ERROR(BIF_P, BADARG);
-        }
-        context = ERTS_MAGIC_BIN_DATA(state_bin);
-        obj = context->obj;
-        size = context->size;
-        acc = context->acc;
-        input_list = context->input_list;
-        ESTACK_RESTORE(s, &context->stack);
-        ASSERT(BIF_P->flags & F_DISABLE_GC);
-        erts_set_gc_state(BIF_P, 1);
-        if (context->is_trap_at_L_iter_list) {
-            goto L_iter_list;
-        }
-    }
-    goto L_again;
-
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-        if (iterations_until_trap == 0) {
-            is_trap_at_L_iter_list = 0;
-            goto L_save_state_and_trap;
-        }
-    L_again:
-	if (is_list(obj)) {
-	L_iter_list:
-            if (iterations_until_trap == 0) {
-                is_trap_at_L_iter_list = 1;
-                goto L_save_state_and_trap;
-            }
-	    objp = list_val(obj);
-	    hd = CAR(objp);
-	    obj = CDR(objp);
-	    /* Head */
-	    if (is_byte(hd)) {
-		size++;
-		if (size == 0) {
-		    acc = accumulate(acc, (Uint) -1);
-		    size = 1;
-		}
-	    } else if (is_binary(hd) && binary_bitsize(hd) == 0) {
-		cur_size = binary_size(hd);
-		if ((new_size = size + cur_size) >= size) {
-		    size = new_size;
-		} else {
-		    acc = accumulate(acc, size);
-		    size = cur_size;
-		}
-	    } else if (is_list(hd)) {
-		ESTACK_PUSH(s, obj);
-		obj = hd;
-                iterations_until_trap--;
-		goto L_iter_list;
-	    } else if (is_not_nil(hd)) {
-		goto L_type_error;
-	    }
-	    /* Tail */
-	    if (is_list(obj)) {
-                iterations_until_trap--;
-		goto L_iter_list;
-	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-		cur_size = binary_size(obj);
-		if ((new_size = size + cur_size) >= size) {
-		    size = new_size;
-		} else {
-		    acc = accumulate(acc, size);
-		    size = cur_size;
-		}
-	    } else if (is_not_nil(obj)) {
-		goto L_type_error;
-	    }
-	} else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-	    cur_size = binary_size(obj);
-	    if ((new_size = size + cur_size) >= size) {
-		size = new_size;
-	    } else {
-		acc = accumulate(acc, size);
-		size = cur_size;
-	    }
-	} else if (is_not_nil(obj)) {
-	    goto L_type_error;
-	}
-        iterations_until_trap--;
-    }
-
-    DESTROY_ESTACK(s);
-    BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
-    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
-    if (context != NULL) {
-        /* context->acc needs to be reset so that
-           iolist_size_ctx_bin_dtor does not deallocate twice */
-        context->acc = THE_NON_VALUE;
-    }
-    BIF_RET(consolidate(BIF_P, acc, size));
-
- L_type_error:
-    DESTROY_ESTACK(s);
-    if (acc != THE_NON_VALUE) {
-	erts_free(ERTS_ALC_T_SHORT_LIVED_TERM, (void *) big_val(acc));
-        if (context != NULL) {
-            context->acc = THE_NON_VALUE;
-        }
-    }
-    BUMP_REDS(BIF_P, (max_iterations - iterations_until_trap) / ITERATIONS_PER_RED);
-    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
-    if (context == NULL) {
-        BIF_ERROR(BIF_P, BADARG);
-    } else {
-        ERTS_BIF_ERROR_TRAPPED1(BIF_P,
-                                BADARG,
-                                BIF_TRAP_EXPORT(BIF_iolist_size_1),
-                                input_list);
-    }
-
- L_save_state_and_trap:
-    if (context == NULL) {
-        Binary *state_bin = erts_create_magic_binary(sizeof(ErtsIOListSizeContext),
-                                                     iolist_size_ctx_bin_dtor);
-        Eterm* hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);
-        state_mref = erts_mk_magic_ref(&hp, &MSO(BIF_P), state_bin);
-        context = ERTS_MAGIC_BIN_DATA(state_bin);
-    }
-    context->obj = obj;
-    context->size = size;
-    context->acc = acc;
-    context->is_trap_at_L_iter_list = is_trap_at_L_iter_list;
-    context->input_list = input_list;
-    ESTACK_SAVE(s, &context->stack);
-    erts_set_gc_state(BIF_P, 0);
-    BUMP_ALL_REDS(BIF_P);
-    BIF_TRAP1(BIF_TRAP_EXPORT(BIF_iolist_size_1), BIF_P, state_mref);
 }
 
 /**********************************************************************/
@@ -2925,6 +2690,7 @@ BIF_RETTYPE element_2(BIF_ALIST_2)
 
 BIF_RETTYPE tuple_size_1(BIF_ALIST_1)
 {
+    /* NOTE: The JIT has its own implementation of this BIF. */
     if (is_tuple(BIF_ARG_1)) {
 	return make_small(arityval(*tuple_val(BIF_ARG_1)));
     }
@@ -3182,8 +2948,8 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
     Eterm res;
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
     Sint written;
-    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
-                                     &written);
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_SZ_LIMIT,
+                                     MAX_ATOM_CHARACTERS, &written);
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	if (i == -2) {
@@ -3203,8 +2969,8 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
     Sint written;
-    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
-                                     &written);
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_SZ_LIMIT,
+                                     MAX_ATOM_CHARACTERS, &written);
     if (i < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3338,85 +3104,6 @@ BIF_RETTYPE integer_to_list_2(BIF_ALIST_2)
 
 /**********************************************************************/
 
-/*
- * Converts a list of ascii base10 digits to an integer fully or partially.
- * Returns result and the remaining tail.
- * On error returns: {error,not_a_list}, or {error, no_integer}
- */
-
-BIF_RETTYPE string_list_to_integer_1(BIF_ALIST_1)
-{
-     Eterm res;
-     Eterm tail;
-     Eterm *hp;
-     /* must be a list */
-     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &tail)) {
-     /* HAlloc after erts_list_to_integer as it might HAlloc itself (bignum) */
-     case LTI_BAD_STRUCTURE:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, am_error, am_not_a_list));
-     case LTI_NO_INTEGER:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, am_error, am_no_integer));
-     case LTI_SYSTEM_LIMIT:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, am_error, am_system_limit));
-     default:
-	 hp = HAlloc(BIF_P,3);
-	 BIF_RET(TUPLE2(hp, res, tail));
-     }
-}
-
-BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
- {
-     /* Using erts_list_to_integer() is about twice as fast as using
-      * erts_chars_to_integer() because we do not have to copy the
-      * entire list. */
-     Eterm res;
-     Eterm dummy;
-     /* must be a list */
-     switch (erts_list_to_integer(BIF_P, BIF_ARG_1, 10, &res, &dummy)) {
-     case LTI_ALL_INTEGER:
-         BIF_RET(res);
-     case LTI_SYSTEM_LIMIT:
-	 BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-     default:
-	 BIF_ERROR(BIF_P, BADARG);
-     }
- }
-
-BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
-{
-    /* The BIF implementation is about 50% faster than pure Erlang,
-     * and since we now have erts_list_to_integer() it is simpler as
-     * well. */
-    Sint i;
-    Eterm res, dummy;
-    int base;
-
-    i = erts_list_length(BIF_ARG_1);
-    if (i < 0 || is_not_small(BIF_ARG_2)) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
-    base = signed_val(BIF_ARG_2);
-
-    if (base < 2 || base > 36) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
-    switch (erts_list_to_integer(BIF_P, BIF_ARG_1, base, &res, &dummy)) {
-    case LTI_ALL_INTEGER:
-        BIF_RET(res);
-    case LTI_SYSTEM_LIMIT:
-        BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-    default:
-        BIF_ERROR(BIF_P, BADARG);
-    }
-}
-
-/**********************************************************************/
-
 static int do_float_to_charbuf(Process *p, Eterm efloat, Eterm list, 
 			char *fbuf, int sizeof_fbuf) {
 
@@ -3512,13 +3199,14 @@ BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
 /* convert a float to a binary of ascii characters */
 
 static BIF_RETTYPE do_float_to_binary(Process *BIF_P, Eterm arg, Eterm opts) {
-  int used;
   char fbuf[256];
+  int used;
   
   if ((used = do_float_to_charbuf(BIF_P,arg,opts,fbuf,sizeof(fbuf))) <= 0) {
     BIF_ERROR(BIF_P, BADARG);
   }
-  BIF_RET(new_binary(BIF_P, (byte*)fbuf, (Uint)used));
+
+  BIF_RET(erts_new_binary_from_data(BIF_P, (Uint)used, (byte*)fbuf));
 }
 
 BIF_RETTYPE float_to_binary_1(BIF_ALIST_1)
@@ -3758,55 +3446,32 @@ BIF_RETTYPE list_to_float_1(BIF_ALIST_1)
 
 BIF_RETTYPE binary_to_float_1(BIF_ALIST_1)
 {
-    Eterm res;
-    Eterm binary = BIF_ARG_1;
-    Sint size;
-    byte* bytes, *buf;
-    Eterm* real_bin;
-    Uint offs = 0;
-    Uint bit_offs = 0;
+    if (is_bitstring(BIF_ARG_1)) {
+        Uint offset, size;
+        byte *base;
 
-    if (is_not_binary(binary) || (size = binary_size(binary)) == 0)
-      BIF_ERROR(BIF_P, BADARG);
+        ERTS_GET_BITSTRING(BIF_ARG_1, base, offset, size);
 
-    /* 
-     *  Unfortunately we have to copy the binary because we have to insert
-     *  the '\0' at the end of the binary for strtod to work 
-     *  (there is no nstrtod :( )
-     */
+        if (size > 0 && TAIL_BITS(size) == 0) {
+            byte *char_buf;
+            Eterm res;
 
-    buf = erts_alloc(ERTS_ALC_T_TMP, size + 1);
+            /* Unfortunately, there is no nstrtod and strtod requires
+             * NUL-termination, so we have to copy the binary to insert
+             * that. :( */
+            char_buf = erts_alloc(ERTS_ALC_T_TMP, NBYTES(size) + 1);
+            copy_binary_to_buffer(char_buf, 0, base, offset, size);
+            char_buf[NBYTES(size)] = '\0';
 
-    real_bin = binary_val(binary);
-    if (*real_bin == HEADER_SUB_BIN) {
-	ErlSubBin* sb = (ErlSubBin *) real_bin;
-	if (sb->bitsize) {
-	    goto binary_to_float_1_error;
-	}
-	offs = sb->offs;
-	bit_offs = sb->bitoffs;
-	real_bin = binary_val(sb->orig);
-    } 
-    if (*real_bin == HEADER_PROC_BIN) {
-	bytes = ((ProcBin *) real_bin)->bytes + offs;
-    } else {
-	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
+            res = do_charbuf_to_float(BIF_P, (char*)char_buf);
+            erts_free(ERTS_ALC_T_TMP, (void*)char_buf);
+
+            if (is_value(res)) {
+                BIF_RET(res);
+            }
+        }
     }
-    if (bit_offs)
-      erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, size*8);
-    else
-      sys_memcpy(buf, bytes, size);
-    
-    buf[size] = '\0';
-    
-    if ((res = do_charbuf_to_float(BIF_P,(char*)buf)) == THE_NON_VALUE)
-	goto binary_to_float_1_error;
 
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    BIF_RET(res);
-
- binary_to_float_1_error:
-    erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -4185,52 +3850,152 @@ BIF_RETTYPE display_1(BIF_ALIST_1)
 }
 
 /*
- * erts_debug:display/1 is for debugging erlang:display/1
+ * erts_internal:term_to_string/2 is an internal and undocumented function for
+ * formatting terms during init or other times when io_lib is unavailable.
+ * It can also be used to debug functions that rely on the internal term
+ * printing such as erlang:display/1
  */
-BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_term_to_string_2(BIF_ALIST_2)
 {
+    erts_dsprintf_buf_t *dsbufp;
+    int limit;
     int pres;
     Eterm res;
     Eterm *hp;
-    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
-    pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
-    if (pres < 0)
-	erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to string: %d (%s)\n",
-		 -pres, erl_errno_id(-pres));
-    hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
+
+    if (is_small(BIF_ARG_2) &&
+        (signed_val(BIF_ARG_2) > 1 &&
+         signed_val(BIF_ARG_2) < INT_MAX)) {
+        limit = signed_val(BIF_ARG_2);
+    } else if (BIF_ARG_2 == am_undefined) {
+        limit = INT_MAX;
+    } else {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    dsbufp = erts_create_tmp_dsbuf(64);
+    pres = erts_dsprintf(dsbufp, "%.*T", limit, BIF_ARG_1);
+
+    if (pres < 0) {
+        erts_exit(ERTS_ERROR_EXIT,
+                  "Failed to convert term to string: %d (%s)\n",
+                  -pres,
+                  erl_errno_id(-pres));
+    }
+
+    hp = HAlloc(BIF_P, 2 * dsbufp->str_len);
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
-    erts_printf("%s", dsbufp->str);
+
     erts_destroy_tmp_dsbuf(dsbufp);
+
     BIF_RET(res);
 }
 
-
-BIF_RETTYPE display_string_1(BIF_ALIST_1)
+BIF_RETTYPE display_string_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
-    Eterm string = BIF_ARG_1;
-    Sint len = erts_unicode_list_to_buf_len(string);
+    Eterm string = BIF_ARG_2;
     Sint written;
-    byte *str;
+    Sint len;
+    const byte *temp_alloc = NULL, *str;
     int res;
 
-    if (len < 0) {
-	BIF_ERROR(p, BADARG);
+#ifdef __WIN32__
+    HANDLE fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_OUTPUT_HANDLE);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = GetStdHandle(STD_ERROR_HANDLE);
     }
-    str = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
-    res = erts_unicode_list_to_buf(string, str, len, &written);
-    if (res != 0 || written != len)
-	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
-    str[len] = '\0';
-    erts_fprintf(stderr, "%s", str);
-    erts_free(ERTS_ALC_T_TMP, (void *) str);
-    BIF_RET(am_true);
-}
+#else
+    int fd;
+    if (ERTS_IS_ATOM_STR("stdout", BIF_ARG_1)) {
+        fd = fileno(stdout);
+    } else if (ERTS_IS_ATOM_STR("stderr", BIF_ARG_1)) {
+        fd = fileno(stderr);
+    }
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    else if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        const char stdin_fname[] = "/dev/tty";
+        fd = open(stdin_fname,0);
+        if (fd < 0) {
+            fprintf(stderr,"failed to open %s (%s)\r\n", stdin_fname,
+                    strerror(errno));
+            goto error;
+        }
+    }
+#endif
+#endif
+    else {
+        BIF_ERROR(p, BADARG);
+    }
+    if (is_list(string) || is_nil(string)) {
+        len = erts_unicode_list_to_buf_len(string);
+        if (len < 0) BIF_ERROR(p, BADARG);
+        str = temp_alloc = (byte*)erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*len);
+        res = erts_unicode_list_to_buf(string, (byte*)str, len, len, &written);
+        if (res != 0 || written != len)
+            erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
+    } else if (is_bitstring(string)) {
+        /* The cast to Uint* is safe since the length of any binary expressed
+         * in bytes cannot exceed ERTS_SINT_MAX. */
+        str = erts_get_aligned_binary_bytes(string,
+                                            (Uint*)&len,
+                                            &temp_alloc);
+        if (str == NULL) {
+            BIF_ERROR(p, BADARG);
+        }
+    } else {
+        BIF_ERROR(p, BADARG);
+    }
 
-BIF_RETTYPE display_nl_0(BIF_ALIST_0)
-{
-    erts_fprintf(stderr, "\n");
+#if defined(HAVE_SYS_IOCTL_H) && defined(TIOCSTI)
+    if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
+        for (int i = 0; i < len; i++) {
+            if (ioctl(fd, TIOCSTI, str+i) < 0) {
+                fprintf(stderr,"failed to write to %s (%s)\r\n", "/proc/self/fd/0",
+                        strerror(errno));
+                close(fd);
+                goto error;
+            }
+        }
+        close(fd);
+    } else
+#endif
+    {
+#ifdef __WIN32__
+        Uint32 w;
+        if (!WriteFile(fd, str, len, &w, NULL)) {
+            goto error;
+        }
+        written = (Sint)w;
+#else
+        written = 0;
+        do {
+            res = write(fd, str+written, len-written);
+            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
+                goto error;
+            written += res;
+        } while (written < len);
+#endif
+    }
+    if (temp_alloc) {
+        erts_free(ERTS_ALC_T_TMP, (void*)temp_alloc);
+    }
     BIF_RET(am_true);
+
+error: {
+#ifdef __WIN32__
+        char *errnostr = last_error();
+#else
+        char *errnostr = erl_errno_id(errno);
+#endif
+        BIF_P->fvalue = am_atom_put(errnostr, strlen(errnostr));
+        if (temp_alloc) {
+            erts_free(ERTS_ALC_T_TMP, (void*)temp_alloc);
+        }
+        BIF_ERROR(p, BADARG | EXF_HAS_EXT_INFO);
+    }
 }
 
 /**********************************************************************/
@@ -4246,6 +4011,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     Uint code;
     Eterm optlist = BIF_ARG_2;
     int flush = 1;
+    ErtsMonotonicTime halt_flush_timeout = -1; /* default infinity */
 
     for (optlist = BIF_ARG_2;
 	 is_list(optlist);
@@ -4264,6 +4030,12 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	    else
                 goto bad_options;
 	}
+	else if (tp[1] == am_flush_timeout) {
+            Uint32 tmo;
+            if (!term_to_Uint32(tp[2], &tmo))
+                goto bad_options;
+            halt_flush_timeout = (ErtsMonotonicTime) tmo;
+	}
 	else
             goto bad_options;
     }
@@ -4279,7 +4051,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
-	    erts_halt(pos_int_code);
+	    erts_halt(pos_int_code, halt_flush_timeout);
 	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_halt_2), BIF_P, am_undefined, am_undefined);
 	}
 	else {
@@ -4298,8 +4070,8 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
         static byte halt_msg[4*HALT_MSG_SIZE+1];
         Sint written;
 
-        if (erts_unicode_list_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE,
-                                     &written) == -1 ) {
+        if (erts_unicode_list_to_buf(BIF_ARG_1, halt_msg, 4 * HALT_MSG_SIZE,
+                                     HALT_MSG_SIZE, &written) == -1 ) {
             goto error;
         }
         ASSERT(written >= 0 && written < sizeof(halt_msg));
@@ -4390,8 +4162,6 @@ BIF_RETTYPE ref_to_list_1(BIF_ALIST_1)
 
 BIF_RETTYPE make_fun_3(BIF_ALIST_3)
 {
-    ErlFunThing *funp;
-    Eterm *hp;
     Export *ep;
     Sint arity;
 
@@ -4406,12 +4176,8 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    hp = HAlloc(BIF_P, ERL_FUN_SIZE);
-
     ep = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
-    funp = erts_new_export_fun_thing(&hp, ep, arity);
-
-    BIF_RET(make_fun(funp));
+    BIF_RET(ep->lambda);
 }
 
 BIF_RETTYPE fun_to_list_1(BIF_ALIST_1)
@@ -4697,7 +4463,7 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         ErtsMagicBinary *mb;
         Uint32 sid;
         if (refn[0] >= MAX_REFERENCE) goto bad;
-        if (n != ERTS_REF_NUMBERS) goto bad;
+        if (n != ERTS_REF_NUMBERS && n != ERTS_PID_REF_NUMBERS) goto bad;
         sid = erts_get_ref_numbers_thr_id(refn);
         if (sid > erts_no_schedulers) goto bad;
         if (erts_is_ordinary_ref_numbers(refn)) {
@@ -4708,11 +4474,14 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         }
         else {
             /* Check if it is a pid reference... */
-            Eterm pid = erts_pid_ref_lookup(refn);
+            Eterm pid = erts_pid_ref_lookup(refn, n);
             if (is_internal_pid(pid)) {
                 hp = HAlloc(BIF_P, ERTS_PID_REF_THING_SIZE);
                 write_pid_ref_thing(hp, refn[0], refn[1], refn[2], pid);
                 res = make_internal_ref(hp);
+            }
+            else if (is_non_value(pid)) {
+                goto bad;
             }
             else {
                 /* Check if it is a magic reference... */
@@ -5006,9 +4775,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_max_heap_size) {
-
-        Eterm *hp, old_value;
-        Uint sz = 0, max_heap_size, max_heap_flags;
+        ErtsHeapFactory factory;
+        Eterm old_value;
+        Uint max_heap_size, max_heap_flags;
 
         if (!erts_max_heap_size(BIF_ARG_2, &max_heap_size, &max_heap_flags))
             goto error;
@@ -5016,9 +4785,9 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
         if (max_heap_size < H_MIN_SIZE && max_heap_size != 0)
             goto error;
 
-        erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, NULL, &sz);
-        hp = HAlloc(BIF_P, sz);
-        old_value = erts_max_heap_size_map(H_MAX_SIZE, H_MAX_FLAGS, &hp, NULL);
+        erts_factory_proc_init(&factory, BIF_P);
+        old_value = erts_max_heap_size_map(&factory, H_MAX_SIZE, H_MAX_FLAGS);
+        erts_factory_close(&factory);
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
         erts_thr_progress_block();
@@ -5440,7 +5209,7 @@ void erts_init_trap_export(Export *ep, Eterm m, Eterm f, Uint a,
     }
 
 #ifdef BEAMASM
-    ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls;
+    ep->dispatch.addresses[ERTS_SAVE_CALLS_CODE_IX] = beam_save_calls_export;
 #endif
 
     ep->bif_number = -1;
@@ -5830,8 +5599,6 @@ BIF_RETTYPE unalias_1(BIF_ALIST_1)
 
     ASSERT(erts_monitor_is_origin(mon));
     
-    erts_pid_ref_delete(BIF_ARG_1);
-
     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
     if (mon->type == ERTS_MON_TYPE_ALIAS) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);
@@ -5853,8 +5620,8 @@ BIF_RETTYPE dt_put_tag_1(BIF_ALIST_1)
 	}
 	BIF_RET(otag);
     }
-    if (!is_binary(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P,BADARG);
+    if (!is_bitstring(BIF_ARG_1) || TAIL_BITS(bitstring_size(BIF_ARG_1)) != 0) {
+        BIF_ERROR(BIF_P, BADARG);
     }
     otag = (DT_UTAG(BIF_P) == NIL) ? am_undefined : DT_UTAG(BIF_P);
     DT_UTAG(BIF_P) = BIF_ARG_1;
@@ -5889,21 +5656,23 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 #ifdef USE_VM_PROBES
     Eterm b; 
     Eterm *hp;
-    if (is_binary((DT_UTAG(BIF_P)))) {
-	Uint sz = binary_size(DT_UTAG(BIF_P));
-	int i;
-	unsigned char *p,*q;
-	byte *temp_alloc = NULL;
-	b = new_binary(BIF_P,NULL,sz+1);
-	q = binary_bytes(b);
-	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
-	for(i=0;i<sz;++i) {
-	    q[i] = p[i];
-	} 
-	erts_free_aligned_binary_bytes(temp_alloc);
-	q[sz] = '\0';
+    if (is_bitstring((DT_UTAG(BIF_P)))) {
+        byte *temp_alloc = NULL;
+        const byte *p;
+        byte *q;
+        Uint size;
+        Uint i;
+        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
+                                          &size,
+                                          &temp_alloc);
+        b = erts_new_binary(BIF_P, (size + 1), &q);
+        for(i = 0; i < size; i++) {
+            q[i] = p[i];
+        } 
+        erts_free_aligned_binary_bytes(temp_alloc);
+        q[size] = '\0';
     } else {
-	b = new_binary(BIF_P,(byte *)"\0",1);
+        b = erts_new_binary_from_data(BIF_P, 1, (const byte*)"");
     }
     hp = HAlloc(BIF_P,2);
     BIF_RET(CONS(hp,b,BIF_ARG_1));
@@ -5916,21 +5685,23 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
 #ifdef USE_VM_PROBES
     Eterm b; 
     Eterm *hp;
-    if (is_binary((DT_UTAG(BIF_P)))) {
-	Uint sz = binary_size(DT_UTAG(BIF_P));
-	int i;
-	unsigned char *p,*q;
-	byte *temp_alloc = NULL;
-	b = new_binary(BIF_P,NULL,sz+1);
-	q = binary_bytes(b);
-	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
-	for(i=0;i<sz;++i) {
-	    q[i] = p[i];
-	} 
-	erts_free_aligned_binary_bytes(temp_alloc);
-	q[sz] = '\0';
+    if (is_bitstring((DT_UTAG(BIF_P)))) {
+        byte *temp_alloc = NULL;
+        const byte *p;
+        byte *q;
+        Uint size;
+        Uint i;
+        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
+                                          &size,
+                                          &temp_alloc);
+        b = erts_new_binary(BIF_P, size + 1, &q);
+        for(i = 0; i < size; i++) {
+            q[i] = p[i];
+        } 
+        erts_free_aligned_binary_bytes(temp_alloc);
+        q[size] = '\0';
     } else {
-	b = new_binary(BIF_P,(byte *)"\0",1);
+        b = erts_new_binary_from_data(BIF_P, 1, (const byte*)"");
     }
     hp = HAlloc(BIF_P,2);
     BIF_RET(CONS(hp,BIF_ARG_1,b));
@@ -5981,7 +5752,7 @@ BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P,BADARG);
     }
     tpl = tuple_val(BIF_ARG_1);
-    if(arityval(*tpl) != 2 || is_not_small(tpl[1]) || (is_not_binary(tpl[2]) && tpl[2] != NIL)) {
+    if(arityval(*tpl) != 2 || is_not_small(tpl[1]) || (is_not_bitstring(tpl[2]) && tpl[2] != NIL)) {
 	BIF_ERROR(BIF_P,BADARG);
     }
     if (tpl[2] == NIL) {

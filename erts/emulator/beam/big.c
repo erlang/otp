@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2022. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2023. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #include "big.h"
 #include "error.h"
 #include "bif.h"
+#include "erl_binary.h"
 
 #define ZERO_DIGITS(v, sz) do {			\
 	dsize_t _t_sz = sz;			\
@@ -50,18 +51,6 @@
 	    while(_t_sz--) *_t_dst-- = *_t_src--;		\
         }							\
     } while(0)
-
-/* add a and b with carry in + out */
-#define DSUMc(a,b,c,s) do {						\
-	ErtsDigit ___cr = (c);						\
-	ErtsDigit ___xr = (a)+(___cr);					\
-	ErtsDigit ___yr = (b);						\
-	___cr = (___xr < ___cr);					\
-	___xr = ___yr + ___xr;						\
-	___cr += (___xr < ___yr);					\
-	s = ___xr;							\
-	c = ___cr;							\
-    }  while(0)
 
 /* add a and b with carry out */
 #define DSUM(a,b,c,s) do {					\
@@ -134,6 +123,13 @@
 	ErtsDoubleDigit _t = DDIGIT((a1),(a0));		\
 	r = _t % (b);					\
     } while(0)
+
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                                     \
+        ErtsDoubleDigit _t = (ErtsDoubleDigit)(a) + (b) + (c);  \
+        s = DLOW(_t);                                           \
+        c = DHIGH(_t);                                          \
+    }  while(0)
 
 #else
 
@@ -421,6 +417,18 @@
 	D2DIVREM(a1,a0,b1,b0,q,_tmp_r1,_tmp_r0); \
     } while(0)
 
+/* add a and b with carry in + out */
+#define DSUMc(a,b,c,s) do {                     \
+        ErtsDigit ___cr = (c);                  \
+        ErtsDigit ___xr = (a)+(___cr);          \
+        ErtsDigit ___yr = (b);                  \
+        ___cr = (___xr < ___cr);                \
+        ___xr = ___yr + ___xr;                  \
+        ___cr += (___xr < ___yr);               \
+        s = ___xr;                              \
+        c = ___cr;                              \
+    } while(0)
+
 #endif
 
 /* Forward declaration of lookup tables (See below in this file) used in list to
@@ -486,12 +494,10 @@ static dsize_t I_add(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
 
     xl -= yl;
     do {
-	xr = *x++ + c;
-	yr = *y++;
-	c = (xr < c);
-	xr = yr + xr;
-	c += (xr < yr);
-	*r++ = xr;
+        xr = *x++;
+        yr = *y++;
+        DSUMc(xr, yr, c, xr);
+        *r++ = xr;
     } while(--yl);
 
     while(xl--) {
@@ -615,6 +621,9 @@ static dsize_t I_mul(ErtsDigit* x, dsize_t xl, ErtsDigit* y, dsize_t yl, ErtsDig
     ErtsDigit* r0 = r;
     ErtsDigit* rt = r;
 
+    ASSERT(xl >= yl);
+    ZERO_DIGITS(r, xl);
+
     while(xl--) {
 	ErtsDigit cp = 0;
 	ErtsDigit c = 0;
@@ -677,48 +686,59 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
     ErtsDigit* r0 = r;
     ErtsDigit* s = r;
 
+    ZERO_DIGITS(r, (xl+1));
+
     if ((r + xl) == x)	/* "Inline" operation */
 	*x = 0;
-	
+
     while(xl--) {
-	ErtsDigit* y;
-	ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
-	ErtsDigit b0, b1;
-	ErtsDigit z0, z1, z2;
-	ErtsDigit t;
 	dsize_t y_l = xl;
 
-        d = *x;
-        x++;
-        y = x;
-	s = r;
+        d = *x++;
+        s = r;
 
-	DMUL(d, d, b1, b0);
-	DSUMc(*s, b0, y_3, t);
-	*s++ = t;
-	z1 = b1;
-	while(y_l--) {
-	    DMUL(d, *y, b1, b0);
-	    y++;
-	    DSUMc(b0, b0, y_0, z0);
-	    DSUMc(z0, z1, y_2, z2);
-	    DSUMc(*s, z2, y_3, t);
-	    *s++ = t;
-	    DSUMc(b1, b1, y_1, z1);
-	}
-	z0 = y_0;
-	DSUMc(z0, z1, y_2, z2);
-	DSUMc(*s, z2, y_3, t);
-	*s = t;
-	if (xl != 0) {
-	    s++;
-	    t = (y_1+y_2+y_3);
-	    *s = t;
-	    r += 2;
-	}
-	else {
-	    ASSERT((y_1+y_2+y_3) == 0);
-	}
+        if (d == 0) {
+            s += y_l + 1;
+            if (xl != 0) {
+                *++s = 0;
+                r += 2;
+            }
+        } else {
+            ErtsDigit* y;
+            ErtsDigit y_0 = 0, y_1 = 0, y_2 = 0, y_3 = 0;
+            ErtsDigit b0, b1;
+            ErtsDigit z0, z1, z2;
+            ErtsDigit t;
+
+            y = x;
+
+            DMUL(d, d, b1, b0);
+            DSUMc(*s, b0, y_3, t);
+            *s++ = t;
+            z1 = b1;
+            while(y_l--) {
+                DMUL(d, *y, b1, b0);
+                y++;
+                DSUMc(b0, b0, y_0, z0);
+                DSUMc(z0, z1, y_2, z2);
+                DSUMc(*s, z2, y_3, t);
+                *s++ = t;
+                DSUMc(b1, b1, y_1, z1);
+            }
+            z0 = y_0;
+            DSUMc(z0, z1, y_2, z2);
+            DSUMc(*s, z2, y_3, t);
+            *s = t;
+            if (xl != 0) {
+                s++;
+                t = (y_1+y_2+y_3);
+                *s = t;
+                r += 2;
+            }
+            else {
+                ASSERT((y_1+y_2+y_3) == 0);
+            }
+        }
     }
     if (*s == 0)
 	return (s - r0);
@@ -726,6 +746,268 @@ static dsize_t I_sqr(ErtsDigit* x, dsize_t xl, ErtsDigit* r)
 	return (s - r0) + 1;
 }
 
+/*
+ * Multiply using the Karatsuba algorithm.
+ *
+ * Reference: https://en.wikipedia.org/wiki/Karatsuba_algorithm
+ */
+static dsize_t I_mul_karatsuba(ErtsDigit* x, dsize_t xl, ErtsDigit* y,
+                               dsize_t yl, ErtsDigit* r)
+{
+    ASSERT(xl >= yl);
+
+    if (yl < 16) {
+        /* Use the basic algorithm. */
+        if (x == y && xl > 1) {
+            ASSERT(xl == yl);
+            return I_sqr(x, xl, r);
+        } else {
+            return I_mul(x, xl, y, yl, r);
+        }
+    } else {
+        /* Use the Karatsuba algorithm. */
+        Eterm *heap;
+        Uint temp_heap_size;
+        Uint z0_len, z1_len, z2_len, tmp_len, diff0_len, diff1_len, res_len;
+        Uint low_x_len, low_y_len, high_x_len, high_y_len;
+        Eterm *z0_buf, *z1_buf, *z2_buf, *tmp_buf;
+        Eterm *diff0_buf, *diff1_buf;
+#ifdef DEBUG
+        Eterm *alloc_end;
+#endif
+        Eterm *low_x, *low_y, *high_x, *high_y;
+        ErtsDigit zero = 0;
+        Uint m = (xl+1) / 2;
+        int tmp_prod_negative = 0;
+        int i;
+
+        /* Set up pointers and sizes. */
+        low_x = x;
+        low_x_len = m;
+        high_x = x + m;
+        high_x_len = xl - m;
+        while (low_x_len > 1 && low_x[low_x_len-1] == 0) {
+            low_x_len--;
+        }
+
+        low_y = y;
+        if (yl <= m) {
+            /* High part of y is zero. */
+            low_y_len = yl;
+            high_y = &zero;
+            high_y_len = 1;
+        } else {
+            low_y_len = m;
+            high_y = y + m;
+            high_y_len = yl - m;
+        }
+        while (low_y_len > 1 && low_y[low_y_len-1] == 0) {
+            low_y_len--;
+        }
+
+        ASSERT(low_x_len <= m);
+        ASSERT(high_x_len <= m);
+        ASSERT(low_y_len <= m);
+        ASSERT(high_y_len <= m);
+
+        /*
+         * Set up temporary buffers in allocated memory.
+         *
+         * z1_buf is not used at the same time as diff0_buf
+         * and diff1_buf, so they can share memory.
+         */
+        temp_heap_size = (4*m + 1) * sizeof(Eterm);
+#ifdef DEBUG
+        temp_heap_size += sizeof(Eterm);
+#endif
+        heap = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, temp_heap_size);
+        z1_buf = heap;
+        diff0_buf = z1_buf + 1;
+        diff1_buf = diff0_buf + m;
+        tmp_buf = diff1_buf + m;
+
+#ifdef DEBUG
+        z1_buf[0] = ERTS_HOLE_MARKER;
+        diff0_buf[0] = ERTS_HOLE_MARKER;
+        diff1_buf[0] = ERTS_HOLE_MARKER;
+        tmp_buf[0] = ERTS_HOLE_MARKER;
+
+        alloc_end = tmp_buf + 2*m;
+        alloc_end[0] = ERTS_HOLE_MARKER;
+        ASSERT(alloc_end - heap + 1 == temp_heap_size / sizeof(Eterm));
+#endif
+
+        /* Set up pointers for the result. */
+        z0_buf = r;
+        z2_buf = r + 2*m;
+
+#ifdef DEBUG
+        z2_buf[0] = ERTS_HOLE_MARKER;
+#endif
+
+#define I_OPERATION(_result, _op, _p1, _sz1, _p2, _sz2, _buf)   \
+        do {                                                    \
+            if ((_sz1) >= (_sz2)) {                             \
+                _result = _op(_p1, _sz1, _p2, _sz2, _buf);      \
+            } else {                                            \
+                _result = _op(_p2, _sz2, _p1, _sz1, _buf);      \
+            }                                                   \
+        } while (0)
+
+        /*
+         * The Karatsuba algorithm is a divide and conquer algorithm
+         * for multi-word integer multiplication. The numbers to be
+         * multiplied are split up like this:
+         *
+         *   high     low
+         *  +--------+--------+
+         *  | high_x | low_x  |
+         *  +--------+--------+
+         *
+         *  +--------+--------+
+         *  | high_y | low_y  |
+         *  +--------+--------+
+         *
+         * Then the following values are calculated:
+         *
+         *  z0 = low_x * low_y
+         *  z2 = high_x + high_y
+         *  z1 = (low_x - high_x) * (high_y - low_y) + z2 + z0
+         *
+         * Note that this expression for z1 produces the same result
+         * as:
+         *
+         *    low_x * high_y + high_x * low_y
+         *
+         * Finally, the z2, z1, z0 values are combined to form the
+         * product of x and y:
+         *
+         *   high     low
+         *  +--+--+ +--+--+
+         *  | z2  | | z0  |
+         *  +--+--+ +--+--+
+         *      +--+--+
+         *  add | z1  |
+         *      +--+--+
+         *
+         * There is an alternate way to calculate z1 (commonly found
+         * in descriptions of the Karatsuba algorithm);
+         *
+         *  z1 = (high_x + low_x) * (high_y + low_y) - z2 - z0
+         *
+         * But this way can lead to more additions and carry handling.
+         */
+
+        /*
+         * z0 = low_x * low_y
+         *
+         * Store this product in its final location in the result buffer.
+         */
+        I_OPERATION(z0_len, I_mul_karatsuba, low_x, low_x_len, low_y, low_y_len, z0_buf);
+        ASSERT(z2_buf[0] == ERTS_HOLE_MARKER);
+        for (i = z0_len; i < 2*m; i++) {
+            z0_buf[i] = 0;
+        }
+        while (z0_len > 1 && z0_buf[z0_len - 1] == 0) {
+            z0_len--;
+        }
+        ASSERT(z0_len == 1 || z0_buf[z0_len-1] != 0);
+        ASSERT(z0_len <= low_x_len + low_y_len);
+
+        /*
+         * z2 = high_x * high_y
+         *
+         * Store this product in its final location in the result buffer.
+         */
+        if (high_y != &zero) {
+            I_OPERATION(z2_len, I_mul_karatsuba, high_x, high_x_len,
+                        high_y, high_y_len, z2_buf);
+            while (z2_len > 1 && z2_buf[z2_len - 1] == 0) {
+                z2_len--;
+            }
+            ASSERT(z2_len == 1 || z2_buf[z2_len-1] != 0);
+        } else {
+            z2_buf[0] = 0;
+            z2_len = 1;
+        }
+        ASSERT(z2_len <= high_x_len + high_y_len);
+
+        /*
+         * tmp = abs(low_x - high_x) * abs(high_y - low_y)
+         *
+         * The absolute value of each difference will fit in m words.
+         *
+         * Save the sign of the product so that we later can choose to
+         * subtract or add this value.
+         */
+        if (I_comp(low_x, low_x_len, high_x, high_x_len) >= 0) {
+            diff0_len = I_sub(low_x, low_x_len, high_x, high_x_len, diff0_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            diff0_len = I_sub(high_x, high_x_len, low_x, low_x_len, diff0_buf);
+        }
+        ASSERT(diff1_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff0_len == 1 || diff0_buf[diff0_len-1] != 0);
+        ASSERT(diff0_len <= m);
+
+        if (x == y) {
+            ASSERT(xl == yl);
+            tmp_prod_negative = 1;
+            diff1_buf = diff0_buf;
+            diff1_len = diff0_len;
+        } else if (I_comp(high_y, high_y_len, low_y, low_y_len) >= 0) {
+            diff1_len = I_sub(high_y, high_y_len, low_y, low_y_len, diff1_buf);
+        } else {
+            tmp_prod_negative = !tmp_prod_negative;
+            if (high_y != &zero) {
+                diff1_len = I_sub(low_y, low_y_len, high_y, high_y_len, diff1_buf);
+            } else {
+                diff1_buf = low_y;
+                diff1_len = low_y_len;
+            }
+        }
+        ASSERT(tmp_buf[0] == ERTS_HOLE_MARKER);
+        ASSERT(diff1_len == 1 || diff1_buf[diff1_len-1] != 0);
+        ASSERT(diff1_len <= m);
+
+        I_OPERATION(tmp_len, I_mul_karatsuba, diff0_buf, diff0_len, diff1_buf, diff1_len, tmp_buf);
+        ASSERT(alloc_end[0] == ERTS_HOLE_MARKER);
+        while (tmp_len > 1 && tmp_buf[tmp_len - 1] == 0) {
+            tmp_len--;
+        }
+        ASSERT(tmp_len == 1 || tmp_buf[tmp_len-1] != 0);
+        ASSERT(tmp_len <= diff0_len + diff1_len);
+
+        /*
+         * z1 = z0 + z2
+         */
+        I_OPERATION(z1_len, I_add, z0_buf, z0_len, z2_buf, z2_len, z1_buf);
+        ASSERT(z1_len == 1 || z1_buf[z1_len-1] != 0);
+
+        if (tmp_prod_negative) {
+            /* z1 = z1 - tmp */
+            z1_len = I_sub(z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
+        } else {
+            /* z1 = z1 + tmp */
+            I_OPERATION(z1_len, I_add, z1_buf, z1_len, tmp_buf, tmp_len, z1_buf);
+        }
+
+        /* Add z1 shifted into the result */
+        I_OPERATION(res_len, I_add, z0_buf+m, z2_len+m, z1_buf, z1_len, z0_buf+m);
+
+        /* Normalize */
+        res_len += m;
+        while (res_len > 1 && r[res_len - 1] == 0) {
+            res_len--;
+        }
+        ASSERT(res_len == 1 || r[res_len-1] != 0);
+        ASSERT(res_len <= xl + yl);
+
+        erts_free(ERTS_ALC_T_TMP, (void *) heap);
+        return res_len;
+    }
+#undef I_OPERATION
+}
 
 /*
 ** Multiply digits d with digits in x and store in r
@@ -1652,7 +1934,7 @@ erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
 ** Convert a bignum to a double float
 */
 int
-big_to_double(Wterm x, double* resp)
+big_to_double(Eterm x, double* resp)
 {
     double d = 0.0;
     Eterm* xp = big_val(x);
@@ -1731,7 +2013,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
 /*
  ** Estimate the number of digits in given base (include sign)
  */
-int big_integer_estimate(Wterm x, Uint base)
+int big_integer_estimate(Eterm x, Uint base)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
@@ -1744,7 +2026,7 @@ int big_integer_estimate(Wterm x, Uint base)
 /*
 ** Convert a bignum into a string of numbers in given base
 */
-static Uint write_big(Wterm x, int base, void (*write_func)(void *, char),
+static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
 {
     Eterm* xp = big_val(x);
@@ -1851,7 +2133,7 @@ write_string(void *arg, char c)
     *(--(*((char **) arg))) = c;
 }
 
-char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz)
+char *erts_big_to_string(Eterm x, int base, char *buf, Uint buf_sz)
 {
     char *big_str = buf + buf_sz - 1;
     *big_str = '\0';
@@ -1909,7 +2191,7 @@ static Eterm big_norm(Eterm *x, dsize_t xl, short sign)
 /*
 ** Compare bignums
 */
-int big_comp(Wterm x, Wterm y)
+int big_comp(Eterm x, Eterm y)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2300,7 +2582,7 @@ static Eterm B_plus_minus(ErtsDigit *x, dsize_t xl, short xsgn,
 /*
 ** Add bignums
 */
-Eterm big_plus(Wterm x, Wterm y, Eterm *r)
+Eterm big_plus(Eterm x, Eterm y, Eterm *r)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2370,22 +2652,46 @@ Eterm big_times(Eterm x, Eterm y, Eterm *r)
     dsize_t rsz;
 
     if (ysz == 1)
-      rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
+        rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
     else if (xsz == 1)
 	rsz = D_mul(BIG_V(yp), ysz, BIG_DIGIT(xp, 0), BIG_V(r));
-    else if (xp == yp) {
-	ZERO_DIGITS(BIG_V(r), xsz+1);
-	rsz = I_sqr(BIG_V(xp), xsz, BIG_V(r));
-    }
     else if (xsz >= ysz) {
-	ZERO_DIGITS(BIG_V(r), xsz);
-	rsz = I_mul(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
+	rsz = I_mul_karatsuba(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
     }
     else {
-	ZERO_DIGITS(BIG_V(r), ysz);
-	rsz = I_mul(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
+	rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
     }
     return big_norm(r, rsz, sign);
+}
+
+/*
+** Fused multiplication and addition of bignums
+*/
+
+Eterm big_mul_add(Eterm x, Eterm y, Eterm z, Eterm *r)
+{
+    Eterm* xp = big_val(x);
+    Eterm* yp = big_val(y);
+    Eterm* zp = big_val(z);
+
+    short sign = BIG_SIGN(xp) != BIG_SIGN(yp);
+    dsize_t xsz = BIG_SIZE(xp);
+    dsize_t ysz = BIG_SIZE(yp);
+    dsize_t rsz;
+
+    if (ysz == 1)
+        rsz = D_mul(BIG_V(xp), xsz, BIG_DIGIT(yp, 0), BIG_V(r));
+    else if (xsz == 1)
+        rsz = D_mul(BIG_V(yp), ysz, BIG_DIGIT(xp, 0), BIG_V(r));
+    else if (xsz >= ysz) {
+        rsz = I_mul_karatsuba(BIG_V(xp), xsz, BIG_V(yp), ysz, BIG_V(r));
+    }
+    else {
+        rsz = I_mul_karatsuba(BIG_V(yp), ysz, BIG_V(xp), xsz, BIG_V(r));
+    }
+    return B_plus_minus(BIG_V(r), rsz, sign,
+                        BIG_V(zp), BIG_SIZE(zp), (short) BIG_SIGN(zp),
+                        r);
 }
 
 /*
@@ -2742,335 +3048,197 @@ static const Sint largest_power_of_base_lookup[36-1] = {
 #endif
 };
 
-Eterm erts_chars_to_integer(Process *BIF_P, char *bytes, 
-			   Uint size, const int base) {
-    Eterm res;
+static Eterm chars_to_integer(const byte *bytes, Uint size, const Uint base)
+{
     Sint i = 0;
-    int n = 0;
     int neg = 0;
-    byte b;
-    Eterm *hp, *hp_end;
-    Sint m;
-    int lg2;
-    const Uint digits_per_small = get_digits_per_small(base);
-    const Uint digits_per_Sint = get_digits_per_signed_int(base);
-    const Sint largest_pow_of_base = get_largest_power_of_base(base);
 
-    if (size == 0)
-	goto bytebuf_to_integer_1_error;
+    if (size == 0) {
+	return am_badarg;
+    }
 
     if (bytes[0] == '-') {
 	neg = 1;
 	bytes++;
 	size--;
-
     } else if (bytes[0] == '+') {
 	bytes++;
 	size--;
     }
 
+    if (size == 0) {
+	return am_badarg;
+    }
+
     /* Trim leading zeroes */
-    if (size) {
-        while (*bytes == '0') {
-            bytes++;
-            size--;
-            if (!size) {
-                /* All zero! */
-                res = make_small(0);
-                goto bytebuf_to_integer_1_done;
-            }
+    while (*bytes == '0') {
+        bytes++;
+        size--;
+        if (size == 0) {
+            /* All zero! */
+            return make_small(0);
         }
     }
 
-    if (size == 0)
-	goto bytebuf_to_integer_1_error;
+    if (size > get_digits_per_small(base)) {
+	return am_big;
+    }
 
-    if (size < digits_per_small) {
-        if (base <= 10) {
-            /* *
-         * Take shortcut if we know that all chars are '0' < b < '9' and
-         * fit in a small. This improves speed by about 10% over the generic
-         * small case.
-         * */
-            while (size--) {
-                b = *bytes++;
-
-                if (b < '0' || b > ('0'+base-1))
-                    goto bytebuf_to_integer_1_error;
-
-                i = i * base + b - '0';
-            }
-
-            if (neg)
-                i = -i;
-            res = make_small(i);
-            goto bytebuf_to_integer_1_done;
-        }
-
-        /* Take shortcut if we know it will fit in a small.
-         * This improves speed by about 30%.
+    if (base <= 10) {
+        /*
+         * Take shortcut if we know that all chars are '0' < b < '9'.
+         * This improves speed by about 10% over the generic small
+         * case.
          */
+        while (size--) {
+            Uint digit = *bytes++ - '0';
+            if (digit >= base) {
+                return am_badarg;
+            }
+            i = i * base + digit;
+        }
+    } else {
         while (size) {
-            b = *bytes++;
+            byte b = *bytes++;
             size--;
 
-            if (c2int_is_invalid_char(b, base))
-                goto bytebuf_to_integer_1_error;
+            if (c2int_is_invalid_char(b, base)) {
+                return am_badarg;
+            }
 
             i = i * base + c2int_digit_from_base(b);
         }
-
-        if (neg)
-            i = -i;
-        res = make_small(i);
-        goto bytebuf_to_integer_1_done;
-    }
-
-    /*
-     * Calculate the maximum number of bits which will
-     * be needed to represent the binary
-     */
-    lg2 = ((size+2)*lookup_log2(base)+1);
-
-    /* Start calculating bignum */
-    m = (lg2 + D_EXP-1)/D_EXP;
-    m = BIG_NEED_SIZE(m);
-
-    hp = HAlloc(BIF_P, m);
-    hp_end = hp + m;
-
-    if ((i = (size % digits_per_Sint)) == 0)
-        i = digits_per_Sint;
-
-    n = size - i;
-    m = 0;
-
-    while (i--) {
-	b = *bytes++;
-
-        if (c2int_is_invalid_char(b,base)) {
-	    HRelease(BIF_P, hp_end, hp);
-	    goto bytebuf_to_integer_1_error;
-	}
-
-        m = base * m + c2int_digit_from_base(b);
-    }
-
-    res = small_to_big(m, hp);
-
-    while (n) {
-        i = digits_per_Sint;
-        n -= digits_per_Sint;
-	m = 0;
-	while (i--) {
-	    b = *bytes++;
-
-            if (c2int_is_invalid_char(b,base)) {
-	      HRelease(BIF_P, hp_end, hp);
-	      goto bytebuf_to_integer_1_error;
-	    }
-
-            m = base * m + c2int_digit_from_base(b);
-	}
-	if (is_small(res)) {
-	    res = small_to_big(signed_val(res), hp);
-	}
-        res = big_times_small(res, largest_pow_of_base, hp);
-	if (is_small(res)) {
-	    res = small_to_big(signed_val(res), hp);
-	}
-	res = big_plus_small(res, m, hp);
     }
 
     if (neg) {
-	if (is_small(res))
-	    res = make_small(-signed_val(res));
-	else {
-	    Uint *big = big_val(res); /* point to thing */
-	    *big = bignum_header_neg(*big);
-	}
+        i = -i;
     }
-
-    if (is_not_small(res)) {
-	res = big_plus_small(res, 0, hp); /* includes conversion to small */
-
-	if (is_not_small(res)) {
-	    hp += (big_arity(res) + 1);
-	}
-    }
-    HRelease(BIF_P, hp_end, hp);
-    goto bytebuf_to_integer_1_done;
-
-bytebuf_to_integer_1_error:
-    return THE_NON_VALUE;
-
-bytebuf_to_integer_1_done:
-    return res;
+    ASSERT(IS_SSMALL(i));
+    return make_small(i);
 }
 
-/* Converts list of digits with given 'base' to integer sequentially. Returns
- * result in 'integer_out', remaining tail goes to 'tail_out' and returns result
- * code if the list was consumed fully or partially or there was an error
- */
-LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
-                                  const Uint base,
-                                  Eterm *integer_out, Eterm *tail_out)
+BIF_RETTYPE erts_internal_binary_to_integer_2(BIF_ALIST_2)
 {
-     Sint i = 0;
-     Uint ui = 0;
-     int skip = 0;
-     int neg = 0;
-     Sint n = 0;
-     Sint m;
-     int lg2;
-     Eterm res;
-     Eterm lst = orig_list;
-     Eterm tail = lst;
-     int error_res = LTI_BAD_STRUCTURE;
-     const Uint digits_per_small = get_digits_per_small(base);
-     const Uint digits_per_Sint = get_digits_per_signed_int(base);
+    const byte *temp_alloc = NULL, *bytes;
+    Uint size;
+    Uint base;
+    Eterm res;
 
-     if (is_nil(lst)) {
-       error_res = LTI_NO_INTEGER;
-     error:
-         *tail_out = tail;
-         *integer_out = make_small(0);
-         return error_res;
-     }
-     if (is_not_list(lst))
-       goto error;
+    if (!is_small(BIF_ARG_2)) {
+        BIF_RET(am_badarg);
+    }
 
-     /* if first char is a '-' then it is a negative integer */
-     if (CAR(list_val(lst)) == make_small('-')) {
-          neg = 1;
-          skip = 1;
-          lst = CDR(list_val(lst));
-          if (is_not_list(lst)) {
-              tail = lst;
-              error_res = LTI_NO_INTEGER;
-              goto error;
-          }
-     } else if (CAR(list_val(lst)) == make_small('+')) {
-         /* ignore plus */
-         skip = 1;
-         lst = CDR(list_val(lst));
-         if (is_not_list(lst)) {
-             tail = lst;
-             error_res = LTI_NO_INTEGER;
-             goto error;
-         }
-     }
+    base = (Uint)signed_val(BIF_ARG_2);
 
-     /* Calculate size and do type check */
+    if (base < 2 || base > 36) {
+        BIF_RET(am_badarg);
+    }
 
-     while(1) {
-         byte ch;
-         if (is_not_small(CAR(list_val(lst)))) {
-             break;
-         }
-         ch = unsigned_val(CAR(list_val(lst)));
-         if (c2int_is_invalid_char(ch, base)) {
-             break;
-         }
-         ui = ui * base;
-         ui = ui + c2int_digit_from_base(ch);
-         n++;
-         lst = CDR(list_val(lst));
-         if (is_nil(lst)) {
-             break;
-         }
-         if (is_not_list(lst)) {
-             break;
-         }
-     }
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &size, &temp_alloc);
+    if (bytes == NULL) {
+        BIF_RET(am_badarg);
+    }
 
-     tail = lst;
-     if (!n) {
-         error_res = LTI_NO_INTEGER;
-         goto error;
-     }
+    res = chars_to_integer(bytes, size, base);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(res);
+}
 
+BIF_RETTYPE erts_internal_list_to_integer_2(BIF_ALIST_2)
+{
+    Eterm res;
+    Sint i = 0;
+    Uint ui = 0;
+    int neg = 0;
+    Sint n = 0;
+    byte c;
+    Eterm list = BIF_ARG_1;
+    Uint base;
+    Uint digits_per_small;
+    Eterm *hp;
 
-      /* If length fits inside Sint then we know it's a small int. Else we
-       * must construct a bignum and let that routine do the checking
-       */
+    if (is_nil(list) ) {
+        BIF_RET(am_no_integer);
+    } else if (is_not_list(list)) {
+        BIF_RET(am_not_a_list);
+    }
 
-     if (n <= digits_per_small) {  /* It must be small */
-         i = neg ? -(Sint)ui : (Sint)ui;
-         res = make_small(i);
-     } else {
-         const Sint largest_pow_of_base = get_largest_power_of_base(base);
-         Eterm *hp;
-         Eterm *hp_end;
+    if (is_not_small(BIF_ARG_2)) {
+        BIF_RET(am_badarg);
+    }
+    base = unsigned_val(BIF_ARG_2);
+    if (base < 2 || base > 36) {
+        BIF_RET(am_badarg);
+    }
 
-         /* Convert from log_base to log2 using lookup table */
-         lg2 = ((n+2)*lookup_log2(base)+1);
-         m  = (lg2+D_EXP-1)/D_EXP; /* number of digits */
-         m  = BIG_NEED_SIZE(m);    /* number of words + thing */
+    if (CAR(list_val(list)) == make_small('-')) {
+        neg = 1;
+        list = CDR(list_val(list));
+    } else if (CAR(list_val(list)) == make_small('+')) {
+        list = CDR(list_val(list));
+    }
 
-         if (m > BIG_ARITY_MAX) {
-             error_res = LTI_SYSTEM_LIMIT;
-             goto error;
-         }
+    while (is_list(list)) {     /* Skip zero digits */
+        Eterm *list_ptr = list_val(list);
 
-         hp = HAlloc(BIF_P, m);
-         hp_end = hp + m;
+        if (is_not_small(CAR(list_ptr))) {
+            break;
+        }
+        c = unsigned_val(CAR(list_ptr));
+        if (c != '0') {
+            if (c2int_is_invalid_char(c, base)) {
+                if (n == 0) {
+                    BIF_RET(am_no_integer);
+                } else {
+                    res = make_small(0);
+                    hp = HAlloc(BIF_P, 3);
+                    BIF_RET(TUPLE2(hp, res, list));
+                }
+            }
+            break;
+        }
+        n++;
+        list = CDR(list_ptr);
+    }
 
-         lst = orig_list;
-         if (skip)
-             lst = CDR(list_val(lst));
+    if (is_not_list(list)) {
+        if (n == 0) {
+            BIF_RET(am_no_integer);
+        } else {
+            res = make_small(0);
+            hp = HAlloc(BIF_P, 3);
+            BIF_RET(TUPLE2(hp, res, list));
+        }
+    }
 
-         /* load first digits (at least one digit) */
-         if ((i = (n % digits_per_Sint)) == 0)
-             i = digits_per_Sint;
-         n -= i;
-         m = 0;
-         while(i--) {
-             m *= base;
-             m += c2int_digit_from_base(unsigned_val(CAR(list_val(lst))));
-             lst = CDR(list_val(lst));
-         }
-         res = small_to_big(m, hp);  /* load first digits */
+    n = 0;
+    digits_per_small = get_digits_per_small(base);
+    while (n <= digits_per_small) {
+        if (is_not_small(CAR(list_val(list)))) {
+            break;
+        }
+        c = unsigned_val(CAR(list_val(list)));
+        if (c2int_is_invalid_char(c, base)) {
+            break;
+        }
+        ui = ui * base + c2int_digit_from_base(c);
+        n++;
+        list = CDR(list_val(list));
+        if (is_not_list(list)) {
+            break;
+        }
+    }
 
-         while(n) {
-             i = digits_per_Sint;
-             n -= digits_per_Sint;
-             m = 0;
-             while(i--) {
-                 m *= base;
-                 m += c2int_digit_from_base(unsigned_val(CAR(list_val(lst))));
-                 lst = CDR(list_val(lst));
-             }
-             if (is_small(res))
-                 res = small_to_big(signed_val(res), hp);
-             res = big_times_small(res, largest_pow_of_base, hp);
-             if (is_small(res))
-                 res = small_to_big(signed_val(res), hp);
-             res = big_plus_small(res, m, hp);
-         }
+    if (n == 0) {
+        BIF_RET(am_no_integer);
+    }
 
-         if (neg) {
-             if (is_small(res))
-                 res = make_small(-signed_val(res));
-             else {
-                 Uint *big = big_val(res); /* point to thing */
-                 *big = bignum_header_neg(*big);
-             }
-         }
-
-         if (is_not_small(res)) {
-             res = big_plus_small(res, 0, hp); /* includes conversion to small */
-
-             if (is_not_small(res)) {
-                 hp += (big_arity(res)+1);
-             }
-         }
-         HRelease(BIF_P, hp_end, hp);
-     }
-     *integer_out = res;
-     *tail_out = tail;
-     if (tail != NIL) {
-         return LTI_SOME_INTEGER;
-     }
-     return LTI_ALL_INTEGER;
+    if (n > digits_per_small) {
+        BIF_RET(am_big);
+    } else {
+        i = neg ? -(Sint)ui : (Sint)ui;
+        res = make_small(i);
+        hp = HAlloc(BIF_P, 3);
+        BIF_RET(TUPLE2(hp, res, list));
+    }
 }

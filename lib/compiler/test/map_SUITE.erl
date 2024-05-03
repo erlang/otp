@@ -87,7 +87,10 @@
 
          %% miscellaneous
          t_conflicting_destinations/1,
-         t_cse_assoc/1
+         t_cse_assoc/1,
+         shared_key_tuples/1,
+         map_aliases/1,
+         coverage/1
         ]).
 
 -define(badmap(V, F, Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -161,7 +164,10 @@ all() ->
 
      %% miscellaneous
      t_conflicting_destinations,
-     t_cse_assoc
+     t_cse_assoc,
+     shared_key_tuples,
+     map_aliases,
+     coverage
     ].
 
 groups() -> [].
@@ -2544,6 +2550,76 @@ do_cse_assoc(M, V) ->
     case M#{key => V} of
         #{assoc := Assoc} ->
             Assoc
+    end.
+
+shared_key_tuples(_Config) ->
+    A = decimal(0),
+    B = decimal(1),
+
+    case ?MODULE of
+        map_inline_SUITE ->
+            %% With inlining, two separate map literals will be created. They
+            %% will not share keys.
+            ok;
+        _ ->
+            %% The two instances should share the key tuple.
+            true = erts_debug:same(erts_internal:map_to_tuple_keys(A),
+                                   erts_internal:map_to_tuple_keys(B))
+    end,
+    ok.
+
+decimal(Int) ->
+    #{type => decimal, int => Int, exp => 0}.
+
+%% GH-6348/OTP-18297: Extend parallel matching of maps.
+map_aliases(_Config) ->
+    F1 = fun(M) ->
+                 #{K := V} = #{k := {a,K}} = M,
+                 V
+         end,
+    value = F1(id(#{k => {a,key}, key => value})),
+
+    F2 = fun(#{} = #{}) -> ok end,
+    ok = F2(id(#{})),
+    ok = F2(id(#{key => whatever})),
+
+    F3 = fun(#{a := V} = #{}) -> V end,
+    {a,b,c} = F3(id(#{a => {a,b,c}})),
+
+    F4 = fun(Map) ->
+                 [#{Key := Value} | _] = [_ | Key] = id(Map),
+                 Value
+         end,
+    bar = F4([#{foo => bar} | foo]),
+
+    F5 = fun(Map) ->
+                 {#{Key := Value}, _} = {_, Key} = id(Map),
+                 Value
+         end,
+    light = F5({#{frotz => light}, frotz}),
+
+    F6 = fun(E) ->
+                 #{Y := _} = (Y = ((_ = X) = E))
+         end,
+    {'EXIT',{{badmatch,0},_}} = catch F6(id(0)),
+    {'EXIT',{{badmatch,#{}},_}} = catch F6(id(#{})),
+    {'EXIT',{{badmatch,#{key := value}},_}} = catch F6(id(#{key => value})),
+
+    ok.
+
+coverage(_Config) ->
+    {'EXIT',{{badmatch,ok},_}} = catch coverage_1(),
+
+    ok.
+
+coverage_1() ->
+    %% Cover beam_block:simplify_get_map_elements/4 when the type
+    %% optimization pass is disabled.
+    try #{ok := _V5, ok := _V4} = (maybe ok end) of
+        #{ok := _V7, _V5 := _V7, ok := _V6, _V4 := _V6}  ->
+            ok
+    after
+        ok
     end.
 
 %% aux

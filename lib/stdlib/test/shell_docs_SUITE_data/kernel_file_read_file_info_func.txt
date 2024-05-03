@@ -1,0 +1,293 @@
+
+  [;1m-spec read_file_info(File) -> {ok, FileInfo} | {error, Reason}[0m
+  [;1m                        when[0m
+  [;1m                            File :: name_all() | io_device(),[0m
+  [;1m                            FileInfo :: file_info(),[0m
+  [;1m                            Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R15B
+
+  Retrieves information about a file. Returns [;;4m{ok, FileInfo}[0m if
+  successful, otherwise [;;4m{error, Reason}[0m. [;;4mFileInfo[0m is a record [;;4m[0m
+  [;;4mfile_info[0m, defined in the Kernel include file [;;4mfile.hrl[0m. Include
+  the following directive in the module from which the function is
+  called:
+
+     -include_lib("kernel/include/file.hrl").
+
+  The time type returned in [;;4matime[0m, [;;4mmtime[0m, and [;;4mctime[0m is
+  dependent on the time type set in [;;4mOpts :: {time, Type}[0m as
+  follows:
+
+  [;;4m[;;4mlocal[0m[0m:
+    Returns local time.
+
+  [;;4m[;;4muniversal[0m[0m:
+    Returns universal time.
+
+  [;;4m[;;4mposix[0m[0m:
+    Returns seconds since or before Unix time epoch, which is
+    1970-01-01 00:00 UTC.
+
+  Default is [;;4m{time, local}[0m.
+
+  If the option [;;4mraw[0m is set, the file server is not called and only
+  information about local files is returned. Note that this will
+  break this module's atomicity guarantees as it can race with a
+  concurrent call to [;;4mwrite_file_info/1,2[0m .
+
+  This option has no effect when the function is given an I/O device
+  instead of a file name. Use [;;4mopen/2[0m with the [;;4mraw[0m mode to obtain
+  a file descriptor first.
+
+  Note:
+    As file times are stored in POSIX time on most OS, it is
+    faster to query file information with option [;;4mposix[0m.
+
+  The record [;;4mfile_info[0m contains the following fields:
+
+  [;;4m[;;4msize = integer() >= 0[0m[0m:
+    Size of file in bytes.
+
+  [;;4m[;;4mtype = device | directory | other | regular[0m[0m:
+    The type of the file. Can also contain [;;4msymlink[0m when returned
+    from read_link_info/1,2.
+
+  [;;4m[;;4maccess = read | write | read_write | none[0m[0m:
+    The current system access to the file.
+
+  [;;4m[;;4matime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was read.
+
+  [;;4m[;;4mmtime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was written.
+
+  [;;4m[;;4mctime = [0m[;;4mdate_time()[0m[;;4m | integer() >=0[0m[0m:
+    The interpretation of this time field depends on the operating
+    system. On Unix, it is the last time the file or the [;;4minode[0m
+    was changed. In Windows, it is the create time.
+
+  [;;4m[;;4mmode = integer() >= 0[0m[0m:
+    The file permissions as the sum of the following bit values:
+
+    [;;4m[;;4m8#00400[0m[0m:
+      read permission: owner
+
+    [;;4m[;;4m8#00200[0m[0m:
+      write permission: owner
+
+    [;;4m[;;4m8#00100[0m[0m:
+      execute permission: owner
+
+    [;;4m[;;4m8#00040[0m[0m:
+      read permission: group
+
+    [;;4m[;;4m8#00020[0m[0m:
+      write permission: group
+
+    [;;4m[;;4m8#00010[0m[0m:
+      execute permission: group
+
+    [;;4m[;;4m8#00004[0m[0m:
+      read permission: other
+
+    [;;4m[;;4m8#00002[0m[0m:
+      write permission: other
+
+    [;;4m[;;4m8#00001[0m[0m:
+      execute permission: other
+
+    [;;4m[;;4m16#800[0m[0m:
+      set user id on execution
+
+    [;;4m[;;4m16#400[0m[0m:
+      set group id on execution
+
+    On Unix platforms, other bits than those listed above may be
+    set.
+
+  [;;4m[;;4mlinks = integer() >= 0[0m[0m:
+    Number of links to the file (this is always 1 for file systems
+    that have no concept of links).
+
+  [;;4m[;;4mmajor_device = integer() >= 0[0m[0m:
+    Identifies the file system where the file is located. In
+    Windows, the number indicates a drive as follows: 0 means A:,
+    1 means B:, and so on.
+
+  [;;4m[;;4mminor_device = integer() >= 0[0m[0m:
+    Only valid for character devices on Unix. In all other cases,
+    this field is zero.
+
+  [;;4m[;;4minode = integer() >= 0[0m[0m:
+    Gives the [;;4minode[0m number. On non-Unix file systems, this field
+    is zero.
+
+  [;;4m[;;4muid = integer() >= 0[0m[0m:
+    Indicates the owner of the file. On non-Unix file systems,
+    this field is zero.
+
+  [;;4m[;;4mgid = integer() >= 0[0m[0m:
+    Gives the group that the owner of the file belongs to. On
+    non-Unix file systems, this field is zero.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing search permission for one of the parent directories of
+    the file.
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.
+
+  [;1m-spec read_file_info(File, Opts) -> {ok, FileInfo} | {error, Reason}[0m
+  [;1m                        when[0m
+  [;1m                            File :: name_all() | io_device(),[0m
+  [;1m                            Opts :: [file_info_option()],[0m
+  [;1m                            FileInfo :: file_info(),[0m
+  [;1m                            Reason :: posix() | badarg.[0m
+
+[;;4mSince[0m:
+  OTP R15B
+
+  Retrieves information about a file. Returns [;;4m{ok, FileInfo}[0m if
+  successful, otherwise [;;4m{error, Reason}[0m. [;;4mFileInfo[0m is a record [;;4m[0m
+  [;;4mfile_info[0m, defined in the Kernel include file [;;4mfile.hrl[0m. Include
+  the following directive in the module from which the function is
+  called:
+
+     -include_lib("kernel/include/file.hrl").
+
+  The time type returned in [;;4matime[0m, [;;4mmtime[0m, and [;;4mctime[0m is
+  dependent on the time type set in [;;4mOpts :: {time, Type}[0m as
+  follows:
+
+  [;;4m[;;4mlocal[0m[0m:
+    Returns local time.
+
+  [;;4m[;;4muniversal[0m[0m:
+    Returns universal time.
+
+  [;;4m[;;4mposix[0m[0m:
+    Returns seconds since or before Unix time epoch, which is
+    1970-01-01 00:00 UTC.
+
+  Default is [;;4m{time, local}[0m.
+
+  If the option [;;4mraw[0m is set, the file server is not called and only
+  information about local files is returned. Note that this will
+  break this module's atomicity guarantees as it can race with a
+  concurrent call to [;;4mwrite_file_info/1,2[0m .
+
+  This option has no effect when the function is given an I/O device
+  instead of a file name. Use [;;4mopen/2[0m with the [;;4mraw[0m mode to obtain
+  a file descriptor first.
+
+  Note:
+    As file times are stored in POSIX time on most OS, it is
+    faster to query file information with option [;;4mposix[0m.
+
+  The record [;;4mfile_info[0m contains the following fields:
+
+  [;;4m[;;4msize = integer() >= 0[0m[0m:
+    Size of file in bytes.
+
+  [;;4m[;;4mtype = device | directory | other | regular[0m[0m:
+    The type of the file. Can also contain [;;4msymlink[0m when returned
+    from read_link_info/1,2.
+
+  [;;4m[;;4maccess = read | write | read_write | none[0m[0m:
+    The current system access to the file.
+
+  [;;4m[;;4matime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was read.
+
+  [;;4m[;;4mmtime = [0m[;;4mdate_time()[0m[;;4m | integer() >= 0[0m[0m:
+    The last time the file was written.
+
+  [;;4m[;;4mctime = [0m[;;4mdate_time()[0m[;;4m | integer() >=0[0m[0m:
+    The interpretation of this time field depends on the operating
+    system. On Unix, it is the last time the file or the [;;4minode[0m
+    was changed. In Windows, it is the create time.
+
+  [;;4m[;;4mmode = integer() >= 0[0m[0m:
+    The file permissions as the sum of the following bit values:
+
+    [;;4m[;;4m8#00400[0m[0m:
+      read permission: owner
+
+    [;;4m[;;4m8#00200[0m[0m:
+      write permission: owner
+
+    [;;4m[;;4m8#00100[0m[0m:
+      execute permission: owner
+
+    [;;4m[;;4m8#00040[0m[0m:
+      read permission: group
+
+    [;;4m[;;4m8#00020[0m[0m:
+      write permission: group
+
+    [;;4m[;;4m8#00010[0m[0m:
+      execute permission: group
+
+    [;;4m[;;4m8#00004[0m[0m:
+      read permission: other
+
+    [;;4m[;;4m8#00002[0m[0m:
+      write permission: other
+
+    [;;4m[;;4m8#00001[0m[0m:
+      execute permission: other
+
+    [;;4m[;;4m16#800[0m[0m:
+      set user id on execution
+
+    [;;4m[;;4m16#400[0m[0m:
+      set group id on execution
+
+    On Unix platforms, other bits than those listed above may be
+    set.
+
+  [;;4m[;;4mlinks = integer() >= 0[0m[0m:
+    Number of links to the file (this is always 1 for file systems
+    that have no concept of links).
+
+  [;;4m[;;4mmajor_device = integer() >= 0[0m[0m:
+    Identifies the file system where the file is located. In
+    Windows, the number indicates a drive as follows: 0 means A:,
+    1 means B:, and so on.
+
+  [;;4m[;;4mminor_device = integer() >= 0[0m[0m:
+    Only valid for character devices on Unix. In all other cases,
+    this field is zero.
+
+  [;;4m[;;4minode = integer() >= 0[0m[0m:
+    Gives the [;;4minode[0m number. On non-Unix file systems, this field
+    is zero.
+
+  [;;4m[;;4muid = integer() >= 0[0m[0m:
+    Indicates the owner of the file. On non-Unix file systems,
+    this field is zero.
+
+  [;;4m[;;4mgid = integer() >= 0[0m[0m:
+    Gives the group that the owner of the file belongs to. On
+    non-Unix file systems, this field is zero.
+
+  Typical error reasons:
+
+  [;;4m[;;4meacces[0m[0m:
+    Missing search permission for one of the parent directories of
+    the file.
+
+  [;;4m[;;4menoent[0m[0m:
+    The file does not exist.
+
+  [;;4m[;;4menotdir[0m[0m:
+    A component of the filename is not a directory. On some
+    platforms, [;;4menoent[0m is returned instead.
