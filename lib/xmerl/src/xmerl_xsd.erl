@@ -2078,12 +2078,8 @@ fetch_external_schema(Path,S) when is_list(Path) ->
 		end;
 	    {_,{string,String},_} -> %% this is for a user defined fetch fun that returns an xml document on string format.
 		?debug("scanning string: ~p~n",[String]),
-		case xmerl_scan:string(String,S#xsd_state.xml_options) of
-		    {error,Reason} ->
-			{error,acc_errs(S,{[],?MODULE,{parsing_external_schema_failed,Path,Reason}})};
-		    {EXSD,_} ->
-			{EXSD,S#xsd_state{schema_name=Path}}
-		end;
+                {EXSD,_} = xmerl_scan:string(String,S#xsd_state.xml_options),
+                {EXSD,S#xsd_state{schema_name=Path}};
 	    {ok,[],_} ->
 		{ok,S};
 	    {_,Other,_} ->
