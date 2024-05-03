@@ -84,7 +84,7 @@ Options used to customize the behaviour of the parser. Possible options are:
   allowed for entities. Default is 3 levels.
 
 - **`{external_entities, AllowedType}`** - Sets which types of external entities
-  that should be allowed, if not allowed it's just skipped.
+  that should be allowed, if not allowed it's just skipped. Default is `none`.
 
   - `AllowedType = all | file | none`
 
@@ -353,9 +353,9 @@ stream(Xml, Options, InputType) when is_binary(Xml), is_list(Options) ->
 		end,
                 try
                     {Xml1, State1} = detect_charset(Xml, State),
-                     parse_binary(Xml1,
-                                  State1#xmerl_sax_parser_state{input_type = InputType},
-                                  ParseFunction)
+                    parse_binary(Xml1,
+                                 State1#xmerl_sax_parser_state{input_type = InputType},
+                                 ParseFunction)
                 catch
                     throw:{fatal_error, {State2, Reason}} ->
                       {fatal_error,

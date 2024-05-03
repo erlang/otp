@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@
          attribute_values = [],     % default attribute values
          allow_entities = true,     % If true entities are allowed in the document
          entity_recurse_limit = 3,  % How many levels of recursion is allowed for entities
-         external_entities = all,   % Which types of external entities are allowed: all(default), file or none
+         external_entities = none,   % Which types of external entities are allowed: all, file or none(default)
          fail_undeclared_ref = true % If false the reference will be left unresolved in the document, true is default
         }).
 

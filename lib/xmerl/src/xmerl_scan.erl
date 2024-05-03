@@ -147,7 +147,7 @@ See also [tutorial](assets/xmerl_examples.html) on customization functions.
 %%    with a defined default value (default 'false').</dd>
 %%  <dt><code>{allow_entities, Flag}</code></dt>
 %%    <dd>Set to 'false' if xmerl_scan should fail when there is an ENTITY declaration
-%%        in the XML document (default 'true').</dd>
+%%        in the XML document (default 'false').</dd>
 %% </dl>
 -type option_list() :: [{atom(),term()}].
 
@@ -1430,7 +1430,8 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 			rules_write_fun = Write,
 			validation = Valid,
 			quiet = Quiet,
-			encoding = Charset
+			encoding = Charset,
+                        allow_entities = AllowEntities
 		       }} ->
 	    EvS = event_state(NewS),
 	    HoS = hook_state(NewS),
@@ -1448,7 +1449,8 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 				 {acc_fun, Acc},
 				 {validation,Valid},
 				 {quiet,Quiet},
-				 {encoding,Charset}],
+				 {encoding,Charset},
+                                 {allow_entities, AllowEntities}],
 
 	    case DataRet of
 		{file, F} ->
