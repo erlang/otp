@@ -17,22 +17,16 @@
 %%
 %% %CopyrightEnd%
 %%
-
-%% @doc Interface module for XML Schema validation. 
-%% It handles the W3.org 
-%% <a href="http://www.w3.org/XML/Schema#dev">specifications</a>
-%% of XML Schema second edition 28 october 2004. For an introduction to
-%% XML Schema study <a href="http://www.w3.org/TR/xmlschema-0/">part 0.</a>
-%% An XML structure is validated by xmerl_xsd:validate/[2,3].
-%%%-------------------------------------------------------------------
+%%----------------------------------------------------------------------
 -module(xmerl_xsd).
 -moduledoc """
-Interface module for XML Schema validation. It handles the W3.org
-[specifications](http://www.w3.org/XML/Schema#dev) of XML Schema second edition
-28 october 2004. For an introduction to XML Schema study
-[part 0.](http://www.w3.org/TR/xmlschema-0/) An XML structure is validated by
-xmerl_xsd:validate/\[2,3].
--------------------------------------------------------------------
+Interface module for XML Schema validation.
+
+It handles the W3.org [specifications](http://www.w3.org/XML/Schema#dev)
+of XML Schema second edition 28 october 2004. For an introduction
+to XML Schema please study [part 0](http://www.w3.org/TR/xmlschema-0/).
+
+An XML structure is validated by [`xmerl_xsd:validate/\[2,3]`](`validate/2`).
 """.
 
 %%----------------------------------------------------------------------
