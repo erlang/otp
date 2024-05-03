@@ -41,6 +41,8 @@
          xref/1,
          relup/1]).
 
+-include_lib("kernel/include/file.hrl").
+
 -define(util, diameter_util).
 -define(A, list_to_atom).
 
@@ -187,11 +189,17 @@ appvsn(Name) ->
 %% ===========================================================================
 
 xref({App, _Config}) ->
+    i("xref -> entry with"
+      "~n   App:    ~p"
+      "~n   Config: ~p", [App, _Config]),
+
     Mods = fetch(modules, App),  %% modules listed in the app file
 
     %% List of application names extracted from runtime_dependencies.
+    i("xref -> get deps"),
     Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
+    i("xref -> start xref"),
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
 
@@ -201,19 +209,30 @@ xref({App, _Config}) ->
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
+    i("xref -> add own and dep apps"),
     ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
                        [diameter, erts | fetch(applications, App)]),
 
+    i("xref -> analyze undefined_function_calls"),
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
+    i("xref -> analyze module use: "
+      "~n   For mods: ~p", [Mods]),
     {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    i("xref -> analyze (compiler) module use: "
+      "~n   For mods: ~p", [?COMPILER_MODULES]),
     {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
+    i("xref -> analyze module call: "
+      "~n   For mods: ~p", [Mods]),
     {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
+    i("xref -> stop xref"),
     xref:stop(XRef),
 
+    i("xref -> get OTP release"),
     Rel = release(),  %% otp_release-ish
 
     %% Only care about calls from our own application.
+    i("xref -> Only care about calls from our own application"),
     [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
                                   andalso not ignored(From, To, Rel)
@@ -225,20 +244,31 @@ xref({App, _Config}) ->
     %% depend on other diameter modules but it's a simple source of
     %% build errors if not properly encoded in the makefile so guard
     %% against it.
+    i("xref -> ensure only runtime and info mod"),
     [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
     %% Ensure that runtime modules don't call compiler modules.
+    i("xref -> ensure runtime mods don't call compiler mods"),
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared in runtime_dependencies in the app file.
     %% The declared application versions are ignored since we only
     %% know what we see now.
+    i("xref -> ensure runtime mods only call runtime mods"),
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
-                      RTdeps -- Mods);
+                      RTdeps -- Mods),
+
+    i("xref -> done"),
+    ok;
 
 xref(Config) ->
-    run(Config, [xref]).
+    i("xref -> entry with"
+      "~n   Config: ~p", [Config]),
+    Res = run(Config, [xref]),
+    i("xref -> done when"
+      "~n   Res: ~p", [Res]),
+    Res.
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
     %% diameter_tcp does call ssl despite the latter not being listed
@@ -308,22 +338,52 @@ make_name(Suf) ->
 %% ===========================================================================
 
 relup({App, Config}) ->
+    i("relup -> entry with"
+      "~n   App:    ~p"
+      "~n   Config: ~p", [App, Config]),
+
     [{Vsn, Up, Down}] = ?util:consult(diameter, appup),
     true = is_vsn(Vsn),
+
+    i("relup -> "
+      "~n   Vsn:  ~p"
+      "~n   Up:   ~p"
+      "~n   Down: ~p", [Vsn, Up, Down]),
 
     Rel = [{erts, erlang:system_info(version)}
            | [{A, appvsn(A)} || A <- [sasl | fetch(applications, App)]]],
 
+    i("relup -> "
+      "~n   Rel: ~p", [Rel]),
+
     Dir = fetch(priv_dir, Config),
 
+    i("relup -> verify path"
+      "~n   Dir: ~p", [Dir]),
+    verify_path(Dir),
+
+    i("relup -> "
+      "~n   Dir: "
+      "~n      ~s"
+      "~n   File info (dir): "
+      "~n      ~s", [Dir, file_info(Dir)]),
+
     Name = write_rel(Dir, Rel, Vsn),
+    i("relup -> written"
+      "~n   Name: "
+      "~n      ~s", [Name]),
     UpFrom = acc_rel(Dir, Rel, Up),
+    i("relup -> "
+      "~n   UpFrom: ~p", [UpFrom]),
     DownTo = acc_rel(Dir, Rel, Down),
+    i("relup -> "
+      "~n   DownTo: ~p", [DownTo]),
 
     {[], []} = {UpFrom -- DownTo, DownTo -- UpFrom},
     [[], []] = [S -- sets:to_list(sets:from_list(S))
                 || S <- [UpFrom, DownTo]],
 
+    i("relup -> try make relup"),
     {ok, _, _, []} = systools:make_relup(Name, UpFrom, DownTo, [{path, [Dir]},
                                                                 {outdir, Dir},
                                                                 silent]);
@@ -331,19 +391,95 @@ relup({App, Config}) ->
 relup(Config) ->
     run(Config, [relup]).
 
+
+verify_path(Path) ->
+    Components = filename:split(filename:absname(Path)),
+    do_verify_path(Components).
+
+do_verify_path([]) ->
+    exit(not_a_path);
+do_verify_path([Root|Components]) ->
+    do_verify_path(Root, Components).
+
+do_verify_path(Path, []) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> (final) directory ok:"
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            ok;
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> (final) unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end;
+do_verify_path(Path, [Component|Components]) ->
+    case file:read_file_info(Path) of
+        {ok, #file_info{type   = directory,
+                        access = Access}} ->
+            i("do_verify_path -> directory ok: "
+              "~n   Path:   ~p"
+              "~n   Access: ~p", [Path, Access]),
+            do_verify_path(filename:absname_join(Path, Component),
+                           Components);
+        {ok, #file_info{type   = Type,
+                        access = Access}} ->
+            i("do_verify_path -> unexpected type: "
+              "~n   Path:   ~p"
+              "~n   Type:   ~p"
+              "~n   Access: ~p", [Path, Type, Access]),
+            exit({not_dir, Path, Type, Access});
+        {error, Reason} ->
+            i("do_verify_path -> failed reading file info: "
+              "~n   Path:   ~p"
+              "~n   Reason: ~p", [Path, Reason]),
+            exit({read_file_info, Path, Reason})
+    end.
+            
+
+file_info(Path) ->
+    case file:read_file_info(Path) of
+        {ok, Info} ->
+            f("~p", [Info]);
+        {error, Reason} ->
+            f("error: ~p", [Reason])
+    end.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
 acc_rel(Dir, Rel, List) ->
     lists:map(fun({V,_}) -> write_rel(Dir, Rel, V) end, List).
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->
-    VS = vsn_str(Vsn),
+    VS   = vsn_str(Vsn),
     Name = "diameter_test_" ++ VS,
-    ok = write_file(filename:join([Dir, Name ++ ".rel"]),
+    File = filename:join([Dir, Name ++ ".rel"]),
+    i("write_rel -> attempt write rel file:"
+      "~n   Dir:  ~p"
+      "~n   File: ~p"
+      "~n   File name length: ~p"
+      "~n   Erts: ~p"
+      "~n   Apps: ~p"
+      "~n   Vsn:  ~p (~p)",
+      [Dir, File, length(File), Erts, Apps, Vsn, VS]),
+    ok = write_file(File,
                     {release,
                      {"diameter " ++ VS ++ " test release", VS},
                      Erts,
                      Apps}),
     Name.
+
 
 %% ===========================================================================
 %% ===========================================================================
@@ -376,7 +512,14 @@ vsn_str(S)
 vsn_str(B)
   when is_binary(B) ->
     {ok, _} = re:compile(B),
-    binary_to_list(B).
+    %% Check if its a wildcard version: "1\\.."
+    Str = binary_to_list(B),
+    case lists:reverse(Str) of
+        [$*, $., $., $\\ | Rest] ->
+            lists:reverse(Rest);
+        _ ->
+            Str
+    end.
 
 match(S, RE) ->
     re:run(S, RE, [{capture, none}]).
@@ -386,3 +529,10 @@ is_app(S)
   when is_list(S) ->
     {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
     true.
+
+
+i(F) ->
+    i(F, []).
+
+i(F, A) when is_list(F) andalso is_list(A) ->
+    io:format(F ++ "~n", A). 
