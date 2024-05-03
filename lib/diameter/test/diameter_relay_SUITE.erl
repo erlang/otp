@@ -38,9 +38,14 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         parallel/1]).
+        
+         %% The test cases
+         parallel/1
+        ]).
 
 %% diameter callbacks
 -export([pick_peer/4,
@@ -52,9 +57,10 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
-%% ===========================================================================
+-include("diameter_util.hrl").
 
--define(util, diameter_util).
+
+%% ===========================================================================
 
 -define(ADDR, {127,0,0,1}).
 
@@ -99,6 +105,10 @@
 -define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
 -define(AUTHORIZE_ONLY, ?'DIAMETER_BASE_RE-AUTH-REQUEST-TYPE_AUTHORIZE_ONLY').
 
+-define(RL(F),    ?RL(F, [])).
+-define(RL(F, A), ?LOG("DRELAYS", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
@@ -108,7 +118,12 @@ all() ->
     [parallel].
 
 parallel(_Config) ->
-    run().
+    ?RL("parallel -> entry"),
+    Res = run(),
+    ?RL("parallel -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
@@ -117,7 +132,7 @@ parallel(_Config) ->
 run() ->
     ok = diameter:start(),
     try
-        ?util:run([{fun traffic/0, 20000}])
+        ?RUN([{fun traffic/0, 20000}])
     after
         ok = diameter:stop()
     end.
@@ -125,12 +140,20 @@ run() ->
 %% traffic/0
 
 traffic() ->
+    ?RL("traffic -> start services"),
     Servers = start_services(),
+    ?RL("traffic -> connect"),
     Conns = connect(Servers),
+    ?RL("traffic -> send"),
     [] = send(),
+    ?RL("traffic -> check counters"),
     [] = counters(),
+    ?RL("traffic -> disconnect"),
     [] = disconnect(Conns),
-    [] = stop_services().
+    ?RL("traffic -> stop services"),
+    [] = stop_services(),
+    ?RL("traffic -> done"),
+    ok.
 
 start_services() ->
     [S1,S2,S3,S4] = [server(N, ?DICT_COMMON) || N <- [?SERVER1,
@@ -159,30 +182,30 @@ stop_services() ->
 %% Traffic cases run when services are started and connections
 %% established.
 send() ->
-    ?util:run([[fun traffic/1, T] || T <- [send1,
-                                           send2,
-                                           send3,
-                                           send4,
-                                           send_loop,
-                                           send_timeout_1,
-                                           send_timeout_2,
-                                           info]]).
+    ?RUN([[fun traffic/1, T] || T <- [send1,
+                                      send2,
+                                      send3,
+                                      send4,
+                                      send_loop,
+                                      send_timeout_1,
+                                      send_timeout_2,
+                                      info]]).
 
 %% ----------------------------------------
 
 break({{CN,CR},{SN,SR}}) ->
     try
-        ?util:disconnect(CN,CR,SN,SR)
+        ?DISCONNECT(CN,CR,SN,SR)
     after
         diameter:remove_transport(SN, SR)
     end.
 
 server(Name, Dict) ->
     ok = diameter:start_service(Name, ?SERVICE(Name, Dict)),
-    {Name, ?util:listen(Name, tcp)}.
+    {Name, ?LISTEN(Name, tcp)}.
 
 connect(Name, Refs) ->
-    [{{Name, ?util:connect(Name, tcp, LRef)}, T} || {_, LRef} = T <- Refs].
+    [{{Name, ?CONNECT(Name, tcp, LRef)}, T} || {_, LRef} = T <- Refs].
 
 %% ===========================================================================
 %% traffic testcases
@@ -226,12 +249,12 @@ traffic(info) ->
     %% Wait for RELAY1 to have answered all requests, so that the
     %% suite doesn't end before all answers are sent and counted.
     receive after 6000 -> ok end,
-    [] = ?util:info().
+    [] = ?INFO().
 
 counters() ->
-    ?util:run([[fun counters/2, K, S]
-               || K <- [statistics, transport, connections],
-                  S <- ?SERVICES]).
+    ?RUN([[fun counters/2, K, S]
+          || K <- [statistics, transport, connections],
+             S <- ?SERVICES]).
 
 counters(Key, Svc) ->
     counters(Key, Svc, [_|_] = diameter:service_info(Svc, Key)).

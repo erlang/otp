@@ -32,7 +32,12 @@
 -define(PEER(P),                      ?DUTIL:peer(P)).
 -define(LPORT(P, R),                  ?DUTIL:lport(P, R)).
 
+-define(LISTEN(SN, Proto),            ?DUTIL:listen(SN, Proto)).
 -define(LISTEN(SN, Proto, Opts),      ?DUTIL:listen(SN, Proto, Opts)).
+-define(CONNECT(SN, Proto, LR),       ?DUTIL:connect(SN, Proto, LR)).
 -define(CONNECT(SN, Proto, LR, Opts), ?DUTIL:connect(SN, Proto, LR, Opts)).
+-define(DISCONNECT(CN, CR, SN, SR),   ?DUTIL:disconnect(CN, CR, SN, SR)).
+
+-define(INFO(),                       ?DUTIL:info()).
 
 -endif.
