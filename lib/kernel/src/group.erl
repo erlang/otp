@@ -50,12 +50,20 @@ server(Ancestors, Drv, Shell, Options) ->
     put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
+
     ExpandFun = normalize_expand_fun(Options, fun edlin_expand:expand/2),
     put(expand_fun, ExpandFun),
-    Echo = proplists:get_value(echo, Options, true),
-    put(echo, Echo),
-    Dumb = proplists:get_value(dumb, Options, false),
-    put(dumb, Dumb),
+
+    %% echo can be set to false by -oldshell and ssh_cli
+    put(echo, proplists:get_value(echo, Options, true)),
+
+    %% dumb can be set to true by ssh_cli
+    put(dumb, proplists:get_value(dumb, Options, false)),
+
+    %% noshell can be set to true by user_drv
+    put(noshell, proplists:get_value(noshell, Options, false)),
+
+    %% expand_below can be set by user_drv and ssh_cli
     put(expand_below, proplists:get_value(expand_below, Options, true)),
 
     server_loop(Drv, start_shell(Shell), []).
@@ -193,8 +201,8 @@ set_unicode_state(Drv,Bool) ->
 get_terminal_state(Drv) ->
     Drv ! {self(),get_terminal_state},
     receive
-	{Drv,get_terminal_state,UniState} ->
-	    UniState;
+	{Drv,get_terminal_state,Terminal} ->
+	    Terminal;
 	{Drv,get_terminal_state,error} ->
 	    {error, internal}
     after 2000 ->
@@ -461,8 +469,9 @@ getopts(Drv,Buf) ->
 			true -> unicode;
 			_ -> latin1
 		     end},
-    Tty = {terminal, get_terminal_state(Drv)},
-    {ok,[Exp,Echo,Bin,Uni,Tty],Buf}.
+    Terminal = get_terminal_state(Drv),
+    Tty = {terminal, maps:get(stdout, Terminal)},
+    {ok,[Exp,Echo,Bin,Uni,Tty|maps:to_list(Terminal)],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function
@@ -983,6 +992,20 @@ format_expression1(Buffer, FormatingCommand) ->
               end,
     string:chomp(Unicode).
 
+%% Edit line is used in echo=false mode which has two users
+%% Either we are running in "oldshell" or we run using "noshell".
+%%
+%% For "oldshell" we need to take care of certain special characters
+%% that can be entered, but for "noshell" we don't want to do any of
+%% that.
+edit_line(Input, State) ->
+    case get(noshell) of
+        false ->
+            edit_line(Input, State, []);
+        true ->
+            edit_line_raw(Input, State, [])
+    end.
+
 %% We support line editing for the ICANON mode except the following
 %% line editing characters, which already has another meaning in
 %% echo-on mode (See Advanced Programming in the Unix Environment, 2nd ed,
@@ -992,8 +1015,6 @@ format_expression1(Buffer, FormatingCommand) ->
 %% - ^d in posix/icanon mode: eof, delete-forward in edlin
 %% - ^r in posix/icanon mode: reprint (silly in echo-off mode :-))
 %% - ^w in posix/icanon mode: word-erase (produces a beep in edlin)
-edit_line(Input, State) ->
-    edit_line(Input, State, []).
 edit_line(eof, [], _) ->
     eof;
 edit_line(eof, Chars, Rs) ->
@@ -1013,10 +1034,19 @@ edit_line([CtrlChar|Cs],Chars, Rs) when CtrlChar < 32 ->
 edit_line([Char|Cs],Chars, Rs) ->
     edit_line(Cs,[Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
 
+edit_line_raw(eof, [], _) ->
+    eof;
+edit_line_raw(eof, Chars, Rs) ->
+    {Chars,eof, lists:reverse(Rs)};
+edit_line_raw([],Chars, Rs) ->
+    {Chars,[],lists:reverse(Rs)};
+edit_line_raw([NL|Cs],Chars, Rs) when NL =:= $\n ->
+    {[$\n | Chars], remainder_after_nl(Cs), lists:reverse([{put_chars, unicode, "\n"}|Rs])};
+edit_line_raw([Char|Cs],Chars, Rs) ->
+    edit_line_raw(Cs,[Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
+
 remainder_after_nl("") -> done;
 remainder_after_nl(Cs) -> Cs.
-    
-
 
 get_line_timeout(blink) -> 1000;
 get_line_timeout(more_chars) -> infinity.

@@ -29,6 +29,7 @@
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
          file_read_stdin_unicode_translation_error_binary_mode/1,
          file_read_stdin_unicode_translation_error_list_mode/1,
+         file_read_line_stdin_cr_without_nl/1,
          file_read_line_stdin_unicode_translation_error_binary_mode/1,
          file_read_line_stdin_unicode_translation_error_list_mode/1,
          io_get_chars_stdin_binary_mode/1, io_get_chars_stdin_list_mode/1,
@@ -50,6 +51,8 @@
 -export([write_raw_to_stdout/0, read_raw_from_stdin/1]).
 
 -export([get_until_eof/2]).
+
+-include_lib("stdlib/include/assert.hrl").
 
 %%-define(debug, true).
 
@@ -275,7 +278,15 @@ setopts_getopts(Config) when is_list(Config) ->
                {expect, "[\n ]ok"},
                {putline, "io:get_line('')."},
                {putline, "hej"},
-               {expect, "\\Q<<\"hej\\n\">>\\E"}
+               {expect, "\\Q<<\"hej\\n\">>\\E"},
+               {putline, "proplists:get_value(terminal,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdin,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stdout,io:getopts())."},
+               {expect, "true"},
+               {putline, "proplists:get_value(stderr,io:getopts())."},
+               {expect, "true"}
               ],[]);
         _ ->
             ok
@@ -294,8 +305,31 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "[\n ]ok"},
        {putline, "io:get_line('')."},
        {putline, "hej"},
-       {expect, "\\Q<<\"hej\\n\">>\\E"}
+       {expect, "\\Q<<\"hej\\n\">>\\E"},
+       {putline, "proplists:get_value(terminal,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdin,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stdout,io:getopts())."},
+       {expect, "true"},
+       {putline, "proplists:get_value(stderr,io:getopts())."},
+       {expect, "true"}
       ],[],"",["-oldshell"]),
+
+    %% Test that terminal options when used in non-terminal
+    %% are returned as they should
+    Erl = ct:get_progname(),
+    Str = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    maybe
+        {ok, T, _} ?= erl_scan:string(Str),
+        {ok, Opts} ?= erl_parse:parse_term(T),
+        ?assertEqual(false, proplists:get_value(terminal,Opts)),
+        ?assertEqual(false, proplists:get_value(stdin,Opts)),
+        ?assertEqual(false, proplists:get_value(stdout,Opts)),
+        ?assertEqual(false, proplists:get_value(stderr,Opts))
+    else
+        _ -> ct:fail({failed_to_parse, Str})
+    end,
     ok.
 
 %% Test that reading from stdin using file:read works when io is in binary mode
@@ -347,6 +381,20 @@ file_read_stdin_unicode_translation_error_list_mode(_Config) ->
     {ok, "got: eof"} = gen_tcp:recv(P, 0),
 
     ok.
+
+%% Test that reading from stdin using file:read_line works when \r is sent without \n
+file_read_line_stdin_cr_without_nl(_Config) ->
+    {ok, P, ErlPort} = start_stdin_node(fun() -> file:read_line(standard_io) end, []),
+
+    erlang:port_command(ErlPort, "abc\r"),
+    {error,timeout} = gen_tcp:recv(P, 0, 2000),
+    erlang:port_command(ErlPort, "def\r\n"),
+    {ok, ~S'got: <<"abc\rdef\r\n">>\n'} = gen_tcp:recv(P, 0),
+    ErlPort ! {self(), close},
+    {ok, "got: eof"} = gen_tcp:recv(P, 0),
+
+    ok.
+
 
 %% Test that reading from stdin using file:read_line returns
 %% correct error when in binary mode

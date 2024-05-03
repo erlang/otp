@@ -406,7 +406,7 @@ get_password(Io) ->
                     | {'expand_fun', expand_fun()}
                     | {'encoding', encoding()}
                     | {atom(), term()}.
--type getopt() :: {'terminal', boolean()} | option().
+-type getopt() :: {'terminal' | 'stdin' | 'stdout' | 'stderr', boolean()} | option().
 
 -doc(#{equiv => getopts(standard_io)}).
 -spec getopts() -> [getopt()] | {'error', Reason} when
@@ -437,16 +437,21 @@ more options:
  {echo,true},
  {binary,false},
  {encoding,unicode},
- {terminal,true}]
+ {terminal,true},
+ {stdout,true},
+ {stderr,true},
+ {stdin,true}]
 ```
 
 This example is, as can be seen, run in an environment where the terminal
 supports Unicode input and output.
 
-The `terminal` option is read only and indicates whether the output stream is a
-terminal or not. When it is a terminal, most systems that Erlang runs on allows
-the use of [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code)
-to control what the terminal outputs.
+The `stdin`, `stdout` and `stderr` options are read only and indicates
+whether the stream is a terminal or not. When it is a terminal, most systems that
+Erlang runs on allows the use of [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code)
+to control what the terminal inputs or outputs.
+
+`terminal` is an alias for `stdout`.
 
 See `setopts/1` for a description of the other options.
 """.

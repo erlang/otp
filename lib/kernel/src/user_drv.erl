@@ -351,7 +351,8 @@ init_shell(State, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}, [{echo,false}]),
+	    User = group:start(self(), {}, [{echo,false},
+                                            {noshell,true}]),
 	    register(user, User),
 	    User;
 	User ->
@@ -466,7 +467,9 @@ server(info, {Requester, set_unicode_state, Bool}, #state{ tty = TTYState } = St
     Requester ! {self(), set_unicode_state, OldUnicode},
     {keep_state, State#state{ tty = NewTTYState }};
 server(info, {Requester, get_terminal_state}, _State) ->
-    Requester ! {self(), get_terminal_state, prim_tty:isatty(stdout) },
+    Requester ! {self(), get_terminal_state, #{ stdin => prim_tty:isatty(stdin),
+                                                stdout => prim_tty:isatty(stdout),
+                                                stderr => prim_tty:isatty(stderr) } },
     keep_state_and_data;
 server(info, {Requester, {open_editor, Buffer}}, #state{tty = TTYState } = State) ->
     case open_editor(TTYState, Buffer) of
@@ -669,7 +672,9 @@ switch_loop(info, {Requester, get_unicode_state}, {_Cont, #state{ tty = TTYState
     Requester ! {self(), get_unicode_state, prim_tty:unicode(TTYState) },
     keep_state_and_data;
 switch_loop(info, {Requester, get_terminal_state}, _State) ->
-    Requester ! {self(), get_terminal_state, prim_tty:isatty(stdout) },
+    Requester ! {self(), get_terminal_state, #{ stdin => prim_tty:isatty(stdin),
+                                                stdout => prim_tty:isatty(stdout),
+                                                stderr => prim_tty:isatty(stderr) } },
     keep_state_and_data;
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
