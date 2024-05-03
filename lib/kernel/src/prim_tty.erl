@@ -1113,7 +1113,14 @@ npwcwidth(Char) ->
     npwcwidth(Char, true).
 npwcwidth(Char, true) ->
     case wcwidth(Char) of
-        {error, not_printable} -> 0;
+        {error, not_printable} ->
+            %% Sometimes libc wcwidth if wrong and returns -1 aka not_printable
+            %% for something that is a wide character. So we try to make things
+            %% better by returning 2 for such characters.
+            case unicode_util:is_wide(Char) of
+                true -> 2;
+                false -> 0
+            end;
         {error, enotsup} ->
             case unicode_util:is_wide(Char) of
                 true -> 2;
