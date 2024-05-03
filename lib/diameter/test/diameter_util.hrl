@@ -39,5 +39,6 @@
 -define(DISCONNECT(CN, CR, SN, SR),   ?DUTIL:disconnect(CN, CR, SN, SR)).
 
 -define(INFO(),                       ?DUTIL:info()).
+-define(SCRAMBLE(SS),                 ?DUTIL:scramble(SS)).
 
 -endif.
