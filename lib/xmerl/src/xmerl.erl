@@ -82,8 +82,9 @@
 -doc "A callback module or a list of inherited callback modules.".
 -type callback() :: module() | [module()].
 
+-export_type([element/0]).
 -doc "Normal, well-formed, XML content element.".
--type normal_element() ::
+-type element() ::
         xmlText() | xmlElement() | xmlPI() | xmlComment() | xmlDecl().
 
 -doc ~s`"Simple-form" XML content element.`.
@@ -93,7 +94,7 @@
                          Value :: iolist() | atom() | integer()}],
          Content :: [simple_element()]} |
         {Tag :: atom(), Content :: [simple_element()]} |
-        Tag :: atom() | IOString :: iolist() | normal_element().
+        Tag :: atom() | IOString :: iolist() | element().
 
 -doc ~s`"Simple-form" XML attribute.`.
 -type simple_attribute() ::
@@ -155,7 +156,7 @@ _See also:_ `export/2`, `export_simple/3`.
 -spec export(Content, Callback, RootAttributes) ->
           ExportedFormat :: term() when
       Content        :: [Element],
-      Element        :: normal_element(),
+      Element        :: element(),
       Callback       :: callback(),
       RootAttributes :: [simple_attribute()].
 export(Content, Callback, RootAttributes) when is_atom(Callback) ->
@@ -249,7 +250,7 @@ export_simple_content(Content, Callbacks) when is_list(Callbacks) ->
 Export normal XML content directly, without further context.
 """.
 -spec export_content(Content, Callbacks) -> _ when
-	Content   :: [normal_element()],
+	Content   :: [element()],
 	Callbacks :: [module()].
 export_content([#xmlText{value = Text} | Es], Callbacks) ->
     [apply_text_cb(Callbacks, Text) | export_content(Es, Callbacks)];
@@ -278,7 +279,7 @@ export_simple_element(Element, Callbacks) when is_list(Callbacks) ->
 
 -doc "Exports a normal XML element directly, without further context.".
 -spec export_element(Element, Callback) -> _ when
-      Element  :: normal_element(),
+      Element  :: element(),
       Callback :: callback().
 export_element(E, CB) when is_atom(CB) ->
     export_element(E, callbacks(CB));
@@ -305,7 +306,7 @@ For on-the-fly exporting during parsing (SAX style) of the XML document.
 """.
 -spec export_element(Element, Callback, CallbackState) ->
           ExportedFormat when
-      Element        :: normal_element(),
+      Element        :: element(),
       Callback       :: callback(),
       CallbackState  :: term(),
       ExportedFormat :: term().
