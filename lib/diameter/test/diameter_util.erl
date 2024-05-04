@@ -364,9 +364,27 @@ connect(Client, Prot, LRef) ->
     connect(Client, Prot, LRef, []).
 
 connect(Client, ProtOpts, LRef, Opts) ->
+    ?DL("connect -> entry with"
+        "~n   Client:   ~p"
+        "~n   ProtOpts: ~p"
+        "~n   LRef:     ~p"
+        "~n   Opts:     ~p", [Client, ProtOpts, LRef, Opts]),
     Prot = head(ProtOpts),
     [PortNr] = lport(Prot, LRef),
-    Client = diameter:service_info(Client, name),  %% assert
+    case diameter:service_info(Client, name) of
+        Client -> % assert
+            ok;
+        undefined ->
+            ?DL("no name: "
+                "~n   Service Info: ~p", [diameter:service_info(Client)]),
+            ct:fail({undefined_name, Client});
+        WrongName -> % This should not be possible but...
+            ?DL("Wrong Name: "
+                "~n   ~p"
+                "~n   Service Info: ~p",
+                [WrongName, diameter:service_info(Client)]),
+            ct:fail({undefined_name, Client, WrongName})            
+    end,
     true = diameter:subscribe(Client),
     Ref = add_transport(Client, {connect, opts(ProtOpts, PortNr) ++ Opts}),
     true = transport(Client, Ref),                 %% assert
