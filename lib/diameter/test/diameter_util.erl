@@ -376,19 +376,27 @@ connect(Client, ProtOpts, LRef, Opts) ->
             ok;
         undefined ->
             ?DL("no name: "
+                "~n   Services:             ~p"
+                "~n   Service:              ~p"
                 "~n   'all' Service Info:   ~p"
                 "~n   'info' Service Info:  ~p"
                 "~n   'stats' Service Info: ~p",
-                [diameter:service_info(Client, all),
+                [diameter:services(),
+                 Client,
+                 diameter:service_info(Client, all),
                  diameter:service_info(Client, info),
                  diameter:service_info(Client, statistics)]),
             ct:fail({undefined_name, Client});
         WrongName -> % This should not be possible but...
             ?DL("Wrong Name: ~p"
+                "~n   Services:             ~p"
+                "~n   Service:              ~p"
                 "~n   'all' Service Info:   ~p"
                 "~n   'info' Service Info:  ~p"
                 "~n   'stats' Service Info: ~p",
                 [WrongName,
+                 diameter:services(),
+                 Client,
                  diameter:service_info(Client, all),
                  diameter:service_info(Client, info),
                  diameter:service_info(Client, statistics)]),
