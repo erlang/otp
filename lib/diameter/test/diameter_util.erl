@@ -376,14 +376,23 @@ connect(Client, ProtOpts, LRef, Opts) ->
             ok;
         undefined ->
             ?DL("no name: "
-                "~n   Service Info: ~p", [diameter:service_info(Client)]),
+                "~n   'all' Service Info:   ~p"
+                "~n   'info' Service Info:  ~p"
+                "~n   'stats' Service Info: ~p",
+                [diameter:service_info(Client, all),
+                 diameter:service_info(Client, info),
+                 diameter:service_info(Client, statistics)]),
             ct:fail({undefined_name, Client});
         WrongName -> % This should not be possible but...
-            ?DL("Wrong Name: "
-                "~n   ~p"
-                "~n   Service Info: ~p",
-                [WrongName, diameter:service_info(Client)]),
-            ct:fail({undefined_name, Client, WrongName})            
+            ?DL("Wrong Name: ~p"
+                "~n   'all' Service Info:   ~p"
+                "~n   'info' Service Info:  ~p"
+                "~n   'stats' Service Info: ~p",
+                [WrongName,
+                 diameter:service_info(Client, all),
+                 diameter:service_info(Client, info),
+                 diameter:service_info(Client, statistics)]),
+            ct:fail({wrong_name, Client, WrongName})            
     end,
     true = diameter:subscribe(Client),
     Ref = add_transport(Client, {connect, opts(ProtOpts, PortNr) ++ Opts}),
