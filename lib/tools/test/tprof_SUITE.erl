@@ -55,13 +55,19 @@ all() ->
      {group, all}].
 
 groups() ->
-    [{all, [parallel], [call_time_ad_hoc, call_memory_ad_hoc,
-                        call_memory_total, sort, rootset, set_on_spawn,
-                        code_load, code_reload,
-                        {group, default_session},
-                        {group, custom_session}]},
+    [{all, parallel(),
+      [call_time_ad_hoc, call_memory_ad_hoc,
+       call_memory_total, sort, rootset, set_on_spawn,
+       code_load, code_reload,
+       {group, default_session},
+       {group, custom_session}]},
      {default_session,[],session()},
-     {custom_session,[parallel],session()}].
+     {custom_session,parallel(),session()}].
+
+%% Because of scalability/performance issues in trace:info/3 we only run in parallel
+%% if we have a "small" amount of schedulers online.
+parallel() ->
+    [parallel || erlang:system_info(schedulers_online) < 64].
 
 init_per_group(custom_session, Config) ->
     [{session, ?MODULE} | Config];
