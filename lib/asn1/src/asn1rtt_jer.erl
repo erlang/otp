@@ -34,7 +34,12 @@
 encode_jer(Module, Type, Val) ->
     Info = Module:typeinfo(Type),
     Enc = encode_jer(Info, Val),
-    iolist_to_binary(json:encode(Enc)).
+    EncFun = fun({'KV_LIST', Value}, Encode) ->
+                     json:encode_key_value_list(Value, Encode);
+                (Other, Encode) ->
+                     json:encode_value(Other, Encode)
+             end,
+    iolist_to_binary(json:encode(Enc, EncFun)).
 
 %% {sequence,
 %%    Name::atom() % The record name used for the sequence 
@@ -183,7 +188,7 @@ encode_jer_component_map([{_Name, _AName, _Type, 'OPTIONAL'} | CompInfos], MapVa
 encode_jer_component_map([{_Name, _AName, _Type, {'DEFAULT',_}} | CompInfos], MapVal, Acc) ->
     encode_jer_component_map(CompInfos, MapVal, Acc);
 encode_jer_component_map([], MapVal, Acc) when map_size(MapVal) =:= length(Acc) ->
-    maps:from_list(Acc);
+    {'KV_LIST', lists:reverse(Acc)};
 encode_jer_component_map(_, MapVal, Acc) ->
     ErroneousKeys = maps:keys(MapVal) -- [K || {K,_V} <- Acc],
     exit({error,{asn1,{{encode,'SEQUENCE'},{erroneous_keys,ErroneousKeys}}}}).
@@ -196,7 +201,8 @@ encode_jer_component([{Name, Type, _OptOrDefault} | CompInfos], [Value | Rest], 
     Enc = encode_jer(Type, Value),
     encode_jer_component(CompInfos, Rest, [{Name,Enc}|Acc]);
 encode_jer_component([], _, Acc) ->
-    maps:from_list(Acc).
+    {'KV_LIST', lists:reverse(Acc)}.
+
 
 decode_jer(Module, Type, Val) ->
     TypeInfo = Module:typeinfo(Type),
