@@ -679,6 +679,7 @@ t_nifs_attrib(Config) when is_list(Config) ->
     {module,nif_mod} = code:load_binary(nif_mod,File,Bin1),
     {error, {bad_lib, "Function not declared as nif" ++ _}} =
         nif_mod:load_nif_lib(Config, 1),
+    verify_tmpmem(TmpMem),
     ok.
 
 
@@ -1193,13 +1194,13 @@ monitor_process_c(Config) ->
                              put(store, make_resource(R_ptr)),
                              ok = release_resource(R_ptr),
                              [] = last_resource_dtor_call(),
-                             Papa ! {self(), done, R_ptr, Mon},
+                             Papa ! {done, self(), R_ptr, Mon},
                              exit
                      end),
-    receive {Pid, done, R_ptr, Mon1} -> ok end,
-    [{monitor_resource_down, R_ptr, Pid, Mon2}] = flush(1),
+    {done, Pid, R_ptr1, Mon1} = receive {done,_,_,_}=DoneMsg -> DoneMsg end,
+    [{monitor_resource_down, R_ptr1, Pid, Mon2}] = flush(1),
     compare_monitors_nif(Mon1, Mon2),
-    {R_ptr, _, 1} = last_resource_dtor_call(),
+    {R_ptr1, _, 1} = last_resource_dtor_call(),
     ok.
 
 %% Test race of resource dtor called when monitored process is exiting
@@ -2315,8 +2316,7 @@ resource_takeover(Config) when is_list(Config) ->
     ok = forget_resource(AN2),
     ?CHECK([], nif_mod_call_history()),    % no dtor
 
-    ok = forget_resource(BGX2),  % calling dtor in orphan library v1 still loaded
-    receive unloaded -> ok end,
+    ok = forget_resource_unload(BGX2),  % calling dtor in orphan library v1 still loaded
     ?CHECK([{{resource_dtor_B_v1,BinBGX2},1,6,106}, {unload,1,7,107}],
            nif_mod_call_history()),
 
@@ -2370,8 +2370,7 @@ resource_takeover(Config) when is_list(Config) ->
     ok = forget_resource(NGY1),
     [] = nif_mod_call_history(),
 
-    ok = forget_resource(BGY1),  % calling dtor in orphan library v2 still loaded
-    receive unloaded -> ok end,
+    ok = forget_resource_unload(BGY1),  % calling dtor in orphan library v2 still loaded
     [{{resource_dtor_B_v2,BinBGY1},2,8,208},{unload,2,9,209}] = nif_mod_call_history(),
 
     %% Module upgrade with other lib-version
@@ -2397,8 +2396,7 @@ resource_takeover(Config) when is_list(Config) ->
     timeout = receive unloaded -> error after 10 -> timeout end,
     [] = nif_mod_call_history(),
 
-    ok = forget_resource(BGZ1),  % calling dtor in orphan library v2 still loaded
-    receive unloaded -> ok end,
+    ok = forget_resource_unload(BGZ1),  % calling dtor in orphan library v2 still loaded
     [{{resource_dtor_B_v2,BinBGZ1},2,10,210},{unload,2,11,211}] = nif_mod_call_history(),
 
     ok = forget_resource(NGZ1),
@@ -2574,6 +2572,13 @@ read_resource(Type, {Holder,Id}) ->
 forget_resource({Holder,Id}) ->
     Holder ! {self(), forget, Id},
     {Holder, forget_ok, Id} = receive_any(),
+    erts_debug:set_internal_state(wait, aux_work),
+    ok.
+
+forget_resource_unload({Holder,Id}) ->
+    Holder ! {self(), forget, Id},
+    ok = receive_any_order([{Holder, forget_ok, Id},
+                            unloaded]),
     erts_debug:set_internal_state(wait, aux_work),
     ok.
 
@@ -3337,6 +3342,19 @@ receive_any() ->
 receive_any(Timeout) ->
     receive M -> M
     after Timeout -> timeout end.
+
+receive_any_order([]) -> ok;
+receive_any_order(Expected) ->
+    M = receive_any(),
+    case lists:member(M, Expected) of
+        true ->
+            receive_any_order(lists:delete(M, Expected));
+        false ->
+            io:format("Expected any of ~p", Expected),
+            io:format("Received ~p", M),
+            ct:fail({unexpected, M})
+    end.
+
 
 flush() ->
     flush(1).
