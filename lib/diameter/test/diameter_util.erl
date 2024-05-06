@@ -52,7 +52,8 @@
 
 -define(L, atom_to_list).
 
--define(DL(F, A), ?LOG("DUTIL", F, A)).
+-define(UL(F),    ?UL(F, [])).
+-define(UL(F, A), ?LOG("DUTIL", F, A)).
 
 
 %% ---------------------------------------------------------------------------
@@ -133,10 +134,10 @@ down(Parent, Worker)
 
 %% Die with the worker, kill the worker if the parent dies.
 down(ParentMRef, WorkerPid) ->
-    ?DL("down -> await worker (~p) termination", [WorkerPid]),
+    ?UL("down -> await worker (~p) termination", [WorkerPid]),
     receive
         {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCStack}} ->
-            ?DL("down -> test case timetrap timeout when"
+            ?UL("down -> test case timetrap timeout when"
                 "~n   (test case) Pid:     ~p"
                 "~n   (test case) Timeout: ~p"
                 "~n   (test case) Stack:   ~p", [TCPid, TCTimeout, TCStack]),
@@ -144,11 +145,11 @@ down(ParentMRef, WorkerPid) ->
             %% So many wrapper levels, make sure we go with a bang
             exit({TCPid, R, TCStack});
         {'DOWN', ParentMRef, process, PPid, PReason} ->
-            ?DL("down -> parent process (~p) died: "
+            ?UL("down -> parent process (~p) died: "
                 "~n   Reason: ~p", [PPid, PReason]),
             exit(WorkerPid, kill);
         {'DOWN', _, process, WorkerPid, WReason} ->
-            ?DL("down -> worker process (~p) died: "
+            ?UL("down -> worker process (~p) died: "
                 "~n   Reason: ~p", [WorkerPid, WReason]),
             ok
     end.
@@ -303,30 +304,47 @@ have_sctp(_) ->
 %% Evaluate a function in one of a number of forms.
 
 eval({F, infinity}) ->
+    ?UL("eval(infinity) -> entry"),
     eval(F);
 eval({F, Tmo})
   when is_integer(Tmo) ->
+    ?UL("eval(~p) -> entry", [Tmo]),
     {ok, _} = timer:exit_after(Tmo, timeout),
     eval(F);
 
 eval({M,[F|A]})
   when is_atom(F) ->
+    ?UL("eval -> entry with"
+        "~n   M: ~p"
+        "~n   F: ~p"
+        "~n   A: ~p", [M, F, A]),
     apply(M,F,A);
 
 eval({M,F,A}) ->
+    ?UL("eval -> entry with"
+        "~n   M: ~p"
+        "~n   F: ~p"
+        "~n   A: ~p", [M, F, A]),
     apply(M,F,A);
 
 eval([F|A])
   when is_function(F) ->
+    ?UL("eval -> entry with"
+        "~n   F: ~p"
+        "~n   A: ~p", [F, A]),
     apply(F,A);
 
 eval(L)
   when is_list(L) ->
+    ?UL("eval -> entry with"
+        "~n   length(L): ~p", [length(L)]),
     [eval(F) || F <- L];
 
 eval(F)
   when is_function(F,0) ->
+    ?UL("eval -> entry"),
     F().
+
 
 %% ---------------------------------------------------------------------------
 %% lport/2
@@ -364,7 +382,7 @@ connect(Client, Prot, LRef) ->
     connect(Client, Prot, LRef, []).
 
 connect(Client, ProtOpts, LRef, Opts) ->
-    ?DL("connect -> entry with"
+    ?UL("connect -> entry with"
         "~n   Client:   ~p"
         "~n   ProtOpts: ~p"
         "~n   LRef:     ~p"
@@ -375,7 +393,7 @@ connect(Client, ProtOpts, LRef, Opts) ->
         Client -> % assert
             ok;
         undefined ->
-            ?DL("no name: "
+            ?UL("no name: "
                 "~n   Services:             ~p"
                 "~n   Service:              ~p"
                 "~n   'all' Service Info:   ~p"
@@ -388,7 +406,7 @@ connect(Client, ProtOpts, LRef, Opts) ->
                  diameter:service_info(Client, statistics)]),
             ct:fail({undefined_name, Client});
         WrongName -> % This should not be possible but...
-            ?DL("Wrong Name: ~p"
+            ?UL("Wrong Name: ~p"
                 "~n   Services:             ~p"
                 "~n   Service:              ~p"
                 "~n   'all' Service Info:   ~p"
