@@ -826,6 +826,8 @@ The fields of record `mod` have the following meaning:
          info/3,
          info/4
         ]).
+-export_type([socket_type/0]).
+
 %% Command line interface
 -export([start/1, serve/1]).
 
@@ -837,6 +839,7 @@ The fields of record `mod` have the following meaning:
 %%%========================================================================
 -type property() :: atom().
 -type ets_table() :: ets:tid().
+-type socket_type() :: ip_comm | ssl.
 
 %%%========================================================================
 %%% Callbacks
