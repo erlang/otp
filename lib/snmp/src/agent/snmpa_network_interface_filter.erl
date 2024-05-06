@@ -57,18 +57,8 @@ Legacy network interface filter modules used arguments on the form
 agent is run without changing the configuration to use transport domains the
 network interface filter will still get the old arguments and work as before.
 
-## DATA TYPES
-
-```text
-port() = integer() > 0
-pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
-             'set-request' | trap | 'get-bulk-request' | 'inform-request' |
-             report
-```
-
 See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 
-[](){: #accept_recv }
 """.
 
 -export([verify/1]).
@@ -85,7 +75,6 @@ Called at the reception of a message (before _any_ processing has been done).
 
 For the message to be discarded, the function _must_ return _false_.
 
-[](){: #accept_send }
 """.
 -callback accept_recv(Domain, Addr) -> boolean() when
       Domain :: transportDomain(),
@@ -98,7 +87,6 @@ Called before the sending of a message (after _all_ processing has been done).
 
 For the message to be discarded, the function _must_ return _false_.
 
-[](){: #accept_recv_pdu }
 """.
 -callback accept_send(Domain, Addr) -> boolean() when
       Domain :: transportDomain(),
@@ -113,16 +101,12 @@ pdu is handed over to the master-agent for primary processing.
 
 For the pdu to be discarded, the function _must_ return _false_.
 
-[](){: #accept_send_pdu }
 """.
 -callback accept_recv_pdu(Domain, Addr, PduType) -> boolean() when
       Domain :: transportDomain(),
       Addr :: transportAddressWithPort(),
       PduType :: pdu_type().
-%% accept_send_pdu([{domain(), address()}, ...] = Targets, pdu_type()) ->
-%%     boolean() | NewTargets
-%% Called before the basic message processing (MPD) is done,
-%% when a pdu has been received from the master-agent.
+
 -doc """
 Called before the basic message processing (MPD) is done, when a pdu has been
 received from the master-agent.

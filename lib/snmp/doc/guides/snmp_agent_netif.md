@@ -151,7 +151,7 @@ to receive.
     `snmpa_mpd:generate_msg/5`.
   - `Extra` is any term that the notification sender wishes to pass to the Net
     if process when sending a notification (see
-    [send notification ](`m:snmpa#send_notification2`)for more info).
+    [`send notification`](`snmpa:send_notification2/3`)for more info).
 
 - [](){: #im_send_pdu_req } `{send_pdu_req, Vsn, Pdu, MsgData, To, Pid, Extra}`
 
@@ -173,7 +173,7 @@ to receive.
   - `Pid` is a process identifier.
   - `Extra` is any term that the notification sender wishes to pass to the Net
     if process when sending a notification (see
-    [send notification ](`m:snmpa#send_notification2`)for more info).
+    [`send notification`](`snmpa:send_notification2/3`)for more info).
 
 ### Notes
 

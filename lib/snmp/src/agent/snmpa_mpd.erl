@@ -124,7 +124,6 @@ the net-if process).
 -doc """
 This is the message specific data used in the SNMPv3 message.
 
-[](){: #init }
 """.
 -opaque acm_data_v3() ::
           {v3,
@@ -177,8 +176,6 @@ This function can be called from the net_if process at start-up. The options
 list defines which versions to use.
 
 It also initializes some SNMP counters.
-
-[](){: #process_packet }
 """.
 -spec init(Vsns) -> MPDState when
       Vsns     :: [snmp:version()],

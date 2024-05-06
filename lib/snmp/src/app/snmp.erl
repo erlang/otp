@@ -311,7 +311,6 @@ Starts the SNMP application.
 
 See `m:application` for more info.
 
-[](){: #stop }
 """.
 -spec start(Type) -> ok | {error, Reason} when
       Type   :: p  | permanent |
@@ -334,8 +333,11 @@ Stops the SNMP application.
 
 See `m:application` for more info.
 
-[](){: #start_agent }
+This function has existed for long time,
+but not had a proper since tag, so to simplify
+we set the since tag to when it was documented.
 """.
+-doc(#{since => <<"OTP 27.0">>}).
 -spec stop() -> ok | {error, Reason} when
       Reason :: term().
 
@@ -361,7 +363,6 @@ the normal application config; sys.config). This is done by calling:
 
 The default value for `Type` is `normal`.
 
-[](){: #start_manager }
 """.
 -spec start_agent(Type) -> ok | {error, Reason} when
       Type   :: application:start_type(),
@@ -389,7 +390,6 @@ the normal application config; sys.config). This is done by calling:
 
 The default value for `Type` is `normal`.
 
-[](){: #dat } [](){: #date_and_time }
 """.
 -spec start_manager(Type) -> ok | {error, Reason} when
       Type   :: application:start_type(),
@@ -415,7 +415,6 @@ _Note_ also that some of the configuration files for the agent and manager share
 the same names. This means that they have to be stored in _different_
 directories\!
 
-[](){: #start }
 """.
 -spec config() -> ok | {error, Reason} when
       Reason :: term().
@@ -429,7 +428,6 @@ config() -> snmp_config:config().
 Starts a dbg tracer that prints trace events to stdout (using plain io:format
 after a minor formatting).
 
-[](){: #disable_trace }
 """.
 -spec enable_trace() -> void().
 
@@ -441,7 +439,6 @@ enable_trace() ->
 -doc """
 Stop the tracer.
 
-[](){: #set_trace1 }
 """.
 -spec disable_trace() -> void().
 
@@ -454,7 +451,6 @@ This function is used to set up default trace on function(s) for the given
 module or modules. The scope of the trace will be all _exported_ functions (both
 the call info and the return value). Timestamp info will also be included.
 
-[](){: #reset_trace }
 """.
 -spec set_trace(Targets) -> void() when
       Targets       :: module() | [module() | {module(), [TargetOpt]}],
@@ -474,7 +470,6 @@ set_trace(Modules) when is_list(Modules) ->
 -doc """
 This function is used to reset (disable) trace for the given module(s).
 
-[](){: #set_trace2 }
 """.
 -spec reset_trace(Targets) -> void() when
       Targets :: module() | [module()].
@@ -705,7 +700,6 @@ This is the same as doing, e.g.:
            snmp:print_versions(V).
 ```
 
-[](){: #versions1 } [](){: #versions2 }
 """.
 -spec print_version_info(Prefix) -> void() when
       Prefix :: string() | non_neg_integer().
@@ -733,7 +727,6 @@ Example:
            snmp:print_versions(V).
 ```
 
-[](){: #enable_trace }
 """.
 -spec print_versions(Prefix, Versions) -> void() when
       Prefix      :: string() | non_neg_integer(),
@@ -923,7 +916,6 @@ The difference between the two functions is in how they get the modules to
 check. `versions1` uses the app-file and `versions2` uses the function
 `application:get_key`.
 
-[](){: #print_versions }
 """.
 -spec versions2() -> {ok, VersionsInfo} | {error, Reason} when
       VersionsInfo :: [VersionInfo],
@@ -1018,8 +1010,6 @@ ms2() ->
 -doc """
 Returns current date and time as the data type DateAndTime, as specified in
 RFC1903. This is an OCTET STRING.
-
-[](){: #dat2ut_dst } [](){: #date_and_time_to_universal_time_dst }
 """.
 -spec date_and_time() -> DateAndTime when
       DateAndTime :: rfc1903_date_and_time().
@@ -1075,10 +1065,9 @@ definition in RFC2579.
 The validation fun, `Validate`, allows for a more "flexible" validation of the
 `DateAndTime` argument. Whenever the data is found to not follow RFC2579, the
 fun is called to allow a more "lax" validation. See the
-[validate_date_and_time/2](`m:snmp#vdat`) function for more info on the
-`Validate` fun.
+[`validate_date_and_time/2`](`snmp:validate_date_and_time/2`) function for
+more info on the `Validate` fun.
 
-[](){: #dat2s2 } [](){: #date_and_time_to_string2 }
 """.
 -spec date_and_time_to_string(DAT, Validate) -> string() when
       DAT      :: rfc1903_date_and_time(),
@@ -1098,7 +1087,6 @@ Converts a DateAndTime list to a printable string, according to the DISPLAY-HINT
 definition in RFC2579, with the extension that it also allows the values "hours
 from UTC" = 14 together with "minutes from UTC" = 0.
 
-[](){: #lt2dat_dst } [](){: #local_time_to_date_and_time_dst }
 """.
 -spec date_and_time_to_string2(DAT) -> string() when
       DAT :: rfc1903_date_and_time().
@@ -1139,7 +1127,6 @@ diff(Secs) ->
 Converts a universal time value to a DateAndTime list. The universal time value
 on the same format as defined in calendar(3).
 
-[](){: #vdat }
 """.
 -spec universal_time_to_date_and_time(UTC) -> DateAndTime when
       UTC         :: calendar:datetime(),
@@ -1153,7 +1140,6 @@ universal_time_to_date_and_time(UTC) ->
 Converts a local time value to a list of possible DateAndTime list(s). The local
 time value on the same format as defined in calendar(3).
 
-[](){: #ut2dat }
 """.
 -spec local_time_to_date_and_time_dst(Local) -> DATs when
       Local :: calendar:datetime1970(),
@@ -1174,8 +1160,6 @@ local_time_to_date_and_time_dst(Local) ->
 Converts a DateAndTime list to a list of possible universal time(s). The
 universal time value on the same format as defined in calendar(3).
 
-[](){: #dat2s } [](){: #date_and_time_to_string } [](){:
-#date_and_time_to_string1_1 } [](){: #date_and_time_to_string1_2 }
 """.
 -spec date_and_time_to_universal_time_dst(DAT) -> UTCs when
       DAT  :: rfc1903_date_and_time(),
@@ -1213,7 +1197,6 @@ The validation fun, `Validate`, allows for a more "flexible" validation of the
 `DateAndTime` argument. Whenever the data is found to not follow RFC2579, the
 fun is called to allow a more "lax" validation.
 
-[](){: #passwd2localized_key }
 """.
 -spec validate_date_and_time(DateAndTime, Validate) -> boolean() when
       DateAndTime :: rfc1903_date_and_time(),
@@ -1310,7 +1293,6 @@ sys_up_time(manager) ->
 Utility function for converting a value of type `OCTET-STRING` to `BITS`,
 according to RFC1906, section 8.
 
-[](){: #bits_to_octet_string }
 """.
 -spec octet_string_to_bits(S) -> bits() when
       S :: octet_string().
@@ -1323,7 +1305,6 @@ octet_string_to_bits(S) ->
 Utility function for converting a value of type `BITS` to `OCTET-STRING`,
 according to RFC1906, section 8.
 
-[](){: #read_mib }
 """.
 -spec bits_to_octet_string(B) -> octet_string() when
       B :: bits().
@@ -1340,7 +1321,6 @@ bits_to_octet_string(B) ->
 Generates a key that can be used as an authentication or privacy key using MD5,
 SHA, SHA224, SHA256, SHA384 or SHA512. The key is localized for EngineID.
 
-[](){: #octet_string_to_bits }
 """.
 -spec passwd2localized_key(Algorithm, Passwd, EngineID) -> Key when
       Algorithm :: algorithm(),
@@ -1370,7 +1350,6 @@ localize_key(Alg, Key, EngineID) ->
 -doc """
 Read a compiled mib.
 
-[](){: #log_to_txt }
 """.
 -spec read_mib(FileName) -> {ok, Mib} | {error, Reason} when
       FileName :: string(),
@@ -1517,7 +1496,6 @@ erroneous entries where found. If instead `{error, Reason}` is returned, the
 conversion encountered a fatal error and where either never done of aborted
 midway.
 
-[](){: #log_to_io }
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) ->
@@ -1632,9 +1610,8 @@ log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) ->
 
 -doc """
 Converts an Audit Trail Log to a readable format and prints it on stdio. See
-[log_to_txt](`m:snmp#log_to_txt`) above for more info.
+[`log_to_txt/8`](`snmp:log_to_txt/8`) for more info.
 
-[](){: #change_log_size }
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->
@@ -1663,7 +1640,6 @@ Reference Manual for a description of how to change the log size.
 The change is permanent, as long as the log is not deleted. That means, the log
 size is remembered across reboots.
 
-[](){: #print_version_info }
 """.
 -spec change_log_size(LogName, NewSize) -> ok | {error, Reason} when
       LogName :: string(),

@@ -116,7 +116,7 @@ Server ! {snmp_report, Data, Domain, Addr}
 
 - `Data` is either `{ok, Pdu}` or `{error, ReqId, ReasonInfo, Pdu}`. Which one
   is used depends on the return value from the MPD
-  [process_msg](`m:snmpm_mpd#process_msg`) function. If the MsgData is `ok`, the
+  [`process_msg/6`](`snmpm_mpd:process_msg/6`) function. If the MsgData is `ok`, the
   first is used, and if it is `{error, ReqId, Reason}` the latter is used.
 - `Pdu` is an SNMP PDU record, as defined in `snmp_types.hrl`, with the SNMP
   request.

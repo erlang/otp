@@ -25,48 +25,6 @@ Utility functions for handling the agent config files.
 The module `snmpa_conf` contains various utility functions to use for
 manipulating (write/read/append) the config files of the SNMP agent.
 
-## DATA TYPES
-
-```erlang
-transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
-
-transportAddress() =
-    transportAddressIPv4() | transportAddressIPv6()
-
-transportAddressWithPort() =
-    transportAddressIPv4WithPort() | transportAddressIPv6WithPort()
-
-transportAddressWithoutPort() =
-    transportAddressIPv4WithoutPort() | transportAddressIPv6WithoutPort()
-
-transportAddressIPv4() =
-    transportAddressIPv4WithPort() | transportAddressIPv4WithoutPort()
-transportAddressIPv4WithPort =
-    {transportAddressIPv4WithoutPort(), inet:port_number()} |
-    [byte() x 4, byte() x 2]
-transportAddressIPv4WithoutPort =
-    inet:ip4_address() | [byte() x 4]
-
-transportAddressIPv6() =
-    transportAddressIPv6WithPort() | transportAddressIPv6WithoutPort()
-transportAddressIPv6WithPort =
-    {transportAddressIPv6WithoutPort(), inet:port_number()} |
-    [word() x 8, inet:port_number()] |
-    [word() x 8, byte() x 2] |
-    [byte() x 16, byte() x 2]
-transportAddressIPv6WithoutPort =
-    inet:ip6_address() | [word() x 8] | [byte() x 16]
-
-transportAddressMask() =
-    [] | transportAddressWithPort()
-
-byte() = 0..255
-word() = 0..65535
-```
-
-For [`inet:ip4_address()`](`t:inet:ip4_address/0`),
-[`inet:ip6_address()`](`t:inet:ip6_address/0`) and
-[`inet:port_number()`](`t:inet:port_number/0`), see also `t:inet:ip_address/0`
 """.
 
 -include("snmp_internal.hrl").
@@ -420,13 +378,11 @@ The type of `Val` depends on the value of `Tag`:
 
 - **`intAgentTransports: `[`snmpa_conf:intAgentTransport()`](`t:intAgentTransport/0`) `<mandatory>`**{: #intAgentTransports }
 
-- **`intAgentUDPPort: `{: #intAgentUDPPort }`t:inet:port_number/0`
-  `<optional>`**
+- **`intAgentUDPPort: `[`inet:port_number()`](`t:inet:port_number/0`) `<optional>`**{: #intAgentUDPPort }
 
-- **`snmpEngineMaxMessageSize:` `t:snmp_framework_mib:max_message_size/0` `<mandatory>`**{: #snmpEngineMaxMessageSize }
+- **`snmpEngineMaxMessageSize: `[`snmp_framework_mib:max_message_size()`](`t:snmp_framework_mib:max_message_size/0`) `<mandatory>`**{: #snmpEngineMaxMessageSize }
 
-- **`snmpEngineID: `{: #snmpEngineID }`t:snmp_framework_mib:engine_id/0`
-  `<mandatory>`**
+- **`snmpEngineID: `[`snmp_framework_mib:engine_id()`](`t:snmp_framework_mib:engine_id/0`) `<mandatory>`**{: #snmpEngineID }
 
 See [Agent Information](snmp_agent_config_files.md#agent_information) for more
 info.
@@ -685,7 +641,7 @@ Create an entry for the agent community config file, `community.conf`.
 
 `CommunityIndex` must be a _non-empty_ string.
 
-This function only accepts values of `CommIndex` of the following values:
+This function only accepts the following values of `CommIndex`:
 
 - **`"public"`{: #community_index_public }** - Translates to the following call:
 
@@ -804,7 +760,6 @@ Read the current agent community config file.
 
 See [Communities](snmp_agent_config_files.md#community) for more info.
 
-[](){: #target_addr_entry } [](){: #target_addr_entry_1 }
 """.
 -spec read_community_config(Dir) -> {ok, Conf} | {error, Reason} when
       Dir    :: snmp:dir(),
@@ -852,8 +807,7 @@ The type of `Val` depends on the value of `Tag`:
 - **`sysDescr: `{: #sysDescr }[`string()`](`t:erlang:string/0`)
   `<mandatory>`** - `DisplayString (SIZE(0..255))`
 
-- **`sysObjectID: `{: #sysObjectID }`t:snmp:oid/0` `<mandatory>`** -
-  `OBJECT IDENTIFIER`
+- **`sysObjectID: `{: #sysObjectID }[`snmp:oid()`](`t:snmp:oid/0`) `<mandatory>`** - `OBJECT IDENTIFIER`
 
 - **`sysContact: `{: #sysContact }[`string()`](`t:erlang:string/0`)
   `<mandatory>`** - `DisplayString (SIZE(0..255))`

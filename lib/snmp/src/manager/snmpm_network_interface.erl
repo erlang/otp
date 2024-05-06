@@ -47,7 +47,7 @@ Start-link the network interface process.
 
 `Server` is the pid of the managing process.
 
-`NoteStore` is the pid of the note-store process.
+`NoteStore` is the pid of the `note-store` process.
 """.
 -callback start_link(Server, NoteStore) ->
     {ok, Pid} | {error, Reason} when
@@ -66,16 +66,16 @@ Stop the network interface process.
 -doc """
 Request the network interface process (`Pid`) to send this pdu (`Pdu`).
 
-`ExtraInfo` is some opaque data that is passed to the net-if process. It
+`ExtraInfo` is some opaque data that is passed to the `net-if` process. It
 originates from the `ExtraInfo` parameter in the calls to the
-[synchronous get-request](`snmpm:sync_get2/4`),
-[asynchronous get-request](`snmpm:async_get2/4`),
-[synchronous get-next-request](`snmpm:sync_get_next2/4`),
-[asynchronous get-next-request](`snmpm:async_get_next2/4`),
-[synchronous set-request](`snmpm:sync_set2/4`) and
-[asynchronous set-request](`snmpm:async_set2/4`) functions. Whether the net-if
-process chooses to use this is implementation dependent. The net-if process
-included in this application ignores it.
+[`synchronous get-request`](`snmpm:sync_get2/4`),
+[`asynchronous get-request`](`snmpm:async_get2/4`),
+[`synchronous get-next-request`](`snmpm:sync_get_next2/4`),
+[`asynchronous get-next-request`](`snmpm:async_get_next2/4`),
+[`synchronous set-request`](`snmpm:sync_set2/4`) and
+[`asynchronous set-request`](`snmpm:async_set2/4`) functions.
+Whether the `net-if` process chooses to use this is implementation dependent.
+The `net-if` process included in this application ignores it.
 """.
 -callback send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, ExtraInfo) ->
     snmp:void() when
@@ -105,8 +105,8 @@ originated.
       Port :: inet:port_number().
 
 -doc """
-Change the pid of the note-store process. This is used when the server re-starts
-the note_store (e.g. after a crach).
+Change the pid of the note-store process. This is used when the server restarts
+the `note-store` (e.g. after a crach).
 """.
 -callback note_store(Pid, NoteStore) ->
     snmp:void() when
@@ -119,8 +119,8 @@ implementation provided by this application provides info about memory
 allocation and various socket information.
 
 The info returned by this function is returned together with other info
-collected by the manager when the [info](`snmpm:info/0`) function is called
-(tagged with the key `net_if`).
+collected by the manager when the [`snmpm:info()`](`snmpm:info/0`)
+function is called (tagged with the key `net_if`).
 """.
 -callback info(Pid) ->
     Info when

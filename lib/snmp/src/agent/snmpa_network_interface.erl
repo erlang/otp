@@ -35,12 +35,8 @@ The semantics of them and their exact signatures are explained below.
 But this is not enough. There is also a set of _mandatory_ messages which the
 network interface entity must be able to receive and be able to send. This is
 described in chapter [snmp_agent_netif](snmp_agent_netif.md).
-""".
 
-%% Note that this behaviour is not enough!
-%% There is also a set of mandatory messages which the
-%% network interface entity must be able to receive and
-%% be able to send. See the documentation for more info.
+""".
 
 -doc """
 Start-link the network interface process.
@@ -111,11 +107,21 @@ See `snmpa:set_log_type/2` for more info.
       OldType :: snmp:atl_type(),
       Reason  :: term().
 
+-doc """
+The request limit is the number of simultaneous requests the agent will accept.
+This function retrieve the current value.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
 -callback get_request_limit(Pid) ->
     {ok, Limit} when
       Pid   :: pid(),
       Limit :: non_neg_integer() | infinity.
 
+-doc """
+The request limit is the number of simultaneous requests the agent will accept.
+This function sets a new value.
+""".
+-doc(#{since => <<"OTP 27.0">>}).
 -callback set_request_limit(Pid, NewLimit) ->
     {ok, OldLimit} when
       Pid      :: pid(),

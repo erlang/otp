@@ -25,6 +25,11 @@ Behaviour module for the SNMP agent notification delivery information receiver.
 This module defines the behaviour of the notification delivery information
 receiver.
 
+When the user sends a notification (see `snmpa:send_notification2/3`),
+the user can (optionally) choose to receive delivery information
+(was the message received and acknowledged by the target(s)).
+This behaviour describes a way for the user to get such (delivery) information.
+
 A `snmpa_notification_delivery_info_receiver` compliant module must export the
 following functions:
 
@@ -39,13 +44,6 @@ Agent is run without changing the configuration to use transport domains the
 notification delivery information receiver will still get the old arguments and
 work as before.
 
-## DATA TYPES
-
-See the [transportDomain()](`t:snmpa_conf:transportDomain/0`) and
-[transportAddressWithPort()](`t:snmpa_conf:transportAddressWithPort/0`) for more
-info.
-
-[](){: #delivery_targets }
 """.
 
 -include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
@@ -115,7 +113,6 @@ It informs the `receiver` which targets will get the notification. The result of
 the delivery will be provided via successive calls to
 [`delivery_info/4`](`c:delivery_info/4`) function, see below.
 
-[](){: #delivery_info }
 """.
 -callback delivery_targets(Tag, Targets, Extra) -> snmp:void() when
       Tag :: term(),

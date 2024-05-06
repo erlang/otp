@@ -230,7 +230,6 @@ documentation.
 For information about the current agent config (`AgentConfig`), see the
 [Configuring the application](snmp_config.md#configuration_params) chapter of
 the SNMP user's guide.
-
 """.
 -spec convert_config(OldConfig) -> NewConfig when
       OldConfig :: list(),
@@ -481,8 +480,6 @@ if it does not define the symbolic value as enumerated.
 
 `Db` is a reference to the symbolic store database (retrieved by a call to
 `get_symbolic_store_db/0`).
-
-[](){: #name_to_oid }
 """.
 -spec int_to_enum(Db, Name, Int) -> {value, Enum} | false when
       Db   :: term(),
@@ -2184,8 +2181,6 @@ register_subagent(Agent, SubTree, SubAgent) ->
 -doc """
 Unregister a sub-agent. If the second argument is a pid, then that sub-agent
 will be unregistered from all trees in `Agent`.
-
-[](){: #send_notification2 }
 """.
 -spec unregister_subagent(Agent, SubAgentOidOrPid) -> ok | {error, Reason} when
       Agent            :: pid() | AgentName,
@@ -2512,7 +2507,7 @@ The `Block` option indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_txt](`m:snmp#log_to_txt`) for more info.
+See [`snmp:log_to_txt/8`](`snmp:log_to_txt/8`) for more info.
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_txt(LogDir, Mibs,
@@ -2710,7 +2705,7 @@ The `Block` option indicates if the log should be blocked during conversion.
 This could be useful when converting large logs (when otherwise the log could
 wrap during conversion). Defaults to `true`.
 
-See [snmp:log_to_io](`m:snmp#log_to_io`) for more info.
+See [`snmp:log_to_io/7`](`snmp:log_to_io/7`) for more info.
 """.
 -doc(#{since => <<"OTP R16B03">>}).
 -spec log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) ->

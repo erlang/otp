@@ -203,7 +203,6 @@ files are found.
 
 The configuration files read are: `target_addr.conf` and `target_params.conf`.
 
-[](){: #reconfigure }
 """.
 -spec configure(ConfDir) -> snmp:void() when
       ConfDir :: string().

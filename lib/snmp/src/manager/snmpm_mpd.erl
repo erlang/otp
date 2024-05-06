@@ -34,7 +34,7 @@ reasons.
 
 -export([init/1, 
 
-	 process_msg/7, process_msg/6,
+	 process_msg/6, process_msg/7,
 	 generate_msg/5, generate_response_msg/4,
 
 	 next_msg_id/0, 
@@ -149,12 +149,11 @@ Is an opaque data structure containing necessary security information for
 %%%-----------------------------------------------------------------
 
 -doc """
-This function can be called from the net_if process at start-up. The options
-list defines which versions to use.
+This function can be called from the `net-if` process at start-up.
+The options list defines which versions to use.
 
 It also initializes some SNMP counters.
 
-[](){: #process_msg }
 """.
 -spec init(Vsns) -> MPDState when
       Vsns     :: [snmp:version()],
@@ -200,7 +199,7 @@ process_msg(Msg, Domain, Ip, Port, State, NoteStore, Log) ->
 Processes an incoming message. Performs authentication and decryption as
 necessary. The return values should be passed the manager server.
 
-`NoteStore` is the `t:pid/0` of the note-store process.
+`NoteStore` is the [`pid()`](`t:pid/0`) of the `note-store` process.
 
 `Logger` is the function used for audit trail logging.
 
@@ -631,7 +630,7 @@ get_scoped_pdu(D) ->
 -doc """
 Generates a possibly encrypted packet to be sent to the network.
 
-`NoteStore` is the `t:pid/0` of the note-store process.
+`NoteStore` is the [`pid()`](`t:pid/0`) of the `note-store` process.
 
 `MsgData` is the message specific data used in the SNMP message. In SNMPv1 and
 SNMPv2c, this message data is the community string. In SNMPv3, it is the context
@@ -798,7 +797,7 @@ generate_v1_v2c_msg(Vsn, Pdu, Community, Log) ->
 Generates a possibly encrypted response packet to be sent to the network.
 
 `MsgData` is the message specific data used in the SNMP message. This value is
-received from the [process_msg](`m:snmpm_mpd#process_msg`) function.
+received from the [`process_msg/6`](`snmpm_mpd:process_msg/6`) function.
 """.
 -spec generate_response_msg(Vsn, Pdu, MsgData, Log) ->
           {ok, Packet} | {discarded, Reason} | {error, Reason} when
