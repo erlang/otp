@@ -49,6 +49,7 @@
 -include("diameter_util.hrl").
 
 
+-define(EL(F),    ?EL(F, [])).
 -define(EL(F, A), ?LOG("DEXS", F, A)).
 
 
@@ -157,7 +158,9 @@ run(F, Config) ->
 %% Compile example dictionaries in examples/dict.
 
 compile_dicts(Dir) ->
+    ?EL("compile_dicts -> entry"),
     Out = mkdir(Dir, "dict"),
+    ?EL("compile_dicts -> create paths"),
     Dirs = [filename:join(H ++ ["examples", "dict"])
             || H <- [[code:lib_dir(diameter)], [here(), ".."]]],
     [] = [{F,D,RC} || {_,F} <- sort(find_files(Dirs, ".*\\.dia$")),
@@ -198,18 +201,26 @@ make(Path, Dict0, Out)
     make(Path, atom_to_list(Dict0), Out);
 
 make(Path, Dict0, Out) ->
+    ?EL("make -> entry with"
+        "~n   Path:  ~p"
+        "~n   Dict0: ~p"
+        "~n   Out:   ~p", [Path, Dict0, Out]),
     Dict = filename:rootname(filename:basename(Path)),
     {Mod, Pre} = make_name(Dict),
     {"diameter_gen_base" ++ Suf = Mod0, _} = make_name(Dict0),
     Name = Mod ++ Suf,
     try
+        ?EL("make -> try make codec: to erl"),
         ok = to_erl(Path, [{name, Name},
                            {prefix, Pre},
                            {outdir, Out},
                            {inherits, "common/" ++ Mod0}
                            | [{inherits, D ++ "/" ++ M ++ Suf}
                               || {D,M} <- dep(Dict)]]),
-        ok = to_beam(filename:join(Out, Name))
+        ?EL("make -> try make codec: to beam"),
+        ok = to_beam(filename:join(Out, Name)),
+        ?EL("make -> done"),
+        ok
     catch
         throw: {_,_} = E ->
             E
