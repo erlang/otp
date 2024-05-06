@@ -22,8 +22,6 @@ limitations under the License.
 ## mnesia_access Callback Behavior
 
 ```erlang
-
-
 -module(mnesia_frag).
 
 %% Callback functions when accessed within an activity
@@ -40,8 +38,6 @@ limitations under the License.
 ```
 
 ```erlang
-
-
 %% Callback functions which provides transparent
 %% access of fragmented tables from any activity
 %% access context.

@@ -176,7 +176,7 @@ can be started. There are two ways to specify the `Mnesia` directory to be used:
   following example was used to create the directory for the `Company` database:
 
   ```text
-  %erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
+  % erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
   ```
 
 - If no command-line flag is entered, the `Mnesia` directory becomes the current
@@ -188,19 +188,19 @@ enter the following commands:
 1. On the node `a@gin`:
 
 ```text
- gin %erl -sname a  -mnesia dir '"/ldisc/scratch/Mnesia.company"'
+ gin % erl -sname a  -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
 1. On the node `b@skeppet`:
 
 ```text
-skeppet %erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
+skeppet % erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
 1. On one of the two nodes:
 
-```text
-(a@gin)1>mnesia:create_schema([a@gin, b@skeppet]).
+```erlang
+(a@gin)1> mnesia:create_schema([a@gin, b@skeppet]).
 ```
 
 1. The function [mnesia:start()](`mnesia:start/0`) is called on both nodes.
@@ -208,8 +208,6 @@ skeppet %erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
    nodes:
 
 ```erlang
-
-
 dist_init() ->
     mnesia:create_table(employee,
                          [{ram_copies, [a@gin, b@skeppet]},
@@ -257,8 +255,8 @@ work on the "local" `Mnesia` system. No functions start or stop a set of nodes.
 
 Start `Mnesia` by calling the following function:
 
-```text
-          mnesia:start().
+```erlang
+mnesia:start().
 ```
 
 This function initiates the DBMS locally.
@@ -301,12 +299,12 @@ the application must perform some action similar to following before it can use
 the tables:
 
 ```erlang
-          case mnesia:wait_for_tables([a, b], 20000) of
-            {timeout,   RemainingTabs} ->
-              panic(RemainingTabs);
-            ok ->
-              synced
-          end.
+case mnesia:wait_for_tables([a, b], 20000) of
+  {timeout, RemainingTabs} ->
+    panic(RemainingTabs);
+  ok ->
+    synced
+end.
 ```
 
 > #### Warning {: .warning }
@@ -448,21 +446,21 @@ The function arguments are as follows:
 As an example, consider the following record definition:
 
 ```erlang
-      -record(funky, {x, y}).
+-record(funky, {x, y}).
 ```
 
 The following call would create a table that is replicated on two nodes, has an
 extra index on attribute `y`, and is of type `bag`.
 
 ```erlang
-      mnesia:create_table(funky, [{disc_copies, [N1, N2]}, {index,
-      [y]}, {type, bag}, {attributes, record_info(fields, funky)}]).
+mnesia:create_table(funky, [{disc_copies, [N1, N2]}, {index, [y]},
+                            {type, bag}, {attributes, record_info(fields, funky)}]).
 ```
 
 Whereas a call to the following default code values would return a table with a
 RAM copy on the local node, no extra indexes, and the attributes defaulted to
 the list `[key,val]`.
 
-```text
+```erlang
 mnesia:create_table(stuff, [])
 ```

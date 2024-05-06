@@ -22,7 +22,6 @@ limitations under the License.
 ## mnesia_frag_hash Callback Behavior
 
 ```erlang
-
 -module(mnesia_frag_hash).
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
@@ -37,7 +36,6 @@ limitations under the License.
 ```
 
 ```erlang
-
 -record(hash_state,
 	{n_fragments,
 	 next_n_to_split,

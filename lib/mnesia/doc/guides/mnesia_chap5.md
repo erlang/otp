@@ -97,9 +97,9 @@ Table attributes are specified when the table is created. For example, the
 following function creates a table with two RAM replicas:
 
 ```erlang
-      mnesia:create_table(foo,
-                          [{ram_copies, [N1, N2]},
-                           {attributes, record_info(fields, foo)}]).
+mnesia:create_table(foo,
+                    [{ram_copies, [N1, N2]},
+                     {attributes, record_info(fields, foo)}]).
 ```
 
 Tables can also have the following properties, where each attribute has a list
@@ -539,10 +539,10 @@ When `schema_location` is set to `opt_disc`, the function
 schema. This is illustrated as follows:
 
 ```erlang
-        1> mnesia:start().
-        ok
-        2> mnesia:change_table_copy_type(schema, node(), disc_copies).
-        {atomic, ok}
+1> mnesia:start().
+ok
+2> mnesia:change_table_copy_type(schema, node(), disc_copies).
+{atomic, ok}
 ```
 
 Assuming that the call to `mnesia:start/0` does not find any schema to read on
@@ -855,7 +855,7 @@ possible to start an Erlang system to turn on `Mnesia` debug in the initial
 startup phase by using the following code:
 
 ```text
-      % erl -mnesia debug verbose
+% erl -mnesia debug verbose
 ```
 
 ## Concurrent Processes in Mnesia
@@ -910,11 +910,11 @@ use.
 The format of the text file is as follows:
 
 ```erlang
-      {tables, [{Typename, [Options]},
-      {Typename2 ......}]}.
+{tables, [{Typename, [Options]},
+{Typename2 ......}]}.
 
-      {Typename, Attribute1, Attribute2 ....}.
-      {Typename, Attribute1, Attribute2 ....}.
+{Typename, Attribute1, Attribute2 ....}.
+{Typename, Attribute1, Attribute2 ....}.
 ```
 
 `Options` is a list of `{Key,Value}` tuples conforming to the options that you
@@ -924,7 +924,6 @@ For example, to start playing with a small database for healthy foods, enter the
 following data into file `FRUITS`:
 
 ```erlang
-
 {tables,
  [{fruit, [{attributes, [name, color, taste]}]},
   {vegetable, [{attributes, [name, color, taste, price]}]}]}.
@@ -940,40 +939,40 @@ The following session with the Erlang shell shows how to load the `FRUITS`
 database:
 
 ```erlang
-      % erl
-      Erlang (BEAM) emulator version 4.9
+% erl
+Erlang (BEAM) emulator version 4.9
 
-      Eshell V4.9  (abort with ^G)
-      1> mnesia:load_textfile("FRUITS").
-      New table fruit
-      New table vegetable
-      {atomic,ok}
-      2> mnesia:info().
-      ---> Processes holding locks <---
-      ---> Processes waiting for locks <---
-      ---> Pending (remote) transactions <---
-      ---> Active (local) transactions <---
-      ---> Uncertain transactions <---
-      ---> Active tables <---
-      vegetable      : with 2 records occuping 299 words of mem
-      fruit          : with 2 records occuping 291 words of mem
-      schema         : with 3 records occuping 401 words of mem
-      ===> System info in version "1.1", debug level = none <===
-      opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
-      use fallback at restart = false
-      running db nodes = [nonode@nohost]
-      stopped db nodes = []
-      remote           = []
-      ram_copies       = [fruit,vegetable]
-      disc_copies      = [schema]
-      disc_only_copies = []
-      [{nonode@nohost,disc_copies}] = [schema]
-      [{nonode@nohost,ram_copies}] = [fruit,vegetable]
-      3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
-      0 held locks, 0 in queue; 0 local transactions, 0 remote
-      0 transactions waits for other nodes: []
-      ok
-      3>
+Eshell V4.9  (abort with ^G)
+1> mnesia:load_textfile("FRUITS").
+New table fruit
+New table vegetable
+{atomic,ok}
+2> mnesia:info().
+---> Processes holding locks <---
+---> Processes waiting for locks <---
+---> Pending (remote) transactions <---
+---> Active (local) transactions <---
+---> Uncertain transactions <---
+---> Active tables <---
+vegetable      : with 2 records occuping 299 words of mem
+fruit          : with 2 records occuping 291 words of mem
+schema         : with 3 records occuping 401 words of mem
+===> System info in version "1.1", debug level = none <===
+opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
+use fallback at restart = false
+running db nodes = [nonode@nohost]
+stopped db nodes = []
+remote           = []
+ram_copies       = [fruit,vegetable]
+disc_copies      = [schema]
+disc_only_copies = []
+[{nonode@nohost,disc_copies}] = [schema]
+[{nonode@nohost,ram_copies}] = [fruit,vegetable]
+3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
+0 held locks, 0 in queue; 0 local transactions, 0 remote
+0 transactions waits for other nodes: []
+ok
+3>
 ```
 
 It can be seen that the DBMS was initiated from a regular text file.
@@ -991,7 +990,6 @@ operations are also easier to perform on a normalized data model. For example,
 one project can easily be removed, as the following example illustrates:
 
 ```erlang
-
 remove_proj(ProjName) ->
     F = fun() ->
                 Ip = qlc:e(qlc:q([X || X <- mnesia:table(in_proj),
@@ -1030,7 +1028,6 @@ or contain other records that are not part of the `Mnesia` schema.
 The following record definitions can be created:
 
 ```erlang
-
 -record(employee, {emp_no,
 		   name,
 		   salary,
@@ -1053,15 +1050,15 @@ The following record definitions can be created:
 A record that describes an employee can look as follows:
 
 ```erlang
-        Me = #employee{emp_no= 104732,
-        name = klacke,
-        salary = 7,
-        sex = male,
-        phone = 99586,
-        room_no = {221, 015},
-        dept = 'B/SFR',
-        projects = [erlang, mnesia, otp],
-        manager = 114872},
+Me = #employee{emp_no = 104732,
+               name = klacke,
+               salary = 7,
+               sex = male,
+               phone = 99586,
+               room_no = {221, 015},
+               dept = 'B/SFR',
+               projects = [erlang, mnesia, otp],
+               manager = 114872},
 ```
 
 This model has only three different tables, and the employee records contain
@@ -1087,7 +1084,6 @@ find all employees at department `Dep` with a salary higher than `Salary`, use
 the following code:
 
 ```erlang
-
 get_emps(Salary, Dep) ->
     Q = qlc:q(
           [E || E <- mnesia:table(employee),

@@ -39,41 +39,41 @@ This section provides a simplified demonstration of a `Mnesia` system startup.
 The dialogue from the Erlang shell is as follows:
 
 ```erlang
-        unix>  erl -mnesia dir '"/tmp/funky"'
-        Erlang (BEAM) emulator version 4.9
+unix> erl -mnesia dir '"/tmp/funky"'
+Erlang (BEAM) emulator version 4.9
 
-        Eshell V4.9  (abort with ^G)
-        1>
-        1> mnesia:create_schema([node()]).
-        ok
-        2> mnesia:start().
-        ok
-        3> mnesia:create_table(funky, []).
-        {atomic,ok}
-        4> mnesia:info().
-        ---> Processes holding locks <---
-        ---> Processes waiting for locks <---
-        ---> Pending (remote) transactions <---
-        ---> Active (local) transactions <---
-        ---> Uncertain transactions <---
-        ---> Active tables <---
-        funky          : with 0 records occupying 269 words of mem
-        schema         : with 2 records occupying 353 words of mem
-        ===> System info in version "1.0", debug level = none <===
-        opt_disc. Directory "/tmp/funky" is used.
-        use fall-back at restart = false
-        running db nodes = [nonode@nohost]
-        stopped db nodes = []
-        remote           = []
-        ram_copies       = [funky]
-        disc_copies      = [schema]
-        disc_only_copies = []
-        [{nonode@nohost,disc_copies}] = [schema]
-        [{nonode@nohost,ram_copies}] = [funky]
-        1 transactions committed, 0 aborted, 0 restarted, 1 logged to disc
-        0 held locks, 0 in queue; 0 local transactions, 0 remote
-        0 transactions waits for other nodes: []
-        ok
+Eshell V4.9  (abort with ^G)
+1>
+1> mnesia:create_schema([node()]).
+ok
+2> mnesia:start().
+ok
+3> mnesia:create_table(funky, []).
+{atomic,ok}
+4> mnesia:info().
+---> Processes holding locks <---
+---> Processes waiting for locks <---
+---> Pending (remote) transactions <---
+---> Active (local) transactions <---
+---> Uncertain transactions <---
+---> Active tables <---
+funky          : with 0 records occupying 269 words of mem
+schema         : with 2 records occupying 353 words of mem
+===> System info in version "1.0", debug level = none <===
+opt_disc. Directory "/tmp/funky" is used.
+use fall-back at restart = false
+running db nodes = [nonode@nohost]
+stopped db nodes = []
+remote           = []
+ram_copies       = [funky]
+disc_copies      = [schema]
+disc_only_copies = []
+[{nonode@nohost,disc_copies}] = [schema]
+[{nonode@nohost,ram_copies}] = [funky]
+1 transactions committed, 0 aborted, 0 restarted, 1 logged to disc
+0 held locks, 0 in queue; 0 local transactions, 0 remote
+0 transactions waits for other nodes: []
+ok
 ```
 
 In this example, the following actions are performed:
@@ -122,7 +122,6 @@ First the record definitions are entered into a text file named `company.hrl`.
 This file defines the following structure for the example database:
 
 ```erlang
-
 -record(employee, {emp_no,
                    name,
                    salary,
@@ -170,21 +169,19 @@ The following shell interaction starts `Mnesia` and initializes the schema for
 the `Company` database:
 
 ```erlang
-        % erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
-         Erlang (BEAM) emulator version 4.9
+% erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
+Erlang (BEAM) emulator version 4.9
 
-          Eshell V4.9  (abort with ^G)
-          1> mnesia:create_schema([node()]).
-          ok
-          2> mnesia:start().
-          ok
+Eshell V4.9  (abort with ^G)
+1> mnesia:create_schema([node()]).
+ok
+2> mnesia:start().
+ok
 ```
 
 The following program module creates and populates previously defined tables:
 
 ```erlang
-
-
 -include_lib("stdlib/include/qlc.hrl").
 -include("company.hrl").
 
@@ -222,39 +219,39 @@ database:
 Continuing the dialogue with the Erlang shell produces the following:
 
 ```erlang
-        3> company:init().
-        {atomic,ok}
-        4> mnesia:info().
-        ---> Processes holding locks <---
-        ---> Processes waiting for locks <---
-        ---> Pending (remote) transactions <---
-        ---> Active (local) transactions <---
-        ---> Uncertain transactions <---
-        ---> Active tables <---
-        in_proj        : with 0 records occuping 269 words of mem
-        at_dep         : with 0 records occuping 269 words of mem
-        manager        : with 0 records occuping 269 words of mem
-        project        : with 0 records occuping 269 words of mem
-        dept           : with 0 records occuping 269 words of mem
-        employee       : with 0 records occuping 269 words of mem
-        schema         : with 7 records occuping 571 words of mem
-        ===> System info in version "1.0", debug level = none <===
-        opt_disc. Directory "/ldisc/scratch/Mnesia.Company" is used.
-        use fall-back at restart = false
-        running db nodes = [nonode@nohost]
-        stopped db nodes = []
-        remote           = []
-        ram_copies       =
-            [at_dep,dept,employee,in_proj,manager,project]
-        disc_copies      = [schema]
-        disc_only_copies = []
-        [{nonode@nohost,disc_copies}] = [schema]
-        [{nonode@nohost,ram_copies}] =
-            [employee,dept,project,manager,at_dep,in_proj]
-        6 transactions committed, 0 aborted, 0 restarted, 6 logged to disc
-        0 held locks, 0 in queue; 0 local transactions, 0 remote
-        0 transactions waits for other nodes: []
-        ok
+3> company:init().
+{atomic,ok}
+4> mnesia:info().
+---> Processes holding locks <---
+---> Processes waiting for locks <---
+---> Pending (remote) transactions <---
+---> Active (local) transactions <---
+---> Uncertain transactions <---
+---> Active tables <---
+in_proj        : with 0 records occuping 269 words of mem
+at_dep         : with 0 records occuping 269 words of mem
+manager        : with 0 records occuping 269 words of mem
+project        : with 0 records occuping 269 words of mem
+dept           : with 0 records occuping 269 words of mem
+employee       : with 0 records occuping 269 words of mem
+schema         : with 7 records occuping 571 words of mem
+===> System info in version "1.0", debug level = none <===
+opt_disc. Directory "/ldisc/scratch/Mnesia.Company" is used.
+use fall-back at restart = false
+running db nodes = [nonode@nohost]
+stopped db nodes = []
+remote           = []
+ram_copies       =
+    [at_dep,dept,employee,in_proj,manager,project]
+disc_copies      = [schema]
+disc_only_copies = []
+[{nonode@nohost,disc_copies}] = [schema]
+[{nonode@nohost,ram_copies}] =
+    [employee,dept,project,manager,at_dep,in_proj]
+6 transactions committed, 0 aborted, 0 restarted, 6 logged to disc
+0 held locks, 0 in queue; 0 local transactions, 0 remote
+0 transactions waits for other nodes: []
+ok
 ```
 
 A set of tables is created. The function
@@ -279,8 +276,6 @@ must be an `at_dep` record and a set of `in_proj` records inserted. Examine the
 following code used to complete this action:
 
 ```erlang
-
-
 insert_emp(Emp, DeptId, ProjNames) ->
     Ename = Emp#employee.name,
     Fun = fun() ->
@@ -317,13 +312,13 @@ as a transaction with the following properties:
 The function can be used as follows:
 
 ```erlang
-          Emp  = #employee{emp_no= 104732,
-                           name = klacke,
-                           salary = 7,
-                           sex = male,
-                           phone = 98108,
-                           room_no = {221, 015}},
-        insert_emp(Emp, 'B/SFR', [Erlang, mnesia, otp]).
+Emp = #employee{emp_no = 104732,
+                name = klacke,
+                salary = 7,
+                sex = male,
+                phone = 98108,
+                room_no = {221, 015}},
+insert_emp(Emp, 'B/SFR', [Erlang, mnesia, otp]).
 ```
 
 > #### Note {: .info }
@@ -395,35 +390,35 @@ following records:
 `employees`:
 
 ```erlang
-        {employee, 104465, "Johnson Torbjorn",   1, male,  99184, {242,038}}.
-        {employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}}.
-        {employee, 114872, "Dacker Bjarne",      3, male,  99415, {221,035}}.
-        {employee, 104531, "Nilsson Hans",       3, male,  99495, {222,026}}.
-        {employee, 104659, "Tornkvist Torbjorn", 2, male,  99514, {222,022}}.
-        {employee, 104732, "Wikstrom Claes",     2, male,  99586, {221,015}}.
-        {employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}}.
-        {employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.
+{employee, 104465, "Johnson Torbjorn",   1, male,  99184, {242,038}}.
+{employee, 107912, "Carlsson Tuula",     2, female,94556, {242,056}}.
+{employee, 114872, "Dacker Bjarne",      3, male,  99415, {221,035}}.
+{employee, 104531, "Nilsson Hans",       3, male,  99495, {222,026}}.
+{employee, 104659, "Tornkvist Torbjorn", 2, male,  99514, {222,022}}.
+{employee, 104732, "Wikstrom Claes",     2, male,  99586, {221,015}}.
+{employee, 117716, "Fedoriw Anna",       1, female,99143, {221,031}}.
+{employee, 115018, "Mattsson Hakan",     3, male,  99251, {203,348}}.
 ```
 
 `dept`:
 
 ```erlang
-        {dept, 'B/SF',  "Open Telecom Platform"}.
-        {dept, 'B/SFP', "OTP - Product Development"}.
-        {dept, 'B/SFR', "Computer Science Laboratory"}.
+{dept, 'B/SF',  "Open Telecom Platform"}.
+{dept, 'B/SFP', "OTP - Product Development"}.
+{dept, 'B/SFR', "Computer Science Laboratory"}.
 ```
 
 `projects`:
 
 ```erlang
-        %% projects
-        {project, erlang, 1}.
-        {project, otp, 2}.
-        {project, beam, 3}.
-        {project, mnesia, 5}.
-        {project, wolf, 6}.
-        {project, documentation, 7}.
-        {project, www, 8}.
+%% projects
+{project, erlang, 1}.
+{project, otp, 2}.
+{project, beam, 3}.
+{project, mnesia, 5}.
+{project, wolf, 6}.
+{project, documentation, 7}.
+{project, www, 8}.
 ```
 
 These three tables, `employees`, `dept`, and `projects`, are made up of real
@@ -433,42 +428,42 @@ relationships. These tables are `manager`, `at_dep`, and `in_proj`.
 `manager`:
 
 ```erlang
-        {manager, 104465, 'B/SF'}.
-        {manager, 104465, 'B/SFP'}.
-        {manager, 114872, 'B/SFR'}.
+{manager, 104465, 'B/SF'}.
+{manager, 104465, 'B/SFP'}.
+{manager, 114872, 'B/SFR'}.
 ```
 
 `at_dep`:
 
 ```erlang
-        {at_dep, 104465, 'B/SF'}.
-        {at_dep, 107912, 'B/SF'}.
-        {at_dep, 114872, 'B/SFR'}.
-        {at_dep, 104531, 'B/SFR'}.
-        {at_dep, 104659, 'B/SFR'}.
-        {at_dep, 104732, 'B/SFR'}.
-        {at_dep, 117716, 'B/SFP'}.
-        {at_dep, 115018, 'B/SFP'}.
+{at_dep, 104465, 'B/SF'}.
+{at_dep, 107912, 'B/SF'}.
+{at_dep, 114872, 'B/SFR'}.
+{at_dep, 104531, 'B/SFR'}.
+{at_dep, 104659, 'B/SFR'}.
+{at_dep, 104732, 'B/SFR'}.
+{at_dep, 117716, 'B/SFP'}.
+{at_dep, 115018, 'B/SFP'}.
 ```
 
 `in_proj`:
 
 ```erlang
-        {in_proj, 104465, otp}.
-        {in_proj, 107912, otp}.
-        {in_proj, 114872, otp}.
-        {in_proj, 104531, otp}.
-        {in_proj, 104531, mnesia}.
-        {in_proj, 104545, wolf}.
-        {in_proj, 104659, otp}.
-        {in_proj, 104659, wolf}.
-        {in_proj, 104732, otp}.
-        {in_proj, 104732, mnesia}.
-        {in_proj, 104732, erlang}.
-        {in_proj, 117716, otp}.
-        {in_proj, 117716, documentation}.
-        {in_proj, 115018, otp}.
-        {in_proj, 115018, mnesia}.
+{in_proj, 104465, otp}.
+{in_proj, 107912, otp}.
+{in_proj, 114872, otp}.
+{in_proj, 104531, otp}.
+{in_proj, 104531, mnesia}.
+{in_proj, 104545, wolf}.
+{in_proj, 104659, otp}.
+{in_proj, 104659, wolf}.
+{in_proj, 104732, otp}.
+{in_proj, 104732, mnesia}.
+{in_proj, 104732, erlang}.
+{in_proj, 117716, otp}.
+{in_proj, 117716, documentation}.
+{in_proj, 115018, otp}.
+{in_proj, 115018, mnesia}.
 ```
 
 The room number is an attribute of the employee record. This is a structured
@@ -486,7 +481,6 @@ Retrieving data from DBMS is usually to be done with the functions
 raises the salary:
 
 ```erlang
-
 raise(Eno, Raise) ->
     F = fun() ->
                 [E] = mnesia:read(employee, Eno, write),
@@ -525,7 +519,6 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
 following function can be constructed to call from the shell:
 
 ```erlang
-
 all_females() ->
     F = fun() ->
 		Female = #employee{sex = female, name = '$1', _ = '_'},
@@ -540,8 +533,8 @@ The `select` expression matches all entries in table employee with the field
 This function can be called from the shell as follows:
 
 ```erlang
-          (klacke@gin)1> company:all_females().
-          {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}
+(klacke@gin)1> company:all_females().
+{atomic, ["Carlsson Tuula", "Fedoriw Anna"]}
 ```
 
 For a description of `select` and its syntax, see
@@ -558,16 +551,15 @@ offers a nice syntax.
 The following function extracts a list of female employees from the database:
 
 ```erlang
-          Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
-                                E#employee.sex == female]),
-          qlc:e(Q),
+Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
+                              E#employee.sex == female]),
+qlc:e(Q),
 ```
 
 Accessing `Mnesia` tables from a QLC list comprehension must always be done
 within a transaction. Consider the following function:
 
 ```erlang
-
 females() ->
     F = fun() ->
 		Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
@@ -580,8 +572,8 @@ females() ->
 This function can be called from the shell as follows:
 
 ```erlang
-          (klacke@gin)1> company:females().
-          {atomic, ["Carlsson Tuula", "Fedoriw Anna"]}
+(klacke@gin)1> company:females().
+{atomic, ["Carlsson Tuula", "Fedoriw Anna"]}
 ```
 
 In traditional relational database terminology, this operation is called a
@@ -604,7 +596,6 @@ same transaction. To raise the salary of all female employees, execute the
 following:
 
 ```erlang
-
 raise_females(Amount) ->
     F = fun() ->
                 Q = qlc:q([E || E <- mnesia:table(employee),
@@ -630,7 +621,7 @@ that the salary is not raised for any employee.
 
 _Example:_
 
-```text
-          33>company:raise_females(33).
-          {atomic,2}
+```erlang
+33> company:raise_females(33).
+{atomic,2}
 ```

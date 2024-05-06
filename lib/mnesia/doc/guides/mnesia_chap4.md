@@ -55,7 +55,6 @@ The following example shows a transaction that raises the salary of certain
 employee numbers:
 
 ```erlang
-
 raise(Eno, Raise) ->
     F = fun() ->
                 [E] = mnesia:read(employee, Eno, write),
@@ -188,7 +187,6 @@ messages are sent by the transaction Fun. The following example illustrates this
 situation:
 
 ```erlang
-
 bad_raise(Eno, Raise) ->
     F = fun() ->
                 [E] = mnesia:read({employee, Eno}),
@@ -265,10 +263,10 @@ that first acquired the lock has terminated. To illustrate this, assume that the
 following transaction is executed:
 
 ```erlang
-        F = fun() ->
-              mnesia:write(#foo{a = kalle})
-            end,
-        mnesia:transaction(F).
+F = fun() ->
+      mnesia:write(#foo{a = kalle})
+    end,
+mnesia:transaction(F).
 ```
 
 The `foo` table is replicated on the two nodes `N1` and `N2`.
@@ -281,10 +279,10 @@ Normal locking requires the following:
 If sticky locks are used, the code must first be changed as follows:
 
 ```erlang
-        F = fun() ->
-              mnesia:s_write(#foo{a = kalle})
-            end,
-        mnesia:transaction(F).
+F = fun() ->
+      mnesia:s_write(#foo{a = kalle})
+    end,
+mnesia:transaction(F).
 ```
 
 This code uses the function [s_write/1](`mnesia:s_write/1`) instead of the
@@ -323,8 +321,8 @@ operations:
 Alternative syntax for acquisition of table locks is as follows:
 
 ```erlang
-        mnesia:lock({table, Tab}, read)
-        mnesia:lock({table, Tab}, write)
+mnesia:lock({table, Tab}, read)
+mnesia:lock({table, Tab}, write)
 ```
 
 The matching operations in `Mnesia` can either lock the entire table or only a
@@ -341,9 +339,9 @@ previously) but also for situations when locks need to be acquired regardless of
 how tables have been replicated:
 
 ```text
-        mnesia:lock({global, GlobalKey, Nodes}, LockKind)
+mnesia:lock({global, GlobalKey, Nodes}, LockKind)
 
-        LockKind ::= read | write | ...
+LockKind ::= read | write | ...
 ```
 
 The lock is acquired on `LockItem` on all nodes in the node list.
@@ -472,7 +470,7 @@ property `record_name`, the following code ensures that all records in the
 tables have the same name as the table:
 
 ```erlang
-      mnesia:create_table(subscriber, [])
+mnesia:create_table(subscriber, [])
 ```
 
 However, if the table is created with an explicit record name as argument, as
@@ -480,9 +478,9 @@ shown in the following example, subscriber records can be stored in both of the
 tables regardless of the table names:
 
 ```erlang
-      TabDef = [{record_name, subscriber}],
-      mnesia:create_table(my_subscriber, TabDef),
-      mnesia:create_table(your_subscriber, TabDef).
+TabDef = [{record_name, subscriber}],
+mnesia:create_table(my_subscriber, TabDef),
+mnesia:create_table(your_subscriber, TabDef).
 ```
 
 To access such tables, simplified access functions (as described earlier) cannot
@@ -491,9 +489,9 @@ function `mnesia:write/3` instead of the simplified functions `mnesia:write/1`
 and `mnesia:s_write/1`:
 
 ```erlang
-      mnesia:write(subscriber, #subscriber{}, write)
-      mnesia:write(my_subscriber, #subscriber{}, sticky_write)
-      mnesia:write(your_subscriber, #subscriber{}, write)
+mnesia:write(subscriber, #subscriber{}, write)
+mnesia:write(my_subscriber, #subscriber{}, sticky_write)
+mnesia:write(your_subscriber, #subscriber{}, write)
 ```
 
 The following simple code illustrates the relationship between the simplified
@@ -501,67 +499,67 @@ access functions used in most of the examples and their more flexible
 counterparts:
 
 ```erlang
-      mnesia:dirty_write(Record) ->
-        Tab = element(1, Record),
-        mnesia:dirty_write(Tab, Record).
+mnesia:dirty_write(Record) ->
+  Tab = element(1, Record),
+  mnesia:dirty_write(Tab, Record).
 
-      mnesia:dirty_delete({Tab, Key}) ->
-        mnesia:dirty_delete(Tab, Key).
+mnesia:dirty_delete({Tab, Key}) ->
+  mnesia:dirty_delete(Tab, Key).
 
-      mnesia:dirty_delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:dirty_delete_object(Tab, Record)
+mnesia:dirty_delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:dirty_delete_object(Tab, Record)
 
-      mnesia:dirty_update_counter({Tab, Key}, Incr) ->
-        mnesia:dirty_update_counter(Tab, Key, Incr).
+mnesia:dirty_update_counter({Tab, Key}, Incr) ->
+  mnesia:dirty_update_counter(Tab, Key, Incr).
 
-      mnesia:dirty_read({Tab, Key}) ->
-        Tab = element(1, Record),
-        mnesia:dirty_read(Tab, Key).
+mnesia:dirty_read({Tab, Key}) ->
+  Tab = element(1, Record),
+  mnesia:dirty_read(Tab, Key).
 
-      mnesia:dirty_match_object(Pattern) ->
-        Tab = element(1, Pattern),
-        mnesia:dirty_match_object(Tab, Pattern).
+mnesia:dirty_match_object(Pattern) ->
+  Tab = element(1, Pattern),
+  mnesia:dirty_match_object(Tab, Pattern).
 
-      mnesia:dirty_index_match_object(Pattern, Attr)
-        Tab = element(1, Pattern),
-        mnesia:dirty_index_match_object(Tab, Pattern, Attr).
+mnesia:dirty_index_match_object(Pattern, Attr)
+  Tab = element(1, Pattern),
+  mnesia:dirty_index_match_object(Tab, Pattern, Attr).
 
-      mnesia:write(Record) ->
-        Tab = element(1, Record),
-        mnesia:write(Tab, Record, write).
+mnesia:write(Record) ->
+  Tab = element(1, Record),
+  mnesia:write(Tab, Record, write).
 
-      mnesia:s_write(Record) ->
-        Tab = element(1, Record),
-        mnesia:write(Tab, Record, sticky_write).
+mnesia:s_write(Record) ->
+  Tab = element(1, Record),
+  mnesia:write(Tab, Record, sticky_write).
 
-      mnesia:delete({Tab, Key}) ->
-        mnesia:delete(Tab, Key, write).
+mnesia:delete({Tab, Key}) ->
+  mnesia:delete(Tab, Key, write).
 
-      mnesia:s_delete({Tab, Key}) ->
-        mnesia:delete(Tab, Key, sticky_write).
+mnesia:s_delete({Tab, Key}) ->
+  mnesia:delete(Tab, Key, sticky_write).
 
-      mnesia:delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:delete_object(Tab, Record, write).
+mnesia:delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:delete_object(Tab, Record, write).
 
-      mnesia:s_delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:delete_object(Tab, Record, sticky_write).
+mnesia:s_delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:delete_object(Tab, Record, sticky_write).
 
-      mnesia:read({Tab, Key}) ->
-        mnesia:read(Tab, Key, read).
+mnesia:read({Tab, Key}) ->
+  mnesia:read(Tab, Key, read).
 
-      mnesia:wread({Tab, Key}) ->
-        mnesia:read(Tab, Key, write).
+mnesia:wread({Tab, Key}) ->
+  mnesia:read(Tab, Key, write).
 
-      mnesia:match_object(Pattern) ->
-        Tab = element(1, Pattern),
-        mnesia:match_object(Tab, Pattern, read).
+mnesia:match_object(Pattern) ->
+  Tab = element(1, Pattern),
+  mnesia:match_object(Tab, Pattern, read).
 
-      mnesia:index_match_object(Pattern, Attr) ->
-        Tab = element(1, Pattern),
-        mnesia:index_match_object(Tab, Pattern, Attr, read).
+mnesia:index_match_object(Pattern, Attr) ->
+  Tab = element(1, Pattern),
+  mnesia:index_match_object(Tab, Pattern, Attr, read).
 ```
 
 ## Activity Concept and Various Access Contexts
@@ -704,9 +702,9 @@ tables.
 Consider a function that adds a subscriber to a telephony system:
 
 ```erlang
-      add_subscriber(S) ->
-          mnesia:transaction(fun() ->
-              case mnesia:read( ..........
+add_subscriber(S) ->
+    mnesia:transaction(fun() ->
+        case mnesia:read( ..........
 ```
 
 This function needs to be called as a transaction. Assume that you wish to write
@@ -722,20 +720,20 @@ two or three phase commit.
 _Example:_
 
 ```erlang
-      add_subscriber(S) ->
-          mnesia:transaction(fun() ->
-             %% Transaction context
-             mnesia:read({some_tab, some_data}),
-             mnesia:sync_dirty(fun() ->
-                 %% Still in a transaction context.
-                 case mnesia:read( ..) ..end), end).
-      add_subscriber2(S) ->
-          mnesia:sync_dirty(fun() ->
-             %% In dirty context
-             mnesia:read({some_tab, some_data}),
-             mnesia:transaction(fun() ->
-                 %% In a transaction context.
-                 case mnesia:read( ..) ..end), end).
+add_subscriber(S) ->
+    mnesia:transaction(fun() ->
+       %% Transaction context
+       mnesia:read({some_tab, some_data}),
+       mnesia:sync_dirty(fun() ->
+           %% Still in a transaction context.
+           case mnesia:read( ..) ..end), end).
+add_subscriber2(S) ->
+    mnesia:sync_dirty(fun() ->
+       %% In dirty context
+       mnesia:read({some_tab, some_data}),
+       mnesia:transaction(fun() ->
+           %% In a transaction context.
+           case mnesia:read( ..) ..end), end).
 ```
 
 ## Pattern Matching
@@ -747,14 +745,14 @@ programmer with several functions for matching records against a pattern. The
 most useful ones are the following:
 
 ```erlang
-      mnesia:select(Tab, MatchSpecification, LockKind) ->
-          transaction abort | [ObjectList]
-      mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->
-          transaction abort | {[Object],Continuation} | '$end_of_table'
-      mnesia:select(Cont) ->
-          transaction abort | {[Object],Continuation} | '$end_of_table'
-      mnesia:match_object(Tab, Pattern, LockKind) ->
-          transaction abort | RecordList
+mnesia:select(Tab, MatchSpecification, LockKind) ->
+    transaction abort | [ObjectList]
+mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->
+    transaction abort | {[Object],Continuation} | '$end_of_table'
+mnesia:select(Cont) ->
+    transaction abort | {[Object],Continuation} | '$end_of_table'
+mnesia:match_object(Tab, Pattern, LockKind) ->
+    transaction abort | RecordList
 ```
 
 These functions match a `Pattern` against all records in table `Tab`. In a
@@ -780,24 +778,24 @@ code more vulnerable to future changes of the record definition.
 _Example:_
 
 ```erlang
-      Wildpattern = mnesia:table_info(employee, wild_pattern),
-      %% Or use
-      Wildpattern = #employee{_ = '_'},
+Wildpattern = mnesia:table_info(employee, wild_pattern),
+%% Or use
+Wildpattern = #employee{_ = '_'},
 ```
 
 For the employee table, the wild pattern looks as follows:
 
-```text
-      {employee, '_', '_', '_', '_', '_',' _'}.
+```erlang
+{employee, '_', '_', '_', '_', '_',' _'}.
 ```
 
 To constrain the match, it is needed to replace some of the `'_'` elements. The
 code for matching out all female employees looks as follows:
 
 ```erlang
-      Pat = #employee{sex = female, _ = '_'},
-      F = fun() -> mnesia:match_object(Pat) end,
-      Females = mnesia:transaction(F).
+Pat = #employee{sex = female, _ = '_'},
+F = fun() -> mnesia:match_object(Pat) end,
+Females = mnesia:transaction(F).
 ```
 
 The match function can also be used to check the equality of different
@@ -805,9 +803,9 @@ attributes. For example, to find all employees with an employee number equal to
 their room number:
 
 ```erlang
-      Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
-      F = fun() -> mnesia:match_object(Pat) end,
-      Odd = mnesia:transaction(F).
+Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
+F = fun() -> mnesia:match_object(Pat) end,
+Odd = mnesia:transaction(F).
 ```
 
 The function `mnesia:match_object/3` lacks some important features that
@@ -816,11 +814,10 @@ can only return the matching records, and it cannot express constraints other
 than equality. To find the names of the male employees on the second floor:
 
 ```erlang
-
-      MatchHead = #employee{name='$1', sex=male, room_no={'$2', '_'}, _='_'},
-      Guard = [{'>=', '$2', 220},{'<', '$2', 230}],
-      Result = '$1',
-      mnesia:select(employee,[{MatchHead, Guard, [Result]}])
+MatchHead = #employee{name='$1', sex=male, room_no={'$2', '_'}, _='_'},
+Guard = [{'>=', '$2', 220},{'<', '$2', 230}],
+Result = '$1',
+mnesia:select(employee,[{MatchHead, Guard, [Result]}])
 ```
 
 The function `select` can be used to add more constraints and create output that
@@ -863,7 +860,7 @@ remedied with indexes (see [Indexing](mnesia_chap5.md#indexing)) if the function
 QLC queries can also be used to search `Mnesia` tables. By using the function
 [mnesia:table/1,2](`mnesia:table/1`) as the generator inside a QLC query, you
 let the query operate on a `Mnesia` table. `Mnesia`\-specific options to
-`mnesia:table/2` are `{lock, Lock}`, `{n_objects,Integer}`, and
+`mnesia:table/2` are `{lock, Lock}`, `{n_objects, Integer}`, and
 `{traverse, SelMethod}`:
 
 - `lock` specifies whether `Mnesia` is to acquire a read or write lock on the
@@ -880,8 +877,8 @@ If no options are specified, a read lock is acquired, 100 results are returned
 in each chunk, and `select` is used to traverse the table, that is:
 
 ```erlang
-      mnesia:table(Tab) ->
-          mnesia:table(Tab, [{n_objects,100},{lock, read}, {traverse, select}]).
+mnesia:table(Tab) ->
+    mnesia:table(Tab, [{n_objects, 100},{lock, read}, {traverse, select}]).
 ```
 
 The function [mnesia:all_keys(Tab)](`mnesia:all_keys/1`) returns all keys in a
@@ -893,10 +890,10 @@ table.
 table:
 
 ```erlang
-      mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
-      mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
-      mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
-      mnesia:foldr(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
+mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
+mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
+mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
+mnesia:foldr(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
 ```
 
 These functions iterate over the `Mnesia` table `Tab` and apply the function
@@ -923,32 +920,32 @@ For example, finding all the employees who have a salary less than 10 can look
 as follows:
 
 ```erlang
-      find_low_salaries() ->
-        Constraint =
-             fun(Emp, Acc) when Emp#employee.salary < 10 ->
-                    [Emp | Acc];
-                (_, Acc) ->
-                    Acc
-             end,
-        Find = fun() -> mnesia:foldl(Constraint, [], employee) end,
-        mnesia:transaction(Find).
+find_low_salaries() ->
+  Constraint =
+       fun(Emp, Acc) when Emp#employee.salary < 10 ->
+              [Emp | Acc];
+          (_, Acc) ->
+              Acc
+       end,
+  Find = fun() -> mnesia:foldl(Constraint, [], employee) end,
+  mnesia:transaction(Find).
 ```
 
 To raise the salary to 10 for everyone with a salary less than 10 and return the
 sum of all raises:
 
 ```erlang
-      increase_low_salaries() ->
-         Increase =
-             fun(Emp, Acc) when Emp#employee.salary < 10 ->
-                    OldS = Emp#employee.salary,
-                    ok = mnesia:write(Emp#employee{salary = 10}),
-                    Acc + 10 - OldS;
-                (_, Acc) ->
-                    Acc
-             end,
-        IncLow = fun() -> mnesia:foldl(Increase, 0, employee, write) end,
-        mnesia:transaction(IncLow).
+increase_low_salaries() ->
+   Increase =
+       fun(Emp, Acc) when Emp#employee.salary < 10 ->
+              OldS = Emp#employee.salary,
+              ok = mnesia:write(Emp#employee{salary = 10}),
+              Acc + 10 - OldS;
+          (_, Acc) ->
+              Acc
+       end,
+  IncLow = fun() -> mnesia:foldl(Increase, 0, employee, write) end,
+  mnesia:transaction(IncLow).
 ```
 
 Many nice things can be done with the iterator functions but take some caution
@@ -963,11 +960,11 @@ iterate over the table. The order of the iteration is unspecified if the table
 is not of type `ordered_set`:
 
 ```erlang
-      mnesia:first(Tab) ->  Key | transaction abort
-      mnesia:last(Tab)  ->  Key | transaction abort
-      mnesia:next(Tab,Key)  ->  Key | transaction abort
-      mnesia:prev(Tab,Key)  ->  Key | transaction abort
-      mnesia:snmp_get_next_index(Tab,Index) -> {ok, NextIndex} | endOfTable
+mnesia:first(Tab) ->  Key | transaction abort
+mnesia:last(Tab)  ->  Key | transaction abort
+mnesia:next(Tab,Key)  ->  Key | transaction abort
+mnesia:prev(Tab,Key)  ->  Key | transaction abort
+mnesia:snmp_get_next_index(Tab,Index) -> {ok, NextIndex} | endOfTable
 ```
 
 The order of `first`/`last` and `next`/`prev` is only valid for `ordered_set`

@@ -638,7 +638,6 @@ The following example shows how
 `db_node` in a backup file:
 
 ```erlang
-
 change_node_name(Mod, From, To, Source, Target) ->
     Switch =
         fun(Node) when Node == From -> To;
