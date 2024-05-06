@@ -562,7 +562,7 @@ template(E = #xmlElement{name='motorcycles'}) ->
 
 In the xmerl_xs functions you can provide a select(String) call, which is an
 [XPath](http://www.w3.org/TR/xpath) functionality. For more details see the
-xmerl_xs [tutorial](assets/xmerl_xs_examples.html).
+xmerl_xs [tutorial](`e:xmerl:xmerl_xs_examples.html`).
 
 Now, back to the example where we wanted to make the output more arranged. With
 the template:
