@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ Interface module to TPKT transport protocol for Megaco/H.248.
 
 This module contains the public interface to the TPKT (TCP/IP) version transport
 protocol for Megaco/H.248.
+
 """.
 
 -behaviour(gen_server).
@@ -75,6 +76,11 @@ protocol for Megaco/H.248.
 
 %% -export([tcp_sockets/0]).
 
+-export_type([
+         handle/0,
+         counter/0
+        ]).
+
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -91,6 +97,21 @@ protocol for Megaco/H.248.
 	]).
 
 
+-doc """
+An opaque data type representing a TPKT connection.
+""".
+-opaque handle() :: inet:socket().
+
+-doc """
+Defines the different counters handled by this transport.
+""".
+-type counter() :: medGwyGatewayNumInMessages |
+                   medGwyGatewayNumInOctets |
+                   medGwyGatewayNumOutMessages |
+                   medGwyGatewayNumOutOctets |
+                   medGwyGatewayNumErrors.
+
+
 %%-----------------------------------------------------------------
 %% Server state record
 %%-----------------------------------------------------------------
@@ -105,19 +126,43 @@ protocol for Megaco/H.248.
 %% Func: get_stats/0, get_stats/1, get_stats/2
 %% Description: Retreive statistics (counters) for TCP
 %%-----------------------------------------------------------------
--doc(#{equiv => get_stats/2}).
+-doc """
+Get all counter values for all known connections.
+""".
+
+-spec get_stats() -> {ok, TotalStats} | {error, Reason} when
+      TotalStats :: [{Handle, [{Counter, integer()}]}],
+      Handle     :: handle(),
+      Counter    :: counter(),
+      Reason     :: term().
+
 get_stats() ->
     megaco_stats:get_stats(megaco_tcp_stats).
 
--doc(#{equiv => get_stats/2}).
+
+-doc """
+Get all counter values for a given (connection) handle.
+""".
+
+-spec get_stats(Handle) -> {ok, Stats} | {error, Reason} when
+      Handle  :: handle(),
+      Stats   :: [{Counter, integer()}],
+      Counter :: counter(),
+      Reason  :: term().
+      
 get_stats(Socket) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket).
 
--doc """
-get_stats(SendHandle, Counter) -> {ok, CounterStats} | {error, Reason}
 
-Retreive the TCP related (SNMP) statistics counters.
+-doc """
+Get the value of a specific counter.
 """.
+
+-spec get_stats(Handle, Counter) -> {ok, integer()} | {error, Reason} when
+      Handle  :: handle(),
+      Counter :: counter(),
+      Reason  :: term().
+
 get_stats(Socket, Counter) ->
     megaco_stats:get_stats(megaco_tcp_stats, Socket, Counter).
 
@@ -126,15 +171,24 @@ get_stats(Socket, Counter) ->
 %% Func: reset_stats/0, reaet_stats/1
 %% Description: Reset statistics (counters) for TCP
 %%-----------------------------------------------------------------
--doc(#{equiv => reset_stats/1}).
+
+-doc """
+Reset all counters for all connections.
+""".
+
+-spec reset_stats() -> megaco:void().
+
 reset_stats() ->
     megaco_stats:reset_stats(megaco_tcp_stats).
 
--doc """
-reset_stats(SendHandle) -> void()
 
-Reset all TCP related (SNMP) statistics counters.
+-doc """
+Reset all counters for the given connection.
 """.
+
+-spec reset_stats(Handle) -> megaco:void() when
+      Handle :: handle().
+
 reset_stats(Socket) ->
     megaco_stats:reset_stats(megaco_tcp_stats, Socket).
 
@@ -144,11 +198,13 @@ reset_stats(Socket) ->
 %% Description: Starts the TPKT transport service
 %%-----------------------------------------------------------------
 -doc """
-start_transport() -> {ok, TransportRef}
-
 This function is used for starting the TCP/IP transport service. Use
 exit(TransportRef, Reason) to stop the transport service.
 """.
+
+-spec start_transport() -> {ok, TransportRef} when
+      TransportRef :: pid().
+
 start_transport() ->
     ?d2("start_transport -> entry"),
     (catch megaco_stats:init(megaco_tcp_stats)),
@@ -176,8 +232,6 @@ stop_transport(Pid, Reason) ->
 %% Description: Starts new TPKT listener sockets
 %%-----------------------------------------------------------------
 -doc """
-listen(TransportRef, ListenPortSpecList) -> ok
-
 This function is used for starting new TPKT listening socket for TCP/IP. The
 option list contains the socket definitions.
 
@@ -188,6 +242,16 @@ option list contains the socket definitions.
 
   Default is `default` (system default).
 """.
+
+-spec listen(TransportRef, Options) -> ok when
+      TransportRef :: pid() | RegName,
+      RegName      :: atom(),
+      Options      :: [Option],
+      Option       :: {inet_backend,    default | inet | socket} |
+                      {port,            inet:port_number()} |
+                      {options,         list()} |
+                      {receive_handle,  term()}.
+
 listen(SupPid, Parameters) ->
     ?d1("listen -> entry with"
 	"~n   SupPid:     ~p"
@@ -209,8 +273,6 @@ listen(SupPid, Parameters) ->
 %%              at the MG side when trying to connect an MGC
 %%-----------------------------------------------------------------
 -doc """
-connect(TransportRef, OptionList) -> {ok, Handle, ControlPid} | {error, Reason}
-
 This function is used to open a TPKT connection.
 
 - **`module`** - This option makes it possible for the user to provide their own
@@ -231,12 +293,30 @@ This function is used to open a TPKT connection.
 
   Default is `default` (system default).
 """.
-connect(SupPid, Parameters) ->
+
+-spec connect(TransportRef, Opts) ->
+          {ok, Handle, ControlPid} | {error, Reason} when
+      TransportRef :: pid() | RegName,
+      RegName      :: atom(),
+      Opts         :: [Option],
+      Option       :: {inet_backend, default | inet | socket} |
+                      {host,           Host} |
+                      {port,           PortNum} |
+                      {options,        list()} |
+                      {receive_handle, term()} |
+                      {module,         atom()},
+      Host         :: inet:socket_address() | inet:hostname(),
+      PortNum      :: inet:port_number(),
+      Handle       :: handle(),
+      ControlPid   :: pid(),
+      Reason       :: term().
+
+connect(TransportRef, Opts) ->
     ?d1("connect -> entry with"
-	"~n   SupPid:     ~p"
-	"~n   Parameters: ~p", [SupPid, Parameters]),
+	"~n   TransportRef: ~p"
+	"~n   Opts:         ~p", [TransportRef, Opts]),
     Mand = [host, port, receive_handle],
-    case parse_options(Parameters, #megaco_tcp{}, Mand) of
+    case parse_options(Opts, #megaco_tcp{}, Mand) of
 	{ok, Rec} ->
 
 	    ?d1("connect -> options parsed: "
@@ -277,7 +357,7 @@ connect(SupPid, Parameters) ->
                     %%----------------------------------------------
                     %% Socket up start a new control process
 		    Rec2 = Rec#megaco_tcp{socket = Socket}, 
-		    case start_connection(SupPid, Rec2) of
+		    case start_connection(TransportRef, Rec2) of
 			{ok, Pid} ->
 			    ?d1("connect -> connection started: "
 				"~n   Pid: ~p", [Pid]),
@@ -310,7 +390,7 @@ connect(SupPid, Parameters) ->
 	    ?d1("connect -> failed parsing options: "
 		"~n   Error: ~p", [Error]),
 	    ?tcp_debug(#megaco_tcp{}, "tcp connect failed",
-		       [Error, {options, Parameters}]),
+		       [Error, {options, Opts}]),
 	    Error
     end.
 
@@ -437,16 +517,19 @@ post_process_opts4(inet6,
 %% Description: Function is used for sending data on the TCP socket
 %%-----------------------------------------------------------------
 -doc """
-send_message(Handle, Message) -> ok
-
-Sends a message on a connection.
+Sends a message on a TPKT connection.
 """.
-send_message(Socket, Data) ->
+
+-spec send_message(Handle, Msg) -> ok when
+      Handle :: handle(),
+      Msg    :: binary() | iolist().
+
+send_message(Socket, Msg) ->
     ?d1("send_message -> entry with"
-	"~n   Socket:     ~p"
-	"~n   size(Data): ~p", [Socket, sz(Data)]),
-    {Size, NewData} = add_tpkt_header(Data),
-    Res = gen_tcp:send(Socket, NewData),
+	"~n   Socket:    ~p"
+	"~n   size(Msg): ~p", [Socket, sz(Msg)]),
+    {Size, NewMsg} = add_tpkt_header(Msg),
+    Res = gen_tcp:send(Socket, NewMsg),
     _ = case Res of
             ok ->
                 incNumOutMessages(Socket),
@@ -470,10 +553,12 @@ sz(List) when is_list(List) ->
 %%              on the TCP socket
 %%-----------------------------------------------------------------
 -doc """
-block(Handle) -> ok
-
 Stop receiving incoming messages on the socket.
 """.
+
+-spec block(Handle) -> ok when
+      Handle :: handle().
+
 block(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp block", []),
     inet:setopts(Socket, [{active, false}]).
@@ -485,11 +570,13 @@ block(Socket) ->
 %%              on the TCP socket
 %%-----------------------------------------------------------------
 -doc """
-unblock(Handle) -> ok
-
 Starting to receive incoming messages from the socket again.
 
 """.
+
+-spec unblock(Handle) -> ok when
+      Handle :: handle().
+
 unblock(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp unblock", []),
     inet:setopts(Socket, [{active, once}]).
@@ -500,10 +587,12 @@ unblock(Socket) ->
 %% Description: Function is used for closing the TCP socket
 %%-----------------------------------------------------------------
 -doc """
-close(Handle) -> ok
-
 This function is used for closing an active TPKT connection.
 """.
+
+-spec close(Handle) -> ok when
+      Handle :: handle().
+
 close(Socket) ->
     ?tcp_debug({socket, Socket}, "tcp close", []),
     gen_tcp:close(Socket).
@@ -516,22 +605,28 @@ close(Socket) ->
 -doc """
 socket(Handle) -> Socket
 
-This function is used to convert a socket_handle() to a inet_socket().
-inet_socket() is a plain socket, see the inet module for more info.
+This function is used to convert a socket `handle()` to a inet `socket()`.
 """.
+
+-spec socket(Handle) -> Socket when
+      Handle :: handle(),
+      Socket :: inet:socket().
+
 socket(Socket) ->
     Socket.
 
 -doc """
-upgrade_receive_handle(ControlPid, NewHandle) -> ok
-
-Update the receive handle of the control process (e.g. after having changed
+Upgrade the receive handle of the control process (e.g. after having changed
 protocol version).
-
 """.
-upgrade_receive_handle(Pid, NewHandle) 
-  when is_pid(Pid) andalso is_record(NewHandle, megaco_receive_handle) ->
-    megaco_tcp_connection:upgrade_receive_handle(Pid, NewHandle).
+-spec upgrade_receive_handle(ControlPid, NewRecvHandle) -> ok when
+      ControlPid    :: pid(),
+      NewRecvHandle :: term().
+
+upgrade_receive_handle(ControlPid, NewRecvHandle) 
+  when is_pid(ControlPid) andalso
+       is_record(NewRecvHandle, megaco_receive_handle) ->
+    megaco_tcp_connection:upgrade_receive_handle(ControlPid, NewRecvHandle).
 
 
 %%-----------------------------------------------------------------

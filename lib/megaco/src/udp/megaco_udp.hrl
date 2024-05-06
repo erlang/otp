@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,13 +27,15 @@
 %% IP options
 %%----------------------------------------------------------------------
 -record(megaco_udp,
-	{port,
-	 options   = [],
-	 socket,
-	 receive_handle,
-	 module    = megaco,
-	 serialize = false, % false: Spawn a new process for each message
-         inet_backend = default
+	{port                   :: undefined | inet:port_number(),
+	 options = [],
+         handle                 :: undefined | megaco_udp:handle(),
+	 socket                 :: undefined | inet:socket(),
+	 receive_handle         :: term(),
+	 module    = megaco     :: module(),
+         %% false: Spawn a new process for each message
+	 serialize = false      :: boolean(),
+         inet_backend = default :: default | inet | socket
 	}).
 
 

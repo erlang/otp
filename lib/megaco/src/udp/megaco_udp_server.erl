@@ -150,10 +150,13 @@ handle_cast(Msg, UdpRec) ->
 %% Description: Handling non call/cast messages. Incomming messages
 %%              from the socket and exit codes.
 %%-----------------------------------------------------------------
+
 handle_info({udp, _Socket, Ip, Port, Msg}, 
 	    #megaco_udp{serialize = false} = UdpRec) when is_binary(Msg) ->
-    #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
-    SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
+    #megaco_udp{handle = Handle,
+                socket = Socket,
+                module = Mod, receive_handle = RH} = UdpRec,
+    SH = megaco_udp:create_send_handle(Handle, Ip, Port), 
     MsgSize = byte_size(Msg),
     incNumInMessages(SH),
     incNumInOctets(SH, MsgSize),
@@ -167,8 +170,10 @@ handle_info({udp, _Socket, Ip, Port, Msg},
     {noreply, UdpRec};
 handle_info({udp, _Socket, Ip, Port, Msg}, 
 	    #megaco_udp{serialize = true} = UdpRec) when is_binary(Msg) ->
-    #megaco_udp{socket = Socket, module = Mod, receive_handle = RH} = UdpRec,
-    SH = megaco_udp:create_send_handle(Socket, Ip, Port), 
+    #megaco_udp{handle = Handle,
+                socket = Socket,
+                module = Mod, receive_handle = RH} = UdpRec,
+    SH = megaco_udp:create_send_handle(Handle, Ip, Port), 
     MsgSize = byte_size(Msg),
     incNumInMessages(SH),
     incNumInOctets(SH, MsgSize),
@@ -212,8 +217,8 @@ handle_received_message(Mod, RH, Parent, SH, Msg) ->
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
 
-do_stop(#megaco_udp{socket = Socket}) ->
-    gen_udp:close(Socket).
+do_stop(#megaco_udp{handle = Handle}) ->
+    megaco_udp:close(Handle).
 
 
 -compile({inline, [activate/1]}).
