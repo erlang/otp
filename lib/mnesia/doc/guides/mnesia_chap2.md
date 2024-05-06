@@ -82,15 +82,15 @@ In this example, the following actions are performed:
   `-mnesia dir '"/tmp/funky"'`, which indicates in which directory to store the
   data.
 - _Step 2:_ A new empty schema is initialized on the local node by evaluating
-  [mnesia:create_schema(\[node()])](`mnesia:create_schema/1`). The schema
+  [`mnesia:create_schema([node()])`](`mnesia:create_schema/1`). The schema
   contains information about the database in general. This is explained in
   detail later.
 - _Step 3:_ The DBMS is started by evaluating
-  [mnesia:start()](`mnesia:start/0`).
+  [`mnesia:start()`](`mnesia:start/0`).
 - _Step 4:_ A first table is created, called `funky`, by evaluating the
-  expression `mnesia:create_table(funky, [])`. The table is given default
-  properties.
-- _Step 5:_ [mnesia:info()](`mnesia:info/0`) is evaluated to display information
+  expression [`mnesia:create_table(funky, [])`](`mnesia:create_table/2`). The
+  table is given default properties.
+- _Step 5:_ [`mnesia:info()`](`mnesia:info/0`) is evaluated to display information
   on the terminal about the status of the database.
 
 ## Example
@@ -147,7 +147,7 @@ This file defines the following structure for the example database:
 ```
 
 The structure defines six tables in the database. In `Mnesia`, the function
-[mnesia:create_table(Name, ArgList)](`mnesia:create_table/2`) creates tables.
+[`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`) creates tables.
 `Name` is the table name.
 
 > #### Note {: .info }
@@ -209,11 +209,11 @@ database:
   command-line entry that starts the Erlang system. The flag `-mnesia dir Dir`
   specifies the location of the database directory. The system responds and
   waits for further input with the prompt `1>`.
-- [mnesia:create_schema(\[node()])](`mnesia:create_schema/1`). This function has
+- [`mnesia:create_schema([node()])`](`mnesia:create_schema/1`). This function has
   the format `mnesia:create_schema(DiscNodeList)` and initiates a new schema. In
   this example, a non-distributed system using only one node is created. Schemas
   are fully explained in [Define a Schema](mnesia_chap3.md#def_schema).
-- [mnesia:start()](`mnesia:start/0`). This function starts `Mnesia` and is fully
+- [`mnesia:start()`](`mnesia:start/0`). This function starts `Mnesia` and is fully
   explained in [Start Mnesia](mnesia_chap3.md#start_mnesia).
 
 Continuing the dialogue with the Erlang shell produces the following:
@@ -255,7 +255,7 @@ ok
 ```
 
 A set of tables is created. The function
-[mnesia:create_table(Name, ArgList)](`mnesia:create_table/2`) creates the
+[`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`) creates the
 required database tables. The options available with `ArgList` are explained in
 [Create New Tables](mnesia_chap3.md#create_tables).
 
@@ -266,7 +266,7 @@ employee can participate in several projects. However, the `at_dep` relation is
 `set`, as an employee can only work in one department. In this data model, there
 are examples of relations that are 1-to-1 (`set`) and 1-to-many (`bag`).
 
-[mnesia:info()](`mnesia:info/0`) now indicates that a database has seven local
+[`mnesia:info()`](`mnesia:info/0`) now indicates that a database has seven local
 tables, where six are the user-defined tables and one is the schema. Six
 transactions have been committed, as six successful transactions were run when
 creating the tables.
@@ -302,7 +302,7 @@ mk_projs(_, []) -> ok.
 
 The function `insert_emp/3` creates a Functional Object (Fun). `Fun` is passed
 as a single argument to the function
-[mnesia:transaction(Fun)](`mnesia:transaction/1`). This means that `Fun` is run
+[`mnesia:transaction(Fun)`](`mnesia:transaction/1`). This means that `Fun` is run
 as a transaction with the following properties:
 
 - A `Fun` either succeeds or fails.
@@ -373,7 +373,7 @@ A `Mnesia` table is populated by `Mnesia` records. For example, the tuple
 `{boss, klacke, bjarne}` is a record. The second element in this tuple is the
 key. To identify a table uniquely, both the key and the table name is needed.
 The term Object Identifier (OID) is sometimes used for the arity two tuple
-\{Tab, Key\}. The OID for the record `{boss, klacke, bjarne}` is the arity two
+`{Tab, Key}`. The OID for the record `{boss, klacke, bjarne}` is the arity two
 tuple `{boss, klacke}`. The first element of the tuple is the type of the record
 and the second element is the key. An OID can lead to zero, one, or more records
 depending on whether the table type is `set` or `bag`.
@@ -477,7 +477,7 @@ The `Company` database is now initialized and contains data.
 ### Writing Queries
 
 Retrieving data from DBMS is usually to be done with the functions
-`mnesia:read/3` or [mnesia:read/1](`mnesia:read/2`). The following function
+`mnesia:read/3` or [`mnesia:read/1`](`mnesia:read/2`). The following function
 raises the salary:
 
 ```erlang
@@ -498,7 +498,7 @@ acquired when the record from the table is read.
 To read the values from the table directly is not always possible. It can be
 needed to search one or more tables to get the wanted data, and this is done by
 writing database queries. Queries are always more expensive operations than
-direct lookups done with `mnesia:read`. Therefore, avoid queries in
+direct lookups done with `mnesia:read/1`. Therefore, avoid queries in
 performance-critical code.
 
 Two methods are available for writing database queries:
