@@ -45,6 +45,8 @@
 	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
          trace_info_badarg/1, erl_704/1, ms_excessive_nesting/1]).
 
+-nifs([slow_nif/0]).
+
 -include_lib("common_test/include/ct.hrl").
 
 %%% Internal exports
@@ -992,6 +994,10 @@ start_monitor() ->
 %% Tests erlang:system_monitor(Pid, [{long_schedule,Time}])
 system_monitor_long_schedule(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
+    case erlang:load_nif(filename:join(Path,"trace_SUITE"), []) of
+        ok -> ok;
+        {error, {reload,_}} -> ok
+    end,
     erl_ddll:start(),
     case (catch load_driver(Path, slow_drv)) of
         ok ->
@@ -999,10 +1005,14 @@ system_monitor_long_schedule(Config) when is_list(Config) ->
         _Error ->
             {skip, "Unable to load slow_drv (windows or no usleep()?)"}
     end.
+
+slow_nif() ->
+    erlang:nif_error("NIF not loaded").
+
 do_system_monitor_long_schedule() ->
     start_monitor(),
-    Port = open_port({spawn_driver,slow_drv}, []),
-    "ok" = erlang:port_control(Port,0,[]),
+
+    slow_nif(),
     Self = self(),
     receive
         {Self,L} when is_list(L) ->
@@ -1010,6 +1020,8 @@ do_system_monitor_long_schedule() ->
     after 1000 ->
             ct:fail(no_trace_of_pid)
     end,
+
+    Port = open_port({spawn_driver,slow_drv}, []),
     "ok" = erlang:port_control(Port,1,[]),
     receive
         {Port,LL} when is_list(LL) ->
