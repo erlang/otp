@@ -31,6 +31,7 @@
 -define(RUN(A),                       ?DUTIL:run(A)).
 -define(PEER(P),                      ?DUTIL:peer(P)).
 -define(LPORT(P, R),                  ?DUTIL:lport(P, R)).
+-define(CONSULT(N, S),                ?DUTIL:consult(N, S)).
 
 -define(LISTEN(SN, Proto),            ?DUTIL:listen(SN, Proto)).
 -define(LISTEN(SN, Proto, Opts),      ?DUTIL:listen(SN, Proto, Opts)).
