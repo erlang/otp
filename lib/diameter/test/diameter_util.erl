@@ -309,7 +309,9 @@ eval({F, infinity}) ->
 eval({F, Tmo})
   when is_integer(Tmo) ->
     ?UL("eval(~p) -> entry", [Tmo]),
-    {ok, _} = timer:exit_after(Tmo, timeout),
+    %% Since this function is used for all kinds of functions,
+    %% a timeout is not very informative, so include the "function".
+    {ok, _} = timer:exit_after(Tmo, {timeout, F}),
     eval(F);
 
 eval({M,[F|A]})
