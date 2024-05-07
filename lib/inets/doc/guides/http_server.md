@@ -55,10 +55,10 @@ The following is to be put in the Erlang node application configuration file to
 start an HTTP server at application startup:
 
 ```erlang
-      [{inets, [{services, [{httpd, [{proplist_file,
-                 "/var/tmp/server_root/conf/8888_props.conf"}]},
-                {httpd, [{proplist_file,
-                 "/var/tmp/server_root/conf/8080_props.conf"}]}]}]}].
+[{inets, [{services, [{httpd, [{proplist_file,
+           "/var/tmp/server_root/conf/8888_props.conf"}]},
+          {httpd, [{proplist_file,
+           "/var/tmp/server_root/conf/8080_props.conf"}]}]}]}].
 ```
 
 The server is configured using an Erlang property list. For the available
@@ -67,16 +67,16 @@ properties, see `m:httpd`.
 The available configuration properties are as follows:
 
 ```erlang
-     httpd_service() -> {httpd, httpd()}
-     httpd()         -> [httpd_config()]
-     httpd_config()  -> {proplist_file, file()}
-                        {debug, debug()} |
-                        {accept_timeout, integer()}
-     debug()         -> disable | [debug_options()]
-     debug_options() -> {all_functions, modules()} |
-                        {exported_functions, modules()} |
-                        {disable, modules()}
-     modules()       -> [atom()]
+httpd_service() -> {httpd, httpd()}
+httpd()         -> [httpd_config()]
+httpd_config()  -> {proplist_file, file()}
+                   {debug, debug()} |
+                   {accept_timeout, integer()}
+debug()         -> disable | [debug_options()]
+debug_options() -> {all_functions, modules()} |
+                   {exported_functions, modules()} |
+                   {disable, modules()}
+modules()       -> [atom()]
 ```
 
 Here:
@@ -97,8 +97,8 @@ Here:
 Start `Inets`:
 
 ```erlang
-      1 > inets:start().
-      ok
+1> inets:start().
+ok
 ```
 
 Start an HTTP server with minimal required configuration. If you specify port
@@ -106,30 +106,31 @@ Start an HTTP server with minimal required configuration. If you specify port
 find which port number that was picked:
 
 ```erlang
-      2 > {ok, Pid} = inets:start(httpd, [{port, 0}, {server_root,"/tmp"},
-      {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
-      {ok, 0.79.0}
+2> {ok, Pid} = inets:start(httpd, [{port, 0}, {server_root,"/tmp"},
+.. {document_root,"/tmp/htdocs"}, {bind_address, "localhost"}]).
+{ok, 0.79.0}
 ```
 
 Call `info`:
 
 ```erlang
-      3 >  httpd:info(Pid).
-      [{mime_types,[{"html","text/html"},{"htm","text/html"}]},
-      {server_name,"machine.local"},
-      {bind_address, {127,0,0,1}},
-      {server_root,"/tmp"},
-      {port,59408},
-      {document_root,"/tmp/htdocs"}]
+3> httpd:info(Pid).
+[{mime_types,[{"html","text/html"},{"htm","text/html"}]},
+ {server_name,"machine.local"},
+ {bind_address, {127,0,0,1}},
+ {server_root,"/tmp"},
+ {port,59408},
+ {document_root,"/tmp/htdocs"},
+ {ipfamily,inet}]
 ```
 
 Reload the configuration without restarting the server:
 
 ```erlang
-    4 > httpd:reload_config([{port, 59408},
-      {server_root,"/tmp/www_test"}, {document_root,"/tmp/www_test/htdocs"},
-      {bind_address, "localhost"}], non_disturbing).
-    ok.
+4> httpd:reload_config([{port, 59408},
+.. {server_root,"/tmp/www_test"}, {document_root,"/tmp/www_test/htdocs"},
+.. {bind_address, "localhost"}], non_disturbing).
+ok.
 ```
 
 > #### Note {: .info }
@@ -138,18 +139,18 @@ Reload the configuration without restarting the server:
 > server during the reload get a service temporary unavailable answer.
 
 ```erlang
-      5 >  httpd:info(Pid, [server_root, document_root]).
-      [{server_root,"/tmp/www_test"},{document_root,"/tmp/www_test/htdocs"}]
+5> httpd:info(Pid, [server_root, document_root]).
+[{server_root,"/tmp/www_test"},{document_root,"/tmp/www_test/htdocs"}]
 ```
 
 ```erlang
-      6 > ok = inets:stop(httpd, Pid).
+6> ok = inets:stop(httpd, Pid).
 ```
 
 Alternative:
 
 ```erlang
-      6 > ok = inets:stop(httpd, {{127,0,0,1}, 59408}).
+6> ok = inets:stop(httpd, {{127,0,0,1}, 59408}).
 ```
 
 Notice that `bind_address` must be the IP address reported by function `info`
@@ -545,7 +546,7 @@ localhost.
 For example, to serve files from directory `test_results` on port `4000`:
 
 ```text
-      erl -S httpd serve --port 4000 test_results
+erl -S httpd serve --port 4000 test_results
 ```
 
 For a full reference of all options, run `erl -S httpd serve --help`.
