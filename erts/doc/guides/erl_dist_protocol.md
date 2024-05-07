@@ -55,9 +55,59 @@ The integers in all multibyte fields are in big-endian order.
 
 ## EPMD Protocol
 
-The requests served by the EPMD are summarized in the following figure.
+The EPMD Protocol supports various tasks:
 
-![Summary of EPMD Requests](assets/erl_ext_fig.gif "Summary of EPMD Requests")
+- Registering a Node
+- Unregistering a Node
+- Getting the Distributing Port of Another Node
+- Getting all Registered Names
+- Dumping all Data from EPMD
+- Killing EPMD
+- `STOP_REQ` (Not Used)
+
+The requests served by the EPMD for these tasks are summarized in the following figure.
+
+```mermaid
+---
+title: Summary of EPMD Requests
+---
+
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+
+    Note over EPMD: Register a Node in EPMD
+    client ->> EPMD: ALIVE2_REQ
+    alt
+        EPMD -->> client: ALIVE2_X_RESP
+    else
+        EPMD -->> client: ALIVE2_RESP
+    end
+
+    Note over EPMD: Unregister a Node in EPMD
+    client ->> EPMD: ALIVE_CLOSE_REQ
+
+    Note over client: Get the Distribution Port of Another Node
+    client ->> EPMD: PORT_PLEASE2_REQ
+    EPMD -->> client: PORT2_RESP
+
+    Note over client: Get All Registered Names from EPMD
+    client ->> EPMD: NAMES_REQ
+    EPMD -->> client: NAMES_RESP
+
+    Note over EPMD: Dump all Data from EPMD
+    client ->> EPMD: DUMP_REQ
+    EPMD -->> client: DUMP_RESP
+
+    Note over EPMD: Kill EPMD
+    client ->> EPMD: KILL_REQ
+    EPMD -->> client: KILL_RESP
+
+    Note over EPMD: STOP_REQ (Not Used)
+    client ->> EPMD: STOP_REQ
+    EPMD -->> client: STOP_OK_RESP
+    EPMD -->> client: STOP_NOTOK_RESP
+```
 
 Each request `*_REQ` is preceded by a 2 byte length field. Thus, the overall
 request format is as follows:
@@ -72,7 +122,23 @@ _Table: Request Format_
 
 When a distributed node is started it registers itself in the EPMD. The message
 `ALIVE2_REQ` described below is sent from the node to the EPMD. The response
-from the EPMD is `ALIVE2_X_RESP` (or `ALIVE2_RESP`).
+from the EPMD is `ALIVE2_X_RESP` (or `ALIVE2_RESP`):
+
+```mermaid
+---
+title: Register a Node in EPMD
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+
+    client ->> EPMD: ALIVE2_REQ
+    alt
+        EPMD -->> client: ALIVE2_X_RESP
+    else
+        EPMD -->> client: ALIVE2_RESP
+    end
+```
 
 | 1     | 2        | 1          | 1          | 2                | 2               | 2      | Nlen       | 2      | Elen    |
 | ----- | -------- | ---------- | ---------- | ---------------- | --------------- | ------ | ---------- | ------ | ------- |
@@ -127,13 +193,38 @@ Result = 0 -> ok, result > 0 -> error.
 ### Unregister a Node from EPMD
 
 A node unregisters itself from the EPMD by closing the TCP connection to EPMD
-established when the node was registered.
+established when the node was registered:
+
+```mermaid
+---
+title: Register a Node in EPMD
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: ALIVE_CLOSE_REQ
+```
+
 
 ### Get the Distribution Port of Another Node
 
 When one node wants to connect to another node it starts with a
 `PORT_PLEASE2_REQ` request to the EPMD on the host where the node resides to get
-the distribution port that the node listens to.
+the distribution port that the node listens to:
+
+```mermaid
+---
+title: Get the Distribution Port of Another Node
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: PORT_PLEASE2_REQ
+    EPMD -->> client: PORT2_RESP
+```
+
 
 | 1     | N          |
 | ----- | ---------- |
@@ -165,7 +256,19 @@ The EPMD closes the socket when it has sent the information.
 
 This request is used through the Erlang function
 [`net_adm:names/1,2`](`net_adm:names/1`). A TCP connection is opened to the EPMD
-and this request is sent.
+and this request is sent:
+
+```mermaid
+---
+title: Get All Registered Names from EPMD
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: NAMES_REQ
+    EPMD -->> client: NAMES_RESP
+```
 
 | 1     |
 | ----- |
@@ -193,6 +296,19 @@ io:format("name ~ts at port ~p~n", [NodeName, Port]).
 ### Dump All Data from EPMD
 
 This request is not really used, it is to be regarded as a debug feature.
+
+```mermaid
+---
+title: Dump All Data from EPMD
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: DUMP_REQ
+    EPMD -->> client: DUMP_RESP
+```
+
 
 | 1     |
 | ----- |
@@ -229,6 +345,18 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 
 This request kills the running EPMD. It is almost never used.
 
+```mermaid
+---
+title: Kill EPMD
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: KILL_REQ
+    EPMD -->> client: KILL_RESP
+```
+
 | 1     |
 | ----- |
 | `107` |
@@ -246,6 +374,19 @@ _Table: KILL_RESP_
 where `OKString` is "OK".
 
 ### STOP_REQ (Not Used)
+
+```mermaid
+---
+title: STOP_REQ (Not Used)
+---
+sequenceDiagram
+    participant client as Client (or Node)
+    participant EPMD
+    
+    client ->> EPMD: STOP_REQ
+    EPMD -->> client: STOP_OK_RESP
+    EPMD -->> client: STOP_NOTOK_RESP
+```
 
 | 1     | n          |
 | ----- | ---------- |
