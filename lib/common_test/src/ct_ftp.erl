@@ -74,6 +74,11 @@ configuration file must also include the username and password (both strings):
 
 See also `ct:require/2`.
 """.
+-spec put(KeyOrName, LocalFile, RemoteFile) -> 'ok' | {'error', Reason}
+              when KeyOrName :: atom(),
+                   LocalFile :: file:filename(),
+                   RemoteFile :: file:filename(),
+                   Reason :: term().
 put(KeyOrName,LocalFile,RemoteFile) ->
     Fun = fun(Ftp) -> send(Ftp,LocalFile,RemoteFile) end,
     open_and_do(KeyOrName,Fun).
@@ -91,6 +96,11 @@ For `target_name`, see module `m:ct`.
 
 See also `ct:require/2`.
 """.
+-spec get(KeyOrName, RemoteFile, LocalFile) -> 'ok' | {'error', Reason}
+              when KeyOrName :: atom(),
+                   RemoteFile :: file:filename(),
+                   LocalFile :: file:filename(),
+                   Reason :: term().
 get(KeyOrName,RemoteFile,LocalFile) ->
     Fun = fun(Ftp) -> recv(Ftp,RemoteFile,LocalFile) end,
     open_and_do(KeyOrName,Fun).
@@ -111,6 +121,10 @@ For information on how to create a new `Name`, see `ct:require/2`.
 
 For `target_name`, see module `m:ct`.
 """.
+-spec open(KeyOrName) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: atom(),
+                   Handle :: handle(),
+                   Reason :: term().
 open(KeyOrName) ->
     case ct_util:get_key_from_name(KeyOrName) of
 	{ok,node} ->
@@ -160,6 +174,10 @@ The file gets the same name on the remote host.
 
 See also [`ct_ftp:send/3`](`send/3`).
 """.
+-spec send(Connection, LocalFile) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   LocalFile :: file:filename(),
+                   Reason :: term().
 send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
@@ -170,6 +188,11 @@ Sends a file over FTP.
 
 The file is named `RemoteFile` on the remote host.
 """.
+-spec send(Connection, LocalFile, RemoteFile) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   LocalFile :: file:filename(),
+                   RemoteFile :: file:filename(),
+                   Reason :: term().
 send(Connection,LocalFile,RemoteFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -187,6 +210,10 @@ The file gets the same name on the local host.
 
 See also [`ct_ftp:recv/3`](`recv/3`).
 """.
+-spec recv(Connection, RemoteFile) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   RemoteFile :: file:filename(),
+                   Reason :: term().
 recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
@@ -197,6 +224,11 @@ Fetches a file over FTP.
 
 The file is named `LocalFile` on the local host.
 """.
+-spec recv(Connection, RemoteFile, LocalFile) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   RemoteFile :: file:filename(),
+                   LocalFile :: file:filename(),
+                   Reason :: term().
 recv(Connection,RemoteFile,LocalFile) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -210,6 +242,10 @@ cd(Connection, Dir) -> ok | {error, Reason}
 
 Changes directory on remote host.
 """.
+-spec cd(Connection, Dir) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Dir :: file:filename(),
+                   Reason :: term().
 cd(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -223,6 +259,11 @@ ls(Connection, Dir) -> {ok, Listing} | {error, Reason}
 
 Lists directory `Dir`.
 """.
+-spec ls(Connection, Dir) -> {'ok', Listing} | {'error', Reason}
+                when Connection :: connection(),
+                    Dir :: file:filename(),
+                    Listing :: string(),
+                    Reason :: term().
 ls(Connection,Dir) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -236,6 +277,10 @@ type(Connection, Type) -> ok | {error, Reason}
 
 Changes the file transfer type.
 """.
+-spec type(Connection, Type) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Type :: ascii | binary,
+                   Reason :: term().
 type(Connection,Type) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -249,6 +294,10 @@ delete(Connection, File) -> ok | {error, Reason}
 
 Deletes a file on remote host.
 """.
+-spec delete(Connection, File) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   File :: file:filename(),
+                   Reason :: term().
 delete(Connection,File) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -262,6 +311,9 @@ close(Connection) -> ok | {error, Reason}
 
 Closes the FTP connection.
 """.
+-spec close(Connection) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Reason :: term().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
