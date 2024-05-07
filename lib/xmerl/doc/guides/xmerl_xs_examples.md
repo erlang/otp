@@ -1,4 +1,4 @@
-# XSLT like transformations in Erlang body
+# XSLT-like transformations
 
 ### Examples
 

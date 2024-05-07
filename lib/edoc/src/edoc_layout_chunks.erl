@@ -86,7 +86,7 @@
                         | #xmlElement{}
                         | #xmlPI{}
                         | #xmlText{}.
-%% Subtype of {@link xmerl_xpath:docNodes()}.
+%% Subtype of {@link xmerl_xpath:nodeEntity()}.
 %% It corresponds to `#xmlElement.content' as defined by `xmerl.hrl', sans the `#xmlDecl{}'.
 
 -type xmerl_attribute() :: #xmlAttribute{}.

@@ -17,15 +17,15 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# xmerl
+# Xmerl
 
 ## Introduction
 
 ### Features
 
-The _xmerl_ XML parser is able to parse XML documents according to the XML 1.0
+The _Xmerl_ XML parser is able to parse XML documents according to the XML 1.0
 standard. As default it performs well-formed parsing, (syntax checks and checks
-of well-formed constraints). Optionally one can also use xmerl as a validating
+of well-formed constraints). Optionally one can also use Xmerl as a validating
 parser, (validate according to referenced DTD and validating constraints). By
 means of for example the xmerl_xs module it is possible to transform the parsed
 result to other formats, e.g. text, HTML, XML etc.
@@ -40,44 +40,44 @@ One site were you can find tutorials on XML and related specs is
 [ZVON.org](http://www.zvon.org).
 
 However, here you will find some examples of how to use and to what you can use
-xmerl. A detailed description of the user interface can be found in the
+Xmerl. A detailed description of the user interface can be found in the
 reference manual.
 
-There are two known shortcomings in xmerl:
+There are two known shortcomings in Xmerl:
 
 - It cannot retrieve external entities on the Internet by a URL reference, only
   resources in the local file system.
-- xmerl can parse Unicode encoded data. But, it fails on tag names, attribute
+- Xmerl can parse Unicode encoded data. But, it fails on tag names, attribute
   names and other mark-up names that are encoded Unicode characters not mapping
   on ASCII.
 
 By parsing an XML document you will get a record, displaying the structure of
 the document, as return value. The record also holds the data of the document.
-xmerl is convenient to use in for instance the following scenarios:
+Xmerl is convenient to use in for instance the following scenarios:
 
 You need to retrieve data from XML documents. Your Erlang software can handle
 information from the XML document by extracting data from the data structure
 received by parsing.
 
-It is also possible to do further processing of parsed XML with xmerl. If you
+It is also possible to do further processing of parsed XML with Xmerl. If you
 want to change format of the XML document to for instance HTML, text or other
 XML format you can transform it. There is support for such transformations in
-xmerl.
+Xmerl.
 
 One may also convert arbitrary data to XML. So it for instance is easy to make
-it readable by humans. In this case you first create xmerl data structures out
+it readable by humans. In this case you first create Xmerl data structures out
 of your data, then transform it to XML.
 
 You can find examples of these three examples of usage below.
 
-## xmerl User Interface Data Structure
+## Xmerl User Interface Data Structure
 
-The following records used by xmerl to save the parsed data are defined in
+The following records used by Xmerl to save the parsed data are defined in
 `xmerl.hrl`
 
 The result of a successful parsing is a tuple `{DataStructure,M}`. `M` is the
 XML production Misc, which is the mark-up that comes after the element of the
-document. It is returned "as is". `DataStructure` is an `xmlElement` record,
+document. It is returned "as is". `DataStructure` is an `#xmlElement{}` record,
 that among others have the fields `name`, `parents`, `attributes` and `content`
 like:
 
@@ -96,9 +96,9 @@ the names of the parent elements saved. Parents is a list of tuples where the
 first element in each tuple is the name of the parent element. The list is in
 reverse order.
 
-The record `xmlAttribute` holds the name and value of an attribute in the fields
-`name` and `value`. All attributes of an element is a list of xmlAttribute in
-the field `attributes` of the xmlElement record.
+The record `#xmlAttribute{}` holds the name and value of an attribute
+in the fields `name` and `value`. All attributes of an element is a list of
+`#xmlAttribute{}` in the field `attributes` of the `#xmlElement{}` record.
 
 The `content` field of the top element is a list of records that shows the
 structure and data of the document. If it is a simple document like:
@@ -128,7 +128,7 @@ Grand Danois\
 Where the content of the top element is:
 `[{xmlText,[{dog,1}],1,[],"\ Grand Danois\ ",text}]`. Text will be returned in
 `xmlText` records. Though, usually documents are more complex, and the content
-of the top element will in that case be a nested structure with xmlElement
+of the top element will in that case be a nested structure with `#xmlElement{}`
 records that in turn may have complex content. All of this reflects the
 structure of the XML document.
 
@@ -141,7 +141,7 @@ An unsuccessful parse results in an error, which may be a tuple `{error,Reason}`
 or an exit: `{'EXIT',Reason}`. According to the XML 1.0 standard there are
 `fatal error` and `error` situations. The fatal errors _must_ be detected by a
 conforming parser while an error _may_ be detected. Both categories of errors
-are reported as fatal errors by this version of xmerl, most often as an exit.
+are reported as fatal errors by this version of Xmerl, most often as an exit.
 
 ## Getting Started
 
@@ -269,11 +269,11 @@ If you successfully parse the XML file with the validation on as in:
 document is valid and has the structure according to the DTD.
 
 Thus, knowing the allowed structure it is easy to write a program that traverses
-the data structure and picks the information in the xmlElements records with
-name date.
+the data structure and picks the information in the `#xmlElements{}` records
+with name date.
 
 Observe that white space: each space, tab or line feed, between mark-up results
-in an xmlText record.
+in an `#xmlText{}` record.
 
 ## Example: Create XML Out Of Arbitrary Data
 
@@ -281,10 +281,10 @@ For this task there are more than one way to go. The "brute force" method is to
 create the records you need and feed your data in the content and attribute
 fields of the appropriate element.
 
-There is support for this in xmerl by the "simple-form" format. You can put your
+There is support for this in Xmerl by the "simple-form" format. You can put your
 data in a simple-form data structure and feed it into
 `xmerl:export_simple(Content,Callback,RootAttributes)`. Content may be a mixture
-of simple-form and xmerl records as xmlElement and xmlText.
+of simple-form and Xmerl records as `#xmlElement{}` and `#xmlText{}`.
 
 The Types are:
 
@@ -383,7 +383,7 @@ The result would be:
 ```
 
 If it is important to get similar indentation and newlines as in the original
-document you have to add #xmlText\{\} records with space and newline values in
+document you have to add `#xmlText{}` records with space and newline values in
 appropriate places. It may also be necessary to keep the original prolog where
 the DTD is referenced. If so, it is possible to pass a RootAttribute
 `{prolog,Value}` to `export_simple/3`. The following example code fixes those
@@ -524,7 +524,7 @@ of motorcycles. You also want all motorcycles sorted by brand, then some flashy
 colors on top of it. Thus you rearrange the order of the elements and put in
 arbitrary HTML tags. This is possible to do by means of the
 [XSL Transformation (XSLT)](http://www.w3.org/Style/XSL/) like functionality in
-xmerl.
+Xmerl.
 
 Even though the following example shows one way to transform data from XML to
 HTML it also applies to transformations to other formats.
@@ -562,7 +562,7 @@ template(E = #xmlElement{name='motorcycles'}) ->
 
 In the xmerl_xs functions you can provide a select(String) call, which is an
 [XPath](http://www.w3.org/TR/xpath) functionality. For more details see the
-xmerl_xs [tutorial](assets/xmerl_xs_examples.html).
+xmerl_xs [tutorial](`e:xmerl:xmerl_xs_examples.html`).
 
 Now, back to the example where we wanted to make the output more arranged. With
 the template:

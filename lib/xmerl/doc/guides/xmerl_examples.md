@@ -19,12 +19,12 @@ within parentheses:
 
 For all of the above state access functions, the function with one argument
 (e.g. `event_state(GlobalState)`) will read the state variable, while the
-function with two arguments (e.g.: `event_state(NewEventState, GlobalState)`)
+function with two arguments (e.g.: `event_state(NewEventState, GlobalState)`)
 will modify it.
 
 For each function, the description starts with the syntax for specifying the
-function in the [`Option_list`](`xmerl_scan#type-option_list`). The general
-forms are `{Tag, Fun}`, or `{Tag, Fun, LocalState}`. The second form can be used
+function in the [`Option_list`](`t:xmerl_scan:option_list/0`). The general
+forms are `{Tag, Fun}`, or `{Tag, Fun, LocalState}`. The second form can be used
 to initialize the state variable in question.
 
 #### 1.1 User State
@@ -44,30 +44,38 @@ Functions to access user state:
 
 #### 1.2 Event Function
 
-    {event_fun, fun()} | {event_fun, fun(), EventState}
+``` erlang
+{event_fun, fun()} | {event_fun, fun(), EventState}
+```
 
 The event function is called at the beginning and at the end of a parsed entity.
 It has the following format and semantics:
 
-     fun(Event, GlobalState) ->
-        EventState = xmerl_scan:event_state(GlobalState),
-        EventState2 = foo(Event, EventState),
-        GlobalState2 = xmerl_scan:event_state(EventState2, GlobalState)
-     end.
+``` erlang
+fun(Event, GlobalState) ->
+   EventState = xmerl_scan:event_state(GlobalState),
+   EventState2 = foo(Event, EventState),
+   GlobalState2 = xmerl_scan:event_state(EventState2, GlobalState)
+end.
+```
 
 #### 1.3 Hook Function
 
-    {hook_fun, fun()} | {hook_fun, fun(), HookState}
+``` erlang
+{hook_fun, fun()} | {hook_fun, fun(), HookState}
+```
 
 The hook function is called when the processor has parsed a complete entity.
 Format and semantics:
 
-     fun(Entity, GlobalState) ->
-        HookState = xmerl_scan:hook_state(GlobalState),
-        {TransformedEntity, HookState2} = foo(Entity, HookState),
-        GlobalState2 = xmerl_scan:hook_state(HookState2, GlobalState),
-        {TransformedEntity, GlobalState2}
-     end.
+``` erlang
+fun(Entity, GlobalState) ->
+   HookState = xmerl_scan:hook_state(GlobalState),
+   {TransformedEntity, HookState2} = foo(Entity, HookState),
+   GlobalState2 = xmerl_scan:hook_state(HookState2, GlobalState),
+   {TransformedEntity, GlobalState2}
+end.
+```
 
 The relationship between the event function, the hook function and the
 accumulator function is as follows:
@@ -80,51 +88,63 @@ accumulator function is as follows:
 
 #### 1.4 Fetch Function
 
-    {fetch_fun, fun()} | {fetch_fun, fun(), FetchState}
+``` erlang
+{fetch_fun, fun()} | {fetch_fun, fun(), FetchState}
+```
 
 The fetch function is called in order to fetch an external resource (e.g. a
 DTD).
 
 The fetch function can respond with three different return values:
 
-    Result ::=
-      {ok, {file, Filename}, NewGlobalState} |
-      {ok, {string, String}, NewGlobalState} |
-      {ok, not_fetched, NewGlobalState}
+``` erlang
+Result ::=
+   {ok, {file, Filename}, NewGlobalState} |
+   {ok, {string, String}, NewGlobalState} |
+   {ok, not_fetched, NewGlobalState}
+```
 
 Format and semantics:
 
-     fun(URI, GlobalState) ->
-        FetchState = xmerl_scan:fetch_state(GlobalState),
-        Result = foo(URI, FetchState).  % Result being one of the above
-     end.
+``` erlang
+fun(URI, GlobalState) ->
+   FetchState = xmerl_scan:fetch_state(GlobalState),
+   Result = foo(URI, FetchState).  % Result being one of the above
+end.
+```
 
 #### 1.5 Continuation Function
 
+``` erlang
 {continuation_fun, fun()} | {continuation_fun, fun(), ContinuationState}
+```
 
 The continuation function is called when the parser encounters the end of the
 byte stream. Format and semantics:
 
-    fun(Continue, Exception, GlobalState) ->
-       ContState = xmerl_scan:cont_state(GlobalState),
-       {Result, ContState2} = get_more_bytes(ContState),
-       case Result of
-          [] ->
-             GlobalState2 = xmerl_scan:cont_state(ContState2, GlobalState),
-             Exception(GlobalState2);
-          MoreBytes ->
-             {MoreBytes2, Rest} = end_on_whitespace_char(MoreBytes),
-             ContState3 = update_cont_state(Rest, ContState2),
-             GlobalState3 = xmerl_scan:cont_state(ContState3, GlobalState),
-             Continue(MoreBytes2, GlobalState3)
-       end
-    end.
+``` erlang
+fun(Continue, Exception, GlobalState) ->
+   ContState = xmerl_scan:cont_state(GlobalState),
+   {Result, ContState2} = get_more_bytes(ContState),
+   case Result of
+      [] ->
+         GlobalState2 = xmerl_scan:cont_state(ContState2, GlobalState),
+         Exception(GlobalState2);
+      MoreBytes ->
+         {MoreBytes2, Rest} = end_on_whitespace_char(MoreBytes),
+         ContState3 = update_cont_state(Rest, ContState2),
+         GlobalState3 = xmerl_scan:cont_state(ContState3, GlobalState),
+         Continue(MoreBytes2, GlobalState3)
+   end
+end.
+```
 
 #### 1.6 Rules Functions
 
-    {rules, ReadFun : fun(), WriteFun : fun(), RulesState} |
-    {rules, Table : ets()}
+``` erlang
+{rules, ReadFun : fun(), WriteFun : fun(), RulesState} |
+{rules, Table : ets()}
+```
 
 The rules functions take care of storing scanner information in a rules
 database. User-provided rules functions may opt to store the information in
@@ -135,7 +155,7 @@ The following modes exist:
 -   If the user doesn't specify an option, the scanner creates an ets table, and
     uses built-in functions to read and write data to it. When the scanner is
     done, the ets table is deleted.
--   If the user specifies an ets table via the `{rules, Table}` option, the
+-   If the user specifies an ets table via the `{rules, Table}` option, the
     scanner uses this table. When the scanner is done, it does _not_ delete the
     table.
 -   If the user specifies read and write functions, the scanner will use them
@@ -148,27 +168,33 @@ The format for the read and write functions are as follows:
 
 Here is a summary of the data objects currently being written by the scanner:
 
-## | Context | Key Value| Definition |
-
-| notation | NotationName | `{system, SL} | {public, PIDL, SL}` | | elem_def |
-ElementName | `#xmlElement{content = ContentSpec}` | | parameter_entity | PEName
-| `PEDef` | | entity | EntityName | `EntityDef` |
+| Context          | Key Value    | Definition                           |
+| ---------------- | ------------ | ------------------------------------ |
+| notation         | NotationName | `{system, SL} \| {public, PIDL, SL}` |
+| elem_def         | ElementName  | `#xmlElement{content = ContentSpec}` |
+| parameter_entity | PEName       | `PEDef`                              |
+| entity           | EntityName   | `EntityDef`                          |
+** Table 1:** Scanner data objects
 
 where
 
-    ContentSpec ::= empty | any | ElemContent
-    ElemContent ::= {Mode, Elems}
-    Mode        ::= seq | choice
-    Elems       ::= [Elem]
-    Elem        ::= '#PCDATA' | Name | ElemContent | {Occurrence, Elems}
-    Occurrence  ::= '*' | '?' | '+'
+``` erlang
+ContentSpec ::= empty | any | ElemContent
+ElemContent ::= {Mode, Elems}
+Mode        ::= seq | choice
+Elems       ::= [Elem]
+Elem        ::= '#PCDATA' | Name | ElemContent | {Occurrence, Elems}
+Occurrence  ::= '*' | '?' | '+'
+```
 
 NOTE: _When <Elem> is not wrapped with <Occurrence>, (Occurrence = once) is
 implied._
 
 #### 1.7 Accumulator Function
 
-    {acc_fun, fun()}
+``` erlang
+{acc_fun, fun()}
+```
 
 The accumulator function is called to accumulate the contents of an entity.When
 parsing very large files, it may not be desirable to do so.In this case, an acc
@@ -181,13 +207,15 @@ structure for this to work.
 
 The acc function has the following format and semantics:
 
-    %% default accumulating acc fun
-    fun(ParsedEntity, Acc, GlobalState) ->
-       {[ParsedEntity|Acc], GlobalState}.
+``` erlang
+%% default accumulating acc fun
+fun(ParsedEntity, Acc, GlobalState) ->
+   {[ParsedEntity|Acc], GlobalState}.
 
-    %% non-accumulating acc fun
-    fun(ParsedEntity, Acc, GlobalState) ->
-       {Acc, GlobalState}.
+%% non-accumulating acc fun
+fun(ParsedEntity, Acc, GlobalState) ->
+   {Acc, GlobalState}.
+```
 
 #### 1.8 Close Function
 
@@ -200,8 +228,10 @@ place to modify the state variables.
 
 Format and semantics:
 
-    fun(GlobalState) ->
-       GlobalState1 = ....  % state variables may be altered
+``` erlang
+fun(GlobalState) ->
+   GlobalState1 = ....  % state variables may be altered
+```
 
 ### 2 Examples
 
@@ -215,16 +245,18 @@ The following sample program illustrates three ways of scanning a document:
 2.  normalizing spaces
 3.  normalizing spaces, then removing text elements that only contain one space.
 
-    -module(tmp).
+``` erlang
+-module(tmp).
 
-    -include("xmerl.hrl").
+-include("xmerl.hrl").
 
-    -export([file1/1, file2/1, file3/1]).
+-export([file1/1, file2/1, file3/1]).
 
-    file1(F) -> xmerl_scan:file(F).
+file1(F) -> xmerl_scan:file(F).
 
-    file2(F) -> xmerl_scan:file(F, [{space,normalize}]).
+file2(F) -> xmerl_scan:file(F, [{space,normalize}]).
 
-    file3(F) -> Acc = fun(#xmlText{value = " ", pos = P}, Acc, S) -> {Acc, P,
-    S}; % new return format (X, Acc, S) -> {[X|Acc], S} end, xmerl_scan:file(F,
-    [{space,normalize}, {acc_fun, Acc}]).
+file3(F) -> Acc = fun(#xmlText{value = " ", pos = P}, Acc, S) -> {Acc, P,
+S}; % new return format (X, Acc, S) -> {[X|Acc], S} end, xmerl_scan:file(F,
+[{space,normalize}, {acc_fun, Acc}]).
+```
