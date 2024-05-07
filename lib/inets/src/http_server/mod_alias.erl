@@ -91,9 +91,7 @@ do_alias(#mod{config_db   = ConfigDB,
 %% real_name
 
 -doc """
-real_name(ConfigDB, RequestURI, Aliases) -> Ret
-
-[`real_name/3`](`real_name/3`) traverses `Aliases`, typically extracted from
+`real_name/3` traverses `Aliases`, typically extracted from
 `ConfigDB`, and matches each `FakeName` with `RequestURI`. If a match is found,
 `FakeName` is replaced with `RealName` in the match. The resulting path is split
 into two parts, `ShortPath` and `AfterPath`, as defined in
@@ -167,9 +165,7 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 %% real_script_name
 
 -doc """
-real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret
-
-[`real_script_name/3`](`real_script_name/3`) traverses `ScriptAliases`,
+`real_script_name/3` traverses `ScriptAliases`,
 typically extracted from `ConfigDB`, and matches each `FakeName` with
 `RequestURI`. If a match is found, `FakeName` is replaced with `RealName` in the
 match. If the resulting match is not an executable script, `not_a_script` is
@@ -210,9 +206,7 @@ abs_script_path(_, RelPath) ->
 %% default_index
 
 -doc """
-default_index(ConfigDB, Path) -> NewPath
-
-If `Path` is a directory, [`default_index/2`](`default_index/2`), it starts
+If `Path` is a directory, `default_index/2`, it starts
 searching for resources or files that are specified in the config directive
 `DirectoryIndex`. If an appropriate resource or file is found, it is appended to
 the end of `Path` and then returned. `Path` is returned unaltered if no
@@ -247,11 +241,9 @@ append_index(RealName, [Index | Rest]) ->
 %% path
 
 -doc """
-path(PathData, ConfigDB, RequestURI) -> Path
-
-[`path/3`](`path/3`) returns the file `Path` in the `RequestURI` (see
+`path/3` returns the file `Path` in the `RequestURI` (see
 [RFC 1945](https://www.ietf.org/rfc/rfc1945.txt)). If the interaction data
-`{real_name,{Path,AfterPath}}` has been exported by `mod_alias`, `Path` is
+`{real_name, {Path, AfterPath}}` has been exported by `mod_alias`, `Path` is
 returned. If no interaction data has been exported, `ServerRoot` is used to
 generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
 [Inets User's Guide](http_server.md).

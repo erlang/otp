@@ -176,8 +176,6 @@ any data that it needs to keep track of when handling the chunks.
 %% request handling process so it can forward it to the client.
 %%-------------------------------------------------------------------------
 -doc """
-deliver(SessionID, Data) -> ok | {error, Reason}
-
 This function is _only_ intended to be used from functions called by the Erl
 Scheme interface to deliver parts of the content to the user.
 
