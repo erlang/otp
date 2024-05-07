@@ -43,6 +43,8 @@ in parallel.
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
+-type test_spec() :: file:name_all().
+
 -record(state, {node_ctrl_pids=[],
 		logdirs=[],
 		results=[],
@@ -50,11 +52,96 @@ in parallel.
 		blocked=[]
 		}).
 
+-export_type([test_spec/0]).
+
 -doc """
 run_test(Node, Opts) -> ok
 
 Tests are spawned on `Node` using `ct:run_test/1`
 """.
+-spec run_test(Node, Opts) -> 'ok'
+        when Node :: node(),
+            Opts :: [OptTuples],
+            OptTuples :: {'dir', TestDirs}
+                        | {'suite', Suites}
+                        | {'group', Groups}
+                        | {'testcase', Cases}
+                        | {'spec', TestSpecs}
+                        | {'join_specs', boolean()}
+                        | {'label', Label}
+                        | {'config', CfgFiles}
+                        | {'userconfig', UserConfig}
+                        | {'allow_user_terms', boolean()}
+                        | {'logdir', LogDir}
+                        | {'silent_connections', Conns}
+                        | {'stylesheet', CSSFile}
+                        | {'cover', CoverSpecFile}
+                        | {'cover_stop', boolean()}
+                        | {'step', StepOpts}
+                        | {'event_handler', EventHandlers}
+                        | {'include', InclDirs}
+                        | {'auto_compile', boolean()}
+                        | {'abort_if_missing_suites', boolean()}
+                        | {'create_priv_dir', CreatePrivDir}
+                        | {'multiply_timetraps', M}
+                        | {'scale_timetraps', boolean()}
+                        | {'repeat', N}
+                        | {'duration', DurTime}
+                        | {'until', StopTime}
+                        | {'force_stop', ForceStop}
+                        | {'decrypt', DecryptKeyOrFile}
+                        | {'refresh_logs', LogDir}
+                        | {'logopts', LogOpts}
+                        | {'verbosity', VLevels}
+                        | {'basic_html', boolean()}
+                        | {'esc_chars', boolean()}
+                        | {'keep_logs',KeepSpec}
+                        | {'ct_hooks', CTHs}
+                        | {'ct_hooks_order', CTHsOrder}
+                        | {'enable_builtin_hooks', boolean()}
+                        | {'release_shell', boolean()},
+            TestDirs :: [string()] | string(),
+            Suites :: [string()] | [atom()] | string() | atom(),
+            Cases :: [atom()] | atom(),
+            Groups :: GroupNameOrPath | [GroupNameOrPath],
+            GroupNameOrPath :: [atom()] | atom() | 'all',
+            TestSpecs :: [string()] | string(),
+            Label :: string() | atom(),
+            CfgFiles :: [string()] | string(),
+            UserConfig :: [{CallbackMod, CfgStrings}] | {CallbackMod, CfgStrings},
+            CallbackMod :: atom(),
+            CfgStrings :: [string()] | string(),
+            LogDir :: string(),
+            Conns :: 'all' | [atom()],
+            CSSFile :: string(),
+            CoverSpecFile :: string(),
+            StepOpts :: [StepOpt],
+            StepOpt :: 'config' | 'keep_inactive',
+            EventHandlers :: EH | [EH],
+            EH :: atom() | {atom(), InitArgs} | {[atom()], InitArgs},
+            InitArgs :: [term()],
+            InclDirs :: [string()] | string(),
+            CreatePrivDir :: 'auto_per_run' | 'auto_per_tc' | 'manual_per_tc',
+            M :: integer(),
+            N :: integer(),
+            DurTime :: HHMMSS,
+            HHMMSS :: string(),
+            StopTime :: YYMoMoDDHHMMSS | HHMMSS,
+            YYMoMoDDHHMMSS :: string(),
+            ForceStop :: 'skip_rest' | boolean(),
+            DecryptKeyOrFile :: {'key', DecryptKey} | {'file', DecryptFile},
+            DecryptKey :: string(),
+            DecryptFile :: string(),
+            LogOpts :: [LogOpt],
+            LogOpt :: 'no_nl' | 'no_src',
+            VLevels :: VLevel | [{Category, VLevel}],
+            VLevel :: integer(),
+            Category :: atom(),
+            KeepSpec :: 'all' | pos_integer(),
+            CTHs :: [CTHModule | {CTHModule, CTHInitArgs}],
+            CTHsOrder :: atom(),
+            CTHModule :: atom(),
+            CTHInitArgs :: term().
 run_test(Node,Opts) ->
     run_test([{Node,Opts}]).
 
@@ -65,7 +152,7 @@ run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
 -doc """
-run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> ok
+run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> [{Specs, ok} | {error, Reason}]
 
 Tests are spawned on the nodes as specified in `TestSpecs`. Each specification
 in `TestSpec` is handled separately. However, it is also possible to specify a
@@ -74,6 +161,14 @@ executed. Any test without a particular node specification is also executed on
 the nodes in `InclNodes`. Nodes in the `ExclNodes` list are excluded from the
 test.
 """.
+-spec run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   AllowUserTerms :: boolean(),
+                   InclNodes :: [node()],
+                   ExclNodes :: [node()],
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 							    is_list(InclNodes),
 							    is_list(ExclNodes) ->
@@ -114,19 +209,31 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
 -doc """
-run(TestSpecs, InclNodes, ExclNodes) -> ok
+run(TestSpecs, InclNodes, ExclNodes) -> [{Specs, ok} | {error, Reason}]
 
 Equivalent to
 [`ct_master:run(TestSpecs, false, InclNodes, ExclNodes)`](`run/4`).
 """.
+-spec run(TestSpecs, InclNodes, ExclNodes) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   InclNodes :: [node()],
+                   ExclNodes :: [node()],
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
 -doc """
-run(TestSpecs) -> ok
+run(TestSpecs) -> [{Specs, ok} | {error, Reason}]
 
 Equivalent to [`ct_master:run(TestSpecs, false, [], [])`](`run/4`).
 """.
+-spec run(TestSpecs) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run(TestSpecs=[TS|_]) when is_list(TS) ->
     run(TestSpecs,false,[],[]);
 run(TS) ->
@@ -140,10 +247,17 @@ exclude_nodes([],RunSkipPerNode) ->
 
 
 -doc """
-run_on_node(TestSpecs, AllowUserTerms, Node) -> ok
+run_on_node(TestSpecs, AllowUserTerms, Node) -> [{Specs, ok} | {error, Reason}]
 
 Tests are spawned on `Node` according to `TestSpecs`.
 """.
+-spec run_on_node(TestSpecs, AllowUserTerms, Node) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   AllowUserTerms :: boolean(),
+                   Node :: node(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) ->
     case catch ct_testspec:collect_tests_from_file([TS],[Node],
 						   AllowUserTerms) of
@@ -174,11 +288,17 @@ run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
 -doc """
-run_on_node(TestSpecs, Node) -> ok
+run_on_node(TestSpecs, Node) -> [{Specs, ok} | {error, Reason}]
 
 Equivalent to
 [`ct_master:run_on_node(TestSpecs, false, Node)`](`run_on_node/3`).
 """.
+-spec run_on_node(TestSpecs, Node) -> [{Specs, 'ok'} | {'error', Reason}]
+              when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
+                   TestSpec :: test_spec(),
+                   Node :: node(),
+                   Specs :: [file:filename_all()],
+                   Reason :: term().
 run_on_node(TestSpecs,Node) ->
     run_on_node(TestSpecs,false,Node).
 
@@ -247,6 +367,7 @@ abort() -> ok
 
 Stops all running tests.
 """.
+-spec abort() -> 'ok'.
 abort() ->
     call(abort).
 
@@ -255,6 +376,9 @@ abort(Nodes) -> ok
 
 Stops tests on specified nodes.
 """.
+-spec abort(Nodes) -> 'ok'
+              when Nodes :: Node | [Node],
+                   Node :: node().
 abort(Nodes) when is_list(Nodes) ->
     call({abort,Nodes});
 
@@ -267,6 +391,9 @@ progress() -> [{Node, Status}]
 Returns test progress. If `Status` is `ongoing`, tests are running on the node
 and are not yet finished.
 """.
+-spec progress() -> [{Node, Status}]
+              when Node :: node(),
+                   Status :: atom().
 progress() ->
     call(progress).
 
@@ -283,6 +410,7 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 17.5">>}).
+-spec get_event_mgr_ref() -> atom().
 get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
@@ -293,6 +421,8 @@ If set to `true`, the `ct_master logs` are written on a primitive HTML format,
 not using the `Common Test` CSS style sheet.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
+-spec basic_html(Bool) -> 'ok'
+              when Bool :: boolean().
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
     ok.
