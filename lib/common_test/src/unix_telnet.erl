@@ -84,6 +84,8 @@ hosts.
 
 For `prompt_regexp()`, see `m:ct_telnet`.
 """.
+-spec get_prompt_regexp() -> Pattern
+              when Pattern :: string().
 get_prompt_regexp() ->
     ?prx.
 
@@ -100,6 +102,20 @@ Setup Telnet connection to a Unix host.
 For `target_name()`, see `m:ct`. For `handle()`, see `m:ct_telnet`.
 """.
 -doc(#{since => <<"OTP 18.3.3">>}).
+-spec connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) ->
+          {'ok', Handle} | {'error', Reason}
+              when ConnName :: ct:target_name(),
+                   Ip :: inet:socket_address() | inet:hostname(),
+                   Port :: inet:port_number(),
+                   Timeout :: timeout(),
+                   KeepAlive :: boolean(),
+                   TCPNoDelay :: boolean(),
+                   Extra :: {Username, Password} | KeyOrName,
+                   Username :: iodata(),
+                   Password :: iodata(),
+                   KeyOrName :: atom(),
+                   Handle :: ct_telnet:handle(),
+                   Reason :: term().
 connect(ConnName,Ip,Port,Timeout,KeepAlive,TCPNoDelay,Extra) ->
     case Extra of
 	{Username,Password} -> 
