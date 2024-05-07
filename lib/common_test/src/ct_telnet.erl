@@ -187,6 +187,7 @@ Regular expression matching all possible prompts for a specific target type.
 STDLIB) must return a list with one single element.
 """.
 -type prompt_regexp() :: string().
+-type send_option() :: {'newline', boolean() | string()}.
 -export_type([connection/0, connection_type/0, handle/0, prompt_regexp/0]).
 
 -record(state,{host,
@@ -213,6 +214,10 @@ open(Name) -> {ok, Handle} | {error, Reason}
 
 Equivalent to [`ct_telnet:open(Name, telnet)`](`open/2`).
 """.
+-spec open(Name) -> {'ok', Handle} | {'error', Reason}
+              when Name :: atom(),
+                   Handle :: handle(),
+                   Reason :: term().
 open(Name) ->
     open(Name,telnet).
 
@@ -221,6 +226,11 @@ open(Name, ConnType) -> {ok, Handle} | {error, Reason}
 
 Opens a Telnet connection to the specified target host.
 """.
+-spec open(Name, ConnType) -> {'ok', Handle} | {'error', Reason}
+              when Name :: atom(),
+                   ConnType :: connection_type(),
+                   Handle :: handle(),
+                   Reason :: term().
 open(Name,ConnType) ->
     case ct_util:get_key_from_name(Name) of
 	{ok, unix} -> % unix host
@@ -237,6 +247,12 @@ open(KeyOrName, ConnType, TargetMod) -> {ok, Handle} | {error, Reason}
 Equivalent to
 [`ct_telnet:ct_telnet:open(KeyOrName, ConnType, TargetMod, [])`](`open/4`).
 """.
+-spec open(KeyOrName, ConnType, TargetMod) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: atom(),
+                   ConnType :: connection_type(),
+                   TargetMod :: module(),
+                   Handle :: handle(),
+                   Reason :: term().
 open(KeyOrName,ConnType,TargetMod) ->
     open(KeyOrName,ConnType,TargetMod,KeyOrName).
 
@@ -266,6 +282,13 @@ For `target_name()`, see module `m:ct`.
 
 See also `ct:require/2`.
 """.
+-spec open(KeyOrName, ConnType, TargetMod, Extra) -> {'ok', Handle} | {'error', Reason}
+              when KeyOrName :: atom(),
+                   ConnType :: connection_type(),
+                   TargetMod :: module(),
+                   Extra :: term(),
+                   Handle :: handle(),
+                   Reason :: term().
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->
@@ -314,6 +337,9 @@ A connection can be associated with a target name and/or a handle. If
 `Connection` has no associated target name, it can only be closed with the
 handle value (see [`ct_telnet:open/4`](`open/4`)).
 """.
+-spec close(Connection) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Reason :: 'already_closed' | term().
 close(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -337,6 +363,11 @@ cmd(Connection, Cmd) -> {ok, Data} | {error, Reason}
 
 Equivalent to [`ct_telnet:cmd(Connection, Cmd, [])`](`cmd/3`).
 """.
+-spec cmd(Connection, Cmd) -> {'ok', Data} | {'error', Reason}
+              when Connection :: connection(),
+                   Cmd :: iodata(),
+                   Data :: string(),
+                   Reason :: term().
 cmd(Connection,Cmd) ->
     cmd(Connection,Cmd,[]).
 
@@ -358,6 +389,13 @@ default value for the command timeout, see the
 [list of default values](`m:ct_telnet#Default_values`) in the beginning of this
 module.
 """.
+-spec cmd(Connection, Cmd, Opts) -> {'ok', Data} | {'error', Reason}
+              when Connection :: connection(),
+                   Cmd :: iodata(),
+                   Opts :: [{'timeout', Timeout} | send_option()] | Timeout,
+                   Timeout :: integer(),
+                   Data :: string(),
+                   Reason :: term().
 cmd(Connection,Cmd,Opts) when is_list(Opts) ->
     case check_cmd_opts(Opts) of
 	ok ->
@@ -387,6 +425,12 @@ cmdf(Connection, CmdFormat, Args) -> {ok, Data} | {error, Reason}
 
 Equivalent to [`ct_telnet:cmdf(Connection, CmdFormat, Args, [])`](`cmdf/4`).
 """.
+-spec cmdf(Connection, CmdFormat, Args) -> {'ok', Data} | {'error', Reason}
+              when Connection :: connection(),
+                   CmdFormat :: io:format(),
+                   Args :: [term()],
+                   Data :: string(),
+                   Reason :: term().
 cmdf(Connection,CmdFormat,Args) ->
     cmdf(Connection,CmdFormat,Args,[]).
 
@@ -398,6 +442,14 @@ arguments to build the command).
 
 For details, see [`ct_telnet:cmd/3`](`cmd/3`).
 """.
+-spec cmdf(Connection, CmdFormat, Args, Opts) -> {'ok', Data} | {'error', Reason}
+              when Connection :: connection(),
+                   CmdFormat :: io:format(),
+                   Args :: [term()],
+                   Opts :: [{'timeout', Timeout} | send_option()] | Timeout,
+                   Timeout :: integer(),
+                   Data :: string(),
+                   Reason :: term().
 cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     cmd(Connection,Cmd,Opts).
@@ -415,6 +467,10 @@ The polling feature is controlled by the configuration values `poll_limit` and
 immediately returns all complete strings received and saves a remaining
 non-terminated string for a later `get_data` call.
 """.
+-spec get_data(Connection) -> {'ok', Data} | {'error', Reason}
+              when Connection :: connection(),
+                   Data :: string(),
+                   Reason :: term().
 get_data(Connection) ->
     case get_handle(Connection) of
 	{ok,Pid} ->
@@ -428,6 +484,10 @@ send(Connection, Cmd) -> ok | {error, Reason}
 
 Equivalent to [`ct_telnet:send(Connection, Cmd, [])`](`send/3`).
 """.
+-spec send(Connection, Cmd) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Cmd :: iodata(),
+                   Reason :: term().
 send(Connection,Cmd) ->
     send(Connection,Cmd,[]).
 
@@ -447,6 +507,11 @@ The resulting output from the command can be read with
 [`ct_telnet:get_data/2`](`get_data/1`) or [`ct_telnet:expect/2,3`](`expect/2`).
 """.
 -doc(#{since => <<"OTP 17.4">>}).
+-spec send(Connection, Cmd, Opts) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   Cmd :: iodata(),
+                   Opts :: [send_option()],
+                   Reason :: term().
 send(Connection,Cmd,Opts) ->
     case check_send_opts(Opts) of
 	ok ->
@@ -481,6 +546,11 @@ sendf(Connection, CmdFormat, Args) -> ok | {error, Reason}
 
 Equivalent to [`ct_telnet:sendf(Connection, CmdFormat, Args, [])`](`sendf/4`).
 """.
+-spec sendf(Connection, CmdFormat, Args) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   CmdFormat :: io:format(),
+                   Args :: [term()],
+                   Reason :: term().
 sendf(Connection,CmdFormat,Args) when is_list(Args) ->
     sendf(Connection,CmdFormat,Args,[]).
 
@@ -493,6 +563,12 @@ of arguments to build the command).
 For details, see [`ct_telnet:send/3`](`send/3`).
 """.
 -doc(#{since => <<"OTP 17.4">>}).
+-spec sendf(Connection, CmdFormat, Args, Opts) -> 'ok' | {'error', Reason}
+              when Connection :: connection(),
+                   CmdFormat :: io:format(),
+                   Args :: [term()],
+                   Opts :: [send_option()],
+                   Reason :: term().
 sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     send(Connection,Cmd,Opts).
@@ -502,6 +578,21 @@ expect(Connection, Patterns) -> term()
 
 Equivalent to [`ct_telnet:expect(Connections, Patterns, [])`](`expect/3`).
 """.
+-spec expect(Connection, Patterns) -> {'ok', Match} | {'ok', Match, HaltReason}
+              | {'error', Reason} | no_return()
+              when Connection :: connection(),
+                   Patterns :: Pattern | [Pattern],
+                   Pattern :: PatternString | {Tag, PatternString},
+                   Tag :: term(),
+                   PatternString :: unicode:charlist(),
+                   Match :: MatchResult | [MatchResult],
+                   MatchResult :: [CaptureData | {Tag, CaptureData}]
+                                | [[CaptureData | {Tag, CaptureData}]],
+                   CaptureData :: string()
+                                | {'error', string(), binary()}
+                                | {'incomplete', string(), binary()},
+                   HaltReason :: MatchResult,
+                   Reason :: term().
 expect(Connection,Patterns) ->
     expect(Connection,Patterns,[]).
 
@@ -587,6 +678,26 @@ returns `HaltReason = {nnn,["NNN"]}`.
 Options `repeat` and `sequence` can be combined to match a sequence multiple
 times.
 """.
+-spec expect(Connection, Patterns, Opts) -> {'ok', Match} | {'ok', Match, HaltReason}
+              | {'error', Reason} | no_return()
+              when Connection :: connection(),
+                   Patterns :: Pattern | [Pattern],
+                   Pattern :: PatternString | {Tag, PatternString},
+                   Tag :: term(),
+                   PatternString :: unicode:charlist(),
+                   Opts :: [Option],
+                   Option :: {'idle_timeout', non_neg_integer()}
+                           | {'total_timeout', non_neg_integer()} | 'ignore_prompt'
+                           | 'no_prompt_check' | 'wait_for_prompt' | 'repeat'
+                           | {'repeat', non_neg_integer()} | 'sequence' | {'halt', Patterns},
+                   Match :: MatchResult | [MatchResult],
+                   MatchResult :: [CaptureData | {Tag, CaptureData}]
+                                | [[CaptureData | {Tag, CaptureData}]],
+                   CaptureData :: string()
+                                | {'error', string(), binary()}
+                                | {'incomplete', string(), binary()},
+                   HaltReason :: MatchResult,
+                   Reason :: term().
 expect(Connection,Patterns,Opts) ->
     case get_handle(Connection) of
         {ok,Pid} ->
