@@ -1179,11 +1179,12 @@ parse_table(Data) ->
 Performs command `listenv` on the specified Telnet connection and returns the
 result as a list of key-value pairs.
 """.
--spec listenv(Telnet) -> {ok, [Env]}
-      when Telnet :: term(),
-           Env :: {Key, Value},
-           Key :: string(),
-           Value :: string().
+-spec listenv(Telnet) -> {'ok', [Env]} | {'error', Reason}
+              when Telnet :: ct_telnet:connection(),
+                   Env :: {Key, Value},
+                   Key :: string(),
+                   Value :: string(),
+                   Reason :: term().
 listenv(Telnet) ->
     ct_util:listenv(Telnet).
 
