@@ -225,7 +225,7 @@ _Example:_
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
 2> orddict:take(a, OrdDict1).
-{1, [{b,2}]}
+{1,[{b,2}]}
 3> orddict:take(missing, OrdDict1).
 error
 ```
@@ -359,8 +359,8 @@ _Example:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(a, fun (V) -> V1 + 100 end, OrdDict1).
-[{a, 101}, {b, 102}]
+2> orddict:update(a, fun (V) -> V + 100 end, OrdDict1).
+[{a,101},{b,2}]
 ```
 """.
 -spec update(Key, Fun, Orddict1) -> Orddict2 when
@@ -390,7 +390,7 @@ _Example 1:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(c, fun (V) -> V1 + 100 end, 99, OrdDict1).
+2> orddict:update(c, fun (V) -> V + 100 end, 99, OrdDict1).
 [{a,1},{b,2},{c,99}]
 ```
 
@@ -399,7 +399,7 @@ _Example 2:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(a, fun (V) -> V1 + 100 end, 99, OrdDict1).
+2> orddict:update(a, fun (V) -> V + 100 end, 99, OrdDict1).
 [{a,101},{b,2}]
 ```
 """.
@@ -540,7 +540,7 @@ _Example:_
 2> OrdDict2 = orddict:from_list([{b, 7}, {c, 8}]).
 [{b,7},{c,8}]
 3> orddict:merge(fun (K, V1, V2) -> V1 * V2 end, OrdDict1, OrdDict2).
-[{a, 1},{b, 14},{c,8}]
+[{a,1},{b,14},{c,8}]
 ```
 """.
 -spec merge(Fun, Orddict1, Orddict2) -> Orddict3 when
