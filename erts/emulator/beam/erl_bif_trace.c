@@ -1820,6 +1820,12 @@ static Eterm function_traced_by_sessions(Process *p, const ErtsCodeMFA *mfa)
     ErtsHeapFactory factory;
     Eterm list = NIL;
 
+    ci = erts_find_local_func(mfa);
+    if (!ci) {
+        /* Function does not exists */
+        return am_undefined;
+    }
+
     erts_factory_proc_init(&factory, p);
 
     /* First look for an export entry */
@@ -1836,7 +1842,7 @@ static Eterm function_traced_by_sessions(Process *p, const ErtsCodeMFA *mfa)
     }
 
     /* OK, now look for local breakpoint tracing */
-    if ((ci = erts_find_local_func(&e.info.mfa)) != NULL) {
+    if (ci) {
         list = erts_make_bp_session_list(&factory, ci, list);
     }
 
