@@ -174,7 +174,9 @@ fold(_, Acc, Map)
 
 fold(Fun, Acc, #{} = Map) ->
     receive
-        {'DOWN', MRef, process, _, Info} when is_map_key(MRef, Map) ->
+        {'DOWN', MRef, process, Pid, Info} when is_map_key(MRef, Map) ->
+            ?UL("fold -> process ~p terminated:"
+                "~n   ~p", [Pid, Info]),
             fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
     end.
 
