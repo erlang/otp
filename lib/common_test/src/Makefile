@@ -115,8 +115,7 @@ DTD_FILES = \
 # FLAGS
 # ----------------------------------------------------
 ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
-	-I../../xmerl/inc/ -I $(ERL_TOP)/lib/kernel/include -Werror \
-         +nowarn_missing_spec_documented
+	-I../../xmerl/inc/ -I $(ERL_TOP)/lib/kernel/include -Werror
 
 # ----------------------------------------------------
 # Targets
