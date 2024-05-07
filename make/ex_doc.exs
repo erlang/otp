@@ -185,7 +185,7 @@ config = [
   before_closing_body_tag: fn
     :html ->
       """
-      <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
       <script>
         document.addEventListener("DOMContentLoaded", function () {
           mermaid.initialize({

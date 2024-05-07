@@ -44,7 +44,19 @@ concepts of **OTP**, and has a basic understanding of **public keys**.
 
 Conceptually, the SSH protocol can be partitioned into four layers:
 
-![SSH Protocol Architecture](assets/SSH_protocols.png "SSH Protocol Architecture")
+```mermaid
+---
+title: SSH Protocol Architecture
+---
+
+block-beta
+    columns 2
+
+    l1["SSH Client/Server Applications"]:2
+    l2a["Connection Protocol"] l2b["Authentication Protocol"]
+    l3["Transport Protocol"]:2
+    l4["TCP/IP Stack"]:2
+```
 
 ### Transport Protocol
 
