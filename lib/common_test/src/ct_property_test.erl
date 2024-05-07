@@ -92,6 +92,13 @@ prop_ftp() ->
          print_frequency/0
         ]).
 
+%% Type declarations
+-type dynamic_state()     :: term().
+-type command()           :: term().
+-type command_list()      :: [command()].
+-type history()           :: [term()].
+-type statem_result()     :: 'ok' | term().
+
 %%%================================================================
 %%%
 %%% API
@@ -103,7 +110,7 @@ prop_ftp() ->
 %%% the property tests
 %%%
 -doc """
-init_per_suite(Config) -> Config | {skip, Reason}
+init_per_suite(Config) -> Config | {skip, Reason} | {fail, Reason}
 
 Initializes and extends `Config` for property based testing.
 
@@ -120,6 +127,9 @@ searched for.
 
 If no support is found for any tool, this function returns
 `{skip, Explanation}`.
+
+In case of other errors, this function returns
+`{fail, Explanation}`.
 
 If support is found, the option `{property_test_tool,ToolModule}` with the
 selected tool main module name (`eqc`, `proper` or `triq`) is added to the list
@@ -145,6 +155,9 @@ This included file will:
   That is, the macro `'MOD_eqc'` is set to either `eqc`, `proper` or `triq`.
 """.
 -doc(#{since => <<"OTP 17.3">>}).
+-spec init_per_suite(Config) -> Config | {'skip', Reason} | {'fail', Reason}
+              when Config :: proplists:proplist(),
+                   Reason :: string().
 init_per_suite(Config) ->
     case init_tool(Config) of
         {skip, _}=Skip ->
@@ -207,6 +220,10 @@ The result is returned in a form suitable for `Common Test` test suites.
 This function is intended to be called in test cases in test suites.
 """.
 -doc(#{since => <<"OTP 17.3">>}).
+-spec quickcheck(Property, Config) -> 'true' | {'fail', Reason}
+              when Property :: term(),
+                   Config :: proplists:proplist(),
+                   Reason :: term().
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
     F = function_name(quickcheck, Tool),
@@ -223,6 +240,14 @@ present_result(Module, Cmds, Triple, Config) -> Result
 Same as [`present_result(Module, Cmds, Triple, Config, [])`](`present_result/5`)
 """.
 -doc(#{since => <<"OTP 22.3">>}).
+-spec present_result(Module, Cmds, Triple, Config) -> boolean()
+              when Module :: module(),
+                   Cmds :: command() | command_list(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist().
 present_result(Module, Cmds, Triple, Config) ->
     present_result(Module, Cmds, Triple, Config, []).
 
@@ -299,7 +324,16 @@ The default `StatisticsSpec` is:
   ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
-present_result(Module, Cmds, {H,Sf,Result}, Config, Options0) ->
+-spec present_result(Module, Cmds, Triple, Config, Options0) -> boolean()
+              when Module :: module(),
+                   Cmds :: command() | command_list(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist(),
+                   Options0 :: proplists:proplist().
+present_result(Module, Cmds, {H,Sf,Result} = _Triple, Config, Options0) ->
     DefSpec = 
         if
             is_tuple(Cmds) ->
