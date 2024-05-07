@@ -25,7 +25,7 @@ User authentication using text files, Dets, or Mnesia database.
 This module provides for basic user authentication using textual files, Dets
 databases, or Mnesia databases.
 
-## SEE ALSO
+### See also
 
 `m:httpd`, `m:mod_alias`
 """.

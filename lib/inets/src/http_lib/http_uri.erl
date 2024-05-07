@@ -24,7 +24,7 @@ Old URI utility module, use uri_string instead
 This module is deprecated since OTP 23. Use the module `m:uri_string` to
 properly handle URIs, this is the recommended module since OTP 21.
 
-## DATA TYPES
+### Data types
 
 Type definitions that are related to URI:
 

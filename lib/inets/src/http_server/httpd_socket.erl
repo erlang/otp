@@ -27,7 +27,7 @@ This module provides the Erlang web server API module programmer with utility
 functions for generic sockets communication. The appropriate communication
 mechanism is transparently used, that is, `ip_comm` or `ssl`.
 
-## SEE ALSO
+### See also
 
 `m:httpd`
 """.

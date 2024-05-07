@@ -31,7 +31,7 @@ of the `Inets` application, such as start and stop.
 
 [](){: #common_data_types }
 
-## DATA TYPES
+### Data types
 
 Type definitions that are used more than once in this module:
 
@@ -39,7 +39,7 @@ Type definitions that are used more than once in this module:
 
 `property() = atom()`
 
-## SEE ALSO
+### See also
 
 `m:httpc`, `m:httpd`
 """.

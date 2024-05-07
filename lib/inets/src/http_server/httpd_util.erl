@@ -33,7 +33,7 @@ miscellaneous utility functions.
 
 [](){: #convert_request_date }
 
-## SEE ALSO
+### See also
 
 `m:httpd`
 """.
