@@ -107,6 +107,9 @@ file transfer service available for SSH.
                      | {window_size, pos_integer()}
                      | {packet_size, pos_integer()} .
 
+%% For ct_ssh:connect
+-export_type([sftp_option/0]).
+
 -doc """
 A description of the reason why an operation failed.
 

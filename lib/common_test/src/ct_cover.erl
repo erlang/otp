@@ -42,6 +42,10 @@ is active.
 To have effect, this function is to be called from `init_per_suite/1` (see
 `m:ct_suite`) before any tests are performed.
 """.
+-spec add_nodes(Nodes) -> {'ok', StartedNodes} | {'error', Reason}
+              when Nodes :: node() | [node()],
+                   StartedNodes :: [node()],
+                   Reason :: 'cover_not_running' | term().
 add_nodes([]) ->
     {ok,[]};
 add_nodes(Nodes) ->
@@ -77,6 +81,9 @@ Call this function to stop cover test on nodes previously added with
 [`ct_cover:add_nodes/1`](`add_nodes/1`). Results on the remote node are
 transferred to the `Common Test` node.
 """.
+-spec remove_nodes(Nodes) -> 'ok' | {'error', Reason}
+              when Nodes :: node() | [node()],
+                   Reason :: 'cover_not_running' | 'not_main_node' | term().
 remove_nodes([]) ->
     ok;
 remove_nodes(Nodes) ->
@@ -109,6 +116,9 @@ Accumulates cover results over multiple tests. See section
 [Cross Cover Analysis](cover_chapter.md#cross_cover) in the Users's Guide.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec cross_cover_analyse(Level, Tests) -> 'ok'
+              when Level :: 'overview' | 'details',
+                   Tests :: [{Tag :: atom(), Dir :: file:name_all()}].
 cross_cover_analyse(Level,Tests) ->
     test_server_ctrl:cross_cover_analyse(Level,Tests).
 
