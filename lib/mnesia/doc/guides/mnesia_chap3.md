@@ -58,7 +58,7 @@ return either of the following tuples:
 
 The schema functions are as follows:
 
-- [mnesia:create_schema(NodeList)](`mnesia:create_schema/1`) initializes a new,
+- [`mnesia:create_schema(NodeList)`](`mnesia:create_schema/1`) initializes a new,
   empty schema. This is a mandatory requirement before `Mnesia` can be started.
   `Mnesia` is a truly distributed DBMS and the schema is a system table that is
   replicated on all nodes in a `Mnesia` system. This function fails if a schema
@@ -66,29 +66,29 @@ The schema functions are as follows:
   `Mnesia` to be stopped on the all `db_nodes` contained in parameter
   `NodeList`. Applications call this function only once, as it is usually a
   one-time activity to initialize a new database.
-- [mnesia:delete_schema(DiscNodeList)](`mnesia:delete_schema/1`) erases any old
+- [`mnesia:delete_schema(DiscNodeList)`](`mnesia:delete_schema/1`) erases any old
   schemas on the nodes in `DiscNodeList`. It also removes all old tables
   together with all data. This function requires `Mnesia` to be stopped on all
   `db_nodes`.
-- [mnesia:delete_table(Tab)](`mnesia:delete_table/1`) permanently deletes all
+- [`mnesia:delete_table(Tab)`](`mnesia:delete_table/1`) permanently deletes all
   replicas of table `Tab`.
-- [mnesia:clear_table(Tab)](`mnesia:clear_table/1`) permanently deletes all
+- [`mnesia:clear_table(Tab)`](`mnesia:clear_table/1`) permanently deletes all
   entries in table `Tab`.
-- [mnesia:move_table_copy(Tab, From, To)](`mnesia:move_table_copy/3`) moves the
+- [`mnesia:move_table_copy(Tab, From, To)`](`mnesia:move_table_copy/3`) moves the
   copy of table `Tab` from node `From` to node `To`. The table storage type
   `{type}` is preserved, so if a RAM table is moved from one node to another, it
   remains a RAM table on the new node. Other transactions can still perform read
   and write operation to the table while it is being moved.
-- [mnesia:add_table_copy(Tab, Node, Type)](`mnesia:add_table_copy/3`) creates a
+- [`mnesia:add_table_copy(Tab, Node, Type)`](`mnesia:add_table_copy/3`) creates a
   replica of table `Tab` at node `Node`. Argument `Type` must be either of the
   atoms `ram_copies`, `disc_copies`, or `disc_only_copies`. If you add a copy of
   the system table `schema` to a node, you want the `Mnesia` schema to reside
   there as well. This action extends the set of nodes that comprise this
   particular `Mnesia` system.
-- [mnesia:del_table_copy(Tab, Node)](`mnesia:del_table_copy/2`) deletes the
+- [`mnesia:del_table_copy(Tab, Node)`](`mnesia:del_table_copy/2`) deletes the
   replica of table `Tab` at node `Node`. When the last replica of a table is
   removed, the table is deleted.
-- [mnesia:transform_table(Tab, Fun, NewAttributeList, NewRecordName)](`mnesia:transform_table/4`)
+- [`mnesia:transform_table(Tab, Fun, NewAttributeList, NewRecordName)`](`mnesia:transform_table/4`)
   changes the format on all records in table `Tab`. It applies argument `Fun` to
   all records in the table. `Fun` must be a function that takes a record of the
   old type, and returns the record of the new type. The table key must not be
@@ -116,9 +116,9 @@ The schema functions are as follows:
   creates inconsistencies between the metadata and the actual data) but it is
   included as a possibility for the user do to an own (offline) transform.
 
-- `change_table_copy_type(Tab, Node, ToType)` changes the storage type of a
-  table. For example, a RAM table is changed to a `disc_table` at the node
-  specified as `Node`.
+- [`mnesia:change_table_copy_type(Tab, Node, ToType)`](`mnesia:change_table_copy_type/3`)
+  changes the storage type of a table. For example, a RAM table is changed to a
+  `disc_table` at the node specified as `Node`.
 
 ## Data Model
 
@@ -154,10 +154,10 @@ Before starting `Mnesia`, the following must be done:
 - An empty schema must be initialized on all the participating nodes.
 - The Erlang system must be started.
 - Nodes with disc database schema must be defined and implemented with the
-  function [mnesia:create_schema(NodeList)](`mnesia:create_schema/1`).
+  function [`mnesia:create_schema(NodeList)`](`mnesia:create_schema/1`).
 
 When running a distributed system with two or more participating nodes, the
-function [mnesia:start()](`mnesia:start/0`) must be executed on each
+function [`mnesia:start()`](`mnesia:start/0`) must be executed on each
 participating node. This would typically be part of the boot script in an
 embedded environment. In a test environment or an interactive environment,
 `mnesia:start()` can also be used either from the Erlang shell or another
@@ -176,7 +176,7 @@ can be started. There are two ways to specify the `Mnesia` directory to be used:
   following example was used to create the directory for the `Company` database:
 
   ```text
-  %erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
+  % erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
   ```
 
 - If no command-line flag is entered, the `Mnesia` directory becomes the current
@@ -188,28 +188,26 @@ enter the following commands:
 1. On the node `a@gin`:
 
 ```text
- gin %erl -sname a  -mnesia dir '"/ldisc/scratch/Mnesia.company"'
+ gin % erl -sname a  -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
 1. On the node `b@skeppet`:
 
 ```text
-skeppet %erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
+skeppet % erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
 1. On one of the two nodes:
 
-```text
-(a@gin)1>mnesia:create_schema([a@gin, b@skeppet]).
+```erlang
+(a@gin)1> mnesia:create_schema([a@gin, b@skeppet]).
 ```
 
-1. The function [mnesia:start()](`mnesia:start/0`) is called on both nodes.
+1. The function [`mnesia:start()`](`mnesia:start/0`) is called on both nodes.
 1. To initialize the database, execute the following code on one of the two
    nodes:
 
 ```erlang
-
-
 dist_init() ->
     mnesia:create_table(employee,
                          [{ram_copies, [a@gin, b@skeppet]},
@@ -240,7 +238,7 @@ As illustrated, the two directories reside on different nodes, because
 By executing these commands, two Erlang nodes are configured to run the
 `Company` database, and therefore, initialize the database. This is required
 only once when setting up. The next time the system is started,
-[mnesia:start()](`mnesia:start/0`) is called on both nodes, to initialize the
+[`mnesia:start()`](`mnesia:start/0`) is called on both nodes, to initialize the
 system from disc.
 
 In a system of `Mnesia` nodes, every node is aware of the current location of
@@ -249,7 +247,7 @@ manipulate the data in the tables can be executed on either of the two nodes.
 Code that manipulate `Mnesia` data behaves identically regardless of where the
 data resides.
 
-The function [mnesia:stop()](`mnesia:stop/0`) stops `Mnesia` on the node where
+The function [`mnesia:stop()`](`mnesia:stop/0`) stops `Mnesia` on the node where
 the function is executed. The functions `mnesia:start/0` and `mnesia:stop/0`
 work on the "local" `Mnesia` system. No functions start or stop a set of nodes.
 
@@ -257,8 +255,8 @@ work on the "local" `Mnesia` system. No functions start or stop a set of nodes.
 
 Start `Mnesia` by calling the following function:
 
-```text
-          mnesia:start().
+```erlang
+mnesia:start().
 ```
 
 This function initiates the DBMS locally.
@@ -276,11 +274,11 @@ The alternatives are as follows:
    they are loaded.
 
 Table initialization is asynchronous. The function call
-[mnesia:start()](`mnesia:start/0`) returns the atom `ok` and then starts to
+[`mnesia:start()`](`mnesia:start/0`) returns the atom `ok` and then starts to
 initialize the different tables. Depending on the size of the database, this can
 take some time, and the application programmer must wait for the tables that the
 application needs before they can be used. This is achieved by using the
-function [mnesia:wait_for_tables(TabList, Timeout)](`mnesia:wait_for_tables/2`),
+function [`mnesia:wait_for_tables(TabList, Timeout)`](`mnesia:wait_for_tables/2`),
 which suspends the caller until all tables specified in `TabList` are properly
 initiated.
 
@@ -292,7 +290,7 @@ remote node has initialized the table from its local disc and the node has
 copied the table over the network to the local node.
 
 However, this procedure can be time-consuming, the shortcut function
-[mnesia:force_load_table(Tab)](`mnesia:force_load_table/1`) loads all the tables
+[`mnesia:force_load_table(Tab)`](`mnesia:force_load_table/1`) loads all the tables
 from disc at a faster rate. The function forces tables to be loaded from disc
 regardless of the network situation.
 
@@ -301,12 +299,12 @@ the application must perform some action similar to following before it can use
 the tables:
 
 ```erlang
-          case mnesia:wait_for_tables([a, b], 20000) of
-            {timeout,   RemainingTabs} ->
-              panic(RemainingTabs);
-            ok ->
-              synced
-          end.
+case mnesia:wait_for_tables([a, b], 20000) of
+  {timeout, RemainingTabs} ->
+    panic(RemainingTabs);
+  ok ->
+    synced
+end.
 ```
 
 > #### Warning {: .warning }
@@ -316,7 +314,7 @@ the tables:
 > remote replica was alive, are lost. This can cause the database to become
 > inconsistent.
 
-If the startup procedure fails, the function [mnesia:start()](`mnesia:start/0`)
+If the startup procedure fails, the function [`mnesia:start()`](`mnesia:start/0`)
 returns the cryptic tuple
 `{error,{shutdown, {mnesia_sup,start_link,[normal,[]]}}}`. To get more
 information about the start failure, use command-line arguments
@@ -326,7 +324,7 @@ information about the start failure, use command-line arguments
 
 ## Create Tables
 
-The function [mnesia:create_table(Name, ArgList)](`mnesia:create_table/2`)
+The function [`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`)
 creates tables. When executing this function, it returns one of the following
 responses:
 
@@ -394,7 +392,7 @@ The function arguments are as follows:
     to create a table, it is located on the local node only.
 
     Table replicas of type `ram_copies` can be dumped to disc with the function
-    [mnesia:dump_tables(TabList)](`mnesia:dump_tables/1`).
+    [`mnesia:dump_tables(TabList)`](`mnesia:dump_tables/1`).
 
   - `{disc_only_copies, NodeList}`. These table replicas are stored on disc only
     and are therefore slower to access. However, a disc-only replica consumes
@@ -448,21 +446,21 @@ The function arguments are as follows:
 As an example, consider the following record definition:
 
 ```erlang
-      -record(funky, {x, y}).
+-record(funky, {x, y}).
 ```
 
 The following call would create a table that is replicated on two nodes, has an
 extra index on attribute `y`, and is of type `bag`.
 
 ```erlang
-      mnesia:create_table(funky, [{disc_copies, [N1, N2]}, {index,
-      [y]}, {type, bag}, {attributes, record_info(fields, funky)}]).
+mnesia:create_table(funky, [{disc_copies, [N1, N2]}, {index, [y]},
+                            {type, bag}, {attributes, record_info(fields, funky)}]).
 ```
 
 Whereas a call to the following default code values would return a table with a
 RAM copy on the local node, no extra indexes, and the attributes defaulted to
 the list `[key,val]`.
 
-```text
+```erlang
 mnesia:create_table(stuff, [])
 ```

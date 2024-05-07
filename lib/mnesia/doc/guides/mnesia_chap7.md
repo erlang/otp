@@ -36,10 +36,10 @@ The following topics are included:
 The following two functions can be used to retrieve system information. For
 details, see the Reference Manual.
 
-- [mnesia:table_info(Tab, Key) -> Info | exit(\{aborted,Reason\})](`mnesia:table_info/2`)
+- [`mnesia:table_info(Tab, Key) -> Info | exit({aborted, Reason})`](`mnesia:table_info/2`)
   returns information about one table, for example, the current size of the
   table and on which nodes it resides.
-- [mnesia:system_info(Key) -> Info | exit(\{aborted, Reason\})](`mnesia:system_info/1`)
+- [`mnesia:system_info(Key) -> Info | exit({aborted, Reason})`](`mnesia:system_info/1`)
   returns information about the `Mnesia` system, for example, transaction
   statistics, `db_nodes`, and configuration parameters.
 
@@ -56,7 +56,7 @@ included in the bug report.
 Tables of type `ram_copies` are by definition stored in memory only. However,
 these tables can be dumped to disc, either at regular intervals or before the
 system is shut down. The function
-[mnesia:dump_tables(TabList)](`mnesia:dump_tables/1`) dumps all replicas of a
+[`mnesia:dump_tables(TabList)`](`mnesia:dump_tables/1`) dumps all replicas of a
 set of RAM tables to disc. The tables can be accessed while being dumped to
 disc. To dump the tables to disc, all replicas must have the storage type
 `ram_copies`.
@@ -90,7 +90,7 @@ survives as long as there is at least one active checkpoint retainer attached to
 each table.
 
 Checkpoints can be explicitly deactivated with the function
-[mnesia:deactivate_checkpoint(Name)](`mnesia:deactivate_checkpoint/1`), where
+[`mnesia:deactivate_checkpoint(Name)`](`mnesia:deactivate_checkpoint/1`), where
 `Name` is the name of an active checkpoint. This function returns `ok` if
 successful or `{error, Reason}` if there is an error. All tables in a checkpoint
 must be attached to at least one checkpoint retainer. The checkpoint is
@@ -102,28 +102,28 @@ degree of checkpoint retainer redundancy.
 [](){: #mnesia%3Achkpt%28Args%29 }
 
 Checkpoints are activated with the function
-[mnesia:activate_checkpoint(Args)](`mnesia:activate_checkpoint/1`), where `Args`
+[`mnesia:activate_checkpoint(Args)`](`mnesia:activate_checkpoint/1`), where `Args`
 is a list of the following tuples:
 
-- `{name,Name}`, where `Name` specifies a temporary name of the checkpoint. The
+- `{name, Name}`, where `Name` specifies a temporary name of the checkpoint. The
   name can be reused when the checkpoint has been deactivated. If no name is
   specified, a name is generated automatically.
-- `{max,MaxTabs}`, where `MaxTabs` is a list of tables that are to be included
+- `{max, MaxTabs}`, where `MaxTabs` is a list of tables that are to be included
   in the checkpoint. Default is `[]` (empty list). For these tables, the
   redundancy is maximized. The old content of the table is retained in the
   checkpoint retainer when the main table is updated by the applications. The
   checkpoint is more fault tolerant if the tables have several replicas. When
   new replicas are added by the schema manipulation function
   `mnesia:add_table_copy/3` it also attaches a local checkpoint retainer.
-- `{min,MinTabs}`, where `MinTabs` is a list of tables that are to be included
+- `{min, MinTabs}`, where `MinTabs` is a list of tables that are to be included
   in the checkpoint. Default is `[]`. For these tables, the redundancy is
   minimized, and there is to be single checkpoint retainer per table, preferably
   at the local node.
-- `{allow_remote,Bool}`, where `false` means that all checkpoint retainers must
+- `{allow_remote, Bool}`, where `false` means that all checkpoint retainers must
   be local. If a table does not reside locally, the checkpoint cannot be
   activated. `true` allows checkpoint retainers to be allocated on any node.
   Default is `true`.
-- `{ram_overrides_dump,Bool}`. This argument only applies to tables of type
+- `{ram_overrides_dump, Bool}`. This argument only applies to tables of type
   `ram_copies`. `Bool` specifies if the table state in RAM is to override the
   table state on disc. `true` means that the latest committed records in RAM are
   included in the checkpoint retainer. These are the records that the
@@ -131,7 +131,7 @@ is a list of the following tuples:
   are included in the checkpoint retainer. These records are loaded on startup.
   Default is `false`.
 
-The function [mnesia:activate_checkpoint(Args)](`mnesia:activate_checkpoint/1`)
+The function [`mnesia:activate_checkpoint(Args)`](`mnesia:activate_checkpoint/1`)
 returns one of the following values:
 
 - `{ok, Name, Nodes}`
@@ -142,9 +142,9 @@ known.
 
 A list of active checkpoints can be obtained with the following functions:
 
-- [mnesia:system_info(checkpoints)](`mnesia:system_info/1`) returns all active
+- [`mnesia:system_info(checkpoints)`](`mnesia:system_info/1`) returns all active
   checkpoints on the current node.
-- [mnesia:table_info(Tab, checkpoints)](`mnesia:table_info/2`) returns active
+- [`mnesia:table_info(Tab, checkpoints)`](`mnesia:table_info/2`) returns active
   checkpoints on a specific table.
 
 ## Startup Files, Log File, and Data Files
@@ -330,10 +330,10 @@ you are unlucky, other nodes can be down and you must wait for the table to be
 loaded on one of these nodes before receiving a fresh copy of the table.
 
 Before an application makes its first access to a table,
-[mnesia:wait_for_tables(TabList, Timeout)](`mnesia:wait_for_tables/2`) is to be
+[`mnesia:wait_for_tables(TabList, Timeout)`](`mnesia:wait_for_tables/2`) is to be
 executed to ensure that the table is accessible from the local node. If the
 function times out, the application can choose to force a load of the local
-replica with [mnesia:force_load_table(Tab)](`mnesia:force_load_table/1`) and
+replica with [`mnesia:force_load_table(Tab)`](`mnesia:force_load_table/1`) and
 deliberately lose all updates that can have been performed on the other nodes
 while the local node was down. If `Mnesia` has loaded the table on another node
 already, or intends to do so, copy the table from that node to avoid unnecessary
@@ -342,13 +342,13 @@ inconsistency.
 > #### Warning {: .warning }
 >
 > Only one table is loaded by
-> [mnesia:force_load_table(Tab)](`mnesia:force_load_table/1`). Since committed
+> [`mnesia:force_load_table(Tab)`](`mnesia:force_load_table/1`). Since committed
 > transactions can have caused updates in several tables, the tables can become
 > inconsistent because of the forced load.
 
 The allowed `AccessMode` of a table can be defined to be `read_only` or
 `read_write`. It can be toggled with the function
-[mnesia:change_table_access_mode(Tab, AccessMode)](`mnesia:change_table_access_mode/2`)
+[`mnesia:change_table_access_mode(Tab, AccessMode)`](`mnesia:change_table_access_mode/2`)
 in runtime. `read_only` tables and `local_content` tables are always loaded
 locally, as there is no need for copying the table from other nodes. Other
 tables are primarily loaded remotely from active replicas on other nodes if the
@@ -369,7 +369,7 @@ table load mechanism does not cope with communication failures.
 When `Mnesia` loads many tables, the default load order is used. However, the
 load order can be affected, by explicitly changing property `load_order` for the
 tables, with the function
-[mnesia:change_table_load_order(Tab, LoadOrder)](`mnesia:change_table_load_order/2`).
+[`mnesia:change_table_load_order(Tab, LoadOrder)`](`mnesia:change_table_load_order/2`).
 `LoadOrder` is by default `0` for all tables, but it can be set to any integer.
 The table with the highest `load_order` is loaded first. Changing the load order
 is especially useful for applications that need to ensure early availability of
@@ -395,7 +395,7 @@ partitioned because of a communication failure, for example:
 
 If the application detects that there has been a communication failure that can
 have caused an inconsistent database, it can use the function
-[mnesia:set_master_nodes(Tab, Nodes)](`mnesia:set_master_nodes/2`) to pinpoint
+[`mnesia:set_master_nodes(Tab, Nodes)`](`mnesia:set_master_nodes/2`) to pinpoint
 from which nodes each table can be loaded.
 
 At startup, the `Mnesia` normal table load algorithm is bypassed and the table
@@ -405,17 +405,17 @@ the table has a replica. If `Nodes` is empty, the master node recovery mechanism
 for the particular table is reset and the normal load mechanism is used at the
 next restart.
 
-The function [mnesia:set_master_nodes(Nodes)](`mnesia:set_master_nodes/1`) sets
+The function [`mnesia:set_master_nodes(Nodes)`](`mnesia:set_master_nodes/1`) sets
 master nodes for all tables. For each table it determines its replica nodes and
-starts [mnesia:set_master_nodes(Tab, TabNodes)](`mnesia:set_master_nodes/2`)
+starts [`mnesia:set_master_nodes(Tab, TabNodes)`](`mnesia:set_master_nodes/2`)
 with those replica nodes that are included in the `Nodes` list (that is,
 `TabNodes` is the intersection of `Nodes` and the replica nodes of the table).
 If the intersection is empty, the master node recovery mechanism for the
 particular table is reset and the normal load mechanism is used at the next
 restart.
 
-The functions [mnesia:system_info(master_node_tables)](`mnesia:system_info/1`)
-and [mnesia:table_info(Tab, master_nodes)](`mnesia:table_info/2`) can be used to
+The functions [`mnesia:system_info(master_node_tables)`](`mnesia:system_info/1`)
+and [`mnesia:table_info(Tab, master_nodes)`](`mnesia:table_info/2`) can be used to
 obtain information about the potential master nodes.
 
 Determining what data to keep after a communication failure is outside the scope
@@ -425,7 +425,7 @@ that nodes that are not part of a "majority island" cannot update those tables.
 Notice that this constitutes a reduction in service on the minority nodes. This
 would be a tradeoff in favor of higher consistency guarantees.
 
-The function [mnesia:force_load_table(Tab)](`mnesia:force_load_table/1`) can be
+The function [`mnesia:force_load_table(Tab)`](`mnesia:force_load_table/1`) can be
 used to force load the table regardless of which table load mechanism that is
 activated.
 
@@ -524,22 +524,22 @@ network (as described earlier).
 The following functions are used to back up data, to install a backup as
 fallback, and for disaster recovery:
 
-- [mnesia:backup_checkpoint(Name, Opaque, \[Mod])](`mnesia:backup_checkpoint/2`)
+- [`mnesia:backup_checkpoint(Name, Opaque, [Mod])`](`mnesia:backup_checkpoint/2`)
   performs a backup of the tables included in the checkpoint.
-- [mnesia:backup(Opaque, \[Mod])](`mnesia:backup/1`) activates a new checkpoint
+- [`mnesia:backup(Opaque, [Mod])`](`mnesia:backup/1`) activates a new checkpoint
   that covers all `Mnesia` tables and performs a backup. It is performed with
   maximum degree of redundancy (see also the function
-  [mnesia:activate_checkpoint(Args)](mnesia_chap7.md#checkpoints),
+  [`mnesia:activate_checkpoint(Args)`](mnesia_chap7.md#checkpoints),
   `{max, MaxTabs} and {min, MinTabs})`.
-- [mnesia:traverse_backup(Source, \[SourceMod,] Target, \[TargetMod,] Fun,
-  Acc)](`mnesia:traverse_backup/4`) can be used to read an existing backup,
+- [`mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun,
+  Acc)`](`mnesia:traverse_backup/4`) can be used to read an existing backup,
   create a backup from an existing one, or to copy a backup from one type media
   to another.
-- [mnesia:uninstall_fallback()](`mnesia:uninstall_fallback/0`) removes
+- [`mnesia:uninstall_fallback()`](`mnesia:uninstall_fallback/0`) removes
   previously installed fallback files.
-- [mnesia:restore(Opaque, Args)](`mnesia:restore/2`) restores a set of tables
+- [`mnesia:restore(Opaque, Args)`](`mnesia:restore/2`) restores a set of tables
   from a previous backup.
-- [mnesia:install_fallback(Opaque, \[Mod])](`mnesia:install_fallback/1`) can be
+- [`mnesia:install_fallback(Opaque, [Mod])`](`mnesia:install_fallback/1`) can be
   configured to restart `Mnesia` and the reload data tables, and possibly the
   schema tables, from an existing backup. This function is typically used for
   disaster recovery purposes, when data or schema tables are corrupted.
@@ -552,14 +552,14 @@ used to activate and deactivate checkpoints.
 
 Backup operation are performed with the following functions:
 
-- [mnesia:backup_checkpoint(Name, Opaque, \[Mod])](`mnesia:backup_checkpoint/2`)
-- [mnesia:backup(Opaque, \[Mod])](`mnesia:backup/1`)
-- [mnesia:traverse_backup(Source, \[SourceMod,] Target, \[TargetMod,] Fun,
-  Acc)](`mnesia:traverse_backup/4`)
+- [`mnesia:backup_checkpoint(Name, Opaque, [Mod])`](`mnesia:backup_checkpoint/2`)
+- [`mnesia:backup(Opaque, [Mod])`](`mnesia:backup/1`)
+- [`mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun,
+  Acc)`](`mnesia:traverse_backup/4`)
 
 By default, the actual access to the backup media is performed through module
 `mnesia_backup` for both read and write. Currently `mnesia_backup` is
-implemented with the standard library module `disc_log`. However, you can write
+implemented with the standard library module `disk_log`. However, you can write
 your own module with the same interface as `mnesia_backup` and configure
 `Mnesia` so that the alternative module performs the actual accesses to the
 backup media. The user can therefore put the backup on a media that `Mnesia`
@@ -567,7 +567,7 @@ does not know about, possibly on hosts where Erlang is not running. Use
 configuration parameter `-mnesia backup_module <module>` for this purpose.
 
 The source for a backup is an activated checkpoint. The backup function
-[mnesia:backup_checkpoint(Name, Opaque,\[Mod])](`mnesia:backup_checkpoint/2`) is
+[`mnesia:backup_checkpoint(Name, Opaque,[Mod])`](`mnesia:backup_checkpoint/2`) is
 most commonly used and returns `ok` or `{error,Reason}`. It has the following
 arguments:
 
@@ -580,15 +580,15 @@ arguments:
   interprets this argument as a local filename.
 - `Mod` is the name of an alternative backup module.
 
-The function [mnesia:backup(Opaque \[,Mod])](`mnesia:backup/1`) activates a new
+The function [`mnesia:backup(Opaque [,Mod])`](`mnesia:backup/1`) activates a new
 checkpoint that covers all `Mnesia` tables with maximum degree of redundancy and
 performs a backup. Maximum redundancy means that each table replica has a
 checkpoint retainer. Tables with property `local_contents` are backed up as they
 look on the current node.
 
 You can iterate over a backup, either to transform it into a new backup, or only
-read it. The function [mnesia:traverse_backup(Source, \[SourceMod,] Target,
-\[TargetMod,] Fun, Acc)](`mnesia:traverse_backup/4`), which normally returns
+read it. The function [`mnesia:traverse_backup(Source, [SourceMod,] Target,
+[TargetMod,] Fun, Acc)`](`mnesia:traverse_backup/4`), which normally returns
 `{ok, LastAcc}`, is used for both of these purposes.
 
 Before the traversal starts, the source backup media is opened with
@@ -634,11 +634,10 @@ The schema itself is a table and is possibly included in the backup. Each node
 where the schema table resides is regarded as a `db_node`.
 
 The following example shows how
-[mnesia:traverse_backup](`mnesia:traverse_backup/4`) can be used to rename a
+[`mnesia:traverse_backup`](`mnesia:traverse_backup/4`) can be used to rename a
 `db_node` in a backup file:
 
 ```erlang
-
 change_node_name(Mod, From, To, Source, Target) ->
     Switch =
         fun(Node) when Node == From -> To;
@@ -679,7 +678,7 @@ view(Source, Mod) ->
 
 Tables can be restored online from a backup without restarting `Mnesia`. A
 restore is performed with the function
-[mnesia:restore(Opaque, Args)](`mnesia:restore/2`), where `Args` can contain the
+[`mnesia:restore(Opaque, Args)`](`mnesia:restore/2`), where `Args` can contain the
 following tuples:
 
 - `{module,Mod}`. The backup module `Mod` is used to access the backup media. If
@@ -717,8 +716,8 @@ installing a fallback, followed by a restart.
 
 ### Fallback
 
-The function [mnesia:install_fallback(Opaque,
-\[Mod])](`mnesia:install_fallback/2`) installs a backup as fallback. It uses the
+The function [`mnesia:install_fallback(Opaque,
+[Mod])`](`mnesia:install_fallback/2`) installs a backup as fallback. It uses the
 backup module `Mod`, or the default backup module, to access the backup media.
 The function returns `ok` if successful, or `{error, Reason}` if there is an
 error.
@@ -739,7 +738,7 @@ upgrade begins.
 If the system upgrade fails, `Mnesia` must be restarted on all `db_nodes` to
 restore the old database. The fallback is automatically deinstalled after a
 successful startup. The function
-[mnesia:uninstall_fallback()](`mnesia:uninstall_fallback/0`) can also be used to
+[`mnesia:uninstall_fallback()`](`mnesia:uninstall_fallback/0`) can also be used to
 deinstall the fallback after a successful system upgrade. Again, this is a
 distributed operation that is either performed on all `db_nodes` or none. Both
 the installation and deinstallation of fallbacks require Erlang to be
@@ -763,7 +762,7 @@ parameter affects the repair behavior of log files, `DAT` files, and the default
 backup media.
 
 Configuration parameter `-mnesia dump_log_update_in_place <bool>` controls the
-safety level of the function [mnesia:dump_log()](`mnesia:dump_log/0`) By
+safety level of the function [`mnesia:dump_log()`](`mnesia:dump_log/0`) By
 default, `Mnesia` dumps the transaction log directly into the `DAT` files. If a
 power failure occurs during the dump, this can cause the randomly accessed `DAT`
 files to become corrupt. If the parameter is set to `false`, `Mnesia` copies the

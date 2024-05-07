@@ -262,7 +262,7 @@ are checked, and finally, the default value is chosen.
 
 ## See Also
 
-`m:application`, `m:dets`, `m:disk_log`, `m:ets`, `m:mnesia_registry`, `m:qlc`
+`m:application`, `m:dets`, `m:disk_log`, `m:ets`, `m:qlc`
 """.
 %-behaviour(mnesia_access).
 

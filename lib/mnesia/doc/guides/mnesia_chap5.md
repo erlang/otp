@@ -46,8 +46,8 @@ and matching of records.
 
 The following two functions manipulate indexes on existing tables:
 
-- [mnesia:add_table_index(Tab, AttributeName) -> \{aborted, R\} |\{atomic, ok\}](`mnesia:add_table_index/2`)
-- [mnesia:del_table_index(Tab, AttributeName) -> \{aborted, R\} |\{atomic, ok\}](`mnesia:del_table_index/2`)
+- [`mnesia:add_table_index(Tab, AttributeName) -> {aborted, R} | {atomic, ok}`](`mnesia:add_table_index/2`)
+- [`mnesia:del_table_index(Tab, AttributeName) -> {aborted, R} | {atomic, ok}`](`mnesia:del_table_index/2`)
 
 These functions create or delete a table index on a field defined by
 `AttributeName`. To illustrate this, add an index to the table definition
@@ -59,14 +59,14 @@ The indexing capabilities of `Mnesia` are used with the following three
 functions, which retrieve and match records based on index entries in the
 database:
 
-- [mnesia:index_read(Tab, SecondaryKey, AttributeName) -> transaction abort | RecordList](`mnesia:index_read/3`)
+- [`mnesia:index_read(Tab, SecondaryKey, AttributeName) -> transaction abort | RecordList`](`mnesia:index_read/3`)
   avoids an exhaustive search of the entire table, by looking up `SecondaryKey`
   in the index to find the primary keys.
-- [mnesia:index_match_object(Pattern, AttributeName) -> transaction abort | RecordList](`mnesia:index_match_object/2`)
+- [`mnesia:index_match_object(Pattern, AttributeName) -> transaction abort | RecordList`](`mnesia:index_match_object/2`)
   avoids an exhaustive search of the entire table, by looking up the secondary
   key in the index to find the primary keys. The secondary key is found in field
   `AttributeName` of `Pattern`. The secondary key must be bound.
-- [mnesia:match_object(Pattern) -> transaction abort | RecordList](`mnesia:match_object/1`)
+- [`mnesia:match_object(Pattern) -> transaction abort | RecordList`](`mnesia:match_object/1`)
   uses indexes to avoid exhaustive search of the entire table. Unlike the
   previous functions, this function can use any index as long as the secondary
   key is bound.
@@ -97,9 +97,9 @@ Table attributes are specified when the table is created. For example, the
 following function creates a table with two RAM replicas:
 
 ```erlang
-      mnesia:create_table(foo,
-                          [{ram_copies, [N1, N2]},
-                           {attributes, record_info(fields, foo)}]).
+mnesia:create_table(foo,
+                    [{ram_copies, [N1, N2]},
+                     {attributes, record_info(fields, foo)}]).
 ```
 
 Tables can also have the following properties, where each attribute has a list
@@ -229,7 +229,7 @@ ok
 ### Fragmentation Properties
 
 The table property `frag_properties` can be read with the function
-[mnesia:table_info(Tab, frag_properties)](`mnesia:table_info/2`). The
+[`mnesia:table_info(Tab, frag_properties)`](`mnesia:table_info/2`). The
 fragmentation properties are a list of tagged tuples with arity 2. By default
 the list is empty, but when it is non-empty it triggers `Mnesia` to regard the
 table as fragmented. The fragmentation properties are as follows:
@@ -245,7 +245,7 @@ table as fragmented. The fragmentation properties are as follows:
   distribute the replicas of each fragment evenly over all the nodes in the node
   pool. Hopefully all nodes end up with the same number of replicas. `node_pool`
   defaults to the return value from the function
-  [mnesia:system_info(db_nodes)](`mnesia:system_info/1`).
+  [`mnesia:system_info(db_nodes)`](`mnesia:system_info/1`).
 
 - **`{n_ram_copies, Int}`** - Regulates how many `ram_copies` replicas that each
   fragment is to have. This property can explicitly be set at table creation.
@@ -366,7 +366,7 @@ following values:
   records are dynamically rehashed in the same manner as for the main table.
 
   Argument `NodesOrDist` can either be a list of nodes or the result from the
-  function [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`). Argument
+  function [`mnesia:table_info(Tab, frag_dist)`](`mnesia:table_info/2`). Argument
   `NodesOrDist` is assumed to be a sorted list with the best nodes to host new
   replicas first in the list. The new fragment gets the same number of replicas
   as the first fragment (see `n_ram_copies`, `n_disc_copies`, and
@@ -381,11 +381,11 @@ following values:
 
 - **`{add_node, Node}`** - Adds a node to `node_pool`. The new node pool affects
   the list returned from the function
-  [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`).
+  [`mnesia:table_info(Tab, frag_dist)`](`mnesia:table_info/2`).
 
 - **`{del_node, Node}`** - Deletes a node from `node_pool`. The new node pool
   affects the list returned from the function
-  [mnesia:table_info(Tab, frag_dist)](`mnesia:table_info/2`).
+  [`mnesia:table_info(Tab, frag_dist)`](`mnesia:table_info/2`).
 
 ### Extensions of Existing Functions
 
@@ -418,7 +418,7 @@ module `mnesia_frag`, information of several new items can be obtained:
   when adding new fragments) they are determined by counting the number of each
   replica for each storage type. This means that when the functions
   `mnesia:add_table_copy/3`, `mnesia:del_table_copy/2`, and
-  [mnesia:change_table_copy_type/2](`mnesia:change_table_copy_type/3`) are
+  [`mnesia:change_table_copy_type/2`](`mnesia:change_table_copy_type/3`) are
   applied on the first fragment, it affects the settings on `n_ram_copies`,
   `n_disc_copies`, and `n_disc_only_copies`.
 
@@ -473,7 +473,7 @@ needs. The following examples of situations need some attention:
 Use the function `mnesia:change_table_frag/2` to add new fragments and apply the
 usual schema manipulation functions (such as `mnesia:add_table_copy/3`,
 `mnesia:del_table_copy/2`, and
-[mnesia:change_table_copy_type/2](`mnesia:change_table_copy_type/3`)) on each
+[`mnesia:change_table_copy_type/2`](`mnesia:change_table_copy_type/3`)) on each
 fragment to perform the actual redistribution.
 
 ## Local Content Tables
@@ -539,10 +539,10 @@ When `schema_location` is set to `opt_disc`, the function
 schema. This is illustrated as follows:
 
 ```erlang
-        1> mnesia:start().
-        ok
-        2> mnesia:change_table_copy_type(schema, node(), disc_copies).
-        {atomic, ok}
+1> mnesia:start().
+ok
+2> mnesia:change_table_copy_type(schema, node(), disc_copies).
+{atomic, ok}
 ```
 
 Assuming that the call to `mnesia:start/0` does not find any schema to read on
@@ -599,11 +599,11 @@ each time a RAM node connects to another node.
 
 Further, the following applies:
 
-- [mnesia:system_info(schema_location)](`mnesia:system_info/1`) and
-  [mnesia:system_info(extra_db_nodes)](`mnesia:system_info/1`) can be used to
+- [`mnesia:system_info(schema_location)`](`mnesia:system_info/1`) and
+  [`mnesia:system_info(extra_db_nodes)`](`mnesia:system_info/1`) can be used to
   determine the actual values of `schema_location` and `extra_db_nodes`,
   respectively.
-- [mnesia:system_info(use_dir)](`mnesia:system_info/1`) can be used to determine
+- [`mnesia:system_info(use_dir)`](`mnesia:system_info/1`) can be used to determine
   whether `Mnesia` is actually using the `Mnesia` directory.
 - `use_dir` can be determined even before `Mnesia` is started.
 
@@ -631,10 +631,10 @@ generates in various situations.
 A user process can subscribe on the events generated by `Mnesia`. The following
 two functions are provided:
 
-- **[mnesia:subscribe(Event-Category)](`mnesia:subscribe/1`)** - Ensures that a
+- [`mnesia:subscribe(Event-Category)`](`mnesia:subscribe/1`) - Ensures that a
   copy of all events of type `Event-Category` are sent to the calling process
 
-- **[mnesia:unsubscribe(Event-Category)](`mnesia:unsubscribe/1`)** - Removes the
+- [`mnesia:unsubscribe(Event-Category)`](`mnesia:unsubscribe/1`) - Removes the
   subscription on events of type `Event-Category`
 
 `Event-Category` can be either of the following:
@@ -663,8 +663,8 @@ application parameter `event_module`. The value of this parameter must be the
 name of a module implementing a complete handler, as specified by the
 `m:gen_event` module in `STDLIB`.
 
-[mnesia:system_info(subscribers)](`mnesia:system_info/1`) and
-[mnesia:table_info(Tab, subscribers)](`mnesia:table_info/2`) can be used to
+[`mnesia:system_info(subscribers)`](`mnesia:system_info/1`) and
+[`mnesia:table_info(Tab, subscribers)`](`mnesia:table_info/2`) can be used to
 determine which processes are subscribed to various events.
 
 ### System Events
@@ -687,7 +687,7 @@ The system events are as follows:
 - **`{mnesia_checkpoint_deactivated, Checkpoint}`** - A checkpoint with the name
   `Checkpoint` is deactivated and the current node is involved in the
   checkpoint. Checkpoints can be deactivated explicitly with the function
-  [mnesia:deactivate/1](`mnesia:deactivate_checkpoint/1`) or implicitly when the
+  [`mnesia:deactivate/1`](`mnesia:deactivate_checkpoint/1`) or implicitly when the
   last replica of a table (involved in the checkpoint) becomes unavailable, for
   example, at node-down. By default this event is ignored.
 
@@ -719,8 +719,8 @@ The system events are as follows:
   as potential inconsistent and gives its applications a chance to recover from
   the inconsistency. For example, by installing a consistent backup as fallback
   and then restart the system. An alternative is to pick a `MasterNode` from
-  [mnesia:system_info(db_nodes)](`mnesia:system_info/1`) and invoke
-  [mnesia:set_master_node(\[MasterNode])](`mnesia:set_master_nodes/1`). By
+  [`mnesia:system_info(db_nodes)`](`mnesia:system_info/1`) and invoke
+  [`mnesia:set_master_nodes([MasterNode])`](`mnesia:set_master_nodes/1`). By
   default an error is reported to `error_logger`.
 
 - **`{mnesia_fatal, Format, Args, BinaryCore}`** - `Mnesia` detected a fatal
@@ -744,7 +744,7 @@ The system events are as follows:
   `error_logger`.
 
 - **`{mnesia_user, Event}`** - An application started the function
-  [mnesia:report_event(Event)](`mnesia:report_event/1`). `Event` can be any
+  [`mnesia:report_event(Event)`](`mnesia:report_event/1`). `Event` can be any
   Erlang data structure. When tracing a system of `Mnesia` applications, it is
   useful to be able to interleave own events of `Mnesia` with
   application-related events that give information about the application
@@ -825,8 +825,8 @@ mechanisms work. Another source of confusion can be the semantics of nested
 transactions.
 
 The debug level of `Mnesia` is set by calling the function
-[mnesia:set_debug_level(Level)](`mnesia:set_debug_level/1`), where `Level`is one
-of the following:
+[`mnesia:set_debug_level(Level)`](`mnesia:set_debug_level/1`), where `Level` is
+one of the following:
 
 - **`none`** - No trace outputs. This is the default.
 
@@ -855,7 +855,7 @@ possible to start an Erlang system to turn on `Mnesia` debug in the initial
 startup phase by using the following code:
 
 ```text
-      % erl -mnesia debug verbose
+% erl -mnesia debug verbose
 ```
 
 ## Concurrent Processes in Mnesia
@@ -894,11 +894,11 @@ and have the data in the file inserted into the database. `Mnesia` can be
 initialized with data read from a text file. The following two functions can be
 used to work with text files.
 
-- [mnesia:load_textfile(Filename)](`mnesia:load_textfile/1`) loads a series of
+- [`mnesia:load_textfile(Filename)`](`mnesia:load_textfile/1`) loads a series of
   local table definitions and data found in the file into `Mnesia`. This
   function also starts `Mnesia` and possibly creates a new schema. The function
   operates on the local node only.
-- [mnesia:dump_to_textfile(Filename)](`mnesia:dump_to_textfile/1`) dumps all
+- [`mnesia:dump_to_textfile(Filename)`](`mnesia:dump_to_textfile/1`) dumps all
   local tables of a `Mnesia` system into a text file, which can be edited (with
   a normal text editor) and later reloaded.
 
@@ -910,11 +910,11 @@ use.
 The format of the text file is as follows:
 
 ```erlang
-      {tables, [{Typename, [Options]},
-      {Typename2 ......}]}.
+{tables, [{Typename, [Options]},
+{Typename2 ......}]}.
 
-      {Typename, Attribute1, Attribute2 ....}.
-      {Typename, Attribute1, Attribute2 ....}.
+{Typename, Attribute1, Attribute2 ....}.
+{Typename, Attribute1, Attribute2 ....}.
 ```
 
 `Options` is a list of `{Key,Value}` tuples conforming to the options that you
@@ -924,7 +924,6 @@ For example, to start playing with a small database for healthy foods, enter the
 following data into file `FRUITS`:
 
 ```erlang
-
 {tables,
  [{fruit, [{attributes, [name, color, taste]}]},
   {vegetable, [{attributes, [name, color, taste, price]}]}]}.
@@ -940,40 +939,40 @@ The following session with the Erlang shell shows how to load the `FRUITS`
 database:
 
 ```erlang
-      % erl
-      Erlang (BEAM) emulator version 4.9
+% erl
+Erlang (BEAM) emulator version 4.9
 
-      Eshell V4.9  (abort with ^G)
-      1> mnesia:load_textfile("FRUITS").
-      New table fruit
-      New table vegetable
-      {atomic,ok}
-      2> mnesia:info().
-      ---> Processes holding locks <---
-      ---> Processes waiting for locks <---
-      ---> Pending (remote) transactions <---
-      ---> Active (local) transactions <---
-      ---> Uncertain transactions <---
-      ---> Active tables <---
-      vegetable      : with 2 records occuping 299 words of mem
-      fruit          : with 2 records occuping 291 words of mem
-      schema         : with 3 records occuping 401 words of mem
-      ===> System info in version "1.1", debug level = none <===
-      opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
-      use fallback at restart = false
-      running db nodes = [nonode@nohost]
-      stopped db nodes = []
-      remote           = []
-      ram_copies       = [fruit,vegetable]
-      disc_copies      = [schema]
-      disc_only_copies = []
-      [{nonode@nohost,disc_copies}] = [schema]
-      [{nonode@nohost,ram_copies}] = [fruit,vegetable]
-      3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
-      0 held locks, 0 in queue; 0 local transactions, 0 remote
-      0 transactions waits for other nodes: []
-      ok
-      3>
+Eshell V4.9  (abort with ^G)
+1> mnesia:load_textfile("FRUITS").
+New table fruit
+New table vegetable
+{atomic,ok}
+2> mnesia:info().
+---> Processes holding locks <---
+---> Processes waiting for locks <---
+---> Pending (remote) transactions <---
+---> Active (local) transactions <---
+---> Uncertain transactions <---
+---> Active tables <---
+vegetable      : with 2 records occuping 299 words of mem
+fruit          : with 2 records occuping 291 words of mem
+schema         : with 3 records occuping 401 words of mem
+===> System info in version "1.1", debug level = none <===
+opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
+use fallback at restart = false
+running db nodes = [nonode@nohost]
+stopped db nodes = []
+remote           = []
+ram_copies       = [fruit,vegetable]
+disc_copies      = [schema]
+disc_only_copies = []
+[{nonode@nohost,disc_copies}] = [schema]
+[{nonode@nohost,ram_copies}] = [fruit,vegetable]
+3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
+0 held locks, 0 in queue; 0 local transactions, 0 remote
+0 transactions waits for other nodes: []
+ok
+3>
 ```
 
 It can be seen that the DBMS was initiated from a regular text file.
@@ -991,7 +990,6 @@ operations are also easier to perform on a normalized data model. For example,
 one project can easily be removed, as the following example illustrates:
 
 ```erlang
-
 remove_proj(ProjName) ->
     F = fun() ->
                 Ip = qlc:e(qlc:q([X || X <- mnesia:table(in_proj),
@@ -1030,7 +1028,6 @@ or contain other records that are not part of the `Mnesia` schema.
 The following record definitions can be created:
 
 ```erlang
-
 -record(employee, {emp_no,
 		   name,
 		   salary,
@@ -1053,15 +1050,15 @@ The following record definitions can be created:
 A record that describes an employee can look as follows:
 
 ```erlang
-        Me = #employee{emp_no= 104732,
-        name = klacke,
-        salary = 7,
-        sex = male,
-        phone = 99586,
-        room_no = {221, 015},
-        dept = 'B/SFR',
-        projects = [erlang, mnesia, otp],
-        manager = 114872},
+Me = #employee{emp_no = 104732,
+               name = klacke,
+               salary = 7,
+               sex = male,
+               phone = 99586,
+               room_no = {221, 015},
+               dept = 'B/SFR',
+               projects = [erlang, mnesia, otp],
+               manager = 114872},
 ```
 
 This model has only three different tables, and the employee records contain
@@ -1087,7 +1084,6 @@ find all employees at department `Dep` with a salary higher than `Salary`, use
 the following code:
 
 ```erlang
-
 get_emps(Salary, Dep) ->
     Q = qlc:q(
           [E || E <- mnesia:table(employee),

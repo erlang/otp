@@ -55,7 +55,6 @@ The following example shows a transaction that raises the salary of certain
 employee numbers:
 
 ```erlang
-
 raise(Eno, Raise) ->
     F = fun() ->
                 [E] = mnesia:read(employee, Eno, write),
@@ -188,7 +187,6 @@ messages are sent by the transaction Fun. The following example illustrates this
 situation:
 
 ```erlang
-
 bad_raise(Eno, Raise) ->
     F = fun() ->
                 [E] = mnesia:read({employee, Eno}),
@@ -226,27 +224,27 @@ functions that work with transactions. Notice that these functions must be
 embedded in a transaction. If no enclosing transaction (or other enclosing
 `Mnesia` activity) exists, they all fail.
 
-- [mnesia:transaction(Fun) -> \{aborted, Reason\} |\{atomic, Value\}](`mnesia:transaction/1`)
+- [`mnesia:transaction(Fun) -> {aborted, Reason} | {atomic, Value}`](`mnesia:transaction/1`)
   executes one transaction with the functional object `Fun` as the single
   parameter.
-- [mnesia:read(\{Tab, Key\}) -> transaction abort | RecordList](`mnesia:read/1`)
+- [`mnesia:read({Tab, Key}) -> transaction abort | RecordList`](`mnesia:read/1`)
   reads all records with `Key` as key from table `Tab`. This function has the
   same semantics regardless of the location of `Table`. If the table is of type
   `bag`, `read({Tab, Key})` can return an arbitrarily long list. If the table is
   of type `set`, the list is either of length one or `[]`.
-- [mnesia:wread(\{Tab, Key\}) -> transaction abort | RecordList](`mnesia:wread/1`)
+- [`mnesia:wread({Tab, Key}) -> transaction abort | RecordList`](`mnesia:wread/1`)
   behaves the same way as the previously listed function `read/1`, except that
   it acquires a write lock instead of a read lock. To execute a transaction that
   reads a record, modifies the record, and then writes the record, it is
   slightly more efficient to set the write lock immediately. When a
   `mnesia:read/1` is issued, followed by a `mnesia:write/1` the first read lock
   must be upgraded to a write lock when the write operation is executed.
-- [mnesia:write(Record) -> transaction abort | ok](`mnesia:write/1`) writes a
+- [`mnesia:write(Record) -> transaction abort | ok`](`mnesia:write/1`) writes a
   record into the database. Argument `Record` is an instance of a record. The
   function returns `ok`, or terminates the transaction if an error occurs.
-- [mnesia:delete(\{Tab, Key\}) -> transaction abort | ok](`mnesia:delete/1`)
+- [`mnesia:delete({Tab, Key}) -> transaction abort | ok`](`mnesia:delete/1`)
   deletes all records with the given key.
-- [mnesia:delete_object(Record) -> transaction abort | ok](`mnesia:delete_object/1`)
+- [`mnesia:delete_object(Record) -> transaction abort | ok`](`mnesia:delete_object/1`)
   deletes records with the OID `Record`. Use this function to delete only some
   records in a table of type `bag`.
 
@@ -265,10 +263,10 @@ that first acquired the lock has terminated. To illustrate this, assume that the
 following transaction is executed:
 
 ```erlang
-        F = fun() ->
-              mnesia:write(#foo{a = kalle})
-            end,
-        mnesia:transaction(F).
+F = fun() ->
+      mnesia:write(#foo{a = kalle})
+    end,
+mnesia:transaction(F).
 ```
 
 The `foo` table is replicated on the two nodes `N1` and `N2`.
@@ -281,14 +279,14 @@ Normal locking requires the following:
 If sticky locks are used, the code must first be changed as follows:
 
 ```erlang
-        F = fun() ->
-              mnesia:s_write(#foo{a = kalle})
-            end,
-        mnesia:transaction(F).
+F = fun() ->
+      mnesia:s_write(#foo{a = kalle})
+    end,
+mnesia:transaction(F).
 ```
 
-This code uses the function [s_write/1](`mnesia:s_write/1`) instead of the
-function [write/1](`mnesia:write/1`) The function `s_write/1` sets a sticky lock
+This code uses the function [`s_write/1`](`mnesia:s_write/1`) instead of the
+function [`write/1`](`mnesia:write/1`) The function `s_write/1` sets a sticky lock
 instead of a normal lock. If the table is not replicated, sticky locks have no
 special effect. If the table is replicated, and a sticky lock is set on node
 `N1`, this lock then sticks to node `N1`. The next time you try to set a sticky
@@ -315,16 +313,16 @@ on this table. This blocks other concurrent transactions from the table. The
 following two functions are used to set explicit table locks for read and write
 operations:
 
-- [mnesia:read_lock_table(Tab)](`mnesia:read_lock_table/1`) sets a read lock on
+- [`mnesia:read_lock_table(Tab)`](`mnesia:read_lock_table/1`) sets a read lock on
   table `Tab`.
-- [mnesia:write_lock_table(Tab)](`mnesia:write_lock_table/1`) sets a write lock
+- [`mnesia:write_lock_table(Tab)`](`mnesia:write_lock_table/1`) sets a write lock
   on table `Tab`.
 
 Alternative syntax for acquisition of table locks is as follows:
 
 ```erlang
-        mnesia:lock({table, Tab}, read)
-        mnesia:lock({table, Tab}, write)
+mnesia:lock({table, Tab}, read)
+mnesia:lock({table, Tab}, write)
 ```
 
 The matching operations in `Mnesia` can either lock the entire table or only a
@@ -341,9 +339,9 @@ previously) but also for situations when locks need to be acquired regardless of
 how tables have been replicated:
 
 ```text
-        mnesia:lock({global, GlobalKey, Nodes}, LockKind)
+mnesia:lock({global, GlobalKey, Nodes}, LockKind)
 
-        LockKind ::= read | write | ...
+LockKind ::= read | write | ...
 ```
 
 The lock is acquired on `LockItem` on all nodes in the node list.
@@ -384,16 +382,16 @@ All dirty functions execute a call to [`exit({aborted, Reason})`](`exit/1`) on
 failure. Even if the following functions are executed inside a transaction no
 locks are acquired. The following functions are available:
 
-- [mnesia:dirty_read(\{Tab, Key\})](`mnesia:dirty_read/1`) reads one or more
+- [`mnesia:dirty_read({Tab, Key})`](`mnesia:dirty_read/1`) reads one or more
   records from `Mnesia`.
-- [mnesia:dirty_write(Record)](`mnesia:dirty_write/1`) writes the record
+- [`mnesia:dirty_write(Record)`](`mnesia:dirty_write/1`) writes the record
   `Record`.
-- [mnesia:dirty_delete(\{Tab, Key\})](`mnesia:dirty_delete/1`) deletes one or
+- [`mnesia:dirty_delete({Tab, Key})`](`mnesia:dirty_delete/1`) deletes one or
   more records with key `Key`.
-- [mnesia:dirty_delete_object(Record)](`mnesia:dirty_delete_object/1`) is the
+- [`mnesia:dirty_delete_object(Record)`](`mnesia:dirty_delete_object/1`) is the
   dirty operation alternative to the function
-  [delete_object/1](`mnesia:delete_object/1`).
-- [mnesia:dirty_first(Tab)](`mnesia:dirty_first/1`) returns the "first" key in
+  [`delete_object/1`](`mnesia:delete_object/1`).
+- [`mnesia:dirty_first(Tab)`](`mnesia:dirty_first/1`) returns the "first" key in
   table `Tab`.
 
   Records in `set` or `bag` tables are not sorted. However, there is a record
@@ -404,7 +402,7 @@ locks are acquired. The following functions are available:
   `'$end_of_table'`. It is not recommended to use this atom as the key for any
   user records.
 
-- [mnesia:dirty_next(Tab, Key)](`mnesia:dirty_next/2`) returns the "next" key in
+- [`mnesia:dirty_next(Tab, Key)`](`mnesia:dirty_next/2`) returns the "next" key in
   table `Tab`. This function makes it possible to traverse a table and perform
   some operation on all records in the table. When the end of the table is
   reached, the special key `'$end_of_table'` is returned. Otherwise, the
@@ -412,25 +410,25 @@ locks are acquired. The following functions are available:
 
   The behavior is undefined if any process performs a write operation on the
   table while traversing the table with the function
-  [dirty_next/2](`mnesia:dirty_next/2`) This is because `write` operations on a
+  [`dirty_next/2`](`mnesia:dirty_next/2`) This is because `write` operations on a
   `Mnesia` table can lead to internal reorganizations of the table itself. This
   is an implementation detail, but remember that the dirty functions are
   low-level functions.
 
-- [mnesia:dirty_last(Tab)](`mnesia:dirty_last/1`) works exactly like
+- [`mnesia:dirty_last(Tab)`](`mnesia:dirty_last/1`) works exactly like
   `mnesia:dirty_first/1` but returns the last object in Erlang term order for
   the table type `ordered_set`. For all other table types,
   `mnesia:dirty_first/1` and `mnesia:dirty_last/1` are synonyms.
-- [mnesia:dirty_prev(Tab, Key)](`mnesia:dirty_prev/2`) works exactly like
+- [`mnesia:dirty_prev(Tab, Key)`](`mnesia:dirty_prev/2`) works exactly like
   `mnesia:dirty_next/2` but returns the previous object in Erlang term order for
   the table type `ordered_set`. For all other table types, `mnesia:dirty_next/2`
   and `mnesia:dirty_prev/2` are synonyms.
 - The behavior of this function is undefined if the table is written on while
   being traversed. The function
-  [mnesia:read_lock_table(Tab)](`mnesia:read_lock_table/1`) can be used to
+  [`mnesia:read_lock_table(Tab)`](`mnesia:read_lock_table/1`) can be used to
   ensure that no transaction-protected writes are performed during the
   iteration.
-- [mnesia:dirty_update_counter(\{Tab,Key\}, Val)](`mnesia:dirty_update_counter/2`).
+- [`mnesia:dirty_update_counter({Tab, Key}, Val)`](`mnesia:dirty_update_counter/2`).
   Counters are positive integers with a value greater than or equal to zero.
   Updating a counter adds `Val` and the counter where `Val` is a positive or
   negative integer.
@@ -444,20 +442,20 @@ locks are acquired. The following functions are available:
   reading the record, performing the arithmetic, and writing the record:
 
   1. It is much more efficient.
-  1. The function [dirty_update_counter/2](`mnesia:dirty_update_counter/2`) is
+  1. The function [`dirty_update_counter/2`](`mnesia:dirty_update_counter/2`) is
      performed as an atomic operation although it is not protected by a
      transaction. Therefore no table update is lost if two processes
      simultaneously execute the function `dirty_update_counter/2`.
 
-- [mnesia:dirty_match_object(Pat)](`mnesia:dirty_match_object/2`) is the dirty
+- [`mnesia:dirty_match_object(Pat)`](`mnesia:dirty_match_object/2`) is the dirty
   equivalent of `mnesia:match_object/1`.
-- [mnesia:dirty_select(Tab, Pat)](`mnesia:dirty_select/2`) is the dirty
+- [`mnesia:dirty_select(Tab, Pat)`](`mnesia:dirty_select/2`) is the dirty
   equivalent of `mnesia:select/2`.
-- [mnesia:dirty_index_match_object(Pat, Pos)](`mnesia:dirty_index_match_object/2`)
+- [`mnesia:dirty_index_match_object(Pat, Pos)`](`mnesia:dirty_index_match_object/2`)
   is the dirty equivalent of `mnesia:index_match_object/2`.
-- [mnesia:dirty_index_read(Tab, SecondaryKey, Pos)](`mnesia:dirty_index_read/3`)
+- [`mnesia:dirty_index_read(Tab, SecondaryKey, Pos)`](`mnesia:dirty_index_read/3`)
   is the dirty equivalent of `mnesia:index_read/3`.
-- [mnesia:dirty_all_keys(Tab)](`mnesia:dirty_all_keys/1`) is the dirty
+- [`mnesia:dirty_all_keys(Tab)`](`mnesia:dirty_all_keys/1`) is the dirty
   equivalent of `mnesia:all_keys/1`.
 
 [](){: #recordnames_tablenames }
@@ -472,7 +470,7 @@ property `record_name`, the following code ensures that all records in the
 tables have the same name as the table:
 
 ```erlang
-      mnesia:create_table(subscriber, [])
+mnesia:create_table(subscriber, [])
 ```
 
 However, if the table is created with an explicit record name as argument, as
@@ -480,9 +478,9 @@ shown in the following example, subscriber records can be stored in both of the
 tables regardless of the table names:
 
 ```erlang
-      TabDef = [{record_name, subscriber}],
-      mnesia:create_table(my_subscriber, TabDef),
-      mnesia:create_table(your_subscriber, TabDef).
+TabDef = [{record_name, subscriber}],
+mnesia:create_table(my_subscriber, TabDef),
+mnesia:create_table(your_subscriber, TabDef).
 ```
 
 To access such tables, simplified access functions (as described earlier) cannot
@@ -491,9 +489,9 @@ function `mnesia:write/3` instead of the simplified functions `mnesia:write/1`
 and `mnesia:s_write/1`:
 
 ```erlang
-      mnesia:write(subscriber, #subscriber{}, write)
-      mnesia:write(my_subscriber, #subscriber{}, sticky_write)
-      mnesia:write(your_subscriber, #subscriber{}, write)
+mnesia:write(subscriber, #subscriber{}, write)
+mnesia:write(my_subscriber, #subscriber{}, sticky_write)
+mnesia:write(your_subscriber, #subscriber{}, write)
 ```
 
 The following simple code illustrates the relationship between the simplified
@@ -501,82 +499,82 @@ access functions used in most of the examples and their more flexible
 counterparts:
 
 ```erlang
-      mnesia:dirty_write(Record) ->
-        Tab = element(1, Record),
-        mnesia:dirty_write(Tab, Record).
+mnesia:dirty_write(Record) ->
+  Tab = element(1, Record),
+  mnesia:dirty_write(Tab, Record).
 
-      mnesia:dirty_delete({Tab, Key}) ->
-        mnesia:dirty_delete(Tab, Key).
+mnesia:dirty_delete({Tab, Key}) ->
+  mnesia:dirty_delete(Tab, Key).
 
-      mnesia:dirty_delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:dirty_delete_object(Tab, Record)
+mnesia:dirty_delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:dirty_delete_object(Tab, Record)
 
-      mnesia:dirty_update_counter({Tab, Key}, Incr) ->
-        mnesia:dirty_update_counter(Tab, Key, Incr).
+mnesia:dirty_update_counter({Tab, Key}, Incr) ->
+  mnesia:dirty_update_counter(Tab, Key, Incr).
 
-      mnesia:dirty_read({Tab, Key}) ->
-        Tab = element(1, Record),
-        mnesia:dirty_read(Tab, Key).
+mnesia:dirty_read({Tab, Key}) ->
+  Tab = element(1, Record),
+  mnesia:dirty_read(Tab, Key).
 
-      mnesia:dirty_match_object(Pattern) ->
-        Tab = element(1, Pattern),
-        mnesia:dirty_match_object(Tab, Pattern).
+mnesia:dirty_match_object(Pattern) ->
+  Tab = element(1, Pattern),
+  mnesia:dirty_match_object(Tab, Pattern).
 
-      mnesia:dirty_index_match_object(Pattern, Attr)
-        Tab = element(1, Pattern),
-        mnesia:dirty_index_match_object(Tab, Pattern, Attr).
+mnesia:dirty_index_match_object(Pattern, Attr)
+  Tab = element(1, Pattern),
+  mnesia:dirty_index_match_object(Tab, Pattern, Attr).
 
-      mnesia:write(Record) ->
-        Tab = element(1, Record),
-        mnesia:write(Tab, Record, write).
+mnesia:write(Record) ->
+  Tab = element(1, Record),
+  mnesia:write(Tab, Record, write).
 
-      mnesia:s_write(Record) ->
-        Tab = element(1, Record),
-        mnesia:write(Tab, Record, sticky_write).
+mnesia:s_write(Record) ->
+  Tab = element(1, Record),
+  mnesia:write(Tab, Record, sticky_write).
 
-      mnesia:delete({Tab, Key}) ->
-        mnesia:delete(Tab, Key, write).
+mnesia:delete({Tab, Key}) ->
+  mnesia:delete(Tab, Key, write).
 
-      mnesia:s_delete({Tab, Key}) ->
-        mnesia:delete(Tab, Key, sticky_write).
+mnesia:s_delete({Tab, Key}) ->
+  mnesia:delete(Tab, Key, sticky_write).
 
-      mnesia:delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:delete_object(Tab, Record, write).
+mnesia:delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:delete_object(Tab, Record, write).
 
-      mnesia:s_delete_object(Record) ->
-        Tab = element(1, Record),
-        mnesia:delete_object(Tab, Record, sticky_write).
+mnesia:s_delete_object(Record) ->
+  Tab = element(1, Record),
+  mnesia:delete_object(Tab, Record, sticky_write).
 
-      mnesia:read({Tab, Key}) ->
-        mnesia:read(Tab, Key, read).
+mnesia:read({Tab, Key}) ->
+  mnesia:read(Tab, Key, read).
 
-      mnesia:wread({Tab, Key}) ->
-        mnesia:read(Tab, Key, write).
+mnesia:wread({Tab, Key}) ->
+  mnesia:read(Tab, Key, write).
 
-      mnesia:match_object(Pattern) ->
-        Tab = element(1, Pattern),
-        mnesia:match_object(Tab, Pattern, read).
+mnesia:match_object(Pattern) ->
+  Tab = element(1, Pattern),
+  mnesia:match_object(Tab, Pattern, read).
 
-      mnesia:index_match_object(Pattern, Attr) ->
-        Tab = element(1, Pattern),
-        mnesia:index_match_object(Tab, Pattern, Attr, read).
+mnesia:index_match_object(Pattern, Attr) ->
+  Tab = element(1, Pattern),
+  mnesia:index_match_object(Tab, Pattern, Attr, read).
 ```
 
 ## Activity Concept and Various Access Contexts
 
 As previously described, a Functional Object (Fun) performing table access
 operations, as listed here, can be passed on as arguments to the function
-[mnesia:transaction/1,2,3](`mnesia:transaction/1`):
+[`mnesia:transaction/1,2,3`](`mnesia:transaction/1`):
 
-- [mnesia:write/3 (write/1, s_write/1)](`mnesia:write/3`)
+- [`mnesia:write/3` (`write/1`, `s_write/1`)](`mnesia:write/3`)
 - `mnesia:delete/3` (`mnesia:delete/1`, `mnesia:s_delete/1`)
 - `mnesia:delete_object/3` (`mnesia:delete_object/1`,
   `mnesia:s_delete_object/1`)
 - `mnesia:read/3` (`mnesia:read/1`, `mnesia:wread/1`)
-- [mnesia:match_object/2](`mnesia:match_object/3`) (`mnesia:match_object/1`)
-- [mnesia:select/3](`mnesia:select/2`) (`mnesia:select/2`)
+- [`mnesia:match_object/2`](`mnesia:match_object/3`) (`mnesia:match_object/1`)
+- [`mnesia:select/3`](`mnesia:select/2`) (`mnesia:select/2`)
 - `mnesia:foldl/3` (`mnesia:foldl/4`, `mnesia:foldr/3`, `mnesia:foldr/4`)
 - `mnesia:all_keys/1`
 - `mnesia:index_match_object/4` (`mnesia:index_match_object/2`)
@@ -598,7 +596,7 @@ The following activity access contexts are currently supported:
 - `ets`
 
 By passing the same "fun" as argument to the function
-[mnesia:sync_transaction(Fun \[, Args])](`mnesia:sync_transaction/1`) it is
+[`mnesia:sync_transaction(Fun [, Args])`](`mnesia:sync_transaction/1`) it is
 performed in synced transaction context. Synced transactions wait until all
 active replicas has committed the transaction (to disc) before returning from
 the `mnesia:sync_transaction` call. Using `sync_transaction` is useful in the
@@ -607,14 +605,14 @@ following cases:
 - When an application executes on several nodes and wants to be sure that the
   update is performed on the remote nodes before a remote process is spawned or
   a message is sent to a remote process.
-- When a combining transaction writes with "dirty_reads", that is, the functions
+- When a combining transaction writes with "dirty reads", that is, the functions
   `dirty_match_object`, `dirty_read`, `dirty_index_read`, `dirty_select`, and so
   on.
 - When an application performs frequent or voluminous updates that can overload
   `Mnesia` on other nodes.
 
-By passing the same "fun" as argument to the function [mnesia:async_dirty(Fun
-\[, Args])](`mnesia:async_dirty/1`), it is performed in dirty context. The
+By passing the same "fun" as argument to the function [`mnesia:async_dirty(Fun
+[, Args])`](`mnesia:async_dirty/1`), it is performed in dirty context. The
 function calls are mapped to the corresponding dirty functions. This still
 involves logging, replication, and subscriptions but no locking, local
 transaction storage, or commit protocols are involved. Checkpoint retainers are
@@ -622,9 +620,9 @@ updated but updated "dirty". Thus, they are updated asynchronously. The
 functions wait for the operation to be performed on one node but not the others.
 If the table resides locally, no waiting occurs.
 
-By passing the same "fun" as an argument to the function [mnesia:sync_dirty(Fun
-\[, Args])](`mnesia:sync_dirty/1`), it is performed in almost the same context
-as the function [mnesia:async_dirty/1,2](`mnesia:async_dirty/1`). The difference
+By passing the same "fun" as an argument to the function [`mnesia:sync_dirty(Fun
+[, Args])`](`mnesia:sync_dirty/1`), it is performed in almost the same context
+as the function [`mnesia:async_dirty/1,2`](`mnesia:async_dirty/1`). The difference
 is that the operations are performed synchronously. The caller waits for the
 updates to be performed on all active replicas. Using `mnesia:sync_dirty/1,2` is
 useful in the following cases:
@@ -643,7 +641,7 @@ context, otherwise `false`.
 internally as `ets` tables. Applications can access the these tables directly.
 This is only recommended if all options have been weighed and the possible
 outcomes are understood. By passing the earlier mentioned "fun" to the function
-[mnesia:ets(Fun \[, Args])](`mnesia:ets/1`), it is performed but in a raw
+[`mnesia:ets(Fun [, Args])`](`mnesia:ets/1`), it is performed but in a raw
 context. The operations are performed directly on the local `ets` tables,
 assuming that the local storage type is `RAM_copies` and that the table is not
 replicated on other nodes.
@@ -653,7 +651,7 @@ operation is blindingly fast. Disc resident tables are not to be updated with
 the `ets` function, as the disc is not updated.
 
 The Fun can also be passed as an argument to the function
-[mnesia:activity/2,3,4](`mnesia:activity/2`), which enables use of customized
+[`mnesia:activity/2,3,4`](`mnesia:activity/2`), which enables use of customized
 activity access callback modules. It can either be obtained directly by stating
 the module name as argument, or implicitly by use of configuration parameter
 `access_module`. A customized callback module can be used for several purposes,
@@ -704,9 +702,9 @@ tables.
 Consider a function that adds a subscriber to a telephony system:
 
 ```erlang
-      add_subscriber(S) ->
-          mnesia:transaction(fun() ->
-              case mnesia:read( ..........
+add_subscriber(S) ->
+    mnesia:transaction(fun() ->
+        case mnesia:read( ..........
 ```
 
 This function needs to be called as a transaction. Assume that you wish to write
@@ -722,20 +720,20 @@ two or three phase commit.
 _Example:_
 
 ```erlang
-      add_subscriber(S) ->
-          mnesia:transaction(fun() ->
-             %% Transaction context
-             mnesia:read({some_tab, some_data}),
-             mnesia:sync_dirty(fun() ->
-                 %% Still in a transaction context.
-                 case mnesia:read( ..) ..end), end).
-      add_subscriber2(S) ->
-          mnesia:sync_dirty(fun() ->
-             %% In dirty context
-             mnesia:read({some_tab, some_data}),
-             mnesia:transaction(fun() ->
-                 %% In a transaction context.
-                 case mnesia:read( ..) ..end), end).
+add_subscriber(S) ->
+    mnesia:transaction(fun() ->
+       %% Transaction context
+       mnesia:read({some_tab, some_data}),
+       mnesia:sync_dirty(fun() ->
+           %% Still in a transaction context.
+           case mnesia:read( ..) ..end), end).
+add_subscriber2(S) ->
+    mnesia:sync_dirty(fun() ->
+       %% In dirty context
+       mnesia:read({some_tab, some_data}),
+       mnesia:transaction(fun() ->
+           %% In a transaction context.
+           case mnesia:read( ..) ..end), end).
 ```
 
 ## Pattern Matching
@@ -747,18 +745,18 @@ programmer with several functions for matching records against a pattern. The
 most useful ones are the following:
 
 ```erlang
-      mnesia:select(Tab, MatchSpecification, LockKind) ->
-          transaction abort | [ObjectList]
-      mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->
-          transaction abort | {[Object],Continuation} | '$end_of_table'
-      mnesia:select(Cont) ->
-          transaction abort | {[Object],Continuation} | '$end_of_table'
-      mnesia:match_object(Tab, Pattern, LockKind) ->
-          transaction abort | RecordList
+mnesia:select(Tab, MatchSpecification, LockKind) ->
+    transaction abort | [ObjectList]
+mnesia:select(Tab, MatchSpecification, NObjects, Lock) ->
+    transaction abort | {[Object],Continuation} | '$end_of_table'
+mnesia:select(Cont) ->
+    transaction abort | {[Object],Continuation} | '$end_of_table'
+mnesia:match_object(Tab, Pattern, LockKind) ->
+    transaction abort | RecordList
 ```
 
 These functions match a `Pattern` against all records in table `Tab`. In a
-[mnesia:select](`mnesia:select/2`) call, `Pattern` is a part of
+[`mnesia:select`](`mnesia:select/2`) call, `Pattern` is a part of
 `MatchSpecification` described in the following. It is not necessarily performed
 as an exhaustive search of the entire table. By using indexes and bound values
 in the key of the pattern, the actual work done by the function can be condensed
@@ -772,7 +770,7 @@ Erlang term). The special elements `'$<number>'` behave as Erlang variables,
 that is, they match anything, bind the first occurrence, and match the coming
 occurrences of that variable against the bound value.
 
-Use function [mnesia:table_info(Tab, wild_pattern)](`mnesia:table_info/2`) to
+Use function [`mnesia:table_info(Tab, wild_pattern)`](`mnesia:table_info/2`) to
 obtain a basic pattern, which matches all records in a table, or use the default
 value in record creation. Do not make the pattern hard-coded, as this makes the
 code more vulnerable to future changes of the record definition.
@@ -780,24 +778,24 @@ code more vulnerable to future changes of the record definition.
 _Example:_
 
 ```erlang
-      Wildpattern = mnesia:table_info(employee, wild_pattern),
-      %% Or use
-      Wildpattern = #employee{_ = '_'},
+Wildpattern = mnesia:table_info(employee, wild_pattern),
+%% Or use
+Wildpattern = #employee{_ = '_'},
 ```
 
 For the employee table, the wild pattern looks as follows:
 
-```text
-      {employee, '_', '_', '_', '_', '_',' _'}.
+```erlang
+{employee, '_', '_', '_', '_', '_',' _'}.
 ```
 
 To constrain the match, it is needed to replace some of the `'_'` elements. The
 code for matching out all female employees looks as follows:
 
 ```erlang
-      Pat = #employee{sex = female, _ = '_'},
-      F = fun() -> mnesia:match_object(Pat) end,
-      Females = mnesia:transaction(F).
+Pat = #employee{sex = female, _ = '_'},
+F = fun() -> mnesia:match_object(Pat) end,
+Females = mnesia:transaction(F).
 ```
 
 The match function can also be used to check the equality of different
@@ -805,22 +803,21 @@ attributes. For example, to find all employees with an employee number equal to
 their room number:
 
 ```erlang
-      Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
-      F = fun() -> mnesia:match_object(Pat) end,
-      Odd = mnesia:transaction(F).
+Pat = #employee{emp_no = '$1', room_no = '$1', _ = '_'},
+F = fun() -> mnesia:match_object(Pat) end,
+Odd = mnesia:transaction(F).
 ```
 
 The function `mnesia:match_object/3` lacks some important features that
-[mnesia:select/3](`mnesia:select/2`) have. For example, `mnesia:match_object/3`
+[`mnesia:select/3`](`mnesia:select/2`) have. For example, `mnesia:match_object/3`
 can only return the matching records, and it cannot express constraints other
 than equality. To find the names of the male employees on the second floor:
 
 ```erlang
-
-      MatchHead = #employee{name='$1', sex=male, room_no={'$2', '_'}, _='_'},
-      Guard = [{'>=', '$2', 220},{'<', '$2', 230}],
-      Result = '$1',
-      mnesia:select(employee,[{MatchHead, Guard, [Result]}])
+MatchHead = #employee{name='$1', sex=male, room_no={'$2', '_'}, _='_'},
+Guard = [{'>=', '$2', 220},{'<', '$2', 230}],
+Result = '$1',
+mnesia:select(employee,[{MatchHead, Guard, [Result]}])
 ```
 
 The function `select` can be used to add more constraints and create output that
@@ -839,7 +836,7 @@ For details about the match specifications, see "Match Specifications in Erlang"
 in [ERTS](`e:erts:index.html`) User's Guide. For more information, see the
 `m:ets` and `m:dets` manual pages in `STDLIB`.
 
-The functions [select/4](`mnesia:select/4`) and [select/1](`mnesia:select/2`)
+The functions [`select/4`](`mnesia:select/4`) and [`select/1`](`mnesia:select/2`)
 are used to get a limited number of results, where `Continuation` gets the next
 chunk of results. `Mnesia` uses `NObjects` as a recommendation only. Thus, more
 or less results than specified with `NObjects` can be returned in the result
@@ -858,12 +855,12 @@ However, if the key attribute in a pattern is given as `'_'` or `'$1'`, the
 whole `employee` table must be searched for records that match. Hence if the
 table is large, this can become a time-consuming operation, but it can be
 remedied with indexes (see [Indexing](mnesia_chap5.md#indexing)) if the function
-[mnesia:match_object](`mnesia:match_object/1`) is used.
+[`mnesia:match_object`](`mnesia:match_object/1`) is used.
 
 QLC queries can also be used to search `Mnesia` tables. By using the function
-[mnesia:table/1,2](`mnesia:table/1`) as the generator inside a QLC query, you
-let the query operate on a `Mnesia` table. `Mnesia`\-specific options to
-`mnesia:table/2` are `{lock, Lock}`, `{n_objects,Integer}`, and
+[`mnesia:table/1,2`](`mnesia:table/1`) as the generator inside a QLC query, you
+let the query operate on a `Mnesia` table. `Mnesia`-specific options to
+`mnesia:table/2` are `{lock, Lock}`, `{n_objects, Integer}`, and
 `{traverse, SelMethod}`:
 
 - `lock` specifies whether `Mnesia` is to acquire a read or write lock on the
@@ -873,18 +870,18 @@ let the query operate on a `Mnesia` table. `Mnesia`\-specific options to
 - `traverse` specifies which function `Mnesia` is to use to traverse the table.
   Default `select` is used, but by using
   `{traverse, {select, MatchSpecification}}` as an option to
-  [mnesia:table/2](`mnesia:table/1`) the user can specify its own view of the
+  [`mnesia:table/2`](`mnesia:table/1`) the user can specify its own view of the
   table.
 
 If no options are specified, a read lock is acquired, 100 results are returned
 in each chunk, and `select` is used to traverse the table, that is:
 
 ```erlang
-      mnesia:table(Tab) ->
-          mnesia:table(Tab, [{n_objects,100},{lock, read}, {traverse, select}]).
+mnesia:table(Tab) ->
+    mnesia:table(Tab, [{n_objects, 100},{lock, read}, {traverse, select}]).
 ```
 
-The function [mnesia:all_keys(Tab)](`mnesia:all_keys/1`) returns all keys in a
+The function [`mnesia:all_keys(Tab)`](`mnesia:all_keys/1`) returns all keys in a
 table.
 
 ## Iteration
@@ -893,10 +890,10 @@ table.
 table:
 
 ```erlang
-      mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
-      mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
-      mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
-      mnesia:foldr(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
+mnesia:foldl(Fun, Acc0, Tab) -> NewAcc | transaction abort
+mnesia:foldr(Fun, Acc0, Tab) -> NewAcc | transaction abort
+mnesia:foldl(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
+mnesia:foldr(Fun, Acc0, Tab, LockType) -> NewAcc | transaction abort
 ```
 
 These functions iterate over the `Mnesia` table `Tab` and apply the function
@@ -923,32 +920,32 @@ For example, finding all the employees who have a salary less than 10 can look
 as follows:
 
 ```erlang
-      find_low_salaries() ->
-        Constraint =
-             fun(Emp, Acc) when Emp#employee.salary < 10 ->
-                    [Emp | Acc];
-                (_, Acc) ->
-                    Acc
-             end,
-        Find = fun() -> mnesia:foldl(Constraint, [], employee) end,
-        mnesia:transaction(Find).
+find_low_salaries() ->
+  Constraint =
+       fun(Emp, Acc) when Emp#employee.salary < 10 ->
+              [Emp | Acc];
+          (_, Acc) ->
+              Acc
+       end,
+  Find = fun() -> mnesia:foldl(Constraint, [], employee) end,
+  mnesia:transaction(Find).
 ```
 
 To raise the salary to 10 for everyone with a salary less than 10 and return the
 sum of all raises:
 
 ```erlang
-      increase_low_salaries() ->
-         Increase =
-             fun(Emp, Acc) when Emp#employee.salary < 10 ->
-                    OldS = Emp#employee.salary,
-                    ok = mnesia:write(Emp#employee{salary = 10}),
-                    Acc + 10 - OldS;
-                (_, Acc) ->
-                    Acc
-             end,
-        IncLow = fun() -> mnesia:foldl(Increase, 0, employee, write) end,
-        mnesia:transaction(IncLow).
+increase_low_salaries() ->
+   Increase =
+       fun(Emp, Acc) when Emp#employee.salary < 10 ->
+              OldS = Emp#employee.salary,
+              ok = mnesia:write(Emp#employee{salary = 10}),
+              Acc + 10 - OldS;
+          (_, Acc) ->
+              Acc
+       end,
+  IncLow = fun() -> mnesia:foldl(Increase, 0, employee, write) end,
+  mnesia:transaction(IncLow).
 ```
 
 Many nice things can be done with the iterator functions but take some caution
@@ -963,11 +960,11 @@ iterate over the table. The order of the iteration is unspecified if the table
 is not of type `ordered_set`:
 
 ```erlang
-      mnesia:first(Tab) ->  Key | transaction abort
-      mnesia:last(Tab)  ->  Key | transaction abort
-      mnesia:next(Tab,Key)  ->  Key | transaction abort
-      mnesia:prev(Tab,Key)  ->  Key | transaction abort
-      mnesia:snmp_get_next_index(Tab,Index) -> {ok, NextIndex} | endOfTable
+mnesia:first(Tab) ->  Key | transaction abort
+mnesia:last(Tab)  ->  Key | transaction abort
+mnesia:next(Tab,Key)  ->  Key | transaction abort
+mnesia:prev(Tab,Key)  ->  Key | transaction abort
+mnesia:snmp_get_next_index(Tab,Index) -> {ok, NextIndex} | endOfTable
 ```
 
 The order of `first`/`last` and `next`/`prev` is only valid for `ordered_set`
