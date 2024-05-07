@@ -309,11 +309,15 @@ str(Cause) ->
 %% send/3
 
 send([_, {Node, _} | _], Where, Req) ->
+    ?DL("send -> make rpc call to node ~p", [Node]),
     rpc:call(Node, ?MODULE, call, [{Where, Req}]).
 
 %% call/1
 
 call({Where, Req}) ->
+    ?DL("call -> entry with"
+        "~n   Where: ~p"
+        "~n   Req:   ~p", [Where, Req]),
     diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]}]).
 
 %% sname/0
