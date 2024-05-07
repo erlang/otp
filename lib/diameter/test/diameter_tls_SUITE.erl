@@ -288,14 +288,19 @@ handle_request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId}},
 
 %% Send an STR intended for a specific server and expect success.
 call(Server) ->
+    ?TL("call -> entry with"
+        "~n   Server: ~p", [Server]),
     Realm = realm(Server),
     Req = ['STR', {'Destination-Realm', Realm},
                   {'Termination-Cause', ?LOGOUT},
                   {'Auth-Application-Id', ?APP_ID}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                       'Origin-Host' = Server,
+    ?TL("call -> make (STR) call (with filter and realm) - expect STA"),
+    #diameter_base_STA{'Result-Code'  = ?SUCCESS,
+                       'Origin-Host'  = Server,
                        'Origin-Realm' = Realm}
-        = call(Req, [{filter, realm}]).
+        = call(Req, [{filter, realm}]),
+    ?TL("call -> done"),
+    ok.
 
 call(Req, Opts) ->
     diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
