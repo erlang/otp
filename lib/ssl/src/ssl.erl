@@ -1326,7 +1326,7 @@ Certificate related options specific to the client side, or with different seman
 - **\{verify, Verify}** - Verification of certificates
 
   Defaults to `verify_peer`, since OTP 26, which means the option cacerts or cacertfile is also required
-  to perform the certificate verification unless <c>verify_none</c> is explicitly configured.
+  to perform the certificate verification unless `verify_none` is explicitly configured.
   For example an `HTTPS` client would normally use the option
   `{cacerts, public_key:cacerts_get()}` (available since OTP 25) to access the CA
   certificates provided by the OS. Using verify_none means that all
