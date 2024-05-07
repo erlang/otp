@@ -135,24 +135,56 @@ down(Parent, Worker)
 %% Die with the worker, kill the worker if the parent dies.
 down(ParentMRef, WorkerPid) ->
     ?UL("down -> await worker (~p) termination", [WorkerPid]),
+    timer:send_after(1000, self(), check_worker_status),
+    await_down(ParentMRef, WorkerPid).
+
+await_down(ParentMRef, WorkerPid) ->
     receive
+        check_worker_status ->
+            ?UL("await_down -> check worker process (~p) status: "
+                "~n   Current Function:     ~p"
+                "~n   Message Queue Length: ~p"
+                "~n   Reductions:           ~p"
+                "~n   Status:               ~p",
+                [WorkerPid,
+                 pi(WorkerPid, current_function),
+                 pi(WorkerPid, message_queue_len),
+                 pi(WorkerPid, reductions),
+                 pi(WorkerPid, status)]),
+            timer:send_after(1000, self(), check_worker_status),
+            await_down(ParentMRef, WorkerPid);
+
         {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCStack}} ->
-            ?UL("down -> test case timetrap timeout when"
+            ?UL("await_down -> test case timetrap timeout when"
                 "~n   (test case) Pid:     ~p"
                 "~n   (test case) Timeout: ~p"
                 "~n   (test case) Stack:   ~p", [TCPid, TCTimeout, TCStack]),
             exit(WorkerPid, kill),
             %% So many wrapper levels, make sure we go with a bang
             exit({TCPid, R, TCStack});
+
         {'DOWN', ParentMRef, process, PPid, PReason} ->
-            ?UL("down -> parent process (~p) died: "
+            ?UL("await_down -> parent process (~p) died: "
                 "~n   Reason: ~p", [PPid, PReason]),
             exit(WorkerPid, kill);
         {'DOWN', _, process, WorkerPid, WReason} ->
-            ?UL("down -> worker process (~p) died: "
+            ?UL("await_down -> worker process (~p) died: "
                 "~n   Reason: ~p", [WorkerPid, WReason]),
             ok
     end.
+
+
+pi(Pid, Key) ->
+    try
+        begin
+            {Key, Value} = process_info(Pid, Key),
+            Value
+        end
+    catch
+        _:_:_ ->
+            undefined
+    end.
+        
 
 %% ---------------------------------------------------------------------------
 %% fold/3
