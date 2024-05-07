@@ -43,13 +43,11 @@
 
 init_per_suite(Config) ->
     file:set_cwd(datadir(Config)),
-    ok=erl_tar:extract("ibm.tgz",[compressed]),
-    ok=erl_tar:extract("japanese.tgz",[compressed]),
-    ok=erl_tar:extract("oasis.tgz",[compressed]),
-    ok=erl_tar:extract("sun.tgz",[compressed]),
-    ok=erl_tar:extract("xmltest.tgz",[compressed]),
-    ok = change_mode(["ibm","japanese","oasis",
-                      "sun","xmltest"]),
+    ok = erl_tar:extract("xmlts20130923.tar.gz", [compressed]),
+    Dirs = ["ibm","japanese","oasis","sun","xmltest"],
+    [file:rename("xmlconf/" ++ Dir, Dir) || Dir <- Dirs],
+    [ok = erl_tar:extract(Dir ++ ".tgz", [compressed]) || Dir <- Dirs],
+    ok = change_mode(Dirs),
     [{timetrap,{seconds, 1}}|Config].
 
 end_per_suite(Config) ->
