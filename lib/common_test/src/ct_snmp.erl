@@ -220,15 +220,19 @@ These data types are described in the documentation for the
 %%%=========================================================================
 
 -doc """
-start(Config, MgrAgentConfName) -> ok
+start(Config, MgrAgentConfName) -> ok | {error, Reason}
 
 Equivalent to [`ct_snmp:start(Config, MgrAgentConfName, undefined)`](`start/3`).
 """.
+-spec start(Config, MgrAgentConfName) -> 'ok' | {'error', Reason}
+              when Config :: proplists:proplist(),
+                   MgrAgentConfName :: atom(),
+                   Reason :: term().
 start(Config, MgrAgentConfName) ->
     start(Config, MgrAgentConfName, undefined).
 
 -doc """
-start(Config, MgrAgentConfName, SnmpAppConfName) -> ok
+start(Config, MgrAgentConfName, SnmpAppConfName) -> ok | {error, Reason}
 
 Starts an SNMP manager and/or agent. In the manager case, registrations of users
 and agents, as specified by the configuration `MgrAgentConfName`, are performed.
@@ -245,6 +249,11 @@ With `SnmpAppConfName` SNMP applications can be configured with parameters
 `config`, `mibs`, `net_if`, and so on. The values are merged with (and possibly
 override) default values set by `ct_snmp`.
 """.
+-spec start(Config, MgrAgentConfName, SnmpAppConfName) -> 'ok' | {'error', Reason}
+              when Config :: proplists:proplist(),
+                   MgrAgentConfName :: atom(),
+                   SnmpAppConfName :: atom(),
+                   Reason :: term().
 start(Config, MgrAgentConfName, SnmpAppConfName) ->
     StartManager= ct:get_config({MgrAgentConfName, start_manager}, true),
     StartAgent = ct:get_config({MgrAgentConfName, start_agent}, false),
@@ -277,6 +286,8 @@ stop(Config) -> ok
 
 Stops the SNMP manager and/or agent, and removes all files created.
 """.
+-spec stop(Config) -> 'ok'
+              when Config :: proplists:proplist().
 stop(Config) ->
     PrivDir = ?config(priv_dir, Config),
     ok = application:stop(snmp),
@@ -286,7 +297,8 @@ stop(Config) ->
     DbDir = filename:join(PrivDir,"db"),
     catch del_dir(MgrDir),
     catch del_dir(ConfDir),
-    catch del_dir(DbDir).
+    catch del_dir(DbDir),
+    ok.
     
     
 -doc """
@@ -294,6 +306,11 @@ get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
 
 Issues a synchronous SNMP `get` request.
 """.
+-spec get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+              when Agent :: agent_name(),
+                   Oids :: oids(),
+                   MgrAgentConfName :: atom(),
+                   SnmpReply :: snmpreply().
 get_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get2(Uid, target_name(Agent), Oids),
@@ -304,6 +321,11 @@ get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
 
 Issues a synchronous SNMP `get next` request.
 """.
+-spec get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
+              when Agent :: agent_name(),
+                   Oids :: oids(),
+                   MgrAgentConfName :: atom(),
+                   SnmpReply :: snmpreply().
 get_next_values(Agent, Oids, MgrAgentConfName) ->
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     {ok, SnmpReply, _} = snmpm:sync_get_next2(Uid, target_name(Agent), Oids),
@@ -314,6 +336,12 @@ set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
 
 Issues a synchronous SNMP `set` request.
 """.
+-spec set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
+              when Agent :: agent_name(),
+                   VarsAndVals :: varsandvals(),
+                   MgrAgentConfName :: atom(),
+                   Config :: proplists:proplist(),
+                   SnmpReply :: snmpreply().
 set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     PrivDir = ?config(priv_dir, Config),
     [Uid | _] = agent_conf(Agent, MgrAgentConfName),
@@ -338,6 +366,11 @@ reverse order. The list contains the involved user and agent, the value before
 `end_per_testcase`, that is, the undoing of the `set` requests and their
 possible side-effects.
 """.
+-spec set_info(Config) -> [{Agent, OldVarsAndVals, NewVarsAndVals}]
+              when Config :: proplists:proplist(),
+                   Agent :: agent_name(),
+                   OldVarsAndVals :: varsandvals(),
+                   NewVarsAndVals :: varsandvals().
 set_info(Config) ->
     PrivDir = ?config(priv_dir, Config),
     SetLogFile = filename:join(PrivDir, ?CT_SNMP_LOG_FILE),
@@ -358,6 +391,13 @@ Corresponds to making an entry in `users.conf`.
 This function tries to register the specified users, without checking if any of
 them exist. To change a registered user, the user must first be unregistered.
 """.
+-spec register_users(MgrAgentConfName, Users) -> 'ok' | {'error', Reason}
+              when MgrAgentConfName :: atom(),
+                   Users :: [{Id, [Module | Data]}],
+                   Id :: snmpm:user_id(),
+                   Module :: user_name(),
+                   Data :: user_data(),
+                   Reason :: term().
 register_users(MgrAgentConfName, Users) ->
     case setup_users(Users) of
 	ok ->
@@ -381,6 +421,15 @@ This function tries to register the specified managed agents, without checking
 if any of them exist. To change a registered managed agent, the agent must first
 be unregistered.
 """.
+-spec register_agents(MgrAgentConfName, ManagedAgents) -> 'ok' | {'error', Reason}
+              when MgrAgentConfName :: atom(),
+                   ManagedAgents :: [{AgentName, [Uid | AgentIp | AgentUdpPort | AgentConf]}],
+                   AgentName :: agent_name(),
+                   Uid :: snmpm:user_id(),
+                   AgentIp :: agent_ip(),
+                   AgentUdpPort :: inet:port_number(),
+                   AgentConf :: [agent_config()],
+                   Reason :: term().
 register_agents(MgrAgentConfName, ManagedAgents) ->
     case setup_managed_agents(MgrAgentConfName,ManagedAgents) of
 	ok ->
@@ -404,6 +453,12 @@ an entry in `usm.conf`.
 This function tries to register the specified users, without checking if any of
 them exist. To change a registered user, the user must first be unregistered.
 """.
+-spec register_usm_users(MgrAgentConfName, UsmUsers) -> 'ok' | {'error', Reason}
+              when MgrAgentConfName :: atom(),
+                   UsmUsers :: [{UsmUserName, UsmConfig}],
+                   UsmUserName :: usm_user_name(),
+                   UsmConfig :: [usm_config()],
+                   Reason :: term().
 register_usm_users(MgrAgentConfName, UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     case setup_usm_users(UsmUsers, EngineID) of
@@ -423,6 +478,8 @@ unregister_users(MgrAgentConfName) -> ok
 
 Unregisters all users.
 """.
+-spec unregister_users(MgrAgentConfName) -> 'ok'
+              when MgrAgentConfName :: atom().
 unregister_users(MgrAgentConfName) ->
     Users = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, users},[])],
     unregister_users(MgrAgentConfName,Users).
@@ -433,6 +490,9 @@ unregister_users(MgrAgentConfName, Users) -> ok
 Unregisters the specified users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec unregister_users(MgrAgentConfName, Users) -> 'ok'
+              when MgrAgentConfName :: atom(),
+                   Users :: [snmpm:user_id()].
 unregister_users(MgrAgentConfName,Users) ->
     takedown_users(Users),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -450,6 +510,8 @@ unregister_agents(MgrAgentConfName) -> ok
 
 Unregisters all managed agents.
 """.
+-spec unregister_agents(MgrAgentConfName) -> 'ok'
+              when MgrAgentConfName :: atom().
 unregister_agents(MgrAgentConfName) ->    
     ManagedAgents =  [AgentName ||
 			 {AgentName, _} <-
@@ -462,6 +524,9 @@ unregister_agents(MgrAgentConfName, ManagedAgents) -> ok
 Unregisters the specified managed agents.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec unregister_agents(MgrAgentConfName, ManagedAgents) -> 'ok'
+              when MgrAgentConfName :: atom(),
+                   ManagedAgents :: [agent_name()].
 unregister_agents(MgrAgentConfName,ManagedAgents) ->
     takedown_managed_agents(MgrAgentConfName, ManagedAgents),
     SnmpVals = ct:get_config(MgrAgentConfName),
@@ -481,6 +546,8 @@ unregister_usm_users(MgrAgentConfName) -> ok
 Unregisters all USM users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec unregister_usm_users(MgrAgentConfName) -> 'ok'
+              when MgrAgentConfName :: atom().
 unregister_usm_users(MgrAgentConfName) ->
     UsmUsers = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, usm_users},[])],
     unregister_usm_users(MgrAgentConfName,UsmUsers).
@@ -491,6 +558,9 @@ unregister_usm_users(MgrAgentConfName, UsmUsers) -> ok
 Unregisters the specified USM users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec unregister_usm_users(MgrAgentConfName, UsmUsers) -> 'ok'
+              when MgrAgentConfName :: atom(),
+                   UsmUsers :: [usm_user_name()].
 unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     takedown_usm_users(UsmUsers,EngineID),
@@ -510,6 +580,11 @@ load_mibs(Mibs) -> ok | {error, Reason}
 
 Loads the MIBs into agent `snmp_master_agent`.
 """.
+-spec load_mibs(Mibs) -> 'ok' | {'error', Reason}
+            when Mibs :: [MibName],
+                MibName :: string(),
+                Reason         :: {'load aborted at', MibName, InternalReason},
+                InternalReason :: 'already_loaded' | term().
 load_mibs(Mibs) ->       
     snmpa:load_mibs(snmp_master_agent, Mibs).
  
@@ -519,6 +594,11 @@ unload_mibs(Mibs) -> ok | {error, Reason}
 Unloads the MIBs from agent `snmp_master_agent`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
+-spec unload_mibs(Mibs) -> 'ok' | {'error', Reason}
+              when Mibs :: [MibName],
+                   MibName :: string(),
+                   Reason         :: {'unload aborted at', MibName, InternalReason},
+                   InternalReason :: 'not_loaded' | term().
 unload_mibs(Mibs) ->
     snmpa:unload_mibs(snmp_master_agent, Mibs).
 
