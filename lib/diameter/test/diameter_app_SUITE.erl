@@ -336,9 +336,11 @@ app(Mod) ->
     end.
 
 add_application(XRef, App) ->
-    ?AL("add_application -> entry with"
-        "~n   App: ~p", [App]),
-    {ok, App} = xref:add_application(XRef, code:lib_dir(App), []).
+    ?AL("add_application -> get lib dir for app ~p", [App]),
+    LibDir = code:lib_dir(App),
+    ?AL("add_application -> [xref] add lib dir:"
+        "~n   ~p", [LibDir]),
+    {ok, App} = xref:add_application(XRef, LibDir, []).
 
 make_name(Suf) ->
     list_to_atom("diameter_" ++ atom_to_list(Suf)).
