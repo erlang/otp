@@ -218,9 +218,10 @@ xref({App, _Config}) ->
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
-    ?AL("xref -> add own and dep apps"),
-    ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
-                       [diameter, erts | fetch(applications, App)]),
+    Apps = [diameter, erts | fetch(applications, App)],
+    ?AL("xref -> add own and dep apps: "
+        "~n   ~p", [Apps]),
+    ok = lists:foreach(fun(A) -> add_application(XRef, A) end, Apps),
 
     ?AL("xref -> analyze undefined_function_calls"),
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
@@ -335,6 +336,8 @@ app(Mod) ->
     end.
 
 add_application(XRef, App) ->
+    ?AL("add_application -> entry with"
+        "~n   App: ~p", [App]),
     {ok, App} = xref:add_application(XRef, code:lib_dir(App), []).
 
 make_name(Suf) ->
