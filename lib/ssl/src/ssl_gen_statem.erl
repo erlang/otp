@@ -198,9 +198,14 @@ init_label(?SERVER_ROLE = Role, _, Port, Options) ->
 
 host_str(Host) when is_list(Host) ->
     Host;
-host_str(Host) when is_tuple(Host) ->
-    IPStrs = [erlang:integer_to_list(I) || I <- tuple_to_list(Host)],
+host_str({local, File}) when is_list(File); is_binary(File) ->
+    File;
+host_str(IPv4) when tuple_size(IPv4) =:= 4 ->
+    IPStrs = [erlang:integer_to_list(I) || I <- tuple_to_list(IPv4)],
     lists:join(".", IPStrs);
+host_str(IPv6) when tuple_size(IPv6) =:= 8 ->
+    IPStrs = [erlang:integer_to_list(I, 16) || I <- tuple_to_list(IPv6)],
+    lists:join(":", IPStrs);
 host_str(Host) when is_atom(Host) ->
     atom_to_list(Host).
 
