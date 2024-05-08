@@ -66,8 +66,6 @@ term in the Test Specification.
 -export_type([start_options/0, stop_options/0]).
 
 -doc """
-start(Node) -> Result
-
 Starts an Erlang node with name `Node` on the local host.
 
 See also [`ct_slave:start/3`](`start/3`).
@@ -80,8 +78,6 @@ start(Node) ->
     start(gethostname(), Node).
 
 -doc """
-start(HostOrNode, NodeOrOpts) -> Result
-
 Starts an Erlang node with default options on a specified host, or on the local
 host with specified options. That is, the call is interpreted as
 [`start(Host, Node)`](`start/2`) when the second argument is atom-valued and
@@ -103,8 +99,6 @@ start(Host, Node) ->
     start(Host, Node, []).
 
 -doc """
-start(Host, Node, Opts) -> Result
-
 Starts an Erlang node with name `Node` on host `Host` as specified by the
 combination of options in `Opts`.
 
@@ -181,8 +175,6 @@ start(Host, Node, Opts) ->
     end.
 
 -doc """
-stop(Node) -> Result
-
 Stops the running Erlang node with name `Node` on the local host.
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -193,8 +185,6 @@ stop(Node) ->
     stop(gethostname(), Node).
 
 -doc """
-stop(Host, Node) -> Result
-
 Stops the running Erlang node with name `Node` on host `Host`.
 """.
 -doc(#{since => <<"OTP R14B">>}).
