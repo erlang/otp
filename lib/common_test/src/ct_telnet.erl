@@ -50,14 +50,14 @@ These parameters can be modified by the user with the following configuration
 term:
 
 ```erlang
- {telnet_settings, [{connect_timeout,Millisec},
-                    {command_timeout,Millisec},
-                    {reconnection_attempts,N},
-                    {reconnection_interval,Millisec},
-                    {keep_alive,Bool},
-                    {poll_limit,N},
-                    {poll_interval,Millisec},
-                    {tcp_nodelay,Bool}]}.
+{telnet_settings, [{connect_timeout,Millisec},
+                   {command_timeout,Millisec},
+                   {reconnection_attempts,N},
+                   {reconnection_interval,Millisec},
+                   {keep_alive,Bool},
+                   {poll_limit,N},
+                   {poll_interval,Millisec},
+                   {tcp_nodelay,Bool}]}.
 ```
 
 `Millisec = integer(), N = integer()`
@@ -82,8 +82,8 @@ _all_ Telnet traffic. To use this handler, install a `Common Test` hook named
 `cth_conn_log`. Example (using the test suite information function):
 
 ```erlang
- suite() ->
-     [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
+suite() ->
+    [{ct_hooks, [{cth_conn_log, [{conn_mod(),hook_options()}]}]}].
 ```
 
 `conn_mod()` is the name of the `Common Test` module implementing the connection
@@ -112,8 +112,8 @@ configuration file with configuration variable `ct_conn_log`.
 _Example:_
 
 ```erlang
- {ct_conn_log, [{ct_telnet,[{log_type,raw},
-                            {hosts,[key_or_name()]}]}]}
+{ct_conn_log, [{ct_telnet,[{log_type,raw},
+                           {hosts,[key_or_name()]}]}]}
 ```
 
 > #### Note {: .info }
@@ -130,23 +130,23 @@ logs for the connections `server1` and `server2`. Traffic for any other
 connections is logged in the default Telnet log.
 
 ```erlang
- suite() ->
-     [{ct_hooks,
-       [{cth_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}]}].
+suite() ->
+    [{ct_hooks,
+      [{cth_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}]}].
 ```
 
 As previously explained, this specification can also be provided by an entry
 like the following in a configuration file:
 
 ```erlang
- {ct_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}.
+{ct_conn_log, [{ct_telnet,[{hosts,[server1,server2]}]}]}.
 ```
 
 In this case the `ct_hooks` statement in the test suite can look as follows:
 
 ```erlang
- suite() ->
-     [{ct_hooks, [{cth_conn_log, []}]}].
+suite() ->
+    [{ct_hooks, [{cth_conn_log, []}]}].
 ```
 
 ## See Also
@@ -210,8 +210,6 @@ STDLIB) must return a list with one single element.
 	       tcp_nodelay=false}).
 
 -doc """
-open(Name) -> {ok, Handle} | {error, Reason}
-
 Equivalent to [`ct_telnet:open(Name, telnet)`](`open/2`).
 """.
 -spec open(Name) -> {'ok', Handle} | {'error', Reason}
@@ -222,8 +220,6 @@ open(Name) ->
     open(Name,telnet).
 
 -doc """
-open(Name, ConnType) -> {ok, Handle} | {error, Reason}
-
 Opens a Telnet connection to the specified target host.
 """.
 -spec open(Name, ConnType) -> {'ok', Handle} | {'error', Reason}
@@ -242,8 +238,6 @@ open(Name,ConnType) ->
     end.
 
 -doc """
-open(KeyOrName, ConnType, TargetMod) -> {ok, Handle} | {error, Reason}
-
 Equivalent to
 [`ct_telnet:ct_telnet:open(KeyOrName, ConnType, TargetMod, [])`](`open/4`).
 """.
@@ -257,8 +251,6 @@ open(KeyOrName,ConnType,TargetMod) ->
     open(KeyOrName,ConnType,TargetMod,KeyOrName).
 
 -doc """
-open(KeyOrName, ConnType, TargetMod, Extra) -> {ok, Handle} | {error, Reason}
-
 Opens a Telnet connection to the specified target host.
 
 The target data must exist in a configuration file. The connection can be
@@ -329,8 +321,6 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
     end.
 
 -doc """
-close(Connection) -> ok | {error, Reason}
-
 Closes the Telnet connection and stops the process managing it.
 
 A connection can be associated with a target name and/or a handle. If
@@ -359,8 +349,6 @@ close(Connection) ->
 %%%-----------------------------------------------------------------
 
 -doc """
-cmd(Connection, Cmd) -> {ok, Data} | {error, Reason}
-
 Equivalent to [`ct_telnet:cmd(Connection, Cmd, [])`](`cmd/3`).
 """.
 -spec cmd(Connection, Cmd) -> {'ok', Data} | {'error', Reason}
@@ -372,8 +360,6 @@ cmd(Connection,Cmd) ->
     cmd(Connection,Cmd,[]).
 
 -doc """
-cmd(Connection, Cmd, Opts) -> {ok, Data} | {error, Reason}
-
 Sends a command through Telnet and waits for prompt.
 
 By default, this function adds "\\n" to the end of the specified command. If
@@ -421,8 +407,6 @@ check_cmd_opts(Opts) ->
     check_send_opts(Opts).
 
 -doc """
-cmdf(Connection, CmdFormat, Args) -> {ok, Data} | {error, Reason}
-
 Equivalent to [`ct_telnet:cmdf(Connection, CmdFormat, Args, [])`](`cmdf/4`).
 """.
 -spec cmdf(Connection, CmdFormat, Args) -> {'ok', Data} | {'error', Reason}
@@ -435,8 +419,6 @@ cmdf(Connection,CmdFormat,Args) ->
     cmdf(Connection,CmdFormat,Args,[]).
 
 -doc """
-cmdf(Connection, CmdFormat, Args, Opts) -> {ok, Data} | {error, Reason}
-
 Sends a Telnet command and waits for prompt (uses a format string and a list of
 arguments to build the command).
 
@@ -455,8 +437,6 @@ cmdf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     cmd(Connection,Cmd,Opts).
 
 -doc """
-get_data(Connection) -> {ok, Data} | {error, Reason}
-
 Gets all data received by the Telnet client since the last command was sent.
 Only newline-terminated strings are returned. If the last received string has
 not yet been terminated, the connection can be polled automatically until the
@@ -480,8 +460,6 @@ get_data(Connection) ->
     end.
 
 -doc """
-send(Connection, Cmd) -> ok | {error, Reason}
-
 Equivalent to [`ct_telnet:send(Connection, Cmd, [])`](`send/3`).
 """.
 -spec send(Connection, Cmd) -> 'ok' | {'error', Reason}
@@ -492,8 +470,6 @@ send(Connection,Cmd) ->
     send(Connection,Cmd,[]).
 
 -doc """
-send(Connection, Cmd, Opts) -> ok | {error, Reason}
-
 Sends a Telnet command and returns immediately.
 
 By default, this function adds "\\n" to the end of the specified command. If
@@ -542,8 +518,6 @@ check_send_opts([]) ->
     ok.
 
 -doc """
-sendf(Connection, CmdFormat, Args) -> ok | {error, Reason}
-
 Equivalent to [`ct_telnet:sendf(Connection, CmdFormat, Args, [])`](`sendf/4`).
 """.
 -spec sendf(Connection, CmdFormat, Args) -> 'ok' | {'error', Reason}
@@ -555,8 +529,6 @@ sendf(Connection,CmdFormat,Args) when is_list(Args) ->
     sendf(Connection,CmdFormat,Args,[]).
 
 -doc """
-sendf(Connection, CmdFormat, Args, Opts) -> ok | {error, Reason}
-
 Sends a Telnet command and returns immediately (uses a format string and a list
 of arguments to build the command).
 
@@ -574,8 +546,6 @@ sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     send(Connection,Cmd,Opts).
 
 -doc """
-expect(Connection, Patterns) -> term()
-
 Equivalent to [`ct_telnet:expect(Connections, Patterns, [])`](`expect/3`).
 """.
 -spec expect(Connection, Patterns) -> {'ok', Match} | {'ok', Match, HaltReason}
@@ -597,9 +567,6 @@ expect(Connection,Patterns) ->
     expect(Connection,Patterns,[]).
 
 -doc """
-expect(Connection, Patterns, Opts) -> {ok, Match} | {ok, MatchList, HaltReason}
-| {error, Reason}
-
 Gets data from Telnet and waits for the expected pattern.
 
 `Pattern` can be a POSIX regular expression. The function returns when a pattern
@@ -659,7 +626,7 @@ _Options:_
 _Example 1:_
 
 ```erlang
- expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[sequence,{halt,[{nnn,"NNN"}]}])
+expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[sequence,{halt,[{nnn,"NNN"}]}])
 ```
 
 First this tries to match `"ABC"`, and then `"XYZ"`, but if `"NNN"` appears, the
@@ -669,7 +636,7 @@ matched, the function returns `{ok,[AbcMatch,XyzMatch]}`.
 _Example 2:_
 
 ```erlang
- expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[{repeat,2},{halt,[{nnn,"NNN"}]}])
+expect(Connection,[{abc,"ABC"},{xyz,"XYZ"}],[{repeat,2},{halt,[{nnn,"NNN"}]}])
 ```
 
 This tries to match `"ABC"` or `"XYZ"` twice. If `"NNN"` appears, the function

@@ -22,8 +22,6 @@
 -moduledoc """
 SSH/SFTP client module.
 
-SSH/SFTP client module.
-
 This module uses application `SSH`, which provides detailed information about,
 for example, functions, types, and options.
 
@@ -36,14 +34,14 @@ The following options are valid for specifying an SSH/SFTP connection (that is,
 can be used as configuration elements):
 
 ```erlang
- [{ConnType, Addr},
-  {port, Port},
-  {user, UserName}
-  {password, Pwd}
-  {user_dir, String}
-  {public_key_alg, PubKeyAlg}
-  {connect_timeout, Timeout}
-  {key_cb, KeyCallbackMod}]
+[{ConnType, Addr},
+ {port, Port},
+ {user, UserName}
+ {password, Pwd}
+ {user_dir, String}
+ {public_key_alg, PubKeyAlg}
+ {connect_timeout, Timeout}
+ {key_cb, KeyCallbackMod}]
 ```
 
 `ConnType = ssh | sftp`.
@@ -108,8 +106,6 @@ The valid values are `0` ("normal") and `1` ("stderr"), see
 %%%------------------------ SSH COMMANDS ---------------------------
 
 -doc """
-connect(KeyOrName) -> {ok, Handle} | {error, Reason}
-
 Equivalent to [`ct_ssh:connect(KeyOrName, host, [])`](`connect/3`).
 """.
 -spec connect(KeyOrName) -> {'ok', Handle} | {'error', Reason}
@@ -120,8 +116,6 @@ connect(KeyOrName) ->
     connect(KeyOrName, host).
 
 -doc """
-connect(KeyOrName, ConnType) -> {ok, Handle} | {error, Reason}
-
 Equivalent to [`ct_ssh:connect(KeyOrName, ConnType, [])`](`connect/3`).
 """.
 -spec connect(KeyOrName, ConnType) -> {'ok', Handle} | {'error', Reason}
@@ -144,8 +138,6 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
     connect(KeyOrName, host, ExtraOpts).
 
 -doc """
-connect(KeyOrName, ConnType, ExtraOpts) -> {ok, Handle} | {error, Reason}
-
 Opens an SSH or SFTP connection using the information associated with
 `KeyOrName`.
 
@@ -254,8 +246,6 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
     end.
 
 -doc """
-disconnect(SSH) -> ok | {error, Reason}
-
 Closes an SSH/SFTP connection.
 """.
 -spec disconnect(SSH) -> 'ok' | {'error', Reason}
@@ -276,8 +266,6 @@ disconnect(SSH) ->
     end.
 
 -doc """
-session_open(SSH) -> {ok, ChannelId} | {error, Reason}
-
 Equivalent to [`ct_ssh:session_open(SSH, DefaultTimeout)`](`session_open/2`).
 """.
 -spec session_open(SSH) -> {'ok', ChannelId} | {'error', Reason}
@@ -288,8 +276,6 @@ session_open(SSH) ->
     call(SSH, {session_open,?DEFAULT_TIMEOUT}).
 
 -doc """
-session_open(SSH, Timeout) -> {ok, ChannelId} | {error, Reason}
-
 Opens a channel for an SSH session.
 """.
 -spec session_open(SSH, Timeout) -> {'ok', ChannelId} | {'error', Reason}
@@ -301,8 +287,6 @@ session_open(SSH, Timeout) ->
     call(SSH, {session_open,Timeout}).
 
 -doc """
-session_close(SSH, ChannelId) -> ok | {error, Reason}
-
 Closes an SSH session channel.
 """.
 -spec session_close(SSH, ChannelId) -> 'ok' | {'error', Reason}
@@ -313,8 +297,6 @@ session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
 -doc """
-exec(SSH, Command) -> {ok, Data} | {error, Reason}
-
 Equivalent to [`ct_ssh:exec(SSH, Command, DefaultTimeout)`](`exec/3`).
 """.
 -spec exec(SSH, Command) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
@@ -326,8 +308,6 @@ exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
 -doc """
-exec(SSH, Command, Timeout) -> {ok, Data} | {timeout, Data} | {error, Reason}
-
 Requests server to perform `Command`. A session channel is opened automatically
 for the request. `Data` is received from the server as a result of the command.
 """.
@@ -350,8 +330,6 @@ exec(SSH, ChannelId, Command) when is_integer(ChannelId) ->
     exec(SSH, ChannelId, Command, ?DEFAULT_TIMEOUT).
 
 -doc """
-exec(SSH, ChannelId, Command, Timeout) -> {ok, Data} | {timeout, Data} | {error, Reason}
-
 Requests server to perform `Command`. A previously opened session channel is
 used for the request. `Data` is received from the server as a result of the
 command.
@@ -367,8 +345,6 @@ exec(SSH, ChannelId, Command, Timeout) ->
     call(SSH, {exec,ChannelId,Command,Timeout}).
 
 -doc """
-receive_response(SSH, ChannelId) -> {ok, Data} | {timeout, Data} | {error, Reason}
-
 Equivalent to
 [`ct_ssh:receive_response(SSH, ChannelId, close)`](`receive_response/3`).
 """.
@@ -381,8 +357,6 @@ receive_response(SSH, ChannelId) ->
     receive_response(SSH, ChannelId, close, ?DEFAULT_TIMEOUT).
 
 -doc """
-receive_response(SSH, ChannelId, End) -> {ok, Data} | {timeout, Data} | {error, Reason}
-
 Equivalent to
 [`ct_ssh:receive_response(SSH, ChannelId, End, DefaultTimeout)`](`receive_response/4`).
 """.
@@ -406,9 +380,6 @@ receive_response(SSH, ChannelId, Timeout) when is_integer(Timeout) ->
     receive_response(SSH, ChannelId, close, Timeout).
 
 -doc """
-receive_response(SSH, ChannelId, End, Timeout) -> {ok, Data} | {timeout, Data} |
-{error, Reason}
-
 Receives expected data from server on the specified session channel.
 
 If `End == close`, data is returned to the caller when the channel is closed by
@@ -436,8 +407,6 @@ receive_response(SSH, ChannelId, End, Timeout) ->
     call(SSH, {receive_response,ChannelId,End,Timeout}).
 
 -doc """
-send(SSH, ChannelId, Data) -> ok | {error, Reason}
-
 Equivalent to
 [`ct_ssh:send(SSH, ChannelId, 0, Data, DefaultTimeout)`](`send/5`).
 """.
@@ -450,8 +419,6 @@ send(SSH, ChannelId, Data) ->
     send(SSH, ChannelId, 0, Data, ?DEFAULT_TIMEOUT).
 
 -doc """
-send(SSH, ChannelId, Data, Timeout) -> ok | {error, Reason}
-
 Equivalent to [`ct_ssh:send(SSH, ChannelId, 0, Data, Timeout)`](`send/5`).
 """.
 -spec send(SSH, ChannelId, Data, Timeout) -> 'ok' | {'error', Reason}
@@ -473,8 +440,6 @@ send(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send(SSH, ChannelId, Type, Data, ?DEFAULT_TIMEOUT).
 
 -doc """
-send(SSH, ChannelId, Type, Data, Timeout) -> ok | {error, Reason}
-
 Sends data to server on specified session channel.
 """.
 -spec send(SSH, ChannelId, Type, Data, Timeout) -> 'ok' | {'error', Reason}
@@ -488,8 +453,6 @@ send(SSH, ChannelId, Type, Data, Timeout) ->
     call(SSH, {send,ChannelId,Type,Data,Timeout}).
 
 -doc """
-send_and_receive(SSH, ChannelId, Data) -> {ok, Data} | {timeout, Data} | {error, Reason}
-
 Equivalent to
 [`ct_ssh:send_and_receive(SSH, ChannelId, Data, close)`](`send_and_receive/4`).
 """.
@@ -504,11 +467,8 @@ send_and_receive(SSH, ChannelId, Data) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, ?DEFAULT_TIMEOUT).
 
 -doc """
-send_and_receive(SSH, ChannelId, Data, End) -> {ok, ReceivedData} | {timeout, ReceivedData} |
-{error, Reason}
-
 Equivalent to
-[`ct_ssh;send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`).
+[`ct_ssh:send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`).
 """.
 -spec send_and_receive(SSH, ChannelId, Data, End) -> {'ok', ReceivedData}
               | {'timeout', ReceivedData} | {'error', Reason}
@@ -544,9 +504,6 @@ send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, ?DEFAULT_TIMEOUT).
 
 -doc """
-send_and_receive(SSH, ChannelId, Data, End, Timeout) -> {ok, ReceivedData} | {timeout, ReceivedData}
-| {error, Reason}
-
 Equivalent to
 [`ct_ssh:send_and_receive(SSH, ChannelId, 0, Data, End, Timeout)`](`send_and_receive/6`).
 """.
@@ -587,9 +544,6 @@ send_and_receive(SSH, ChannelId, Type, Data, End) when is_function(End) ->
     send_and_receive(SSH, ChannelId, Type, Data, End, ?DEFAULT_TIMEOUT).
 
 -doc """
-send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) -> {ok, ReceivedData}
-| {timeout, ReceivedData} | {error, Reason}
-
 Sends data to server on specified session channel and waits to receive the
 server response.
 
@@ -610,8 +564,6 @@ send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
     call(SSH, {send_and_receive,ChannelId,Type,Data,End,Timeout}).
 
 -doc """
-subsystem(SSH, ChannelId, Subsystem) -> Status | {error, Reason}
-
 Equivalent to
 [`ct_ssh:subsystem(SSH, ChannelId, Subsystem, DefaultTimeout)`](`subsystem/4`).
 """.
@@ -625,8 +577,6 @@ subsystem(SSH, ChannelId, Subsystem) ->
     subsystem(SSH, ChannelId, Subsystem, ?DEFAULT_TIMEOUT).
 
 -doc """
-subsystem(SSH, ChannelId, Subsystem, Timeout) -> Status | {error, Reason}
-
 Sends a request to execute a predefined subsystem.
 """.
 -spec subsystem(SSH, ChannelId, Subsystem, Timeout) -> Status | {'error', Reason} when
@@ -641,8 +591,6 @@ subsystem(SSH, ChannelId, Subsystem, Timeout) ->
 
 
 -doc """
-shell(SSH, ChannelId) -> ok | {error, Reason}
-
 Equivalent to [`ct_ssh:shell(SSH, ChannelId, DefaultTimeout)`](`shell/3`).
 """.
 -doc(#{since => <<"OTP 20.0">>}).
@@ -654,8 +602,6 @@ shell(SSH, ChannelId) ->
     shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
 
 -doc """
-shell(SSH, ChannelId, Timeout) -> ok | {error, Reason}
-
 Requests that the user default shell (typically defined in `/etc/passwd` in Unix
 systems) is executed at the server end.
 """.
@@ -673,8 +619,6 @@ shell(SSH, ChannelId, Timeout) ->
 %%%------------------------ SFTP COMMANDS --------------------------
 
 -doc """
-sftp_connect(SSH) -> {ok, Server} | {error, Reason}
-
 Starts an SFTP session on an already existing SSH connection. `Server`
 identifies the new session and must be specified whenever SFTP requests are to
 be sent.
@@ -687,8 +631,6 @@ sftp_connect(SSH) ->
     call(SSH, sftp_connect).
 
 -doc """
-read_file(SSH, File) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_file(SSH, File) -> Result when
@@ -701,8 +643,6 @@ read_file(SSH, File) ->
     call(SSH, {read_file,sftp,File}).
 
 -doc """
-read_file(SSH, Server, File) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_file(SSH, Server, File) -> Result when
@@ -716,8 +656,6 @@ read_file(SSH, Server, File) ->
     call(SSH, {read_file,Server,File}).
 
 -doc """
-write_file(SSH, File, Iolist) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write_file(SSH, File, Iolist) -> Result when
@@ -730,8 +668,6 @@ write_file(SSH, File, Iolist) ->
     call(SSH, {write_file,sftp,File,Iolist}).
 
 -doc """
-write_file(SSH, Server, File, Iolist) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write_file(SSH, Server, File, Iolist) -> Result when
@@ -745,8 +681,6 @@ write_file(SSH, Server, File, Iolist) ->
     call(SSH, {write_file,Server,File,Iolist}).
 
 -doc """
-list_dir(SSH, Path) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec list_dir(SSH, Path) -> Result when
@@ -760,8 +694,6 @@ list_dir(SSH, Path) ->
     call(SSH, {list_dir,sftp,Path}).
 
 -doc """
-list_dir(SSH, Server, Path) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec list_dir(SSH, Server, Path) -> Result when
@@ -776,8 +708,6 @@ list_dir(SSH, Server, Path) ->
     call(SSH, {list_dir,Server,Path}).
 
 -doc """
-open(SSH, File, Mode) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec open(SSH, File, Mode) -> Result when
@@ -791,8 +721,6 @@ open(SSH, File, Mode) ->
     call(SSH, {open,sftp,File,Mode}).
 
 -doc """
-open(SSH, Server, File, Mode) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec open(SSH, Server, File, Mode) -> Result when
@@ -807,8 +735,6 @@ open(SSH, Server, File, Mode) ->
     call(SSH, {open,Server,File,Mode}).
 
 -doc """
-opendir(SSH, Path) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec opendir(SSH, Path) -> Result when
@@ -821,8 +747,6 @@ opendir(SSH, Path) ->
     call(SSH, {opendir,sftp,Path}).
 
 -doc """
-opendir(SSH, Server, Path) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec opendir(SSH, Server, Path) -> Result when
@@ -836,8 +760,6 @@ opendir(SSH, Server, Path) ->
     call(SSH, {opendir,Server,Path}).
 
 -doc """
-close(SSH, Handle) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec close(SSH, Handle) -> Result when
@@ -849,8 +771,6 @@ close(SSH, Handle) ->
     call(SSH, {close,sftp,Handle}).
 
 -doc """
-close(SSH, Server, Handle) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec close(SSH, Server, Handle) -> Result when
@@ -863,8 +783,6 @@ close(SSH, Server, Handle) ->
     call(SSH, {close,Server,Handle}).
 
 -doc """
-read(SSH, Handle, Len) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read(SSH, Handle, Len) -> Result when
@@ -878,8 +796,6 @@ read(SSH, Handle, Len) ->
     call(SSH, {read,sftp,Handle,Len}).
 
 -doc """
-read(SSH, Server, Handle, Len) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read(SSH, Server, Handle, Len) -> Result when
@@ -894,8 +810,6 @@ read(SSH, Server, Handle, Len) ->
     call(SSH, {read,Server,Handle,Len}).
 
 -doc """
-pread(SSH, Handle, Position, Length) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec pread(SSH, Handle, Position, Length) -> Result when
@@ -910,8 +824,6 @@ pread(SSH, Handle, Position, Length) ->
     call(SSH, {pread,sftp,Handle,Position,Length}).
 
 -doc """
-pread(SSH, Server, Handle, Position, Length) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec pread(SSH, Server, Handle, Position, Length) -> Result when
@@ -927,8 +839,6 @@ pread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {pread,Server,Handle,Position,Length}).
 
 -doc """
-aread(SSH, Handle, Len) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec aread(SSH, Handle, Len) -> Result when
@@ -942,8 +852,6 @@ aread(SSH, Handle, Len) ->
     call(SSH, {aread,sftp,Handle,Len}).
 
 -doc """
-aread(SSH, Server, Handle, Len) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec aread(SSH, Server, Handle, Len) -> Result when
@@ -958,8 +866,6 @@ aread(SSH, Server, Handle, Len) ->
     call(SSH, {aread,Server,Handle,Len}).
 
 -doc """
-apread(SSH, Handle, Position, Length) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec apread(SSH, Handle, Position, Length) -> Result when
@@ -974,8 +880,6 @@ apread(SSH, Handle, Position, Length) ->
     call(SSH, {apread,sftp,Handle,Position,Length}).
 
 -doc """
-apread(SSH, Server, Handle, Position, Length) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec apread(SSH, Server, Handle, Position, Length) -> Result when
@@ -991,8 +895,6 @@ apread(SSH, Server, Handle, Position, Length) ->
     call(SSH, {apread,Server,Handle,Position,Length}).
 
 -doc """
-write(SSH, Handle, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write(SSH, Handle, Data) -> Result when
@@ -1005,8 +907,6 @@ write(SSH, Handle, Data) ->
     call(SSH, {write,sftp,Handle,Data}).
 
 -doc """
-write(SSH, Server, Handle, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write(SSH, Server, Handle, Data) -> Result when
@@ -1020,8 +920,6 @@ write(SSH, Server, Handle, Data) ->
     call(SSH, {write,Server,Handle,Data}).
 
 -doc """
-pwrite(SSH, Handle, Position, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec pwrite(SSH, Handle, Position, Data) -> Result when
@@ -1035,8 +933,6 @@ pwrite(SSH, Handle, Position, Data) ->
     call(SSH, {pwrite,sftp,Handle,Position,Data}).
 
 -doc """
-pwrite(SSH, Server, Handle, Position, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec pwrite(SSH, Server, Handle, Position, Data) -> Result when
@@ -1051,8 +947,6 @@ pwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {pwrite,Server,Handle,Position,Data}).
 
 -doc """
-awrite(SSH, Handle, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec awrite(SSH, Handle, Data) -> Result when
@@ -1066,8 +960,6 @@ awrite(SSH, Handle, Data) ->
     call(SSH, {awrite,sftp,Handle, Data}).
 
 -doc """
-awrite(SSH, Server, Handle, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec awrite(SSH, Server, Handle, Data) -> Result when
@@ -1082,8 +974,6 @@ awrite(SSH, Server, Handle, Data) ->
     call(SSH, {awrite,Server,Handle, Data}).
 
 -doc """
-apwrite(SSH, Handle, Position, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec apwrite(SSH, Handle, Position, Data) -> Result when
@@ -1098,8 +988,6 @@ apwrite(SSH, Handle, Position, Data) ->
     call(SSH, {apwrite,sftp,Handle,Position,Data}).
 
 -doc """
-apwrite(SSH, Server, Handle, Position, Data) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec apwrite(SSH, Server, Handle, Position, Data) -> Result when
@@ -1115,8 +1003,6 @@ apwrite(SSH, Server, Handle, Position, Data) ->
     call(SSH, {apwrite,Server,Handle,Position,Data}).
 
 -doc """
-position(SSH, Handle, Location) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec position(SSH, Handle, Location) -> Result when
@@ -1132,8 +1018,6 @@ position(SSH, Handle, Location) ->
     call(SSH, {position,sftp,Handle,Location}).
 
 -doc """
-position(SSH, Server, Handle, Location) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec position(SSH, Server, Handle, Location) -> Result when
@@ -1150,8 +1034,6 @@ position(SSH, Server, Handle, Location) ->
     call(SSH, {position,Server,Handle,Location}).
 
 -doc """
-read_file_info(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_file_info(SSH, Name) -> Result when
@@ -1164,8 +1046,6 @@ read_file_info(SSH, Name) ->
     call(SSH, {read_file_info,sftp,Name}).
 
 -doc """
-read_file_info(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_file_info(SSH, Server, Name) -> Result when
@@ -1179,8 +1059,6 @@ read_file_info(SSH, Server, Name) ->
     call(SSH, {read_file_info,Server,Name}).
 
 -doc """
-get_file_info(SSH, Handle) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec get_file_info(SSH, Handle) -> Result when
@@ -1193,8 +1071,6 @@ get_file_info(SSH, Handle) ->
     call(SSH, {get_file_info,sftp,Handle}).
 
 -doc """
-get_file_info(SSH, Server, Handle) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec get_file_info(SSH, Server, Handle) -> Result when
@@ -1208,8 +1084,6 @@ get_file_info(SSH, Server, Handle) ->
     call(SSH, {get_file_info,Server,Handle}).
 
 -doc """
-read_link_info(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_link_info(SSH, Name) -> Result when
@@ -1222,8 +1096,6 @@ read_link_info(SSH, Name) ->
     call(SSH, {read_link_info,sftp,Name}).
 
 -doc """
-read_link_info(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_link_info(SSH, Server, Name) -> Result when
@@ -1237,8 +1109,6 @@ read_link_info(SSH, Server, Name) ->
     call(SSH, {read_link_info,Server,Name}).
 
 -doc """
-write_file_info(SSH, Name, Info) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write_file_info(SSH, Name, Info) -> Result when
@@ -1251,8 +1121,6 @@ write_file_info(SSH, Name, Info) ->
     call(SSH, {write_file_info,sftp,Name,Info}).
 
 -doc """
-write_file_info(SSH, Server, Name, Info) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec write_file_info(SSH, Server, Name, Info) -> Result when
@@ -1266,8 +1134,6 @@ write_file_info(SSH, Server, Name, Info) ->
     call(SSH, {write_file_info,Server,Name,Info}).
 
 -doc """
-read_link(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_link(SSH, Name) -> Result when
@@ -1280,8 +1146,6 @@ read_link(SSH, Name) ->
     call(SSH, {read_link,sftp,Name}).
 
 -doc """
-read_link(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec read_link(SSH, Server, Name) -> Result when
@@ -1295,8 +1159,6 @@ read_link(SSH, Server, Name) ->
     call(SSH, {read_link,Server,Name}).
 
 -doc """
-make_symlink(SSH, Name, Target) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec make_symlink(SSH, Name, Target) -> Result when
@@ -1309,8 +1171,6 @@ make_symlink(SSH, Name, Target) ->
     call(SSH, {make_symlink,sftp,Name,Target}).
 
 -doc """
-make_symlink(SSH, Server, Name, Target) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec make_symlink(SSH, Server, Name, Target) -> Result when
@@ -1324,8 +1184,6 @@ make_symlink(SSH, Server, Name, Target) ->
     call(SSH, {make_symlink,Server,Name,Target}).
 
 -doc """
-rename(SSH, OldName, NewName) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec rename(SSH, OldName, NewName) -> Result when
@@ -1338,8 +1196,6 @@ rename(SSH, OldName, NewName) ->
     call(SSH, {rename,sftp,OldName,NewName}).
 
 -doc """
-rename(SSH, Server, OldName, NewName) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec rename(SSH, Server, OldName, NewName) -> Result when
@@ -1354,8 +1210,6 @@ rename(SSH, Server, OldName, NewName) ->
 
 
 -doc """
-delete(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec delete(SSH, Name) -> Result when
@@ -1367,8 +1221,6 @@ delete(SSH, Name) ->
     call(SSH, {delete,sftp,Name}).
 
 -doc """
-delete(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec delete(SSH, Server, Name) -> Result when
@@ -1381,8 +1233,6 @@ delete(SSH, Server, Name) ->
     call(SSH, {delete,Server,Name}).
 
 -doc """
-make_dir(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec make_dir(SSH, Name) -> Result when
@@ -1394,8 +1244,6 @@ make_dir(SSH, Name) ->
     call(SSH, {make_dir,sftp,Name}).
 
 -doc """
-make_dir(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec make_dir(SSH, Server, Name) -> Result when
@@ -1408,8 +1256,6 @@ make_dir(SSH, Server, Name) ->
     call(SSH, {make_dir,Server,Name}).
 
 -doc """
-del_dir(SSH, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec del_dir(SSH, Name) -> Result when
@@ -1421,8 +1267,6 @@ del_dir(SSH, Name) ->
     call(SSH, {del_dir,sftp,Name}).
 
 -doc """
-del_dir(SSH, Server, Name) -> Result
-
 For information and other types, see `m:ssh_sftp`.
 """.
 -spec del_dir(SSH, Server, Name) -> Result when

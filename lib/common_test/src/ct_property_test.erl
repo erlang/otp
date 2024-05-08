@@ -47,17 +47,17 @@ follows:
 
 -include_lib("common_test/include/ct.hrl").
 
- all() -> [prop_ftp_case].
+all() -> [prop_ftp_case].
 
- init_per_suite(Config) ->
-     ct_property_test:init_per_suite(Config).
+init_per_suite(Config) ->
+    ct_property_test:init_per_suite(Config).
 
- %%%---- test case
- prop_ftp_case(Config) ->
-     ct_property_test:quickcheck(
-       ftp_simple_client_server:prop_ftp(),
-       Config
-      ).
+%%%---- test case
+prop_ftp_case(Config) ->
+    ct_property_test:quickcheck(
+      ftp_simple_client_server:prop_ftp(),
+      Config
+     ).
 ```
 
 and the the property test module (in this example
@@ -110,8 +110,6 @@ prop_ftp() ->
 %%% the property tests
 %%%
 -doc """
-init_per_suite(Config) -> Config | {skip, Reason} | {fail, Reason}
-
 Initializes and extends `Config` for property based testing.
 
 This function investigates if support is available for either
@@ -209,8 +207,6 @@ init_tool_extensions(_) ->
 %%% Call the found property tester (if any)
 %%%
 -doc """
-quickcheck(Property, Config) -> true | {fail, Reason}
-
 Calls the selected tool's function for running the `Property`. It is usually and
 by historical reasons called quickcheck, and that is why that name is used in
 this module (`ct_property_test`).
@@ -235,8 +231,6 @@ quickcheck(Property, Config) ->
 %%% Present a nice table of the statem result
 %%%
 -doc """
-present_result(Module, Cmds, Triple, Config) -> Result
-
 Same as [`present_result(Module, Cmds, Triple, Config, [])`](`present_result/5`)
 """.
 -doc(#{since => <<"OTP 22.3">>}).
@@ -252,8 +246,6 @@ present_result(Module, Cmds, Triple, Config) ->
     present_result(Module, Cmds, Triple, Config, []).
 
 -doc """
-present_result(Module, Cmds, Triple, Config, Options) -> Result
-
 Presents the result of _stateful (statem) property testing_ using the aggregate
 function in PropEr, QuickCheck or other similar property testing tool.
 
@@ -291,8 +283,8 @@ Each tuple will produce one table in the order of their places in the list.
   the number of each item is counted and the percentage is printed for each. The
   list \[a,b,a,a,c] could for example return
 
-  ```text
-   ["a 60%\n","b 20%\n","c 20%\n"]
+  ```erlang
+  ["a 60%\n","b 20%\n","c 20%\n"]
   ```
 
   which will be printed by the `print_fun`. The default `print_fun` will print
@@ -308,7 +300,7 @@ The default `StatisticsSpec` is:
 
 - For sequential commands:
 
-  ```text
+  ```erlang
   [{"Function calls", fun cmnd_names/1},
    {"Length of command sequences", fun print_frequency_ranges/0,
                                                     fun num_calls/1}]

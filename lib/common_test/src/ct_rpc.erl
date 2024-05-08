@@ -33,8 +33,6 @@ Common Test specific layer on Erlang/OTP rpc.
 %%%  API
 %%%=========================================================================
 -doc """
-app_node(App, Candidates) -> NodeName
-
 From a set of candidate nodes determines which of them is running the
 application `App`. If none of the candidate nodes is running `App`, the function
 makes the test case calling this function to fail. This function is the same as
@@ -48,8 +46,6 @@ app_node(App, Candidates) ->
     app_node(App, Candidates, true, []).
 
 -doc """
-app_node(App, Candidates, FailOnBadRPC) -> NodeName
-
 Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC`
 determines if the search for a candidate node is to stop if `badrpc` is received
 at some point.
@@ -63,8 +59,6 @@ app_node(App, Candidates, FailOnBadRPC) ->
     app_node(App, Candidates, FailOnBadRPC, []).
 
 -doc """
-app_node(App, Candidates, FailOnBadRPC, Cookie) -> NodeName
-
 Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC`
 determines if the search for a candidate node is to stop if `badrpc` is received
 at some point.
@@ -103,8 +97,6 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
     end.
 
 -doc """
-call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
-
 Same as [`call(Node, Module, Function, Args, infinity)`](`call/5`).
 """.
 -spec call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
@@ -117,8 +109,6 @@ call(Node, Module, Function, Args) ->
     call(Node, Module, Function, Args, infinity, []). 
 
 -doc """
-call(Node, Module, Function, Args, TimeOut) -> term() | {badrpc, Reason}
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`.
 Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote
 procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs`
@@ -135,8 +125,6 @@ call(Node, Module, Function, Args, TimeOut) ->
     call(Node, Module, Function, Args, TimeOut, []).
 
 -doc """
-call(Node, Module, Function, Args, TimeOut, Cookie) -> term() | {badrpc, Reason}
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`.
 Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote
 procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs`
@@ -163,8 +151,6 @@ call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     Result.    
 
 -doc """
-cast(Node, Module, Function, Args) -> ok
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`. No
 response is delivered and the process that makes the call is not suspended until
 the evaluation is completed as in the case of `call/3,4`. If `Node` is
@@ -179,8 +165,6 @@ cast(Node, Module, Function, Args) ->
     cast(Node, Module, Function, Args, []).
 
 -doc """
-cast(Node, Module, Function, Args, Cookie) -> ok
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`. No
 response is delivered and the process that makes the call is not suspended until
 the evaluation is completed as in the case of `call/3,4`. If `Node` is

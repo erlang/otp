@@ -820,11 +820,9 @@ list_nodes(#testspec{nodes=NodeRefs}) ->
 %%% [Spec1,Spec2,...] means create separate tests per spec
 %%% [[Spec1,Spec2,...]] means merge all specs into one
 -doc """
-get_tests(SpecsIn) -> {ok, [{Specs,Tests}]} | {error, Reason}
+Parse the given test specification files and return the tests to run and skip.
 
 [](){: #add_nodes-1 }
-
-Parse the given test specification files and return the tests to run and skip.
 
 If `SpecsIn=[Spec1,Spec2,...]`, separate tests will be created per
 specification. If `SpecsIn=[[Spec1,Spec2,...]]`, all specifications will be
