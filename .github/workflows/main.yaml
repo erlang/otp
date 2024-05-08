@@ -431,6 +431,12 @@ jobs:
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
+      - name: Trigger rebuild of erlang.org/docs/
+        if: github.ref_name == 'master' && github.repository == 'erlang/otp'
+        env:
+          GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+        run: |
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'
       - name: Run html link check
         run: docker run -v $PWD/:/github otp "cd /github/docs && /github/scripts/otp_check_html_links.exs"
 
