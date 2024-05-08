@@ -105,9 +105,7 @@ The valid values are `0` ("normal") and `1` ("stderr"), see
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
 
--doc """
-Equivalent to [`ct_ssh:connect(KeyOrName, host, [])`](`connect/3`).
-""".
+-doc(#{equiv => connect(KeyOrName, host, [])}).
 -spec connect(KeyOrName) -> {'ok', Handle} | {'error', Reason}
               when KeyOrName :: atom(),
                    Handle :: handle(),
@@ -116,7 +114,14 @@ connect(KeyOrName) ->
     connect(KeyOrName, host).
 
 -doc """
-Equivalent to [`ct_ssh:connect(KeyOrName, ConnType, [])`](`connect/3`).
+Opens an SSH or SFTP connection using the information associated with `KeyOrName`
+(see `connect/3`).
+
+Equivalent to [`connect(KeyOrName, ConnType, [])`](`connect/3`) if
+called with ConnType being atom.
+
+Equivalent to [`connect(KeyOrName, host, ExtraOpts)`](`connect/3`) if
+called with ExtraOpts being list.
 """.
 -spec connect(KeyOrName, ConnType) -> {'ok', Handle} | {'error', Reason}
               when KeyOrName :: atom(),
@@ -265,9 +270,7 @@ disconnect(SSH) ->
 	    Error
     end.
 
--doc """
-Equivalent to [`ct_ssh:session_open(SSH, DefaultTimeout)`](`session_open/2`).
-""".
+-doc(#{equiv => session_open(SSH, DefaultTimeout)}).
 -spec session_open(SSH) -> {'ok', ChannelId} | {'error', Reason}
               when SSH :: connection(),
                    ChannelId :: ssh_channel_id(),
@@ -296,9 +299,7 @@ Closes an SSH session channel.
 session_close(SSH, ChannelId) ->
     call(SSH, {session_close,ChannelId}).
 
--doc """
-Equivalent to [`ct_ssh:exec(SSH, Command, DefaultTimeout)`](`exec/3`).
-""".
+-doc(#{equiv => exec(SSH, Command, DefaultTimeout)}).
 -spec exec(SSH, Command) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
               when SSH :: connection(),
                    Command :: string(),
@@ -308,8 +309,13 @@ exec(SSH, Command) ->
     exec(SSH, undefined, Command, ?DEFAULT_TIMEOUT).
 
 -doc """
-Requests server to perform `Command`. A session channel is opened automatically
-for the request. `Data` is received from the server as a result of the command.
+Requests server to perform `Command`, (see `exec/4`).
+
+Equivalent to [`exec(SSH, undefined, Command, Timeout)`](`exec/4`) if
+called with Command being string.
+
+Equivalent to [`exec(SSH, ChannelId, Command, DefaultTimeout)`](`exec/4`) if
+called with ChannelId being integer.
 """.
 -spec exec(SSH, Command, Timeout) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
               when SSH :: connection(),
@@ -344,10 +350,7 @@ command.
 exec(SSH, ChannelId, Command, Timeout) ->
     call(SSH, {exec,ChannelId,Command,Timeout}).
 
--doc """
-Equivalent to
-[`ct_ssh:receive_response(SSH, ChannelId, close)`](`receive_response/3`).
-""".
+-doc(#{equiv => receive_response(SSH, ChannelId, close, DefaultTimeout)}).
 -spec receive_response(SSH, ChannelId) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
               when SSH :: connection(),
                    ChannelId :: ssh_channel_id(),
@@ -357,8 +360,14 @@ receive_response(SSH, ChannelId) ->
     receive_response(SSH, ChannelId, close, ?DEFAULT_TIMEOUT).
 
 -doc """
-Equivalent to
-[`ct_ssh:receive_response(SSH, ChannelId, End, DefaultTimeout)`](`receive_response/4`).
+Receives expected data from server on the specified session channel
+(see `receive_response/4`).
+
+Equivalent to [`receive_response(SSH, ChannelId, End, DefaultTimeout)`](`receive_response/4`) if
+called with End being function.
+
+Equivalent to [`receive_response(SSH, ChannelId, close, Timeout)`](`receive_response/4`) if
+called with Timeout being integer.
 """.
 -spec receive_response(SSH, ChannelId, End) -> {'ok', Data} | {'timeout', Data} | {'error', Reason}
               when SSH :: connection(),
@@ -406,10 +415,7 @@ supplied, the function returns immediately if the server closes the channel).
 receive_response(SSH, ChannelId, End, Timeout) ->
     call(SSH, {receive_response,ChannelId,End,Timeout}).
 
--doc """
-Equivalent to
-[`ct_ssh:send(SSH, ChannelId, 0, Data, DefaultTimeout)`](`send/5`).
-""".
+-doc(#{equiv => send(SSH, ChannelId, 0, Data, DefaultTimeout)}).
 -spec send(SSH, ChannelId, Data) -> 'ok' | {'error', Reason}
               when SSH :: connection(),
                    ChannelId :: ssh_channel_id(),
@@ -419,7 +425,13 @@ send(SSH, ChannelId, Data) ->
     send(SSH, ChannelId, 0, Data, ?DEFAULT_TIMEOUT).
 
 -doc """
-Equivalent to [`ct_ssh:send(SSH, ChannelId, 0, Data, Timeout)`](`send/5`).
+Sends data to server on specified session channel (see `send/5`).
+
+Equivalent to [`send(SSH, ChannelId, 0, Data, Timeout)`](`send/5`) if
+called with Timeout being integer.
+
+Equivalent to [`send(SSH, ChannelId, Type, Data, DefaultTimeout)`](`send/5`) if
+called with Type being integer.
 """.
 -spec send(SSH, ChannelId, Data, Timeout) -> 'ok' | {'error', Reason}
               when SSH :: connection(),
@@ -452,10 +464,7 @@ Sends data to server on specified session channel.
 send(SSH, ChannelId, Type, Data, Timeout) ->
     call(SSH, {send,ChannelId,Type,Data,Timeout}).
 
--doc """
-Equivalent to
-[`ct_ssh:send_and_receive(SSH, ChannelId, Data, close)`](`send_and_receive/4`).
-""".
+-doc(#{equiv => send_and_receive(SSH, ChannelId, 0, Data, close, DefaultTimeout)}).
 -spec send_and_receive(SSH, ChannelId, Data) -> {'ok', ReceivedData}
               | {'timeout', ReceivedData} | {'error', Reason}
               when SSH :: connection(),
@@ -467,8 +476,20 @@ send_and_receive(SSH, ChannelId, Data) ->
     send_and_receive(SSH, ChannelId, 0, Data, close, ?DEFAULT_TIMEOUT).
 
 -doc """
+Sends data to server on specified session channel and waits to receive the
+server response (see `send_and_receive/6`).
+
 Equivalent to
-[`ct_ssh:send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`).
+[`send_and_receive(SSH, ChannelId, 0, Data, End, DefaultTimeout)`](`send_and_receive/6`)
+if called with End being function.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, 0, Data, close, Timeout)`](`send_and_receive/6`)
+if called with Timeout being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, close, DefaultTimeout)`](`send_and_receive/6`)
+if called with Type being integer.
 """.
 -spec send_and_receive(SSH, ChannelId, Data, End) -> {'ok', ReceivedData}
               | {'timeout', ReceivedData} | {'error', Reason}
@@ -504,8 +525,20 @@ send_and_receive(SSH, ChannelId, Type, Data) when is_integer(Type) ->
     send_and_receive(SSH, ChannelId, Type, Data, close, ?DEFAULT_TIMEOUT).
 
 -doc """
+Sends data to server on specified session channel and waits to receive the
+server response (see `send_and_receive/6`).
+
 Equivalent to
-[`ct_ssh:send_and_receive(SSH, ChannelId, 0, Data, End, Timeout)`](`send_and_receive/6`).
+[`send_and_receive(SSH, ChannelId, 0, Data, End, Timeout)`](`send_and_receive/6`) if
+called with Timeout being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, close, Timeout)`](`send_and_receive/6`) if
+called with Type being integer.
+
+Equivalent to
+[`send_and_receive(SSH, ChannelId, Type, Data, End, DefaultTimeout)`](`send_and_receive/6`) if
+called with End being function.
 """.
 -spec send_and_receive(SSH, ChannelId, Data, End, Timeout) -> {'ok', ReceivedData}
               | {'timeout', Data} | {'error', Reason}
@@ -563,10 +596,7 @@ For details on argument `End`, see
 send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) ->
     call(SSH, {send_and_receive,ChannelId,Type,Data,End,Timeout}).
 
--doc """
-Equivalent to
-[`ct_ssh:subsystem(SSH, ChannelId, Subsystem, DefaultTimeout)`](`subsystem/4`).
-""".
+-doc(#{equiv => subsystem(SSH, Channel, Subsystem, DefaultTimeout)}).
 -spec subsystem(SSH, ChannelId, Subsystem) -> Status | {'error', Reason} when
       SSH :: connection(),
       ChannelId :: ssh_channel_id(),
@@ -590,10 +620,7 @@ subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
 
 
--doc """
-Equivalent to [`ct_ssh:shell(SSH, ChannelId, DefaultTimeout)`](`shell/3`).
-""".
--doc(#{since => <<"OTP 20.0">>}).
+-doc(#{equiv => shell(SSH, ChannelId, DefaultTimeout), since => <<"OTP 20.0">>}).
 -spec shell(SSH, ChannelId) -> Result when
       SSH :: connection(),
       ChannelId :: ssh:ssh_channel_id(),
