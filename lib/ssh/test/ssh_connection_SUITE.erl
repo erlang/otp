@@ -21,9 +21,10 @@
 %%
 -module(ssh_connection_SUITE).
 
--include_lib("common_test/include/ct.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([
          suite/0,
@@ -58,7 +59,7 @@
          connect_timeout/1,
          daemon_sock_not_passive/1,
          daemon_sock_not_tcp/1,
-         do_interrupted_send/3,
+         do_interrupted_send/4,
          do_simple_exec/1,
          encode_decode_pty_opts/1,
          exec_disabled/1,
@@ -81,6 +82,7 @@
          send_after_exit/1,
          simple_eval/1,
          simple_exec/1,
+         simple_exec_more_data/1,
          simple_exec_sock/1,
          simple_exec_two_socks/1,
          small_cat/1,
@@ -97,6 +99,7 @@
          start_shell_exec_direct_fun1_error_type/1,
          start_shell_exec_direct_fun2/1,
          start_shell_exec_direct_fun3/1,
+         start_shell_exec_direct_fun_more_data/1,
          start_shell_exec_fun/1,
          start_shell_exec_fun2/1,
          start_shell_exec_fun3/1,
@@ -140,6 +143,7 @@ all() ->
      start_shell_exec_direct_fun,
      start_shell_exec_direct_fun2,
      start_shell_exec_direct_fun3,
+     start_shell_exec_direct_fun_more_data,
      start_shell_exec_direct_fun1_error,
      start_shell_exec_direct_fun1_error_type,
      start_exec_direct_fun1_read_write,
@@ -180,6 +184,7 @@ groups() ->
 
 payload() ->
     [simple_exec,
+     simple_exec_more_data,
      simple_exec_sock,
      simple_exec_two_socks,
      small_cat,
@@ -240,6 +245,10 @@ simple_exec(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
     do_simple_exec(ConnectionRef).
 
+simple_exec_more_data(Config) when is_list(Config) ->
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, []),
+    %% more data received, SSH window adjust needs to be sent by client
+    do_simple_exec(ConnectionRef, 60000).
 %%--------------------------------------------------------------------
 simple_exec_sock(_Config) ->
     {ok, Sock} = ssh_test_lib:gen_tcp_connect(?SSH_DEFAULT_PORT, [{active,false}]),
@@ -490,9 +499,6 @@ big_cat(Config) when is_list(Config) ->
     %% build 10MB binary
     Data = << <<X:32>> || X <- lists:seq(1,2500000)>>,
 
-    %% pre-adjust receive window so the other end doesn't block
-    ssh_connection:adjust_window(ConnectionRef, ChannelId0, size(Data)),
-
     ct:log("sending ~p byte binary~n",[size(Data)]),
     ok = ssh_connection:send(ConnectionRef, ChannelId0, Data, 10000),
     ok = ssh_connection:send_eof(ConnectionRef, ChannelId0),
@@ -630,15 +636,18 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
-small_interrupted_send(Config) -> 
+small_interrupted_send(Config) ->
     K = 1024,
-    M = K*K,
-    do_interrupted_send(Config, 10*M, 4*K).
+    SendSize = 10 * K * K,
+    EchoSize = 4 * K,
+    do_interrupted_send(Config, SendSize, EchoSize, {error, closed}).
 interrupted_send(Config) ->
-    M = 1024*1024,
-    do_interrupted_send(Config, 10*M, 4*M).
+    K = 1024,
+    SendSize = 10 * K * K,
+    EchoSize = 4 * K * K,
+    do_interrupted_send(Config, SendSize, EchoSize, ok).
 
-do_interrupted_send(Config, SendSize, EchoSize) ->
+do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -648,7 +657,6 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 					     {user_dir, UserDir},
 					     {password, "morot"},
 					     {subsystems, [{"echo_n",EchoSS_spec}]}]),
-    
     ct:log("~p:~p connect", [?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
@@ -656,13 +664,10 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 						      {user_interaction, false},
 						      {user_dir, UserDir}]),
     ct:log("~p:~p connected", [?MODULE,?LINE]),
-
     %% build big binary
     Data = << <<X:32>> || X <- lists:seq(1,SendSize div 4)>>,
-
     %% expect remote end to send us EchoSize back
     <<ExpectedData:EchoSize/binary, _/binary>> = Data,
-
     %% Spawn listener. Otherwise we could get a deadlock due to filled buffers
     Parent = self(),
     ResultPid = spawn(
@@ -673,11 +678,10 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 			  case ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity) of
 			      success ->
 				  Parent ! {self(), channelId, ChannelId},
-				  
-				  Result = 
+				  Result =
 				      try collect_data(ConnectionRef, ChannelId, EchoSize)
 				      of
-					  ExpectedData -> 
+					  ExpectedData ->
 					      ct:log("~p:~p got expected data",[?MODULE,?LINE]),
 					      ok;
 					  Other ->
@@ -692,14 +696,12 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 				  Parent ! {self(), channelId, error, Other}
 			  end
 		  end),
-    
     receive
 	{ResultPid, channelId, error, Other} ->
 	    ct:log("~p:~p channelId error ~p", [?MODULE,?LINE,Other]),
 	    ssh:close(ConnectionRef),
 	    ssh:stop_daemon(Pid),
 	    {fail, "ssh_connection:subsystem"};
-
 	{ResultPid, channelId, ChannelId} ->
 	    ct:log("~p:~p ~p going to send ~p bytes", [?MODULE,?LINE,self(),size(Data)]),
 	    SenderPid = spawn(fun() ->
@@ -709,23 +711,24 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 	    	{ResultPid, result, {fail, Fail}} ->
 		    ct:log("~p:~p Listener failed: ~p", [?MODULE,?LINE,Fail]),
 		    {fail, Fail};
-
 		{ResultPid, result, Result} ->
 		    ct:log("~p:~p Got result: ~p", [?MODULE,?LINE,Result]),
 		    ssh:close(ConnectionRef),
 		    ssh:stop_daemon(Pid),
 		    ct:log("~p:~p Check sender", [?MODULE,?LINE]),
 		    receive
-			{SenderPid, {error, closed}} ->
-			    ct:log("~p:~p {error,closed} - That's what we expect :)",[?MODULE,?LINE]),
+			{SenderPid, SenderResult} ->
+			    ct:log("~p:~p ~p - That's what we expect :)",
+                                   [?MODULE,?LINE, SenderResult]),
 			    ok;
 			Msg ->
 			    ct:log("~p:~p Not expected send result: ~p",[?MODULE,?LINE,Msg]),
 			    {fail, "Not expected msg"}
 		    end;
-
-		{SenderPid, {error, closed}} ->
-		    ct:log("~p:~p {error,closed} - That's what we expect, but client channel handler has not reported yet",[?MODULE,?LINE]),
+		{SenderPid, SenderResult} ->
+		    ct:log("~p:~p ~p - That's what we expect, "
+                           "but client channel handler has not reported yet",
+                           [?MODULE,?LINE, SenderResult]),
 		    receive
 			{ResultPid, result, Result} ->
 			    ct:log("~p:~p Now got the result: ~p", [?MODULE,?LINE,Result]),
@@ -736,7 +739,6 @@ do_interrupted_send(Config, SendSize, EchoSize) ->
 			    ct:log("~p:~p Got an unexpected msg ~p",[?MODULE,?LINE,Msg]),
 			    {fail, "Un-expected msg"}
 		    end;
-
 		Msg ->
 		    ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Msg]),
 		    {fail, "Unexpected msg"}
@@ -1005,6 +1007,24 @@ start_shell_exec_direct_fun3(Config) ->
                             "testing", <<"echo foo testing">>, 0,
                             Config).
 
+start_shell_exec_direct_fun_more_data(Config) ->
+    N = 60000,
+    ExpectedBin = <<"testing\n">>,
+    ReceiveFun =
+        fun(ConnectionRef, ChannelId, _Expect, _ExpectType) ->
+                receive_bytes(ConnectionRef, ChannelId,
+                              N * byte_size(ExpectedBin), 0)
+        end,
+    do_start_shell_exec_fun({direct,
+                             fun(_Cmd) ->
+                                     {ok,
+                                      [io_lib:format("testing~n",[]) ||
+                                          _ <- lists:seq(1, N)]}
+                             end},
+                            "not_relevant", <<"not_used\n">>, 0,
+                            ReceiveFun,
+                            Config).
+
 start_shell_exec_direct_fun1_error(Config) ->
     do_start_shell_exec_fun({direct, fun(_Cmd) -> {error, {bad}} end},
                             "testing", <<"**Error** {bad}">>, 1,
@@ -1139,6 +1159,28 @@ simple_eval(Inp) -> {simple_eval,Inp}.
 
 
 do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
+    DefaultReceiveFun =
+        fun(ConnectionRef, ChannelId, Expect, ExpectType) ->
+                receive
+                    {ssh_cm, ConnectionRef, {data, ChannelId, ExpectType, Expect}} ->
+                        ok
+                after 5000 ->
+                        receive
+                            Other ->
+                                ct:log("Received other:~n~p~nExpected: ~p~n",
+                                       [Other,
+                                        {ssh_cm, ConnectionRef,
+                                         {data, ChannelId, ExpectType, Expect}}]),
+                                         %% {data, '_ChannelId', ExpectType, Expect}}]),
+                                ct:fail("Unexpected response")
+                        after 0 ->
+                                ct:fail("Exec Timeout")
+                        end
+                end
+        end,
+    do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, DefaultReceiveFun, Config).
+
+do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, ReceiveFun, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
@@ -1154,24 +1196,9 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, Config) ->
 						      {user_interaction, true},
 						      {user_dir, UserDir}]),
 
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-
-    success = ssh_connection:exec(ConnectionRef, ChannelId0, Command, infinity),
-
-    receive
-	{ssh_cm, ConnectionRef, {data, _ChannelId, ExpectType, Expect}} ->
-	    ok
-    after 5000 ->
-            receive
-                Other ->
-                    ct:log("Received other:~n~p~nExpected: ~p~n",
-                           [Other, {ssh_cm, ConnectionRef, {data, '_ChannelId', ExpectType, Expect}} ]),
-                    ct:fail("Unexpected response")
-            after 0 ->
-                    ct:fail("Exec Timeout")
-            end
-    end,
-
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    success = ssh_connection:exec(ConnectionRef, ChannelId, Command, infinity),
+    ReceiveFun(ConnectionRef, ChannelId, Expect, ExpectType),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
@@ -1732,17 +1759,26 @@ max_channels_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-
 do_simple_exec(ConnectionRef) ->
+    do_simple_exec(ConnectionRef, 1).
+
+do_simple_exec(ConnectionRef, N) ->
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId0,
-				  "echo testing", infinity),
-    %% receive response to input
-    receive
-	{ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"testing\n">>}} ->
-	    ok
-    after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    Cmd = "yes testing | head -n " ++ integer_to_list(N),
+    ct:log("Cmd to be invoked over SSH shell: ~p", [Cmd]),
+    success = ssh_connection:exec(ConnectionRef, ChannelId0, Cmd, infinity),
+    ExpectedBin = <<"testing\n">>,
+    case N of
+        1 ->
+            %% receive response to input
+            receive
+                {ssh_cm, ConnectionRef, {data, ChannelId0, 0, ExpectedBin}} ->
+                    ok
+            after
+                10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+            end;
+        _ ->
+            receive_bytes(ConnectionRef, ChannelId0, N * byte_size(ExpectedBin), 0)
     end,
 
     %% receive close messages
@@ -1866,6 +1902,7 @@ test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
         {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} = R ->
             ct:log("~p:~p Got expected ~p",[?MODULE,?LINE,R]);
         Other ->
+            %% FIXME - should this testcase fail when unexpected data is received?
             ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
                    [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef, {data, ChannelId, 0, Expect}} ])
     after 5000 ->
@@ -1879,8 +1916,6 @@ big_cat_rx(ConnectionRef, ChannelId) ->
 big_cat_rx(ConnectionRef, ChannelId, Acc) ->
     receive
 	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} ->
-	    %% ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
-	    %% window was pre-adjusted, don't adjust again here
 	    big_cat_rx(ConnectionRef, ChannelId, [Data | Acc]);
 	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
 	    {ok, iolist_to_binary(lists:reverse(Acc))}
@@ -1889,7 +1924,8 @@ big_cat_rx(ConnectionRef, ChannelId, Acc) ->
     end.
 
 collect_data(ConnectionRef, ChannelId, EchoSize) ->
-    ct:log("~p:~p Listener ~p running! ConnectionRef=~p, ChannelId=~p",[?MODULE,?LINE,self(),ConnectionRef,ChannelId]),
+    ct:log("~p:~p Listener ~p running! ConnectionRef=~p, ChannelId=~p",
+           [?MODULE,?LINE,self(),ConnectionRef,ChannelId]),
     collect_data(ConnectionRef, ChannelId, EchoSize, [], 0).
 
 collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
@@ -1898,18 +1934,14 @@ collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
 	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} when is_binary(Data) ->
 	    ct:log("~p:~p collect_data: received ~p bytes. total ~p bytes,  want ~p more",
 		   [?MODULE,?LINE,size(Data),Sum+size(Data),EchoSize-Sum]),
-	    ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, [Data | Acc], Sum+size(Data));
 	{ssh_cm, ConnectionRef, Msg={eof, ChannelId}} ->
 	    collect_data_report_end(Acc, Msg, EchoSize);
-
 	{ssh_cm, ConnectionRef, Msg={closed,ChannelId}} ->
 	    collect_data_report_end(Acc, Msg, EchoSize);
-
 	Msg ->
 	    ct:log("~p:~p collect_data: ***** unexpected message *****~n~p",[?MODULE,?LINE,Msg]),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
-
     after TO ->
 	    ct:log("~p:~p collect_data: ----- Nothing received for ~p seconds -----~n",[?MODULE,?LINE,TO]),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum)
@@ -1953,3 +1985,23 @@ ssh_exec_echo(Cmd, User) ->
     spawn(fun() ->
                   io:format("echo ~s ~s\n",[User,Cmd])
           end).
+%% FIXME - upon refactoring this test suite, check if function below is reduntant to collect_data
+receive_bytes(_, _, 0, _) ->
+    ct:log("ALL DATA RECEIVED Budget = 0"),
+    ct:log("================================ ExpectBudget = 0 (reception completed)"),
+    ok;
+receive_bytes(ConnectionRef, ChannelId0, Budget, AccSize) when Budget > 0 ->
+    receive
+        {ssh_cm, ConnectionRef, {data, ChannelId0, 0, D}} ->
+            Fmt = "================================ ExpectBudget = "
+                "~p bytes Received/Total = ~p/~p bytes",
+            Args = [Budget, byte_size(D), AccSize + byte_size(D)],
+            ct:log(Fmt, Args),
+            receive_bytes(ConnectionRef, ChannelId0,
+                          Budget - byte_size(D), AccSize + byte_size(D))
+    after
+        10000 ->
+            ct:log("process_info(self(), messages) = ~p",
+                   [process_info(self(), messages)]),
+            ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.
