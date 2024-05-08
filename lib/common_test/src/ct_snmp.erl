@@ -111,13 +111,13 @@ your test suite using a `require` statement. Example (where
 `MgrAgentConfName = snmp_mgr_agent`):
 
 ```erlang
- suite() -> [{require, snmp_mgr_agent, snmp}].
+suite() -> [{require, snmp_mgr_agent, snmp}].
 ```
 
 or
 
-```text
- ct:require(snmp_mgr_agent, snmp).
+```erlang
+ct:require(snmp_mgr_agent, snmp).
 ```
 
 Notice that USM users are needed for SNMPv3 configuration and are not to be
@@ -131,7 +131,7 @@ to define the Object Identifiers (OIDs). For example, to get the Erlang node
 name from `erlNodeTable` in the OTP-MIB:
 
 ```erlang
- Oid = ?erlNodeEntry ++ [?erlNodeName, 1]
+Oid = ?erlNodeEntry ++ [?erlNodeName, 1]
 ```
 
 Furthermore, values can be set for `SNMP` application configuration parameters,
@@ -140,8 +140,8 @@ types, see the [`User's Guide for the SNMP application`](`e:snmp:index.html`)).
 This is done by defining a configuration data variable on the following form:
 
 ```erlang
- {snmp_app, [{manager, [snmp_app_manager_params()]},
-             {agent, [snmp_app_agent_params()]}]}.
+{snmp_app, [{manager, [snmp_app_manager_params()]},
+            {agent, [snmp_app_agent_params()]}]}.
 ```
 
 A name for the data must be allocated in the suite using `require` (see the
@@ -219,9 +219,7 @@ These data types are described in the documentation for the
 %%%  API
 %%%=========================================================================
 
--doc """
-Equivalent to [`ct_snmp:start(Config, MgrAgentConfName, undefined)`](`start/3`).
-""".
+-doc(#{equiv => start(Config, MgrAgentConfName, undefined)}).
 -spec start(Config, MgrAgentConfName) -> 'ok' | {'error', Reason}
               when Config :: proplists:proplist(),
                    MgrAgentConfName :: atom(),
