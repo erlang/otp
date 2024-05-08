@@ -152,6 +152,12 @@ A handle to an isolated trace session.
 -type session() :: {session_strong_ref(), session_weak_ref()}
                    | session_weak_ref().
 -opaque session_strong_ref() :: reference().
+
+-doc """
+A weak session handle as returned by `session_info/1`. A weak session handle can
+be used like a full session handle, but it will not prevent the session from
+being destroyed when the last strong handle is garbage collected.
+""".
 -opaque session_weak_ref() :: {atom(), integer()}.
 
 -type trace_info_flag() ::
@@ -1274,15 +1280,19 @@ session_destroy(Session) ->
 
 %% session_info/1
 -doc """
-Returns which trace sessions affects a port, process, function, or event.
+Return which trace sessions that affect a port, process, function, or event.
+
+Argument `all` returns all active trace sessions that exists on the node.
+
+Returns a list of [weak session handles](`t:session_weak_ref/0`) or `undefined` if the
+process/port/function does not exists.
 """.
 -doc #{ since => <<"OTP 27.0">> }.
 -spec session_info(PidPortFuncEvent) -> Res when
       PidPortFuncEvent :: all | pid() | port() | new | new_processes | new_ports
                      | MFA | on_load | send | 'receive',
       MFA :: {module(), atom(), arity()},
-      Res :: undefined | [SessionName],
-      SessionName :: atom().
+      Res :: undefined | [session_weak_ref()].
 session_info(all) ->
     {session, List} = erts_internal:trace_info(any, any, session),
     List;

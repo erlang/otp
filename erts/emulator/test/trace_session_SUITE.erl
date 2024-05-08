@@ -1277,6 +1277,13 @@ negative(_Config) ->
     1 = trace:function(S, MFA, true, [meta]),
     1 = trace:function(S, MFA, false, [meta]),
 
+    FuncInfoItems = [all, traced, match_spec, meta, meta_match_spec,
+                     call_count, call_time, call_memory],
+    [{Item,undefined} = trace:info(S, {?MODULE, false, 77}, Item)
+     || Item <- FuncInfoItems],
+    [{Item,false} = trace:info(S, MFA, Item)
+     || Item <- FuncInfoItems],
+
     trace:session_destroy(S),
     ok.
 

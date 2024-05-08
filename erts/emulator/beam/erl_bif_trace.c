@@ -1363,12 +1363,17 @@ Eterm trace_info_2(BIF_ALIST_2)
     return ret;
 }
 
+/* Called by erlang:trace_info/2
+ *           trace:info/3
+ *           trace:session_info/1
+ */
 Eterm erts_internal_trace_info_3(BIF_ALIST_3)
 {
     ErtsTraceSession* session;
     Eterm ret;
 
     if (BIF_ARG_1 == am_any) {
+        /* trace:session_info */
         session = NULL;
     }
     else if (!term_to_session(BIF_ARG_1, &session, 0)) {
@@ -1757,7 +1762,7 @@ trace_info_pid(Process* p, ErtsTraceSession* session, Eterm pid_spec, Eterm key)
  */
 static int function_is_traced(Process *p,
                               ErtsTraceSession *session,
-			      Eterm mfa[3],
+                              const ErtsCodeMFA *mfa,
 			      Binary    **ms,              /* out */
 			      Binary    **ms_meta,         /* out */
 			      ErtsTracer *tracer_pid_meta, /* out */
@@ -1770,9 +1775,7 @@ static int function_is_traced(Process *p,
     Export* ep;
 
     /* First look for an export entry */
-    e.info.mfa.module = mfa[0];
-    e.info.mfa.function = mfa[1];
-    e.info.mfa.arity = mfa[2];
+    e.info.mfa = *mfa;
     if ((ep = export_get(&e)) != NULL) {
 	if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
 	    ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
@@ -1791,7 +1794,7 @@ static int function_is_traced(Process *p,
     }
     
     /* OK, now look for breakpoint tracing */
-    if ((ci = erts_find_local_func(&e.info.mfa)) != NULL) {
+    if ((ci = erts_find_local_func(mfa)) != NULL) {
 	int r = 0;
         if (erts_is_trace_break(session, ci, ms, 1))
             r |= FUNC_TRACE_LOCAL_TRACE;
@@ -1809,7 +1812,7 @@ static int function_is_traced(Process *p,
     return FUNC_TRACE_NOEXIST;
 }
 
-static Eterm function_traced_by_sessions(Process *p, Eterm mfa[3])
+static Eterm function_traced_by_sessions(Process *p, const ErtsCodeMFA *mfa)
 {
     const ErtsCodeInfo *ci;
     Export e;
@@ -1817,13 +1820,18 @@ static Eterm function_traced_by_sessions(Process *p, Eterm mfa[3])
     ErtsHeapFactory factory;
     Eterm list = NIL;
 
+    ci = erts_find_local_func(mfa);
+    if (!ci) {
+        /* Function does not exists */
+        return am_undefined;
+    }
+
     erts_factory_proc_init(&factory, p);
 
     /* First look for an export entry */
-    e.info.mfa.module = mfa[0];
-    e.info.mfa.function = mfa[1];
-    e.info.mfa.arity = mfa[2];
-    if ((ep = export_get(&e)) != NULL) {
+    e.info.mfa = *mfa;
+    ep = export_get(&e);
+    if (ep) {
         if (erts_is_export_trampoline_active(ep, erts_active_code_ix()) &&
             ! BeamIsOpCode(ep->trampoline.common.op, op_call_error_handler)) {
 
@@ -1834,7 +1842,7 @@ static Eterm function_traced_by_sessions(Process *p, Eterm mfa[3])
     }
 
     /* OK, now look for local breakpoint tracing */
-    if ((ci = erts_find_local_func(&e.info.mfa)) != NULL) {
+    if (ci) {
         list = erts_make_bp_session_list(&factory, ci, list);
     }
 
@@ -1842,7 +1850,7 @@ static Eterm function_traced_by_sessions(Process *p, Eterm mfa[3])
     return list;
 }
 
-static int get_mfa_tuple(Eterm func_spec, Eterm mfa[3])
+static int get_mfa_tuple(Eterm func_spec, ErtsCodeMFA* mfa)
 {
     Eterm* tp;
 
@@ -1856,9 +1864,9 @@ static int get_mfa_tuple(Eterm func_spec, Eterm mfa[3])
     if (!is_atom(tp[1]) || !is_atom(tp[2]) || !is_small(tp[3])) {
         return 0;
     }
-    mfa[0] = tp[1];
-    mfa[1] = tp[2];
-    mfa[2] = signed_val(tp[3]);
+    mfa->module = tp[1];
+    mfa->function = tp[2];
+    mfa->arity = signed_val(tp[3]);
     return 1;
 }
 
@@ -1867,7 +1875,7 @@ trace_info_func(Process* p, ErtsTraceSession* session,
                 Eterm func_spec, Eterm key)
 {
     Eterm* hp;
-    Eterm mfa[3];
+    ErtsCodeMFA mfa;
     Binary *ms = NULL, *ms_meta = NULL;
     Uint count = 0;
     Eterm traced = am_false;
@@ -1876,42 +1884,27 @@ trace_info_func(Process* p, ErtsTraceSession* session,
     ErtsTracer meta = erts_tracer_nil;
     Eterm call_time = NIL;
     Eterm call_memory = NIL;
-    Eterm session_list;
     int r;
 
-    if (!get_mfa_tuple(func_spec, mfa)) {
+    ASSERT(session);
+
+    if (!get_mfa_tuple(func_spec, &mfa)) {
         goto error;
     }
 
-    if (session) {
-        if (key == am_call_time || key == am_call_memory || key == am_all) {
-            erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-            erts_thr_progress_block();
-            erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-        }
-    }
-    else if (key != am_session) {
-        goto error;
+    if (key == am_call_time || key == am_call_memory || key == am_all) {
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+        erts_thr_progress_block();
+        erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
 
-    if (session) {
-        r = function_is_traced(p, session, mfa, &ms, &ms_meta, &meta, &count,
-                               &call_time, &call_memory);
-    }
-    else {
-        session_list = function_traced_by_sessions(p, mfa);
-        ERTS_UNDEF(r, 0);
-    }
+    r = function_is_traced(p, session, &mfa, &ms, &ms_meta, &meta, &count,
+                           &call_time, &call_memory);
 
     erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
     if ( (key == am_call_time) || (key == am_call_memory) || (key == am_all)) {
 	erts_thr_progress_unblock();
-    }
-
-    if (!session) {
-        hp = HAlloc(p, 3);
-        return TUPLE2(hp, am_session, session_list);
     }
 
     switch (r) {
@@ -2036,16 +2029,16 @@ static Eterm
 trace_info_func_sessions(Process* p, Eterm func_spec, Eterm key)
 {
     Eterm* hp;
-    Eterm mfa[3];
+    ErtsCodeMFA mfa;
     Eterm session_list;
 
-    if (!get_mfa_tuple(func_spec, mfa) || key != am_session) {
+    if (!get_mfa_tuple(func_spec, &mfa) || key != am_session) {
         BIF_ERROR(p, BADARG);
     }
 
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
 
-    session_list = function_traced_by_sessions(p, mfa);
+    session_list = function_traced_by_sessions(p, &mfa);
 
     erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
 
