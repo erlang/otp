@@ -220,8 +220,6 @@ These data types are described in the documentation for the
 %%%=========================================================================
 
 -doc """
-start(Config, MgrAgentConfName) -> ok | {error, Reason}
-
 Equivalent to [`ct_snmp:start(Config, MgrAgentConfName, undefined)`](`start/3`).
 """.
 -spec start(Config, MgrAgentConfName) -> 'ok' | {'error', Reason}
@@ -232,8 +230,6 @@ start(Config, MgrAgentConfName) ->
     start(Config, MgrAgentConfName, undefined).
 
 -doc """
-start(Config, MgrAgentConfName, SnmpAppConfName) -> ok | {error, Reason}
-
 Starts an SNMP manager and/or agent. In the manager case, registrations of users
 and agents, as specified by the configuration `MgrAgentConfName`, are performed.
 When using SNMPv3, called USM users are also registered. Users, `usm_users`, and
@@ -282,8 +278,6 @@ start_application(App) ->
     end.
  
 -doc """
-stop(Config) -> ok
-
 Stops the SNMP manager and/or agent, and removes all files created.
 """.
 -spec stop(Config) -> 'ok'
@@ -302,8 +296,6 @@ stop(Config) ->
     
     
 -doc """
-get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
-
 Issues a synchronous SNMP `get` request.
 """.
 -spec get_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
@@ -317,8 +309,6 @@ get_values(Agent, Oids, MgrAgentConfName) ->
     SnmpReply.
 
 -doc """
-get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
-
 Issues a synchronous SNMP `get next` request.
 """.
 -spec get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply
@@ -332,8 +322,6 @@ get_next_values(Agent, Oids, MgrAgentConfName) ->
     SnmpReply.
 
 -doc """
-set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
-
 Issues a synchronous SNMP `set` request.
 """.
 -spec set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
@@ -358,8 +346,6 @@ set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     SnmpSetReply.
 
 -doc """
-set_info(Config) -> [{Agent, OldVarsAndVals, NewVarsAndVals}]
-
 Returns a list of all successful `set` requests performed in the test case in
 reverse order. The list contains the involved user and agent, the value before
 `set`, and the new value. This is intended to simplify the cleanup in function
@@ -383,8 +369,6 @@ set_info(Config) ->
     end.
 
 -doc """
-register_users(MgrAgentConfName, Users) -> ok | {error, Reason}
-
 Registers the manager entity (=user) responsible for specific agent(s).
 Corresponds to making an entry in `users.conf`.
 
@@ -412,8 +396,6 @@ register_users(MgrAgentConfName, Users) ->
     end.
 
 -doc """
-register_agents(MgrAgentConfName, ManagedAgents) -> ok | {error, Reason}
-
 Explicitly instructs the manager to handle this agent. Corresponds to making an
 entry in `agents.conf`.
 
@@ -445,8 +427,6 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
     end.
 
 -doc """
-register_usm_users(MgrAgentConfName, UsmUsers) -> ok | {error, Reason}
-
 Explicitly instructs the manager to handle this USM user. Corresponds to making
 an entry in `usm.conf`.
 
@@ -474,8 +454,6 @@ register_usm_users(MgrAgentConfName, UsmUsers) ->
     end.
 
 -doc """
-unregister_users(MgrAgentConfName) -> ok
-
 Unregisters all users.
 """.
 -spec unregister_users(MgrAgentConfName) -> 'ok'
@@ -485,8 +463,6 @@ unregister_users(MgrAgentConfName) ->
     unregister_users(MgrAgentConfName,Users).
 
 -doc """
-unregister_users(MgrAgentConfName, Users) -> ok
-
 Unregisters the specified users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
@@ -506,8 +482,6 @@ unregister_users(MgrAgentConfName,Users) ->
     ok.
 
 -doc """
-unregister_agents(MgrAgentConfName) -> ok
-
 Unregisters all managed agents.
 """.
 -spec unregister_agents(MgrAgentConfName) -> 'ok'
@@ -519,8 +493,6 @@ unregister_agents(MgrAgentConfName) ->
     unregister_agents(MgrAgentConfName,ManagedAgents).
 
 -doc """
-unregister_agents(MgrAgentConfName, ManagedAgents) -> ok
-
 Unregisters the specified managed agents.
 """.
 -doc(#{since => <<"OTP R16B">>}).
@@ -541,8 +513,6 @@ unregister_agents(MgrAgentConfName,ManagedAgents) ->
     ok.
 
 -doc """
-unregister_usm_users(MgrAgentConfName) -> ok
-
 Unregisters all USM users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
@@ -553,8 +523,6 @@ unregister_usm_users(MgrAgentConfName) ->
     unregister_usm_users(MgrAgentConfName,UsmUsers).
 
 -doc """
-unregister_usm_users(MgrAgentConfName, UsmUsers) -> ok
-
 Unregisters the specified USM users.
 """.
 -doc(#{since => <<"OTP R16B">>}).
@@ -576,8 +544,6 @@ unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     ok.
 
 -doc """
-load_mibs(Mibs) -> ok | {error, Reason}
-
 Loads the MIBs into agent `snmp_master_agent`.
 """.
 -spec load_mibs(Mibs) -> 'ok' | {'error', Reason}
@@ -589,8 +555,6 @@ load_mibs(Mibs) ->
     snmpa:load_mibs(snmp_master_agent, Mibs).
  
 -doc """
-unload_mibs(Mibs) -> ok | {error, Reason}
-
 Unloads the MIBs from agent `snmp_master_agent`.
 """.
 -doc(#{since => <<"OTP R16B">>}).

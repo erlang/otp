@@ -68,7 +68,7 @@ specification file as you start `Common Test`. Do this by using flag `-cover`
 with [`ct_run`](ct_run_cmd.md), for example:
 
 ```text
- $ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec
+$ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec
 ```
 
 You can also pass the cover specification file name in a call to
@@ -106,46 +106,46 @@ Here follows the general configuration terms that are allowed in a cover
 specification file:
 
 ```erlang
- %% List of Nodes on which cover will be active during test.
- %% Nodes = [atom()]
- {nodes, Nodes}.
+%% List of Nodes on which cover will be active during test.
+%% Nodes = [atom()]
+{nodes, Nodes}.
 
- %% Files with previously exported cover data to include in analysis.
- %% CoverDataFiles = [string()]
- {import, CoverDataFiles}.
+%% Files with previously exported cover data to include in analysis.
+%% CoverDataFiles = [string()]
+{import, CoverDataFiles}.
 
- %% Cover data file to export from this session.
- %% CoverDataFile = string()
- {export, CoverDataFile}.
+%% Cover data file to export from this session.
+%% CoverDataFile = string()
+{export, CoverDataFile}.
 
- %% Cover analysis level.
- %% Level = details | overview
- {level, Level}.
+%% Cover analysis level.
+%% Level = details | overview
+{level, Level}.
 
- %% Directories to include in cover.
- %% Dirs = [string()]
- {incl_dirs, Dirs}.
+%% Directories to include in cover.
+%% Dirs = [string()]
+{incl_dirs, Dirs}.
 
- %% Directories, including subdirectories, to include.
- {incl_dirs_r, Dirs}.
+%% Directories, including subdirectories, to include.
+{incl_dirs_r, Dirs}.
 
- %% Specific modules to include in cover.
- %% Mods = [atom()]
- {incl_mods, Mods}.
+%% Specific modules to include in cover.
+%% Mods = [atom()]
+{incl_mods, Mods}.
 
- %% Directories to exclude in cover.
- {excl_dirs, Dirs}.
+%% Directories to exclude in cover.
+{excl_dirs, Dirs}.
 
- %% Directories, including subdirectories, to exclude.
- {excl_dirs_r, Dirs}.
+%% Directories, including subdirectories, to exclude.
+{excl_dirs_r, Dirs}.
 
- %% Specific modules to exclude in cover.
- {excl_mods, Mods}.
+%% Specific modules to exclude in cover.
+{excl_mods, Mods}.
 
- %% Cross cover compilation
- %% Tag = atom(), an identifier for a test run
- %% Mod = [atom()], modules to compile for accumulated analysis
- {cross,[{Tag,Mods}]}.
+%% Cross cover compilation
+%% Tag = atom(), an identifier for a test run
+%% Mod = [atom()], modules to compile for accumulated analysis
+{cross,[{Tag,Mods}]}.
 ```
 
 The terms `incl_dirs_r` and `excl_dirs_r` tell `Common Test` to search the
@@ -196,8 +196,8 @@ test runs. System `s1` contains a library module `m1` tested by test run `s1`
 and is included in the cover specification of `s1` as follows:
 
 ```text
- s1.cover:
-   {incl_mods,[m1]}.
+s1.cover:
+  {incl_mods,[m1]}.
 ```
 
 When analysing code coverage, the result for `m1` can be seen in the cover log
@@ -209,8 +209,8 @@ interesting to see which parts of `m1` that are covered by the `s2` tests. To do
 this, `m1` can be included also in the cover specification of `s2` as follows:
 
 ```text
- s2.cover:
-   {incl_mods,[m1]}.
+s2.cover:
+  {incl_mods,[m1]}.
 ```
 
 This gives an entry for `m1` also in the cover log for test run `s2`. The
@@ -221,8 +221,8 @@ comes in handy.
 If instead the cover specification for `s2` is like the following:
 
 ```erlang
- s2.cover:
-   {cross,[{s1,[m1]}]}.
+s2.cover:
+  {cross,[{s1,[m1]}]}.
 ```
 
 Then `m1` is cover compiled in test run `s2`, but not shown in the coverage log.
@@ -233,7 +233,7 @@ cross cover log for test run `s1`.
 The call to the analyze function must be as follows:
 
 ```erlang
- ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).
+ct_cover:cross_cover_analyse(Level, [{s1,S1LogDir},{s2,S2LogDir}]).
 ```
 
 Here, `S1LogDir` and `S2LogDir` are the directories named `<TestName>.logs` for

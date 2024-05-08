@@ -34,8 +34,6 @@ This module exports help functions for performing code coverage analysis.
 -include_lib("kernel/include/file.hrl").
 
 -doc """
-add_nodes(Nodes) -> {ok, StartedNodes} | {error, Reason}
-
 Adds nodes to current cover test. Notice that this only works if cover support
 is active.
 
@@ -73,8 +71,6 @@ add_nodes(Nodes) ->
     end.
 
 -doc """
-remove_nodes(Nodes) -> ok | {error, Reason}
-
 Removes nodes from the current cover test.
 
 Call this function to stop cover test on nodes previously added with
@@ -110,10 +106,8 @@ remove_nodes(Nodes) ->
     end.
     
 -doc """
-cross_cover_analyse(Level, Tests) -> ok
-
 Accumulates cover results over multiple tests. See section
-[Cross Cover Analysis](cover_chapter.md#cross_cover) in the Users's Guide.
+[Cross Cover Analysis](cover_chapter.md#cross_cover) in the User's Guide.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec cross_cover_analyse(Level, Tests) -> 'ok'

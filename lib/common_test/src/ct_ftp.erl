@@ -48,8 +48,6 @@ FTP client module (based on the `ftp` application).
 %%% API
 
 -doc """
-put(KeyOrName, LocalFile, RemoteFile) -> ok | {error, Reason}
-
 Opens an FTP connection and sends a file to the remote host.
 
 `LocalFile` and `RemoteFile` must be absolute paths.
@@ -60,16 +58,16 @@ If the target host is a "special" node, the FTP address must be specified in the
 configuration file as follows:
 
 ```erlang
- {node,[{ftp,IpAddr}]}.
+{node,[{ftp,IpAddr}]}.
 ```
 
 If the target host is something else, for example, a UNIX host, the
 configuration file must also include the username and password (both strings):
 
 ```erlang
- {unix,[{ftp,IpAddr},
-        {username,Username},
-        {password,Password}]}.
+{unix,[{ftp,IpAddr},
+       {username,Username},
+       {password,Password}]}.
 ```
 
 See also `ct:require/2`.
@@ -84,8 +82,6 @@ put(KeyOrName,LocalFile,RemoteFile) ->
     open_and_do(KeyOrName,Fun).
 
 -doc """
-get(KeyOrName, RemoteFile, LocalFile) -> ok | {error, Reason}
-
 Opens an FTP connection and fetches a file from the remote host.
 
 `RemoteFile` and `LocalFile` must be absolute paths.
@@ -106,8 +102,6 @@ get(KeyOrName,RemoteFile,LocalFile) ->
     open_and_do(KeyOrName,Fun).
 
 -doc """
-open(KeyOrName) -> {ok, Handle} | {error, Reason}
-
 Opens an FTP connection to the specified node.
 
 You can open a connection for a particular `Name` and use the same name as
@@ -166,8 +160,6 @@ open(KeyOrName,Username,Password) ->
     end.
 
 -doc """
-send(Connection, LocalFile) -> ok | {error, Reason}
-
 Sends a file over FTP.
 
 The file gets the same name on the remote host.
@@ -182,8 +174,6 @@ send(Connection,LocalFile) ->
     send(Connection,LocalFile,filename:basename(LocalFile)).
 
 -doc """
-send(Connection, LocalFile, RemoteFile) -> ok | {error, Reason}
-
 Sends a file over FTP.
 
 The file is named `RemoteFile` on the remote host.
@@ -202,8 +192,6 @@ send(Connection,LocalFile,RemoteFile) ->
     end.
 
 -doc """
-recv(Connection, RemoteFile) -> ok | {error, Reason}
-
 Fetches a file over FTP.
 
 The file gets the same name on the local host.
@@ -218,8 +206,6 @@ recv(Connection,RemoteFile) ->
     recv(Connection,RemoteFile,filename:basename(RemoteFile)).
 
 -doc """
-recv(Connection, RemoteFile, LocalFile) -> ok | {error, Reason}
-
 Fetches a file over FTP.
 
 The file is named `LocalFile` on the local host.
@@ -238,8 +224,6 @@ recv(Connection,RemoteFile,LocalFile) ->
     end.
 
 -doc """
-cd(Connection, Dir) -> ok | {error, Reason}
-
 Changes directory on remote host.
 """.
 -spec cd(Connection, Dir) -> 'ok' | {'error', Reason}
@@ -255,8 +239,6 @@ cd(Connection,Dir) ->
     end.
 
 -doc """
-ls(Connection, Dir) -> {ok, Listing} | {error, Reason}
-
 Lists directory `Dir`.
 """.
 -spec ls(Connection, Dir) -> {'ok', Listing} | {'error', Reason}
@@ -273,8 +255,6 @@ ls(Connection,Dir) ->
     end.
 
 -doc """
-type(Connection, Type) -> ok | {error, Reason}
-
 Changes the file transfer type.
 """.
 -spec type(Connection, Type) -> 'ok' | {'error', Reason}
@@ -290,8 +270,6 @@ type(Connection,Type) ->
     end.
     
 -doc """
-delete(Connection, File) -> ok | {error, Reason}
-
 Deletes a file on remote host.
 """.
 -spec delete(Connection, File) -> 'ok' | {'error', Reason}
@@ -307,8 +285,6 @@ delete(Connection,File) ->
     end.
 
 -doc """
-close(Connection) -> ok | {error, Reason}
-
 Closes the FTP connection.
 """.
 -spec close(Connection) -> 'ok' | {'error', Reason}

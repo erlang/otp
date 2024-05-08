@@ -58,8 +58,8 @@ merged into one combined specification before test execution.
 
 _Example:_
 
-```text
- ct_master:run(["ts1","ts2",["ts3","ts4"]])
+```erlang
+ct_master:run(["ts1","ts2",["ts3","ts4"]])
 ```
 
 Here, the tests specified by "ts1" run first, then the tests specified by "ts2",
@@ -133,32 +133,32 @@ Running Tests and Analysing Results, now extended with node information and
 intended to be executed by `Common Test` Master:
 
 ```erlang
- {define, 'Top', "/home/test"}.
- {define, 'T1', "'Top'/t1"}.
- {define, 'T2', "'Top'/t2"}.
- {define, 'T3', "'Top'/t3"}.
- {define, 'CfgFile', "config.cfg"}.
- {define, 'Node', ct_node}.
+{define, 'Top', "/home/test"}.
+{define, 'T1', "'Top'/t1"}.
+{define, 'T2', "'Top'/t2"}.
+{define, 'T3', "'Top'/t3"}.
+{define, 'CfgFile', "config.cfg"}.
+{define, 'Node', ct_node}.
 
- {node, node1, 'Node@host_x'}.
- {node, node2, 'Node@host_y'}.
+{node, node1, 'Node@host_x'}.
+{node, node2, 'Node@host_y'}.
 
- {logdir, master, "'Top'/master_logs"}.
- {logdir, "'Top'/logs"}.
+{logdir, master, "'Top'/master_logs"}.
+{logdir, "'Top'/logs"}.
 
- {config, node1, "'T1'/'CfgFile'"}.
- {config, node2, "'T2'/'CfgFile'"}.
- {config, "'T3'/'CfgFile'"}.
+{config, node1, "'T1'/'CfgFile'"}.
+{config, node2, "'T2'/'CfgFile'"}.
+{config, "'T3'/'CfgFile'"}.
 
- {suites, node1, 'T1', all}.
- {skip_suites, node1, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
- {skip_cases, node1, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
- {skip_cases, node1, 'T1', t1C_SUITE, [test1], "Ignore"}.
+{suites, node1, 'T1', all}.
+{skip_suites, node1, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+{skip_cases, node1, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+{skip_cases, node1, 'T1', t1C_SUITE, [test1], "Ignore"}.
 
- {suites, node2, 'T2', [t2B_SUITE,t2C_SUITE]}.
- {cases, node2, 'T2', t2A_SUITE, [test4,test1,test7]}.
+{suites, node2, 'T2', [t2B_SUITE,t2C_SUITE]}.
+{cases, node2, 'T2', t2A_SUITE, [test4,test1,test7]}.
 
- {skip_suites, 'T3', all, "Not implemented"}.
+{skip_suites, 'T3', all, "Not implemented"}.
 ```
 
 This example specifies the same tests as the original example. But now if
@@ -195,13 +195,13 @@ Two subterms are supported, `node_start` and `eval`.
 _Example:_
 
 ```erlang
- {node, node1, node1@host1}.
- {node, node2, node1@host2}.
- {node, node3, node2@host2}.
- {node, node4, node1@host3}.
- {init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
- {init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
- {init, node4, {eval, {module, function, []}}}.
+{node, node1, node1@host1}.
+{node, node2, node1@host2}.
+{node, node3, node2@host2}.
+{node, node4, node1@host3}.
+{init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
+{init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
+{init, node4, {eval, {module, function, []}}}.
 ```
 
 This test specification declares that `node1@host1` is to be started using the

@@ -55,8 +55,6 @@ in parallel.
 -export_type([test_spec/0]).
 
 -doc """
-run_test(Node, Opts) -> ok
-
 Tests are spawned on `Node` using `ct:run_test/1`
 """.
 -spec run_test(Node, Opts) -> 'ok'
@@ -152,8 +150,6 @@ run_test(NodeOptsList) when is_list(NodeOptsList) ->
     start_master(NodeOptsList).
 
 -doc """
-run(TestSpecs, AllowUserTerms, InclNodes, ExclNodes) -> [{Specs, ok} | {error, Reason}]
-
 Tests are spawned on the nodes as specified in `TestSpecs`. Each specification
 in `TestSpec` is handled separately. However, it is also possible to specify a
 list of specifications to be merged into one specification before the tests are
@@ -209,8 +205,6 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
 -doc """
-run(TestSpecs, InclNodes, ExclNodes) -> [{Specs, ok} | {error, Reason}]
-
 Equivalent to
 [`ct_master:run(TestSpecs, false, InclNodes, ExclNodes)`](`run/4`).
 """.
@@ -225,8 +219,6 @@ run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
 -doc """
-run(TestSpecs) -> [{Specs, ok} | {error, Reason}]
-
 Equivalent to [`ct_master:run(TestSpecs, false, [], [])`](`run/4`).
 """.
 -spec run(TestSpecs) -> [{Specs, 'ok'} | {'error', Reason}]
@@ -247,8 +239,6 @@ exclude_nodes([],RunSkipPerNode) ->
 
 
 -doc """
-run_on_node(TestSpecs, AllowUserTerms, Node) -> [{Specs, ok} | {error, Reason}]
-
 Tests are spawned on `Node` according to `TestSpecs`.
 """.
 -spec run_on_node(TestSpecs, AllowUserTerms, Node) -> [{Specs, 'ok'} | {'error', Reason}]
@@ -288,8 +278,6 @@ run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
 -doc """
-run_on_node(TestSpecs, Node) -> [{Specs, ok} | {error, Reason}]
-
 Equivalent to
 [`ct_master:run_on_node(TestSpecs, false, Node)`](`run_on_node/3`).
 """.
@@ -363,8 +351,6 @@ run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
     
 
 -doc """
-abort() -> ok
-
 Stops all running tests.
 """.
 -spec abort() -> 'ok'.
@@ -372,8 +358,6 @@ abort() ->
     call(abort).
 
 -doc """
-abort(Nodes) -> ok
-
 Stops tests on specified nodes.
 """.
 -spec abort(Nodes) -> 'ok'
@@ -386,8 +370,6 @@ abort(Node) when is_atom(Node) ->
     abort([Node]).
     
 -doc """
-progress() -> [{Node, Status}]
-
 Returns test progress. If `Status` is `ongoing`, tests are running on the node
 and are not yet finished.
 """.
@@ -398,8 +380,6 @@ progress() ->
     call(progress).
 
 -doc """
-get_event_mgr_ref() -> MasterEvMgrRef
-
 Gets a reference to the `Common Test` master event manager. The reference can be
 used to, for example, add a user-specific event handler while tests are running.
 
@@ -415,8 +395,6 @@ get_event_mgr_ref() ->
     ?CT_MEVMGR_REF.
 
 -doc """
-basic_html(Bool) -> ok
-
 If set to `true`, the `ct_master logs` are written on a primitive HTML format,
 not using the `Common Test` CSS style sheet.
 """.

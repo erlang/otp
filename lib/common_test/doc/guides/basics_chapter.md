@@ -128,15 +128,15 @@ case functions that look much more like scripts than actual programs. A simple
 example:
 
 ```erlang
- session(_Config) ->
-     {started,ServerId} = my_server:start(),
-     {clients,[]} = my_server:get_clients(ServerId),
-     MyId = self(),
-     connected = my_server:connect(ServerId, MyId),
-     {clients,[MyId]} = my_server:get_clients(ServerId),
-     disconnected = my_server:disconnect(ServerId, MyId),
-     {clients,[]} = my_server:get_clients(ServerId),
-     stopped = my_server:stop(ServerId).
+session(_Config) ->
+    {started,ServerId} = my_server:start(),
+    {clients,[]} = my_server:get_clients(ServerId),
+    MyId = self(),
+    connected = my_server:connect(ServerId, MyId),
+    {clients,[MyId]} = my_server:get_clients(ServerId),
+    disconnected = my_server:disconnect(ServerId, MyId),
+    {clients,[]} = my_server:get_clients(ServerId),
+    stopped = my_server:stop(ServerId).
 ```
 
 As a test suite runs, all information (including output to `stdout`) is recorded

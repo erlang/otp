@@ -28,11 +28,11 @@ host.
 It requires the following entry in the configuration file:
 
 ```erlang
- {unix,[{telnet,HostNameOrIpAddress},
-        {port,PortNum},                 % optional
-        {username,UserName},
-        {password,Password},
-        {keep_alive,Bool}]}.            % optional
+{unix,[{telnet,HostNameOrIpAddress},
+       {port,PortNum},                 % optional
+       {username,UserName},
+       {password,Password},
+       {keep_alive,Bool}]}.            % optional
 ```
 
 To communicate through Telnet to the host specified by `HostNameOrIpAddress`,
@@ -43,13 +43,13 @@ use the interface functions in `m:ct_telnet`, for example, `open(Name)` and
 for example:
 
 ```erlang
- suite() -> [{require,Name,{unix,[telnet]}}].
+suite() -> [{require,Name,{unix,[telnet]}}].
 ```
 
 or
 
 ```erlang
- ct:require(Name,{unix,[telnet]}).
+ct:require(Name,{unix,[telnet]}).
 ```
 
 The "keep alive" activity (that is, that `Common Test` sends NOP to the server
@@ -75,8 +75,6 @@ used. Also the `keep_alive` tuple is optional, and the value default to `true`
 -define(prx,"login: |Password: |\\\$ |> ").
 
 -doc """
-get_prompt_regexp() -> PromptRegexp
-
 Callback for `ct_telnet.erl`.
 
 Returns a suitable `regexp` string matching common prompts for users on Unix
@@ -90,12 +88,9 @@ get_prompt_regexp() ->
     ?prx.
 
 -doc """
-connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) -> {ok,
-Handle} | {error, Reason}
+Callback for `ct_telnet.erl`.
 
 [](){: #connect-6 }
-
-Callback for `ct_telnet.erl`.
 
 Setup Telnet connection to a Unix host.
 
