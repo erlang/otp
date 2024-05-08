@@ -35,7 +35,7 @@ The following is to be put in the Erlang node application configuration file to
 start a profile at application startup:
 
 ```erlang
-      [{inets, [{services, [{httpc, PropertyList}]}]}]
+[{inets, [{services, [{httpc, PropertyList}]}]}]
 ```
 
 For valid properties, see `m:httpc`.
@@ -45,8 +45,8 @@ For valid properties, see `m:httpc`.
 Start `Inets`:
 
 ```erlang
- 1 > inets:start().
-      ok
+1> inets:start().
+ok
 ```
 
 The following calls use the default client profile. Use the proxy
@@ -56,38 +56,38 @@ applies to all the following requests.
 Example:
 
 ```erlang
-      2 > httpc:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
-      ["localhost"]}}]).
-      ok
+2> httpc:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
+["localhost"]}}]).
+ok
 ```
 
 The following is an ordinary synchronous request:
 
 ```erlang
-      3 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      httpc:request(get, {"http://www.erlang.org", []}, [], []).
+3> {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+.. httpc:request(get, {"http://www.erlang.org", []}, [], []).
 ```
 
 With all the default values presented, a get request can also be written as
 follows:
 
 ```erlang
-      4 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      httpc:request("http://www.erlang.org").
+4> {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+.. httpc:request("http://www.erlang.org").
 ```
 
 The following is a https request and with verification of the host:
 
 ```erlang
-      5 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      httpc:request(get, {"https://www.erlang.org", []}, [{ssl, httpc:ssl_verify_host_options(true)}], []).
+5> {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+.. httpc:request(get, {"https://www.erlang.org", []}, [{ssl, httpc:ssl_verify_host_options(true)}], []).
 ```
 
 The following is an ordinary asynchronous request:
 
 ```erlang
-      6 > {ok, RequestId} =
-      httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
+6> {ok, RequestId} =
+.. httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
 ```
 
 The result is sent to the calling process as `{http, {ReqestId, Result}}`.
@@ -96,51 +96,50 @@ In this case, the calling process is the shell, so the following result is
 received:
 
 ```erlang
-      7 > receive {http, {RequestId, Result}} -> ok after 500 -> error end.
-      ok
+7> receive {http, {RequestId, Result}} -> ok after 500 -> error end.
+ok
 ```
 
 This sends a request with a specified connection header:
 
 ```erlang
-      8 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
-      httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
-      [], []).
+8> {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+.. httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
+.. [], []).
 ```
 
 This sends an HTTP request over a unix domain socket (experimental):
 
 ```erlang
-      9 > httpc:set_options([{ipfamily, local},
-      {unix_socket,"/tmp/unix_socket/consul_http.sock"}]).
-      10 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
-      httpc:request(put, {"http:///v1/kv/foo", [], [], "hello"}, [], []).
+9> httpc:set_options([{ipfamily, local}, {unix_socket,"/tmp/unix_socket/consul_http.sock"}]).
+10> {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+ .. httpc:request(put, {"http:///v1/kv/foo", [], [], "hello"}, [], []).
 ```
 
 Start an HTTP client profile:
 
 ```erlang
-      10 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
-      {ok, <0.45.0>}
+10> {ok, Pid} = inets:start(httpc, [{profile, foo}]).
+{ok, <0.45.0>}
 ```
 
 The new profile has no proxy settings, so the connection is refused:
 
 ```erlang
-      11 > httpc:request("http://www.erlang.org", foo).
-      {error, econnrefused}
+11> httpc:request("http://www.erlang.org", foo).
+{error, econnrefused}
 ```
 
 Stop the HTTP client profile:
 
 ```erlang
-      12 > inets:stop(httpc, foo).
-      ok
+12> inets:stop(httpc, foo).
+ok
 ```
 
 Alternative way to stop the HTTP client profile:
 
 ```erlang
-      13 > inets:stop(httpc, Pid).
-      ok
+13> inets:stop(httpc, Pid).
+ok
 ```

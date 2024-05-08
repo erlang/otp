@@ -26,7 +26,7 @@ This module defines the Erlang Server Interface (ESI) API. It is a more
 efficient way of writing Erlang scripts for your `Inets` web server than writing
 them as common CGI scripts.
 
-## DATA TYPES
+### Data types
 
 The following data types are used in the functions for mod_esi:
 
@@ -176,8 +176,6 @@ any data that it needs to keep track of when handling the chunks.
 %% request handling process so it can forward it to the client.
 %%-------------------------------------------------------------------------
 -doc """
-deliver(SessionID, Data) -> ok | {error, Reason}
-
 This function is _only_ intended to be used from functions called by the Erl
 Scheme interface to deliver parts of the content to the user.
 

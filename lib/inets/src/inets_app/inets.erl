@@ -31,7 +31,7 @@ of the `Inets` application, such as start and stop.
 
 [](){: #common_data_types }
 
-## DATA TYPES
+### Data types
 
 Type definitions that are used more than once in this module:
 
@@ -39,7 +39,7 @@ Type definitions that are used more than once in this module:
 
 `property() = atom()`
 
-## SEE ALSO
+### See also
 
 `m:httpc`, `m:httpd`
 """.
@@ -75,8 +75,6 @@ start() ->
     application:start(inets, temporary).
 
 -doc """
-start(Type) -> ok | {error, Reason}
-
 Starts the `Inets` application. Default type is `temporary`. See also
 `m:application`.
 
@@ -128,8 +126,6 @@ start(Service, ServiceConfig) ->
     start_service(Service, ServiceConfig, inets).
 
 -doc """
-start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}
-
 Dynamically starts an `Inets` service after the `Inets` application has been
 started.
 
@@ -172,8 +168,6 @@ start(Service, ServiceConfig, How) ->
 %% Description: Stops the inets application.
 %%--------------------------------------------------------------------
 -doc """
-stop() -> ok
-
 Stops the `Inets` application. See also `m:application`.
 
 [](){: #start2 }
@@ -192,8 +186,6 @@ stop() ->
 %% down a stand alone "service" gracefully.
 %%--------------------------------------------------------------------
 -doc """
-stop(Service, Reference) -> ok | {error, Reason}
-
 Stops a started service of the `Inets` application or takes down a
 `stand_alone`\-service gracefully. When option `stand_alone` is used in start,
 only the pid is a valid argument to stop.
@@ -219,8 +211,6 @@ stop(Service, Pid) ->
 %% Note: Services started with the stand alone option will not be listed
 %%--------------------------------------------------------------------
 -doc """
-services() -> [{Service, Pid}]
-
 Returns a list of currently running services.
 
 > #### Note {: .info }
@@ -249,12 +239,10 @@ services() ->
 %% each service is described by a [{Property, Value}] list. 
 %%--------------------------------------------------------------------
 -doc """
-services_info() -> [{Service, Pid, Info}]
-
 Returns a list of currently running services where each service is described by
 an `[{Option, Value}]` list. The information in the list is specific for each
 service and each service has probably its own info function that gives more
-details about the service. If specific service info returns \{error, Reason\},
+details about the service. If specific service info returns `{error, Reason}`,
 Info will contain Reason term.
 
 [](){: #service_names }
@@ -488,8 +476,6 @@ key1search(Key, Vals, Def) ->
 %% Description: Returns a list of supported services
 %%-------------------------------------------------------------------
 -doc """
-service_names() -> [Service]
-
 Returns a list of available service names.
 
 [](){: #start }

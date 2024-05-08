@@ -27,7 +27,7 @@ This module provides the Erlang web server API module programmer with utility
 functions for generic sockets communication. The appropriate communication
 mechanism is transparently used, that is, `ip_comm` or `ssl`.
 
-## SEE ALSO
+### See also
 
 `m:httpd`
 """.
@@ -41,11 +41,9 @@ mechanism is transparently used, that is, `ip_comm` or `ssl`.
 -include_lib("kernel/include/inet.hrl").
 
 -doc """
-deliver(SocketType, Socket, Data) -> Result
-
-[`deliver/3`](`deliver/3`) sends `Data` over `Socket` using the specified
-`SocketType`. `Socket` and `SocketType` is to be the socket and the
-`socket_type` form the `mod` record as defined in `httpd.hrl`
+`deliver/3` sends `Data` over `Socket` using the specified `SocketType`.
+`Socket` and `SocketType` is to be the socket and the `socket_type` form the
+`mod` record as defined in `httpd.hrl`
 
 [](){: #peername }
 """.
@@ -64,11 +62,7 @@ deliver(SocketType, Socket, IOListOrBinary)  ->
     end.
 
 -doc """
-peername(SocketType,Socket) -> {Port,IPAddress}
-
-[`peername/2`](`peername/2`) returns the `Port` and `IPAddress` of the remote
-`Socket`.
-
+`peername/2` returns the `Port` and `IPAddress` of the remote `Socket`.
 """.
 -spec peername(SocketType, Socket) -> {Port, IpAdress} when
       SocketType :: httpd:socket_type(),
@@ -79,8 +73,6 @@ peername(SocketType, Socket) ->
     http_transport:peername(SocketType, Socket).
 
 -doc """
-resolve() -> HostName
-
 `resolve/0` returns the official `HostName` of the current host.
 """.
 -spec resolve() -> HostName when

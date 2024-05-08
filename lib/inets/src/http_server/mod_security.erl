@@ -215,8 +215,6 @@ list_blocked_users(Addr, Port) when is_integer(Port) ->
 	      mod_security_server:list_blocked_users(Addr, Port)).
 
 -doc """
-list_blocked_users(Address, Port, Dir) -> Users | []
-
 [`list_blocked_users/1`](`list_blocked_users/1`),
 [`list_blocked_users/2`](`list_blocked_users/2`), and
 [`list_blocked_users/3`](`list_blocked_users/3`) each returns a list of users
@@ -243,8 +241,6 @@ list_blocked_users(Addr, Port, Dir) ->
 block_user(User, Port, Dir, Time) ->
     block_user(User, undefined, Port, Dir, Time).
 -doc """
-block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}
-
 [`block_user/4`](`block_user/4`) and [`block_user/5`](`block_user/5`) each
 blocks the user `User` from directory `Dir` for a specified amount of time.
 """.
@@ -283,8 +279,6 @@ unblock_user(User, Addr, Port) when is_integer(Port) ->
     mod_security_server:unblock_user(User, Addr, Port).
 
 -doc """
-unblock_user(User, Address, Port, Dir) -> true | {error, Reason}
-
 [`unblock_user/2`](`unblock_user/2`), [`unblock_user/3`](`unblock_user/3`), and
 [`unblock_user/4`](`unblock_user/4`) each removes the user `User` from the list
 of blocked users for `Port` (and `Dir`).
@@ -320,8 +314,6 @@ list_auth_users(Addr, Port) when is_integer(Port) ->
     mod_security_server:list_auth_users(Addr, Port).
 
 -doc """
-list_auth_users(Address, Port, Dir) -> Users | []
-
 [`list_auth_users/1`](`list_auth_users/1`),
 [`list_auth_users/2`](`list_auth_users/2`), and
 [`list_auth_users/3`](`list_auth_users/3`) each returns a list of users that are

@@ -25,7 +25,7 @@ User authentication using text files, Dets, or Mnesia database.
 This module provides for basic user authentication using textual files, Dets
 databases, or Mnesia databases.
 
-## SEE ALSO
+### See also
 
 `m:httpd`, `m:mod_alias`
 """.
@@ -210,7 +210,7 @@ Reason}
 
 `add_user/2, add_user/5`, and [`add_user/6`](`add_user/6`) each adds a user to
 the user database. If the operation is successful, this function returns `true`.
-If an error occurs, `{error,Reason}` is returned. When
+If an error occurs, `{error, Reason}` is returned. When
 [`add_user/2`](`add_user/2`) is called, options `Password`, `UserData`, `Port`,
 and `Dir` are mandatory.
 """.
@@ -256,12 +256,10 @@ get_user(UserName, Opt) ->
 get_user(UserName, Port, Dir) ->
     get_user(UserName, undefined, Port, Dir).
 -doc """
-get_user(UserName, Address, Port, Dir) -> {ok, #httpd_user} | {error, Reason}
-
-`get_user/2, get_user/3`, and [`get_user/4`](`get_user/4`) each returns an
-`httpd_user` record containing the userdata for a specific user. If the user
-cannot be found, `{error, Reason}` is returned. When
-[`get_user/2`](`get_user/2`) is called, options `Port` and `Dir` are mandatory.
+`get_user/2`, `get_user/3`, and `get_user/4` each returns an `t:httpd_user/0`
+record containing the userdata for a specific user. If the user cannot be
+found, `{error, Reason}` is returned. When `get_user/2` is called, options
+`Port` and `Dir` are mandatory.
 """.
 -spec get_user(UserName, Address, Port, Directory) -> {ok, User} | {error, Reason} when
       UserName :: string(),
@@ -304,14 +302,10 @@ add_group_member(GroupName, UserName, Port, Dir) ->
     add_group_member(GroupName, UserName, undefined, Port, Dir).
 
 -doc """
-add_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error,
-Reason}
-
-`add_group_member/3, add_group_member/4`, and
-[`add_group_member/5`](`add_group_member/5`) each adds a user to a group. If the
-group does not exist, it is created and the user is added to the group. Upon
-successful operation, this function returns `true`. When `add_group_members/3`
-is called, options `Port` and `Dir` are mandatory.
+`add_group_member/3`, `add_group_member/4`, and `add_group_member/5` each adds
+a user to a group. If the group does not exist, it is created and the user is
+added to the group. Upon successful operation, this function returns `true`.
+When `add_group_members/3` is called, options `Port` and `Dir` are mandatory.
 """.
 -spec add_group_member(GroupName, UserName, Address, Port, Directory) -> true | {error, Reason} when
       GroupName :: string(),
@@ -354,13 +348,9 @@ delete_group_member(GroupName, UserName, Opt) ->
 delete_group_member(GroupName, UserName, Port, Dir) ->
     delete_group_member(GroupName, UserName, undefined, Port, Dir).
 -doc """
-delete_group_member(GroupName, UserName, Address, Port, Dir) -> true | {error,
-Reason}
-
-`delete_group_member/3, delete_group_member/4`, and
-[`delete_group_member/5`](`delete_group_member/5`) each deletes a user from a
-group. If the group or the user does not exist, this function returns an error,
-otherwise `true`. When [`delete_group_member/3`](`delete_group_member/3`) is
+`delete_group_member/3`, `delete_group_member/4`, and `delete_group_member/5`
+each deletes a user from a group. If the group or the user does not exist, this
+function returns an error, otherwise `true`. When `delete_group_member/3` is
 called, the options `Port` and `Dir` are mandatory.
 """.
 -spec delete_group_member(GroupName, UserName, Address, Port, Directory) -> true | {error, Reason} when
@@ -403,12 +393,9 @@ list_users(Opt) ->
 list_users(Port, Dir) ->
     list_users(undefined, Port, Dir).
 -doc """
-list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}
-
-`list_users/1, list_users/2`, and [`list_users/3`](`list_users/3`) each returns
-a list of users in the user database for a specific `Port/Dir`. When
-[`list_users/1`](`list_users/1`) is called, options `Port` and `Dir` are
-mandatory.
+`list_users/1`, `list_users/2`, and `list_users/3` each returns a list of users
+in the user database for a specific `Port/Dir`. When `list_users/1` is called,
+options `Port` and `Dir` are mandatory.
 """.
 -spec list_users(Address, Port, Directory) -> {ok, Users} | {error, Reason} when
       Port :: inet:port_number(),
@@ -446,12 +433,10 @@ delete_user(UserName, Opt) ->
 delete_user(UserName, Port, Dir) ->
     delete_user(UserName, undefined, Port, Dir).
 -doc """
-delete_user(UserName, Address, Port, Dir) -> true | {error, Reason}
-
-`delete_user/2, delete_user/3`, and [`delete_user/4`](`delete_user/4`) each
+`delete_user/2`, `delete_user/3`, and `delete_user/4` each
 deletes a user from the user database. If the operation is successful, this
-function returns `true`. If an error occurs, `{error,Reason}` is returned. When
-[`delete_user/2`](`delete_user/2`) is called, options `Port` and `Dir` are
+function returns `true`. If an error occurs, `{error, Reason}` is returned. When
+`delete_user/2` is called, options `Port` and `Dir` are
 mandatory.
 """.
 -spec delete_user(UserName, Address, Port, Directory) -> true | {error, Reason} when
@@ -480,7 +465,7 @@ delete_group(GroupName, Opt) ->
 	    {error, Reason}
     end.
 
--doc false.
+-doc (#{equiv => delete_group(GroupName, undefined, Port, Dir)}).
 -spec delete_group(GroupName, Port, Directory) -> true | {error, Reason} when
       GroupName :: string(),
       Port :: inet:port_number(),
@@ -489,12 +474,10 @@ delete_group(GroupName, Opt) ->
 delete_group(GroupName, Port, Dir) ->
     delete_group(GroupName, undefined, Port, Dir).
 -doc """
-delete_group(GroupName, Address, Port, Dir) -> true | {error, Reason}
-
-`delete_group/2, delete_group/3`, and [`delete_group/4`](`delete_group/4`) each
-deletes the group specified and returns `true`. If there is an error,
-`{error, Reason}` is returned. When [`delete_group/2`](`delete_group/2`) is
-called, option `Port` and `Dir` are mandatory.
+`delete_group/2`, `delete_group/3`, and `delete_group/4` each deletes the group
+specified and returns `true`. If there is an error, `{error, Reason}` is
+returned. When `delete_group/2` is called, option `Port` and `Dir` are
+mandatory.
 """.
 -spec delete_group(GroupName, Address, Port, Directory) -> true | {error, Reason} when
       GroupName :: string(),
@@ -531,12 +514,9 @@ list_groups(Opt) ->
 list_groups(Port, Dir) ->
     list_groups(undefined, Port, Dir).
 -doc """
-list_groups(Address, Port, Dir) -> {ok, Groups} | {error, Reason}
-
-`list_groups/1, list_groups/2`, and [`list_groups/3`](`list_groups/3`) each
-lists all the groups available. If there is an error, `{error, Reason}` is
-returned. When [`list_groups/1`](`list_groups/1`) is called, options `Port` and
-`Dir` are mandatory.
+`list_groups/1`, `list_groups/2`, and `list_groups/3` each lists all the groups
+available. If there is an error, `{error, Reason}` is returned. When
+`list_groups/1` is called, options `Port` and `Dir` are mandatory.
 """.
 -spec list_groups(Address, Port, Directory) -> {ok, Groups} | {error, Reason} when
       Port :: inet:port_number(),
@@ -577,15 +557,10 @@ list_group_members(GroupName, Opt) ->
 list_group_members(GroupName, Port, Dir) ->
     list_group_members(GroupName, undefined, Port, Dir).
 -doc """
-list_group_members(GroupName, Address, Port, Dir) -> {ok, Users} | {error,
-Reason}
-
-`list_group_members/2, list_group_members/3`, and
-[`list_group_members/4`](`list_group_members/4`) each lists the members of a
-specified group. If the group does not exist or there is an error,
-`{error, Reason}` is returned. When
-[`list_group_members/2`](`list_group_members/2`) is called, options `Port` and
-`Dir` are mandatory.
+`list_group_members/2`, `list_group_members/3`, and `list_group_members/4` each
+lists the members of a specified group. If the group does not exist or there is
+an error, `{error, Reason}` is returned. When `list_group_members/2` is called,
+options `Port` and `Dir` are mandatory.
 """.
 -spec list_group_members(GroupName, Address, Port, Directory) -> {ok, Users} | {error, Reason} when
       GroupName :: string(),
@@ -609,13 +584,9 @@ update_password(Port, Dir, Old, New, New)->
     update_password(undefined, Port, Dir, Old, New, New).
 
 -doc """
-update_password(Address,Port, Dir, OldPassword, NewPassword, NewPassword) -> ok
-| {error, Reason}
-
-[`update_password/5`](`update_password/5`) and
-[`update_password/6`](`update_password/6`) each updates `AuthAccessPassword` for
-the specified directory. If `NewPassword` is equal to "NoPassword", no password
-is required to change authorisation data. If `NewPassword` is equal to
+`update_password/5` and `update_password/6` each updates `AuthAccessPassword`
+for the specified directory. If `NewPassword` is equal to "NoPassword", no
+password is required to change authorisation data. If `NewPassword` is equal to
 "DummyPassword", no changes can be done without changing the password first.
 """.
 -spec update_password(Address, Port, Dir, OldPassword, NewPassword, NewPassword) -> ok | {error, Reason} when

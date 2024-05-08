@@ -42,7 +42,7 @@ This module provides the API to an HTTP/1.1 compatible client according to
 > `https` links need to go through a proxy, the CONNECT method extension to
 > HTTP-1.1 is used to establish a tunnel and then the connection is upgraded to
 > TLS. However, "TLS upgrade" according to
-> [RFC 2817](http://www.ietf.org/rfc/rfc2817.txt)is not supported.
+> [RFC 2817](http://www.ietf.org/rfc/rfc2817.txt) is not supported.
 >
 > Pipelining is only used if the pipeline time-out is set, otherwise persistent
 > connections without pipelining are used. That is, the client always waits for
@@ -50,7 +50,7 @@ This module provides the API to an HTTP/1.1 compatible client according to
 
 Some examples are provided in the [Inets User's Guide](http_client.md).
 
-## HTTP CLIENT SERVICE START/STOP
+## HTTP client service start & stop
 
 An HTTP client can be configured to start when starting the `Inets` application
 or started dynamically in runtime by calling the `Inets` application API
@@ -78,7 +78,7 @@ The client can be stopped using [`inets:stop(httpc, Pid)`](`inets:stop/2`) or
 > `http://localhost/foo%25bar`, the percent character must be percent-encoded
 > when creating the request: `httpc:request("http://localhost/foo%2525bar").`
 
-## SEE ALSO
+## See also
 
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:gen_tcp`, `m:ssl`
 """.
@@ -619,11 +619,11 @@ Sets options to be used for subsequent requests.
   made.
 
 - **`IpAddress`** - If the host has several network interfaces, this option
-  specifies which one to use. See [gen_tcp:connect/3,4](`gen_tcp#connect/3`) for
+  specifies which one to use. See [`gen_tcp:connect/3,4`](`gen_tcp:connect/3`) for
   details.
 
 - **`Port`** - Example: `8080`. Local port number to use. See
-  [gen_tcp:connect/3,4](`gen_tcp#connect/3`) for details.
+  [`gen_tcp:connect/3,4`](`gen_tcp:connect/3`) for details.
 
 - **`SocketOpts`** - The options are appended to the socket options used by the
   client. These are the default values when a new request handler is started

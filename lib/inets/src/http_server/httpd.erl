@@ -27,7 +27,7 @@ An implementation of an HTTP 1.1 compliant web server, as defined in
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt). Provides web server start
 options, administrative functions, and an Erlang callback API.
 
-## DATA TYPES
+## Data types
 
 Type definitions that are used more than once in this module:
 
@@ -43,7 +43,7 @@ Type definitions that are used more than once in this module:
 
 `property() = atom()`
 
-## ERLANG HTTP SERVER SERVICE START/STOP
+## HTTP server service start & stop
 
 A web server can be configured to start when starting the `Inets` application,
 or dynamically in runtime by calling the `Inets` application API
@@ -717,7 +717,7 @@ The properties for the security directories are as follows:
   remembered. After this time has passed, the authentication is no longer
   reported. Default is `30`.
 
-## ERLANG WEB SERVER API DATA TYPES
+## Web server API data types
 
 The Erlang web server API data types are as follows:
 
@@ -796,13 +796,13 @@ The fields of record `mod` have the following meaning:
   client is a persistent connection and is not closed when the request is
   served.
 
-## SEE ALSO
+### See also
 
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:ssl`
 """.
 -moduledoc(#{titles =>
-                 [{callback,<<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>},
-                  {function,<<"ERLANG WEB SERVER API HELP FUNCTIONS">>}]}).
+                 [{callback,<<"Web server API callback functions">>},
+                  {function,<<"Web server API help functions">>}]}).
 
 -behaviour(inets_service).
 
@@ -922,7 +922,7 @@ this particular callback module.
 scripts (see `m:mod_esi`) as defined in the standard URL format, that is, '+'
 becomes 'space' and decoding of hexadecimal characters (`%xx`).
 """.
--doc(#{title => <<"ERLANG WEB SERVER API HELP FUNCTIONS">>}).
+-doc(#{title => <<"Web server API help functions">>}).
 -spec parse_query(QueryString) -> QueryList | uri_string:error() when
       QueryString :: string(),
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}].
