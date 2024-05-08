@@ -76,67 +76,66 @@ Finally, the testing of connecting and disconnecting a client can be grouped
 into one test case. The resulting suite can look as follows:
 
 ```erlang
+-module(my_server_SUITE).
+-compile(export_all).
+-include_lib("ct.hrl").
 
- -module(my_server_SUITE).
- -compile(export_all).
- -include_lib("ct.hrl").
+%%% init and end functions...
 
- %%% init and end functions...
+suite() -> [{require,my_server_cfg}].
 
- suite() -> [{require,my_server_cfg}].
+init_per_testcase(start_and_stop, Config) ->
+    Config;
 
- init_per_testcase(start_and_stop, Config) ->
-     Config;
+init_per_testcase(config, Config) ->
+    [{server_pid,start_server()} | Config];
 
- init_per_testcase(config, Config) ->
-     [{server_pid,start_server()} | Config];
+init_per_testcase(_, Config) ->
+    ServerPid = start_server(),
+    configure_server(),
+    [{server_pid,ServerPid} | Config].
 
- init_per_testcase(_, Config) ->
-     ServerPid = start_server(),
-     configure_server(),
-     [{server_pid,ServerPid} | Config].
+end_per_testcase(start_and_stop, _) ->
+    ok;
 
- end_per_testcase(start_and_stop, _) ->
-     ok;
+end_per_testcase(_, Config) ->
+    ServerPid = proplists:get_value(server_pid, Config),
+    stop_server(ServerPid).
 
- end_per_testcase(_, Config) ->
-     ServerPid = proplists:get_value(server_pid, Config),
-     stop_server(ServerPid).
+%%% test cases...
 
- %%% test cases...
+all() -> [start_and_stop, config, connect_and_disconnect].
 
- all() -> [start_and_stop, config, connect_and_disconnect].
+%% test that starting and stopping works
+start_and_stop(_) ->
+    ServerPid = start_server(),
+    stop_server(ServerPid).
 
- %% test that starting and stopping works
- start_and_stop(_) ->
-     ServerPid = start_server(),
-     stop_server(ServerPid).
+%% configuration test
+config(Config) ->
+    ServerPid = proplists:get_value(server_pid, Config),
+    configure_server(ServerPid).
 
- %% configuration test
- config(Config) ->
-     ServerPid = proplists:get_value(server_pid, Config),
-     configure_server(ServerPid).
+%% test connecting and disconnecting client
+connect_and_disconnect(Config) ->
+    ServerPid = proplists:get_value(server_pid, Config),
+    {ok,SessionId} = my_server:connect(ServerPid),
+    ok = my_server:disconnect(ServerPid, SessionId).
 
- %% test connecting and disconnecting client
- connect_and_disconnect(Config) ->
-     ServerPid = proplists:get_value(server_pid, Config),
-     {ok,SessionId} = my_server:connect(ServerPid),
-     ok = my_server:disconnect(ServerPid, SessionId).
+%%% common functions...
 
- %%% common functions...
+start_server() ->
+    {ok,ServerPid} = my_server:start(),
+    ServerPid.
 
- start_server() ->
-     {ok,ServerPid} = my_server:start(),
-     ServerPid.
+stop_server(ServerPid) ->
+    ok = my_server:stop(),
+    ok.
 
- stop_server(ServerPid) ->
-     ok = my_server:stop(),
-     ok.
-
- configure_server(ServerPid) ->
-     ServerCfgData = ct:get_config(my_server_cfg),
-     ok = my_server:configure(ServerPid, ServerCfgData),
-     ok.
+configure_server(ServerPid) ->
+    ServerCfgData = ct:get_config(my_server_cfg),
+    ok = my_server:configure(ServerPid, ServerCfgData),
+    ok.
 ```
 
 [](){: #save_config }
@@ -181,40 +180,40 @@ of the test suite.
 _Example:_
 
 ```erlang
- -module(server_b_SUITE).
- -compile(export_all).
- -include_lib("ct.hrl").
+-module(server_b_SUITE).
+-compile(export_all).
+-include_lib("ct.hrl").
 
- %%% init and end functions...
+%%% init and end functions...
 
- init_per_suite(Config) ->
-     %% read config saved by previous test suite
-     {server_a_SUITE,OldConfig} = proplists:get_value(saved_config, Config),
-     %% extract server identity (comes from server_a_SUITE)
-     ServerId = proplists:get_value(server_id, OldConfig),
-     SessionId = connect_to_server(ServerId),
-     [{ids,{ServerId,SessionId}} | Config].
+init_per_suite(Config) ->
+    %% read config saved by previous test suite
+    {server_a_SUITE,OldConfig} = proplists:get_value(saved_config, Config),
+    %% extract server identity (comes from server_a_SUITE)
+    ServerId = proplists:get_value(server_id, OldConfig),
+    SessionId = connect_to_server(ServerId),
+    [{ids,{ServerId,SessionId}} | Config].
 
- end_per_suite(Config) ->
-     %% save config for server_c_SUITE (session_id and server_id)
-     {save_config,Config}
+end_per_suite(Config) ->
+    %% save config for server_c_SUITE (session_id and server_id)
+    {save_config,Config}
 
- %%% test cases...
+%%% test cases...
 
- all() -> [allocate, deallocate].
+all() -> [allocate, deallocate].
 
- allocate(Config) ->
-     {ServerId,SessionId} = proplists:get_value(ids, Config),
-     {ok,Handle} = allocate_resource(ServerId, SessionId),
-     %% save handle for deallocation test
-     NewConfig = [{handle,Handle}],
-     {save_config,NewConfig}.
+allocate(Config) ->
+    {ServerId,SessionId} = proplists:get_value(ids, Config),
+    {ok,Handle} = allocate_resource(ServerId, SessionId),
+    %% save handle for deallocation test
+    NewConfig = [{handle,Handle}],
+    {save_config,NewConfig}.
 
- deallocate(Config) ->
-     {ServerId,SessionId} = proplists:get_value(ids, Config),
-     {allocate,OldConfig} = proplists:get_value(saved_config, Config),
-     Handle = proplists:get_value(handle, OldConfig),
-     ok = deallocate_resource(ServerId, SessionId, Handle).
+deallocate(Config) ->
+    {ServerId,SessionId} = proplists:get_value(ids, Config),
+    {allocate,OldConfig} = proplists:get_value(saved_config, Config),
+    Handle = proplists:get_value(handle, OldConfig),
+    ok = deallocate_resource(ServerId, SessionId, Handle).
 ```
 
 To save `Config` data from a test case that is to be skipped, return tuple
@@ -244,14 +243,14 @@ For example, to ensure that if `allocate` in `server_b_SUITE` crashes,
 `deallocate` is skipped, the following sequence can be defined:
 
 ```erlang
- groups() -> [{alloc_and_dealloc, [sequence], [alloc,dealloc]}].
+groups() -> [{alloc_and_dealloc, [sequence], [alloc,dealloc]}].
 ```
 
 Assume that the suite contains the test case `get_resource_status` that is
 independent of the other two cases, then function `all` can look as follows:
 
-```text
- all() -> [{group,alloc_and_dealloc}, get_resource_status].
+```erlang
+all() -> [{group,alloc_and_dealloc}, get_resource_status].
 ```
 
 If `alloc` succeeds, `dealloc` is also executed. If `alloc` fails however,
@@ -267,15 +266,15 @@ log. Any number of sequences can be specified.
 _Example:_
 
 ```erlang
- groups() -> [{scenarioA, [sequence], [testA1, testA2]},
-              {scenarioB, [sequence], [testB1, testB2, testB3]}].
+groups() -> [{scenarioA, [sequence], [testA1, testA2]},
+             {scenarioB, [sequence], [testB1, testB2, testB3]}].
 
- all() -> [test1,
-           test2,
-           {group,scenarioA},
-	   test3,
-           {group,scenarioB},
-           test4].
+all() -> [test1,
+          test2,
+          {group,scenarioA},
+          test3,
+          {group,scenarioB},
+          test4].
 ```
 
 A sequence group can have subgroups. Such subgroups can have any property, that

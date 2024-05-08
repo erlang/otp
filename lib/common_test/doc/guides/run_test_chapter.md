@@ -106,24 +106,24 @@ command line, for example, as follows:
 _Examples:_
 
 ```text
- $ ct_run -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST
- $ ct_run -userconfig ct_config_xml $CFGS/sys1.xml $CFGS/sys2.xml -dir $SYS1_TEST $SYS2_TEST
- $ ct_run -suite $SYS1_TEST/setup_SUITE $SYS2_TEST/config_SUITE
- $ ct_run -suite $SYS1_TEST/setup_SUITE -case start stop
- $ ct_run -suite $SYS1_TEST/setup_SUITE -group installation -case start stop
+$ ct_run -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST
+$ ct_run -userconfig ct_config_xml $CFGS/sys1.xml $CFGS/sys2.xml -dir $SYS1_TEST $SYS2_TEST
+$ ct_run -suite $SYS1_TEST/setup_SUITE $SYS2_TEST/config_SUITE
+$ ct_run -suite $SYS1_TEST/setup_SUITE -case start stop
+$ ct_run -suite $SYS1_TEST/setup_SUITE -group installation -case start stop
 ```
 
 The flags `dir`, `suite`, and `group/case` can be combined. For example, to run
 `x_SUITE` and `y_SUITE` in directory `testdir`, as follows:
 
 ```text
- $ ct_run -dir ./testdir -suite x_SUITE y_SUITE
+$ ct_run -dir ./testdir -suite x_SUITE y_SUITE
 ```
 
 This has the same effect as the following:
 
 ```text
- $ ct_run -suite ./testdir/x_SUITE ./testdir/y_SUITE
+$ ct_run -suite ./testdir/x_SUITE ./testdir/y_SUITE
 ```
 
 For details, see
@@ -264,7 +264,7 @@ If auto-skipped test cases do not affect the exit status. The default behavior
 can be changed using start flag:
 
 ```text
- -exit_status ignore_config
+-exit_status ignore_config
 ```
 
 > #### Note {: .info }
@@ -331,13 +331,13 @@ groups can be specified, optionally in combination with specific test cases. The
 syntax for specifying groups on the command line is as follows:
 
 ```text
- $ ct_run -group <group_names_or_paths> [-case <cases>]
+$ ct_run -group <group_names_or_paths> [-case <cases>]
 ```
 
 The syntax in the Erlang shell is as follows:
 
 ```erlang
- 1> ct:run_test([{group,GroupsNamesOrPaths}, {case,Cases}]).
+1> ct:run_test([{group,GroupsNamesOrPaths}, {case,Cases}]).
 ```
 
 Parameter `group_names_or_paths` specifies one or more group names and/or one or
@@ -405,60 +405,60 @@ configuration functions in order `g4..g3..g1`.
 _Examples:_
 
 ```erlang
- -module(x_SUITE).
- ...
- %% The group definitions:
- groups() ->
-   [{top1,[],[tc11,tc12,
-	      {sub11,[],[tc12,tc13]},
-	      {sub12,[],[tc14,tc15,
-			 {sub121,[],[tc12,tc16]}]}]},
+-module(x_SUITE).
+...
+%% The group definitions:
+groups() ->
+  [{top1,[],[tc11,tc12,
+             {sub11,[],[tc12,tc13]},
+             {sub12,[],[tc14,tc15,
+       		 {sub121,[],[tc12,tc16]}]}]},
 
-    {top2,[],[{group,sub21},{group,sub22}]},
-    {sub21,[],[tc21,{group,sub2X2}]},
-    {sub22,[],[{group,sub221},tc21,tc22,{group,sub2X2}]},
-    {sub221,[],[tc21,tc23]},
-    {sub2X2,[],[tc21,tc24]}].
+   {top2,[],[{group,sub21},{group,sub22}]},
+   {sub21,[],[tc21,{group,sub2X2}]},
+   {sub22,[],[{group,sub221},tc21,tc22,{group,sub2X2}]},
+   {sub221,[],[tc21,tc23]},
+   {sub2X2,[],[tc21,tc24]}].
 ```
 
 The following executes two tests, one for all cases and all subgroups under
 `top1`, and one for all under `top2`:
 
-```text
- $ ct_run -suite "x_SUITE" -group all
- 1> ct:run_test([{suite,"x_SUITE"}, {group,all}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group all
+1> ct:run_test([{suite,"x_SUITE"}, {group,all}]).
 ```
 
 Using `-group top1 top2`, or `{group,[top1,top2]}` gives the same result.
 
 The following executes one test for all cases and subgroups under `top1`:
 
-```text
- $ ct_run -suite "x_SUITE" -group top1
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group top1
+1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}]).
 ```
 
 The following runs a test executing `tc12` in `top1` and any subgroup under
 `top1` where it can be found (`sub11` and `sub121`):
 
-```text
- $ ct_run -suite "x_SUITE" -group top1 -case tc12
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc12]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group top1 -case tc12
+1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc12]}]).
 ```
 
 The following executes `tc12` _only_ in group `top1`:
 
-```text
- $ ct_run -suite "x_SUITE" -group [top1] -case tc12
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[[top1]]}, {testcase,[tc12]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group [top1] -case tc12
+1> ct:run_test([{suite,"x_SUITE"}, {group,[[top1]]}, {testcase,[tc12]}]).
 ```
 
 The following searches `top1` and all its subgroups for `tc16` resulting in that
 this test case executes in group `sub121`:
 
-```text
- $ ct_run -suite "x_SUITE" -group top1 -case tc16
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc16]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group top1 -case tc16
+1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc16]}]).
 ```
 
 Using the specific path `-group [sub121]` or `{group,[[sub121]]}` gives the same
@@ -467,18 +467,18 @@ result in this example.
 The following executes two tests, one including all cases and subgroups under
 `sub12`, and one with _only_ the test cases in `sub12`:
 
-```text
- $ ct_run -suite "x_SUITE" -group sub12 [sub12]
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[sub12,[sub12]]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group sub12 [sub12]
+1> ct:run_test([{suite,"x_SUITE"}, {group,[sub12,[sub12]]}]).
 ```
 
 In the following example, `Common Test` finds and executes two tests, one for
 the path from `top2` to `sub2X2` through `sub21`, and one from `top2` to
 `sub2X2` through `sub22`:
 
-```text
- $ ct_run -suite "x_SUITE" -group sub2X2
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[sub2X2]}]).
+```erlang
+$ ct_run -suite "x_SUITE" -group sub2X2
+1> ct:run_test([{suite,"x_SUITE"}, {group,[sub2X2]}]).
 ```
 
 In the following example, by specifying the unique path
@@ -486,16 +486,16 @@ In the following example, by specifying the unique path
 from `top2` to `sub2X2` (from the former example) is discarded:
 
 ```erlang
- $ ct_run -suite "x_SUITE" -group [sub21,sub2X2]
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub21,sub2X2]]}]).
+$ ct_run -suite "x_SUITE" -group [sub21,sub2X2]
+1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub21,sub2X2]]}]).
 ```
 
 The following executes only the test cases for `sub22` and in reverse order
 compared to the group definition:
 
 ```erlang
- $ ct_run -suite "x_SUITE" -group [sub22] -case tc22 tc21
- 1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub22]]}, {testcase,[tc22,tc21]}]).
+$ ct_run -suite "x_SUITE" -group [sub22] -case tc22 tc21
+1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub22]]}, {testcase,[tc22,tc21]}]).
 ```
 
 If a test case belonging to a group (according to the group definition) is
@@ -555,13 +555,12 @@ to a `require` statement in the
 _Example:_
 
 ```erlang
-
- 1> ct:require(unix_telnet, unix).
- ok
- 2> ct_telnet:open(unix_telnet).
- {ok,<0.105.0>}
- 4> ct_telnet:cmd(unix_telnet, "ls .").
- {ok,["ls .","file1  ...",...]}
+1> ct:require(unix_telnet, unix).
+ok
+2> ct_telnet:open(unix_telnet).
+{ok,<0.105.0>}
+4> ct_telnet:cmd(unix_telnet, "ls .").
+{ok,["ls .","file1  ...",...]}
 ```
 
 Everything that `Common Test` normally prints in the test case logs, are in the
@@ -680,11 +679,11 @@ above).
 _Example:_
 
 ```erlang
- %% In specification file "a.spec"
- {specs, join, ["b.spec", "c.spec"]}.
- {specs, separate, ["d.spec", "e.spec"]}.
- %% Config and test terms follow
- ...
+%% In specification file "a.spec"
+{specs, join, ["b.spec", "c.spec"]}.
+{specs, separate, ["d.spec", "e.spec"]}.
+%% Config and test terms follow
+...
 ```
 
 In this example, the test terms defined in files "b.spec" and "c.spec" are
@@ -768,160 +767,160 @@ sections in the User's Guide, for example, the following:
 _Configuration terms:_
 
 ```erlang
- {merge_tests, Bool}.
+{merge_tests, Bool}.
 
- {define, Constant, Value}.
+{define, Constant, Value}.
 
- {specs, InclSpecsOption, TestSpecs}.
+{specs, InclSpecsOption, TestSpecs}.
 
- {node, NodeAlias, Node}.
+{node, NodeAlias, Node}.
 
- {init, InitOptions}.
- {init, [NodeAlias], InitOptions}.
+{init, InitOptions}.
+{init, [NodeAlias], InitOptions}.
 
- {label, Label}.
- {label, NodeRefs, Label}.
+{label, Label}.
+{label, NodeRefs, Label}.
 
- {verbosity, VerbosityLevels}.
- {verbosity, NodeRefs, VerbosityLevels}.
+{verbosity, VerbosityLevels}.
+{verbosity, NodeRefs, VerbosityLevels}.
 
- {stylesheet, CSSFile}.
- {stylesheet, NodeRefs, CSSFile}.
+{stylesheet, CSSFile}.
+{stylesheet, NodeRefs, CSSFile}.
 
- {silent_connections, ConnTypes}.
- {silent_connections, NodeRefs, ConnTypes}.
+{silent_connections, ConnTypes}.
+{silent_connections, NodeRefs, ConnTypes}.
 
- {multiply_timetraps, N}.
- {multiply_timetraps, NodeRefs, N}.
+{multiply_timetraps, N}.
+{multiply_timetraps, NodeRefs, N}.
 
- {scale_timetraps, Bool}.
- {scale_timetraps, NodeRefs, Bool}.
+{scale_timetraps, Bool}.
+{scale_timetraps, NodeRefs, Bool}.
 
- {cover, CoverSpecFile}.
- {cover, NodeRefs, CoverSpecFile}.
+{cover, CoverSpecFile}.
+{cover, NodeRefs, CoverSpecFile}.
 
- {cover_stop, Bool}.
- {cover_stop, NodeRefs, Bool}.
+{cover_stop, Bool}.
+{cover_stop, NodeRefs, Bool}.
 
- {include, IncludeDirs}.
- {include, NodeRefs, IncludeDirs}.
+{include, IncludeDirs}.
+{include, NodeRefs, IncludeDirs}.
 
- {auto_compile, Bool},
- {auto_compile, NodeRefs, Bool},
+{auto_compile, Bool},
+{auto_compile, NodeRefs, Bool},
 
- {abort_if_missing_suites, Bool},
- {abort_if_missing_suites, NodeRefs, Bool},
+{abort_if_missing_suites, Bool},
+{abort_if_missing_suites, NodeRefs, Bool},
 
- {config, ConfigFiles}.
- {config, ConfigDir, ConfigBaseNames}.
- {config, NodeRefs, ConfigFiles}.
- {config, NodeRefs, ConfigDir, ConfigBaseNames}.
+{config, ConfigFiles}.
+{config, ConfigDir, ConfigBaseNames}.
+{config, NodeRefs, ConfigFiles}.
+{config, NodeRefs, ConfigDir, ConfigBaseNames}.
 
- {userconfig, {CallbackModule, ConfigStrings}}.
- {userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
+{userconfig, {CallbackModule, ConfigStrings}}.
+{userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
 
- {logdir, LogDir}.
- {logdir, NodeRefs, LogDir}.
+{logdir, LogDir}.
+{logdir, NodeRefs, LogDir}.
 
- {logopts, LogOpts}.
- {logopts, NodeRefs, LogOpts}.
+{logopts, LogOpts}.
+{logopts, NodeRefs, LogOpts}.
 
- {create_priv_dir, PrivDirOption}.
- {create_priv_dir, NodeRefs, PrivDirOption}.
+{create_priv_dir, PrivDirOption}.
+{create_priv_dir, NodeRefs, PrivDirOption}.
 
- {event_handler, EventHandlers}.
- {event_handler, NodeRefs, EventHandlers}.
- {event_handler, EventHandlers, InitArgs}.
- {event_handler, NodeRefs, EventHandlers, InitArgs}.
+{event_handler, EventHandlers}.
+{event_handler, NodeRefs, EventHandlers}.
+{event_handler, EventHandlers, InitArgs}.
+{event_handler, NodeRefs, EventHandlers, InitArgs}.
 
- {ct_hooks, CTHModules}.
- {ct_hooks, NodeRefs, CTHModules}.
+{ct_hooks, CTHModules}.
+{ct_hooks, NodeRefs, CTHModules}.
 
- {ct_hooks_order, CTHOrder}.
+{ct_hooks_order, CTHOrder}.
 
- {enable_builtin_hooks, Bool}.
+{enable_builtin_hooks, Bool}.
 
- {basic_html, Bool}.
- {basic_html, NodeRefs, Bool}.
+{basic_html, Bool}.
+{basic_html, NodeRefs, Bool}.
 
- {esc_chars, Bool}.
- {esc_chars, NodeRefs, Bool}.
+{esc_chars, Bool}.
+{esc_chars, NodeRefs, Bool}.
 
- {release_shell, Bool}.
+{release_shell, Bool}.
 ```
 
 _Test terms:_
 
 ```erlang
- {suites, Dir, Suites}.
- {suites, NodeRefs, Dir, Suites}.
+{suites, Dir, Suites}.
+{suites, NodeRefs, Dir, Suites}.
 
- {groups, Dir, Suite, Groups}.
- {groups, NodeRefs, Dir, Suite, Groups}.
+{groups, Dir, Suite, Groups}.
+{groups, NodeRefs, Dir, Suite, Groups}.
 
- {groups, Dir, Suite, Groups, {cases,Cases}}.
- {groups, NodeRefs, Dir, Suite, Groups, {cases,Cases}}.
+{groups, Dir, Suite, Groups, {cases,Cases}}.
+{groups, NodeRefs, Dir, Suite, Groups, {cases,Cases}}.
 
- {cases, Dir, Suite, Cases}.
- {cases, NodeRefs, Dir, Suite, Cases}.
+{cases, Dir, Suite, Cases}.
+{cases, NodeRefs, Dir, Suite, Cases}.
 
- {skip_suites, Dir, Suites, Comment}.
- {skip_suites, NodeRefs, Dir, Suites, Comment}.
+{skip_suites, Dir, Suites, Comment}.
+{skip_suites, NodeRefs, Dir, Suites, Comment}.
 
- {skip_groups, Dir, Suite, GroupNames, Comment}.
- {skip_groups, NodeRefs, Dir, Suite, GroupNames, Comment}.
+{skip_groups, Dir, Suite, GroupNames, Comment}.
+{skip_groups, NodeRefs, Dir, Suite, GroupNames, Comment}.
 
- {skip_cases, Dir, Suite, Cases, Comment}.
- {skip_cases, NodeRefs, Dir, Suite, Cases, Comment}.
+{skip_cases, Dir, Suite, Cases, Comment}.
+{skip_cases, NodeRefs, Dir, Suite, Cases, Comment}.
 ```
 
 [](){: #types } _Types:_
 
-```text
- Bool            = true | false
- Constant        = atom()
- Value           = term()
- InclSpecsOption = join | separate
- TestSpecs       = string() | [string()]
- NodeAlias       = atom()
- Node            = node()
- NodeRef         = NodeAlias | Node | master
- NodeRefs        = all_nodes | [NodeRef] | NodeRef
- InitOptions     = term()
- Label           = atom() | string()
- VerbosityLevels = integer() | [{Category,integer()}]
- Category        = atom()
- CSSFile         = string()
- ConnTypes       = all | [atom()]
- N               = integer()
- CoverSpecFile   = string()
- IncludeDirs     = string() | [string()]
- ConfigFiles     = string() | [string()]
- ConfigDir       = string()
- ConfigBaseNames = string() | [string()]
- CallbackModule  = atom()
- ConfigStrings   = string() | [string()]
- LogDir          = string()
- LogOpts         = [term()]
- PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
- EventHandlers   = atom() | [atom()]
- InitArgs        = [term()]
- CTHModules      = [CTHModule |
-		    {CTHModule, CTHInitArgs} |
-		    {CTHModule, CTHInitArgs, CTHPriority}]
- CTHModule       = atom()
- CTHInitArgs     = term()
- CTHOrder        = test | config
- Dir             = string()
- Suites          = atom() | [atom()] | all
- Suite           = atom()
- Groups          = GroupPath | GroupSpec | [GroupSpec] | all
- GroupPath       = [[GroupSpec]]
- GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,[GroupSpec]}
- GroupName       = atom()
- GroupNames      = GroupName | [GroupName]
- Cases           = atom() | [atom()] | all
- Comment         = string() | ""
+```erlang
+Bool            = true | false
+Constant        = atom()
+Value           = term()
+InclSpecsOption = join | separate
+TestSpecs       = string() | [string()]
+NodeAlias       = atom()
+Node            = node()
+NodeRef         = NodeAlias | Node | master
+NodeRefs        = all_nodes | [NodeRef] | NodeRef
+InitOptions     = term()
+Label           = atom() | string()
+VerbosityLevels = integer() | [{Category,integer()}]
+Category        = atom()
+CSSFile         = string()
+ConnTypes       = all | [atom()]
+N               = integer()
+CoverSpecFile   = string()
+IncludeDirs     = string() | [string()]
+ConfigFiles     = string() | [string()]
+ConfigDir       = string()
+ConfigBaseNames = string() | [string()]
+CallbackModule  = atom()
+ConfigStrings   = string() | [string()]
+LogDir          = string()
+LogOpts         = [term()]
+PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
+EventHandlers   = atom() | [atom()]
+InitArgs        = [term()]
+CTHModules      = [CTHModule |
+       	    {CTHModule, CTHInitArgs} |
+       	    {CTHModule, CTHInitArgs, CTHPriority}]
+CTHModule       = atom()
+CTHInitArgs     = term()
+CTHOrder        = test | config
+Dir             = string()
+Suites          = atom() | [atom()] | all
+Suite           = atom()
+Groups          = GroupPath | GroupSpec | [GroupSpec] | all
+GroupPath       = [[GroupSpec]]
+GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,[GroupSpec]}
+GroupName       = atom()
+GroupNames      = GroupName | [GroupName]
+Cases           = atom() | [atom()] | all
+Comment         = string() | ""
 ```
 
 The difference between the `config` terms above is that with `ConfigDir`,
@@ -930,10 +929,10 @@ The difference between the `config` terms above is that with `ConfigDir`,
 two terms have the same meaning:
 
 ```erlang
- {config, ["/home/testuser/tests/config/nodeA.cfg",
-           "/home/testuser/tests/config/nodeB.cfg"]}.
+{config, ["/home/testuser/tests/config/nodeA.cfg",
+          "/home/testuser/tests/config/nodeB.cfg"]}.
 
- {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
+{config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
 ```
 
 > #### Note {: .info }
@@ -968,24 +967,24 @@ avoid repetition) of long strings, such as file paths.
 _Examples:_
 
 ```erlang
- %% 1a. no constant
- {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
- {suites, "/home/testuser/tests/suites", all}.
+%% 1a. no constant
+{config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
+{suites, "/home/testuser/tests/suites", all}.
 
- %% 1b. with constant
- {define, 'TESTDIR', "/home/testuser/tests"}.
- {config, "'TESTDIR'/config", ["nodeA.cfg","nodeB.cfg"]}.
- {suites, "'TESTDIR'/suites", all}.
+%% 1b. with constant
+{define, 'TESTDIR', "/home/testuser/tests"}.
+{config, "'TESTDIR'/config", ["nodeA.cfg","nodeB.cfg"]}.
+{suites, "'TESTDIR'/suites", all}.
 
- %% 2a. no constants
- {config, [testnode@host1, testnode@host2], "../config", ["nodeA.cfg","nodeB.cfg"]}.
- {suites, [testnode@host1, testnode@host2], "../suites", [x_SUITE, y_SUITE]}.
+%% 2a. no constants
+{config, [testnode@host1, testnode@host2], "../config", ["nodeA.cfg","nodeB.cfg"]}.
+{suites, [testnode@host1, testnode@host2], "../suites", [x_SUITE, y_SUITE]}.
 
- %% 2b. with constants
- {define, 'NODE', testnode}.
- {define, 'NODES', ['NODE'@host1, 'NODE'@host2]}.
- {config, 'NODES', "../config", ["nodeA.cfg","nodeB.cfg"]}.
- {suites, 'NODES', "../suites", [x_SUITE, y_SUITE]}.
+%% 2b. with constants
+{define, 'NODE', testnode}.
+{define, 'NODES', ['NODE'@host1, 'NODE'@host2]}.
+{config, 'NODES', "../config", ["nodeA.cfg","nodeB.cfg"]}.
+{suites, 'NODES', "../suites", [x_SUITE, y_SUITE]}.
 ```
 
 Constants make the test specification term `alias`, in previous versions of
@@ -994,17 +993,17 @@ upcoming `Common Test` releases. Replacing `alias` terms with `define` is
 strongly recommended though. An example of such replacement follows:
 
 ```erlang
- %% using the old alias term
- {config, "/home/testuser/tests/config/nodeA.cfg"}.
- {alias, suite_dir, "/home/testuser/tests/suites"}.
- {groups, suite_dir, x_SUITE, group1}.
+%% using the old alias term
+{config, "/home/testuser/tests/config/nodeA.cfg"}.
+{alias, suite_dir, "/home/testuser/tests/suites"}.
+{groups, suite_dir, x_SUITE, group1}.
 
- %% replacing with constants
- {define, 'TestDir', "/home/testuser/tests"}.
- {define, 'CfgDir', "'TestDir'/config"}.
- {define, 'SuiteDir', "'TestDir'/suites"}.
- {config, 'CfgDir', "nodeA.cfg"}.
- {groups, 'SuiteDir', x_SUITE, group1}.
+%% replacing with constants
+{define, 'TestDir', "/home/testuser/tests"}.
+{define, 'CfgDir', "'TestDir'/config"}.
+{define, 'SuiteDir', "'TestDir'/suites"}.
+{config, 'CfgDir', "nodeA.cfg"}.
+{groups, 'SuiteDir', x_SUITE, group1}.
 ```
 
 Constants can well replace term `node` also, but this still has a declarative
@@ -1016,25 +1015,25 @@ value, mainly when used in combination with `NodeRefs == all_nodes` (see
 Here follows a simple test specification example:
 
 ```erlang
- {define, 'Top', "/home/test"}.
- {define, 'T1', "'Top'/t1"}.
- {define, 'T2', "'Top'/t2"}.
- {define, 'T3', "'Top'/t3"}.
- {define, 'CfgFile', "config.cfg"}.
+{define, 'Top', "/home/test"}.
+{define, 'T1', "'Top'/t1"}.
+{define, 'T2', "'Top'/t2"}.
+{define, 'T3', "'Top'/t3"}.
+{define, 'CfgFile', "config.cfg"}.
 
- {logdir, "'Top'/logs"}.
+{logdir, "'Top'/logs"}.
 
- {config, ["'T1'/'CfgFile'", "'T2'/'CfgFile'", "'T3'/'CfgFile'"]}.
+{config, ["'T1'/'CfgFile'", "'T2'/'CfgFile'", "'T3'/'CfgFile'"]}.
 
- {suites, 'T1', all}.
- {skip_suites, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
- {skip_cases, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
- {skip_cases, 'T1', t1C_SUITE, [test1], "Ignore"}.
+{suites, 'T1', all}.
+{skip_suites, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+{skip_cases, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+{skip_cases, 'T1', t1C_SUITE, [test1], "Ignore"}.
 
- {suites, 'T2', [t2B_SUITE,t2C_SUITE]}.
- {cases, 'T2', t2A_SUITE, [test4,test1,test7]}.
+{suites, 'T2', [t2B_SUITE,t2C_SUITE]}.
+{cases, 'T2', t2A_SUITE, [test4,test1,test7]}.
 
- {skip_suites, 'T3', all, "Not implemented"}.
+{skip_suites, 'T3', all, "Not implemented"}.
 ```
 
 The example specifies the following:
@@ -1082,23 +1081,23 @@ tag (or tags) in `Tags`.
 For example, in the test specification:
 
 ```text
- ...
- {label, my_server_smoke_test}.
- {config, "../../my_server_setup.cfg"}.
- {config, "../../my_server_interface.cfg"}.
- ...
+...
+{label, my_server_smoke_test}.
+{config, "../../my_server_setup.cfg"}.
+{config, "../../my_server_interface.cfg"}.
+...
 ```
 
 And in, for example, a test suite or a `Common Test Hook` function:
 
 ```erlang
- ...
- [{label,[{_Node,TestType}]}, {config,CfgFiles}] =
-     ct:get_testspec_terms([label,config]),
+...
+[{label,[{_Node,TestType}]}, {config,CfgFiles}] =
+    ct:get_testspec_terms([label,config]),
 
- [verify_my_server_cfg(TestType, CfgFile) || {Node,CfgFile} <- CfgFiles,
-					     Node == node()];
- ...
+[verify_my_server_cfg(TestType, CfgFile) || {Node,CfgFile} <- CfgFiles,
+                                            Node == node()];
+...
 ```
 
 [](){: #log_files }
@@ -1276,7 +1275,7 @@ correctly in the browser of your choice, or you prefer a more primitive ("pre
 `Common Test` v1.6") look of the logs, use the start flag/option:
 
 ```text
- basic_html
+basic_html
 ```
 
 This disables the use of style sheets and JavaScripts (see
@@ -1293,10 +1292,10 @@ different one for test system state information, and finally one for errors
 detected by the test case functions. The corresponding style sheet can look as
 follows:
 
-```text
- div.sys_config  { background:blue }
- div.sys_state   { background:yellow }
- div.error       { background:red }
+```css
+div.sys_config  { background:blue }
+div.sys_state   { background:yellow }
+div.error       { background:red }
 ```
 
 Common Test prints the text from `ct:log/3,4,5` or `ct:pal/3,4,5` inside a `pre`
@@ -1319,7 +1318,7 @@ the file name can be provided when executing `ct_run`.
 _Example:_
 
 ```text
- $ ct_run -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css
+$ ct_run -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css
 ```
 
 Categories in a CSS file installed with flag `-stylesheet` are on a global test
@@ -1331,18 +1330,18 @@ Style sheets can also be installed on a per suite and per test case basis.
 _Example:_
 
 ```erlang
- -module(my_SUITE).
- ...
- suite() -> [..., {stylesheet,"suite_categories.css"}, ...].
- ...
- my_testcase(_) ->
-     ...
-     ct:log(sys_config, "Test node version: ~p", [VersionInfo]),
-     ...
-     ct:log(sys_state, "Connections: ~p", [ConnectionInfo]),
-     ...
-     ct:pal(error, "Error ~p detected! Info: ~p", [SomeFault,ErrorInfo]),
-     ct:fail(SomeFault).
+-module(my_SUITE).
+...
+suite() -> [..., {stylesheet,"suite_categories.css"}, ...].
+...
+my_testcase(_) ->
+    ...
+    ct:log(sys_config, "Test node version: ~p", [VersionInfo]),
+    ...
+    ct:log(sys_state, "Connections: ~p", [ConnectionInfo]),
+    ...
+    ct:pal(error, "Error ~p detected! Info: ~p", [SomeFault,ErrorInfo]),
+    ct:fail(SomeFault).
 ```
 
 If the style sheet is installed as in this example, the categories are private
@@ -1423,7 +1422,7 @@ information includes the repetition number, remaining time, and so on.
 _Example 1:_
 
 ```text
- $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -force_stop
+$ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -force_stop
 ```
 
 Here, the suites in test directory `to1`, followed by the suites in `to2`, are
@@ -1436,7 +1435,7 @@ be aborted after test `to1` and before test `to2`.
 _Example 2:_
 
 ```text
- $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -forces_stop skip_rest
+$ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -forces_stop skip_rest
 ```
 
 Here, the same tests as in Example 1 are run, but with flag `force_stop` set to
@@ -1449,10 +1448,10 @@ test is aborted.
 _Example 3:_
 
 ```text
- $ date
- Fri Sep 28 15:00:00 MEST 2007
+$ date
+Fri Sep 28 15:00:00 MEST 2007
 
- $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -until 160000
+$ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -until 160000
 ```
 
 Here, the same test run as in the previous examples are executed (and possibly
@@ -1463,7 +1462,7 @@ always executed in the same test run).
 _Example 4:_
 
 ```text
- $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -repeat 5
+$ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -repeat 5
 ```
 
 Here, the test run, including both the `to1` and the `to2` test, is repeated
@@ -1488,7 +1487,7 @@ The protocol handling processes in `Common Test`, implemented by `ct_telnet`,
 can be switched off with flag `-silent_connections`:
 
 ```text
- ct_run -silent_connections [conn_types]
+ct_run -silent_connections [conn_types]
 ```
 
 Here, `conn_types` specifies SSH, Telnet, FTP, RPC, and/or SNMP.
@@ -1496,7 +1495,7 @@ Here, `conn_types` specifies SSH, Telnet, FTP, RPC, and/or SNMP.
 _Example 1:_
 
 ```text
- ct_run ... -silent_connections ssh telnet
+ct_run ... -silent_connections ssh telnet
 ```
 
 This switches off logging for SSH and Telnet connections.
@@ -1504,7 +1503,7 @@ This switches off logging for SSH and Telnet connections.
 _Example 2:_
 
 ```text
- ct_run ... -silent_connections
+ct_run ... -silent_connections
 ```
 
 This switches off logging for all connection types.
@@ -1524,20 +1523,20 @@ connections.
 _Example 3:_
 
 ```erlang
- -module(my_SUITE).
+-module(my_SUITE).
 
- suite() -> [..., {silent_connections,[telnet,ssh]}, ...].
+suite() -> [..., {silent_connections,[telnet,ssh]}, ...].
 
- ...
+...
 
- my_testcase1() ->
-     [{silent_connections,[ssh]}].
+my_testcase1() ->
+    [{silent_connections,[ssh]}].
 
- my_testcase1(_) ->
-     ...
+my_testcase1(_) ->
+    ...
 
- my_testcase2(_) ->
-     ...
+my_testcase2(_) ->
+    ...
 ```
 
 In this example, `suite/0` tells `Common Test` to suppress printouts from Telnet

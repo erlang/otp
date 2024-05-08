@@ -260,20 +260,20 @@ The following tags have special meaning:
   _Examples:_
 
   ```erlang
-   testcase1() ->
-       [{require, ftp},
-        {default_config, ftp, [{ftp, "my_ftp_host"},
-                               {username, "aladdin"},
-                               {password, "sesame"}]}}].
+  testcase1() ->
+      [{require, ftp},
+       {default_config, ftp, [{ftp, "my_ftp_host"},
+                              {username, "aladdin"},
+                              {password, "sesame"}]}}].
   ```
 
   ```erlang
-   testcase2() ->
-       [{require, unix_telnet, unix},
-        {require, {unix, [telnet, username, password]}},
-        {default_config, unix, [{telnet, "my_telnet_host"},
-                                {username, "aladdin"},
-                                {password, "sesame"}]}}].
+  testcase2() ->
+      [{require, unix_telnet, unix},
+       {require, {unix, [telnet, username, password]}},
+       {default_config, unix, [{telnet, "my_telnet_host"},
+                               {username, "aladdin"},
+                               {password, "sesame"}]}}].
   ```
 
 For more information about `require`, see section
@@ -295,14 +295,14 @@ Tags other than the earlier mentioned are ignored by the test server.
 An example of a test case information function follows:
 
 ```erlang
- reboot_node() ->
-     [
-      {timetrap,{seconds,60}},
-      {require,interfaces},
-      {userdata,
-          [{description,"System Upgrade: RpuAddition Normal RebootNode"},
-           {fts,"http://someserver.ericsson.se/test_doc4711.pdf"}]}
-     ].
+reboot_node() ->
+    [
+     {timetrap,{seconds,60}},
+     {require,interfaces},
+     {userdata,
+         [{description,"System Upgrade: RpuAddition Normal RebootNode"},
+          {fts,"http://someserver.ericsson.se/test_doc4711.pdf"}]}
+    ].
 ```
 
 [](){: #suite }
@@ -328,14 +328,14 @@ The following options can also be specified with the suite information list:
 An example of the suite information function follows:
 
 ```erlang
- suite() ->
-     [
-      {timetrap,{minutes,10}},
-      {require,global_names},
-      {userdata,[{info,"This suite tests database transactions."}]},
-      {silent_connections,[telnet]},
-      {stylesheet,"db_testing.css"}
-     ].
+suite() ->
+    [
+     {timetrap,{minutes,10}},
+     {require,global_names},
+     {userdata,[{info,"This suite tests database transactions."}]},
+     {silent_connections,[telnet]},
+     {stylesheet,"db_testing.css"}
+    ].
 ```
 
 [](){: #test_case_groups }
@@ -348,17 +348,17 @@ execution properties. Test case groups are defined by function
 following syntax:
 
 ```text
- groups() -> GroupDefs
+groups() -> GroupDefs
 
- Types:
+Types:
 
- GroupDefs = [GroupDef]
- GroupDef = {GroupName,Properties,GroupsAndTestCases}
- GroupName = atom()
- GroupsAndTestCases = [GroupDef | {group,GroupName} | TestCase |
-                      {testcase,TestCase,TCRepeatProps}]
- TestCase = atom()
- TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]
+GroupDefs = [GroupDef]
+GroupDef = {GroupName,Properties,GroupsAndTestCases}
+GroupName = atom()
+GroupsAndTestCases = [GroupDef | {group,GroupName} | TestCase |
+                     {testcase,TestCase,TCRepeatProps}]
+TestCase = atom()
+TCRepeatProps = [{repeat,N} | {repeat_until_ok,N} | {repeat_until_fail,N}]
 ```
 
 `GroupName` is the name of the group and must be unique within the test suite
@@ -367,12 +367,12 @@ module. Groups can be nested, by including a group definition within the
 execution properties for the group. The possible values are as follows:
 
 ```erlang
- Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]
- Shuffle = shuffle | {shuffle,Seed}
- Seed = {integer(),integer(),integer()}
- GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
-                   repeat_until_any_ok | repeat_until_any_fail
- N = integer() | forever
+Properties = [parallel | sequence | Shuffle | {GroupRepeatType,N}]
+Shuffle = shuffle | {shuffle,Seed}
+Seed = {integer(),integer(),integer()}
+GroupRepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
+                  repeat_until_any_ok | repeat_until_any_fail
+N = integer() | forever
 ```
 
 _Explanations:_
@@ -393,8 +393,8 @@ _Explanations:_
 _Example:_
 
 ```erlang
- groups() -> [{group1, [parallel], [test1a,test1b]},
-              {group2, [shuffle,sequence], [test2a,test2b,test2c]}].
+groups() -> [{group1, [parallel], [test1a,test1b]},
+             {group2, [shuffle,sequence], [test2a,test2b,test2c]}].
 ```
 
 To specify in which order groups are to be executed (also with respect to test
@@ -403,8 +403,8 @@ cases that are not part of any group), add tuples on the form
 
 _Example:_
 
-```text
- all() -> [testcase1, {group,group1}, {testcase,testcase2,[{repeat,10}]}, {group,group2}].
+```erlang
+all() -> [testcase1, {group,group1}, {testcase,testcase2,[{repeat,10}]}, {group,group2}].
 ```
 
 Execution properties with a group tuple in `all/0`:
@@ -423,27 +423,27 @@ list, executes with their predefined properties.
 _Example:_
 
 ```erlang
- groups() -> [{tests1, [], [{tests2, [], [t2a,t2b]},
-                           {tests3, [], [t31,t3b]}]}].
+groups() -> [{tests1, [], [{tests2, [], [t2a,t2b]},
+                          {tests3, [], [t31,t3b]}]}].
 ```
 
 To execute group `tests1` twice with different properties for `tests2` each
 time:
 
 ```erlang
- all() ->
-    [{group, tests1, default, [{tests2, [parallel]}]},
-     {group, tests1, default, [{tests2, [shuffle,{repeat,10}]}]}].
+all() ->
+   [{group, tests1, default, [{tests2, [parallel]}]},
+    {group, tests1, default, [{tests2, [shuffle,{repeat,10}]}]}].
 ```
 
 This is equivalent to the following specification:
 
 ```erlang
- all() ->
-    [{group, tests1, default, [{tests2, [parallel]},
-                               {tests3, default}]},
-     {group, tests1, default, [{tests2, [shuffle,{repeat,10}]},
-                               {tests3, default}]}].
+all() ->
+   [{group, tests1, default, [{tests2, [parallel]},
+                              {tests3, default}]},
+    {group, tests1, default, [{tests2, [shuffle,{repeat,10}]},
+                              {tests3, default}]}].
 ```
 
 Value `default` states that the predefined properties are to be used.
@@ -452,15 +452,15 @@ The following example shows how to override properties in a scenario with deeply
 nested groups:
 
 ```erlang
- groups() ->
-    [{tests1, [], [{group, tests2}]},
-     {tests2, [], [{group, tests3}]},
-     {tests3, [{repeat,2}], [t3a,t3b,t3c]}].
+groups() ->
+   [{tests1, [], [{group, tests2}]},
+    {tests2, [], [{group, tests3}]},
+    {tests3, [{repeat,2}], [t3a,t3b,t3c]}].
 
- all() ->
-    [{group, tests1, default,
-      [{tests2, default,
-        [{tests3, [parallel,{repeat,100}]}]}]}].
+all() ->
+   [{group, tests1, default,
+     [{tests2, default,
+       [{tests3, [parallel,{repeat,100}]}]}]}].
 ```
 
 For ease of readability, all syntax definitions can be replaced by a function
@@ -469,15 +469,15 @@ call whose return value should match the expected syntax case.
 _Example:_
 
 ```erlang
- all() ->
-    [{group, tests1, default, test_cases()},
-     {group, tests1, default, [shuffle_test(),
-                               {tests3, default}]}].
- test_cases() ->
-    [{tests2, [parallel]}, {tests3, default}].
+all() ->
+   [{group, tests1, default, test_cases()},
+    {group, tests1, default, [shuffle_test(),
+                              {tests3, default}]}].
+test_cases() ->
+   [{tests2, [parallel]}, {tests3, default}].
 
- shuffle_test() ->
-    {tests2, [shuffle,{repeat,10}]}.
+shuffle_test() ->
+   {tests2, [shuffle,{repeat,10}]}.
 ```
 
 The described syntax can also be used in test specifications to change group
@@ -525,13 +525,13 @@ list of another group.
 _Example:_
 
 ```erlang
- groups() -> [{group1, [shuffle], [test1a,
-                                   {group2, [], [test2a,test2b]},
-                                   test1b]},
-              {group3, [], [{group,group4},
-                            {group,group5}]},
-              {group4, [parallel], [test4a,test4b]},
-              {group5, [sequence], [test5a,test5b,test5c]}].
+groups() -> [{group1, [shuffle], [test1a,
+                                  {group2, [], [test2a,test2b]},
+                                  test1b]},
+             {group3, [], [{group,group4},
+                           {group,group5}]},
+             {group4, [parallel], [test4a,test4b]},
+             {group5, [sequence], [test5a,test5b,test5c]}].
 ```
 
 In the previous example, if `all/0` returns group name references in the order
@@ -541,21 +541,21 @@ test cases becomes the following (notice that `init_per_testcase/2` and
 for simplification):
 
 ```text
- init_per_group(group1, Config) -> Config1  (*)
-      test1a(Config1)
-      init_per_group(group2, Config1) -> Config2
-           test2a(Config2), test2b(Config2)
-      end_per_group(group2, Config2)
-      test1b(Config1)
- end_per_group(group1, Config1)
- init_per_group(group3, Config) -> Config3
-      init_per_group(group4, Config3) -> Config4
-           test4a(Config4), test4b(Config4)  (**)
-      end_per_group(group4, Config4)
-      init_per_group(group5, Config3) -> Config5
-           test5a(Config5), test5b(Config5), test5c(Config5)
-      end_per_group(group5, Config5)
- end_per_group(group3, Config3)
+init_per_group(group1, Config) -> Config1  (*)
+     test1a(Config1)
+     init_per_group(group2, Config1) -> Config2
+          test2a(Config2), test2b(Config2)
+     end_per_group(group2, Config2)
+     test1b(Config1)
+end_per_group(group1, Config1)
+init_per_group(group3, Config) -> Config3
+     init_per_group(group4, Config3) -> Config4
+          test4a(Config4), test4b(Config4)  (**)
+     end_per_group(group4, Config4)
+     init_per_group(group5, Config3) -> Config5
+          test5a(Config5), test5b(Config5), test5c(Config5)
+     end_per_group(group5, Config5)
+end_per_group(group3, Config3)
 ```
 
 (\*) The order of test case `test1a`, `test1b`, and `group2` is undefined, as
@@ -626,14 +626,14 @@ of test cases that have been executed with the corresponding status as result.
 The following is an example of how to return the status from a group:
 
 ```erlang
- end_per_group(_Group, Config) ->
-     Status = proplists:get_value(tc_group_result, Config),
-     case proplists:get_value(failed, Status) of
-         [] ->                                   % no failed cases
-             {return_group_result,ok};
-         _Failed ->                              % one or more failed
-             {return_group_result,failed}
-     end.
+end_per_group(_Group, Config) ->
+    Status = proplists:get_value(tc_group_result, Config),
+    case proplists:get_value(failed, Status) of
+        [] ->                                   % no failed cases
+            {return_group_result,ok};
+        _Failed ->                              % one or more failed
+            {return_group_result,failed}
+    end.
 ```
 
 It is also possible, in `end_per_group/2`, to check the status of a subgroup
@@ -645,16 +645,16 @@ lists.
 _Example:_
 
 ```erlang
- end_per_group(group1, Config) ->
-     Status = proplists:get_value(tc_group_result, Config),
-     Failed = proplists:get_value(failed, Status),
-     case lists:member({group_result,group2}, Failed) of
-           true ->
-               {return_group_result,failed};
-           false ->
-               {return_group_result,ok}
-     end;
- ...
+end_per_group(group1, Config) ->
+    Status = proplists:get_value(tc_group_result, Config),
+    Failed = proplists:get_value(failed, Status),
+    case lists:member({group_result,group2}, Failed) of
+          true ->
+              {return_group_result,failed};
+          false ->
+              {return_group_result,ok}
+    end;
+...
 ```
 
 > #### Note {: .info }
@@ -700,9 +700,9 @@ subgroups in the group in question (`GroupName`).
 _Example:_
 
 ```erlang
- group(connection_tests) ->
-    [{require,login_data},
-     {timetrap,1000}].
+group(connection_tests) ->
+   [{require,login_data},
+    {timetrap,1000}].
 ```
 
 The group information properties override those set with the suite information
@@ -902,8 +902,8 @@ _Examples:_
 Some printouts during test case execution:
 
 ```erlang
- io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
- ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
+io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
+ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
  ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]),
  ct:log(info, ?LOW_IMPORTANCE, "4. Categorized info, importance = ~w", [?LOW_IMPORTANCE]),
  ct:log(error, ?HI_IMPORTANCE, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
@@ -913,31 +913,31 @@ Some printouts during test case execution:
 If starting the test with a general verbosity level of 50 (`?STD_VERBOSITY`):
 
 ```text
- $ ct_run -verbosity 50
+$ ct_run -verbosity 50
 ```
 
 the following is printed:
 
 ```text
- 1. Standard IO, importance = 50
- 2. Uncategorized, importance = 50
- 3. Categorized info, importance = 50
- 5. Categorized error, importance = 75
- 6. Categorized error, importance = 99
+1. Standard IO, importance = 50
+2. Uncategorized, importance = 50
+3. Categorized info, importance = 50
+5. Categorized error, importance = 75
+6. Categorized error, importance = 99
 ```
 
 If starting the test with:
 
 ```text
- $ ct_run -verbosity 1 and info 75
+$ ct_run -verbosity 1 and info 75
 ```
 
 the following is printed:
 
 ```erlang
- 3. Categorized info, importance = 50
- 4. Categorized info, importance = 25
- 6. Categorized error, importance = 99
+3. Categorized info, importance = 50
+4. Categorized info, importance = 25
+6. Categorized error, importance = 99
 ```
 
 Note that the category argument is not required in order to only specify the

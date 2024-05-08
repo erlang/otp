@@ -81,18 +81,18 @@ An event_handler tuple in argument `Opts` has the following definition (see
 `ct:run_test/1`):
 
 ```erlang
- {event_handler,EventHandlers}
+{event_handler,EventHandlers}
 
- EventHandlers = EH | [EH]
- EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
- InitArgs = [term()]
+EventHandlers = EH | [EH]
+EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
+InitArgs = [term()]
 ```
 
 In the following example, two event handlers for the `my_SUITE` test are
 installed:
 
 ```erlang
- 1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).
+1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).
 ```
 
 Event handler `my_evh1` is started with `[]` as argument to the init function.

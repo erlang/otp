@@ -203,13 +203,13 @@ returning a tuple with `skip` or `fail`, and a reason as the result.
 _Example:_
 
 ```erlang
- pre_init_per_suite(SuiteName, Config, CTHState) ->
-   case db:connect() of
-     {error,_Reason} ->
-       {{fail, "Could not connect to DB"}, CTHState};
-     {ok, Handle} ->
-       {[{db_handle, Handle} | Config], CTHState#state{ handle = Handle }}
-   end.
+pre_init_per_suite(SuiteName, Config, CTHState) ->
+  case db:connect() of
+    {error,_Reason} ->
+      {{fail, "Could not connect to DB"}, CTHState};
+    {ok, Handle} ->
+      {[{db_handle, Handle} | Config], CTHState#state{ handle = Handle }}
+  end.
 ```
 
 > #### Note {: .info }
@@ -251,18 +251,18 @@ pre hooks, it is also possible to fail/skip the test case in the post hook.
 _Example:_
 
 ```erlang
- post_end_per_testcase(_Suite, _TC, Config, {'EXIT',{_,_}}, CTHState) ->
-   case db:check_consistency() of
-     true ->
-       %% DB is good, pass the test.
-       {proplists:delete(tc_status, Config), CTHState};
-     false ->
-       %% DB is not good, mark as skipped instead of failing
-       {{skip, "DB is inconsistent!"}, CTHState}
-   end;
- post_end_per_testcase(_Suite, _TC, Config, Return, CTHState) ->
-   %% Do nothing if tc does not crash.
-   {Return, CTHState}.
+post_end_per_testcase(_Suite, _TC, Config, {'EXIT',{_,_}}, CTHState) ->
+  case db:check_consistency() of
+    true ->
+      %% DB is good, pass the test.
+      {proplists:delete(tc_status, Config), CTHState};
+    false ->
+      %% DB is not good, mark as skipped instead of failing
+      {{skip, "DB is inconsistent!"}, CTHState}
+  end;
+post_end_per_testcase(_Suite, _TC, Config, Return, CTHState) ->
+  %% Do nothing if tc does not crash.
+  {Return, CTHState}.
 ```
 
 > #### Note {: .info }
