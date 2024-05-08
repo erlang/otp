@@ -19,8 +19,7 @@ limitations under the License.
 -->
 # Supervisor Behaviour
 
-This section should be read with the `m:supervisor` manual page in STDLIB, where
-all details about the supervisor behaviour is given.
+It is recommended to read this section alongside `m:supervisor` in STDLIB.
 
 ## Supervision Principles
 
@@ -30,7 +29,7 @@ processes alive by restarting them when necessary.
 
 Which child processes to start and monitor is specified by a list of
 [child specifications](sup_princ.md#spec). The child processes are started in
-the order specified by this list, and terminated in the reversed order.
+the order specified by this list, and are terminated in the reverse order.
 
 ## Example
 
@@ -89,7 +88,7 @@ sup_flags() = #{strategy => strategy(),           % optional
 - `strategy` specifies the [restart strategy](sup_princ.md#strategy).
 - `intensity` and `period` specify the
   [maximum restart intensity](sup_princ.md#max_intensity).
-- `auto_shutdown` specifies if and when a supervisor should
+- `auto_shutdown` specifies whether and when a supervisor should
   [automatically shut itself down](sup_princ.md#automatic-shutdown).
 
 [](){: #strategy }
@@ -146,8 +145,9 @@ flowchart TD
 
 ### one_for_all
 
-If a child process terminates, all other child processes are terminated, and
-then all child processes, including the terminated one, are restarted.
+If a child process terminates, all remaining child processes are
+terminated. Subsequently, all child processes, including the
+terminated one, are restarted.
 
 ```mermaid
 ---
@@ -187,10 +187,11 @@ flowchart TD
 
 ### rest_for_one
 
-If a child process terminates, the rest of the child processes (that is, the
-child processes after the terminated process in start order) are terminated.
-Then the terminated child process and the rest of the child processes are
+If a child process terminates, the child processes after the
+terminated process in start order are terminated. Subsequently, the
+terminated child process and the remaining child processes are
 restarted.
+
 
 ```mermaid
 ---
@@ -260,9 +261,9 @@ they are not given, they default to `1` and `5`, respectively.
 
 ### Tuning the intensity and period
 
-The default values are 1 restart per 5 seconds. This was chosen to be safe for
-most systems, even with deep supervision hierarchies, but you will probably want
-to tune the settings for your particular use case.
+The default values were chosen to be safe for most systems, even with
+deep supervision hierarchies, but you will probably want to tune the
+settings for your particular use case.
 
 First, the intensity decides how big bursts of restarts you want to tolerate.
 For example, you might want to accept a burst of at most 5 or 10 attempts, even
@@ -275,13 +276,13 @@ processes to keep restarting up to 10 times per second, forever, filling your
 logs with crash reports until someone intervenes manually.
 
 You should therefore set the period to be long enough that you can accept that
-the supervisor keeps going at that rate. For example, if you have picked an
-intensity value of 5, then setting the period to 30 seconds will give you at
+the supervisor keeps going at that rate. For example, if an intensity value
+of 5 is chosen, setting the period to 30 seconds will give you at
 most one restart per 6 seconds for any longer period of time, which means that
-your logs won't fill up too quickly, and you will have a chance to observe the
+your logs will not fill up too quickly, and you will have a chance to observe the
 failures and apply a fix.
 
-These choices depend a lot on your problem domain. If you don't have real time
+These choices depend a lot on your problem domain. If you do not have real time
 monitoring and ability to fix problems quickly, for example in an embedded
 system, you might want to accept at most one restart per minute before the
 supervisor should give up and escalate to the next level to try to clear the
@@ -301,7 +302,7 @@ Avoiding common mistakes:
   restart almost an hour later. You probably want to regard those crashes as
   separate incidents, so setting the period to 5 or 10 minutes will be more
   reasonable.
-- If your application has multiple levels of supervision, then do not simply set
+- If your application has multiple levels of supervision, do not set
   the restart intensities to the same values on all levels. Keep in mind that
   the total number of restarts (before the top level supervisor gives up and
   terminates the application) will be the product of the intensity values of all
@@ -337,19 +338,20 @@ to `never`.
 > #### Note {: .info }
 >
 > The automatic shutdown facility only applies when significant children
-> terminate by themselves, that is, when their termination was not caused by
-> means of the supervisor. Specifically, neither the termination of a child as a
-> consequence of a sibling's death in the `one_for_all` or `rest_for_one`
-> strategies nor the manual termination of a child by means of
+> terminate by themselves, not when their termination was caused by
+> the supervisor. Specifically, neither the termination of a child as a
+> consequence of a sibling's termination in the `one_for_all` or `rest_for_one`
+> strategies nor the manual termination of a child by
 > `supervisor:terminate_child/2` will trigger an automatic shutdown.
 
 ### never
 
 Automatic shutdown is disabled.
 
-In this mode, significant children are not accepted. If the child specs returned
-from `init` contains significant children, the supervisor will refuse to start.
-Attempts to start significant children dynamically will be rejected.
+In this mode, specifying significant children is not accepted. If the
+child specs returned from `init` contain significant children, the
+supervisor will refuse to start. Attempts to start significant
+children dynamically will be rejected.
 
 This is the default setting.
 
@@ -367,8 +369,8 @@ terminates. The same rules as for `any_significant` apply.
 
 > #### Warning {: .warning }
 >
-> The automatic shutdown feature appeared in OTP 24.0, but applications using
-> this feature will also compile and run with older OTP versions.
+> The automatic shutdown feature was introduced in OTP 24.0, but applications
+> using this feature will also compile and run with older OTP versions.
 >
 > However, such applications, when compiled with an OTP version that predates
 > the appearance of the automatic shutdown feature, will leak processes because
@@ -382,7 +384,7 @@ terminates. The same rules as for `any_significant` apply.
 > Top supervisors of [Applications](applications.md) should not be configured
 > for automatic shutdown, because when the top supervisor exits, the application
 > terminates. If the application is `permanent`, all other applications and the
-> runtime system are terminated, also.
+> runtime system are terminated as well.
 
 > #### Warning {: .warning }
 >
@@ -430,12 +432,12 @@ child_spec() = #{id => child_id(),             % mandatory
 
   It is to be (or result in) a call to any of the following:
 
-  - `supervisor:start_link`
-  - `gen_server:start_link`
-  - `gen_statem:start_link`
-  - `gen_event:start_link`
-  - A function compliant with these functions. For details, see the
-    `m:supervisor` manual page.
+  - [`supervisor:start_link/2,3`](`supervisor:start_link/3`)
+  - [`gen_server:start_link/3,4`](`gen_server:start_link/4`)
+  - [`gen_statem:start_link/3,4`](`gen_statem:start_link/4`)
+  - [`gen_event:start_link/0,1,2`](`gen_event:start_link/2`)
+  - A function compliant with these functions. For details, see
+    `m:supervisor`.
 
   The `start` key is mandatory.
 
@@ -453,7 +455,7 @@ child_spec() = #{id => child_id(),             % mandatory
   The `restart` key is optional. If it is not given, the default value
   `permanent` will be used.
 
-- [](){: #significant_child } `significant` defines if a child is considered
+- [](){: #significant_child } `significant` defines whether a child is considered
   significant for [automatic self-shutdown](sup_princ.md#automatic-shutdown) of
   the supervisor.
 
@@ -472,7 +474,7 @@ child_spec() = #{id => child_id(),             % mandatory
     [`exit(Child, kill)`](`exit/2`).
   - If the child process is another supervisor, it should be set to `infinity`
     to give the subtree enough time to shut down. It is also allowed to set it
-    to `infinity`, if the child process is a worker. See the warning below:
+    to `infinity` if the child process is a worker.
 
   > #### Warning {: .warning }
   >
@@ -489,17 +491,21 @@ child_spec() = #{id => child_id(),             % mandatory
   `worker`, the default value `5000` will be used; if the child is of type
   `supervisor`, the default value `infinity` will be used.
 
-- `type` specifies if the child process is a supervisor or a worker.
+- `type` specifies whether the child process is a supervisor or a worker.
 
   The `type` key is optional. If it is not given, the default value `worker`
   will be used.
 
-- `modules` are to be a list with one element `[Module]`, where `Module` is the
-  name of the callback module, if the child process is a supervisor, gen_server,
-  gen_statem. If the child process is a gen_event, the value shall be `dynamic`.
+- `modules` has to be a list consisting of a single element. The value
+  of that element depends on the behaviour of the process:
+
+  * If the child process is a `gen_event`, the element has to be the atom
+    `dynamic`.
+  * Otherwise, the element should be `Module`, where `Module` is the
+    name of the callback module.
 
   This information is used by the release handler during upgrades and
-  downgrades, see [Release Handling](release_handling.md).
+  downgrades; see [Release Handling](release_handling.md).
 
   The `modules` key is optional. If it is not given, it defaults to `[M]`, where
   `M` comes from the child's start `{M,F,A}`.
@@ -572,11 +578,12 @@ links to a new process, a supervisor.
 
 In this case, the supervisor is not registered. Instead its pid must be used. A
 name can be specified by calling
-`supervisor:start_link({local, Name}, Module, Args)` or
-`supervisor:start_link({global, Name}, Module, Args)`.
+[`supervisor:start_link({local, Name}, Module, Args)`](`supervisor:start_link/3`)
+or
+[`supervisor:start_link({global, Name}, Module, Args)`](`supervisor:start_link/3`).
 
 The new supervisor process calls the callback function `ch_sup:init([])`. `init`
-shall return `{ok, {SupFlags, ChildSpecs}}`:
+has to return `{ok, {SupFlags, ChildSpecs}}`:
 
 ```erlang
 init(_Args) ->
@@ -587,21 +594,19 @@ init(_Args) ->
     {ok, {SupFlags, ChildSpecs}}.
 ```
 
-The supervisor then starts all its child processes according to the child
-specifications in the start specification. In this case there is one child
-process, `ch3`.
+Subsequently, the supervisor starts its child processes according to the child
+specifications in the start specification. In this case there is a single child
+process, called `ch3`.
 
-`supervisor:start_link` is synchronous. It does not return until all child
+`supervisor:start_link/3` is synchronous. It does not return until all child
 processes have been started.
 
 ## Adding a Child Process
 
-In addition to the static supervision tree, dynamic child processes can be added
-to an existing supervisor with the following call:
-
-```text
-supervisor:start_child(Sup, ChildSpec)
-```
+In addition to the static supervision tree as defined by the child
+specifications, dynamic child processes can be added to an existing
+supervisor by calling [`supervisor:start_child(Sup,
+ChildSpec)`](`supervisor:start_child/2`).
 
 `Sup` is the pid, or name, of the supervisor. `ChildSpec` is a
 [child specification](sup_princ.md#spec).
@@ -614,22 +619,15 @@ supervisor are lost.
 ## Stopping a Child Process
 
 Any child process, static or dynamic, can be stopped in accordance with the
-shutdown specification:
-
-```text
-supervisor:terminate_child(Sup, Id)
-```
+shutdown specification by calling
+[`supervisor:terminate_child(Sup, Id)`](`supervisor:terminate_child/2`).
 
 Stopping a [significant child](sup_princ.md#significant_child) of a supervisor
 configured for [automatic shutdown](sup_princ.md#automatic-shutdown) will not
 trigger an automatic shutdown.
 
-The child specification for a stopped child process is deleted with the
-following call:
-
-```text
-supervisor:delete_child(Sup, Id)
-```
+The child specification for a stopped child process is deleted by
+calling [`supervisor:delete_child(Sup, Id)`](`supervisor:delete_child/2`).
 
 `Sup` is the pid, or name, of the supervisor. `Id` is the value associated with
 the `id` key in the [child specification](sup_princ.md#spec).
@@ -668,12 +666,9 @@ init(_Args) ->
     {ok, {SupFlags, ChildSpecs}}.
 ```
 
-When started, the supervisor does not start any child processes. Instead, all
-child processes are added dynamically by calling:
-
-```text
-supervisor:start_child(Sup, List)
-```
+When started, the supervisor does not start any child
+processes. Instead, all child processes need to be added dynamically by
+calling [`supervisor:start_child(Sup, List)`](`supervisor:start_child/2`).
 
 `Sup` is the pid, or name, of the supervisor. `List` is an arbitrary list of
 terms, which are added to the list of arguments specified in the child
@@ -709,24 +704,24 @@ parallel and therefore the order in which they are stopped is not defined.
 Starting, restarting, and manually terminating children are synchronous operations
 which are executed in the context of the supervisor process. This means
 that the supervisor process will be blocked while it is performing any of those
-operations.
-Child processes are responsible for keeping their start and shutdown phases as
-short as possible.
+operations. Child processes are responsible for keeping their start and shutdown
+phases as short as possible.
 
 ## Stopping
 
-Since the supervisor is part of a supervision tree, it is automatically
-terminated by its supervisor. When asked to shut down, it terminates all child
-processes in reversed start order according to the respective shutdown
-specifications, and then terminates itself.
+Since the supervisor is part of a supervision tree, it is
+automatically terminated by its supervisor. When asked to shut down, a
+supervisor terminates all child processes in reverse start order
+according to the respective shutdown specifications before terminating
+itself.
 
 If the supervisor is configured for
 [automatic shutdown](sup_princ.md#automatic-shutdown) on termination of any or
 all [significant children](sup_princ.md#significant_child), it will shut down
 itself when any or the last active significant child terminates, respectively.
 The shutdown itself follows the same procedure as described above, that is, the
-supervisor terminates all remaining child processes in reversed start order, and
-then terminates itself.
+supervisor terminates all remaining child processes in reverse start order
+before terminating itself.
 
 ### Manual stopping versus Automatic Shutdown
 

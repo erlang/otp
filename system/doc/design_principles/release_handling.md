@@ -24,7 +24,8 @@ limitations under the License.
 ## Release Handling Principles
 
 An important feature of the Erlang programming language is the ability to change
-module code in runtime, _code replacement_, as described in the Erlang Reference
+module code at runtime, _code replacement_, as described in
+[Code Replacement](code_loading.md#code-replacement) in the Erlang Reference
 Manual.
 
 Based on this feature, the OTP application SASL provides a framework for
@@ -72,7 +73,7 @@ _Step 8_) The new release package is unpacked using the release handler.
 _Step 9_) The new version of the release is installed, also using the release
 handler. This is done by evaluating the instructions in `relup`. Modules can be
 added, deleted, or reloaded, applications can be started, stopped, or restarted,
-and so on. In some cases, it is even necessary to restart the entire emulator.
+and so on. In some cases, it is even necessary to restart the runtime system.
 
 - If the installation fails, the system can be rebooted. The old release version
   is then automatically used.
@@ -113,8 +114,8 @@ rebooted, for example, by `heart` after a failure. Thus, Erlang must be started
 as an embedded system; for information on how to do this, see Embedded System.
 
 For system reboots to work properly, it is also required that the system is
-started with heartbeat monitoring, see the [`erl(1)`](`e:erts:erl_cmd.md`)
-manual page in ERTS and the `m:heart` manual page in Kernel
+started with heartbeat monitoring; see [`erl`](`e:erts:erl_cmd.md`)
+in ERTS and module `m:heart` in Kernel.
 
 Other requirements:
 
@@ -141,7 +142,7 @@ If the system consists of several Erlang nodes, each node can use its own
 version of the release. The release handler is a locally registered process and
 must be called at each node where an upgrade or downgrade is required. A release
 handling instruction, `sync_nodes`, can be used to synchronize the release
-handler processes at a number of nodes, see the `appup(4)` manual page in SASL.
+handler processes at a number of nodes; see [`appup`](`e:sasl:appup`) in SASL.
 
 [](){: #instr }
 
@@ -154,14 +155,14 @@ number of _high-level_ instructions, which are translated to low-level
 instructions by `systools:make_relup`.
 
 Some of the most frequently used instructions are described in this section. The
-complete list of instructions is included in the `appup(4)` manual page in SASL.
+complete list of instructions is included in [`appup`](`e:sasl:appup`) in SASL.
 
 First, some definitions:
 
-- _Residence module_ \- The module where a process has its tail-recursive loop
+- _Residence module_ - The module where a process has its tail-recursive loop
   function(s). If these functions are implemented in several modules, all those
   modules are residence modules for the process.
-- _Functional module_ \- A module that is not a residence module for any
+- _Functional module_ - A module that is not a residence module for any
   process.
 
 For a process implemented using an OTP behaviour, the behaviour module is the
@@ -181,7 +182,7 @@ is used:
 ### update
 
 If a more complex change has been made, for example, a change to the format of
-the internal state of a `gen_server`, simple code replacement is not sufficient.
+the internal state of a `m:gen_server`, simple code replacement is not sufficient.
 Instead, it is necessary to:
 
 - Suspend the processes using the module (to avoid that they try to handle any
@@ -201,7 +202,7 @@ instructions are used:
 
 `update` with argument `{advanced,Extra}` is used when changing the internal
 state of a behaviour as described above. It causes behaviour processes to call
-the callback function `code_change`, passing the term `Extra` and some other
+the callback function `code_change/3`, passing the term `Extra` and some other
 information as arguments. See the manual pages for the respective behaviours and
 [Appup Cookbook](appup_cookbook.md#int_state).
 
@@ -236,10 +237,10 @@ If a new module is introduced, the following instruction is used:
 {add_module, Module}
 ```
 
-The instruction loads the module and is necessary when running Erlang in
-embedded mode. It is not strictly required when running Erlang in interactive
-(default) mode, since the code server then automatically searches for and loads
-unloaded modules.
+This instruction loads module `Module`. When running Erlang in
+embedded mode it is necessary to use this this instruction. It is not
+strictly required when running Erlang in interactive mode, since the
+code server automatically searches for and loads unloaded modules.
 
 The opposite of `add_module` is `delete_module`, which unloads a module:
 
@@ -247,10 +248,10 @@ The opposite of `add_module` is `delete_module`, which unloads a module:
 {delete_module, Module}
 ```
 
-Any process, in any application, with `Module` as residence module, is killed
-when the instruction is evaluated. The user must therefore ensure that all such
-processes are terminated before deleting the module, to avoid a situation with
-failing supervisor restarts.
+Any process, in any application, with `Module` as residence module, is
+killed when the instruction is evaluated. Therefore, the user must
+ensure that all such processes are terminated before deleting module
+`Module` to avoid a situation with failing supervisor restarts.
 
 ### Application Instructions
 
@@ -299,44 +300,44 @@ The release handler evaluates [`apply(M, F, A)`](`apply/3`).
 
 ### restart_new_emulator (Low-Level)
 
-This instruction is used when changing to a new emulator version, or when any of
-the core applications Kernel, STDLIB, or SASL is upgraded. If a system reboot is
-needed for another reason, the `restart_emulator` instruction is to be used
-instead.
+This instruction is used when changing to a new version of the runtime
+system, or when any of the core applications Kernel, STDLIB, or SASL
+is upgraded. If a system reboot is needed for another reason, the
+`restart_emulator` instruction is to be used instead.
 
-This instruction requires that the system is started with heartbeat monitoring,
-see the [`erl(1)`](`e:erts:erl_cmd.md`) manual page in ERTS and the `m:heart`
-manual page in Kernel.
+This instruction requires that the system is started with heartbeat monitoring;
+see [`erl`](`e:erts:erl_cmd.md`) in ERTS and module `m:heart` in Kernel.
 
 The `restart_new_emulator` instruction must always be the first instruction in a
-relup. If the relup is generated by `systools:make_relup/3,4`, this is
-automatically ensured.
+relup. If the relup is generated by
+[`systools:make_relup/3,4`](`systools:make_relup/4`),
+this condition is automatically met.
 
-When the release handler encounters the instruction, it first generates a
-temporary boot file, which starts the new versions of the emulator and the core
-applications, and the old version of all other applications. Then it shuts down
-the current emulator by calling `init:reboot()`, see the `m:init` manual page in
-Kernel. All processes are terminated gracefully and the system is rebooted by
+When the release handler encounters this instruction, it first generates a
+temporary boot file that starts the new versions of the runtime system and the
+core applications, and the old version of all other applications. Then it shuts
+down the current instance of the runtime system by calling `init:reboot/0`.
+All processes are terminated gracefully and the system is rebooted by
 the `heart` program, using the temporary boot file. After the reboot, the rest
 of the relup instructions are executed. This is done as a part of the temporary
 boot script.
 
 > #### Warning {: .warning }
 >
-> This mechanism causes the new versions of the emulator and core applications
-> to run with the old version of other applications during startup. Thus, take
-> extra care to avoid incompatibility. Incompatible changes in the core
-> applications can in some situations be necessary. If possible, such changes
+> This mechanism causes the new versions of the runtime system and core
+> applications to run with the old version of other applications during startup.
+> Thus, take extra care to avoid incompatibility. Incompatible changes in the
+> core applications can in some situations be necessary. If possible, such changes
 > are preceded by deprecation over two major releases before the actual change.
 > To ensure the application is not crashed by an incompatible change, always
 > remove any call to deprecated functions as soon as possible.
 
 An info report is written when the upgrade is completed. To programmatically
 find out if the upgrade is complete, call
-`release_handler:which_releases(current)` and check if it returns the expected
-(that is, the new) release.
+[`release_handler:which_releases(current)`](`release_handler:which_releases/1`)
+and check whether it returns the expected (that is, the new) release.
 
-The new release version must be made permanent when the new emulator is
+The new release version must be made permanent when the new runtime system is
 operational. Otherwise, the old version will be used if there is a new system
 reboot.
 
@@ -344,7 +345,7 @@ On UNIX, the release handler tells the `heart` program which command to use to
 reboot the system. The environment variable `HEART_COMMAND`, normally used by
 the `heart` program, is ignored in this case. The command instead defaults to
 `$ROOT/bin/start`. Another command can be set by using the SASL configuration
-parameter `start_prg`, see the `sasl(6)` manual page.
+parameter `start_prg`. For more information, see [SASL](`e:sasl:sasl_app.md`).
 
 [](){: #restart_emulator_instr }
 
@@ -352,24 +353,25 @@ parameter `start_prg`, see the `sasl(6)` manual page.
 
 This instruction is not related to upgrades of ERTS or any of the core
 applications. It can be used by any application to force a restart of the
-emulator after all upgrade instructions are executed.
+runtime system after all upgrade instructions are executed.
 
-A relup script can only have one `restart_emulator` instruction and it must
+A relup script can only contain one `restart_emulator` instruction, and it must
 always be placed at the end. If the relup is generated by
-`systools:make_relup/3,4`, this is automatically ensured.
+[`systools:make_relup/3,4`](`systools:make_relup/4`),
+this condition is automatically met.
 
-When the release handler encounters the instruction, it shuts down the emulator
-by calling `init:reboot()`, see the `m:init` manual page in Kernel. All
-processes are terminated gracefully and the system can then be rebooted by the
-`heart` program using the new release version. No more upgrade instruction is
-executed after the restart.
+When the release handler encounters this instruction, it shuts down
+the runtime system by calling `init:reboot/0`. All processes are terminated
+gracefully and the system can then be rebooted by the `heart` program
+using the new release version. No more upgrade instruction is executed
+after the restart.
 
 [](){: #appup }
 
 ## Application Upgrade File
 
 To define how to upgrade/downgrade between the current version and previous
-versions of an application, an _application upgrade file_, or in short an
+versions of an application, an _application upgrade file_, or in short
 `.appup` file is created. The file is to be called `Application.appup`, where
 `Application` is the application name:
 
@@ -390,8 +392,8 @@ versions of an application, an _application upgrade file_, or in short an
 - Each `Instructions` is a list of release handling instructions.
 
 `UpFromVsn` and `DownToVsn` can also be specified as regular expressions. For
-more information about the syntax and contents of the `.appup` file, see the
-[`appup(4)` manual page in SASL](`e:sasl:appup.md`).
+more information about the syntax and contents of the `.appup` file, see
+[`appup`](`e:sasl:appup.md`) in SASL.
 
 [Appup Cookbook](appup_cookbook.md) includes examples of `.appup` files for
 typical upgrade/downgrade cases.
@@ -399,8 +401,8 @@ typical upgrade/downgrade cases.
 _Example:_ Consider the release `ch_rel-1` from
 [Releases](release_structure.md#ch_rel). Assume you want to add a function
 `available/0` to server `ch3`, which returns the number of available channels
-(when trying out the example, change in a copy of the original directory, so
-that the first versions are still available):
+(when trying out the example, make the change in a copy of the original
+directory, to ensure that the first version is still available):
 
 ```erlang
 -module(ch3).
@@ -468,11 +470,12 @@ the application upgrade file `ch_app.appup` in the `ebin` directory:
 ## Release Upgrade File
 
 To define how to upgrade/downgrade between the new version and previous versions
-of a release, a _release upgrade file_, or in short `relup` file, is to be
+of a release, a _release upgrade file_, or in short `.relup` file, is to be
 created.
 
-This file does not need to be created manually, it can be generated by
-`systools:make_relup/3,4`. The relevant versions of the `.rel` file, `.app`
+This file does not need to be created manually. It can be generated by
+[`systools:make_relup/3,4`](`systools:make_relup/4`).
+The relevant versions of the `.rel` file, `.app`
 files, and `.appup` files are used as input. It is deduced which applications
 are to be added and deleted, and which applications that must be upgraded and/or
 downgraded. The instructions for this are fetched from the `.appup` files and
@@ -481,8 +484,8 @@ transformed into a single list of low-level instructions in the right order.
 If the `relup` file is relatively simple, it can be created manually. It is only
 to contain low-level instructions.
 
-For details about the syntax and contents of the release upgrade file, see the
-`relup(4)` manual page in SASL.
+For details about the syntax and contents of the release upgrade file, see
+[`relup`](`e:sasl:relup.md`) in SASL.
 
 _Example, continued from the previous section:_ You have a new version "2" of
 `ch_app` and an `.appup` file. A new version of the `.rel` file is also needed.
@@ -492,10 +495,10 @@ changed from "A" to "B":
 ```erlang
 {release,
  {"ch_rel", "B"},
- {erts, "5.3"},
- [{kernel, "2.9"},
-  {stdlib, "1.12"},
-  {sasl, "1.10"},
+ {erts, "14.2.5"},
+ [{kernel, "9.2.4"},
+  {stdlib, "5.2.3"},
+  {sasl, "4.2.1"},
   {ch_app, "2"}]
 }.
 ```
@@ -529,11 +532,10 @@ ok
 When you have made a new version of a release, a release package can be created
 with this new version and transferred to the target environment.
 
-To install the new version of the release in runtime, the _release handler_ is
-used. This is a process belonging to the SASL application, which handles
-unpacking, installation, and removal of release packages. It is communicated
-through the `release_handler` module. For details, see the `m:release_handler`
-manual page in SASL.
+To install the new version of the release in runtime, the _release
+handler_ is used. This is a process belonging to the SASL application,
+which handles unpacking, installation, and removal of release
+packages. The `m:release_handler` module communicates with this process.
 
 Assuming there is an operational target system with installation root directory
 `$ROOT`, the release package with the new version of the release is to be copied
@@ -617,7 +619,7 @@ and config file is enough for illustration purposes:
 
 _Step 3)_ In another Erlang shell, generate start scripts and create a release
 package for the new version `"B"`. Remember to include (a possible updated)
-`sys.config` and the `relup` file, see
+`sys.config` and the `relup` file. For more information, see
 [Release Upgrade File](release_handling.md#relup).
 
 ```erlang
@@ -632,14 +634,14 @@ The new release package now also contains version "2" of `ch_app` and the
 
 ```text
 % tar tf ch_rel-2.tar
-lib/kernel-2.9/ebin/kernel.app
-lib/kernel-2.9/ebin/application.beam
+lib/kernel-9.2.4/ebin/kernel.app
+lib/kernel-9.2.4/ebin/application.beam
 ...
-lib/stdlib-1.12/ebin/stdlib.app
-lib/stdlib-1.12/ebin/beam_lib.beam
+lib/stdlib-5.2.3/ebin/stdlib.app
+lib/stdlib-5.2.3/ebin/argparse.beam
 ...
-lib/sasl-1.10/ebin/sasl.app
-lib/sasl-1.10/ebin/sasl.beam
+lib/sasl-4.2.1/ebin/sasl.app
+lib/sasl-4.2.1/ebin/sasl.beam
 ...
 lib/ch_app-2/ebin/ch_app.app
 lib/ch_app-2/ebin/ch_app.beam

@@ -21,25 +21,27 @@ limitations under the License.
 
 [](){: #appl }
 
-This section is to be read with the `app(4)` and `m:application` manual pages in
-Kernel.
+It is recommended to read this section alongside [`app`](`e:kernel:app.md`)
+and `m:application` in Kernel.
 
 ## Application Concept
 
-When you have written code implementing some specific functionality you might
-want to make the code into an _application_, that is, a component that can be
-started and stopped as a unit, and which can also be reused in other systems.
+After creating code to implement a specific functionality, you might
+consider transforming it into an *application* — a component that can be
+started and stopped as a unit, as well as reused in other systems.
 
-To do this, create an
-[application callback module](applications.md#callback_module), and describe how
-the application is to be started and stopped.
+The steps to create an application is as follows:
 
-Then, an _application specification_ is needed, which is put in an
-[application resource file](applications.md#appl_res_file). Among other things,
-this file specifies which modules the application consists of and the name of
-the callback module.
+* Create an [application callback
+  module](applications.md#callback_module) that describes how the
+  application is to be started and stopped.
 
-If you use `systools`, the Erlang/OTP tools for packaging code (see
+* Create an _application specification_ and place it in an
+  [application resource file](applications.md#appl_res_file). Among
+  other things, this file specifies which modules the application
+  consists of and the name of the callback module.
+
+If you use `m:systools`, the Erlang/OTP tools for packaging code (see
 [Releases](release_structure.md)), the code for each application is placed in a
 separate directory following a pre-defined
 [directory structure](applications.md#app_dir).
@@ -48,7 +50,7 @@ separate directory following a pre-defined
 
 ## Application Callback Module
 
-How to start and stop the code for the application, that is, the supervision
+How to start and stop the code for the application, including its supervision
 tree, is described by two callback functions:
 
 ```erlang
@@ -56,18 +58,18 @@ start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State}
 stop(State)
 ```
 
-- `start` is called when starting the application and is to create the
+- `start/2` is called when starting the application and is to create the
   supervision tree by starting the top supervisor. It is expected to return the
   pid of the top supervisor and an optional term, `State`, which defaults to
-  `[]`. This term is passed as is to `stop`.
+  `[]`. This term is passed as is to `stop/1`.
 - `StartType` is usually the atom `normal`. It has other values only in the case
-  of a takeover or failover, see
+  of a takeover or failover; see
   [Distributed Applications](distributed_applications.md).
 - `StartArgs` is defined by the key `mod` in the
   [application resource file](applications.md#appl_res_file).
 - `stop/1` is called _after_ the application has been stopped and is to do any
-  necessary cleaning up. The actual stopping of the application, that is, the
-  shutdown of the supervision tree, is handled automatically as described in
+  necessary cleaning up. The actual stopping of the application, that is,
+  shutting down the supervision tree, is handled automatically as described in
   [Starting and Stopping Applications](applications.md#stopping).
 
 [](){: #ch_app }
@@ -88,7 +90,7 @@ stop(_State) ->
     ok.
 ```
 
-A library application that cannot be started or stopped, does not need any
+A library application that cannot be started or stopped does not need any
 application callback module.
 
 [](){: #appl_res_file }
@@ -131,13 +133,13 @@ called when the application is to be started:
 ch_app:start(normal, [])
 ```
 
-The following is called when the application is stopped.
+The following is called when the application is stopped:
 
 ```text
 ch_app:stop([])
 ```
 
-When using `systools`, the Erlang/OTP tools for packaging code (see Section
+When using `m:systools`, the Erlang/OTP tools for packaging code (see Section
 [Releases](release_structure.md)), the keys `description`, `vsn`, `modules`,
 `registered`, and `applications` are also to be specified:
 
@@ -152,34 +154,34 @@ When using `systools`, the Erlang/OTP tools for packaging code (see Section
  ]}.
 ```
 
-- `description` \- A short description, a string. Defaults to "".
-- `vsn` \- Version number, a string. Defaults to "".
-- `modules` \- All modules _introduced_ by this application. `systools` uses
-  this list when generating boot scripts and tar files. A module must be defined
-  in only one application. Defaults to `[]`.
-- `registered` \- All names of registered processes in the application.
-  `systools` uses this list to detect name clashes between applications.
+- `description` - A short description, a string. Defaults to `""`.
+- `vsn` - Version number, a string. Defaults to `""`.
+- `modules` - All modules _introduced_ by this application. `m:systools` uses
+  this list when generating boot scripts and tar files. A module must only
+  be included in one application. Defaults to `[]`.
+- `registered` - All names of registered processes in the application.
+  `m:systools` uses this list to detect name clashes between applications.
   Defaults to `[]`.
-- `applications` \- All applications that must be started before this
-  application is started. `systools` uses this list to generate correct boot
+- `applications` - All applications that must be started before this
+  application is started. `m:systools` uses this list to generate correct boot
   scripts. Defaults to `[]`. Notice that all applications have dependencies to
   at least Kernel and STDLIB.
 
 > #### Note {: .info }
 >
 > For details about the syntax and contents of the application resource file,
-> see the [app](`e:kernel:app.md`) manual page in Kernel.
+> see [app](`e:kernel:app.md`) in Kernel.
 
 [](){: #app_dir }
 
 ## Directory Structure
 
-When packaging code using `systools`, the code for each application is placed in
+When packaging code using `m:systools`, the code for each application is placed in
 a separate directory, `lib/Application-Vsn`, where `Vsn` is the version number.
 
-This can be useful to know, even if `systools` is not used, since Erlang/OTP is
+This can be useful to know, even if `m:systools` is not used, since Erlang/OTP is
 packaged according to the OTP principles and thus comes with a specific
-directory structure. The code server (see the `m:code` manual page in Kernel)
+directory structure. The code server (see module `m:code` in Kernel)
 automatically uses code from the directory with the highest version number, if
 more than one version of an application is present.
 
@@ -212,24 +214,24 @@ application.
       └── test
 ```
 
-- `src` \- Required. Contains the Erlang source code, the source of the `.app`
+- `src` - Required. Contains the Erlang source code, the source of the `.app`
   file and internal include files used by the application itself. Additional
   sub-directories within `src` can be used as namespaces to organize source
   files. These directories should never be deeper than one level.
-- `priv` \- Optional. Used for application specific files.
-- `include` \- Optional. Used for public include files that must be reachable
+- `priv` - Optional. Used for application specific files.
+- `include` - Optional. Used for public include files that must be reachable
   from other applications.
-- `doc` \- Recommended. Any source documentation should be placed in
+- `doc` - Recommended. Any source documentation should be placed in
   sub-directories here.
-- `doc/internal` \- Recommended. Any documentation that describes implementation
+- `doc/internal` - Recommended. Any documentation that describes implementation
   details about this application, not intended for publication, should be placed
   here.
-- `doc/examples` \- Recommended. Source code for examples on how to use this
+- `doc/examples` - Recommended. Source code for examples on how to use this
   application should be placed here. It is encouraged that examples are sourced
   to the public documentation from this directory.
-- `doc/src` \- Recommended. All source files for documentation, such as
-  Markdown, AsciiDoc or XML-files, should be placed here.
-- `test` \- Recommended. All files regarding tests, such as test suites and test
+- `doc/src` - Recommended. All source files for documentation, such as
+  Markdown, AsciiDoc, or XML-files, should be placed here.
+- `test` - Recommended. All files regarding tests, such as test suites and test
   specifications, should be placed here.
 
 Other directories in the development environment may be needed. If source code
@@ -251,11 +253,12 @@ same name as the source language, for example `asn1` and `mibs`. Build artifacts
 should be placed in their respective language directory, such as `src` for
 Erlang code or `java_src` for Java code.
 
-The `.app` file for release may reside in the `ebin`\-directory in a development
-environment but it is encouraged that this is an artifact of the build step. By
-convention a `.app.src` file is used, which resides in the `src` directory. This
-file is nearly identical as the `.app` file but certain fields may be replaced
-during the build step, such as the application version.
+In a development environment, it is acceptable that the `.app` file for
+the release resides in the `ebin` directory, but it is recommended that
+it is an artifact of the build step. By convention a `.app.src`
+located in the `src` directory is used. This file is nearly identical
+to the `.app` file, but certain fields, such as the application
+version, are replaced during the build step.
 
 Directory names should not be capitalized.
 
@@ -285,35 +288,26 @@ A released application must follow a certain structure.
       └── src
 ```
 
-- `src` \- Optional. Contains the Erlang source code and internal include files
-  used by the application itself. This directory is no longer required in a
-  released application.
-- `ebin` \- Required. Contains the Erlang object code, the `beam` files. The
+- `src` - Optional. Contains the Erlang source code and internal include files
+  used by the application itself.
+- `ebin` - Required. Contains the Erlang object code, the `.beam` files. The
   `.app` file must also be placed here.
-- `priv` \- Optional. Used for application specific files. `code:priv_dir/1` is
+- `priv` - Optional. Used for application specific files. `code:priv_dir/1` is
   to be used to access this directory.
-- `priv/lib` \- Recommended. Any shared-object files that are used by the
+- `priv/lib` - Recommended. Any shared-object files that are used by the
   application, such as NIFs or linked-in-drivers, should be placed here.
-- `priv/bin` \- Recommended. Any executable that is used by the application,
-  such as port-programs, should be placed here.
-- `include` \- Optional. Used for public include files that must be reachable
+- `priv/bin` - Recommended. Any executable that is used by the application,
+  such as port programs, should be placed here.
+- `include` - Optional. Used for public include files that must be reachable
   from other applications.
-- `bin` \- Optional. Any executable that is a product of the application, such
-  as escripts or shell-scripts, should be placed here.
-- `doc` \- Optional. Any released documentation should be placed in
+- `bin` - Optional. Any executable that is a product of the application, such
+  as escripts or shell scripts, should be placed here.
+- `doc` - Optional. Any released documentation should be placed in
   sub-directories here.
-- `doc/man1` \- Recommended. Man pages for Application executables.
-- `doc/man3` \- Recommended. Man pages for module APIs.
-- `doc/man6` \- Recommended. Man pages for Application overview.
-- `doc/html` \- Optional. HTML pages for the entire Application.
-- `doc/pdf` \- Optional. PDF documentation for the entire Application.
 
-The `src` directory could be useful to release for debugging purposes but is not
-required. The `include` directory should only be released if the applications
-has public include files.
-
-The only documentation that is recommended to be released in this way are the
-man pages. HTML and PDF will normally be distributed in some other manner.
+The `src` directory could be useful to release for debugging purposes,
+but this is not required. The `include` directory should only be
+released if the applications has public include files.
 
 It is encouraged to omit empty directories.
 
@@ -325,10 +319,9 @@ When an Erlang runtime system is started, a number of processes are started as
 part of the Kernel application. One of these processes is the _application
 controller_ process, registered as `application_controller`.
 
-All operations on applications are coordinated by the application controller. It
-is interacted with through the functions in the module `application`, see the
-`m:application` manual page in Kernel. In particular, applications can be
-loaded, unloaded, started, and stopped.
+All operations on applications are coordinated by the application
+controller. Use module `m:application` in Kernel to load, unload, start, and
+stop applications.
 
 ## Loading and Unloading Applications
 
@@ -359,7 +352,7 @@ ok
 > #### Note {: .info }
 >
 > Loading/unloading an application does not load/unload the code used by the
-> application. Code loading is done the usual way.
+> application. Code loading is handled in the usual way by the code server.
 
 [](){: #stopping }
 
@@ -377,21 +370,29 @@ ok
 ```
 
 If the application is not already loaded, the application controller first loads
-it using `application:load/1`. It checks the value of the `applications` key, to
+it using `application:load/1`. It checks the value of the `applications` key to
 ensure that all applications that are to be started before this application are
 running.
 
 [](){: #application_master }
 
-The application controller then creates an _application master_ for the
-application. The application master becomes the group leader of all the
-processes in the application. I/O is forwarded to the previous group leader,
-though, this is just a way to identify processes that belong to the application.
-Used for example to find itself from any process, or, reciprocally, to kill them
-all when it terminates.
+Following that, the application controller creates an _application master_ for
+the application.
+
+The application master establishes itself as the [group
+leader](`erlang:group_leader/0`) of all processes in the application
+and will forward I/O to the previous group leader.
+
+> #### Note {: .info }
+>
+> The purpose of the application master being the group leader is to easily
+> keep track of which processes that belong to the application. That is needed
+> to support the `application:get_application/0` and `application:get_env/1`
+> functions, and also when stopping an application to ensure that all processes
+> belonging to the application are terminated.
 
 The application master starts the application by calling the application
-callback function `start/2` in the module, and with the start argument, defined
+callback function `start/2` in the module with the start argument defined
 by the `mod` key in the `.app` file.
 
 An application is stopped, but not unloaded, by calling:
@@ -426,7 +427,8 @@ list of `{Par,Val}` tuples specified by a key `env` in the `.app` file:
 
 `Par` is to be an atom. `Val` is any term. The application can retrieve the
 value of a configuration parameter by calling `application:get_env(App, Par)` or
-a number of similar functions, see the `m:application` manual page in Kernel.
+a number of similar functions. For more information, see module `m:application`
+in Kernel.
 
 _Example:_
 
@@ -452,8 +454,8 @@ relevant applications:
 ```
 
 The system configuration is to be called `Name.config` and Erlang is to be
-started with the command-line argument `-config Name`. For details, see the
-`config(4)` manual page in Kernel.
+started with the command-line argument `-config Name`. For details, see
+[`config`](`e:kernel:config.md`) in Kernel.
 
 _Example:_
 
