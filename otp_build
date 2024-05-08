@@ -1015,7 +1015,7 @@ do_download_ex_doc ()
     ## Download ex_doc and place in $ERL_TOP/bin folder
     curl -s -L "$(cat "$ERL_TOP/make/ex_doc_link")" > "$ERL_TOP/bin/ex_doc"
     chmod +x "$ERL_TOP/bin/ex_doc"
-    if command -v sha26sum > /dev/null; then
+    if command -v sha256sum > /dev/null; then
         if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
             echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
             exit 1
@@ -1043,7 +1043,7 @@ do_update_ex_doc ()
     if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null; then
         OTP_VERSION="$(($OTP_VERSION-1))"
     fi
-    if command -v sha1sum > /dev/null && command -v sha1sum > /dev/null; then
+    if command -v sha1sum > /dev/null && command -v sha256sum > /dev/null; then
         echo "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > "$ERL_TOP/make/ex_doc_link"
         echo "${EX_DOC_VSN}" > "$ERL_TOP/make/ex_doc_vsn"
         curl -sL "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex-doc-otp-${OTP_VERSION}.sha256sum" | sed 's:ex_doc.*$:../bin/ex_doc:' > "$ERL_TOP/make/ex_doc.sha256sum"
