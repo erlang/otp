@@ -209,9 +209,7 @@ STDLIB) must return a list with one single element.
 	       reconn_int=?RECONN_TIMEOUT,
 	       tcp_nodelay=false}).
 
--doc """
-Equivalent to [`ct_telnet:open(Name, telnet)`](`open/2`).
-""".
+-doc(#{equiv => open(Name, telnet)}).
 -spec open(Name) -> {'ok', Handle} | {'error', Reason}
               when Name :: atom(),
                    Handle :: handle(),
@@ -237,10 +235,7 @@ open(Name,ConnType) ->
 	    Error
     end.
 
--doc """
-Equivalent to
-[`ct_telnet:ct_telnet:open(KeyOrName, ConnType, TargetMod, [])`](`open/4`).
-""".
+-doc(#{equiv => open(KeyOrName, ConnType, TargetMod, KeyOrName)}).
 -spec open(KeyOrName, ConnType, TargetMod) -> {'ok', Handle} | {'error', Reason}
               when KeyOrName :: atom(),
                    ConnType :: connection_type(),
@@ -348,9 +343,7 @@ close(Connection) ->
 %%% Test suite interface
 %%%-----------------------------------------------------------------
 
--doc """
-Equivalent to [`ct_telnet:cmd(Connection, Cmd, [])`](`cmd/3`).
-""".
+-doc(#{equiv => cmd(Connection, Cmd, [])}).
 -spec cmd(Connection, Cmd) -> {'ok', Data} | {'error', Reason}
               when Connection :: connection(),
                    Cmd :: iodata(),
@@ -406,9 +399,7 @@ check_cmd_opts([]) ->
 check_cmd_opts(Opts) ->
     check_send_opts(Opts).
 
--doc """
-Equivalent to [`ct_telnet:cmdf(Connection, CmdFormat, Args, [])`](`cmdf/4`).
-""".
+-doc(#{equiv => cmdf(Connection, CmdFormat, Args, [])}).
 -spec cmdf(Connection, CmdFormat, Args) -> {'ok', Data} | {'error', Reason}
               when Connection :: connection(),
                    CmdFormat :: io:format(),
@@ -459,9 +450,7 @@ get_data(Connection) ->
 	    Error
     end.
 
--doc """
-Equivalent to [`ct_telnet:send(Connection, Cmd, [])`](`send/3`).
-""".
+-doc(#{equiv => send(Connection, Cmd, [])}).
 -spec send(Connection, Cmd) -> 'ok' | {'error', Reason}
               when Connection :: connection(),
                    Cmd :: iodata(),
@@ -517,9 +506,7 @@ check_send_opts([Invalid|_]) ->
 check_send_opts([]) ->
     ok.
 
--doc """
-Equivalent to [`ct_telnet:sendf(Connection, CmdFormat, Args, [])`](`sendf/4`).
-""".
+-doc(#{equiv => sendf(Connection, CmdFormat, Args, [])}).
 -spec sendf(Connection, CmdFormat, Args) -> 'ok' | {'error', Reason}
               when Connection :: connection(),
                    CmdFormat :: io:format(),
@@ -545,9 +532,7 @@ sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
     send(Connection,Cmd,Opts).
 
--doc """
-Equivalent to [`ct_telnet:expect(Connections, Patterns, [])`](`expect/3`).
-""".
+-doc(#{equiv => expect(Connection, Patterns, [])}).
 -spec expect(Connection, Patterns) -> {'ok', Match} | {'ok', Match, HaltReason}
               | {'error', Reason} | no_return()
               when Connection :: connection(),
