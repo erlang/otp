@@ -1786,6 +1786,12 @@ pick_peer(SvcName,
           CallOpts) ->
     pick_peer(SvcName, App, Msg, CallOpts#options{extra = []});
 
+pick_peer(SvcName,
+          App,
+          #diameter_packet{msg = Msg},
+          CallOpts) ->
+    pick_peer(SvcName, App, Msg, CallOpts#options{extra = []});
+
 pick_peer(_, _, undefined, _) ->
     {error, no_connection};
 

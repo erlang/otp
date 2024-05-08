@@ -80,6 +80,7 @@
          send_destination_4/1,
          send_destination_5/1,
          send_destination_6/1,
+         send_destination_7/1,
          send_bad_option_1/1,
          send_bad_option_2/1,
          send_bad_filter_1/1,
@@ -950,6 +951,25 @@ send_destination_6(Config) ->
     ?answer_message(?UNABLE_TO_DELIVER)
         = call(Config, Req).
 
+%% Send unknown host in diameter_packet with filtering and expect error.
+send_destination_7(Config) ->
+    #group{client_service = CN,
+           client_dict = Dict0}
+        = group(Config),
+    Name = proplists:get_value(testcase, Config),
+    Svc = ?util:unique_string(),
+    SN = [$S | Svc],
+    Req =
+        #diameter_packet{msg = ['STR' |
+                                #{'Termination-Cause' => ?LOGOUT,
+                                  'Destination-Host' => [?HOST(SN, ?REALM)]}]},
+    {error, no_connection} =
+        diameter:call(CN,
+                      Dict0,
+                      Req,
+                      [{extra, [Name, diameter_lib:now()]},
+                       {filter, {all, [host, realm]}}]).
+
 %% Specify an invalid option and expect failure.
 send_bad_option_1(Config) ->
     send_bad_option(Config, x).
@@ -1234,7 +1254,6 @@ id(Id, {Pid, _Caps}, SvcName) ->
     lists:member({id, Id}, Opts).
 
 %% prepare_request/6-7
-
 prepare_request(_Pkt, [$C|_], {_Ref, _Caps}, _, send_discard, _) ->
     {discard, unprepared};
 
