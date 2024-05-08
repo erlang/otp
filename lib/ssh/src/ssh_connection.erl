@@ -1819,6 +1819,7 @@ channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
 	    WantedSize = Size - byte_size(Data),
 	    ssh_client_channel:cache_update(Connection#connection.channel_cache, 
                                      Channel#channel{recv_window_size = WantedSize}),
+            adjust_window(self(), ChannelId, byte_size(Data)),
             reply_msg(Channel, Connection, {data, ChannelId, DataType, Data});
 	undefined ->
 	    {[], Connection}
