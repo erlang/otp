@@ -167,8 +167,8 @@ When using a cover specification in the testing of an OTP application itself,
 there is a special incl_app directive that includes the applications modules for
 the cover compilation.
 
-```text
-{incl_app, AppName, Cover:: overview | details}.
+```erlang
+{incl_app, AppName, Cover :: overview | details}.
 ```
 
 > #### Note {: .info }
@@ -220,7 +220,7 @@ comes in handy.
 
 If instead the cover specification for `s2` is like the following:
 
-```erlang
+```text
 s2.cover:
   {cross,[{s1,[m1]}]}.
 ```

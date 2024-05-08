@@ -96,9 +96,7 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
 	    end
     end.
 
--doc """
-Same as [`call(Node, Module, Function, Args, infinity)`](`call/5`).
-""".
+-doc(#{equiv => call(Node, Module, Function, Args, infinity, [])}).
 -spec call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
               when Node :: {Function, Args} | node(),
                    Module :: module(),

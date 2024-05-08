@@ -75,8 +75,6 @@ For information about how to add a CTH to your suite, see section
 %% Callbacks
 %% -------------------------------------------------------------------------
 -doc """
-OPTIONAL
-
 The `Id` identifies a CTH instance uniquely. If two CTHs return the same `Id`,
 the second CTH is ignored and subsequent calls to the CTH are only made to the
 first instance. For details, see section
@@ -92,8 +90,6 @@ If not implemented, the CTH acts as if this function returned a call to
 -callback id(Opts) -> Id when Opts :: term(), Id :: term().
 
 -doc """
-MANDATORY
-
 This function is always called before any other callback function. Use it to
 initiate any common state. It is to return a state for this CTH.
 
@@ -119,11 +115,11 @@ For details about when `init` is called, see section
       Priority :: integer().
 
 -doc """
-OPTIONAL
-
 This function is called whenever a test case (or configuration function) is
 skipped. It is called after the post function is called for the skipped test
-case, that is:
+case.
+
+That is:
 
 - If `init_per_group` is skipped, this function is called after
   [`post_init_per_group`](`c:post_init_per_group/5`).
@@ -157,11 +153,10 @@ for backwards compatibility.
       NewCTHState :: term().
 
 -doc """
-OPTIONAL
-
 This function is called whenever a test case (or configuration function) fails.
-It is called after the post function is called for the failed test case, that
-is:
+It is called after the post function is called for the failed test case.
+
+That is:
 
 - If `init_per_suite` fails, this function is called after
   [`post_init_per_suite`](`c:post_init_per_suite/4`).
@@ -195,8 +190,6 @@ for backwards compatibility.
       NewCTHState :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`end_per_suite`](`c:ct_suite:end_per_suite/1`) if
 it exists. It behaves the same way as
 [`post_init_per_suite`](`c:post_init_per_suite/4`), but for function
@@ -217,8 +210,6 @@ it exists. It behaves the same way as
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before [`end_per_suite`](`c:ct_suite:end_per_suite/1`)
 if it exists. It behaves the same way as
 [`pre_init_per_suite`](`c:pre_init_per_suite/3`), but for function
@@ -240,8 +231,6 @@ if it exists. It behaves the same way as
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`end_per_group`](`c:ct_suite:end_per_group/2`) if
 it exists. It behaves the same way as
 [`post_init_per_suite`](`c:post_init_per_suite/4`), but for function
@@ -268,8 +257,6 @@ is for backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before [`end_per_group`](`c:ct_suite:end_per_group/2`)
 if it exists. It behaves the same way as
 [`pre_init_per_suite`](`c:pre_init_per_suite/3`), but for function
@@ -296,8 +283,6 @@ backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after
 [`end_per_testcase`](`c:ct_suite:end_per_testcase/2`) if it exists. It behaves
 the same way as [`post_end_per_suite`](`c:post_end_per_suite/4`), but for
@@ -325,8 +310,6 @@ This is for backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before
 [`end_per_testcase`](`c:ct_suite:end_per_testcase/2`) if it exists. It behaves
 the same way as [`pre_end_per_suite`](`c:pre_end_per_suite/3`), but for function
@@ -356,8 +339,6 @@ for backwards compatibility.
       Value :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after
 [`init_per_testcase`](`c:ct_suite:init_per_testcase/2`) if it exists. It behaves
 the same way as [`post_init_per_suite`](`c:post_init_per_suite/4`), but for
@@ -385,8 +366,6 @@ This is for backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before
 [`init_per_testcase`](`c:ct_suite:init_per_testcase/2`) if it exists. It behaves
 the same way as [`pre_init_per_suite`](`c:pre_init_per_suite/3`), but for
@@ -417,8 +396,6 @@ release, but it would right now break backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`init_per_group`](`c:ct_suite:init_per_group/2`)
 if it exists. It behaves the same way as
 [`post_init_per_suite`](`c:post_init_per_suite/4`), but for function
@@ -445,8 +422,6 @@ is for backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before [`init_per_group`](`c:ct_suite:init_per_group/2`)
 if it exists. It behaves the same way as
 [`pre_init_per_suite`](`c:pre_init_per_suite/3`), but for function
@@ -474,8 +449,6 @@ backwards compatibility.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`init_per_suite`](`c:ct_suite:init_per_suite/1`)
 if it exists. It typically contains extra checks to ensure that all the correct
 dependencies are started correctly.
@@ -514,8 +487,6 @@ Guide.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called before [`init_per_suite`](`c:ct_suite:init_per_suite/1`)
 if it exists. It typically contains initialization/logging that must be done
 before `init_per_suite` is called. If `{skip,Reason}` or `{fail,Reason}` is
@@ -557,8 +528,6 @@ Guide.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`all/0`](`c:ct_suite:all/0`). It is used to
 modify the set of test cases and test group to be executed, for instance to add
 or remove test cases and groups, change group properties, or even skip all tests
@@ -627,8 +596,6 @@ CT start flag, the `c:init/2` function is called first.
       Reason :: term().
 
 -doc """
-OPTIONAL
-
 This function is called after [`groups/0`](`c:ct_suite:groups/0`). It is used to
 modify the test group definitions, for instance to add or remove groups or
 change group properties.
@@ -683,8 +650,6 @@ first.
       N :: integer() | forever.
 
 -doc """
-OPTIONAL
-
 This function is called at the end of a CTH [scope](ct_hooks_chapter.md#scope).
 The returned term is ignored.
 """.

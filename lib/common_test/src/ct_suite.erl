@@ -95,8 +95,6 @@ The test suite information, as returned by [`Module:suite/0`](`c:suite/0`),
 -type ct_test_def() :: ct_testname() | ct_group_ref() | ct_testcase_ref().
 
 -doc """
-MANDATORY
-
 Returns the list of all test cases and test case groups in the test suite module
 to be executed. This list also specifies the order the cases and groups are
 executed by `Common Test`. A test case is represented by an atom, the name of
@@ -121,8 +119,6 @@ For details on groups, see section
     {skip, Reason :: term()}.
 
 -doc """
-OPTIONAL
-
 Defines test case groups. For details, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
 """.
@@ -131,8 +127,6 @@ Defines test case groups. For details, see section
     [GroupDef :: ct_group_def()].
 
 -doc """
-OPTIONAL
-
 The test suite information function. Returns a list of tagged tuples specifying
 various properties related to the execution of this test suite (common for all
 test cases in the suite).
@@ -208,8 +202,6 @@ Guide.
     {save_config, SaveConfig :: ct_config()}.
 
 -doc """
-OPTIONAL
-
 The test case group information function. It is supposed to return a list of
 tagged tuples that specify various properties related to the execution of a test
 case group (that is, its test cases and subgroups). Properties set by
@@ -332,8 +324,6 @@ Guide.
     {save_config, SaveConfig :: ct_config()}.
 
 -doc """
-MANDATORY
-
 The implementation of a test case. Call the functions to test and check the
 result. If something fails, ensure the function causes a runtime error or call
 [`ct:fail/1,2`](`ct:fail/1`) (which also causes the test case process to
@@ -386,8 +376,6 @@ For details about test case implementation, see section
                             Comment :: string().
 
 -doc """
-OPTIONAL
-
 The test case information function. It is supposed to return a list of tagged
 tuples that specify various properties related to the execution of this
 particular test case. Properties set by [`Module:Testcase/0`](`c:'Testcase'/0`)

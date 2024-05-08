@@ -424,8 +424,10 @@ groups() ->
 The following executes two tests, one for all cases and all subgroups under
 `top1`, and one for all under `top2`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group all
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,all}]).
 ```
 
@@ -433,31 +435,39 @@ Using `-group top1 top2`, or `{group,[top1,top2]}` gives the same result.
 
 The following executes one test for all cases and subgroups under `top1`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group top1
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}]).
 ```
 
 The following runs a test executing `tc12` in `top1` and any subgroup under
 `top1` where it can be found (`sub11` and `sub121`):
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group top1 -case tc12
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc12]}]).
 ```
 
 The following executes `tc12` _only_ in group `top1`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group [top1] -case tc12
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[[top1]]}, {testcase,[tc12]}]).
 ```
 
 The following searches `top1` and all its subgroups for `tc16` resulting in that
 this test case executes in group `sub121`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group top1 -case tc16
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[top1]}, {testcase,[tc16]}]).
 ```
 
@@ -467,8 +477,10 @@ result in this example.
 The following executes two tests, one including all cases and subgroups under
 `sub12`, and one with _only_ the test cases in `sub12`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group sub12 [sub12]
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[sub12,[sub12]]}]).
 ```
 
@@ -476,8 +488,10 @@ In the following example, `Common Test` finds and executes two tests, one for
 the path from `top2` to `sub2X2` through `sub21`, and one from `top2` to
 `sub2X2` through `sub22`:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group sub2X2
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[sub2X2]}]).
 ```
 
@@ -485,16 +499,20 @@ In the following example, by specifying the unique path
 `top2 -> sub21 -> sub2X2`, only one test is executed. The second possible path,
 from `top2` to `sub2X2` (from the former example) is discarded:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group [sub21,sub2X2]
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub21,sub2X2]]}]).
 ```
 
 The following executes only the test cases for `sub22` and in reverse order
 compared to the group definition:
 
-```erlang
+```text
 $ ct_run -suite "x_SUITE" -group [sub22] -case tc22 tc21
+```
+```erlang
 1> ct:run_test([{suite,"x_SUITE"}, {group,[[sub22]]}, {testcase,[tc22,tc21]}]).
 ```
 
@@ -1080,7 +1098,7 @@ tag (or tags) in `Tags`.
 
 For example, in the test specification:
 
-```text
+```erlang
 ...
 {label, my_server_smoke_test}.
 {config, "../../my_server_setup.cfg"}.

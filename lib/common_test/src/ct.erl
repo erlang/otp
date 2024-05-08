@@ -139,7 +139,7 @@ Run this function once before the first test.
 _Example:_
 
 ```erlang
- install([{config,["config_node.ctc","config_user.ctc"]}])
+install([{config,["config_node.ctc","config_user.ctc"]}])
 ```
 
 This function is automatically run by program `ct_run`.
@@ -369,12 +369,12 @@ required with [`ct:require/2`](`require/2`).
 _Example:_
 
 ```erlang
- > ct:require(unix_telnet, unix).
- ok
- > ct_telnet:open(unix_telnet).
- {ok,<0.105.0>}
- > ct_telnet:cmd(unix_telnet, "ls .").
- {ok,["ls","file1  ...",...]}
+> ct:require(unix_telnet, unix).
+ok
+> ct_telnet:open(unix_telnet).
+{ok,<0.105.0>}
+> ct_telnet:cmd(unix_telnet, "ls .").
+{ok,["ls","file1  ...",...]}
 ```
 """.
 -spec start_interactive() -> ok.
@@ -404,37 +404,37 @@ be specified as `Required`. Only the last element of the tuple can be a list of
 _Example 1._ Require the variable `myvar`:
 
 ```erlang
- ok = ct:require(myvar).
+ok = ct:require(myvar).
 ```
 
 In this case the configuration file must at least contain:
 
-```text
- {myvar,Value}.
+```erlang
+{myvar,Value}.
 ```
 
 _Example 2._ Require key `myvar` with subkeys `sub1` and `sub2`:
 
 ```erlang
- ok = ct:require({myvar,[sub1,sub2]}).
+ok = ct:require({myvar,[sub1,sub2]}).
 ```
 
 In this case the configuration file must at least contain:
 
 ```erlang
- {myvar,[{sub1,Value},{sub2,Value}]}.
+{myvar,[{sub1,Value},{sub2,Value}]}.
 ```
 
 _Example 3._ Require key `myvar` with subkey `sub1` with `subsub1`:
 
 ```erlang
- ok = ct:require({myvar,sub1,sub2}).
+ok = ct:require({myvar,sub1,sub2}).
 ```
 
 In this case the configuration file must at least contain:
 
 ```erlang
- {myvar,[{sub1,[{sub2,Value}]}]}.
+{myvar,[{sub1,[{sub2,Value}]}]}.
 ```
 
 See also [`ct:get_config/1`](`get_config/1`),
@@ -466,20 +466,20 @@ Require one node with a Telnet connection and an FTP connection. Name the node
 `a`:
 
 ```erlang
- ok = ct:require(a,{machine,node}).
+ok = ct:require(a,{machine,node}).
 ```
 
 All references to this node can then use the node name. For example, a file over
 FTP is fetched like follows:
 
 ```erlang
- ok = ct:ftp_get(a,RemoteFile,LocalFile).
+ok = ct:ftp_get(a,RemoteFile,LocalFile).
 ```
 
 For this to work, the configuration file must at least contain:
 
 ```erlang
- {machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.
+{machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.
 ```
 
 > #### Note {: .info }
@@ -503,7 +503,7 @@ See also [`ct:get_config/1`](`get_config/1`),
 require(Name,Required) ->
     ct_config:require(Name,Required).
 
--doc "Equivalent to [`ct:get_config(Required, undefined, [])`](`get_config/3`).".
+-doc(#{equiv => get_config(Required, undefined, [])}).
 -spec get_config(Required) -> Value
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
            KeyOrName :: atom(),
@@ -512,7 +512,7 @@ require(Name,Required) ->
 get_config(Required) ->
     ct_config:get_config(Required,undefined,[]).
 
--doc "Equivalent to [`ct:get_config(Required, Default, [])`](`get_config/3`).".
+-doc(#{equiv => get_config(Required, Default, [])}).
 -spec get_config(Required, Default) -> Value
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
            KeyOrName :: atom(),
@@ -534,20 +534,20 @@ _Example:_
 Given the following configuration file:
 
 ```erlang
- {unix,[{telnet,IpAddr},
-        {user,[{username,Username},
-               {password,Password}]}]}.
+{unix,[{telnet,IpAddr},
+       {user,[{username,Username},
+              {password,Password}]}]}.
 ```
 
 Then:
 
 ```erlang
- ct:get_config(unix,Default) -> [{telnet,IpAddr},
-  {user, [{username,Username}, {password,Password}]}]
- ct:get_config({unix,telnet},Default) -> IpAddr
- ct:get_config({unix,user,username},Default) -> Username
- ct:get_config({unix,ftp},Default) -> Default
- ct:get_config(unknownkey,Default) -> Default
+ct:get_config(unix,Default) -> [{telnet,IpAddr},
+ {user, [{username,Username}, {password,Password}]}]
+ct:get_config({unix,telnet},Default) -> IpAddr
+ct:get_config({unix,user,username},Default) -> Username
+ct:get_config({unix,ftp},Default) -> Default
+ct:get_config(unknownkey,Default) -> Default
 ```
 
 If a configuration variable key has been associated with a name (by
@@ -555,8 +555,8 @@ If a configuration variable key has been associated with a name (by
 instead of the key to read the value:
 
 ```erlang
- ct:require(myuser,{unix,user}) -> ok.
- ct:get_config(myuser,Default) -> [{username,Username}, {password,Password}]
+ct:require(myuser,{unix,user}) -> ok.
+ct:get_config(myuser,Default) -> [{username,Username}, {password,Password}]
 ```
 
 If a configuration variable is defined in multiple files, use option `all` to
@@ -661,13 +661,13 @@ escape_chars(Format, Args) ->
 	    {error,Reason}
     end.
 
--doc "Equivalent to [`ct:log(default, 50, Format, [], [])`](`log/5`).".
+-doc(#{equiv => log(default, ?STD_IMPORTANCE, Format, [], [])}).
 -spec log(Format) -> ok
       when Format :: string().
 log(Format) ->
     log(default,?STD_IMPORTANCE,Format,[],[]).
 
--doc "Equivalent to [`ct:log(Category, Importance, Format, FormatArgs, [])`](`log/5`).".
+-doc(#{equiv => log(Category, Importance, Format, FormatArgs, [])}).
 -spec log(X1, X2) -> ok
       when X1 :: Category | Importance | Format,
            X2 :: Format | FormatArgs,
@@ -683,10 +683,7 @@ log(X1,X2) ->
 	end,
     log(Category,Importance,Format,Args,[]).
 
--doc """
-Equivalent to
-[`ct:log(Category, Importance, Format, FormatArgs, Opts)`](`log/5`).
-""".
+-doc(#{equiv => log(Category, Importance, Format, FormatArgs, Opts)}).
 -spec log(X1, X2, X3) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -706,11 +703,7 @@ log(X1,X2,X3) ->
 	end,
     log(Category,Importance,Format,Args,Opts).
 
--doc """
-Equivalent to
-[`ct:log(Category, Importance, Format, FormatArgs, Opts)`](`log/5`).
-""".
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{equiv => log(Category, Importance, Format, FormatArgs, Opts), since => <<"OTP R15B02">>}).
 -spec log(X1, X2, X3, X4) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -757,17 +750,13 @@ printed with this function, unless the `esc_chars` option is used.
 log(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_log(Category,Importance,Format,Args,Opts).
 
--doc "Equivalent to [`ct:print(default, 50, Format, [], [])`](`print/5`).".
+-doc(#{equiv => print(default, ?STD_IMPORTANCE, Format, [], [])}).
 -spec print(Format) -> ok
       when Format :: string().
 print(Format) ->
     print(default,?STD_IMPORTANCE,Format,[],[]).
 
--doc """
-Equivalent to
-[`ct:print(Category, Importance, Format, FormatArgs, [])`](`print/5`).
-""".
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{equiv => print(Category, Importance, Format, FormatArgs, []), since => <<"OTP R15B02">>}).
 -spec print(X1, X2) -> ok
       when X1 :: Category | Importance | Format,
            X2 :: Format | FormatArgs,
@@ -783,10 +772,7 @@ print(X1,X2) ->
 	end,
     print(Category,Importance,Format,Args,[]).
 
--doc """
-Equivalent to
-[`ct:print(Category, Importance, Format, FormatArgs, Opts)`](`print/5`).
-""".
+-doc(#{equiv => print(Category, Importance, Format, FormatArgs, Opts)}).
 -spec print(X1, X2, X3) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -806,11 +792,7 @@ print(X1,X2,X3) ->
 	end,
     print(Category,Importance,Format,Args,Opts).
 
--doc """
-Equivalent to
-[`ct:print(Category, Importance, Format, FormatArgs, Opts)`](`print/5`).
-""".
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{equiv => print(Category, Importance, Format, FormatArgs, Opts), since => <<"OTP R15B02">>}).
 -spec print(X1, X2, X3, X4) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -853,13 +835,13 @@ the User's Guide.
 print(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_print(Category,Importance,Format,Args,Opts).
 
--doc "Equivalent to [`ct:pal(default, 50, Format, [], [])`](`pal/5`).".
+-doc(#{equiv => pal(default, ?STD_IMPORTANCE, Format, [], [])}).
 -spec pal(Format) -> ok
       when Format :: string().
 pal(Format) ->
     pal(default,?STD_IMPORTANCE,Format,[]).
 
--doc "Equivalent to [`ct:pal(Category, Importance, Format, FormatArgs, [])`](`pal/5`).".
+-doc(#{equiv => pal(Category, Importance, Format, FormatArgs, [])}).
 -spec pal(X1, X2) -> ok
       when X1 :: Category | Importance | Format,
            X2 :: Format | FormatArgs,
@@ -875,10 +857,7 @@ pal(X1,X2) ->
 	end,
     pal(Category,Importance,Format,Args,[]).
 
--doc """
-Equivalent to
-[`ct:pal(Category, Importance, Format, FormatArgs, Opts)`](`pal/5`).
-""".
+-doc(#{equiv => pal(Category, Importance, Format, FormatArgs, Opts)}).
 -spec pal(X1, X2, X3) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -897,11 +876,7 @@ pal(X1,X2,X3) ->
 	end,
     pal(Category,Importance,Format,Args,Opts).
 
--doc """
-Equivalent to
-[`ct:pal(Category, Importance, Format, FormatArgs, Opts)`](`pal/5`).
-""".
--doc(#{since => <<"OTP R15B02">>}).
+-doc(#{equiv => pal(Category, Importance, Format, FormatArgs, Opts), since => <<"OTP R15B02">>}).
 -spec pal(X1, X2, X3, X4) -> ok
       when X1 :: Category | Importance,
            X2 :: Importance | Format,
@@ -995,10 +970,7 @@ See also [`ct:capture_get/1`](`capture_get/1`),
 capture_stop() ->
     test_server:capture_stop().
 
--doc """
-Equivalent to [ct:capture_get(\[default])](`capture_get/1`).
-""".
--doc(#{since => <<"OTP R15B">>}).
+-doc(#{equiv => capture_get([default]), since => <<"OTP R15B">>}).
 -spec capture_get() -> ListOfStrings
       when ListOfStrings :: [string()].
 capture_get() ->
@@ -1364,7 +1336,7 @@ to, for example, add a user-specific event handler while tests are running.
 _Example:_
 
 ```erlang
- gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])
+gen_event:add_handler(ct:get_event_mgr_ref(), my_ev_h, [])
 ```
 """.
 -doc(#{since => <<"OTP 17.5">>}).

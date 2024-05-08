@@ -943,7 +943,7 @@ the following is printed:
 Note that the category argument is not required in order to only specify the
 importance of a printout. Example:
 
-```text
+```erlang
 ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])
 ```
 

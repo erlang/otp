@@ -230,10 +230,7 @@ quickcheck(Property, Config) ->
 %%%
 %%% Present a nice table of the statem result
 %%%
--doc """
-Same as [`present_result(Module, Cmds, Triple, Config, [])`](`present_result/5`)
-""".
--doc(#{since => <<"OTP 22.3">>}).
+-doc(#{equiv => present_result(Module, Cmds, Triple, Config, []), since => <<"OTP 22.3">>}).
 -spec present_result(Module, Cmds, Triple, Config) -> boolean()
               when Module :: module(),
                    Cmds :: command() | command_list(),
@@ -291,9 +288,9 @@ Each tuple will produce one table in the order of their places in the list.
   it as:
 
   ```text
-   a 60%
-   b 20%
-   c 20%
+  a 60%
+  b 20%
+  c 20%
   ```
 
 The default `StatisticsSpec` is:

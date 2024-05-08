@@ -85,7 +85,7 @@ Connect/session options can be specified in a configuration file with entries
 like the following.
 
 ```erlang
- {server_id(), [option()]}.
+{server_id(), [option()]}.
 ```
 
 The `t:server_id/0` or an associated `t:ct:target_name/0` can then be passed to
@@ -118,7 +118,7 @@ purpose error handler is implemented in `ct_conn_log_h`. To use this error
 handler, add the `cth_conn_log` hook in the test suite, for example:
 
 ```erlang
- suite() ->
+suite() ->
     [{ct_hooks, [{cth_conn_log, [{ct:conn_log_mod(), ct:conn_log_options()}]}]}].
 ```
 
@@ -152,14 +152,14 @@ The hook options can also be specified in a configuration file with
 configuration variable `ct_conn_log`:
 
 ```erlang
- {ct_conn_log,[{ct:conn_log_mod(), ct:conn_log_options()}]}.
+{ct_conn_log,[{ct:conn_log_mod(), ct:conn_log_options()}]}.
 ```
 
 For example:
 
 ```erlang
- {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-                             {hosts,[ct:key_or_name()]}]}]}
+{ct_conn_log,[{ct_netconfc,[{log_type,pretty},
+                            {hosts,[ct:key_or_name()]}]}]}
 ```
 
 > #### Note {: .info }
@@ -176,17 +176,17 @@ separate logs for the connections named `nc_server1` and `nc_server2`. Any other
 connections are logged to default NETCONF log.
 
 ```erlang
- suite() ->
-    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
-                                               {hosts,[nc_server1,nc_server2]}]}
-                                ]}]}].
+suite() ->
+   [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
+                                              {hosts,[nc_server1,nc_server2]}]}
+                               ]}]}].
 ```
 
 Connections must be opened as follows:
 
 ```erlang
- open(nc_server1,[...]),
- open(nc_server2,[...]).
+open(nc_server1,[...]),
+open(nc_server2,[...]).
 ```
 
 _Logging Example 2:_
@@ -196,14 +196,14 @@ _Logging Example 2:_
 The following configuration file causes raw logging of all NETCONF traffic in to
 one single text file:
 
-```text
- {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.
+```erlang
+{ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.
 ```
 
 The `ct_hooks` statement must look as follows:
 
 ```erlang
- suite() ->
+suite() ->
     [{ct_hooks, [{cth_conn_log, []}]}].
 ```
 
@@ -461,7 +461,7 @@ Date and time of a startTime/stopTime element in an RFC 5277 create-subscription
 request. Of XML primitive type `dateTime`, which has the (informal) form
 
 ```text
- [-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]
+[-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]
 ```
 
 where `T` and `Z` are literal and `.s` is one or more fractional seconds.
@@ -1076,8 +1076,8 @@ By default only the running target is available, unless the server includes
 value must be a list containing valid simple XML, for example:
 
 ```erlang
- [{'default-operation', ["none"]},
-  {'error-option', ["rollback-on-error"]}]
+[{'default-operation', ["none"]},
+ {'error-option', ["rollback-on-error"]}]
 ```
 
 If `OptParams` is not given, the default value `[]` is used.
@@ -1386,26 +1386,26 @@ Sends a request to get the specified event streams.
 server in a `get` request:
 
 ```text
- <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-   <streams>
-     <stream>
-       <name>StreamName1</name>
-     </stream>
-     <stream>
-       <name>StreamName2</name>
-     </stream>
-     ...
-   </streams>
- </netconf>
+<netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
+  <streams>
+    <stream>
+      <name>StreamName1</name>
+    </stream>
+    <stream>
+      <name>StreamName2</name>
+    </stream>
+    ...
+  </streams>
+</netconf>
 ```
 
 If `Streams` is an empty list, _all_ streams are requested by sending the
 following filter:
 
 ```text
- <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-   <streams/>
- </netconf>
+<netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
+  <streams/>
+</netconf>
 ```
 
 If more complex filtering is needed, use [`ct_netconfc:get/2,3`](`get/2`) and

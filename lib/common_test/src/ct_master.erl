@@ -204,10 +204,7 @@ run(TS,AllowUserTerms,InclNodes,ExclNodes) when is_list(InclNodes),
 						is_list(ExclNodes) ->
     run([TS],AllowUserTerms,InclNodes,ExclNodes).
 
--doc """
-Equivalent to
-[`ct_master:run(TestSpecs, false, InclNodes, ExclNodes)`](`run/4`).
-""".
+-doc(#{equiv => run(TestSpecs, false, InclNodes, ExclNodes)}).
 -spec run(TestSpecs, InclNodes, ExclNodes) -> [{Specs, 'ok'} | {'error', Reason}]
               when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
                    TestSpec :: test_spec(),
@@ -219,7 +216,13 @@ run(TestSpecs,InclNodes,ExclNodes) ->
     run(TestSpecs,false,InclNodes,ExclNodes).
 
 -doc """
-Equivalent to [`ct_master:run(TestSpecs, false, [], [])`](`run/4`).
+Run tests on spawned nodes as specified in `TestSpecs` (see `run/4`).
+
+Equivalent to [`run(TestSpecs, false, [], [])`](`run/4`) if
+called with TestSpecs being list of strings;
+
+Equivalent to [`run([TS], false, [], [])`](`run/4`) if
+called with TS being string.
 """.
 -spec run(TestSpecs) -> [{Specs, 'ok'} | {'error', Reason}]
               when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
@@ -277,10 +280,7 @@ run_on_node([],_,_) ->
 run_on_node(TS,AllowUserTerms,Node) when is_atom(Node) ->
     run_on_node([TS],AllowUserTerms,Node).
 
--doc """
-Equivalent to
-[`ct_master:run_on_node(TestSpecs, false, Node)`](`run_on_node/3`).
-""".
+-doc(#{equiv => run_on_node(TestSpecs, false, Node)}).
 -spec run_on_node(TestSpecs, Node) -> [{Specs, 'ok'} | {'error', Reason}]
               when TestSpecs :: TestSpec | [TestSpec] | [[TestSpec]],
                    TestSpec :: test_spec(),
@@ -386,7 +386,7 @@ used to, for example, add a user-specific event handler while tests are running.
 _Example:_
 
 ```erlang
- gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])
+gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])
 ```
 """.
 -doc(#{since => <<"OTP 17.5">>}).
