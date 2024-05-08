@@ -206,9 +206,9 @@ There are four reserved metadata keys for `-doc`:
   explaining that it is deprecated and what to use instead. The compiler will
   automatically insert this key if there is a `-deprecated` attribute marking a
   function as deprecated.
-- `equiv => unicode:chardata()` - Notes that this function is equivalent to
+- `equiv => unicode:chardata() | F/A | F(...)` - Notes that this function is equivalent to
   another function in this module. The equivalence can be described using either
-  `Func/Arity` or `Func(Args)`. For example:
+  `Func/Arity`, `Func(Args)` or a [unicode string](`t:unicode:chardata/0`). For example:
 
   ```erlang
   -doc #{equiv => add/3}.
