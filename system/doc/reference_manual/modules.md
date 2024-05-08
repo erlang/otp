@@ -149,13 +149,13 @@ The spelling `behavior` is also accepted.
 The callback functions of the module can be specified either directly by the
 exported function `behaviour_info/1`:
 
-```text
+```erlang
 behaviour_info(callbacks) -> Callbacks.
 ```
 
 or by a `-callback` attribute for each callback function:
 
-```text
+```erlang
 -callback Name(Arguments) -> Result.
 ```
 
@@ -224,7 +224,7 @@ which is not to be further updated.
 The module attribute `-doc(Documentation)` is used to provide user documentation
 for a function/type/callback:
 
-```text
+```erlang
 -doc("Example documentation").
 example() -> ok.
 ```
@@ -240,7 +240,7 @@ parenthesis are optional around `Documentation`. The allowed values for
   [sigils](data_types.md#sigil) that translate to literal strings can be used.
   The following examples are equivalent:
 
-  ```text
+  ```erlang
   -doc("Example \"docs\"").
   -doc(<<"Example \"docs\""/utf8>>).
   -doc ~S/Example "docs"/.
@@ -253,7 +253,7 @@ parenthesis are optional around `Documentation`. The allowed values for
   For clarity it is recommended to use either normal `"strings"` or triple
   quoted strings for documentation attributes.
 
-- **`{file, ``t:file:filename/0``}`** - Read the contents of filename and use
+- **`{file, ` `t:file:name/0` `}`** - Read the contents of filename and use
   that as the documentation string.
 
 - **`false`** - Set the current entity as hidden, that is, it should not be
