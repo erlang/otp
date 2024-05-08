@@ -62,8 +62,12 @@ system/%.md: | system
 		echo "# $${TITLE}\n\n<script>window.location.replace(\"../system/doc/html/$${GUIDE}.html\")</script>" > $@
 
 ## No nothing for README
-README.md:
-	$(V_at):
+%.md: %.md.in ../../../OTP_VERSION ../../../make/ex_doc_vsn
+	$(gen_verbose)sed \
+          -e 's:%EX_DOC_VSN%:$(EX_DOC_VSN):g' \
+          -e 's:%OTP-VSN%:$(VSN):g' \
+          -e 's:%OTP-REL%:$(OTP_REL):g' \
+          $< > $@
 
 #--------------------------------------------------------------------------
 
