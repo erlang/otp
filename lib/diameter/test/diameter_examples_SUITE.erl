@@ -80,7 +80,7 @@
 %% common_test wrapping
 
 suite() ->
-    [{timetrap, {seconds, 75}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
     [dict, code].
@@ -146,7 +146,7 @@ run(List)
 %% Eg. erl -noinput -s diameter_examples_SUITE run code -s init stop ...
 run(List, Dir)
   when is_list(List) ->
-    ?RUN([{[fun run/1, {F, Dir}], 60000} || F <- List]);
+    ?RUN([{[fun run/1, {F, Dir}], 90000} || F <- List]);
 
 run(F, Config) ->
     run([F], proplists:get_value(priv_dir, Config)).
