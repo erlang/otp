@@ -130,7 +130,7 @@
                %% documentation text, etc.
                %%
                %% one cannot rely on the fields below to keep track of documentation,
-               %% as Erlang allows pretty unstructure code.
+               %% as Erlang allows pretty unstructured code.
                %%
                %% e.g.,
                %%
@@ -143,7 +143,7 @@
                %% -doc foo() -> ok.
                %%
                %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, callback),
-               %% the intermediate state saveed in the fields below needs to be
+               %% the intermediate state saved in the fields below needs to be
                %% saved in the `docs` field.
 
                hidden_status = none :: none | hidden,
@@ -185,7 +185,7 @@
                %% Stateful, need to be fixed as docs.
                meta   = #{exported => false} :: map(),
 
-               %% on analysing the AST, and upon finding a spec of a exported
+               %% on analyzing the AST, and upon finding a spec of a exported
                %% function, the types from the spec are added to the field
                %% below. if the function to which the spec belongs to is hidden,
                %% we purge types from this field. if the function to which the
