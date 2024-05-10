@@ -25,7 +25,7 @@
    init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([render/1, links/1, normalize/1, render_prop/1,render_non_native/1, ansi/1, columns/1]).
--export([render_function/1, render_type/1, render_callback/1]).
+-export([render_function/1, render_type/1, render_callback/1, doctests/1]).
 
 -export([render_all/1, update_render/0, update_render/1]).
 
@@ -41,7 +41,8 @@ all() ->
     [ {group, render},
       {group, prop},
       {group, render_smoke},
-      ansi, columns
+      ansi, columns,
+      doctests
     ].
 
 
@@ -575,6 +576,15 @@ columns(_Config) ->
     ?assert(MaxColumns(#{}) > 30),
     ?assert(MaxColumns(#{columns => 20}) =< 20),
 
+    ok.
+
+doctests(_Config) ->
+    shell_docs:test(
+      shell_docs_test,
+      [
+       {{function, module, 2}, erl_eval:add_binding('Prebound', hello,
+                                                   erl_eval:new_bindings())}
+      ]),
     ok.
 
 %%
