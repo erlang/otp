@@ -216,8 +216,8 @@ Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits
 Eterm erts_bs_get_binary_all_2(Process *p, ErlSubBits* sb);
 
 /* Binary construction, new instruction set. */
-int erts_bs_put_integer(ErlBitsState *EBS, Eterm Integer, Uint num_bits,
-                        unsigned flags);
+int erts_bs_put_integer_be(ErlBitsState *EBS, Eterm Integer, Uint num_bits);
+int erts_bs_put_integer_le(ErlBitsState *EBS, Eterm Integer, Uint num_bits);
 #if !defined(BEAMASM)
 int erts_bs_put_utf8(ErlBitsState *EBS, Eterm Integer);
 #endif

@@ -688,22 +688,37 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         case BSC_INTEGER:
             {
                 Sint _size;
+                int result;
 
                 $BS_LOAD_UNIT(p, unit);
                 $BS_LOAD_FLAGS(p, flags);
                 $BS_LOAD_SIZE(p, Size);
                 $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-                if (!erts_bs_put_integer(EBS, Src, _size, flags)) {
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, _size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, _size);
+                }
+                if (!result) {
                     $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
                 }
             }
             break;
         case BSC_INTEGER_FIXED_SIZE:
         case BSC_UTF32:
-            $BS_LOAD_FLAGS(p, flags);
-            $BS_LOAD_FIXED_SIZE(p, Size);
-            if (!erts_bs_put_integer(EBS, Src, Size, flags)) {
-                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            {
+                int result;
+
+                $BS_LOAD_FLAGS(p, flags);
+                $BS_LOAD_FIXED_SIZE(p, Size);
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, Size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, Size);
+                }
+                if (!result) {
+                    $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+                }
             }
             break;
         case BSC_UTF8:

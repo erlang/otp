@@ -2599,9 +2599,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                      * integer into the binary. */
                     runtime_entered = bs_maybe_enter_runtime(runtime_entered);
                     mov_arg(ARG2, seg.src);
-                    mov_imm(ARG4, seg.flags);
                     load_erl_bits_state(ARG1);
-                    runtime_call<4>(erts_bs_put_integer);
+                    if (seg.flags & BSF_LITTLE) {
+                        runtime_call<3>(erts_bs_put_integer_le);
+                    } else {
+                        runtime_call<3>(erts_bs_put_integer_be);
+                    }
                     if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         comment("skipped test for success because construction "
                                 "can't fail");
@@ -2660,9 +2663,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG2, seg.src);
             mov_imm(ARG3, 4 * 8);
-            a.mov(ARG4, seg.flags);
             load_erl_bits_state(ARG1);
-            runtime_call<4>(erts_bs_put_integer);
+            if (seg.flags & BSF_LITTLE) {
+                runtime_call<3>(erts_bs_put_integer_le);
+            } else {
+                runtime_call<3>(erts_bs_put_integer_be);
+            }
             if (Fail.get() == 0) {
                 mov_arg(ARG1, seg.src);
                 mov_imm(ARG4,
