@@ -245,8 +245,10 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
                       const byte *src_base, Uint src_offset,
                       Uint size);
 
-void erts_copy_bits(const byte* src, size_t soffs, int sdir,
-                    byte* dst, size_t doffs, int ddir, size_t n);
+void erts_copy_bits_fwd(const byte* src, size_t soffs,
+                        byte* dst, size_t doffs, size_t n);
+void erts_copy_bits_rev(const byte* src, size_t soffs,
+                        byte* dst, size_t doffs, size_t n);
 
 ERTS_GLB_INLINE int erts_cmp_bits(const byte* a_ptr,
                                   Uint a_offs,
@@ -532,9 +534,9 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
         if (((dst_offset | src_offset | size) & 7) == 0) {
             sys_memcpy(dst_base, src_base, BYTE_SIZE(size));
         } else {
-            erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
-                           dst_base, BIT_OFFSET(dst_offset), 1,
-                           size);
+            erts_copy_bits_fwd(src_base, BIT_OFFSET(src_offset),
+                               dst_base, BIT_OFFSET(dst_offset),
+                               size);
         }
     }
 }
@@ -606,7 +608,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin,
                                                 NBYTES(size) + extra);
                 *base_ptr = bytes;
 
-                erts_copy_bits(base, offset, 1, &bytes[extra], 0, 1, size);
+                erts_copy_bits_fwd(base, offset, &bytes[extra], 0, size);
                 return &bytes[extra];
             }
 
