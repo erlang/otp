@@ -302,15 +302,15 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
      * Move bits to temporary buffer. We want the buffer to be stored in
      * little-endian order, since bignums are little-endian.
      */
-    
+
     if (flags & BSF_LITTLE) {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       LSB, 0, 1, num_bits);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           LSB, 0, num_bits);
 	*MSB >>= offs;		/* adjust msb */
     } else {
 	*MSB = 0;
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       MSB, offs, -1, num_bits);
+        erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start,
+                           MSB, offs, num_bits);
     }
     sb->start += num_bits;
 
@@ -472,13 +472,13 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
     }
 
     if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-		  fptr, 0, 1,
-		  num_bits);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           fptr, 0,
+                           num_bits);
     } else {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-		  fptr + NBYTES(num_bits) - 1, 0, -1,
-		  num_bits);
+        erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start,
+                           fptr + NBYTES(num_bits) - 1, 0,
+                           num_bits);
     }
     ERTS_FP_CHECK_INIT(p);
     if (num_bits == 16) {
@@ -1104,7 +1104,7 @@ erts_bs_put_utf8(ErlBitsState *EBS, Eterm arg)
     }
 
     if (bin_offset != 0) {
-        erts_copy_bits(dst, 0, 1, EBS->erts_current_bin, bin_offset, 1, num_bits);
+        erts_copy_bits_fwd(dst, 0, EBS->erts_current_bin, bin_offset, num_bits);
     }
 
     EBS->erts_bin_offset += num_bits;
@@ -1169,7 +1169,7 @@ erts_bs_put_utf16(ErlBitsState *EBS, Eterm arg, Uint flags)
     }
 
     if (bin_offset != 0) {
-	erts_copy_bits(dst, 0, 1, EBS->erts_current_bin, bin_offset, 1, num_bits);
+	erts_copy_bits_fwd(dst, 0, EBS->erts_current_bin, bin_offset, num_bits);
     }
 
     EBS->erts_bin_offset += num_bits;
@@ -1511,13 +1511,21 @@ erts_bs_put_float(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint num_bits, int
 	    return make_small(num_bits);
 	}
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	    erts_copy_bits(bptr, 0, 1,
-                           EBS->erts_current_bin,
-                           EBS->erts_bin_offset, 1, num_bits);
+            erts_copy_bits_fwd(bptr, 0,
+                               EBS->erts_current_bin,
+                               EBS->erts_bin_offset, num_bits);
 	} else {
-	    erts_copy_bits(bptr+NBYTES(num_bits)-1, 0, -1,
-			   EBS->erts_current_bin, EBS->erts_bin_offset, 1,
-			   num_bits);
+            byte tmp_buf[8];
+            Uint n = BYTE_OFFSET(num_bits);
+            byte *dst = tmp_buf + n;
+
+            do {
+                *--dst = *bptr++;
+            } while (--n != 0);
+
+            erts_copy_bits_fwd(tmp_buf, 0,
+                               EBS->erts_current_bin,
+                               EBS->erts_bin_offset, num_bits);
 	}
     }
     EBS->erts_bin_offset += num_bits;
@@ -1532,9 +1540,9 @@ erts_bs_put_string(ErlBitsState* EBS, byte* iptr, Uint num_bytes)
 
     EBS->erts_bin_offset = dst_offset + num_bytes * 8;
     if (BIT_OFFSET(dst_offset) != 0) {
-        erts_copy_bits(iptr, 0, 1,
-                       dst_bin, dst_offset, 1,
-                       num_bytes*8);
+        erts_copy_bits_fwd(iptr, 0,
+                           dst_bin, dst_offset,
+                           num_bytes * 8);
     } else {
         sys_memcpy(dst_bin + BYTE_OFFSET(dst_offset), iptr, num_bytes);
     }
@@ -1966,7 +1974,7 @@ erts_bs_get_unaligned_uint32(ErlSubBits* sb)
     byte bigbuf[4];
     byte* LSB;
     byte* MSB;
-	
+
     CHECK_MATCH_BUFFER(sb);
     ASSERT((sb->start & 7) != 0);
     ASSERT(sb->end - sb->start >= 32);
@@ -1978,7 +1986,7 @@ erts_bs_get_unaligned_uint32(ErlSubBits* sb)
     MSB = LSB + bytes - 1;
 
     *MSB = 0;
-    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, MSB, offs, -1, 32);
+    erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start, MSB, offs, 32);
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
@@ -2001,7 +2009,7 @@ erts_align_utf8_bytes(ErlSubBits *sb, byte* buf)
     } else {
 	bits = 16;
     }
-    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, buf, 0, 1, bits);
+    erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start, buf, 0, bits);
 }
 
 Eterm
@@ -2126,8 +2134,8 @@ erts_bs_get_utf16(ErlSubBits *sb, Uint flags)
 	 * get 4 bytes, otherwise two bytes.
 	 */
 	Uint n = num_bits < 32 ? 16 : 32;
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       tmp_buf, 0, 1, n);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           tmp_buf, 0, n);
 	src = tmp_buf;
     }
     
@@ -2261,19 +2269,15 @@ int erts_cmp_bits__(const byte *a_ptr,
 
 /*
  * The basic bit copy operation. Copies n bits from the source buffer to
- * the destination buffer. Depending on the directions, it can reverse the
- * copied bits.
+ * the destination buffer.
  */
 
-
-void 
-erts_copy_bits(const byte* src, /* Base pointer to source. */
-               size_t soffs,    /* Bit offset for source relative to src. */
-               int sdir,        /* Direction: 1 (forward) or -1 (backward). */
-               byte* dst,       /* Base pointer to destination. */
-               size_t doffs,    /* Bit offset for destination relative to dst. */
-               int ddir,        /* Direction: 1 (forward) or -1 (backward). */
-               size_t n)        /* Number of bits to copy. */
+void
+erts_copy_bits_fwd(const byte* src, /* Base pointer to source. */
+                   size_t soffs,    /* Bit offset for source relative to src. */
+                   byte* dst,       /* Base pointer to destination. */
+                   size_t doffs,    /* Bit offset for destination relative to dst. */
+                   size_t n)        /* Number of bits to copy. */
 {
     Uint lmask;
     Uint rmask;
@@ -2281,11 +2285,11 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
     Uint deoffs;
 
     if (n == 0) {
-	return;
+        return;
     }
 
-    src += sdir*BYTE_OFFSET(soffs);
-    dst += ddir*BYTE_OFFSET(doffs);
+    src += BYTE_OFFSET(soffs);
+    dst += BYTE_OFFSET(doffs);
     soffs = BIT_OFFSET(soffs);
     doffs = BIT_OFFSET(doffs);
     deoffs = BIT_OFFSET(doffs+n);
@@ -2297,21 +2301,148 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
      */
 
     if (doffs+n < 8) {		/* All bits are in the same byte */
-	lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
+        lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
 
-	if (soffs == doffs) {
-	    *dst = MASK_BITS(*src,*dst,lmask);
-	} else if (soffs > doffs) {
-	    Uint bits = (*src << (soffs-doffs));
-	    if (soffs+n > 8) {
-		src += sdir;
-		bits |= (*src >> (8-(soffs-doffs)));
-	    }
-	    *dst = MASK_BITS(bits,*dst,lmask);
-	} else {
-	    *dst = MASK_BITS((*src >> (doffs-soffs)),*dst,lmask);
-	}
-	return;			/* We are done! */
+        if (soffs == doffs) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+        } else if (soffs > doffs) {
+            Uint bits = (*src << (soffs-doffs));
+            if (soffs+n > 8) {
+                src++;
+                bits |= (*src >> (8-(soffs-doffs)));
+            }
+            *dst = MASK_BITS(bits, *dst, lmask);
+        } else {
+            *dst = MASK_BITS((*src >> (doffs-soffs)), *dst, lmask);
+        }
+        return;			/* We are done! */
+    }
+
+    /*
+     * At this point, we know that the bits are in 2 or more bytes.
+     */
+
+    count = (lmask ? (n - (8 - doffs)) : n) >> 3;
+
+    if (soffs == doffs) {
+        /*
+         * The bits are aligned in the same way. We can just copy the bytes
+         * (except for the first and last bytes).
+         */
+
+        if (lmask) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+            dst++, src++;
+        }
+
+        sys_memcpy(dst, src, count);
+
+        if (rmask) {
+            dst += count;
+            src += count;
+            *dst = MASK_BITS(*src, *dst, rmask);
+        }
+    } else {
+        Uint bits;
+        Uint bits1;
+        Uint rshift;
+        Uint lshift;
+
+        /*
+         * The tricky case. The bits must be shifted into position.
+         */
+
+        if (soffs > doffs) {
+            lshift = soffs - doffs;
+            rshift = 8 - lshift;
+            bits = *src;
+            if (soffs + n > 8) {
+                src++;
+            }
+        } else {
+            rshift = doffs - soffs;
+            lshift = 8 - rshift;
+            bits = 0;
+        }
+
+        if (lmask) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            bits1 |= (bits >> rshift);
+            *dst = MASK_BITS(bits1, *dst, lmask);
+            dst++;
+        }
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            *dst = bits1 | (bits >> rshift);
+            dst++;
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *src;
+                bits1 |= (bits >> rshift);
+            }
+            *dst = MASK_BITS(bits1, *dst, rmask);
+        }
+    }
+}
+
+/*
+ * The reverse bit copy operation. Copies n bits from the source
+ * buffer to the destination buffer. The bits are read 8 bits at the
+ * time from the source buffer, while incrementing the source buffer
+ * pointer. The 8 bit groups are stored into the destination buffer,
+ * while decrementing the destination buffer pointer.
+ */
+
+void
+erts_copy_bits_rev(const byte* src, /* Base pointer to source. */
+               size_t soffs,    /* Bit offset for source relative to src. */
+               byte* dst,       /* Base pointer to destination. */
+               size_t doffs,    /* Bit offset for destination relative to dst. */
+               size_t n)        /* Number of bits to copy. */
+{
+    Uint lmask;
+    Uint rmask;
+    Uint count;
+    Uint deoffs;
+
+    if (n == 0) {
+        return;
+    }
+
+    src += BYTE_OFFSET(soffs);
+    dst -= BYTE_OFFSET(doffs);
+    soffs = BIT_OFFSET(soffs);
+    doffs = BIT_OFFSET(doffs);
+    deoffs = BIT_OFFSET(doffs+n);
+    lmask = (doffs) ? MAKE_MASK(8-doffs) : 0;
+    rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
+
+    /*
+     * Take care of the case that all bits are in the same byte.
+     */
+
+    if (doffs+n < 8) {		/* All bits are in the same byte */
+        lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
+
+        if (soffs == doffs) {
+            *dst = MASK_BITS(*src,*dst,lmask);
+        } else if (soffs > doffs) {
+            Uint bits = (*src << (soffs-doffs));
+            if (soffs+n > 8) {
+                src++;
+                bits |= (*src >> (8-(soffs-doffs)));
+            }
+            *dst = MASK_BITS(bits,*dst,lmask);
+        } else {
+            *dst = MASK_BITS((*src >> (doffs-soffs)),*dst,lmask);
+        }
+        return;			/* We are done! */
     }
 
     /*
@@ -2321,75 +2452,70 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
     count = ((lmask) ? (n - (8 - doffs)) : n) >> 3;
 
     if (soffs == doffs) {
-	/*
-	 * The bits are aligned in the same way. We can just copy the bytes
-	 * (except for the first and last bytes). Note that the directions
-	 * might be different, so we can't just use memcpy().
-	 */
+        /*
+         * The bits are aligned in the same way. We can just copy the bytes
+         * (except for the first and last bytes).
+         */
 
-	if (lmask) {
-	    *dst = MASK_BITS(*src, *dst, lmask);
-	    dst += ddir;
-	    src += sdir;
-	}
+        if (lmask) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+            dst--, src++;
+        }
 
-	while (count--) {
-	    *dst = *src;
-	    dst += ddir;
-	    src += sdir;
-	}
+        while (count--) {
+            *dst-- = *src++;
+        }
 
-	if (rmask) {
-	    *dst = MASK_BITS(*src,*dst,rmask);
-	}
+        if (rmask) {
+            *dst = MASK_BITS(*src, *dst, rmask);
+        }
     } else {
-	Uint bits;
-	Uint bits1;
-	Uint rshift;
-	Uint lshift;
+        Uint bits;
+        Uint bits1;
+        Uint rshift;
+        Uint lshift;
 
-	/*
-	 * The tricky case. The bits must be shifted into position.
-	 */
-	
-	if (soffs > doffs) {
-	    lshift = (soffs - doffs);
-	    rshift = 8 - lshift;
-	    bits = *src;
-	    if (soffs + n > 8) {
-		src += sdir;
-	    }
-	} else {
-	    rshift = (doffs - soffs);
-	    lshift = 8 - rshift;
-	    bits = 0;
-	}
-	    
-	if (lmask) {
-	    bits1 = bits << lshift;
-	    bits = *src;
-	    src += sdir;
-	    bits1 |= (bits >> rshift);
-	    *dst = MASK_BITS(bits1,*dst,lmask);
-	    dst += ddir;
-	}
+        /*
+         * The tricky case. The bits must be shifted into position.
+         */
 
-	while (count--) {
-	    bits1 = bits << lshift;
-	    bits = *src;
-	    src += sdir;
-	    *dst = bits1 | (bits >> rshift);
-	    dst += ddir;
-	}
-	
-	if (rmask) {
-	    bits1 = bits << lshift;
-	    if ((rmask << rshift) & 0xff) {
-		bits = *src;
-		bits1 |= (bits >> rshift);
-	    }
-	    *dst = MASK_BITS(bits1,*dst,rmask);
-	}
+        if (soffs > doffs) {
+            lshift = (soffs - doffs);
+            rshift = 8 - lshift;
+            bits = *src;
+            if (soffs + n > 8) {
+                src++;
+            }
+        } else {
+            rshift = doffs - soffs;
+            lshift = 8 - rshift;
+            bits = 0;
+        }
+
+        if (lmask) {
+            bits1 = bits << lshift;
+            bits = *src;
+            src++;
+            bits1 |= (bits >> rshift);
+            *dst = MASK_BITS(bits1, *dst, lmask);
+            dst--;
+        }
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            *dst = bits1 | (bits >> rshift);
+            dst--;
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *src;
+                bits1 |= (bits >> rshift);
+            }
+            *dst = MASK_BITS(bits1, *dst, rmask);
+        }
     }
 }
 
