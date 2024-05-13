@@ -198,9 +198,9 @@ appvsn(Name) ->
 %% ===========================================================================
 
 xref({App, _Config}) ->
-    i("xref -> entry with"
-      "~n   App:    ~p"
-      "~n   Config: ~p", [App, _Config]),
+    ?AL("xref -> entry with"
+        "~n   App:    ~p"
+        "~n   Config: ~p", [App, _Config]),
 
     Mods = fetch(modules, App),  %% modules listed in the app file
 
@@ -254,30 +254,30 @@ xref({App, _Config}) ->
     %% depend on other diameter modules but it's a simple source of
     %% build errors if not properly encoded in the makefile so guard
     %% against it.
-    i("xref -> ensure only runtime and info mod"),
+    ?AL("xref -> ensure only runtime and info mod"),
     [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
     %% Ensure that runtime modules don't call compiler modules.
-    i("xref -> ensure runtime mods don't call compiler mods"),
+    ?AL("xref -> ensure runtime mods don't call compiler mods"),
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared in runtime_dependencies in the app file.
     %% The declared application versions are ignored since we only
     %% know what we see now.
-    i("xref -> ensure runtime mods only call runtime mods"),
+    ?AL("xref -> ensure runtime mods only call runtime mods"),
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
                       RTdeps -- Mods),
 
-    i("xref -> done"),
+    ?AL("xref -> done"),
     ok;
 
 xref(Config) ->
-    i("xref -> entry with"
-      "~n   Config: ~p", [Config]),
+    ?AL("xref -> entry with"
+        "~n   Config: ~p", [Config]),
     Res = run(Config, [xref]),
-    i("xref -> done when"
-      "~n   Res: ~p", [Res]),
+    ?AL("xref -> done when"
+        "~n   Res: ~p", [Res]),
     Res.
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
