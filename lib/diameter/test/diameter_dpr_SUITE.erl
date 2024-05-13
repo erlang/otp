@@ -51,6 +51,9 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
 
+-include("diameter_util.hrl").
+
+
 %% ===========================================================================
 
 -define(util, diameter_util).
@@ -85,6 +88,11 @@
          []]
         ++ [[{dpr, [{timeout, 5000}, {cause, T}]}] || T <- ?CAUSES]).
 
+
+-define(DL(F),    ?DL(F, [])).
+-define(DL(F, A), ?LOG("DDPRS", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
@@ -93,7 +101,7 @@ suite() ->
 all() ->
     [client, server, uncommon, transport, service, application].
 
--define(tc(Name), Name(_) -> run([Name])).
+-define(tc(Name), Name(_) -> ?DL("~w -> entry", [Name]), run([Name])).
 
 ?tc(client).
 ?tc(server).
@@ -101,6 +109,7 @@ all() ->
 ?tc(transport).
 ?tc(service).
 ?tc(application).
+
 
 %% ===========================================================================
 
@@ -113,20 +122,34 @@ run() ->
 
 run(List)
   when is_list(List) ->
+    ?DL("run -> entry with"
+        "~n   List: ~p", [List]),
     try
-        ?util:run([[{[fun run/1, T], 15000} || T <- List]])
+        ?RUN([[{[fun run/1, T], 15000} || T <- List]])
     after
+        ?DL("run(after) -> stop diameter"),
         diameter:stop()
     end;
 
 run(Grp) ->
+    ?DL("run(~w) -> start (diameter) app", [Grp]),
     ok = diameter:start(),
+    ?DL("run(~w) -> start (diameter) service 'server'", [Grp]),
     ok = diameter:start_service(?SERVER, service(?SERVER, Grp)),
+    ?DL("run(~w) -> start (diameter) service 'client'", [Grp]),
     ok = diameter:start_service(?CLIENT, service(?CLIENT, Grp)),
-    _ = lists:foldl(fun(F,A) -> apply(?MODULE, F, [A]) end,
+    _ = lists:foldl(fun(F,A) ->
+                            ?DL("run(~w) -> apply"
+                                "~n   F: ~p"
+                                "~n   A: ~p", [F, A]),
+                            apply(?MODULE, F, [A])
+                    end,
                     [{group, Grp}],
                     tc(Grp)),
-    ok = diameter:stop().
+    ?DL("run(~w) -> stop (diameter) app", [Grp]),
+    ok = diameter:stop(),
+    ?DL("run(~w) -> done", [Grp]),
+    ok.
 
 tc(T)
   when T == client;
@@ -178,10 +201,22 @@ service(?CLIENT = Svc, _) ->
 %% send_dpr/1
 
 send_dpr(Config) ->
-    LRef = ?util:listen(?SERVER, tcp),
-    Ref = ?util:connect(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
-    Svc = sender(group(Config)),
-    [Info] = diameter:service_info(Svc, connections),
+    LRef = ?LISTEN(?SERVER, tcp),
+    Ref  = ?CONNECT(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
+    Svc  = sender(group(Config)),
+    Info = case diameter:service_info(Svc, connections) of
+               [I] ->
+                   I;
+               [] ->
+                   ?DL("send_dpr -> no connections: "
+                       "~n   Svc:      ~p"
+                       "~n   Svc info: ~p"
+                       "~n   Services: ~p",
+                       [Svc,
+                        diameter:service_info(Svc, all),
+                        diameter:services()]),
+                   ct:fail({no_connections, Svc})
+           end,
     {_, {TPid, _}} = lists:keyfind(peer, 1, Info),
     #diameter_base_DPA{'Result-Code' = 2001}
         = diameter:call(Svc,
