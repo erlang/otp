@@ -995,12 +995,11 @@ basic_do2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     register(RegName, Tracee),
     unregister(RegName),
 
-    receive_unsorted(
-      [{Tracer1, {trace, Tracee, register, RegName}},
-       {Tracer2, {trace, Tracee, register, RegName}}]),
-    receive_unsorted(
-      [{Tracer1, {trace, Tracee, unregister, RegName}},
-       {Tracer2, {trace, Tracee, unregister, RegName}}]),
+    receive_parallel({[{Tracer1, {trace, Tracee, register, RegName}},
+                       {Tracer1, {trace, Tracee, unregister, RegName}}],
+
+                      [{Tracer2, {trace, Tracee, register, RegName}},
+                       {Tracer2, {trace, Tracee, unregister, RegName}}]}),
 
     1 = erlang_trace(S1, self(), false, [procs | Opts1]),
 
