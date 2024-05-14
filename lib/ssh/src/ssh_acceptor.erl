@@ -30,7 +30,7 @@
 	 listen/2]).
 
 %% spawn export  
--export([acceptor_init/4, acceptor_loop/6]).
+-export([acceptor_init/4, acceptor_loop/6, acceptor_inner_loop/6]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
@@ -91,6 +91,7 @@ acceptor_init(Parent, SystemSup,
                         {ok,NewLSock} ->
                             proc_lib:init_ack(Parent, {ok, self()}),
                             Opts1 = ?DELETE_INTERNAL_OPT(lsocket, Opts),
+                            erlang:process_flag(trap_exit, true),
                             acceptor_loop(Port, Address, Opts1, NewLSock, AcceptTimeout, SystemSup);
                         {error,Error} ->
                             proc_lib:init_ack(Parent, {error,Error})
@@ -102,6 +103,7 @@ acceptor_init(Parent, SystemSup,
             case listen(Port, Opts) of
                 {ok,LSock} ->
                     proc_lib:init_ack(Parent, {ok, self()}),
+                    erlang:process_flag(trap_exit, true),
                     acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
                 {error,Error} ->
                     proc_lib:init_ack(Parent, {error,Error})
@@ -129,7 +131,7 @@ request_ownership(LSock, SockOwner) ->
     end.
     
 %%%----------------------------------------------------------------    
-acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
+acceptor_inner_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
     try
         case accept(ListenSocket, AcceptTimeout, Opts) of
             {ok,Socket} ->
@@ -151,7 +153,22 @@ acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
         Class:Err:Stack ->
             handle_error({error, {unhandled,Class,Err,Stack}}, Address, Port, undefined)
     end,
-    ?MODULE:acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
+    ?MODULE:acceptor_inner_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
+
+%% The purpose of this process/loop is to synchronously close the listening socket
+%% when shutdown is signalled by the supervisor
+acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
+    Child = proc_lib:spawn_link(fun() ->
+        acceptor_inner_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup)
+    end),
+    %% Here this loop is linked to its supervisor and to the child from above
+    receive
+        {'EXIT', Child, _} ->
+            catch close(ListenSocket, Opts);
+        {'EXIT', _, _} ->
+            exit(Child, kill),
+            catch close(ListenSocket, Opts)
+    end.
 
 %%%----------------------------------------------------------------
 handle_connection(_Address, _Port, _Peer, _Options, _Socket, MaxSessions, NumSessions, _ParallelLogin)
