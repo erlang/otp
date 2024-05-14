@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,9 +31,16 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         traffic/1]).
+         init_per_suite/1,
+         end_per_suite/1,
+         
+         %% The test cases
+         traffic/1
+        ]).
 
 %% internal
 -export([send_unknown_application/1,
@@ -109,9 +116,18 @@ suite() ->
 all() ->
     [traffic].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
 traffic(_Config) ->
     ?XL("traffic -> entry"),
     run().
+
 
 %% ===========================================================================
 

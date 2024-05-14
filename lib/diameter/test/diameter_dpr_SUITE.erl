@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,14 +29,21 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+
+         %% The test cases
          client/1,
          server/1,
          uncommon/1,
          transport/1,
          service/1,
-         application/1]).
+         application/1
+        ]).
 
 %% internal
 -export([connect/1,
@@ -101,6 +108,14 @@ suite() ->
 all() ->
     [client, server, uncommon, transport, service, application].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
 -define(tc(Name), Name(_) -> ?DL("~w -> entry", [Name]), run([Name])).
 
 ?tc(client).
@@ -141,7 +156,7 @@ run(Grp) ->
     _ = lists:foldl(fun(F,A) ->
                             ?DL("run(~w) -> apply"
                                 "~n   F: ~p"
-                                "~n   A: ~p", [F, A]),
+                                "~n   A: ~p", [Grp, F, A]),
                             apply(?MODULE, F, [A])
                     end,
                     [{group, Grp}],

@@ -33,6 +33,8 @@
          %% Framework functions
          suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
          
          %% The test cases
          dict/1,
@@ -84,6 +86,13 @@ suite() ->
 
 all() ->
     [dict, code].
+
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
 
 
 dict(Config) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@
          %% Framework functions
          suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
         
          %% The test cases
          parallel/1
@@ -95,6 +97,14 @@ suite() ->
 
 all() ->
     [parallel].
+
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
 
 parallel(_) ->
     ?TL("parallel -> entry"),

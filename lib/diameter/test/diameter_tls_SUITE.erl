@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,20 +135,22 @@ all() ->
 %% Shouldn't really have to know about crypto here but 'ok' from
 %% ssl:start() isn't enough to guarantee that TLS is available.
 init_per_suite(Config) ->
+    Config2 = ?DUTIL:init_per_suite(Config),
     try
-        [] == (catch make_certs(dir(Config)))
+        [] == (catch make_certs(dir(Config2)))
             orelse throw({?MODULE, no_certs}),
         ok == crypto:start() orelse throw({?MODULE, no_crypto}),
         ok == ssl:start() orelse throw({?MODULE, no_ssl}),
-        Config
+        Config2
     catch
         {?MODULE, E} ->
             {skip, E}
     end.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
     ssl:stop(),
-    crypto:stop().
+    crypto:stop(),
+    ?DUTIL:end_per_suite(Config).
 
 parallel(Config) ->
     ?TL("parallel -> entry"),
@@ -159,6 +161,7 @@ parallel(Config) ->
 
 dir(Config) ->
     proplists:get_value(priv_dir, Config).
+
 
 %% ===========================================================================
 

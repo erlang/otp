@@ -33,6 +33,8 @@
          %% Framework functions
          suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
 
          %% The test cases
          traffic/1
@@ -116,12 +118,21 @@ suite() ->
 all() ->
     [traffic].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
 traffic(_Config) ->
     ?DL("traffic -> entry"),
     Res = traffic(),
     ?DL("traffic -> done when"
         "~n   Res: ~p", [Res]),
     Res.
+
 
 %% ===========================================================================
 
