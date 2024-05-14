@@ -32,6 +32,7 @@
          basic/1,
          call/1,
          meta/1,
+         return_to/1,
          destroy/1,
          negative/1,
          error_info/1,
@@ -47,7 +48,7 @@
 -define(line,void).
 -endif.
 
--export([foo/0, exported/1]).
+-export([foo/0, exported/1, middle/1, bottom/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -65,6 +66,7 @@ all() ->
      test_set_on_first_spawn,
      test_set_on_link,
      test_set_on_first_link,
+     return_to,
      destroy,
      negative,
      error_info,
@@ -1174,6 +1176,130 @@ meta(_Config) ->
 
     ok.
 
+return_to(_Config) ->
+    Tester = self(),
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester) end),
+    Tracer2 = spawn_link(fun() -> tracer("Tracer2",Tester) end),
+
+    Tracee = self(),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
+
+    1 = trace:process(S1, Tracee, true, [call, return_to, arity]),
+    1 = trace:process(S2, Tracee, true, [call, return_to, arity]),
+
+    TracedList = [[{S1, Tracer1, [bottom]},
+                   {S2, Tracer2, []}],
+                  [{S1, Tracer1, [middle]}],
+                  [{S1, Tracer1, [middle,bottom]}]],
+
+    [begin
+         %% Set up tracing for all sessions
+         [begin
+              trace:function(Session, {?MODULE,'_','_'}, false, [local]),
+              [1 = trace:function(S1, {?MODULE,Func,'_'}, true, [local])
+               || Func <- TracedFuncs]
+          end
+          || {Session, _Tracer, TracedFuncs} <- Traced],
+
+         %% Execute test with both local and external calls
+         [return_to_do(MiddleCall, BottomCall, Traced)
+          || MiddleCall <- [local, extern],
+             BottomCall <- [local, extern]]
+     end
+     || Traced <- TracedList],
+
+    true = trace:session_destroy(S1),
+    ok.
+
+return_to_do(MiddleCall, BottomCall, Traced) ->
+    Tracee = self(),
+    Script = [{[{'catch',MiddleCall}, {body,BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {'catch',BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {tail,BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall},  {body,BottomCall}, return],
+               #{[bottom] => [{call, bottom}, {return_to, middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {'catch',BottomCall}, return],
+               #{[bottom] => [{call,bottom}, {return_to,middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {tail,BottomCall}, return],
+               #{[bottom] => [{call,bottom}, {return_to,top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }}
+             ],
+
+    [begin
+         %% Make the call sequence
+         top(CallSequence),
+
+         %% Construct expected trace messages
+         Exp = [[{Tracer, {trace, Tracee, CallOrReturnTo, {?MODULE, Func, 1}}}
+                 || {CallOrReturnTo, Func} <- maps:get(TracedFuncs, TraceMap, [])]
+                || {_Session, Tracer, TracedFuncs} <- Traced],
+
+
+         receive_parallel_list(Exp)
+     end
+     || {CallSequence, TraceMap} <- Script],
+    ok.
+
+top([{'catch',local} | T]) ->
+    erlang:display("top(catch local)"),
+    [(catch middle(T)) | 1];
+top([{'catch',extern} | T]) ->
+    erlang:display("top(catch extern)"),
+    [(catch ?MODULE:middle(T)) | 1].
+
+middle([{body,local} | T]) ->
+    erlang:display("middle(local)"),
+    [bottom(T) | 1];
+middle([{body,extern} | T]) ->
+    erlang:display("middle(extern)"),
+    [?MODULE:bottom(T) | 1];
+middle([{'catch',local} | T]) ->
+    erlang:display("middle(catch local)"),
+    [(catch bottom(T)) | 1];
+middle([{'catch',extern} | T]) ->
+    erlang:display("middle(catch extern)"),
+    [(catch ?MODULE:bottom(T)) | 1];
+middle([{tail,local} | T]) ->
+    erlang:display("middle(tail local)"),
+    bottom(T);
+middle([{tail,extern} | T]) ->
+    erlang:display("middle(tail extern)"),
+    ?MODULE:bottom(T).
+
+bottom([return | T]) ->
+    erlang:display("bottom(return)"),
+    T;
+bottom([exception]) ->
+    erlang:display("bottom(exception)"),
+    error(exception).
+
+
 destroy(_Config) ->
     Name = ?MODULE,
     {_,SName1}=S1 = trace:session_create(Name, self(), []),
@@ -1415,6 +1541,11 @@ receive_parallel(M, Tuple, 0) ->
     io:format("Got message:\n~p\n", [M]),
     ct:fail("Unexpected messages: ~p", [M]).
 
+%% Same as receive_parallel/1 but accepts a *list* of message lists
+%% and the message lists are allowed to be empty meaning no expected messages.
+receive_parallel_list(List0) ->
+    List1 = lists:filter(fun(E) -> E =/= [] end, List0),
+    receive_parallel(list_to_tuple(List1)).
 
 receive_unsorted(Expect) ->
     receive_unsorted(Expect, length(Expect)).

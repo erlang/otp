@@ -278,16 +278,20 @@ tags" refers to the list of [`trace messages`](#process_trace_messages)):
   [`return_to`](#process_trace_messages_return_to). Or rather, the
   absence of.
 
-- **`return_to`** - Used with the `call` trace flag. Traces the return from a
-  traced function back to its caller. Only works for functions traced with
-  option `local` to `function/4`.
+- **`return_to`** - Used with the `call` trace flag. Traces the exit from
+  call traced functions back to where the execution resumes. Only works for
+  functions traced with option `local` to `function/4`.
 
-  The semantics is that a trace message is sent when a call traced function
-  returns, that is, when a chain of tail recursive calls ends. Only one trace
-  message is sent per chain of tail recursive calls, so the properties of tail
-  recursiveness for function calls are kept while tracing with this flag. Using
-  `call` and `return_to` trace together makes it possible to know exactly in
-  which function a process executes at any time.
+  The semantics is that a `return_to` trace message is sent when a call traced
+  function returns or throws and exception that is caught. For tail calls, only
+  one trace message is sent per chain of tail calls, so the properties of tail
+  recursiveness for function calls are kept while tracing with this
+  flag. Similar for exceptions, only one `return_to` trace message is sent, even
+  if the exception passed more than one call traced function before it was
+  caught.
+
+  Using `call` and `return_to` trace together makes it possible to know exactly
+  in which function a process executes at any time.
 
   To get trace messages containing return values from functions, use the
   `{return_trace}` match specification action instead.

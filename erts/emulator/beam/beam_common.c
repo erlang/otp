@@ -614,22 +614,18 @@ next_catch(Process* c_p, Eterm *reg) {
             } else if (BeamIsReturnCallAccTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                have_return_to_trace = 1; /* Record next cp */
+                have_return_to_trace = 1;
                 session_weak_id = frame[0];
                 return_to_trace_address = NULL;
 
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
-                /* This is an ordinary call frame: if the previous frame was a
+                /* This is an ordinary call frame: If a previous frame was a
                  * return_to trace we should record this CP as a return_to
                  * candidate. */
                 if (have_return_to_trace) {
                     return_to_trace_address = return_address;
-                    have_return_to_trace = 0;
-                } else {
-                    return_to_trace_address = NULL;
                 }
-
                 ptr += CP_SIZE;
             }
         } else {
@@ -647,10 +643,9 @@ next_catch(Process* c_p, Eterm *reg) {
         ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
                                                          session_weak_id);
         if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
-            /* The stackframe closest to the catch contained an
-             * return_to_trace entry, so since the execution now
-             * continues after the catch, a return_to trace message
-             * would be appropriate.
+            /*
+             * Execution now continues after catching exception from
+             * return_to traced function(s).
              */
             erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
         }
