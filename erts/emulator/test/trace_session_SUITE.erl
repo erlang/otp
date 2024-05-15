@@ -1177,9 +1177,11 @@ meta(_Config) ->
     ok.
 
 return_to(_Config) ->
+    %%put(display, true),  %% To get some usable debug printouts
+
     Tester = self(),
-    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester) end),
-    Tracer2 = spawn_link(fun() -> tracer("Tracer2",Tester) end),
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester,get(display)) end),
+    Tracer2 = spawn_link(fun() -> tracer("Tracer2",Tester,get(display)) end),
 
     Tracee = self(),
     S1 = trace:session_create(session1, Tracer1, []),
@@ -1188,26 +1190,29 @@ return_to(_Config) ->
     1 = trace:process(S1, Tracee, true, [call, return_to, arity]),
     1 = trace:process(S2, Tracee, true, [call, return_to, arity]),
 
-    TracedList = [[{S1, Tracer1, [bottom]},
-                   {S2, Tracer2, []}],
-                  [{S1, Tracer1, [middle]}],
-                  [{S1, Tracer1, [middle,bottom]}]],
-
     [begin
+         Traced = [{S1, Tracer1, Funcs1},
+                   {S2, Tracer2, Funcs2}],
+
          %% Set up tracing for all sessions
          [begin
               trace:function(Session, {?MODULE,'_','_'}, false, [local]),
-              [1 = trace:function(S1, {?MODULE,Func,'_'}, true, [local])
+              [begin
+                   io_format("trace:function(~p) for tracer ~p\n", [Func, Tracer]),
+                   1 = trace:function(Session, {?MODULE,Func,'_'}, true, [local])
+               end
                || Func <- TracedFuncs]
           end
-          || {Session, _Tracer, TracedFuncs} <- Traced],
+          || {Session, Tracer, TracedFuncs} <- Traced],
 
          %% Execute test with both local and external calls
          [return_to_do(MiddleCall, BottomCall, Traced)
           || MiddleCall <- [local, extern],
              BottomCall <- [local, extern]]
      end
-     || Traced <- TracedList],
+     || Funcs1 <- [[bottom], [middle], [middle,bottom]],
+        Funcs2 <- [[bottom], [middle], [middle,bottom]]
+    ],
 
     true = trace:session_destroy(S1),
     ok.
@@ -1253,6 +1258,7 @@ return_to_do(MiddleCall, BottomCall, Traced) ->
 
     [begin
          %% Make the call sequence
+         io_format("CallSequence = ~p\n", [CallSequence]),
          top(CallSequence),
 
          %% Construct expected trace messages
@@ -1261,44 +1267,60 @@ return_to_do(MiddleCall, BottomCall, Traced) ->
                 || {_Session, Tracer, TracedFuncs} <- Traced],
 
 
+         io_format("Exp = ~p\n", [Exp]),
          receive_parallel_list(Exp)
      end
      || {CallSequence, TraceMap} <- Script],
     ok.
 
 top([{'catch',local} | T]) ->
-    erlang:display("top(catch local)"),
+    display("top(catch local)"),
     [(catch middle(T)) | 1];
 top([{'catch',extern} | T]) ->
-    erlang:display("top(catch extern)"),
+    display("top(catch extern)"),
     [(catch ?MODULE:middle(T)) | 1].
 
 middle([{body,local} | T]) ->
-    erlang:display("middle(local)"),
+    display("middle(local)"),
     [bottom(T) | 1];
 middle([{body,extern} | T]) ->
-    erlang:display("middle(extern)"),
+    display("middle(extern)"),
     [?MODULE:bottom(T) | 1];
 middle([{'catch',local} | T]) ->
-    erlang:display("middle(catch local)"),
+    display("middle(catch local)"),
     [(catch bottom(T)) | 1];
 middle([{'catch',extern} | T]) ->
-    erlang:display("middle(catch extern)"),
+    display("middle(catch extern)"),
     [(catch ?MODULE:bottom(T)) | 1];
 middle([{tail,local} | T]) ->
-    erlang:display("middle(tail local)"),
+    display("middle(tail local)"),
     bottom(T);
 middle([{tail,extern} | T]) ->
-    erlang:display("middle(tail extern)"),
+    display("middle(tail extern)"),
     ?MODULE:bottom(T).
 
 bottom([return | T]) ->
-    erlang:display("bottom(return)"),
+    display("bottom(return)"),
     T;
 bottom([exception]) ->
-    erlang:display("bottom(exception)"),
+    display("bottom(exception)"),
     error(exception).
 
+display(Term) ->
+    case get(display) of
+        true ->
+            erlang:display(Term);
+        _ ->
+            true
+    end.
+
+io_format(Frmt, List) ->
+    case get(display) of
+        true ->
+            io:format(Frmt, List);
+        _ ->
+            ok
+    end.
 
 destroy(_Config) ->
     Name = ?MODULE,
@@ -1497,11 +1519,22 @@ local(_) ->
     ok.
 
 tracer(Name, Tester) ->
+    tracer(Name, Tester, true).
+
+tracer(Name, Tester, Display) ->
+    case Display of
+        true -> put(display,true);
+        _ -> ok
+    end,
+    tracer_loop(Name, Tester).
+
+
+tracer_loop(Name, Tester) ->
     receive M ->
-            io:format("~p ~p got message: ~p\n", [Name, self(), M]),
+            io_format("~p ~p got message: ~p\n", [Name, self(), M]),
             Tester ! {self(), M}
     end,
-    tracer(Name, Tester).
+    tracer_loop(Name, Tester).
 
 
 receive_any() ->

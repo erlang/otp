@@ -877,6 +877,7 @@ erts_clear_all_export_break(Module* modp, Export *ep)
  */
 static void fixup_cp_before_trace(Process *c_p,
                                   Eterm cp_save[2],
+                                  ErtsTraceSession* session,
                                   int *return_to_trace)
 {
     const ErtsFrameLayout frame_layout = erts_frame_layout;
@@ -892,15 +893,16 @@ static void fixup_cp_before_trace(Process *c_p,
 
     for (;;) {
         ErtsCodePtr w;
-
-        erts_inspect_frame(cpp, &w);
+        const Eterm *frame = erts_inspect_frame(cpp, &w);
 
         if (BeamIsReturnTrace(w)) {
             cpp += CP_SIZE + BEAM_RETURN_TRACE_FRAME_SZ;
         } else if (BeamIsReturnCallAccTrace(w)) {
             cpp += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
         } else if (BeamIsReturnToTrace(w)) {
-            *return_to_trace = 1;
+            if (frame[0] == session->weak_id) {
+                *return_to_trace = 1;
+            }
             cpp += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
         } else {
             if (frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
@@ -1108,7 +1110,7 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
     Uint need = 0;
     Eterm* E;
 
-    fixup_cp_before_trace(c_p, cp_save, &return_to_trace);
+    fixup_cp_before_trace(c_p, cp_save, session, &return_to_trace);
 
     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     flags = erts_call_trace(c_p, info, ms, reg, local, ref, &tracer);
