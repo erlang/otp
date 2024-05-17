@@ -356,7 +356,7 @@ erl_lint:start/2                       2    300       150  [10.94]
 shell:used_records/1                 114    342         3  [12.47]
 ```
 """.
--moduledoc(#{since => "OTP @OTP-18756@"}).
+-moduledoc(#{since => "OTP 27.0"}).
 
 %% API
 -export([

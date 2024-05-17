@@ -295,7 +295,7 @@ size({Size, _}) ->
 Returns `true` if `Set1` and `Set2` are equal, that is when every element of one
 set is also a member of the respective other set, otherwise `false`.
 """.
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec is_equal(Set1, Set2) -> boolean() when
       Set1 :: set(),
       Set2 :: set().
@@ -613,7 +613,7 @@ less than `Element1`.
 
 Returns `none` if no such element exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec smaller(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -639,7 +639,7 @@ greater than `Element1`.
 
 Returns `none` if no such element exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec larger(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -696,7 +696,7 @@ The implementation of this is very efficient; traversing the whole set using
 iterator approach is that it does not require the complete list of all elements
 to be built in memory at one time.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator(Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
@@ -745,7 +745,7 @@ Returns an iterator that can be used for traversing the entries of `Set`; see
 `next/1`. The difference as compared to the iterator returned by `iterator/2` is
 that the iterator starts with the first element next to or equal to `Element`.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator_from(Element, Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
@@ -1166,7 +1166,7 @@ filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
 -doc "Maps elements in `Set1` using mapping function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec map(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> Element2),
       Set1 :: set(Element1),
@@ -1180,7 +1180,7 @@ map_1({Key, Small, Big}, F, L) ->
 map_1(nil, _F, L) -> L.
 
 -doc "Filters and maps elements in `Set1` using function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec filtermap(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> boolean() | {true, Element2}),
       Set1 :: set(Element1),

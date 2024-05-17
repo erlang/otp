@@ -21,6 +21,359 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.0
+
+### Fixed Bugs and Malfunctions
+
+- The specs in module `m:binary` has been updated to reflect what is allowed by the documentation.
+
+  Own Id: OTP-18684 Aux Id: [PR-7481]
+
+- Several functions in the `m:binary` module would accept arguments of the wrong type under certain circumstances. In this release, they now raise an exception when incorrect types are given.
+  
+  The following functions would accept an invalid pattern if the subject binary was empty or if the `{scope,{0,0}}` option was given:
+  [`binary:match/2,3`](`binary:match/3`),
+  [`binary:matches/2,3`](`binary:matches/2`),
+  [`binary:replace/3,4`](`binary:replace/3`), and
+  [`binary:split/2,3`](`binary:split/2`)
+  
+  The call `binary:copy(<<1:1>>, 0)` would return an empty binary instead of raising an exception. Similarly, calls to [`binary:part/2,3`](`binary:part/2`) attempting to extract 0 bytes at position 0 of a bitstring would return an empty binary instead of raising an exception.
+
+  Own Id: OTP-18743 Aux Id: [PR-7607], [PR-7628]
+
+- The documentation for the preprocessor now mentions that `defined(Name)` can be called in the condition for an `-if` or `-elif` directive to test whether `Name` is the name of a defined macro. (This feature was implemented in OTP 21.)
+  
+  If a function call in an `-if` or `-elif` with a name that is not the name of a guard BIF, there would not be a compilation error, but would instead cause the lines following the directive to be skipped. This has now been changed to be a compilation error.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18784 Aux Id: [GH-7706], [PR-7726]
+
+- `get_until` requests using the I/O protocol now correctly return a binary or list when `eof` is the last item returned by the callback.
+
+  Own Id: OTP-18930 Aux Id: [PR-7993], [GH-4992]
+
+- The error handling the `simple_one_for_one` supervisor has been enhanced. A transient child returning `ignore` will no longer cause a crash.
+  
+  Also, automatic shutdown has been disabled because it does not make sense for this supervisor type. That is was allowed is considered a bug. Therefore, we don't consider this an incompatible change.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19029 Aux Id: [PR-8230]
+
+- Fix shell expansion to not crash when expanding a map with non-atom keys and to not list zero arity functions when an argument has been given.
+
+  Own Id: OTP-19073 Aux Id: [PR-8375] [GH-8366] [GH-8365] [GH-8364]
+
+[PR-7481]: https://github.com/erlang/otp/pull/7481
+[PR-7607]: https://github.com/erlang/otp/pull/7607
+[PR-7628]: https://github.com/erlang/otp/pull/7628
+[GH-7706]: https://github.com/erlang/otp/issues/7706
+[PR-7726]: https://github.com/erlang/otp/pull/7726
+[PR-7993]: https://github.com/erlang/otp/pull/7993
+[GH-4992]: https://github.com/erlang/otp/issues/4992
+[PR-8230]: https://github.com/erlang/otp/pull/8230
+[PR-8375]: https://github.com/erlang/otp/pull/8375
+[GH-8366]: https://github.com/erlang/otp/issues/8366
+[GH-8365]: https://github.com/erlang/otp/issues/8365
+[GH-8364]: https://github.com/erlang/otp/issues/8364
+
+### Improvements and New Features
+
+- The functions [`is_equal/2`](`sets:is_equal/2`), [`map/2`](`sets:map/2`), and [`filtermap/2`](`sets:filtermap/2`) have been added to the modules `m:sets`, `m:ordsets`, and `m:gb_sets`.
+
+  Own Id: OTP-18622 Aux Id: [PR-7183], [PR-7232]
+
+- The compiler now emits nicer error message for function head mismatches.
+  For example, given:
+  
+  ```erlang
+  a() -> ok;
+  a(_) -> error.
+  ```
+  
+  Erlang/OTP 26 and earlier would emit a diagnostic similar to:
+  
+  ```text
+  t.erl:6:1: head mismatch
+  %    6| a(_) -> error.
+  %     | ^
+  ```
+  
+  while in Erlang/OTP 27 the diagnostic is similar to:
+  
+  ```text
+  t.erl:6:1: head mismatch: function a with arities 0 and 1 is regarded as two distinct functions. Is the number of arguments incorrect or is the semicolon in a/0 unwanted?
+  %    6| a(_) -> error.
+  %     | ^
+  ```
+
+  Own Id: OTP-18648 Aux Id: [PR-7383]
+
+- [`zip:create/2,3`](`zip:create/2`) will now tolerate POSIX timestamps in the provided `file_info` records.
+
+  Own Id: OTP-18668
+
+- The callback function `c:gen_statem:handle_event/4` has been cached in the `gen_statem` engine to optimize callback call speed.
+
+  Own Id: OTP-18671 Aux Id: [PR-7419]
+
+- The type `beam_lib:beam/0` is now exported.
+
+  Own Id: OTP-18716 Aux Id: [PR-7534]
+
+- The documentation for the `m:binary` module has been improved.
+
+  Own Id: OTP-18741 Aux Id: [PR-7585]
+
+- [`binary:replace/3,4`](`binary:replace/3`) now supports using a fun for supplying the replacement binary.
+
+  Own Id: OTP-18742 Aux Id: [PR-7590]
+
+- Triple-Quoted Strings has been implemented as per [EEP 64](https://www.erlang.org/eeps/eep-0064). See [String](`e:system:data_types.md#string`) in the Reference Manual.
+  
+  Example:
+  
+  ```erlang
+  1> """
+     a
+     b
+     c
+     """.
+  "a\nb\nc"
+  ```
+  
+  Adjacent string literals without intervening white space is now a syntax error, to avoid possible confusion with triple-quoted strings. For example:
+  
+  ```erlang
+  1> "abc""xyz".
+  "xyz".
+  * 1:6: adjacent string literals without intervening white space
+  ```
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18750 Aux Id: OTP-18746, [PR-7313], [PR-7451]
+
+- The new function `proc_lib:set_label/1` can be used to add a descriptive term to any process that does not have a registered name. The name will be shown by tools such as `\c:i/0`, `m:observer`, and it will be included in crash reports produced by processes using `m:gen_server`, `m:gen_statem`, `m:gen_event`, and `m:gen_fsm`.
+  
+  The label for a process can be retrieved by calling `proc_lib:get_label/1`.
+  
+  Note that those functions work on any process, not only processes that use `m:proc_lib`.
+  
+  Example:
+  
+  ```text
+  1> self().
+  <0.90.0>
+  2> proc_lib:set_label(my_label).
+  ok
+  3> i().
+      .
+      .
+      .
+  <0.90.0>              erlang:apply/2                        2586    75011    0
+  my_label              c:pinfo/2                               51
+  4> proc_lib:get_label(self()).
+  my_label
+  ```
+
+  Own Id: OTP-18789 Aux Id: [PR-7720], [PR-8003]
+
+- `-callback` attributes has been added to modules `m:sys` and `m:erl_error`.
+
+  Own Id: OTP-18793 Aux Id: [PR-7703]
+
+- Several new functions that accept funs have been added to module `m:timer`.
+  
+  Functions [`apply_after/2`](`timer:apply_after/2`), [`apply_interval/2`](`timer:apply_interval/2`), and [`apply_repeatedly/2`](`apply_repeatedly/2`) accept a nullary fun as the second argument, while  functions [`apply_after/3`](`timer:apply_after/3`), [`apply_interval/3`](`timer:apply_interval/3`), and [`apply_repeatedly/3`](`apply_repeatedly/3`) accept an n-ary fun as the second and a list of n arguments for the fun as the third argument.
+
+  Own Id: OTP-18808 Aux Id: [PR-7649]
+
+- Sigils on string literals have been implemented as per [EEP 66](https://www.erlang.org/eeps/eep-0066), that is: binary and string sigils in verbatim and escape characters variants, as well as a default (vanilla) Sigil.  All for ordinary strings and for triple-quoted strings (EEP 64). See [Sigils in the Reference Manual](`e:system:data_types.md#sigil`).
+  
+  Examples:
+  
+  ```erlang
+  1> ~"Björn".
+  <<"Björn"/utf8>>
+  2> ~b"Björn".
+  <<"Björn"/utf8>>
+  3> ~S"\s*(\w+)".
+  "\\s*(\\w+)"
+  4> ~B"\s*(\w+)".
+  <<"\\s*(\\w+)">>
+  ```
+
+  Own Id: OTP-18825 Aux Id: OTP-18750, [PR-7684]
+
+- Functions `shell:default_multiline_prompt/1`, `shell:inverted_space_prompt/1`, and 
+  `shell:prompt_width/1` have been exported to help with custom prompt implementations.
+
+  Own Id: OTP-18834 Aux Id: [PR-7675] [PR-7816]
+
+- The shell now pages long output from the documentation help command ([`h(Module)`](`c:h/1`)), auto completions and the search command.
+
+  Own Id: OTP-18846 Aux Id: [PR-7845]
+
+- The `M-h` hotkey (Alt/Option-h) now outputs help for the module or function directly before the cursor.
+
+  Own Id: OTP-18847 Aux Id: [PR-7846]
+
+- Added support for adding a custom code formatter that formats your multi-line shell commands in your preferred formatting on submission. See `shell:format_shell_func/` and `shell:erl_pp_format_func/1`.
+
+  Own Id: OTP-18848 Aux Id: [PR-7847]
+
+- Added shell functions for viewing, forgetting and saving locally defined functions, types and records.
+
+  Own Id: OTP-18852 Aux Id: [PR-7844]
+
+- Added `string:jaro_similarity/2`, which can be used to calculate the similarity between two strings.
+
+  Own Id: OTP-18865 Aux Id: [PR-7879]
+
+- The new function `ets:update_element/4` is similar to `ets:update_element/3`, but takes a default tuple as the fourth argument, which will be inserted if no previous record with that key exists.
+
+  Own Id: OTP-18870 Aux Id: [PR-7857]
+
+- Added functions to retrieve the next higher or lower key/element from `m:gb_trees` and `m:gb_sets`, as well as returning iterators that start at given keys/elements.
+
+  Own Id: OTP-18874 Aux Id: [PR-7745]
+
+- When the shell built-in function [`c/1,2`][c12] is used to re-compile a module, the current working directory of the original compilation is now added to the include path.
+  
+  [c12]: `\c:c/1`
+
+  Own Id: OTP-18908 Aux Id: [PR-7957]
+
+- The `timer` module now uses a private table for its internal state, slightly improving its performance.
+
+  Own Id: OTP-18914 Aux Id: [PR-7973]
+
+- [EEP-59 - Documentation Attributes](https://www.erlang.org/eeps/eep-0059) has been implemented.
+  
+  Documentation attributes can be used to document functions, types, callbacks, and modules.
+  The keyword `-moduledoc "Documentation here".` is used to document modules, while `-doc "Documentation here".` can be used on top of functions, types, and callbacks to document them, respectively.
+  
+  * Types, callbacks, and function documentation can be set to `hidden` either via `-doc false` or `-doc hidden`. When documentation attributes mark a type as hidden, they will not be part of the documentation.
+  
+  * The documentation from `moduledoc` and `doc` gets added by default to the binary beam file, following the format of [EEP-48](https://www.erlang.org/eeps/eep-0048).
+  
+  * Using the compiler flag `warn_missing_doc` will raise a warning when
+  `-doc` attributes are missing in exported functions, types, and callbacks.
+  
+  * Using the compiler flag `warn_missing_spec_documented` will raise a warning when
+  spec attributes are missing in documented functions, types, and callbacks.
+  
+  * `moduledoc`s and `doc`s may refer to external files to be embedded, such as `-doc {file, "README.md"}.`, which refers to the file `README.md` found in the current working directory.
+  
+  * The compiler warns about exported functions whose specs refer to hidden types. Thus, there will be warnings when a hidden type (meaning, the type is not part of the documentation) gets used in an exported function.
+
+  Own Id: OTP-18916 Aux Id: [PR-7936]
+
+- New `m:ets` functions `ets:first_lookup/1`, `ets:next_lookup/2`, `ets:prev_lookup/2` and `ets:last_lookup/1`. Example: `ets:next_lookup/1` is equivalent to `ets:next/2` followed by `ets:lookup/2` with the next key. The new combined functions are more efficient and with guaranteed atomicity.
+
+  Own Id: OTP-18923 Aux Id: [PR-6791]
+
+- The `maybe` expression is now enabled by default.
+  
+  To use `maybe` as an atom, it needs to be single-quoted. Alternatively, the `maybe` expression can be disabled by disabling the `maybe_expr` feature. That can be done by placing the following the line at the beginning of an Erlang source file:
+  
+  ```erlang
+  -feature(maybe_expr, disable).
+  ```
+  
+  Another way to disable the `maybe_expr` feature is by passing the `-disable-feature` option to `erlc`:
+  
+  ```text
+  erlc -disable-feature maybe_expr some_file.erl
+  ```
+
+  Own Id: OTP-18944 Aux Id: [PR-8067]
+
+- The compiler will now raise a warning when updating record/map literals. As an example, consider this module:
+  
+  ```erlang
+  -module(t).
+  -export([f/0]).
+  -record(r, {a,b,c}).
+  
+  f() ->
+      #r{a=1}#r{b=2}.
+  ```
+  
+  The compiler raises the following warning:
+  
+  ```text
+  1> c(t).
+  t.erl:6:12: Warning: expression updates a literal
+  %    6|     #r{a=1}#r{b=2}.
+  %     |            ^
+  ```
+
+  Own Id: OTP-18951 Aux Id: [PR-8069]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Optimized `ets:foldl` and `ets:foldr` to use new `ets:next_lookup`. Also made them immune against table renaming.
+
+  Own Id: OTP-18993 Aux Id: [PR-8048]
+
+- Windows now supports all functions in `m:math`.
+
+  Own Id: OTP-19001 Aux Id: [PR-8164]
+
+- `m:erl_lint` (and by extension the [`compiler`](`m:compile`)) will now warn for code using deprecated callbacks.
+  
+  The only callback currenly deprecated is `format_status/2` in [`gen_server`](`c:gen_server:format_status/2`), [`gen_event`](`c:gen_event:format_status/2`) and [`gen_statem`](`c:gen_server:format_status/2`).
+  
+  You can use `nowarn_deprecated_callback` to silence the warning.
+
+  Own Id: OTP-19010 Aux Id: [PR-8205]
+
+- There is a new module [`json`](`m:json`) for encoding and decoding [JSON](https://en.wikipedia.org/wiki/JSON).
+  
+  Both encoding and decoding can be customized. Decoding can be done in a SAX-like fashion and handle multiple documents and streams of data.
+
+  Own Id: OTP-19020 Aux Id: [PR-8111]
+
+[PR-7183]: https://github.com/erlang/otp/pull/7183
+[PR-7232]: https://github.com/erlang/otp/pull/7232
+[PR-7383]: https://github.com/erlang/otp/pull/7383
+[PR-7419]: https://github.com/erlang/otp/pull/7419
+[PR-7534]: https://github.com/erlang/otp/pull/7534
+[PR-7585]: https://github.com/erlang/otp/pull/7585
+[PR-7590]: https://github.com/erlang/otp/pull/7590
+[PR-7313]: https://github.com/erlang/otp/pull/7313
+[PR-7451]: https://github.com/erlang/otp/pull/7451
+[PR-7720]: https://github.com/erlang/otp/pull/7720
+[PR-8003]: https://github.com/erlang/otp/pull/8003
+[PR-7703]: https://github.com/erlang/otp/pull/7703
+[PR-7649]: https://github.com/erlang/otp/pull/7649
+[PR-7684]: https://github.com/erlang/otp/pull/7684
+[PR-7675]: https://github.com/erlang/otp/pull/7675
+[PR-7816]: https://github.com/erlang/otp/pull/7816
+[PR-7845]: https://github.com/erlang/otp/pull/7845
+[PR-7846]: https://github.com/erlang/otp/pull/7846
+[PR-7847]: https://github.com/erlang/otp/pull/7847
+[PR-7844]: https://github.com/erlang/otp/pull/7844
+[PR-7879]: https://github.com/erlang/otp/pull/7879
+[PR-7857]: https://github.com/erlang/otp/pull/7857
+[PR-7745]: https://github.com/erlang/otp/pull/7745
+[PR-7957]: https://github.com/erlang/otp/pull/7957
+[PR-7973]: https://github.com/erlang/otp/pull/7973
+[PR-7936]: https://github.com/erlang/otp/pull/7936
+[PR-6791]: https://github.com/erlang/otp/pull/6791
+[PR-8067]: https://github.com/erlang/otp/pull/8067
+[PR-8069]: https://github.com/erlang/otp/pull/8069
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8048]: https://github.com/erlang/otp/pull/8048
+[PR-8164]: https://github.com/erlang/otp/pull/8164
+[PR-8205]: https://github.com/erlang/otp/pull/8205
+[PR-8111]: https://github.com/erlang/otp/pull/8111
+
 ## STDLIB 5.2.3
 
 ### Fixed Bugs and Malfunctions

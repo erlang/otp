@@ -19,6 +19,55 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.16
+
+### Improvements and New Features
+
+- The `ssl` client can negotiate and handle certificate status request (OCSP stapling support on the client side).
+  
+  Thanks to voltone for interop testing and related discussions.
+
+  Own Id: OTP-18606 Aux Id: OTP-16875,OTP-16448
+
+- The exception reason when `public_key:cacerts_get/0` failed has been improved.
+
+  Own Id: OTP-18609 Aux Id: [GH-7295], [PR-7302]
+
+- Key customization support has been extended to allow flexibility for implementers of  for instance hardware security modules (HSM) or trusted platform modules (TPM).
+
+  Own Id: OTP-18876 Aux Id: [PR-7898], [PR-7475]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The existing function `ssl:key_exporter_materials/4` is now documented and supported.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19016 Aux Id: [PR-8233]
+
+- Due to another attack on PKCS #1 v1.5 padding, known as the Marvin attack, about which we were alerted by Hubert Kario from Red Hat. You can find more details about the attack at
+  https://people.redhat.com/~hkario/marvin/
+  Functions that may be vulnerable are now deprecated. 
+  
+  Note that you might mitigate the problem 
+  by using appropriate versions of OpenSSL together with our software, but we recommend not using them at all. 
+  
+  Also avoid using TLS versions prior to TLS-1.2 (not supported by default) and
+  do not enable RSA-key exchange cipher suites (not supported by default).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19075
+
+[GH-7295]: https://github.com/erlang/otp/issues/7295
+[PR-7302]: https://github.com/erlang/otp/pull/7302
+[PR-7898]: https://github.com/erlang/otp/pull/7898
+[PR-7475]: https://github.com/erlang/otp/pull/7475
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8233]: https://github.com/erlang/otp/pull/8233
+
 ## Public_Key 1.15.1
 
 ### Fixed Bugs and Malfunctions

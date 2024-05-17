@@ -21,6 +21,22 @@ limitations under the License.
 
 This document describes the changes made to the Erl_interface application.
 
+## Erl_Interface 5.5.2
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
+### Known Bugs and Problems
+
+- The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
+
+  Own Id: OTP-16607 Aux Id: OTP-16608
+
 ## Erl_Interface 5.5.1
 
 ### Fixed Bugs and Malfunctions

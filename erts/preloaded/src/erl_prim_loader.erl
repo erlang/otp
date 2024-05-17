@@ -287,7 +287,7 @@ of the file as a binary.
 `$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
 information about archive files, see `m:code`.
 """.
--doc(#{since => <<"OTP @OTP-18943@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename) -> {'ok', Bin} | 'error' when
       Filename :: string(),
       Bin :: binary().

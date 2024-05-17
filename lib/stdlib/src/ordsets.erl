@@ -105,7 +105,7 @@ is_empty(S) -> S=:=[].
 Returns `true` if `Ordset1` and `Ordset2` are equal, that is when every element
 of one set is also a member of the respective other set, otherwise `false`.
 """.
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec is_equal(Ordset1, Ordset2) -> boolean() when
       Ordset1 :: ordset(_),
       Ordset2 :: ordset(_).
@@ -336,7 +336,7 @@ filter(F, Set) ->
 %%  Map OrdSet with Fun.
 
 -doc "Maps elements in `Ordset1` with mapping function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec map(Fun, Ordset1) -> Ordset2 when
     Fun :: fun((Element1 :: T1) -> Element2 :: T2),
     Ordset1 :: ordset(T1),
@@ -348,7 +348,7 @@ map(F, Set) ->
 %% filtermap(Fun, OrdSet) -> OrdSet.
 %%  Filter and map Ordset with Fun.
 -doc "Filters and maps elements in `Ordset1` with function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec filtermap(Fun, Ordset1) -> Ordset2 when
       Fun :: fun((Element1 :: T1) -> boolean | ({true, Element2 :: T2})),
       Ordset1 :: ordset(T1),

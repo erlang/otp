@@ -21,6 +21,35 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
+## Syntax_Tools 3.2
+
+### Fixed Bugs and Malfunctions
+
+- The `m:epp_dodger` module can now handle the `maybe` and `else` keywords.
+
+  Own Id: OTP-18608 Aux Id: [GH-7266], [PR-7267]
+
+- Reverting a `#wrapper` will no longer throw away changes made to positions/annotations.
+
+  Own Id: OTP-18805 Aux Id: [PR-7398]
+
+[GH-7266]: https://github.com/erlang/otp/issues/7266
+[PR-7267]: https://github.com/erlang/otp/pull/7267
+[PR-7398]: https://github.com/erlang/otp/pull/7398
+
+### Improvements and New Features
+
+- The type `t:erl_syntax:annotation_or_location/0` is now exported.
+
+  Own Id: OTP-18715 Aux Id: [PR-7535]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7535]: https://github.com/erlang/otp/pull/7535
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Syntax_Tools 3.1
 
 ### Improvements and New Features

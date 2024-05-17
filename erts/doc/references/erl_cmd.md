@@ -1424,7 +1424,7 @@ the following flags:
     this command line argument and the `flush_timeout` option will be the actual
     timeout value in effect.
 
-    Since: OTP @OTP-18938@
+    Since: OTP 27.0
 
 [](){: #environment_variables }
 

@@ -19,7 +19,7 @@
 %% % @format
 %%
 -module(json).
--moduledoc(#{since => "OTP @OTP-19020@"}).
+-moduledoc(#{since => "OTP 27.0"}).
 -moduledoc """
 A library for encoding and decoding JSON.
 

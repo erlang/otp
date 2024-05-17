@@ -21,6 +21,206 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.0
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash when calling `file:delete/2` with an empty option list.
+
+  Own Id: OTP-18590 Aux Id: [PR-7220]
+
+- New functions have been added to the undocumented module `m:inet_dns` that take a flag to specify if encode/decode is for mDNS.  This affects how CLASS values in the private range, with the top bit set, are handled.
+
+  Own Id: OTP-18878 Aux Id: [GH-7718], OTP-17734
+
+- The error information for `erlang:phash/2` has been corrected.
+
+  Own Id: OTP-18904 Aux Id: [PR-7960]
+
+- `get_until` requests using the I/O protocol now correctly return a binary or list when `eof` is the last item returned by the callback.
+
+  Own Id: OTP-18930 Aux Id: [PR-7993], [GH-4992]
+
+- Calling `logger:add_handlers/1` with config option now works.
+
+  Own Id: OTP-18954 Aux Id: [GH-8061], [PR-8076]
+
+- The `code:del_path/1` function now also works on paths added through `-pa`, `-pz` , `-path` and the boot script.
+
+  Own Id: OTP-18959 Aux Id: [GH-6692], [PR-7697]
+
+- A  call to `socket:[recv|recvfrom|recvmsg]/*` with Timeout = 0 on Windows could cause a (case clause) crash if data is immediately available.
+
+  Own Id: OTP-19063 Aux Id: OTP-18835
+
+- Improve heuristic for when a characters is wide in the shell for systems with old libc versions.
+
+  Own Id: OTP-19087 Aux Id: [PR-8382]
+
+- Fix reading a line when reading from `t:io:user/0` to not consider `\r` without `\n` to be a new line when `erl` is started with `-noshell`.
+
+  Own Id: OTP-19088 Aux Id: [PR-8396] [GH-8360]
+
+[PR-7220]: https://github.com/erlang/otp/pull/7220
+[GH-7718]: https://github.com/erlang/otp/issues/7718
+[PR-7960]: https://github.com/erlang/otp/pull/7960
+[PR-7993]: https://github.com/erlang/otp/pull/7993
+[GH-4992]: https://github.com/erlang/otp/issues/4992
+[GH-8061]: https://github.com/erlang/otp/issues/8061
+[PR-8076]: https://github.com/erlang/otp/pull/8076
+[GH-6692]: https://github.com/erlang/otp/issues/6692
+[PR-7697]: https://github.com/erlang/otp/pull/7697
+[PR-8382]: https://github.com/erlang/otp/pull/8382
+[PR-8396]: https://github.com/erlang/otp/pull/8396
+[GH-8360]: https://github.com/erlang/otp/issues/8360
+
+### Improvements and New Features
+
+- Added `file:read_file/2` with a `raw` option for reading files without going through the file server.
+
+  Own Id: OTP-18589 Aux Id: [PR-7220]
+
+- The undocumented Erlang DNS resolver library (`inet_dns` and `inet_res`) has been augmented to handle IXFR, NOTIFY, UPDATE and TSIG records.  With this some bug fixes and code cleanup has been done, and the resolver used in the test suite has been changed to Knot DNS.  See the source code. 
+  
+  Kudos to Alexander Clouter that did almost all the work!
+
+  Own Id: OTP-18713 Aux Id: [PR-6985], [GH-6985]
+
+- The `ebin` directories for escripts are now cached.
+
+  Own Id: OTP-18778 Aux Id: [PR-7556]
+
+- `-callback` attributes haven been added to `m:application`, `m:logger_handler`, and `m:logger_formatter`.
+
+  Own Id: OTP-18795 Aux Id: [PR-7703]
+
+- Progress reports from before logger is started are now logged when log level is set to debug.
+
+  Own Id: OTP-18807 Aux Id: [PR-7732] ERIERL-985
+
+- The `code:where_is_file/2` and
+  `code:which/1` functions now check for existence of the file directly instead of listing the content of each directory in the code path.
+
+  Own Id: OTP-18816 Aux Id: [PR-7711]
+
+- Type specs has been added to the [`logger:Level/1,2,3`](`m:logger`) functions.
+
+  Own Id: OTP-18820 Aux Id: [PR-7779]
+
+- For `inet_backend = socket`, setting the `active` socket option alone, to `once`, `true` or `N` has been optimized, as well as the corresponding data delivery.
+
+  Own Id: OTP-18835
+
+- New functions `socket:sendv/*` for sending I/O vectors have been added.
+
+  Own Id: OTP-18845
+
+- The shell now pages long output from the documentation help command ([`h(Module)`](`c:h/1`)), auto completions and the search command.
+
+  Own Id: OTP-18846 Aux Id: [PR-7845]
+
+- Native coverage support has been implemented in the JIT. It will  automatically be used by the `m:cover` tool to reduce the execution overhead when running cover-compiled code.
+  
+  There are also new APIs to support native coverage without using the `cover` tool.
+  
+  To instrument code for native coverage it must be compiled with the [`line_coverage`](`m:compile#line_coverage`) option.
+  
+  To enable native coverage in the runtime system, start it like so:
+  
+  ```text
+  $ erl +JPcover true
+  ```
+  
+  There are also the following new functions for supporting native coverage:
+  
+  * `code:coverage_support/0`
+  * `code:get_coverage/2`
+  * `code:reset_coverage/1`
+  * `code:get_coverage_mode/0`
+  * `code:get_coverage_mode/1`
+  * `code:set_coverage_mode/1`
+
+  Own Id: OTP-18856 Aux Id: [PR-7856]
+
+- Optimized code loading by moving certain operations from the code server to the caller.
+
+  Own Id: OTP-18941 Aux Id: [PR-7981]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Application startup has been optimized by removing an intermediary process.
+
+  Own Id: OTP-18963 Aux Id: [PR-8042]
+
+- The existing experimental support for archive files will be changed in a future release. The support for having an archive in an escript will remain, but the support for using archives in a release will either become more limited or completely removed.
+  
+  As of Erlang/OTP 27, the function `code:lib_dir/2`, the `-code_path_choice` flag, and using `m:erl_prim_loader` for reading members of an archive are deprecated.
+  
+  To remain compatible with future version of Erlang/OTP `escript` scripts that need to retrieve data files from its archive should use `escript:extract/2` instead of `erl_prim_loader` and `code:lib_dir/2`.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18966 Aux Id: [PR-8091]
+
+- The undocumented and deprecated `file:pid2name` function has been removed.
+
+  Own Id: OTP-18967 Aux Id: [PR-8092]
+
+- There is a new module `m:trace` in Kernel providing the same trace functionality as `erlang:trace/3` and `erlang:trace_pattern/3`, but with the addition of **dynamic isolated trace sessions**.
+
+  Own Id: OTP-18980
+
+- Error logging has been improved when the `t:io:standard_io/0` reader and/or writer terminates with an error.
+
+  Own Id: OTP-18989 Aux Id: [PR-8103]
+
+- `inet_backend = socket` has been optimized and reworked to be more compatible with the original `inet_backend = inet`.
+
+  Own Id: OTP-19004 Aux Id: OTP-18835
+
+- Add an simple example (echo server) )to the socket users guide.
+
+  Own Id: OTP-19042
+
+- `inet:i/0,1,2` has been improved to allow port numbers to be shown explicitly.
+
+  Own Id: OTP-19053 Aux Id: [#6724]
+
+- The `socket` documentation has been reworked, and due to
+  that a few details were fixed:
+  * `socket:is_supported/1` now returns `true` for example for `protocols`
+    that is a "category", not an item.
+  * `socket:cancel_monitor/1` no longer badargs for a monitor that was set by
+    another process, instead it returns `false` as for other unknown
+    `reference()`s.
+
+  Own Id: OTP-19054
+
+- Add `stdin`, `stdout` and `stderr` keys to `io:getopts/1` on `t:io:standard_io/0` to indicate if the respective I/O device is backed by a terminal.
+
+  Own Id: OTP-19089 Aux Id: [PR-8396]
+
+[PR-7220]: https://github.com/erlang/otp/pull/7220
+[PR-6985]: https://github.com/erlang/otp/pull/6985
+[GH-6985]: https://github.com/erlang/otp/issues/6985
+[PR-7556]: https://github.com/erlang/otp/pull/7556
+[PR-7703]: https://github.com/erlang/otp/pull/7703
+[PR-7732]: https://github.com/erlang/otp/pull/7732
+[PR-7711]: https://github.com/erlang/otp/pull/7711
+[PR-7779]: https://github.com/erlang/otp/pull/7779
+[PR-7845]: https://github.com/erlang/otp/pull/7845
+[PR-7856]: https://github.com/erlang/otp/pull/7856
+[PR-7981]: https://github.com/erlang/otp/pull/7981
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8042]: https://github.com/erlang/otp/pull/8042
+[PR-8091]: https://github.com/erlang/otp/pull/8091
+[PR-8092]: https://github.com/erlang/otp/pull/8092
+[PR-8103]: https://github.com/erlang/otp/pull/8103
+[#6724]: https://github.com/erlang/otp/issues/6724
+[PR-8396]: https://github.com/erlang/otp/pull/8396
+
 ## Kernel 9.2.4
 
 ### Fixed Bugs and Malfunctions

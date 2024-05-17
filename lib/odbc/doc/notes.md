@@ -21,6 +21,25 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.14.3
+
+### Fixed Bugs and Malfunctions
+
+- The order of libs in the Makefile has been changed to avoid finding the system's `libei` instead of Erlang's `libei`.
+
+  Own Id: OTP-19030 Aux Id: [GH-8244], [PR-8258]
+
+[GH-8244]: https://github.com/erlang/otp/issues/8244
+[PR-8258]: https://github.com/erlang/otp/pull/8258
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## ODBC 2.14.2
 
 ### Improvements and New Features

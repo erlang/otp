@@ -176,7 +176,7 @@ done
 Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) after `Time`
 milliseconds.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_after(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -193,7 +193,7 @@ apply_after(_Time, _F) ->
 Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) after
 `Time` milliseconds.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_after(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -326,7 +326,7 @@ Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) repeatedly at
 intervals of `Time`, irrespective of whether a previously spawned process has
 finished or not.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_interval(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -344,7 +344,7 @@ Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) repeatedly
 at intervals of `Time`, irrespective of whether a previously spawned process has
 finished or not.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_interval(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -397,7 +397,7 @@ Evaluates [`spawn(erlang, apply, [Function, []])`](`spawn/3`) repeatedly at
 intervals of `Time`, waiting for the spawned process to finish before starting
 the next.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_repeatedly(Time, Function) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),
@@ -415,7 +415,7 @@ Evaluates [`spawn(erlang, apply, [Function, Arguments])`](`spawn/3`) repeatedly
 at intervals of `Time`, waiting for the spawned process to finish before
 starting the next.
 """.
--doc(#{since => <<"OTP @OTP-18808@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec apply_repeatedly(Time, Function, Arguments) ->
           {'ok', TRef} | {'error', Reason}
               when Time :: time(),

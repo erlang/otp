@@ -21,6 +21,250 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5
+
+### Fixed Bugs and Malfunctions
+
+- Generators for binary comprehensions could be evaluated before it was known that they would be needed. That could result in a binary comprehensions failing if a generator that should not be evaluated until later failed.
+  
+  As an example, consider this module:
+  
+  ```erlang
+  -module(t).
+  -export([f/0]).
+  
+  f() ->
+      <<0 || _ <- [], _ <- ok, false>>.
+  ```
+  
+  In Erlang/OTP 26 it would fail like so:
+  
+  ```erlang
+  1> t:f().
+  ** exception error: bad generator ok
+       in function  t:f/0 (t.erl, line 6)
+  ```
+  
+  In Erlang/OTP 27 it returns an empty binary:
+  
+  ```erlang
+  1> t:f().
+  <<>>
+  ```
+
+  Own Id: OTP-18703 Aux Id: [GH-7494], [PR-7538]
+
+- The documentation for the preprocessor now mentions that `defined(Name)` can be called in the condition for an `-if` or `-elif` directive to test whether `Name` is the name of a defined macro. (This feature was implemented in OTP 21.)
+  
+  If a function call in an `-if` or `-elif` with a name that is not the name of a guard BIF, there would not be a compilation error, but would instead cause the lines following the directive to be skipped. This has now been changed to be a compilation error.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18784 Aux Id: [GH-7706], [PR-7726]
+
+[GH-7494]: https://github.com/erlang/otp/issues/7494
+[PR-7538]: https://github.com/erlang/otp/pull/7538
+[GH-7706]: https://github.com/erlang/otp/issues/7706
+[PR-7726]: https://github.com/erlang/otp/pull/7726
+
+### Improvements and New Features
+
+- The compiler now emits nicer error message for function head mismatches.
+  For example, given:
+  
+  ```erlang
+  a() -> ok;
+  a(_) -> error.
+  ```
+  
+  Erlang/OTP 26 and earlier would emit a diagnostic similar to:
+  
+  ```text
+  t.erl:6:1: head mismatch
+  %    6| a(_) -> error.
+  %     | ^
+  ```
+  
+  while in Erlang/OTP 27 the diagnostic is similar to:
+  
+  ```text
+  t.erl:6:1: head mismatch: function a with arities 0 and 1 is regarded as two distinct functions. Is the number of arguments incorrect or is the semicolon in a/0 unwanted?
+  %    6| a(_) -> error.
+  %     | ^
+  ```
+
+  Own Id: OTP-18648 Aux Id: [PR-7383]
+
+- The compiler now optimizes creation of binaries that are known to be constant.
+  
+  Consider this example:
+  
+  ```erlang
+  bin() ->
+      C = char(),
+      <<C>>.
+  
+  char() -> $*.
+  ```
+  
+  Essentially, the compiler rewrites the example to the slightly more efficient:
+  
+  ```erlang
+  bin() ->
+      _ = char(),
+      <<$*>>.
+  
+  char() -> $*.
+  ```
+
+  Own Id: OTP-18673 Aux Id: [PR-7474], ERIERL-964
+
+- The compiler will now merge consecutive updates of the same record.
+  
+  As an example, the body of the following function will be combined into a single tuple creation instruction:
+  
+  ```erlang
+  -record(r, {a,b,c,d}).
+  
+  update(Value) ->
+      R0 = #r{},
+      R1 = R0#r{a=Value},
+      R2 = R1#r{b=2},
+      R2#r{c=3}.
+  ```
+
+  Own Id: OTP-18680 Aux Id: [PR-7491], [PR-8086], ERIERL-967
+
+- Improved the performance of the alias analysis pass.
+
+  Own Id: OTP-18714 Aux Id: [PR-7528], [GH-7432]
+
+- `-spec` attributes are now used for documentation.
+
+  Own Id: OTP-18801 Aux Id: [PR-7739]
+
+- Native coverage support has been implemented in the JIT. It will  automatically be used by the `m:cover` tool to reduce the execution overhead when running cover-compiled code.
+  
+  There are also new APIs to support native coverage without using the `cover` tool.
+  
+  To instrument code for native coverage it must be compiled with the [`line_coverage`](`m:compile#line_coverage`) option.
+  
+  To enable native coverage in the runtime system, start it like so:
+  
+  ```text
+  $ erl +JPcover true
+  ```
+  
+  There are also the following new functions for supporting native coverage:
+  
+  * `code:coverage_support/0`
+  * `code:get_coverage/2`
+  * `code:reset_coverage/1`
+  * `code:get_coverage_mode/0`
+  * `code:get_coverage_mode/1`
+  * `code:set_coverage_mode/1`
+
+  Own Id: OTP-18856 Aux Id: [PR-7856]
+
+- [EEP-59 - Documentation Attributes](https://www.erlang.org/eeps/eep-0059) has been implemented.
+  
+  Documentation attributes can be used to document functions, types, callbacks, and modules.
+  The keyword `-moduledoc "Documentation here".` is used to document modules, while `-doc "Documentation here".` can be used on top of functions, types, and callbacks to document them, respectively.
+  
+  * Types, callbacks, and function documentation can be set to `hidden` either via `-doc false` or `-doc hidden`. When documentation attributes mark a type as hidden, they will not be part of the documentation.
+  
+  * The documentation from `moduledoc` and `doc` gets added by default to the binary beam file, following the format of [EEP-48](https://www.erlang.org/eeps/eep-0048).
+  
+  * Using the compiler flag `warn_missing_doc` will raise a warning when
+  `-doc` attributes are missing in exported functions, types, and callbacks.
+  
+  * Using the compiler flag `warn_missing_spec_documented` will raise a warning when
+  spec attributes are missing in documented functions, types, and callbacks.
+  
+  * `moduledoc`s and `doc`s may refer to external files to be embedded, such as `-doc {file, "README.md"}.`, which refers to the file `README.md` found in the current working directory.
+  
+  * The compiler warns about exported functions whose specs refer to hidden types. Thus, there will be warnings when a hidden type (meaning, the type is not part of the documentation) gets used in an exported function.
+
+  Own Id: OTP-18916 Aux Id: [PR-7936]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The order in which the compiler looks up options has changed.
+  
+  When there is a conflict in the compiler options given in the `-compile()` attribute and options given to the compiler, the options given in the `-compile()` attribute overrides the option given to the compiler, which in turn overrides options given in the `ERL_COMPILER_OPTIONS` environment variable.
+  
+  Example:
+  
+  If  `some_module.erl` has the following attribute:
+  
+  ```erlang
+  -compile([nowarn_missing_spec]).
+  ```
+  
+  and the compiler is invoked like so:
+  
+  ```text
+  % erlc +warn_missing_spec some_module.erl
+  ```
+  
+  no warnings will be issued for functions that do not have any specs.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18968 Aux Id: [GH-6979], [PR-8093]
+
+- Safe destructive update of tuples has been implemented in the compiler and runtime system. This allows the VM to update tuples in-place when it is safe to do so, thus improving performance by doing less copying but also by producing less garbage.
+  
+  Example:
+  
+  ```erlang
+  -record(rec, {a,b,c}).
+  
+  update(#rec{a=needs_update,b=N}=R0) ->
+      R = R0#rec{a=up_to_date},
+      if
+          N < 0 ->
+              R#rec{c=negative};
+          N == 0 ->
+              R#rec{c=zero};
+          N > 0 ->
+              R#rec{c=positive}
+      end.
+  ```
+  
+  The record updates in each of the three clauses of the `if` can safely be done in-place, because variable `R` is not used again.
+
+  Own Id: OTP-18972 Aux Id: [PR-8090]
+
+- Improved the match context reuse optimization slightly, allowing match contexts to be passed as-is to `bit_size/1` and `byte_size/1`.
+
+  Own Id: OTP-18987
+
+- `m:erl_lint` (and by extension the [`compiler`](`m:compile`)) will now warn for code using deprecated callbacks.
+  
+  The only callback currenly deprecated is `format_status/2` in [`gen_server`](`c:gen_server:format_status/2`), [`gen_event`](`c:gen_event:format_status/2`) and [`gen_statem`](`c:gen_server:format_status/2`).
+  
+  You can use `nowarn_deprecated_callback` to silence the warning.
+
+  Own Id: OTP-19010 Aux Id: [PR-8205]
+
+[PR-7383]: https://github.com/erlang/otp/pull/7383
+[PR-7474]: https://github.com/erlang/otp/pull/7474
+[PR-7491]: https://github.com/erlang/otp/pull/7491
+[PR-8086]: https://github.com/erlang/otp/pull/8086
+[PR-7528]: https://github.com/erlang/otp/pull/7528
+[GH-7432]: https://github.com/erlang/otp/issues/7432
+[PR-7739]: https://github.com/erlang/otp/pull/7739
+[PR-7856]: https://github.com/erlang/otp/pull/7856
+[PR-7936]: https://github.com/erlang/otp/pull/7936
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[GH-6979]: https://github.com/erlang/otp/issues/6979
+[PR-8093]: https://github.com/erlang/otp/pull/8093
+[PR-8090]: https://github.com/erlang/otp/pull/8090
+[PR-8205]: https://github.com/erlang/otp/pull/8205
+
 ## Compiler 8.4.3
 
 ### Fixed Bugs and Malfunctions

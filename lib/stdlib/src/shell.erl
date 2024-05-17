@@ -1969,7 +1969,7 @@ prompt_func(PromptFunc) ->
 Sets the shell multiline prompt function to `PromptFunc`. The previous prompt
 function is returned.
 """.
--doc(#{since => <<"OTP @OTP-18834@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
       PromptFunc :: 'default' | {module(),function()} | string(),
       PromptFunc2 :: 'default' | {module(),function()} | string().
@@ -1999,7 +1999,7 @@ shell:format_shell_func("\"emacs -batch \${file} -l ~/erlang-format/emacs-format
 shell:format_shell_func({shell, erl_pp_format_func}).
 ```
 """.
--doc(#{since => <<"OTP @OTP-18848@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec format_shell_func(ShellFormatFunc) -> ShellFormatFunc2 when
       ShellFormatFunc :: 'default' | {module(),function()} | string(),
       ShellFormatFunc2 :: 'default' | {module(),function()} | string().
@@ -2014,7 +2014,7 @@ expressions submitted to the shell prettier.
 >
 > This formatting function filter comments away from the expressions.
 """.
--doc(#{since => <<"OTP @OTP-18848@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec erl_pp_format_func(String) -> String2 when
       String :: string(),
       String2 :: string().
@@ -2061,7 +2061,7 @@ strings(Strings) ->
 Equivalent to `prompt_width/2` with `Encoding` set to the encoding used by
 `t:io:user/0`.
 """.
--doc(#{since => <<"OTP @OTP-18834@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec prompt_width(unicode:chardata()) -> non_neg_integer().
 prompt_width(String) ->
     Encoding =
@@ -2101,7 +2101,7 @@ Example:
 11
 ```
 """.
--doc(#{since => <<"OTP @OTP-18834@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec prompt_width(unicode:chardata(), unicode | latin1) -> non_neg_integer().
 prompt_width(String, Encoding) ->
     case string:next_grapheme(String) of
@@ -2123,7 +2123,7 @@ Configures the multiline prompt as two trailing dots. This is the default
 function but it may also be set explicitly as
 `-stdlib shell_multiline_prompt {shell, default_multiline_prompt}`.
 """.
--doc(#{since => <<"OTP @OTP-18834@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec default_multiline_prompt(unicode:chardata()) ->
       unicode:chardata().
 
@@ -2135,7 +2135,7 @@ Configures the multiline prompt as inverted space. It may be set explicitly as
 `-stdlib shell_multiline_prompt {shell, inverted_space_prompt}` or calling
 `multiline_prompt_func({shell, inverted_space_prompt}).`
 """.
--doc(#{since => <<"OTP @OTP-18834@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec inverted_space_prompt(unicode:chardata()) ->
       unicode:chardata().
 

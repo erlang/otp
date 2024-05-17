@@ -21,6 +21,82 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2
+
+### Fixed Bugs and Malfunctions
+
+- Starting a TLS server without sufficient credentials (certificate or anonymous cipher) would work, but it was impossible to connect to it.
+  
+  This has been corrected to return an error instead of starting the server.
+
+  Own Id: OTP-18887 Aux Id: [GH-7493], [PR-7918]
+
+- ASN.1 decoding errors are handled in more places to ensure that errors are returned instead of cause a crash.
+
+  Own Id: OTP-18969 Aux Id: [GH-8058], [PR-8256]
+
+- Improved error checking on the API functions.
+
+  Own Id: OTP-18992 Aux Id: [GH-8066] [PR-8156]
+
+[GH-7493]: https://github.com/erlang/otp/issues/7493
+[PR-7918]: https://github.com/erlang/otp/pull/7918
+[GH-8058]: https://github.com/erlang/otp/issues/8058
+[PR-8256]: https://github.com/erlang/otp/pull/8256
+[GH-8066]: https://github.com/erlang/otp/issues/8066
+[PR-8156]: https://github.com/erlang/otp/pull/8156
+
+### Improvements and New Features
+
+- The `ssl` client can negotiate and handle certificate status request (OCSP stapling support on the client side).
+  
+  Thanks to voltone for interop testing and related discussions.
+
+  Own Id: OTP-18606 Aux Id: OTP-16875,OTP-16448
+
+- Memory consumption has been reduced and performance increased by refactoring internal data structures and their usage.
+
+  Own Id: OTP-18665 Aux Id: [PR-7447]
+
+- Added `c:ssl_crl_cache_api:lookup/2` as an optional `-callback` attribute.
+
+  Own Id: OTP-18788 Aux Id: [PR-7700]
+
+- Key customization support has been extended to allow flexibility for implementers of  for instance hardware security modules (HSM) or trusted platform modules (TPM).
+
+  Own Id: OTP-18876 Aux Id: [PR-7898], [PR-7475]
+
+- The `proc_lib:set_label/1` function is now used to increase observability of `ssl` processes.
+
+  Own Id: OTP-18879
+
+- Brainpool elliptic curves are now supported in TLS-1.3.
+
+  Own Id: OTP-18884 Aux Id: [PR-8056]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- For security reasons, the CBC ciphers are now longer included in the list of default ciphers for TLS-1.2.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19025 Aux Id: [PR-8250]
+
+- There is a new `cert_policy_opts` option to configure certificate policy options for the certificate path validation.
+
+  Own Id: OTP-19027 Aux Id: [PR-8255]
+
+[PR-7447]: https://github.com/erlang/otp/pull/7447
+[PR-7700]: https://github.com/erlang/otp/pull/7700
+[PR-7898]: https://github.com/erlang/otp/pull/7898
+[PR-7475]: https://github.com/erlang/otp/pull/7475
+[PR-8056]: https://github.com/erlang/otp/pull/8056
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8250]: https://github.com/erlang/otp/pull/8250
+[PR-8255]: https://github.com/erlang/otp/pull/8255
+
 ## SSL 11.1.4
 
 ### Fixed Bugs and Malfunctions

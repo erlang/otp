@@ -1085,7 +1085,7 @@ Typical error reasons:
 
 - **`enomem`** - There is not enough memory for the contents of the file.
 """.
--doc(#{since => <<"OTP @OTP-18589@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename, Opts) -> {ok, Binary} | {error, Reason} when
       Filename :: name_all(),
       Opts :: [read_file_option()],

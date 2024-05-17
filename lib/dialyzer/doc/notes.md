@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.2
+
+### Improvements and New Features
+
+- The `--gui` option for Dialyzer has been removed.
+
+  Own Id: OTP-18667 Aux Id: [PR-7443]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7443]: https://github.com/erlang/otp/pull/7443
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Dialyzer 5.1.3
 
 ### Fixed Bugs and Malfunctions

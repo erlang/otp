@@ -633,7 +633,7 @@ Returns `{Key2, Value}`, where `Key2` is the greatest key strictly less than
 
 Returns `none` if no such pair exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec smaller(Key1, Tree) -> none | {Key2, Value} when
     Key1 :: Key,
     Key2 :: Key,
@@ -659,7 +659,7 @@ Returns `{Key2, Value}`, where `Key2` is the least key strictly greater than
 
 Returns `none` if no such pair exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec larger(Key1, Tree) -> none | {Key2, Value} when
     Key1 :: Key,
     Key2 :: Key,
@@ -748,7 +748,7 @@ elements using `to_list/1` and traversing that. The main advantage of the
 iterator approach is that it does not require the complete list of all elements
 to be built in memory at one time.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator(Tree, Order) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value),
@@ -799,7 +799,7 @@ either `ordered` or `reversed` direction; see `next/1`. The difference as
 compared to the iterator returned by `iterator/2` is that the iterator starts
 with the first key next to or equal to `Key`.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator_from(Key, Tree, Order) -> Iter when
       Tree :: tree(Key, Value),
       Iter :: iter(Key, Value),

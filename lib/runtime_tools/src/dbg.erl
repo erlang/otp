@@ -460,7 +460,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
     > The session functionality is experimental in Erlang/OTP 27
     > and may change in future releases without notice.
     """.
--doc(#{ since => ~"OTP @OTP-19081@" }).
+-doc(#{ since => ~"OTP 27.0" }).
 -spec session_create(atom()) -> session().
 session_create(Name) ->
     S = self(),
@@ -538,7 +538,7 @@ session_create(Name) ->
     > The session functionality is experimental in Erlang/OTP 27
     > and may change in future releases without notice.
     """.
--doc(#{ since => ~"OTP @OTP-19081@" }).
+-doc(#{ since => ~"OTP 27.0" }).
 -spec session(atom(), (fun(() -> term()))) -> term();
              (session(), (fun(() -> term()))) -> term().
 session(SessionName, Fun) when is_atom(SessionName) ->
@@ -1947,7 +1947,7 @@ Destroys a dbg `t:session/0`.
 
 This will terminate all started processes and destroy the `t:trace:session/0`.
 """.
--doc(#{ since => ~"OTP @OTP-19081@" }).
+-doc(#{ since => ~"OTP 27.0" }).
 -spec session_destroy(Session :: session()) -> ok.
 session_destroy(TraceProc) ->
     Mref = erlang:monitor(process, TraceProc),

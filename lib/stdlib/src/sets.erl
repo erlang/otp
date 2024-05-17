@@ -244,7 +244,7 @@ is_empty(#set{size=Size}) -> Size=:=0.
 Returns `true` if `Set1` and `Set2` are equal, that is when every element of one
 set is also a member of the respective other set, otherwise `false`.
 """.
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec is_equal(Set1, Set2) -> boolean() when
       Set1 :: set(),
       Set2 :: set().
@@ -615,7 +615,7 @@ filter(F, #set{}=D) when is_function(F, 1)->
 %% map(Fun, Set) -> Set.
 %%  Map Set with Map.
 -doc "Maps elements in `Set1` with mapping function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec map(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> Element2),
       Set1 :: set(Element1),
@@ -632,7 +632,7 @@ map(F, #set{}=D) when is_function(F, 1) ->
 %% filtermap(Fun, Set) -> Set.
 %%  Filter and map Set with Fun.
 -doc "Filters and maps elements in `Set1` with function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec filtermap(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> boolean() | {true, Element2}),
       Set1 :: set(Element1),

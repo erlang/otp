@@ -21,6 +21,26 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.4
+
+### Improvements and New Features
+
+- `-callback` attributes have been added to `m:diameter_app` and `m:diameter_transport`.
+
+  Own Id: OTP-18783 Aux Id: [PR-7699]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Pick peer can now also handle request of type `#diameter_packet{}`.
+
+  Own Id: OTP-19090 Aux Id: [PR-8399]
+
+[PR-7699]: https://github.com/erlang/otp/pull/7699
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8399]: https://github.com/erlang/otp/pull/8399
+
 ## diameter 2.3.2
 
 ### Fixed Bugs and Malfunctions

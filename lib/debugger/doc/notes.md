@@ -21,6 +21,34 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The dependencies for this application are now listed in the app file.
+
+  Own Id: OTP-18831 Aux Id: [PR-7441]
+
+[PR-7441]: https://github.com/erlang/otp/pull/7441
+
+### Improvements and New Features
+
+- Type specs have been added to all API functions.
+
+  Own Id: OTP-18819 Aux Id: [PR-7781]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The Debugger now use a trace session for its internal use of tracing to avoid interfering with the user's use of tracing.
+
+  Own Id: OTP-19074 Aux Id: [PR-8389]
+
+[PR-7781]: https://github.com/erlang/otp/pull/7781
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8389]: https://github.com/erlang/otp/pull/8389
+
 ## Debugger 5.3.4
 
 ### Fixed Bugs and Malfunctions

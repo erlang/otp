@@ -19,6 +19,64 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.2
+
+### Improvements and New Features
+
+- Introduced a default value for httpd_server name configuration to improve ease of use.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18641 Aux Id: [PR-7316]
+
+- The `httpd` module has been extended with an API for simple serving directory content over HTTP. With this change, the current working directory can be served like this:
+  
+  ```text
+  erl -S httpd
+  ```
+  
+  An arbitrary directory can be served like this:
+  
+  ```text
+  erl -S httpd serve path/to/dir
+  ```
+
+  Own Id: OTP-18727 Aux Id: [PR-7299]
+
+- Added `-callback` attributes to `m:httpd`, `m:mod_esi`, and `m:mod_security`.
+
+  Own Id: OTP-18786 Aux Id: [PR-7700]
+
+- Inets now uses a relative redirect with an absolute path to prevent whoever is running Inets from having to configure the `ServerName` to match the network-reachable host name of the server.
+
+  Own Id: OTP-18809 Aux Id: [GH-7617], [PR-7678]
+
+- `inets` processes now use `proc_lib:set_label/1` to improve observeability.
+
+  Own Id: OTP-18927 Aux Id: [PR-8029]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The implementations of `http_uri:encode/1` and `http_uri:decode/1` are now replaced with their equivalent, but bug free versions from module `m:uri_string`, namely `uri_string:quote/1` and `uri_string:unquote/1`.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19022
+
+- With this change, the API specs are updated.
+
+  Own Id: OTP-19033
+
+[PR-7316]: https://github.com/erlang/otp/pull/7316
+[PR-7299]: https://github.com/erlang/otp/pull/7299
+[PR-7700]: https://github.com/erlang/otp/pull/7700
+[GH-7617]: https://github.com/erlang/otp/issues/7617
+[PR-7678]: https://github.com/erlang/otp/pull/7678
+[PR-8029]: https://github.com/erlang/otp/pull/8029
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Inets 9.1
 
 ### Fixed Bugs and Malfunctions

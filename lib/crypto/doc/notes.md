@@ -21,6 +21,56 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.5
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Removed functions `crypto_dyn_iv_init/3` and `crypto_dyn_iv_update/3` which were marked as deprecated since OTP 25.
+
+  Own Id: OTP-18973
+
+- Add support for sm3 hash and hmac.
+
+  Own Id: OTP-18975 Aux Id: [PR-6658]
+
+- `OPENSSL_thread_stop`  is called when `crypto` is purged to not leak thread specific data.
+
+  Own Id: OTP-18978 Aux Id: [PR-7809]
+
+- Add SM4 block cipher implemented according to GB/T 32907-2016.
+
+  Own Id: OTP-19005 Aux Id: [PR-8168]
+
+- The existing function `ssl:key_exporter_materials/4` is now documented and supported.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19016 Aux Id: [PR-8233]
+
+- Due to another attack on PKCS #1 v1.5 padding, known as the Marvin attack, about which we were alerted by Hubert Kario from Red Hat. You can find more details about the attack at
+  https://people.redhat.com/~hkario/marvin/
+  Functions that may be vulnerable are now deprecated. 
+  
+  Note that you might mitigate the problem 
+  by using appropriate versions of OpenSSL together with our software, but we recommend not using them at all. 
+  
+  Also avoid using TLS versions prior to TLS-1.2 (not supported by default) and
+  do not enable RSA-key exchange cipher suites (not supported by default).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19075
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-6658]: https://github.com/erlang/otp/pull/6658
+[PR-7809]: https://github.com/erlang/otp/pull/7809
+[PR-8168]: https://github.com/erlang/otp/pull/8168
+[PR-8233]: https://github.com/erlang/otp/pull/8233
+
 ## Crypto 5.4.2
 
 ### Fixed Bugs and Malfunctions

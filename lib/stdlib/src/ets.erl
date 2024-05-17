@@ -401,7 +401,7 @@ stored in the table. This is equivalent to doing `first/1` followed by a
 
 To find subsequent objects in the table, use `next_lookup/2`.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec first_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
     Key :: term(),
@@ -688,7 +688,7 @@ stored in the table. This is equivalent to doing `last/1` followed by a
 
 To find preceding objects in the table, use `prev_lookup/2`.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec last_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
     Key :: term(),
@@ -1173,7 +1173,7 @@ stored in the table. This is equivalent to doing `next/2` followed by a
 
 It can be interleaved with `next/2` during traversal.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec next_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
     Key1 :: term(),
@@ -1206,7 +1206,7 @@ stored in the table. This is equivalent to doing `prev/2` followed by a
 
 It can be interleaved with `prev/2` during traversal.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec prev_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
     Key1 :: term(),
@@ -1796,7 +1796,7 @@ The function fails with reason `badarg` in the following situations:
 - The default object arity is smaller than `<keypos>`.
 - The element to update is also the key.
 """.
--doc(#{since => <<"OTP @OTP-18870@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec update_element(Table, Key, ElementSpec, Default) -> true when
       Table :: table(),
       Key :: term(),

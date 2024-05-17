@@ -2178,7 +2178,7 @@ Failures:
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec get_coverage(Level, module()) -> Result when
       Level :: 'function' | 'line' | 'cover_id_line',
       Result :: [{Entity, CoverageInfo}],
@@ -2203,7 +2203,7 @@ Failure:
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec get_coverage_mode() -> Mode when
       Mode :: coverage_mode().
 get_coverage_mode() ->
@@ -2222,7 +2222,7 @@ Failures:
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec get_coverage_mode(Module) -> Mode when
       Module :: module(),
       Mode :: coverage_mode().
@@ -2276,7 +2276,7 @@ Failures:
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec set_coverage_mode(Mode) -> OldMode when
       Mode :: coverage_mode(),
       OldMode :: coverage_mode().
@@ -2305,7 +2305,7 @@ Failures:
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec reset_coverage(Module) -> 'ok' when
       Module :: module().
 reset_coverage(_Module) ->
@@ -2316,7 +2316,7 @@ Returns `true` if the system supports coverage and `false` otherwise.
 
 _See also:_ [Native Coverage Support](#module-native-coverage-support)
 """.
--doc(#{since => <<"OTP @OTP-18856@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec coverage_support() -> Supported when
       Supported :: boolean().
 coverage_support() ->

@@ -21,6 +21,234 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.0
+
+### Fixed Bugs and Malfunctions
+
+- Bugs in how `erl -extra` interacts with passing flags via ERL_*FLAGS or `-args_file` have been fixed.
+
+  Own Id: OTP-18766 Aux Id: [PR-7639]
+
+- Fixed a bug that prevented the emulator from building on recent versions of Yocto Linux.
+
+  Own Id: OTP-18918 Aux Id: [PR-7952]
+
+- Fixed spectre mitigation configure test to work with GCC patches to always add `-fcf-protection=full`.
+
+  Own Id: OTP-18928 Aux Id: [PR-8006]
+
+- A  call to `socket:[recv|recvfrom|recvmsg]/*` with Timeout = 0 on Windows could cause a (case clause) crash if data is immediately available.
+
+  Own Id: OTP-19063 Aux Id: OTP-18835
+
+- Fix bug on Windows where `exit_status` would not be sent when a port exits after the stdin/stdout handles have been closed.
+
+  Own Id: OTP-19077 Aux Id: [PR-8324]
+
+[PR-7639]: https://github.com/erlang/otp/pull/7639
+[PR-7952]: https://github.com/erlang/otp/pull/7952
+[PR-8006]: https://github.com/erlang/otp/pull/8006
+[PR-8324]: https://github.com/erlang/otp/pull/8324
+
+### Improvements and New Features
+
+- Refactored how the JIT handles POSIX signals and how they affect thread stacks, allowing us to use the native stack register for Erlang stacks on more platforms.
+  
+  Notably, containers built on 64-bit x86 Alpine Linux images will now perform much better in sequential code. As an example, running `dialyzer` over the OTP code base finishes about 15% quicker.
+
+  Own Id: OTP-18568 Aux Id: [PR-7174]
+
+- The `m:instrument` module can now track allocations on a per-process or per-port basis.
+
+  Own Id: OTP-18577 Aux Id: [PR-7236]
+
+- The `pid` field returned from [`erlang:fun_info/1,2`](`erlang:fun_info/2`) is now always the pid for the `init` process of the local node, not the pid for the actual process that created the fun.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18594 Aux Id: [PR-7274]
+
+- By default, escripts will now be compiled instead of interpreted. That means that the `compiler` application must be installed.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18639 Aux Id: [PR-7348]
+
+- A binary returned from the `m:socket` receive functions is no longer created as a sub binary of an often large receive buffer binary (socket option `{otp,rcvbuf}`).  This avoids space waste, trusting the allocators to implement reallocation efficiently.
+
+  Own Id: OTP-18642 Aux Id: [GH-6152], [PR-7465]
+
+- The default process limit has been raised to `1048576` processes.
+
+  Own Id: OTP-18699 Aux Id: [PR-7388]
+
+- The `erlang:system_monitor/2` functionality is now able to monitor long message queues in the system.
+
+  Own Id: OTP-18709 Aux Id: [PR-7651]
+
+- The `erl` command now supports the `-S` flag, which is similar to the `-run` flag, except that it will pass all arguments up to end of the command line to the called function. (The `-run` flag will not pass arguments beginning with a hyphen.) Another difference is that `-S` will always call a function with one argument, passing an empty list if no arguments were given.
+
+  Own Id: OTP-18744 Aux Id: [PR-7470]
+
+- When implementing an alternative carrier for the Erlang distribution, a separate input handler process may now be registered, using `erlang:dist_ctrl_input_handler/2`, also in the case when the distribution controller is a port.
+
+  Own Id: OTP-18774 Aux Id: [PR-7110]
+
+- The call stack trace has now been added to the error reported by `erlang:process_flag/2` when `max_heap_size` limit has been exceeded.
+
+  Own Id: OTP-18779 Aux Id: [PR-7592]
+
+- `-callback` attributes have been added to `m:erl_tracer`.
+
+  Own Id: OTP-18794 Aux Id: [PR-7703]
+
+- For `inet_backend = socket`, setting the `active` socket option alone, to `once`, `true` or `N` has been optimized, as well as the corresponding data delivery.
+
+  Own Id: OTP-18835
+
+- New functions `socket:sendv/*` for sending I/O vectors have been added.
+
+  Own Id: OTP-18845
+
+- Socket options that take string now also accept binaries.
+
+  Own Id: OTP-18849 Aux Id: [PR-6510]
+
+- Native coverage support has been implemented in the JIT. It will  automatically be used by the `m:cover` tool to reduce the execution overhead when running cover-compiled code.
+  
+  There are also new APIs to support native coverage without using the `cover` tool.
+  
+  To instrument code for native coverage it must be compiled with the [`line_coverage`](`m:compile#line_coverage`) option.
+  
+  To enable native coverage in the runtime system, start it like so:
+  
+  ```text
+  $ erl +JPcover true
+  ```
+  
+  There are also the following new functions for supporting native coverage:
+  
+  * `code:coverage_support/0`
+  * `code:get_coverage/2`
+  * `code:reset_coverage/1`
+  * `code:get_coverage_mode/0`
+  * `code:get_coverage_mode/1`
+  * `code:set_coverage_mode/1`
+
+  Own Id: OTP-18856 Aux Id: [PR-7856]
+
+- Changed the default value of the command line flag `-code_path_choice` to `strict`. 
+  
+  Note that for application systems using archives, it is necessary to add the `code_path_choice relaxed` to the command line that invokes `erl`.
+
+  Own Id: OTP-18894 Aux Id: [PR-7243]
+
+- Added module loading to `erl -init_debug` printouts.
+
+  Own Id: OTP-18929 Aux Id: [PR-8004]
+
+- When the runtime system halts, it performs various flush operations before terminating. By default there is no limit on how much time the flush operations are allowed to take. A new *halt flush timeout* functionality has been introduced which can be used for limiting the amount of time that the flushing operations are allowed to take. For more information see the documentation of the [`flush_timeout`](`m:erlang#halt_flush_timeout`) option of the [`erlang:halt/2`](`erlang:halt/2`) BIF and the documentation of the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+
+  Own Id: OTP-18938 Aux Id: [PR-8035], [GH-7438]
+
+- Optimized code loading by moving certain operations from the code server to the caller.
+
+  Own Id: OTP-18941 Aux Id: [PR-7981]
+
+- Updated asmjit to version a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d
+
+  Own Id: OTP-18942
+
+- The deprecated functions in `m:zlib` have been removed. That includes `inflateChunk/{1,2}`, `getBufSize/1`, `setBufSize/2`, the CRC32 functions, and the Adler checksum functions.
+
+  Own Id: OTP-18950
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Safe destructive update of tuples has been implemented in the compiler and runtime system. This allows the VM to update tuples in-place when it is safe to do so, thus improving performance by doing less copying but also by producing less garbage.
+  
+  Example:
+  
+  ```erlang
+  -record(rec, {a,b,c}).
+  
+  update(#rec{a=needs_update,b=N}=R0) ->
+      R = R0#rec{a=up_to_date},
+      if
+          N < 0 ->
+              R#rec{c=negative};
+          N == 0 ->
+              R#rec{c=zero};
+          N > 0 ->
+              R#rec{c=positive}
+      end.
+  ```
+  
+  The record updates in each of the three clauses of the `if` can safely be done in-place, because variable `R` is not used again.
+
+  Own Id: OTP-18972 Aux Id: [PR-8090]
+
+- The obsolete and undocumented support for opening a port to an external
+  resource by passing an atom (or a string) as first argument to
+  [`open_port()`](`erlang:open_port/2`), implemented by the vanilla driver,
+  has been removed. This feature has been scheduled for removal in OTP 27
+  since the release of OTP 26.
+
+  Own Id: OTP-18976 Aux Id: [PR-7125]
+
+- An optional NIF callback `ERL_NIF_OPT_ON_UNLOAD_THREAD` to be called by all scheduler threads when a NIF library is unloaded. Used for releasing thread specific data. Can be set with function `enif_set_option`.
+
+  Own Id: OTP-18977 Aux Id: [PR-7809]
+
+- There is a new module `m:trace` in Kernel providing the same trace functionality as `erlang:trace/3` and `erlang:trace_pattern/3`, but with the addition of **dynamic isolated trace sessions**.
+
+  Own Id: OTP-18980
+
+- Added the `+MMlp on|off` emulator option to let the `mseg` allocator use "large pages" (sometimes known as "huge pages" or "super pages"). This currently only affects super-carrier allocations, but may be extended in the future.
+
+  Own Id: OTP-18984 Aux Id: [PR-7977]
+
+- `inet_backend = socket` has been optimized and reworked to be more compatible with the original `inet_backend = inet`.
+
+  Own Id: OTP-19004 Aux Id: OTP-18835
+
+- The `socket` documentation has been reworked, and due to
+  that a few details were fixed:
+  * `socket:is_supported/1` now returns `true` for example for `protocols`
+    that is a "category", not an item.
+  * `socket:cancel_monitor/1` no longer badargs for a monitor that was set by
+    another process, instead it returns `false` as for other unknown
+    `reference()`s.
+
+  Own Id: OTP-19054
+
+[PR-7174]: https://github.com/erlang/otp/pull/7174
+[PR-7236]: https://github.com/erlang/otp/pull/7236
+[PR-7274]: https://github.com/erlang/otp/pull/7274
+[PR-7348]: https://github.com/erlang/otp/pull/7348
+[GH-6152]: https://github.com/erlang/otp/issues/6152
+[PR-7465]: https://github.com/erlang/otp/pull/7465
+[PR-7388]: https://github.com/erlang/otp/pull/7388
+[PR-7651]: https://github.com/erlang/otp/pull/7651
+[PR-7470]: https://github.com/erlang/otp/pull/7470
+[PR-7110]: https://github.com/erlang/otp/pull/7110
+[PR-7592]: https://github.com/erlang/otp/pull/7592
+[PR-7703]: https://github.com/erlang/otp/pull/7703
+[PR-6510]: https://github.com/erlang/otp/pull/6510
+[PR-7856]: https://github.com/erlang/otp/pull/7856
+[PR-7243]: https://github.com/erlang/otp/pull/7243
+[PR-8004]: https://github.com/erlang/otp/pull/8004
+[PR-8035]: https://github.com/erlang/otp/pull/8035
+[GH-7438]: https://github.com/erlang/otp/issues/7438
+[PR-7981]: https://github.com/erlang/otp/pull/7981
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8090]: https://github.com/erlang/otp/pull/8090
+[PR-7125]: https://github.com/erlang/otp/pull/7125
+[PR-7809]: https://github.com/erlang/otp/pull/7809
+[PR-7977]: https://github.com/erlang/otp/pull/7977
+
 ## Erts 14.2.5
 
 ### Fixed Bugs and Malfunctions

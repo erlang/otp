@@ -19,6 +19,27 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.16
+
+### Improvements and New Features
+
+- `-callback` attributes have been added to modules `m:snmpa_network_interface_filter`, `m:snmpa_notification_filter`, `m:snmpm_network_interface_filter`, `m:snmpm_user`, and `m:snmpa_notification_delivery_info_receiver`.
+  
+  New `-type` attributes have also been added to modules `m:snmp`, `m:snmpa`, `m:snmpm`, and `m:snmpa_conf` to support the previously mentioned callbacks.
+
+  Own Id: OTP-18785 Aux Id: [PR-7702]
+
+- Updated types and specs for all API modules.
+
+  Own Id: OTP-18934 Aux Id: BL-312
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7702]: https://github.com/erlang/otp/pull/7702
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## SNMP 5.15
 
 ### Improvements and New Features
