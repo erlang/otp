@@ -66,7 +66,7 @@
 %% ===========================================================================
 
 -define(DL(F),    ?DL(F, [])).
--define(DL(F, A), ?LOG("DDISTS", F, A)).
+-define(DL(F, A), ?LOG("DDISTRS", F, A)).
 
 -define(CLIENT, 'CLIENT').
 -define(SERVER, 'SERVER').
@@ -126,9 +126,10 @@ end_per_suite(Config) ->
     ?DUTIL:end_per_suite(Config).
 
 
-traffic(_Config) ->
+traffic(Config) ->
     ?DL("traffic -> entry"),
-    Res = traffic(),
+    Factor = dia_factor(Config),
+    Res = do_traffic(Factor),
     ?DL("traffic -> done when"
         "~n   Res: ~p", [Res]),
     Res.
@@ -137,27 +138,27 @@ traffic(_Config) ->
 %% ===========================================================================
 
 run() ->
-    [] = ?DUTIL:run([{fun traffic/0, 60000}]).
+    [] = ?RUN([{fun() -> do_traffic(1) end, 60000}]).
     %% process for linked peers to die with
 
 %% traffic/0
 
-traffic() ->
-    ?DL("traffic -> make sure we have distro"),
+do_traffic(Factor) ->
+    ?DL("do_traffic -> make sure we have distro"),
     true = is_alive(),  %% need distribution for peer nodes
-    ?DL("traffic -> get nodes"),
+    ?DL("do_traffic -> get nodes"),
     Nodes = enslave(),
-    ?DL("traffic -> ping nodes"),
+    ?DL("do_traffic -> ping nodes"),
     [] = ping(Nodes),  %% drop client node
-    ?DL("traffic -> start nodes"),
+    ?DL("do_traffic -> start nodes"),
     [] = start(Nodes),
-    ?DL("traffic -> connect nodes"),
+    ?DL("do_traffic -> connect nodes"),
     [_] = connect(Nodes),
-    ?DL("traffic -> send (to) nodes"),
-    [] = send(Nodes),
-    ?DL("traffic -> stop nodes"),
+    ?DL("do_traffic -> send (to) nodes"),
+    [] = send(Nodes, Factor),
+    ?DL("do_traffic -> stop nodes"),
     [] = stop(Nodes),
-    ?DL("traffic -> done"),
+    ?DL("do_traffic -> done"),
     ok.
 
 %% enslave/0
@@ -254,10 +255,10 @@ peers(client2) -> nodes().
 %% nodes.
 
 connect({?SERVER, _, []}) ->
-    [_LRef = ?DUTIL:listen(?SERVER, tcp)];
+    [_LRef = ?LISTEN(?SERVER, tcp)];
 
 connect({?CLIENT, [{Node, _} | _], [LRef] = Acc}) ->
-    ?DUTIL:connect(?CLIENT, tcp, {Node, LRef}),
+    ?CONNECT(?CLIENT, tcp, {Node, LRef}),
     Acc;
 
 connect(Nodes) ->
@@ -269,46 +270,47 @@ connect(Nodes) ->
 
 %% ===========================================================================
 
-%% send/1
+%% send/2
 
-send(Nodes) ->
-    ?RUN([[fun send/2, Nodes, T]
+send(Nodes, Factor) ->
+    ?RUN([[fun send/3, Nodes, T, Factor]
           || T <- [local, remote, timeout, failover]]).
 
-%% send/2
+%% send/3
 
 %% Send a request from the first client node, using a the local
 %% transport.
-send(Nodes, local) ->
+send(Nodes, local, Factor) ->
     ?DL("send(local) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 0, str(?LOGOUT)),
+        = send(Nodes, 0, str(?LOGOUT), Factor),
     ?DL("send(local) -> success (=success)"),
     ok;
 
 %% Send a request from the first client node, using a transport on the
 %% another node.
-send(Nodes, remote) ->
+send(Nodes, remote, Factor) ->
     ?DL("send(remote) -> entry - expect success (~p)", [?SUCCESS]),
     #diameter_base_STA{'Result-Code' = ?SUCCESS}
-        = send(Nodes, 1, str(?LOGOUT)),
+        = send(Nodes, 1, str(?LOGOUT), Factor),
     ?DL("send(remote) -> success (=success)"),
     ok;
 
 %% Send a request that the server discards.
-send(Nodes, timeout) ->
+send(Nodes, timeout, Factor) ->
     ?DL("send(timeout) -> entry - expect timeout"),
-    {error, timeout} = send(Nodes, 1, str(?TIMEOUT)),
+    {error, timeout} = send(Nodes, 1, str(?TIMEOUT), Factor),
     ?DL("send(timeout) -> success (=timeout)"),
     ok;
 
 %% Send a request that causes the server to take the transport down.
-send(Nodes, failover) ->
+send(Nodes, failover, Factor) ->
     ?DL("send(failover) -> entry - expect busy (~p)", [?BUSY]),
     #'diameter_base_answer-message'{'Result-Code' = ?BUSY}
-        = send(Nodes, 2, str(?MOVED)),
+        = send(Nodes, 2, str(?MOVED), Factor),
     ?DL("send(failover) -> success (=busy)"),
     ok.
+
 
 %% ===========================================================================
 
@@ -317,24 +319,29 @@ str(Cause) ->
                        'Auth-Application-Id' = ?DICT:id(),
                        'Termination-Cause'   = Cause}.
 
-%% send/3
+%% send/4
 
-send([_, {Node, _} | _], Where, Req) ->
+send([_, {Node, _} | _], Where, Req, Factor) ->
     ?DL("send -> make rpc call to node ~p", [Node]),
-    rpc:call(Node, ?MODULE, call, [{Where, Req}]).
+    rpc:call(Node, ?MODULE, call, [{Where, Req, Factor}]).
 
 %% call/1
 
-call({Where, Req}) ->
-    ?DL("call -> entry with"
-        "~n   Where: ~p"
-        "~n   Req:   ~p", [Where, Req]),
-    diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]}]).
+call({Where, Req, Factor}) ->
+    Timeout = timeout(Factor),
+    ?DL("call -> make diameter call with"
+        "~n   Where:   ~p"
+        "~n   Req:     ~p"
+        "~nwhen"
+        "~n   Timeout: ~w (~w)", [Where, Req, Timeout, Factor]),
+    diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]},
+                                        {timeout, Timeout}]).
 
 %% sname/0
 
 sname() ->
     ?A(hd(string:tokens(?L(node()), "@"))).
+
 
 %% ===========================================================================
 %% diameter callbacks
@@ -428,3 +435,22 @@ fail(0, _) ->     %% sent from the originating node ...
 fail(_, TPid) ->  %% ... or through a remote node: force failover
     exit(TPid, kill),
     discard.
+
+
+%% ===========================================================================
+
+-define(CALL_TO_DEFAULT, 5000).
+timeout(Factor) when (Factor > 0) andalso (Factor =< 20) ->
+    (Factor - 1) * 500 + ?CALL_TO_DEFAULT;
+timeout(Factor) when (Factor > 0) ->
+    3*?CALL_TO_DEFAULT. % Max at 15 seconds
+
+
+%% ===========================================================================
+
+dia_factor(Config) ->
+    config_lookup(?FUNCTION_NAME, Config).
+
+config_lookup(Key, Config) ->
+    {value, {Key, Value}} = lists:keysearch(Key, 1, Config),
+    Value.
