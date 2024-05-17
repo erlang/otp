@@ -107,11 +107,12 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type fun_used_vars() :: #{erl_parse:abstract_expr() => {[atom()], fun_used_vars()}}.
 
-%% Usage of records, functions, and imports. The variable table, which
+%% Usage of records, functions, imported functions, and imported types. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
           calls = maps:new(),			%Who calls who
           imported = [],                        %Actually imported functions
+          imported_types = [],                  %Actually imported types
           used_records = gb_sets:new()          %Used record definitions
               :: gb_sets:set(atom()),
           used_types = maps:new()               %Used type definitions
@@ -168,6 +169,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
+               imp_types=[] :: orddict:orddict(ta(), module()), %Imported types
                feature_keywords =               %Keywords in
                                                 %configurable features
                    feature_keywords() :: #{atom() => atom()},
@@ -218,6 +220,8 @@ format_error({missing_qlc_hrl,A}) ->
     io_lib:format("qlc:q/~w called, but \"qlc.hrl\" not included", [A]);
 format_error({redefine_import,{{F,A},M}}) ->
     io_lib:format("function ~tw/~w already imported from ~w", [F,A,M]);
+format_error({redefine_import_type,{{F,A},M}}) ->
+  io_lib:format("type ~tw/~w already imported from ~w", [F,A,M]);
 format_error({bad_inline,{F,A}}) ->
     io_lib:format("inlined function ~tw/~w undefined", [F,A]);
 format_error({undefined_nif,{F,A}}) ->
@@ -262,12 +266,16 @@ format_error({duplicated_export, {F,A}}) ->
     io_lib:format("function ~tw/~w already exported", [F,A]);
 format_error({unused_import,{{F,A},M}}) ->
     io_lib:format("import ~w:~tw/~w is unused", [M,F,A]);
+format_error({unused_import_type,{{T,A},M}}) ->
+    io_lib:format("import_type ~w:~tw/~w is unused", [M,T,A]);
 format_error({undefined_function,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error({redefine_function,{F,A}}) ->
     io_lib:format("function ~tw/~w already defined", [F,A]);
 format_error({define_import,{F,A}}) ->
     io_lib:format("defining imported function ~tw/~w", [F,A]);
+format_error({define_import_type,{T,A}}) ->
+  io_lib:format("defining imported type ~tw/~w", [T,A]);
 format_error({unused_function,{F,A}}) ->
     io_lib:format("function ~tw/~w is unused", [F,A]);
 format_error({call_to_redefined_bif,{F,A}}) ->
@@ -285,6 +293,8 @@ format_error({redefine_old_bif_import,{F,A}}) ->
 format_error({redefine_bif_import,{F,A}}) ->
     io_lib:format("import directive overrides auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
+format_error({redefine_builtin_type_import, {F, A}}) ->
+  io_lib:format("import directive overrides auto-imported builtin type ~w/~w~n", [F, A]);
 format_error({deprecated, MFA, String, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; ~s",
 		  [format_mfa(MFA), Rel, String]);
@@ -883,6 +893,8 @@ attribute_state({attribute,A,export_type,Es}, St) ->
     export_type(A, Es, St);
 attribute_state({attribute,A,import,Is}, St) ->
     import(A, Is, St);
+attribute_state({attribute,A,import_type,Is}, St) ->
+  import_type(A, Is, St);
 attribute_state({attribute,A,record,{Name,Fields}}, St) ->
     record_def(A, Name, Fields, St);
 attribute_state({attribute,Aa,behaviour,Behaviour}, St) ->
@@ -1251,12 +1263,16 @@ check_imports(Forms, St0) ->
             St0;
         true ->
             Usage = St0#lint.usage,
+
             Unused = ordsets:subtract(St0#lint.imports, Usage#usage.imported),
-            Imports = [{{FA,Mod},Anno} ||
-		 {attribute,Anno,import,{Mod,Fs}} <- Forms,
-		 FA <- lists:usort(Fs)],
+            Imports = [{{FA,Mod},Anno} || {attribute,Anno,import,{Mod,Fs}} <- Forms, FA <- lists:usort(Fs)],
             Bad = [{FM,Anno} || FM <- Unused, {FM2,Anno} <- Imports, FM =:= FM2],
-            func_location_warning(unused_import, Bad, St0)
+            St1 = func_location_warning(unused_import, Bad, St0),
+
+            TUnused = ordsets:subtract(St1#lint.imp_types, Usage#usage.imported_types),
+            TImports = [{{TA,Mod},L} || {attribute,L,import_type,{Mod,Ts}} <- Forms, TA <- lists:usort(Ts)],
+            TBad = [{FM,L} || FM <- TUnused, {FM2,L} <- TImports, FM =:= FM2],
+            func_location_warning(unused_import_type, TBad, St1)
     end.
 
 %% check_inlines(Forms, State0) -> State
@@ -1322,12 +1338,12 @@ check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
 
 %% check_undefined_types(State0) -> State
 
-check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
+check_undefined_types(#lint{usage=Usage,types=Def,imp_types=ImpTypes}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = maps:keys(Used),
     Undef = [{TA,map_get(TA, Used)} ||
 		TA <- UTAs,
-		not is_map_key(TA, Def),
+		not is_map_key(TA, Def) andalso not is_imported_type(ImpTypes,TA),
 		not is_default_type(TA)],
     foldl(fun ({TA,UsedTypeList}, St) ->
                   foldl( fun(#used_type{anno = Anno}, St1) ->
@@ -1578,6 +1594,65 @@ imported(F, A, St) ->
         {ok,Mod} -> {yes,Mod};
         error -> no
     end.
+
+-spec imported_type(ta(), lint_state()) -> {'yes',module()} | 'no'.
+
+imported_type(TA, St) ->
+  case orddict:find(TA, St#lint.imp_types) of
+    {ok,Mod} -> {yes,Mod};
+    error -> no
+  end.
+
+-type import_type() :: {module(), [ta()]} | module().
+
+-spec import_type(anno(), import_type(), lint_state()) -> lint_state().
+import_type(Anno, {Mod,Ts}, St) ->
+  St1 = check_module_name(Mod, Anno, St),
+  Mts = ordsets:from_list(Ts),
+  case check_type_imports(Anno, Mts, St1) of
+    [] ->
+      St1#lint{imp_types=add_imports(Mod, Mts, St1#lint.imp_types)};
+    Ets ->
+      {Err, St2} =
+        foldl(
+          fun
+            ({type,{T,A},_}, {Err,St0}) ->
+              %% importing builtin-type (from erlang)
+              {Err, add_error(Anno, {redefine_builtin_type_import, {T,A}}, St0)};
+            (Et, {_Err,St0}) ->
+              %% already imported type
+              {true, add_error(Anno, {redefine_import_type,Et}, St0)}
+          end,
+          {false, St1},
+          Ets
+        ),
+        if
+          not Err ->
+            St2#lint{imp_types=add_imports(Mod, Mts, St1#lint.imp_types)};
+          true ->
+            St2
+        end
+  end.
+
+check_type_imports(_Anno, Ts, St) ->
+  foldl(
+    fun (T, Ets) ->
+      case orddict:find(T, St#lint.imp_types) of
+        {ok,Mod} ->
+          [{T,Mod}|Ets];
+        error ->
+          {N,A} = T,
+          case erl_internal:is_type(N, A) of
+            true ->
+              [{type,T,erlang}|Ets];
+            false ->
+              Ets
+          end
+      end
+    end,
+    [],
+    Ts
+  ).
 
 -spec on_load(erl_anno:anno(), fa(), lint_state()) -> lint_state().
 %%  Check an on_load directive and remember it.
@@ -2937,7 +3012,11 @@ type_def(Attr, Anno, TypeName, ProtoType, Args, St0) ->
                 true ->
                     add_error(Anno, {redefine_type, TypePair}, St0);
                 false ->
-                    StoreType(St0)
+                    St1 = StoreType(St0),
+                    case imported_type(TypePair, St1) of
+                      {yes,_M} -> add_error(Anno, {define_import_type,TypePair}, St1);
+                      no -> St1
+                    end
 	    end
     end.
 
@@ -4522,6 +4601,11 @@ is_imported_function(ImportSet,{Func,Arity}) ->
     case orddict:find({Func,Arity}, ImportSet) of
         {ok,_Mod} -> true;
         error -> false
+    end.
+is_imported_type(ImportTypeSet,{Type, Arity}) ->
+    case orddict:find({Type,Arity}, ImportTypeSet) of
+      {ok,_Mod} -> true;
+      error -> false
     end.
 %% Predicate to see if a function is explicitly imported from the erlang module
 is_imported_from_erlang(ImportSet,{Func,Arity}) ->
