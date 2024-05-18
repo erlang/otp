@@ -20,10 +20,9 @@ main(Args) ->
             end;
 
         ExDocExe ->
-            Cmd = lists:append(["exec ", ExDocExe, " "],  Args),
+            Cmd = lists:append(["exec ", ExDocExe, " "],  lists:join(" ", Args)),
             io:format("Running ~s~n", [Cmd]),
-            Out = os:cmd(Cmd),
-            io:format("~s", [Out])
+            os:cmd(Cmd)
     end.
 
 download_otp() ->
