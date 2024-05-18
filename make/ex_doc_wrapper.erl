@@ -20,7 +20,10 @@ main(Args) ->
             end;
 
         ExDocExe ->
-            Cmd = lists:append(["exec ", ExDocExe, " "],  lists:join(" ", Args)),
+            % Passing in --option "hello world" leads to ["--option", "hello world"]
+            % Re-wrap the latter in quotes
+            Quoted = lists:map(fun quote_arguments/1, Args),
+            Cmd = lists:append(["exec ", ExDocExe, " "],  lists:join(" ", Quoted)),
             io:format("Running ~s~n", [Cmd]),
             os:cmd(Cmd)
     end.
@@ -51,4 +54,10 @@ prompt() ->
                 "n" -> {error, do_not_download};
                 _ -> {error, try_again}
             end
+    end.
+
+quote_arguments(String) ->
+    case string:find(String, " ") of
+        nomatch -> String;
+        _ -> string:pad(String, string:length(String) + 2, both, $")
     end.
