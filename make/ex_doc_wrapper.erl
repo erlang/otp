@@ -9,7 +9,8 @@ main(Args) ->
                 {ok, download} ->
                     case download_otp() of
                         error ->
-                            io:format("Unable to read ERL_TOP from environment?~n");
+                            io:format("Unable to read ERL_TOP from environment?~n"),
+                            halt(1);
                         ok ->
                             main(Args)
                     end;
