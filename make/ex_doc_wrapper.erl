@@ -16,7 +16,8 @@ main(Args) ->
                 {error, try_again} ->
                     main(Args);
                 {error, do_not_download} ->
-                    io:format("Skipping download...~n")
+                    io:format("Skipping download...~n"),
+                    halt(1)
             end;
 
         ExDocExe ->
