@@ -21,20 +21,15 @@
 %%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @copyright 2012-2015 Richard Carlsson
-%% @doc Parse transform for merl. Enables the use of automatic metavariables
-%% and using quasi-quotes in matches and case switches. Also optimizes calls
-%% to functions in `merl' by partially evaluating them, turning strings to
-%% templates, etc., at compile-time.
-%%
-%% Using `-include_lib("syntax_tools/include/merl.hrl").' enables this
-%% transform, unless the macro `MERL_NO_TRANSFORM' is defined first.
 
 -module(merl_transform).
 -moduledoc """
-Parse transform for merl. Enables the use of automatic metavariables and using
-quasi-quotes in matches and case switches. Also optimizes calls to functions in
-`merl` by partially evaluating them, turning strings to templates, etc., at
-compile-time.
+Parse transform for merl.
+
+Enables the use of automatic metavariables and using quasi-quotes in
+matches and case switches. Also optimizes calls to functions in `merl`
+by partially evaluating them, turning strings to templates, and so on,
+at compile-time.
 
 Using `-include_lib("syntax_tools/include/merl.hrl").` enables this transform,
 unless the macro `MERL_NO_TRANSFORM` is defined first.
@@ -49,8 +44,7 @@ unless the macro `MERL_NO_TRANSFORM` is defined first.
 
 %% TODO: unroll calls to switch? it will probably get messy
 
-%% TODO: use Igor to make resulting code independent of merl at runtime?
--doc "".
+-doc false.
 -spec parse_transform(InForms, Options :: term()) -> OutForms when
       InForms :: [erl_parse:abstract_form() | erl_parse:form_info()],
       OutForms :: [erl_parse:abstract_form() | erl_parse:form_info()].
