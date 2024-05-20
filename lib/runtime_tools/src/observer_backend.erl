@@ -609,11 +609,13 @@ etop_collect([P|Ps], Acc) ->
 etop_collect([], Acc) -> Acc.
 
 id_to_binary(Id) when is_list(Id); is_binary(Id) ->
-    case unicode:characters_to_binary(Id) of
+    try unicode:characters_to_binary(Id) of
         {error, _, _} ->
             unicode:characters_to_binary(io_lib:format("~0.tp", [Id]));
         BinString ->
             BinString
+    catch _:_ ->
+            unicode:characters_to_binary(io_lib:format("~0.tp", [Id]))
     end;
 id_to_binary(TermId) ->
     unicode:characters_to_binary(io_lib:format("~0.tp", [TermId])).

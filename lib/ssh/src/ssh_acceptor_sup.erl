@@ -55,6 +55,7 @@ restart_child(AccSup, Address) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([SystemSup, Address, Options]) ->
+    ssh_lib:set_label(server, acceptor_sup),
     %% Initial start of ssh_acceptor_sup for this port
     SupFlags = #{strategy  => one_for_one, 
                  intensity =>   10,

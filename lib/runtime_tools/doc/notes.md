@@ -21,6 +21,60 @@ limitations under the License.
 
 This document describes the changes made to the Runtime_Tools application.
 
+## Runtime_Tools 2.1
+
+### Improvements and New Features
+
+- The `m:instrument` module can now track allocations on a per-process or per-port basis.
+
+  Own Id: OTP-18577 Aux Id: [PR-7236]
+
+- The new function `proc_lib:set_label/1` can be used to add a descriptive term to any process that does not have a registered name. The name will be shown by tools such as `\c:i/0`, `m:observer`, and it will be included in crash reports produced by processes using `m:gen_server`, `m:gen_statem`, `m:gen_event`, and `m:gen_fsm`.
+  
+  The label for a process can be retrieved by calling `proc_lib:get_label/1`.
+  
+  Note that those functions work on any process, not only processes that use `m:proc_lib`.
+  
+  Example:
+  
+  ```text
+  1> self().
+  <0.90.0>
+  2> proc_lib:set_label(my_label).
+  ok
+  3> i().
+      .
+      .
+      .
+  <0.90.0>              erlang:apply/2                        2586    75011    0
+  my_label              c:pinfo/2                               51
+  4> proc_lib:get_label(self()).
+  my_label
+  ```
+
+  Own Id: OTP-18789 Aux Id: [PR-7720], [PR-8003]
+
+- Type specs had been added to all `m:dbg` functions.
+
+  Own Id: OTP-18859 Aux Id: [PR-7782]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- `m:dbg` have been updated to use [trace sessions](`t:trace:session/0`).
+  
+  `dbg:session_create/1`, `dbg:session/2`, and `dbg:session_destroy/1` have been added to work sessions. See the documentation for details.
+
+  Own Id: OTP-19081 Aux Id: [PR-8363]
+
+[PR-7236]: https://github.com/erlang/otp/pull/7236
+[PR-7720]: https://github.com/erlang/otp/pull/7720
+[PR-8003]: https://github.com/erlang/otp/pull/8003
+[PR-7782]: https://github.com/erlang/otp/pull/7782
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8363]: https://github.com/erlang/otp/pull/8363
+
 ## Runtime_Tools 2.0.1
 
 ### Fixed Bugs and Malfunctions

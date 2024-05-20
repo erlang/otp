@@ -150,7 +150,7 @@ RELSYSDIR = $(RELEASE_PATH)/ssl_test
 # The path to the test_server ebin dir is needed when 
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += $(INCLUDES)
+ERL_COMPILE_FLAGS += $(INCLUDES) +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 # ----------------------------------------------------

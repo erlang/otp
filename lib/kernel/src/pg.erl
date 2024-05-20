@@ -93,7 +93,7 @@ independent of each other. A process may join any number of groups in any number
 of scopes. Scopes are designed to decouple single mesh into a set of overlay
 networks, reducing amount of traffic required to propagate group membership
 information. Default scope `pg` is started automatically when
-[`kernel(6)`](kernel_app.md#start_pg) is configured to do so.
+[Kernel](kernel_app.md#start_pg) is configured to do so.
 
 > #### Note {: .info }
 >
@@ -104,13 +104,11 @@ information. Default scope `pg` is started automatically when
 > Local membership is not preserved if scope process exits and restarts.
 >
 > A scope can be kept local-only by using a scope name that is unique
-> cluster-wide, e.g. the node name:
->
-> - \_\_\_\_ - `pg:start_link(node()).`
+> cluster-wide, e.g. the node name: `pg:start_link(node()).`
 
 ## See Also
 
-[`kernel(6)`](kernel_app.md)
+[Kernel](kernel_app.md)
 """.
 -moduledoc(#{since => "OTP 23.0"}).
 
@@ -166,9 +164,10 @@ information. Default scope `pg` is started automatically when
 %% Starts the server and links it to calling process.
 %% Uses default scope, which is the same as as the module name.
 -doc """
-Starts the default `pg` scope within supervision tree. Kernel may be configured
-to do it automatically, see [`kernel(6)`](kernel_app.md#start_pg) configuration
-manual.
+Starts the default `pg` scope within supervision tree.
+
+Kernel may be configured to do it automatically by setting
+the Kernel configuration parameter [`start_pg`](kernel_app.md#start_pg).
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_link() -> {ok, pid()} | {error, any()}.
@@ -177,7 +176,7 @@ start_link() ->
 
 %% @doc
 %% Starts the server outside of supervision hierarchy.
--doc(#{equiv => start_link/1}).
+-doc "Starts additional scope.".
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start(Scope) when is_atom(Scope) ->
@@ -186,7 +185,10 @@ start(Scope) when is_atom(Scope) ->
 %% @doc
 %% Starts the server and links it to calling process.
 %% Scope name is supplied.
--doc "Starts additional scope.".
+-doc """
+Equivalent to [`start(Scope)`](`start/1`), except that it also creates
+a `link/1` with the calling process.
+""".
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_link(Scope :: atom()) -> {ok, pid()} | {error, any()}.
 start_link(Scope) when is_atom(Scope) ->
@@ -197,7 +199,7 @@ start_link(Scope) when is_atom(Scope) ->
 %% Joins a single or a list of processes.
 %% Group is created automatically.
 %% Processes must be local to this node.
--doc(#{equiv => join/3}).
+-doc(#{equiv => join(?DEFAULT_SCOPE, Group, PidOrPids)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec join(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Group, PidOrPids) ->
@@ -219,7 +221,7 @@ join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %% @doc
 %% Single or list of processes leaving the group.
 %% Processes must be local to this node.
--doc(#{equiv => leave/3}).
+-doc(#{equiv => leave(?DEFAULT_SCOPE, Group, PidOrPids)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec leave(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 leave(Group, PidOrPids) ->
@@ -244,24 +246,26 @@ leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
 %%  all group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
--doc(#{equiv => monitor_scope/1}).
+-doc(#{equiv => monitor_scope(?DEFAULT_SCOPE)}).
 -doc(#{since => <<"OTP 25.1">>}).
 -spec monitor_scope() -> {reference(), #{group() => [pid()]}}.
 monitor_scope() ->
     monitor_scope(?DEFAULT_SCOPE).
 
 -doc """
-Subscribes the caller to updates from the specified scope. Returns content of
-the entire scope and a reference to match the upcoming notifications.
+Subscribes the caller to updates from the specified scope.
+
+Returns content of the entire scope and a reference to match the upcoming
+notifications.
 
 Whenever any group membership changes, an update message is sent to the
 subscriber:
 
-```text
+```erlang
 {Ref, join, Group, [JoinPid1, JoinPid2]}
 ```
 
-```text
+```erlang
 {Ref, leave, Group, [LeavePid1]}
 ```
 """.
@@ -276,7 +280,7 @@ monitor_scope(Scope) ->
 %%  group changes. Calling process will receive {Ref, join, Group, Pids}
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
--doc(#{equiv => monitor/2}).
+-doc(#{equiv => monitor(?DEFAULT_SCOPE, Group)}).
 -doc(#{since => <<"OTP 25.1">>}).
 -spec monitor(Group :: group()) -> {reference(), [pid()]}.
 monitor(Group) ->
@@ -289,9 +293,10 @@ monitor(Group) ->
 %%  message when new Pids join the Group, and {Ref, leave, Group, Pids} when
 %%  Pids leave the group.
 -doc """
-Subscribes the caller to updates for the specified group. Returns list of
-processes currently in the group, and a reference to match the upcoming
-notifications.
+Subscribes the caller to updates for the specified group.
+
+Returns list of processes currently in the group, and a reference to match the
+upcoming notifications.
 
 See `monitor_scope/0` for the update message structure.
 """.
@@ -304,7 +309,7 @@ monitor(Scope, Group) ->
 %% @doc
 %% Stops monitoring Scope for groups changes. Flushes all
 %%  {Ref, join|leave, Group, Pids} messages from the calling process queue.
--doc(#{equiv => demonitor/2}).
+-doc(#{equiv => demonitor(?DEFAULT_SCOPE, Ref)}).
 -doc(#{since => <<"OTP 25.1">>}).
 -spec demonitor(Ref :: reference()) -> ok | false.
 demonitor(Ref) ->
@@ -322,7 +327,7 @@ demonitor(Scope, Ref) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns all processes in a group
--doc(#{equiv => get_members/2}).
+-doc(#{equiv => get_members(?DEFAULT_SCOPE, Group)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec get_members(Group :: group()) -> [pid()].
 get_members(Group) ->
@@ -345,7 +350,7 @@ get_members(Scope, Group) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns processes in a group, running on local node.
--doc(#{equiv => get_local_members/2}).
+-doc(#{equiv => get_local_members(?DEFAULT_SCOPE, Group)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec get_local_members(Group :: group()) -> [pid()].
 get_local_members(Group) ->
@@ -368,7 +373,7 @@ get_local_members(Scope, Group) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a list of all known groups.
--doc(#{equiv => which_groups/1}).
+-doc(#{equiv => which_groups(?DEFAULT_SCOPE)}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec which_groups() -> [Group :: group()].
 which_groups() ->

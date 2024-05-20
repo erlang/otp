@@ -39,6 +39,7 @@ This module needs to be explicitly configured, see
 %%%-----------------------------------------------------------------
 %%% Implements different error mechanisms.
 %%%-----------------------------------------------------------------
+
 -export([user_err/2, config_err/2]).
 
 
@@ -46,14 +47,17 @@ This module needs to be explicitly configured, see
 %% This function is called when there is an error in a user
 %% supplied item, e.g. instrumentation function.
 %%-----------------------------------------------------------------
--doc """
-user_err(Format, Args) -> void()
 
+-doc """
 The function is called if a user related error occurs at run-time, for example
 if a user defined instrumentation function returns erroneous.
 
 `Format` and `Args` are as in `io:format(Format, Args)`.
 """.
+-spec user_err(Format, Args) -> snmp:void() when
+      Format :: string(),
+      Args   :: list().
+
 user_err(F, A) -> 
     error_msg("User error", F, A).
 
@@ -63,14 +67,17 @@ user_err(F, A) ->
 %% either at startup (in a conf-file) or at run-time (e.g. when 
 %% information in the configuration tables are inconsistent.)
 %%-----------------------------------------------------------------
--doc """
-config_err(Format, Args) -> void()
 
+-doc """
 The function is called if an error occurs during the configuration phase, for
 example if a syntax error is found in a configuration file.
 
 `Format` and `Args` are as in `io:format(Format, Args)`.
 """.
+-spec config_err(Format, Args) -> snmp:void() when
+      Format :: string(),
+      Args   :: list().
+
 config_err(F, A) ->
     error_msg("Configuration error", F, A).
 

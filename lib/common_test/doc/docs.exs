@@ -18,7 +18,7 @@
     "guides/ct_hooks_chapter.md",
     "guides/why_test_chapter.md",
     "guides/ct_property_test_chapter.md",
-    "references/common_test_app.md",
-    "references/ct_run_cmd.md"
+    "references/ct_run_cmd.md",
+    "common_test_app.md"
   ]
 ]

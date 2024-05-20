@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -731,6 +731,43 @@ Header
 "".
 
 Erlang code.
+-moduledoc """
+This module is the basic Erlang parser that converts tokens into the abstract
+form of either forms (that is, top-level constructs), expressions, or terms.
+
+The Abstract Format is described in the ERTS User's Guide. Notice that a token
+list must end with the dot token to be acceptable to the parse functions
+(see the `m:erl_scan`) module.
+
+## Error Information
+
+ErrorInfo is the standard ErrorInfo structure that is returned from all I/O modules.
+The format is as follows:
+
+```
+{ErrorLine, Module, ErrorDescriptor}
+```
+
+A string describing the error is obtained with the following call:
+
+```
+Module:format_error(ErrorDescriptor)
+```
+
+## See Also
+
+`m:erl_anno`, `m:erl_scan`, `m:io`, section [The Abstract Format](`e:erts:absform`)
+in the ERTS User's Guide.
+""".
+
+-define(YECC_PARSE_DOC, false).
+-define(YECC_PARSE_AND_SCAN_DOC, false).
+-define(YECC_FORMAT_ERROR_DOC, """
+Uses an ErrorDescriptor and returns a string that describes the error.
+
+This function is usually called implicitly when an ErrorInfo structure is
+processed (see section [Error Information](#module-error-information)).
+""").
 
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
@@ -1245,7 +1282,9 @@ end-of-stream encountered before a complete form had been parsed.
 %% entry points working.
 
 -doc """
-Parses `Tokens` as if it was a form. Returns one of the following:
+Parses `Tokens` as if it was a form.
+
+Returns one of the following:
 
 - **`{ok, AbsForm}`** - The parsing was successful. `AbsForm` is the abstract
   form of the parsed form.
@@ -1269,8 +1308,9 @@ parse_form(Tokens) ->
     parse(Tokens).
 
 -doc """
-Parses `Tokens` as if it was a list of expressions. Returns one of the
-following:
+Parses `Tokens` as if it was a list of expressions.
+
+Returns one of the following:
 
 - **`{ok, ExprList}`** - The parsing was successful. `ExprList` is a list of the
   abstract forms of the parsed expressions.
@@ -1291,7 +1331,9 @@ parse_exprs(Tokens) ->
     end.
 
 -doc """
-Parses `Tokens` as if it was a term. Returns one of the following:
+Parses `Tokens` as if it was a term.
+
+Returns one of the following:
 
 - **`{ok, Term}`** - The parsing was successful. `Term` is the Erlang term
   corresponding to the token list.
@@ -1896,7 +1938,7 @@ abstract_byte(Bits, A) ->
 
 %%  Generate a list of tokens representing the abstract term.
 
--doc(#{equiv => tokens/2}).
+-doc(#{equiv => tokens(AbsTerm, [])}).
 -spec tokens(AbsTerm) -> Tokens when
       AbsTerm :: abstract_expr(),
       Tokens :: [token()].
@@ -2061,8 +2103,10 @@ map_anno(F0, Abstr) ->
 
 -doc """
 Updates an accumulator by applying `Fun` on each collection of annotations of
-the `erl_parse` tree `Abstr`. The first call to `Fun` has `AccIn` as argument,
-the returned accumulator `AccOut` is passed to the next call, and so on. The
+the `erl_parse` tree `Abstr`.
+
+The first call to `Fun` has `AccIn` as argument, the returned accumulator
+`AccOut` is passed to the next call, and so on. The
 final value of the accumulator is returned. The `erl_parse` tree is traversed in
 a depth-first, left-to-right fashion.
 """.
@@ -2084,7 +2128,9 @@ fold_anno(F0, Acc0, Abstr) ->
 -doc """
 Modifies the `erl_parse` tree `Abstr` by applying `Fun` on each collection of
 annotations of the nodes of the `erl_parse` tree, while at the same time
-updating an accumulator. The first call to `Fun` has `AccIn` as second argument,
+updating an accumulator.
+
+The first call to `Fun` has `AccIn` as second argument,
 the returned accumulator `AccOut` is passed to the next call, and so on. The
 modified `erl_parse` tree and the final value of the accumulator are returned.
 The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.
@@ -2107,7 +2153,9 @@ mapfold_anno(F, Acc0, Abstr) ->
 -doc """
 Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but
 with [locations](`t:erl_anno:location/0`) where a `erl_parse` tree has
-collections of annotations. Returns a `erl_parse` tree where each location `L`
+collections of annotations.
+
+Returns a `erl_parse` tree where each location `L`
 is replaced by the value returned by [`erl_anno:new(L)`](`erl_anno:new/1`). The
 term `Term` is traversed in a depth-first, left-to-right fashion.
 """.
@@ -2139,6 +2187,7 @@ anno_to_term(Abstract) ->
 -doc """
 Assumes that `Term` is a term with the same structure as a `erl_parse` tree, but
 with terms, say `T`, where a `erl_parse` tree has collections of annotations.
+
 Returns a `erl_parse` tree where each term `T` is replaced by the value returned
 by [`erl_anno:from_term(T)`](`erl_anno:from_term/1`). The term `Term` is
 traversed in a depth-first, left-to-right fashion.

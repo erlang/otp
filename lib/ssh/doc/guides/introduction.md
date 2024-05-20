@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Introduction
+# SSH Protocol Introduction
 
 SSH is a protocol for secure remote logon and other secure network services over
 an insecure network.
@@ -33,18 +33,30 @@ Authentication Layer Protocols in Erlang. It provides the following:
 
 - API functions to write customized SSH clients and servers applications
 - The Erlang shell available over SSH
-- An SFTP client (`m:ssh_sftp`) and server ([ssh_sftpd](`m:ssh_sftp`))
+- An SFTP client (`m:ssh_sftp`) and server (`m:ssh_sftpd`)
 
 ## Prerequisites
 
 It is assumed that the reader is familiar with the Erlang programming language,
-concepts of _OTP_, and has a basic understanding of _public keys_.
+concepts of **OTP**, and has a basic understanding of **public keys**.
 
-## SSH Protocol Overview
+## Protocol Overview
 
 Conceptually, the SSH protocol can be partitioned into four layers:
 
-![SSH Protocol Architecture](assets/SSH_protocols.png "SSH Protocol Architecture")
+```mermaid
+---
+title: SSH Protocol Architecture
+---
+
+block-beta
+    columns 2
+
+    l1["SSH Client/Server Applications"]:2
+    l2a["Connection Protocol"] l2b["Authentication Protocol"]
+    l3["Transport Protocol"]:2
+    l4["TCP/IP Stack"]:2
+```
 
 ### Transport Protocol
 

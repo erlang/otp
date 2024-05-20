@@ -1,7 +1,7 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2121,10 +2121,11 @@ parse_external_entity(State, _PubId, SysId, Acc) ->
     
     SaveState =  event_callback({startEntity, SysId}, State),
 
-    State1 = State#xmerl_sax_parser_state{line_no=1, 
-                      end_tags = []},
+    EntityState =
+        SaveState#xmerl_sax_parser_state{line_no=1,
+                                         end_tags = []},
     
-    {Acc1, EventState, EventRefTab, AttVals} = handle_external_entity(ExtRef, State1, Acc),
+    {Acc1, EventState, EventRefTab, AttVals} = handle_external_entity(ExtRef, EntityState, Acc),
 
     NewState =  event_callback({endEntity, SysId}, 
                                SaveState#xmerl_sax_parser_state{event_state=EventState}),
@@ -2135,7 +2136,6 @@ parse_external_entity(State, _PubId, SysId, Acc) ->
         yes ->
             {Acc1, NewState#xmerl_sax_parser_state{attribute_values = AttVals}}
     end.
-
 
 
 %%----------------------------------------------------------------------

@@ -375,7 +375,10 @@ find_path() ->
 to_drop() ->
     case application:get_env(kernel, shell_history_drop) of
         undefined ->
-            application:set_env(kernel, shell_history_drop, ?DEFAULT_DROP),
+            %% The AC might be overloaded/not responding and
+            %% we want the shell to be as responsive as possible
+            %% so we set a short timeout
+            application:set_env(kernel, shell_history_drop, ?DEFAULT_DROP, [{timeout, 10}]),
             ?DEFAULT_DROP;
         {ok, V} when is_list(V) -> [Ln++"\n" || Ln <- V];
         {ok, _} -> ?DEFAULT_DROP

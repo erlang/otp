@@ -33,29 +33,32 @@ Common Test specific layer on Erlang/OTP rpc.
 %%%  API
 %%%=========================================================================
 -doc """
-app_node(App, Candidates) -> NodeName
-
 From a set of candidate nodes determines which of them is running the
 application `App`. If none of the candidate nodes is running `App`, the function
 makes the test case calling this function to fail. This function is the same as
 calling [`app_node(App, Candidates, true)`](`app_node/3`).
 """.
+-spec app_node(App, Candidates) -> CandidateNode
+              when App :: atom(),
+                   Candidates :: [node()],
+                   CandidateNode :: node().
 app_node(App, Candidates) ->
     app_node(App, Candidates, true, []).
 
 -doc """
-app_node(App, Candidates, FailOnBadRPC) -> NodeName
-
 Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC`
 determines if the search for a candidate node is to stop if `badrpc` is received
 at some point.
 """.
+-spec app_node(App, Candidates, FailOnBadRPC) -> CandidateNode
+              when App :: atom(),
+                   Candidates :: [node()],
+                   FailOnBadRPC :: boolean(),
+                   CandidateNode :: node().
 app_node(App, Candidates, FailOnBadRPC) ->
     app_node(App, Candidates, FailOnBadRPC, []).
 
 -doc """
-app_node(App, Candidates, FailOnBadRPC, Cookie) -> NodeName
-
 Same as [`ct_rpc:app_node/2`](`app_node/2`), except that argument `FailOnBadRPC`
 determines if the search for a candidate node is to stop if `badrpc` is received
 at some point.
@@ -63,6 +66,12 @@ at some point.
 The cookie on the client node is set to `Cookie` for this `rpc` operation (used
 to match the server node cookie).
 """.
+-spec app_node(App, Candidates, FailOnBadRPC, Cookie) -> CandidateNode
+              when App :: atom(),
+                   Candidates :: [node()],
+                   FailOnBadRPC :: boolean(),
+                   Cookie :: atom() | [],
+                   CandidateNode :: node().
 app_node(App, [], _, _) -> 
     ct:fail({application_not_running, App});
 
@@ -87,28 +96,33 @@ app_node(App, _Candidates = [CandidateNode | Nodes], FailOnBadRPC, Cookie) ->
 	    end
     end.
 
--doc """
-call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
-
-Same as [`call(Node, Module, Function, Args, infinity)`](`call/5`).
-""".
+-doc(#{equiv => call(Node, Module, Function, Args, infinity, [])}).
+-spec call(Node, Module, Function, Args) -> term() | {badrpc, Reason}
+              when Node :: {Function, Args} | node(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Args :: list(),
+                   Reason :: term().
 call(Node, Module, Function, Args) ->
     call(Node, Module, Function, Args, infinity, []). 
 
 -doc """
-call(Node, Module, Function, Args, TimeOut) -> term() | {badrpc, Reason}
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`.
 Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote
 procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs`
 is to return a node name.
 """.
+-spec call(Node, Module, Function, Args, TimeOut) -> term() | {badrpc, Reason}
+              when Node :: {Function, Args} | node(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Args :: list(),
+                   TimeOut :: timeout(),
+                   Reason :: term().
 call(Node, Module, Function, Args, TimeOut) ->
     call(Node, Module, Function, Args, TimeOut, []).
 
 -doc """
-call(Node, Module, Function, Args, TimeOut, Cookie) -> term() | {badrpc, Reason}
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`.
 Returns either whatever `Function` returns, or `{badrpc, Reason}` if the remote
 procedure call fails. If `Node` is `{Fun, FunArgs}`, applying `Fun` to `FunArgs`
@@ -117,6 +131,14 @@ is to return a node name.
 The cookie on the client node is set to `Cookie` for this `rpc` operation (used
 to match the server node cookie).
 """.
+-spec call(Node, Module, Function, Args, TimeOut, Cookie) -> term() | {badrpc, Reason}
+              when Node :: {Function, Args} | node(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Args :: list(),
+                   TimeOut :: timeout(),
+                   Cookie :: atom() | [],
+                   Reason :: term().
 call({Fun, FunArgs}, Module, Function, Args, TimeOut, Cookie) ->
     Node = Fun(FunArgs),
     call(Node, Module, Function, Args, TimeOut, Cookie);
@@ -127,19 +149,20 @@ call(Node, Module, Function, Args, TimeOut, Cookie) when is_atom(Node) ->
     Result.    
 
 -doc """
-cast(Node, Module, Function, Args) -> ok
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`. No
 response is delivered and the process that makes the call is not suspended until
 the evaluation is completed as in the case of `call/3,4`. If `Node` is
 `{Fun, FunArgs}`, applying `Fun` to `FunArgs` is to return a node name.
 """.
+-spec cast(Node, Module, Function, Args) -> 'ok'
+              when Node :: {Function, Args} | node(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Args :: list().
 cast(Node, Module, Function, Args) ->
     cast(Node, Module, Function, Args, []).
 
 -doc """
-cast(Node, Module, Function, Args, Cookie) -> ok
-
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on the node `Node`. No
 response is delivered and the process that makes the call is not suspended until
 the evaluation is completed as in the case of `call/3,4`. If `Node` is
@@ -148,6 +171,12 @@ the evaluation is completed as in the case of `call/3,4`. If `Node` is
 The cookie on the client node is set to `Cookie` for this `rpc` operation (used
 to match the server node cookie).
 """.
+-spec cast(Node, Module, Function, Args, Cookie) -> 'ok'
+              when Node :: {Function, Args} | node(),
+                   Module :: module(),
+                   Function :: atom(),
+                   Args :: list(),
+                   Cookie :: atom() | [].
 cast({Fun, FunArgs}, Module, Function, Args, Cookie) ->
     Node = Fun(FunArgs),
     cast(Node, Module, Function, Args, Cookie);

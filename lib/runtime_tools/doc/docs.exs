@@ -5,7 +5,6 @@
     "guides/lttng.md",
     "guides/dtrace.md",
     "guides/systemtap.md",
-    "guides/erts_alloc_config.md",
-    "references/runtime_tools_app.md"
+    "runtime_tools_app.md"
   ]
 ]

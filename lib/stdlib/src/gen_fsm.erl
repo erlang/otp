@@ -19,11 +19,7 @@
 %%
 -module(gen_fsm).
 -moduledoc """
-Deprecated and replaced by gen_statem
-
-Deprecated and replaced by `m:gen_statem`
-
-[](){: #Migration-to-gen_statem }
+Deprecated and replaced by `m:gen_statem`.
 
 ## Migration to gen_statem
 

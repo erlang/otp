@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1836,9 +1836,9 @@ do_usm_priv_aes(AuthAlg, Config) ->
       ],
 
     ?IPRINT("register user, usm-user and agent"),
-    snmpm:register_user(SecName, snmpm_user_default, nil),
-    snmpm:register_usm_user(EngineID, SecName, Credentials),
-    snmpm:register_agent(SecName, "v3_agent", AgentConfig),
+    ok = snmpm:register_user(SecName, snmpm_user_default, nil),
+    ok = snmpm:register_usm_user(EngineID, SecName, Credentials),
+    ok = snmpm:register_agent(SecName, "v3_agent", AgentConfig),
 
     PduType   = 'get-request',
     ScopedPDU =
@@ -5133,7 +5133,9 @@ init_manager(Case, AutoInform, Config) ->
 		       _ ->
 			   user
 		   end,
-	    Conf = [{manager_node, Node}, {manager_peer, Peer}, {irb, IRB} | Config],
+	    Conf = [{manager_node, Node},
+                    {manager_peer, Peer},
+                    {irb, IRB} | Config],
 	    Vsns = [v1,v2,v3], 
 	    start_manager(Node, Vsns, Conf)
 	end
@@ -5190,7 +5192,9 @@ init_v3_manager(Case, Config) ->
 	    ok = write_manager_config(transport, Config),
 
 	    IRB  = auto,
-	    Conf = [{manager_node, Node}, {manager_peer, Peer}, {irb, IRB} | Config],
+	    Conf = [{manager_node, Node},
+                    {manager_peer, Peer},
+                    {irb, IRB} | Config],
 	    Vsns = [v3], 
 	    start_manager(Node, Vsns, Conf)
 	end
@@ -5731,6 +5735,8 @@ fin_mgr_user(Conf) ->
     Conf.
 
 init_mgr_user_data1(Conf) ->
+    ?DBG("init_mgr_user_data1 -> entry with"
+	 "~n   Conf: ~p", [Conf]),
     Node = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
     IpFamily   = ?config(ipfamily, Conf),
@@ -5739,11 +5745,11 @@ init_mgr_user_data1(Conf) ->
     ok =
 	case IpFamily of
 	    inet ->
-		mgr_user_register_agent(
-		  Node, TargetName,
-		  [{address,   Ip},
-		   {port,      Port},
-		   {engine_id, "agentEngine"}]);
+                mgr_user_register_agent(
+                  Node, TargetName,
+                  [{address,   Ip},
+                   {port,      Port},
+                   {engine_id, "agentEngine"}]);
 	    inet6 ->
 		mgr_user_register_agent(
 		  Node, TargetName,
@@ -5783,9 +5789,9 @@ init_mgr_user_data2(Conf) ->
 	    inet ->
 		mgr_user_register_agent(
 		  Node, TargetName,
-		  [{address,   Ip},
-		   {port,      Port},
-		   {engine_id, "agentEngine"}]);
+                  [{address,   Ip},
+                   {port,      Port},
+                   {engine_id, "agentEngine"}]);
 	    inet6 ->
 		mgr_user_register_agent(
 		  Node, TargetName,
@@ -6119,32 +6125,47 @@ write_manager_config(Config) ->
 write_manager_config(DomainType, Config) ->
     Dir = ?config(manager_conf_dir, Config),
     Ip  = tuple_to_list(?config(ip, Config)),
-    %% Note that Addr and Port are actually only Addr and Port
-    %% when DomainType is default.
-    %% In all other cases the Addr is TransportDomain and 
-    %% port is {Addr, Port}...
-    {Addr, Port} =
-	case ?config(ipfamily, Config) of
-	    inet when (DomainType =:= default) ->
-		{Ip, ?MGR_PORT};
-	    inet ->
-		{transportDomainUdpIpv4, {Ip, ?MGR_PORT}};
-	    inet6 ->
-		{transportDomainUdpIpv6, {Ip, ?MGR_PORT}}
-	end,
-    snmp_config:write_manager_snmp_files(
-      Dir, Addr, Port, ?MGR_MMS, ?MGR_ENGINE_ID, [], [], []).
+    case ?config(ipfamily, Config) of
+        inet when (DomainType =:= default) ->
+            snmp_config:write_manager_snmp_files(
+              Dir, Ip, ?MGR_PORT, ?MGR_MMS, ?MGR_ENGINE_ID);
+        inet ->
+            TDomain    = transportDomainUdpIpv4,
+            TAddr      = {Ip, ?MGR_PORT},
+            Transport  = {TDomain, TAddr},
+            Transports = [Transport],
+            snmp_config:write_manager_snmp_files(
+              Dir, Transports, ?MGR_MMS, ?MGR_ENGINE_ID);
+        inet6 ->
+            TDomain    = transportDomainUdpIpv6,
+            TAddr      = {Ip, ?MGR_PORT},
+            Transport  = {TDomain, TAddr},
+            Transports = [Transport],
+            snmp_config:write_manager_snmp_files(
+              Dir, Transports, ?MGR_MMS, ?MGR_ENGINE_ID)
+    end.
 
 write_manager_conf(Dir) ->
-    Port = "5000",
-    MMS  = "484",
+    LocalHost = snmp_test_lib:localhost(), 
+    TDomain   =
+        if
+            is_tuple(LocalHost) ->
+                if
+                    tuple_size(LocalHost) =:= 4 ->
+                        transportDomainUdpIpv4;
+                    tuple_size(LocalHost) =:= 8 ->
+                        transportDomainUdpIpv6
+                end
+        end,
+    Port = 5000,
+    MMS  = 484,
     EngineID = "\"mgrEngine\"",
     Str = lists:flatten(
             io_lib:format("%% Minimum manager config file\n"
-                          "{port,             ~s}.\n"
-                          "{max_message_size, ~s}.\n"
+                          "{transports,       [{~w, {~w, ~w}}]}.\n"
+                          "{max_message_size, ~w}.\n"
                           "{engine_id,        ~s}.\n",
-                          [Port, MMS, EngineID])),
+                          [TDomain, LocalHost, Port, MMS, EngineID])),
     write_manager_conf(Dir, Str).
 
 write_manager_conf(Dir, Str) ->

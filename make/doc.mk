@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2023. All Rights Reserved.
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,11 @@ APP_EBIN_DIR = $(APP_DIR)/ebin
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-
+ifeq ($(EPUB), false)
+EX_DOC_FORMATS=-f html
+else
+EX_DOC_FORMATS=
+endif
 
 # ----------------------------------------------------
 # Targets
@@ -56,7 +60,7 @@ HTML_DEPS?=$(wildcard $(APP_EBIN_DIR)/*.beam) $(wildcard *.md) $(wildcard */*.md
 
 $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs
 	$(gen_verbose)ERL_FLAGS="-pz $(ERL_TOP)/erts/ebin" \
-	  $(EX_DOC) -f html --homepage-url "$(INDEX_DIR)/index.html" "$(APPLICATION)" $(VSN) $(APP_EBIN_DIR) -o "$(HTMLDIR)" -c $(ERL_TOP)/make/ex_doc.exs
+	  $(EX_DOC) $(EX_DOC_FORMATS) --homepage-url "$(INDEX_DIR)/index.html" "$(APPLICATION)" $(VSN) $(APP_EBIN_DIR) -o "$(HTMLDIR)" -c $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html
 

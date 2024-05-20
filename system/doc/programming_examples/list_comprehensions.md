@@ -23,7 +23,7 @@ limitations under the License.
 
 This section starts with a simple example, showing a generator and a filter:
 
-```text
+```erlang
 > [X || X <- [1,2,a,3,4,b,5,6], X > 3].
 [a,4,b,5,6]
 ```
@@ -107,7 +107,7 @@ This takes `H` from `L` in all possible ways. The result is the set of all lists
 `[H|T]`, where `T` is the set of all possible permutations of `L`, with `H`
 removed:
 
-```text
+```erlang
 > perms([b,u,g]).
 [[b,u,g],[b,g,u],[u,b,g],[u,g,b],[g,b,u],[g,u,b]]
 ```
@@ -239,7 +239,7 @@ cannot be written directly in the generators.
 
 To illustrate this, do _not_ write as follows:
 
-```text
+```erlang
 f(...) ->
     Y = ...
     [ Expression || PatternInvolving Y  <- Expr, ...]
@@ -248,7 +248,7 @@ f(...) ->
 
 Instead, write as follows:
 
-```text
+```erlang
 f(...) ->
     Y = ...
     [ Expression || PatternInvolving Y1  <- Expr, Y == Y1, ...]

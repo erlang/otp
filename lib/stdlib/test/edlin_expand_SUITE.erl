@@ -259,6 +259,10 @@ function_parameter_completion(Config) ->
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"any()",[]},{"[any() | [Deeplist]]",[]}]}]}]}]} = do_expand("complete_function_parameter:a_deeplist_fun("),
     {no,[],[#{title:="typespecs",
                 elems:=[#{title:=
+                                "complete_function_parameter:multi_arity_fun()",
+                            options:=[],
+                            elems:=[{")",[]}]},
+                        #{title:=
                                "complete_function_parameter:multi_arity_fun(T1)",
                           elems:=[#{title:="types",
                                     elems:=[{"integer()",[]}],
@@ -269,13 +273,10 @@ function_parameter_completion(Config) ->
                             elems:=[#{title:="types",
                                     elems:=[{"integer()",[]}],
                                     options:=[{hide,title}]}],
-                            options:=[{highlight_param,1}]},
-                            #{title:=
-                                "complete_function_parameter:multi_arity_fun()",
-                            options:=[],
-                            elems:=[")"]}],
+                            options:=[{highlight_param,1}]}],
                 options:=[highlight_all]}]} = do_expand("complete_function_parameter:multi_arity_fun("),
     {no, [], [#{elems:=[#{elems:=[#{elems:=[{"true",[]},{"false",[]}]}]}]}]} = do_expand("complete_function_parameter:multi_arity_fun(1,"),
+    {no, [], []} = do_expand("complete_function_parameter:multi_arity_fun(["),
     {no,[],
         [#{elems :=
             [#{elems :=
@@ -362,6 +363,10 @@ get_coverage(Config) ->
     do_expand("complete_function_parameter:map_parameter_function(#{}, "),
     do_expand("complete_function_parameter:map_parameter_function(#{V=>1}, "),
     do_expand("complete_function_parameter:map_parameter_function(#{a=>V}, "),
+    do_expand("complete_function_parameter:map_variable_parameter_function(#{"),
+    do_expand("complete_function_parameter:map_variable_parameter_function(#{a"),
+    do_expand("complete_function_parameter:map_variable_parameter_function(#{a => "),
+    do_expand("complete_function_parameter:map_variable_parameter_function(#{a => a"),
     do_expand("complete_function_parameter:tuple_parameter_function({a,b}, "),
     do_expand("complete_function_parameter:tuple_parameter_function({a,V}, "),
     do_expand("complete_function_parameter:list_parameter_function([], "),

@@ -25,6 +25,30 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.2
+
+### Fixed Bugs and Malfunctions
+
+- The `mnesia_registry` module have been deprecated.
+
+  Own Id: OTP-18994
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Mnesia 4.23.1
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could crash during startup if `del_table_copy/2` and `add_table_copy/3` was invoked when the table was loading.
+
+  Own Id: OTP-19076 Aux Id: ERIERL-1073
+
 ## Mnesia 4.23
 
 ### Fixed Bugs and Malfunctions
@@ -66,6 +90,14 @@ is the version number of Mnesia.
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
+
+## Mnesia 4.21.4.3
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could crash during startup if `del_table_copy/2` and `add_table_copy/3` was invoked when the table was loading.
+
+  Own Id: OTP-19076 Aux Id: ERIERL-1073
 
 ## Mnesia 4.21.4.2
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,8 +66,10 @@
 -export([await_microstate_accounting_modifications/3,
 	 gather_microstate_accounting_result/2]).
 
--export([trace/3, trace_pattern/3]).
--export([trace_session_create/1, trace_session_destroy/1]).
+-export([trace/3, trace/4,
+         trace_info/3,
+         trace_pattern/3, trace_pattern/4]).
+-export([trace_session_create/3, trace_session_destroy/1]).
 
 -export([dist_ctrl_put_data/2]).
 
@@ -606,9 +608,35 @@ microstate_accounting(Ref, Threads) ->
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+-spec trace(Session, PidPortSpec, How, FlagList) -> integer() when
+      Session :: term(),
+      PidPortSpec :: pid() | port()
+                   | all | processes | ports
+                   | existing | existing_processes | existing_ports
+                   | new | new_processes | new_ports,
+      How :: boolean(),
+      FlagList :: list().
+trace(_Session, _PidSpec, _How, _FlagList) ->
+    erlang:nif_error(undefined).
+
+%% trace_info/3
+-spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
+      Session :: term(),
+      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
+                        | MFA | on_load | send | 'receive'
+                        | any,
+      MFA :: {module(), atom(), arity()},
+      Item :: flags | tracer | traced | match_spec
+            | meta | meta_match_spec | call_count | call_time | call_memory
+            | all
+            | session,
+      Res :: undefined | {atom(), term()} | {tracer, module(), term()}.
+trace_info(_Session, _PidPortFuncEvent, _Item) ->
+    erlang:nif_error(undefined).
+
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
-      {atom(),atom(),arity() | '_'} | on_load.
+      {atom(),atom(),arity() | '_'} | on_load | send | 'receive'.
 -type trace_match_spec() ::
       [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
@@ -622,12 +650,25 @@ trace(_PidSpec, _How, _FlagList) ->
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
--spec trace_session_create([{tracer, Tracer}]) -> reference() when
-      Tracer :: Tracer :: pid() | port() | {module(), term()}.
-trace_session_create(_TracerOpts) ->
+-spec trace_pattern(Session, MFA, MatchSpec, FlagList) -> non_neg_integer() when
+      Session :: term(),
+      MFA :: trace_pattern_mfa(),
+      MatchSpec :: (MatchSpecList :: trace_match_spec())
+                 | boolean()
+                 | restart
+                 | pause,
+      FlagList :: list().
+trace_pattern(_Session, _MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
--spec trace_session_destroy(reference()) -> ok.
+-spec trace_session_create(Name, Tracer, Opts) -> term() when
+      Name :: atom(),
+      Tracer :: pid() | port() | {module(), term()},
+      Opts :: [].
+trace_session_create(_Name, _Tracer, _TracerOpts) ->
+    erlang:nif_error(undefined).
+
+-spec trace_session_destroy(term()) -> true | false.
 trace_session_destroy(_TraceSession) ->
     erlang:nif_error(undefined).
 

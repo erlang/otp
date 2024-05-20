@@ -151,7 +151,8 @@ end_per_testcase(_CaseName, Config) -> Config.
 %%
 
 edoc_app_should_pass_shell_docs_validation(_Config) ->
-    ok = edoc:application(edoc, [{doclet, edoc_doclet_chunks},
+    ok = edoc:application(edoc, [{preprocess,true},
+                                 {doclet, edoc_doclet_chunks},
 				 {layout, edoc_layout_chunks},
 				 private, hidden]),
     ok = application:load(edoc),

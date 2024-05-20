@@ -36,19 +36,19 @@ For non blocking and/or continuous calculation of scheduler utilization, the
 recommended usage is:
 
 - First call
-  [`erlang:system_flag(scheduler_wall_time,true)`](`m:erlang#system_flag_scheduler_wall_time`)
+  [`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`)
   to enable scheduler wall time measurements.
 - Call `get_sample/0` to collect samples with some time in between.
 - Call `utilization/2` to calculate the scheduler utilization in the interval
   between two samples.
 - When done call
-  [`erlang:system_flag(scheduler_wall_time,false)`](`m:erlang#system_flag_scheduler_wall_time`)
-  to disable scheduler wall time measurements and avoid unecessary cpu overhead.
+  [`erlang:system_flag(scheduler_wall_time, false)`](`m:erlang#system_flag_scheduler_wall_time`)
+  to disable scheduler wall time measurements and avoid unecessary CPU overhead.
 
 To get correct values from `utilization/2`, it is important that
 `scheduler_wall_time` is kept enabled during the entire interval between the two
 samples. To ensure this, the process that called
-[`erlang:system_flag(scheduler_wall_time,true)`](`m:erlang#system_flag_scheduler_wall_time`)
+[`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`)
 must be kept alive, as `scheduler_wall_time` will automatically be disabled if
 it terminates.
 """.
@@ -73,7 +73,7 @@ it terminates.
 -doc """
 Return a scheduler utilization sample for normal and dirty-cpu schedulers. Will
 call
-[`erlang:system_flag(scheduler_wall_time,true)`](`m:erlang#system_flag_scheduler_wall_time`)
+[`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`)
 first if not already already enabled.
 
 > #### Note {: .info }
@@ -84,7 +84,7 @@ first if not already already enabled.
 > [`utilization/2`](`utilization/1`) will yield invalid results.
 >
 > Instead use `get_sample/0` together with
-> [`erlang:system_flag(scheduler_wall_time,_)`](`m:erlang#system_flag_scheduler_wall_time`).
+> [`erlang:system_flag(scheduler_wall_time, _)`](`m:erlang#system_flag_scheduler_wall_time`).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec sample() -> sched_sample().
@@ -94,7 +94,7 @@ sample() ->
 -doc """
 Return a scheduler utilization sample for all schedulers, including dirty-io
 schedulers. Will call
-[`erlang:system_flag(scheduler_wall_time,true)`](`m:erlang#system_flag_scheduler_wall_time`)
+[`erlang:system_flag(scheduler_wall_time, true)`](`m:erlang#system_flag_scheduler_wall_time`)
 first if not already already enabled.
 
 > #### Note {: .info }

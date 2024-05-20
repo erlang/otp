@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Using SSL application API
+# Examples
 
 To see relevant version information for ssl, call `ssl:versions/0` .
 
@@ -31,6 +31,14 @@ for listing cipher suites for a specific version use
 cipher suites that you want your connection to use can also be specified.
 Default is to use the strongest available.
 
+
+> #### Warning {: .warning }
+>Enabling cipher suites using RSA as a key exchange algorithm is
+>strongly discouraged (only available pre TLS-1.3). For some
+>configurations software preventions may exist, and can make them usable if they work,
+>but relying on them to work is risky and there are many more reliable
+>cipher suites that can be used instead.
+
 The following sections shows small examples of how to set up client/server
 connections using the Erlang shell. The returned value of the `sslsocket` is
 abbreviated with `[...]` as it can be fairly large and is opaque to the user
@@ -40,8 +48,8 @@ except for the purpose of pattern matching.
 >
 > Note that client certificate verification is optional for the server and needs
 > additional conguration on both sides to work. The Certificate and keys, in the
-> examples, are provided using the [certs_keys](`t:ssl:certs_keys/0`) option
-> introduced in OTP-25.
+> examples, are provided using the `t:ssl:cert_key_conf/0` supplied in the `certs_keys`
+> introduced in OTP 25.
 
 ## Basic Client
 
@@ -297,7 +305,7 @@ in certificates.
 > signature algorithms chosen by the server will also be affected by the chiper
 > suite that is chosen, which is not the case in TLS-1.3.
 
-Using the function `ssl:signature_algs/2` will let you inspect diffrent aspects
+Using the function `ssl:signature_algs/2` will let you inspect different aspects
 of possible configurations for your system. For example if TLS-1.3 and TLS-1.2
 is supported the default signature_algorithm list in OTP-26 and cryptolib from
 OpenSSL 3.0.2 would look like:
@@ -875,7 +883,7 @@ two mechanisms. Bloom filters are fast, memory-efficient, probabilistic data
 structures that can tell if an element may be in a set or if it is definitely
 not in the set.
 
-If the option [anti_replay](`t:ssl:anti_replay/0`) is defined in the server, a
+If the option `anti_replay` is defined in the server, a
 pair of Bloom filters (_current_ and _old_) are used to record incoming
 ClientHello messages (it is the unique binder value that is actually stored).
 The _current_ Bloom filter is used for `WindowSize` seconds to store new

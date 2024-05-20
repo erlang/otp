@@ -21,6 +21,137 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.0
+
+### Fixed Bugs and Malfunctions
+
+- Dialyzer warnings due to type specs added in `m:dbg` have been eliminated.
+
+  Own Id: OTP-18860
+
+- In Erlang/OTP 26, doing a `m:cover` analysis on the `line` level would return multiple entries for lines on which multiple functions were defined.
+  
+  For example, consider this module:
+      
+      -module(foo).
+      -export([bar/0, baz/0]).
+  
+      bar() -> ok. baz() -> not_ok.
+  
+  In Erlang/OTP 26, analysing on the `line` level would return two entries
+  for line 4:
+  
+      1> cover:compile_module(foo).
+      {ok,foo}
+      2> foo:bar().
+      ok
+      3> cover:analyse(foo, coverage, line).
+      {ok,[{{foo,4},{1,0}},{{foo,4},{0,1}}]}
+      4> cover:analyse(foo, calls, line).
+      {ok,[{{foo,4},1},{{foo,4},0}]}
+  
+  In Erlang/OTP 27, there will only be a single entry for line 4:
+  
+      1> cover:compile_module(foo).
+      {ok,foo}
+      2> foo:bar().
+      ok
+      3> cover:analyse(foo, coverage, line).
+      {ok,[{{foo,4},{1,0}}]}
+      4> cover:analyse(foo, calls, line).
+      {ok,[{{foo,4},1}]}
+
+  Own Id: OTP-18998 Aux Id: [GH-8159], [PR-8182]
+
+- Fixed align command in emacs mode.
+
+  Own Id: OTP-19026 Aux Id: [PR-8155]
+
+[GH-8159]: https://github.com/erlang/otp/issues/8159
+[PR-8182]: https://github.com/erlang/otp/pull/8182
+[PR-8155]: https://github.com/erlang/otp/pull/8155
+
+### Improvements and New Features
+
+- Triple-Quoted Strings has been implemented as per [EEP 64](https://www.erlang.org/eeps/eep-0064). See [String](`e:system:data_types.md#string`) in the Reference Manual.
+  
+  Example:
+  
+  ```erlang
+  1> """
+     a
+     b
+     c
+     """.
+  "a\nb\nc"
+  ```
+  
+  Adjacent string literals without intervening white space is now a syntax error, to avoid possible confusion with triple-quoted strings. For example:
+  
+  ```erlang
+  1> "abc""xyz".
+  "xyz".
+  * 1:6: adjacent string literals without intervening white space
+  ```
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18750 Aux Id: OTP-18746, [PR-7313], [PR-7451]
+
+- There is a new tool `m:tprof`, which combines the functionality of `m:eprof` and `m:cprof` under one interface and adds heap profiling. It also has functionality to help with profiling process hierarchies.
+  
+  *Example*:
+  
+  ```erlang
+  1> tprof:profile(lists, seq, [1, 16], #{type => call_memory}).
+  
+  ****** Process <0.92.0>  --  100.00% of total *** 
+  FUNCTION          CALLS  WORDS  PER CALL  [     %]
+  lists:seq_loop/3      5     32      6.40  [100.00]
+                              32            [ 100.0]
+  ok
+  ```
+
+  Own Id: OTP-18756 Aux Id: [PR-6639]
+
+- Native coverage support has been implemented in the JIT. It will  automatically be used by the `m:cover` tool to reduce the execution overhead when running cover-compiled code.
+  
+  There are also new APIs to support native coverage without using the `cover` tool.
+  
+  To instrument code for native coverage it must be compiled with the [`line_coverage`](`m:compile#line_coverage`) option.
+  
+  To enable native coverage in the runtime system, start it like so:
+  
+  ```text
+  $ erl +JPcover true
+  ```
+  
+  There are also the following new functions for supporting native coverage:
+  
+  * `code:coverage_support/0`
+  * `code:get_coverage/2`
+  * `code:reset_coverage/1`
+  * `code:get_coverage_mode/0`
+  * `code:get_coverage_mode/1`
+  * `code:set_coverage_mode/1`
+
+  Own Id: OTP-18856 Aux Id: [PR-7856]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Improved the align command in emacs mode.
+
+  Own Id: OTP-19080 Aux Id: [PR-8288]
+
+[PR-7313]: https://github.com/erlang/otp/pull/7313
+[PR-7451]: https://github.com/erlang/otp/pull/7451
+[PR-6639]: https://github.com/erlang/otp/pull/6639
+[PR-7856]: https://github.com/erlang/otp/pull/7856
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8288]: https://github.com/erlang/otp/pull/8288
+
 ## Tools 3.6
 
 ### Improvements and New Features

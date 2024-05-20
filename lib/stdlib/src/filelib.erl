@@ -212,9 +212,10 @@ is_regular(File, Mod) when is_atom(Mod) ->
 Folds function `Fun` over all (regular) files `F` in directory `Dir` whose
 basename (for example, just `"baz.erl"` in `"foo/bar/baz.erl"`) matches the
 regular expression `RegExp` (for a description of the allowed regular
-expressions, see the `m:re` module). If `Recursive` is `true`, all
-subdirectories to `Dir` are processed. The regular expression matching is only
-done on the filename without the directory part.
+expressions, see the `m:re` module).
+
+If `Recursive` is `true`, all subdirectories to `Dir` are processed.
+The regular expression matching is only done on the filename without the directory part.
 
 If Unicode filename translation is in effect and the file system is transparent,
 filenames that cannot be interpreted as Unicode can be encountered, in which
@@ -838,18 +839,19 @@ asn1_source_search_rules() ->
 
 -type find_file_rule() :: {ObjDirSuffix::string(), SrcDirSuffix::string()}.
 
--doc(#{equiv => find_file/3}).
+-doc(#{equiv => find_file(Filename, Dir, [])}).
 -doc(#{since => <<"OTP 20.0">>}).
--spec find_file(filename(), filename()) ->
+-spec find_file(Filename :: filename(), Dir :: filename()) ->
         {ok, filename()} | {error, not_found}.
 find_file(Filename, Dir) ->
     find_file(Filename, Dir, []).
 
 -doc """
 Looks for a file of the given name by applying suffix rules to the given
-directory path. For example, a rule `{"ebin", "src"}` means that if the
-directory path ends with `"ebin"`, the corresponding path ending in `"src"`
-should be searched.
+directory path.
+
+For example, a rule `{"ebin", "src"}` means that if the directory path ends with
+ `"ebin"`, the corresponding path ending in `"src"` should be searched.
 
 If `Rules` is left out or is an empty list, the default system rules are used.
 See also the Kernel application parameter
@@ -878,7 +880,7 @@ Equivalent to [`find_source(Base, Dir)`](`find_source/2`), where `Dir` is
 find_source(FilePath) ->
     find_source(filename:basename(FilePath), filename:dirname(FilePath)).
 
--doc(#{equiv => find_source/3}).
+-doc(#{equiv => find_source(Filename, Dir, [])}).
 -doc(#{since => <<"OTP 20.0">>}).
 -spec find_source(filename(), filename()) ->
         {ok, filename()} | {error, not_found}.
@@ -887,12 +889,13 @@ find_source(Filename, Dir) ->
 
 -doc """
 Applies file extension specific rules to find the source file for a given object
-file relative to the object directory. For example, for a file with the
-extension `.beam`, the default rule is to look for a file with a corresponding
-extension `.erl` by replacing the suffix `"ebin"` of the object directory path
-with `"src"` or `"src/*"`. The file search is done through `find_file/3`. The
-directory of the object file is always tried before any other directory
-specified by the rules.
+file relative to the object directory.
+
+For example, for a file with the extension `.beam`, the default rule is to look
+for a file with a corresponding extension `.erl` by replacing the suffix `"ebin"`
+of the object directory path with `"src"` or `"src/*"`. The file search is done
+through `find_file/3`. The directory of the object file is always tried before
+any other directory specified by the rules.
 
 If `Rules` is left out or is an empty list, the default system rules are used.
 See also the Kernel application parameter
@@ -959,9 +962,10 @@ find_regular_file([File|Files]) ->
 
 -doc """
 Sanitizes the relative path by eliminating ".." and "." components to protect
-against directory traversal attacks. Either returns the sanitized path name, or
-the atom `unsafe` if the path is unsafe. The path is considered unsafe in the
-following circumstances:
+against directory traversal attacks.
+
+Either returns the sanitized path name, or the atom `unsafe` if the path is unsafe.
+The path is considered unsafe in the following circumstances:
 
 - The path is not relative.
 - A ".." component would climb up above the root of the relative path.

@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -615,14 +615,14 @@ use the new API.
 
 > #### Dont {: .error }
 >
-> Seed random number generation using `erlang:now()`.
+> Seed random number generation using `erlang:now/0`.
 
 > #### Do {: .tip }
 >
 > Seed random number generation using a combination of
-> [`erlang:monotonic_time()`](`erlang:monotonic_time/0`),
-> [`erlang:time_offset()`](`erlang:time_offset/0`),
-> [`erlang:unique_integer()`](`erlang:unique_integer/0`), and other
+> [`erlang:monotonic_time/0`](`erlang:monotonic_time/0`),
+> [`erlang:time_offset/0`](`erlang:time_offset/0`),
+> [`erlang:unique_integer/0`](`erlang:unique_integer/0`), and other
 > functionality.
 
 To sum up this section: _Do not use `erlang:now/0`._

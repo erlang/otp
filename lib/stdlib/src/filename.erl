@@ -240,9 +240,10 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %% AbsBase must be absolute and Name must be relative.
 
 -doc """
-Joins an absolute directory with a relative filename. Similar to `join/2`, but
-on platforms with tight restrictions on raw filename length and no support for
-symbolic links, leading parent directory components in `Filename` are matched
+Joins an absolute directory with a relative filename.
+
+Similar to `join/2`, but on platforms with tight restrictions on raw filename length
+and no support for symbolic links, leading parent directory components in `Filename` are matched
 against trailing directory components in `Dir` so they can be removed from the
 result - minimizing its length.
 """.
@@ -342,9 +343,10 @@ skip_prefix(Name, _) ->
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
 -doc """
-Returns the last component of `Filename` with extension `Ext` stripped. This
-function is to be used to remove a (possible) specific extension. To remove an
-existing extension when you are unsure which one it is, use
+Returns the last component of `Filename` with extension `Ext` stripped.
+
+This function is to be used to remove a (possible) specific extension.
+To remove an existing extension when you are unsure which one it is, use
 [`rootname(basename(Filename))`](`rootname/1`).
 
 _Examples:_
@@ -599,7 +601,7 @@ The result is "normalized":
 
 _Examples:_
 
-```text
+```erlang
 17> filename:join(["/usr", "local", "bin"]).
 "/usr/local/bin"
 18> filename:join(["a/b///c/"]).
@@ -831,7 +833,18 @@ win32_pathtype(_) 		  -> relative.
 %% Examples: rootname("/jam.src/kalle") -> "/jam.src/kalle"
 %%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
 
--doc(#{equiv => rootname/2}).
+-doc """
+Removes the filename extension.
+
+_Examples:_
+
+```erlang
+1> filename:rootname("/beam.src/kalle").
+"/beam.src/kalle"
+2> filename:rootname("/beam.src/foo.erl").
+"/beam.src/foo"
+```
+""".
 -spec rootname(Filename) -> file:filename_all() when
       Filename :: file:name_all().
 rootname(Name) when is_binary(Name) ->
@@ -863,20 +876,14 @@ rootname([], Root, _Ext, _OsType) ->
 %%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
 
 -doc """
-Removes a filename extension. [`rootname/2`](`rootname/2`) works as
-[`rootname/1`](`rootname/1`), except that the extension is removed only if it is
-`Ext`.
+Removes the filename extension `Ext` from `Filename`.
 
 _Examples:_
 
-```text
-20> filename:rootname("/beam.src/kalle").
-"/beam.src/kalle"
-21> filename:rootname("/beam.src/foo.erl").
+```erlang
+1> filename:rootname("/beam.src/foo.erl", ".erl").
 "/beam.src/foo"
-22> filename:rootname("/beam.src/foo.erl", ".erl").
-"/beam.src/foo"
-23> filename:rootname("/beam.src/foo.beam", ".erl").
+2> filename:rootname("/beam.src/foo.beam", ".erl").
 "/beam.src/foo.beam"
 ```
 """.
@@ -1034,7 +1041,7 @@ slashes. On all platforms, the name is normalized as done by `join/1`.
 
 _Examples:_
 
-```text
+```erlang
 19> filename:nativename("/usr/local/bin/"). % Unix
 "/usr/local/bin"
 ```
@@ -1150,14 +1157,14 @@ mode.
 
   On Linux: Respects the os environment variable `XDG_CACHE_HOME`.
 
-  ```text
+  ```erlang
   1> filename:basedir(user_cache, "my_application", #{os=>linux}).
   "/home/otptest/.cache/my_application"
   ```
 
   On Darwin:
 
-  ```text
+  ```erlang
   1> filename:basedir(user_cache, "my_application", #{os=>darwin}).
   "/home/otptest/Library/Caches/my_application"
   ```
@@ -1183,7 +1190,7 @@ mode.
 
   On Linux: Respects the os environment variable `XDG_CONFIG_HOME`.
 
-  ```text
+  ```erlang
   2> filename:basedir(user_config, "my_application", #{os=>linux}).
   "/home/otptest/.config/my_application"
   ```
@@ -1210,7 +1217,7 @@ mode.
 
   On Linux: Respects the os environment variable `XDG_DATA_HOME`.
 
-  ```text
+  ```erlang
   3> filename:basedir(user_data, "my_application", #{os=>linux}).
   "/home/otptest/.local/my_application"
   ```
@@ -1237,7 +1244,7 @@ mode.
 
   On Linux: Respects the os environment variable `XDG_CACHE_HOME`.
 
-  ```text
+  ```erlang
   4> filename:basedir(user_log, "my_application", #{os=>linux}).
   "/home/otptest/.cache/my_application/log"
   ```
@@ -1289,7 +1296,7 @@ mode.
 
   On Linux: Respects the os environment variable `XDG_DATA_DIRS`.
 
-  ```text
+  ```erlang
   10> os:getenv("XDG_DATA_DIRS").
   "/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/"
   11> filename:basedir(site_data, "my_application", #{os=>linux}).
@@ -1306,7 +1313,7 @@ mode.
 
   On Darwin:
 
-  ```text
+  ```erlang
   5> filename:basedir(site_data, "my_application", #{os=>darwin}).
   ["/Library/Application Support/my_application"]
   ```

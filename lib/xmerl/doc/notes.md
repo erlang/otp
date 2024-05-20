@@ -21,6 +21,43 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.0
+
+### Fixed Bugs and Malfunctions
+
+- Some default values in Xmerl has been changed to avoid XML External Entity (XXE) vulnerabilities if you're parsing untrusted XML.
+  
+  xmerl_scan: the default value for allow_entities has changed to false.
+  xmerl_sax_parser: the default value for external_entities has changed to none.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19079 Aux Id: [GH-7539]
+
+- An event state in xmerl_sax_parser which  was updated in the event callback for a startEntity was not saved.
+
+  Own Id: OTP-19086 Aux Id: [GH-8452]
+
+[GH-7539]: https://github.com/erlang/otp/issues/7539
+[GH-8452]: https://github.com/erlang/otp/issues/8452
+
+### Improvements and New Features
+
+- Function specifications and types have been added to all public API functions.
+
+  Own Id: OTP-18913
+
+- As an alternative to `xmerl_xml`, a new export module `xmerl_xml_indent` that provides out-of-the box indented output has been added.
+
+  Own Id: OTP-18922 Aux Id: [PR-7942]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7942]: https://github.com/erlang/otp/pull/7942
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Xmerl 1.3.34
 
 ### Fixed Bugs and Malfunctions

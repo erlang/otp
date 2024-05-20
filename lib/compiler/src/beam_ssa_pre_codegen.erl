@@ -459,6 +459,14 @@ bs_restores_is([#b_set{op=Op,dst=Dst,args=Args}|Is],
     FPos = SPos,
 
     bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
+bs_restores_is([#b_set{op={bif,Op},dst=Dst,args=Args}|Is],
+               CtxChain, SPos0, _FPos, Rs0)
+  when Op =:= byte_size;
+       Op =:= bit_size ->
+    {SPos, Rs} = bs_restore_args(Args, SPos0, CtxChain, Dst, Rs0),
+    FPos = SPos,
+
+    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op={succeeded,guard},args=[Arg]}],
                CtxChain, SPos, FPos0, Rs) ->
     %% If we're branching on a match operation, the positions will be different

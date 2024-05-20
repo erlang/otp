@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2022. All Rights Reserved.
+# Copyright Ericsson AB 2001-2024. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,12 +60,14 @@ MEGACO_ROOT_DIR = $(shell (cd .. ; dirname `pwd`))
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
+
 ifeq ($(WARN_UNUSED_WARS),true)
 ERL_COMPILE_FLAGS += +warn_unused_vars
 endif
 
 ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/megaco/ebin \
+	+nowarn_missing_doc +nowarn_missing_spec_documented \
 	-I../../include
 
 ifneq ($(MGC_HOST),)

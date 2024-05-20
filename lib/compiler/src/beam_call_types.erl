@@ -107,9 +107,9 @@ will_succeed(erlang, Op, [_, _] = Args) when Op =:= 'band';
                                              Op =:= 'bxor' ->
     succeeds_if_types(Args, #t_integer{});
 will_succeed(erlang, bit_size, [Arg]) ->
-    succeeds_if_type(Arg, #t_bitstring{});
+    succeeds_if_type(Arg, #t_bs_matchable{});
 will_succeed(erlang, byte_size, [Arg]) ->
-    succeeds_if_type(Arg, #t_bitstring{});
+    succeeds_if_type(Arg, #t_bs_matchable{});
 will_succeed(erlang, element, [Pos, Tuple]=Args) ->
     case normalize(Tuple) of
         #t_tuple{exact=Exact,size=Sz} when Sz >= 1 ->
@@ -296,9 +296,9 @@ types(erlang, 'tuple_size', [Src]) ->
     Max = ?MAX_TUPLE_SIZE,
     sub_safe(#t_integer{elements={Min,Max}}, [#t_tuple{}]);
 types(erlang, 'bit_size', [_]) ->
-    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bitstring{}]);
+    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bs_matchable{}]);
 types(erlang, 'byte_size', [_]) ->
-    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bitstring{}]);
+    sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_bs_matchable{}]);
 types(erlang, hd, [Src]) ->
     RetType = erlang_hd_type(Src),
     sub_safe(RetType, [#t_cons{}]);

@@ -29,7 +29,6 @@ The following example shows an Erlang program communicating with a C program
 over a plain port with home made encoding:
 
 ```erlang
-
 -module(complex1).
 -export([start/1, stop/0, init/1]).
 -export([foo/1, bar/1]).
@@ -93,13 +92,13 @@ example in [Ports](c_port.md), using only the plain port:
 
 That is:
 
-```text
+```erlang
 open_port({spawn, ExtPrg}, [{packet, 2}])
 ```
 
 is replaced with:
 
-```text
+```erlang
 open_port({spawn, ExtPrg}, [{packet, 2}, binary])
 ```
 
@@ -126,7 +125,6 @@ end
 The resulting Erlang program is as follows:
 
 ```erlang
-
 -module(complex2).
 -export([start/1, stop/0, init/1]).
 -export([foo/1, bar/1]).
@@ -185,7 +183,6 @@ The following example shows a C program communicating with an Erlang program
 over a plain port with the Erlang external term format encoding:
 
 ```c
-
 /* ei.c */
 
 #include "ei.h"
@@ -249,7 +246,6 @@ example in [Ports](c_port.md) can still be used for reading from and writing to
 the port:
 
 ```c
-
 /* erl_comm.c */
 
 #include <stdio.h>
@@ -314,9 +310,9 @@ _Step 1._ Compile the C code. This provides the paths to the include file
 `ei.h`, and also to the library `ei`:
 
 ```text
-unix> gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \
-      -L/usr/local/otp/lib/erl_interface-3.9.2/lib \
-      complex.c erl_comm.c ei.c -lei -lpthread
+$ gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \
+    -L/usr/local/otp/lib/erl_interface-3.9.2/lib \
+    complex.c erl_comm.c ei.c -lei -lpthread
 ```
 
 In Erlang/OTP R5B and later versions of OTP, the `include` and `lib` directories
@@ -330,11 +326,11 @@ In R4B and earlier versions of OTP, `include` and `lib` are situated under
 
 _Step 2._ Start Erlang and compile the Erlang code:
 
-```text
-unix> erl
-Erlang (BEAM) emulator version 4.9.1.2
+```erlang
+$ erl
+Erlang/OTP 26 [erts-14.2] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit:ns]
 
-Eshell V4.9.1.2 (abort with ^G)
+Eshell V14.2 (press Ctrl+G to abort, type help(). for help)
 1> c(complex2).
 {ok,complex2}
 ```

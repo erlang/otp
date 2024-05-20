@@ -18,6 +18,7 @@
 %% %CopyrightEnd%
 %%
 -module(random).
+-moduledoc(#{ deprecated => ~"Use the module 'rand' instead" }).
 -moduledoc """
 Pseudo-random number generation.
 

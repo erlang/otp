@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 
+#include "sys.h"
 #include "erl_lock_check.h"
 #include "erl_term.h"
 #include "erl_threads.h"
@@ -104,6 +105,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
     {   "trace_session_list",                   NULL                    },
+    {   "trace_cleaner",                        NULL                    },
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},
@@ -167,7 +169,10 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"perf", 				NULL			},
     {	"jit_debug_descriptor",			NULL			},
     {	"erts_mmap",				NULL			},
-    {	"proc_sig_queue_buffer",		"address"		}
+    {	"proc_sig_queue_buffer",		"address"		},
+#ifdef ERTS_ENSURE_OS_MONOTONIC_TIME
+    {   "ensure_os_monotonic_time",             NULL                    }
+#endif
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
@@ -426,7 +431,7 @@ new_locked_lock(lc_thread_t* thr,
 }
 
 static void
-raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
+raw_print_lock(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags,
 	       const char* file, unsigned int line, char *suffix)
 {
     char *lname = (1 <= id && id < ERTS_LOCK_ORDER_SIZE
@@ -447,7 +452,7 @@ raw_print_lock(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags,
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Wterm extra, erts_lock_flags_t flags, char *suffix)
+print_lock2(char *prefix, Sint16 id, Eterm extra, erts_lock_flags_t flags, char *suffix)
 {
   raw_print_lock(prefix, id, extra, flags, NULL, 0, suffix);
 }

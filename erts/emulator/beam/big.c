@@ -1934,7 +1934,7 @@ erts_uint64_array_to_big(Uint **hpp, int neg, int len, Uint64 *array)
 ** Convert a bignum to a double float
 */
 int
-big_to_double(Wterm x, double* resp)
+big_to_double(Eterm x, double* resp)
 {
     double d = 0.0;
     Eterm* xp = big_val(x);
@@ -2013,7 +2013,7 @@ double_to_big(double x, Eterm *heap, Uint hsz)
 /*
  ** Estimate the number of digits in given base (include sign)
  */
-int big_integer_estimate(Wterm x, Uint base)
+int big_integer_estimate(Eterm x, Uint base)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
@@ -2026,7 +2026,7 @@ int big_integer_estimate(Wterm x, Uint base)
 /*
 ** Convert a bignum into a string of numbers in given base
 */
-static Uint write_big(Wterm x, int base, void (*write_func)(void *, char),
+static Uint write_big(Eterm x, int base, void (*write_func)(void *, char),
                       void *arg)
 {
     Eterm* xp = big_val(x);
@@ -2133,7 +2133,7 @@ write_string(void *arg, char c)
     *(--(*((char **) arg))) = c;
 }
 
-char *erts_big_to_string(Wterm x, int base, char *buf, Uint buf_sz)
+char *erts_big_to_string(Eterm x, int base, char *buf, Uint buf_sz)
 {
     char *big_str = buf + buf_sz - 1;
     *big_str = '\0';
@@ -2191,7 +2191,7 @@ static Eterm big_norm(Eterm *x, dsize_t xl, short sign)
 /*
 ** Compare bignums
 */
-int big_comp(Wterm x, Wterm y)
+int big_comp(Eterm x, Eterm y)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2582,7 +2582,7 @@ static Eterm B_plus_minus(ErtsDigit *x, dsize_t xl, short xsgn,
 /*
 ** Add bignums
 */
-Eterm big_plus(Wterm x, Wterm y, Eterm *r)
+Eterm big_plus(Eterm x, Eterm y, Eterm *r)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);

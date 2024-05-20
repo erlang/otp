@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,6 +160,8 @@
     ctrl.sendmsg((s), (buf), (flag), NULL, (ol), NULL)
 #define sock_sendto_O(s,buf,flag,ta,tal,o)              \
     WSASendTo((s), (buf), 1, NULL, (flag), (ta), (tal), (o), NULL)
+#define sock_sendv_O(s,iov,iovcnt,o)                  \
+    WSASend((s), (iov), iovcnt, NULL, 0, (o), NULL)
 #define sock_setopt(s,l,o,v,ln)        setsockopt((s),(l),(o),(v),(ln))
 
 
@@ -339,6 +341,15 @@ typedef struct __ESAIOOpDataSendMsg {
                            * of the send request */
 } ESAIOOpDataSendMsg;
 
+typedef struct __ESAIOOpDataSendv {
+    /* WSASend (used with an io-vector) */
+    ErlNifIOVec*  iovec;
+
+    ERL_NIF_TERM  sockRef; /* The socket */
+    ERL_NIF_TERM  sendRef; /* The (unique) reference (ID)
+                            * of the send request */
+} ESAIOOpDataSendv;
+
 typedef struct __ESAIOOpDataRecv {
     /* WSARecv */
     DWORD         toRead;  /* Can be 0 (= zero)
@@ -404,6 +415,7 @@ typedef struct __ESAIOOperation {
 #define ESAIO_OP_SEND         0x0021  // WSASend
 #define ESAIO_OP_SENDTO       0x0022  // WSASendTo
 #define ESAIO_OP_SENDMSG      0x0023  // WSASendMsg
+#define ESAIO_OP_SENDV        0x0024  // WSASend (with vector)
     /* Commands for receiving */
 #define ESAIO_OP_RECV         0x0031  // WSARecv
 #define ESAIO_OP_RECVFROM     0x0032  // WSARecvFrom
@@ -436,6 +448,9 @@ typedef struct __ESAIOOperation {
 
         /* +++ sendmsg +++ */
         ESAIOOpDataSendMsg sendmsg;
+
+        /* +++ sendv +++ */
+        ESAIOOpDataSendv sendv;
 
         /* +++ recv +++ */
         ESAIOOpDataRecv recv;
@@ -2936,7 +2951,7 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
                   esock_atom_write_tries, &descP->writeTries, 1);
 
     wres = sock_sendmsg_O(descP->sock, &opP->data.sendmsg.msg, flags,
-                           (OVERLAPPED*) opP);
+                          (OVERLAPPED*) opP);
 
     eres = send_check_result(env, descP, opP, caller,
                              wres, dataSize,
@@ -2953,8 +2968,8 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
         /* The i/o vector belongs to the op env,
          * so it goes when the env goes.
          */
-        esock_clear_env("esaio_sendto - cleanup", opP->env);
-        esock_free_env("esaio_sendto - cleanup", opP->env);
+        esock_clear_env("esaio_sendmsg - cleanup", opP->env);
+        esock_free_env("esaio_sendmsg - cleanup", opP->env);
 
         FREE( opP );
 
@@ -3065,7 +3080,7 @@ BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
 
         /* We can not send the whole packet in one sendmsg() call */
         SSDBG( descP, ("WIN-ESAIO",
-                       "essio_sendmsg {%d} -> invalid tail\r\n",
+                       "verify_sendmsg_iovec_tail {%d} -> invalid tail\r\n",
                        descP->sock) );
 
         return FALSE;
@@ -3093,7 +3108,7 @@ BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
             /* Overflow */
 
             SSDBG( descP, ("WIN-ESAIO",
-                           "verify_sendmsg_iovec_size {%d} -> Overflow"
+                           "check_sendmsg_iovec_overflow {%d} -> Overflow"
                            "\r\n   i:         %lu"
                            "\r\n   len:       %lu"
                            "\r\n   dataSize:  %ld"
@@ -3111,6 +3126,228 @@ BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
 
     return TRUE;
     
+}
+
+
+
+/* ========================================================================
+ * Do the actual sendv.
+ * Do some initial writer checks, do the actual send and then
+ * analyze the result.
+ */
+extern
+ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
+                         ESockDescriptor* descP,
+                         ERL_NIF_TERM     sockRef,
+                         ERL_NIF_TERM     sendRef,
+                         ERL_NIF_TERM     eIOV,
+                         const ESockData* dataP)
+{
+    ErlNifPid       caller;
+    ERL_NIF_TERM    eres;
+    ESockAddress    addr;
+    ERL_NIF_TERM    tail;
+    ssize_t         dataSize, sendv_result;
+    BOOLEAN_T       dataInTail, cleanup;
+    ESAIOOperation* opP   = NULL;
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> get caller\r\n",
+            descP->sock) );
+
+    ESOCK_ASSERT( enif_self(env, &caller) != NULL );
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check state\r\n",
+            descP->sock) );
+
+    if (! IS_OPEN(descP->writeState))
+        return esock_make_error_closed(env);
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check if connecting\r\n",
+            descP->sock) );
+
+    /* Connect and Write uses the same select flag
+     * so they can not be simultaneous
+     */
+    if (descP->connectorP != NULL)
+        return esock_make_error_invalid(env, esock_atom_state);
+
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check if already writing\r\n",
+            descP->sock) );
+
+    /* Ensure that this caller does not *already* have a
+     * (send) request waiting */
+    if (esock_writer_search4pid(env, descP, &caller)) {
+        /* Sender already in queue */
+        ESOCK_EPRINTF("esaio_send(%T, %d) -> ALREADY SENDING\r\n",
+                      sockRef, descP->sock);
+        return esock_raise_invalid(env, esock_atom_state);
+    }
+
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> allocations\r\n",
+            descP->sock) );
+
+    /* Allocate the operation */
+    opP = MALLOC( sizeof(ESAIOOperation) );
+    ESOCK_ASSERT( opP != NULL);
+    sys_memzero((char*) opP, sizeof(ESAIOOperation));
+
+    opP->tag = ESAIO_OP_SENDV;
+
+    /* Its a bit annoying that we have to alloc an env and then
+     * copy the ref *before* we know that we actually need it.
+     * How much does this cost?
+     */
+    opP->env = esock_alloc_env("esaio_sendv - operation");
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> extract I/O vector\r\n",
+            descP->sock) );
+
+    /* Extract the 'iov', which must be an erlang:iovec(),
+     * from which we take at most IOV_MAX binaries.
+     * The env *cannot* be NULL because we don't actually know if 
+     * the send succeeds *now*. It could be sceduled!
+     */
+    if (! enif_inspect_iovec(opP->env,
+                             dataP->iov_max, eIOV, &tail,
+                             &opP->data.sendv.iovec)) {
+
+        SSDBG( descP, ("WIN-ESAIO",
+                       "esaio_sendv {%d} -> iov inspection failed\r\n",
+                       descP->sock) );
+
+        esock_free_env("esaio-sendv - iovec inspection failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+    }
+
+    if (opP->data.sendv.iovec == NULL) {
+
+        SSDBG( descP, ("UNIX-ESSIO",
+                       "esaio_sendv {%d} -> not an iov\r\n",
+                       descP->sock) );
+
+        esock_free_env("esaio-sendv - iovec failure", opP->env);
+        FREE( opP );
+
+        return esock_make_invalid(env, esock_atom_iov);
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check if data in tail\r\n",
+            descP->sock) );
+
+    dataInTail = (! enif_is_empty_list(opP->env, tail));
+
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendv(%d) -> verify iovec size when"
+                   "\r\n   iovcnt: %lu"
+                   "\r\n   tail:   %s"
+                   "\r\n", descP->sock,
+                   (unsigned long) opP->data.sendv.iovec->iovcnt,
+                   B2S(dataInTail)) );
+
+    /* We now have an allocated iovec - verify vector size */
+
+    if (! verify_sendmsg_iovec_size(dataP, descP, opP->data.sendv.iovec)) {
+
+        /* We can not send the whole packet in one sendv() call */
+        SSDBG( descP, ("WIN-ESAIO",
+                       "esaio_sendv {%d} -> iovcnt > iov_max\r\n",
+                       descP->sock) );
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.send.iovec );
+        esock_free_env("esaio-sendv - iovec failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> verify iovec tail\r\n",
+            descP->sock) );
+
+    /* Verify that we can send the entire message.
+     * On DGRAM the tail must be "empty" (= everything must fit in one message).
+     */
+    if (! verify_sendmsg_iovec_tail(opP->env, descP, &tail)) {
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.send.iovec );
+        esock_free_env("esaio-sendv - iovec tail failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+
+    }
+    
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check iovec overflow\r\n",
+            descP->sock) );
+
+    if (! check_sendmsg_iovec_overflow(descP,
+                                       opP->data.sendv.iovec, &dataSize)) {
+
+        // No need - belongs to op env: FREE_IOVEC( opP->data.sendv.iovec );
+        esock_free_env("esaio-sendv - iovec size failure", opP->env);
+        FREE( opP );
+
+        return esock_make_error_invalid(env, esock_atom_iov);
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_sendv {%d} -> iovec size verified"
+            "\r\n   iov length: %lu"
+            "\r\n   data size:  %u"
+            "\r\n",
+            descP->sock,
+            (unsigned long) opP->data.sendv.iovec->iovcnt,
+            (long) dataSize) );
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_write_tries, &descP->writeTries, 1);
+
+    /* And now, try to send the message */
+    sendv_result = sock_sendv_O(descP->sock,
+                                (LPWSABUF) opP->data.sendv.iovec->iov,
+                                opP->data.sendv.iovec->iovcnt,
+                                (OVERLAPPED*) opP);
+
+    eres = send_check_result(env, descP, opP, caller,
+                             sendv_result, dataSize, dataInTail,
+                             sockRef, sendRef, &cleanup);
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> sent and analyzed: %d, %T\r\n",
+            descP->sock, sendv_result, eres) );
+
+    if (cleanup) {
+        
+        /* The i/o vector belongs to the op env,
+         * so it goes when the env goes.
+         */
+        esock_clear_env("esaio_sendv - cleanup", opP->env);
+        esock_free_env("esaio_sendv - cleanup", opP->env);
+
+        FREE( opP );
+
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv {%d} -> done (%s)"
+            "\r\n   %T"
+            "\r\n", descP->sock, B2S(cleanup), eres) );
+
+    return eres;
+
 }
 
 
@@ -3869,7 +4106,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok;
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
 
@@ -3901,7 +4138,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, result;
+    ERL_NIF_TERM data, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -3940,7 +4177,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_fails, &descP->readFails, 1);
 
-            result = esock_make_error(env, esock_atom_closed);
+            eres = esock_make_error(env, esock_atom_closed);
             
         } else {
 
@@ -3973,7 +4210,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             if (read > descP->readPkgMax)
                 descP->readPkgMax = read;
 
-            result = esock_make_ok2(env, data);
+            eres = esock_make_ok2(env, data);
 
         }
 
@@ -3993,8 +4230,9 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
+
             } else {
 
                 /* But we are not allowed to wait! => cancel */
@@ -4017,11 +4255,11 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4043,7 +4281,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4054,7 +4292,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             "\r\n",
             sockRef, descP->sock) );
 
-    return result;
+    return eres;
 }
 
 
@@ -4303,7 +4541,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
 
@@ -4335,7 +4573,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, result;
+    ERL_NIF_TERM data, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4381,7 +4619,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
          * This is:                 {ok, {Source, Data}}
          * But it should really be: {ok, {Source, Flags, Data}}
          */
-        result = esock_make_ok2(env, MKT2(env, eSockAddr, data));
+        eres = esock_make_ok2(env, MKT2(env, eSockAddr, data));
 
     } else {
 
@@ -4399,8 +4637,8 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
 
             } else {
 
@@ -4424,11 +4662,11 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4450,7 +4688,7 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4460,9 +4698,9 @@ ERL_NIF_TERM recvfrom_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO", "recvfrom_check_ok(%T) {%d} -> done with"
             "\r\n   result: %T"
             "\r\n",
-            sockRef, descP->sock, result) );
+            sockRef, descP->sock, eres) );
 
-    return result;
+    return eres;
 }
 
 
@@ -4710,7 +4948,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
                 
@@ -4745,7 +4983,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                               ERL_NIF_TERM     sockRef,
                               ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM eMsg, result;
+    ERL_NIF_TERM eMsg, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4781,7 +5019,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
         if (read > descP->readPkgMax)
             descP->readPkgMax = read;
 
-        result = esock_make_ok2(env, eMsg);
+        eres = esock_make_ok2(env, eMsg);
 
     } else {
 
@@ -4799,8 +5037,8 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
 
             } else {
 
@@ -4824,11 +5062,11 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
-                    result = esock_atom_ok; // Will trigger {error, timeout}
+                    eres = esock_atom_timeout; // Will trigger {error, timeout}
 
                 }
             }
@@ -4850,7 +5088,7 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4860,9 +5098,9 @@ ERL_NIF_TERM recvmsg_check_ok(ErlNifEnv*       env,
            ("WIN-ESAIO", "recvmsg_check_ok(%T) {%d} -> done with"
             "\r\n   result: %T"
             "\r\n",
-            sockRef, descP->sock, result) );
+            sockRef, descP->sock, eres) );
 
-    return result;
+    return eres;
 }
 
 

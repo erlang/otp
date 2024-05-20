@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Getting Started
+# Examples
 
 This section describes examples of how to use the Public Key API. Keys and
 certificates used in the following sections are generated only for testing the
@@ -60,14 +60,14 @@ A DSA private key can look as follows:
 The following PEM file has only one entry, a private DSA key:
 
 ```erlang
-2> [DSAEntry] =  public_key:pem_decode(PemBin).
+2>[DSAEntry] =  public_key:pem_decode(PemBin).
 [{'DSAPrivateKey',<<48,130,1,187,2,1,0,2,129,129,0,183,
                     179,230,217,37,99,144,157,21,228,204,
-		    162,207,61,246,...>>,
-		    not_encrypted}]
+                    162,207,61,246,...>>,
+                    not_encrypted}]
 ```
 
-```c
+```erlang
 3> Key = public_key:pem_entry_decode(DSAEntry).
 #'DSAPrivateKey'{version = 0,
                  p = 12900045185019966618...6593,
@@ -100,7 +100,7 @@ In this following example, the password is `"abcd1234"`:
 
 ```erlang
 3> Key = public_key:pem_entry_decode(RSAEntry, "abcd1234").
-    #'RSAPrivateKey'{version = 'two-prime',
+#'RSAPrivateKey'{version = 'two-prime',
                  modulus = 1112355156729921663373...2737107,
                  publicExponent = 65537,
                  privateExponent = 58064406231183...2239766033,
@@ -240,11 +240,11 @@ public_key:der_decode('X520CommonName', <<19,8,101,114,108,97,110,103,67,65>>).
 However, certificates can also be decoded using `pkix_decode_cert/2`, which can
 customize and recursively decode standard parts of a certificate:
 
-```text
-3>{_, DerCert, _} = CertEntry1.
+```erlang
+3> {_, DerCert, _} = CertEntry1.
 ```
 
-```text
+```erlang
 4> public_key:pkix_decode_cert(DerCert, otp).
 #'OTPCertificate'{
     tbsCertificate =
@@ -337,7 +337,7 @@ customize and recursively decode standard parts of a certificate:
 
 This call is equivalent to `public_key:pem_entry_decode(CertEntry1)`:
 
-```text
+```erlang
 5> public_key:pkix_decode_cert(DerCert, plain).
 #'Certificate'{ ...}
 ```
@@ -405,6 +405,12 @@ Msg = public_key:decrypt_private(RsaEncrypted, PrivateKey),
 > You normally do only one of the encrypt or decrypt operations, and the peer
 > does the other. This normally used in legacy applications as a primitive
 > digital signature.
+
+> #### Warning {: .warning }
+>
+> This legacy algorithm is broken although there exists a software prevention
+> when using appropriate OpenSSL cryptolib with Erlang/OTP it is hard to
+> guarantee security and we strongly recommend not using it.
 
 ## Digital Signatures
 

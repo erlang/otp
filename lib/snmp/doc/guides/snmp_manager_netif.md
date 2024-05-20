@@ -102,7 +102,7 @@ Server ! {snmp_inform, Ref, Pdu, PduMS, Domain, Addr}
   the inform-request (e.g. request-id). `ignore` is used if the response
   (acknowledgment) to the inform-request has already been sent (this means that
   the server will not make the call to the
-  [inform_response](`m:snmpm_network_interface#inform_response`) function). See
+  [inform_response](`c:snmpm_network_interface:inform_response/4`) function). See
   the [inform request behaviour](snmp_config.md#manager_irb) configuration
   option for more info.
 - `Pdu` is an SNMP PDU record, as defined in `snmp_types.hrl`, with the SNMP
@@ -116,7 +116,7 @@ Server ! {snmp_report, Data, Domain, Addr}
 
 - `Data` is either `{ok, Pdu}` or `{error, ReqId, ReasonInfo, Pdu}`. Which one
   is used depends on the return value from the MPD
-  [process_msg](`m:snmpm_mpd#process_msg`) function. If the MsgData is `ok`, the
+  [`process_msg/6`](`snmpm_mpd:process_msg/6`) function. If the MsgData is `ok`, the
   first is used, and if it is `{error, ReqId, Reason}` the latter is used.
 - `Pdu` is an SNMP PDU record, as defined in `snmp_types.hrl`, with the SNMP
   request.
@@ -144,7 +144,7 @@ to respond to.
 - [](){: #im_ping } `{ping, Supervisor}`
 
   This message is sent to the Net If process by a process that has been
-  configured to perfor "active supervision" of the Net If process. The Net If
+  configured to perform "active supervision" of the Net If process. The Net If
   process should respond immediately with a
   [pong](snmp_manager_netif.md#om_pong) message.
 

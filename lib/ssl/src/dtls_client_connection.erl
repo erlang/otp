@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(dtls_client_connection).
+-moduledoc false.
 
 %%----------------------------------------------------------------------
 %% Purpose: DTLS-1-DTLS-1.2 FSM (* = optional)
@@ -217,7 +218,7 @@ initial_hello({call, From}, {start, Timeout},
     State = State2#state{connection_env =
                              CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
                          session = Session,
-                         start_or_recv_from = From,
+                         recv = State2#state.recv#recv{from = From},
                          protocol_specific = PS#{active_n_toggle := false}
                         },
     dtls_gen_connection:next_event(hello, no_record, State,
@@ -288,8 +289,8 @@ hello(internal, #hello_verify_request{cookie = Cookie},
     dtls_gen_connection:next_event(?STATE(hello), no_record, State, Actions);
 hello(internal, #server_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+             recv = #recv{from = From} = Recv} = State) ->
+    {next_state, user_hello, State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true},{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{} = Hello,
       #state{handshake_env = #handshake_env{
@@ -314,12 +315,16 @@ hello(internal, {handshake, {#hello_verify_request{} = Handshake, _}}, State) ->
     {next_state, ?STATE(hello), State, [{next_event, internal, Handshake}]};
 hello(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     Epoch = dtls_gen_connection:retransmit_epoch(hello, State0),
-    {State1, Actions0} =
-        dtls_gen_connection:send_handshake_flight(State0, Epoch),
-    {next_state, ?STATE(hello), State, Actions} =
-        dtls_gen_connection:next_event(?STATE(hello), no_record, State1, Actions0),
+    {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
-    {repeat_state, State, Actions};
+    case dtls_gen_connection:next_event(?STATE(hello), no_record, State1, Actions0) of
+        {next_state, ?STATE(hello), State, Actions} ->
+            {repeat_state, State, Actions};
+        {next_state, ?STATE(hello), State} ->
+            {repeat_state, State, []};
+        {stop, _, _} = Stop ->
+            Stop
+    end;
 hello(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(hello), State);
 hello(info, Event, State) ->
@@ -386,12 +391,16 @@ certify(internal = Type, #server_hello_done{} = Event, State) ->
     end;
 certify(internal,  #change_cipher_spec{type = <<1>>}, State0) ->
     Epoch = dtls_gen_connection:retransmit_epoch(certify, State0),
-    {State1, Actions0} =
-        dtls_gen_connection:send_handshake_flight(State0, Epoch),
-    {next_state, ?STATE(certify), State, Actions} =
-        dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0),
+    {State1, Actions0} = dtls_gen_connection:send_handshake_flight(State0, Epoch),
     %% This will reset the retransmission timer by repeating the enter state event
-    {repeat_state, State, Actions};
+    case dtls_gen_connection:next_event(?STATE(certify), no_record, State1, Actions0) of
+        {next_state, ?STATE(certify), State, Actions} ->
+            {repeat_state, State, Actions};
+        {next_state, ?STATE(certify), State} ->
+            {repeat_state, State, []};
+        {stop, _, _} = Stop ->
+            Stop
+    end;
 certify(state_timeout, Event, State) ->
     dtls_gen_connection:handle_state_timeout(Event, ?STATE(certify), State);
 certify(info, Event, State) ->

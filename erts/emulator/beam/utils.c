@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,10 +102,8 @@ void ycf_debug_reset_stack_start(void) {
 void *ycf_debug_get_stack_start(void) {
     return erts_tsd_get(erts_ycf_debug_stack_start_tsd_key);
 }
-#include "utils.debug.ycf.h"
-#else
-#include "utils.ycf.h"
 #endif
+#include "utils.ycf.h"
 
 #if defined(DEBUG)
 # define IF_DEBUG(X) X
@@ -2307,7 +2305,7 @@ tailrecur_ne:
         case FLOAT_BIG:
 	    if (exact) goto exact_fall_through;
 	{
-	    Wterm tmp = aw;
+	    Eterm tmp = aw;
 	    aw = bw;
 	    bw = tmp;
 	}/* fall through */

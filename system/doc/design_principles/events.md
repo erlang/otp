@@ -21,8 +21,7 @@ limitations under the License.
 
 [](){: #gen_event }
 
-This section is to be read with the `m:gen_event` manual page in STDLIB, where
-all interface functions and callback functions are described in detail.
+It is recommended to read this section alongside `m:gen_event` in STDLIB.
 
 ## Event Handling Principles
 
@@ -33,7 +32,7 @@ be logged.
 In the event manager, zero, one, or many _event handlers_ are installed. When
 the event manager is notified about an event, the event is processed by all the
 installed event handlers. For example, an event manager for handling errors can
-by default have a handler installed, which writes error messages to the
+by default have a handler installed that writes error messages to the
 terminal. If the error messages during a certain period are to be saved to a
 file as well, the user adds another event handler that does this. When logging
 to the file is no longer necessary, this event handler is deleted.
@@ -101,18 +100,19 @@ example, call the following function:
 gen_event:start_link({local, error_man})
 ```
 
-This function spawns and links to a new process, an event manager.
+`gen_event:start_link/1` spawns and links to a new event manager process.
 
-The argument, `{local, error_man}` specifies the name. The event manager is then
-locally registered as `error_man`.
+The argument, `{local, error_man}`, specifies the name under which the
+event manager should be locally registered. The name can also be given
+as `{global, Name}` to register the event manager globally using
+`global:register_name/2`.
 
 If the name is omitted, the event manager is not registered. Instead its pid
-must be used. The name can also be given as `{global, Name}`, in which case the
-event manager is registered using `global:register_name/2`.
+must be used.
 
-`gen_event:start_link` must be used if the event manager is part of a
-supervision tree, that is, started by a supervisor. There is another function,
-`gen_event:start`, to start a standalone event manager, that is, an event
+`gen_event:start_link/1` must be used if the event manager is part of
+a supervision tree, meaning that it was started by a supervisor. There
+is another function, `gen_event:start/1`, to start a standalone event
 manager that is not part of a supervision tree.
 
 ## Adding an Event Handler
@@ -130,7 +130,7 @@ ok
 This function sends a message to the event manager registered as `error_man`,
 telling it to add the event handler `terminal_logger`. The event manager calls
 the callback function `terminal_logger:init([])`, where the argument `[]` is the
-third argument to `add_handler`. `init` is expected to return `{ok, State}`,
+third argument to `add_handler`. `init/1` is expected to return `{ok, State}`,
 where `State` is the internal state of the event handler.
 
 ```erlang
@@ -138,7 +138,7 @@ init(_Args) ->
     {ok, []}.
 ```
 
-Here, `init` does not need any input data and ignores its argument. For
+Here, `init/1` does not need any input data and ignores its argument. For
 `terminal_logger`, the internal state is not used. For `file_logger`, the
 internal state is used to save the open file descriptor.
 
@@ -190,8 +190,8 @@ ok
 This function sends a message to the event manager registered as `error_man`,
 telling it to delete the event handler `terminal_logger`. The event manager
 calls the callback function `terminal_logger:terminate([], State)`, where the
-argument `[]` is the third argument to `delete_handler`. `terminate` is to be
-the opposite of `init` and do any necessary cleaning up. Its return value is
+argument `[]` is the third argument to `delete_handler`. `terminate/2` is to be
+the opposite of `init/1` and do any necessary cleaning up. Its return value is
 ignored.
 
 For `terminal_logger`, no cleaning up is necessary:
@@ -225,29 +225,32 @@ the supervisor.
 
 An event manager can also be stopped by calling:
 
-```text
-> gen_event:stop(error_man).
+```erlang
+1> gen_event:stop(error_man).
 ok
 ```
 
 ## Handling Other Messages
 
-If the `gen_event` is to be able to receive other messages than events, the
-callback function `handle_info(Info, State)` must be implemented to handle them.
-Examples of other messages are exit messages, if the `gen_event` is linked to
-other processes (than the supervisor, for example via `add_sup_handler`) and
+If the `gen_event` process is to be able to receive other messages
+than events, the callback function `handle_info(Info, State)` must be
+implemented to handle them. Examples of other messages are exit
+messages if the event manager is linked to other processes than the
+supervisor (for example via `gen_event:add_sup_handler/3`) and is
 trapping exit signals.
 
 ```erlang
 handle_info({'EXIT', Pid, Reason}, State) ->
-    ..code to handle exits here..
-    {ok, NewState}.
+    %% Code to handle exits here.
+    ...
+    {noreply, State1}.
 ```
 
-The `code_change` method must also be implemented.
+The final function to implement is `code_change/3`:
 
 ```erlang
 code_change(OldVsn, State, Extra) ->
-    ..code to convert state (and more) during code change
-    {ok, NewState}
+    %% Code to convert state (and more) during code change.
+    ...
+    {ok, NewState}.
 ```

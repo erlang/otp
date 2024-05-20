@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,10 +36,10 @@
 %% 	  cipher_state,
 %% 	  mac_secret,
 %% 	  sequence_number,
-%% 	  %% RFC 5746
-%% 	  secure_renegotiation,
-%% 	  client_verify_data,
-%% 	  server_verify_data,
+%%        reneg =  %% RFC 5746
+%% 	     #{secure_renegotiation,
+%% 	       client_verify_data,
+%% 	       server_verify_data},
 %% 	  %% How to do BEAST mitigation?
 %% 	  beast_mitigation
 %% 	 }).

@@ -25,6 +25,11 @@ Behaviour module for the SNMP agent notification delivery information receiver.
 This module defines the behaviour of the notification delivery information
 receiver.
 
+When the user sends a notification (see `snmpa:send_notification2/3`),
+the user can (optionally) choose to receive delivery information
+(was the message received and acknowledged by the target(s)).
+This behaviour describes a way for the user to get such (delivery) information.
+
 A `snmpa_notification_delivery_info_receiver` compliant module must export the
 following functions:
 
@@ -39,17 +44,47 @@ Agent is run without changing the configuration to use transport domains the
 notification delivery information receiver will still get the old arguments and
 work as before.
 
-## DATA TYPES
-
-See the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
-
-[](){: #accept_recv } [](){: #delivery_targets }
 """.
+
+-include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
 
 -export([verify/1]).
 
--type transportDomain() :: snmpa_conf:transportDomain().
+-export_type([
+              notification_delivery_info/0
+             ]).
+
+-type transportDomain()          :: snmpa_conf:transportDomain().
 -type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
+
+-doc """
+How shall (notification) delivery info be reported.
+
+This record defines the info related to inform delivery info. That is, when
+sending an inform, info about the delivery (such if it was acknowledged) will be
+delivered using the info in this record.
+
+The delivery will be performed according to:
+
+```text
+	Mod:delivery_targets(Tag, Addresses, Extra)
+	Mod:delivery_info(Tag, Address, DeliveryResult, Extra)
+```
+
+The Extra is any term, provided by the user.
+
+The fields of this record has the following meaning:
+
+- **`tag = term()`** - Value selected by the user to identify this sending
+
+- **`mod = module()`** - A module implementing the
+  `m:snmpa_notification_delivery_info_receiver` behaviour.
+
+- **`extra = term()`** - This is any extra info the user wants to have supplied
+  when the functions in the callback module is called. Provided when calling the
+  send function.
+""".
+-type notification_delivery_info() :: #snmpa_notification_delivery_info{}.
 
 
 -doc """
@@ -78,7 +113,6 @@ It informs the `receiver` which targets will get the notification. The result of
 the delivery will be provided via successive calls to
 [`delivery_info/4`](`c:delivery_info/4`) function, see below.
 
-[](){: #delivery_info }
 """.
 -callback delivery_targets(Tag, Targets, Extra) -> snmp:void() when
       Tag :: term(),

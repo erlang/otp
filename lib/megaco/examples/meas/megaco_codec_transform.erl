@@ -224,7 +224,7 @@ em(MessagePackage, Codec, Name, Extension, Bin) ->
                     ok;
                 {error, Reason} ->
                     S = format("failed writing ~w message ~w (~p bytes): ~p",
-                               [Codec, Name, size(Bin), Reason]),
+                               [Codec, Name, byte_size(Bin), Reason]),
                     file:close(Fd),
                     throw({error, S})
             end;

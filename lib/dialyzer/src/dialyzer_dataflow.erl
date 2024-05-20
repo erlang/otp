@@ -1609,13 +1609,14 @@ bind_bin_segs([Seg|Segs], BinType, Acc, Map, State) ->
       {Map1, [Type]} = do_bind_pat_vars([Val], [T], Map,
                                         State, false, []),
       Type1 = remove_local_opaque_types(Type, State#state.opaques),
-      bind_bin_segs(Segs, t_bitstr(0, 0), [Type1|Acc], Map1, State);
+      bind_bin_segs(Segs, t_none(), [Type1|Acc], Map1, State);
     SizeType when SegType =:= utf8; SegType =:= utf16; SegType =:= utf32 ->
       {literal, undefined} = SizeType,          %Assertion.
       {Map1, [_]} = do_bind_pat_vars([Val], [t_integer()],
                                      Map, State, false, []),
       Type = t_binary(),
-      bind_bin_segs(Segs, BinType, [Type|Acc], Map1, State);
+      bind_bin_segs(Segs, t_bitstr_match(Type, BinType),
+                    [Type | Acc], Map1, State);
     {literal, N} when not is_integer(N); N < 0 ->
       %% Bogus literal size, fails in runtime.
       bind_error([Seg], BinType, t_none(), bind);

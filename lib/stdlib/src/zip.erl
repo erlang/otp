@@ -32,12 +32,12 @@ By convention, the name of a zip file is to end with `.zip`. To abide to the
 convention, add `.zip` to the filename.
 
 - To create zip archives, use function `zip/2` or [`zip/3`](`zip/2`). They are
-  also available as `create/2,3`, to resemble the `m:erl_tar` module.
+  also available as [`create/2,3`](`create/3`), to resemble the `m:erl_tar` module.
 - To extract files from a zip archive, use function `unzip/1` or `unzip/2`. They
-  are also available as `extract/1,2`, to resemble the `m:erl_tar` module.
+  are also available as [`extract/1,2`](`extract/1`), to resemble the `m:erl_tar` module.
 - To fold a function over all files in a zip archive, use function `foldl/3`.
 - To return a list of the files in a zip archive, use function `list_dir/1` or
-  `list_dir/2`. They are also available as `table/1,2`, to resemble the
+  `list_dir/2`. They are also available as [`table/1,2`](`table/1`), to resemble the
   `m:erl_tar` module.
 - To print a list of files to the Erlang shell, use function `t/1` or `tt/1`.
 - Sometimes it is desirable to open a zip archive, and to unzip files from it
@@ -57,6 +57,8 @@ convention, add `.zip` to the filename.
 - Changing a zip archive is not supported. To add or remove a file from an
   archive, the whole archive must be recreated.
 """.
+-define(ERL_TAR_COMPATIBILITY, ~"erl_tar compatibility functions").
+-moduledoc(#{ titles => [{function, ?ERL_TAR_COMPATIBILITY}]}).
 
 %% Basic api
 -export([unzip/1, unzip/2, extract/1, extract/2,
@@ -415,7 +417,7 @@ openzip_close(_) ->
 %% Accepted options:
 %% verbose, cooked, file_list, keep_old_files, file_filter, memory
 
--doc(#{equiv => unzip/2}).
+-doc(#{equiv => unzip(Archive, [])}).
 -spec(unzip(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, FileList}
@@ -428,14 +430,9 @@ openzip_close(_) ->
 unzip(F) -> unzip(F, []).
 
 -doc """
-[`unzip/1`](`unzip/1`) extracts all files from a zip archive.
+Extracts all files from a zip archive.
 
-[`unzip/2`](`unzip/2`) provides options to extract some files, and more.
-
-[`extract/1`](`extract/1`) and [`extract/2`](`extract/2`) are provided as
-synonyms to resemble module `m:erl_tar`.
-
-If argument `Archive` is specified as a binary, the contents of the binary is
+If argument `Archive` is specified as a `t:binary/0`, the contents of the binary is
 assumed to be a zip archive, otherwise a filename.
 
 Options:
@@ -591,7 +588,7 @@ foldl(_,_, _) ->
 %% Accepted options:
 %% verbose, cooked, memory, comment
 
--doc(#{equiv => zip/3}).
+-doc(#{equiv => zip(Name, FileList, [])}).
 -spec(zip(Name, FileList) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -605,9 +602,6 @@ zip(F, Files) -> zip(F, Files, []).
 
 -doc """
 Creates a zip archive containing the files specified in `FileList`.
-
-[`create/2`](`create/2`) and [`create/3`](`create/3`) are provided as synonyms
-to resemble module `m:erl_tar`.
 
 `FileList` is a list of files, with paths relative to the current directory,
 which are stored with this path in the archive. File system operations are
@@ -724,7 +718,7 @@ do_zip(F, Files, Options) ->
 %% Accepted options:
 %% cooked, file_filter, file_output (latter 2 undocumented)
 
--doc(#{equiv => table/2}).
+-doc(#{equiv => list_dir(Archive, [])}).
 -spec(list_dir(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -732,7 +726,19 @@ do_zip(F, Files, Options) ->
 
 list_dir(F) -> list_dir(F, []).
 
--doc(#{equiv => table/2}).
+-doc """
+Retrieves all filenames in the zip archive `Archive`.
+
+The result value is the tuple `{ok, List}`, where `List` contains the zip
+archive comment as the first element.
+
+One option is available:
+
+- **`cooked`** - By default, this function opens the zip file in `raw` mode,
+  which is faster but does not allow a remote (Erlang) file server to be used.
+  Adding `cooked` to the mode list overrides the default and opens the zip file
+  without option `raw`.
+""".
 -spec(list_dir(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -972,7 +978,8 @@ get_list_dir_options(F, Options) ->
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
--doc(#{equiv => table/2}).
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc #{ equiv => list_dir(Archive, []) }.
 -spec(table(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -980,25 +987,8 @@ get_list_dir_options(F, Options) ->
 
 table(F) -> list_dir(F).
 
--doc """
-[`list_dir/1`](`list_dir/1`) retrieves all filenames in the zip archive
-`Archive`.
-
-[`list_dir/2`](`list_dir/2`) provides options.
-
-[`table/1`](`table/1`) and [`table/2`](`table/2`) are provided as synonyms to
-resemble the `m:erl_tar` module.
-
-The result value is the tuple `{ok, List}`, where `List` contains the zip
-archive comment as the first element.
-
-One option is available:
-
-- **`cooked`** - By default, this function opens the zip file in `raw` mode,
-  which is faster but does not allow a remote (Erlang) file server to be used.
-  Adding `cooked` to the mode list overrides the default and opens the zip file
-  without option `raw`.
-""".
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc #{ equiv => list_dir(Archive, Options) }.
 -spec(table(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
@@ -1009,7 +999,8 @@ One option is available:
 
 table(F, O) -> list_dir(F, O).
 
--doc(#{equiv => zip/3}).
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{ equiv => zip(Name, FileList)} ).
 -spec(create(Name, FileList) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -1021,7 +1012,8 @@ table(F, O) -> list_dir(F, O).
 
 create(F, Fs) -> zip(F, Fs).
 
--doc(#{equiv => zip/3}).
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{ equiv => zip(Name, FileList, Options) }).
 -spec(create(Name, FileList, Options) -> RetValue when
       Name     :: file:name(),
       FileList :: [FileSpec],
@@ -1034,7 +1026,8 @@ create(F, Fs) -> zip(F, Fs).
                 | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
 
--doc(#{equiv => unzip/2}).
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{ equiv => unzip(Archive)} ).
 -spec(extract(Archive) -> RetValue when
       Archive :: file:name() | binary(),
       RetValue :: {ok, FileList}
@@ -1046,7 +1039,8 @@ create(F, Fs, O) -> zip(F, Fs, O).
 
 extract(F) -> unzip(F).
 
--doc(#{equiv => unzip/2}).
+-doc #{ title => ?ERL_TAR_COMPATIBILITY }.
+-doc(#{ equiv => unzip(Archive, Options) }).
 -spec(extract(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
       Options :: [Option],

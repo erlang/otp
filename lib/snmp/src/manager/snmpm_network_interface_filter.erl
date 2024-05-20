@@ -25,10 +25,10 @@ This module defines the behaviour of the manager network interface filter. A
 `snmpm_network_interface_filter` compliant module must export the following
 functions:
 
-- [accept_recv/2](`m:snmpm_network_interface_filter#accept_recv`)
-- [accept_send/2](`m:snmpm_network_interface_filter#accept_send`)
-- [accept_recv_pdu/3](`m:snmpm_network_interface_filter#accept_recv_pdu`)
-- [accept_send_pdu/2](`m:snmpm_network_interface_filter#accept_send_pdu`)
+- [`accept_recv/2`](`c:accept_recv/2`)
+- [`accept_send/2`](`c:accept_send/2`)
+- [`accept_recv_pdu/3`](`c:accept_recv_pdu/3`)
+- [`accept_send_pdu/3`](`c:accept_send_pdu/3`)
 
 The semantics of them and their exact signatures are explained below.
 
@@ -55,18 +55,6 @@ Legacy network interface filter modules used arguments on the form
 manager is run without changing the configuration to use transport domains the
 network interface filter will still get the old arguments and work as before.
 
-## DATA TYPES
-
-```text
-port() = integer() > 0
-pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
-             'set-request' | trap | 'get-bulk-request' | 'inform-request' |
-             report | trappdu
-```
-
-See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
-
-[](){: #accept_recv }
 """.
 
 -export([verify/1]).
@@ -75,6 +63,8 @@ See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 -type transportAddressWithPort() :: snmpa_conf:transportAddressWithPort().
 -type pdu_type() :: snmpm:pdu_type().
 
+
+%% **************************************************************************
 %% accept_recv(address(), port()) -> boolean()
 %% Called at the reception of a message
 %% (before *any* processing has been done).
@@ -82,12 +72,13 @@ See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 Called at the reception of a message (before _any_ processing has been done).
 
 For the message to be rejected, the function _must_ return _false_.
-
-[](){: #accept_send }
 """.
 -callback accept_recv(Domain, Addr) -> boolean() when
-                             Domain :: transportDomain(),
-                             Addr :: transportAddressWithPort().
+      Domain :: transportDomain(),
+      Addr   :: transportAddressWithPort().
+
+
+%% **************************************************************************
 %% accept_send(address(), port()) -> boolean()
 %% Called before the sending of a message
 %% (after *all* processing has been done).
@@ -95,12 +86,13 @@ For the message to be rejected, the function _must_ return _false_.
 Called before the sending of a message (after _all_ processing has been done).
 
 For the message to be rejected, the function _must_ return _false_.
-
-[](){: #accept_recv_pdu }
 """.
 -callback accept_send(Domain, Addr) -> boolean() when
-                             Domain :: transportDomain(),
-                             Addr :: transportAddressWithPort().
+      Domain :: transportDomain(),
+      Addr   :: transportAddressWithPort().
+
+
+%% **************************************************************************
 %% accept_recv_pdu(Addr, Port, pdu_type()) -> boolean()
 %% Called after the basic message processing (MPD) has been done,
 %% but before the pdu is handed over to the master-agent for
@@ -110,13 +102,13 @@ Called after the basic message processing (MPD) has been done, but before the
 pdu is handed over to the server for primary processing.
 
 For the pdu to be rejected, the function _must_ return _false_.
-
-[](){: #accept_send_pdu }
 """.
 -callback accept_recv_pdu(Domain, Addr, PduType) -> boolean() when
-                                 Domain :: transportDomain(),
-                                 Addr :: transportAddressWithPort(),
-                                 PduType :: pdu_type().
+      Domain  :: transportDomain(),
+      Addr    :: transportAddressWithPort(),
+      PduType :: pdu_type().
+
+%% **************************************************************************
 %% accept_send_pdu(Addr, Port, pdu_type()) -> boolean()
 %% Called before the basic message processing (MPD) is done, 
 %% when a pdu has been received from the master-agent.
@@ -127,9 +119,9 @@ received from the master-agent.
 For the message to be rejected, the function _must_ return _false_.
 """.
 -callback accept_send_pdu(Domain, Addr, PduType) -> boolean() when
-                                 Domain :: transportDomain(),
-                                 Addr :: transportAddressWithPort(),
-                                 PduType :: pdu_type().
+      Domain  :: transportDomain(),
+      Addr    :: transportAddressWithPort(),
+      PduType :: pdu_type().
 
 -doc false.
 verify(Module) ->

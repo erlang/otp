@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,11 +124,7 @@ static int hxnodecmpkey(const void* a, const void* b);
  * code that it transforms.
  *
  */
-#if defined(DEBUG) && defined(ARCH_64)
-#include "erl_map.debug.ycf.h"
-#else
 #include "erl_map.ycf.h"
-#endif
 #define NOT_YCF_YIELDING_VERSION 1
 #define YCF_CONSUME_REDS(X) while(0){}
 

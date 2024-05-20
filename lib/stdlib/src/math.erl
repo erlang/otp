@@ -22,11 +22,10 @@
 Mathematical functions.
 
 This module provides an interface to a number of mathematical functions.
-
-> #### Note {: .info }
->
-> Not all functions are provided on all platforms. In particular, the `erf/1`
-> and `erfc/1` functions are not provided on Windows.
+For details about what each function does, see the the C library documentation
+on your system. On Unix systems the easiest way it to run `man sin`. On
+Windows you should check the [Math and floating-point support](https://learn.microsoft.com/en-us/cpp/c-runtime-library/floating-point-support)
+documentation.
 
 ## Limitations
 
@@ -43,79 +42,72 @@ As these are the C library, the same limitations apply.
          ceil/1, floor/1,
          fmod/2]).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse cosine of `X`, return value is in radians.".
 -spec acos(X) -> float() when
       X :: number().
 acos(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse hyperbolic cosine of `X`.".
 -spec acosh(X) -> float() when
       X :: number().
 acosh(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse sine of `X`, return value is in radians.".
 -spec asin(X) -> float() when
       X :: number().
 asin(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse hyperbolic sine of `X`.".
 -spec asinh(X) -> float() when
       X :: number().
 asinh(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse tangent of `X`, return value is in radians.".
 -spec atan(X) -> float() when
       X :: number().
 atan(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse 2-argument tangent of `X`, return value is in radians.".
 -spec atan2(Y, X) -> float() when
       Y :: number(),
       X :: number().
 atan2(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Inverse hyperbolic tangent of `X`.".
 -spec atanh(X) -> float() when
       X :: number().
 atanh(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The ceiling of `X`.".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec ceil(X) -> float() when
       X :: number().
 ceil(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The cosine of `X` in radians.".
 -spec cos(X) -> float() when
       X :: number().
 cos(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The hyperbolic cosine of `X`.".
 -spec cosh(X) -> float() when
       X :: number().
 cosh(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the error function of `X`, where:
+Returns the error function (or Gauss error function) of `X`.
+
+Where:
 
 ```text
 erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.
@@ -127,7 +119,7 @@ erf(_) ->
     erlang:nif_error(undef).
 
 -doc """
-[`erfc(X)`](`erfc/1`) returns `1.0` \- [`erf(X)`](`erf/1`), computed by methods
+[`erfc(X)`](`erfc/1`) returns `1.0` - [`erf(X)`](`erf/1`), computed by methods
 that avoid cancellation for large `X`.
 """.
 -spec erfc(X) -> float() when
@@ -135,89 +127,81 @@ that avoid cancellation for large `X`.
 erfc(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc """
+Raise e by `X`, that is `eˣ`.
+
+Where e is the base of the natural logarithm.
+""".
 -spec exp(X) -> float() when
       X :: number().
 exp(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The floor of `X`.".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec floor(X) -> float() when
       X :: number().
 floor(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Returns `X` modulus `Y`.".
+-doc(#{since => <<"OTP 20.0">>}).
 -spec fmod(X, Y) -> float() when
       X :: number(), Y :: number().
 fmod(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The natural (base-e) logarithm of `X`.".
 -spec log(X) -> float() when
       X :: number().
 log(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The base-2 logarithm of `X`.".
+-doc(#{since => <<"OTP 18.0">>}).
 -spec log2(X) -> float() when
       X :: number().
 log2(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "The base-10 logarithm of `X`.".
 -spec log10(X) -> float() when
       X :: number().
 log10(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
--spec pow(X, Y) -> float() when
+-doc "Raise `X` by `N`, that is `xⁿ`.".
+-spec pow(X, N) -> float() when
       X :: number(),
-      Y :: number().
+      N :: number().
 pow(_, _) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Sine of `X` in radians.".
 -spec sin(X) -> float() when
       X :: number().
 sin(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Hyperbolic sine of `X`.".
 -spec sinh(X) -> float() when
       X :: number().
 sinh(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Square root of `X`.".
 -spec sqrt(X) -> float() when
       X :: number().
 sqrt(_) ->
     erlang:nif_error(undef).
 
--doc(#{equiv => tanh/1}).
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Tangent of `X` in radians.".
 -spec tan(X) -> float() when
       X :: number().
 tan(_) ->
     erlang:nif_error(undef).
 
--doc """
-A collection of mathematical functions that return floats. Arguments are
-numbers.
-""".
--doc(#{since => <<"OTP 18.0,OTP 20.0">>}).
+-doc "Hyperbolic tangent of `X`.".
 -spec tanh(X) -> float() when
       X :: number().
 tanh(_) ->

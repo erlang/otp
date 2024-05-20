@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 %%
 
 -module(cte_track).
+-moduledoc false.
 %% module for tracking CT execution progress
 %% test spec addition examples:
 %% {event_handler, {cte_track, []}}.
@@ -115,7 +116,7 @@ handle_event(#event{name = tc_done,
 handle_event(#event{name = tc_done,
                     data = Data},
              State = #{device := D}) ->
-    print(D, "~n~nUnhandled interesting event:~nName = tc_done~nData = ~p~n~n",
+    print(D, "~n~n[cte_track] Unhandled interesting event:~nName = tc_done~nData = ~p~n~n",
           [Data]),
     {ok, State};
 handle_event(#event{name = Name, data = {Suite, {Case, Group}, Comment}},

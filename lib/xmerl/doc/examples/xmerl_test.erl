@@ -21,7 +21,8 @@ test2() ->
 test3() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched,S} end,
     {A, _} = xmerl_scan:string(html(),
-			    [{fetch_fun,FetchFun}]),
+			    [{fetch_fun,FetchFun},
+                             {allow_entities, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]),
     B = xmerl:export([A], xmerl_html),
     io:format("From xmerl:export/2 xmerl_html filter~n ~p~n", [B]),
@@ -33,7 +34,8 @@ test4() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched, S} end,
     {A,_} = xmerl_scan:string(xml_namespace(),
 			    [{fetch_fun,FetchFun},
-			     {namespace_conformant,true}]),
+			     {namespace_conformant,true},
+                             {allow_entities, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]).
 
 test5() ->
@@ -52,7 +54,8 @@ test6() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, {string,""}, S} end,
     {Doc, _} = xmerl_scan:string(xml_namespace(),
 				 [{fetch_fun, FetchFun},
-				  {namespace_conformant, true}]),
+				  {namespace_conformant, true},
+                                  {allow_entities, true}]),
     E = xmerl_xpath:string("child::title[position()=1]", Doc),
     io:format("From xmerl_scan:string/2~n E=~p~n", [E]).
 
@@ -155,7 +158,7 @@ w3cvalidate() ->
 
 %    String = ucs:to_unicode(binary_to_list(Bin), 'utf-8'),
 %    case xmerl_scan:string(String, [{xmlbase, TestDir}]) of
-    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir}]) of
+    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir}, {allow_entities, true}]) of
 	{error, Reason} ->
 	    io:format("ERROR xmerl:scan_file/2 Reason=~w~n", [Reason]);
 	{A, _Res} ->
@@ -451,22 +454,22 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [])).
+    (catch xmerl_scan:file(URI, [{allow_entities, true}])).
 
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{quiet, true}])).
+    (catch xmerl_scan:file(URI, [{quiet, true}, {allow_entities, true}])).
 
 
 %%% Use xmerl as validating XML parser
 validating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}])).
+    (catch xmerl_scan:file(URI, [{validation, true}, {allow_entities, true}])).
 
 
 %%% Use xmerl as validating XML parser
 validating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}, {quiet, true}])).
+    (catch xmerl_scan:file(URI, [{validation, true}, {quiet, true}, {allow_entities, true}])).
 
 
 is_whitespace([]) ->

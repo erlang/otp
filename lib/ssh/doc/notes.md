@@ -19,6 +19,64 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2
+
+### Fixed Bugs and Malfunctions
+
+- SSH processes are now assigned labels for troubleshooting purposes.
+
+  Own Id: OTP-19017 Aux Id: [PR-8249]
+
+- With this change, ssh client will automatically adjust transfer window size for commands executed remotely over SSH.
+
+  Own Id: OTP-19057 Aux Id: [PR-8345], [GH-7483]
+
+[PR-8249]: https://github.com/erlang/otp/pull/8249
+[PR-8345]: https://github.com/erlang/otp/pull/8345
+[GH-7483]: https://github.com/erlang/otp/issues/7483
+
+### Improvements and New Features
+
+- The shell now pages long output from the documentation help command ([`h(Module)`](`c:h/1`)), auto completions and the search command.
+
+  Own Id: OTP-18846 Aux Id: [PR-7845]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Updated types and specs for all API modules.
+
+  Own Id: OTP-18961
+
+[PR-7845]: https://github.com/erlang/otp/pull/7845
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Ssh 5.1.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, owner and group file attributes decoding is fixed and results with value of integer type.
+
+  Own Id: OTP-19013 Aux Id: GH-7897, PR-8220
+
+## Ssh 5.1.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, acceptor_sup is not started for ssh client as it is not needed in that role.
+
+  Own Id: OTP-18974
+* With this change, more secure algorithms are preferred by ssh and documentation is updated to reflect that.
+
+  Own Id: OTP-18986
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
+* Fix reading of password for ssh client when in `user_interactive` mode.
+
+  Own Id: OTP-19007 Aux Id: ERIERL-1049
+
 ## Ssh 5.1.2
 
 ### Fixed Bugs and Malfunctions
@@ -108,6 +166,25 @@ limitations under the License.
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
+
+## Ssh 4.15.3.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, owner and group file attributes decoding is fixed and results with value of integer type.
+
+  Own Id: OTP-19013 Aux Id: GH-7897, PR-8220
+
+## Ssh 4.15.3.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, more secure algorithms are preferred by ssh and documentation is updated to reflect that.
+
+  Own Id: OTP-18986
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
 
 ## Ssh 4.15.3.2
 
@@ -260,6 +337,20 @@ limitations under the License.
   Internally it was previously in ssh_transport.
 
   Own Id: OTP-18079 Aux Id: GH-5767
+
+## Ssh 4.13.2.6
+
+### Fixed Bugs and Malfunctions
+
+* With this change, more secure algorithms are preferred by ssh and documentation is updated to reflect that.
+
+  Own Id: OTP-18986
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
+* With this change, owner and group file attributes decoding is fixed and results with value of integer type.
+
+  Own Id: OTP-19013 Aux Id: GH-7897, PR-8220
 
 ## Ssh 4.13.2.5
 
@@ -506,6 +597,21 @@ limitations under the License.
   Erlang/OTP documentation.
 
   Own Id: OTP-17352
+
+## Ssh 4.11.1.7
+
+### Fixed Bugs and Malfunctions
+
+* With this change (being response to CVE-2023-48795), ssh can negotiate "strict KEX" OpenSSH extension with peers supporting it; also 'chacha20-poly1305@openssh.com' algorithm becomes a less preferred cipher.
+
+  If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability. See Configuring algorithms in SSH User's Guide.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18897
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
 
 ## Ssh 4.11.1.6
 
@@ -875,6 +981,21 @@ limitations under the License.
   returned from the authentication fun [pwdfun_4()](`t:ssh:pwdfun_4/0`).
 
   Own Id: OTP-16622 Aux Id: PR-2604
+
+## Ssh 4.9.1.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change (being response to CVE-2023-48795), ssh can negotiate "strict KEX" OpenSSH extension with peers supporting it; also 'chacha20-poly1305@openssh.com' algorithm becomes a less preferred cipher.
+
+  If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability. See Configuring algorithms in SSH User's Guide.
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18897
+* With this change, KEX strict terminal message is emitted with debug verbosity.
+
+  Own Id: OTP-19002 Aux Id: ERIERL-1041
 
 ## Ssh 4.9.1.4
 

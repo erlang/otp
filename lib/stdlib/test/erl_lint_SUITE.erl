@@ -915,7 +915,7 @@ unused_import(Config) when is_list(Config) ->
 
 documentation_attributes(Config) when is_list(Config) ->
     Ts = [{error_moduledoc,
-          <<"-moduledoc \"\"\"
+           "-moduledoc \"\"\"
              Error
              \"\"\".
              -import(lists, []).
@@ -924,10 +924,30 @@ documentation_attributes(Config) when is_list(Config) ->
              Duplicate entry
              \"\"\".
              main() -> error.
-            ">>,
+            ",
           [],
           {errors,[{{6,15},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
 
+          {error_moduledoc,
+           "-moduledoc \"Error\".
+            -moduledoc false.
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
+
+          {error_moduledoc,
+           "-moduledoc \"Error\".
+            -moduledoc hidden.
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
+
+          {error_moduledoc,
+           "-moduledoc hidden.
+            -moduledoc \"Error\".
+            ",
+          [],
+          {errors,[{{2,14},erl_lint,{moduledoc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_import,
           <<"-doc \"\"\"
@@ -949,9 +969,7 @@ documentation_attributes(Config) when is_list(Config) ->
               \"\"\".
               -export([]).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc false.
               main() -> error.
             ">>,
           [],
@@ -963,18 +981,14 @@ documentation_attributes(Config) when is_list(Config) ->
               \"\"\".
               -export_type([]).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc hidden.
               main() -> error.
             ">>,
           [],
           {errors,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_include,
-           <<"-doc \"\"\"
-              Error
-              \"\"\".
+           <<"-doc hidden.
               -include_lib(\"common_test/include/ct.hrl\").
 
               -doc \"\"\"
@@ -983,24 +997,20 @@ documentation_attributes(Config) when is_list(Config) ->
               main() -> error.
             ">>,
           [],
-          {errors,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
+          {errors,[{{4,16},erl_lint,{doc,duplicate_doc_attribute,1}}], []}},
 
           {error_doc_behaviour,
-           <<"-doc \"\"\"
-              Error
-              \"\"\".
+           <<"-doc false.
               -behaviour(gen_server).
 
-              -doc \"\"\"
-              Duplicate entry
-              \"\"\".
+              -doc hidden.
               main() -> error.
             ">>,
           [],
-          {error,[{{6,16},erl_lint,{doc,duplicate_doc_attribute,1}}],
-           [{{4,16},erl_lint,{undefined_behaviour_func,{handle_call,3},gen_server}},
-            {{4,16},erl_lint,{undefined_behaviour_func,{handle_cast,2},gen_server}},
-            {{4,16},erl_lint,{undefined_behaviour_func,{init,1},gen_server}}]}},
+          {error,[{{4,16},erl_lint,{doc,duplicate_doc_attribute,1}}],
+           [{{2,16},erl_lint,{undefined_behaviour_func,{handle_call,3},gen_server}},
+            {{2,16},erl_lint,{undefined_behaviour_func,{handle_cast,2},gen_server}},
+            {{2,16},erl_lint,{undefined_behaviour_func,{init,1},gen_server}}]}},
 
           {ok_doc_in_wrong_position,
            <<"-doc \"\"\"
@@ -2340,19 +2350,18 @@ otp_5362(Config) when is_list(Config) ->
                       {{15,24},erl_lint,{undefined_field,ok,nix}},
                       {{16,24},erl_lint,{field_name_is_variable,ok,'Var'}}]}},
 
-	  %% Nowarn_bif_clash has changed behaviour as local functions
-	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates an error
-	  %% (OTP-8579) /PaN
+	  %% `nowarn_bif_clash` has changed behaviour as local functions
+	  %% nowdays supersede auto-imported BIFs. Therefore,
+	  %% `nowarn_bif_clash` in itself generates an error (OTP-8579).
           {otp_5362_4,
-           <<"-compile(nowarn_deprecated_function).
-              -compile(nowarn_bif_clash).
+           <<"-compile(warn_deprecated_function).
+              -compile(warn_bif_clash).
               spawn(A) ->
                   erlang:now(),
                   spawn(A).
            ">>,
            {[nowarn_unused_function,
-             warn_deprecated_function,
-             warn_bif_clash]},
+             warn_deprecated_function]},
            {error,
             [{{5,19},erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
             [{{4,19},erl_lint,{deprecated,{erlang,now,0},
@@ -3667,23 +3676,28 @@ otp_11861(Conf) when is_list(Conf) ->
               terminate(_, _) -> ok.
              ">>,
            [],
+           %% Nothing...
            []},
           {otp_11861_9,
            <<"
               -behaviour(gen_server).
               -export([handle_call/3,handle_cast/2,handle_info/2,
-                       code_change/3, init/1, terminate/2, format_status/2]).
+                       code_change/3, init/1, terminate/2,
+                       format_status/1, format_status/2]).
               handle_call(_, _, _) -> ok.
               handle_cast(_, _) -> ok.
               handle_info(_, _) -> ok.
               code_change(_, _, _) -> ok.
               init(_) -> ok.
               terminate(_, _) -> ok.
-              format_status(_, _) -> ok. % optional callback
+              format_status(_) -> ok. % optional callback
+              format_status(_, _) -> ok. % deprecated optional callback
              ">>,
            [],
-           %% Nothing...
-           []},
+           {warnings,[{{2,16},
+                       erl_lint,
+                       {deprecated_callback,{gen_server,format_status,2},
+                        "use format_status/1 instead"}}]}},
           {otp_11861_10,
            <<"
               -optional_callbacks([{b1,1,bad}]). % badly formed and ignored
@@ -4867,28 +4881,51 @@ no_load_nif(Config) when is_list(Config) ->
     ok.
 
 warn_missing_spec(Config) ->
-    Test = <<"-export([external_with_spec/0, external_no_spec/0]).
+    Test = ~"""
+-export([external_with_spec/0, external_no_spec/0,
+         hidden_with_spec/0, hidden_no_spec/0]).
 
-              -spec external_with_spec() -> ok.
-              external_with_spec() -> ok.
+-spec external_with_spec() -> ok.
+external_with_spec() -> ok.
 
-              external_no_spec() -> ok.
+external_no_spec() -> ok.
 
-              -spec internal_with_spec() -> ok.
-              internal_with_spec() -> ok.
+-spec hidden_with_spec() -> ok.
+-doc hidden.
+hidden_with_spec() -> ok.
 
-              internal_no_spec() -> ok.">>,
+-doc hidden.
+hidden_no_spec() -> ok.
+
+-spec internal_with_spec() -> ok.
+internal_with_spec() -> ok.
+
+internal_no_spec() -> ok.
+""",
 
     %% Be sure to avoid adding export_all using the option-list-in-a-tuple trick.
-    {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}}]} =
+    {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}}]} =
+        run_test(Config, Test, {[warn_missing_spec_documented, nowarn_unused_function]}),
+
+    [] = run_test(Config, ["-moduledoc false.\n",Test],
+                  {[warn_missing_spec_documented, nowarn_unused_function]}),
+
+    {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                {{14,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}}]} =
         run_test(Config, Test, {[warn_missing_spec, nowarn_unused_function]}),
 
+    {warnings, [{{8,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                {{15,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}}]} =
+        run_test(Config, ["-moduledoc false.\n",Test],
+                 {[warn_missing_spec, nowarn_unused_function]}),
+
     Ts = [{warn_missing_spec_all, Test, [warn_missing_spec_all],
-           {warnings, [{{6,15}, erl_lint, {missing_spec, {external_no_spec, 0}}},
-                       {{11,15}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}},
+           {warnings, [{{7,1}, erl_lint, {missing_spec, {external_no_spec, 0}}},
+                       {{14,1}, erl_lint, {missing_spec, {hidden_no_spec, 0}}},
+                       {{19,1}, erl_lint, {missing_spec, {internal_no_spec, 0}}}]}},
           {warn_missing_spec_export_all,
            <<"-compile([export_all, nowarn_export_all]).
-              -compile([warn_missing_spec]).
+              -compile([warn_missing_spec_documented]).
               main(_) -> ok.
              ">>,
            [],

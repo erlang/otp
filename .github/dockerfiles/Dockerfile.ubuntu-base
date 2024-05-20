@@ -33,9 +33,7 @@ RUN echo "Europe/Stockholm" > /etc/timezone && \
     ln -snf /usr/share/zoneinfo/$(cat /etc/timezone) /etc/localtime && \
     if ! grep ":${gid}:$" /etc/group; then groupadd -g ${gid} localgroup; fi && \
     if [ ! -d /home/${USER} ]; then useradd -rm -d /home/${USER} -s /bin/sh -g ${gid} -G ${gid},sudo -u ${uid} ${USER}; fi && \
-    echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER} && \
-    echo "/buildroot/** r," >> /etc/apparmor.d/local/usr.sbin.named && \
-    echo "/tests/** r," >> /etc/apparmor.d/local/usr.sbin.named
+    echo "${USER} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/${USER}
 
 ## Java and log4j are used by fop to build documentation
 COPY --chown=${USER}:${GROUP} dockerfiles/log4j.properties /home/${USER}/
@@ -47,19 +45,21 @@ RUN mkdir /buildroot /tests /otp && chown ${USER}:${GROUP} /buildroot /tests /ot
 
 ## We install the latest version of the previous three releases in order to do
 ## backwards compatability testing of Erlang.
-RUN apt-get install -y git curl && \
-    curl -L https://raw.githubusercontent.com/kerl/kerl/3.1.0/kerl > /usr/bin/kerl && \
+RUN apt-get update && apt-get install -y git curl && \
+    curl -L https://raw.githubusercontent.com/kerl/kerl/master/kerl > /usr/bin/kerl && \
     chmod +x /usr/bin/kerl && \
     kerl update releases && \
-    LATEST=$(kerl list releases | tail -1 | awk -F '.' '{print $1}') && \
+    LATEST=$(kerl list releases | grep "\*$" | tail -1 | awk -F '.' '{print $1}') && \
     for release in $(seq $(( LATEST - 2 )) $(( LATEST ))); do \
-      VSN=$(kerl list releases | grep "^$release" | tail -1); \
+      VSN=$(kerl list releases | grep "^$release" | tail -1 | awk '{print $1}'); \
       if [ $release = $LATEST ]; then \
         echo "/usr/local/lib/erlang-${VSN}/bin" > /home/${USER}/LATEST; \
         echo "${VSN}" > /home/${USER}/LATEST_VSN; \
         echo "${release}" > /home/${USER}/LATEST_RELEASE; \
       fi && \
+      echo "Building ${VSN}" && \
       kerl build ${VSN} ${VSN} && \
+      echo "Installing ${VSN} to /usr/local/lib/erlang-${VSN}" && \
       kerl install ${VSN} /usr/local/lib/erlang-${VSN}; \
     done && \
     rm -rf ~/.kerl
@@ -68,9 +68,9 @@ RUN apt-get install -y git curl && \
 ## EXTRA_LIBS are installed using a for loop because of bugs in the erlang-doc deb package
 ## Apache2 may already be installed, if so we do not want to install it again
 ARG EXTRA_LIBS="erlang erlang-doc"
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
     unixodbc odbc-postgresql postgresql ssh openssh-server groff-base gdb \
-    tinyproxy knot ldnsutils expect vsftpd python emacs nano vim \
+    tinyproxy knot ldnsutils expect vsftpd python3 emacs nano vim \
     linux-tools-common linux-tools-generic jq \
     xvfb libgl1-mesa-dri && \
     for lib in ${EXTRA_LIBS}; do apt-get install -y ${lib}; done && \
@@ -79,8 +79,8 @@ RUN apt-get install -y linux-tools-$(uname -r) || true
 
 ## We use tmux to test terminals
 RUN apt-get install -y libevent-dev libutf8proc-dev && \
-    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.2a/tmux-3.2a.tar.gz && \
-    tar xvzf tmux-3.2a.tar.gz && cd tmux-3.2a && \
+    cd /tmp && wget https://github.com/tmux/tmux/releases/download/3.3a/tmux-3.3a.tar.gz && \
+    tar xvzf tmux-3.3a.tar.gz && cd tmux-3.3a && \
     ./configure --enable-static --enable-utf8proc && \
     make && make install
 
@@ -106,10 +106,8 @@ COPY --chown=${USER}:${GROUP} dockerfiles/init.sh /buildroot/
 
 WORKDIR /buildroot/
 
-## Build and install elixir, hex and ex_doc
-ENV ELIXIR_VSN=latest \
-    HEX_VSN=latest \
-    EX_DOC_VSN=latest
+## Build and install elixir and hex
+ENV ELIXIR_VSN=latest
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     set -x && \
     mkdir /buildroot/elixir && cd /buildroot/elixir && \
@@ -117,31 +115,19 @@ RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     jq '.tarball_url' | xargs curl -L > elixir.tar.gz && \
     tar xzf elixir.tar.gz --strip-components=1 && \
     make && sudo make install && \
-    mkdir /buildroot/hex && cd /buildroot/hex && \
-    curl -s https://api.github.com/repos/hexpm/hex/releases/${HEX_VSN} | \
-    jq '.tarball_url' | xargs curl -L > hex.tar.gz && \
-    tar xzf hex.tar.gz --strip-components=1 && \
-    mix install && \
-    mkdir /buildroot/ex_doc && cd /buildroot/ex_doc && \
-    curl -s https://api.github.com/repos/elixir-lang/ex_doc/releases/${EX_DOC_VSN} | \
-    jq '.tarball_url' | xargs curl -L > ex_doc.tar.gz && \
-    tar xzf ex_doc.tar.gz --strip-components=1 && \
-    mix deps.get && MIX_ENV=prod mix escript.build && \
-    sudo cp ex_doc /usr/local/bin/
+    mix archive.install github hexpm/hex branch latest --force
 
-## Install test tools rebar3, proper and jsx
+## Install test tools rebar3 and proper
 RUN export PATH="$(cat /home/${USER}/LATEST):${PATH}" && \
     latest () { \
     local VSN=$(curl -sL "https://api.github.com/repos/$1/tags" | jq -r ".[] | .name" | grep -E '^v?[0-9]' | sort -V | tail -1); \
     curl -sL "https://github.com/$1/archive/$VSN.tar.gz" > $(basename $1).tar.gz; \
     } && \
-    latest erlang/rebar3 && ls -la && \
+    latest erlang/rebar3 && \
     (tar xzf rebar3.tar.gz && cd rebar3-* && ./bootstrap && sudo cp rebar3 /usr/bin) && \
     latest proper-testing/proper && \
-    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make) && \
-    latest talentdeficit/jsx && \
-    (tar xzf jsx.tar.gz && mv jsx-* jsx && cd jsx && rebar3 compile)
+    (tar xzf proper.tar.gz && mv proper-* proper && cd proper && make)
 
-ENV ERL_LIBS=/buildroot/proper:/buildroot/jsx
+ENV ERL_LIBS=/buildroot/proper
 
 ENTRYPOINT ["/buildroot/init.sh"]

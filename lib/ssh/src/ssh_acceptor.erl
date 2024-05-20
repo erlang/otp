@@ -74,6 +74,9 @@ close(Socket, Options) ->
 acceptor_init(Parent, SystemSup,
               #address{address=Address, port=Port, profile=_Profile},
               Opts) ->
+    ssh_lib:set_label(server,
+                      {acceptor,
+                       list_to_binary(ssh_lib:format_address_port(Address, Port))}),
     AcceptTimeout = ?GET_INTERNAL_OPT(timeout, Opts, ?DEFAULT_TIMEOUT),
     case ?GET_INTERNAL_OPT(lsocket, Opts, undefined) of
         {LSock, SockOwner} ->

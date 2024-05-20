@@ -828,19 +828,19 @@ ext_info_c(Config) ->
 %%%--------------------------------------------------------------------
 %%%
 kex_strict_negotiated(Config0) ->
-    {ok,Pid} = ssh_test_lib:add_report_handler(),
+    {ok, TestRef} = ssh_test_lib:add_log_handler(),
     Config = start_std_daemon(Config0, []),
     {Server, Host, Port} = proplists:get_value(server, Config),
-    #{level := Level} = logger:get_primary_config(),
-    logger:set_primary_config(level, notice),
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
     {ok, ConnRef} = std_connect({Host, Port}, Config, []),
     {algorithms, _A} = ssh:connection_info(ConnRef, algorithms),
     ssh:stop_daemon(Server),
-    {ok, Reports} = ssh_test_lib:get_reports(Pid),
-    ct:log("Reports = ~p", [Reports]),
-    true = ssh_test_lib:kex_strict_negotiated(client, Reports),
-    true = ssh_test_lib:kex_strict_negotiated(server, Reports),
-    logger:set_primary_config(Level),
+    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    true = ssh_test_lib:kex_strict_negotiated(client, Events),
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    ssh_test_lib:set_log_level(Level),
+    ssh_test_lib:rm_log_handler(),
     ok.
 
 %% Connect to an erlang server and inject unexpected SSH ignore
@@ -864,9 +864,9 @@ kex_strict_msg_unknown(Config) ->
     kex_strict_helper(Config, TestMessages, ExpectedReason).
 
 kex_strict_helper(Config, TestMessages, ExpectedReason) ->
-    {ok,HandlerPid} = ssh_test_lib:add_report_handler(),
-    #{level := Level} = logger:get_primary_config(),
-    logger:set_primary_config(level, notice),
+    {ok, TestRef} = ssh_test_lib:add_log_handler(),
+    Level = ssh_test_lib:get_log_level(),
+    ssh_test_lib:set_log_level(debug),
     %% Connect and negotiate keys
     {ok, InitialState} = ssh_trpt_test_lib:exec(
 			  [{set_options, [print_ops, print_seqnums, print_messages]}]
@@ -892,12 +892,13 @@ kex_strict_helper(Config, TestMessages, ExpectedReason) ->
               TestMessages,
           InitialState),
     ct:sleep(100),
-    {ok, Reports} = ssh_test_lib:get_reports(HandlerPid),
-    ct:log("HandlerPid = ~p~nReports = ~p", [HandlerPid, Reports]),
-    true = ssh_test_lib:kex_strict_negotiated(client, Reports),
-    true = ssh_test_lib:kex_strict_negotiated(server, Reports),
-    true = ssh_test_lib:event_logged(server, Reports, ExpectedReason),
-    logger:set_primary_config(Level),
+    {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+    ssh_test_lib:rm_log_handler(),
+    ct:log("Events = ~p", [Events]),
+    true = ssh_test_lib:kex_strict_negotiated(client, Events),
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    true = ssh_test_lib:event_logged(server, Events, ExpectedReason),
+    ssh_test_lib:set_log_level(Level),
     ok.
 
 %%%----------------------------------------------------------------

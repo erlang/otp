@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,6 +188,8 @@ void erts_set_time_break(BpFunctions *f, enum erts_break_op);
 void erts_set_memory_break(BpFunctions *f, enum erts_break_op);
 void erts_clear_time_break(BpFunctions *f);
 void erts_clear_memory_break(BpFunctions *f);
+Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
+                                Eterm tail);
 
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 

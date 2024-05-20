@@ -85,6 +85,8 @@ type_traverser(Mod, {op, _, Op, Type1, Type2}, Visited, Level, FT) ->
     {op, Op, type_traverser(Mod, Type1, Visited, Level, FT), type_traverser(Mod, Type2, Visited, Level, FT)};
 type_traverser(_Mod, {integer, _, Int}, _Visited, _Level, _FT) ->
     {integer, Int};
+type_traverser(_Mod, {char, _, Char}, _Visited, _Level, _FT) ->
+    {char, Char};
 type_traverser(Mod, {type, _, list, [ChildType]}, Visited, Level, FT) ->
     {list, type_traverser(Mod, ChildType, Visited, Level-1, FT)};
 type_traverser(_Mod, {type, _, tuple, any}, _Visited, _Level, _FT) ->
@@ -293,7 +295,9 @@ get_arity1({map, Types}, _Constraints, [{'map', _Keys, [], _, _}]) ->
 get_arity1({map, Types}, _Constraints, [{'map', _Keys, _Key, _, _}]) ->
     length(Types);
 get_arity1({map, Types}, Constraints, [{'map', Keys, [], _, _}|Nestings]) ->
-    lists:flatten([get_arity1(T, Constraints, Nestings) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_arity1(T, Constraints, Nestings) ||
+                      {_, Key, _}=T <- Types,
+                      not lists:member(catch atom_to_list(Key), Keys)]);
 get_arity1({map, Types}, Constraints, [{'map', _Keys, Key, _, _}|Nestings]) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> none;
@@ -332,7 +336,9 @@ get_atoms1({tuple, LT}, Constraints, [{'tuple', Args, _}|Nestings]) when length(
         false -> []
     end;
 get_atoms1({map, Types}, Constraints, [{'map', Keys, [], _, _}|Nestings]) ->
-    lists:flatten([get_atoms1(T, Constraints, Nestings) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_atoms1(T, Constraints, Nestings) ||
+                      {_, Key, _}=T <- Types,
+                      not lists:member(catch atom_to_list(Key), Keys)]);
 get_atoms1({map, Types}, Constraints, [{'map', _Keys, Key, _, _}|Nestings]) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> [];
@@ -377,7 +383,8 @@ get_types1({tuple, LT}, Cs, [{tuple, Args, _}|Nestings], MaxUserTypeExpansions, 
         false -> []
     end;
 get_types1({'map', Types}, Cs, [{'map', Keys, [], _Args, _}|Nestings], MaxUserTypeExpansions, Options) ->
-    lists:flatten([get_types1(T, Cs, Nestings, MaxUserTypeExpansions, Options) || {_, Key, _}=T <- Types, not lists:member(atom_to_list(Key), Keys)]);
+    lists:flatten([get_types1(T, Cs, Nestings, MaxUserTypeExpansions, Options) ||
+                      {_, Key, _}=T <- Types, not lists:member(catch atom_to_list(Key), Keys)]);
 get_types1({'map', Types}, Cs, [{'map', _, Key, _Args, _}|Nestings], MaxUserTypeExpansions, Options) ->
     case [V || {_, K, V} <- Types, K =:= list_to_atom(Key)] of
         [] -> [];
@@ -446,6 +453,8 @@ print_type({map_field_exact, Type1, Type2}, Cs, V, Options) ->
     print_type(Type1, Cs, V, Options) ++ ":=" ++ print_type(Type2, Cs, V, Options);
 print_type({integer, Int}, _Cs, _V, _) ->
     integer_to_list(Int);
+print_type({char, Char}, _Cs, _V, _) ->
+    [$$,Char];
 print_type({op, Op, Type}, Cs, V, Options) ->
     "op ("++atom_to_list(Op)++" "++print_type(Type, Cs, V, Options)++")";
 print_type({op, Op, Type1, Type2}, Cs, V, Options) ->

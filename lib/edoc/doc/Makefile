@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../vsn.mk
 VSN=$(EDOC_VSN)
 APPLICATION=edoc
+EPUB=false
 
 assets/edoc_doclet.hrl:
 	$(V_at)cp "../include/edoc_doclet.hrl" "$@"

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -400,7 +400,7 @@ void db_free_tmp_uncompressed(DbTerm* obj);
 ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 					      Eterm** hpp, ErlOffHeap* off_heap);
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b);
-Wterm db_do_read_element(DbUpdateHandle* handle, Sint position);
+Eterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -472,13 +472,13 @@ void* db_store_term_comp(DbTableCommon *tb, /*May be NULL*/
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
 int db_has_map(Eterm obj);
-int db_has_variable(Eterm obj);
+int db_is_fully_bound(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,
 			  Sint position,
 			  Eterm newval);
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset);
-Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
+Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
 			     Uint flags, Uint *freasonp);
 int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body);

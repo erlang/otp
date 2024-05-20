@@ -149,29 +149,32 @@ end_per_testcase(_TestCase, _Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
-    eclient_oserver_helper(Config).
+    eclient_oserver_helper2(eclient_oserver_helper1(), Config).
 
 eclient_oserver_kex_strict(Config) when is_list(Config)->
     case proplists:get_value(kex_strict, Config) of
         true ->
-            {ok, HandlerPid} = ssh_test_lib:add_report_handler(),
-            #{level := Level} = logger:get_primary_config(),
-            logger:set_primary_config(level, notice),
-            Result = eclient_oserver_helper(Config),
-            {ok, Reports} = ssh_test_lib:get_reports(HandlerPid),
-            ct:pal("Reports = ~p", [Reports]),
-            true = ssh_test_lib:kex_strict_negotiated(client, Reports),
-            logger:set_primary_config(Level),
-            Result;
+            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+            HelperParams = eclient_oserver_helper1(),
+            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            true = ssh_test_lib:kex_strict_negotiated(client, Events),
+            ssh_test_lib:set_log_level(Level),
+            ssh_test_lib:rm_log_handler(),
+            eclient_oserver_helper2(HelperParams, Config);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
     end.
 
-eclient_oserver_helper(Config) ->
+eclient_oserver_helper1() ->
     process_flag(trap_exit, true),
     IO = ssh_test_lib:start_io_server(),
     Prev = lists:usort(supervisor:which_children(sshc_sup)),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
+    {Shell, Prev, IO}.
+
+eclient_oserver_helper2({Shell, Prev, IO}, Config) ->
     IO ! {input, self(), "echo Hej\n"},
     case proplists:get_value(ptty_supported, Config) of
         true ->
@@ -256,25 +259,28 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Test that the Erlang/OTP server can renegotiate with openSSH
 erlang_server_openssh_client_renegotiate(Config) ->
-    eserver_oclient_renegotiate_helper(Config).
+    eserver_oclient_renegotiate_helper2(
+      eserver_oclient_renegotiate_helper1(Config)).
 
 eserver_oclient_kex_strict(Config) ->
     case proplists:get_value(kex_strict, Config) of
         true ->
-            {ok, HandlerPid} = ssh_test_lib:add_report_handler(),
-            #{level := Level} = logger:get_primary_config(),
-            logger:set_primary_config(level, notice),
-            Result = eserver_oclient_renegotiate_helper(Config),
-            {ok, Reports} = ssh_test_lib:get_reports(HandlerPid),
-            ct:log("Reports = ~p", [Reports]),
-            true = ssh_test_lib:kex_strict_negotiated(server, Reports),
-            logger:set_primary_config(Level),
-            Result;
+            {ok, TestRef} = ssh_test_lib:add_log_handler(),
+            Level = ssh_test_lib:get_log_level(),
+            ssh_test_lib:set_log_level(debug),
+
+            HelperParams = eserver_oclient_renegotiate_helper1(Config),
+            {ok, Events} = ssh_test_lib:get_log_events(TestRef),
+            ct:log("Events = ~n~p", [Events]),
+            true = ssh_test_lib:kex_strict_negotiated(server, Events),
+            ssh_test_lib:set_log_level(Level),
+            ssh_test_lib:rm_log_handler(),
+            eserver_oclient_renegotiate_helper2(HelperParams);
         _ ->
             {skip, "KEX strict not support by local OpenSSH"}
     end.
 
-eserver_oclient_renegotiate_helper(Config) ->
+eserver_oclient_renegotiate_helper1(Config) ->
     _PubKeyAlg = ssh_rsa,
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -298,7 +304,9 @@ eserver_oclient_renegotiate_helper(Config) ->
 
 
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd++" < "++DataFile}),
+    {Data, OpenSsh, Pid}.
 
+eserver_oclient_renegotiate_helper2({Data, OpenSsh, Pid}) ->
     Expect = fun({data,R}) ->
 		     try
 			 NonAlphaChars = [C || C<-lists:seq(1,255),

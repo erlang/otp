@@ -25,8 +25,6 @@ This module contains various network utility functions.
 
 ## Files
 
-[](){: #files }
-
 File `.hosts.erlang` consists of a number of host names written as Erlang terms.
 It is looked for in the current work directory, the user's home directory, and
 `$OTPROOT` (the root directory of Erlang/OTP), in that order.
@@ -119,7 +117,7 @@ localhost() ->
     end.
 
 
--doc(#{equiv => names/1}).
+-doc(#{equiv => names(net_adm:localhost())}).
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
       Name :: string(),
       Port :: non_neg_integer(),
@@ -130,10 +128,12 @@ names() ->
 
 
 -doc """
-Similar to `epmd -names`, see [`erts:epmd(1)`](`e:erts:epmd_cmd.md`). `Host`
-defaults to the local host. Returns the names and associated port numbers of the
-Erlang nodes that `epmd` registered at the specified host. Returns
-`{error, address}` if `epmd` is not operational.
+Returns the names and associated port numbers of the Erlang nodes that `epmd`
+registered at the specified host.
+
+Similar to `epmd -names`, see [`erts:epmd`](`e:erts:epmd_cmd.md`).
+
+Returns `{error, address}` if `epmd` is not operational.
 
 _Example:_
 
@@ -229,7 +229,7 @@ collect_new(Sofar, Nodelist) ->
 %% e.g. 
 %% net_adm:world_list(['elrond.du.etx.ericsson.se', 'thorin.du.etx.ericsson.se']). 
 
--doc(#{equiv => world/1}).
+-doc(#{equiv => world(silent)}).
 -spec world() -> [node()].
 
 world() ->
@@ -241,8 +241,8 @@ host file `.hosts.erlang`, collects the replies, and then evaluates
 [`ping(Node)`](`ping/1`) on all those nodes. Returns the list of all nodes that
 are successfully pinged.
 
-`Arg` defaults to `silent`. If `Arg == verbose`, the function writes information
-about which nodes it is pinging to `stdout`.
+If `Arg == verbose`, the function writes information about which nodes it is
+pinging to `stdout`.
 
 This function can be useful when a node is started, and the names of the other
 network nodes are not initially known.
@@ -258,7 +258,7 @@ world(Verbose) ->
         Hosts -> expand_hosts(Hosts, Verbose)
     end.
 
--doc(#{equiv => world_list/2}).
+-doc(#{equiv => world_list(Hosts, silent)}).
 -spec world_list(Hosts) -> [node()] when
       Hosts :: [atom()].
 

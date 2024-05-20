@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -724,6 +724,10 @@ extern char *erts_default_arg0;
 
 extern char os_type[];
 
+#if !defined(ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT)
+#  undef ERTS_ENSURE_OS_MONOTONIC_TIME
+#endif
+
 typedef struct {
     int have_os_monotonic_time;
     int have_corrected_os_monotonic_time;
@@ -731,6 +735,7 @@ typedef struct {
     ErtsMonotonicTime sys_clock_resolution;
     struct {
 	Uint64 resolution;
+        Uint64 used_resolution;
 	char *func;
 	char *clock_id;
 	int locked_use;

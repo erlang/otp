@@ -23,7 +23,7 @@ Interface to OS System Messages
 
 `os_sup` is a process providing a message passing service from the operating
 system to the error logger in the Erlang runtime system. It is part of the
-OS_Mon application, see [os_mon(6)](os_mon_app.md). Available for Solaris and
+OS_Mon application, see [os_mon](os_mon_app.md). Available for Solaris and
 Windows.
 
 Messages received from the operating system results in an user defined callback
@@ -119,7 +119,7 @@ OS messages are formatted as a tuple
 
 ## See also
 
-`m:error_logger`, [os_mon(3)](os_mon_app.md)
+`m:error_logger`, [os_mon](os_mon_app.md)
 
 `syslogd(1M)`, `syslog.conf(4)` in the Solaris documentation.
 """.
@@ -162,14 +162,12 @@ stop() ->
 error_report(LogData, Tag) ->
     error_logger:error_report(Tag, LogData).
 
--doc(#{equiv => enable/2}).
+-doc(#{equiv => enable("/etc","/etc/syslog.conf")}).
 -spec enable() -> ok | {error, Res} when
       Res :: string().
 enable() ->
     command(enable).
 -doc """
-enable(Dir, Conf) -> ok | {error, Error}
-
 Enables the `os_sup` service. Needed on Solaris only.
 
 If the configuration parameter `os_sup_enable` is `false`, this function is
@@ -205,14 +203,12 @@ yields anything else.
 enable(Path, Conf) ->
     command(enable, Path, Conf).
 
--doc(#{equiv => disable/2}).
+-doc(#{equiv => disable("/etc","/etc/syslog.conf")}).
 -spec disable() -> ok | {error, Res} when
       Res :: string().
 disable() ->
     command(disable).
 -doc """
-disable(Dir, Conf) -> ok | {error, Error}
-
 Disables the `os_sup` service. Needed on Solaris only.
 
 If the configuration parameter `os_sup_enable` is `false`, this function is

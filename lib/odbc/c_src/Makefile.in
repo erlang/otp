@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2021. All Rights Reserved.
+# Copyright Ericsson AB 1999-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,10 +80,10 @@ ODBC_INCLUDE = @ODBC_INCLUDE@
 # ----------------------------------------------------
 CC =  @CC@
 CFLAGS = $(TYPEFLAGS) @CFLAGS@ @THR_DEFS@ @DEFS@
-EI_LDFLAGS = -L$(EI_ROOT)/obj$(TYPEMARKER)/$(TARGET)
+EI_LDFLAGS = -L$(EI_ROOT)/obj$(TYPEMARKER)/$(TARGET) $(EI_LIB)
 LD = @LD@
-LDFLAGS =  $(ODBC_LIB) $(EI_LDFLAGS)
-LIBS = @LIBS@ @THR_LIBS@ $(EI_LIB)
+LDFLAGS =  $(EI_LDFLAGS) $(ODBC_LIB)
+LIBS = @LIBS@ @THR_LIBS@
 INCLUDES = -I. $(ODBC_INCLUDE) $(EI_INCLUDE)
 TARGET_FLAGS =  @TARGET_FLAGS@
 

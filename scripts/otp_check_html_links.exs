@@ -49,12 +49,16 @@ defmodule Anchors do
     nil
   end
 
-  def validate_href(_file, <<"http://">> <> _href, _anchors) do
+  def validate_href(_file, "http://" <> _href, _anchors) do
     nil
   end
 
-  def validate_href(_file, <<"https://">> <> _href, _anchors) do
+  def validate_href(_file, "https://" <> _href, _anchors) do
     nil
+  end
+
+  def validate_href(file, "`" <> _ = href, _anchors) do
+    warn(file, "found #{href}")
   end
 
   def validate_href(file, <<"#">> <> _anchor = href, anchors) do

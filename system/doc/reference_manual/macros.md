@@ -48,8 +48,8 @@ searched for in the following directories, and in this order:
 1. The directory where the module is being compiled
 1. The directories given by the `include` option
 
-For details, see the [erlc(1)](`e:erts:erlc_cmd.md`) manual page in ERTS and
-`m:compile` manual page in Compiler.
+For details, see [erlc](`e:erts:erlc_cmd.md`) in ERTS and
+`m:compile` in Compiler.
 
 _Examples:_
 

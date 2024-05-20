@@ -54,7 +54,7 @@ all possible domains.
 
 For example, consider the following domains:
 
-```text
+```erlang
 D1 = [otp]
 D2 = [otp, sasl]
 ```
@@ -101,9 +101,11 @@ equal to `undefined` or `not_equal`.
 Example: stop all events with domain `[otp, sasl | _]`
 
 ```erlang
-logger:set_handler_config(h1, filter_default, log). % this is the default
-Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
-logger:add_handler_filter(h1, no_sasl, Filter).
+1> logger:set_handler_config(h1, filter_default, log). % this is the default
+ok
+2> Filter = {fun logger_filters:domain/2, {stop, sub, [otp, sasl]}}.
+...
+3> logger:add_handler_filter(h1, no_sasl, Filter).
 ok
 ```
 """.
@@ -187,8 +189,8 @@ level(LogEvent,Extra) ->
     erlang:error(badarg,[LogEvent,Extra]).
 
 -doc """
-This filter matches all progress reports from `supervisor` and
-`application_controller`.
+This filter matches all progress reports from `m:supervisor` and
+[`application_controller`](`m:application`).
 
 If `Extra` is `log`, the progress reports are allowed. If `Extra` is `stop`, the
 progress reports are stopped.

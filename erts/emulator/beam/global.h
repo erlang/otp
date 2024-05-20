@@ -958,6 +958,7 @@ extern erts_atomic_t erts_copy_literal_area__;
 extern Process *erts_literal_area_collector;
 
 extern Process *erts_code_purger;
+extern Process *erts_trace_cleaner;
 
 /* beam_load.c */
 typedef struct {
@@ -1256,6 +1257,9 @@ extern int erts_jit_asm_dump;
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
+
+extern ErtsMonotonicTime erts_halt_flush_timeout;
+void erts_halt_flush_timeout_callback(void *arg);
 
 /* io.c */
 

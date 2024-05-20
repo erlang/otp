@@ -8600,6 +8600,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                 case ERTS_SIG_Q_OP_PROCESS_INFO:
                 case ERTS_SIG_Q_OP_RECV_MARK:
 		case ERTS_SIG_Q_OP_FLUSH:
+                case ERTS_SIG_Q_OP_RPC:
                     break;
 
                 default:
@@ -9007,9 +9008,12 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
         return 0;
     } else {
         int nonmsg = ERTS_SIG_IS_NON_MSG(first);
+        int restarted = 0;
         ErtsSignalInQueueBuffer* buffer;
         Uint64 nonempty_slots_before;
         Uint32 slot, state;
+
+        ERTS_UNDEF(nonempty_slots_before, 0);
 
         ASSERT(is_value(from));
 
@@ -9038,6 +9042,7 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
          */
 
         while (!0) {
+            Uint64 slots_before;
             /*
              * This loop body is only executed more than once if another
              * thread is currently flushing buffers at the same time as
@@ -9062,14 +9067,14 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
                  * another enqueuer has already (or will) notified the
                  * receiver).
                  */
-                nonempty_slots_before =
-                    (Uint64)erts_atomic64_read_bor_mb(&buffers->nonempty_slots,
-                                                      (erts_aint64_t)(((Uint64)1) << slot));
+                slots_before = ((Uint64) erts_atomic64_read_bor_mb(
+                                    &buffers->nonempty_slots,
+                                    (erts_aint64_t)(((Uint64)1) << slot)));
             }
             else {
-                nonempty_slots_before =
-                    (Uint64)erts_atomic64_read_mb(&buffers->nonempty_slots);
-                if (!(nonempty_slots_before & (((Uint64)1) << slot))) {
+                slots_before = ((Uint64) erts_atomic64_read_mb(
+                                    &buffers->nonempty_slots));
+                if (!(slots_before & (((Uint64)1) << slot))) {
                     /*
                      * Someone is flushing buffers and has not yet handled
                      * this buffers. That is, it is no point in continuing
@@ -9083,14 +9088,13 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
                 }
             }
 
-            if (len) {
-                if (!erts_atomic32_read_nob(&buffers->msgs_in_slots))
-                    continue; /* restart loop */
-            }
+            if (!restarted)
+                nonempty_slots_before = slots_before;
 
-            if (nonmsg) {
-                if (!erts_atomic32_read_nob(&buffers->nonmsgs_in_slots))
-                    continue; /* restart loop */
+            if ((len && !erts_atomic32_read_nob(&buffers->msgs_in_slots))
+                || (nonmsg && !erts_atomic32_read_nob(&buffers->nonmsgs_in_slots))) {
+                restarted = !0;
+                continue; /* restart loop */
             }
 
             break;
@@ -9116,7 +9120,7 @@ erts_proc_sig_queue_try_enqueue_to_buffer(Eterm from,
          * we have new signals.
          */
 
-        if (len && !nonempty_slots_before) {
+        if (!nonempty_slots_before) {
 
             /*
              * There is one situation in which we need to synchronize

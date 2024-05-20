@@ -26,7 +26,7 @@ Main API of the ssh application
 
 This is the interface module for the `SSH` application. The Secure Shell (SSH)
 Protocol is a protocol for secure remote login and other secure network services
-over an insecure network. See [ssh(6)](ssh_app.md#supported) for details of
+over an insecure network. See [ssh](ssh_app.md#supported) for details of
 supported RFCs, versions, algorithms and unicode handling.
 
 With the SSH application it is possible to start _clients_ and to start
@@ -71,8 +71,7 @@ The descriptions of the options uses the
 
 > #### Note {: .info }
 >
-> The [User's Guide](index.html) has examples and a
-> [Getting Started](using_ssh.md) section.
+> See also [SSH Application Reference](index.html) and [Examples](using_ssh.md) section.
 
 ## Keys and files
 
@@ -86,7 +85,7 @@ The paths could easily be changed by options:
 [`user_dir`](`t:ssh_file:user_dir_common_option/0`) and
 [`system_dir`](`t:ssh_file:system_dir_daemon_option/0`).
 
-A completely different storage could be interfaced by writing call-back modules
+A completely different storage could be interfaced by writing callback modules
 using the behaviours `m:ssh_client_key_api` and/or `m:ssh_server_key_api`. A
 callback module is installed with the option
 [`key_cb`](`t:key_cb_common_option/0`) to the client and/or the daemon.
@@ -135,7 +134,7 @@ The directory could be changed with the option
 -moduledoc(#{titles =>
                  [{type,<<"Client Options">>},
                   {type,<<"Daemon Options (Server Options)">>},
-                  {type,<<"Options common to clients and daemons">>},
+                  {type,<<"Common Options">>},
                   {type,<<"Other data types">>}]}).
 
 -include("ssh.hrl").
@@ -295,7 +294,6 @@ connect(_OpenTcpSocket, Options) ->
     bad_arg([{options, Options}]).
 
 -doc(#{equiv => connect/4}).
--doc(#{since => <<"OTP 19.0">>}).
 -spec connect(open_socket(), client_options(), timeout()) ->
                      {ok, connection_ref()} | {error, term()}
            ; (host(), inet:port_number(), client_options()) ->
@@ -340,7 +338,6 @@ the value of the [`connect_timeout`](`t:connect_timeout_client_option/0`)
 option, if present. For connection timeout, use the option
 [`connect_timeout`](`t:connect_timeout_client_option/0`).
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -spec connect(Host, Port, Options, NegotiationTimeout)
              -> {ok, connection_ref()}
               | {error, term()} when
@@ -432,13 +429,13 @@ close(ConnectionRef) ->
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
 %%---------------------------------------------------------------------
--doc(#{title => <<"Other data types">>,equiv => {type,conn_info_channels,0}}).
+-doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
 -type version() :: {protocol_version(), software_version()}.
--doc(#{title => <<"Other data types">>,equiv => {type,conn_info_channels,0}}).
+-doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
 -type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
--doc(#{title => <<"Other data types">>,equiv => {type,conn_info_channels,0}}).
+-doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
 -type software_version() :: string().
--doc(#{title => <<"Other data types">>,equiv => {type,conn_info_channels,0}}).
+-doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
 -type conn_info_algs() :: [{kex, kex_alg()}
                            | {hkey, pubkey_alg()}
                            | {encrypt, cipher_alg()}
@@ -459,7 +456,7 @@ default values.
 -doc(#{title => <<"Other data types">>}).
 -type conn_info_channels() :: [proplists:proplist()].
 
--doc(#{title => <<"Other data types">>,equiv => {type,conn_info_channels,0}}).
+-doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}
@@ -485,7 +482,6 @@ Returns information about a connection intended for e.g debugging or logging.
 
 When the `Key` is a single `Item`, the result is a single `InfoTuple`
 """.
--doc(#{since => <<"OTP 22.1">>}).
 -spec connection_info(ConnectionRef, ItemList|Item) ->  InfoTupleList|InfoTuple when
       ConnectionRef :: connection_ref(),
       ItemList :: [Item],
@@ -706,7 +702,7 @@ default values.
       | {options, daemon_options()}.
 
 -doc(#{equiv => daemon_info/2}).
--doc(#{since => <<"OTP 19.0,OTP 22.1">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -spec daemon_info(DaemonRef) -> {ok,InfoTupleList} | {error,bad_daemon_ref} when
       DaemonRef :: daemon_ref(),
       InfoTupleList :: [InfoTuple],
@@ -752,7 +748,7 @@ Note that [`daemon_info/1`](`daemon_info/1`) and
 [`daemon_info/2`](`daemon_info/2`) returns different types due to compatibility
 reasons.
 """.
--doc(#{since => <<"OTP 19.0,OTP 22.1">>}).
+-doc(#{since => <<"OTP 22.1">>}).
 -spec daemon_info(DaemonRef, ItemList|Item) ->  InfoTupleList|InfoTuple | {error,bad_daemon_ref} when
       DaemonRef :: daemon_ref(),
       ItemList :: [Item],
@@ -779,7 +775,6 @@ daemon_info(DaemonRef, Keys) ->
 %% existing connections started by the listener up and running.
 %%--------------------------------------------------------------------
 -doc(#{equiv => stop_listener/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_listener(daemon_ref()) -> ok.
 
 stop_listener(SysSup) ->
@@ -787,7 +782,6 @@ stop_listener(SysSup) ->
 
 
 -doc(#{equiv => stop_listener/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_listener(inet:ip_address(), inet:port_number()) -> ok.
 
 stop_listener(Address, Port) ->
@@ -811,7 +805,6 @@ stop_listener(Address, Port, Profile) ->
                                                     profile=Profile})).
 
 -doc(#{equiv => stop_daemon/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
 
 stop_daemon(SysSup) ->
@@ -819,7 +812,6 @@ stop_daemon(SysSup) ->
 
 
 -doc(#{equiv => stop_daemon/3}).
--doc(#{since => <<"OTP 21.0">>}).
 -spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
 
 stop_daemon(Address, Port) ->

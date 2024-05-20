@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -54,7 +54,9 @@
          bs_saved_position_units/1,empty_matches/1,
          trim_bs_start_match_resume/1,
          gh_6410/1,bs_match/1,
-         binary_aliases/1,gh_6923/1]).
+         binary_aliases/1,gh_6923/1,
+         bs_test_tail/1,
+         otp_19019/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -96,7 +98,9 @@ groups() ->
        bs_saved_position_units,empty_matches,
        trim_bs_start_match_resume,
        gh_6410,bs_match,binary_aliases,
-       gh_6923]}].
+       gh_6923,
+       bs_test_tail,
+       otp_19019]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2745,6 +2749,8 @@ bs_match(_Config) ->
 
     {'EXIT',{{badmatch,<<>>},_}} = catch do_bs_match_gh_7467(<<>>),
 
+    {0,<<1,2,3>>} = do_bs_match_gh_8280(),
+
     ok.
 
 do_bs_match_1(_, X) ->
@@ -2818,6 +2824,12 @@ do_bs_match_gh_6755(B) ->
 
 do_bs_match_gh_7467(A) ->
     do_bs_match_gh_7467(<<_:1/bits>> = A).
+
+do_bs_match_gh_8280() ->
+    A = 0,
+    B = <<1, 2, 3>>,
+    <<A, B:(byte_size(B))/binary>> = id(<<0, 1, 2, 3>>),
+    {A, B}.
 
 %% GH-6348/OTP-18297: Allow aliases for binaries.
 -record(ba_foo, {a,b,c}).
@@ -3219,6 +3231,60 @@ gh_6923(_Config) ->
 
 do_gh_6923([<<"abc">>, A]) when is_integer(A) -> first;
 do_gh_6923([<<"abc">>, A]) when is_tuple(A) -> second.
+
+bs_test_tail(Config) ->
+    Bin = term_to_binary(Config),
+
+    ok = bs_test_tail_skip(Bin),
+
+    "abc" = bs_test_tail_int(<<(id(<<"abc">>))/binary>>),
+
+    [2.0,3.0] = bs_test_tail_float(<<(id(2.0)):64/float,(id(3.0)):64/float>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_tail_float(<<(id(-1)):128>>),
+
+    ok = bs_test_partial_tail(<<(id(0))>>),
+    {'EXIT',{function_clause,_}} = catch bs_test_partial_tail(<<(id(1))>>),
+
+    ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_skip(<<_, T/binary>>) -> bs_test_tail_skip(T);
+bs_test_tail_skip(<<>>) -> ok.
+
+%% No bs_test_tail instruction is needed.
+bs_test_tail_int(<<H:8, T/binary>>) ->
+    [H|bs_test_tail_int(T)];
+bs_test_tail_int(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_tail_float(<<F:64/float, T/binary>>) ->
+    [F|bs_test_tail_float(T)];
+bs_test_tail_float(<<>>) -> [].
+
+%% The bs_test_tail instruction is needed.
+bs_test_partial_tail(<<0:8, T/binary>>) -> bs_test_partial_tail(T);
+bs_test_partial_tail(<<>>) -> ok.
+
+otp_19019(_Config) ->
+    ok = do_otp_19019(id(<<42>>)),
+    <<>> = do_otp_19019(id(<<>>)),
+
+    ok.
+
+do_otp_19019(<<_:8>>) ->
+    ok;
+do_otp_19019(A) ->
+    try
+        %% The `bs_start_match` instruction would be replaced with an
+        %% `is_bitstring/1` test, which is in Erlang/OTP 27 and later is
+        %% safe even if `A` is a match context. However, the type analysis
+        %% pass would assume that the `is_bitstring/1` test would always
+        %% fail.
+        << (ok) || <<_:ok>> <= A>>
+    after
+        ok
+    end.
+
 
 %%% Utilities.
 

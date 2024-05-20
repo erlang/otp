@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -164,7 +164,7 @@ create_connection_states() ->
 						  cipher_suite = ?TLS_DHE_DSS_WITH_DES_CBC_SHA
 						 }
 		       },
-      current_read => #{secure_renegotiation => false
+      current_read => #{reneg => #{secure_renegotiation => false}
                        }
      }.
 

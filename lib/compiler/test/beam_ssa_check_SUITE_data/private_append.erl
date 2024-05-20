@@ -770,6 +770,17 @@ transformable33() ->
 transformable33_inner(V) ->
     << <<C>> || <<C:4>> <= V >>.
 
+%% Check that calling an external function with append result doesn't
+%% prevent private_append optimization.
+transformable34() ->
+    transformable34a(<<>>).
+
+transformable34a(Acc) ->
+%ssa% (Arg1) when post_ssa_opt ->
+%ssa% _ = bs_create_bin(private_append, _, Arg1, ...).
+    Value = <<Acc/binary, 1>>,
+    ex:escape(Value).
+
 % Should not be transformed as we can't know the alias status of Acc
 not_transformable1([H|T], Acc) ->
 %ssa% (_, Arg1) when post_ssa_opt ->

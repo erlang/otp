@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,5 +68,5 @@
     {applications, [kernel, stdlib, runtime_tools, et]},
     {optional_applications, [wx, runtime_tools, et]},
     {env, []},
-    {runtime_dependencies, ["wx-2.3","stdlib-5.0","runtime_tools-1.19",
-			    "kernel-9.0","et-1.5","erts-14.0"]}]}.
+    {runtime_dependencies, ["wx-2.3","stdlib-5.0","runtime_tools-2.1",
+			    "kernel-10.0","et-1.5","erts-15.0"]}]}.

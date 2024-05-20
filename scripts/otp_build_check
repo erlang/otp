@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2023. All Rights Reserved.
+# Copyright Ericsson AB 2023-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -240,7 +240,7 @@ export PATH="$ERL_TOP/release/$target/bin:$PATH"
     $MAKE release_docs || fail "Releasing documentation failed"
     progress "Running HTML check on OTP documentation"
     ./scripts/otp_check_html_links.exs || {
-        fail "HTML check of documentation failed"
+        fail "HTML check of documentation failed, see $ERL_TOP/HOWTO/DEVELOPMENT.md -> Validating documentation"
     }
 }
 

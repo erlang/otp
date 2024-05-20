@@ -408,6 +408,7 @@ process_certificate_request(#certificate_request_1_3{
                                    connection_env = #connection_env{cert_key_alts = CertKeyAlts,
                                                                     negotiated_version = Version},
                                    static_env = #static_env{cert_db = CertDbHandle, cert_db_ref = CertDbRef},
+                                   handshake_env = HsEnv,
                                    session = Session0} =
                                 State) ->
     ServerSignAlgs = get_signature_scheme_list(
@@ -420,7 +421,8 @@ process_certificate_request(#certificate_request_1_3{
     Session = select_client_cert_key_pair(Session0, CertKeyPairs,
                                           ServerSignAlgs, ServerSignAlgsCert, ClientSignAlgs,
                                           CertDbHandle, CertDbRef, CertAuths, undefined),
-    {ok, {State#state{client_certificate_status = requested, session = Session}, wait_cert}}.
+    {ok, {State#state{handshake_env = HsEnv#handshake_env{client_certificate_status = requested},
+                      session = Session}, wait_cert}}.
 
 process_certificate(#certificate_1_3{
                        certificate_request_context = <<>>,
@@ -576,14 +578,14 @@ encode_handshake(HandshakeMsg) ->
 
 encode_early_data(Cipher,
                   #state{
-                     flight_buffer = Flight0,
+                     handshake_env = #handshake_env{
+                                        flight_buffer = Flight0} = HsEnv,
                      protocol_specific = #{sender := _Sender},
+                     connection_states = ConnectionStates0,
                      ssl_options = #{versions := [Version|_],
                                      early_data := EarlyData} = _SslOpts0
                     } = State0) ->
-    #state{connection_states =
-               #{current_write :=
-                     #{security_parameters := SecurityParameters0} = Write0} = ConnectionStates0} = State0,
+    #{current_write := #{security_parameters := SecurityParameters0} = Write0} = ConnectionStates0,
     BulkCipherAlgo = ssl_cipher:bulk_cipher_algorithm(Cipher),
     SecurityParameters = SecurityParameters0#security_parameters{
                            cipher_type = ?AEAD,
@@ -592,7 +594,7 @@ encode_early_data(Cipher,
     ConnectionStates1 = ConnectionStates0#{current_write => Write},
     {BinEarlyData, ConnectionStates} = tls_record:encode_data([EarlyData], Version, ConnectionStates1),
     State0#state{connection_states = ConnectionStates,
-		 flight_buffer = Flight0 ++ [BinEarlyData]}.
+                 handshake_env = HsEnv#handshake_env{flight_buffer = Flight0 ++ [BinEarlyData]}}.
 
 
 %%====================================================================
@@ -808,14 +810,20 @@ update_encryption_state(client, State) ->
 
 validate_certificate_chain(CertEntries, CertDbHandle, CertDbRef,
                            SslOptions, CRLDbHandle, Role, Host, StaplingState) ->
-    {Certs, ExtInfo} = split_cert_entries(CertEntries, StaplingState, [], #{}),
-    ssl_handshake:certify(#certificate{asn1_certificates = Certs}, CertDbHandle,
-                          CertDbRef, SslOptions, CRLDbHandle, Role, Host, ?TLS_1_3,
-                          ExtInfo).
+    try split_cert_entries(CertEntries, StaplingState, [], #{}) of
+        {Certs, ExtInfo} ->
+            ssl_handshake:certify(Certs, CertDbHandle,
+                                  CertDbRef, SslOptions, CRLDbHandle, Role, Host, ?TLS_1_3,
+                                  ExtInfo)
+    catch error:{_,{error, {asn1, Asn1Reason}}}=Reason:ST ->
+            %% ASN-1 decode of certificate somehow failed
+            ?SSL_LOG(info, asn1_decode, [Reason, {stacktrace, ST}]),
+            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})
+    end.
 
-store_peer_cert(#state{session = Session,
-                       handshake_env = HsEnv} = State, PeerCert, PublicKeyInfo) ->
-    State#state{session = Session#session{peer_certificate = PeerCert},
+store_peer_cert(#state{session = Session, handshake_env = HsEnv} = State,
+                PeerCert, PublicKeyInfo) ->
+    State#state{session = Session#session{peer_certificate = PeerCert#cert.der},
                 handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo}}.
 
 split_cert_entries([], StaplingState, Chain, CertExt) ->
@@ -825,6 +833,9 @@ split_cert_entries([#certificate_entry{data = DerCert,
                                        extensions = Extensions0} | CertEntries],
                    #{configured := StaplingConfigured} = StaplingState0, Chain,
                    CertExt) ->
+    OtpCert = public_key:pkix_decode_cert(DerCert, otp),
+    Cert = #cert{der=DerCert, otp=OtpCert},
+
     Id = public_key:pkix_subject_id(DerCert),
     Extensions = [ExtValue || {_, ExtValue} <- maps:to_list(Extensions0)],
     StaplingState = case {maps:get(status_request, Extensions0, undefined),
@@ -834,7 +845,7 @@ split_cert_entries([#certificate_entry{data = DerCert,
                         {_, true} ->
                             StaplingState0#{status => received_staple}
                     end,
-    split_cert_entries(CertEntries, StaplingState, [DerCert | Chain],
+    split_cert_entries(CertEntries, StaplingState, [Cert | Chain],
                        CertExt#{Id => Extensions}).
 
 %% 4.4.1.  The Transcript Hash
@@ -1259,8 +1270,8 @@ update_start_state(#state{connection_states = ConnectionStates0,
         ConnectionStates0#{pending_read => PendingRead#{security_parameters => SecParamsR},
                            pending_write => PendingWrite#{security_parameters => SecParamsW}},
     State#state{connection_states = ConnectionStates,
-                handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol},
-                key_share = KeyShare,
+                handshake_env = HsEnv#handshake_env{alpn = ALPNProtocol,
+                                                    key_share = KeyShare},
                 session = Session#session{session_id = SessionId,
                                           ecc = Group,
                                           sign_alg = SelectedSignAlg,
@@ -1898,8 +1909,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                  path_len => length(Path)
                                                 },
                                                Path, LogLevel),
-    Options = [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
-               {verify_fun, ValidationFunAndState}],
+    Options = ssl_handshake:path_validation_options(Opts, ValidationFunAndState),
     public_key:pkix_path_validation(TrustedCert, Path, Options).
 
 select_client_cert_key_pair(Session0,

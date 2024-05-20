@@ -220,7 +220,7 @@ start(Opts) ->
 
     %% Maybe set up the tracing
     Config3 = 
-	if Config2#opts.tracing == on, Node /= node() ->
+	if Node /= node() ->
 		%% Cannot trace on current node since the tracer will
 		%% trace itself
 		etop_tr:setup_tracer(Config2);

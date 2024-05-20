@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,75 @@ limitations under the License.
 # Crypto Release Notes
 
 This document describes the changes made to the Crypto application.
+
+## Crypto 5.5
+
+### Improvements and New Features
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Removed functions `crypto_dyn_iv_init/3` and `crypto_dyn_iv_update/3` which were marked as deprecated since OTP 25.
+
+  Own Id: OTP-18973
+
+- Add support for sm3 hash and hmac.
+
+  Own Id: OTP-18975 Aux Id: [PR-6658]
+
+- `OPENSSL_thread_stop`  is called when `crypto` is purged to not leak thread specific data.
+
+  Own Id: OTP-18978 Aux Id: [PR-7809]
+
+- Add SM4 block cipher implemented according to GB/T 32907-2016.
+
+  Own Id: OTP-19005 Aux Id: [PR-8168]
+
+- The existing function `ssl:key_exporter_materials/4` is now documented and supported.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19016 Aux Id: [PR-8233]
+
+- Due to another attack on PKCS #1 v1.5 padding, known as the Marvin attack, about which we were alerted by Hubert Kario from Red Hat. You can find more details about the attack at
+  https://people.redhat.com/~hkario/marvin/
+  Functions that may be vulnerable are now deprecated. 
+  
+  Note that you might mitigate the problem 
+  by using appropriate versions of OpenSSL together with our software, but we recommend not using them at all. 
+  
+  Also avoid using TLS versions prior to TLS-1.2 (not supported by default) and
+  do not enable RSA-key exchange cipher suites (not supported by default).
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19075
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-6658]: https://github.com/erlang/otp/pull/6658
+[PR-7809]: https://github.com/erlang/otp/pull/7809
+[PR-8168]: https://github.com/erlang/otp/pull/8168
+[PR-8233]: https://github.com/erlang/otp/pull/8233
+
+## Crypto 5.4.2
+
+### Fixed Bugs and Malfunctions
+
+* Fix building with `--enable-fips` with OpenSSL 3 on MacOS.
+
+  Own Id: OTP-19038 Aux Id: GH-8271, PR-8277
+
+## Crypto 5.4.1
+
+### Fixed Bugs and Malfunctions
+
+* Fix compile error when OPENSSL_NO_DES is defined.
+
+  Own Id: OTP-18921
+* The function `crypto:pbkdf2_hmac` will no longer block the main schedulers. If the iteration count or block size parameters are such that the function is likely to take a long time to execute, the function will be scheduled to run on a dirty CPU scheduler.
+
+  Own Id: OTP-18996 Aux Id: PR-8173, PR-8174
 
 ## Crypto 5.4
 
@@ -105,6 +174,22 @@ This document describes the changes made to the Crypto application.
   future bugs and to simplify code maintenance.
 
   Own Id: OTP-18447
+
+## Crypto 5.1.4.3
+
+### Fixed Bugs and Malfunctions
+
+* Fix building with `--enable-fips` with OpenSSL 3 on MacOS.
+
+  Own Id: OTP-19038 Aux Id: GH-8271, PR-8277
+
+## Crypto 5.1.4.2
+
+### Fixed Bugs and Malfunctions
+
+* The function `crypto:pbkdf2_hmac` will no longer block the main schedulers. If the iteration count or block size parameters are such that the function is likely to take a long time to execute, the function will be scheduled to run on a dirty CPU scheduler.
+
+  Own Id: OTP-18996 Aux Id: PR-8173, PR-8174
 
 ## Crypto 5.1.4.1
 
@@ -335,6 +420,14 @@ This document describes the changes made to the Crypto application.
 
   Own Id: OTP-18086 Aux Id: OTP-16282, OTP-16643, OTP-16644, OTP-17701,
   OTP-17702, OTP-17704
+
+## Crypto 5.0.6.5
+
+### Fixed Bugs and Malfunctions
+
+* The function `crypto:pbkdf2_hmac` will no longer block the main schedulers. If the iteration count or block size parameters are such that the function is likely to take a long time to execute, the function will be scheduled to run on a dirty CPU scheduler.
+
+  Own Id: OTP-18996 Aux Id: PR-8173, PR-8174
 
 ## Crypto 5.0.6.4
 

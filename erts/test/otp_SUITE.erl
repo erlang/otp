@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ all() ->
 ].
 
 init_per_suite(Config) ->
-    Server = start_xref_server(daily_xref, functions),
+    Server = start_xref_server(daily_xref, functions, Config),
     [{xref_server,Server}|Config].
 
 end_per_suite(Config) ->
@@ -133,7 +133,12 @@ dialyzer_filter(Undef) ->
 wx_filter(Undef) ->
     case app_exists(wx) of
         false ->
-            filter(fun({_,{MaybeWxModule,_,_}}) ->
+            filter(fun({_,{i, _, _}}) -> false;
+                      ({_,{dbg_iserver, _, _}}) -> false;
+                      ({_,{et_selector, _, _}}) -> false;
+                      ({_,{et_viewer, _, _}}) -> false;
+                      ({_,{int, _, _}}) -> false;
+                      ({_,{MaybeWxModule,_,_}}) ->
                            case atom_to_list(MaybeWxModule) of
                                "wx"++_ -> false;
                                _ -> true
@@ -389,8 +394,8 @@ runtime_dependencies_functions(Config) ->
 %% 'modules' mode (the BEAM files to be released might not contain
 %% debug information).
 
-runtime_dependencies_modules(_Config) ->
-    Server = start_xref_server(?FUNCTION_NAME, modules),
+runtime_dependencies_modules(Config) ->
+    Server = start_xref_server(?FUNCTION_NAME, modules, Config),
     try
         runtime_dependencies(Server)
     after
@@ -490,7 +495,7 @@ check_apps_deps([{App, Deps}|AppDeps], IgnoreApps) ->
 -define(OTP_RELEASES, "/usr/local/otp/releases").
 
 %% Wildcard to match all releases from OTP 17.
--define(OTP_RELEASE_WC, "{sles10_64_17_patched,ubuntu16_64_*_patched}").
+-define(OTP_RELEASE_WC, "{sles10_64_17_patched,ubuntu[1-9][0-9]_64_[1-9][0-9]_patched}").
 
 test_runtime_dependencies_versions(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -708,7 +713,7 @@ app_exists(AppAtom) ->
             end
     end.
 
-start_xref_server(Server, Mode) ->
+start_xref_server(Server, Mode, _Config) ->
     Root = code:root_dir(),
     xref:start(Server, [{xref_mode,Mode}]),
     xref:set_default(Server, [{verbose,false},
@@ -722,17 +727,18 @@ start_xref_server(Server, Mode) ->
             %% an entry for erts.
             ct:fail(no_erts_lib_dir);
         LibDir ->
-            case filelib:is_dir(filename:join(LibDir, "ebin")) of
+            ErtsEbin = lists:flatten(filename:join(LibDir, "ebin")),
+            case lists:member(ErtsEbin, code:get_path()) of
                 false ->
                     %% If we are running the tests in the git repository,
                     %% the preloaded BEAM files for Erts are not in the
                     %% code path. We must add them explicitly.
-                    Erts = filename:join([LibDir,"preloaded","ebin"]),
-                    {ok,_} = xref:add_directory(Server, Erts, []);
+                    {ok,_} = xref:add_directory(Server, ErtsEbin, []);
                 true ->
                     ok
             end
     end,
+
     Server.
 
 read_otp_version_table(DataDir) ->

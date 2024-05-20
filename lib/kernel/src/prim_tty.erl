@@ -109,7 +109,7 @@
          handle_signal/2, window_size/1, handle_request/2, write/2, write/3,
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
--export([reader_stop/1, disable_reader/1, enable_reader/1]).
+-export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
        tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
@@ -426,6 +426,18 @@ handles(#state{ reader = undefined,
 handles(#state{ reader = {_ReaderPid, ReaderRef},
                 writer = {_WriterPid, WriterRef}}) ->
     #{ read => ReaderRef, write => WriterRef }.
+
+-spec is_reader(state(), pid()) -> boolean().
+is_reader(#state{ reader = {ReaderPid, _} }, ReaderPid) ->
+    true;
+is_reader(_, _) ->
+    false.
+
+-spec is_writer(state(), pid()) -> boolean().
+is_writer(#state{ writer = {WriterPid, _} }, WriterPid) ->
+    true;
+is_writer(_, _) ->
+    false.
 
 -spec unicode(state()) -> boolean().
 unicode(State) ->
@@ -1101,7 +1113,14 @@ npwcwidth(Char) ->
     npwcwidth(Char, true).
 npwcwidth(Char, true) ->
     case wcwidth(Char) of
-        {error, not_printable} -> 0;
+        {error, not_printable} ->
+            %% Sometimes libc wcwidth if wrong and returns -1 aka not_printable
+            %% for something that is a wide character. So we try to make things
+            %% better by returning 2 for such characters.
+            case unicode_util:is_wide(Char) of
+                true -> 2;
+                false -> 0
+            end;
         {error, enotsup} ->
             case unicode_util:is_wide(Char) of
                 true -> 2;

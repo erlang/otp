@@ -29,6 +29,7 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
+-include("tls_handshake_1_3.hrl").
 
 -export([master_secret/4,
          finished/5,
@@ -39,6 +40,7 @@
          suites/1,
          exclusive_suites/1,
          exclusive_anonymous_suites/1,
+         cbc_suites/1,
          psk_suites/1,
          psk_exclusive/1,
          psk_suites_anon/1,
@@ -53,6 +55,7 @@
          rsa_exclusive/1,
          prf/5,
          ecc_curves/1,
+         ec_curves/2,
          oid_to_enum/1,
          enum_to_oid/1,
          default_signature_algs/1,
@@ -93,18 +96,6 @@
 
 %% Tracing
 -export([handle_trace/3]).
-
--type named_curve() :: sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1 |
-                       sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1 |
-                       sect283k1 | sect283r1 | brainpoolP256r1 | secp256k1 | secp256r1 |
-                       sect239k1 | sect233k1 | sect233r1 | secp224k1 | secp224r1 |
-                       sect193r1 | sect193r2 | secp192k1 | secp192r1 | sect163k1 |
-                       sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2.
--type curves() :: [named_curve()].
--type group() :: secp256r1 | secp384r1 | secp521r1 | ffdhe2048 |
-                 ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192.
--type supported_groups() :: [group()].
--export_type([curves/0, named_curve/0, group/0, supported_groups/0]).
 
 %%====================================================================
 %% Internal application API
@@ -513,14 +504,50 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Version,Length, Fragment) ->
 -spec suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 
 suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun exclusive_suites/1, suites_to_test(Version)).
+    lists:flatmap(fun default_suites/1, suites_in_version(Version)).
 
-suites_to_test(?TLS_1_0) -> [?TLS_1_0];
-suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-suites_to_test(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_0].
+suites_in_version(?TLS_1_0) -> [?TLS_1_0];
+suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+suites_in_version(?TLS_1_2) -> [?TLS_1_2];
+suites_in_version(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2].
 
 -spec exclusive_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
+
+default_suites(?TLS_1_3 = Version) ->
+    exclusive_suites(Version);
+default_suites(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
+
+     ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+     ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+     ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
+
+     ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
+
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    ];
+default_suites(Version) when Version == ?TLS_1_1;
+                             Version == ?TLS_1_0 ->
+    exclusive_suites(?TLS_1_0).
 
 exclusive_suites(?TLS_1_3) ->
     [?TLS_AES_256_GCM_SHA384,
@@ -538,9 +565,6 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM,
      ?TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8,
 
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
      ?TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
 
@@ -553,32 +577,16 @@ exclusive_suites(?TLS_1_2) ->
      ?TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,
      ?TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
-
      ?TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,
      ?TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,
-
-     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-
-     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
 
      ?TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_DSS_WITH_AES_256_GCM_SHA384,
 
-     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
-
      ?TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_GCM_SHA256,
 
-     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
-
-     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
-
+     ?TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
      %% not supported
      %% ?TLS_DH_RSA_WITH_AES_256_GCM_SHA384,
      %% ?TLS_DH_DSS_WITH_AES_256_GCM_SHA384,
@@ -588,8 +596,7 @@ exclusive_suites(?TLS_1_2) ->
 exclusive_suites(?TLS_1_1) ->
     [];
 exclusive_suites(?TLS_1_0) ->
-    [
-     ?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
      ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 
      ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
@@ -604,8 +611,7 @@ exclusive_suites(?TLS_1_0) ->
      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
-     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA
-    ].
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec exclusive_anonymous_suites(ssl_record:ssl_version()) ->
@@ -642,6 +648,31 @@ exclusive_anonymous_suites(?TLS_1_0=Version) ->
          ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
          ?TLS_DH_anon_WITH_DES_CBC_SHA
         ] ++ srp_suites_anon(Version).
+
+
+cbc_suites(Version) when ?TLS_1_X(Version) ->
+    cbc_exclusive(Version).
+
+cbc_exclusive(?TLS_1_2) ->
+    [?TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
+    ];
+cbc_exclusive(?TLS_1_1) ->
+    %% Only have CBC SUITES
+    %% disabled even though they are legacy
+    [];
+cbc_exclusive(?TLS_1_0) ->
+    [?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
@@ -824,11 +855,11 @@ des_exclusive(_) ->
 %% Are not considered secure any more.
 %%--------------------------------------------------------------------
 rsa_suites(Version) when ?TLS_1_X(Version) ->
-    lists:flatmap(fun rsa_exclusive/1, rsa_suites_to_test(Version)).
+    lists:flatmap(fun rsa_exclusive/1, rsa_suites_in_version(Version)).
 
-rsa_suites_to_test(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
-rsa_suites_to_test(?TLS_1_1) -> [?TLS_1_0];
-rsa_suites_to_test(?TLS_1_0) -> [?TLS_1_0].
+rsa_suites_in_version(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_0];
+rsa_suites_in_version(?TLS_1_1) -> [?TLS_1_0];
+rsa_suites_in_version(?TLS_1_0) -> [?TLS_1_0].
 
 -spec rsa_exclusive(Version::ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
 rsa_exclusive(?TLS_1_2) ->
@@ -917,7 +948,7 @@ default_pre_1_3_signature_algs_only() ->
     signature_algs(?TLS_1_2, Default).
 
 legacy_signature_algs_pre_13() ->
-    [{sha224, ecdsa}, {sha224, rsa}, {sha, rsa}, {sha, dsa}].
+    [{sha224, ecdsa}, {sha224, rsa}, {sha, ecdsa}, {sha, rsa}, {sha, dsa}].
 
 signature_schemes(Version, [_|_] =SignatureSchemes) when is_tuple(Version)
                                                          andalso ?TLS_GTE(Version, ?TLS_1_2) ->
@@ -987,6 +1018,9 @@ default_signature_schemes(Version) ->
                ecdsa_secp521r1_sha512,
                ecdsa_secp384r1_sha384,
                ecdsa_secp256r1_sha256,
+               ecdsa_brainpoolP512r1tls13_sha512,
+               ecdsa_brainpoolP384r1tls13_sha384,
+               ecdsa_brainpoolP256r1tls13_sha256,
                rsa_pss_pss_sha512,
                rsa_pss_pss_sha384,
                rsa_pss_pss_sha256,
@@ -1133,42 +1167,54 @@ is_pair(Hash, rsa, Hashs) ->
 is_pair(_,_,_) ->
     false.
 
-%% Should we create a new function for ecc_curves(Version)
-%% and another explicit one for ecc_curve_named([TLSCurves])?
-%% list ECC curves in preferred order
--spec ecc_curves(TLS | DTLS | all) -> [named_curve()] when
-      TLS :: ?TLS_1_0 | ?TLS_1_1 | ?TLS_1_2,
-      DTLS :: ?DTLS_1_0 | ?DTLS_1_2;
-                ([named_curve()]) -> [named_curve()].
-ecc_curves(all) ->
-    [sect571r1,sect571k1,secp521r1,brainpoolP512r1,
-     sect409k1,sect409r1,brainpoolP384r1,secp384r1,
-     sect283k1,sect283r1,brainpoolP256r1,secp256k1,secp256r1];
+ec_curves(Desc, Version) ->
+    Curves = list_ec_curves(Desc, Version),
+    CryptoCurves = crypto:supports(curves),
+    [Curve || Curve <- Curves, lists:member(Curve, CryptoCurves)].
+
+list_ec_curves(default, Version) when ?TLS_LTE(Version, ?TLS_1_2)->
+    [x25519, x448,
+     secp521r1, brainpoolP512r1,
+     secp384r1, brainpoolP384r1,
+     secp256r1, brainpoolP256r1
+    ];
+list_ec_curves(all, Version) ->
+    list_ec_curves(default, Version) ++ legacy_curves().
+
+legacy_curves() ->
+    [
+     sect571r1, sect571k1,
+     sect409k1, sect409r1,
+     sect283k1, sect283r1,
+     secp256k1,
+     sect239k1,
+     sect233k1, sect233r1,
+     secp224k1, secp224r1,
+     sect193r1, sect193r2,
+     secp192k1, secp192r1,
+     sect163k1, sect163r1, sect163r2,
+     secp160k1, secp160r1, secp160r2].
 
 ecc_curves(Version) when is_tuple(Version) ->
-    TLSCurves = ecc_curves(all),
+    TLSCurves = ec_curves(default, Version),
     ecc_curves(TLSCurves);
-
-ecc_curves(TLSCurves) when is_list(TLSCurves) ->
-    CryptoCurves = crypto:ec_curves(),
-    lists:foldr(fun(Curve, Curves) ->
-			case proplists:get_bool(Curve, CryptoCurves) of
-			    true ->  [pubkey_cert_records:namedCurves(Curve)|Curves];
-			    false -> Curves
-			end
-		end, [], TLSCurves).
-
+ecc_curves(TLSCurves) ->
+    [pubkey_cert_records:namedCurves(Curve) || Curve <- TLSCurves].
+    
 groups() ->
     TLSGroups = groups(all),
     groups(TLSGroups).
 
--spec groups(all | default | TLSGroups :: list()) -> [group()].
+-spec groups(all | default | TLSGroups :: list()) -> [ssl:group()].
 groups(all) ->
     [x25519,
      x448,
-     secp256r1,
-     secp384r1,
      secp521r1,
+     secp384r1,
+     secp256r1,
+     brainpoolP256r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP512r1tls13,
      ffdhe2048,
      ffdhe3072,
      ffdhe4096,
@@ -1177,45 +1223,56 @@ groups(all) ->
 groups(default) ->
     [x25519,
      x448,
+     secp521r1,
+     secp384r1,
      secp256r1,
-     secp384r1];
+     brainpoolP512r1tls13,
+     brainpoolP384r1tls13,
+     brainpoolP256r1tls13
+    ];
 groups(TLSGroups) when is_list(TLSGroups) ->
-    CryptoGroups = supported_groups(),
-    lists:filter(fun(Group) -> proplists:get_bool(Group, CryptoGroups) end, TLSGroups).
+    CryptoGroups = crypto_supported_groups(),
+    lists:filter(fun(Group) -> proplists:get_bool(maybe_group_to_curve(Group), CryptoGroups) end, TLSGroups).
 
 default_groups() ->
     TLSGroups = groups(default),
     groups(TLSGroups).
 
-supported_groups() ->
-    %% TODO: Add new function to crypto?
-    proplists:get_value(curves,  crypto:supports()) ++
+crypto_supported_groups() ->
+    crypto:supports(curves) ++
         [ffdhe2048,ffdhe3072,ffdhe4096,ffdhe6144,ffdhe8192].
 
-group_to_enum(secp256r1) -> 23;
-group_to_enum(secp384r1) -> 24;
-group_to_enum(secp521r1) -> 25;
-group_to_enum(x25519)    -> 29;
-group_to_enum(x448)      -> 30;
-group_to_enum(ffdhe2048) -> 256;
-group_to_enum(ffdhe3072) -> 257;
-group_to_enum(ffdhe4096) -> 258;
-group_to_enum(ffdhe6144) -> 259;
-group_to_enum(ffdhe8192) -> 260.
+group_to_enum(secp256r1) -> ?SECP256R1;
+group_to_enum(secp384r1) -> ?SECP384R1;
+group_to_enum(secp521r1) -> ?SECP521R1;
+group_to_enum(x25519)    -> ?X25519;
+group_to_enum(x448)      -> ?X448;
+group_to_enum(brainpoolP256r1tls13) -> ?BRAINPOOLP256R1TLS13;
+group_to_enum(brainpoolP384r1tls13) -> ?BRAINPOOLP384R1TLS13;
+group_to_enum(brainpoolP512r1tls13) -> ?BRAINPOOLP512R1TLS13;
+group_to_enum(ffdhe2048) -> ?FFDHE2048;
+group_to_enum(ffdhe3072) -> ?FFDHE3072;
+group_to_enum(ffdhe4096) -> ?FFDHE4096;
+group_to_enum(ffdhe6144) -> ?FFDHE6144;
+group_to_enum(ffdhe8192) -> ?FFDHE8192.
 
-enum_to_group(23) -> secp256r1;
-enum_to_group(24) -> secp384r1;
-enum_to_group(25) -> secp521r1;
-enum_to_group(29) -> x25519;
-enum_to_group(30) -> x448;
-enum_to_group(256) -> ffdhe2048;
-enum_to_group(257) -> ffdhe3072;
-enum_to_group(258) -> ffdhe4096;
-enum_to_group(259) -> ffdhe6144;
-enum_to_group(260) -> ffdhe8192;
+enum_to_group(?SECP256R1) -> secp256r1;
+enum_to_group(?SECP384R1) -> secp384r1;
+enum_to_group(?SECP521R1) -> secp521r1;
+enum_to_group(?X25519) -> x25519;
+enum_to_group(?X448) -> x448;
+enum_to_group(?BRAINPOOLP256R1TLS13) -> brainpoolP256r1tls13;
+enum_to_group(?BRAINPOOLP384R1TLS13) -> brainpoolP384r1tls13;
+enum_to_group(?BRAINPOOLP512R1TLS13) -> brainpoolP512r1tls13;
+enum_to_group(?FFDHE2048) -> ffdhe2048;
+enum_to_group(?FFDHE3072) -> ffdhe3072;
+enum_to_group(?FFDHE4096) -> ffdhe4096;
+enum_to_group(?FFDHE6144) -> ffdhe6144;
+enum_to_group(?FFDHE8192) -> ffdhe8192;
 enum_to_group(_) -> undefined.
 
-%% ECC curves from draft-ietf-tls-ecc-12.txt (Oct. 17, 2005)
+
+%% 1-22 Deprecated in RFC 8422
 oid_to_enum(?sect163k1) -> 1;
 oid_to_enum(?sect163r1) -> 2;
 oid_to_enum(?sect163r2) -> 3;
@@ -1238,12 +1295,17 @@ oid_to_enum(?secp192r1) -> 19;
 oid_to_enum(?secp224k1) -> 20;
 oid_to_enum(?secp224r1) -> 21;
 oid_to_enum(?secp256k1) -> 22;
+
+%% RFC 8422
 oid_to_enum(?secp256r1) -> 23;
 oid_to_enum(?secp384r1) -> 24;
 oid_to_enum(?secp521r1) -> 25;
+
+%% RFC 7027
 oid_to_enum(?brainpoolP256r1) -> 26;
 oid_to_enum(?brainpoolP384r1) -> 27;
 oid_to_enum(?brainpoolP512r1) -> 28;
+%% RFC 8422 from RFC 7748
 oid_to_enum(?'id-X25519') -> 29;
 oid_to_enum(?'id-X448') -> 30.
 
@@ -1279,6 +1341,16 @@ enum_to_oid(29) -> ?'id-X25519';
 enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
+
+maybe_group_to_curve(brainpoolP512r1tls13) ->
+    brainpoolP512r1;
+maybe_group_to_curve(brainpoolP384r1tls13) ->
+    brainpoolP384r1;
+maybe_group_to_curve(brainpoolP256r1tls13) ->
+    brainpoolP256r1;
+maybe_group_to_curve(Group) ->
+    Group.
+
 
 %%%################################################################
 %%%#

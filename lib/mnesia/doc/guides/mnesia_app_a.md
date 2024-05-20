@@ -22,8 +22,6 @@ limitations under the License.
 ## mnesia_backup Callback Behavior
 
 ```erlang
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% This module contains one implementation of callback functions

@@ -22,8 +22,6 @@
 
 -module(erl_expand_records).
 -moduledoc """
-Expands records in a module.
-
 This module expands records in a module.
 
 ## See Also
@@ -35,15 +33,15 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 
 -import(lists, [map/2,foldl/3,foldr/3,sort/1,reverse/1,duplicate/2]).
 
--record(exprec, {compile=[],	% Compile flags
-		 vcount=0,	% Variable counter
-		 calltype=#{},	% Call types
-		 records=#{},	% Record definitions
-                 raw_records=[],% Raw record forms
-		 strict_ra=[],	% strict record accesses
-		 checked_ra=[], % successfully accessed records
-                 dialyzer=false % Cached value of compile flag 'dialyzer'
-		}).
+-record(exprec, {vcount=0,             % Variable counter
+                 calltype=#{},         % Call types
+                 records=#{},          % Record definitions
+                 raw_records=[],       % Raw record forms
+                 strict_ra=[],         % Strict record accesses
+                 checked_ra=[],        % Successfully accessed records
+                 dialyzer=false,       % Compiler option 'dialyzer'
+                 strict_rec_tests=true :: boolean()
+                }).
 
 -doc """
 Expands all records in a module to use explicit tuple operations and adds
@@ -58,11 +56,13 @@ module has no references to records, attributes, or code.
 %% Is is assumed that Fs is a valid list of forms. It should pass
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
-    Opts = compiler_options(Fs0) ++ Opts0,
-    Dialyzer = lists:member(dialyzer, Opts),
-    Calltype = init_calltype(Fs0),
-    St0 = #exprec{compile = Opts, dialyzer = Dialyzer, calltype = Calltype},
+    put(erl_expand_records_in_guard, false),
+    Opts = Opts0 ++ compiler_options(Fs0),
+    St0 = #exprec{dialyzer = lists:member(dialyzer, Opts),
+                  calltype = init_calltype(Fs0),
+                  strict_rec_tests = strict_record_tests(Opts)},
     {Fs,_St} = forms(Fs0, St0),
+    erase(erl_expand_records_in_guard),
     Fs.
 
 compiler_options(Forms) ->
@@ -211,12 +211,18 @@ normalise_test(tuple, 1)     -> is_tuple;
 normalise_test(Name, _) -> Name.
 
 is_in_guard() ->
-    get(erl_expand_records_in_guard) =/= undefined.
+    get(erl_expand_records_in_guard).
 
 in_guard(F) ->
-    undefined = put(erl_expand_records_in_guard, true),
+    InGuard = put(erl_expand_records_in_guard, true),
     Res = F(),
-    true = erase(erl_expand_records_in_guard),
+    true = put(erl_expand_records_in_guard, InGuard),
+    Res.
+
+not_in_guard(F) ->
+    InGuard = put(erl_expand_records_in_guard, false),
+    Res = F(),
+    false = put(erl_expand_records_in_guard, InGuard),
     Res.
 
 %% record_test(Anno, Term, Name, Vs, St) -> TransformedExpr
@@ -372,11 +378,15 @@ expr({'fun',Anno,{function,F,A}}=Fun0, St0) ->
 expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
     {Fun,St};
 expr({'fun',Anno,{clauses,Cs0}}, St0) ->
-    {Cs,St1} = clauses(Cs0, St0),
-    {{'fun',Anno,{clauses,Cs}},St1};
+    not_in_guard(fun() ->
+                         {Cs,St1} = clauses(Cs0, St0),
+                         {{'fun',Anno,{clauses,Cs}},St1}
+                 end);
 expr({named_fun,Anno,Name,Cs0}, St0) ->
-    {Cs,St1} = clauses(Cs0, St0),
-    {{named_fun,Anno,Name,Cs},St1};
+    not_in_guard(fun() ->
+                         {Cs,St1} = clauses(Cs0, St0),
+                         {{named_fun,Anno,Name,Cs},St1}
+                 end);
 expr({call,Anno,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Anno, A, Name, St);
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
@@ -625,7 +635,7 @@ index_expr(F, [_ | Fs], I) -> index_expr(F, Fs, I+1).
 %%  This expansion must be passed through expr again.
 
 get_record_field(Anno, R, Index, Name, St) ->
-    case strict_record_tests(St#exprec.compile) of
+    case St#exprec.strict_rec_tests of
         false ->
             sloppy_get_record_field(Anno, R, Index, Name, St);
         true ->
@@ -676,15 +686,17 @@ sloppy_get_record_field(Anno, R, Index, Name, St) ->
 	  {remote,Anno,{atom,Anno,erlang},{atom,Anno,element}},
 	  [I,R]}, St).
 
-strict_record_tests([strict_record_tests | _]) -> true;
-strict_record_tests([no_strict_record_tests | _]) -> false;
-strict_record_tests([_ | Os]) -> strict_record_tests(Os);
-strict_record_tests([]) -> true.		%Default.
+strict_record_tests(Opts) ->
+    strict_record_tests(Opts, true).
 
-strict_record_updates([strict_record_updates | _]) -> true;
-strict_record_updates([no_strict_record_updates | _]) -> false;
-strict_record_updates([_ | Os]) -> strict_record_updates(Os);
-strict_record_updates([]) -> false.		%Default.
+strict_record_tests([strict_record_tests | Os], _) ->
+    strict_record_tests(Os, true);
+strict_record_tests([no_strict_record_tests | Os], _) ->
+    strict_record_tests(Os, false);
+strict_record_tests([_ | Os], Bool) ->
+    strict_record_tests(Os, Bool);
+strict_record_tests([], Bool) ->
+    Bool.
 
 %% pattern_fields([RecDefField], [Match]) -> [Pattern].
 %%  Build a list of match patterns for the record tuple elements.
@@ -734,13 +746,14 @@ record_update(R, Name, Fs, Us0, St0) ->
     %% to guarantee that it is only evaluated once.
     {Var,St2} = new_var(Anno, St1),
 
-    %% Honor the `strict_record_updates` option needed by `dialyzer`, otherwise
-    %% expand everything to chains of `setelement/3` as that's far more
-    %% efficient in the JIT.
-    StrictUpdates = strict_record_updates(St2#exprec.compile),
+    %% If the `dialyzer` option is in effect, update the record by
+    %% matching out all unmodified fields and building a new tuple.
+    %% Otherwise expand everything to chains of `setelement/3` as
+    %% that is far more efficient in the JIT.
+    Dialyzer = St2#exprec.dialyzer,
     {Update,St} =
         if
-            not StrictUpdates, Us =/= [] ->
+            not Dialyzer, Us =/= [] ->
                 {record_setel(Var, Name, Fs, Us), St2};
             true ->
                 record_match(Var, Name, Anno, Fs, Us, St2)

@@ -19,8 +19,6 @@
 %%
 -module(disk_log).
 -moduledoc """
-A disk-based term logging facility.
-
 `disk_log` is a disk-based term logger that enables efficient logging of items
 on files.
 
@@ -89,29 +87,29 @@ When using the internal format for logs, use functions `log/2`, `log_terms/2`,
 prefixing each of the functions with a `b` (for "binary"), we get the
 corresponding `blog()` functions for the external format. These functions log
 one or more chunks of bytes. For example, to log the string `"hello"` in ASCII
-format, you can use `disk_log:blog(Log, "hello")`, or
-`disk_log:blog(Log, list_to_binary("hello"))`. The two alternatives are equally
-efficient.
+format, you can use [`disk_log:blog(Log, "hello")`](`blog/2`), or
+[`disk_log:blog(Log, list_to_binary("hello"))](`blog/2`)`. The two alternatives
+are equally efficient.
 
 The `blog()` functions can also be used for internally formatted logs, but in
 this case they must be called with binaries constructed with calls to
 [`term_to_binary/1`](`erlang:term_to_binary/1`). There is no check to ensure
 this, it is entirely the responsibility of the caller. If these functions are
 called with binaries that do not correspond to Erlang terms, the
-[`chunk/2,3`](`chunk/2`) and automatic repair functions fail. The corresponding
-terms (not the binaries) are returned when `chunk/2,3` is called.
+[`chunk/2,3`](`chunk/3`) and automatic repair functions fail. The corresponding
+terms (not the binaries) are returned when [`chunk/2,3`](`chunk/3`) is called.
 
 An open disk log is only accessible from the node where the disk log process
 runs. All processes on the node where the disk log process runs can log items or
 otherwise change, inspect, or close the log.
 
 Errors are reported differently for asynchronous log attempts and other uses of
-the `disk_log` module. When used synchronously, this module replies with an
+the `m:disk_log` module. When used synchronously, this module replies with an
 error message, but when called asynchronously, this module does not know where
 to send the error message. Instead, owners subscribing to notifications receive
 an `error_status` message.
 
-The `disk_log` module does not report errors to the `m:error_logger` module. It
+The `m:disk_log` module does not report errors to the `m:error_logger` module. It
 is up to the caller to decide whether to employ the error logger. Function
 `format_error/1` can be used to produce readable messages from error replies.
 However, information events are sent to the error logger in two situations,
@@ -123,9 +121,9 @@ Nothing is said about whether the disk log files exist or not.
 > #### Note {: .info }
 >
 > If an attempt to reopen or truncate a log fails (see
-> [`reopen/2,3`](`reopen/2`) and [`truncate/1,2`](`truncate/1`)) the disk log
+> [`reopen/2,3`](`reopen/3`) and [`truncate/1,2`](`truncate/2`)) the disk log
 > process terminates immediately. Before the process terminates, links to owners
-> and blocking processes (see [`block/1,2`](`block/1`)) are removed. The effect
+> and blocking processes (see [`block/1,2`](`block/2`)) are removed. The effect
 > is that the links work in one direction only. Any process using a disk log
 > must check for error message `no_such_log` if some other process truncates or
 > reopens the log simultaneously.
@@ -196,8 +194,8 @@ Nothing is said about whether the disk log files exist or not.
 %%%----------------------------------------------------------------------
 
 -doc """
-Chunk continuation returned by `chunk/2,3`, `bchunk/2,3`, or
-[`chunk_step/3`](`chunk_step/3`).
+Chunk continuation returned by [`chunk/2,3`](`chunk/3`),
+[`bchunk/2,3`](`bchunk/3`), or [`chunk_step/3`](`chunk_step/3`).
 """.
 -opaque continuation() :: #continuation{}.
 
@@ -235,6 +233,8 @@ Chunk continuation returned by `chunk/2,3`, `bchunk/2,3`, or
                         | {'error', open_error_rsn()}.
 
 -doc """
+Open a new disk_log file for reading or writing.
+
 Parameter `ArgL` is a list of the following options:
 
 - **`{name, Log}`** - Specifies the log name. This name must be passed on as a
@@ -312,9 +312,9 @@ Parameter `ArgL` is a list of the following options:
 
   When opening an already open halt log, option `size` is ignored.
 
-- **`{notify, boolean()}`[](){: #notify } **  
-   If `true`, the log owners are notified when certain log events occur. Defaults
-  to `false`. The owners are sent one of the following messages when an event occurs:
+- **`{notify, boolean()}`**{: #notify } - If `true`, the log owners are notified
+  when certain log events occur. Defaults to `false`. The owners are sent one of the
+  following messages when an event occurs:
 
   - **`{disk_log, Node, Log, {wrap, NoLostItems}}`** - Sent when a wrap log has
     filled up one of its files and a new file is opened. `NoLostItems` is the
@@ -413,16 +413,13 @@ open(A) ->
                        | {'file_error', file:filename(), file_error()}.
 
 -doc """
-Synchronously appends a term to a disk log. Returns `ok` or `{error, Reason}`
-when the term is written to disk. Terms are written by the ordinary `write()`
-function of the operating system. Hence, it is not guaranteed that the term is
-written to disk, it can linger in the operating system kernel for a while. To
-ensure that the item is written to disk, function `sync/1` must be called.
+Synchronously appends a term to a internally formatted disk log. Returns `ok`
+or `{error, Reason}` when the term is written to disk.
 
-[`log/2`](`log/2`) is used for internally formatted logs, and
-[`blog/2`](`blog/2`) for externally formatted logs. [`blog/2`](`blog/2`) can
-also be used for internally formatted logs if the binary is constructed with a
-call to [`term_to_binary/1`](`erlang:term_to_binary/1`).
+Terms are written by the ordinary `write()` function of the operating system.
+Hence, it is not guaranteed that the term is written to disk, it can linger in
+the operating system kernel for a while. To ensure that the item is written to disk,
+function `sync/1` must be called.
 
 Owners subscribing to notifications are notified of an error with an
 `error_status` message if the error reason tag is `invalid_header` or
@@ -434,7 +431,12 @@ Owners subscribing to notifications are notified of an error with an
 log(Log, Term) -> 
     req(Log, {log, internal, [term_to_binary(Term)]}).
 
--doc(#{equiv => log/2}).
+-doc """
+Equivalent to `log/2` except that it is used for externally formatted logs.
+
+`blog/2` can also be used for internally formatted logs
+if the binaries are constructed with calls to `term_to_binary/1`.
+""".
 -spec blog(Log, Bytes) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       Bytes :: iodata().
@@ -442,17 +444,11 @@ blog(Log, Bytes) ->
     req(Log, {log, external, [ensure_binary(Bytes)]}).
 
 -doc """
-Synchronously appends a list of items to the log. It is more efficient to use
-these functions instead of functions [`log/2`](`log/2`) and
-[`blog/2`](`blog/2`). The specified list is split into as large sublists as
-possible (limited by the size of wrap log files), and each sublist is logged as
-one single item, which reduces the overhead.
+Synchronously appends a list of items to an internally formatted log.
 
-[`log_terms/2`](`log_terms/2`) is used for internally formatted logs, and
-[`blog_terms/2`](`blog_terms/2`) for externally formatted logs.
-[`blog_terms/2`](`blog_terms/2`) can also be used for internally formatted logs
-if the binaries are constructed with calls to
-[`term_to_binary/1`](`erlang:term_to_binary/1`).
+It is more efficient to use this functions instead of [`log/2`](`log/2`). The specified
+list is split into as large sublists as possible (limited by the size of wrap log files),
+and each sublist is logged as one single item, which reduces the overhead.
 
 Owners subscribing to notifications are notified of an error with an
 `error_status` message if the error reason tag is `invalid_header` or
@@ -465,7 +461,12 @@ log_terms(Log, Terms) ->
     Bs = terms2bins(Terms),
     req(Log, {log, internal, Bs}).
 
--doc(#{equiv => log_terms/2}).
+-doc """
+Equivalent to `log_terms/2` except that it is used for externally formatted logs.
+
+`blog_terms/2` can also be used for internally formatted logs
+if the binaries are constructed with calls to `term_to_binary/1`.
+""".
 -spec blog_terms(Log, BytesList) ->
                         ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
@@ -476,14 +477,30 @@ blog_terms(Log, Bytess) ->
 
 -type notify_ret() :: 'ok' | {'error', 'no_such_log'}.
 
--doc(#{equiv => balog/2}).
+-doc """
+Asynchronously version of `log/2`.
+
+Owners subscribing to notifications receive message `read_only`, `blocked_log`,
+or `format_external` if the item cannot be written on the log, and possibly one
+of the messages `wrap`, `full`, or `error_status` if an item is written on the
+log. Message `error_status` is sent if something is wrong with the header
+function or if a file error occurs.
+""".
 -spec alog(Log, Term) -> notify_ret() when
       Log :: log(),
       Term :: term().
 alog(Log, Term) -> 
     notify(Log, {alog, internal, [term_to_binary(Term)]}).
 
--doc(#{equiv => balog_terms/2}).
+-doc """
+Asynchronously version of `log_terms/2`.
+
+Owners subscribing to notifications receive message `read_only`, `blocked_log`,
+or `format_external` if the items cannot be written on the log, and possibly one
+or more of the messages `wrap`, `full`, and `error_status` if items are written
+on the log. Message `error_status` is sent if something is wrong with the header
+function or if a file error occurs.
+""".
 -spec alog_terms(Log, TermList) -> notify_ret() when
       Log :: log(),
       TermList :: [term()].
@@ -492,11 +509,7 @@ alog_terms(Log, Terms) ->
     notify(Log, {alog, internal, Bs}).
 
 -doc """
-Asynchronously append an item to a disk log. [`alog/2`](`alog/2`) is used for
-internally formatted logs and [`balog/2`](`balog/2`) for externally formatted
-logs. [`balog/2`](`balog/2`) can also be used for internally formatted logs if
-the binary is constructed with a call to
-[`term_to_binary/1`](`erlang:term_to_binary/1`).
+Asynchronously version of `blog/2`.
 
 Owners subscribing to notifications receive message `read_only`, `blocked_log`,
 or `format_external` if the item cannot be written on the log, and possibly one
@@ -511,12 +524,7 @@ balog(Log, Bytes) ->
     notify(Log, {alog, external, [ensure_binary(Bytes)]}).
 
 -doc """
-Asynchronously append a list of items to a disk log.
-[`alog_terms/2`](`alog_terms/2`) is used for internally formatted logs and
-[`balog_terms/2`](`balog_terms/2`) for externally formatted logs.
-[`balog_terms/2`](`balog_terms/2`) can also be used for internally formatted
-logs if the binaries are constructed with calls to
-[`term_to_binary/1`](`erlang:term_to_binary/1`).
+Asynchronously version of `blog_terms/2`.
 
 Owners subscribing to notifications receive message `read_only`, `blocked_log`,
 or `format_external` if the items cannot be written on the log, and possibly one
@@ -535,10 +543,11 @@ balog_terms(Log, Bytess) ->
                          | {'file_error', file:filename(), file_error()}.
 
 -doc """
-[](){: #close_1 } Closes a disk log properly. An internally formatted log must
-be closed before the Erlang system is stopped. Otherwise, the log is regarded as
-unclosed and the automatic repair procedure is activated next time the log is
-opened.
+Closes a disk log properly.
+
+An internally formatted log must be closed before the Erlang system is stopped.
+Otherwise, the log is regarded as unclosed and the automatic repair procedure is
+activated next time the log is opened.
 
 The disk log process is not terminated as long as there are owners or users of
 the log. All owners must close the log, possibly by terminating. Also, any other
@@ -559,24 +568,24 @@ close(Log) ->
                          | {'invalid_header', invalid_header()}
                          | {'file_error', file:filename(), file_error()}.
 
--doc(#{equiv => truncate/2}).
+-doc """
+Equivalent to [`truncate(Log, Head)`](`truncate/2`) where `Head` is
+the `Head` specified in `open/1`.
+
+This function can be used for both internally and externally
+formatted logs.
+""".
 -spec truncate(Log) -> 'ok' | {'error', trunc_error_rsn()} when
       Log :: log().
 truncate(Log) -> 
     req(Log, {truncate, none, truncate, 1}).
 
 -doc """
-Removes all items from a disk log. If argument `Head` or `BHead` is specified,
-this item is written first in the newly truncated log, otherwise the header
-given to [`open/1`](`open/1`) is used. The header argument is used only once.
-Next time a wrap/rotate log file is opened, the header given to
-[`open/1`](`open/1`) is used.
+Removes all items from an internally formatted disk log. The argument `Head` or
+is written first in the newly truncated log.
 
-[`truncate/1`](`truncate/1`) is used for both internally and externally
-formatted logs.
-
-[`truncate/2`](`truncate/2`) is used for internally formatted logs, and
-[`btruncate/2`](`btruncate/2`) for externally formatted logs.
+The header argument is used only once. Next time a wrap/rotate log file is opened,
+the header given to [`open/1`](`open/1`) is used.
 
 Owners subscribing to notifications receive a `truncate` message.
 
@@ -591,7 +600,7 @@ having requests queued receive the message
 truncate(Log, Head) ->
     req(Log, {truncate, {ok, term_to_binary(Head)}, truncate, 2}).
 
--doc(#{equiv => truncate/2}).
+-doc "Equivalent to `truncate/2` for externally formatted logs.".
 -spec btruncate(Log, BHead) -> 'ok' | {'error', trunc_error_rsn()} when
       Log :: log(),
       BHead :: iodata().
@@ -607,7 +616,10 @@ btruncate(Log, Head) ->
                           | {invalid_header, invalid_header()}
                           | {'file_error', file:filename(), file_error()}.
 
--doc(#{equiv => reopen/3}).
+-doc """
+Equivalent to [`reopen(Log, File, Head)`](`reopen/3`) where `Head` is
+the `Head` specified in `open/1`.
+""".
 -spec reopen(Log, File) -> 'ok' | {'error', reopen_error_rsn()} when
       Log :: log(),
       File :: file:filename().
@@ -615,15 +627,12 @@ reopen(Log, NewFile) ->
     req(Log, {reopen, NewFile, none, reopen, 2}).
 
 -doc """
-Renames the log file to `File` and then recreates a new log file. If a
-wrap/rotate log exists, `File` is used as the base name of the renamed files. By
-default the header given to [`open/1`](`open/1`) is written first in the newly
-opened log file, but if argument `Head` or `BHead` is specified, this item is
-used instead. The header argument is used only once. Next time a wrap/rotate log
-file is opened, the header given to [`open/1`](`open/1`) is used.
+Renames an internally formatted log file to `File` and then recreates a new log file. If a
+wrap/rotate log exists, `File` is used as the base name of the renamed files.
 
-`reopen/2,3` are used for internally formatted logs, and
-[`breopen/3`](`breopen/3`) for externally formatted logs.
+Writes the value of `Head` first in the newly opened log file. The header argument
+is used only once. Next time a wrap/rotate log file is opened, the header given to
+[`open/1`](`open/1`) is used.
 
 Owners subscribing to notifications receive a `truncate` message.
 
@@ -639,7 +648,9 @@ requests queued receive the message
 reopen(Log, NewFile, NewHead) ->
     req(Log, {reopen, NewFile, {ok, term_to_binary(NewHead)}, reopen, 3}).
 
--doc(#{equiv => reopen/3}).
+-doc """
+Equivalent to `reopen` except that it is used for externally formatted logs.
+""".
 -spec breopen(Log, File, BHead) -> 'ok' | {'error', reopen_error_rsn()} when
       Log :: log(),
       File :: file:filename(),
@@ -765,27 +776,27 @@ sync(Log) ->
 
 -type block_error_rsn() :: 'no_such_log' | 'nonode' | {'blocked_log', log()}.
 
--doc(#{equiv => block/2}).
+-doc(#{equiv => block(Log, true)}).
 -spec block(Log) -> 'ok' | {'error', block_error_rsn()} when
       Log :: log().
 block(Log) -> 
     block(Log, true).
 
 -doc """
-With a call to `block/1,2` a process can block a log. If the blocking process is
-not an owner of the log, a temporary link is created between the disk log
-process and the blocking process. The link ensures that the disk log is
+With a call to `block/2` a process can block a log.
+
+If the blocking process is not an owner of the log, a temporary link is created
+between the disk log process and the blocking process. The link ensures that the disk log is
 unblocked if the blocking process terminates without first closing or unblocking
 the log.
 
 Any process can probe a blocked log with [`info/1`](`info/1`) or close it with
-[`close/1`](`close/1`). The blocking process can also use functions `chunk/2,3`,
-`bchunk/2,3`, [`chunk_step/3`](`chunk_step/3`), and [`unblock/1`](`unblock/1`)
+[`close/1`](`close/1`). The blocking process can also use functions [`chunk/2,3`](`chunk/3`),
+[`bchunk/2,3`](`chunk/3`), [`chunk_step/3`](`chunk_step/3`), and [`unblock/1`](`unblock/1`)
 without being affected by the block. Any other attempt than those mentioned so
 far to update or read a blocked log suspends the calling process until the log
 is unblocked or returns error message `{blocked_log, Log}`, depending on whether
-the value of `QueueLogRecords` is `true` or `false`. `QueueLogRecords` defaults
-to `true`, which is used by [`block/1`](`block/1`).
+the value of `QueueLogRecords` is `true` or `false`.
 """.
 -spec block(Log, QueueLogRecords) -> 'ok' | {'error', block_error_rsn()} when
       Log :: log(),
@@ -805,9 +816,10 @@ unblock(Log) ->
 
 -doc """
 Given the error returned by any function in this module, this function returns a
-descriptive string of the error in English. For file errors, function
-[`format_error/1`](`format_error/1`) in module [`file`](`file:format_error/1`)
-is called.
+descriptive string of the error in English.
+
+For file errors, function [`format_error/1`](`format_error/1`) in module
+[`file`](`file:format_error/1`) is called.
 """.
 -spec format_error(Error) -> io_lib:chars() when
       Error :: term().
@@ -913,7 +925,7 @@ The following pairs are returned for wrap logs opened in `read_write` mode:
   called). The first time `info/2` is called after a log was (re)opened or
   truncated, the two values are equal.
 
-Notice that functions `chunk/2,3`, `bchunk/2,3`, and
+Notice that functions [`chunk/2,3`](`chunk/3`), [`bchunk/2,3`](`bchunk/3`), and
 [`chunk_step/3`](`chunk_step/3`) do not affect any value returned by
 [`info/1`](`info/1`).
 """.
@@ -958,7 +970,7 @@ pid2name(Pid) ->
                    | eof
                    | {error, Reason :: chunk_error_rsn()}.
 
--doc(#{equiv => chunk/3}).
+-doc(#{equiv => chunk(Log, Continuation, infinity)}).
 -spec chunk(Log, Continuation) -> chunk_ret() when
       Log :: log(),
       Continuation :: start | continuation().
@@ -966,38 +978,37 @@ chunk(Log, Cont) ->
     chunk(Log, Cont, infinity).
 
 -doc """
-Efficiently reads the terms that are appended to an internally formatted log. It
-minimizes disk I/O by reading 64 kilobyte chunks from the file. Functions
-`bchunk/2,3` return the binaries read from the file, they do not call
-`binary_to_term()`. Apart from that, they work just like `chunk/2,3`.
+Efficiently reads the terms that are appended to an internally formatted log.
 
-The first time `chunk()` (or `bchunk()`) is called, an initial continuation, the
+It minimizes disk I/O by reading 64 kilobyte chunks from the file.
+
+The first time `chunk()` is called, an initial continuation, the
 atom `start`, must be provided.
 
 When [`chunk/3`](`chunk/3`) is called, `N` controls the maximum number of terms
-that are read from the log in each chunk. Defaults to `infinity`, which means
+that are read from the log in each chunk. `infinity` means
 that all the terms contained in the 64 kilobyte chunk are read. If less than `N`
 terms are returned, this does not necessarily mean that the end of the file is
 reached.
 
-`chunk()` returns a tuple `{Continuation2, Terms}`, where `Terms` is a list of
+`chunk/3` returns a tuple `{Continuation2, Terms}`, where `Terms` is a list of
 terms found in the log. `Continuation2` is yet another continuation, which must
 be passed on to any subsequent calls to `chunk()`. With a series of calls to
 `chunk()`, all terms from a log can be extracted.
 
-`chunk()` returns a tuple `{Continuation2, Terms, Badbytes}` if the log is
+`chunk/3` returns a tuple `{Continuation2, Terms, Badbytes}` if the log is
 opened in read-only mode and the read chunk is corrupt. `Badbytes` is the number
 of bytes in the file found not to be Erlang terms in the chunk. Notice that the
 log is not repaired. When trying to read chunks from a log opened in read-write
 mode, tuple `{corrupt_log_file, FileName}` is returned if the read chunk is
 corrupt.
 
-`chunk()` returns `eof` when the end of the log is reached, or `{error, Reason}`
+`chunk/3` returns `eof` when the end of the log is reached, or `{error, Reason}`
 if an error occurs. If a wrap log file is missing, a message is output on the
 error log.
 
-When `chunk/2,3` is used with wrap logs, the returned continuation might not be
-valid in the next call to `chunk()`. This is because the log can wrap and delete
+When [`chunk/2,3`](`chunk/3`) is used with wrap logs, the returned continuation might not be
+valid in the next call to `chunk/3`. This is because the log can wrap and delete
 the file into which the continuation points. To prevent this, the log can be
 blocked during the search.
 """.
@@ -1079,14 +1090,18 @@ ichunk_bad_end([B | Bs], Mode, Log, C, Bad, A) ->
                     | eof
                     | {error, Reason :: chunk_error_rsn()}.
 
--doc(#{equiv => chunk/3}).
+-doc(#{equiv => bchunk(Log, Cont, infinity)}).
 -spec bchunk(Log, Continuation) -> bchunk_ret() when
       Log :: log(),
       Continuation :: start | continuation().
 bchunk(Log, Cont) ->
     bchunk(Log, Cont, infinity).
 
--doc(#{equiv => chunk/3}).
+-doc """
+Equivalent to [`chunk(Log, Continuation, N)`](`chunk/3`) except that
+it returns the binaries read from the file, that is it does not call
+`binary_to_term/1`.
+""".
 -spec bchunk(Log, Continuation, N) -> bchunk_ret() when
       Log :: log(),
       Continuation :: start | continuation(),
@@ -1114,9 +1129,11 @@ bichunk_end(R) ->
     R.
 
 -doc """
-Can be used with `chunk/2,3` and `bchunk/2,3` to search through an internally
-formatted wrap log. It takes as argument a continuation as returned by
-`chunk/2,3`, `bchunk/2,3`, or [`chunk_step/3`](`chunk_step/3`), and steps
+Can be used with [`chunk/2,3`](`chunk/3`) and [`bchunk/2,3`](`chunk/3`) to
+search through an internally formatted wrap log.
+
+It takes as argument a continuation as returned by [`chunk/2,3`](`chunk/3`),
+[`bchunk/2,3`](`bchunk/3`), or [`chunk_step/3`](`chunk_step/3`), and steps
 forward (or backward) `Step` files in the wrap log. The continuation returned,
 points to the first log item in the new current file.
 
@@ -1146,7 +1163,7 @@ ichunk_step(_Log, _, _) ->
 
 -doc """
 Returns the pair `{node, Node}`, describing the chunk continuation returned by
-`chunk/2,3`, `bchunk/2,3`, or [`chunk_step/3`](`chunk_step/3`).
+`chunk/2,3`, [`bchunk/2,3`](`bchunk/3`), or [`chunk_step/3`](`chunk_step/3`).
 
 Terms are read from the disk log running on `Node`.
 """.

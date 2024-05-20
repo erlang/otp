@@ -38,7 +38,7 @@ requests, responses and traps are stored.
 The log uses a raw data format (basically the BER encoded message), in order to
 minimize the CPU load needed for the log mechanism. This means that the log is
 not human readable, but needs to be formatted off-line before it can be read.
-Use the function [snmpa:log_to_txt](`m:snmpa#log_to_txt`) for this purpose.
+Use the function `snmpa:log_to_txt/8` for this purpose.
 
 ## Manager Logging
 
@@ -49,4 +49,4 @@ requests, responses and traps are stored.
 The log uses a raw data format (basically the BER encoded message), in order to
 minimize the CPU load needed for the log mechanism. This means that the log is
 not human readable, but needs to be formatted off-line before it can be read.
-Use the function [snmpm:log_to_txt](`m:snmpm#log_to_txt`) for this purpose.
+Use the function `snmpm:log_to_txt/8` for this purpose.

@@ -329,7 +329,7 @@ sig_fun_call(I0, Args, Ts, Ds, Fdb, Sub, State0) ->
             CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
             I = I0#b_set{args=[Callee | CallArgs]},
             sig_local_call(I, Callee, CallArgs, Ts, Fdb, State0);
-        {#t_fun{target={Name,Arity}}, _} ->
+        {#t_fun{arity=Arity,target={Name,Arity}}, _} ->
             %% When a fun lacks free variables, we can make a direct call even
             %% when we don't know where it was defined.
             Callee = #b_local{name=#b_literal{val=Name},
@@ -637,6 +637,8 @@ benefits_from_type_anno(bs_create_bin, _Args) ->
     true;
 benefits_from_type_anno(bs_match, _Args) ->
     true;
+benefits_from_type_anno(bs_start_match, _Args) ->
+    true;
 benefits_from_type_anno(is_tagged_tuple, _Args) ->
     true;
 benefits_from_type_anno(call, [#b_var{} | _]) ->
@@ -681,7 +683,7 @@ opt_fun_call(#b_set{dst=Dst}=I0, [Fun | CallArgs0], Ts, Ds, Fdb, Sub, Meta) ->
             CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
             I = I0#b_set{args=[Callee | CallArgs]},
             opt_local_call(I, Callee, CallArgs, Dst, Ts, Fdb, Meta);
-        {#t_fun{target={Name,Arity}}, _} ->
+        {#t_fun{arity=Arity,target={Name,Arity}}, _} ->
             %% When a fun lacks free variables, we can make a direct call even
             %% when we don't know where it was defined.
             Callee = #b_local{name=#b_literal{val=Name},
@@ -2743,8 +2745,8 @@ infer_type({bif,is_atom}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_binary}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_bitstring{size_unit=8}},
     {[T], [T]};
-infer_type({bif,is_bitstring}, [#b_var{}=Arg], _Ts, _Ds) ->
-    T = {Arg, #t_bitstring{}},
+infer_type({bif,is_bitstring}, [#b_var{}=Arg], Ts, _Ds) ->
+    T = {Arg, beam_types:meet(concrete_type(Arg, Ts), #t_bs_matchable{})},
     {[T], [T]};
 infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, beam_types:make_boolean()},

@@ -325,7 +325,7 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%
 aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
                            func_db=FuncDb}) ->
-    Order = aa_breadth_first(Funs, FuncDb),
+    Order = aa_reverse_post_order(Funs, FuncDb),
     aa_fixpoint(Order, Order, AliasMap, CallArgs, AAS, ?MAX_REPETITIONS).
 
 aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
@@ -469,7 +469,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             peek_message ->
                 {aa_set_aliased(Dst, SS1), AAS0};
             phi ->
-                {aa_phi(Dst, Args, Anno0, SS1, AAS0), AAS0};
+                {aa_phi(Dst, Args, SS1, AAS0), AAS0};
             put_list ->
                 Types =
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
@@ -487,7 +487,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 [#b_literal{val=Hint},_Size,Src|Updates] = Args,
                 RecordType = maps:get(arg_types, Anno0, #{}),
                 ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
-                    [Dst,_Src,RecordType]),
+                    [Dst,Src,RecordType]),
                 Values = aa_update_record_get_vars(Updates),
                 ?DP("values: ~p~n", [Values]),
                 Types = aa_map_arg_to_type(Args, RecordType),
@@ -555,7 +555,7 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
-    ?DP("Post I: ~p.~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -607,7 +607,7 @@ aa_merge_ss(BlockLbl, NewSS, Lbl2SS) ->
 %% if variables in the original SS have become aliased.
 aa_merge_ss_successor(BlockLbl, NewSS, Lbl2SS) ->
     #{BlockLbl:=OrigSS} = Lbl2SS,
-    Lbl2SS#{BlockLbl=>beam_ssa_ss:merge(OrigSS, NewSS)}.
+    Lbl2SS#{BlockLbl=>beam_ssa_ss:forward_status(OrigSS, NewSS)}.
 
 aa_get_status(V=#b_var{}, State) ->
     beam_ssa_ss:get_status(V, State);
@@ -828,20 +828,19 @@ aa_get_status_by_type(Type, StatusByType) ->
             beam_ssa_ss:meet_in_args(Statuses)
     end.
 
-aa_alias_surviving_args(Args, Call, SS, Anno, AAS) ->
+aa_alias_surviving_args(Args, Call, SS, AAS) ->
     KillSet = aa_killset_for_instr(Call, AAS),
-    ArgTypes = maps:get(arg_types, Anno, #{}),
-    aa_alias_surviving_args1(Args, 0, SS, ArgTypes, KillSet).
+    aa_alias_surviving_args1(Args, SS, KillSet).
 
-aa_alias_surviving_args1([A|Args], Idx, SS0, ArgTypes, KillSet) ->
+aa_alias_surviving_args1([A|Args], SS0, KillSet) ->
     SS = case sets:is_element(A, KillSet) of
              true ->
                  SS0;
              false ->
                  aa_set_status(A, aliased, SS0)
          end,
-    aa_alias_surviving_args1(Args, Idx+1, SS, ArgTypes, KillSet);
-aa_alias_surviving_args1([], _Idx, SS, _ArgTypes, _KillSet) ->
+    aa_alias_surviving_args1(Args, SS, KillSet);
+aa_alias_surviving_args1([], SS, _KillSet) ->
     SS.
 
 %% Return the kill-set for the instruction defining Dst.
@@ -1069,9 +1068,9 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             aa_set_aliased([Dst|Args], SS)
     end.
 
-aa_phi(Dst, Args0, Anno, SS0, AAS) ->
+aa_phi(Dst, Args0, SS0, AAS) ->
     Args = [V || {V,_} <- Args0],
-    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, Anno, AAS),
+    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
     aa_derive_from(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
@@ -1084,7 +1083,7 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
             ?DP("  caller args: ~p~n", [Args]),
-            SS1 = aa_alias_surviving_args(Args, Dst, SS0, Anno, AAS0),
+            SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
             ?DP("  caller ss before call:~n  ~p.~n", [SS1]),
             #aas{alias_map=AliasMap} = AAS =
                 aa_add_call_info(Callee, Args, SS1, AAS0),
@@ -1117,10 +1116,12 @@ aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
     %% The function will never return, so nothing that happens after
     %% this can influence the aliasing status.
     {SS, AAS};
-aa_call(Dst, [_Callee|Args], _Anno, SS, AAS) ->
+aa_call(Dst, [_Callee|Args], _Anno, SS0, AAS) ->
     %% This is either a call to a fun or to an external function,
-    %% assume that all arguments and the result escape.
-    {aa_set_aliased([Dst|Args], SS), AAS}.
+    %% assume that result always escapes and
+    %% all arguments escape, if they survive.
+    SS = aa_alias_surviving_args(Args, Dst, SS0, AAS),
+    {aa_set_aliased([Dst], SS), AAS}.
 
 %% Incorporate aliasing information for the arguments to a call when
 %% analysing the body of a function into the global state.
@@ -1229,36 +1230,50 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
     AAS = AAS0#aas{call_args=Info,repeats=Repeats},
     {SS, AAS}.
 
-aa_breadth_first(Funs, FuncDb) ->
-    IsExported = fun (F) ->
-                         #{ F := #func_info{exported=E} } = FuncDb,
-                         E
-                 end,
-    Exported = [ F || F <- Funs, IsExported(F)],
-    aa_breadth_first(Exported, [], sets:new([{version,2}]), FuncDb).
+aa_reverse_post_order(Funs, FuncDb) ->
+    %% In order to produce a reverse post order of the call graph, we
+    %% have to make sure all exported functions without local callers
+    %% are visited before exported functions with local callers.
+    IsExportedNoLocalCallers =
+        fun (F) ->
+                #{ F := #func_info{exported=E,in=In} } = FuncDb,
+                E andalso In =:= []
+        end,
+    ExportedNoLocalCallers =
+        lists:sort([ F || F <- Funs, IsExportedNoLocalCallers(F)]),
+    IsExportedLocalCallers =
+        fun (F) ->
+                #{ F := #func_info{exported=E,in=In} } = FuncDb,
+                E andalso In =/= []
+        end,
+    ExportedLocalCallers =
+        lists:sort([ F || F <- Funs, IsExportedLocalCallers(F)]),
+    aa_reverse_post_order(ExportedNoLocalCallers, ExportedLocalCallers,
+                          sets:new([{version,2}]), FuncDb).
 
-aa_breadth_first([F|Work], Next, Seen, FuncDb) ->
+aa_reverse_post_order([F|Work], Next, Seen, FuncDb) ->
     case sets:is_element(F, Seen) of
         true ->
-            aa_breadth_first(Work, Next, Seen, FuncDb);
+            aa_reverse_post_order(Work, Next, Seen, FuncDb);
         false ->
             case FuncDb of
                 #{ F := #func_info{out=Children} } ->
-                    [F|aa_breadth_first(Work, Children ++ Next,
-                                        sets:add_element(F, Seen), FuncDb)];
+                    [F|aa_reverse_post_order(
+                         Work, Children ++ Next,
+                         sets:add_element(F, Seen), FuncDb)];
                 #{} ->
                     %% Other optimization steps can have determined
                     %% that the function is not called and removed it
                     %% from the funcdb, but it still remains in the
                     %% #func_info{} of the (at the syntax-level)
                     %% caller.
-                    aa_breadth_first(Work, Next, Seen, FuncDb)
+                    aa_reverse_post_order(Work, Next, Seen, FuncDb)
             end
     end;
-aa_breadth_first([], [], _Seen, _FuncDb) ->
+aa_reverse_post_order([], [], _Seen, _FuncDb) ->
     [];
-aa_breadth_first([], Next, Seen, FuncDb) ->
-    aa_breadth_first(Next, [], Seen, FuncDb).
+aa_reverse_post_order([], Next, Seen, FuncDb) ->
+    aa_reverse_post_order(Next, [], Seen, FuncDb).
 
 expand_record_update(#opt_st{ssa=Linear0,cnt=First,anno=Anno0}=OptSt) ->
     {Linear,Cnt} = eru_blocks(Linear0, First),

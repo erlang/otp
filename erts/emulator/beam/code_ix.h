@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,11 @@ typedef unsigned ErtsCodeIndex;
 typedef struct ErtsCodeMFA_ {
     Eterm module;
     Eterm function;
-    byte arity;
+
+    /* This is technically a byte, but the interpreter needs this to be a word
+     * for argument packing to work properly, and declaring it as a byte won't
+     * save any space due to tail padding. */
+    Uint arity;
 } ErtsCodeMFA;
 
 /*
@@ -216,6 +220,12 @@ int erts_try_seize_code_mod_permission(struct process* c_p);
  */
 int erts_try_seize_code_mod_permission_aux(void (*func)(void *),
                                            void *arg);
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+void erts_lc_soften_code_mod_permission_check(void);
+#else
+# define erts_lc_soften_code_mod_permission_check() ((void)0)
+#endif
 
 /** @brief Release code modification permission. Resumes any suspended
  * waiters. */

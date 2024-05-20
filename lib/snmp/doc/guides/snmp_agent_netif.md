@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -143,15 +143,15 @@ to receive.
   - `Pdu` is an SNMP PDU record (as defined in snmp_types.hrl) with the SNMP
     response.
   - `MsgData` is the message specific data used in the SNMP message. This value
-    is normally sent to `snmpa_mpd:generate_message/4`. In SNMPv1 and SNMPv2c,
+    is normally sent to `snmpa_mpd:generate_msg/5`. In SNMPv1 and SNMPv2c,
     this message data is the community string. In SNMPv3, it is the context
     information.
   - `To` is a list of `{Address, SecData}` tuples i.e the destination addresses
     and their corresponding security parameters. This value is normally sent to
-    `snmpa_mpd:generate_message/4`.
+    `snmpa_mpd:generate_msg/5`.
   - `Extra` is any term that the notification sender wishes to pass to the Net
     if process when sending a notification (see
-    [send notification ](`m:snmpa#send_notification2`)for more info).
+    [`send notification`](`snmpa:send_notification2/3`)for more info).
 
 - [](){: #im_send_pdu_req } `{send_pdu_req, Vsn, Pdu, MsgData, To, Pid, Extra}`
 
@@ -164,16 +164,16 @@ to receive.
   - `Pdu` is an SNMP PDU record (as defined in snmp_types.hrl) with the SNMP
     response.
   - `MsgData` is the message specific data used in the SNMP message. This value
-    is normally sent to `snmpa_mpd:generate_message/4`. In SNMPv1 and SNMPv2c,
+    is normally sent to `snmpa_mpd:generate_msg/5`. In SNMPv1 and SNMPv2c,
     this message data is the community string. In SNMPv3, it is the context
     information.
   - `To` is a list of `{Address, SecData}` tuples i.e the destination addresses
     and their corresponding security parameters. This value is normally sent to
-    `snmpa_mpd:generate_message/4`.
+    `snmpa_mpd:generate_msg/5`.
   - `Pid` is a process identifier.
   - `Extra` is any term that the notification sender wishes to pass to the Net
     if process when sending a notification (see
-    [send notification ](`m:snmpa#send_notification2`)for more info).
+    [`send notification`](`snmpa:send_notification2/3`)for more info).
 
 ### Notes
 

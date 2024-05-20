@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ erlang_trace_pattern(A,B) ->
     trace_sessions:erlang_trace_pattern(A,B).
 
 erlang_trace_pattern(A,B,C) ->
-    erlang:display({?LINE, "B", B}),
+    %%erlang:display({?LINE, "B", B}),
     trace_sessions:erlang_trace_pattern(A,B,C).
 
 erlang_trace_info(A,B) ->

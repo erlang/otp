@@ -19,11 +19,11 @@
 %%
 -module(beam_lib).
 -moduledoc """
-An interface to the BEAM file format.
-
 This module provides an interface to files created by the BEAM Compiler ("BEAM
-files"). The format used, a variant of "EA IFF 1985" Standard for Interchange
-Format Files, divides data into chunks.
+files").
+
+The format used, a variant of "EA IFF 1985" Standard for Interchange Format Files,
+divides data into chunks.
 
 Chunk data can be returned as binaries or as compound terms. Compound terms are
 returned when chunks are referenced by names (atoms) rather than identifiers
@@ -195,8 +195,9 @@ or a binary containing the BEAM module.
 """.
 -type beam() :: file:filename() | binary().
 -doc """
-The format stored in the `debug_info` chunk. To retrieve particular code
-representation from the backend,
+The format stored in the `debug_info` chunk.
+
+To retrieve particular code representation from the backend,
 `Backend:debug_info(Format, Module, Data, Opts)` must be invoked. `Format` is an
 atom, such as `erlang_v1` for the Erlang Abstract Format or `core_v1` for Core
 Erlang. `Module` is the module represented by the beam file and `Data` is the
@@ -359,11 +360,12 @@ all_chunks(File) ->
     read_all_chunks(File).
 
 -doc """
-Compares the contents of two BEAM files. If the module names are the same, and
-all chunks except for chunk `"CInf"` (the chunk containing the compilation
-information that is returned by `Module:module_info(compile)`) have the same
-contents in both files, `ok` is returned. Otherwise an error message is
-returned.
+Compares the contents of two BEAM files.
+
+If the module names are the same, and all chunks except for chunk `"CInf"`
+(the chunk containing the compilation information that is returned by
+`Module:module_info(compile)`) have the same contents in both files, `ok` is
+returned. Otherwise an error message is returned.
 """.
 -spec cmp(Beam1, Beam2) -> 'ok' | {'error', 'beam_lib', cmp_rsn()} when
       Beam1 :: beam(),
@@ -374,12 +376,13 @@ cmp(File1, File2) ->
     catch Error -> Error end.
 
 -doc """
-Compares the BEAM files in two directories. Only files with extension `".beam"`
-are compared. BEAM files that exist only in directory `Dir1` (`Dir2`) are
-returned in `Only1` (`Only2`). BEAM files that exist in both directories but are
-considered different by [`cmp/2`](`cmp/2`) are returned as pairs \{`Filename1`,
-`Filename2`\}, where `Filename1` (`Filename2`) exists in directory `Dir1`
-(`Dir2`).
+Compares the BEAM files in two directories.
+
+Only files with extension `".beam"` are compared. BEAM files that exist only in
+directory `Dir1` (`Dir2`) are returned in `Only1` (`Only2`). BEAM files that
+exist in both directories but are considered different by [`cmp/2`](`cmp/2`) are
+ returned as pairs \{`Filename1`, `Filename2`\}, where `Filename1` (`Filename2`)
+exists in directory `Dir1` (`Dir2`).
 """.
 -spec cmp_dirs(Dir1, Dir2) ->
            {Only1, Only2, Different} | {'error', 'beam_lib', Reason} when
@@ -407,8 +410,9 @@ diff_dirs(Dir1, Dir2) ->
     catch diff_directories(Dir1, Dir2).
 
 -doc """
-Removes all chunks from a BEAM file except those used by the loader. In
-particular, the debug information (chunk `debug_info` and `abstract_code`) is
+Removes all chunks from a BEAM file except those used by the loader.
+
+In particular, the debug information (chunk `debug_info` and `abstract_code`) is
 removed.
 """.
 -spec strip(Beam1) ->
@@ -421,8 +425,9 @@ strip(FileName) ->
 
 -doc """
 Removes all chunks from a BEAM file except those used by the loader or mentioned
-in `AdditionalChunks`. In particular, the debug information (chunk `debug_info`
-and `abstract_code`) is removed.
+in `AdditionalChunks`.
+
+In particular, the debug information (chunk `debug_info` and `abstract_code`) is removed.
 """.
 -doc(#{since => <<"OTP 22.0">>}).
 -spec strip(Beam1, AdditionalChunks) ->
@@ -436,8 +441,9 @@ strip(FileName, AdditionalChunks) ->
     catch Error -> Error end.
     
 -doc """
-Removes all chunks except those used by the loader from BEAM files. In
-particular, the debug information (chunk `debug_info` and `abstract_code`) is
+Removes all chunks except those used by the loader from `Files`.
+
+In particular, the debug information (chunk `debug_info` and `abstract_code`) is
 removed. The returned list contains one element for each specified filename, in
 the same order as in `Files`.
 """.
@@ -451,9 +457,11 @@ strip_files(Files) ->
 
 -doc """
 Removes all chunks except those used by the loader or mentioned in
-`AdditionalChunks`. In particular, the debug information (chunk `debug_info` and
-`abstract_code`) is removed. The returned list contains one element for each
-specified filename, in the same order as in `Files`.
+`AdditionalChunks` from `Files`.
+
+In particular, the debug information (chunk `debug_info` and `abstract_code`) is
+removed. The returned list contains one element for each specified filename,
+in the same order as in `Files`.
 """.
 -doc(#{since => <<"OTP 22.0">>}).
 -spec strip_files(Files, AdditionalChunks) ->
@@ -468,9 +476,10 @@ strip_files(Files, AdditionalChunks) when is_list(Files) ->
 
 -doc """
 Removes all chunks except those used by the loader from the BEAM files of a
-release. `Dir` is to be the installation root directory. For example, the
-current OTP release can be stripped with the call
-`beam_lib:strip_release(code:root_dir())`.
+release.
+
+`Dir` is to be the installation root directory. For example, the current OTP
+release can be stripped with the call `beam_lib:strip_release(code:root_dir())`.
 """.
 -spec strip_release(Dir) ->
         {'ok', [{module(), file:filename()}]}
@@ -483,9 +492,10 @@ strip_release(Root) ->
 
 -doc """
 Removes all chunks except those used by the loader or mentioned in
-`AdditionalChunks`. `Dir` is to be the installation root directory. For example,
-the current OTP release can be stripped with the call
-`beam_lib:strip_release(code:root_dir())`.
+`AdditionalChunks`.
+
+`Dir` is to be the installation root directory. For example, the current OTP
+release can be stripped with the call `beam_lib:strip_release(code:root_dir(),[documentation])`.
 """.
 -doc(#{since => <<"OTP 22.0">>}).
 -spec strip_release(Dir, AdditionalChunks) ->
@@ -500,7 +510,9 @@ strip_release(Root, AdditionalChunks) ->
 
 -doc """
 Returns the module version or versions. A version is defined by module attribute
-`-vsn(Vsn)`. If this attribute is not specified, the version defaults to the
+`-vsn(Vsn)`.
+
+If this attribute is not specified, the version defaults to the
 checksum of the module. Notice that if version `Vsn` is not a list, it is made
 into one, that is `{ok,{Module,[Vsn]}}` is returned. If there are many `-vsn`
 module attributes, the result is the concatenated list of versions.

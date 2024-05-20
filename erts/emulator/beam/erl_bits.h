@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -544,11 +544,11 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
 
         if (((dst_offset | src_offset | size) & 7) == 0) {
             sys_memcpy(dst_base, src_base, BYTE_SIZE(size));
+        } else {
+            erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
+                           dst_base, BIT_OFFSET(dst_offset), 1,
+                           size);
         }
-
-        erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
-                       dst_base, BIT_OFFSET(dst_offset), 1,
-                       size);
     }
 }
 

@@ -272,7 +272,6 @@ table_del_row(Tab, Key) ->
 
 
 -doc(#{equiv => add_community/6}).
--doc(#{since => <<"OTP R14B03">>}).
 -spec add_community(Idx, CommName, SecName, CtxName, TransportTag) ->
           {ok, Key} | {error, Reason} when
       Idx          :: index(),

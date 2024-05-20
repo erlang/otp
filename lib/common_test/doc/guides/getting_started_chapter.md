@@ -81,14 +81,14 @@ without configuration functions, including one simple test case, to check that
 module `mymod` exists (that is, can be successfully loaded by the code server):
 
 ```erlang
- -module(my1st_SUITE).
- -compile(export_all).
+-module(my1st_SUITE).
+-compile(export_all).
 
- all() ->
-     [mod_exists].
+all() ->
+    [mod_exists].
 
- mod_exists(_) ->
-     {module,mymod} = code:load_file(mymod).
+mod_exists(_) ->
+    {module,mymod} = code:load_file(mymod).
 ```
 
 If the operation fails, a bad match error occurs that terminates the test case.
@@ -109,30 +109,30 @@ open and close a log file for the test cases (an operation that is unnecessary
 and irrelevant to perform by each test case):
 
 ```erlang
- -module(check_log_SUITE).
- -export([all/0, init_per_suite/1, end_per_suite/1]).
- -export([check_restart_result/1, check_no_errors/1]).
+-module(check_log_SUITE).
+-export([all/0, init_per_suite/1, end_per_suite/1]).
+-export([check_restart_result/1, check_no_errors/1]).
 
- -define(value(Key,Config), proplists:get_value(Key,Config)).
+-define(value(Key,Config), proplists:get_value(Key,Config)).
 
- all() -> [check_restart_result, check_no_errors].
+all() -> [check_restart_result, check_no_errors].
 
- init_per_suite(InitConfigData) ->
-     [{logref,open_log()} | InitConfigData].
+init_per_suite(InitConfigData) ->
+    [{logref,open_log()} | InitConfigData].
 
- end_per_suite(ConfigData) ->
-     close_log(?value(logref, ConfigData)).
+end_per_suite(ConfigData) ->
+    close_log(?value(logref, ConfigData)).
 
- check_restart_result(ConfigData) ->
-     TestData = read_log(restart, ?value(logref, ConfigData)),
-     {match,_Line} = search_for("restart successful", TestData).
+check_restart_result(ConfigData) ->
+    TestData = read_log(restart, ?value(logref, ConfigData)),
+    {match,_Line} = search_for("restart successful", TestData).
 
- check_no_errors(ConfigData) ->
-     TestData = read_log(all, ?value(logref, ConfigData)),
-     case search_for("error", TestData) of
-	 {match,Line} -> ct:fail({error_found_in_log,Line});
-	 nomatch -> ok
-     end.
+check_no_errors(ConfigData) ->
+    TestData = read_log(all, ?value(logref, ConfigData)),
+    case search_for("error", TestData) of
+        {match,Line} -> ct:fail({error_found_in_log,Line});
+        nomatch -> ok
+    end.
 ```
 
 The test cases verify, by parsing a log file, that our SUT has performed a
@@ -143,25 +143,25 @@ UNIX/Linux command line (assuming that the suite module is in the current
 working directory):
 
 ```text
- $ ct_run -dir .
+$ ct_run -dir .
 ```
 
 or:
 
 ```text
- $ ct_run -suite check_log_SUITE
+$ ct_run -suite check_log_SUITE
 ```
 
 To use the Erlang shell to run our test, you can evaluate the following call:
 
 ```erlang
- 1> ct:run_test([{dir, "."}]).
+1> ct:run_test([{dir, "."}]).
 ```
 
 or:
 
 ```erlang
- 1> ct:run_test([{suite, "check_log_SUITE"}]).
+1> ct:run_test([{suite, "check_log_SUITE"}]).
 ```
 
 The result from running the test is printed in log files in HTML format (stored

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -216,24 +216,8 @@ unload_modules(CaseDir) ->
 %% Test runners
 %%------------------------------------------------------------------------------
 
-have_jsonlib() ->
-    case code:which(jsx) of
-        non_existing -> false;
-    _ -> true
-    end.
-
 test(Config, TestF) ->
-    TestJer = case have_jsonlib() of
-                  true -> [jer];
-                  false -> []
-              end,
-    test(Config, TestF, [per,
-                         uper,
-                         ber] ++ TestJer),
-    case TestJer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    test(Config, TestF, [per, uper, ber, jer, {ber,[ber,jer]}]).
 
 test(Config, TestF, Rules) ->
     Fun = fun(C, R, O) ->
@@ -445,23 +429,22 @@ testExtensionDefault(Config) ->
     test(Config, fun testExtensionDefault/3).
 testExtensionDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["ExtensionDefault"], Config, [Rule|Opts]),
-    testExtensionDefault:main(Rule).
+    case lists:member(ber, Opts) andalso lists:member(jer, Opts) of
+        true ->
+            %% JER back-end disables maps for BER, too.
+            ok;
+        false ->
+            testExtensionDefault:main(Rule)
+    end.
 
 testMaps(Config) ->
-    Jer = case have_jsonlib() of
-        true -> [{jer,[maps,no_ok_wrapper]}];
-        false -> []
-    end,
-    RulesAndOptions = 
-         [{ber,[maps,no_ok_wrapper]},
-          {ber,[maps,der,no_ok_wrapper]},
-          {per,[maps,no_ok_wrapper]},
-          {uper,[maps,no_ok_wrapper]}] ++ Jer,
-    test(Config, fun testMaps/3, RulesAndOptions),
-    case Jer of
-        [] -> {comment,"skipped JER"};
-        _ -> ok
-    end.
+    RulesAndOptions =
+        [{ber,[maps,no_ok_wrapper]},
+         {ber,[maps,der,no_ok_wrapper]},
+         {per,[maps,no_ok_wrapper]},
+         {uper,[maps,no_ok_wrapper]},
+         {jer,[maps,no_ok_wrapper]}],
+    test(Config, fun testMaps/3, RulesAndOptions).
 
 testMaps(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(['Maps'], Config, [Rule|Opts]),
@@ -1016,9 +999,8 @@ testNortel(Config) -> test(Config, fun testNortel/3).
 testNortel(Config, Rule, Opts) ->
     asn1_test_lib:compile("Nortel", Config, [Rule|Opts]).
 
-test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
-test_undecoded_rest(_Config,jer,_Opts) ->
-    ok; % not relevant for JER
+test_undecoded_rest(Config) ->
+    test(Config, fun test_undecoded_rest/3, [per, uper, ber]).
 test_undecoded_rest(Config, Rule, Opts) ->
     do_test_undecoded_rest(Config, Rule, Opts),
     do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
@@ -1150,8 +1132,8 @@ testContaining(Config) ->
 testContaining(Config, Rule, Opts) ->
     asn1_test_lib:compile("Containing", Config, [Rule|Opts]),
     testContaining:containing(Rule),
-    case {Rule,have_jsonlib()} of
-        {per,true} ->
+    case Rule of
+        per ->
             io:format("Testing with both per and jer...\n"),
             asn1_test_lib:compile("Containing", Config, [jer,Rule|Opts]),
             testContaining:containing(per_jer);

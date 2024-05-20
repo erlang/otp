@@ -21,9 +21,7 @@
 -moduledoc """
 Behaviour module for reporting SNMP agent errors
 
-[](){: #desc }
-
-This module defines the behaviour of the agent error reporting. A
+[](){: #desc } This module defines the behaviour of the agent error reporting. A
 `snmpa_error_report` compliant module must export the following functions:
 
 - config_err/2

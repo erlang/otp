@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,6 +241,7 @@ ns_init(ZoneDir, PrivDir, DataDir) ->
 				  {args,["127.0.0.1",
 					 integer_to_list(PortNum),
 					 atom_to_list(ZoneDir)]},
+                                  {env,[{"LOGNAME",os:getenv("LOGNAME",os:getenv("USER"))}]},
 				  stderr_to_stdout,
 				  eof]),
             ?P("ns_init -> port ~p", [P]),

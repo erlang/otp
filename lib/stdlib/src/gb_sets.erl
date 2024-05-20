@@ -295,7 +295,7 @@ size({Size, _}) ->
 Returns `true` if `Set1` and `Set2` are equal, that is when every element of one
 set is also a member of the respective other set, otherwise `false`.
 """.
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec is_equal(Set1, Set2) -> boolean() when
       Set1 :: set(),
       Set2 :: set().
@@ -328,14 +328,14 @@ is_equal_1({Key1, Smaller, Bigger}, Keys0) ->
 singleton(Key) ->
     {1, {Key, nil, nil}}.
 
--doc(#{equiv => is_member/2}).
+-doc(#{equiv => is_member(Element, Set)}).
 -spec is_element(Element, Set) -> boolean() when
       Set :: set(Element).
 
 is_element(Key, S) ->
     is_member(Key, S).
 
--doc "Returns `true` if `Element` is an element of `Set`, otherwise `false`.".
+-doc "Returns `true` if `Element` is an member of `Set`, otherwise `false`.".
 -spec is_member(Element, Set) -> boolean() when
       Set :: set(Element).
 
@@ -414,10 +414,12 @@ count(nil) ->
     {1, 0}.
 
 -doc """
-Rebalances the tree representation of `Set1`. Notice that this is rarely
-necessary, but can be motivated when a large number of elements have been
-deleted from the tree without further insertions. Rebalancing can then be forced
-to minimise lookup times, as deletion does not rebalance the tree.
+Rebalances the tree representation of `Set1`.
+
+Notice that this is rarely necessary, but can be motivated when a large number of
+elements have been deleted from the tree without further insertions. Rebalancing
+ can then be forced to minimise lookup times, as deletion does not rebalance the
+tree.
 """.
 -spec balance(Set1) -> Set2 when
       Set1 :: set(Element),
@@ -457,7 +459,7 @@ already an element in `Set1`, nothing is changed.
 add_element(X, S) ->
     add(X, S).
 
--doc(#{equiv => add_element/2}).
+-doc(#{equiv => add_element(Element, Set1)}).
 -spec add(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -493,7 +495,7 @@ from_ordset(L) ->
     S = length(L),
     {S, balance_list(L, S)}.
 
--doc(#{equiv => delete_any/2}).
+-doc(#{equiv => delete_any(Element, Set1)}).
 -spec del_element(Element, Set1) -> Set2 when
       Set1 :: set(Element),
       Set2 :: set(Element).
@@ -611,7 +613,7 @@ less than `Element1`.
 
 Returns `none` if no such element exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec smaller(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -637,7 +639,7 @@ greater than `Element1`.
 
 Returns `none` if no such element exists.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec larger(Element1, Set) -> none | {found, Element2} when
     Element1 :: Element,
     Element2 :: Element,
@@ -686,13 +688,15 @@ iterator(Set) ->
 
 -doc """
 Returns an iterator that can be used for traversing the entries of `Set` in
-either `ordered` or `reversed` direction; see `next/1`. The implementation of
-this is very efficient; traversing the whole set using [`next/1`](`next/1`) is
-only slightly slower than getting the list of all elements using `to_list/1` and
-traversing that. The main advantage of the iterator approach is that it does not
-require the complete list of all elements to be built in memory at one time.
+either `ordered` or `reversed` direction; see `next/1`.
+
+The implementation of this is very efficient; traversing the whole set using
+[`next/1`](`next/1`) is only slightly slower than getting the list of all
+ elements using `to_list/1` and traversing that. The main advantage of the
+iterator approach is that it does not require the complete list of all elements
+to be built in memory at one time.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator(Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
@@ -741,7 +745,7 @@ Returns an iterator that can be used for traversing the entries of `Set`; see
 `next/1`. The difference as compared to the iterator returned by `iterator/2` is
 that the iterator starts with the first element next to or equal to `Element`.
 """.
--doc(#{since => <<"OTP @OTP-18874@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec iterator_from(Element, Set, Order) -> Iter when
       Set :: set(Element),
       Iter :: iter(Element),
@@ -1038,7 +1042,7 @@ is_disjoint_1(_, nil) ->
 subtract(S1, S2) ->
     difference(S1, S2).
 
--doc(#{equiv => subtract/2}).
+-doc(#{equiv => subtract(Set1, Set2)}).
 -spec difference(Set1, Set2) -> Set3 when
       Set1 :: set(Element),
       Set2 :: set(Element),
@@ -1162,7 +1166,7 @@ filter(F, S) when is_function(F, 1) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
 -doc "Maps elements in `Set1` using mapping function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec map(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> Element2),
       Set1 :: set(Element1),
@@ -1176,7 +1180,7 @@ map_1({Key, Small, Big}, F, L) ->
 map_1(nil, _F, L) -> L.
 
 -doc "Filters and maps elements in `Set1` using function `Fun`.".
--doc(#{since => <<"OTP @OTP-18622@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec filtermap(Fun, Set1) -> Set2 when
       Fun :: fun((Element1) -> boolean() | {true, Element2}),
       Set1 :: set(Element1),

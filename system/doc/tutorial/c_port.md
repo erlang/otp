@@ -24,7 +24,28 @@ This section outlines an example of how to solve the example problem in the
 
 The scenario is illustrated in the following figure:
 
-![Port Communication](assets/port.gif "Port Communication")
+```mermaid
+---
+title: Port Communication
+---
+flowchart LR
+    subgraph Legend
+        direction LR
+
+        os[OS Process]
+        erl([Erlang Process])
+    end
+
+    subgraph ERTS
+        direction LR
+
+        port{Port} --> erlProc
+        erlProc([Connected process]) --> port
+    end
+
+    port --> proc[External Program]
+    proc --> port
+```
 
 ## Erlang Program
 
@@ -113,7 +134,6 @@ The resulting Erlang program, including functionality for stopping the port and
 detecting port failures, is as follows:
 
 ```erlang
-
 -module(complex1).
 -export([start/1, stop/0, init/1]).
 -export([foo/1, bar/1]).
@@ -174,8 +194,7 @@ read from standard input (file descriptor 0) and write to standard output (file
 descriptor 1). Examples of such functions, `read_cmd/1` and `write_cmd/2`,
 follows:
 
-```erlang
-
+```c
 /* erl_comm.c */
 
 #include <stdio.h>
@@ -242,8 +261,7 @@ and, according to the selected encoding/decoding scheme, use the first byte to
 determine which function to call and the second byte as argument to the
 function. The result of calling the function is then to be sent back to Erlang:
 
-```text
-
+```c
 /* port.c */
 
 typedef unsigned char byte;
@@ -277,16 +295,16 @@ and terminates.
 _Step 1._ Compile the C code:
 
 ```text
-unix> gcc -o extprg complex.c erl_comm.c port.c
+$ gcc -o extprg complex.c erl_comm.c port.c
 ```
 
 _Step 2._ Start Erlang and compile the Erlang code:
 
-```text
-unix> erl
-Erlang (BEAM) emulator version 4.9.1.2
+```erlang
+$ erl
+Erlang/OTP 26 [erts-14.2] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit:ns]
 
-Eshell V4.9.1.2 (abort with ^G)
+Eshell V14.2 (press Ctrl+G to abort, type help(). for help)
 1> c(complex1).
 {ok,complex1}
 ```

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2022. All Rights Reserved.
+# Copyright Ericsson AB 2009-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ RELSYSDIR = $(RELEASE_PATH)/reltool_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/reltool/ebin/
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/reltool/ebin/ +nowarn_missing_spec_documented
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .

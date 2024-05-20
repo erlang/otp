@@ -271,7 +271,8 @@ cpc_receive(#cpc_static{tag = Tag} = CpcS, {NoReq, PidsLeft} = ReqInfo,
                         PReqs);
 	PReq when element(1, PReq) == purge;
 		  element(1, PReq) == soft_purge;
-		  element(1, PReq) == test_purge ->
+		  element(1, PReq) == test_purge;
+                  element(1, PReq) == finish_after_on_load ->
 	    %% A new purge request; save it until later...
 	    cpc_receive(CpcS, ReqInfo, KillState0, [PReq | PReqs]);
 

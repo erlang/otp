@@ -109,7 +109,7 @@
 
 -type edoc_module() :: xmerl_scan:xmlElement().
 %% The EDoc documentation data for a module,
-%% expressed as an XML document in {@link //xmerl. XMerL} format. See
+%% expressed as an XML document in {@link //xmerl/xmerl. XMerL} format. See
 %% the file <a href="assets/edoc.dtd">`edoc.dtd'</a> for details.
 
 -type ordset(T) :: ordsets:ordset(T).
@@ -189,7 +189,7 @@ files(Files) ->
 
 %% @doc Runs EDoc on a given set of source files. See {@link run/2} for
 %% details, including options.
-%% @equiv run([], Files, Options)
+%% @equiv run(Files, Options)
 
 -spec files(Files, Options) -> ok when
       Files :: [filename()],
@@ -545,7 +545,7 @@ layout(Doc) ->
 
 %% INHERIT-OPTIONS: edoc_lib:run_layout/2
 
--spec layout(Doc, Opts) -> string() when
+-spec layout(Doc, Opts) -> term() when
       Doc :: edoc_module(),
       Opts :: proplist().
 layout(Doc, Opts) ->

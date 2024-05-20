@@ -1122,6 +1122,10 @@ handle_cast({adopt_orphans, Node, Tabs}, State) ->
     end,
     noreply(State2);
 
+handle_cast({del_table_copy, Tab}, #state{late_loader_queue = LLQ0, loader_queue = LQ0} = State0) ->
+    noreply(State0#state{late_loader_queue = gb_trees:delete_any(Tab, LLQ0),
+                         loader_queue = gb_trees:delete_any(Tab, LQ0)});
+
 handle_cast(Msg, State) ->
     error("~p got unexpected cast: ~tp~n", [?SERVER_NAME, Msg]),
     noreply(State).
@@ -1225,19 +1229,19 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 		    false ->
 			ignore
 		end,
-		case ?catch_val({Tab, active_replicas}) of
-		    [_|_] -> % still available elsewhere
+
+                case {?catch_val({Tab, storage_type}), val({Tab, active_replicas})} of
+                    {unknown, _} -> %% Should not have a local copy anymore
+                        State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)};
+		    {_, [_|_]} -> % still available elsewhere
 			{value,{_,Worker}} = lists:keysearch(WPid,1,get_loaders(State0)),
 			add_loader(Tab,Worker,State1);
-		    _ ->
+                    {ram_copies, []} ->
 			DelState = State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)},
-			case ?catch_val({Tab, storage_type}) of
-			    ram_copies ->
-				cast({disc_load, Tab, ram_only}),
-				DelState;
-			    _ ->
-				DelState
-			end
+                        cast({disc_load, Tab, ram_only}),
+                        DelState;
+                    {_, []} ->  %% Table deleted or not loaded anywhere
+                        State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)}
 		end
 	end,
     State3 = opt_start_worker(State2),
@@ -1765,6 +1769,10 @@ del_active_replica(Tab, Node) ->
     set(Var, mark_blocked_tab(Blocked, New)),      % where_to_commit
     mnesia_lib:del({Tab, active_replicas}, Node),
     mnesia_lib:del({Tab, where_to_write}, Node),
+    case Node =:= node() of
+        true -> cast({del_table_copy, Tab});
+        false -> ok
+    end,
     update_where_to_wlock(Tab).
 
 change_table_access_mode(Cs) ->
@@ -2099,7 +2107,6 @@ opt_start_loader(State = #state{loader_queue = LoaderQ}) ->
 				true ->
 				    opt_start_loader(State#state{loader_queue = Rest});
 				false ->
-				    %% Start worker but keep him in the queue
 				    Pid = load_and_reply(self(), Worker),
 				    State#state{loader_pid=[{Pid,Worker}|get_loaders(State)],
 						loader_queue = Rest}

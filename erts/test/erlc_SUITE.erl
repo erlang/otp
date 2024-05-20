@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -716,20 +716,6 @@ features_atom_warnings(Config) when is_list(Config) ->
                     skip_lines,
                     atom_warning(while, experimental_ftr_2),
                     skip_lines])),
-
-    %% Check for keyword warnings.  Not all warnings are checked.
-    %% This file has a -compile attribute for keyword warnings.
-    Compile("ignorant_directive.erl", "",
-            ?OK([atom_warning(ifn, experimental_ftr_1),
-                 skip_lines,
-                 atom_warning(while, experimental_ftr_2),
-                 skip_lines,
-                 atom_warning(until, experimental_ftr_2),
-                 skip_lines])),
-
-    %% Override warning attribute inside file
-    Compile("ignorant_directive.erl", "+nowarn_keywords",
-            ?OK([])),
 
     %% File has quoted atoms which are keywords in experimental_ftr_2.
     %% We should see no warnings.

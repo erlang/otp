@@ -383,25 +383,6 @@ static Port *create_port(char *name,
     prt->drv_data = (SWord) 0;
     prt->os_pid = -1;
 
-    /* Set default tracing */
-    ERTS_P_ALL_TRACE_FLAGS(prt) = 0;
-    prt->common.tracee.first_ref = NULL;
-    erts_rwmtx_rlock(&erts_trace_session_list_lock);
-    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
-        Uint32 trace_flags;
-        ErtsTracer tracer;
-        // ToDo: Optimize
-        erts_get_default_port_tracing(s, &trace_flags, &tracer);
-        if (trace_flags) {
-            ErtsTracerRef *ref = new_tracer_ref(&prt->common, s);
-            ref->flags = trace_flags;
-            ref->tracer = tracer;
-        }
-    }
-    erts_rwmtx_runlock(&erts_trace_session_list_lock);
-    ERTS_P_ALL_TRACE_FLAGS(prt) = erts_sum_all_trace_flags(&prt->common);
-
-
     ERTS_CT_ASSERT(offsetof(Port,common) == 0);
 
 #if !ERTS_PORT_INIT_INSTR_NEED_ID
@@ -432,6 +413,24 @@ static Port *create_port(char *name,
     ASSERT(prt == (Port *) (erts_ptab_pix2intptr_nob(
 				&erts_port,
 				internal_port_index(prt->common.id))));
+
+    /* Set default tracing */
+    ERTS_P_ALL_TRACE_FLAGS(prt) = 0;
+    prt->common.tracee.first_ref = NULL;
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        Uint32 trace_flags;
+        ErtsTracer tracer;
+        // ToDo: Optimize
+        erts_get_on_open_port_tracing(s, &trace_flags, &tracer);
+        if (trace_flags) {
+            ErtsTracerRef *ref = new_tracer_ref(&prt->common, s);
+            ref->flags = trace_flags;
+            ref->tracer = tracer;
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    ERTS_P_ALL_TRACE_FLAGS(prt) = erts_sum_all_trace_flags(&prt->common);
 
     initq(prt);
 

@@ -22,7 +22,7 @@
 Interface to Windows Event Log
 
 `nteventlog` provides a generic interface to the Windows event log. It is part
-of the OS_Mon application, see [os_mon(6)](os_mon_app.md).
+of the OS_Mon application, see [os_mon](os_mon_app.md).
 
 This module is used as the Windows backend for `os_sup`. See `m:os_sup`.
 
@@ -48,7 +48,7 @@ The callback function works as described in `m:os_sup`.
 
 ## See Also
 
-[os_mon(6)](os_mon_app.md), `m:os_sup`
+[os_mon](os_mon_app.md), `m:os_sup`
 
 Windows NT documentation
 """.
@@ -68,8 +68,6 @@ Windows NT documentation
 %%----------------------------------------------------------------------
 
 -doc """
-start_link(Identifier, MFA) -> Result
-
 This function starts the standalone `nteventlog` process and, if
 [`start_link/2`](`start_link/2`) is used, links to it.
 
@@ -90,7 +88,10 @@ start_link(Ident, MFA) ->
     gen_server:start_link({local, nteventlog}, nteventlog,
 			  [Ident, MFA], []).
 
--doc(#{equiv => start_link/2}).
+-doc """
+Equivalent to [`start_link(Identifier, MFA)`](`start_link/2`) except that no
+link is created between `nteventlog` and the calling process.
+""".
 -spec start(Identifier, MFA) -> Result when Identifier :: string() | atom(),
    MFA :: {Mod, Func, Args},
     Mod :: atom(),
@@ -102,8 +103,6 @@ start(Ident, MFA) ->
     gen_server:start({local, nteventlog}, nteventlog, [Ident, MFA], []).
 
 -doc """
-stop() -> stopped
-
 Stops `nteventlog`. Usually only used during development. The server does not
 have to be shut down gracefully to maintain its state.
 """.

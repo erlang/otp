@@ -40,7 +40,7 @@ format specific for the platform in use, that is, `.so` files on most Unix
 systems and `.ddl` files on Windows. An Erlang linked-in driver must provide
 specific interfaces to the emulator, so this module is not designed for loading
 arbitrary dynamic libraries. For more information about Erlang drivers, see
-[`erts:erl_driver`](`e:erts:erl_driver.md`) .
+[`erl_driver`](`e:erts:erl_driver.md`) .
 
 [](){: #users }
 
@@ -151,8 +151,7 @@ follows:
 
 ## See Also
 
-[`erts:erl_driver(4)`](`e:erts:erl_driver.md`),
-[`erts:driver_entry(4)`](`e:erts:driver_entry.md`)
+[`erl_driver(4)`](`e:erts:erl_driver.md`), [`driver_entry(4)`](`e:erts:driver_entry.md`)
 """.
 
 -export([load_driver/2, load/2, 
@@ -172,8 +171,10 @@ follows:
 
 -doc """
 Removes a driver monitor in much the same way as `erlang:demonitor/1` in ERTS
-does with process monitors. For details about how to create driver monitors, see
-`monitor/2`, `try_load/3`, and `try_unload/2`.
+does with process monitors.
+
+For details about how to create driver monitors, see `monitor/2`,
+`try_load/3`, and `try_unload/2`.
 
 The function throws a `badarg` exception if the parameter is not a
 `t:reference/0`.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -186,8 +186,14 @@ reuse_session_expired() ->
 reuse_session_expired(Config) when is_list(Config) -> 
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, TestVersion),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
+
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
@@ -199,13 +205,14 @@ reuse_session_expired(Config) when is_list(Config) ->
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, [{reuse_sessions, save} | ClientOpts]}]),
+                                         {from, self()},  {options, [{reuse_sessions, save},
+                                                                     {ciphers, Ciphers}| ClientOpts]}]),
     Server0 ! listen,
     
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, ClientOpts}]),    
+                                         {from, self()},  {options,  [{ciphers, Ciphers} | ClientOpts]}]),
     
     SID = receive
               {Client0, Id0} ->
@@ -760,9 +767,13 @@ client_hello(Random) ->
 
 connection_states(Random) ->
     #{current_write =>
-          #{beast_mitigation => one_n_minus_one,cipher_state => undefined,
-		 client_verify_data => undefined,
-		 mac_secret => undefined,secure_renegotiation => undefined,
+          #{beast_mitigation => one_n_minus_one,
+            cipher_state => undefined,
+            mac_secret => undefined,
+            reneg => #{secure_renegotiation => undefined,
+                       client_verify_data => undefined,
+                       server_verify_data => undefined
+                      },
             security_parameters =>
                 #security_parameters{
                   cipher_suite = <<0,0>>,
@@ -778,7 +789,8 @@ connection_states(Random) ->
                    resumption_master_secret = undefined,
                    client_random = Random,
                    server_random = undefined},
-            sequence_number => 0,server_verify_data => undefined,max_fragment_length => undefined}}.
+            sequence_number => 0,
+            max_fragment_length => undefined}}.
 
 
 

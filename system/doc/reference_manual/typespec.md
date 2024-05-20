@@ -32,11 +32,13 @@ Type information can be used for the following:
 
 - To document function interfaces
 - To provide more information for bug detection tools, such as Dialyzer
-- To be exploited by documentation tools, such as EDoc, for generating program
-  documentation of various forms
+- To be leveraged by documentation tools, such as
+  [ExDoc](https://hexdocs.pm/ex_doc/) or [EDoc](`e:edoc:edoc`), for generating
+  documentation
 
-It is expected that the type language described in this section supersedes and
-replaces the purely comment-based `@type` and `@spec` declarations used by EDoc.
+It is expected that the type language described in this section
+supersedes and replaces the purely comment-based `@type` and `@spec`
+declarations used by EDoc.
 
 [](){: #syntax }
 
@@ -56,13 +58,13 @@ supertype. Thus, the union is then treated as if the subtype was not a
 constituent of the union. For example, the type union:
 
 ```text
-  atom() | 'bar' | integer() | 42
+atom() | 'bar' | integer() | 42
 ```
 
 describes the same set of terms as the type union:
 
 ```text
-  atom() | integer()
+atom() | integer()
 ```
 
 Because of subtype relations that exist between types, all types, except
@@ -85,72 +87,72 @@ The set of predefined types and the syntax for types follows:
 {: #predefined }
 
 ```text
-  Type :: any()                 %% The top type, the set of all Erlang terms
-        | none()                %% The bottom type, contains no terms
-        | dynamic()
-        | pid()
-        | port()
-        | reference()
-        | []                    %% nil
-        | Atom
-        | Bitstring
-        | float()
-        | Fun
-        | Integer
-        | List
-        | Map
-        | Tuple
-        | Union
-        | UserDefined           %% described in Type Declarations of User-Defined Types
+Type :: any()                 %% The top type, the set of all Erlang terms
+      | none()                %% The bottom type, contains no terms
+      | dynamic()
+      | pid()
+      | port()
+      | reference()
+      | []                    %% nil
+      | Atom
+      | Bitstring
+      | float()
+      | Fun
+      | Integer
+      | List
+      | Map
+      | Tuple
+      | Union
+      | UserDefined           %% described in Type Declarations of User-Defined Types
 
-  Atom :: atom()
-        | Erlang_Atom           %% 'foo', 'bar', ...
+Atom :: atom()
+      | Erlang_Atom           %% 'foo', 'bar', ...
 
-  Bitstring :: <<>>
-             | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
-             | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
-             | <<_:M, _:_*N>>
+Bitstring :: <<>>
+           | <<_:M>>          %% M is an Integer_Value that evaluates to a positive integer
+           | <<_:_*N>>        %% N is an Integer_Value that evaluates to a positive integer
+           | <<_:M, _:_*N>>
 
-  Fun :: fun()                  %% any function
-       | fun((...) -> Type)     %% any arity, returning Type
-       | fun(() -> Type)
-       | fun((TList) -> Type)
+Fun :: fun()                  %% any function
+     | fun((...) -> Type)     %% any arity, returning Type
+     | fun(() -> Type)
+     | fun((TList) -> Type)
 
-  Integer :: integer()
-           | Integer_Value
-           | Integer_Value..Integer_Value      %% specifies an integer range
+Integer :: integer()
+         | Integer_Value
+         | Integer_Value..Integer_Value      %% specifies an integer range
 
-  Integer_Value :: Erlang_Integer              %% ..., -1, 0, 1, ... 42 ...
-                 | Erlang_Character            %% $a, $b ...
-                 | Integer_Value BinaryOp Integer_Value
-                 | UnaryOp Integer_Value
+Integer_Value :: Erlang_Integer              %% ..., -1, 0, 1, ... 42 ...
+               | Erlang_Character            %% $a, $b ...
+               | Integer_Value BinaryOp Integer_Value
+               | UnaryOp Integer_Value
 
-  BinaryOp :: '*' | 'div' | 'rem' | 'band' | '+' | '-' | 'bor' | 'bxor' | 'bsl' | 'bsr'
+BinaryOp :: '*' | 'div' | 'rem' | 'band' | '+' | '-' | 'bor' | 'bxor' | 'bsl' | 'bsr'
 
-  UnaryOp :: '+' | '-' | 'bnot'
+UnaryOp :: '+' | '-' | 'bnot'
 
-  List :: list(Type)                           %% Proper list ([]-terminated)
-        | maybe_improper_list(Type1, Type2)    %% Type1=contents, Type2=termination
-        | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
-        | nonempty_list(Type)                  %% Proper non-empty list
+List :: list(Type)                           %% Proper list ([]-terminated)
+      | maybe_improper_list(Type1, Type2)    %% Type1=contents, Type2=termination
+      | nonempty_improper_list(Type1, Type2) %% Type1 and Type2 as above
+      | nonempty_list(Type)                  %% Proper non-empty list
 
-  Map :: #{}                                   %% denotes the empty map
-       | #{AssociationList}
+Map :: #{}                                   %% denotes the empty map
+     | #{AssociationList}
 
-  Tuple :: tuple()                             %% denotes a tuple of any size
-         | {}
-         | {TList}
+Tuple :: tuple()                             %% denotes a tuple of any size
+       | {}
+       | {TList}
 
-  AssociationList :: Association
-                   | Association, AssociationList
+AssociationList :: Association
+                 | Association, AssociationList
 
-  Association :: Type := Type                  %% denotes a mandatory association
-               | Type => Type                  %% denotes an optional association
+Association :: Type := Type                  %% denotes a mandatory association
+             | Type => Type                  %% denotes an optional association
 
-  TList :: Type
-         | Type, TList
+TList :: Type
+       | Type, TList
 
-  Union :: Type1 | Type2
+Union :: Type1 | Type2
 ```
 
 Integer values are either integer or character literals or expressions
@@ -189,34 +191,34 @@ predefined aliases for the type unions also shown in the table.
 
 [](){: #builtin_types }
 
-| _Built-in type_           | _Defined as_                                                     |
-| ------------------------- | ---------------------------------------------------------------- | ------------------ | ------------------ | ---- |
-| `t:term/0`                | `t:any/0`                                                        |
-| `t:binary/0`              | `<<_:_*8>>`                                                      |
-| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                 |
-| `t:bitstring/0`           | `<<_:_*1>>`                                                      |
-| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                 |
-| `t:boolean/0`             | `'false'                                                         | 'true'`            |
-| `t:byte/0`                | `0..255`                                                         |
-| `t:char/0`                | `0..16#10ffff`                                                   |
-| `t:nil/0`                 | `[]`                                                             |
-| `t:number/0`              | `integer()                                                       | float()`           |
-| `t:list/0`                | `[any()]`                                                        |
-| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`) |
-| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                    |
-| `t:string/0`              | `[char()]`                                                       |
-| `t:nonempty_string/0`     | `[char(),...]`                                                   |
-| `t:iodata/0`              | `iolist()                                                        | binary()`          |
-| `t:iolist/0`              | `maybe_improper_list(byte()                                      | binary()           | iolist(), binary() | [])` |
-| `t:map/0`                 | `#{any() => any()}`                                              |
-| `t:function/0`            | `fun()`                                                          |
-| `t:module/0`              | `t:atom/0`                                                       |
-| `t:mfa/0`                 | `{module(),atom(),arity()}`                                      |
-| `t:arity/0`               | `0..255`                                                         |
-| `t:identifier/0`          | `pid()                                                           | port()             | reference()`       |
-| `node/0`                  | `t:atom/0`                                                       |
-| `t:timeout/0`             | `'infinity'                                                      | non_neg_integer()` |
-| `t:no_return/0`           | `t:none/0`                                                       |
+| _Built-in type_           | _Defined as_                                                                |
+| ------------------------- | --------------------------------------------------------------------------- |
+| `t:term/0`                | `t:any/0`                                                                   |
+| `t:binary/0`              | `<<_:_*8>>`                                                                 |
+| `t:nonempty_binary/0`     | `<<_:8, _:_*8>>`                                                            |
+| `t:bitstring/0`           | `<<_:_*1>>`                                                                 |
+| `t:nonempty_bitstring/0`  | `<<_:1, _:_*1>>`                                                            |
+| `t:boolean/0`             | `'false'` \| `'true'`                                                       |
+| `t:byte/0`                | `0..255`                                                                    |
+| `t:char/0`                | `0..16#10ffff`                                                              |
+| `t:nil/0`                 | `[]`                                                                        |
+| `t:number/0`              | `t:integer/0` \| `t:float/0`                                                |
+| `t:list/0`                | `[any()]`                                                                   |
+| `t:maybe_improper_list/0` | [`maybe_improper_list(any(), any())`](`t:maybe_improper_list/2`)            |
+| `t:nonempty_list/0`       | [`nonempty_list(any())`](`t:nonempty_list/1`)                               |
+| `t:string/0`              | `[char()]`                                                                  |
+| `t:nonempty_string/0`     | `[char(),...]`                                                              |
+| `t:iodata/0`              | `iolist()` \| `binary()`                                                    |
+| `t:iolist/0`              | `maybe_improper_list(byte()` \| `binary()` \| `iolist(), binary()` \| `[])` |
+| `t:map/0`                 | `#{any() => any()}`                                                         |
+| `t:function/0`            | `fun()`                                                                     |
+| `t:module/0`              | `t:atom/0`                                                                  |
+| `t:mfa/0`                 | `{module(),atom(),arity()}`                                                 |
+| `t:arity/0`               | `0..255`                                                                    |
+| `t:identifier/0`          | `pid()` \| `port()` \| `reference()`                                        |
+| `node/0`                  | `t:atom/0`                                                                  |
+| `t:timeout/0`             | `'infinity'` \| `non_neg_integer()`                                         |
+| `t:no_return/0`           | `t:none/0`                                                                  |
 
 _Table: Built-in types, predefined aliases_
 
@@ -238,9 +240,9 @@ _Table: Additional built-in types_
 > rarely used. Hence, they have long names:
 
 ```erlang
-  nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
-  nonempty_improper_list(Type1, Type2)
-  nonempty_maybe_improper_list(Type1, Type2)
+nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any(), any())
+nonempty_improper_list(Type1, Type2)
+nonempty_maybe_improper_list(Type1, Type2)
 ```
 
 where the last two types define the set of Erlang terms one would expect.
@@ -249,8 +251,8 @@ Also for convenience, record notation is allowed to be used. Records are
 shorthands for the corresponding tuples:
 
 ```erlang
-  Record :: #Erlang_Atom{}
-          | #Erlang_Atom{Fields}
+Record :: #Erlang_Atom{}
+        | #Erlang_Atom{Fields}
 ```
 
 Records are extended to possibly contain type information. This is described in
@@ -271,14 +273,14 @@ As an example, imagine that the Erlang/OTP 42 release introduces a new type
 `gadget()` defined like this:
 
 ```erlang
-  -type gadget() :: {'gadget', reference()}.
+-type gadget() :: {'gadget', reference()}.
 ```
 
 Further imagine that some code has its own (different) definition of `gadget()`,
 for example:
 
-```text
-  -type gadget() :: #{}.
+```erlang
+-type gadget() :: #{}.
 ```
 
 Since redefinitions are allowed, the code will still compile (but with a
@@ -291,8 +293,8 @@ New types are declared using `-type` and `-opaque` attributes as in the
 following:
 
 ```erlang
-  -type my_struct_type() :: Type.
-  -opaque my_opaq_type() :: Type.
+-type my_struct_type() :: Type.
+-opaque my_opaq_type() :: Type.
 ```
 
 The type name is the atom `my_struct_type`, followed by parentheses. `Type` is a
@@ -311,34 +313,34 @@ similar restriction currently exists for records.)
 
 Type declarations can also be parameterized by including type variables between
 the parentheses. The syntax of type variables is the same as Erlang variables,
-that is, starts with an upper-case letter. Naturally, these variables can - and
-is to - appear on the RHS of the definition. A concrete example follows:
+that is, starts with an upper-case letter. These variables is to
+appear on the RHS of the definition. A concrete example follows:
 
 ```erlang
-  -type orddict(Key, Val) :: [{Key, Val}].
+-type orddict(Key, Val) :: [{Key, Val}].
 ```
 
 A module can export some types to declare that other modules are allowed to
 refer to them as _remote types_. This declaration has the following form:
 
-```text
-  -export_type([T1/A1, ..., Tk/Ak]).
+```erlang
+-export_type([T1/A1, ..., Tk/Ak]).
 ```
 
-Here the Ti's are atoms (the name of the type) and the Ai's are their arguments
+Here the `Ti`s are atoms (the name of the type) and the `Ai`s are their arguments.
 
 _Example:_
 
 ```erlang
-  -export_type([my_struct_type/0, orddict/2]).
+-export_type([my_struct_type/0, orddict/2]).
 ```
 
 Assuming that these types are exported from module `'mod'`, you can refer to
 them from other modules using remote type expressions like the following:
 
 ```erlang
-  mod:my_struct_type()
-  mod:orddict(atom(), term())
+mod:my_struct_type()
+mod:orddict(atom(), term())
 ```
 
 It is not allowed to refer to types that are not declared as exported.
@@ -359,21 +361,21 @@ The types of record fields can be specified in the declaration of the record.
 The syntax for this is as follows:
 
 ```erlang
-  -record(rec, {field1 :: Type1, field2, field3 :: Type3}).
+-record(rec, {field1 :: Type1, field2, field3 :: Type3}).
 ```
 
-For fields without type annotations, their type defaults to any(). That is, the
+For fields without type annotations, their type defaults to `any()`. That is, the
 previous example is a shorthand for the following:
 
 ```erlang
-  -record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).
+-record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).
 ```
 
 In the presence of initial values for fields, the type must be declared after
 the initialization, as follows:
 
 ```erlang
-  -record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).
+-record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).
 ```
 
 The initial values for fields are to be compatible with (that is, a member of)
@@ -387,13 +389,13 @@ compilation error if a violation is detected.
 > two record declarations had identical effects:
 >
 > ```erlang
->   -record(rec, {f1 = 42 :: integer(),
->                 f2      :: float(),
->                 f3      :: 'a' | 'b'}).
+> -record(rec, {f1 = 42 :: integer(),
+>              f2      :: float(),
+>              f3      :: 'a' | 'b'}).
 >
->   -record(rec, {f1 = 42 :: integer(),
->                 f2      :: 'undefined' | float(),
->                 f3      :: 'undefined' | 'a' | 'b'}).
+> -record(rec, {f1 = 42 :: integer(),
+>               f2      :: 'undefined' | float(),
+>               f3      :: 'undefined' | 'a' | 'b'}).
 > ```
 >
 > This is no longer the case. If you require `'undefined'` in your record field
@@ -403,14 +405,14 @@ Any record, containing type information or not, once defined, can be used as a
 type using the following syntax:
 
 ```text
-  #rec{}
+#rec{}
 ```
 
 In addition, the record fields can be further specified when using a record type
 by adding type information about the field as follows:
 
 ```text
-  #rec{some_field :: Type}
+#rec{some_field :: Type}
 ```
 
 Any unspecified fields are assumed to have the type in the original record
@@ -422,11 +424,11 @@ declaration.
 > Dialyzer may need some help not to emit bad warnings. For example:
 >
 > ```erlang
->     -type height() :: pos_integer().
->     -record(person, {name :: string(), height :: height()}).
+> -type height() :: pos_integer().
+> -record(person, {name :: string(), height :: height()}).
 >
->     lookup(Name, Tab) ->
-> 	ets:match_object(Tab, #person{name = Name, _ = '_'}).
+> lookup(Name, Tab) ->
+>     ets:match_object(Tab, #person{name = Name, _ = '_'}).
 > ```
 >
 > Dialyzer will emit a warning since `'_'` is not in the type of record field
@@ -437,9 +439,9 @@ declaration.
 > needed. The modified example:
 >
 > ```erlang
->     -record(person, {name :: string(), height :: height() | '_'}).
+> -record(person, {name :: string(), height :: height() | '_'}).
 >
->     -type person() :: #person{height :: height()}.
+> -type person() :: #person{height :: height()}.
 > ```
 >
 > In specifications and type declarations the type `person()` is to be preferred
@@ -451,33 +453,33 @@ A specification (or contract) for a function is given using the `-spec`
 attribute. The general format is as follows:
 
 ```text
-  -spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.
+-spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.
 ```
 
 An implementation of the function with the same name `Function` must exist in
 the current module, and the arity of the function must match the number of
-arguments, else a compilation error occurs.
+arguments, otherwise the compilation fails.
 
 The following longer format with module name is also valid as long as `Module`
 is the name of the current module. This can be useful for documentation
 purposes.
 
 ```text
-  -spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.
+-spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.
 ```
 
 Also, for documentation purposes, argument names can be given:
 
 ```text
-  -spec Function(ArgName1 :: Type1, ..., ArgNameN :: TypeN) -> RT.
+-spec Function(ArgName1 :: Type1, ..., ArgNameN :: TypeN) -> RT.
 ```
 
 A function specification can be overloaded. That is, it can have several types,
-separated by a semicolon (`;`):
+separated by a semicolon (`;`). For example:
 
 ```erlang
-  -spec foo(T1, T2) -> T3
-         ; (T4, T5) -> T6.
+-spec foo(T1, T2) -> T3;
+         (T4, T5) -> T6.
 ```
 
 A current restriction, which currently results in a warning by Dialyzer, is that
@@ -485,8 +487,8 @@ the domains of the argument types cannot overlap. For example, the following
 specification results in a warning:
 
 ```erlang
-  -spec foo(pos_integer()) -> pos_integer()
-         ; (integer()) -> integer().
+-spec foo(pos_integer()) -> pos_integer();
+         (integer()) -> integer().
 ```
 
 Type variables can be used in specifications to specify relations for the input
@@ -494,7 +496,7 @@ and output arguments of a function. For example, the following specification
 defines the type of a polymorphic identity function:
 
 ```text
-  -spec id(X) -> X.
+-spec id(X) -> X.
 ```
 
 Notice that the above specification does not restrict the input and output type
@@ -502,10 +504,10 @@ in any way. These types can be constrained by guard-like subtype constraints and
 provide bounded quantification:
 
 ```erlang
-  -spec id(X) -> X when X :: tuple().
+-spec id(X) -> X when X :: tuple().
 ```
 
-Currently, the `::` constraint (read as «is a subtype of») is the only guard
+Currently, the `::` constraint (read as "is a subtype of") is the only guard
 constraint that can be used in the `when` part of a `-spec` attribute.
 
 > #### Note {: .info }
@@ -515,7 +517,7 @@ constraint that can be used in the `when` part of a `-spec` attribute.
 > specification, where the type variables are missing:
 >
 > ```erlang
->   -spec id(tuple()) -> tuple().
+> -spec id(tuple()) -> tuple().
 > ```
 >
 > The latter specification says that the function takes some tuple and returns
@@ -531,8 +533,8 @@ are used in different constituents of an overloaded contract, as shown in the
 following example:
 
 ```erlang
-  -spec foo({X, integer()}) -> X when X :: atom()
-         ; ([Y]) -> Y when Y :: number().
+-spec foo({X, integer()}) -> X when X :: atom();
+         ([Y]) -> Y when Y :: number().
 ```
 
 Some functions in Erlang are not meant to return; either because they define
@@ -540,14 +542,14 @@ servers or because they are used to throw exceptions, as in the following
 function:
 
 ```erlang
-  my_error(Err) -> erlang:throw({error, Err}).
+my_error(Err) -> throw({error, Err}).
 ```
 
 For such functions, it is recommended to use the special `t:no_return/0` type
 for their "return", through a contract of the following form:
 
 ```text
-  -spec my_error(term()) -> no_return().
+-spec my_error(term()) -> no_return().
 ```
 
 > #### Note {: .info }
@@ -556,11 +558,11 @@ for their "return", through a contract of the following form:
 > to `t:term/0` or `t:any/0`. For example, the following function
 >
 > ```text
->   -spec Function(string(), _) -> string().
+> -spec Function(string(), _) -> string().
 > ```
 >
 > is equivalent to:
 >
 > ```text
->   -spec Function(string(), any()) -> string().
+> -spec Function(string(), any()) -> string().
 > ```

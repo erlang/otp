@@ -47,6 +47,10 @@
          lookup/1,
          subscribe/2]).
 
+-export([
+         which_transports/0, which_transports/1
+        ]).
+
 %% server start
 -export([start_link/0,
          start_link/1]).
@@ -68,6 +72,7 @@
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
+
 
 %% Server state.
 -record(state, {id = diameter_lib:now(),
@@ -127,6 +132,7 @@
 
 %%% The return values below assume the server diameter_config is started.
 %%% The functions will exit if it isn't.
+
 
 %% --------------------------------------------------------------------------
 %% # start_service/2
@@ -233,6 +239,7 @@ pred(_) ->
 subscribe(Ref, T) ->
     diameter_reg:subscribe(?TRANSPORT_KEY(Ref), T).
 
+
 %% --------------------------------------------------------------------------
 %% # have_transport/2
 %%
@@ -246,6 +253,32 @@ have_transport(SvcName, Ref) ->
              [{'andalso', {'=:=', '$1', {const, SvcName}},
                           {'=:=', '$2', {const, Ref}}}],
              [true]}]).
+
+
+%% --------------------------------------------------------------------------
+%% # which_transports/0,1
+%% --------------------------------------------------------------------------
+
+which_transports() ->
+    MatchHead = #transport{service = '$1',
+                           ref     = '$2',
+                           type    = '$3',
+                           _       = '_'},
+    Guard     = [],
+    Return    = [{{'$2', '$3', '$1'}}],
+    [#{ref => Ref, type => Type, service => Service} ||
+        {Ref, Type, Service} <- select([{MatchHead, Guard, Return}])].
+
+which_transports(SvcName) ->
+    MatchHead = #transport{service = '$1',
+                           ref     = '$2',
+                           type    = '$3',
+                           _       = '_'},
+    Guard     = [{'=:=', '$1', {const, SvcName}}],
+    Return    = [{{'$2', '$3'}}],
+    [#{ref => Ref, type => Type} ||
+        {Ref, Type} <- select([{MatchHead, Guard, Return}])].
+
 
 %% --------------------------------------------------------------------------
 %% # lookup/1
@@ -261,6 +294,7 @@ lookup(SvcName) ->
                         options = '$4'},
              [{'=:=', '$1', {const, SvcName}}],
              [{{'$2', '$3', '$4'}}]}]).
+
 
 %% ---------------------------------------------------------
 %% EXPORTED INTERNAL FUNCTIONS
@@ -649,6 +683,9 @@ opt(service = S, {sequence = K, F}) ->
             {error, {E, R, Stack}}
     end;
 
+opt(service, {bins_info, BI}) ->
+    is_boolean(BI) orelse (is_integer(BI) andalso (BI >= 0));
+
 opt(transport, {transport_module, M}) ->
     is_atom(M);
 
@@ -786,6 +823,7 @@ stop_transport(SvcName, Refs) ->
 %% make_config/2
 
 make_config(SvcName, Opts) ->
+
     AppOpts = [T || {application, _} = T <- Opts],
     Apps = [init_app(T) || T <- AppOpts],
 
@@ -803,10 +841,14 @@ make_config(SvcName, Opts) ->
 
     D = proplists:get_value(string_decode, SvcOpts, true),
 
-    #service{name = SvcName,
-             rec = #diameter_service{applications = Apps,
-                                     capabilities = binary_caps(Caps, D)},
-             options = SvcOpts}.
+    Service =
+        #service{name = SvcName,
+                 rec = #diameter_service{applications = Apps,
+                                         capabilities = binary_caps(Caps, D)},
+                 options = SvcOpts},
+
+    Service.
+
 
 binary_caps(Caps, true) ->
     Caps;

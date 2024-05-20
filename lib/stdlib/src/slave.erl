@@ -19,12 +19,11 @@
 %%
 -module(slave).
 -moduledoc """
-Functions for starting and controlling slave nodes.
+This module provides functions for starting Erlang slave nodes.
 
-This module provides functions for starting Erlang slave nodes. All slave nodes
-that are started by a master terminate automatically when the master terminates.
-All terminal output produced at the slave is sent back to the master node. File
-I/O is done through the master.
+All slave nodes that are started by a master terminate automatically when the
+master terminates. All terminal output produced at the slave is sent back to
+the master node. File I/O is done through the master.
 
 Slave nodes on other hosts than the current one are started with the `ssh`
 program. The user must be allowed to `ssh` to the remote hosts without being
@@ -92,7 +91,7 @@ The master node must be alive.
 
 %% Start a list of pseudo servers on the local node
 -doc """
-pseudo([Master | ServerList]) -> ok
+pseudo([Master | ServerList])
 
 Calls [`pseudo(Master, ServerList)`](`pseudo/2`). If you want to start a node
 from the command line and set up a number of pseudo servers, an Erlang runtime
@@ -199,7 +198,10 @@ relay1(Pid) ->
 %%          {error, no_rsh} |
 %%	    {error, {already_running, Name@Host}}
 
--doc(#{equiv => start/3}).
+-doc """
+Equivalent to [`start(Host, Name)`](`start/2`) where `Name` is the same
+as the node that executes this call.
+""".
 -spec start(Host) -> {ok, Node} | {error, Reason} when
       Host :: inet:hostname(),
       Node :: node(),
@@ -210,7 +212,7 @@ start(Host) ->
     Name = upto($@, L),
     start(Host, Name, [], no_link).
 
--doc(#{equiv => start/3}).
+-doc(#{equiv => start(Host, Name, [])}).
 -spec start(Host, Name) -> {ok, Node} | {error, Reason} when
       Host :: inet:hostname(),
       Name :: atom() | string(),
@@ -225,15 +227,13 @@ Starts a slave node on host `Host`. Host names need not necessarily be specified
 as fully qualified names; short names can also be used. This is the same
 condition that applies to names of distributed Erlang nodes.
 
-The name of the started node becomes `Name@Host`. If no name is provided, the
-name becomes the same as the node that executes the call (except the host name
-part of the node name).
+The name of the started node becomes `Name@Host`.
 
-The slave node resets its `user` process so that all terminal I/O that is
+The slave node resets its `t:io:user/0` process so that all terminal I/O that is
 produced at the slave is automatically relayed to the master. Also, the file
-process is relayed to the master.
+server is relayed to the master.
 
-Argument `Args` is used to set `erl` command-line arguments. If provided, it is
+Argument `Args` is used to set `erl` command-line arguments. It is
 passed to the new node and can be used for a variety of purposes; see
 [`erl(1)`](`e:erts:erl_cmd.md`).
 

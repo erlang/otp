@@ -77,8 +77,8 @@ prop_tls_unordered_path(PrivDir) ->
 	   ).
 
 prop_tls_extraneous_path(PrivDir) ->
-     ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
-             try
+    ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extraneous_options(Version, PrivDir)),
+            try
                 [TLSVersion] = proplists:get_value(versions, ClientOptions),
                 SigAlgs = signature_algs(TLSVersion),
                 ssl_test_lib:basic_test(SigAlgs ++ ClientOptions,
@@ -86,14 +86,14 @@ prop_tls_extraneous_path(PrivDir) ->
                                                                    {client_type, erlang},
                                                                    {version, TLSVersion}
                                                                   ])
-             of
-                 _ ->
-                     true
-             catch
-                 _:_ ->
-                     false
-             end
-            ).
+            of
+                _ ->
+                    true
+            catch
+                _:_ ->
+                    false
+            end
+           ).
 
 prop_tls_extraneous_paths() ->
     ?FORALL({ClientOptions, ServerOptions}, ?LET(Version, tls_version(), extra_extraneous_options(Version)),

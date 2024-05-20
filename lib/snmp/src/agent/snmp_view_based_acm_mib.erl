@@ -25,8 +25,6 @@ The module `snmp_view_based_acm_mib` implements the instrumentation functions
 for the SNMP-VIEW-BASED-ACM-MIB, and functions for configuring the database.
 
 The configuration files are described in the SNMP User's Manual.
-
-[](){: #configure }
 """.
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -48,7 +46,18 @@ The configuration files are described in the SNMP User's Manual.
 -export([emask2imask/1]).
 
 -export_type([
+              group_name/0,
               mibview/0,
+              context_prefix/0,
+              context_match/0,
+              access_read_view_name/0,
+              access_write_view_name/0,
+              access_notify_view_name/0,
+              security_name/0,
+              view_name/0,
+              view_type/0,
+              view_mask/0,
+
               internal_view_mask/0,
               internal_view_mask_element/0,
               internal_view_type/0
@@ -69,6 +78,133 @@ The configuration files are described in the SNMP User's Manual.
 -endif.
 
 
+%%-----------------------------------------------------------------
+%% Table: vacmSecurityToGroupTable
+%% Row:   vacmSecurityModel, vacmSecurityName, vacmGroupName
+%% Index: { vacmSecurityModel, vacmSecurityName }
+%%
+%% Table: vacmAccessTable
+%% Row:   vacmAccessContextPrefix, vacmAccessSecurityModel,
+%%        vacmAccessSecurityLevel, vacmAccessContextMatch,
+%%        vacmAccessReadViewName, vacmAccessWriteViewName,
+%%        vacmAccessNotifyViewName
+%% Index: { vacmGroupName, vacmAccessContextPrefix,
+%%          vacmAccessSecurityModel, vacmAccessSecurityLevel }
+%%
+%% Table: vacmViewTreeFamilyTable
+%% Row:   vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree,
+%%        vacmViewTreeFamilyMask, vacmViewTreeFamilyType
+%% Index: { vacmViewTreeFamilyViewName, vacmViewTreeFamilySubtree }
+%%-----------------------------------------------------------------
+
+
+%% *** group_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The name of the group to which this entry (e.g., the combination of
+> securityModel and securityName) belongs."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type group_name()                 :: snmp_framework_mib:admin_string().
+
+%% *** context_prefix ***
+-doc "`SnmpAdminString (SIZE(0..32))`".
+-type context_prefix()             :: snmp_framework_mib:admin_string().
+
+%% *** context_match ***
+-doc """
+```text
+	  exact  - exact match of prefix and contextName
+          prefix - Only match to the prefix
+```
+
+`INTEGER { exact (1), prefix (2) }`
+""".
+-type context_match()              :: 'exact' | 'prefix'.
+
+%% *** access_read_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes read access."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_read_view_name()      :: snmp_framework_mib:admin_string().
+
+%% *** access_write_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes write access."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_write_view_name()     :: snmp_framework_mib:admin_string().
+
+%% *** access_notify_view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The value of an instance of this object identifies the MIB view of the SNMP
+> context to which this conceptual row authorizes access for notifications."
+
+`SnmpAdminString (SIZE(0..32))`
+""".
+-type access_notify_view_name()    :: snmp_framework_mib:admin_string().
+
+%% *** security_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The securityName for the principal, represented in a Security Model
+> independent format."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type security_name()              :: snmp_framework_mib:admin_string().
+
+%% *** view_name ***
+-doc """
+> #### Note {: .info }
+>
+> "The human readable name for a family of view subtrees."
+
+`SnmpAdminString (SIZE(1..32))`
+""".
+-type view_name()                  :: snmp_framework_mib:admin_string().
+
+%% *** view_type ***
+-doc """
+Does the corresponding instances of subtree and mask define a family of view
+subtrees which are included in or excluded from the MIB view.
+
+`INTEGER { included(1), excluded(2) }`
+""".
+-type view_type()                  :: 'included' | 'excluded'.
+
+%% *** view_mask ***
+-doc """
+The bit mask which, in combination with the corresponding instance of
+vacmViewTreeFamilySubtree, defines a family of view subtrees.
+
+A '1' indicates that an exact match must occur, a '0' indicates 'wild card' (any
+sub-identifier value matches).
+
+> #### Note {: .info }
+>
+> Note that in the "external" format, each bit of each octet is represented by a
+> "bit" in this list. That is, each octet "contains" 8 bits; so at most 8\*16 =
+> 128 bits in total.
+
+`OCTET STRING (SIZE (0..16))`
+""".
+-type view_mask()                  :: [?view_wildcard | ?view_exact].
+
 -type internal_view_mask()         :: null | [internal_view_mask_element()].
 -type internal_view_mask_element() :: ?view_wildcard |
                                       ?view_exact.
@@ -78,9 +214,7 @@ The configuration files are described in the SNMP User's Manual.
                      Mask    :: internal_view_mask(),
                      Type    :: internal_view_type()}].
 
--type external_view_mask() :: octet_string(). % At most length of 16 octet
--type octet_string()       :: [octet()].
--type octet()              :: byte().
+-type external_view_mask() :: snmp:octet_string(). % At most length of 16 octet
 
 
 %%-----------------------------------------------------------------
@@ -94,9 +228,8 @@ The configuration files are described in the SNMP User's Manual.
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-configure(ConfDir) -> void()
 
+-doc """
 This function is called from the supervisor at system start-up.
 
 Inserts all data in the configuration files into the database and destroys all
@@ -113,10 +246,11 @@ the reason `configuration_error`.
 files are found.
 
 The configuration file read is: `vacm.conf`.
-
-[](){: #reconfigure }
 """.
-configure(Dir) ->
+-spec configure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+configure(ConfDir) ->
     set_sname(),
     case db(vacmSecurityToGroupTable) of
         {_, mnesia} ->
@@ -132,9 +266,10 @@ configure(Dir) ->
 		false ->
 		    ?vdebug("vacm security-to-group table does not exist: "
 			    "reconfigure",[]),
-		    reconfigure(Dir)
+		    reconfigure(ConfDir)
 	    end
     end.
+
 
 %%-----------------------------------------------------------------
 %% Func: reconfigure/1
@@ -147,9 +282,8 @@ configure(Dir) ->
 %% Returns: ok
 %% Fails: exit(configuration_error)
 %%-----------------------------------------------------------------
--doc """
-reconfigure(ConfDir) -> void()
 
+-doc """
 Inserts all data in the configuration files into the database and destroys all
 old data, including the rows with StorageType `nonVolatile`. The rows created
 from the configuration file will have StorageType `nonVolatile`.
@@ -167,12 +301,13 @@ and the function fails with the reason `configuration_error`.
 files are found.
 
 The configuration file read is: `vacm.conf`.
-
-[](){: #add_sec2group }
 """.
-reconfigure(Dir) ->
+-spec reconfigure(ConfDir) -> snmp:void() when
+      ConfDir :: string().
+
+reconfigure(ConfDir) ->
     set_sname(),
-    case (catch do_reconfigure(Dir)) of
+    case (catch do_reconfigure(ConfDir)) of
 	ok ->
 	    ok;
 	{error, Reason} ->
@@ -308,25 +443,24 @@ table_del_row(Tab, Key) ->
     snmpa_mib_lib:table_del_row(db(Tab), Key).
 
 
-%% add_sec2group(SecModel, SecName, GroupName) -> Result
-%% Result -> {ok, Key} | {error, Reason}
-%% Key -> term()
-%% Reason -> term()
 -doc """
-add_sec2group(SecModel, SecName, GroupName) -> Ret
-
 Adds a security to group definition to the agent config. Equivalent to one
 vacmSecurityToGroup-line in the `vacm.conf` file.
-
-[](){: #delete_sec2group }
 """.
+-spec add_sec2group(SecModel, SecName, GroupName) ->
+          {ok, Key} | {error, Reason} when
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecName   :: security_name(),
+      GroupName :: group_name(),
+      Key       :: term(),
+      Reason    :: term().
 add_sec2group(SecModel, SecName, GroupName) ->
     Sec2Grp = {vacmSecurityToGroup, SecModel, SecName, GroupName},
     case (catch check_vacm(Sec2Grp)) of
 	{ok, {vacmSecurityToGroup, Row}} ->
 	    Key1 = element(1, Row),
 	    Key2 = element(2, Row),
-	    Key = [Key1, length(Key2) | Key2],
+	    Key  = [Key1, length(Key2) | Key2],
 	    case table_cre_row(vacmSecurityToGroupTable, Key, Row) of
 		true ->
 		    snmpa_agent:invalidate_ca_cache(),
@@ -340,13 +474,14 @@ add_sec2group(SecModel, SecName, GroupName) ->
             {error, Error}
     end.
 
+
 -doc """
-delete_sec2group(Key) -> Ret
-
 Delete a security to group definition from the agent config.
-
-[](){: #add_access }
 """.
+-spec delete_sec2group(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of
 	true ->
@@ -355,19 +490,29 @@ delete_sec2group(Key) ->
 	false ->
 	    {error, delete_failed}
     end.
-    
+
+
+-doc """
+Adds a access definition to the agent config. Equivalent to one vacmAccess-line
+in the `vacm.conf` file.
+""".
+-spec add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
+          {ok, Key} | {error, Reason} when
+      GroupName :: group_name(),
+      Prefix    :: context_prefix(),
+      SecModel  :: snmp_framework_mib:security_model(),
+      SecLevel  :: snmp_framework_mib:security_level(),
+      Match     :: context_match(),
+      RV        :: access_read_view_name(),
+      WV        :: access_write_view_name(),
+      NV        :: access_notify_view_name(),
+      Key       :: term(),
+      Reason    :: term().
+
 %% NOTE: This function must be used in conjunction with
 %%       snmpa_vacm:dump_table.
 %%       That is, when all access has been added, call
 %%       snmpa_vacm:dump_table/0
--doc """
-add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) -> Ret
-
-Adds a access definition to the agent config. Equivalent to one vacmAccess-line
-in the `vacm.conf` file.
-
-[](){: #delete_access }
-""".
 add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     Access = {vacmAccess, GroupName, Prefix, SecModel, SecLevel, 
 	      Match, RV, WV, NV},
@@ -383,28 +528,34 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
             {error, Error}
     end.
 
+
 -doc """
-delete_access(Key) -> Ret
-
 Delete a access definition from the agent config.
-
-[](){: #add_view_tree_fam }
 """.
+-spec delete_access(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_access(Key) ->
     snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).
 
 
 -doc """
-add_view_tree_fam(ViewIndex, SubTree, Status, Mask) -> Ret
-
 Adds a view tree family definition to the agent config. Equivalent to one
 vacmViewTreeFamily-line in the `vacm.conf` file.
-
-[](){: #delete_view_tree_fam }
 """.
-add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
-    VTF = {vacmViewTreeFamily, ViewIndex, SubTree, Status, Mask},
+-spec add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+          {ok, Key} | {error, Reason} when
+      ViewName :: view_name(),
+      SubTree  :: snmp:oid(),
+      Status   :: view_type(),
+      Mask     :: 'null' | view_mask(),
+      Key      :: term(),
+      Reason   :: term().
+
+add_view_tree_fam(ViewName, SubTree, Status, Mask) ->
+    VTF = {vacmViewTreeFamily, ViewName, SubTree, Status, Mask},
     case (catch check_vacm(VTF)) of
 	{ok, {vacmViewTreeFamily, Row}} ->
 	    Key1 = element(1, Row),
@@ -423,11 +574,12 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
             {error, Error}
     end.
 
--doc """
-delete_view_tree_fam(Key) -> Ret
 
-Delete a view tree family definition from the agent config.
-""".
+-doc "Delete a view tree family definition from the agent config.".
+-spec delete_view_tree_fam(Key) -> ok | {error, Reason} when
+      Key    :: term(),
+      Reason :: term().
+
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
 	true ->

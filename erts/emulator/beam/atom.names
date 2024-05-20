@@ -307,6 +307,7 @@ atom firstline
 atom flags
 atom flush
 atom flush_monitor_messages
+atom flush_timeout
 atom force
 atom format_bs_fail
 atom format_cpu_topology
@@ -385,6 +386,7 @@ atom is_seq_trace
 atom iterator
 atom io
 atom iolist_size_continue
+atom iolist_to_iovec_continue
 atom iodata
 atom iovec
 atom keypos
@@ -398,6 +400,7 @@ atom last_calls
 atom latin1
 atom ldflags
 atom Le='=<'
+atom legacy
 atom lf
 atom line
 atom line_counters

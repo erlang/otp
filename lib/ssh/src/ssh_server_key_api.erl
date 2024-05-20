@@ -25,7 +25,7 @@
 Behaviour describing the API for public key handling of an SSH server. By
 implementing the callbacks defined in this behavior, the public key handling of
 an SSH server can be customized. By default the SSH application implements this
-behavior with help of the standard OpenSSH files, see the [ssh(6)](ssh_app.md)
+behavior with help of the standard OpenSSH files, see the [ssh](ssh_app.md)
 application manual.
 """.
 -moduledoc(#{since => "OTP R16B"}).

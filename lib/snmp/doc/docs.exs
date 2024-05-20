@@ -20,7 +20,7 @@
     "guides/snmp_app_a.md",
     "guides/snmp_app_b.md",
     "guides/snmp_app_c.md",
-    "references/snmp_app.md",
-    "references/snmpc_cmd.md"
+    "references/snmpc_cmd.md",
+    "snmp_app.md"
   ]
 ]

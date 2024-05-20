@@ -26,7 +26,7 @@
 -export([find_single_response/3,
          get_acceptable_response_types_extn/0,
          get_nonce_extn/1,
-         status/1,
+         status/2,
          verify_response/5,
          decode_response/1]).
 %% Tracing
@@ -43,7 +43,7 @@ get_nonce_extn(Nonce) when is_binary(Nonce) ->
 
 -spec verify_response(#'BasicOCSPResponse'{}, list(), undefined | binary(),
                            public_key:cert(), fun()) ->
-    {ok, term()} | {error, term()}.
+    {ok, term(), list()} | {error, term()}.
 verify_response(#'BasicOCSPResponse'{
                    tbsResponseData = ResponseData,
                    signatureAlgorithm = SignatureAlgo,
@@ -82,12 +82,12 @@ find_single_response(Cert, IssuerCert, SingleResponseList) ->
     SerialNum = get_serial_num(Cert),
     match_single_response(IssuerName, IssuerKey, SerialNum, SingleResponseList).
 
--spec status({atom(), term()}) -> ok | {error, {bad_cert, term()}}.
-status({good, _}) ->
-    ok;
-status({unknown, Reason}) ->
+-spec status({atom(), term()}, list()) -> {ok, list()} | {error, {bad_cert, term()}}.
+status({good, _}, Details) ->
+    {ok, Details};
+status({unknown, Reason}, _) ->
     {error, {bad_cert, {revocation_status_undetermined, Reason}}};
-status({revoked, Reason}) ->
+status({revoked, Reason}, _) ->
     {error, {bad_cert, {revoked, Reason}}}.
 
 decode_response(ResponseDer) ->
@@ -135,12 +135,19 @@ decode_response_bytes(#'ResponseBytes'{
 decode_response_bytes(#'ResponseBytes'{responseType = RespType}) ->
     {error, {ocsp_response_type_not_supported, RespType}}.
 
-verify_nonce(ResponseData, Nonce) ->
+verify_nonce(ResponseData, NonceSent) ->
     #'ResponseData'{responses = Responses, responseExtensions = ResponseExtns} =
         ResponseData,
-    case get_nonce_value(ResponseExtns) of
-        Nonce ->
-            {ok, Responses};
+    NonceReceived = get_nonce_value(ResponseExtns),
+    case {NonceSent, NonceReceived} of
+        {undefined, _} -> % disabled
+            {ok, Responses, []};
+        {NonceSent, undefined} when is_binary(NonceSent) -> % enabled but not received
+            %% As specified in RFC8954 3.1, RFC6960 4.4, RFC5019 2.2.1
+            %% lack of nonce in response should not stop processing
+            {ok, Responses, [{missing, ocsp_nonce}]};
+        {NonceSent, NonceSent} -> % enabled, sent and received the same value
+            {ok, Responses, []};
         _Other ->
             {error, nonce_mismatch}
     end.
@@ -251,14 +258,20 @@ do_verify_signature(ResponseDataDer, Signature, AlgorithmID,
 
 get_public_key_rec(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
+    Params = PKInfo#'OTPSubjectPublicKeyInfo'.algorithm#'PublicKeyAlgorithm'.parameters,
+    SubjectPublicKey = PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey,
+    case {SubjectPublicKey, Params} of
+        {#'RSAPublicKey'{}, 'NULL'} ->
+            SubjectPublicKey;
+        {_, _} ->
+            {SubjectPublicKey, Params}
+    end.
 
 get_subject_name(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     public_key:pkix_encode('Name', TbsCert#'OTPTBSCertificate'.subject, otp).
 
-get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
-    PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    enc_pub_key(PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey).
+get_public_key(OtpCert) ->
+    enc_pub_key(get_public_key_rec(OtpCert)).
 
 enc_pub_key(Key = #'RSAPublicKey'{}) ->
     public_key:der_encode('RSAPublicKey', Key);

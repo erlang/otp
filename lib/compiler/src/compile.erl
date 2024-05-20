@@ -24,8 +24,8 @@
 Erlang Compiler
 
 This module provides an interface to the standard Erlang compiler. It can
-generate either a new file, which contains the object code, or return a binary,
-which can be loaded directly.
+generate either a file containing the object code or return a binary
+that can be loaded directly.
 
 ## Default Compiler Options
 
@@ -43,13 +43,37 @@ compiler recursively from inside a parse transform.
 
 The list can be retrieved with `env_compiler_options/0`.
 
+## Order of Compiler Options
+
+Options given in the `compile()` attribute in the source code take
+precedence over options given to the compiler, which in turn take
+precedence over options given in the environment.
+
+A later compiler option takes precedence over an earlier one in the
+option list. Example:
+
+```
+compile:file(something, [nowarn_missing_spec,warn_missing_spec]).
+```
+
+Warnings will be emitted for functions without specifications, unless
+the source code for module `something` contains a `compile(nowarn_missing_spec)`
+attribute.
+
+> #### Change {: .info }
+>
+> In Erlang/OTP 26 and earlier, the option order was the opposite of what
+> is described here.
+
+
 ## Inlining
 
-The compiler can do function inlining within an Erlang module. Inlining means
-that a call to a function is replaced with the function body with the arguments
-replaced with the actual values. The semantics are preserved, except if
-exceptions are generated in the inlined code. Exceptions are reported as
-occurring in the function the body was inlined into. Also, `function_clause`
+The compiler can do function inlining within an Erlang
+module. Inlining means that a call to a function is replaced with the
+function body with the arguments replaced with the actual values. The
+semantics are preserved, except if exceptions are generated in the
+inlined code, in which case exceptions are reported as occurring in
+the function the body was inlined into. Also, `function_clause`
 exceptions are converted to similar `case_clause` exceptions.
 
 When a function is inlined, the original function is kept if it is exported
@@ -128,29 +152,9 @@ other Erlang code.
 See `m:erl_id_trans` for an example and an explanation of the function
 `parse_transform_info/0`.
 
-[](){: #error_information }
-
-## Error Information
-
-The `ErrorInfo` mentioned earlier is the standard `ErrorInfo` structure, which
-is returned from all I/O modules. It has the following format:
-
-```text
-{ErrorLocation, Module, ErrorDescriptor}
-```
-
-`ErrorLocation` is the atom `none` if the error does not correspond to a
-specific location, for example, if the source file does not exist.
-
-A string describing the error is obtained with the following call:
-
-```text
-Module:format_error(ErrorDescriptor)
-```
-
 ## See Also
 
-`m:epp`, `m:erl_id_trans`, `m:erl_lint`, `m:beam_lib`
+`m:epp`, `m:erl_expand_records`, `m:erl_id_trans`, `m:erl_lint`, `m:beam_lib`
 """.
 
 %% High-level interface.
@@ -232,7 +236,9 @@ file(File) -> file(File, ?DEFAULT_OPTIONS).
 
 -doc """
 Compiles the code in the file `File`, which is an Erlang source code file
-without the `.erl` extension. `Options` determine the behavior of the compiler.
+without the `.erl` extension.
+
+`Options` determine the behavior of the compiler.
 
 Returns `{ok,ModuleName}` if successful, or `error` if there are errors. An
 object code file is created if the compilation succeeds without errors. It is
@@ -241,9 +247,9 @@ as the basename of the output file.
 
 Available options:
 
-- **`brief`** - Restricts error and warning messages to a single line of output.
-  As of OTP 24, the compiler will by default also display the part of the source
-  code that the message refers to.
+- **`brief`** - Restricts error and warning messages to a single line
+  of output.  As of Erlang/OTP 24, the compiler will by default also
+  display the part of the source code that the message refers to.
 
 - **`basic_validation`** - This option is a fast way to test whether a module
   will compile successfully. This is useful for code generators that want to
@@ -281,7 +287,7 @@ Available options:
 
 - **`{compile_info, [{atom(), term()}]}`** - Allows compilers built on top of
   `compile` to attach extra compilation metadata to the `compile_info` chunk in
-  the generated beam file.
+  the generated BEAM file.
 
   It is advised for compilers to remove all non-deterministic information if the
   `deterministic` option is supported and it was supplied by the user.
@@ -339,7 +345,7 @@ Available options:
   > #### Note {: .info }
   >
   > This option has no effect when used in a `-compile(..)` attribute. Instead,
-  > the `-feature(..)` directive (below) should be used.
+  > the `-feature(..)` directive (described next) should be used.
   >
   > [](){: #feature-directive } A feature can also be enabled (disabled) using
   > the `-feature(Feature, enable | disable).` module directive. Note that this
@@ -404,7 +410,7 @@ Available options:
   No object file is produced.
 
 - **`recv_opt_info`** - The compiler will emit informational warnings about
-  selective receive optimizations (both successful and unsuccessful). For more
+  selective `receive` optimizations (both successful and unsuccessful). For more
   information, see the section about
   [selective receive optimization](`e:system:eff_guide_processes.md#receiving-messages`)
   in the Efficiency Guide.
@@ -420,8 +426,7 @@ Available options:
 - **`return_warnings`** - If this flag is set, an extra field, containing
   `WarningList`, is added to the tuples returned on success.
 
-- **`warnings_as_errors`** - Causes warnings to be treated as errors. This
-  option is supported since R13B04.
+- **`warnings_as_errors`** - Causes warnings to be treated as errors.
 
 - **`{error_location,line | column}`** - If the value of this flag is `line`,
   the location [`ErrorLocation`](`m:compile#error_information`) of warnings and
@@ -497,28 +502,25 @@ Available options:
   the first element is the tag `record_tag`. Use this option to omit the
   verification code.
 
-- **`no_error_module_mismatch`** - Normally the compiler verifies that the
-  module name given in the source code is the same as the base name of the
-  output file and refuses to generate an output file if there is a mismatch. If
-  you have a good reason (or other reason) for having a module name unrelated to
-  the name of the output file, this option disables that verification (there
-  will not even be a warning if there is a mismatch).
+- **`no_error_module_mismatch`** - Normally the compiler verifies that
+  the module name given in the source code is the same as the base
+  name of the output file and refuses to generate an output file if
+  there is a mismatch. If there is a good reason for having a module
+  name unrelated to the name of the output file, this option disables
+  that verification (there will not even be a warning if there is a
+  mismatch).
 
 - **`{no_auto_import,[{F,A}, ...]}`** - Makes the function `F/A` no longer being
   auto-imported from the `erlang` module, which resolves BIF name clashes. This
-  option must be used to resolve name clashes with BIFs auto-imported before
-  R14A, if it is needed to call the local function with the same name as an
-  auto-imported BIF without module prefix.
+  option must be used to resolve name clashes with auto-imported BIFs that existed
+  before Erlang/OTP R14A  when calling a local function with the same name
+  as an auto-imported BIF without module prefix.
 
-  > #### Note {: .info }
-  >
-  > As from R14A and forward, the compiler resolves calls without module prefix
-  > to local or imported functions before trying with auto-imported BIFs. If the
-  > BIF is to be called, use the `erlang` module prefix in the call, not
-  > `{no_auto_import,[{F,A}, ...]}`.
+  If the BIF is to be called, use the `erlang` module prefix
+  in the call, not `{no_auto_import,[{F,A}, ...]}`.
 
   If this option is written in the source code, as a `-compile` directive, the
-  syntax `F/A` can be used instead of `{F,A}`, for example:
+  syntax `F/A` can be used instead of `{F,A}`. For example:
 
   ```erlang
   -compile({no_auto_import,[error/1]}).
@@ -593,35 +595,17 @@ value are listed.
   The default verbosity is `1`. Verbosity `0` can also be selected by option
   `nowarn_format`.
 
-- **`nowarn_bif_clash`** - This option is removed, it generates a fatal error if
+- **`nowarn_bif_clash`** - This option is removed; it generates a fatal error if
   used.
 
-  > #### Warning {: .warning }
-  >
-  > As from beginning with R14A, the compiler no longer calls the auto-imported
-  > BIF if the name clashes with a local or explicitly imported function, and a
-  > call without explicit module name is issued. Instead, the local or imported
-  > function is called. Still accepting `nowarn_bif_clash` would make a module
-  > calling functions clashing with auto-imported BIFs compile with both the old
-  > and new compilers, but with completely different semantics. This is why the
-  > option is removed.
-  >
-  > The use of this option has always been discouraged. As from R14A, it is an
-  > error to use it.
-  >
-  > To resolve BIF clashes, use explicit module names or the
-  > `{no_auto_import,[F/A]}` compiler directive.
+  To resolve BIF clashes, use explicit module names or the
+  `{no_auto_import,[F/A]}` compiler directive.
 
-- **`{nowarn_bif_clash, FAs}`** - This option is removed, it generates a fatal
+- **`{nowarn_bif_clash, FAs}`** - This option is removed; it generates a fatal
   error if used.
 
-  > #### Warning {: .warning }
-  >
-  > The use of this option has always been discouraged. As from R14A, it is an
-  > error to use it.
-  >
-  > To resolve BIF clashes, use explicit module names or the
-  > `{no_auto_import,[F/A]}` compiler directive.
+  To resolve BIF clashes, use explicit module names or the
+  `{no_auto_import,[F/A]}` compiler directive.
 
 - **`nowarn_export_all`** - Turns off warnings for uses of the `export_all`
   option. Default is to emit a warning if option `export_all` is also given.
@@ -644,7 +628,7 @@ value are listed.
 - **`nowarn_unused_function`** - Turns off warnings for unused local functions.
   Default is to emit warnings for all local functions that are not called
   directly or indirectly by an exported function. The compiler does not include
-  unused local functions in the generated beam file, but the warning is still
+  unused local functions in the generated BEAM file, but the warning is still
   useful to keep the source code cleaner.
 
 - **`{nowarn_unused_function, FAs}`** - Turns off warnings for unused local
@@ -666,6 +650,10 @@ value are listed.
 
 - **`nowarn_deprecated_type`** - Turns off warnings for use of deprecated types.
   Default is to emit warnings for every use of a type known by the compiler to
+  be deprecated.
+
+- **`nowarn_deprecated_callback`** - Turns off warnings for use of deprecated callbacks.
+  Default is to emit warnings for every use of a callback known by the compiler to
   be deprecated.
 
 - **`nowarn_removed`** - Turns off warnings for calls to functions that have
@@ -708,11 +696,19 @@ value are listed.
   enabled in a module that may load NIFs, as the compiler may inline NIF
   fallbacks by accident. Use this option to turn off this kind of warnings.
 
-- **`warn_missing_doc`[](){: #warn_missing_doc } **  
-  By default, warnings are not emitted when `-doc` attribute for an exported function
-  is not given. Use this option to turn on this kind of warning.
+- **`warn_missing_doc` | `warn_missing_doc_functions` | `warn_missing_doc_types` | `warn_missing_doc_callbacks` **{: #warn_missing_doc }  
+  By default, warnings are not emitted when `-doc` attribute for an exported function,
+  callback or type is not given. Use these option to turn on this kind of warning.
+  `warn_missing_doc` is equivalent to setting all of `warn_missing_doc_functions`,
+  `warn_missing_doc_types` and `warn_missing_doc_callbacks`.
 
-- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`[](){: #nowarn_hidden_doc } **  
+- **`nowarn_missing_doc` | `nowarn_missing_doc_functions` | `nowarn_missing_doc_types` | `nowarn_missing_doc_callbacks` **  
+  If warnings are enabled by [`warn_missing_doc`](#warn_missing_doc), then you can use
+  these options turn those warnings off again.
+  `nowarn_missing_doc` is equivalent to setting all of `nowarn_missing_doc_functions`,
+  `nowarn_missing_doc_types` and `nowarn_missing_doc_callbacks`.
+
+- **`nowarn_hidden_doc` | `{nowarn_hidden_doc,NAs}`**{: #nowarn_hidden_doc }  
   By default, warnings are emitted when `-doc false` attribute is set on a
   [callback or referenced type](`e:system:documentation.md#what-is-visible-versus-hidden`).
   You can set `nowarn_hidden_doc` to suppress all those warnings, or `{nowarn_hidden_doc, NAs}`
@@ -721,6 +717,10 @@ value are listed.
 
 - **`warn_missing_spec`** - By default, warnings are not emitted when a
   specification (or contract) for an exported function is not given. Use this
+  option to turn on this kind of warning.
+
+- **`warn_missing_spec_documented`** - By default, warnings are not emitted when a
+  specification (or contract) for a documented function is not given. Use this
   option to turn on this kind of warning.
 
 - **`warn_missing_spec_all`** - By default, warnings are not emitted when a
@@ -771,12 +771,12 @@ Opportunistic warnings can be disabled using the following options:
 
 > #### Note {: .info }
 >
-> Before OTP 22, the option `{nowarn_deprecated_function, MFAs}` was only
+> Before Erlang/OTP 22, the option `{nowarn_deprecated_function, MFAs}` was only
 > recognized when given in the file with attribute `-compile()`. (The option
 > `{nowarn_unused_function,FAs}` was incorrectly documented to only work in a
-> file, but it also worked when given in the option list.) Starting from OTP 22,
-> all options that can be given in the file can also be given in the option
-> list.
+> file, but it also worked when given in the option list.) Starting from
+> Erlang/OTP 22, all options that can be given in the file can also be given
+> in the option list.
 
 For debugging of the compiler, or for pure curiosity, the intermediate code
 generated by each compiler pass can be inspected. To print a complete list of
@@ -793,16 +793,37 @@ Both `WarningList` and `ErrorList` have the following format:
 [{FileName,[ErrorInfo]}].
 ```
 
-`ErrorInfo` is described later in this section. The filename is included here,
-as the compiler uses the Erlang pre-processor `epp`, which allows the code to be
-included in other files. It is therefore important to know to _which_ file the
-location of an error or a warning refers.
+The filename is included here, as the compiler uses the Erlang
+pre-processor `epp`, which allows the code to be included in other
+files. It is therefore important to know to _which_ file the location
+of an error or a warning refers.
+
+[](){: #error_information }
+
+The `ErrorInfo` structure has the following format:
+
+```text
+{ErrorLocation, Module, ErrorDescriptor}
+```
+
+`ErrorLocation` is usually the tuple `{Line, Column}`. If option
+`{error_location,line}` has been given, `ErrorLocation` is only the
+line number.  If the error does not correspond to a specific location
+(for example, if the source file does not exist), `ErrorLocation` is
+the atom `none`.
+
+A string describing the error is obtained with the following call:
+
+```text
+Module:format_error(ErrorDescriptor)
+```
 """.
--spec file(module() | file:filename(), Options :: [option()] | option()) ->
+
+-spec file(File :: module() | file:filename(), Options :: [option()] | option()) ->
           CompRet :: comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
-    do_compile({file,File}, Opts++env_default_opts());
+    do_compile({file,File}, env_default_opts() ++ Opts);
 file(File, Opt) ->
     file(File, [Opt|?DEFAULT_OPTIONS]).
 
@@ -816,13 +837,14 @@ forms(Forms) -> forms(Forms, ?DEFAULT_OPTIONS).
 
 -doc """
 Analogous to [`file/1`](`file/1`), but takes a list of forms (in either Erlang
-abstract or Core Erlang format representation) as first argument. Option
-`binary` is implicit, that is, no object code file is produced. For options that
-normally produce a listing file, such as 'E', the internal format for that
-compiler pass (an Erlang term, usually not a binary) is returned instead of a
-binary.
+abstract or Core Erlang format representation) as first argument.
+
+Option `binary` is implicit, that is, no object code file is
+produced. For options that normally produce a listing file, such as
+'E', the internal format for that compiler pass (an Erlang term,
+usually not a binary) is returned instead of a binary.
 """.
--spec forms(forms(), Options :: [option()] | option()) -> CompRet :: comp_ret().
+-spec forms(Forms :: forms(), Options :: [option()] | option()) -> CompRet :: comp_ret().
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
@@ -834,8 +856,9 @@ forms(Forms, Opt) when is_atom(Opt) ->
 %% listing file would have been generated).
 
 -doc """
-Determines whether the compiler generates a `beam` file with the given options.
-`true` means that a `beam` file is generated. `false` means that the compiler
+Determines whether the compiler generates a BEAM file with the given options.
+
+`true` means that a BEAM file is generated. `false` means that the compiler
 generates some listing file, returns a binary, or merely checks the syntax of
 the source code.
 """.
@@ -853,7 +876,8 @@ output_generated(Opts) ->
 Works like `file/2`, except that the environment variable `ERL_COMPILER_OPTIONS`
 is not consulted.
 """.
--spec noenv_file(module() | file:filename(), Options :: [option()] | option()) -> comp_ret().
+-spec noenv_file(File :: module() | file:filename(),
+                 Options :: [option()] | option()) -> comp_ret().
 
 noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
@@ -864,7 +888,7 @@ noenv_file(File, Opt) ->
 Works like `forms/2`, except that the environment variable
 `ERL_COMPILER_OPTIONS` is not consulted.
 """.
--spec noenv_forms(forms(), [option()] | option()) -> comp_ret().
+-spec noenv_forms(Forms :: forms(), Options :: [option()] | option()) -> comp_ret().
 
 noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
@@ -1016,7 +1040,10 @@ expand_opt(r24, Os) ->
     expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
                              expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
-    [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs | Os];
+    [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
+     expand_opt(r26, Os)];
+expand_opt(r26, Os) ->
+    [no_bsm_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -1036,9 +1063,10 @@ expand_opt(O, Os) -> [O|Os].
 
 -doc """
 Uses an `ErrorDescriptor` and returns a deep list of characters that describes
-the error. This function is usually called implicitly when an `ErrorInfo`
-structure (described in section
-[Error Information](`m:compile#error_information`)) is processed.
+the error.
+
+This function is usually called implicitly when an `ErrorInfo`
+structure is processed.
 """.
 -spec format_error(ErrorDescription :: error_description()) -> string().
 
@@ -2381,10 +2409,14 @@ save_abstract_code(Code, St) ->
 beam_docs(Code, #compile{dir = Dir, options = Options,
                          extra_chunks = ExtraChunks }=St) ->
     SourceName = deterministic_filename(St),
-    {ok, Docs, Ws} = beam_doc:main(Dir, SourceName, Code, Options),
-    MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
-    {ok, Code, St#compile{extra_chunks = MetaDocs,
-                          warnings = St#compile.warnings ++ Ws}}.
+    case beam_doc:main(Dir, SourceName, Code, Options) of
+        {ok, Docs, Ws} ->
+            MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
+            {ok, Code, St#compile{extra_chunks = MetaDocs,
+                                  warnings = St#compile.warnings ++ Ws}};
+        {error, no_docs} ->
+            {ok, Code, St}
+    end.
 
 %% Strips documentation attributes from the code
 remove_doc_attributes(Code, St) ->

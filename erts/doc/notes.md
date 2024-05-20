@@ -21,6 +21,345 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.0
+
+### Fixed Bugs and Malfunctions
+
+- Bugs in how `erl -extra` interacts with passing flags via ERL_*FLAGS or `-args_file` have been fixed.
+
+  Own Id: OTP-18766 Aux Id: [PR-7639]
+
+- Fixed a bug that prevented the emulator from building on recent versions of Yocto Linux.
+
+  Own Id: OTP-18918 Aux Id: [PR-7952]
+
+- Fixed spectre mitigation configure test to work with GCC patches to always add `-fcf-protection=full`.
+
+  Own Id: OTP-18928 Aux Id: [PR-8006]
+
+- A  call to `socket:[recv|recvfrom|recvmsg]/*` with Timeout = 0 on Windows could cause a (case clause) crash if data is immediately available.
+
+  Own Id: OTP-19063 Aux Id: OTP-18835
+
+- Fix bug on Windows where `exit_status` would not be sent when a port exits after the stdin/stdout handles have been closed.
+
+  Own Id: OTP-19077 Aux Id: [PR-8324]
+
+[PR-7639]: https://github.com/erlang/otp/pull/7639
+[PR-7952]: https://github.com/erlang/otp/pull/7952
+[PR-8006]: https://github.com/erlang/otp/pull/8006
+[PR-8324]: https://github.com/erlang/otp/pull/8324
+
+### Improvements and New Features
+
+- Refactored how the JIT handles POSIX signals and how they affect thread stacks, allowing us to use the native stack register for Erlang stacks on more platforms.
+  
+  Notably, containers built on 64-bit x86 Alpine Linux images will now perform much better in sequential code. As an example, running `dialyzer` over the OTP code base finishes about 15% quicker.
+
+  Own Id: OTP-18568 Aux Id: [PR-7174]
+
+- The `m:instrument` module can now track allocations on a per-process or per-port basis.
+
+  Own Id: OTP-18577 Aux Id: [PR-7236]
+
+- The `pid` field returned from [`erlang:fun_info/1,2`](`erlang:fun_info/2`) is now always the pid for the `init` process of the local node, not the pid for the actual process that created the fun.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18594 Aux Id: [PR-7274]
+
+- By default, escripts will now be compiled instead of interpreted. That means that the `compiler` application must be installed.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-18639 Aux Id: [PR-7348]
+
+- A binary returned from the `m:socket` receive functions is no longer created as a sub binary of an often large receive buffer binary (socket option `{otp,rcvbuf}`).  This avoids space waste, trusting the allocators to implement reallocation efficiently.
+
+  Own Id: OTP-18642 Aux Id: [GH-6152], [PR-7465]
+
+- The default process limit has been raised to `1048576` processes.
+
+  Own Id: OTP-18699 Aux Id: [PR-7388]
+
+- The `erlang:system_monitor/2` functionality is now able to monitor long message queues in the system.
+
+  Own Id: OTP-18709 Aux Id: [PR-7651]
+
+- The `erl` command now supports the `-S` flag, which is similar to the `-run` flag, except that it will pass all arguments up to end of the command line to the called function. (The `-run` flag will not pass arguments beginning with a hyphen.) Another difference is that `-S` will always call a function with one argument, passing an empty list if no arguments were given.
+
+  Own Id: OTP-18744 Aux Id: [PR-7470]
+
+- When implementing an alternative carrier for the Erlang distribution, a separate input handler process may now be registered, using `erlang:dist_ctrl_input_handler/2`, also in the case when the distribution controller is a port.
+
+  Own Id: OTP-18774 Aux Id: [PR-7110]
+
+- The call stack trace has now been added to the error reported by `erlang:process_flag/2` when `max_heap_size` limit has been exceeded.
+
+  Own Id: OTP-18779 Aux Id: [PR-7592]
+
+- `-callback` attributes have been added to `m:erl_tracer`.
+
+  Own Id: OTP-18794 Aux Id: [PR-7703]
+
+- For `inet_backend = socket`, setting the `active` socket option alone, to `once`, `true` or `N` has been optimized, as well as the corresponding data delivery.
+
+  Own Id: OTP-18835
+
+- New functions `socket:sendv/*` for sending I/O vectors have been added.
+
+  Own Id: OTP-18845
+
+- Socket options that take string now also accept binaries.
+
+  Own Id: OTP-18849 Aux Id: [PR-6510]
+
+- Native coverage support has been implemented in the JIT. It will  automatically be used by the `m:cover` tool to reduce the execution overhead when running cover-compiled code.
+  
+  There are also new APIs to support native coverage without using the `cover` tool.
+  
+  To instrument code for native coverage it must be compiled with the [`line_coverage`](`m:compile#line_coverage`) option.
+  
+  To enable native coverage in the runtime system, start it like so:
+  
+  ```text
+  $ erl +JPcover true
+  ```
+  
+  There are also the following new functions for supporting native coverage:
+  
+  * `code:coverage_support/0`
+  * `code:get_coverage/2`
+  * `code:reset_coverage/1`
+  * `code:get_coverage_mode/0`
+  * `code:get_coverage_mode/1`
+  * `code:set_coverage_mode/1`
+
+  Own Id: OTP-18856 Aux Id: [PR-7856]
+
+- Changed the default value of the command line flag `-code_path_choice` to `strict`. 
+  
+  Note that for application systems using archives, it is necessary to add the `code_path_choice relaxed` to the command line that invokes `erl`.
+
+  Own Id: OTP-18894 Aux Id: [PR-7243]
+
+- Added module loading to `erl -init_debug` printouts.
+
+  Own Id: OTP-18929 Aux Id: [PR-8004]
+
+- When the runtime system halts, it performs various flush operations before terminating. By default there is no limit on how much time the flush operations are allowed to take. A new *halt flush timeout* functionality has been introduced which can be used for limiting the amount of time that the flushing operations are allowed to take. For more information see the documentation of the [`flush_timeout`](`m:erlang#halt_flush_timeout`) option of the [`erlang:halt/2`](`erlang:halt/2`) BIF and the documentation of the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+
+  Own Id: OTP-18938 Aux Id: [PR-8035], [GH-7438]
+
+- Optimized code loading by moving certain operations from the code server to the caller.
+
+  Own Id: OTP-18941 Aux Id: [PR-7981]
+
+- Updated asmjit to version a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d
+
+  Own Id: OTP-18942
+
+- The deprecated functions in `m:zlib` have been removed. That includes `inflateChunk/{1,2}`, `getBufSize/1`, `setBufSize/2`, the CRC32 functions, and the Adler checksum functions.
+
+  Own Id: OTP-18950
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- Safe destructive update of tuples has been implemented in the compiler and runtime system. This allows the VM to update tuples in-place when it is safe to do so, thus improving performance by doing less copying but also by producing less garbage.
+  
+  Example:
+  
+  ```erlang
+  -record(rec, {a,b,c}).
+  
+  update(#rec{a=needs_update,b=N}=R0) ->
+      R = R0#rec{a=up_to_date},
+      if
+          N < 0 ->
+              R#rec{c=negative};
+          N == 0 ->
+              R#rec{c=zero};
+          N > 0 ->
+              R#rec{c=positive}
+      end.
+  ```
+  
+  The record updates in each of the three clauses of the `if` can safely be done in-place, because variable `R` is not used again.
+
+  Own Id: OTP-18972 Aux Id: [PR-8090]
+
+- The obsolete and undocumented support for opening a port to an external
+  resource by passing an atom (or a string) as first argument to
+  [`open_port()`](`erlang:open_port/2`), implemented by the vanilla driver,
+  has been removed. This feature has been scheduled for removal in OTP 27
+  since the release of OTP 26.
+
+  Own Id: OTP-18976 Aux Id: [PR-7125]
+
+- An optional NIF callback `ERL_NIF_OPT_ON_UNLOAD_THREAD` to be called by all scheduler threads when a NIF library is unloaded. Used for releasing thread specific data. Can be set with function `enif_set_option`.
+
+  Own Id: OTP-18977 Aux Id: [PR-7809]
+
+- There is a new module `m:trace` in Kernel providing the same trace functionality as `erlang:trace/3` and `erlang:trace_pattern/3`, but with the addition of **dynamic isolated trace sessions**.
+
+  Own Id: OTP-18980
+
+- Added the `+MMlp on|off` emulator option to let the `mseg` allocator use "large pages" (sometimes known as "huge pages" or "super pages"). This currently only affects super-carrier allocations, but may be extended in the future.
+
+  Own Id: OTP-18984 Aux Id: [PR-7977]
+
+- `inet_backend = socket` has been optimized and reworked to be more compatible with the original `inet_backend = inet`.
+
+  Own Id: OTP-19004 Aux Id: OTP-18835
+
+- The `socket` documentation has been reworked, and due to
+  that a few details were fixed:
+  * `socket:is_supported/1` now returns `true` for example for `protocols`
+    that is a "category", not an item.
+  * `socket:cancel_monitor/1` no longer badargs for a monitor that was set by
+    another process, instead it returns `false` as for other unknown
+    `reference()`s.
+
+  Own Id: OTP-19054
+
+[PR-7174]: https://github.com/erlang/otp/pull/7174
+[PR-7236]: https://github.com/erlang/otp/pull/7236
+[PR-7274]: https://github.com/erlang/otp/pull/7274
+[PR-7348]: https://github.com/erlang/otp/pull/7348
+[GH-6152]: https://github.com/erlang/otp/issues/6152
+[PR-7465]: https://github.com/erlang/otp/pull/7465
+[PR-7388]: https://github.com/erlang/otp/pull/7388
+[PR-7651]: https://github.com/erlang/otp/pull/7651
+[PR-7470]: https://github.com/erlang/otp/pull/7470
+[PR-7110]: https://github.com/erlang/otp/pull/7110
+[PR-7592]: https://github.com/erlang/otp/pull/7592
+[PR-7703]: https://github.com/erlang/otp/pull/7703
+[PR-6510]: https://github.com/erlang/otp/pull/6510
+[PR-7856]: https://github.com/erlang/otp/pull/7856
+[PR-7243]: https://github.com/erlang/otp/pull/7243
+[PR-8004]: https://github.com/erlang/otp/pull/8004
+[PR-8035]: https://github.com/erlang/otp/pull/8035
+[GH-7438]: https://github.com/erlang/otp/issues/7438
+[PR-7981]: https://github.com/erlang/otp/pull/7981
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8090]: https://github.com/erlang/otp/pull/8090
+[PR-7125]: https://github.com/erlang/otp/pull/7125
+[PR-7809]: https://github.com/erlang/otp/pull/7809
+[PR-7977]: https://github.com/erlang/otp/pull/7977
+
+## Erts 14.2.5
+
+### Fixed Bugs and Malfunctions
+
+* [`gen_sctp:send/3,4`](`gen_sctp:send/4`) now waits for the send to complete instead of returning an OS result such as `{error, ewouldblock}`.
+
+  Own Id: OTP-19061
+* ETS functions did not properly handle keys containing maps, sometimes matching too many or too few objects.
+
+  Own Id: OTP-19070 Aux Id: GH-8385
+* Fix CPU quota determination for cgroups.
+
+  The bug was introduced through OTP-18999.
+
+  Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380
+
+### Improvements and New Features
+
+* Added a warning to open_port/2 regarding the BadBatBut attack affecting Windows.
+
+  Own Id: OTP-19069
+
+## Erts 14.2.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed CPU quota determination for cgroup version 2
+
+  Own Id: OTP-18999 Aux Id: GH-7928
+* Fix faulty reduction counting in exiting process which could cause it to do unnecessary yielding.
+
+  Own Id: OTP-19014
+* Fix bug in `re:run/3` where if an invalid UTF-8 subject was given, re:run could get stuck in an infinite loop. Bug was introduced in Erlang/OTP 22.1.
+
+  Own Id: OTP-19015 Aux Id: ERIERL-682
+* On AArch64 (ARM64), Erlang code using bit syntax construction compiled using Erlang/OTP 24 could crash the runtime system when run in Erlang/OTP 26.2.3.
+
+  Own Id: OTP-19021 Aux Id: GH-8238, PR-8248
+* Calling `erlang:trace/3` with first argument one of `ports`, `processes`, `existing_ports`, `existing_processes`, `existing` or `all`, could cause emulator crash if a dirty scheduler was executing a simultaneous trace action.
+
+  Own Id: OTP-19034
+* Fixed an integer overflow when the monotonic time unit reported by the operating system was greater than 10 and lower than 100 microseconds.
+
+  Own Id: OTP-19036 Aux Id: GH-8186
+* Fix option reuseaddr for FreeBSD 14
+
+  Own Id: OTP-19041
+* When a traced process executing on a dirty scheduler received an exit signal, the dirty scheduler could use the wrong thread specific data which could lead to a crash.
+
+  Own Id: OTP-19043 Aux Id: PR-8342
+* Fixed a more or less harmless bug that caused time correction of Erlang monotonic time to become slightly off on Windows platforms when `QueryPerformanceCounter()` was used as OS monotonic time source.
+
+  `erlang:system_info(os_monotonic_time_source)` now also returns information about *used resolution* which not always corresponds to the resolution of the OS monotonic time source.
+
+  Own Id: OTP-19048 Aux Id: PR-8343
+* When using IPv6, classic gen_udp failed to add (group) membership (drop was used instead).
+
+  Own Id: OTP-19049 Aux Id: #8176
+* Fix bug on Windows where "Unknown event: 2" would be printed to the console.
+
+  Own Id: OTP-19060
+
+### Improvements and New Features
+
+* Checks for monotonicity of monotonic time have been improved so that Erlang and OS monotonic time are checked separately.
+
+  A new `configure` argument `--enable-ensure-os-monotonic-time` has also been added. It enables functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.
+
+  Own Id: OTP-19044 Aux Id: ERIERL-1043, PR-8342
+* For severe errors, when the \`socket\` module terminates the Erlang VM, now an erl_crash.dump is produced, to facilitate post mortem debugging.
+
+  Own Id: OTP-19058
+
+## Erts 14.2.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed compile warning in erl_nif.c for gcc-13.
+
+  Own Id: OTP-18906 Aux Id: PR-7930
+* Fix C++ compile error for macros `enif_select_read` and friends.
+
+  Own Id: OTP-18907 Aux Id: PR-7932
+* Fixed a name clash on Solaris that prevented the JIT from being built.
+
+  Own Id: OTP-18940 Aux Id: GH-8024
+* Fix termcap detection on solaris.
+
+  Own Id: OTP-18952 Aux Id: PR-8025
+* Fix heap corruption bug that could cause runaway memory consumption due to circular offheap list at process exit. Other symptoms may also be possible. Bug exists since OTP 25.0.
+
+  Own Id: OTP-18971 Aux Id: GH-8044
+* Do not clear tracing in old module instance if load fails with 'not_purged'.
+
+  Own Id: OTP-18979
+* When exceeding the \`max_heap_size\` limit in a garbage collection initiated by some bit syntax operations, the process would not always terminate immediately.
+
+  Own Id: OTP-18982
+* The code server could be hanging if a module with `on_load` function was loaded at the same time as another module was purged using `erlang:purge_module` directly.
+
+  Own Id: OTP-19006
+* A process optimized for parallel signal delivery could under some circumstances lose wakeup information. That is, the processes was not woken up to take care of the signal, so the signal would not be taken care of until the process was woken by another signal. Only processes configured with [`message_queue_data`](`m:erlang#process_flag_message_queue_data`) set to `off_heap` utilize this optimization.
+
+  Own Id: OTP-19008 Aux Id: GH-8119, PR-8201
+* Fix segfault when generating crashdump containing a fun places in persistent_term storage.
+
+  Own Id: OTP-19009 Aux Id: PR-8181
+* By default the JIT is disabled on Intel Macs, because of annoying poups on macOS Sonoma. It is now possible to explicitly enable the JIT on Intel Macs. Here is how: `./configure --enable-jit`
+
+  Own Id: OTP-19011
+
 ## Erts 14.2.2
 
 ### Fixed Bugs and Malfunctions
@@ -839,6 +1178,72 @@ This document describes the changes made to the ERTS application.
   [Upcoming Potential Incompatibilities](`e:general_info:upcoming_incompatibilities.md#float_matching`).
 
   Own Id: OTP-18574
+
+## Erts 13.2.2.9
+
+### Fixed Bugs and Malfunctions
+
+* ETS functions did not properly handle keys containing maps, sometimes matching too many or too few objects.
+
+  Own Id: OTP-19070 Aux Id: GH-8385
+* Fix CPU quota determination for cgroups.
+
+  The bug was introduced through OTP-18999.
+
+  Own Id: OTP-19071 Aux Id: OTP-18999 PR-8380
+
+## Erts 13.2.2.8
+
+### Fixed Bugs and Malfunctions
+
+* Fixed CPU quota determination for cgroup version 2
+
+  Own Id: OTP-18999 Aux Id: GH-7928
+* Fix faulty reduction counting in exiting process which could cause it to do unnecessary yielding.
+
+  Own Id: OTP-19014
+* Calling `erlang:trace/3` with first argument one of `ports`, `processes`, `existing_ports`, `existing_processes`, `existing` or `all`, could cause emulator crash if a dirty scheduler was executing a simultaneous trace action.
+
+  Own Id: OTP-19034
+* Fixed an integer overflow when the monotonic time unit reported by the operating system was greater than 10 and lower than 100 microseconds.
+
+  Own Id: OTP-19036 Aux Id: GH-8186
+* When a traced process executing on a dirty scheduler received an exit signal, the dirty scheduler could use the wrong thread specific data which could lead to a crash.
+
+  Own Id: OTP-19043 Aux Id: PR-8342
+* Fixed a more or less harmless bug that caused time correction of Erlang monotonic time to become slightly off on Windows platforms when `QueryPerformanceCounter()` was used as OS monotonic time source.
+
+  `erlang:system_info(os_monotonic_time_source)` now also returns information about *used resolution* which not always corresponds to the resolution of the OS monotonic time source.
+
+  Own Id: OTP-19048 Aux Id: PR-8343
+
+### Improvements and New Features
+
+* Checks for monotonicity of monotonic time have been improved so that Erlang and OS monotonic time are checked separately.
+
+  A new `configure` argument `--enable-ensure-os-monotonic-time` has also been added. It enables functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.
+
+  Own Id: OTP-19044 Aux Id: ERIERL-1043, PR-8342
+* For severe errors, when the \`socket\` module terminates the Erlang VM, now an erl_crash.dump is produced, to facilitate post mortem debugging.
+
+  Own Id: OTP-19058
+
+## Erts 13.2.2.7
+
+### Fixed Bugs and Malfunctions
+
+* Fix heap corruption bug that could cause runaway memory consumption due to circular offheap list at process exit. Other symptoms may also be possible. Bug exists since OTP 25.0.
+
+  Own Id: OTP-18971 Aux Id: GH-8044
+* The code server could be hanging if a module with `on_load` function was loaded at the same time as another module was purged using `erlang:purge_module` directly.
+
+  Own Id: OTP-19006
+* A process optimized for parallel signal delivery could under some circumstances lose wakeup information. That is, the processes was not woken up to take care of the signal, so the signal would not be taken care of until the process was woken by another signal. Only processes configured with [`message_queue_data`](`m:erlang#process_flag_message_queue_data`) set to `off_heap` utilize this optimization.
+
+  Own Id: OTP-19008 Aux Id: GH-8119, PR-8201
+* Fix bug in `re:run/3` where if an invalid UTF-8 subject was given, re:run could get stuck in an infinite loop. Bug was introduced in Erlang/OTP 22.1.
+
+  Own Id: OTP-19015 Aux Id: ERIERL-682
 
 ## Erts 13.2.2.6
 
@@ -2014,6 +2419,39 @@ This document describes the changes made to the ERTS application.
 - `file:sync/1` will now use the `F_BARRIERFSYNC` flag when available on Mac OS.
 
   Own Id: OTP-18038
+
+## Erts 12.3.2.17
+
+### Fixed Bugs and Malfunctions
+
+* The code server could be hanging if a module with `on_load` function was loaded at the same time as another module was purged using `erlang:purge_module` directly.
+
+  Own Id: OTP-19006
+* Fix bug in `re:run/3` where if an invalid UTF-8 subject was given, re:run could get stuck in an infinite loop. Bug was introduced in Erlang/OTP 22.1.
+
+  Own Id: OTP-19015 Aux Id: ERIERL-682
+* Calling `erlang:trace/3` with first argument one of `ports`, `processes`, `existing_ports`, `existing_processes`, `existing` or `all`, could cause emulator crash if a dirty scheduler was executing a simultaneous trace action.
+
+  Own Id: OTP-19034
+* Fixed an integer overflow when the monotonic time unit reported by the operating system was greater than 10 and lower than 100 microseconds.
+
+  Own Id: OTP-19036 Aux Id: GH-8186
+* When a traced process executing on a dirty scheduler received an exit signal, the dirty scheduler could use the wrong thread specific data which could lead to a crash.
+
+  Own Id: OTP-19043 Aux Id: PR-8342
+* Fixed a more or less harmless bug that caused time correction of Erlang monotonic time to become slightly off on Windows platforms when `QueryPerformanceCounter()` was used as OS monotonic time source.
+
+  `erlang:system_info(os_monotonic_time_source)` now also returns information about *used resolution* which not always corresponds to the resolution of the OS monotonic time source.
+
+  Own Id: OTP-19048 Aux Id: PR-8343
+
+### Improvements and New Features
+
+* Checks for monotonicity of monotonic time have been improved so that Erlang and OS monotonic time are checked separately.
+
+  A new `configure` argument `--enable-ensure-os-monotonic-time` has also been added. It enables functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.
+
+  Own Id: OTP-19044 Aux Id: ERIERL-1043, PR-8342
 
 ## Erts 12.3.2.16
 
@@ -4947,6 +5385,26 @@ This document describes the changes made to the ERTS application.
   be started.
 
   Own Id: OTP-16635 Aux Id: ERL-476 PR-2390
+
+## Erts 10.7.2.19
+
+### Fixed Bugs and Malfunctions
+
+* A race could cause [`process_info(Pid, message_queue_len)`](`process_info/2`) on other processes to return invalid results.
+
+  Own Id: OTP-18169 Aux Id: PR-6134
+* Fixed reduction counting for handling process system tasks.
+
+  Own Id: OTP-18170 Aux Id: PR-6135
+* Priority elevation of terminating processes did not work which could cause execution of such processes to be delayed.
+
+  Own Id: OTP-18175 Aux Id: PR-6142
+* The `erlang:monotonic_time/1`, `erlang:system_time/1`, `erlang:time_offset/1`, and `os:system_time/1` BIFs erroneously failed when passed the argument `native`.
+
+  Own Id: OTP-18197 Aux Id: GH-6165, PR-6213
+* Notifications about available distribution data sent to distribution controller processes could be lost. Distribution controller processes can be used when implementing an alternative distribution carrier. The default distribution over tcp was not effected and the bug was also not present on x86/x86_64 platforms.
+
+  Own Id: OTP-18258 Aux Id: GH-6309, PR-6324
 
 ## Erts 10.7.2.18
 

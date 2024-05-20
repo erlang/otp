@@ -28,22 +28,23 @@ control applications in a distributed manner. If the node, where a certain
 application is running, goes down, the application is to be restarted at another
 node.
 
-Such an application is called a _distributed application_. Notice that it is the
+Such an application is called a _distributed application_. Note that it is the
 control of the application that is distributed. All applications can be
 distributed in the sense that they, for example, use services on other nodes.
 
 Since a distributed application can move between nodes, some addressing
 mechanism is required to ensure that it can be addressed by other applications,
 regardless on which node it currently executes. This issue is not addressed
-here, but the `global` or `pg` modules in Kernel can be used for this purpose.
+here, but the `m:global` or `m:pg` modules in Kernel can be used for this purpose.
 
 ## Specifying Distributed Applications
 
-Distributed applications are controlled by both the application controller and a
-distributed application controller process, `dist_ac`. Both these processes are
-part of the Kernel application. Distributed applications are thus specified by
-configuring the Kernel application, using the following configuration parameter
-(see also `kernel(6)`):
+Distributed applications are controlled by both the application
+controller and a distributed application controller process called
+`dist_ac`. Both processes are part of the Kernel application.
+Distributed applications are thus specified by
+configuring the Kernel application, using the following configuration
+parameter (see also [Kernel](`e:kernel:kernel_app.md`)):
 
 `distributed = [{Application, [Timeout,] NodeDesc}]`
 
@@ -58,11 +59,11 @@ distributed application can run must contact each other and negotiate where to
 start the application. This is done using the following configuration parameters
 in Kernel:
 
-- `sync_nodes_mandatory = [Node]` \- Specifies which other nodes must be started
+- `sync_nodes_mandatory = [Node]` - Specifies which other nodes must be started
   (within the time-out specified by `sync_nodes_timeout`).
-- `sync_nodes_optional = [Node]` \- Specifies which other nodes can be started
+- `sync_nodes_optional = [Node]` - Specifies which other nodes can be started
   (within the time-out specified by `sync_nodes_timeout`).
-- `sync_nodes_timeout = integer() | infinity` \- Specifies how many milliseconds
+- `sync_nodes_timeout = integer() | infinity` - Specifies how many milliseconds
   to wait for the other nodes to start.
 
 When started, the node waits for all nodes specified by `sync_nodes_mandatory`
@@ -94,7 +95,7 @@ for `cp2@cave` and `[cp1@cave, cp2@cave]` for `cp3@cave`.
 > #### Note {: .info }
 >
 > All involved nodes must have the same value for `distributed` and
-> `sync_nodes_timeout`. Otherwise the system behaviour is undefined.
+> `sync_nodes_timeout`. Otherwise the system behavior is undefined.
 
 ## Starting and Stopping Distributed Applications
 

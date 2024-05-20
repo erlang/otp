@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,29 @@ limitations under the License.
 # Dialyzer Release Notes
 
 This document describes the changes made to the Dialyzer application.
+
+## Dialyzer 5.2
+
+### Improvements and New Features
+
+- The `--gui` option for Dialyzer has been removed.
+
+  Own Id: OTP-18667 Aux Id: [PR-7443]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7443]: https://github.com/erlang/otp/pull/7443
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
+## Dialyzer 5.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed an issue with bitstring type inference on segments following UTF-8/16/32 segments.
+
+  Own Id: OTP-19068 Aux Id: GH-8383
 
 ## Dialyzer 5.1.2
 

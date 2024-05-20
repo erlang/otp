@@ -56,6 +56,7 @@ start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is
 %%%  Supervisor callback
 %%%=========================================================================
 init(_Args) ->
+    ssh_lib:set_label(channel_sup),
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,

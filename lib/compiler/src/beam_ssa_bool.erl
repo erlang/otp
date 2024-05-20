@@ -169,7 +169,8 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
         true ->
             %% There are no boolean operators that can be optimized in
             %% this function.
-            F#b_function{bs=Blocks1,cnt=Count1}
+            Blocks2 = beam_ssa:trim_unreachable(Blocks1), %Fix up phi nodes.
+            F#b_function{bs=Blocks2,cnt=Count1}
     end.
 
 %%%
@@ -393,8 +394,33 @@ pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                     pre_opt_is(Is, Reached, Sub, Acc)
             end;
         false ->
-            pre_opt_is(Is, Reached, Sub0, [I|Acc])
-        end;
+            case beam_ssa:eval_instr(I) of
+                any ->
+                    pre_opt_is(Is, Reached, Sub0, [I|Acc]);
+                failed ->
+                    case Is of
+                        [#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}] ->
+                            %% In a guard. The failure reason doesn't
+                            %% matter, so we can discard this
+                            %% instruction and the `succeeded`
+                            %% instruction. Since the success branch
+                            %% will never be taken, it usually means
+                            %% that one or more blocks can be
+                            %% discarded as well, saving some
+                            %% compilation time.
+                            Sub = Sub0#{SuccDst => #b_literal{val=false}},
+                            {reverse(Acc),Sub};
+                        _ ->
+                            %% In a body. We must preserve the exact
+                            %% failure reason, which is most easily
+                            %% done by keeping the instruction.
+                            pre_opt_is(Is, Reached, Sub0, [I|Acc])
+                    end;
+                #b_literal{}=Lit ->
+                    Sub = Sub0#{Dst => Lit},
+                    pre_opt_is(Is, Reached, Sub, Acc)
+            end
+    end;
 pre_opt_is([], _Reached, Sub, Acc) ->
     {reverse(Acc),Sub}.
 

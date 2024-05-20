@@ -52,6 +52,7 @@ PRE_LOADED_ERL_MODULES = \
 	erts_internal \
 	erl_tracer \
 	erts_literal_area_collector \
+	erts_trace_cleaner \
 	erts_dirty_process_signal_handler \
 	atomics \
 	counters \
@@ -86,7 +87,7 @@ STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 ERL_COMPILE_FLAGS += -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 ifeq ($(ERL_DETERMINISTIC),yes)
-	ERL_COMPILE_FLAGS += deterministic
+	ERL_COMPILE_FLAGS += +deterministic
 endif
 
 DIA_PLT      = erts-preloaded.plt
@@ -117,6 +118,20 @@ copy:
 
 $(APP_TARGET): $(APP_SRC) $(ERL_TOP)/erts/vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' -e 's;%ESOCK_MODS%;$(APP_ESOCK_MODS);' $< > $@
+
+#
+# Combine a BEAM assembly script file a stub Erlang file into a BEAM file.
+# See add_abstract_chunk script.
+#
+
+prim_eval.abstr: prim_eval.erl
+	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) +dabstr $<
+
+$(EBIN)/prim_eval.beam: prim_eval.S prim_eval.abstr
+	$(gen_verbose)
+	$(V_at)$(ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
+	$(V_at)$(ESCRIPT) add_abstract_code $@ prim_eval.abstr || (rm $@; exit 1)
+
 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
@@ -156,19 +171,6 @@ dialyzer: $(DIA_PLT)
                   ../ebin \
                   $(DIA_WARNINGS) \
                   --verbose
-
-#
-# Combine a BEAM assembly script file a stub Erlang file into a BEAM file.
-# See add_abstract_chunk script.
-#
-
-prim_eval.abstr: prim_eval.erl
-	$(V_ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) +dabstr $<
-
-prim_eval.beam: prim_eval.S prim_eval.abstr
-	$(gen_verbose)
-	$(V_at)$(ERLC) $(ERL_COMPILE_FLAGS) $<
-	$(V_at)escript add_abstract_code $@ prim_eval.abstr || (rm $@; exit 1)
 
 # Include dependencies -- list below added by PaN
 $(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file.hrl

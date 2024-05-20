@@ -85,7 +85,7 @@ Connect/session options can be specified in a configuration file with entries
 like the following.
 
 ```erlang
- {server_id(), [option()]}.
+{server_id(), [option()]}.
 ```
 
 The `t:server_id/0` or an associated `t:ct:target_name/0` can then be passed to
@@ -118,7 +118,7 @@ purpose error handler is implemented in `ct_conn_log_h`. To use this error
 handler, add the `cth_conn_log` hook in the test suite, for example:
 
 ```erlang
- suite() ->
+suite() ->
     [{ct_hooks, [{cth_conn_log, [{ct:conn_log_mod(), ct:conn_log_options()}]}]}].
 ```
 
@@ -152,14 +152,14 @@ The hook options can also be specified in a configuration file with
 configuration variable `ct_conn_log`:
 
 ```erlang
- {ct_conn_log,[{ct:conn_log_mod(), ct:conn_log_options()}]}.
+{ct_conn_log,[{ct:conn_log_mod(), ct:conn_log_options()}]}.
 ```
 
 For example:
 
 ```erlang
- {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-                             {hosts,[ct:key_or_name()]}]}]}
+{ct_conn_log,[{ct_netconfc,[{log_type,pretty},
+                            {hosts,[ct:key_or_name()]}]}]}
 ```
 
 > #### Note {: .info }
@@ -176,17 +176,17 @@ separate logs for the connections named `nc_server1` and `nc_server2`. Any other
 connections are logged to default NETCONF log.
 
 ```erlang
- suite() ->
-    [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
-                                               {hosts,[nc_server1,nc_server2]}]}
-                                ]}]}].
+suite() ->
+   [{ct_hooks, [{cth_conn_log, [{ct_netconfc,[{log_type,pretty}},
+                                              {hosts,[nc_server1,nc_server2]}]}
+                               ]}]}].
 ```
 
 Connections must be opened as follows:
 
 ```erlang
- open(nc_server1,[...]),
- open(nc_server2,[...]).
+open(nc_server1,[...]),
+open(nc_server2,[...]).
 ```
 
 _Logging Example 2:_
@@ -196,14 +196,14 @@ _Logging Example 2:_
 The following configuration file causes raw logging of all NETCONF traffic in to
 one single text file:
 
-```text
- {ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.
+```erlang
+{ct_conn_log,[{ct_netconfc,[{log_type,raw}]}]}.
 ```
 
 The `ct_hooks` statement must look as follows:
 
 ```erlang
- suite() ->
+suite() ->
     [{ct_hooks, [{cth_conn_log, []}]}].
 ```
 
@@ -461,7 +461,7 @@ Date and time of a startTime/stopTime element in an RFC 5277 create-subscription
 request. Of XML primitive type `dateTime`, which has the (informal) form
 
 ```text
- [-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]
+[-]YYYY-MM-DDThh:mm:ss[.s][Z|(+|-)hh:mm]
 ```
 
 where `T` and `Z` are literal and `.s` is one or more fractional seconds.
@@ -783,7 +783,7 @@ only_open(KeyOrName, ExtraOpts) ->
 %% hello/1
 
 -doc(#{equiv => hello/3}).
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hello(Client) -> Result when
       Client :: handle(),
       Result :: ok | {error, error_reason()}.
@@ -794,7 +794,7 @@ hello(Client) ->
 %% hello/2
 
 -doc(#{equiv => hello/3}).
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec hello(Client, Timeout) -> Result when
       Client :: handle(),
       Timeout :: timeout(),
@@ -811,7 +811,7 @@ been received or after the specified timeout.
 
 Note that capabilities for an outgoing hello can be passed directly to `open/2`.
 """.
--doc(#{since => <<"OTP 17.5.3,OTP R15B02">>}).
+-doc(#{since => <<"OTP 17.5.3">>}).
 -spec hello(Client, Options, Timeout) -> Result when
       Client :: handle(),
       Options :: [{capability, [string()]}],
@@ -1037,7 +1037,7 @@ get_config(Client, Source, Filter, Timeout) ->
 %%----------------------------------------------------------------------
 %% Send a 'edit-config' request.
 -doc(#{equiv => edit_config/5}).
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec edit_config(Client, Target, Config) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1047,7 +1047,7 @@ edit_config(Client, Target, Config) ->
     edit_config(Client, Target, Config, ?DEFAULT_TIMEOUT).
 
 -doc(#{equiv => edit_config/5}).
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec edit_config(Client, Target, Config, OptParams) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1076,13 +1076,13 @@ By default only the running target is available, unless the server includes
 value must be a list containing valid simple XML, for example:
 
 ```erlang
- [{'default-operation', ["none"]},
-  {'error-option', ["rollback-on-error"]}]
+[{'default-operation', ["none"]},
+ {'error-option', ["rollback-on-error"]}]
 ```
 
 If `OptParams` is not given, the default value `[]` is used.
 """.
--doc(#{since => <<"OTP 18.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP 18.0">>}).
 -spec edit_config(Client, Target, Config, OptParams, Timeout) -> Result when
       Client :: client(),
       Target :: netconf_db(),
@@ -1355,7 +1355,7 @@ create_subscription(Client, Stream, Filter, StartTime, StopTime, Timeout) ->
 %% Send a request to get the given event streams
 %% See RFC5277, NETCONF Event Notifications
 -doc(#{equiv => get_event_streams/3}).
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP 20.0">>}).
 -spec get_event_streams(Client)
 		       -> Result when
       Client :: client(),
@@ -1364,7 +1364,7 @@ get_event_streams(Client) ->
     get_event_streams(Client,[],?DEFAULT_TIMEOUT).
 
 -doc(#{equiv => get_event_streams/3}).
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec get_event_streams(Client, Timeout)
 		       -> Result when
       Client :: client(),
@@ -1386,33 +1386,33 @@ Sends a request to get the specified event streams.
 server in a `get` request:
 
 ```text
- <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-   <streams>
-     <stream>
-       <name>StreamName1</name>
-     </stream>
-     <stream>
-       <name>StreamName2</name>
-     </stream>
-     ...
-   </streams>
- </netconf>
+<netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
+  <streams>
+    <stream>
+      <name>StreamName1</name>
+    </stream>
+    <stream>
+      <name>StreamName2</name>
+    </stream>
+    ...
+  </streams>
+</netconf>
 ```
 
 If `Streams` is an empty list, _all_ streams are requested by sending the
 following filter:
 
 ```text
- <netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
-   <streams/>
- </netconf>
+<netconf xmlns="urn:ietf:params:xml:ns:netmod:notification">
+  <streams/>
+</netconf>
 ```
 
 If more complex filtering is needed, use [`ct_netconfc:get/2,3`](`get/2`) and
 specify the exact filter according to "XML Schema for Event Notifications" in
 RFC 5277.
 """.
--doc(#{since => <<"OTP 20.0,OTP R15B02">>}).
+-doc(#{since => <<"OTP R15B02">>}).
 -spec get_event_streams(Client, Streams, Timeout)
 		       -> Result when
       Client :: client(),

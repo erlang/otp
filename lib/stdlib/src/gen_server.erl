@@ -32,7 +32,7 @@ A `gen_server` process assumes all specific parts to be located in a callback
 module exporting a predefined set of functions. The relationship between the
 behavior functions and the callback functions is as follows:
 
-```erlang
+```text
 gen_server module            Callback module
 -----------------            ---------------
 gen_server:start
@@ -61,7 +61,7 @@ If a callback function fails or returns a bad value, the `gen_server` process
 terminates.
 
 A `gen_server` process handles system messages as described in `m:sys`. The
-`sys` module can be used for debugging a `gen_server` process.
+`m:sys` module can be used for debugging a `gen_server` process.
 
 Notice that a `gen_server` process does not trap exit signals automatically,
 this must be explicitly initiated in the callback module.
@@ -100,7 +100,6 @@ details regarding error handling using exit signals.
 
 `m:gen_event`, `m:gen_statem`, `m:proc_lib`, `m:supervisor`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 %%%
 %%% NOTE: If init_ack() return values are modified, see comment
@@ -270,7 +269,7 @@ The return value `Result` is interpreted as follows:
   `{ok,_,hibernate}`  
   `{ok,_,{continue,Continue}}`**  
   See the corresponding return values from
-  [`Module:handle_call/3` ](`c:handle_call/3`)for a description of this tuple
+  [`Module:handle_call/3`](`c:handle_call/3`) for a description of this tuple
   member.
 
 - **`{stop,Reason}`  
@@ -286,14 +285,13 @@ The return value `Result` is interpreted as follows:
 See function [`start_link/3,4`](`start_link/3`)'s return value `t:start_ret/0`
 in these different cases.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore | {error, Reason :: term()}.
 -doc """
 Whenever a `gen_server` process receives a request sent using
-[`call/2,3`](`call/2`) or [`multi_call/2,3,4`](`multi_call/2`), this function is
-called to handle the request.
+[`call/2,3`](`call/3`), [`multi_call/2,3,4`](`multi_call/4`) or [`send_request/2,4`](`send_request/4`),
+this function is called to handle the request.
 
 `State` is the internal state of the `gen_server` process, and `NewState` a
 possibly updated one.
@@ -323,7 +321,7 @@ The return value `Result` is interpreted as follows:
   If an integer `Timeout` is provided, a time-out occurs unless a request or a
   message is received within that many milliseconds. A time-out is represented
   by the atom `timeout` to be handled by the
-  [`Module:handle_info/2` ](`c:handle_info/2`)callback function.
+  [`Module:handle_info/2`](`c:handle_info/2`) callback function.
   `Timeout =:= infinity` can be used to wait indefinitely, which is the same as
   returning a value without a `Timeout` member.
 
@@ -335,20 +333,19 @@ The return value `Result` is interpreted as follows:
 - **`{reply,_,_,{continue,Continue}}`  
   `{noreply,_,{continue,Continue}}`**  
   The process will execute the
-  [`Module:handle_continue/2` ](`c:handle_continue/2`)callback function, with
+  [`Module:handle_continue/2`](`c:handle_continue/2`) callback function, with
   `Continue` as the first argument.
 
 - **`{stop,Reason,NewState}`  
   `{stop,Reason,Reply,NewState}`**  
   The `gen_server` process will call
-  [`Module:terminate(Reason,NewState)` ](`c:terminate/2`)and then terminate.
+  [`Module:terminate(Reason,NewState)`](`c:terminate/2`) and then terminate.
 
   `{stop,_,Reply,_}` will create a reply to the client request just as
   `{reply,Reply,...}` while `{stop,_,_}` will not, so just as for
   `{noreply,NewState,...}` a reply has to be created by calling
   [`reply(From, Reply)`](`reply/2`) before returning `{stop,_,_}`.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -364,19 +361,11 @@ Whenever a `gen_server` process receives a request sent using `cast/2` or
 For a description of the arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_server` module provides a default implementation of this function that
-> logs about the unexpected `Info` message, drops it and returns
-> `{noreply, State}`.
-
 This function is called by a `gen_server` process when a time-out occurs or when
 it receives any other message than a synchronous or asynchronous request (or a
 system message).
@@ -386,20 +375,20 @@ message.
 
 For a description of the other arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_server` module provides a default implementation of this function that
+> logs about the unexpected `Info` message, drops it and returns
+> `{noreply, State}`.
+
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need to export it only if they
-> return one of the tuples containing `{continue,Continue}` from another
-> callback. If such a `{continue,_}` tuple is used and the callback is not
-> implemented, the process will exit with `undef` error.
-
 This function is called by a `gen_server` process whenever a previous callback
 returns one of the tuples containing `{continue, Continue}`.
 [`handle_continue/2`](`c:handle_continue/2`) is invoked immediately after the
@@ -409,19 +398,22 @@ updating the process state along the way.
 
 For a description of the other arguments and possible return values, see
 [`Module:handle_call/3`](`c:handle_call/3`).
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need to export it only if they
+> return one of the tuples containing `{continue,Continue}` from another
+> callback. If such a `{continue,_}` tuple is used and the callback is not
+> implemented, the process will exit with `undef` error.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_server` module provides a default implementation without cleanup.
-
 This function is called by a `gen_server` process when it is about to terminate.
+
 It is to be the opposite of [`Module:init/1`](`c:init/1`) and do any necessary
 cleaning up. When it returns, the `gen_server` process terminates with `Reason`.
 The return value is ignored.
@@ -454,24 +446,22 @@ terminate because of an error, and an error report is issued using `m:logger`.
 
 When the gen_server process exits, an exit signal with the same reason is sent
 to linked processes and ports.
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_server` module provides a default implementation without cleanup.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->
     term().
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. If a
-> release upgrade/downgrade with `Change={advanced,Extra}` specified in the
-> `appup` file is made when [`code_change/3`](`c:code_change/3`) isn't
-> implemented the process will crash with an `undef` exit reason.
-
 This function is called by a `gen_server` process when it is to update its
 internal state during a release upgrade/downgrade, that is, when the instruction
-`{update,Module,Change,...}`, where `Change={advanced,Extra}`, is specifed in
-the `appup` file. For more information, see section
+`{update,Module,Change,...}`, is specified in the [`appup`](`e:sasl:appup.md`) file.
+
+For more information, see section
 [Release Handling Instructions](`e:system:release_handling.md#instr`) in OTP
 Design Principles.
 
@@ -489,24 +479,21 @@ If successful, the function must return the updated internal state.
 
 If the function returns `{error,Reason}`, the ongoing upgrade fails and rolls
 back to the old release.
+
+> #### Note {: .info }
+>
+> If a release upgrade/downgrade with `Change={advanced,Extra}` specified in the
+> [`.appup`](`e:sasl:appup.md`) file is made when `c:code_change/3` isn't
+> implemented the event handler will crash with an `undef` error reason.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
 -doc """
-> #### Warning {: .warning }
->
-> This callback is deprecated, in new code use `c:format_status/1`. If a
-> `c:format_status/1` callback exists, then this function will never be called.
+This function is called by a `gen_server` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_server` module provides a default implementation of this function that
-> returns the callback module state.
-
-This function is called by a `gen_server` process in the following situations:
+It is called in the following situations:
 
 - One of [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the
   `gen_server` status. `Opt` is set to the atom `normal`.
@@ -536,8 +523,15 @@ return value.
 
 One use for this function is to return compact alternative state representations
 to avoid that large state terms are printed in log files.
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_server` module provides a default implementation of this function that
+> returns the callback module state.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R13B04">>}).
+-deprecated_callback({format_status, 2, "use format_status/1 instead"}).
+-doc(#{since => <<"OTP R13B04">>}).
 -callback format_status(Opt, StatusData) -> Status when
       Opt :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
@@ -545,7 +539,9 @@ to avoid that large state terms are printed in log files.
       State :: term(),
       Status :: term().
 -doc """
-A map that describes the `gen_server` status. The keys are:
+A map that describes the `gen_server` status.
+
+The keys are:
 
 - **`state`** - The internal state of the `gen_server` process.
 
@@ -563,17 +559,10 @@ New associations may be added to the status map without prior notice.
            reason => term(),
            log => [sys:system_event()] }.
 -doc """
-> #### Note {: .info }
->
-> This callback is optional, so callback modules need not export it. The
-> `gen_server` module provides a default implementation of this function that
-> returns the callback module state.
->
-> If this callback is exported but fails, to hide possibly sensitive data, the
-> default function will instead return the fact that
-> [`format_status/1`](`c:format_status/1`) has crashed.
+This function is called by a `gen_server` process in in order to format/limit the
+server state for debugging and logging purposes.
 
-This function is called by a `gen_server` process in the following situations:
+It is called in the following situations:
 
 - [`sys:get_status/1,2`](`sys:get_status/1`) is invoked to get the `gen_server`
   status.
@@ -602,8 +591,19 @@ format_status(Status) ->
             Value
     end, Status).
 ```
+
+> #### Note {: .info }
+>
+> This callback is optional, so callback modules need not export it. The
+> `gen_server` module provides a default implementation of this function that
+> returns the callback module state.
+>
+> If this callback is exported but fails, to hide possibly sensitive data, the
+> default function will instead return the fact that
+> [`format_status/1`](`c:format_status/1`) has crashed.
+
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 25.0">>}).
+-doc(#{since => <<"OTP 25.0">>}).
 -callback format_status(Status) -> NewStatus when
       Status    :: format_status(),
       NewStatus :: format_status().
@@ -639,7 +639,9 @@ information see `reqids_new/0`.
 -doc """
 Used to set a time limit on how long to wait for a response using either
 `receive_response/2`, `receive_response/3`, `wait_response/2`, or
-`wait_response/3`. The time unit used is `millisecond`. Currently valid values:
+`wait_response/3`. The time unit used is `millisecond`.
+
+Currently valid values:
 
 - **`0..4294967295`** - Timeout relative to current time in milliseconds.
 
@@ -677,10 +679,11 @@ Used to set a time limit on how long to wait for a response using either
 %%% -----------------------------------------------------------------
 
 -doc """
-Name specification to use when starting a `gen_server`. See functions
-[`start/3,4`](`start/3`), [`start_link/3,4`](`start_link/3`),
+Name specification to use when starting a `gen_server`.
+
+See functions [`start/3,4`](`start/3`), [`start_link/3,4`](`start_link/3`),
 [`start_monitor/3,4`](`start_monitor/3`), [`enter_loop/3,4,5`](`enter_loop/3`),
-and the type `t:server_ref/0` below.
+and the type `t:server_ref/0`.
 
 - **`{local,LocalName}`** - Register the `gen_server` locally as `LocalName`
   using [`register/2`](`erlang:register/2`).
@@ -701,9 +704,10 @@ and the type `t:server_ref/0` below.
       | {'via', RegMod :: module(), ViaName :: term()}.
 
 -doc """
-Server specification to use when addressing a `gen_server`. See
-[`call/2,3`](`call/2`), `cast/2`, `send_request/2`, `check_response/2`,
-`wait_response/2`, [`stop/2,3`](`stop/1`) and the type `t:server_name/0` above.
+Server specification to use when addressing a `gen_server`.
+
+See [`call/2,3`](`call/2`), `cast/2`, `send_request/2`, `check_response/2`,
+`wait_response/2`, [`stop/2,3`](`stop/1`) and the type `t:server_name/0`.
 
 It can be:
 
@@ -732,7 +736,7 @@ It can be:
 
 -doc """
 Options that can be used when starting a `gen_server` server through, for
-example, [`start_link/3,4`](`start_link/3`).
+example, [`start_link/3,4`](`start_link/4`).
 
 - **`{timeout,Timeout}`** - How many milliseconds the `gen_server` process is
   allowed to spend initializing or it is terminated and the start function
@@ -816,7 +820,10 @@ the process identifier `Pid` and a [`monitor/2,3`](`erlang:monitor/2`)
 
 %%% ---------------------------------------------------
 
--doc(#{equiv => start/4}).
+-doc """
+Equivalent to `start/4` except that the `gen_server` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -spec start(
 	Module  :: module(),
         Args    :: term(),
@@ -834,7 +841,7 @@ start(Module, Args, Options) ->
 Creates a standalone `gen_server` process, that is, a `gen_server` process that
 is not part of a supervision tree and thus has no supervisor.
 
-Other than that see [`start_link/3,4`](`start_link/3`).
+Other than that see `start_link/4`.
 """.
 -spec start(
 	ServerName :: server_name(),
@@ -850,7 +857,10 @@ start(ServerName, Module, Args, Options)
 start(ServerName, Module, Args, Options) ->
     error(badarg, [ServerName, Module, Args, Options]).
 
--doc(#{equiv => start_link/4}).
+-doc """
+Equivalent to `start_link/4` except that the `gen_server` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -spec start_link(
 	Module  :: module(),
         Args    :: term(),
@@ -874,8 +884,7 @@ ensure a synchronized startup procedure, `start_link/3,4` does not return until
 [`Module:init/1`](`c:init/1`) has returned or failed.
 
 Using the argument `ServerName` creates a `gen_server` with a registered name.
-See type `t:server_name/0` for different name registrations. If no `ServerName`
-is provided, the `gen_server` process is not registered.
+See type `t:server_name/0` for different name registrations.
 
 `Module` is the name of the callback module.
 
@@ -894,7 +903,7 @@ process (due to the process link), that message has been consumed.
 >
 > Before OTP 26.0, if the started `gen_server` process returned e.g.
 > `{stop,Reason}` from [`Module:init/1`](`c:init/1`), this function could return
-> `{error,Reason}` _before_ the started `gen_statem` process had terminated so
+> `{error,Reason}` _before_ the started `m:gen_server` process had terminated so
 > starting again might fail because VM resources such as the registered name was
 > not yet unregistered. An `'EXIT'` message could arrive later to the process
 > calling this function.
@@ -902,7 +911,7 @@ process (due to the process link), that message has been consumed.
 > But if the started `gen_server` process instead failed during
 > [`Module:init/1`](`c:init/1`), a process link `{'EXIT',Pid,Reason}` message
 > caused this function to return `{error,Reason}` so the `'EXIT'` message had
-> been consumed and the started `gen_statem` process had terminated.
+> been consumed and the started `m:gen_server` process had terminated.
 >
 > Since it was impossible to tell the difference between these two cases from
 > `start_link/3,4`'s return value, this inconsistency was cleaned up in OTP
@@ -927,7 +936,10 @@ start_link(ServerName, Module, Args, Options)
 start_link(ServerName, Module, Args, Options) ->
     error(badarg, [ServerName, Module, Args, Options]).
 
--doc(#{equiv => start_monitor/4}).
+-doc """
+Equivalent to `start_monitor/4` except that the `gen_server` process is not
+registered with any [name service](`t:server_name/0`).
+""".
 -doc(#{since => <<"OTP 23.0">>}).
 -spec start_monitor(
 	Module  :: module(),
@@ -976,7 +988,7 @@ start_monitor(ServerName, Module, Args, Options) ->
 %% be monitored.
 %% -----------------------------------------------------------------
 
--doc(#{equiv => stop/3}).
+-doc(#{equiv => stop(ServerRef, normal, infinity)}).
 -doc(#{since => <<"OTP 18.0">>}).
 -spec stop(
         ServerRef :: server_ref()
@@ -987,8 +999,8 @@ stop(ServerRef) ->
 
 -doc """
 Orders the generic server specified by `ServerRef` to exit with the specified
-`Reason`, default 'normal', and waits for it to terminate. The `gen_server`
-process calls [`Module:terminate/2` ](`c:terminate/2`)before exiting.
+`Reason` and waits for it to terminate. The `gen_server`
+process calls [`Module:terminate/2`](`c:terminate/2`) before exiting.
 
 The function returns `ok` if the server terminates with the expected reason. Any
 other reason than `normal`, `shutdown`, or `{shutdown,Term}` causes an error
@@ -996,9 +1008,9 @@ report to be issued using `m:logger`. An exit signal with the same reason is
 sent to linked processes and ports.
 
 `Timeout` is an integer that specifies how many milliseconds to wait for the
-server to terminate, or the atom `infinity` to wait indefinitely, which is the
-default. If the server has not terminated within the specified time, the call
-exits the calling process with reason `timeout`.
+server to terminate, or the atom `infinity` to wait indefinitely. If the server
+has not terminated within the specified time, the call exits the calling process
+with reason `timeout`.
 
 If the process does not exist, the call exits the calling process with reason
 `noproc`, and with reason `{nodedown,Node}` if the connection fails to the
@@ -1022,7 +1034,7 @@ stop(ServerRef, Reason, Timeout) ->
 %% is handled here (? Shall we do that here (or rely on timeouts) ?).
 %% ----------------------------------------------------------------- 
 
--doc(#{equiv => call/3}).
+-doc(#{equiv => call(ServerRef, Request, 5000)}).
 -spec call(
         ServerRef :: server_ref(),
         Request   :: term()
@@ -1040,7 +1052,7 @@ call(ServerRef, Request) ->
 -doc """
 Makes a synchronous call to the `ServerRef` of the `gen_server` process by
 sending a request and waiting until a reply arrives or a time-out occurs. The
-`gen_server` process calls [`Module:handle_call/3` ](`c:handle_call/3`)to handle
+`gen_server` process calls [`Module:handle_call/3`](`c:handle_call/3`) to handle
 the request.
 
 See also `ServerRef`'s type `t:server_ref/0`.
@@ -1049,7 +1061,7 @@ See also `ServerRef`'s type `t:server_ref/0`.
 [`Module:handle_call/3`](`c:handle_call/3`).
 
 `Timeout` is an integer that specifies how many milliseconds to wait for a
-reply, or the atom `infinity` to wait indefinitely. Defaults to 5000. If no
+reply, or the atom `infinity` to wait indefinitely. If no
 reply is received within the specified time, this function exits the calling
 process with an exit term containing `Reason = timeout` as described below.
 
@@ -1121,8 +1133,9 @@ call(ServerRef, Request, Timeout) ->
 
 -doc """
 Sends an asynchronous `call` request `Request` to the `gen_server` process
-identified by `ServerRef` and returns a request identifier `ReqId`. The return
-value `ReqId` shall later be used with `receive_response/2`, `wait_response/2`,
+identified by `ServerRef` and returns a request identifier `ReqId`.
+
+The return value `ReqId` shall later be used with `receive_response/2`, `wait_response/2`,
 or `check_response/2` to fetch the actual result of the request. Besides passing
 the request identifier directly to these functions, it can also be saved in a
 request identifier collection using `reqids_add/3`. Such a collection of request
@@ -1138,7 +1151,7 @@ can be seen as equivalent to
 [`gen_server:call(ServerRef, Request, Timeout)`](`call/3`), ignoring the error
 handling.
 
-The `gen_server` process calls [`Module:handle_call/3` ](`c:handle_call/3`)to
+The `gen_server` process calls [`Module:handle_call/3`](`c:handle_call/3`) to
 handle the request.
 
 See the type `t:server_ref/0` for the possible values for `ServerRef`.
@@ -1552,7 +1565,7 @@ reqids_to_list(ReqIdCollection) ->
 Sends an asynchronous request to the `ServerRef` of the `gen_server` process and
 returns `ok` immediately, ignoring if the destination node or `gen_server`
 process does not exist. The `gen_server` process calls
-[`Module:handle_cast/2` ](`c:handle_cast/2`)to handle the request.
+[`Module:handle_cast/2`](`c:handle_cast/2`) to handle the request.
 
 See also `ServerRef`'s type `t:server_ref/0`.
 
@@ -1611,7 +1624,10 @@ reply(Client, Reply) ->
 %% Asynchronous broadcast, returns nothing, it's just send 'n' pray
 %%-----------------------------------------------------------------  
 
--doc(#{equiv => abcast/3}).
+-doc """
+Equivalent to [`abcast(Nodes, Name, Request)`](`abcast/3`) where `Nodes`
+is all nodes connected to the calling node, including the calling node.
+""".
 -spec abcast(
         Name    :: atom(),
         Request :: term()
@@ -1625,7 +1641,7 @@ abcast(Name, Request) when is_atom(Name) ->
 Sends an asynchronous request to the `gen_server` processes locally registered
 as `Name` at the specified nodes. The function returns immediately and ignores
 nodes that do not exist, or where the `gen_server` `Name` does not exist. The
-`gen_server` processes call [`Module:handle_cast/2` ](`c:handle_cast/2`)to
+`gen_server` processes call [`Module:handle_cast/2`](`c:handle_cast/2`) to
 handle the request.
 
 For a description of the arguments, see [`multi_call/2,3,4`](`multi_call/2`).
@@ -1656,7 +1672,10 @@ do_abcast([], _,_) -> abcast.
 %%% now arrive to the terminated middleman and so be discarded.
 %%% -----------------------------------------------------------------
 
--doc(#{equiv => multi_call/4}).
+-doc """
+Equivalent to [`multi_call(Nodes, Name, Request)`](`multi_call/3`) where `Nodes`
+is all nodes connected to the calling node, including the calling node.
+""".
 -spec multi_call(
         Name    :: atom(),
         Request :: term()
@@ -1670,7 +1689,7 @@ multi_call(Name, Request)
   when is_atom(Name) ->
     multi_call([node() | nodes()], Name, Request, infinity).
 
--doc(#{equiv => multi_call/4}).
+-doc(#{equiv => multi_call(Nodes, Name, Request, infinity)}).
 -spec multi_call(
         Nodes   :: [node()],
         Name    :: atom(),
@@ -1689,15 +1708,14 @@ multi_call(Nodes, Name, Request)
 Makes a synchronous call to all `gen_server` processes locally registered as
 `Name` at the specified nodes, by first sending the request to the nodes, and
 then waiting for the replies. The `gen_server` processes on the nodes call
-[`Module:handle_call/3` ](`c:handle_call/3`)to handle the request.
+[`Module:handle_call/3`](`c:handle_call/3`) to handle the request.
 
 The function returns a tuple `{Replies,BadNodes}`, where `Replies` is a list of
 `{Node,Reply}` tuples, and `BadNodes` is a list of nodes that either did not
 exist, where `Name` was not a registered `gen_server`, or where it did not
 reply.
 
-`Nodes` is a list of node names to which the request is to be sent. Default
-value is the list of all known nodes `[node()|nodes()]`.
+`Nodes` is a list of node names to which the request is to be sent.
 
 `Name` is the locally registered name for each `gen_server` process.
 
@@ -1705,7 +1723,7 @@ value is the list of all known nodes `[node()|nodes()]`.
 [`Module:handle_call/3`](`c:handle_call/3`).
 
 `Timeout` is an integer that specifies how many milliseconds to wait for all
-replies, or the atom `infinity` to wait indefinitely, which is the default. If
+replies, or the atom `infinity` to wait indefinitely. If
 no reply is received from a node within the specified time, the node is added to
 `BadNodes`.
 
@@ -1839,7 +1857,7 @@ mc_cancel_timer(Timer, Alias) ->
 %%              process, including registering a name for it.
 %%-----------------------------------------------------------------
 
--doc(#{equiv => enter_loop/5}).
+-doc(#{equiv => enter_loop(Mod, Options, State, self())}).
 -spec enter_loop(
         Module  :: module(),
         Options :: [enter_loop_opt()],
@@ -1851,35 +1869,31 @@ enter_loop(Mod, Options, State)
   when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
--doc(#{equiv => enter_loop/5}).
+-doc """
+enter_loop(Module, Options, State, How)
+
+Makes an existing process a `gen_server` process.
+
+Equivalent to [`enter_loop(Module, Options, State, ServerName, infinity)`](`enter_loop/5`) if
+called as `enter_loop(Module, Options, State, ServerName)`.
+
+Equivalent to [`enter_loop(Module, Options, State, self(), How)`](`enter_loop/5`) if
+called as `enter_loop(Module, Options, State, How)`.
+""".
 -spec enter_loop(
         Module     :: module(),
         Options    :: [enter_loop_opt()],
         State      :: term(),
         ServerName :: server_name() | pid()
        ) ->
-                        no_return();
-       (
-         Module  :: module(),
-         Options :: [enter_loop_opt()],
-         State   :: term(),
-         Timeout :: timeout()
+          no_return();
+(
+        Module     :: module(),
+        Options    :: [enter_loop_opt()],
+        State      :: term(),
+        How :: timeout() | 'hibernate' | {'continue', term()}
        ) ->
-                        no_return();
-       (
-           Module    :: module(),
-           Options   :: [enter_loop_opt()],
-           State     :: term(),
-           Hibernate :: 'hibernate'
-       ) ->
-                        no_return();
-       (
-           Module  :: module(),
-           Options :: [enter_loop_opt()],
-           State   :: term(),
-           Cont    :: {'continue', term()}
-       ) ->
-                        no_return().
+          no_return().
 %%
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
   when is_atom(Mod), is_list(Options), Scope == local;
@@ -1900,17 +1914,18 @@ enter_loop(Mod, Options, State, {continue, _}=Continue)
     enter_loop(Mod, Options, State, self(), Continue).
 
 -doc """
-Makes an existing process a `gen_server` process. Does not return, instead the
-calling process enters the `gen_server` process receive loop and becomes a
-`gen_server` process. The process _must_ have been started using one of the
-start functions in `m:proc_lib`. The user is responsible for any initialization
-of the process, including registering a name for it.
+Makes an existing process a `gen_server` process.
+
+Does not return, instead the calling process enters the `gen_server` process
+receive loop and becomes a `gen_server` process. The process _must_ have been
+started using one of the start functions in `m:proc_lib`. The user is responsible
+for any initialization of the process, including registering a name for it.
 
 This function is useful when a more complex initialization procedure is needed
 than the `gen_server` process behavior provides.
 
 `Module`, `Options`, and `ServerName` have the same meanings as when calling
-[`start[_link|_monitor]/3,4` ](`start_link/3`)or it can be `self/0` for an
+[`start[_link|_monitor]/3,4`](`start_link/3`) or it can be `self/0` for an
 anonymous server, which is the same as calling an `enter_loop/3,4` function
 without a `ServerName` argument. However, if `ServerName` is specified (and not
 as `self/0`), the process must have been registered accordingly _before_ this
@@ -1919,7 +1934,7 @@ function is called.
 `State`, `Timeout`, `Hibernate` and `Cont` have the same meanings as in the
 return value of [`Module:init/1`](`c:init/1`), which is _not_ called when
 `enter_loop/3,4,5` is used. Note that to adhere to the
-[gen_server Behaviour ](`e:system:gen_server_concepts.md`)such a callback
+[gen_server Behaviour](`e:system:gen_server_concepts.md`) such a callback
 function needs to be defined, and it might as well be the one used when starting
 the `gen_server` process through `proc_lib`, and then be the one that calls
 `enter_loop/3,4,5`. But if such a [`Module:init/1`](`c:init/1`) function in for

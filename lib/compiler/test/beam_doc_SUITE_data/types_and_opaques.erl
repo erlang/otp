@@ -57,9 +57,6 @@ Represents a maybe type.
 -type hidden_false() :: atom().
 
 -doc false.
--doc "
-Here is ok.
-".
 -type hidden() :: hidden_false().
 
 
@@ -131,17 +128,8 @@ ignore_type_from_hidden_fun() ->
 uses_public() ->
     qux().
 
--doc false.
 -doc "
-Hidden function with doc attribute
+Un-exported function with doc attribute
 ".
 qux() ->
-    qux2().
-
-
--doc "
-Hidden function with doc attribute
-".
--doc false.
-qux2() ->
     ok.

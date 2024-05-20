@@ -210,10 +210,10 @@ start(KernelApp) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 load_application(Application) ->
-    gen_server:call(?AC, {load_application, Application}, infinity).
+    call({load_application, Application}, infinity).
 
 unload_application(AppName) ->
-    gen_server:call(?AC, {unload_application, AppName}, infinity).
+    call({unload_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_application/2
@@ -237,7 +237,7 @@ unload_application(AppName) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 start_application(AppName, RestartType) ->
-    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity).
+    call({start_application, AppName, RestartType}, infinity).
 
 start_application_request(AppName, RestartType) ->
     gen_server:send_request(?AC, {start_application, AppName, RestartType}).
@@ -251,7 +251,7 @@ start_application_request(AppName, RestartType) ->
 %% Returns: boolean
 %%-----------------------------------------------------------------
 is_running(AppName) when is_atom(AppName) ->
-    gen_server:call(?AC, {is_running, AppName}, infinity).
+    call({is_running, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: start_boot_application/2
@@ -264,9 +264,9 @@ start_boot_application(Application, RestartType) ->
     case {application:load(Application), RestartType} of
 	{ok, _} ->
 	    AppName = get_appl_name(Application),
-	    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity);
+	    call({start_application, AppName, RestartType}, infinity);
 	{{error, {already_loaded, AppName}}, _} ->
-	    gen_server:call(?AC, {start_application, AppName, RestartType}, infinity);
+	    call({start_application, AppName, RestartType}, infinity);
 	{{error,{bad_environment_value,Env}}, permanent} ->
 	    Txt = io_lib:format("Bad environment variable: ~tp  Application: ~p",
 				[Env, Application]),
@@ -276,15 +276,15 @@ start_boot_application(Application, RestartType) ->
     end.
 
 stop_application(AppName) ->
-    gen_server:call(?AC, {stop_application, AppName}, infinity).
+    call({stop_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Descr, Vsn}]
 %%-----------------------------------------------------------------
 which_applications() ->
-    gen_server:call(?AC, which_applications).    
+    call(which_applications).
 which_applications(Timeout) ->
-    gen_server:call(?AC, which_applications, Timeout).
+    call(which_applications, Timeout).
 
 loaded_applications() ->
     ets:select(ac_tab,
@@ -296,10 +296,10 @@ loaded_applications() ->
 
 %% Returns some debug info
 info() ->
-    gen_server:call(?AC, info).    
+    call(info).
 
 control_application(AppName) ->
-    gen_server:call(?AC, {control_application, AppName}, infinity).
+    call({control_application, AppName}, infinity).
 
 %%-----------------------------------------------------------------
 %% Func: change_application_data/2
@@ -324,21 +324,14 @@ control_application(AppName) ->
 %%          some applicatation may have got new config data.
 %%-----------------------------------------------------------------
 change_application_data(Applications, Config) ->
-    gen_server:call(?AC, 
-		    {change_application_data, Applications, Config},
-		    infinity).
+    call({change_application_data, Applications, Config},infinity).
 
 prep_config_change() ->
-    gen_server:call(?AC, 
-		    prep_config_change,
-		    infinity).
+    call(prep_config_change, infinity).
 
 
 config_change(EnvPrev) ->
-    gen_server:call(?AC, 
-		    {config_change, EnvPrev},
-		    infinity).
-
+    call({config_change, EnvPrev},infinity).
 
 
 get_pid_env(Master, Key) ->
@@ -445,7 +438,7 @@ get_all_key(AppName) ->
 start_type(Master) ->
     case ets:match(ac_tab, {{application_master, '$1'}, Master}) of
 	[[AppName]] -> 
-	    gen_server:call(?AC, {start_type, AppName}, infinity);
+	    call({start_type, AppName}, infinity);
 	_X -> 
 	    undefined
     end.
@@ -481,31 +474,44 @@ get_application_module(_Module, []) ->
     undefined.
 
 permit_application(ApplName, Flag) ->
-    gen_server:call(?AC, 
-		    {permit_application, ApplName, Flag},
-		    infinity).
+    call({permit_application, ApplName, Flag},infinity).
 
 set_env(Config, Opts) ->
     case check_conf_data(Config) of
 	ok ->
 	    Timeout = proplists:get_value(timeout, Opts, 5000),
-	    gen_server:call(?AC, {set_env, Config, Opts}, Timeout);
+	    call({set_env, Config, Opts}, Timeout);
 
 	{error, _} = Error ->
 	    Error
     end.
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+    call({set_env, AppName, Key, Val, []}).
 set_env(AppName, Key, Val, Opts) ->
     Timeout = proplists:get_value(timeout, Opts, 5000),
-    gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
+    call({set_env, AppName, Key, Val, Opts}, Timeout).
 
 unset_env(AppName, Key) ->
-    gen_server:call(?AC, {unset_env, AppName, Key, []}).
+    call({unset_env, AppName, Key, []}).
 unset_env(AppName, Key, Opts) ->
     Timeout = proplists:get_value(timeout, Opts, 5000),
-    gen_server:call(?AC, {unset_env, AppName, Key, Opts}, Timeout).
+    call({unset_env, AppName, Key, Opts}, Timeout).
+
+call(Cmd) ->
+    case gen_server:call(?AC, Cmd) of
+        {error, terminating} ->
+            exit(terminating);
+        Res ->
+            Res
+    end.
+call(Cmd, Timeout) ->
+    case gen_server:call(?AC, Cmd, Timeout) of
+        {error, terminating} ->
+            exit(terminating);
+        Res ->
+            Res
+    end.
 
 %%%-----------------------------------------------------------------
 %%% call-back functions from gen_server
@@ -1239,14 +1245,21 @@ terminate(Reason, S) ->
 			%% Proc died before link
 			{'EXIT', Id, _} -> ok
 		    after 0 ->
-			    receive
-				{'DOWN', Ref, process, Id, _} -> ok
-			    after ShutdownTimeout ->
-				    exit(Id, kill),
-				    receive
-					{'DOWN', Ref, process, Id, _} -> ok
-				    end
-			    end
+                            (fun F() ->
+                                     receive
+                                         {'DOWN', Ref, process, Id, _} -> ok;
+                                         %% We need to handle any gen_server:call here
+                                         %% and reply to them so that they don't deadlock
+                                         {'$gen_call', From, _Msg} ->
+                                             gen_server:reply(From, {error, terminating}),
+                                             F()
+                                     after ShutdownTimeout ->
+                                             exit(Id, kill),
+                                             receive
+                                                 {'DOWN', Ref, process, Id, _} -> ok
+                                             end
+                                     end
+                             end)()
 		    end;
 	       (_) -> ok
 	    end,

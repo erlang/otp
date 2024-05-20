@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -401,7 +401,7 @@ stored in the table. This is equivalent to doing `first/1` followed by a
 
 To find subsequent objects in the table, use `next_lookup/2`.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec first_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
     Key :: term(),
@@ -688,7 +688,7 @@ stored in the table. This is equivalent to doing `last/1` followed by a
 
 To find preceding objects in the table, use `prev_lookup/2`.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec last_lookup(Table) -> {Key, [Object]} | '$end_of_table' when
     Table :: table(),
     Key :: term(),
@@ -1173,7 +1173,7 @@ stored in the table. This is equivalent to doing `next/2` followed by a
 
 It can be interleaved with `next/2` during traversal.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec next_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
     Key1 :: term(),
@@ -1206,7 +1206,7 @@ stored in the table. This is equivalent to doing `prev/2` followed by a
 
 It can be interleaved with `prev/2` during traversal.
 """.
--doc(#{since => <<"OTP @OTP-18923@">>}).
+-doc(#{since => <<"OTP 27.0">>}).
 -spec prev_lookup(Table, Key1) -> {Key2, [Object]} | '$end_of_table' when
     Table :: table(),
     Key1 :: term(),
@@ -1637,7 +1637,7 @@ setopts(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-This function is mostly for debugging purposes, Normally `first`/`next` or
+This function is mostly for debugging purposes, normally `first`/`next` or
 `last`/`prev` are to be used instead.
 
 Returns all objects in slot `I` of table `Table`. A table can be traversed by
@@ -1675,8 +1675,7 @@ take(_, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_counter/4}).
--doc(#{since => <<"OTP 18.0">>}).
--spec update_counter(Table, Key, UpdateOp) -> Result when
+-spec update_counter(Table, Key, UpdateOp | [UpdateOp] | Incr) -> Result | [Result] when
       Table :: table(),
       Key :: term(),
       UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
@@ -1684,20 +1683,6 @@ take(_, _) ->
       Incr :: integer(),
       Threshold :: integer(),
       SetValue :: integer(),
-      Result :: integer();
-                       (Table, Key, [UpdateOp]) -> [Result] when
-      Table :: table(),
-      Key :: term(),
-      UpdateOp :: {Pos, Incr} | {Pos, Incr, Threshold, SetValue},
-      Pos :: integer(),
-      Incr :: integer(),
-      Threshold :: integer(),
-      SetValue :: integer(),
-      Result :: integer();
-                       (Table, Key, Incr) -> Result when
-      Table :: table(),
-      Key :: term(),
-      Incr :: integer(),
       Result :: integer().
 
 update_counter(_, _, _) ->
@@ -1753,48 +1738,26 @@ The function fails with reason `badarg` in the following situations:
 - Any of `Pos`, `Incr`, `Threshold`, or `SetValue` is not an integer.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--spec update_counter(Table, Key, UpdateOp, Default) -> Result when
-                        Table :: table(),
-                        Key :: term(),
-                        UpdateOp :: {Pos, Incr}
-                                  | {Pos, Incr, Threshold, SetValue},
-                        Pos :: integer(),
-                        Incr :: integer(),
-                        Threshold :: integer(),
-                        SetValue :: integer(),
-                        Result :: integer(),
-                        Default :: tuple();
-                    (Table, Key, [UpdateOp], Default) -> [Result] when
-                        Table :: table(),
-                        Key :: term(),
-                        UpdateOp :: {Pos, Incr}
-                                  | {Pos, Incr, Threshold, SetValue},
-                        Pos :: integer(),
-                        Incr :: integer(),
-                        Threshold :: integer(),
-                        SetValue :: integer(),
-                        Result :: integer(),
-                        Default :: tuple();
-                    (Table, Key, Incr, Default) -> Result when
-                        Table :: table(),
-                        Key :: term(),
-                        Incr :: integer(),
-                        Result :: integer(),
-                        Default :: tuple().
+-spec update_counter(Table, Key, UpdateOp | Incr | [UpdateOp], Default) -> Result | [Result] when
+      Table :: table(),
+      Key :: term(),
+      UpdateOp :: {Pos, Incr}
+                | {Pos, Incr, Threshold, SetValue},
+      Pos :: integer(),
+      Incr :: integer(),
+      Threshold :: integer(),
+      SetValue :: integer(),
+      Result :: integer(),
+      Default :: tuple().
 
 update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_element/4}).
--doc(#{since => <<"OTP @OTP-18870@">>}).
--spec update_element(Table, Key, ElementSpec :: {Pos, Value}) -> boolean() when
+-spec update_element(Table, Key, ElementSpec) -> boolean() when
       Table :: table(),
       Key :: term(),
-      Pos :: pos_integer(),
-      Value :: term();
-                       (Table, Key, ElementSpec :: [{Pos, Value}]) -> boolean() when
-      Table :: table(),
-      Key :: term(),
+      ElementSpec :: {Pos, Value} | [{Pos, Value}],
       Pos :: pos_integer(),
       Value :: term().
 
@@ -1833,16 +1796,11 @@ The function fails with reason `badarg` in the following situations:
 - The default object arity is smaller than `<keypos>`.
 - The element to update is also the key.
 """.
--doc(#{since => <<"OTP @OTP-18870@">>}).
--spec update_element(Table, Key, ElementSpec :: {Pos, Value}, Default) -> true when
+-doc(#{since => <<"OTP 27.0">>}).
+-spec update_element(Table, Key, ElementSpec, Default) -> true when
       Table :: table(),
       Key :: term(),
-      Pos :: pos_integer(),
-      Value :: term(),
-      Default :: tuple();
-                       (Table, Key, ElementSpec :: [{Pos, Value}], Default) -> true when
-      Table :: table(),
-      Key :: term(),
+      ElementSpec :: {Pos, Value} | [{Pos, Value}],
       Pos :: pos_integer(),
       Value :: term(),
       Default :: tuple().
@@ -2058,7 +2016,7 @@ must be literally in the call when used from the shell as well.
 > by including header file `ms_transform.hrl`, compiled code never calls the
 > function, but the function call is replaced by a literal match specification.
 
-For more information, see [`ms_transform`](`m:ms_transform#top`).
+For more information, see [`ms_transform`](`m:ms_transform`).
 """.
 -spec fun2ms(LiteralFun) -> MatchSpec when
       LiteralFun :: function(),
@@ -2103,24 +2061,20 @@ the traversal.
       AccIn :: term(),
       AccOut :: term().
 
-foldl(F, Accu, T) ->
+foldl(F, Accu, Tab) ->
+    T = soft_whereis(Tab),
     ets:safe_fixtable(T, true),
-    First = ets:first(T),
+    First = ets:first_lookup(T),
     try
         do_foldl(F, Accu, First, T)
     after
 	ets:safe_fixtable(T, false)
     end.
 
-do_foldl(F, Accu0, Key, T) ->
-    case Key of
-	'$end_of_table' ->
-	    Accu0;
-	_ ->
-	    do_foldl(F,
-		     lists:foldl(F, Accu0, ets:lookup(T, Key)),
-		     ets:next(T, Key), T)
-    end.
+do_foldl(_F, Accu, '$end_of_table', _T) -> Accu;
+do_foldl(F, Accu0, {Key, Objects}, T) ->
+    Accu = lists:foldl(F, Accu0, Objects),
+    do_foldl(F, Accu, ets:next_lookup(T, Key), T).
 
 -doc """
 `Acc0` is returned if the table is empty. This function is similar to
@@ -2139,24 +2093,27 @@ the traversal.
       AccIn :: term(),
       AccOut :: term().
 
-foldr(F, Accu, T) ->
+foldr(F, Accu, Tab) ->
+    T = soft_whereis(Tab),
     ets:safe_fixtable(T, true),
-    Last = ets:last(T),
+    Last = ets:last_lookup(T),
     try
         do_foldr(F, Accu, Last, T)
-    after 
+    after
         ets:safe_fixtable(T, false)
     end.
 
-do_foldr(F, Accu0, Key, T) ->
-    case Key of
-	'$end_of_table' ->
-	    Accu0;
-	_ ->
-	    do_foldr(F,
-		     lists:foldr(F, Accu0, ets:lookup(T, Key)),
-		     ets:prev(T, Key), T)
-    end.
+do_foldr(_F, Accu, '$end_of_table', _T) -> Accu;
+do_foldr(F, Accu0, {Key, Objects}, T) ->
+    Accu = lists:foldr(F, Accu0, Objects),
+    do_foldr(F, Accu, ets:prev_lookup(T, Key), T).
+
+soft_whereis(Table) when is_atom(Table) ->
+    case ets:whereis(Table) of
+        undefined -> error(badarg, [Table], [{error_info, #{cause => id, module => erl_stdlib_errors}}]);
+        Ref -> Ref
+    end;
+soft_whereis(Table) -> Table.
 
 -doc """
 Fills an already created ETS table with the objects in the already opened Dets

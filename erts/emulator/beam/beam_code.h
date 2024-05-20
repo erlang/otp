@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,6 +96,7 @@ typedef struct beam_code_header {
     Uint coverage_mode;
     void *coverage;
     byte *line_coverage_valid;
+    Uint32 *loc_index_to_cover_id;
     Uint line_coverage_len;
 
 #endif

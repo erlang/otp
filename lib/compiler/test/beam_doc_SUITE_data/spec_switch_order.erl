@@ -2,7 +2,6 @@
 
 -export([foo/1, bar/1, other/0, not_false/0]).
 
--doc hidden.
 -spec foo(integer()) -> mytype().
 
 

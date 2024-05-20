@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -4009,6 +4009,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
     Uint code;
     Eterm optlist = BIF_ARG_2;
     int flush = 1;
+    ErtsMonotonicTime halt_flush_timeout = -1; /* default infinity */
 
     for (optlist = BIF_ARG_2;
 	 is_list(optlist);
@@ -4027,6 +4028,12 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	    else
                 goto bad_options;
 	}
+	else if (tp[1] == am_flush_timeout) {
+            Uint32 tmo;
+            if (!term_to_Uint32(tp[2], &tmo))
+                goto bad_options;
+            halt_flush_timeout = (ErtsMonotonicTime) tmo;
+	}
 	else
             goto bad_options;
     }
@@ -4042,7 +4049,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
-	    erts_halt(pos_int_code);
+	    erts_halt(pos_int_code, halt_flush_timeout);
 	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_halt_2), BIF_P, am_undefined, am_undefined);
 	}
 	else {

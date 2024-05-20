@@ -265,7 +265,6 @@ A timeout value that can be passed to a
 -export_type([message_queue_data/0]).
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
--export_type([trace_session/0]).
 
 -type stacktrace_extrainfo() ::
         {line, pos_integer()} |
@@ -474,8 +473,8 @@ A list of binaries. This datatype is useful to use together with
 -export([suspend_process/2, system_monitor/0]).
 -export([system_monitor/1, system_monitor/2, system_profile/0]).
 -export([system_profile/2, throw/1, time/0, trace/3, trace_delivered/1]).
--export([trace_session_create/1, trace_session_destroy/1]).
--export([trace_info/2, trace_info/3, trunc/1, tuple_size/1, universaltime/0]).
+-export([trace_info/2]).
+-export([trunc/1, tuple_size/1, universaltime/0]).
 -export([universaltime_to_posixtime/1, unlink/1, unregister/1, whereis/1]).
 
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
@@ -491,8 +490,9 @@ A list of binaries. This datatype is useful to use together with
 	 statistics/1, subtract/2, system_flag/2,
          term_to_binary/1, term_to_binary/2,
          term_to_iovec/1, term_to_iovec/2,
-         tl/1, trace_pattern/2,
-         trace_pattern/3, tuple_to_list/1, system_info/1,
+         tl/1,
+         trace_pattern/2, trace_pattern/3,
+         tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
 -export([alias/0, alias/1, unalias/1]).
 -export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
@@ -566,9 +566,14 @@ A list of binaries. This datatype is useful to use together with
       {'long_schedule', non_neg_integer()} |
       {'large_heap', non_neg_integer()}.
 
+-doc """
+A extended `t:stacktrace/0` that can be passed to `raise/3`.
+""".
 -type raise_stacktrace() ::
       [{module(), atom(), arity() | [term()]} |
-       {function(), arity() | [term()]}].
+       {function(), arity() | [term()]}]
+      | stacktrace().
+-export_type([raise_stacktrace/0]).
 
 -type bitstring_list() ::
       maybe_improper_list(byte() | bitstring() | bitstring_list(), bitstring() | []).
@@ -722,7 +727,7 @@ append_element(_Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
 %% atom_to_binary/1
--doc "The same as [`atom_to_binary` ](`atom_to_binary/2`)`(Atom, utf8)`.".
+-doc(#{ equiv => atom_to_binary(Atom, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec atom_to_binary(Atom) -> binary() when
@@ -825,9 +830,7 @@ binary_part(_Subject, _PosLen) ->
 
 %% binary_part/3
 %% Shadowed by erl_bif_types: erlang:binary_part/3
--doc """
-The same as [`binary_part(Subject, {Start, Length})`](`binary_part/2`).
-""".
+-doc( #{ equiv =>  binary_part(Subject, {Start, Length}) }).
 -doc(#{since => <<"OTP R14B">>}).
 -doc #{ group => terms }.
 -spec binary_part(Subject, Start, Length) -> binary() when
@@ -838,7 +841,7 @@ binary_part(_Subject, _Start, _Length) ->
     erlang:nif_error(undefined).
 
 %% binary_to_atom/1
--doc "The same as [`binary_to_atom(Binary, utf8)`](`binary_to_atom/2`).".
+-doc(#{ equiv => binary_to_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec binary_to_atom(Binary) -> atom() when
@@ -865,7 +868,7 @@ or `unicode`, the binary must contain valid UTF-8 sequences.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 
 > #### Note {: .info }
 >
@@ -873,7 +876,7 @@ or `unicode`, the binary must contain valid UTF-8 sequences.
 > garbage collected. Therefore, it is recommended to consider whether
 > [`binary_to_existing_atom/2`](`binary_to_existing_atom/2`) is a better option
 > than [`binary_to_atom/2`](`binary_to_atom/2`). The default limits can be found
-> in [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> in [Efficiency Guide (section System Limits)](`e:system:system_limits.md#atoms`).
 
 Examples:
 
@@ -895,9 +898,7 @@ binary_to_atom(_Binary, _Encoding) ->
     erlang:nif_error(undefined).
 
 %% binary_to_existing_atom/1
--doc """
-The same as [`binary_to_existing_atom(Binary, utf8)`](`binary_to_existing_atom/2`).
-""".
+-doc(#{ equiv => binary_to_existing_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => terms }.
 -spec binary_to_existing_atom(Binary) -> atom() when
@@ -913,7 +914,7 @@ binary_to_existing_atom(Binary) ->
 -doc """
 As `binary_to_atom/2`, but the atom must exist.
 
-The Erlang system has a [configurable limit](`e:system:advanced.md`) for the
+The Erlang system has a [configurable limit](`e:system:system_limits.md#atoms`) for the
 total number of atoms that can exist, and atoms are not garbage collected.
 Therefore, it is not safe to create many atoms from binaries that come from an
 untrusted source (for example, a file fetched from the Internet), for example,
@@ -942,7 +943,7 @@ Failure: `badarg` if the atom does not exist.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 """.
 -doc #{ group => terms }.
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when
@@ -1247,7 +1248,7 @@ binary_to_term(_Binary) ->
 
 %% binary_to_term/2
 -doc """
-Equivalent to [`binary_to_term/1`](`binary_to_term/1`), but can be configured to
+Equivalent to [`binary_to_term(Binary)`](`binary_to_term/1`), but can be configured to
 fit special purposes.
 
 The allowed options are:
@@ -1402,10 +1403,7 @@ call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
 
 %% cancel_timer/1
--doc """
-Cancels a timer. The same as calling
-[`erlang:cancel_timer(TimerRef, [])`](`cancel_timer/2`).
-""".
+-doc( #{ equiv =>  erlang:cancel_timer(TimerRef, []) }).
 -doc #{ group => time }.
 -spec cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
@@ -1514,7 +1512,7 @@ check_old_code(_Module) ->
     erlang:nif_error(undefined).
 
 %% check_process_code/2
--doc "The same as [`check_process_code(Pid, Module, [])` ](`check_process_code/3`).".
+-doc(#{ equiv => check_process_code(Pid, Module, []) }).
 -doc #{ group => code }.
 -spec check_process_code(Pid, Module) -> CheckResult when
       Pid :: pid(),
@@ -2579,7 +2577,7 @@ float(_Number) ->
     erlang:nif_error(undefined).
 
 %% float_to_binary/1
--doc "The same as [`float_to_binary(Float,[{scientific,20}])`](`float_to_binary/2`).".
+-doc(#{ equiv => float_to_binary(Float,[{scientific,20}]) }).
 -doc(#{since => <<"OTP R16B">>}).
 -doc #{ group => terms }.
 -spec float_to_binary(Float) -> binary() when
@@ -2624,7 +2622,7 @@ float_to_binary(_Float, _Options) ->
     erlang:nif_error(undefined).
 
 %% float_to_list/1
--doc "The same as [`float_to_list(Float,[{scientific,20}])`](`float_to_list/2`).".
+-doc(#{ equiv => float_to_list(Float,[{scientific,20}]) }).
 -doc #{ group => terms }.
 -spec float_to_list(Float) -> string() when
       Float :: float().
@@ -2855,7 +2853,7 @@ garbage_collect() ->
     erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
--doc "The same as [`garbage_collect(Pid, [])`](`garbage_collect/2`).".
+-doc(#{ equiv => garbage_collect(Pid, []) }).
 -doc #{ group => processes }.
 -spec garbage_collect(Pid) -> GCResult when
       Pid :: pid(),
@@ -3139,7 +3137,7 @@ group_leader(GroupLeader, Pid) ->
 %% halt/0
 %% Shadowed by erl_bif_types: erlang:halt/0
 -doc """
-The same as calling [`halt(0, [])`](`halt/2`).
+Equivalent to calling [`halt(0, [])`](`halt/2`).
 
 For example:
 
@@ -3156,7 +3154,7 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -doc """
-The same as calling [`halt(Status, [])`](`halt/2`).
+Equivalent to calling [`halt(HaltType, [])`](`halt/2`).
 
 For example:
 
@@ -3167,7 +3165,6 @@ os_prompt% echo $?
 os_prompt%
 ```
 """.
--doc(#{since => <<"OTP R15B01">>}).
 -doc #{ group => system }.
 -spec halt(Status :: non_neg_integer()) ->
           no_return();
@@ -3177,79 +3174,113 @@ os_prompt%
           no_return().
 
 -dialyzer({no_return, halt/1}).
-halt(Status) ->
+halt(HaltType) ->
     try
-        erlang:halt(Status, [])
+        erlang:halt(HaltType, [])
     catch
-	error:Error -> error_with_info(Error, [Status])
+	error:Error -> error_with_info(Error, [HaltType])
     end.
 
 %% halt/2
 %% Shadowed by erl_bif_types: erlang:halt/2
 -type halt_options() ::
-        [{flush, boolean()}].
+        [{flush, boolean()}
+         | {flush_timeout, Timeout :: 0..2147483647 | infinity}].
 
 -doc """
-Halt the runtime system with status code `Status`.
+Halt the runtime system.
 
-> #### Note {: .info }
->
-> On many platforms, the OS supports only status codes 0-255. A too large status
-> code is truncated by clearing the high bits.
+- ```erlang
+  halt(Status :: non_neg_integer(), Options :: halt_options())
+  ```
+  {: #halt_status_2 }
 
-Currently the following options are valid:
+  Halt the runtime system with status code `Status`.
 
-- **`{flush, EnableFlushing}`{: #halt_flush }** - If `EnableFlushing` equals
-  `true`, which also is the default behavior, the runtime system will perform
-  the following operations before terminating:
+  > #### Note {: .info }
+  >
+  > On many platforms, the OS supports only status codes 0-255. A too large
+  > status code is truncated by clearing the high bits.
 
-  - Flush all outstanding output.
-  - Send all Erlang ports exit signals and wait for them to exit.
-  - Wait for all async threads to complete all outstanding async jobs.
-  - Call all installed [NIF _on halt_ callbacks](erl_nif.md#on_halt).
-  - Wait for all ongoing
-    [NIF calls with the _delay halt_ setting](erl_nif.md#delay_halt) enabled to
-    return.
-  - Call all installed `atexit`/`on_exit` callbacks.
+  Currently the following options are valid:
 
-  If `EnableFlushing` equals `false`, the runtime system will terminate
-  immediately without performing any of the above listed operations.
+  - **`{flush, EnableFlushing}`{: #halt_flush }** - If `EnableFlushing` equals
+    `true`, which also is the default behavior, the runtime system will perform
+    the following operations before terminating:
+
+    - Flush all outstanding output.
+    - Send all Erlang ports exit signals and wait for them to exit.
+    - Wait for all async threads to complete all outstanding async jobs.
+    - Call all installed [NIF _on halt_ callbacks](erl_nif.md#on_halt).
+    - Wait for all ongoing
+      [NIF calls with the _delay halt_ setting](erl_nif.md#delay_halt) enabled
+      to return.
+    - Call all installed `atexit`/`on_exit` callbacks.
+
+    If `EnableFlushing` equals `false`, the runtime system will terminate
+    immediately without performing any of the above listed operations.
+
+    > #### Change {: .info }
+    >
+    > Runtime systems prior to OTP 26.0 called all installed `atexit`/`on_exit`
+    > callbacks also when `flush` was disabled, but as of OTP 26.0 this is no
+    > longer the case.
+
+  - **`{flush_timeout, Timeout :: 0..2147483647 | infinity}`{: #halt_flush_timeout }** -
+    Sets a limit on the time allowed for [flushing](#halt_flush) prior to
+    termination of the runtime system. `Timeout` is in milliseconds. The default
+    value is determined by the the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft)
+    command line flag.
+
+    If flushing has been ongoing for `Timeout` milliseconds, flushing operations
+    will be interrupted and the runtime system will immediately be terminated
+    with the exit code `255`. If flushing is not enabled, the timeout will have
+    no effect on the system.
+
+    See also the `erl` [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+    Note that the shortest timeout set by the command line flag and the
+    `flush_timeout` option will be the actual timeout value in effect.
+
+    Since: OTP 27.0
+
+- ```erlang
+  halt(Abort :: abort, Options :: halt_options())
+  ```
+  {: #halt_abort_2 }
+
+  Halt the Erlang runtime system by aborting and produce a core dump if core
+  dumping has been enabled in the environment that the runtime system is
+  executing in.
+
+  > #### Note {: .info }
+  >
+  > The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
+  > flushing will be disabled.
+
+- ```erlang
+  halt(CrashDumpSlogan :: string(), Options :: halt_options())
+  ```
+  {: #halt_crash_dump_2 }
+
+  Halt the Erlang runtime system and generate an
+  [Erlang crash dump](crash_dump.md). The string `CrashDumpSlogan` will be used
+  as slogan in the Erlang crash dump created. The slogan will be trunkated if
+  `CrashDumpSlogan` is longer than 1023 characters.
+
+  > #### Note {: .info }
+  >
+  > The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
+  > flushing will be disabled.
 
   > #### Change {: .info }
   >
-  > Runtime systems prior to OTP 26.0 called all installed `atexit`/`on_exit`
-  > callbacks also when `flush` was disabled, but as of OTP 26.0 this is no
-  > longer the case.
-
-[](){: #halt_abort_2 }
-
-Halt the Erlang runtime system by aborting and produce a core dump if core
-dumping has been enabled in the environment that the runtime system is executing
-in.
-
-> #### Note {: .info }
->
-> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
-> flushing will be disabled.
-
-[](){: #halt_crash_dump_2 }
-
-Halt the Erlang runtime system and generate an
-[Erlang crash dump](crash_dump.md). The string `CrashDumpSlogan` will be used as
-slogan in the Erlang crash dump created. The slogan will be trunkated if
-`CrashDumpSlogan` is longer than 1023 characters.
-
-> #### Note {: .info }
->
-> The [`{flush, boolean()}`](#halt_flush) option will be ignored, and
-> flushing will be disabled.
-
-Behavior changes compared to earlier versions:
-
-- Before OTP 24.2, the slogan was truncated if `CrashDumpSlogan` was longer than
-  200 characters. Now it will be truncated if longer than 1023 characters.
-- Before OTP 20.1, only code points in the range 0-255 were accepted in the
-  slogan. Now any Unicode string is valid.
+  > Behavior changes compared to earlier versions:
+  >
+  > - Before OTP 24.2, the slogan was truncated if `CrashDumpSlogan` was longer
+  >   than 200 characters. Now it will be truncated if longer than 1023
+  >   characters.
+  > - Before OTP 20.1, only code points in the range 0-255 were accepted in the
+  >   slogan. Now any Unicode string is valid.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -doc #{ group => system }.
@@ -3631,15 +3662,16 @@ Unicode characters above 255.
 >
 > The number of characters that are permitted in an atom name is limited. The
 > default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [efficiency guide (section System Limits)](`e:system:system_limits.md`).
 
 > #### Note {: .info }
 >
-> There is configurable limit on how many atoms that can exist and atoms are not
+> There is a [configurable limit](`e:system:system_limits.md#atoms`)
+> on how many atoms that can exist and atoms are not
 > garbage collected. Therefore, it is recommended to consider if
 > `list_to_existing_atom/1` is a better option than
 > [`list_to_atom/1`](`list_to_atom/1`). The default limits can be found in the
-> [efficiency guide (section Advanced)](`e:system:advanced.md`).
+> [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 
 Example:
 
@@ -3992,7 +4024,7 @@ localtime() ->
 
 %% make_ref/0
 -doc """
-Returns a [unique reference](`e:system:advanced.md#unique_references`). The
+Returns a [unique reference](`e:system:system_limits.md#unique_references`). The
 reference is unique among connected nodes.
 
 > #### Warning {: .warning }
@@ -4052,7 +4084,7 @@ map_get(_Key, _Map) ->
 %% match_spec_test/3
 -doc """
 Tests a match specification used in calls to `ets:select/2` and
-[`erlang:trace_pattern/3`](`trace_pattern/3`).
+`trace:function/4`.
 
 The function tests both a match specification for "syntactic" correctness and
 runs the match specification against the object.
@@ -4636,7 +4668,7 @@ better than [`phash/2`](`phash/2`), and it is faster for bignums and binaries.
 Notice that the range `0..Range-1` is different from the range of
 [`phash/2`](`phash/2`), which is `1..Range`.
 """.
--doc(#{ group => terms, since => <<"OTP R11B">> }).
+-doc(#{ group => terms }).
 -spec phash2(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
@@ -4699,7 +4731,7 @@ posixtime_to_universaltime(_P1) ->
 
 -doc """
 Generates and returns an
-[integer unique on current runtime system instance](`e:system:advanced.md#unique_integers`).
+[integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
 The integer is unique in the sense that this BIF, using the same set of
 modifiers, does not return the same integer more than once on the current
 runtime system instance. Each integer value can of course be constructed by
@@ -4765,8 +4797,8 @@ unique_integer(_ModifierList) ->
 
 -doc """
 Generates and returns an
-[integer unique on current runtime system instance](`e:system:advanced.md#unique_integers`).
-The same as calling [`erlang:unique_integer([])`](`unique_integer/1`).
+[integer unique on current runtime system instance](`e:system:system_limits.md#unique_integers`).
+Equivalent to calling [`erlang:unique_integer([])`](`unique_integer/1`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -doc #{ group => terms }.
@@ -5297,15 +5329,12 @@ for more information about exception classes and how to catch exceptions.
 -spec raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
-      Stacktrace :: raise_stacktrace() | stacktrace().
+      Stacktrace :: raise_stacktrace().
 raise(_Class, _Reason, _Stacktrace) ->
     erlang:nif_error(undefined).
 
 %% read_timer/1
--doc """
-Reads the state of a timer. The same as calling
-[`erlang:read_timer(TimerRef, [])`](`read_timer/2`).
-""".
+-doc( #{ equiv =>  erlang:read_timer(TimerRef, []) }).
 -doc #{ group => timer }.
 -spec read_timer(TimerRef) -> Result when
       TimerRef :: reference(),
@@ -5529,10 +5558,7 @@ self() ->
     erlang:nif_error(undefined).
 
 %% send_after/3
--doc """
-Starts a timer. The same as calling
-[`erlang:send_after(Time, Dest, Msg, [])`](`send_after/4`).
-""".
+-doc( #{ equiv => erlang:send_after(Time, Dest, Msg, [])} ).
 -doc #{ group => timer }.
 -spec send_after(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
@@ -5647,9 +5673,10 @@ size(_Item) ->
 Returns the process identifier of a new process started by the application of
 `Module:Function` to `Args`.
 
-`error_handler:undefined_function(Module, Function, Args)` is evaluated by the
-new process if `Module:Function/Arity` does not exist (where `Arity` is the
-length of `Args`). The error handler can be redefined (see `process_flag/2`). If
+[`error_handler:undefined_function(Module, Function, Args)`](`error_handler`) is
+ evaluated by the new process if `Module:Function/Arity` does not exist
+(where `Arity` is the length of `Args`). The error handler can be redefined
+(see `process_flag/2`). If
 `error_handler` is undefined, or the user has redefined the default
 `error_handler` and its replacement is undefined, a failure with reason `undef`
 occurs.
@@ -5713,10 +5740,7 @@ split_binary(_Bin, _Pos) ->
     erlang:nif_error(undefined).
 
 %% start_timer/3
--doc """
-Starts a timer. The same as calling
-[`erlang:start_timer(Time, Dest, Msg, [])`](`start_timer/4`).
-""".
+-doc( #{ equiv =>  erlang:start_timer(Time, Dest, Msg, []) }).
 -doc #{ group => timer }.
 -spec start_timer(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
@@ -5881,7 +5905,7 @@ suspend_process(Suspendee, OptList) ->
     end.
 
 -doc """
-Suspends the process identified by `Suspendee`. The same as calling
+Suspends the process identified by `Suspendee`. Equivalent to calling
 [`erlang:suspend_process(Suspendee, [])`](`suspend_process/2`).
 
 > #### Warning {: .warning }
@@ -5955,8 +5979,8 @@ The second argument is a list of monitoring options:
   garbage collection in milliseconds. The other tuples are tagged with
   `heap_size`, `heap_block_size`, `stack_size`, `mbuf_size`, `old_heap_size`,
   and `old_heap_block_size`. These tuples are explained in the description of
-  trace message [`gc_minor_start`](#gc_minor_start) (see
-  [`erlang:trace/3`](`trace/3`)). New tuples can be added, and the order of the
+  trace message [`gc_minor_start`](`m:trace#gc_minor_start`) (see
+  `trace:process/4`). New tuples can be added, and the order of the
   tuples in the `Info` list can be changed at any time without prior notice.
 
 - **`{long_message_queue, {Disable, Enable}}`** - If the message queue length of
@@ -6129,7 +6153,7 @@ profiling. The second argument is a list of profiling options:
 - **`timestamp`** - Time stamps in profile messages include a time stamp (Ts)
   that has the same form as returned by `erlang:now()`. This is also the default
   if no time stamp flag is specified. If `cpu_timestamp` has been enabled
-  through [`erlang:trace/3`](`trace/3`), this also effects the time stamp
+  through `trace:process/4`, this also effects the time stamp
   produced in profiling messages when flag `timestamp` is enabled.
 
 > #### Note {: .info }
@@ -6209,179 +6233,14 @@ time() ->
 
 %% trace/3
 -doc """
-Turns on (if `How == true`) or off (if `How == false`) the trace flags in
-`FlagList` for the process or processes represented by `PidPortSpec`.
+Turn on or off trace flags on processes or ports for the static legacy trace session.
 
-`PidPortSpec` is either a process identifier (pid) for a local process, a port
-identifier, or one of the following atoms:
+  > #### Change {: .info }
+  >
+  > This function is superseded by `trace:process/4` and `trace:port/4` that
+  > operate on dynamic trace sessions.
 
-- **`all`** - All currently existing processes and ports and all that will be
-  created in the future.
-
-- **`processes`** - All currently existing processes and all that will be
-  created in the future.
-
-- **`ports`** - All currently existing ports and all that will be created in the
-  future.
-
-- **`existing`** - All currently existing processes and ports.
-
-- **`existing_processes`** - All currently existing processes.
-
-- **`existing_ports`** - All currently existing ports.
-
-- **`new`** - All processes and ports that will be created in the future.
-
-- **`new_processes`** - All processes that will be created in the future.
-
-- **`new_ports`** - All ports that will be created in the future.
-
-`FlagList` can contain any number of the following flags (the "message tags"
-refers to the list of [`trace messages`](#trace_3_trace_messages)):
-
-- **`all`** - Sets all trace flags except `tracer` and `cpu_timestamp`, which
-  are in their nature different than the others.
-
-- **`send`** - Traces sending of messages.
-
-  Message tags: [`send`](#trace_3_trace_messages_send) and
-  [`send_to_non_existing_process`](#trace_3_trace_messages_send_to_non_existing_process).
-
-- **`'receive'`** - Traces receiving of messages.
-
-  Message tags: [`'receive'`](#trace_3_trace_messages_receive).
-
-- **`call`** - Traces certain function calls. Specify which function calls to
-  trace by calling [`erlang:trace_pattern/3`](`trace_pattern/3`).
-
-  Message tags: [`call`](#trace_3_trace_messages_call) and
-  [`return_from`](#trace_3_trace_messages_return_from).
-
-- **`silent`** - Used with the `call` trace flag. The `call`, `return_from`, and
-  `return_to` trace messages are inhibited if this flag is set, but they are
-  executed as normal if there are match specifications.
-
-  Silent mode is inhibited by executing `erlang:trace(_, false, [silent|_])`, or
-  by a match specification executing the function `{silent, false}`.
-
-  The `silent` trace flag facilitates setting up a trace on many or even all
-  processes in the system. The trace can then be activated and deactivated using
-  the match specification function `{silent,Bool}`, giving a high degree of
-  control of which functions with which arguments that trigger the trace.
-
-  Message tags: [`call`](#trace_3_trace_messages_call),
-  [`return_from`](#trace_3_trace_messages_return_from), and
-  [`return_to`](#trace_3_trace_messages_return_to). Or rather, the
-  absence of.
-
-- **`return_to`** - Used with the `call` trace flag. Traces the return from a
-  traced function back to its caller. Only works for functions traced with
-  option `local` to [`erlang:trace_pattern/3`](`trace_pattern/3`).
-
-  The semantics is that a trace message is sent when a call traced function
-  returns, that is, when a chain of tail recursive calls ends. Only one trace
-  message is sent per chain of tail recursive calls, so the properties of tail
-  recursiveness for function calls are kept while tracing with this flag. Using
-  `call` and `return_to` trace together makes it possible to know exactly in
-  which function a process executes at any time.
-
-  To get trace messages containing return values from functions, use the
-  `{return_trace}` match specification action instead.
-
-  Message tags: [`return_to`](#trace_3_trace_messages_return_to).
-
-- **`procs`** - Traces process-related events.
-
-  Message tags: [`spawn`](#trace_3_trace_messages_spawn),
-  [`spawned`](#trace_3_trace_messages_spawned),
-  [`exit`](#trace_3_trace_messages_exit),
-  [`register`](#trace_3_trace_messages_register),
-  [`unregister`](#trace_3_trace_messages_unregister),
-  [`link`](#trace_3_trace_messages_link),
-  [`unlink`](#trace_3_trace_messages_unlink),
-  [`getting_linked`](#trace_3_trace_messages_getting_linked), and
-  [`getting_unlinked`](#trace_3_trace_messages_getting_unlinked).
-
-- **`ports`** - Traces port-related events.
-
-  Message tags: [`open`](#trace_3_trace_messages_open),
-  [`closed`](#trace_3_trace_messages_closed),
-  [`register`](#trace_3_trace_messages_register),
-  [`unregister`](#trace_3_trace_messages_unregister),
-  [`getting_linked`](#trace_3_trace_messages_getting_linked), and
-  [`getting_unlinked`](#trace_3_trace_messages_getting_unlinked).
-
-- **`running`** - Traces scheduling of processes.
-
-  Message tags: [`in`](#trace_3_trace_messages_in_proc) and
-  [`out`](#trace_3_trace_messages_out_proc).
-
-- **`exiting`** - Traces scheduling of exiting processes.
-
-  Message tags:
-  [`in_exiting`](#trace_3_trace_messages_in_exiting_proc),
-  [`out_exiting`](#trace_3_trace_messages_out_exiting_proc), and
-  [`out_exited`](#trace_3_trace_messages_out_exited_proc).
-
-- **`running_procs`** - Traces scheduling of processes just like `running`.
-  However, this option also includes schedule events when the process executes
-  within the context of a port without being scheduled out itself.
-
-  Message tags: [`in`](#trace_3_trace_messages_in_proc) and
-  [`out`](#trace_3_trace_messages_out_proc).
-
-- **`running_ports`** - Traces scheduling of ports.
-
-  Message tags: [`in`](#trace_3_trace_messages_in_port) and
-  [`out`](#trace_3_trace_messages_out_port).
-
-- **`garbage_collection`** - Traces garbage collections of processes.
-
-  Message tags:
-  [`gc_minor_start`](#trace_3_trace_messages_gc_minor_start),
-  [`gc_max_heap_size`](#trace_3_trace_messages_gc_max_heap_size), and
-  [`gc_minor_end`](#trace_3_trace_messages_gc_minor_end).
-
-- **`timestamp`** - Includes a time stamp in all trace messages. The time stamp
-  (Ts) has the same form as returned by `erlang:now()`.
-
-- **`cpu_timestamp`** - A global trace flag for the Erlang node that makes all
-  trace time stamps using flag `timestamp` to be in CPU time, not wall clock
-  time. That is, `cpu_timestamp` is not be used if `monotonic_timestamp` or
-  `strict_monotonic_timestamp` is enabled. Only allowed with `PidPortSpec==all`.
-  If the host machine OS does not support high-resolution CPU time measurements,
-  [`trace/3`](`trace/3`) exits with `badarg`. Notice that most OS do not
-  synchronize this value across cores, so be prepared that time can seem to go
-  backwards when using this option.
-
-- **`monotonic_timestamp`** - Includes an
-  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) time stamp
-  in all trace messages. The time stamp (Ts) has the same format and value as
-  produced by [`erlang:monotonic_time(nanosecond)`](`monotonic_time/1`). This
-  flag overrides flag `cpu_timestamp`.
-
-- **`strict_monotonic_timestamp`** - Includes an time stamp consisting of
-  [Erlang monotonic time](time_correction.md#erlang-monotonic-time) and a
-  monotonically increasing integer in all trace messages. The time stamp (Ts)
-  has the same format and value as produced by `{`
-  [`erlang:monotonic_time(nanosecond)`](`monotonic_time/1`)`,`
-  [`erlang:unique_integer([monotonic])`](`unique_integer/1`)`}`. This flag
-  overrides flag `cpu_timestamp`.
-
-- **`arity`** - Used with the `call` trace flag. `{M, F, Arity}` is specified
-  instead of `{M, F, Args}` in call trace messages.
-
-- **`set_on_spawn`** - Makes any process created by a traced process inherit its
-  trace flags, including flag `set_on_spawn`.
-
-- **`set_on_first_spawn`** - Makes the first process created by a traced process
-  inherit its trace flags, excluding flag `set_on_first_spawn`.
-
-- **`set_on_link`** - Makes any process linked by a traced process inherit its
-  trace flags, including flag `set_on_link`.
-
-- **`set_on_first_link`** - Makes the first process linked to by a traced
-  process inherit its trace flags, excluding flag `set_on_first_link`.
+Argument `FlagList` can contain two additional options:
 
 - **`{tracer, Tracer}`** - Specifies where to send the trace messages. `Tracer`
   must be the process identifier of a local process or the port identifier of a
@@ -6393,224 +6252,9 @@ refers to the list of [`trace messages`](#trace_3_trace_messages)):
   module, see `m:erl_tracer`.
 
 If no `tracer` is specified, the calling process receives all the trace
-messages.
+messages. The legacy trace session has no specified tracer.
 
-The effect of combining `set_on_first_link` with `set_on_link` is the same as
-`set_on_first_link` alone. Likewise for `set_on_spawn` and `set_on_first_spawn`.
-
-The tracing process receives the _trace messages_ described in the following
-list. `Pid` is the process identifier of the traced process in which the traced
-event has occurred. The third tuple element is the message tag.
-
-If flag `timestamp`, `strict_monotonic_timestamp`, or `monotonic_timestamp` is
-specified, the first tuple element is `trace_ts` instead, and the time stamp is
-added as an extra element last in the message tuple. If multiple time stamp
-flags are passed, `timestamp` has precedence over `strict_monotonic_timestamp`,
-which in turn has precedence over `monotonic_timestamp`. All time stamp flags
-are remembered, so if two are passed and the one with highest precedence later
-is disabled, the other one becomes active.
-
-If a match specification (applicable only for `call`, `send` and `'receive'`
-tracing) contains a `{message}` action function with a non-boolean value, that
-value is added as an extra element to the message tuple either in the last
-position or before the timestamp (if it is present).
-
-Trace messages:
-
-[](){: #trace_3_trace_messages }
-
-- **`{trace, PidPort, send, Msg, To}`{: #trace_3_trace_messages_send }** - When
-  `PidPort` sends message `Msg` to process `To`.
-
-- **`{trace, PidPort, send_to_non_existing_process, Msg, To}`{:
-  #trace_3_trace_messages_send_to_non_existing_process }** - When `PidPort`
-  sends message `Msg` to the non-existing process `To`.
-
-- **`{trace, PidPort, 'receive', Msg}`{: #trace_3_trace_messages_receive }** -
-  When `PidPort` receives message `Msg`. If `Msg` is set to time-out, a receive
-  statement can have timed out, or the process received a message with the
-  payload `timeout`.
-
-- **`{trace, Pid, call, {M, F, Args}}`{: #trace_3_trace_messages_call }** - When
-  `Pid` calls a traced function. The return values of calls are never supplied,
-  only the call and its arguments.
-
-  Trace flag `arity` can be used to change the contents of this message, so that
-  `Arity` is specified instead of `Args`.
-
-- **`{trace, Pid, return_to, {M, F, Arity}}`{: #trace_3_trace_messages_return_to
-  }** - When `Pid` returns _to_ the specified function. This trace message is
-  sent if both the flags `call` and `return_to` are set, and the function is set
-  to be traced on _local_ function calls. The message is only sent when
-  returning from a chain of tail recursive function calls, where at least one
-  call generated a `call` trace message (that is, the functions match
-  specification matched, and `{message, false}` was not an action).
-
-- **`{trace, Pid, return_from, {M, F, Arity}, ReturnValue}`{:
-  #trace_3_trace_messages_return_from }** - When `Pid` returns _from_ the
-  specified function. This trace message is sent if flag `call` is set, and the
-  function has a match specification with a `return_trace` or `exception_trace`
-  action.
-
-- **`{trace, Pid, exception_from, {M, F, Arity}, {Class, Value}}`{:
-  #trace_3_trace_messages_exception_from }** - When `Pid` exits _from_ the
-  specified function because of an exception. This trace message is sent if flag
-  `call` is set, and the function has a match specification with an
-  `exception_trace` action.
-
-- **`{trace, Pid, spawn, Pid2, {M, F, Args}}`{: #trace_3_trace_messages_spawn
-  }** - When `Pid` spawns a new process `Pid2` with the specified function call
-  as entry point.
-
-  `Args` is supposed to be the argument list, but can be any term if the spawn
-  is erroneous.
-
-- **`{trace, Pid, spawned, Pid2, {M, F, Args}}`{:
-  #trace_3_trace_messages_spawned }** - When `Pid` is spawned by process `Pid2`
-  with the specified function call as entry point.
-
-  `Args` is supposed to be the argument list, but can be any term if the spawn
-  is erroneous.
-
-- **`{trace, Pid, exit, Reason}`{: #trace_3_trace_messages_exit }** - When `Pid`
-  exits with reason `Reason`.
-
-- **`{trace, PidPort, register, RegName}`{: #trace_3_trace_messages_register
-  }** - When `PidPort` gets the name `RegName` registered.
-
-- **`{trace, PidPort, unregister, RegName}`{: #trace_3_trace_messages_unregister
-  }** - When `PidPort` gets the name `RegName` unregistered. This is done
-  automatically when a registered process or port exits.
-
-- **`{trace, Pid, link, Pid2}`{: #trace_3_trace_messages_link }** - When `Pid`
-  links to a process `Pid2`.
-
-- **`{trace, Pid, unlink, Pid2}`{: #trace_3_trace_messages_unlink }** - When
-  `Pid` removes the link from a process `Pid2`.
-
-- **`{trace, PidPort, getting_linked, Pid2}`{:
-  #trace_3_trace_messages_getting_linked }** - When `PidPort` gets linked to a
-  process `Pid2`.
-
-- **`{trace, PidPort, getting_unlinked, Pid2}`{:
-  #trace_3_trace_messages_getting_unlinked }** - When `PidPort` gets unlinked
-  from a process `Pid2`.
-
-- **`{trace, Port, open, Pid, Driver}`{: #trace_3_trace_messages_open }** - When
-  `Pid` opens a new port `Port` with the running `Driver`.
-
-  `Driver` is the name of the driver as an atom.
-
-- **`{trace, Port, closed, Reason}`{: #trace_3_trace_messages_closed }** - When
-  `Port` closes with `Reason`.
-
-- **[](){: #trace_3_trace_messages_in_proc }
-  `{trace, Pid, in | in_exiting, {M, F, Arity} | 0}`{:
-  #trace_3_trace_messages_in_exiting_proc }**  
-  When `Pid` is scheduled to run. The process runs in function `{M, F, Arity}`.
-  On some rare occasions, the current function cannot be determined, then the
-  last element is `0`.
-
-- **[](){: #trace_3_trace_messages_out_proc } [](){:
-  #trace_3_trace_messages_out_exiting_proc }
-  `{trace, Pid, out | out_exiting | out_exited, {M, F, Arity} | 0}`{:
-  #trace_3_trace_messages_out_exited_proc }**  
-  When `Pid` is scheduled out. The process was running in function \{M, F,
-  Arity\}. On some rare occasions, the current function cannot be determined,
-  then the last element is `0`.
-
-- **`{trace, Port, in, Command | 0}`{: #trace_3_trace_messages_in_port }** -
-  When `Port` is scheduled to run. `Command` is the first thing the port will
-  execute, it can however run several commands before being scheduled out. On
-  some rare occasions, the current function cannot be determined, then the last
-  element is `0`.
-
-  The possible commands are `call`, `close`, `command`, `connect`, `control`,
-  `flush`, `info`, `link`, `open`, and `unlink`.
-
-- **`{trace, Port, out, Command | 0}`{: #trace_3_trace_messages_out_port }** -
-  When `Port` is scheduled out. The last command run was `Command`. On some rare
-  occasions, the current function cannot be determined, then the last element is
-  `0`. `Command` can contain the same commands as `in`
-
-- **`{trace, Pid, gc_minor_start, Info}`{:
-  #trace_3_trace_messages_gc_minor_start }** - [](){: #gc_minor_start } Sent
-  when a young garbage collection is about to be started. `Info` is a list of
-  two-element tuples, where the first element is a key, and the second is the
-  value. Do not depend on any order of the tuples. The following keys are
-  defined:
-
-  - **`heap_size`** - The size of the used part of the heap.
-
-  - **`heap_block_size`** - The size of the memory block used for storing the
-    heap and the stack.
-
-  - **`old_heap_size`** - The size of the used part of the old heap.
-
-  - **`old_heap_block_size`** - The size of the memory block used for storing
-    the old heap.
-
-  - **`stack_size`** - The size of the stack.
-
-  - **`recent_size`** - The size of the data that survived the previous garbage
-    collection.
-
-  - **`mbuf_size`** - The combined size of message buffers associated with the
-    process.
-
-  - **`bin_vheap_size`** - The total size of unique off-heap binaries referenced
-    from the process heap.
-
-  - **`bin_vheap_block_size`** - The total size of binaries allowed in the
-    virtual heap in the process before doing a garbage collection.
-
-  - **`bin_old_vheap_size`** - The total size of unique off-heap binaries
-    referenced from the process old heap.
-
-  - **`bin_old_vheap_block_size`** - The total size of binaries allowed in the
-    virtual old heap in the process before doing a garbage collection.
-
-  - **`wordsize`** - For the `gc_minor_start` event it is the size of the need
-    that triggered the GC. For the corresponding `gc_minor_end` event it is the
-    size of reclaimed memory = start `heap_size` \- end `heap_size`.
-
-  All sizes are in words.
-
-- **`{trace, Pid, gc_max_heap_size, Info}`{:
-  #trace_3_trace_messages_gc_max_heap_size }** - Sent when the
-  [`max_heap_size`](#process_flag_max_heap_size) is reached during
-  garbage collection. `Info` contains the same kind of list as in message
-  `gc_start`, but the sizes reflect the sizes that triggered `max_heap_size` to
-  be reached.
-
-- **`{trace, Pid, gc_minor_end, Info}`{: #trace_3_trace_messages_gc_minor_end
-  }** - Sent when young garbage collection is finished. `Info` contains the same
-  kind of list as in message `gc_minor_start`, but the sizes reflect the new
-  sizes after garbage collection.
-
-- **`{trace, Pid, gc_major_start, Info}`{:
-  #trace_3_trace_messages_gc_major_start }** - Sent when fullsweep garbage
-  collection is about to be started. `Info` contains the same kind of list as in
-  message `gc_minor_start`.
-
-- **`{trace, Pid, gc_major_end, Info}`{: #trace_3_trace_messages_gc_major_end
-  }** - Sent when fullsweep garbage collection is finished. `Info` contains the
-  same kind of list as in message `gc_minor_start`, but the sizes reflect the
-  new sizes after a fullsweep garbage collection.
-
-If the tracing process/port dies or the tracer module returns `remove`, the
-flags are silently removed.
-
-Each process can only be traced by one tracer. Therefore, attempts to trace an
-already traced process fail.
-
-Returns a number indicating the number of processes that matched `PidPortSpec`.
-If `PidPortSpec` is a process identifier, the return value is `1`. If
-`PidPortSpec` is `all` or `existing`, the return value is the number of
-processes running. If `PidPortSpec` is `new`, the return value is `0`.
-
-Failure: `badarg` if the specified arguments are not supported. For example,
-`cpu_timestamp` is not supported on all platforms.
+For further documentation see `trace:process/4` and `trace:port/4`.
 """.
 -doc #{ group => trace }.
 -spec trace(PidPortSpec, How, FlagList) -> integer() when
@@ -6627,6 +6271,8 @@ trace(PidPortSpec, How, FlagList) ->
     catch error:R:Stk ->
             error_with_inherited_info(R, [PidPortSpec, How, FlagList], Stk)
     end.
+
+
 %% trace_delivered/1
 -doc """
 Calling this function makes sure all trace messages have been delivered.
@@ -6675,93 +6321,13 @@ trace_delivered(_Tracee) ->
 
 %% trace_info/2
 -doc """
-Returns trace information about a port, process, function, or event.
+Returns trace information about a port, process, function, or event for the
+static legacy trace session.
 
-_To get information about a port or process_, `PidPortFuncEvent` is to be a
-process identifier (pid), port identifier, or one of the atoms `new`,
-`new_processes`, or `new_ports`. The atom `new` or `new_processes` means that
-the default trace state for processes to be created is returned. The atom
-`new_ports` means that the default trace state for ports to be created is
-returned.
-
-Valid `Item`s for ports and processes:
-
-- **`flags`** - Returns a list of atoms indicating what kind of traces is
-  enabled for the process. The list is empty if no traces are enabled, and one
-  or more of the following atoms if traces are enabled: `send`, `'receive'`,
-  `set_on_spawn`, `call`, `return_to`, `procs`, `ports`, `set_on_first_spawn`,
-  `set_on_link`, `running`, `running_procs`, `running_ports`, `silent`,
-  `exiting`, `monotonic_timestamp`, `strict_monotonic_timestamp`,
-  `garbage_collection`, `timestamp`, and `arity`. The order is arbitrary.
-
-- **`tracer`** - Returns the identifier for process, port, or a tuple containing
-  the tracer module and tracer state tracing this process. If this process is
-  not traced, the return value is `[]`.
-
-_To get information about a function_, `PidPortFuncEvent` is to be the
-three-element tuple `{Module, Function, Arity}` or the atom `on_load`. No
-wildcards are allowed. Returns `undefined` if the function does not exist, or
-`false` if the function is not traced. If `PidPortFuncEvent` is `on_load`, the
-information returned refers to the default value for code that will be loaded.
-
-Valid `Item`s for functions:
-
-- **`traced`** - Returns `global` if this function is traced on global function
-  calls, `local` if this function is traced on local function calls (that is,
-  local and global function calls), and `false` if local or global function
-  calls are not traced.
-
-- **`match_spec`** - Returns the match specification for this function, if it
-  has one. If the function is locally or globally traced but has no match
-  specification defined, the returned value is `[]`.
-
-- **`meta`** - Returns the meta-trace tracer process, port, or trace module for
-  this function, if it has one. If the function is not meta-traced, the returned
-  value is `false`. If the function is meta-traced but has once detected that
-  the tracer process is invalid, the returned value is `[]`.
-
-- **`meta_match_spec`** - Returns the meta-trace match specification for this
-  function, if it has one. If the function is meta-traced but has no match
-  specification defined, the returned value is `[]`.
-
-- **`call_count`** - Returns the call count value for this function or `true`
-  for the pseudo function `on_load` if call count tracing is active. Otherwise
-  `false` is returned.
-
-  See also [`erlang:trace_pattern/3`](`trace_pattern/3`).
-
-- **`call_time`** - Returns the call time values for this function or `true` for
-  the pseudo function `on_load` if call time tracing is active. Otherwise
-  `false` is returned. The call time values returned, `[{Pid, Count, S, Us}]`,
-  is a list of each process that executed the function and its specific
-  counters.
-
-  See also [`erlang:trace_pattern/3`](`trace_pattern/3`).
-
-- **`call_memory`** - Returns the accumulated number of words allocated by this
-  function. Accumulation stops at the next memory traced function: if there are
-  `outer`, `middle` and `inner` functions each allocating 3 words, but only
-  `outer` is traced, it will report 9 allocated words. If `outer` and `inner`
-  are traced, 6 words are reported for `outer` and 3 for `inner`. When function
-  is not traced, `false` is returned. Returned tuple is `[{Pid, Count, Words}]`,
-  for each process that executed the function.
-
-  See also [`erlang:trace_pattern/3`](`trace_pattern/3`).
-
-- **`all`** - Returns a list containing the `{Item, Value}` tuples for all other
-  items, or returns `false` if no tracing is active for this function.
-
-_To get information about an event_, `PidPortFuncEvent` is to be one of the
-atoms `send` or `'receive'`.
-
-One valid `Item` for events exists:
-
-- **`match_spec`** - Returns the match specification for this event, if it has
-  one, or `true` if no match specification has been set.
-
-The return value is `{Item, Value}`, where `Value` is the requested information
-as described earlier. If a pid for a dead process was specified, or the name of
-a non-existing function, `Value` is `undefined`.
+  > #### Change {: .info }
+  >
+  > This function is superseded by `trace:info/3` that operates on dynamic trace
+  > sessions.
 """.
 -doc #{ group => trace }.
 -spec trace_info(PidPortFuncEvent, Item) -> Res when
@@ -6776,31 +6342,7 @@ a non-existing function, `Value` is `undefined`.
 trace_info(_PidPortFuncEvent, _Item) ->
     erlang:nif_error(undefined).
 
--doc """
-A handle to an isolated trace session.
-""".
--doc #{ since => ~"OTP-27" }.
--opaque trace_session() :: reference().
 
--doc """
-The same as [`erlang:trace_info(PidPortFuncEvent, Item)`](`trace_info/2`),
-but applied on a dynamic trace session.
-""".
--doc(#{since => <<"OTP 27.0">>, group => trace }).
--spec trace_info(Session, PidPortFuncEvent, Item) -> Res when
-      Session :: trace_session(),
-      PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
-                     | {Module, Function, Arity} | on_load | send | 'receive',
-      Module :: module(),
-      Function :: atom(),
-      Arity :: arity(),
-      Item :: flags | tracer | traced | match_spec
-            | meta | meta_match_spec | call_count | call_time | call_memory | all,
-      Res :: trace_info_return().
-trace_info(_Session, _PidPortFuncEvent, _Item) ->
-    erlang:nif_error(undefined).
-
-%% trunc/1
 %% Shadowed by erl_bif_types: erlang:trunc/1
 -doc """
 Truncates the decimals of `Number`.
@@ -7377,7 +6919,7 @@ failure:
   old code of a module that has been upgraded; this is not allowed.
 
 If the [`-nifs()`](`e:system:modules.md#nifs_attribute`) attribute is used
-(which is recommended), all NIFs in the dynamic library much be declared as such
+(which is recommended), all NIFs in the dynamic library must be declared as such
 for [`load_nif/2`](`load_nif/2`) to succeed. On the other hand, all functions
 declared with the `-nifs()` attribute do not have to be implemented by the
 dynamic library. This allows a target independent Erlang file to contain
@@ -7515,9 +7057,21 @@ encoding. For details, see the module `m:file`, the function
   filenames or directory names. If spaces in executable filenames are desired,
   use `{spawn_executable, Command}` instead.
 
-- **`{spawn_driver, Command}`** - Works like `{spawn, Command}`, but demands the
-  first (space-separated) token of the command to be the name of a loaded
-  driver. If no driver with that name is loaded, a `badarg` error is raised.
+  > #### Warning {: .warning }
+  >
+  > On Unix systems, arguments are passed to a new operating system process as
+  > an array of strings but on Windows it is up to the child process to parse
+  > them and some Windows programs may apply their own rules, which are
+  > inconsistent with the standard C runtime `argv` parsing.
+  >
+  > This is particularly troublesome when invoking `.bat`, `.cmd`, or `.com`
+  > files as these run implicitly through `cmd.exe`, whose argument parsing is
+  > vulnerable to malicious input and can be used to run arbitrary shell
+  > commands.
+  >
+  > Therefore, if you are running on Windows and you execute batch files or
+  > `.com` applications, you must not pass untrusted input as arguments to the
+  > program. This affects both `spawn` and `spawn_executable`.
 
 - **`{spawn_executable, FileName}`** - Works like `{spawn, FileName}`, but only
   runs external executables. `FileName` in its whole is used as the name of the
@@ -7536,6 +7090,10 @@ encoding. For details, see the module `m:file`, the function
   error code as the reason. The error reason can differ between OSs. Typically
   the error `enoent` is raised when an attempt is made to run a program that is
   not found and `eacces` is raised when the specified file is not executable.
+
+- **`{spawn_driver, Command}`** - Works like `{spawn, Command}`, but demands the
+  first (space-separated) token of the command to be the name of a loaded
+  driver. If no driver with that name is loaded, a `badarg` error is raised.
 
 - **`{fd, In, Out}`** - Allows an Erlang process to access any currently opened
   file descriptors used by Erlang. The file descriptor `In` can be used for
@@ -7625,9 +7183,6 @@ follows:
 
   If option `eof` is specified also, the messages `eof` and `exit_status` appear
   in an unspecified order.
-
-  If the port program closes its `stdout` without exiting, option `exit_status`
-  does not work.
 
 - **`use_stdio`** - Only valid for `{spawn, Command}` and
   `{spawn_executable, FileName}`. It allows the standard input and output (file
@@ -7880,8 +7435,9 @@ of the flag.
 - ```erlang
   process_flag(error_handler, module())
   ```
+  {: #process_flag_error_handler }
   
-  Used by a process to redefine the error handler for undefined function calls and
+  Used by a process to redefine the `m:error_handler` for undefined function calls and
   undefined registered processes. Use this flag with substantial caution, as code
   auto-loading depends on the correct operation of the error handling module.
   
@@ -8318,19 +7874,18 @@ Valid `InfoTuple`s with corresponding `Item`s:
 - **`{{dictionary, Key}, Value}`** - `Value` associated with `Key` in the
   process dictionary.
 
-- **`{error_handler, Module}`** - `Module` is the error handler module used by
+- **`{error_handler, Module}`** - `Module` is the `m:error_handler` module used by
   the process (for undefined function calls, for example).
 
 - **`{garbage_collection, GCInfo}`** - `GCInfo` is a list containing
   miscellaneous information about garbage collection for this process. The
   content of `GCInfo` can be changed without prior notice.
 
-- **`{garbage_collection_info, GCInfo}`{: #process_info_garbage_collection_info
-  }** - `GCInfo` is a list containing miscellaneous detailed information about
+- **`{garbage_collection_info, GCInfo}`{: #process_info_garbage_collection_info }** -
+  `GCInfo` is a list containing miscellaneous detailed information about
   garbage collection for this process. The content of `GCInfo` can be changed
   without prior notice. For details about the meaning of each item, see
-  [`gc_minor_start`](#gc_minor_start) in
-  [`erlang:trace/3`](`trace/3`).
+  [`gc_minor_start`](`m:trace#gc_minor_start`) in `trace:process/4`.
 
 - **`{group_leader, GroupLeader}`** - `GroupLeader` is the group leader for the
   I/O of the process.
@@ -9058,7 +8613,7 @@ The possible flags are:
   ```
   {: #statistics_scheduler_wall_time_all }
 
-  The same as
+  Equivalent to
   [`statistics(scheduler_wall_time)`](#statistics_scheduler_wall_time),
   except that it also include information about all dirty I/O schedulers.
 
@@ -9078,7 +8633,7 @@ The possible flags are:
   ```
   {: #statistics_total_active_tasks }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(active_tasks)`](#statistics_active_tasks)`)`,
   but more efficient.
 
@@ -9089,7 +8644,7 @@ The possible flags are:
   ```
   {: #statistics_total_active_tasks_all }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(active_tasks_all)`](#statistics_active_tasks_all)`)`,
   but more efficient.
 
@@ -9100,7 +8655,7 @@ The possible flags are:
   ```
   {: #statistics_total_run_queue_lengths }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(run_queue_lengths)`](#statistics_run_queue_lengths)`)`,
   but more efficient.
 
@@ -9111,7 +8666,7 @@ The possible flags are:
   ```
   {: #statistics_total_run_queue_lengths_all }
 
-  The same as calling
+  Equivalent to calling
   `lists:sum(`[`statistics(run_queue_lengths_all)`](#statistics_run_queue_lengths_all)`)`,
   but more efficient.
 
@@ -9988,21 +9543,6 @@ Failure: `badarg` if `List` is an empty list `[]`.
 tl(_List) ->
     erlang:nif_error(undefined).
 
--doc #{ since => <<"OTP-27">>, group => trace }.
-trace_session_create(Opts) ->
-    try erts_internal:trace_session_create(Opts) of
-        Ref -> Ref
-    catch error:R:Stk ->
-            error_with_inherited_info(R, [Opts], Stk)
-    end.
--doc #{ since => <<"OTP-27">>, group => trace }.
-trace_session_destroy(Ref) ->
-    try erts_internal:trace_session_destroy(Ref) of
-        Res -> Res
-    catch error:R:Stk ->
-            error_with_inherited_info(R, [Ref], Stk)
-    end.
-
 -type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
@@ -10010,7 +9550,7 @@ trace_session_destroy(Ref) ->
       [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -doc """
-The same as [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
+Equivalent to [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
 retained for backward compatibility.
 """.
 -doc #{ group => trace }.
@@ -10036,296 +9576,32 @@ trace_pattern(MFA, MatchSpec) ->
       call_memory.
 
 -doc """
-Sets trace pattern for _message sending_. Must be combined with
-[`erlang:trace/3`](`trace/3`) to set the `send` trace flag for one or more
-processes.
+Set trace pattern for call, send and receive tracing on the static legacy trace
+session.
 
-By default all messages sent from `send` traced processes are traced.
-To limit traced send events based on the message content, the sender and/or the
-receiver, use `erlang:trace_pattern/3`.
+  > #### Change {: .info }
+  >
+  > This function is superseded by `trace:function/4`, `trace:send/3` and
+  > `trace:recv/3` that operate on dynamic trace sessions.
 
-Argument `MatchSpec` can take the following forms:
+Argument `FlagList` can contain two additional options for call tracing:
 
-- **`MatchSpecList`** - A list of match specifications. The matching is done on
-  the list `[Receiver, Msg]`. `Receiver` is the process or port identity of the
-  receiver and `Msg` is the message term. The pid of the sending process can be
-  accessed with the guard function `self/0`. An empty list is the same as
-  `true`. For more information, see section
-  [Match Specifications in Erlang](match_spec.md) in the User's Guide.
-
-- **`true`** - Enables tracing for all sent messages (from `send` traced
-  processes). Any match specification is removed. _This is the default_.
-
-- **`false`** - Disables tracing for all sent messages. Any match specification
-  is removed.
-
-Argument `FlagList` must be `[]` for send tracing.
-
-The return value is always `1`.
-
-Examples:
-
-Only trace messages to a specific process `Pid`:
-
-```erlang
-> erlang:trace_pattern(send, [{[Pid, '_'],[],[]}], []).
-1
-```
-
-Only trace messages matching `{reply, _}`:
-
-```erlang
-> erlang:trace_pattern(send, [{['_', {reply,'_'}],[],[]}], []).
-1
-```
-
-Only trace messages sent to the sender itself:
-
-```erlang
-> erlang:trace_pattern(send, [{['$1', '_'],[{'=:=','$1',{self}}],[]}], []).
-1
-```
-
-Only trace messages sent to other nodes:
-
-```erlang
-> erlang:trace_pattern(send, [{['$1', '_'],[{'=/=',{node,'$1'},{node}}],[]}], []).
-1
-```
-
-> #### Note {: .info }
->
-> A match specification for `send` trace can use all guard and body functions
-> except `caller`.
-
-Fails by raising an error exception with an error reason of:
-
-- **`badarg`** - If an argument is invalid.
-
-- **`system_limit`** - If a match specification passed as argument has excessive
-  nesting which causes scheduler stack exhaustion for the scheduler that the
-  calling process is executing on.
-  [Scheduler stack size](erl_cmd.md#sched_thread_stack_size) can be configured
-  when starting the runtime system.
-
-Sets trace pattern for _message receiving_. Must be combined with
-[`erlang:trace/3`](`trace/3`) to set the `'receive'` trace flag for one or more
-processes. By default all messages received by `'receive'` traced processes are
-traced. To limit traced receive events based on the message content, the sender
-and/or the receiver, use `erlang:trace_pattern/3`.
-
-Argument `MatchSpec` can take the following forms:
-
-- **`MatchSpecList`** - A list of match specifications. The matching is done on
-  the list `[Node, Sender, Msg]`. `Node` is the node name of the sender.
-  `Sender` is the process or port identity of the sender, or the atom
-  `undefined` if the sender is not known (which can be the case for remote
-  senders). `Msg` is the message term. The pid of the receiving process can be
-  accessed with the guard function `self/0`. An empty list is the same as
-  `true`. For more information, see section
-  [Match Specifications in Erlang](match_spec.md) in the User's Guide.
-
-- **`true`** - Enables tracing for all received messages (to `'receive'` traced
-  processes). Any match specification is removed. _This is the default_.
-
-- **`false`** - Disables tracing for all received messages. Any match
-  specification is removed.
-
-Argument `FlagList` must be `[]` for receive tracing.
-
-The return value is always `1`.
-
-Examples:
-
-Only trace messages from a specific process `Pid`:
-
-```erlang
-> erlang:trace_pattern('receive', [{['_',Pid, '_'],[],[]}], []).
-1
-```
-
-Only trace messages matching `{reply, _}`:
-
-```erlang
-> erlang:trace_pattern('receive', [{['_','_', {reply,'_'}],[],[]}], []).
-1
-```
-
-Only trace messages from other nodes:
-
-```erlang
-> erlang:trace_pattern('receive', [{['$1', '_', '_'],[{'=/=','$1',{node}}],[]}], []).
-1
-```
-
-> #### Note {: .info }
->
-> A match specification for `'receive'` trace can use all guard and body
-> functions except `caller`, `is_seq_trace`, `get_seq_token`, `set_seq_token`,
-> `enable_trace`, `disable_trace`, `trace`, `silent`, and `process_dump`.
-
-Fails by raising an error exception with an error reason of:
-
-- **`badarg`** - If an argument is invalid.
-
-- **`system_limit`** - If a match specification passed as argument has excessive
-  nesting which causes scheduler stack exhaustion for the scheduler that the
-  calling process is executing on.
-  [Scheduler stack size](erl_cmd.md#sched_thread_stack_size) can be configured
-  when starting the runtime system.
-
-Enables or disables _call tracing_ for one or more functions. Must be combined
-with [`erlang:trace/3`](`trace/3`) to set the `call` trace flag for one or more
-processes.
-
-Conceptually, call tracing works as follows. Inside the Erlang virtual machine,
-a set of processes and a set of functions are to be traced. If a traced process
-calls a traced function, the trace action is taken. Otherwise, nothing happens.
-
-To add or remove one or more processes to the set of traced processes, use
-[`erlang:trace/3`](`trace/3`).
-
-To add or remove functions to the set of traced functions, use
-`erlang:trace_pattern/3`.
-
-The BIF `erlang:trace_pattern/3` can also add match specifications to a
-function. A match specification comprises a pattern that the function arguments
-must match, a guard expression that must evaluate to `true`, and an action to be
-performed. The default action is to send a trace message. If the pattern does
-not match or the guard fails, the action is not executed.
-
-Argument `MFA` is to be a tuple, such as `{Module, Function, Arity}`, or the
-atom `on_load` (described below). It can be the module, function, and arity for
-a function (or a BIF in any module). The atom `'_'` can be used as a wildcard in
-any of the following ways:
-
-- **`{Module,Function,'_'}`** - All functions of any arity named `Function` in
-  module `Module`.
-
-- **`{Module,'_','_'}`** - All functions in module `Module`.
-
-- **`{'_','_','_'}`** - All functions in all loaded modules.
-
-Other combinations, such as `{Module,'_',Arity}`, are not allowed. Local
-functions match wildcards only if option `local` is in `FlagList`.
-
-If argument `MFA` is the atom `on_load`, the match specification and flag list
-are used on all modules that are newly loaded.
-
-Argument `MatchSpec` can take the following forms:
-
-- **`false`** - Disables tracing for the matching functions. Any match
-  specification is removed.
-
-- **`true`** - Enables tracing for the matching functions. Any match
-  specification is removed.
-
-- **`MatchSpecList`** - A list of match specifications. An empty list is
-  equivalent to `true`. For a description of match specifications, see section
-  [Match Specifications in Erlang](match_spec.md) in the User's Guide.
-
-- **`restart`** - For the `FlagList` options `call_count`, `call_time` and
-  `call_memory`: restarts the existing counters. The behavior is undefined for
-  other `FlagList` options.
-
-- **`pause`** - For the `FlagList` options `call_count`, `call_time` and
-  `call_memory`: pauses the existing counters. The behavior is undefined for
-  other `FlagList` options.
-
-Parameter `FlagList` is a list of options. The following are the valid options:
-
-- **`global`** - Turns on or off call tracing for global function calls (that
-  is, calls specifying the module explicitly). Only exported functions match and
-  only global calls generate trace messages. _This is the default_.
-
-- **`local`** - Turns on or off call tracing for all types of function calls.
-  Trace messages are sent whenever any of the specified functions are called,
-  regardless of how they are called. If flag `return_to` is set for the process,
-  a `return_to` message is also sent when this function returns to its caller.
-
-- **`meta | {meta, Pid} | {meta, TracerModule, TracerState}`** - Turns on or off
+- **`{meta, Pid} | {meta, TracerModule, TracerState}`** - Turns on or off
   meta-tracing for all types of function calls. Trace messages are sent to the
   tracer whenever any of the specified functions are called. If no tracer is
   specified, `self/0` is used as a default tracer process.
 
-  Meta-tracing traces all processes and does not care about the process trace
-  flags set by `erlang:trace/3`, the trace flags are instead fixed to
-  `[call, timestamp]`.
-
-  The match specification function `{return_trace}` works with meta-trace and
-  sends its trace message to the same tracer.
-
-- **`call_count`** - Starts (`MatchSpec == true`) or stops
-  (`MatchSpec == false`) call count tracing for all types of function calls. For
-  every function, a counter is incremented when the function is called, in any
-  process. No process trace flags need to be activated.
-
-  If call count tracing is started while already running, the count is restarted
-  from zero. To pause running counters, use `MatchSpec == pause`. Paused and
-  running counters can be restarted from zero with `MatchSpec == restart`.
-
-  To read the counter value, use [`erlang:trace_info/2`](`trace_info/2`).
-
-- **`call_time`** - Starts (`MatchSpec == true`) or stops (`MatchSpec == false`)
-  call time tracing for all types of function calls. For every function, a
-  counter is incremented when the function is called. Time spent in the function
-  is accumulated in two other counters, seconds and microseconds. The counters
-  are stored for each call traced process.
-
-  If call time tracing is started while already running, the count and time
-  restart from zero. To pause running counters, use `MatchSpec == pause`. Paused
-  and running counters can be restarted from zero with `MatchSpec == restart`.
-
-  To read the counter value, use [`erlang:trace_info/2`](`trace_info/2`).
-
-- **`call_memory`** - Starts (`MatchSpec == true`) or stops
-  (`MatchSpec == false`) call memory tracing for all types of function calls.
-
-  If call memory tracing is started while already running, counters and
-  allocations restart from zero. To pause running counters, use
-  `MatchSpec == pause`. Paused and running counters can be restarted from zero
-  with `MatchSpec == restart`.
-
-  To read the counter value, use [`erlang:trace_info/2`](`trace_info/2`).
-
-The options `global` and `local` are mutually exclusive, and `global` is the
-default (if no options are specified). The options `call_count` and `meta`
-perform a kind of local tracing, and cannot be combined with `global`. A
-function can be globally or locally traced. If global tracing is specified for a
-set of functions, then local, meta, call time, and call count tracing for the
-matching set of local functions is disabled, and conversely.
-
-When disabling trace, the option must match the type of trace set on the
-function. That is, local tracing must be disabled with option `local` and global
-tracing with option `global` (or no option), and so on.
-
-Part of a match specification list cannot be changed directly. If a function has
-a match specification, it can be replaced with a new one. To change an existing
-match specification, use the BIF [`erlang:trace_info/2`](`trace_info/2`) to
-retrieve the existing match specification.
-
-Returns the number of functions matching argument `MFA`. This is zero if none
-matched.
-
-Fails by raising an error exception with an error reason of:
-
-- **`badarg`** - If an argument is invalid.
-
-- **`system_limit`** - If a match specification passed as argument has excessive
-  nesting which causes scheduler stack exhaustion for the scheduler that the
-  calling process is executing on.
-  [Scheduler stack size](erl_cmd.md#sched_thread_stack_size) can be configured
-  when starting the runtime system.
+For further documentation see `trace:function/4` , `trace:send/3` and
+`trace:recv/3`.
 """.
--doc(#{since => <<"OTP 19.0">>}).
 -doc #{ group => trace }.
 -spec trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
-			  ('receive', MatchSpec, []) -> non_neg_integer() when
+                   ('receive', MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
-			  (MFA, MatchSpec, FlagList) -> non_neg_integer() when
+                   (MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean()
@@ -10339,6 +9615,7 @@ trace_pattern(MFA, MatchSpec, FlagList) ->
     catch error:R:Stk ->
             error_with_inherited_info(R, [MFA, MatchSpec, FlagList], Stk)
     end.
+
 
 %% Shadowed by erl_bif_types: erlang:tuple_to_list/1
 -doc """
@@ -10496,7 +9773,8 @@ the `CpuTopology` type to change.
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
-         (async_dist) -> boolean().
+         (async_dist) -> boolean();
+         (halt_flush_timeout) -> non_neg_integer() | infinity.
 -doc {file,"../../doc/src/erlang_system_info.md"}.
 system_info(_Item) ->
     erlang:nif_error(undefined).
@@ -11075,7 +10353,7 @@ spawn_opt(N,M,F,A,O) ->
 %%
 
 -doc """
-The same as the call [`spawn_request(node(),Fun,[])`](`spawn_request/3`). That
+Equivalent to the call [`spawn_request(node(),Fun,[])`](`spawn_request/3`). That
 is, a spawn request on the local node with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
@@ -11099,11 +10377,14 @@ spawn_request(F) ->
 %%
 
 -doc """
-The same as the call [`spawn_request(node(),Fun,Options)`](`spawn_request/3`).
-That is, a spawn request on the local node.
+spawn_request(FunOrNode, OptionsOrFun)
 
-The same as the call [`spawn_request(Node,Fun,[])`](`spawn_request/3`). That is,
-a spawn request with no options.
+Equivalent to [`spawn_request(node(),Fun,Options)`](`spawn_request/3`) or
+[`spawn_request(Node,Fun,[])`](`spawn_request/3`) depending on the arguments.
+
+That is either:
+- a spawn request on the local node.
+- a spawn request with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11143,19 +10424,23 @@ spawn_request(A1, A2) ->
 %%
 
 -doc """
-The same as
-[`spawn_request(Node,erlang,apply,[Fun,[]],Options)`](`spawn_request/5`). That
-is, a spawn request using the fun `Fun` of arity zero as entry point.
+spawn_request(NodeOrModule, FunOrFunction, OptionsOrArgs)
+
+Equivalent to
+[`spawn_request(Node,erlang,apply,[Fun,[]],Options)`](`spawn_request/5`) or
+[`spawn_request(node(),Module,Function,Args,[])`](`spawn_request/5`) depending
+on the arguments.
+
+That is either:
+
+- a spawn request using the fun `Fun` of arity zero as entry point
+- a spawn request on the local node with no options.
 
 This function will fail with a `badarg` exception if:
 
 - `Node` is not an atom.
 - `Fun` is not a fun of arity zero.
 - `Options` is not a proper list of terms.
-
-The same as the call
-[`spawn_request(node(),Module,Function,Args,[])`](`spawn_request/5`). That is, a
-spawn request on the local node with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11200,13 +10485,16 @@ spawn_request(M, F, A) ->
 %%
 
 -doc """
-The same as the call
-[`spawn_request(Node,Module,Function,Args,[])`](`spawn_request/5`). That is, a
-spawn request with no options.
+spawn_request(NodeOrModule, ModuleOrFunction, FunctionOrArgs, ArgsOrOptions)
 
-The same as the call
-[`spawn_request(node(),Module,Function,Args,Options)`](`spawn_request/5`). That
-is, a spawn request on the local node.
+Equivalent to
+[`spawn_request(Node,Module,Function,Args,[])`](`spawn_request/5`) or
+[`spawn_request(node(),Module,Function,Args,Options)`](`spawn_request/5`)
+depending on the arguments.
+
+That is either:
+- a spawn request with no options.
+- a spawn request on the local node.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -doc #{ group => processes }.
@@ -11692,18 +10980,15 @@ external funs:
 
 The following elements are only present in the list if `Fun` is local:
 
-- **`{pid, Pid}`** - `Pid` is the process identifier of the process that
-  originally created the fun.
-
-  It might point to the `init` process if the `Fun` was statically allocated
-  when module was loaded (this optimisation is performed for local functions
-  that do not capture the environment).
+- **`{pid, Pid}`** - `Pid` is the process identifier of `init` process on
+  the local node.
 
   > #### Change {: .info }
   >
-  > In Erlang/OTP 27, we plan to change the return value so that it always
-  > points to the local `init` process, regardless of which process or node the
-  > fun was originally created on. See
+  > Starting in Erlang/OTP 27, `Pid` always points to the local `init` process,
+  > regardless of which process or node the fun was originally created on.
+  >
+  > See
   > [Upcoming Potential Incompatibilities ](`e:general_info:upcoming_incompatibilities.md#fun-creator-pid-will-always-be-local-init-process`).
 
 - **`{index, Index}`** - `Index` (an integer) is an index into the module fun
@@ -11755,7 +11040,7 @@ for a registered name at another node.
 -doc """
 Send a message without suspending the caller.
 
-The same as [`erlang:send(Dest, Msg, [nosuspend])`](`send/3`), but returns
+Equivalent to [`erlang:send(Dest, Msg, [nosuspend])`](`send/3`), but returns
 `true` if the message was sent and `false` if the message was not sent because
 the sender would have had to be suspended.
 
@@ -11803,7 +11088,7 @@ send_nosuspend(Pid, Msg) ->
     end.
 
 -doc """
-The same as [`erlang:send(Dest, Msg, [nosuspend | Options])`](`send/3`), but
+Equivalent to [`erlang:send(Dest, Msg, [nosuspend | Options])`](`send/3`), but
 with a Boolean return value.
 
 This function behaves like [`erlang:send_nosuspend/2`](`send_nosuspend/2`), but

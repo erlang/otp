@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -658,7 +658,7 @@ openssl_client_early_data_basic(Config) when is_list(Config) ->
     RequestFile = filename:join([proplists:get_value(priv_dir, Config), "request"]),
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     %% Create request file to be used with early data
-    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n">>,
+    EarlyData = <<"HEAD / HTTP/1.1\nHost: \nConnection: close\n\n", 0, 0>>,
     create_request(RequestFile, EarlyData),
 
     %% Configure session tickets

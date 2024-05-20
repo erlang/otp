@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../vsn.mk
 VSN=$(SYNTAX_TOOLS_VSN)
 APPLICATION=syntax_tools
+EPUB=false
 
 assets/demo.erl: ../examples/demo.erl
 	$(V_at)cp $< $@

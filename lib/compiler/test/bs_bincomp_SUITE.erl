@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -699,6 +699,12 @@ cs(Bin) ->
         bs_bincomp_no_copt_ssa_SUITE ->
             ok;
         bs_bincomp_post_opt_SUITE ->
+            ok;
+        bs_bincomp_r24_SUITE ->
+            ok;
+        bs_bincomp_r25_SUITE ->
+            ok;
+        bs_bincomp_r26_SUITE ->
             ok;
         _ ->
             ByteSize = byte_size(Bin),

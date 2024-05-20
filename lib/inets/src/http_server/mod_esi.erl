@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ This module defines the Erlang Server Interface (ESI) API. It is a more
 efficient way of writing Erlang scripts for your `Inets` web server than writing
 them as common CGI scripts.
 
-## DATA TYPES
+### Data types
 
 The following data types are used in the functions for mod_esi:
 
@@ -176,8 +176,6 @@ any data that it needs to keep track of when handling the chunks.
 %% request handling process so it can forward it to the client.
 %%-------------------------------------------------------------------------
 -doc """
-deliver(SessionID, Data) -> ok | {error, Reason}
-
 This function is _only_ intended to be used from functions called by the Erl
 Scheme interface to deliver parts of the content to the user.
 
@@ -192,6 +190,11 @@ Sends data from an Erl Scheme script back to the client.
 > `SessionID` must be the value given as input to the ESI callback function that
 > you implemented.
 """.
+-spec deliver(SessionID, Data) -> ok | {error, Reason} when
+      SessionID :: term(),
+      Data :: iolist(),
+      Reason :: bad_sessionID.
+
 deliver(SessionID, Data) when is_pid(SessionID) ->
     SessionID ! {esi_data, Data},
     ok;

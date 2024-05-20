@@ -37,6 +37,8 @@ format_error(_Reason, [{M,F,As,Info}|_]) ->
                   format_erl_ddll_error(F, As, Cause);
               os ->
                   format_os_error(F, As, Cause);
+              trace ->
+                  format_trace_error(F, As, Cause);
               _ ->
                   []
           end,
@@ -147,6 +149,116 @@ format_os_error(unsetenv, [Name], _) ->
 format_os_error(_, _, _) ->
     [].
 
+format_trace_error(process, [_Session,Proc,How,Options], Cause) ->
+    PidError = case Proc of
+                   _ when is_pid(Proc), node(Proc) =/= node() ->
+                       not_local_pid;
+                   _ ->
+                       []
+               end,
+    HowError = must_be_boolean(How),
+    case Cause of
+        session ->
+            [bad_session];
+
+        badopt ->
+            [[], PidError, HowError, must_be_option_list(Options)];
+        _ ->
+            case {HowError, PidError} of
+                {[], []} ->
+                    [[], <<"invalid process spec">>];
+                _ ->
+                    [[], PidError, HowError, []]
+            end
+    end;
+format_trace_error(port, [_Session,Port,How,Options], Cause) ->
+    PrtError = case Port of
+                   _ when is_port(Port), node(Port) =/= node() ->
+                       not_local_port;
+                   _ ->
+                       []
+                end,
+    HowError = must_be_boolean(How),
+    case Cause of
+        session ->
+            [bad_session];
+
+        badopt ->
+            [[], PrtError, HowError, must_be_option_list(Options)];
+        _ ->
+            case {HowError, PrtError} of
+                {[], []} ->
+                    [[], <<"invalid port spec">>];
+                _ ->
+                    [[], PrtError, HowError, []]
+            end
+    end;
+format_trace_error(function, [_Session,_MFA,_MatchSpec,Options], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        badopt ->
+            [[], [], [], must_be_option_list(Options)];
+        match_spec ->
+            [[], [], bad_match_spec, must_be_list(Options)];
+        call_count ->
+            [[], [], [], <<"a match spec is not allowed in combination with these options">>];
+        _ ->
+            [[], <<"invalid MFA specification">>, [], []]
+    end;
+format_trace_error(SendRecv, [_Session,_MatchSpec,Options], Cause)
+  when SendRecv =:= send; SendRecv =:= recv ->
+    case Cause of
+        session ->
+            [bad_session];
+        badopt ->
+            [[], [], must_be_option_list(Options)];
+        match_spec ->
+            [[], bad_match_spec, must_be_list(Options)];
+        _ ->
+            []
+    end;
+format_trace_error(info, [_Session,Tracee,_Item], Cause) ->
+    case Cause of
+        session ->
+            [bad_session];
+        badopt ->
+            if
+                is_pid(Tracee), node(Tracee) =/= node() ->
+                    [[], not_local_pid];
+                is_port(Tracee), node(Tracee) =/= node() ->
+                    [[], not_local_port];
+                true ->
+                    [[], <<"not a valid tracee specification">>]
+            end;
+        none ->
+            [[], <<"invalid trace item">>]
+    end;
+format_trace_error(session_create, [Name,Tracer,Options], _) ->
+    NameError = if
+                    is_atom(Name) -> [];
+                    true -> not_atom
+                end,
+    TracerError = case Tracer of
+                      _ when is_pid(Tracer), node(Tracer) =:= node() -> [];
+                      _ when is_port(Tracer), node(Tracer) =:= node() -> [];
+                      {Mod,_} when is_atom(Mod) -> [];
+                      _ -> bad_tracer
+                  end,
+    OptError = case Options of
+                   [] -> [];
+                   [_|_] -> bad_option;
+                   _ -> not_list
+               end,
+    [NameError, TracerError, OptError];
+format_trace_error(session_destroy, [_Session], _) ->
+    [bad_session];
+format_trace_error(session_info, [_PidPortFuncEvent], _) ->
+    [<<"not a valid tracee specification">>];
+format_trace_error(_, _, _) ->
+    [].
+
+
 maybe_posix_message(Reason) ->
     case erl_posix_msg:message(Reason) of
         "unknown POSIX error" ++ _ ->
@@ -211,6 +323,29 @@ must_be_env_charlist(_) ->
     not_list.
 
 
+must_be_boolean(B) when is_boolean(B) -> [];
+must_be_boolean(_) -> bad_boolean.
+
+must_be_list(List) ->
+    must_be_list(List, []).
+
+must_be_list(List, Error) when is_list(List) ->
+    try length(List) of
+        _ ->
+            Error
+    catch
+        error:badarg ->
+            not_proper_list
+    end;
+must_be_list(_, _) ->
+    not_list.
+
+must_be_option_list(Options) ->
+    case must_be_list(Options) of
+        [] -> bad_option;
+        Error -> Error
+    end.
+
 format_error_map([""|Es], ArgNum, Map) ->
     format_error_map(Es, ArgNum + 1, Map);
 format_error_map([{general, E}|Es], ArgNum, Map) ->
@@ -220,6 +355,16 @@ format_error_map([E|Es], ArgNum, Map) ->
 format_error_map([], _, Map) ->
     Map.
 
+expand_error(bad_boolean) ->
+    <<"not a boolean ('true' or 'false')">>;
+expand_error(bad_match_spec) ->
+    <<"invalid match specification">>;
+expand_error(bad_option) ->
+    <<"invalid option in list">>;
+expand_error(bad_session) ->
+    <<"invalid trace session">>;
+expand_error(bad_tracer) ->
+    <<"invalid tracer">>;
 expand_error(coverage_disabled) ->
     <<"not loaded with coverage enabled">>;
 expand_error(eq_in_list) ->
@@ -242,6 +387,10 @@ expand_error(not_charlist) ->
     <<"not a list of characters">>;
 expand_error(not_list) ->
     <<"not a list">>;
+expand_error(not_local_pid) ->
+    <<"not a local pid">>;
+expand_error(not_local_port) ->
+    <<"not a local port">>;
 expand_error(not_map) ->
     <<"not a map">>;
 expand_error(not_proper_list) ->

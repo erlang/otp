@@ -27,7 +27,7 @@ The `start` script is an example script on how to start up the Erlang system in
 embedded mode on Unix.
 
 For more information about the use, see the
-[Embedded System User's Guide](`e:system:embedded_solaris.md`) in System
+[Embedded System User's Guide](`e:system:embedded.md`) in System
 Documentation.
 
 ```text

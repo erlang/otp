@@ -21,6 +21,132 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2
+
+### Fixed Bugs and Malfunctions
+
+- Starting a TLS server without sufficient credentials (certificate or anonymous cipher) would work, but it was impossible to connect to it.
+  
+  This has been corrected to return an error instead of starting the server.
+
+  Own Id: OTP-18887 Aux Id: [GH-7493], [PR-7918]
+
+- ASN.1 decoding errors are handled in more places to ensure that errors are returned instead of cause a crash.
+
+  Own Id: OTP-18969 Aux Id: [GH-8058], [PR-8256]
+
+- Improved error checking on the API functions.
+
+  Own Id: OTP-18992 Aux Id: [GH-8066] [PR-8156]
+
+[GH-7493]: https://github.com/erlang/otp/issues/7493
+[PR-7918]: https://github.com/erlang/otp/pull/7918
+[GH-8058]: https://github.com/erlang/otp/issues/8058
+[PR-8256]: https://github.com/erlang/otp/pull/8256
+[GH-8066]: https://github.com/erlang/otp/issues/8066
+[PR-8156]: https://github.com/erlang/otp/pull/8156
+
+### Improvements and New Features
+
+- The `ssl` client can negotiate and handle certificate status request (OCSP stapling support on the client side).
+  
+  Thanks to voltone for interop testing and related discussions.
+
+  Own Id: OTP-18606 Aux Id: OTP-16875,OTP-16448
+
+- Memory consumption has been reduced and performance increased by refactoring internal data structures and their usage.
+
+  Own Id: OTP-18665 Aux Id: [PR-7447]
+
+- Added `c:ssl_crl_cache_api:lookup/2` as an optional `-callback` attribute.
+
+  Own Id: OTP-18788 Aux Id: [PR-7700]
+
+- Key customization support has been extended to allow flexibility for implementers of  for instance hardware security modules (HSM) or trusted platform modules (TPM).
+
+  Own Id: OTP-18876 Aux Id: [PR-7898], [PR-7475]
+
+- The `proc_lib:set_label/1` function is now used to increase observability of `ssl` processes.
+
+  Own Id: OTP-18879
+
+- Brainpool elliptic curves are now supported in TLS-1.3.
+
+  Own Id: OTP-18884 Aux Id: [PR-8056]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- For security reasons, the CBC ciphers are now longer included in the list of default ciphers for TLS-1.2.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19025 Aux Id: [PR-8250]
+
+- There is a new `cert_policy_opts` option to configure certificate policy options for the certificate path validation.
+
+  Own Id: OTP-19027 Aux Id: [PR-8255]
+
+[PR-7447]: https://github.com/erlang/otp/pull/7447
+[PR-7700]: https://github.com/erlang/otp/pull/7700
+[PR-7898]: https://github.com/erlang/otp/pull/7898
+[PR-7475]: https://github.com/erlang/otp/pull/7475
+[PR-8056]: https://github.com/erlang/otp/pull/8056
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8250]: https://github.com/erlang/otp/pull/8250
+[PR-8255]: https://github.com/erlang/otp/pull/8255
+
+## SSL 11.1.4
+
+### Fixed Bugs and Malfunctions
+
+* Fix certificate authorities check so that CA closest to peer is not lost. It could manifest itself in a failed connection as the client failed to realize it had a valid certificate chain to send to the server.
+
+  Own Id: OTP-19065 Aux Id: GH-8356, PR-8367
+* ssl:signature_algs/2 did not list some legacy algorithm schemes correctly when listing all algorithms available.
+
+  Own Id: OTP-19067 Aux Id: PR-8379
+
+## SSL 11.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Cleanup and close all connections in DTLS when the listen socket owner dies.
+
+  Improved IPv6 handling in DTLS.
+
+  Own Id: OTP-19037 Aux Id: GH-7951 GH-7955
+* Fixed a crash in dtls accept.
+
+  Own Id: OTP-19059 Aux Id: GH-8338
+
+## SSL 11.1.2
+
+### Fixed Bugs and Malfunctions
+
+* ssl:prf/5, will start working instead of hanging in a TLS-1.3 context if called appropriately. Note that the implementation has changed and in OTP-27 a more adequate API will be documented.
+
+  Own Id: OTP-18890 Aux Id: GH-7911
+* Server name verification didn't work if a connection was made with IP-address as a string.
+
+  Own Id: OTP-18909 Aux Id: GH-7968
+* The fallback after "dh" ssl option was undefined was to get "dh" from ssl options again. This is clearly wrong and now changed to the documented fallback "dhfile" ssl option.
+
+  Own Id: OTP-18919 Aux Id: PR-7984
+* Correct default value selection for DTLS. Will only affect users linked with really old version of cryptolib library.
+
+  Own Id: OTP-18962 Aux Id: GH-8079
+* Adhere elliptic curves with RFC 8422 pre TLS-1.3, that is Edwards curves are added to curves that can be used for key exchange, and documentation and implementation of eccs/0,1 are aligned.
+
+  Own Id: OTP-18991
+
+### Improvements and New Features
+
+* Improve alert reason when ecdhe_rsa key_exchange does not have any common curves to use
+
+  Own Id: OTP-18985
+
 ## SSL 11.1.1
 
 ### Fixed Bugs and Malfunctions
@@ -279,6 +405,14 @@ This document describes the changes made to the SSL application.
   possible values. Also make sha224 a non default value.
 
   Own Id: OTP-18572
+
+## SSL 10.9.1.4
+
+### Fixed Bugs and Malfunctions
+
+* Fix certificate authorities check so that CA closest to peer is not lost. It could manifest itself in a failed connection as the client failed to realize it had a valid certificate chain to send to the server.
+
+  Own Id: OTP-19065 Aux Id: GH-8356, PR-8367
 
 ## SSL 10.9.1.3
 

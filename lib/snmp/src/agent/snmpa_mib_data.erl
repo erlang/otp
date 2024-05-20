@@ -113,14 +113,13 @@ handle duplicate mib- and trap- entries.
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback unload_mib(State :: term(), FileName :: filename(),
-		   MeOverride :: boolean(), 
-		   TeOverride :: boolean()) -> 
+                     MeOverride :: boolean(), 
+                     TeOverride :: boolean()) -> 
     {ok, NewState :: term()} | {error, Reason :: not_loaded | term()}.
 
 -doc """
 Find the mib-entry corresponding to the `Oid`. If it is a variable, the `Oid`
 must be <Oid for var>.0 and if it is a table, `Oid` must be
-`<table>.<entry>.<col>.<any>`.
 """.
 -doc(#{title => <<"CALLBACK FUNCTIONS">>,since => <<"OTP R16B01">>}).
 -callback lookup(State :: term(), Oid :: snmp:oid()) -> 

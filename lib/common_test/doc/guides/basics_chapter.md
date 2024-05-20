@@ -128,15 +128,15 @@ case functions that look much more like scripts than actual programs. A simple
 example:
 
 ```erlang
- session(_Config) ->
-     {started,ServerId} = my_server:start(),
-     {clients,[]} = my_server:get_clients(ServerId),
-     MyId = self(),
-     connected = my_server:connect(ServerId, MyId),
-     {clients,[MyId]} = my_server:get_clients(ServerId),
-     disconnected = my_server:disconnect(ServerId, MyId),
-     {clients,[]} = my_server:get_clients(ServerId),
-     stopped = my_server:stop(ServerId).
+session(_Config) ->
+    {started,ServerId} = my_server:start(),
+    {clients,[]} = my_server:get_clients(ServerId),
+    MyId = self(),
+    connected = my_server:connect(ServerId, MyId),
+    {clients,[MyId]} = my_server:get_clients(ServerId),
+    disconnected = my_server:disconnect(ServerId, MyId),
+    {clients,[]} = my_server:get_clients(ServerId),
+    stopped = my_server:stop(ServerId).
 ```
 
 As a test suite runs, all information (including output to `stdout`) is recorded
@@ -151,6 +151,13 @@ successful, failed, or skipped, plus an optional user comment. For a failed test
 case, the reason for termination is also printed in the comment field. The
 overview page has a link to each test case log file, providing simple navigation
 with any standard HTML browser.
+
+> #### Note {: .info }
+>
+> In the last row where totals are presented the time shown here is a sum of
+> rows, which are above (not accounting for parallel testcases).
+> On the other hand "Elapsed Time" is a clock time spent to run testcases.
+>
 
 [](){: #External_Interfaces }
 

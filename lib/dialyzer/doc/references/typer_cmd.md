@@ -19,16 +19,16 @@ limitations under the License.
 -->
 # typer
 
-Typer, a Type annotator for ERlang programs.
+TypEr is a **TYP**e annotator for **ER**lang programs.
 
 ## Description
 
-TypEr shows type information for Erlang modules to the user. Additionally, it
-can annotate the code of files with such type information.
+TypEr shows type information for Erlang modules. Additionally, it can
+annotate the code of files with such type information.
 
 [](){: #command_line }
 
-## Using TypEr from the Command Line
+## Using TypEr
 
 TypEr is used from the command-line. This section provides a brief description
 of the options. The same information can be obtained by writing the following in
@@ -54,24 +54,24 @@ typer [--help] [--version] [--plt PLT] [--edoc]
 _Options:_
 
 - **`-r`** - Search directories recursively for .erl files below them. If a list
-  of files is given, this must be after them.
+  of files is given, this option must given be after them.
 
 - **`--show`** - Print type specifications for all functions on stdout. (This is
   the default behaviour; this option is not really needed.)
 
 - **`--show-exported` (or `show_exported`)** - Same as `--show`, but print
   specifications for exported functions only. Specs are displayed sorted
-  alphabetically on the function's name.
+  alphabetically according to the function's name.
 
 - **`--annotate`** - Annotate the specified files with type specifications.
 
-- **`--annotate-inc-files`** - Same as `--annotate` but annotates all
-  `-include()` files as well as all .erl files. (Use this option with caution -
-  it has not been tested much).
+- **`--annotate-inc-files`** - Same as `--annotate`, but annotates all
+  `-include()` files as well as all .erl files. (Use this option with caution —
+  it is not well-tested.)
 
-- **`--annotate-in-place`** - Annotate directly on the source code files,
-  instead of dumping the annotated files in a different directory (use this
-  option with caution - has not been tested much)
+- **`--annotate-in-place`** - Annotate directly in the source code files,
+  instead of dumping the annotated files in a different directory. (Use this
+  option with caution — it is not well-tested.)
 
 - **`--edoc`** - Print type information as Edoc `@spec` comments, not as type
   specs.
@@ -80,23 +80,22 @@ _Options:_
 
 - **`-T file*`** - The specified file(s) already contain type specifications and
   these are to be trusted in order to print specs for the rest of the files.
-  (Multiple files or dirs, separated by spaces, can be specified.)
+  (Multiple files or directories, separated by spaces, can be specified.)
 
 - **`-Dname` (or `-Dname=value`)** - Pass the defined name(s) to TypEr. (\*\*)
 
 - **`-I`** - Pass the include_dir to TypEr. (\*\*)
 
 - **`-pa dir`** - Include `dir` in the path for Erlang. This is useful when
-  analyzing files that have `-include_lib()` directives or use parse transforms.
+  analyzing files that use `-include_lib()` directives or parse transforms.
 
 - **`-pz dir`** - Include `dir` in the path for Erlang. This is useful when
-  analyzing files that have `-include_lib()` directives or use parse transforms.
+  analyzing files that use `-include_lib()` directives or parse transforms.
 
 - **`--version` (or `-v`)** - Print the TypEr version and some more information
   and exit.
 
 > #### Note {: .info }
 >
-> \*\* options `-D` and `-I` work both from the command line and in the TypEr
-> GUI; the syntax of defines and includes is the same as that used by
-> [erlc(1)](`e:erts:erlc_cmd.md`).
+> \*\* options `-D` and `-I` work the same way as in
+> [erlc](`e:erts:erlc_cmd.md`).

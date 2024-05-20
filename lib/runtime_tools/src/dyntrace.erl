@@ -50,8 +50,8 @@ the developer.
 
 How to write `d` programs or `systemtap` scripts can be learned from books and
 from a lot of pages on the Internet. This manual page does not include any
-documentation about using the dynamic trace tools of respective platform. The
-`examples` directory of the `runtime_tools` application however contains
+documentation about using the dynamic trace tools of respective platform.
+However, the `examples` directory of the `runtime_tools` application contains
 comprehensive examples of both `d` and `systemtap` programs that will help you
 get started. Another source of information is the [dtrace](dtrace.md) and
 [systemtap](systemtap.md) chapters in the Runtime Tools Users' Guide.
@@ -61,7 +61,7 @@ get started. Another source of information is the [dtrace](dtrace.md) and
 %%% @doc The Dynamic tracing interface module
 %%%
 %%% This Dynamic tracing interface module, with the corresponding NIFs, should
-%%% work on any operating system platform where user-space DTrace/Systemtap 
+%%% work on any operating system platform where user-space DTrace/Systemtap
 %%% (and in the future LttNG UST) probes are supported.
 %%%
 %%% It is recommended that you use the `dyntrace:p()' function to add
@@ -190,14 +190,13 @@ on_load() ->
 %%%
 
 -doc """
-available() -> boolean()
-
 This function uses the NIF library to determine if dynamic tracing is available.
-Usually calling `erlang:system_info/1` is a better indicator of the availability
-of dynamic tracing.
 
-The function will throw an exception if the `dyntrace` NIF library could not be
-loaded by the on_load function of this module.
+This function will throw an exception if the `dyntrace` NIF library could not be
+loaded by the `on_load` function in this module.
+
+Use [`erlang:system_info(dynamic_trace)`](`e:erts:erlang.md#system_info_dynamic_trace`)
+to determine whether the run-time system supports dynamic tracing.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec available() -> true | false.
@@ -309,10 +308,8 @@ enabled_garbage_collection(_TraceTag, _TracerState, _Tracee) ->
 %%%
 
 -doc """
-p() -> true | false | error | badarg
-
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
-dyntrace NIF module, sending a trace message only containing the user tag and
+Calling this function triggers the "user" trace probe `user_trace_i4s4` in the
+dyntrace NIF module, sending a trace message containing only the user tag and
 zeroes/empty strings in all other fields.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
@@ -322,10 +319,10 @@ p() ->
     user_trace_int(undef, undef, undef, undef, undef, undef, undef, undef).
 
 -doc """
-p(integer() | string()) -> true | false | error | badarg
+p(Arg)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
-dyntrace NIF module, sending a trace message containing the user tag and the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
+`dyntrace` NIF module, sending a trace message containing the user tag and the
 integer or string parameter in the first integer/string field.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
@@ -337,14 +334,27 @@ p(S1) ->
     user_trace_int(undef, undef, undef, undef, S1, undef, undef, undef).
 
 -doc """
-p(integer() | string(), integer() | string()) -> true | false | error | badarg
+p(Arg1, Arg2)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters. I.e.
-[`p(1,"Hello")`](`p/2`) is ok, as is [`p(1,1)`](`p/2`) and
-[`p("Hello","Again")`](`p/2`), but not [`p("Hello",1)`](`p/2`).
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
+
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
+
+That is, the following calls work:
+
+- [`dyntrace:p(1, "Hello")`](`p/2`)
+- [`dyntrace:p(1, 1)`](`p/2`)
+- [`dyntrace:p("Hello", "Again")`](`p/2`)
+
+The following call is invalid because the string argument comes before the
+integer argument:
+
+- [`dyntrace:p("Hello", 1)`](`p/2`)
+
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg()) -> true | false | error | badarg.
@@ -357,13 +367,15 @@ p(S1, S2) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, undef, undef).
 
 -doc """
-p(integer() | string(), integer() | string(), integer() | string()) -> true |
-false | error | badarg
+p(Arg1, Arg2, Arg3)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters, as in `p/2`.
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
+
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg()) -> true | false | error | badarg.
@@ -378,13 +390,15 @@ p(S1, S2, S3) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, S3, undef).
 
 -doc """
-p(integer() | string(), integer() | string(), integer() | string(), integer() |
-string()) -> true | false | error | badarg
+p(Arg1, Arg2, Arg3, Arg4)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters, as in `p/2`.
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
+
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg()) ->
@@ -402,16 +416,19 @@ p(S1, S2, S3, S4) ->
     user_trace_int(undef, undef, undef, undef, S1, S2, S3, S4).
 
 -doc """
-p(integer(), integer() | string(), integer() | string(), integer() | string(),
-string()) -> true | false | error | badarg
+p(Int, Arg1, Arg2, Arg3, String)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters, as in `p/2`.
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
 
-There can be no more than four parameters of any type (integer() or string()),
-so the first parameter has to be an integer() and the last a string().
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
+
+There can be no more than four parameters of each type,
+so the first parameter must be of type [`integer()`](`t:integer/0`) and
+the last parameter of type [`string()`](`t:string/0`).
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
@@ -428,16 +445,19 @@ p(I1, S1, S2, S3, S4) when is_integer(I1) ->
     user_trace_int(I1, undef, undef, undef, S1, S2, S3, S4).
 
 -doc """
-p(integer(), integer(), integer() | string(), integer() | string(), string(),
-string()) -> true | false | error | badarg
+p(Int1, Int2, Arg1, Arg2, String1, String2)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters, as in `p/2`.
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
 
-There can be no more than four parameters of any type (integer() or string()),
-so the first two parameters has to be integer()'s and the last two string()'s.
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
+
+There can be no more than four parameters of each type,
+so the first two parameters must be of type [`integer()`](`t:integer/0`) and
+the last two of type [`string()`](`t:string/0`).
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
@@ -452,17 +472,19 @@ p(I1, I2, S1, S2, S3, S4) when is_integer(I1), is_integer(I2) ->
     user_trace_int(I1, I2, undef, undef, S1, S2, S3, S4).
 
 -doc """
-p(integer(), integer(), integer(), integer() | string(), string(), string(),
-string()) -> true | false | error | badarg
+p(Int1, Int2, Int3, Arg, String1, String2, String4)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
+Calling this function will trigger the "user" trace probe `user_trace_i4s4` in the
 dyntrace NIF module, sending a trace message containing the user tag and the
-integer() or string() parameters as the first fields of respective type.
-integer() parameters should be put before any string() parameters, as in `p/2`.
+[`integer()`](`t:integer/0`) or [`string()`](`t:string/0`) parameters as the
+first fields of their respective type.
 
-There can be no more than four parameters of any type (integer() or string()),
-so the first three parameters has to be integer()'s and the last three
-string()'s.
+[`integer()`](`t:integer/0`) parameters should be put before any
+[`string()`](`t:string/0`) parameters.
+
+There can be no more than four parameters of each type,
+so the first three parameters must be of type [`integer()`](`t:integer/0`) and
+the last three of type [`string()`](`t:string/0`).
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
@@ -475,12 +497,12 @@ p(I1, I2, I3, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_integer(I3
     user_trace_int(I1, I2, I3, undef, S1, S2, S3, S4).
 
 -doc """
-p(integer(), integer(), integer(), integer(), string(), string(), string(),
-string()) -> true | false | error | badarg
+p(Int1, Int2, Int3, Int4, String1, String2, String3, String4)
 
-Calling this function will trigger the "user" trace probe user_trace_i4s4 in the
-dyntrace NIF module, sending a trace message containing all the integer()'s and
-string()'s provided, as well as any user tag set in the current process.
+Calling this function will trigger the "user" trace `probe user_trace_i4s4` in the
+dyntrace NIF module, sending a trace message containing all the
+[`integer()`](`t:integer/0`) and [`string()`](`t:string/0`) parameters
+provided, as well as any user tag set in the current process.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec p(probe_arg(), probe_arg(), probe_arg(), probe_arg(),
@@ -613,17 +635,19 @@ user_trace_n_int(ProbeLabel, I1, I2, I3, I4, S1, S2, S3, S4) ->
     end.
 
 -doc """
-put_tag(Item) -> binary() | undefined
+put_tag(Item)
 
-This function sets the user tag of the current process. The user tag is a
-binary(), but can be specified as any iodata(), which is automatically converted
-to a binary by this function.
+This function sets the user tag of the current process.
+
+The user tag is a [`binary()`](`t:binary/0`), but can be specified as
+any [`iodata()`](`t:iodata/0`), which is automatically converted to a
+binary by this function.
 
 The user tag is provided to the user probes triggered by calls top
-`dyntrace:p/{1,2,3,4,5,6,7,8}` as well as probes in the efile_driver. In the
+`dyntrace:p/{1,2,3,4,5,6,7,8}` as well as probes in the `efile` driver. In the
 future, user tags might be added to more probes.
 
-The old user tag (if any) is returned, or `undefined` if no user tag was present
+The old user tag (if any) is returned, or `undefined` if no user tag was present,
 or dynamic tracing is not enabled.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
@@ -632,10 +656,8 @@ put_tag(Data) ->
     erlang:dt_put_tag(unicode:characters_to_binary(Data)).
 
 -doc """
-get_tag() -> binary() | undefined
-
 This function returns the user tag set in the current process. If no tag is set
-or dynamic tracing is not available, it returns `undefined`
+or dynamic tracing is not available, it returns `undefined`.
 
 This function returns the user tag set in the current process or, if no user tag
 is present, the last user tag sent to the process together with a message (in
@@ -656,59 +678,63 @@ get_tag_data() ->
     erlang:dt_get_tag_data().
 
 -doc """
-spread_tag(boolean()) -> TagData
+spread_tag(boolean())
 
 This function controls if user tags are to be spread to other processes with the
-next message. Spreading of user tags work like spreading of sequential trace
+next message.
+
+Spreading of user tags work like spreading of sequential trace
 tokens, so that a received user tag will be active in the process until the next
-message arrives (if that message does not also contain the user tag.
+message arrives (if that message does not also contain the user tag).
 
 This functionality is used when a client process communicates with a file
 i/o-server to spread the user tag to the I/O-server and then down to the
-efile_drv driver. By using [`spread_tag/1`](`spread_tag/1`) and
+`efile` driver. By using [`spread_tag/1`](`spread_tag/1`) and
 [`restore_tag/1`](`restore_tag/1`), one can enable or disable spreading of user
 tags to other processes and then restore the previous state of the user tag. The
 TagData returned from this call contains all previous information so the state
 (including any previously spread user tags) will be completely restored by a
 later call to [`restore_tag/1`](`restore_tag/1`).
 
-The `m:file` module already spread's tags, so there is no need to manually call
-these function to get user tags spread to the efile driver through that module.
+The `m:file` module already spreads tags, so there is no need to manually call
+this function to get user tags spread to the `efile` driver through that module.
 
-The most use of this function would be if one for example uses the `m:io` module
-to communicate with an I/O-server for a regular file, like in the following
+The most use of this function would be if one, for example, uses the `m:io` module
+to communicate with an I/O-server for a regular file, such as in the following
 example:
 
 ```erlang
 f() ->
-   {ok, F} = file:open("test.tst",[write]),
+   {ok, F} = file:open("test.tst", [write]),
    Saved = dyntrace:spread_tag(true),
-   io:format(F,"Hello world!",[]),
+   io:format(F, "Hello world!", []),
    dyntrace:restore_tag(Saved),
    file:close(F).
 ```
 
 In this example, any user tag set in the calling process will be spread to the
-I/O-server when the io:format call is done.
+I/O-server when the `io:format/3` call is done.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec spread_tag(boolean()) -> true | {non_neg_integer(), binary() | []}.
-%% Makes the tag behave as a sequential trace token, will spread with 
-%% messages to be picked up by someone using get_tag_data 
-spread_tag(B) ->			   
+%% Makes the tag behave as a sequential trace token, will spread with
+%% messages to be picked up by someone using get_tag_data
+spread_tag(B) ->
     erlang:dt_spread_tag(B).
 
 -doc """
-restore_tag(TagData) -> true
+restore_tag(TagData)
 
 Restores the previous state of user tags and their spreading as it was before a
-call to `spread_tag/1`. Note that the restoring is not limited to the same
-process, one can utilize this to turn off spreding in one process and restore it
-in a newly created, the one that actually is going to send messages:
+call to `spread_tag/1`.
+
+Note that the restoring is not limited to the same process; one can
+utilize this to turn off spreding in one process and restore it in a
+newly created process that is is actually going to send messages:
 
 ```erlang
 f() ->
-    TagData=dyntrace:spread_tag(false),
+    TagData = dyntrace:spread_tag(false),
     spawn(fun() ->
              dyntrace:restore_tag(TagData),
              do_something()

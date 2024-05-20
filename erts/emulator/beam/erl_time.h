@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2024. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,6 +97,12 @@ void erts_p_slpq(void);
 #endif
 
 /* time_sup */
+
+/*
+ * If ERTS_CHECK_MONOTONIC_TIME is defined we will check that Erlang
+ * and OS monotonic time are monotonic on a per thread basis...
+ */
+#define ERTS_CHECK_MONOTONIC_TIME 1
 
 #if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 #  ifndef HAVE_ERTS_NOW_CPU

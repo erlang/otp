@@ -26,7 +26,7 @@ runtime system.
 
 Binaries can be efficiently _built_ in the following way:
 
-_DO_
+**DO**
 
 ```erlang
 my_list_to_binary(List) ->
@@ -44,7 +44,7 @@ every time.
 
 Prepending data to a binary in a loop is not efficient:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 rev_list_to_binary(List) ->
@@ -59,7 +59,7 @@ rev_list_to_binary([], Acc) ->
 This is not efficient for long lists because the `Acc` binary is copied every
 time. One way to make the function more efficient is like this:
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 rev_list_to_binary(List) ->
@@ -73,7 +73,7 @@ rev_list_to_binary([], Acc) ->
 
 Another way to avoid copying the binary each time is like this:
 
-_DO_
+**DO**
 
 ```erlang
 rev_list_to_binary([H|T]) ->
@@ -83,12 +83,12 @@ rev_list_to_binary([]) ->
     <<>>.
 ```
 
-Note that in each of the _DO_ examples, the binary to be appended to is always
+Note that in each of the **DO** examples, the binary to be appended to is always
 given as the first segment.
 
 Binaries can be efficiently _matched_ in the following way:
 
-_DO_
+**DO**
 
 ```erlang
 my_binary_to_list(<<H,T/binary>>) ->
@@ -113,6 +113,17 @@ Four types of binary objects are available internally:
 
   - _sub binaries_
   - _match contexts_
+
+> #### Change {: .info }
+>
+> In Erlang/OTP 27, the handling of binaries and bitstrings were
+> rewritten. To fully leverage those changes in the run-time system,
+> the compiler needs to be updated, which is planned for a future
+> release.
+>
+> Since, practically speaking, not much have changed from an efficiency
+> and optimization perspective, the following description has not yet
+> been updated to describe the implementation in Erlang/OTP 27.
 
 [](){: #refc_binary }
 
@@ -336,7 +347,7 @@ place for the data to be appended.
 
 Let us revisit the example in the beginning of the previous section:
 
-_DO_
+**DO**
 
 ```erlang
 my_binary_to_list(<<H,T/binary>>) ->
@@ -485,10 +496,3 @@ count3(<<>>, Count) -> Count.
 
 In each iteration, the first 8 bits in the binary will be skipped, not matched
 out.
-
-## Historical Note
-
-Binary handling was significantly improved in R12B. Because code that was
-efficient in R11B might not be efficient in R12B, and vice versa, earlier
-revisions of this Efficiency Guide contained some information about binary
-handling in R11B.

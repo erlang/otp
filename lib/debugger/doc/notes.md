@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,42 @@ limitations under the License.
 # Debugger Release Notes
 
 This document describes the changes made to the Debugger application.
+
+## Debugger 5.4
+
+### Fixed Bugs and Malfunctions
+
+- The dependencies for this application are now listed in the app file.
+
+  Own Id: OTP-18831 Aux Id: [PR-7441]
+
+[PR-7441]: https://github.com/erlang/otp/pull/7441
+
+### Improvements and New Features
+
+- Type specs have been added to all API functions.
+
+  Own Id: OTP-18819 Aux Id: [PR-7781]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+- The Debugger now use a trace session for its internal use of tracing to avoid interfering with the user's use of tracing.
+
+  Own Id: OTP-19074 Aux Id: [PR-8389]
+
+[PR-7781]: https://github.com/erlang/otp/pull/7781
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+[PR-8389]: https://github.com/erlang/otp/pull/8389
+
+## Debugger 5.3.4
+
+### Fixed Bugs and Malfunctions
+
+* Guards with nested record expression could wrongly evaluate to false.
+
+  Own Id: OTP-18958 Aux Id: GH-8120, PR-8275
 
 ## Debugger 5.3.3
 
@@ -40,6 +76,14 @@ This document describes the changes made to the Debugger application.
 - The `maybe` expression is now supported in the Debugger.
 
   Own Id: OTP-18740 Aux Id: GH-7410, PR-7599
+
+## Debugger 5.3.1.3
+
+### Fixed Bugs and Malfunctions
+
+* Guards with nested record expression could wrongly evaluate to false.
+
+  Own Id: OTP-18958 Aux Id: GH-8120, PR-8275
 
 ## Debugger 5.3.1.2
 

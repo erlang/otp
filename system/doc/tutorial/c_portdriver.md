@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,7 +35,28 @@ in the port driver brings the emulator down too.
 
 The scenario is illustrated in the following figure:
 
-![Port Driver Communication](assets/port_driver.gif "Port Driver Communication")
+```mermaid
+---
+title: Port Driver Communication
+---
+flowchart
+    subgraph Legend
+        direction LR
+
+        os[OS Process]
+        erl([Erlang Process])
+    end
+
+    subgraph emulator
+        direction LR
+
+        port{Port} --> erlProc
+        erlProc([Connected process]) --> port
+
+        port --> proc[Port Driver Shared Library]
+        proc --> port
+    end
+```
 
 ## Erlang Program
 
@@ -213,8 +234,7 @@ It is not a good idea to use a global variable as the port driver can be spawned
 by multiple Erlang processes. This driver-structure is to be instantiated
 multiple times:
 
-```text
-
+```c
 /* port_driver.c */
 
 #include <stdio.h>
@@ -300,11 +320,11 @@ windows> cl -LD -MD -Fe example_drv.dll complex.c port_driver.c
 
 _Step 2._ Start Erlang and compile the Erlang code:
 
-```text
+```erlang
 > erl
-Erlang (BEAM) emulator version 5.1
+Erlang/OTP 26 [erts-14.2] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit:ns]
 
-Eshell V5.1 (abort with ^G)
+Eshell V14.2 (press Ctrl+G to abort, type help(). for help)
 1> c(complex5).
 {ok,complex5}
 ```

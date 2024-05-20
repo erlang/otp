@@ -259,9 +259,9 @@ but the map is preferred.
 
 - `modules` is used by the release handler during code replacement to determine
   which processes are using a certain module. As a rule of thumb, if the child
-  process is a `supervisor`, `gen_server` or, `gen_statem`, this is to be a list
+  process is a `m:supervisor`, `m:gen_server` or, `m:gen_statem`, this is to be a list
   with one element `[Module]`, where `Module` is the callback module. If the
-  child process is an event manager (`gen_event`) with a dynamic set of callback
+  child process is an event manager (`m:gen_event`) with a dynamic set of callback
   modules, value `dynamic` must be used. For more information about release
   handling, see [Release Handling](`e:system:release_handling.md`) in OTP Design
   Principles.
@@ -276,7 +276,6 @@ but the map is preferred.
 
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
--moduledoc(#{titles => [{callback,<<"Callback Functions">>}]}).
 
 -behaviour(gen_server).
 
@@ -290,7 +289,7 @@ but the map is preferred.
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3, format_status/2]).
+	 terminate/2, code_change/3]).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -317,7 +316,8 @@ but the map is preferred.
 
 -export_type([sup_flags/0, child_spec/0, strategy/0,
               startchild_ret/0, startchild_err/0,
-              startlink_ret/0, startlink_err/0]).
+              startlink_ret/0, startlink_err/0,
+              sup_name/0, sup_ref/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -327,7 +327,7 @@ but the map is preferred.
 -type child_id()      :: term().
 -doc """
 Value `undefined` for `A` (the argument list) is only to be used internally in
-`supervisor`. If the restart type of the child is `temporary`, the process is
+`m:supervisor`. If the restart type of the child is `temporary`, the process is
 never to be restarted and therefore there is no need to store the real argument
 list. Value `undefined` is then stored instead.
 """.
@@ -337,9 +337,51 @@ list. Value `undefined` is then stored instead.
 -type significant()   :: boolean().
 -type shutdown()      :: 'brutal_kill' | timeout().
 -type worker()        :: 'worker' | 'supervisor'.
+-doc """
+Name specification to use when starting a `supervisor`. See function
+[`start_link/2,3`](`start_link/2`) and the type `t:sup_ref/0` below.
+
+- **`{local,LocalName}`** - Register the `supervisor` locally as `LocalName`
+  using [`register/2`](`erlang:register/2`).
+
+- **`{global,GlobalName}`** - Register the `supervisor` process id globally as
+  `GlobalName` using `global:register_name/2`.
+
+- **`{via,RegMod,ViaName}`** - Register the `supervisor` process with the
+  registry represented by `RegMod`. The `RegMod` callback is to export the
+  functions `register_name/2`, `unregister_name/1`, `whereis_name/1`, and
+  `send/2`, which are to behave like the corresponding functions in `m:global`.
+  Thus, `{via,global,GlobalName}` is a valid reference equivalent to
+  `{global,GlobalName}`.
+""".
 -type sup_name()      :: {'local', Name :: atom()}
                        | {'global', Name :: term()}
                        | {'via', Module :: module(), Name :: any()}.
+-doc """
+Supervisor specification to use when addressing a `supervisor`. See
+[`count_children/1`](`count_children/1`), [`delete_child/2`](`delete_child/2`),
+[`get_childspec/2`](`get_childspec/2`), [`restart_child/2`](`restart_child/2`),
+[`start_child/2`](`start_child/2`), [`terminate_child/2`](`terminate_child/2`),
+[`which_children/1`](`which_children/1`) and the type `t:sup_name/0` above.
+
+It can be:
+
+- **`t:pid/0`** - The `supervisor`'s process identifier.
+
+- **`LocalName`** - The `supervisor` is locally registered as `LocalName` with
+  [`register/2`](`erlang:register/2`).
+
+- **`{Name,Node}`** - The `supervisor` is locally registered on another node.
+
+- **`{global,GlobalName}`** - The `supervisor` is globally registered in
+  `m:global`.
+
+- **`{via,RegMod,ViaName}`** - The `supervisor` is registered in an alternative
+  process registry. The registry callback module `RegMod` is to export functions
+  `register_name/2`, `unregister_name/1`, `whereis_name/1`, and `send/2`, which
+  are to behave like the corresponding functions in `m:global`. Thus,
+  `{via,global,GlobalName}` is the same as `{global,GlobalName}`.
+""".
 -type sup_ref()       :: (Name :: atom())
                        | {Name :: atom(), Node :: node()}
                        | {'global', Name :: term()}
@@ -453,7 +495,6 @@ information about code upgrade of supervisors, see section
 [Changing a Supervisor](`e:system:appup_cookbook.md#sup`) in OTP Design
 Principles.
 """.
--doc(#{title => <<"Callback Functions">>}).
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
     | ignore.
@@ -471,7 +512,12 @@ Principles.
                          | term().
 -type startlink_ret() :: {'ok', pid()} | 'ignore' | {'error', startlink_err()}.
 
--doc(#{equiv => start_link/3}).
+-doc """
+Creates a nameless supervisor process as part of a supervision tree.
+
+Equivalent to `start_link/3` except that the supervisor process is not
+[`registered`](`erlang:register/2`).
+""".
 -spec start_link(Module, Args) -> startlink_ret() when
       Module :: module(),
       Args :: term().
@@ -479,9 +525,10 @@ start_link(Mod, Args) ->
     gen_server:start_link(supervisor, {self, Mod, Args}, []).
  
 -doc """
-Creates a supervisor process as part of a supervision tree. For example, the
-function ensures that the supervisor is linked to the calling process (its
-supervisor).
+Creates a supervisor process as part of a supervision tree.
+
+For example, the function ensures that the supervisor is linked to the calling
+process (its supervisor).
 
 The created supervisor process calls [`Module:init/1`](`c:init/1`) to find out
 about restart strategy, maximum restart intensity, and child processes. To
@@ -498,8 +545,6 @@ started.
   functions `register_name/2`, `unregister_name/1`, and `send/2`, which must
   behave like the corresponding functions in `m:global`. Thus,
   `{via,global,Name}` is a valid reference.
-
-If no name is provided, the supervisor is not registered.
 
 `Module` is the name of the callback module.
 
@@ -544,25 +589,16 @@ start_link(SupName, Mod, Args) ->
 Dynamically adds a child specification to supervisor `SupRef`, which starts the
 corresponding child process.
 
-`SupRef`{: #SupRef } can be any of the following:
+For `one_for_one`, `one_for_all` and `rest_for_one` supervisors, the second
+argument must be a valid child specification `ChildSpec`. The child process
+is started by using the start function as defined in the child specification.
 
-- The pid
-- `Name`, if the supervisor is locally registered
-- `{Name,Node}`, if the supervisor is locally registered at another node
-- `{global,Name}`, if the supervisor is globally registered
-- `{via,Module,Name}`, if the supervisor is registered through an alternative
-  process registry
-
-`ChildSpec` must be a valid child specification (unless the supervisor is a
-`simple_one_for_one` supervisor; see below). The child process is started by
-using the start function as defined in the child specification.
-
-For a `simple_one_for_one` supervisor, the child specification defined in
-[`Module:init/1`](`c:init/1`) is used, and `ChildSpec` must instead be an
-arbitrary list of terms `List`. The child process is then started by appending
-`List` to the existing start function arguments, that is, by calling
-[`apply(M, F, A++List)`](`apply/3`), where `{M,F,A}` is the start function
-defined in the child specification.
+For `simple_one_for_one` supervisors, the child specification defined in
+[`Module:init/1`](`c:init/1`) is used, and the second argument must instead
+be an arbitrary list of terms `ExtraArgs`. The child process is then started
+by appending `ExtraArgs` to the existing start function arguments, that is, by
+calling [`apply(M, F, A++ExtraArgs)`](`apply/3`), where `{M,F,A}` is the start
+function defined in the child specification.
 
 - If there already exists a child specification with the specified identifier,
   `ChildSpec` is discarded, and the function returns `{error,already_present}`
@@ -572,13 +608,10 @@ defined in the child specification.
   the child specification and pid are added to the supervisor and the function
   returns the same value.
 - If the child process start function returns `ignore`, the child specification
-  is added to the supervisor (unless the supervisor is a `simple_one_for_one`
-  supervisor, see below), the pid is set to `undefined`, and the function
-  returns `{ok,undefined}`.
-
-For a `simple_one_for_one` supervisor, when a child process start function
-returns `ignore`, the functions returns `{ok,undefined}` and no child is added
-to the supervisor.
+  `ChildSpec` is added to the supervisor if it is an `one_for_one`, `one_for_all`
+  or `rest_for_one` supervisor, and the pid is set to `undefined`. For
+  `simple_one_for_one` supervisors, no child is added to the supervisor. The
+  function returns `{ok,undefined}`.
 
 If the child process start function returns an error tuple or an erroneous
 value, or if it fails, the child specification is discarded, and the function
@@ -587,9 +620,12 @@ the error and child specification.
 """.
 -spec start_child(SupRef, ChildSpec) -> startchild_ret() when
       SupRef :: sup_ref(),
-      ChildSpec :: child_spec() | (List :: [term()]).
-start_child(Supervisor, ChildSpec) ->
-    call(Supervisor, {start_child, ChildSpec}).
+      ChildSpec :: child_spec();
+                 (SupRef, ExtraArgs) -> startchild_ret() when
+      SupRef :: sup_ref(),
+      ExtraArgs :: [term()].
+start_child(Supervisor, ChildSpecOrExtraArgs) ->
+    call(Supervisor, {start_child, ChildSpecOrExtraArgs}).
 
 -doc """
 Tells supervisor `SupRef` to restart a child process corresponding to the child
@@ -599,8 +635,6 @@ corresponding child process must not be running.
 Notice that for temporary children, the child specification is automatically
 deleted when the child terminates; thus, it is not possible to restart such
 children.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 
 If the child specification identified by `Id` does not exist, the function
 returns `{error,not_found}`. If the child specification exists but the
@@ -632,8 +666,6 @@ restart_child(Supervisor, Id) ->
 Tells supervisor `SupRef` to delete the child specification identified by `Id`.
 The corresponding child process must not be running. Use `terminate_child/2` to
 terminate it.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 
 If successful, the function returns `ok`. If the child specification identified
 by `Id` exists but the corresponding child process is running or is about to be
@@ -679,8 +711,6 @@ returns `{error,simple_one_for_one}`.
 
 If successful, the function returns `ok`. If there is no child specification
 with the specified `Id`, the function returns `{error,not_found}`.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 """.
 -spec terminate_child(SupRef, Id) -> Result when
       SupRef :: sup_ref(),
@@ -694,8 +724,6 @@ terminate_child(Supervisor, Id) ->
 Returns the child specification map for the child identified by `Id` under
 supervisor `SupRef`. The returned map contains all keys, both mandatory and
 optional.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec get_childspec(SupRef, Id) -> Result when
@@ -712,8 +740,6 @@ child processes belonging to supervisor `SupRef`.
 
 Notice that calling this function when supervising many children under low
 memory conditions can cause an out of memory exception.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 
 The following information is given for each child specification/process:
 
@@ -735,7 +761,7 @@ which_children(Supervisor) ->
     call(Supervisor, which_children).
 
 -doc """
-Returns a property list (see `m:proplists`) containing the counts for each of
+Returns a [property list](`t:proplists:proplist/0`) containing the counts for each of
 the following elements of the supervisor's child specifications and managed
 processes:
 
@@ -748,8 +774,6 @@ processes:
   in the specification list, regardless if the child process is still alive.
 - `workers` \- The count of all children marked as `child_type = worker` in the
   specification list, regardless if the child process is still alive.
-
-For a description of `SupRef`, see [`start_child/2`](`m:supervisor#SupRef`).
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec count_children(SupRef) -> PropListOfCounts when
@@ -765,8 +789,7 @@ count_children(Supervisor) ->
 call(Supervisor, Req) ->
     gen_server:call(Supervisor, Req, infinity).
 
--doc(#{equiv => check_childspecs/2}).
--doc(#{since => <<"OTP 24.0">>}).
+-doc(#{equiv => check_childspecs(ChildSpecs, undefined)}).
 -spec check_childspecs(ChildSpecs) -> Result when
       ChildSpecs :: [child_spec()],
       Result :: 'ok' | {'error', Error :: term()}.
@@ -777,7 +800,7 @@ check_childspecs(ChildSpecs) ->
 Takes a list of child specification as argument and returns `ok` if all of them
 are syntactically correct, otherwise `{error,Error}`.
 
-If the optional `AutoShutdown` argument is given and not `undefined`, also
+If the `AutoShutdown` argument is not `undefined`, also
 checks if the child specifications are allowed for the given
 [auto_shutdown](`m:supervisor#auto_shutdown`) option.
 """.
@@ -1287,14 +1310,6 @@ do_auto_shutdown(Child, State) when not ?is_significant(Child) ->
     {ok, State};
 do_auto_shutdown(_Child, State=#state{auto_shutdown = any_significant}) ->
     {shutdown, State};
-do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant})
-  when ?is_simple(State) ->
-    case dyn_size(State) of
-	0 ->
-	    {shutdown, State};
-	_ ->
-	    {ok, State}
-    end;
 do_auto_shutdown(_Child, State=#state{auto_shutdown = all_significant}) ->
     case
 	children_any(
@@ -1347,6 +1362,15 @@ restart(simple_one_for_one, Child, State0) ->
 	    end,
     State2 = dyn_erase(OldPid, State1),
     case do_start_child_i(M, F, A) of
+        {ok, undefined} ->
+            %% The child returned ignore when being restarted.
+            %% In accordance with the behavior of start_child/2
+            %% for simple_one_for_one supervisors, it is dropped
+            %% from the supervisor.
+            %% Automatic shutdown is not taken into consideration,
+            %% since it does not make sense to use it in
+            %% simple_one_for_one supervisors.
+            {ok, State2};
 	{ok, Pid} ->
             NState = dyn_store(Pid, A, State2),
 	    {ok, NState};
@@ -1872,6 +1896,7 @@ do_check_flags(#{strategy := Strategy,
     validIntensity(MaxIntensity),
     validPeriod(Period),
     validAutoShutdown(AutoShutdown),
+    validAutoShutdownForStrategy(AutoShutdown, Strategy),
     Flags.
 
 validStrategy(simple_one_for_one) -> true;
@@ -1892,6 +1917,13 @@ validAutoShutdown(never)           -> true;
 validAutoShutdown(any_significant) -> true;
 validAutoShutdown(all_significant) -> true;
 validAutoShutdown(What)            -> throw({invalid_auto_shutdown, What}).
+
+validAutoShutdownForStrategy(any_significant, simple_one_for_one) ->
+    throw({bad_combination, [{auto_shutdown, any_significant}, {strategy, simple_one_for_one}]});
+validAutoShutdownForStrategy(all_significant, simple_one_for_one) ->
+    throw({bad_combination, [{auto_shutdown, all_significant}, {strategy, simple_one_for_one}]});
+validAutoShutdownForStrategy(_AutoShutdown, _Strategy) ->
+    true.
 
 
 supname(self, Mod) -> {self(), Mod};
@@ -2242,13 +2274,6 @@ single(false) -> "".
 
 mod(latin1) -> "";
 mod(_) -> "t".
-
--doc false.
-format_status(terminate, [_PDict, State]) ->
-    State;
-format_status(_, [_PDict, State]) ->
-    [{data, [{"State", State}]},
-     {supervisor, [{"Callback", State#state.module}]}].
 
 %%%-----------------------------------------------------------------
 %%% Dynamics database access.

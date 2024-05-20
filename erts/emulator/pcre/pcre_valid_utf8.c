@@ -131,6 +131,7 @@ else {
     if (ystate->yielded) {
         p = ystate->p;
         length = ystate->length;
+        ystate->yielded = 0;
         if (length < 0) 
             goto restart_length;
         else

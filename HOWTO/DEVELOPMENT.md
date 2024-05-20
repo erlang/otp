@@ -388,7 +388,9 @@ There is a detailed description about how to run tests in [TESTING.md](TESTING.m
 
 Most of the Erlang/OTP documentation is written using markdown, either directly
 in the module implementing the functionality, or as `.md` files located in
-`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see [Documentation](`../system/doc/reference_manual/documentation.md`) and [Documentation HOWTO](DOCUMENTATION.md).
+`lib/$APPLICATION_NAME/doc`. For more details about how to write documentation see
+[Writing Documentation](../system/doc/reference_manual/documentation.md) and the
+[Erlang/OTP Documentation HOWTO](DOCUMENTATION.md).
 
 There is also some documentation that is written using [edoc](https://www.erlang.org/doc/man/edoc.html).
 
@@ -411,7 +413,7 @@ This takes a while though and to speed up the edit-view cycle you can build the
 docs only for a single application. For example:
 
 ```bash
-cd lib/stdlib/doc/src && make docs
+cd lib/stdlib && make docs
 ```
 
 and then view the results at `lib/stdlib/doc/html/index.html`.
@@ -425,14 +427,39 @@ correct.
 You need to make sure that there are no broken links in the documentation.
 This is done by running `./otp_build check`.
 
-The output of `./otp_build check` will print a list of broken links and anchors, for example:
+If there are broken links `./otp_build check` will print a list of broken links and anchors, for example:
 
 ```text
 lib/kernel/doc/html/eep48_chapter.html: Found duplicate anchor see-also
 lib/kernel/doc/html/eep48_chapter.html: could not find lib/stdlib/doc/html/shell_docs.html#contents, should it be #content?
 ```
 
+The analysis is done on the generated html files and prints the source html file on the left
+and information about what is wrong on the right. In the examples above the checker has found
+that there are two or more html anchors called `see-also` in the `eep48_chapter.html` file
+and also that there is a link to an unknown anchor called `#contents` in `shell_docs.html`.
+
 All this validation is also done by [Github Actions](#github-actions).
+
+#### Link checker dependencies
+
+The link checker is written using Elixir, so you will need to install Elixir
+version 1.16 or later for it to work. You may also have to build hex from sources,
+depending on if the pre-built .beam archive can be used or not. To build latest Elixir
+and hex do the following:
+
+```bash
+export PATH=$ERL_TOP/bin:$PATH
+git clone git@github.com:elixir-lang/elixir
+(cd elixir && make)
+export PATH=`pwd`/elixir/bin:$PATH
+git clone git@github.com:hexpm/hex
+(cd hex && mix install)
+```
+
+To be sure that the compiled Elixir and Hex always works you want to do the above with the
+currently oldest supported Erlang release. However there is no point in using a release older
+than Erlang/OTP 27 as that is when elixir was first added as a dependency.
 
 ## Github Actions
 

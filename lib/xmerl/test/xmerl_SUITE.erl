@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -275,7 +275,8 @@ scan_splits_string_bug(_Config) ->
 
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"PE_ref1.xml"]),[{validation,true}]).
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"PE_ref1.xml"]),
+                                         [{allow_entities, true}, {validation,true}]).
 
 copyright(Config) ->
     file:set_cwd(datadir(Config)),
@@ -283,7 +284,8 @@ copyright(Config) ->
 
 testXSEIF(Config) ->
     file:set_cwd(datadir(Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),[{validation,true}]).
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),
+                                         [{allow_entities, true}, {validation,true}]).
 
 export_simple1(_Config) ->
     Simple = simple(),
@@ -319,7 +321,7 @@ sax_parse_export_xml_big(Config) ->
     OutDir = privdir(Config),
     io:format("DataDir: ~p~n,OutDir:~p~n",[DataDir,OutDir]),
     CMOMxml = filename:join([DataDir,"eventp","CMOM.xml"]),
-    {Ex,[]} = xmerl_eventp:file_sax(CMOMxml, xmerl_xml,[],[]),
+    {Ex,[]} = xmerl_eventp:file_sax(CMOMxml, xmerl_xml,[],[{allow_entities, true}]),
     OutFile = filename:join([OutDir,"cmom"]),
     file:delete(OutFile),
     StubFile = filename:join([DataDir,"eventp","CelloMOM.stub"]),
@@ -336,7 +338,7 @@ sax_parse_export_xml_small(Config) ->
     DataDir = datadir(Config),
     OutDir = privdir(Config),
     Wurfl_xml = filename:join([DataDir,"eventp","wurfl.xml"]),
-    {Ex,[]} = xmerl_eventp:file_sax(Wurfl_xml, xmerl_xml,[],[]),
+    {Ex,[]} = xmerl_eventp:file_sax(Wurfl_xml, xmerl_xml,[],[{allow_entities, true}]),
     OutFile = filename:join([OutDir,"wrfl"]),
     file:delete(OutFile),
     StubFile = filename:join([DataDir,"eventp","wurfl.stub"]),
@@ -484,7 +486,7 @@ ticket_7211(Config) ->
     DataDir = datadir(Config),
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,"notes2.xml"]),
                              [{fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]},
-                              {validation,dtd}]),
+                              {allow_entities, true}, {validation,dtd}]),
 
     ok = case E of
              Rec when is_record(Rec,xmlElement) ->
@@ -495,7 +497,7 @@ ticket_7211(Config) ->
 
     {E2,[]} = xmerl_scan:file(filename:join([DataDir,misc,"XS.xml"]),
                               [{fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]},
-                               {validation,dtd}]),
+                               {validation,dtd}, {allow_entities, true}]),
 
     ok = case E2 of
              Rec2 when is_record(Rec2,xmlElement) ->
@@ -516,7 +518,7 @@ ticket_7214(Config) ->
     DataDir = datadir(Config),
 
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,'block_tags.html']),
-                             [{validation,dtd},
+                             [{validation,dtd},{allow_entities, true},
                               {fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]}]),
 
     ok = case E of

@@ -107,6 +107,9 @@ file transfer service available for SSH.
                      | {window_size, pos_integer()}
                      | {packet_size, pos_integer()} .
 
+%% For ct_ssh:connect
+-export_type([sftp_option/0]).
+
 -doc """
 A description of the reason why an operation failed.
 
@@ -316,11 +319,11 @@ open(Pid, File, Mode, FileOpTimeout) ->
 
 
 -doc(#{title => <<"Crypto operations for open_tar">>,
-       equiv => {type,decrypt_spec,0}}).
+       equiv => decrypt_spec/0}).
 -type tar_crypto_spec() :: encrypt_spec() | decrypt_spec() .
 
 -doc(#{title => <<"Crypto operations for open_tar">>,
-       equiv => {type,decrypt_spec,0}}).
+       equiv => decrypt_spec/0}).
 -type encrypt_spec() :: {init_fun(), crypto_fun(), final_fun()} .
 -doc """
 Specifies the encryption or decryption applied to tar files when using
@@ -337,12 +340,12 @@ Guide.
 -type decrypt_spec() :: {init_fun(), crypto_fun()} .
 
 -doc(#{title => <<"Crypto operations for open_tar">>,
-       equiv => {type,crypto_state,0}}).
+       equiv => crypto_state/0}).
 -type init_fun() :: fun(() -> {ok,crypto_state()})
                   | fun(() -> {ok,crypto_state(),chunk_size()}) .
 
 -doc(#{title => <<"Crypto operations for open_tar">>,
-       equiv => {type,crypto_result,0}}).
+       equiv => crypto_result/0}).
 -type crypto_fun() :: fun((TextIn::binary(), crypto_state()) -> crypto_result()) .
 -doc """
 The initial `t:crypto_state/0` returned from the `t:init_fun/0` is folded into
@@ -368,7 +371,7 @@ that last piece.
 -type final_fun() :: fun((FinalTextIn::binary(),crypto_state()) -> {ok,FinalTextOut::binary()}) .
 
 -doc(#{title => <<"Crypto operations for open_tar">>,
-       equiv => {type,crypto_state,0}}).
+       equiv => crypto_state/0}).
 -type chunk_size() :: undefined | pos_integer().
 -doc """
 The `t:init_fun/0` in the [tar_crypto_spec](`t:tar_crypto_spec/0`) is applied
@@ -733,8 +736,7 @@ Sets the file position of the file referenced by `Handle`. Returns
 
 - **`{eof, Offset}`** - Offset from the end of file.
 
-- **`bof | cur | eof`** - The same as eariler with `Offset` 0, that is,
-  `{bof, 0} | {cur, 0} | {eof, 0}`.
+- **`bof | cur | eof`** - The same as eariler with `Offset` 0, that is, `{bof, 0} | {cur, 0} | {eof, 0}`.
 """.
 -spec position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition} | Error when
       ChannelPid :: pid(),

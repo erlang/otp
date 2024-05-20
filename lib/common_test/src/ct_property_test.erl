@@ -47,17 +47,17 @@ follows:
 
 -include_lib("common_test/include/ct.hrl").
 
- all() -> [prop_ftp_case].
+all() -> [prop_ftp_case].
 
- init_per_suite(Config) ->
-     ct_property_test:init_per_suite(Config).
+init_per_suite(Config) ->
+    ct_property_test:init_per_suite(Config).
 
- %%%---- test case
- prop_ftp_case(Config) ->
-     ct_property_test:quickcheck(
-       ftp_simple_client_server:prop_ftp(),
-       Config
-      ).
+%%%---- test case
+prop_ftp_case(Config) ->
+    ct_property_test:quickcheck(
+      ftp_simple_client_server:prop_ftp(),
+      Config
+     ).
 ```
 
 and the the property test module (in this example
@@ -92,6 +92,13 @@ prop_ftp() ->
          print_frequency/0
         ]).
 
+%% Type declarations
+-type dynamic_state()     :: term().
+-type command()           :: term().
+-type command_list()      :: [command()].
+-type history()           :: [term()].
+-type statem_result()     :: 'ok' | term().
+
 %%%================================================================
 %%%
 %%% API
@@ -103,8 +110,6 @@ prop_ftp() ->
 %%% the property tests
 %%%
 -doc """
-init_per_suite(Config) -> Config | {skip, Reason}
-
 Initializes and extends `Config` for property based testing.
 
 This function investigates if support is available for either
@@ -120,6 +125,9 @@ searched for.
 
 If no support is found for any tool, this function returns
 `{skip, Explanation}`.
+
+In case of other errors, this function returns
+`{fail, Explanation}`.
 
 If support is found, the option `{property_test_tool,ToolModule}` with the
 selected tool main module name (`eqc`, `proper` or `triq`) is added to the list
@@ -145,6 +153,9 @@ This included file will:
   That is, the macro `'MOD_eqc'` is set to either `eqc`, `proper` or `triq`.
 """.
 -doc(#{since => <<"OTP 17.3">>}).
+-spec init_per_suite(Config) -> Config | {'skip', Reason} | {'fail', Reason}
+              when Config :: proplists:proplist(),
+                   Reason :: string().
 init_per_suite(Config) ->
     case init_tool(Config) of
         {skip, _}=Skip ->
@@ -184,7 +195,7 @@ init_tool(Config) ->
     end.
 
 init_tool_extensions(proper) ->
-    ProperExtDir = code:lib_dir(common_test, proper_ext),
+    ProperExtDir = filename:join(code:lib_dir(common_test), proper_ext),
     true = code:add_patha(ProperExtDir),
     ct:log("Added ~ts to code path~n", [ProperExtDir]),
     ok;
@@ -196,8 +207,6 @@ init_tool_extensions(_) ->
 %%% Call the found property tester (if any)
 %%%
 -doc """
-quickcheck(Property, Config) -> true | {fail, Reason}
-
 Calls the selected tool's function for running the `Property`. It is usually and
 by historical reasons called quickcheck, and that is why that name is used in
 this module (`ct_property_test`).
@@ -207,6 +216,10 @@ The result is returned in a form suitable for `Common Test` test suites.
 This function is intended to be called in test cases in test suites.
 """.
 -doc(#{since => <<"OTP 17.3">>}).
+-spec quickcheck(Property, Config) -> 'true' | {'fail', Reason}
+              when Property :: term(),
+                   Config :: proplists:proplist(),
+                   Reason :: term().
 quickcheck(Property, Config) ->
     Tool = proplists:get_value(property_test_tool,Config),
     F = function_name(quickcheck, Tool),
@@ -217,18 +230,19 @@ quickcheck(Property, Config) ->
 %%%
 %%% Present a nice table of the statem result
 %%%
--doc """
-present_result(Module, Cmds, Triple, Config) -> Result
-
-Same as [`present_result(Module, Cmds, Triple, Config, [])`](`present_result/5`)
-""".
--doc(#{since => <<"OTP 22.3">>}).
+-doc(#{equiv => present_result(Module, Cmds, Triple, Config, []), since => <<"OTP 22.3">>}).
+-spec present_result(Module, Cmds, Triple, Config) -> boolean()
+              when Module :: module(),
+                   Cmds :: command() | command_list(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist().
 present_result(Module, Cmds, Triple, Config) ->
     present_result(Module, Cmds, Triple, Config, []).
 
 -doc """
-present_result(Module, Cmds, Triple, Config, Options) -> Result
-
 Presents the result of _stateful (statem) property testing_ using the aggregate
 function in PropEr, QuickCheck or other similar property testing tool.
 
@@ -266,24 +280,24 @@ Each tuple will produce one table in the order of their places in the list.
   the number of each item is counted and the percentage is printed for each. The
   list \[a,b,a,a,c] could for example return
 
-  ```text
-   ["a 60%\n","b 20%\n","c 20%\n"]
+  ```erlang
+  ["a 60%\n","b 20%\n","c 20%\n"]
   ```
 
   which will be printed by the `print_fun`. The default `print_fun` will print
   it as:
 
   ```text
-   a 60%
-   b 20%
-   c 20%
+  a 60%
+  b 20%
+  c 20%
   ```
 
 The default `StatisticsSpec` is:
 
 - For sequential commands:
 
-  ```text
+  ```erlang
   [{"Function calls", fun cmnd_names/1},
    {"Length of command sequences", fun print_frequency_ranges/0,
                                                     fun num_calls/1}]
@@ -299,7 +313,16 @@ The default `StatisticsSpec` is:
   ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
-present_result(Module, Cmds, {H,Sf,Result}, Config, Options0) ->
+-spec present_result(Module, Cmds, Triple, Config, Options0) -> boolean()
+              when Module :: module(),
+                   Cmds :: command() | command_list(),
+                   Triple :: {H, Sf, Result},
+                   H :: history(),
+                   Sf :: dynamic_state(),
+                   Result :: statem_result(),
+                   Config :: proplists:proplist(),
+                   Options0 :: proplists:proplist().
+present_result(Module, Cmds, {H,Sf,Result} = _Triple, Config, Options0) ->
     DefSpec = 
         if
             is_tuple(Cmds) ->

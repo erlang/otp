@@ -42,7 +42,7 @@ point in doing a select/match, unless you have a bag table and are only
 interested in a subset of the elements with the specific key.
 
 When creating a record to be used in a select/match operation, you want most of
-the fields to have the value "\_". The easiest and fastest way to do that is as
+the fields to have the value `_`. The easiest and fastest way to do that is as
 follows:
 
 ```text
@@ -56,25 +56,21 @@ in the table. Hence all attempts to check that the element is present in the
 Ets/Mnesia table before deletion are unnecessary. Here follows an example for
 Ets tables:
 
-_DO_
+**DO**
 
 ```text
-...
 ets:delete(Tab, Key),
-...
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-...
 case ets:lookup(Tab, Key) of
     [] ->
         ok;
     [_|_] ->
         ets:delete(Tab, Key)
 end,
-...
 ```
 
 ### Fetching Data
@@ -91,7 +87,7 @@ functions `print_name/1`, `print_age/1`, and `print_occupation/1`.
 > situation would have been different, as you do not want the user of the
 > interface to know about the internal data representation.
 
-_DO_
+**DO**
 
 ```erlang
 %%% Interface function
@@ -117,7 +113,7 @@ print_occupation(Person) ->
     io:format("No person ~p~n", [Person#person.occupation]).
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
 %%% Interface function
@@ -170,47 +166,40 @@ If you _must_ return all data stored in the Ets table, you can use
 information in which case `ets:tab2list/1` is expensive. If you only want to
 extract one field from each record, for example, the age of every person, then:
 
-_DO_
+**DO**
 
 ```erlang
-...
-ets:select(Tab,[{ #person{idno='_',
+ets:select(Tab, [{#person{idno='_',
                           name='_',
                           age='$1',
                           occupation = '_'},
                 [],
                 ['$1']}]),
-...
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-...
 TabList = ets:tab2list(Tab),
 lists:map(fun(X) -> X#person.age end, TabList),
-...
 ```
 
 If you are only interested in the age of all persons named "Bryan", then:
 
-_DO_
+**DO**
 
 ```erlang
-...
-ets:select(Tab,[{ #person{idno='_',
+ets:select(Tab, [{#person{idno='_',
                           name="Bryan",
                           age='$1',
                           occupation = '_'},
                 [],
-                ['$1']}]),
-...
+                ['$1']}])
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-...
 TabList = ets:tab2list(Tab),
 lists:foldl(fun(X, Acc) -> case X#person.name of
                                 "Bryan" ->
@@ -218,45 +207,29 @@ lists:foldl(fun(X, Acc) -> case X#person.name of
                                  _ ->
                                      Acc
                            end
-             end, [], TabList),
-...
-```
-
-_REALLY DO NOT_
-
-```erlang
-...
-TabList = ets:tab2list(Tab),
-BryanList = lists:filter(fun(X) -> X#person.name == "Bryan" end,
-                         TabList),
-lists:map(fun(X) -> X#person.age end, BryanList),
-...
+             end, [], TabList)
 ```
 
 If you need all information stored in the Ets table about persons named "Bryan",
 then:
 
-_DO_
+**DO**
 
 ```erlang
-...
 ets:select(Tab, [{#person{idno='_',
                           name="Bryan",
                           age='_',
                           occupation = '_'}, [], ['$_']}]),
-...
 ```
 
-_DO NOT_
+**DO NOT**
 
 ```erlang
-...
 TabList = ets:tab2list(Tab),
 lists:filter(fun(X) -> X#person.name == "Bryan" end, TabList),
-...
 ```
 
-### Ordered_set Tables
+### `ordered_set` Tables
 
 If the data in the table is to be accessed so that the order of the keys in the
 table is significant, the table type `ordered_set` can be used instead of the
@@ -272,14 +245,14 @@ ordered.
 > Results from functions such as `ets:select/2` appear in _key_ order even if
 > the key is not included in the result.
 
-## Ets-Specific
+## ETS
 
 ### Using Keys of Ets Table
 
 An Ets table is a single-key table (either a hash table or a tree ordered by the
 key) and is to be used as one. In other words, use the key to look up things
 whenever possible. A lookup by a known key in a `set` Ets table is constant and
-for an `ordered_set` Ets table it is O(logN). A key lookup is always preferable
+for an `ordered_set` Ets table it is _O(log N)_. A key lookup is always preferable
 to a call where the whole table has to be scanned. In the previous examples, the
 field `idno` is the key of the table and all lookups where only the name is
 known result in a complete scan of the (possibly large) table for a matching
@@ -290,7 +263,7 @@ A simple solution would be to use the `name` field as the key instead of the
 general solution would be to create a second table with `name` as key and `idno`
 as data, that is, to index (invert) the table regarding the `name` field.
 Clearly, the second table would have to be kept consistent with the master
-table. Mnesia can do this for you, but a home brew index table can be very
+table. Mnesia can do this for you, but a home-brew index table can be very
 efficient compared to the overhead involved in using Mnesia.
 
 An index table for the table in the previous examples would have to be a bag (as
@@ -307,17 +280,15 @@ Given this index table, a lookup of the `age` fields for all persons named
 "Bryan" can be done as follows:
 
 ```erlang
-...
 MatchingIDs = ets:lookup(IndexTable,"Bryan"),
 lists:map(fun(#index_entry{idno = ID}) ->
                  [#person{age = Age}] = ets:lookup(PersonTable, ID),
                  Age
           end,
           MatchingIDs),
-...
 ```
 
-Notice that this code never uses `ets:match/2` but instead uses the
+Notice that this code does not use `ets:match/2`, but instead uses the
 `ets:lookup/2` call. The `lists:map/2` call is only used to traverse the `idno`s
 matching the name "Bryan" in the table; thus the number of lookups in the master
 table is minimized.
@@ -327,16 +298,18 @@ table. The number of operations gained from the table must therefore be compared
 against the number of operations inserting objects in the table. However, notice
 that the gain is significant when the key can be used to lookup elements.
 
-## Mnesia-Specific
+## Mnesia
 
 ### Secondary Index
 
-If you frequently do a lookup on a field that is not the key of the table, you
-lose performance using "mnesia:select/match_object" as this function traverses
-the whole table. You can create a secondary index instead and use
-"mnesia:index_read" to get faster access, however this requires more memory.
+If you frequently do lookups on a field that is not the key of the table, you
+lose performance using [mnesia:select()](`mnesia:select/3`) or
+[`mnesia:match_object()`](`mnesia:match_object/1`) as these function traverse
+the whole table. Instead, you can create a secondary index and use
+`mnesia:index_read/3` to get faster access at the expense of using more
+memory.
 
-_Example_
+_Example:_
 
 ```erlang
 -record(person, {idno, name, age, occupation}).
@@ -350,23 +323,22 @@ mnesia:create_table(person, [{index,[#person.age]},
 
 PersonsAge42 =
      mnesia:dirty_index_read(person, 42, #person.age),
-...
 ```
 
 ### Transactions
 
 Using transactions is a way to guarantee that the distributed Mnesia database
 remains consistent, even when many different processes update it in parallel.
-However, if you have real-time requirements it is recommended to use `dirty`
-operations instead of transactions. When using `dirty` operations, you lose the
+However, if you have real-time requirements it is recommended to use dirtry
+operations instead of transactions. When using dirty operations, you lose the
 consistency guarantee; this is usually solved by only letting one process update
 the table. Other processes must send update requests to that process.
 
-_Example_
+_Example:_
 
 ```erlang
 ...
-% Using transaction
+%% Using transaction
 
 Fun = fun() ->
           [mnesia:read({Table, Key}),
@@ -376,10 +348,9 @@ Fun = fun() ->
 {atomic, [Result1, Result2]}  = mnesia:transaction(Fun),
 ...
 
-% Same thing using dirty operations
+%% Same thing using dirty operations
 ...
 
 Result1 = mnesia:dirty_read({Table, Key}),
 Result2 = mnesia:dirty_read({Table2, Key2}),
-...
 ```

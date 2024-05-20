@@ -19,7 +19,7 @@ limitations under the License.
 -->
 # Profiling
 
-## Do Not Guess About Performance - Profile
+## Never Guess About Performance Bottlenecks
 
 Even experienced software developers often guess wrong about where the
 performance bottlenecks are in their programs. Therefore, profile your program
@@ -36,7 +36,7 @@ Erlang/OTP contains several tools to help finding bottlenecks:
   live system take.
 - `m:lcnt` is used to find contention points in the Erlang Run-Time System's
   internal locking mechanisms. It is useful when looking for bottlenecks in
-  interaction between process, port, ets tables and other entities that can be
+  interaction between process, port, ETS tables, and other entities that can be
   run in parallel.
 
 The tools are further described in [Tools](profiling.md#profiling_tools).
@@ -70,28 +70,31 @@ eheap_alloc: Cannot allocate 1234567890 bytes of memory (of type "heap").
 The above slogan is one of the more common reasons for Erlang to terminate. For
 unknown reasons the Erlang Run-Time System failed to allocate memory to use.
 When this happens a crash dump is generated that contains information about the
-state of the system as it ran out of memory. Use the
+state of the system as it ran out of memory. Use
 [`crashdump_viewer`](`e:observer:cdv_cmd.md`) to get a view of the memory being
-used. Look for processes with large heaps or many messages, large ets tables,
-etc.
+used. Look for processes with large heaps or many messages, large ETS tables,
+and so on.
 
 When looking at memory usage in a running system the most basic function to get
 information from is [`erlang:memory()`](`erlang:memory/0`). It returns the
 current memory usage of the system. `m:instrument` can be used to get a more
 detailed breakdown of where memory is used.
 
-Processes, ports and ets tables can then be inspected using their respective
-info functions, i.e. [`erlang:process_info/2 `](`m:erlang#process_info_memory`),
-[`erlang:port_info/2 `](`m:erlang#port_info_memory`)and `ets:info/1`.
+Processes, ports, and ETS tables can then be inspected using their respective
+information functions, that is,
+[`process_info/2`](`m:erlang#process_info_memory`),
+[`erlang:port_info/2 `](`m:erlang#port_info_memory`), and `ets:info/1`.
 
 Sometimes the system can enter a state where the reported memory from
-`erlang:memory(total)` is very different from the memory reported by the OS.
-This can be because of internal fragmentation within the Erlang Run-Time System.
-Data about how memory is allocated can be retrieved using
-[`erlang:system_info(allocator)`](`m:erlang#system_info_allocator`). The data
-you get from that function is very raw and not very pleasant to read.
-[recon_alloc](http://ferd.github.io/recon/recon_alloc.html) can be used to
-extract useful information from system_info statistics counters.
+`erlang:memory(total)` is very different from the memory reported by
+the operating system. One reason for that is internal fragmentation
+within the Erlang run-time system.  Data about how memory is allocated
+can be retrieved using
+[`erlang:system_info(allocator)`](`m:erlang#system_info_allocator`). The
+data you get from that function is raw and hard to read.
+[recon_alloc](http://ferd.github.io/recon/recon_alloc.html) can
+be used to extract useful information from system_info statistics
+counters.
 
 ## Large Systems
 
@@ -136,7 +139,7 @@ appropriate types of questions to ask yourself:
 
 These questions are not always trivial to answer. Some benchmarks might be
 needed to back up your theory and to avoid making things slower if your theory
-is wrong. For details, see [Benchmarking](profiling.md#benchmark).
+is wrong. For details, see [Benchmarking](benchmarking.md).
 
 ## Tools
 
@@ -199,43 +202,3 @@ multiple schedulers. Therefore `lcnt` will show more contention points (and thus
 be more useful) on systems using many schedulers on many cores.
 
 For more information, see the `m:lcnt` manual page in Tools.
-
-[](){: #benchmark }
-
-## Benchmarking
-
-The main purpose of benchmarking is to find out which implementation of a given
-algorithm or function is the fastest. Benchmarking is far from an exact science.
-Today's operating systems generally run background tasks that are difficult to
-turn off. Caches and multiple CPU cores do not facilitate benchmarking. It would
-be best to run UNIX computers in single-user mode when benchmarking, but that is
-inconvenient to say the least for casual testing.
-
-Benchmarks can measure wall-clock time or CPU time.
-
-- `timer:tc/3` measures wall-clock time. The advantage with wall-clock time is
-  that I/O, swapping, and other activities in the operating system kernel are
-  included in the measurements. The disadvantage is that the measurements vary a
-  lot. Usually it is best to run the benchmark several times and note the
-  shortest time, which is to be the minimum time that is possible to achieve
-  under the best of circumstances.
-- [statistics/1](`erlang:statistics/1`) with argument `runtime` measures CPU
-  time spent in the Erlang virtual machine. The advantage with CPU time is that
-  the results are more consistent from run to run. The disadvantage is that the
-  time spent in the operating system kernel (such as swapping and I/O) is not
-  included. Therefore, measuring CPU time is misleading if any I/O (file or
-  socket) is involved.
-
-It is probably a good idea to do both wall-clock measurements and CPU time
-measurements.
-
-Some final advice:
-
-- The granularity of both measurement types can be high. Therefore, ensure that
-  each individual measurement lasts for at least several seconds.
-- To make the test fair, each new test run is to run in its own, newly created
-  Erlang process. Otherwise, if all tests run in the same process, the later
-  tests start out with larger heap sizes and therefore probably do fewer garbage
-  collections. Also consider restarting the Erlang emulator between each test.
-- Do not assume that the fastest implementation of a given algorithm on computer
-  architecture X is also the fastest on computer architecture Y.

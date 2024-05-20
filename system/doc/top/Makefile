@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2023. All Rights Reserved.
+# Copyright Ericsson AB 1999-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,8 +62,12 @@ system/%.md: | system
 		echo "# $${TITLE}\n\n<script>window.location.replace(\"../system/doc/html/$${GUIDE}.html\")</script>" > $@
 
 ## No nothing for README
-README.md:
-	$(V_at):
+%.md: %.md.in ../../../OTP_VERSION ../../../make/ex_doc_vsn
+	$(gen_verbose)sed \
+          -e 's:%EX_DOC_VSN%:$(EX_DOC_VSN):g' \
+          -e 's:%OTP-VSN%:$(VSN):g' \
+          -e 's:%OTP-REL%:$(OTP_REL):g' \
+          $< > $@
 
 #--------------------------------------------------------------------------
 
@@ -80,5 +84,6 @@ core/erts.md: Makefile | core
 		echo "# $${APP}\n\n<script>window.location.replace(\"../lib/$${APP}/doc/html/index.html\")</script>" > $@
 
 HTML_DEPS=README.md man_index.md ../guides $(REDIRECTS)
+EPUB=false
 
 include $(ERL_TOP)/make/doc.mk

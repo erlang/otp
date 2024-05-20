@@ -19,10 +19,10 @@
 %%
 -module(digraph_utils).
 -moduledoc """
-Algorithms for directed graphs.
-
 This module provides algorithms based on depth-first traversal of directed
-graphs. For basic functions on directed graphs, see the `m:digraph` module.
+graphs.
+
+For basic functions on directed graphs, see the `m:digraph` module.
 
 - A _directed graph_{: #digraph } (or just "digraph") is a pair (V, E) of a
   finite set V of _vertices_{: #vertex } and a finite set E of _directed

@@ -34,6 +34,8 @@
 
 -export([module/2, overview/2, type/1]).
 
+-export([copyright/1, version/1, since/1, authors/1, references/1, sees/1, todos/1]).
+
 -callback module(edoc:edoc_module(), _) -> binary().
 %% Layout entrypoint.
 
@@ -91,7 +93,7 @@
 %%  </dd>
 %%  <dt>{@type {xml_export, Module::atom()@}}
 %%  </dt>
-%%  <dd>Specifies an {@link //xmerl. `xmerl'} callback module to be
+%%  <dd>Specifies an {@link //xmerl/xmerl. `xmerl'} callback module to be
 %%      used for exporting the documentation. See {@link
 %%      //xmerl/xmerl:export_simple/3} for details.
 %%  </dd>
@@ -638,6 +640,7 @@ fulldesc(Es) ->
 	Desc -> [{p, Desc}, ?NL]
     end.
 
+%% @hidden
 sees(Es) ->
     case get_elem(see, Es) of
 	[] -> [];
@@ -699,6 +702,7 @@ equiv(Es, P) ->
 	    end
     end.
 
+%% @hidden
 copyright(Es) ->
     case get_content(copyright, Es) of
 	[] -> [];
@@ -706,6 +710,7 @@ copyright(Es) ->
 	    [{p, ["Copyright \251 " | Es1]}, ?NL]
     end.
 
+%% @hidden
 version(Es) ->
     case get_content(version, Es) of
 	[] -> [];
@@ -713,6 +718,7 @@ version(Es) ->
 	    [{p, [{b, ["Version:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 since(Es) ->
     case get_content(since, Es) of
 	[] -> [];
@@ -720,6 +726,7 @@ since(Es) ->
 	    [{p, [{b, ["Introduced in:"]}, " " | Es1]}, ?NL]
     end.
 
+%% @hidden
 deprecated(Es, S) ->
     Es1 = get_content(description, get_content(deprecated, Es)),
     case get_content(fullDescription, Es1) of
@@ -770,6 +777,7 @@ callback(E=#xmlElement{}, Opts) ->
     Arity = get_attrval(arity, E),
     [{code, [atom(Name, Opts), "/", Arity]}].
 
+%% @hidden
 authors(Es) ->
     case get_elem(author, Es) of
 	[] -> [];
@@ -808,6 +816,7 @@ author(E=#xmlElement{}) ->
 		 "]"]
 	end).
 
+%% @hidden
 references(Es) ->
     case get_elem(reference, Es) of
 	[] -> [];
@@ -817,6 +826,7 @@ references(Es) ->
 	     ?NL]
     end.
 
+%% @hidden
 todos(Es) ->
     case get_elem(todo, Es) of
 	[] -> [];

@@ -40,15 +40,15 @@ configuration data follows:
 
 A configuration file can contain any number of elements of the type:
 
-```text
- {CfgVarName,Value}.
+```erlang
+{CfgVarName,Value}.
 ```
 
 where
 
 ```erlang
- CfgVarName = atom()
- Value = term() | [{CfgVarName,Value}]
+CfgVarName = atom()
+Value = term() | [{CfgVarName,Value}]
 ```
 
 ## Requiring and Reading Configuration Data
@@ -90,14 +90,14 @@ To read the value of a configuration variable, use function
 _Example:_
 
 ```erlang
- suite() ->
-     [{require, domain, 'CONN_SPEC_DNS_SUFFIX'}].
+suite() ->
+    [{require, domain, 'CONN_SPEC_DNS_SUFFIX'}].
 
- ...
+...
 
- testcase(Config) ->
-     Domain = ct:get_config(domain),
-     ...
+testcase(Config) ->
+    Domain = ct:get_config(domain),
+    ...
 ```
 
 ## Using Configuration Variables Defined in Multiple Files
@@ -180,27 +180,26 @@ as follows:
 
 An example of an XML configuration file follows:
 
-```c
-
- <config>
-    <ftp_host>
-        <ftp>"targethost"</ftp>
-        <username>"tester"</username>
-        <password>"letmein"</password>
-    </ftp_host>
-    <lm_directory>"/test/loadmodules"</lm_directory>
- </config>
+```xml
+<config>
+   <ftp_host>
+       <ftp>"targethost"</ftp>
+       <username>"tester"</username>
+       <password>"letmein"</password>
+   </ftp_host>
+   <lm_directory>"/test/loadmodules"</lm_directory>
+</config>
 ```
 
 Once read, this file produces the same configuration variables as the following
 text file:
 
 ```erlang
- {ftp_host, [{ftp,"targethost"},
-             {username,"tester"},
-             {password,"letmein"}]}.
+{ftp_host, [{ftp,"targethost"},
+            {username,"tester"},
+            {password,"letmein"}]}.
 
- {lm_directory, "/test/loadmodules"}.
+{lm_directory, "/test/loadmodules"}.
 ```
 
 ### Implement a User-Specific Handler
@@ -243,8 +242,8 @@ The return value is to be either of the following:
 as values, like the earlier configuration file example:
 
 ```erlang
- [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
-  {lm_directory, "/test/loadmodules"}]
+[{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
+ {lm_directory, "/test/loadmodules"}]
 ```
 
 ## Examples of Configuration Data Handling
@@ -253,11 +252,11 @@ A configuration file for using the FTP client to access files on a remote host
 can look as follows:
 
 ```erlang
- {ftp_host, [{ftp,"targethost"},
-	     {username,"tester"},
-	     {password,"letmein"}]}.
+{ftp_host, [{ftp,"targethost"},
+            {username,"tester"},
+            {password,"letmein"}]}.
 
- {lm_directory, "/test/loadmodules"}.
+{lm_directory, "/test/loadmodules"}.
 ```
 
 The XML version shown earlier can also be used, but it is to be explicitly
@@ -268,47 +267,47 @@ The following is an example of how to assert that the configuration data is
 available and can be used for an FTP session:
 
 ```erlang
- init_per_testcase(ftptest, Config) ->
-     {ok,_} = ct_ftp:open(ftp),
-     Config.
+init_per_testcase(ftptest, Config) ->
+    {ok,_} = ct_ftp:open(ftp),
+    Config.
 
- end_per_testcase(ftptest, _Config) ->
-     ct_ftp:close(ftp).
+end_per_testcase(ftptest, _Config) ->
+    ct_ftp:close(ftp).
 
- ftptest() ->
-     [{require,ftp,ftp_host},
-      {require,lm_directory}].
+ftptest() ->
+    [{require,ftp,ftp_host},
+     {require,lm_directory}].
 
- ftptest(Config) ->
-     Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
-     Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
-     ok = ct_ftp:recv(ftp, Remote, Local),
-     ...
+ftptest(Config) ->
+    Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+    Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
+    ok = ct_ftp:recv(ftp, Remote, Local),
+    ...
 ```
 
 The following is an example of how the functions in the previous example can be
 rewritten if it is necessary to open multiple connections to the FTP server:
 
 ```erlang
- init_per_testcase(ftptest, Config) ->
-     {ok,Handle1} = ct_ftp:open(ftp_host),
-     {ok,Handle2} = ct_ftp:open(ftp_host),
-     [{ftp_handles,[Handle1,Handle2]} | Config].
+init_per_testcase(ftptest, Config) ->
+    {ok,Handle1} = ct_ftp:open(ftp_host),
+    {ok,Handle2} = ct_ftp:open(ftp_host),
+    [{ftp_handles,[Handle1,Handle2]} | Config].
 
- end_per_testcase(ftptest, Config) ->
-     lists:foreach(fun(Handle) -> ct_ftp:close(Handle) end,
-                   proplists:get_value(ftp_handles,Config)).
+end_per_testcase(ftptest, Config) ->
+    lists:foreach(fun(Handle) -> ct_ftp:close(Handle) end,
+                  proplists:get_value(ftp_handles,Config)).
 
- ftptest() ->
-     [{require,ftp_host},
-      {require,lm_directory}].
+ftptest() ->
+    [{require,ftp_host},
+     {require,lm_directory}].
 
- ftptest(Config) ->
-     Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
-     Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
-     [Handle | MoreHandles] = proplists:get_value(ftp_handles,Config),
-     ok = ct_ftp:recv(Handle, Remote, Local),
-     ...
+ftptest(Config) ->
+    Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+    Local = filename:join(proplists:get_value(priv_dir,Config), "loadmodule"),
+    [Handle | MoreHandles] = proplists:get_value(ftp_handles,Config),
+    ok = ct_ftp:recv(Handle, Remote, Local),
+    ...
 ```
 
 ## Example of User-Specific Configuration Handler
@@ -317,27 +316,27 @@ A simple configuration handling driver, asking an external server for
 configuration data, can be implemented as follows:
 
 ```erlang
- -module(config_driver).
- -export([read_config/1, check_parameter/1]).
+-module(config_driver).
+-export([read_config/1, check_parameter/1]).
 
- read_config(ServerName)->
-     ServerModule = list_to_atom(ServerName),
-     ServerModule:start(),
-     ServerModule:get_config().
+read_config(ServerName)->
+    ServerModule = list_to_atom(ServerName),
+    ServerModule:start(),
+    ServerModule:get_config().
 
- check_parameter(ServerName)->
-     ServerModule = list_to_atom(ServerName),
-     case code:is_loaded(ServerModule) of
-         {file, _}->
-             {ok, {config, ServerName}};
-         false->
-             case code:load_file(ServerModule) of
-                 {module, ServerModule}->
-                     {ok, {config, ServerName}};
-                 {error, nofile}->
-                     {error, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
-             end
-     end.
+check_parameter(ServerName)->
+    ServerModule = list_to_atom(ServerName),
+    case code:is_loaded(ServerModule) of
+        {file, _}->
+            {ok, {config, ServerName}};
+        false->
+            case code:load_file(ServerModule) of
+                {module, ServerModule}->
+                    {ok, {config, ServerName}};
+                {error, nofile}->
+                    {error, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
+            end
+    end.
 ```
 
 The configuration string for this driver can be `config_server`, if the
@@ -345,67 +344,67 @@ The configuration string for this driver can be `config_server`, if the
 during test execution:
 
 ```erlang
- -module(config_server).
- -export([start/0, stop/0, init/1, get_config/0, loop/0]).
+-module(config_server).
+-export([start/0, stop/0, init/1, get_config/0, loop/0]).
 
- -define(REGISTERED_NAME, ct_test_config_server).
+-define(REGISTERED_NAME, ct_test_config_server).
 
- start()->
-     case whereis(?REGISTERED_NAME) of
-         undefined->
-             spawn(?MODULE, init, [?REGISTERED_NAME]),
-             wait();
-         _Pid->
-         ok
-     end,
-     ?REGISTERED_NAME.
+start()->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            spawn(?MODULE, init, [?REGISTERED_NAME]),
+            wait();
+        _Pid->
+        ok
+    end,
+    ?REGISTERED_NAME.
 
- init(Name)->
-     register(Name, self()),
-     loop().
+init(Name)->
+    register(Name, self()),
+    loop().
 
- get_config()->
-     call(self(), get_config).
+get_config()->
+    call(self(), get_config).
 
- stop()->
-     call(self(), stop).
+stop()->
+    call(self(), stop).
 
- call(Client, Request)->
-     case whereis(?REGISTERED_NAME) of
-         undefined->
-             {error, {not_started, Request}};
-         Pid->
-             Pid ! {Client, Request},
-             receive
-                 Reply->
-                     {ok, Reply}
-             after 4000->
-                 {error, {timeout, Request}}
-             end
-     end.
+call(Client, Request)->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            {error, {not_started, Request}};
+        Pid->
+            Pid ! {Client, Request},
+            receive
+                Reply->
+                    {ok, Reply}
+            after 4000->
+                {error, {timeout, Request}}
+            end
+    end.
 
- loop()->
-     receive
-         {Pid, stop}->
-             Pid ! ok;
-         {Pid, get_config}->
-             {D,T} = erlang:localtime(),
-             Pid !
-                 [{localtime, [{date, D}, {time, T}]},
-                  {node, erlang:node()},
-                  {now, erlang:now()},
-                  {config_server_pid, self()},
-                  {config_server_vsn, ?vsn}],
-             ?MODULE:loop()
-     end.
+loop()->
+    receive
+        {Pid, stop}->
+            Pid ! ok;
+        {Pid, get_config}->
+            {D,T} = erlang:localtime(),
+            Pid !
+                [{localtime, [{date, D}, {time, T}]},
+                 {node, erlang:node()},
+                 {now, erlang:now()},
+                 {config_server_pid, self()},
+                 {config_server_vsn, ?vsn}],
+            ?MODULE:loop()
+    end.
 
- wait()->
-     case whereis(?REGISTERED_NAME) of
-         undefined->
-             wait();
-         _Pid->
-             ok
-     end.
+wait()->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            wait();
+        _Pid->
+            ok
+    end.
 ```
 
 Here, the handler also provides for dynamically reloading of configuration

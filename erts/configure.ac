@@ -23,7 +23,7 @@ dnl autoconf convention that should be cleaned up.
 
 AC_INIT
 AC_CONFIG_SRCDIR([emulator/beam/erl_process.c])
-AC_PREREQ([2.71])
+AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
@@ -301,6 +301,15 @@ case "$with_microstate_accounting" in
     *) ;;
 esac
 
+AC_ARG_ENABLE(ensure-os-monotonic-time,
+AS_HELP_STRING([--enable-ensure-os-monotonic-time],
+               [enable functionality ensuring the monotonicity of monotonic timestamps delivered by the OS. When a non-monotonic timestamp is detected, it will be replaced by the last delivered monotonic timestamp before being used by Erlang's time functionality. Note that you do *not* want to enable this unless the OS monotonic time source on the system fails to produce monotonic timestamps. This since ensuring the monotonicity of OS monotonic timestamps will hurt scalability and performance of the system.]))
+
+AS_IF([test "$enable_ensure_os_monotonic_time" = "yes"], [
+   AC_DEFINE(ERTS_ENSURE_OS_MONOTONIC_TIME, [1],
+     [Define if ensurance of the monotonicity of OS monotonic timestamps should be enabled])
+  ])
+
 dnl Magic test for clearcase.
 OTP_RELEASE=
 if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
@@ -423,6 +432,10 @@ AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
                     *only* defined when --with-spectre-mitigation=incomplete
                     and has no effects otherwise])
 
+# Remove old configuration information.
+# Next line should be before first output to CONF_INFO.
+rm -f "$ERL_TOP/erts/CONF_INFO"
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -462,13 +475,11 @@ fi
 AC_CHECK_PROGS(EX_DOC, ex_doc)
 if test -z "$EX_DOC"; then
   EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
-  echo "ex_doc" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'ex_doc' command found: the documentation cannot be built])
+  AC_MSG_WARN([No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation ])
 fi
 
 AC_CHECK_PROGS(ELIXIR, elixir)
 if test -z "$ELIXIR"; then
-  echo "elixir" >> doc/CONF_INFO
   AC_MSG_WARN([No 'elixir' command found: can't run link checker for the documentation])
 fi
 
@@ -548,45 +559,23 @@ extra_flags="$ERTS_CONFIG_H_IDIR $OTP_EXTRA_FLAGS"
 CFLAGS="$CFLAGS $extra_flags"
 DEBUG_FLAGS=-g
 
+# Large file support and 8-byte time_t by default
+AC_SYS_YEAR2038_RECOMMENDED
 
-lfs_conf=ok
-lfs_source=none
-AS_IF([test "${LFS_CFLAGS+set}" = "set" || test "${LFS_LDFLAGS+set}" = "set" || test "${LFS_LIBS+set}" = "set"],
-  [
-    lfs_source=user
-  ],
-  [
-   LM_CHECK_GETCONF
-   test "$GETCONF" = "false" || lfs_source=getconf
-  ])
+AC_CHECK_SIZEOF(time_t)
 
-if test "$lfs_source" = "none"; then
-    AC_MSG_WARN([Do not know how to check for large file support flags; no getconf is available])
-else
-    for var in CFLAGS LDFLAGS LIBS; do
-	AC_MSG_CHECKING([for large file support $var])
-	if test $lfs_source = user; then
-	    eval "lfs_val=\"\$LFS_$var\""
-	else
-	    eval "lfs_var=LFS_$var"
-	    lfs_val=`$GETCONF $lfs_var 2>/dev/null` || lfs_conf=failed
-	    if test $lfs_conf = failed; then
-		AC_MSG_RESULT([failed])
-		break
-	    fi
-	    eval "$lfs_var=\"$lfs_val\""
-	fi
-	test "$lfs_val" != "" || lfs_val=none
-	AC_MSG_RESULT([$lfs_val])
-    done
-    if test $lfs_conf = failed; then
-	AC_MSG_WARN([Check for large file support flags failed; $GETCONF failed])
-    else
-	CFLAGS="$CFLAGS $LFS_CFLAGS"
-	LDFLAGS="$LDFLAGS $LFS_LDFLAGS"
-	LIBS="$LIBS $LFS_LIBS"
-    fi
-fi
+AS_IF([test "$ac_cv_sizeof_time_t" != "8"],
+      [
+       test -f "$ERL_TOP/erts/CONF_INFO" || echo "" > "$ERL_TOP/erts/CONF_INFO"
+       cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 WARNING:
+                   Note that this runtime system will *not* be year
+                   2038 safe! It will not be able to function
+                   properly after mid-January 2038.
+
+EOF
+      ])
 
 AS_IF([test "x$GCC" = xyes],
  [
@@ -864,11 +853,6 @@ fi
 
 _search_path=
 
-
-# Remove old configuration information.
-# Next line should be before first output to CONN_INFO. So this is
-# just the right place.
-rm -f "$ERL_TOP/erts/CONF_INFO"
 
 dnl Check if we should/can build a sharing-preserving emulator
 AC_MSG_CHECKING(if we are building a sharing-preserving emulator)
@@ -2868,15 +2852,24 @@ AS_IF([test ${enable_jit} != no],
         amd64)
            case "$OPSYS" in
               darwin)
-                # MacOS Sonoma introduced some very annoying popups when
+                # macOS Sonoma introduced some very annoying popups when
                 # dual-mapping memory through the documented APIs, and we did
                 # not wish to start using undocumented functionality in a patch
-                # release, so we have disabled the JIT on this platform.
+                # release, so we have disabled the JIT by default on this
+                # platform.
+                #
+                # The previous version, macOS Ventura, does not have the
+                # annoying popups, so it is still possible to explicitly
+                # enable the JIT.
                 #
                 # The ARM JIT is unaffected because it uses per-thread
                 # permissions instead of dual-mapped memory.
-                enable_jit=no
-                AC_MSG_WARN([JIT disabled due to lack to support on x86 Macs])
+                if test ${enable_jit} = yes; then
+                  JIT_ARCH=x86
+                else
+                  enable_jit=no
+                  AC_MSG_WARN([JIT disabled due to annoying popus on x86 Macs with Sononma])
+                fi
                 ;;
               *)
                 JIT_ARCH=x86
@@ -3077,7 +3070,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
         unused_command_line_argument=""
       ]
     )
-    LDFLAGS=$saved_LDFLAGS
+    LDFLAGS="$saved_LDFLAGS"
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       AC_MSG_CHECKING([if we can add $flag to LDFLAGS])
@@ -3086,7 +3079,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
          [
            AC_MSG_RESULT([yes])
-           LDFLAGS="$save_LDFLAGS $flag"
+           LDFLAGS="$saved_LDFLAGS $flag"
          ],
          [
            AC_MSG_RESULT([no])

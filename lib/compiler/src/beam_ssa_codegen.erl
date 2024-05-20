@@ -47,9 +47,8 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_asm:module_code()}.
 
-module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
-    NoBsMatch = member(no_bs_match, Opts),
-    {Asm,St} = functions(Fs, NoBsMatch, {atom,Mod}),
+module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
+    {Asm,St} = functions(Fs, {atom,Mod}),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
@@ -110,12 +109,13 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, NoBsMatch, AtomMod) ->
-    mapfoldl(fun (F, St) -> function(F, NoBsMatch, AtomMod, St) end,
+functions(Forms, AtomMod) ->
+    mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
              #cg{lcount=1}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks}, NoBsMatch, AtomMod, St0) ->
+function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
     #{func_info:={_,Name,Arity}} = Anno,
+    NoBsMatch = not maps:get(bs_ensure_opt, Anno, false),
     try
         assert_exception_block(Blocks),            %Assertion.
         Regs = maps:get(registers, Anno),
@@ -1819,9 +1819,9 @@ cg_instr(bs_get_tail, [Src], Dst, Set) ->
 cg_instr(bs_get_position, [Ctx], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_position,Ctx,Dst,Live}];
-cg_instr(executable_line, [], _Dst, #cg_set{anno=Anno}) ->
+cg_instr(executable_line, [{integer,Index}], _Dst, #cg_set{anno=Anno}) ->
     {line,Location} = line(Anno),
-    [{executable_line,Location}];
+    [{executable_line,Location,Index}];
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
@@ -2267,6 +2267,10 @@ bs_translate([]) -> [].
 
 bs_translate_collect([I|Is]=Is0, Ctx, Fail, Acc) ->
     case bs_translate_instr(I) of
+        {Ctx,_,{ensure_at_least,_,_}} ->
+            %% There should only be a single `ensure_at_least`
+            %% instruction in each `bs_match` instruction.
+            {bs_translate_fixup(Acc),Fail,Is0};
         {Ctx,Fail,Instr} ->
             bs_translate_collect(Is, Ctx, Fail, [Instr|Acc]);
         {Ctx,{f,0},Instr} ->

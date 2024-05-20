@@ -978,6 +978,8 @@ class BeamModuleAssembler : public BeamAssembler,
     void reg_cache_put(arm::Mem mem, a64::Gp src) {
         if (src != SUPER_TMP) {
             reg_cache.put(mem, src);
+        } else {
+            reg_cache.invalidate(mem);
         }
     }
 
@@ -1543,12 +1545,16 @@ protected:
      *    a.cmp(TMP1, imm(...));
      */
     Variable<a64::Gp> load_source(const ArgVal &arg) {
-        a64::Gp cached_reg = find_cache(getArgRef(arg));
-
-        if (cached_reg.isValid()) {
-            return load_source(arg, cached_reg);
-        } else {
+        if (!arg.isRegister()) {
             return load_source(arg, TMP1);
+        } else {
+            a64::Gp cached_reg = find_cache(getArgRef(arg));
+
+            if (cached_reg.isValid()) {
+                return load_source(arg, cached_reg);
+            } else {
+                return load_source(arg, TMP1);
+            }
         }
     }
 

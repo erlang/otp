@@ -24,7 +24,7 @@ Boot script
 ## Description
 
 The _boot script_ describes how the Erlang runtime system is started. It
-contains instructions on which code to load and which processes and applications
+contains instructions for which code to load, and which processes and applications
 to start.
 
 Command `erl -boot Name` starts the system with a boot file called `Name.boot`,

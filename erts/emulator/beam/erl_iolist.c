@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,17 @@
 #define IOL2B_MIN_EXEC_REDS (CONTEXT_REDS / 4)
 #define IOL2B_RESCHED_REDS (CONTEXT_REDS / 40)
 
+#define IOL2V_COPY_THRESHOLD (ERL_ONHEAP_BITS_LIMIT * 8)
+
+#define IOL_SHOULD_COPY(Threshold, Unit, Offset, Size)                        \
+    (((Size) <= Threshold) || ((Offset) % (Unit)))
+
 static Export list_to_bitstring_continue_export;
+static Export iolist_to_iovec_continue_export;
 static Export iolist_size_continue_export;
 
 static BIF_RETTYPE list_to_bitstring_continue(BIF_ALIST_1);
+static BIF_RETTYPE iolist_to_iovec_continue(BIF_ALIST_1);
 static BIF_RETTYPE iolist_size_continue(BIF_ALIST_1);
 
 void
@@ -45,6 +52,10 @@ erts_init_iolist(void)
                           am_erts_internal, am_list_to_bitstring_continue, 1,
                           &list_to_bitstring_continue);
 
+    erts_init_trap_export(&iolist_to_iovec_continue_export,
+                          am_erts_internal, am_iolist_to_iovec_continue, 1,
+                          &iolist_to_iovec_continue);
+
     erts_init_trap_export(&iolist_size_continue_export,
                           am_erts_internal, am_iolist_size_continue, 1,
                           &iolist_size_continue);
@@ -53,7 +64,7 @@ erts_init_iolist(void)
 /* ************************************************************************* */
 
 #define ERTS_IOLIST_STATE_INITER(C_P, OBJ)                                    \
-    {{NULL, NULL, NULL, ERTS_ALC_T_INVALID}, /* Stack */                      \
+    {{NULL, NULL, NULL, NULL, ERTS_ALC_T_INVALID}, /* Stack */                \
      (C_P),                                                                   \
      (OBJ),                                                                   \
      0,                                      /* Size */                       \
@@ -78,16 +89,28 @@ enum iolist_action {
     ERTS_IOLIST_YIELD
 };
 
-/* This MUST report type and unit errors in exactly the same way as
- * `generic_iol2b` so that the latter can elect to skip error checking.
+/** @brief Returns the buffer size required to transform an iolist into an
+ * iovec (sic), where objects smaller than \c VecThreshold or with an unaligned
+ * offset will be copied into a buffer, and larger objects will be included in
+ * the iovec as-is.
+ *
+ * Functions that flatten iolists to a bitstring or simply wish to determine
+ * their size should set a threshold of `ERTS_UINT_MAX` to suppress the iovec
+ * logic, trusting the compiler to optimize it out. The implementation is
+ * shared in this manner as implementing the intricate traversal and yielding
+ * logic by hand for each variant leaves far too much room for bugs.
+ *
+ * This MUST report type and unit errors in exactly the same way as
+ * \c generic_iolist_copy so that the latter can elect to skip error checking.
  *
  * Note that overflow errors are reported differently: the size routine reports
  * overflow when the size in bits is larger than that which can be represented
  * in a word, whereas the conversion routine reports overflow when the provided
- * buffer is too small. (The latter iff one hasn't guaranteed that it will fit
- * beforehand by calling the size routine.) */
+ * buffer is too small. (The latter only if one hasn't guaranteed that it will
+ * fit beforehand by calling the size routine.) */
 static ERTS_FORCE_INLINE
 enum iolist_action generic_iolist_size(ErtsIOListState *state,
+                                       const Uint VecThreshold,
                                        const int Unit,
                                        const int YieldSupport)
 {
@@ -99,6 +122,7 @@ enum iolist_action generic_iolist_size(ErtsIOListState *state,
 
     ASSERT((YieldSupport) == !!(YieldSupport));
     ASSERT((Unit) == 1 || (Unit) == 8);
+
     ASSERT(state->size == 0 || ((YieldSupport) && state->estack.start));
 
     size = state->size;
@@ -142,19 +166,31 @@ enum iolist_action generic_iolist_size(ErtsIOListState *state,
             tail = CDR(cell);
 
             if (is_byte(head)) {
-                if (ERTS_UNLIKELY(size > (ERTS_UWORD_MAX - 8))) {
+                if (ERTS_UNLIKELY(size > (ERTS_UINT_MAX - 8))) {
                     goto L_overflow;
                 }
+
                 size += 8;
-            } else  if (is_bitstring(head)) {
-                Uint head_size = bitstring_size(head);
+            } else if (is_bitstring(head)) {
+                ERTS_DECLARE_DUMMY(byte *base);
+                Uint head_offset, head_size;
+
+                ERTS_GET_BITSTRING(head, base, head_offset, head_size);
+
                 if ((head_size % (Unit)) != 0) {
                     goto L_type_error;
                 }
-                if (ERTS_UNLIKELY(size > (ERTS_UWORD_MAX - head_size))) {
-                    goto L_overflow;
+
+                if (IOL_SHOULD_COPY(VecThreshold,
+                                    Unit,
+                                    head_offset,
+                                    head_size)) {
+                    if (ERTS_UNLIKELY(size > (ERTS_UINT_MAX - head_size))) {
+                        goto L_overflow;
+                    }
+
+                    size += head_size;
                 }
-                size += head_size;
             } else if (is_list(head)) {
                 /* Deal with the inner list in `head` first, handling our tail
                  * later */
@@ -171,14 +207,25 @@ enum iolist_action generic_iolist_size(ErtsIOListState *state,
         if ((YieldSupport) && --yield_count <= 0) {
             goto L_yield;
         } else if (is_bitstring(obj)) {
-            Uint obj_size = bitstring_size(obj);
+            ERTS_DECLARE_DUMMY(byte *base);
+            Uint obj_offset, obj_size;
+
+            ERTS_GET_BITSTRING(obj, base, obj_offset, obj_size);
+
             if ((obj_size % (Unit)) != 0) {
                 goto L_type_error;
             }
-            if (ERTS_UNLIKELY(size > (ERTS_UWORD_MAX - obj_size))) {
-                goto L_overflow;
+
+            if (IOL_SHOULD_COPY(VecThreshold,
+                                Unit,
+                                obj_offset,
+                                obj_size)) {
+                if (ERTS_UNLIKELY(size > (ERTS_UINT_MAX - obj_size))) {
+                    goto L_overflow;
+                }
+
+                size += obj_size;
             }
-            size += obj_size;
         } else if (is_not_nil(obj)) {
             goto L_type_error;
         }
@@ -242,61 +289,91 @@ L_yield:
 
 /* ************************************************************************* */
 
-#define ERTS_IOLIST2BUF_STATE_INITER(C_P, OBJ)                                \
+#define ERTS_IOLIST_COPY_STATE_INITER(C_P, OBJ)                               \
     {ERTS_IOLIST_STATE_INITER((C_P), (OBJ)),                                  \
-     {NULL, 0, 0},                              /* Bitstring copy state */    \
-     NULL,                                      /* Base */                    \
-     0}                                         /* Offset */
+     THE_NON_VALUE,                             /* bin_ref */                 \
+     0,                                         /* vec_start */               \
+     NULL,                                      /* vec_tail */                \
+     NULL,                                      /* from_base */               \
+     0,                                         /* from_offset */             \
+     0,                                         /* from_size */               \
+     NULL,                                      /* to_base */                 \
+     0}                                         /* to_offset */
 
-#define ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT 32
-#define ERTS_IOLIST_TO_BUF_BITS_PER_YIELD_COUNT                               \
-    (ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT / CHAR_BIT)
-#define ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED 8
-#define ERTS_IOLIST_TO_BUF_BYTES_PER_RED \
-    (ERTS_IOLIST_TO_BUF_YIELD_COUNT_PER_RED *                                 \
-     ERTS_IOLIST_TO_BUF_BYTES_PER_YIELD_COUNT)
+#define ERTS_IOLIST_COPY_BITS_PER_YIELD_COUNT (32 * CHAR_BIT)
 
 typedef struct {
     ErtsIOListState iolist;
 
-    struct {
-        byte *base;
-        Uint offset;
-        Uint size;
-    } bcopy;
+    Eterm bin_ref;
+    ErlDrvSizeT vec_start;
+    Eterm *vec_tail;
 
-    byte *base;
-    ErlDrvSizeT offset;
-} ErtsIOList2BufState;
+    const byte *from_base;
+    Uint from_offset;
+    Uint from_size;
 
-static ERTS_INLINE
-enum iolist_action generic_iol2b_copy_bitstring(ErtsIOList2BufState *state,
-                                                Eterm obj,
-                                                int *yield_countp,
-                                                const int YieldSupport)
-{
-    Uint offset, size;
-    Uint copy_size;
-    byte* base;
-    int yield_count;
+    byte *to_base;
+    ErlDrvSizeT to_offset;
+} ErtsIOListCopyState;
 
-    if (state->bcopy.base) {
-        ASSERT(YieldSupport);
+static
+void generic_iolist_copy_vec_enqueue(ErtsIOListCopyState *state, Eterm obj) {
+    ASSERT(is_bitstring(obj) || obj == NIL);
 
-        base = state->bcopy.base;
-        offset = state->bcopy.offset;
-        size = state->bcopy.size;
+    ASSERT(state->vec_start <= state->to_offset);
+    if (state->vec_start < state->to_offset) {
+        ErlSubBits *sb = (ErlSubBits*)HAlloc(state->iolist.c_p,
+                                             ERL_SUB_BITS_SIZE);
 
-        state->bcopy.base = NULL;
-    } else {
-        ASSERT(is_bitstring(obj));
-        ERTS_GET_BITSTRING(obj, base, offset, size);
+        ASSERT(is_value(state->bin_ref));
+        erl_sub_bits_init(sb,
+                          0,
+                          state->bin_ref,
+                          state->to_base,
+                          state->vec_start,
+                          state->to_offset - state->vec_start);
+
+        state->vec_start = state->to_offset;
+        generic_iolist_copy_vec_enqueue(state, make_bitstring(sb));
     }
 
-    ASSERT(size <= (state->iolist.size - state->offset));
+    if (obj != NIL) {
+        Eterm *cell = HAlloc(state->iolist.c_p, 2);
+
+        CAR(cell) = obj;
+        CDR(cell) = NIL;
+
+        *state->vec_tail = make_list(cell);
+        state->vec_tail = &CDR(cell);
+    }
+}
+
+static ERTS_INLINE
+enum iolist_action generic_iolist_copy_bitstring(ErtsIOListCopyState *state,
+                                                 const byte *base,
+                                                 Uint offset,
+                                                 Uint size,
+                                                 int *yield_countp,
+                                                 const int YieldSupport)
+{
+    Uint copy_size;
+    int yield_count;
+
+    if (state->from_base) {
+        ASSERT(YieldSupport);
+
+        base = state->from_base;
+        offset = state->from_offset;
+        size = state->from_size;
+
+        state->from_base = NULL;
+    }
+
+    ASSERT(size <= (state->iolist.size - state->to_offset));
 
     ERTS_CT_ASSERT((CONTEXT_REDS * ERTS_IOLIST_SIZE_YIELDS_COUNT_PER_RED) <
-                   (ERTS_UINT_MAX / ERTS_IOLIST_TO_BUF_BITS_PER_YIELD_COUNT));
+                   (ERTS_UINT_MAX / ERTS_IOLIST_COPY_BITS_PER_YIELD_COUNT));
 
     if (YieldSupport) {
         Uint copy_limit;
@@ -305,42 +382,49 @@ enum iolist_action generic_iol2b_copy_bitstring(ErtsIOList2BufState *state,
 
         ASSERT(yield_count >= 0);
         copy_limit = (Uint)yield_count + 1;
-        copy_limit *= ERTS_IOLIST_TO_BUF_BITS_PER_YIELD_COUNT;
+        copy_limit *= ERTS_IOLIST_COPY_BITS_PER_YIELD_COUNT;
 
         copy_size = MIN(size, copy_limit);
     } else {
         copy_size = size;
     }
 
-    copy_binary_to_buffer(state->base, state->offset, base, offset, copy_size);
-    state->offset += copy_size;
+    copy_binary_to_buffer(state->to_base,
+                          state->to_offset,
+                          base,
+                          offset,
+                          copy_size);
+    state->to_offset += copy_size;
 
     if (YieldSupport) {
         if (copy_size < size) {
-            state->bcopy.base = base;
-            state->bcopy.offset = offset + copy_size;
-            state->bcopy.size = size - copy_size;
+            state->from_base = base;
+            state->from_offset = offset + copy_size;
+            state->from_size = size - copy_size;
 
             *yield_countp = 0;
 
             return 1;
         }
 
-        yield_count -= copy_size / ERTS_IOLIST_TO_BUF_BITS_PER_YIELD_COUNT;
+        yield_count -= copy_size / ERTS_IOLIST_COPY_BITS_PER_YIELD_COUNT;
         *yield_countp = yield_count;
     }
 
     return 0;
 }
 
-/* This MUST report type and unit errors in exactly the same way as
- * `generic_iolist_size`, so that the former can be used to pre-check errors
+/** @brief See \c generic_iolist_size for a more in-depth description.
+ *
+ * Note that this MUST report type and unit errors in exactly the same way as
+ * \c generic_iolist_size so that the former can be used to pre-check errors
  * for this routine, letting us skip error checking here if we wish. */
 static ERTS_FORCE_INLINE
-int generic_iol2b(ErtsIOList2BufState *copy_state,
-                  const int Unit,
-                  const int ErrorSupport,
-                  const int YieldSupport)
+int generic_iolist_copy(ErtsIOListCopyState *copy_state,
+                        const Uint VecThreshold,
+                        const int Unit,
+                        const int ErrorSupport,
+                        const int YieldSupport)
 {
     enum iolist_action res = ERTS_IOLIST_OK;
     int init_yield_count, yield_count;
@@ -354,9 +438,10 @@ int generic_iol2b(ErtsIOList2BufState *copy_state,
     ASSERT((Unit) == 1 || (Unit) == 8);
 
     list_state = &copy_state->iolist;
-    ASSERT(list_state->have_size && copy_state->offset < list_state->size);
+    ASSERT(list_state->have_size && copy_state->to_offset <= list_state->size);
 
-    base = copy_state->base;
+    base = copy_state->to_base;
+    ASSERT(base != NULL || list_state->size == 0);
     obj = list_state->obj;
 
     if (YieldSupport) {
@@ -395,13 +480,13 @@ int generic_iol2b(ErtsIOList2BufState *copy_state,
                 Uint shift, byte_offset;
 
                 if (ErrorSupport) {
-                    if ((list_state->size - copy_state->offset) < 8) {
+                    if ((list_state->size - copy_state->to_offset) < 8) {
                         goto L_overflow_error;
                     }
                 }
 
-                byte_offset = copy_state->offset / 8;
-                shift = copy_state->offset % 8;
+                byte_offset = copy_state->to_offset / 8;
+                shift = copy_state->to_offset % 8;
 
                 if ((Unit) == 8 || (shift == 0)) {
                     ASSERT(shift == 0);
@@ -415,25 +500,41 @@ int generic_iol2b(ErtsIOList2BufState *copy_state,
                     base[byte_offset + 1] = (unsigned_val(obj) << (8 - shift));
                 }
 
-                copy_state->offset += 8;
+                copy_state->to_offset += 8;
             } else if (is_bitstring(obj)) {
-                if (ErrorSupport) {
-                    Uint size = bitstring_size(obj);
+                Uint offset, size;
+                byte *base;
 
+                ERTS_GET_BITSTRING(obj, base, offset, size);
+
+                if (ErrorSupport) {
                     if ((size % (Unit)) != 0) {
                         goto L_type_error;
-                    } else if ((list_state->size - copy_state->offset) < size) {
-                        goto L_overflow_error;
                     }
                 }
 
-                if (generic_iol2b_copy_bitstring(copy_state,
-                                                 obj,
-                                                 &yield_count,
-                                                 YieldSupport)) {
-                    list_state->obj = obj;
-                    ESTACK_PUSH(s, CDR(cell));
-                    goto L_yield;
+                if (IOL_SHOULD_COPY(VecThreshold,
+                                    Unit,
+                                    offset,
+                                    size)) {
+                    if (ErrorSupport) {
+                        if ((list_state->size - copy_state->to_offset) < size) {
+                            goto L_overflow_error;
+                        }
+                    }
+
+                    if (generic_iolist_copy_bitstring(copy_state,
+                                                      base,
+                                                      offset,
+                                                      size,
+                                                      &yield_count,
+                                                      YieldSupport)) {
+                        list_state->obj = obj;
+                        ESTACK_PUSH(s, CDR(cell));
+                        goto L_yield;
+                    }
+                } else {
+                    generic_iolist_copy_vec_enqueue(copy_state, obj);
                 }
             } else if (is_list(obj)) {
                 /* Deal with the inner list in `obj` first, handling our tail
@@ -450,26 +551,46 @@ int generic_iol2b(ErtsIOList2BufState *copy_state,
         if ((YieldSupport) && --yield_count <= 0) {
             goto L_yield;
         } else if (is_bitstring(obj)) {
-            if (ErrorSupport) {
-                Uint size = bitstring_size(obj);
+            Uint offset, size;
+            byte *base;
 
+            ERTS_GET_BITSTRING(obj, base, offset, size);
+
+            if (ErrorSupport) {
                 if ((size % (Unit)) != 0) {
                     goto L_type_error;
-                } else if ((list_state->size - copy_state->offset) < size) {
-                    goto L_overflow_error;
                 }
             }
 
-            if (generic_iol2b_copy_bitstring(copy_state,
-                                             obj,
-                                             &yield_count,
-                                             YieldSupport)) {
-                list_state->obj = obj;
-                goto L_yield;
+            if (IOL_SHOULD_COPY(VecThreshold,
+                                Unit,
+                                offset,
+                                size)) {
+                if (ErrorSupport) {
+                    if ((list_state->size - copy_state->to_offset) < size) {
+                        goto L_overflow_error;
+                    }
+                }
+
+                if (generic_iolist_copy_bitstring(copy_state,
+                                                  base,
+                                                  offset,
+                                                  size,
+                                                  &yield_count,
+                                                  YieldSupport)) {
+                    list_state->obj = obj;
+                    goto L_yield;
+                }
+            } else {
+                generic_iolist_copy_vec_enqueue(copy_state, obj);
             }
         } else if ((ErrorSupport) && is_not_nil(obj)) {
             goto L_type_error;
         }
+    }
+
+    if (VecThreshold < ERTS_UINT_MAX) {
+        generic_iolist_copy_vec_enqueue(copy_state, NIL);
     }
 
     res = ERTS_IOLIST_OK;
@@ -500,18 +621,21 @@ L_type_error:
 L_yield:
     ASSERT(YieldSupport);
 
-    /* As the yielding variants have already checked the list for errors, there
-     * is no need to continue after having copied everything of substance: just
-     * return that everything went well.
-     *
-     * While we could do this in the main loop, it makes it more cluttered and
-     * probably just costs performance in the average case. Doing it here
-     * simplifies trapping as we can assume that there's always work to be done
-     * on entry. */
-    ASSERT(copy_state->offset <= list_state->size);
-    if (copy_state->offset == list_state->size) {
-        res = ERTS_IOLIST_OK;
-        goto L_return;
+    ASSERT(copy_state->to_offset <= list_state->size);
+    if (VecThreshold == ERTS_UINT_MAX) {
+        /* As the yielding variants have already checked the list for errors,
+         * there is no need to continue after having copied everything of
+         * substance: just return that everything went well.
+         *
+         * While we could do this in the main loop, it makes it more cluttered
+         * and probably just costs performance in the average case. Doing it
+         * here simplifies trapping as we can assume that there's always work
+         * to be done on entry. */
+        ASSERT(copy_state->vec_tail == NULL);
+        if (copy_state->to_offset == list_state->size) {
+            res = ERTS_IOLIST_OK;
+            goto L_return;
+        }
     }
 
     BUMP_ALL_REDS(list_state->c_p);
@@ -526,20 +650,20 @@ L_yield:
 
 ErlDrvSizeT erts_iolist_to_buf(Eterm obj, char *data, ErlDrvSizeT size)
 {
-    ErtsIOList2BufState state = { .iolist.have_size = 1,
+    ErtsIOListCopyState state = { .iolist.have_size = 1,
                                   .iolist.size = size * 8,
                                   .iolist.obj = obj,
-                                  .base = (byte*)data };
+                                  .to_base = (byte*)data };
 
     if (size > 0) {
-        switch (generic_iol2b(&state, 8, 1, 0)) {
+        switch (generic_iolist_copy(&state, ERTS_UINT_MAX, 8, 1, 0)) {
         case ERTS_IOLIST_OVERFLOW:
             return ERTS_IOLIST_TO_BUF_OVERFLOW;
         case ERTS_IOLIST_TYPE:
             return ERTS_IOLIST_TO_BUF_TYPE_ERROR;
         case ERTS_IOLIST_OK:
-            ASSERT(ERTS_IOLIST_TO_BUF_SUCCEEDED(state.offset));
-            return size - (state.offset / 8);
+            ASSERT(ERTS_IOLIST_TO_BUF_SUCCEEDED(state.to_offset));
+            return size - (state.to_offset / 8);
         case ERTS_IOLIST_YIELD:
             ERTS_INTERNAL_ERROR("unreachable");
         }
@@ -553,7 +677,7 @@ int erts_iolist_size(Eterm obj, ErlDrvSizeT *sizep)
     ErtsIOListState state = { .obj = obj };
     int res;
 
-    res = generic_iolist_size(&state, 8, 0);
+    res = generic_iolist_size(&state, ERTS_UINT_MAX, 8, 0);
     *sizep = state.size / 8;
 
     return res != ERTS_IOLIST_OK;
@@ -564,13 +688,13 @@ int erts_iolist_size(Eterm obj, ErlDrvSizeT *sizep)
 /* Turn a possibly deep list of ints (and binaries) into one large bitstring */
 
 #define ERTS_L2B_STATE_INITER(C_P, ARG, BIF, SZFunc, TBufFunc)                \
-    {ERTS_IOLIST2BUF_STATE_INITER((C_P), (ARG)),                              \
+    {ERTS_IOLIST_COPY_STATE_INITER((C_P), (ARG)),                             \
      THE_NON_VALUE, (ARG), (BIF), (SZFunc), (TBufFunc)}
 
 typedef struct ErtsL2BState_ ErtsL2BState;
 
 struct ErtsL2BState_ {
-    ErtsIOList2BufState buf;
+    ErtsIOListCopyState copy;
 
     Eterm result;
     Eterm arg;
@@ -578,17 +702,17 @@ struct ErtsL2BState_ {
     Export *bif;
 
     int (*iolist_to_buf_size)(ErtsIOListState *);
-    int (*iolist_to_buf)(ErtsIOList2BufState *);
+    int (*iolist_to_buf)(ErtsIOListCopyState *);
 };
 
 static ERTS_INLINE
 enum iolist_action list_to_bitstring_engine(ErtsL2BState *sp)
 {
-    ErtsIOList2BufState *copy_state;
+    ErtsIOListCopyState *copy_state;
     ErtsIOListState *list_state;
     Process *c_p;
 
-    copy_state = &sp->buf;
+    copy_state = &sp->copy;
     list_state = &copy_state->iolist;
     c_p = list_state->c_p;
 
@@ -608,7 +732,7 @@ enum iolist_action list_to_bitstring_engine(ErtsL2BState *sp)
 
         sp->result = erts_new_bitstring(c_p,
                                         list_state->size,
-                                        (byte**)&copy_state->base);
+                                        &copy_state->to_base);
 
         if (list_state->size == 0) {
             return ERTS_IOLIST_OK;
@@ -622,7 +746,7 @@ enum iolist_action list_to_bitstring_engine(ErtsL2BState *sp)
         }
     }
 
-    ASSERT(list_state->size > 0 && is_value(sp->arg) && copy_state->base);
+    ASSERT(list_state->size > 0 && is_value(sp->arg) && copy_state->to_base);
     return sp->iolist_to_buf(copy_state);
 }
 
@@ -631,14 +755,14 @@ l2b_state_destructor(Binary *mbp)
 {
     ErtsL2BState *sp = ERTS_MAGIC_BIN_DATA(mbp);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == l2b_state_destructor);
-    DESTROY_SAVED_ESTACK(&sp->buf.iolist.estack);
+    DESTROY_SAVED_ESTACK(&sp->copy.iolist.estack);
     return 1;
 }
 
 static BIF_RETTYPE
 list_to_bitstring_dispatch(Eterm mb_eterm, ErtsL2BState* sp, int gc_disabled)
 {
-    Process *c_p = sp->buf.iolist.c_p;
+    Process *c_p = sp->copy.iolist.c_p;
     enum iolist_action action;
 
     ASSERT(is_non_value(mb_eterm) ^ gc_disabled);
@@ -661,7 +785,7 @@ list_to_bitstring_dispatch(Eterm mb_eterm, ErtsL2BState* sp, int gc_disabled)
             Eterm *hp;
 
             mbp = erts_create_magic_binary(sizeof(ErtsL2BState),
-                                        l2b_state_destructor);
+                                           l2b_state_destructor);
             new_sp = ERTS_MAGIC_BIN_DATA(mbp);
             *new_sp = *sp;
 
@@ -703,29 +827,29 @@ static BIF_RETTYPE list_to_bitstring_continue(BIF_ALIST_1)
     ASSERT(BIF_P->flags & F_DISABLE_GC);
 
     state = (ErtsL2BState*)ERTS_MAGIC_BIN_DATA(mbp);
-    state->buf.iolist.reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
+    state->copy.iolist.reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
 
     return list_to_bitstring_dispatch(BIF_ARG_1, state, 1);
 }
 
 static int list_to_binary_size(ErtsIOListState *state)
 {
-    return generic_iolist_size(state, 8, 1);
+    return generic_iolist_size(state, ERTS_UINT_MAX, 8, 1);
 }
 
-static int list_to_binary_copy(ErtsIOList2BufState *state)
+static int list_to_binary_copy(ErtsIOListCopyState *state)
 {
-    return generic_iol2b(state, 8, 0, 1);
+    return generic_iolist_copy(state, ERTS_UINT_MAX, 8, 0, 1);
 }
 
 static int list_to_bitstring_size(ErtsIOListState *state)
 {
-    return generic_iolist_size(state, 1, 1);
+    return generic_iolist_size(state, ERTS_UINT_MAX, 1, 1);
 }
 
-static int list_to_bitstring_copy(ErtsIOList2BufState *state)
+static int list_to_bitstring_copy(ErtsIOListCopyState *state)
 {
-    return generic_iol2b(state, 1, 0, 1);
+    return generic_iolist_copy(state, ERTS_UINT_MAX, 1, 0, 1);
 }
 
 static BIF_RETTYPE list_to_bitstring_bif(Process *c_p,
@@ -761,7 +885,7 @@ static BIF_RETTYPE list_to_bitstring_bif(Process *c_p,
             int (*size_func)(ErtsIOListState *) = ((Unit) == 8) ?
                 list_to_binary_size :
                 list_to_bitstring_size;
-            int (*copy_func)(ErtsIOList2BufState *) = ((Unit) == 8) ?
+            int (*copy_func)(ErtsIOListCopyState *) = ((Unit) == 8) ?
                 list_to_binary_copy :
                 list_to_bitstring_copy;
             ErtsL2BState state = ERTS_L2B_STATE_INITER(c_p,
@@ -769,7 +893,7 @@ static BIF_RETTYPE list_to_bitstring_bif(Process *c_p,
                                                        bif,
                                                        size_func,
                                                        copy_func);
-            state.buf.iolist.reds_left = reds_left;
+            state.copy.iolist.reds_left = reds_left;
             return list_to_bitstring_dispatch(THE_NON_VALUE, &state, 0);
         }
     }
@@ -884,7 +1008,7 @@ iolist_size_dispatch(Eterm mb_eterm, IOListSizeState *sp, int gc_disabled)
     ASSERT(is_non_value(mb_eterm) ^ gc_disabled);
     ASSERT(gc_disabled == !!(c_p->flags & F_DISABLE_GC));
 
-    switch (generic_iolist_size(&sp->iolist, 8, 1)) {
+    switch (generic_iolist_size(&sp->iolist, ERTS_UINT_MAX, 8, 1)) {
     case ERTS_IOLIST_YIELD:
         if (!gc_disabled) {
             IOListSizeState *new_sp;
@@ -965,4 +1089,220 @@ BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
     state.iolist.reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
 
     return iolist_size_dispatch(THE_NON_VALUE, &state, 0);
+}
+
+/* ************************************************************************* */
+
+#define ERTS_IOL2IOV_STATE_INITER(C_P, ARG)                                   \
+    {ERTS_IOLIST_COPY_STATE_INITER((C_P), (ARG)),                             \
+     THE_NON_VALUE, (ARG)}
+
+typedef struct {
+    ErtsIOListCopyState copy;
+
+    Eterm result;
+    Eterm arg;
+} ErtsIOList2VecState;
+
+static int iolist_to_iovec_state_destructor(Binary *data) {
+    ErtsIOList2VecState *state = ERTS_MAGIC_BIN_DATA(data);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(data) == iolist_to_iovec_state_destructor);
+    DESTROY_SAVED_ESTACK(&state->copy.iolist.estack);
+    return 1;
+}
+
+static int iolist_to_iovec_size(ErtsIOListState *state)
+{
+    return generic_iolist_size(state, IOL2V_COPY_THRESHOLD, 8, 1);
+}
+
+static ERTS_INLINE
+enum iolist_action iolist_to_iovec_engine(ErtsIOList2VecState *state)
+{
+    ErtsIOListCopyState *copy_state;
+    ErtsIOListState *list_state;
+    Process *c_p;
+
+    copy_state = &state->copy;
+    list_state = &copy_state->iolist;
+    c_p = list_state->c_p;
+
+    /* have_size == 0 until iolist_to_iovec_size() finishes */
+    if (!list_state->have_size) {
+        int res = iolist_to_iovec_size(list_state);
+
+        switch (res) {
+        case ERTS_IOLIST_YIELD:
+        case ERTS_IOLIST_OVERFLOW:
+        case ERTS_IOLIST_TYPE:
+            return res;
+        case ERTS_IOLIST_OK:
+            ASSERT(list_state->have_size);
+            break;
+        }
+
+        state->result = NIL;
+        state->copy.vec_tail = &state->result;
+
+        /* We cannot fail from here on. Allocate a common off-heap binary for
+         * all copied components if need be.
+         *
+         * Note that we will create sub-binaries that reference this off-heap
+         * binary even when the individual components are below the off-heap
+         * threshold, as we expect the result of this routine to be passed
+         * into an IO queue which would otherwise need to copy the component
+         * anyway. */
+        if (list_state->size > 0) {
+            BinRef *br = (BinRef*)HAlloc(c_p, ERL_BIN_REF_SIZE);
+
+            br->thing_word = HEADER_BIN_REF;
+            br->val = erts_bin_nrml_alloc(NBYTES(list_state->size));
+
+            br->next = MSO(c_p).first;
+            MSO(c_p).first = (struct erl_off_heap_header*)br;
+            ERTS_BR_OVERHEAD(&MSO(c_p), br);
+
+            state->copy.to_base = (byte*)(br->val)->orig_bytes;
+            state->copy.bin_ref = make_boxed((Eterm*)br);
+        }
+
+        list_state->obj = state->arg;
+
+        if (list_state->reds_left <= 0) {
+            BUMP_ALL_REDS(c_p);
+            return ERTS_IOLIST_YIELD;
+        }
+    }
+
+    ASSERT(is_value(state->arg));
+    return generic_iolist_copy(copy_state, IOL2V_COPY_THRESHOLD, 8, 0, 1);
+}
+
+static BIF_RETTYPE
+iolist_to_iovec_dispatch(Eterm magic_ref,
+                         ErtsIOList2VecState *state,
+                         int gc_disabled)
+{
+    Process *c_p = state->copy.iolist.c_p;
+    enum iolist_action action;
+
+    ASSERT(is_non_value(magic_ref) ^ gc_disabled);
+    ASSERT(gc_disabled == !!(c_p->flags & F_DISABLE_GC));
+
+    action = iolist_to_iovec_engine(state);
+    switch (action) {
+    case ERTS_IOLIST_OK:
+        if (gc_disabled) {
+            erts_set_gc_state(c_p, 1);
+        }
+
+        ASSERT(!(c_p->flags & F_DISABLE_GC));
+        BIF_RET(state->result);
+        break;
+    case ERTS_IOLIST_YIELD:
+        if (!gc_disabled) {
+            ErtsIOList2VecState *copied_state;
+            Binary *mbp;
+            Eterm *hp;
+
+            mbp = erts_create_magic_binary(sizeof(ErtsIOList2VecState),
+                                           iolist_to_iovec_state_destructor);
+            copied_state = ERTS_MAGIC_BIN_DATA(mbp);
+            *copied_state = *state;
+
+            if (state->copy.vec_tail == &state->result) {
+                copied_state->copy.vec_tail = &copied_state->result;
+            }
+
+            hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+            magic_ref = erts_mk_magic_ref(&hp, &MSO(c_p), mbp);
+
+            erts_set_gc_state(c_p, 0);
+        }
+
+        BIF_TRAP1(&iolist_to_iovec_continue_export, c_p, magic_ref);
+        break;
+    default:
+        {
+            Uint reason;
+
+            if (gc_disabled && erts_set_gc_state(c_p, 1)) {
+                ERTS_VBUMP_ALL_REDS(c_p);
+            }
+
+            if (action == ERTS_IOLIST_OVERFLOW) {
+                reason = SYSTEM_LIMIT;
+            } else {
+                reason = BADARG;
+            }
+
+            ASSERT(!(c_p->flags & F_DISABLE_GC));
+            ERTS_BIF_ERROR_TRAPPED1(c_p,
+                                    reason,
+                                    &iolist_to_iovec_continue_export,
+                                    state->arg);
+        }
+        break;
+    }
+}
+
+static BIF_RETTYPE iolist_to_iovec_continue(BIF_ALIST_1)
+{
+    Binary *mbp = erts_magic_ref2bin(BIF_ARG_1);
+    ErtsIOList2VecState *state;
+
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp) == iolist_to_iovec_state_destructor);
+    ASSERT(BIF_P->flags & F_DISABLE_GC);
+
+    state = (ErtsIOList2VecState*)ERTS_MAGIC_BIN_DATA(mbp);
+    state->copy.iolist.reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
+
+    return iolist_to_iovec_dispatch(BIF_ARG_1, state, 1);
+}
+
+BIF_RETTYPE iolist_to_iovec_1(BIF_ALIST_1)
+{
+    ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+
+    if (is_nil(BIF_ARG_1)) {
+        BIF_RET(NIL);
+    } else if (is_not_list(BIF_ARG_1)) {
+        if (is_bitstring(BIF_ARG_1)) {
+            Uint size = bitstring_size(BIF_ARG_1);
+
+            if (TAIL_BITS(size) != 0) {
+                BIF_ERROR(BIF_P, BADARG);
+            } else if (size > 0) {
+                Eterm *hp = HAlloc(BIF_P, 2);
+                BIF_RET(CONS(hp, BIF_ARG_1, NIL));
+            }
+
+            BIF_RET(NIL);
+        }
+
+        BIF_ERROR(BIF_P, BADARG);
+    } else {
+        /* Check for [bitstring()] case */
+        Eterm head, tail;
+
+        head = CAR(list_val(BIF_ARG_1));
+        tail = CDR(list_val(BIF_ARG_1));
+
+        if (is_bitstring(head) && is_nil(tail)) {
+            Uint size = bitstring_size(head);
+
+            if (TAIL_BITS(size) != 0) {
+                BIF_ERROR(BIF_P, BADARG);
+            } else if (size > 0) {
+                BIF_RET(BIF_ARG_1);
+            }
+
+            BIF_RET(NIL);
+        } else {
+            ErtsIOList2VecState state = ERTS_IOL2IOV_STATE_INITER(BIF_P,
+                                                                  BIF_ARG_1);
+            state.copy.iolist.reds_left = ERTS_BIF_REDS_LEFT(BIF_P);
+            return iolist_to_iovec_dispatch(THE_NON_VALUE, &state, 0);
+        }
+    }
 }

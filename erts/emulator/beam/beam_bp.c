@@ -77,13 +77,13 @@ GenericBp* breakpoint_free_list;
 static ERTS_INLINE ErtsMonotonicTime
 get_mtime(Process *c_p)
 {
-    return erts_get_monotonic_time(erts_proc_sched_data(c_p));
+    return erts_get_monotonic_time(NULL);
 }
 
 static ERTS_INLINE Uint32
 acquire_bp_sched_ix(Process *c_p)
 {
-    ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
     ASSERT(esdp);
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	erts_mtx_lock(&erts_dirty_bp_ix_mtx);
@@ -370,6 +370,9 @@ erts_free_breakpoints(void)
     while (breakpoint_free_list) {
         GenericBp* free_me = breakpoint_free_list;
         breakpoint_free_list = breakpoint_free_list->next_to_free;
+#ifdef DEBUG
+        erts_refc_dec(&free_me->session->dbg_bp_refc, 0);
+#endif
         Free(free_me);
     }
 }
@@ -465,7 +468,8 @@ consolidate_bp_data_session(GenericBp* g)
 
     /*
      * Copy the active data to the staging area (making it ready
-     * for the next time it will be used).
+     * for the next time when it either will be updated or just become active
+     * without any updating).
      */
 
     if (flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE)) {
@@ -956,6 +960,10 @@ do_session_breakpoint(Process *c_p, ErtsCodeInfo *info, Eterm *reg,
     GenericBpData* bp;
     ErtsTracerRef* ref;
     Uint bp_flags;
+
+    if (!erts_is_trace_session_alive(g->session)) {
+        return 0;
+    }
 
     ref = get_tracer_ref(&c_p->common, g->session);
 
@@ -1727,7 +1735,8 @@ set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
 
 
 static GenericBp*
-get_bp_session(ErtsTraceSession *session, const ErtsCodeInfo *ci)
+get_bp_session(ErtsTraceSession *session, const ErtsCodeInfo *ci,
+               int is_staging)
 {
     GenericBp *g = ci->gen_bp;
 
@@ -1735,10 +1744,12 @@ get_bp_session(ErtsTraceSession *session, const ErtsCodeInfo *ci)
     if (!g)
         return NULL;
 
-    if (g->to_insert) {
+    if (is_staging) {
         ASSERT(session == erts_staging_trace_session);
-        ASSERT(g->to_insert->next == g);
-        g = g->to_insert;
+        if (g->to_insert) {
+            ASSERT(g->to_insert->next == g);
+            g = g->to_insert;
+        }
     }
 
     for ( ; g; g = g->next) {
@@ -1751,7 +1762,7 @@ get_bp_session(ErtsTraceSession *session, const ErtsCodeInfo *ci)
 static GenericBp*
 get_staging_bp_session(const ErtsCodeInfo *ci)
 {
-    return get_bp_session(erts_staging_trace_session, ci);
+    return get_bp_session(erts_staging_trace_session, ci, 1);
 }
 
 
@@ -1781,6 +1792,9 @@ set_function_break(ErtsCodeInfo *ci,
 	    g->data[i].flags = 0;
 	}
         g->session = erts_staging_trace_session;
+#ifdef DEBUG
+        erts_refc_inc(&g->session->dbg_bp_refc, 1);
+#endif
         g->next_to_free = NULL;
         g->to_insert = NULL;
 
@@ -2028,7 +2042,7 @@ get_memory_break(ErtsTraceSession *session, const ErtsCodeInfo *ci)
 static GenericBpData*
 check_break(ErtsTraceSession *session, const ErtsCodeInfo *ci, Uint break_flags)
 {
-    GenericBp* g = get_bp_session(session, ci);
+    GenericBp* g = get_bp_session(session, ci, 0);
 
 #ifndef BEAMASM
     ASSERT(BeamIsOpCode(ci->u.op, op_i_func_info_IaaI));
@@ -2044,4 +2058,22 @@ check_break(ErtsTraceSession *session, const ErtsCodeInfo *ci, Uint break_flags)
     }
 
     return 0;
+}
+
+Eterm erts_make_bp_session_list(ErtsHeapFactory * factory,
+                                const ErtsCodeInfo *ci,
+                                Eterm tail)
+{
+    GenericBp *g;
+    Eterm list = tail;
+
+    for (g = ci->gen_bp ; g; g = g->next) {
+        if (erts_is_trace_session_alive(g->session)) {
+            Eterm *hp = erts_produce_heap(factory,
+                                          ERTS_TRACE_SESSION_WEAK_REF_SZ+2, 0);
+            Eterm weak_ref = erts_make_trace_session_weak_ref(g->session, &hp);
+            list = CONS(hp, weak_ref, list);
+        }
+    }
+    return list;
 }

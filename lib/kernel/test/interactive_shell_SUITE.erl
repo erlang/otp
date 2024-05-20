@@ -46,6 +46,7 @@
          shell_history_custom/1, shell_history_custom_errors/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
+         shell_get_password/1,
          shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
          shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
@@ -86,6 +87,7 @@ groups() ->
        job_control_remote, job_control_remote_noshell,
        ctrl_keys, stop_during_init, wrap,
        shell_invalid_ansi,
+       shell_get_password,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -1329,6 +1331,20 @@ shell_invalid_ansi(_Config) ->
        "-eval","shell:prompt_func({interactive_shell_SUITE,prompt})."
       ]).
 
+shell_get_password(_Config) ->
+   
+    rtnode:run(
+      [{putline,"io:get_password()."},
+       {putline,"secret\r"},
+       {expect, "\r\n\r\n\"secret\""}]),
+
+    %% io:get_password only works when run in "newshell"
+    rtnode:run(
+      [{putline,"io:get_password()."},
+       {expect, "\\Q{error,enotsup}\\E"}],
+     "","",["-oldshell"]).
+
+
 shell_ignore_pager_commands(Config) ->
     Term = start_tty(Config),
     case code:get_doc(file, #{sources=>[eep48]}) of
@@ -1735,7 +1751,7 @@ setup_tty(Config) ->
                    "strace" ->
                        STraceLog = filename:join(proplists:get_value(priv_dir,Config),
                                                  Name++".strace"),
-                       ct:pal("Link to strace: file://~ts", [STraceLog]),
+                       ct:log("Link to strace: file://~ts", [STraceLog]),
                        [os:find_executable("strace"),"-f",
                         "-o",STraceLog,
                         "-e","trace=all",
@@ -2142,7 +2158,7 @@ shell_history_eaccess(Config) ->
                {expect, "echo\r\n"}
               ], [], [], mk_history_param(Path)),
 
-        ct:pal("~p",[Logs1]),
+        ct:log("~p",[Logs1]),
         rtnode:check_logs("erlang.log.1", "Error handling file", Logs1),
 
         %% shell_docs recursively creates the folder to store the
@@ -2402,6 +2418,14 @@ job_control_local(Config) when is_list(Config) ->
                {putline, "h"},
                {expect,  "this message"},
                {expect,  "--> $"},
+               {putdata, "\t"}, %% Test that we don't crash
+               {sleep, 100},
+               {putline, ""},
+               {expect,  "^\r\n\r\n --> $"},
+               {putdata, "\^r"}, %% Test that we don't crash
+               {sleep, 100},
+               {putline, ""},
+               {expect,  "^\r\n\r\n --> $"},
                {putline, "c 1"},
                {expect, "\r\n"},
                {putline, "35."},

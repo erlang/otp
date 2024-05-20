@@ -3,8 +3,8 @@
 -export([main/0]).
 
 -moduledoc #{format => <<"text/asciidoc">>,
-             since => "1.0",
-             deprecated => "Use something else"}.
+             since => ~"1.0",
+             deprecated => ~"Use something else"}.
 -moduledoc "
 Moduledoc test module
 ".

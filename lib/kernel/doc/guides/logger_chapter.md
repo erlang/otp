@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +50,31 @@ _filter functions_.
 The following figure shows a conceptual overview of Logger. The figure shows two
 log handlers, but any number of handlers can be installed.
 
-![Conceptual Overview](assets/logger_arch.png "Conceptual Overview")
+```mermaid
+---
+title: Conceptual Overview
+---
+flowchart TD
+    DB[(Config DB)]
+    API ---> ML[Module Level <hr> Global Level <hr> Global Filters]
+    API -.Update configuration.-> DB
+    ML -.-> DB
+    ML ---> HL1[Hander Level <hr> Handler Filter]
+    ML ---> HL2[Hander Level <hr> Handler Filter]
+    HL1 ---> HC1[Handler Callback]
+    HL2 ---> HC2[Handler Callback]
+    HL1 -.-> DB
+    HL2 -.-> DB
+    subgraph Legend
+        direction LR
+        start1[ ] -->|Log event flow| stop1[ ]
+        style start1 height:0px;
+        style stop1 height:0px;
+        start2[ ] -.->|Look up configuration| stop2[ ]
+        style start2 height:0px;
+        style stop2 height:0px;
+    end
+```
 
 Log levels are expressed as atoms. Internally in Logger, the atoms are mapped to
 integer values, and a log event passes the log level check if the integer value
@@ -302,7 +326,7 @@ A handler is defined as a module exporting at least the following callback
 function:
 
 ```text
-log(LogEvent, Config) -> void()
+log(LogEvent, Config) -> term()
 ```
 
 This function is called when a log event has passed through all primary filters,

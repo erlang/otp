@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,10 +50,12 @@ All functions take two parameters:
 The data is thus at `buf[*index]` when an `ei` function is called.
 
 All encode functions assume that the `buf` and `index` parameters point to a
-buffer large enough for the data. To get the size of an encoded term, without
-encoding it, pass `NULL` instead of a buffer pointer. Parameter `index` is
-incremented, but nothing will be encoded. This is the way in `ei` to "preflight"
-term encoding.
+buffer large enough for the data. Note that the binary term format uses variable-
+length encoding so different values can require a different amount of space. For
+example, smaller integer values can be more compact than larger ones. To get
+the size of an encoded term, without encoding it, pass `NULL` instead of a
+buffer pointer. Parameter `index` is incremented, but nothing will be encoded.
+This is the way in `ei` to "preflight" term encoding.
 
 There are also encode functions that use a dynamic buffer. It is often more
 convenient to use these to encode data. All encode functions comes in two
@@ -150,6 +152,8 @@ Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
 
+Available since OTP 23.0
+
 ## ei_cmp_ports()
 
 ```c
@@ -163,6 +167,8 @@ Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
 
+Available since OTP 23.0
+
 ## ei_cmp_refs()
 
 ```c
@@ -174,6 +180,8 @@ Compare two references. The comparison is done the same way as Erlang does.
 Returns `0` if `a` and `b` are equal. Returns a value less than `0` if `a`
 compares as less than `b`. Returns a value larger than `0` if `a` compares as
 larger than `b`.
+
+Available since OTP 23.0
 
 ## ei_decode_atom()
 
@@ -187,7 +195,8 @@ is placed at `p`. At most `MAXATOMLEN` bytes can be placed in the buffer.
 ## ei_decode_atom_as()
 
 ```c
-int ei_decode_atom_as(const char *buf, int *index, char *p, int plen, erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
+int ei_decode_atom_as(const char *buf, int *index, char *p, int plen,
+  erlang_char_encoding want, erlang_char_encoding* was, erlang_char_encoding* result);
 ```
 
 Decodes an atom from the binary format. The `NULL`\-terminated name of the atom
@@ -206,6 +215,8 @@ represented with encoding `want`.
 
 This function was introduced in Erlang/OTP R16 as part of a first step to
 support UTF-8 atoms.
+
+Available since OTP R16B
 
 ## ei_decode_bignum()
 
@@ -231,7 +242,8 @@ enough room for the binary. The size required can be fetched by
 ## ei_decode_bitstring()
 
 ```c
-int ei_decode_bitstring(const char *buf, int *index, const char **pp, unsigned int *bitoffsp, size_t *nbitsp);
+int ei_decode_bitstring(const char *buf, int *index, const char **pp,
+  unsigned int *bitoffsp, size_t *nbitsp);
 ```
 
 Decodes a bit string from the binary format.
@@ -259,6 +271,8 @@ relied on.
 
 Number of bits may be divisible by 8, which means a binary decodable by
 `ei_decode_binary` is also decodable by `ei_decode_bitstring`.
+
+Available since OTP 22.0
 
 ## ei_decode_boolean()
 
@@ -352,6 +366,8 @@ invalid encoding of the term or due to the term not being of the type
 `t:iodata/0`. On failure, the integer pointed to by the `index` argument will be
 updated to refer to the sub term where the failure was detected.
 
+Available since OTP 23.0
+
 ## ei_decode_list_header()
 
 ```c
@@ -395,6 +411,8 @@ returned in `*arity`. Keys and values follow in this order:
 `K1, V1, K2, V2, ..., Kn, Vn`. This makes a total of `arity*2` terms. If `arity`
 is zero, it is an empty map. A correctly encoded map does not have duplicate
 keys.
+
+Available since OTP 17.0
 
 ## ei_decode_pid()
 
@@ -509,26 +527,36 @@ Latin-1 encoding. Only up to `MAXATOMLEN-1` bytes are encoded. The name is to be
 
 ## ei_encode_atom_as()
 
+Available since OTP R16B
+
 ## ei_encode_atom_len_as()
 
+Available since OTP R16B
+
 ## ei_x_encode_atom_as()
+
+Available since OTP R16B
 
 ## ei_x_encode_atom_len_as()
 
 ```c
-int ei_encode_atom_as(char *buf, int *index, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_encode_atom_as(char *buf, int *index, const char *p,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_encode_atom_len_as(char *buf, int *index, const char *p, int len,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_x_encode_atom_as(ei_x_buff* x, const char *p, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_x_encode_atom_as(ei_x_buff* x, const char *p,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 ```c
-int ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len, erlang_char_encoding from_enc, erlang_char_encoding to_enc);
+int ei_x_encode_atom_len_as(ei_x_buff* x, const char *p, int len,
+  erlang_char_encoding from_enc, erlang_char_encoding to_enc);
 ```
 
 Encodes an atom in the binary format. Parameter `p` is the name of the atom with
@@ -540,6 +568,8 @@ The encoding fails if `p` is not a valid string in encoding `from_enc`.
 
 Argument `to_enc` is ignored. As from Erlang/OTP 20 the encoding is always done
 in UTF-8 which is readable by nodes as old as Erlang/OTP R16.
+
+Available since OTP R16B
 
 ## ei_encode_bignum()
 
@@ -573,6 +603,8 @@ length.
 
 ## ei_encode_bitstring()
 
+Available since OTP 22.0
+
 ## ei_x_encode_bitstring()
 
 ```c
@@ -596,6 +628,8 @@ The number of bytes which is part of the bit string is
 byte are the least significant bits.
 
 The values of unused bits are disregarded and does not need to be cleared.
+
+Available since OTP 22.0
 
 ## ei_encode_boolean()
 
@@ -753,6 +787,8 @@ format.
 
 ## ei_encode_map_header()
 
+Available since OTP 17.0
+
 ## ei_x_encode_map_header()
 
 ```c
@@ -778,6 +814,8 @@ ei_x_encode_string(&x, "Banana");
 ```
 
 A correctly encoded map cannot have duplicate keys.
+
+Available since OTP 17.0
 
 ## ei_encode_pid()
 
@@ -976,15 +1014,10 @@ Currently `*type` is one of:
 - **ERL_FLOAT_EXT** - Decode using
   [`ei_decode_double()`](ei.md#ei_decode_double).
 
-- **ERL_NEW_FUN_EXT  
-  ERL_FUN_EXT  
-  ERL_EXPORT_EXT**  
+- **ERL_NEW_FUN_EXT, ERL_FUN_EXT, ERL_EXPORT_EXT** -
   Decode using [`ei_decode_fun()`](ei.md#ei_decode_fun).
 
-- **ERL_SMALL_INTEGER_EXT  
-  ERL_INTEGER_EXT  
-  ERL_SMALL_BIG_EXT  
-  ERL_LARGE_BIG_EXT**  
+- **ERL_SMALL_INTEGER_EXT, ERL_INTEGER_EXT, ERL_SMALL_BIG_EXT, ERL_LARGE_BIG_EXT** -
   Decode using either [`ei_decode_char()`](ei.md#ei_decode_char),
   [`ei_decode_long()`](ei.md#ei_decode_long),
   [`ei_decode_longlong()`](ei.md#ei_decode_longlong),
@@ -992,8 +1025,7 @@ Currently `*type` is one of:
   [`ei_decode_ulonglong()`](ei.md#ei_decode_ulonglong), or
   [`ei_decode_bignum()`](ei.md#ei_decode_bignum).
 
-- **ERL_LIST_EXT  
-  ERL_NIL_EXT**  
+- **ERL_LIST_EXT, ERL_NIL_EXT** -
   Decode using either [`ei_decode_list_header()`](ei.md#ei_decode_list_header),
   or [`ei_decode_iodata()`](ei.md#ei_decode_iodata).
 
@@ -1011,8 +1043,7 @@ Currently `*type` is one of:
 - **ERL_NEW_REFERENCE_EXT** - Decode using
   [`ei_decode_ref()`](ei.md#ei_decode_ref).
 
-- **ERL_SMALL_TUPLE_EXT  
-  ERL_LARGE_TUPLE_EXT**  
+- **ERL_SMALL_TUPLE_EXT, ERL_LARGE_TUPLE_EXT**  
   Decode using [`ei_decode_tuple_header()`](ei.md#ei_decode_tuple_header).
 
 Instead of decoding a term you can also skipped past it if you are not
@@ -1028,6 +1059,8 @@ Initialize the `ei` library. This function should be called once (and only once)
 before calling any other functionality in the `ei` library.
 
 On success zero is returned. On failure a posix error code is returned.
+
+Available since OTP 21.3
 
 ## ei_print_term()
 
@@ -1148,7 +1181,7 @@ Formats a term, given as a string, to a buffer. Works like a sprintf for Erlang
 terms. `fmt` contains a format string, with arguments like `~d`, to insert terms
 from variables. The following formats are supported (with the C types given):
 
-```c
+```text
 ~a  An atom, char*
 ~c  A character, char
 ~s  A string, char*

@@ -320,10 +320,12 @@ get_state() ->
     end.
 
 -doc """
-Turns a distributed node into a non-distributed node. For other nodes in the
-network, this is the same as the node going down. Only possible when the net
-kernel was started using `start/2`, otherwise `{error, not_allowed}` is
-returned. Returns `{error, not_found}` if the local node is not alive.
+Turns a distributed node into a non-distributed node.
+
+For other nodes in the network, this is the same as the node going down.
+Only possible when the net kernel was started using `start/2`, otherwise
+`{error, not_allowed}` is returned. Returns `{error, not_found}` if the local
+node is not alive.
 """.
 -spec stop() -> ok | {error, Reason} when
       Reason :: not_allowed | not_found.
@@ -413,7 +415,7 @@ Returns one of the following:
 set_net_ticktime(T, TP) when is_integer(T), T > 0, is_integer(TP), TP >= 0 ->
     ticktime_res(request({new_ticktime, T*1000, TP*1000})).
 
--doc(#{equiv => set_net_ticktime/2}).
+-doc(#{equiv => set_net_ticktime(NetTicktime, ?DEFAULT_TRANSITION_PERIOD)}).
 -spec set_net_ticktime(NetTicktime) -> Res when
       NetTicktime :: pos_integer(),
       Res :: unchanged
@@ -424,8 +426,10 @@ set_net_ticktime(T) when is_integer(T) ->
     set_net_ticktime(T, ?DEFAULT_TRANSITION_PERIOD).
 
 -doc """
-Returns currently used net tick time in seconds. For more information see the
-[`net_ticktime`](kernel_app.md#net_ticktime) `kernel(6)` parameter.
+Returns currently used net tick time in seconds.
+
+For more information see the [`net_ticktime`](kernel_app.md#net_ticktime)
+`Kernel` parameter.
 
 Defined return values (`Res`):
 
@@ -447,7 +451,7 @@ get_net_ticktime() ->
 %% flags (we may want to move it elsewhere later). In order to easily
 %% be backward compatible, errors are created here when process_flag()
 %% fails.
--doc(#{equiv => monitor_nodes/2}).
+-doc(#{equiv => monitor_nodes(Flag, [])}).
 -spec monitor_nodes(Flag) -> ok | Error when
       Flag :: boolean(),
       Error :: error | {error, term()}.
@@ -684,10 +688,11 @@ publish_on_node(Node) when is_atom(Node) ->
                          Node).
 
 -doc """
-Establishes a connection to `Node`. Returns `true` if a connection was
-established or was already established or if `Node` is the local node itself.
-Returns `false` if the connection attempt failed, and `ignored` if the local
-node is not alive.
+Establishes a connection to `Node`.
+
+Returns `true` if a connection was established or was already established or if
+`Node` is the local node itself. Returns `false` if the connection attempt failed,
+and `ignored` if the local node is not alive.
 """.
 -spec connect_node(Node) -> boolean() | ignored when
       Node :: node().
@@ -839,10 +844,6 @@ start(Name, Options) ->
     error(invalid_options, [Name, Options]).
 
 -doc """
-> #### Warning {: .warning }
->
-> [`start/1`](`start/1`) is deprecated. Use `start/2` instead.
-
 Turns a non-distributed node into a distributed node by starting `net_kernel`
 and other necessary processes.
 
@@ -860,6 +861,7 @@ imporant):
   milliseconds. `TickTime` is the time between ticks when net tick intensity
   equals `4`.
 """.
+-doc(#{ deprecated => ~"Use start/2 instead" }).
 -spec start(Options) -> {ok, pid()} | {error, Reason} when
       Options :: nonempty_list(Name | NameDomain | TickTime),
       Name :: atom(),

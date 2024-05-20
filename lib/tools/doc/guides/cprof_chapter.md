@@ -26,49 +26,51 @@ different functions in the system are called.
 to collect profiling data. Therefore there is no need for special compilation of
 any module to be profiled.
 
-`cprof` presents all profiled modules in decreasing total call count order, and
-for each module presents all profiled functions also in decreasing call count
+`cprof` presents all profiled modules in descending total call count order, and
+for each module presents all profiled functions also in descending call count
 order. A call count limit can be specified to filter out all functions below the
 limit.
 
 Profiling is done in the following steps:
 
-- **`cprof:start/0..3`** - Starts profiling with zeroed call counters for
-  specified functions by setting call count breakpoints on them.
+- **[`cprof:start/*`](`cprof:start/3`)** - Starts profiling with
+  zeroed call counters for specified functions by setting call count
+  breakpoints on them.
 
 - **`Mod:Fun()`** - Runs the code to be profiled.
 
-- **`cprof:pause/0..3`** - Pauses the call counters for specified functions.
-  This minimises the impact of code running in the background or in the shell
-  that disturbs the profiling. Call counters are automatically paused when they
-  "hit the ceiling" of the host machine word size. For a 32 bit host the maximum
-  counter value is 2147483647.
+- **[`cprof:pause/*`](`cprof:pause/3`)** - Pauses the call counters for
+  specified functions. This minimizes the impact of code running in
+  the background or in the shell. Call counters are automatically
+  paused when they "hit the ceiling" of the host machine word
+  size. For a 32 bit host the maximum counter value is 2,147,483,647.
 
-- **`cprof:analyse/0..2`** - Collects call counters and computes the result.
+- **[`cprof:analyse/*`](`cprof:analyse/2`)** - Collects call counters
+  and computes the result.
 
-- **`cprof:restart/0..3`** - Restarts the call counters from zero for specified
-  functions. Can be used to collect a new set of counters without having to stop
-  and start call count profiling.
+- **[`cprof:restart/*`](`cprof:restart/3`)** - Restarts the call
+  counters from zero for specified functions. Can be used to collect a
+  new set of counters without having to stop and start call count
+  profiling.
 
-- **`cprof:stop/0..3`** - Stops profiling by removing call count breakpoints
-  from specified functions.
+- **[`cprof:stop/0..3`](`cprof:stop/3`)** - Stops profiling by
+  removing call count breakpoints from specified functions.
 
 Functions can be specified as either all in the system, all in one module, all
 arities of one function, one function, or all functions in all modules not yet
-loaded. As for now, BIFs cannot be call count traced.
+loaded. BIFs cannot be call-count traced.
 
-The analysis result can either be for all modules, or for one module. In either
+The analysis result can either be for a single module or for all modules. In either
 case a call count limit can be given to filter out the functions with a call
 count below the limit. The all modules analysis does _not_ contain the module
-`cprof` itself, it can only be analysed by specifying it as a single module to
-analyse.
+`cprof` itself; the only way to analyze `cprof` is by specifying it as a single
+module to analyse.
 
 Call count tracing is very lightweight compared to other forms of tracing since
 no trace message has to be generated. Some measurements indicates performance
 degradations in the vicinity of 10 percent.
 
-The following sections show some examples of profiling with `cprof`. See also
-`m:cprof`.
+The following sections show some examples of profiling with `m:cprof`.
 
 ## Example: Background work
 
@@ -113,7 +115,7 @@ interpret the first command line.
 
 What is captured in this example is the part of the work the shell does while
 interpreting the command line that occurs between the actual calls to
-`cprof:start()` and `cprof:analyse()`.
+[`cprof:start()`](`cprof:start/0`) and [`cprof:analyse()`](`cprof:analyse/1`).
 
 ## Example: One module
 
@@ -213,7 +215,7 @@ ok.
 ```
 
 The example shows some details of how `lists:sort/1` works. It used 6173
-function calls in the module `lists` to complete the work.
+function calls in module `m:lists` to complete the work.
 
 This time, since the shell was not involved in starting and stopping `cprof`, no
 other work was done in the system during the profiling.

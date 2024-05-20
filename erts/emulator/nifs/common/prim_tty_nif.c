@@ -551,6 +551,9 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                                       enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
                                       enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
                     break;
+                case MOUSE_EVENT:
+                    /* We don't do anything with the mouse event */
+                    break;
                 case MENU_EVENT:
                 case FOCUS_EVENT:
                     /* Should be ignored according to

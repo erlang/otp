@@ -45,6 +45,8 @@
 	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
          trace_info_badarg/1, erl_704/1, ms_excessive_nesting/1]).
 
+-nifs([slow_nif/0]).
+
 -include_lib("common_test/include/ct.hrl").
 
 %%% Internal exports
@@ -451,10 +453,8 @@ send_trace(Config) when is_list(Config) ->
     Receiver = proplists:get_value(receiver, Config),
 
     %% Check that a message sent to another process is traced.
-    ?line,
     1 = erlang_trace(Sender, true, [send]),
     F1 = fun (Pat) ->
-                 ?line,
 		 set_trace_pattern(send, Pat, []),
 		 Sender ! {send_please, Receiver, to_receiver},
 		 {trace, Sender, send, to_receiver, Receiver} = receive_first_trace(),
@@ -994,6 +994,10 @@ start_monitor() ->
 %% Tests erlang:system_monitor(Pid, [{long_schedule,Time}])
 system_monitor_long_schedule(Config) when is_list(Config) ->
     Path = proplists:get_value(data_dir, Config),
+    case erlang:load_nif(filename:join(Path,"trace_SUITE"), []) of
+        ok -> ok;
+        {error, {reload,_}} -> ok
+    end,
     erl_ddll:start(),
     case (catch load_driver(Path, slow_drv)) of
         ok ->
@@ -1001,10 +1005,14 @@ system_monitor_long_schedule(Config) when is_list(Config) ->
         _Error ->
             {skip, "Unable to load slow_drv (windows or no usleep()?)"}
     end.
+
+slow_nif() ->
+    erlang:nif_error("NIF not loaded").
+
 do_system_monitor_long_schedule() ->
     start_monitor(),
-    Port = open_port({spawn_driver,slow_drv}, []),
-    "ok" = erlang:port_control(Port,0,[]),
+
+    slow_nif(),
     Self = self(),
     receive
         {Self,L} when is_list(L) ->
@@ -1012,6 +1020,8 @@ do_system_monitor_long_schedule() ->
     after 1000 ->
             ct:fail(no_trace_of_pid)
     end,
+
+    Port = open_port({spawn_driver,slow_drv}, []),
     "ok" = erlang:port_control(Port,1,[]),
     receive
         {Port,LL} when is_list(LL) ->
@@ -1651,24 +1661,29 @@ suspend_opts(Config) when is_list(Config) ->
     SI = repeat_acc(SF, TC, #susp_info{}),
     erlang:suspend_process(Tok, [asynchronous]),
     %% Verify that it eventually suspends
-    WaitTime0 = 10,
-    WaitTime1 = case {erlang:system_info(debug_compiled),
-                      erlang:system_info(lock_checking)} of
-                    {false, false} ->
-                        WaitTime0;
-                    {false, true} ->
-                        WaitTime0*5;
-                    _ ->
-                        WaitTime0*10
-                end,
-    WaitTime = case {erlang:system_info(schedulers_online),
-                     erlang:system_info(logical_processors)} of
-                   {Schdlrs, CPUs} when is_integer(CPUs),
-                                        Schdlrs =< CPUs ->
-                       WaitTime1;
-                   _ ->
-                       WaitTime1*10
-               end,
+    WaitTime0 = 20,
+    WaitTime1 = WaitTime0 *
+        case erlang:system_info(emu_type) of
+            debug -> 2;
+            gcov -> 2;
+            asan -> 2;
+            valgrind -> 10;
+            _ -> 1
+        end,
+    WaitTime2 = WaitTime1 *
+        case erlang:system_info(lock_checking) of
+            true -> 5;
+            false -> 1
+        end,
+    WaitTime = WaitTime2 *
+        case {erlang:system_info(schedulers_online),
+              erlang:system_info(logical_processors)} of
+            {Schdlrs, CPUs} when is_integer(CPUs),
+                                 Schdlrs =< CPUs ->
+                1;
+            _ ->
+                10
+        end,
     receive after WaitTime -> ok end,
     1 = suspend_count(Tok),
     erlang:suspend_process(Tok, [asynchronous]),

@@ -52,6 +52,7 @@ start_child(Sup, LSock, ListenAddr, ConnectToAddr, ChanType, ChanCB, ConnPid) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([]) ->
+    ssh_lib:set_label(tcpip_fw_acceptor_sup),
     SupFlags = #{strategy  => one_for_one, 
                  intensity =>   10,
                  period    => 3600

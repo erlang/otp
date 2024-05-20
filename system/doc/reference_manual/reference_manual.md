@@ -40,13 +40,15 @@ following:
   [logging](`e:system:error_logging.md`),
   [creating target systems](`e:system:create_target.md`)
 
-- [Efficiency Guide](`e:system:advanced.md`)
+- [Efficiency Guide](`e:system:efficiency_guide.md`)
 
-  Memory consumption, system limits
+  [Memory consumption](`e:system:memory.md`) and
+  [system limits](`e:system:system_limits.md`).
 
 - ERTS User's Guide
 
-  [Crash dumps](`e:erts:crash_dump.md`), [drivers](`e:erts:driver.md`)
+  [Crash dumps](`e:erts:crash_dump.md`), [NIFs](`e:erts:erl_nif.md`),
+  [drivers](`e:erts:driver.md`)
 
 ## Prerequisites
 
@@ -67,14 +69,14 @@ If a feature has been added in R13A or later, this is mentioned in the text.
 
 ## Complete List of BIFs
 
-For a complete list of BIFs, their arguments and return values, see `m:erlang`
-manual page in ERTS.
+For a complete list of BIFs, their arguments and return values, see module `m:erlang`
+in ERTS.
 
 ## Reserved Words
 
 The following are reserved words in Erlang:
 
-`after and andalso band begin bnot bor bsl bsr bxor case catch cond div end fun if let maybe not of or orelse receive rem try when xor`
+`after and andalso band begin bnot bor bsl bsr bxor case catch cond div else end fun if let maybe not of or orelse receive rem try when xor`
 
 **Note**: `cond` and `let`, while reserved, are currently not used by the
 language.

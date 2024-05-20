@@ -21,10 +21,7 @@
 -module(mod_security).
 -moduledoc """
 Security Audit and Trailing Functionality
-
-Security Audit and Trailing Functionality
 """.
--moduledoc(#{titles => [{callback,<<"SecurityCallbackModule">>}]}).
 
 %% Security Audit Functionality
 
@@ -46,9 +43,7 @@ Security Audit and Trailing Functionality
 %%====================================================================
 %% Internal application API
 %%====================================================================
--doc(#{title => <<"SecurityCallbackModule">>,
-       equiv => {callback,event,5},
-       since => <<"OTP 18.1">>}).
+-doc(#{since => <<"OTP 18.1">>}).
 -callback event(What, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),
@@ -56,8 +51,6 @@ Security Audit and Trailing Functionality
       Data :: [Info],
       Info :: {Name :: term(), Value :: term()}.
 -doc """
-[](){: #callback_module_event }
-
 [`event/4`](`c:event/4`) or [`event/5`](`c:event/5`) is called whenever an event
 occurs in the `mod_security` Erlang web server API module.
 ([`event/4`](`c:event/4`) is called if `Address` is undefined, otherwise
@@ -75,11 +68,11 @@ occurred and is one of the following reasons:
 > The event `user_unblock` is not triggered when a user is removed from the
 > block list explicitly using the `unblock_user` function.
 """.
--doc(#{title => <<"SecurityCallbackModule">>,since => <<"OTP 18.1">>}).
+-doc(#{since => <<"OTP 18.1">>}).
 -callback event(What, Address, Port, Dir, Data) -> term() when
       What :: auth_fail | user_block | user_unblock,
       Port :: integer(),
-      Address :: inet:ip4_address() | string(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string(),
       Dir :: string(),
       Data :: [Info],
       Info :: {Name :: term(), Value :: term()}.
@@ -198,10 +191,21 @@ remove(ConfigDB) ->
     
 
 -doc(#{equiv => list_blocked_users/3}).
+-spec list_blocked_users(Port) -> Users | [] when
+      Port :: integer(),
+      Users  :: [{blocked_user, term(), term(), term(), term()}].
 list_blocked_users(Port) ->
     list_blocked_users(undefined, Port).
 
 -doc(#{equiv => list_blocked_users/3}).
+-spec list_blocked_users(Port, Directory) -> Users | [] when
+      Port :: integer(),
+      Directory :: string(),
+      Users  :: [{blocked_user, term(), term(), term(), term()}];
+                        (Address, Port) -> Users | [] when
+      Port :: integer(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Users  :: [{blocked_user, term(), term(), term(), term()}].
 list_blocked_users(Port, Dir) when is_integer(Port) ->
     list_blocked_users(undefined,Port,Dir);
 list_blocked_users(Addr, Port) when is_integer(Port) ->
@@ -211,13 +215,16 @@ list_blocked_users(Addr, Port) when is_integer(Port) ->
 	      mod_security_server:list_blocked_users(Addr, Port)).
 
 -doc """
-list_blocked_users(Address, Port, Dir) -> Users | []
-
 [`list_blocked_users/1`](`list_blocked_users/1`),
 [`list_blocked_users/2`](`list_blocked_users/2`), and
 [`list_blocked_users/3`](`list_blocked_users/3`) each returns a list of users
 that are currently blocked from access.
 """.
+-spec list_blocked_users(Address, Port, Dir) -> Users | [] when
+      Port :: integer(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Dir :: string(),
+      Users  :: [{blocked_user, term(), term(), term(), term()}].
 list_blocked_users(Addr, Port, Dir) ->
     lists:map(fun({User, Addr0, Port0, ?DEFAULT_PROFILE, Dir0, Time}) ->
 		      {User, Addr0, Port0, Dir0,Time}
@@ -225,56 +232,99 @@ list_blocked_users(Addr, Port, Dir) ->
 	      mod_security_server:list_blocked_users(Addr, Port, Dir)).
 
 -doc(#{equiv => block_user/5}).
+-spec block_user(User, Port, Dir, Seconds) -> true | {error, Reason} when
+      User :: string(),
+      Port :: inet:port_number(),
+      Dir :: string(),
+      Seconds :: non_neg_integer() | infinity,
+      Reason :: no_such_directory.
 block_user(User, Port, Dir, Time) ->
     block_user(User, undefined, Port, Dir, Time).
 -doc """
-block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason}
-
 [`block_user/4`](`block_user/4`) and [`block_user/5`](`block_user/5`) each
 blocks the user `User` from directory `Dir` for a specified amount of time.
 """.
+-spec block_user(User, Address, Port, Dir, Seconds) -> true | {error, Reason} when
+    User :: string(),
+    Port :: inet:port_number(),
+    Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+    Dir :: string(),
+    Seconds :: non_neg_integer() | infinity,
+    Reason :: no_such_directory.
 block_user(User, Addr, Port, Dir, Time) ->
     mod_security_server:block_user(User, Addr, Port, Dir, Time).
 
 -doc(#{equiv => unblock_user/4}).
+-spec unblock_user(User, Port) -> true | {error, Reason} when
+      User :: string(),
+      Port :: integer(),
+      Reason :: term().
 unblock_user(User, Port) ->
     unblock_user(User, undefined, Port).
 
 -doc(#{equiv => unblock_user/4}).
+-spec unblock_user(User, Port, Directory) -> true | {error, Reason} when
+      User :: string(),
+      Port :: integer(),
+      Directory :: string(),
+      Reason :: term();
+                  (User, Address, Port) -> true | {error, Reason} when
+      User :: string(),
+      Port :: integer(),
+      Address :: inet:ip4_address() | inet:ip6_address()| string() | undefined,
+      Reason :: term().
 unblock_user(User, Port, Dir) when is_integer(Port) ->
     unblock_user(User, undefined, Port, Dir);
 unblock_user(User, Addr, Port) when is_integer(Port) ->
     mod_security_server:unblock_user(User, Addr, Port).
 
 -doc """
-unblock_user(User, Address, Port, Dir) -> true | {error, Reason}
-
 [`unblock_user/2`](`unblock_user/2`), [`unblock_user/3`](`unblock_user/3`), and
 [`unblock_user/4`](`unblock_user/4`) each removes the user `User` from the list
 of blocked users for `Port` (and `Dir`).
 """.
+-spec unblock_user(User, Address, Port, Dir) -> true | {error, Reason} when
+      User :: string(),
+      Port :: integer(),
+      Address :: inet:ip4_address() | inet:ip6_address()| string() | undefined,
+      Dir :: string(),
+      Reason :: term().
 unblock_user(User, Addr, Port, Dir) ->
     mod_security_server:unblock_user(User, Addr, Port, Dir).
 
 -doc(#{equiv => list_auth_users/3}).
+-spec list_auth_users(Port) -> Users | [] when
+      Port :: inet:port_number(),
+      Users :: [string()].
 list_auth_users(Port) ->
     list_auth_users(undefined,Port).
 
 -doc(#{equiv => list_auth_users/3}).
+-spec list_auth_users(Port, Directory) -> Users | [] when
+      Port :: inet:port_number(),
+      Directory :: string(),
+      Users :: [string()];
+                     (Address, Port) -> Users | [] when
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Users :: [string()].
 list_auth_users(Port, Dir) when is_integer(Port) ->
     list_auth_users(undefined, Port, Dir);
 list_auth_users(Addr, Port) when is_integer(Port) ->
     mod_security_server:list_auth_users(Addr, Port).
 
 -doc """
-list_auth_users(Address, Port, Dir) -> Users | []
-
 [`list_auth_users/1`](`list_auth_users/1`),
 [`list_auth_users/2`](`list_auth_users/2`), and
 [`list_auth_users/3`](`list_auth_users/3`) each returns a list of users that are
 currently authenticated. Authentications are stored for `SecurityAuthTimeout`
 seconds, and then discarded.
 """.
+-spec list_auth_users(Address, Port, Dir) -> Users | [] when
+      Port :: inet:port_number(),
+      Address :: inet:ip4_address() | inet:ip6_address() | string() | undefined,
+      Dir :: string(),
+      Users :: [string()].
 list_auth_users(Addr, Port, Dir) ->
     mod_security_server:list_auth_users(Addr, Port, Dir).
 

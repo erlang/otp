@@ -21,7 +21,7 @@ limitations under the License.
 
 [](){: #features } Introduced in OTP 25, Erlang has the concept of selectable
 features. A feature can change, add or remove behaviour of the language and/or
-runtime system. Examples can include
+runtime system. Examples can include:
 
 - Adding new syntactical constructs to the language
 - Change the semantics of an existing construct
@@ -130,3 +130,4 @@ The following configurable features exist:
 - **`maybe_expr` (experimental)** - Implementation of the
   [`maybe`](expressions.md#maybe) expression proposed in
   [EEP 49](https://www.erlang.org/eeps/eep-0049).
+  It was approved in Erlang/OTP 27.

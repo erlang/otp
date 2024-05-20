@@ -174,8 +174,9 @@ A table called `myTable` has five columns. The first two are keys (not
 accessible), and the table has three rows. The instrumentation function for this
 table is called `my_table`.
 
-![Contents of my_table](assets/getnext1.gif "Contents of my_table"){: #getnext1
-}
+[](){: #getnext1 }
+
+![Contents of my_table](assets/getnext1.gif "Contents of my_table")
 
 > #### Note {: .info }
 >
@@ -205,8 +206,9 @@ return the lexicographically next elements:
 
 This is illustrated in the following table:
 
-![GetNext from [3,1,1] and [5,1,1].](assets/getnext2.gif "GetNext from [3,1,1] and [5,1,1]."){:
-#getnext2 }
+[](){: #getnext2 }
+
+![GetNext from [3,1,1] and [5,1,1].](assets/getnext2.gif "GetNext from [3,1,1] and [5,1,1].")
 
 The manager now issues the following `getNext` request:
 
@@ -229,8 +231,10 @@ The function should now return:
 
 This is illustrated in the following table:
 
-![GetNext from [3,2,1] and [5,2,1].](assets/getnext3.gif "GetNext from [3,2,1] and [5,2,1]."){:
-#getnext3 }
+[](){: #getnext3 }
+
+![GetNext from [3,2,1] and [5,2,1].](assets/getnext3.gif "GetNext from [3,2,1] and [5,2,1].")
+
 
 The manager now issues the following `getNext` request:
 
@@ -253,8 +257,10 @@ The function should now return:
 
 This is illustrated in the following table:
 
-![GetNext from [3,1,2] and [4,1,2].](assets/getnext4.gif "GetNext from [3,1,2] and [4,1,2]."){:
-#getnext4 }
+[](){: #getnext4 }
+
+![GetNext from [3,1,2] and [4,1,2].](assets/getnext4.gif "GetNext from [3,1,2] and [4,1,2].")
+
 
 The manager now issues the following `getNext` request:
 

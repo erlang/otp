@@ -26,6 +26,7 @@
          clobbers_xregs/1,def/2,def_unused/3,
          definitions/2,
          dominators/2,dominators_from_predecessors/2,common_dominators/3,
+         eval_instr/1,
          flatmapfold_instrs/4,
          fold_blocks/4,
          fold_instrs/4,
@@ -504,6 +505,46 @@ dominators_from_predecessors(Top0, Preds) when is_map(Preds) ->
 common_dominators(Ls, Dom, Numbering) when is_map(Dom) ->
     Doms = [map_get(L, Dom) || L <- Ls],
     dom_intersection(Doms, Numbering).
+
+
+%% eval_instr(Instr) -> #b_literal{} | any | failed.
+%%  Attempt to evaluate a BIF instruction. Returns a `#b_literal{}`
+%%  record if evaluation succeeded, `failed` if an exception was
+%%  raised, or `any` if the arguments were not literals or the BIF is
+%%  not pure.
+
+-spec eval_instr(b_set()) -> b_literal() | 'any' | 'failed'.
+
+eval_instr(#b_set{op={bif,Bif},args=Args}) ->
+    LitArgs = case Args of
+                  [#b_literal{val=Arg1}] ->
+                      [Arg1];
+                  [#b_literal{val=Arg1},#b_literal{val=Arg2}] ->
+                      [Arg1,Arg2];
+                  [#b_literal{val=Arg1},#b_literal{val=Arg2},#b_literal{val=Arg3}] ->
+                      [Arg1,Arg2,Arg3];
+                  _ ->
+                      none
+              end,
+    case LitArgs of
+        none ->
+            any;
+        _ ->
+            Arity = length(LitArgs),
+            case erl_bifs:is_pure(erlang, Bif, Arity) of
+                true ->
+                    try apply(erlang, Bif, LitArgs) of
+                        Result ->
+                            #b_literal{val=Result}
+                    catch error:_->
+                            failed
+                    end;
+                false ->
+                    any
+            end
+    end;
+eval_instr(_) ->
+    any.
 
 -spec fold_instrs(Fun, Labels, Acc0, Blocks) -> any() when
       Fun :: fun((b_set()|terminator(), any()) -> any()),

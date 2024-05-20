@@ -388,11 +388,13 @@ in parallel with the ongoing one, the server consumes less resources.
 
 -type access() :: read | write.
 
--type options() :: [{Key :: string(), Value :: string()}].
+-type option() :: {Key :: string(), Value :: string()}.
 
 -type error_code() :: undef | enoent | eacces | enospc |
 		      badop | eexist | baduser | badopt |
 		      integer().
+
+-export_type([option/0]).
 
 -doc """
 Prepares to open a file on the client side.
@@ -408,13 +410,14 @@ options that it accepts. These are then forwarded to `open/4` as
 [](){: #open }
 """.
 -doc(#{since => <<"OTP 18.1">>}).
+
 -callback prepare(Peer :: peer(),
 		  Access :: access(),
 		  Filename :: file:name(),
 		  Mode :: string(),
-		  SuggestedOptions :: options(),
+		  SuggestedOptions :: [option()],
 		  InitialState :: [] | [{root_dir, string()}]) ->
-    {ok, AcceptedOptions :: options(), NewState :: term()} |
+    {ok, AcceptedOptions :: [option()], NewState :: term()} |
     {error, {Code :: error_code(), string()}}.
 
 -doc """
@@ -434,9 +437,9 @@ with new values in `AcceptedOptions`.
 	       Access :: access(),
 	       Filename :: file:name(),
 	       Mode :: string(),
-	       SuggestedOptions :: options(),
+	       SuggestedOptions :: [option()],
 	       State :: [] | [{root_dir, string()}] | term()) ->
-    {ok, AcceptedOptions :: options(), NewState :: term()} |
+    {ok, AcceptedOptions :: [option()], NewState :: term()} |
     {error, {Code :: error_code(), string()}}.
 
 -doc """
@@ -528,6 +531,15 @@ If `LocalFilename` is a string and there are registered callback modules,
 corresponding to the first match is used, or an error tuple is returned if no
 matching regexp is found.
 """.
+
+-spec read_file(RemoteFilename, LocalFilename, Options) ->
+        {ok, LastCallbackState} | {error, Reason} when
+    RemoteFilename    :: file:filename(),
+    LocalFilename     :: file:filename_all(),
+    Options           :: [option()],
+    LastCallbackState :: term(),
+    Reason            :: term().
+
 read_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(read, RemoteFilename, LocalFilename, Options).
     
@@ -574,6 +586,15 @@ If `LocalFilename` is a string and there are registered callback modules,
 corresponding to the first match is used, or an error tuple is returned if no
 matching regexp is found.
 """.
+
+-spec write_file(RemoteFilename, LocalFilename, Options) ->
+        {ok, LastCallbackState} | {error, Reason} when
+    RemoteFilename    :: file:filename(),
+    LocalFilename     :: file:filename_all(),
+    Options           :: [option()],
+    LastCallbackState :: term(),
+    Reason            :: term().
+
 write_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(write, RemoteFilename, LocalFilename, Options).
 
@@ -597,6 +618,12 @@ Starts a daemon process listening for UDP packets on a port. When it receives a
 request for read or write, it spawns a temporary server process handling the
 actual transfer of the (virtual) file.
 """.
+
+-spec start(Options) -> {ok, Pid} | {error, Reason} when
+    Options :: [option()],
+    Pid     :: pid(),
+    Reason  :: term().
+
 start(Options) ->
     tftp_engine:daemon_start(Options).
 

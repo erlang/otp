@@ -219,7 +219,7 @@ The options for the tracee:
 - **`extra`** - If set the tracepoint has included additional data about the
   trace event. What the additional data is depends on which `TraceTag` has been
   triggered. The `extra` trace data corresponds to the fifth element in the
-  trace tuples described in [erlang:trace/3](`m:erlang#trace_3_trace_messages`).
+  trace tuples described in [trace:process/4](`m:trace#process_trace_messages`).
 
 - **`match_spec_result`** - If set the tracer has been requested to include the
   output of a match specification that was run.
@@ -374,7 +374,7 @@ This callback is called when a tracepoint is triggered and the
 In it any side effects needed by the tracer are to be done. The tracepoint
 payload is located in the `TraceTerm`. The content of the `TraceTerm` depends on
 which `TraceTag` is triggered. `TraceTerm` corresponds to the fourth element in
-the trace tuples described in [`erlang:trace/3`](`m:erlang#trace_3_trace_messages`).
+the trace tuples described in [`trace:process/4`](`m:trace#process_trace_messages`).
 
 If the trace tuple has five elements, the fifth element will be sent as the
 `extra` value in the `Opts` maps.

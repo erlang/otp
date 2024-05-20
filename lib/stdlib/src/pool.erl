@@ -84,7 +84,7 @@ can indicate the reason.
 
 %% Start up using the .hosts.erlang file
 
--doc(#{equiv => start/2}).
+-doc(#{equiv => start(Name, [])}).
 -spec start(Name) -> Nodes when
       Name :: atom(),
       Nodes :: [node()].
@@ -92,7 +92,9 @@ start(Name) ->
     start(Name,[]).
 
 -doc """
-Starts a new pool. The file `.hosts.erlang` is read to find host names where the
+Starts a new pool.
+
+The file `.hosts.erlang` is read to find host names where the
 pool nodes can be started; see section [Files](`m:pool#module-files`). The startup
 procedure fails if the file is not found.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,6 +18,10 @@
 %% %CopyrightEnd%
 %%
 %%
+
+-module(tls_server_connection).
+-moduledoc false.
+
 %%----------------------------------------------------------------------
 %% Purpose: TLS-1.0-TLS-1.2 FSM (* = optional)
 %% %%----------------------------------------------------------------------
@@ -96,8 +100,6 @@
 %%                                               GO BACK TO HELLO
 %%----------------------------------------------------------------------
 
--module(tls_server_connection).
-
 -behaviour(gen_statem).
 
 -include("tls_connection.hrl").
@@ -159,9 +161,10 @@ init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
 initial_hello({call, From}, {start, Timeout},
               #state{static_env = #static_env{
                                      protocol_cb = Connection},
-                     ssl_options = #{versions := Versions}} = State0) ->
+                     ssl_options = #{versions := Versions},
+                     recv = Recv} = State0) ->
     NextState = next_statem_state(Versions),
-    Connection:next_event(NextState, no_record, State0#state{start_or_recv_from = From},
+    Connection:next_event(NextState, no_record, State0#state{recv = Recv#recv{from = From}},
                           [{{timeout, handshake}, Timeout, close}]);
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
@@ -195,8 +198,8 @@ config_error(Type, Event, State) ->
 %%--------------------------------------------------------------------
 hello(internal, #client_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined},
+             recv = #recv{from = From} = Recv} = State) ->
+    {next_state, user_hello, State#state{recv = Recv#recv{from = undefined}},
      [{postpone, true}, {reply, From, {ok, Extensions}}]};
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{connection_env = CEnv} = State0) ->
@@ -258,10 +261,10 @@ wait_cert_verify(info, Event, State) ->
 wait_cert_verify(internal, #certificate_verify{signature = Signature,
                                                hashsign_algorithm = CertHashSign},
                  #state{static_env = #static_env{protocol_cb = Connection},
-                        client_certificate_status = needs_verifying,
                         handshake_env = #handshake_env{tls_handshake_history = Hist,
                                                        kex_algorithm = KexAlg,
-                                             public_key_info = PubKeyInfo},
+                                                       client_certificate_status = needs_verifying,
+                                                       public_key_info = PubKeyInfo} = HsEnv0,
                         connection_env = #connection_env{negotiated_version = Version},
                         session = #session{master_secret = MasterSecret} = Session0
                        } = State) ->
@@ -273,8 +276,9 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
     case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
 					  TLSVersion, HashSign, MasterSecret, Hist) of
 	valid ->
+            HsEnv = HsEnv0#handshake_env{client_certificate_status = verified},
 	    Connection:next_event(cipher, no_record,
-				  State#state{client_certificate_status = verified,
+				  State#state{handshake_env = HsEnv,
                                               session = Session0#session{sign_alg = HashSign}});
 	#alert{} = Alert ->
             throw(Alert)
@@ -437,7 +441,12 @@ choose_tls_fsm(_, _) ->
 gen_state(StateName, Type, Event, State) ->
     try tls_dtls_server_connection:StateName(Type, Event, State)
     catch throw:#alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State);
+          _:Reason:ST ->
+            ?SSL_LOG(info, unexpected_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
+						       unexpected_error),
+					    StateName, State)
     end.
 
 renegotiate(#state{static_env = #static_env{socket = Socket,

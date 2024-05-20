@@ -96,9 +96,9 @@ than UTF-8 (that is, UTF-16 or UTF-32).
 -type latin1_binary() :: binary().
 -doc "An `t:integer/0` representing a valid ISO Latin-1 character (0-255).".
 -type latin1_char() :: byte().
--doc "Same as `t:iodata/0`.".
+-doc "Equivalent to `t:iodata/0`.".
 -type latin1_chardata() :: latin1_charlist() | latin1_binary().
--doc "Same as `t:iolist/0`.".
+-doc "Equivalent to `t:iolist/0`.".
 -type latin1_charlist() ::
         maybe_improper_list(latin1_char() |
                               latin1_binary() |
@@ -125,10 +125,7 @@ than UTF-8 (that is, UTF-16 or UTF-32).
 bin_is_7bit(_) ->
     erlang:nif_error(undef).
 
--doc """
-Same as
-[`characters_to_binary(Data, InEncoding, unicode)`](`characters_to_binary/3`).
-""".
+-doc #{ equiv => characters_to_binary(Data, InEncoding, unicode) }.
 -spec characters_to_binary(Data, InEncoding) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       InEncoding :: encoding(),
@@ -265,7 +262,7 @@ characters_to_list(_, _) ->
 
 %%% End of BIFs
 
--doc "Same as [`characters_to_list(Data, unicode)`](`characters_to_list/2`).".
+-doc #{ equiv => characters_to_list(Data, unicode) }.
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       Result :: string()
@@ -281,10 +278,7 @@ characters_to_list(ML) ->
             error_with_info(Reason, [ML])
     end.
 
--doc """
-Same as
-[`characters_to_binary(Data, unicode, unicode)`](`characters_to_binary/3`).
-""".
+-doc #{ equiv => characters_to_binary(Data, unicode, unicode) }.
 -spec characters_to_binary(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),
       Result :: binary()
@@ -358,8 +352,9 @@ no_conversion_needed(ML, In, Out) ->
     end andalso unicode:bin_is_7bit(ML).
 
 -doc """
-Checks for a UTF Byte Order Mark (BOM) in the beginning of a binary. If the
-supplied binary `Bin` begins with a valid BOM for either UTF-8, UTF-16, or
+Checks for a UTF Byte Order Mark (BOM) in the beginning of a binary.
+
+If the supplied binary `Bin` begins with a valid BOM for either UTF-8, UTF-16, or
 UTF-32, the function returns the encoding identified along with the BOM length
 in bytes.
 
@@ -387,6 +382,7 @@ bom_to_encoding(Bin) when is_binary(Bin) ->
 
 -doc """
 Creates a UTF Byte Order Mark (BOM) as a binary from the supplied `InEncoding`.
+
 The BOM is, if supported at all, expected to be placed first in UTF encoded
 files or messages.
 

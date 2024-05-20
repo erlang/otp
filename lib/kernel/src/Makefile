@@ -142,6 +142,7 @@ MODULES = \
 	seq_trace \
 	socket \
 	standard_error \
+	trace \
 	user_drv \
 	user_sup \
 	prim_tty \

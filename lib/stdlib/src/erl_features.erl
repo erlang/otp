@@ -19,12 +19,11 @@
 %%
 -module(erl_features).
 -moduledoc """
-Feature support.
-
 This module contains functions for supporting features that can be
-enabled/disabled in Erlang. It should be considered as mostly for internal use,
-although there are some functions that might be useful when writing tools.[](){:
-#erl_features }
+enabled/disabled in Erlang.
+
+It should be considered as mostly for internal use, although there are some
+functions that might be useful when writing tools.
 """.
 -moduledoc(#{since => "OTP 25.0"}).
 

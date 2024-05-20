@@ -34,6 +34,8 @@
 -define(TYPE,   dgram).
 
 
+%% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+
 %% inet_udp port lookup
 getserv(Port) when is_integer(Port) -> {ok, Port};
 getserv(Name) when is_atom(Name) -> inet:getservbyname(Name, ?PROTO).
@@ -50,6 +52,7 @@ open(Port) -> open(Port, []).
 
 -spec open(_, _) -> {ok, port()} | {error, atom()}.
 open(Port, Opts) ->
+    %% ?DBG(['entry', {port, Port}, {opts, Opts}]),
     case inet:udp_options(
 	   [{port,Port} | Opts],
 	   ?MODULE) of
@@ -63,6 +66,10 @@ open(Port, Opts) ->
           when is_map(BAddr); % sockaddr_in()
                ?port(BPort), ?ip6(BAddr);
                ?port(BPort), BAddr =:= undefined ->
+            %% ?DBG(['udp-options',
+            %%       {fd, Fd},
+            %%       {baddr, BAddr}, {bport, BPort},
+            %%       {sock_opts, SockOpts}]),
 	    inet:open_bind(
 	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
 	{ok, _} -> exit(badarg)

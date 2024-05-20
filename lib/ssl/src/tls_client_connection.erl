@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -98,6 +98,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_client_connection).
+-moduledoc false.
 
 -behaviour(gen_statem).
 
@@ -183,7 +184,8 @@ initial_hello({call, From}, {start, Timeout},
                                      session_tickets := SessionTickets,
                                      early_data := EarlyData} = SslOpts,
                      session = Session,
-                     connection_states = ConnectionStates0
+                     connection_states = ConnectionStates0,
+                     recv = Recv0
                     } = State0) ->
 
     KeyShare = tls_client_connection_1_3:maybe_generate_client_shares(SslOpts),
@@ -241,17 +243,19 @@ initial_hello({call, From}, {start, Timeout},
                   session = Session,
                   handshake_env =
                       HsEnv1#handshake_env{
+                        key_share = KeyShare,
                         stapling_state =
                             StaplingState0#{ocsp_nonce => OcspNonce,
                                             configured => StaplingKeyPresent}},
-                  start_or_recv_from = From,
-                  key_share = KeyShare},
+                  recv = State5#state.recv#recv{from = From}
+                 },
         NextState = next_statem_state(Versions),
         Connection:next_event(NextState, no_record, State,
                               [{{timeout, handshake}, Timeout, close}])
     catch
         {Ref, #alert{} = Alert} ->
-            ssl_gen_statem:handle_own_alert(Alert, init, State0#state{start_or_recv_from = From})
+            NewState = State0#state{recv = Recv0#recv{from = From}},
+            ssl_gen_statem:handle_own_alert(Alert, init, NewState)
     end;
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
               #state{static_env = #static_env{role = Role},
@@ -286,10 +290,10 @@ config_error(Type, Event, State) ->
 %%--------------------------------------------------------------------
 hello(internal, #server_hello{extensions = Extensions},
       #state{handshake_env = #handshake_env{continue_status = pause},
-             start_or_recv_from = From} = State) ->
+             recv = #recv{from = From}=Recv} = State) ->
     {next_state, user_hello,
-     State#state{start_or_recv_from = undefined}, [{postpone, true},
-                                                   {reply, From, {ok, Extensions}}]};
+     State#state{recv = Recv#recv{from = undefined}},
+     [{postpone, true},{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
              connection_env = CEnv,
@@ -471,7 +475,12 @@ code_change(_OldVsn, StateName, State, _) ->
 gen_state(StateName, Type, Event, State) ->
     try tls_dtls_client_connection:StateName(Type, Event, State)
     catch throw:#alert{} = Alert ->
-            ssl_gen_statem:handle_own_alert(Alert, StateName, State)
+            ssl_gen_statem:handle_own_alert(Alert, StateName, State);
+          _:Reason:ST ->
+            ?SSL_LOG(info, unexpected_error, [{error, Reason}, {stacktrace, ST}]),
+	    ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
+						       unexpected_error),
+					    StateName, State)
     end.
 
 next_statem_state([Version]) ->
@@ -487,6 +496,11 @@ next_statem_state(_) ->
 %%====================================================================
 %% Tracing
 %%====================================================================
+handle_trace(crt,
+             {call, {?MODULE, init,
+                     [[_Role, _Sender, _Host, _Port, _Socket, _Options, _User, _CbInfo]]}},
+             Stack) ->
+    {io_lib:format("Host = ~s Port = ~p User = ~p", [_Host, _Port, _User]), Stack};
 handle_trace(hbn,
              {call, {?MODULE, connection,
                      [_Type = info, Event, _State]}},

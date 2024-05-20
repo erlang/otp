@@ -383,12 +383,11 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    if (Fail.get() == 0) {
-        mov_var(ARG1, src);
-        fragment_call(ga->get_bif_bit_size_body());
-        mov_var(dst, ARG1);
-    } else {
-        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    if ((Fail.get() != 0) || exact_type<BeamTypeId::Bitstring>(Src)) {
+        if (Fail.get() != 0) {
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+        }
+
         emit_untag_ptr(ARG1, src.reg);
 
         ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
@@ -420,6 +419,10 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
 
         a.lsl(TMP2, TMP2, imm(_TAG_IMMED1_SIZE));
         a.orr(dst.reg, TMP2, imm(_TAG_IMMED1_SMALL));
+    } else {
+        mov_var(ARG1, src);
+        fragment_call(ga->get_bif_bit_size_body());
+        mov_var(dst, ARG1);
     }
 
     flush_var(dst);
@@ -456,12 +459,11 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
     auto src = load_source(Src, ARG1);
     auto dst = init_destination(Dst, ARG1);
 
-    if (Fail.get() == 0) {
-        mov_var(ARG1, src);
-        fragment_call(ga->get_bif_byte_size_body());
-        mov_var(dst, ARG1);
-    } else {
-        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+    if ((Fail.get() != 0) || exact_type<BeamTypeId::Bitstring>(Src)) {
+        if (Fail.get() != 0) {
+            emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, src.reg);
+        }
+
         emit_untag_ptr(ARG1, src.reg);
 
         ERTS_CT_ASSERT_FIELD_PAIR(ErlHeapBits, thing_word, size);
@@ -495,6 +497,10 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
         a.add(TMP2, TMP2, imm(7));
         a.lsl(TMP2, TMP2, imm(_TAG_IMMED1_SIZE - 3));
         a.orr(dst.reg, TMP2, imm(_TAG_IMMED1_SMALL));
+    } else {
+        mov_var(ARG1, src);
+        fragment_call(ga->get_bif_byte_size_body());
+        mov_var(dst, ARG1);
     }
 
     flush_var(dst);

@@ -29,17 +29,18 @@ Implements an internal CRL (Certificate Revocation List) cache. In addition to
 implementing the `m:ssl_crl_cache_api` behaviour the following functions are
 available.
 """.
--moduledoc(#{since => "OTP 18.0",titles => [{type,<<"DATA TYPES">>}]}).
+-moduledoc(#{since => "OTP 18.0"}).
 
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -behaviour(ssl_crl_cache_api).
 
--export_type([crl_src/0, uri/0]).
--doc(#{title => <<"DATA TYPES">>}).
+-export_type([crl_src/0]).
+-doc """
+A source to input CRLs
+""".
 -type crl_src() :: {file, file:filename()} | {der,  public_key:der_encoded()}.
--type uri()     :: uri_string:uri_string().
 
 -export([lookup/3, select/2, fresh_crl/2]).
 -export([insert/1, insert/2, delete/1]).
@@ -89,7 +90,7 @@ fresh_crl(#'DistributionPoint'{distributionPoint = {fullName, Names}}, CRL) ->
 -doc(#{since => <<"OTP 18.0">>}).
 -spec insert(CRLSrc) -> ok | {error, Reason} when
       CRLSrc :: crl_src(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 insert(CRLSrc) ->
     insert(?NO_DIST_POINT, CRLSrc).
@@ -103,7 +104,7 @@ distribution point reference URI
 -spec insert(DistPointURI, CRLSrc) -> ok | {error, Reason} when
       DistPointURI :: uri_string:uri_string(),
       CRLSrc :: crl_src(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 insert(DistPointURI, {file, File}) when is_list(DistPointURI) ->
     case file:read_file(File) of
@@ -120,14 +121,12 @@ insert(DistPointURI, {der, CRLs}) ->
 
 %%--------------------------------------------------------------------
 -doc """
-delete(Entries) -> ok | {error, Reason}
-
 Delete CRLs from the ssl applications local cache.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec delete(Entries) -> ok | {error, Reason} when
       Entries :: crl_src() | uri_string:uri_string(),
-      Reason :: term().
+      Reason :: ssl:reason().
 %%--------------------------------------------------------------------
 delete({file, File}) ->
     case file:read_file(File) of

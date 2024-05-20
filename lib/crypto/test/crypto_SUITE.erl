@@ -129,6 +129,8 @@
          use_all_eddh_generate_compute/1,
          pbkdf2_hmac/0,
          pbkdf2_hmac/1,
+         pbkdf2_hmac_invalid_input/0,
+         pbkdf2_hmac_invalid_input/1,
          privkey_to_pubkey/1,
 
          %% Others:
@@ -181,6 +183,13 @@
          mac_check/1,
          rc2_cbc/1,
          rc4/1,
+         sm4_ecb/1,
+         sm4_cbc/1,
+         sm4_ofb/1,
+         sm4_cfb/1,
+         sm4_ctr/1,
+         sm4_gcm/1,
+         sm4_ccm/1,
          ripemd160_incr_digest/0,
          ripemd160_incr_msgs/0,
          rsa_oaep/0,
@@ -217,7 +226,8 @@ all() ->
      cipher_info,
      hash_info,
      hash_equals,
-     pbkdf2_hmac
+     pbkdf2_hmac,
+     pbkdf2_hmac_invalid_input
     ].
 
 -define(NEW_CIPHER_TYPE_SCHEMA,
@@ -248,6 +258,7 @@ groups() ->
                      {group, shake128},
                      {group, shake256},
                      {group, sha},
+                     {group, sm3},
 
                      {group, dh},
                      {group, ecdh},
@@ -265,6 +276,14 @@ groups() ->
                      {group, des_cfb},
                      {group, rc2_cbc},
                      {group, rc4},
+
+                     {group, sm4_ecb},
+                     {group, sm4_cbc},
+                     {group, sm4_ofb},
+                     {group, sm4_cfb},
+                     {group, sm4_ctr},
+                     {group, sm4_gcm},
+                     {group, sm4_ccm},
 
                      {group, des_ede3_cbc},
                      {group, des_ede3_cfb},
@@ -313,6 +332,7 @@ groups() ->
                  {group, sha256},
                  {group, sha384},
                  {group, sha512},
+                 {group, sm3},
 
                  {group, dh},
                  {group, ecdh},
@@ -374,6 +394,7 @@ groups() ->
      {sha3_512,             [], [hash, hmac, hmac_update]},
      {shake128,             [], [hash_xof]},
      {shake256,             [], [hash_xof]},
+     {sm3,                  [], [hash, hmac]},
      {blake2b,              [], [hash, hmac, hmac_update]},
      {blake2s,              [], [hash, hmac, hmac_update]},
      {no_blake2b,           [], [no_hash, no_hmac]},
@@ -424,6 +445,13 @@ groups() ->
      {blowfish_cfb64,       [], [api_ng, api_ng_one_shot]},
      {blowfish_ofb64,       [], [api_ng, api_ng_one_shot]},
      {rc4,                  [], [api_ng, api_ng_one_shot]},
+     {sm4_ecb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_cbc,              [], [api_ng, api_ng_one_shot]},
+     {sm4_ofb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_cfb,              [], [api_ng, api_ng_one_shot]},
+     {sm4_ctr,              [], [api_ng, api_ng_one_shot]},
+     {sm4_gcm,              [], [aead_ng, aead_bad_tag]},
+     {sm4_ccm,              [], [aead_ng, aead_bad_tag]},
      {chacha20_poly1305,    [], [aead_ng, aead_bad_tag]},
      {chacha20,             [], [api_ng, api_ng_one_shot]},
      {poly1305,             [], [poly1305]},
@@ -1217,7 +1245,7 @@ use_all_ec_sign_verify(_Config) ->
     Msg = <<"hello world!">>,
     Sups = crypto:supports(),
     Curves = proplists:get_value(curves, Sups),
-    Hashs = proplists:get_value(hashs, Sups) -- [shake128, shake256],
+    Hashs = proplists:get_value(hashs, Sups) -- [shake128, shake256, sm3],
     ct:log("Lib: ~p~nFIPS: ~p~nCurves:~n~p~nHashs: ~p", [crypto:info_lib(),
                                                          crypto:info_fips(),
                                                          Curves,
@@ -2182,6 +2210,9 @@ group_config(sha3_384 = Type, Config) ->
 group_config(sha3_512 = Type, Config) ->
     {Msgs,Digests} = sha3_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];
+group_config(sm3 = Type, Config) ->
+    {Msgs,Digests} = sm3_test_vectors(),
+    [{hash, {Type, Msgs, Digests}} | Config];
 group_config(shake128 = Type, Config) ->
     {Msgs,Digests,Lengths} = sha3_shake128_test_vectors(Type),
     [{hash_xof, {Type, Msgs, Digests, Lengths}} | Config];
@@ -2342,6 +2373,11 @@ do_configure_mac(hmac, Type, _Config) ->
             Keys = rfc_4231_keys() ++ [long_hmac_key(sha512)],
             Data = rfc_4231_msgs() ++ [long_msg()],
             Hmac = rfc4231_hmac_sha512() ++ [long_hmac(sha512)],
+            zip3_special(hmac, Type, Keys, Data, Hmac);
+        sm3 ->
+            Keys = sm3_keys(),
+            Data = sm3_msgs(),
+            Hmac = sm3_hmac(),
             zip3_special(hmac, Type, Keys, Data, Hmac);
         sha3_224 ->
             hmac_sha3(Type);
@@ -2695,6 +2731,13 @@ sha3_shake256_test_vectors(shake256) ->
     2000
    ]
   }.
+
+sm3_test_vectors() ->
+    %% test vectors comes from Examples (A.1 A.2) of GM/T 0004-2012
+    {[<<"abc">>, binary:copy(<<"abcd">>, 16)],
+     [hexstr2bin("66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0"),
+      hexstr2bin("debe9ff92275b8a138604889c18e5a4d6fdb70e5387e5765293dcba39c0c5732")
+     ]}.
 
 %%% http://www.wolfgang-ehrhardt.de/hmac-sha3-testvectors.html
 
@@ -3081,6 +3124,29 @@ rfc4231_hmac_sha512() ->
 		"debd71f8867289865df5a32d20cdc944"
 		"b6022cac3c4982b10d5eeb55c3e4de15"
 		"134676fb6de0446065c97440fa8c6a58")].
+
+%% HMAC-SM3 from GM/T 0042-2015 Appendix D.3
+%% https://github.com/openssl/openssl/pull/18714
+sm3_keys() ->
+    [hexstr2bin("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"),
+     hexstr2bin("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425"),
+     binary:copy(<<16#0b>>, 32),
+     <<"Jefe">>
+    ].
+    
+sm3_msgs() ->
+    [<<"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopqabcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq">>,
+     binary:copy(<<16#cd>>, 50),
+     <<"Hi There">>,
+     <<"what do ya want for nothing?">>
+    ].
+    
+sm3_hmac() ->
+    [hexstr2bin("ca05e144ed05d1857840d1f318a4a8669e559fc8391f414485bfdf7bb408963a"),
+     hexstr2bin("220bf579ded555393f0159f66c99877822a3ecf610d1552154b41d44b94db3ae"),
+     hexstr2bin("c0ba18c68b90c88bc07de794bfc7d2c8d19ec31ed8773bc2b390c9604e0be11e"),
+     hexstr2bin("2e87f1d16862e6d964b50a5200bf2b10b764faa9680a296a2405f24bec39f882")
+    ].
 des_cbc(_) ->
     [{des_cbc, 
      hexstr2bin("0123456789abcdef"), 
@@ -3402,6 +3468,75 @@ rc4(_) ->
     [{rc4, <<"apaapa">>, <<"Yo baby yo">>},
      {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))},
      {rc4, <<"apaapa">>, long_msg()}
+    ].
+
+%% Test Data from https://github.com/openssl/openssl/pull/9935
+sm4_ecb(_) ->
+    [{sm4_ecb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), <<>>,
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+    hexstr2bin("681EDF34D206965E86B3E94F536E4246")}].
+sm4_cbc(_) ->
+    [{sm4_cbc, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("2677F46B09C122CC975533105BD4A22AF6125F7275CE552C3A2BBCF533DE8A3B")}].
+sm4_ofb(_) ->
+    [{sm4_ofb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("693D9A535BAD5BB1786F53D7253A7056F2075D28B5235F58D50027E4177D2BCE")}].
+sm4_cfb(_) ->
+    [{sm4_cfb, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA98765432100123456789ABCDEFFEDCBA9876543210"),
+    hexstr2bin("693D9A535BAD5BB1786F53D7253A70569ED258A85A0467CC92AAB393DD978995")}].
+sm4_ctr(_) ->
+    [{sm4_ctr, hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("0123456789ABCDEFFEDCBA9876543210"), 
+	hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+               "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+    hexstr2bin("C2B4759E78AC3CF43D0852F4E8D5F9FD7256E8A5FCB65A350EE00630912E4449"
+               "2A0B17E1B85B060D0FBA612D8A95831638B361FD5FFACD942F081485A83CA35D")}
+    ].
+
+%% https://datatracker.ietf.org/doc/rfc8998 appendix A.1
+sm4_gcm(_) ->
+    [
+     {sm4_gcm,
+      hexstr2bin("0123456789ABCDEFFEDCBA9876543210"),
+      hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB"                      %% PlainText
+      "CCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+      "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFF"
+      "EEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+      hexstr2bin("00001234567800000000ABCD"),                            %% Nonce
+      hexstr2bin("FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2"),            %% AAD
+      hexstr2bin("17F399F08C67D5EE19D0DC9969C4BB7D"                      %% CipherText
+      "5FD46FD3756489069157B282BB200735"
+      "D82710CA5C22F0CCFA7CBF93D496AC15"
+      "A56834CBCF98C397B4024A2691233B8D"),
+      hexstr2bin("83DE3541E4C2B58177E065A9BF7B62EC"),                    %% CipherTag
+      no_info
+      }
+    ].
+
+%% https://datatracker.ietf.org/doc/rfc8998 appendix A.2
+sm4_ccm(_) ->
+    [
+     {sm4_ccm,
+      hexstr2bin("0123456789ABCDEFFEDCBA9876543210"),
+      hexstr2bin("AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB"                      %% PlainText
+      "CCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD"
+      "EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFF"
+      "EEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA"),
+      hexstr2bin("00001234567800000000ABCD"),                            %% Nonce
+      hexstr2bin("FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2"),            %% AAD
+      hexstr2bin("48AF93501FA62ADBCD414CCE6034D895"                      %% CipherText
+      "DDA1BF8F132F042098661572E7483094"
+      "FD12E518CE062C98ACEE28D95DF4416B"
+      "ED31A2F04476C18BB40C84A74B97DC5B"),
+      hexstr2bin("16842D4FA186F56AB33256971FA110F4"),                    %% CipherTag
+      no_info
+      }
     ].
 
 aes_128_ctr(_) ->
@@ -4787,6 +4922,9 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     F = fun (A, B, C, D) ->
             binary:encode_hex(crypto:pbkdf2_hmac(sha, A, B, C, D))
         end,
+    F256 = fun (A, B, C, D) ->
+            binary:encode_hex(crypto:pbkdf2_hmac(sha256, A, B, C, D))
+        end,
     %% RFC 6070
     <<"0C60C80F961F0E71F3A9B524AF6012062FE037A6">> =
       F(<<"password">>, <<"salt">>, 1, 20),
@@ -4833,13 +4971,52 @@ pbkdf2_hmac(Config) when is_list(Config) ->
     <<"6B9CF26D45455A43A5B8BB276A403B39">> =
       F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 16),
     <<"6B9CF26D45455A43A5B8BB276A403B39E7FE37A0C41E02C281FF3069E1E94F52">> =
-      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32)
+      F(binary:encode_unsigned(16#f09d849e), <<"EXAMPLE.COMpianist">>, 50, 32),
+
+    %% SHA256 variant. Test vectors from RFC 7914 (section 11)
+    <<"55AC046E56E3089FEC1691C22544B605"
+      "F94185216DDE0465E68B9D57C20DACBC"
+      "49CA9CCCF179B645991664B39D77EF31"
+      "7C71B845B1E30BD509112041D3A19783">> = F256(<<"passwd">>, <<"salt">>, 1, 64),
+    <<"4DDCD8F60B98BE21830CEE5EF22701F9"
+      "641A4418D04C0414AEFF08876B34AB56"
+      "A1D425A1225833549ADB841B51C9B317"
+      "6A272BDEBBA1D078478F62B397F33C8D">> = F256(<<"Password">>, <<"NaCl">>, 80000, 64)
   catch
     error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
   end.
 
-
+pbkdf2_hmac_invalid_input() ->
+  [{doc, "Test the pbkdf2_hmac function with invalid input"}].
+pbkdf2_hmac_invalid_input(Config) when is_list(Config) ->
+  try
+    TestFun = fun(Hash, Pass, Salt, Iter, Keylen, ErrorStr) ->
+        try
+            crypto:pbkdf2_hmac(Hash, Pass, Salt, Iter, Keylen)
+        of
+            Res -> ct:fail("Unexpected result ~p", [Res])
+        catch
+            error:{badarg, {_, _}, ErrorStr} ->
+                ok;
+            error:badarg ->
+                % Erlang <25
+                ok;
+            Tag:Err ->
+                ct:fail("Unexpected exception ~p:~p", [Tag, Err])
+        end
+    end,
+    TestFun(sha42, <<"pass">>, <<"salt">>, 1, 1, "Bad digest type"),
+    TestFun(sha, "badpass", <<"salt">>, 1, 1, "Not binary"),
+    TestFun(sha, <<"pass">>, "badsalt", 1, 1, "Not binary"),
+    TestFun(sha, <<"pass">>, <<"salt">>, "baditer", 1, "Not integer"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 0, 1, "Must be > 0"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, "badlen", "Not integer"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, 0, "Must be > 0")
+  catch
+    error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
+            {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
+  end.
 get_priv_pub_from_sign_verify(L) ->
     lists:foldl(fun get_priv_pub/2, [], L).
 

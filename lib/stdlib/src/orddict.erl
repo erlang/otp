@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -225,7 +225,7 @@ _Example:_
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
 2> orddict:take(a, OrdDict1).
-{1, [{b,2}]}
+{1,[{b,2}]}
 3> orddict:take(missing, OrdDict1).
 error
 ```
@@ -359,8 +359,8 @@ _Example:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(a, fun (V) -> V1 + 100 end, OrdDict1).
-[{a, 101}, {b, 102}]
+2> orddict:update(a, fun (V) -> V + 100 end, OrdDict1).
+[{a,101},{b,2}]
 ```
 """.
 -spec update(Key, Fun, Orddict1) -> Orddict2 when
@@ -376,7 +376,9 @@ update(Key, Fun, [{K,Val}|Dict]) when Key == K ->
 -doc """
 Updates a value in a dictionary by calling `Fun` on the value to get a new
 value. If `Key` is not present in the dictionary, `Initial` is stored as the
-first value. For example, [`append/3`](`append/3`) can be defined as follows:
+first value.
+
+For example, [`append/3`](`append/3`) can be defined as follows:
 
 ```erlang
 append(Key, Val, D) ->
@@ -388,7 +390,7 @@ _Example 1:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(c, fun (V) -> V1 + 100 end, 99, OrdDict1).
+2> orddict:update(c, fun (V) -> V + 100 end, 99, OrdDict1).
 [{a,1},{b,2},{c,99}]
 ```
 
@@ -397,7 +399,7 @@ _Example 2:_
 ```erlang
 1> OrdDict1 = orddict:from_list([{a, 1}, {b, 2}]).
 [{a,1},{b,2}]
-2> orddict:update(a, fun (V) -> V1 + 100 end, 99, OrdDict1).
+2> orddict:update(a, fun (V) -> V + 100 end, 99, OrdDict1).
 [{a,101},{b,2}]
 ```
 """.
@@ -516,9 +518,12 @@ filter(F, []) when is_function(F, 2) -> [].
 -doc """
 Merges two dictionaries, `Orddict1` and `Orddict2`, to create a new dictionary.
 All the `Key`-`Value` pairs from both dictionaries are included in the new
-dictionary. If a key occurs in both dictionaries, `Fun` is called with the key
-and both values to return a new value. [`merge/3`](`merge/3`) can be defined as
-follows, but is faster:
+dictionary.
+
+If a key occurs in both dictionaries, `Fun` is called with the key
+and both values to return a new value.
+
+[`merge/3`](`merge/3`) can be defined as follows, but is faster:
 
 ```erlang
 merge(Fun, D1, D2) ->
@@ -535,7 +540,7 @@ _Example:_
 2> OrdDict2 = orddict:from_list([{b, 7}, {c, 8}]).
 [{b,7},{c,8}]
 3> orddict:merge(fun (K, V1, V2) -> V1 * V2 end, OrdDict1, OrdDict2).
-[{a, 1},{b, 14},{c,8}]
+[{a,1},{b,14},{c,8}]
 ```
 """.
 -spec merge(Fun, Orddict1, Orddict2) -> Orddict3 when

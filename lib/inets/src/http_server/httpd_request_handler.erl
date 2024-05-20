@@ -23,7 +23,7 @@
 
 -module(httpd_request_handler).
 -moduledoc false.
-
+-compile(nowarn_deprecated_callback).
 -behaviour(gen_server).
 
 %% Application internal API

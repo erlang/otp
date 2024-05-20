@@ -52,6 +52,7 @@ start()
 Starts the EUnit server. Normally, you don't need to call this function; it is
 started automatically.
 """.
+-spec start() -> term().
 start() ->
     start(?SERVER).
 
@@ -64,10 +65,9 @@ start(Server) ->
 %% @doc Stops the EUnit server. Normally, you don't need to call this
 %% function.
 -doc """
-stop()
-
 Stops the EUnit server. Normally, you don't need to call this function.
 """.
+-spec stop() -> term().
 stop() ->
     stop(?SERVER).
 
@@ -142,12 +142,8 @@ watch_app(Server, Name, Options) ->
 	    error
     end.
 
-%% @equiv test(Tests, [])
--doc """
-test(Tests)
-
-Equivalent to [test(Tests, [])](`test/2`).
-""".
+-spec test(Tests :: term()) -> ok | {error, term()} | error.
+-doc #{ equiv => test(Tests, []) }.
 test(Tests) ->
     test(Tests, []).
 
@@ -182,8 +178,6 @@ test(Tests) ->
 %% the option list, i.e., have lower precedence than those in `Options'.
 %% @see test/1
 -doc """
-test(Tests,Options)
-
 Runs a set of tests. The format of `Tests` is described in the section
 [EUnit test representation](chapter.md#EUnit_test_representation) of the
 overview.
@@ -218,6 +212,7 @@ list, i.e., have lower precedence than those in `Options`.
 
 _See also: _`test/1`.
 """.
+-spec test(Tests :: term(), Options :: [term()]) -> ok | error | {error, term()}.
 test(Tests, Options) ->
     test(?SERVER, Tests, all_options(Options)).
 

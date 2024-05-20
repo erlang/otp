@@ -94,7 +94,8 @@ start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 stop()  -> gen_server:call(?MODULE, stop, infinity).
 
--doc(#{equiv => analyze/2}).
+-doc #{equiv => analyze(procs, [])}.
+
 -doc(#{since => <<"OTP R14B">>}).
 -spec analyze() -> 'ok' | 'nothing_to_analyze'.
 
@@ -103,10 +104,16 @@ analyze() ->
 
 -type analyze_type() :: 'procs' | 'total'.
 
--doc(#{equiv => analyze/2}).
+-doc """
+If `TypeOpts` is an atom, it is assumed to be a module name, and this
+call is equivalent to [`analyze(TypeOpts, [])`](`analyze/2`).
+
+Otherwise, if `TypeOpts` is a list, it assumed to be a list of options, and this
+call is equivalent to [`analyze(procs, TypeOpts)`](`analyze/2`).
+""".
 -doc(#{since => <<"OTP R14B">>}).
--spec analyze(Type) -> 'ok' | 'nothing_to_analyze' when
-      Type :: analyze_type().
+-spec analyze(TypeOpts) -> 'ok' | 'nothing_to_analyze' when
+      TypeOpts :: analyze_type().
 
 analyze(Type) when is_atom(Type) ->
     analyze(Type, []);
@@ -114,17 +121,15 @@ analyze(Opts) when is_list(Opts) ->
     analyze(procs, Opts).
 
 -doc """
-Call this function when profiling has been stopped to display the results per
-process, that is:
+Call this function when profiling has been stopped to display the results.
 
-- how much time has been used by each process, and
-- in which function calls this time has been spent.
+If `Type` is `procs`, the time spent in each function is shown separately
+for each profiled process.
 
-Call `analyze` with `total` option when profiling has been stopped to display
-the results per function call, that is in which function calls the time has been
-spent.
+If `Type` is `total`, the time spent in each function is shown combined
+for each profiled process.
 
-Time is shown as percentage of total time and as absolute time.
+Time is shown as percentage of total time and as absolute time in micro seconds.
 """.
 -doc(#{since => <<"OTP R14B">>}).
 -spec analyze(Type, Options) -> 'ok' | 'nothing_to_analyze' when
@@ -138,8 +143,15 @@ Time is shown as percentage of total time and as absolute time.
 analyze(Type, Opts) when is_list(Opts) ->
     gen_server:call(?MODULE, {analyze, Type, Opts}, infinity).
 
--doc(#{equiv => profile/6}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc """
+profile(FunRootset)
+
+If `FunRootset` is a fun, this call is equivalent to
+[`profile([], FunRootset)`](`profile/2`).
+
+If `FunRootset` is a list, it is assumed to be a `Rootset`, and this
+call is equivalent to [`start_profiling(Rootset)`](`start_profiling/1`).
+""".
 -spec profile(Fun) -> {'ok', Value} | {'error', Reason} when
                   Fun :: fun(() -> term()),
                   Value :: term(),
@@ -151,12 +163,19 @@ analyze(Type, Opts) when is_list(Opts) ->
 %% odd duck, should only been start_profiling/1
 profile(Rootset) when is_list(Rootset) ->
     start_profiling(Rootset);
-
 profile(Fun) when is_function(Fun) ->
     profile([], Fun).
 
--doc(#{equiv => profile/6}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc """
+profile(Arg1, Arg2)
+
+If `Arg1` is a fun and `Arg2` is list, this call is equivalent to
+[`profile([], Arg1, {'_','_','_'}, Arg2)`](`profile/4`).
+
+If `Arg1` is a list and `Arg2` is a fun, this call is equivalent to
+[`profile(Arg1, Arg2, {'_','_','_'}, Arg1)`](`profile/4`).
+
+""".
 -spec profile(Fun, Options) -> {'ok', Value} | {'error', Reason} when
                   Fun :: fun(() -> term()),
                   Options :: ['set_on_spawn' | {'set_on_spawn', boolean()}],
@@ -170,15 +189,14 @@ profile(Fun) when is_function(Fun) ->
 
 profile(Fun, Opts) when is_function(Fun), is_list(Opts) ->
     profile([], erlang, apply, [Fun, []], ?default_pattern, Opts);
-
 profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, ?default_pattern).
 
 %% Subtype of erlang:trace_pattern_mfa().
 -type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'}.
 
--doc(#{equiv => profile/6}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc #{equiv => profile(Rootset, Fun, Pattern, [{set_on_spawn, true}])}.
+-doc #{since => <<"OTP R14B">>}.
 -spec profile(Rootset, Fun, Pattern) -> {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
                   Fun :: fun(() -> term()),
@@ -189,8 +207,25 @@ profile(Rootset, Fun) when is_list(Rootset), is_function(Fun) ->
 profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
     profile(Rootset, Fun, Pattern, ?default_options).
 
--doc(#{equiv => profile/6}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc """
+profile(Rootset, Arg1, Arg2, Arg3)
+
+This function spawns a process that applies a fun or an an function,
+and then starts profiling for the spawned proceses as well as the
+processes in `Rootset` (and any new processes spawned from them).
+
+If `Arg1` is a fun, `Arg2` is expected to be a trace pattern, and
+`Arg3` a list of options. In that case, this call is equivalent to:
+
+[`profile(Rootset, erlang, apply, [Arg1, []], Arg2, Arg3)`](`profile/6`)
+
+If `Arg1` is an atom, `Arg1` is assumed to be a module name, `Arg2` the
+name of the function in that module, and `Arg3` a list of arguments to
+be used when calling that function. In that case, this call is equivalent
+to:
+
+[`profile(Rootset, Arg1, Arg2, Arg3, {'_','_','_'}, [{set_on_spawn, true}])`](`profile/6`)
+""".
 -spec profile(Rootset, Module, Function, Args) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -199,7 +234,7 @@ profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
                   Args :: [term()],
                   Value :: term(),
                   Reason :: term();
-             (Rootset, Fun, Pattern, Options) -> 
+             (Rootset, Fun, Pattern, Options) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
                   Fun :: fun(() -> term()),
@@ -208,14 +243,16 @@ profile(Rootset, Fun, Pattern) when is_list(Rootset), is_function(Fun) ->
                   Value :: term(),
                   Reason :: term().
 
-profile(Rootset, Fun, Pattern, Options) when is_list(Rootset), is_function(Fun), is_list(Options) ->
+profile(Rootset, Fun, Pattern, Options)
+  when is_list(Rootset), is_function(Fun), is_list(Options) ->
     profile(Rootset, erlang, apply, [Fun,[]], Pattern, Options);
-
-profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
+profile(Rootset, M, F, A)
+  when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, ?default_pattern).
 
--doc(#{equiv => profile/6}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc #{equiv => profile(Rootset, Module, Function, Args, Pattern,
+                        [{set_on_spawn, true}])}.
+-doc #{since => <<"OTP R14B">>}.
 -spec profile(Rootset, Module, Function, Args, Pattern) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -226,17 +263,19 @@ profile(Rootset, M, F, A) when is_list(Rootset), is_atom(M), is_atom(F), is_list
                   Value :: term(),
                   Reason :: term().
 
-profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
+profile(Rootset, M, F, A, Pattern)
+  when is_list(Rootset), is_atom(M), is_atom(F), is_list(A) ->
     profile(Rootset, M, F, A, Pattern, ?default_options).
 
 -doc """
-This function first spawns a process `P` which evaluates `Fun()` or
-[`apply(Module,Function,Args)`](`apply/3`). Then, it starts profiling for `P`
-and the processes in `Rootset` (and any new processes spawned from them).
-Information about activity in any profiled process is stored in the Eprof
-database.
+This function spawns a process `P` that [`apply(Module, Function,
+Args)`](`apply/3`), and then starts profiling for `P` and the
+processes in `Rootset` (and any new processes spawned from them).
 
 `Rootset` is a list of pids and registered names.
+
+Information about activity in any profiled process is stored in the Eprof
+database.
 
 If tracing could be enabled for `P` and all processes in `Rootset`, the function
 returns `{ok,Value}` when `Fun()`/`apply` returns with the value `Value`, or
@@ -249,7 +288,7 @@ spawned by processes in the rootset. This is the default behaviour.
 The programmer must ensure that the function given as argument is truly
 synchronous and that no work continues after the function has returned a value.
 """.
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc(#{since => <<"OTP R16B01">>}).
 -spec profile(Rootset, Module, Function, Args, Pattern, Options) ->
                      {'ok', Value} | {'error', Reason} when
                   Rootset :: [atom() | pid()],
@@ -275,8 +314,8 @@ dump_data() ->
     gen_server:call(?MODULE, dump_data, infinity).
 
 -doc """
-This function ensures that the results displayed by
-[`analyze/0,1,2`](`analyze/0`) are printed both to the file `File` and the
+Call this function to ensure that the results displayed by
+[`analyze/0,1,2`](`analyze/0`) are printed to the file `File` as well as to the
 screen.
 """.
 -spec log(File) -> 'ok' when
@@ -285,8 +324,7 @@ screen.
 log(File) ->
     gen_server:call(?MODULE, {logfile, File}, infinity).
 
--doc(#{equiv => start_profiling/3}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc #{equiv => start_profiling(Rootset, {'_','_','_'})}.
 -spec start_profiling(Rootset) -> 'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
       Reason :: term().
@@ -295,8 +333,8 @@ log(File) ->
 start_profiling(Rootset) ->
     start_profiling(Rootset, ?default_pattern).
 
--doc(#{equiv => start_profiling/3}).
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc #{equiv => start_profiling(Rootset, Pattern, {'_','_','_'})}.
+-doc(#{since => <<"OTP R14B">>}).
 -spec start_profiling(Rootset, Pattern) -> 'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],
       Pattern :: trace_pattern_mfa(),
@@ -307,7 +345,9 @@ start_profiling(Rootset, Pattern) ->
 
 -doc """
 Starts profiling for the processes in `Rootset` (and any new processes spawned
-from them). Information about activity in any profiled process is stored in the
+from them).
+
+Information about activity in any profiled process is stored in the
 Eprof database.
 
 `Rootset` is a list of pids and registered names.
@@ -322,7 +362,7 @@ profiled.
 The `set_on_spawn` option will active call time tracing for all processes
 spawned by processes in the rootset. This is the default behaviour.
 """.
--doc(#{since => <<"OTP R14B,OTP R16B01">>}).
+-doc(#{since => <<"OTP R16B01">>}).
 -spec start_profiling(Rootset, Pattern, Options) ->
                              'profiling' | {'error', Reason} when
       Rootset :: [atom() | pid()],

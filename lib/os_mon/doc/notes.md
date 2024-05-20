@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.10
+
+### Improvements and New Features
+
+- Function specifications and types have been added to all public API functions.
+
+  Own Id: OTP-18913
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Os_Mon 2.9.1
 
 ### Fixed Bugs and Malfunctions
@@ -58,6 +72,14 @@ This document describes the changes made to the OS_Mon application.
 
   Own Id: OTP-18566 Aux Id: PR-7080
 
+## Os_Mon 2.8.2.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed runtime dependencies.
+
+  Own Id: OTP-19064
+
 ## Os_Mon 2.8.2
 
 ### Fixed Bugs and Malfunctions
@@ -80,7 +102,7 @@ This document describes the changes made to the OS_Mon application.
 
 ### Improvements and New Features
 
-- The [`disk_space_check_interval`](`m:disksup#config`) configuration parameter
+- The [`disk_space_check_interval`](`m:disksup#module-configuration`) configuration parameter
   of `disksup` can now be set to values smaller than a minute.
 
   Own Id: OTP-18304 Aux Id: PR-6385

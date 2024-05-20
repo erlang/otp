@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2021. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,7 +81,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
-						% Default timetrap timeout
+-include_lib("stdlib/include/assert.hrl").
+%% Default timetrap timeout
 -define(default_timeout, test_server:minutes(1)).
 
 %%--------------------------------------------------------------------
@@ -563,26 +564,62 @@ links(Config) when is_list(Config) ->
 retrieve_attributes(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     SftpFileName = w2l(Config, FileName),
-
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, SftpFileName),
-    {ok, NewFileInfo} = file:read_file_info(FileName),
-
-    %% TODO comparison. There are some differences now is that ok?
-    ct:log("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]).
+    {ok, SftpFileInfo} = ssh_sftp:read_file_info(Sftp, SftpFileName),
+    {ok, FileFileInfo} = file:read_file_info(FileName),
+    ct:log("ssh_sftp:read_file_info(): ~p~n"
+           "file:read_file_info(): ~p",
+           [SftpFileInfo, FileFileInfo]),
+    {ExpectedUid, ExpectedGid} =
+        case {os:type(), proplists:get_value(group,Config)} of
+            {{win32, _}, openssh_server} ->
+                %% Windows compiled Erlang is expected will return 0;
+                %% but when Erlang(Windows) client interacts with
+                %% OpenSSH server - value 1000 is received by client
+                %% over SFTP (because OpenSSH is compiled for Linux
+                %% and runs on WSL)
+                {1000, 1000};
+            _ ->
+                {FileFileInfo#file_info.uid, FileFileInfo#file_info.gid}
+        end,
+    ?assertEqual(ExpectedUid, SftpFileInfo#file_info.uid),
+    ?assertEqual(ExpectedGid, SftpFileInfo#file_info.gid),
+    ok.
 
 %%--------------------------------------------------------------------
 set_attributes(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
     SftpFileName = w2l(Config, FileName),
-
     {Sftp, _} = proplists:get_value(sftp, Config),
     {ok,Fd} = file:open(FileName, write),
     io:put_chars(Fd,"foo"),
-    ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#400}),
-    {error, eacces} = file:write_file(FileName, "hello again"),
-    ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#600}),
-    ok = file:write_file(FileName, "hello again").
+    TestWriting =
+        fun(FInfo) ->
+                ok = ssh_sftp:write_file_info(Sftp, SftpFileName,
+                                              FInfo#file_info{mode=8#400}),
+                {error, eacces} = file:write_file(FileName, "hello again"),
+                ok = ssh_sftp:write_file_info(Sftp, SftpFileName,
+                                              FInfo#file_info{mode=8#600}),
+                ok = file:write_file(FileName, "hello again")
+        end,
+    TestWriting(#file_info{}),
+    IsErlangServer =
+        fun() ->
+                TcGroupPath = proplists:get_value(tc_group_path, Config),
+                {_, Path} = lists:unzip(lists:flatten(TcGroupPath)),
+                lists:member(erlang_server, Path)
+        end,
+    case IsErlangServer() of
+        true ->
+            ct:log("Testing with writing a complete #file_info record"),
+            {ok, FileInfo} = file:read_file_info(SftpFileName),
+            TestWriting(FileInfo);
+        _ ->
+            %% with OpenSSH daemon started by other user above instruction end
+            %% up with permission denied
+            ok
+    end,
+    ok.
 
 %%--------------------------------------------------------------------
 file_owner_access(Config) when is_list(Config) ->

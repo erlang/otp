@@ -36,8 +36,6 @@
 
 -include_lib("kernel/include/eep48.hrl").
 
--moduledoc false.
-
 -define(DEFAULT_MODULE_DOC_LOC, 1).
 -define(DEFAULT_FORMAT, <<"text/markdown">>).
 
@@ -63,7 +61,12 @@
 
                docformat = ?DEFAULT_FORMAT :: binary(),
                moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
-               moduledoc_meta = none :: none | #{ otp_doc_vsn => tuple() },
+               moduledoc_meta = none :: none | #{ _ := _ },
+
+               %% If the module has any documentation attributes at all.
+               %% If it does not and no documentation related options are
+               %% passed, then we don't generate a doc chunk.
+               has_docs = false :: boolean(),
 
                %% tracks exported functions from multiple `-export([...])`
                exported_functions = sets:new() :: sets:set({FunName :: atom(), Arity :: non_neg_integer()}),
@@ -127,7 +130,7 @@
                %% documentation text, etc.
                %%
                %% one cannot rely on the fields below to keep track of documentation,
-               %% as Erlang allows pretty unstructure code.
+               %% as Erlang allows pretty unstructured code.
                %%
                %% e.g.,
                %%
@@ -140,7 +143,7 @@
                %% -doc foo() -> ok.
                %%
                %% thus, after reading a terminal AST node (spec, type, fun declaration, opaque, callback),
-               %% the intermediate state saveed in the fields below needs to be
+               %% the intermediate state saved in the fields below needs to be
                %% saved in the `docs` field.
 
                hidden_status = none :: none | hidden,
@@ -182,7 +185,7 @@
                %% Stateful, need to be fixed as docs.
                meta   = #{exported => false} :: map(),
 
-               %% on analysing the AST, and upon finding a spec of a exported
+               %% on analyzing the AST, and upon finding a spec of a exported
                %% function, the types from the spec are added to the field
                %% below. if the function to which the spec belongs to is hidden,
                %% we purge types from this field. if the function to which the
@@ -219,7 +222,9 @@
               }).
 
 -type internal_docs() :: #docs{}.
--type opt() :: warn_missing_doc | nowarn_hidden_doc | {nowarn_hidden_doc, {atom(), arity()}}.
+-type opt() :: warn_missing_doc | warn_missing_doc_functions | warn_missing_doc_callbacks | warn_missing_doc_types |
+               nowarn_missing_doc | nowarn_missing_doc_functions | nowarn_missing_doc_callbacks | nowarn_missing_doc_types |
+               nowarn_hidden_doc | {nowarn_hidden_doc, {atom(), arity()}}.
 -type kfa() :: {Kind :: function | type | callback, Name :: atom(), Arity :: arity()}.
 -type warnings() :: [{file:filename(),
                       [{erl_anno:location(), beam_doc, warning()}]}].
@@ -231,24 +236,60 @@
 Transforms an Erlang abstract syntax form into EEP-48 documentation format.
 ".
 -spec main(file:filename(), file:filename(), [erl_parse:abstract_form()], [opt()]) ->
-          {ok, #docs_v1{}, warnings()}.
+          {ok, #docs_v1{}, warnings()} | {error, no_docs}.
 main(Dirname, Filename, AST, CmdLineOpts) ->
     Opts = extract_opts(AST, CmdLineOpts),
     State0 = new_state(Dirname, Filename, Opts),
     State1 = preprocessing(AST, State0),
-    Docs = extract_documentation(AST, State1),
-    {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
-    DocV1 = #docs_v1{},
-    Result = DocV1#docs_v1{ format = Docs#docs.docformat,
-                            anno = ModuleDocAnno,
-                            metadata = Docs#docs.moduledoc_meta,
-                            module_doc = ModuleDoc,
-                            docs = process_docs(Docs) },
-   {ok, Result, Docs#docs.warnings }.
+    if State1#docs.has_docs orelse Opts =/= [] ->
+            Docs = extract_documentation(AST, State1),
+            {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
+            DocV1 = #docs_v1{},
+            Result = DocV1#docs_v1{ format = Docs#docs.docformat,
+                                    anno = ModuleDocAnno,
+                                    metadata = Docs#docs.moduledoc_meta,
+                                    module_doc = ModuleDoc,
+                                    docs = process_docs(Docs) },
+            {ok, Result, Docs#docs.warnings };
+       not State1#docs.has_docs ->
+            {error, no_docs}
+    end.
 
 extract_opts(AST, CmdLineOpts) ->
     CompileOpts = lists:flatten([C || {attribute,_,compile,C} <- AST]),
-    CompileOpts ++ CmdLineOpts.
+    NormalizedOpts = normalize_warn_missing_doc(CmdLineOpts ++ CompileOpts),
+
+    %% Filter out all unrelated opts
+    [Opt || Opt <- NormalizedOpts,
+            lists:member(Opt,[nowarn_hidden_doc]) orelse
+                (is_tuple(Opt) andalso tuple_size(Opt) =:= 2 andalso
+                 lists:member(element(1, Opt), [nowarn_hidden_doc,
+                                                warn_missing_doc]))].
+
+normalize_warn_missing_doc(Opts) ->
+    normalize_warn_missing_doc(Opts, []).
+normalize_warn_missing_doc([warn_missing_doc | Opts], _Warnings) ->
+    normalize_warn_missing_doc(Opts, [function,callback,type]);
+normalize_warn_missing_doc([nowarn_missing_doc | Opts], _Warnings) ->
+    normalize_warn_missing_doc(Opts, []);
+normalize_warn_missing_doc([warn_missing_doc_functions | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([function | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_functions | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [function]));
+normalize_warn_missing_doc([warn_missing_doc_callbacks | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([callback | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_callbacks | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [callback]));
+normalize_warn_missing_doc([warn_missing_doc_types | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq([type | Warnings]));
+normalize_warn_missing_doc([nowarn_missing_doc_types | Opts], Warnings) ->
+    normalize_warn_missing_doc(Opts, lists:uniq(Warnings -- [type]));
+normalize_warn_missing_doc([Opt | Opts], Warnings) ->
+    [Opt | normalize_warn_missing_doc(Opts, Warnings)];
+normalize_warn_missing_doc([], []) ->
+    [];
+normalize_warn_missing_doc([], Warnings) ->
+    [{warn_missing_doc,Warnings}].
 
 -spec format_error(warning()) -> io_lib:chars().
 format_error({hidden_type_used_in_exported_fun, {Type, Arity}}) ->
@@ -268,24 +309,40 @@ process_docs(#docs{ast_callbacks = AstCallbacks, ast_fns = AstFns, ast_types = A
 preprocessing(AST, State) ->
    PreprocessingFuns = fun (AST0, State0) ->
                              Funs = [% Order matters
+                                     fun has_docs/2,
                                      fun extract_deprecated/2,
-                                     fun extract_exported_types0/2, % done
-                                     fun extract_signature_from_spec0/2,%done
+                                     fun extract_exported_types0/2,
+                                     fun extract_signature_from_spec0/2,
                                      fun track_documentation/2,      %must be before upsert_documentation_from_terminal_item/2
                                      fun upsert_documentation_from_terminal_item/2,
-                                     fun extract_docformat0/2, %done
-                                     fun extract_moduledoc0/2, %done
-                                     fun extract_module_meta/2, %done
-                                     fun extract_exported_funs/2, %done
-                                     fun extract_file/2, %done
+                                     fun extract_docformat0/2,
+                                     fun extract_moduledoc0/2,
+                                     fun extract_module_meta/2,
+                                     fun extract_exported_funs/2,
+                                     fun extract_file/2,
                                      fun extract_record/2,
-                                     fun extract_hidden_types0/2, %done
-                                     fun extract_type_defs0/2,    %done
+                                     fun extract_hidden_types0/2,
+                                     fun extract_type_defs0/2,
                                      fun extract_type_dependencies/2],
                              foldl(fun (F, State1) -> F(AST0, State1) end, State0, Funs)
                        end,
    foldl(PreprocessingFuns, State, AST).
 
+has_docs({attribute, _Anno, moduledoc, _}, State) ->
+    State#docs{ has_docs = true };
+has_docs({attribute, _Anno, doc, _}, State) ->
+    State#docs{ has_docs = true };
+has_docs(_, State) ->
+    State.
+
+extract_deprecated({attribute, Anno, DeprecatedType, Deprecations}, State)
+  when is_list(Deprecations),
+       DeprecatedType =:= deprecated orelse
+       DeprecatedType =:= deprecated_type orelse
+       DeprecatedType =:= deprecated_callback ->
+    lists:foldl(fun(D, S) ->
+                        extract_deprecated({attribute, Anno, DeprecatedType, D}, S)
+                end, State, Deprecations);
 extract_deprecated({attribute, Anno, deprecated, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated, {F, A, undefined}}, State);
 extract_deprecated({attribute, _, deprecated, {F, A, Reason}}, State) ->
@@ -295,6 +352,11 @@ extract_deprecated({attribute, Anno, deprecated_type, {F, A}}, State) ->
     extract_deprecated({attribute, Anno, deprecated_type, {F, A, undefined}}, State);
 extract_deprecated({attribute, _, deprecated_type, {F, A, Reason}}, State) ->
     Deprecations = (State#docs.deprecated)#{ {type, F, A} => Reason },
+    State#docs{ deprecated = Deprecations };
+extract_deprecated({attribute, Anno, deprecated_callback, {F, A}}, State) ->
+    extract_deprecated({attribute, Anno, deprecated_callback, {F, A, undefined}}, State);
+extract_deprecated({attribute, _, deprecated_callback, {F, A, Reason}}, State) ->
+    Deprecations = (State#docs.deprecated)#{ {callback, F, A} => Reason },
     State#docs{ deprecated = Deprecations };
 extract_deprecated(_, State) ->
    State.
@@ -449,7 +511,6 @@ extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, ModuleDoc}, State) when
 extract_moduledoc0(_, State) ->
    State.
 
-
 extract_module_meta({attribute, _ModuleDocAnno, moduledoc, MetaDoc}, State) when is_map(MetaDoc) ->
    State#docs{moduledoc_meta = maps:merge(State#docs.moduledoc_meta, MetaDoc)};
 extract_module_meta(_, State) ->
@@ -491,8 +552,9 @@ extract_hidden_types0({attribute, _Anno, doc, DocStatus}, State) when
    State#docs{hidden_status = hidden};
 extract_hidden_types0({attribute, _Anno, doc, _}, State) ->
    State;
-extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}}, #docs{hidden_status = hidden,
-                                                                                   hidden_types = HiddenTypes}=State)
+extract_hidden_types0({attribute, _Anno, TypeOrOpaque, {Name, _Type, Args}},
+                      #docs{hidden_status = hidden,
+                            hidden_types = HiddenTypes}=State)
   when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
    State#docs{hidden_status = none,
               hidden_types = sets:add_element({Name, length(Args)}, HiddenTypes)};
@@ -688,6 +750,8 @@ warnings(_AST, State) ->
               ],
    foldl(fun (W, State0) -> W(State0) end, State, WarnFuns).
 
+warn_missing_docs(State = #docs{ moduledoc = {_, hidden} }) ->
+   State;
 warn_missing_docs(State) ->
    DocNodes = process_docs(State),
    foldl(fun warn_missing_docs/2, State, DocNodes).
@@ -747,19 +811,23 @@ create_warning(Anno, Warning, State) ->
    Location = erl_anno:location(Anno),
    {Filename, [{Location, ?MODULE, Warning}]}.
 
-warn_missing_docs({KFA, Anno, _, Doc, _}, State) ->
-    case proplists:get_value(warn_missing_doc, State#docs.opts, false) of
-        true when Doc =:= none ->
+warn_missing_docs({{Kind, _, _} = KFA, Anno, _, Doc, MD}, State)
+  when Doc =:= none, not is_map_key(equiv, MD) ->
+    case lists:member(Kind, proplists:get_value(warn_missing_doc, State#docs.opts, [])) of
+        true ->
             Warning = {missing_doc, KFA},
             State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
-        _false ->
+        false ->
             State
-    end.
+    end;
+warn_missing_docs(_, State) ->
+    State.
 
 warn_missing_moduledoc(State) ->
    {_, ModuleDoc} = State#docs.moduledoc,
-   case proplists:get_value(warn_missing_doc, State#docs.opts, false) of
-      true when ModuleDoc =:= none ->
+   case proplists:get_value(warn_missing_doc, State#docs.opts, []) of
+      %% If any warn_missing_doc flags is enabled, we also warn for missing moduledoc.
+      [_|_] when ModuleDoc =:= none ->
          Anno = erl_anno:new(?DEFAULT_MODULE_DOC_LOC),
          Warning = missing_moduledoc,
          State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
@@ -934,7 +1002,7 @@ gen_doc(Anno, AttrBody, Signature, Docs, State) when not is_atom(Docs), not is_m
 gen_doc(Anno, {Attr, _F, _A}=AttrBody, Signature, Docs, #docs{docs=DocsMap}=State) ->
    {_Status, _Doc, Meta} = maps:get(AttrBody, DocsMap),
    Result = {AttrBody, Anno, [unicode:characters_to_binary(Signature)], Docs,
-             maybe_add_deprecation(AttrBody, Meta, State)},
+             maybe_add_since(maybe_add_deprecation(AttrBody, Meta, State), State)},
    State1 = update_user_defined_types(AttrBody, State),
    reset_state(update_ast(Attr, State1, Result)).
 
@@ -944,6 +1012,13 @@ erl_anno_file(Anno, State) ->
             State#docs.filename;
         FN -> FN
     end.
+
+maybe_add_since(#{ since := _} = Meta, _State) ->
+    Meta;
+maybe_add_since(Meta, #docs{ moduledoc_meta = #{ since := ModuleDocSince } }) ->
+    Meta#{ since => ModuleDocSince };
+maybe_add_since(Meta, _State) ->
+    Meta.
 
 maybe_add_deprecation(_KNA, #{ deprecated := Deprecated } = Meta, _State) ->
     Meta#{ deprecated := unicode:characters_to_binary(Deprecated) };
@@ -963,6 +1038,9 @@ maybe_add_deprecation({Kind, Name, Arity}, Meta, #docs{ module = Module,
                                                info_string(Value)});
                    Kind =:= type ->
                         erl_lint:format_error({deprecated_type, {Module,Name,Arity},
+                                               info_string(Value)});
+                   Kind =:= callback ->
+                        erl_lint:format_error({deprecated_callback, {Module,Name,Arity},
                                                info_string(Value)})
                 end,
             Meta#{ deprecated => unicode:characters_to_binary(Text) }
@@ -999,10 +1077,10 @@ fetch_doc_and_anno(#docs{docs = DocsMap}=State, {Attr, Anno0, F, A, _Args}) ->
         {_, {Doc1, Anno}} -> {Doc1, Anno}
     end.
 
--spec fun_to_varargs(tuple() | term()) -> list(term()).
+-spec fun_to_varargs(tuple() | term()) -> dynamic().
 fun_to_varargs({type, _, bounded_fun, [T|_]}) ->
    fun_to_varargs(T);
-fun_to_varargs({type, _, 'fun', [{type,_,product,Args}|_] }) ->
+fun_to_varargs({type, _, 'fun', [{type,_,product,Args}|_] }) when is_list(Args) ->
    map(fun fun_to_varargs/1, Args);
 fun_to_varargs({ann_type, _, [Name|_]}) ->
    Name;

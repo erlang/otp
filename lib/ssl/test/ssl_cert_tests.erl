@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 %%
 -module(ssl_cert_tests).
-
+-compile({nowarn_deprecated_function, [{public_key, encrypt_private, 3}]}).
 -include("ssl_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl").
 

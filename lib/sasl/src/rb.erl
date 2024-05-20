@@ -59,17 +59,18 @@ by the error logger handler `m:log_mf_h` in STDLIB.
 %% Interface functions.
 %% For available options; see print_options().
 %%-----------------------------------------------------------------
--doc(#{equiv => start/1}).
+-doc(#{equiv => start([])}).
 -spec start() -> term().
 start() -> start([]).
 -doc """
 start(Options)
 
 Function [`start/1`](`start/1`) starts `rb_server` with the specified options,
-whereas function `start/0` starts with default options. `rb_server` must be
-started before reports can be browsed. When `rb_server` is started, the files in
-the specified directory are scanned. The other functions assume that the server
-has started.
+whereas function `start/0` starts with default options.
+
+`rb_server` must be started before reports can be browsed. When
+`rb_server` is started, the files in the specified directory are
+scanned. The other functions assume that the server has started.
 
 _Options:_
 
@@ -125,7 +126,7 @@ Stops `rb_server`.
 stop() -> 
     supervisor:terminate_child(sasl_sup, rb_server).
 
--doc(#{equiv => rescan/1}).
+-doc(#{equiv => rescan([])}).
 -spec rescan() -> term().
 rescan() -> rescan([]).
 -doc """
@@ -137,7 +138,7 @@ Rescans the report directory. `Options` is the same as for function `start/1`.
 rescan(Options) ->
     call({rescan, Options}).
 
--doc(#{equiv => list/1}).
+-doc(#{equiv => list(all)}).
 -spec list() -> term().
 list() -> list(all).
 -doc """
@@ -151,7 +152,7 @@ If no `Type` is specified, all reports are listed.
 -spec list(Type :: type()) -> term().
 list(Type) -> call({list, Type}).
 
--doc(#{equiv => log_list/1}).
+-doc(#{equiv => log_list(all)}).
 -doc(#{since => <<"OTP R16B02">>}).
 -spec log_list() -> term().
 log_list() -> log_list(all).
@@ -167,7 +168,9 @@ If no `Type` is specified, all reports are listed.
 -spec log_list(Type :: type()) -> term().
 log_list(Type) -> call({log_list, Type}).
 
--doc(#{equiv => show/1}).
+-doc """
+All reports are displayed.
+""".
 -spec show() -> term().
 show() ->
     call(show).
@@ -175,9 +178,10 @@ show() ->
 -doc """
 show(Report)
 
-If argument `type` is specified, all loaded reports of this type are displayed.
-If an integer argument is specified, the report with this reference number is
-displayed. If no argument is specified, all reports are displayed.
+If argument `Report` is specified as one of the values of
+[`type()`](`t:type/0`), all loaded reports of that type are
+displayed. If `Report` is specified as an integer, the report with
+this reference number is displayed.
 """.
 -spec show(Report) -> term() when Report :: integer() | type().
 show(Number) when is_integer(Number) ->
@@ -278,7 +282,7 @@ Closes the log file. The output from the RB tool is directed to `standard_io`.
 -spec stop_log() -> term().
 stop_log() -> call(stop_log).
 
--doc(#{equiv => help/0}).
+-doc(#{equiv => help()}).
 -spec h() -> term().
 h() -> help().
 -doc """

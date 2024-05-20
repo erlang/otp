@@ -453,7 +453,7 @@ How to send a trap by sending the `fTrap` from the master agent is shown in this
 section. The master agent has the MIB `EX1-MIB` loaded, where the trap is
 defined. This trap specifies that two variables should be sent along with the
 trap, `myName` and `fIndex`. `fIndex` is a table column, so we must provide its
-value and the index for the row in the call to `snmpa:send_trap/4`. In the
+value and the index for the row in the call to `snmpa:send_notification2/3`. In the
 example below, we assume that the row in question is indexed by 2 (the row with
 `fIndex` 2).
 
@@ -476,7 +476,8 @@ Received a trap:
     TimeStamp: 42993
 2>
 [AGENT]
-3> snmpa:send_trap(snmp_master_agent, fTrap,"standard trap", [{fIndex,[2],2}]).
+3> SendOpts = [{receiver, no_receiver}, {varbinds, [{fIndex,[2],2}]}, {name, "standard trap"}, {context, ""}],
+4> snmpa:send_notification2(snmp_master_agent, fTrap, SendOpts).
 [MANAGER]
 2>
 * Got PDU:

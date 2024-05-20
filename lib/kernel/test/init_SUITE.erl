@@ -381,6 +381,7 @@ restart(Config) when is_list(Config) ->
     [InitPid, PurgerPid, LitCollectorPid,
      DirtySigNPid, DirtySigHPid, DirtySigMPid,
      PrimFilePid,
+     TraceCleanerPid,
      ESockRegPid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
@@ -402,6 +403,7 @@ restart(Config) when is_list(Config) ->
     [InitPid1, PurgerPid1, LitCollectorPid1,
      DirtySigNPid1, DirtySigHPid1, DirtySigMPid1,
      PrimFilePid1,
+     TraceCleanerPid1,
      ESockRegPid1] = SysProcs1,
 
     %% Still the same init process!
@@ -431,6 +433,10 @@ restart(Config) when is_list(Config) ->
     %% and same prim_file helper process!
     PrimFileP = pid_to_list(PrimFilePid),
     PrimFileP = pid_to_list(PrimFilePid1),
+
+    %% and same trace_cleaner process!
+    TraceCleanerP = pid_to_list(TraceCleanerPid),
+    TraceCleanerP = pid_to_list(TraceCleanerPid1),
 
     %% and same socket_registry helper process!
     if ESockRegPid =:= undefined, ESockRegPid1 =:= undefined ->
@@ -472,6 +478,7 @@ restart(Config) when is_list(Config) ->
 		    dirty_sig_handler_high,
 		    dirty_sig_handler_max,
                     prim_file,
+                    trace_cleaner,
                     socket_registry}).
 
 find_system_processes() ->
@@ -485,6 +492,7 @@ find_system_procs([], SysProcs) ->
      SysProcs#sys_procs.dirty_sig_handler_high,
      SysProcs#sys_procs.dirty_sig_handler_max,
      SysProcs#sys_procs.prim_file,
+     SysProcs#sys_procs.trace_cleaner,
      SysProcs#sys_procs.socket_registry];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, [initial_call, priority]) of
@@ -512,6 +520,9 @@ find_system_procs([P|Ps], SysProcs) ->
         [{initial_call,{prim_file,start,0}},_] ->
 	    undefined = SysProcs#sys_procs.prim_file,
 	    find_system_procs(Ps, SysProcs#sys_procs{prim_file = P});
+        [{initial_call,{erts_trace_cleaner,start,0}}, _] ->
+	    undefined = SysProcs#sys_procs.trace_cleaner,
+	    find_system_procs(Ps, SysProcs#sys_procs{trace_cleaner = P});
         [{initial_call,{socket_registry,start,0}},_] ->
 	    undefined = SysProcs#sys_procs.socket_registry,
 	    find_system_procs(Ps, SysProcs#sys_procs{socket_registry = P});

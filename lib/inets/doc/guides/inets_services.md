@@ -36,7 +36,7 @@ Services to be configured for startup at application startup are to be put into
 the Erlang node configuration file on the following form:
 
 ```erlang
-      [{inets, [{services, ListofConfiguredServices}]}].
+[{inets, [{services, ListofConfiguredServices}]}].
 ```
 
 For details of what to put in the list of configured services, see the

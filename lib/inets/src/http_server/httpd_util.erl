@@ -33,7 +33,7 @@ miscellaneous utility functions.
 
 [](){: #convert_request_date }
 
-## SEE ALSO
+### See also
 
 `m:httpd`
 """.
@@ -97,17 +97,24 @@ ip_address(Host, IpFamily)
 %% lookup
 
 -doc(#{equiv => lookup/3}).
+-spec lookup(EtsTable,Key) -> Result when
+      EtsTable :: ets:table(),
+      Key :: term(),
+      Result :: term() | undefined.
 lookup(Table,Key) ->
     lookup(Table,Key,undefined).
 
 -doc """
-lookup(ETSTable,Key,Undefined) -> Result
-
-`lookup` extracts `{Key,Value}` tuples from `ETSTable` and returns the `Value`
+`lookup` extracts `{Key, Value}` tuples from `ETSTable` and returns the `Value`
 associated with `Key`. If `ETSTable` is of type `bag`, only the first `Value`
-associated with `Key` is returned. [`lookup/2`](`lookup/2`) returns `undefined`
-and [`lookup/3`](`lookup/3`) returns `Undefined` if no `Value` is found.
+associated with `Key` is returned. `lookup/2` returns `undefined`
+and `lookup/3` returns `Undefined` if no `Value` is found.
 """.
+-spec lookup(EtsTable,Key,Undefined) -> Result when
+      EtsTable :: ets:table(),
+      Key :: term(),
+      Undefined :: term(),
+      Result :: term() | Undefined.
 lookup(Table,Key,Undefined) ->
     case catch ets:lookup(Table,Key) of
 	[{Key,Value}|_] ->
@@ -119,11 +126,13 @@ lookup(Table,Key,Undefined) ->
 %% multi_lookup
 
 -doc """
-multi_lookup(ETSTable,Key) -> Result
-
-`multi_lookup` extracts all `{Key,Value}` tuples from an `ETSTable` and returns
+`multi_lookup` extracts all `{Key, Value}` tuples from an `ETSTable` and returns
 _all_ `Values` associated with `Key` in a list.
 """.
+-spec multi_lookup(EtsTable,Key) -> Result when
+      EtsTable :: ets:tid(),
+      Key :: term(),
+      Result :: list() | [term()].
 multi_lookup(Table,Key) ->
     remove_key(ets:lookup(Table,Key)).
 
@@ -135,15 +144,22 @@ remove_key([{_Key, Value}| Rest]) ->
 %% lookup_mime
 
 -doc(#{equiv => lookup_mime/3}).
+-spec lookup_mime(ConfigDB,Suffix) -> MimeType when
+      ConfigDB :: ets:tid(),
+      Suffix :: string(),
+      MimeType :: string() | undefined.
 lookup_mime(ConfigDB,Suffix) ->
     lookup_mime(ConfigDB,Suffix,undefined).
 
 -doc """
-lookup_mime(ConfigDB,Suffix,Undefined) -> MimeType
-
 `lookup_mime` returns the MIME type associated with a specific file suffix as
 specified in the file `mime.types` (located in the config directory).
 """.
+-spec lookup_mime(ConfigDB,Suffix,Undefined) -> MimeType when
+      ConfigDB :: ets:tid(),
+      Suffix :: string(),
+      Undefined :: term(),
+      MimeType :: string() | Undefined.
 lookup_mime(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -156,16 +172,23 @@ lookup_mime(ConfigDB,Suffix,Undefined) ->
 %% lookup_mime_default
 
 -doc(#{equiv => lookup_mime_default/3}).
+-spec lookup_mime_default(ConfigDB,Suffix) -> MimeType when
+      ConfigDB :: ets:tid(),
+      Suffix :: string(),
+      MimeType :: string() | undefined.
 lookup_mime_default(ConfigDB,Suffix) ->
     lookup_mime_default(ConfigDB,Suffix,undefined).
 
 -doc """
-lookup_mime_default(ConfigDB,Suffix,Undefined) -> MimeType
-
 `lookup_mime_default` returns the MIME type associated with a specific file
 suffix as specified in the `mime.types` file (located in the config directory).
 If no appropriate association is found, the value of `DefaultType` is returned.
 """.
+-spec lookup_mime_default(ConfigDB,Suffix,Undefined) -> MimeType when
+      ConfigDB :: ets:tid(),
+      Suffix :: string(),
+      Undefined :: term(),
+      MimeType :: string() | Undefined.
 lookup_mime_default(ConfigDB,Suffix,Undefined) ->
     [{mime_types,MimeTypesDB}|_]=ets:lookup(ConfigDB,mime_types),
     case ets:lookup(MimeTypesDB,Suffix) of
@@ -189,12 +212,18 @@ lookup_mime_default(ConfigDB,Suffix,Undefined) ->
 
 %%% RFC 2616, HTTP 1.1 Status codes
 -doc """
-reason_phrase(StatusCode) -> Description
-
 `reason_phrase` returns `Description` of an HTTP 1.1 `StatusCode`, for example,
 200 is "OK" and 201 is "Created". For more information, see
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
 """.
+-spec reason_phrase(StatusCode) -> Description when
+      StatusCode :: 100 | 101 | 102 | 200 | 201 | 202 | 203 | 204 | 205 | 206
+                  | 207 | 226 | 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307
+                  | 308 | 400 | 401 | 402 | 403 | 404 | 405 | 406 | 407 | 408
+                  | 409 | 410 | 411 | 412 | 413 | 414 | 415 | 416 | 417 | 422
+                  | 423 | 424 | 425 | 426 | 500 | 501 | 502 | 503 | 504 | 505
+                  | 507,
+      Description :: string().
 reason_phrase(100) ->   "Continue";
 reason_phrase(101) ->   "Switching Protocols" ;
 reason_phrase(200) ->   "OK" ;
@@ -261,9 +290,7 @@ reason_phrase(_) -> "Internal Server Error".
 %% message
 
 -doc """
-message(StatusCode,PhraseArgs,ConfigDB) -> Message
-
-[`message/3`](`message/3`) returns an informative HTTP 1.1 status string in
+`message/3` returns an informative HTTP 1.1 status string in
 HTML. Each `StatusCode` requires a specific `PhraseArgs`:
 
 - **`301`** - `t:string/0`: A URL pointing at the new document position.
@@ -273,11 +300,17 @@ HTML. Each `StatusCode` requires a specific `PhraseArgs`:
 - **`403 | 404`** - `t:string/0`: A `Request-URI` as described in
   [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
 
-- **`501`** - `{Method,RequestURI,HTTPVersion}`: The HTTP `Method`,
+- **`501`** - `{Method, RequestURI, HTTPVersion}`: The HTTP `Method`,
   `Request-URI`, and `HTTP-Version` as defined in RFC 2616.
 
 - **`504`** - `t:string/0`: A string describing why the service was unavailable.
 """.
+-spec message(StatusCode,PhraseArgs,ConfigDB) -> Message when
+      StatusCode :: 301 | 304 | 400 | 401 | 403 | 404 | 408 | 412 | 413 | 414
+                  | 500 | 501 | 503 | 504,
+      PhraseArgs :: term(),
+      ConfigDB :: ets:tid(),
+      Message :: string().
 message(301,URL,_) ->
     "The document has moved <A HREF=\""++ html_encode(URL) ++"\">here</A>.";
 message(304, _URL,_) ->
@@ -344,12 +377,13 @@ html_encode(String) ->
 %%convert_rfc_date(Date)->{{YYYY,MM,DD},{HH,MIN,SEC}}
 
 -doc """
-convert_request_date(DateString) -> ErlDate|bad_date
-
-[`convert_request_date/1`](`convert_request_date/1`) converts `DateString` to
+`convert_request_date/1` converts `DateString` to
 the Erlang date format. `DateString` must be in one of the three date formats
 defined in [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt).
 """.
+-spec convert_request_date(DateString) -> ErlDate | bad_date when
+      DateString :: string(),
+      ErlDate :: calendar:datetime().
 convert_request_date([D,A,Y,DateType| Rest])->
     Func=case DateType of
 	     $\, ->
@@ -428,6 +462,8 @@ convert_netscapecookie_date(Date)->
 %% rfc1123_date
 
 -doc(#{equiv => rfc1123_date/1}).
+-spec rfc1123_date() -> RFC1123Date when
+      RFC1123Date :: string().
 rfc1123_date() ->
     {{YYYY,MM,DD},{Hour,Min,Sec}} = calendar:universal_time(),
     DayNumber = calendar:day_of_the_week({YYYY,MM,DD}),
@@ -436,11 +472,12 @@ rfc1123_date() ->
 		    [day(DayNumber),DD,month(MM),YYYY,Hour,Min,Sec])).
 
 -doc """
-rfc1123_date(Date) -> RFC1123Date
-
 `rfc1123_date/0` returns the current date in RFC 1123 format. `rfc_date/1`
 converts the date in the Erlang format to the RFC 1123 date format.
 """.
+-spec rfc1123_date(LocalTime) -> RFC1123Date when
+      LocalTime :: calendar:datetime() | undefined,
+      RFC1123Date :: string() | undefined.
 rfc1123_date(undefined) ->
     undefined;
 rfc1123_date(LocalTime) ->
@@ -492,13 +529,14 @@ uniq([First|Rest]) ->
 %% day
 
 -doc """
-day(NthDayOfWeek) -> DayOfWeek
-
-[`day/1`](`day/1`) converts the day of the week (`NthDayOfWeek`) from an integer
+`day/1` converts the day of the week (`NthDayOfWeek`) from an integer
 (1-7) to an abbreviated string, that is:
 
 1 = "Mon", 2 = "Tue", ..., 7 = "Sat".
 """.
+-spec day(NthDayOfWeek) -> DayOfWeek when
+      NthDayOfWeek :: 1..7,
+      DayOfWeek :: string().
 day(1) -> "Mon";
 day(2) -> "Tue";
 day(3) -> "Wed";
@@ -510,13 +548,14 @@ day(7) -> "Sun".
 %% month
 
 -doc """
-month(NthMonth) -> Month
-
-[`month/1`](`month/1`) converts the month `NthMonth` as an integer (1-12) to an
+`month/1` converts the month `NthMonth` as an integer (1-12) to an
 abbreviated string, that is:
 
 1 = "Jan", 2 = "Feb", ..., 12 = "Dec".
 """.
+-spec month(NthMonth) -> Month when
+      NthMonth :: 1..12,
+      Month :: string().
 month(1) -> "Jan";
 month(2) -> "Feb";
 month(3) -> "Mar";
@@ -534,9 +573,7 @@ month(12) -> "Dec".
 %% and should only be decoded once(RFC3986, 2.4).
 
 -doc """
-split_path(RequestLine) -> {Path,QueryStringOrPathInfo}
-
-[`split_path/1`](`split_path/1`) splits `RequestLine` in a file reference
+`split_path/1` splits `RequestLine` in a file reference
 (`Path`), and a `QueryString` or a `PathInfo` string as specified in
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt). A `QueryString` is isolated
 from `Path` with a question mark (`?`) and `PathInfo` with a slash (/). In the
@@ -546,6 +583,10 @@ from left-to-right on the hunt for longest possible `Path` being a file or a
 directory. Everything after the longest possible `Path`, isolated with a `/`, is
 regarded as `PathInfo`
 """.
+-spec split_path(URIString) -> {Path,QueryStringOrPathInfo} when
+      URIString :: string(),
+      Path :: string(),
+      QueryStringOrPathInfo :: string().
 split_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := Fragment,
@@ -567,13 +608,16 @@ add_hashmark(Query, Fragment) ->
 
 
 -doc """
-split_script_path(RequestLine) -> Split
-
-[`split_script_path/1`](`split_script_path/1`) is equivalent to
-[`split_path/1`](`split_path/1`) with one exception. If the longest possible
-path is not a regular, accessible, and executable file, then `not_a_script` is
-returned.
+`split_script_path/1` is equivalent to `split_path/1` with one exception. If
+the longest possible path is not a regular, accessible, and executable file,
+then `not_a_script` is returned.
 """.
+-spec split_script_path(URIString) -> Split when
+      URIString :: string(),
+      Split :: not_a_script | {Path,{PathInfo,QueryString}} | {Path, []},
+      Path :: string(),
+      QueryString :: string(),
+      PathInfo :: string().
 split_script_path(URI) -> 
     case uri_string:parse(URI) of
        #{fragment := _Fragment,
@@ -600,12 +644,16 @@ strip_extension_dot(Path) ->
 %% split
 
 -doc """
-split(String,RegExp,N) -> SplitRes
-
-[`split/3`](`split/3`) splits `String` in `N` chunks using `RegExp`.
-[`split/3`](`split/3`) is equivalent to `re:split/3` with the exception that `N`
-defines the maximum number of fields in `FieldList`.
+`split/3` splits `String` in `N` chunks using `RegExp`. `split/3` is equivalent
+to `re:split/3` with the exception that `N` defines the maximum number of
+fields in `FieldList`.
 """.
+-spec split(String,RegExp,N) -> SplitRes when
+      String :: string(),
+      RegExp :: string(),
+      N :: non_neg_integer(),
+      SplitRes :: {ok, FieldList} | {error, term()},
+      FieldList :: [string()].
 split(String,RegExp,N) ->
     {ok, re:split(String, RegExp, [{parts, N}, {return, list}])}.
 
@@ -673,12 +721,12 @@ search_and_replace(S,A,B) ->
     lists:map(Fun,S).
 
 -doc """
-create_etag(FileInfo) -> Etag
-
-[`create_etag/1`](`create_etag/1`) calculates the Etag for a file from its size
-and time for last modification. `FileInfo` is a record defined in
-`kernel/include/file.hrl`.
+`create_etag/1` calculates the Etag for a file from its size and time for last
+modification. `FileInfo` is a record defined in `kernel/include/file.hrl`.
 """.
+-spec create_etag(FileInfo) -> Etag when
+      FileInfo :: file:file_info(),
+      Etag :: string().
 create_etag(FileInfo) ->
     create_etag(FileInfo#file_info.mtime,FileInfo#file_info.size).
 

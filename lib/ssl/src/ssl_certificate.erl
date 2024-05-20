@@ -74,7 +74,7 @@
          certificate_chain/5,
          file_to_certificats/2,
          file_to_crls/2,
-         validate/3,
+         validate/4,
          is_valid_key_usage/2,
          select_extension/2,
          extensions_list/1,
@@ -93,7 +93,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec trusted_cert_and_paths([der_cert()], db_handle(), certdb_ref(), fun()) ->
+-spec trusted_cert_and_paths([public_key:combined_cert()], ssl_manager:db_handle(), ssl_manager:certdb_ref(), fun()) ->
           [{public_key:combined_cert() | unknown_ca | invalid_issuer | selfsigned_peer, [public_key:combined_cert()]}].
 %%
 %% Description: Construct input to public_key:pkix_path_validation/3,
@@ -104,22 +104,19 @@
 %% Note: Path = lists:reverse(Chain) -- Root, that is on the peer cert 
 %% always comes first in the chain but last in the path.
 %%--------------------------------------------------------------------
-trusted_cert_and_paths([Peer],  CertDbHandle, CertDbRef, PartialChainHandler) ->
-    OtpCert = public_key:pkix_decode_cert(Peer, otp),
-    Chain = [#cert{der=Peer, otp=OtpCert}],
-    case public_key:pkix_is_self_signed(OtpCert) of
+trusted_cert_and_paths([#cert{otp = Peer}] = Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+    case public_key:pkix_is_self_signed(Peer) of
         true ->
             [{selfsigned_peer, Chain}];
         false ->
             [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, Chain},
                                      CertDbHandle, CertDbRef)]
     end;
-trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
     %% Construct possible certificate paths from the chain certificates.
     %% If the chain contains extraneous certificates there could be
     %% more than one possible path such chains might be used to phase out
     %% an old certificate.
-    Chain = [#cert{der=Der,otp=public_key:pkix_decode_cert(Der, otp)} || Der <- Chain0],
     Paths = paths(Chain, CertDbHandle),
     lists:map(fun(Path) ->
                       case handle_partial_chain(Path, PartialChainHandler, CertDbHandle, CertDbRef) of
@@ -133,9 +130,9 @@ trusted_cert_and_paths(Chain0,  CertDbHandle, CertDbRef, PartialChainHandler) ->
                       end
               end, Paths).
 %%--------------------------------------------------------------------
--spec certificate_chain([] | binary() | #'OTPCertificate'{} , db_handle(),
-                        certdb_ref() | {extracted, list()}) ->
-          {error, no_cert} | {ok, der_cert() | undefined, [der_cert()]}.
+-spec certificate_chain([] | binary() | #'OTPCertificate'{} , ssl_manager:db_handle(),
+                        ssl_manager:certdb_ref() | {extracted, list()}) ->
+          {error, no_cert} | {ok, public_key:der_encoded() | undefined, [public_key:der_encoded()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
@@ -155,13 +152,13 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef) ->
     {ok, Root, Chain} = build_certificate_chain(Cert, CertDbHandle, CertsDbRef, [Cert], []),
     chain_result(Root, Chain, encoded).
 %%--------------------------------------------------------------------
--spec certificate_chain(binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | 
-                        {extracted, list()}, [der_cert()], encoded | decoded | both) ->
+-spec certificate_chain(binary() | #'OTPCertificate'{} , ssl_manager:db_handle(), ssl_manager:certdb_ref() |
+                        {extracted, list()}, [public_key:der_encoded()], encoded | decoded | both) ->
           {ok,
-           der_cert() | #'OTPCertificate'{} | undefined,
-           [der_cert() |  #'OTPCertificate'{}]} |
+           public_key:der_encoded() | #'OTPCertificate'{} | undefined,
+           [public_key:der_encoded() |  #'OTPCertificate'{}]} |
           {ok,
-           {der_cert() | undefined,  [der_cert()]},
+           {public_key:der_encoded() | undefined,  [public_key:der_encoded()]},
            {#'OTPCertificate'{} | undefined, [#'OTPCertificate'{}]}
           }.
 %%
@@ -182,7 +179,7 @@ certificate_chain(#cert{} = Cert, CertDbHandle, CertsDbRef, Candidates, Type) ->
     chain_result(Root, Chain, Type).
                 
 %%--------------------------------------------------------------------
--spec file_to_certificats(binary(), term()) -> [der_cert()].
+-spec file_to_certificats(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
@@ -191,7 +188,7 @@ file_to_certificats(File, DbHandle) ->
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 
 %%--------------------------------------------------------------------
--spec file_to_crls(binary(), term()) -> [der_cert()].
+-spec file_to_crls(binary(), term()) -> [public_key:der_encoded()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
@@ -201,13 +198,14 @@ file_to_crls(File, DbHandle) ->
 
 %%--------------------------------------------------------------------
 -spec validate(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid | valid_peer,
-	       term()) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
+	       term(), logger:level() | none | all) -> {valid, term()} | {fail, tuple()} | {unknown, term()}.
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
                                     critical = Critical,
-				    extnValue = KeyUse}}, #{path_len := 1} = UserState) ->
+				    extnValue = KeyUse}}, #{path_len := 1} = UserState,
+        _LogLevel) ->
     %% If extension in peer, check for TLS server/client usage
     case is_valid_extkey_usage(KeyUse, Critical, UserState) of
 	true ->
@@ -215,34 +213,36 @@ validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
 	false ->
 	    {unknown, UserState}
     end;
-validate(_, {extension, _}, UserState) ->
+validate(_, {extension, _}, UserState, _LogLevel) ->
     {unknown, UserState};
-validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}) ->
+validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}, _LogLevel) ->
     {fail, {bad_cert, root_cert_expired}};
-validate(_, {bad_cert, _} = Reason, _) ->
+validate(_, {bad_cert, _} = Reason, _, _LogLevel) ->
     {fail, Reason};
-validate(Cert, valid, #{path_len := N} = UserState) ->
+validate(Cert, valid, #{path_len := N} = UserState, LogLevel) ->
     case verify_sign(Cert, UserState) of
         true ->
             case maps:get(cert_ext, UserState, undefined) of
                 undefined ->
                     {valid, UserState#{path_len => N-1}};
                 _ ->
-                    verify_cert_extensions(Cert, UserState#{path_len => N-1})
+                    verify_cert_extensions(Cert, UserState#{path_len => N-1},
+                                           LogLevel)
             end;
         false ->
             {fail, {bad_cert, invalid_signature}}
     end;
 validate(Cert, valid_peer, UserState = #{role := client, server_name := Hostname, 
-                                         customize_hostname_check := Customize}) when Hostname =/= disable ->
+                                         customize_hostname_check := Customize},
+         LogLevel) when Hostname =/= disable ->
     case verify_hostname(Hostname, Customize, Cert, UserState) of
         {valid, UserState} ->
-            validate(Cert, valid, UserState);
+            validate(Cert, valid, UserState, LogLevel);
         Error ->
             Error
     end;
-validate(Cert, valid_peer, UserState) ->    
-    validate(Cert, valid, UserState).
+validate(Cert, valid_peer, UserState, LogLevel) ->
+    validate(Cert, valid, UserState, LogLevel).
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
@@ -293,7 +293,7 @@ public_key_type(Oid) ->
     Sign.
 
 %%--------------------------------------------------------------------
--spec foldl_db(fun(), db_handle() | {extracted, list()}, list()) ->
+-spec foldl_db(fun(), ssl_manager:db_handle() | {extracted, list()}, list()) ->
  {ok, term()} | issuer_not_found.
 %%
 %% Description:
@@ -320,8 +320,8 @@ handle_cert_auths(Chain, [], _, _) ->
     {ok, Chain};
 handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
     case certificate_chain(Cert, CertDbHandle, CertDbRef, [], both) of
-        {ok, {_, [Cert | _] = EChain}, {_, [_ | DCerts]}}  ->
-            case cert_auth_member(cert_issuers(DCerts), CertAuths) of
+        {ok, {_, [Cert | _] = EChain}, _}  ->
+            case cert_auth_member(cert_issuers(EChain), CertAuths) of
                 true ->
                     {ok, EChain};
                 false ->
@@ -330,8 +330,8 @@ handle_cert_auths([Cert], CertAuths, CertDbHandle, CertDbRef) ->
         _ ->
             {ok, [Cert]}
     end;
-handle_cert_auths([_ | Certs] = EChain, CertAuths, _, _) ->
-    case cert_auth_member(cert_issuers(Certs), CertAuths) of
+handle_cert_auths([_ | _] = EChain, CertAuths, _, _) ->
+    case cert_auth_member(cert_issuers(EChain), CertAuths) of
         true ->
             {ok, EChain};
         false ->
@@ -568,27 +568,35 @@ verify_hostname(Hostname, Customize, Cert, UserState) ->
         false -> {fail, {bad_cert, hostname_check_failed}}
     end.
 
-verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState) ->
+verify_cert_extensions(Cert, #{cert_ext := CertExts} =  UserState, LogLevel) ->
     Id = public_key:pkix_subject_id(Cert),
     Extensions = maps:get(Id, CertExts, []),
     verify_cert_extensions(Cert, UserState, Extensions,
-                           #{certificate_valid => false}).
+                           #{certificate_valid => false}, LogLevel).
 
-verify_cert_extensions(_Cert, _UserState = #{stapling_state := #{configured := true},
+verify_cert_extensions(_Cert, UserState = #{stapling_state := #{configured := true},
                                             path_len := 0}, [],
-                       _Context = #{certificate_valid := false}) ->
-    {fail, missing_certificate_status};
-verify_cert_extensions(Cert, UserState, [], _) ->
+                       _Context = #{certificate_valid := false}, LogLevel) ->
+    %% RFC6066 section 8
+    %% Servers that receive a client hello containing the "status_request"
+    %% extension MAY return a suitable certificate status response to the
+    %% client along with their certificate.
+    Desc = "Certificate Status - stapling response not provided by the server",
+    ssl_logger:log(notice, LogLevel, #{description => Desc,
+                                     reason => [{missing, stapling_response}]},
+                   ?LOCATION),
+    {valid, UserState};
+verify_cert_extensions(Cert, UserState, [], _, _) ->
     {valid, UserState#{issuer => Cert}};
 verify_cert_extensions(_, #{stapling_state := #{configured := false}},
-                       [#certificate_status{} | _], _) ->
+                       [#certificate_status{} | _], _, _) ->
     {fail, unexpected_certificate_status};
 verify_cert_extensions(Cert, #{stapling_state := StaplingState,
                                issuer := Issuer,
                                certdb := CertDbHandle,
                                certdb_ref := CertDbRef} = UserState,
                        [#certificate_status{response = OcspResponseDer} | Exts],
-                       Context) ->
+                       Context, LogLevel) ->
     #{ocsp_nonce := Nonce} = StaplingState,
     IsTrustedResponderFun =
         fun(#cert{der = DerResponderCert, otp = OtpCert}) ->
@@ -604,16 +612,30 @@ verify_cert_extensions(Cert, #{stapling_state := StaplingState,
                 end
         end,
     case public_key:pkix_ocsp_validate(Cert, Issuer, OcspResponseDer, Nonce,
-                                       [{is_trusted_responder_fun, IsTrustedResponderFun}]) of
-        ok ->
+                                       [{is_trusted_responder_fun,
+                                         IsTrustedResponderFun}]) of
+        {ok, Details} ->
+            HandleOcspDetails =
+                fun H([{missing, ocsp_nonce} | Rest]) ->
+                        Desc = "Certificate Status - stapling response "
+                            "provided but with nonce missing",
+                        ssl_logger:log(info, LogLevel,
+                                       #{description => Desc,
+                                         reason => [{missing, stapling_nonce}]},
+                                       ?LOCATION),
+                        H(Rest);
+                    H([_ | Rest]) ->
+                        H(Rest);
+                    H([]) -> ok end,
+            HandleOcspDetails(Details),
             verify_cert_extensions(Cert, UserState, Exts,
-                                   Context#{certificate_valid => true});
+                                   Context#{certificate_valid => true}, LogLevel);
         {error, {bad_cert, _} = Reason} ->
             {fail, Reason}
     end;
-verify_cert_extensions(Cert, UserState, [_|Exts], Context) ->
+verify_cert_extensions(Cert, UserState, [_|Exts], Context, LogLevel) ->
     %% Skip unknown extensions!
-    verify_cert_extensions(Cert, UserState, Exts, Context).
+    verify_cert_extensions(Cert, UserState, Exts, Context, LogLevel).
 
 verify_sign(_, #{version := Version})
             when ?TLS_LT(Version, ?TLS_1_2) ->

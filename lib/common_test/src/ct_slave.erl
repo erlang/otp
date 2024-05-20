@@ -48,20 +48,36 @@ term in the Test Specification.
 		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,
 		  stop_timeout}).
 
--doc """
-start(Node) -> Result
+-type start_options() :: [{'username', string()}
+                         | {'password', string()}
+                         | {'boot_timeout', non_neg_integer()}
+                         | {'init_timeout', non_neg_integer()}
+                         | {'startup_timeout', non_neg_integer()}
+                         | {'startup_functions', [mfa()]}
+                         | {'monitor_master', boolean()}
+                         | {'kill_if_fail', boolean()}
+                         | {'erl_flags', string()}
+                         | {'env', [{Name :: os:env_var_name(), Val :: os:env_var_value() | false}]}
+                         | {'ssh_port', inet:port_number()}
+                         | {'ssh_opts', ssh:client_options()}].
 
+-type stop_options() :: [{'stop_timeout', non_neg_integer()}].
+
+-export_type([start_options/0, stop_options/0]).
+
+-doc """
 Starts an Erlang node with name `Node` on the local host.
 
 See also [`ct_slave:start/3`](`start/3`).
 """.
 -doc(#{since => <<"OTP R14B">>}).
+-spec start(Node) -> 'ok' | {'error', Reason, Node}
+              when Node :: node(),
+                   Reason :: atom().
 start(Node) ->
     start(gethostname(), Node).
 
 -doc """
-start(HostOrNode, NodeOrOpts) -> Result
-
 Starts an Erlang node with default options on a specified host, or on the local
 host with specified options. That is, the call is interpreted as
 [`start(Host, Node)`](`start/2`) when the second argument is atom-valued and
@@ -70,6 +86,11 @@ host with specified options. That is, the call is interpreted as
 See also [`ct_slave:start/3`](`start/3`).
 """.
 -doc(#{since => <<"OTP R14B">>}).
+-spec start(HostOrNode, NodeOrOpts) -> 'ok' | {'error', Reason, Node}
+              when HostOrNode :: atom() | node(),
+                   NodeOrOpts :: node() | start_options(),
+                   Reason :: atom(),
+                   Node :: node().
 start(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     start(gethostname(), Node, Opts);
@@ -78,8 +99,6 @@ start(Host, Node) ->
     start(Host, Node, []).
 
 -doc """
-start(Host, Node, Opts) -> Result
-
 Starts an Erlang node with name `Node` on host `Host` as specified by the
 combination of options in `Opts`.
 
@@ -133,6 +152,11 @@ _Special return values:_
   `NodeName` is the name of the current node in this case.
 """.
 -doc(#{since => <<"OTP R14B">>}).
+-spec start(Host, Node, Opts) -> 'ok' | {'error', Reason, Node}
+              when Host :: atom(),
+                   Node :: node(),
+                   Opts :: start_options(),
+                   Reason :: atom().
 start(Host, Node, Opts) ->
     ENode = enodename(Host, Node),
     case erlang:is_alive() of
@@ -151,20 +175,24 @@ start(Host, Node, Opts) ->
     end.
 
 -doc """
-stop(Node) -> Result
-
 Stops the running Erlang node with name `Node` on the local host.
 """.
 -doc(#{since => <<"OTP R14B">>}).
+-spec stop(Node) -> {'ok', Node} | {'error', Reason, Node}
+              when Node :: node(),
+                   Reason :: atom().
 stop(Node) ->
     stop(gethostname(), Node).
 
 -doc """
-stop(Host, Node) -> Result
-
 Stops the running Erlang node with name `Node` on host `Host`.
 """.
 -doc(#{since => <<"OTP R14B">>}).
+-spec stop(HostOrNode, NodeOrOpts) -> {'ok', Node} | {'error', Reason, Node}
+              when HostOrNode :: atom() | Node,
+                   Node :: node(),
+                   NodeOrOpts :: Node | stop_options(),
+                   Reason :: atom().
 stop(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
   when is_list(Opts) ->
     stop(gethostname(), Node, Opts);

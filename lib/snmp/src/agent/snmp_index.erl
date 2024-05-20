@@ -81,6 +81,7 @@ get_next_pid(Oid, SnmpIndex) ->
 >
 > As an snmp adaption usually keeps the index for the whole of the systems
 > lifetime, this is rarely a problem.
+
 """.
 
 -export([new/1, new/2, 
@@ -158,7 +159,7 @@ is why `t:tuple/0` was used above. The proper definition looks like:
 %% Returns: index()
 %%-----------------------------------------------------------------
 
--doc(#{equiv => new/2}).
+-doc "Create an new anonymous snmp index structure.".
 -spec new(KeyTypes) -> Index when
       KeyTypes :: key_types(),
       Index    :: index().
@@ -169,7 +170,8 @@ new(KeyTypes) ->
     do_new(KeyTypes, ?MODULE, [public, ordered_set]).
 
 
--doc "Creates a new snmp index structure.".
+-doc "Creates a new named snmp index structure.".
+-doc(#{since => <<"OTP 27.0">>}).
 -spec new(KeyTypes, Name) -> Index when
       KeyTypes :: key_types(),
       Name     :: atom(),

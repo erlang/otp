@@ -4,11 +4,11 @@
   extras: [
     "guides/sasl_intro.md",
     "guides/error_logging.md",
-    "references/sasl_app.md",
     "references/appup.md",
     "references/rel.md",
     "references/relup.md",
-    "references/script.md"
+    "references/script.md",
+    "sasl_app.md"
   ],
   skip_code_autolink_to: ["release_handler:mbj_func/1"]
 ]

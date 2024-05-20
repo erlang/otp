@@ -112,7 +112,7 @@ the following fields exist:
 
   More flags may be introduced in the future.
 
-- **`int (*socket)(void **ctx, void *setup_ctx)`** - Create a socket and a
+- __`int (*socket)(void **ctx, void *setup_ctx)`__ - Create a socket and a
   context for the socket.
 
   On success it should set `*ctx` to point to a context for the created socket.
@@ -145,7 +145,7 @@ the following fields exist:
 
   This callback is mandatory.
 
-- **`int (*accept)(void **ctx, void *addr, int *len, unsigned tmo)`** - Accept
+- __`int (*accept)(void **ctx, void *addr, int *len, unsigned tmo)`__ - Accept
   connections on the listen socket identified by `*ctx`.
 
   When a connection is accepted, a new context for the accepted connection
@@ -282,7 +282,7 @@ the following fields exist:
 
 - **`ErlConnect`{: #ErlConnect }**
 
-  ```text
+  ```c
   typedef struct {
       char ipadr[4]; /* Ip v4 address in network byte order */
       char nodename[MAXNODELEN];
@@ -293,7 +293,7 @@ the following fields exist:
 
 - **`Erl_IpAddr`{: #Erl_IpAddr }**
 
-  ```text
+  ```c
   typedef struct {
       unsigned s_addr; /* Ip v4 address in network byte order */
   } Erl_IpAddr;
@@ -330,7 +330,8 @@ struct hostent * ei_gethostbyaddr(const char *addr, int len, int type);
 ```
 
 ```c
-struct hostent * ei_gethostbyaddr_r(const char *addr, int length,  int type,  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop);
+struct hostent * ei_gethostbyaddr_r(const char *addr, int length,  int type,
+  struct hostent *hostp, char *buffer,   int buflen,  int *h_errnop);
 ```
 
 ```c
@@ -338,7 +339,8 @@ struct hostent * ei_gethostbyname(const char *name);
 ```
 
 ```c
-struct hostent * ei_gethostbyname_r(const char *name,  struct hostent *hostp,  char *buffer,  int buflen,  int *h_errnop);
+struct hostent * ei_gethostbyname_r(const char *name,  struct hostent *hostp,
+  char *buffer,  int buflen,  int *h_errnop);
 ```
 
 Convenience functions for some common name lookup functions.
@@ -377,11 +379,15 @@ int ei_close_connection(int fd);
 
 Closes a previously opened connection or listen socket.
 
+Available since OTP 21.3
+
 ## ei_connect()
 
 ## ei_xconnect()
 
 ## ei_connect_host_port()
+
+Available since OTP 23.0
 
 ## ei_xconnect_host_port()
 
@@ -428,7 +434,7 @@ one of the following:
 
 - **`EIO`** - I/O error.
 
-Also, `errno` values from `socket`_(2)_ and `connect`_(2)_ system calls may be
+Also, `errno` values from `socket(2)` and `connect(2)` system calls may be
 propagated into `erl_errno`.
 
 _Example:_
@@ -447,9 +453,13 @@ addr.s_addr = inet_addr(IP_ADDR);
 fd = ei_xconnect(&ec, &addr, ALIVE);
 ```
 
+Available since OTP 23.0
+
 ## ei_connect_init()
 
 ## ei_connect_init_ussi()
+
+Available since OTP 21.3
 
 ## ei_connect_xinit()
 
@@ -460,15 +470,19 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name, const char *cookie
 ```
 
 ```c
-int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie, unsigned creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context);
+int ei_connect_init_ussi(ei_cnode* ec, const char* this_node_name, const char *cookie,
+  unsigned creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context);
 ```
 
 ```c
-int ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation);
+int ei_connect_xinit(ei_cnode* ec, const char *thishostname, const char *thisalivename,
+  const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation);
 ```
 
 ```c
-int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename, const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation, ei_socket_callbacks *cbs, int cbs_sz, void *setup_context);
+int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname, const char *thisalivename,
+  const char *thisnodename, Erl_IpAddr thisipaddr, const char *cookie, unsigned creation,
+  ei_socket_callbacks *cbs, int cbs_sz, void *setup_context);
 ```
 
 Initializes the `ec` structure, to identify the node name and cookie of the
@@ -544,11 +558,15 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
 }
 ```
 
+Available since OTP 21.3
+
 ## ei_connect_tmo()
 
 ## ei_xconnect_tmo()
 
 ## ei_connect_host_port_tmo()
+
+Available since OTP 23.0
 
 ## ei_xconnect_host_port_tmo()
 
@@ -572,7 +590,11 @@ Equivalent to `ei_connect`, `ei_xconnect`, `ei_connect_host_port` and
 `ei_xconnect_host_port` with an optional time-out argument, see the description
 at the beginning of this manual page.
 
+Available since OTP 23.0
+
 ## ei_get_tracelevel()
+
+Available since OTP R13B04
 
 ## ei_set_tracelevel()
 
@@ -590,7 +612,11 @@ levels. A higher level means more information. See also section
 
 These functions are not thread safe.
 
+Available since OTP R13B04
+
 ## ei_listen()
+
+Available since OTP 21.3
 
 ## ei_xlisten()
 
@@ -622,6 +648,8 @@ On success, a file descriptor is returned which can be used in a call to
 `ei_accept()`. On failure, `ERL_ERROR` is returned and `erl_errno` is set to
 `EIO`.
 
+Available since OTP 21.3
+
 ## ei_make_pid()
 
 ```c
@@ -639,6 +667,8 @@ done by a call to [`ei_connect_init()`](ei_connect.md#ei_connect_init) or
 friends. If the name is dynamically assigned from the peer node, the C-node also
 has to be connected.
 
+Available since OTP 23.0
+
 ## ei_make_ref()
 
 ```c
@@ -654,6 +684,8 @@ a name prior to the call to `ei_make_ref()`. Initialization of the C-node is
 done by a call to [`ei_connect_init()`](ei_connect.md#ei_connect_init) or
 friends. If the name is dynamically assigned from the peer node, the C-node also
 has to be connected.
+
+Available since OTP 23.0
 
 ## ei_publish()
 
@@ -677,7 +709,7 @@ To unregister with EPMD, simply close the returned descriptor. Do not use
 On success, the function returns a descriptor connecting the calling process to
 EPMD. On failure, `-1` is returned and `erl_errno` is set to `EIO`.
 
-Also, `errno` values from `socket`_(2)_ and `connect`_(2)_ system calls may be
+Also, `errno` values from `socket(2)` and `connect(2)` system calls may be
 propagated into `erl_errno`.
 
 ## ei_publish_tmo()
@@ -745,7 +777,8 @@ compatibility and will _not_ be removed in future releases without prior notice.
 ## ei_receive_encoded_tmo()
 
 ```c
-int ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg, int *msglen, unsigned timeout_ms);
+int ei_receive_encoded_tmo(int fd, char **mbufp, int *bufsz,  erlang_msg *msg,
+  int *msglen, unsigned timeout_ms);
 ```
 
 Equivalent to `ei_receive_encoded` with an optional time-out argument, see the
@@ -846,7 +879,8 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
 ## ei_reg_send_tmo()
 
 ```c
-int ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len, unsigned timeout_ms);
+int ei_reg_send_tmo(ei_cnode* ec, int fd, char* server_name, char* buf, int len,
+  unsigned timeout_ms);
 ```
 
 Equivalent to `ei_reg_send` with an optional time-out argument, see the
@@ -858,18 +892,23 @@ description at the beginning of this manual page.
 
 ## ei_xrpc_to()
 
+Available since OTP 24.0
+
 ## ei_rpc_from()
 
 ```c
-int ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, ei_x_buff *x);
+int ei_rpc(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf,
+  int argbuflen, ei_x_buff *x);
 ```
 
 ```c
-int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen);
+int ei_rpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf,
+  int argbuflen);
 ```
 
 ```c
-int ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf, int argbuflen, int flags);
+int ei_xrpc_to(ei_cnode *ec, int fd, char *mod, char *fun, const char *argbuf,
+  int argbuflen, int flags);
 ```
 
 ```c
@@ -887,24 +926,24 @@ parameter is set to `0`. When the flags parameter of `ei_xrpc_to()` is set to
 documentation for the flags parameter for more information about the
 `EI_RPC_FETCH_STDOUT` flag.
 
-`rpc:call/4` in Kernel.
+See also `rpc:call/4` in Kernel.
 
-- `ec` is the C-node structure previously initiated by a call to
+- **`ec`** is the C-node structure previously initiated by a call to
   `ei_connect_init()` or `ei_connect_xinit()`.
-- `fd` is an open descriptor to an Erlang connection.
-- `timeout` is the maximum time (in milliseconds) to wait for results. Specify
+- **`fd`** is an open descriptor to an Erlang connection.
+- **`timeout`** is the maximum time (in milliseconds) to wait for results. Specify
   `ERL_NO_TIMEOUT` to wait forever. `ei_rpc()` waits infinitely for the answer,
   that is, the call will never time out.
-- `mod` is the name of the module containing the function to be run on the
+- **`mod`** is the name of the module containing the function to be run on the
   remote node.
-- `fun` is the name of the function to run.
-- `argbuf` is a pointer to a buffer with an encoded Erlang list, without a
+- **`fun`** is the name of the function to run.
+- **`argbuf`** is a pointer to a buffer with an encoded Erlang list, without a
   version magic number, containing the arguments to be passed to the function.
-- `argbuflen` is the length of the buffer containing the encoded Erlang list.
-- `msg` is structure of type `erlang_msg` and contains information on the
+- **`argbuflen`** is the length of the buffer containing the encoded Erlang list.
+- **`msg`** is structure of type `erlang_msg` and contains information on the
   message received. For a description of the `erlang_msg` format, see
   [`ei_receive_msg`](ei_connect.md#ei_receive_msg).
-- `x` points to the dynamic buffer that receives the result. For `ei_rpc()` this
+- **`x`** points to the dynamic buffer that receives the result. For `ei_rpc()` this
   is the result without the version magic number. For an `ei_rpc_from()` call
   the result consists of a version magic number and a 2-tuple. The 2-tuple can
   be in one of the following two forms:
@@ -925,7 +964,7 @@ documentation for the flags parameter for more information about the
     written. All forwarded stdout data have been received when a `{rex,Reply}`
     tuple has been obtained from an `ei_rpc_from()` call.
 
-- `flags` The flag `EI_RPC_FETCH_STDOUT` is currently the only flag that is
+- **`flags`** The flag `EI_RPC_FETCH_STDOUT` is currently the only flag that is
   supported by `ei_xrpc_to()`. When `EI_RPC_FETCH_STDOUT` is set, the called
   function is executed in a new process with a
   [group leader](`erlang:group_leader/0`) that forwards all stdout data. This
@@ -1051,7 +1090,8 @@ calling `ei_self(cnode_pointer)`.
 ## ei_send_reg_encoded_tmo()
 
 ```c
-int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf, int len, unsigned timeout_ms);
+int ei_send_reg_encoded_tmo(int fd, const erlang_pid *from, const char *to, const char *buf,
+  int len, unsigned timeout_ms);
 ```
 
 Equivalent to `ei_send_reg_encoded` with an optional time-out argument, see the

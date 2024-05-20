@@ -58,6 +58,7 @@ The ciphers are:
 | `blowfish_ecb`      | 16                          |  8                          |
 | `des_ecb`           |  8                          |  8                          |
 | `rc4`               | 16                          |  1                          |
+| `sm4_ecb`           | 16                          | 16                          |
 
 _Table: Ciphers without IV_
 
@@ -96,6 +97,10 @@ The ciphers are:
 | `des_cfb`           |  8                          |  8                         |  1                          |                                     |
 | `des_ede3_cfb`      | 24                          |  8                         |  1                          |                                     |
 | `rc2_cbc`           | 16                          |  8                         |  8                          |                                     |
+| `sm4_cbc`           | 16                          | 16                         | 16                          | ≥1.1.1                              |
+| `sm4_cfb`           | 16                          | 16                         | 16                          | ≥1.1.1                              |
+| `sm4_ofb`           | 16                          | 16                         | 16                          | ≥1.1.1                              |
+| `sm4_ctr`           | 16                          | 16                         | 16                          | ≥1.1.1                              |
 
 _Table: Ciphers with IV_
 
@@ -117,6 +122,8 @@ The ciphers are:
 | `aes_192_gcm`       | 24                          | ≥1                         | any                         | 1-16 default: 16            | any                         | ≥1.0.1                              |
 | `aes_256_gcm`       | 32                          | ≥1                         | any                         | 1-16 default: 16            | any                         | ≥1.0.1                              |
 | `chacha20_poly1305` | 32                          | 1-16                       | any                         | 16                          | any                         | ≥1.1.0                              |
+| `sm4_gcm`           | 16                          | 12                         | any                         | 16                          | any                         | ≥3.1.0                              |
+| `sm4_ccm`           | 16                          | 12                         | any                         | 16                          | any                         | ≥3.1.0                              |
 
 _Table: AEAD ciphers_
 
@@ -204,6 +211,7 @@ column is present in the list returned by
 | SHA1     | sha                                                        |                                     |
 | SHA2     | sha224, sha256, sha384, sha512                             |                                     |
 | SHA3     | sha3_224, sha3_256, sha3_384, sha3_512, shake128, shake256 | ≥1.1.1                              |
+| SM3      | sm3                                                        | ≥1.1.1                              |
 | MD4      | md4                                                        |                                     |
 | MD5      | md5                                                        |                                     |
 | RIPEMD   | ripemd160                                                  |                                     |

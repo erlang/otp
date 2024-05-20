@@ -18,6 +18,14 @@
 %% %CopyrightEnd%
 %%
 -module(sasl_SUITE).
+
+%% Prior to OTP 26, maybe_expr used to require runtime support. As it's now
+%% enabled by default, all modules are tagged with the feature even when they
+%% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
+%% support.
+-feature(maybe_expr, disable).
+-compile(r24).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
@@ -31,8 +39,6 @@
 	 log_mf_h_env/1,
 	 log_file/1,
 	 utc_log/1]).
-
--compile(r24).
 
 all() -> 
     [log_mf_h_env, log_file, app_test, appup_test, utc_log].

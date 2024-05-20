@@ -53,6 +53,7 @@ MODULES= \
 	id_transform_SUITE \
 	io_SUITE \
 	io_proto_SUITE \
+	json_SUITE \
 	lists_SUITE \
 	lists_property_test_SUITE \
 	log_mf_h_SUITE \
@@ -87,6 +88,7 @@ MODULES= \
 	naughty_child \
 	shell_SUITE \
 	shell_docs_SUITE \
+	shell_docs_markdown_SUITE \
 	sigils_SUITE \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \
@@ -131,6 +133,7 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # ----------------------------------------------------
 
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
+		+nowarn_missing_spec_documented \
 		-I$(ERL_TOP)/lib/stdlib/include
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 

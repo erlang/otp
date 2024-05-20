@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 %%----------------------------------------------------------------------
 
 -module(tls_dtls_gen_connection).
+-moduledoc false.
 
 -include_lib("public_key/include/public_key.hrl").
 
@@ -77,7 +78,7 @@ internal_renegotiation(ConnectionPid, #{current_write := WriteState}) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec renegotiation(pid()) -> ok | {error, reason()}.
+-spec renegotiation(pid()) -> ok | {error, ssl:reason()}.
 %%
 %% Description: Starts a renegotiation of the ssl session.
 %%--------------------------------------------------------------------
@@ -112,13 +113,12 @@ handle_peer_cert(Role, PeerCert, PublicKeyInfo,
                         session = #session{cipher_suite = CipherSuite} = Session} = State0,
 		 Connection, Actions) ->
     State1 = State0#state{handshake_env = HsEnv#handshake_env{public_key_info = PublicKeyInfo},
-                          session =
-                              Session#session{peer_certificate = PeerCert}},
+                          session = Session#session{peer_certificate = PeerCert#cert.der}},
     #{key_exchange := KeyAlgorithm} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    State = handle_peer_cert_key(Role, PeerCert, PublicKeyInfo, KeyAlgorithm, State1),
+    State = handle_peer_cert_key(Role, PublicKeyInfo, KeyAlgorithm, State1),
     Connection:next_event(certify, no_record, State, Actions).
 
-handle_peer_cert_key(client, _,
+handle_peer_cert_key(client,
 		     {?'id-ecPublicKey',  #'ECPoint'{point = _ECPoint} = PublicKey,
 		      PublicKeyParams},
 		     KeyAlg, #state{handshake_env = HsEnv,
@@ -128,7 +128,7 @@ handle_peer_cert_key(client, _,
     PremasterSecret = ssl_handshake:premaster_secret(PublicKey, ECDHKey),
     master_secret(PremasterSecret, State#state{handshake_env = HsEnv#handshake_env{kex_keys = ECDHKey},
                                                session = Session#session{ecc = PublicKeyParams}});
-handle_peer_cert_key(_, _, _, _, State) ->
+handle_peer_cert_key(_, _, _, State) ->
     State.
 
 %%====================================================================
@@ -165,7 +165,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),
                           renegotiation = {false, first},
-                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined)
+                          allow_renegotiate = maps:get(client_renegotiation, SSLOptions, undefined),
+                          flight_buffer = []
                          },
        connection_env = #connection_env{user_application = {UserMonitor, User}},
        socket_options = SocketOptions,
@@ -174,8 +175,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
        connection_states = ConnectionStates,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
-       start_or_recv_from = undefined,
-       flight_buffer = [],
+       recv = #recv{},
        protocol_specific = #{sender => Sender,
                              active_n => ssl_config:get_internal_active_n(
                                            maps:get(erl_dist, SSLOptions, false)),
@@ -261,7 +261,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
         Options ->
             State = ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
-             State#state{start_or_recv_from = From,
+             State#state{recv = State#state.recv#recv{from = From},
                          handshake_env =
                              HSEnv#handshake_env{continue_status = continue}
                                            },

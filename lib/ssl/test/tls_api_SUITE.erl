@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ init_per_suite(Config0) ->
 	    ssl_test_lib:clean_start(),
 	    Config1 = ssl_test_lib:make_rsa_cert_with_protected_keyfile(Config0,
                                                                         ?CORRECT_PASSWORD),
-            ssl_test_lib:make_dsa_cert(Config1)
+            ssl_test_lib:make_ecdsa_cert(Config1)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -300,12 +300,16 @@ tls_upgrade_new_opts_with_sni_fun() ->
 tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    ServerDsaOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
+    ServerEcdsaOpts = ssl_test_lib:ssl_options(server_ecdsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
     Version = ssl_test_lib:protocol_version(Config),
     NewVersions = new_versions(Version),
-    Ciphers =  ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), []),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     NewOpts = [{versions, NewVersions},
                {ciphers, Ciphers},
@@ -319,7 +323,7 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                  [{active, false} | TcpOpts]},
                 {ssl_options, [{versions, [Version |NewVersions]},
                                {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}
-                              | ServerDsaOpts]}]),
+                              | ServerEcdsaOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client(
                [{node, ClientNode},
@@ -729,11 +733,17 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
     {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
+
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {mfa, ssl_test_lib, no_result},
-                                        {options, [{versions, [Version]} | ServerOpts]}]),
+                                        {options, [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
@@ -752,7 +762,7 @@ tls_dont_crash_on_handshake_garbage(Config) ->
     case Version of
         'tlsv1.3' ->
             ssl_test_lib:check_server_alert(Server, protocol_version);
-        _  ->
+        _ ->
             ssl_test_lib:check_server_alert(Server, handshake_failure)
     end.
 
@@ -1314,16 +1324,20 @@ signature_algs(Config) when is_list(Config) ->
     true = [] =/= [Alg || Alg <- ssl:signature_algs(default, 'tlsv1.3'), is_tuple(Alg)],
     true = [] == [Alg || Alg <- ssl:signature_algs(exclusive, 'tlsv1.3'), is_tuple(Alg)],
     true = ssl:signature_algs(exclusive, 'tlsv1.3') =/=  ssl:signature_algs(exclusive, 'tlsv1.2'),
-    true = length(ssl:signature_algs(defalt, 'tlsv1.2')) <
+    true = length(ssl:signature_algs(default, 'tlsv1.2')) <
         length(ssl:signature_algs(all, 'tlsv1.2')),
     TLS_1_3_All = ssl:signature_algs(all, 'tlsv1.3'),
     true = lists:member(rsa_pkcs1_sha512, TLS_1_3_All) andalso (not lists:member({sha512, rsa}, TLS_1_3_All)),
     true = lists:member(rsa_pkcs1_sha384, TLS_1_3_All) andalso (not lists:member({sha384, rsa}, TLS_1_3_All)),
     true = lists:member(rsa_pkcs1_sha256, TLS_1_3_All) andalso (not lists:member({sha256, rsa}, TLS_1_3_All)),
+    true = lists:member(rsa_pkcs1_sha, TLS_1_3_All) andalso (not lists:member({sha, rsa}, TLS_1_3_All)),
+    true = lists:member(ecdsa_sha1, TLS_1_3_All) andalso (not lists:member({sha, ecdsa}, TLS_1_3_All)),
     TLS_1_2_All = ssl:signature_algs(all, 'tlsv1.2'),
     true = (not lists:member(rsa_pkcs1_sha512, TLS_1_2_All)) andalso lists:member({sha512, rsa}, TLS_1_2_All),
     true = (not lists:member(rsa_pkcs1_sha384, TLS_1_2_All)) andalso lists:member({sha384, rsa}, TLS_1_2_All),
-    true = (not lists:member(rsa_pkcs1_sha256, TLS_1_2_All)) andalso lists:member({sha256, rsa}, TLS_1_2_All).
+    true = (not lists:member(rsa_pkcs1_sha256, TLS_1_2_All)) andalso lists:member({sha256, rsa}, TLS_1_2_All),
+    true = (not lists:member(rsa_pkcs1_sha, TLS_1_2_All)) andalso lists:member({sha, rsa}, TLS_1_2_All),
+    true = (not lists:member(ecdsa_sha1, TLS_1_2_All)) andalso lists:member({sha, ecdsa}, TLS_1_2_All).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

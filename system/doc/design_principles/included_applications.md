@@ -36,7 +36,38 @@ _primary application_.
 
 [](){: #inclappls }
 
-![Primary Application and Included Applications](assets/inclappls.gif "Primary Application and Included Applications")
+```mermaid
+---
+title: Primary Application and Included Applications
+---
+flowchart TD
+    prim_app((Primary Application))
+
+    subgraph Included Applications
+        app1((App))
+        app2((App))
+        app3((App))
+        app4((App))
+        app5((App))
+
+        subgraph Included Applications
+            app11((App))
+        end
+        subgraph Included Applications
+            app31((App))
+            app32((App))
+        end
+    end
+
+    prim_app --- app1 --- app11
+    prim_app --- app2
+    prim_app --- app3
+    prim_app --- app4
+    prim_app --- app5
+
+    app3 --- app31
+    app3 --- app32
+```
 
 The application controller automatically loads any included applications when
 loading a primary application, but does not start them. Instead, the top

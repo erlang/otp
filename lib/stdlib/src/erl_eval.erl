@@ -25,8 +25,6 @@ This module provides an interpreter for Erlang expressions. The expressions are
 in the abstract syntax as returned by `m:erl_parse`, the Erlang parser, or
 `m:io`.
 
-[](){: #local_function_handler }
-
 ## Local Function Handler
 
 During evaluation of a function, no calls can be made to local functions. An
@@ -38,7 +36,7 @@ formats:
 - **`{value,Func}`** - This defines a local function handler that is called
   with:
 
-  ```text
+  ```erlang
   Func(Name, Arguments)
   ```
 
@@ -50,7 +48,7 @@ formats:
 
 - **`{eval,Func}`** - This defines a local function handler that is called with:
 
-  ```text
+  ```erlang
   Func(Name, Arguments, Bindings)
   ```
 
@@ -58,7 +56,7 @@ formats:
   the _unevaluated_ arguments, and `Bindings` are the current variable bindings.
   The function handler returns:
 
-  ```text
+  ```erlang
   {value,Value,NewBindings}
   ```
 
@@ -68,8 +66,6 @@ formats:
   function handler calls [`exit/1`](`exit/1`) with a suitable exit value.
 
 - **`none`** - There is no local function handler.
-
-[](){: #non_local_function_handler }
 
 ## Non-Local Function Handler
 
@@ -89,13 +85,13 @@ called for such calls. The argument can have the following formats:
 - **`{value,Func}`** - This defines a non-local function handler. The function
   may be called with two arguments:
 
-  ```text
+  ```erlang
   Func(FuncSpec, Arguments)
   ```
 
   or three arguments:
 
-  ```text
+  ```erlang
   Func(Anno, FuncSpec, Arguments)
   ```
 
@@ -127,10 +123,6 @@ The non-local function handler argument is probably not used as frequently as
 the local function handler argument. A possible use is to call
 [`exit/1`](`exit/1`) on calls to functions that for some reason are not allowed
 to be called.
-
-## Known Limitation
-
-Undocumented functions in this module are not to be used.
 """.
 
 %% An evaluator for Erlang abstract syntax.
@@ -176,7 +168,7 @@ always return the same type as the one given.
                                          NewBindings :: binding_struct()})).
 -doc """
 Further described in section
-[Local Function Handler](`m:erl_eval#local_function_handler`) in this module
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) in this module
 """.
 -type(local_function_handler() :: {value, lfun_value_handler()}
                                 | {eval, lfun_eval_handler()}
@@ -189,7 +181,7 @@ Further described in section
                               Arguments :: [term()]) -> term())).
 -doc """
 Further described in section
-[Non-Local Function Handler](`m:erl_eval#non_local_function_handler`) in this
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
 module.
 """.
 -type(non_local_function_handler() :: {value, nlfun_handler()}
@@ -211,7 +203,7 @@ empty_fun_used_vars() -> #{}.
 %% that there are valid constructs in Expression to be taken care of
 %% by a function handler but considered errors by erl_lint.
 
--doc(#{equiv => exprs/4}).
+-doc(#{equiv => exprs(Expressions, Bindings, none)}).
 -spec(exprs(Expressions, Bindings) -> {value, Value, NewBindings} when
       Expressions :: expressions(),
       Bindings :: binding_struct(),
@@ -225,7 +217,7 @@ exprs(Exprs, Bs) ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
--doc(#{equiv => exprs/4}).
+-doc(#{equiv => exprs(Expressions, Bindings, LocalFunctionHandler, none)}).
 -spec(exprs(Expressions, Bindings, LocalFunctionHandler) ->
              {value, Value, NewBindings} when
       Expressions :: expressions(),
@@ -239,10 +231,12 @@ exprs(Exprs, Bs, Lf) ->
 -doc """
 Evaluates `Expressions` with the set of bindings `Bindings`, where `Expressions`
 is a sequence of expressions (in abstract syntax) of a type that can be returned
-by `io:parse_erl_exprs/2`. For an explanation of when and how to use arguments
+by `io:parse_erl_exprs/2`.
+
+For an explanation of when and how to use arguments
 `LocalFunctionHandler` and `NonLocalFunctionHandler`, see sections
-[Local Function Handler](`m:erl_eval#local_function_handler`) and
-[Non-Local Function Handler](`m:erl_eval#non_local_function_handler`) in this
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) and
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
 module.
 
 Returns `{value, Value, NewBindings}`
@@ -312,7 +306,7 @@ maybe_match_exprs([E|Es], Bs0, Lf, Ef) ->
 %%
 %% Only expr/2 checks the command by calling erl_lint. See exprs/2.
 
--doc(#{equiv => expr/5}).
+-doc(#{equiv => expr(Expression, Bindings, none)}).
 -spec(expr(Expression, Bindings) -> {value, Value, NewBindings} when
       Expression :: expression(),
       Bindings :: binding_struct(),
@@ -326,7 +320,7 @@ expr(E, Bs) ->
 	    erlang:raise(error, Error, ?STACKTRACE)
     end.
 
--doc(#{equiv => expr/5}).
+-doc(#{equiv => expr(Expression, Bindings, LocalFunctionHandler, none)}).
 -spec(expr(Expression, Bindings, LocalFunctionHandler) ->
              {value, Value, NewBindings} when
       Expression :: expression(),
@@ -337,7 +331,8 @@ expr(E, Bs) ->
 expr(E, Bs, Lf) ->
     expr(E, Bs, Lf, none, none).
 
--doc(#{equiv => expr/5}).
+-doc(#{equiv => expr(Expression, Bindings, LocalFunctionHandler,
+                     NonLocalFunctionHandler, none)}).
 -spec(expr(Expression, Bindings, LocalFunctionHandler,
            NonLocalFunctionHandler) ->
              {value, Value, NewBindings} when
@@ -383,10 +378,12 @@ fun_data(_T) ->
 
 -doc """
 Evaluates `Expression` with the set of bindings `Bindings`. `Expression` is an
-expression in abstract syntax. For an explanation of when and how to use
-arguments `LocalFunctionHandler` and `NonLocalFunctionHandler`, see sections
-[Local Function Handler](`m:erl_eval#local_function_handler`) and
-[Non-Local Function Handler](`m:erl_eval#non_local_function_handler`) in this
+expression in abstract syntax.
+
+For an explanation of when and how to use arguments `LocalFunctionHandler` and
+`NonLocalFunctionHandler`, see sections
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) and
+[Non-Local Function Handler](`m:erl_eval#module-non-local-function-handler`) in this
 module.
 
 Returns `{value, Value, NewBindings}` by default. If `ReturnFormat` is `value`,
@@ -1146,7 +1143,7 @@ eval_named_fun([], As, Anno, Bs, _Lf, Ef, _Name, _Fun, RBs, _FUVs) ->
 %% expr_list(ExpressionList, Bindings, LocalFuncHandler, ExternalFuncHandler)
 %%  Evaluate a list of expressions "in parallel" at the same level.
 
--doc(#{equiv => expr_list/4}).
+-doc(#{equiv => expr_list(ExpressionList, Bindings, none)}).
 -spec(expr_list(ExpressionList, Bindings) -> {ValueList, NewBindings} when
       ExpressionList :: expression_list(),
       Bindings :: binding_struct(),
@@ -1155,7 +1152,7 @@ eval_named_fun([], As, Anno, Bs, _Lf, Ef, _Name, _Fun, RBs, _FUVs) ->
 expr_list(Es, Bs) ->
     expr_list(Es, Bs, none, none, empty_fun_used_vars()).
 
--doc(#{equiv => expr_list/4}).
+-doc(#{equiv => expr_list(ExpressionList, Bindings, LocalFunctionHandler, none)}).
 -spec(expr_list(ExpressionList, Bindings, LocalFunctionHandler) ->
              {ValueList, NewBindings} when
       ExpressionList :: expression_list(),
@@ -1169,8 +1166,10 @@ expr_list(Es, Bs, Lf) ->
 -doc """
 Evaluates a list of expressions in parallel, using the same initial bindings for
 each expression. Attempts are made to merge the bindings returned from each
-evaluation. This function is useful in `LocalFunctionHandler`, see section
-[Local Function Handler](`m:erl_eval#local_function_handler`) in this module.
+evaluation.
+
+This function is useful in `LocalFunctionHandler`, see section
+[Local Function Handler](`m:erl_eval#module-local-function-handler`) in this module.
 
 Returns `{ValueList, NewBindings}`.
 """.

@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2003-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -47,6 +47,8 @@
 %     </p>
 -module(xmerl_xs).
 -moduledoc """
+XSLT-like XML document transformations.
+
 Erlang has similarities to XSLT since both languages have a functional
 programming approach. Using `xmerl_xpath` it is possible to write XSLT like
 transforms in Erlang.
@@ -65,36 +67,17 @@ to write XSLT like transforms.
 This approach is probably easier for an Erlanger but if you need to use real
 XSLT stylesheets in order to "comply to the standard" there is an adapter
 available to the Sablotron XSLT package which is written i C++. See also the
-[Tutorial](assets/xmerl_xs_examples.html).
+[XSLT-like Transformations tutorial](`e:xmerl:xmerl_xs_examples.html`).
 """.
 
 -export([xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
 -include("xmerl.hrl").
 
 
-%% @spec xslapply(Function, EList::list()) -> List
-%%   Function = () -> list()
-%% @doc xslapply is a wrapper to make things look similar to
-%% xsl:apply-templates.
-%%
-%% <p>Example, original XSLT:</p><br/><pre>
-%% &lt;xsl:template match="doc/title">
-%%   &lt;h1>
-%%     &lt;xsl:apply-templates/>
-%%   &lt;/h1>
-%% &lt;/xsl:template>
-%% </pre>
-%%
-%% <p>becomes in Erlang:</p><br/><pre>
-%% template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
-%%   ["&lt;h1>",
-%%    xslapply(fun template/1, E),
-%%    "&lt;/h1>"];
-%% </pre>
 -doc """
-xslapply(Fun,EList)
+Lookalike to xsl:apply-templates.
 
-xslapply is a wrapper to make things look similar to xsl:apply-templates.
+A wrapper to make things look similar to xsl:apply-templates.
 
 Example, original XSLT:
 
@@ -117,33 +100,17 @@ becomes in Erlang:
 
 ```
 """.
+-spec xslapply(Fun, ElementList) -> io_lib:chars() when
+      Fun         :: fun ((xmerl:element()) -> io_lib:chars() ),
+      ElementList :: [xmerl:element()] | xmerl:element().
 xslapply(Fun, EList) when is_list(EList) ->
     lists:map(Fun, EList);
 xslapply(Fun, E = #xmlElement{})->
     lists:map( Fun, E#xmlElement.content).
 
-%% @spec value_of(E) -> List
-%%   E = term()
-%%
-%% @doc Concatenates all text nodes within the tree.
-%%
-%% <p>Example:</p><br/><pre>
-%% &lt;xsl:template match="title">
-%%   &lt;div align="center">
-%%     &lt;h1>&lt;xsl:value-of select="." />&lt;/h1>
-%%   &lt;/div>
-%% &lt;/xsl:template>
-%% </pre>
-%%
-%%  <p>becomes:</p><br/> <pre>
-%%  template(E = #xmlElement{name='title'}) ->
-%%    ["&lt;div align="center">&lt;h1>", 
-%%      value_of(select(".", E)), "&lt;/h1>&lt;/div>"]
-%% </pre>
--doc """
-value_of(E)
 
-Concatenates all text nodes within the tree.
+-doc """
+Concatenate all text nodes within the tree.
 
 Example:
 
@@ -165,6 +132,7 @@ becomes:
 
 ```
 """.
+-spec value_of(E :: xmerl:element()) -> io_lib:chars().
 value_of(E)->
     lists:reverse(xmerl_lib:foldxml(fun value_of1/2, [], E)).
 
@@ -173,31 +141,25 @@ value_of1(#xmlText{}=T1, Accu)->
 value_of1(_, Accu) ->
     Accu.
 
-%% @spec select(String::string(),E)-> E
-%%
-%% @doc Extracts the nodes from the xml tree according to XPath.
-%% @see value_of/1
 -doc """
-select(Str,E)
+Extract the nodes from the xml tree according to XPath.
 
-Extracts the nodes from the xml tree according to XPath.
+Equivalent to [`xmerl_xpath:string(Str, E)`](`xmerl_xpath:string/2`).
 
-_See also: _`value_of/1`.
+_See also:_ `value_of/1`.
 """.
+-spec select(String :: term(), E :: xmerl:element()) -> _.
 select(Str,E)->
     xmerl_xpath:string(Str,E).
 
-%% @spec built_in_rules(Fun, E) -> List
-%%
-%% @doc The default fallback behaviour. Template funs should end with:
-%% <br/><code>template(E) -> built_in_rules(fun template/1, E)</code>.
 -doc """
-built_in_rules(Fun,E)
+The default fallback behaviour.
 
-The default fallback behaviour. Template funs should end with:
-
+Template funs should end with:
 `template(E) -> built_in_rules(fun template/1, E)`.
 """.
+-spec built_in_rules(Fun, E :: xmerl:element()) -> io_lib:chars() when
+      Fun :: fun ((xmerl:element()) -> io_lib:chars()).
 built_in_rules(Fun, E = #xmlElement{})->
     lists:map(Fun, E#xmlElement.content);
 built_in_rules(_Fun, E = #xmlText{}) ->

@@ -230,6 +230,8 @@ meta(Int, Debugged, M, F, As) ->
     put(trace, false),       % bool() Trace on/off
     put(user_eval, []),
 
+    Session = trace:session_create(debugger, self(), []),
+    put(trace_session, Session),
 
     %% Send the result of the meta process
     Ieval = #ieval{},
@@ -1276,8 +1278,8 @@ eval_receive(Debugged, Cs, Bs0,
 	     #ieval{module=M,line=Line,level=Le}=Ieval) ->
     %% To avoid private message passing protocol between META
     %% and interpreted process.
-    erlang:trace(Debugged,true,['receive']),
-    {_,Msgs} = erlang:process_info(Debugged,messages),
+    session_recv_trace(Debugged, true),
+    {_,Msgs} = erlang:process_info(Debugged, messages),
     case receive_clauses(Cs, Bs0, Msgs) of
 	nomatch ->
 	    dbg_iserver:cast(get(int), {set_status, self(),waiting,{}}),
@@ -1318,8 +1320,8 @@ eval_receive(Debugged, Cs, 0, ToExprs, ToBs, Bs0, 0, _Stamp, Ieval) ->
     end;
 eval_receive(Debugged, Cs, ToVal, ToExprs, ToBs, Bs0,
 	     0, Stamp, #ieval{module=M,line=Line,level=Le}=Ieval)->
-    erlang:trace(Debugged,true,['receive']),
-    {_,Msgs} = erlang:process_info(Debugged,messages),
+    session_recv_trace(Debugged, true),
+    {_,Msgs} = erlang:process_info(Debugged, messages),
     case receive_clauses(Cs, Bs0, Msgs) of
 	nomatch ->
 	    {Stamp1,Time1} = newtime(Stamp,ToVal),
@@ -1392,13 +1394,13 @@ newtime(Stamp,Time) ->
     end.
 
 rec_mess(Debugged, Msg, Bs, Ieval) ->
-    erlang:trace(Debugged, false, ['receive']),
+    session_recv_trace(Debugged, false),
     flush_traces(Debugged),
     Debugged ! {sys,self(),{'receive',Msg}},
     rec_ack(Debugged, Bs, Ieval).
 
 rec_mess(Debugged) ->
-    erlang:trace(Debugged, false, ['receive']),
+    session_recv_trace(Debugged, false),
     flush_traces(Debugged).
 
 rec_mess_no_trace(Debugged, Msg, Bs, Ieval) ->
@@ -1549,6 +1551,9 @@ guard_expr({'orelse',_,E1,E2}, Bs) ->
 		{value,_Val}=Res -> Res
 	    end
     end;
+guard_expr({'case',_,E0,Cs}, Bs) ->
+    {value,E} = guard_expr(E0, Bs),
+    guard_case_clauses(E, Cs, Bs);
 guard_expr({dbg,_,self,[]}, _) ->
     {value,get(self)};
 guard_expr({safe_bif,_,erlang,'not',As0}, Bs) ->
@@ -1591,6 +1596,20 @@ guard_expr({bin,_,Flds}, Bs) ->
 			   end),
     {value,V}.
 
+%% guard_case_clauses(Value, Clauses, Bindings, Error, Ieval)
+%%   Error = try_clause | case_clause
+guard_case_clauses(Val, [{clause,_,[P],G,B}|Cs], Bs0) ->
+    case match(P, Val, Bs0) of
+	{match,Bs} ->
+	    case guard(G, Bs) of
+		true ->
+		    guard_expr(hd(B), Bs);
+		false ->
+		    guard_case_clauses(Val, Cs, Bs0)
+	    end;
+	nomatch ->
+	    guard_case_clauses(Val, Cs, Bs0)
+    end.
 
 %% eval_map_fields([Field], Bindings, IEvalState) ->
 %%  {[{map_assoc | map_exact,Key,Value}],Bindings}
@@ -1934,3 +1953,8 @@ used_records(T) when is_tuple(T) ->
     {expr, tuple_to_list(T)};
 used_records(E) ->
     {expr, E}.
+
+session_recv_trace(Subject, How) ->
+    Session = get(trace_session),
+    _ = trace:process(Session, Subject, How, ['receive']),
+    ok.

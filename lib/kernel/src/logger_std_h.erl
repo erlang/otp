@@ -38,8 +38,7 @@ documented in the [`User's Guide` ](logger_chapter.md#handler_configuration),
 and handler specific parameters. The specific data is stored in a sub map with
 the key `config`, and can contain the following parameters:
 
-- **`type = `{: #type
-  }`t:io:standard_io/0`` | ``t:io:standard_error/0`` | file | {device, ``t:io:device/0``}`** -
+- **`type = ` `t:io:standard_io/0` ` | ` `t:io:standard_error/0` ` | file | {device, ` `t:io:device/0` `}`**{: #type } -
   Specifies the log destination.
 
   The value is set when the handler is added, and it cannot be changed in
@@ -48,7 +47,7 @@ the key `config`, and can contain the following parameters:
   Defaults to [`standard_io`](`t:io:standard_io/0`), unless parameter
   [`file`](`m:logger_std_h#file`) is given, in which case it defaults to `file`.
 
-- **`file = `{: #file }`t:file:filename/0`** - This specifies the name of the
+- **`file = ` `t:file:filename/0`**{: #file } - This specifies the name of the
   log file when the handler is of type `file`.
 
   The value is set when the handler is added, and it cannot be changed in
@@ -56,7 +55,7 @@ the key `config`, and can contain the following parameters:
 
   Defaults to the same name as the handler identity, in the current directory.
 
-- **`modes = [`{: #modes }`t:file:mode/0``]`** - This specifies the file modes
+- **`modes = [` `t:file:mode/0` `]`**{: #modes } - This specifies the file modes
   to use when opening the log file, see `file:open/2`. If `modes` are not
   specified, the default list used is `[raw,append,delayed_write]`. If `modes`
   are specified, the list replaces the default modes list with the following
@@ -76,14 +75,14 @@ the key `config`, and can contain the following parameters:
 
   Defaults to `[raw,append,delayed_write]`.
 
-- **`max_no_bytes = pos_integer() | infinity`{: #max_no_bytes }** - This
+- **`max_no_bytes = ` `t:pos_integer/0` ` | infinity`{: #max_no_bytes }** - This
   parameter specifies if the log file should be rotated or not. The value
   `infinity` means the log file will grow indefinitely, while an integer value
   specifies at which file size (bytes) the file is rotated.
 
   Defaults to `infinity`.
 
-- **`max_no_files = non_neg_integer()`{: #max_no_files }** - This parameter
+- **`max_no_files = ` `t:non_neg_integer/0`**{: #max_no_files } - This parameter
   specifies the number of rotated log file archives to keep. This has meaning
   only if [`max_no_bytes`](`m:logger_std_h#max_no_bytes`) is set to an integer
   value.
@@ -98,7 +97,7 @@ the key `config`, and can contain the following parameters:
 
   Defaults to `0`.
 
-- **`compress_on_rotate = boolean()`{: #compress_on_rotate }** - This parameter
+- **`compress_on_rotate = ` `t:boolean/0`**{: #compress_on_rotate } - This parameter
   specifies if the rotated log file archives shall be compressed or not. If set
   to `true`, all archives are compressed with `gzip`, and renamed to
   `FileName.N.gz`
@@ -108,7 +107,7 @@ the key `config`, and can contain the following parameters:
 
   Defaults to `false`.
 
-- **`file_check = non_neg_integer()`{: #file_check }** - When `logger_std_h`
+- **`file_check = ` `t:non_neg_integer/0`**{: #file_check } - When `logger_std_h`
   logs to a file, it reads the file information of the log file prior to each
   write operation. This is to make sure the file still exists and has the same
   inode as when it was opened. This implies some performance loss, but ensures
@@ -125,7 +124,7 @@ the key `config`, and can contain the following parameters:
 
   Defaults to 0.
 
-- **`filesync_repeat_interval = pos_integer() | no_repeat`** - This value, in
+- **`filesync_repeat_interval = ` `t:pos_integer/0` ` | no_repeat`** - This value, in
   milliseconds, specifies how often the handler does a file sync operation to
   write buffered data to disk. The handler attempts the operation repeatedly,
   but only performs a new sync if something has actually been logged.

@@ -64,7 +64,7 @@ build_std(Config) when is_list(Config) ->
     Overview2 = filename:join(DataDir, "overview.syntax_tools"),
     PrivDir = ?config(priv_dir, Config),
 
-    ok = edoc:application(edoc, [{overview, Overview1},
+    ok = edoc:application(edoc, [{preprocess,true},{overview, Overview1},
 	    {def, {vsn,"TEST"}},
 	    {dir, PrivDir}]),
 
@@ -76,8 +76,6 @@ build_std(Config) when is_list(Config) ->
     ok = edoc:application(syntax_tools, [{overview, Overview2},
 	    {def, {vsn,MF}},
 	    {dir, PrivDir}]),
-
-    ok = edoc:application(xmerl, [{preprocess,true},{dir, PrivDir}]),
     ok.
 
 build_map_module(Config) when is_list(Config) ->

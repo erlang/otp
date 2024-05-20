@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,7 +102,9 @@ private_append_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(private_append, Config).
 
 tuple_inplace_checks(Config) when is_list(Config) ->
-    run_post_ssa_opt(tuple_inplace_checks, Config).
+    run_post_ssa_opt(tuple_inplace_checks, Config),
+    run_post_ssa_opt(tuple_inplace_abort0, Config),
+    run_post_ssa_opt(tuple_inplace_abort1, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).

@@ -270,7 +270,7 @@ Returns information about the default process heap settings:
   `garbage_collection` described below.
 
 - `garbage_collection`{: #system_info_garbage_collection } - Returns
-  `t:garbage_collection_defaults()` describing the default garbage collection settings.
+  `t:garbage_collection_defaults/0` describing the default garbage collection settings.
   A process spawned on the local node by a `spawn` or `spawn_link` uses these
   garbage collection settings. The default settings can be changed by using
   [`erlang:system_flag/2`](`erlang:system_flag/2`).
@@ -418,6 +418,15 @@ Returns information about the current system (emulator) time as specified by `It
     [accuracy](time_correction.md#time-accuracy) or whether the
     [precision](time_correction.md#time-precision) aligns with the resolution.
     You do, however, know that the precision is not better than
+    `OsMonotonicTimeResolution`.
+
+  - `{used_resolution, UsedOsMonotonicTimeResolution}` - The OS monotonic time
+    resolution used by the runtime system. This is very often the same as
+    `OsMonotonicTimeResolution`. However, on some systems the resolution has to
+    be reduced in order to reliably produce monotonic timestamps. An example of
+    this is when `QueryPerformanceCounter()` is used as OS monotonic time
+    source on Windows. If such a reduction of the resolution has been done,
+    `UsedOsMonotonicTimeResolution` will be smaller than
     `OsMonotonicTimeResolution`.
 
   - `{extended, Extended}` - `Extended` equals `yes` if the range of time
@@ -822,6 +831,12 @@ Returns various information about the current system (emulator) as specified by 
   time without prior notice.
   
   Since: OTP 24.0
+
+- `halt_flush_timeout`{: #system_info_halt_flush_timeout } - Returns the
+  default *halt flush timeout* set by the `erl`
+  [`+zhft <Timeout>`](erl_cmd.md#+zhft) command line flag.
+
+  Since: OTP 27.0
 
 - `info`{: #system_info_info } - Returns a binary containing a string of
   miscellaneous system information formatted as in Erlang crash dumps. For more

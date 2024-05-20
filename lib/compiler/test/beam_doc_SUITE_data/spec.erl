@@ -1,5 +1,5 @@
 -module(spec).
-
+-moduledoc "".
 -type yes() :: integer().
 -type no() :: atom().
 

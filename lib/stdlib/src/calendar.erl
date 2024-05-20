@@ -144,9 +144,10 @@ The following apply:
 -export_type([date/0, time/0, datetime/0, datetime1970/0]).
 
 -doc """
+The year using the Gregorian calendar.
+
 Year cannot be abbreviated. For example, 93 denotes year 93, not 1993. The valid
-range depends on the underlying operating system. The date tuple must denote a
-valid date.
+range depends on the underlying operating system.
 """.
 -type year()     :: non_neg_integer().
 -type year1970() :: 1970..10000.	% should probably be 1970..
@@ -156,9 +157,17 @@ valid date.
 -type minute()   :: 0..59.
 -type second()   :: 0..59.
 -type daynum()   :: 1..7.
+-doc "The last day of the month.".
 -type ldom()     :: 28 | 29 | 30 | 31. % last day of month
 -type weeknum()  :: 1..53.
 
+-doc """
+A date using the Gregorian calendar.
+
+All APIs expect this to be a valid date. If the source of the date
+is unknown, then verify that is it valid by calling `valid_date/1`
+before using it.
+""".
 -type date()           :: {year(),month(),day()}.
 -type time()           :: {hour(),minute(),second()}.
 -type datetime()       :: {date(),time()}.
@@ -167,6 +176,8 @@ valid date.
 
 -type rfc3339_string() :: [byte(), ...].
 -doc """
+The time unit used by the rfc3339 conversion functions.
+
 > #### Note {: .info }
 >
 > The `native` time unit was added to `t:rfc3339_time_unit/0` in OTP 25.0.
@@ -201,10 +212,7 @@ valid date.
 %% January 1st.
 %%
 %% df/2 catches the case Year<0
--doc """
-Computes the number of gregorian days starting with year 0 and ending at the
-specified date.
-""".
+-doc(#{equiv => date_to_gregorian_days({Year, Month, Day})}).
 -spec date_to_gregorian_days(Year, Month, Day) -> Days when
       Year :: year(),
       Month :: month(),
@@ -217,7 +225,10 @@ date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
 	    dy(Year) + dm(Month) + df(Year, Month) + Day - 1
     end.
 
--doc(#{equiv => date_to_gregorian_days/3}).
+-doc """
+Computes the number of gregorian days starting with year 0 and ending at the
+specified date.
+""".
 -spec date_to_gregorian_days(Date) -> Days when
       Date :: date(),
       Days :: non_neg_integer().
@@ -247,10 +258,7 @@ datetime_to_gregorian_seconds({Date, Time}) ->
 %%
 %% Returns: 1 | .. | 7. Monday = 1, Tuesday = 2, ..., Sunday = 7.
 %%
--doc """
-Computes the day of the week from the specified `Year`, `Month`, and `Day`.
-Returns the day of the week as `1`: Monday, `2`: Tuesday, and so on.
-""".
+-doc(#{equiv => day_of_the_week({Year, Month, Day})}).
 -spec day_of_the_week(Year, Month, Day) -> daynum() when
       Year :: year(),
       Month :: month(),
@@ -258,7 +266,10 @@ Returns the day of the week as `1`: Monday, `2`: Tuesday, and so on.
 day_of_the_week(Year, Month, Day) ->
     (date_to_gregorian_days(Year, Month, Day) + 5) rem 7 + 1.
 
--doc(#{equiv => day_of_the_week/3}).
+-doc """
+Computes the day of the week from the specified `Year`, `Month`, and `Day`.
+Returns the day of the week as `1`: Monday, `2`: Tuesday, and so on.
+""".
 -spec day_of_the_week(Date) -> daynum() when
       Date:: date().
 day_of_the_week({Year, Month, Day}) ->
@@ -492,7 +503,7 @@ now_to_local_time({MSec, Sec, _uSec}) ->
     erlang:universaltime_to_localtime(
       now_to_universal_time({MSec, Sec, _uSec})).
 
--doc(#{equiv => rfc3339_to_system_time/2}).
+-doc(#{equiv => rfc3339_to_system_time(DateTimeString, [])}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec rfc3339_to_system_time(DateTimeString) -> integer() when
       DateTimeString :: rfc3339_string().
@@ -572,7 +583,7 @@ seconds_to_daystime(Secs) ->
 %%
 %% Wraps.
 %%
--type secs_per_day() :: 0..?SECONDS_PER_DAY.
+-type secs_per_day() :: 0..86399.
 -doc """
 Computes the time from the specified number of seconds. `Seconds` must be less
 than the number of seconds per day (86400).
@@ -607,7 +618,7 @@ system_time_to_universal_time(Time, TimeUnit) ->
     Secs = erlang:convert_time_unit(Time, TimeUnit, second),
     system_time_to_datetime(Secs).
 
--doc(#{equiv => system_time_to_rfc3339/2}).
+-doc(#{equiv => system_time_to_rfc3339(Time, [])}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec system_time_to_rfc3339(Time) -> DateTimeString when
       Time :: integer(),
@@ -618,9 +629,10 @@ system_time_to_rfc3339(Time) ->
 
 -type offset() :: [byte()] | (Time :: integer()).
 -doc """
-Converts a system time into an RFC 3339 timestamp. The data format of RFC 3339
-timestamps is described by [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). The
-data format of offsets is also described by RFC 3339.
+Converts a system time into an RFC 3339 timestamp.
+
+The data format of RFC 3339 timestamps is described by [RFC 3339].
+The data format of offsets is also described by [RFC 3339].
 
 Valid options:
 
@@ -652,6 +664,7 @@ Valid options:
    [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).
 "2018-04-23 12:57:20.482Z"
 ```
+[RFC 3339]: https://www.ietf.org/rfc/rfc3339.txt
 """.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec system_time_to_rfc3339(Time, Options) -> DateTimeString when
@@ -763,7 +776,7 @@ universal_time_to_local_time(DateTime) ->
 %% valid_date(Year, Month, Day) = true | false
 %% valid_date({Year, Month, Day}) = true | false
 %%
--doc "This function checks if a date is a valid.".
+-doc(#{equiv => valid_date({Year, Month, Day})}).
 -spec valid_date(Year, Month, Day) -> boolean() when
       Year :: integer(),
       Month :: integer(),
@@ -777,7 +790,7 @@ valid_date1(Y, M, D) when Y >= 0, M > 0, M < 13, D > 0 ->
 valid_date1(_, _, _) ->
     false.
 
--doc(#{equiv => valid_date/3}).
+-doc "This function checks if a date is a valid.".
 -spec valid_date(Date) -> boolean() when
       Date :: date().
 valid_date({Y, M, D}) ->

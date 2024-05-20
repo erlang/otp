@@ -75,7 +75,9 @@ module_path_to_app_vsn(Path) ->
               ["/", "lib", AppStr | _] ->
                   list_to_atom(AppStr);
               ["lib", AppStr | _] ->
-                  list_to_atom(AppStr)
+                  list_to_atom(AppStr);
+              ["nomatch"] ->
+                  error("ERL_TOP environment variable doesn't match the PATH " ++ Path)
           end,
     case application:load(App) of
         ok -> ok;

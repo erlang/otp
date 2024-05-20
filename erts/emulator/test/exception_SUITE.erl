@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -706,7 +706,6 @@ error_info(_Config) ->
     {ok, Peer, ExternalNode} = ?CT_PEER(),
     ExternalPid = rpc:call(ExternalNode, erlang, whereis, [code_server]),
     ExternalPort = hd(rpc:call(ExternalNode, erlang, ports, [])),
-    TraceSession = erlang:trace_session_create([]),
 
     L = [{abs, [abc]},
          {adler32, [{bad,data}]},
@@ -1318,20 +1317,6 @@ error_info(_Config) ->
          {trace_info, [ExternalPort, bad_item]},
          {trace_info, [self(), bad_item]},
          {trace_info, [bad_tracee_spec, flags]},
-
-         {trace_info, [bad_session, self(), flags]},
-         {trace_info, [make_ref(), self(), flags]},
-         {trace_info, [atomics:new(1,[]), self(), flags]},
-         {trace_info, [TraceSession, ExternalPid, flags]},
-         {trace_info, [TraceSession, self(), bad_item]},
-
-         {trace_session_create, [bad_option]},
-         {trace_session_create, [[bad_option]]},
-         {trace_session_create, [[{tracer,self()}|bad]]},
-
-         {trace_session_destroy, [bad_session]},
-         {trace_session_destroy, [make_ref()]},
-         {trace_session_destroy, [atomics:new(1,[])]},
 
          {trunc, [abc]},
          {tuple_size, [<<"abc">>]},

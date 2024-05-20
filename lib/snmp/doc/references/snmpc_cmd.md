@@ -1,7 +1,7 @@
 <!--
 %CopyrightBegin%
 
-Copyright Ericsson AB 2023. All Rights Reserved.
+Copyright Ericsson AB 2023-2024. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ system.
 
 ## snmpc \[options] file.mib | file.bin
 
-`snmpc` compile a SNMP MIB file, see [compile/1,2](`m:snmpc#compile`) for more
+`snmpc` compile a SNMP MIB file, see [compile/1,2](`snmpc:compile/1`) for more
 info.
 
 It can also be used to generate a header file (.hrl) with definitions of Erlang
-constants for the objects in the MIB, see [mib_to_hrl/1](`m:snmpc#mib_to_hrl`).
+constants for the objects in the MIB, see [mib_to_hrl/1](`snmpc:mib_to_hrl/1`).
 
 [](){: #options }
 

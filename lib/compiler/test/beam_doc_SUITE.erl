@@ -6,7 +6,8 @@
          types_and_opaques/1, callback/1, hide_moduledoc2/1,
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
-         docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1]).
+         docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1,
+         no_doc_attributes/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -49,7 +50,8 @@ documentation_generation_tests() ->
      spec_switch_order,
      docs_from_ast,
      user_defined_type,
-     skip_doc
+     skip_doc,
+     no_doc_attributes
     ].
 
 singleton_moduledoc(Conf) ->
@@ -116,7 +118,7 @@ hide_moduledoc2(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
     {ok, {docs_v1, _,_, _Mime, hidden, _,
-          [{{function,handle_call,1},{19,2},[<<"handle_call/1">>],hidden,#{}},
+          [{{function,handle_call,1},{16,2},[<<"handle_call/1">>],hidden,#{}},
            {{function, main, 0}, _, [<<"main()">>], hidden, #{}}]}} = code:get_doc(ModName),
     ok.
 
@@ -136,11 +138,11 @@ singleton_docformat(Conf) ->
     {ok, ModName} = default_compile_file(Conf, "singleton_docformat"),
     ModuleDoc = #{<<"en">> => <<"Moduledoc test module">>},
     Meta = #{format => <<"text/asciidoc">>,
-             deprecated => "Use something else",
+             deprecated => ~"Use something else",
              otp_doc_vsn => {1,0,0},
-             since => "1.0"},
+             since => ~"1.0"},
     Doc = #{<<"en">> => <<"Doc test module\n\nMore info here">>},
-    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">> },
+    FunMeta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     {ok, {docs_v1, _,erlang, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,0},_, [<<"main()">>], Doc, FunMeta}]}} = code:get_doc(ModName),
     ok.
@@ -148,10 +150,11 @@ singleton_docformat(Conf) ->
 singleton_meta(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>},
+    Meta = #{ authors => [<<"Beep Bop">>], equiv => <<"main/3">>, since => ~"1.0" },
     DocMain1 = #{<<"en">> => <<"Returns always ok.">>},
-    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, _,
-          [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := <<"main(_)">>}},
+    {ok, {docs_v1, _,erlang, <<"text/markdown">>, none, #{ since := ~"1.0" },
+          [{{function, main1,0},_, [<<"main1()">>], DocMain1, #{equiv := <<"main(_)">>,
+                                                                since := ~"1.1"}},
            {{function, main,0},_, [<<"main()">>], none, Meta}]}}
         = code:get_doc(ModName),
     ok.
@@ -199,10 +202,10 @@ types_and_opaques(Conf) ->
            UsesPublic, Ignore, MapFun, PrivateEncoding, Foo
           ]}} = code:get_doc(ModName),
 
-    {{type,public,0},{128,2},[<<"public()">>],none,#{exported := true}} = Public,
-    {{type,intermediate,0},{127,2},[<<"intermediate()">>],none,#{exported := false}} = Intermediate,
-    {{type,hidden_nowarn_type,0},{123,2},[<<"hidden_nowarn_type()">>],hidden,#{exported := false}} = HiddenNoWarnType,
-    {{type,hidden_type,0},{120,2},[<<"hidden_type()">>],hidden,#{exported := false}} = HiddenType,
+    {{type,public,0},{125,2},[<<"public()">>],none,#{exported := true}} = Public,
+    {{type,intermediate,0},{124,2},[<<"intermediate()">>],none,#{exported := false}} = Intermediate,
+    {{type,hidden_nowarn_type,0},{120,2},[<<"hidden_nowarn_type()">>],hidden,#{exported := false}} = HiddenNoWarnType,
+    {{type,hidden_type,0},{117,2},[<<"hidden_type()">>],hidden,#{exported := false}} = HiddenType,
     {{type,my_other_private_type,0},MyOtherPrivateTypeLine,
               [<<"my_other_private_type()">>],none,#{exported := false}} = OtherPrivateType,
     {{type,my_private_type,0},MyPrivateTypeLine,
@@ -228,22 +231,22 @@ types_and_opaques(Conf) ->
     {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}} = Name,
     {{type, hidden_included_type, 0}, _, _, hidden, #{exported := false }} = HiddenIncludedType,
 
-    {{function,uses_public,0},{131,1},[<<"uses_public()">>],none,#{}} = UsesPublic,
+    {{function,uses_public,0},{128,1},[<<"uses_public()">>],none,#{}} = UsesPublic,
     {{function,ignore_type_from_hidden_fun,0},_,[<<"ignore_type_from_hidden_fun()">>],hidden,#{}} = Ignore,
     {{function,map_fun,0},_,[<<"map_fun()">>],none,#{}} = MapFun,
     {{function,private_encoding_func,2},_,[<<"private_encoding_func(Data, Options)">>],none,#{}} = PrivateEncoding,
     {{function,foo,0},_,[<<"foo()">>],none,#{}} = Foo,
 
-    ?assertEqual(106, erl_anno:line(MyOtherPrivateTypeLine)),
-    ?assertEqual(105, erl_anno:line(MyPrivateTypeLine)),
-    ?assertEqual(102, erl_anno:line(MyMapLine)),
-    ?assertEqual(99, erl_anno:line(StateEnterLine)),
-    ?assertEqual(98, erl_anno:line(CallbackModeLine)),
-    ?assertEqual(96, erl_anno:line(CallbackResultLine)),
+    ?assertEqual(103, erl_anno:line(MyOtherPrivateTypeLine)),
+    ?assertEqual(102, erl_anno:line(MyPrivateTypeLine)),
+    ?assertEqual(99, erl_anno:line(MyMapLine)),
+    ?assertEqual(96, erl_anno:line(StateEnterLine)),
+    ?assertEqual(95, erl_anno:line(CallbackModeLine)),
+    ?assertEqual(93, erl_anno:line(CallbackResultLine)),
 
     [{File, Ws}, {HrlFile, HrlWs}] = Warnings,
     ?assertEqual("types_and_opaques.erl", filename:basename(File)),
-    ?assertEqual({{120,2}, beam_doc,
+    ?assertEqual({{117,2}, beam_doc,
                   {hidden_type_used_in_exported_fun,{hidden_type,0}}}, lists:nth(4, Ws)),
 
     ?assertEqual("types_and_opaques.hrl", filename:basename(HrlFile)),
@@ -367,7 +370,7 @@ equiv(Conf) ->
 spec(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    {ok, {docs_v1, _,_, _, none, _,
+    {ok, {docs_v1, _,_, _, #{ ~"en" := ~"" }, _,
           [{{type,no,0},_,[<<"no()">>],none,#{exported := false}},
            {{type,yes,0},_,[<<"yes()">>],none,#{exported := false}},
            {{callback,me,1},_,[<<"me/1">>],none,#{}},
@@ -378,7 +381,7 @@ spec(Conf) ->
 user_defined_type(Conf) ->
     ModuleName = ?get_name(),
     {ok, ModName} = default_compile_file(Conf, ModuleName),
-    {ok, {docs_v1, _,_, _, none, _, []}} = code:get_doc(ModName),
+    {ok, {docs_v1, _,_, _, #{ ~"en" := ~"" }, _, []}} = code:get_doc(ModName),
     ok.
 
 deprecated(Conf) ->
@@ -387,6 +390,7 @@ deprecated(Conf) ->
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the type deprecated:test(_) is deprecated; Deprecation reason">>}},
            {{type,test,0},_,[<<"test()">>],none,#{deprecated := <<"the type deprecated:test() is deprecated; see the documentation for details">>}},
+           {{callback,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the callback deprecated:test(_) is deprecated; Deprecation reason">>}},
            {{callback,test,0},_,[<<"test()">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,2},_,[<<"test(N, M)">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"deprecated:test/1 is deprecated; Deprecation reason">>}},
@@ -394,10 +398,11 @@ deprecated(Conf) ->
         code:get_doc(ModName),
 
     {ok, ModName} = default_compile_file(Conf, ModuleName, [{d,'TEST_WILDCARD'},
-                                                    {d, 'REASON', next_major_release}]),
+                                                            {d, 'REASON', next_major_release}]),
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the type deprecated:test(_) is deprecated; see the documentation for details">>}},
            {{type,test,0},_,[<<"test()">>],none,#{deprecated := <<"the type deprecated:test() is deprecated; see the documentation for details">>}},
+           {{callback,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the callback deprecated:test(_) is deprecated; will be removed in the next major release. See the documentation for details">>}},
            {{callback,test,0},_,[<<"test()">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,2},_,[<<"test(N, M)">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"deprecated:test/1 is deprecated; will be removed in the next major release. See the documentation for details">>}},
@@ -405,11 +410,12 @@ deprecated(Conf) ->
         code:get_doc(ModName),
 
     {ok, ModName} = default_compile_file(Conf, ModuleName, [{d,'ALL_WILDCARD'},
-                                                    {d,'REASON',next_version},
-                                                    {d,'TREASON',eventually}]),
+                                                            {d,'REASON',next_version},
+                                                            {d,'TREASON',eventually}]),
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the type deprecated:test(_) is deprecated; will be removed in a future release. See the documentation for details">>}},
            {{type,test,0},_,[<<"test()">>],none,#{deprecated := <<"the type deprecated:test() is deprecated; see the documentation for details">>}},
+           {{callback,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"the callback deprecated:test(_) is deprecated; will be removed in the next version. See the documentation for details">>}},
            {{callback,test,0},_,[<<"test()">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,2},_,[<<"test(N, M)">>],none,#{deprecated := <<"Meta reason">>}},
            {{function,test,1},_,[<<"test(N)">>],none,#{deprecated := <<"deprecated:test/1 is deprecated; will be removed in the next version. See the documentation for details">>}},
@@ -418,9 +424,24 @@ deprecated(Conf) ->
     ok.
 
 warn_missing_doc(Conf) ->
+
+    warn_missing_doc(Conf, [function, type, callback], [warn_missing_doc]),
+    warn_missing_doc(Conf, [function], [warn_missing_doc_functions]),
+    warn_missing_doc(Conf, [function, type], [warn_missing_doc_functions, warn_missing_doc_types]),
+    warn_missing_doc(Conf, [type, callback], [warn_missing_doc_types, warn_missing_doc_callbacks]),
+    warn_missing_doc(Conf, [callback], [warn_missing_doc_callbacks]),
+
+    warn_missing_doc(Conf, [type, callback], [warn_missing_doc, nowarn_missing_doc_functions]),
+    warn_missing_doc(Conf, [function, callback], [warn_missing_doc, nowarn_missing_doc_types]),
+    warn_missing_doc(Conf, [type], [warn_missing_doc, nowarn_missing_doc_callbacks, nowarn_missing_doc_functions]),
+    warn_missing_doc(Conf, [], [warn_missing_doc_functions, nowarn_missing_doc]),
+
+    ok.
+
+warn_missing_doc(Conf, ExpectedWarnings, Options) ->
     ModuleName = ?get_name(),
-    {ok, ModName, [{File,Warnings}, {HrlFile, HrlWarnings}]} =
-        default_compile_file(Conf, ModuleName, [return_warnings, warn_missing_doc, report]),
+    {ok, ModName, Ws} =
+        default_compile_file(Conf, ModuleName, [return_warnings, report | Options]),
 
     {ok, {docs_v1, _,_, _, none, _,
           [{{type,test,1},_,[<<"test(N)">>],none,_},
@@ -431,20 +452,51 @@ warn_missing_doc(Conf) ->
            {{function,test,2},_,[<<"test(N, M)">>],none,_}]}
     } = code:get_doc(ModName),
 
-    ?assertEqual("warn_missing_doc.erl", filename:basename(File)),
-    ?assertEqual(6, length(Warnings)),
-    ?assertMatch({1, beam_doc, missing_moduledoc}, lists:nth(1, Warnings)),
-    ?assertMatch({{6,2}, beam_doc, {missing_doc, {type,test,0}}}, lists:nth(2, Warnings)),
-    ?assertMatch({{7,2}, beam_doc, {missing_doc, {type,test,1}}}, lists:nth(3, Warnings)),
-    ?assertMatch({{9,2}, beam_doc, {missing_doc, {callback,test,0}}}, lists:nth(4, Warnings)),
-    ?assertMatch({{13,1}, beam_doc, {missing_doc, {function,test,0}}}, lists:nth(5, Warnings)),
-    ?assertMatch({{14,1}, beam_doc, {missing_doc, {function,test,1}}}, lists:nth(6, Warnings)),
+    case ExpectedWarnings of
+        [] ->
+            ?assertEqual([],Ws);
+        _ ->
+            [{File,Warnings} | Hrl] = Ws,
+            ExpectedWarningCount = 1 + lists:sum(
+                                         lists:flatten(
+                                           [[2 || lists:member(type, ExpectedWarnings)],
+                                            [1 || lists:member(callback, ExpectedWarnings)],
+                                            [2 || lists:member(function, ExpectedWarnings)]])),
 
-    ?assertEqual("warn_missing_doc.hrl", filename:basename(HrlFile)),
-    ?assertEqual(1, length(HrlWarnings)),
-    ?assertMatch({{2,1}, beam_doc, {missing_doc, {function,test,2}}}, lists:nth(1, HrlWarnings)),
+            ?assertEqual("warn_missing_doc.erl", filename:basename(File)),
+            ?assertEqual(ExpectedWarningCount, length(Warnings)),
+            ?assertMatch({1, beam_doc, missing_moduledoc}, lists:nth(1, Warnings)),
+            TypePos =
+                case lists:member(type, ExpectedWarnings) of
+                    true ->
+                        ?assertMatch({{6,2}, beam_doc, {missing_doc, {type,test,0}}}, lists:nth(2, Warnings)),
+                        ?assertMatch({{7,2}, beam_doc, {missing_doc, {type,test,1}}}, lists:nth(3, Warnings)),
+                        4;
+                    false ->
+                        2
+                end,
 
-    ok.
+            CBPos =
+                case lists:member(callback, ExpectedWarnings) of
+                    true ->
+                        ?assertMatch({{9,2}, beam_doc, {missing_doc, {callback,test,0}}}, lists:nth(TypePos, Warnings)),
+                        TypePos + 1;
+                    false ->
+                        TypePos
+                end,
+
+            case lists:member(function, ExpectedWarnings) of
+                true ->
+                    ?assertMatch({{13,1}, beam_doc, {missing_doc, {function,test,0}}}, lists:nth(CBPos, Warnings)),
+                    ?assertMatch({{14,1}, beam_doc, {missing_doc, {function,test,1}}}, lists:nth(CBPos+1, Warnings)),
+                    [{HrlFile, HrlWarnings}] = Hrl,
+                    ?assertEqual("warn_missing_doc.hrl", filename:basename(HrlFile)),
+                    ?assertEqual(1, length(HrlWarnings)),
+                    ?assertMatch({{2,1}, beam_doc, {missing_doc, {function,test,2}}}, lists:nth(1, HrlWarnings));
+                false ->
+                    ok
+            end
+    end.
 
 doc_with_file(Conf) ->
     ModuleName = ?get_name(),
@@ -502,10 +554,10 @@ spec_switch_order(Conf) ->
 
     {ok, {docs_v1, _ModuleAnno,_, _, _, _,
           [NotFalse, Other, Bar, Foo]}} = code:get_doc(ModName),
-  {{function,not_false,0}, {53,1}, [<<"not_false()">>], none,#{}} = NotFalse,
-  {{function,other,0},{37,2},[<<"other()">>],hidden,#{}} = Other,
-  {{function,bar,1},{31,2},[<<"bar(X)">>],hidden,#{}} = Bar,
-  {{function,foo,1}, {23, 2}, [<<"foo(Var)">>], #{ <<"en">> := <<"Foo does X">> }, #{}} = Foo.
+  {{function,not_false,0}, {52,1}, [<<"not_false()">>], none,#{}} = NotFalse,
+  {{function,other,0},{36,2},[<<"other()">>],hidden,#{}} = Other,
+  {{function,bar,1},{30,2},[<<"bar(X)">>],hidden,#{}} = Bar,
+  {{function,foo,1}, {22, 2}, [<<"foo(Var)">>], #{ <<"en">> := <<"Foo does X">> }, #{}} = Foo.
 
 skip_doc(Conf) ->
   ModuleName =?get_name(),
@@ -517,10 +569,21 @@ skip_doc(Conf) ->
        [{{function,main,0},{8,1},[<<"main/0">>],none,#{}},
         {{function,foo,1},{16,1},[<<"foo/1">>],none,#{}}]}} = code:get_doc(ModName),
 
+  {error, missing} =
+      code:get_doc(ModName, #{ sources => [eep48] }),
+
   {ok, _ModName} = compile_file(Conf, ModuleName, [report, return_errors, no_docs]),
   {error, missing} = code:get_doc(ModName),
   ok.
 
+no_doc_attributes(Conf) ->
+  ModuleName =?get_name(),
+  {ok, ModName} = default_compile_file(Conf, ModuleName, []),
+
+  {error, missing} =
+      code:get_doc(ModName, #{ sources => [eep48] }),
+
+  ok.
 
 docs_from_ast(_Conf) ->
     Code = """

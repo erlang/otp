@@ -146,7 +146,7 @@ ocsp_test(Config) when is_list(Config) ->
         pubkey_ocsp:decode_response(?OCSP_RESPONSE_DER),
 
     IsTrustedReponderFun = fun(_) -> true end,
-    {ok, [SingleResponse]} =
+    {ok, [SingleResponse], []} =
         pubkey_ocsp:verify_response(OcspResponse,
                                     [?RESPONDER_CERT],
                                     ?NONCE,

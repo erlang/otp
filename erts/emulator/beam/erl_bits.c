@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2023. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1448,7 +1448,7 @@ build_writable_bitstring(Process *p,
     p->wrt_bins = (struct erl_off_heap_header*)br;
     br->val = bin;
 
-    MSO(p).overhead += apparent_size / (sizeof(Eterm) * 8);
+    OH_OVERHEAD(&MSO(p), NBYTES(apparent_size) / sizeof(Eterm));
 
     erl_sub_bits_init(sb,
                       ERL_SUB_BITS_FLAGS_WRITABLE,
@@ -1461,6 +1461,19 @@ build_writable_bitstring(Process *p,
     *sbp = sb;
 }
 
+/*
+ * This function either returns a term or THE_NON_VALUE.
+ *
+ * If THE_NON_VALUE is returned, it can mean one of two things:
+ *
+ * - The max_heap_size limit for the process was exceeded and the
+ *   process was killed. This situation can be recognized by calling
+ *   the ERTS_PROC_IS_EXITING(P) macro. The caller must immediately
+ *   pass control to the scheduler.
+ *
+ * - A BADARG or SYSTEM_LIMIT exception happened. The caller must
+ *   raise an exception.
+ */
 Eterm
 erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                Uint extra_words, Uint unit)
@@ -1488,6 +1501,9 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
                                   extra_words, unit);
 }
 
+/*
+ * See erts_bs_append().
+ */
 Eterm
 erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                        Uint build_size_in_bits, Uint extra_words,
@@ -1552,6 +1568,9 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     if (build_size_in_bits == 0) {
         if (HeapWordsLeft(c_p) < extra_words) {
             (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                return THE_NON_VALUE;
+            }
             bin = reg[live];
         }
 	return bin;
@@ -1590,6 +1609,9 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     heap_need = ERL_SUB_BITS_SIZE + extra_words;
     if (HeapWordsLeft(c_p) < heap_need) {
         (void)erts_garbage_collect(c_p, heap_need, reg, live + 1);
+        if (ERTS_PROC_IS_EXITING(c_p)) {
+            return THE_NON_VALUE;
+        }
     }
 
     sb = (ErlSubBits*)c_p->htop;
@@ -1619,6 +1641,9 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
         heap_need = ERL_REFC_BITS_SIZE + extra_words;
         if (HeapWordsLeft(c_p) < heap_need) {
             (void) erts_garbage_collect(c_p, heap_need, reg, live+1);
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                return THE_NON_VALUE;
+            }
             bin = reg[live];
         }
 
@@ -2352,8 +2377,12 @@ Eterm erts_wrap_refc_bitstring(struct erl_off_heap_header **oh,
                       offset,
                       size);
 
+    /* Note that the overhead must be the actual allocated size of the off-heap
+     * `Binary`, not the apparent size of the binary, in order for virtual heap
+     * sizes to be accounted correctly. */
+    *overhead += bin->orig_size / sizeof(Eterm);
+
     *oh = (struct erl_off_heap_header*)br;
-    *overhead += size / NBITS(sizeof(Eterm));
     *hpp += ERL_REFC_BITS_SIZE;
 
     return make_bitstring(sb);

@@ -19,16 +19,17 @@ limitations under the License.
 -->
 # Introduction
 
-The ASN.1 application provides the following:
+The `asn1` application provides the following:
 
 - An ASN.1 compiler for Erlang, which generates encode and decode functions to
-  be used by Erlang programs sending and receiving ASN.1 specified data.
+  be used by Erlang programs sending and receiving ASN.1-specified data.
 - Runtime functions used by the generated code.
 - Support for the following encoding rules:
   - Basic Encoding Rules (BER)
   - Distinguished Encoding Rules (DER), a specialized form of BER that is used
     in security-conscious applications
   - Packed Encoding Rules (PER), both the aligned and unaligned variant
+  - JSON Encoding Rules (JER)
 
 ## Scope
 

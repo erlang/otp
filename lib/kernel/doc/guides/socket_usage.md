@@ -72,7 +72,7 @@ the caller:
 
 The user must also be prepared to receive an abort message:
 
-- \_\_\_\_ - `{'$socket', socket(), abort, Info}`
+- `{'$socket', socket(), abort, Info}`
 
 If the operation is aborted for whatever reason (e.g. if the socket is closed
 "by someone else"). The `Info` part contains the abort reason (in this case that
@@ -80,7 +80,7 @@ the socket has been closed `Info = {SelectHandle, closed}`).
 
 The general form of the 'socket' message is:
 
-- \_\_\_\_ - `{'$socket', Sock :: socket(), Tag :: atom(), Info :: term()}`
+- `{'$socket', Sock :: socket(), Tag :: atom(), Info :: term()}`
 
 Where the format of `Info` is a function of `Tag`:
 
@@ -126,6 +126,247 @@ And finally, its possible to override the global default when creating a socket
 (with [`open/2`](`socket:open/2`) and [`open/4`](`socket:open/4`)) by providing
 the attribute `use_registry` (boolean) in the their `Opts` argument (which
 effects _that_ specific socket).
+
+
+## Example
+
+This example is intended to show how to create a simple (echo) server
+(and client).
+
+```erlang
+-module(example).
+
+-export([client/2, client/3]).
+-export([server/0, server/1, server/2]).
+
+
+%% ======================================================================
+
+%% === Client ===
+
+client(#{family := Family} = ServerSockAddr, Msg)
+  when is_list(Msg) orelse is_binary(Msg) ->
+    {ok, Sock} = socket:open(Family, stream, default),
+    ok         = maybe_bind(Sock, Family),
+    ok         = socket:connect(Sock, ServerSockAddr),
+    client_exchange(Sock, Msg);
+
+client(ServerPort, Msg)
+  when is_integer(ServerPort) andalso (ServerPort > 0) ->
+    Family   = inet, % Default
+    Addr     = get_local_addr(Family), % Pick an address
+    SockAddr = #{family => Family,
+		 addr   => Addr,
+		 port   => ServerPort},
+    client(SockAddr, Msg).
+
+client(ServerPort, ServerAddr, Msg)
+  when is_integer(ServerPort) andalso (ServerPort > 0) andalso
+       is_tuple(ServerAddr) ->
+    Family   = which_family(ServerAddr),
+    SockAddr = #{family => Family,
+		 addr   => ServerAddr,
+		 port   => ServerPort},
+    client(SockAddr, Msg).
+
+%% Send the message to the (echo) server and wait for the echo to come back.
+client_exchange(Sock, Msg) when is_list(Msg) ->
+    client_exchange(Sock, list_to_binary(Msg));
+client_exchange(Sock, Msg) when is_binary(Msg) ->
+    ok = socket:send(Sock, Msg, infinity),
+    {ok, Msg} = socket:recv(Sock, byte_size(Msg), infinity),
+    ok.
+
+
+%% ======================================================================
+
+%% === Server ===
+
+server() ->
+    %% Make system choose port (and address)
+    server(0).
+
+%% This function return the port and address that it actually uses,
+%% in case server/0 or server/1 (with a port number) was used to start it.
+
+server(#{family := Family, addr := Addr, port := _} = SockAddr) ->
+    {ok, Sock} = socket:open(Family, stream, tcp),
+    ok         = socket:bind(Sock, SockAddr),
+    ok         = socket:listen(Sock),
+    {ok, #{port := Port}} = socket:sockname(Sock),
+    Acceptor = start_acceptor(Sock),
+    {ok, {Port, Addr, Acceptor}};
+
+server(Port) when is_integer(Port) ->
+    Family   = inet, % Default
+    Addr     = get_local_addr(Family), % Pick an address
+    SockAddr = #{family => Family,
+		 addr   => Addr,
+		 port   => Port},
+    server(SockAddr).
+
+server(Port, Addr)
+  when is_integer(Port) andalso (Port >= 0) andalso
+       is_tuple(Addr) ->
+    Family   = which_family(Addr),
+    SockAddr = #{family => Family,
+		 addr   => Addr,
+		 port   => Port},
+    server(SockAddr).
+
+
+%% --- Echo Server - Acceptor ---
+
+start_acceptor(LSock) ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() -> acceptor_init(Self, LSock) end),
+    receive
+	{'DOWN', MRef, process, Pid, Info} ->
+	    erlang:error({failed_starting_acceptor, Info});
+	{Pid, started} ->
+	    %% Transfer ownership
+	    socket:setopt(LSock, otp, owner, Pid),
+	    Pid ! {self(), continue},
+	    erlang:demonitor(MRef),
+	    Pid
+    end.
+    
+acceptor_init(Parent, LSock) ->
+    Parent ! {self(), started},
+    receive
+	{Parent, continue} ->
+	    ok
+    end,
+    acceptor_loop(LSock).
+
+acceptor_loop(LSock) ->
+    case socket:accept(LSock, infinity) of
+	{ok, ASock} ->
+	    start_handler(ASock),
+	    acceptor_loop(LSock);
+	{error, Reason} ->
+	    erlang:error({accept_failed, Reason})
+    end.
+
+
+%% --- Echo Server - Handler ---
+
+start_handler(Sock) ->
+    Self = self(),
+    {Pid, MRef} = spawn_monitor(fun() -> handler_init(Self, Sock) end),
+    receive
+	{'DOWN', MRef, process, Pid, Info} ->
+	    erlang:error({failed_starting_handler, Info});
+	{Pid, started} ->
+	    %% Transfer ownership
+	    socket:setopt(Sock, otp, owner, Pid),
+	    Pid ! {self(), continue},
+	    erlang:demonitor(MRef),
+	    Pid
+    end.
+
+handler_init(Parent, Sock) ->
+    Parent ! {self(), started},
+    receive
+	{Parent, continue} ->
+	    ok
+    end,
+    handler_loop(Sock, undefined).
+
+%% No "ongoing" reads
+%% The use of 'nowait' here is clearly *overkill* for this use case,
+%% but is intended as an example of how to use it.
+handler_loop(Sock, undefined) ->
+    case socket:recv(Sock, 0, nowait) of
+	{ok, Data} ->
+	    echo(Sock, Data),
+	    handler_loop(Sock, undefined);
+
+	{select, SelectInfo} ->
+	    handler_loop(Sock, SelectInfo);
+
+	{completion, CompletionInfo} ->
+	    handler_loop(Sock, CompletionInfo);
+
+	{error, Reason} ->
+	    erlang:error({recv_failed, Reason})
+    end;
+
+%% This is the standard (asyncronous) behaviour.
+handler_loop(Sock, {select_info, recv, SelectHandle}) ->
+    receive
+	{'$socket', Sock, select, SelectHandle} ->
+	    case socket:recv(Sock, 0, nowait) of
+		{ok, Data} ->
+		    echo(Sock, Data),
+		    handler_loop(Sock, undefined);
+
+		{select, NewSelectInfo} ->
+		    handler_loop(Sock, NewSelectInfo);
+
+		{error, Reason} ->
+		    erlang:error({recv_failed, Reason})
+	    end
+    end;
+
+%% This is the (asyncronous) behaviour on platforms that support 'completion',
+%% currently only Windows.
+handler_loop(Sock, {completion_info, recv, CompletionHandle}) ->
+    receive
+	{'$socket', Sock, completion, {CompletionHandle, CompletionStatus}} ->
+	    case CompletionStatus of
+		{ok, Data} ->
+		    echo(Sock, Data),
+		    handler_loop(Sock, undefined);
+		{error, Reason} ->
+		    erlang:error({recv_failed, Reason})
+	    end
+    end.
+
+echo(Sock, Data) when is_binary(Data) ->
+    ok = socket:send(Sock, Data, infinity),
+    io:format("** ECHO **"
+	      "~n~s~n", [binary_to_list(Data)]).
+
+
+%% ======================================================================
+
+%% === Utility functions ===
+
+maybe_bind(Sock, Family) ->
+    maybe_bind(Sock, Family, os:type()).
+
+maybe_bind(Sock, Family, {win32, _}) ->
+    Addr     = get_local_addr(Family),
+    SockAddr = #{family => Family,
+                 addr   => Addr,
+                 port   => 0},
+    socket:bind(Sock, SockAddr);
+maybe_bind(_Sock, _Family, _OS) ->
+    ok.
+
+%% The idea with this is extract a "usable" local address
+%% that can be used even from *another* host. And doing
+%% so using the net module.
+
+get_local_addr(Family) ->
+    Filter =
+	fun(#{addr  := #{family := Fam},
+	      flags := Flags}) ->
+		(Fam =:= Family) andalso (not lists:member(loopback, Flags));
+	   (_) ->
+		false
+	end,
+    {ok, [SockAddr|_]} = net:getifaddrs(Filter),
+    #{addr := #{addr := Addr}} = SockAddr,
+    Addr.
+
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
+    inet;
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
+    inet6.
+```
+
 
 [](){: #socket_options }
 

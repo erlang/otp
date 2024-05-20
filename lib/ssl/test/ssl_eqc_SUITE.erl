@@ -42,7 +42,8 @@
          tls_extraneous_chain/1,
          tls_extraneous_chains/1,
          tls_extraneous_and_unorder_chains/1,
-         tls_client_cert_auth/1
+         tls_client_cert_auth/1,
+         tls_eccs/1
          ]).
 
 %%--------------------------------------------------------------------
@@ -61,7 +62,8 @@ all() ->
      tls_extraneous_chain,
      tls_extraneous_chains,
      tls_extraneous_and_unorder_chains,
-     tls_client_cert_auth
+     tls_client_cert_auth,
+     tls_eccs
     ].
 
 %%--------------------------------------------------------------------
@@ -148,4 +150,9 @@ tls_client_cert_auth(Config) when is_list(Config) ->
     %% manual test:  proper:quickcheck(ssl_eqc_chain:prop_client_cert_auth()
     ssl:start(),
     true = ct_property_test:quickcheck(ssl_eqc_chain:prop_client_cert_auth(),
+                                       Config).
+tls_eccs(Config) when is_list(Config) ->
+    %% manual test:  proper:quickcheck(ssl_eqc_ecc:prop_tls_ecc)
+    ssl:start(),
+    true = ct_property_test:quickcheck(ssl_eqc_ecc:prop_tls_ecc(),
                                        Config).

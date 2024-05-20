@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Using TLS for Erlang Distribution
+# Erlang Distribution over TLS
 
 This section describes how the Erlang distribution can use TLS to get extra
 verification and security.
@@ -155,10 +155,14 @@ The TLS distribution options can be written into a file that is consulted when
 the node is started. This file name is then specified with the command line
 argument `-ssl_dist_optfile`.
 
-Any available TLS option can be specified in an options file, but note that
-options that take a `fun()` has to use the syntax `fun Mod:Func/Arity` since a
-function body cannot be compiled when consulting a file.
+Any available TLS option can be specified in an options file.
 
+> #### Note {: .info }
+Options that take a `fun()` has to use the syntax `fun Mod:Func/Arity` since a
+function body cannot be compiled when consulting a file. Also the encoding
+of the file can be specified as defined by module `m:epp`.
+
+> #### Warning {: .warning }
 Do not tamper with the socket options `list`, `binary`, `active`, `packet`,
 `nodelay` and `deliver` since they are used by the distribution protocol handler
 itself. Other raw socket options such as `packet_size` may interfere severely,

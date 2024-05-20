@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2022. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -122,9 +122,10 @@ unix_autoconf(XConf) ->
 		  erlang:system_info(threads) /= false],
     Debug = [" --enable-debug-mode" ||
 		string:find(erlang:system_info(system_version),"debug") =/= nomatch],
-    MXX_Build = [Y || Y <- string:lexemes(os:getenv("CONFIG_FLAGS", ""), " \t\n"),
+    MXX_Build = [[$\s | Y] || Y <- string:lexemes(os:getenv("CONFIG_FLAGS", ""), " \t\n"),
 		      Y == "--enable-m64-build"
-			  orelse Y == "--enable-m32-build"],
+			  orelse Y == "--enable-m32-build"
+                          orelse Y == "--disable-year2038"],
     Args = Host ++ Build ++ Threads ++ Debug ++ " " ++ MXX_Build,
     case filelib:is_file(Configure) of
 	true ->

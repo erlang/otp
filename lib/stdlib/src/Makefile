@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2023. All Rights Reserved.
+# Copyright Ericsson AB 1996-2024. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,6 +98,7 @@ MODULES= \
 	io_lib_format \
 	io_lib_fread \
 	io_lib_pretty \
+	json \
 	lists \
 	log_mf_h \
 	maps \
@@ -120,6 +121,7 @@ MODULES= \
 	shell \
 	shell_default \
 	shell_docs \
+	shell_docs_markdown \
 	slave \
 	sofs \
 	string \
@@ -141,7 +143,7 @@ HRL_FILES= \
 	../include/qlc.hrl \
 	../include/zip.hrl
 
-INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl otp_internal.hrl
+INTERNAL_HRL_FILES= dets.hrl erl_tar.hrl otp_internal.hrl json.hrl
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -182,7 +184,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-$(TYPES): $(TARGET_FILES) 
+$(TYPES): $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -236,7 +238,7 @@ unicode_util.erl: ../uc_spec/*
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
@@ -252,7 +254,7 @@ release_docs_spec:
 
 # ----------------------------------------------------
 # Dependencies -- alphabetically, please
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 $(EBIN)/beam_lib.beam: ../include/erl_compile.hrl ../../kernel/include/file.hrl
 $(EBIN)/dets.beam: dets.hrl ../../kernel/include/file.hrl
@@ -270,9 +272,15 @@ $(EBIN)/gen_event.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_fsm.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_server.beam: ../../kernel/include/logger.hrl
 $(EBIN)/gen_statem.beam: ../../kernel/include/logger.hrl
+$(EBIN)/json.beam: json.hrl
+$(EBIN)/ms_transform.beam: ../doc/src/ms_transform.md
+$(EBIN)/peer.beam: ../doc/src/peer.md
 $(EBIN)/proc_lib.beam: ../../kernel/include/logger.hrl
+$(EBIN)/qlc.beam: ../doc/src/qlc.md
 $(EBIN)/qlc_pt.beam: ../include/ms_transform.hrl
-$(EBIN)/shell.beam: ../../kernel/include/file.hrl
+$(EBIN)/re.beam: ../doc/src/re.md
+$(EBIN)/shell.beam: ../../kernel/include/file.hrl ../doc/src/shell.md
+$(EBIN)/sofs.beam: ../doc/src/sofs.md
 $(EBIN)/supervisor.beam: ../../kernel/include/logger.hrl
 $(EBIN)/supervisor_bridge.beam: ../../kernel/include/logger.hrl
 $(EBIN)/zip.beam: ../include/zip.hrl ../../kernel/include/file.hrl

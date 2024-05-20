@@ -21,6 +21,26 @@ limitations under the License.
 
 This document describes the changes made to the Parsetools application.
 
+## Parsetools 2.6
+
+### Improvements and New Features
+
+- The `leex` documentation has been updated to use specs for documenting the generated interface.
+
+  Own Id: OTP-18796 Aux Id: [PR-7703]
+
+- yecc now wraps the `-module` attribute with `-file` to indicate the `.yrl` source file.
+
+  Own Id: OTP-18912 Aux Id: [PR-7963]
+
+- The documentation has been migrated to use Markdown and ExDoc.
+
+  Own Id: OTP-18955 Aux Id: [PR-8026]
+
+[PR-7703]: https://github.com/erlang/otp/pull/7703
+[PR-7963]: https://github.com/erlang/otp/pull/7963
+[PR-8026]: https://github.com/erlang/otp/pull/8026
+
 ## Parsetools 2.5
 
 ### Improvements and New Features

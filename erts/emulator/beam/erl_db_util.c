@@ -251,6 +251,7 @@ set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
         || erts_thr_progress_is_blocking());
 
     if (ERTS_TRACER_IS_NIL(tracer)
+        || !erts_is_trace_session_alive(session)
         || erts_is_tracer_enabled(tracer, &tracee_p->common))
         return set_tracee_flags(tracee_p, tracer, session, d_flags, e_flags);
     return fail_term;
@@ -1187,7 +1188,9 @@ Binary *erts_match_set_compile_trace(Process *p, Eterm matchexpr,
 	    copy_struct(matchexpr, sz, &hp, 
 			&(prog->saved_program_buf->off_heap));
         prog->trace_session = session;
-        erts_ref_trace_session(session);
+#ifdef DEBUG
+        erts_refc_inc(&session->dbg_bp_refc, 1);
+#endif
     }
     return bin;
 }
@@ -2073,8 +2076,11 @@ int erts_db_match_prog_destructor(Binary *bprog)
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
-    if (prog->trace_session)
-        erts_deref_trace_session(prog->trace_session);
+#ifdef DEBUG
+    if (prog->trace_session) {
+        erts_refc_dec(&prog->trace_session->dbg_bp_refc, 0);
+    }
+#endif
     return 1;
 }
 
@@ -2984,8 +2990,8 @@ restart:
                 erts_tracer_update(&tracer,
                                    get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
+		if (! erts_trace_flags(prog->trace_session, esp[-1], &d_flags, &tracer, &cputs) ||
+		    ! erts_trace_flags(prog->trace_session, esp[-2], &e_flags, &tracer, &cputs) ||
 		    cputs ) {
 		    (--esp)[-1] = FAIL_TERM;
                     ERTS_TRACER_CLEAR(&tracer);
@@ -3014,8 +3020,8 @@ restart:
                 erts_tracer_update(&tracer,
                                    get_proc_tracer(c_p, prog->trace_session));
 		
-		if (! erts_trace_flags(esp[-1], &d_flags, &tracer, &cputs, NULL) ||
-		    ! erts_trace_flags(esp[-2], &e_flags, &tracer, &cputs, NULL) ||
+		if (! erts_trace_flags(prog->trace_session, esp[-1], &d_flags, &tracer, &cputs) ||
+		    ! erts_trace_flags(prog->trace_session, esp[-2], &e_flags, &tracer, &cputs) ||
 		    cputs ||
 		    ! (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, 
 				       tracee, ERTS_PROC_LOCKS_ALL))) {
@@ -3147,13 +3153,13 @@ void db_free_dmc_err_info(DMCErrInfo *ei){
 ** Store bignum in *hpp and increase *hpp accordingly.
 ** *hpp is assumed to be large enough to hold the result.
 */
-Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
+Eterm db_add_counter(Eterm** hpp, Eterm counter, Eterm incr)
 {
     DeclareTmpHeapNoproc(big_tmp,2);
     Eterm res;
     Sint ires;
-    Wterm arg1;
-    Wterm arg2;
+    Eterm arg1;
+    Eterm arg2;
 
     if (is_both_small(counter,incr)) {
 	ires = signed_val(counter) + signed_val(incr);
@@ -3197,7 +3203,7 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
 /* Must be called to read elements after db_lookup_dbterm.
 ** Will decompress if needed.
 */
-Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
+Eterm db_do_read_element(DbUpdateHandle* handle, Sint position)
 {
     Eterm elem = handle->dbterm->tpl[position];
     if (!is_header(elem)) {
@@ -3908,11 +3914,8 @@ int db_has_map(Eterm node) {
     return 0;
 }
 
-/* check if obj is (or contains) a variable */
-/* return 1 if obj contains a variable or underscore */
-/* return 0 if obj is fully ground                   */
-
-int db_has_variable(Eterm node) {
+/* Check if obj is fully bound (contains no variables, underscores, or maps) */
+int db_is_fully_bound(Eterm node) {
     DECLARE_ESTACK(s);
 
     ESTACK_PUSH(s,node);
@@ -3933,30 +3936,24 @@ int db_has_variable(Eterm node) {
 		while(arity--) {
 		    ESTACK_PUSH(s,*(++tuple));
 		}
-            } else if (is_flatmap(node)) {
-                Eterm *values = flatmap_get_values(flatmap_val(node));
-                Uint size = flatmap_get_size(flatmap_val(node));
-                ESTACK_PUSH(s, ((flatmap_t *) flatmap_val(node))->keys);
-                while (size--) {
-                    ESTACK_PUSH(s, *(values++));
-                }
-            } else if (is_map(node)) { /* other map-nodes or map-heads */
-                Eterm *ptr = hashmap_val(node);
-                int i = hashmap_bitcount(MAP_HEADER_VAL(*ptr));
-                ptr += MAP_HEADER_ARITY(*ptr);
-                while(i--) { ESTACK_PUSH(s, *++ptr); }
+            } else if (is_map(node)) {
+                /* Like in Erlang code, "literal" maps in a pattern match any
+                 * map that has the given elements, so they must be considered
+                 * variable. */
+                DESTROY_ESTACK(s);
+                return 0;
             }
 	    break;
 	case TAG_PRIMARY_IMMED1:
 	    if (node == am_Underscore || db_is_variable(node) >= 0) {
 		DESTROY_ESTACK(s);
-		return 1;
+		return 0;
 	    }
 	    break;
 	}
     }
     DESTROY_ESTACK(s);
-    return 0;
+    return 1;
 }
 
 /* 

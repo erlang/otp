@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../vsn.mk
 VSN=$(XMERL_VSN)
 APPLICATION=xmerl
+EPUB=false
 
 # ----------------------------------------------------
 # Release Target

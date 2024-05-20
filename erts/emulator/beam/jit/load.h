@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2020-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2020-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,6 +87,8 @@ struct LoaderState_ {
      */
     void *coverage;
     byte *line_coverage_valid;
+    unsigned int current_index;
+    unsigned int *loc_index_to_cover_id;
 
     /* Translates lambda indexes to the literal holding their FunRef.
      *

@@ -122,7 +122,7 @@ If not, the `t:reason/0` indicates what went wrong:
 """.
 -type reason() :: closed | timeout .
 
--doc(#{equiv => {type,reason,0}}).
+-doc(#{equiv => reason/0}).
 -type result() :: req_status() | {error, reason()} .
 
 -doc """
@@ -151,7 +151,7 @@ The valid values are `0` ("normal") and `1` ("stderr"), see
              ]).
 
 -doc(#{title => <<"SSH Connection Protocol: General">>,
-       equiv => {type,channel_msg,0}}).
+       equiv => channel_msg/0}).
 -type event() :: {ssh_cm, ssh:connection_ref(), channel_msg()}.
 -doc """
 As mentioned in the introduction, the
@@ -255,7 +255,7 @@ This event is sent as a result of calling [ssh_connection:setenv/5](`setenv/5`).
                        Value :: string()
                       } .
 -doc(#{title => <<"Requesting a Pseudo-Terminal (RFC 4254, section 6.2)">>,
-       equiv => {type,term_mode,0}}).
+       equiv => term_mode/0}).
 -type pty_ch_msg() :: {pty,
                        ssh:channel_id(),
                        want_reply(),
@@ -472,7 +472,19 @@ send(ConnectionHandler, ChannelId, Data) ->
     send(ConnectionHandler, ChannelId, 0, Data, infinity).
 
 
--doc(#{equiv => send/5}).
+-doc """
+send(ConnectionRef, ChannelId, Type, Data)
+
+Equivalent to [send(ConnectionRef, ChannelId, 0, Data, TimeOut)](`send/5`) if
+called with TimeOut being integer.
+
+Equivalent to [send(ConnectionRef, ChannelId, 0, Data, infinity)](`send/5`) if
+called with TimeOut being infinity atom.
+
+Equivalent to [send(ConnectionHandler, ChannelId, Type, Data, infinity)](`send/5`) if
+called with last argument which is not integer or infinity atom.
+""".
+
 -spec send(connection_ref(), channel_id(), iodata(), timeout()) -> ok |  {error, reason()};
           (connection_ref(), channel_id(), ssh_data_type_code(), iodata()) -> ok |  {error, reason()}.
 
@@ -609,7 +621,7 @@ reply_request(_,false, _, _) ->
 %% Description: Sends a ssh connection protocol pty_req.
 %%--------------------------------------------------------------------
 -doc(#{equiv => ptty_alloc/4}).
--doc(#{since => <<"OTP 17.4,OTP 17.5">>}).
+-doc(#{since => <<"OTP 17.5">>}).
 -spec ptty_alloc(ConnectionRef, ChannelId, Options) -> result() when
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
@@ -640,7 +652,7 @@ Options:
   list. Otherwise, see possible _POSIX_ names in Section 8 in
   [RFC 4254](http://www.ietf.org/rfc/rfc4254.txt).
 """.
--doc(#{since => <<"OTP 17.4,OTP 17.5">>}).
+-doc(#{since => <<"OTP 17.4">>}).
 -spec ptty_alloc(ConnectionRef, ChannelId, Options, Timeout) -> result() when
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
@@ -1807,6 +1819,7 @@ channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
 	    WantedSize = Size - byte_size(Data),
 	    ssh_client_channel:cache_update(Connection#connection.channel_cache, 
                                      Channel#channel{recv_window_size = WantedSize}),
+            adjust_window(self(), ChannelId, byte_size(Data)),
             reply_msg(Channel, Connection, {data, ChannelId, DataType, Data});
 	undefined ->
 	    {[], Connection}

@@ -5974,6 +5974,9 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
     erts_init_atom_cache_map(&esdp->atom_cache_map);
 
     esdp->last_monotonic_time = 0;
+#ifdef ERTS_CHECK_MONOTONIC_TIME
+    esdp->last_os_monotonic_time = ERTS_SINT64_MIN;
+#endif
     esdp->check_time_reds = 0;
 
     esdp->thr_id = (Uint32) num;
@@ -12542,7 +12545,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         Uint32 trace_flags;
         ErtsTracer tracer;
         // ToDo: Optimize
-        erts_get_default_proc_tracing(s, &trace_flags, &tracer);
+        erts_get_on_spawn_tracing(s, &trace_flags, &tracer);
         if (trace_flags) {
             ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
             ref->flags = trace_flags;
@@ -14231,7 +14234,7 @@ restart:
         erts_set_gc_state(p, 1);
         state = erts_atomic32_read_acqb(&p->state);
         if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
-            reds -= cleanup_sys_tasks(p, state, reds);
+            reds = cleanup_sys_tasks(p, state, reds);
             if (reds <= 0) goto yield;
         }
 
@@ -14261,6 +14264,10 @@ restart:
 
         erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
         curr_locks = ERTS_PROC_LOCKS_ALL;
+
+        if (p->common.tracee.first_ref) {
+            reds -= delete_unalive_trace_refs(&p->common);
+        }
 
         /*
          * Note! The monitor and link fields will be overwritten 
@@ -14314,7 +14321,7 @@ restart:
 
         state = erts_atomic32_read_acqb(&p->state);
         if ((state & ERTS_PSFLG_SYS_TASKS) || p->dirty_sys_tasks) {
-            reds -= cleanup_sys_tasks(p, state, reds);
+            reds = cleanup_sys_tasks(p, state, reds);
             if (reds <= 0) goto yield;
         }
 
@@ -15050,11 +15057,16 @@ static void print_current_process_info(fmtfn_t to, void *to_arg,
  *    erts_halt(code);
  *    ERTS_BIF_YIELD1(BIF_TRAP_EXPORT(BIF_erlang_halt_1), BIF_P, NIL);
  */
-void erts_halt(int code)
+void erts_halt(int code, ErtsMonotonicTime htmo)
 {
     if (-1 == erts_atomic32_cmpxchg_acqb(&erts_halt_progress,
 					     erts_no_schedulers,
 					     -1)) {
+        ErtsMonotonicTime tmo = erts_halt_flush_timeout;
+        if (tmo < 0 || (htmo >= 0 && htmo < tmo))
+            tmo = htmo;
+        if (tmo >= 0)
+            erts_start_timer_callback(tmo, erts_halt_flush_timeout_callback, NULL);
         notify_reap_ports_relb();
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_CPU_RUNQ, ERTS_RUNQ_FLG_HALTING);
         ERTS_RUNQ_FLGS_SET(ERTS_DIRTY_IO_RUNQ, ERTS_RUNQ_FLG_HALTING);
@@ -15075,7 +15087,7 @@ erts_dbg_check_halloc_lock(Process *p)
 	return 1;
     if (p->common.id == ERTS_INVALID_PID)
 	return 1;
-    esdp = erts_proc_sched_data(p);
+    esdp = erts_get_scheduler_data();
     if (esdp && p == esdp->match_pseudo_process)
 	return 1;
     /* erts_thr_progress_is_blocking() is not enough as dirty NIFs may run */

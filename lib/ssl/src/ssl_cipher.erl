@@ -322,20 +322,26 @@ suites(Version) when ?TLS_1_X(Version) ->
     tls_v1:suites(Version);
 suites(Version) when ?DTLS_1_X(Version) ->
     dtls_v1:suites(Version).
+
 all_suites(?TLS_1_3 = Version) ->
-    suites(Version) ++ tls_legacy_suites(?TLS_1_2);
-all_suites(Version) when ?TLS_1_X(Version) ->
-    suites(Version) ++ tls_legacy_suites(Version);
+    suites(Version) ++ tls_legacy_suites(?TLS_1_2)  ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_2 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:exclusive_suites(?TLS_1_0);
+all_suites(?TLS_1_1 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
+all_suites(?TLS_1_0 = Version) ->
+    suites(Version) ++ tls_legacy_suites(Version) ++ tls_v1:cbc_suites(Version);
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
 
 tls_legacy_suites(Version) ->
-    Tests = [fun tls_v1:psk_suites/1,
-             fun tls_v1:srp_suites/1,
-             fun tls_v1:rsa_suites/1,
-             fun tls_v1:des_suites/1,
-             fun tls_v1:rc4_suites/1],
-    lists:flatmap(fun (Fun) -> Fun(Version) end, Tests).
+    LegacySuites = [fun tls_v1:cbc_suites/1,
+                    fun tls_v1:psk_suites/1,
+                    fun tls_v1:srp_suites/1,
+                    fun tls_v1:rsa_suites/1,
+                    fun tls_v1:des_suites/1,
+                    fun tls_v1:rc4_suites/1],
+    lists:flatmap(fun (Fun) -> Fun(Version) end, LegacySuites).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version()) -> [ssl_cipher_format:cipher_suite()].
@@ -566,6 +572,9 @@ signature_scheme(rsa_pkcs1_sha512) -> ?RSA_PKCS1_SHA512;
 signature_scheme(ecdsa_secp256r1_sha256) -> ?ECDSA_SECP256R1_SHA256;
 signature_scheme(ecdsa_secp384r1_sha384) -> ?ECDSA_SECP384R1_SHA384;
 signature_scheme(ecdsa_secp521r1_sha512) -> ?ECDSA_SECP521R1_SHA512;
+signature_scheme(ecdsa_brainpoolP256r1tls13_sha256) -> ?ECDSA_BRAINPOOLP256R1TLS13_SHA256;
+signature_scheme(ecdsa_brainpoolP384r1tls13_sha384) -> ?ECDSA_BRAINPOOLP384R1TLS13_SHA384;
+signature_scheme(ecdsa_brainpoolP512r1tls13_sha512) -> ?ECDSA_BRAINPOOLP512R1TLS13_SHA512;
 signature_scheme(rsa_pss_rsae_sha256) -> ?RSA_PSS_RSAE_SHA256;
 signature_scheme(rsa_pss_rsae_sha384) -> ?RSA_PSS_RSAE_SHA384;
 signature_scheme(rsa_pss_rsae_sha512) -> ?RSA_PSS_RSAE_SHA512;
@@ -601,6 +610,9 @@ signature_scheme(?RSA_PKCS1_SHA512) -> rsa_pkcs1_sha512;
 signature_scheme(?ECDSA_SECP256R1_SHA256) -> ecdsa_secp256r1_sha256;
 signature_scheme(?ECDSA_SECP384R1_SHA384) -> ecdsa_secp384r1_sha384;
 signature_scheme(?ECDSA_SECP521R1_SHA512) -> ecdsa_secp521r1_sha512;
+signature_scheme(?ECDSA_BRAINPOOLP256R1TLS13_SHA256) -> ecdsa_brainpoolP256r1tls13_sha256;
+signature_scheme(?ECDSA_BRAINPOOLP384R1TLS13_SHA384) -> ecdsa_brainpoolP384r1tls13_sha384;
+signature_scheme(?ECDSA_BRAINPOOLP512R1TLS13_SHA512) -> ecdsa_brainpoolP512r1tls13_sha512;
 signature_scheme(?RSA_PSS_RSAE_SHA256) -> rsa_pss_rsae_sha256;
 signature_scheme(?RSA_PSS_RSAE_SHA384) -> rsa_pss_rsae_sha384;
 signature_scheme(?RSA_PSS_RSAE_SHA512) -> rsa_pss_rsae_sha512;
@@ -647,6 +659,9 @@ scheme_to_components(rsa_pkcs1_sha512) -> {sha512, rsa_pkcs1, undefined};
 scheme_to_components(ecdsa_secp256r1_sha256) -> {sha256, ecdsa, secp256r1};
 scheme_to_components(ecdsa_secp384r1_sha384) -> {sha384, ecdsa, secp384r1};
 scheme_to_components(ecdsa_secp521r1_sha512) -> {sha512, ecdsa, secp521r1};
+scheme_to_components(ecdsa_brainpoolP256r1tls13_sha256) -> {sha256, ecdsa, brainpoolP256r1};
+scheme_to_components(ecdsa_brainpoolP384r1tls13_sha384) -> {sha384, ecdsa, brainpoolP384r1};
+scheme_to_components(ecdsa_brainpoolP512r1tls13_sha512) -> {sha512, ecdsa, brainpoolP512r1};
 scheme_to_components(rsa_pss_rsae_sha256) -> {sha256, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha384) -> {sha384, rsa_pss_rsae, undefined};
 scheme_to_components(rsa_pss_rsae_sha512) -> {sha512, rsa_pss_rsae, undefined};

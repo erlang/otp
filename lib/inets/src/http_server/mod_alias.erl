@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,9 +91,7 @@ do_alias(#mod{config_db   = ConfigDB,
 %% real_name
 
 -doc """
-real_name(ConfigDB, RequestURI, Aliases) -> Ret
-
-[`real_name/3`](`real_name/3`) traverses `Aliases`, typically extracted from
+`real_name/3` traverses `Aliases`, typically extracted from
 `ConfigDB`, and matches each `FakeName` with `RequestURI`. If a match is found,
 `FakeName` is replaced with `RealName` in the match. The resulting path is split
 into two parts, `ShortPath` and `AfterPath`, as defined in
@@ -102,6 +100,16 @@ result from `default_index/2` with `ShortPath` as
 an argument. `config_db()` is the server config file in ETS table format as
 described in [Inets User's Guide](http_server.md).
 """.
+-spec real_name(ConfigDB, RequestURI, Aliases) -> ReturnPath when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      Aliases :: [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, Path, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      Path :: string(),
+      AfterPath :: string().
 real_name(ConfigDB, RequestURI, []) ->
     {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
@@ -157,9 +165,7 @@ longest_match([], _RequestURI, _LongestNo, LongestAlias) ->
 %% real_script_name
 
 -doc """
-real_script_name(ConfigDB, RequestURI, ScriptAliases) -> Ret
-
-[`real_script_name/3`](`real_script_name/3`) traverses `ScriptAliases`,
+`real_script_name/3` traverses `ScriptAliases`,
 typically extracted from `ConfigDB`, and matches each `FakeName` with
 `RequestURI`. If a match is found, `FakeName` is replaced with `RealName` in the
 match. If the resulting match is not an executable script, `not_a_script` is
@@ -168,6 +174,15 @@ returned. If it is a script, the resulting script path is in two parts,
 `config_db()` is the server config file in ETS table format as described in
 [Inets User's Guide](http_server.md).
 """.
+-spec real_script_name(ConfigDB, RequestURI, ScriptAliases) -> ReturnPath | not_a_script when
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      ScriptAliases :: list() | [{FakeName, RealName}],
+      ReturnPath :: {ShortPath, AfterPath},
+      FakeName :: re:mp() | iodata() | unicode:charlist() | string(),
+      RealName :: string(),
+      ShortPath :: string(),
+      AfterPath :: term().
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
@@ -191,9 +206,7 @@ abs_script_path(_, RelPath) ->
 %% default_index
 
 -doc """
-default_index(ConfigDB, Path) -> NewPath
-
-If `Path` is a directory, [`default_index/2`](`default_index/2`), it starts
+If `Path` is a directory, `default_index/2`, it starts
 searching for resources or files that are specified in the config directive
 `DirectoryIndex`. If an appropriate resource or file is found, it is appended to
 the end of `Path` and then returned. `Path` is returned unaltered if no
@@ -202,6 +215,10 @@ server config file in ETS table format as described in
 [Inets User's Guide](http_server.md).
 
 """.
+-spec default_index(ConfigDB, Path) -> NewPath when
+      ConfigDB :: ets:tid(),
+      Path :: string(),
+      NewPath :: string().
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
 	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
@@ -224,15 +241,19 @@ append_index(RealName, [Index | Rest]) ->
 %% path
 
 -doc """
-path(PathData, ConfigDB, RequestURI) -> Path
-
-[`path/3`](`path/3`) returns the file `Path` in the `RequestURI` (see
+`path/3` returns the file `Path` in the `RequestURI` (see
 [RFC 1945](https://www.ietf.org/rfc/rfc1945.txt)). If the interaction data
-`{real_name,{Path,AfterPath}}` has been exported by `mod_alias`, `Path` is
+`{real_name, {Path, AfterPath}}` has been exported by `mod_alias`, `Path` is
 returned. If no interaction data has been exported, `ServerRoot` is used to
 generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
 [Inets User's Guide](http_server.md).
 """.
+-spec path(Data, ConfigDB, RequestURI) -> Path when
+      Data :: [{real_name, {Path, AfterPath}}],
+      ConfigDB :: ets:tid(),
+      RequestURI :: string(),
+      AfterPath :: string(),
+      Path :: string().
 path(Data, ConfigDB, RequestURI0) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->

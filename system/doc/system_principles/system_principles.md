@@ -27,35 +27,34 @@ An Erlang runtime system is started with command `erl`:
 
 ```text
 % erl
-Erlang/OTP 17 [erts-6.0] [hipe] [smp:8:8]
+Erlang/OTP 27 [erts-15.0] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [jit]
 
-Eshell V6.0  (abort with ^G)
+Eshell V15.0 (press Ctrl+G to abort, type help(). for help)
 1>
 ```
 
-`erl` understands a number of command-line arguments, see the
-[erl(1)](`e:erts:erl_cmd.md`) manual page in ERTS. Some of them are also
-described in this chapter.
+`erl` understands a number of command-line arguments; see
+[erl](`e:erts:erl_cmd.md`) in the ERTS application. Some arguments are
+also described in this chapter.
 
 Application programs can access the values of the command-line arguments by
-calling the function `init:get_argument(Key)` or `init:get_arguments()`. See the
-`m:init` manual page in ERTS.
+calling one of the following functions:
+
+* [`init:get_argument(Key)`](https://www.erlang.org/doc/man/init#get_argument-1)
+* [`init:get_arguments()`](https://www.erlang.org/doc/man/init#get_arguments-0)
+* [`init:get_plain_arguments()`](https://www.erlang.org/doc/man/init#get_plain_arguments-0)
 
 ## Restarting and Stopping the System
 
-The runtime system is halted by calling `halt/0,1`. For details, see the
-`m:erlang` manual page in ERTS.
+The runtime system is halted by calling
+[`halt/0,1,2`](https://www.erlang.org/doc/man/erlang#halt-2).
 
-The module `init` contains functions for restarting, rebooting, and stopping the
+Module `m:init` contains functions for restarting, rebooting, and stopping the
 runtime system:
 
-```text
-init:restart()
-init:reboot()
-init:stop()
-```
-
-For details, see the `m:init` manual page in ERTS.
+* [`init:restart()`](https://www.erlang.org/doc/man/init#restart-0)
+* [`init:reboot()`](https://www.erlang.org/doc/man/init#reboot-0)
+* [`init:stop()`](https://www.erlang.org/doc/man/init#stop-0)
 
 The runtime system terminates if the Erlang shell is terminated.
 
@@ -78,11 +77,12 @@ extension `.boot` is to be omitted. For example, using the boot script
 % erl -boot start_all
 ```
 
-If no boot script is specified, it defaults to `ROOT/bin/start`, see
-[Default Boot Scripts](system_principles.md#default_boot_scripts).
+If no boot script is specified, it defaults to `ROOT/bin/start`, where
+`ROOT` is the installation directory of Erlang/OTP. See [Default Boot
+Scripts](system_principles.md#default_boot_scripts).
 
-The command-line flag `-init_debug` makes the `init` process write some debug
-information while interpreting the boot script:
+When the command-line flag `-init_debug` is used, the `init` process will
+output debug information while interpreting the boot script.
 
 ```text
 % erl -init_debug
@@ -91,11 +91,13 @@ information while interpreting the boot script:
 {progress,modules_loaded}
 {start,heart}
 {start,logger}
-...
+  .
+  .
+  .
 ```
 
 For a detailed description of the syntax and contents of the boot script, see
-the `script(4)` manual page in SASL.
+[`script`](https://www.erlang.org/doc/man/script) in the SASL application.
 
 [](){: #default_boot_scripts }
 
@@ -112,61 +114,71 @@ Erlang/OTP comes with these boot scripts:
   tools that are to behave the same irrespective of user preferences.
 
 Which of `start_clean` and `start_sasl` to use as default is decided by the user
-when installing Erlang/OTP using `Install`. The user is asked "Do you want to
-use a minimal system startup instead of the SASL startup". If the answer is yes,
-then `start_clean` is used, otherwise `start_sasl` is used. A copy of the
-selected boot script is made, named `start.boot` and placed in directory
-`ROOT/bin`.
+when installing Erlang/OTP using `Install`. The user is asked:
+
+```text
+Do you want to use a minimal system startup instead of the SASL startup?
+```
+
+If the answer is yes, `start_clean` is used, otherwise `start_sasl` is
+used. The chosen boot script is copied and renamed as `start.boot`,
+then placed into directory `ROOT/bin`.
 
 ### User-Defined Boot Scripts
 
 It is sometimes useful or necessary to create a user-defined boot script. This
-is true especially when running Erlang in embedded mode, see
+is true especially when running Erlang in embedded mode; see
 [Code Loading Strategy](system_principles.md#code_loading).
 
-A boot script can be written manually. However, it is recommended to create a
-boot script by generating it from a release resource file `Name.rel`, using the
-function `systools:make_script/1,2`. This requires that the source code is
-structured as applications according to the OTP design principles. (The program
-does not have to be started in terms of OTP applications, but can be plain
-Erlang).
+While it is possible to manually create a boot script, it is
+preferable to generate it from a release resource file called
+`Name.rel` using the function
+[`systools:make_script/1,2`](https://www.erlang.org/doc/man/systools#make_script-2).
+This requires that the source code is structured as applications
+according to the OTP design principles.
 
 For more information about `.rel` files, see
 [OTP Design Principles](`e:system:release_handling.md`) and the
-[rel(4)](`e:sasl:rel.md`) manual page in SASL.
+[rel](`e:sasl:rel.md`) page in SASL.
 
-The binary boot script file `Name.boot` is generated from the boot script file
-`Name.script`, using the function `systools:script2boot(File)`.
+To generate the binary boot script file `Name.boot` the boot script file
+`Name.script`, use the
+[`systools:script2boot(File)`](https://www.erlang.org/doc/man/systools#script2boot-1)
+function.
 
 [](){: #code_loading }
 
 ## Code Loading Strategy
 
 The runtime system can be started in either _embedded_ or _interactive_ mode.
-Which one is decided by the command-line flag `-mode`.
+Which one is decided by the command-line flag `-mode`:
 
 ```text
 % erl -mode embedded
 ```
 
-Default mode is `interactive` and extra `-mode` flags are ignored.
+The default mode is `interactive`. If more than one `-mode` flag is given,
+the first one will be used.
 
 The mode properties are as follows:
 
-- In embedded mode, all code is loaded during system startup according to the
-  boot script. (Code can also be loaded later by explicitly ordering the code
-  server to do so.)
-- In interactive mode, the code is dynamically loaded when first referenced.
-  When a call to a function in a module is made, and the module is not loaded,
-  the code server searches the code path and loads the module into the system.
+- In embedded mode, all code is loaded during system startup according
+  to the boot script. (Code can be loaded later by **explicitly**
+  ordering the code server to load it.)
 
-Initially, the code path consists of the current working directory and all
-object code directories under `ROOT/lib`, where `ROOT` is the installation
-directory of Erlang/OTP. Directories can be named `Name[-Vsn]`. The code server,
-by default, chooses the directory with the highest version number among those
-which have the same `Name`. The `-Vsn` suffix is optional. If an `ebin`
-directory exists under the `Name[-Vsn]` directory, this directory is added to
-the code path.
+- In interactive mode, code is dynamically loaded when first required,
+  which means that when an attempt is made to call a function in a
+  module that is not loaded, the code server searches the code path
+  and loads the module into the system.
+
+Initially, the code path consists of the current working directory and
+all object code directories under `ROOT/lib`, where `ROOT` is the
+installation directory of Erlang/OTP. Directories can be named
+`Name[-Vsn]`, where the `-Vsn` suffix is optional. By default, the
+code server chooses the directory with the highest version number
+among those which have the same `Name`. If an `ebin` directory exists
+under the `Name[-Vsn]` directory, this directory is added to the code
+path.
 
 The code path can be extended by using the command-line flags `-pa Directories`
 and `-pz Directories`. These add `Directories` to the head or the end of the
@@ -176,23 +188,23 @@ code path, respectively. Example:
 % erl -pa /home/arne/mycode
 ```
 
-The code server module `code` contains a number of functions for modifying and
-checking the search path, see the `m:code` manual page in Kernel.
+The `m:code` module contains a number of functions for modifying and
+querying the search path.
 
 ## File Types
 
 The following file types are defined in Erlang/OTP:
 
-| _File Type_               | _File Name/Extension_ | _Documented in_                                         |
-| ------------------------- | --------------------- | ------------------------------------------------------- |
-| Module                    | `.erl`                | [Erlang Reference Manual](`e:system:modules.md`)        |
-| Include file              | `.hrl`                | [Erlang Reference Manual](`e:system:modules.md`)        |
-| Release resource file     | `.rel`                | [rel(4)](`e:sasl:rel.md`) manual page in SASL           |
-| Application resource file | `.app`                | [app(4)](`e:kernel:app.md`) manual page in Kernel       |
-| Boot script               | `.script`             | [script(4)](`e:sasl:script.md`) manual page in SASL     |
-| Binary boot script        | `.boot`               | -                                                       |
-| Configuration file        | `.config`             | [config(4)](`e:kernel:config.md`) manual page in Kernel |
-| Application upgrade file  | `.appup`              | [appup(4)](`e:sasl:appup.md`) manual page in SASL       |
-| Release upgrade file      | `relup`               | [relup(4)](`e:sasl:relup.md`) manual page in SASL       |
+| _File Type_               | _File Name/Extension_ | _Documented in_                                     |
+| ------------------------- | --------------------- | --------------------------------------------------- |
+| Module                    | `.erl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
+| Include file              | `.hrl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
+| Release resource file     | `.rel`                | [rel](`e:sasl:rel.md`) in SASL                      |
+| Application resource file | `.app`                | [app](`e:kernel:app.md`) in Kernel                  |
+| Boot script               | `.script`             | [script](`e:sasl:script.md`) in SASL                |
+| Binary boot script        | `.boot`               | -                                                   |
+| Configuration file        | `.config`             | [config](`e:kernel:config.md`) in Kernel            |
+| Application upgrade file  | `.appup`              | [appup](`e:sasl:appup.md`) in SASL                  |
+| Release upgrade file      | `relup`               | [relup](`e:sasl:relup.md`) in SASL                  |
 
 _Table: File Types_

@@ -307,8 +307,8 @@ late_epilogue_passes(Opts) ->
           ?PASS(ssa_opt_sink),
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_redundant_br),
-          ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_merge_blocks),
+          ?PASS(ssa_opt_bs_ensure),
           ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_get_tuple_element),
           ?PASS(ssa_opt_tail_literals),
@@ -1038,17 +1038,25 @@ update_tuple_merge(Src, SetOps, Updates0, Seen0) ->
 %%% subexpressions across instructions that clobber the X registers.
 %%%
 
-ssa_opt_cse({#opt_st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_cse({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     M = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
-    {St#opt_st{ssa=cse(Linear, #{}, M)}, FuncDb}.
+    Linear1 = cse(Linear0, #{}, M),
+    Linear = beam_ssa:trim_unreachable(Linear1), %Fix up phi nodes.
+    {St#opt_st{ssa=Linear}, FuncDb}.
 
-cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
-    Es0 = map_get(L, M0),
-    {Is1,Es,Sub} = cse_is(Is0, Es0, Sub0, []),
-    Last = sub(Last0, Sub),
-    M = cse_successors(Is1, Blk, Es, M0),
-    Is = reverse(Is1),
-    [{L,Blk#b_blk{is=Is,last=Last}}|cse(Bs, Sub, M)];
+cse([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Sub0, M0) ->
+    case M0 of
+        #{L := Es0} ->
+            {Is1,Es,Sub} = cse_is(Is0, Es0, Sub0, []),
+            Last = sub(Last0, Sub),
+            Blk = Blk0#b_blk{last=Last},
+            M = cse_successors(Is1, Blk, Es, M0),
+            Is = reverse(Is1),
+            [{L,Blk#b_blk{is=Is,last=Last}}|cse(Bs, Sub, M)];
+        #{} ->
+            %% This block is never reached.
+            cse(Bs, Sub0, M0)
+    end;
 cse([], _, _) -> [].
 
 cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
@@ -1057,9 +1065,8 @@ cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
             %% The previous instruction only has a valid value at the success branch.
             %% We must remove the substitution for Src from the failure branch.
             #b_blk{last=#b_br{succ=Succ,fail=Fail}} = Blk,
-            M = cse_successors_1([Succ], EsSucc, M0),
-            EsFail = #{Var => Val || Var := Val <- EsSucc, Val =/= Src},
-            cse_successors_1([Fail], EsFail, M);
+            M1 = cse_successors_1([Succ], EsSucc, M0),
+            cse_successor_fail(Fail, Src, EsSucc, M1);
         false ->
             %% There can't be any replacement for Src in EsSucc. No need for
             %% any special handling.
@@ -1082,14 +1089,34 @@ cse_successors_1([L|Ls], Es0, M) ->
     end;
 cse_successors_1([], _, M) -> M.
 
+cse_successor_fail(Fail, Src, Es0, M) ->
+    case M of
+        #{Fail := Es1} when map_size(Es1) =:= 0 ->
+            M;
+        #{Fail := Es1} ->
+            Es = #{Var => Val || Var := Val <- Es0,
+                                 is_map_key(Var, Es1),
+                                 Val =/= Src},
+            M#{Fail := Es};
+        #{} ->
+            Es = #{Var => Val || Var := Val <- Es0, Val =/= Src},
+            M#{Fail => Es}
+    end.
+
 %% Calculate the intersection of the two maps. Both keys and values
 %% must match.
 cse_intersection(M1, M2) ->
+    MapSize1 = map_size(M1),
+    MapSize2 = map_size(M2),
     if
-        map_size(M1) < map_size(M2) ->
+        MapSize1 < MapSize2 ->
             cse_intersection_1(maps:to_list(M1), M2, M1);
+        MapSize1 > MapSize2 ->
+            cse_intersection_1(maps:to_list(M2), M1, M2);
+        M1 =:= M2 ->
+            M2;
         true ->
-            cse_intersection_1(maps:to_list(M2), M1, M2)
+            cse_intersection_1(maps:to_list(M1), M2, M1)
     end.
 
 cse_intersection_1([{Key,Value}|KVs], M, Result) ->
@@ -1138,6 +1165,34 @@ cse_is([#b_set{op=put_map,dst=Dst,args=[_Kind,Map|_]}=I0|Is],
     end;
 cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
     I = sub(I0, Sub0),
+    case beam_ssa:eval_instr(I) of
+        #b_literal{}=Value ->
+            Sub = Sub0#{Dst => Value},
+            cse_is(Is, Es0, Sub, Acc);
+        failed ->
+            case Is of
+                [#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}] ->
+                    %% In a guard. The failure reason doesn't matter,
+                    %% so we can discard this instruction and the
+                    %% `succeeded` instruction. Since the success
+                    %% branch will never be taken, it usually means
+                    %% that one or more blocks can be discarded as
+                    %% well, saving some compilation time.
+                    Sub = Sub0#{SuccDst => #b_literal{val=false}},
+                    {Acc,Es0,Sub};
+                _ ->
+                    %% In a body. We must preserve the exact failure
+                    %% reason, which is most easily done by keeping the
+                    %% instruction.
+                    cse_instr(I, Is, Es0, Sub0, Acc)
+            end;
+        any ->
+            cse_instr(I, Is, Es0, Sub0, Acc)
+    end;
+cse_is([], Es, Sub, Acc) ->
+    {Acc,Es,Sub}.
+
+cse_instr(#b_set{dst=Dst}=I, Is, Es0, Sub0, Acc) ->
     case beam_ssa:clobbers_xregs(I) of
         true ->
             %% Retaining the expressions map across calls and other
@@ -1153,18 +1208,17 @@ cse_is([#b_set{dst=Dst}=I0|Is], Es0, Sub0, Acc) ->
                     cse_is(Is, Es0, Sub0, [I|Acc]);
                 {ok,ExprKey} ->
                     case Es0 of
-                        #{ExprKey:=Src} ->
-                            Sub = Sub0#{Dst=>Src},
+                        #{ExprKey := Src} ->
+                            %% Reuse the result of the previous expression.
+                            Sub = Sub0#{Dst => Src},
                             cse_is(Is, Es0, Sub, Acc);
                         #{} ->
-                            Es1 = Es0#{ExprKey=>Dst},
+                            Es1 = Es0#{ExprKey => Dst},
                             Es = cse_add_inferred_exprs(I, Es1),
                             cse_is(Is, Es, Sub0, [I|Acc])
                     end
             end
-    end;
-cse_is([], Es, Sub, Acc) ->
-    {Acc,Es,Sub}.
+    end.
 
 cse_add_inferred_exprs(#b_set{op=put_list,dst=List,args=[Hd,Tl]}, Es) ->
     Es#{{get_hd,[List]} => Hd,
@@ -1174,16 +1228,6 @@ cse_add_inferred_exprs(#b_set{op=put_tuple,dst=Tuple,args=[E1,E2|_]}, Es) ->
     %% worthwhile (at least not in the sample used by scripts/diffable).
     Es#{{get_tuple_element,[Tuple,#b_literal{val=0}]} => E1,
         {get_tuple_element,[Tuple,#b_literal{val=1}]} => E2};
-cse_add_inferred_exprs(#b_set{op={bif,element},dst=E,
-                              args=[#b_literal{val=N},Tuple]}, Es)
-  when is_integer(N) ->
-    Es#{{get_tuple_element,[Tuple,#b_literal{val=N-1}]} => E};
-cse_add_inferred_exprs(#b_set{op={bif,hd},dst=Hd,args=[List]}, Es) ->
-    Es#{{get_hd,[List]} => Hd};
-cse_add_inferred_exprs(#b_set{op={bif,tl},dst=Tl,args=[List]}, Es) ->
-    Es#{{get_tl,[List]} => Tl};
-cse_add_inferred_exprs(#b_set{op={bif,map_get},dst=Value,args=[Key,Map]}, Es) ->
-    Es#{{get_map_element,[Map,Key]} => Value};
 cse_add_inferred_exprs(#b_set{op=put_map,dst=Map,args=[_,_|Args]}=I, Es0) ->
     Es = cse_add_map_get(Args, Map, Es0),
     Es#{Map => I};
@@ -1194,6 +1238,15 @@ cse_add_map_get([Key,Value|T], Map, Es0) ->
     cse_add_map_get(T, Map, Es);
 cse_add_map_get([], _, Es) -> Es.
 
+cse_expr(#b_set{op={bif,hd},args=[List]}) ->
+    {ok,{get_hd,[List]}};
+cse_expr(#b_set{op={bif,tl},args=[List]}) ->
+    {ok,{get_tl,[List]}};
+cse_expr(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]})
+  when is_integer(Index) ->
+    {ok,{get_tuple_element,[Tuple,#b_literal{val=Index-1}]}};
+cse_expr(#b_set{op={bif,map_get},args=[Key,Map]}) ->
+    {ok,{get_map_element,[Map,Key]}};
 cse_expr(#b_set{op=Op,args=Args}=I) ->
     case cse_suitable(I) of
         true -> {ok,{Op,Args}};
@@ -1609,6 +1662,8 @@ live_opt_is([#b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}=SuccI,
                     I = I0#b_set{op={bif,is_tuple},dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
                 bs_start_match ->
+                    %% This is safe in Erlang/OTP 27 and later, because match
+                    %% contexts are now mutable sub binaries.
                     [#b_literal{val=new},Bin] = I0#b_set.args,
                     I = I0#b_set{op={bif,is_bitstring},args=[Bin],dst=SuccDst},
                     live_opt_is([I|Is], Live0, Acc);
@@ -2061,7 +2116,8 @@ ssa_opt_bsm_shortcut({#opt_st{ssa=Linear0}=St, FuncDb}) ->
             %% No binary matching instructions.
             {St, FuncDb};
         _ ->
-            Linear = bsm_shortcut(Linear0, Positions),
+            Linear1 = bsm_shortcut(Linear0, Positions),
+            Linear = bsm_tail(Linear1, #{}),
             ssa_opt_live({St#opt_st{ssa=Linear}, FuncDb})
     end.
 
@@ -2135,6 +2191,95 @@ bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap0) ->
             [{L,Blk}|bsm_shortcut(Bs, PosMap0)]
     end;
 bsm_shortcut([], _PosMap) -> [].
+
+%% Remove `bs_test_tail` instructions that are known to always
+%% succeed, such as in the following example:
+%%
+%%     m(Bin) when is_binary(Bin) ->
+%%        m1(Bin).
+%%     m1(<<_, Rest/binary>>) -> m1(Rest);
+%%     m1(<<>>) -> ok.
+%%
+%% The second clause of `m1/1` does not need to check for an empty
+%% binary.
+
+bsm_tail([{L,#b_blk{is=Is0,last=Last0}=Blk0}|Bs], Map0) ->
+    {Is,Last,Map} = bsm_tail_is(Is0, Last0, L, Map0, []),
+    Blk = Blk0#b_blk{is=Is,last=Last},
+    [{L,Blk}|bsm_tail(Bs, Map)];
+bsm_tail([], _Map) ->
+    [].
+
+bsm_tail_is([#b_set{op=bs_start_match,anno=Anno,dst=Dst}=I|Is], Last, L, Map0, Acc) ->
+    case Anno of
+        #{arg_types := #{1 := Type}} ->
+            case beam_types:get_bs_matchable_unit(Type) of
+                error ->
+                    bsm_tail_is(Is, Last, L, Map0, [I|Acc]);
+                Unit when is_integer(Unit) ->
+                    Map = Map0#{Dst => Unit},
+                    bsm_tail_is(Is, Last, L, Map, [I|Acc])
+            end;
+        #{} ->
+            bsm_tail_is(Is, Last, L, Map0, [I|Acc])
+    end;
+bsm_tail_is([#b_set{op=bs_match,dst=Dst,args=Args},
+             #b_set{op={succeeded,guard},dst=SuccDst,args=[Dst]}|_]=Is,
+            #b_br{bool=SuccDst,fail=Fail}=Last,
+            _L, Map0, Acc) ->
+    case bsm_tail_num_matched(Args, Map0) of
+        unknown ->
+            %% Unknown number of bits or the match operation will fail
+            %% to match certain values.
+            Map = Map0#{Fail => unknown},
+            {reverse(Acc, Is),Last,Map};
+        Bits when is_integer(Bits) ->
+            case Map0 of
+                #{Fail := Bits} ->
+                    {reverse(Acc, Is),Last,Map0};
+                #{Fail := _} ->
+                    Map = Map0#{Fail => unknown},
+                    {reverse(Acc, Is),Last,Map};
+                #{} ->
+                    Map = Map0#{Fail => Bits},
+                    {reverse(Acc, Is),Last,Map}
+            end
+    end;
+bsm_tail_is([#b_set{op=bs_test_tail,args=[_,#b_literal{val=0}],dst=Dst}]=Is,
+            #b_br{bool=Dst,succ=Succ}=Last0, L, Map0, Acc) ->
+    case Map0 of
+        #{L := Bits} when is_integer(Bits) ->
+            %% The `bs_match` instruction targeting this block on failure
+            %% will only fail when the end of the binary has been reached.
+            %% There is no need for the test.
+            Last = beam_ssa:normalize(Last0#b_br{fail=Succ}),
+            {reverse(Acc, Is),Last,Map0};
+        #{} ->
+            {reverse(Acc, Is),Last0,Map0}
+    end;
+bsm_tail_is([#b_set{}=I|Is], Last, L, Map, Acc) ->
+    bsm_tail_is(Is, Last, L, Map, [I|Acc]);
+bsm_tail_is([], Last, _L, Map0, Acc) ->
+    Map = foldl(fun(F, A) ->
+                        A#{F => unknown}
+                end, Map0, beam_ssa:successors(#b_blk{is=[],last=Last})),
+    {reverse(Acc),Last,Map}.
+
+bsm_tail_num_matched([#b_literal{val=skip},Ctx,Type,Flags,Size,Unit], Map) ->
+    bsm_tail_num_matched([Type,Ctx,Flags,Size,Unit], Map);
+bsm_tail_num_matched([#b_literal{val=Type},Ctx,#b_literal{},
+                      #b_literal{val=Size},#b_literal{val=Unit}], Map)
+  when (Type =:= integer orelse Type =:= binary),
+       is_integer(Size), is_integer(Unit) ->
+    Bits = Size * Unit,
+    case Map of
+        #{Ctx := Bits} when is_integer(Bits) ->
+            Bits;
+        #{} ->
+            unknown
+    end;
+bsm_tail_num_matched(_Args, _Map) ->
+    unknown.
 
 %%%
 %%% Optimize binary construction.
@@ -3393,7 +3538,7 @@ redundant_br_safe_bool(Is, Bool) ->
     end.
 
 %%%
-%%% Add the bs_ensure instruction before a sequence of `bs_match`
+%%% Add the `bs_ensure` instruction before a sequence of `bs_match`
 %%% (SSA) instructions, each having a literal size and the
 %%% same failure label.
 %%%
@@ -3401,12 +3546,23 @@ redundant_br_safe_bool(Is, Bool) ->
 %%% instruction that can match multiple segments having the same
 %%% failure label.
 %%%
+%%% It is beneficial but not essential to run this pass after
+%%% the `merge_blocks/1` pass. For the following example, two separate
+%%% `bs_match/1` instructions will emitted if blocks have not been
+%%% merged before this pass:
+%%%
+%%%    A = 0,
+%%%    B = <<1, 2, 3>>,
+%%%    <<A, B:(byte_size(B))/binary>> = <<0, 1, 2, 3>>
+%%%
 
-ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) when is_map(Blocks0) ->
+ssa_opt_bs_ensure({#opt_st{ssa=Blocks0,cnt=Count0,anno=Anno0}=St, FuncDb})
+  when is_map(Blocks0) ->
     RPO = beam_ssa:rpo(Blocks0),
     Seen = sets:new([{version,2}]),
     {Blocks,Count} = ssa_opt_bs_ensure(RPO, Seen, Count0, Blocks0),
-    {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
+    Anno = Anno0#{bs_ensure_opt => true},
+    {St#opt_st{ssa=Blocks,cnt=Count,anno=Anno}, FuncDb}.
 
 ssa_opt_bs_ensure([L|Ls], Seen0, Count0, Blocks0) ->
     case sets:is_element(L, Seen0) of

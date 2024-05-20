@@ -8,6 +8,6 @@
     "guides/engine_keys.md",
     "guides/algorithm_details.md",
     "guides/new_api.md",
-    "references/crypto_app.md"
+    "crypto_app.md"
   ]
 ]

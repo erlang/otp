@@ -114,6 +114,10 @@
          honor_server_cipher_order/1,
          honor_client_cipher_order/0,
          honor_client_cipher_order/1,
+         honor_server_cipher_order_tls12/0,
+         honor_server_cipher_order_tls12/1,
+         honor_client_cipher_order_tls12/0,
+         honor_client_cipher_order_tls12/1,
          honor_client_cipher_order_tls13/0,
          honor_client_cipher_order_tls13/1,
          honor_server_cipher_order_tls13/0,
@@ -134,8 +138,6 @@
          invalid_keyfile/1,
          options_not_proplist/0,
          options_not_proplist/1,
-         invalid_options/0,
-         invalid_options/1,
          options_whitebox/0, options_whitebox/1,
          cb_info/0,
          cb_info/1,
@@ -228,6 +230,8 @@
          run_client_error/1
         ]).
 
+-compile([nowarn_deprecated_function]).
+
 
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
@@ -249,19 +253,17 @@ groups() ->
      {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
                            handshake_paus_tests()) --
                           [dh_params,
-                           honor_server_cipher_order,
-                           honor_client_cipher_order,
                            new_options_in_handshake,
-                           handshake_continue_tls13_client,
-                           invalid_options])
+                           handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
-     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
-     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
+     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++ [honor_client_cipher_order_tls12,
+                                                                                                honor_server_cipher_order_tls12]},
+     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
+     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++ beast_mitigation_test()},
      {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
      {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
-          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()}
     ].
 
 since_1_2() ->
@@ -277,18 +279,20 @@ pre_1_3() ->
      connection_information_with_srp
     ].
 
+pre_1_2() ->
+    [honor_server_cipher_order,
+     honor_client_cipher_order].
+
 simple_api_tests() ->
     [
      invalid_keyfile,
      invalid_certfile,
      invalid_cacertfile,
      invalid_dhfile,
-     invalid_options,
      options_not_proplist,
      options_whitebox,
      format_error
     ].
-
 
 gen_api_tests() ->
     [
@@ -320,9 +324,6 @@ gen_api_tests() ->
      close_in_error_state,
      call_in_error_state,
      close_transport_accept,
-     abuse_transport_accept_socket,
-     honor_server_cipher_order,
-     honor_client_cipher_order,
      ipv6,
      der_input,
      max_handshake_size,
@@ -756,13 +757,18 @@ dh_params(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     DataDir = proplists:get_value(data_dir, Config),
     DHParamFile = filename:join(DataDir, "dHParam.pem"),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.2'),
+                                       [{key_exchange, fun(srp_rsa)  -> false;
+                                                          (srp_anon) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true end}]),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, [{dhfile, DHParamFile} | ServerOpts]}]),
+			   {options, [{dhfile, DHParamFile}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -1117,12 +1123,17 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
     TestVersion = ssl_test_lib:protocol_version(Config),
     {Version, Versions} = test_versions_for_option_based_on_sni(TestVersion),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, TestVersion),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     SNI = net_adm:localhost(),
     Fun = fun(ServerName) ->
               case ServerName of
                   SNI ->
-                      [{versions, [Version]} | ServerOpts];
+                      [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts];
                   _ ->
                       ServerOpts
               end
@@ -1138,7 +1149,9 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib, no_result, []}},
-					{options, [{server_name_indication, SNI}, {versions, Versions} | ClientOpts]}]),
+					{options, [{server_name_indication, SNI}, {versions, Versions},
+                                                   {ciphers, Ciphers}
+                                                  | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -1815,23 +1828,76 @@ invalid_keyfile(Config) when is_list(Config) ->
                               {error, closed}).
 
 %%--------------------------------------------------------------------
+honor_server_cipher_order_tls12() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_server_cipher_order_tls12(Config) when is_list(Config) ->
+    ClientCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    ServerCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    honor_cipher_order(Config, true, ServerCiphers,
+                       ClientCiphers, #{key_exchange => ecdhe_rsa,
+                                        cipher => aes_256_gcm,
+                                        mac => aead,
+                                        prf => sha384}).
+
+%%--------------------------------------------------------------------
+
+honor_client_cipher_order_tls12() ->
+    [{doc,"Test API honor server cipher order."}].
+honor_client_cipher_order_tls12(Config) when is_list(Config) ->
+     ClientCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384}],
+    ServerCiphers = [#{key_exchange => ecdhe_rsa,
+                       cipher => aes_256_gcm,
+                       mac => aead,
+                       prf => sha384},
+                     #{key_exchange => ecdhe_rsa,
+                       cipher => aes_128_gcm,
+                       mac => aead,
+                       prf => sha256}],
+    honor_cipher_order(Config, false, ServerCiphers,
+                       ClientCiphers, #{key_exchange => ecdhe_rsa,
+                                        cipher => aes_128_gcm,
+                                        mac => aead,
+                                        prf => sha256}).
+
+%%--------------------------------------------------------------------
 honor_server_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_server_cipher_order(Config) when is_list(Config) ->
-     ClientCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+    ClientCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
-                       prf => default_prf}, 
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc, 
+                       prf => default_prf},
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
                        mac => sha,
                        prf => default_prf}],
-    ServerCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc,   
-                       mac =>sha,
+    ServerCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
+                       mac => sha,
                        prf => default_prf},
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
                        prf => default_prf}],
     honor_cipher_order(Config, true, ServerCiphers,
@@ -1841,23 +1907,24 @@ honor_server_cipher_order(Config) when is_list(Config) ->
                                         prf => default_prf}).
 
 %%--------------------------------------------------------------------
+
 honor_client_cipher_order() ->
     [{doc,"Test API honor server cipher order."}].
 honor_client_cipher_order(Config) when is_list(Config) ->
-    ClientCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+     ClientCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
-                       prf => default_prf}, 
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc, 
+                       prf => default_prf},
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
                        mac => sha,
                        prf => default_prf}],
-    ServerCiphers = [#{key_exchange => dhe_rsa, 
-                       cipher => aes_256_cbc,   
-                       mac =>sha,
+    ServerCiphers = [#{key_exchange => dhe_rsa,
+                       cipher => aes_256_cbc,
+                       mac => sha,
                        prf => default_prf},
-                     #{key_exchange => dhe_rsa, 
-                       cipher => aes_128_cbc, 
+                     #{key_exchange => dhe_rsa,
+                       cipher => aes_128_cbc,
                        mac => sha,
                        prf => default_prf}],
     honor_cipher_order(Config, false, ServerCiphers,
@@ -1865,6 +1932,7 @@ honor_client_cipher_order(Config) when is_list(Config) ->
                                         cipher => aes_128_cbc,
                                         mac => sha,
                                         prf => default_prf}).
+
 
 %%--------------------------------------------------------------------
 ipv6() ->
@@ -2130,6 +2198,9 @@ max_handshake_size(Config) when is_list(Config) ->
   
 
 %%-------------------------------------------------------------------
+
+-define(FUNC_CLAUSE(EXPR), try EXPR, error(should_fail) catch _:function_clause -> ok end).
+
 options_not_proplist() ->
     [{doc,"Test what happens if an option is not a key value tuple"}].
 
@@ -2138,71 +2209,22 @@ options_not_proplist(Config) when is_list(Config) ->
 		  client, [<<"spdy/3">>,<<"http/1.1">>], <<"http/1.1">>},
     {error, {options, {option_not_a_key_value_tuple, BadOption}}} =
 	ssl:connect("twitter.com", 443, [binary, {active, false}, 
-					 BadOption]).
+					 BadOption]),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", 443)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", 443, infinity)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", [], infinity_misspelled)),
+    ?FUNC_CLAUSE(ssl:connect("twitter.com", foo, [], infinity)),
+    %% While at it test some other functions as well for regression testing
+    ?FUNC_CLAUSE(ssl:listen([], 443)),
+    ?FUNC_CLAUSE(ssl:transport_accept(#sslsocket{}, [])),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, [])),
+    ?FUNC_CLAUSE(ssl:handshake(foo, #sslsocket{})),
+    ?FUNC_CLAUSE(ssl:handshake(foo, #sslsocket{}, 1000)),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, 1000, 1000)),
+    ?FUNC_CLAUSE(ssl:handshake(#sslsocket{}, [opt_list], [])),
+    ?FUNC_CLAUSE(ssl:handshake_continue(socket, [opt_list], [])),
+    ?FUNC_CLAUSE(ssl:handshake_continue(socket, 1000, 1000)),
 
-%%-------------------------------------------------------------------
-invalid_options() ->
-    [{doc,"Test what happens when we give invalid options"}].
-       
-invalid_options(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Check = fun(Client, Server, {versions, [sslv2, sslv3]} = Option) ->
-		    ssl_test_lib:check_result(Server, 
-					      {error, {options, {sslv2, Option}}}, 
-					      Client,
-					      {error, {options, {sslv2, Option}}});
-	       (Client, Server, Option) ->
-		    ssl_test_lib:check_result(Server, 
-					      {error, {options, Option}}, 
-					      Client,
-					      {error, {options, Option}})
-	    end,
-
-    TestOpts = 
-         [{versions, [sslv2, sslv3]}, 
-          {verify_fun, function},
-          {fail_if_no_peer_cert, 0}, 
-          {depth, four}, 
-          {certfile, 'cert.pem'}, 
-          {keyfile,'key.pem' }, 
-          {password, foo},
-          {cacertfile, ""}, 
-          {ciphers, [{foo, bar, sha, ignore}]},
-          {reuse_session, foo},
-          {reuse_sessions, 0},
-          {renegotiate_at, "10"},
-          {mode, depech},
-          {packet, 8.0},
-          {packet_size, "2"},
-          {header, a},
-          {active, trice},
-          {key, 'key.pem' }],
-
-    TestOpts2 =
-        [{[{supported_groups, []}, {versions, [tlsv1]}],
-          {options,incompatible,[supported_groups,{versions,['tlsv1']}]}}],
-
-    [begin
-	 Server =
-	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-					{from, self()},
-					{options, ServerOpts ++ [TestOpt]}]),
-	 %% Will never reach a point where port is used.
-	 Client =
-	     ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0},
-					      {host, Hostname}, {from, self()},
-					      {options, ClientOpts ++ [TestOpt]}]),
-	 Check(Client, Server, TestOpt),
-	 ok
-     end || TestOpt <- TestOpts],
-
-    [begin
-         start_client_negative(Config, TestOpt, ErrorMsg),
-         ok
-     end || {TestOpt, ErrorMsg} <- TestOpts2],
     ok.
 
 options_whitebox() ->
@@ -2259,7 +2281,8 @@ customize_defaults(Opts, Role, Host) ->
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
                 try ssl:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
-                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL);
+                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL)),
+                        check_expected(__ALL, ssl:update_options([], Role, __ALL));
                     Other ->
                         ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
@@ -2271,7 +2294,7 @@ customize_defaults(Opts, Role, Host) ->
                 end,
                 try ssl:update_options(__Opts, Role, __DefOpts) of
                     EXP = __ALL2 ->
-                        ShouldBeMissing = ShouldBeMissing -- maps:keys(__ALL2);
+                        check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL2));
                     Other2 ->
                         ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
                                "ssl:update_options(~w,~w, element(2,Cfg)).",
@@ -2354,6 +2377,38 @@ customize_defaults(Opts, Role, Host) ->
                         error({unexpected, C2, Other2,ST2})
                 end
         end()).
+
+check_expected(A, A) ->
+    ok;
+check_expected(A, B) when is_list(A), is_list(B) ->
+    Diff1 = A -- B,
+    Diff2 = B -- A,
+    ct:log("NOT EQUAL~n ~p~n ~p~n", [A,B]),
+    if Diff1 =/= [], Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1, Diff2});
+       Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff2});
+       true ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1})
+    end;
+check_expected(A, B) when is_map(A), is_map(B) ->
+    Diff1 = [{KeyA, ValA}
+             || KeyA := ValA <- A, ValA =/= maps:get(KeyA, B, missing_key_val)],
+    Diff2 = [{KeyB, ValB}
+             || KeyB := ValB <- B, ValB =/= maps:get(KeyB, A, missing_key_val)],
+    ct:log("NOT EQUAL~n ~p~n ~p~n", [A,B]),
+    if Diff1 =/= [], Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1, Diff2});
+       Diff2 =/= [] ->
+            ct:fail({not_equal, {line, ?LINE}, Diff2});
+       true ->
+            ct:fail({not_equal, {line, ?LINE}, Diff1})
+    end;
+check_expected({ok, Term1}, {ok, Term2}) ->
+    check_expected(Term1, Term2);
+check_expected(A, B) ->
+    ct:log("NOT EQUAL~n ~p~n~p~n", [A,B]),
+    ct:fail(not_equal).
 
 
 options_whitebox(Config) when is_list(Config) ->
@@ -2524,11 +2579,10 @@ options_anti_replay(_Config) ->
 
 options_beast_mitigation(_Config) -> %% Beast mitigation TLS-1.0 option only
     ?OK(#{beast_mitigation := one_n_minus_one}, [{versions, [tlsv1,'tlsv1.1']}], client),
+
     ?OK(#{}, [{versions, ['tlsv1.1']}], client, [beast_mitigation]),
-    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client,
-        [beast_mitigation]),
-    ?OK(#{beast_mitigation := zero_n},
-        [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
+    ?OK(#{}, [{beast_mitigation, disabled}, {versions, [tlsv1]}], client),
+    ?OK(#{beast_mitigation := zero_n}, [{beast_mitigation, zero_n}, {versions, [tlsv1]}], client),
 
     %% Errors
     ?ERR({beast_mitigation, enabled},
@@ -2574,7 +2628,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/foo">>}]},
         [{certfile, <<"/tmp/foo">>}], client, Old),
 
-    ?OK(#{certs_keys := [#{}]}, [{certs_keys, [#{}]}], client),
+    ?OK(#{certs_keys := []}, [{certs_keys, [#{}]}], client),
 
     ?OK(#{certs_keys := [#{key := {rsa, <<>>}}]},
         [{key, {rsa, <<>>}}], client, Old),
@@ -2599,7 +2653,7 @@ options_cert(Config) -> %% cert[file] cert_keys keys password
     ?OK(#{certs_keys := [#{certfile := <<"/tmp/foo">>, keyfile := <<"/tmp/baz">>}]},
         [{certfile, <<"/tmp/foo">>}, {keyfile, "/tmp/baz"}], client, Old),
 
-    ?OK(#{certs_keys := [#{}]},
+    ?OK(#{certs_keys := []},
         [{cert, Cert}, {certfile, "/tmp/foo"}, {certs_keys, [#{}]}],
         client, Old),
 
@@ -2788,7 +2842,7 @@ options_eccs(_Config) ->
     %% Errors
     ?ERR({eccs, not_a_list}, [{eccs, not_a_list}], client),
     ?ERR({eccs, none_valid}, [{eccs, []}], client),
-    ?ERR({eccs, none_valid}, [{eccs, [foo]}], client),
+    ?ERR({options,{eccs,[foo]}}, [{eccs, [foo]}], client),
     ok.
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
@@ -2802,6 +2856,12 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
         server),
      ?OK(#{fail_if_no_peer_cert := true, verify := verify_peer, verify_fun := undefined, partial_chain := _},
          [{verify, verify_peer}, {cacerts, [Cert]}], server),
+
+    %% Test ssl option handling. Option values are verified by public_key tests
+    CertPolicyOpts = [{policy_set, [?anyPolicy]}, {explicit_policy, false}],
+
+    ?OK(#{cert_policy_opts := CertPolicyOpts}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, CertPolicyOpts}],
+        client),
 
     NewF3 = fun(_,_,_) -> ok end,
     NewF4 = fun(_,_,_,_) -> ok end,
@@ -2834,6 +2894,15 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], server),
     ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
     ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
+    ?ERR({cert_policy_opts, {foo, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{foo,bar}]}],
+        client),
+    ?ERR({cert_policy_opts, {explicit_policy, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy,bar}]}],
+         client),
+    ?ERR({cert_policy_opts, {inhibit_policy_mapping, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{explicit_policy, true},
+                                                                                                                           {inhibit_policy_mapping,bar}]}],
+         client),
+    ?ERR({cert_policy_opts, {inhibit_any_policy, bar}}, [{verify, verify_peer}, {cacerts, [Cert]}, {cert_policy_opts, [{inhibit_any_policy,bar}]}],
+         client),
     ok.
 
 options_fallback(_Config) ->
@@ -2944,9 +3013,9 @@ options_stapling(_Config) ->
     ?OK(#{}, [], client, [stapling]),
     ?OK(#{}, [{stapling, no_staple}], client, [stapling]),
 
-    ?OK(#{stapling := #{ocsp_nonce := true}},
+    ?OK(#{stapling := #{ocsp_nonce := false}},
         [{stapling, staple}], client),
-    ?OK(#{stapling := #{ocsp_nonce := true}},
+    ?OK(#{stapling := #{ocsp_nonce := false}},
         [{stapling, #{}}], client),
     ?OK(#{stapling := #{ocsp_nonce := true}},
         [{stapling, #{ocsp_nonce => true}}], client),
@@ -3090,8 +3159,8 @@ options_sign_alg(_Config) ->  %% signature_algs[_cert]
     ok.
 
 options_supported_groups(_Config) ->
-    %% FIXME group() type doesn't cover the values below
-    ?OK(#{supported_groups := {supported_groups, [x25519,x448,secp256r1,secp384r1]}},
+    Default = ssl:groups(default),
+    ?OK(#{supported_groups := {supported_groups, Default}},
         [], client),
     ?OK(#{supported_groups := {supported_groups, [secp521r1, ffdhe2048]}},
         [{supported_groups, [secp521r1, ffdhe2048]}], client),
@@ -3654,7 +3723,7 @@ cipher_listing() ->
       "for the max version. Note that TLS-1.3 will contain two distinct sets of ciphers "
       "one for TLS-1.3 and one pre TLS-1.3"}].
 cipher_listing(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config),
     length_exclusive(Version) == length_all(Version).
 
 %%--------------------------------------------------------------------
@@ -4204,10 +4273,14 @@ log(#{msg:={report,_Report}},#{config:=Pid}) ->
 log(_,_) ->
     ok.
 
-length_exclusive(Version) when ?TLS_1_X(Version) ->
+length_exclusive(Version) when Version == 'tlsv1.3';
+                               Version == 'tlsv1.2';
+                               Version == 'tlsv1.1';
+                               Version == 'tlsv1' ->
     length(exclusive_default_up_to_version(Version)) +
         length(exclusive_non_default_up_to_version(Version));
-length_exclusive(Version) when ?DTLS_1_X(Version)->
+length_exclusive(Version) when Version == 'dtlsv1.2';
+                               Version == 'dtlsv1' ->
     length(dtls_exclusive_default_up_to_version(Version)) +
         length(dtls_exclusive_non_default_up_to_version(Version)).
 
@@ -4215,42 +4288,36 @@ length_all(Version) ->
     length(ssl:cipher_suites(all, Version)).
 
 exclusive_default_up_to_version(Version) ->
-    lists:flatmap(fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , exclusive_default_up_to_version_helper(Version)).
+    lists:flatmap(fun (Vsn) ->
 
-exclusive_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_3, ?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-exclusive_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+                          ssl:cipher_suites(exclusive, Vsn)
+                  end,
+                  up_to_version_helper(Version)).
 
+up_to_version_helper('tlsv1.3') -> ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1.2') -> ['tlsv1.2', 'tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1.1') -> ['tlsv1.1', 'tlsv1'];
+up_to_version_helper('tlsv1') -> ['tlsv1'].
 
 
 dtls_exclusive_default_up_to_version(Version) ->
-    lists:flatmap( fun (Vsn) -> ssl:cipher_suites(exclusive, Vsn) end
-                 , dtls_exclusive_default_up_to_version_helper(Version)).
+    lists:flatmap(fun (Vsn) ->
+                          ssl:cipher_suites(exclusive, Vsn)
+                  end,
+                  dtls_up_to_version_helper(Version)).
 
-dtls_exclusive_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
-dtls_exclusive_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
-
+dtls_up_to_version_helper('dtlsv1.2') -> ['dtlsv1.2', 'dtlsv1'];
+dtls_up_to_version_helper('dtlsv1') -> ['dtlsv1'].
 
 
 exclusive_non_default_up_to_version(Version) ->
-    lists:flatmap(fun exclusive_non_default_version/1
-                 , exclusive_non_default_up_to_version_helper(Version)).
-
-exclusive_non_default_up_to_version_helper(?TLS_1_3) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_2) -> [?TLS_1_2, ?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_1) -> [?TLS_1_1, ?TLS_1_0];
-exclusive_non_default_up_to_version_helper(?TLS_1_0) -> [?TLS_1_0].
+    lists:flatmap(fun exclusive_non_default_version/1,
+                  up_to_version_helper(Version)).
 
 
 dtls_exclusive_non_default_up_to_version(Version) ->
-    lists:flatmap( fun dtls_exclusive_non_default_version/1
-                 , dtls_exclusive_non_default_up_to_version_helper(Version)).
-
-dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_2) -> [?DTLS_1_0, ?DTLS_1_2];
-dtls_exclusive_non_default_up_to_version_helper(?DTLS_1_0) -> [?DTLS_1_0].
-
+    lists:flatmap(fun dtls_exclusive_non_default_version/1,
+                  dtls_up_to_version_helper(Version)).
 
 exclusive_non_default_version(Version) ->
     Ls = [ fun tls_v1:psk_exclusive/1
@@ -4261,7 +4328,7 @@ exclusive_non_default_version(Version) ->
     lists:flatmap(fun(Fn) -> Fn(Version) end, Ls).
 
 dtls_exclusive_non_default_version(DTLSVersion) ->        
-    Version = ssl:tls_version(DTLSVersion),
+    Version = ssl:tls_version(dtls_record:protocol_version_name(DTLSVersion)),
     Fns = [ fun tls_v1:psk_exclusive/1
           , fun tls_v1:srp_exclusive/1
           , fun tls_v1:rsa_exclusive/1

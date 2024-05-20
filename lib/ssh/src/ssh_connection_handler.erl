@@ -459,6 +459,8 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                            PeerName0 when is_list(PeerName0) ->
                                PeerName0
                        end,
+            ssh_lib:set_label(client,
+                              {connection, list_to_binary(PeerName), Socket}),
             S1 =
                 S0#ssh{c_vsn = Vsn,
                        c_version = Version,
@@ -477,6 +479,7 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                   };
 
 	server ->
+            ssh_lib:set_label(server, {connection, Socket}),
 	    S0#ssh{s_vsn = Vsn,
 		   s_version = Version,
 		   userauth_methods = string:tokens(AuthMethods, ","),

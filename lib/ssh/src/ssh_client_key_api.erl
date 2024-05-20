@@ -26,7 +26,7 @@ Behavior describing the API for public key handling of an SSH client. By
 implementing the callbacks defined in this behavior, the public key handling of
 an SSH client can be customized. By default the `ssh` application implements
 this behavior with help of the standard OpenSSH files, see the
-[ssh(6)](ssh_app.md) application manual.
+[ssh](ssh_app.md) application manual.
 """.
 -moduledoc(#{since => "OTP R16B"}).
 
@@ -176,7 +176,10 @@ Adds a host key to the set of trusted host keys.
 %%%****************************************************************
 %%% Sign the SigData with the *private* key corresponding to PubKeyBlob
 %%%
-
+-doc """
+Sign the SigData with the _private_ key corresponding to PubKeyBlob.
+""".
+-doc(#{since => <<"OTP 23.0">>}).
 -callback sign(PubKeyBlob :: binary(),
                SigData :: binary(),
                Options :: client_key_cb_options(any())) ->

@@ -613,7 +613,7 @@ bin_opt_info(Config) when is_list(Config) ->
       {5,beam_ssa_bsm,{binary_created,_,_}},
       {11,beam_ssa_bsm,{binary_created,_,_}}, %% A =< B -> T
       {13,beam_ssa_bsm,context_reused},       %% A > B -> t2(T);
-      {16,beam_ssa_bsm,{binary_created,_,_}}, %% when byte_size(T) < 4 ->
+      {16,beam_ssa_bsm,context_reused}, %% when byte_size(T) < 4 ->
       {19,beam_ssa_bsm,{remote_call,
                         {b_remote,
                          {b_literal,erlang},

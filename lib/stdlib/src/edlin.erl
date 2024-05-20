@@ -254,12 +254,25 @@ which is one of the valid actions mentioned above.
 keymap() ->
     get(key_map).
 
+-type continuation() :: {line, _, _, _} | {_, _, _}.
 -doc false.
+-spec edit_line(unicode:chardata() | eof, continuation()) ->
+          {done, continuation(), Rest :: unicode:chardata(), [user_drv:request()]} |
+          {open_editor | format_expression | history_up | history_down | search,
+           Cs :: unicode:chardata(), continuation(), [user_drv:request()]} |
+          {help | expand | expand_full,
+           Before :: unicode:chardata(),
+           Cs :: unicode:chardata(), continuation(),
+           [user_drv:request()]} |
+          {search_found | search_quit | search_cancel,
+           Cs :: unicode:chardata(), [user_drv:request()]} |
+          {blink | more_chars, continuation(), [user_drv:request()]}.
 edit_line(Cs, {line,P,L,{blink,N_Rs}}) ->
     edit(Cs, P, L, {normal, none}, N_Rs);
 edit_line(Cs, {line,P,L,M}) ->
     edit(Cs, P, L, M, []).
 
+%% Called when in search mode
 -doc false.
 edit_line1(Cs, {line,P,L,{blink,N_Rs}}) ->
     edit(Cs, P, L, {normal, none}, N_Rs);

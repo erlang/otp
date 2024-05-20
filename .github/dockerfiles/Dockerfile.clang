@@ -18,7 +18,7 @@ RUN cd /buildroot && tar -xzf ./otp.tar.gz
 WORKDIR /buildroot/otp/
 
 ENV CC=clang CXX=clang++ \
-        CFLAGS="-O2 -g -Werror"
+        CFLAGS="-O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1"
 
 ## Configure, check that no application are disabled and then make
 # We need --with-ssl-lib-subdir=lib/x86_64-linux-gnu since clang does not

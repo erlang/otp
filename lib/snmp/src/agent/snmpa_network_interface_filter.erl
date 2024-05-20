@@ -25,10 +25,10 @@ This module defines the behaviour of the agent network interface filter. A
 `snmpa_network_interface_filter` compliant module must export the following
 functions:
 
-- [accept_recv/2](`m:snmpa_network_interface_filter#accept_recv`)
-- [accept_send/2](`m:snmpa_network_interface_filter#accept_send`)
-- [accept_recv_pdu/3](`m:snmpa_network_interface_filter#accept_recv_pdu`)
-- [accept_send_pdu/2](`m:snmpa_network_interface_filter#accept_send_pdu`)
+- `accept_recv/2`
+- `accept_send/2`
+- `accept_recv_pdu/3`
+- `accept_send_pdu/2`
 
 The semantics of them and their exact signatures are explained below.
 
@@ -50,25 +50,15 @@ default filter accepts all messages.
 A network interface filter can e.g. be used during testing or for load
 regulation. If the intended use is load regulation, see also
 [req_limit](snmp_config.md#agent_ni_req_limit) and the function
-[register_notification_filter](`m:snmpa#register_notification_filter`).
+[register_notification_filter](`snmpa:register_notification_filter/5`).
 
 Legacy network interface filter modules used arguments on the form
 `(IpAddr, PortNumber,...)` instead of `(Domain, Addr, ...)`, and if the SNMP
 agent is run without changing the configuration to use transport domains the
 network interface filter will still get the old arguments and work as before.
 
-## DATA TYPES
-
-```text
-port() = integer() > 0
-pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
-             'set-request' | trap | 'get-bulk-request' | 'inform-request' |
-             report
-```
-
 See also the [data types in `snmpa_conf`](`m:snmpa_conf#types`).
 
-[](){: #accept_recv }
 """.
 
 -export([verify/1]).
@@ -85,7 +75,6 @@ Called at the reception of a message (before _any_ processing has been done).
 
 For the message to be discarded, the function _must_ return _false_.
 
-[](){: #accept_send }
 """.
 -callback accept_recv(Domain, Addr) -> boolean() when
       Domain :: transportDomain(),
@@ -98,7 +87,6 @@ Called before the sending of a message (after _all_ processing has been done).
 
 For the message to be discarded, the function _must_ return _false_.
 
-[](){: #accept_recv_pdu }
 """.
 -callback accept_send(Domain, Addr) -> boolean() when
       Domain :: transportDomain(),
@@ -113,16 +101,12 @@ pdu is handed over to the master-agent for primary processing.
 
 For the pdu to be discarded, the function _must_ return _false_.
 
-[](){: #accept_send_pdu }
 """.
 -callback accept_recv_pdu(Domain, Addr, PduType) -> boolean() when
       Domain :: transportDomain(),
       Addr :: transportAddressWithPort(),
       PduType :: pdu_type().
-%% accept_send_pdu([{domain(), address()}, ...] = Targets, pdu_type()) ->
-%%     boolean() | NewTargets
-%% Called before the basic message processing (MPD) is done,
-%% when a pdu has been received from the master-agent.
+
 -doc """
 Called before the basic message processing (MPD) is done, when a pdu has been
 received from the master-agent.

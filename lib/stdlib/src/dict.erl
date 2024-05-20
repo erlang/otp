@@ -36,10 +36,9 @@
 
 -module(dict).
 -moduledoc """
-Key-value dictionary.
+A Key-value dictionary.
 
-This module provides a `Key`-`Value` dictionary. The representation of a
-dictionary is not defined.
+The representation of a dictionary is not defined.
 
 This module provides the same interface as the `m:orddict` module. One
 difference is that while this module considers two keys as different if they do

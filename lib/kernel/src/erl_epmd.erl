@@ -96,7 +96,7 @@ stop() ->
 %% return {port, P, Version} | noport
 %%
 
--doc(#{equiv => port_please/3}).
+-doc(#{equiv => port_please(Name, Host, infinity)}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec port_please(Name, Host) -> {port, Port, Version} | noport | closed | {error, term()} when
 	  Name :: atom() | string(),
@@ -212,7 +212,7 @@ names(HostName) ->
             Else
     end.
 
--doc(#{equiv => register_node/3}).
+-doc(#{equiv => register_node(Name, Port, inet)}).
 -doc(#{since => <<"OTP 21.0">>}).
 -spec register_node(Name, Port) -> Result when
 	  Name :: string(),
@@ -280,7 +280,7 @@ address_please(_Name, Host, AddressFamily) ->
 
 init(_) ->
     {ok, #state{socket = -1}}.
-	    
+
 %%----------------------------------------------------------------------
 
 -type calls() :: 'client_info_req' | 'stop' | {'register', term(), term()}.

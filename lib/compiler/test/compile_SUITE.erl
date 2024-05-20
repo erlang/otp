@@ -35,11 +35,12 @@
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1, asm_labels/1,
 	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
+         beam_ssa_pp_smoke_test/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
-         annotations_pp/1
+         annotations_pp/1, option_order/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -55,11 +56,13 @@ all() ->
      other_output, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, asm_labels, no_core_prepare,
-     sys_pre_attributes, dialyzer, warnings, pre_load_check,
+     sys_pre_attributes, dialyzer, beam_ssa_pp_smoke_test,
+     warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
      compile_attribute, message_printing, other_options, transforms,
-     erl_compile_api, types_pp, bs_init_writable, annotations_pp].
+     erl_compile_api, types_pp, bs_init_writable, annotations_pp,
+     option_order].
 
 groups() -> 
     [].
@@ -906,10 +909,10 @@ strict_record(Config) when is_list(Config) ->
     {ok,M} = c:c(M, [no_strict_record_tests|Opts]),
     Turtle = test_sloppy(),
 
-    %% The option first given wins.
-    {ok,M} = c:c(M, [no_strict_record_tests,strict_record_tests|Opts]),
-    Turtle = test_sloppy(),
+    %% The option last given wins.
     {ok,M} = c:c(M, [strict_record_tests,no_strict_record_tests|Opts]),
+    Turtle = test_sloppy(),
+    {ok,M} = c:c(M, [no_strict_record_tests,strict_record_tests|Opts]),
     Turtle = test_strict(),
 
     %% Default (possibly influenced by ERL_COMPILER_OPTIONS).
@@ -1426,6 +1429,35 @@ dialyzer(Config) ->
     [{a,b,c}] = M:M(),
     ok.
 
+beam_ssa_pp_smoke_test(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Outdir = filename:join(PrivDir, atom_to_list(?FUNCTION_NAME)),
+    ok = file:make_dir(Outdir),
+    TestBeams = get_unique_beam_files(),
+    test_lib:p_run(fun(F) -> beam_ssa_pp(F, Outdir) end, TestBeams).
+
+beam_ssa_pp(Beam, Outdir) ->
+    try
+	{ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
+	    beam_lib:chunks(Beam, [abstract_code]),
+	beam_ssa_pp_1(Mod, Abstr, Outdir)
+    catch
+	throw:{error,Error} ->
+	    io:format("*** compilation failure '~p' for file ~s\n",
+		      [Error,Beam]),
+	    error;
+	Class:Error:Stk ->
+	    io:format("~p: ~p ~p\n~p\n", [Beam,Class,Error,Stk]),
+	    error
+    end.
+
+beam_ssa_pp_1(Mod, Abstr, Outdir) ->
+    Opts = test_lib:opt_opts(Mod),
+    {ok,Mod,SSA} = compile:forms(Abstr, [dssaopt|Opts]),
+    ListFile = filename:join(Outdir, atom_to_list(Mod) ++ ".ssaopt"),
+    {ok,Fd} = file:open(ListFile, [write,{encoding,utf8}]),
+    beam_listing:module(Fd, SSA),
+    ok = file:close(Fd).
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
@@ -2120,6 +2152,146 @@ get_annotations(Key, [_|Lines]) ->
 get_annotations(_, []) ->
     [].
 
+option_order(Config) ->
+    Ts = [{spec1,
+           ~"""
+            -compile(nowarn_missing_spec).
+            foo() -> ok.
+            """,
+           [],                                  %Environment
+           [warn_missing_spec],
+           []},
+          {spec2,
+           ~"""
+            foo() -> ok.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "warn_missing_spec"}],
+           [nowarn_missing_spec],
+           []},
+          {spec3,
+           ~"""
+            -compile(nowarn_missing_spec).
+            foo() -> ok.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "nowarn_missing_spec"}],
+           [warn_missing_spec],
+           []},
+          {spec4,
+           ~"""
+            -compile(warn_missing_spec).
+            foo() -> ok.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "nowarn_missing_spec"}],
+           [],
+           {warnings,[{{2,1},erl_lint,{missing_spec,{foo,0}}}]}
+          },
+          {spec5,
+           ~"""
+            -compile([warn_missing_spec,nowarn_missing_spec]).
+            foo() -> ok.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "nowarn_missing_spec"}],
+           [warn_missing_spec],
+           []},
+          {records1,
+           ~"""
+            -record(r, {x,y}).
+            rec_test(#r{x=X,y=Y}) -> X + Y.
+            """,
+           [],
+           [strict_record_tests],
+           fun(M) ->
+                   try M:rec_test({r,1,2,3}) of
+                       3 ->
+                           fail()
+                   catch
+                       error:function_clause ->
+                           ok
+                   end
+           end},
+          {records2,
+           ~"""
+            -record(r, {x,y}).
+            rec_test(R) -> R#r.x + R#r.y.
+            """,
+           [],
+           [no_strict_record_tests],
+           fun(M) ->
+                   3 = M:rec_test({r,1,2,3}),
+                   ok
+           end},
+          {records3,
+           ~"""
+            -compile(no_strict_record_tests).
+            -record(r, {x,y}).
+            rec_test(R) -> R#r.x + R#r.y.
+            """,
+           [],
+           [strict_record_tests],
+           fun(M) ->
+                   3 = M:rec_test({r,1,2,3}),
+                   ok
+           end},
+          {records4,
+           ~"""
+            -record(r, {x,y}).
+            rec_test(#r{x=X,y=Y}) -> X + Y.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "strict_record_tests"}],
+           [],
+           fun(M) ->
+                   try M:rec_test({r,1,2,3}) of
+                       3 ->
+                           fail()
+                   catch
+                       error:function_clause ->
+                           ok
+                   end
+           end},
+          {records5,
+           ~"""
+            -record(r, {x,y}).
+            rec_test(R) -> R#r.x + R#r.y.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "strict_record_tests"}],
+           [no_strict_record_tests],
+           fun(M) ->
+                   3 = M:rec_test({r,1,2,3}),
+                   ok
+           end},
+          {records6,
+           ~"""
+            -compile(no_strict_record_tests).
+            -record(r, {x,y}).
+            rec_test(R) -> R#r.x + R#r.y.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "strict_record_tests"}],
+           [],
+           fun(M) ->
+                   3 = M:rec_test({r,1,2,3}),
+                   ok
+           end},
+          {records7,
+           ~"""
+            -record(r, {x,y}).
+            rec_test(R) -> R#r.x + R#r.y.
+            """,
+           [{"ERL_COMPILER_OPTIONS", "no_strict_record_tests"}],
+           [no_strict_record_tests, strict_record_tests],
+           fun(M) ->
+                   try M:rec_test({r,1,2,3}) of
+                       3 ->
+                           fail()
+                   catch
+                       error:{badrecord,{r,1,2,3}} ->
+                           ok
+                   end
+           end}
+
+         ],
+    run(Config, Ts),
+    ok.
+
 %%%
 %%% Utilities.
 %%%
@@ -2149,3 +2321,104 @@ is_lfe_module(File, Ext) ->
 	"lfe_" ++ _ -> true;
 	_ -> false
     end.
+
+%% Compiles a test module and returns the list of errors and warnings.
+
+run(Config, Tests) ->
+    F = fun({N,P,Env,Ws,Run}, _BadL) when is_function(Run, 1) ->
+                case catch run_test(Config, P, Env, Ws, Run) of
+                    ok ->
+                        ok;
+                    Bad ->
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
+                                  "but got~n  ~p~n", [N, ok, Bad]),
+                        fail()
+                end;
+           ({N,P,Env,Ws,Expected}, BadL)
+              when is_list(Expected); is_tuple(Expected) ->
+                io:format("### ~s\n", [N]),
+                case catch run_test(Config, P, Env, Ws, none) of
+                    Expected ->
+                        BadL;
+                    Bad ->
+                        io:format("~nTest ~p failed. Expected~n  ~p~n"
+                                  "but got~n  ~p~n", [N, Expected, Bad]),
+			fail()
+                end
+        end,
+    lists:foldl(F, [], Tests).
+
+run_test(Conf, Test0, Env, Options, Run) ->
+    run_test_putenv(Env),
+    Module = "warnings" ++ test_lib:uniq(),
+    Filename = Module ++ ".erl",
+    DataDir = proplists:get_value(priv_dir, Conf),
+    Test1 = ["-module(", Module, "). -file( \"", Filename, "\", 1). ", Test0],
+    Test = iolist_to_binary(Test1),
+    File = filename:join(DataDir, Filename),
+    Opts = [binary,export_all,return|Options],
+    ok = file:write_file(File, Test),
+
+    %% Compile once just to print all warnings (and cover more code).
+    _ = compile:file(File, [binary,export_all,report|Options]),
+
+    %% Test result of compilation.
+    {ok, Mod, Beam, Warnings} = compile:file(File, Opts),
+    _ = file:delete(File),
+
+    if
+        is_function(Run, 1) ->
+            {module,Mod} = code:load_binary(Mod, "", Beam),
+            ok = Run(Mod),
+            run_test_unsetenv(Env),
+            true = code:delete(Mod),
+            _ = code:purge(Mod),
+            ok;
+        Run =:= none ->
+            run_test_unsetenv(Env),
+            Res = get_warnings(Warnings),
+            case Res of
+                [] ->
+                    [];
+                {warnings, Ws} ->
+                    print_warnings(Ws, Test),
+                    Res
+            end
+    end.
+
+run_test_putenv(Env) ->
+    _ = [_ = os:putenv(Name, Value) || {Name,Value} <- Env],
+    ok.
+
+run_test_unsetenv(Env) ->
+    _ = [_ = os:unsetenv(Name) || {Name,_Value} <- Env],
+    ok.
+
+get_warnings([]) ->
+    [];
+get_warnings(WsL) ->
+    case WsL of
+        [{_File,Ws}] -> {warnings, Ws};
+        _ -> {warnings, WsL}
+    end.
+
+print_warnings(Warnings, Source) ->
+    Lines = binary:split(Source, <<"\n">>, [global]),
+    Cs = [print_warning(W, Lines) || W <- Warnings],
+    io:put_chars(Cs),
+    ok.
+
+print_warning({{LineNum,Column},Mod,Data}, Lines) ->
+    Line0 = lists:nth(LineNum, Lines),
+    <<Line1:(Column-1)/binary,_/binary>> = Line0,
+    Spaces = re:replace(Line1, <<"[^\t]">>, <<" ">>, [global]),
+    CaretLine = [Spaces,"^"],
+    [io_lib:format("~p:~p: ~ts\n",
+                   [LineNum,Column,Mod:format_error(Data)]),
+     Line0, "\n",
+     CaretLine, "\n\n"];
+print_warning(_, _) ->
+    [].
+
+fail() ->
+    ct:fail(failed).

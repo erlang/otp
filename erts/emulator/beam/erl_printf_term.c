@@ -372,7 +372,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 	Eterm* ptr;
     }popped;
     Eterm* nobj;
-    Wterm wobj;
+    Eterm wobj;
 
     res = 0;
 
@@ -462,7 +462,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
             }
 	    goto L_done;
 	}
-	wobj = (Wterm)obj;
+	wobj = (Eterm)obj;
 	switch (tag_val_def(wobj)) {
 	case NIL_DEF:
 	    PRINT_STRING(res, fn, arg, "[]");

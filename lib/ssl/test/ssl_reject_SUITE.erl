@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -185,11 +185,16 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
     Allversions = all_versions(),
 
     AllSigAlgs = ssl:signature_algs(all, 'tlsv1.3'),
+    Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(all, 'tlsv1.3'),
+                                       [{key_exchange, fun(srp_rsa) -> false;
+                                                          (srp_dss) -> false;
+                                                          (_) -> true
+                                                       end}]),
 
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {options, [{versions, Allversions}, 
-                                                   {signature_algs, AllSigAlgs} | ServerOpts]}]),
+                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version

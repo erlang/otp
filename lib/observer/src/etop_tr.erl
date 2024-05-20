@@ -32,26 +32,19 @@ setup_tracer(Config) ->
     RHost = rpc:call(TraceNode, net_adm, localhost, []),
     Store  = ets:new(?MODULE, [set, public]),
 
-    %% We can only trace one process anyway kill the old one.
-    case erlang:whereis(dbg) of
-	undefined -> 
-	    case rpc:call(TraceNode, erlang, whereis, [dbg]) of
-		undefined -> fine;
-		Pid ->
-		    exit(Pid, kill)
-	    end;
-	Pid ->
-	    exit(Pid,kill)
-    end,
+    Session = dbg:session_create(?MODULE),
 
-    dbg:tracer(TraceNode,port,dbg:trace_port(ip,{getopt(port,Config),5000})),
-    dbg:p(all,[running,timestamp]),
-    T = dbg:get_tracer(TraceNode),
-    Config#opts{tracer=T,host=RHost,store=Store}.
+    dbg:session(
+      Session,
+      fun() ->
+              dbg:tracer(TraceNode,port,dbg:trace_port(ip,{getopt(port,Config),5000})),
+              dbg:p(all,[running,timestamp]),
+              T = dbg:get_tracer(TraceNode),
+              Config#opts{session=Session,tracer=T,host=RHost,store=Store,tracing=on}
+      end).
 
-stop_tracer(_Config) ->
-    dbg:p(all,clear),
-    dbg:stop(),
+stop_tracer(Config) ->
+    dbg:session_destroy(Config#opts.session),
     ok.
     
 

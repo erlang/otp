@@ -1308,8 +1308,8 @@ resolve_inst({bs_match,[{Fail,Ctx,{z,1},{u,_},Args}]},_,_,_) ->
 %% OTP 27.
 %%
 
-resolve_inst({executable_line,[Index]},_,_,_) ->
-    {line,resolve_arg(Index)};
+resolve_inst({executable_line,[Location,Index]},_,_,_) ->
+    {executable_line,resolve_arg(Location),resolve_arg(Index)};
 
 %%
 %% Catches instructions that are not yet handled.

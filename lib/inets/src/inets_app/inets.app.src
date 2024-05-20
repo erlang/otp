@@ -98,6 +98,6 @@
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}},
   {runtime_dependencies,
-   ["stdlib-@OTP-18789@","stdlib-5.0","ssl-9.0","runtime_tools-1.8.14",
+   ["stdlib-6.0","stdlib-5.0","ssl-9.0","runtime_tools-1.8.14",
     "mnesia-4.12","kernel-9.0","erts-14.0", "public_key-1.13"]}
  ]}.

@@ -261,6 +261,7 @@ calls [Module:handle_cast/2](`c:handle_cast/2`) to handle the message.
 cast(ChannelRef, Msg) ->
     gen_server:cast(ChannelRef, Msg).
 
+-opaque client() :: term().
 -doc """
 reply(Client, Reply) -> \_
 
@@ -273,7 +274,6 @@ This function can be used by a channel to send a reply to a client that called
 given back to the client as the return value of [call/\[2,3].](`call/2`)
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--opaque client() :: term().
 -spec reply(Client, Reply) -> _ when
       Client :: client(),
       Reply :: term().

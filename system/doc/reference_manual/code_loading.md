@@ -30,30 +30,29 @@ new file that contains the object code. The current abstract machine, which runs
 the object code, is called BEAM, therefore the object files get the suffix
 `.beam`. The compiler can also generate a binary which can be loaded directly.
 
-The compiler is located in the module `compile` (see the `m:compile` manual page
-in Compiler).
+The compiler is located in the module `m:compile` in Compiler.
 
 ```erlang
 compile:file(Module)
 compile:file(Module, Options)
 ```
 
-The Erlang shell understands the command `c(Module)` which both compiles and
+The Erlang shell understands the command `c(Module)`, which both compiles and
 loads `Module`.
 
 There is also a module `make`, which provides a set of functions similar to the
-UNIX type Make functions, see the `m:make` manual page in Tools.
+UNIX type Make functions, see module `m:make` in Tools.
 
-The compiler can also be accessed from the OS prompt, see the
-[erl(1)](`e:erts:erl_cmd.md`) manual page in ERTS.
+The compiler can also be accessed from the OS prompt using the
+[erl](`e:erts:erl_cmd.md`) executable in ERTS.
 
 ```erlang
 % erl -compile Module1...ModuleN
 % erl -make
 ```
 
-The `erlc` program provides an even better way to compile modules from the
-shell, see the [erlc(1)](`e:erts:erlc_cmd.md`) manual page in ERTS. It
+The `erlc` program provides way to compile modules from the OS
+shell, see the [erlc](`e:erts:erlc_cmd.md`) executable in ERTS. It
 understands a number of flags that can be used to define macros, add search
 paths for include files, and more.
 
@@ -66,7 +65,7 @@ paths for include files, and more.
 ## Code Loading
 
 The object code must be _loaded_ into the Erlang runtime system. This is handled
-by the _code server_, see the `m:code` manual page in Kernel.
+by the _code server_, see module `m:code` in Kernel.
 
 The code server loads code according to a code loading strategy, which is either
 _interactive_ (default) or _embedded_. In interactive mode, code is searched for
@@ -77,7 +76,7 @@ loaded at start-up according to a _boot script_. This is described in
 ## Code Replacement
 
 Erlang supports change of code in a running system. Code replacement is done on
-module level.
+the module level.
 
 The code of a module can exist in two variants in a system: _current_ and _old_.
 When a module is loaded into the system for the first time, the code becomes
@@ -127,7 +126,7 @@ a module is loaded.
 
 Its syntax is as follows:
 
-```text
+```erlang
 -on_load(Name/0).
 ```
 

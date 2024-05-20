@@ -71,6 +71,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
 
     stp->coverage = hdr->coverage = NULL;
     stp->line_coverage_valid = hdr->line_coverage_valid = NULL;
+    stp->loc_index_to_cover_id = hdr->loc_index_to_cover_id = NULL;
 
     hdr->line_coverage_len = 0;
 
@@ -115,6 +116,16 @@ int beam_load_prepare_emit(LoaderState *stp) {
         stp->line_coverage_valid =
                 erts_alloc(ERTS_ALC_T_CODE_COVERAGE, alloc_size);
         sys_memset(stp->line_coverage_valid, 0, alloc_size);
+        if (hdr->coverage_mode == ERTS_COV_LINE_COUNTERS) {
+            stp->loc_index_to_cover_id =
+                    erts_alloc(ERTS_ALC_T_CODE_COVERAGE,
+                               alloc_size * sizeof(unsigned));
+#ifdef DEBUG
+            sys_memset(stp->loc_index_to_cover_id,
+                       0xff,
+                       alloc_size * sizeof(unsigned));
+#endif
+        }
         hdr->line_coverage_len = alloc_size;
         break;
     }
@@ -231,6 +242,11 @@ int beam_load_prepared_dtor(Binary *magic) {
             hdr->line_coverage_valid = NULL;
         }
 
+        if (hdr->loc_index_to_cover_id) {
+            erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->loc_index_to_cover_id);
+            hdr->loc_index_to_cover_id = NULL;
+        }
+
         erts_free(ERTS_ALC_T_PREPARED_CODE, hdr);
         stp->load_hdr = NULL;
     }
@@ -268,6 +284,11 @@ int beam_load_prepared_dtor(Binary *magic) {
     if (stp->line_coverage_valid) {
         erts_free(ERTS_ALC_T_CODE_COVERAGE, stp->line_coverage_valid);
         stp->line_coverage_valid = NULL;
+    }
+
+    if (stp->loc_index_to_cover_id) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, stp->loc_index_to_cover_id);
+        stp->loc_index_to_cover_id = NULL;
     }
 
     if (stp->ba) {
@@ -655,7 +676,7 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
             goto load_error;
         }
         break;
-    case op_executable_line_I: {
+    case op_executable_line_II: {
         byte coverage_size = 0;
 
         /* We'll save some memory by not inserting a line entry that
@@ -670,8 +691,13 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
         if (coverage_size) {
             unsigned loc_index = stp->current_li - 1;
+            unsigned cover_id = tmp_op->a[1].val;
+
             ASSERT(stp->beam.lines.item_count > 0);
             stp->line_coverage_valid[loc_index] = 1;
+            if (stp->loc_index_to_cover_id) {
+                stp->loc_index_to_cover_id[loc_index] = cover_id;
+            }
             beamasm_emit_coverage(stp->ba,
                                   stp->coverage,
                                   loc_index,
@@ -882,8 +908,10 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Transfer ownership of the coverage tables to the prepared code. */
     stp->load_hdr->coverage = stp->coverage;
     stp->load_hdr->line_coverage_valid = stp->line_coverage_valid;
+    stp->load_hdr->loc_index_to_cover_id = stp->loc_index_to_cover_id;
     stp->coverage = NULL;
     stp->line_coverage_valid = NULL;
+    stp->loc_index_to_cover_id = NULL;
 
     /* Move the code to its final location. */
     beamasm_codegen(stp->ba,
@@ -1142,6 +1170,7 @@ void beam_load_finalize_code(LoaderState *stp,
     stp->load_hdr->are_nifs = NULL;
     stp->load_hdr->coverage = NULL;
     stp->load_hdr->line_coverage_valid = NULL;
+    stp->load_hdr->loc_index_to_cover_id = NULL;
     stp->executable_region = NULL;
     stp->writable_region = NULL;
     stp->code_hdr = NULL;
@@ -1154,5 +1183,9 @@ void beam_load_purge_aux(const BeamCodeHeader *hdr) {
 
     if (hdr->line_coverage_valid) {
         erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->line_coverage_valid);
+    }
+
+    if (hdr->loc_index_to_cover_id) {
+        erts_free(ERTS_ALC_T_CODE_COVERAGE, hdr->loc_index_to_cover_id);
     }
 }
