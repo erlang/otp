@@ -3845,7 +3845,9 @@ void encode_cmsgs(ErlNifEnv*       env,
          /* nifs\win32\win_socket_asyncio.c(3167):
           * warning C4116: unnamed type definition in parentheses
           */
+#pragma warning(disable:4116)
          currentP = ESOCK_CMSG_NXTHDR(msgP, currentP)) {
+#pragma warning(default:4116)
 
         SSDBG( descP,
                ("WIN-ESAIO", "encode_cmsgs {%d} -> process cmsg header when"
