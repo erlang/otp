@@ -2160,6 +2160,8 @@ path_validation_alert({bad_cert, invalid_issuer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, invalid_signature}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+path_validation_alert({bad_cert, unsupported_signature}) ->
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 path_validation_alert({bad_cert, name_not_permitted}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_critical_extension}) ->
