@@ -3440,6 +3440,8 @@ recv(?socket(SockRef), Length, Flags, Timeout)
             case prim_socket:recv(SockRef, Length, Flags, zero) of
                 ok ->
                     {error, timeout};
+                timeout ->
+                    {error, timeout};
                 Result ->
                     Result
             end;
@@ -3838,6 +3840,8 @@ recvfrom(?socket(SockRef), BufSz, Flags, Timeout)
             case prim_socket:recvfrom(SockRef, BufSz, Flags, zero) of
                 ok ->
                     {error, timeout};
+                timeout ->
+                    {error, timeout};
                 Result ->
                     recvfrom_result(Result)
             end;
@@ -4136,6 +4140,8 @@ recvmsg(?socket(SockRef), BufSz, CtrlSz, Flags, Timeout)
         zero ->
             case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, zero) of
                 ok ->
+                    {error, timeout};
+                timeout ->
                     {error, timeout};
                 Result ->
                     recvmsg_result(Result)
