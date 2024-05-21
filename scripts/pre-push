@@ -23,14 +23,14 @@
 #
 
 # Bump this version to give users an update notification.
-PRE_PUSH_SCRIPT_VERSION=5
+PRE_PUSH_SCRIPT_VERSION=6
 
-NEW_RELEASES="26 25 24 23 22 21 20 19 18 17"
+NEW_RELEASES="27 26 25 24 23 22 21 20 19 18 17"
 OLD_RELEASES="r16 r15 r14 r13"
 RELEASES="$NEW_RELEASES $OLD_RELEASES"
 
 # First commit on master, not allowed in other branches
-MASTER_ONLY=c4a6a7a502cdb8ee0bd42d0e2cc58fe5bc0325a3
+MASTER_ONLY=bff328f24263af6c600efa8a2755a175c9dbb94f
 
 # Number of commits and files allowed in one push by this script
 NCOMMITS_MAX=100
