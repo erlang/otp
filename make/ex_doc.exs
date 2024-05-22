@@ -153,7 +153,7 @@ config = [
   logo: Path.join(:code.root_dir(), "system/doc/assets/erlang-logo.png"),
   before_closing_head_tag: fn _ -> "<style>.dark img { background-color: white; }</style>" end,
   before_closing_footer_tag: fn _ ->
-    ~S'<p>Copyright © 1996-2023 <a href="https://www.ericsson.com">Ericsson AB</a></p>'
+    ~S'<p>Copyright © 1996-2024 <a href="https://www.ericsson.com">Ericsson AB</a></p>'
   end,
   annotations_for_docs: fn md ->
     if Map.has_key?(md, :exported) && not md.exported do
