@@ -544,7 +544,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                             {error, B, Error} ->
                                 %% We should only be able to get incorrect encoded data when
                                 %% using utf8
-                                FromEnc = utf8,
+                                UpdatedFromEnc = utf8,
                                 Parent ! {self(), set_unicode_state, false},
                                 receive
                                     {set_unicode_state, false} ->
