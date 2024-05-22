@@ -124,7 +124,10 @@
          api_b_open_and_close_udpL/1,
          api_b_open_and_close_tcpL/1,
          api_b_open_and_close_seqpL/1,
-	 api_b_open_and_close_sctp4/1,
+	 api_b_open_and_close_seqp_sctp4/1,
+	 api_b_open_and_close_seqp_sctp6/1,
+	 api_b_open_and_close_stream_sctp4/1,
+	 api_b_open_and_close_stream_sctp6/1,
          api_b_open_and_maybe_close_raw/1,
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendto_and_recvfrom_udpL/1,
@@ -137,7 +140,7 @@
          api_b_sendmsg_and_recvmsg_tcp4/1,
          api_b_sendmsg_and_recvmsg_tcpL/1,
          api_b_sendmsg_and_recvmsg_seqpL/1,
-         api_b_sendmsg_and_recvmsg_sctp4/1,
+         api_b_sendmsg_and_recvmsg_stream_sctp4/1,
          api_b_sendmsg_iov_dgram_inet/1,
          api_b_sendmsg_iov_dgram_inet6/1,
          api_b_sendmsg_iov_dgram_local/1,
@@ -1008,7 +1011,10 @@ api_basic_cases() ->
      api_b_open_and_close_udpL,
      api_b_open_and_close_tcpL,
      api_b_open_and_close_seqpL,
-     api_b_open_and_close_sctp4,
+     api_b_open_and_close_seqp_sctp4,
+     api_b_open_and_close_seqp_sctp6,
+     api_b_open_and_close_stream_sctp4,
+     api_b_open_and_close_stream_sctp6,
      api_b_open_and_maybe_close_raw,
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendto_and_recvfrom_udpL,
@@ -1021,7 +1027,7 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_tcp4,
      api_b_sendmsg_and_recvmsg_tcpL,
      api_b_sendmsg_and_recvmsg_seqpL,
-     api_b_sendmsg_and_recvmsg_sctp4,
+     api_b_sendmsg_and_recvmsg_stream_sctp4,
      api_b_sendmsg_iov_dgram_inet,
      api_b_sendmsg_iov_dgram_inet6,
      api_b_sendmsg_iov_dgram_local,
@@ -3108,13 +3114,67 @@ api_b_open_and_close_seqpL(_Config) when is_list(_Config) ->
 
 %% Basically open (create) and close an IPv4 SCTP (seqpacket) socket.
 %% With some extra checks...
-api_b_open_and_close_sctp4(_Config) when is_list(_Config) ->
+api_b_open_and_close_seqp_sctp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_b_open_and_close_sctp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_sctp() end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => seqpacket,
+                                 protocol => sctp},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an IPv6 SCTP (seqpacket) socket.
+%% With some extra checks...
+api_b_open_and_close_seqp_sctp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_sctp(),
+                   has_support_ipv6()
+           end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => seqpacket,
+                                 protocol => sctp},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an IPv4 SCTP (stream) socket.
+%% With some extra checks...
+api_b_open_and_close_stream_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() -> has_support_sctp() end,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => sctp},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an IPv6 SCTP (stream) socket.
+%% With some extra checks...
+api_b_open_and_close_stream_sctp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_sctp(),
+                   has_support_ipv6()
+           end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
                                  protocol => sctp},
                    ok = api_b_open_and_close(InitState)
            end).
@@ -3152,6 +3212,7 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "validate domain (maybe)",
            cmd  => fun({#{domain := Domain} = S, {ok, Domain}}) -> 
+                           ?SEV_IPRINT("expected domain: ~p", [Domain]),
                            {ok, S};
                       ({#{domain := ExpDomain}, {ok, Domain}}) ->
                            {error, {unexpected_domain, ExpDomain, Domain}};
@@ -3177,6 +3238,7 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "validate type",
            cmd  => fun({#{type := Type} = State, {ok, Type}}) ->
+                           ?SEV_IPRINT("expected type: ~p", [Type]),
                            {ok, State};
                       ({#{type := ExpType}, {ok, Type}}) ->
                            {error, {unexpected_type, ExpType, Type}};
@@ -3190,14 +3252,15 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "validate protocol",
            cmd  => fun({#{protocol := Protocol} = State, {ok, Protocol}}) ->
+                           ?SEV_IPRINT("expected protocol: ~p", [Protocol]),
                            {ok, State};
                       ({#{domain   := Domain,
 			  protocol := ExpProtocol}, {ok, Protocol}}) ->
 			   %% On OpenBSD (at least 6.6) something screwy happens
 			   %% when domain = local.
-			   %% It will report a completely different protocol (icmp)
-			   %% but everything still works. So we skip if this happens
-			   %% on OpenBSD...
+			   %% It will report a completely different protocol
+			   %% (icmp) but everything still works.
+                           %% So we skip if this happens on OpenBSD...
 			   case os:type() of
 			       {unix, openbsd} when (Domain =:= local) ->
 				   {skip, ?F("Unexpected protocol: ~p instead of ~p",
@@ -3710,7 +3773,8 @@ api_b_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
            end,
            fun() ->
                    Send = fun(Sock, Data) ->
-                                  Msg = #{iov => [Data]},
+                                  Msg = #{%% ctrl => CMsgs,
+                                          iov => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
@@ -4807,14 +4871,15 @@ api_b_sendv(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Basically send and receive on an IPv4 SCTP (seqpacket) socket
+%% Basically send and receive on an IPv4 SCTP (stream) socket
 %% using sendmsg and recvmsg.
-api_b_sendmsg_and_recvmsg_sctp4(_Config) when is_list(_Config) ->
+api_b_sendmsg_and_recvmsg_stream_sctp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_b_sendmsg_and_recvmsg_sctp4,
+    tc_try(?FUNCTION_NAME,
            fun() ->
 		   has_support_sctp(),
-		   not_yet_implemented()
+                   has_support_ipv4()%% ,
+		   %% not_yet_implemented()
 	   end,
            fun() ->
                    Send = fun(Sock, Data) ->
@@ -4823,26 +4888,31 @@ api_b_sendmsg_and_recvmsg_sctp4(_Config) when is_list(_Config) ->
                                   %%              data  => reliability},
                                   %% CMsgs = [CMsg],
                                   Msg = #{%% ctrl => CMsgs,
-                                             iov  => [Data]},
+                                          iov  => [Data]},
                                   socket:sendmsg(Sock, Msg)
                           end,
                    Recv = fun(Sock) ->
-                                  %% We have some issues on old darwing...
-                                  %% socket:setopt(Sock, otp, debug, true),
                                   case socket:recvmsg(Sock) of
-                                      {ok, #{addr  := Source,
+                                      {ok, #{flags := [eor],
+                                             addr  := _,
                                              iov   := [Data]}} ->
-                                          %% socket:setopt(Sock, otp, debug, false),
-                                          {ok, {Source, Data}};
+                                          {ok, Data};
+                                      {ok, Msg} ->
+                                          {error, {msg, Msg}};
+                                      %% {ok, #{addr  := Source,
+                                      %%        iov   := [Data]}} ->
+                                      %%     {ok, {Source, Data}};
                                       {error, _} = ERROR ->
                                           ERROR
                                   end
                           end,
                    InitState = #{domain => inet,
+                                 type   => stream,
                                  proto  => sctp,
                                  send   => Send,
                                  recv   => Recv},
-                   ok = api_b_send_and_recv_sctp(InitState)
+                   %% ok = api_b_send_and_recv_sctp(InitState)
+                   ok = api_b_send_and_recv_conn(InitState)
            end).
 
 
@@ -5337,6 +5407,7 @@ api_b_send_and_recv_sctp(_InitState) ->
 %%     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
     ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
