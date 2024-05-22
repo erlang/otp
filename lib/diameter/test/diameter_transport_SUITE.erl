@@ -204,18 +204,25 @@ reconnect({listen, Ref}) ->
     ?TL("reconnect(listen) -> entry with"
         "~n   Ref: ~p", [Ref]),
     SvcName = make_ref(),
+    ?TL("reconnect(listen) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
+    ?TL("reconnect(listen) -> connect"),
     LRef = ?LISTEN(SvcName, tcp, [{watchdog_timer, 6000}]),
+    ?TL("reconnect(listen) -> wait"),
     [_] = diameter_reg:wait({diameter_tcp, listener, {LRef, '_'}}),
+    ?TL("reconnect(listen) -> register new transport"),
     true = diameter_reg:add_new({?MODULE, Ref, LRef}),
 
     %% Wait for partner to request transport death.
+    ?TL("reconnect(listen) -> abort: await (request for) transport death"),
     TPid = abort(SvcName, LRef, Ref),
 
     %% Kill transport to force the peer to reconnect.
+    ?TL("reconnect(listen) -> kill transport"),
     exit(TPid, kill),
 
     %% Wait for the partner again.
+    ?TL("reconnect(listen) -> abort: wait for partner again"),
     Res = abort(SvcName, LRef, Ref),
 
     ?TL("reconnect(listen) -> done when"
@@ -227,25 +234,35 @@ reconnect({connect, Ref}) ->
         "~n   Ref: ~p", [Ref]),
 
     SvcName = make_ref(),
+    ?TL("reconnect(connect) -> subscribe"),
     true = diameter:subscribe(SvcName),
+    ?TL("reconnect(connect) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
+    ?TL("reconnect(connect) -> wait"),
     [{{_, _, LRef}, Pid}] = diameter_reg:wait({?MODULE, Ref, '_'}),
+    ?TL("reconnect(connect) -> connect"),
     CRef = ?CONNECT(SvcName, tcp, LRef, [{connect_timer, 2000},
                                          {watchdog_timer, 6000}]),
 
     %% Tell partner to kill transport after seeing that there are no
     %% reconnection attempts.
+    ?TL("reconnect(connect) -> abort (kill transport)"),
     abort(SvcName, Pid, Ref),
 
     %% Transport goes down and is reestablished.
+    ?TL("reconnect(connect) -> await transport down"),
     ?RECV(#diameter_event{service = SvcName, info = {down, CRef, _, _}}),
+    ?TL("reconnect(connect) -> await transport reconnect"),
     ?RECV(#diameter_event{service = SvcName, info = {reconnect, CRef, _}}),
+    ?TL("reconnect(connect) -> await transport up"),
     ?RECV(#diameter_event{service = SvcName, info = {up, CRef, _, _, _}}),
 
     %% Kill again.
+    ?TL("reconnect(connect) -> abort (kill transport again)"),
     abort(SvcName, Pid, Ref),
 
     %% Wait for partner to die.
+    ?TL("reconnect(connect) -> await partner death"),
     MRef = erlang:monitor(process, Pid),
     Res = ?RECV({'DOWN', MRef, process, _, _}),
 
