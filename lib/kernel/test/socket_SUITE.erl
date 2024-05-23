@@ -189,6 +189,7 @@
          api_a_sendmsg_and_recvmsg_udp6/1,
          api_a_send_and_recv_tcp4/1,
          api_a_send_and_recv_tcp6/1,
+         api_a_send_and_recv_sctp4/1,
          api_a_sendmsg_and_recvmsg_tcp4/1,
          api_a_sendmsg_and_recvmsg_tcp6/1,
          api_a_recvfrom_cancel_udp4/1,
@@ -1082,6 +1083,7 @@ api_async_cases() ->
      api_a_sendmsg_and_recvmsg_udp6,
      api_a_send_and_recv_tcp4,
      api_a_send_and_recv_tcp6,
+     api_a_send_and_recv_sctp4,
      api_a_sendmsg_and_recvmsg_tcp4,
      api_a_sendmsg_and_recvmsg_tcp6,
      api_a_recvfrom_cancel_udp4,
@@ -4948,7 +4950,7 @@ api_b_sendmsg_and_recvmsg_stream_sctp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_b_send_and_recv_sctp(_InitState) ->
+%% api_b_send_and_recv_sctp(_InitState) ->
 %%     Seq = 
 %%         [
 %%          #{desc => "local address",
@@ -5435,7 +5437,7 @@ api_b_send_and_recv_sctp(_InitState) ->
 
 %%     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
-    ok.
+%%     ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -9170,7 +9172,7 @@ api_a_send_and_recv_udp(InitState) ->
 api_a_send_and_recv_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
-    tc_try(api_a_send_and_recv_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    Send = fun(Sock, Data) ->
@@ -9179,11 +9181,12 @@ api_a_send_and_recv_tcp4(Config) when is_list(Config) ->
                    Recv = fun(Sock) ->
                                   socket:recv(Sock, 0, Nowait)
                           end,
-                   InitState = #{domain => inet,
-                                 send => Send,
-                                 recv => Recv,
+                   InitState = #{domain    => inet,
+                                 proto     => tcp,
+                                 send      => Send,
+                                 recv      => Recv,
                                  recv_sref => Nowait},
-                   ok = api_a_send_and_recv_tcp(Config, InitState)
+                   ok = api_a_send_and_recv_stream(Config, InitState)
            end).
 
 
@@ -9199,7 +9202,7 @@ api_a_send_and_recv_tcp4(Config) when is_list(Config) ->
 api_a_send_and_recv_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
-    tc_try(api_a_send_and_recv_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data) ->
@@ -9208,11 +9211,45 @@ api_a_send_and_recv_tcp6(Config) when is_list(Config) ->
                    Recv = fun(Sock) ->
                                   socket:recv(Sock, 0, Nowait)
                           end,
-                   InitState = #{domain => inet6,
-                                 send => Send,
-                                 recv => Recv,
+                   InitState = #{domain    => inet6,
+                                 proto     => tcp,
+                                 send      => Send,
+                                 recv      => Recv,
                                  recv_sref => Nowait},
-                   ok = api_a_send_and_recv_tcp(Config, InitState)
+                   ok = api_a_send_and_recv_stream(Config, InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv4 SCTP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recv,
+%% since its much more difficult to "arrange" for send.
+%% We *also* test async for accept.
+api_a_send_and_recv_sctp4(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Nowait = nowait(Config),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_sctp(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, Nowait)
+                          end,
+                   InitState = #{domain    => inet,
+                                 proto     => sctp,
+                                 send      => Send,
+                                 recv      => Recv,
+                                 recv_sref => Nowait},
+                   ok = api_a_send_and_recv_stream(Config, InitState)
            end).
 
 
@@ -9228,7 +9265,7 @@ api_a_send_and_recv_tcp6(Config) when is_list(Config) ->
 api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
-    tc_try(api_a_sendmsg_and_recvmsg_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
                    has_support_ipv4()
@@ -9240,7 +9277,7 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, Nowait) of
-                                      {ok, #{iov   := [Data]}} ->
+                                      {ok, #{iov := [Data]}} ->
                                           {ok, Data};
                                       {select, _} = SELECT ->
                                           SELECT;
@@ -9248,11 +9285,12 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
                                           ERROR
                                   end
                           end,
-                   InitState = #{domain => inet,
-                                 send => Send,
-                                 recv => Recv,
+                   InitState = #{domain    => inet,
+                                 proto     => tcp,
+                                 send      => Send,
+                                 recv      => Recv,
                                  recv_sref => Nowait},
-                   ok = api_a_send_and_recv_tcp(Config, InitState)
+                   ok = api_a_send_and_recv_stream(Config, InitState)
            end).
 
 
@@ -9268,7 +9306,7 @@ api_a_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
 api_a_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Nowait = nowait(Config),
-    tc_try(api_a_sendmsg_and_recvmsg_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    Send = fun(Sock, Data) ->
@@ -9277,7 +9315,7 @@ api_a_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
                           end,
                    Recv = fun(Sock) ->
                                   case socket:recvmsg(Sock, Nowait) of
-                                      {ok, #{iov   := [Data]}} ->
+                                      {ok, #{iov := [Data]}} ->
                                           {ok, Data};
                                       {select, _} = SELECT ->
                                           SELECT;
@@ -9285,18 +9323,19 @@ api_a_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
                                           ERROR
                                   end
                           end,
-                   InitState = #{domain => inet6,
-                                 send => Send,
-                                 recv => Recv,
+                   InitState = #{domain    => inet6,
+                                 proto     => tcp,
+                                 send      => Send,
+                                 recv      => Recv,
                                  recv_sref => Nowait},
-                   ok = api_a_send_and_recv_tcp(Config, InitState)
+                   ok = api_a_send_and_recv_stream(Config, InitState)
            end).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_a_send_and_recv_tcp(Config, InitState) ->
+api_a_send_and_recv_stream(Config, InitState) ->
     process_flag(trap_exit, true),
     ServerSeq = 
         [
@@ -9319,8 +9358,10 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create listen socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           ?SEV_IPRINT("try create (open) ~w (~w) socket",
+                                       [Proto, Domain]),
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
                                {error, _} = ERROR ->
@@ -9598,8 +9639,10 @@ api_a_send_and_recv_tcp(Config, InitState) ->
                            {ok, State#{local_sa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case socket:open(Domain, stream, tcp) of
+           cmd  => fun(#{domain := Domain, proto := Proto} = State) ->
+                           ?SEV_IPRINT("try create (open) ~w (~w) socket",
+                                       [Proto, Domain]),
+                           case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
                                {error, _} = ERROR ->
@@ -13074,6 +13117,7 @@ api_opt_simple_otp_options() ->
     i("await udp evaluator"),
     ok = ?SEV_AWAIT_FINISH([Tester2]).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Perform some simple getopt and setopt otp meta option
@@ -13199,7 +13243,7 @@ api_opt_simple_otp_meta_option() ->
            cmd => fun(#{main := Main}) ->
                           _ = erlang:monitor(process, Main),
                           ok
-                  end}
+                  end},
 
          #{desc => "get value",
            cmd => fun(#{sock := Sock, value := Value}) ->
