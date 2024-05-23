@@ -134,6 +134,7 @@
          api_b_sendmsg_and_recvmsg_udp4/1,
          api_b_sendmsg_and_recvmsg_udpL/1,
          api_b_send_and_recv_tcp4/1,
+         api_b_send_and_recv_stream_sctp4/1,
          api_b_sendv_and_recv_tcp4/1,
          api_b_send_and_recv_tcpL/1,
          api_b_send_and_recv_seqpL/1,
@@ -1021,6 +1022,7 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_udp4,
      api_b_sendmsg_and_recvmsg_udpL,
      api_b_send_and_recv_tcp4,
+     api_b_send_and_recv_stream_sctp4,
      api_b_sendv_and_recv_tcp4,
      api_b_send_and_recv_tcpL,
      api_b_send_and_recv_seqpL,
@@ -3674,6 +3676,33 @@ api_b_send_and_recv_tcp4(_Config) when is_list(_Config) ->
                    InitState = #{domain => inet,
                                  type   => stream,
                                  proto  => tcp,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_b_send_and_recv_conn(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv4 SCTP (stream) socket.
+api_b_send_and_recv_stream_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_sctp(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => inet,
+                                 type   => stream,
+                                 proto  => sctp,
                                  send   => Send,
                                  recv   => Recv},
                    ok = api_b_send_and_recv_conn(InitState)
