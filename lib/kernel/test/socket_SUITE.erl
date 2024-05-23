@@ -190,6 +190,7 @@
          api_a_send_and_recv_tcp4/1,
          api_a_send_and_recv_tcp6/1,
          api_a_send_and_recv_sctp4/1,
+         api_a_send_and_recv_sctp6/1,
          api_a_sendmsg_and_recvmsg_tcp4/1,
          api_a_sendmsg_and_recvmsg_tcp6/1,
          api_a_recvfrom_cancel_udp4/1,
@@ -1084,6 +1085,7 @@ api_async_cases() ->
      api_a_send_and_recv_tcp4,
      api_a_send_and_recv_tcp6,
      api_a_send_and_recv_sctp4,
+     api_a_send_and_recv_sctp6,
      api_a_sendmsg_and_recvmsg_tcp4,
      api_a_sendmsg_and_recvmsg_tcp6,
      api_a_recvfrom_cancel_udp4,
@@ -9245,6 +9247,39 @@ api_a_send_and_recv_sctp4(Config) when is_list(Config) ->
                                   socket:recv(Sock, 0, Nowait)
                           end,
                    InitState = #{domain    => inet,
+                                 proto     => sctp,
+                                 send      => Send,
+                                 recv      => Recv,
+                                 recv_sref => Nowait},
+                   ok = api_a_send_and_recv_stream(Config, InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically send and receive using the "common" functions (send and recv)
+%% on an IPv4 SCTP (stream) socket. But we try to be async. That is, we use
+%% the 'nowait' value for the Timeout argument (and await the eventual
+%% select message). Note that we only do this for the recv,
+%% since its much more difficult to "arrange" for send.
+%% We *also* test async for accept.
+api_a_send_and_recv_sctp6(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Nowait = nowait(Config),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_sctp(),
+                   has_support_ipv6()
+           end,
+           fun() ->
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock, 0, Nowait)
+                          end,
+                   InitState = #{domain    => inet6,
                                  proto     => sctp,
                                  send      => Send,
                                  recv      => Recv,
