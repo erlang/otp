@@ -105,6 +105,11 @@
  * ********************************************************************* *
  */
 
+#define ESOCK_IDENTITY(c)    c
+#define ESOCK_STRINGIFY_1(b) ESOCK_IDENTITY(#b)
+#define ESOCK_STRINGIFY(a)   ESOCK_STRINGIFY_1(a)
+
+
 #define ESOCK_GET_RESOURCE(ENV, REF, RES) \
     enif_get_resource((ENV), (REF), esocks, (RES))
 
@@ -317,6 +322,16 @@ extern const ESockFlag esock_msg_flags[];
 extern const int       esock_msg_flags_length;
 extern const ESockFlag esock_ioctl_flags[];
 extern const int       esock_ioctl_flags_length;
+
+#if defined(HAVE_SCTP)
+typedef sctp_assoc_t ESockAssocId;
+#else
+/* This is just a placeholder.
+ * If we don *not* have sctp support,
+ * then this will never actually be used.
+ */
+typedef int ESockAssocId;
+#endif
 
 
 /* ********************************************************************* *
@@ -613,6 +628,17 @@ extern ERL_NIF_TERM esock_make_monitor_term(ErlNifEnv*          env,
 extern BOOLEAN_T esock_monitor_eq(const ESockMonitor* monP,
                                   const ErlNifMonitor* mon);
 
+/* SCTP Functions */
+#if defined(HAVE_SCTP)
+
+#if defined(SCTP_SNDRCV)
+extern BOOLEAN_T esock_cmsg_encode_sctp_sndrcv(ErlNifEnv     *env,
+                                               unsigned char *data,
+                                               size_t         dataLen,
+                                               ERL_NIF_TERM  *eResult);
+#endif
+
+#endif
 
 /* *** Counter functions *** */
 extern BOOLEAN_T esock_cnt_inc(ESockCounter* cnt, ESockCounter inc);

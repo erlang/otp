@@ -1680,6 +1680,54 @@ ERL_NIF_TERM esaio_info(ErlNifEnv* env)
 
 
 /* *******************************************************************
+ * esaio_command - Handle command
+ *
+ * Special command for the backend or always pass the command(s)
+ * through and let the backend decide for itself?
+ *
+ * If we get this far we know that the command is ok as far as the 
+ * esock_command function knows. But there may be commands unknown
+ * to esock_command, passed unchecked here.
+ */
+
+extern
+ERL_NIF_TERM esaio_command(ErlNifEnv*   env,
+                           ERL_NIF_TERM command,
+                           ERL_NIF_TERM cdata)
+{
+    ERL_NIF_TERM res;
+
+    SGDBG( ("WIN-ESAIO", "esaio_command -> entry with %T\r\n", command) );
+
+    if (COMPARE(command, esock_atom_socket_debug) == 0) {
+        BOOLEAN_T dbg;
+        if (! esock_decode_bool(cdata, &dbg)) {
+            res = esock_atom_invalid;
+        } else {
+            ctrl.sockDbg = dbg; // We should really have a mutex for this...
+            res = esock_atom_ok;
+        }
+    } else if (COMPARE(command, esock_atom_debug) == 0) {
+        BOOLEAN_T dbg;
+        if (! esock_decode_bool(cdata, &dbg)) {
+            res = esock_atom_invalid;
+        } else {
+            ctrl.dbg = dbg; // We should really have a mutex for this...
+            res = esock_atom_ok;
+        }
+    } else {
+        res = esock_atom_invalid;
+    }
+
+    SGDBG( ("WIN-ESAIO", "esaio_command -> done when res: %T\r\n", res) );
+
+    return esock_atom_ok;
+
+}
+
+
+    
+/* *******************************************************************
  * esaio_open_plain - create an endpoint (from an existing fd) for
  *                    communication.
  *

@@ -107,6 +107,15 @@ BOOLEAN_T esock_decode_sockaddr(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eSockAddr,
                                 ESockAddress* sockAddrP,
                                 SOCKLEN_T*    addrLen);
+#if defined(HAVE_SCTP_H)
+extern
+BOOLEAN_T esock_decode_sockaddrs(ErlNifEnv*     env,
+                                 BOOLEAN_T      dbg,
+                                 int            family,
+                                 ERL_NIF_TERM   eSockAddrs,
+                                 ESockAddress** sockAddrs,
+                                 int*           addrCnt);
+#endif
 extern
 void esock_encode_sockaddr(ErlNifEnv*    env,
                            ESockAddress* sockAddrP,
@@ -158,6 +167,13 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
                               SOCKLEN_T           addrLen,
                               ERL_NIF_TERM*       eSockAddr);
 #endif
+
+extern
+void esock_encode_sockaddr_native(ErlNifEnv*       env,
+                                  struct sockaddr* addr,
+                                  SOCKLEN_T        len,
+                                  ERL_NIF_TERM     eFamily,
+                                  ERL_NIF_TERM*    eSockAddr);
 
 #ifdef HAVE_NETPACKET_PACKET_H
 extern
@@ -335,5 +351,11 @@ MSG_FUNCS
 
 extern
 BOOLEAN_T esock_is_integer(ErlNifEnv *env, ERL_NIF_TERM term);
+
+extern
+void* esock_dlopen(char* name);
+
+extern
+void* esock_dlsym(void* handle, const char* symbolName);
 
 #endif // SOCKET_UTIL_H__
