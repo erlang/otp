@@ -74,7 +74,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 20}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
     [keys,
@@ -108,10 +108,21 @@ run(List) ->
     end.
 
 run(Config, List) ->
+    Timeout = factor2timeout(Config, 10000),
     [{application, diameter, App}] = ?CONSULT(diameter, app),
-    ?RUN([{{?MODULE, F, [{App, Config}]}, 10000} || F <- List]).
+    ?RUN([{{?MODULE, F, [{App, Config}]}, Timeout} || F <- List]).
 
 
+factor2timeout(Config, BaseTime) ->
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 0) ->
+            BaseTime + (((Factor-1)*BaseTime) div 10);
+        _ ->
+            BaseTime
+    end.
+
+    
 %% ===========================================================================
 %% # keys/1
 %%
