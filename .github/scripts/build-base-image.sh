@@ -47,9 +47,10 @@ elif [ -f "otp_docker_base/otp_docker_base.tar" ]; then
     echo "BASE_BUILD=loaded" >> $GITHUB_OUTPUT
 else
     if [ "${BASE_USE_CACHE}" != "false" ]; then
-        docker pull "${BASE_TAG}:${BASE_BRANCH}"
-        docker tag "${BASE_TAG}:${BASE_BRANCH}" "${BASE_TAG}:latest"
-        BASE_CACHE="--cache-from ${BASE_TAG}"
+        if docker pull "${BASE_TAG}:${BASE_BRANCH}"; then
+            docker tag "${BASE_TAG}:${BASE_BRANCH}" "${BASE_TAG}:latest"
+            BASE_CACHE="--cache-from ${BASE_TAG}"
+        fi
     fi
 
     BASE_IMAGE_ID=$(docker images -q "${BASE_TAG}:latest")

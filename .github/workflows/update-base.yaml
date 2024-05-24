@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         type: [debian-base,ubuntu-base,i386-debian-base]
-        branch: [master, maint, maint-26]
+        branch: [master, maint, maint-26, maint-27]
       fail-fast: false
 
     steps:
