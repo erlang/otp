@@ -17,7 +17,7 @@ included here.
 > your code and in the shell, with an extra backslash, that is, `"\\\\"` or
 > `<<"\\\\">>`.
 >
-> Since Erlang/OTP 27 you can use [verbaim sigils](`e:system:data_types.md#sigil`)
+> Since Erlang/OTP 27 you can use [verbatim sigils](`e:system:data_types.md#sigil`)
 > to write literal strings. The example above would be written as `~S"\"` or `~B"\"`.
 
 ## Perl-Like Regular Expression Syntax
