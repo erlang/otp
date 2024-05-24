@@ -50,6 +50,12 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
 -export_type([encoder/0, encode_value/0]).
 
 -export([
+         format/1, format/2, format/3,
+         format_value/3
+        ]).
+-export_type([formatter/0]).
+
+-export([
     decode/1, decode/3, decode_start/3, decode_continue/2
 ]).
 -export_type([
@@ -534,6 +540,203 @@ invalid_byte(Bin, Skip) ->
 
 error_info(Skip) ->
     [{error_info, #{cause => #{position => Skip}}}].
+
+%%
+%% Format implementation
+%%
+
+-type formatter() :: fun((Term :: dynamic(), Encoder :: formatter(), State :: map()) -> iodata()).
+
+-doc """
+Generates formatted JSON corresponding to `Term`.
+
+Similiar to `encode/1` but with added whitespaces for formatting.
+
+```erlang
+> io:put_chars(json:format(#{foo => <<"bar">>, baz => 52})).
+{
+  "baz": 52,
+  "foo": "bar"
+}
+ok
+```
+""".
+
+-doc(#{since => ~"OTP @OTP-19112@"}).
+-spec format(Term :: encode_value()) -> iodata().
+format(Term) ->
+    Enc = fun format_value/3,
+    format(Term, Enc, #{}).
+
+-doc """
+Generates formatted JSON corresponding to `Term`.
+
+Equivalent to `format(Term, fun json:format_value/3, Options)` or `format(Term, Encoder, #{})`
+""".
+-doc(#{since => ~"OTP @OTP-19112@"}).
+
+-spec format(Term :: encode_value(), Opts :: map()) -> iodata();
+            (Term :: dynamic(), Encoder::formatter()) -> iodata().
+format(Term, Options) when is_map(Options) ->
+    Enc = fun format_value/3,
+    format(Term, Enc, Options);
+format(Term, Encoder) when is_function(Encoder, 3) ->
+    format(Term, Encoder, #{}).
+
+-doc """
+Generates formatted JSON corresponding to `Term`.
+
+Similar to `encode/2`, can be customised with the `Encoder` callback and `Options`.
+
+`Options` can include 'indent' to specify number of spaces per level and 'max' which loosely limits
+the width of lists.
+
+The `Encoder` will get a 'State' argument which contains the 'Options' maps merged with other data
+when recursing through 'Term'.
+
+`format_value/3` or various `encode_*` functions in this module can be used
+to help in constructing such callbacks.
+
+```erlang
+> formatter({posix_time, SysTimeSecs}, Encode, State) ->
+    TimeStr = calendar:system_time_to_rfc3339(SysTimeSecs, [{offset, "Z"}]),
+    json:format_value(unicode:characters_to_binary(TimeStr), Encode, State);
+> formatter(Other, Encode, State) -> json:format_value(Other, Encode, State).
+>
+> Fun = fun(Value, Encode, State) -> formatter(Value, Encode, State) end.
+> Options = #{indent => 4}.
+> Term = #{id => 1, time => {posix_time, erlang:system_time(seconds)}}.
+>
+> io:put_chars(json:format(Term, Fun, Options)).
+{
+    "id": 1,
+    "time": "2024-05-23T16:07:48Z"
+}
+ok
+```
+""".
+-doc(#{since => ~"OTP @OTP-19112@"}).
+
+-spec format(Term :: encode_value(), Encoder::formatter(), Options :: map()) -> iodata().
+format(Term, Encoder, Options) when is_function(Encoder, 3) ->
+    Def = #{level => 0,
+            col => 0,
+            indent => 2,
+            max => 100
+           },
+    [Encoder(Term, Encoder, maps:merge(Def, Options)),$\n].
+
+-doc """
+Default format function used by `json:format/1`.
+
+Recursively calls `Encode` on all the values in `Value`,
+and indents objects and lists.
+""".
+-doc(#{since => ~"OTP @OTP-19112@"}).
+
+-spec format_value(Value::dynamic(), Encode::formatter(), State::map()) -> iodata().
+format_value(Atom, UserEnc, State) when is_atom(Atom) ->
+    json:encode_atom(Atom, fun(Value, Enc) ->  UserEnc(Value, Enc, State) end);
+format_value(Bin, _Enc, _State) when is_binary(Bin) ->
+    json:encode_binary(Bin);
+format_value(Int, _Enc, _State) when is_integer(Int) ->
+    json:encode_integer(Int);
+format_value(Float, _Enc, _State) when is_float(Float) ->
+    json:encode_float(Float);
+format_value(List, UserEnc, State) when is_list(List) ->
+    format_list(List, UserEnc, State);
+format_value(Map, UserEnc, State) when is_map(Map) ->
+    %% Ensure order of maps are the same in each export
+    OrderedKV = maps:to_list(maps:iterator(Map, ordered)),
+    format_key_value_list(OrderedKV, UserEnc, State);
+format_value(Other, _Enc, _State) ->
+    error({unsupported_type, Other}).
+
+format_list([Head|Rest], UserEnc, #{level := Level, col := Col0, max := Max} = State0) ->
+    State1 = State0#{level := Level+1},
+    {Len, IndentElement} = indent(State1),
+    if is_list(Head);   %% Indent list in lists
+       is_map(Head);    %% Indent maps
+       is_binary(Head); %% Indent Strings
+       Col0 > Max ->    %% Throw in the towel
+            State = State1#{col := Len},
+            First = UserEnc(Head, UserEnc, State),
+            {_, IndLast} = indent(State0),
+            [$[, IndentElement, First,
+             format_tail(Rest, UserEnc, State, IndentElement, IndentElement),
+             IndLast, $] ];
+       true ->
+            First = UserEnc(Head, UserEnc, State1),
+            Col = Col0 + 1 + erlang:iolist_size(First),
+            [$[, First,
+             format_tail(Rest, UserEnc, State1#{col := Col}, [], IndentElement),
+             $] ]
+    end;
+format_list([], _, _) ->
+    <<"[]">>.
+
+format_tail([Head|Tail], Enc, #{max := Max, col := Col0} = State, [], IndentRow)
+  when Col0 < Max ->
+    EncHead = Enc(Head, Enc, State),
+    String = [$,|EncHead],
+    Col = Col0 + 1 + erlang:iolist_size(EncHead),
+    [String|format_tail(Tail, Enc, State#{col := Col}, [], IndentRow)];
+format_tail([Head|Tail], Enc, State, [], IndentRow) ->
+    EncHead = Enc(Head, Enc, State),
+    String = [[$,|IndentRow]|EncHead],
+    Col = erlang:iolist_size(String)-2,
+    [String|format_tail(Tail, Enc, State#{col := Col}, [], IndentRow)];
+format_tail([Head|Tail], Enc, State, IndentAll, IndentRow) ->
+    %% These are handling their own indentation, so optimize away size calculation
+    EncHead = Enc(Head, Enc, State),
+    String = [[$,|IndentAll]|EncHead],
+    [String|format_tail(Tail, Enc, State, IndentAll, IndentRow)];
+format_tail([], _, _, _, _) ->
+    [].
+
+format_key_value_list(KVList, UserEnc, #{level := Level} = State) ->
+    {_,Indent} = indent(State),
+    NextState = State#{level := Level+1},
+    {KISize, KeyIndent} = indent(NextState),
+    EncKeyFun = fun(KeyVal, _Fun) -> UserEnc(KeyVal, UserEnc, NextState) end,
+    Entry = fun(Key, Value) ->
+                    EncKey = key(Key, EncKeyFun),
+                    ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
+                    [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
+            end,
+    format_object([Entry(Key,Value) || {Key, Value} <- KVList], Indent).
+
+format_object([], _) -> <<"{}">>;
+format_object([[_Comma,KeyIndent|Entry]], Indent) ->
+    [_Key,_Colon|Value] = Entry,
+    {_, Rest} = string:take(Value, [$\s,$\n]),
+    [CP|_] = string:next_codepoint(Rest),
+    if CP =:= ${ ->
+            ["{", KeyIndent, Entry, Indent, "}"];
+       CP =:= $[ ->
+            ["{", KeyIndent, Entry, Indent, "}"];
+       true ->
+            ["{ ", Entry, " }"]
+    end;
+format_object([[_Comma,KeyIndent|Entry] | Rest], Indent) ->
+    ["{", KeyIndent, Entry, Rest, Indent, "}"].
+
+indent(#{level := Level, indent := Indent}) ->
+    Steps = Level * Indent,
+    {Steps, steps(Steps)}.
+
+steps(0)  -> ~"\n";
+steps(2)  -> ~"\n  ";
+steps(4)  -> ~"\n    ";
+steps(6)  -> ~"\n      ";
+steps(8)  -> ~"\n        ";
+steps(10) -> ~"\n          ";
+steps(12) -> ~"\n            ";
+steps(14) -> ~"\n              ";
+steps(16) -> ~"\n                ";
+steps(18) -> ~"\n                  ";
+steps(20) -> ~"\n                    ";
+steps(N) ->  ["\n", lists:duplicate(N, " ")].
 
 %%
 %% Decoding implementation
