@@ -2157,26 +2157,25 @@ maybe_check_hostname(_, valid, _, _) ->
 path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
 path_validation_alert({bad_cert, invalid_issuer}) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_issuer);
 path_validation_alert({bad_cert, invalid_signature}) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_signature);
 path_validation_alert({bad_cert, unsupported_signature}) ->
-    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unsupported_signature);
 path_validation_alert({bad_cert, name_not_permitted}) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, name_not_permitted);
 path_validation_alert({bad_cert, unknown_critical_extension}) ->
-    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unknown_critical_extension);
 path_validation_alert({bad_cert, {revoked, _}}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
 path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, Details);
 path_validation_alert({bad_cert, selfsigned_peer}) ->
-    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, selfsigned_peer);
 path_validation_alert({bad_cert, unknown_ca}) ->
     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
-
 
 digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
     try do_digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo)
