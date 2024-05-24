@@ -722,6 +722,12 @@ int main(int argc, char **argv)
 			error("-man not supported on Windows");
 #else
 			argv[i] = "man";
+                        for (int j = i; argv[j]; j++) {
+                            if (strncmp(argv[j],sep,2) == 0) {
+                                argv[j] = NULL;
+                                break;
+                            }
+                        }
 			erts_snprintf(tmpStr, sizeof(tmpStr), "%s/man", rootdir);
 			set_env("MANPATH", tmpStr);
 			execvp("man", argv+i);
