@@ -4025,15 +4025,12 @@ api_b_send_and_recv_conn(InitState) ->
                    end},
          #{desc => "await connection",
            cmd  => fun(#{lsock := LSock} = State) ->
-			   %% _ = socket:setopt(LSock, otp, debug, true),
 			   ?SEV_IPRINT("try accept"),
                            case socket:accept(LSock) of
                                {ok, Sock} ->
-				   %% _ = socket:setopt(LSock, otp, debug, false),
                                    ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
                                    {ok, State#{csock => Sock}};
                                {error, Reason} = ERROR ->
-				   %% _ = socket:setopt(LSock, otp, debug, false),
                                    ?SEV_EPRINT("accept failed: "
 					       "~n   ~p", [Reason]),
                                    ERROR
@@ -9399,6 +9396,8 @@ api_a_send_and_recv_stream(Config, InitState) ->
                            case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
