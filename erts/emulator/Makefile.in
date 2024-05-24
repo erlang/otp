@@ -306,6 +306,10 @@ LIB_SUFFIX=.a
 EXE_SUFFIX=
 endif
 
+ifeq ($(findstring solaris,$(TARGET)),solaris)
+ESOCK_CFLAGS = -DESOCK_NON_EMPTY_IOV
+endif
+
 ifeq (@EMU_LOCK_CHECKING@,yes)
 NO_INLINE_FUNCTIONS=true
 endif
@@ -944,13 +948,13 @@ $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 	$(V_CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
 $(OBJDIR)/%.o: nifs/common/%.c
-	$(V_CC) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
+	$(V_CC) $(CFLAGS) $(ESOCK_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
 
 $(OBJDIR)/%.o: nifs/common/%.cpp
-	$(V_CXX) $(CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
+	$(V_CXX) $(CFLAGS) $(ESOCK_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -c $< -o $@
 
 $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
-	$(V_CC) $(CFLAGS) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
+	$(V_CC) $(CFLAGS) $(ESOCK_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(INCLUDES) -Inifs/common -Inifs/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
 #
 # Build the beamasm sources.
@@ -1489,10 +1493,12 @@ COMPDB_CXXFLAGS=-MM $(filter-out -fno-tree-copyrename,$(CXXFLAGS)) $(DEP_INCLUDE
 compdb:
 	clang -MJ $(TTF_DIR)/beam.json $(COMPDB_CFLAGS) $(BEAM_SRC) > /dev/null
 	clang++ -MJ $(TTF_DIR)/beam.cpp.json $(COMPDB_CXXFLAGS) $(BEAM_CPP_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/drv.json $(COMPDB_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
+	clang -MJ $(TTF_DIR)/drv.json \
+		$(COMPDB_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > /dev/null
 	clang -MJ $(TTF_DIR)/drv_$(ERLANG_OSTYPE).json \
 		$(COMPDB_CFLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) > /dev/null
-	clang -MJ $(TTF_DIR)/nif.json $(COMPDB_CFLAGS) $(NIF_COMMON_SRC)  > /dev/null
+	clang -MJ $(TTF_DIR)/nif.json \
+		$(COMPDB_CFLAGS) -DLIBSCTP=$(LIBSCTP) $(NIF_COMMON_SRC)  > /dev/null
 	clang -MJ $(TTF_DIR)/nif_$(ERLANG_OSTYPE).json \
 		$(COMPDB_CFLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) > /dev/null
 	clang -MJ $(TTF_DIR)/sys.json $(COMPDB_CFLAGS) $(SYS_SRC) > /dev/null

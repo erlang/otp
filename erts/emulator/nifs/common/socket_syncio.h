@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +35,9 @@ extern int  essio_init(unsigned int     numThreads,
                        const ESockData* dataP);
 extern void essio_finish(void);
 extern ERL_NIF_TERM essio_info(ErlNifEnv* env);
+extern ERL_NIF_TERM essio_command(ErlNifEnv*   env,
+                                  ERL_NIF_TERM command,
+                                  ERL_NIF_TERM cdata);
 
 extern ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
                                        int              fd,
@@ -51,12 +53,23 @@ extern ERL_NIF_TERM essio_bind(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ESockAddress*    sockAddrP,
                                SOCKLEN_T        addrLen);
+extern ERL_NIF_TERM essio_bindx(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ESockAddress*    sockAddrs,
+                                int              addrCnt,
+                                int              action);
 extern ERL_NIF_TERM essio_connect(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ERL_NIF_TERM     sockRef,
                                   ERL_NIF_TERM     connRef,
                                   ESockAddress*    addrP,
                                   SOCKLEN_T        addrLen);
+extern ERL_NIF_TERM essio_connectx(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     sockRef,
+                                   ERL_NIF_TERM     connRef,
+                                   ESockAddress*    sockAddrs,
+                                   int              addrsCnt);
 /*
 extern ERL_NIF_TERM essio_listen(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
@@ -66,6 +79,25 @@ extern ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
                                  ERL_NIF_TERM     accRef);
+#if defined(HAVE_SCTP)
+extern ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
+                                  ESockDescriptor* descP,
+                                  ERL_NIF_TERM     sockRef,
+                                  ESockAssocId     assocId);
+#endif
+
+#if defined(HAVE_SCTP)
+extern ERL_NIF_TERM essio_socknames(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    sctp_assoc_t     assocId);
+#endif
+
+#if defined(HAVE_SCTP)
+extern ERL_NIF_TERM essio_peernames(ErlNifEnv*       env,
+                                    ESockDescriptor* descP,
+                                    sctp_assoc_t     assocId);
+#endif
+
 extern ERL_NIF_TERM essio_send(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ERL_NIF_TERM     sockRef,
