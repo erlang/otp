@@ -1366,7 +1366,7 @@ And again; the _current_ callback module will get the
 %%
 %% Deprecated
 -doc """
-This function is called by a `gen_statem` process in in order to format/limit the
+This function is called by a `gen_statem` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:
@@ -1458,7 +1458,7 @@ New associations may be added to the status map without prior notice.
 %% Format the callback module status in some sensible that is
 %% often condensed way.
 -doc """
-This function is called by a `gen_statem` process in in order to format/limit the
+This function is called by a `gen_statem` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:

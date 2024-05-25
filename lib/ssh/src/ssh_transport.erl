@@ -1587,7 +1587,7 @@ do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) when HashAlg =/= u
 do_verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
                                                                c_version = "SSH-2.0-OpenSSH_7."++_})
   when HashAlg == sha256; HashAlg == sha512 ->
-    %% Public key signing bug in in OpenSSH >= 7.2
+    %% Public key signing bug in OpenSSH >= 7.2
     public_key:verify(PlainText, HashAlg, Sig, Key)
         orelse public_key:verify(PlainText, sha, Sig, Key);
 

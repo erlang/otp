@@ -242,7 +242,7 @@ located in the file "ei_x_encode.c". So if any "long long" ei_x
 function is used we have an unessesary dependency on
 "ei_encode_longlong.o" and then need to link with GNU ld on with the
 user code or explicitly link with "libgcc.a". The situation can be
-visible in in plain R9C using
+visible in plain R9C using
 
      % nm -A erl_interface-3.4/lib/libei.a | \
 	  grep 'longlong' | fgrep -v 'longlong.o'

@@ -351,7 +351,7 @@ The function is to return the updated internal state.
                       State :: term(), Extra :: term()) ->
     {ok, NewState :: term()}.
 -doc """
-This function is called by a `gen_event` process in in order to format/limit the
+This function is called by a `gen_event` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:
@@ -419,7 +419,7 @@ New associations may be added into the status map without prior notice.
            reason => term(),
            log => [sys:system_event()] }.
 -doc """
-This function is called by a `gen_event` process in in order to format/limit the
+This function is called by a `gen_event` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:
