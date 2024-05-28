@@ -293,7 +293,7 @@ encode_key_value_list_checked(List, Encode) ->
     do_encode_checked(List, Encode).
 
 do_encode_checked(List, Encode) when is_function(Encode, 2) ->
-    do_encode_checked(List, Encode, #{}).
+    encode_object(do_encode_checked(List, Encode, #{})).
 
 do_encode_checked([{Key, Value} | Rest], Encode, Visited0) ->
     EncodedKey = iolist_to_binary(key(Key, Encode)),
@@ -302,7 +302,7 @@ do_encode_checked([{Key, Value} | Rest], Encode, Visited0) ->
             error({duplicate_key, Key});
         _ ->
             Visited = Visited0#{EncodedKey => true},
-            [$,, EncodedKey, $:, Encode(Value, Encode) | do_encode_checked(Rest, Encode, Visited)]
+            [[$,, EncodedKey, $: | Encode(Value, Encode)] | do_encode_checked(Rest, Encode, Visited)]
     end;
 do_encode_checked([], _, _) ->
     [].
