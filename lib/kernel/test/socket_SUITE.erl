@@ -381,6 +381,8 @@
          traffic_sendmsg_and_recvmsg_counters_tcp4/1,
          traffic_sendmsg_and_recvmsg_counters_tcp6/1,
          traffic_sendmsg_and_recvmsg_counters_tcpL/1,
+         traffic_sendmsg_and_recvmsg_counters_sctp4/1,
+         traffic_sendmsg_and_recvmsg_counters_sctp6/1,
          traffic_sendto_and_recvfrom_counters_udp4/1,
          traffic_sendto_and_recvfrom_counters_udp6/1,
          traffic_sendto_and_recvfrom_counters_udpL/1,
@@ -1423,9 +1425,12 @@ traffic_counters_cases() ->
      traffic_send_and_recv_counters_tcp4,
      traffic_send_and_recv_counters_tcp6,
      traffic_send_and_recv_counters_tcpL,
+     traffic_send_and_recv_counters_tcp4,
      traffic_sendmsg_and_recvmsg_counters_tcp4,
      traffic_sendmsg_and_recvmsg_counters_tcp6,
      traffic_sendmsg_and_recvmsg_counters_tcpL,
+     traffic_sendmsg_and_recvmsg_counters_sctp4,
+     traffic_sendmsg_and_recvmsg_counters_sctp6,
      traffic_sendto_and_recvfrom_counters_udp4,
      traffic_sendto_and_recvfrom_counters_udp6,
      traffic_sendto_and_recvfrom_counters_udpL,
@@ -39458,7 +39463,7 @@ traffic_send_and_recv_counters_tcp4(_Config) when is_list(_Config) ->
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
                                  send   => fun(S, D) -> socket:send(S, D) end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
@@ -39477,7 +39482,7 @@ traffic_send_and_recv_counters_tcp6(_Config) when is_list(_Config) ->
                                  proto  => tcp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
                                  send   => fun(S, D) -> socket:send(S, D) end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
@@ -39496,7 +39501,7 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
                                  proto  => default,
                                  recv   => fun(S)    -> socket:recv(S)    end,
                                  send   => fun(S, D) -> socket:send(S, D) end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
@@ -39508,7 +39513,7 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
 
 traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
-    tc_try(traffic_sendmsg_and_recvmsg_counters_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
                    has_support_ipv4()
@@ -39528,7 +39533,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp4(_Config) when is_list(_Config) ->
                                                    Msg = #{iov => [Data]},
                                                    socket:sendmsg(S, Msg)
                                            end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
@@ -39560,7 +39565,7 @@ traffic_sendmsg_and_recvmsg_counters_tcp6(_Config) when is_list(_Config) ->
                                                    Msg = #{iov => [Data]},
                                                    socket:sendmsg(S, Msg)
                                            end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
@@ -39589,13 +39594,79 @@ traffic_sendmsg_and_recvmsg_counters_tcpL(_Config) when is_list(_Config) ->
                                                    Msg = #{iov => [Data]},
                                                    socket:sendmsg(S, Msg)
                                            end},
-                   ok = traffic_send_and_recv_tcp(InitState)
+                   ok = traffic_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use SCTP on IPv4.
+
+traffic_sendmsg_and_recvmsg_counters_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => sctp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   Msg = #{iov => [Data]},
+                                                   socket:sendmsg(S, Msg)
+                                           end},
+                   ok = traffic_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use SCTP on IPv6.
+
+traffic_sendmsg_and_recvmsg_counters_sctp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv6(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => sctp,
+                                 recv   => fun(S) ->
+                                                   case socket:recvmsg(S) of
+                                                       {ok, #{iov  := [Data]}} ->
+                                                           {ok, Data};
+                                                       {error, _} = ERROR ->
+                                                           ERROR
+                                                   end
+                                           end,
+                                 send   => fun(S, Data) ->
+                                                   Msg = #{iov => [Data]},
+                                                   socket:sendmsg(S, Msg)
+                                           end},
+                   ok = traffic_send_and_recv_stream(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-traffic_send_and_recv_tcp(InitState) ->
+traffic_send_and_recv_stream(InitState) ->
     ServerSeq =
         [
          %% *** Wait for start order part ***
