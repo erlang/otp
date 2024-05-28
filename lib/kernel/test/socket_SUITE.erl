@@ -401,12 +401,18 @@
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
          traffic_ping_pong_small_send_and_recv_tcpL/1,
+         traffic_ping_pong_small_send_and_recv_sctp4/1,
+         traffic_ping_pong_small_send_and_recv_sctp6/1,
          traffic_ping_pong_medium_send_and_recv_tcp4/1,
          traffic_ping_pong_medium_send_and_recv_tcp6/1,
          traffic_ping_pong_medium_send_and_recv_tcpL/1,
+         traffic_ping_pong_medium_send_and_recv_sctp4/1,
+         traffic_ping_pong_medium_send_and_recv_sctp6/1,
          traffic_ping_pong_large_send_and_recv_tcp4/1,
          traffic_ping_pong_large_send_and_recv_tcp6/1,
          traffic_ping_pong_large_send_and_recv_tcpL/1,
+         traffic_ping_pong_large_send_and_recv_sctp4/1,
+         traffic_ping_pong_large_send_and_recv_sctp6/1,
 
          traffic_ping_pong_small_sendto_and_recvfrom_udp4/1,
          traffic_ping_pong_small_sendto_and_recvfrom_udp6/1,
@@ -1465,12 +1471,18 @@ traffic_pp_send_recv_cases() ->
      traffic_ping_pong_small_send_and_recv_tcp4,
      traffic_ping_pong_small_send_and_recv_tcp6,
      traffic_ping_pong_small_send_and_recv_tcpL,
+     traffic_ping_pong_small_send_and_recv_sctp4,
+     traffic_ping_pong_small_send_and_recv_sctp6,
      traffic_ping_pong_medium_send_and_recv_tcp4,
      traffic_ping_pong_medium_send_and_recv_tcp6,
      traffic_ping_pong_medium_send_and_recv_tcpL,
+     traffic_ping_pong_medium_send_and_recv_sctp4,
+     traffic_ping_pong_medium_send_and_recv_sctp6,
      traffic_ping_pong_large_send_and_recv_tcp4,
      traffic_ping_pong_large_send_and_recv_tcp6,
-     traffic_ping_pong_large_send_and_recv_tcpL
+     traffic_ping_pong_large_send_and_recv_tcpL,
+     traffic_ping_pong_large_send_and_recv_sctp4,
+     traffic_ping_pong_large_send_and_recv_sctp6
     ].    
 
 traffic_pp_sendto_recvfrom_cases() ->
@@ -42861,20 +42873,21 @@ traffic_snr_tcp_client_await_terminate(Parent) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'small' message test case, for IPv4.
+%% This is the 'small' message test case,
+%% for TCP and IPv4.
 
 traffic_ping_pong_small_send_and_recv_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
-    tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -42886,20 +42899,21 @@ traffic_ping_pong_small_send_and_recv_tcp4(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'small' message test case, for IPv6.
+%% This is the 'small' message test case,
+%% for TCP and IPv6.
 
 traffic_ping_pong_small_send_and_recv_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
-    tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -42910,20 +42924,21 @@ traffic_ping_pong_small_send_and_recv_tcp6(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'small' message test case, for Unix Domain (stream) socket.
+%% This is the 'small' message test case,
+%% for TCP (default) and Unix Domain (stream) socket.
 
 traffic_ping_pong_small_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
-    tc_try(traffic_ping_pong_small_send_and_recv_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -42934,12 +42949,71 @@ traffic_ping_pong_small_send_and_recv_tcpL(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'medium' message test case, for IPv4.
+%% This is the 'small' message test case,
+%% for SCTP and IPv4.
+
+traffic_ping_pong_small_send_and_recv_sctp4(Config) when is_list(Config) ->
+    ?TT(?SECS(15)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'small' message test case,
+%% for SCTP and IPv6.
+
+traffic_ping_pong_small_send_and_recv_sctp6(Config) when is_list(Config) ->
+    ?TT(?SECS(15)),
+    Msg = l2b(?TPP_SMALL),
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case,
+%% for TCP and IPv4.
 
 traffic_ping_pong_medium_send_and_recv_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
-    tc_try(traffic_ping_pong_medium_send_and_recv_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    ?TT(?SECS(30)),
@@ -42947,7 +43021,7 @@ traffic_ping_pong_medium_send_and_recv_tcp4(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -42958,12 +43032,13 @@ traffic_ping_pong_medium_send_and_recv_tcp4(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'medium' message test case, for IPv6.
+%% This is the 'medium' message test case,
+%% for TCP and IPv6.
 
 traffic_ping_pong_medium_send_and_recv_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
-    tc_try(traffic_ping_pong_medium_send_and_recv_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    ?TT(?SECS(30)),
@@ -42971,7 +43046,7 @@ traffic_ping_pong_medium_send_and_recv_tcp6(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -42983,7 +43058,8 @@ traffic_ping_pong_medium_send_and_recv_tcp6(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'medium' message test case, for Unix Domain (stream) socket.
+%% This is the 'medium' message test case,
+%% for TCP (default) and Unix Domain (stream) socket.
 
 traffic_ping_pong_medium_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
@@ -42996,7 +43072,7 @@ traffic_ping_pong_medium_send_and_recv_tcpL(Config) when is_list(Config) ->
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -43008,22 +43084,81 @@ traffic_ping_pong_medium_send_and_recv_tcpL(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'large' message test case, for IPv4.
+%% This is the 'medium' message test case,
+%% for SCTP and IPv4.
+
+traffic_ping_pong_medium_send_and_recv_sctp4(Config) when is_list(Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => inet,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'medium' message test case,
+%% for SCTP and IPv6.
+
+traffic_ping_pong_medium_send_and_recv_sctp6(Config) when is_list(Config) ->
+    Msg = l2b(?TPP_MEDIUM),
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   ?TT(?SECS(30)),
+                   InitState = #{domain => inet6,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case,
+%% for TCP and IPv4.
 
 traffic_ping_pong_large_send_and_recv_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
-    tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
-           fun() -> has_support_ipv4(),
-                    is_old_fedora16(),
-		    is_slow_ubuntu(Config) end,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   is_old_fedora16(),
+                   is_slow_ubuntu(Config)
+           end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -43034,13 +43169,14 @@ traffic_ping_pong_large_send_and_recv_tcp4(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'large' message test case, for IPv6.
+%% This is the 'large' message test case,
+%% for TCP and IPv6.
 
 traffic_ping_pong_large_send_and_recv_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
-    tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> is_old_fedora16(),
                     has_support_ipv6(),
 		    is_slow_ubuntu(Config) end,
@@ -43049,7 +43185,7 @@ traffic_ping_pong_large_send_and_recv_tcp6(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
 
 
@@ -43061,13 +43197,14 @@ traffic_ping_pong_large_send_and_recv_tcp6(Config) when is_list(Config) ->
 %% small (8 bytes), medium (8K) and large (8M).
 %% The message is sent from A to B and then back again. This is 
 %% repeated a set number of times (more times the small the message).
-%% This is the 'large' message test case, for UNix Domain (stream) socket.
+%% This is the 'large' message test case,
+%% for TCP (default) and UNix Domain (stream) socket.
 
 traffic_ping_pong_large_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
-    tc_try(traffic_ping_pong_large_send_and_recv_tcpL,
+    tc_try(?FUNCTION_NAME,
            fun() ->
                    has_support_unix_domain_socket(),
                    traffic_ping_pong_large_host_cond()
@@ -43077,8 +43214,72 @@ traffic_ping_pong_large_send_and_recv_tcpL(Config) when is_list(Config) ->
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_send_and_recv_tcp(InitState)
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
            end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case,
+%% for SCTP and IPv4.
+
+traffic_ping_pong_large_send_and_recv_sctp4(Config) when is_list(Config) ->
+    ?TT(?SECS(60)),
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp(),
+                   is_old_fedora16(),
+                   is_slow_ubuntu(Config)
+           end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% by repeatedly sending a meassage between two entities.
+%% The same basic test case is used for three different message sizes; 
+%% small (8 bytes), medium (8K) and large (8M).
+%% The message is sent from A to B and then back again. This is 
+%% repeated a set number of times (more times the small the message).
+%% This is the 'large' message test case,
+%% for SCTP and IPv6.
+
+traffic_ping_pong_large_send_and_recv_sctp6(Config) when is_list(Config) ->
+    ?TT(?SECS(60)),
+    Msg = l2b(?TPP_LARGE),
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp(),
+                   is_old_fedora16(),
+                   is_slow_ubuntu(Config)
+           end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => sctp,
+                                 msg    => Msg,
+                                 num    => Num},
+                   ok = traffic_ping_pong_send_and_recv_stream(InitState)
+           end).
+
+
 
 %% This test case is a bit extreme and fails on some hosts
 %% (e.g. OpenIndiana Hipster), so exclude them.
@@ -43315,7 +43516,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43342,7 +43543,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43369,7 +43570,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43396,7 +43597,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) -
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43423,7 +43624,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) -
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43450,7 +43651,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) -
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43478,7 +43679,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43516,7 +43717,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
                                  proto  => tcp,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43544,7 +43745,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
                                  proto  => default,
                                  msg    => Msg,
                                  num    => Num},
-                   ok = traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState)
+                   ok = traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState)
            end).
 
 
@@ -43705,15 +43906,15 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) -
 
 %% Ping-Pong for TCP
 
-traffic_ping_pong_send_and_recv_tcp(InitState) ->
+traffic_ping_pong_send_and_recv_stream(InitState) ->
     Send = fun(Sock, Data) -> socket:send(Sock, Data) end,
     Recv = fun(Sock, Sz)   -> socket:recv(Sock, Sz) end,
     InitState2 = InitState#{send => Send, % Send function
                             recv => Recv  % Receive function
                            },
-    traffic_ping_pong_send_and_receive_tcp(InitState2).
+    traffic_ping_pong_send_and_receive_stream(InitState2).
 
-traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
+traffic_ping_pong_sendmsg_and_recvmsg_stream(#{domain := local} = InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
                        %% On some platforms, the address
@@ -43734,8 +43935,8 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(#{domain := local} = InitState) ->
                    end
            end,
     InitState2 = InitState#{recv => Recv},  % Receive function
-    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2);
-traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
+    traffic_ping_pong_sendmsg_and_recvmsg_stream2(InitState2);
+traffic_ping_pong_sendmsg_and_recvmsg_stream(InitState) ->
     Recv = fun(Sock, Sz)   -> 
                    case socket:recvmsg(Sock, Sz, 0) of
                        {ok, #{iov   := [Data]}} ->
@@ -43747,9 +43948,9 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp(InitState) ->
                    end
            end,
     InitState2 = InitState#{recv => Recv},  % Receive function
-    traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState2).
+    traffic_ping_pong_sendmsg_and_recvmsg_stream2(InitState2).
 
-traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState) ->
+traffic_ping_pong_sendmsg_and_recvmsg_stream2(InitState) ->
     Send = fun(Sock, Data) when is_binary(Data) ->
                    Msg = #{iov => [Data]},
                    socket:sendmsg(Sock, Msg);
@@ -43758,10 +43959,10 @@ traffic_ping_pong_sendmsg_and_recvmsg_tcp2(InitState) ->
                    socket:sendmsg(Sock, Msg)
            end,
     InitState2 = InitState#{send => Send}, % Send function
-    traffic_ping_pong_send_and_receive_tcp(InitState2).
+    traffic_ping_pong_send_and_receive_stream(InitState2).
 
 
-traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
+traffic_ping_pong_send_and_receive_stream(#{msg := Msg} = InitState) ->
     Fun = fun(Sock) -> 
                   {ok, RcvSz} = socket:getopt(Sock, socket, rcvbuf),
 		  ?SEV_IPRINT("RcvBuf is ~p (needs at least ~p)", 
@@ -43806,9 +44007,9 @@ traffic_ping_pong_send_and_receive_tcp(#{msg := Msg} = InitState) ->
                           ok = socket:setopt(Sock, otp, rcvbuf, {12, 1024})
                   end
           end,
-    traffic_ping_pong_send_and_receive_tcp2(InitState#{buf_init => Fun}).
+    traffic_ping_pong_send_and_receive_stream2(InitState#{buf_init => Fun}).
 
-traffic_ping_pong_send_and_receive_tcp2(InitState) ->
+traffic_ping_pong_send_and_receive_stream2(InitState) ->
     ServerSeq =
         [
          %% *** Wait for start order part ***
