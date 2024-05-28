@@ -321,21 +321,38 @@ str(Cause) ->
 
 %% send/4
 
+%% erlang:system_time(millisecond)
+
 send([_, {Node, _} | _], Where, Req, Factor) ->
     ?DL("send -> make rpc call to node ~p", [Node]),
-    rpc:call(Node, ?MODULE, call, [{Where, Req, Factor}]).
+    case rpc:call(Node, ?MODULE, call, [{Where, Req, Factor}]) of
+        {Result, T1, T2, Timeout} when is_integer(T1) andalso is_integer(T2) ->
+            ?DL("request completed:"
+                "~n   Time:    ~w msec"
+                "~n   Timeout: ~w msec"
+                "~n   Result:  ~p", [T2-T1, Timeout, Result]),
+            Result;
+        {badrpc, Reason} ->
+            ?DL("rpc failed:"
+                "~n   Reason: ~p", [Reason]),
+            ct:fail({rpc_call_failed, Node, Where, Req, Reason})
+    end.
 
 %% call/1
 
 call({Where, Req, Factor}) ->
     Timeout = timeout(Factor),
     ?DL("call -> make diameter call with"
-        "~n   Where:   ~p"
-        "~n   Req:     ~p"
+        "~n   (own) Node: ~p"
+        "~n   Where:      ~p"
+        "~n   Req:        ~p"
         "~nwhen"
-        "~n   Timeout: ~w (~w)", [Where, Req, Timeout, Factor]),
-    diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]},
-                                        {timeout, Timeout}]).
+        "~n   Timeout:    ~w (~w)", [node(), Where, Req, Timeout, Factor]),
+    T1 = erlang:system_time(millisecond),
+    Result = diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]},
+                                                 {timeout, Timeout}]),
+    T2 = erlang:system_time(millisecond),
+    {Result, T1, T2, Timeout}.
 
 %% sname/0
 
