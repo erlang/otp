@@ -149,24 +149,31 @@ after preprocessing and parse transforms, in the file `File.P`.
 
 The following macros are predefined:
 
-- **`?MODULE`** - The name of the current module.
+- **`?MODULE`** - The name of the current module, as an atom.
 
-- **`?MODULE_STRING`.** - The name of the current module, as a string.
+- **`?MODULE_STRING`** - The name of the current module, as a string.
 
-- **`?FILE`.** - The file name of the current module.
+- **`?FILE`** - The file name of the current module, as a string.
 
-- **`?LINE`.** - The current line number.
+- **`?LINE`** - The current line number, as an integer.
 
-- **`?MACHINE`.** - The machine name, `'BEAM'`.
+- **`?MACHINE`** - The machine name, `'BEAM'`.
 
-- **`?FUNCTION_NAME`** - The name of the current function.
+- **`?FUNCTION_NAME`** - The name of the current function, as an atom.
 
 - **`?FUNCTION_ARITY`** - The arity (number of arguments) for the current
-  function.
+  function, as an integer.
 
-- **`?OTP_RELEASE`** - The OTP release that the currently executing ERTS
-  application is part of, as an integer. For details, see
-  [`erlang:system_info(otp_release)`](`erlang:system_info/1`).
+- **`?OTP_RELEASE`** - The OTP release for the runtime system that is
+  running the compiler, as an integer. For example, when compiling using
+  Erlang/OTP 27, the macro returns `27`.
+
+  > #### Note {: .info }
+  >
+  > To find out the release at run-time, call
+  > [`erlang:system_info(otp_release)`](`erlang:system_info/1`). Note
+  > that it returns the release as a string. For example, when the
+  > release is Erlang/OTP 27, the string `"27"` will be returned.
 
   > #### Change {: .info }
   >
