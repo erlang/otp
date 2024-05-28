@@ -378,6 +378,8 @@
          traffic_send_and_recv_counters_tcp4/1,
          traffic_send_and_recv_counters_tcp6/1,
          traffic_send_and_recv_counters_tcpL/1,
+         traffic_send_and_recv_counters_sctp4/1,
+         traffic_send_and_recv_counters_sctp6/1,
          traffic_sendmsg_and_recvmsg_counters_tcp4/1,
          traffic_sendmsg_and_recvmsg_counters_tcp6/1,
          traffic_sendmsg_and_recvmsg_counters_tcpL/1,
@@ -1425,7 +1427,8 @@ traffic_counters_cases() ->
      traffic_send_and_recv_counters_tcp4,
      traffic_send_and_recv_counters_tcp6,
      traffic_send_and_recv_counters_tcpL,
-     traffic_send_and_recv_counters_tcp4,
+     traffic_send_and_recv_counters_sctp4,
+     traffic_send_and_recv_counters_sctp6,
      traffic_sendmsg_and_recvmsg_counters_tcp4,
      traffic_sendmsg_and_recvmsg_counters_tcp6,
      traffic_sendmsg_and_recvmsg_counters_tcpL,
@@ -39499,6 +39502,50 @@ traffic_send_and_recv_counters_tcpL(_Config) when is_list(_Config) ->
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default,
+                                 recv   => fun(S)    -> socket:recv(S)    end,
+                                 send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use SCTP on IPv4.
+
+traffic_send_and_recv_counters_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => sctp,
+                                 recv   => fun(S)    -> socket:recv(S)    end,
+                                 send   => fun(S, D) -> socket:send(S, D) end},
+                   ok = traffic_send_and_recv_stream(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to (simply) test that the counters
+%% for both read and write.
+%% So that its easy to extend, we use fun's for read and write.
+%% We use SCTP on IPv6.
+
+traffic_send_and_recv_counters_sctp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(15)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => sctp,
                                  recv   => fun(S)    -> socket:recv(S)    end,
                                  send   => fun(S, D) -> socket:send(S, D) end},
                    ok = traffic_send_and_recv_stream(InitState)
