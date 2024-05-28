@@ -73,12 +73,12 @@ format_line(Ls) ->
       OmissionSet :: sets:set(atom()).
 format_line([], _BlockSet0) ->
     [];
-format_line([{Tag, [], List} | Rest], BlockSet0) ->
+format_line([{Tag, Attrs, List} | Rest], BlockSet0) ->
     case format_line(List, sets:add_element(Tag, BlockSet0)) of
         [] ->
             format_line(Rest, BlockSet0);
         Ls ->
-            [{Tag, [], Ls}] ++ format_line(Rest, BlockSet0)
+            [{Tag, Attrs, Ls}] ++ format_line(Rest, BlockSet0)
     end;
 format_line([Bin | Rest], BlockSet0) when is_binary(Bin) ->
     %% Ignores formatting these elements
@@ -365,8 +365,8 @@ process_kind_block([<<">", _/binary>>=Line | Rest], Block) ->
 %%
 %% process block code
 %%
-process_kind_block([<<"```", _Line/binary>> | Rest], Block) ->
-    Block ++ process_fence_code(Rest, []);
+process_kind_block([<<"```", Line/binary>> | Rest], Block) ->
+    Block ++ process_fence_code(Rest, [], Line);
 %%
 %% New line
 %%
@@ -459,8 +459,9 @@ strip_spaces(Rest, Acc, _) ->
                               ol | li | dl | dt | dd |
                               h1 | h2 | h3 | h4 | h5 | h6.
 -type chunk_element_attrs() :: [].
--type quote() :: {blockquote,[], shell_docs:chunk_elements()}.
--type code() :: {pre, chunk_element_attrs(), [{code,[], shell_docs:chunk_elements()}]}.
+-type code_element_attrs() :: [{class,unicode:chardata()}].
+-type quote() :: {blockquote, chunk_element_attrs(), shell_docs:chunk_elements()}.
+-type code() :: {pre, chunk_element_attrs(), [{code, code_element_attrs(), shell_docs:chunk_elements()}]}.
 -type p() :: {p, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type i() :: {i, chunk_element_attrs(), shell_docs:chunk_elements()}.
 -type em() :: {em, chunk_element_attrs(), shell_docs:chunk_elements()}.
@@ -803,27 +804,30 @@ format(Format, Line0) when is_list(Line0)->
       PrevLines  :: [binary()],  %% Represent unprocessed lines.
       HtmlErlang :: shell_docs:chunk_elements().
 process_code([], Block) ->
-    [create_code(Block)];
+    [create_code(Block, [])];
 process_code([<<"    ", Line/binary>> | Rest], Block) ->
     %% process blank line followed by code
     process_code(Rest, [Line | Block]);
 process_code(Rest, Block) ->
     process_code([], Block) ++ parse_md(Rest, []).
 
-process_fence_code([], Block) ->
-    [create_code(Block)];
-process_fence_code([<<"```">> | Rest], Block) ->
+process_fence_code([], Block, Leading) ->
+    case string:trim(hd(binary:split(Leading, [~"\t", ~" "]))) of
+        <<>> -> [create_code(Block, [])];
+        Trimmed -> [create_code(Block, [{class, <<"language-", Trimmed/binary>>}])]
+    end;
+process_fence_code([<<"```">> | Rest], Block, Leading) ->
     %% close block
-    process_fence_code([], Block) ++ parse_md(Rest, []);
-process_fence_code([Line | Rest], Block) ->
+    process_fence_code([], Block, Leading) ++ parse_md(Rest, []);
+process_fence_code([Line | Rest], Block, Leading) ->
     {Stripped, _} = strip_spaces(Line, 0, infinity),
     maybe
         <<"```", RestLine/binary>> ?= Stripped,
         {<<>>, _} ?= strip_spaces(RestLine, 0, infinity),
-        process_fence_code([<<"```">> | Rest], Block)
+        process_fence_code([<<"```">> | Rest], Block, Leading)
     else
         _ ->
-            process_fence_code(Rest, [Line | Block])
+            process_fence_code(Rest, [Line | Block], Leading)
     end.
 
 -spec process_comment(Line :: [binary()]) -> [binary()].
@@ -853,14 +857,14 @@ create_paragraph(<<$\s, Line/binary>>) ->
 create_paragraph(Line) when is_binary(Line) ->
     p(Line).
 
--spec create_code(Lines :: [binary()]) -> code().
-create_code(CodeBlocks) when is_list(CodeBlocks) ->
+-spec create_code(Lines :: [binary()], code_element_attrs()) -> code().
+create_code(CodeBlocks, CodeAttrs) when is_list(CodeBlocks) ->
     %% assumes that the code block is in reverse order
     Bin = trim_and_add_new_line(CodeBlocks),
-    {pre,[], [{code,[], [Bin]}]}.
+    {pre, [], [{code, CodeAttrs, [Bin]}]}.
 
 create_table(Table) when is_list(Table) ->
-    {pre,[], [{code,[], Table}]}.
+    {pre, [], [{code, [{class, ~"table"}], Table}]}.
 
 
 -spec quote(Quote :: list()) -> quote().

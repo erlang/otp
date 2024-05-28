@@ -48,8 +48,9 @@
 
 %% fence code
 -export([single_line_fence_code_test/1, multiple_line_fence_code_test/1,
+         single_line_fence_code_no_language_test/1, single_line_fence_code_no_language_spaces_test/1,
          paragraph_between_fence_code_test/1, fence_code_ignores_link_format_test/1,
-         fence_code_with_spaces/1]).
+         fence_code_with_spaces/1, fence_code_with_tabs/1]).
 
 %% br
 -export([start_with_br_test/1, multiple_br_followed_by_paragraph_test/1,
@@ -188,9 +189,11 @@ code_tests() ->
 fence_code_tests() ->
   [single_line_fence_code_test,
    multiple_line_fence_code_test,
+   single_line_fence_code_no_language_test,
+   single_line_fence_code_no_language_spaces_test,
    paragraph_between_fence_code_test,
    fence_code_ignores_link_format_test,
-   fence_code_with_spaces
+   fence_code_with_spaces, fence_code_with_tabs
   ].
 
 br_tests() ->
@@ -492,7 +495,7 @@ single_line_fence_code_test(_Conf) ->
 ```erlang
 test() -> ok.
 ```",
-    Result = [ code(~"test() -> ok.\n")],
+    Result = [ code(~"test() -> ok.\n", [{class, ~"language-erlang"}])],
     compile_and_compare(Input, Result).
 
 multiple_line_fence_code_test(_Conf) ->
@@ -501,9 +504,24 @@ multiple_line_fence_code_test(_Conf) ->
 test() ->
   ok.
 ```",
-    Result = [ code(~"test() ->\n  ok.\n")],
+    Result = [ code(~"test() ->\n  ok.\n", [{class, ~"language-erlang"}])],
     compile_and_compare(Input, Result).
 
+single_line_fence_code_no_language_test(_Conf) ->
+    Input = ~"
+```
+test() -> ok.
+```",
+    Result = [ code(~"test() -> ok.\n")],
+    compile_and_compare(Input, Result).
+
+single_line_fence_code_no_language_spaces_test(_Conf) ->
+    Input = ~"
+```\s\s
+test() -> ok.
+```",
+    Result = [ code(~"test() -> ok.\n")],
+    compile_and_compare(Input, Result).
 
 paragraph_between_fence_code_test(_Conf) ->
     Input = ~"This is a test:
@@ -512,7 +530,7 @@ test() ->
   ok.
 ```",
     Result = [p(~"This is a test:"),
-                         code(~"test() ->\n  ok.\n")],
+                         code(~"test() ->\n  ok.\n", [{class, ~"language-erlang"}])],
     compile_and_compare(Input, Result).
 
 fence_code_ignores_link_format_test(_Conf) ->
@@ -521,15 +539,23 @@ fence_code_ignores_link_format_test(_Conf) ->
 [foo](bar)
 ```",
     Result = [p(~"This is a test:"),
-              code(~"[foo](bar)\n")],
+              code(~"[foo](bar)\n", [{class, ~"language-erlang"}])],
     compile_and_compare(Input, Result).
 
 fence_code_with_spaces(_Config) ->
     Input =
-~"  ```erlang
+~"  ```erlang\s\s
   [foo](bar)
 ```",
-    Result = [code(~"  [foo](bar)\n")],
+    Result = [code(~"  [foo](bar)\n", [{class, ~"language-erlang"}])],
+    compile_and_compare(Input, Result).
+
+fence_code_with_tabs(_Config) ->
+    Input =
+~"  ```erlang\ttrailing
+  [foo](bar)
+```",
+    Result = [code(~"  [foo](bar)\n", [{class, ~"language-erlang"}])],
     compile_and_compare(Input, Result).
 
 start_with_br_test(_Conf) ->
@@ -1019,10 +1045,14 @@ header(Level, Text) when is_integer(Level) ->
     {HeadingLevelAtom, [], [Text]}.
 
 code(X) ->
-    {pre,[],[inline_code(X)]}.
+    code(X, []).
+code(X, Attrs) when is_list(X) ->
+    {pre,[],[{code,Attrs,X}]};
+code(X, Attrs) ->
+    {pre,[],[{code,Attrs,[X]}]}.
 
 table(Table) when is_list(Table) ->
-    {pre,[], [inline_code(Table)]}.
+    {pre,[], [{code, [{class, ~"table"}], Table}]}.
 
 inline_code(X) when is_list(X) ->
     {code,[],X};
