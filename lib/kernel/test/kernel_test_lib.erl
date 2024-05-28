@@ -2436,7 +2436,8 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             %% We always check the system events
                             %% before we accept a failure.
                             %% We do *not* run the Post here because it might
-                            %% generate sys events itself...
+                            %% generate sys events itself...wait until after
+                            %% events has been checked.
                             case kernel_test_global_sys_monitor:events() of
                                 [] ->
                                     tc_print("test case failed: try post"),
