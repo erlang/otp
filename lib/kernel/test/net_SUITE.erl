@@ -413,7 +413,22 @@ api_b_getservbyname() ->
                            end
                    end),
     {ok, 161}  = net:getservbyname("snmp", udp),
-    not_on_windows(fun() -> {ok, 161}  = net:getservbyname("snmp", tcp) end),
+    not_on_windows(fun() ->
+                           case net:getservbyname("snmp", tcp) of
+                               {ok, 161} ->
+                                   ok;
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, openbsd} 
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"snmp", tcp, Reason})
+                                   end
+                           end
+                   end),
     not_on_windows(fun() -> {ok, 4369} = net:getservbyname("epmd", tcp) end),
     not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", tcp) end),
     not_on_windows(fun() ->
@@ -428,14 +443,14 @@ api_b_getservbyname() ->
                                        _ ->
                                            ?P("Unexpected failure: ~p",
                                               [Reason]),
-                                           ?FAIL({"amap", udp, Reason})
+                                           ?FAIL({"amqp", udp, Reason})
                                    end
                            end
                    end),
 
     ?P("A couple of (expected) failures"),
     {error, einval} = net:getservbyname("gurka", tcp),
-    case net:getservbyname("http",  gurka) of
+    case net:getservbyname("http", gurka) of
         {error, einval} ->
             ok;
         {ok, 80} ->
@@ -472,25 +487,52 @@ api_b_getservbyport(_Config) when is_list(_Config) ->
 
 api_b_getservbyport() ->
     ?P("A couple of (expected) successes"),
-    {ok, "http"} = net:getservbyport(80),
-    {ok, "http"} = net:getservbyport(80,   any),
-    {ok, "http"} = net:getservbyport(80,   tcp),
+    case net:getservbyport(80) of
+        {ok, "http"} ->
+            ok;
+        {ok, "www"} ->
+            ok;
+        {ok, OtherSrv1} ->
+            ?FAIL({unexpected_service, 80, default, OtherSrv1});
+        {error, Reason1} ->
+            ?FAIL({unexpected_failure, 80, default, Reason1})
+    end,
+    case net:getservbyport(80, any) of
+        {ok, "http"} ->
+            ok;
+        {ok, "www"} ->
+            ok;
+        {ok, OtherSrv2} ->
+            ?FAIL({unexpected_service, 80, any, OtherSrv2});
+        {error, Reason2} ->
+            ?FAIL({unexpected_failure, 80, any, Reason2})
+    end,
+    case net:getservbyport(80, tcp) of
+        {ok, "http"} ->
+            ok;
+        {ok, "www"} ->
+            ok;
+        {ok, OtherSrv3} ->
+            ?FAIL({unexpected_service, 80, tcp, OtherSrv3});
+        {error, Reason3} ->
+            ?FAIL({unexpected_failure, 80, tcp, Reason3})
+    end,
     not_on_windows(fun() ->
                            case net:getservbyport(80,   udp) of
                                {ok, STR} when (STR =:= "http") orelse
                                               (STR =:= "www") orelse
                                               (STR =:= "WWW") -> ok;
-                               {error, Reason} ->
+                               {error, Reason4} ->
                                    case os:type() of
                                        {unix, linux}
-                                         when (Reason =:= einval) ->
+                                         when (Reason4 =:= einval) ->
                                            %% This happens on some linux
                                            %% (Ubuntu 22 on Parallels ARM VM)
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
-                                              [Reason]),
-                                           ?FAIL({80, udp, Reason})
+                                              [Reason4]),
+                                           ?FAIL({80, udp, Reason4})
                                    end
                            end
                    end),
@@ -510,7 +552,7 @@ api_b_getservbyport() ->
                                        _ ->
                                            ?P("Unexpected failure: ~p",
                                               [Reason]),
-                                           ?FAIL({"amap", sctp, Reason})
+                                           ?FAIL({"amqp", sctp, Reason})
                                    end
                            end
                    end),
