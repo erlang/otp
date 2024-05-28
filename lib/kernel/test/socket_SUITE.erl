@@ -395,6 +395,8 @@
          traffic_send_and_recv_chunks_tcp4/1,
          traffic_send_and_recv_chunks_tcp6/1,
          traffic_send_and_recv_chunks_tcpL/1,
+         traffic_send_and_recv_chunks_sctp4/1,
+         traffic_send_and_recv_chunks_sctp6/1,
 
          traffic_ping_pong_small_send_and_recv_tcp4/1,
          traffic_ping_pong_small_send_and_recv_tcp6/1,
@@ -1446,7 +1448,9 @@ traffic_chunks_cases() ->
     [
      traffic_send_and_recv_chunks_tcp4,
      traffic_send_and_recv_chunks_tcp6,
-     traffic_send_and_recv_chunks_tcpL
+     traffic_send_and_recv_chunks_tcpL,
+     traffic_send_and_recv_chunks_sctp4,
+     traffic_send_and_recv_chunks_sctp6
     ].
 
 traffic_ping_pong_cases() ->
@@ -41750,16 +41754,16 @@ traffic_send_and_recv_udp(InitState) ->
 %% behave as expected when sending and/or reading chunks.
 %% First send data in one "big" chunk, and read it in "small" chunks.
 %% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
-%% Socket is IPv4.
+%% Protocol is tcp and Domain is IPv4.
 
 traffic_send_and_recv_chunks_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(traffic_send_and_recv_chunks_tcp4,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv4() end,
            fun() ->
                    InitState = #{domain => inet,
                                  proto  => tcp},
-                   ok = traffic_send_and_recv_chunks_tcp(InitState)
+                   ok = traffic_send_and_recv_chunks_stream(InitState)
            end).
 
 
@@ -41769,16 +41773,16 @@ traffic_send_and_recv_chunks_tcp4(_Config) when is_list(_Config) ->
 %% behave as expected when sending and/or reading chunks.
 %% First send data in one "big" chunk, and read it in "small" chunks.
 %% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
-%% Socket is IPv6.
+%% Protocol is tcp and Domain is IPv6.
 
 traffic_send_and_recv_chunks_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(traffic_send_and_recv_chunks_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain => inet6,
                                  proto  => tcp},
-                   ok = traffic_send_and_recv_chunks_tcp(InitState)
+                   ok = traffic_send_and_recv_chunks_stream(InitState)
            end).
 
 
@@ -41787,22 +41791,66 @@ traffic_send_and_recv_chunks_tcp6(_Config) when is_list(_Config) ->
 %% behave as expected when sending and/or reading chunks.
 %% First send data in one "big" chunk, and read it in "small" chunks.
 %% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
-%% Socket is UNix Domain (Stream) socket.
+%% Protocol is 'default' and Domain is UNix Domain (Stream).
 
 traffic_send_and_recv_chunks_tcpL(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(traffic_send_and_recv_chunks_tcp6,
+    tc_try(?FUNCTION_NAME,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
                    InitState = #{domain => local,
                                  proto  => default},
-                   ok = traffic_send_and_recv_chunks_tcp(InitState)
+                   ok = traffic_send_and_recv_chunks_stream(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% behave as expected when sending and/or reading chunks.
+%% First send data in one "big" chunk, and read it in "small" chunks.
+%% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
+%% Protocol is SCTP and Domain is IPv4.
 
-traffic_send_and_recv_chunks_tcp(InitState) ->
+traffic_send_and_recv_chunks_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet,
+                                 proto  => sctp},
+                   ok = traffic_send_and_recv_chunks_stream(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This test case is intended to test that the send and recv functions
+%% behave as expected when sending and/or reading chunks.
+%% First send data in one "big" chunk, and read it in "small" chunks.
+%% Second, send in a bunch of "small" chunks, and read in one "big" chunk.
+%% Protocol is SCTP and Domain is IPv6.
+
+traffic_send_and_recv_chunks_sctp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_sctp()
+           end,
+           fun() ->
+                   InitState = #{domain => inet6,
+                                 proto  => sctp},
+                   ok = traffic_send_and_recv_chunks_stream(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+traffic_send_and_recv_chunks_stream(InitState) ->
     ServerSeq =
         [
          %% *** Wait for start order part ***
