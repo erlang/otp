@@ -7789,12 +7789,6 @@ has_support_ipv6() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% not_supported(What) ->
-%%     skip({not_supported, What}).
-
-%% not_yet_implemented() ->
-%%     skip("not yet implemented").
-
 skip(Reason) ->
     throw({skip, Reason}).
 
