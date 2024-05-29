@@ -38437,6 +38437,8 @@ traffic_send_and_recv_stream(InitState) ->
                                    {ok, State#{lsock => Sock}};
                                {error, eafnosupport = Reason} ->
                                    {skip, Reason};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -40568,6 +40570,8 @@ traffic_send_and_recv_chunks_stream(InitState) ->
                            case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -42908,6 +42912,8 @@ traffic_ping_pong_send_and_receive_stream2(InitState) ->
                            case socket:open(Domain, stream, Proto) of
                                {ok, Sock} ->
                                    {ok, State#{lsock => Sock}};
+                               {error, eprotonosupport = Reason} ->
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
