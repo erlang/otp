@@ -1038,7 +1038,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
         if (!maybe_immediate.isNil()) {
             mov_arg(ARG4, maybe_immediate);
             preserve_cache([&]() {
-                emit_is_not_boxed(update, ARG4, dShort);
+                emit_is_boxed(update, ARG4, dShort);
             });
         }
 

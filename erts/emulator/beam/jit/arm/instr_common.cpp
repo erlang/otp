@@ -1033,7 +1033,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 
         if (!maybe_immediate.isNil()) {
             auto value = load_source(maybe_immediate, ARG5);
-            emit_is_not_boxed(update, value.reg);
+            emit_is_boxed(update, value.reg);
         }
 
         a.ldr(ARG4, arm::Mem(c_p, offsetof(Process, high_water)));
