@@ -184,7 +184,7 @@ For more information about configuration parameters, see file
 
   See section [SASL Error Logging](`e:sasl:error_logging.md`) in the SASL User's
   Guide, and section
-  [Backwards Compatibility with error_logger](logger_chapter.md#compatibility)
+  [Backwards Compatibility with error_logger](logger_chapter.md#backwards-compatibility-with-error_logger)
   in the Kernel User's Guide for information about the SASL error logging
   functionality, and how Logger can be backwards compatible with this.
 
@@ -519,5 +519,5 @@ set.
   erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatter,#{legacy_header=>true,template=>[{logger_formatter,header},"\n",msg,"\n"],depth=>10}}}]'
   ```
 
-See [Backwards compatibility with error_logger](logger_chapter.md#compatibility)
+See [Backwards compatibility with error_logger](logger_chapter.md#backwards-compatibility-with-error_logger)
 for more information.

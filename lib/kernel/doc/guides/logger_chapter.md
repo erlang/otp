@@ -80,7 +80,7 @@ Log levels are expressed as atoms. Internally in Logger, the atoms are mapped to
 integer values, and a log event passes the log level check if the integer value
 of its log level is less than or equal to the currently configured log level.
 That is, the check passes if the event is equally or more severe than the
-configured level. See section [Log Level](logger_chapter.md#log_level) for a
+configured level. See section [Log Level](#log-level) for a
 listing and description of all log levels.
 
 The primary log level can be overridden by a log level configured per module.
@@ -90,20 +90,18 @@ system.
 Filter functions can be used for more sophisticated filtering than the log level
 check provides. A filter function can stop or pass a log event, based on any of
 the event's contents. It can also modify all parts of the log event. See section
-[Filters](logger_chapter.md#filters) for more details.
+[Filters](#filters) for more details.
 
 If a log event passes through all primary filters and all handler filters for a
 specific handler, Logger forwards the event to the _handler callback_. The
 handler formats and prints the event to its destination. See section
-[Handlers](logger_chapter.md#handlers) for more details.
+[Handlers](#handlers) for more details.
 
 Everything up to and including the call to the handler callbacks is executed on
 the client process, that is, the process where the log event was issued. It is
 up to the handler implementation if other processes are involved or not.
 
 The handlers are called in sequence, and the order is not defined.
-
-[](){: #logger_api }
 
 ## Logger API
 
@@ -122,8 +120,6 @@ The difference between using the macros and the exported functions is that
 macros add location (originator) information to the metadata, and performs lazy
 evaluation by wrapping the logger call in a case statement, so it is only
 evaluated if the log level of the event passes the primary log level check.
-
-[](){: #log_level }
 
 ### Log Level
 
@@ -149,8 +145,6 @@ Notice that the integer value is only used internally in Logger. In the API, you
 must always use the atom. To compare the severity of two log levels, use
 `logger:compare_levels/2`.
 
-[](){: #log_message }
-
 ### Log Message
 
 The log message contains the information to be logged. The message can consist
@@ -159,13 +153,13 @@ API), a string or a report.
 
 Example, format string and arguments:
 
-```text
+```erlang
 logger:error("The file does not exist: ~ts",[Filename])
 ```
 
 Example, string:
 
-```text
+```erlang
 logger:notice("Something strange happened!")
 ```
 
@@ -175,13 +169,13 @@ the log event as it needs to.
 
 Example, report:
 
-```text
+```erlang
 ?LOG_ERROR(#{ user => joe, filename => Filename, reason => enoent })
 ```
 
 Reports can be accompanied by a _report callback_ specified in the log event's
-[metadata](logger_chapter.md#metadata). The report callback is a convenience
-function that the [formatter](logger_chapter.md#formatters) can use to convert
+[metadata](#metadata). The report callback is a convenience
+function that the [formatter](#formatters) can use to convert
 the report to a format string and arguments, or directly to a string. The
 formatter can also use its own conversion function, if no callback is provided,
 or if a customized formatting is desired.
@@ -249,8 +243,6 @@ See the description of the `t:logger:metadata/0` type for information about
 which default keys Logger inserts, and how the different metadata maps are
 merged.
 
-[](){: #filter }
-
 ## Filters
 
 Filters can be primary, or attached to a specific handler. Logger calls the
@@ -294,12 +286,12 @@ Logger forwards the event to the handler callback. If `filter_default` is set to
 
 Primary filters are added with `logger:add_primary_filter/2` and removed with
 `logger:remove_primary_filter/1`. They can also be added at system start via the
-Kernel configuration parameter [`logger`](logger_chapter.md#logger_parameter).
+Kernel configuration parameter [`logger`](#logger_parameter).
 
 Handler filters are added with `logger:add_handler_filter/3` and removed with
 `logger:remove_handler_filter/2`. They can also be specified directly in the
 configuration when adding a handler with `logger:add_handler/3` or via the
-Kernel configuration parameter [`logger`](logger_chapter.md#logger_parameter).
+Kernel configuration parameter [`logger`](#logger_parameter).
 
 To see which filters are currently installed in the system, use
 `logger:get_config/0`, or `logger:get_primary_config/0` and
@@ -399,9 +391,9 @@ information about this module.
 
 At system start, Logger is configured through Kernel configuration parameters.
 The parameters that apply to Logger are described in section
-[Kernel Configuration Parameters](logger_chapter.md#kernel_config_params).
+[Kernel Configuration Parameters](#kernel-configuration-parameters).
 Examples are found in section
-[Configuration Examples](logger_chapter.md#config_examples).
+[Configuration Examples](#configuration-examples).
 
 During runtime, Logger configuration is changed via API functions. See section
 [Configuration API Functions](`m:logger#configuration-api-functions`) in the `m:logger`
@@ -419,16 +411,16 @@ Logger API functions that apply to the primary Logger configuration are:
 
 The primary Logger configuration is a map with the following keys:
 
-- **`level = `{: #primary_level }`t:logger:level/0`` | all | none`** - Specifies
+- **`level = `{: #primary_level }`t:logger:level/0` ` | all | none`** - Specifies
   the primary log level, that is, log event that are equally or more severe than
   this level, are forwarded to the primary filters. Less severe log events are
   immediately discarded.
 
-  See section [Log Level](logger_chapter.md#log_level) for a listing and
+  See section [Log Level](#log-level) for a listing and
   description of possible log levels.
 
   The initial value of this option is set by the Kernel configuration parameter
-  [`logger_level`](logger_chapter.md#logger_level). It is changed during runtime
+  [`logger_level`](#logger_level). It is changed during runtime
   with
   [`logger:set_primary_config(level,Level)`](`logger:set_primary_config/2`).
 
@@ -440,11 +432,11 @@ The primary Logger configuration is a map with the following keys:
   - `Filter = ``t:logger:filter/0`
 
   The initial value of this option is set by the Kernel configuration parameter
-  [`logger`](logger_chapter.md#logger_parameter). During runtime, primary
+  [`logger`](#logger_parameter). During runtime, primary
   filters are added and removed with `logger:add_primary_filter/2` and
   `logger:remove_primary_filter/1`, respectively.
 
-  See section [Filters](logger_chapter.md#filters) for more detailed
+  See section [Filters](#filters) for more detailed
   information.
 
   Defaults to `[]`.
@@ -452,7 +444,7 @@ The primary Logger configuration is a map with the following keys:
 - **`filter_default = log | stop`** - Specifies what happens to a log event if
   all filters return `ignore`, or if no filters exist.
 
-  See section [Filters](logger_chapter.md#filters) for more information about
+  See section [Filters](#filters) for more information about
   how this option is used.
 
   Defaults to `log`.
@@ -460,12 +452,10 @@ The primary Logger configuration is a map with the following keys:
 - **`metadata = `[`metadata()`](`t:logger:metadata/0`)** - The primary metadata
   to be used for all log calls.
 
-  See section [Metadata](logger_chapter.md#metadata) for more information about
+  See section [Metadata](#metadata) for more information about
   how this option is used.
 
   Defaults to `#{}`.
-
-[](){: #handler_configuration }
 
 ### Handler Configuration
 
@@ -492,7 +482,7 @@ The configuration for a handler is a map with the following keys:
   the handler, that is, log events that are equally or more severe than this
   level, are forwarded to the handler filters for this handler.
 
-  See section [Log Level](logger_chapter.md#log_level) for a listing and
+  See section [Log Level](#log-level) for a listing and
   description of possible log levels.
 
   The log level is specified when adding the handler, or changed during runtime
@@ -510,14 +500,14 @@ The configuration for a handler is a map with the following keys:
   during runtime with `logger:add_handler_filter/3` and
   `logger:remove_handler_filter/2`, respectively.
 
-  See [Filters](logger_chapter.md#filters) for more detailed information.
+  See [Filters](#filters) for more detailed information.
 
   Defaults to `[]`.
 
 - **`filter_default = log | stop`** - Specifies what happens to a log event if
   all filters return `ignore`, or if no filters exist.
 
-  See section [Filters](logger_chapter.md#filters) for more information about
+  See section [Filters](#filters) for more information about
   how this option is used.
 
   Defaults to `log`.
@@ -535,7 +525,7 @@ The configuration for a handler is a map with the following keys:
   the complete formatter information can be overwritten with, for instance,
   `logger:set_handler_config/3`.
 
-  See section [Formatters](logger_chapter.md#formatters) for more detailed
+  See section [Formatters](#formatters) for more detailed
   information.
 
   Defaults to `{logger_formatter,DefaultFormatterConfig}`. See the
@@ -553,21 +543,19 @@ Notice that `level` and `filters` are obeyed by Logger itself before forwarding
 the log events to each handler, while `formatter` and all handler specific
 options are left to the handler implementation.
 
-[](){: #kernel_config_params }
-
 ### Kernel Configuration Parameters
 
 The following Kernel configuration parameters apply to Logger:
 
 - **`logger = [Config]`{: #logger_parameter }** - Specifies the configuration
   for [Logger](`m:logger`), except the primary log level, which is specified
-  with [`logger_level`](logger_chapter.md#logger_level), and the compatibility
+  with [`logger_level`](#logger_level), and the compatibility
   with [SASL Error Logging](`e:sasl:error_logging.md`), which is specified with
-  [`logger_sasl_compatible`](logger_chapter.md#logger_sasl_compatible).
+  [`logger_sasl_compatible`](#logger_sasl_compatible).
 
   With this parameter, you can modify or disable the default handler, add custom
   handlers and primary logger filters, set log levels per module, and modify the
-  [proxy](logger_chapter.md#proxy) configuration.
+  [proxy](#logger-proxy) configuration.
 
   `Config` is any (zero or more) of the following:
 
@@ -618,7 +606,7 @@ The following Kernel configuration parameters apply to Logger:
     for each `Filter`.
 
     `FilterDefault` specifies the behaviour if all primary filters return
-    `ignore`, see section [Filters](logger_chapter.md#filters).
+    `ignore`, see section [Filters](#filters).
 
     Only one entry of this type is allowed.
 
@@ -643,7 +631,7 @@ The following Kernel configuration parameters apply to Logger:
 
     Only one entry of this type is allowed.
 
-  See section [Configuration Examples](logger_chapter.md#config_examples) for
+  See section [Configuration Examples](#configuration-examples) for
   examples using the `logger` parameter for system configuration.
 
 - **`logger_metadata = map()`{: #logger_metadata }** - Specifies the primary
@@ -659,8 +647,6 @@ The following Kernel configuration parameters apply to Logger:
   [SASL Error Logging](`e:sasl:error_logging.md`). See the
   [`kernel(6)`](kernel_app.md#logger_sasl_compatible) manual page for more
   information about this parameter.
-
-[](){: #config_examples }
 
 ### Configuration Examples
 
@@ -722,8 +708,6 @@ Modify the default handler to only print errors and more severe log events to
     ]}]}].
 ```
 
-[](){: #compatibility }
-
 ## Backwards Compatibility with error_logger
 
 Logger provides backwards compatibility with `error_logger` in the following
@@ -741,7 +725,7 @@ ways:
   contains the actual log message, and `Metadata` contains additional
   information which can be used for creating backwards compatible events for
   legacy `error_logger` event handlers, see section
-  [Legacy Event Handlers](logger_chapter.md#legacy_event_handlers).
+  [Legacy Event Handlers](#legacy_event_handlers).
 
 - **Output Format** - To get log events on the same format as produced by
   `error_logger_tty_h` and `error_logger_file_h`, use the default formatter,
@@ -777,7 +761,7 @@ ways:
   - Progress reports are issued as `info` level log events, and since the
     default primary log level is `notice`, these are not logged by default. To
     enable printing of progress reports, set the
-    [primary log level](logger_chapter.md#primary_level) to `info`.
+    [primary log level](#primary_level) to `info`.
   - The output format is the same for all log events.
 
   If the old behaviour is preferred, the Kernel configuration parameter
@@ -831,7 +815,7 @@ in question from the configuration, and print a short error message to the
 terminal. A debug event containing the crash reason and other details is also
 issued.
 
-See section [Log Message](logger_chapter.md#log_message) for more information
+See section [Log Message](#log-message) for more information
 about report callbacks and valid forms of log messages.
 
 ## Example: Add a handler to log info events to file
@@ -885,7 +869,7 @@ all non-info events. The built-in filter `logger_filters:level/2` can do this:
 ok
 ```
 
-See section [Filters](logger_chapter.md#filters) for more information about the
+See section [Filters](#filters) for more information about the
 filters and the `filter_default` configuration parameter.
 
 ## Example: Implement a handler
@@ -942,7 +926,7 @@ Notice that the above handler does not have any overload protection, and all log
 events are printed directly from the client process.
 
 For information and examples of overload protection, please refer to section
-[Protecting the Handler from Overload](logger_chapter.md#overload_protection),
+[Protecting the Handler from Overload](#overload_protection),
 and the implementation of `m:logger_std_h` and
 [`logger_disk_log_h` ](`m:logger_disk_log_h`).
 
@@ -1007,7 +991,7 @@ actions, exist:
 - **`sync_mode_qlen`** - As long as the length of the message queue is lower
   than this value, all log events are handled asynchronously. This means that
   the client process sending the log event, by calling a log function in the
-  [Logger API](logger_chapter.md#logger_api), does not wait for a response from
+  [Logger API](#logger-api), does not wait for a response from
   the handler but continues executing immediately after the event is sent. It is
   not affected by the time it takes the handler to print the event to the log
   device. If the message queue grows larger than this value, the handler starts
@@ -1169,8 +1153,6 @@ place, and the handler is back in action.
 > information about how to limit the size of log events, see the
 > `m:logger_formatter` manual page.
 
-[](){: #proxy }
-
 ## Logger Proxy
 
 The Logger proxy is an Erlang process which is part of the Kernel application's
@@ -1188,7 +1170,7 @@ When receiving a log event, either from the emulator or from a remote node, the
 proxy calls the Logger API to log the event.
 
 The proxy process is overload protected in the same way as described in section
-[Protecting the Handler from Overload](logger_chapter.md#overload_protection),
+[Protecting the Handler from Overload](#overload_protection),
 but with the following default values:
 
 ```erlang
