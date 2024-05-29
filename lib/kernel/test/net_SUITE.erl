@@ -398,6 +398,8 @@ api_b_getservbyname() ->
                            case net:getservbyname("www", udp) of
                                {ok, 80} ->
                                    ok;
+                               {ok, WrongPort} ->
+                                   wrong_port("www", tcp, WrongPort, 80);
                                {error, Reason} ->
                                    case os:type() of
                                        {unix, linux}
@@ -417,6 +419,8 @@ api_b_getservbyname() ->
                            case net:getservbyname("snmp", tcp) of
                                {ok, 161} ->
                                    ok;
+                               {ok, WrongPort} ->
+                                   wrong_port("snmp", tcp, WrongPort, 161);
                                {error, Reason} ->
                                    case os:type() of
                                        {unix, openbsd} 
@@ -429,21 +433,60 @@ api_b_getservbyname() ->
                                    end
                            end
                    end),
-    not_on_windows(fun() -> {ok, 4369} = net:getservbyname("epmd", tcp) end),
-    not_on_windows(fun() -> {ok, 5672} = net:getservbyname("amqp", tcp) end),
     not_on_windows(fun() ->
-                           case net:getservbyname("amqp", sctp) of
-                               {ok, 5672} ->
+                           case net:getservbyname("epmd", tcp) of
+                               {ok, 4369} ->
                                    ok;
+                               {ok, WrongPort} ->
+                                   wrong_port("epmd", tcp, WrongPort, 4369);
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, darwin}
+                                       {unix, openbsd} 
                                          when (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
                                               [Reason]),
-                                           ?FAIL({"amqp", udp, Reason})
+                                           ?FAIL({"epmd", tcp, Reason})
+                                   end
+                           end
+                   end),
+    not_on_windows(fun() ->
+                           case net:getservbyname("amqp", tcp) of
+                               {ok, 5672} ->
+                                   ok;
+                               {ok, WrongPort} ->
+                                   wrong_port("amqp", tcp, WrongPort, 5672);
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, openbsd} 
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"amqp", tcp, Reason})
+                                   end
+                           end
+                   end),
+    not_on_windows(fun() ->
+                           case net:getservbyname("amqp", sctp) of
+                               {ok, 5672} ->
+                                   ok;
+                               {ok, WrongPort} ->
+                                   wrong_port("amqp", sctp, WrongPort, 5672);
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, darwin}
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       {unix, openbsd}
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({"amqp", sctp, Reason})
                                    end
                            end
                    end),
@@ -493,7 +536,7 @@ api_b_getservbyport() ->
         {ok, "www"} ->
             ok;
         {ok, OtherSrv1} ->
-            ?FAIL({unexpected_service, 80, default, OtherSrv1});
+            wrong_service(80, default, OtherSrv1, ["http", "www"]);
         {error, Reason1} ->
             ?FAIL({unexpected_failure, 80, default, Reason1})
     end,
@@ -503,7 +546,7 @@ api_b_getservbyport() ->
         {ok, "www"} ->
             ok;
         {ok, OtherSrv2} ->
-            ?FAIL({unexpected_service, 80, any, OtherSrv2});
+            wrong_service(80, any, OtherSrv2, ["http", "www"]);
         {error, Reason2} ->
             ?FAIL({unexpected_failure, 80, any, Reason2})
     end,
@@ -513,7 +556,7 @@ api_b_getservbyport() ->
         {ok, "www"} ->
             ok;
         {ok, OtherSrv3} ->
-            ?FAIL({unexpected_service, 80, tcp, OtherSrv3});
+            wrong_service(80, tcp, OtherSrv3, ["http", "www"]);
         {error, Reason3} ->
             ?FAIL({unexpected_failure, 80, tcp, Reason3})
     end,
@@ -522,6 +565,10 @@ api_b_getservbyport() ->
                                {ok, STR} when (STR =:= "http") orelse
                                               (STR =:= "www") orelse
                                               (STR =:= "WWW") -> ok;
+                               {ok, WrongService} ->
+                                   wrong_service(80, udp,
+                                                 WrongService,
+                                                 ["http", "www"]);
                                {error, Reason4} ->
                                    case os:type() of
                                        {unix, linux}
@@ -537,13 +584,70 @@ api_b_getservbyport() ->
                            end
                    end),
     {ok, "snmp"} = net:getservbyport(161,  udp),
-    not_on_windows(fun() -> {ok, "snmp"} = net:getservbyport(161,  tcp) end),
-    not_on_windows(fun() -> {ok, "epmd"} = net:getservbyport(4369, tcp) end),
-    not_on_windows(fun() -> {ok, "amqp"} = net:getservbyport(5672, tcp) end),
+    not_on_windows(fun() ->
+                           case net:getservbyport(161, tcp) of
+                               {ok, "snmp"} ->
+                                   ok;
+                               {ok, WrongService} ->
+                                   wrong_service(161, tcp,
+                                                 WrongService, "snmp");
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, openbsd} 
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({161, tcp, Reason})
+                                   end
+                           end
+                   end),
+    not_on_windows(fun() ->
+                           case net:getservbyport(4369, tcp) of
+                               {ok, "epmd"} ->
+                                   ok;
+                               {ok, WrongService} ->
+                                   wrong_service(4369, tcp,
+                                                 WrongService, "epmd");
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, openbsd} 
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({4369, tcp, Reason})
+                                   end
+                           end
+                   end),
+    not_on_windows(fun() ->
+                           case net:getservbyport(5672, tcp) of
+                               {ok, "amqp"} ->
+                                   ok;
+                               {ok, WrongService} ->
+                                   wrong_service(5672, tcp,
+                                                 WrongService, "amqp");
+                               {error, Reason} ->
+                                   case os:type() of
+                                       {unix, openbsd} 
+                                         when (Reason =:= einval) ->
+                                           ok;
+                                       _ ->
+                                           ?P("Unexpected failure: ~p",
+                                              [Reason]),
+                                           ?FAIL({5672, tcp, Reason})
+                                   end
+                           end
+                   end),
     not_on_windows(fun() ->
                            case net:getservbyport(5672, sctp) of
                                {ok, "amqp"} ->
                                    ok;
+                               {ok, WrongService} ->
+                                   wrong_service(5672, sctp,
+                                                 WrongService, "amqp");
                                {error, Reason} ->
                                    case os:type() of
                                        {unix, darwin}
@@ -1030,6 +1134,12 @@ which_local_addr(Domain) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+wrong_port(Service, Proto, WrongPort, RightPort) ->
+    ?FAIL({Service, Proto, {wrong_port, WrongPort, RightPort}}).
+
+wrong_service(Port, Proto, WrongService, RightService) ->
+    ?FAIL({Port, Proto, {wrong_service, WrongService, RightService}}).
 
 %% not_yet_implemented() ->
 %%     skip("not yet implemented").
