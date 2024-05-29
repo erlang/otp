@@ -1575,44 +1575,44 @@ format_counters(Prefix, traffic, Counters) ->
     WritePkgMax = maps:get(write_pkg_max, Counters, -1),
     WriteTries  = maps:get(write_tries,   Counters, -1),
     WriteWaits  = maps:get(write_waits,   Counters, -1),
-    f("~n~sNumber Of Read Bytes:     ~p"
-      "~n~sNumber Of Read Fails:     ~p"
-      "~n~sNumber Of Read Packages:  ~p"
-      "~n~sNumber Of Read Tries:     ~p"
-      "~n~sNumber Of Read Waits:     ~p"
-      "~n~sMax Read Package Size:    ~p"
-      "~n~sNumber Of Write Bytes:    ~p"
-      "~n~sNumber Of Write Fails:    ~p"
-      "~n~sNumber Of Write Packages: ~p"
-      "~n~sNumber Of Write Tries:    ~p"
-      "~n~sNumber Of Write Waits:    ~p"
-      "~n~sMax Write Package Size:   ~p",
-      [Prefix, ReadByte,
-       Prefix, ReadFails,
-       Prefix, ReadPkg,
-       Prefix, ReadTries,
-       Prefix, ReadWaits,
-       Prefix, ReadPkgMax,
-       Prefix, WriteByte,
-       Prefix, WriteFails,
-       Prefix, WritePkg,
-       Prefix, WriteTries,
-       Prefix, WriteWaits,
-       Prefix, WritePkgMax]);
+    ?F("~n~sNumber Of Read Bytes:     ~p"
+       "~n~sNumber Of Read Fails:     ~p"
+       "~n~sNumber Of Read Packages:  ~p"
+       "~n~sNumber Of Read Tries:     ~p"
+       "~n~sNumber Of Read Waits:     ~p"
+       "~n~sMax Read Package Size:    ~p"
+       "~n~sNumber Of Write Bytes:    ~p"
+       "~n~sNumber Of Write Fails:    ~p"
+       "~n~sNumber Of Write Packages: ~p"
+       "~n~sNumber Of Write Tries:    ~p"
+       "~n~sNumber Of Write Waits:    ~p"
+       "~n~sMax Write Package Size:   ~p",
+       [Prefix, ReadByte,
+        Prefix, ReadFails,
+        Prefix, ReadPkg,
+        Prefix, ReadTries,
+        Prefix, ReadWaits,
+        Prefix, ReadPkgMax,
+        Prefix, WriteByte,
+        Prefix, WriteFails,
+        Prefix, WritePkg,
+        Prefix, WriteTries,
+        Prefix, WriteWaits,
+        Prefix, WritePkgMax]);
 
 format_counters(Prefix, listen, Counters) ->
     AccSuccess = maps:get(acc_success, Counters, -1),
     AccFails   = maps:get(acc_fails,   Counters, -1),
     AccTries   = maps:get(acc_tries,   Counters, -1),
     AccWaits   = maps:get(acc_waits,   Counters, -1),
-    f("~n~sNumber Of Successful Accepts: ~p"
-      "~n~sNumber Of Failed Accepts:     ~p"
-      "~n~sNumber Of Accept Attempts:    ~p"
-      "~n~sNumber Of Accept Waits:       ~p",
-      [Prefix, AccSuccess,
-       Prefix, AccFails,
-       Prefix, AccTries,
-       Prefix, AccWaits]).
+    ?F("~n~sNumber Of Successful Accepts: ~p"
+       "~n~sNumber Of Failed Accepts:     ~p"
+       "~n~sNumber Of Accept Attempts:    ~p"
+       "~n~sNumber Of Accept Waits:       ~p",
+       [Prefix, AccSuccess,
+        Prefix, AccFails,
+        Prefix, AccTries,
+        Prefix, AccWaits]).
 
 all_counters() ->
     [
@@ -5925,12 +5925,12 @@ tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data,
                                                      Start);
                 {error, RReason} ->
                     ?SEV_EPRINT("recv (~w of ~w): ~p: "
-                                "~n   ~p", [N, Num, RReason, mq()]),
+                                "~n   ~p", [N, Num, RReason, ?MQ()]),
                     exit({recv, RReason, N})
             end;
         {error, SReason} ->
             ?SEV_EPRINT("send (~w of ~w): ~p"
-                        "~n   ~p", [N, Num, SReason, mq()]),
+                        "~n   ~p", [N, Num, SReason, ?MQ()]),
             case SReason of
                 emsgsize ->
                     exit({send, SReason, N, byte_size(Data)});
@@ -7140,16 +7140,6 @@ tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
     T2 - T1.
 
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, _N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    {Hour,Min,Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
-    lists:flatten(FormatTS).
-
-   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 tc_try(Case, TCCondFun, TCFun) ->
@@ -7183,16 +7173,6 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mq() ->
-    mq(self()).
-
-mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
-
-             
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 sock_port(S) ->
     case socket:sockname(S) of
         {ok, #{port := Port}} -> Port;
@@ -7205,14 +7185,11 @@ l2b(L) when is_list(L) ->
 b2l(B) when is_binary(B) ->
     binary_to_list(B).
 
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
-
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 

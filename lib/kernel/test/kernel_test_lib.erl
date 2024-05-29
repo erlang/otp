@@ -41,7 +41,8 @@
          lookup/3]).
 -export([
          os_cmd/1, os_cmd/2,
-         mq/0, mq/1
+         mq/0, mq/1,
+         ts/0, ts/1
         ]).
 
 -export([
@@ -2913,6 +2914,19 @@ not_yet_implemented() ->
 
 skip(Reason) ->
     throw({skip, Reason}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ts() ->
+    ts(ms).
+
+ts(s) ->
+    erlang:system_time(second);
+ts(ms) ->
+    erlang:system_time(millisecond);
+ts(us) ->
+    erlang:system_time(microsecond).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

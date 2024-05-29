@@ -81,4 +81,7 @@
 -define(SLEEP(T),                ct:sleep(T)).
 -define(TT(T),                   ct:timetrap(T)).
 
+-define(TS(),                    ?LIB:ts()).
+-define(TS(TU),                  ?LIB:ts((TU))).
+
 -endif. % -ifdef(kernel_test_lib_hrl).

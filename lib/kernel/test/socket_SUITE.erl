@@ -12586,22 +12586,6 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, _N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    %% {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    %% FormatTS = 
-    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
-    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
-    lists:flatten(FormatTS).
-
-   
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %% *** tc_try/2,3 ***
 %% Case:      Basically the test case name
 %% TCCondFun: A fun that is evaluated before the actual test case
@@ -12648,7 +12632,7 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = ?F("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 

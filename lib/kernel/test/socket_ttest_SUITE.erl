@@ -428,24 +428,6 @@
 -define(TTEST_LIB,  socket_test_ttest_lib).
 -define(LOGGER,     socket_test_logger).
 
--define(BASIC_REQ,  <<"hejsan">>).
--define(BASIC_REP,  <<"hoppsan">>).
-
--define(DATA,       <<"HOPPSAN">>). % Temporary
--define(FAIL(R),    exit(R)).
-
-%% -define(SLEEP(T),   receive after T -> ok end).
-
-%% -define(MINS(M),    timer:minutes(M)).
-%% -define(SECS(S),    timer:seconds(S)).
-
-%% -define(TT(T),      ct:timetrap(T)).
-
-%% -define(F(F, A),    ?SLIB:f(F, A)).
-%% -define(P(F),       ?SLIB:print(F)).
-%% -define(P(F, A),    ?SLIB:print(F, A)).
-
-
 -define(TPP_SMALL,  lists:seq(1, 8)).
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(100, ?TPP_SMALL))).
 -define(TPP_LARGE,  lists:flatten(lists:duplicate(100, ?TPP_MEDIUM))).
@@ -474,11 +456,6 @@
            true ->
                 1
         end).
-
-%% -define(START_NODE(NamePre),
-%%         ?START_NODE(NamePre, 5000)).
-%% -define(START_NODE(NamePre, Timeout),
-%%         start_node(?CT_PEER_NAME(NamePre), Timeout)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1566,16 +1543,9 @@ init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
               "~n", [_TC, Config]),
-    %% case quiet_mode(Config) of
-    %%     default ->
-    %%         ?LOGGER:start();
-    %%     Quiet ->
-    %%         ?LOGGER:start(Quiet)
-    %% end,
     Config.
 
 end_per_testcase(_TC, Config) ->
-    %% ?LOGGER:stop(),
     Config.
 
 
@@ -1611,7 +1581,7 @@ quiet_mode(Config) ->
 %%
 
 ttest_sgenf_cgenf_small_tcp4(Config) when is_list(Config) ->
-    Runtime        = which_ttest_runtime(Config),
+    Runtime = which_ttest_runtime(Config),
     ttest_tcp(ttest_sgenf_cgenf_small_tcp4,
               Runtime,
               inet,
@@ -7831,18 +7801,8 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = ?F("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
-
-
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, _N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    {Hour,Min,Sec} = Time,
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
-    lists:flatten(FormatTS).
 
 

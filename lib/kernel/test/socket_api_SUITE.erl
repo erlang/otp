@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -6427,7 +6427,7 @@ api_a_connect_tcp(InitState) ->
                            after 5000 ->
                                    ?SEV_EPRINT("timeout: "
                                                "~n   message queue: ~p",
-                                               [mq()]),
+                                               [?MQ()]),
                                    {error, timeout}
                            end;
                       (#{sock        := Sock,
@@ -6443,7 +6443,7 @@ api_a_connect_tcp(InitState) ->
                            after 5000 ->
                                    ?SEV_EPRINT("timeout: "
                                                "~n   message queue: ~p",
-                                               [mq()]),
+                                               [?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -6962,7 +6962,7 @@ api_a_send_and_recv_udp(InitState) ->
                                    ?SEV_EPRINT("timeout when: "
                                                "~n   Socket Info:   ~p"
                                                "~n   Message Queue: ~p",
-                                               [socket:info(Sock), mq()]),
+                                               [socket:info(Sock), ?MQ()]),
                                    {error, timeout}
                            end;
                       (#{async_tag := completion,
@@ -6993,7 +6993,7 @@ api_a_send_and_recv_udp(InitState) ->
                                    ?SEV_EPRINT("timeout when: "
                                                "~n   Socket Info:   ~p"
                                                "~n   Message Queue: ~p",
-                                               [socket:info(Sock), mq()]),
+                                               [socket:info(Sock), ?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -7713,7 +7713,7 @@ api_a_send_and_recv_stream(Config, InitState) ->
                                                "~n   Sock:          ~p"
                                                "~n   Ref:           ~p"
                                                "~n   Message Queue: ~p",
-                                               [Sock, Ref, mq()]),
+                                               [Sock, Ref, ?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -9560,7 +9560,7 @@ api_a_mrecv_cancel_udp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end;
                       (#{sock                 := Sock,
@@ -9572,7 +9572,7 @@ api_a_mrecv_cancel_udp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -9664,7 +9664,7 @@ api_a_mrecv_cancel_udp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end;
 
@@ -9677,7 +9677,7 @@ api_a_mrecv_cancel_udp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -10071,7 +10071,7 @@ api_a_maccept_cancel_tcp(InitState) ->
                                                "~n   Sock:          ~p"
                                                "~n   Ref:           ~p"
                                                "~n   message queue: ~p",
-                                               [Sock, Ref, mq()]),
+                                               [Sock, Ref, ?MQ()]),
                                    {error, timeout}
                            end;
                       (#{lsock                  := Sock,
@@ -10086,7 +10086,7 @@ api_a_maccept_cancel_tcp(InitState) ->
                                                "~n   Sock:          ~p"
                                                "~n   Ref:           ~p"
                                                "~n   message queue: ~p",
-                                               [Sock, Ref, mq()]),
+                                               [Sock, Ref, ?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -10178,7 +10178,7 @@ api_a_maccept_cancel_tcp(InitState) ->
                                                "~n   Sock:          ~p"
                                                "~n   Ref:           ~p"
                                                "~n   message queue: ~p",
-                                               [Sock, Ref, mq()]),
+                                               [Sock, Ref, ?MQ()]),
                                    {error, timeout}
                            end;
                       (#{lsock              := Sock,
@@ -10193,7 +10193,7 @@ api_a_maccept_cancel_tcp(InitState) ->
                                                "~n   Sock:          ~p"
                                                "~n   Ref:           ~p"
                                                "~n   message queue: ~p",
-                                               [Sock, Ref, mq()]),
+                                               [Sock, Ref, ?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -10727,7 +10727,7 @@ api_a_mrecv_cancel_tcp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end;
                       (#{sock             := Sock,
@@ -10738,7 +10738,7 @@ api_a_mrecv_cancel_tcp(InitState) ->
                                {'$socket', Sock, abort, {Ref, closed}} ->
                                    {ok, maps:remove(sock, State)}
                            after 5000 ->
-                                   ?SEV_EPRINT("message queue: ~p", [mq()]),
+                                   ?SEV_EPRINT("message queue: ~p", [?MQ()]),
                                    {error, timeout}
                            end
                    end},
@@ -11655,7 +11655,7 @@ api_opt_simple_otp_rcvbuf_option() ->
                            ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
                                        [MsgSz,
                                         case Get(Sock) of
-                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
+                                            {ok, RcvBuf} -> ?F("~w", [RcvBuf]);
                                             {error, _}   -> "-"
                                         end]),
                            case socket:recv(Sock) of
@@ -11698,7 +11698,7 @@ api_opt_simple_otp_rcvbuf_option() ->
                            ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
                                        [MsgSz,
                                         case Get(Sock) of
-                                            {ok, RcvBuf} -> f("~w", [RcvBuf]);
+                                            {ok, RcvBuf} -> ?F("~w", [RcvBuf]);
                                             {error, _}   -> "-"
                                         end]),
                            case socket:recv(Sock) of
@@ -25955,10 +25955,10 @@ api_to_connect_tcp_await_timeout(ID, ConLimit, To, ServerSA, NewSock, Acc) ->
 api_to_connect_tcp_await_timeout2(_ID, To, ServerSA, NewSock) ->
     Sock = NewSock(),
     %% ?SEV_IPRINT("~w: try connect", [ID]),
-    Start = t(),
+    Start = ?TS(),
     case socket:connect(Sock, ServerSA, To) of
         {error, timeout} ->
-            Stop  = t(),
+            Stop  = ?TS(),
             TDiff = Stop - Start,
             if
                 (TDiff >= To) ->
@@ -26050,10 +26050,10 @@ api_to_accept_tcp(InitState) ->
          %% *** The actual test part ***
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
-                           Start = t(),
+                           Start = ?TS(),
                            case socket:accept(LSock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start, stop => ?TS()}};
                                {ok, Sock} ->
                                    (catch socket:close(Sock)),
                                    {error, unexpected_success};
@@ -26176,10 +26176,10 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
-                           Start = t(),
+                           Start = ?TS(),
                            case socket:accept(LSock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start, stop => ?TS()}};
                                {ok, Sock} ->
                                    ?SEV_EPRINT("Unexpected accept success: "
                                                "~n   ~p", [Sock]),
@@ -26251,10 +26251,10 @@ api_to_maccept_tcp(InitState) ->
                    end},
          #{desc => "attempt to accept (without success)",
            cmd  => fun(#{lsock := LSock, timeout := To} = State) ->
-                           Start = t(),
+                           Start = ?TS(),
                            case socket:accept(LSock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start, stop => ?TS()}};
                                {ok, Sock} ->
                                    (catch socket:close(Sock)),
                                    {error, unexpected_success};
@@ -26672,10 +26672,10 @@ api_to_receive_tcp(InitState) ->
                    end},
          #{desc => "attempt to recv (without success)",
            cmd  => fun(#{sock := Sock, recv := Recv, timeout := To} = State) ->
-                           Start = t(),
+                           Start = ?TS(),
                            case Recv(Sock, To) of
                                {error, timeout} ->
-                                   {ok, State#{start => Start, stop => t()}};
+                                   {ok, State#{start => Start, stop => ?TS()}};
                                {ok, _Data} ->
                                    {error, unexpected_success};
                                {error, _} = ERROR ->
@@ -26978,13 +26978,13 @@ api_to_receive_udp(InitState) ->
          %% *** The actual test ***
          #{desc => "attempt to read (without success)",
            cmd  => fun(#{sock := Sock, recv := Recv, timeout := To} = State) ->
-                           Start = t(),
+                           Start = ?TS(),
                            case Recv(Sock, To) of
                                {error, timeout} ->
                                    {ok, State#{start => Start,
-                                               stop => t()}};
+                                               stop => ?TS()}};
                                {ok, _} ->
-                                   {error, unexpected_sucsess};
+                                   {error, unexpected_success};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -27139,6 +27139,12 @@ sock_sockname(Sock) ->
             ?FAIL({sockname, C, E, S})
     end.
     
+sock_port(S) ->
+    case sock_sockname(S) of
+        #{port := Port} -> Port;
+        _               -> undefined
+    end.
+
 sock_close(Sock) ->
     try socket:close(Sock) of
         ok ->
@@ -27657,39 +27663,6 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% lookup(Key, Default, Config) ->
-%%     case lists:keysearch(Key, 1, Config) of
-%%         {value, {Key, Value}} ->
-%%             Value;
-%%         _ ->
-%%             Default
-%%     end.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-t() ->
-    ts(ms).
-
-ts(ms) ->
-    erlang:monotonic_time(milli_seconds).
-
-formated_timestamp() ->
-    format_timestamp(os:timestamp()).
-
-format_timestamp({_N1, _N2, _N3} = TS) ->
-    {_Date, Time}   = calendar:now_to_local_time(TS),
-    %% {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    %% FormatTS = 
-    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
-    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
-    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
-    lists:flatten(FormatTS).
-
-   
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %% *** tc_try/2,3 ***
 %% Case:      Basically the test case name
 %% TCCondFun: A fun that is evaluated before the actual test case
@@ -27732,16 +27705,6 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mq() ->
-    mq(self()).
-
-mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
-
-             
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 nowait(Config) ->
     case lists:member({select_handle, true}, Config) of
         true ->
@@ -27750,20 +27713,11 @@ nowait(Config) ->
             nowait
     end.
 
-sock_port(S) ->
-    case socket:sockname(S) of
-        {ok, #{port := Port}} -> Port;
-        {ok, #{}}             -> undefined
-    end.
-
-f(F, A) ->
-    lists:flatten(io_lib:format(F, A)).
-
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
