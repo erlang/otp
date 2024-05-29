@@ -65,8 +65,11 @@
 -define(START_NODE(__N__, __A__, __O__),
         ?LIB:start_node(__N__, __A__, __O__)).
 
--define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
-                         
+-define(STOP_NODE(__N__),        ?LIB:stop_node((__N__))).
+
+-define(MQ(),                    ?LIB:mq()).
+-define(MQ(P),                   ?LIB:mq((P))).
+               
 -define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).

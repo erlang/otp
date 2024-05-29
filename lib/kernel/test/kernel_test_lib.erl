@@ -39,7 +39,10 @@
          formated_timestamp/0]).
 -export([good_hosts/1,
          lookup/3]).
--export([os_cmd/1, os_cmd/2]).
+-export([
+         os_cmd/1, os_cmd/2,
+         mq/0, mq/1
+        ]).
 
 -export([
          proxy_call/3,
@@ -2583,6 +2586,16 @@ os_cmd(Cmd, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
     proxy_call(fun() -> {ok, os:cmd(Cmd)} end, Timeout, {error, timeout}).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    {messages, MQ} = process_info(Pid, messages),
+    MQ.
+
+             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 socket_type(Config) ->
