@@ -140,7 +140,7 @@ opt(StMap, FuncDb) ->
                            ForceCopy, StMap, FuncDb)
     catch
         throw:too_deep ->
-            %% Give up and leave the module onmodified.
+            %% Give up and leave the module unmodified.
             {StMap,FuncDb}
     end.
 
@@ -268,7 +268,7 @@ patch_instructions(Applicable, InitialsToPatch, ForceCopy, StMap0, FuncDb) ->
     ?DP("Initial values to patch :~n  ~p~n", [InitialsToPatch]),
     ?DP("Force copy :~n  ~p~n", [ForceCopy]),
     %% Merge instructions and initial values so we only get one map
-    %% per fuctions which is indexed on the variable.
+    %% per function which is indexed on the variable.
     Merge =
         fun(A, B) ->
                 maps:fold(fun(VarOrLbl, Info0, Acc) ->
