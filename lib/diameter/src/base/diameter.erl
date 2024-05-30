@@ -1784,8 +1784,6 @@ origin_state_id() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}
-
 Send a Diameter request message.
 
 `App` specifies the Diameter application in which the request is defined and
@@ -1838,8 +1836,15 @@ Note that `{error,encode}` is the only return value which guarantees that the
 request has _not_ been sent over the transport connection.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec call(service_name(), app_alias(), any(), [call_opt()])
-   -> any().
+-spec call(SvcName, App, Request, CallOpts)
+   -> Result when
+      SvcName  :: service_name(),
+      App      :: app_alias(),
+      Request  :: diameter_codec:message() | diameter_codec:packet(),
+      CallOpts :: [call_opt()],
+      Result   :: ok | {error, Reason} | Answer,
+      Answer   :: term(),
+      Reason   :: term().
 
 call(SvcName, App, Message, Options) ->
     diameter_traffic:send_request(SvcName, {alias, App}, Message, Options).
