@@ -1512,8 +1512,6 @@ peer_find(Pid) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-add_transport(SvcName, {connect|listen, [Opt]}) -> {ok, Ref} | {error, Reason}
-
 Add transport capability to a service.
 
 The service will start transport processes as required in order to establish a
@@ -1539,9 +1537,14 @@ established.
 > configured: a service can be started after configuring its transports.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec add_transport(service_name(), {listen|connect, [transport_opt()]})
-   -> {ok, transport_ref()}
-    | {error, term()}.
+-spec add_transport(SvcName, Transport)
+   -> {ok, TRef} | {error, Reason} when
+      SvcName   :: service_name(),
+      Transport :: {T, Opts},
+      T         :: listen | connect,
+      Opts      :: [transport_opt()],
+      TRef      :: transport_ref(),
+      Reason    :: term().
 
 add_transport(SvcName, {T, Opts} = Cfg)
   when is_list(Opts), (T == connect orelse T == listen) ->
