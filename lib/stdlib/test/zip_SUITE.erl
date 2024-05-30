@@ -380,18 +380,22 @@ unzip_jar(Config) when is_list(Config) ->
     %% create a temp directory
     Subdir = filename:join(PrivDir, "jartest"),
     ok = file:make_dir(Subdir),
-    ok = file:set_cwd(Subdir),
 
     FList = ["META-INF/MANIFEST.MF","test.txt"],
 
-    {ok, RetList} = zip:unzip(JarFile),
+    {ok, RetList} = zip:unzip(JarFile, [{cwd, Subdir}]),
 
     %% Verify.
     lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
 			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
 		  FList),
-    lists:foreach(fun(F)-> ok = file:delete(F) end,
-		  RetList),
+    lists:foreach(fun(F)->
+                          case lists:last(F) =:= $/ of
+                              true -> ok = file:del_dir(F);
+                              false -> ok = file:delete(F)
+                          end
+                  end,
+		  lists:reverse(RetList)),
 
     %% Clean up and verify no more files.
     0 = delete_files([Subdir]),
@@ -528,6 +532,7 @@ unzip_to_binary(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, "unzip_to_binary"),
     _ = file:make_dir(WorkDir),
+    _ = file:make_dir(filename:join(DataDir, "empty")),
 
     ok = file:set_cwd(WorkDir),
     Long = filename:join(DataDir, "abc.zip"),
@@ -536,7 +541,16 @@ unzip_to_binary(Config) when is_list(Config) ->
     {ok, FBList} = zip:unzip(Long, [memory]),
 
     %% Verify.
-    lists:foreach(fun({F,B}) -> {ok,B}=file:read_file(filename:join(DataDir, F))
+    lists:foreach(fun({F,B}) ->
+                          Filename = filename:join(DataDir, F),
+                          case lists:last(F) =:= $/ of
+                              true ->
+                                  <<>> = B,
+                                  {ok, #file_info{ type = directory}} =
+                                      file:read_file_info(Filename);
+                              false ->
+                                  {ok,B}=file:read_file(filename:join(DataDir, F))
+                          end
                   end, FBList),
 
     %% Make sure no files created in cwd
@@ -609,11 +623,12 @@ unzip_from_binary(Config) when is_list(Config) ->
     Quote = "quotes/rain.txt",
     Wikipedia = "wikipedia.txt",
     EmptyFile = "emptyFile",
+    EmptyDir = "empty/",
     file:set_cwd(ExtractDir),
 
     %% Read a zip file into a binary and extract from the binary.
     {ok, Bin} = file:read_file(Archive),
-    {ok, [FileName,Quote,Wikipedia,EmptyFile]} = zip:unzip(Bin),
+    {ok, [FileName,Quote,EmptyDir,Wikipedia,EmptyFile]} = zip:unzip(Bin),
 
     %% Verify.
     DestFilename = filename:join(ExtractDir, "abc.txt"),

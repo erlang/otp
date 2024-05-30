@@ -1700,7 +1700,8 @@ get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 	    {In2, Acc1} =
 		case get_z_file(In1, Z, Input, Output, OpO, FB,
 				CWD, ZFile, Filter) of
-		    {file, GZD, Inx} -> {Inx, [GZD | Acc0]};
+		    {Type, GZD, Inx} when Type =:= file; Type =:= dir ->
+                        {Inx, [GZD | Acc0]};
 		    {_, Inx}       -> {Inx, Acc0}
 		end,
 	    get_z_files(Rest, Z, In2, Opts, Acc1);
@@ -1742,9 +1743,8 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 		true ->
 		    case lists:last(FileName) of
 			$/ ->
-			    %% perhaps this should always be done?
-			    Output({ensure_dir,FileName1},[]),
-			    {dir, In3};
+			    Out1 = Output({ensure_path,FileName1},[]),
+			    {dir, Out1, In3};
 			_ ->
 			    %% FileInfo = local_file_header_to_file_info(LH)
 			    %%{Out, In4, CRC, UncompSize} =
@@ -1768,18 +1768,24 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 
 %% make sure FileName doesn't have relative path that points over CWD
 check_valid_location(CWD, FileName) ->
+    TrailingSlash = case lists:last(FileName) of
+                        $/ -> "/";
+                        _ -> ""
+                    end,
     %% check for directory traversal exploit
-    case check_dir_level(filename:split(FileName), 0) of
-	{FileOrDir,Level} when Level < 0 ->
-	    CWD1 = if CWD == "" -> "./";
-		      true      -> CWD
-		   end,
-	    error_logger:format("Illegal path: ~ts, extracting in ~ts~n",
-				[add_cwd(CWD,FileName),CWD1]),
-	    {false,add_cwd(CWD, FileOrDir)};
-        _ ->
-	    {true,add_cwd(CWD, FileName)}
-    end.
+    {IsValid, Cwd, Name} =
+        case check_dir_level(filename:split(FileName), 0) of
+            {FileOrDir,Level} when Level < 0 ->
+                CWD1 = if CWD == "" -> "./";
+                          true      -> CWD
+                       end,
+                error_logger:format("Illegal path: ~ts, extracting in ~ts~n",
+                                    [add_cwd(CWD,FileName),CWD1]),
+                {false, CWD, FileOrDir};
+            _ ->
+                {true, CWD, FileName}
+        end,
+    {IsValid, string:trim(add_cwd(Cwd, Name), trailing, "/") ++ TrailingSlash}.
 
 check_dir_level([FileOrDir], Level) ->
     {FileOrDir,Level};
@@ -2088,8 +2094,8 @@ binary_io({list_dir, _F}, _B) ->
     [];
 binary_io({set_file_info, _F, _FI}, B) ->
     B;
-binary_io({ensure_dir, _Dir}, B) ->
-    B.
+binary_io({ensure_path, Dir}, _B) ->
+    {Dir, <<>>}.
 
 file_io({file_info, F}, _) ->
     case file:read_file_info(F) of
@@ -2149,6 +2155,6 @@ file_io({set_file_info, F, FI}, H) ->
 	ok -> H;
 	{error, Error} -> throw(Error)
     end;
-file_io({ensure_dir, Dir}, H) ->
-    ok = filelib:ensure_dir(Dir),
-    H.
+file_io({ensure_path, Dir}, _H) ->
+    ok = filelib:ensure_path(Dir),
+    Dir.
