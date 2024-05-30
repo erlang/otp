@@ -406,15 +406,31 @@ _Example:_
       Archive :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
+foldl(Fun, Acc0, {_Filename, Binary}) ->
+    foldl(Fun, Acc0, Binary);
 foldl(Fun, Acc0, Archive) when is_function(Fun, 4) ->
-    ZipFun =
-	fun({Name, GetInfo, GetBin}, A) ->
-		A2 = Fun(Name, GetInfo, GetBin, A),
-		{true, false, A2}
-	end,
-    case prim_zip:open(ZipFun, Acc0, Archive) of
-	{ok, PrimZip, Acc1} ->
-	    ok = prim_zip:close(PrimZip),
+    case zip_open(Archive,[memory]) of
+	{ok, Handle} ->
+            {ok, Files} = zip_list_dir(Handle),
+            Acc1 =
+                lists:foldl(
+                  fun(#zip_comment{}, Acc) ->
+                          Acc;
+                     (#zip_file{ name = Name, info = Info }, Acc) ->
+                          GetInfo = fun() -> Info end,
+                          GetBin = case lists:last(Name) of
+                                       $/ -> fun() -> <<>> end;
+                                       _ ->
+                                           fun() ->
+                                                   case zip_get(Name, Handle) of
+                                                       {ok, {Name, Data}} -> Data;
+                                                       {error, Error} -> throw({Name, Error})
+                                                   end
+                                           end
+                                   end,
+                          Fun(Name, GetInfo, GetBin, Acc)
+                  end, Acc0, Files),
+	    ok = zip_close(Handle),
 	    {ok, Acc1};
 	{error, bad_eocd} ->
 	    {error, "Not an archive file"};
