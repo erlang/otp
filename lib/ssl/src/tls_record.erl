@@ -408,20 +408,16 @@ sufficient_crypto_support(CryptoSupport, 'tlsv1.3') ->
     Fun = fun({Group, Algorithm}) ->
                   is_algorithm_supported(CryptoSupport, Group, Algorithm)
           end,
-    L = [{ciphers, aes_gcm},                %% TLS_AES_*_GCM_*
-         {ciphers, chacha20_poly1305},      %% TLS_CHACHA20_POLY1305_SHA256
+   %% Minimum requirement check
+   L = [{ciphers, aes_gcm},                %% TLS_AES_*_GCM_*
          {hashs, sha256},                   %% TLS_AES_128_GCM_SHA256
-         {hashs, sha384},                   %% TLS_AES_256_GCM_SHA384
          {rsa_opts, rsa_pkcs1_padding},     %% rsa_pkcs1_sha256
-         {rsa_opts, rsa_pkcs1_pss_padding}, %% rsa_pss_rsae_*
-         {rsa_opts, rsa_pss_saltlen},       %% rsa_pss_rsae_*
+         {rsa_opts, rsa_pkcs1_pss_padding}, %% rsa_pss_*
          {public_keys, ecdh},
-         {public_keys, dh},
          {public_keys, rsa},
          {public_keys, ecdsa},
-         %% {public_keys, eddsa},  %% TODO
-         {curves, secp256r1},               %% key exchange with secp256r1
-         {curves, x25519}],                 %% key exchange with X25519
+         {curves, secp256r1}               %% key exchange with secp256r1
+        ],
     lists:all(Fun, L);
 sufficient_crypto_support(CryptoSupport, Version) ->
     sufficient_crypto_support(CryptoSupport, protocol_version(Version)).

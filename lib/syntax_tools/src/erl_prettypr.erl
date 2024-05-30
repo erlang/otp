@@ -24,12 +24,6 @@
 %% @end
 %% =====================================================================
 
-%% @doc Pretty printing of abstract Erlang syntax trees.
-%%
-%% This module is a front end to the pretty-printing library module
-%% `prettypr', for text formatting of abstract syntax trees defined by
-%% the module `erl_syntax'.
-
 -module(erl_prettypr).
 -moduledoc """
 Pretty printing of abstract Erlang syntax trees.
@@ -77,15 +71,6 @@ text formatting of abstract syntax trees defined by the module `erl_syntax`.
 
 -type context() :: #ctxt{}.
 
-%% =====================================================================
-%% The following functions examine and modify contexts:
-
-%% @spec (context()) -> integer()
-%% @doc Returns the operator precedence field of the prettyprinter
-%% context.
-%%
-%% @see set_ctxt_precedence/2
-
 -doc """
 Returns the operator precedence field of the prettyprinter context.
 
@@ -96,17 +81,11 @@ _See also: _`set_ctxt_precedence/2`.
 get_ctxt_precedence(Ctxt) ->
     Ctxt#ctxt.prec.
 
-%% @spec (context(), integer()) -> context()
-%%
-%% @doc Updates the operator precedence field of the prettyprinter
-%% context. See the {@link //stdlib/erl_parse} module for operator precedences.
-%%
-%% @see //stdlib/erl_parse
-%% @see get_ctxt_precedence/1
-
 -doc """
-Updates the operator precedence field of the prettyprinter context. See the
-[`//stdlib/erl_parse`](`m:erl_parse`) module for operator precedences.
+Updates the operator precedence field of the prettyprinter context.
+
+See the [`//stdlib/erl_parse`](`m:erl_parse`) module for operator
+precedences.
 
 _See also: _[//stdlib/erl_parse](`m:erl_parse`), `get_ctxt_precedence/1`.
 """.
@@ -121,10 +100,6 @@ set_prec(Ctxt, Prec) ->
 reset_prec(Ctxt) ->
     set_prec(Ctxt, 0).    % used internally
 
-%% @spec (context()) -> integer()
-%% @doc Returns the paper widh field of the prettyprinter context.
-%% @see set_ctxt_paperwidth/2
-
 -doc """
 Returns the paper widh field of the prettyprinter context.
 
@@ -135,22 +110,14 @@ _See also: _`set_ctxt_paperwidth/2`.
 get_ctxt_paperwidth(Ctxt) ->
     Ctxt#ctxt.paper.
 
-%% @spec (context(), integer()) -> context()
-%%
-%% @doc Updates the paper widh field of the prettyprinter context.
-%%
-%% Note: changing this value (and passing the resulting context to a
-%% continuation function) does not affect the normal formatting, but may
-%% affect user-defined behaviour in hook functions.
-%%
-%% @see get_ctxt_paperwidth/1
-
 -doc """
 Updates the paper widh field of the prettyprinter context.
 
-Note: changing this value (and passing the resulting context to a continuation
-function) does not affect the normal formatting, but may affect user-defined
-behaviour in hook functions.
+> #### Note {: .info }
+>
+> Changing this value (and passing the resulting context to a
+> continuation function) does not affect the normal formatting, but may
+> affect user-defined behaviour in hook functions.
 
 _See also: _`get_ctxt_paperwidth/1`.
 """.
@@ -158,10 +125,6 @@ _See also: _`get_ctxt_paperwidth/1`.
 
 set_ctxt_paperwidth(Ctxt, W) ->
     Ctxt#ctxt{paper = W}.
-
-%% @spec (context()) -> integer()
-%% @doc Returns the line widh field of the prettyprinter context.
-%% @see set_ctxt_linewidth/2
 
 -doc """
 Returns the line widh field of the prettyprinter context.
@@ -173,22 +136,14 @@ _See also: _`set_ctxt_linewidth/2`.
 get_ctxt_linewidth(Ctxt) ->
     Ctxt#ctxt.ribbon.
 
-%% @spec (context(), integer()) -> context()
-%%
-%% @doc Updates the line widh field of the prettyprinter context.
-%%
-%% Note: changing this value (and passing the resulting context to a
-%% continuation function) does not affect the normal formatting, but may
-%% affect user-defined behaviour in hook functions.
-%%
-%% @see get_ctxt_linewidth/1
-
 -doc """
 Updates the line widh field of the prettyprinter context.
 
-Note: changing this value (and passing the resulting context to a continuation
-function) does not affect the normal formatting, but may affect user-defined
-behaviour in hook functions.
+> #### Note {: .info }
+>
+> Changing this value (and passing the resulting context to a
+> continuation function) does not affect the normal formatting, but may
+> affect user-defined behaviour in hook functions.
 
 _See also: _`get_ctxt_linewidth/1`.
 """.
@@ -196,10 +151,6 @@ _See also: _`get_ctxt_linewidth/1`.
 
 set_ctxt_linewidth(Ctxt, W) ->
     Ctxt#ctxt{ribbon = W}.
-
-%% @spec (context()) -> hook()
-%% @doc Returns the hook function field of the prettyprinter context.
-%% @see set_ctxt_hook/2
 
 -doc """
 Returns the hook function field of the prettyprinter context.
@@ -211,10 +162,6 @@ _See also: _`set_ctxt_hook/2`.
 get_ctxt_hook(Ctxt) ->
     Ctxt#ctxt.hook.
 
-%% @spec (context(), hook()) -> context()
-%% @doc Updates the hook function field of the prettyprinter context.
-%% @see get_ctxt_hook/1
-
 -doc """
 Updates the hook function field of the prettyprinter context.
 
@@ -225,10 +172,6 @@ _See also: _`get_ctxt_hook/1`.
 set_ctxt_hook(Ctxt, Hook) ->
     Ctxt#ctxt{hook = Hook}.
 
-%% @spec (context()) -> term()
-%% @doc Returns the user data field of the prettyprinter context.
-%% @see set_ctxt_user/2
-
 -doc """
 Returns the user data field of the prettyprinter context.
 
@@ -238,10 +181,6 @@ _See also: _`set_ctxt_user/2`.
 
 get_ctxt_user(Ctxt) ->
     Ctxt#ctxt.user.
-
-%% @spec (context(), term()) -> context()
-%% @doc Updates the user data field of the prettyprinter context.
-%% @see get_ctxt_user/1
 
 -doc """
 Updates the user data field of the prettyprinter context.
@@ -254,104 +193,26 @@ set_ctxt_user(Ctxt, X) ->
     Ctxt#ctxt{user = X}.
 
 
-%% =====================================================================
-%% @spec format(Tree::syntaxTree()) -> string()
-%% @equiv format(Tree, [])
-
--doc "Equivalent to [format(Tree, [])](`format/2`).".
+-doc #{equiv => format(Tree, [])}.
 -spec format(syntaxTree()) -> string().
 
 format(Node) ->
     format(Node, []).
 
-%% =====================================================================
-%% @type syntaxTree() = erl_syntax:syntaxTree().
-%%
-%% An abstract syntax tree. See the {@link erl_syntax} module for
-%% details.
+-doc """
+An abstract syntax tree.
+
+See the `m:erl_syntax` module for details.
+""".
 -type syntaxTree() :: erl_syntax:syntaxTree().
 
-%% =====================================================================
-%% @spec format(Tree::syntaxTree(), Options::[term()]) -> string()
-%%
-%% @type hook() = (syntaxTree(), context(), Continuation) ->
-%%                            prettypr:document()
-%%	    Continuation = (syntaxTree(), context()) ->
-%%                            prettypr:document().
-%%
-%% A call-back function for user-controlled formatting. See {@link
-%% format/2}.
-%%
-%% @type context(). A representation of the current context of the
-%% pretty-printer. Can be accessed in hook functions.
-%%
-%% @doc Prettyprint-formats an abstract Erlang syntax tree as text. For
-%% example, if you have a `.beam' file that has been compiled with
-%% `debug_info', the following should print the source code for the
-%% module (as it looks in the debug info representation):
-%% ```{ok,{_,[{abstract_code,{_,AC}}]}} =
-%%            beam_lib:chunks("myfile.beam",[abstract_code]),
-%%    io:put_chars(erl_prettypr:format(erl_syntax:form_list(AC)))
-%% '''
-%%
-%% Available options:
-%% <dl>
-%%   <dt>{hook, none | {@link hook()}}</dt>
-%%       <dd>Unless the value is `none', the given function is called
-%%       for each node whose list of annotations is not empty; see below
-%%       for details. The default value is `none'.</dd>
-%%
-%%   <dt>{paper, integer()}</dt>
-%%       <dd>Specifies the preferred maximum number of characters on any
-%%       line, including indentation. The default value is 80.</dd>
-%%
-%%   <dt>{ribbon, integer()}</dt>
-%%       <dd>Specifies the preferred maximum number of characters on any
-%%       line, not counting indentation. The default value is 65.</dd>
-%%
-%%   <dt>{user, term()}</dt>
-%%       <dd>User-specific data for use in hook functions. The default
-%%       value is `undefined'.</dd>
-%%   <dt>{encoding, epp:source_encoding()}</dt>
-%%       <dd>Specifies the encoding of the generated file.</dd>
-%% </dl>
-%%
-%% A hook function (cf. the {@link hook()} type) is passed the current
-%% syntax tree node, the context, and a continuation. The context can be
-%% examined and manipulated by functions such as `get_ctxt_user/1' and
-%% `set_ctxt_user/2'. The hook must return a "document" data structure
-%% (see {@link layout/2} and {@link best/2}); this may be constructed in
-%% part or in whole by applying the continuation function. For example,
-%% the following is a trivial hook:
-%% ```
-%%     fun (Node, Ctxt, Cont) -> Cont(Node, Ctxt) end
-%% '''
-%% which yields the same result as if no hook was given.
-%% The following, however:
-%% ```
-%%     fun (Node, Ctxt, Cont) ->
-%%         Doc = Cont(Node, Ctxt),
-%%         prettypr:beside(prettypr:text("<b>"),
-%%                         prettypr:beside(Doc,
-%%                                         prettypr:text("</b>")))
-%%     end
-%% '''
-%% will place the text of any annotated node (regardless of the
-%% annotation data) between HTML "boldface begin" and "boldface end"
-%% tags.
-%%
-%% @see erl_syntax
-%% @see format/1
-%% @see layout/2
-%% @see best/2
-%% @see get_ctxt_user/1
-%% @see set_ctxt_user/2
 
 -doc """
-Prettyprint-formats an abstract Erlang syntax tree as text. For example, if you
-have a `.beam` file that has been compiled with `debug_info`, the following
-should print the source code for the module (as it looks in the debug info
-representation):
+Prettyprint-formats an abstract Erlang syntax tree as text.
+
+For example, if you have a `.beam` file that has been compiled with
+`debug_info`, the following should print the source code for the
+module (as it looks in the debug info representation):
 
 ```text
      {ok,{_,[{abstract_code,{_,AC}}]}} =
@@ -361,23 +222,23 @@ representation):
 
 Available options:
 
-- **\{hook, none | [`hook()`](`t:hook/0`)\}** - Unless the value is `none`, the
-  given function is called for each node whose list of annotations is not empty;
-  see below for details. The default value is `none`.
+- **`{hook, none | hook()}`** - Unless the value is `none`, the
+  given function is called for each node whose list of annotations is
+  not empty. The default value is `none`.
 
-- **\{paper, integer()\}** - Specifies the preferred maximum number of
+- **`{paper, integer()}`** - Specifies the preferred maximum number of
   characters on any line, including indentation. The default value is 80.
 
-- **\{ribbon, integer()\}** - Specifies the preferred maximum number of
+- **`{ribbon, integer()}`** - Specifies the preferred maximum number of
   characters on any line, not counting indentation. The default value is 65.
 
-- **\{user, term()\}** - User-specific data for use in hook functions. The
+- **`{user, term()}`** - User-specific data for use in hook functions. The
   default value is `undefined`.
 
-- **\{encoding, epp:source_encoding()\}** - Specifies the encoding of the
+- **`{encoding, epp:source_encoding()}`** - Specifies the encoding of the
   generated file.
 
-A hook function (cf. the [`hook()`](`t:hook/0`) type) is passed the current
+A hook function (see the [`hook()`](`t:hook/0`) type) is passed the current
 syntax tree node, the context, and a continuation. The context can be examined
 and manipulated by functions such as [`get_ctxt_user/1`](`get_ctxt_user/1`) and
 [`set_ctxt_user/2`](`set_ctxt_user/2`). The hook must return a "document" data
@@ -414,37 +275,20 @@ format(Node, Options) ->
     prettypr:format(layout(Node, Options), W, L).
 
 
-%% =====================================================================
-%% @spec best(Tree::syntaxTree()) -> empty | prettypr:document()
-%% @equiv best(Tree, [])
-
--doc "Equivalent to [best(Tree, [])](`best/2`).".
+-doc #{equiv => best(Tree, [])}.
 -spec best(syntaxTree()) -> 'empty' | prettypr:document().
 
 best(Node) ->
     best(Node, []).
 
 
-%% =====================================================================
-%% @spec best(Tree::syntaxTree(), Options::[term()]) ->
-%%           empty | prettypr:document()
-%%
-%% @doc Creates a fixed "best" abstract layout for a syntax tree. This
-%% is similar to the `layout/2' function, except that here, the final
-%% layout has been selected with respect to the given options. The atom
-%% `empty' is returned if no such layout could be produced. For
-%% information on the options, see the `format/2' function.
-%%
-%% @see best/1
-%% @see layout/2
-%% @see format/2
-%% @see prettypr:best/3
-
 -doc """
-Creates a fixed "best" abstract layout for a syntax tree. This is similar to the
-[`layout/2`](`layout/2`) function, except that here, the final layout has been
-selected with respect to the given options. The atom `empty` is returned if no
-such layout could be produced. For information on the options, see the
+Creates a fixed "best" abstract layout for a syntax tree.
+
+This is similar to the [`layout/2`](`layout/2`) function, except that
+here, the final layout has been selected with respect to the given
+options. The atom `empty` is returned if no such layout could be
+produced. For information on the options, see the
 [`format/2`](`format/2`) function.
 
 _See also: _`best/1`, `format/2`, `layout/2`, `prettypr:best/3`.
@@ -457,41 +301,20 @@ best(Node, Options) ->
     prettypr:best(layout(Node, Options), W, L).
 
 
-%% =====================================================================
-%% @spec layout(Tree::syntaxTree()) -> prettypr:document()
-%% @equiv layout(Tree, [])
-
--doc "Equivalent to [layout(Tree, [])](`layout/2`).".
+-doc #{equiv => layout(Tree, [])}.
 -spec layout(syntaxTree()) -> prettypr:document().
 
 layout(Node) ->
     layout(Node, []).
 
 
-%% =====================================================================
-%% @spec layout(Tree::syntaxTree(), Options::[term()]) -> prettypr:document()
-%%
-%% @doc Creates an abstract document layout for a syntax tree. The
-%% result represents a set of possible layouts (cf. module `prettypr').
-%% For information on the options, see {@link format/2}; note, however,
-%% that the `paper' and `ribbon' options are ignored by this function.
-%%
-%% This function provides a low-level interface to the pretty printer,
-%% returning a flexible representation of possible layouts, independent
-%% of the paper width eventually to be used for formatting. This can be
-%% included as part of another document and/or further processed
-%% directly by the functions in the `prettypr' module, or used in a hook
-%% function (see `format/2' for details).
-%%
-%% @see prettypr
-%% @see format/2
-%% @see layout/1
-
 -doc """
-Creates an abstract document layout for a syntax tree. The result represents a
-set of possible layouts (cf. module `prettypr`). For information on the options,
-see `format/2`; note, however, that the `paper` and `ribbon` options are ignored
-by this function.
+Creates an abstract document layout for a syntax tree.
+
+The result represents a set of possible layouts (see module
+`m:prettypr`). For information on the options, see `format/2`;
+however, note that the `paper` and `ribbon` options are ignored by
+this function.
 
 This function provides a low-level interface to the pretty printer, returning a
 flexible representation of possible layouts, independent of the paper width
