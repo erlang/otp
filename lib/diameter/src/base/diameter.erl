@@ -1555,8 +1555,6 @@ add_transport(SvcName, {T, Opts} = Cfg)
 %% ---------------------------------------------------------------------------
 
 -doc """
-remove_transport(SvcName, Pred) -> ok | {error, Reason}
-
 Remove previously added transports.
 
 `Pred` determines which transports to remove. An arity-3-valued `Pred` removes
@@ -1580,8 +1578,11 @@ value of [disconnect_cb](`m:diameter#disconnect_cb`) configured on the
 transport.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec remove_transport(service_name(), transport_pred())
-   -> ok | {error, term()}.
+-spec remove_transport(SvcName, Pred)
+   -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Pred    :: transport_pred(),
+      Reason  :: term().
 
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
