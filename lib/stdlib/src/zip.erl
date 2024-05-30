@@ -237,7 +237,10 @@ The record `zip_file` contains the following fields:
 
 - **`name`** - The filename
 
-- **`info`** - File information as in `file:read_file_info/1` in Kernel
+- **`info`** - File information as in `file:read_file_info/1` in Kernel.
+  `mtime`, `atime` and `ctime` are expected to be
+  in [`local time`](`erlang:localtime/0`) if represented using `t:calendar:datetime/0`,
+  or in [OS system time](`e:erts:time_correction.md#os-system-time`) if represented by an integer.
 
 - **`comment`** - The comment for the file in the zip archive
 
@@ -345,7 +348,7 @@ do_unzip(F, Options) ->
 
 %% Iterate over all files in a zip archive
 -doc """
-Calls `Fun(FileInArchive, GetInfo , GetBin, AccIn)` on successive files in the
+Calls `Fun(FileInArchive, GetInfo, GetBin, AccIn)` on successive files in the
 `Archive`, starting with `AccIn == Acc0`.
 
 `FileInArchive` is the name that the file has in the archive.
@@ -1355,7 +1358,9 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
 local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
 					UncompSize,
 					CompMethod, Name, GPFlag) ->
-    {ModDate, ModTime} = dos_date_time_from_datetime(MTime),
+    {ModDate, ModTime} = dos_date_time_from_datetime(
+                           calendar:system_time_to_local_time(
+                             datetime_to_system_time(MTime), second)),
     #local_file_header{version_needed = 20,
 		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
@@ -1866,6 +1871,16 @@ dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     <<DosTime:16>> = <<Hour:5, Min:6, (Sec div 2):5>>,
     <<DosDate:16>> = <<YearFrom1980:7, Month:4, Day:5>>,
     {DosDate, DosTime}.
+
+%% Convert a local datetime or universal time seconds to
+%% system time (aka POSIX time, aka Unix time)
+datetime_to_system_time(undefined) ->
+    undefined;
+datetime_to_system_time(PosixTime) when is_integer(PosixTime) ->
+    PosixTime;
+datetime_to_system_time(DateTime) ->
+    erlang:universaltime_to_posixtime(
+      erlang:localtime_to_universaltime(DateTime)).
 
 %% A pwrite-like function for iolists (used by memory-option)
 
