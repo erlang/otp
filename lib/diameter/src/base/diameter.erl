@@ -1209,8 +1209,6 @@ services() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-service_info(SvcName, Info) -> term()
-
 Return information about a started service. Requesting info for an unknown
 service causes `undefined` to be returned. Requesting a list of items causes a
 tagged list to be returned.
@@ -1477,9 +1475,9 @@ tagged list to be returned.
   ```
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec service_info(service_name(), Item | [Item])
-   -> any()
- when Item :: atom() | peer_ref().
+-spec service_info(SvcName, Item | [Item]) -> term() when
+      SvcName :: service_name(),
+      Item    :: atom() | peer_ref().
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
