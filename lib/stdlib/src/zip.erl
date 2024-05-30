@@ -608,7 +608,7 @@ One option is available:
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
       CommentAndFiles :: [zip_comment() | zip_file()],
       Options :: [Option],
-      Option :: cooked).
+      Option :: cooked | {extra, extra()}).
 
 list_dir(F, Options) ->
     case ?CATCH(do_list_dir(F, Options)) of

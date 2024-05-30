@@ -31,7 +31,7 @@
 	 unzip_traversal_exploit/1,
          compress_control/1,
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
-         explicit_file_info/1,
+         explicit_file_info/1, mode/1,
          basic_timestamp/1]).
 
 -import(proplists,[get_value/2, get_value/3]).
@@ -67,7 +67,7 @@ zip_groups() ->
         [{G, [parallel], zip_testcases()} || G <- ?UNZIP_MODES].
 
 zip_testcases() ->
-    [basic_timestamp].
+    [mode, basic_timestamp].
 
 init_per_suite(Config) ->
     Config.
@@ -1081,6 +1081,53 @@ explicit_file_info(_Config) ->
              {"seconds", <<>>, FileInfo#file_info{mtime=315532800}}],
     {ok, _} = zip:zip("", Files, [memory]),
     ok.
+
+mode(Config) ->
+
+    PrivDir = get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+    Archive = filename:join(PrivDir, "archive.zip"),
+
+    Executable = filename:join(PrivDir,"exec"),
+    file:write_file(Executable, "aaa"),
+    {ok, ExecFI } = file:read_file_info(Executable),
+    ok = file:write_file_info(Executable, ExecFI#file_info{ mode = 8#111 bor 8#400 }),
+
+    Directory = filename:join(PrivDir,"dir"),
+    ok = file:make_dir(Directory),
+    {ok, DirFI } = file:read_file_info(Executable),
+    ok = file:write_file_info(Directory, DirFI#file_info{ mode = 8#111 bor 8#400 }),
+
+    ?assertMatch(
+       {ok, Archive},
+       zip(Config, Archive, "-r", ["dir","exec"], [{cwd, PrivDir},{extra,[extended_timestamp]}])),
+
+    ?assertMatch(
+       {ok, [#zip_comment{},
+             #zip_file{ name = "dir/", info = #file_info{ mode = 8#111 bor 8#400}},
+             #zip_file{ name = "exec", info = #file_info{ mode = 8#111 bor 8#400}} ]},
+       zip:list_dir(Archive)),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["dir/","exec"]}, unzip(Config, Archive, [{cwd,ExtractDir}])),
+
+    case get_value(unzip, Config) =/= unemzip of
+        true ->
+            {ok,#file_info{ mode = ExecMode }} =
+                file:read_file_info(filename:join(ExtractDir,"exec")),
+            ?assertEqual(8#111 bor 8#400, ExecMode band 8#777),
+
+            {ok,#file_info{ mode = DirMode }} =
+                file:read_file_info(filename:join(ExtractDir,"dir")),
+            ?assertEqual(8#111 bor 8#400, DirMode band 8#777);
+        false ->
+            %% emzip does not support mode
+            ok
+    end,
+
+    ok.
+
 
 %% Test basic timestamps, the atime and mtime should be the original
 %% mtime of the file
