@@ -608,7 +608,7 @@ Supports basic data mapping:
 
 * `error(unexpected_end)` if `Binary` contains incomplete JSON value
 * `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({invalid_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
 
 ## Example
 
@@ -662,7 +662,7 @@ implementations used by the `decode/1` function:
 ## Errors
 
 * `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({invalid_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
 * `error(unexpected_end)` if `Binary` contains incomplete JSON value
 
 ## Example
