@@ -32,7 +32,7 @@
          compress_control/1,
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
          explicit_file_info/1, mode/1,
-         basic_timestamp/1]).
+         basic_timestamp/1, extended_timestamp/1]).
 
 -import(proplists,[get_value/2, get_value/3]).
 
@@ -66,8 +66,9 @@ zip_groups() ->
          || ZipMode <- ?ZIP_MODES] ++
         [{G, [parallel], zip_testcases()} || G <- ?UNZIP_MODES].
 
+
 zip_testcases() ->
-    [mode, basic_timestamp].
+    [mode, basic_timestamp, extended_timestamp].
 
 init_per_suite(Config) ->
     Config.
@@ -860,11 +861,11 @@ foldl(Config) ->
     FooBin = <<"FOO">>,
     BarBin = <<"BAR">>,
     Files = [{"foo", FooBin}, {"bar", BarBin}],
-    {ok, {File, Bin}} = zip:create(File, Files, [memory]),
+    {ok, {File, Bin}} = zip:create(File, Files, [memory,{extra,[]}]),
     ZipFun = fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end,
     {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
     [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
-    {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
+    {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory,{extra,[]}]),
     {foo_bin, FooBin} =
 	try
 	    zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {File, Bin})
@@ -1128,7 +1129,6 @@ mode(Config) ->
 
     ok.
 
-
 %% Test basic timestamps, the atime and mtime should be the original
 %% mtime of the file
 basic_timestamp(Config) ->
@@ -1147,7 +1147,7 @@ basic_timestamp(Config) ->
     %% Create an archive without extended timestamps
     ?assertMatch(
        {ok, Archive},
-       zip(Config, Archive, "-X", ["testfile.txt"], [{cwd, PrivDir}])),
+       zip(Config, Archive, "-X", ["testfile.txt"], [{cwd, PrivDir}, {extra, []}])),
 
     {ok, [#zip_comment{},
           #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime }} ]} =
@@ -1192,6 +1192,71 @@ basic_timestamp(Config) ->
     end,
 
     ok.
+
+%% Test extended timestamps, the atime and ctime in the archive are
+%% the atime and ctime when the file is added to the archive.
+extended_timestamp(Config) ->
+
+    case os:cmd("zip -v | grep USE_EF_UT_TIME") of
+        "" -> {skip, "zip does not support extended timestamps"};
+        _ ->
+            PrivDir =  get_value(pdir, Config),
+            Archive = filename:join(PrivDir, "archive.zip"),
+            ExtractDir = filename:join(PrivDir, "extract"),
+            Testfile = filename:join(PrivDir, "testfile.txt"),
+
+            ok = file:write_file(Testfile, "abc"),
+            {ok, OndiskFI = #file_info{ mtime = Mtime }} =
+                file:read_file_info(Testfile),
+
+            %% Sleep a bit to let the timestamp progress
+            timer:sleep(1000),
+
+            ?assertMatch(
+               {ok, Archive},
+               zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
+
+            %% list_dir only reads the central directory header and thus only
+            %% the mtime will be correct here
+            {ok, [#zip_comment{},
+                  #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime}} ]} =
+                zip:list_dir(Archive),
+
+            ct:log("on disk: ~p",[OndiskFI]),
+            ct:log("in zip : ~p",[ZipFI]),
+            ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
+
+            ?assertEqual(Mtime, ZMtime),
+
+            %% Sleep a bit to let the timestamp progress
+            timer:sleep(1000),
+
+            ok = file:make_dir(ExtractDir),
+            ?assertMatch(
+               {ok, ["testfile.txt"]},
+               unzip(Config, Archive, [{cwd,ExtractDir}])),
+
+            {ok, UnzipFI = #file_info{ atime = UnZAtime,
+                                       mtime = UnZMtime,
+                                       ctime = UnZCtime
+                                     }} =
+                file:read_file_info(filename:join(ExtractDir, "testfile.txt")),
+
+            ct:log("extract: ~p",[UnzipFI]),
+
+            case get_value(unzip, Config) =/= unemzip of
+                true ->
+                    ?assertEqual(ZMtime, UnZMtime),
+                    ?assertEqual(UnZAtime, UnZMtime),
+
+                    ?assert(UnZMtime < UnZCtime);
+                false ->
+                    %% emzip does not support timestamps
+                    ok
+            end,
+
+            ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Generic zip interface
