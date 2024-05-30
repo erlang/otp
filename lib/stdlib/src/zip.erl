@@ -44,6 +44,9 @@ convention, add `.zip` to the filename.
   file by file, without having to reopen the archive. This can be done by
   functions [`zip_open/1,2`](`zip_open/1`), [`zip_get/1,2`](`zip_get/1`),
   `zip_list_dir/1`, and `zip_close/1`.
+- The ZIP extensions 0x5355 "extended timestamps" is supported. Both extensions
+  are by default enabled when creating and extracting from an archive. Use the `extra`
+  option to change how these extensions are used.
 
 ## Limitations
 
@@ -92,7 +95,8 @@ convention, add `.zip` to the filename.
 	  file_filter, % file filter (boolean fun)
 	  open_opts,   % options passed to file:open
 	  feedback,    % feeback (fun)
-	  cwd          % directory to relate paths to
+	  cwd,         % directory to relate paths to
+          extra        % The extra fields to include
 	 }).
 
 -record(zip_opts, {
@@ -103,19 +107,22 @@ convention, add `.zip` to the filename.
 	  feedback,    % feeback (fun)
 	  cwd,         % directory to relate paths to
 	  compress,    % compress files with these suffixes
-	  uncompress   % uncompress files with these suffixes
+	  uncompress,  % uncompress files with these suffixes
+          extra        % The extra fields to include
 	 }).
 
 -record(list_dir_opts, {
 	  input,       % input object (fun)
-	  raw_iterator, % applied to each dir entry
-	  open_opts    % options passed to file:open
+	  raw_iterator,% applied to each dir entry
+	  open_opts,   % options passed to file:open
+          extra        % The extra fields to include
 	 }).
 
 -record(openzip_opts, {
 	  output,      % output object (fun)
 	  open_opts,   % file:open options
-	  cwd	       % directory to relate paths to
+	  cwd,	       % directory to relate paths to
+          extra        % The extra fields to include
 	 }).
 
 % openzip record, state for an open zip-file
@@ -126,7 +133,8 @@ convention, add `.zip` to the filename.
 	  input,       % archive io object (fun)
 	  output,      % output io object (fun)
 	  zlib,	       % handle to open zlib
-	  cwd	       % directory to relate paths to
+	  cwd,	       % directory to relate paths to
+          extra        % The extra fields to include
 	 }).
 
 % Things that I would like to add to the public record #zip_file,
@@ -157,27 +165,40 @@ convention, add `.zip` to the filename.
 -define(PKWARE_RESERVED, 11).
 -define(BZIP2_COMPRESSED, 12).
 
-%% Version 2.0, attribute compatibility type 3 (Unix)
--define(VERSION_MADE_BY, 20 bor (3 bsl 8)).
+-define(OS_MADE_BY_UNIX, 3).
+-define(VERSION_MADE_BY, 20 bor (?OS_MADE_BY_UNIX bsl 8)).
+-define(VERSION_NEEDED_STORE, 10).
+-define(VERSION_NEEDED_DEFLATE, 20).
 -define(GP_BIT_11, 16#800). % Filename and file comment UTF-8 encoded.
 
 %% zip-file records
 -define(LOCAL_FILE_MAGIC,16#04034b50).
 -define(LOCAL_FILE_HEADER_SZ,(4+2+2+2+2+2+4+4+4+2+2)).
 -define(LOCAL_FILE_HEADER_CRC32_OFFSET, 4+2+2+2+2+2).
--record(local_file_header, {version_needed,
-			    gp_flag,
-			    comp_method,
-			    last_mod_time,
-			    last_mod_date,
-			    crc32,
-			    comp_size,
-			    uncomp_size,
-			    file_name_length,
-			    extra_field_length,
-                            %% extra data needed to create cd_file_header with correct
-                            %% mode and timestamps
-                            info :: undefined | file:file_info()}).
+-define(LOCAL_FILE_HEADER_EXTRA_LENGTH_OFFSET, 4+2+2+2+2+2+4+4+4+2).
+-record(local_file_header,
+        {
+         %% Common with cd_file_header
+         version_needed,
+         gp_flag,
+         comp_method,
+         last_mod_time,
+         last_mod_date,
+         crc32,
+         comp_size,
+         uncomp_size,
+         %% X5455_EXTENDED_TIMESTAMP extension
+         mtime,
+         atime,
+         ctime,
+         %% local_file_header specific
+         file_name_length,
+         extra_field_length,
+         %% extra data needed to create cd_file_header
+         info :: undefined | file:file_info()
+        }).
+-define(EXTRA_OPTIONS, [extended_timestamp]).
+-define(X5455_EXTENDED_TIMESTAMP, 16#5455).
 
 -define(CENTRAL_FILE_HEADER_SZ,(4+2+2+2+2+2+2+4+4+4+2+2+2+2+2+4+4)).
 
@@ -190,23 +211,32 @@ convention, add `.zip` to the filename.
 -define(DEFAULT_REGULAR_FILE_MODE, 8#644).
 -define(DEFAULT_DIRECTORY_FILE_MODE, 8#744).
 
--record(cd_file_header, {version_made_by,
-                         os_made_by,
-			 version_needed,
-			 gp_flag,
-			 comp_method,
-			 last_mod_time,
-			 last_mod_date,
-			 crc32,
-			 comp_size,
-			 uncomp_size,
-			 file_name_length,
-			 extra_field_length,
-			 file_comment_length,
-			 disk_num_start,
-			 internal_attr,
-			 external_attr,
-			 local_header_offset}).
+-record(cd_file_header,
+        {
+         %% Common with local_file_header
+         version_needed,
+         gp_flag,
+         comp_method,
+         last_mod_time,
+         last_mod_date,
+         crc32,
+         comp_size,
+         uncomp_size,
+         %% X5455_EXTENDED_TIMESTAMP extension
+         mtime,
+         atime,
+         ctime,
+         %% cd_file_header specific
+         version_made_by,
+         os_made_by,
+         file_name_length,
+         extra_field_length,
+         file_comment_length,
+         disk_num_start,
+         internal_attr,
+         external_attr,
+         local_header_offset
+        }).
 
 -define(END_OF_CENTRAL_DIR_MAGIC, 16#06054b50).
 -define(END_OF_CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
@@ -219,13 +249,22 @@ convention, add `.zip` to the filename.
 	       offset,
 	       zip_comment_length}).
 
+-doc """
+The possible extra extension that can be used.
+
+- **`extended_timestamp`** - enables the 0x5455 "extended timestamps" zip extension
+  that embeds POSIX timestamps for access and modification times for each file in the
+  archive.
+""".
+-type extra() :: [extended_timestamp].
 
 -doc "These options are described in [`create/3`](`m:zip#zip_options`).".
 -type create_option() :: memory | cooked | verbose
                        | {comment, Comment ::string()}
                        | {cwd, CWD :: file:filename()}
                        | {compress, What :: extension_spec()}
-                       | {uncompress, What :: extension_spec()}.
+                       | {uncompress, What :: extension_spec()}
+                       | {extra, extra()}.
 -type extension() :: string().
 -type extension_spec() :: all
                         | [Extension :: extension()]
@@ -317,7 +356,8 @@ Options:
       Options :: [Option],
       Option  :: {file_list, FileList} | cooked
                | keep_old_files | verbose | memory |
-                 {file_filter, FileFilter} | {cwd, CWD},
+                 {file_filter, FileFilter} | {cwd, CWD} |
+                 {extra, extra()},
       FileList :: [file:name()],
       FileBinList :: [{file:name(),binary()}],
       FileFilter :: fun((ZipFile) -> boolean()),
@@ -336,10 +376,11 @@ unzip(F, Options) ->
 
 do_unzip(F, Options) ->
     Opts = get_unzip_options(F, Options),
-    #unzip_opts{input = Input, open_opts = OpO} = Opts,
+    #unzip_opts{input = Input, open_opts = OpO,
+                   extra = ExtraOpts} = Opts,
     In0 = Input({open, F, OpO -- [write]}, []),
     RawIterator = fun raw_file_info_etc/5,
-    {Info, In1} = get_central_dir(In0, RawIterator, Input),
+    {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
     %% get rid of zip-comment
     Z = zlib:open(),
     Files = try
@@ -619,9 +660,10 @@ list_dir(F, Options) ->
 do_list_dir(F, Options) ->
     Opts = get_list_dir_options(F, Options),
     #list_dir_opts{input = Input, open_opts = OpO,
-		   raw_iterator = RawIterator} = Opts,
+		   raw_iterator = RawIterator,
+                   extra = ExtraOpts} = Opts,
     In0 = Input({open, F, OpO}, []),
-    {Info, In1} = get_central_dir(In0, RawIterator, Input),
+    {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
     Input(close, In1),
     {ok, Info}.
 
@@ -647,7 +689,7 @@ dies.
       Archive :: file:name() | binary(),
       ZipHandle :: handle(),
       Options :: [Option],
-      Option :: cooked | memory | {cwd, CWD :: file:filename()},
+      Option :: cooked | memory | {cwd, CWD :: file:filename()} | {extra, extra()},
       Reason :: term()).
 
 zip_open(Archive, Options) ->
@@ -749,7 +791,7 @@ do_t(F, RawPrint) ->
     Input = get_input(F),
     OpO = [raw],
     In0 = Input({open, F, OpO}, []),
-    {_Info, In1} = get_central_dir(In0, RawPrint, Input),
+    {_Info, In1} = get_central_dir(In0, RawPrint, Input, [extended_timestamp]),
     Input(close, In1),
     ok.
 
@@ -790,6 +832,13 @@ get_unzip_opt([keep_old_files | Rest], Opts) ->
     Keep = fun keep_old_file/1,
     Filter = fun_and_1(Keep, Opts#unzip_opts.file_filter),
     get_unzip_opt(Rest, Opts#unzip_opts{file_filter = Filter});
+get_unzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
+    case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
+        true ->
+            get_zip_opt(Rest, Opts#unzip_opts{extra = What});
+        false ->
+            throw({bad_option, O})
+    end;
 get_unzip_opt([Unknown | _Rest], _Opts) ->
     throw({bad_option, Unknown}).
 
@@ -800,6 +849,13 @@ get_list_dir_opt([cooked | Rest], #list_dir_opts{open_opts = OpO} = Opts) ->
 get_list_dir_opt([names_only | Rest], Opts) ->
     get_list_dir_opt(Rest, Opts#list_dir_opts{
 			     raw_iterator = fun(A, B, C, D, E) -> raw_name_only(A, B, C, D, E) end});
+get_list_dir_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
+    case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
+        true ->
+            get_zip_opt(Rest, Opts#list_dir_opts{extra = What});
+        false ->
+            throw({bad_option, O})
+    end;
 %% get_list_dir_opt([{file_output, F} | Rest], Opts) ->
 %%     get_list_dir_opt(Rest, Opts#list_dir_opts{file_output = F});
 %% get_list_dir_opt([{file_filter, F} | Rest], Opts) ->
@@ -849,6 +905,13 @@ get_zip_opt([{uncompress, Which} = O| Rest], Opts) ->
 		throw({bad_option, O})
 	end,
     get_zip_opt(Rest, Opts#zip_opts{uncompress = Which2});
+get_zip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
+    case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
+        true ->
+            get_zip_opt(Rest, Opts#zip_opts{extra = What});
+        false ->
+            throw({bad_option, O})
+    end;
 get_zip_opt([Unknown | _Rest], _Opts) ->
     throw({bad_option, Unknown}).
 
@@ -889,7 +952,8 @@ get_zip_options(Files, Options) ->
 		     feedback = fun silent/1,
 		     cwd = "",
 		     compress = all,
-		     uncompress = Suffixes
+		     uncompress = Suffixes,
+                     extra = [extended_timestamp]
 		    },
     Opts1 = #zip_opts{comment = Comment} = get_zip_opt(Options, Opts),
     %% UTF-8 encode characters in the interval from 127 to 255.
@@ -902,14 +966,16 @@ get_unzip_options(F, Options) ->
 		       input = get_input(F),
 		       open_opts = [raw],
 		       feedback = fun silent/1,
-		       cwd = ""
+		       cwd = "",
+                       extra = [extended_timestamp]
 		      },
     get_unzip_opt(Options, Opts).
 
 get_openzip_options(Options) ->
     Opts = #openzip_opts{open_opts = [raw, read],
 			 output = fun file_io/2,
-			 cwd = ""},
+			 cwd = "",
+                         extra = [extended_timestamp]},
     get_openzip_opt(Options, Opts).
 
 get_input(F) when is_binary(F) ->
@@ -937,7 +1003,8 @@ get_zip_input(_) ->
 get_list_dir_options(F, Options) ->
     Opts = #list_dir_opts{raw_iterator = fun raw_file_info_public/5,
 			  input = get_input(F),
-			  open_opts = [raw]},
+			  open_opts = [raw],
+                          extra = [extended_timestamp]},
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
@@ -1025,25 +1092,29 @@ extract(F, O) -> unzip(F, O).
 
 %% put the central directory, at the end of the zip archive
 put_central_dir(LHS, Pos, Out0,
-		#zip_opts{output = Output, comment = Comment}) ->
-    {Out1, Sz} = put_cd_files_loop(LHS, Output, Out0, 0),
+		#zip_opts{output = Output, comment = Comment, extra = ExtraOpts}) ->
+    {Out1, Sz} = put_cd_files_loop(LHS, Output, ExtraOpts, Out0, 0),
     put_eocd(length(LHS), Pos, Sz, Comment, Output, Out1).
 
-put_cd_files_loop([], _Output, Out, Sz) ->
+put_cd_files_loop([], _Output, _ExtraOpts, Out, Sz) ->
     {Out, Sz};
-put_cd_files_loop([{LH, Name, Pos} | LHRest], Output, Out0, Sz0) ->
-    CDFH = cd_file_header_from_lh_and_pos(LH, Pos),
+put_cd_files_loop([{LH, Name, Pos} | LHRest], Output, ExtraOpts, Out0, Sz0) ->
+    Extra = cd_file_header_extra_from_lh_and_pos(LH, ExtraOpts),
+    CDFH = cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra),
     BCDFH = cd_file_header_to_bin(CDFH),
-    B = [<<?CENTRAL_FILE_MAGIC:32/little>>, BCDFH, Name],
+    B = [<<?CENTRAL_FILE_MAGIC:32/little>>, BCDFH, Name, Extra],
     Out1 = Output({write, B}, Out0),
     Sz1 = Sz0 + ?CENTRAL_FILE_HEADER_SZ +
-	LH#local_file_header.file_name_length,
-    put_cd_files_loop(LHRest, Output, Out1, Sz1).
+	CDFH#cd_file_header.file_name_length + CDFH#cd_file_header.extra_field_length,
+    put_cd_files_loop(LHRest, Output, ExtraOpts, Out1, Sz1).
+
+cd_file_header_extra_from_lh_and_pos(
+  #local_file_header{ info = FI }, ExtraOpts) ->
+    encode_extra(FI#file_info{ atime = undefined }, ExtraOpts).
 
 %% put end marker of central directory, the last record in the archive
 put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
-    %% BComment = list_to_binary(Comment),
-    CommentSz = length(Comment), % size(BComment),
+    CommentSz = length(Comment),
     EOCD = #eocd{disk_num = 0,
 		 start_disk_num = 0,
 		 entries_on_disk = N,
@@ -1052,7 +1123,7 @@ put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
 		 offset = Pos,
 		 zip_comment_length = CommentSz},
     BEOCD = eocd_to_bin(EOCD),
-    B = [<<?END_OF_CENTRAL_DIR_MAGIC:32/little>>, BEOCD, Comment], % BComment],
+    B = [<<?END_OF_CENTRAL_DIR_MAGIC:32/little>>, BEOCD, Comment],
     Output({write, B}, Out0).
 
 get_filename({Name, _}, Type) ->
@@ -1088,13 +1159,16 @@ get_comp_method(F, _, #zip_opts{compress = Compress, uncompress = Uncompress}, _
     end.
 
 put_z_files([], _Z, Out, Pos, _Opts, Acc) ->
-    {Out, lists:reverse(Acc, []), Pos};
+    {Out, lists:reverse(Acc), Pos};
 put_z_files([F | Rest], Z, Out0, Pos0,
 	    #zip_opts{input = Input, output = Output, open_opts = OpO,
-		      feedback = FB, cwd = CWD} = Opts, Acc) ->
+		      feedback = FB, cwd = CWD, extra = ExtraOpts} = Opts, Acc) ->
+
+    {Pos0, _} = Output({position, cur, 0}, Out0), %% Assert correct Pos0
+
     In0 = [],
     F1 = add_cwd(CWD, F),
-    FileInfo = Input({file_info, F1}, In0),
+    FileInfo = Input({file_info, F1, [{time, posix}]}, In0),
     Type = FileInfo#file_info.type,
     UncompSize =
 	case Type of
@@ -1105,37 +1179,81 @@ put_z_files([F | Rest], Z, Out0, Pos0,
     %% UTF-8 encode characters in the interval from 127 to 255.
     {FileName, GPFlag} = encode_string(FileName0),
     CompMethod = get_comp_method(FileName, UncompSize, Opts, Type),
-    LH = local_file_header_from_info_method_name(FileInfo, UncompSize, CompMethod, FileName, GPFlag),
+
+    %% Add any extra data needed and patch
+    Extra = encode_extra(FileInfo, ExtraOpts),
+
+    LH = local_file_header_from_info_method_name(FileInfo, UncompSize, CompMethod,
+                                                 FileName, GPFlag, Extra),
     BLH = local_file_header_to_bin(LH),
     B = [<<?LOCAL_FILE_MAGIC:32/little>>, BLH],
     Out1 = Output({write, B}, Out0),
     Out2 = Output({write, FileName}, Out1),
-    {Out3, CompSize, CRC} = put_z_file(CompMethod, UncompSize, Out2, F1,
-				       0, Input, Output, OpO, Z, Type),
-    FB(FileName0),
-    Patch = <<CRC:32/little, CompSize:32/little>>,
-    Out4 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET, Patch}, Out3),
-    Out5 = Output({seek, eof, 0}, Out4),
+
+    %% Start of extra data
     Pos1 = Pos0 + ?LOCAL_FILE_HEADER_SZ	+ LH#local_file_header.file_name_length,
-    Pos2 = Pos1 + CompSize,
+
+    Out3 = Output({write, Extra}, Out2),
+
+    {Out4, CompSize, CRC} = put_z_file(CompMethod, UncompSize, Out3, F1,
+				       0, Input, Output, OpO, Z, Type),
+
+    Pos2 = Pos1 + LH#local_file_header.extra_field_length + CompSize,
+    FB(FileName0),
+
+    %% Patch the CRC
+    Patch = <<CRC:32/little>>,
+    Out5 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET, Patch}, Out4),
+
+    %% Patch comp size if not zip64
+    Out6 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET + 4, <<CompSize:32/little>>}, Out5),
+
+    Out7 = Output({seek, eof, 0}, Out6),
+
+    {Pos2, _} = Output({position, cur, 0}, Out7), %% Assert correct Pos2
+
     LH2 = LH#local_file_header{comp_size = CompSize, crc32 = CRC},
     ThisAcc = [{LH2, FileName, Pos0}],
-    {Out6, SubAcc, Pos3} =
+    {Out8, SubAcc, Pos3} =
 	case Type of
 	    regular ->
-		{Out5, ThisAcc, Pos2};
+		{Out7, ThisAcc, Pos2};
 	    directory ->
 		Files = Input({list_dir, F1}, []),
 		RevFiles = reverse_join_files(F, Files, []),
-		put_z_files(RevFiles, Z, Out5, Pos2, Opts, ThisAcc)
+		put_z_files(RevFiles, Z, Out7, Pos2, Opts, ThisAcc)
 	end,
     Acc2 = lists:reverse(SubAcc) ++ Acc,
-    put_z_files(Rest, Z, Out6, Pos3, Opts, Acc2).
+    put_z_files(Rest, Z, Out8, Pos3, Opts, Acc2).
 
 reverse_join_files(Dir, [File | Files], Acc) ->
     reverse_join_files(Dir, Files, [filename:join([Dir, File]) | Acc]);
 reverse_join_files(_Dir, [], Acc) ->
     Acc.
+
+encode_extra(FileInfo, ExtraOpts) ->
+    %% zip64 needs to be first so that we can patch the CompSize
+    [encode_extra_extended_timestamp(FileInfo)  || lists:member(extended_timestamp, ExtraOpts)].
+
+encode_extra_header(Header, Value) ->
+    [<<Header:16/little, (iolist_size(Value)):16/little>>, Value].
+
+encode_extra_extended_timestamp(FI) ->
+    {Mbit, MSystemTime} =
+        case datetime_to_system_time(FI#file_info.mtime) of
+            undefined -> {0, <<>>};
+            Mtime ->
+                {1, <<(datetime_to_system_time(Mtime)):32/little>>}
+        end,
+
+    {Abit, ASystemTime} =
+        case datetime_to_system_time(FI#file_info.atime) of
+            undefined -> {0, <<>>};
+            Atime ->
+                {2, <<(datetime_to_system_time(Atime)):32/little>>}
+        end,
+
+    encode_extra_header(?X5455_EXTENDED_TIMESTAMP, [Abit bor Mbit, MSystemTime, ASystemTime]).
 
 %% flag for zlib
 -define(MAX_WBITS, 15).
@@ -1208,11 +1326,9 @@ print_file_name(FileName) ->
 
 %% for printing directory (tt/1)
 raw_long_print_info_etc(#cd_file_header{comp_size = CompSize,
-					uncomp_size = UncompSize,
-					last_mod_date = LMDate,
-					last_mod_time = LMTime},
+					uncomp_size = UncompSize} = CDFH,
 			FileName, FileComment, _BExtraField, Acc) ->
-    MTime = dos_date_time_to_datetime(LMDate, LMTime),
+    MTime = file_header_mtime_to_datetime(CDFH),
     print_header(CompSize, MTime, UncompSize, FileName, FileComment),
     Acc;
 raw_long_print_info_etc(EOCD, _, Comment, _, Acc) when is_record(EOCD, eocd) ->
@@ -1254,7 +1370,7 @@ month(11) -> "Nov";
 month(12) -> "Dec".
 
 %% zip header functions
-cd_file_header_from_lh_and_pos(LH, Pos) ->
+cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra) ->
     #local_file_header{version_needed = VersionNeeded,
 		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
@@ -1264,8 +1380,9 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		       comp_size = CompSize,
 		       uncomp_size = UncompSize,
 		       file_name_length = FileNameLength,
-		       extra_field_length = ExtraFieldLength,
+		       extra_field_length = _ExtraFieldLength,
                        info = #file_info{ type = Type, mode = Mode }} = LH,
+
     #cd_file_header{version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
@@ -1276,7 +1393,7 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    comp_size = CompSize,
 		    uncomp_size = UncompSize,
 		    file_name_length = FileNameLength,
-		    extra_field_length = ExtraFieldLength,
+		    extra_field_length = iolist_size(Extra),
 		    file_comment_length = 0, % FileCommentLength,
 		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
@@ -1354,30 +1471,35 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
 	   offset = Offset,
 	   zip_comment_length = ZipCommentLength}) ->
     <<DiskNum:16/little,
-     StartDiskNum:16/little,
-     EntriesOnDisk:16/little,
-     Entries:16/little,
-     Size:32/little,
-     Offset:32/little,
-     ZipCommentLength:16/little>>.
+      StartDiskNum:16/little,
+      EntriesOnDisk:16/little,
+      Entries:16/little,
+      Size:32/little,
+      Offset:32/little,
+      ZipCommentLength:16/little>>.
 
 %% put together a local file header
-local_file_header_from_info_method_name(Info = #file_info{mtime = MTime},
-					UncompSize,
-					CompMethod, Name, GPFlag) ->
+local_file_header_from_info_method_name(#file_info{mtime = MTime,
+                                                   atime = ATime} = Info,
+					UncompSize, CompMethod,
+                                        Name, GPFlag, Extra ) ->
+    CreationTime = os:system_time(second),
     {ModDate, ModTime} = dos_date_time_from_datetime(
                            calendar:system_time_to_local_time(
                              datetime_to_system_time(MTime), second)),
-    #local_file_header{version_needed = 20,
+    #local_file_header{version_needed = ?VERSION_NEEDED_DEFLATE,
 		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
 		       last_mod_time = ModTime,
 		       last_mod_date = ModDate,
+                       mtime = datetime_to_system_time(MTime),
+                       atime = datetime_to_system_time(ATime),
+                       ctime = datetime_to_system_time(CreationTime),
 		       crc32 = -1,
 		       comp_size = -1,
 		       uncomp_size = UncompSize,
 		       file_name_length = length(Name),
-		       extra_field_length = 0,
+		       extra_field_length = iolist_size(Extra),
                        info = Info}.
 
 %%
@@ -1394,11 +1516,12 @@ openzip_open(F, Options) ->
 
 do_openzip_open(F, Options) ->
     Opts = get_openzip_options(Options),
-    #openzip_opts{output = Output, open_opts = OpO, cwd = CWD} = Opts,
+    #openzip_opts{output = Output, open_opts = OpO, cwd = CWD,
+                  extra = ExtraOpts} = Opts,
     Input = get_input(F),
     In0 = Input({open, F, OpO -- [write]}, []),
     {[#zip_comment{comment = C} | Files], In1} =
-	get_central_dir(In0, fun raw_file_info_etc/5, Input),
+	get_central_dir(In0, fun raw_file_info_etc/5, Input, ExtraOpts),
     Z = zlib:open(),
     {ok, #openzip{zip_comment = C,
 		  files = Files,
@@ -1406,7 +1529,8 @@ do_openzip_open(F, Options) ->
 		  input = Input,
 		  output = Output,
 		  zlib = Z,
-		  cwd = CWD}}.
+		  cwd = CWD,
+                  extra = ExtraOpts}}.
 
 %% retrieve all files from an open archive
 openzip_get(OpenZip) ->
@@ -1416,10 +1540,10 @@ openzip_get(OpenZip) ->
     end.
 
 do_openzip_get(#openzip{files = Files, in = In0, input = Input,
-			output = Output, zlib = Z, cwd = CWD}) ->
+			output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
     ZipOpts = #unzip_opts{output = Output, input = Input,
 			  file_filter = fun all/1, open_opts = [],
-			  feedback = fun silent/1, cwd = CWD},
+			  feedback = fun silent/1, cwd = CWD, extra = ExtraOpts},
     R = get_z_files(Files, Z, In0, ZipOpts, []),
     {ok, R};
 do_openzip_get(_) ->
@@ -1440,13 +1564,13 @@ openzip_get(FileName, OpenZip) ->
     end.
 
 do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
-			   output = Output, zlib = Z, cwd = CWD}) ->
+			   output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
     %%case lists:keysearch(F, #zip_file.name, Files) of
     case file_name_search(F, Files) of
 	{#zip_file{offset = Offset},_}=ZFile ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
-			    CWD, ZFile, fun all/1) of
+			    CWD, ZFile, fun all/1, ExtraOpts) of
 		{file, R, _In2} -> {ok, R};
 		_ -> throw(file_not_found)
 	    end;
@@ -1554,11 +1678,18 @@ get_openzip_opt([memory | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{output = fun binary_io/2});
 get_openzip_opt([{cwd, CWD} | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{cwd = CWD});
+get_openzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
+    case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
+        true ->
+            get_zip_opt(Rest, Opts#openzip_opts{extra = What});
+        false ->
+            throw({bad_option, O})
+    end;
 get_openzip_opt([Unknown | _Rest], _Opts) ->
     throw({bad_option, Unknown}).
 
 %% get the central directory from the archive
-get_central_dir(In0, RawIterator, Input) ->
+get_central_dir(In0, RawIterator, Input, ExtraOpts) ->
     {B, In1} = get_end_of_central_dir(In0, ?END_OF_CENTRAL_DIR_SZ, Input),
     {EOCD, BComment} = eocd_and_comment_from_bin(B),
     In2 = Input({seek, bof, EOCD#eocd.offset}, In1),
@@ -1567,14 +1698,13 @@ get_central_dir(In0, RawIterator, Input) ->
     %% There is no encoding flag for the archive comment.
     Comment = heuristic_to_string(BComment),
     Out0 = RawIterator(EOCD, "", Comment, <<>>, Acc0),
-    get_cd_loop(N, In2, RawIterator, Input, Out0).
+    get_cd_loop(N, In2, RawIterator, Input, ExtraOpts, Out0).
 
-get_cd_loop(0, In, _RawIterator, _Input, Acc) ->
+get_cd_loop(0, In, _RawIterator, _Input, _ExtraOpts, Acc) ->
     {lists:reverse(Acc), In};
-get_cd_loop(N, In0, RawIterator, Input, Acc0) ->
-    {B, In1} = Input({read, ?CENTRAL_FILE_HEADER_SZ}, In0),
-    BCD = case B of
-	      <<?CENTRAL_FILE_MAGIC:32/little, XBCD/binary>> -> XBCD;
+get_cd_loop(N, In0, RawIterator, Input, ExtraOpts, Acc0) ->
+    {BCD, In1} = case Input({read, ?CENTRAL_FILE_HEADER_SZ}, In0) of
+	      {<<?CENTRAL_FILE_MAGIC:32/little, XBCD/binary>>, In} -> {XBCD, In};
 	      _ -> throw(bad_central_directory)
 	  end,
     CD = cd_file_header_from_bin(BCD),
@@ -1584,17 +1714,58 @@ get_cd_loop(N, In0, RawIterator, Input, Acc0) ->
     ToRead = FileNameLen + ExtraLen + CommentLen,
     GPFlag = CD#cd_file_header.gp_flag,
     {B2, In2} = Input({read, ToRead}, In1),
-    {FileName, Comment, BExtra} =
-	get_name_extra_comment(B2, FileNameLen, ExtraLen, CommentLen, GPFlag),
-    Acc1 = RawIterator(CD, FileName, Comment, BExtra, Acc0),
-    get_cd_loop(N-1, In2, RawIterator, Input, Acc1).
+    {FileName, BExtra, Comment} =
+	get_filename_extra_comment(B2, FileNameLen, ExtraLen, CommentLen, GPFlag),
 
-get_name_extra_comment(B, FileNameLen, ExtraLen, CommentLen, GPFlag) ->
+    ExtraCD =
+        update_extra_fields(CD, BExtra, ExtraOpts),
+
+    Acc1 = RawIterator(ExtraCD, FileName, Comment, BExtra, Acc0),
+    get_cd_loop(N-1, In2, RawIterator, Input, ExtraOpts, Acc1).
+
+%% We parse and apply some extra fields defined by Info-ZIP. For details see:
+%% proginfo/extrafld.txt in unzip. https://fossies.org/linux/unzip/proginfo/extrafld.txt
+-spec update_extra_fields(#local_file_header{} | #cd_file_header{}, binary(), extra()) ->
+          #local_file_header{} | #cd_file_header{}.
+update_extra_fields(FileHeader, BExtra, ExtraOpts) ->
+    %% We depend on some fields in the records to be at the same position
+    #local_file_header.mtime = #cd_file_header.mtime,
+    #local_file_header.atime = #cd_file_header.atime,
+    #local_file_header.ctime = #cd_file_header.ctime,
+    ExtendedTimestamp = lists:member(extended_timestamp, ExtraOpts),
+    lists:foldl(
+      fun({?X5455_EXTENDED_TIMESTAMP, Data}, Acc) when ExtendedTimestamp ->
+              update_extended_timestamp(Acc, Data);
+         (_, Acc) ->
+              Acc
+      end, FileHeader, parse_extra(BExtra)).
+
+update_extended_timestamp(FileHeader, <<_:5,HasCre:1,HasAcc:1,HasMod:1,Data/binary>> ) ->
+    {FHMod, DataMod} = update_extended_timestamp(FileHeader, HasMod, Data, #cd_file_header.mtime),
+    {FHAcc, DataAcc} = update_extended_timestamp(FHMod, HasAcc, DataMod, #cd_file_header.atime),
+    {FHCre, <<>>} = update_extended_timestamp(FHAcc, HasCre, DataAcc, #cd_file_header.ctime),
+    FHCre.
+
+update_extended_timestamp(FH, 1, <<Value:32/little,Rest/binary>>, Field) ->
+    {setelement(Field, FH, Value), Rest};
+%% It seems like sometimes bits are set, but the data does not include any payload
+update_extended_timestamp(FH, 1, <<>>, _Field) ->
+    {FH, <<>>};
+update_extended_timestamp(FH, 0, Data, _Field) ->
+    {FH, Data}.
+
+parse_extra(<<Tag:16/little,Sz:16/little,Data:Sz/binary,Rest/binary>>) ->
+    [{Tag, Data} | parse_extra(Rest)];
+parse_extra(<<>>) ->
+    [].
+
+get_filename_extra_comment(B, FileNameLen, ExtraLen, CommentLen, GPFlag) ->
     try
         <<BFileName:FileNameLen/binary,
           BExtra:ExtraLen/binary,
           BComment:CommentLen/binary>> = B,
         {binary_to_chars(BFileName, GPFlag),
+         BExtra,
          %% Appendix D says: "If general purpose bit 11 is unset, the
          %% file name and comment should conform to the original ZIP
          %% character encoding." However, it seems that at least Linux
@@ -1603,8 +1774,7 @@ get_name_extra_comment(B, FileNameLen, ExtraLen, CommentLen, GPFlag) ->
          %% binary_to_chars/1 could (should?) be called (it can fail),
          %% but the choice is to employ heuristics in this case too
          %% (it does not fail).
-         heuristic_to_string(BComment),
-         BExtra}
+         heuristic_to_string(BComment)}
     catch
         _:_ ->
             throw(bad_central_directory)
@@ -1634,6 +1804,29 @@ find_eocd_header(<<_:8, Rest/binary>>)
 find_eocd_header(_) ->
     none.
 
+%% Taken from APPNOTE.TXT version 6.3.10 section 4.4.2.2
+os_id_to_atom(0) -> ~"MS-DOS and OS/2";
+os_id_to_atom(1) -> ~"Amiga";
+os_id_to_atom(2) -> ~"OpenVMS";
+os_id_to_atom(3) -> ~"UNIX";
+os_id_to_atom(4) -> ~"VM/CMS";
+os_id_to_atom(5) -> ~"Atari ST";
+os_id_to_atom(6) -> ~"OS/2 H.P.F.S";
+os_id_to_atom(7) -> ~"Macintosh";
+os_id_to_atom(8) -> ~"Z-System";
+os_id_to_atom(9) -> ~"CP/M";
+os_id_to_atom(10) -> ~"Windows NTFS";
+os_id_to_atom(11) -> ~"MVS";
+os_id_to_atom(12) -> ~"VSE";
+os_id_to_atom(13) -> ~"Acorn Risc";
+os_id_to_atom(14) -> ~"VFAT";
+os_id_to_atom(15) -> ~"alternate MVS";
+os_id_to_atom(16) -> ~"BeOS";
+os_id_to_atom(17) -> ~"Tandem";
+os_id_to_atom(18) -> ~"OS/400";
+os_id_to_atom(19) -> ~"OS X (Darwin)";
+os_id_to_atom(No) -> No.
+
 %% from a central directory record, filter and accumulate what we need
 
 %% with zip_file_extra
@@ -1660,11 +1853,11 @@ raw_file_info_public(CD, FileName, FileComment, BExtraField, Acc0) ->
 
 %% make a file_info from a central directory header
 cd_file_header_to_file_info(FileName,
-			    #cd_file_header{uncomp_size = UncompSize,
-					    last_mod_time = ModTime,
-					    last_mod_date = ModDate} = CDFH,
-			    ExtraField) ->
-    T = dos_date_time_to_datetime(ModDate, ModTime),
+			    #cd_file_header{uncomp_size = UncompSize} = CDFH,
+			    _ExtraField) ->
+    M = file_header_mtime_to_datetime(CDFH),
+    A = file_header_atime_to_datetime(CDFH),
+    C = file_header_ctime_to_datetime(CDFH),
     Type =
 	case lists:last(FileName) of
 	    $/ -> directory;
@@ -1680,24 +1873,19 @@ cd_file_header_to_file_info(FileName,
                         ?DEFAULT_REGULAR_FILE_MODE
                 end
         end,
-    FI = #file_info{size = UncompSize,
-		    type = Type,
-		    access = read_write,
-		    atime = T,
-		    mtime = T,
-		    ctime = T,
-		    mode = Mode,
-		    links = 1,
-		    major_device = 0,
-		    minor_device = 0,
-		    inode = 0,
-		    uid = 0,
-		    gid = 0},
-    add_extra_info(FI, ExtraField).
-
-%% Currently, we ignore all the extra fields.
-add_extra_info(FI, _) ->
-    FI.
+    #file_info{size = UncompSize,
+               type = Type,
+               access = read_write,
+               atime = A,
+               mtime = M,
+               ctime = C,
+               mode = Mode,
+               links = 1,
+               major_device = 0,
+               minor_device = 0,
+               inode = 0,
+               uid = 0,
+               gid = 0}.
 
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
@@ -1708,13 +1896,13 @@ get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
 get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 	    #unzip_opts{input = Input, output = Output, open_opts = OpO,
 			file_filter = Filter, feedback = FB,
-			cwd = CWD} = Opts, Acc0) ->
+			cwd = CWD, extra = ExtraOpts} = Opts, Acc0) ->
     case Filter(ZFile) of
 	true ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    {In2, Acc1} =
 		case get_z_file(In1, Z, Input, Output, OpO, FB,
-				CWD, ZFile, Filter) of
+				CWD, ZFile, Filter, ExtraOpts) of
 		    {Type, GZD, Inx} when Type =:= file; Type =:= dir ->
                         {Inx, [GZD | Acc0]};
 		    {_, Inx}       -> {Inx, Acc0}
@@ -1726,7 +1914,7 @@ get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 
 %% get a file from the archive, reading chunks
 get_z_file(In0, Z, Input, Output, OpO, FB,
-	   CWD, {ZipFile,Extra}, Filter) ->
+	   CWD, {ZipFile,ZipExtra}, Filter, ExtraOpts) ->
     case Input({read, ?LOCAL_FILE_HEADER_SZ}, In0) of
 	{eof, In1} ->
 	    {eof, In1};
@@ -1738,25 +1926,29 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 			       file_name_length = FileNameLen,
 			       extra_field_length = ExtraLen} = LH,
 
+	    {BFileN, In3} = Input({read, FileNameLen + ExtraLen}, In1),
+	    {FileName, BLHExtra} =
+                get_filename_extra(FileNameLen, ExtraLen, BFileN, GPFlag),
+            LHExtra =
+                update_extra_fields(LH, BLHExtra, ExtraOpts),
+
 	    {CompSize,CRC32} = case GPFlag band 8 =:= 8 of
 				   true -> {ZipFile#zip_file.comp_size,
-					    Extra#zip_file_extra.crc32};
-				   false -> {LH#local_file_header.comp_size,
-					     LH#local_file_header.crc32}
+					    ZipExtra#zip_file_extra.crc32};
+				   false -> {LHExtra#local_file_header.comp_size,
+					     LHExtra#local_file_header.crc32}
 			       end,
-	    {BFileN, In3} = Input({read, FileNameLen + ExtraLen}, In1),
-	    {FileName, _} =
-                get_file_name_extra(FileNameLen, ExtraLen, BFileN, GPFlag),
+
 	    ReadAndWrite =
 		case check_valid_location(CWD, FileName) of
 		    {true,FileName1} ->
 			true;
 		    {false,FileName1} ->
-			Filter({ZipFile#zip_file{name = FileName1},Extra})
+			Filter({ZipFile#zip_file{name = FileName1},ZipExtra})
 		end,
 	    case ReadAndWrite of
 		true ->
-		    {Type, Out, In} =
+                    {Type, Out, In} =
                         case lists:last(FileName) of
                             $/ ->
                                 %% perhaps this should always be done?
@@ -1775,23 +1967,25 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 
                     FileInfo = local_file_header_to_file_info(
                                  Output({file_info, FileName1}, Out),
-                                 LH, ZipFile),
+                                 LHExtra, ZipFile),
 
                     Out2 = Output({set_file_info, FileName1, FileInfo, [{time, local}]}, Out),
                     {Type, Out2, In};
 		false ->
 		    {ignore, In3}
 	    end;
-	_ ->
-	    throw(bad_local_file_header)
+	Else ->
+	    throw({bad_local_file_header, Else})
     end.
 
 local_file_header_to_file_info(FI, LFH, ZipFile) ->
-    Mtime = dos_date_time_to_datetime(
-              LFH#local_file_header.last_mod_date,
-              LFH#local_file_header.last_mod_time),
+    %% Validate that local_file_header mtime is the same as cd_file_header
     FI#file_info{ mode = ZipFile#zip_file.info#file_info.mode,
-                  mtime = Mtime, atime = Mtime, ctime = Mtime }.
+                  mtime = file_header_mtime_to_datetime(LFH),
+                  atime = file_header_atime_to_datetime(LFH),
+                  ctime = file_header_ctime_to_datetime(LFH)
+                }.
+
 
 %% make sure FileName doesn't have relative path that points over CWD
 check_valid_location(CWD, FileName) ->
@@ -1823,7 +2017,7 @@ check_dir_level([".." | Parts], Level) ->
 check_dir_level([_Dir | Parts], Level) ->
     check_dir_level(Parts, Level+1).
 
-get_file_name_extra(FileNameLen, ExtraLen, B, GPFlag) ->
+get_filename_extra(FileNameLen, ExtraLen, B, GPFlag) ->
     try
         <<BFileName:FileNameLen/binary, BExtra:ExtraLen/binary>> = B,
         {binary_to_chars(BFileName, GPFlag), BExtra}
@@ -1885,6 +2079,42 @@ skip_z_data_descriptor(GPFlag, Input, In0) when GPFlag band 8 =:= 8 ->
 skip_z_data_descriptor(_GPFlag, _Input, In0) ->
     In0.
 
+%% If we have mtime we use that, otherwise use dos time
+file_header_mtime_to_datetime(FH) ->
+    #cd_file_header.mtime = #local_file_header.mtime,
+    case element(#cd_file_header.mtime, FH) of
+        undefined ->
+            dos_date_time_to_datetime(
+              element(#cd_file_header.last_mod_date, FH),
+              element(#cd_file_header.last_mod_time, FH));
+        MTime ->
+            calendar:system_time_to_local_time(MTime, second)
+    end.
+
+%% If we have atime we use that, otherwise use dos time
+file_header_atime_to_datetime(FH) ->
+    #cd_file_header.atime = #local_file_header.atime,
+    case element(#cd_file_header.atime, FH) of
+        undefined ->
+            dos_date_time_to_datetime(
+              element(#cd_file_header.last_mod_date, FH),
+              element(#cd_file_header.last_mod_time, FH));
+        Atime ->
+            calendar:system_time_to_local_time(Atime, second)
+    end.
+
+%% If we have ctime we use that, otherwise use dos time
+file_header_ctime_to_datetime(FH) ->
+    #cd_file_header.ctime = #local_file_header.ctime,
+    case element(#cd_file_header.ctime, FH) of
+        undefined ->
+            dos_date_time_to_datetime(
+              element(#cd_file_header.last_mod_date, FH),
+              element(#cd_file_header.last_mod_time, FH));
+        Ctime ->
+            calendar:system_time_to_local_time(Ctime, second)
+    end.
+
 %% convert between erlang datetime and the MSDOS date and time
 %% that's stored in the zip archive
 %%    	 MSDOS Time  	           MSDOS Date
@@ -1896,9 +2126,6 @@ dos_date_time_to_datetime(DosDate, DosTime) ->
     {{YearFrom1980+1980, Month, Day},
      {Hour, Min, Sec * 2}}.
 
-dos_date_time_from_datetime(Seconds) when is_integer(Seconds) ->
-    DateTime = calendar:now_to_datetime({0, Seconds, 0}),
-    dos_date_time_from_datetime(DateTime);
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
     <<DosTime:16>> = <<Hour:5, Min:6, (Sec div 2):5>>,
@@ -2000,7 +2227,7 @@ eocd_and_comment_from_bin(<<DiskNum:16/little,
 eocd_and_comment_from_bin(_) ->
     throw(bad_eocd).
 
-cd_file_header_from_bin(<<VersionMadeBy:16/little,
+cd_file_header_from_bin(<<VersionMadeBy:8,OsMadeBy:8,
 			 VersionNeeded:16/little,
 			 GPFlag:16/little,
 			 CompMethod:16/little,
@@ -2017,6 +2244,7 @@ cd_file_header_from_bin(<<VersionMadeBy:16/little,
 			 ExternalAttr:32/little,
 			 LocalHeaderOffset:32/little>>) ->
     #cd_file_header{version_made_by = VersionMadeBy,
+                    os_made_by = os_id_to_atom(OsMadeBy),
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
 		    comp_method = CompMethod,
@@ -2059,6 +2287,14 @@ local_file_header_from_bin(_) ->
     throw(bad_local_file_header).
 
 %% io functions
+binary_io({file_info, FN, Opts}, A) ->
+    FI = binary_io({file_info, FN}, A),
+    case proplists:get_value(time, Opts, local) of
+        local -> FI;
+        posix -> FI#file_info{ atime = datetime_to_system_time(FI#file_info.atime),
+                               mtime = datetime_to_system_time(FI#file_info.mtime),
+                               ctime = datetime_to_system_time(FI#file_info.ctime) }
+    end;
 binary_io({file_info, {_Filename, _B, #file_info{} = FI}}, _A) ->
     FI;
 binary_io({file_info, {_Filename, #file_info{} = FI, _B}}, _A) ->
@@ -2115,6 +2351,9 @@ binary_io({seek, cur, Pos}, {OldPos, B}) ->
     {OldPos + Pos, B};
 binary_io({seek, eof, Pos}, {_OldPos, B}) ->
     {byte_size(B) + Pos, B};
+binary_io({position, Loc, Adj}, File) ->
+    {Pos, _} = NewFile = binary_io({seek, Loc, Adj}, File),
+    {Pos, NewFile};
 binary_io({pwrite, Pos, Data}, {OldPos, B}) ->
     {OldPos, pwrite_binary(B, Pos, Data)};
 binary_io({write, Data}, {Pos, B}) ->
@@ -2134,6 +2373,11 @@ binary_io({ensure_path, Dir}, _B) ->
 
 file_io({file_info, F}, _) ->
     case file:read_file_info(F) of
+	{ok, Info} -> Info;
+	{error, E} -> throw(E)
+    end;
+file_io({file_info, F, Opts}, _) ->
+    case file:read_file_info(F, Opts) of
 	{ok, Info} -> Info;
 	{error, E} -> throw(E)
     end;
@@ -2161,6 +2405,11 @@ file_io({pread, Pos, N}, H) ->
 file_io({seek, S, Pos}, H) ->
     case file:position(H, {S, Pos}) of
 	{ok, _NewPos} -> H;
+	{error, Error} -> throw(Error)
+    end;
+file_io({position, S, Pos}, H) ->
+    case file:position(H, {S, Pos}) of
+	{ok, NewPos} -> {NewPos, H};
 	{error, Error} -> throw(Error)
     end;
 file_io({write, Data}, H) ->
