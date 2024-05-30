@@ -1768,8 +1768,6 @@ session_id(Ident) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-origin_state_id() -> Unsigned32()
-
 Return a reasonable value for use as Origin-State-Id in outgoing messages.
 
 The value returned is the number of seconds since 19680120T031408Z, the first
