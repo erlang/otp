@@ -175,7 +175,9 @@ convention, add `.zip` to the filename.
 			    uncomp_size,
 			    file_name_length,
 			    extra_field_length,
-                            type}).
+                            %% extra data needed to create cd_file_header with correct
+                            %% mode and timestamps
+                            info :: undefined | file:file_info()}).
 
 -define(CENTRAL_FILE_HEADER_SZ,(4+2+2+2+2+2+2+4+4+4+2+2+2+2+2+4+4)).
 
@@ -183,11 +185,13 @@ convention, add `.zip` to the filename.
 -define(CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
 -define(CENTRAL_DIR_DIGITAL_SIG_MAGIC, 16#05054b50).
 -define(CENTRAL_DIR_DIGITAL_SIG_SZ, (4+2)).
--define(CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
--define(CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES, 8#744 bsl 16).
 -define(CENTRAL_FILE_MAGIC, 16#02014b50).
 
+-define(DEFAULT_REGULAR_FILE_MODE, 8#644).
+-define(DEFAULT_DIRECTORY_FILE_MODE, 8#744).
+
 -record(cd_file_header, {version_made_by,
+                         os_made_by,
 			 version_needed,
 			 gp_flag,
 			 comp_method,
@@ -1261,7 +1265,7 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		       uncomp_size = UncompSize,
 		       file_name_length = FileNameLength,
 		       extra_field_length = ExtraFieldLength,
-                       type = Type} = LH,
+                       info = #file_info{ type = Type, mode = Mode }} = LH,
     #cd_file_header{version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
@@ -1277,10 +1281,13 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
 		    external_attr = % ExternalAttr
-                        case Type of
-                            regular -> ?CENTRAL_REGULAR_FILE_EXT_ATTRIBUTES;
-                            directory -> ?CENTRAL_DIRECTORY_FILE_EXT_ATTRIBUTES
-                        end,
+                        if Mode =:= undefined ->
+                                case Type of
+                                    regular -> ?DEFAULT_REGULAR_FILE_MODE;
+                                    directory -> ?DEFAULT_DIRECTORY_FILE_MODE
+                                end;
+                           true -> Mode band 8#777
+                        end bsl 16,
 		    local_header_offset = Pos}.
 
 cd_file_header_to_bin(
@@ -1355,7 +1362,7 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
      ZipCommentLength:16/little>>.
 
 %% put together a local file header
-local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
+local_file_header_from_info_method_name(Info = #file_info{mtime = MTime},
 					UncompSize,
 					CompMethod, Name, GPFlag) ->
     {ModDate, ModTime} = dos_date_time_from_datetime(
@@ -1371,7 +1378,7 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
 		       uncomp_size = UncompSize,
 		       file_name_length = length(Name),
 		       extra_field_length = 0,
-                       type = Type}.
+                       info = Info}.
 
 %%
 %% Functions used by zip server
@@ -1655,7 +1662,7 @@ raw_file_info_public(CD, FileName, FileComment, BExtraField, Acc0) ->
 cd_file_header_to_file_info(FileName,
 			    #cd_file_header{uncomp_size = UncompSize,
 					    last_mod_time = ModTime,
-					    last_mod_date = ModDate},
+					    last_mod_date = ModDate} = CDFH,
 			    ExtraField) ->
     T = dos_date_time_to_datetime(ModDate, ModTime),
     Type =
@@ -1663,13 +1670,23 @@ cd_file_header_to_file_info(FileName,
 	    $/ -> directory;
 	    _  -> regular
 	end,
+    Mode =
+        if CDFH#cd_file_header.os_made_by =:= ~"UNIX" ->
+                (CDFH#cd_file_header.external_attr bsr 16) band 8#777;
+           true ->
+                if Type =:= directory ->
+                        ?DEFAULT_DIRECTORY_FILE_MODE;
+                   true ->
+                        ?DEFAULT_REGULAR_FILE_MODE
+                end
+        end,
     FI = #file_info{size = UncompSize,
 		    type = Type,
 		    access = read_write,
 		    atime = T,
 		    mtime = T,
 		    ctime = T,
-		    mode = 8#066,
+		    mode = Mode,
 		    links = 1,
 		    major_device = 0,
 		    minor_device = 0,
@@ -2038,6 +2055,8 @@ binary_io({file_info, {_Filename, #file_info{} = FI, _B}}, _A) ->
     FI;
 binary_io({file_info, {_Filename, B}}, A) ->
     binary_io({file_info, B}, A);
+binary_io({file_info, Filename}, A) when is_list(Filename) ->
+    binary_io({file_info, {Filename, <<>>}}, A);
 binary_io({file_info, B}, _) ->
     {Type, Size} =
 	if
@@ -2047,7 +2066,11 @@ binary_io({file_info, B}, _) ->
     Now = calendar:local_time(),
     #file_info{size = Size, type = Type,
 	       access = read_write, atime = Now,
-	       mtime = Now, ctime = Now, mode = 0,
+	       mtime = Now, ctime = Now, mode =
+                   if
+                       Type =:= directory -> ?DEFAULT_DIRECTORY_FILE_MODE;
+                       true -> ?DEFAULT_REGULAR_FILE_MODE
+                   end,
 	       links = 1, major_device = 0,
 	       minor_device = 0, inode = 0,
 	       uid = 0, gid = 0};
