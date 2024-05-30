@@ -3980,7 +3980,7 @@ static void vadd_dmc_err(DMCErrInfo *err_info,
     va_start(args, str);
 
 
-    /* Linked in in reverse order, to ease the formatting */
+    /* Linked in reverse order, to ease the formatting */
     e = erts_alloc(ERTS_ALC_T_DB_DMC_ERROR, sizeof(DMCError));
     erts_vsnprintf(e->error_string, DMC_ERR_STR_LEN, str, args);
     e->variable = variable;

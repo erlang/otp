@@ -490,7 +490,7 @@ back to the old release.
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
 -doc """
-This function is called by a `gen_server` process in in order to format/limit the
+This function is called by a `gen_server` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:
@@ -559,7 +559,7 @@ New associations may be added to the status map without prior notice.
            reason => term(),
            log => [sys:system_event()] }.
 -doc """
-This function is called by a `gen_server` process in in order to format/limit the
+This function is called by a `gen_server` process in order to format/limit the
 server state for debugging and logging purposes.
 
 It is called in the following situations:
