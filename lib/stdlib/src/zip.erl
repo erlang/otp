@@ -1419,7 +1419,7 @@ raw_long_print_info_etc(EOCD, _, Comment, _, Acc) when is_record(EOCD, eocd) ->
     Acc.
 
 print_header(CompSize, MTime, UncompSize, FileName, FileComment) ->
-    io:format("~8w ~s ~8w ~2w% ~ts ~ts\n",
+    io:format("~10w ~s ~10w ~3w% ~ts ~ts\n",
 	      [CompSize, time_to_string(MTime), UncompSize,
 	       get_percent(CompSize, UncompSize), FileName, FileComment]).
 
