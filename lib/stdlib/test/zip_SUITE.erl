@@ -30,7 +30,8 @@
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
          explicit_file_info/1]).
 
--include_lib("common_test/include/ct.hrl").
+-import(proplists,[get_value/2, get_value/3]).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
 
@@ -64,7 +65,7 @@ end_per_group(_GroupName, Config) ->
 %% multiple times with different file sizes. Also check that the
 %% modification date of the extracted file has survived.
 borderline(Config) when is_list(Config) ->
-    RootDir = proplists:get_value(priv_dir, Config),
+    RootDir = get_value(priv_dir, Config),
     TempDir = filename:join(RootDir, "borderline"),
     ok = file:make_dir(TempDir),
 
@@ -200,7 +201,7 @@ next_random(X) ->
 %% Test the 'atomic' operations: zip/unzip/list_dir, on archives.
 %% Also test the 'cooked' option.
 atomic(Config) when is_list(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    ok = file:set_cwd(get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name,_,_} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -226,7 +227,7 @@ atomic(Config) when is_list(Config) ->
 %% Test the zip_open/2, zip_get/1, zip_get/2, zip_close/1,
 %% and zip_list_dir/1 functions.
 zip_api(Config) when is_list(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    ok = file:set_cwd(get_value(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
     io:format("Names: ~p", [Names]),
@@ -299,8 +300,8 @@ spawned_zip_dead(ZipSrv) ->
 
 %% Test options for unzip, only cwd and file_list currently.
 unzip_options(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     Long = filename:join(DataDir, "abc.zip"),
 
     %% create a temp directory
@@ -327,8 +328,8 @@ unzip_options(Config) when is_list(Config) ->
 
 %% Test that unzip handles directory traversal exploit (OTP-13633)
 unzip_traversal_exploit(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     ZipName = filename:join(DataDir, "exploit.zip"),
 
     %% $ zipinfo -1 test/zip_SUITE_data/exploit.zip 
@@ -373,8 +374,8 @@ unzip_traversal_exploit(Config) ->
 
 %% Test unzip a jar file (OTP-7382).
 unzip_jar(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     JarFile = filename:join(DataDir, "test.jar"),
 
     %% create a temp directory
@@ -403,13 +404,13 @@ unzip_jar(Config) when is_list(Config) ->
 
 %% Test the options for unzip, only cwd currently.
 zip_options(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     ok = file:set_cwd(PrivDir),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
 
     %% Make sure cwd is not where we get the files
-    ok = file:set_cwd(proplists:get_value(data_dir, Config)),
+    ok = file:set_cwd(get_value(data_dir, Config)),
 
     %% Create a zip archive
     {ok, {_,Zip}} =
@@ -493,7 +494,7 @@ create_files([]) ->
 
 %% Try zip:unzip/1 on some corrupted zip files.
 bad_zip(Config) when is_list(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    ok = file:set_cwd(get_value(priv_dir, Config)),
     try_bad("bad_crc",    {bad_crc, "abc.txt"}, Config),
     try_bad("bad_central_directory", bad_central_directory, Config),
     try_bad("bad_file_header",    bad_file_header, Config),
@@ -513,7 +514,7 @@ try_bad(N, R, Config) ->
 try_bad(Name0, Reason, What, Config) ->
     %% Intentionally no macros here.
 
-    DataDir = proplists:get_value(data_dir, Config),
+    DataDir = get_value(data_dir, Config),
     Name = Name0 ++ ".zip",
     io:format("~nTrying ~s", [Name]),
     Full = filename:join(DataDir, Name),
@@ -528,8 +529,8 @@ try_bad(Name0, Reason, What, Config) ->
 
 %% Test extracting to binary with memory option.
 unzip_to_binary(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, "unzip_to_binary"),
     _ = file:make_dir(WorkDir),
     _ = file:make_dir(filename:join(DataDir, "empty")),
@@ -560,8 +561,8 @@ unzip_to_binary(Config) when is_list(Config) ->
 
 %% Test compressing to binary with memory option.
 zip_to_binary(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     WorkDir = filename:join(PrivDir, "zip_to_binary"),
     _ = file:make_dir(WorkDir),
 
@@ -613,8 +614,8 @@ aliases(Config) when is_list(Config) ->
 
 %% Test extracting a zip archive from a binary.
 unzip_from_binary(Config) when is_list(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = get_value(data_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     ExtractDir = filename:join(PrivDir, "extract_from_binary"),
     ok = file:make_dir(ExtractDir),
     Archive = filename:join(ExtractDir, "abc.zip"),
@@ -683,7 +684,7 @@ do_delete_files([Item|Rest], Cnt) ->
 
 %% Test control of which files that should be compressed.
 compress_control(Config) when is_list(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    ok = file:set_cwd(get_value(priv_dir, Config)),
     Dir = "compress_control",
     Files = [
              {Dir,                                                          dir,   $d},
@@ -814,7 +815,7 @@ extensions([], Old) ->
     Old.
 
 foldl(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
+    PrivDir = get_value(priv_dir, Config),
     File = filename:join([PrivDir, "foldl.zip"]),
 
     FooBin = <<"FOO">>,
@@ -845,8 +846,8 @@ foldl(Config) ->
     ok.
 
 fd_leak(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
-    DataDir = proplists:get_value(data_dir, Config),
+    ok = file:set_cwd(get_value(priv_dir, Config)),
+    DataDir = get_value(data_dir, Config),
     Name = filename:join(DataDir, "bad_file_header.zip"),
     BadExtract = fun() ->
                          {error,bad_file_header} = zip:extract(Name),
@@ -880,8 +881,8 @@ unicode(Config) ->
         latin1 ->
             {comment, "Native name encoding is Latin-1; skipping all tests"};
         utf8 ->
-            DataDir = proplists:get_value(data_dir, Config),
-            ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+            DataDir = get_value(data_dir, Config),
+            ok = file:set_cwd(get_value(priv_dir, Config)),
             test_file_comment(DataDir),
             test_archive_comment(DataDir),
             test_bad_comment(DataDir),
@@ -1012,7 +1013,7 @@ test_latin1_archive(DataDir) ->
 test_zip_dir(Config) when is_list(Config) ->
     case {os:find_executable("unzip"), os:type()} of
         {UnzipPath, {unix,_}} when is_list(UnzipPath)->
-            DataDir = proplists:get_value(data_dir, Config),
+            DataDir = get_value(data_dir, Config),
             Dir = filename:join([DataDir, "test-zip", "dir-1"]),
             TestZipOutputDir = filename:join(DataDir, "test-zip-output"),
             TestZipOutput = filename:join(TestZipOutputDir, "test.zip"),
