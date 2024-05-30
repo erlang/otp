@@ -642,6 +642,11 @@ signature_schemes_1_2(SigAlgs) ->
                                 [{Hash, Sign} | Acc];
                             {Hash, Sign = rsa_pss_rsae,_} ->
                                 [{Hash, Sign} | Acc];
+                            %% TLS-1.2 do not constrian the
+                            %% curve, however must be one
+                            %% present in "supported groups" (eccs)
+                            {Hash, ecdsa = Sign, _} ->
+                                [{Hash, Sign} | Acc];
                             {Hash, Sign, undefined} ->
                                 [{Hash, format_sign(Sign)} | Acc];
                             {_, _, _} ->
