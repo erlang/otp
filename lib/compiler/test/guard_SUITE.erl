@@ -2775,7 +2775,7 @@ welcome({perfect, Profit}) ->
 maps() ->
     ok = evidence(#{0 => 42}).
 
-%% Cover handling of put_map in in split_block_label_used/2.
+%% Cover handling of put_map in split_block_label_used/2.
 evidence(#{0 := Charge}) when 0; #{[] => Charge} == #{[] => 42} ->
     ok.
 
