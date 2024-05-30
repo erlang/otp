@@ -1699,8 +1699,6 @@ cd_file_header_to_file_info(FileName,
 add_extra_info(FI, _) ->
     FI.
 
-
-
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
 get_z_files([], _Z, _In, _Opts, Acc) ->
@@ -1758,30 +1756,42 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 		end,
 	    case ReadAndWrite of
 		true ->
-		    case lists:last(FileName) of
-			$/ ->
-			    Out1 = Output({ensure_path,FileName1},[]),
-			    {dir, Out1, In3};
-			_ ->
-			    %% FileInfo = local_file_header_to_file_info(LH)
-			    %%{Out, In4, CRC, UncompSize} =
-			    {Out, In4, CRC, _UncompSize} =
-				get_z_data(CompMethod, In3, FileName1,
-					   CompSize, Input, Output, OpO, Z),
-			    In5 = skip_z_data_descriptor(GPFlag, Input, In4),
-			    %% TODO This should be fixed some day:
-			    %% In5 = Input({set_file_info, FileName, 
-			    %% FileInfo#file_info{size=UncompSize}}, In4),
-			    FB(FileName),
-			    CRC =:= CRC32 orelse throw({bad_crc, FileName}),
-			    {file, Out, In5}
-		    end;
+		    {Type, Out, In} =
+                        case lists:last(FileName) of
+                            $/ ->
+                                %% perhaps this should always be done?
+                                Out1 = Output({ensure_path,FileName1},[]),
+                                {dir, Out1, In3};
+                            _ ->
+                                {Out1, In4, CRC, _UncompSize} =
+                                    get_z_data(CompMethod, In3, FileName1,
+                                               CompSize, Input, Output, OpO, Z),
+                                In5 = skip_z_data_descriptor(GPFlag, Input, In4),
+
+                                FB(FileName),
+                                CRC =:= CRC32 orelse throw({bad_crc, FileName}),
+                                {file, Out1, In5}
+                        end,
+
+                    FileInfo = local_file_header_to_file_info(
+                                 Output({file_info, FileName1}, Out),
+                                 LH, ZipFile),
+
+                    Out2 = Output({set_file_info, FileName1, FileInfo, [{time, local}]}, Out),
+                    {Type, Out2, In};
 		false ->
 		    {ignore, In3}
 	    end;
 	_ ->
 	    throw(bad_local_file_header)
     end.
+
+local_file_header_to_file_info(FI, LFH, ZipFile) ->
+    Mtime = dos_date_time_to_datetime(
+              LFH#local_file_header.last_mod_date,
+              LFH#local_file_header.last_mod_time),
+    FI#file_info{ mode = ZipFile#zip_file.info#file_info.mode,
+                  mtime = Mtime, atime = Mtime, ctime = Mtime }.
 
 %% make sure FileName doesn't have relative path that points over CWD
 check_valid_location(CWD, FileName) ->
@@ -2117,6 +2127,8 @@ binary_io({list_dir, _F}, _B) ->
     [];
 binary_io({set_file_info, _F, _FI}, B) ->
     B;
+binary_io({set_file_info, _F, _FI, _O}, B) ->
+    B;
 binary_io({ensure_path, Dir}, _B) ->
     {Dir, <<>>}.
 
@@ -2175,6 +2187,11 @@ file_io({list_dir, F}, _H) ->
     end;
 file_io({set_file_info, F, FI}, H) ->
     case file:write_file_info(F, FI) of
+	ok -> H;
+	{error, Error} -> throw(Error)
+    end;
+file_io({set_file_info, F, FI, O}, H) ->
+    case file:write_file_info(F, FI, O) of
 	ok -> H;
 	{error, Error} -> throw(Error)
     end;
