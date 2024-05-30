@@ -24,7 +24,7 @@
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
-         openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
+         zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
@@ -39,9 +39,9 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [borderline, atomic, bad_zip, unzip_from_binary,
      unzip_to_binary, zip_to_binary, unzip_options,
-     zip_options, list_dir_options, aliases, openzip_api,
+     zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit,fd_leak,unicode,test_zip_dir,
+     unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
      explicit_file_info].
 
 groups() -> 
@@ -220,43 +220,6 @@ atomic(Config) when is_list(Config) ->
 
     %% Clean up.
     delete_files([Zip2,Zip3|Names]),
-
-    ok.
-
-%% Test the openzip_open/2, openzip_get/1, openzip_get/2, openzip_close/1
-%% and openzip_list_dir/1 functions.
-openzip_api(Config) when is_list(Config) ->
-    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
-    DataFiles = data_files(),
-    Names = [Name || {Name, _, _} <- DataFiles],
-    io:format("Names: ~p", [Names]),
-
-    %% Create a zip archive
-
-    Zip = "zip.zip",
-    {ok, Zip} = zip:zip(Zip, Names, []),
-
-    %% Open archive
-    {ok, OpenZip} = zip:openzip_open(Zip, [memory]),
-
-    %% List dir
-    Names = names_from_list_dir(zip:openzip_list_dir(OpenZip)),
-
-    %% Get a file
-    Name1 = hd(Names),
-    {ok, Data1} = file:read_file(Name1),
-    {ok, {Name1, Data1}} = zip:openzip_get(Name1, OpenZip),
-
-    %% Get all files
-    FilesDatas = lists:map(fun(Name) -> {ok, B} = file:read_file(Name),
-                                        {Name, B} end, Names),
-    {ok, FilesDatas} = zip:openzip_get(OpenZip),
-
-    %% Close
-    ok = zip:openzip_close(OpenZip),
-
-    %% Clean up.
-    delete_files([Names]),
 
     ok.
 
@@ -533,8 +496,8 @@ bad_zip(Config) when is_list(Config) ->
     try_bad("bad_eocd",    bad_eocd, Config),
     try_bad("enoent", enoent, Config),
     GetNotFound = fun(A) ->
-                          {ok, O} = zip:openzip_open(A, []),
-                          zip:openzip_get("not_here", O)
+                          {ok, O} = zip:zip_open(A, []),
+                          zip:zip_get("not_here", O)
                   end,
     try_bad("abc", file_not_found, GetNotFound, Config),
     ok.
@@ -765,11 +728,11 @@ test_compress_control(Dir, Files, ZipOptions, Expected) ->
     create_files(Files),
     {ok, Zip} = zip:create(Zip, [Dir], ZipOptions),
 
-    {ok, OpenZip} = zip:openzip_open(Zip, [memory]),
-    {ok,[#zip_comment{comment = ""} | ZipList]} = zip:openzip_list_dir(OpenZip),
+    {ok, OpenZip} = zip:zip_open(Zip, [memory]),
+    {ok,[#zip_comment{comment = ""} | ZipList]} = zip:zip_list_dir(OpenZip),
     io:format("compress_control:  -> ~p  -> ~p\n  -> ~pn", [Expected, ZipOptions, ZipList]),
     verify_compression(Files, ZipList, OpenZip, ZipOptions, Expected),
-    ok = zip:openzip_close(OpenZip),
+    ok = zip:zip_close(OpenZip),
 
     %% Cleanup
     delete_files([Zip]),
@@ -783,7 +746,7 @@ verify_compression([{Name, Kind, _Filler} | Files], ZipList, OpenZip, ZipOptions
             dir ->
                 {Name ++ "/", 0};
             _   ->
-                {ok, {Name, Bin}} = zip:openzip_get(Name, OpenZip),
+                {ok, {Name, Bin}} = zip:zip_get(Name, OpenZip),
                 {Name, size(Bin)}
         end,
     {Name2, {value, ZipFile}} = {Name2, lists:keysearch(Name2,  #zip_file.name, ZipList)},

@@ -66,23 +66,11 @@ convention, add `.zip` to the filename.
 	 list_dir/1, list_dir/2, table/1, table/2,
 	 t/1, tt/1]).
 
-%% unzipping piecemeal
--export([openzip_open/1, openzip_open/2,
-	 openzip_get/1, openzip_get/2,
-	 openzip_t/1, openzip_tt/1,
-	 openzip_list_dir/1, openzip_list_dir/2,
-	 openzip_close/1]).
-%% 	 openzip_add/2]).
-
 %% zip server
 -export([zip_open/1, zip_open/2,
 	 zip_get/1, zip_get/2, zip_get_crc32/2,
-	 zip_t/1, zip_tt/1,
-	 zip_list_dir/1, zip_list_dir/2,
+	 zip_list_dir/1,
 	 zip_close/1]).
-
-%% just for debugging zip server, not documented, not tested, not to be used
--export([zip_get_state/1]).
 
 %% includes
 -include("file.hrl").		 % #file_info
@@ -96,7 +84,6 @@ convention, add `.zip` to the filename.
 
 %% Debug.
 -define(SHOW_GP_BIT_11(B, F), ok).
-%%-define(SHOW_GP_BIT_11(B, F), io:format("F = ~.16#, B = ~lp\n", [F, B])).
 
 %% option sets
 -record(unzip_opts, {
@@ -151,19 +138,6 @@ convention, add `.zip` to the filename.
 
 %% max bytes read from files and archives (and fed to zlib)
 -define(READ_BLOCK_SIZE, 16*1024).
-
-%% -record(primzip_file, {
-%% 	  name,
-%% 	  offset,
-%% 	  chunk_size
-%% 	 }).
-
-%% -record(primzip, {
-%% 	  zlib,		% handle to the zlib port from zlib:open
-%% 	  input,        % fun/2 for file/memory input
-%% 	  in,		% input (file handle or binary)
-%% 	  files		% [#primzip_file]
-%% 	 }).
 
 %% ZIP-file format records and defines
 
@@ -278,139 +252,6 @@ The record `zip_file` contains the following fields:
 -opaque handle() :: pid().
 
 -export_type([create_option/0, filename/0, handle/0]).
-
-%% Open a zip archive with options
-%%
-
--doc false.
-openzip_open(F) ->
-    openzip_open(F, []).
-
--doc false.
-openzip_open(F, Options) ->
-    case ?CATCH(do_openzip_open(F, Options)) of
-	{ok, OpenZip} ->
-	    {ok, OpenZip};
-	Error ->
-	    {error, Error}
-    end.
-
-do_openzip_open(F, Options) ->
-    Opts = get_openzip_options(Options),
-    #openzip_opts{output = Output, open_opts = OpO, cwd = CWD} = Opts,
-    Input = get_input(F),
-    In0 = Input({open, F, OpO -- [write]}, []),
-    {[#zip_comment{comment = C} | Files], In1} =
-	get_central_dir(In0, fun raw_file_info_etc/5, Input),
-    Z = zlib:open(),
-    {ok, #openzip{zip_comment = C,
-		  files = Files,
-		  in = In1,
-		  input = Input,
-		  output = Output,
-		  zlib = Z,
-		  cwd = CWD}}.
-
-%% retrieve all files from an open archive
--doc false.
-openzip_get(OpenZip) ->
-    case ?CATCH(do_openzip_get(OpenZip)) of
-	{ok, Result} -> {ok, Result};
-	Error -> {error, Error}
-    end.
-
-do_openzip_get(#openzip{files = Files, in = In0, input = Input,
-			output = Output, zlib = Z, cwd = CWD}) ->
-    ZipOpts = #unzip_opts{output = Output, input = Input,
-			  file_filter = fun all/1, open_opts = [],
-			  feedback = fun silent/1, cwd = CWD},
-    R = get_z_files(Files, Z, In0, ZipOpts, []),
-    {ok, R};
-do_openzip_get(_) ->
-    throw(einval).
-
-%% retrieve the crc32 checksum from an open archive
-openzip_get_crc32(FileName, #openzip{files = Files}) ->
-    case file_name_search(FileName, Files) of
-	{_,#zip_file_extra{crc32=CRC}} -> {ok, CRC};
-	_ -> throw(file_not_found)
-    end.
-
-%% retrieve a file from an open archive
--doc false.
-openzip_get(FileName, OpenZip) ->
-    case ?CATCH(do_openzip_get(FileName, OpenZip)) of
-	{ok, Result} -> {ok, Result};
-	Error -> {error, Error}
-    end.
-
-do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
-			   output = Output, zlib = Z, cwd = CWD}) ->
-    %%case lists:keysearch(F, #zip_file.name, Files) of
-    case file_name_search(F, Files) of
-	{#zip_file{offset = Offset},_}=ZFile ->
-	    In1 = Input({seek, bof, Offset}, In0),
-	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
-			    CWD, ZFile, fun all/1) of
-		{file, R, _In2} -> {ok, R};
-		_ -> throw(file_not_found)
-	    end;
-	_ -> throw(file_not_found)
-    end;
-do_openzip_get(_, _) ->
-    throw(einval).
-
-file_name_search(Name,Files) ->
-    Fun = fun({ZipFile,_}) ->
-                  not string:equal(ZipFile#zip_file.name, Name,
-                                   _IgnoreCase = false, _Norm = nfc)
-          end,
-    case lists:dropwhile(Fun, Files) of
-	[ZFile|_] -> ZFile;
-	[] -> false
-    end.
-
-%% %% add a file to an open archive
-%% openzip_add(File, OpenZip) ->
-%%     case ?CATCH do_openzip_add(File, OpenZip) of
-%% 	{ok, Result} -> {ok, Result};
-%% 	Error -> {error, Error}
-%%     end.
-
-%% do_openzip_add(File, #open_zip{files = Files, in = In0,
-%% 			       opts = Opts} = OpenZip0) ->
-%%     throw(nyi),
-%%     Z = zlib:open(),
-%%     R = get_z_files(Files, In0, Z, Opts, []),
-%%     zlib:close(Z),
-%%     {ok, R};
-%% do_openzip_add(_, _) ->
-%%     throw(einval).
-
-%% get file list from open archive
--doc false.
-openzip_list_dir(#openzip{zip_comment = Comment,
-			  files = Files}) ->
-    {ZipFiles,_Extras} = lists:unzip(Files),
-    {ok, [#zip_comment{comment = Comment} | ZipFiles]};
-openzip_list_dir(_) ->
-    {error, einval}.
-
--doc false.
-openzip_list_dir(#openzip{files = Files}, [names_only]) ->
-    {ZipFiles,_Extras} = lists:unzip(Files),
-    Names = [Name || {#zip_file{name=Name},_} <- ZipFiles],
-    {ok, Names};
-openzip_list_dir(_, _) ->
-    {error, einval}.
-
-%% close an open archive
--doc false.
-openzip_close(#openzip{in = In0, input = Input, zlib = Z}) ->
-    Input(close, In0),
-    zlib:close(Z);
-openzip_close(_) ->
-    {error, einval}.
 
 %% Extract from a zip archive with options
 %%
@@ -761,6 +602,107 @@ do_list_dir(F, Options) ->
     Input(close, In1),
     {ok, Info}.
 
+-doc(#{equiv => zip_open/2}).
+-spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
+      Archive :: file:name() | binary(),
+      ZipHandle :: handle(),
+      Reason :: term()).
+
+zip_open(Archive) -> zip_open(Archive, []).
+
+-doc """
+Opens a zip archive, and reads and saves its directory. This means that later
+reading files from the archive is faster than unzipping files one at a time with
+[`unzip/1,2`](`unzip/1`).
+
+The archive must be closed with `zip_close/1`.
+
+The `ZipHandle` is closed if the process that originally opened the archive
+dies.
+""".
+-spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
+      Archive :: file:name() | binary(),
+      ZipHandle :: handle(),
+      Options :: [Option],
+      Option :: cooked | memory | {cwd, CWD :: file:filename()},
+      Reason :: term()).
+
+zip_open(Archive, Options) ->
+    Self = self(),
+    Pid = spawn_link(fun() -> server_init(Self) end),
+    request(Self, Pid, {open, Archive, Options}).
+
+-doc(#{equiv => zip_get/2}).
+-spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
+      ZipHandle :: handle(),
+      Result :: file:name() | {file:name(), binary()},
+      Reason :: term()).
+
+zip_get(Pid) when is_pid(Pid) ->
+    request(self(), Pid, get).
+
+-doc """
+Closes a zip archive, previously opened with [`zip_open/1,2`](`zip_open/1`). All
+resources are closed, and the handle is not to be used after closing.
+""".
+-spec(zip_close(ZipHandle) -> ok | {error, einval} when
+      ZipHandle :: handle()).
+
+zip_close(Pid) when is_pid(Pid) ->
+    request(self(), Pid, close).
+
+-doc """
+Extracts one or all files from an open archive.
+
+The files are unzipped to memory or to file, depending on the options specified
+to function [`zip_open/1,2`](`zip_open/1`) when opening the archive.
+""".
+-spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
+      FileName :: file:name(),
+      ZipHandle :: handle(),
+      Result :: file:name() | {file:name(), binary()},
+      Reason :: term()).
+
+zip_get(FileName, Pid) when is_pid(Pid) ->
+    request(self(), Pid, {get, FileName}).
+
+-doc "Extracts one crc32 checksum from an open archive.".
+-doc(#{since => <<"OTP 26.0">>}).
+-spec(zip_get_crc32(FileName, ZipHandle) -> {ok, CRC} | {error, Reason} when
+      FileName :: file:name(),
+      ZipHandle :: handle(),
+      CRC :: non_neg_integer(),
+      Reason :: term()).
+
+zip_get_crc32(FileName, Pid) when is_pid(Pid) ->
+    request(self(), Pid, {get_crc32, FileName}).
+
+-doc """
+Returns the file list of an open zip archive. The first returned element is the
+zip archive comment.
+""".
+-spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
+      Result :: [zip_comment() | zip_file()],
+      ZipHandle :: handle(),
+      Reason :: term()).
+
+zip_list_dir(Pid) when is_pid(Pid) ->
+    request(self(), Pid, list_dir).
+
+request(Self, Pid, Req) ->
+    Pid ! {Self, Req},
+    receive
+	{Pid, R} -> R
+    end.
+
+zip_t(Pid) when is_pid(Pid) ->
+    Openzip = request(self(), Pid, get_state),
+    openzip_t(Openzip).
+
+zip_tt(Pid) when is_pid(Pid) ->
+    Openzip = request(self(), Pid, get_state),
+    openzip_tt(Openzip).
+
 %% Print zip directory in short form
 
 -doc """
@@ -772,7 +714,6 @@ to `tar t`.)
       ZipHandle :: handle()).
 
 t(F) when is_pid(F) -> zip_t(F);
-t(F) when is_record(F, openzip) -> openzip_t(F);
 t(F) -> t(F, fun raw_short_print_info_etc/5).
 
 t(F, RawPrint) ->
@@ -800,7 +741,6 @@ the Erlang shell. (Similar to `tar tv`.)
       ZipHandle :: handle()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
-tt(F) when is_record(F, openzip) -> openzip_tt(F);
 tt(F) -> t(F, fun raw_long_print_info_etc/5).
 
 
@@ -1412,12 +1352,112 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime, type = Type},
 		       extra_field_length = 0,
                        type = Type}.
 
+%%
+%% Functions used by zip server
+%%
+
+openzip_open(F, Options) ->
+    case ?CATCH(do_openzip_open(F, Options)) of
+	{ok, OpenZip} ->
+	    {ok, OpenZip};
+	Error ->
+	    {error, Error}
+    end.
+
+do_openzip_open(F, Options) ->
+    Opts = get_openzip_options(Options),
+    #openzip_opts{output = Output, open_opts = OpO, cwd = CWD} = Opts,
+    Input = get_input(F),
+    In0 = Input({open, F, OpO -- [write]}, []),
+    {[#zip_comment{comment = C} | Files], In1} =
+	get_central_dir(In0, fun raw_file_info_etc/5, Input),
+    Z = zlib:open(),
+    {ok, #openzip{zip_comment = C,
+		  files = Files,
+		  in = In1,
+		  input = Input,
+		  output = Output,
+		  zlib = Z,
+		  cwd = CWD}}.
+
+%% retrieve all files from an open archive
+openzip_get(OpenZip) ->
+    case ?CATCH(do_openzip_get(OpenZip)) of
+	{ok, Result} -> {ok, Result};
+	Error -> {error, Error}
+    end.
+
+do_openzip_get(#openzip{files = Files, in = In0, input = Input,
+			output = Output, zlib = Z, cwd = CWD}) ->
+    ZipOpts = #unzip_opts{output = Output, input = Input,
+			  file_filter = fun all/1, open_opts = [],
+			  feedback = fun silent/1, cwd = CWD},
+    R = get_z_files(Files, Z, In0, ZipOpts, []),
+    {ok, R};
+do_openzip_get(_) ->
+    throw(einval).
+
+%% retrieve the crc32 checksum from an open archive
+openzip_get_crc32(FileName, #openzip{files = Files}) ->
+    case file_name_search(FileName, Files) of
+	{_,#zip_file_extra{crc32=CRC}} -> {ok, CRC};
+	_ -> throw(file_not_found)
+    end.
+
+%% retrieve a file from an open archive
+openzip_get(FileName, OpenZip) ->
+    case ?CATCH(do_openzip_get(FileName, OpenZip)) of
+	{ok, Result} -> {ok, Result};
+	Error -> {error, Error}
+    end.
+
+do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
+			   output = Output, zlib = Z, cwd = CWD}) ->
+    %%case lists:keysearch(F, #zip_file.name, Files) of
+    case file_name_search(F, Files) of
+	{#zip_file{offset = Offset},_}=ZFile ->
+	    In1 = Input({seek, bof, Offset}, In0),
+	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
+			    CWD, ZFile, fun all/1) of
+		{file, R, _In2} -> {ok, R};
+		_ -> throw(file_not_found)
+	    end;
+	_ -> throw(file_not_found)
+    end;
+do_openzip_get(_, _) ->
+    throw(einval).
+
+file_name_search(Name,Files) ->
+    Fun = fun({ZipFile,_}) ->
+                  not string:equal(ZipFile#zip_file.name, Name,
+                                   _IgnoreCase = false, _Norm = nfc)
+          end,
+    case lists:dropwhile(Fun, Files) of
+	[ZFile|_] -> ZFile;
+	[] -> false
+    end.
+
+%% get file list from open archive
+openzip_list_dir(#openzip{zip_comment = Comment,
+			  files = Files}) ->
+    {ZipFiles,_Extras} = lists:unzip(Files),
+    {ok, [#zip_comment{comment = Comment} | ZipFiles]};
+openzip_list_dir(_) ->
+    {error, einval}.
+
+%% close an open archive
+openzip_close(#openzip{in = In0, input = Input, zlib = Z}) ->
+    Input(close, In0),
+    zlib:close(Z);
+openzip_close(_) ->
+    {error, einval}.
+
+%% small, simple, stupid zip-archive server
 server_init(Parent) ->
     %% we want to know if our parent dies
     process_flag(trap_exit, true),
     server_loop(Parent, not_open).
 
-%% small, simple, stupid zip-archive server
 server_loop(Parent, OpenZip) ->
     receive
 	{From, {open, Archive, Options}} ->
@@ -1442,9 +1482,6 @@ server_loop(Parent, OpenZip) ->
 	{From, list_dir} ->
 	    From ! {self(), openzip_list_dir(OpenZip)},
 	    server_loop(Parent, OpenZip);
-	{From, {list_dir, Opts}} ->
-	    From ! {self(), openzip_list_dir(OpenZip, Opts)},
-	    server_loop(Parent, OpenZip);
 	{From, get_state} ->
 	    From ! {self(), OpenZip},
 	    server_loop(Parent, OpenZip);
@@ -1455,118 +1492,6 @@ server_loop(Parent, OpenZip) ->
 	    {error, bad_msg}
     end.
 
--doc(#{equiv => zip_open/2}).
--spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
-      Archive :: file:name() | binary(),
-      ZipHandle :: handle(),
-      Reason :: term()).
-
-zip_open(Archive) -> zip_open(Archive, []).
-
--doc """
-Opens a zip archive, and reads and saves its directory. This means that later
-reading files from the archive is faster than unzipping files one at a time with
-[`unzip/1,2`](`unzip/1`).
-
-The archive must be closed with `zip_close/1`.
-
-The `ZipHandle` is closed if the process that originally opened the archive
-dies.
-""".
--spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
-      Archive :: file:name() | binary(),
-      ZipHandle :: handle(),
-      Options :: [Option],
-      Option :: cooked | memory | {cwd, CWD :: file:filename()},
-      Reason :: term()).
-
-zip_open(Archive, Options) ->
-    Self = self(),
-    Pid = spawn_link(fun() -> server_init(Self) end),
-    request(Self, Pid, {open, Archive, Options}).
-
--doc(#{equiv => zip_get/2}).
--spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
-      ZipHandle :: handle(),
-      Result :: file:name() | {file:name(), binary()},
-      Reason :: term()).
-
-zip_get(Pid) when is_pid(Pid) ->
-    request(self(), Pid, get).
-
--doc """
-Closes a zip archive, previously opened with [`zip_open/1,2`](`zip_open/1`). All
-resources are closed, and the handle is not to be used after closing.
-""".
--spec(zip_close(ZipHandle) -> ok | {error, einval} when
-      ZipHandle :: handle()).
-
-zip_close(Pid) when is_pid(Pid) ->
-    request(self(), Pid, close).
-
--doc """
-Extracts one or all files from an open archive.
-
-The files are unzipped to memory or to file, depending on the options specified
-to function [`zip_open/1,2`](`zip_open/1`) when opening the archive.
-""".
--spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
-      FileName :: file:name(),
-      ZipHandle :: handle(),
-      Result :: file:name() | {file:name(), binary()},
-      Reason :: term()).
-
-zip_get(FileName, Pid) when is_pid(Pid) ->
-    request(self(), Pid, {get, FileName}).
-
--doc "Extracts one crc32 checksum from an open archive.".
--doc(#{since => <<"OTP 26.0">>}).
--spec(zip_get_crc32(FileName, ZipHandle) -> {ok, CRC} | {error, Reason} when
-      FileName :: file:name(),
-      ZipHandle :: handle(),
-      CRC :: non_neg_integer(),
-      Reason :: term()).
-
-zip_get_crc32(FileName, Pid) when is_pid(Pid) ->
-    request(self(), Pid, {get_crc32, FileName}).
-
--doc """
-Returns the file list of an open zip archive. The first returned element is the
-zip archive comment.
-""".
--spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
-      Result :: [zip_comment() | zip_file()],
-      ZipHandle :: handle(),
-      Reason :: term()).
-
-zip_list_dir(Pid) when is_pid(Pid) ->
-    request(self(), Pid, list_dir).
-
--doc false.
-zip_list_dir(Pid, Opts) when is_pid(Pid) ->
-    request(self(), Pid, {list_dir, Opts}).
-
--doc false.
-zip_get_state(Pid) when is_pid(Pid) ->
-    request(self(), Pid, get_state).
-
-request(Self, Pid, Req) ->
-    Pid ! {Self, Req},
-    receive
-	{Pid, R} -> R
-    end.
-
--doc false.
-zip_t(Pid) when is_pid(Pid) ->
-    Openzip = request(self(), Pid, get_state),
-    openzip_t(Openzip).
-
--doc false.
-zip_tt(Pid) when is_pid(Pid) ->
-    Openzip = request(self(), Pid, get_state),
-    openzip_tt(Openzip).
-
--doc false.
 openzip_tt(#openzip{zip_comment = ZipComment, files = Files}) ->
     print_comment(ZipComment),
     lists_foreach(fun({#zip_file{comp_size = CompSize,
@@ -1579,7 +1504,6 @@ openzip_tt(#openzip{zip_comment = ZipComment, files = Files}) ->
 		  end, Files),
     ok.
 
--doc false.
 openzip_t(#openzip{zip_comment = ZipComment, files = Files}) ->
     print_comment(ZipComment),
     lists_foreach(fun({#zip_file{name = FileName},_}) ->
@@ -2069,27 +1993,6 @@ local_file_header_from_bin(<<VersionNeeded:16/little,
 		       extra_field_length = ExtraFieldLength};
 local_file_header_from_bin(_) ->
     throw(bad_local_file_header).
-
-%% make a file_info from a local directory header
-%% local_file_header_to_file_info(
-%%   #local_file_header{last_mod_time = ModTime,
-%% 		     last_mod_date = ModDate,
-%% 		     uncomp_size = UncompSize}) ->
-%%     T = dos_date_time_to_datetime(ModDate, ModTime),
-%%     FI = #file_info{size = UncompSize,
-%% 		    type = regular,
-%% 		    access = read_write,
-%% 		    atime = T,
-%% 		    mtime = T,
-%% 		    ctime = T,
-%% 		    mode = 8#066,
-%% 		    links = 1,
-%% 		    major_device = 0,
-%% 		    minor_device = 0,
-%% 		    inode = 0,
-%% 		    uid = 0,
-%% 		    gid = 0},
-%%     FI.
 
 %% io functions
 binary_io({file_info, {_Filename, _B, #file_info{} = FI}}, _A) ->
