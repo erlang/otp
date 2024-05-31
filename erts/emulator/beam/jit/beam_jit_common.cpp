@@ -1365,3 +1365,29 @@ bool beam_jit_is_shallow_boxed(Eterm term) {
         return false;
     }
 }
+
+#ifdef DEBUG
+void beam_jit_invalid_heap_ptr(Process *p, Eterm term) {
+    ASSERT((void *)term <= (void *)p->heap || (void *)term >= (void *)p->hend);
+
+    erts_fprintf(stderr,
+                 "term:       %p\n"
+                 "c_p:        %p\n"
+                 "heap:       %p\n"
+                 "high_water: %p\n"
+                 "hend:       %p\n"
+                 "abandoned:  %p\n",
+                 (void *)term,
+                 p,
+                 p->heap,
+                 p->high_water,
+                 p->hend,
+                 p->abandoned_heap);
+    if (p->old_heap != NULL && p->old_hend != NULL &&
+        (void *)term < (void *)p->old_hend &&
+        (void *)term >= (void *)p->old_heap) {
+        erts_fprintf(stderr, "the term is on the old heap\n");
+    }
+    abort();
+}
+#endif
