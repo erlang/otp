@@ -1192,13 +1192,11 @@ stop_service(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-services() -> [SvcName]
-
 Return the list of started services.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec services()
-   -> [service_name()].
+-spec services() -> [SvcName] when
+      SvcName :: service_name().
 
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
