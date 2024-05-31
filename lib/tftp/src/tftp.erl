@@ -206,7 +206,7 @@ All options most of them common to the client and server.
   `write_file/3`.
 
   The callback module must implement the `tftp` behavior, see
-  [CALLBACK FUNCTIONS](`m:tftp#tftp_callback`).
+  [callbacks](`m:tftp#callbacks`).
 
 - **`{logger, module()}`**
 
