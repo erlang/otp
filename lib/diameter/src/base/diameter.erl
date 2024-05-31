@@ -1097,8 +1097,6 @@ module.
 %% ---------------------------------------------------------------------------
 
 -doc """
-start() -> ok | {error, Reason}
-
 Start the diameter application.
 
 The diameter application must be started before starting a service. In a
@@ -1106,9 +1104,8 @@ production system this is typically accomplished by a boot file, not by calling
 `start/0` explicitly.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec start()
-   -> ok
-    | {error, term()}.
+-spec start() -> ok | {error, Reason} when
+      Reason :: term().
 
 start() ->
     application:start(?APPLICATION).
@@ -1773,11 +1770,11 @@ value that can be encoded as a Diameter [`Time()`](diameter_dict.md#DATA_TYPES),
 at the time the diameter application was started.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec origin_state_id()
-   -> 'Unsigned32'().
+-spec origin_state_id() -> 'Unsigned32'().
 
 origin_state_id() ->
     diameter_session:origin_state_id().
+
 
 %% ---------------------------------------------------------------------------
 %% call/3,4
