@@ -635,7 +635,7 @@ do_zip(F, Files, Options) ->
         {ok, Out3}
     catch
         C:R:Stk ->
-            zlib:close(Z),
+            ?CATCH(zlib:close(Z)),
             Output({close, F}, Out0),
             erlang:raise(C, R, Stk)
     end.
