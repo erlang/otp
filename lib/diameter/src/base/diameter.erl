@@ -1159,8 +1159,6 @@ start_service(SvcName, Opts)
 %% ---------------------------------------------------------------------------
 
 -doc """
-stop_service(SvcName) -> ok | {error, Reason}
-
 Stop a diameter service.
 
 Stopping a service causes all associated transport connections to be broken. A
@@ -1172,9 +1170,9 @@ DPR message will be sent as in the case of `remove_transport/2`.
 > `remove_transport/2` must be called to remove transport configuration.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec stop_service(service_name())
-   -> ok
-    | {error, term()}.
+-spec stop_service(SvcName) -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Reason  :: term().
 
 stop_service(SvcName) ->
     diameter_config:stop_service(SvcName).
