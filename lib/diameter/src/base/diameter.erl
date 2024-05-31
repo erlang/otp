@@ -1134,8 +1134,6 @@ stop() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-start_service(SvcName, Options) -> ok | {error, Reason}
-
 Start a diameter service.
 
 A service defines a locally-implemented Diameter node, specifying the
@@ -1149,9 +1147,10 @@ to a service using `add_transport/2`.
 > Origin-Host" is not necessarily the case.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec start_service(service_name(), [service_opt()])
-   -> ok
-    | {error, term()}.
+-spec start_service(SvcName, Opts) -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Opts    :: [service_opt()],
+      Reason  :: term().
 
 start_service(SvcName, Opts)
   when is_list(Opts) ->
