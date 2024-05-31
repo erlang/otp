@@ -1116,14 +1116,11 @@ start() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-stop() -> ok | {error, Reason}
-
 Stop the diameter application.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec stop()
-   -> ok
-    | {error, term()}.
+-spec stop() -> ok | {error, Reason} when
+      Reason :: term().
 
 stop() ->
     application:stop(?APPLICATION).
