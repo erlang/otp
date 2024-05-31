@@ -1698,8 +1698,6 @@ which_connections(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-subscribe(SvcName) -> true
-
 Subscribe to [`service_event()`](`m:diameter#service_event`) messages from a
 service.
 
@@ -1708,8 +1706,8 @@ exist. Doing so before adding transports is required to guarantee the reception
 of all transport-related events.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec subscribe(service_name())
-   -> true.
+-spec subscribe(SvcName) -> true when
+      SvcName :: service_name().
 
 subscribe(SvcName) ->
     diameter_service:subscribe(SvcName).
