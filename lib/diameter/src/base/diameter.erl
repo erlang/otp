@@ -1718,13 +1718,11 @@ subscribe(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-unsubscribe(SvcName) -> true
-
 Unsubscribe to event messages from a service.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec unsubscribe(service_name())
-   -> true.
+-spec unsubscribe(SvcName) -> true when
+      SvcName :: service_name().
 
 unsubscribe(SvcName) ->
     diameter_service:unsubscribe(SvcName).
