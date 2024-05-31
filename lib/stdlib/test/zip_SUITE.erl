@@ -32,6 +32,8 @@
          compress_control/1,
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
          explicit_file_info/1, mode/1,
+         zip64_central_headers/1, unzip64_central_headers/1,
+         zip64_central_directory/1,
          basic_timestamp/1, extended_timestamp/1,
          uid_gid/1]).
 
@@ -49,7 +51,7 @@ all() ->
      zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
      unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
-     explicit_file_info, {group, zip_group}].
+     explicit_file_info, {group, zip_group}, {group, zip64_group}].
 
 groups() -> 
     zip_groups().
@@ -62,14 +64,39 @@ groups() ->
 
 zip_groups() ->
 
-    [{zip_group,[],[{group,ZipMode} || ZipMode <- ?ZIP_MODES]}] ++
+    ZipGroup=
+        [{zip_group,[],[{group,ZipMode} || ZipMode <- ?ZIP_MODES]}] ++
         [{ZipMode, [], [{group,UnZipMode} || UnZipMode <- ?UNZIP_MODES]}
          || ZipMode <- ?ZIP_MODES] ++
-        [{G, [parallel], zip_testcases()} || G <- ?UNZIP_MODES].
+        [{G, [parallel], zip_testcases()} || G <- ?UNZIP_MODES],
 
+    Zip64Group = [{zip64_group,[],[{group,z64(ZipMode)} || ZipMode <- ?ZIP_MODES]}] ++
+        [{z64(ZipMode), [sequence], [zip64_central_headers]++
+              [{group,z64(UnZipMode)} || UnZipMode <- ?UNZIP_MODES]}
+         || ZipMode <- ?ZIP_MODES] ++
+        [{z64(G), [], zip64_testcases()} || G <- ?UNZIP_MODES],
+
+    ZipGroup ++ Zip64Group.
+
+z64(Mode) when is_atom(Mode) ->
+    list_to_atom(lists:concat([z64_,Mode]));
+z64(Modes) when is_list(Modes) ->
+    [z64(M) || M <- Modes].
+
+noz64(Z64Mode) ->
+    case string:split(atom_to_list(Z64Mode), "_") of
+        ["z64",Mode] ->
+            list_to_atom(Mode);
+        [_Mode] ->
+            Z64Mode
+    end.
 
 zip_testcases() ->
     [mode, basic_timestamp, extended_timestamp, uid_gid].
+
+zip64_testcases() ->
+    [unzip64_central_headers,
+     zip64_central_directory].
 
 init_per_suite(Config) ->
     Config.
@@ -77,18 +104,34 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(zip64_group, Config) ->
+    PrivDir = get_value(priv_dir, Config),
+
+    OneMB = <<0:(8 bsl 20)>>,
+    Large4GB = filename:join(PrivDir, "large.txt"),
+    ok = file:write_file(Large4GB, lists:duplicate(4 bsl 10, OneMB)),
+    Medium4MB = filename:join(PrivDir, "medium.txt"),
+    ok = file:write_file(Medium4MB, lists:duplicate(4, OneMB)),
+
+    [{large, Large4GB},{medium,Medium4MB}|Config];
 init_per_group(Group, Config) ->
-    case lists:member(Group, ?ZIP_MODES ++ ?UNZIP_MODES) of
+    case lists:member(Group, ?ZIP_MODES ++ ?UNZIP_MODES ++ z64(?ZIP_MODES ++ ?UNZIP_MODES)) of
         true ->
             case get_value(zip, Config) of
                 undefined ->
+                    [throw({skip, "zip does not support zip64"}) ||
+                        Group =:= zip andalso
+                            get_value(large,Config) =/= undefined andalso
+                            os:cmd("zip -v | grep ZIP64_SUPPORT") == ""],
+                    ct:print("Zip: ~p", [Group]),
                     Pdir = filename:join(get_value(priv_dir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
-                    [{pdir, Pdir},{zip, Group} | Config];
+                    [{pdir, Pdir},{zip, noz64(Group)} | Config];
                 _Zip ->
+                    ct:print("UnZip: ~p", [Group]),
                     Pdir = filename:join(get_value(pdir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
-                    [{pdir, Pdir},{unzip, Group} | Config]
+                    [{pdir, Pdir},{unzip, noz64(Group)} | Config]
             end;
         false ->
             Config
@@ -1130,6 +1173,128 @@ mode(Config) ->
 
     ok.
 
+%% Test that zip64 local and central headers are respected when unzipping.
+%% The fields in the header that can be 64-bit are:
+%%  * compressed size
+%%  * uncompressed size
+%%  * relative offset
+%%  * starting disk
+%%
+%% As we do not support using multiple disks, we do not test starting disks
+zip64_central_headers(Config) ->
+
+    PrivDir = get_value(pdir, Config),
+    Archive = filename:join(PrivDir, "../archive.zip"),
+
+    %% Check that ../../large.txt exists and is of correct size
+    {ok, #file_info{ size = 1 bsl 32 } } =
+        file:read_file_info(filename:join(PrivDir, "../../large.txt")),
+
+    %% We very carefully create an archive that should contain all
+    %% different header combinations.
+    %% - uncomp.txt: uncomp size > 4GB
+    %% - uncomp.comp.zip: uncomp and comp size > 4GB
+    %% - offset.txt: offset > 4GB
+    %% - uncomp.offset.txt: uncomp size and offset > 4GB
+    %% - uncomp.comp.offset.zip: uncomp and comp size and offset > 4GB
+    %%
+    %% The archive will be roughly 8 GBs large
+
+    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.txt")),
+    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.comp.zip")),
+    ok = file:make_symlink("../../medium.txt", filename:join(PrivDir, "offset.txt")),
+    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.offset.txt")),
+    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.comp.offset.zip")),
+    ?assertMatch(
+       {ok, Archive},
+       zip(Config, Archive, "-1",
+           ["uncomp.txt","uncomp.comp.zip","offset.txt",
+            "uncomp.offset.txt","uncomp.comp.offset.zip"],
+           [{cwd, PrivDir}])),
+
+    %% Check that list archive works
+    {ok, [#zip_comment{},
+          #zip_file{ name = "uncomp.txt",
+                     info = #file_info{ size = 1 bsl 32 } },
+          #zip_file{ name = "uncomp.comp.zip",
+                     comp_size = 1 bsl 32,
+                     info = #file_info{ size = 1 bsl 32 } },
+          #zip_file{ name = "offset.txt",
+                     info = #file_info{ size = 4 bsl 20 } },
+          #zip_file{ name = "uncomp.offset.txt",
+                     info = #file_info{ size = 1 bsl 32 } },
+          #zip_file{ name = "uncomp.comp.offset.zip",
+                     comp_size = 1 bsl 32,
+                     info = #file_info{ size = 1 bsl 32 } }
+         ]} =
+        zip:list_dir(Archive),
+    ok.
+
+unzip64_central_headers(Config) ->
+
+    PrivDir = get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+    Archive = filename:join(PrivDir, "../../archive.zip"),
+    Large4GB = filename:join(get_value(priv_dir, Config),"large.txt"),
+    Medium4MB = filename:join(get_value(priv_dir, Config), "medium.txt"),
+
+    %% Test that extraction of each file works
+    lists:map(
+      fun F({Name, Compare}) ->
+              ok = file:make_dir(ExtractDir),
+              ?assertMatch(
+                 {ok, [Name]},
+                 unzip(Config, Archive, [{cwd, ExtractDir},{file_list,[Name]}])),
+              cmp(Compare, filename:join(ExtractDir,Name)),
+              file:del_dir_r(ExtractDir);
+          F(Name) ->
+              F({Name, Large4GB})
+      end, ["uncomp.txt","uncomp.comp.zip",{"offset.txt",Medium4MB},
+            "uncomp.offset.txt","uncomp.comp.offset.zip"]),
+
+    ok.
+
+%% Test that zip64 end of central directory are respected when unzipping.
+%% The fields in the header that can be 64-bit are:
+%%   * total number of files > 2 bytes
+%%   * size of central directory > 4 bytes (cannot test as it requires an archive with 8 million files)
+%%   * offset of central directory > 4 bytes (implicitly tested when testing large relative location of header)
+%%
+%% Fields that we don't test as we don't support multiple disks
+%%   * number of disk where end of central directory is > 2 bytes
+%%   * number of disk to find central directory > 2 bytes
+%%   * number central directory entries on this disk > 2 bytes
+zip64_central_directory(Config) ->
+
+    PrivDir = get_value(pdir, Config),
+    Dir = filename:join(PrivDir, "files"),
+    ExtractDir = filename:join(PrivDir, "extract"),
+
+    Archive = filename:join(PrivDir, "archive.zip"),
+
+    %% To test when total number of files > 65535, we create an archive with 66000 entries
+    ok = file:make_dir(Dir),
+    lists:foreach(
+      fun(I) ->
+              ok = file:write_file(filename:join(Dir, integer_to_list(I)++".txt"),<<0:8>>)
+      end, lists:seq(0, 65600)),
+    ?assertMatch(
+       {ok, Archive},
+       zip(Config, Archive, "-1 -r", ["files"], [{cwd, PrivDir}])),
+
+    {ok, Files} = zip:list_dir(Archive),
+    ?assertEqual(65603, length(Files)),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["files/1.txt","files/65599.txt"]},
+       unzip(Config, Archive, [{cwd, ExtractDir},{file_list,["files/1.txt",
+                                                             "files/65599.txt"]}])),
+    cmp(filename:join(ExtractDir,"files/1.txt"),
+        filename:join(ExtractDir,"files/65599.txt")),
+
+    ok.
+
 %% Test basic timestamps, the atime and mtime should be the original
 %% mtime of the file
 basic_timestamp(Config) ->
@@ -1391,6 +1556,9 @@ unzip(unemzip, Archive, Opts) ->
                 end,
                 F -- Cwd
             end || {F, B} <- Files])}.
+
+cmp(Source, Target) ->
+    "" = cmd("cmp --silent "++Source++" "++Target++~s' || echo "files are different"').
 
 cmd(Cmd) ->
     Res = os:cmd(Cmd),

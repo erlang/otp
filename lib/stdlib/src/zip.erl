@@ -26,12 +26,12 @@ format is specified by the "ZIP Appnote.txt" file, available on the PKWARE web
 site [www.pkware.com](http://www.pkware.com).
 
 The zip module supports zip archive versions up to 6.1. However,
-password-protection and Zip64 are not supported.
+password-protection is not supported.
 
 By convention, the name of a zip file is to end with `.zip`. To abide to the
 convention, add `.zip` to the filename.
 
-- To create zip archives, use function `zip/2` or [`zip/3`](`zip/2`). They are
+- To create zip archives, use function `zip/2` or `zip/3`. They are
   also available as [`create/2,3`](`create/3`), to resemble the `m:erl_tar` module.
 - To extract files from a zip archive, use function `unzip/1` or `unzip/2`. They
   are also available as [`extract/1,2`](`extract/1`), to resemble the `m:erl_tar` module.
@@ -51,11 +51,9 @@ convention, add `.zip` to the filename.
 
 ## Limitations
 
-- Zip64 archives are not supported.
 - Password-protected and encrypted archives are not supported.
 - Only the DEFLATE (zlib-compression) and the STORE (uncompressed data) zip
   methods are supported.
-- The archive size is limited to 2 GB (32 bits).
 - Comments for individual files are not supported when creating zip archives.
   The zip archive comment for the whole zip archive is supported.
 - Changing a zip archive is not supported. To add or remove a file from an
@@ -73,8 +71,7 @@ convention, add `.zip` to the filename.
 %% zip server
 -export([zip_open/1, zip_open/2,
 	 zip_get/1, zip_get/2, zip_get_crc32/2,
-	 zip_list_dir/1,
-	 zip_close/1]).
+	 zip_list_dir/1, zip_close/1]).
 
 %% includes
 -include("file.hrl").		 % #file_info
@@ -85,9 +82,6 @@ convention, add `.zip` to the filename.
 
 %% for debugging, to turn off catch
 -define(CATCH(Expr), (catch (Expr))).
-
-%% Debug.
--define(SHOW_GP_BIT_11(B, F), ok).
 
 %% option sets
 -record(unzip_opts, {
@@ -166,17 +160,18 @@ convention, add `.zip` to the filename.
 -define(PKWARE_RESERVED, 11).
 -define(BZIP2_COMPRESSED, 12).
 
+%% Version 2.6, attribute compatibility type 3 (Unix)
 -define(OS_MADE_BY_UNIX, 3).
--define(VERSION_MADE_BY, 20 bor (?OS_MADE_BY_UNIX bsl 8)).
 -define(VERSION_NEEDED_STORE, 10).
 -define(VERSION_NEEDED_DEFLATE, 20).
+-define(VERSION_NEEDED_ZIP64, 45).
+-define(VERSION_MADE_BY, 61).
 -define(GP_BIT_11, 16#800). % Filename and file comment UTF-8 encoded.
 
 %% zip-file records
 -define(LOCAL_FILE_MAGIC,16#04034b50).
 -define(LOCAL_FILE_HEADER_SZ,(4+2+2+2+2+2+4+4+4+2+2)).
 -define(LOCAL_FILE_HEADER_CRC32_OFFSET, 4+2+2+2+2+2).
--define(LOCAL_FILE_HEADER_EXTRA_LENGTH_OFFSET, 4+2+2+2+2+2+4+4+4+2).
 -record(local_file_header,
         {
          %% Common with cd_file_header
@@ -202,6 +197,7 @@ convention, add `.zip` to the filename.
          info :: undefined | file:file_info()
         }).
 -define(EXTRA_OPTIONS, [extended_timestamp, uid_gid]).
+-define(X0001_ZIP64, 16#0001).
 -define(X5455_EXTENDED_TIMESTAMP, 16#5455).
 -define(X7875_UNIX3, 16#7875).
 
@@ -246,16 +242,33 @@ convention, add `.zip` to the filename.
          local_header_offset
         }).
 
+-define(END_OF_CENTRAL_DIR_64_LOCATOR_MAGIC, 16#07064b50).
+-define(END_OF_CENTRAL_DIR_64_LOCATOR_SZ, (4+8+4)).
+-define(END_OF_CENTRAL_DIR_64_MAGIC, 16#06064b50).
+-define(END_OF_CENTRAL_DIR_64_SZ, (2+2+4+4+8+8+8+8)).
 -define(END_OF_CENTRAL_DIR_MAGIC, 16#06054b50).
 -define(END_OF_CENTRAL_DIR_SZ, (4+2+2+2+2+4+4+2)).
+-define(MAX_INT32, 16#FFFF_FFFF).
+-define(MAX_INT16, 16#FFFF).
 
--record(eocd, {disk_num,
+%% 1.0 default version
+%% 2.0 Deflate version
+%% 4.5 File used ZIP64 format extension
+%% 6.1 Version made by
+-type zip_versions() :: 10 | 20 | 45 | 61.
+
+-record(eocd, {eocd :: undefined | #eocd{},
+               version_made_by = 10 :: zip_versions(),
+               os_made_by = ~"UNIX" :: unicode:chardata() | 0..255,
+               extract_version = 10 :: zip_versions(),
+               disk_num,
 	       start_disk_num,
 	       entries_on_disk,
 	       entries,
 	       size,
 	       offset,
-	       zip_comment_length}).
+	       zip_comment_length,
+               extra}).
 
 -doc """
 The possible extra extension that can be used.
@@ -1109,7 +1122,7 @@ put_central_dir(LHS, Pos, Out0,
 put_cd_files_loop([], _Output, _ExtraOpts, Out, Sz) ->
     {Out, Sz};
 put_cd_files_loop([{LH, Name, Pos} | LHRest], Output, ExtraOpts, Out0, Sz0) ->
-    Extra = cd_file_header_extra_from_lh_and_pos(LH, ExtraOpts),
+    Extra = cd_file_header_extra_from_lh_and_pos(LH, Pos, ExtraOpts),
     CDFH = cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra),
     BCDFH = cd_file_header_to_bin(CDFH),
     B = [<<?CENTRAL_FILE_MAGIC:32/little>>, BCDFH, Name, Extra],
@@ -1119,11 +1132,15 @@ put_cd_files_loop([{LH, Name, Pos} | LHRest], Output, ExtraOpts, Out0, Sz0) ->
     put_cd_files_loop(LHRest, Output, ExtraOpts, Out1, Sz1).
 
 cd_file_header_extra_from_lh_and_pos(
-  #local_file_header{ info = FI }, ExtraOpts) ->
-    encode_extra(FI#file_info{ atime = undefined }, ExtraOpts).
+  #local_file_header{ comp_size = CompSize,
+                      uncomp_size = UnCompSize,
+                      info = FI }, Pos, ExtraOpts) ->
+    encode_extra(UnCompSize, CompSize, Pos,
+                 FI#file_info{ atime = undefined }, ExtraOpts).
 
 %% put end marker of central directory, the last record in the archive
-put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
+put_eocd(N, Pos, Sz, Comment, Output, Out0) when
+      Pos < ?MAX_INT32, N < ?MAX_INT16, Sz < ?MAX_INT32 ->
     CommentSz = length(Comment),
     EOCD = #eocd{disk_num = 0,
 		 start_disk_num = 0,
@@ -1134,7 +1151,36 @@ put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
 		 zip_comment_length = CommentSz},
     BEOCD = eocd_to_bin(EOCD),
     B = [<<?END_OF_CENTRAL_DIR_MAGIC:32/little>>, BEOCD, Comment],
-    Output({write, B}, Out0).
+    Output({write, B}, Out0);
+put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
+    %% Zip64 eocd
+    EOCD64 = #eocd{os_made_by = ?OS_MADE_BY_UNIX,
+                   version_made_by = ?VERSION_MADE_BY,
+                   extract_version = ?VERSION_NEEDED_ZIP64,
+                   disk_num = 0,
+                   start_disk_num = 0,
+                   entries_on_disk = N,
+                   entries = N,
+                   size = Sz,
+                   offset = Pos,
+                   extra = <<>> },
+    BEOCD64 = eocd64_to_bin(EOCD64),
+    B = [<<?END_OF_CENTRAL_DIR_64_MAGIC:32/little, (iolist_size(BEOCD64)):64/little>>, BEOCD64],
+    Out1 = Output({write, B}, Out0),
+    Out2 = Output({write, <<?END_OF_CENTRAL_DIR_64_LOCATOR_MAGIC:32/little,
+                            0:32/little, %% Start diskdum
+                            (Pos+Sz):64/little,
+                            1:32/little>> %% Total disks
+                  }, Out1),
+    CommentSz = length(Comment),
+    EOCD = #eocd{disk_num = 0,
+		 start_disk_num = 0,
+		 entries_on_disk = min(N,?MAX_INT16),
+		 entries = min(N,?MAX_INT16),
+		 size = min(Sz,?MAX_INT32),
+		 offset = min(Pos, ?MAX_INT32),
+		 zip_comment_length = CommentSz},
+    Output({write, [<<?END_OF_CENTRAL_DIR_MAGIC:32/little>>, eocd_to_bin(EOCD), Comment]}, Out2).
 
 get_filename({Name, _}, Type) ->
     get_filename(Name, Type);
@@ -1174,7 +1220,7 @@ put_z_files([F | Rest], Z, Out0, Pos0,
 	    #zip_opts{input = Input, output = Output, open_opts = OpO,
 		      feedback = FB, cwd = CWD, extra = ExtraOpts} = Opts, Acc) ->
 
-    {Pos0, _} = Output({position, cur, 0}, Out0), %% Assert correct Pos0
+    %% {Pos0, _} = Output({position, cur, 0}, Out0), %% Assert correct Pos0
 
     In0 = [],
     F1 = add_cwd(CWD, F),
@@ -1191,7 +1237,7 @@ put_z_files([F | Rest], Z, Out0, Pos0,
     CompMethod = get_comp_method(FileName, UncompSize, Opts, Type),
 
     %% Add any extra data needed and patch
-    Extra = encode_extra(FileInfo, ExtraOpts),
+    Extra = encode_extra(UncompSize, FileInfo, ExtraOpts),
 
     LH = local_file_header_from_info_method_name(FileInfo, UncompSize, CompMethod,
                                                  FileName, GPFlag, Extra),
@@ -1215,14 +1261,21 @@ put_z_files([F | Rest], Z, Out0, Pos0,
     Patch = <<CRC:32/little>>,
     Out5 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET, Patch}, Out4),
 
-    %% Patch comp size if not zip64
-    Out6 = Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET + 4, <<CompSize:32/little>>}, Out5),
+    Out6 =
+        %% If UncompSize > 4GB we always put the CompSize in the extra field
+        if UncompSize >= ?MAX_INT32 ->
+                %% 4 bytes for extra header + size and 8 bytes for UnComp:64
+                Output({pwrite, Pos1 + 2 + 2 + 8, <<CompSize:64/little>>}, Out5);
+           true ->
+                %% Patch comp size if not zip64
+                Output({pwrite, Pos0 + ?LOCAL_FILE_HEADER_CRC32_OFFSET + 4, <<CompSize:32/little>>}, Out5)
+        end,
 
     Out7 = Output({seek, eof, 0}, Out6),
 
-    {Pos2, _} = Output({position, cur, 0}, Out7), %% Assert correct Pos2
+    %% {Pos2, _} = Output({position, cur, 0}, Out7), %% Assert correct Pos2
 
-    LH2 = LH#local_file_header{comp_size = CompSize, crc32 = CRC},
+    LH2 = LH#local_file_header{uncomp_size = UncompSize, comp_size = CompSize, crc32 = CRC},
     ThisAcc = [{LH2, FileName, Pos0}],
     {Out8, SubAcc, Pos3} =
 	case Type of
@@ -1241,13 +1294,24 @@ reverse_join_files(Dir, [File | Files], Acc) ->
 reverse_join_files(_Dir, [], Acc) ->
     Acc.
 
-encode_extra(FileInfo, ExtraOpts) ->
+encode_extra(UnCompSize, FileInfo, ExtraOpts) ->
+    encode_extra(UnCompSize, 0, 0, FileInfo, ExtraOpts).
+encode_extra(UnCompSize, CompSize, Pos, FileInfo, ExtraOpts) ->
     %% zip64 needs to be first so that we can patch the CompSize
-    [[encode_extra_extended_timestamp(FileInfo)  || lists:member(extended_timestamp, ExtraOpts)],
+    [encode_extra_zip64(UnCompSize, CompSize, Pos),
+     [encode_extra_extended_timestamp(FileInfo)  || lists:member(extended_timestamp, ExtraOpts)],
      [encode_extra_uid_gid(FileInfo)  || lists:member(uid_gid, ExtraOpts)]].
 
 encode_extra_header(Header, Value) ->
     [<<Header:16/little, (iolist_size(Value)):16/little>>, Value].
+
+encode_extra_zip64(UncompSize, CompSize, Pos) when UncompSize >= ?MAX_INT32 ->
+    encode_extra_header(?X0001_ZIP64, [<<UncompSize:64/little,CompSize:64/little>>,
+                                       [<<Pos:64/little>> || Pos >= ?MAX_INT32]]);
+encode_extra_zip64(_UncompSize, _CompSize, Pos) when Pos >= ?MAX_INT32 ->
+    encode_extra_header(?X0001_ZIP64, <<Pos:64/little>>);
+encode_extra_zip64(_, _, _) ->
+    <<>>.
 
 encode_extra_extended_timestamp(FI) ->
     {Mbit, MSystemTime} =
@@ -1389,7 +1453,7 @@ month(12) -> "Dec".
 
 %% zip header functions
 cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra) ->
-    #local_file_header{version_needed = VersionNeeded,
+    #local_file_header{version_needed = LHVersionNeeded,
 		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
 		       last_mod_time = LastModTime,
@@ -1401,15 +1465,28 @@ cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra) ->
 		       extra_field_length = _ExtraFieldLength,
                        info = #file_info{ type = Type, mode = Mode }} = LH,
 
-    #cd_file_header{version_made_by = ?VERSION_MADE_BY,
+    VersionNeeded =
+        if Pos >= ?MAX_INT32 ->
+                ?VERSION_NEEDED_ZIP64;
+           true ->
+                LHVersionNeeded
+        end,
+
+    #cd_file_header{os_made_by = ?OS_MADE_BY_UNIX,
+                    version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
 		    comp_method = CompMethod,
 		    last_mod_time = LastModTime,
 		    last_mod_date = LastModDate,
 		    crc32 = CRC32,
-		    comp_size = CompSize,
-		    uncomp_size = UncompSize,
+		    comp_size =
+                        if UncompSize >= ?MAX_INT32 ->
+                                ?MAX_INT32;
+                           true ->
+                                CompSize
+                        end,
+		    uncomp_size = min(UncompSize, ?MAX_INT32),
 		    file_name_length = FileNameLength,
 		    extra_field_length = iolist_size(Extra),
 		    file_comment_length = 0, % FileCommentLength,
@@ -1423,10 +1500,11 @@ cd_file_header_from_lh_pos_and_extra(LH, Pos, Extra) ->
                                 end;
                            true -> Mode band 8#777
                         end bsl 16,
-		    local_header_offset = Pos}.
+		    local_header_offset = min(Pos, ?MAX_INT32)}.
 
 cd_file_header_to_bin(
-  #cd_file_header{version_made_by = VersionMadeBy,
+  #cd_file_header{os_made_by = OsMadeBy,
+                  version_made_by = VersionMadeBy,
 		  version_needed = VersionNeeded,
 		  gp_flag = GPFlag,
 		  comp_method = CompMethod,
@@ -1442,7 +1520,7 @@ cd_file_header_to_bin(
 		  internal_attr = InternalAttr,
 		  external_attr = ExternalAttr,
 		  local_header_offset = LocalHeaderOffset}) ->
-    <<VersionMadeBy:16/little,
+    <<VersionMadeBy:8,OsMadeBy:8,
      VersionNeeded:16/little,
      GPFlag:16/little,
      CompMethod:16/little,
@@ -1496,6 +1574,27 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
       Offset:32/little,
       ZipCommentLength:16/little>>.
 
+eocd64_to_bin(
+  #eocd{os_made_by = OsMadeBy,
+        version_made_by = VersionMadeBy,
+        extract_version = ExtractVersion,
+        disk_num = DiskNum,
+        start_disk_num = StartDiskNum,
+        entries_on_disk = EntriesOnDisk,
+        entries = Entries,
+        size = Size,
+        offset = Offset,
+        extra = Extra}) ->
+    <<VersionMadeBy:8,OsMadeBy:8,
+      ExtractVersion:16/little,
+      DiskNum:32/little,
+      StartDiskNum:32/little,
+      EntriesOnDisk:64/little,
+      Entries:64/little,
+      Size:64/little,
+      Offset:64/little,
+      Extra/binary>>.
+
 %% put together a local file header
 local_file_header_from_info_method_name(#file_info{mtime = MTime,
                                                    atime = ATime,
@@ -1507,7 +1606,15 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime,
     {ModDate, ModTime} = dos_date_time_from_datetime(
                            calendar:system_time_to_local_time(
                              datetime_to_system_time(MTime), second)),
-    #local_file_header{version_needed = ?VERSION_NEEDED_DEFLATE,
+    VersionNeeded = if UncompSize >= ?MAX_INT32 ->
+                            ?VERSION_NEEDED_ZIP64;
+                       true ->
+                            case CompMethod of
+                                ?STORED -> ?VERSION_NEEDED_STORE;
+                                ?DEFLATED -> ?VERSION_NEEDED_DEFLATE
+                            end
+                    end,
+    #local_file_header{version_needed = VersionNeeded,
 		       gp_flag = GPFlag,
 		       comp_method = CompMethod,
 		       last_mod_time = ModTime,
@@ -1518,16 +1625,15 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime,
                        uid = Uid,
                        gid = Gid,
 		       crc32 = -1,
-		       comp_size = -1,
-		       uncomp_size = UncompSize,
+		       comp_size = ?MAX_INT32,
+		       uncomp_size = min(UncompSize, ?MAX_INT32),
 		       file_name_length = length(Name),
 		       extra_field_length = iolist_size(Extra),
                        info = Info}.
 
 %%
-%% Functions used by zip server
+%% Functions used by zip server to work with archives.
 %%
-
 openzip_open(F, Options) ->
     case ?CATCH(do_openzip_open(F, Options)) of
 	{ok, OpenZip} ->
@@ -1712,15 +1818,20 @@ get_openzip_opt([Unknown | _Rest], _Opts) ->
 
 %% get the central directory from the archive
 get_central_dir(In0, RawIterator, Input, ExtraOpts) ->
-    {B, In1} = get_end_of_central_dir(In0, ?END_OF_CENTRAL_DIR_SZ, Input),
-    {EOCD, BComment} = eocd_and_comment_from_bin(B),
-    In2 = Input({seek, bof, EOCD#eocd.offset}, In1),
+    {Size, In1} = Input({position, eof, 0}, In0),
+    {{EOCD, BComment}, In2} =
+        get_end_of_central_dir(
+          In1, ?END_OF_CENTRAL_DIR_SZ,
+          min(16#ffff + ?END_OF_CENTRAL_DIR_SZ + ?END_OF_CENTRAL_DIR_64_LOCATOR_SZ, Size),
+          Input),
+    EOCD#eocd.disk_num == 0 orelse throw(multiple_disks_not_supported),
+    In3 = Input({seek, bof, EOCD#eocd.offset}, In2),
     N = EOCD#eocd.entries,
     Acc0 = [],
     %% There is no encoding flag for the archive comment.
     Comment = heuristic_to_string(BComment),
     Out0 = RawIterator(EOCD, "", Comment, <<>>, Acc0),
-    get_cd_loop(N, In2, RawIterator, Input, ExtraOpts, Out0).
+    get_cd_loop(N, In3, RawIterator, Input, ExtraOpts, Out0).
 
 get_cd_loop(0, In, _RawIterator, _Input, _ExtraOpts, Acc) ->
     {lists:reverse(Acc), In};
@@ -1751,6 +1862,8 @@ get_cd_loop(N, In0, RawIterator, Input, ExtraOpts, Acc0) ->
           #local_file_header{} | #cd_file_header{}.
 update_extra_fields(FileHeader, BExtra, ExtraOpts) ->
     %% We depend on some fields in the records to be at the same position
+    #local_file_header.comp_size = #cd_file_header.comp_size,
+    #local_file_header.uncomp_size = #cd_file_header.uncomp_size,
     #local_file_header.mtime = #cd_file_header.mtime,
     #local_file_header.atime = #cd_file_header.atime,
     #local_file_header.ctime = #cd_file_header.ctime,
@@ -1761,13 +1874,26 @@ update_extra_fields(FileHeader, BExtra, ExtraOpts) ->
     UidGid = lists:member(uid_gid, ExtraOpts),
 
     lists:foldl(
-      fun({?X5455_EXTENDED_TIMESTAMP, Data}, Acc) when ExtendedTimestamp ->
+      fun({?X0001_ZIP64, Data}, Acc) ->
+              update_zip64(Acc, Data);
+         ({?X5455_EXTENDED_TIMESTAMP, Data}, Acc) when ExtendedTimestamp ->
               update_extended_timestamp(Acc, Data);
          ({?X7875_UNIX3, Data}, Acc) when UidGid ->
               update_unix3(Acc, Data);
          (_, Acc) ->
               Acc
       end, FileHeader, parse_extra(BExtra)).
+
+update_zip64(FH, <<UnComp:64/little, Rest/binary>>) when element(#cd_file_header.uncomp_size, FH) == ?MAX_INT32 ->
+    update_zip64(setelement(#cd_file_header.uncomp_size, FH, UnComp), Rest);
+update_zip64(FH, <<Comp:64/little, Rest/binary>>) when element(#cd_file_header.comp_size, FH) == ?MAX_INT32 ->
+    update_zip64(setelement(#cd_file_header.comp_size, FH, Comp), Rest);
+update_zip64(FH, <<LocalHeaderOffset:64/little, Rest/binary>>) when element(#cd_file_header.local_header_offset, FH) == ?MAX_INT32 ->
+    update_zip64(setelement(#cd_file_header.local_header_offset, FH, LocalHeaderOffset), Rest);
+update_zip64(FH, <<DiskNumStart:32/little, Rest/binary>>) when element(#cd_file_header.disk_num_start, FH) == ?MAX_INT32 ->
+    update_zip64(setelement(#cd_file_header.disk_num_start, FH, DiskNumStart), Rest);
+update_zip64(FH, <<>>) ->
+    FH.
 
 update_extended_timestamp(FileHeader, <<_:5,HasCre:1,HasAcc:1,HasMod:1,Data/binary>> ) ->
     {FHMod, DataMod} = update_extended_timestamp(FileHeader, HasMod, Data, #cd_file_header.mtime),
@@ -1817,26 +1943,130 @@ get_filename_extra_comment(B, FileNameLen, ExtraLen, CommentLen, GPFlag) ->
 %% get end record, containing the offset to the central directory
 %% the end record is always at the end of the file BUT alas it is
 %% of variable size (yes that's dumb!)
-get_end_of_central_dir(_In, Sz, _Input) when Sz > 16#ffff ->
-    throw(bad_eocd);
-get_end_of_central_dir(In0, Sz, Input) ->
+get_end_of_central_dir(In0, Sz, MaxCentralDirSize, Input) ->
     In1 = Input({seek, eof, -Sz}, In0),
     {B, In2} = Input({read, Sz}, In1),
-    case find_eocd_header(B) of
+    case find_eocd(B) of
+        none when Sz =:= MaxCentralDirSize ->
+            throw(bad_eocd);
 	none ->
-	    get_end_of_central_dir(In2, Sz+Sz, Input);
+	    get_end_of_central_dir(In2, min(Sz+Sz, MaxCentralDirSize), MaxCentralDirSize, Input);
+        {EOCD64Location, EOCD, Comment} ->
+            case find_eocd64(In2, EOCD64Location, EOCD, Comment, Input) of
+                none ->
+                    throw(bad_eocd64);
+                {EOCD64, In3} ->
+                    {EOCD64, In3}
+            end;
 	Header ->
 	    {Header, In2}
     end.
 
 %% find the end record by matching for it
-find_eocd_header(<<?END_OF_CENTRAL_DIR_MAGIC:32/little, Rest/binary>>) ->
-    Rest;
-find_eocd_header(<<_:8, Rest/binary>>)
-  when byte_size(Rest) > ?END_OF_CENTRAL_DIR_SZ-4 ->
-    find_eocd_header(Rest);
-find_eocd_header(_) ->
+%% The ?END_OF_CENTRAL_DIR_MAGIC could be in the comment,
+%% so we need to match for the entire structure and make sure
+%% the comment size consumes all of the binary.
+find_eocd(<<?END_OF_CENTRAL_DIR_64_LOCATOR_MAGIC:32/little,
+            EOCD64StartDiskNum:32/little,
+            EOCD64Offset:64/little,
+            EOCD64TotalDisk:32/little,
+            ?END_OF_CENTRAL_DIR_MAGIC:32/little,
+            DiskNum:16/little,
+            StartDiskNum:16/little,
+            EntriesOnDisk:16/little,
+            Entries:16/little,
+            Size:32/little,
+            Offset:32/little,
+            ZipCommentLength:16/little,
+            Comment:ZipCommentLength/binary>>) ->
+    if DiskNum =:= ?MAX_INT16;
+       StartDiskNum =:= ?MAX_INT16;
+       EntriesOnDisk =:= ?MAX_INT16,
+       Entries =:= ?MAX_INT16;
+       Size =:= ?MAX_INT32;
+       Offset =:= ?MAX_INT32 ->
+            {{EOCD64StartDiskNum, EOCD64Offset, EOCD64TotalDisk},
+             #eocd{disk_num = DiskNum,
+                   start_disk_num = StartDiskNum,
+                   entries_on_disk = EntriesOnDisk,
+                   entries = Entries,
+                   size = Size,
+                   offset = Offset,
+                   zip_comment_length = ZipCommentLength},
+             Comment};
+       true ->
+            none
+    end;
+find_eocd(<<?END_OF_CENTRAL_DIR_MAGIC:32/little,
+            DiskNum:16/little,
+            StartDiskNum:16/little,
+            EntriesOnDisk:16/little,
+            Entries:16/little,
+            Size:32/little,
+            Offset:32/little,
+            ZipCommentLength:16/little,
+            Comment:ZipCommentLength/binary>>) ->
+    if DiskNum =:= ?MAX_INT16;
+       StartDiskNum =:= ?MAX_INT16;
+       EntriesOnDisk =:= ?MAX_INT16;
+       Entries =:= ?MAX_INT16;
+       Size =:= ?MAX_INT32;
+       Offset =:= ?MAX_INT32 ->
+            %% There should be a eocd64 locator before this entry
+            none;
+       true ->
+            {#eocd{disk_num = DiskNum,
+                   start_disk_num = StartDiskNum,
+                   entries_on_disk = EntriesOnDisk,
+                   entries = Entries,
+                   size = Size,
+                   offset = Offset,
+                   zip_comment_length = ZipCommentLength},
+             Comment}
+       end;
+find_eocd(<<_:8, Rest/binary>>) when byte_size(Rest) > ?END_OF_CENTRAL_DIR_SZ-4 ->
+    find_eocd(Rest);
+find_eocd(_) ->
     none.
+
+find_eocd64(In0,{_EOCD64StartDiskNum, EOCD64Offset, _EOCD64TotalDisk}, EOCD, Comment, Input) ->
+    maybe
+        In1 = Input({seek, bof, EOCD64Offset}, In0),
+
+        {<<?END_OF_CENTRAL_DIR_64_MAGIC:32/little,
+           EOCDSize:64/little>>, In2}
+            ?= Input({read, 4 + 8}, In1),
+
+        {<<VersionMadeBy:8,OsMadeBy:8,
+           ExtractVersion:16/little,
+           DiskNum:32/little,
+           StartDiskNum:32/little,
+           EntriesOnDisk:64/little,
+           Entries:64/little,
+           Size:64/little,
+           Offset:64/little,
+           Extra:(EOCDSize-?END_OF_CENTRAL_DIR_64_SZ)/binary>>, In3}
+            ?= Input({read, EOCDSize}, In2),
+
+        {{EOCD#eocd{
+            eocd = EOCD,
+            version_made_by = VersionMadeBy,
+            os_made_by = os_id_to_atom(OsMadeBy),
+            extract_version = ExtractVersion,
+            disk_num = DiskNum,
+            start_disk_num = StartDiskNum,
+            entries_on_disk = EntriesOnDisk,
+            entries = Entries,
+            size = Size,
+            offset = Offset,
+            extra = parse_extra(Extra)}, Comment}, In3}
+    else
+        {eof, InEOF} ->
+            {eof, InEOF};
+        _ ->
+            none
+    end.
+
 
 %% Taken from APPNOTE.TXT version 6.3.10 section 4.4.2.2
 os_id_to_atom(0) -> ~"MS-DOS and OS/2";
@@ -2209,7 +2439,6 @@ skip_bin(B, Pos) when is_binary(B) ->
     end.
 
 binary_to_chars(B, GPFlag) ->
-    ?SHOW_GP_BIT_11(B, GPFlag band ?GP_BIT_11),
     case GPFlag band ?GP_BIT_11 of
         0 ->
             binary_to_list(B);
@@ -2240,26 +2469,6 @@ encode_string(String) ->
         false ->
             {String, 0}
     end.
-
-%% ZIP header manipulations
-eocd_and_comment_from_bin(<<DiskNum:16/little,
-			   StartDiskNum:16/little,
-			   EntriesOnDisk:16/little,
-			   Entries:16/little,
-			   Size:32/little,
-			   Offset:32/little,
-			   ZipCommentLength:16/little,
-			   Comment:ZipCommentLength/binary>>) ->
-    {#eocd{disk_num = DiskNum,
-	   start_disk_num = StartDiskNum,
-	   entries_on_disk = EntriesOnDisk,
-	   entries = Entries,
-	   size = Size,
-	   offset = Offset,
-	   zip_comment_length = ZipCommentLength},
-     Comment};
-eocd_and_comment_from_bin(_) ->
-    throw(bad_eocd).
 
 cd_file_header_from_bin(<<VersionMadeBy:8,OsMadeBy:8,
 			 VersionNeeded:16/little,
