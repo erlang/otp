@@ -46,7 +46,7 @@ convention, add `.zip` to the filename.
   `zip_list_dir/1`, and `zip_close/1`.
 - The ZIP extensions 0x5355 "extended timestamps" and 0x7875 "UID+GID handling"
   are supported. Both extensions are by default enabled when creating an archive,
-  but only "extended timestamps" are enabled when extracting. Use the `extra`
+  but only "extended timestamps" are enabled when extracting. Use the `t:extra/0`
   option to change how these extensions are used.
 
 ## Limitations
@@ -275,7 +275,8 @@ The possible extra extension that can be used.
 
 - **`extended_timestamp`** - enables the 0x5455 "extended timestamps" zip extension
   that embeds POSIX timestamps for access and modification times for each file in the
-  archive.
+  archive. This makes the timestamps to be in UTC instead of local time and also increases
+  the time resolution from 2 seconds to 1 second.
 - **`uid_gid`** - enables 0x7875 "UNIX 3rd generation" zip extension that embeds the
   UID and GID for each file into the archive.
 """.
@@ -288,6 +289,7 @@ The possible extra extension that can be used.
                        | {compress, What :: extension_spec()}
                        | {uncompress, What :: extension_spec()}
                        | {extra, extra()}.
+-doc ~'A filename extension, for example ".txt".'.
 -type extension() :: string().
 -type extension_spec() :: all
                         | [Extension :: extension()]
@@ -363,6 +365,11 @@ Options:
   [`unzip/2`](`unzip/2`) does not overwrite existing files. Notice that even
   with option `memory` specified, which means that no files are overwritten,
   existing files are excluded from the result.
+
+- **`{extra, Extras}`** - The zip "extra" features to respect. The supported
+  "extra" features are "extended timestamps" and "UID and GID" handling.
+  By default only "extended timestamps" is enabled when unzipping.
+  See `t:extra/0` for more details.
 
 - **`verbose`** - Prints an informational message for each extracted file.
 
@@ -577,6 +584,11 @@ Options:
   zip archive (acting like `file:set_cwd/1` in Kernel, but without changing the
   global `cwd` property.).
 
+- **`{extra, Extras}`** - The zip "extra" features to respect. The supported
+  "extra" features are "extended timestamps" and "UID and GID" handling.
+  By default both these "extra" features are enabled.
+  See `t:extra/0` for more details.
+
 - **`{compress, What}`** - Controls what types of files to be compressed.
   Defaults to `all`. The following values of `What` are allowed:
 
@@ -666,6 +678,11 @@ One option is available:
   which is faster but does not allow a remote (Erlang) file server to be used.
   Adding `cooked` to the mode list overrides the default and opens the zip file
   without option `raw`.
+
+- **`{extra, Extras}`** - The zip "extra" features to respect. The supported
+  "extra" features are "extended timestamps" and "UID and GID" handling.
+  By default only "extended timestamps" is enabled when listing files.
+  See `t:extra/0` for more details.
 """.
 -spec(list_dir(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
@@ -702,6 +719,8 @@ zip_open(Archive) -> zip_open(Archive, []).
 Opens a zip archive, and reads and saves its directory. This means that later
 reading files from the archive is faster than unzipping files one at a time with
 [`unzip/1,2`](`unzip/1`).
+
+The options are equivalent to those in `unzip/2`.
 
 The archive must be closed with `zip_close/1`.
 
