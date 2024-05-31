@@ -21,7 +21,5 @@ to use Erlang/OTP and different aspects of working with Erlang/OTP. The guides a
   This section informs on interoperability, that is, information exchange, between
   Erlang and other programming languages. The included examples mainly treat
   interoperability between Erlang and C.
-* [OAM Principles](oam/oam.md) -
-  How to build Operations & Maintenance support into your Erlang/OTP system.
 * [Embedded Systems User's Guide](embedded/embedded.md) -
   This section describes the issues that are specific for running Erlang on an embedded system.
