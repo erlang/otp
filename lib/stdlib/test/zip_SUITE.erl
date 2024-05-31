@@ -32,7 +32,8 @@
          compress_control/1,
 	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
          explicit_file_info/1, mode/1,
-         basic_timestamp/1, extended_timestamp/1]).
+         basic_timestamp/1, extended_timestamp/1,
+         uid_gid/1]).
 
 -import(proplists,[get_value/2, get_value/3]).
 
@@ -68,7 +69,7 @@ zip_groups() ->
 
 
 zip_testcases() ->
-    [mode, basic_timestamp, extended_timestamp].
+    [mode, basic_timestamp, extended_timestamp, uid_gid].
 
 init_per_suite(Config) ->
     Config.
@@ -1252,6 +1253,55 @@ extended_timestamp(Config) ->
                     ?assert(UnZMtime < UnZCtime);
                 false ->
                     %% emzip does not support timestamps
+                    ok
+            end,
+
+            ok
+    end.
+
+uid_gid(Config) ->
+
+    case os:cmd("zip -v | grep STORE_UNIX_UIDs_GIDs") of
+        "" -> {skip, "zip does not support uid/gids"};
+        _ ->
+
+            PrivDir = get_value(pdir, Config),
+            ExtractDir = filename:join(PrivDir, "extract"),
+            Archive = filename:join(PrivDir, "archive.zip"),
+            Testfile = filename:join(PrivDir, "testfile.txt"),
+
+            ok = file:write_file(Testfile, "abc"),
+            {ok, OndiskFI = #file_info{ gid = GID, uid = UID }} =
+                file:read_file_info(Testfile),
+
+            ?assertMatch(
+               {ok, Archive},
+               zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
+
+            {ok, [#zip_comment{},
+                  #zip_file{ info = ZipFI = #file_info{ gid = ZGID, uid = ZUID }} ]} =
+                zip:list_dir(Archive,[{extra, [uid_gid]}]),
+
+            ct:log("on disk: ~p",[OndiskFI]),
+            ct:log("in zip : ~p",[ZipFI]),
+
+            ?assertEqual(UID, ZUID),
+            ?assertEqual(GID, ZGID),
+
+            ok = file:make_dir(ExtractDir),
+            ?assertMatch(
+               {ok, ["testfile.txt"]},
+               unzip(Config, Archive, [{cwd, ExtractDir},{extra,[uid_gid]}])),
+
+            {ok,#file_info{ gid = ExZGID, uid = ExZUID }} =
+                file:read_file_info(filename:join(ExtractDir,"testfile.txt")),
+
+            case get_value(unzip, Config) =/= unemzip of
+                true ->
+                    ?assertEqual(UID, ExZUID),
+                    ?assertEqual(GID, ExZGID);
+                _ ->
+                    %% emzip does not support uid_gid
                     ok
             end,
 

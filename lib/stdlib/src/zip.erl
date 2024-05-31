@@ -44,8 +44,9 @@ convention, add `.zip` to the filename.
   file by file, without having to reopen the archive. This can be done by
   functions [`zip_open/1,2`](`zip_open/1`), [`zip_get/1,2`](`zip_get/1`),
   `zip_list_dir/1`, and `zip_close/1`.
-- The ZIP extensions 0x5355 "extended timestamps" is supported. Both extensions
-  are by default enabled when creating and extracting from an archive. Use the `extra`
+- The ZIP extensions 0x5355 "extended timestamps" and 0x7875 "UID+GID handling"
+  are supported. Both extensions are by default enabled when creating an archive,
+  but only "extended timestamps" are enabled when extracting. Use the `extra`
   option to change how these extensions are used.
 
 ## Limitations
@@ -191,14 +192,18 @@ convention, add `.zip` to the filename.
          mtime,
          atime,
          ctime,
+         %% X7875_UNIX3 extension
+         uid = 0,
+         gid = 0,
          %% local_file_header specific
          file_name_length,
          extra_field_length,
          %% extra data needed to create cd_file_header
          info :: undefined | file:file_info()
         }).
--define(EXTRA_OPTIONS, [extended_timestamp]).
+-define(EXTRA_OPTIONS, [extended_timestamp, uid_gid]).
 -define(X5455_EXTENDED_TIMESTAMP, 16#5455).
+-define(X7875_UNIX3, 16#7875).
 
 -define(CENTRAL_FILE_HEADER_SZ,(4+2+2+2+2+2+2+4+4+4+2+2+2+2+2+4+4)).
 
@@ -226,6 +231,9 @@ convention, add `.zip` to the filename.
          mtime,
          atime,
          ctime,
+         %% X7875_UNIX3 extension
+         uid = 0,
+         gid = 0,
          %% cd_file_header specific
          version_made_by,
          os_made_by,
@@ -255,8 +263,10 @@ The possible extra extension that can be used.
 - **`extended_timestamp`** - enables the 0x5455 "extended timestamps" zip extension
   that embeds POSIX timestamps for access and modification times for each file in the
   archive.
+- **`uid_gid`** - enables 0x7875 "UNIX 3rd generation" zip extension that embeds the
+  UID and GID for each file into the archive.
 """.
--type extra() :: [extended_timestamp].
+-type extra() :: [extended_timestamp | uid_gid].
 
 -doc "These options are described in [`create/3`](`m:zip#zip_options`).".
 -type create_option() :: memory | cooked | verbose
@@ -791,7 +801,7 @@ do_t(F, RawPrint) ->
     Input = get_input(F),
     OpO = [raw],
     In0 = Input({open, F, OpO}, []),
-    {_Info, In1} = get_central_dir(In0, RawPrint, Input, [extended_timestamp]),
+    {_Info, In1} = get_central_dir(In0, RawPrint, Input, ?EXTRA_OPTIONS),
     Input(close, In1),
     ok.
 
@@ -953,7 +963,7 @@ get_zip_options(Files, Options) ->
 		     cwd = "",
 		     compress = all,
 		     uncompress = Suffixes,
-                     extra = [extended_timestamp]
+                     extra = ?EXTRA_OPTIONS
 		    },
     Opts1 = #zip_opts{comment = Comment} = get_zip_opt(Options, Opts),
     %% UTF-8 encode characters in the interval from 127 to 255.
@@ -975,7 +985,7 @@ get_openzip_options(Options) ->
     Opts = #openzip_opts{open_opts = [raw, read],
 			 output = fun file_io/2,
 			 cwd = "",
-                         extra = [extended_timestamp]},
+                         extra = ?EXTRA_OPTIONS},
     get_openzip_opt(Options, Opts).
 
 get_input(F) when is_binary(F) ->
@@ -1233,7 +1243,8 @@ reverse_join_files(_Dir, [], Acc) ->
 
 encode_extra(FileInfo, ExtraOpts) ->
     %% zip64 needs to be first so that we can patch the CompSize
-    [encode_extra_extended_timestamp(FileInfo)  || lists:member(extended_timestamp, ExtraOpts)].
+    [[encode_extra_extended_timestamp(FileInfo)  || lists:member(extended_timestamp, ExtraOpts)],
+     [encode_extra_uid_gid(FileInfo)  || lists:member(uid_gid, ExtraOpts)]].
 
 encode_extra_header(Header, Value) ->
     [<<Header:16/little, (iolist_size(Value)):16/little>>, Value].
@@ -1254,6 +1265,13 @@ encode_extra_extended_timestamp(FI) ->
         end,
 
     encode_extra_header(?X5455_EXTENDED_TIMESTAMP, [Abit bor Mbit, MSystemTime, ASystemTime]).
+
+encode_extra_uid_gid(#file_info{ uid = Uid, gid = Gid })
+  when Uid =/= undefined, Gid =/= undefined ->
+    encode_extra_header(?X7875_UNIX3,<<1, 4, Uid:32/little,
+                                       4, Gid:32/little>>);
+encode_extra_uid_gid(_) ->
+    <<>>.
 
 %% flag for zlib
 -define(MAX_WBITS, 15).
@@ -1480,7 +1498,9 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
 
 %% put together a local file header
 local_file_header_from_info_method_name(#file_info{mtime = MTime,
-                                                   atime = ATime} = Info,
+                                                   atime = ATime,
+                                                   uid = Uid,
+                                                   gid = Gid} = Info,
 					UncompSize, CompMethod,
                                         Name, GPFlag, Extra ) ->
     CreationTime = os:system_time(second),
@@ -1495,6 +1515,8 @@ local_file_header_from_info_method_name(#file_info{mtime = MTime,
                        mtime = datetime_to_system_time(MTime),
                        atime = datetime_to_system_time(ATime),
                        ctime = datetime_to_system_time(CreationTime),
+                       uid = Uid,
+                       gid = Gid,
 		       crc32 = -1,
 		       comp_size = -1,
 		       uncomp_size = UncompSize,
@@ -1732,10 +1754,17 @@ update_extra_fields(FileHeader, BExtra, ExtraOpts) ->
     #local_file_header.mtime = #cd_file_header.mtime,
     #local_file_header.atime = #cd_file_header.atime,
     #local_file_header.ctime = #cd_file_header.ctime,
+    #local_file_header.uid = #cd_file_header.uid,
+    #local_file_header.gid = #cd_file_header.gid,
+
     ExtendedTimestamp = lists:member(extended_timestamp, ExtraOpts),
+    UidGid = lists:member(uid_gid, ExtraOpts),
+
     lists:foldl(
       fun({?X5455_EXTENDED_TIMESTAMP, Data}, Acc) when ExtendedTimestamp ->
               update_extended_timestamp(Acc, Data);
+         ({?X7875_UNIX3, Data}, Acc) when UidGid ->
+              update_unix3(Acc, Data);
          (_, Acc) ->
               Acc
       end, FileHeader, parse_extra(BExtra)).
@@ -1753,6 +1782,11 @@ update_extended_timestamp(FH, 1, <<>>, _Field) ->
     {FH, <<>>};
 update_extended_timestamp(FH, 0, Data, _Field) ->
     {FH, Data}.
+
+update_unix3(FH, <<1, UidSize, Uid:(UidSize*8)/little, GidSize, Gid:(GidSize*8)/little>>) ->
+    setelement(#cd_file_header.gid, setelement(#cd_file_header.uid, FH, Uid), Gid);
+update_unix3(FH, <<Vsn,_/binary>>) when Vsn =/= 1 ->
+    FH.
 
 parse_extra(<<Tag:16/little,Sz:16/little,Data:Sz/binary,Rest/binary>>) ->
     [{Tag, Data} | parse_extra(Rest)];
@@ -1884,8 +1918,8 @@ cd_file_header_to_file_info(FileName,
                major_device = 0,
                minor_device = 0,
                inode = 0,
-               uid = 0,
-               gid = 0}.
+               uid = CDFH#cd_file_header.uid,
+               gid = CDFH#cd_file_header.gid}.
 
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
