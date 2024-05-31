@@ -74,8 +74,7 @@
     "design_principles/distributed_applications.md": [],
     "design_principles/release_structure.md": [],
     "design_principles/release_handling.md": [],
-    "design_principles/appup_cookbook.md": [],
-    "oam/oam.md": []
+    "design_principles/appup_cookbook.md": []
   ],
   main: "readme",
   api_reference: false,
