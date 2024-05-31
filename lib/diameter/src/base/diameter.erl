@@ -1723,6 +1723,7 @@ of all transport-related events.
 subscribe(SvcName) ->
     diameter_service:subscribe(SvcName).
 
+
 %% ---------------------------------------------------------------------------
 %% unsubscribe/1
 %% ---------------------------------------------------------------------------
@@ -1739,13 +1740,12 @@ Unsubscribe to event messages from a service.
 unsubscribe(SvcName) ->
     diameter_service:unsubscribe(SvcName).
 
+
 %% ---------------------------------------------------------------------------
 %% session_id/1
 %% ---------------------------------------------------------------------------
 
 -doc """
-session_id(Ident) -> OctetString()
-
 Return a value for a Session-Id AVP.
 
 The value has the form required by section 8.8 of RFC 6733. Ident should be the
@@ -1753,11 +1753,13 @@ Origin-Host of the peer from which the message containing the returned value
 will be sent.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec session_id('DiameterIdentity'())
-   -> 'OctetString'().
+-spec session_id(Ident) -> SessionId when
+      Ident     :: 'DiameterIdentity'(),
+      SessionId :: 'OctetString'().
 
 session_id(Ident) ->
     diameter_session:session_id(Ident).
+
 
 %% ---------------------------------------------------------------------------
 %% origin_state_id/0
