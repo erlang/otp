@@ -118,15 +118,6 @@ in parallel with the ongoing one, the server consumes less resources.
          stop/0
 	]).
 
-%% Application local functions
--export([
-	 start_standalone/1,
-	 start_service/1,
-	 stop_service/1, 
-	 services/0,
-	 service_info/1
-	]).
-
 -export_type([option/0]).
 
 -include("tftp.hrl").
@@ -439,29 +430,3 @@ start() ->
 stop() ->
     application:stop(tftp).
 
-%%-------------------------------------------------------------------
-%% Inets service behavior
-%%-------------------------------------------------------------------
-
--doc false.
-start_standalone(Options) ->
-    start(Options).
-
--doc false.
-start_service(Options) ->
-    tftp_sup:start_child(Options).
-
--doc false.
-stop_service(Pid) ->
-    tftp_sup:stop_child(Pid).
-
--doc false.
-services() ->
-    tftp_sup:which_children().
-
--doc false.
-service_info(Pid) ->
-    info(Pid).
-	     
-	     
-       
