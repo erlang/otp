@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Getting started
+# Examples
 
 ## Setting things up
 

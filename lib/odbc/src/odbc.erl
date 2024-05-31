@@ -44,12 +44,12 @@ to.
 > This will have the effect that functions such as `first/[1,2]`, `last/[1,2]`,
 > `prev[1,2]`, etc will return `{error, driver_does_not_support_function}`
 
-## ERROR HANDLING
+## Error Handling
 
 The error handling strategy and possible errors sources are described in the
 Erlang ODBC [User's Guide.](error_handling.md)
 
-## REFERENCES
+## References
 
 \[1]: Microsoft ODBC 3.0, Programmer's Reference and SDK Guide  
 See also http://msdn.microsoft.com/
