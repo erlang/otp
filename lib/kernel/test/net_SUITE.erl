@@ -648,16 +648,21 @@ api_b_getservbyport() ->
                                {ok, WrongService} ->
                                    wrong_service(5672, sctp,
                                                  WrongService, "amqp");
-                               {error, Reason} ->
+                               {error, Reason} when (Reason =:= einval) ->
                                    case os:type() of
-                                       {unix, darwin}
-                                         when (Reason =:= einval) ->
+                                       {unix, UNIX}
+                                         when (UNIX =:= darwin) orelse
+                                              (UNIX =:= openbsd) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
                                               [Reason]),
                                            ?FAIL({"amqp", sctp, Reason})
-                                   end
+                                   end;
+                               {error, Reason} ->
+                                   ?P("Unexpected failure: ~p",
+                                      [Reason]),
+                                   ?FAIL({"amqp", sctp, Reason})
                            end
                    end),
 
@@ -668,17 +673,6 @@ api_b_getservbyport() ->
     ?P("done"),
     ok.
 
-
-%% not_freebsd(F) ->
-%%    Cond = fun() -> case os:type() of
-%%                                  {unix, freebsd} ->
-%% 				     skip;
-%% 				 _ ->
-%% 				    run
-%% 			     end
-%% 		end,
-%%    maybe_run(Cond, F).
-%% 
 
 not_on_windows(F) ->
     Cond = fun() -> case os:type() of
