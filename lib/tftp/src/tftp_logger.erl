@@ -38,15 +38,15 @@ and export the following functions:
 	 info_msg/2
 	]).
 
--doc "Logs a warning message. See `error_logger:warning_msg/2` for details.".
+-doc "Logs a warning message. See `logger:warning/2` for details.".
 -doc(#{since => <<"OTP 18.1">>}).
--callback warning_msg(Format :: string(), Data :: [term()]) -> ok.
--doc "Logs an info message. See `error_logger:info_msg/2` for details.".
+-callback warning_msg(Format :: io:format(), Args :: [term()]) -> ok.
+-doc "Logs an info message. See `logger:info/2` for details.".
 -doc(#{since => <<"OTP 18.1">>}).
--callback info_msg(Format :: string(), Data :: [term()]) -> ok.
--doc "Logs an error message. See `error_logger:error_msg/2` for details.".
+-callback info_msg(Format :: io:format(), Args :: [term()]) -> ok.
+-doc "Logs an error message. See `logger:error/2` for details.".
 -doc(#{since => <<"OTP 18.1">>}).
--callback error_msg(Format :: string(), Data :: [term()]) -> ok.
+-callback error_msg(Format :: io:format(), Args :: [term()]) -> ok.
 
 -optional_callbacks([warning_msg/2, error_msg/2, info_msg/2]).
 
@@ -63,7 +63,7 @@ and export the following functions:
 -doc false.
 error_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
-    error_logger:error_msg(Format2, Data2).
+    logger:error(Format2, Data2).
 
 %%-------------------------------------------------------------------
 %% warning_msg(Format, Data) -> ok | exit(Reason)
@@ -78,7 +78,7 @@ error_msg(Format, Data) ->
 -doc false.
 warning_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
-    error_logger:warning_msg(Format2, Data2).
+    logger:warning(Format2, Data2).
 
 %%-------------------------------------------------------------------
 %% info_msg(Format, Data) -> ok | exit(Reason)
@@ -93,7 +93,7 @@ warning_msg(Format, Data) ->
 -doc false.
 info_msg(Format, Data) ->
     {Format2, Data2} = add_timestamp(Format, Data),
-    io:format(Format2, Data2).
+    logger:info(Format2, Data2).
 
 %%-------------------------------------------------------------------
 %% Add timestamp to log message
