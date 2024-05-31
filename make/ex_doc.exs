@@ -98,14 +98,24 @@ groups_for_docs =
   ) ++
     [Types: &(&1[:kind] == :type)] ++
     Enum.map(
-      Access.get(titles, :function, []),
-      fn {:function, title} ->
-        {"#{title}",
+      Access.get(titles, :callback, []),
+      fn {:callback, title} ->
+        {"Callbacks: #{title}",
          fn a ->
-           a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
+           a[:kind] == :callback && String.equivalent?(Access.get(a, :title, ""), title)
          end}
       end
-    )
+    ) ++
+      [Callbacks: &(&1[:kind] == :callback)] ++
+      Enum.map(
+        Access.get(titles, :function, []),
+        fn {:function, title} ->
+          {"#{title}",
+           fn a ->
+             a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
+           end}
+        end
+      )
 
 ## Create the correct source url to github
 base_url = "https://github.com/" <> System.get_env("BASE_URL", "erlang/otp/blob/master/")
