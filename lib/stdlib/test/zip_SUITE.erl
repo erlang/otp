@@ -411,6 +411,22 @@ unzip_options(Config) when is_list(Config) ->
 
     %% Clean up and verify no more files.
     0 = delete_files([Subdir]),
+
+    FList2 = ["abc.txt","quotes/rain.txt","wikipedia.txt","emptyFile"],
+
+    %% Unzip a zip file in Subdir
+    {ok, RetList2} = zip:unzip(Long, [{cwd, Subdir},skip_directories]),
+
+    %% Verify.
+    true = (length(RetList2) =:= 4),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList2),
+    lists:foreach(fun(F)-> ok = file:delete(F) end,
+		  RetList2),
+
+    %% Clean up and verify no more files.
+    0 = delete_files([Subdir]),
     ok.
 
 %% Test that unzip handles directory traversal exploit (OTP-13633)
@@ -529,6 +545,22 @@ zip_options(Config) when is_list(Config) ->
 
 %% Test the options for list_dir... one day.
 list_dir_options(Config) when is_list(Config) ->
+
+    DataDir = get_value(data_dir, Config),
+    Archive = filename:join(DataDir, "abc.zip"),
+
+    {ok,
+     ["abc.txt", "quotes/rain.txt", "empty/", "wikipedia.txt", "emptyFile" ]} =
+        zip:list_dir(Archive,[names_only]),
+
+    {ok,
+     [#zip_comment{},
+      #zip_file{ name = "abc.txt" },
+      #zip_file{ name = "quotes/rain.txt" },
+      #zip_file{ name = "wikipedia.txt" },
+      #zip_file{ name = "emptyFile" }
+     ]} =  zip:list_dir(Archive,[skip_directories]),
+
     ok.
 
 %% convert zip_info as returned from list_dir to a list of names
@@ -701,8 +733,9 @@ unzip_from_binary(Config) when is_list(Config) ->
     DataDir = get_value(data_dir, Config),
     PrivDir = get_value(priv_dir, Config),
     ExtractDir = filename:join(PrivDir, "extract_from_binary"),
-    ok = file:make_dir(ExtractDir),
     Archive = filename:join(ExtractDir, "abc.zip"),
+
+    ok = file:make_dir(ExtractDir),
     {ok, _Size} = file:copy(filename:join(DataDir, "abc.zip"), Archive),
     FileName = "abc.txt",
     Quote = "quotes/rain.txt",
@@ -726,6 +759,26 @@ unzip_from_binary(Config) when is_list(Config) ->
 
     %% Clean up.
     delete_files([DestFilename, DestQuote, Archive, ExtractDir]),
+
+    ok = file:make_dir(ExtractDir),
+    file:set_cwd(ExtractDir),
+
+    %% Read a zip file into a binary and extract from the binary with skip_directories
+    {ok, [FileName,Quote,Wikipedia,EmptyFile]}
+        = zip:unzip(Bin, [skip_directories]),
+
+    %% Verify.
+    DestFilename = filename:join(ExtractDir, "abc.txt"),
+    {ok, Data} = file:read_file(filename:join(DataDir, FileName)),
+    {ok, Data} = file:read_file(DestFilename),
+
+    DestQuote = filename:join([ExtractDir, "quotes", "rain.txt"]),
+    {ok, QuoteData} = file:read_file(filename:join(DataDir, Quote)),
+    {ok, QuoteData} = file:read_file(DestQuote),
+
+    %% Clean up.
+    delete_files([DestFilename, DestQuote, ExtractDir]),
+
     ok.
 
 %% oac_files() ->

@@ -91,6 +91,7 @@ convention, add `.zip` to the filename.
 	  open_opts,   % options passed to file:open
 	  feedback,    % feeback (fun)
 	  cwd,         % directory to relate paths to
+          skip_dirs,   % skip creating empty directories
           extra        % The extra fields to include
 	 }).
 
@@ -110,6 +111,7 @@ convention, add `.zip` to the filename.
 	  input,       % input object (fun)
 	  raw_iterator,% applied to each dir entry
 	  open_opts,   % options passed to file:open
+          skip_dirs,   % skip creating empty directories
           extra        % The extra fields to include
 	 }).
 
@@ -117,6 +119,7 @@ convention, add `.zip` to the filename.
 	  output,      % output object (fun)
 	  open_opts,   % file:open options
 	  cwd,	       % directory to relate paths to
+          skip_dirs,   % skip creating empty directories
           extra        % The extra fields to include
 	 }).
 
@@ -129,6 +132,7 @@ convention, add `.zip` to the filename.
 	  output,      % output io object (fun)
 	  zlib,	       % handle to open zlib
 	  cwd,	       % directory to relate paths to
+          skip_dirs,   % skip creating empty directories
           extra        % The extra fields to include
 	 }).
 
@@ -366,6 +370,10 @@ Options:
   with option `memory` specified, which means that no files are overwritten,
   existing files are excluded from the result.
 
+- **`skip_directories`** - By default empty directories within zip archives are
+  extracted. With option `skip_directories` set, empty directories are no longer
+  created.
+
 - **`{extra, Extras}`** - The zip "extra" features to respect. The supported
   "extra" features are "extended timestamps" and "UID and GID" handling.
   By default only "extended timestamps" is enabled when unzipping.
@@ -407,7 +415,7 @@ unzip(F, Options) ->
 do_unzip(F, Options) ->
     Opts = get_unzip_options(F, Options),
     #unzip_opts{input = Input, open_opts = OpO,
-                   extra = ExtraOpts} = Opts,
+                extra = ExtraOpts} = Opts,
     In0 = Input({open, F, OpO -- [write]}, []),
     RawIterator = fun raw_file_info_etc/5,
     {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
@@ -679,6 +687,10 @@ One option is available:
   Adding `cooked` to the mode list overrides the default and opens the zip file
   without option `raw`.
 
+- **`skip_directories`** - By default empty directories within zip archives are
+  listed. With option `skip_directories` set, empty directories are no longer
+  listed.
+
 - **`{extra, Extras}`** - The zip "extra" features to respect. The supported
   "extra" features are "extended timestamps" and "UID and GID" handling.
   By default only "extended timestamps" is enabled when listing files.
@@ -701,11 +713,22 @@ do_list_dir(F, Options) ->
     Opts = get_list_dir_options(F, Options),
     #list_dir_opts{input = Input, open_opts = OpO,
 		   raw_iterator = RawIterator,
+                   skip_dirs = SkipDirs,
                    extra = ExtraOpts} = Opts,
     In0 = Input({open, F, OpO}, []),
     {Info, In1} = get_central_dir(In0, RawIterator, Input, ExtraOpts),
     Input(close, In1),
-    {ok, Info}.
+    if SkipDirs ->
+            {ok,
+             lists:filter(
+               fun(#zip_file{ name = Name }) ->
+                       lists:last(Name) =/= $/;
+                  (#zip_comment{}) ->
+                       true
+               end, Info)};
+       true ->
+            {ok, Info}
+    end.
 
 -doc(#{equiv => zip_open/2}).
 -spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
@@ -874,6 +897,8 @@ get_unzip_opt([keep_old_files | Rest], Opts) ->
     Keep = fun keep_old_file/1,
     Filter = fun_and_1(Keep, Opts#unzip_opts.file_filter),
     get_unzip_opt(Rest, Opts#unzip_opts{file_filter = Filter});
+get_unzip_opt([skip_directories | Rest], Opts) ->
+    get_unzip_opt(Rest, Opts#unzip_opts{skip_dirs = true});
 get_unzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
     case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
         true ->
@@ -891,6 +916,8 @@ get_list_dir_opt([cooked | Rest], #list_dir_opts{open_opts = OpO} = Opts) ->
 get_list_dir_opt([names_only | Rest], Opts) ->
     get_list_dir_opt(Rest, Opts#list_dir_opts{
 			     raw_iterator = fun(A, B, C, D, E) -> raw_name_only(A, B, C, D, E) end});
+get_list_dir_opt([skip_directories | Rest], Opts) ->
+    get_list_dir_opt(Rest, Opts#list_dir_opts{skip_dirs = true});
 get_list_dir_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
     case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
         true ->
@@ -1008,6 +1035,7 @@ get_unzip_options(F, Options) ->
 		       input = get_input(F),
 		       open_opts = [raw],
 		       feedback = fun silent/1,
+                       skip_dirs = false,
 		       cwd = "",
                        extra = [extended_timestamp]
 		      },
@@ -1017,6 +1045,7 @@ get_openzip_options(Options) ->
     Opts = #openzip_opts{open_opts = [raw, read],
 			 output = fun file_io/2,
 			 cwd = "",
+                         skip_dirs = false,
                          extra = ?EXTRA_OPTIONS},
     get_openzip_opt(Options, Opts).
 
@@ -1046,6 +1075,7 @@ get_list_dir_options(F, Options) ->
     Opts = #list_dir_opts{raw_iterator = fun raw_file_info_public/5,
 			  input = get_input(F),
 			  open_opts = [raw],
+                          skip_dirs = false,
                           extra = [extended_timestamp]},
     get_list_dir_opt(Options, Opts).
 
@@ -1665,7 +1695,7 @@ openzip_open(F, Options) ->
 do_openzip_open(F, Options) ->
     Opts = get_openzip_options(Options),
     #openzip_opts{output = Output, open_opts = OpO, cwd = CWD,
-                  extra = ExtraOpts} = Opts,
+                  skip_dirs = SkipDirs, extra = ExtraOpts} = Opts,
     Input = get_input(F),
     In0 = Input({open, F, OpO -- [write]}, []),
     {[#zip_comment{comment = C} | Files], In1} =
@@ -1678,6 +1708,7 @@ do_openzip_open(F, Options) ->
 		  output = Output,
 		  zlib = Z,
 		  cwd = CWD,
+                  skip_dirs = SkipDirs,
                   extra = ExtraOpts}}.
 
 %% retrieve all files from an open archive
@@ -1688,10 +1719,12 @@ openzip_get(OpenZip) ->
     end.
 
 do_openzip_get(#openzip{files = Files, in = In0, input = Input,
-			output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
+			output = Output, zlib = Z, cwd = CWD, skip_dirs = SkipDirs,
+                        extra = ExtraOpts}) ->
     ZipOpts = #unzip_opts{output = Output, input = Input,
 			  file_filter = fun all/1, open_opts = [],
-			  feedback = fun silent/1, cwd = CWD, extra = ExtraOpts},
+			  feedback = fun silent/1, cwd = CWD, skip_dirs = SkipDirs,
+                          extra = ExtraOpts},
     R = get_z_files(Files, Z, In0, ZipOpts, []),
     {ok, R};
 do_openzip_get(_) ->
@@ -1718,7 +1751,7 @@ do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
 	{#zip_file{offset = Offset},_}=ZFile ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
-			    CWD, ZFile, fun all/1, ExtraOpts) of
+			    CWD, ZFile, fun all/1, false, ExtraOpts) of
 		{file, R, _In2} -> {ok, R};
 		_ -> throw(file_not_found)
 	    end;
@@ -1826,6 +1859,8 @@ get_openzip_opt([memory | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{output = fun binary_io/2});
 get_openzip_opt([{cwd, CWD} | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{cwd = CWD});
+get_openzip_opt([skip_directories | Rest], Opts) ->
+    get_openzip_opt(Rest, Opts#openzip_opts{skip_dirs = true});
 get_openzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
     case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
         true ->
@@ -2180,13 +2215,13 @@ get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
 get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 	    #unzip_opts{input = Input, output = Output, open_opts = OpO,
 			file_filter = Filter, feedback = FB,
-			cwd = CWD, extra = ExtraOpts} = Opts, Acc0) ->
+			cwd = CWD, skip_dirs = SkipDirs, extra = ExtraOpts} = Opts, Acc0) ->
     case Filter(ZFile) of
 	true ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    {In2, Acc1} =
 		case get_z_file(In1, Z, Input, Output, OpO, FB,
-				CWD, ZFile, Filter, ExtraOpts) of
+				CWD, ZFile, Filter, SkipDirs, ExtraOpts) of
 		    {Type, GZD, Inx} when Type =:= file; Type =:= dir ->
                         {Inx, [GZD | Acc0]};
 		    {_, Inx}       -> {Inx, Acc0}
@@ -2198,7 +2233,7 @@ get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
 
 %% get a file from the archive, reading chunks
 get_z_file(In0, Z, Input, Output, OpO, FB,
-	   CWD, {ZipFile,ZipExtra}, Filter, ExtraOpts) ->
+	   CWD, {ZipFile,ZipExtra}, Filter, SkipDirs, ExtraOpts) ->
     case Input({read, ?LOCAL_FILE_HEADER_SZ}, In0) of
 	{eof, In1} ->
 	    {eof, In1};
@@ -2230,12 +2265,14 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 		    {false,FileName1} ->
 			Filter({ZipFile#zip_file{name = FileName1},ZipExtra})
 		end,
-	    case ReadAndWrite of
+
+            IsDir = lists:last(FileName) =:= $/,
+
+	    case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
 		true ->
                     {Type, Out, In} =
                         case lists:last(FileName) of
                             $/ ->
-                                %% perhaps this should always be done?
                                 Out1 = Output({ensure_path,FileName1},[]),
                                 {dir, Out1, In3};
                             _ ->
