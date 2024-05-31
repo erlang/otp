@@ -81,11 +81,12 @@
     two garbage collections (when hibernating and shortly after waking up)
     and is not something you want to do between each call to a busy server.
 
-    If the `gen_server` process needs to perform an action immediately after
+    If the `gen_server` process needs to perform an action after
     initialization or to break the execution of a callback into multiple steps,
-    it can return `{continue,Continue}` in place of
-    the time-out or hibernation value, which will immediately invoke
-    the [`Module:handle_continue/2`](`c:handle_continue/2`) callback.
+    it can return `{continue, Continue}` in place of
+    the time-out or hibernation value, which will invoke
+    the [`Module:handle_continue/2`](`c:handle_continue/2`) callback,
+    before receiving any external message / request.
 
     If the `gen_server` process terminates, e.g. as a result of a function
     in the callback module returning `{stop,Reason,NewState}`,
