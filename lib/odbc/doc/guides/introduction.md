@@ -17,7 +17,7 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Introduction
+# Overview
 
 ## Purpose
 
@@ -27,11 +27,6 @@ concentrate on solving his/her actual problem instead of struggling with
 pointers and memory allocation which is not very relevant for Erlang. This user
 guide will give you some information about technical issues and provide some
 examples of how to use the Erlang ODBC interface.
-
-## Prerequisites
-
-It is assumed that the reader is familiar with the Erlang programming language,
-concepts of OTP and has a basic understanding of relational databases and SQL.
 
 ## About ODBC
 
