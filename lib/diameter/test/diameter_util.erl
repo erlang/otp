@@ -451,9 +451,17 @@ listen(SvcName, Prot) ->
     listen(SvcName, Prot, []).
 
 listen(SvcName, Prot, Opts) ->
+    ?UL("~w -> entry with"
+        "~n   SvcName: ~p"
+        "~n   Prot:    ~p"
+        "~n   Opts:    ~p"
+        "~n  => verisfy service name", [?FUNCTION_NAME, SvcName, Prot, Opts]),
     SvcName = diameter:service_info(SvcName, name),  %% assert
+    ?UL("~w -> add transport", [?FUNCTION_NAME]),
     Ref = add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}),
+    ?UL("~w -> verify transport (~p)", [?FUNCTION_NAME, Ref]),
     true = transport(SvcName, Ref),                  %% assert
+    ?UL("~w -> done", [?FUNCTION_NAME]),
     Ref.
 
 %% ---------------------------------------------------------------------------
@@ -466,13 +474,14 @@ connect(Client, Prot, LRef) ->
     connect(Client, Prot, LRef, []).
 
 connect(Client, ProtOpts, LRef, Opts) ->
-    ?UL("connect -> entry with"
+    ?UL("~w -> entry with"
         "~n   Client:   ~p"
         "~n   ProtOpts: ~p"
         "~n   LRef:     ~p"
-        "~n   Opts:     ~p", [Client, ProtOpts, LRef, Opts]),
+        "~n   Opts:     ~p", [?FUNCTION_NAME, Client, ProtOpts, LRef, Opts]),
     Prot = head(ProtOpts),
     [PortNr] = lport(Prot, LRef),
+    ?UL("~w -> verify service name", [?FUNCTION_NAME]),
     case diameter:service_info(Client, name) of
         Client -> % assert
             ok;
@@ -504,12 +513,16 @@ connect(Client, ProtOpts, LRef, Opts) ->
                  diameter:service_info(Client, statistics)]),
             ct:fail({wrong_name, Client, WrongName})            
     end,
+    ?UL("~w -> subscribe", [?FUNCTION_NAME]),
     true = diameter:subscribe(Client),
+    ?UL("~w -> add transport", [?FUNCTION_NAME]),
     Ref = add_transport(Client, {connect, opts(ProtOpts, PortNr) ++ Opts}),
+    ?UL("~w -> verify transport (~p)", [?FUNCTION_NAME, Ref]),
     true = transport(Client, Ref),                 %% assert
-
+    ?UL("~w -> await up", [?FUNCTION_NAME]),
     diameter_lib:for_n(fun(_) -> ok = up(Client, Ref, Prot, PortNr) end,
                        proplists:get_value(pool_size, Opts, 1)),
+    ?UL("~w -> done", [?FUNCTION_NAME]),
     Ref.
 
 head([T|_]) ->
@@ -519,7 +532,10 @@ head(T) ->
 
 up(Client, Ref, Prot, PortNr) ->
     receive
-        {diameter_event, Client, {up, Ref, _, _, _}} -> ok
+        {diameter_event, Client, {up, Ref, _, _, _}} ->
+            ?UL("~w -> received 'up' event regarding ~p for service ~p",
+                [?FUNCTION_NAME, Ref, Client]),
+            ok
     after 10000 ->
             {Client, Prot, PortNr, process_info(self(), messages)}
     end.

@@ -216,14 +216,20 @@ service(?CLIENT = Svc, _) ->
 %% send_dpr/1
 
 send_dpr(Config) ->
+    ?DL("~w -> entry with"
+        "~n   Config: ~p"
+        "~n   => try listen", [?FUNCTION_NAME, Config]),
     LRef = ?LISTEN(?SERVER, tcp),
+    ?DL("~w -> try listen", [?FUNCTION_NAME]),
     Ref  = ?CONNECT(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
+    ?DL("~w -> get sender", [?FUNCTION_NAME]),
     Svc  = sender(group(Config)),
+    ?DL("~w -> get connections for ~p", [?FUNCTION_NAME, Svc]),
     Info = case diameter:service_info(Svc, connections) of
                [I] ->
                    I;
                [] ->
-                   ?DL("send_dpr -> no connections: "
+                   ?DL("send_dpr -> no connections found: "
                        "~n   Svc:      ~p"
                        "~n   Svc info: ~p"
                        "~n   Services: ~p",
