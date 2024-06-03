@@ -4495,6 +4495,18 @@ api_ffd_open_and_info(InitState) ->
                                    ERROR
                            end
                    end},
+         #{desc => "check if we need to provide domain or not",
+           cmd  => fun(#{sock1 := Sock1} = State) ->
+                           case socket:getopt(Sock1, socket, domain) of
+                               {ok, _} ->
+                                   ?SEV_IPRINT("domain accessible"),
+                                   {ok, State#{provide_domain => false}};
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("failed get domain: "
+                                               "~n   ~p", [Reason]),
+                                   {ok, State#{provide_domain => true}}
+                           end
+                   end},
          #{desc => "check if we need to provide protocol or not",
            cmd  => fun(#{sock1 := Sock1} = State) ->
                            case socket:getopt(Sock1, socket, protocol) of
@@ -4510,27 +4522,35 @@ api_ffd_open_and_info(InitState) ->
          #{desc => "open with FD",
            cmd  => fun(#{fd               := FD,
                          dup              := DUP,
-                         provide_protocol := true,
-                         protocol         := Protocol} = State) -> 
-                           case socket:open(FD, #{dup      => DUP,
-                                                  protocol => Protocol}) of
+                         provide_domain   := PD,
+                         domain           := Domain,
+                         provide_protocol := PP,
+                         protocol         := Protocol} = State) ->
+                           Opts =
+                               case {PD, PP} of
+                                   {true, true} ->
+                                       #{dup      => DUP,
+                                         domain   => Domain,
+                                         protocol => Protocol};
+                                   {true, false} ->
+                                       #{dup      => DUP,
+                                         domain   => Domain};
+                                   {false, true} ->
+                                       #{dup      => DUP,
+                                         protocol => Protocol};
+                                   {false, false} ->
+                                       #{dup      => DUP}
+                               end,
+                           ?SEV_IPRINT("try open socket with"
+                                       "~n   FD:   ~p"
+                                       "~n   Opts: ~p", [FD, Opts]),
+                           case socket:open(FD, Opts) of
                                {ok, Sock2} ->
                                    ?SEV_IPRINT("socket 2 open"),
                                    {ok, State#{sock2 => Sock2}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("failed open socket with FD (~w): "
-                                               "~n   ~p", [FD, Reason]),
-                                   ERROR
-                           end;
-                      (#{fd               := FD,
-                         dup              := DUP,
-                         provide_protocol := false} = State) -> 
-                           case socket:open(FD, #{dup => DUP}) of
-                               {ok, Sock2} ->
-                                   ?SEV_IPRINT("socket 2 open"),
-                                   {ok, State#{sock2 => Sock2}};
-                               {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("failed open socket with FD (~w): "
+                                   ?SEV_EPRINT("failed open socket with FD "
+                                                 "(p, ~w): "
                                                "~n   ~p", [FD, Reason]),
                                    ERROR
                            end
