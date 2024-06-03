@@ -21,8 +21,9 @@
 -author('pan@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
@@ -53,6 +54,11 @@
 -export([otp_14454/1]).
 -export([otp_16824/1]).
 -export([unused_record/1]).
+-export([optimise_equality_guards_ets_compilation/1]).
+-export([optimise_equality_guards_ets_execution/1]).
+-export([optimise_equality_guards_ets_equivalence/1]).
+-export([ms_transform_optimisations_can_be_disabled_but_default_to_on/1]).
+
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -64,7 +70,7 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,6}}].
 
-all() -> 
+all() ->
     [from_shell, basic_ets, basic_dbg, records,
      record_index, multipass, bitsyntax, binary_bifs, record_defaults,
      andalso_orelse, float_1_function, action_function,
@@ -72,9 +78,13 @@ all() ->
      semicolon, eep37, otp_14454, otp_16824, unused_record,
      map_pattern, map_expr_in_head,
      map_pattern_from_shell, map_expr_in_head_from_shell,
-     map_exprs, map_exprs_from_shell].
+     map_exprs, map_exprs_from_shell,
+     optimise_equality_guards_ets_compilation,
+     optimise_equality_guards_ets_execution,
+     optimise_equality_guards_ets_equivalence,
+     ms_transform_optimisations_can_be_disabled_but_default_to_on].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -201,34 +211,34 @@ no_warnings(Config) when is_list(Config) ->
 %% Test that andalso and orelse are allowed in guards.
 andalso_orelse(Config) when is_list(Config) ->
     setup(Config),
-    [{{'$1','$2'},
+    ?assertEqual([{{'$1','$2'},
       [{'and',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
-      [{'andalso','$1','$2'}]}] =
+      [{'andalso','$1','$2'}]}],
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) "
 			  "            when is_integer(A) and (A+5 > B) -> "
 			  "              A andalso B "
-			  "            end)">>),
-    [{{'$1','$2'},
-      [{'or',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
-      [{'orelse','$1','$2'}]}] =
+			  "            end)">>)),
+    ?assertEqual([{{'$1','$2'},
+      [{'orelse',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
+      [{'orelse','$1','$2'}]}],
 	compile_and_run(<<"ets:fun2ms(fun({A,B}) "
 			  "            when is_atom(A) or (A+5 > B) -> "
 			  "              A orelse B "
-			  "            end)">>),
-    [{{'$1','$2'},
-      [{'andalso',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
-      ['$1']}] =
+			  "            end)">>)),
+    ?assertEqual([{{'$1','$2'},
+      [{'andalso', {is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
+      ['$1']}],
         compile_and_run(
 	  <<"ets:fun2ms(fun({A,B}) when is_integer(A) andalso (A+5 > B) ->"
 	    "			 A "
-	    "		 end)">>),
-    [{{'$1','$2'},
+	    "		 end)">>)),
+    ?assertEqual([{{'$1','$2'},
       [{'orelse',{is_atom,'$1'},{'>',{'+','$1',5},'$2'}}],
-      ['$1']}] =
+      ['$1']}],
         compile_and_run(
 	  <<"ets:fun2ms(fun({A,B}) when is_atom(A) orelse (A+5 > B) -> "
 	    "			 A "
-	    "		 end)">>),
+	    "		 end)">>)),
     ok.
 
 
@@ -239,13 +249,8 @@ bitsyntax(Config) when is_list(Config) ->
       [<<0,27,0,27>>]}] =
 	compile_and_run(<<"A = 27, "
 			  "ets:fun2ms(fun(_) -> <<A:16,27:16>> end)">>),
-    [{{<<15,47>>,
-       '$1',
-       '$2'},
-      [{'=:=','$1',
-	<<0,27>>},
-       {'=:=','$2',
-	<<27,28,19>>}],
+    [{{<<15,47>>,<<0,27>>,<<27,28,19>>},
+      [],
       [<<188,0,13>>]}] =
 	compile_and_run(<<"A = 27, "
 			  "ets:fun2ms("
@@ -308,21 +313,21 @@ record_defaults(Config) when is_list(Config) ->
 %% Test basic ets:fun2ms.
 basic_ets(Config) when is_list(Config) ->
     setup(Config),
-    [{{a,b},[],[true]}] = compile_and_run(
-			    <<"ets:fun2ms(fun({a,b}) -> true end)">>),
-    [{{'$1',foo},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
-     {{'$1','$1'},[{is_tuple,'$1'}],[{{{element,1,'$1'},'$*'}}]}] =
+    ?assertEqual([{{a,b},[],[true]}], compile_and_run(
+			    <<"ets:fun2ms(fun({a,b}) -> true end)">>)),
+    ?assertEqual([{{'$1',foo},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
+     {{'$1','$1'},[{is_tuple,'$1'}],[{{{element,1,'$1'},'$*'}}]}],
 	compile_and_run(<<"ets:fun2ms(fun({X,foo}) when is_list(X) -> ",
 			  "{hd(X),object()};",
 			  "({X,X}) when is_tuple(X) ->",
 			  "{element(1,X),bindings()}",
-			  "end)">>),
-    [{{'$1','$2'},[],[{{'$2','$1'}}]}] =
-	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>),
-    [{{'$1','$2'},[],[['$2','$1']]}] =
-	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>),
-    [{{"foo" ++ '_','$1'},[],['$1']}] =
-        compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>),
+			  "end)">>)),
+    ?assertEqual([{{'$1','$2'},[],[{{'$2','$1'}}]}],
+	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> {B,A} end)">>)),
+    ?assertEqual([{{'$1','$2'},[],[['$2','$1']]}],
+	compile_and_run(<<"ets:fun2ms(fun({A,B}) -> [B,A] end)">>)),
+    ?assertEqual([{{"foo" ++ '_','$1'},[],['$1']}],
+        compile_and_run(<<"ets:fun2ms(fun({\"foo\" ++ _, X}) -> X end)">>)),
     ok.
 
 %% Tests basic dbg:fun2ms.
@@ -368,39 +373,39 @@ records(Config) when is_list(Config) ->
 	   "t3,"
 	   "t4"
 	   "}).">>,
-    [{{t,'$1','$2',foo,'_'},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
-     {{t,'_','_','_','_'},[{'==',{element,2,'$_'},nisse}],[{{'$*'}}]}] =
+    ?assertEqual([{{t,'$1','$2',foo,'_'},[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
+     {{t,'_','_','_','_'},[{'==',{element,2,'$_'},nisse}],[{{'$*'}}]}],
 	compile_and_run(RD,<<
 			     "ets:fun2ms(fun(#t{t1 = X, t2 = Y, t3 = foo}) when is_list(X) ->
- 		       {hd(X),object()}; 
+ 		       {hd(X),object()};
 			     (#t{}) when (object())#t.t1 == nisse ->
 				   {bindings()}
-			   end)">>),
-    [{{t,'$1','$2','_',foo},
+			   end)">>)),
+    ?assertEqual([{{t,'$1','$2','_',foo},
       [{'==',{element,4,'$_'},7},{is_list,'$1'}],
       [{{{hd,'$1'},'$_'}}]},
      {'$1',[{is_record,'$1',t,5}],
       [{{{element,2,'$1'},
 	 {{t,'$1',foo,undefined,undefined}},
-	 {{t,{element,2,'$1'},{element,3,'$1'},{element,4,'$1'},boooo}}}}]}] =
+	 {{t,{element,2,'$1'},{element,3,'$1'},{element,4,'$1'},boooo}}}}]}],
 	compile_and_run(RD,<<
-    "ets:fun2ms(fun(#t{t1 = X, t2 = Y, t4 = foo}) when 
-			 (object())#t.t3==7,is_list(X) -> 
- 		       {hd(X),object()}; 
- 		  (A) when is_record(A,t) -> 
+    "ets:fun2ms(fun(#t{t1 = X, t2 = Y, t4 = foo}) when
+			 (object())#t.t3==7,is_list(X) ->
+ 		       {hd(X),object()};
+ 		  (A) when is_record(A,t) ->
  		       {A#t.t1
 			,#t{t1=A}
 			,A#t{t4=boooo}
-		       }  
+		       }
  	       end)"
-			>>),
+			>>)),
     [{[{t,'$1','$2',foo,'_'}],[{is_list,'$1'}],[{{{hd,'$1'},'$_'}}]},
      {[{t,'_','_','_','_'}],[{'==',{element,2,{hd,'$_'}},nisse}],[{{'$*'}}]}]=
 	compile_and_run(RD,<<
-    "dbg:fun2ms(fun([#t{t1 = X, t2 = Y, t3 = foo}]) when is_list(X) -> 
- 		       {hd(X),object()}; 
- 		  ([#t{}]) when (hd(object()))#t.t1 == nisse -> 
- 		       {bindings()}  
+    "dbg:fun2ms(fun([#t{t1 = X, t2 = Y, t3 = foo}]) when is_list(X) ->
+ 		       {hd(X),object()};
+ 		  ([#t{}]) when (hd(object()))#t.t1 == nisse ->
+ 		       {bindings()}
  	       end)"
 			>>),
     ok.
@@ -455,7 +460,7 @@ map_expr_in_head_from_shell(Config) when is_list(Config) ->
 
 map_exprs(Config) when is_list(Config) ->
     setup(Config),
-    MSGuard = [{{key,'$1','$2'}, [{'=:=','$1',#{foo => '$2'}}], ['$1']}],
+    MSGuard = [{{key,#{foo => '$2'},'$2'}, [], [#{foo => '$2'}]}],
     MSGuard = compile_and_run(
                 <<"ets:fun2ms(fun({key, V1, V2}) when V1 =:= #{foo => V2} -> V1 end)">>),
     MSBody = [{{key,'$1'}, [], [#{foo => '$1'}]}],
@@ -465,7 +470,7 @@ map_exprs(Config) when is_list(Config) ->
 
 map_exprs_from_shell(Config) when is_list(Config) ->
     setup(Config),
-    MSGuard = [{{key,'$1','$2'}, [{'=:=','$1',#{foo => '$2'}}], ['$1']}],
+    MSGuard = [{{key,#{foo => '$2'},'$2'}, [], [#{foo => '$2'}]}],
     MSGuard = do_eval("ets:fun2ms(fun({key, V1, V2}) when V1 =:= #{foo => V2} -> V1 end)"),
     MSBody = [{{key,'$1'}, [], [#{foo => '$1'}]}],
     MSBody = do_eval("ets:fun2ms(fun({key, V}) -> #{foo => V} end)"),
@@ -502,14 +507,14 @@ multipass(Config) when is_list(Config) ->
     expect_failure(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,a=3} end)">>),
     expect_failure(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,a=3} end)">>),
     expect_failure(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,a=3} ->",
-			 " true end)">>), 
-    expect_failure(RD,<<"ets:fun2ms(fun({A,B})when A =:= B#a{a=2,a=3}->",
+			 " true end)">>),
+    expect_failure(RD,<<"ets:fun2ms(fun({A,B}) when A =:= B#a{a=2,a=3}->",
 			 "true end)">>),
     expect_failure(RD,<<"ets:fun2ms(fun(#a{a=3,a=3}) -> true end)">>),
     compile_and_run(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,b=3} end)">>),
     compile_and_run(RD,<<"ets:fun2ms(fun(A) -> A#a{a=2,b=3} end)">>),
     compile_and_run(RD,<<"ets:fun2ms(fun(A) when A =:= #a{a=2,b=3} ->",
-			 " true end)">>), 
+			 " true end)">>),
     compile_and_run(RD,<<"ets:fun2ms(fun({A,B})when A=:= B#a{a=2,b=3}->",
 			 "true end)">>),
     compile_and_run(RD,<<"ets:fun2ms(fun(#a{a=3,b=3}) -> true end)">>),
@@ -537,7 +542,7 @@ old_guards(Config) when is_list(Config) ->
 					  atom_to_list(Old),
 					  <<"(X)  -> true end)">>]),
 		    case compile_and_run(Bin) of
-			[{'$1',[{New,'$1'}],[true]}] -> 
+			[{'$1',[{New,'$1'}],[true]}] ->
 			    ok;
 			_ ->
 			    exit({bad_result_for, binary_to_list(Bin)})
@@ -572,7 +577,7 @@ old_guards(Config) when is_list(Config) ->
 			     "binary(X), record(X,a) -> true end)"
 			     >>),
     ok.
-    
+
 %% Test use of autoimported BIFs used like erlang:'+'(A,B) in guards
 %% and body.
 autoimported(Config) when is_list(Config) ->
@@ -757,7 +762,7 @@ semicolon(Config) when is_list(Config) ->
     Res02 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
 		     "(X) when is_float(X) -> true end)">>),
-    Res01 = Res02,
+    ?assertEqual(Res01, Res02),
     Res11 = compile_and_run
 		   (<<"ets:fun2ms(fun(X) when is_integer(X); "
 		     "is_float(X); atom(X) -> true end)">>),
@@ -765,52 +770,52 @@ semicolon(Config) when is_list(Config) ->
 		   (<<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
 		     "(X) when is_float(X) -> true; "
 		     "(X) when is_atom(X) -> true end)">>),
-    Res11 = Res12,
+    ?assertEqual(Res11, Res12),
     ok.
-    
-    
+
+
 %% OTP-5297. The function float/1.
 float_1_function(Config) when is_list(Config) ->
     setup(Config),
-    RunMS = fun(L, MS) -> 
-                    ets:match_spec_run(L, ets:match_spec_compile(MS)) 
+    RunMS = fun(L, MS) ->
+                    ets:match_spec_run(L, ets:match_spec_compile(MS))
             end,
     MS1 = compile_and_run
                   (<<"ets:fun2ms(fun(X) -> float(X) end)">>),
     [F1] = RunMS([3], MS1),
-    true = is_float(F1) and (F1 == 3),
-                  
+    ?assert(is_float(F1) and (F1 == 3)),
+
     MS1b = compile_and_run
                   (<<"dbg:fun2ms(fun(X) -> float(X) end)">>),
     [F2] = RunMS([3], MS1b),
-    true = is_float(F2) and (F2 == 3),
-                  
+    ?assert(is_float(F2) and (F2 == 3)),
+
     MS2 = compile_and_run
             (<<"ets:fun2ms(fun(X) when is_pid(X) or float(X) -> true end)">>),
-    [] = RunMS([3.0], MS2),
+    ?assertEqual([], RunMS([3.0], MS2)),
 
     MS3 = compile_and_run
             (<<"dbg:fun2ms(fun(X) when is_pid(X); float(X) -> true end)">>),
-    [true] = RunMS([3.0], MS3),
+    ?assertEqual([true], RunMS([3.0], MS3)),
 
     MS4 = compile_and_run
             (<<"ets:fun2ms(fun(X) when erlang:float(X) > 1 -> big;"
                "              (_) -> small end)">>),
-    [small,big] = RunMS([1.0, 3.0], MS4),
+    ?assertEqual([small,big], RunMS([1.0, 3.0], MS4)),
 
     MS5 = compile_and_run
             (<<"ets:fun2ms(fun(X) when float(X) > 1 -> big;"
                "              (_) -> small end)">>),
-    [small,big] = RunMS([1.0, 3.0], MS5),
+    ?assertEqual([small,big], RunMS([1.0, 3.0], MS5)),
 
     %% This is the test from autoimported/1.
-    [{'$1',[{is_float,'$1'}],[{float,'$1'}]}] =
+    ?assertEqual([{'$1',[{is_float,'$1'}],[{float,'$1'}]}],
         compile_and_run
-            (<<"ets:fun2ms(fun(X) when float(X) -> float(X) end)">>),
-    [{'$1',[{float,'$1'}],[{float,'$1'}]}] =
+            (<<"ets:fun2ms(fun(X) when float(X) -> float(X) end)">>)),
+    ?assertEqual([{'$1',[{float,'$1'}],[{float,'$1'}]}],
         compile_and_run
            (<<"ets:fun2ms(fun(X) when erlang:'float'(X) -> "
-              "erlang:'float'(X) end)">>),
+              "erlang:'float'(X) end)">>)),
     ok.
 
 
@@ -914,6 +919,688 @@ unused_record(Config) when is_list(Config) ->
     [] = compile_ww(Record, Expr),
     ok.
 
+optimise_equality_guards_ets_compilation(Config) when is_list(Config) ->
+    setup(Config),
+    ?assertMatch(
+       [{{42,'$2'},[],[{{42,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= 42 -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{42,'$2'},[],[{{42,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when 42 =:= K -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{my_atom,'$2'},[],[{{my_atom,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= my_atom -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{[],'$2'},[],[{{[],'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= [] -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{$z,'$2'},[],[{{$z,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= $z -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{"str",'$2'},[],[{{"str",'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= \"str\" -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{42,my_atom,'$3'},[],[{{42,my_atom,'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>)),
+    ?assertMatch(
+       [{{{'$1',42},'$3'},[],[{{{{'$1',42}},'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, V}) when K2 =:= 42 -> {{K1,K2},V} end)">>)),
+    ?assertMatch(
+       [{{#{'$1':=42},'$3'},[],[{{#{'$1':=42},'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({#{A := B}, V}) when B =:= 42 -> {#{A => 42},V} end)">>)),
+    ?assertMatch(
+       [{{#{a:=42},'$2'},[],[{{#{a:=42},'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({#{a := B}, V}) when B =:= 42 -> {#{a => B},V} end)">>)),
+    ?assertMatch(
+       [{{#{42:='$2'},'$3'},[],[{{#{42:='$2'},'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({#{A := B}, V}) when A =:= 42 -> {#{42 => B},V} end)">>)),
+    ?assertMatch(
+       [{{42,'$2'},[{'>', '$2', 10}],[{{42,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when (V > 10) andalso (K =:= 42) -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{42,'$2'},[{'>', '$2', 10}],[{{42,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when (K =:= 42) and (V > 10) -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{42,7,'$3'},[],[{{42,7,'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V1, V2}) when (V1 =:= 7) andalso (K =:= 42) -> {K,V1,V2} end)">>)),
+    ?assertMatch(
+       [{{42,7,'$3'},[{'>', '$3', 6}],[{{42,7,'$3'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V1, V2}) when ((V2 > 6) andalso (V1 =:= 7)) andalso (K =:= 42) -> {K,V1,V2} end)">>)),
+    ?assertMatch(
+       [{{6,'$2'},[],[{{6,'$2'}}]}],
+       compile_and_run_decl(
+         <<"Needle">>,
+         6,
+         <<"ets:fun2ms(fun ({K, V}) when K =:= Needle -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{6.0,'$2'},[],[{{6.0,'$2'}}]}],
+       compile_and_run_decl(
+         <<"Needle">>,
+         6.0,
+         <<"ets:fun2ms(fun ({K, V}) when K =:= Needle -> {K,V} end)">>)),
+    ?assertEqual(
+       [{ '$1',
+          [{'is_integer','$1'}, {'>', '$1', 2}],
+          ['$1']
+       }],
+       compile_and_run(
+         <<"ets:fun2ms(fun(X) when is_integer(X), "
+           "X > 2 -> X end)">>)
+     ),
+    ?assertEqual(
+       [{ 2,
+          [],
+          ['true']}
+       ],
+       compile_and_run(
+         <<"ets:fun2ms(fun(X) when is_integer(X), "
+           "X =:= 2 -> true end)">>)
+     ),
+    ?assertEqual(
+       [{ '$1',
+             [ {'orelse',
+                 {'is_integer','$1'},
+                 {'is_float','$1'}}],
+             ['$1']},
+        { 5,
+             [],
+             [5]}
+       ],
+       compile_and_run(
+         <<"ets:fun2ms(fun(X) when is_integer(X); "
+           "is_float(X); X =:= 5 -> X end)">>)
+     ),
+    ?assertEqual(
+       [{ '$1',
+             [{'is_integer','$1'}],
+             ['$1']},
+        { 8,
+             [],
+             [8]},
+        { '$1',
+             [{'is_float','$1'}],
+             ['$1']}
+       ],
+       compile_and_run(
+         <<"ets:fun2ms(fun(X) when is_integer(X) -> X; "
+           "(X) when 8 =:= X -> X;"
+           "(X) when is_float(X) -> X end)">>)
+     ),
+    ?assertMatch(
+       [{{{1,2}},[],[{{1,2}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (A) when A =:= {1,2} -> A end)">>)),
+    ?assertMatch(
+       [{{{{11,12}},'$2','$3'},[{'>', '$2', 4}],['$3']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V1, V2}) when (K =:= {11,12}) andalso (V1 > 4) -> V2 end)">>)),
+    ?assertMatch(
+       [{[1,2,3],[],[[1,2,3]]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (A) when A =:= [1,2,3] -> A end)">>)),
+    ?assertMatch(
+       [{{{[1,2,{{foo,bar}}], {{a, 7}}}},[],[{{[1,2,{{foo,bar}}], {{a, 7}}}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (Complex) when Complex =:= {[1,2,{foo,bar}], {a, 7}} -> Complex end)">>)),
+    ?assertMatch(
+       [{1,[false],[1]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (A) when A =:= 1, A > 2 -> A end)">>)),
+    ?assertMatch(
+       [{{42,'$2'},[{'>', '$2', 10}],[{{42,'$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when (K =:= 42) and (V > 10) -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{'$1', '$2'},[false],[{{'$1', '$2'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K, V}) when (K =:= 42) and (K =:= 7) -> {K,V} end)">>)),
+    ?assertMatch(
+       [{{'_','_'},[],['$_']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({_, _}=KV) -> KV end)">>)),
+    ?assertMatch(
+       [{{'_',6},[],['$_']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (KV={_, V}) when V =:= 6 -> KV end)">>)),
+    ?assertMatch(
+       [{'$1',[{'=/=', '$1', 7}],['$1']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (A) when A =/= 7 -> A end)">>)),
+    ?assertMatch(
+       [{{'$1','$2',[{"yes",'_','_'}]},[],['$_']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun({_A, _B, [{C, _, _}]} = All) when (C =:= \"yes\") -> All end)">>)),
+    ?assertMatch(
+       [{9,[],[11]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun (A) when A =:= (4 + 5) -> (A + 2) end)">>)),
+    ?assertEqual(
+       [{0,[false],[0]}],
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when is_integer(X), "
+         "X =:= 0, "
+         "X > 2 -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "X =:= 0; X =:= 6 -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "(X =:= 0) or (X =:= 6) -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when X =:= 0 -> X; "
+       "(X) when X =:= 6 -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "(X =:= 0) or (X =:= 6) -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "X =:= 0, X =:= 6 -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "(X =:= 0) and (X =:= 6) -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "X =:= 0 -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "is_integer(X), (X =:= 0) -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when X =:= 0 -> X; "
+       "(X) when X =:= 6 -> X;"
+       "(X) when is_integer(X) and (X > 11) -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when (is_integer(X) and "
+         "(X =:= 0)) or (X =:= 6) or (is_integer(X) and (X > 11)) -> X end)">>)
+    ),
+    ?assertEqual(
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when X =:= 0 -> X; "
+       "(X) when X =:= 6 -> X;"
+       "(X) when is_integer(X) and ((X > 11) or (X < -3)) -> X end)">>),
+       compile_and_run(
+       <<"ets:fun2ms(fun(X) when "
+         "(X =:= 0) or (X =:= 6) or (is_integer(X) and ((X > 11) or (X < -3))) -> X end)">>)
+    ),
+    ?assertMatch(
+       [{{[1,2,3],'$2'},[],['$2']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({A,B}) when A =:= [1,2,3] -> B end)">>)),
+    ?assertMatch(
+       [{{<<"a string"/utf8>>,'$2'},[],['$2']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({Bin, Val}) when Bin =:= <<\"a string\"/utf8>> -> Val end)">>)),
+    ?assertMatch(
+       [{{#{},'$2'},[],['$2']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({Map, Val}) when Map =:= #{} -> Val end)">>)),
+    ?assertMatch(
+       [{{#{foo := bar},'$2'},[],['$2']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({Map, Val}) when Map =:= #{foo => bar} -> Val end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$3'},[],['$3']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, V}) when (K1 =:= K2) -> V end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$1', '$4'},[],['$4']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K3, V}) when (K1 =:= K2), (K3 =:= K2) -> V end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$1', '$3'},[],['$3']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K2, V}) when (K1 =:= K2) -> V end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$1', '$3'},[],['$3']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K2, V}) when (K2 =:= K1) -> V end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$1', '$4'},[],['$4']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K3, V}) when (K2 =:= K1) andalso (K3 =:= K2) -> V end)">>)),
+    ?assertMatch(
+       [{{{8,8},8, '$4'},[],['$4']}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K3, V}) when (K2 =:= K1) andalso (K3 =:= K2) andalso (K2 =:= 8) -> V end)">>)),
+    ?assertMatch(
+       [{{{'$1','$1'}, '$1', '$4'},[],[{{'$1', '$4'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({{K1,K2}, K3, V}) when (K2 =:= K1) andalso (K3 =:= K2) -> {K3, V} end)">>)),
+    ?assertMatch(
+       [{{'$1','$1','$1','$1','$5'},[],[{{'$1','$5'}}]}],
+       compile_and_run(
+         <<"ets:fun2ms(fun ({K1,K2,K3,K4,V}) when (K2 =:= K1) andalso (K3 =:= K2) andalso (K1 =:= K4) -> {K3, V} end)">>)),
+    ok.
+
+optimise_equality_guards_ets_execution(Config) when is_list(Config) ->
+    setup(Config),
+    % We don't just use ets:test_ms/2 here, since we also watch to capture correctness
+    % with respect to more subtle parameters, such as ordered_set vs. set
+    ?assertMatch(
+       [{42,"yep"}],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({K, V}) when K =:= 42 -> {K,V} end)">>,
+         [ordered_set],
+         [{41,"nope"},{42,"yep"},{43,"no way"}]
+       )
+    ),
+    ?assertMatch(
+       [{42,"yep"}],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({K, V}) when V =:= \"yep\" -> {K,V} end)">>,
+         [ordered_set],
+         [{41,"nope"},{42,"yep"},{43,"no way"}]
+       )
+    ),
+    ?assertMatch(
+       [{42,my_atom,"yep"}],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [set],
+         [ {41,my_atom,"nope"},
+           {42,my_atom,"yep"},
+           {43,your_atom, "no way"},
+           {44,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [{42,my_atom,"yep"}],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [ordered_set],
+         [ {41,my_atom,"nope"},
+           {42,my_atom,"yep"},
+           {43,your_atom, "no way"},
+           {44,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [set],
+         [ {41,my_atom,"nope"},
+           {42,your_atom,"yep"},
+           {43,my_atom, "no way"},
+           {44,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [ordered_set],
+         [ {41,my_atom,"nope"},
+           {42,your_atom,"yep"},
+           {43,my_atom, "no way"},
+           {44,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [{42,my_atom,"yep"}],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+         [ordered_set],
+         [ {41,my_atom,"nope"},
+           {42,my_atom,"yep"},
+           {43,your_atom, "no way"},
+           {44,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [ordered_set],
+         [ {41.0,my_atom,"nope"},
+           {42.0,my_atom,"yep"},
+           {43.0,your_atom, "no way"},
+           {44.0,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [ordered_set],
+         [ {41.0,my_atom,"nope"},
+           {42.0,my_atom,"yep"},
+           {43.0,your_atom, "no way"},
+           {44.0,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ?assertMatch(
+       [],
+       compile_and_execute(
+         <<"ets:fun2ms(fun ({A, B, C}) when A =:= 42, B =:= my_atom -> {A, B, C} end)">>,
+         [set],
+         [ {41.0,my_atom,"nope"},
+           {42.0,my_atom,"yep"},
+           {43.0,your_atom, "no way"},
+           {44.0,"not_an_atom", "definitely not"}
+         ]
+       )
+    ),
+    ok.
+
+optimise_equality_guards_ets_equivalence(Config) when is_list(Config) ->
+    setup(Config),
+    FloatKeySetData =
+       [ {41.0,my_atom,"nope"},
+         {42.0,my_atom,"yep"},
+         {43.0,your_atom, "no way"},
+         {44.0,"not_an_atom", "definitely not"}
+       ],
+    IntKeySetData =
+       [ {41,my_atom,"nope"},
+         {42,my_atom,"yep"},
+         {43,your_atom, "no way"},
+         {44,"not_an_atom", "definitely not"}
+       ],
+    FloatKeyBagData =
+       [ {41.0,my_atom,"nope"},
+         {42.3,my_atom,"yep"},
+         {42.3,my_atom,"yep"},
+         {42.3,your_atom,"yes"},
+         {43.0,your_atom, "no way"},
+         {44.0,"not_an_atom", "definitely not"}
+       ],
+    IntKeyBagData =
+       [ {41,my_atom,"nope"},
+         {42,my_atom,"yep"},
+         {42,my_atom,"yep"},
+         {42,your_atom,"yes"},
+         {43,your_atom, "no way"},
+         {44,"not_an_atom", "definitely not"}
+       ],
+    Compare = fun (SimpleQuery,OptimisedQuery,TableOpts,Data) ->
+        ?assertEqual(
+           compile_and_execute(
+             SimpleQuery,
+             TableOpts,
+             Data
+           ),
+           compile_and_execute(
+             OptimisedQuery,
+             TableOpts,
+             Data
+           )
+        )
+      end,
+
+    % ordered_set float equality handling
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [ordered_set],
+     IntKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [ordered_set],
+     FloatKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.0},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.0) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [ordered_set],
+     IntKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.0},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.0) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [ordered_set],
+     FloatKeySetData),
+
+    % set float equality handling
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [set],
+     IntKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [set],
+     FloatKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.0},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.0) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [set],
+     IntKeySetData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.0},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.0) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [set],
+     FloatKeySetData),
+
+    % duplicate_bag float equality handling
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [duplicate_bag],
+     IntKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [duplicate_bag],
+     FloatKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.3},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.3) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [duplicate_bag],
+     IntKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.3},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.3) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [duplicate_bag],
+     FloatKeyBagData),
+
+    % bag float equality handling
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [bag],
+     IntKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [bag],
+     FloatKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.3},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.3) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [bag],
+     IntKeyBagData),
+    Compare(
+     <<"[{{'$1','$2','$3'},
+         [{'andalso',{'=:=','$1',42.3},{'=:=','$2',my_atom}}],
+         [{{'$1','$2','$3'}}]}]">>,
+     <<"ets:fun2ms(fun ({A, B, C}) when (A =:= 42.3) andalso (B =:= my_atom) -> {A, B, C} end)">>,
+     [bag],
+     FloatKeyBagData),
+
+    % handling of clause separators
+    Compare(
+       <<"ets:fun2ms(fun(X) when is_integer(X); "
+         "is_float(X) -> true end)">>,
+       <<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
+         "(X) when is_float(X) -> true end)">>,
+       [ordered_set],
+       IntKeyBagData),
+    Compare(
+      <<"ets:fun2ms(fun(X) when is_integer(X); "
+        "is_float(X); atom(X) -> true end)">>,
+      <<"ets:fun2ms(fun(X) when is_integer(X) -> true; "
+        "(X) when is_float(X) -> true; "
+        "(X) when is_atom(X) -> true end)">>,
+       [ordered_set],
+       IntKeyBagData),
+    Compare(
+       <<"[{ {'$1'},
+             [{'is_integer','$1'}],
+             ['$1']},
+           { {'$1'},
+             [{'is_float','$1'}],
+             ['$1']}
+          ]">>,
+       <<"ets:fun2ms(fun(X) when is_integer(X); "
+         "is_float(X) -> X end)">>,
+       [ordered_set],
+       IntKeyBagData),
+    Compare(
+       <<"[{ '_',
+               [false],
+               ['$_']}
+          ]">>,
+       <<"ets:fun2ms(fun(X) when is_integer(X), "
+         "X =:= 0, "
+         "X > 2 -> X end)">>,
+       [ordered_set],
+       IntKeyBagData),
+    Compare(
+       <<"[{ '$1',
+               [{'is_integer','$1'}],
+               [{{'$1'}}]},
+           { 0,
+               [],
+               [{{0}}]},
+           { '$1',
+               [{'>', '$1', 2}],
+               ['$1']}
+          ]">>,
+       <<"ets:fun2ms(fun(X) when is_integer(X); "
+         "X =:= 0; "
+         "X > 2 -> X end)">>,
+       [ordered_set],
+       IntKeyBagData),
+    Compare(
+       <<"[{ '$1',
+               [{'is_integer','$1'}],
+               [{{'$1'}}]},
+           { 2,
+               [],
+               [{{2}}]}
+          ]">>,
+       <<"ets:fun2ms(fun(X) when is_integer(X), "
+         "X =:= 2 -> X end)">>,
+       [ordered_set],
+       IntKeyBagData),
+
+    % The inlined value is itself a compound value
+    Compare(
+     <<"[{ {{41,my_atom,\"nope\"}},
+           [],
+           [{{41,my_atom,\"nope\"}}]
+        }]">>,
+     <<"ets:fun2ms(fun (A) when A =:= {41,my_atom,\"nope\"} -> A end)">>,
+     [ordered_set],
+     IntKeySetData),
+
+    % A carefully crafted query ends up giving the same results as
+    % a more naively written one
+    Compare(
+       <<"ets:fun2ms(fun({0,_}) -> 0; "
+       "({6,_}) -> 6; "
+       "({X,42}) when is_integer(X) -> X end)">>,
+       <<"ets:fun2ms(fun({X,Y}) when "
+         "(X =:= 0) orelse (X =:= 6) orelse (is_integer(X) andalso (Y =:= 42)) -> X end)">>,
+       [ordered_set],
+       [ {0,x},
+         {6.0,42},
+         {6,y},
+         {b,42},
+         {1,42},
+         {a,42}
+       ]
+    ),
+    ok.
+
+ms_transform_optimisations_can_be_disabled_but_default_to_on(Config) ->
+    setup(Config),
+    OptimisableFunctionSrc =
+      <<"ets:fun2ms(fun (X) when X =:= 1 -> X end)">>,
+    OptimisationsOff =
+      compile_and_run_with_opt(OptimisableFunctionSrc, {no_optimise_fun2ms, true}),
+    OptimisationsOn =
+      compile_and_run_with_opt(OptimisableFunctionSrc, {no_optimise_fun2ms, false}),
+    OptimisationsDefault =
+      compile_and_run(OptimisableFunctionSrc),
+    ?assertEqual(
+       [{ '$1',
+          [{'=:=', '$1', 1}],
+          ['$1']}
+       ],
+       OptimisationsOff
+    ),
+    ?assertEqual(
+       [{ 1,
+          [],
+          [1]}
+       ],
+       OptimisationsOn
+    ),
+    ?assertEqual(OptimisationsOn, OptimisationsDefault).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Helpers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -937,7 +1624,7 @@ expect_failure(Recs,Code) ->
 	      Other ->
 		  exit({expected,failure,got,Other})
 	  end.
- 
+
 compile_and_run(Expr) ->
     compile_and_run(<<>>,Expr).
 compile_and_run(Records,Expr) ->
@@ -951,9 +1638,80 @@ compile_and_run(Records,Expr) ->
     FN=temp_name(),
     file:write_file(FN,Prog),
     {ok,Forms} = parse_file(FN),
-    {ok,tmp,Bin} = compile:forms(Forms),
+    Bin =
+      case compile:forms(Forms) of
+        {ok,tmp,B} -> B;
+        E ->
+          error(lists:flatten(io_lib:format(
+            "Compilation of match expression failed: ~tp~nForms were:~n~tp~nStacktrace:~tp~n",
+            [E, lists:flatten([erl_pp:form(Form) || Form <- Forms]), (catch error("Stack trace"))])))
+      end,
     code:load_binary(tmp,FN,Bin),
     tmp:tmp().
+
+compile_and_run_with_opt(Expr,Opt) ->
+    compile_and_run_with_opt(<<>>,Expr,Opt).
+compile_and_run_with_opt(Records,Expr,Opt) ->
+    Prog = <<
+	"-module(tmp).\n",
+    "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+    "-export([tmp/0]).\n",
+    Records/binary,"\n",
+    "tmp() ->\n",
+    Expr/binary,".\n">>,
+    FN=temp_name(),
+    file:write_file(FN,Prog),
+    {ok,Forms} = parse_file(FN),
+    Bin =
+      case compile:forms(Forms,Opt) of
+        {ok,tmp,B} -> B;
+        E ->
+          error(lists:flatten(io_lib:format(
+            "Compilation of match expression failed: ~tp~nForms were:~n~tp~nStacktrace:~tp~n",
+            [E, lists:flatten([erl_pp:form(Form) || Form <- Forms]), (catch error("Stack trace"))])))
+      end,
+    code:load_binary(tmp,FN,Bin),
+    tmp:tmp().
+
+compile_and_execute(Expr, TableOpts, TableData) ->
+    compile_and_execute(<<>>,Expr,TableOpts,TableData).
+compile_and_execute(Records,Expr,TableOpts,TableData) ->
+    Prog = <<
+	"-module(tmp).\n",
+    "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+    "-export([tmp/0]).\n",
+    Records/binary,"\n",
+    "tmp() ->\n",
+    Expr/binary,".\n">>,
+    FN=temp_name(),
+    file:write_file(FN,Prog),
+    {ok,Forms} = parse_file(FN),
+    {ok,tmp,Bin} = compile:forms(Forms),
+    code:load_binary(tmp,FN,Bin),
+    MatchSpec = tmp:tmp(),
+    T = ets:new(t, TableOpts),
+    try
+      ets:insert(T, TableData),
+      ets:select(T, MatchSpec)
+    catch E ->
+      throw(E)
+    after
+      ets:delete(T)
+    end.
+
+compile_and_run_decl(ArgName, ArgValue, Body) ->
+    Prog = <<
+	"-module(tmp).\n",
+    "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
+    "-export([tmp/1]).\n",
+    "tmp(",ArgName/binary,") ->\n",
+    Body/binary,".\n">>,
+    FN=temp_name(),
+    file:write_file(FN,Prog),
+    {ok,Forms} = parse_file(FN),
+    {ok,tmp,Bin} = compile:forms(Forms),
+    code:load_binary(tmp,FN,Bin),
+    tmp:tmp(ArgValue).
 
 compile_ww(Expr) ->
     compile_ww(<<>>,Expr).
