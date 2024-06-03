@@ -39,6 +39,7 @@
 
 -import(proplists,[get_value/2, get_value/3]).
 
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -99,36 +100,55 @@ zip64_testcases() ->
      zip64_central_directory].
 
 init_per_suite(Config) ->
-    Config.
+    {ok, Started} = application:ensure_all_started(os_mon),
+    cleanup_priv_dir(Config),
+    [{started, Started} | Config].
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    [application:stop(App) || App <- lists:reverse(get_value(started, Config))],
+    cleanup_priv_dir(Config),
     ok.
+
+cleanup_priv_dir(Config) ->
+    %% Cleanup potential files in priv_dir
+    [ case file:delete(File) of
+        {error, eperm} -> file:del_dir_r(File);
+        _ -> ok
+    end || File <- filelib:wildcard(filename:join(get_value(priv_dir,Config), "*"))].
 
 init_per_group(zip64_group, Config) ->
     PrivDir = get_value(priv_dir, Config),
 
-    OneMB = <<0:(8 bsl 20)>>,
-    Large4GB = filename:join(PrivDir, "large.txt"),
-    ok = file:write_file(Large4GB, lists:duplicate(4 bsl 10, OneMB)),
-    Medium4MB = filename:join(PrivDir, "medium.txt"),
-    ok = file:write_file(Medium4MB, lists:duplicate(4, OneMB)),
+    case {erlang:system_info(wordsize), disc_free(PrivDir), memsize()} of
+        {4, _, _} ->
+            {skip, "Zip64 tests only work on 64-bit systems"};
+        {8, error, _} ->
+            {skip, "Failed to query disk space for priv_dir. "
+             "Is it on a remote file system?~n"};
+        {8, N,M} when N >= 16 * (1 bsl 20), M >= 8 * (1 bsl 30) ->
+            ct:log("Free disk: ~w KByte~n", [N]),
+            ct:log("Free memory: ~w MByte~n", [M div (1 bsl 20)]),
+            OneMB = <<0:(8 bsl 20)>>,
+            Large4GB = filename:join(PrivDir, "large.txt"),
+            ok = file:write_file(Large4GB, lists:duplicate(4 bsl 10, OneMB)),
+            Medium4MB = filename:join(PrivDir, "medium.txt"),
+            ok = file:write_file(Medium4MB, lists:duplicate(4, OneMB)),
 
-    [{large, Large4GB},{medium,Medium4MB}|Config];
+            [{large, Large4GB},{medium,Medium4MB}|Config];
+        {8,N,M} ->
+            ct:log("Free disk: ~w KByte~n", [N]),
+            ct:log("Free memory: ~w MByte~n", [M div (1 bsl 20)]),
+            {skip,"Less than 16 GByte free disk or less then 8 GB free mem"}
+    end;
 init_per_group(Group, Config) ->
     case lists:member(Group, ?ZIP_MODES ++ ?UNZIP_MODES ++ z64(?ZIP_MODES ++ ?UNZIP_MODES)) of
         true ->
             case get_value(zip, Config) of
                 undefined ->
-                    [throw({skip, "zip does not support zip64"}) ||
-                        Group =:= zip andalso
-                            get_value(large,Config) =/= undefined andalso
-                            os:cmd("zip -v | grep ZIP64_SUPPORT") == ""],
-                    ct:print("Zip: ~p", [Group]),
                     Pdir = filename:join(get_value(priv_dir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
                     [{pdir, Pdir},{zip, noz64(Group)} | Config];
                 _Zip ->
-                    ct:print("UnZip: ~p", [Group]),
                     Pdir = filename:join(get_value(pdir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
                     [{pdir, Pdir},{unzip, noz64(Group)} | Config]
@@ -138,12 +158,21 @@ init_per_group(Group, Config) ->
     end.
 
 end_per_group(_GroupName, Config) ->
+    file:del_dir_r(get_value(pdir,Config)),
     Config.
 
 init_per_testcase(TC, Config) ->
-    PrivDir = filename:join(get_value(pdir, Config,get_value(priv_dir, Config)), TC),
-    ok = filelib:ensure_path(PrivDir),
-    [{pdir, PrivDir} | Config].
+    UsesZip = get_value(zip, Config) =:= zip orelse get_value(unzip, Config) =:= unzip,
+    HasZip = has_zip(),
+    ct:log("Free memory: ~w MByte~n", [memsize() div (1 bsl 20)]),
+    if UsesZip andalso not HasZip ->
+            {skip, "No zip command found"};
+       true ->
+            PrivDir = filename:join(get_value(pdir, Config,get_value(priv_dir, Config)), TC),
+            ok = filelib:ensure_path(PrivDir),
+            [{pdir, PrivDir} | Config]
+    end.
+
 
 end_per_testcase(_TC, Config) ->
     file:del_dir_r(get_value(pdir,Config)),
@@ -422,7 +451,7 @@ unzip_options(Config) when is_list(Config) ->
     lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
 			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
 		  FList2),
-    lists:foreach(fun(F)-> ok = file:delete(F) end,
+    lists:foreach(fun(F)-> 1 = delete_files([F]) end,
 		  RetList2),
 
     %% Clean up and verify no more files.
@@ -756,6 +785,9 @@ unzip_from_binary(Config) when is_list(Config) ->
     DestQuote = filename:join([ExtractDir, "quotes", "rain.txt"]),
     {ok, QuoteData} = file:read_file(filename:join(DataDir, Quote)),
     {ok, QuoteData} = file:read_file(DestQuote),
+
+    %% Don't be in ExtractDir when we delete it
+    ok = file:set_cwd(PrivDir),
 
     %% Clean up.
     delete_files([DestFilename, DestQuote, Archive, ExtractDir]),
@@ -1190,20 +1222,25 @@ mode(Config) ->
     file:write_file(Executable, "aaa"),
     {ok, ExecFI } = file:read_file_info(Executable),
     ok = file:write_file_info(Executable, ExecFI#file_info{ mode = 8#111 bor 8#400 }),
+    {ok, #file_info{ mode = OrigExecMode }} = file:read_file_info(Executable),
 
     Directory = filename:join(PrivDir,"dir"),
     ok = file:make_dir(Directory),
     {ok, DirFI } = file:read_file_info(Executable),
     ok = file:write_file_info(Directory, DirFI#file_info{ mode = 8#111 bor 8#400 }),
+    {ok, #file_info{ mode = OrigDirMode }} = file:read_file_info(Directory),
 
     ?assertMatch(
        {ok, Archive},
        zip(Config, Archive, "-r", ["dir","exec"], [{cwd, PrivDir},{extra,[extended_timestamp]}])),
 
+    OrigExecMode777 = OrigExecMode band 8#777,
+    OrigDirMode777 = OrigDirMode band 8#777,
+
     ?assertMatch(
        {ok, [#zip_comment{},
-             #zip_file{ name = "dir/", info = #file_info{ mode = 8#111 bor 8#400}},
-             #zip_file{ name = "exec", info = #file_info{ mode = 8#111 bor 8#400}} ]},
+             #zip_file{ name = "dir/", info = #file_info{ mode = OrigDirMode777 }},
+             #zip_file{ name = "exec", info = #file_info{ mode = OrigExecMode777 }} ]},
        zip:list_dir(Archive)),
 
     ok = file:make_dir(ExtractDir),
@@ -1214,11 +1251,11 @@ mode(Config) ->
         true ->
             {ok,#file_info{ mode = ExecMode }} =
                 file:read_file_info(filename:join(ExtractDir,"exec")),
-            ?assertEqual(8#111 bor 8#400, ExecMode band 8#777),
+            ?assertEqual(ExecMode band 8#777, OrigExecMode777),
 
             {ok,#file_info{ mode = DirMode }} =
                 file:read_file_info(filename:join(ExtractDir,"dir")),
-            ?assertEqual(8#111 bor 8#400, DirMode band 8#777);
+            ?assertEqual(DirMode band 8#777, OrigDirMode777);
         false ->
             %% emzip does not support mode
             ok
@@ -1253,11 +1290,16 @@ zip64_central_headers(Config) ->
     %%
     %% The archive will be roughly 8 GBs large
 
-    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.txt")),
-    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.comp.zip")),
-    ok = file:make_symlink("../../medium.txt", filename:join(PrivDir, "offset.txt")),
-    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.offset.txt")),
-    ok = file:make_symlink("../../large.txt", filename:join(PrivDir, "uncomp.comp.offset.zip")),
+    ok = file:make_link(filename:join(PrivDir, "../../large.txt"),
+                        filename:join(PrivDir, "uncomp.txt")),
+    ok = file:make_link(filename:join(PrivDir, "../../large.txt"),
+                        filename:join(PrivDir, "uncomp.comp.zip")),
+    ok = file:make_link(filename:join(PrivDir, "../../medium.txt"),
+                        filename:join(PrivDir, "offset.txt")),
+    ok = file:make_link(filename:join(PrivDir, "../../large.txt"),
+                        filename:join(PrivDir, "uncomp.offset.txt")),
+    ok = file:make_link(filename:join(PrivDir, "../../large.txt"),
+                        filename:join(PrivDir, "uncomp.comp.offset.zip")),
     ?assertMatch(
        {ok, Archive},
        zip(Config, Archive, "-1",
@@ -1404,7 +1446,9 @@ basic_timestamp(Config) ->
             ?assertEqual(ZMtime, UnZMtime),
             ?assertEqual(UnZAtime, UnZMtime),
 
-            ?assert(UnZMtime < UnZCtime);
+            %% On windows the ctime and mtime are the same so
+            %% we cannot compare them.
+            [?assert(UnZMtime < UnZCtime) || os:type() =/= {win32,nt}];
         false ->
             %% emzip does not support timestamps
             ok
@@ -1416,115 +1460,108 @@ basic_timestamp(Config) ->
 %% the atime and ctime when the file is added to the archive.
 extended_timestamp(Config) ->
 
-    case os:cmd("zip -v | grep USE_EF_UT_TIME") of
-        "" -> {skip, "zip does not support extended timestamps"};
-        _ ->
-            PrivDir =  get_value(pdir, Config),
-            Archive = filename:join(PrivDir, "archive.zip"),
-            ExtractDir = filename:join(PrivDir, "extract"),
-            Testfile = filename:join(PrivDir, "testfile.txt"),
+    PrivDir =  get_value(pdir, Config),
+    Archive = filename:join(PrivDir, "archive.zip"),
+    ExtractDir = filename:join(PrivDir, "extract"),
+    Testfile = filename:join(PrivDir, "testfile.txt"),
 
-            ok = file:write_file(Testfile, "abc"),
-            {ok, OndiskFI = #file_info{ mtime = Mtime }} =
-                file:read_file_info(Testfile),
+    ok = file:write_file(Testfile, "abc"),
+    {ok, OndiskFI = #file_info{ mtime = Mtime }} =
+        file:read_file_info(Testfile),
 
-            %% Sleep a bit to let the timestamp progress
-            timer:sleep(1000),
+    %% Sleep a bit to let the timestamp progress
+    timer:sleep(1000),
 
-            ?assertMatch(
-               {ok, Archive},
-               zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
+    ?assertMatch(
+       {ok, Archive},
+       zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
 
-            %% list_dir only reads the central directory header and thus only
-            %% the mtime will be correct here
-            {ok, [#zip_comment{},
-                  #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime}} ]} =
-                zip:list_dir(Archive),
+    %% list_dir only reads the central directory header and thus only
+    %% the mtime will be correct here
+    {ok, [#zip_comment{},
+          #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime}} ]} =
+        zip:list_dir(Archive),
 
-            ct:log("on disk: ~p",[OndiskFI]),
-            ct:log("in zip : ~p",[ZipFI]),
-            ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
+    ct:log("on disk: ~p",[OndiskFI]),
+    ct:log("in zip : ~p",[ZipFI]),
+    ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
 
-            ?assertEqual(Mtime, ZMtime),
+    ?assertEqual(Mtime, ZMtime),
 
-            %% Sleep a bit to let the timestamp progress
-            timer:sleep(1000),
+    %% Sleep a bit to let the timestamp progress
+    timer:sleep(1000),
 
-            ok = file:make_dir(ExtractDir),
-            ?assertMatch(
-               {ok, ["testfile.txt"]},
-               unzip(Config, Archive, [{cwd,ExtractDir}])),
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["testfile.txt"]},
+       unzip(Config, Archive, [{cwd,ExtractDir}])),
 
-            {ok, UnzipFI = #file_info{ atime = UnZAtime,
-                                       mtime = UnZMtime,
-                                       ctime = UnZCtime
-                                     }} =
-                file:read_file_info(filename:join(ExtractDir, "testfile.txt")),
+    {ok, UnzipFI = #file_info{ atime = UnZAtime,
+                               mtime = UnZMtime,
+                               ctime = UnZCtime
+                             }} =
+        file:read_file_info(filename:join(ExtractDir, "testfile.txt")),
 
-            ct:log("extract: ~p",[UnzipFI]),
+    ct:log("extract: ~p",[UnzipFI]),
 
-            case get_value(unzip, Config) =/= unemzip of
-                true ->
-                    ?assertEqual(ZMtime, UnZMtime),
-                    ?assertEqual(UnZAtime, UnZMtime),
+    case get_value(unzip, Config) =/= unemzip of
+        true ->
+            ?assertEqual(ZMtime, UnZMtime),
+            ?assertEqual(UnZAtime, UnZMtime),
 
-                    ?assert(UnZMtime < UnZCtime);
-                false ->
-                    %% emzip does not support timestamps
-                    ok
-            end,
-
+            %% On windows the ctime and mtime are the same so
+            %% we cannot compare them.
+            [?assert(UnZMtime < UnZCtime) || os:type() =/= {win32,nt}];
+        false ->
+            %% emzip does not support timestamps
             ok
-    end.
+    end,
+
+    ok.
 
 uid_gid(Config) ->
 
-    case os:cmd("zip -v | grep STORE_UNIX_UIDs_GIDs") of
-        "" -> {skip, "zip does not support uid/gids"};
+    PrivDir = get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+    Archive = filename:join(PrivDir, "archive.zip"),
+    Testfile = filename:join(PrivDir, "testfile.txt"),
+
+    ok = file:write_file(Testfile, "abc"),
+    {ok, OndiskFI = #file_info{ gid = GID, uid = UID }} =
+        file:read_file_info(Testfile),
+
+    ?assertMatch(
+       {ok, Archive},
+       zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
+
+    {ok, [#zip_comment{},
+          #zip_file{ info = ZipFI = #file_info{ gid = ZGID, uid = ZUID }} ]} =
+        zip:list_dir(Archive,[{extra, [uid_gid]}]),
+
+    ct:log("on disk: ~p",[OndiskFI]),
+    ct:log("in zip : ~p",[ZipFI]),
+
+    ?assertEqual(UID, ZUID),
+    ?assertEqual(GID, ZGID),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["testfile.txt"]},
+       unzip(Config, Archive, [{cwd, ExtractDir},{extra,[uid_gid]}])),
+
+    {ok,#file_info{ gid = ExZGID, uid = ExZUID }} =
+        file:read_file_info(filename:join(ExtractDir,"testfile.txt")),
+
+    case get_value(unzip, Config) =/= unemzip of
+        true ->
+            ?assertEqual(UID, ExZUID),
+            ?assertEqual(GID, ExZGID);
         _ ->
-
-            PrivDir = get_value(pdir, Config),
-            ExtractDir = filename:join(PrivDir, "extract"),
-            Archive = filename:join(PrivDir, "archive.zip"),
-            Testfile = filename:join(PrivDir, "testfile.txt"),
-
-            ok = file:write_file(Testfile, "abc"),
-            {ok, OndiskFI = #file_info{ gid = GID, uid = UID }} =
-                file:read_file_info(Testfile),
-
-            ?assertMatch(
-               {ok, Archive},
-               zip(Config, Archive, "", ["testfile.txt"], [{cwd, PrivDir}])),
-
-            {ok, [#zip_comment{},
-                  #zip_file{ info = ZipFI = #file_info{ gid = ZGID, uid = ZUID }} ]} =
-                zip:list_dir(Archive,[{extra, [uid_gid]}]),
-
-            ct:log("on disk: ~p",[OndiskFI]),
-            ct:log("in zip : ~p",[ZipFI]),
-
-            ?assertEqual(UID, ZUID),
-            ?assertEqual(GID, ZGID),
-
-            ok = file:make_dir(ExtractDir),
-            ?assertMatch(
-               {ok, ["testfile.txt"]},
-               unzip(Config, Archive, [{cwd, ExtractDir},{extra,[uid_gid]}])),
-
-            {ok,#file_info{ gid = ExZGID, uid = ExZUID }} =
-                file:read_file_info(filename:join(ExtractDir,"testfile.txt")),
-
-            case get_value(unzip, Config) =/= unemzip of
-                true ->
-                    ?assertEqual(UID, ExZUID),
-                    ?assertEqual(GID, ExZGID);
-                _ ->
-                    %% emzip does not support uid_gid
-                    ok
-            end,
-
+            %% emzip does not support uid_gid
             ok
-    end.
+    end,
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Generic zip interface
@@ -1542,39 +1579,63 @@ zip(ezip, Archive, _ZipOpts, Filelist, Opts) ->
 zip(emzip, Archive, _ZipOpts, Filelist, Opts) ->
     ct:log("Creating emzip ~ts",[Archive]),
     Cwd = get_value(cwd, Opts),
-    {Files,_Cache} =
-        lists:mapfoldl(
-          fun F(Fn, Cache) ->
-                  AbsFn = filename:join(Cwd, Fn),
-                  {ok, Fi} = file:read_file_info(AbsFn),
-                  {SubDirFiles, NewCache} =
-                      if Fi#file_info.type == directory ->
-                              {ok, Files} = file:list_dir(AbsFn),
-                              lists:mapfoldl(F, Cache#{ Fn => <<>> },
-                                             [filename:join(Fn, DirFn) || DirFn <- Files]);
-                         Fi#file_info.type == regular ->
-                              %% For this not to use a huge amount of memory we re-use
-                              %% the binary for files that are links to the same file.
-                              %% This cuts memory usage from ~16GB to ~4GB.
-                              {[],
-                               case file:read_link_all(AbsFn) of
-                                  {ok, LinkFn} ->
-                                      case maps:get(LinkFn, Cache, undefined) of
-                                          undefined ->
-                                              {ok, Data} = file:read_file(AbsFn),
-                                              Cache#{ LinkFn => Data, Fn => Data };
-                                          Data ->
-                                              Cache#{ Fn => Data }
-                                      end;
-                                  {error, _} ->
-                                      {ok, Data} = file:read_file(AbsFn),
-                                      Cache#{ Fn => Data }
-                              end}
-                      end,
-                  {[{Fn, maps:get(Fn, NewCache), Fi}|SubDirFiles], NewCache}
-          end,  #{}, Filelist),
-    zip:zip(Archive, lists:flatten(Files), proplists:delete(cwd,Opts)).
 
+    %% Run in peer node so that memory issues don't crash test node
+    {ok, Peer, Node} = ?CT_PEER(#{ args => emzip_peer_args() }),
+    try
+        erpc:call(
+          Node,
+          fun() ->
+                  %% For this not to use a huge amount of memory we re-use
+                  %% the binary for files that are the same size as those are the same file.
+                  %% This cuts memory usage from ~16GB to ~4GB.
+
+                  {Files,_Cache} =
+                      lists:mapfoldl(
+                        fun F(Fn, Cache) ->
+                                AbsFn = filename:join(Cwd, Fn),
+                                {ok, Fi} = file:read_file_info(AbsFn),
+                                CacheKey = {Fi#file_info.type, Fi#file_info.size},
+                                {SubDirFiles, NewCache} =
+                                    if Fi#file_info.type == directory ->
+                                            {ok, Files} = file:list_dir(AbsFn),
+                                            lists:mapfoldl(F, Cache#{ CacheKey => <<>> },
+                                                           [filename:join(Fn, DirFn) || DirFn <- Files]);
+                                       Fi#file_info.type == regular ->
+                                            {[],
+                                             case maps:find(CacheKey, Cache) of
+                                                 {ok, _} -> Cache;
+                                                 error ->
+                                                     {ok, Data} = read_file(
+                                                                    file:open(AbsFn, [read, raw, binary]),
+                                                                    Fi#file_info.size),
+                                                     Cache#{ CacheKey => Data }
+                                             end}
+                                    end,
+                                {[{Fn, maps:get(CacheKey, NewCache), Fi}|SubDirFiles], NewCache}
+                        end,  #{}, Filelist),
+                  zip:zip(Archive, lists:flatten(Files), proplists:delete(cwd,Opts))
+          end)
+    after
+        peer:stop(Peer)
+    end.
+
+
+%% Special read_file that works on windows on > 4 GB files
+read_file({ok, D}, Size) ->
+    Bin = iolist_to_binary(read_file(D, Size)),
+    erlang:garbage_collect(), %% Do a GC to get rid of all intermediate binaries
+    {ok, Bin};
+read_file({error, _} = E, _Size) ->
+    E;
+read_file(eof = E, _Size) ->
+    E;
+read_file(D, 0) ->
+    file:close(D),
+    [];
+read_file(D, Size) ->
+    {ok, B} = file:read(D, min(1 bsl 30, Size)),
+    [B | read_file(D, Size - byte_size(B))].
 
 unzip(Config, Archive, Opts) when is_list(Config) ->
     unzip(get_value(unzip, Config), Archive, Opts);
@@ -1597,23 +1658,87 @@ unzip(unezip, Archive, Opts) ->
     {ok, lists:sort([F -- Cwd || F <- Files])};
 unzip(unemzip, Archive, Opts) ->
     Cwd = get_value(cwd, Opts) ++ "/",
-    {ok, Files} = zip:unzip(Archive, [memory | Opts]),
-    {ok, lists:sort(
-           [begin
-                case lists:last(F) of
-                    $/ ->
-                        filelib:ensure_path(F);
-                    _ ->
-                        filelib:ensure_dir(F),
-                        file:write_file(F, B)
-                end,
-                F -- Cwd
-            end || {F, B} <- Files])}.
+
+    %% Run in peer node so that memory issues don't crash test node
+    {ok, Peer, Node} = ?CT_PEER(#{ args => emzip_peer_args() }),
+    try
+      erpc:call(
+        Node,
+        fun() ->
+                {ok, Files} = zip:unzip(Archive, [memory | Opts]),
+                {ok, lists:sort(
+                       [begin
+                            case lists:last(F) of
+                                $/ ->
+                                    filelib:ensure_path(F);
+                                _ ->
+                                    filelib:ensure_dir(F),
+                                    file:write_file(F, B)
+                            end,
+                            F -- Cwd
+                        end || {F, B} <- Files])}
+        end)
+    after
+        peer:stop(Peer)
+    end.
+
+emzip_peer_args() ->
+    case erlang:system_info(wordsize) of
+        8 -> ["+MMscs","809600"]; %% Supercarrier only supported on 64-bit
+        4 -> []
+    end.
 
 cmp(Source, Target) ->
-    "" = cmd("cmp --silent "++Source++" "++Target++~s' || echo "files are different"').
+    {ok, SrcInfo} = file:read_file_info(Source),
+    {ok, TgtInfo} = file:read_file_info(Target),
+    ?assertEqual(SrcInfo#file_info.size, TgtInfo#file_info.size),
+    ?assertEqual(SrcInfo#file_info.mode, TgtInfo#file_info.mode),
+
+    {ok, Src} = file:open(Source, [read, binary]),
+    {ok, Tgt} = file:open(Target, [read, binary]),
+
+    cmp(Src, Tgt, 0),
+
+    file:close(Src),
+    file:close(Tgt).
+
+%% Check if first 100 MB are the same
+cmp(Src, Tgt, Pos) when Pos < 100 bsl 20 ->
+
+    case {file:read(Src, 20 bsl 20), file:read(Tgt, 20 bsl 20)} of
+        {{ok, Data}, {ok, Data}} ->
+            cmp(Src, Tgt, Pos + 20 bsl 20);
+        {E, E} ->
+            ok
+    end;
+cmp(_Src, _Tgt, _) ->
+    ok.
 
 cmd(Cmd) ->
     Res = os:cmd(Cmd),
     ct:log("Cmd: ~ts~nRes: ~ts~n",[Cmd, Res]),
     Res.
+
+disc_free(Path) ->
+    Data = disksup:get_disk_data(),
+
+    %% What partitions could Data be mounted on?
+    Partitions =
+        [D || {P, _Tot, _Perc}=D <- Data,
+         lists:prefix(filename:nativename(P), filename:nativename(Path))],
+
+    %% Sorting in descending order places the partition with the most specific
+    %% path first.
+    case lists:sort(fun erlang:'>='/2, Partitions) of
+        [{_,Tot, Perc} | _] -> round(Tot * (1-(Perc/100)));
+        [] -> error
+    end.
+
+memsize() ->
+    case proplists:get_value(available_memory, memsup:get_system_memory_data()) of
+        undefined ->
+            {Tot,_Used,_}  = memsup:get_memory_data(),
+            Tot;
+        Available ->
+            Available
+    end.
