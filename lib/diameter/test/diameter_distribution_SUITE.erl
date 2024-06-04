@@ -352,6 +352,10 @@ call({Where, Req, Factor}) ->
     Result = diameter:call(?CLIENT, ?DICT, Req, [{extra, [{Where, sname()}]},
                                                  {timeout, Timeout}]),
     T2 = erlang:system_time(millisecond),
+    ?DL("call -> diameter call ended with"
+        "~n   Result: ~p"
+        "~nwhen"
+        "~n   T2-T1:  ~w (~w - ~w)", [Result, T2 - T1, T2, T1]),
     {Result, T1, T2, Timeout}.
 
 %% sname/0
@@ -419,7 +423,9 @@ handle_answer(Pkt, _Req, ?CLIENT, _Peer, {_, client0}) ->
 
 %% handle_error/5
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, {_, client0}) ->
+handle_error(Reason, _Req, ?CLIENT = Svc, _Peer, {_, client0}) ->
+    ?DL("~w(~p) -> entry with"
+        "~n   Reason: ~p", [?FUNCTION_NAME, Svc, Reason]),
     {error, Reason}.
 
 %% handle_request/3
