@@ -612,7 +612,8 @@ send(S, Data, OptList, Mref, Sref) ->
             end
     catch error: _ ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
-	     {error,einval}
+            demonitor(Mref, [flush]),
+            {error,einval}
     end.
 
 send(S, Data) ->
