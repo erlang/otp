@@ -1652,6 +1652,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = {recv_bin, Data},
     close_data_connection(State),
     {noreply, State#state{client = undefined, caller = undefined}};
 
+handle_ctrl_result({pos_compl, _}, #state{caller = recv_bin} = State0) ->
+    State = activate_data_connection(State0),
+    {noreply, State};
+
 handle_ctrl_result({Status, _}, #state{caller = recv_bin} = State) ->
     close_data_connection(State),
     ctrl_result_response(Status, State#state{dsock = undefined},
