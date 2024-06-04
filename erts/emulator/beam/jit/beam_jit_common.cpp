@@ -1235,7 +1235,11 @@ void beam_jit_timeout_locked(Process *c_p) {
 void beam_jit_return_to_trace(Process *c_p,
                               Eterm session_weak_id,
                               Eterm *frame) {
-    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+    ErtsTracerRef *ref =
+            get_tracer_ref_from_weak_id(&c_p->common, session_weak_id);
+
+    if (!ERTS_IS_PROC_SENSITIVE(c_p) && ref &&
+        IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
         ErtsCodePtr return_to_address;
         Uint *cpp;
 
@@ -1257,7 +1261,7 @@ void beam_jit_return_to_trace(Process *c_p,
         }
 
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, return_to_address, session_weak_id);
+        erts_trace_return_to(c_p, return_to_address, ref);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
     }
 }

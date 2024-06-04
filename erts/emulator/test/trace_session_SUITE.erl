@@ -32,6 +32,7 @@
          basic/1,
          call/1,
          meta/1,
+         return_to/1,
          destroy/1,
          negative/1,
          error_info/1,
@@ -47,7 +48,7 @@
 -define(line,void).
 -endif.
 
--export([foo/0, exported/1]).
+-export([foo/0, exported/1, middle/1, bottom/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -65,6 +66,7 @@ all() ->
      test_set_on_first_spawn,
      test_set_on_link,
      test_set_on_first_link,
+     return_to,
      destroy,
      negative,
      error_info,
@@ -995,12 +997,11 @@ basic_do2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
     register(RegName, Tracee),
     unregister(RegName),
 
-    receive_unsorted(
-      [{Tracer1, {trace, Tracee, register, RegName}},
-       {Tracer2, {trace, Tracee, register, RegName}}]),
-    receive_unsorted(
-      [{Tracer1, {trace, Tracee, unregister, RegName}},
-       {Tracer2, {trace, Tracee, unregister, RegName}}]),
+    receive_parallel({[{Tracer1, {trace, Tracee, register, RegName}},
+                       {Tracer1, {trace, Tracee, unregister, RegName}}],
+
+                      [{Tracer2, {trace, Tracee, register, RegName}},
+                       {Tracer2, {trace, Tracee, unregister, RegName}}]}),
 
     1 = erlang_trace(S1, self(), false, [procs | Opts1]),
 
@@ -1174,6 +1175,152 @@ meta(_Config) ->
     exit(Tracer0, die),
 
     ok.
+
+return_to(_Config) ->
+    %%put(display, true),  %% To get some usable debug printouts
+
+    Tester = self(),
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester,get(display)) end),
+    Tracer2 = spawn_link(fun() -> tracer("Tracer2",Tester,get(display)) end),
+
+    Tracee = self(),
+    S1 = trace:session_create(session1, Tracer1, []),
+    S2 = trace:session_create(session2, Tracer2, []),
+
+    1 = trace:process(S1, Tracee, true, [call, return_to, arity]),
+    1 = trace:process(S2, Tracee, true, [call, return_to, arity]),
+
+    [begin
+         Traced = [{S1, Tracer1, Funcs1},
+                   {S2, Tracer2, Funcs2}],
+
+         %% Set up tracing for all sessions
+         [begin
+              trace:function(Session, {?MODULE,'_','_'}, false, [local]),
+              [begin
+                   io_format("trace:function(~p) for tracer ~p\n", [Func, Tracer]),
+                   1 = trace:function(Session, {?MODULE,Func,'_'}, true, [local])
+               end
+               || Func <- TracedFuncs]
+          end
+          || {Session, Tracer, TracedFuncs} <- Traced],
+
+         %% Execute test with both local and external calls
+         [return_to_do(MiddleCall, BottomCall, Traced)
+          || MiddleCall <- [local, extern],
+             BottomCall <- [local, extern]]
+     end
+     || Funcs1 <- [[bottom], [middle], [middle,bottom]],
+        Funcs2 <- [[bottom], [middle], [middle,bottom]]
+    ],
+
+    true = trace:session_destroy(S1),
+    ok.
+
+return_to_do(MiddleCall, BottomCall, Traced) ->
+    Tracee = self(),
+    Script = [{[{'catch',MiddleCall}, {body,BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {'catch',BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {tail,BottomCall}, exception],
+               #{[bottom] => [{call, bottom}, {return_to, top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall},  {body,BottomCall}, return],
+               #{[bottom] => [{call, bottom}, {return_to, middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {'catch',BottomCall}, return],
+               #{[bottom] => [{call,bottom}, {return_to,middle}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,middle}, {return_to,top}]
+                }},
+
+              {[{'catch',MiddleCall}, {tail,BottomCall}, return],
+               #{[bottom] => [{call,bottom}, {return_to,top}],
+                 [middle] => [{call, middle}, {return_to, top}],
+                 [middle,bottom] => [{call, middle}, {call, bottom}, {return_to,top}]
+                }}
+             ],
+
+    [begin
+         %% Make the call sequence
+         io_format("CallSequence = ~p\n", [CallSequence]),
+         top(CallSequence),
+
+         %% Construct expected trace messages
+         Exp = [[{Tracer, {trace, Tracee, CallOrReturnTo, {?MODULE, Func, 1}}}
+                 || {CallOrReturnTo, Func} <- maps:get(TracedFuncs, TraceMap, [])]
+                || {_Session, Tracer, TracedFuncs} <- Traced],
+
+
+         io_format("Exp = ~p\n", [Exp]),
+         receive_parallel_list(Exp)
+     end
+     || {CallSequence, TraceMap} <- Script],
+    ok.
+
+top([{'catch',local} | T]) ->
+    display("top(catch local)"),
+    [(catch middle(T)) | 1];
+top([{'catch',extern} | T]) ->
+    display("top(catch extern)"),
+    [(catch ?MODULE:middle(T)) | 1].
+
+middle([{body,local} | T]) ->
+    display("middle(local)"),
+    [bottom(T) | 1];
+middle([{body,extern} | T]) ->
+    display("middle(extern)"),
+    [?MODULE:bottom(T) | 1];
+middle([{'catch',local} | T]) ->
+    display("middle(catch local)"),
+    [(catch bottom(T)) | 1];
+middle([{'catch',extern} | T]) ->
+    display("middle(catch extern)"),
+    [(catch ?MODULE:bottom(T)) | 1];
+middle([{tail,local} | T]) ->
+    display("middle(tail local)"),
+    bottom(T);
+middle([{tail,extern} | T]) ->
+    display("middle(tail extern)"),
+    ?MODULE:bottom(T).
+
+bottom([return | T]) ->
+    display("bottom(return)"),
+    T;
+bottom([exception]) ->
+    display("bottom(exception)"),
+    error(exception).
+
+display(Term) ->
+    case get(display) of
+        true ->
+            erlang:display(Term);
+        _ ->
+            true
+    end.
+
+io_format(Frmt, List) ->
+    case get(display) of
+        true ->
+            io:format(Frmt, List);
+        _ ->
+            ok
+    end.
 
 destroy(_Config) ->
     Name = ?MODULE,
@@ -1372,11 +1519,22 @@ local(_) ->
     ok.
 
 tracer(Name, Tester) ->
+    tracer(Name, Tester, true).
+
+tracer(Name, Tester, Display) ->
+    case Display of
+        true -> put(display,true);
+        _ -> ok
+    end,
+    tracer_loop(Name, Tester).
+
+
+tracer_loop(Name, Tester) ->
     receive M ->
-            io:format("~p ~p got message: ~p\n", [Name, self(), M]),
+            io_format("~p ~p got message: ~p\n", [Name, self(), M]),
             Tester ! {self(), M}
     end,
-    tracer(Name, Tester).
+    tracer_loop(Name, Tester).
 
 
 receive_any() ->
@@ -1416,6 +1574,11 @@ receive_parallel(M, Tuple, 0) ->
     io:format("Got message:\n~p\n", [M]),
     ct:fail("Unexpected messages: ~p", [M]).
 
+%% Same as receive_parallel/1 but accepts a *list* of message lists
+%% and the message lists are allowed to be empty meaning no expected messages.
+receive_parallel_list(List0) ->
+    List1 = lists:filter(fun(E) -> E =/= [] end, List0),
+    receive_parallel(list_to_tuple(List1)).
 
 receive_unsorted(Expect) ->
     receive_unsorted(Expect, length(Expect)).

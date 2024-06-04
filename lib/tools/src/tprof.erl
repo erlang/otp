@@ -210,7 +210,7 @@ Which processes that are profiled depends on the profiling type.
 
 * `call_time` and `call_memory` limits the profiling to the processes
   spawned from the user-provided function (using the `set_on_spawn`
-  option for `erlang:trace/3`).
+  option for `trace:process/4`).
 
 `call_time` and `call_memory` can be restricted to profile a single process:
 

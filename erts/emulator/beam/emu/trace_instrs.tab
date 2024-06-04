@@ -69,8 +69,11 @@ i_call_trace_return() {
 }
 
 i_return_to_trace() {
-    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
-	Eterm session_id = E[1];
+    ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common, E[1]);
+
+    if (!ERTS_IS_PROC_SENSITIVE(c_p)
+        && ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+
         Uint *cpp = (Uint*) E + 1;
 
         while (is_not_CP(*cpp)) {
@@ -92,7 +95,7 @@ i_return_to_trace() {
         }
         SWAPOUT;		/* Needed for shared heap */
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, cp_val(*cpp), session_id);
+        erts_trace_return_to(c_p, cp_val(*cpp), ref);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
         SWAPIN;
     }

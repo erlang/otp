@@ -573,11 +573,13 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 static ErtsCodePtr
 next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
-    ErtsCodePtr return_to_trace_address = NULL;
+    ErtsCodePtr return_address = NULL;
     int have_return_to_trace = 0;
-    Eterm session_weak_id = NIL;
     Eterm *ptr, *prev;
     ErtsCodePtr handler;
+#ifdef DEBUG
+    ErtsCodePtr dbg_return_to_trace_address = NULL;
+#endif
 
     ptr = prev = c_p->stop;
     ASSERT(ptr < STACK_START(c_p));
@@ -592,7 +594,6 @@ next_catch(Process* c_p, Eterm *reg) {
 
             ptr++;
         } else if (is_CP(val)) {
-            ErtsCodePtr return_address;
             const Eterm *frame;
 
             prev = ptr;
@@ -614,45 +615,49 @@ next_catch(Process* c_p, Eterm *reg) {
             } else if (BeamIsReturnCallAccTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                have_return_to_trace = 1; /* Record next cp */
-                session_weak_id = frame[0];
-                return_to_trace_address = NULL;
-
+                ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
+                                                                 frame[0]);
+                if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+                    ref->flags |= F_TRACE_RETURN_TO_MARK;
+                    have_return_to_trace = 1;
+                }
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
-                /* This is an ordinary call frame: if the previous frame was a
-                 * return_to trace we should record this CP as a return_to
-                 * candidate. */
-                if (have_return_to_trace) {
-                    return_to_trace_address = return_address;
-                    have_return_to_trace = 0;
-                } else {
-                    return_to_trace_address = NULL;
-                }
-
+            #ifdef DEBUG
+                dbg_return_to_trace_address = return_address;
+            #endif
                 ptr += CP_SIZE;
             }
         } else {
             ptr++;
         }
     }
-
+    if (have_return_to_trace) {
+        ErtsTracerRef *ref;
+        for (ref = c_p->common.tracee.first_ref; ref; ref = ref->next) {
+            ref->flags &= ~F_TRACE_RETURN_TO_MARK;
+        }
+    }
     return NULL;
 
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
 
-    if (return_to_trace_address) {
-        ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
-                                                         session_weak_id);
-        if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
-            /* The stackframe closest to the catch contained an
-             * return_to_trace entry, so since the execution now
-             * continues after the catch, a return_to trace message
-             * would be appropriate.
-             */
-            erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
+    if (have_return_to_trace) {
+        ErtsTracerRef *ref;
+        /*
+         * Execution now continues after catching exception from
+         * return_to traced function(s).
+         */
+        ASSERT(return_address == dbg_return_to_trace_address);
+
+        for (ref = c_p->common.tracee.first_ref; ref; ref = ref->next) {
+            if (ref->flags & F_TRACE_RETURN_TO_MARK) {
+                ASSERT(IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO));
+                erts_trace_return_to(c_p, return_address, ref);
+                ref->flags &= ~F_TRACE_RETURN_TO_MARK;
+            }
         }
     }
 
