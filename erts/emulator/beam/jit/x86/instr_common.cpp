@@ -1038,7 +1038,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
         if (!maybe_immediate.isNil()) {
             mov_arg(ARG4, maybe_immediate);
             preserve_cache([&]() {
-                emit_is_not_boxed(update, ARG4, dShort);
+                emit_is_boxed(update, ARG4, dShort);
             });
         }
 
@@ -1078,6 +1078,34 @@ void BeamModuleAssembler::emit_update_record_in_place(
     }
 
     mov_arg(Dst, RET);
+
+#ifdef DEBUG
+    if (!all_safe && maybe_immediate.isNil()) {
+        Label bad_pointer = a.newLabel(), pointer_ok = a.newLabel();
+
+        /* If p->high_water contained a garbage value, a tuple not in
+         * the safe part of the new heap could have been destructively
+         * updated. */
+        comment("sanity-checking tuple pointer");
+        a.mov(ARG1, x86::Mem(c_p, offsetof(Process, heap)));
+        a.cmp(RET, HTOP);
+        a.short_().jae(bad_pointer);
+
+        a.cmp(RET, ARG1);
+        a.short_().jae(pointer_ok);
+
+        a.bind(bad_pointer);
+        {
+            emit_enter_runtime();
+            a.mov(ARG1, c_p);
+            a.mov(ARG2, RET);
+            runtime_call<2>(beam_jit_invalid_heap_ptr);
+            emit_leave_runtime();
+        }
+
+        a.bind(pointer_ok);
+    }
+#endif
 }
 
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
