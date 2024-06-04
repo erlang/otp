@@ -991,15 +991,10 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}
  */
 void 
-erts_trace_return_to(Process *p, ErtsCodePtr pc, Eterm session_weak_id)
+erts_trace_return_to(Process *p, ErtsCodePtr pc, ErtsTracerRef *ref)
 {
     const ErtsCodeMFA *cmfa;
     Eterm mfa;
-    ErtsTracerRef *ref;
-
-    ref = get_tracer_ref_from_weak_id(&p->common, session_weak_id);
-    if (!ref)
-        return;
 
     cmfa = erts_find_function_from_pc(pc);
 
@@ -3326,7 +3321,12 @@ ErtsTracerRef* get_tracer_ref_from_weak_id(ErtsPTabElementCommon* t_p,
 {
     ErtsTracerRef* ref;
 
-    ASSERT(t_p->tracee.all_trace_flags == erts_sum_all_trace_flags(t_p));
+#ifdef DEBUG
+    {
+        Uint32 all = erts_sum_all_trace_flags(t_p) & ~F_TRACE_RETURN_TO_MARK;
+        ASSERT(all == t_p->tracee.all_trace_flags);
+    }
+#endif
 
     for (ref = t_p->tracee.first_ref; ref; ref = ref->next)
         if (ref->session->weak_id == weak_id)

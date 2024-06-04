@@ -184,7 +184,7 @@ void erts_trace_return(Process* p, ErtsCodeMFA *mfa, Eterm retval,
                        ErtsTracer tracer, Eterm session_weak_id);
 void erts_trace_exception(Process* p, ErtsCodeMFA *mfa, Eterm class_, Eterm value,
                           ErtsTracer tracer, Eterm session_weak_id);
-void erts_trace_return_to(Process *p, ErtsCodePtr pc, Eterm session_weak_id);
+void erts_trace_return_to(Process *p, ErtsCodePtr pc, ErtsTracerRef *ref);
 void trace_sched(Process*, ErtsProcLocks, Eterm, Uint32 trace_flag);
 void trace_sched_session(Process*, ErtsProcLocks, Eterm what, ErtsTracerRef*);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);

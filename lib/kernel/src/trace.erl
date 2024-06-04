@@ -95,6 +95,7 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 > | [`erlang:trace(processes, ...)`][1]          | [`process(S, all, ...)`][p]                                        |
 > | [`erlang:trace(existing_processes, ...)`][1] | [`process(S, existing, ...)`][p]                                   |
 > | [`erlang:trace(new_processes, ...)`][1]      | [`process(S, new, ...)`][p]                                        |
+> | [`erlang:trace(Port, ...)`][1]               | [`port(S, Port, ...)`][o]                                          |
 > | [`erlang:trace(ports, ...)`][1]              | [`port(S, all, ...)`][o]                                           |
 > | [`erlang:trace(existing_ports, ...)`][1]     | [`port(S, existing, ...)`][o]                                      |
 > | [`erlang:trace(new_ports, ...)`][1]          | [`port(S, new, ...)`][o]                                           |
@@ -226,7 +227,7 @@ Turn on or off trace flags for one or more processes.
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
-Argument `PidSpec` is either a process identifier (pid) for a local process or
+Argument `Procs` is either a process identifier (pid) for a local process or
 one of the following atoms:
 
 - **`all`** - All currently existing processes and all that will be
@@ -278,16 +279,20 @@ tags" refers to the list of [`trace messages`](#process_trace_messages)):
   [`return_to`](#process_trace_messages_return_to). Or rather, the
   absence of.
 
-- **`return_to`** - Used with the `call` trace flag. Traces the return from a
-  traced function back to its caller. Only works for functions traced with
-  option `local` to `function/4`.
+- **`return_to`** - Used with the `call` trace flag. Traces the exit from
+  call traced functions back to where the execution resumes. Only works for
+  functions traced with option `local` to `function/4`.
 
-  The semantics is that a trace message is sent when a call traced function
-  returns, that is, when a chain of tail recursive calls ends. Only one trace
-  message is sent per chain of tail recursive calls, so the properties of tail
-  recursiveness for function calls are kept while tracing with this flag. Using
-  `call` and `return_to` trace together makes it possible to know exactly in
-  which function a process executes at any time.
+  The semantics is that a `return_to` trace message is sent when a call traced
+  function returns or throws and exception that is caught. For tail calls, only
+  one trace message is sent per chain of tail calls, so the properties of tail
+  recursiveness for function calls are kept while tracing with this
+  flag. Similar for exceptions, only one `return_to` trace message is sent, even
+  if the exception passed more than one call traced function before it was
+  caught.
+
+  Using `call` and `return_to` trace together makes it possible to know exactly
+  in which function a process executes at any time.
 
   To get trace messages containing return values from functions, use the
   `{return_trace}` match specification action instead.
@@ -339,7 +344,7 @@ tags" refers to the list of [`trace messages`](#process_trace_messages)):
 - **`cpu_timestamp`** - A global trace flag for the Erlang node that makes all
   trace time stamps using flag `timestamp` to be in CPU time, not wall clock
   time. That is, `cpu_timestamp` is not be used if `monotonic_timestamp` or
-  `strict_monotonic_timestamp` is enabled. Only allowed with `PidPortSpec==all`.
+  `strict_monotonic_timestamp` is enabled. Only allowed with `Procs==all`.
   If the host machine OS does not support high-resolution CPU time measurements,
   `process/4` exits with `badarg`. Notice that most OS do not
   synchronize this value across cores, so be prepared that time can seem to go
@@ -570,10 +575,10 @@ Trace messages:
 If the tracing process dies or the tracer module returns `remove`, the
 flags are silently removed.
 
-Returns a number indicating the number of processes that matched `PidSpec`.
-If `PidSpec` is a process identifier, the return value is `1`. If
-`PidSpec` is `all` or `existing`, the return value is the number of
-processes running. If `PidSpec` is `new`, the return value is `0`.
+Returns a number indicating the number of processes that matched `Procs`.
+If `Procs` is a process identifier, the return value is `1`. If
+`Procs` is `all` or `existing`, the return value is the number of
+processes running. If `Procs` is `new`, the return value is `0`.
 
 Failure: `badarg` if the specified arguments are not supported. For example,
 `cpu_timestamp` is not supported on all platforms.
@@ -610,7 +615,7 @@ Turn on or off trace flags for one or more ports.
 Argument `Session` is the trace session to operate on as returned by
 `session_create/3`.
 
-`PortSpec` is either a port identifier for a local port or one of the following atoms:
+`Ports` is either a port identifier for a local port or one of the following atoms:
 
 - **`all`** - All currently existing ports and all that will be
   created in the future.
@@ -725,10 +730,10 @@ Trace messages:
 If the tracing process/port dies or the tracer module returns `remove`, the
 flags are silently removed.
 
-Returns a number indicating the number of ports that matched `PortSpec`.
-If `PortSpec` is a port identifier, the return value is `1`. If
-`PortSpec` is `all` or `existing`, the return value is the number of
-existing ports. If `PortSpec` is `new`, the return value is `0`.
+Returns a number indicating the number of ports that matched `Ports`.
+If `Ports` is a port identifier, the return value is `1`. If
+`Ports` is `all` or `existing`, the return value is the number of
+existing ports. If `Ports` is `new`, the return value is `0`.
 
 Failure: `badarg` if the specified arguments are not supported. For example,
 `cpu_timestamp` is not supported on all platforms.

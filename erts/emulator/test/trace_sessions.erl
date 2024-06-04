@@ -146,34 +146,56 @@ erlang_trace_pattern(MFA, MS, FlagList) ->
     end.
 
 %% Wrap erlang:trace/3
-erlang_trace(PidPortSpec, How, FlagList) ->
+erlang_trace(PidPortSpec, How, FlagList0) ->
     case ets:lookup(?MODULE, dynamic_session) of
         [] ->
-            erlang:trace(PidPortSpec, How, FlagList);
+            erlang:trace(PidPortSpec, How, FlagList0);
         [{dynamic_session, S}] ->
-            if is_pid(PidPortSpec);
-               PidPortSpec =:= processes;
-               PidPortSpec =:= existing_processes;
-               PidPortSpec =:= new_processes ->
-                    trace:process(S, PidPortSpec, How, FlagList);
+            case handle_cpu_timestamp(PidPortSpec, How, FlagList0) of
+                {true, Ret, []} ->
+                    Ret;
+                {_, _, FlagList1} ->
+                    if is_pid(PidPortSpec);
+                       PidPortSpec =:= processes;
+                       PidPortSpec =:= existing_processes;
+                       PidPortSpec =:= new_processes ->
+                            trace:process(S, PidPortSpec, How, FlagList1);
 
-               is_port(PidPortSpec);
-               PidPortSpec =:= ports;
-               PidPortSpec =:= existing_ports;
-               PidPortSpec =:= new_ports ->
-                    trace:port(S, PidPortSpec, How, FlagList);
+                       is_port(PidPortSpec);
+                       PidPortSpec =:= ports;
+                       PidPortSpec =:= existing_ports;
+                       PidPortSpec =:= new_ports ->
+                            trace:port(S, PidPortSpec, How, FlagList1);
 
-               PidPortSpec =:= all;
-               PidPortSpec =:= existing;
-               PidPortSpec =:= new ->
-                    trace:process(S, PidPortSpec, How, FlagList),
-                    trace:port(S, PidPortSpec, How, FlagList);
+                       PidPortSpec =:= all;
+                       PidPortSpec =:= existing;
+                       PidPortSpec =:= new ->
+                            trace:process(S, PidPortSpec, How, FlagList1),
+                            trace:port(S, PidPortSpec, How, FlagList1);
 
-               true ->
-                    %% Must be negative testing
-                    trace:process(S, PidPortSpec, How, FlagList)
+                       true ->
+                            %% Must be negative testing
+                            trace:process(S, PidPortSpec, How, FlagList1)
+                    end
             end
     end.
+
+handle_cpu_timestamp(all, How, FlagList) ->
+    case lists:member(cpu_timestamp, FlagList) of
+        true ->
+            %% Do special call for ugly duckling 'cpu_timestamp'
+            %% not (yet) supported by module 'trace'.
+            Ret = erlang:trace(all, How, [cpu_timestamp]),
+            FlagListRest = lists:filter(fun(E) -> E =/= cpu_timestamp end,
+                                        FlagList),
+            {true, Ret, FlagListRest};
+
+        false ->
+            {false, void, FlagList}
+    end;
+handle_cpu_timestamp(_, _, FlagList) ->
+    {false, void, FlagList}.
+
 
 
 %% Wrap erlang:trace_info/2
