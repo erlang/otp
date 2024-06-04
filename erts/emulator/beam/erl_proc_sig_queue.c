@@ -1054,7 +1054,7 @@ static void do_seq_trace_output(Eterm to, Eterm token, Eterm msg);
 
 static void
 send_gen_exit_signal(Process *c_p, Eterm from_tag,
-                     Eterm from, Eterm to,
+                     Eterm from, Eterm from_type, Eterm to,
                      Sint16 op, Eterm reason, ErtsDistExternal *dist_ext,
                      ErlHeapFragment *dist_ext_hfrag,
                      Eterm ref, Eterm token, int normal_kills,
@@ -1076,6 +1076,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
            (is_non_value(reason) && dist_ext != NULL));
 
     ASSERT(is_immed(from_tag));
+    ASSERT(from_type == am_process || from_type == am_port);
 
     hsz = sizeof(ErtsExitSignalData)/sizeof(Eterm);
 
@@ -1121,7 +1122,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
             break;
         }
         case ERTS_SIG_Q_OP_MONITOR_DOWN: {
-            /* {'DOWN', Ref, process, From, Reason} */
+            /* {'DOWN', Ref, process | port, From, Reason} */
             hsz += 6; /* 5-tuple */
             break;
         }
@@ -1160,8 +1161,8 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
             hp += 4;
             break;
         case ERTS_SIG_Q_OP_MONITOR_DOWN:
-            /* {'DOWN', Ref, process, From, Reason} */
-            s_message = TUPLE5(hp, am_DOWN, s_ref, am_process, s_from, s_reason);
+            /* {'DOWN', Ref, process | port, From, Reason} */
+            s_message = TUPLE5(hp, am_DOWN, s_ref, from_type, s_from, s_reason);
             hp += 6;
             break;
         default:
@@ -1706,19 +1707,21 @@ erts_proc_sig_send_exit(Process *c_p, Eterm from, Eterm to,
                         Eterm reason, Eterm token,
                         int normal_kills)
 {
-    Eterm from_tag;
+    Eterm from_tag, from_type;
     ASSERT(!c_p || c_p->common.id == from);
     if (is_immed(from)) {
         ASSERT(is_internal_pid(from) || is_internal_port(from));
         from_tag = from;
+        from_type = is_internal_port(from) ? am_port : am_process;
     }
     else {
         DistEntry *dep;
         ASSERT(is_external_pid(from));
         dep = external_pid_dist_entry(from);
         from_tag = dep->sysname;
+        from_type = am_process;
     }
-    send_gen_exit_signal(c_p, from_tag, from, to, ERTS_SIG_Q_OP_EXIT,
+    send_gen_exit_signal(c_p, from_tag, from, from_type, to, ERTS_SIG_Q_OP_EXIT,
                          reason, NULL, NULL, NIL, token, normal_kills, 0, 0);
 }
 
@@ -1729,8 +1732,9 @@ erts_proc_sig_send_dist_exit(DistEntry *dep,
                              ErlHeapFragment *hfrag,
                              Eterm reason, Eterm token)
 {
-    send_gen_exit_signal(NULL, dep->sysname, from, to, ERTS_SIG_Q_OP_EXIT,
-                         reason, dist_ext, hfrag, NIL, token, 0, 0, 0);
+    send_gen_exit_signal(NULL, dep->sysname, from, am_process, to,
+                         ERTS_SIG_Q_OP_EXIT, reason, dist_ext, hfrag, NIL, token,
+                         0, 0, 0);
 
 }
 
@@ -1738,7 +1742,7 @@ void
 erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
                              Eterm reason, Eterm token)
 {
-    Eterm to, from_tag, from_item;
+    Eterm to, from_tag, from_item, from_type;
     int conn_lost;
     Uint32 conn_id;
     ASSERT(!c_p || c_p->common.id == from);
@@ -1747,6 +1751,7 @@ erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
     if (is_value(from)) {
         ASSERT(is_internal_pid(from) || is_internal_port(from));
         from_tag = from_item = from;
+        from_type = is_internal_port(from) ? am_port : am_process;
         conn_id = 0;
         conn_lost = 0;
     }
@@ -1760,13 +1765,15 @@ erts_proc_sig_send_link_exit(Process *c_p, Eterm from, ErtsLink *lnk,
 
         olnk = erts_link_to_other(lnk, &elnk);
 
+        from_type = am_process;
         from_item = olnk->other.item;
         from_tag = elnk->dist->nodename;
         conn_id = elnk->dist->connection_id;
         conn_lost = !0;
     }
-    send_gen_exit_signal(c_p, from_tag, from_item, to, ERTS_SIG_Q_OP_EXIT_LINKED,
-                         reason, NULL, NULL, NIL, token, 0, conn_lost, conn_id);
+    send_gen_exit_signal(c_p, from_tag, from_item, from_type, to,
+                         ERTS_SIG_Q_OP_EXIT_LINKED, reason, NULL, NULL, NIL,
+                         token, 0, conn_lost, conn_id);
     erts_link_release(lnk);
 }
 
@@ -1868,8 +1875,9 @@ erts_proc_sig_send_dist_link_exit(DistEntry *dep,
                                   ErlHeapFragment *hfrag,
                                   Eterm reason, Eterm token)
 {
-    send_gen_exit_signal(NULL, dep->sysname, from, to, ERTS_SIG_Q_OP_EXIT_LINKED,
-                         reason, dist_ext, hfrag, NIL, token, 0, 0, 0);
+    send_gen_exit_signal(NULL, dep->sysname, from, am_process, to,
+                         ERTS_SIG_Q_OP_EXIT_LINKED, reason, dist_ext, hfrag,
+                         NIL, token, 0, 0, 0);
 
 }
 
@@ -1969,7 +1977,7 @@ erts_proc_sig_send_dist_monitor_down(DistEntry *dep, Eterm ref,
         monitored = TUPLE2(&heap[0], from, dep->sysname);
     else
         monitored = from;
-    send_gen_exit_signal(NULL, dep->sysname, monitored,
+    send_gen_exit_signal(NULL, dep->sysname, monitored, am_process,
                          to, ERTS_SIG_Q_OP_MONITOR_DOWN,
                          reason, dist_ext, hfrag, ref, NIL, 0, 0, 0);
 }
@@ -2000,7 +2008,7 @@ erts_proc_sig_send_monitor_down(ErtsMonitor *mon, Eterm reason)
     }
     else {
         ErtsMonitorData *mdp = erts_monitor_to_data(mon);
-        Eterm from_tag, monitored, heap[3];
+        Eterm from_tag, monitored, from_type, heap[3];
 
         if (mon->type == ERTS_MON_TYPE_SUSPEND) {
             /*
@@ -2016,6 +2024,7 @@ erts_proc_sig_send_monitor_down(ErtsMonitor *mon, Eterm reason)
 
         if (!(mon->flags & ERTS_ML_FLG_NAME)) {
             from_tag = monitored = mdp->origin.other.item;
+            from_type = is_internal_port(from_tag) ? am_port : am_process;
             if (is_external_pid(from_tag)) {
                 DistEntry *dep = external_pid_dist_entry(from_tag);
                 from_tag = dep->sysname;
@@ -2030,17 +2039,19 @@ erts_proc_sig_send_monitor_down(ErtsMonitor *mon, Eterm reason)
             if (mdep->dist) {
                 node = mdep->dist->nodename;
                 from_tag = node;
+                from_type = am_process;
             }
             else {
                 node = erts_this_dist_entry->sysname;
                 from_tag = mdp->origin.other.item;
+                from_type = is_internal_port(from_tag) ? am_port : am_process;
             }
             ASSERT(is_internal_port(from_tag)
                    || is_internal_pid(from_tag)
                    || is_atom(from_tag));
             monitored = TUPLE2(&heap[0], name, node);
         }
-        send_gen_exit_signal(NULL, from_tag, monitored,
+        send_gen_exit_signal(NULL, from_tag, monitored, from_type,
                              to, ERTS_SIG_Q_OP_MONITOR_DOWN,
                              reason, NULL, NULL, mdp->ref, NIL,
                              0, 0, 0);
