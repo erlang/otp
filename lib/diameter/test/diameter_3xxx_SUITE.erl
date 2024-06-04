@@ -240,26 +240,56 @@ stats(?CLIENT, E, rfc3588, L)
      {{{0,275,0},recv,{'Result-Code',5005}},1}]
         = L;
 
-stats(?SERVER, E, rfc3588, L)
+stats(?SERVER = Svc, E, rfc3588 = RFC, L)
   when E == answer;
        E == answer_3xxx ->
-    [{{{unknown,0},send},2},
-     {{{unknown,1},recv},1},
-     {{{0,257,0},send},1},
-     {{{0,257,1},recv},1},
-     {{{0,275,0},send},6},
-     {{{0,275,1},recv},8},
-     {{{unknown,0},send,{'Result-Code',3001}},1},
-     {{{unknown,0},send,{'Result-Code',3007}},1},
-     {{{unknown,1},recv,error},1},
-     {{{0,257,0},send,{'Result-Code',2001}},1},
-     {{{0,275,0},send,{'Result-Code',2001}},1},
-     {{{0,275,0},send,{'Result-Code',3008}},2},
-     {{{0,275,0},send,{'Result-Code',3999}},1},
-     {{{0,275,0},send,{'Result-Code',5002}},1},
-     {{{0,275,0},send,{'Result-Code',5005}},1},
-     {{{0,275,1},recv,error},5}]
-        = L;
+    %% [{{{unknown,0},send},2},
+    %%  {{{unknown,1},recv},1},
+    %%  {{{0,257,0},send},1},
+    %%  {{{0,257,1},recv},1},
+    %%  {{{0,275,0},send},6},
+    %%  {{{0,275,1},recv},8},
+    %%  {{{unknown,0},send,{'Result-Code',3001}},1},
+    %%  {{{unknown,0},send,{'Result-Code',3007}},1},
+    %%  {{{unknown,1},recv,error},1},
+    %%  {{{0,257,0},send,{'Result-Code',2001}},1},
+    %%  {{{0,275,0},send,{'Result-Code',2001}},1},
+    %%  {{{0,275,0},send,{'Result-Code',3008}},2},
+    %%  {{{0,275,0},send,{'Result-Code',3999}},1},
+    %%  {{{0,275,0},send,{'Result-Code',5002}},1},
+    %%  {{{0,275,0},send,{'Result-Code',5005}},1},
+    %%  {{{0,275,1},recv,error},5}]
+    %% = L;
+    ?XL("~w(~p, ~w) -> (attempt to) verify answer: "
+        "~n   E: ~p"
+        "~n   L: ~p", [?FUNCTION_NAME, Svc, RFC, E, L]),
+    Expected = [{{{unknown,0},send},2},
+                {{{unknown,1},recv},1},
+                {{{0,257,0},send},1},
+                {{{0,257,1},recv},1},
+                {{{0,275,0},send},6},
+                {{{0,275,1},recv},8},
+                {{{unknown,0},send,{'Result-Code',3001}},1},
+                {{{unknown,0},send,{'Result-Code',3007}},1},
+                {{{unknown,1},recv,error},1},
+                {{{0,257,0},send,{'Result-Code',2001}},1},
+                {{{0,275,0},send,{'Result-Code',2001}},1},
+                {{{0,275,0},send,{'Result-Code',3008}},2},
+                {{{0,275,0},send,{'Result-Code',3999}},1},
+                {{{0,275,0},send,{'Result-Code',5002}},1},
+                {{{0,275,0},send,{'Result-Code',5005}},1},
+                {{{0,275,1},recv,error},5}],
+    case L of
+        Expected ->
+            ?XL("~w(~w) -> ok", [?FUNCTION_NAME, RFC]),
+            L;
+        _ ->
+            ?XL("~w(~w, ~w) -> wrong: "
+                "~n   L -- Expected: ~p"
+                "~n   Expected -- L: ~p",
+                [?FUNCTION_NAME, Svc, RFC, L -- Expected, Expected -- L]),
+            exit({wrong_answer, Svc, E, RFC})
+    end;
 
 stats(?CLIENT, answer, rfc6733, L) ->
     [{{{unknown,0},recv},2},
