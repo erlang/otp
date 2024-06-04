@@ -615,7 +615,8 @@ send(S, HdrAndData, OptList, Mref) ->
             end
     catch error: _ ->
 	    ?DBG_FORMAT("prim_inet:send() -> {error,einval}~n", []),
-	     {error,einval}
+            demonitor(Mref, [flush]),
+            {error,einval}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
