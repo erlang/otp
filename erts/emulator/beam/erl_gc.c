@@ -559,6 +559,11 @@ delay_garbage_collection(Process *p, int need, int fcalls)
 	}
 	p->abandoned_heap = orig_heap;
         erts_adjust_memory_break(p, orig_htop - p->high_water);
+
+        /* Point at the end of the address range to ensure that
+         * test for the safe range in the new heap in the
+         * update_record_in_place instruction fails. */
+        p->high_water = (Eterm *) (Uint) -1;
     }
 
 #ifdef CHECK_FOR_HOLES
