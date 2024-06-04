@@ -24,7 +24,6 @@
 -include("ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("stdlib/include/assert.hrl").
 
 -export([
          suite/0,
@@ -231,12 +230,36 @@ end_per_group(_, Config) ->
 init_per_testcase(_TestCase, Config) ->
     %% To make sure we start clean as it is not certain that
     %% end_per_testcase will be run!
-    end_per_testcase(any, Config),
+    ssh:stop(),
     ssh:start(),
-    ssh_test_lib:verify_sanity_check(Config).
+    {ok, TestLogHandlerRef} = ssh_test_lib:add_log_handler(),
+    ssh_test_lib:verify_sanity_check(Config),
+    [{log_handler_ref, TestLogHandlerRef} | Config].
 
-end_per_testcase(_TestCase, _Config) ->
-    ssh:stop().
+end_per_testcase(TestCase, Config) ->
+    {ok, Events} = ssh_test_lib:get_log_events(
+                     proplists:get_value(log_handler_ref, Config)),
+    EventNumber = length(Events),
+    VerifcationResult = verify_events(TestCase, EventNumber, Events),
+    ssh_test_lib:rm_log_handler(),
+    ssh:stop(),
+    VerifcationResult.
+
+verify_events(_TestCase, 0, _Events) -> ok;
+verify_events(gracefull_invalid_version, 1, _) -> ok;
+verify_events(gracefull_invalid_start, 1, _) -> ok;
+verify_events(gracefull_invalid_long_start, 1, _) -> ok;
+verify_events(gracefull_invalid_long_start_no_nl, 1, _) -> ok;
+verify_events(kex_error, 2, _) -> ok;
+verify_events(stop_listener, 1, _) -> ok;
+verify_events(no_sensitive_leak, 14, _) -> ok;
+verify_events(start_subsystem_on_closed_channel, 12, _) -> ok;
+verify_events(max_channels_option, 20, _) -> ok;
+verify_events(_TestCase, EventNumber, Events) when EventNumber > 0->
+    ct:log("~nEvent number: ~p~nEvents:~n~p", [EventNumber, Events]),
+    {fail, lists:flatten(
+             io_lib:format("Unexpected ~s events found",
+                           [integer_to_list(EventNumber)]))}.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -1899,12 +1922,14 @@ test_exec_is_enabled(ConnectionRef, Exec, Expect) ->
     success = ssh_connection:exec(ConnectionRef, ChannelId, Exec, infinity),
     ExpSz = size(Expect),
     receive
-        {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<Expect:ExpSz/binary, _/binary>>}} = R ->
+        {ssh_cm, ConnectionRef, {data, ChannelId, 0,
+                                 <<Expect:ExpSz/binary, _/binary>>}} = R ->
             ct:log("~p:~p Got expected ~p",[?MODULE,?LINE,R]);
         Other ->
-            %% FIXME - should this testcase fail when unexpected data is received?
             ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
-                   [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef, {data, ChannelId, 0, Expect}} ])
+                   [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
+                                           {data, ChannelId, 0, Expect}}]),
+            {fail, "Unexpected data"}
     after 5000 ->
             {fail,"Exec Timeout"}
     end.
@@ -1985,7 +2010,7 @@ ssh_exec_echo(Cmd, User) ->
     spawn(fun() ->
                   io:format("echo ~s ~s\n",[User,Cmd])
           end).
-%% FIXME - upon refactoring this test suite, check if function below is reduntant to collect_data
+
 receive_bytes(_, _, 0, _) ->
     ct:log("ALL DATA RECEIVED Budget = 0"),
     ct:log("================================ ExpectBudget = 0 (reception completed)"),
