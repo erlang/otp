@@ -826,21 +826,23 @@ handle_msg(#ssh_msg_channel_extended_data{recipient_channel = ChannelId,
     channel_data_reply_msg(ChannelId, Connection, DataType, Data);
 
 handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
-					  bytes_to_add = Add}, 
+					  bytes_to_add = Add},
 	   #connection{channel_cache = Cache} = Connection, _, _SSH) ->
-    #channel{send_window_size = Size, remote_id = RemoteId} = 
-	Channel0 = ssh_client_channel:cache_lookup(Cache, ChannelId), 
-    
-    {SendList, Channel} =  %% TODO: Datatype 0 ?
-	update_send_window(Channel0#channel{send_window_size = Size + Add},
-			   0, undefined, Connection),
-    
-    Replies = lists:map(fun({Type, Data}) -> 
-				{connection_reply, channel_data_msg(RemoteId, Type, Data)}
-			end, SendList),
-    FlowCtrlMsgs = flow_control(Channel, Cache),
-    {Replies ++ FlowCtrlMsgs, Connection};
-
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        Channel0 = #channel{send_window_size = Size,
+                            remote_id = RemoteId} ->
+            {SendList, Channel} =  %% TODO: Datatype 0 ?
+                update_send_window(Channel0#channel{send_window_size = Size + Add},
+                                   0, undefined, Connection),
+            Replies = lists:map(fun({Type, Data}) ->
+                                        {connection_reply,
+                                         channel_data_msg(RemoteId, Type, Data)}
+                                end, SendList),
+            FlowCtrlMsgs = flow_control(Channel, Cache),
+            {Replies ++ FlowCtrlMsgs, Connection};
+        undefined ->
+            {[], Connection}
+    end;
 handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 				 sender_channel = RemoteId,
 				 initial_window_size = WindowSz,
