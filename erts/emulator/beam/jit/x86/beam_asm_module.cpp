@@ -237,7 +237,7 @@ void BeamModuleAssembler::emit_nyi(const char *msg) {
     emit_enter_runtime();
 
     a.mov(ARG1, imm(msg));
-    runtime_call<1>(i_emit_nyi);
+    runtime_call<void (*)(char *), i_emit_nyi>();
 
     /* Never returns */
 }

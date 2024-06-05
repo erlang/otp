@@ -68,7 +68,7 @@ void BeamModuleAssembler::emit_bif_is_eq_ne_exact(const ArgSource &LHS,
         mov_arg(ARG2, RHS);
 
         emit_enter_runtime();
-        runtime_call<2>(eq);
+        runtime_call<int (*)(Eterm, Eterm), eq>();
         emit_leave_runtime();
 
         a.test(RET, RET);
@@ -576,7 +576,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
         emit_cond_to_bool(x86::Inst::kIdCmovne, Dst);
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         emit_test_the_non_value(RET);
@@ -668,7 +668,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         }
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         emit_test_the_non_value(RET);
