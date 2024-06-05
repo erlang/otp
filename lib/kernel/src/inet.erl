@@ -293,6 +293,7 @@ Function `parse_address/1` can be useful:
 -export([getaddrs/2, getaddrs/3, getaddrs_tm/3,
 	 getaddr/2, getaddr/3, getaddr_tm/3]).
 -export([translate_ip/2]).
+-export([inet_backend/0]).
 
 -export([get_rc/0]).
 
@@ -2208,14 +2209,27 @@ getaddrs(Address, Family, Timeout) ->
 -spec getservbyport(Port :: port_number(), Protocol :: atom() | string()) ->
 	{'ok', string()} | {'error', posix()}.
 
-getservbyport(Port, Proto) ->
+getservbyport(Port, Protocol) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyport(Port, Protocol);
+        'socket' ->
+            net_getservbyport(Port, Protocol)
+    end.
+
+inet_getservbyport(Port, Protocol) ->
     case inet_udp:open(0, []) of
 	{ok,U} ->
-	    Res = prim_inet:getservbyport(U, Port, Proto),
+	    Res = prim_inet:getservbyport(U, Port, Protocol),
 	    inet_udp:close(U),
 	    Res;
 	Error -> Error
     end.
+
+net_getservbyport(Port, Protocol) when is_list(Protocol) ->
+    net_getservbyport(Port, list_to_atom(Protocol));
+net_getservbyport(Port, Protocol) when is_atom(Protocol) ->
+    net:getservbyport(Port, Protocol).
 
 -doc false.
 -spec getservbyname(Name :: atom() | string(),
@@ -2223,13 +2237,29 @@ getservbyport(Port, Proto) ->
 	{'ok', port_number()} | {'error', posix()}.
 
 getservbyname(Name, Protocol) when is_atom(Name) ->
+    getservbyname(atom_to_list(Name), Protocol);
+getservbyname(Name, Protocol) when is_list(Name) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyname(Name, Protocol);
+        'socket' ->
+            net_getservbyname(Name, Protocol)
+    end.
+
+inet_getservbyname(Name, Protocol) ->
     case inet_udp:open(0, []) of
-	{ok,U} ->
+	{ok, U} ->
 	    Res = prim_inet:getservbyname(U, Name, Protocol),
 	    inet_udp:close(U),
 	    Res;
 	Error -> Error
     end.
+
+net_getservbyname(Name, Protocol) when is_list(Protocol) ->
+    net_getservbyname(Name, list_to_atom(Protocol));
+net_getservbyname(Name, Protocol) when is_atom(Protocol) ->
+    net:getservbyname(Name, Protocol).
+
 
 -doc "Parse an `t:ip_address/0` to an IPv4 or IPv6 address string.".
 -doc(#{since => <<"OTP R16B02">>}).
@@ -3962,3 +3992,8 @@ ensure_sockaddr(SockAddr) ->
         throw : {invalid, _} = Invalid : Stacktrace ->
             erlang:raise(error, Invalid, Stacktrace)
     end.
+
+
+-doc false.
+inet_backend() ->
+    persistent_term:get({kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND).
