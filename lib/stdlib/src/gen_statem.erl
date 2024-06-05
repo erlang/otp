@@ -130,19 +130,23 @@
 
     Server start or code change
                           -----> Module:callback_mode/0
+                          selects callback mode
 
-    gen_statem:stop       -----> Module:terminate/3
+    gen_statem:stop
+    Supervisor exit
+    Callback failure      -----> Module:terminate/3
 
     gen_statem:call
     gen_statem:cast
     gen_statem:send_request
     erlang:send
     erlang:'!'            -----> Module:StateName/3
-                                 Module:handle_event/4
+                       or -----> Module:handle_event/4
+                       depending on callback mode
 
-    -                     -----> Module:terminate/3
-
-    -                     -----> Module:code_change/4
+    Release upgrade/downgrade
+    (code change)
+                          -----> Module:code_change/4
     ```
 
     #### Event types
