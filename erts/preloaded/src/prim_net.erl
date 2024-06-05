@@ -27,7 +27,7 @@
 -export([
 	 on_load/0, on_load/1,
 	 info/0,
-         command/1
+         debug/1
         ]).
 
 -export([
@@ -377,10 +377,8 @@ info() ->
     nif_info().
 
 
--spec command(Cmd :: term()) -> term().
-
-command(Cmd) ->
-    nif_command(Cmd).
+debug(D) ->
+    nif_command(#{command => ?FUNCTION_NAME, data => D}).
 
 
 
