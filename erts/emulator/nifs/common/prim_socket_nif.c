@@ -4519,7 +4519,7 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
     data.sockDbg = dbg;
     MUNLOCK(data.cntMtx);
 
-    return esock_atom_ok;;
+    return esock_atom_ok;
 }
 
 

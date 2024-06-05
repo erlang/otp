@@ -29,7 +29,7 @@ This module provides an API for the network interface.
 %% Administrative and utility functions
 -export([
 	 info/0,
-         command/1
+         debug/1
         ]).
 
 -export([
@@ -222,10 +222,15 @@ sleep(T) -> receive after T -> ok end.
 info() ->
     prim_net:info().
 
+
 -doc false.
--spec command(Cmd :: term()) -> term().
-command(Cmd) ->
-    prim_net:command(Cmd).
+-spec debug(D :: boolean()) -> 'ok'.
+%%
+debug(D) when is_boolean(D) ->
+    prim_net:debug(D);
+debug(D) ->
+    erlang:error(badarg, [D]).
+
 
 %% ===========================================================================
 %%
