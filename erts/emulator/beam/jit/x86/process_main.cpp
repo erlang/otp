@@ -77,7 +77,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
 #if defined(DEBUG) && defined(NATIVE_ERLANG_STACK)
     /* Save stack bounds so they can be tested without clobbering anything. */
-    runtime_call<0>(erts_get_stacklimit);
+    runtime_call<const void *(*)(void), erts_get_stacklimit>();
 
     a.mov(getSchedulerRegRef(
                   offsetof(ErtsSchedulerRegisters, runtime_stack_end)),
@@ -163,7 +163,8 @@ void BeamGlobalAssembler::emit_process_main() {
         a.mov(ARG2, x86::qword_ptr(c_p, offsetof(Process, frame_pointer)));
         a.mov(ARG3, x86::qword_ptr(c_p, offsetof(Process, stop)));
 
-        runtime_call<3>(erts_validate_stack);
+        runtime_call<void (*)(Process *, Eterm *, Eterm *),
+                     erts_validate_stack>();
 #endif
 
 #ifdef WIN32
@@ -194,7 +195,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_out_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_out_registers>();
 
         /* Restore reds_used from FCALLS */
         a.mov(ARG3d, FCALLS);
@@ -219,7 +220,8 @@ void BeamGlobalAssembler::emit_process_main() {
             a.mov(start_time, ARG3);
 
             a.mov(ARG3, start_time_i);
-            runtime_call<3>(check_monitor_long_schedule);
+            runtime_call<void (*)(Process *, Uint64, ErtsCodePtr),
+                         check_monitor_long_schedule>();
 
             /* Restore reds_used */
             a.mov(ARG3, start_time);
@@ -238,9 +240,11 @@ void BeamGlobalAssembler::emit_process_main() {
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
-        runtime_call<3>(erts_debug_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_debug_schedule>();
 #else
-        runtime_call<3>(erts_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_schedule>();
 #endif
         a.mov(c_p, RET);
 
@@ -249,7 +253,7 @@ void BeamGlobalAssembler::emit_process_main() {
               x86::qword_ptr(registers,
                              offsetof(ErtsSchedulerRegisters,
                                       aux_regs.d.erts_msacc_cache)));
-        runtime_call<1>(erts_msacc_update_cache);
+        runtime_call<void (*)(ErtsMsAcc **), erts_msacc_update_cache>();
 #endif
 
         a.mov(ARG1, imm((UWord)&erts_system_monitor_long_schedule));
@@ -258,7 +262,7 @@ void BeamGlobalAssembler::emit_process_main() {
         a.short_().je(skip_long_schedule);
         {
             /* Enable long schedule test */
-            runtime_call<0>(erts_timestamp_millis);
+            runtime_call<Uint64 (*)(), erts_timestamp_millis>();
             a.mov(start_time, RET);
             a.mov(RET, x86::qword_ptr(c_p, offsetof(Process, i)));
             a.mov(start_time_i, RET);
@@ -268,7 +272,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Copy arguments */
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_in_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_in_registers>();
 
         /* Setup reduction counting */
         a.mov(FCALLS, x86::dword_ptr(c_p, offsetof(Process, fcalls)));
@@ -283,7 +287,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Check whether save calls is on */
         a.mov(ARG1, c_p);
         a.mov(ARG2, imm(ERTS_PSD_SAVED_CALLS_BUF));
-        runtime_call<2>(erts_psd_get);
+        runtime_call<void *(*)(Process *, int), erts_psd_get>();
 
         /* Read the active code index, overriding it with
          * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled (RET != 0). */

@@ -60,6 +60,9 @@ extern "C"
 
 using namespace asmjit;
 
+#define ERTS_CCONV_ERTS
+#define ERTS_CCONV_JIT
+
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);

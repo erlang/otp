@@ -126,7 +126,8 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
 void BeamGlobalAssembler::emit_bs_size_check_shared() {
     emit_enter_runtime();
     a.mov(ARG1, c_p);
-    runtime_call<2>(beam_jit_bs_field_size_argument_error);
+    runtime_call<void (*)(Process *, Eterm),
+                 beam_jit_bs_field_size_argument_error>();
     emit_leave_runtime();
     a.ret();
 }
@@ -163,7 +164,7 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
     a.and_(RETd, imm(ERL_SUB_BITS_FLAG_MASK));
     a.xor_(RETd, imm(HEADER_SUB_BITS | ERL_SUB_BITS_FLAGS_MATCH_CONTEXT));
     a.xor_(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
-#ifdef HARD_DEBUG
+#if defined(HARD_DEBUG) || defined(ERTS_CCONV_DEBUG)
     a.jz(next);
 #else
     a.short_().jz(next);
@@ -184,7 +185,8 @@ void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
 
         a.mov(ARG1, c_p);
         /* ARG2 was set above */
-        runtime_call<2>(erts_bs_start_match_3);
+        runtime_call<ErlSubBits *(*)(Process *, Eterm),
+                     erts_bs_start_match_3>();
 
         emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -229,7 +231,8 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
     mov_arg(ARG1, Ptr);
     mov_imm(ARG2, 0);
     mov_imm(ARG5, size);
-    runtime_call<5>(erts_cmp_bits);
+    runtime_call<int (*)(const byte *, Uint, const byte *, Uint, Uint),
+                 erts_cmp_bits>();
 
     emit_leave_runtime();
 
@@ -326,7 +329,9 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
                 mov_imm(ARG2, 0);
 #endif
             }
-            runtime_call<6>(beam_jit_bs_get_integer);
+
+            runtime_call<Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, Uint),
+                         beam_jit_bs_get_integer>();
 
             if (potential_gc) {
                 emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
@@ -409,7 +414,8 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
 
     a.lea(ARG2, emit_boxed_val(ARG1));
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_bs_get_binary_all_2);
+    runtime_call<Eterm (*)(Process *, ErlSubBits *),
+                 erts_bs_get_binary_all_2>();
 
     emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -435,7 +441,13 @@ void BeamGlobalAssembler::emit_bs_get_tail_shared() {
     a.sub(ARG6, ARG5);
 
     a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
-    runtime_call<6>(erts_build_sub_bitstring);
+    runtime_call<Eterm (*)(Eterm **,
+                           Eterm,
+                           const BinRef *,
+                           const byte *,
+                           Uint,
+                           Uint),
+                 erts_build_sub_bitstring>();
 
     emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -518,7 +530,8 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
         a.mov(ARG2, TMP_MEM1q);
         mov_imm(ARG3, Flags.get());
         a.sub(ARG4, imm(TAG_PRIMARY_BOXED));
-        runtime_call<4>(erts_bs_get_binary_2);
+        runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+                     erts_bs_get_binary_2>();
 
         emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -552,7 +565,8 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
         /* ARG2 set above */
         mov_imm(ARG3, Flags.get());
         a.sub(ARG4, imm(TAG_PRIMARY_BOXED));
-        runtime_call<4>(erts_bs_get_float_2);
+        runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+                     erts_bs_get_float_2>();
 
         emit_leave_runtime<Update::eHeapOnlyAlloc>();
 
@@ -932,7 +946,7 @@ void BeamModuleAssembler::emit_bs_get_utf8(const ArgRegister &Ctx,
     } else {
         emit_enter_runtime();
 
-        runtime_call<1>(erts_bs_get_utf8);
+        runtime_call<Eterm (*)(ErlSubBits *), erts_bs_get_utf8>();
 
         emit_leave_runtime();
 
@@ -966,7 +980,7 @@ void BeamModuleAssembler::emit_bs_get_utf16(const ArgRegister &Ctx,
 
     a.sub(ARG1, imm(TAG_PRIMARY_BOXED));
     mov_imm(ARG2, Flags.get());
-    runtime_call<2>(erts_bs_get_utf16);
+    runtime_call<Eterm (*)(ErlSubBits *, Uint), erts_bs_get_utf16>();
 
     emit_leave_runtime();
 
@@ -1060,7 +1074,7 @@ void BeamModuleAssembler::emit_bs_init_writable() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, getXRef(0));
-    runtime_call<2>(erts_bs_init_writable);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bs_init_writable>();
     a.mov(getXRef(0), RET);
 
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
@@ -1073,7 +1087,8 @@ void BeamGlobalAssembler::emit_bs_create_bin_error_shared() {
     a.mov(ARG2, ARG4);
     a.mov(ARG4, ARG1);
     a.mov(ARG1, c_p);
-    runtime_call<4>(beam_jit_bs_construct_fail_info);
+    runtime_call<void (*)(Process *, Uint, Eterm, Eterm),
+                 beam_jit_bs_construct_fail_info>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
 
@@ -1465,13 +1480,14 @@ void BeamModuleAssembler::emit_construct_utf8(const ArgVal &Src,
     Label store = a.newLabel();
     Label next = a.newLabel();
 
-#ifdef WIN32
+#ifdef ERTS_JIT_ABI_WIN32
     const x86::Gp bin_ptr = ARG4;
     const x86::Gp bin_offset = is_byte_aligned ? x86::Gp() : ARG1;
 #else
     const x86::Gp bin_ptr = ARG1;
     const x86::Gp bin_offset = is_byte_aligned ? x86::Gp() : ARG4;
 #endif
+
     ASSERT(!bin_offset.isValid() || bin_offset == x86::rcx);
 
     /* The following two registers must be the same as
@@ -1653,7 +1669,13 @@ void BeamGlobalAssembler::emit_bs_init_bits_shared() {
      * care to align it before calling anything. */
     a.push(x86::rbp);
     a.mov(x86::rbp, x86::rsp);
-    runtime_call<6>(beam_jit_bs_init_bits);
+    runtime_call<Eterm (*)(Process *,
+                           Eterm *,
+                           struct erl_bits_state *,
+                           Uint,
+                           Uint,
+                           unsigned),
+                 beam_jit_bs_init_bits>();
     a.leave();
 
 #ifdef WIN32
@@ -2150,7 +2172,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         mov_arg(ArgXRegister(Live.get()), seg.src);
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<6>(erts_bs_append_checked);
+        runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, Uint, Uint),
+                     erts_bs_append_checked>();
 
         if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
             std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
@@ -2203,7 +2226,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         }
         a.mov(ARG2, c_p);
         load_erl_bits_state(ARG1);
-        runtime_call<4>(erts_bs_private_append_checked);
+        runtime_call<Eterm (*)(ErlBitsState *, Process *, Eterm, Uint),
+                     erts_bs_private_append_checked>();
         /* There is no way the call can fail on a 64-bit architecture. */
         a.mov(TMP_MEM1q, RET);
     } else if (allocated_size >= 0) {
@@ -2255,7 +2279,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 mov_arg(ARG3, seg.src);
                 a.mov(ARG2, c_p);
                 load_erl_bits_state(ARG1);
-                runtime_call<4>(erts_bs_put_binary);
+                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                             erts_bs_put_binary>();
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -2268,7 +2293,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 mov_arg(ARG3, seg.src);
                 a.mov(ARG2, c_p);
                 load_erl_bits_state(ARG1);
-                runtime_call<4>(erts_bs_put_binary_all);
+                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                             erts_bs_put_binary_all>();
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
@@ -2294,7 +2320,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 mov_arg(ARG3, seg.src);
                 a.mov(ARG2, c_p);
                 load_erl_bits_state(ARG1);
-                runtime_call<4>(erts_bs_put_binary);
+                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                             erts_bs_put_binary>();
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -2328,7 +2355,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_imm(ARG5, seg.flags);
             a.mov(ARG2, c_p);
             load_erl_bits_state(ARG1);
-            runtime_call<5>(erts_bs_put_float);
+            runtime_call<Eterm (*)(ErlBitsState *, Process *, Eterm, Uint, int),
+                         erts_bs_put_float>();
             if (Fail.get() == 0) {
                 mov_imm(ARG4,
                         beam_jit_update_bsc_reason_info(seg.error_info,
@@ -2601,9 +2629,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     mov_arg(ARG2, seg.src);
                     load_erl_bits_state(ARG1);
                     if (seg.flags & BSF_LITTLE) {
-                        runtime_call<3>(erts_bs_put_integer_le);
+                        runtime_call<int (*)(ErlBitsState *, Eterm, Uint),
+                                     erts_bs_put_integer_le>();
                     } else {
-                        runtime_call<3>(erts_bs_put_integer_be);
+                        runtime_call<int (*)(ErlBitsState *, Eterm, Uint),
+                                     erts_bs_put_integer_be>();
                     }
                     if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         comment("skipped test for success because construction "
@@ -2635,7 +2665,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_imm(ARG3, seg.effectiveSize / 8);
             mov_arg(ARG2, string_ptr);
             load_erl_bits_state(ARG1);
-            runtime_call<3>(erts_bs_put_string);
+            runtime_call<void (*)(ErlBitsState *, byte *, Uint),
+                         erts_bs_put_string>();
         } break;
         case am_utf8: {
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
@@ -2647,7 +2678,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_arg(ARG2, seg.src);
             a.mov(ARG3, seg.flags);
             load_erl_bits_state(ARG1);
-            runtime_call<3>(erts_bs_put_utf16);
+            runtime_call<int (*)(struct erl_bits_state *, Eterm, Uint),
+                         erts_bs_put_utf16>();
             if (Fail.get() == 0) {
                 mov_arg(ARG1, seg.src);
                 mov_imm(ARG4,
@@ -2665,9 +2697,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_imm(ARG3, 4 * 8);
             load_erl_bits_state(ARG1);
             if (seg.flags & BSF_LITTLE) {
-                runtime_call<3>(erts_bs_put_integer_le);
+                runtime_call<int (*)(ErlBitsState *, Eterm, Uint),
+                             erts_bs_put_integer_le>();
             } else {
-                runtime_call<3>(erts_bs_put_integer_be);
+                runtime_call<int (*)(ErlBitsState *, Eterm, Uint),
+                             erts_bs_put_integer_be>();
             }
             if (Fail.get() == 0) {
                 mov_arg(ARG1, seg.src);
@@ -3478,7 +3512,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
      * bin_position must be RCX because only CL can be used for
      * a variable shift without using the SHLX instruction from BMI2.
      */
-#ifdef WIN32
+
+#ifdef ERTS_JIT_ABI_WIN32
     const x86::Gp bin_position = ARG1;
     const x86::Gp bitdata = ARG2;
     const x86::Gp bin_base = ARG3;
@@ -3489,6 +3524,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
     const x86::Gp bin_base = ARG1;
     const x86::Gp ctx = ARG2;
 #endif
+
     ASSERT(bin_position == x86::rcx);
     const x86::Gp tmp = ARG5;
 
@@ -3709,7 +3745,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             a.mov(ARG2, bits);
             a.mov(ARG3, flags);
             a.sub(ARG4, imm(TAG_PRIMARY_BOXED));
-            runtime_call<4>(erts_bs_get_integer_2);
+            runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+                         erts_bs_get_integer_2>();
 
             if (bits >= SMALL_BITS) {
                 emit_leave_runtime<Update::eReductions |
@@ -3751,7 +3788,13 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             mov_imm(ARG6, seg.size);
             a.add(emit_boxed_val(RET, start_offset), ARG6);
 
-            runtime_call<6>(erts_build_sub_bitstring);
+            runtime_call<Eterm (*)(Eterm **,
+                                   Eterm,
+                                   const BinRef *,
+                                   const byte *,
+                                   Uint,
+                                   Uint),
+                         erts_build_sub_bitstring>();
 
             emit_leave_runtime<Update::eHeapOnlyAlloc>();
             mov_arg(seg.dst, RET);
