@@ -2286,7 +2286,7 @@ fmt_sockaddr(#{family := local,
 
 
 fmt_port(N, Proto) ->
-    case inet:getservbyport(N, Proto) of
+    case net:getservbyport(N, Proto) of
 	{ok, Name} -> f("~s (~w)", [Name, N]);
 	_ -> integer_to_list(N)
     end.

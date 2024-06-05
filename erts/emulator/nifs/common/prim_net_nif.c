@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -203,9 +203,31 @@ ERL_NIF_INIT(prim_net, net_funcs, on_load, NULL, NULL, NULL)
 
 
 #ifdef __WIN32__
-#define net_gethostname(__buf__, __bufSz__) gethostname((__buf__), (__bufSz__))
+
+#define net_gethostname(__buf__, __bufSz__)     \
+    gethostname((__buf__), (__bufSz__))
+#define net_getservbyname(__name__, __proto__)  \
+    getservbyname((__name__), (__proto__))
+#define net_getservbyport(__port__, __proto__)  \
+    getservbyport((__port__), (__proto__))
+#define net_ntohs(x)                            \
+    ntohs((x))
+#define net_htons(x)                            \
+    htons((x))
+
 #else
-#define net_gethostname(__buf__, __bufSz__) gethostname((__buf__), (__bufSz__))
+
+#define net_gethostname(__buf__, __bufSz__)     \
+    gethostname((__buf__), (__bufSz__))
+#define net_getservbyname(__name__, __proto__)  \
+    getservbyname((__name__), (__proto__))
+#define net_getservbyport(__port__, __proto__)  \
+    getservbyport((__port__), (__proto__))
+#define net_ntohs(x)                            \
+    ntohs((x))
+#define net_htons(x)                            \
+    htons((x))
+
 #endif // __WIN32__
 
 
@@ -266,7 +288,7 @@ static NetData data;
  * ----------------------------------------------------------------------
  */
 
-/* THIS IS JUST TEMPORARY */
+/* THIS IS JUST TEMPORARY...maybe */
 extern char* erl_errno_id(int error);
 
 /* All the nif "callback" functions for the net API has
@@ -292,6 +314,8 @@ extern char* erl_errno_id(int error);
     ENET_NIF_FUNC_DEF(get_if_entry);         \
     ENET_NIF_FUNC_DEF(get_interface_info);   \
     ENET_NIF_FUNC_DEF(get_ip_address_table); \
+    ENET_NIF_FUNC_DEF(getservbyname);        \
+    ENET_NIF_FUNC_DEF(getservbyport);        \
     ENET_NIF_FUNC_DEF(if_name2index);        \
     ENET_NIF_FUNC_DEF(if_index2name);        \
     ENET_NIF_FUNC_DEF(if_names);
@@ -467,7 +491,15 @@ static void make_ip_address_row(ErlNifEnv*    env,
                                 ERL_NIF_TERM  eReasmSize,
                                 ERL_NIF_TERM* iar);
 
-#endif
+#endif // defined(__WIN32__)
+
+static ERL_NIF_TERM enet_getservbyname(ErlNifEnv*   env,
+                                       ERL_NIF_TERM ename,
+                                       ERL_NIF_TERM eproto);
+static ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                       BOOLEAN_T      dbg,
+                                       ERL_NIF_TERM eport,
+                                       ERL_NIF_TERM eproto);
 
 #if defined(HAVE_IF_NAMETOINDEX)
 static ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
@@ -791,6 +823,8 @@ static ErlNifResourceTypeInit netInit = {
  * nif_get_if_entry/1
  * nif_get_interface_info/1
  * nif_get_ip_address_table/1
+ * nif_getservbyname/2
+ * nif_getservbyport/2
  * nif_if_name2index/1
  * nif_if_index2name/1
  * nif_if_names/0
@@ -3932,6 +3966,194 @@ void make_ip_address_row(ErlNifEnv*    env,
 
 
 
+/* ----------------------------------------------------------------------
+ * nif_getservbyname
+ *
+ * Description:
+ * Get service by name.
+ * This is a lookup function that translates a service name to its
+ * registered port number.
+ *
+ * Arguments:
+ * Name - The name of the service.
+ * Protocol - The name of the service.
+ *
+ * Returns:
+ * {ok, PortNumber :: port_number()} | {error, Reason :: term()}
+ */
+
+static
+ERL_NIF_TERM nif_getservbyname(ErlNifEnv*         env,
+                               int                argc,
+                               const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result, ename, eproto;
+    BOOLEAN_T    dbg = FALSE;
+
+    NDBG( ("NET", "nif_getservbyname -> entry (%d)\r\n", argc) );
+
+    if (argc != 2)
+        return enif_make_badarg(env);
+
+    ename  = argv[0];
+    eproto = argv[1];
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyname -> args: "
+            "\r\n   ename:  %T"
+            "\r\n   eproto: %T"
+            "\r\n", ename, eproto) );
+
+    result = enet_getservbyname(env, ename, eproto);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyname -> done when result: "
+            "\r\n   %T\r\n", result) );
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM enet_getservbyname(ErlNifEnv*   env,
+                                ERL_NIF_TERM ename,
+                                ERL_NIF_TERM eproto)
+{
+    char            name[256];
+    char            proto[256];
+    struct servent* srv;
+    short           port;
+
+    if (0 >= GET_STR(env, ename, name, sizeof(name)))
+        return esock_make_error(env, esock_atom_einval);
+
+    if (0 >= GET_STR(env, eproto, proto, sizeof(proto)))
+        return esock_make_error(env, esock_atom_einval);
+
+    if ( strcmp(proto, "any") == 0 )
+        srv = net_getservbyname(name, NULL);
+    else
+        srv = net_getservbyname(name, proto);
+
+    if (srv == NULL)
+        return esock_make_error(env, esock_atom_einval);
+
+    port = net_ntohs(srv->s_port);
+
+    return esock_make_ok2(env, MKI(env, port));
+}
+
+
+
+/* ----------------------------------------------------------------------
+ * nif_getservbyport
+ *
+ * Description:
+ * Get service by name.
+ * This is a lookup function that translates a port number to its
+ * (registered) service name.
+ *
+ * Arguments:
+ * PortNumber - Port number for which we want to know the service name
+ * Protocol   - The the protocol for which we want to service name
+ *
+ * Returns:
+ * {ok, Name :: string()} | {error, Reason :: term()}
+ */
+
+static
+ERL_NIF_TERM nif_getservbyport(ErlNifEnv*         env,
+                               int                argc,
+                               const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM result, eport, eproto;
+    BOOLEAN_T    dbg = FALSE;
+
+    NDBG2( dbg, ("NET", "nif_getservbyport -> entry (%d)\r\n", argc) );
+
+    if (argc != 2)
+        return enif_make_badarg(env);
+
+    eport  = argv[0];
+    eproto = argv[1];
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyport -> args: "
+            "\r\n   eport:  %T"
+            "\r\n   eproto: %T"
+            "\r\n", eport, eproto) );
+
+    result = enet_getservbyport(env, dbg, eport, eproto);
+
+    NDBG2( dbg,
+           ("NET",
+            "nif_getservbyport -> done when result: "
+            "\r\n   %T\r\n", result) );
+
+    return result;
+}
+
+
+static
+ERL_NIF_TERM enet_getservbyport(ErlNifEnv*   env,
+                                BOOLEAN_T      dbg,
+                                ERL_NIF_TERM eport,
+                                ERL_NIF_TERM eproto)
+{
+    char            proto[256];
+    struct servent* srv;
+    unsigned int    port;
+    ERL_NIF_TERM ename, result;
+
+    NDBG2( dbg, ("NET", "enet_getservbyport -> try 'get' port\r\n") );
+    if (0 >= GET_UINT(env, eport, &port))
+        return esock_make_error(env, esock_atom_einval);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> (pre htons) port: %u\r\n", port) );
+
+    port = net_htons(port);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> (post htons) port: %u\r\n", port) );
+
+    NDBG2( dbg, ("NET", "enet_getservbyport -> try 'get' proto\r\n") );
+    if (0 >= GET_STR(env, eproto, proto, sizeof(proto)))
+        return esock_make_error(env, esock_atom_einval);
+    NDBG2( dbg, ("NET", "enet_getservbyport -> proto: %s\r\n", proto) );
+
+    NDBG2( dbg, ("NET", "enet_getservbyport -> check proto\r\n") );
+    if ( strcmp(proto, "any") == 0 ) {
+        srv = net_getservbyport(port, NULL);
+    } else {
+        srv = net_getservbyport(port, proto);
+    }
+
+    if (srv == NULL) {
+
+        NDBG2( dbg, ("NET", "enet_getservbyport -> failed get servent\r\n") );
+
+        result = esock_make_error(env, esock_atom_einval);
+
+    } else {
+
+        unsigned int len = strlen(srv->s_name);
+
+        NDBG2( dbg, ("NET", "enet_getservbyport -> make string (term) with length %d\r\n", len) );
+
+        ename = MKSL(env, srv->s_name, len);
+
+        result = esock_make_ok2(env, ename);
+
+    }
+
+    NDBG2( dbg, ("NET", "enet_getservbyport -> done with"
+                 "\r\n   result: %T"
+                 "\r\n", result) );
+
+    return result;
+}
+
+
 
 /* ----------------------------------------------------------------------
  * nif_if_name2index
@@ -4697,6 +4919,8 @@ ErlNifFunc net_funcs[] =
     {"nif_get_if_entry",       1, nif_get_if_entry,       ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_interface_info", 1, nif_get_interface_info, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"nif_get_ip_address_table", 1, nif_get_ip_address_table, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_getservbyname", 2, nif_getservbyname, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"nif_getservbyport", 2, nif_getservbyport, ERL_NIF_DIRTY_JOB_IO_BOUND},
 
     /* Network interface (name and/or index) functions */
     {"nif_if_name2index",    1, nif_if_name2index, 0},
