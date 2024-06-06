@@ -30,7 +30,7 @@ A module for basic arithmetic.
 
 -export([add/2]).
 
--doc "Adds two numbers."
+-doc "Adds two numbers.".
 add(One, Two) -> One + Two.
 ```
 
