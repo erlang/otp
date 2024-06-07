@@ -1227,10 +1227,6 @@ test_events(run_groups_with_testspec, Params, Events) ->
 
 flatten_tests({conf,[{name,G}|_],{Mod,_I},Tests,_E}) ->
     lists:flatten([{group,Mod,G} | flatten_tests(Tests)]);
-flatten_tests([{conf,[{name,G}|_],{Mod,_I},[],_E} | Confs]) ->
-    % Elide empty groups, like ct_groups does, to prevent
-    % trying to verify their non-existent events.
-    flatten_tests(Confs);
 flatten_tests([{conf,[{name,G}|_],{Mod,_I},Tests,_E} | Confs]) ->
     lists:flatten([{group,Mod,G} | flatten_tests(Tests)]) ++
 	lists:flatten(flatten_tests(Confs));
