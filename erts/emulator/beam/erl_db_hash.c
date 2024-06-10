@@ -71,6 +71,7 @@
 #  include "config.h"
 #endif
 
+#include <stdbool.h>
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -231,7 +232,7 @@ static ERTS_INLINE void free_fixdel(DbTableHash* tb, FixedDeletion* fixd)
     ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
 }
 
-static ERTS_INLINE int link_fixdel(DbTableHash* tb,
+static ERTS_INLINE bool link_fixdel(DbTableHash* tb,
                                    FixedDeletion* fixd,
                                    erts_aint_t fixated_by_me)
 {
@@ -257,17 +258,17 @@ static ERTS_INLINE int link_fixdel(DbTableHash* tb,
  * Return false if we got raced by unfixing thread
  * and the object should be deleted for real.
  */
-static int add_fixed_deletion(DbTableHash* tb, int ix,
+static bool add_fixed_deletion(DbTableHash* tb, UWord ix,
                               erts_aint_t fixated_by_me)
 {
     FixedDeletion* fixd = alloc_fixdel(tb);
     fixd->slot = ix;
-    fixd->all = 0;
+    fixd->all = false;
     return link_fixdel(tb, fixd, fixated_by_me);
 }
 
 
-static ERTS_INLINE int is_pseudo_deleted(HashDbTerm* p)
+static ERTS_INLINE bool is_pseudo_deleted(HashDbTerm* p)
 {
     return p->pseudo_deleted;
 }
@@ -588,8 +589,8 @@ struct mp_prefound {
 };
 
 struct mp_info {
-    int something_can_match;	/* The match_spec is not "impossible" */
-    int key_given;
+    bool something_can_match;	/* The match_spec is not "impossible" */
+    bool key_given;
     struct mp_prefound dlists[10];  /* Default list of "pre-found" buckets */
     struct mp_prefound* lists;   /* Buckets to search if keys are given, 
 				  * = dlists initially */
@@ -632,8 +633,8 @@ typedef bool ExtraMatchValidatorF(int keypos, Eterm match, Eterm guard, Eterm bo
 /*
 ** Forward decl's (static functions)
 */
-static void alloc_seg(DbTableHash *tb, int activate_new_seg);
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, UWord seg_ix);
+static void alloc_seg(DbTableHash *tb, bool activate_new_seg);
 static int free_seg(DbTableHash *tb);
 static HashDbTerm* next_live(DbTableHash *tb, UWord *iptr, erts_rwmtx_t** lck_ptr,
 			     HashDbTerm *list);
@@ -711,7 +712,7 @@ static int db_select_replace_continue_hash(Process *p, DbTable *tbl,
 static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
-			  int show,
+                          bool show,
 			  DbTable *tbl);
 static int db_free_empty_table_hash(DbTable *tbl);
 
@@ -731,19 +732,19 @@ static Eterm db_delete_all_objects_get_nitems_from_holder_hash(Process* p,
 #ifdef HARDDEBUG
 static void db_check_table_hash(DbTableHash *tb);
 #endif
-static int
+static bool
 db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                       DbUpdateHandle* handle);
 static void
 db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
-static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj);
+static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj);
 static void* db_dbterm_list_append_hash(void* last_term, void* db_term);
 static void* db_dbterm_list_remove_first_hash(void** list);
 static int db_put_dbterm_hash(DbTable* tb,
                               void* obj,
-                              int key_clash_fail,
+                              bool key_clash_fail,
                               SWord *consumed_reds_p);
-static void db_free_dbterm_hash(int compressed, void* obj);
+static void db_free_dbterm_hash(bool compressed, void* obj);
 static Eterm db_get_dbterm_key_hash(DbTable* tb, void* db_term);
 
 static int
@@ -760,7 +761,7 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb, Sint nitems)
 
 /* Is this a live object (not pseodo-deleted) with the specified key? 
 */
-static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
+static ERTS_INLINE bool has_live_key(DbTableHash* tb, HashDbTerm* b,
 				    Eterm key, HashValue hval)
 {
     if (b->hvalue != hval || is_pseudo_deleted(b))
@@ -774,7 +775,7 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
 
 /* Has this object the specified key? Can be pseudo-deleted.
 */
-static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
+static ERTS_INLINE bool has_key(DbTableHash* tb, HashDbTerm* b,
 			       Eterm key, HashValue hval)
 {
     if (b->hvalue != hval)
@@ -802,7 +803,7 @@ static ERTS_INLINE HashDbTerm* new_dbterm_hash(DbTableCommon* tb, Eterm obj)
  * This function only differ from new_dbterm_hash in that it does not
  * adjust the memory size of a given table.
  */
-static ERTS_INLINE HashDbTerm* new_dbterm_hash_no_tab(int compress, int keypos, Eterm obj)
+static ERTS_INLINE HashDbTerm* new_dbterm_hash_no_tab(bool compress, int keypos, Eterm obj)
 {
     HashDbTerm* p;
     if (compress) {
@@ -1240,7 +1241,7 @@ static ERTS_INLINE int db_terms_eq(DbTableCommon* tb, DbTerm* a, DbTerm* b,
 
 static int db_put_dbterm_hash(DbTable* tbl,
                               void* ob,
-                              int key_clash_fail,
+                              bool key_clash_fail,
                               SWord *consumed_reds_p)
 {
     DbTableHash *tb = &tbl->hash;
@@ -1280,7 +1281,7 @@ static int db_put_dbterm_hash(DbTable* tbl,
 	HashDbTerm* bnext = b->next;
 	if (is_pseudo_deleted(b)) {
             INC_NITEMS(tb, lck_ctr, hval);
-            b->pseudo_deleted = 0;
+            b->pseudo_deleted = false;
 	}
 	else if (key_clash_fail) {
 	    ret = DB_ERROR_BADKEY;
@@ -1315,7 +1316,7 @@ static int db_put_dbterm_hash(DbTable* tbl,
                             &tmp)) {
 		if (is_pseudo_deleted(q)) {
                     INC_NITEMS(tb, lck_ctr, hval);
-                    q->pseudo_deleted = 0;
+                    q->pseudo_deleted = false;
 		    ASSERT(q->hvalue == hval);
 		    if (q != b) { /* must move to preserve key insertion order */
 			*qp = q->next;
@@ -1338,7 +1339,7 @@ static int db_put_dbterm_hash(DbTable* tbl,
 Lnew:
     q = value_to_insert;
     q->hvalue = hval;
-    q->pseudo_deleted = 0;
+    q->pseudo_deleted = false;
     q->next = b;
     *bp = q;
     INC_NITEMS(tb, lck_ctr, hval);
@@ -1357,7 +1358,7 @@ Ldone:
     return ret;
 }
 
-int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail,
+int db_put_hash(DbTable *tbl, Eterm obj, bool key_clash_fail,
                 SWord *consumed_reds_p)
 {
     DbTableHash *tb = &tbl->hash;
@@ -1394,7 +1395,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail,
 	HashDbTerm* bnext = b->next;
 	if (is_pseudo_deleted(b)) {
             INC_NITEMS(tb, lck_ctr, hval);
-            b->pseudo_deleted = 0;
+            b->pseudo_deleted = false;
 	}
 	else if (key_clash_fail) {
 	    ret = DB_ERROR_BADKEY;
@@ -1423,7 +1424,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail,
 	    if (db_eq(&tb->common,obj,&q->dbterm)) {
 		if (is_pseudo_deleted(q)) {
 		    INC_NITEMS(tb, lck_ctr, hval);
-                    q->pseudo_deleted = 0;
+                    q->pseudo_deleted = false;
 		    ASSERT(q->hvalue == hval);
 		    if (q != b) { /* must move to preserve key insertion order */
 			*qp = q->next;
@@ -1444,7 +1445,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail,
 Lnew:
     q = new_dbterm(tb, obj);
     q->hvalue = hval;
-    q->pseudo_deleted = 0;
+    q->pseudo_deleted = false;
     q->next = b;
     *bp = q;
     INC_NITEMS(tb, lck_ctr, hval);
@@ -1630,7 +1631,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
 	    if (nitems_diff == -1 && IS_FIXED(tb)
                 && add_fixed_deletion(tb, ix, 0)) {
 		/* Pseudo remove (no need to keep several of same key) */
-		b->pseudo_deleted = 1;
+		b->pseudo_deleted = true;
 	    } else {
 		HashDbTerm* next = b->next;
                 b->next = free_us;
@@ -1689,7 +1690,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 	    if (db_eq(&tb->common,object, &b->dbterm)) {
 		--nitems_diff;
 		if (nkeys==1 && IS_FIXED(tb) && add_fixed_deletion(tb,ix,0)) {
-		    b->pseudo_deleted = 1;
+		    b->pseudo_deleted = true;
 		    bp = &b->next;
 		    b = b->next;
 		} else {
@@ -2077,7 +2078,7 @@ static ERTS_INLINE int on_simple_trap(Export* trap_function,
     Eterm egot;
     Eterm mpb;
     Eterm continuation;
-    int is_first_trap = (ctx->prev_continuation_tptr == NULL);
+    const bool is_first_trap = (ctx->prev_continuation_tptr == NULL);
     size_t base_halloc_sz = (is_first_trap ? ERTS_MAGIC_REF_THING_SIZE : 0);
 
     BUMP_ALL_REDS(ctx->p);
@@ -2114,7 +2115,7 @@ static ERTS_INLINE int on_simple_trap(Export* trap_function,
     return DB_ERROR_NONE;
 }
 
-static ERTS_INLINE int unpack_simple_continuation(Eterm continuation,
+static ERTS_INLINE bool unpack_simple_continuation(Eterm continuation,
                                                   Eterm** tptr_ptr,
                                                   Eterm* tid_ptr,
                                                   Sint* slot_ix_p,
@@ -2632,7 +2633,7 @@ static int select_delete_on_match_res(traverse_context_t* ctx_base, Sint slot_ix
                 goto do_erase;
             ctx->last_pseudo_delete = slot_ix;
         }
-        (*current_ptr)->pseudo_deleted = 1;
+        (*current_ptr)->pseudo_deleted = true;
     }
     else {
     do_erase:
@@ -2831,7 +2832,7 @@ static int select_replace_on_match_res(traverse_context_t* ctx, Sint slot_ix,
         new = new_dbterm(tb, match_res);
         new->next = next;
         new->hvalue = hval;
-        new->pseudo_deleted = 0;
+        new->pseudo_deleted = false;
         free_term(tb, **current_ptr_ptr);
         **current_ptr_ptr = new; /* replace 'next' pointer in previous object */
         *current_ptr_ptr = &((**current_ptr_ptr)->next); /* advance to next object */
@@ -2964,7 +2965,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
                     && add_fixed_deletion(tb, ix, 0)) {
                     /* Pseudo remove (no need to keep several of same key) */
                     bp = &b->next;
-                    b->pseudo_deleted = 1;
+                    b->pseudo_deleted = true;
                     b = b->next;
                 } else {
                     HashDbTerm* next = b->next;
@@ -3017,7 +3018,7 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     }
     else {
         /* First call */
-        int ok;
+        bool ok;
         fixdel = alloc_fixdel(tb);
         ok = link_fixdel(tb, fixdel, 0);
         ASSERT(ok); (void)ok;
@@ -3027,31 +3028,31 @@ static SWord db_mark_all_deleted_hash(DbTable *tbl, SWord reds)
     do {
         HashDbTerm* b;
 	for (b = BUCKET(tb,i); b; b = b->next)
-            b->pseudo_deleted = 1;
+            b->pseudo_deleted = true;
     } while (++i < NACTIVE(tb) && --loops > 0);
 
     if (i < NACTIVE(tb)) {
          /* Yield */
         fixdel->slot = i;
-        fixdel->all = 1;
-        fixdel->trap = 1;
+        fixdel->all = true;
+        fixdel->trap = true;
         return -1;
     }
 
     fixdel->slot = NACTIVE(tb) - 1;
-    fixdel->all = 1;
-    fixdel->trap = 0;
+    fixdel->all = true;
+    fixdel->trap = false;
     RESET_NITEMS(tb);
     return loops < 0 ? 0 : loops / LOOPS_PER_REDUCTION;
 }
 
 
 /* Display hash table contents (for dump) */
-static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
+static void db_print_hash(fmtfn_t to, void *to_arg, bool show, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
     DbHashStats stats;
-    int was_thread_safe;
+    bool was_thread_safe;
 
     erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
 
@@ -3059,7 +3060,7 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
     /* If crash dumping we set table to thread safe in order to
        avoid taking any locks */
     if (ERTS_IS_CRASH_DUMPING)
-        tbl->common.is_thread_safe = 1;
+        tbl->common.is_thread_safe = true;
 
     db_calc_stats_hash(&tbl->hash, &stats);
 
@@ -3185,8 +3186,8 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 
     mpi->lists = mpi->dlists;
     mpi->num_lists = 0;
-    mpi->key_given = 1;
-    mpi->something_can_match = 0;
+    mpi->key_given = true;
+    mpi->something_can_match = false;
     mpi->mp = NULL;
 
     for (lst = pattern; is_list(lst); lst = CDR(list_val(lst)))
@@ -3245,14 +3246,14 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 	    continue;
 	}
 	if (tpl == am_Underscore || db_is_variable(tpl) != -1) {
-	    (mpi->key_given) = 0;
-	    (mpi->something_can_match) = 1;
+	    mpi->key_given = false;
+	    mpi->something_can_match = true;
 	} else {
 	    key = db_getkey(tb->common.keypos, tpl);
 	    if (is_value(key)) {
 		if (db_is_fully_bound(key)) {
 		    UWord ix;
-                    int search_slot;
+                    bool search_slot;
 		    HashDbTerm** bp;
 		    erts_rwmtx_t* lck;
 		    hval = MAKE_HASH(key);
@@ -3265,7 +3266,7 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 			/* No point to verify if key exist now as there may be
 			   concurrent inserters/deleters anyway */
 			RUNLOCK_HASH(lck);
-			search_slot = 1;
+			search_slot = true;
 		    }
 		    if (search_slot) {
 			int j;
@@ -3282,11 +3283,11 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 			    }
 			    ASSERT(mpi->lists[j].ix != ix);
 			}
-			mpi->something_can_match = 1;
+			mpi->something_can_match = true;
 		    }
 		} else {
-		    mpi->key_given = 0;
-		    mpi->something_can_match = 1;
+		    mpi->key_given = false;
+		    mpi->something_can_match = true;
 		}
 	    }
 	}
@@ -3344,7 +3345,7 @@ static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, UWord seg_ix)
 static void calc_shrink_limit(DbTableHash* tb)
 {
     erts_aint_t shrink_limit;
-    int sample_size_is_enough = 1;
+    bool sample_size_is_enough = true;
 
     if (IS_DECENTRALIZED_CTRS(tb)) {
         /*
@@ -3368,7 +3369,7 @@ static void calc_shrink_limit(DbTableHash* tb)
         /* } */
         const UWord needed_slots = 100 * NLOCKS_WITH_ITEM_COUNTERS;
         if (tb->nslots < needed_slots) {
-            sample_size_is_enough = 0;
+            sample_size_is_enough = false;
         }
     }
 
@@ -3400,7 +3401,7 @@ static void calc_shrink_limit(DbTableHash* tb)
 
 /* Extend table with one new segment
 */
-static void alloc_seg(DbTableHash *tb, int activate_buckets)
+static void alloc_seg(DbTableHash *tb, bool activate_buckets)
 {    
     UWord seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots);
     struct segment** segtab;
@@ -3459,7 +3460,7 @@ struct dealloc_seg_ops {
 ** free_records: 1=free any records in segment, 0=assume segment is empty 
 ** ds_ops: (out) Instructions for dealloc_seg().
 */
-static int remove_seg(DbTableHash *tb, int free_records,
+static int remove_seg(DbTableHash *tb, bool free_records,
                       struct dealloc_seg_ops *ds_ops)
 {
     const UWord seg_ix = SLOT_IX_TO_SEG_IX(tb->nslots) - 1;
@@ -3571,7 +3572,7 @@ static int free_seg(DbTableHash *tb)
     struct dealloc_seg_ops ds_ops;
     int reds;
 
-    reds = remove_seg(tb, 1, &ds_ops);
+    reds = remove_seg(tb, true, &ds_ops);
     dealloc_seg(tb, &ds_ops);
     return reds;
 }
@@ -3616,7 +3617,7 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
     return list;
 }
 
-static ERTS_INLINE int
+static ERTS_INLINE bool
 begin_resizing(DbTableHash* tb)
 {
     if (DB_USING_FINE_LOCKING(tb)) {
@@ -3777,7 +3778,7 @@ static void shrink(DbTableHash* tb, UWord nitems)
             erts_atomic_set_relb(&tb->szm, low_szm);
         }
         if (tb->nslots - src_ix >= EXT_SEGSZ) {
-            remove_seg(tb, 0, &ds_ops);
+            remove_seg(tb, false, &ds_ops);
         }
         done_resizing(tb);
 
@@ -3862,7 +3863,7 @@ static HashDbTerm* next_live(DbTableHash *tb, UWord *iptr, erts_rwmtx_t** lck_pt
     return NULL;
 }
 
-static int
+static bool
 db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                       DbUpdateHandle* handle)
 {
@@ -3914,7 +3915,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             HashDbTerm *q = new_dbterm(tb, obj);
 
             q->hvalue = hval;
-            q->pseudo_deleted = 0;
+            q->pseudo_deleted = false;
             q->next = NULL;
             *bp = b = q;
             flags |= DB_INC_TRY_GROW;
@@ -3925,7 +3926,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             q = replace_dbterm(tb, b, obj);
             q->next = next;
             ASSERT(q->hvalue == hval);
-            q->pseudo_deleted = 0;
+            q->pseudo_deleted = false;
             *bp = b = q;
             INC_NITEMS(tb, lck_ctr, hval);
         }
@@ -3966,7 +3967,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
         if (IS_FIXED(tb) && add_fixed_deletion(tb, hash_to_ix(tb, b->hvalue),
                                                0)) {
-            b->pseudo_deleted = 1;
+            b->pseudo_deleted = true;
         } else {
             *bp = b->next;
             free_me = b;
@@ -4228,7 +4229,7 @@ static int db_raw_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     return DB_ERROR_NONE;
 }
 
-static void* db_eterm_to_dbterm_hash(int compress, int keypos, Eterm obj)
+static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj)
 {
     HashDbTerm* term = new_dbterm_hash_no_tab(compress, keypos, obj);
     term->next = NULL;
@@ -4259,7 +4260,7 @@ static void* db_dbterm_list_remove_first_hash(void** list)
  * Frees a HashDbTerm without updating the memory footprint of the
  * table.
  */
-static void db_free_dbterm_hash(int compressed, void* obj)
+static void db_free_dbterm_hash(bool compressed, void* obj)
 {
     HashDbTerm* p = obj;
     db_free_term_no_tab(compressed, p, offsetof(HashDbTerm, dbterm));

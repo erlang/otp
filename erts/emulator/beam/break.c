@@ -639,7 +639,7 @@ do_break(void)
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
 	    return;
 	case 'D':
-	    db_info(ERTS_PRINT_STDOUT, NULL, 1);
+	    db_info(ERTS_PRINT_STDOUT, NULL, true);
 	    return; 
 	case 'k':
 	    process_killer();
@@ -1033,7 +1033,7 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     info(to, to_arg); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
 	process_info(to, to_arg); /* Info about each process and port */
-    db_info(to, to_arg, 0);
+    db_info(to, to_arg, false);
     erts_print_bif_timer_info(to, to_arg);
     distribution_info(to, to_arg);
     erts_cbprintf(to, to_arg, "=loaded_modules\n");

@@ -27,8 +27,8 @@ typedef struct fixed_deletion {
     UWord slot : sizeof(UWord)*8 - 2;
 
     /* Used by delete_all_objects: */
-    UWord all : 1;  /* marks [0 -> slot] */
-    UWord trap : 1;
+    bool all : 1;  /* marks [0 -> slot] */
+    bool trap : 1;
 
     struct fixed_deletion *next;
 } FixedDeletion;
@@ -39,7 +39,10 @@ typedef Uint32 HashVal;
 typedef struct hash_db_term {
     struct  hash_db_term* next;  /* next bucket */
     UWord hvalue : sizeof(UWord)*8 - 1;     /* stored hash value */
-    int pseudo_deleted : 1;
+    UWord pseudo_deleted : 1;               /* delete marked in fixed table */
+    /* Note: 'pseudo_deleted' could be bool if Windows compiler would
+     * pack it into same word as 'hvalue'. */
+
     DbTerm dbterm;         /* The actual term */
 } HashDbTerm;
 
@@ -112,7 +115,7 @@ Uint db_kept_items_hash(DbTableHash *tb);
 int db_create_hash(Process *p, 
 		   DbTable *tbl /* [in out] */);
 
-int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail, SWord* consumed_reds_p);
+int db_put_hash(DbTable *tbl, Eterm obj, bool key_clash_fail, SWord* consumed_reds_p);
 
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 

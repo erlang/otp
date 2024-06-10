@@ -215,7 +215,7 @@ void erts_flxctr_setup(int decentralized_counter_groups)
 }
 
 void erts_flxctr_init(ErtsFlxCtr* c,
-                      int is_decentralized,
+                      bool is_decentralized,
                       Uint nr_of_counters,
                       ErtsAlcType_t alloc_type)
 {
@@ -341,12 +341,13 @@ Sint erts_flxctr_get_snapshot_result_after_trap(Eterm result_holder,
     return data->result[counter_nr];
 }
 
-int erts_flxctr_is_snapshot_result(Eterm term)
+bool erts_flxctr_is_snapshot_result(Eterm term)
 {
     if (is_internal_magic_ref(term)) {
         Binary* bin = erts_magic_ref2bin(term);
         return ERTS_MAGIC_BIN_DESTRUCTOR(bin) ==  erts_flxctr_read_ctx_bin_dtor;
-    } else return 0;
+    } else
+        return false;
 }
 
 Sint erts_flxctr_read_approx(ErtsFlxCtr* c,
@@ -365,7 +366,7 @@ Sint erts_flxctr_read_approx(ErtsFlxCtr* c,
     }
 }
 
-int erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c)
+bool erts_flxctr_is_snapshot_ongoing(ErtsFlxCtr* c)
 {
     return c->is_decentralized &&
         (ERTS_FLXCTR_SNAPSHOT_NOT_ONGOING !=
