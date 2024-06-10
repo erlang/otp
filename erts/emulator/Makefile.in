@@ -1398,42 +1398,40 @@ DEPEND_DEPS=jit src drv nif sys target zlib ryu
 
 $(TTF_DIR)/src.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
-		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp > $@
 $(TTF_DIR)/drv.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
-		| $(SED_DEPEND) > $@
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
-		| $(SED_DEPEND) >> $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) > $@.tmp
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) >> $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp > $@
 $(TTF_DIR)/nif.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) \
-		| $(SED_DEPEND) > $@
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) \
-		| $(SED_DEPEND) >> $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(NIF_COMMON_SRC) > $@.tmp
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) -I../etc/$(ERLANG_OSTYPE) $(NIF_OSTYPE_SRC) >> $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp > $@
 $(TTF_DIR)/sys.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
-		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp > $@
 $(TTF_DIR)/target.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
-		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp  > $@
 $(TTF_DIR)/zlib.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
-		| $(SED_DEPEND_ZLIB) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND_ZLIB) $@.tmp > $@
 $(TTF_DIR)/ryu.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
-	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) \
-		| $(SED_DEPEND_ZLIB) > $@
+	$(V_at)$(DEP_CC) $(DEP_FLAGS) $(RYU_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND_ZLIB) $@.tmp  > $@
 $(TTF_DIR)/jit.depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(gen_verbose)
 	@touch $@
 ifeq ($(JIT_ENABLED),yes)
-	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) \
-		| $(SED_DEPEND) > $@
+	$(V_at)$(DEP_CXX) $(DEP_CXXFLAGS) $(BEAM_CPP_SRC) > $@.tmp
+	$(V_at)$(SED_DEPEND) $@.tmp > $@
 endif
 
 .PHONY: depend
@@ -1444,6 +1442,7 @@ else
 depend: $(TTF_DIR)/depend.mk
 $(TTF_DIR)/depend.mk: $(foreach dep, $(DEPEND_DEPS), $(TTF_DIR)/$(dep).depend.mk)
 	$(gen_verbose)
+	$(V_at)rm $(TTF_DIR)/*.tmp
 	$(V_at)echo "" > "$@"
 	$(V_at)for dep in "$^"; do cat $$dep >> "$@"; done
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend

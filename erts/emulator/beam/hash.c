@@ -98,10 +98,8 @@ void hash_info(fmtfn_t to, void *arg, Hash* h)
 int
 hash_table_sz(Hash *h)
 {
-  int i;
-  for(i=0;h->name[i];i++);
-  i++;
-  return sizeof(Hash) + hash_get_slots(h)*sizeof(HashBucket*) + i;
+  const int name_len = strlen(h->name) + 1;
+  return sizeof(Hash) + hash_get_slots(h)*sizeof(HashBucket*) + name_len;
 }
 
 
