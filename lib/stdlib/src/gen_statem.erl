@@ -26,56 +26,21 @@
     and should be used for new code.  The `gen_fsm` behaviour
     remains in OTP "as is" to not break old code using it.
 
+    A generic state machine server process (`gen_statem`) implemented
+    using this module has a standard set of interface functions
+    and includes functionality for tracing and error reporting.
+    It also fits into an OTP supervision tree.  For more information,
+    see [OTP Design Principles](`e:system:statem.md`).
+
     > #### Note {: .info }
     >
     > If you are new to `gen_statem` and want an overview
     > of concepts and operation the section
     > [`gen_statem` Behaviour](`e:system:statem.md`) located in
     > the User's Guide [OTP Design Principles](`e:system:index.html`)
-    > is recommended to read before this reference manual, possibly after
-    > this Description section.
-
-    This reference manual contains type descriptions generated from types
-    in the `gen_statem` source code, so they are correct.  However,
-    the generated descriptions also reflect the type hierarchy, which sometimes
-    makes it hard to get a good overview.  If so, see the section
-    [`gen_statem` Behaviour](`e:system:statem.md`) in the
-    [OTP Design Principles](`e:system:index.html`) User's Guide.
-
-    > #### Note {: .info }
-    > #### API changes
-    > - This behavior appeared in Erlang/OTP 19.0 as experimental.
-    > - In OTP 19.1 a backwards incompatible change of the return tuple from
-    >   [`Module:init/1`](`c:init/1`) was made,
-    >   the mandatory callback function
-    >   [`Module:callback_mode/0`](`c:callback_mode/0`) was introduced,
-    >   and `enter_loop/4` was added.
-    > - In OTP 19.2 [_state enter calls_](`t:state_enter/0`) were added.
-    > - In OTP 19.3 [state time-outs](`t:state_timeout/0`) were added.
-    > - In OTP 20.0 [generic time-outs](`t:generic_timeout/0`) were added
-    >   and `gen_statem` was stated to be no longer experimental and
-    >   preferred over `gen_fsm`.
-    > - In OTP 22.1 time-out content [`update`](`t:timeout_update_action/0`)
-    >   and explicit time-out [`cancel`](`t:timeout_cancel_action/0`)
-    >   were added.
-    > - In OTP 22.3 the possibility to change the callback module with actions
-    >   [`change_callback_module`](#change_callback_module),
-    >   [`push_callback_module`](#push_callback_module) and
-    >   [`pop_callback_module`](#pop_callback_module), was added.
-    > - In OTP 23.0 [`start_monitor/3,4`](`start_monitor/3`) were added,
-    >   as well as functions for asynchronous calls: `send_request/2`,
-    >   [`wait_response/1,2`](`wait_response/2`), and `check_response/2`.
-    > - In OTP 24.0 [`receive_response/1,2`](`receive_response/2`) were added.
-    > - In OTP 25.0 [`Module:format_status/1`](`c:format_status/1`)
-    >   was added to replace [`Module:format_status/1`](`c:format_status/1`),
-    >   as well as functions for collections of asynchronous calls:
-    >   `send_request/4`, `wait_response/3`, `receive_response/3`,
-    >   `check_response/3`, `reqids_new/0`, `reqids_size/1`,
-    >   `reqids_add/3`, `reqids_to_list/1`.
-    > - In OTP 26.0 the possibility to return `{error, Reason}` from
-    >   [`Module:init/1`](`c:init/1`) was added.
-    > - In OTP 27.0 [`Module:format_status/1`](`c:format_status/1`)
-    >   was deprecated.
+    > is recommended to read.  This reference manual focuses on
+    > being correct and complete, which might make it hard to see
+    > the forest for all the trees.
 
     #### Features
 
@@ -103,16 +68,11 @@
     - One that allows the state to be any term and that uses
       one callback function for all states.
 
-    The callback model(s) for `gen_statem` differs from the one for
-    `m:gen_fsm`, but it is still fairly easy to
-    [rewrite from](`m:gen_fsm#module-migration-to-gen_statem`)
-    `gen_fsm` to `gen_statem`.
-
-    A generic state machine server process (`gen_statem`) implemented
-    using this module has a standard set of interface functions
-    and includes functionality for tracing and error reporting.
-    It also fits into an OTP supervision tree.  For more information,
-    see [OTP Design Principles](`e:system:statem.md`).
+    The callback modes for `gen_statem` differs from the one for
+    `gen_fsm`, but it is still fairly easy to
+    rewrite from `gen_fsm` to `gen_statem`.  See the
+    [rewrite guide](`m:gen_fsm#module-migration-to-gen_statem`)
+    at the start of the `m:gen_fsm` documentation.
 
     #### Callback module
 
@@ -426,6 +386,41 @@
         %% Ignore all other events
         {next_state,State,Data}.
     ```
+
+    > #### Note {: .info }
+    > ## API changes
+    > - This behavior appeared in Erlang/OTP 19.0 as experimental.
+    > - In OTP 19.1 a backwards incompatible change of the return tuple from
+    >   [`Module:init/1`](`c:init/1`) was made,
+    >   the mandatory callback function
+    >   [`Module:callback_mode/0`](`c:callback_mode/0`) was introduced,
+    >   and `enter_loop/4` was added.
+    > - In OTP 19.2 [_state enter calls_](`t:state_enter/0`) were added.
+    > - In OTP 19.3 [state time-outs](`t:state_timeout/0`) were added.
+    > - In OTP 20.0 [generic time-outs](`t:generic_timeout/0`) were added
+    >   and `gen_statem` was stated to be no longer experimental and
+    >   preferred over `gen_fsm`.
+    > - In OTP 22.1 time-out content [`update`](`t:timeout_update_action/0`)
+    >   and explicit time-out [`cancel`](`t:timeout_cancel_action/0`)
+    >   were added.
+    > - In OTP 22.3 the possibility to change the callback module with actions
+    >   [`change_callback_module`](#change_callback_module),
+    >   [`push_callback_module`](#push_callback_module) and
+    >   [`pop_callback_module`](#pop_callback_module), was added.
+    > - In OTP 23.0 [`start_monitor/3,4`](`start_monitor/3`) were added,
+    >   as well as functions for asynchronous calls: `send_request/2`,
+    >   [`wait_response/1,2`](`wait_response/2`), and `check_response/2`.
+    > - In OTP 24.0 [`receive_response/1,2`](`receive_response/2`) were added.
+    > - In OTP 25.0 [`Module:format_status/1`](`c:format_status/1`)
+    >   was added to replace [`Module:format_status/1`](`c:format_status/1`),
+    >   as well as functions for collections of asynchronous calls:
+    >   `send_request/4`, `wait_response/3`, `receive_response/3`,
+    >   `check_response/3`, `reqids_new/0`, `reqids_size/1`,
+    >   `reqids_add/3`, `reqids_to_list/1`.
+    > - In OTP 26.0 the possibility to return `{error, Reason}` from
+    >   [`Module:init/1`](`c:init/1`) was added.
+    > - In OTP 27.0 [`Module:format_status/1`](`c:format_status/1`)
+    >   was deprecated.
 
     ## See Also
 
