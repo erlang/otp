@@ -33,18 +33,32 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2,
+
+         %% The test cases
          base/1,
          gen/1,
          lib/1,
          unknown/1,
-         recode/1]).
+         recode/1
+        ]).
 
 -include("diameter.hrl").
 
--define(util, diameter_util).
--define(L, atom_to_list).
+-include("diameter_util.hrl").
+
+
+-define(CL(F),    ?CL(F, [])).
+-define(CL(F, A), ?LOG("DCS", F, A)).
+-define(L,        atom_to_list).
+
 
 %% ===========================================================================
 
@@ -54,22 +68,76 @@ suite() ->
 all() ->
     [base, gen, lib, unknown, recode].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+init_per_testcase(Case, Config) when is_list(Config) ->
+    ?CL("init_per_testcase(~w) -> check factor", [Case]),
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 10) ->
+            ?CL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+                [Case, Factor]),
+            {skip, {machine_too_slow, Factor}};
+        _ ->
+            ?CL("init_per_testcase(~w) -> run test", [Case]),
+            Config
+    end;
+init_per_testcase(Case, Config) ->
+    ?CL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?CL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+%% ===========================================================================
+
 base(_Config) ->
-    run(base).
+    ?CL("~w -> entry", [?FUNCTION_NAME]),
+    Res = run(base),
+    ?CL("~w -> done when"
+        "~n   Res: ~p", [?FUNCTION_NAME, Res]),
+    Res.
 
 gen(_Config) ->
-    run(gen).
+    ?CL("~w -> entry", [?FUNCTION_NAME]),
+    Res = run(gen),
+    ?CL("~w -> done when"
+        "~n   Res: ~p", [?FUNCTION_NAME, Res]),
+    Res.
 
 lib(_Config) ->
-    run(lib).
+    ?CL("~w -> entry", [?FUNCTION_NAME]),
+    Res = run(lib),
+    ?CL("~w -> done when"
+        "~n   Res: ~p", [?FUNCTION_NAME, Res]),
+    Res.
 
 unknown(Config) ->
+    ?CL("~w -> entry", [?FUNCTION_NAME]),
     Priv = proplists:get_value(priv_dir, Config),
     Data = proplists:get_value(data_dir, Config),
-    unknown(Priv, Data).
+    Res  = unknown(Priv, Data),
+    ?CL("~w -> done when"
+        "~n   Res: ~p", [?FUNCTION_NAME, Res]),
+    Res.
 
 recode(_Config) ->
-    run(recode).
+    ?CL("~w -> entry", [?FUNCTION_NAME]),
+    Res = run(recode),
+    ?CL("~w -> done when"
+        "~n   Res: ~p", [?FUNCTION_NAME, Res]),
+    Res.
+
 
 %% ===========================================================================
 
@@ -97,7 +165,7 @@ run(lib) ->
 
 %% Have a separate AVP dictionary just to exercise more code.
 run(unknown) ->
-    PD = ?util:mktemp("diameter_codec"),
+    PD = ?MKTEMP("diameter_codec"),
     DD = filename:join([code:lib_dir(diameter),
                         "test",
                         "diameter_codec_SUITE_data"]),
@@ -119,19 +187,24 @@ run(failed_error) ->
 run(recode) ->
     ok = diameter:start(),
     try
-        ?util:run([{?MODULE, run, [F]} || F  <- [success,
-                                                 grouped_error,
-                                                 failed_error]])
+        ?RUN([{?MODULE, run, [F]} || F  <- [success,
+                                            grouped_error,
+                                            failed_error]])
     after
         ok = diameter:stop()
     end;
 
 run(List) ->
-    ?util:run([{{?MODULE, run, [F]}, 10000} || F <- List]).
+    ?RUN([{{?MODULE, run, [F]}, 10000} || F <- List]).
+
 
 %% ===========================================================================
 
 unknown(Priv, Data) ->
+    ?CL("~w -> entry with"
+        "~n   Priv dir: ~p"
+        "~n   Data dir: ~p"
+        "~n", [?FUNCTION_NAME, Priv, Data]),
     ok = make(Data, "recv.dia", Priv),
     ok = make(Data, "avps.dia", Priv),
     {ok, _, _} = compile(Priv, "diameter_test_avps.erl"),
@@ -144,13 +217,21 @@ unknown(Priv, Data) ->
     diameter_test_unknown:run().
 
 make(Dir, File, Out) ->
+    ?CL("~w -> entry with"
+        "~n   File: ~p"
+        "~n", [?FUNCTION_NAME, File]),
     diameter_make:codec(filename:join(Dir, File), [{outdir, Out}]).
 
 compile(Dir, File) ->
     compile(Dir, File, []).
 
 compile(Dir, File, Opts) ->
+    ?CL("~w -> entry with"
+        "~n   File: ~p"
+        "~n   Opts: ~p"
+        "~n", [?FUNCTION_NAME, File, Opts]),
     compile:file(filename:join(Dir, File), [return | Opts]).
+
 
 %% ===========================================================================
 
