@@ -30,7 +30,7 @@ A module for basic arithmetic.
 
 -export([add/2]).
 
--doc "Adds two numbers."
+-doc "Adds two numbers.".
 add(One, Two) -> One + Two.
 ```
 
@@ -73,7 +73,7 @@ A module for basic arithmetic.
 
 -export([add/2]).
 
--doc "Adds two numbers."
+-doc "Adds two numbers.".
 -doc(#{since => "1.0"}).
 add(One, Two) -> One + Two.
 ```
@@ -84,7 +84,7 @@ maps will be merged with the latest taking precedence if there are duplicate
 keys. Example:
 
 ```erlang
--doc "Adds two numbers."
+-doc "Adds two numbers.".
 -doc #{since => "1.0", author => "Joe"}.
 -doc #{since => "2.0"}.
 add(One, Two) -> One + Two.
