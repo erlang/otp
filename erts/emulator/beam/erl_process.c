@@ -517,21 +517,6 @@ do {									\
     }									\
 } while (0)
 
-#define ERTS_FOREACH_OP_RUNQ(RQVAR, DO)					\
-do {									\
-    ErtsRunQueue *RQVAR;						\
-    int ix__;								\
-    int online__ = (int) schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,	\
-						  ERTS_SCHED_NORMAL);	\
-    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&schdlr_sspnd.mtx));	\
-    for (ix__ = 0; ix__ < online__; ix__++) {				\
-	RQVAR = ERTS_RUNQ_IX(ix__);					\
-	erts_runq_lock(RQVAR);					\
-	{ DO; }								\
-	erts_runq_unlock(RQVAR);					\
-    }									\
-} while (0)
-
 #define ERTS_ATOMIC_FOREACH_RUNQ_X(RQVAR, NRQS, DO, DOX)		\
 do {									\
     ErtsRunQueue *RQVAR;						\
