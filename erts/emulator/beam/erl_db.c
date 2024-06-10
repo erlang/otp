@@ -2484,7 +2484,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Sint keypos;
     int is_named, is_compressed;
     int is_fine_locked, frequent_read;
-    int number_of_locks;
+    UWord number_of_locks;
     int is_decentralized_counters;
     int is_decentralized_counters_option;
     int is_explicit_lock_granularity;
@@ -2509,7 +2509,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
-    number_of_locks = -1;
+    number_of_locks = 0;
     is_explicit_lock_granularity = 0;
     is_write_concurrency_auto = 0;
 
@@ -2542,7 +2542,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         is_write_concurrency_auto = 1;
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
-                        number_of_locks = -1;
+                        number_of_locks = 0;
                     } else if (tp[2] == am_true) {
                         if (!(status & DB_ORDERED_SET)) {
                             is_decentralized_counters = 0;
@@ -2550,18 +2550,18 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                         is_fine_locked = 1;
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;
-                        number_of_locks = -1;
+                        number_of_locks = 0;
                     } else if (tp[2] == am_false) {
                         is_fine_locked = 0;
                         is_explicit_lock_granularity = 0;
                         is_write_concurrency_auto = 0;
-                        number_of_locks = -1;
+                        number_of_locks = 0;
                     } else if (is_tuple(tp[2])) {
                         Eterm *stp = tuple_val(tp[2]);
-                        Sint number_of_locks_param;
+                        UWord number_of_locks_param;
                         if (arityval(stp[0]) == 2 &&
                             stp[1] == am_debug_hash_fixed_number_of_locks &&
-                            term_to_Sint(stp[2], &number_of_locks_param) &&
+                            term_to_UWord(stp[2], &number_of_locks_param) &&
                             number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
                             number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
 
@@ -2664,7 +2664,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                 status |=  DB_FINE_LOCKED_AUTO;
             }
 	} else {
-            number_of_locks = -1;
+            number_of_locks = 0;
         }
     }
     else if (IS_TREE_TABLE(status)) {

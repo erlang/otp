@@ -38,15 +38,8 @@ typedef Uint32 HashVal;
 
 typedef struct hash_db_term {
     struct  hash_db_term* next;  /* next bucket */
-#if SIZEOF_VOID_P == 4
-    Uint32 hvalue : 31;     /* stored hash value */
-    Uint32 pseudo_deleted : 1;
-# define MAX_HASH_MASK (((Uint32)1 << 31)-1)
-#elif SIZEOF_VOID_P == 8
-    Uint32 hvalue;
-    Uint32 pseudo_deleted;
-# define MAX_HASH_MASK ((Uint32)(Sint32)-1)
-#endif
+    UWord hvalue : sizeof(UWord)*8 - 1;     /* stored hash value */
+    int pseudo_deleted : 1;
     DbTerm dbterm;         /* The actual term */
 } HashDbTerm;
 
@@ -81,9 +74,9 @@ typedef struct db_table_hash {
     struct segment* first_segtab[1];
 
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
-    int nlocks;       /* Needs to be smaller or equal to nactive */
-    int nslots;       /* Total number of slots */
-    int nsegs;        /* Size of segment table */
+    UWord nlocks;       /* Needs to be smaller or equal to nactive */
+    UWord nslots;       /* Total number of slots */
+    UWord nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_atomic_t fixdel;  /* (FixedDeletion*) */
@@ -131,7 +124,7 @@ typedef struct {
     float std_dev_expected;
     int max_chain_len;
     int min_chain_len;
-    int kept_items;
+    UWord kept_items;
 }DbHashStats;
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
