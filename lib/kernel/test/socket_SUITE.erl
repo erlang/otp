@@ -3937,9 +3937,18 @@ mon_open_and_exit_multi_mon(InitState) ->
 %% The processes that did the monitor shall receive one socket DOWN for
 %% each socket.
 
-monitor_open_and_close_multi_socks_and_mon(_Config) when is_list(_Config) ->
+monitor_open_and_close_multi_socks_and_mon(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
-    tc_try(monitor_open_and_close_multi_socks_and_mon,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   FactorKey = kernel_factor,
+                   case lists:keysearch(FactorKey, 1, Config) of
+                       {value, {FactorKey, Factor}} when (Factor > 15) ->
+                           skip("Very slow machine");
+                       _ ->
+                           ok
+                   end
+           end,
            fun() ->
 		   InitState = #{domain   => inet,
                                  type     => stream,
@@ -4891,9 +4900,18 @@ mon_open_and_close_multi_socks_and_mon(InitState) ->
 %% The processes that did the monitor shall receive one socket DOWN for
 %% each socket.
 
-monitor_open_and_exit_multi_socks_and_mon(_Config) when is_list(_Config) ->
+monitor_open_and_exit_multi_socks_and_mon(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
-    tc_try(monitor_open_and_exit_multi_socks_and_mon,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   FactorKey = kernel_factor,
+                   case lists:keysearch(FactorKey, 1, Config) of
+                       {value, {FactorKey, Factor}} when (Factor > 15) ->
+                           skip("Very slow machine");
+                       _ ->
+                           ok
+                   end
+           end,
            fun() ->
 		   InitState = #{domain   => inet,
                                  type     => stream,
