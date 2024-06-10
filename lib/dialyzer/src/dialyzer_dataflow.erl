@@ -2902,7 +2902,7 @@ state__new(Callgraph, Codeserver, Tree, Plt, Module, Records) ->
          envs = Env, fun_tab = FunTab, fun_homes = FunHomes, opaques = Opaques,
 	 plt = Plt, records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
-	 module = Module, reachable_funs = sets:new([{version, 2}])}.
+	 module = Module, reachable_funs = sets:new()}.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
@@ -3313,7 +3313,7 @@ state__translate_file(FakeFile, State) ->
 %%% ===========================================================================
 
 init_work(List) ->
-  {List, [], sets:from_list(List, [{version, 2}])}.
+  {List, [], sets:from_list(List)}.
 
 get_work({[], [], _Set}) ->
   none;

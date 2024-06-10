@@ -4695,10 +4695,10 @@ validate_certs_or_anon_ciphers(CertsKeys, Ciphers, Versions) ->
 
 validate_anon_ciphers(Ciphers, Versions) ->
     MakeSet = fun(Version, Acc) ->
-                      Set = sets:from_list(ssl_cipher:anonymous_suites(Version), [{version, 2}]),
+                      Set = sets:from_list(ssl_cipher:anonymous_suites(Version)),
                       sets:union(Set, Acc)
               end,
-    Anonymous = lists:foldl(MakeSet, sets:new([{version, 2}]), Versions),
+    Anonymous = lists:foldl(MakeSet, sets:new(), Versions),
     CiphersSet = sets:from_list(Ciphers, [{version,2}]),
     case sets:is_disjoint(Anonymous, CiphersSet) of
         false -> ok;

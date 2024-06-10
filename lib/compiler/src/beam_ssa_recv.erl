@@ -454,7 +454,7 @@ propagate_references(Candidates, G) ->
     propagate_references_1(Roots, G, #{}).
 
 propagate_references_1([{Vertex, Ref} | VRefs], G, Acc0) ->
-    Refs = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    Refs = maps:get(Vertex, Acc0, sets:new()),
     Acc = case sets:is_element(Ref, Refs) of
               true ->
                   %% Already visited
@@ -672,8 +672,8 @@ intersect_uses(UsageMap, RefMap, Graph) ->
     intersect_uses_1(Roots, RefMap, Graph, #{}).
 
 intersect_uses_1([{Vertex, Ref} | Vs], RefMap, Graph, Acc0) ->
-    PossibleRefs = maps:get(Vertex, RefMap, sets:new([{version, 2}])),
-    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new([{version, 2}])),
+    PossibleRefs = maps:get(Vertex, RefMap, sets:new()),
+    ActiveRefs0 = maps:get(Vertex, Acc0, sets:new()),
     Acc = case {sets:is_element(Ref, PossibleRefs),
                 sets:is_element(Ref, ActiveRefs0)} of
               {true, false} ->
@@ -745,7 +745,7 @@ plan_clears(UsageMap, Graph) ->
 
 plan_clears_1([{From, To, branch} | Edges], ActiveRefs, UsageMap) ->
     %% Clear all references that are no longer active on the `To` block.
-    ToRefs = maps:get(To, UsageMap, sets:new([{version, 2}])),
+    ToRefs = maps:get(To, UsageMap, sets:new()),
     Refs = sets:subtract(ActiveRefs, ToRefs),
 
     {FuncId, FromLbl} = From,

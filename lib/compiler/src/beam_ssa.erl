@@ -460,7 +460,7 @@ def(Ls, Blocks) when is_map(Blocks) ->
 
 def_unused(Ls, Unused, Blocks) when is_map(Blocks) ->
     Blks = [map_get(L, Blocks) || L <- Ls],
-    Preds = sets:from_list(Ls, [{version, 2}]),
+    Preds = sets:from_list(Ls),
     def_unused_1(Blks, Preds, [], Unused).
 
 %% dominators(Labels, BlockMap) -> {Dominators,Numbering}.
@@ -625,7 +625,7 @@ fold_blocks(Fun, Labels, Acc0, Blocks) when is_map(Blocks) ->
       Linear :: [{label(),b_blk()}].
 
 linearize(Blocks) when is_map(Blocks) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Linear0,_} = linearize_1([0], Blocks, Seen, []),
     Linear = fix_phis(Linear0, #{}),
     Linear.
@@ -643,7 +643,7 @@ rpo(Blocks) ->
       Labels :: [label()].
 
 rpo(From, Blocks) when is_map(Blocks) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     {Ls,_} = rpo_1(From, Blocks, Seen, []),
     Ls.
 
@@ -667,7 +667,7 @@ between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
     %% gathering once seen since we're only interested in the blocks in between.
     %% Uninteresting blocks can still be added if `From` doesn't dominate `To`,
     %% but that has no effect on the final result.
-    Filter = between_make_filter([To], Preds, sets:from_list([From], [{version, 2}])),
+    Filter = between_make_filter([To], Preds, sets:from_list([From])),
     {Paths, _} = between_rpo([From], Blocks, Filter, []),
 
     Paths.
@@ -678,7 +678,7 @@ between(From, To, Preds, Blocks) when is_map(Preds), is_map(Blocks) ->
 rename_vars(Rename, Labels, Blocks) when is_list(Rename) ->
     rename_vars(maps:from_list(Rename), Labels, Blocks);
 rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
-    Preds = sets:from_list(Labels, [{version, 2}]),
+    Preds = sets:from_list(Labels),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
                 normalize(Set#b_set{args=Args});
@@ -724,7 +724,7 @@ trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
     maps:from_list(linearize(Blocks));
 trim_unreachable([_|_]=Blocks) ->
-    trim_unreachable_1(Blocks, sets:from_list([0], [{version, 2}])).
+    trim_unreachable_1(Blocks, sets:from_list([0])).
 
 -spec used(b_blk() | b_set() | terminator()) -> [b_var()].
 
@@ -968,7 +968,7 @@ trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
                     Seen = sets:add_element(Next, Seen0),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)];
                 [_|_]=Successors ->
-                    Seen = sets:union(Seen0, sets:from_list(Successors, [{version, 2}])),
+                    Seen = sets:union(Seen0, sets:from_list(Successors)),
                     [{L,Blk}|trim_unreachable_1(Bs, Seen)]
             end
     end;

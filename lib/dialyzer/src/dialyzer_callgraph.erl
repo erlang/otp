@@ -206,7 +206,7 @@ remove_external(#callgraph{digraph = DG} = CG) ->
 
 non_local_calls(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),
-  find_non_local_calls(Edges, sets:new([{version, 2}])).
+  find_non_local_calls(Edges, sets:new()).
 
 -type call_tab() :: sets:set(mfa_call()).
 
@@ -258,7 +258,7 @@ modules(#callgraph{digraph = DG}) ->
 -spec module_postorder(callgraph()) -> {[module()], {'d', digraph:graph()}}.
 
 module_postorder(#callgraph{digraph = DG}) ->
-  Edges = lists:foldl(fun edge_fold/2, sets:new([{version, 2}]), digraph_edges(DG)),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Modules = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
   digraph_confirm_vertices(Modules, MDG),
@@ -281,7 +281,7 @@ edge_fold(_, Set) -> Set.
 -spec module_call_deps(callgraph()) -> mod_deps().
 
 module_call_deps(#callgraph{digraph = DG}) ->
-  Edges = lists:foldl(fun edge_fold/2, sets:new([{version, 2}]), digraph_edges(DG)),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Modules = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
   digraph_confirm_vertices(Modules, MDG),

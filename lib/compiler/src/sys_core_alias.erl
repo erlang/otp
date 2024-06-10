@@ -47,7 +47,7 @@
 -define(HAS_SUBS(Sub), Sub#sub.t =/= none).
 
 -record(sub, {p=#{} :: #{term() => ?NOTSET | atom()},              %% Found pattern substitutions
-              v=sets:new([{version, 2}]) :: sets:set(cerl:var_name()), %% Variables used by patterns
+              v=sets:new() :: sets:set(cerl:var_name()), %% Variables used by patterns
               t=none :: temp()}).                                  %% Temporary information from pre to post
 
 -type sub() :: #sub{}.
@@ -238,7 +238,7 @@ new_var_name(Key, #sub{p=Pat}=Sub) ->
 %% merge_variables/2
 
 get_variables(NodesList) ->
-    sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)], [{version, 2}]).
+    sets:from_list([Var || Node <- NodesList, Var <- cerl_trees:variables(Node)]).
 
 is_disjoint_variables(Vars1, Vars2) ->
     sets:is_disjoint(Vars1, Vars2).

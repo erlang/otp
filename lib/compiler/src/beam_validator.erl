@@ -182,7 +182,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
-         fragile=sets:new([{version, 2}]) :: sets:set(),
+         fragile=sets:new() :: sets:set(),
          %% Number of Y registers.
          %%
          %% Note that this may be 0 if there's a frame without saved values,
@@ -229,7 +229,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=sets:new([{version, 2}])    :: sets:set(),
+         labels=sets:new()    :: sets:set(),
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
@@ -302,7 +302,7 @@ init_vst({_, _, Arity}, Level, Ft) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
-               labels=sets:new([{version, 2}]),
+               labels=sets:new(),
                level=Level},
     init_function_args(Arity - 1, Vst).
 
@@ -1439,7 +1439,7 @@ extract_map_keys([], _Vst) ->
 
 
 extract_map_vals(List, Src, SuccVst) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     extract_map_vals(List, Src, Seen, SuccVst, SuccVst).
 
 extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
@@ -2206,7 +2206,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
         true -> ok;
         false -> error(keys_not_unique)
     end.
@@ -3372,7 +3372,7 @@ mark_fragile(Reg, Vst) ->
 propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
     #st{fragile=Fragile0} = St0,
 
-    Sources = sets:from_list(Args, [{version, 2}]),
+    Sources = sets:from_list(Args),
     Fragile = case sets:is_disjoint(Sources, Fragile0) of
                   true -> sets:del_element(Reg, Fragile0);
                   false -> sets:add_element(Reg, Fragile0)
@@ -3396,7 +3396,7 @@ remove_fragility(Reg, Vst) ->
 
 %% Marks all registers as durable.
 remove_fragility(#vst{current=St0}=Vst) ->
-    St = St0#st{fragile=sets:new([{version, 2}])},
+    St = St0#st{fragile=sets:new()},
     Vst#vst{current=St}.
 
 assert_durable_term(Src, Vst) ->
