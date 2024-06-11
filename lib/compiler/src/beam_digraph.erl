@@ -30,6 +30,7 @@
 -export([new/0,
          add_vertex/2, add_vertex/3, add_edge/3, add_edge/4,
          del_edge/2, del_edges/2,
+         del_vertex/2,
          foldv/3,
          has_vertex/2,
          is_path/3,
@@ -75,6 +76,18 @@ add_vertex(Dg, V, Label) ->
     #dg{vs=Vs0} = Dg,
     Vs = Vs0#{V=>Label},
     Dg#dg{vs=Vs}.
+
+-spec del_vertex(graph(), vertex()) -> graph().
+del_vertex(Dg, V) ->
+    #dg{vs=Vs0,in_es=InEsMap0,out_es=OutEsMap0} = Dg,
+    InEs = maps:get(V, InEsMap0, []),
+    OutEsMap = foldl(fun({From,_,_}=E, A) -> edge_map_del(From, E, A) end,
+                     maps:remove(V, OutEsMap0), InEs),
+    OutEs = maps:get(V, OutEsMap0, []),
+    InEsMap = foldl(fun({_,To,_}=E, A) -> edge_map_del(To, E, A) end,
+                    maps:remove(V, InEsMap0), OutEs),
+    Vs = maps:remove(V, Vs0),
+    Dg#dg{vs=Vs,in_es=InEsMap,out_es=OutEsMap}.
 
 -spec add_edge(graph(), vertex(), vertex()) -> graph().
 add_edge(Dg, From, To) ->
