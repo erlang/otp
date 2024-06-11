@@ -92,7 +92,7 @@
 
          otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1]).
 
--export([head_fun/1, hf/0, lserv/1, 
+-export([head_fun/1, hf/0, hf_bin/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -835,8 +835,9 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:close(Name),
     del_rot_files(File, 4),
     {ok, Name} = disk_log:open([{name,Name}, {type,rotate}, {size,{8000, 3}},
-			     {format,external},
-			     {file, File}]),
+                                {format,external},
+                                {head_func, {?MODULE, hf_bin, []}},
+                                {file, File}]),
     {B1, _T1} = x_mk_bytes(10000), % lost due to rotation 
     {B2, T2} = x_mk_bytes(5000),  % file a.LOG.2.gx 
     {B3, T3} = x_mk_bytes(4000),  % file a.LOG.1.gz 
@@ -847,27 +848,32 @@ rotate_1(Conf) when is_list(Conf) ->
     ok = disk_log:blog(Name, B2),
     ok = disk_log:blog(Name, B3),
     ok = disk_log:blog_terms(a, [B4, B5, B6]),
+    {ok, BinHeader} = hf_bin(),
+    Header = binary_to_list(BinHeader),
+    T20 = Header ++ T2,
     case get_list(File ++ ".2.gz", Name, rotate) of
-        T2 ->
+        T20 ->
             ok;
         E2 ->
             test_server_fail({bad_terms, E2, T2})
     end,
-    T34 = T3 ++ T4,
+    T34 = Header ++ T3 ++ T4,
     case get_list(File ++ ".1.gz", Name, rotate) of
         T34 ->
             ok;
         E34 ->
             test_server_fail({bad_terms, E34, T34})
     end,
+    T50 = Header ++ T5,
     case get_list(File ++ ".0.gz", Name, rotate) of
-        T5 ->
+        T50 ->
             ok;
         E5 ->
             test_server_fail({bad_terms, E5, T5})
     end,
+    T60 = Header ++ T6,
     case get_list(File, Name) of
-        T6 ->
+        T60 ->
             ok;
         E6 ->
             test_server_fail({bad_terms, E6, T6})
@@ -1408,6 +1414,10 @@ head_fun(H) ->
 hf() ->
     ets:update_counter(xxx, wrapc, 1),
     {ok, [1,2,3]}.
+
+hf_bin() ->
+    {ok, <<"1", "2", "3">>}.
+
 
 %% Test head parameter.
 plain_head(Conf) when is_list(Conf) ->
