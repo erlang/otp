@@ -62,11 +62,11 @@
 
     Two [_callback modes_](`t:callback_mode/0`) are supported:
 
-    - One for finite-state machines (`m:gen_fsm` like), which requires
-      the state to be an atom and uses that state as the name of
-      the current callback function.
-    - One that allows the state to be any term and that uses
-      one callback function for all states.
+    - `state_functions` - for finite-state machines (`m:gen_fsm` like),
+      which requires the state to be an atom and uses that state
+      as the name of the current callback function, arity 3.
+    - `handle_event_function` - that allows the state to be any term
+      and that uses `c:handle_event/4` as callback function for all states.
 
     The callback modes for `gen_statem` differs from the one for
     `gen_fsm`, but it is still fairly easy to
@@ -109,19 +109,6 @@
                           -----> Module:code_change/4
     ```
 
-    #### Event types
-
-    Events are of different [types](`t:event_type/0`),
-    therefore the callback functions can know the origin of an event
-    when handling it.
-
-    #### Callback failure
-
-    If a callback function fails or returns a bad value, the `gen_statem`
-    terminates, unless otherwise stated. However, an exception of class
-    [`throw`](`erlang:throw/1`) is not regarded as an error
-    but as a valid return, from all callback functions.
-
     #### State callback {: #state-callback }
 
     The _state callback_ for a specific [state](`t:state/0`) in a `gen_statem`
@@ -147,9 +134,17 @@
     which events you handle in which states so that you do not accidentally
     postpone an event forever creating an infinite busy loop.
 
+    #### Event types
+
+    Events are of different [types](`t:event_type/0`),
+    therefore the callback functions can know the origin of an event
+    when handling it.  [External events](`t:external_event_type/0`) are
+    `call`,  `cast`, and  `info`. Internal events are
+    [`timeout`](`t:timeout_event_type/0`) and `internal`.
+
     #### Event handling
 
-    When `gen_statem` receives a process message it is converted
+    When `gen_statem` receives a process message it is transformed
     into an event and the [_state callback_](#state-callback)
     is called with the event as two arguments: type and content. When the
     [_state callback_](#state-callback) has processed the event
@@ -161,7 +156,8 @@
 
     The [_state callback_](#state-callback) may return
     [_transition actions_](`t:action/0`) for `gen_statem` to execute
-    during the _state transition_, for example to reply to a call.
+    during the _state transition_, for example to set a time-out
+    or reply to a call.
 
     #### Reply to a call {: #reply-to-a-call }
 
@@ -172,10 +168,10 @@
     #### Event postponing {: #event-postponing }
 
     One of the possible _transition actions_ is to postpone the current event.
-    Then it is not retried in the current state. The `gen_statem` engine keeps
-    a queue of events divided into the postponed events and the events
-    still to process. After a _state change_ the queue restarts
-    with the postponed events.
+    Then it will not be handled in the current state.  The `gen_statem` engine
+    keeps a queue of events divided into postponed events and
+    events still to process (not presented yet).  After a _state change_
+    the queue restarts with the postponed events.
 
     The `gen_statem` event queue model is sufficient to emulate
     the normal process message queue with selective receive.
@@ -199,15 +195,20 @@
 
     > #### Note {: .info }
     >
-    > If you in `gen_statem`, for example, postpone an event in one state
-    > and then would call a different _state callback_, you have not done
-    > a _state change_ and hence the postponed event is not retried.
-    > In this case it can be useful to change state and insert an event
-    > which will immediately trigger a call to the new _state's callback_.
+    > If you postpone an event and (against good practice) directly call
+    > a different _state callback_, the postponed event is not retried,
+    > since there was no _state change_.
+    >
+    > Instead of directly calling a _state callback_, do a _state change_.
+    > This makes the `gen_statem` engine retry postponed events.
+    >
+    > Inserting an event in a _state change_ also triggers
+    > the new  _state callback_ to be called with that event
+    > before receiving any external events.
 
     #### State enter calls {: #state-enter-calls }
 
-    The `gen_statem` engine can automatically make a specialized call to the
+    The `gen_statem` engine can automatically make a special call to the
     [_state callback_](#state-callback) whenever a new state is
     entered; see `t:state_enter/0`. This is for writing code common
     to all state entries.  Another way to do it is to explicitly insert
@@ -216,18 +217,6 @@
     remember at every _state transition_ to the state(s) that need it.
 
     For the details of a _state transition_, see type `t:transition_option/0`.
-
-    #### System messages and the `m:sys` module
-
-    A `gen_statem` handles system messages as described in `m:sys`.
-    The `m:sys` module can be used for debugging a `gen_statem`.
-
-    #### Trapping exit
-
-    A `gen_statem` process, like all `gen_`\* behaviours,
-    does not trap exit signals automatically;
-    this must be explicitly initiated in the callback module
-    (by calling [`process_flag(trap_exit, true)`](`erlang:process_flag/2`).
 
     #### Hibernation
 
@@ -248,6 +237,28 @@
     or [`enter_loop/4,5,6`](`enter_loop/6`), that may be used
     to automatically hibernate the server.
 
+    #### Callback failure
+
+    If a callback function fails or returns a bad value,
+    the `gen_statem` terminates.  However, an exception of class
+    [`throw`](`erlang:throw/1`) is not regarded as an error
+    but as a valid return, from all callback functions.
+
+    #### System messages and the `m:sys` module
+
+    A `gen_statem` handles system messages as described in `m:sys`.
+    The `m:sys` module can be used for debugging a `gen_statem`.
+    Replies sent through [_transition actions_](`t:action/0`)
+    gets logged, but not replies sent through [`reply/1,2`](`reply/2`).
+
+    #### Trapping exit
+
+    A `gen_statem` process, like all `gen_`\* behaviours,
+    does not trap exit signals automatically;
+    this must be explicitly initiated in the callback module
+    (by calling [`process_flag(trap_exit, true)`](`erlang:process_flag/2`)
+    preferably from `c:init/1`.
+
     #### Server termination
 
     If the `gen_statem` process terminates, e.g. as a result
@@ -260,7 +271,8 @@
     > #### Note {: .info }
     >
     > For some important information about distributed signals, see the
-    > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
+    > [_Blocking Signaling Over Distribution_
+    > ](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
     > section in the _Processes_ chapter of the _Erlang Reference Manual_.
     > Blocking signaling can, for example, cause call time-outs in `gen_statem`
     > to be significantly delayed.
@@ -1517,7 +1529,8 @@
     Besides that when doing a [_state change_](#state-callback)
     the next state always has to be an `t:atom/0`,
     this function is equivalent to
-    [`Module:handle_event(EventType, EventContent, ?FUNCTION_NAME, Data)`](`c:handle_event/4`),
+    [`Module:handle_event(​EventType, EventContent,
+    ?FUNCTION_NAME, Data)`](`c:handle_event/4`),
     which is the [_state callback_](#state-callback) in
     [_callback mode_](`t:callback_mode/0`) `handle_event_function`.
     """.
@@ -2540,8 +2553,8 @@ call(ServerRef, Request, Timeout) ->
     in a collection, you may want to consider using `send_request/4` instead.
 
     The call
-    `gen_statem:wait_response(gen_statem:send_request(ServerRef, Request), Timeout)`
-    can be seen as equivalent to
+    `gen_statem:wait_response(gen_statem:send_request(ServerRef,
+    Request), Timeout)` can be seen as equivalent to
     [`gen_statem:call(Server, Request, Timeout)`](`call/3`),
     ignoring the error handling.
 
@@ -2578,7 +2591,8 @@ send_request(ServerRef, Request) ->
     `wait_response/3`, or `check_response/3`.
 
     The same as calling
-    [`reqids_add`](`reqids_add/3`)`(`[`send_request`](`send_request/2`)`(ServerRef, Request), Label, ReqIdCollection)`,
+    [`reqids_add(​`](`reqids_add/3`)[`send_request(ServerRef, Request),
+    `](`send_request/2`)[`Label, ReqIdCollection)`](`reqids_add/3`),
     but slightly more efficient.
     """.
 -doc #{ since => <<"OTP 25.0">> }.

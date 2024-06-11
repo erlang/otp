@@ -62,6 +62,33 @@ machine memory), or on the number of distinct input events, a state
 machine implemented with this behaviour is Turing complete. But it
 feels mostly like an Event-Driven Mealy machine.
 
+### Everyday State Machine
+
+An example of an everyday device that can be modelled as a state machine
+is a classic ballpoint pen, the retractable type where you push the end
+to expose the tip and push the side to retract it.  (A push-push pen
+would also be an example but that type has only one event, so it is
+less interesting)
+
+![Ballpoint Pen](assets/ballpoint-pen.svg "Ballpoint Pen")
+
+```mermaid
+---
+title: Ballpoint Pen State Diagram
+---
+stateDiagram-v2
+    [*]       --> Retracted
+    Retracted --> Retracted : push-side
+    Retracted --> Exposed   : push-end\n* Expose tip
+    Exposed   --> Retracted : push-side\n* Retract tip
+    Exposed   --> Exposed   : push-end
+```
+
+The state diagram shows the states, events, and state transitions
+with transition actions.  Note that pushing the end when the tip is exposed,
+or pushing the side when the tip is retracted, does not change the state
+nor cause any actions, which is modeled by an arrow back to the same state.
+
 When to use gen_statem
 ----------------------
 
