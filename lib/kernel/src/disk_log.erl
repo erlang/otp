@@ -1243,7 +1243,12 @@ check_arg([], Res) ->
 		disk_log_1:read_size_file_version(Res#arg.file),
 	    check_wrap_arg(Ret, OldSize, Version);
         Res#arg.type =:= rotate ->
-            {ok, Res#arg{format = external}};
+            case Ret of
+                {ok, Patched} ->
+                    {ok, Patched#arg{format = external}};
+                _ ->
+                    Ret
+            end;
 	true ->
 	    Ret
     end;
