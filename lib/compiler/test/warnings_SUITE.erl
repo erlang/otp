@@ -868,7 +868,77 @@ maps(Config) when is_list(Config) ->
                       {{25,20},v3_core,{map_key_repeated,#{"a" => 1}}},
                       {{28,21},v3_core,{map_key_repeated,#{"a" => <<"b">>}}},
                       {{32,21},v3_core,{map_key_repeated,#{<<"a">> => 1}}}
-                     ]}}
+                     ]}},
+          {map_nomatch,
+           ~"""
+            match_map_1(#{}) ->
+                a;
+            match_map_1(#{first := First}) ->
+                {b,First};
+            match_map_1(#{first := First, second := Second}) ->
+                {c,First,Second}.
+
+            match_map_1(#{}, A) ->
+                {a,A};
+            match_map_1(#{first := First}, A) ->
+                {b,A,First};
+            match_map_1(#{first := First, second := Second}, A) ->
+                {c,A,First,Second}.
+
+            match_map_2(#{first := First}) ->
+                {b,First};
+            match_map_2(#{first := First, second := Second}) ->
+                {c,First,Second}.
+
+            match_map_2(#{first := First}, A, B) ->
+                {b,A,B,First};
+            match_map_2(#{first := First, second := Second}, A, B) ->
+                {c,A,B,First,Second}.
+
+            match_map_3([#{} | _]) ->
+                a;
+            match_map_3([#{first := First} | _]) ->
+                {b,First};
+            match_map_3([#{first := First, second := Second} | _]) ->
+                {c,First,Second}.
+
+            match_map_4([#{first := First} | _]) ->
+                {b,First};
+            match_map_4([#{first := First, second := Second} | _]) ->
+                {c,First,Second}.
+            """,
+           [],
+           {warnings,[{{3,1},beam_core_to_ssa,{nomatch,{shadow,1}}},
+                      {{10,1},beam_core_to_ssa,{nomatch,{shadow,8}}},
+                      {{17,1},beam_core_to_ssa,{nomatch,{shadow,15}}},
+                      {{22,1},beam_core_to_ssa,{nomatch,{shadow,20}}},
+                      {{27,1},beam_core_to_ssa,{nomatch,{shadow,25}}},
+                      {{34,1},beam_core_to_ssa,{nomatch,{shadow,32}}}]}},
+          {map_nowarn,
+           %% There will be no warnings for shadowing for the
+           %% following functions, either because the first clause
+           %% actually can be executed or because the compiler's
+           %% checks are not sufficiently thorough.
+           ~"""
+            %% The compiler does not detect this shadowing.
+            match_map_nowarn_1([#{}]) -> no;
+            match_map_nowarn_1([#{a := A}]) -> {a,A}.
+
+            %% The guard in the first clause can fail.
+            match_map_nowarn_2(#{}, X) when is_integer(X) -> {a,X};
+            match_map_nowarn_2(#{b := B}, X) -> {b,X,B}.
+
+            %% The first clause will fail to match if the second
+            %% argument is not `x`.
+            match_map_nowarn_3(#{}, x) -> a;
+            match_map_nowarn_3(#{b := B}, y) -> {b,B}.
+
+            %% The compiler does not detect this shadowing.
+            match_map_nowarn_4(#{}, x) -> a;
+            match_map_nowarn_4(#{b := B}, x) -> {b,B}.
+            """,
+           [],
+           []}
          ],
     run(Config, Ts),
     ok.

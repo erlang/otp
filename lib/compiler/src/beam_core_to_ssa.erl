@@ -169,8 +169,8 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
 -spec format_error(warning()) -> string() | binary().
 
 format_error({nomatch,{shadow,Line}}) ->
-    M = io_lib:format(<<"this clause cannot match because a previous clause at line ~p "
-                        "always matches">>, [Line]),
+    S = ~"this clause cannot match because a previous clause at line ~p matches the same pattern as this clause",
+    M = io_lib:format(S, [Line]),
     flatten(M);
 format_error({nomatch,shadow}) ->
     <<"this clause cannot match because a previous clause always matches">>;
@@ -1502,12 +1502,46 @@ ensure_fixed_size(#cg_bin_end{}) ->
 %%  At this point all the clauses have the same constructor; we must
 %%  now separate them according to value.
 
+match_value(Us0, cg_map=T, Cs0, Def, St0) ->
+    {Cs1,St1} = remove_unreachable(Cs0, St0),
+    {Us1,Cs2,St2} = partition_intersection(Us0, Cs1, St1),
+    do_match_value(Us1, T, Cs2, Def, St2);
 match_value(Us0, T, Cs0, Def, St0) ->
-    {Us1,Cs1,St1} = partition_intersection(T, Us0, Cs0, St0),
-    UCss = group_value(T, Us1, Cs1),
-    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St1, UCss).
+    do_match_value(Us0, T, Cs0, Def, St0).
 
-%% partition_intersection(Type, Us, [Clause], State) -> {Us,Cs,State}.
+do_match_value(Us0, T, Cs0, Def, St0) ->
+    UCss = group_value(T, Us0, Cs0),
+    mapfoldl(fun ({Us,Cs}, St) -> match_clause(Us, Cs, Def, St) end, St0, UCss).
+
+%% remove_unreachable([Clause], State) -> {[Clause],State}
+%%  Remove all clauses after a clause that will always match any
+%%  map.
+remove_unreachable([#iclause{anno=Anno,pats=Pats,guard=G}=C|Cs0], St0) ->
+    maybe
+        %% Will the first pattern match any map?
+        [#cg_map{es=[]}|Ps] ?= Pats,
+
+        %% Are all following pattern variables, which will always match?
+        true ?= all(fun(#b_var{}) -> true;
+                       (_) -> false
+                    end, Ps),
+
+        %% Will the guard always succeed?
+        #c_literal{val=true} ?= G,
+
+        %% This clause will always match. Warn and discard all clauses
+        %% that follow.
+        St1 = maybe_add_warning(Cs0, Anno, St0),
+        {[C],St1}
+    else
+        _ ->
+            {Cs,St} = remove_unreachable(Cs0, St0),
+            {[C|Cs],St}
+    end;
+remove_unreachable([], St0) ->
+    {[],St0}.
+
+%% partition_intersection(Us, [Clause], State) -> {Us,Cs,State}.
 %%  Partition a map into two maps with the most common keys to the
 %%  first map.
 %%
@@ -1528,7 +1562,7 @@ match_value(Us0, T, Cs0, Def, St0) ->
 %%  The intention is to group as many keys together as possible and
 %%  thus reduce the number of lookups to that key.
 
-partition_intersection(cg_map, [U|_]=Us, [_,_|_]=Cs0, St0) ->
+partition_intersection([U|_]=Us, [_,_|_]=Cs0, St0) ->
     Ps = [clause_val(C) || C <- Cs0],
     case find_key_intersection(Ps) of
         none ->
@@ -1540,7 +1574,7 @@ partition_intersection(cg_map, [U|_]=Us, [_,_|_]=Cs0, St0) ->
                       end, Cs0),
             {[U|Us],Cs1,St0}
     end;
-partition_intersection(_, Us, Cs, St) ->
+partition_intersection(Us, Cs, St) ->
     {Us,Cs,St}.
 
 partition_keys(#cg_map{es=Pairs}=Map, Ks) ->
