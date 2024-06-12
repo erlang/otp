@@ -42,4 +42,6 @@
 -define(INFO(),                       ?DUTIL:info()).
 -define(SCRAMBLE(SS),                 ?DUTIL:scramble(SS)).
 
+-define(TS(),                         erlang:system_time(millisecond)).
+
 -endif.
