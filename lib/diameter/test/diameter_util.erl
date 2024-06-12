@@ -162,7 +162,14 @@ consult(Path) ->
 
 run(L) ->
     Ref = make_ref(),
-    AccF = fun(I, [F|T]) ->
+    AccF = fun({skip, _SkipReason} = SKIP, _) ->
+                   %% ?UL("run:AccF(skip) -> entry with"
+                   %%     "~n   Skip Reason: ~p", [_SkipReason]),
+                   exit(SKIP);
+              (I, [F|T]) ->
+                   %% ?UL("run:AccF -> entry with"
+                   %%     "~n   I: ~p"
+                   %%     "~n   F: ~p", [I, F]),
                    Ref == (catch element(1, I))
                        orelse error(#{failed => F, reason => I}),
                    T
@@ -212,11 +219,17 @@ await_down(ParentMRef, WorkerPid) ->
             exit({TCPid, R, TCStack});
 
         {'DOWN', ParentMRef, process, PPid, PReason} ->
-            ?UL("await_down -> parent process (~p) died: "
+            ?UL("await_down -> parent process [~p] died: "
                 "~n   Reason: ~p", [PPid, PReason]),
             exit(WorkerPid, kill);
+
+        {'DOWN', _, process, WorkerPid, {skip, WSkipReason} = SKIP} ->
+            ?UL("await_down -> worker process [~p] died with skip: "
+                "~n   Skip Reason: ~p", [WorkerPid, WSkipReason]),
+            exit(SKIP);
+
         {'DOWN', _, process, WorkerPid, WReason} ->
-            ?UL("await_down -> worker process (~p) died: "
+            ?UL("await_down -> worker process [~p] died: "
                 "~n   Reason: ~p", [WorkerPid, WReason]),
             ok
     end.
