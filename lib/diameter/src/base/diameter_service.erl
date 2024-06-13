@@ -87,6 +87,7 @@
 -define(WD_REOPEN,  reopen).
 
 -doc "State of the watchdog".
+-doc(#{since => <<"OTP @OTP-19126@">>}).
 -type wd_state() :: ?WD_INITIAL
                   | ?WD_OKAY
                   | ?WD_SUSPECT
