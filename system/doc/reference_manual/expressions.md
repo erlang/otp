@@ -1958,28 +1958,59 @@ is either a **generator** or a **filter**.
 >
 > Map comprehensions and map generators were introduced in Erlang/OTP 26.
 
-There are three kinds of generators.
+There are three kinds of generators, each with a skipping and a
+non-skipping variant.
 
-A _list generator_ has the following syntax:
+> #### Change {: .info }
+>
+> Non-skipping generators are an experimental
+> [feature](`e:system:features.md#features`) introduced in Erlang/OTP 28.
+> By default, they are disabled. To enable the feature, either use the
+> `-feature(non_skipping_generators,enable).` directive (from within the
+> source code), or the compiler option `{feature,non_skipping_generators,enable}`.
+
+Skipping generators ignore terms in the right-hand side expression that
+do not match the left-hand side pattern. Non-skipping generators on the
+other hand fail with excaption `badmatch`.
+
+A _list generator_ has the following syntax for skipping:
 
 ```
 Pattern <- ListExpr
 ```
 
+and non-skipping variant:
+
+```
+Pattern <-:- ListExpr
+```
+
 where `ListExpr` is an expression that evaluates to a list of terms.
 
-A _bit string generator_ has the following syntax:
+A _bit string generator_ has the following syntax for skipping:
 
 ```
 BitstringPattern <= BitStringExpr
 ```
 
+and non-skipping variant:
+
+```
+BitstringPattern <=:= BitStringExpr
+```
+
 where `BitStringExpr` is an expression that evaluates to a bit string.
 
-A _map generator_ has the following syntax:
+A _map generator_ has the following syntax for skipping:
 
 ```
 KeyPattern := ValuePattern <- MapExpression
+```
+
+and non-skipping variant:
+
+```
+KeyPattern := ValuePattern <-:- MapExpression
 ```
 
 where `MapExpr` is an expression that evaluates to a map, or a map iterator

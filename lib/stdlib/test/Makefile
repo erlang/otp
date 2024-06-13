@@ -132,9 +132,11 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # FLAGS
 # ----------------------------------------------------
 
+NON_SKIPPING_GENERATORS_OPT = '+{enable_feature,non_skipping_generators}'
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
 		+nowarn_missing_spec_documented \
-		-I$(ERL_TOP)/lib/stdlib/include
+		-I$(ERL_TOP)/lib/stdlib/include \
+		${NON_SKIPPING_GENERATORS_OPT}
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
@@ -163,7 +165,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
