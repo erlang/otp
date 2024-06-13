@@ -17,30 +17,28 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Introduction
+# Overview
 
-## Purpose
+Trivial File Transfer Protocol (TFTP) is a very simple protocol used
+to transfer files over the transport datagram protocol UDP.
 
-The Trivial File Transfer Protocol or TFTP is a very simple protocol used to
-transfer files.
+On the client side, function [read_file/3](`tftp:read_file/3`) and
+[write_file/3](`tftp:write_file/3`) spawn a temporary client process
+establishing contact with a TFTP daemon and perform the file transfer.
 
-It has been implemented on top of the User Datagram protocol (UDP) so it may be
-used to move files between machines on different networks implementing UDP. It
-is designed to be small and easy to implement. Therefore, it lacks most of the
-features of a regular FTP. The only thing it can do is read and write files (or
-mail) from/to a remote server. It cannot list directories, and currently has no
-provisions for user authentication.
+`tftp` uses a callback module to handle the file transfer. Two such callback
+modules are provided, `tftp_binary` and `tftp_file`. See
+[read_file/3](`tftp:read_file/3`) and [write_file/3](`tftp:write_file/3`) for
+details. You can also implement your own callback modules, see
+[callbacks](`m:tftp#callbacks`).
 
-The `tftp` application implements the following IETF standards:
+# Security Considerations
 
-- RFC 1350, The TFTP Protocol (revision 2)
-- RFC 2347, TFTP Option Extension
-- RFC 2348, TFTP Blocksize Option
-- RFC 2349, TFTP Timeout Interval and Transfer Size Options
+As stated in ([RFC 1350](https://datatracker.ietf.org/doc/html/rfc1350))
+be aware that "Since TFTP includes no login or access
+control mechanisms, care must be taken in the rights granted to a TFTP
+server process so as not to violate the security of the server hosts
+file system.  TFTP is often installed with controls such that only
+files that have public read access are available via TFTP and writing
+files via TFTP is disallowed."
 
-The only feature that not is implemented is the `netascii` transfer mode.
-
-## Prerequisites
-
-It is assumed that the reader is familiar with the Erlang programming language,
-concepts of OTP, and has a basic understanding of the TFTP protocol.
