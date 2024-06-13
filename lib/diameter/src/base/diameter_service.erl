@@ -23,7 +23,7 @@
 %%
 
 -module(diameter_service).
--moduledoc false.
+%% -moduledoc false.
 -behaviour(gen_server).
 
 %% towards diameter_service_sup
@@ -86,6 +86,7 @@
 -define(WD_DOWN,    down).
 -define(WD_REOPEN,  reopen).
 
+-doc "State of the watchdog".
 -type wd_state() :: ?WD_INITIAL
                   | ?WD_OKAY
                   | ?WD_SUSPECT
@@ -172,9 +173,11 @@
 %% # start/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 start(SvcName) ->
     diameter_service_sup:start_child(SvcName).
 
+-doc false.
 start_link(SvcName) ->
     Options = [{spawn_opt, diameter_lib:spawn_opts(server, [])}],
     gen_server:start_link(?MODULE, [SvcName], Options).
@@ -185,6 +188,7 @@ start_link(SvcName) ->
 %% # stop/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 stop(SvcName) ->
     case whois(SvcName) of
         undefined ->
@@ -193,6 +197,7 @@ stop(SvcName) ->
             stop(call_service(Pid, stop), Pid)
     end.
 
+-doc false.
 stop(ok, Pid) ->
     MRef = monitor(process, Pid),
     receive {'DOWN', MRef, process, _, _} -> ok end;
@@ -203,6 +208,7 @@ stop(No, _) ->
 %% # start_transport/3
 %% ---------------------------------------------------------------------------
 
+-doc false.
 start_transport(SvcName, {_Ref, _Type, _Opts} = T) ->
     call_service_by_name(SvcName, {start, T}).
 
@@ -210,6 +216,7 @@ start_transport(SvcName, {_Ref, _Type, _Opts} = T) ->
 %% # stop_transport/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 stop_transport(_, []) ->
     ok;
 stop_transport(SvcName, [_|_] = Refs) ->
@@ -220,9 +227,11 @@ stop_transport(SvcName, [_|_] = Refs) ->
 %% # which_watchdogs/0, which_watchdogs/1
 %% --------------------------------------------------------------------------
 
+-doc false.
 which_watchdogs() ->
     which_watchdogs(services(), []).
 
+-doc false.
 which_watchdogs([], Acc) ->
     lists:flatten(lists:reverse(Acc));
 which_watchdogs([{SvcName, _} | Services], Acc) ->
@@ -234,6 +243,7 @@ which_watchdogs([{SvcName, _} | Services], Acc) ->
             which_watchdogs(Services, Acc)
     end.
 
+-doc false.
 which_watchdogs(SvcName) ->
     case lookup_state(SvcName) of
         [#state{watchdogT = WDT}] ->
@@ -258,10 +268,12 @@ which_watchdogs(SvcName) ->
 %% # which_connections/0, which_connections/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 which_connections() ->
     Services = [SvcName || {SvcName, _} <- services()],
     which_connections1(Services).
 
+-doc false.
 which_connections1(Services) ->
     which_connections1(Services, []).
 
@@ -275,6 +287,7 @@ which_connections1([SvcName | Services], Acc) ->
             which_connections1(Services, [{SvcName, Conns} | Acc])
     end.
 
+-doc false.
 which_connections(SvcName) ->
     case lookup_state(SvcName) of
         [#state{watchdogT = WDT,
@@ -350,6 +363,7 @@ connection_info3(PPid, Started, Info) ->
 %% # info/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 info(SvcName, Item) ->
     case lookup_state(SvcName) of
         [S] ->
@@ -373,6 +387,7 @@ lookup_state(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 %% An extended version of info_peer/1 for peer_info/1.
+-doc false.
 peer_info(Pid) ->
     try
         {_, PD} = process_info(Pid, dictionary),
@@ -396,15 +411,19 @@ peer_info(Pid) ->
 %% # unsubscribe/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 subscribe(SvcName) ->
     diameter_reg:add({?MODULE, subscriber, SvcName}).
 
+-doc false.
 unsubscribe(SvcName) ->
     diameter_reg:remove({?MODULE, subscriber, SvcName}).
 
+-doc false.
 subscriptions(Pat) ->
     pmap(diameter_reg:match({?MODULE, subscriber, Pat})).
 
+-doc false.
 subscriptions() ->
     subscriptions('_').
 
@@ -415,12 +434,15 @@ pmap(Props) ->
 %% # services/1
 %% ---------------------------------------------------------------------------
 
-services(Pat) ->
-    pmap(diameter_reg:match({?MODULE, service, Pat})).
-
+-doc false.
 services() ->
     services('_').
 
+-doc false.
+services(Pat) ->
+    pmap(diameter_reg:match({?MODULE, service, Pat})).
+
+-doc false.
 whois(SvcName) ->
     case diameter_reg:match({?MODULE, service, SvcName}) of
         [{_, Pid}] ->
@@ -449,6 +471,7 @@ whois(SvcName) ->
       App  :: #diameter_app{},
       SvcOpts :: map().
 
+-doc false.
 pick_peer(SvcName, App, Opts) ->
     pick(lookup_state(SvcName), App, Opts).
 
@@ -494,6 +517,7 @@ pick(#state{options = SvcOpts}
       Id    :: non_neg_integer(),
       Apps  :: [#diameter_app{}].
 
+-doc false.
 find_incoming_app(PeerT, TPid, Id, Apps) ->
     try ets:lookup(PeerT, TPid) of
         [#peer{} = P] ->
@@ -509,6 +533,7 @@ find_incoming_app(PeerT, TPid, Id, Apps) ->
 %% # notify/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 notify(SvcName, Msg) ->
     Pid = whois(SvcName),
     is_pid(Pid) andalso (Pid ! Msg).
@@ -516,14 +541,17 @@ notify(SvcName, Msg) ->
 %% ===========================================================================
 %% ===========================================================================
 
+-doc false.
 state(Svc) ->
     call_service(Svc, state).
 
+-doc false.
 uptime(Svc) ->
     call_service(Svc, uptime).
 
 %% call_module/3
 
+-doc false.
 call_module(Service, AppMod, Request) ->
     call_service(Service, {call_module, AppMod, Request}).
 
@@ -535,6 +563,7 @@ call_module(Service, AppMod, Request) ->
 %% # init/1
 %% ---------------------------------------------------------------------------
 
+-doc false.
 init([SvcName]) ->
     process_flag(trap_exit, true),  %% ensure terminate(shutdown, _)
     i(SvcName, diameter_reg:add_new({?MODULE, service, SvcName})).
@@ -548,6 +577,7 @@ i(_, false) ->
 %% # handle_call/3
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_call(state, _, S) ->
     {reply, S, S};
 
@@ -586,6 +616,7 @@ handle_call(Req, From, S) ->
 %% # handle_cast/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_cast(Req, S) ->
     unexpected(handle_cast, [Req], S),
     {noreply, S}.
@@ -594,6 +625,7 @@ handle_cast(Req, S) ->
 %% # handle_info/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 handle_info(T, #state{} = S) ->
     case transition(T,S) of
         ok ->
@@ -693,6 +725,7 @@ transition(Req, S) ->
 %% # terminate/2
 %% ---------------------------------------------------------------------------
 
+-doc false.
 terminate(Reason, #state{service_name = Name, local = {PeerT, _, _}} = S) ->
     send_event(Name, stop),
     ets:delete(?STATE_TABLE, Name),
@@ -725,6 +758,7 @@ peer_down(#peer{pid = TPid}, _) ->
 %% # code_change/3
 %% ---------------------------------------------------------------------------
 
+-doc false.
 code_change(_FromVsn, S, _Extra) ->
     {ok, S}.
 
