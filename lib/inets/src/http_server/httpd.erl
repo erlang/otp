@@ -718,28 +718,28 @@ The properties for the security directories are as follows:
 The Erlang web server API data types are as follows:
 
 ```erlang
-      ModData = #mod{}
+ModData = #mod{}
 
-      -record(mod, {
-		data = [],
-		socket_type = ip_comm,
-		socket,
-		config_db,
-		method,
-		absolute_uri,
-		request_uri,
-		http_version,
-		request_line,
-		parsed_header = [],
-		entity_body,
-		connection
-	}).
+-record(mod, {
+    data = [],
+    socket_type = ip_comm,
+    socket,
+    config_db,
+    method,
+    absolute_uri,
+    request_uri,
+    http_version,
+    request_line,
+    parsed_header = [],
+    entity_body,
+    connection
+}).
 ```
 
 To access the record in your callback-module use:
 
 ```erlang
- -include_lib("inets/include/httpd.hrl").
+-include_lib("inets/include/httpd.hrl").
 ```
 
 The fields of record `mod` have the following meaning:
@@ -834,7 +834,6 @@ The fields of record `mod` have the following meaning:
 %%% Types
 %%%========================================================================
 -type property() :: atom().
--type ets_table() :: ets:tid().
 -type socket_type() :: ip_comm | ssl.
 
 %%%========================================================================
@@ -888,7 +887,7 @@ clean up resources created in the store function.
 """.
 -doc(#{title => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback remove(ConfigDB) -> ok | {error, Reason} when
-      ConfigDB :: ets_table(), Reason :: term().
+      ConfigDB :: ets:tid(), Reason :: term().
 
 -doc """
 Checks the validity of the configuration options before saving them in the
