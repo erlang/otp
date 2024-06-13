@@ -292,9 +292,12 @@ record_attributes(Forms) ->
 %% transformation.
 %%
 compile_messages(Forms, FormsNoShadows, Options, State) ->
-    %% The qlc module cannot handle binary generators.
+    %% The qlc module can only handle list generators.
     BGenF = fun(_QId,{b_generate,Anno,_P,_LE}=BGen, GA, A) ->
                     M = {loc(Anno),?APIMOD,binary_generator},
+                    {BGen,[{get(?QLC_FILE),[M]}|GA],A};
+               (_QId,{m_generate,Anno,_P,_LE}=BGen, GA, A) ->
+                    M = {loc(Anno),?APIMOD,map_generator},
                     {BGen,[{get(?QLC_FILE),[M]}|GA],A};
                (_QId, Q, GA, A) ->
                     {Q,GA,A}
