@@ -74,9 +74,9 @@ might be impossible to enter on their keyboard.
 Another difference between key and char events is that another kind of
 translation is done for the latter ones when the Control key is pressed: char
 events for ASCII letters in this case carry codes corresponding to the ASCII
-value of Ctrl-Latter, i.e. 1 for Ctrl-A, 2 for Ctrl-B and so on until 26 for
-Ctrl-Z. This is convenient for terminal-like applications and can be completely
-ignored by all the other ones (if you need to handle Ctrl-A it is probably a
+value of Ctrl+Latter, i.e. 1 for Ctrl+A, 2 for Ctrl+B and so on until 26 for
+Ctrl+Z. This is convenient for terminal-like applications and can be completely
+ignored by all the other ones (if you need to handle Ctrl+A it is probably a
 better idea to use the key event rather than the char one). Notice that
 currently no translation is done for the presses of [, `\`, ], `^` and `_` keys
 which might be mapped to ASCII values from 27 to 31. Since version 2.9.2, the
@@ -117,7 +117,7 @@ corresponding to each down one.
 
 Note: For Windows programmers: The key and char events in wxWidgets are similar
 to but slightly different from Windows `WM_KEYDOWN` and `WM_CHAR` events. In
-particular, Alt-x combination will generate a char event in wxWidgets (unless it
+particular, Alt+x combination will generate a char event in wxWidgets (unless it
 is used as an accelerator) and almost all keys, including ones without ASCII
 equivalents, generate char events too.
 

@@ -81,7 +81,7 @@ setDirection(#wx_ref{type=ThisT}=This,Direction)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventiswindowchange">external documentation</a>.
 -doc """
 Returns true if the navigation event represents a window change (for example,
-from Ctrl-Page Down in a notebook).
+from Ctrl+Page Down in a notebook).
 """.
 -spec isWindowChange(This) -> boolean() when
 	This::wxNavigationKeyEvent().
