@@ -42,7 +42,11 @@ SOCKET_MODULES = \
 	socket_test_ttest_tcp_server_gen \
 	socket_test_ttest_tcp_server_gs \
 	socket_test_ttest_tcp_server_socket \
-	socket_SUITE
+	socket_suites \
+	socket_SUITE \
+	socket_api_SUITE \
+	socket_traffic_SUITE \
+	socket_ttest_SUITE
 
 MODULES= \
 	kernel_test_lib \
