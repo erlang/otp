@@ -227,7 +227,7 @@ normal_map() ->
         %%"\^X" => ,
         "\^Y" => yank,
         %%"\^Z" => sig_stop, currently not handled by edlin.erl
-        "\^]" => auto_blink, % ctrl+5 seems to do the same thing,
+        "\^]" => auto_blink, % Ctrl+5 seems to do the same thing,
 
         %%# Alt-alpha_key or Esc + alpha_key, can distinguish case,
         "\^[B" => backward_word,
