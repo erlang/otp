@@ -306,17 +306,27 @@ end
        ensure_engine_loaded_nif/2
       ]).
 
--export_type([ %% A minimum exported: only what public_key needs.
-               dh_private/0,
-               dh_public/0,
-               dss_digest_type/0,
-               ec_named_curve/0,
-               ecdsa_digest_type/0,
-               pk_encrypt_decrypt_opts/0,
-               pk_sign_verify_opts/0,
-               rsa_digest_type/0,
-               sha1/0,
-               sha2/0
+-export_type([
+              blake2/0,
+              compatibility_only_hash/0,
+              dh_private/0,
+              dh_public/0,
+              dss_digest_type/0,
+              ec_named_curve/0,
+              ecdsa_digest_type/0,
+              pk_encrypt_decrypt_opts/0,
+              pk_sign_verify_opts/0,
+              sha1/0,
+              sha2/0,
+              sha3/0,
+              cipher/0,
+              cipher_aead/0,
+              cipher_iv/0,
+              cipher_no_iv/0,
+              cmac_cipher_algorithm/0,
+              hash_algorithm/0,
+              hmac_hash_algorithm/0,
+              rsa_digest_type/0
              ]).
 
 -export_type([engine_ref/0,
