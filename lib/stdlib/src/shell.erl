@@ -644,6 +644,8 @@ expand_quals([{generate,A,P,E}|Qs], C) ->
     [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([{b_generate,A,P,E}|Qs], C) ->
     [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{m_generate,A,P,E}|Qs], C) ->
+    [{m_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].

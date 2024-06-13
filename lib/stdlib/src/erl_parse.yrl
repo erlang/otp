@@ -933,7 +933,7 @@ processed (see section [Error Information](#module-error-information)).
 
 -type af_qualifier() :: af_generator() | af_filter().
 
--doc "Abstract representation of a generator or a bitstring generator.".
+-doc "Abstract representation of a list, bitstring or map generator.".
 -type af_generator() :: {'generate', anno(), af_pattern(), abstract_expr()}
                       | {'m_generate', anno(), af_assoc_exact(af_pattern()), abstract_expr()}
                       | {'b_generate', anno(), af_pattern(), abstract_expr()}.

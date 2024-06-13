@@ -2650,7 +2650,7 @@ compact_list(Node) ->
 					  copy_attrs(Node,
 						     Node1));
 			_ ->
-			    Node 
+			    Node
 		    end
 	    end;
 	_ ->
@@ -3172,7 +3172,7 @@ revert_attribute(Node) ->
 
 revert_attribute_1(module, [M], Pos, Node) ->
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, A};
 	error -> Node
     end;
@@ -3189,7 +3189,7 @@ revert_attribute_1(module, [M, List], Pos, Node) ->
 		 Node
 	 end,
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, {A, Vs}};
 	error -> Node
     end;
@@ -7528,7 +7528,7 @@ subtrees(T) ->
 			     Ts]
 		    end;
 	        binary_generator ->
-		    [[binary_generator_pattern(T)], 
+		    [[binary_generator_pattern(T)],
                      [binary_generator_body(T)]];
                 bitstring_type ->
                     [[bitstring_type_m(T)],

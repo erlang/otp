@@ -335,6 +335,8 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
+		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
