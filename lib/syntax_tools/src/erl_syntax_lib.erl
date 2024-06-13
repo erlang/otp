@@ -492,10 +492,16 @@ vann(Tree, Env) ->
             vann_binary_comp(Tree, Env);
         generator ->
             vann_generator(Tree, Env);
+        strict_generator ->
+            vann_strict_generator(Tree, Env);
         binary_generator ->
             vann_binary_generator(Tree, Env);
+        strict_binary_generator ->
+            vann_strict_binary_generator(Tree, Env);
         map_generator ->
             vann_map_generator(Tree, Env);
+        strict_map_generator ->
+            vann_strict_map_generator(Tree, Env);
         block_expr ->
             vann_block_expr(Tree, Env);
         macro ->
@@ -630,10 +636,16 @@ vann_list_comp_body_join() ->
             {T1, Bound1, Free1} = case erl_syntax:type(T) of
                                       generator ->
                                           vann_generator(T, Env);
+                                      strict_generator ->
+                                          vann_strict_generator(T, Env);
                                       binary_generator ->
                                           vann_binary_generator(T,Env);
+                                      strict_binary_generator ->
+                                          vann_strict_binary_generator(T,Env);
                                       map_generator ->
                                           vann_map_generator(T,Env);
+                                      strict_map_generator ->
+                                          vann_strict_map_generator(T,Env);
                                       _ ->
                                           %% Bindings in filters are not
                                           %% exported to the rest of the
@@ -643,7 +655,7 @@ vann_list_comp_body_join() ->
                                   end,
             Env1 = ordsets:union(Env, Bound1),
             {T1, {Env1, ordsets:union(Bound, Bound1),
-                  ordsets:union(Free, 
+                  ordsets:union(Free,
                                 ordsets:subtract(Free1, Bound))}}
     end.
 
@@ -668,10 +680,16 @@ vann_binary_comp_body_join() ->
             {T1, Bound1, Free1} = case erl_syntax:type(T) of
                                       generator ->
                                           vann_generator(T, Env);
+                                      strict_generator ->
+                                          vann_strict_generator(T, Env);
                                       binary_generator ->
                                           vann_binary_generator(T,Env);
+                                      strict_binary_generator ->
+                                          vann_strict_binary_generator(T,Env);
                                       map_generator ->
                                           vann_map_generator(T,Env);
+                                      strict_map_generator ->
+                                          vann_strict_map_generator(T,Env);
                                       _ ->
                                           %% Bindings in filters are not
                                           %% exported to the rest of the
@@ -681,7 +699,7 @@ vann_binary_comp_body_join() ->
                                   end,
             Env1 = ordsets:union(Env, Bound1),
             {T1, {Env1, ordsets:union(Bound, Bound1),
-                  ordsets:union(Free, 
+                  ordsets:union(Free,
                                 ordsets:subtract(Free1, Bound))}}
     end.
 
@@ -703,6 +721,14 @@ vann_generator(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+vann_strict_generator(Tree, Env) ->
+    P = erl_syntax:strict_generator_pattern(Tree),
+    {P1, Bound, _} = vann_pattern(P, []),
+    E = erl_syntax:strict_generator_body(Tree),
+    {E1, _, Free} = vann(E, Env),
+    Tree1 = rewrite(Tree, erl_syntax:strict_generator(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 vann_binary_generator(Tree, Env) ->
     P = erl_syntax:binary_generator_pattern(Tree),
     {P1, Bound, _} = vann_pattern(P, Env),
@@ -711,12 +737,28 @@ vann_binary_generator(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:binary_generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+vann_strict_binary_generator(Tree, Env) ->
+    P = erl_syntax:strict_binary_generator_pattern(Tree),
+    {P1, Bound, _} = vann_pattern(P, Env),
+    E = erl_syntax:strict_binary_generator_body(Tree),
+    {E1, _, Free} = vann(E, Env),
+    Tree1 = rewrite(Tree, erl_syntax:strict_binary_generator(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 vann_map_generator(Tree, Env) ->
     P = erl_syntax:map_generator_pattern(Tree),
     {P1, Bound, _} = vann_pattern(P, []),
     E = erl_syntax:map_generator_body(Tree),
     {E1, _, Free} = vann(E, Env),
     Tree1 = rewrite(Tree, erl_syntax:map_generator(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_strict_map_generator(Tree, Env) ->
+    P = erl_syntax:strict_map_generator_pattern(Tree),
+    {P1, Bound, _} = vann_pattern(P, []),
+    E = erl_syntax:strict_map_generator_body(Tree),
+    {E1, _, Free} = vann(E, Env),
+    Tree1 = rewrite(Tree, erl_syntax:strict_map_generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_block_expr(Tree, Env) ->
@@ -877,7 +919,7 @@ _See also: _[//erts/erlang:error/1](`erlang:error/1`),
 """.
 -spec is_fail_expr(syntaxTree()) -> boolean().
 
-is_fail_expr(E) ->          
+is_fail_expr(E) ->
     case erl_syntax:type(E) of
         application ->
             N = length(erl_syntax:application_arguments(E)),

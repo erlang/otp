@@ -553,14 +553,26 @@ munge_qs([{generate,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, {generate,Anno,Pattern,MungedExpr}, Vars0, Vars1, MQs);
+munge_qs([{generate_strict,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
+    A = element(2, Expr),
+    {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
+    munge_qs1(Qs, A, {generate_strict,Anno,Pattern,MungedExpr}, Vars0, Vars1, MQs);
 munge_qs([{b_generate,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, {b_generate,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
+munge_qs([{b_generate_strict,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
+    A = element(2, Expr),
+    {MExpr, Vars1} = munge_expr(Expr, Vars0),
+    munge_qs1(Qs, A, {b_generate_strict,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
 munge_qs([{m_generate,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, {m_generate,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
+munge_qs([{m_generate_strict,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
+    A = element(2, Expr),
+    {MExpr, Vars1} = munge_expr(Expr, Vars0),
+    munge_qs1(Qs, A, {m_generate_strict,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
 munge_qs([Expr|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MungedExpr, Vars1} = munge_expr(Expr, Vars0),

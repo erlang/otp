@@ -441,12 +441,12 @@ escape_quotes([], Acc) ->
     % because we've been prepending for efficiency reasons.
     lists:reverse(Acc);
 
-escape_quotes([$\\, $\" | Rest], Acc) -> 
+escape_quotes([$\\, $\" | Rest], Acc) ->
     % If we find an escaped quote (\"),
     % we escape the backslash and the quote (\\\") and continue.
     escape_quotes(Rest, [$\", $\\, $\\, $\\ | Acc]);
 
-escape_quotes([$\" | Rest], Acc) -> 
+escape_quotes([$\" | Rest], Acc) ->
     % If we find a quote ("),
     % we escape it (\\") and continue.
     escape_quotes(Rest, [$\", $\\ | Acc]);
@@ -642,10 +642,16 @@ expand_fields([], _C) -> [].
 
 expand_quals([{generate,A,P,E}|Qs], C) ->
     [{generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{generate_strict,A,P,E}|Qs], C) ->
+    [{generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([{b_generate,A,P,E}|Qs], C) ->
     [{b_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{b_generate_strict,A,P,E}|Qs], C) ->
+    [{b_generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([{m_generate,A,P,E}|Qs], C) ->
     [{m_generate,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
+expand_quals([{m_generate_strict,A,P,E}|Qs], C) ->
+    [{m_generate_strict,A,P,expand_expr(E, C)}|expand_quals(Qs, C)];
 expand_quals([E|Qs], C) ->
     [expand_expr(E, C)|expand_quals(Qs, C)];
 expand_quals([], _C) -> [].
@@ -2075,7 +2081,7 @@ expressions submitted to the shell prettier.
       String2 :: string().
 erl_pp_format_func(String) ->
     %% A simple pretty printer function of shell expressions.
-    %% 
+    %%
     %% Comments will be filtered.
     %% If you add return_comments to the option list,
     %% parsing will fail, and we will end up with the original string.

@@ -19,7 +19,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
 %% Test cases
@@ -32,7 +32,7 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [app_test,appup_test,smoke_test,revert,revert_map,revert_map_type,
      revert_preserve_pos_changes,
      wrapped_subtrees,
@@ -40,7 +40,7 @@ all() ->
      t_epp_dodger,t_epp_dodger_clever,
      t_comment_scan,t_prettypr,test_named_fun_bind_ann].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -91,7 +91,7 @@ print_error_markers(F, File) ->
 	_ ->
 	    ok
     end.
-    
+
 
 %% Read with erl_parse, wrap and revert with erl_syntax and check for equality.
 revert(Config) when is_list(Config) ->
@@ -332,10 +332,13 @@ t_erl_parse_type(Config) when is_list(Config) ->
 		     {"#{ a:=1, b:=2 }", map_expr,false},
 		     {"M#{ a=>1, b=>2 }", map_expr,false},
 		     {"[V||V <- Vs]", list_comp,false},
+		     {"[V||V <:- Vs]", list_comp,false},
 		     {"[catch V||V <- Vs]", list_comp,false},
 		     {"<< <<B>> || <<B>> <= Bs>>", binary_comp,false},
+		     {"<< <<B>> || <<B>> <:= Bs>>", binary_comp,false},
 		     {"<< (catch <<B>>) || <<B>> <= Bs>>", binary_comp,false},
 		     {"#{K => V || {K,V} <- KVs}", map_comp,false},
+		     {"#{K => V || {K,V} <:- KVs}", map_comp,false},
 		     {"#{K => (catch V) || {K,V} <- KVs}", map_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},

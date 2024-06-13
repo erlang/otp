@@ -269,6 +269,15 @@ trees.
 	 named_fun_expr_clauses/1,
 	 named_fun_expr_name/1,
 	 nil/0,
+         strict_binary_generator/2,
+         strict_binary_generator_body/1,
+         strict_binary_generator_pattern/1,
+         strict_generator/2,
+         strict_generator_body/1,
+         strict_generator_pattern/1,
+         strict_map_generator/2,
+         strict_map_generator_body/1,
+         strict_map_generator_pattern/1,
 	 operator/1,
 	 operator_literal/1,
 	 operator_name/1,
@@ -621,8 +630,11 @@ type(Node) ->
 	{cons, _, _, _} -> list;
 	{function, _, _, _, _} -> function;
 	{b_generate, _, _, _} -> binary_generator;
+	{b_generate_strict, _, _, _} -> strict_binary_generator;
 	{generate, _, _, _} -> generator;
+	{generate_strict, _, _, _} -> strict_generator;
 	{m_generate, _, _, _} -> map_generator;
+	{m_generate_strict, _, _, _} -> strict_map_generator;
 	{lc, _, _, _} -> list_comp;
 	{bc, _, _, _} -> binary_comp;
 	{mc, _, _, _} -> map_comp;
@@ -5838,6 +5850,68 @@ generator_body(Node) ->
 
 %% =====================================================================
 
+-record(strict_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict list generator.
+
+The result represents "`*Pattern*<:- *Body*`".
+
+_See also: _`binary_comp/2`, `strict_generator_body/1`,
+`strict_generator_pattern/1`, `list_comp/2`.
+""".
+-spec strict_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_generator(Pattern, Body) ->
+    tree(strict_generator, #strict_generator{pattern = Pattern, body = Body}).
+
+revert_strict_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_generator_pattern(Node),
+    Body = strict_generator_body(Node),
+    {generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_generator/2`.
+""".
+-spec strict_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_generator/2`.
+""".
+-spec strict_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_generator_body(Node) ->
+    case unwrap(Node) of
+	{generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_generator.body
+    end.
+
+
+%% =====================================================================
+
 -record(binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 -doc """
@@ -5900,6 +5974,68 @@ binary_generator_body(Node) ->
 
 %% =====================================================================
 
+-record(strict_binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict binary_generator.
+
+The result represents "`*Pattern*<:- *Body*`".
+
+_See also: _`binary_comp/2`, `strict_binary_generator_body/1`,
+`strict_binary_generator_pattern/1`, `list_comp/2`.
+""".
+-spec strict_binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {b_generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_binary_generator(Pattern, Body) ->
+    tree(strict_binary_generator, #strict_binary_generator{pattern = Pattern, body = Body}).
+
+revert_strict_binary_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_binary_generator_pattern(Node),
+    Body = strict_binary_generator_body(Node),
+    {b_generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_binary_generator/2`.
+""".
+-spec strict_binary_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_binary_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{b_generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_binary_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_binary_generator/2`.
+""".
+-spec strict_binary_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_binary_generator_body(Node) ->
+    case unwrap(Node) of
+	{b_generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_binary_generator.body
+    end.
+
+
+%% =====================================================================
+
 -record(map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 -doc """
@@ -5957,6 +6093,68 @@ map_generator_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#map_generator.body
+    end.
+
+
+%% =====================================================================
+
+-record(strict_map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract strict map_generator. The result represents
+"`*Pattern*<- *Body*`".
+
+_See also: _`list_comp/2`, `map_comp/2`,
+`strict_map_generator_body/1`,
+`strict_map_generator_pattern/1`.
+""".
+-spec strict_map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {m_generate_strict, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+strict_map_generator(Pattern, Body) ->
+    tree(strict_map_generator, #strict_map_generator{pattern = Pattern, body = Body}).
+
+revert_strict_map_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = strict_map_generator_pattern(Node),
+    Body = strict_map_generator_body(Node),
+    {m_generate_strict, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`strict_map_generator/2`.
+""".
+-spec strict_map_generator_pattern(syntaxTree()) -> syntaxTree().
+
+strict_map_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{m_generate_strict, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#strict_map_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`strict_map_generator/2`.
+""".
+-spec strict_map_generator_body(syntaxTree()) -> syntaxTree().
+
+strict_map_generator_body(Node) ->
+    case unwrap(Node) of
+	{m_generate_strict, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#strict_map_generator.body
     end.
 
 
@@ -7337,6 +7535,12 @@ revert_root(Node) ->
 	    revert_named_fun_expr(Node);
 	nil ->
 	    revert_nil(Node);
+	strict_binary_generator ->
+	    revert_strict_binary_generator(Node);
+	strict_generator ->
+	    revert_strict_generator(Node);
+	strict_map_generator ->
+	    revert_strict_map_generator(Node);
 	parentheses ->
 	    revert_parentheses(Node);
 	prefix_expr ->
@@ -7655,6 +7859,15 @@ subtrees(T) ->
 		named_fun_expr ->
 			[[named_fun_expr_name(T)],
 			 named_fun_expr_clauses(T)];
+                strict_binary_generator ->
+                    [[strict_binary_generator_pattern(T)],
+                     [strict_binary_generator_body(T)]];
+                strict_generator ->
+                    [[strict_generator_pattern(T)],
+                     [strict_generator_body(T)]];
+                strict_map_generator ->
+                    [[strict_map_generator_pattern(T)],
+                     [strict_map_generator_body(T)]];
 		parentheses ->
 		    [[parentheses_body(T)]];
 		prefix_expr ->
@@ -7816,6 +8029,9 @@ make_tree(maybe_expr, [Body, [Else]]) -> maybe_expr(Body, Else);
 make_tree(maybe_match_expr, [[P], [E]]) -> maybe_match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
+make_tree(strict_binary_generator, [[P], [E]]) -> strict_binary_generator(P, E);
+make_tree(strict_generator, [[P], [E]]) -> strict_generator(P, E);
+make_tree(strict_map_generator, [[P], [E]]) -> strict_map_generator(P, E);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
 make_tree(receive_expr, [C]) -> receive_expr(C);

@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1996-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_eval).
@@ -971,13 +971,21 @@ eval_mc1({map_field_assoc,Lfa,K0,V0}, [], Bs, Lf, Ef, FUVs, Acc) ->
     {value,KV,_} = expr({tuple,Lfa,[K0,V0]}, Bs, Lf, Ef, none, FUVs),
     [KV|Acc].
 
-eval_generator({generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+eval_generator({Generate,Anno,P,L0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
     {value,L1,_Bs1} = expr(L0, Bs0, Lf, Ef, none, FUVs),
-    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({b_generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_generate(L1, P, Anno, Bs0, Lf, Ef, CompFun,
+                  Generate =:= generate, Acc0);
+eval_generator({Generate,Anno,P,Bin0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
     {value,Bin,_Bs1} = expr(Bin0, Bs0, Lf, Ef, none, FUVs),
-    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc0);
-eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
+    eval_b_generate(Bin, P, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= b_generate, Acc0);
+eval_generator({Generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict ->
     {map_field_exact,_,K,V} = P,
     {value,Map,_Bs1} = expr(Map0, Bs0, Lf, Ef, none, FUVs),
     Iter = case is_map(Map) of
@@ -994,49 +1002,58 @@ eval_generator({m_generate,Anno,P,Map0}, Bs0, Lf, Ef, FUVs, Acc0, CompFun) ->
                                        Anno, Bs0, Ef, none)
                    end
            end,
-    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun, Acc0).
+    eval_m_generate(Iter, {tuple,Anno,[K,V]}, Anno, Bs0, Lf, Ef, CompFun,
+                    Generate =:= m_generate, Acc0).
 
-eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
+eval_generate([V|Rest], P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
     case match(P, V, Anno, new_bindings(Bs0), Bs0, Ef) of
 	{match,Bsn} ->
-	    Bs2 = add_bindings(Bsn, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	nomatch ->
-	    eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc)
-	end;
-eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, Acc) ->
+            Bs2 = add_bindings(Bsn, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        nomatch when Relaxed ->
+            eval_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        nomatch ->
+            apply_error({badmatch, V}, ?STACKTRACE, Anno, Bs0, Ef, none)
+    end;
+eval_generate([], _P, _Anno, _Bs0, _Lf, _Ef, _CompFun, _Relaxed, Acc) ->
     Acc;
-eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
+eval_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
     apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
 
-eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Acc) ->
+eval_b_generate(<<_/bitstring>>=Bin, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc) ->
     Mfun = match_fun(Bs0, Ef),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
     case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-	{match, Rest, Bs1} ->
-	    Bs2 = add_bindings(Bs1, Bs0),
-	    NewAcc = CompFun(Bs2, Acc),
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, NewAcc);
-	{nomatch, Rest} ->
-	    eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
-	done ->
-	    Acc
+        {match, Rest, Bs1} ->
+            Bs2 = add_bindings(Bs1, Bs0),
+            NewAcc = CompFun(Bs2, Acc),
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, NewAcc);
+        {nomatch, Rest} when Relaxed ->
+            eval_b_generate(Rest, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+        {nomatch, _Rest} ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done when not Relaxed, Bin =/= <<>> ->
+            apply_error({badmatch, Bin}, ?STACKTRACE, Anno, Bs0, Ef, none);
+        done ->
+            Acc
     end;
-eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Acc) ->
+eval_b_generate(Term, _P, Anno, Bs0, _Lf, Ef, _CompFun, _Relaxed, _Acc) ->
     apply_error({bad_generator,Term}, ?STACKTRACE, Anno, Bs0, Ef, none).
 
-eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Acc0) ->
+eval_m_generate(Iter0, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0) ->
     case maps:next(Iter0) of
         {K,V,Iter} ->
             case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
                 {match,Bsn} ->
                     Bs2 = add_bindings(Bsn, Bs0),
                     Acc = CompFun(Bs2, Acc0),
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc);
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc);
+                nomatch when Relaxed ->
+                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Relaxed, Acc0);
                 nomatch ->
-                    eval_m_generate(Iter, P, Anno, Bs0, Lf, Ef, CompFun, Acc0)
+                    apply_error({badmatch, {K,V}}, ?STACKTRACE, Anno, Bs0, Ef, none)
             end;
         none ->
             Acc0
@@ -1059,8 +1076,11 @@ eval_filter(F, Bs0, Lf, Ef, CompFun, FUVs, Acc) ->
     end.
 
 is_generator({generate,_,_,_}) -> true;
+is_generator({generate_strict,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
+is_generator({b_generate_strict,_,_,_}) -> true;
 is_generator({m_generate,_,_,_}) -> true;
+is_generator({m_generate_strict,_,_,_}) -> true;
 is_generator(_) -> false.
 
 %% eval_map_fields([Field], Bindings, LocalFunctionHandler,
@@ -1828,7 +1848,7 @@ normalise_list([]) ->
 %%----------------------------------------------------------------------------
 %%
 %% Evaluate expressions:
-%% constants and 
+%% constants and
 %% op A
 %% L op R
 %% Things that evaluate to constants are accepted
