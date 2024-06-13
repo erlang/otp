@@ -637,13 +637,21 @@ scan1("?="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "?=", '?=', 2);
 scan1("?"=Cs, St, Line, Col, Toks) ->
     {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
-%% << <- <=
+%% << <:- <- <:= <=
 scan1("<<"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<<", '<<', 2);
+scan1("<:-"++Cs, St, Line, Col, Toks) ->
+    %% fixme: reject the new operator unless the non_skipping_generators feature is enabled
+    tok2(Cs, St, Line, Col, Toks, "<:-", '<:-', 3);
 scan1("<-"++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<-", '<-', 2);
+scan1("<:="++Cs, St, Line, Col, Toks) ->
+    %% fixme: reject the new operator unless the non_skipping_generators feature is enabled
+    tok2(Cs, St, Line, Col, Toks, "<:=", '<:=', 3);
 scan1("<="++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "<=", '<=', 2);
+scan1("<:"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1("<"=Cs, St, Line, Col, Toks) ->
     {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 %% >> >=

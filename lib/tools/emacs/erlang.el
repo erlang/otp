@@ -1183,7 +1183,7 @@ behaviour.")
 
 (defvar erlang-font-lock-keywords-lc
   (list
-   (list "\\(<-\\|<=\\|||\\)\\(\\s \\|$\\)" 1 'font-lock-keyword-face))
+   (list "\\(<-\\|<:-\\|<=\\|<:=\\|||\\)\\(\\s \\|$\\)" 1 'font-lock-keyword-face))
   "Font lock keyword highlighting list comprehension operators.")
 
 (defvar erlang-font-lock-keywords-keywords
@@ -1510,7 +1510,7 @@ Other commands:
          ))
     (add-to-list 'align-rules-list
       `(erlang-generator-arrows
-         (regexp   . ,(concat space-group "\\(<-\\|<=\\)" space-group))
+         (regexp   . ,(concat space-group "\\(<-\\|<:-\\|<=\\|<:=\\)" space-group))
          (group    . (1 3))
          (separate . ,(concat "\\(||\\|" erl-sep-forms "\\|" erl-sep-symbols "\\)"))
          (repeat   . t)

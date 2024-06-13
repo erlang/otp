@@ -687,10 +687,16 @@ expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
     Gs = [case G of
               ({generate,L,P0,Qs}) ->
                   {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_ns,L,P0,Qs}) ->
+                  {generator,{generate_ns,L,pattern(P0, St),expr(Qs, false, St)}};
               ({b_generate,L,P0,Qs}) -> %R12.
                   {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_ns,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_ns,L,pattern(P0, St),expr(Qs, false, St)}};
               ({m_generate,L,P0,Qs}) -> %OTP 26
                   {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_ns,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_ns,L,mc_pattern(P0, St),expr(Qs, false, St)}};
               (Expr) ->
                   case is_guard_test(Expr, St) of
                       true -> {guard,guard([[Expr]], St)};
