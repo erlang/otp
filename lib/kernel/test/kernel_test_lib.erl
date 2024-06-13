@@ -39,7 +39,11 @@
          formated_timestamp/0]).
 -export([good_hosts/1,
          lookup/3]).
--export([os_cmd/1, os_cmd/2]).
+-export([
+         os_cmd/1, os_cmd/2,
+         mq/0, mq/1,
+         ts/0, ts/1
+        ]).
 
 -export([
          proxy_call/3,
@@ -2436,7 +2440,8 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             %% We always check the system events
                             %% before we accept a failure.
                             %% We do *not* run the Post here because it might
-                            %% generate sys events itself...
+                            %% generate sys events itself...wait until after
+                            %% events has been checked.
                             case kernel_test_global_sys_monitor:events() of
                                 [] ->
                                     tc_print("test case failed: try post"),
@@ -2582,6 +2587,16 @@ os_cmd(Cmd, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
     proxy_call(fun() -> {ok, os:cmd(Cmd)} end, Timeout, {error, timeout}).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+mq() ->
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    {messages, MQ} = process_info(Pid, messages),
+    MQ.
+
+             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 socket_type(Config) ->
@@ -2899,6 +2914,19 @@ not_yet_implemented() ->
 
 skip(Reason) ->
     throw({skip, Reason}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ts() ->
+    ts(ms).
+
+ts(s) ->
+    erlang:system_time(second);
+ts(ms) ->
+    erlang:system_time(millisecond);
+ts(us) ->
+    erlang:system_time(microsecond).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
