@@ -24,6 +24,7 @@
 
 -module(diameter_service).
 %% -moduledoc false.
+-moduledoc(#{since => "OTP @OTP-19126@"}).
 -behaviour(gen_server).
 
 %% towards diameter_service_sup
