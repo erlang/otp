@@ -166,6 +166,7 @@ default.
                        | {'warnings', [warn_option()]}
                        | {'get_warnings', boolean()}
                        | {'use_spec', boolean()}
+                       | {'dry_run', boolean()}
                        | {'filename_opt', filename_opt()}
                        | {'callgraph_file', file:filename()}
                        | {'mod_deps_file', file:filename()}
@@ -253,6 +254,7 @@ in messages. If the value is `column`, a pair `{Line, Column}` is used as
 		  check_plt       = true           :: boolean(),
                   error_location  = ?ERROR_LOCATION :: error_location(),
                   metrics_file       = none	   :: none | file:filename(),
+                  dry_run         = false	   :: boolean(),
 		  module_lookup_file = none	   :: none | file:filename(),
                   solvers         = []             :: [solver()]}).
 
