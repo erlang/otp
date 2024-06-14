@@ -1622,7 +1622,8 @@ event_type(Type) ->
          parent :: pid(),
          modules = [?MODULE] :: nonempty_list(module()),
          name :: atom() | pid(),
-         hibernate_after = infinity :: timeout()
+         hibernate_after = infinity :: timeout(),
+         prioritize_termination = false :: boolean()
         }).
 
 -record(state,
@@ -1705,6 +1706,7 @@ Options that can be used when starting a `gen_statem` server through,
 """.
 -type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
 	{'hibernate_after', HibernateAfterTimeout :: timeout()}
+      | {'prioritize_termination', PrioritizeTermination :: boolean()}
       | {'debug', Dbgs :: [sys:debug_option()]}.
 
 -doc """
@@ -2617,9 +2619,10 @@ enter_loop(Module, Opts, State, Data, Server, Actions) ->
     Name = gen:get_proc_name(Server),
     Debug = gen:debug_options(Name, Opts),
     HibernateAfterTimeout = gen:hibernate_after(Opts),
+    PrioritizeTermination = gen:prioritize_termination(Opts),
     enter(
       Parent, Debug, Module, Name, HibernateAfterTimeout,
-      State, Data, Actions).
+      PrioritizeTermination, State, Data, Actions).
 
 %%---------------------------------------------------------------------------
 %% API helpers
@@ -2660,7 +2663,7 @@ send(Proc, Msg) ->
 %% Here the init_it/6 and enter_loop/5,6,7 functions converge
 enter(
   Parent, Debug, Module, Name, HibernateAfterTimeout,
-  State, Data, Actions) ->
+  PrioritizeTermination, State, Data, Actions) ->
     %% The values should already have been type checked
     Q = [{internal,init_state}],
     %% We enforce {postpone,false} to ensure that
@@ -2671,7 +2674,8 @@ enter(
         #params{
            parent = Parent,
            name = Name,
-           hibernate_after = HibernateAfterTimeout},
+           hibernate_after = HibernateAfterTimeout,
+           prioritize_termination = PrioritizeTermination},
     S = #state{state_data = {State,Data}},
     case get_callback_mode(P, Modules) of
         #params{} = P_1 ->
@@ -2692,16 +2696,17 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
     Name = gen:get_proc_name(ServerRef),
     Debug = gen:debug_options(Name, Opts),
     HibernateAfterTimeout = gen:hibernate_after(Opts),
+    PrioritizeTermination = gen:prioritize_termination(Opts),
     try Module:init(Args) of
 	Result ->
 	    init_result(
               Starter, Parent, ServerRef, Module, Result,
-              Name, Debug, HibernateAfterTimeout)
+              Name, Debug, HibernateAfterTimeout, PrioritizeTermination)
     catch
 	Result ->
 	    init_result(
               Starter, Parent, ServerRef, Module, Result,
-              Name, Debug, HibernateAfterTimeout);
+              Name, Debug, HibernateAfterTimeout, PrioritizeTermination);
 	Class:Reason:Stacktrace ->
 	    gen:unregister_name(ServerRef),
 	    error_info(
@@ -2717,18 +2722,18 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 
 init_result(
   Starter, Parent, ServerRef, Module, Result,
-  Name, Debug, HibernateAfterTimeout) ->
+  Name, Debug, HibernateAfterTimeout, PrioritizeTermination) ->
     case Result of
 	{ok,State,Data} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
             enter(
               Parent, Debug, Module, Name, HibernateAfterTimeout,
-              State, Data, []);
+              PrioritizeTermination, State, Data, []);
 	{ok,State,Data,Actions} ->
 	    proc_lib:init_ack(Starter, {ok,self()}),
             enter(
               Parent, Debug, Module, Name, HibernateAfterTimeout,
-              State, Data, Actions);
+              PrioritizeTermination, State, Data, Actions);
 	{stop,Reason} ->
 	    gen:unregister_name(ServerRef),
             exit(Reason);
@@ -2968,50 +2973,51 @@ loop_hibernate(P, Debug, S) ->
 loop_receive(
   #params{hibernate_after = HibernateAfterTimeout} = P, Debug, S) ->
     %%
-    receive
-	Msg ->
-	    case Msg of
-                {'$gen_call',From,Request} ->
-                    loop_receive_result(P, Debug, S, {{call,From},Request});
-                {'$gen_cast',Cast} ->
-                    loop_receive_result(P, Debug, S, {cast,Cast});
-                %%
-		{timeout,TimerRef,TimeoutType} ->
-                    case S#state.timers of
-                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers
-                          when TimeoutType =/= t0q->
-                            %% Our timer
-                            Timers_1 = maps:remove(TimeoutType, Timers),
-                            S_1 = S#state{timers = Timers_1},
-                            loop_receive_result(
-                              P, Debug, S_1, {TimeoutType,TimeoutMsg});
-                        #{} ->
-			    loop_receive_result(P, Debug, S, {info,Msg})
-		    end;
-                %%
-		{system,Pid,Req} ->
-		    %% Does not return but tail recursively calls
-		    %% system_continue/3 that jumps to loop/3
-		    sys:handle_system_msg(
-		      Req, Pid, P#params.parent, ?MODULE, Debug,
-                      {P,S},
-		      S#state.hibernate);
-		{'EXIT',Pid,Reason} ->
-                    case P#params.parent of
-                        Pid ->
-                            terminate(
-                              exit, Reason, ?STACKTRACE(), P, Debug, S, []);
-                        _ ->
-                            loop_receive_result(P, Debug, S, {info,Msg})
-                    end;
-                %%
-                _ ->
-                    loop_receive_result(P, Debug, S, {info,Msg})
-	    end
-    after
-        HibernateAfterTimeout ->
-            loop_hibernate(P, Debug, S)
+    case maybe_receive_termination(P#params.prioritize_termination, P#params.parent) of
+        false ->
+            receive
+                Msg ->
+                    handle_msg(Msg, P, Debug, S)
+            after
+                HibernateAfterTimeout ->
+                    loop_hibernate(P, Debug, S)
+            end;
+        {true, PrioMsg} ->
+            handle_msg(PrioMsg, P, Debug, S)
     end.
+
+maybe_receive_termination(true, Parent) ->
+    receive
+	{system, _From, {terminate, _Reason}} = PrioMsg ->
+            {true, PrioMsg};
+        {'EXIT', Parent, _Reason} = PrioMsg ->
+            {true, PrioMsg}
+    after 0 ->
+        false
+    end;
+maybe_receive_termination(_, _) ->
+    false.
+
+handle_msg({'$gen_call', From, Request}, P, Debug, S) ->
+	loop_receive_result(P, Debug, S, {{call, From}, Request});
+handle_msg({'$gen_cast', Cast}, P, Debug, S) ->
+	loop_receive_result(P, Debug, S, {cast, Cast});
+handle_msg({timeout, TimerRef, TimeoutType} = Msg, P, Debug, S) ->
+	case S#state.timers of
+		#{TimeoutType := {TimerRef, TimeoutMsg}} = Timers when TimeoutType =/= t0q ->
+			Timers1 = maps:remove(TimeoutType, Timers),
+			S1 = S#state{timers = Timers1},
+			loop_receive_result(P, Debug, S1, {TimeoutType, TimeoutMsg});
+		#{} ->
+			loop_receive_result(P, Debug, S, {info, Msg})
+	end;
+handle_msg({system, Pid, Req}, P, Debug, S) ->
+	sys:handle_system_msg(Req, Pid, P#params.parent, ?MODULE, Debug, {P, S}, S#state.hibernate);
+handle_msg({'EXIT', Pid, Reason}, #params{parent = Pid} = P, Debug, S) ->
+	terminate(exit, Reason, ?STACKTRACE(), P, Debug, S, []);
+handle_msg(Msg, P, Debug, S) ->
+	loop_receive_result(P, Debug, S, {info, Msg}).
+
 
 %% We have received an event
 %%
