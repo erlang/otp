@@ -61,7 +61,7 @@ DRIVER_INIT(unlink_signal_entry)
 }
 
 typedef struct {
-    ErlDrvData port;
+    ErlDrvPort port;
     int timeout_count;
 } us_drv_state;
 
