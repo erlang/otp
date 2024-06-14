@@ -394,6 +394,7 @@ format_error_1({too_many_arguments,Arity}) ->
 format_error_1(update_literal) ->
     ~"expression updates a literal";
 %% --- patterns and guards ---
+format_error_1(illegal_map_assoc_in_pattern) -> ~"illegal pattern, did you mean to use `:=`?";
 format_error_1(illegal_pattern) -> ~"illegal pattern";
 format_error_1(illegal_map_key) -> ~"illegal map key in pattern";
 format_error_1(illegal_expr) -> ~"illegal expression";
@@ -2047,7 +2048,7 @@ is_pattern_expr_1(_Other) -> false.
 
 pattern_map(Ps, Vt0, Old, St0) ->
     foldl(fun({map_field_assoc,A,_,_}, {Psvt,Psnew,St1}) ->
-                  {Psvt,Psnew,add_error(A, illegal_pattern, St1)};
+                  {Psvt,Psnew,add_error(A, illegal_map_assoc_in_pattern, St1)};
              ({map_field_exact,_A,K,V}, {Psvt,Psnew,St1}) ->
                   St2 = St1#lint{gexpr_context=map_key},
                   {Kvt, St3} = gexpr(K, Vt0, St2),

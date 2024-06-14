@@ -4070,7 +4070,7 @@ maps(Config) ->
              {{4,24},erl_lint,illegal_map_construction},
              {{8,36},erl_lint,illegal_map_construction}],
             [{{5,20},erl_lint,update_literal}]}},
-          {illegal_pattern,
+          {illegal_map_assoc_in_pattern,
            <<"t(#{ a := A,
                    c => d,
                    e := F,
@@ -4082,7 +4082,7 @@ maps(Config) ->
                   {A,F}.
             ">>,
            [],
-           {errors,[{{2,22},erl_lint,illegal_pattern},
+           {errors,[{{2,22},erl_lint,illegal_map_assoc_in_pattern},
                     {{7,28},erl_lint,illegal_pattern}],
             []}},
           {error_in_illegal_map_construction,
