@@ -46,7 +46,7 @@ This document describes the changes made to the EDoc application.
 
   Own Id: OTP-18955 Aux Id: [PR-8026]
 
-- Added module `m:edoc_doclet_markdown` that can be used to convert EDoc style documentation to [Markdown documentation attributes](`e:system/documentation.md`).
+- Added module `m:edoc_doclet_markdown` that can be used to convert EDoc style documentation to [Markdown documentation attributes](`e:system:documentation.md`).
 
   Own Id: OTP-19052 Aux Id: [PR-8308]
 

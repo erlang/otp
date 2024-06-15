@@ -102,7 +102,7 @@ The `-moduledoc` and `-doc` can also be placed in external files. To do so use
 `-doc {file, "path/to/doc.md"}` to point to the documentation. The path used is
 relative to the file where the `-doc` attribute is located. For example:
 
-```text
+```markdown
 %% doc/add.md
 Adds two numbers.
 ```
@@ -260,8 +260,7 @@ specification. For example:
 -callback increment(In :: number()) -> Out.
 %% signature will be `increment(In)`
 
--callback increment(In) -> Out when
-   In :: number().
+-callback increment(In) -> Out when In :: number().
 %% signature will be `increment(In)`
 ```
 
@@ -322,7 +321,7 @@ The link can also other entities:
 Example:
 
 ```erlang
-  -doc "See `arith:sub/2` for more details".
+-doc "See `arith:sub/2` for more details".
 ```
 
 - `modules` - Write the module with a `m` prefix. Use anchors to jump to a
@@ -331,8 +330,8 @@ Example:
 Example:
 
 ```erlang
-  -doc "See `m:arith` for more details".
-  -doc "See `m:arith#anchor` for more details".
+-doc "See `m:arith` for more details".
+-doc "See `m:arith#anchor` for more details".
 ```
 
 - `types` - Use the same syntax as for local/remote function but add a `t`
@@ -341,8 +340,8 @@ Example:
 Example:
 
 ```erlang
-  -doc "See `t:number/0` for more details".
-  -doc "See `t:arith:number/0` for more details".
+-doc "See `t:number/0` for more details".
+-doc "See `t:arith:number/0` for more details".
 ```
 
 - `callbacks` - Use the same syntax as for local/remote function but add a `c`
@@ -351,8 +350,8 @@ Example:
 Example:
 
 ```erlang
-  -doc "See `c:increment/0` for more details".
-  -doc "See `c:arith:increment/0` for more details".
+-doc "See `c:increment/0` for more details".
+-doc "See `c:arith:increment/0` for more details".
 ```
 
 - `extra pages` - For extra pages in the current application use a normal link,
@@ -363,8 +362,8 @@ Example:
 Example:
 
 ```erlang
-  -doc "See `e:stdlib:unicode_usage` for more details".
-  -doc "See `e:stdlib:unicode_usage#notes-about-raw-filenames` for more details".
+-doc "See `e:stdlib:unicode_usage` for more details".
+-doc "See `e:stdlib:unicode_usage#notes-about-raw-filenames` for more details".
 ```
 
 ## What is visible versus hidden?
@@ -450,9 +449,9 @@ documentation add the following to your `rebar3.config`.
 {plugins, [rebar3_ex_doc]}.
 
 {ex_doc, [
- {extras, ["README.md"]},
- {main, "README.md"},
- {source_url, "https://github.com/namespace/your_app"}
+  {extras, ["README.md"]},
+  {main, "README.md"},
+  {source_url, "https://github.com/namespace/your_app"}
 ]}.
 ```
 
