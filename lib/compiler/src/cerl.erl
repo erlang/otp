@@ -225,7 +225,7 @@ Current node types are:
 > name of the type itself, prefixed by "`c_`"; recognizer predicates are
 > correspondingly prefixed by "`is_c_`". Furthermore, to simplify preservation of
 > annotations (cf. [`get_ann/1`](`get_ann/1`)), there are analogous constructor
-> functions prefixed by "`ann_c_`| and "`update_c_`", for setting the annotation
+> functions prefixed by "`ann_c_`" and "`update_c_`", for setting the annotation
 > list of the new node to either a specific value or to the annotations of an
 > existing node, respectively.
 
@@ -2480,7 +2480,7 @@ let_arity(Node) ->
 Creates an abstract letrec-expression.
 
 If `Definitions` is `[{V1, F1}, ..., {Vn, Fn}]`, the result represents
-"`letrec V1 = F1 ... Vn = Fn in Body`. All the `Vi` must have type
+"`letrec V1 = F1 ... Vn = Fn in Body`". All the `Vi` must have type
 `var` and represent function names. All the `Fi` must have type
 `'fun'`.
 
