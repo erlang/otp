@@ -88,7 +88,7 @@ prefixing each of the functions with a `b` (for "binary"), we get the
 corresponding `blog()` functions for the external format. These functions log
 one or more chunks of bytes. For example, to log the string `"hello"` in ASCII
 format, you can use [`disk_log:blog(Log, "hello")`](`blog/2`), or
-[`disk_log:blog(Log, list_to_binary("hello"))](`blog/2`)`. The two alternatives
+[`disk_log:blog(Log, list_to_binary("hello"))`](`blog/2`). The two alternatives
 are equally efficient.
 
 The `blog()` functions can also be used for internally formatted logs, but in
