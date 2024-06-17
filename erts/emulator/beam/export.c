@@ -461,13 +461,18 @@ int export_list_size(ErtsCodeIndex code_ix)
 
 int export_table_sz(void)
 {
+    const int lock = !ERTS_IS_CRASH_DUMPING;
     int i, bytes = 0;
 
-    export_staging_lock();
+    if (lock) {
+        export_staging_lock();
+    }
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	bytes += index_table_sz(&export_tables[i]);
     }
-    export_staging_unlock();
+    if (lock) {
+        export_staging_unlock();
+    }
     return bytes;
 }
 int export_entries_sz(void)
