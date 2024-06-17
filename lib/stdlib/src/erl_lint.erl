@@ -800,9 +800,6 @@ start(File, Opts) ->
          {redefined_builtin_type,
           bool_option(warn_redefined_builtin_type, nowarn_redefined_builtin_type,
                       true, Opts)},
-         {singleton_typevar,
-          bool_option(warn_singleton_typevar, nowarn_singleton_typevar,
-                      true, Opts)},
          {match_float_zero,
           bool_option(warn_match_float_zero, nowarn_match_float_zero,
                       true, Opts)},
@@ -3192,24 +3189,16 @@ warn_redefined_builtin_type(Anno, TypePair, #lint{compile=Opts}=St) ->
 
 check_type(Types, St) ->
     {SeenVars, St1} = check_type_1(Types, maps:new(), St),
-    maps:fold(fun(Var, {seen_once, Anno}, AccSt) ->
-		      case atom_to_list(Var) of
-			  "_"++_ -> AccSt;
-			  _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
-		      end;
-                 (Var, {seen_once_union, Anno}, AccSt) ->
-                      case is_warn_enabled(singleton_typevar, AccSt) of
-                          true ->
-                              case atom_to_list(Var) of
-                                  "_"++_ -> AccSt;
-                                  _ -> add_warning(Anno, {singleton_typevar, Var}, AccSt)
-                              end;
-                          false ->
-                              AccSt
+    maps:fold(fun(Var, {SeenOnce, Anno}, AccSt)
+                    when SeenOnce =:= seen_once;
+                         SeenOnce =:= seen_once_union ->
+                      case atom_to_list(Var) of
+                          "_"++_ -> AccSt;
+                          _ -> add_error(Anno, {singleton_typevar, Var}, AccSt)
                       end;
-		 (_Var, seen_multiple, AccSt) ->
-		      AccSt
-	      end, St1, SeenVars).
+                 (_Var, seen_multiple, AccSt) ->
+                      AccSt
+              end, St1, SeenVars).
 
 check_type_1({type, Anno, TypeName, Args}=Type, SeenVars, #lint{types=Types}=St) ->
     TypePair = {TypeName,
