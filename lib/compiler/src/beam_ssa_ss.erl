@@ -61,11 +61,9 @@
 -ifdef(DEBUG).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
--define(DBG(STMT), STMT).
 -else.
 -define(DP(FMT, ARGS), skip).
 -define(DP(FMT), skip).
--define(DBG(STMT), skip).
 -endif.
 
 
@@ -124,7 +122,7 @@ add_edge(State, Src, Dst, Lbl) ->
 -spec derive_from(beam_ssa:b_var(), beam_ssa:b_var(), sharing_state()) ->
           sharing_state().
 derive_from(Dst, Src, State) ->
-    ?DP("Deriving ~p from ~p~nSS:~p~n", [Dst,Src,State]),
+    ?DP("Deriving ~p from ~p~nSS:~n~s~n", [Dst, Src, dump(State)]),
     ?assert_state(State),
     ?ASSERT(assert_variable_exists(Dst, State)),
     ?ASSERT(assert_variable_exists(Src, State)),
@@ -154,7 +152,7 @@ derive_from(Dst, Src, State) ->
 -spec embed_in(beam_ssa:b_var(), [{element(),beam_ssa:b_var()}],
                sharing_state()) -> sharing_state().
 embed_in(Dst, Elements, State0) ->
-    ?DP("Embedding ~p into ~p~nSS:~p~n", [Elements,Dst,State0]),
+    ?DP("Embedding ~p into ~p~nSS:~n~s~n", [Elements, Dst, dump(State0)]),
     ?assert_state(State0),
     ?ASSERT(assert_variable_exists(Dst, State0)),
     ?ASSERT([assert_variable_exists(Src, State0)
@@ -257,10 +255,10 @@ extract_status_for_element(Element, Src, Dst, State0) ->
             %% The element which is looked up is an embedding.
             ?DP("    found embedding~n"),
             ?DP("    the source is ~p~n", [Var]),
-            ?DP("    SS ~p~n", [State0]),
+            ?DP("    SS~n~s~n", [dump(State0)]),
             ?DP("    status ~p~n", [beam_digraph:vertex(State0, Var)]),
             State = set_status(Dst, beam_digraph:vertex(State0, Var), State0),
-            ?DP("    Returned SS ~p~n", [State]),
+            ?DP("    Returned SS~n~s~n", [dump(State)]),
             ?assert_state(State);
         {[], [{Aggregate,_Dst,{extract,E}}]} ->
             %% We are trying extract from an extraction. The database
@@ -345,9 +343,9 @@ merge(StateA, StateB) ->
                     end,
     ?DP("Merging Small into Large~nLarge:~n"),
     ?DP("Small:~n"),
-    ?DBG(dump(Small)),
+    ?DP(dump(Small)),
     ?DP("Large:~n"),
-    ?DBG(dump(Large)),
+    ?DP(dump(Large)),
     R = merge(Large, Small, beam_digraph:vertices(Small),
               sets:new(), sets:new()),
     ?assert_state(R).
@@ -449,10 +447,10 @@ new() ->
 prune(LiveVars, State) ->
     ?assert_state(State),
     ?DP("Pruning to ~p~n", [sets:to_list(LiveVars)]),
-    ?DBG(dump(State)),
+    ?DP("~s", [dump(State)]),
     R = prune([{0,V} || V <- sets:to_list(LiveVars)], [], new(), State),
     ?DP("Pruned result~n"),
-    ?DBG(dump(R)),
+    ?DP("~s", [dump(R)]),
     ?assert_state(R).
 
 prune([{Depth0,V}|Wanted], Edges, New0, Old) ->
@@ -629,8 +627,8 @@ meet_in_args_elems1([], Large, Result) ->
 -spec merge_in_args([beam_ssa:b_var()], call_in_arg_info(), sharing_state())
                    -> call_in_arg_info().
 merge_in_args([Arg|Args], [ArgStatus|Status], State) ->
-    ?DP("  merge_in_arg: ~p~n  current: ~p~n  SS: ~p.~n",
-        [Arg,ArgStatus,State]),
+    ?DP("  merge_in_arg: ~p~n  current: ~p~n  SS:~n~s.~n",
+        [Arg, ArgStatus, dump(State)]),
     Info = merge_in_arg(Arg, ArgStatus, ?ARGS_DEPTH_LIMIT, State),
     [Info|merge_in_args(Args, Status, State)];
 merge_in_args([], [], _State) ->
@@ -818,7 +816,7 @@ assert_apia(Parent, State) ->
              ok;
          _ ->
              io:format("Expected ~p to be aliased as is derived from ~p.~n"
-                       "state: ~p", [Child, Parent, State]),
+                       "state: ~s", [Child, Parent, dump(State)]),
              throw(assertion_failure)
      end || Child <- Children].
 
@@ -836,8 +834,8 @@ assert_eiaia(Embedder, State) ->
             State;
         _ ->
             io:format("Expected ~p to be aliased as"
-                      " they are embedded in aliased values.~n~p.~n",
-                      [NotAliased, State]),
+                      " they are embedded in aliased values.~n~s.~n",
+                      [NotAliased, dump(State)]),
             throw(assertion_failure)
     end.
 
@@ -851,7 +849,7 @@ assert_mefa(V, State) ->
                         beam_digraph:vertex(State, B) =/= aliased],
     case NotAliased of
         [_,_|_] ->
-            io:format("Expected ~p in ~p to be aliased.~n", [V,State]),
+            io:format("Expected ~p to be aliased in:~n~s.~n", [V, dump(State)]),
             throw(assertion_failure);
         _ ->
             State
@@ -883,21 +881,21 @@ assert_mxfa(V, State) ->
         [] ->
             State;
         _ ->
-            io:format("~p should be aliased~nstate:~p.~n", [V,State]),
+            io:format("~p should be aliased~nstate:~n~s.~n", [V, dump(State)]),
             throw(assertion_failure)
     end.
 
 assert_variable_exists(plain, State) ->
     case beam_digraph:has_vertex(State, plain) of
         false ->
-            io:format("Expected ~p in ~p.~n", [plain,State]),
+            io:format("Expected ~p in~n ~s.~n", [plain, dump(State)]),
             throw(assertion_failure);
         _ ->
             case beam_digraph:vertex(State, plain) of
                 unique -> State;
                 Other ->
-                    io:format("Expected plain in ~p to be unique,"
-                              " was ~p.~n", [State,Other]),
+                    io:format("Expected plain to be unique, was ~p, in:~n~p~n",
+                              [Other, dump(State)]),
                     throw(assertion_failure)
             end
     end;
@@ -906,7 +904,7 @@ assert_variable_exists(#b_literal{}, State) ->
 assert_variable_exists(#b_var{}=V, State) ->
     case beam_digraph:has_vertex(State, V) of
         false ->
-            io:format("Expected ~p in ~p.~n", [V,State]),
+            io:format("Expected ~p in~n~s.~n", [V, dump(State)]),
             throw(assertion_failure);
         _ ->
             State
@@ -916,6 +914,17 @@ assert_variable_exists(#b_var{}=V, State) ->
 -ifdef(DEBUG).
 
 dump(State) ->
-    io:format("~p~n", [State]).
-
+    Ls = lists:enumerate(0, beam_digraph:vertices(State)),
+    V2Id = #{ V=>Id || {Id,{V,_}} <- Ls },
+    [
+     "digraph G {\n",
+     [ io_lib:format("  ~p [label=\"~p:~p\",shape=\"box\"]~n",
+                     [Id,V,beam_digraph:vertex(State, V)])
+       || V:=Id <- V2Id],
+     [ io_lib:format("  ~p -> ~p [label=\"~p\"]~n",
+                     [maps:get(From, V2Id),
+                      maps:get(To, V2Id),
+                      Lbl])
+       || {From,To,Lbl} <- beam_digraph:edges(State)],
+     "}\n"].
 -endif.
