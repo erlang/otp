@@ -82,7 +82,6 @@ typedef struct db_table_catree {
     /* CA Tree-specific fields */
     erts_atomic_t root;         /* The tree root (DbTableCATreeNode*) */
     bool deletion;		/* Being deleted */
-    int is_routing_nodes_freed;
     /* The fields below are used by delete_all_objects and
        select_delete(DeleteAll)*/
     Uint nr_of_deleted_items;
