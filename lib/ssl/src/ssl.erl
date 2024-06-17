@@ -827,7 +827,7 @@ For possible reasons, see `public_key:pkix_path_validation/3`
   see [public_key:pkix_path_validation/3](`public_key:pkix_path_validation/3`) for
   further explanation.
 
-- **\{cerl_check, Check}**  - Handle certificate revocation lists
+- **\{crl_check, Check}**  - Handle certificate revocation lists
 
   Perform CRL (Certificate Revocation List) verification
   [(public_key:pkix_crls_validate/3)](`public_key:pkix_crls_validate/3`) on all
