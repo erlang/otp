@@ -31,6 +31,7 @@
          add_vertex/2, add_vertex/3, add_edge/3, add_edge/4,
          del_edge/2, del_edges/2,
          del_vertex/2,
+         edges/1,
          foldv/3,
          has_vertex/2,
          is_path/3,
@@ -235,6 +236,12 @@ roots_1([], _G) -> [].
 topsort(G) ->
     Seen = roots(G),
     reverse_postorder(G, Seen).
+
+-spec edges(graph()) -> [edge()].
+edges(#dg{out_es=OutEsMap}) ->
+    maps:fold(fun(_, Es, Acc) ->
+                      Es ++ Acc
+              end, [], OutEsMap).
 
 %%
 %% Kosaraju's algorithm
