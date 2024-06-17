@@ -1168,9 +1168,9 @@ in the value changes the set of events that is handled, the value
 should be in the State.  Otherwise no postponed events will be retried
 since only the server `Data` changes.
 
-This is not important if you do not postpone events.  But if you later decide
-to use event postponing, the design flaw of not having separate states
-when they should be, could become a hard-to-find bug.
+This is important if events are postponed.  But remember that an incorrect
+design decision of what belongs in the state, may become a hard to find bug
+some time later, when event postponing is introduced.
 
 ### Fuzzy State Diagrams
 

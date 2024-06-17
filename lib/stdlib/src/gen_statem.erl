@@ -291,6 +291,29 @@ You can push the button and it replies if it went on or off,
 and you can ask for a count of how many times it has been pushed
 to switch on.
 
+### Pushbutton State Diagram
+
+```mermaid
+---
+title: Pushbutton State Diagram
+---
+stateDiagram-v2
+    [*]  --> off
+    off  --> on  : push\n* Increment count\n* Reply 'on'
+    on   --> off : push\n* Reply 'off'
+```
+
+Not shown in the state diagram:
+* The API function `push()` generates an event `push` of type `call`.
+* The API function `get_count()` generates an event `get_count`
+  of type `call` that is handled in all states by replying with
+  the current count value.
+* Unknown events are ignored and discarded.
+* There is boilerplate code for start, stop, terminate, code change,
+  init, to set the callback mode to `state_functions`, etc...
+
+### Pushbutton Code
+
 The following is the complete callback module file `pushbutton.erl`:
 
 ```erlang
@@ -548,6 +571,27 @@ State name or state term.
 If the [_callback mode_](`t:callback_mode/0`) is `handle_event_function`,
 the state can be any term. After a _state change_ (`NextState =/= State`),
 all postponed events are retried.
+
+Comparing two states for strict equality is assumed to be a fast operation,
+since for every _state transition_ the `gen_statem` engine has to deduce
+if it is a  _state change_.
+
+> #### Note {: .info }
+> The smaller the state term, in general, the faster the comparison.
+>
+> Note that if the "same" state term is returned for a state transition
+> (or a return action without a `NextState` field is used),
+> the comparison for equality is always fast because that can be seen
+> from the term handle.
+>
+> But if a newly constructed state term is returned,
+> both the old and the new state terms will have to be traversed
+> until an inequality is found, or until both terms
+> have been fully traversed.
+>
+> So it is possible to use large state terms that are fast to compare,
+> but very easy to accidentally mess up.  Using small state terms is
+> the safe choice.
 """.
 -type state() ::
 	state_name() | % For StateName/3 callback functions
