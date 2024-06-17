@@ -176,7 +176,7 @@ ensure_started(crypto = App) ->
     %% only this function ensures that the NIF lib is actually
     %% loaded. And only by loading that lib can we know if it 
     %% is even possible to run crypto.
-    do_ensure_started(App, fun() -> crypto:start() end);
+    do_ensure_started(App, fun() -> application:start(crypto) end);
 ensure_started(App) when is_atom(App) ->
     do_ensure_started(App, fun() -> application:start(App) end).
 

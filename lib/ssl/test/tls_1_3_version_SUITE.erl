@@ -110,8 +110,8 @@ legacy_tests() ->
      tls12_client_tls_server].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of                
                 true ->

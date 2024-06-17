@@ -55,8 +55,8 @@ tls_1_3_tests() ->
      explicit_key_update].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             ssl_test_lib:clean_start(),
             case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of

@@ -147,7 +147,7 @@ the cipher text, but divided into three blocks just to show that it is possible
 to divide the plain text and cipher text differently for some ciphers:
 
 ```erlang
-	1> crypto:start().
+	1> application:start(crypto).
 	ok
 	2> Key = <<1:128>>.
 	<<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1>>

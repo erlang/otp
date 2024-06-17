@@ -74,7 +74,7 @@ groups() ->
 %%%----------------------------------------------------------------
 %%%
 init_per_suite(Config0) ->
-    try crypto:start() of
+    try application:start(crypto) of
         _ ->
             [{_,_,Info}] = crypto:info_lib(),
             ct:comment("~s",[Info]),

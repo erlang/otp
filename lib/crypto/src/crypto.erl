@@ -196,7 +196,9 @@ end
 -deprecated([{private_encrypt, 4, "use public_key:sign/3 instead"},
              {private_decrypt, 4, "do not use"},
              {public_encrypt,  4,  "do not use"},
-             {public_decrypt,  4,  "use public_key:verify/4 instead"}
+             {public_decrypt,  4,  "use public_key:verify/4 instead"},
+             {start, 0, "use application:start(crypto) instead"},
+             {stop,  0, "use application:stop(crypto) instead"}
             ]).
 %%%----------------------------------------------------------------
 %% Removed functions.
@@ -793,13 +795,13 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
             end
     end.
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{title => <<"Deprecated API">>}).
 -doc "Equivalent to [`application:start(crypto)`](`application:start/1`).".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{title => <<"Deprecated API">>}).
 -doc "Equivalent to [`application:stop(crypto)`](`application:stop/1`).".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->

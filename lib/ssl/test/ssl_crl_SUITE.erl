@@ -112,7 +112,7 @@ init_per_suite(Config) ->
 		    {skip, io_lib:format("Bad openssl version: ~p",[OpenSSL_version])};
 		_ ->
 		    end_per_suite(Config),
-		    try crypto:start() of
+		    try application:start(crypto) of
 			ok ->
 			    {ok, Hostname0} = inet:gethostname(),
 			    IPfamily =

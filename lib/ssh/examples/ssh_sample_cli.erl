@@ -37,7 +37,7 @@ listen(Port) ->
     listen(Port, []).
 
 listen(Port, Options) ->
-    crypto:start(),
+    application:start(crypto),
     ssh:start(),
     ssh:daemon(any, Port, [{shell, fun(U, H) -> start_our_shell(U, H) end} | Options]).
 
