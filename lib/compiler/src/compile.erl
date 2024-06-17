@@ -2523,7 +2523,7 @@ keep_compile_option(Option, _Deterministic) ->
     effects_code_generation(Option).
 
 start_crypto() ->
-    try crypto:start() of
+    try application:start(crypto) of
 	{error,{already_started,crypto}} -> ok;
 	ok -> ok
     catch

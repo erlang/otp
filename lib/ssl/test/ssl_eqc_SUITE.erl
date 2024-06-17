@@ -69,8 +69,8 @@ all() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ct:timetrap({seconds, 20}),
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             ssl_test_lib:clean_start(),
             ct_property_test:init_per_suite(Config)

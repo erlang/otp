@@ -250,8 +250,8 @@ init_per_group(misc = Group, Config) ->
     [{httpc_options, [{ipfamily, Inet}]} | Config];
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
                                     Group =:= sim_mixed ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             start_apps(Group),
             HttpcOptions = [{keep_alive_timeout, 50000}, {max_keep_alive_length, 5}],

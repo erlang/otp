@@ -105,8 +105,8 @@ tls_session_tests() ->
        [session_table_stable_size_on_tcp_close].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             Config = ssl_test_lib:make_rsa_cert(Config0),

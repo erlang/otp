@@ -485,8 +485,8 @@ app_start(App, Config) ->
     try
 	case App of
 	    crypto ->
-		crypto:stop(),
-		ok = crypto:start();
+		application:stop(crypto),
+		ok = application:start(crypto);
 	    inets ->
 		application:stop(App),
 		ok = application:start(App),

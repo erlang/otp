@@ -112,7 +112,7 @@ ecc_negotiation() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     end_per_suite(Config0),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
             case ssl_test_lib:sufficient_crypto_support(cipher_ec) of
                 true ->

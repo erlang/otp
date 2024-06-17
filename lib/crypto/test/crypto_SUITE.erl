@@ -520,7 +520,7 @@ init_per_suite(Config) ->
     {ok, _} = zip:unzip("cmactestvectors.zip"),
     {ok, _} = zip:unzip("gcmtestvectors.zip"),
 
-    try is_ok(crypto:start()) of
+    try is_ok(application:start(crypto)) of
 	ok ->
             catch ct:comment("~s",[element(3,hd(crypto:info_lib()))]),
             catch ct:log("crypto:info()     -> ~p~n"
@@ -755,13 +755,13 @@ no_support(Config) when is_list(Config) ->
     false = is_supported(Type).
 %%--------------------------------------------------------------------
 crypto_load(_Config) ->
-    (catch crypto:stop()),
+    (catch application:stop(crypto)),
     code:delete(crypto),
     code:purge(crypto),
-    crypto:start().
+    application:start(crypto).
 %%--------------------------------------------------------------------
 crypto_load_and_call(_Config) ->
-    (catch crypto:stop()),
+    (catch application:stop(crypto)),
     code:delete(crypto),
     code:purge(crypto),
     Key0 = "ablurf123BX#$;3",

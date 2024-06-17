@@ -208,7 +208,7 @@ client([SocketType, CertFile, URLBase, Sizes, Time, SendRate, Debug]) ->
 	(SocketType =:= ossl) orelse
 	(SocketType =:= essl) ->
 	    %% Ensure crypto and ssl started:
-	    crypto:start(),
+	    application:start(crypto),
 	    ssl:start();
 	true ->
 	    ok

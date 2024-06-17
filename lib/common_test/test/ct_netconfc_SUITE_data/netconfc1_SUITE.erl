@@ -137,7 +137,7 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     ?NS:stop(?config(netconf_server,Config)),
     ssh:stop(),
-    crypto:stop(),
+    application:stop(crypto),
     Config.
 
 hello(Config) ->

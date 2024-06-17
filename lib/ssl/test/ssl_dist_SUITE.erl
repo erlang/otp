@@ -135,7 +135,7 @@ all() ->
 
 init_per_suite(Config0) ->
     _ = end_per_suite(Config0),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    %% Currently no ct function available for is_cover!
 	    case test_server:is_cover() of
