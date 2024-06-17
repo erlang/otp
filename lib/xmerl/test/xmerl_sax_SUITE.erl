@@ -195,6 +195,7 @@ external_entities_test(Config) ->
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, [{external_entities, file}]),
     %% Allow none (default)
     {fatal_error, _, _, _, _} = xmerl_sax_parser:file(File1, []),
+    {error, _} = xmerl_sax_parser:file("NonExistingFileError.xml", []),
     {ok, undefined, <<>>} = xmerl_sax_parser:file(File2, []), %% Not included but parsed, See if it can be fixed
     ok.
 
