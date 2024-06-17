@@ -255,9 +255,11 @@ described in the corresponding application documentation.
 - **`-epmd_module Module` (init flag)** - Configures the module responsible to
   communicate to [epmd](epmd_cmd.md). Defaults to `erl_epmd`.
 
-- **`-erl_epmd_port Port` (init flag)** - Configures the port used by erl_epmd
-  to listen for connection and connect to other nodes. See `m:erl_epmd` for more
-  details. Defaults to `0`.
+- **`-erl_epmd_port Port` (init flag)** - Configures the port used by `erl_epmd`
+  to listen for connection and connect to other nodes. If this flag is set,
+  the Erlang VM will boot in distributed mode even if EPMD is not available.
+  If not set, a port is chosen automatically (equivalent to port `0`). 
+  See `m:erl_epmd` for more details.
 
 - **`-eval Expr` (init flag)** - Makes `init` evaluate the expression `Expr`;
   see `m:init`.
