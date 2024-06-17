@@ -294,7 +294,8 @@ This functions uses a default continuation function to read the file in blocks.
       Options :: options(),
       EventState :: event_state(),
       Rest :: unicode_binary() | latin1_binary(),
-      ErrorOrUserReturn :: {Tag, Location, Reason, EndTags, EventState},
+      ErrorOrUserReturn :: {Tag, Location, Reason, EndTags, EventState}
+                         | {error, {Name, Reason}},
       Tag :: fatal_error | atom(),
       Location :: event_location(),
       Reason :: term(),
