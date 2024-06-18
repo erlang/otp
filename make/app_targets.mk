@@ -28,6 +28,8 @@ test:
 	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 endif
 
+docs: $(filter src java_src, $(SUB_DIRECTORIES))
+
 info:
 	@echo "$(APPLICATION)_VSN:   $(VSN)"
 	@echo "APP_VSN:   $(APP_VSN)"

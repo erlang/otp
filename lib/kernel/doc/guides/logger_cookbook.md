@@ -312,7 +312,7 @@ or the below if you use a single line formatter:
 
 #### See also
 
-- [Log Message](logger_chapter.md#log_message) in the Logging User's Guide
+- [Log Message](logger_chapter.md#log-message) in the Logging User's Guide
 
 ### Report call-backs and printing of events
 
@@ -348,7 +348,7 @@ where the second argument is the formatting options.
 
 #### See also
 
-- [Log Message](logger_chapter.md#log_message) in the Logging User's Guide
+- [Log Message](logger_chapter.md#log-message) in the Logging User's Guide
 - [Logger Report Callbacks](`t:logger:report_cb/0`)
 
 ## Filters
