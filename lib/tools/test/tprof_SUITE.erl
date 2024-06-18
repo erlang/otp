@@ -37,6 +37,7 @@
     patterns/0, patterns/1, pattern_fun/1, pattern_fun/2, pattern_fun/3,
     processes/0, processes/1,
     server/0, server/1,
+    server_all/0, server_all/1,
     hierarchy/0, hierarchy/1,
     code_reload/0, code_reload/1,
     code_load/0, code_load/1
@@ -78,7 +79,7 @@ end_per_group(_, Config) ->
     Config.
 
 session() ->
-    [live_trace, patterns, processes, server, hierarchy].
+    [live_trace, patterns, processes, server, hierarchy, server_all].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -443,6 +444,46 @@ server(Config) when is_list(Config) ->
     ok = gen_server:stop(Scope),
     ok = gen:stop(Pid).
 
+server_all() ->
+    [{doc, "Test that tprof in server mode profiling all works"}].
+
+server_all(Config) ->
+
+    {ok, Srv} = start_link(Config, #{ type => call_time }),
+
+    enable_trace(Config, Srv, self()),
+    set_pattern(Config, Srv, lists, seq, 2),
+
+    %% Doing pause, reset and continue in tprof used to crash
+    lists:seq(1,100),
+
+    ok = pause(Config, Srv),
+
+    {call_time, Profile1} = collect(Config, Srv),
+    {value, {lists, seq, 2, [{_, 1, _}]}} =
+        lists:search(fun({M,F,A,_}) -> M =:= lists andalso F =:= seq andalso A =:= 2 end, Profile1),
+
+    ok = restart(Config, Srv),
+
+    lists:seq(1,100),
+
+    {call_time, Profile2} = collect(Config, Srv),
+    {value, {lists, seq, 2, [{_, 1, _}]}} =
+        lists:search(fun({M,F,A,_}) -> M =:= lists andalso F =:= seq andalso A =:= 2 end, Profile2),
+
+    ok = pause(Config, Srv),
+    ok = continue(Config, Srv),
+
+    lists:seq(1,100),
+
+    {call_time, Profile3} = collect(Config, Srv),
+    {value, {lists, seq, 2, [{_, 1, _}]}} =
+        lists:search(fun({M,F,A,_}) -> M =:= lists andalso F =:= seq andalso A =:= 2 end, Profile3),
+
+    stop(Config, Srv),
+    
+    ok.
+
 %% nano-gen-server purely for tracing
 spawn_loop() ->
     receive
@@ -551,6 +592,24 @@ collect(Config, Srv) ->
     ?SESSION(
        tprof:collect(),
        tprof:collect(Srv)
+      ).
+
+pause(Config, Srv) ->
+    ?SESSION(
+       tprof:pause(),
+       tprof:pause(Srv)
+      ).
+
+restart(Config, Srv) ->
+    ?SESSION(
+       tprof:restart(),
+       tprof:restart(Srv)
+      ).
+
+continue(Config, Srv) ->
+    ?SESSION(
+       tprof:continue(),
+       tprof:continue(Srv)
       ).
 
 get_trace_map(Config, Srv) ->
