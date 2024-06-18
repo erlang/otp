@@ -805,9 +805,6 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     LimitedWriterInfo lwi;
     static char* write_buffer;  /* 'static' to avoid a leak warning in valgrind */
 
-    if (ERTS_SOMEONE_IS_CRASH_DUMPING)
-	return;
-
     /* Order all managed threads to block, this has to be done
        first to guarantee that this is the only thread to generate
        crash dump. */
