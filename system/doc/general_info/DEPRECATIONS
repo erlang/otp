@@ -22,6 +22,7 @@
 #
 crypto:start/0 since=28
 crypto:stop/0 since=28
+crypto:enable_fips_mode/1 since=28
 
 #
 # Added in OTP 27.
