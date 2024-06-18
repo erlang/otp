@@ -1232,6 +1232,12 @@ scan_filedoc_content({string, _A, DocFilename}, Dot,
                     epp_reply(From, {error,{DocLoc,epp,{Doc, file, DocFilename}}}),
                     wait_req_scan(St)
             end;
+        {error, enoent} ->
+            epp_reply(From, {warning,{DocLoc,epp,{Doc, file, DocFilename}}}),
+            epp_reply(From, {ok,
+                             [{'-',DocLoc}, {atom, DocLoc, Doc}]
+                             ++ [{string, DocLoc, ""}, {dot,DocLoc}]}),
+            wait_req_scan(St);
         {error, _} ->
             epp_reply(From, {error,{DocLoc,epp,{Doc, file, DocFilename}}}),
             wait_req_scan(St)

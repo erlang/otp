@@ -524,13 +524,17 @@ doc_with_file(Conf) ->
 
 doc_with_file_error(Conf) ->
     ModuleName = ?get_name(),
-    {error,
-     [{_,
-       [{{6,2},epp,{moduledoc,file,"doesnotexist"}},
-        {{8,2},epp,{doc,file,"doesnotexist"}},
-        {{11,2},epp,{doc,file,"doesnotexist"}}]}] = Errors, []} = default_compile_file(Conf, ModuleName),
-    [[Mod:format_error(Error) || {_Loc, Mod, Error} <- Errs] || {_File, Errs} <- Errors],
-    {error, _, []} = default_compile_file(Conf, ModuleName, [report]),
+    {ok, _, Warnings} = default_compile_file(Conf, ModuleName, [return_warnings]),
+
+    [{File,
+      [{{6,2},epp,{moduledoc,file,"doesnotexist"}},
+       {{8,2},epp,{doc,file,"doesnotexist"}},
+       {{11,2},epp,{doc,file,"doesnotexist"}}]}] = Warnings,
+
+    ?assertEqual("doc_with_file_error.erl", filename:basename(File)),
+
+    {ok, _} = default_compile_file(Conf, ModuleName, [report]),
+
     ok.
 
 all_string_formats(Conf) ->
