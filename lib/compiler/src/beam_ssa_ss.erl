@@ -54,6 +54,7 @@
 -import(lists, [foldl/3]).
 
 -define(ARGS_DEPTH_LIMIT, 4).
+-define(SS_DEPTH_LIMIT, 30).
 
 %% -define(DEBUG, true).
 
@@ -412,28 +413,36 @@ accumulate_edges(V, State, Edges0) ->
 new() ->
     beam_digraph:new().
 
+%%%
+%%% Throws `too_deep` if the depth of sharing state value chains
+%%% exceeds SS_DEPTH_LIMIT.
+%%%
 -spec prune(sets:set(beam_ssa:b_var()), sharing_state()) -> sharing_state().
 prune(LiveVars, State) ->
     ?assert_state(State),
     ?DP("Pruning to ~p~n", [sets:to_list(LiveVars)]),
     ?DBG(dump(State)),
-    R = prune(sets:to_list(LiveVars), [], new(), State),
+    R = prune([{0,V} || V <- sets:to_list(LiveVars)], [], new(), State),
     ?DP("Pruned result~n"),
     ?DBG(dump(R)),
     ?assert_state(R).
 
-prune([V|Wanted], Edges, New0, Old) ->
+prune([{Depth0,V}|Wanted], Edges, New0, Old) ->
     case beam_digraph:has_vertex(New0, V) of
         true ->
-            %% This variable is alread added.
+            %% This variable is already added.
             prune(Wanted, Edges, New0, Old);
-        false ->
+        false when Depth0 < ?SS_DEPTH_LIMIT ->
             %% This variable has to be kept. Add it to the new graph.
             New = add_vertex(New0, V, beam_digraph:vertex(Old, V)),
             %% Add all incoming edges to this node.
             InEdges = beam_digraph:in_edges(Old, V),
-            InNodes = [From || {From,_,_} <- InEdges],
-            prune(InNodes ++ Wanted, InEdges ++ Edges, New, Old)
+            Depth = Depth0 + 1,
+            InNodes = [{Depth, From} || {From,_,_} <- InEdges],
+            prune(InNodes ++ Wanted, InEdges ++ Edges, New, Old);
+        false ->
+            %% We're in too deep, give up.
+            throw(too_deep)
     end;
 prune([], Edges, New0, _Old) ->
     foldl(fun({Src,Dst,Lbl}, New) ->
