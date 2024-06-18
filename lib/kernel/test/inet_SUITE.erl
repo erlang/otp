@@ -1587,10 +1587,48 @@ getservbyname_overflow(Config) when is_list(Config) ->
     {error,einval} = inet:getservbyname(list_to_atom(lists:flatten(lists:duplicate(128, "x"))), tcp),
     ok.
 
+
 %% Test inet:gifaddrs/0.
 getifaddrs(Config) when is_list (Config) ->
-    {ok,IfAddrs} = inet:getifaddrs(),
-    io:format("IfAddrs = ~p.~n", [IfAddrs]),
+    do_getifaddrs(default),
+    do_getifaddrs(inet),
+    do_getifaddrs(socket),
+    getifaddrs_verify_backends().
+
+do_getifaddrs(default) ->
+    io:format("try 'default' getifaddrs~n", []),
+    do_getifaddrs2(inet:getifaddrs());
+do_getifaddrs(Backend) ->
+    case is_supported_backend(Backend) of
+        true ->
+            io:format("try '~w' getifaddrs~n", [Backend]),
+            do_getifaddrs2(inet:getifaddrs([{inet_backend, Backend}]));
+        false ->
+            io:format("skip '~w' getifaddrs: not supported~n", [Backend]),
+            ok
+    end.
+
+is_supported_backend(inet = _Backend) ->
+    true;
+is_supported_backend(socket = _Backend) ->
+    is_socket_supported().
+
+is_socket_supported() ->
+    try socket:info() of
+        #{} ->
+            true
+    catch
+        error : notsup ->
+            false;
+        error : undef ->
+            false
+    end.
+
+    
+do_getifaddrs2({ok, IfAddrs}) ->
+    io:format("IfAddrs: "
+              "~n   ~p"
+              "~n", [IfAddrs]),
     case [If || {If,Opts} <- IfAddrs, lists:keymember(hwaddr, 1, Opts)] of
         [] ->
             case os:type() of
@@ -1601,7 +1639,9 @@ getifaddrs(Config) when is_list (Config) ->
         [_|_] -> ok
     end,
     Addrs = ifaddrs(IfAddrs),
-    io:format("Addrs = ~p.~n", [Addrs]),
+    io:format("Addrs: "
+              "~n   ~p"
+              "~n", [Addrs]),
     [check_addr(Addr) || Addr <- Addrs],
     ok.
 
@@ -1706,6 +1746,48 @@ fold_ifopts(Fun, Acc, IfMap, Keys) ->
         [] ->
             Acc
     end.
+
+
+getifaddrs_verify_backends() ->
+    io:format("maybe attempt verify backends~n", []),
+    case is_supported_backend(inet) of
+        true ->
+            case is_supported_backend(socket) of
+                true ->
+                    getifaddrs_verify_backends(
+                      inet:getifaddrs([{inet_backend, inet}]),
+                      inet:getifaddrs([{inet_backend, socket}]));
+                false ->
+                    io:format("'socket' backend not supported: skip~n", [])
+            end;
+        false ->
+            io:format("'inet' backend not supported: skip~n", [])
+    end.
+
+getifaddrs_verify_backends({ok, IfAddrs},
+                           {ok, IfAddrs}) ->
+    io:format("IfAddrs are equal: "
+              "~n   ~p"
+              "~n", [IfAddrs]),
+    ok;
+getifaddrs_verify_backends({ok, IfAddrs_INET},
+                           {ok, IfAddrs_SOCKET}) ->
+    io:format("IfAddrs are *NOT* equal: "
+              "~n   INET:"
+              "~n      ~p"
+              "~n   SOCKET:"
+              "~n      ~p"
+              "~n   INET -- SOCKET: "
+              "~n      ~p"
+              "~n   SOCKET -- INET: "
+              "~n      ~p"
+              "~n", [IfAddrs_INET, IfAddrs_SOCKET,
+                     IfAddrs_INET -- IfAddrs_SOCKET,
+                     IfAddrs_SOCKET -- IfAddrs_INET]),
+    ct:fail(ifaddrs_not_equal).
+
+
+
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems
