@@ -1369,6 +1369,10 @@ collect_ad_hoc(Session, Pattern, Type) ->
                   not (Mod =:= erts_internal andalso Fun =:= trace andalso Arity =:= 4)
            ]}.
 
+foreach(S, all, Action, Type) ->
+    _ = trace:function(S, on_load, Action, [Type]),
+    _ = trace:function(S, {'_', '_', '_'}, Action, [Type]),
+    ok;
 foreach(S, Map, Action, Type) ->
     maps:foreach(
         fun (Mod, Funs) ->
