@@ -470,8 +470,8 @@ format_erlang_error(is_function, [_,Arity], _) ->
      end];
 format_erlang_error(is_map_key, [_,_], _) ->
     [[],not_map];
-format_erlang_error(is_process_alive, [_], _) ->
-    [not_pid];
+format_erlang_error(is_process_alive, [Arg], _) ->
+    [must_be_local_pid(Arg)];
 format_erlang_error(is_record, [_,_], _) ->
     [not_atom];
 format_erlang_error(is_record, [_,Tag,Size], _) ->
