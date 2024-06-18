@@ -198,7 +198,8 @@ end
              {public_encrypt,  4,  "do not use"},
              {public_decrypt,  4,  "use public_key:verify/4 instead"},
              {start, 0, "use application:start(crypto) instead"},
-             {stop,  0, "use application:stop(crypto) instead"}
+             {stop,  0, "use application:stop(crypto) instead"},
+             {enable_fips_mode, 1, "use config parameter fips_mode"}
             ]).
 %%%----------------------------------------------------------------
 %% Removed functions.
@@ -937,7 +938,8 @@ library. If crypto was built with FIPS support this can be either `enabled`
 (when running in FIPS mode) or `not_enabled`. For other builds
 this value is always `not_supported`.
 
-See `enable_fips_mode/1` about how to enable FIPS mode.
+See configuration parameter [fips_mode](`e:crypto:crypto_app.md#fips_mode`)
+about how to enable FIPS mode.
 
 > #### Warning {: .warning }
 >
@@ -962,7 +964,7 @@ option `--enable-fips`, and the underlying libcrypto must also support FIPS.
 
 See also `info_fips/0`.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{title => <<"Deprecated API">>,
        since => <<"OTP 21.1">>}).
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
