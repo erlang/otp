@@ -175,7 +175,7 @@ equal to or below the configured log level.
 A fun which converts a [`report()`](`t:report/0`) to a format string and
 arguments, or directly to a string.
 
-See section [Log Message](logger_chapter.md#log_message) in the User's Guide
+See section [Log Message](logger_chapter.md#log-message) in the User's Guide
 for more information.
 """.
 -type report_cb() :: fun((report()) -> {io:format(),[term()]}) |
@@ -235,7 +235,7 @@ The following custom metadata keys have special meaning:
   `report_cb` key can be associated with a fun (report callback) that converts
   the report to a format string and arguments, or directly to a string. See the
   type definition of `t:report_cb/0`, and section
-  [Log Message](logger_chapter.md#log_message) in the User's Guide for more
+  [Log Message](logger_chapter.md#log-message) in the User's Guide for more
   information about report callbacks.
 """.
 -type metadata() :: #{pid    => pid(),
@@ -529,8 +529,8 @@ log(Level, StringOrReport) ->
     do_log(Level,StringOrReport,#{}).
 
 -doc """
-Create a log event at the given [log level](logger_chapter.md#log_level), with
-the given [message](logger_chapter.md#log_message) to be logged and
+Create a log event at the given [log level](logger_chapter.md#log-level), with
+the given [message](logger_chapter.md#log-message) to be logged and
 [_metadata_](logger_chapter.md#metadata).
 
 *Example*:
@@ -561,8 +561,8 @@ log(Level, FunOrFormat, Args) ->
     do_log(Level,{FunOrFormat,Args},#{}).
 
 -doc """
-Create a log event at the given [log level](logger_chapter.md#log_level), with
-the given [message](logger_chapter.md#log_message) to be logged and
+Create a log event at the given [log level](logger_chapter.md#log-level), with
+the given [message](logger_chapter.md#log-message) to be logged and
 [_metadata_](logger_chapter.md#metadata).
 
 The message and metadata can either be given directly in the arguments, or
@@ -656,7 +656,7 @@ format_otp_report(Report) ->
 -doc """
 Convert a log message on report form to `{Format, Args}`. This is the default
 report callback used by `m:logger_formatter` when no custom report callback is
-found. See section [Log Message](logger_chapter.md#log_message) in the Kernel
+found. See section [Log Message](logger_chapter.md#log-message) in the Kernel
 User's Guide for information about report callbacks and valid forms of log
 messages.
 
@@ -949,7 +949,7 @@ complex merge is needed, read the current configuration with
 the new configuration back with this function.
 
 For more information about the proxy, see section
-[Logger Proxy](logger_chapter.md#proxy) in the Kernel User's Guide.
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec set_proxy_config(Config) -> ok | {error,term()} when
@@ -1045,7 +1045,7 @@ To overwrite the existing configuration without any merge, use
 [`set_proxy_config/1` ](`set_proxy_config/1`).
 
 For more information about the proxy, see section
-[Logger Proxy](logger_chapter.md#proxy) in the Kernel User's Guide.
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec update_proxy_config(Config) -> ok | {error,term()} when
@@ -1098,7 +1098,7 @@ get_handler_ids() ->
 Look up the current configuration for the Logger proxy.
 
 For more information about the proxy, see section
-[Logger Proxy](logger_chapter.md#proxy) in the Kernel User's Guide.
+[Logger Proxy](logger_chapter.md#logger-proxy) in the Kernel User's Guide.
 """.
 -doc(#{title => <<"Configuration API functions">>,since => <<"OTP 21.3">>}).
 -spec get_proxy_config() -> Config when
