@@ -817,14 +817,14 @@ Option description:
 - **`start`** - Clears all tracing from the node and starts a new `fprof` trace.
   Either option `start` or `stop` must be specified, but not both.
 
-- **`verbose` | `{verbose, boolean()}`** - The options `verbose` or
-  `{verbose, true}` adds some trace flags that `fprof` does not need, but that
-  can be interesting for general debugging purposes. This option is only allowed
+- **`verbose` | `{verbose, boolean()}`** - The `verbose` or
+  `{verbose, true}` options add some trace flags that `fprof` does not need, but that
+  can be interesting for general debugging purposes. These options are only allowed
   with the `start` option.
 
-- **`cpu_time` | `{cpu_time, boolean()}`** - The options `cpu_time` or
-  `{cpu_time, true}` makes the timestamps in the trace be in CPU time instead of
-  wallclock time which is the default. This option is only allowed with the
+- **`cpu_time` | `{cpu_time, boolean()}`** - The `cpu_time` or
+  `{cpu_time, true}` options make the timestamps in the trace be in CPU time instead of
+  the default wallclock time. These options are only allowed with the
   `start` option.
 
   > #### Note {: .info }
@@ -986,10 +986,10 @@ profile(Arg)
 
 Compiles a trace into raw profile data held by the `fprof` server.
 
-If `Arg` is an atom, this call is equivalent to `analyse([Arg]`.
+If `Arg` is an atom, this call is equivalent to `profile([Arg])`.
 
 If `Arg` is a tuple `{OptionName, OptionValue}`,
-this call is equivalent to `analyse([Arg]`.
+this call is equivalent to `profile([Arg])`.
 
 Otherwise, `Arg` must be a list of options.
 
