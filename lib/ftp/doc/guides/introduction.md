@@ -17,13 +17,13 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# Introduction
+# FTP client introduction
 
-## Purpose
+FTP clients are considered to be rather temporary. Thus, they are only started
+and stopped during runtime and cannot be started at application startup. The FTP
+client API is designed to allow some functions to return intermediate results.
+This implies that only the process that started the FTP client can access it
+with preserved sane semantics. If the process that started the FTP session dies,
+the FTP client process terminates.
 
-An `FTP` client.
-
-## Prerequisites
-
-It is assumed that the reader is familiar with the Erlang programming language,
-concepts of OTP, and has a basic understanding of the FTP protocol.
+The client supports IPv6 as long as the underlying mechanisms also do so.

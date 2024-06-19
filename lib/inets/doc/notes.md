@@ -2486,7 +2486,7 @@ limitations under the License.
     re-introduced `ftp:open/2` function.
 
     This is an alternative to starting the client using the
-    [inets service framework](`m:ftp#service_start`).
+    inets service framework.
 
     The old `ftp:open/1`, undocumented, function, caused the client to be hooken
     into the inets service supervision framework. This is _no_ longer the case.
