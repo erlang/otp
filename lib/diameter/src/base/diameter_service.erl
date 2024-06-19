@@ -545,9 +545,11 @@ transition(Req, S) ->
 %% # terminate/2
 %% ---------------------------------------------------------------------------
 
-terminate(Reason, #state{service_name = Name, local = {PeerT, _, _}} = S) ->
-    send_event(Name, stop),
-    ets:delete(?STATE_TABLE, Name),
+terminate(Reason, #state{service_name = SvcName, local = {PeerT, _, _}} = S) ->
+    send_event(SvcName, stop),
+    %% Make sure stop - start race is taken care of
+    diameter_reg:remove({?MODULE, service, SvcName}),
+    ets:delete(?STATE_TABLE, SvcName),
 
     %% Communicate pending loss of any peers that connection_down/3
     %% won't. This is needed when stopping a service since we don't
