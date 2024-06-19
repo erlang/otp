@@ -7331,7 +7331,6 @@ fi
 done
 
 if test -z "$EX_DOC"; then
-  EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation " >&5
 printf "%s\n" "$as_me: WARNING: No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation " >&2;}
 fi
