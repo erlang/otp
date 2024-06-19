@@ -1772,7 +1772,7 @@ getifaddrs_verify_backends({ok, IfAddrs},
     ok;
 getifaddrs_verify_backends({ok, IfAddrs_INET},
                            {ok, IfAddrs_SOCKET}) ->
-    io:format("IfAddrs are *NOT* equal: "
+    io:format("IfAddrs are not *identical* - check what differs: "
               "~n   INET:"
               "~n      ~p"
               "~n   SOCKET:"
@@ -1784,8 +1784,143 @@ getifaddrs_verify_backends({ok, IfAddrs_INET},
               "~n", [IfAddrs_INET, IfAddrs_SOCKET,
                      IfAddrs_INET -- IfAddrs_SOCKET,
                      IfAddrs_SOCKET -- IfAddrs_INET]),
+    getifaddrs_verify_backends2(IfAddrs_INET, IfAddrs_SOCKET).
+
+getifaddrs_verify_backends2(INET, SOCKET) ->
+    getifaddrs_verify_backends3(lists:keysort(1, INET),
+                                lists:keysort(1, SOCKET)).
+
+getifaddrs_verify_backends3([] = _INET, [] = _SOCKET) ->
+    ok;
+getifaddrs_verify_backends3([] = _INET, SOCKET) ->
+    io:format("'socket' backend contains extra interfaces: "
+              "~n   ~p"
+              "~n", [SOCKET]),
+    ct:fail(ifaddrs_not_equal);
+getifaddrs_verify_backends3(INET, [] = _SOCKET) ->
+    io:format("'inet' backend contains extra interfaces: "
+              "~n   ~p"
+              "~n", [INET]),
+    ct:fail(ifaddrs_not_equal);
+getifaddrs_verify_backends3([{IF, INFO}|INET],
+                           [{IF, INFO}|SOCKET]) ->
+    io:format("backend(s) identical for ~p~n", [IF]),
+    getifaddrs_verify_backends3(INET, SOCKET);
+getifaddrs_verify_backends3([{IF, I_INFO}|INET],
+                            [{IF, S_INFO}|SOCKET]) ->
+    io:format("backend(s) not *identical* for ~p~n", [IF]),
+    getifaddrs_verify_backend(IF, I_INFO, S_INFO),
+    getifaddrs_verify_backends3(INET, SOCKET);
+getifaddrs_verify_backends3([{I_IF, _}|_], [{S_IF, _}|_]) ->
+    io:format("not equal interfaces"
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [I_IF, S_IF]),
     ct:fail(ifaddrs_not_equal).
 
+
+getifaddrs_verify_backend(IF, [] = _I_INFO, [] = _S_INFO) ->
+    io:format("backend(s) *are* equal for ~p~n", [IF]),
+    ok;
+getifaddrs_verify_backend(IF,
+                          [{flags, I_Flags}|I_INFO],
+                          [{flags, S_Flags}|S_INFO]) ->
+    case {I_Flags -- S_Flags, S_Flags -- I_Flags} of
+        {[], []} ->
+            io:format("flags for ~p *are* equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        {IFD, SFD} ->
+            io:format("flags for ~p are *not* equal: "
+                      "~n   INET -- SOCKET: ~p"
+                      "~n   SOCKET -- INET: ~p"
+                      "~n", [IF, IFD, SFD]),
+            ct:fail(ifaddrs_not_equal)
+    end;
+getifaddrs_verify_backend(IF,
+                          [{addr, I_A}|I_INFO],
+                          [{addr, S_A}|S_INFO]) ->
+    if
+        (I_A =:= S_A) ->
+            io:format("addr for ~p equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        true ->
+            io:format("addr for ~p *not* equal: "
+                      "~n   INET:   ~p"
+                      "~n   SOCKET: ~p"
+                      "~n", [IF, I_A, S_A]),
+            ct:fail(ifaddrs_not_equal)
+    end;            
+getifaddrs_verify_backend(IF,
+                          [{netmask, I_A}|I_INFO],
+                          [{netmask, S_A}|S_INFO]) ->
+    if
+        (I_A =:= S_A) ->
+            io:format("netmask for ~p equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        true ->
+            io:format("netmask for ~p *not* equal: "
+                      "~n   INET:   ~p"
+                      "~n   SOCKET: ~p"
+                      "~n", [IF, I_A, S_A]),
+            ct:fail(ifaddrs_not_equal)
+    end;            
+getifaddrs_verify_backend(IF,
+                          [{broadaddr, I_A}|I_INFO],
+                          [{broadaddr, S_A}|S_INFO]) ->
+    if
+        (I_A =:= S_A) ->
+            io:format("broadaddr for ~p equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        true ->
+            io:format("broadaddr for ~p *not* equal: "
+                      "~n   INET:   ~p"
+                      "~n   SOCKET: ~p"
+                      "~n", [IF, I_A, S_A]),
+            ct:fail(ifaddrs_not_equal)
+    end;            
+getifaddrs_verify_backend(IF,
+                          [{dstaddr, I_A}|I_INFO],
+                          [{dstaddr, S_A}|S_INFO]) ->
+    if
+        (I_A =:= S_A) ->
+            io:format("dstaddr for ~p equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        true ->
+            io:format("dstaddr for ~p *not* equal: "
+                      "~n   INET:   ~p"
+                      "~n   SOCKET: ~p"
+                      "~n", [IF, I_A, S_A]),
+            ct:fail(ifaddrs_not_equal)
+    end;            
+getifaddrs_verify_backend(IF,
+                          [{hwaddr, I_A}|I_INFO],
+                          [{hwaddr, S_A}|S_INFO]) ->
+    if
+        (I_A =:= S_A) ->
+            io:format("hwaddr for ~p equal~n", [IF]),
+            getifaddrs_verify_backend(IF, I_INFO, S_INFO);
+        true ->
+            io:format("hwaddr for ~p *not* equal: "
+                      "~n   INET:   ~p"
+                      "~n   SOCKET: ~p"
+                      "~n", [IF, I_A, S_A]),
+            ct:fail(ifaddrs_not_equal)
+    end;            
+getifaddrs_verify_backend(IF,
+                          [],
+                          [{hwaddr, _}]) ->
+    %% We accepts that net can get some more info.
+    %% That is, that we can get hwaddr for some
+    %% interfaces that the inet driver cannot...
+    io:format("hwaddr accepted for ~p~n", [IF]),
+    ok;
+getifaddrs_verify_backend(IF,
+                          I_INFO, S_INFO) ->
+    io:format("unexpected info for ~p: "
+              "~n   INET:   ~p"
+              "~n   SOCKET: ~p"
+              "~n", [IF, I_INFO, S_INFO]),
+    ct:fail(ifaddrs_not_equal).
 
 
 
