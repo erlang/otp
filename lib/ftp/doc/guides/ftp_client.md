@@ -17,18 +17,8 @@ limitations under the License.
 
 %CopyrightEnd%
 -->
-# FTP Client
+# Examples 
 
-## Getting Started
-
-FTP clients are considered to be rather temporary. Thus, they are only started
-and stopped during runtime and cannot be started at application startup. The FTP
-client API is designed to allow some functions to return intermediate results.
-This implies that only the process that started the FTP client can access it
-with preserved sane semantics. If the process that started the FTP session dies,
-the FTP client process terminates.
-
-The client supports IPv6 as long as the underlying mechanisms also do so.
 
 The following is a simple example of an FTP session, where the user `guest` with
 password `password` logs on to the remote host `erlang.org`:

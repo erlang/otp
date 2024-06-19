@@ -32,18 +32,6 @@ FTP mode if this fails. This default behavior can be changed by start option
 
 For a simple example of an FTP session, see [FTP User's Guide](ftp_client.md).
 
-In addition to the ordinary functions for receiving and sending files (see
-[`recv/2`](`recv/2`), [`recv/3`](`recv/3`), [`send/2`](`send/2`), and
-[`send/3`](`send/3`)) there are functions for receiving remote files as binaries
-(see [`recv_bin/2`](`recv_bin/2`)) and for sending binaries to be stored as
-remote files (see [`send_bin/3`](`send_bin/3`)).
-
-A set of functions is provided for sending and receiving contiguous parts of a
-file to be stored in a remote file. For send, see
-[`send_chunk_start/2`](`send_chunk_start/2`), [`send_chunk/2`](`send_chunk/2`),
-and [`send_chunk_end/1`](`send_chunk_end/1`). For receive, see
-[`recv_chunk_start/2`](`recv_chunk_start/2`) and `recv_chunk/`).
-
 The return values of the following functions depend much on the implementation
 of the FTP server at the remote host. In particular, the results from `ls` and
 `nlist` varies. Often real errors are not reported as errors by `ls`, even if,
@@ -52,26 +40,7 @@ but some implementations have the peculiar behaviour of responding with an error
 if the request is a listing of the contents of a directory that exists but is
 empty.
 
-[](){: #service_start }
-
-## FTP CLIENT START/STOP
-
-The FTP client can be started and stopped dynamically in runtime by calling the
-`ftp` application API `ftp:open(Host, Options)` and `ftp:close(Client)`.
-
-## Data Types
-
-The following type definitions are used by more than one function in the FTP
-client API:
-
-`t:pid/0` = identifier of an FTP connection
-
-`t:string/0` = list of ASCII characters
-
-[](){: #account }
-
-## ERRORS
-
+## Errors
 The possible error reasons and the corresponding diagnostic strings returned by
 [`formaterror/1`](`formaterror/1`) are as follows:
 
@@ -108,12 +77,15 @@ The possible error reasons and the corresponding diagnostic strings returned by
   \[552].
 
 - **`efnamena`** - Filename not allowed \[553].
-
-## SEE ALSO
-
-`m:file` `m:filename` and J. Postel and J. Reynolds: File Transfer Protocol
-([RFC 959](http://www.ietf.org/rfc/rfc959.txt)).
 """.
+
+-moduledoc(#{titles =>
+                 [{function,<<"Connection API">>},
+                  {function,<<"File Transfer API">>},
+                  {function,<<"Chunk File Transfer API">>},
+                  {function,<<"Info API">>},
+                  {function,<<"Update API">>}
+                 ]}).
 
 -removed([{start_service, 1, "use ftp:open/2 instead"},
           {stop_service, 1,  "use ftp:close/1 instead"}]).
@@ -138,6 +110,10 @@ The possible error reasons and the corresponding diagnostic strings returned by
          append_chunk/2, append_chunk_end/1, append_chunk_start/2,
          info/1, latest_ctrl_response/1]).
 
+-type client()                   :: pid(). 
+
+-export_type([client/0]).
+
 -include("ftp_internal.hrl").
 
 %%%=========================================================================
@@ -161,9 +137,10 @@ stop() ->
 %% Description:  Start an ftp client and connect to a host.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Connection API">>}).
 -doc(#{equiv => open/2}).
--spec open(Host :: string() | inet:ip_address()) ->
-    {'ok', Pid :: pid()} | {'error', Reason :: term()}.
+-spec open(Host :: inet:hostname() | inet:ip_address()) ->
+    {'ok', Client :: client()} | {'error', Reason :: term()}.
 
 %% <BACKWARD-COMPATIBILLITY>
 open({option_list, Options}) when is_list(Options) ->
@@ -173,7 +150,7 @@ open({option_list, Options}) when is_list(Options) ->
 open(Host) ->
   ftp_internal:open(Host).
 
-
+-doc(#{title => <<"Connection API">>}).
 -doc """
 Starts a FTP client process and opens a session with the FTP server at `Host`.
 
@@ -315,7 +292,7 @@ The available configuration options are as follows:
 [](){: #pwd }
 """.
 -spec open(Host :: string() | inet:ip_address(), Opts) ->
-    {'ok', Pid :: pid()} | {'error', Reason :: term()} when
+    {'ok', Client :: client()} | {'error', Reason :: term()} when
       Opts :: [Opt],
       Opt :: StartOption | OpenOption,
       StartOption :: {verbose, Verbose} | {debug, Debug},
@@ -340,6 +317,7 @@ open(Host, Port) ->
 %%--------------------------------------------------------------------------
 %% Description:  Login with or without a supplied account name.
 %%--------------------------------------------------------------------------
+-doc(#{title => <<"Connection API">>}).
 -doc """
 Performs login of `User` with `Pass`.
 
@@ -353,6 +331,7 @@ Performs login of `User` with `Pass`.
 user(Pid, User, Pass) ->
     ftp_internal:user(Pid, User, Pass).
 
+-doc(#{title => <<"Connection API">>}).
 -doc """
 Performs login of `User` with `Pass` to the account specified by `Account`.
 """.
@@ -369,10 +348,11 @@ user(Pid, User, Pass, Account) ->
 %% Description:  Set a user Account.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Connection API">>}).
 -doc """
 Sets the account for an operation, if needed.
 """.
--spec account(Pid :: pid(), Acc :: string()) ->
+-spec account(Client ::client(), Acc :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 account(Pid, Acc) ->
@@ -381,11 +361,11 @@ account(Pid, Acc) ->
 %%--------------------------------------------------------------------------
 %% Description:  Get the current working directory at remote server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Info API">>}).
 -doc """
 Returns the current working directory at the remote server.
 """.
--spec pwd(Pid :: pid()) ->
+-spec pwd(Client ::client()) ->
     {'ok', Dir :: string()} |
         {'error', Reason :: term()}.
 
@@ -395,11 +375,11 @@ pwd(Pid) ->
 %%--------------------------------------------------------------------------
 %% Description:  Get the current working directory at local server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Info API">>}).
 -doc """
 Returns the current working directory at the local client.
 """.
--spec lpwd(Pid :: pid()) ->
+-spec lpwd(Client ::client()) ->
     {'ok', Dir :: string()}.
 
 lpwd(Pid) ->
@@ -409,11 +389,11 @@ lpwd(Pid) ->
 %%--------------------------------------------------------------------------
 %% Description:  Change current working directory at remote server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Changes the working directory at the remote server to `Dir`.
 """.
--spec cd(Pid :: pid(), Dir :: string()) ->
+-spec cd(Client ::client(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 cd(Pid, Dir) ->
@@ -422,11 +402,11 @@ cd(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Change current working directory for the local client.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Changes the working directory to `Dir` for the local client.
 """.
--spec lcd(Pid :: pid(), Dir :: string()) ->
+-spec lcd(Client ::client(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 lcd(Pid, Dir) ->
@@ -435,15 +415,16 @@ lcd(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description: Returns a list of files in long format.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Info API">>}).
 -doc(#{equiv => ls/2}).
--spec ls(Pid :: pid()) ->
+-spec ls(Client ::client()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
 
 ls(Pid) ->
   ls(Pid, "").
 
+-doc(#{title => <<"Info API">>}).
 -doc """
 Returns a list of files in long format.
 
@@ -454,7 +435,7 @@ Returns a list of files in long format.
 The format of `Listing` depends on the operating system. On UNIX, it is
 typically produced from the output of the `ls -l` shell command.
 """.
--spec ls(Pid :: pid(), Dir :: string()) ->
+-spec ls(Client ::client(), Dir :: string()) ->
     {'ok', Listing :: string()} |
         {'error', Reason ::  term()}.
 
@@ -466,14 +447,16 @@ ls(Pid, Dir) ->
 %% Description:  Returns a list of files in short format
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Info API">>}).
 -doc(#{equiv => nlist/2}).
--spec nlist(Pid :: pid()) ->
+-spec nlist(Client ::client()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
 
 nlist(Pid) ->
   nlist(Pid, "").
 
+-doc(#{title => <<"Info API">>}).
 -doc """
 Returns a list of files in short format.
 
@@ -486,7 +469,7 @@ The format of `Listing` is a stream of filenames where each filename is
 separated by <CRLF> or <NL>. Contrary to function `ls`, the purpose of `nlist`
 is to enable a program to process filename information automatically.
 """.
--spec nlist(Pid :: pid(), Pathname :: string()) ->
+-spec nlist(Client ::client(), Pathname :: string()) ->
     {'ok', Listing :: string()} |
         {'error', Reason :: term()}.
 
@@ -496,11 +479,11 @@ nlist(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Rename a file at remote server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Renames `Old` to `New` at the remote server.
 """.
--spec rename(Pid :: pid(), Old :: string(), New :: string()) ->
+-spec rename(Client ::client(), Old :: string(), New :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 rename(Pid, Old, New) ->
@@ -510,10 +493,11 @@ rename(Pid, Old, New) ->
 %% Description:  Remove file at remote server.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Update API">>}).
 -doc """
 Deletes the file `File` at the remote server.
 """.
--spec delete(Pid :: pid(), File :: string()) ->
+-spec delete(Client ::client(), File :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 delete(Pid, File) ->
@@ -522,11 +506,11 @@ delete(Pid, File) ->
 %%--------------------------------------------------------------------------
 %% Description:  Make directory at remote server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Creates the directory `Dir` at the remote server.
 """.
--spec mkdir(Pid :: pid(), Dir :: string()) ->
+-spec mkdir(Client ::client(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 mkdir(Pid, Dir) ->
@@ -535,11 +519,11 @@ mkdir(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Remove directory at remote server.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Removes directory `Dir` at the remote server.
 """.
--spec rmdir(Pid :: pid(), Dir :: string()) ->
+-spec rmdir(Client ::client(), Dir :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 rmdir(Pid, Dir) ->
@@ -548,13 +532,13 @@ rmdir(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Set transfer type.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Update API">>}).
 -doc """
 Sets the file transfer type to `ascii` or `binary`. When an FTP session is
 opened, the default transfer type of the server is used, most often `ascii`,
 which is default according to [RFC 959](http://www.ietf.org/rfc/rfc959.txt).
 """.
--spec type(Pid :: pid(), Type :: ascii | binary) ->
+-spec type(Client ::client(), Type :: ascii | binary) ->
     'ok' | {'error', Reason :: term()}.
 
 type(Pid, Type) ->
@@ -565,13 +549,15 @@ type(Pid, Type) ->
 %% Description:  Transfer file from remote server.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"File Transfer API">>}).
 -doc(#{equiv => recv/3}).
--spec recv(Pid :: pid(), RemoteFileName :: string()) ->
+-spec recv(Client ::client(), RemoteFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 recv(Pid, RemoteFileName) ->
   ftp_internal:recv(Pid, RemoteFileName).
 
+-doc(#{title => <<"File Transfer API">>}).
 -doc """
 Transfers the file `RemoteFileName` from the remote server to the file system of
 the local client. If `LocalFileName` is specified, the local file will be
@@ -581,8 +567,8 @@ If the file write fails, the command is aborted and `{error, term()}` is
 returned. However, the file is _not_ removed.
 """.
 -spec recv(Pid            :: pid(),
-           RemoteFileName :: string(),
-           LocalFileName  :: string()) ->
+           RemoteFileName :: file:filename(),
+           LocalFileName  :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 recv(Pid, RemoteFileName, LocalFileName) ->
@@ -593,6 +579,7 @@ recv(Pid, RemoteFileName, LocalFileName) ->
 %% Description:  Transfer file from remote server into binary.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"File Transfer API">>}).
 -doc """
 Transfers the file `RemoteFile` from the remote server and receives it as a
 binary.
@@ -608,7 +595,7 @@ recv_bin(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start receive of chunks of remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Starts transfer of the file `RemoteFile` from the remote server.
 """.
@@ -623,7 +610,7 @@ recv_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Transfer file from remote server into binary in chunks
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Receives a chunk of the remote file (`RemoteFile` of `recv_chunk_start`). The
 return values have the following meaning:
@@ -632,7 +619,7 @@ return values have the following meaning:
 - `{ok, Bin}` = just another chunk of the file.
 - `{error, Reason}` = transfer failed.
 """.
--spec recv_chunk(Pid :: pid()) ->
+-spec recv_chunk(Client ::client()) ->
     'ok' |
         {'ok', Bin :: binary()} |
         {'error', Reason :: term()}.
@@ -645,21 +632,23 @@ recv_chunk(Pid) ->
 %% Description:  Transfer file to remote server.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"File Transfer API">>}).
 -doc(#{equiv => send/3}).
--spec send(Pid :: pid(), LocalFileName :: string()) ->
+-spec send(Client ::client(), LocalFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 send(Pid, LocalFileName) ->
   send(Pid, LocalFileName, LocalFileName).
 
+-doc(#{title => <<"File Transfer API">>}).
 -doc """
 Transfers the file `LocalFileName` to the remote server. If `RemoteFileName` is
 specified, the name of the remote file is set to `RemoteFileName`, otherwise to
 `LocalFileName`.
 """.
 -spec send(Pid            :: pid(),
-           LocalFileName  :: string(),
-           RemoteFileName :: string()) ->
+           LocalFileName  :: file:filename(),
+           RemoteFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 send(Pid, LocalFileName, RemotFileName) ->
@@ -669,11 +658,11 @@ send(Pid, LocalFileName, RemotFileName) ->
 %%--------------------------------------------------------------------------
 %% Description:  Transfer a binary to a remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"File Transfer API">>}).
 -doc """
 Transfers the binary `Bin` into the file `RemoteFile` at the remote server.
 """.
--spec send_bin(Pid :: pid(), Bin :: binary(), RemoteFile :: string()) ->
+-spec send_bin(Client ::client(), Bin :: binary(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 send_bin(Pid, Bin, RemoteFile) ->
@@ -683,11 +672,11 @@ send_bin(Pid, Bin, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start transfer of chunks to remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Starts transfer of chunks into the file `RemoteFile` at the remote server.
 """.
--spec send_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
+-spec send_chunk_start(Client ::client(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 send_chunk_start(Pid, RemoteFile) ->
@@ -696,12 +685,12 @@ send_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start append chunks of data to remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Starts the transfer of chunks for appending to the file `RemoteFile` at the
 remote server. If the file does not exist, it is created.
 """.
--spec append_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
+-spec append_chunk_start(Client ::client(), RemoteFile :: string()) ->
     'ok' | {'error', Reason :: term()}.
 
 append_chunk_start(Pid, RemoteFile) ->
@@ -711,7 +700,7 @@ append_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Purpose:  Send chunk to remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Transfers the chunk `Bin` to the remote server, which writes it into the file
 specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`).
@@ -719,7 +708,7 @@ specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`).
 For some errors, for example, file system full, it is necessary to to call
 `send_chunk_end` to get the proper reason.
 """.
--spec send_chunk(Pid :: pid(), Bin :: binary()) ->
+-spec send_chunk(Client ::client(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
 
 send_chunk(Pid, Bin) ->
@@ -728,7 +717,7 @@ send_chunk(Pid, Bin) ->
 %%--------------------------------------------------------------------------
 %% Description:  Append chunk to remote file.
 %%--------------------------------------------------------------------------
-
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Transfers the chunk `Bin` to the remote server, which appends it to the file
 specified in the call to [`append_chunk_start/2`](`append_chunk_start/2`).
@@ -736,7 +725,7 @@ specified in the call to [`append_chunk_start/2`](`append_chunk_start/2`).
 For some errors, for example, file system full, it is necessary to call
 `append_chunk_end` to get the proper reason.
 """.
--spec append_chunk(Pid :: pid(), Bin :: binary()) ->
+-spec append_chunk(Client ::client(), Bin :: binary()) ->
     'ok' | {'error', Reason :: term()}.
 
 append_chunk(Pid, Bin) ->
@@ -747,12 +736,13 @@ append_chunk(Pid, Bin) ->
 %% Description:  End sending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Stops transfer of chunks to the remote server. The file at the remote server,
 specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`) is closed
 by the server.
 """.
--spec send_chunk_end(Pid :: pid()) ->
+-spec send_chunk_end(Client ::client()) ->
     'ok' | {'error', Reason :: term()}.
 
 send_chunk_end(Pid) ->
@@ -763,12 +753,13 @@ send_chunk_end(Pid) ->
 %% Description:  End appending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Chunk File Transfer API">>}).
 -doc """
 Stops transfer of chunks for appending to the remote server. The file at the
 remote server, specified in the call to
 [`append_chunk_start/2`](`append_chunk_start/2`), is closed by the server.
 """.
--spec append_chunk_end(Pid :: pid()) ->
+-spec append_chunk_end(Client ::client()) ->
     'ok' | {'error', Reason :: term()}.
 
 append_chunk_end(Pid) ->
@@ -779,13 +770,15 @@ append_chunk_end(Pid) ->
 %% Description:  Append the local file to the remote file
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Update API">>}).
 -doc(#{equiv => append/3}).
--spec append(Pid :: pid(), LocalFileName :: string()) ->
+-spec append(Client ::client(), LocalFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 append(Pid, LocalFileName) ->
     append(Pid, LocalFileName, LocalFileName).
 
+-doc(#{title => <<"Update API">>}).
 -doc """
 Transfers the file `LocalFile` to the remote server. If `RemoteFile` is
 specified, the name of the remote file that the file is appended to is set to
@@ -793,8 +786,8 @@ specified, the name of the remote file that the file is appended to is set to
 created.
 """.
 -spec append(Pid            :: pid(),
-             LocalFileName  :: string(),
-             RemoteFileName :: string()) ->
+             LocalFileName  :: file:filename(),
+             RemoteFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
 
 append(Pid, LocalFileName, RemotFileName) ->
@@ -805,6 +798,7 @@ append(Pid, LocalFileName, RemotFileName) ->
 %% Purpose:  Append a binary to a remote file.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Update API">>}).
 -doc """
 Transfers the binary `Bin` to the remote server and appends it to the file
 `RemoteFile`. If the file does not exist, it is created.
@@ -838,7 +832,7 @@ client.
 > FTP commands requiring a data connection cannot be successfully issued with
 > this function.
 """.
--spec quote(Pid :: pid(), Cmd :: string()) -> [FTPLine :: string()].
+-spec quote(Client ::client(), Cmd :: string()) -> [FTPLine :: string()].
 
 quote(Pid, Cmd) when is_list(Cmd) ->
     ftp_internal:quote(Pid, Cmd).
@@ -848,10 +842,11 @@ quote(Pid, Cmd) when is_list(Cmd) ->
 %% Description:  End the ftp session.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Connection API">>}).
 -doc """
 Ends an FTP session, created using function [open](`open/2`).
 """.
--spec close(Pid :: pid()) -> 'ok'.
+-spec close(Client ::client()) -> 'ok'.
 close(Pid) ->
     ftp_internal:close(Pid).
 
@@ -860,6 +855,7 @@ close(Pid) ->
 %% Description:  Return diagnostics.
 %%--------------------------------------------------------------------------
 
+-doc(#{title => <<"Info API">>}).
 -doc """
 Given an error return value `{error, AtomReason}`, this function returns a
 readable string describing the error.
@@ -880,7 +876,7 @@ info(Pid) ->
 %%--------------------------------------------------------------------------
 
 -doc false.
--spec latest_ctrl_response(Pid :: pid()) -> string().
+-spec latest_ctrl_response(Client ::client()) -> string().
 
 latest_ctrl_response(Pid) ->
     ftp_internal:latest_ctrl_response(Pid).
