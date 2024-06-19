@@ -449,12 +449,6 @@ jobs:
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
-      - name: Install clang-format
-        run: |
-          docker build -t otp - <<EOF
-          FROM otp
-          RUN sudo apt-get install -y clang-format
-          EOF
         ## Check formatting of cpp code
       - name: Check format
         run: docker run otp "make format-check"
