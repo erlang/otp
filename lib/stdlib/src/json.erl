@@ -828,9 +828,11 @@ number_zero(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
 number_zero(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, <<"0">>);
 number_zero(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
-    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, 0});
+    Value = (Decode#decode.integer)(<<"0">>),
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Value});
 number_zero(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
-    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, 0).
+    Value = (Decode#decode.integer)(<<"0">>),
+    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Value).
 
 number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Num) ->
     number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
