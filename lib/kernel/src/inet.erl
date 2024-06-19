@@ -1691,9 +1691,9 @@ net_collect_ifopts([], _AllIfs, AllNameAndOpts) ->
     lists:reverse(AllNameAndOpts);
 net_collect_ifopts([IfName|IfNames], AllIfs, NameAndOpts) ->
     %% Get the Ifs with the name IfName
-    io:format("~w -> entry with"
-              "~n   IfName: ~p"
-              "~n", [?FUNCTION_NAME, IfName]),
+    %% io:format("~w -> entry with"
+    %%           "~n   IfName: ~p"
+    %%           "~n", [?FUNCTION_NAME, IfName]),
     Ifs = [If || #{name := N} = If <- AllIfs, (N =:= IfName)],
     IfOpts = net_ifs2ifopts(Ifs),
     net_collect_ifopts(IfNames, AllIfs, [{IfName, IfOpts}|NameAndOpts]).
@@ -1726,6 +1726,13 @@ net_ifs2ifopts([If|Ifs], #{flags := []} = IfOpts0) ->
     %%           "~n", [?FUNCTION_NAME, If]),
     IfOpts =
         case If of
+	     %% LINK or PACKET
+	     %% - On some platforms LINK is used (FreeBSD for instance)
+	     %%   LINK does not include an explicit HW address. Instead
+	     %%   its part of the 'data', together with name and possibly
+	     %%   link layer selector (the lengths can be used to decode
+	     %%   the data)..
+	     %% - On others PACKET is used.
             #{flags := Flags,
               addr  := #{family := packet,
                          addr   := HwAddrBin}} ->
@@ -1733,6 +1740,23 @@ net_ifs2ifopts([If|Ifs], #{flags := []} = IfOpts0) ->
                 %%           "~n", [?FUNCTION_NAME, ?LINE]),
                 IfOpts0#{flags  => Flags,
                          hwaddr => binary_to_list(HwAddrBin)};
+            #{flags := Flags,
+              addr  := #{family := link,
+                         nlen    := NLen,
+                         alen    := ALen,
+                         data    := Data}} when (ALen > 0) ->
+                %% io:format("~w(~w) -> link entry with"
+		%% 	  "~n   NLen: ~w"
+		%% 	  "~n   ALen: ~w"
+                %%           "~n   Data:  ~p"
+                %%           "~n", [?FUNCTION_NAME, ?LINE, NLen, ALen, Data]),
+		case Data of
+		      <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                           IfOpts0#{flags  => Flags,
+                                    hwaddr => binary_to_list(ABin)};
+		      _ ->
+                        IfOpts0#{flags => Flags}
+		end;
             #{flags := Flags,
               addr  := #{family := Fam,
                          addr   := Addr},
@@ -1827,7 +1851,7 @@ net_flags_to_inet_flags([], OutFlags) ->
     %% io:format("~w(~w) -> done when"
     %%           "~n   OutFlags: ~p"
     %%           "~n", [?FUNCTION_NAME, ?LINE, OutFlags]),    
-    lists:reverse(OutFlags);
+    lists:reverse(net_flags_maybe_add_running(OutFlags));
 net_flags_to_inet_flags([InFlag|InFlags], OutFlags) ->
     %% io:format("~w(~w) -> entry with"
     %%           "~n   InFlag: ~p"
@@ -1842,6 +1866,20 @@ net_flags_to_inet_flags([InFlag|InFlags], OutFlags) ->
             %%           "~n", [?FUNCTION_NAME, ?LINE]),    
             net_flags_to_inet_flags(InFlags, OutFlags)
     end.
+
+net_flags_maybe_add_running(Flags) ->
+    case lists:member(running, Flags) of
+        true ->
+            Flags;
+        false ->
+            case lists:member(up, Flags) of
+                true ->
+                    [running | Flags];
+                false ->
+                    Flags
+            end
+    end.
+
 
 %% Should we do this as map instead?
 %% #{up          => up,
