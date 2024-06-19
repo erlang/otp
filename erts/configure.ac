@@ -3676,6 +3676,9 @@ AC_CONFIG_FILES([
 AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
                 [chmod +x ../make/make_emakefile])
 
+AC_CONFIG_FILES([../make/ex_doc_wrapper:../make/ex_doc_wrapper.in],
+                [chmod +x ../make/ex_doc_wrapper])
+
 dnl
 dnl The ones below should be moved to their respective lib
 dnl
