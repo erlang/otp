@@ -49,7 +49,7 @@ This is a complete implementation of the following IETF standards:
 The only feature that not is implemented in this release is
 the "netascii" transfer mode.
 
-The [start/](`start/3`)function starts a daemon process which, listens
+The [start](`start/1`) function starts a daemon process which, listens
 for UDP packets on a port. When it receives a request for read or
 write it spawns a temporary server process which handles the actual
 transfer of the file. On the client side the
