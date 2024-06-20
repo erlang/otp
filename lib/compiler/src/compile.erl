@@ -1905,7 +1905,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 -define(META_USED_FEATURES, enabled_features).
 -define(META_CHUNK_NAME, <<"Meta">>).
 
-metadata_add_features(Ftrs, #compile{extra_chunks = Extra} = St) ->
+metadata_add_features(Ftrs, #compile{options = CompOpts,
+                                     extra_chunks = Extra} = St) ->
     MetaData =
         case proplists:get_value(?META_CHUNK_NAME, Extra) of
             undefined ->
@@ -1918,10 +1919,20 @@ metadata_add_features(Ftrs, #compile{extra_chunks = Extra} = St) ->
     MetaData1 =
         proplists:from_map(maps:put(?META_USED_FEATURES, NewFtrs,
                                     proplists:to_map(MetaData))),
-    Extra1 = proplists:from_map(maps:put(?META_CHUNK_NAME,
-                                         erlang:term_to_binary(MetaData1),
-                                         proplists:to_map(Extra))),
+    Extra1 = proplists:from_map(
+               maps:put(?META_CHUNK_NAME,
+                        term_to_binary(MetaData1,
+                                       ensure_deterministic(CompOpts, [])),
+                        proplists:to_map(Extra))),
     St#compile{extra_chunks = Extra1}.
+
+ensure_deterministic(CompOpts, Opts) ->
+    case member(deterministic, CompOpts) of
+        true ->
+            [deterministic | Opts];
+        false ->
+            Opts
+    end.
 
 with_columns(Opts) ->
     case proplists:get_value(error_location, Opts, column) of
@@ -2467,8 +2478,8 @@ debug_info_chunk(#compile{mod_options=ModOpts0,
             false ->
                 {erl_abstract_code,{none,AbstOpts},ModOpts0}
         end,
-    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata},
-                                      [compressed]),
+    DebugInfo = term_to_binary({debug_info_v1,Backend,Metadata},
+                               ensure_deterministic(CompOpts, [compressed])),
     {DebugInfo, ModOpts}.
 
 encrypt_debug_info(DebugInfo, Key, Opts) ->
