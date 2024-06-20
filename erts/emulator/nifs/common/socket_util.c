@@ -814,10 +814,16 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
 {
     ERL_NIF_TERM ePort, eAddr;
     int          port;
+    /* The size of the actual data part, excluding padding */
+    SOCKLEN_T    minSz = sizeof(struct sockaddr_in) -
+        sizeof(sockAddrP->sin_zero);
 
-    UDBG( ("SUTIL", "esock_encode_sockaddr_in -> entry\r\n") );
+    UDBG( ("SUTIL", "esock_encode_sockaddr_in -> entry with"
+           "\r\n   addrLen:           %d"
+           "\r\n   required min size: %d"
+           "\r\n", addrLen, minSz) );
 
-    if (addrLen >= sizeof(struct sockaddr_in)) {
+    if (addrLen >= minSz) {
 
         /* The port */
         port  = ntohs(sockAddrP->sin_port);
@@ -833,7 +839,7 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
         UDBG( ("SUTIL", "esock_encode_sockaddr_in -> wrong size: "
                "\r\n   addrLen:   %d"
                "\r\n   addr size: %d"
-               "\r\n", addrLen, sizeof(struct sockaddr_in)) );
+               "\r\n", addrLen, minSz) );
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
                                      addrLen, esock_atom_inet, eSockAddr);
     }
