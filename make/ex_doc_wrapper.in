@@ -4,7 +4,10 @@ ARGS=("$@")
 
 set -eo pipefail {0}
 
-EX_DOC=$(command -v ex_doc || true)
+## If EX_DOC is not set to a file, we search the PATH for it using command -v
+if [ ! -f "${EX_DOC}" ]; then
+   EX_DOC=$(command -v ex_doc || true)
+fi
 
 if [ -z "${EX_DOC}" ]; then
     echo -n "Could not find ex_doc! "
