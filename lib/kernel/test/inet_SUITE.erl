@@ -549,8 +549,14 @@ host_and_addr() ->
     [{timetrap,{minutes,5}}|required(hosts)].
 
 host_and_addr(Config) when is_list(Config) ->
-    lists:foreach(fun try_host/1, get_hosts(Config)),
-    ok.
+    do_host_and_addr(get_hosts(Config)).
+
+do_host_and_addr(Hosts) when is_list(Hosts) andalso (Hosts =/= []) ->
+    lists:foreach(fun try_host/1, Hosts),
+    ok;
+do_host_and_addr(Hosts) ->
+    exit({skip, {no_valid_hosts, Hosts}}).
+
 
 try_host({Ip0, Host}) ->
     {ok, Ip}                             = inet:getaddr(Ip0, inet),
@@ -1650,6 +1656,9 @@ check_addr(Addr)
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
     io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
     ok;
+check_addr({169, 254, 118, _} = Addr) ->
+    io:format("Addr: ~p reserved (not usable); SKIPPED!~n", [Addr]),
+    ok;
 check_addr(Addr) ->
     io:format("Addr: ~p.~n", [Addr]),
     Ping = "ping",
@@ -1803,7 +1812,7 @@ getifaddrs_verify_backends3(INET, [] = _SOCKET) ->
               "~n", [INET]),
     ct:fail(ifaddrs_not_equal);
 getifaddrs_verify_backends3([{IF, INFO}|INET],
-                           [{IF, INFO}|SOCKET]) ->
+                            [{IF, INFO}|SOCKET]) ->
     io:format("backend(s) identical for ~p~n", [IF]),
     getifaddrs_verify_backends3(INET, SOCKET);
 getifaddrs_verify_backends3([{IF, I_INFO}|INET],
