@@ -38,6 +38,7 @@
          beam_ssa_pp_smoke_test/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
+         deterministic_docs/1,
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
          annotations_pp/1, option_order/1
@@ -60,6 +61,7 @@ all() ->
      warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
+     deterministic_docs,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
      option_order].
@@ -1802,6 +1804,29 @@ deterministic_paths_1(DataDir, Name, Opts) ->
     after
         file:set_cwd(Cwd)
     end.
+
+%% The test case uses ssh.erl from ssh application.
+deterministic_docs(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Filepath = filename:join(DataDir, "ssh"),
+    false = deterministic_docs_1(Filepath, [binary], 25),
+    true = deterministic_docs_1(Filepath, [binary, deterministic], 25),
+    ok.
+
+deterministic_docs_1(Filepath, Opts, Checks) ->
+    {ok, _, Reference} = compile:file(Filepath, Opts),
+    lists:all(
+      fun(_) ->
+              {ok, Peer, Node} = ?CT_PEER(#{}),
+              {ok, _, Testing} =
+                  erpc:call(
+                    Node,
+                    fun() ->
+                            compile:file(Filepath, Opts)
+                    end),
+              peer:stop(Peer),
+              Testing =:= Reference
+      end, lists:seq(1, Checks)).
 
 %% ERL-1058: -compile(debug_info) had no effect
 compile_attribute(Config) when is_list(Config) ->
