@@ -1348,42 +1348,43 @@ put_z_file(_Method, 0, Out, _F, Pos, _Input, _Output, _OpO, _Z, regular) ->
 put_z_file(?STORED, UncompSize, Out0, F, Pos0, Input, Output, OpO, _Z, regular) ->
     In0 = [],
     In1 = Input({open, F, OpO -- [write]}, In0),
-    {Data, In2} = Input({read, UncompSize}, In1),
-    Out1 = Output({write, Data}, Out0),
-    CRC = erlang:crc32(Data),
+    CRC0 = 0,
+    {Out1, Pos1, In2, CRC} =
+        put_z_data_loop(UncompSize, In1, Out0, Pos0, Input, Output, CRC0, fun(Data, _Sync) -> Data end),
     Input(close, In2),
-    {Out1, Pos0+erlang:iolist_size(Data), CRC};
+    {Out1, Pos1, CRC};
 put_z_file(?DEFLATED, UncompSize, Out0, F, Pos0, Input, Output, OpO, Z, regular) ->
     In0 = [],
     In1 = Input({open, F, OpO -- [write]}, In0),
     ok = zlib:deflateInit(Z, default, deflated, -?MAX_WBITS, 8, default),
     CRC0 = 0,
-    {Out1, Pos1, CRC} =
-        put_z_data_loop(UncompSize, In1, Out0, Pos0, Input, Output, CRC0, Z),
+    {Out1, Pos1, In2, CRC} =
+        put_z_data_loop(UncompSize, In1, Out0, Pos0, Input, Output, CRC0,
+        fun(Data, Sync) -> zlib:deflate(Z, Data, Sync) end),
     ok = zlib:deflateEnd(Z),
-    Input(close, In1),
+    Input(close, In2),
     {Out1, Pos1, CRC}.
 
-%%  zlib is finished with the last chunk compressed
-get_sync(N, N) -> finish;
-get_sync(_, _) -> full.
-
 %% compress data
-put_z_data_loop(0, _In, Out, Pos, _Input, _Output, CRC0, _Z) ->
-    {Out, Pos, CRC0};
-put_z_data_loop(UncompSize, In0, Out0, Pos0, Input, Output, CRC0, Z) ->
+put_z_data_loop(0, In, Out, Pos, _Input, _Output, CRC0, _DeflateFun) ->
+    {Out, Pos, In, CRC0};
+put_z_data_loop(UncompSize, In0, Out0, Pos0, Input, Output, CRC0, DeflateFun) ->
     N = erlang:min(?WRITE_BLOCK_SIZE, UncompSize),
     case Input({read, N}, In0) of
         {eof, _In1} ->
             {Out0, Pos0};
         {Uncompressed, In1} ->
             CRC1 = erlang:crc32(CRC0, Uncompressed),
-            Compressed = zlib:deflate(Z, Uncompressed, get_sync(N, UncompSize)),
+            Compressed = DeflateFun(Uncompressed, get_sync(N, UncompSize)),
             Sz = erlang:iolist_size(Compressed),
             Out1 = Output({write, Compressed}, Out0),
             put_z_data_loop(UncompSize - N, In1, Out1, Pos0 + Sz,
-                Input, Output, CRC1, Z)
+                Input, Output, CRC1, DeflateFun)
     end.
+
+%%  zlib is finished with the last chunk compressed
+get_sync(N, N) -> finish;
+get_sync(_, _) -> full.
 
 %% raw iterators over central dir
 
