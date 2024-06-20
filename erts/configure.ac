@@ -3071,6 +3071,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       ]
     )
     LDFLAGS="$saved_LDFLAGS"
+    EMU_LDFLAGS=""
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       AC_MSG_CHECKING([if we can add $flag to LDFLAGS])
@@ -3079,7 +3080,8 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
          [
            AC_MSG_RESULT([yes])
-           LDFLAGS="$saved_LDFLAGS $flag"
+           EMU_LDFLAGS="$flag"
+           LDFLAGS="$saved_LDFLAGS"
          ],
          [
            AC_MSG_RESULT([no])
@@ -3087,6 +3089,8 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
          ])
     done
   ])
+
+AC_SUBST(EMU_LDFLAGS)
 
 dnl ----------------------------------------------------------------------
 dnl Tests related to configurable options given on command line
