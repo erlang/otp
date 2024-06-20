@@ -660,6 +660,7 @@ FLAVORS
 PRIMARY_FLAVOR
 JIT_ARCH
 JIT_ENABLED
+EMU_LDFLAGS
 M4
 LIBRT
 BITS64
@@ -25762,6 +25763,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
     LDFLAGS="$saved_LDFLAGS"
+    EMU_LDFLAGS=""
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add $flag to LDFLAGS" >&5
@@ -25784,7 +25786,8 @@ then :
 
            { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-           LDFLAGS="$saved_LDFLAGS $flag"
+           EMU_LDFLAGS="$flag"
+           LDFLAGS="$saved_LDFLAGS"
 
 else case e in #(
   e)
@@ -25799,6 +25802,8 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam \
     done
 
 fi
+
+
 
 
 JIT_ENABLED=
