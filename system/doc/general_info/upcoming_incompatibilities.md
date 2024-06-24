@@ -204,7 +204,7 @@ which will have the same meaning before and after Erlang/OTP 27.
 ### The re module will use a different regular expression engine
 
 The functionality of module `m:re` is currently provided by the PCRE library,
-which is no longer actively maintained. Therefore, in OTP 27, we will switch to
+which is no longer actively maintained. Therefore, in OTP 28, we will switch to
 a different regular expression library.
 
 The source code for PCRE used by the `re` module has been modified by the OTP
