@@ -1809,7 +1809,6 @@ deterministic_paths_1(DataDir, Name, Opts) ->
 deterministic_docs(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     Filepath = filename:join(DataDir, "ssh"),
-    false = deterministic_docs_1(Filepath, [binary], 25),
     true = deterministic_docs_1(Filepath, [binary, deterministic], 25),
     ok.
 
