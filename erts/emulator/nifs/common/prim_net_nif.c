@@ -559,7 +559,8 @@ static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, int* err);
 #endif
-static ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa);
+static ERL_NIF_TERM encode_sockaddr(ErlNifEnv*       env,
+                                    struct sockaddr* sa);
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
                                        int*               flags);
@@ -1617,6 +1618,20 @@ void encode_ifaddrs(ErlNifEnv*      env,
     NDBG( ("NET", "encode_ifaddrs -> addr: "
            "\r\n   %T"
            "\r\n", eaddr) );
+    /* This is an ugly (OpenBSD?) hack... 
+     * "For some reason" the netmask family is set to 'AF_UNSPEC'
+     * (when the addr family is AF_INET) on OpenBSD,
+     * which makes encoding the address "difficult"...
+     * So force the family to AF_INET in this case to allow encoding
+     * the netmask...
+     */
+    if ((ifap->ifa_addr != NULL) &&
+        (((ESockAddress*)ifap->ifa_addr)->sa.sa_family == AF_INET)) {
+        if ((ifap->ifa_netmask != NULL) &&
+            (((ESockAddress*)ifap->ifa_netmask)->sa.sa_family == AF_UNSPEC)) {
+            ((ESockAddress*)ifap->ifa_netmask)->sa.sa_family = AF_INET;
+        }
+    }
     enetmask  = encode_ifaddrs_addr(env,  ifap->ifa_netmask);
     NDBG( ("NET", "encode_ifaddrs -> netmask: "
            "\r\n   %T"
@@ -1756,7 +1771,8 @@ ERL_NIF_TERM encode_ifaddrs_flags(ErlNifEnv* env, unsigned int flags)
 
 
 static
-ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv* env, struct sockaddr* sa)
+ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv*       env,
+                                 struct sockaddr* sa)
 {
     return encode_sockaddr(env, sa);
 }
@@ -2495,7 +2511,7 @@ static
 ERL_NIF_TERM encode_adapter_unicast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2700,7 +2716,7 @@ static
 ERL_NIF_TERM encode_adapter_anycast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2779,7 +2795,7 @@ static
 ERL_NIF_TERM encode_adapter_multicast_addr_sockaddr(ErlNifEnv*       env,
                                                     struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2843,7 +2859,7 @@ static
 ERL_NIF_TERM encode_adapter_dns_server_addr_sockaddr(ErlNifEnv*       env,
                                                      struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2987,7 +3003,7 @@ static
 ERL_NIF_TERM encode_adapter_prefix_sockaddr(ErlNifEnv*       env,
                                             struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -4466,7 +4482,8 @@ unsigned int enet_if_names_length(struct if_nameindex* p)
  */
 
 static
-ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
+ERL_NIF_TERM encode_sockaddr(ErlNifEnv*       env,
+                             struct sockaddr* sa)
 {
     ERL_NIF_TERM esa;
 

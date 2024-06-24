@@ -1218,8 +1218,8 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
     SOCKLEN_T    ndsz = sizeof(struct sockaddr_dl)-sizeof(sockAddrP->sdl_data);
 
     UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> entry with"
-           "\r\n.  addrLen:                   %d"
-           "\r\n.  non-data fields size: %d"
+           "\r\n   addrLen:              %d"
+           "\r\n   non-data fields size: %d"
            "\r\n", addrLen, ndsz) );
 
     /* Make sure the data field actually contains something */
@@ -1245,7 +1245,7 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
                "\r\n", sockAddrP->sdl_alen) );
         ealen = MKUI(env, sockAddrP->sdl_alen);
 
-        /* slen - ink layer selector length */
+        /* slen - link layer selector length */
         UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> slen: %d"
                "\r\n", sockAddrP->sdl_slen) );
         eslen = MKUI(env, sockAddrP->sdl_slen);
