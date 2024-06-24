@@ -66,13 +66,25 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
 %% or the terminator of a block.
 -type kill_loc() :: #b_var{}
                   | {terminator, beam_ssa:label()}
-                  | {live_outs, beam_ssa:label()}.
+                  | {live_outs, beam_ssa:label()}
+                  | {killed_in_block, beam_ssa:label()}.
+
+-type var_set() :: sets:set(#b_var{}).
 
 %% Map a code location to the set of variables which die at that
 %% location.
--type kill_set() :: #{ kill_loc() => sets:set(#b_var{}) }.
+-type kill_set() :: #{ kill_loc() => var_set() }.
 
--type kills_map() :: #{ func_id() => kill_set() }.
+%% Map a label to the set of variables which are live in to that block.
+-type live_in_set() :: #{ beam_ssa:label() => var_set() }.
+
+%% Map a flow-control edge to the set of variables which are live in
+%% to the destination block due to phis.
+-type phi_live_set() :: #{ {beam_ssa:label(), beam_ssa:label()} => var_set() }.
+
+-type kills_map() :: #{ func_id() => {live_in_set(),
+                                      kill_set(),
+                                      phi_live_set()} }.
 
 -type alias_map() :: #{ func_id() => lbl2ss() }.
 
@@ -136,19 +148,19 @@ killsets_fun(Blocks) ->
 killsets_blks([{Lbl,Blk}|Blocks], LiveIns0, Kills0, PhiLiveIns) ->
     {LiveIns,Kills} = killsets_blk(Lbl, Blk, LiveIns0, Kills0, PhiLiveIns),
     killsets_blks(Blocks, LiveIns, Kills, PhiLiveIns);
-killsets_blks([], _LiveIns0, Kills, _PhiLiveIns) ->
-    Kills.
+killsets_blks([], LiveIns, Kills, PhiLiveIns) ->
+    {LiveIns,Kills,PhiLiveIns}.
 
 killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
     Successors = beam_ssa:successors(Blk),
     Live1 = killsets_blk_live_outs(Successors, Lbl, LiveIns0, PhiLiveIns),
     Kills1 = Kills0#{{live_outs,Lbl}=>Live1},
     Is = [L|reverse(Is0)],
-    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl),
+    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl, sets:new()),
     LiveIns = LiveIns0#{Lbl=>Live},
     {LiveIns, Kills}.
 
-killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl) ->
+killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl, KilledInBlock0) ->
     %% The Phi uses are logically located in the predecessors, so we
     %% don't want them live in to this block. But to correctly
     %% calculate the aliasing of the arguments to the Phi in this
@@ -157,21 +169,24 @@ killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl) ->
     Uses = beam_ssa:used(I),
     {_,LastUses} = killsets_update_live_and_last_use(Live, Uses),
     Kills = killsets_add_kills({phi,Dst}, LastUses, Kills0),
-    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl);
-killsets_is([I|Is], Live0, Kills0, Lbl) ->
+    KilledInBlock = sets:union(LastUses, KilledInBlock0),
+    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl, KilledInBlock);
+killsets_is([I|Is], Live0, Kills0, Lbl, KilledInBlock0) ->
     Uses = beam_ssa:used(I),
     {Live,LastUses} = killsets_update_live_and_last_use(Live0, Uses),
+    KilledInBlock = sets:union(LastUses, KilledInBlock0),
     case I of
         #b_set{dst=Dst} ->
             killsets_is(Is, sets:del_element(Dst, Live),
-                        killsets_add_kills(Dst, LastUses, Kills0), Lbl);
+                        killsets_add_kills(Dst, LastUses, Kills0),
+                        Lbl, KilledInBlock);
         _ ->
             killsets_is(Is, Live,
                         killsets_add_kills({terminator,Lbl}, LastUses, Kills0),
-                        Lbl)
+                        Lbl, KilledInBlock)
     end;
-killsets_is([], Live, Kills, _) ->
-    {Live,Kills}.
+killsets_is([], Live, Kills, Lbl, KilledInBlock) ->
+    {Live,killsets_add_kills({killed_in_block,Lbl}, KilledInBlock, Kills)}.
 
 killsets_update_live_and_last_use(Live0, Uses) ->
     foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
@@ -372,9 +387,10 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     %% AAS, we use it. For an exported function, all arguments are
     %% assumed to be aliased.
     {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
-    #{F:=Kills} = KillsMap,
+    #{F:={LiveIns,Kills,PhiLiveIns}} = KillsMap,
     {SS,#aas{call_args=CallArgs}=AAS} =
-        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+        aa_blocks(Linear0, LiveIns, PhiLiveIns,
+                  Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
     AliasMap = AliasMap0#{ F => SS },
     PrevSS = maps:get(F, AliasMap0, #{}),
     Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
@@ -390,21 +406,26 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     AAS#aas{alias_map=AliasMap,repeats=Repeats}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs],
+          LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS) ->
     %% Nothing happening in the exception block can propagate to the
     %% other block.
-    aa_blocks(Bs, Kills, Lbl2SS, AAS);
-aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
+    aa_blocks(Bs, LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS);
+aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0],
+          LiveIns, PhiLiveIns, Kills, Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
     ?DP("Block: ~p~nSS:~n~s~n", [L, beam_ssa_ss:dump(SS0)]),
     {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
     #{{live_outs,L}:=LiveOut} = Kills,
+    #{{killed_in_block,L}:=KilledInBlock} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
-    PrunedSS = beam_ssa_ss:prune(LiveOut, FullSS),
-    Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
+    PrunedSS = beam_ssa_ss:prune(LiveOut, KilledInBlock, FullSS),
+    ?DP("Live out from ~p: ~p~n", [L, sets:to_list(LiveOut)]),
+    Lbl2SS2 = aa_add_block_entry_ss(Successors, L, PrunedSS,
+                                    LiveOut, LiveIns, PhiLiveIns, Lbl2SS1),
     Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
-    aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
-aa_blocks([], _Kills, Lbl2SS, AAS) ->
+    aa_blocks(Bs0, LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS1);
+aa_blocks([], _LiveIns, _PhiLiveIns, _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
 aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
@@ -594,11 +615,25 @@ aa_set_block_exit_ss(ThisBlockLbl, SS, Lbl2SS) ->
     Lbl2SS#{ThisBlockLbl=>SS}.
 
 %% Extend the SS valid on entry to the blocks in the list with NewSS.
-aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], NewSS, Lbl2SS) ->
-    aa_add_block_entry_ss(BlockLabels, NewSS, Lbl2SS);
-aa_add_block_entry_ss([L|BlockLabels], NewSS, Lbl2SS) ->
-    aa_add_block_entry_ss(BlockLabels, NewSS, aa_merge_ss(L, NewSS, Lbl2SS));
-aa_add_block_entry_ss([], _, Lbl2SS) ->
+aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], From, NewSS,
+                      LiveOut, LiveIns, PhiLiveIns, Lbl2SS) ->
+    aa_add_block_entry_ss(BlockLabels, From, NewSS, LiveOut,
+                          LiveIns, PhiLiveIns, Lbl2SS);
+aa_add_block_entry_ss([L|BlockLabels], From,
+                      NewSS, LiveOut, LiveIns, PhiLiveIns, Lbl2SS) ->
+    #{L:=LiveIn} = LiveIns,
+    PhiLiveIn = case PhiLiveIns of
+                    #{{From,L}:=Vs} -> Vs;
+                    #{} -> sets:new()
+                end,
+    AllLiveIn = sets:union(LiveIn, PhiLiveIn),
+    KilledOnEdge = sets:subtract(LiveOut, AllLiveIn),
+    ?DP("Killed on edge to ~p: ~p~n", [L, sets:to_list(KilledOnEdge)]),
+    ?DP("Live on edge to ~p: ~p~n", [L, sets:to_list(AllLiveIn)]),
+    Pruned = beam_ssa_ss:prune(AllLiveIn, KilledOnEdge, NewSS),
+    aa_add_block_entry_ss(BlockLabels, From, NewSS, LiveOut, LiveIns,
+                          PhiLiveIns, aa_merge_ss(L, Pruned, Lbl2SS));
+aa_add_block_entry_ss([], _, _, _, _, _, Lbl2SS) ->
     Lbl2SS.
 
 %% Merge two sharing states when traversing the execution graph
@@ -804,7 +839,7 @@ aa_update_annotation_for_var(Var, Status, Anno0) ->
 %% instruction.
 dies_at(Var, #b_set{dst=Dst}, AAS) ->
     #aas{caller=Caller,kills=KillsMap} = AAS,
-    KillMap = map_get(Caller, KillsMap),
+    {_LiveIns,KillMap,_PhiLiveIns} = map_get(Caller, KillsMap),
     sets:is_element(Var, map_get(Dst, KillMap)).
 
 aa_set_aliased(Args, SS) ->
@@ -852,7 +887,7 @@ aa_alias_surviving_args1([], SS, _KillSet) ->
 
 %% Return the kill-set for the instruction defining Dst.
 aa_killset_for_instr(Dst, #aas{caller=Caller,kills=Kills}) ->
-    KillMap = map_get(Caller, Kills),
+    {_LiveIns,KillMap,_PhiLiveIns} = map_get(Caller, Kills),
     map_get(Dst, KillMap).
 
 %% Predicate to check if all variables in `Vars` dies at `Where`.

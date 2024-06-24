@@ -43,7 +43,7 @@
          merge_in_args/3,
          new/0,
          new/3,
-         prune/2,
+         prune/3,
          set_call_result/4,
          set_status/3,
          variables/1]).
@@ -440,37 +440,56 @@ new() ->
 %%% Throws `too_deep` if the depth of sharing state value chains
 %%% exceeds SS_DEPTH_LIMIT.
 %%%
--spec prune(sets:set(beam_ssa:b_var()), sharing_state()) -> sharing_state().
-prune(LiveVars, State) ->
+-spec prune(sets:set(beam_ssa:b_var()),
+            sets:set(beam_ssa:b_var()),
+            sharing_state()) -> sharing_state().
+prune(LiveVars, Killed, State) ->
     ?assert_state(State),
-    ?DP("Pruning to ~p~n", [sets:to_list(LiveVars)]),
-    ?DP("~s", [dump(State)]),
-    R = prune([{0,V} || V <- sets:to_list(LiveVars)], [], new(), State),
-    ?DP("Pruned result~n"),
-    ?DP("~s", [dump(R)]),
-    ?assert_state(R).
-
-prune([{Depth0,V}|Wanted], Edges, New0, Old) ->
-    case beam_digraph:has_vertex(New0, V) of
-        true ->
-            %% This variable is already added.
-            prune(Wanted, Edges, New0, Old);
-        false when Depth0 < ?SS_DEPTH_LIMIT ->
-            %% This variable has to be kept. Add it to the new graph.
-            New = add_vertex(New0, V, beam_digraph:vertex(Old, V)),
-            %% Add all incoming edges to this node.
-            InEdges = beam_digraph:in_edges(Old, V),
-            Depth = Depth0 + 1,
-            InNodes = [{Depth, From} || {From,_,_} <- InEdges],
-            prune(InNodes ++ Wanted, InEdges ++ Edges, New, Old);
+    ?DP("** pruning **~n~s~n", [dump(State)]),
+    ?DP("pruning to: ~p~n", [sets:to_list(LiveVars)]),
+    ?DP("killed: ~p~n", [sets:to_list(Killed)]),
+    case sets:is_empty(LiveVars) of
         false ->
-            %% We're in too deep, give up.
-            throw(too_deep)
+            Work = [{?SS_DEPTH_LIMIT,K} || K <- sets:to_list(Killed)],
+            R = prune(Work, Killed, LiveVars, State),
+            ?DP("Result:~n~s~n", [dump(R)]),
+            ?assert_state(R);
+        true ->
+            R = new(),
+            ?DP("Result (nothing killed):~n~s~n", [dump(R)]),
+            R
+        end.
+
+prune([{0,_}|_], _, _, _) ->
+    throw(too_deep);
+prune([{Depth,V}|Work], Killed, LiveVars, State0) ->
+    case is_safe_to_prune(V, LiveVars, State0) of
+        true ->
+            State = beam_digraph:del_vertex(State0, V),
+            Ins = [{Depth - 1, I}
+                   || I <- beam_digraph:in_neighbours(State0, V)],
+            prune(Ins++Work, Killed, LiveVars, State);
+        false ->
+            prune(Work, Killed, LiveVars, State0)
     end;
-prune([], Edges, New0, _Old) ->
-    foldl(fun({Src,Dst,Lbl}, New) ->
-                  add_edge(New, Src, Dst, Lbl)
-          end, New0, Edges).
+prune([], _Killed, _LiveVars, State) ->
+    State.
+
+is_safe_to_prune(V, LiveVars, State) ->
+    case sets:is_element(V, LiveVars) of
+        true ->
+            false;
+        false ->
+            %% Safe to prune if all out-neighbours are safe-to-prune.
+            case beam_digraph:out_neighbours(State, V) of
+                [] ->
+                    true;
+                Outs ->
+                    lists:all(fun(X) ->
+                                      is_safe_to_prune(X, LiveVars, State)
+                              end, Outs)
+            end
+    end.
 
 -spec set_call_result(beam_ssa:b_var(), call_in_arg_status(),
                       sharing_state(), non_neg_integer()) ->
